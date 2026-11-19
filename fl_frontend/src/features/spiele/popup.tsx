@@ -1,10 +1,9 @@
 import { notFound } from "next/navigation";
 
-import { Link } from "@/kit/Link";
-
 import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
 import { getSpielPage } from "@/features/saisons/queries";
+import { Link } from "@/kit/Link";
 
 import { eventOf, headOf, popupFactsOf, sidesOf } from "./blocks";
 

@@ -1,13 +1,13 @@
 // @vitest-environment jsdom
-import { serveBackend } from "@/test-support/backend";
-import { renderUnderNext } from "@/test-support/nextContexts";
-import { signedInRequest } from "@/test-support/session";
-import { seat } from "@/test-support/subjectFixtures";
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
+import { serveBackend } from "@/test-support/backend";
+import { renderUnderNext } from "@/test-support/nextContexts";
+import { signedInRequest } from "@/test-support/session";
+import { seat } from "@/test-support/subjectFixtures";
 
 import { agreeSpielbestaetigung, declineSpielbestaetigung } from "./answerSpielbestaetigung";
 
@@ -36,7 +36,7 @@ vi.setSystemTime(new Date("2026-11-10T12:00:00+01:00"));
 
 // The page's one read: the overview of the team and the season the address names. Any other, another club's or
 // another season's among them, fails the case.
-serveBackend(({ method, path }) => (method === "GET" && path === `/teams/${TEAM}/saisons/2027/self/overview` ? stored.read : undefined));
+serveBackend(({ method, path }) => (method === "GET" && path === `/teams/${TEAM}/saisons/2027/overview` ? stored.read : undefined));
 // A contact seated on the team in its running season, signed in by a typed code.
 signedInRequest({ email: "pia@example.org", records: { seats: [seat({ team_id: TEAM, saison_id: "2027", saison_status: "active" })] } });
 const { default: TeamOverviewPage } = await import("./page");
@@ -66,17 +66,11 @@ async function rowsOf(
   held: Partial<Pick<FLTeamOverviewResponse, "spielbestaetigungen" | "aufstellungen" | "registrierungen">>,
 ): Promise<ReadonlyArray<CardActRowProps & { id: string }>> {
   stored.read = {
-    team_id: TEAM,
-    saison_id: "2027",
-    name: "Ahorn",
     shorthand: "AHO",
     full_name: "Ahorn-Gymnasium",
-    trikot_farbe: null,
-    rollen: ["ansprechperson"],
     spielbestaetigungen: [],
     aufstellungen: [],
     registrierungen: [],
-    registrierungen_complete: true,
     seats: [],
     ...held,
   } satisfies FLTeamOverviewResponse;
@@ -168,7 +162,6 @@ describe("a line-up's row", () => {
     const aufstellung = (phase: FLAufstellungPhase): FLTeamPanelAufstellung => ({
       spiel_id: "0000000000000000000000a1",
       ansetzung: { date: "2026-11-14", time: "16:00:00", spielort: null, team1_name: "Ahorn", team2_name: "Eiche" },
-      side: "team1",
       marks: { due_at: "2026-11-13T15:00:00Z", phase, stored: false },
     });
     const rows = await rowsOf("aufstellungen", { aufstellungen: [aufstellung("open"), aufstellung("overdue"), aufstellung("locked")] });

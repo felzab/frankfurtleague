@@ -1,6 +1,5 @@
-import { RailColumn } from "@/kit/RailFrame";
-
 import { ROUTES } from "@/core/routes";
+import { RailColumn } from "@/kit/RailFrame";
 
 import type { ReactNode } from "react";
 

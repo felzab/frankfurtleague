@@ -3,12 +3,11 @@
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
-import { SignInPage } from "@/kit/SignInPage";
-import { useNavigate } from "@/kit/WholePage";
-
 import { loadAuthClient, usePreloadedAuthClient } from "@/core/auth/browserClient";
 import { allowedReturnAddress, RETURN_PARAMETER, withReturnAddress } from "@/core/auth/returnAddress";
 import { COPY } from "@/core/copy";
+import { SignInPage } from "@/kit/SignInPage";
+import { useNavigate } from "@/kit/WholePage";
 import { leaveDocumentFor } from "@/shared/utils/documentNavigation";
 
 import { describeCeremonyRefusal, refusalCode, refusalStatus, SESSION_NOT_FRESH } from "../../passkeyAnswers";

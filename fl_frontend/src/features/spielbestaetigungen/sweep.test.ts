@@ -1,16 +1,16 @@
-import { networkFailure, serveBackend } from "@/test-support/backend";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { APINetworkError } from "@/core/errors";
+import { networkFailure, serveBackend } from "@/test-support/backend";
 
-const LIST = "/spielbestaetigungen/sweep";
+/** The running seasons alone: a confirmation serves no purpose once its season is over. */
+const LIST = "/saisons/sweep";
 
 /** The listing's answer, and each season's pass's, which a case sets. */
 let listAnswer: () => unknown;
 let passAnswer: (saisonId: string) => unknown;
 
-const pass = (saisonId: string, counts: Partial<Record<"closed" | "asked" | "reminded" | "mails" | "failed", number>> = {}) => ({
-  saison_id: saisonId,
+const pass = (counts: Partial<Record<"closed" | "asked" | "reminded" | "mails" | "failed", number>> = {}) => ({
   closed: 0,
   asked: 0,
   reminded: 0,
@@ -20,11 +20,11 @@ const pass = (saisonId: string, counts: Partial<Record<"closed" | "asked" | "rem
 });
 
 /** A season's pass, as the contract spells its path. */
-const SEASON_PASS = /^\/spielbestaetigungen\/sweep\/(\d+)$/;
+const SEASON_PASS = /^\/spielbestaetigungen\/saisons\/(\d+)\/sweep$/;
 
 // The listing read and each season's pass, and nothing else: any other request fails the case.
-const backend = serveBackend(({ method, path }) => {
-  if (method === "GET" && path === LIST) return listAnswer();
+const backend = serveBackend(({ method, path, search }) => {
+  if (method === "GET" && path === LIST && search.get("status") === "active") return listAnswer();
   const saisonId = method === "POST" ? SEASON_PASS.exec(path)?.[1] : undefined;
   return saisonId === undefined ? undefined : passAnswer(saisonId);
 });
@@ -36,27 +36,31 @@ const sent = (): string[] => backend.sent.map(({ method, path }) => `${method} $
 
 beforeEach(() => {
   listAnswer = () => ({ saison_ids: ["2627", "2728"] });
-  passAnswer = (saisonId) => pass(saisonId);
+  passAnswer = () => pass();
 });
 
 describe("the fixture confirmation job", () => {
   /* The counts, summed over the seasons, are the one record of what the job did, on the scheduler's pass line; the rows
      it passed over owe no deletion, so it leaves nothing the heartbeat names. */
   it("sweeps every listed season and answers what the passes did", async () => {
-    passAnswer = (saisonId) => pass(saisonId, saisonId === "2627" ? { closed: 2, asked: 3, mails: 7 } : { reminded: 1, mails: 2, failed: 1 });
+    passAnswer = (saisonId) => pass(saisonId === "2627" ? { closed: 2, asked: 3, mails: 7 } : { reminded: 1, mails: 2, failed: 1 });
 
     expect(await runSpielSweep()).toStrictEqual({
       count: { closed: 2, asked: 3, reminded: 1, mails: 9, failed: 1 },
       open: 0,
     });
-    expect(sent()).toStrictEqual([`GET ${LIST}`, `POST ${LIST}/2627`, `POST ${LIST}/2728`]);
+    expect(sent()).toStrictEqual([
+      `GET ${LIST}`,
+      "POST /spielbestaetigungen/saisons/2627/sweep",
+      "POST /spielbestaetigungen/saisons/2728/sweep",
+    ]);
   });
 
   /* The scheduler reports a pass ending on a failure to the heartbeat, which a job answering with a line alone keeps from it. */
   it("rejects where a season's pass fails, sweeping no season after it", async () => {
-    passAnswer = (saisonId) => (saisonId === "2627" ? networkFailure() : pass(saisonId));
+    passAnswer = (saisonId) => (saisonId === "2627" ? networkFailure() : pass());
 
     await expect(runSpielSweep()).rejects.toThrow(APINetworkError);
-    expect(sent()).toStrictEqual([`GET ${LIST}`, `POST ${LIST}/2627`]);
+    expect(sent()).toStrictEqual([`GET ${LIST}`, "POST /spielbestaetigungen/saisons/2627/sweep"]);
   });
 });

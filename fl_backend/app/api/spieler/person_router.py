@@ -1,25 +1,18 @@
 from collections.abc import Mapping, Sequence
-from datetime import datetime
-from typing import Annotated, Any
+from typing import Any
 
-from fastapi import APIRouter, Body, Depends, status
+from fastapi import APIRouter, status
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
-from app.api.account.crud import may_always_give, press_einwilligung
-from app.api.account.services import (
-    compose_person_move,
-    find_own_entry_refusal,
-    withdrawal_line,
-)
+from app.api.account.services import Grants, find_own_entry_refusal, may_always_give, press_own_einwilligung
 from app.api.identity.crud import refuse_without_a_seat
 from app.api.identity.lookup import RecordCollections, SubjectLookup
 from app.api.identity.services import is_own_spieler
-from app.api.saisons.schemas import FLOwnSaisonsResponse, FLSaisonFrameEntryListAdapter, FLSaisonRules
+from app.api.saisons.schemas import FLOwnSaisonsResponse, FLSaisonRules, FLSpielerSaisonSelfResponse
 from app.api.saisons.services import matchday_of
 from app.api.spieler.crud import refuse_a_taken_rolle
-from app.api.spieler.panel import FLSpielerSaisonSelfResponse
 from app.api.spieler.schemas import (
     FLKaderResponse,
     FLKaderRow,
@@ -33,9 +26,7 @@ from app.api.spieler.services import (
     find_kader_stufe_refusal,
     mark_shared_nummern,
 )
-from app.core.clock import utc_stamp
 from app.core.collections import Collection
-from app.core.config import API_VERSION
 from app.core.crud import (
     GERMAN_COLLATION,
     aggregate_many_from_db,
@@ -47,6 +38,8 @@ from app.core.crud import (
 )
 from app.core.dependencies import (
     DBClient,
+    GermanDay,
+    GermanyNow,
     SaisonsCollection,
     SaisonSpielerCollection,
     SaisonSpielerReadCollection,
@@ -54,30 +47,26 @@ from app.core.dependencies import (
     SnapshotSession,
     SpielerCollection,
     SpielerReadCollection,
-    get_german_date_str,
-    get_germany_now,
 )
-from app.core.journal import Journal
 from app.core.readonly import ReadCollection
 from app.core.recording import ACT_BY_KONTAKT, FLAction, record_act
 from app.core.routing import by_id
-from app.core.security import PersonIdentifier, get_person_identifier, verify_access_admin
-from app.core.transactions import transaction_session
-from app.shared.einwilligung_evidence import FLEinwilligungChoice
-from app.shared.schemas.custom import CustomObjectId, CustomRouteObjectId
-from app.shared.schemas.einwilligung import FLAccountEinwilligungPayload, by_choice
+from app.core.security import PERSON_TIER, PersonIdentifier
+from app.core.transactions import transact
+from app.shared.schemas.custom import CustomObjectId
+from app.shared.schemas.einwilligung import FLAccountEinwilligungPayload
 from app.shared.schemas.literals import FLSpielerStufe
 
 # The person lane's identifier in place of `bind_actor` and the grants check, which a seat holder holding
 # no grant would fail.
 router = APIRouter(
-    prefix=f"/api/v{API_VERSION}/spieler/kader",
-    dependencies=[Depends(verify_access_admin), Depends(get_person_identifier)],
+    prefix="/spieler",
+    dependencies=PERSON_TIER,
 )
 
 
-SQUAD_PATH = f"{by_id('team_id')}/{{saison_id}}"
-ROW_PATH = f"{SQUAD_PATH}{by_id('spieler_id')}"
+KADER_PATH = f"/teams{by_id('team_id')}/saisons/{{saison_id}}"
+ROW_PATH = f"{by_id('spieler_id')}{KADER_PATH}"
 
 
 async def _record_the_seats_act(
@@ -92,7 +81,7 @@ async def _record_the_seats_act(
 ) -> None:
     """One row of a seat's act on a pupil: the seat's club by its name at the act, the pupil by id alone."""
 
-    verein = await pull_one_from_db(
+    junction = await pull_one_from_db(
         collection=records.saison_teams_collection,
         db_filter={"team_id": team_id, "saison_id": saison_id},
         projection=["name"],
@@ -102,7 +91,7 @@ async def _record_the_seats_act(
         collection=collection,
         action=action,
         by=ACT_BY_KONTAKT,
-        team=str(verein["name"]),
+        team=str(junction["name"]),
         record_id=spieler_id,
         label=saison_id,
         session=session,
@@ -115,7 +104,7 @@ def _live_row(*, team_id: CustomObjectId, saison_id: str, spieler_id: CustomObje
     return {"spieler_id": spieler_id, "saison_id": saison_id, "team_id": team_id, "inactive_since": None}
 
 
-async def _read_the_squad(
+async def _read_the_kader(
     *, saison_spieler_collection: ReadCollection, team_id: CustomObjectId, saison_id: str, session: AsyncClientSession
 ) -> list[FLKaderRow]:
     """The whole squad, each row's shirt marker judged against every other: no single row carries what it is compared with."""
@@ -137,30 +126,14 @@ async def _allowed_stufen(*, saisons_collection: ReadCollection, saison_id: str,
     saison_raw = await saisons_collection.find_one({"_id": saison_id}, projection={"rules": 1}, session=session)
     assert saison_raw is not None
 
-    # Through the model the rules are written under, as `refuse_a_full_squad` reads the cap: a list
+    # Through the model the rules are written under: a list
     # that model refuses, an empty one included, fails here rather than reaching the page.
     return FLSaisonRules.model_validate(saison_raw["rules"]).allowed_stufen
 
 
-async def _the_row_as_written(
-    *,
-    saison_spieler_collection: ReadCollection,
-    team_id: CustomObjectId,
-    saison_id: str,
-    spieler_id: CustomObjectId,
-    session: AsyncClientSession,
-) -> FLKaderRow:
-    """Read back inside the write's own transaction, so the shirt marker is the squad's after this write and before any other."""
-
-    kader = await _read_the_squad(saison_spieler_collection=saison_spieler_collection, team_id=team_id, saison_id=saison_id, session=session)
-    [row] = [row for row in kader if row.spieler_id == spieler_id]
-
-    return row
-
-
-@router.get(SQUAD_PATH, response_model=FLKaderResponse, summary="Read a team's squad as its seat holder")
+@router.get(KADER_PATH, summary="Read a team's squad as its seat holder")
 async def get_kader(
-    team_id: CustomRouteObjectId,
+    team_id: CustomObjectId,
     saison_id: str,
     identifier: PersonIdentifier,
     saison_spieler_collection: SaisonSpielerReadCollection,
@@ -179,29 +152,27 @@ async def get_kader(
     await refuse_without_a_seat(identifier, records, team_id=team_id, saison_id=saison_id, session=session)
 
     return FLKaderResponse(
-        team_id=team_id,
-        saison_id=saison_id,
         allowed_stufen=await _allowed_stufen(saisons_collection=saisons_collection, saison_id=saison_id, session=session),
-        kader=await _read_the_squad(saison_spieler_collection=saison_spieler_collection, team_id=team_id, saison_id=saison_id, session=session),
+        kader=await _read_the_kader(saison_spieler_collection=saison_spieler_collection, team_id=team_id, saison_id=saison_id, session=session),
     )
 
 
 @router.patch(
     ROW_PATH,
-    response_model=FLKaderRow,
+    status_code=status.HTTP_204_NO_CONTENT,
     summary="Update a squad entry as its team's seat holder",
 )
 async def patch_kader_row(
-    team_id: CustomRouteObjectId,
+    team_id: CustomObjectId,
     saison_id: str,
-    spieler_id: CustomRouteObjectId,
-    row_data: Annotated[FLPatchKaderRowPayload, Body()],
+    spieler_id: CustomObjectId,
+    row_data: FLPatchKaderRowPayload,
     identifier: PersonIdentifier,
     saison_spieler_collection: SaisonSpielerCollection,
     saisons_collection: SaisonsCollection,
     records: SubjectLookup,
     db: DBClient,
-) -> FLKaderRow:
+) -> None:
     """
     Replace a live squad row's `nummer`, `position`, `stufe` and `rolle`, as any contact seat of its team may.
 
@@ -210,9 +181,7 @@ async def patch_kader_row(
 
     row = _live_row(team_id=team_id, saison_id=saison_id, spieler_id=spieler_id)
 
-    async def edit_the_row(session: AsyncClientSession) -> FLKaderRow:
-        """Judge, then rewrite the row. Everything judged is read in-session."""
-
+    async def edit_the_row(session: AsyncClientSession) -> None:
         await refuse_without_a_seat(identifier, records, team_id=team_id, saison_id=saison_id, session=session)
 
         # The 404 before any rule: a rule judged on a row this team does not hold would tell the
@@ -239,7 +208,6 @@ async def patch_kader_row(
             session=session,
         )
 
-        # `BEFORE`: the answer is read back below with the whole squad, so the driver's image is discarded.
         await patch_one_in_db(
             collection=saison_spieler_collection,
             db_filter=row,
@@ -258,36 +226,31 @@ async def patch_kader_row(
             session=session,
         )
 
-        return await _the_row_as_written(
-            saison_spieler_collection=saison_spieler_collection, team_id=team_id, saison_id=saison_id, spieler_id=spieler_id, session=session
-        )
-
-    async with transaction_session(db) as session:
-        return await session.with_transaction(edit_the_row)
+    await transact(db, edit_the_row)
 
 
 @router.delete(
     ROW_PATH,
-    response_model=FLKaderRow,
+    status_code=status.HTTP_204_NO_CONTENT,
     summary="Take a Spieler out of the squad as its team's seat holder (retire)",
 )
 async def delete_kader_row(
-    team_id: CustomRouteObjectId,
+    team_id: CustomObjectId,
     saison_id: str,
-    spieler_id: CustomRouteObjectId,
+    spieler_id: CustomObjectId,
     identifier: PersonIdentifier,
     saison_spieler_collection: SaisonSpielerCollection,
     records: SubjectLookup,
     db: DBClient,
-    today: str = Depends(get_german_date_str),
-) -> FLKaderRow:
+    today: GermanDay,
+) -> None:
     """
     Take a player out of this team's squad for the season, as any contact seat of the team may, the row staying.
 
     The person stays in the league, and only an administrator brings the row back.
     """
 
-    async def take_the_row_out(session: AsyncClientSession) -> FLKaderRow:
+    async def take_the_row_out(session: AsyncClientSession) -> None:
         """Judge the seat, then stamp the row: the live-row filter is the write's own, so an ausgetragen row is a 404 here."""
 
         await refuse_without_a_seat(identifier, records, team_id=team_id, saison_id=saison_id, session=session)
@@ -308,18 +271,12 @@ async def delete_kader_row(
             session=session,
         )
 
-        return await _the_row_as_written(
-            saison_spieler_collection=saison_spieler_collection, team_id=team_id, saison_id=saison_id, spieler_id=spieler_id, session=session
-        )
-
-    async with transaction_session(db) as session:
-        return await session.with_transaction(take_the_row_out)
+    await transact(db, take_the_row_out)
 
 
-# A router of its own for its prefix.
 spieler_router = APIRouter(
-    prefix=f"/api/v{API_VERSION}/spieler",
-    dependencies=[Depends(verify_access_admin), Depends(get_person_identifier)],
+    prefix="/spieler",
+    dependencies=PERSON_TIER,
 )
 
 
@@ -334,17 +291,17 @@ def _own_pupil_row(rows: Sequence[Mapping[str, Any]]) -> Mapping[str, Any]:
 
 
 @spieler_router.patch(
-    "/account/einwilligung",
+    "/self/einwilligung",
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Change a signed-in pupil's own publication and media consent",
 )
 async def patch_einwilligung(
-    einwilligung_data: Annotated[FLAccountEinwilligungPayload, Body()],
+    einwilligung_data: FLAccountEinwilligungPayload,
     identifier: PersonIdentifier,
     spieler_collection: SpielerCollection,
     db: DBClient,
-    today: str = Depends(get_german_date_str),
-    germany_now: datetime = Depends(get_germany_now),
+    today: GermanDay,
+    germany_now: GermanyNow,
 ) -> None:
     """
     Set the two choices of the signed-in address's own pupil consent record: the publication scope and the media consent.
@@ -353,44 +310,23 @@ async def patch_einwilligung(
     the scope decides whether a name is served.
     """
 
-    own_entry = build_self_pupil_filter(identifier)
-    chosen: dict[FLEinwilligungChoice, object] = {"scope": einwilligung_data.scope, "media": einwilligung_data.media}
-    at = utc_stamp(germany_now)
-    journal = Journal()
-
-    @journal.attempted
-    async def write(session: AsyncClientSession) -> None:
-        row = await spieler_collection.find_one(own_entry, projection={"einwilligung": 1, "birth_date": 1}, session=session)
-        refuse(find_own_entry_refusal(held=row is not None and is_own_spieler(row)))
-        assert row is not None
-        saved = row["einwilligung"]
-
-        await press_einwilligung(
-            blocks=[saved],
-            birth_dates=[row.get("birth_date")],
-            chosen=chosen,
-            evidence_state=einwilligung_data.evidence_state.model_dump(),
-            text_versions=einwilligung_data.text_versions,
-            may_give=may_always_give,
-            today=today,
-        )
-
-        update = compose_person_move(saved=saved, chosen=chosen, at=at, text_versions=by_choice(einwilligung_data.text_versions))
-        if update is not None:
-            # Past the count: no form saves the consent, so the Spieler editor's next save stands; this transaction's
-            # read above is what a second press is judged against.
-            await patch_past_the_version_in_db(collection=spieler_collection, db_filter={"_id": row["_id"]}, update=update, session=session)
-        choices = withdrawal_line(blocks=[saved], chosen=chosen)
-        if choices is not None:
-            journal.note("withdrawal", [f"{Collection.SPIELER}/{row['_id']}"], choices=list(choices))
-
-    async with journal:
-        async with transaction_session(db) as session:
-            await session.with_transaction(write)
+    await press_own_einwilligung(
+        einwilligung_data=einwilligung_data,
+        kind=Collection.SPIELER,
+        collection=spieler_collection,
+        own_entry=build_self_pupil_filter(identifier),
+        projection={"einwilligung": 1, "birth_date": 1},
+        owns=is_own_spieler,
+        grants=Grants(may_give=may_always_give, today=today),
+        # Past the count: no form saves the consent, so the Spieler editor's next save stands; the press's read in its
+        # transaction is what a second press is judged against.
+        write=patch_past_the_version_in_db,
+        db=db,
+        now=germany_now,
+    )
 
 
-# Declared ahead of `/self/{saison_id}`, whose parameter would otherwise take the word (FastAPI's "Order matters").
-@spieler_router.get("/self/saisons", response_model=FLOwnSaisonsResponse, summary="The seasons a signed-in pupil holds a squad row in")
+@spieler_router.get("/self/saisons", summary="The seasons a signed-in pupil holds a squad row in")
 async def get_self_saisons(identifier: PersonIdentifier, spieler_collection: SpielerReadCollection) -> FLOwnSaisonsResponse:
     """
     Every season the signed-in pupil holds a squad row in, the newest first, each with its span.
@@ -400,12 +336,11 @@ async def get_self_saisons(identifier: PersonIdentifier, spieler_collection: Spi
 
     row = _own_pupil_row(await aggregate_many_from_db(collection=spieler_collection, pipeline=build_self_saisons_pipeline(identifier)))
 
-    return FLOwnSaisonsResponse(saisons=FLSaisonFrameEntryListAdapter.validate_python(row["saisons"]))
+    return FLOwnSaisonsResponse.model_validate({"saisons": row["saisons"]})
 
 
 @spieler_router.get(
-    "/self/{saison_id}",
-    response_model=FLSpielerSaisonSelfResponse,
+    "/self/saisons/{saison_id}",
     summary="A signed-in pupil's own season: their squad row and their team's fixtures",
 )
 async def get_self_saison(

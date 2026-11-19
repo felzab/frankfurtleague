@@ -33,7 +33,6 @@ const paarung = ({ team1, team2 }: Pick<FLSpielMailAppointment, "team1" | "team2
 
 const moment = ({ date, time }: FLSpielMailAppointment): string => formatDayAndTime(dayOf(date), timeOf(time));
 
-/** A sentence whose moment stands semibold between its two parts. */
 const around = (before: Copy, value: string, after: Copy): Sentence => [before, { strong: value }, after];
 
 /** The day and the hour, one fact to a row, so a reader scanning for the day finds it alone. */
@@ -181,9 +180,6 @@ function cancelledEmail({ appointment, sonderereignis }: FLSpielNoticeData, orig
         consequence.nichtantreten({ record: opponent }),
       ]);
     }
-    // A row queued without an event names none, and a mail naming no event promises nothing it may not keep.
-    case null:
-      return noticeEmail(cancelled.none.subject(day), origin, [lead(cancelled.none, spiel)]);
   }
 }
 
@@ -195,19 +191,17 @@ function cancelledEmail({ appointment, sonderereignis }: FLSpielNoticeData, orig
 export function buildSpielNoticeEmail(data: FLSpielMovedData | FLSpielNoticeData, { origin }: MailOrigin): Mail {
   if (data.kind === "spiel_cancelled") return cancelledEmail(data, origin);
 
-  const { recipient, appointment, moved_to: movedTo, stays, asked_again: askedAgain } = data;
+  const { recipient, appointment, moved_to: movedTo, stays } = data;
 
-  // Taken off the fixture by the move: the void notice, naming the slot left alone. A notice queued before `stays` was
-  // written said that the party stays by its promise of a request.
-  if (movedTo === null && !stays && !askedAgain) {
+  // Taken off the fixture by the move: the void notice, naming the slot left alone.
+  if (movedTo === null && !stays) {
     if (recipient === "schiedsrichter") return unbookedEmail(appointment, origin);
     return noticeEmail(WORDS.voidSubject(dayOf(appointment.date)), origin, [
       around(WORDS.void.before(paarung(appointment)), moment(appointment), WORDS.void.after),
     ]);
   }
 
-  // Only a notice queued before the promise was dropped carries it.
-  const lead: Paragraph = [WORDS.moved(paarung(movedTo ?? appointment)), ...(askedAgain ? [WORDS.askedLater[recipient]] : [])];
+  const lead: Paragraph = [WORDS.moved(paarung(movedTo ?? appointment))];
 
   if (movedTo === null) {
     return noticeEmail(WORDS.movedFromSubject(dayOf(appointment.date)), origin, lead, {
@@ -217,8 +211,8 @@ export function buildSpielNoticeEmail(data: FLSpielMovedData | FLSpielNoticeData
   }
 
   // A new pairing at the slot moved nothing: the subject says the slot stands, the lead names the new pairing, and the
-  // block the pairing left. A notice queued with its promise keeps the mail it was queued for.
-  if (pairingOnly(appointment, movedTo) && !askedAgain) {
+  // block the pairing left.
+  if (pairingOnly(appointment, movedTo)) {
     return noticeEmail(WORDS.keptSubject(dayOf(movedTo.date)), origin, [WORDS.newPairing(paarung(movedTo))], slotBlock(movedTo, appointment));
   }
 
@@ -247,7 +241,7 @@ export function buildSpielVorschlagDiscardedEmail({ appointment }: FLSpielVorsch
  * due at. No token: the reader enters it on the team's own pages, signed in.
  */
 export function buildAufstellungReminderEmail(
-  { team, team_id: teamId, saison_id: saison, appointment, due_at: dueAt }: FLAufstellungReminderData,
+  { team, team_id: teamId, saison_id: saison, ansetzung, due_at: dueAt }: FLAufstellungReminderData,
   { origin }: MailOrigin,
 ): Mail {
   const site = mailOrigin(origin);
@@ -255,10 +249,10 @@ export function buildAufstellungReminderEmail(
 
   return {
     kind: "notice",
-    subjectLine: words.reminderSubject(dayOf(appointment.date)),
+    subjectLine: words.reminderSubject(dayOf(ansetzung.date)),
     origin: site,
     paragraphs: [[words.missing({ record: team })]],
-    block: slotBlock(appointment, null),
+    block: slotBlock(ansetzung, null),
     afterBlock: [[around(words.dueUntil.before, formatInstant(dueAt), words.dueUntil.after)]],
     button: { label: COPY.shared.end.toOverview, href: `${site}${ROUTES.teamOverview.path(teamId, saison)}` },
   };

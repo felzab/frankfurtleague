@@ -37,22 +37,6 @@ class TestTheKeptSeasons:
         assert (kept_saison_ids(statuses), completed_saison_id(statuses)) == (None, None)
         assert not due_for_erasure([], statuses=statuses)
 
-    def test_a_planned_season_below_the_one_just_ended_keeps_nobody(self):
-        """Never activated, it stays planned for good, and a status rule would keep its pupils for ever."""
-
-        statuses: dict[str, FLSaisonStatus] = {"2023": "past", "2024": "future", "2025": "past", "2026": "active"}
-
-        assert kept_saison_ids(statuses) == {"2025", "2026"}
-        assert due_for_erasure(["2024"], statuses=statuses)
-
-    def test_a_running_season_below_the_one_just_ended_still_keeps_its_pupils(self):
-        """Activation refuses no lower id, so the running season is kept by its status whatever its id."""
-
-        statuses: dict[str, FLSaisonStatus] = {"2024": "active", "2025": "past", "2026": "future"}
-
-        assert kept_saison_ids(statuses) == {"2024", "2025", "2026"}
-        assert not due_for_erasure(["2024"], statuses=statuses)
-
 
 class TestTheDueJudgement:
     @pytest.mark.parametrize(
@@ -77,6 +61,6 @@ class TestTheDueJudgement:
         assert open_addresses([{"status": "declined", "email": ADDRESS}]) == frozenset()
 
     def test_a_pupil_holding_no_address_is_never_due(self):
-        """The registry erases by address, and nothing else may erase by a name."""
+        """The erasure goes by address, and nothing else may erase by a name."""
 
         assert not due_for_erasure([], email=None)

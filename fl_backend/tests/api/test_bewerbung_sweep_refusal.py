@@ -3,24 +3,22 @@ from datetime import UTC, datetime
 from typing import Any, cast
 
 import pytest
+from pydantic import ValidationError
 
 from app.api.bewerbungen.services import (
     ansprechperson_mailbox,
-    decline_erasure_is_due,
     deletion_day,
-    deletion_is_due,
     group_seats_by_mailbox,
     lapsed_seats,
     owed_deletion_notices,
     reminder_seats,
-    reopened_chases,
     schule_name,
     seat_reminder_is_due,
     unreachable_seats,
 )
 from app.api.outbox.schemas import FLOutboxDelivery, FLOutboxDeliveryState, FLOutboxStatus
-from app.shared.schemas.bounds import BEWERBUNG_REMINDER_DAYS
-from app.shared.schemas.literals import KONTAKT_ROLLEN
+from app.api.saisons.schemas import FLSaisonRecord
+from app.shared.schemas.literals import KONTAKT_SEATS
 from app.shared.tokens import hash_token
 from tests.documents import kontaktperson_document, minted_confirmations
 
@@ -33,7 +31,7 @@ MAILED_ON_THE_MARK = "2026-03-29"
 MAILED_A_DAY_SHORT = "2026-03-30"
 MAILED_A_DAY_PAST = "2026-03-28"
 
-HASHES: Mapping[str, str] = {seat: hash_token(f"first-{seat}") for seat in KONTAKT_ROLLEN}
+HASHES: Mapping[str, str] = {seat: hash_token(f"first-{seat}") for seat in KONTAKT_SEATS}
 
 
 def kontakte(**overrides: Any) -> dict[str, Any]:
@@ -95,7 +93,7 @@ def all_seats_until(deadline: str | None) -> dict[str, Any]:
 class TestTheReminderMark:
     """The three-day mark, on the seat: the day before, the day, the day after.
 
-    The bound is `fl_backend/app/shared/schemas/bounds.py :: BEWERBUNG_REMINDER_DAYS`.
+    The bound is `fl_backend/app/api/bewerbungen/services.py :: BEWERBUNG_REMINDER_DAYS`.
     """
 
     @pytest.mark.parametrize(
@@ -110,7 +108,6 @@ class TestTheReminderMark:
         block = confirmations(sent_at=sent_at)
 
         assert seat_reminder_is_due(kontakte=kontakte(), confirmations=block, seat="trainer", today=TODAY, unreachable=False) == due
-        assert BEWERBUNG_REMINDER_DAYS == 3
 
     @pytest.mark.parametrize(
         ("kontakte_block", "bookkeeping", "why"),
@@ -126,12 +123,6 @@ class TestTheReminderMark:
                 confirmations(trainer={**confirmations()["trainer"], "reminded_at": YESTERDAY}),
                 "reminded once",
                 id="reminded once",
-            ),
-            pytest.param(
-                kontakte(),
-                confirmations(trainer={**confirmations()["trainer"], "chase_closed_at": YESTERDAY}),
-                "chase closed",
-                id="chase closed",
             ),
             pytest.param(kontakte(trainer=None), confirmations(trainer=None), "erased", id="erased"),
         ],
@@ -186,55 +177,7 @@ class TestTheReminderMark:
         ]
 
 
-ADDRESS = "ansgar.reopened@example.com"
-
-
-def closed_chase(**seats: Any) -> dict[str, Any]:
-    """The Ansprechperson's chase closed, any entry replaced by a case's own."""
-
-    return confirmations(**{"ansprechperson": {**confirmations()["ansprechperson"], "chase_closed_at": YESTERDAY}, **seats})
-
-
-def reachable(**seats: Any) -> dict[str, Any]:
-    """The Ansprechperson at `ADDRESS`, any slot replaced by a case's own."""
-
-    return kontakte(**{"ansprechperson": {**kontaktperson_document("Ansgar"), "email": ADDRESS}, **seats})
-
-
-class TestAMailDeliveredToAClosedChase:
-    def test_it_opens_every_closed_seat_holding_its_address(self):
-        """The Trainer mirrors the seat by holding its address, so the one mail answers for both."""
-
-        stored = application(
-            kontakte=reachable(trainer={**kontaktperson_document("Ansgar"), "email": ADDRESS}, trainer_is_also="ansprechperson"),
-            confirmations=closed_chase(trainer={**confirmations()["trainer"], "chase_closed_at": YESTERDAY}),
-        )
-
-        assert reopened_chases(bewerbung_raw=stored, to=ADDRESS) == ["ansprechperson", "trainer"]
-
-    @pytest.mark.parametrize(
-        ("kontakte_block", "bookkeeping", "to"),
-        [
-            pytest.param(reachable(), closed_chase(), "another@example.com", id="another address"),
-            pytest.param(reachable(), confirmations(), ADDRESS, id="no chase closed"),
-            pytest.param(kontakte(ansprechperson=None), closed_chase(ansprechperson=None), ADDRESS, id="an erased seat"),
-            pytest.param(
-                reachable(ansprechperson={**kontaktperson_document("Ansgar", confirmed_at=YESTERDAY), "email": ADDRESS}),
-                closed_chase(),
-                ADDRESS,
-                id="a confirmed seat",
-            ),
-            pytest.param(
-                reachable(),
-                closed_chase(ansprechperson={**closed_chase()["ansprechperson"], "declined_at": YESTERDAY}),
-                ADDRESS,
-                id="a declined seat",
-            ),
-        ],
-    )
-    def test_it_leaves_every_other_seat_as_it_stands(self, kontakte_block: Any, bookkeeping: Any, to: str):
-        assert reopened_chases(bewerbung_raw=application(kontakte=kontakte_block, confirmations=bookkeeping), to=to) == []
-
+class TestASeatsLastMail:
     @pytest.mark.parametrize("delivery", ["delivered", "delayed"])
     def test_a_seat_a_later_message_may_still_reach_is_chased(self, delivery: str):
         """A delayed message still arrives, and a delivered one arrived: neither is a reason to skip the chase."""
@@ -259,79 +202,25 @@ class TestOneMessagePerMailbox:
     def test_one_person_holding_two_seats_gets_one_message_with_both(self):
         block = kontakte(trainer=kontaktperson_document("Ida"), ansprechperson=kontaktperson_document("Ida"), trainer_is_also="ansprechperson")
 
-        assert group_seats_by_mailbox(kontakte=block, seats=KONTAKT_ROLLEN) == [
+        assert group_seats_by_mailbox(kontakte=block, seats=KONTAKT_SEATS) == [
             ("ida@example.com", ["trainer", "ansprechperson"]),
             ("stellan@example.com", ["stellvertretung"]),
         ]
 
     def test_a_seat_without_an_address_is_left_out(self):
-        assert group_seats_by_mailbox(kontakte=kontakte(trainer=None), seats=KONTAKT_ROLLEN) == [
+        assert group_seats_by_mailbox(kontakte=kontakte(trainer=None), seats=KONTAKT_SEATS) == [
             ("ansgar@example.com", ["ansprechperson"]),
             ("stellan@example.com", ["stellvertretung"]),
         ]
 
 
-class TestTheFourteenDayClock:
-    @pytest.mark.parametrize(
-        ("deadline", "due"),
-        [
-            pytest.param(TOMORROW, False, id="the day before the deadline"),
-            pytest.param(TODAY, False, id="the deadline's own day, when the link still answers"),
-            pytest.param(YESTERDAY, True, id="the day after"),
-        ],
-    )
-    def test_each_boundary_falls_where_the_bound_says(self, deadline: str, due: bool):
-        assert deletion_is_due(bewerbung_raw=application(confirmations=all_seats_until(deadline)), today=TODAY) == due
-
-    def test_one_seats_lapsed_deadline_takes_the_application_while_another_seats_fresh_link_runs(self):
-        """Each person's 14 days are their own: waiting on the fresh link would keep the lapsed seat's details past theirs."""
-
-        block = {**all_seats_until(YESTERDAY), "stellvertretung": {**confirmations()["stellvertretung"], "deadline": TOMORROW}}
-
-        assert deletion_is_due(bewerbung_raw=application(confirmations=block), today=TODAY)
-
-    def test_a_lapsed_deadline_on_a_confirmed_seat_takes_nothing(self):
-        """The confirmed seat's day passed with its answer given; only an outstanding seat's day counts."""
-
-        stamped = kontakte(trainer=kontaktperson_document("Trainer", confirmed_at=YESTERDAY))
-        block = {**all_seats_until(TOMORROW), "trainer": {**confirmations()["trainer"], "deadline": YESTERDAY}}
-
-        assert not deletion_is_due(bewerbung_raw=application(confirmations=block, kontakte=stamped), today=TODAY)
-
-    @pytest.mark.parametrize(("other", "due"), [(TODAY, False), (YESTERDAY, True)])
-    def test_a_seat_an_erasure_emptied_goes_when_no_other_link_runs(self, other: str, due: bool):
-        """The erasure took its deadline with its entry and no write refills that seat, so no other clock would ever take it."""
-
-        stamped = kontakte(**{seat: kontaktperson_document(seat.title(), confirmed_at=YESTERDAY) for seat in KONTAKT_ROLLEN})
-        stamped["trainer"] = None
-        block = {**all_seats_until(other), "trainer": None}
-
-        assert deletion_is_due(bewerbung_raw=application(confirmations=block, kontakte=stamped), today=TODAY) == due
-
-    def test_the_day_a_notice_names_is_the_earliest_outstanding_one(self):
+class TestTheDayANoticeNames:
+    def test_it_is_the_earliest_outstanding_one(self):
         """A notice naming a later day promises a person a time the clock will not give them."""
 
         block = {**all_seats_until(TOMORROW), "ansprechperson": {**confirmations()["ansprechperson"], "deadline": YESTERDAY}}
 
         assert deletion_day(kontakte=kontakte(), confirmations=block) == YESTERDAY
-
-    def test_an_application_every_seat_confirmed_waits_for_the_triage_instead(self):
-        stamped = kontakte(**{seat: kontaktperson_document(seat.title(), confirmed_at=YESTERDAY) for seat in KONTAKT_ROLLEN})
-
-        assert not deletion_is_due(bewerbung_raw=application(confirmations=all_seats_until(YESTERDAY), kontakte=stamped), today=TODAY)
-
-    @pytest.mark.parametrize("emptied", ["trainer", "ansprechperson"])
-    def test_a_declined_seat_counts_as_outstanding(self, emptied: str):
-        """The whole clock's reach: such an application can never complete, so this is the only way it leaves."""
-
-        stamped = kontakte(**{seat: kontaktperson_document(seat.title(), confirmed_at=YESTERDAY) for seat in KONTAKT_ROLLEN})
-        stamped[emptied] = None
-
-        assert deletion_is_due(bewerbung_raw=application(confirmations=all_seats_until(YESTERDAY), kontakte=stamped), today=TODAY)
-
-    @pytest.mark.parametrize("status", ["declined", "accepted"])
-    def test_a_decided_application_is_another_clocks(self, status: str):
-        assert not deletion_is_due(bewerbung_raw=application(status=status, confirmations=all_seats_until(YESTERDAY)), today=TODAY)
 
 
 class TestALapsedSeasonRowSeat:
@@ -349,46 +238,24 @@ class TestALapsedSeasonRowSeat:
         assert lapsed_seats(kontakte=kontakte(), confirmations=block, today=TODAY) == (["trainer"] if lapsed else [])
 
     @pytest.mark.parametrize(
-        ("slot", "entry", "lapsed"),
+        ("person", "entry", "lapsed"),
         [
             pytest.param(kontaktperson_document("Trainer", confirmed_at=YESTERDAY), {"deadline": YESTERDAY}, False, id="confirmed"),
             pytest.param(None, None, False, id="erased, so no deadline"),
             pytest.param(None, {"deadline": YESTERDAY, "declined_at": YESTERDAY}, True, id="an objection's link on its day"),
         ],
     )
-    def test_only_a_seat_left_unconfirmed_lapses(self, slot: Any, entry: Any, lapsed: bool):
+    def test_only_a_seat_left_unconfirmed_lapses(self, person: Any, entry: Any, lapsed: bool):
         block = {**all_seats_until(TOMORROW), "trainer": entry}
 
-        assert lapsed_seats(kontakte=kontakte(trainer=slot), confirmations=block, today=TODAY) == (["trainer"] if lapsed else [])
-
-
-class TestTheDeclineClock:
-    @pytest.mark.parametrize(
-        ("made_at", "due"),
-        [
-            pytest.param("2026-03-19", False, id="a day short of the fourteen"),
-            pytest.param("2026-03-18", True, id="the fourteenth day"),
-            pytest.param("2026-02-15", True, id="past them"),
-        ],
-    )
-    def test_each_boundary_falls_fourteen_days_after_the_decision(self, made_at: str, due: bool):
-        declined = application(status="declined", decision={"made_at": made_at, "reason": "kein Platz"})
-
-        assert decline_erasure_is_due(bewerbung_raw=declined, today=TODAY) == due
-
-    @pytest.mark.parametrize("status", ["submitted", "accepted"])
-    def test_only_a_declined_application_is_on_this_clock(self, status: str):
-        assert not decline_erasure_is_due(bewerbung_raw=application(status=status, decision={"made_at": "2020-01-01"}), today=TODAY)
-
-    def test_a_decision_with_no_day_is_never_due(self):
-        assert not decline_erasure_is_due(bewerbung_raw=application(status="declined", decision=None), today=TODAY)
+        assert lapsed_seats(kontakte=kontakte(trainer=person), confirmations=block, today=TODAY) == (["trainer"] if lapsed else [])
 
 
 class TestWhatTheNoticesNeed:
-    def test_the_school_is_the_submitted_name_or_the_picked_clubs(self):
-        assert schule_name(bewerbung_raw=application(), club_names={}) == "Zorbanax"
-        assert schule_name(bewerbung_raw=application(schule=None, team_id="club-1"), club_names={"club-1": "Adler"}) == "Adler"
-        assert schule_name(bewerbung_raw=application(schule=None, team_id="club-9"), club_names={}) == ""
+    def test_the_school_is_the_submitted_name_or_the_picked_teams(self):
+        assert schule_name(bewerbung_raw=application(), team_names={}) == "Zorbanax"
+        assert schule_name(bewerbung_raw=application(schule=None, team_id="club-1"), team_names={"club-1": "Adler"}) == "Adler"
+        assert schule_name(bewerbung_raw=application(schule=None, team_id="club-9"), team_names={}) == ""
 
     def test_the_notice_goes_to_the_ansprechperson_and_names_every_seat_that_mailbox_holds(self):
         """The double-seated case is the one the single-seat spelling gets wrong: it names one seat to a reader holding two."""
@@ -417,3 +284,28 @@ class TestWhatTheNoticesNeed:
         told = application(kontakte=confirmed, erasure_announced_at=YESTERDAY)
 
         assert [mail.to for mail in owed_deletion_notices(bewerbung_raw=told, saison_id="2026")] == ["stellan@example.com"]
+
+
+class TestTheSuccessorsSeasonId:
+    """The successor adds to a season's id as a year and the clocks compare the sums as strings, which holds for four ASCII digits.
+
+    The season's record model is the one check, so the read-back names a hand-written id the sum would misread.
+    """
+
+    @pytest.mark.parametrize(
+        ("saison_id", "named"),
+        [
+            pytest.param("2026", False, id="a year"),
+            pytest.param("abcd", True, id="letters"),
+            # Each a year to `int`, whose ASCII sum sorts nowhere near the id it came from.
+            pytest.param("\uff12\uff10\uff12\uff16", True, id="fullwidth digits"),
+            pytest.param("\u0662\u0660\u0662\u0666", True, id="Arabic-Indic digits"),
+            pytest.param("20261", True, id="five digits"),
+        ],
+    )
+    def test_the_record_model_names_every_id_that_is_no_four_digit_year(self, saison_id: str, named: bool):
+        with pytest.raises(ValidationError) as raised:
+            # The id alone: every other field's absence is named too, and only the id's line is judged.
+            FLSaisonRecord.model_validate({"_id": saison_id})
+
+        assert (("_id",) in [error["loc"] for error in raised.value.errors()]) == named

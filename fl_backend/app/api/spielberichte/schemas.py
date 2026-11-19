@@ -1,10 +1,9 @@
-from typing import Annotated, Literal, Self
+from typing import Annotated, Final, Literal, Self
 
-from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, Field, StringConstraints, model_validator
+from pydantic import AfterValidator, BaseModel, BeforeValidator, Field, StringConstraints, model_validator
 
 from app.api.spiele.schemas import SONDEREREIGNIS_NO_SHOW, FLSpielElfmeterschiessen, FLSpielElfmeterschiessenPayload, FLSpielortFieldPublic
 from app.core.exceptions import rule_refusal
-from app.shared.schemas.bounds import SPIELBERICHT_ENTRIES_MAX, SPIELBERICHT_REMARKS_MAX_LENGTH
 from app.shared.schemas.custom import (
     CustomDateString,
     CustomNonEmptyString,
@@ -15,12 +14,18 @@ from app.shared.schemas.custom import (
     parse_empty_string_to_none,
 )
 from app.shared.schemas.literals import FLSaisonPhase, FLSonderereignis, FLSpielSide
-from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
+from app.shared.schemas.responses import BasePayload, BaseReadModel
 
 # The minute as the DFB's report writes it: the played minute, and stoppage time after a plus, `45+2`.
 MINUTE_PATTERN = r"^[0-9]{1,3}(\+[0-9]{1,2})?$"
 
 CustomSpielberichtMinute = Annotated[str, StringConstraints(pattern=MINUTE_PATTERN)]
+
+
+# A report's remarks on one match, whoever writes them, bounded on the payload alone, which keeps the report far under
+# BSON's document ceiling.
+SPIELBERICHT_REMARKS_MAX_LENGTH: Final = 2000
+
 
 # Multi-line, unlike a confirmation's reason: the referee's prose about the match, read on the editor's panel alone.
 # The ceiling counts what arrives, so the published one is what is accepted; the floor counts after the strip, so
@@ -75,16 +80,12 @@ class FLSpielberichtCard(BaseModel):
     colour: FLCardColour
 
 
-class FLSpielberichtScorerPayload(FLSpielberichtScorer):
+class FLSpielberichtScorerPayload(FLSpielberichtScorer, BasePayload):
     """One goal as the referee's save sends it: a key the goal does not declare is refused, never dropped."""
 
-    model_config = ConfigDict(extra="forbid")
 
-
-class FLSpielberichtCardPayload(FLSpielberichtCard):
+class FLSpielberichtCardPayload(FLSpielberichtCard, BasePayload):
     """One card as the referee's save sends it: a key the card does not declare is refused, never dropped."""
-
-    model_config = ConfigDict(extra="forbid")
 
 
 class FLSpielberichtSides(BaseModel):
@@ -126,19 +127,19 @@ class FLSpielbericht(BaseModel):
 # --- The write: the referee's PUT.
 
 
-class FLSpielberichtVorschlagPayload(BaseModel):
+class FLSpielberichtVorschlagPayload(BasePayload):
     """What the referee proposes beside the goals: a shoot-out, or the event the match ended in."""
-
-    model_config = ConfigDict(extra="forbid")
 
     # Both required as keys and null where unused: an omitted key would read as a form that forgot it.
     elfmeterschiessen: FLSpielElfmeterschiessenPayload | None
     sonderereignis: FLSpielberichtSonderereignis | None
 
 
-class FLSpielberichtBerichtPayload(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+# The most scorers, and the most cards, one report lists, which keeps the report far under BSON's ceiling too.
+SPIELBERICHT_ENTRIES_MAX: Final = 60
 
+
+class FLSpielberichtBerichtPayload(BasePayload):
     ergebnis_vorschlag: FLSpielberichtVorschlagPayload
     # The payload's own item models: a model's `extra` reaches none nested in it, and the stored ones stay lenient.
     scorers: Annotated[list[FLSpielberichtScorerPayload], Field(max_length=SPIELBERICHT_ENTRIES_MAX)]
@@ -157,7 +158,6 @@ class FLSpielberichtBerichtPayload(BaseModel):
 
         credited = {"team1": 0, "team2": 0}
         for tor in self.scorers:
-            # An own goal is scored by `side` and counts for the other side.
             credited[("team2" if tor.side == "team1" else "team1") if tor.eigentor else tor.side] += 1
 
         return FLSpielberichtVorschlag(team1_tore=credited["team1"], team2_tore=credited["team2"], **vorschlag.model_dump())
@@ -181,10 +181,8 @@ class FLSpielberichtBerichtPayload(BaseModel):
         return self
 
 
-class FLSpielberichtPayload(BaseModel):
+class FLSpielberichtPayload(BasePayload):
     """The whole `bericht` block, written wholesale by the referee's PUT."""
-
-    model_config = ConfigDict(extra="forbid")
 
     bericht: FLSpielberichtBerichtPayload
     # The document's `version` the form was served, null where it showed no report: required with no default, since an
@@ -233,7 +231,7 @@ class FLSpielberichtKader(BaseModel):
     team2: list[FLSpielberichtSpieler]
 
 
-class FLSpielberichtSchiedsrichterResponse(BaseAPIResponse):
+class FLSpielberichtSchiedsrichterResponse(BaseReadModel):
     """The booked referee's form, the stored remarks included."""
 
     spiel: FLSpielberichtSpiel

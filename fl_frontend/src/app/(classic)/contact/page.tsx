@@ -1,10 +1,9 @@
-import { ClassicPage, PageHead } from "@/kit/ClassicPage";
-import { LinkRows } from "@/kit/LinkRows";
-
 import { INSTAGRAM_HANDLE, INSTAGRAM_URL, KONTAKT_EMAIL, KONTAKT_MAILTO, THREADS_URL } from "@/core/brand";
 import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
+import { ClassicPage, PageHead } from "@/kit/ClassicPage";
+import { LinkRows } from "@/kit/LinkRows";
 import { pageMetadata } from "@/shared/utils/metadata";
 
 import type { Metadata, ResolvingMetadata } from "next";

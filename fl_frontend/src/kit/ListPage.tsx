@@ -1,6 +1,5 @@
 import { BracketTree } from "./BracketTree";
 import { Button } from "./Button";
-import { Callout } from "./Callout";
 import { CappedRows } from "./CappedRows";
 import { Card, CardActRow } from "./Card";
 import { CardGrid } from "./CardGrid";
@@ -284,19 +283,6 @@ async function LinkOnceRead({ link }: { link: ListLink }) {
   );
 }
 
-/** The standing word over a list read short, once the list says so. */
-async function NoticeOnceRead({ notice }: { notice: Promise<Copy | null> }) {
-  const text = await notice;
-  return (
-    text !== null && (
-      <Callout
-        tone="warn"
-        text={text}
-      />
-    )
-  );
-}
-
 /** The list once its content is read. */
 async function ListBody({ list }: { list: ListContent }) {
   switch (list.kind) {
@@ -462,7 +448,6 @@ export function ListPage({
   create,
   side,
   link,
-  notice,
   list,
 }: {
   head: RailPageHead;
@@ -479,8 +464,6 @@ export function ListPage({
    */
   side?: ListCreate | Promise<ListCreate>;
   link?: ListLink;
-  /** What holds of the list as read and no row says, standing between the toolbar and the list. */
-  notice?: Promise<Copy | null>;
   list: ListContent;
 }) {
   const search = list.kind === "table" || list.kind === "spiele" || list.kind === "tiles" || list.kind === "cards" ? list.search : undefined;
@@ -513,7 +496,6 @@ export function ListPage({
             )}
           </div>
         )}
-        {notice !== undefined && <NoticeOnceRead notice={notice} />}
         <ListBody list={list} />
       </ListQueryScope>
     </RailPage>

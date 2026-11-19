@@ -5,21 +5,14 @@ import { SERVER_COPY } from "@/core/serverCopy";
 
 import { seatsOf } from "./seats";
 
-import type { FLKontaktperson, FLSaisonTeamConfirmationView, FLSaisonTeamKontakte } from "@/core/generated/client/types";
+import type { FLKontaktpersonAdmin, FLSaisonTeamConfirmationView, FLSaisonTeamKontakteAdmin } from "@/core/generated/client/types";
 
-const person = (first_name: string, confirmed_at: string | null = null): FLKontaktperson => ({
+const person = (first_name: string, confirmed_at: string | null = null): FLKontaktpersonAdmin => ({
   first_name,
   last_name: "Muster",
   email: `${first_name.toLowerCase()}@example.com`,
   phone: "069 90009123",
-  birth_date: null,
-  einwilligung: {
-    scope: "kontakt_data",
-    date: "2026-10-01",
-    confirmed_at,
-    media: false,
-    evidence: { scope: null, media: null },
-  },
+  einwilligung: { scope: "kontakt_data", confirmed_at, media: false },
 });
 
 const link = (overrides: Partial<FLSaisonTeamConfirmationView>): FLSaisonTeamConfirmationView => ({
@@ -31,12 +24,12 @@ const link = (overrides: Partial<FLSaisonTeamConfirmationView>): FLSaisonTeamCon
   ...overrides,
 });
 
-const NOBODY: FLSaisonTeamKontakte = { trainer: null, ansprechperson: null, stellvertretung: null, trainer_is_also: null };
+const NOBODY: FLSaisonTeamKontakteAdmin = { trainer: null, ansprechperson: null, stellvertretung: null, trainer_is_also: null };
 
 /* The chip is how the administrator knows whom to chase and whom to replace, and no other line on the page repeats it:
    a lapsed link read as open, or an objection read as an erasure, sends them after the wrong person. */
 describe("where a team's seat stands", () => {
-  const chipOf = (kontakte: FLSaisonTeamKontakte, confirmations: Parameters<typeof seatsOf>[0]["confirmations"]) =>
+  const chipOf = (kontakte: FLSaisonTeamKontakteAdmin, confirmations: Parameters<typeof seatsOf>[0]["confirmations"]) =>
     seatsOf({ kontakte, confirmations }).find((seat) => seat.id === "ansprechperson")?.chips[0]?.label;
 
   it("reads a confirmed person as confirmed, whatever their link says", () => {

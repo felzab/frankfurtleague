@@ -1,12 +1,11 @@
 import { connection } from "next/server";
 
-import { ClassicPage, PageHead } from "@/kit/ClassicPage";
-import { ProseOnceRead } from "@/kit/Prose";
-
 import { COPY } from "@/core/copy";
 import { ROUTES, SAISONLESS_PAGES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { getSaisonFrame } from "@/features/saisons/queries";
+import { ClassicPage, PageHead } from "@/kit/ClassicPage";
+import { ProseOnceRead } from "@/kit/Prose";
 import { pageMetadata } from "@/shared/utils/metadata";
 
 import { LEGAL_LINKS, LIGA_LINKS } from "../frame";

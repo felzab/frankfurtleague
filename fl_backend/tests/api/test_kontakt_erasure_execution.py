@@ -1,4 +1,3 @@
-import re
 from collections.abc import Awaitable, Callable, Mapping
 from datetime import datetime
 from typing import Any
@@ -13,16 +12,13 @@ from app.api.identity.admin_router import get_erasure_view
 from app.api.identity.schemas import FLErasureAddressPayload, FLErasureViewResponse
 from app.api.identity.services import build_erasure_seat_pipeline
 from app.api.kontakte.crud import erase_kontaktperson_in_session
-from app.api.kontakte.services import (
-    build_clearing_update,
-    same_address,
-)
+from app.api.kontakte.services import build_clearing_update
 from app.api.teams.schemas import FLSaisonTeamKontakte
 from app.core.collections import Collection
 from app.core.crud import aggregate_many_from_db, patch_one_in_db
 from app.core.transactions import transaction_session
 from app.shared.folding import sign_in_identifier
-from app.shared.schemas.literals import KONTAKT_ROLLEN
+from app.shared.schemas.literals import KONTAKT_SEATS
 from app.shared.tokens import hash_token
 from tests import documents
 from tests.database import a_clean_database
@@ -60,7 +56,7 @@ BYSTANDER_PHONE = "+49 69 90009202"
 BYSTANDER_FORMER_PHONE = "+49 69 90009902"
 BYSTANDER_LAST_NAME = "Pfeffernuss"
 
-# The third slot, and the whole of the row that must not be reached at all.
+# The third seat, and the whole of the row that must not be reached at all.
 UNREACHED_EMAIL = "baldur.krautzberger@example.com"
 UNREACHED_PHONE = "+49 69 90009303"
 UNREACHED_FORMER_PHONE = "+49 69 90009903"
@@ -74,17 +70,7 @@ UNKNOWN_EMAIL = "niemand.hierverzeichnet@example.com"
 # normalises it.
 VARIANT_REQUEST_EMAIL = "Wiltrudis.Quastenflosser@EXAMPLE.COM"
 
-# Every spelling of that one mailbox a hand-typed grant may hold, which the grant erasure's pattern
-# (`app/api/kontakte/services.py :: same_address`) must take: the domain differing, the local part differing, and both.
-CASE_VARIANTS: tuple[str, ...] = (
-    ERASED_EMAIL,
-    ERASED_EMAIL.replace("example.com", "EXAMPLE.COM"),
-    "Wiltrudis.Quastenflosser@example.com",
-    ERASED_EMAIL.upper(),
-)
-
-# Addresses the same request must leave standing. The pattern reads those at another domain, the fold
-# refusing them; unanchored, or with the `.` unescaped, it reads the other local parts too.
+# Addresses the same request must leave standing: another domain, and another local part.
 OTHER_DOMAINS: tuple[str, ...] = ("wiltrudis.quastenflosser@example.org", "wiltrudis.quastenflosser@example.com.example")
 OTHER_LOCAL_PARTS: tuple[str, ...] = ("nichtwiltrudis.quastenflosser@example.com", "wiltrudisXquastenflosser@example.com")
 NEAR_MISSES: tuple[str, ...] = (*OTHER_DOMAINS, *OTHER_LOCAL_PARTS)
@@ -105,17 +91,17 @@ PEOPLE: dict[str, tuple[str, str, str]] = {
     UNREACHED_LAST_NAME: (UNREACHED_EMAIL, UNREACHED_PHONE, UNREACHED_FORMER_PHONE),
 }
 
-# Who stands in each slot of each seeded row, in `KONTAKT_ROLLEN` order, plus which seat the form said
+# Who stands in each seat of each seeded row, in `KONTAKT_SEATS` order, plus which seat the form said
 # the Trainer also holds. Every case the erasure has to answer is one row here.
 SEEDED_ROLES: dict[ObjectId, tuple[tuple[str, str, str], str | None]] = {
-    # One slot naming the erased person, and two people beside them who asked for nothing.
+    # One seat naming the erased person, and two people beside them who asked for nothing.
     ROW_A_EARLIER_OID: ((ERASED_LAST_NAME, BYSTANDER_LAST_NAME, UNREACHED_LAST_NAME), None),
-    # The same person a season later, and in TWO slots: `trainer_is_also` stores one
+    # The same person a season later, and in TWO seats: `trainer_is_also` stores one
     # person twice, so clearing the first alone would leave this block naming them.
     ROW_A_LATER_OID: ((ERASED_LAST_NAME, ERASED_LAST_NAME, BYSTANDER_LAST_NAME), "ansprechperson"),
     # Nobody the erasure may reach.
     ROW_B_OID: ((UNREACHED_LAST_NAME, BYSTANDER_LAST_NAME, UNREACHED_LAST_NAME), None),
-    # The second store this branch adds, with the person in a different slot than on the junction.
+    # The second store this branch adds, with the person in a different seat than on the junction.
     BEWERBUNG_OID: ((BYSTANDER_LAST_NAME, ERASED_LAST_NAME, UNREACHED_LAST_NAME), None),
     OTHER_BEWERBUNG_OID: ((UNREACHED_LAST_NAME, BYSTANDER_LAST_NAME, UNREACHED_LAST_NAME), None),
 }
@@ -146,7 +132,7 @@ def blocks(*, live: bool) -> dict[ObjectId, dict[str, Any]]:
 
     return {
         row_id: {
-            **{slot: person(last_name, phones[last_name]) for slot, last_name in zip(KONTAKT_ROLLEN, roles, strict=True)},
+            **{seat: person(last_name, phones[last_name]) for seat, last_name in zip(KONTAKT_SEATS, roles, strict=True)},
             "trainer_is_also": also,
         }
         for row_id, (roles, also) in SEEDED_ROLES.items()
@@ -159,9 +145,14 @@ LIVE_BLOCKS = blocks(live=True)
 SAISON_TEAM_OIDS = (ROW_A_EARLIER_OID, ROW_A_LATER_OID, ROW_B_OID)
 BEWERBUNG_OIDS = (BEWERBUNG_OID, OTHER_BEWERBUNG_OID)
 
-# Which rows the erasure must reach, and how many slots each one owes it. Stated here so a failure
-# names the expectation rather than a number computed beside the code under test.
-EXPECTED_SLOTS = {ROW_A_EARLIER_OID: 1, ROW_A_LATER_OID: 2, BEWERBUNG_OID: 1}
+# Which rows the erasure must reach, and which of their seats hold the person. Stated here so a failure
+# names the expectation rather than a set computed beside the code under test.
+ERASED_SEATS: dict[ObjectId, tuple[str, ...]] = {
+    ROW_A_EARLIER_OID: ("trainer",),
+    ROW_A_LATER_OID: ("trainer", "ansprechperson"),
+    BEWERBUNG_OID: ("ansprechperson",),
+}
+ERASED_SEAT_COUNT = sum(len(seats) for seats in ERASED_SEATS.values())
 
 
 def saison_team_document(row_id: ObjectId, saison_id: str, team_id: ObjectId) -> dict[str, Any]:
@@ -173,7 +164,7 @@ def saison_team_document(row_id: ObjectId, saison_id: str, team_id: ObjectId) ->
 # The three live links every seeded application carries, so an erasure has bookkeeping to reach.
 # Minted as the shared application builder mints them, from this prefix on the submission's day.
 LINK_PREFIX = "link"
-CONFIRMATIONS = minted_confirmations(hashes={slot: hash_token(f"{LINK_PREFIX}-{slot}") for slot in KONTAKT_ROLLEN}, today="2026-01-05")
+CONFIRMATIONS = minted_confirmations(hashes={seat: hash_token(f"{LINK_PREFIX}-{seat}") for seat in KONTAKT_SEATS}, today="2026-01-05")
 
 
 def bewerbung_document(row_id: ObjectId, team_id: ObjectId) -> dict[str, Any]:
@@ -192,8 +183,8 @@ def bewerbung_document(row_id: ObjectId, team_id: ObjectId) -> dict[str, Any]:
     )
 
 
-# Why a case stores seats the read-back refuses: the near misses a pattern must not reach are spellings no fold holds.
-UNFOLDED_ON_PURPOSE = "seats naming spellings no fold holds, which an erasure's pattern must miss"
+# Why a case stores seats the read-back refuses: a near miss the erasure must not reach is a spelling no fold holds.
+UNFOLDED_ON_PURPOSE = "seats naming spellings no fold holds, which an erasure must miss"
 
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
@@ -209,6 +200,7 @@ async def a_row_with_a_history(database: AsyncDatabase, collection: str, row_id:
         db_filter={"_id": row_id},
         update={"$set": {"kontakte": LIVE_BLOCKS[row_id]}},
         expected_version=None,
+        session=None,
         return_document=ReturnDocument.BEFORE,
     )
     await patch_one_in_db(
@@ -216,6 +208,7 @@ async def a_row_with_a_history(database: AsyncDatabase, collection: str, row_id:
         db_filter={"_id": row_id},
         update={"$set": {"gruppe": "B"}},
         expected_version=None,
+        session=None,
         return_document=ReturnDocument.BEFORE,
     )
 
@@ -230,6 +223,7 @@ async def a_bewerbung_with_a_history(database: AsyncDatabase, row_id: ObjectId) 
         db_filter={"_id": row_id},
         update={"$set": {"kontakte": LIVE_BLOCKS[row_id]}},
         expected_version=None,
+        session=None,
         return_document=ReturnDocument.BEFORE,
     )
     await patch_one_in_db(
@@ -237,6 +231,7 @@ async def a_bewerbung_with_a_history(database: AsyncDatabase, row_id: ObjectId) 
         db_filter={"_id": row_id},
         update={"$set": {"kader.good_spieler": 4}},
         expected_version=None,
+        session=None,
         return_document=ReturnDocument.BEFORE,
     )
 
@@ -289,6 +284,7 @@ async def call_view(database: AsyncDatabase, client: AsyncMongoClient, email: st
             address_changes_collection=database[Collection.ADDRESS_CHANGES],
             session=session,
             operator=OPERATOR,
+            germany_now=NOW,
         )
 
 
@@ -304,9 +300,9 @@ async def stored_rows(database: AsyncDatabase) -> dict[Any, Mapping[str, Any]]:
 
 
 def a_block_holding(trainer: Mapping[str, Any]) -> dict[str, Any]:
-    """One person in the Trainer slot, the other two empty, all four keys present."""
+    """One person in the Trainer seat, the other two empty, all four keys present."""
 
-    return {**{slot: None for slot in KONTAKT_ROLLEN}, "trainer": dict(trainer), "trainer_is_also": None}
+    return {**{seat: None for seat in KONTAKT_SEATS}, "trainer": dict(trainer), "trainer_is_also": None}
 
 
 def a_junction_row(row_id: ObjectId, saison_id: str, block: Mapping[str, Any]) -> dict[str, Any]:
@@ -358,28 +354,51 @@ async def after_erasure(url: str, email: str = ERASED_EMAIL) -> Snapshot:
     return await on_a_league(url, body)
 
 
-class TestTheSlotsAreReadOffTheModel:
+class TestTheSeatsAreReadOffTheModel:
     """The spelling the write turns on, apart from a database."""
 
-    def test_every_slot_the_model_declares_is_covered(self):
+    def test_every_seat_the_model_declares_is_covered(self):
         """A role added to the block alone is cleared by nothing, and one added out of order is listed out of it."""
 
         declared = tuple(name for name in FLSaisonTeamKontakte.model_fields if name != "trainer_is_also")
 
-        assert declared == KONTAKT_ROLLEN
+        assert declared == KONTAKT_SEATS
+
+
+# What a row holds where it carries no bookkeeping block, as a junction row does.
+NO_BLOCK = "no bookkeeping block"
+
+
+def emptied(block: Any, seats: tuple[str, ...]) -> Any:
+    """A block with these seats emptied; one a row does not carry stays absent."""
+
+    return block if block == NO_BLOCK else {**block, **{seat: None for seat in seats}}
 
 
 @pytest.mark.db
-async def test_the_erased_seats_link_goes_with_the_person_and_no_other_seats_does(mongo_replica_set_url: str):
-    """Kills an erasure stopping at `kontakte`: a live link would outlive the person and confirm a slot naming nobody."""
+async def test_the_erasure_empties_their_seats_and_links_and_nothing_else(mongo_replica_set_url: str):
+    """Every seeded row after the erasure, against itself before with the person's own seats emptied."""
 
-    _, rows = await after_erasure(mongo_replica_set_url)
-    block = rows[BEWERBUNG_OID]["confirmations"]
+    before, after = await after_erasure(mongo_replica_set_url)
 
-    assert block["ansprechperson"] is None
-    assert block["trainer"] == CONFIRMATIONS["trainer"]
-    assert block["stellvertretung"] == CONFIRMATIONS["stellvertretung"]
-    assert rows[OTHER_BEWERBUNG_OID]["confirmations"] == CONFIRMATIONS
+    assert before[BEWERBUNG_OID]["confirmations"] == CONFIRMATIONS, "the seed carries no links, so the links' assertion proves nothing"
+    assert {row_id: row["kontakte"] for row_id, row in after.items()} == {
+        row_id: emptied(row["kontakte"], ERASED_SEATS.get(row_id, ())) for row_id, row in before.items()
+    }, (
+        "the blocks: each seat the person held is emptied, and the people beside them, the rows that never named them "
+        "and the form's own `trainer_is_also` stand"
+    )
+    assert {row_id: row.get("confirmations", NO_BLOCK) for row_id, row in after.items()} == {
+        row_id: emptied(row.get("confirmations", NO_BLOCK), ERASED_SEATS.get(row_id, ())) for row_id, row in before.items()
+    }, (
+        "the links: each of the person's goes with them so it cannot confirm a seat naming nobody, every other seat's stands, "
+        "and a junction row gains no bookkeeping block"
+    )
+
+    # As text, past the seats any filter names; a bystander's number is the floor under a database emptied wholesale.
+    rendered = str(sorted(after.items(), key=lambda pair: str(pair[0])))
+    assert [value for value in (ERASED_EMAIL, ERASED_PHONE, ERASED_LAST_NAME) if value in rendered] == [], "a value of theirs survives"
+    assert BYSTANDER_PHONE in rendered, "the sweep would pass over a database emptied wholesale"
 
 
 @pytest.mark.db
@@ -412,33 +431,11 @@ async def test_an_erasure_takes_the_notice_back_only_where_the_day_it_named_move
     assert (await on_a_league(mongo_replica_set_url, body))["erasure_announced_at"] == announced
 
 
-@pytest.mark.db
-async def test_a_junction_row_gains_no_bookkeeping_block(mongo_replica_set_url: str):
-    """Kills a clearing that nulls the seat's bookkeeping unconditionally: a dotted `$set` into an absent block creates one."""
-
-    _, rows = await after_erasure(mongo_replica_set_url)
-
-    assert all("confirmations" not in rows[row_id] for row_id in SAISON_TEAM_OIDS)
-
-
 def test_the_clearing_names_the_bookkeeping_only_where_told_to():
     """The pure half: a season row holding no block gets no key created."""
 
     assert build_clearing_update(("trainer",)) == {"$set": {"kontakte.trainer": None}}
     assert build_clearing_update(("trainer",), confirmations=True) == {"$set": {"kontakte.trainer": None, "confirmations.trainer": None}}
-
-
-@pytest.mark.db
-async def test_the_two_people_beside_them_are_untouched(mongo_replica_set_url: str):
-    """The over-breadth floor. Kills nulling the whole `kontakte` block, which would destroy two records nobody asked about."""
-
-    _, rows = await after_erasure(mongo_replica_set_url)
-    kontakte = rows[ROW_A_EARLIER_OID]["kontakte"]
-
-    assert kontakte["ansprechperson"] == LIVE_BLOCKS[ROW_A_EARLIER_OID]["ansprechperson"]
-    assert kontakte["stellvertretung"] == LIVE_BLOCKS[ROW_A_EARLIER_OID]["stellvertretung"]
-    # Kept through the erasure: it is a fact about the FORM, not about either slot's occupant.
-    assert kontakte["trainer_is_also"] is None
 
 
 @pytest.mark.db
@@ -471,18 +468,7 @@ async def test_a_spelling_handed_in_unfolded_still_clears(mongo_replica_set_url:
 
         return seats_cleared(before.values(), (await stored_rows(database)).values())
 
-    assert await on_a_league(mongo_replica_set_url, body) == sum(EXPECTED_SLOTS.values())
-
-
-@pytest.mark.db
-async def test_no_value_of_theirs_survives_anywhere_in_the_database(mongo_replica_set_url: str):
-    """Every seat and application row swept as text, not the seats a filter named; a bystander's number is the floor."""
-
-    _, rows = await after_erasure(mongo_replica_set_url)
-    rendered = str(sorted(rows.items(), key=lambda pair: str(pair[0])))
-
-    assert [value for value in (ERASED_EMAIL, ERASED_PHONE, ERASED_LAST_NAME) if value in rendered] == []
-    assert BYSTANDER_PHONE in rendered, "the sweep would pass over a database emptied wholesale"
+    assert await on_a_league(mongo_replica_set_url, body) == ERASED_SEAT_COUNT
 
 
 @pytest.mark.db
@@ -507,147 +493,7 @@ async def test_an_address_asked_unfolded_clears_its_stored_fold_and_no_near_miss
 
     assert cleared == [], "the match reached an address that is not this person"
     assert rows[MATCHED_ROW_OID]["kontakte"]["trainer"] is None, "the unfolded request missed the stored fold"
-    assert seats_cleared(before.values(), rows.values()) == sum(EXPECTED_SLOTS.values()) + 1, "a seat that is somebody else's was cleared"
-
-
-# An identifier holding no `@`: the spellings the fold claims, and a value each anchor keeps out, the end two of them
-# and the start one.
-NO_AT_IDENTIFIER = "no-at"
-NO_AT_CLAIMED: tuple[str, ...] = (NO_AT_IDENTIFIER, "NO-AT", f"{chr(0x20)}no-at{chr(0xA0)}")
-NO_AT_UNCLAIMED: tuple[str, ...] = ("no-atx", "kein-at@example.com", "xkein-at")
-
-
-# A stored address carrying what the fold trims, the start and the end each: the pattern has to
-# take every value the fold would claim. Built from code points, since both are whitespace.
-PADDED_SPELLINGS: tuple[str, ...] = (f"{chr(0x20)}{ERASED_EMAIL}", f"{ERASED_EMAIL}{chr(0xA0)}")
-
-
-@pytest.mark.parametrize(
-    ("asked", "taken", "missed"),
-    [
-        pytest.param(VARIANT_REQUEST_EMAIL, (*CASE_VARIANTS, *PADDED_SPELLINGS), NEAR_MISSES, id="one spelling"),
-        # Both ends are anchored; one anchor alone takes the start's or the end's near miss.
-        pytest.param(NO_AT_IDENTIFIER, NO_AT_CLAIMED, NO_AT_UNCLAIMED, id="no @"),
-        pytest.param(
-            "@x.example.org", ("@x.example.org", "@X.EXAMPLE.ORG"), ("x@x.example.org", "@x.example.org.example"), id="an empty local part"
-        ),
-        # Padded or blank as stored, which a pattern built off that spelling reads less of than its fold claims.
-        pytest.param(
-            f"{chr(0x20)}{VARIANT_REQUEST_EMAIL}{chr(0xA0)}", (*CASE_VARIANTS, *PADDED_SPELLINGS), OTHER_LOCAL_PARTS, id="a padded spelling"
-        ),
-        pytest.param(chr(0x20) * 3, ("", chr(0x20), chr(0xA0)), ("x",), id="a blank"),
-    ],
-)
-def test_the_pattern_takes_every_spelling_the_fold_claims_and_no_other_address(asked: str, taken: tuple[str, ...], missed: tuple[str, ...]):
-    """Python's `re` stands in for the server's engine, the two agreeing on an escaped literal compared in ASCII.
-
-    Each spelling taken is first held to the fold's claim, so the case never asks the pattern for more.
-    """
-
-    identifier = sign_in_identifier(asked)
-    # As asked, never its fold: a caller may hand on a stored value unfolded, which the pattern folds itself.
-    pattern = same_address(asked)
-    matches = re.compile(pattern["$regex"], re.IGNORECASE if pattern["$options"] == "i" else 0).search
-
-    assert [email for email in taken if sign_in_identifier(email) != identifier] == []
-    assert [email for email in taken if not matches(email)] == []
-    assert [email for email in missed if matches(email)] == []
-
-
-# What a stored address may hold, as a hand-typed or older row may: blanks the fold trims, regex
-# metacharacters, a NUL, case partners outside ASCII, and near misses of each identifier below. Built from code points.
-SERVER_CORPUS: tuple[str, ...] = (
-    *("", chr(0x20), chr(0x20) * 3, chr(0xA0), f"{chr(0x20)}{chr(0xA0)}{chr(0x09)}", chr(0x3000), chr(0xFEFF), chr(0x85)),
-    *(f"{chr(0xFEFF)}no-at{chr(0x3000)}", f"{chr(0x85)}no-at", *NO_AT_CLAIMED, *NO_AT_UNCLAIMED),
-    *("kein-at@", "KEIN-AT@", f"{chr(0x20)}kein-at@{chr(0xA0)}", "kein-at@@", "kein-at@x@y"),
-    *("a@b@c", "A@B@C", f"{chr(0x20)}a@b@C{chr(0xA0)}", "a@b@cx", "a@b@x.example.org", "a@bx@c"),
-    *("@x.example.org", f"@{chr(0xFF58)}.example.org", "@X.EXAMPLE.ORG", "x@x.example.org", "@", "@@"),
-    *("someone@example.org", f"{chr(0x017F)}omeone@example.org", f"{chr(0x212A)}im@example.org", "kim@example.org"),
-    *(
-        "a.b@x.example.org",
-        "axb@x.example.org",
-        "a+b@x.example.org",
-        "aab@x.example.org",
-        "a(b)@x.example.org",
-        "a\\b@x.example.org",
-        "a[b]@x.example.org",
-        "a$b@x.example.org",
-        "a^b@x.example.org",
-    ),
-    *(
-        "a|b@x.example.org",
-        "a{2}@x.example.org",
-        "aa@x.example.org",
-        "a?b@x.example.org",
-        "a*b@x.example.org",
-        "ab@x.example.org",
-        "b@x.example.org",
-        "a\x00b@x.example.org",
-    ),
-    *("wiltrudis.quastenflosser@example.com", "Wiltrudis.Quastenflosser@EXAMPLE.COM", "wiltrudisXquastenflosser@example.com"),
-)
-SERVER_IDENTIFIERS: tuple[str, ...] = (
-    *(NO_AT_IDENTIFIER, "kein-at@", "KEIN-AT@", "a@b@c", chr(0x20) * 3, "", f"{chr(0xA0)}{chr(0x09)}", "@x.example.org", "@", "@@"),
-    *(
-        "someone@example.org",
-        "kim@example.org",
-        "a.b@x.example.org",
-        "a+b@x.example.org",
-        "a(b)@x.example.org",
-        "a\\b@x.example.org",
-        "a[b]@x.example.org",
-        "a$b@x.example.org",
-    ),
-    *(
-        "a^b@x.example.org",
-        "a|b@x.example.org",
-        "a{2}@x.example.org",
-        "a?b@x.example.org",
-        "a*b@x.example.org",
-        "a\x00b@x.example.org",
-        "Wiltrudis.Quastenflosser@EXAMPLE.COM",
-    ),
-)
-
-
-@pytest.mark.db
-async def test_the_server_reads_each_pattern_as_python_does_and_misses_nothing_the_fold_claims(mongo_replica_set_url: str):
-    """The case above's `re` held to the server's own engine, which reads `\\s` as ASCII alone: a no-break space it would miss."""
-
-    row_ids = {value: ObjectId(f"6890a1b2c3d4e5f60783{index:04d}") for index, value in enumerate(SERVER_CORPUS)}
-
-    async def body(database: AsyncDatabase, _: AsyncMongoClient) -> dict[str, set[ObjectId]]:
-        await database[Collection.SAISON_TEAMS].insert_many(
-            [a_row_naming(row_id, value) for value, row_id in row_ids.items()], bypass_document_validation=True
-        )
-        read: dict[str, set[ObjectId]] = {}
-        for identifier in SERVER_IDENTIFIERS:
-            # Any stored string serves the pattern: the grant erasure it reads for asks it of `grants.address`.
-            pipeline = [{"$match": {"kontakte.trainer.email": same_address(identifier)}}]
-            read[identifier] = {row["_id"] for row in await (await database[Collection.SAISON_TEAMS].aggregate(pipeline)).to_list()}
-
-        return read
-
-    read = await on_a_league(mongo_replica_set_url, body, stores_a_refused_shape=UNFOLDED_ON_PURPOSE)
-    parted: dict[str, Any] = {}
-    for identifier in SERVER_IDENTIFIERS:
-        pattern = same_address(identifier)
-        python = {value for value in SERVER_CORPUS if re.search(pattern["$regex"], value, re.IGNORECASE if pattern["$options"] == "i" else 0)}
-        server = {value for value, row_id in row_ids.items() if row_id in read[identifier]}
-        claimed = {value for value in SERVER_CORPUS if sign_in_identifier(value) == sign_in_identifier(identifier)}
-        # The fold equates the value whole, so an ASCII read is the claim exactly: an end left open reads a near miss. A
-        # case partner outside ASCII is the `i` flag's, which the fold then decides.
-        unclaimed = {value for value in server - claimed if value.isascii()}
-        # The last, a whole-collection read for an identifier naming anything, is a pattern that takes nothing out.
-        if server != python or claimed - server or unclaimed or (identifier.strip() and server == set(SERVER_CORPUS)):
-            parted[identifier] = {
-                "server alone": server - python,
-                "python alone": python - server,
-                "claimed and missed": claimed - server,
-                "read and unclaimed": unclaimed,
-            }
-
-    assert parted == {}
+    assert seats_cleared(before.values(), rows.values()) == ERASED_SEAT_COUNT + 1, "a seat that is somebody else's was cleared"
 
 
 # Two domains to the sign-in fold, so two people an application may seat side by side.
@@ -713,5 +559,5 @@ async def test_the_reveal_lists_exactly_the_seats_the_erasure_then_clears(mongo_
     named = view.kontakt_seats + view.bewerbung_seats
 
     # Against the table above as well as the count: two figures agreeing on zero agree on nothing.
-    assert named == sum(EXPECTED_SLOTS.values())
+    assert named == ERASED_SEAT_COUNT
     assert named == cleared

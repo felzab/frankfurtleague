@@ -1,6 +1,6 @@
-"""Every route, the hourly pass and the erasure start, judge, move and end a change through these functions.
+"""The one set of functions that start, judge, move and end a change.
 
-One set, so no two of them part on what a change moves or what its end leaves behind. The effect moves everything the
+One set, so no two callers part on what a change moves or what its end leaves behind. The effect moves everything the
 address holds in its caller's transaction, a grant included, and nothing else; every end takes the record's addresses
 out of it.
 """
@@ -8,6 +8,7 @@ out of it.
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
+from http import HTTPStatus
 from typing import Any, Final, Literal
 
 from bson import ObjectId
@@ -22,20 +23,15 @@ from app.api.address_change.services import (
     build_address_filter,
     build_owed_carry_filter,
     compose_end_update,
-    find_expired_refusal,
-    find_new_granted_refusal,
-    find_occupied_refusal,
-    find_taken_refusal,
     masked_address,
     wait_tier,
 )
-from app.api.bewerbungen.services import days_after
 from app.api.grants.crud import move_the_grant_in_session, owe_in_session, pull_the_list_to_judge
 from app.api.grants.schemas import FLGrantNoticeStage
 from app.api.grants.services import compose_notice
-from app.api.identity.lookup import RecordCollections
+from app.api.identity.lookup import MoveCollections, RecordCollections
 from app.api.identity.services import is_own_schiedsrichter, is_own_spieler, own_seats
-from app.api.kontakte.services import rows_seating, same_address
+from app.api.kontakte.services import rows_seating
 from app.api.outbox.schemas import (
     FLAddressChangeDiscardedData,
     FLAddressChangeEffectiveData,
@@ -57,14 +53,15 @@ from app.api.registrierungen.services import (
 from app.api.schiedsrichter.services import build_self_referee_filter
 from app.api.spieler.crud import another_pupil_holds
 from app.api.spieler.services import build_self_pupil_filter
-from app.core.clock import german_day
+from app.core.clock import days_after, german_day
+from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.crud import aggregate_many_from_db, delete_many_from_db, patch_many_in_db, patch_one_in_db, post_one_to_db
-from app.core.exceptions import WriteRefusal, as_judged_on_stored_state
+from app.core.exceptions import APIError, link_expired
 from app.core.readonly import ReadCollection
 from app.core.recording import ACT_BY_SYSTEM, record_act
 from app.shared.folding import sign_in_identifier
-from app.shared.schemas.bounds import REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS
+from app.shared.schemas.bounds import CONFIRMATION_DEADLINE_DAYS
 from app.shared.schemas.literals import FLAddressChangeEndKind, FLAddressChangeWay, FLAdminTier
 
 _SPIELER_FIELDS: Final[Mapping[str, int]] = {"email": 1, "einwilligung": 1}
@@ -132,7 +129,8 @@ async def read_the_holdings(
         pipeline=[{"$match": rows_seating(identifier)}, {"$project": dict(_SEAT_FIELDS)}, {"$sort": {"_id": 1}}],
         session=session,
     )
-    # Every status: an accepted application keeps its seats, and the erasure of the new address reaches them only there.
+    # Every status: a declined application keeps its seats until its own clock, and the erasure of the new address reaches
+    # them only there.
     bewerbung_rows = await aggregate_many_from_db(
         collection=records.bewerbungen_collection,
         pipeline=[{"$match": rows_seating(identifier)}, {"$project": {"kontakte": 1, "confirmations": 1}}, {"$sort": {"_id": 1}}],
@@ -152,8 +150,8 @@ async def read_the_holdings(
         identifier=identifier,
         spieler=spieler,
         schiedsrichter=[row for row in referees if is_own_schiedsrichter(row, identifier)],
-        seats=[(row, tuple(slots)) for row in seat_rows if (slots := own_seats(row, identifier))],
-        bewerbung_seats=[(row, tuple(slots)) for row in bewerbung_rows if (slots := own_seats(row, identifier))],
+        seats=[(row, tuple(seats)) for row in seat_rows if (seats := own_seats(row, identifier))],
+        bewerbung_seats=[(row, tuple(seats)) for row in bewerbung_rows if (seats := own_seats(row, identifier))],
         registrierungen=registrierungen,
         grant=await live_grant_of(identifier, grants_collection=grants_collection, session=session),
     )
@@ -490,9 +488,8 @@ async def judge_the_effect_in_session(
 ) -> Verdict:
     """Every judgement the effect makes, in the order the link's view ranks its states, read in `session`.
 
-    The confirmation, the hourly pass and the link's view all ask it, so none of them parts on what refuses, but for one
-    case: at the pass a holder's change meets only `taken`, `new_granted` and an entry a person confirmed
-    (`a_confirmed_person_stands_at`).
+    One judgement for every caller, so none parts on what refuses, but for one case: at the hourly pass a holder's change
+    meets only `taken`, `new_granted` and an entry a person confirmed (`a_confirmed_person_stands_at`).
     """
 
     new_address = str(record["email"])
@@ -521,39 +518,27 @@ async def judge_the_effect_in_session(
     return Verdict(cause=None, empty=False)
 
 
-def refusal_of(cause: FLAddressChangeCause | None) -> WriteRefusal | None:
+def refusal_of(cause: FLAddressChangeCause | None) -> APIError | None:
     """The refusal a press answers for the judgement's cause, where the link's view shows a state and the pass ends the change.
 
-    On no field: the press's body holds its token and its answer, and the box these two name is the address tool's.
+    Every cause naming who stands at the new address answers `find_taken_refusal`'s one code, so the link's holder learns
+    no more than that the address is someone's.
     """
 
     match cause:
         case None:
             return None
         case "expired":
-            return find_expired_refusal(expired=True)
-        case "taken":
-            return as_judged_on_stored_state(find_taken_refusal(taken=True), twins={})
-        case "new_granted":
-            return find_new_granted_refusal(granted=True)
-        case "occupied":
-            return as_judged_on_stored_state(find_occupied_refusal(occupied=True), twins={})
+            return link_expired()
+        case "taken" | "new_granted" | "occupied":
+            return APIError(HTTPStatus.CONFLICT, Code.ADDRESS_CHANGE_TAKEN)
 
 
 async def move_the_address_in_session(
     *,
     record: Mapping[str, Any],
     holdings: Holdings,
-    address_changes_collection: AsyncCollection,
-    spieler_collection: AsyncCollection,
-    schiedsrichter_collection: AsyncCollection,
-    saison_teams_collection: AsyncCollection,
-    bewerbungen_collection: AsyncCollection,
-    registrierungen_collection: AsyncCollection,
-    grants_collection: AsyncCollection,
-    outbox_collection: AsyncCollection,
-    action_log_collection: AsyncCollection,
-    mailbox_anchors_collection: AsyncCollection,
+    collections: MoveCollections,
     now: datetime,
     session: AsyncClientSession,
 ) -> None:
@@ -567,7 +552,7 @@ async def move_the_address_in_session(
     if holdings.spieler is not None:
         # Folded as every start stores it, and again here: the sign-in seam joins on this field by equality.
         await patch_one_in_db(
-            collection=spieler_collection,
+            collection=collections.spieler_collection,
             db_filter={"_id": holdings.spieler["_id"]},
             update={"$set": {"email": sign_in_identifier(new_address)}},
             session=session,
@@ -577,7 +562,7 @@ async def move_the_address_in_session(
 
     for row in holdings.schiedsrichter:
         await patch_one_in_db(
-            collection=schiedsrichter_collection,
+            collection=collections.schiedsrichter_collection,
             db_filter={"_id": row["_id"]},
             update={"$set": {"kontakt.email": new_address}},
             session=session,
@@ -585,21 +570,21 @@ async def move_the_address_in_session(
             return_document=ReturnDocument.BEFORE,
         )
 
-    for row, slots in holdings.seats:
+    for row, seats in holdings.seats:
         await patch_one_in_db(
-            collection=saison_teams_collection,
+            collection=collections.saison_teams_collection,
             db_filter={"_id": row["_id"]},
-            update=_seat_move(slots, new_address),
+            update=_seat_move(seats, new_address),
             session=session,
             expected_version=None,
             return_document=ReturnDocument.BEFORE,
         )
 
-    for row, slots in holdings.bewerbung_seats:
+    for row, seats in holdings.bewerbung_seats:
         await patch_one_in_db(
-            collection=bewerbungen_collection,
+            collection=collections.bewerbungen_collection,
             db_filter={"_id": row["_id"]},
-            update=_seat_move(slots, new_address),
+            update=_seat_move(seats, new_address),
             session=session,
             expected_version=None,
             return_document=ReturnDocument.BEFORE,
@@ -609,21 +594,25 @@ async def move_the_address_in_session(
         await _move_the_registrierung_in_session(
             row,
             new_address=new_address,
-            registrierungen_collection=registrierungen_collection,
-            saison_teams_collection=saison_teams_collection,
-            mailbox_anchors_collection=mailbox_anchors_collection,
-            outbox_collection=outbox_collection,
+            registrierungen_collection=collections.registrierungen_collection,
+            saison_teams_collection=collections.saison_teams_collection,
+            mailbox_anchors_collection=collections.mailbox_anchors_collection,
+            outbox_collection=collections.outbox_collection,
             now=now,
             session=session,
         )
 
     if holdings.grant is not None:
         await move_the_grant_in_session(
-            holdings.grant, new_address=sign_in_identifier(new_address), grants_collection=grants_collection, now=now, session=session
+            holdings.grant,
+            new_address=sign_in_identifier(new_address),
+            grants_collection=collections.grants_collection,
+            now=now,
+            session=session,
         )
 
     await end_the_change_in_session(
-        address_changes_collection=address_changes_collection,
+        address_changes_collection=collections.address_changes_collection,
         db_filter={"_id": record["_id"]},
         kind="effective",
         now=now,
@@ -632,10 +621,12 @@ async def move_the_address_in_session(
 
     # A record the effect leaves naming the replaced address by address alone would outlive the person's erasure at the new one.
     old, new = holdings.identifier, sign_in_identifier(new_address)
-    await reattribute_administrator_in_session(action_log_collection=action_log_collection, identifier=old, value=new, session=session)
+    await reattribute_administrator_in_session(
+        action_log_collection=collections.action_log_collection, identifier=old, value=new, session=session
+    )
     if holdings.grant is not None:
         await record_act(
-            collection=address_changes_collection,
+            collection=collections.address_changes_collection,
             action="grant.address_switched",
             by=ACT_BY_SYSTEM,
             record_id=record["_id"],
@@ -644,14 +635,14 @@ async def move_the_address_in_session(
         )
     # An earlier effect's carry still owed takes its account to where the person is now, and an erasure there finds it.
     await patch_many_in_db(
-        collection=address_changes_collection, db_filter={"move.new": old}, update={"$set": {"move.new": new}}, session=session
+        collection=collections.address_changes_collection, db_filter={"move.new": old}, update={"$set": {"move.new": new}}, session=session
     )
-    await _carry_the_mail(outbox_collection, old, new, session=session)
+    await _carry_the_mail(collections.outbox_collection, old, new, session=session)
     # The lost-mailbox way carries no account: whatever its old mailbox's holder enrolled meanwhile would follow. The carry is
     # owed on the ended record itself, in this transaction, so a commit whose answer was lost still owes it.
     if record["way"] != "waiting_period":
         await patch_many_in_db(
-            collection=address_changes_collection,
+            collection=collections.address_changes_collection,
             db_filter={"_id": record["_id"]},
             update={"$set": {"move": {"old": old, "new": new}}},
             session=session,
@@ -661,7 +652,7 @@ async def move_the_address_in_session(
     # later, at the hourly pass, and tells the replaced mailbox then.
     if record["way"] != "account" or record.get("confirmed_at") is not None:
         await enqueue_mails(
-            outbox_collection=outbox_collection,
+            outbox_collection=collections.outbox_collection,
             session=session,
             mails=[
                 OwedMail(
@@ -677,8 +668,8 @@ async def move_the_address_in_session(
             record,
             stage="completed",
             effective_from=None,
-            grants_collection=grants_collection,
-            outbox_collection=outbox_collection,
+            grants_collection=collections.grants_collection,
+            outbox_collection=collections.outbox_collection,
             now=now,
             session=session,
         )
@@ -692,24 +683,23 @@ async def _carry_the_mail(outbox_collection: AsyncCollection, old: str, new: str
     the seat's. The row stands as a tombstone of its key: a pass deciding by its key whether a mail was owed (the line-up
     reminder's) or a replayed write would otherwise owe it a second time, to the new address. The tombstone goes a
     retention after its final state, as the row would have. The sign-in library's mails stay where they were owed, each
-    tied to the sign-in it was asked from. Matched on the sign-in fold, a recipient being stored as its mail was owed;
-    then written by id.
+    tied to the sign-in it was asked from. Matched by equality on `old`, folded as every recipient is stored; then
+    written by id.
     """
 
     rows = await aggregate_many_from_db(
         collection=outbox_collection,
-        pipeline=[{"$match": {"kind": {"$nin": sorted(SIGN_IN_KINDS)}, "to": same_address(old)}}, {"$project": {"to": 1, "state": 1}}],
+        pipeline=[{"$match": {"kind": {"$nin": sorted(SIGN_IN_KINDS)}, "to": old}}, {"$project": {"state": 1}}],
         session=session,
     )
-    held = [row for row in rows if sign_in_identifier(str(row["to"])) == old]
-    if open := [row["_id"] for row in held if row["state"] == "open"]:
+    if open := [row["_id"] for row in rows if row["state"] == "open"]:
         await patch_many_in_db(collection=outbox_collection, db_filter={"_id": {"$in": open}}, update={"$set": {"to": new}}, session=session)
-    if sent := [row["_id"] for row in held if row["state"] != "open"]:
+    if sent := [row["_id"] for row in rows if row["state"] != "open"]:
         await patch_many_in_db(collection=outbox_collection, db_filter={"_id": {"$in": sent}}, update=TOMBSTONE_UPDATE, session=session)
 
 
-def _seat_move(slots: Sequence[str], new_address: str) -> dict[str, Any]:
-    return {"$set": {f"kontakte.{slot}.email": new_address for slot in slots}}
+def _seat_move(seats: Sequence[str], new_address: str) -> dict[str, Any]:
+    return {"$set": {f"kontakte.{seat}.email": new_address for seat in seats}}
 
 
 async def _move_the_registrierung_in_session(
@@ -759,12 +749,9 @@ async def _move_the_registrierung_in_session(
         at=now,
         session=session,
     )
+    deadline = days_after(day=today, days=CONFIRMATION_DEADLINE_DAYS)
     if mailed:
-        update["$set"] |= {
-            "confirmation": compose_confirmation(
-                today=today, deadline=days_after(day=today, days=REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS), mailed=True
-            )
-        }
+        update["$set"] |= {"confirmation": compose_confirmation(today=today, deadline=deadline, mailed=True)}
     else:
         update["$set"] |= {"confirmation.token_hashes": [], "confirmation.sent_at": None}
     await _patch_the_registrierung(registrierungen_collection, row, update, session=session)
@@ -788,6 +775,7 @@ async def _move_the_registrierung_in_session(
                     address=new_address,
                     team=str(junction["name"]),
                     saison_id=saison_id,
+                    deadline=deadline,
                 )
             ],
             now=now,

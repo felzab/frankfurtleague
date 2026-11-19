@@ -156,7 +156,7 @@ async def the_league(database: AsyncDatabase, *, spiele: list[dict[str, Any]], j
 @dataclasses.dataclass(frozen=True)
 class Recipient:
     address: str
-    rollen: list[str]
+    seats: list[str]
 
 
 @dataclasses.dataclass(frozen=True)
@@ -197,10 +197,9 @@ class TeamNotice:
     team2_name: str
     old: FLSpielbestaetigungAppointment
     recipient: list[Recipient]
-    # A move's notice alone: the slot moved to, whether the party is still the fixture's, and the promise no notice makes.
+    # A move's notice alone: the slot moved to, and whether the party is still the fixture's.
     moved_to: Mapping[str, Any] | None = None
     stays: bool | None = None
-    asked_again: bool | None = None
     # A call-off's alone: the event it names.
     sonderereignis: str | None = None
 
@@ -215,7 +214,6 @@ class RefereeNotice:
     address: str
     moved_to: Mapping[str, Any] | None = None
     stays: bool | None = None
-    asked_again: bool | None = None
     sonderereignis: str | None = None
 
 
@@ -308,7 +306,7 @@ async def handed_out(
                     moved_from=data["moved_from"],
                 )
                 (pass_.requests if kind == "spiel_request" else pass_.reminders).append(grouped[key])
-            grouped[key].recipients.append(Recipient(address=mail.to, rollen=seats))
+            grouped[key].recipients.append(Recipient(address=mail.to, seats=seats))
             continue
         if kind == "aufstellung_reminder":
             pass_.aufstellungen.append(
@@ -326,7 +324,7 @@ async def handed_out(
         old = FLSpielbestaetigungAppointment(date=appointment["date"], time=appointment["time"])
         names = {"team1_name": appointment["team1"], "team2_name": appointment["team2"]}
         if kind == "spiel_moved":
-            names |= {"moved_to": data["moved_to"], "stays": data["stays"], "asked_again": data["asked_again"]}
+            names |= {"moved_to": data["moved_to"], "stays": data["stays"]}
         if kind == "spiel_cancelled":
             names |= {"sonderereignis": data["sonderereignis"]}
         to_a_referee = kind == "spiel_einteilung_lifted" or data.get("recipient") == "schiedsrichter"
@@ -347,7 +345,7 @@ async def handed_out(
                 "spiel_cancelled": pass_.spiel_cancelled,
                 "spiel_vorschlag_discarded": pass_.vorschlag_discarded,
             }[kind].append(grouped[key])
-        grouped[key].recipient.append(Recipient(address=mail.to, rollen=seats))
+        grouped[key].recipient.append(Recipient(address=mail.to, seats=seats))
 
     assert set_aside == kontakt_links, f"{set_aside} contacts mails handed out where the case owed {kontakt_links}"
 
@@ -379,7 +377,7 @@ async def a_pass(
         aufstellungen_collection=collections.get("aufstellungen", database[Collection.AUFSTELLUNGEN]),
         db=client,
         today=today,
-        now=clock_of(today) if now is None else now,
+        germany_now=clock_of(today) if now is None else now,
     )
 
 

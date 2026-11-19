@@ -29,8 +29,8 @@ with. The site is in German; the code and its documentation are in English.
 ## What it does
 
 Anyone can follow the season: the fixtures and results (_Spielplan_), each group's table
-(_Tabelle_), computed from the results, the knockout bracket (_K.-o.-Runde_), every team and
-its squad, and a search over the season's matches (_Spielsuche_).
+(_Tabelle_), computed from the results, the knockout bracket (_K.-o.-Runde_), every team and its
+squad, and a search over the season's matches (_Spielsuche_).
 
 The site also supports the season's organisation:
 
@@ -88,17 +88,18 @@ docs/            the documentation
 ## Who builds it
 
 Frankfurtleague, the software in this repository, is designed, developed and maintained by one
-person: me, [@felzab](https://github.com/felzab). I'm also a member of Frankfurt League e. V. I
-work with AI coding agents, using Anthropic's [Claude Code](https://claude.com/product/claude-code):
-they write and audit much of the code under my direction, and I decide what gets built, review the
-work and merge every change.
+person: me, [@felzab](https://github.com/felzab). I'm also a member of Frankfurt League e. V. I work
+with AI coding agents, using Anthropic's [Claude Code](https://claude.com/product/claude-code): they
+write and audit much of the code under my direction, and I decide what gets built, review the work
+and merge every change.
 
 ## Feedback
 
 Found a bug, or have an idea for the site? I'd be glad to hear about it through the
 [issue forms](https://github.com/felzab/frankfurtleague/issues/new/choose). I work on this alongside
 other things, so a reply can take a few days. I'm not looking for pull requests for now. Questions
-about the league itself are best sent through [the contact page](https://frankfurtleague.de/contact).
+about the league itself are best sent through
+[the contact page](https://frankfurtleague.de/contact).
 
 ## Security
 

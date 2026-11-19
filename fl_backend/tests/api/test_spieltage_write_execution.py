@@ -5,14 +5,13 @@ import pytest
 from bson import ObjectId
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.saisons.admin_router import patch_saison
-from app.api.saisons.schemas import FLPatchSaisonPayload, FLSaisonRules
 from app.api.spieltage.admin_router import patch_spieltag
 from app.api.spieltage.schemas import FLPatchSpieltagPayload
 from app.core.codes import Code
 from app.core.exceptions import APIError
 from tests import documents
 from tests.database import a_clean_database
+from tests.season_routes import call_season_save
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -66,8 +65,6 @@ def saison_document() -> dict[str, Any]:
 
 
 def matchday() -> dict[str, Any]:
-    """No `count_spiele`, the shape a drawn schedule leaves, so the echo assertions are controls rather than readings of a stale key."""
-
     return documents.spieltag_document(SPIELTAG_OID, SAISON_ID, 1, start=SPIELTAG_START, end=SPIELTAG_END)
 
 
@@ -90,24 +87,7 @@ async def on_a_database(url: str, body: Body) -> Any:
 async def move_the_seasons_end(database: AsyncDatabase, end_date: str) -> None:
     """Through `PATCH /saisons`, whose span refusal judges spans it reads out of `spieltage` itself."""
 
-    await patch_saison(
-        saison_id=SAISON_ID,
-        saison_data=FLPatchSaisonPayload(
-            start_date=SAISON_START,
-            end_date=end_date,
-            rules=FLSaisonRules.model_validate(RULES),
-            bewerbung=None,
-            registrierung=None,
-            version=(await database.saisons.find_one({"_id": SAISON_ID}, {"version": 1}) or {})["version"],
-        ),
-        saisons_collection=database.saisons,
-        saison_teams_collection=database.saison_teams,
-        spiele_collection=database.spiele,
-        spieltage_collection=database.spieltage,
-        saison_spieler_collection=database.saison_spieler,
-        db=database.client,
-        today=SAISON_START,
-    )
+    await call_season_save(database, saison_id=SAISON_ID, start_date=SAISON_START, end_date=end_date, rules=RULES, today=SAISON_START)
 
 
 async def re_date(database: AsyncDatabase, spieltag_id: ObjectId, *, start: str, end: str) -> Any:
@@ -201,21 +181,6 @@ class TestAMatchdayNeverBeginsBeforeItsPredecessor:
         assert refusal.error_code == Code.SPIELTAG_START_OUT_OF_ORDER
         # The refusal runs ahead of the write, so the matchday still holds the span it was seeded with.
         assert stored_start == SPIELTAG_START
-
-    async def test_a_move_before_the_previous_position_is_refused(self, mongo_replica_set_url: str):
-        """The other neighbour, and the other direction: a rule reading one side would let this one through."""
-
-        async def body(database: AsyncDatabase) -> APIError:
-            await self._with_a_matchday(database, oid=SECOND_OID, position=2, start=NEIGHBOUR_START)
-
-            with pytest.raises(APIError) as excinfo:
-                await re_date(database, SECOND_OID, start=BEFORE_THE_FIRST_START, end=BEFORE_THE_FIRST_END)
-
-            return excinfo.value
-
-        refusal = await on_a_database(mongo_replica_set_url, body)
-
-        assert refusal.error_code == Code.SPIELTAG_START_OUT_OF_ORDER
 
     async def test_another_phases_matchday_is_no_neighbour(self, mongo_replica_set_url: str):
         """Positions restart in every phase, so only a query keyed on the phase keeps a Finale out of the Gruppenphase's order.

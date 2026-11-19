@@ -11,10 +11,10 @@ class PhaseSchedule:
 
     phase: FLSaisonPhase
     spieltage: int
-    matches_per_spieltag: int
+    spiele_per_spieltag: int
 
 
-def group_matchdays(teams_per_gruppe: int) -> int:
+def group_spieltage(teams_per_gruppe: int) -> int:
     """How many matchdays a single round robin of `teams_per_gruppe` teams takes.
 
     `n - 1` for an even n and `n` for an odd one; the odd case is not rounding, but the bye a round
@@ -26,7 +26,7 @@ def group_matchdays(teams_per_gruppe: int) -> int:
     return teams_per_gruppe - 1 if teams_per_gruppe % 2 == 0 else teams_per_gruppe
 
 
-def group_matches_per_matchday(number_of_gruppen: int, teams_per_gruppe: int) -> int:
+def group_spiele_per_spieltag(number_of_gruppen: int, teams_per_gruppe: int) -> int:
     """How many matches one group matchday holds, across every group.
 
     `teams_per_gruppe // 2` per group: an odd group pairs all but the team on its bye, and all groups
@@ -63,29 +63,16 @@ def schedule_for(rules: FLSaisonRules) -> tuple[PhaseSchedule, ...]:
     schedule = [
         PhaseSchedule(
             phase="gruppenphase",
-            spieltage=group_matchdays(rules.teams_per_gruppe),
-            matches_per_spieltag=group_matches_per_matchday(rules.number_of_gruppen, rules.teams_per_gruppe),
+            spieltage=group_spieltage(rules.teams_per_gruppe),
+            spiele_per_spieltag=group_spiele_per_spieltag(rules.number_of_gruppen, rules.teams_per_gruppe),
         )
     ]
 
     remaining = qualifier_count(rules)
     for phase in knockout_phases_for(remaining):
-        # The Finale's matchday also holds the match for third place, which every bracket plays (`draw_spielplan`).
+        # The Finale's matchday also holds the match for third place, which every bracket plays.
         matches = remaining // 2 + (1 if phase == "finale" else 0)
-        schedule.append(PhaseSchedule(phase=phase, spieltage=1, matches_per_spieltag=matches))
+        schedule.append(PhaseSchedule(phase=phase, spieltage=1, spiele_per_spieltag=matches))
         remaining //= 2
 
     return tuple(schedule)
-
-
-def expected_matches(rules: FLSaisonRules, phase: FLSaisonPhase) -> int:
-    """How many matches one matchday of this phase should hold -- `spieltage.count_spiele`.
-
-    The Finale's counts the match for third place beside the final. Zero for a knockout round this
-    season's bracket does not reach.
-    """
-
-    for entry in schedule_for(rules):
-        if entry.phase == phase:
-            return entry.matches_per_spieltag
-    return 0

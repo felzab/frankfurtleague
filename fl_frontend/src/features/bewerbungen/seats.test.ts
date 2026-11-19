@@ -4,21 +4,20 @@ import { COPY } from "@/core/copy";
 
 import { seatsOf } from "./seats";
 
-import type { FLBewerbung, FLBewerbungConfirmation, FLKontaktperson } from "@/core/generated/client/types";
+import type { FLBewerbung, FLBewerbungConfirmation, FLKontaktpersonAdmin } from "@/core/generated/client/types";
 
-const person = (confirmedAt: string | null): FLKontaktperson =>
+const person = (confirmedAt: string | null): FLKontaktpersonAdmin =>
   ({
     first_name: "Anke",
     last_name: "Koerner",
     email: "a@example.net",
     phone: "069 1",
     einwilligung: { confirmed_at: confirmedAt },
-  }) as FLKontaktperson;
+  }) as FLKontaktpersonAdmin;
 
 const entry = (overrides: Partial<FLBewerbungConfirmation> = {}): FLBewerbungConfirmation => ({
   sent_at: "2026-11-01",
   deadline: "2026-11-15",
-  reminded_at: null,
   declined_at: null,
   delivery: null,
   state: "valid",
@@ -35,7 +34,7 @@ function bewerbung(overrides: Partial<Pick<FLBewerbung, "status" | "kontakte" | 
   } as FLBewerbung;
 }
 
-const seat = (read: FLBewerbung, rolle: string) => seatsOf(read).find((view) => view.seat === rolle);
+const seat = (read: FLBewerbung, slot: string) => seatsOf(read).find((view) => view.seat === slot);
 
 describe("where a seat stands", () => {
   /* A Widerspruch and an erasure leave one empty slot, and only the first takes a new person: read as one, an
@@ -94,6 +93,6 @@ describe("one person on two seats", () => {
     const rows = seatsOf(bewerbung({ kontakte }));
 
     expect(rows.map((row) => row.seat)).toStrictEqual(["trainer", "stellvertretung"]);
-    expect(rows[0]?.rollen).toStrictEqual(["trainer", "ansprechperson"]);
+    expect(rows[0]?.seats).toStrictEqual(["trainer", "ansprechperson"]);
   });
 });

@@ -3,7 +3,6 @@ import logging
 import re
 import time
 from collections.abc import Awaitable, Callable, Mapping, Sequence
-from http import HTTPStatus
 from types import SimpleNamespace
 from typing import Any, cast
 
@@ -16,21 +15,11 @@ from pymongo.errors import ExecutionTimeout, OperationFailure
 from starlette.types import Message, Scope
 
 from app.core.codes import Code
-from app.core.exceptions import APIError
 from app.core.logging import JSONFormatter, fl_logger
 from app.core.middlewares import RequestDeadline, request_deadline_var
-from app.core.transactions import (
-    ABORT_GRACE_S,
-    Batch,
-    StalledPage,
-    drain,
-    run_isolated,
-    transaction_session,
-)
+from app.core.transactions import ABORT_GRACE_S, save_each, transaction_session
 from app.main import create_shell
 from tests.config import TEST_BASE_URL
-
-PAGE = 3
 
 
 class _Session:
@@ -70,42 +59,6 @@ class _Client:
         return self.sessions[-1]
 
 
-class TestAFullPageIsRunAgain:
-    @pytest.mark.parametrize(
-        "pages",
-        [
-            pytest.param([(PAGE, 2)], id="a page at the bound is the last"),
-            pytest.param([(PAGE + 1, 4), (PAGE - 1, 2)], id="a page past the bound, then a short one"),
-            pytest.param([(PAGE + 1, 4), (PAGE + 1, 4), (0, 0)], id="two past the bound, then an empty one"),
-        ],
-    )
-    async def test_the_pages_run_until_one_is_no_longer_than_the_bound(self, pages: list[tuple[int, int]]):
-        """The first case is the load-bearing one.
-
-        A page of exactly the bound is whole, and one its clock leaves standing would be read for ever.
-        """
-
-        client = _Client()
-        handed: list[_Session] = []
-
-        async def erase_a_page(session: Any, _: Batch) -> tuple[int, int]:
-            assert session.open, "a page ran outside the session it was handed"
-            handed.append(session)
-            return pages[len(handed) - 1]
-
-        erased, _ = await drain(
-            db=cast(AsyncMongoClient, client),
-            page_of=erase_a_page,
-            page=PAGE,
-            what="Row",
-            clock="test",
-        )
-
-        assert handed == client.sessions
-        assert len(handed) == len(pages)
-        assert erased == sum(page[1] for page in pages)
-
-
 class _FailedInTheCallback(Exception):
     """The callback's own failure."""
 
@@ -126,69 +79,11 @@ def _refused_by_the_answer() -> ValidationError:
     raise AssertionError("the answer took a value its pattern refuses")
 
 
-async def _page(standing: list[int], batch: Batch) -> list[dict[str, int]]:
-    """The rows standing under the filter `Batch.within` builds over a clock's empty one, read as the server reads it."""
-
-    terms = [term["_id"] for term in batch.within({}).get("$and", [])[1:]]
-    admitted = [row for row in standing if all(row in term.get("$in", [row]) and row not in term.get("$nin", ()) for term in terms)]
-
-    return [{"_id": row} for row in admitted[: PAGE + 1]]
-
-
-class _Rows:
-    """The rows a clock's transaction reads, one past `PAGE` under its batch's term, raising whatever `raises` answers for what it read."""
-
-    def __init__(self, count: int, raises: Callable[[list[int]], Exception | None]) -> None:
-        self.standing = list(range(count))
-        self.raises = raises
-        self.read: list[list[int]] = []
-
-    async def erase(self, _: Any, batch: Batch) -> tuple[int, int]:
-        rows = [row["_id"] for row in await batch.saw(_page(self.standing, batch))]
-        self.read.append(rows)
-        if (failure := self.raises(rows)) is not None:
-            raise failure
-
-        for row in rows:
-            self.standing.remove(row)
-        return len(rows), len(rows)
-
-
-async def _isolated(rows: _Rows, *, owes: bool = False) -> tuple[list[tuple[int, int]], list[Any]]:
-    return await run_isolated(
-        db=cast(AsyncMongoClient, _Client()),
-        batch=Batch(),
-        attempt=rows.erase,
-        moved=lambda page: page[1],
-        owes=owes,
-        what="Row",
-        clock="test",
-    )
-
-
-class _RefusedOnSomeAttempts:
-    """A share clock whose judge refuses row 1 on the driver's attempts named alone, `_Client(attempts=2)` running it twice."""
-
-    def __init__(self, refused_on: set[int]) -> None:
-        self.standing = list(range(PAGE + 1))
-        self.refused_on = refused_on
-        self.attempts = 0
-
-    async def remind(self, _: Any, batch: Batch) -> list[int]:
-        self.attempts += 1
-        attempt = self.attempts
-        rows = await batch.saw(_page(self.standing, batch))
-
-        def judge(row: Mapping[str, Any]) -> None:
-            if row["_id"] == 1 and attempt in self.refused_on:
-                raise _FailedInTheCallback
-
-        taken = batch.took([row for row, _ in batch.judged(rows, judge)][: batch.share])
-        return [row["_id"] for row in taken]
+ROWS = [{"_id": position} for position in range(3)]
 
 
 class TestARowFailingAloneIsPassedOver:
-    """Over doubles, for the failures no row carries, which no database case reaches cheaply."""
+    """Over doubles, for the failures no database case reaches cheaply."""
 
     @pytest.mark.parametrize(
         ("failure", "code", "diagnosis"),
@@ -196,7 +91,7 @@ class TestARowFailingAloneIsPassedOver:
             pytest.param(
                 lambda: _FailedInTheCallback(A_STORED_VALUE),
                 Code.UNHANDLED_CRASH,
-                r"_FailedInTheCallback in erase at .+test_transactions\.py:\d+",
+                r"_FailedInTheCallback in save at .+test_transactions\.py:\d+",
                 id="not the database's, located by its innermost frame",
             ),
             pytest.param(
@@ -214,23 +109,21 @@ class TestARowFailingAloneIsPassedOver:
             ),
         ],
     )
-    async def test_the_rest_of_its_page_goes_and_no_later_page_reads_it_again(
+    async def test_the_rows_after_it_are_saved_each_in_a_session_of_its_own(
         self, caplog: pytest.LogCaptureFixture, failure: Callable[[], Exception], code: str, diagnosis: str
     ):
-        rows = _Rows(2 * PAGE + 1, lambda read: failure() if 1 in read else None)
+        client = _Client()
+
+        async def save(session: Any, row: Mapping[str, Any]) -> int:
+            assert session.open, "a row was saved outside the session it was handed"
+            if row["_id"] == 1:
+                raise failure()
+            return row["_id"]
 
         with caplog.at_level(logging.ERROR, logger=fl_logger.name):
-            erased, passed = await drain(
-                db=cast(AsyncMongoClient, _Client()),
-                page_of=rows.erase,
-                page=PAGE,
-                what="Row",
-                clock="test",
-            )
+            saved = await save_each(db=cast(AsyncMongoClient, client), rows=ROWS, save=save, what="Row", clock="test")
 
-        assert (erased, rows.standing, passed) == (2 * PAGE, [1], [1])
-        # The page after the one it failed in, read without it: read with it, it fails that page whole again.
-        assert rows.read[-1] == [4, 5, 6]
+        assert (saved.answers, saved.failed, saved.cut, len(client.sessions)) == ([0, 2], 1, False, len(ROWS))
         [record] = caplog.records
         line = JSONFormatter().format(record)
         assert (record.getMessage(), getattr(record, "error_code", None)) == ("transactions.row_passed_over", code)
@@ -239,260 +132,43 @@ class TestARowFailingAloneIsPassedOver:
         # The record's value reaches no line: a line about an erasure would outlive it.
         assert A_STORED_VALUE not in line
 
-    async def test_a_row_failing_on_a_page_after_a_committed_one_is_passed_over_alone_too(self):
-        """The first page commits whole before row 5 fails: a drain taking apart only its first page raises the whole pass here."""
 
-        rows = _Rows(2 * PAGE + 1, lambda read: _FailedInTheCallback() if 5 in read else None)
-
-        erased, passed = await drain(
-            db=cast(AsyncMongoClient, _Client()),
-            page_of=rows.erase,
-            page=PAGE,
-            what="Row",
-            clock="test",
-        )
-
-        assert (rows.read[0], erased, rows.standing, passed) == ([0, 1, 2, 3], 2 * PAGE, [5], [5])
-
-    @pytest.mark.parametrize("owes", [True, False], ids=("owing a message", "owing none"))
-    async def test_a_deadline_is_never_halved_and_is_answered_only_where_a_committed_half_owes_a_message(self, owes: bool):
-        """Row 1 fails alone; whatever reads row 2 meets the deadline, which every half of `[2, 3]` would meet too."""
-
-        def raises(read: list[int]) -> Exception | None:
-            if 1 in read:
-                return _FailedInTheCallback()
-            return ExecutionTimeout("deadline", 50) if 2 in read else None
-
-        rows = _Rows(4, raises)
-
-        if owes:
-            assert await _isolated(rows, owes=owes) == ([(1, 1)], [1])
-        else:
-            with pytest.raises(ExecutionTimeout):
-                await _isolated(rows, owes=owes)
-
-        assert rows.read == [[0, 1, 2, 3], [0, 1], [0], [1], [2, 3]]
-
-    async def test_a_commit_the_deadline_leaves_unanswered_names_the_rows_it_may_have_written(self, caplog: pytest.LogCaptureFixture):
-        """As the driver raises one, a timeout keeping the label: read as "the rest stay due", written rows whose message is lost go unnamed."""
-
-        def raises(read: list[int]) -> Exception | None:
-            if 1 in read:
-                return _FailedInTheCallback()
-            unanswered = ExecutionTimeout("unanswered", 50, {"errorLabels": ["UnknownTransactionCommitResult"]})
-            return unanswered if 2 in read else None
-
-        with caplog.at_level(logging.WARNING, logger=fl_logger.name):
-            answered = await _isolated(_Rows(4, raises), owes=True)
-
-        assert answered == ([(1, 1)], [1])
-        assert [
-            (getattr(record, "error_code", None), record.getMessage(), getattr(record, "what", None), getattr(record, "row_ids", None))
-            for record in caplog.records
-            if record.levelname == "WARNING"
-        ] == [(Code.UNKNOWN_OUTCOME, "transactions.isolation_commit_unanswered", "Row", ["2", "3"])]
-
-    async def test_a_failure_before_any_row_was_read_is_raised_rather_than_halved(self):
-        """No row to halve, so taking it apart would answer an empty success over a read that failed."""
-
-        attempts: list[Batch] = []
-
-        async def unread(_: Any, batch: Batch) -> tuple[int, int]:
-            attempts.append(batch)
-            raise _FailedInTheCallback
-
-        with pytest.raises(_FailedInTheCallback):
-            await run_isolated(
-                db=cast(AsyncMongoClient, _Client()),
-                batch=Batch(),
-                attempt=unread,
-                moved=lambda page: page[1],
-                owes=True,
-                what="Row",
-                clock="test",
-            )
-
-        assert len(attempts) == 1
-
-    async def test_a_stalled_page_is_raised_rather_than_halved(self):
-        """Its halves read under the page, so taking it apart would hide the stall `refuse_a_stalled_page` declares."""
-
-        rows = _Rows(PAGE + 1, lambda read: StalledPage("stalled"))
-
-        with pytest.raises(StalledPage):
-            await _isolated(rows)
-
-        assert rows.read == [[0, 1, 2, 3]]
-
-    async def test_a_retry_whose_read_fails_is_raised_rather_than_halved_over_the_read_before_it(self):
-        """The driver runs the callback again on a transient error: the rows the first attempt read carry no failure of the second's read."""
-
-        reads: list[int] = []
-
-        async def failing_the_second_time() -> list[dict[str, int]]:
-            reads.append(len(reads))
-            if len(reads) > 1:
-                raise _FailedInTheCallback
-            return [{"_id": row} for row in range(PAGE + 1)]
-
-        async def read(_: Any, batch: Batch) -> tuple[int, int]:
-            rows = await batch.saw(failing_the_second_time())
-            return len(rows), 0
-
-        with pytest.raises(_FailedInTheCallback):
-            await run_isolated(
-                db=cast(AsyncMongoClient, _Client(attempts=2)),
-                batch=Batch(),
-                attempt=read,
-                moved=lambda page: page[1],
-                owes=False,
-                what="Row",
-                clock="test",
-            )
-
-        assert reads == [0, 1]
-
+class TestTheDeadlineEndsThePass:
     @pytest.mark.parametrize(
-        ("refused_on", "answered"),
+        ("labels", "code", "unanswered"),
         [
-            pytest.param({2}, ([[0, 2, 3]], [1]), id="on the retry alone"),
-            pytest.param({1}, ([[0, 1, 2, 3]], []), id="on the first attempt alone"),
+            pytest.param([], Code.DATABASE_FAILED, False, id="its commit never sent"),
+            # As the driver raises one: `with_transaction` retries an unanswered commit until the deadline, keeping the label.
+            pytest.param(["UnknownTransactionCommitResult"], Code.UNKNOWN_OUTCOME, True, id="its commit unanswered"),
         ],
     )
-    async def test_a_retry_passes_over_only_the_rows_it_refused_itself(
-        self, caplog: pytest.LogCaptureFixture, refused_on: set[int], answered: tuple[list[list[int]], list[int]]
+    async def test_it_warns_once_naming_the_row_it_cut_and_tries_none_after_it(
+        self, caplog: pytest.LogCaptureFixture, labels: list[str], code: str, unanswered: bool
     ):
-        """The second case is load-bearing: kept from the attempt before, a refusal the retry did not repeat counts and logs a written row."""
+        """Every later row would meet the same deadline, and an unanswered commit may have written the row it names."""
 
-        clock = _RefusedOnSomeAttempts(refused_on)
+        tried: list[int] = []
 
-        with caplog.at_level(logging.ERROR, logger=fl_logger.name):
-            result = await run_isolated(
-                db=cast(AsyncMongoClient, _Client(attempts=2)),
-                batch=Batch(share=PAGE + 1),
-                attempt=clock.remind,
-                moved=len,
-                owes=True,
-                what="Row",
-                clock="test",
+        async def save(_: Any, row: Mapping[str, Any]) -> int:
+            tried.append(row["_id"])
+            if row["_id"] == 1:
+                raise ExecutionTimeout("deadline", 50, {"errorLabels": labels})
+            return row["_id"]
+
+        with caplog.at_level(logging.WARNING, logger=fl_logger.name):
+            saved = await save_each(db=cast(AsyncMongoClient, _Client()), rows=ROWS, save=save, what="Row", clock="test")
+
+        assert (saved.answers, saved.failed, saved.cut, tried) == ([0], 0, True, [0, 1])
+        assert [
+            (
+                record.levelname,
+                record.getMessage(),
+                getattr(record, "error_code", None),
+                getattr(record, "row_id", None),
+                getattr(record, "unanswered", None),
             )
-
-        assert (result, len(caplog.records)) == (answered, len(answered[1]))
-
-    async def test_a_refusal_the_request_answers_is_raised_rather_than_halved(self):
-        """Every half meets it too: halved, the call would answer 200 for a request it refuses."""
-
-        refusal = APIError(HTTPStatus.FORBIDDEN, Code.ACTOR_NOT_ADMIN)
-        rows = _Rows(PAGE + 1, lambda read: refusal)
-
-        with pytest.raises(APIError):
-            await _isolated(rows)
-
-        assert rows.read == [[0, 1, 2, 3]]
-
-
-class TestABatchNarrowsTheClocksOwnFilter:
-    def test_a_filter_naming_its_own_ids_keeps_them_beside_the_rows_passed_over(self):
-        """Merged rather than set beside, the term replaces the list's own ids and the read takes every row the rest admits."""
-
-        own = {"_id": {"$in": [1, 2]}, "status": "submitted"}
-
-        assert Batch(passed=[3]).within(own) == {"$and": [own, {"_id": {"$nin": [3]}}]}
-
-
-class _Share:
-    """A share clock's transaction: it passes `refused` over in place, takes the rest up to its share, and fails writing `failing`."""
-
-    def __init__(self, count: int, *, refused: int, failing: int) -> None:
-        self.standing = list(range(count))
-        self.refused = refused
-        self.failing = failing
-        self.read: list[list[int]] = []
-
-    async def remind(self, _: Any, batch: Batch) -> list[int]:
-        rows = [row["_id"] for row in await batch.saw(_page(self.standing, batch))]
-        self.read.append(rows)
-        taken = [row for row, _ in batch.judged([{"_id": row} for row in rows], self._judge)][: batch.share]
-        batch.took(taken)
-        if any(row["_id"] == self.failing for row in taken):
-            raise OperationFailure("refused", 121)
-
-        return [row["_id"] for row in taken]
-
-    def _judge(self, row: Mapping[str, Any]) -> None:
-        if row["_id"] == self.refused:
-            raise _FailedInTheCallback
-
-
-async def _a_share(clock: _Share, *, share: int, owes: bool = True) -> tuple[list[list[int]], list[Any]]:
-    return await run_isolated(
-        db=cast(AsyncMongoClient, _Client()),
-        batch=Batch(share=share),
-        attempt=clock.remind,
-        moved=len,
-        owes=owes,
-        what="Row",
-        clock="test",
-    )
-
-
-class TestAShareIsTakenApartOverTheRowsItTook:
-    """Halving its whole read would re-read the page past the share, at its share's cost."""
-
-    async def test_the_halves_read_no_row_passed_over_in_place_or_left_past_the_share(self, caplog: pytest.LogCaptureFixture):
-        """Row 0 is passed over in place, rows 1 and 2 are the share, row 3 is past it, and writing row 2 fails."""
-
-        clock = _Share(PAGE + 1, refused=0, failing=2)
-
-        with caplog.at_level(logging.ERROR, logger=fl_logger.name):
-            answered = await _a_share(clock, share=2)
-
-        assert answered == ([[1]], [0, 2])
-        assert clock.read == [[0, 1, 2, 3], [1], [2]]
-        # Each logged once, the row passed over in place by the attempt that judged it.
-        assert sorted(str(getattr(record, "row_id", "")) for record in caplog.records) == ["0", "2"]
-
-    async def test_a_row_passed_over_in_place_is_answered_beside_a_committed_share(self):
-        assert await _a_share(_Share(3, refused=1, failing=-1), share=4) == ([[0, 2]], [1])
-
-
-class TestAnIsolationOwingAMessageStopsWithinTheDeadline:
-    """Once a half owing a message has committed, the call answers it whatever stops the rest."""
-
-    @staticmethod
-    async def _owing(rows: _Rows, *, deadline_s: float | None) -> tuple[list[tuple[int, int]], list[Any]]:
-        token = request_deadline_var.set(None if deadline_s is None else RequestDeadline(time.monotonic() + deadline_s))
-        try:
-            return await _isolated(rows, owes=True)
-        finally:
-            request_deadline_var.reset(token)
-
-    async def test_no_attempt_starts_that_the_deadline_left_cannot_hold(self, caplog: pytest.LogCaptureFixture):
-        """Started anyway, the deadline cuts it, and a cut commit may land with its answer lost."""
-
-        rows = _Rows(4, lambda read: OperationFailure("refused", 121) if 3 in read else None)
-
-        with caplog.at_level(logging.WARNING, logger=fl_logger.name):
-            answered = await self._owing(rows, deadline_s=-1.0)
-
-        assert (answered, rows.read) == (([(2, 2)], []), [[0, 1, 2, 3], [0, 1]])
-        assert [(record.levelname, getattr(record, "error_code", None)) for record in caplog.records] == [("WARNING", Code.DATABASE_FAILED)]
-
-    async def test_a_failure_no_row_carries_after_a_committed_half_is_answered_rather_than_raised(self, caplog: pytest.LogCaptureFixture):
-        """Raised, the call would answer an error in place of the messages the committed half owes."""
-
-        refusal = APIError(HTTPStatus.FORBIDDEN, Code.ACTOR_NOT_ADMIN)
-
-        def raises(read: list[int]) -> Exception | None:
-            if read == [0, 1, 2, 3]:
-                return OperationFailure("refused", 121)
-            return refusal if 2 in read else None
-
-        with caplog.at_level(logging.WARNING, logger=fl_logger.name):
-            answered = await self._owing(_Rows(4, raises), deadline_s=None)
-
-        assert answered == ([(2, 2)], [])
-        assert [getattr(record, "error_code", None) for record in caplog.records] == [Code.UNHANDLED_CRASH]
+            for record in caplog.records
+        ] == [("WARNING", "transactions.pass_cut", code, "1", unanswered)]
 
 
 class _TransactedSession(_Session):
@@ -748,7 +424,7 @@ class TestACancelledRequestStillAbortsItsTransaction:
 
 class TestTheRouteRunsInTheServersTask:
     async def test_no_layer_moves_it_into_a_task_of_its_own(self):
-        """`app/core/middlewares.py :: TraceContextMiddleware`'s reason: a task group around the app cancels it at every await.
+        """Why the middlewares are pure ASGI: a task group around the app cancels the route again at every await.
 
         The shield holds the helper's abort there, so only this case fails for pymongo's own cleanup awaits.
         """

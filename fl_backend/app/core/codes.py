@@ -16,7 +16,6 @@ class Code(StrEnum):
     # A save carrying the `version` its form was read at, which another write has since raised: the record changed since it
     # was opened, a removal included.
     VERSION_STALE = auto()
-    NO_DATABASE_CLIENT = auto()
     DATABASE_FAILED = auto()
     # A write that may stand: its own code, because a page told "failed" sends the person to repeat a
     # write that is already there.
@@ -44,28 +43,23 @@ class Code(StrEnum):
     # A link whose deadline passed, or whose application was decided: either spends it for good, a re-send minting
     # another token.
     LINK_EXPIRED = auto()
+    # The new address is a pupil's, an entry's or a grant's, which the start, the re-send and the press answer alike.
     ADDRESS_CHANGE_TAKEN = auto()
-    # A re-send's: its page holds no box for `address_change_taken` or `address_change_occupied` to mark.
-    ADDRESS_CHANGE_NEW_TAKEN = auto()
     ADDRESS_CHANGE_UNCHANGED = auto()
     # A 429: a person's own start pressed again inside the interval its last mail stands for.
     ADDRESS_CHANGE_STARTED_RECENTLY = auto()
     ADDRESS_CHANGE_NOTHING = auto()
-    ADDRESS_CHANGE_NEW_GRANTED = auto()
-    ADDRESS_CHANGE_OCCUPIED = auto()
-    ANSETZUNG_ANSWERED = auto()
-    ANSETZUNG_DEADLINE_PAST = auto()
-    ANSETZUNG_CHANGED = auto()
-    ANSETZUNG_DECIDED = auto()
+    # A party's answer to a row that takes none: answered, closed, its Ansetzung left or decided, or its deadline gone by.
+    # One code, since a page tells the reader alike that the question moved on, and the row as it stands says why.
+    ANSETZUNG_UNANSWERABLE = auto()
     ANSETZUNG_VORSCHLAG_PAST = auto()
     # The adoption's twin: it judges the stored proposal, the request carrying no body, so a day gone by is a 409.
     ANSETZUNG_VORSCHLAG_PAST_AS_STORED = auto()
     # A decline proposing the slot the fixture already holds: adopted, it would save nothing and leave the proposal open.
     ANSETZUNG_VORSCHLAG_UNCHANGED = auto()
-    ANSETZUNG_CLOSED = auto()
-    ANSETZUNG_NOT_ENTERABLE = auto()
-    ANSETZUNG_NOT_DISCARDABLE = auto()
-    ANSETZUNG_NOT_ADOPTABLE = auto()
+    # An administrator's settle, discard or adoption of a row that no longer takes it, one code for the three as for a
+    # party's answer: a 409, the row's current state refusing the act.
+    ANSETZUNG_NOT_ACTIONABLE = auto()
     ANSETZUNG_FOREIGN_ROW = auto()
     # A tier's key missing or wrong, whichever tier: the path names the tier.
     ACCESS_KEY_REFUSED = auto()
@@ -94,7 +88,6 @@ class Code(StrEnum):
     # A nominee named beside eleven regular players, or more nominees than the regular players leave open of eleven.
     AUFSTELLUNG_NOMINEE_WITHOUT_SHORTAGE = auto()
     BEWERBUNG_ALREADY_DECIDED = auto()
-    BEWERBUNG_SUBJECT_UNRESOLVED = auto()
     BEWERBUNG_SCHULE_UNUSABLE = auto()
     BEWERBUNG_WINDOW_CLOSED = auto()
     BEWERBUNG_SUBMISSION_SUBJECT_UNRESOLVED = auto()
@@ -103,8 +96,6 @@ class Code(StrEnum):
     BEWERBUNG_SEAT_ALREADY_ANSWERED = auto()
     CONFIRMATION_AGE = auto()
     BEWERBUNG_KONTAKTE_UNCONFIRMED = auto()
-    BEWERBUNG_KONTAKT_EMAIL_TAKEN = auto()
-    BEWERBUNG_KONTAKT_PHONE_TAKEN = auto()
     BEWERBUNG_KONTAKT_REPEATED = auto()
     TRIKOT_FARBE_TAKEN = auto()
     # Judged on a reference the save moves, or keeps on a fixture it reopens: `spielort_still_booked` lets a venue
@@ -129,7 +120,6 @@ class Code(StrEnum):
     # its matchdays in one order and dating them in another. `end` is left free: it is the escape a
     # postponement takes.
     SPIELTAG_START_OUT_OF_ORDER = auto()
-    SAISON_SPAN_BELOW_SPIELPLAN_AS_STORED = auto()
     # The start every start lock reads, fixed once a fixture of the season has taken place: moved after play, it would
     # reopen the rules, the swap and the replacement on a season somebody already played.
     SAISON_START_TAKEN_PLACE = auto()
@@ -146,6 +136,8 @@ class Code(StrEnum):
     # One code for every write taking a person's media consent, the account presses and the three
     # confirmations alike, so each page maps one refusal.
     MEDIA_AGE = auto()
+    # A grant on a record that is the person's own and takes a withdrawal alone: its own code, not `role_not_held`'s, since
+    # the record was found and naming the cause hides nothing.
     GIVING_NOT_ALLOWED = auto()
     ELIGIBILITY_DISQUALIFIED = auto()
     # The adoption's twins, one per side: it judges the fixture's stored sides, so no path names which.
@@ -161,6 +153,7 @@ class Code(StrEnum):
     # rather than a 409, whatever the team's own state.
     ROLE_NOT_HELD = auto()
     KONTAKT_SEAT_WITHOUT_CONFIRMATION = auto()
+    # A seat's address or number another seat's person holds, on a season row's seat or an application's alike.
     KONTAKT_EMAIL_TAKEN = auto()
     KONTAKT_PHONE_TAKEN = auto()
     KONTAKT_ROW_WITHOUT_SAISON = auto()
@@ -184,7 +177,6 @@ class Code(StrEnum):
     REGISTRIERUNG_CLOSED = auto()
     REGISTRIERUNG_STUFE_NOT_ALLOWED = auto()
     CONFIRMATION_EXISTS = auto()
-    REGISTRIERUNG_KADER_FULL = auto()
     REGISTRIERUNG_UNCONFIRMED = auto()
     REGISTRIERUNG_PERSON_NOT_NAMED = auto()
     REGISTRIERUNG_ALREADY_IN_KADER = auto()
@@ -211,27 +203,20 @@ class Code(StrEnum):
     RULES_BRACKET_IMPOSSIBLE = auto()
     RULES_GRUPPEN_IN_USE = auto()
     RULES_CAPACITY_BELOW_USE = auto()
-    RULES_QUALIFIERS_BELOW_WIRING = auto()
     # The freeze on points, tiebreak and qualifiers, once the season has started or is `past`.
     RULES_SAISON_STARTED = auto()
-    RULES_SPIELTAG_OVER_ITS_PHASE = auto()
     RULES_QUALIFIERS_ABOVE_GRUPPE = auto()
     RULES_UNENTSCHIEDEN_OUTVALUES_WIN = auto()
     RULES_NIEDERLAGE_OUTVALUES_UNENTSCHIEDEN = auto()
     RULES_KADER_BELOW_USE = auto()
     RULES_FORFEIT_UNENTSCHIEDEN_IN_A_KNOCKOUT = auto()
     RULES_SHAPE_AFTER_SPIELPLAN = auto()
-    RULES_SPIELE_OVER_ONE_READ = auto()
-    # The draw's twin of a code it shares with a season write: the draw judges the stored rules beneath
-    # its shape, so a refusal reading a stored value is a conflict with state, a 409.
-    RULES_FORFEIT_UNENTSCHIEDEN_IN_A_KNOCKOUT_AS_STORED = auto()
     SCHIEDSRICHTER_RETIRED = auto()
     SCHIEDSRICHTER_NO_ADDRESS = auto()
     SCHIEDSRICHTER_ADDRESS_ONLY_PER_CHANGE = auto()
     BAN_LIST_NO_SAISON = auto()
     BAN_LIST_ADMIN = auto()
     SPIELPLAN_ALREADY_DRAWN = auto()
-    SPIELPLAN_SPIELTAGE_HELD = auto()
     # One code, because one repair reaches all three: every offered group holding exactly
     # `teams_per_gruppe`, short or over, and no club standing outside them.
     SPIELPLAN_GRUPPEN_OFF_RULES = auto()
@@ -245,7 +230,7 @@ class Code(StrEnum):
     # the club: a resend answers the same, and the way out is the wiring the resolution followed or a
     # result that changes who advances.
     SPIELTAG_OCCUPIED_BY_THE_RESOLUTION = auto()
-    # A fixture's save deleting later results other than those its body confirms (`voided_results`), judged inside its
+    # A fixture's save deleting later results other than those its body confirms (`voided_ergebnisse`), judged inside its
     # transaction: the question its dry run asked is of a season that has moved since, so no result goes unasked.
     VOIDED_RESULTS_STALE = auto()
     # The same dangling reference `eligibility_team_not_in_saison` refuses on the match side.
@@ -290,7 +275,6 @@ class Code(StrEnum):
 type Rule = Literal[
     "acceptance_with_proposal",
     "acceptance_with_reason",
-    "address_in_free_text",
     "bewerbung_window_ends_before_start",
     "date_not_in_calendar",
     "decline_without_proposal",

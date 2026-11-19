@@ -1,7 +1,7 @@
 import functools
 import logging
 from collections.abc import AsyncIterator
-from typing import Any
+from typing import Annotated, Any
 
 import pymongo
 import pytest
@@ -14,9 +14,8 @@ from pydantic import BaseModel, Field, ValidationError
 from pymongo.errors import BulkWriteError, ExecutionTimeout, PyMongoError
 
 from app.core.codes import Code
-from app.core.config import API_VERSION
 from app.core.exception_handlers import db_exception_handler, pydantic_validation_exception_handler
-from app.core.logging import FL_LOGGER_NAME, JSONFormatter, TraceContextFilter
+from app.core.logging import FL_LOGGER_NAME, JSONFormatter
 from app.main import create_shell
 from app.shared.schemas.custom import PERSON_NAME_PATTERN, CustomObjectId
 from tests.app_client import app_client
@@ -26,12 +25,12 @@ from tests.core.app_source import application
 
 def client() -> TestClient:
     # No context manager, so the lifespan must not run: a client that never opens the database makes
-    # the first guarded read raise a real `no_database_client` rather than a hand-mocked exception.
+    # the first guarded read fail on the missing client, a real 500 `unhandled_crash` rather than a hand-mocked exception.
     return TestClient(application(), raise_server_exceptions=False)
 
 
 # A base-tier read that reaches the database, so a request passing the key meets the missing client.
-GUARDED_READ = "/api/v0/saisons/frame"
+GUARDED_READ = "/api/saisons/frame"
 
 
 def error_records(caplog) -> list[logging.LogRecord]:
@@ -61,7 +60,7 @@ class NestedPayload(BaseModel):
     names: list[NamePayload]
 
 
-# A second app: `client()`'s routes all 503 on the database dependency before parsing can fail, so a
+# A second app: `client()`'s routes all fail on the database dependency before parsing can fail, so a
 # payload refusal needs a route that depends on nothing, and so does a success that writes its access line.
 VALIDATION_APP = create_shell()
 ANSWERED_PATH = "/answered"
@@ -89,7 +88,7 @@ class FilteredQuery(BaseModel):
 
 
 @VALIDATION_APP.get(FILTERED_PATH)
-async def read_the_query(filters: FilteredQuery = Depends()) -> dict[str, str]:
+async def read_the_query(filters: Annotated[FilteredQuery, Depends()]) -> dict[str, str]:
     """Names the type its `team_id` reached it as."""
 
     return {"team_id": type(filters.team_id).__name__}
@@ -120,6 +119,14 @@ class TestFailureBodies:
         assert (set(response.json()), response.json()["fields"]) == ({"error_code", "trace_id", "fields"}, [])
         # The exact set, so a message copied into any header, under any name, moves this.
         assert set(response.headers) == {"www-authenticate", "content-length", "content-type"}
+
+    def test_a_405_allows_every_method_the_path_serves_across_its_routers(self):
+        """One match's methods alone is Starlette's own answer, and RFC 9110's `Allow` must list them all."""
+
+        # Read on the base tier's router and saved on the administrator's.
+        response = client().put(f"/api/spiele/{QUERY_ID}")
+
+        assert (response.status_code, response.headers["allow"]) == (405, "GET, PATCH")
 
 
 def refused(body: object) -> dict[str, Any]:
@@ -291,8 +298,6 @@ CRASHES = [
 
 
 def _crashed(caplog: pytest.LogCaptureFixture, path: str) -> tuple[Response, list[Any]]:
-    # The filter the console handler stamps each line with, so a record carries the ids the sink would read.
-    caplog.handler.addFilter(TraceContextFilter())
     with caplog.at_level(logging.INFO, logger=FL_LOGGER_NAME):
         response = TestClient(_crashing_app(), raise_server_exceptions=False).get(path, headers={"traceparent": TRACEPARENT})
 
@@ -322,8 +327,8 @@ class TestACrashIsAnsweredInsideItsRequest:
 
 # A read served over POST, which its route marks safe, and a save its route marks safe when it is a dry run. Each meets the
 # database first in its guard's grant read, before its body is judged.
-CUT_READ = f"/api/v{API_VERSION}/action_log/view"
-CUT_SAVE = f"/api/v{API_VERSION}/spiele/{QUERY_ID}"
+CUT_READ = "/api/action_log/view"
+CUT_SAVE = f"/api/spiele/{QUERY_ID}"
 
 CUTS = [
     pytest.param("POST", CUT_READ, Code.DATABASE_FAILED, id="a read over POST, marked safe"),

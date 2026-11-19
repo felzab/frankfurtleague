@@ -1,9 +1,5 @@
 import { notFound, redirect } from "next/navigation";
 
-import { ListPage } from "@/kit/ListPage";
-import { DECLINED_CHIP, EXPIRED_CHIP } from "@/kit/stateChips";
-import { TextField } from "@/kit/TextField";
-
 import { requires } from "@/core/action";
 import { COPY } from "@/core/copy";
 import { dayOf, formatList, timeOf } from "@/core/format";
@@ -15,6 +11,9 @@ import {
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { getSaisonOverview } from "@/features/saisons/queries";
+import { ListPage } from "@/kit/ListPage";
+import { DECLINED_CHIP, EXPIRED_CHIP } from "@/kit/stateChips";
+import { TextField } from "@/kit/TextField";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
 
@@ -24,7 +23,7 @@ import { ZusageDialog } from "./ZusageDialog";
 
 import type { Copy, Words } from "@/core/copy";
 import type {
-  FLBracketFault,
+  FLOverviewFault,
   FLOverviewParty,
   FLOverviewRow,
   FLSpielJoinedAdmin,
@@ -70,27 +69,18 @@ function mailTo(recipients: readonly (FLSpielRecipientTeam | FLSpielRecipientSch
   return names.length === 0 ? [] : [{ label: FACTS.mailTo, value: { record: formatList(names) } }];
 }
 
-/** A stored day and hour as the catalogue's sentences take a slot. */
 const slotOf = (date: string | null, time: string | null) => ({ day: dayOf(date), time: timeOf(time) });
 
 const BOOKED = { spielort: COPY.admin.spielort.object, schiedsrichter: COPY.shared.schiedsrichter } as const;
 
 /** A fault of the bracket or of the fixture's bookings, in one line. */
-function faultLine(fault: FLBracketFault): Copy {
+function faultLine(fault: FLOverviewFault): Copy {
   const words = WORDS.fault;
   switch (fault.reason) {
     case "gruppe_too_small":
     case "tie_unresolved":
       return words[fault.reason](fault.gruppe, fault.platz);
-    case "gruppe_not_run":
-    case "seed_past_the_opening_round":
-    case "spiel_missing":
-    case "reference_cycle":
-    case "gruppenphase_feeder":
-    case "feeder_not_played_first":
-    case "same_team":
-    case "gruppenphase_spiel_wired":
-    case "source_feeds_another_spiel":
+    case "wiring":
       return words.wiring;
     case "departed_occupant":
       return words.departed_occupant(

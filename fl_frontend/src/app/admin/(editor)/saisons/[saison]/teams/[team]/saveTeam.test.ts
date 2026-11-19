@@ -1,12 +1,13 @@
+import { describe, expect, it } from "vitest";
+
 import { serveBackend } from "@/test-support/backend";
 import { signedInRequest } from "@/test-support/session";
-import { describe, expect, it } from "vitest";
 
 const TEAM_ID = "64b000000000000000000002";
 const SAISON = "2027";
 
 /** The one address the editor's read and the save's write share. */
-const ENDPOINT = `/teams/${TEAM_ID}/saisons/${SAISON}/admin`;
+const ENDPOINT = `/teams/${TEAM_ID}/saisons/${SAISON}`;
 
 /** The club read again at a count newer than the editor's: someone saved since. */
 const STORED = {

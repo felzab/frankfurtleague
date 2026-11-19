@@ -1,45 +1,36 @@
-from collections.abc import Mapping, Sequence
+from collections.abc import Sequence
 from http import HTTPStatus
-from typing import Any
 
-from app.api.spiele.schemas import unplayed_filter
 from app.core.codes import Code
-from app.core.exceptions import WriteRefusal
+from app.core.exceptions import APIError
 from app.shared.schemas.addresses import FLAddress
 
 
-def compose_maps_link(name: str, address: FLAddress) -> str:
-    """The Google Maps search string, not a URL. Derived here so a client can never supply one."""
+def compose_maps_query(name: str, address: FLAddress) -> str:
+    """The Google Maps search, derived here so a client can never supply one."""
     return f"{name}, {address.to_string}, Deutschland"
 
 
-def build_unplayed_booking_filter(spielort_id: Any) -> Mapping[str, Any]:
-    """A venue's unplayed bookings, spelled once for the retirement's refusal and any later reader."""
-
-    return {"spielort.spielort_id": spielort_id, **unplayed_filter()}
-
-
-def find_venue_retire_refusal(*, upcoming_spiel_nrs: Sequence[int]) -> WriteRefusal | None:
+def find_venue_retire_refusal(*, upcoming_spiel_nrs: Sequence[int]) -> APIError | None:
     """Why retiring this venue must be refused, or `None`.
 
-    `upcoming_spiel_nrs` is `unplayed_spiel_nrs`'s definition, so the two rules cannot disagree
-    about what is still to come. The refusal names them and their count on the path's id, so the
-    administrator is told which fixtures to move first.
+    `upcoming_spiel_nrs` are the fixtures still to be played at it. The refusal names them and their count on the
+    path's id, so the administrator is told which fixtures to move first.
     """
 
     if not upcoming_spiel_nrs:
         return None
 
-    return WriteRefusal(
-        error_code=Code.SPIELORT_STILL_BOOKED,
-        status=HTTPStatus.CONFLICT,
+    return APIError(
+        HTTPStatus.CONFLICT,
+        Code.SPIELORT_STILL_BOOKED,
         fields=(("spielort_id",),),
         location="path",
         bounds={"spiel_nrs": list(upcoming_spiel_nrs), "count": len(upcoming_spiel_nrs)},
     )
 
 
-def find_venue_name_refusal(*, taken: bool) -> WriteRefusal | None:
+def find_venue_name_refusal(*, taken: bool) -> APIError | None:
     """`duplicate_key` on the name: another venue, a retired one included, holds it.
 
     Takes the answer rather than the lookup, so the caller's read runs in the caller's transaction.
@@ -49,8 +40,4 @@ def find_venue_name_refusal(*, taken: bool) -> WriteRefusal | None:
     if not taken:
         return None
 
-    return WriteRefusal(
-        error_code=Code.DUPLICATE_KEY,
-        status=HTTPStatus.CONFLICT,
-        fields=(("name",),),
-    )
+    return APIError(HTTPStatus.CONFLICT, Code.DUPLICATE_KEY, fields=(("name",),))

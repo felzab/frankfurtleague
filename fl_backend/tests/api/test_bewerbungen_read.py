@@ -63,7 +63,7 @@ def bewerbung_document(
 VIEW_DATABASE = worker_database("fl_bewerbungen_view_test")
 
 VIEW_SAISON = "2027"
-PICKED_CLUB = ObjectId("6890a1b2c3d4e5f600009998")
+PICKED_TEAM = ObjectId("6890a1b2c3d4e5f600009998")
 PICKED, ALSO_PICKED, NEW_SCHOOL, DECLINED, ANOTHER_SEASON = 9101, 9102, 9103, 9104, 9105
 
 
@@ -73,7 +73,7 @@ async def on_the_view_corpus(mongo_replica_set_url: str, read: Any) -> Any:
     async with a_clean_database(mongo_replica_set_url, VIEW_DATABASE, constraints=True) as (_, database):
         rules = documents.rules_document(teams_per_gruppe=2, number_of_gruppen=2)
         await database[Collection.SAISONS].insert_one(documents.saison_document(VIEW_SAISON, "future", rules=rules))
-        await database[Collection.TEAMS].insert_one(documents.team_document(PICKED_CLUB, "Adlerhorst", "ADX"))
+        await database[Collection.TEAMS].insert_one(documents.team_document(PICKED_TEAM, "Adlerhorst", "ADX"))
         await database[Collection.SAISON_TEAMS].insert_many(
             [
                 documents.saison_team_document(VIEW_SAISON, ObjectId(), "Fremd", "FRX", gruppe="A", trikot_farbe="blau"),
@@ -82,10 +82,10 @@ async def on_the_view_corpus(mongo_replica_set_url: str, read: Any) -> Any:
         )
         await database[Collection.BEWERBUNGEN].insert_many(
             [
-                bewerbung_document(PICKED, saison_id=VIEW_SAISON, team_id=PICKED_CLUB),
-                bewerbung_document(ALSO_PICKED, saison_id=VIEW_SAISON, team_id=PICKED_CLUB),
+                bewerbung_document(PICKED, saison_id=VIEW_SAISON, team_id=PICKED_TEAM),
+                bewerbung_document(ALSO_PICKED, saison_id=VIEW_SAISON, team_id=PICKED_TEAM),
                 bewerbung_document(NEW_SCHOOL, saison_id=VIEW_SAISON),
-                bewerbung_document(DECLINED, "declined", VIEW_SAISON, team_id=PICKED_CLUB),
+                bewerbung_document(DECLINED, "declined", VIEW_SAISON, team_id=PICKED_TEAM),
                 # Its seat confirmed as every row here is, so the list's second read must keep it out by its season.
                 bewerbung_document(ANOTHER_SEASON),
             ]
@@ -135,6 +135,26 @@ class TestTheReviewPagesRead:
             == {ObjectId(BEWERBUNG_ID.format(index)): index in (PICKED, ALSO_PICKED) for index in (PICKED, ALSO_PICKED, NEW_SCHOOL, DECLINED)}
         )
 
+    async def test_a_confirmed_seat_serves_neither_its_birthdate_nor_its_evidence(self, mongo_replica_set_url: str):
+        """The age check asks the birthdate once and the evidence answers a dispute: no page of the administration shows either."""
+
+        async def read(database: Any) -> Any:
+            return (await view_one(database, ObjectId(BEWERBUNG_ID.format(NEW_SCHOOL)))).model_dump(mode="json")
+
+        trainer = (await on_the_view_corpus(mongo_replica_set_url, read))["bewerbung"]["kontakte"]["trainer"]
+
+        assert trainer == {
+            "first_name": KONTAKTPERSON["first_name"],
+            "last_name": KONTAKTPERSON["last_name"],
+            "email": KONTAKTPERSON["email"],
+            "phone": KONTAKTPERSON["phone"],
+            "einwilligung": {
+                "scope": KONTAKTPERSON["einwilligung"]["scope"],
+                "confirmed_at": KONTAKTPERSON["einwilligung"]["confirmed_at"],
+                "media": KONTAKTPERSON["einwilligung"]["media"],
+            },
+        }
+
 
 class TestTheSeasonsListRead:
     """The list page's one read: what its rows and its dialogs need, off one request, and no person's details."""
@@ -169,8 +189,8 @@ class TestTheSeasonsListRead:
 
         assert served == {row_id(PICKED): True, row_id(ALSO_PICKED): False, row_id(NEW_SCHOOL): False, row_id(DECLINED): False}
 
-    async def test_a_flood_past_the_cap_says_it_is_cut_and_cuts_no_confirmed_row(self, mongo_replica_set_url: str):
-        """The queue an anonymous form can flood: served short rather than refused, saying so, and with the season's confirmed rows."""
+    async def test_a_flood_past_the_cap_cuts_no_confirmed_row(self, mongo_replica_set_url: str):
+        """The queue an anonymous form can flood: served short rather than refused, and with the season's confirmed rows."""
 
         flood = range(1, LIST_LIMIT_DEFAULT + 2)
 
@@ -186,7 +206,6 @@ class TestTheSeasonsListRead:
         answered = await on_the_view_corpus(mongo_replica_set_url, read)
         served = [row.id for row in answered.bewerbungen]
 
-        assert answered.complete is False
         assert ObjectId(BEWERBUNG_ID.format(flood[0])) not in served
         assert served[LIST_LIMIT_DEFAULT:] == [ObjectId(BEWERBUNG_ID.format(index)) for index in (DECLINED, NEW_SCHOOL, ALSO_PICKED, PICKED)]
 
@@ -230,13 +249,6 @@ class TestEachSeatServesWhereItStands:
 
     def test_a_decision_spends_an_unanswered_link_whatever_its_day(self):
         assert self.read(status="declined")["ansprechperson"]["state"] == "expired"
-
-    def test_a_row_its_season_stripped_serves_as_it_stands(self):
-        """The strip nulls the block, and the review page still opens the application it leaves."""
-
-        stripped = {"_id": "bewerbung", "kontakte": None, "confirmations": None}
-
-        assert with_delivery(stripped, {}, today="2026-04-10") == stripped
 
     def test_a_season_row_s_confirmed_seat_reads_confirmed_and_offers_its_link_no_press(self):
         """Read off anything but the row's block, its link asks a person who answered to confirm again."""

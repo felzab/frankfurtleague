@@ -1,9 +1,10 @@
 // @vitest-environment jsdom
 import { startTransition } from "react";
 
-import { renderUnderNext } from "@/test-support/nextContexts";
 import { act, fireEvent, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+
+import { renderUnderNext } from "@/test-support/nextContexts";
 
 import { NavigationBar, NavigationLink, PageContent, WholePages } from "./WholePage";
 

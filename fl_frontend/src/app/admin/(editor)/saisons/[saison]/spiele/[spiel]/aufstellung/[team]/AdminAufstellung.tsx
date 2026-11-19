@@ -1,8 +1,7 @@
 "use client";
 
-import { EditorPage } from "@/kit/EditorPage";
-
 import { useAufstellungEditor } from "@/features/aufstellungen/components/forms/useAufstellungEditor";
+import { EditorPage } from "@/kit/EditorPage";
 
 import { saveAufstellung } from "./saveAufstellung";
 

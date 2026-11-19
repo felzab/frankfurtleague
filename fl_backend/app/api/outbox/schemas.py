@@ -1,15 +1,15 @@
 from datetime import datetime
 from typing import Annotated, Final, Literal, Self, get_args
 
-from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, StringConstraints, computed_field, model_validator
+from pydantic import AwareDatetime, BaseModel, Field, StringConstraints, computed_field, model_validator
 
 from app.api.grants.schemas import FLGrantChange, FLGrantNoticeStage
 from app.api.registrierungen.schemas import FLRegistrierungDecisionReason
 from app.core.collections import Collection
 from app.shared.schemas.custom import SINGLE_LINE_PATTERN, CustomDateString, CustomObjectId, CustomStrippedNonEmptyString, CustomTimeString
 from app.shared.schemas.kontakt import CustomEmail, CustomStoredAddress
-from app.shared.schemas.literals import FLAddressChangeWay, FLAdminTier, FLGruppenNames, FLKontaktRolle, FLKontaktRow, FLTrikotFarbe
-from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
+from app.shared.schemas.literals import FLAddressChangeWay, FLAdminTier, FLGruppenNames, FLKontaktRow, FLKontaktSeat, FLTrikotFarbe
+from app.shared.schemas.responses import BasePayload, BaseReadModel
 
 # Each kind of mail is one member of `FLOutboxData` below, carrying the facts its builder renders and never a
 # sentence: a date where the mail prints one, a seat where it names one. A kind joins with the write that owes it, its
@@ -122,8 +122,8 @@ class FLSpielMailAppointment(BaseReadModel):
 class FLSpielMailAnsetzung(FLSpielMailAppointment):
     """A fixture as a mail asking about it states it, its ground among the rest."""
 
-    # The ground's name; null where nobody assigned one. Defaulted for a move's notice queued before it named the ground.
-    spielort: str | None = Field(default=None)
+    # The ground's name; null where nobody assigned one.
+    spielort: str | None
 
 
 class FLSpielRequestData(BaseReadModel):
@@ -167,11 +167,8 @@ class FLSpielMovedData(BaseReadModel):
     # the party is no longer one of its parties.
     moved_to: FLSpielMailAnsetzung | None
     # Whether the party is still one of the fixture's, so a notice naming no new slot tells of a move rather than that
-    # the request no longer holds. Defaulted for a notice queued before it was written, which `asked_again` words.
-    stays: bool = Field(default=False)
-    # Written false: a notice promises no later mail. True only on a notice queued before that, whose mail says a
-    # request follows.
-    asked_again: bool
+    # the request no longer holds. It promises no later mail either way.
+    stays: bool
 
 
 # The events a fixture's call-off notice is sent for: an abandonment, and a no-show entered on or after its day, decide
@@ -186,8 +183,7 @@ class FLSpielNoticeData(BaseReadModel):
     # A club was asked by a link, a referee was booked; each is told what of theirs no longer stands.
     recipient: Literal["team", "schiedsrichter"]
     appointment: FLSpielMailAppointment
-    # A row queued without an event names none, and its mail names no event.
-    sonderereignis: FLSpielNoticeEvent | None = Field(default=None)
+    sonderereignis: FLSpielNoticeEvent
 
 
 class FLSpielEinteilungLiftedData(BaseReadModel):
@@ -213,7 +209,7 @@ class FLAufstellungReminderData(BaseReadModel):
     # That club and the fixture's season, which name the team's own pages: the reader enters it there, signed in.
     team_id: CustomObjectId
     saison_id: str
-    appointment: FLSpielMailAnsetzung
+    ansetzung: FLSpielMailAnsetzung
     # The moment the line-up is due, `AUFSTELLUNG_DUE_DAYS` before the kick-off: carried, so the mail states it and no
     # builder counts the days a second time.
     due_at: AwareDatetime
@@ -239,12 +235,14 @@ class FLAustrittNoticeData(BaseReadModel):
 
 
 class FLRegistrierungLinkData(BaseReadModel):
-    """A pupil's confirmation link; the window its mail states is a published bound, never carried here."""
+    """A pupil's confirmation link, owed by the submission or a corrected address."""
 
     kind: Literal["registrierung_confirmation"]
     # The junction row's name, else the club's: what the pupil registered for.
     team: str
     saison_id: str
+    # The link's last day, the registration's stored deadline: the one date the mail states, as its page does.
+    deadline: CustomDateString
 
 
 class FLRegistrierungAbsageData(BaseReadModel):
@@ -268,14 +266,14 @@ class FLInvitationData(BaseReadModel):
 class FLBewerbungLinkData(BaseReadModel):
     """One person's confirmation link on an application: at its submission, a re-send, a correction or a reseat, or the one reminder.
 
-    `rollen` are every seat the link answers, two where the Trainer holds a second; the reminder's link joins the first.
+    `seats` are every seat the link answers, two where the Trainer holds a second; the reminder's link joins the first.
     """
 
     kind: Literal["bewerbung_confirmation", "bewerbung_reminder"]
     saison_id: str
     # The school as submitted, or the picked club's name: a contact who never heard of the application places it by this.
     schule: str
-    rollen: list[FLKontaktRolle] = Field(min_length=1)
+    seats: list[FLKontaktSeat] = Field(min_length=1)
     # The day the links stop working, which the reminder repeats rather than moves.
     deadline: CustomDateString
 
@@ -285,9 +283,9 @@ class FLBewerbungReceivedData(BaseReadModel):
 
     kind: Literal["bewerbung_received"]
     saison_id: str
-    rollen: list[FLKontaktRolle] = Field(min_length=1)
-    # By role alone, so a mistyped address hands a stranger nobody's name.
-    pending: list[FLKontaktRolle]
+    seats: list[FLKontaktSeat] = Field(min_length=1)
+    # By seat alone, so a mistyped address hands a stranger nobody's name.
+    pending: list[FLKontaktSeat]
     deadline: CustomDateString
 
 
@@ -299,7 +297,7 @@ class FLBewerbungZusageData(BaseReadModel):
     # The club's code, which a new school first holds through this acceptance.
     shorthand: str
     saison_id: str
-    rollen: list[FLKontaktRolle] = Field(min_length=1)
+    seats: list[FLKontaktSeat] = Field(min_length=1)
     gruppe: FLGruppenNames
     # Null while no kit colour is assigned; the mail then says so rather than guessing one.
     trikot_farbe: FLTrikotFarbe | None
@@ -311,7 +309,7 @@ class FLBewerbungAbsageData(BaseReadModel):
     kind: Literal["bewerbung_absage"]
     team: str
     saison_id: str
-    rollen: list[FLKontaktRolle] = Field(min_length=1)
+    seats: list[FLKontaktSeat] = Field(min_length=1)
     reason: str
 
 
@@ -320,8 +318,8 @@ class FLBewerbungObjectionData(BaseReadModel):
 
     kind: Literal["bewerbung_objection"]
     saison_id: str
-    rollen: list[FLKontaktRolle] = Field(min_length=1)
-    declined: list[FLKontaktRolle] = Field(min_length=1)
+    seats: list[FLKontaktSeat] = Field(min_length=1)
+    declined: list[FLKontaktSeat] = Field(min_length=1)
     deadline: CustomDateString
 
 
@@ -332,7 +330,7 @@ class FLKontaktLinkData(BaseReadModel):
     saison_id: str
     # The team's name in that season, which is the school the reader is asked about.
     schule: str
-    rollen: list[FLKontaktRolle] = Field(min_length=1)
+    seats: list[FLKontaktSeat] = Field(min_length=1)
     deadline: CustomDateString
     # The row's state at the write: a closed row's link takes the Widerspruch alone, and the mail asks only that.
     row: FLKontaktRow
@@ -420,10 +418,6 @@ type FLOutboxDeliveryState = Literal["delivered", "delayed", "undeliverable", "s
 # list, bounced for good, or marked as spam.
 UNDELIVERABLE: Final[frozenset[FLOutboxDeliveryState]] = frozenset({"undeliverable", "suppressed", "complaint"})
 
-# Wide over the 36 characters the provider's id spells today, and a ceiling all the same: the value arrives from outside
-# and is stored.
-CustomMessageId = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=128)]
-
 # The provider's own token for a refusal, bounded and on one line, never its prose.
 CustomDeliveryReason = Annotated[str, StringConstraints(strip_whitespace=True, max_length=128, pattern=SINGLE_LINE_PATTERN)]
 
@@ -433,7 +427,7 @@ class FLOutboxReference(BaseModel):
 
     collection: Collection
     id: CustomObjectId
-    seat: FLKontaktRolle | None
+    seat: FLKontaktSeat | None
 
 
 class FLOutboxLink(BaseModel):
@@ -451,7 +445,7 @@ class FLOutboxLink(BaseModel):
     replaced: bool
 
 
-class FLOutboxClub(BaseModel):
+class FLOutboxTeam(BaseModel):
     """The club whose contact seats a mail goes to, by its season row: handed out only while a seat there holds its address.
 
     The seat must be confirmed, as the mail's recipients were chosen, and may be any of the club's: a person holding two
@@ -499,8 +493,8 @@ class FLOutboxRow(BaseModel):
     # Null on a sign-in mail, which no league record holds.
     reference: FLOutboxReference | None
     link: FLOutboxLink | None
-    # Null on every mail but one to a club's contact seats; defaulted, as a row owed before the field was written has none.
-    club: FLOutboxClub | None = Field(default=None)
+    # Null on every mail but one to a club's contact seats.
+    team: FLOutboxTeam | None
     state: FLOutboxRowState
     recorded_at: datetime
     # The last moment a hand-out may send the mail; a row still open after it is given up.
@@ -510,11 +504,9 @@ class FLOutboxRow(BaseModel):
     leased_until: datetime | None
     # How many claims have handed the row out; each claim raises it in its own transaction.
     attempts: int = Field(ge=0)
-    message_id: str | None
-    # The provider's own name for the refusal the last failed send met; defaulted, as a row a send never failed holds
-    # none and a row owed before the field was written has none stored. Prefixed because a record's top level holds no
-    # bare `reason`, the bracket fault's discriminator.
-    delivery_reason: str | None = Field(default=None)
+    # The provider's own name for the refusal the last failed send met; null where no send failed. Prefixed because a
+    # record's top level holds no bare `reason`, the bracket fault's discriminator.
+    delivery_reason: str | None
     delivery: FLOutboxDelivery | None
 
 
@@ -533,7 +525,7 @@ class FLOutboxHandout(BaseReadModel):
     attempt: int = Field(ge=1)
 
 
-class FLOutboxHandoutResponse(BaseAPIResponse):
+class FLOutboxHandoutResponse(BaseReadModel):
     """The owed mails one claim holds, oldest first; `lease` is null exactly where it holds none."""
 
     lease: str | None
@@ -545,34 +537,25 @@ class FLOutboxHandoutResponse(BaseAPIResponse):
 FLOutboxResultKind = Literal["sent", "retry", "abandon", "held"]
 
 
-class FLOutboxResultPayload(BaseModel):
+class FLOutboxResultPayload(BasePayload):
     """The outcome of one handed-out mail's send, reported as the send returns."""
-
-    model_config = ConfigDict(extra="forbid")
 
     lease: CustomStrippedNonEmptyString
     id: CustomObjectId
     result: FLOutboxResultKind
-    # The provider's id for the accepted message: an operator's one way from the row to the message there, by its dashboard
-    # or its retrieve call, the provider offering no search by tag. No event needs it, each finding its row by the row's
-    # own id.
-    message_id: CustomMessageId | None
     # The provider's own name for the refusal a failed send met, the row's one record of why.
     delivery_reason: CustomDeliveryReason | None
 
-    # Only a sent mail names a message, and a sent one may name none: the provider accepted it, and its answer carried no
-    # readable id. Only a failed send names a refusal, and one that never reached the provider names none.
+    # Only a failed send names a refusal, and one that never reached the provider names none.
     @model_validator(mode="after")
-    def each_outcome_names_only_its_own(self) -> Self:
-        if self.message_id is not None and self.result != "sent":
-            raise ValueError("Only a sent mail names a message.")
+    def only_a_failed_send_names_a_refusal(self) -> Self:
         if self.delivery_reason is not None and self.result not in ("retry", "abandon"):
             raise ValueError("Only a failed send names a refusal.")
 
         return self
 
 
-class FLOutboxResultResponse(BaseAPIResponse):
+class FLOutboxResultResponse(BaseReadModel):
     sent: int = Field(ge=0)
     repeated: int = Field(ge=0)
     abandoned: int = Field(ge=0)
@@ -581,10 +564,8 @@ class FLOutboxResultResponse(BaseAPIResponse):
     ignored: int = Field(ge=0)
 
 
-class FLOutboxSignInPayload(BaseModel):
+class FLOutboxSignInPayload(BasePayload):
     """One mail of the sign-in library, owed to the address it names."""
-
-    model_config = ConfigDict(extra="forbid")
 
     to: CustomEmail
     data: FLOutboxSignInData
@@ -601,10 +582,8 @@ class FLOutboxSignInPayload(BaseModel):
         return self
 
 
-class FLOutboxEventPayload(BaseModel):
+class FLOutboxEventPayload(BasePayload):
     """One delivery event about a message the provider accepted, named by the row the message was sent from."""
-
-    model_config = ConfigDict(extra="forbid")
 
     # The row's own id, which the send carries as a tag and the provider echoes on every event, so an event arriving
     # before the send's report finds its row all the same.
@@ -615,7 +594,7 @@ class FLOutboxEventPayload(BaseModel):
     at: AwareDatetime
 
 
-class FLOutboxEventResponse(BaseAPIResponse):
+class FLOutboxEventResponse(BaseReadModel):
     """Whether the event reached a row; false where no row has the id, or the row's state may not follow into it.
 
     False rather than a refusal: the provider repeats a settled event for hours if anything but a success answers it.

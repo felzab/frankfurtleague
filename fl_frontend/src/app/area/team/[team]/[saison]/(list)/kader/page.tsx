@@ -1,12 +1,11 @@
 import { cache } from "react";
 
-import { ListPage } from "@/kit/ListPage";
-
 import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { readAsSeatHolder, requireTeamSeats, teamMetadata } from "@/features/roles/resolvers";
 import { getKader } from "@/features/spieler/queries";
+import { ListPage } from "@/kit/ListPage";
 import { pageMetadata } from "@/shared/utils/metadata";
 
 import { KaderTable } from "./KaderTable";

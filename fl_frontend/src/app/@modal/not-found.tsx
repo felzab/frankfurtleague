@@ -1,8 +1,7 @@
-import { SpielPopupEnd } from "@/kit/SpielHead";
-
 import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
+import { SpielPopupEnd } from "@/kit/SpielHead";
 
 /**
  * A pop-up whose match is not there, its id malformed or its season withheld: a match row pressed after its match was

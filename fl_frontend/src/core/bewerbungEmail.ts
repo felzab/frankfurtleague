@@ -1,7 +1,7 @@
 import "server-only";
 
-import { DECLINED_RETENTION_DAYS } from "./bounds";
-import { COPY, rollenText } from "./copy";
+import { CONFIRMATION_DEADLINE_DAYS } from "./bounds";
+import { COPY, seatsText } from "./copy";
 import { mailOrigin } from "./emailShell";
 import { dayOf, formatDateLong } from "./format";
 import { kontaktConfirmationLink } from "./kontaktLink";
@@ -43,7 +43,7 @@ const FARBE_HEX = /^#[0-9a-f]{6}$/i;
 
 /** What an accepted application is told, each person naming the seats they were entered for. */
 export function buildBewerbungZusageEmail(
-  { team, shorthand, saison_id, rollen, gruppe, trikot_farbe }: FLBewerbungZusageData,
+  { team, shorthand, saison_id, seats, gruppe, trikot_farbe }: FLBewerbungZusageData,
   { origin }: MailOrigin,
 ): Mail {
   const site = mailOrigin(origin);
@@ -68,7 +68,7 @@ export function buildBewerbungZusageEmail(
           value: farbe === undefined ? COPY.shared.notProvided : hex === null ? farbe.label : `${farbe.label} (${hex})`,
         },
         // The one row that differs per reader: each person is told the seats they were entered for.
-        { label: WORDS.registeredAs, value: rollenText(rollen) },
+        { label: WORDS.registeredAs, value: seatsText(seats) },
       ],
     },
     afterBlock: [[farbe === undefined ? WORDS.zusage.fixedNoColour : WORDS.zusage.fixed], [WORDS.zusage.signIn]],
@@ -77,7 +77,7 @@ export function buildBewerbungZusageEmail(
 }
 
 /** The decision and the reason it was given, unabridged and last: the one thing the mail exists to hand over. */
-export function buildBewerbungAbsageEmail({ team, saison_id, rollen, reason }: FLBewerbungAbsageData, { origin }: MailOrigin): Mail {
+export function buildBewerbungAbsageEmail({ team, saison_id, seats, reason }: FLBewerbungAbsageData, { origin }: MailOrigin): Mail {
   return {
     kind: "notice",
     subjectLine: WORDS.absage.subject(saison_id),
@@ -86,14 +86,14 @@ export function buildBewerbungAbsageEmail({ team, saison_id, rollen, reason }: F
       [
         [WORDS.absage.lead.before, { strong: team }, WORDS.absage.lead.after(saison_id)],
         WORDS.absage.decision,
-        WORDS.absage.deletion(DECLINED_RETENTION_DAYS),
+        WORDS.absage.deletion(CONFIRMATION_DEADLINE_DAYS),
       ],
     ],
     block: {
       title: WORDS.absage.title,
       facts: [
         // Identification rather than a verdict: it says why the mail reached this reader.
-        { label: WORDS.registeredAs, value: rollenText(rollen) },
+        { label: WORDS.registeredAs, value: seatsText(seats) },
         { label: COPY.admin.spiel.reason, value: reason },
       ],
     },
@@ -102,7 +102,7 @@ export function buildBewerbungAbsageEmail({ team, saison_id, rollen, reason }: F
 
 /** What one person is asked to confirm: every seat they hold, answered through the one link. */
 export function buildBewerbungConfirmationEmail(
-  { saison_id, schule, rollen, deadline }: FLBewerbungLinkData,
+  { saison_id, schule, seats, deadline }: FLBewerbungLinkData,
   { origin, token }: MailLink,
 ): Mail {
   const site = mailOrigin(origin);
@@ -116,7 +116,7 @@ export function buildBewerbungConfirmationEmail(
       title: WORDS.entry,
       facts: [
         { label: COPY.shared.saison, value: saison_id },
-        { label: WORDS.registeredAs, value: rollenText(rollen) },
+        { label: WORDS.registeredAs, value: seatsText(seats) },
       ],
     },
     button: { label: COPY.page.entryConfirmation, href: kontaktConfirmationLink(site, token) },
@@ -139,11 +139,11 @@ export function buildBewerbungReminderEmail({ saison_id, schule, deadline }: FLB
 
 /**
  * The Ansprechperson's link mail, a first contact as every seat's is: the address was typed into a form, and nothing
- * says its reader typed it. `pending` names the other seats by role alone and the mail names no school, so a mistyped
- * address hands a stranger nobody.
+ * says its reader typed it. `pending` names the other seats and none of their holders, and the mail names no school,
+ * so a mistyped address hands a stranger nobody.
  */
 export function buildBewerbungReceivedEmail(
-  { saison_id, rollen, pending, deadline }: FLBewerbungReceivedData,
+  { saison_id, seats, pending, deadline }: FLBewerbungReceivedData,
   { origin, token }: MailLink,
 ): Mail {
   const site = mailOrigin(origin);
@@ -153,7 +153,7 @@ export function buildBewerbungReceivedEmail(
     subjectLine: WORDS.received.subject(saison_id),
     origin: site,
     paragraphs: [
-      [WORDS.received.lead(saison_id), WORDS.received.named(rollen), WORDS.confirmOrOppose],
+      [WORDS.received.lead(saison_id), WORDS.received.named(seats), WORDS.confirmOrOppose],
       [WORDS.received.others],
       [deadlineSentence(deadline)],
     ],
@@ -161,7 +161,7 @@ export function buildBewerbungReceivedEmail(
       title: WORDS.status,
       facts: [
         { label: COPY.shared.saison, value: saison_id },
-        { label: WORDS.received.pending, value: rollenText(pending) },
+        { label: WORDS.received.pending, value: seatsText(pending) },
       ],
     },
     button: { label: COPY.page.entryConfirmation, href: kontaktConfirmationLink(site, token) },
@@ -194,26 +194,23 @@ export function buildDeletionNoticeEmail({ saison_id }: FLDeletionNoticeData, { 
  * What the Ansprechperson is told when a person refuses their entry, by the seats it emptied.
  * No button: the next step is „Sitz bearbeiten“, the league's, and a reply reaches its mailbox.
  */
-export function buildBewerbungObjectionEmail(
-  { saison_id, rollen, declined, deadline }: FLBewerbungObjectionData,
-  { origin }: MailOrigin,
-): Mail {
-  const seats = rollenText(declined);
+export function buildBewerbungObjectionEmail({ saison_id, seats, declined, deadline }: FLBewerbungObjectionData, { origin }: MailOrigin): Mail {
+  const emptied = seatsText(declined);
 
   return {
     kind: "notice",
     subjectLine: WORDS.objection.subject(saison_id),
     origin: mailOrigin(origin),
     paragraphs: [
-      [[WORDS.objection.lead.before, { strong: seats }, WORDS.objection.lead.after], WORDS.objection.removed],
+      [[WORDS.objection.lead.before, { strong: emptied }, WORDS.objection.lead.after], WORDS.objection.removed],
       [WORDS.objection.replace, [WORDS.objection.until.before, { strong: formatDateLong(dayOf(deadline)) }, WORDS.objection.until.after]],
     ],
     block: {
       title: WORDS.status,
       facts: [
         { label: COPY.shared.saison, value: saison_id },
-        { label: WORDS.registeredAs, value: rollenText(rollen) },
-        { label: WORDS.objection.from, value: seats },
+        { label: WORDS.registeredAs, value: seatsText(seats) },
+        { label: WORDS.objection.from, value: emptied },
       ],
     },
   };

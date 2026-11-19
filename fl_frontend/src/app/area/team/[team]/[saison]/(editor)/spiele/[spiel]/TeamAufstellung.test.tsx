@@ -1,11 +1,11 @@
 // @vitest-environment jsdom
-import { renderUnderNext } from "@/test-support/nextContexts";
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
 import { LINEUP_WORDS } from "@/features/aufstellungen/players";
+import { renderUnderNext } from "@/test-support/nextContexts";
 
 import { TeamAufstellung } from "./TeamAufstellung";
 

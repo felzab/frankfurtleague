@@ -28,7 +28,7 @@ class TestSpieler:
         "extra",
         [pytest.param({"team_id": str(ObjectId())}, id="team_id"), pytest.param({"is_nachnominiert": True}, id="is_nachnominiert")],
     )
-    def test_a_squad_edit_refuses_a_field_it_does_not_declare(self, extra: dict[str, Any], assert_rejects):
+    def test_a_kader_edit_refuses_a_field_it_does_not_declare(self, extra: dict[str, Any], assert_rejects):
         """A seat holder's edit `$set`s this model's fields, and each of these two is refused by `extra="forbid"` alone.
 
         `team_id` would move a pupil to another club, and `is_nachnominiert` would let a seat holder stand a row outside
@@ -43,15 +43,14 @@ class TestSpieler:
 
         assert [error["type"] for error in refused.errors()] == ["extra_forbidden"]
 
-    @pytest.mark.parametrize("field", ["email"])
-    def test_the_record_refuses_a_person_stored_as_nobody(self, field):
+    def test_the_record_refuses_a_person_stored_without_an_address(self):
         """No write stores such a person, so the read-back is the one place a hand edit blanking one shows.
 
         Without an address the person is out of every erasure's reach, each finding a person by address.
         """
 
         with pytest.raises(ValidationError):
-            FLSpielerRecord.model_validate(spieler_document(ObjectId(), **{"first_name": "Max", "last_name": "Mustermann", field: None}))
+            FLSpielerRecord.model_validate(spieler_document(ObjectId(), first_name="Max", last_name="Mustermann", email=None))
 
     @pytest.mark.parametrize("absent", [True, False], ids=["absent", "null"])
     def test_the_person_patch_requires_a_birthdate(self, absent: bool):
@@ -90,7 +89,7 @@ class TestTheSeasonsSpans:
 
     @staticmethod
     def payload(saison, **overrides: Any) -> dict[str, Any]:
-        """The stored season narrowed to the payload's keys: `extra="forbid"` refuses `_id`, `status` and `schedule`."""
+        """The stored season narrowed to the payload's keys: `extra="forbid"` refuses `_id` and `status`."""
 
         stored = saison()
 

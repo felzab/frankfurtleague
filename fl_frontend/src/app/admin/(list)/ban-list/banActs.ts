@@ -86,12 +86,12 @@ export const enterBan = action({
   passkey: true,
   name: "enterBan",
   input: BanForm,
-  ownWords: ["ban_list_admin", "ban_list_no_saison", "email_not_accepted", "address_in_free_text"],
+  ownWords: ["ban_list_admin", "ban_list_no_saison", "email_not_accepted"],
   paths: { email: "email", ban_reason: "ban_reason" },
   examples: { email: COPY.shared.field.exampleAddress },
   boxless: {
     email: { value: CLOSED.format.address, email_not_accepted: CLOSED.format.address },
-    ban_reason: { required: CLOSED.reasonMissing, address_in_free_text: CLOSED.reasonWithAddress },
+    ban_reason: { required: CLOSED.reasonMissing },
   },
   run: async ({ email, ban_reason }) => {
     // Read ahead of the write, so the ban owes its own notice in its own transaction.

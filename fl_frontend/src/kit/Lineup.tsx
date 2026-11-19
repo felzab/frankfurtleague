@@ -185,7 +185,6 @@ type LineupProps = {
 const byNummer = (one: LineupPlayer, other: LineupPlayer) =>
   one.nummer === other.nummer ? 0 : one.nummer === null ? 1 : other.nummer === null ? -1 : one.nummer - other.nummer;
 
-// How each column after the name sets, its head and its cells alike.
 const NUMMER = { align: "centre", figures: true, count: true } as const;
 const POSITION = { align: "start", desktop: true } as const;
 const TICK = { align: "centre" } as const;

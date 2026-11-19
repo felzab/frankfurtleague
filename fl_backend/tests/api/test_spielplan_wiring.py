@@ -10,7 +10,7 @@ from app.api.saisons.schemas import FLSaisonRules
 from app.api.saisons.spielplan import EnteredTeam, Spielplan, draw_spielplan
 from app.api.spiele.schemas import FLPatchSpielDataPayload, FLSpiel, FLSpielListAdapter
 from app.api.spiele.services import find_wiring_refusal, judge_spieltag_occupancy, resolve_bracket
-from app.api.teams.services import DecidedStanding
+from app.api.teams.standings import DecidedStanding
 from app.shared.schemas.literals import FLGruppenNames
 from tests.documents import rules_document
 from tests.payloads import spiel_patch_body
@@ -21,9 +21,9 @@ SAISON_ID = "2026"
 
 Shape = tuple[int, int, int]
 
-# `(number_of_groups, teams_per_group, qualifiers_per_group)`. The last is the largest season
+# `(number_of_gruppen, teams_per_gruppe, qualifiers_per_gruppe)`. The last is the largest season
 # `FLSaisonRules` admits, so the widest bracket and the longest round robin are both judged here.
-SHAPES: tuple[Shape, ...] = ((1, 4, 4), (2, 3, 2), (4, 5, 1), (4, 4, 4), (4, 16, 4))
+SHAPES: tuple[Shape, ...] = ((1, 4, 4), (2, 3, 2), (4, 5, 1), (4, 4, 4), (16, 8, 1))
 SHAPE_IDS = (
     "one group of four into a semi-final",
     "two odd groups into a semi-final",
@@ -121,14 +121,13 @@ class TestTheDrawnSeasonFieldsNobodyTwiceOnAMatchday:
     """Asked of the shipped judge, not of the pairing the draw happens to have produced."""
 
     @pytest.mark.parametrize("shape", SHAPES, ids=SHAPE_IDS)
-    def test_resubmitting_a_spiel_neither_refuses_nor_releases_a_club_from_another(self, shape: Shape):
+    def test_resubmitting_a_spiel_neither_refuses_nor_releases_a_team_from_another(self, shape: Shape):
         """A release is the same fault as the refusal seen from the other slot: the judge found this club already standing on the matchday."""
 
         season = season_of(shape)
 
-        # No season rows: a release names its club off them, so one owed here raises rather than passing unseen.
         verdicts = [
-            (raw["spiel_nr"], judge_spieltag_occupancy(raw["_id"], FLPatchSpielDataPayload.model_validate(spiel_patch_body(raw)), season, {}))
+            (raw["spiel_nr"], judge_spieltag_occupancy(raw["_id"], FLPatchSpielDataPayload.model_validate(spiel_patch_body(raw)), season))
             for raw in drawn(shape).spiele
         ]
 
@@ -169,7 +168,7 @@ def played_up_to_the_finale(shape: Shape) -> tuple[tuple[FLSpiel, ...], dict[int
 
     groups, teams, _ = shape
     entered = entered_for(groups, teams)
-    squads = {gruppe: [team for team in entered if team.gruppe == gruppe] for gruppe in GRUPPEN[:groups]}
+    teams_by_gruppe = {gruppe: [team for team in entered if team.gruppe == gruppe] for gruppe in GRUPPEN[:groups]}
     came_out: dict[tuple[int, str], EnteredTeam] = {}
     decided: dict[int, tuple[ObjectId, ObjectId]] = {}
 
@@ -180,7 +179,9 @@ def played_up_to_the_finale(shape: Shape) -> tuple[tuple[FLSpiel, ...], dict[int
             continue
 
         one, other = (
-            squads[quelle["gruppe"]][quelle["platz"] - 1] if quelle["type"] == "gruppe" else came_out[(quelle["spiel_nr"], quelle["ausgang"])]
+            teams_by_gruppe[quelle["gruppe"]][quelle["platz"] - 1]
+            if quelle["type"] == "gruppe"
+            else came_out[(quelle["spiel_nr"], quelle["ausgang"])]
             for quelle in (raw["team1_quelle"], raw["team2_quelle"])
         )
         came_out[(raw["spiel_nr"], "sieger")], came_out[(raw["spiel_nr"], "verlierer")] = one, other

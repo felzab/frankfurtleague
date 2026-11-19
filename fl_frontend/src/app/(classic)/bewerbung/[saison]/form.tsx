@@ -1,7 +1,5 @@
 import { cache } from "react";
 
-import { ConsentLine } from "@/kit/ConsentLine";
-
 import { frontend_config } from "@/core/config";
 import { COPY } from "@/core/copy";
 import { orMissing } from "@/core/errors";
@@ -9,6 +7,7 @@ import { bewerbungenGetForm } from "@/core/generated/client/sdk";
 import { ROUTES } from "@/core/routes";
 import { runWithIncomingTrace } from "@/core/traceScope";
 import { SAISON_ID_LENGTH } from "@/features/saisons/constants";
+import { ConsentLine } from "@/kit/ConsentLine";
 
 import { REPLAY_FIELD } from "./application";
 import { BewerbungFields } from "./BewerbungFields";

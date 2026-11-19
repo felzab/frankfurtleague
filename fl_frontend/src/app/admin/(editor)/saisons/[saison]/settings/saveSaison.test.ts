@@ -1,8 +1,8 @@
-import { serveBackend } from "@/test-support/backend";
-import { signedInRequest } from "@/test-support/session";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { COPY } from "@/core/copy";
+import { serveBackend } from "@/test-support/backend";
+import { signedInRequest } from "@/test-support/session";
 
 import type { FLPatchSaisonPayload, FLSaisonAdmin } from "@/core/generated/client/types";
 
@@ -25,7 +25,6 @@ const STORED: FLSaisonAdmin = {
   },
   bewerbung: { open: true, start: "2027-01-10", end: "2027-02-07" },
   registrierung: { end: "2027-03-05", open: false },
-  schedule: [],
   status: "future",
   begun: false,
   taken_place: false,
@@ -39,7 +38,7 @@ const state = { sent: [] as unknown[], saison: null as unknown };
 // The backend answers the editor's read with the stored season and the write with its new version, so the save runs
 // through the real guard, read, generated call and dispatch.
 serveBackend(({ method, path, body }) => {
-  if (method === "GET" && path === "/saisons/2027/admin") return { saison: state.saison };
+  if (method === "GET" && path === "/saisons/2027") return { saison: state.saison };
   if (method === "PATCH" && path === "/saisons/2027") {
     state.sent.push(body);
     return { version: 4 };

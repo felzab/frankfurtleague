@@ -69,7 +69,7 @@ class TestAnOpponentHearsOfAnExitAtTheExitsOwnWrite:
     The close's list reaching only rows already asked, an opponent of those fixtures would go to the ground unaware.
     """
 
-    async def test_each_opponent_is_owed_one_notice_over_its_open_spiele_and_the_departed_club_nothing(self, mongo_replica_set_url: str):
+    async def test_each_opponent_is_owed_one_notice_over_its_open_spiele_and_the_departed_team_nothing(self, mongo_replica_set_url: str):
         spiele = [
             spiel(1, DEPARTED, OPPONENT, LATER),
             # On the exit's own day, and the departed club on the other side: `decision_of` counts the day as out.

@@ -2,8 +2,9 @@ import asyncio
 import contextvars
 import time
 import traceback
-from collections.abc import AsyncGenerator, Awaitable, Callable, Iterable, Mapping, Sequence
+from collections.abc import AsyncGenerator, Awaitable, Callable, Iterable, Mapping
 from contextlib import asynccontextmanager
+from dataclasses import dataclass, field
 from typing import Any, Final
 
 import anyio
@@ -16,14 +17,17 @@ from pymongo.errors import OperationFailure, PyMongoError
 
 from app.core.codes import Code
 from app.core.exception_handlers import rejected_fields_of
-from app.core.exceptions import APIError
 from app.core.logging import fl_logger
 from app.core.middlewares import request_deadline_var
-from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 
 NO_DATA_TEXT: Final = "//- No Data -//"
 
-# Counted as `RequestDeadline` says; far above a round trip, and inside the page's margin.
+# The time a request's aborts may run past its deadline, all of them together, charged after each abort: the first
+# abort past the deadline gets the whole grace, and each later one what the earlier ones left. Never time counted from
+# the deadline: the request reaches an abort only when its next database operation meets the deadline, however long
+# after it, and every moment between would come out of the abort that frees the transaction's documents. Never a grace
+# apiece either: a loop of cut transactions would wait one out per transaction. Far above a round trip, and inside the
+# page's margin.
 ABORT_GRACE_S: Final = 1.0
 
 # NoSuchTransaction and TransactionCommitted: the server holds nothing open, the driver's own abort
@@ -35,7 +39,7 @@ UNKNOWN_COMMIT_RESULT: Final = "UnknownTransactionCommitResult"
 
 
 def _abort_budget() -> float:
-    """What is left of the request's deadline and of its grace, counted as `RequestDeadline` says, or a whole grace outside a request."""
+    """What is left of the request's deadline and of its grace, counted as `ABORT_GRACE_S` says, or a whole grace outside a request."""
 
     deadline = request_deadline_var.get()
     if deadline is None:
@@ -123,113 +127,79 @@ async def transaction_session(client: AsyncMongoClient) -> AsyncGenerator[AsyncC
             raise
 
 
-# A pass's page: one read's ceiling, and one past it tells a full page from a truncated one.
-SWEEP_PAGE: Final = LIST_LIMIT_DEFAULT
+async def transact[T](client: AsyncMongoClient, callback: Callable[[AsyncClientSession], Awaitable[T]]) -> T:
+    """`callback` in one transaction on a session of its own, run, committed and retried by the driver's `with_transaction`.
 
-
-class StalledPage(ValueError):
-    """A full page that moved nothing: no row carries it, so `isolate` never halves it."""
-
-
-class Batch:
-    """One transaction of a sweep's clock: which rows it may take, and what its last attempt read, took and passed over.
-
-    `isolate` halves what a failed one took, or its whole read where it took nothing yet.
+    The driver runs `callback` again from its start on a write conflict or a transient error, and commits again where a
+    commit went unanswered, until the request's deadline; a rolled-back attempt leaves nothing. So a callback reads all
+    it judges through `session`, and a retry judges afresh what a rival write left, while what every attempt must share,
+    such as the press's instant or a value it mints, is made outside the callback.
     """
 
-    def __init__(self, *, among: Sequence[Any] | None = None, passed: Sequence[Any] = (), share: int | None = None) -> None:
-        self.among = among
-        self.passed = passed
-        # The rows the transaction may still write where its clock takes a share, `None` where it takes the page.
-        self.share = share
-        self.ids: list[Any] = []
-        self.taken: list[Any] | None = None
-        self.refused: list[tuple[Any, Exception]] = []
-
-    def within(self, db_filter: Mapping[str, Any]) -> Mapping[str, Any]:
-        """The clock's own filter, narrowed to a half of a failed read, or to the read without the rows passed over."""
-
-        if self.among is not None:
-            term: Mapping[str, Any] = {"_id": {"$in": list(self.among)}}
-        elif self.passed:
-            term = {"_id": {"$nin": list(self.passed)}}
-        else:
-            return db_filter
-
-        # Beside the filter rather than merged into it: a filter naming its own `_id` would lose it,
-        # and a passed-over term would then read every row the rest of the filter admits.
-        return {"$and": [db_filter, term]}
-
-    async def saw[Row: Mapping[str, Any]](self, read: Awaitable[list[Row]]) -> list[Row]:
-        """The attempt's read, which every clock's callback makes first, its ids recorded once it answers."""
-
-        # Begun afresh before the read: the driver runs the callback again on a transient error, and an
-        # attempt failing in its read would otherwise be halved over what an earlier attempt read.
-        self.ids, self.taken, self.refused = [], None, []
-        rows = await read
-        self.ids = [row["_id"] for row in rows]
-        return rows
-
-    def judged[Row: Mapping[str, Any], T](self, rows: Iterable[Row], judge: Callable[[Row], T]) -> list[tuple[Row, T]]:
-        """Each row beside what `judge` answers for it; one it raises on is passed over in place, nothing written.
-
-        Its stored data fails in code alone, so no attempt is taken apart for it.
-        """
-
-        answered: list[tuple[Row, T]] = []
-        for row in rows:
-            try:
-                answered.append((row, judge(row)))
-            # Any class, as `isolate` would halve any; not `BaseException`, so a cancellation still ends the call.
-            except Exception as refusal:
-                self.refused.append((row["_id"], refusal))
-
-        return answered
-
-    def took[Row: Mapping[str, Any]](self, rows: list[Row]) -> list[Row]:
-        """The rows the attempt writes, which are all a failure after it can be carried by."""
-
-        self.taken = [row["_id"] for row in rows]
-        return rows
-
-    @property
-    def suspects(self) -> list[Any]:
-        """The rows a failure of this attempt can be carried by: those it took, or its whole read where it failed before taking any."""
-
-        return self.ids if self.taken is None else self.taken
+    async with transaction_session(client) as session:
+        return await session.with_transaction(callback)
 
 
-def _settled(batch: Batch, *, what: str, clock: str) -> list[Any]:
-    """The rows an attempt passed over in place, each logged once that attempt is over: a retried one began its record afresh."""
+def _of_row[Row, T](save: Callable[[AsyncClientSession, Row], Awaitable[T]], row: Row) -> Callable[[AsyncClientSession], Awaitable[T]]:
+    """`save` bound to one row, the callback `transact` runs and may run again."""
 
-    for row_id, refusal in batch.refused:
-        log_passed(what=what, row_id=row_id, clock=clock, failure=refusal)
-
-    return [row_id for row_id, _ in batch.refused]
+    return lambda session: save(session, row)
 
 
-def _deadline_left() -> float | None:
-    """What is left of the request's deadline, `None` outside a request."""
+@dataclass
+class Saved[T]:
+    """What an hourly pass's step saved, row by row: each row's answer, the rows passed over, and whether the deadline cut it."""
 
-    deadline = request_deadline_var.get()
-    return None if deadline is None else deadline.at - time.monotonic()
-
-
-async def _transacted[T](db: AsyncMongoClient, callback: Callable[[AsyncClientSession, Batch], Awaitable[T]], batch: Batch) -> T:
-    """`callback` over `batch` in one transaction, handed the session by the driver's own `with_transaction`."""
-
-    async with transaction_session(db) as session:
-        return await session.with_transaction(lambda transacting: callback(transacting, batch))
+    answers: list[T] = field(default_factory=list)
+    failed: int = 0
+    cut: bool = False
 
 
-def carried_by_a_row(failure: Exception) -> bool:
-    """Whether halving the rows can isolate a failure.
+async def save_each[Row: Mapping[str, Any], T](
+    *,
+    db: AsyncMongoClient,
+    rows: Iterable[Row],
+    # Run in a transaction of its own for each row, which it judges again there: the read naming the rows was taken
+    # outside any.
+    save: Callable[[AsyncClientSession, Row], Awaitable[T]],
+    what: str,
+    clock: str,
+) -> Saved[T]:
+    """Each row saved in a transaction of its own: one that fails is logged and passed over, and the rest are saved.
 
-    A deadline meets every half too, a stalled page is the page's own, and a refusal the request
-    answers is the request's.
+    The deadline ends the step at the row it cuts, which stays due with every row after it for the next pass.
     """
 
-    return not isinstance(failure, (StalledPage, APIError)) and not (isinstance(failure, PyMongoError) and failure.timeout)
+    saved: Saved[T] = Saved()
+    for row in rows:
+        # Caught outside the row's session: a failure the session never saw leaves its transaction open.
+        try:
+            saved.answers.append(await transact(db, _of_row(save, row)))
+        # Any class, or the next pass stops at this row again and holds back every one behind it; not `BaseException`,
+        # so a cancellation still ends the call.
+        except Exception as failure:
+            # The only branch an unanswered commit reaches: `transact` retries one until the deadline and raises it as a
+            # timeout keeping the label.
+            if isinstance(failure, PyMongoError) and failure.timeout:
+                uncertain = failure.has_error_label(UNKNOWN_COMMIT_RESULT)
+                # Below a failed row's ERROR: no record is at fault, and every later row would fail the same way.
+                fl_logger.warning(
+                    "transactions.pass_cut",
+                    extra={
+                        "error_code": Code.UNKNOWN_OUTCOME if uncertain else Code.DATABASE_FAILED,
+                        "what": what,
+                        "row_id": str(row["_id"]),
+                        "clock": clock,
+                        "unanswered": uncertain,
+                    },
+                )
+                saved.cut = True
+                return saved
+
+            log_passed(what=what, row_id=row["_id"], clock=clock, failure=failure)
+            saved.failed += 1
+
+    return saved
 
 
 def diagnosis_of(failure: Exception) -> tuple[str, str]:
@@ -251,216 +221,9 @@ def diagnosis_of(failure: Exception) -> tuple[str, str]:
 
 def log_passed(*, what: str, row_id: Any, clock: str, failure: Exception) -> None:
     # Never `str(failure)`: it can quote the record, which a line about an erasure would then outlive.
-    # No unanswered commit reaches here: `with_transaction` retries one until the deadline, which
-    # `isolate` never halves.
+    # No unanswered commit reaches here: `with_transaction` retries one until the deadline, and `save_each` warns of
+    # that as the pass's cut.
     code, diagnosis = diagnosis_of(failure)
     fl_logger.error(
         "transactions.row_passed_over", extra={"error_code": code, "what": what, "row_id": str(row_id), "clock": clock, "diagnosis": diagnosis}
     )
-
-
-async def isolate[T](
-    *,
-    db: AsyncMongoClient,
-    failed: Batch,
-    failure: Exception,
-    # The clock's callback, run in a transaction of its own over each half.
-    attempt: Callable[[AsyncClientSession, Batch], Awaitable[T]],
-    moved: Callable[[T], int],
-    owes: bool,
-    what: str,
-    clock: str,
-    # How long the failed attempt ran: the first measure of what one more costs.
-    spent: float,
-) -> tuple[list[T], list[Any]]:
-    """Each half of a failed transaction's rows run on its own, down to each row failing alone, which is logged and left standing.
-
-    Answers what committed and the ids passed over, in place or alone.
-    """
-
-    committed: list[T] = []
-    passed: list[Any] = []
-    remaining = failed.share
-    # The rows of the attempt the deadline cut, which may have been written where its commit went unanswered.
-    cut: list[Any] = []
-    longest = spent
-    stopped = False
-
-    async def split(batch: Batch, failed_with: Exception) -> None:
-        passed.extend(_settled(batch, what=what, clock=clock))
-        # The rows the attempt took and no other: one it read and judged in place, or left past its share, carries nothing.
-        suspects = batch.suspects
-        if len(suspects) == 1:
-            log_passed(what=what, row_id=suspects[0], clock=clock, failure=failed_with)
-            passed.append(suspects[0])
-            return
-
-        middle = len(suspects) // 2
-        for half in (suspects[:middle], suspects[middle:]):
-            await run(half)
-
-    async def run(part: Sequence[Any]) -> None:
-        nonlocal remaining, longest, stopped
-        # A share the halves have already filled: the rows after it stay due for the next pass.
-        if remaining == 0 or stopped:
-            return
-
-        # Once a half owing a message has committed, no attempt the deadline would cut: cut, its commit could go
-        # unanswered. The longest attempt yet stands for the next, a half reading no more than the attempt before it.
-        left = _deadline_left()
-        if owes and committed and left is not None and left < longest:
-            stopped = True
-            return
-
-        batch = Batch(among=part, share=remaining)
-        started = time.monotonic()
-        try:
-            result = await _transacted(db, attempt, batch)
-        except Exception as failed_with:
-            longest = max(longest, time.monotonic() - started)
-            if not carried_by_a_row(failed_with) or not batch.suspects:
-                cut[:] = part if batch.taken is None else batch.taken
-                raise
-            await split(batch, failed_with)
-            return
-
-        longest = max(longest, time.monotonic() - started)
-        passed.extend(_settled(batch, what=what, clock=clock))
-        committed.append(result)
-        if remaining is not None:
-            remaining -= moved(result)
-
-    try:
-        await split(failed, failure)
-    except Exception as stop:
-        # Answered rather than raised once a half owing a message has committed.
-        if not owes or not committed:
-            raise
-        _log_stopped(stop, what=what, clock=clock, cut=cut)
-
-    if stopped:
-        fl_logger.warning("transactions.isolation_out_of_time", extra={"error_code": Code.DATABASE_FAILED, "clock": clock})
-
-    return committed, passed
-
-
-def _log_stopped(stop: Exception, *, what: str, clock: str, cut: Sequence[Any]) -> None:
-    """The warning of an isolation owing a message that stopped once a half had committed."""
-
-    if not (isinstance(stop, PyMongoError) and stop.timeout):
-        code, diagnosis = diagnosis_of(stop)
-        fl_logger.warning("transactions.isolation_stopped", extra={"error_code": code, "clock": clock, "diagnosis": diagnosis})
-    # The label survives the driver's own timeout: an unanswered commit is retried until the deadline and raised as one.
-    elif stop.has_error_label(UNKNOWN_COMMIT_RESULT):
-        # Those rows may have been written with nobody told; the call answers what else committed.
-        fl_logger.warning(
-            "transactions.isolation_commit_unanswered",
-            extra={"error_code": Code.UNKNOWN_OUTCOME, "clock": clock, "what": what, "row_ids": [str(row_id) for row_id in cut]},
-        )
-    else:
-        fl_logger.warning("transactions.isolation_cut", extra={"error_code": Code.DATABASE_FAILED, "clock": clock})
-
-
-async def run_isolated[T](
-    *,
-    db: AsyncMongoClient,
-    batch: Batch,
-    # The clock's callback, run in a transaction over `batch`.
-    attempt: Callable[[AsyncClientSession, Batch], Awaitable[T]],
-    moved: Callable[[T], int],
-    owes: bool,
-    what: str,
-    clock: str,
-) -> tuple[list[T], list[Any]]:
-    """`attempt` over `batch` in one transaction, taken apart by `isolate` where that fails: what committed, and the ids passed over."""
-
-    started = time.monotonic()
-    try:
-        result = await _transacted(db, attempt, batch)
-    except Exception as failure:
-        # Nothing read or nothing taken: the failure came before any row or after every one the attempt
-        # wrote, and halving none would swallow it.
-        if not batch.suspects or not carried_by_a_row(failure):
-            raise
-
-        return await isolate(
-            db=db,
-            failed=batch,
-            failure=failure,
-            attempt=attempt,
-            moved=moved,
-            owes=owes,
-            what=what,
-            clock=clock,
-            spent=time.monotonic() - started,
-        )
-
-    return [result], _settled(batch, what=what, clock=clock)
-
-
-async def drain(
-    *,
-    db: AsyncMongoClient,
-    # The clock's callback, run in a transaction of its own over each page.
-    page_of: Callable[[AsyncClientSession, Batch], Awaitable[tuple[int, int]]],
-    # The callback reads one row past it, or a full page reads as the last one.
-    page: int,
-    what: str,
-    clock: str,
-) -> tuple[int, list[Any]]:
-    """A full page is erased and read again: the population filling it is the one only the erasure shrinks.
-
-    Answers what it erased and the ids it passed over.
-    """
-
-    erased_total = 0
-    passed: list[Any] = []
-    while True:
-        # Without the rows passed over, or a page of them would be read, and fail, for ever.
-        batch = Batch(passed=passed)
-        started = time.monotonic()
-        try:
-            read, erased = await _transacted(db, page_of, batch)
-        except Exception as failure:
-            # Nothing read or nothing taken, as `run_isolated` reads it.
-            if not batch.suspects or not carried_by_a_row(failure):
-                raise
-
-            # Owing nothing, so a deadline is raised as it was before the halving.
-            committed, left = await isolate(
-                db=db,
-                failed=batch,
-                failure=failure,
-                attempt=page_of,
-                moved=lambda page_erased: page_erased[1],
-                owes=False,
-                what=what,
-                clock=clock,
-                spent=time.monotonic() - started,
-            )
-            read = len(batch.ids)
-            erased = sum(result[1] for result in committed)
-            # A page that failed whole and whose halves neither moved nor passed a row would be read
-            # again, the same way, for ever.
-            if read > page and not erased and not left:
-                raise
-
-            passed.extend(left)
-        else:
-            passed.extend(_settled(batch, what=what, clock=clock))
-
-        erased_total += erased
-        if read <= page:
-            return erased_total, passed
-
-
-def refuse_a_stalled_page(*, read: int, moved: int, page: int, clock: str, saison_id: str) -> None:
-    """Raise where a full page moved nothing: the same rows come back for ever.
-
-    Beside `drain`, which takes the page the same way; every pass calling this one pages by `SWEEP_PAGE`.
-    """
-
-    if read > page and moved == 0:
-        raise StalledPage(
-            f"season {saison_id} fills the {clock} clock's page of {page} with rows it takes none of, so no pass can make progress"
-        )

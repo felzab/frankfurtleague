@@ -1,8 +1,8 @@
-import { thrownRedirect } from "@/test-support/thrownRedirect";
 import { describe, expect, it } from "vitest";
 
 import { APIBadStatusError } from "@/core/errors";
 import { ROUTES } from "@/core/routes";
+import { thrownRedirect } from "@/test-support/thrownRedirect";
 
 import { readAsRoleHolder } from "./resolvers";
 

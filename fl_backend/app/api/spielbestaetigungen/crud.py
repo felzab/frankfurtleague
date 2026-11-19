@@ -6,7 +6,6 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.outbox.services import enqueue_mails
-from app.api.spielbestaetigungen.schemas import FLSpielbestaetigung
 from app.api.spielbestaetigungen.services import (
     ANSETZUNG_QUELLEN,
     CLOSE_FIELDS,
@@ -37,7 +36,7 @@ from app.core.recording import ACT_BY_SYSTEM, record_act
 JUDGED_SPIEL_FIELDS: Mapping[str, int] = {
     "_id": 1,
     **dict.fromkeys(ANSETZUNG_QUELLEN.values(), 1),
-    **dict.fromkeys(("team1.name", "team2.name", "team1.tore", "team2.tore", "spielort.name", "spielort.maps_link"), 1),
+    **dict.fromkeys(("team1.name", "team2.name", "team1.tore", "team2.tore", "spielort.name", "spielort.maps_query"), 1),
     **dict.fromkeys(("ergebnis", "sonderereignis", "schiedsrichter.schiedsrichter_id"), 1),
 }
 
@@ -51,10 +50,7 @@ async def pull_named_spiele(
     limit: int | None = None,
     session: AsyncClientSession | None = None,
 ) -> list[Mapping[str, Any]]:
-    """The fixtures `db_filter` selects through the name join, `projection` of each.
-
-    The stored fixture holds no name, so a reader naming a side or the ground reads it here and never by `find`.
-    """
+    """Through the name join: the stored fixture holds no name, so a reader naming a side or the ground reads it here, never by `find`."""
 
     return await aggregate_many_from_db(
         collection=spiele_collection,
@@ -65,10 +61,10 @@ async def pull_named_spiele(
 
 # What a row's state judges of the clubs' season rows its Ansetzung names: each club's exit, and no seat holder at all.
 # Every read judging a state projects it, so a field a judge comes to read is added once.
-JUDGED_VEREIN_FIELDS: Final[Mapping[str, int]] = {"_id": 0, "team_id": 1, "austritt.date": 1}
+JUDGED_JUNCTION_FIELDS: Final[Mapping[str, int]] = {"_id": 0, "team_id": 1, "austritt.date": 1}
 
 # The clubs' season rows as an answer reads them: what the close judges, and the name the act records.
-VEREIN_FIELDS: Final[Mapping[str, int]] = {**JUDGED_VEREIN_FIELDS, "name": 1}
+JUNCTION_FIELDS: Final[Mapping[str, int]] = {**JUDGED_JUNCTION_FIELDS, "name": 1}
 
 
 async def pull_ansetzung_state(
@@ -76,7 +72,7 @@ async def pull_ansetzung_state(
     spiele_collection: ReadCollection,
     saison_teams_collection: ReadCollection,
     spielbestaetigung_raw: Mapping[str, Any],
-    verein_projection: Mapping[str, Any],
+    junction_projection: Mapping[str, Any],
     session: AsyncClientSession | None = None,
 ) -> AnsetzungState | None:
     """`None` where the fixture is gone: an undraw or a replace removes it with its rows, so a row read outside a transaction can outlive it."""
@@ -87,30 +83,28 @@ async def pull_ansetzung_state(
         return None
 
     snapshot = spielbestaetigung_raw["ansetzung"]
-    vereine = await saison_teams_collection.find(
+    junctions = await saison_teams_collection.find(
         {"saison_id": spielbestaetigung_raw["saison_id"], "team_id": {"$in": [snapshot["team1_id"], snapshot["team2_id"]]}},
-        verein_projection,
+        junction_projection,
         session=session,
     ).to_list(length=None)
 
-    return AnsetzungState(spiel=spiel, vereine=vereine)
+    return AnsetzungState(spiel=spiel, junctions=junctions)
 
 
 # --- The administrator's read.
 
-# What the match editor serves of a row, read off the model it is served as: an allow-list, so a block a row still carries and
-# no administrator reads, an old seat's address among them, never leaves the database.
-ADMIN_ROW_FIELDS: Final[list[str]] = [
-    field.validation_alias if isinstance(field.validation_alias, str) else name for name, field in FLSpielbestaetigung.model_fields.items()
-]
+# What the match editor reads of a row: what it serves, and what the row's state, due day and lapse are judged by. An
+# allow-list, so a block a row still carries and no administrator reads, an old seat's address among them, never leaves
+# the database.
+ADMIN_ROW_FIELDS: Final = ["party", "ansetzung", "deadline", "asked_at", "answer", "closed"]
 
 
 async def pull_admin_rows(*, spielbestaetigungen_collection: ReadCollection, db_filter: Mapping[str, Any]) -> list[Mapping[str, Any]]:
-    """The rows `db_filter` selects, newest first, as an administrator reads them."""
-
-    return await pull_many_from_db(
+    return await pull_whole_from_db(
         collection=spielbestaetigungen_collection,
         db_filter=db_filter,
+        what="the match confirmations an administrator reads",
         # Rows carry no creation stamp; an ObjectId's leading bytes are its insert time.
         sort_by=[("_id", -1)],
         projection=ADMIN_ROW_FIELDS,
@@ -140,13 +134,13 @@ async def strip_the_seasons_confirmations(
     *,
     spielbestaetigungen_collection: AsyncCollection,
     saison_id: str,
-    # The season's end judged in the same snapshot, so an activation since the caller's read keeps the rows.
+    # The caller has judged the season after ended, outside this session: a past season never reopens, so that still holds.
     session: AsyncClientSession,
 ) -> int:
-    """At the season's end, every reason left on the season's rows, answering how many rows that took.
+    """Once the season after has ended, every reason left on the season's rows, answering how many rows that took.
 
-    A replaced club's rows, a referee's and an administrator's reason among them; each answer's way and role stay as the
-    record.
+    A replaced club's rows, a referee's and an administrator's reason among them; each answer's way and who gave it, by
+    seat or kind, stay as the record.
     """
 
     reasons = await patch_many_in_db(
@@ -180,7 +174,7 @@ async def anchor_the_mailboxes_told(
     # Committed on its own, the anchor conflicts with no seat write.
     session: AsyncClientSession,
 ) -> None:
-    """Write the season rows a write read its mails' mailboxes off: a request's, a reminder's or a notice's.
+    """Write the season rows a write read its mails' mailboxes off.
 
     An erasure or a Widerspruch empties the seat on that row and writes nothing the mails' write writes.
     """
@@ -195,7 +189,7 @@ async def anchor_the_referees_told(
     # Committed on its own, the anchor conflicts with no erasure.
     session: AsyncClientSession,
 ) -> None:
-    """Write the referees a step tells: the mint's and the reminder's, the notice step's.
+    """Write the referees a step tells.
 
     A referee's erasure deletes only the rows its snapshot holds, never the mint's insert beside it, so this write conflicts.
     """
@@ -210,10 +204,11 @@ async def anchor_the_spiele_acted_on(
     # Committed on its own, the anchor conflicts with no save.
     session: AsyncClientSession,
 ) -> None:
-    """Write the fixtures a write judged and writes rows or owes mails about, as it read them: a step of the pass, or a discard.
+    """Write the fixtures a write judged and writes rows or owes mails about, as it read them.
 
     A save moving one of them writes nothing else the write writes, so without this write both commit and the write's
-    mails name a slot the fixture has left. With it the two conflict, and the retry judges the fixture as the save left it.
+    mails name a slot the fixture has left. With it the two conflict, and the retry judges the fixture as the save left
+    it.
     """
 
     await anchor_in_db(collection=spiele_collection, db_filter={"_id": {"$in": sorted(set(spiel_ids), key=str)}}, session=session)
@@ -247,7 +242,7 @@ async def owe_the_austritt_notices_in_session(
         session=session,
     )
     sides = {(spiel.get(side) or {}).get("team_id") for spiel in spiele for side in ("team1", "team2")}
-    vereine = await pull_whole_from_db(
+    junctions = await pull_whole_from_db(
         collection=saison_teams_collection,
         db_filter={"saison_id": saison_id, "team_id": {"$in": list({team_id, *sides} - {None})}},
         what=f"team {team_id}'s opponents in season {saison_id}",
@@ -255,7 +250,9 @@ async def owe_the_austritt_notices_in_session(
         session=session,
     )
 
-    notices = austritt_notices_of(saison_id=saison_id, team_id=team_id, spiele=spiele, vereine={row["team_id"]: row for row in vereine})
+    notices = austritt_notices_of(
+        saison_id=saison_id, team_id=team_id, spiele=spiele, junctions={row["team_id"]: row for row in junctions}, now=now
+    )
     if not notices:
         return
 
@@ -271,6 +268,38 @@ async def owe_the_austritt_notices_in_session(
 AUSTRITT_RECIPIENT_SPIEL_FIELDS: Final = [*AUSTRITT_SPIEL_FIELDS, "spielort.spielort_id", "schiedsrichter.schiedsrichter_id"]
 
 
+async def pull_party_names(
+    *,
+    parties: Sequence[Mapping[str, Any]],
+    team_names: Mapping[Any, str | None],
+    schiedsrichter_collection: ReadCollection,
+    session: AsyncClientSession,
+) -> dict[tuple[str, Any], str | None]:
+    """The name each of `parties` holds on its own record: a club its season row's, read by the caller, a referee their own.
+
+    The one lookup a dry run's and an exit's recipients are named by, so `recipients_named` reads one map of one shape.
+    """
+
+    referee_ids = list({party["schiedsrichter_id"] for party in parties if party["kind"] == "schiedsrichter"})
+    referees = (
+        await pull_many_from_db(
+            collection=schiedsrichter_collection,
+            db_filter={"_id": {"$in": referee_ids}},
+            projection={"name": 1},
+            # `_id` is unique, so `len(referee_ids)` rows is the whole answer.
+            limit=len(referee_ids),
+            session=session,
+        )
+        if referee_ids
+        else []
+    )
+
+    return {
+        **{("team", team_id): name for team_id, name in team_names.items()},
+        **{("schiedsrichter", row["_id"]): row["name"] for row in referees},
+    }
+
+
 async def pull_austritt_recipients(
     *,
     spiele_collection: ReadCollection,
@@ -279,13 +308,13 @@ async def pull_austritt_recipients(
     saison_id: str,
     team_id: Any,
     start_date: str,
-    vereine: Mapping[Any, Mapping[str, Any]],
+    junctions: Mapping[Any, Mapping[str, Any]],
     now: datetime,
     session: AsyncClientSession,
 ) -> list[tuple[str | None, list[FLSpielRecipient]]]:
     """Whom an exit of the club would mail, each by name beside the day an exit reaches them from (`austritt_recipients_of`).
 
-    `vereine` maps every club of the season to its season row, its seats, exit and name among it. Read in a snapshot
+    `junctions` maps every club of the season to its season row, its seats, exit and name among it. Read in a snapshot
     `session` and outside a transaction, as the page reading it is: a referee erased under it, rows and record in one
     write, is either named or reached by no row, never reached and unnamed.
     """
@@ -309,25 +338,14 @@ async def pull_austritt_recipients(
         if spiele
         else []
     )
-    reached = austritt_recipients_of(team_id=team_id, spiele=spiele, vereine=vereine, rows=rows, now=now)
+    reached = austritt_recipients_of(team_id=team_id, spiele=spiele, junctions=junctions, rows=rows, now=now)
 
-    referee_ids = list({party["schiedsrichter_id"] for _, party in reached if party["kind"] == "schiedsrichter"})
-    referees = (
-        await pull_many_from_db(
-            collection=schiedsrichter_collection,
-            db_filter={"_id": {"$in": referee_ids}},
-            projection={"name": 1},
-            # `_id` is unique, so `len(referee_ids)` rows is the whole answer.
-            limit=len(referee_ids),
-            session=session,
-        )
-        if referee_ids
-        else []
+    names = await pull_party_names(
+        parties=[party for _, party in reached],
+        team_names={junction_team_id: row.get("name") for junction_team_id, row in junctions.items()},
+        schiedsrichter_collection=schiedsrichter_collection,
+        session=session,
     )
-    names = {
-        **{("team", club_id): row.get("name") for club_id, row in vereine.items()},
-        **{("schiedsrichter", row["_id"]): row["name"] for row in referees},
-    }
 
     by_day: dict[str | None, list[Mapping[str, Any]]] = {}
     for day, party in reached:

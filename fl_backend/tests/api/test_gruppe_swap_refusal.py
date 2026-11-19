@@ -1,13 +1,12 @@
 from http import HTTPStatus
 
-from app.api.teams.services import find_gruppe_swap_refusal
+from app.api.saisons.services import find_gruppe_swap_refusal
 from app.core.codes import Code
 
 
 class TestWhatCountsAsASwap:
-    def test_two_clubs_of_one_group_are_refused(self):
-        """Exchanging within one group is no swap: let through, it trades the two clubs' fixtures and answers as if it had moved them."""
-
+    def test_a_pick_that_is_no_swap_is_refused(self):
+        # Two clubs of one group: let through, it would trade the two clubs' fixtures and answer as if it had moved them.
         refusal = find_gruppe_swap_refusal(
             team1_gruppe="A",
             team2_gruppe="A",
@@ -17,7 +16,7 @@ class TestWhatCountsAsASwap:
 
         assert refusal is not None
         # The pick of two clubs is what is refused, so on both boxes.
-        assert (refusal.error_code, refusal.status, refusal.fields) == (
+        assert (refusal.error_code, refusal.status_code, refusal.fields) == (
             Code.SWAP_NOT_A_SWAP,
             HTTPStatus.UNPROCESSABLE_CONTENT,
             (("team1_id",), ("team2_id",)),

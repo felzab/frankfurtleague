@@ -1,15 +1,15 @@
 // @vitest-environment jsdom
-import { serveBackend } from "@/test-support/backend";
-import { renderUnderNext, underNext } from "@/test-support/nextContexts";
-import { signedInRequest } from "@/test-support/session";
 import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderToReadableStream } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
+import { serveBackend } from "@/test-support/backend";
+import { renderUnderNext, underNext } from "@/test-support/nextContexts";
+import { signedInRequest } from "@/test-support/session";
 
-import type { FLBewerbung, FLBewerbungConfirmation, FLKontaktperson } from "@/core/generated/client/types";
+import type { FLBewerbung, FLBewerbungConfirmation, FLKontaktpersonAdmin } from "@/core/generated/client/types";
 import type { ReadRecord } from "@/kit/ReadPage";
 import type { SeatRow } from "@/kit/SeatRows";
 
@@ -31,12 +31,11 @@ const person = {
   email: "a@example.net",
   phone: "069 1",
   einwilligung: { confirmed_at: null },
-} as FLKontaktperson;
+} as FLKontaktpersonAdmin;
 
 const open: FLBewerbungConfirmation = {
   sent_at: "2026-11-01",
   deadline: "2026-11-15",
-  reminded_at: null,
   declined_at: null,
   delivery: null,
   state: "valid",
@@ -76,8 +75,8 @@ function readOf({ duplicate }: { duplicate: boolean }) {
   };
 }
 
-async function seatRows(): Promise<readonly SeatRow[]> {
-  state.read = readOf({ duplicate: false });
+async function seatRows(read: unknown = readOf({ duplicate: false })): Promise<readonly SeatRow[]> {
+  state.read = read;
 
   const page = BewerbungPage(PARAMS) as { props: { record: Promise<ReadRecord> } };
   const { groups } = await page.props.record;
@@ -101,6 +100,38 @@ describe("a Dublette on the page its decision is taken on", () => {
   it("stands beside the standing chip, which stays", async () => {
     expect(await stripOf(readOf({ duplicate: true }))).toBe(`Lessing${COPY.admin.bewerbung.incomplete}${COPY.admin.bewerbung.teamDouble}`);
     expect(await stripOf(readOf({ duplicate: false }))).toBe(`Lessing${COPY.admin.bewerbung.incomplete}`);
+  });
+});
+
+describe("an accepted application", () => {
+  /* Its acceptance emptied the seats, its people now its team's: rows reading „Niemand“ would tell the administrator the
+     school lost its contacts. */
+  it("shows no seats, its decision and its way to the team standing", async () => {
+    const read = readOf({ duplicate: false });
+    const empty = { trainer: null, ansprechperson: null, stellvertretung: null, trainer_is_also: null };
+    state.read = {
+      ...read,
+      bewerbung: { ...read.bewerbung, status: "accepted", team_id: ID, decision: { made_at: "2026-11-20", reason: null }, kontakte: empty },
+      seats_confirmed: 3,
+      entry: { gruppe: "A", trikot_farbe: null },
+    };
+
+    const page = BewerbungPage(PARAMS) as { props: { record: Promise<ReadRecord> } };
+    const { groups, acts } = await page.props.record;
+
+    expect(groups.map(({ kind }) => kind)).toStrictEqual(["facts"]);
+    expect(acts).toHaveLength(1);
+  });
+});
+
+describe("an undecided application of a finished season", () => {
+  /* The backend refuses its seats' writes and fresh links, so an act offered here would fail only once pressed. */
+  it("offers no seat its edit or its link", async () => {
+    const read = readOf({ duplicate: false });
+
+    const rows = await seatRows({ ...read, saison: { ...read.saison, status: "past" } });
+
+    expect(rows.map(({ acts }) => acts)).toStrictEqual([undefined, undefined, undefined]);
   });
 });
 

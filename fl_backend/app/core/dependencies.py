@@ -114,5 +114,11 @@ def get_germany_now() -> datetime:
     return clock.now()
 
 
-def get_german_date_str(germany_now: datetime = Depends(get_germany_now)) -> str:
+GermanyNow = Annotated[datetime, Depends(get_germany_now)]
+
+
+def get_german_date_str(germany_now: GermanyNow) -> str:
     return clock.german_day(germany_now)
+
+
+GermanDay = Annotated[str, Depends(get_german_date_str)]

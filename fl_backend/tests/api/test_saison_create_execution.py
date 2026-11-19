@@ -43,14 +43,9 @@ async def _seasons(database: AsyncDatabase) -> list[tuple[str, str]]:
 
 
 async def _on(url: str, stored: list[tuple[str, str]], body: Any, **fields: Any) -> Any:
-    # A row whose id is longer than a year is a hand edit the read-back refuses, stored so the create is seen to step past it.
-    refused = None if all(len(saison_id) == 4 for saison_id, _ in stored) else "a season row whose id is longer than a year"
-    async with a_clean_database(url, DATABASE_NAME, stores_a_refused_shape=refused) as (_, database):
+    async with a_clean_database(url, DATABASE_NAME) as (_, database):
         for saison_id, status in stored:
-            # A row whose id is no year is a hand edit no record model reads, laid over a season's own: it still carries
-            # real days, so the list reads it as it reads any season.
-            season = documents.saison_document(saison_id if saison_id.isdigit() else "2025", status, **fields)
-            await database[Collection.SAISONS].insert_one({**season, "_id": saison_id})
+            await database[Collection.SAISONS].insert_one(documents.saison_document(saison_id, status, **fields))
 
         return await body(database)
 
@@ -61,10 +56,6 @@ class TestTheCreateMakesTheNextSeason:
         [
             pytest.param([], str(FIRST_SAISON_YEAR), id="the-league's-first"),
             pytest.param([("2026", "past"), ("2027", "active")], "2028", id="the-year-after-the-newest"),
-            # Sorted after every year by string order, so a create reading it as the newest answers 500.
-            pytest.param([("2027", "active"), ("abcd", "past")], "2028", id="the-year-after-the-newest-past-an-odd-row"),
-            # Of another length too, so a list holding the row to the id's length answers 500.
-            pytest.param([("2027", "active"), ("2027-alt", "past")], "2028", id="the-year-after-the-newest-past-a-longer-row"),
         ],
     )
     async def test_the_list_serves_the_id_the_create_mints(self, mongo_replica_set_url: str, stored: list[tuple[str, str]], minted: str):

@@ -1,12 +1,11 @@
 """
-API · a person's erasure through the registry, held against the whole database rather than against the steps
+API · a person's erasure, held against the whole database rather than against the steps
 
 The person `tests/erasure_corpus.py` seeds holds a record of every kind the erasure takes, beside bystanders and
-another mailbox at their local part. Every case asks what is left, so a step removed from the registry fails here.
+another mailbox at their local part. Every case asks what is left, so a step the erasure stops calling fails here.
 """
 
 import logging
-import sys
 from collections.abc import Awaitable, Callable, Mapping
 from typing import Any
 
@@ -16,13 +15,13 @@ from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
-from app.api.address_change.crud import end_an_emptied_change_in_session
-from app.api.identity.crud import ERASURE_STEPS, erase_everything
+from app.api.identity.crud import erase_the_pupil_in_session
+from app.api.identity.services import build_erasure_pupil_pipeline, build_erasure_registrierung_pipeline
 from app.api.registrierungen.person_router import admit
 from app.api.registrierungen.schemas import FLRegistrierungAdmitPayload
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.config import API_VERSION
+from app.core.crud import aggregate_many_from_db
 from app.core.logging import JSONFormatter
 from app.core.security import PASSKEY_FACTOR
 from app.core.transactions import transaction_session
@@ -57,6 +56,7 @@ from tests.erasure_corpus import (
     FIRST_NAME,
     HOME_TEAM_OID,
     IDENTIFIER,
+    LAST_NAME,
     MOVING_PUPIL_CHANGE_OID,
     NOW,
     OTHER_CONFIRMATION_OID,
@@ -75,9 +75,9 @@ from tests.erasure_corpus import (
     TEAM_CONFIRMATION_OID,
     THEIR_CONFIRMATION_OID,
     THEIR_GRANT_OID,
+    THEIR_KADER_ROW_OID,
     THEIR_REMARKS,
     THEIR_REPORT_OID,
-    THEIR_SQUAD_ROW_OID,
     THEIR_VALUES,
     TYPED,
     YESTERDAY,
@@ -114,7 +114,7 @@ TO_COME_SPIEL_OID = ObjectId("6890a1b2c3d4e5f607b00064")
 THEIR_CHANGE_OID = ObjectId("6890a1b2c3d4e5f607b000c5")
 # Every record of their own the erasure removes, each id looked for in the whole database afterwards: a reference left
 # naming one names nobody.
-THEIR_RECORDS = (PUPIL_OID, THEIR_SQUAD_ROW_OID, REFEREE_OID, PENDING_OID, DECLINED_OID, THEIR_CONFIRMATION_OID)
+THEIR_RECORDS = (PUPIL_OID, THEIR_KADER_ROW_OID, REFEREE_OID, PENDING_OID, DECLINED_OID, THEIR_CONFIRMATION_OID)
 
 
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
@@ -181,22 +181,26 @@ async def erased_on_request(url: str, *, by: str) -> Any:
 
     async with app_client(url, app=app_under_test(DATABASE_NAME), now=NOW) as http:
         return await http.post(
-            f"/api/v{API_VERSION}/identity/erasure",
+            "/api/identity/erasure",
             json={"email": TYPED, "reason": "Mail vom 30.03.2126, Betreff: Bitte löscht alle meine Daten"},
             headers=StampedHeaders(by, ADMIN_KEY),
         )
 
 
-async def erased_in_scope(
-    database: AsyncDatabase, client: AsyncMongoClient, scope: frozenset[Any], *, identifier: str = IDENTIFIER, **replaced: Any
-) -> Any:
+async def erased_as_a_pupil(database: AsyncDatabase, client: AsyncMongoClient, *, identifier: str = IDENTIFIER) -> Any:
+    """The season-after rule's erasure of what `identifier` holds as a pupil, past its judgement, read by the erasure's selections."""
+
+    collections = erasure_collections(database)
+
     async def erase(session: Any) -> Any:
-        return await erase_everything(
-            identifier,
-            scope=scope,
-            **erasure_collections(database, **replaced),
-            now=NOW,
-            session=session,
+        def read(collection: Any, pipeline: Any) -> Any:
+            return aggregate_many_from_db(collection=collection, pipeline=pipeline, session=session)
+
+        pupils = await read(collections.spieler_collection, build_erasure_pupil_pipeline(identifier))
+        registrierungen = await read(collections.registrierungen_collection, build_erasure_registrierung_pipeline(identifier))
+
+        return await erase_the_pupil_in_session(
+            identifier, pupil=next(iter(pupils), None), registrierungen=registrierungen, collections=collections, now=NOW, session=session
         )
 
     async with transaction_session(client) as session:
@@ -211,7 +215,7 @@ class TestNothingOfTheirsIsLeftAnywhere:
 
     @pytest.mark.parametrize("holding_a_grant", [False, True], ids=["holding no grant", "holding an administration grant"])
     async def test_no_value_of_theirs_survives_and_every_bystanders_does(self, mongo_replica_set_url: str, holding_a_grant: bool):
-        """Catches a step removed from the registry, or a store none reaches.
+        """Catches a step the erasure stops calling, or a store none reaches.
 
         Each value and id is asserted present first, so a seed that stopped writing one fails; the grant, where held, adds its
         rows and notice.
@@ -371,7 +375,7 @@ class TestTheJournal:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await a_grant(database, THEIR_GRANT_OID, IDENTIFIER, "administration")
-            team_row = await the_row(database, Collection.SAISON_TEAMS, {"team_id": HOME_TEAM_OID})
+            junction_row = await the_row(database, Collection.SAISON_TEAMS, {"team_id": HOME_TEAM_OID})
             mail = await the_row(database, Collection.OUTBOX, {"kind": "spiel_request"})
             await database[Collection.BEWERBUNGEN].update_one(
                 {"_id": BLOCKLESS_BEWERBUNG_OID}, {"$set": {"kontakte.ansprechperson.einwilligung.confirmed_at": None}}
@@ -383,7 +387,7 @@ class TestTheJournal:
             else:
                 response = await erased_over_http(mongo_replica_set_url, headers=by_passkey(TYPED))
 
-            return response.status_code, team_row["_id"], mail["_id"]
+            return response.status_code, junction_row["_id"], mail["_id"]
 
         with caplog.at_level(logging.INFO):
             status, team_row_id, mail_id = await on_a_league(mongo_replica_set_url, body)
@@ -397,8 +401,8 @@ class TestTheJournal:
             f"{Collection.REGISTRIERUNGEN}/{DECLINED_OID}",
             f"{Collection.GRANTS}/{THEIR_GRANT_OID}",
         }
-        # Each seat apart: its row holds other people, and a replay reading any other slot erases one of them. A confirmed
-        # one carries its day, or a snapshot seating somebody else in the slot reads as this person.
+        # Each seat apart: its row holds other people, and a replay reading any other seat erases one of them. A confirmed
+        # one carries its day, or a snapshot seating somebody else in the seat reads as this person.
         seats = {
             f"{Collection.SAISON_TEAMS}/{team_row_id}/ansprechperson/2126-03-21",
             f"{Collection.BEWERBUNGEN}/{BEWERBUNG_OID}/trainer/2126-03-21",
@@ -471,7 +475,7 @@ class TestTheScope:
     async def test_the_pupil_scope_takes_what_the_address_holds_as_a_pupil_and_nothing_else(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await a_grant(database, THEIR_GRANT_OID, IDENTIFIER, "administration")
-            await erased_in_scope(database, client, frozenset({"spieler"}))
+            await erased_as_a_pupil(database, client)
 
             return (
                 await database[Collection.SPIELER].count_documents({"_id": PUPIL_OID}),
@@ -536,74 +540,25 @@ class TestEveryRecordOfAnArm:
         }
 
 
-# The registry's steps by the code each runs, so a write can be put down to the step it was made in.
-_STEP_OF_CODE = {step.run.__code__: step.run.__name__ for step in ERASURE_STEPS}
-
-
-def _running_step() -> str | None:
-    """The outermost step on the stack: the pupil's share hands its count removal to the counts step's function."""
-
-    frame, step = sys._getframe(), None
-    while frame is not None:
-        step = _STEP_OF_CODE.get(frame.f_code, step)
-        frame = frame.f_back
-    return step
-
-
-# The driver's own writes, which every write helper of `app/core/crud.py` ends in, so no write a step makes passes unseen.
-DRIVER_WRITES = frozenset(
-    {
-        "bulk_write",
-        "delete_many",
-        "delete_one",
-        "find_one_and_delete",
-        "find_one_and_replace",
-        "find_one_and_update",
-        "insert_many",
-        "insert_one",
-        "replace_one",
-        "update_many",
-        "update_one",
-    }
-)
-
-
-class WritesRecorded:
-    """A collection noting, per erasure step, each driver write it receives; every call is handed on unchanged."""
-
-    def __init__(self, collection: Any, writes: dict[str, set[str]]) -> None:
-        self._collection = collection
-        self._writes = writes
-
-    def __getattr__(self, name: str) -> Any:
-        attribute = getattr(self._collection, name)
-        if name not in DRIVER_WRITES:
-            return attribute
-
-        def recorded(*args: Any, **kwargs: Any) -> Any:
-            step = _running_step()
-            if step is not None:
-                self._writes.setdefault(step, set()).add(str(self._collection.name))
-            return attribute(*args, **kwargs)
-
-        return recorded
-
-
 class TestTheChangeOfAPupilsAddress:
-    async def test_a_pupils_erasure_ends_the_change_of_an_address_it_empties_writing_the_changes_alone(self, mongo_replica_set_url: str):
-        """Gwendolyn holds a pupil row alone, so the season's erasure of it leaves her change nothing to move."""
+    async def test_a_pupils_erasure_changes_nothing_but_the_pupil_and_the_change_of_the_address_it_empties(self, mongo_replica_set_url: str):
+        """Gwendolyn holds a pupil row alone, so the season's erasure of it leaves her change nothing to move.
 
-        writes: dict[str, set[str]] = {}
+        Catches a write past those two, such as one to the address's grants or mails, which the season's erasure never takes.
+        """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            recorded: dict[str, Any] = {name: WritesRecorded(handle, writes) for name, handle in erasure_collections(database).items()}
-            await erased_in_scope(database, client, frozenset({"spieler"}), identifier="gwendolyn@example.com", **recorded)
+            before = await everything_in(database)
+            await erased_as_a_pupil(database, client, identifier="gwendolyn@example.com")
+            after = await everything_in(database)
 
-            return await the_row(database, Collection.ADDRESS_CHANGES, {"_id": MOVING_PUPIL_CHANGE_OID})
+            changed = {name for name in before.keys() | after.keys() if before.get(name) != after.get(name)}
 
-        change = await on_a_league(mongo_replica_set_url, body)
+            return changed, await the_row(database, Collection.ADDRESS_CHANGES, {"_id": MOVING_PUPIL_CHANGE_OID})
 
-        assert writes[end_an_emptied_change_in_session.__name__] == {str(Collection.ADDRESS_CHANGES)}
+        changed, change = await on_a_league(mongo_replica_set_url, body)
+
+        assert changed == {str(Collection.SPIELER), str(Collection.ADDRESS_CHANGES)}
         # Its address on file goes too: no erasure of the address follows a pupil's to take it.
         assert (change["ended"]["kind"], change["address"], change["email"]) == ("discarded", None, None)
 
@@ -614,21 +569,13 @@ class TestTheChangeOfAPupilsAddress:
             await pending_changes(
                 database, (THEIR_CHANGE_OID, IDENTIFIER, "neu.adresse@anderswo.example.net", "their-own-change", "2126-03-30")
             )
-            await erased_in_scope(database, client, frozenset({"spieler"}))
+            await erased_as_a_pupil(database, client)
 
             return await the_row(database, Collection.ADDRESS_CHANGES, {"_id": THEIR_CHANGE_OID})
 
         change = await on_a_league(mongo_replica_set_url, body)
 
         assert (change["ended"], change["address"]) == (None, IDENTIFIER)
-
-
-class RegistrationsAdmittedInside(InterleavedCollection):
-    """`registrierungen` as the erasure reads it, an admission of the pending row committing at the first read."""
-
-    async def aggregate(self, *args: Any, **kwargs: Any) -> Any:
-        await self.run_the_rival()
-        return await self._collection.aggregate(*args, **kwargs)
 
 
 SEAT_HOLDER = "anna@example.com"
@@ -687,7 +634,8 @@ class TestAnAdmissionInsideTheErasure:
                     db=client,
                 )
 
-            registrations = RegistrationsAdmittedInside(database[Collection.REGISTRIERUNGEN], admission)
+            # `registrierungen` as the erasure reads it, the admission committing at its first read.
+            registrations = InterleavedCollection(database[Collection.REGISTRIERUNGEN], admission, before="aggregate")
             await erased_by_the_handler(database, client, registrierungen_collection=registrations)
 
             return (
@@ -697,9 +645,9 @@ class TestAnAdmissionInsideTheErasure:
                 await database[Collection.REGISTRIERUNGEN].count_documents({}),
             )
 
-        registrations, pupils, squad_rows, left = await on_a_league_of_its_own(mongo_replica_set_url, body)
+        registrations, pupils, kader_rows, left = await on_a_league_of_its_own(mongo_replica_set_url, body)
 
-        assert (pupils, squad_rows, left) == (0, 0, 0)
+        assert (pupils, kader_rows, left) == (0, 0, 0)
         # The premise last, so a stale subject fails on the pupil it left rather than on the count of reads.
         registrations.assert_landed_inside(serially=1)
 
@@ -755,6 +703,16 @@ class TestThePreview:
                 return (await http.get(f"{PATH}/view", headers=as_person(TYPED))).json()["admin_tier"]
 
         assert await on_a_league(mongo_replica_set_url, body) == admin_tier
+
+    async def test_it_names_the_address_s_pupil_record_and_null_where_it_holds_none(self, mongo_replica_set_url: str):
+        """The page names the pupil the press deletes from this: read null, a pupil erases their squad places unwarned."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            async with app_client(mongo_replica_set_url, app=app_under_test(DATABASE_NAME), now=NOW) as http:
+                return [(await http.get(f"{PATH}/view", headers=as_person(email))).json()["spieler"] for email in (TYPED, ELSEWHERE)]
+
+        # `ELSEWHERE` holds a referee row, a seat and a registration of its own, and no pupil row.
+        assert await on_a_league(mongo_replica_set_url, body) == [{"first_name": FIRST_NAME, "last_name": LAST_NAME}, None]
 
     async def test_it_counts_no_change_whose_link_has_not_reached_this_mailbox(self, mongo_replica_set_url: str):
         """A change still awaiting its address on file has told the new mailbox nothing, and the preview says nothing of it.

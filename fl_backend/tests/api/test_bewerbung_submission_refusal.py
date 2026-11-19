@@ -17,13 +17,14 @@ from app.api.bewerbungen.services import (
     compose_kontakte,
     find_repeated_contact_refusal,
     find_submission_subject_refusal,
-    mailbox_anchor_ids,
     open_links_on,
     seats_past_the_bound,
 )
-from app.api.teams.schemas import FLKontaktperson, normalise_phone
+from app.api.teams.schemas import FLKontaktperson
 from app.core.codes import Code
-from app.shared.schemas.bounds import TEAM_WEBSITE_URL_MAX_LENGTH
+from app.shared.folding import normalise_phone
+from app.shared.mailbox import mailbox_anchor_ids
+from app.shared.schemas.custom import TEAM_WEBSITE_URL_MAX_LENGTH
 from tests.documents import ADDRESS, kontaktperson_document
 
 # Fixed rather than generated, so a failure names the same club every run. Its own hex range, as
@@ -132,13 +133,6 @@ class TestOneNumberHasOneSpelling:
         assert normalise_phone("0491 234567") != normalise_phone("+49 1 234567")
 
 
-# A spelling that must reach the distinctness rule as ONE number, which `PHONE_REGEX` admits; the
-# fold's other spellings are `TestOneNumberHasOneSpelling`'s.
-ONE_LINE_TWO_WAYS = [
-    pytest.param("+49 (0)171 3920000", id="bracketed trunk zero against the national form"),
-]
-
-
 def repeated_boxes(block: Mapping[str, Any]) -> tuple[Any, ...]:
     """The boxes the submission's rule names over this block, none where it passes."""
 
@@ -193,16 +187,15 @@ class TestTheThreeSeatsAreThreePeople:
 
         assert repeated_boxes(kontakte(ansprechperson=other)) == (("kontakte", "ansprechperson", "email"),)
 
-    @pytest.mark.parametrize("written", ONE_LINE_TWO_WAYS)
-    def test_one_number_written_two_ways_is_still_one_number(self, written: str):
+    def test_a_number_with_a_bracketed_trunk_zero_is_the_national_one(self):
         """The whole reason `normalise_phone` exists: `PHONE_REGEX` admits many spellings of one line.
 
-        The trainer holds `0171 3920000`; each spelling here is that same line, so a second person
-        writing one of them is not a second telephone.
+        The trainer holds `0171 3920000`, and `+49 (0)171 3920000` is that same line, so a second person
+        writing it is not a second telephone. The fold's other spellings are `TestOneNumberHasOneSpelling`'s.
         """
 
         trainer = person(phone="0171 3920000")
-        other = person(first_name="Andere", phone=written, email="andere@example.com")
+        other = person(first_name="Andere", phone="+49 (0)171 3920000", email="andere@example.com")
 
         assert repeated_boxes(kontakte(trainer=trainer, ansprechperson=other)) == (("kontakte", "ansprechperson", "phone"),)
 
@@ -233,7 +226,7 @@ class TestWhatTheServerComposes:
 
 
 class TestTheSubmissionNamesOneApplicant:
-    def test_a_submission_naming_neither_a_club_nor_a_school_is_refused(self):
+    def test_a_submission_naming_neither_a_team_nor_a_school_is_refused(self):
         """An application for nobody: the triage could neither enter a club nor create a school from it."""
 
         refusal = find_submission_subject_refusal(team_id=None, schule=None)
@@ -245,12 +238,11 @@ class TestTheSubmissionNamesOneApplicant:
 class TestWhatTheSubmissionPayloadRefuses:
     """The fields the server owns are on no payload at all, so a submission cannot arrive already decided."""
 
-    @pytest.mark.parametrize("website_url", [pytest.param("javascript:alert(1)", id="no http url")])
-    def test_a_school_website_that_is_not_an_http_url_is_refused(self, website_url: str):
+    def test_a_school_website_that_is_not_an_http_url_is_refused(self):
         """Constrained on this payload where the read model leaves it bare: acceptance parses the block through `FLPostTeamPayload`."""
 
         with pytest.raises(ValidationError) as failure:
-            FLPostBewerbungPayload.model_validate(submission(team_id=None, schule=schule(website_url=website_url)))
+            FLPostBewerbungPayload.model_validate(submission(team_id=None, schule=schule(website_url="javascript:alert(1)")))
 
         assert [(error["type"], error["loc"]) for error in failure.value.errors()] == [("url_not_accepted", ("schule", "website_url"))]
 
@@ -298,24 +290,23 @@ class TestTheCeilingOnTheSchoolWebsite:
         assert failure.value.errors()[0]["type"] == "string_too_long"
 
 
-class TestTheStrongPlayersFitInsideTheSquad:
+class TestTheStrongPlayersFitInsideTheKader:
     """A subset cannot outnumber the whole.
 
     Both figures are the school's own estimate, so an impossible pair is a typo the form catches
     rather than a judgement about the school.
     """
 
-    @pytest.mark.parametrize(("size", "good"), [pytest.param(14, 15, id="one over the squad")])
-    def test_a_count_above_the_squad_is_refused(self, size: int, good: int):
+    def test_a_count_one_over_the_kader_is_refused(self):
         """Both fields clear their own bounds, so only the pair rule can refuse it."""
 
-        kader = {"expected_size": size, "good_spieler": good}
+        kader = {"expected_size": 14, "good_spieler": 15}
 
         with pytest.raises(ValidationError) as failure:
             FLPostBewerbungPayload.model_validate(submission(kader=kader))
 
         # The ceiling rides as the context the frontend words „Höchstens {max}“ from.
-        assert [(error["type"], error.get("ctx")) for error in failure.value.errors()] == [("good_spieler_exceed_kader", {"max": size})]
+        assert [(error["type"], error.get("ctx")) for error in failure.value.errors()] == [("good_spieler_exceed_kader", {"max": 14})]
 
 
 class TestTheOpponentTheSchoolWants:
@@ -325,11 +316,10 @@ class TestTheOpponentTheSchoolWants:
     form deployed before it does not send.
     """
 
-    @pytest.mark.parametrize("submitted", [pytest.param("   ", id="spaces alone")])
-    def test_an_empty_wish_is_stored_as_a_null_rather_than_a_blank(self, submitted: str | None):
+    def test_a_wish_of_spaces_alone_is_stored_as_a_null_rather_than_a_blank(self):
         """One spelling of "no preference": a stored `""` is a second, and the triage would render it as a wish."""
 
-        assert FLPostBewerbungPayload.model_validate(submission(wunschgegner=submitted)).wunschgegner is None
+        assert FLPostBewerbungPayload.model_validate(submission(wunschgegner="   ")).wunschgegner is None
 
     @pytest.mark.parametrize("refused", REFUSED_CHARACTERS)
     def test_a_wish_carrying_one_of_them_inside_is_refused(self, refused: str):

@@ -1,84 +1,57 @@
-from typing import Annotated
+from collections.abc import Mapping
+from typing import Any
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, status
+from pymongo.asynchronous.client_session import AsyncClientSession
 
-from app.api.grants.guard import verify_actor_is_admin
-from app.api.registrierungen.schemas import (
-    FLRegistrierungAdminRow,
-    FLRegistrierungenAdminFilterParams,
-    FLRegistrierungenAdminListResponse,
-)
-from app.api.registrierungen.services import (
-    REGISTRIERUNG_LIST_FIELDS,
-    SUBMITTED,
-    build_registrierungen_sort,
-    registrierung_is_confirmed,
-    registrierung_was_left_unmailed,
-)
-from app.api.teams.crud import pull_saison_team_names
-from app.core.concurrency import concurrently
-from app.core.config import API_VERSION
-from app.core.crud import pull_many_from_db, pull_one_from_db
-from app.core.dependencies import RegistrierungenReadCollection, SaisonsReadCollection, SaisonTeamsReadCollection
-from app.core.security import bind_actor, verify_access_admin
-from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
+from app.api.account.services import held_by_the_record, withdraw_by_mail
+from app.api.grants.guard import ADMIN_TIER
+from app.core.collections import Collection
+from app.core.dependencies import DBClient, GermanyNow, RegistrierungenCollection
+from app.core.recording import record_act
+from app.core.routing import by_id
+from app.shared.schemas.custom import CustomObjectId
+from app.shared.schemas.einwilligung import WITHHELD_BY_A_PERSON, FLEinwilligungWithdrawalPayload
 
-# Admin-guarded, not base, as the application's own list is: a registration holds a pupil's name,
-# their address and, once they have confirmed, their date of birth.
-
-# The public router shares this prefix at base tier and reads no stored registration but the one a
-# link it was handed opens.
+# Admin-guarded, not base: a registration holds a pupil's name, their address and, once they have confirmed, their date
+# of birth. The public and person routers share this prefix at their own tiers.
 router = APIRouter(
-    prefix=f"/api/v{API_VERSION}/registrierungen",
-    dependencies=[Depends(verify_access_admin), Depends(verify_actor_is_admin), Depends(bind_actor)],
+    prefix="/registrierungen",
+    dependencies=ADMIN_TIER,
 )
 
 
-FLRegistrierungenAdminFilters = Annotated[FLRegistrierungenAdminFilterParams, Query()]
+@router.post(
+    f"{by_id('registrierung_id')}/einwilligung/withdrawal",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Enter a withdrawal of a registration's consent that its pupil asked for by mail",
+)
+async def withdraw_registrierung_einwilligung(
+    registrierung_id: CustomObjectId,
+    withdrawal_data: FLEinwilligungWithdrawalPayload,
+    registrierungen_collection: RegistrierungenCollection,
+    db: DBClient,
+    germany_now: GermanyNow,
+) -> None:
+    """Withdraw the named choices of the consent a pupil gave on a registration, which an admission would carry onto them.
 
-
-# Two static segments, matching `GET /saisons/list/admin`.
-@router.get("/list/admin", response_model=FLRegistrierungenAdminListResponse, summary="One Saison's pending Registrierungen for its list")
-async def get_registrierungen_admin(
-    registrierungen_collection: RegistrierungenReadCollection,
-    saison_teams_collection: SaisonTeamsReadCollection,
-    saisons_collection: SaisonsReadCollection,
-    filters: FLRegistrierungenAdminFilters,
-) -> FLRegistrierungenAdminListResponse:
-    """One season's pending registrations, newest first, each with its club and whether its pupil confirmed it.
-
-    `unmailed` marks a row owed no mail, its mailbox already holding the most open links, and `complete` says whether
-    the read's cap cut the list.
+    A decided registration takes it too. A choice already withheld stays as it is, so a second mail or a registration
+    its pupil never confirmed writes nothing, and nothing is ever granted.
     """
 
-    await pull_one_from_db(collection=saisons_collection, db_filter={"_id": filters.saison_id}, projection=["_id"])
-    read, team_names = await concurrently(
-        pull_many_from_db(
-            collection=registrierungen_collection,
-            db_filter={"saison_id": filters.saison_id, "status": SUBMITTED},
-            limit=LIST_LIMIT_DEFAULT + 1,
-            sort_by=build_registrierungen_sort(),
-            # An inclusion: no address, birthdate or token crosses the wire for a list showing none.
-            projection=list(REGISTRIERUNG_LIST_FIELDS),
-        ),
-        pull_saison_team_names(saison_teams_collection=saison_teams_collection, saison_id=filters.saison_id),
-    )
+    async def record(row: Mapping[str, Any], session: AsyncClientSession) -> None:
+        await record_act(
+            collection=registrierungen_collection, action="registrierung.einwilligung_withdrawn", record_id=row["_id"], session=session
+        )
 
-    return FLRegistrierungenAdminListResponse(
-        registrierungen=[
-            FLRegistrierungAdminRow.model_validate(
-                {
-                    **row,
-                    "id": row["_id"],
-                    "team_name": team_names.get(row["team_id"]),
-                    "confirmed": registrierung_is_confirmed(einwilligung=row.get("einwilligung")),
-                    "unmailed": registrierung_was_left_unmailed(confirmation=row.get("confirmation")),
-                }
-            )
-            # Sliced before validation, so the probe row is never parsed and never reaches the wire. Cut rather than
-            # refused: anybody a team's link reached writes these rows, and a refusal would hand them the power to fail
-            # this page.
-            for row in read[:LIST_LIMIT_DEFAULT]
-        ],
-        complete=len(read) <= LIST_LIMIT_DEFAULT,
+    await withdraw_by_mail(
+        kind=Collection.REGISTRIERUNGEN,
+        collection=registrierungen_collection,
+        db_filter={"_id": registrierung_id},
+        projection={"einwilligung": 1},
+        held_of=held_by_the_record,
+        withheld={choice: WITHHELD_BY_A_PERSON[choice] for choice in withdrawal_data.choices},
+        act=record,
+        db=db,
+        now=germany_now,
     )

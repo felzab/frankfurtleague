@@ -1,33 +1,29 @@
-from datetime import datetime
-
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.grants.crud import complete_the_handover_in_session, read_grants
 from app.api.grants.schemas import FLGrantHandoverPassResponse
 from app.api.grants.services import handover_due
-from app.core.config import API_VERSION
-from app.core.dependencies import DBClient, GrantsCollection, OutboxCollection, get_germany_now
-from app.core.security import verify_access_system
-from app.core.transactions import transaction_session
+from app.core.dependencies import DBClient, GermanyNow, GrantsCollection, OutboxCollection
+from app.core.security import SYSTEM_TIER
+from app.core.transactions import transact
 
 # System tier: the pass holds no session.
 router = APIRouter(
-    prefix=f"/api/v{API_VERSION}/grants/handover",
-    dependencies=[Depends(verify_access_system)],
+    prefix="/grants/handover",
+    dependencies=SYSTEM_TIER,
 )
 
 
 @router.post(
     "",
-    response_model=FLGrantHandoverPassResponse,
     summary="Complete a handover whose wait has ended",
 )
 async def post_handover_pass(
     grants_collection: GrantsCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
-    now: datetime = Depends(get_germany_now),
+    germany_now: GermanyNow,
 ) -> FLGrantHandoverPassResponse:
     """Move the owner role to the row whose `owner_from` has passed, the old owner staying an administrator, and tell every holder.
 
@@ -37,7 +33,7 @@ async def post_handover_pass(
     async def judge_and_complete(session: AsyncClientSession) -> int:
         """Judge the list in this transaction: a stop or a removal beside the pass writes a row this writes, so it conflicts and retries."""
 
-        due = handover_due(await read_grants(grants_collection=grants_collection, session=session), now)
+        due = handover_due(await read_grants(grants_collection=grants_collection, session=session), germany_now)
         if due is None:
             return 0
 
@@ -45,13 +41,12 @@ async def post_handover_pass(
             due,
             grants_collection=grants_collection,
             outbox_collection=outbox_collection,
-            now=now,
+            now=germany_now,
             session=session,
         )
 
         return 1
 
-    async with transaction_session(db) as session:
-        handed_over = await session.with_transaction(judge_and_complete)
+    handed_over = await transact(db, judge_and_complete)
 
     return FLGrantHandoverPassResponse(handed_over=handed_over)

@@ -6,13 +6,13 @@ import { action } from "@/core/action";
 import { COPY } from "@/core/copy";
 import {
   schiedsrichterDeleteSchiedsrichter,
-  schiedsrichterInviteSchiedsrichter,
   schiedsrichterReactivateSchiedsrichter,
+  schiedsrichterResendConfirmation,
 } from "@/core/generated/client/sdk";
 import {
   SchiedsrichterDeleteSchiedsrichterParams,
-  SchiedsrichterInviteSchiedsrichterParams,
   SchiedsrichterReactivateSchiedsrichterParams,
+  SchiedsrichterResendConfirmationParams,
 } from "@/core/generated/zod/inputs";
 
 /**
@@ -53,9 +53,9 @@ export const reactivateSchiedsrichter = action({
 export const sendSchiedsrichterLink = action({
   lane: "admin",
   name: "sendSchiedsrichterLink",
-  input: z.object({ id: SchiedsrichterInviteSchiedsrichterParams.shape.schiedsrichter_id }),
+  input: z.object({ id: SchiedsrichterResendConfirmationParams.shape.schiedsrichter_id }),
   run: async ({ id }) => {
-    const { confirmation } = await schiedsrichterInviteSchiedsrichter(id);
+    const { confirmation } = await schiedsrichterResendConfirmation(id);
     return { ok: true, value: undefined, note: COPY.admin.schiedsrichter.sentTo(confirmation.email) };
   },
 });

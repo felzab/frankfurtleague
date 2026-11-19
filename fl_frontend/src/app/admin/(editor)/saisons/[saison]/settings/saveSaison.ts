@@ -122,9 +122,7 @@ export const saveSaison = action({
     "rules_gruppen_in_use",
     "rules_capacity_below_use",
     "rules_kader_below_use",
-    "rules_qualifiers_below_wiring",
     "rules_bracket_impossible",
-    "rules_spiele_over_one_read",
   ],
   // The boxes a field pattern's phrase lands on, by the path the write names for each.
   paths: {

@@ -12,7 +12,6 @@ from app.api.identity.crud import roles_from
 from app.api.identity.schemas import FLSignInResponse
 from app.api.identity.services import own_entries, seat_saisons
 from app.core.collections import Collection
-from app.core.config import API_VERSION
 from app.shared.folding import sign_in_identifier
 from tests.app_client import app_client, app_under_test
 from tests.config import SYSTEM_AUTH
@@ -35,7 +34,7 @@ from tests.worker import worker_database
 
 DATABASE_NAME = worker_database("fl_identity_sign_in_test")
 
-PATH = f"/api/v{API_VERSION}/identity/sign_in"
+PATH = "/api/identity/sign_in"
 
 PAST_SAISON = "2425"
 ACTIVE_SAISON = "2526"
@@ -310,9 +309,9 @@ def test_every_role_list_is_drawn_from_the_own_records():
         identifier, seat_rows=seat_rows, referee_rows=referee_rows, pupil_rows=pupil_rows, bewerbung_rows=[], registrierung_rows=[]
     )
 
-    assert [seat.rolle for seat in subject.seats] == ["trainer"]
+    assert [seat.seat for seat in subject.seats] == ["trainer"]
     assert {("seats", (seat.team_id, seat.saison_id)) for seat in subject.seats} | {
-        ("spieler", e.spieler_id) for e in subject.spieler
+        ("spieler", e.spieler_id) for e in [subject.spieler] if e is not None
     } <= entries
     assert subject.schiedsrichter == []
 

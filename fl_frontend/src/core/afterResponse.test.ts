@@ -1,8 +1,9 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 
+import { beforeEach, expect, it, vi } from "vitest";
+
 import { configDouble } from "@/test-support/authDoubles";
 import { serveBackend, serveHost } from "@/test-support/backend";
-import { beforeEach, expect, it, vi } from "vitest";
 
 import type { FLOutboxHandout } from "./generated/client/types";
 

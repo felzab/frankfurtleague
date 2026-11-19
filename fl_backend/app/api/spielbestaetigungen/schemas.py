@@ -1,12 +1,10 @@
-from typing import Annotated, Literal
+from typing import Annotated, Final, Literal
 
-from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, Field, StringConstraints, ValidationInfo, field_validator
+from pydantic import AfterValidator, BaseModel, BeforeValidator, Field, StringConstraints, ValidationInfo, field_validator
 
 from app.api.spiele.schemas import FLSpielbestaetigungParty, FLSpielortFieldPublic
 from app.core.crud import Anchored
 from app.core.exceptions import rule_refusal
-from app.shared.schemas.actor import FLByAdmin
-from app.shared.schemas.bounds import SPIELBESTAETIGUNG_REASON_MAX_LENGTH
 from app.shared.schemas.custom import (
     PARAGRAPH_PATTERN,
     CustomDateString,
@@ -16,8 +14,8 @@ from app.shared.schemas.custom import (
     CustomTimeString,
     parse_empty_string_to_none,
 )
-from app.shared.schemas.literals import FLKontaktRolle
-from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
+from app.shared.schemas.literals import FLKontaktSeat
+from app.shared.schemas.responses import BasePayload, BaseReadModel
 
 type FLSpielbestaetigungAnswerKind = Literal["agreed", "declined"]
 
@@ -39,6 +37,12 @@ FLSpielbestaetigungClosedReason = Literal[
 # `vorschlag`: the other club's decline proposes another date; `cancelled`: the fixture was called off, whatever was answered.
 FLSpielbestaetigungState = Literal["valid", "vorschlag", "agreed", "declined", "expired", "invalid", "cancelled"]
 
+
+# A sentence read on a card, as a ban's reason is, neither mailed as a decline's reason is nor kept on a
+# log row as an erasure's reference is.
+SPIELBESTAETIGUNG_REASON_MAX_LENGTH: Final = 500
+
+
 # A paragraph, its line breaks kept, since it is written in a text area and every place showing it keeps them. The
 # ceiling and the pattern judge what arrives and the floor what the strip leaves, so spaces alone are no reason and the
 # published `maxLength` is the one the write keeps.
@@ -51,22 +55,17 @@ CustomSpielbestaetigungReason = Annotated[
 
 
 class FLSpielbestaetigungAnsetzung(BaseModel):
-    """The Ansetzung a row answers about: every input of `digest`, stored beside it.
-
-    A digest is opaque to an aggregation, so the public fixture's verdict compares these five values
-    rather than `digest`.
-    """
+    """The Ansetzung a row answers about, as the fixture held it at the mint: compared value by value with the fixture's."""
 
     date: CustomDateString
     time: CustomTimeString
     spielort_id: CustomObjectId | None
     team1_id: CustomObjectId
     team2_id: CustomObjectId
-    digest: str
 
 
 class FLSpielbestaetigungAppointment(BaseModel):
-    """A date and time without a ground: a team's proposal, and the slot a moved fixture left."""
+    """A date and time without a ground: a team's proposal, and the slot a row asked about, one a moved fixture left among them."""
 
     date: CustomDateString
     time: CustomTimeString
@@ -76,7 +75,13 @@ class FLSpielbestaetigungByKontakt(BaseModel):
     """The seat its holder answered from, never the person: of two seats one person holds, the first in order is recorded."""
 
     kind: Literal["kontakt"]
-    rolle: FLKontaktRolle
+    seat: FLKontaktSeat
+
+
+class FLByAdmin(BaseModel):
+    """An administrator's act, naming nobody: the record keeps how a thing was settled, not who typed it."""
+
+    kind: Literal["admin"]
 
 
 class FLSpielbestaetigungBySchiedsrichter(BaseModel):
@@ -101,12 +106,8 @@ class FLSpielbestaetigungAnswer(BaseModel):
     reason: CustomNonEmptyString | None
 
 
-class FLSpielbestaetigungClosed(BaseReadModel):
+class FLSpielbestaetigungClosedRecord(BaseModel):
     reason: FLSpielbestaetigungClosedReason
-
-
-class FLSpielbestaetigungClosedRecord(FLSpielbestaetigungClosed):
-    # Both served to nobody, the row's state being what a page reads.
     # True on a discard the pass closed again, `reason` then naming that end: ended for neither a move nor a call-off,
     # the row reads as the agreement the public fixture counted where it answered the fixture at its end (`matched`),
     # and as `reason` reads otherwise. Absent from a row no such close wrote.
@@ -117,8 +118,11 @@ class FLSpielbestaetigungClosedRecord(FLSpielbestaetigungClosed):
     matched: bool | None = None
 
 
-class _FLSpielbestaetigungFields(BaseModel):
-    """Every field a confirmation row stores and an administrator reads alike: all but the anchor."""
+class FLSpielbestaetigungRecord(Anchored):
+    """One confirmation as `spielbestaetigungen` stores it.
+
+    The close reaches an answered row too, so an agreement a move overtook records why it stopped applying.
+    """
 
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
     saison_id: str
@@ -132,33 +136,17 @@ class _FLSpielbestaetigungFields(BaseModel):
     # The day the one reminder went, null until it does.
     reminded_at: CustomOptionalDateString
     answer: FLSpielbestaetigungAnswer | None
-    closed: FLSpielbestaetigungClosed | None
-
-
-class FLSpielbestaetigung(_FLSpielbestaetigungFields):
-    """One party's confirmation of one Ansetzung, as an administrator reads it.
-
-    The close reaches an answered row too, so an agreement a move overtook records why it stopped
-    applying.
-    """
-
-
-class FLSpielbestaetigungRecord(_FLSpielbestaetigungFields, Anchored):
-    """One confirmation as `spielbestaetigungen` stores it, with the anchor and the close's judgement no read serves."""
-
     closed: FLSpielbestaetigungClosedRecord | None
 
 
 # --- The administrator: a row settled on its party's behalf.
 
 
-class FLSpielbestaetigungEnterPayload(BaseModel):
+class FLSpielbestaetigungEnterPayload(BasePayload):
     """The administrator's Zusage for a party that answered elsewhere, and how it was given.
 
     No way to choose: the one press records a Zusage, and a decline without a proposal would sit in no queue.
     """
-
-    model_config = ConfigDict(extra="forbid")
 
     # Required: the row is the league's record of how a date was agreed, and the reason is the part no field holds.
     reason: CustomSpielbestaetigungReason
@@ -178,8 +166,8 @@ class FLSpielbestaetigungViewAnsetzung(BaseModel):
     spielort: FLSpielortFieldPublic | None
 
 
-class FLSpielbestaetigungVorschlagPayload(FLSpielbestaetigungAppointment):
-    model_config = ConfigDict(extra="forbid")
+class FLSpielbestaetigungVorschlagPayload(FLSpielbestaetigungAppointment, BasePayload):
+    pass
 
 
 def _an_acceptance_gives_no_reason(reason: str | None, info: ValidationInfo) -> str | None:
@@ -197,10 +185,8 @@ def _an_acceptance_gives_no_reason(reason: str | None, info: ValidationInfo) -> 
 type FLSpielbestaetigungTeamState = Literal["valid", "vorschlag", "expired", "agreed", "declined"]
 
 
-class FLSpielbestaetigungTeamAnswerPayload(BaseModel):
+class FLSpielbestaetigungTeamAnswerPayload(BasePayload):
     """One club's answer about one Ansetzung, from whichever of its seats presses first."""
-
-    model_config = ConfigDict(extra="forbid")
 
     answer: FLSpielbestaetigungAnswerKind
     # Both required as keys and null where unused: an omitted key would read as a client that forgot it.
@@ -230,14 +216,6 @@ class FLSpielbestaetigungTeamAnswerPayload(BaseModel):
         return _an_acceptance_gives_no_reason(reason, info)
 
 
-class FLSpielbestaetigungAnswerResponse(BaseAPIResponse):
-    """What the answer recorded: its way, the seat it came from, and the answering club's own proposal. No receipt is mailed off it."""
-
-    state: FLSpielbestaetigungAnswerKind
-    answered_by: FLSpielbestaetigungBy
-    vorschlag: FLSpielbestaetigungAppointment | None
-
-
 # --- A referee's own rows, answered signed in on the person lane. No deadline binds them: a referee answers until the
 # fixture's kick-off, which the Einteilung states.
 
@@ -245,10 +223,8 @@ class FLSpielbestaetigungAnswerResponse(BaseAPIResponse):
 FLSpielbestaetigungSchiedsrichterState = Literal["valid", "agreed", "declined", "expired", "invalid", "cancelled"]
 
 
-class FLSpielbestaetigungSchiedsrichterAnswerPayload(BaseModel):
+class FLSpielbestaetigungSchiedsrichterAnswerPayload(BasePayload):
     """A referee's answer about one row naming them: a decline gives a reason, which the administrator reads."""
-
-    model_config = ConfigDict(extra="forbid")
 
     answer: FLSpielbestaetigungAnswerKind
     # Required as a key and null where unused, as the club's answer spells it.
@@ -264,19 +240,13 @@ class FLSpielbestaetigungSchiedsrichterAnswerPayload(BaseModel):
         return _an_acceptance_gives_no_reason(reason, info)
 
 
-class FLSpielbestaetigungSchiedsrichterAnswerResponse(BaseAPIResponse):
-    spielbestaetigung_id: CustomObjectId
-    state: FLSpielbestaetigungAnswerKind
-
-
 # --- The pass, system tier. It owes every mail through the Postausgang, and answers counts alone: no address, no
 # link and no name.
 
 
-class FLSpielbestaetigungSweepResponse(BaseAPIResponse):
+class FLSpielbestaetigungSweepResponse(BaseReadModel):
     """One season's pass, counted: what it closed, the rows it asked or reminded, and the mails it owed the Postausgang."""
 
-    saison_id: str
     closed: int
     asked: int
     reminded: int

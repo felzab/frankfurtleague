@@ -1,10 +1,9 @@
-import { RailFrame } from "@/kit/RailFrame";
-import { RailFrameBoundary } from "@/kit/RailFrameBoundary";
-
 import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
 import { readAccount } from "@/features/account/account";
 import { getOwnSaisons } from "@/features/roles/queries";
+import { RailFrame } from "@/kit/RailFrame";
+import { RailFrameBoundary } from "@/kit/RailFrameBoundary";
 
 import { AREA_HOME } from "../areaHome";
 

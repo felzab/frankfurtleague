@@ -1,14 +1,13 @@
 "use client";
 
+import { COPY } from "@/core/copy";
+import { rolleOptions } from "@/features/spieler/options";
 import { DateField } from "@/kit/DateField";
 import { EditorPage } from "@/kit/EditorPage";
 import { Facts } from "@/kit/Facts";
 import { Select } from "@/kit/Select";
 import { TextField } from "@/kit/TextField";
 import { useEditor } from "@/kit/useEditor";
-
-import { COPY } from "@/core/copy";
-import { rolleOptions } from "@/features/spieler/options";
 
 import type { ActionAnswer } from "@/core/action";
 import type { Copy } from "@/core/copy";
@@ -32,13 +31,15 @@ type Act = (input: { id: string; saison: string }) => Promise<ActionAnswer>;
  * The Spieler editor: the person's own facts and their squad row, saved together from the editor's bar; what the person
  * agreed to, which only they change; and the danger box taking the row out of the squad, or bringing an ausgetragen
  * one back. The team stands as a fact, since no player moves between teams, and so does the address, which only an
- * address change moves.
+ * address change moves. Once the season has finished, its squad row and the danger box's act stand locked, as the save
+ * refuses them, and the person's own facts stay open.
  */
 export function SpielerEditor({
   title,
   chip,
   record,
   saison,
+  ended,
   save,
   person,
   kader,
@@ -53,6 +54,8 @@ export function SpielerEditor({
   chip?: ChipProps;
   record: EditorRecord<SpielerValues>;
   saison: string;
+  /** The season has finished, which fixes the squad row. */
+  ended: boolean;
   save: (change: EditorSave<SpielerValues> & { saison: string }) => Promise<ActionAnswer<number>>;
   /** The Person box's fact: the address. */
   person: readonly Fact[];
@@ -73,6 +76,8 @@ export function SpielerEditor({
   const { draft, set } = editor;
   const { required, max } = rules;
   const press = (act: Act) => () => act({ id: record.id, saison });
+  // The season's end before the act's own reason: no later change of the squad reopens a finished season's row.
+  const locked = ended ? COPY.admin.sinceEnd : danger.kind === "reactivate" ? danger.locked : undefined;
 
   const dangerAct: DangerAct =
     danger.kind === "reactivate"
@@ -86,11 +91,12 @@ export function SpielerEditor({
             tone: "primary",
             onConfirm: press(danger.act),
           },
-          ...(danger.locked === undefined ? {} : { locked: danger.locked }),
+          ...(locked === undefined ? {} : { locked }),
         }
       : {
           name: COPY.shared.withObject(WORDS.fromKader, "deregister"),
           consequence: WORDS.deregisterConsequence,
+          ...(locked === undefined ? {} : { locked }),
           confirm: {
             verb: "deregister",
             subject: OBJECT,
@@ -105,6 +111,7 @@ export function SpielerEditor({
       title={title}
       chip={chip}
       editor={editor}
+      locks={ended ? ["sinceEnd"] : []}
       danger={{ title: WORDS.kaderEntry, acts: [dangerAct] }}
       sections={[
         {
@@ -152,12 +159,14 @@ export function SpielerEditor({
                 name="nummer"
                 holds={2}
                 kind="digits"
+                isLocked={ended}
                 value={draft.nummer}
                 onChange={(nummer) => set("nummer", nummer)}
               />
               <Select
                 label={WORDS.position}
                 name="position"
+                isLocked={ended}
                 options={positions}
                 value={draft.position}
                 onChange={(position) => set("position", position ?? "")}
@@ -165,6 +174,7 @@ export function SpielerEditor({
               <Select
                 label={WORDS.stufe}
                 name="stufe"
+                isLocked={ended}
                 options={stufen}
                 value={draft.stufe}
                 onChange={(stufe) => set("stufe", stufe ?? "")}
@@ -172,6 +182,7 @@ export function SpielerEditor({
               <Select
                 label={WORDS.rolle}
                 name="rolle"
+                isLocked={ended}
                 options={rolleOptions(takenRollen)}
                 value={draft.rolle}
                 onChange={(rolle) => set("rolle", rolle ?? "")}

@@ -1,10 +1,10 @@
 // @vitest-environment jsdom
-import { renderUnderNext } from "@/test-support/nextContexts";
 import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
+import { renderUnderNext } from "@/test-support/nextContexts";
 
 import { acceptBewerbung } from "../[bewerbung]/decideBewerbung";
 import { BulkAccept } from "./BulkAccept";

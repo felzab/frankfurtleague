@@ -24,8 +24,6 @@ const LINK_ENDED: ReadonlySet<Code> = new Set<Code>([
   "address_change_ended",
   "address_change_nothing",
   "address_change_taken",
-  "address_change_new_granted",
-  "address_change_occupied",
   "duplicate_key",
 ]);
 

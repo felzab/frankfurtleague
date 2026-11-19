@@ -2,15 +2,14 @@
 
 import { useRouter } from "next/navigation";
 
-import { AccountBox, AccountRows } from "@/kit/AccountBox";
-import { TextField } from "@/kit/TextField";
-
 import { loadAuthClient } from "@/core/auth/browserClient";
 import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
 import { signOutOthers } from "@/features/account/personActions";
 import { describeSetUpRefusal } from "@/features/auth/passkeyAnswers";
 import { removePasskeyAction, renamePasskeyAction } from "@/features/passkeys/actions";
+import { AccountBox, AccountRows } from "@/kit/AccountBox";
+import { TextField } from "@/kit/TextField";
 import { leaveDocumentFor } from "@/shared/utils/documentNavigation";
 
 import type { ActionAnswer } from "@/core/action";

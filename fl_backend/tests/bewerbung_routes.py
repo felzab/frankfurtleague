@@ -12,8 +12,8 @@ from pydantic import TypeAdapter
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.bewerbungen.admin_router import resend_einwilligung
-from app.api.bewerbungen.public_router import get_einwilligung_view, post_einwilligung
+from app.api.bewerbungen.admin_router import resend_kontakt_confirmation
+from app.api.bewerbungen.public_router import get_confirmation_view, post_confirmation
 from app.api.bewerbungen.schemas import FLBewerbungEinwilligungAnswerPayload
 from app.shared.schemas.confirmation import FLTokenPayload
 from tests.handles import wired
@@ -24,9 +24,9 @@ async def answered(
 ) -> Any:
     """`body` answered through a seat's link, a consent or a Widerspruch as its `answer` says."""
 
-    return await post_einwilligung(
+    return await post_confirmation(
         answer_data=TypeAdapter(FLBewerbungEinwilligungAnswerPayload).validate_python(dict(body)),
-        **wired(post_einwilligung, database, **replaced),
+        **wired(post_confirmation, database, **replaced),
         db=client,
         today=today,
         germany_now=germany_now,
@@ -36,16 +36,16 @@ async def answered(
 async def viewed(database: AsyncDatabase, token: str, *, today: str) -> Any:
     """What a seat's link opens."""
 
-    return await get_einwilligung_view(view_data=FLTokenPayload(token=token), **wired(get_einwilligung_view, database), today=today)
+    return await get_confirmation_view(view_data=FLTokenPayload(token=token), **wired(get_confirmation_view, database), today=today)
 
 
 async def resent(database: AsyncDatabase, bewerbung_id: Any, seat: str, *, today: str, germany_now: datetime, **replaced: Any) -> Any:
     """A seat's link mailed again by an administrator."""
 
-    return await resend_einwilligung(
+    return await resend_kontakt_confirmation(
         bewerbung_id=bewerbung_id,
         seat=seat,
-        **wired(resend_einwilligung, database, **replaced),
+        **wired(resend_kontakt_confirmation, database, **replaced),
         db=database.client,
         today=today,
         germany_now=germany_now,

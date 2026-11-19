@@ -1,6 +1,7 @@
+import { assert, beforeEach, describe, expect, it } from "vitest";
+
 import { networkFailure, serveHost } from "@/test-support/backend";
 import { captureLog } from "@/test-support/stdoutCapture";
-import { assert, beforeEach, describe, expect, it } from "vitest";
 
 import type { LoggedLine } from "@/test-support/stdoutCapture";
 
@@ -10,14 +11,12 @@ const TEST_TOKEN = "XXXX.DUMMY.TOKEN.XXXX";
 /** The secret that verifies `TEST_TOKEN`, published on the same page. */
 const TEST_SECRET = "1x0000000000000000000000000000000AA";
 
-// Under the production build's `NODE_ENV` (`fl_frontend/vitest.config.mts :: PRODUCTION_BUILD`): only its format writes
-// every value a line is handed, an `error` that is no `Error` among them, which a line carrying no token is held to.
-// The secret is read off the deployment's `APP_ENV`, which the run sets to the local stack's, never off `NODE_ENV`.
+// The secret is read off the deployment's `APP_ENV`, which the run sets to the local stack's.
 
 /** Every line the real logger writes, read off standard output. */
-const log = captureLog("production");
+const log = captureLog();
 
-/** Whether a line as the production format wrote it carries the token anywhere, or an `error` at all; no line does too. */
+/** Whether a line as the logger wrote it carries the token anywhere, or an `error` at all; no line does too. */
 const carriesTheToken = (line: LoggedLine | undefined): boolean =>
   line === undefined || line.raw.includes(TEST_TOKEN) || line.error !== undefined;
 

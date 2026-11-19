@@ -1,14 +1,13 @@
 import { notFound } from "next/navigation";
 
-import { filterValue } from "@/kit/filterValue";
-import { ListPage } from "@/kit/ListPage";
-
 import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { getSaisonTeams } from "@/features/saisons/queries";
 import { publicSaisonOf, resolvePublicSaisonParam } from "@/features/saisons/resolvers";
 import { austrittChip } from "@/features/teams/constants";
+import { filterValue } from "@/kit/filterValue";
+import { ListPage } from "@/kit/ListPage";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
 

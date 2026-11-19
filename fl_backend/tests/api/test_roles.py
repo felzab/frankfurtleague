@@ -9,7 +9,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 from app.api.identity.crud import roles_of
 from app.api.identity.schemas import FLSubject
 from app.core.collections import Collection
-from app.shared.schemas.literals import KONTAKT_ROLLEN
+from app.shared.schemas.literals import KONTAKT_SEATS
 from tests.database import held_corpus, shared_client
 from tests.documents import (
     AUSTRITT,
@@ -98,7 +98,7 @@ def _junction(
     *,
     also: str | None = None,
     austritt: dict[str, Any] | None = None,
-    **slots: dict[str, Any],
+    **seats: dict[str, Any],
 ) -> dict[str, Any]:
     return saison_team_document(
         saison_id,
@@ -107,7 +107,7 @@ def _junction(
         name[:3].upper(),
         _id=row_id,
         austritt=austritt,
-        kontakte={**{slot: None for slot in KONTAKT_ROLLEN}, **slots, "trainer_is_also": also},
+        kontakte={**{seat: None for seat in KONTAKT_SEATS}, **seats, "trainer_is_also": also},
     )
 
 
@@ -165,7 +165,7 @@ async def _seed(database: AsyncDatabase) -> None:
             ),
             _junction(ROW_FUTURE_A_OID, FUTURE_SAISON, TEAM_A_OID, ROW_NAME_A, trainer=_seat(TIMES), ansprechperson=_seat(ANSPRECHPERSON)),
             # The Trainer also holds the Ansprechperson seat, confirmed in the first and entered by an
-            # administrator into the second: the stamp is the SLOT's, so the second grants nothing.
+            # administrator into the second: the stamp is the SEAT's, so the second grants nothing.
             _junction(
                 ROW_ACTIVE_C_OID,
                 ACTIVE_SAISON,
@@ -234,11 +234,11 @@ async def answered(url: str, email: str) -> FLSubject:
 
 
 def seats(answer: FLSubject) -> list[tuple[str, ObjectId, str, str, str]]:
-    return [(seat.saison_id, seat.team_id, seat.rolle, seat.team_name, seat.saison_status) for seat in answer.seats]
+    return [(seat.saison_id, seat.team_id, seat.seat, seat.team_name, seat.saison_status) for seat in answer.seats]
 
 
 def is_empty(answer: FLSubject) -> bool:
-    return (answer.seats, answer.spieler, answer.schiedsrichter) == ([], [], [])
+    return (answer.seats, answer.spieler, answer.schiedsrichter) == ([], None, [])
 
 
 @pytest.mark.db
@@ -267,10 +267,10 @@ class TestTheConfirmationNarrowing:
         assert answer.seats == []
         assert answer.unconfirmed is True
 
-    async def test_one_address_in_two_slots_is_answered_only_the_slot_it_confirmed(self, seeded_league: str):
+    async def test_one_address_in_two_seats_is_answered_only_the_seat_it_confirmed(self, seeded_league: str):
         """Kills a confirmation judged per row: `trainer_is_also` seats this person twice, and only the Trainer seat is stamped."""
 
-        assert [seat.rolle for seat in (await answered(seeded_league, ALSO)).seats] == ["trainer"]
+        assert [seat.seat for seat in (await answered(seeded_league, ALSO)).seats] == ["trainer"]
 
     @pytest.mark.parametrize("email", [SCHIEDSRICHTER_WITHOUT_RECORD, SCHIEDSRICHTER_NULL_RECORD], ids=["no record", "null record"])
     async def test_an_unconfirmed_referee_grants_nothing(self, seeded_league: str, email: str):
@@ -321,7 +321,7 @@ class TestTheConfirmationNarrowing:
                 await writer.abort_transaction()
 
         assert seats(open_inside) == [(ACTIVE_SAISON, TEAM_C_OID, "stellvertretung", ROW_NAME_C, "active")]
-        assert [row.spieler_id for row in open_inside.spieler] == [SPIELER_UNCONFIRMED_OID]
+        assert open_inside.spieler is not None and open_inside.spieler.spieler_id == SPIELER_UNCONFIRMED_OID
         assert [row.schiedsrichter_id for row in open_inside.schiedsrichter] == [SCHIEDSRICHTER_UNCONFIRMED_OID]
         assert [(seat.saison_id, seat.saison_status) for seat in times_inside.seats] == [(PAST_SAISON, "future"), (FUTURE_SAISON, "future")]
         assert is_empty(open_outside)

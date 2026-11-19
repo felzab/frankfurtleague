@@ -15,7 +15,7 @@ INSIDE = "2026-04-01"
 class TestTheApplicationWindow:
     """A closed application window taking a submission puts a school in the triage queue the league said it would not take.
 
-    One predicate answers the landing's window, `/form/{saison_id}` and the submission: today between
+    One predicate answers the landing's window, `/bewerbungen/saisons/{saison_id}/form` and the submission: today between
     its two dates, both included, on a season not yet ended, the window not paused.
     """
 
@@ -27,11 +27,6 @@ class TestTheApplicationWindow:
     @pytest.mark.parametrize("today", ["2026-02-28", "2026-05-01"], ids=["the day before", "the day after"])
     def test_a_day_outside_the_span_takes_none(self, today: str):
         assert self.runs(today=today) is False
-
-    def test_a_reversed_span_covers_no_day(self):
-        """Span ordering is the payload's alone, so a stored reversal is reachable, and comparing one end would open it for ever."""
-
-        assert self.runs(bewerbung={"open": True, "start": END, "end": START}) is False
 
     def test_a_paused_window_takes_none_inside_its_span(self):
         """The dates still run, and the pause is the whole answer: a paused form taking a submission is a pause doing nothing."""

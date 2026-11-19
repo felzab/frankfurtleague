@@ -8,7 +8,6 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.config import API_VERSION
 from tests.app_client import app_client, app_under_test
 from tests.config import ADMIN_KEY, grants_for_the_suite
 from tests.database import a_clean_database
@@ -21,7 +20,7 @@ pytestmark = pytest.mark.db
 
 DATABASE_NAME = worker_database("fl_spielorte_write_test")
 
-SPIELORTE = f"/api/v{API_VERSION}/spielorte"
+SPIELORTE = "/api/spielorte"
 
 # The write router binds an actor and refuses a write carrying none.
 ACTOR = "spielorte.admin@example.com"
@@ -41,7 +40,7 @@ ADDRESS = {
     "city": "Frankfurt am Main",
 }
 
-# `ADDRESS` as a `maps_link` spells it.
+# `ADDRESS` as a `maps_query` spells it.
 ADDRESS_LINE = "Hanauer Landstraße 12a, 60314 Ostend Frankfurt am Main"
 
 NEW_NAME = "Halle Nord"
@@ -54,7 +53,7 @@ def venue_document() -> dict[str, Any]:
         "_id": RETIRED_OID,
         "name": RETIRED_NAME,
         "address": dict(ADDRESS),
-        "maps_link": f"{RETIRED_NAME}, Hanauer Landstraße 12a, 60314 Ostend Frankfurt am Main, Deutschland",
+        "maps_query": f"{RETIRED_NAME}, Hanauer Landstraße 12a, 60314 Ostend Frankfurt am Main, Deutschland",
         "default_mietpreis": 80,
         "inactive_since": RETIRED_SINCE,
         # As the create stamps it.
@@ -124,7 +123,7 @@ def refusal_of(response: Response) -> tuple[int, str]:
 
 class TestAVenuesWrites:
     async def test_a_new_venue_stores_the_link_it_builds_and_records_its_act(self, mongo_replica_set_url: str):
-        """The client never sends `maps_link`, which every fixture at this ground publishes as the address."""
+        """The client never sends `maps_query`, which every fixture at this ground publishes as the address."""
 
         async def body(database: AsyncDatabase) -> Any:
             refused = await sent(mongo_replica_set_url, "POST", SPIELORTE, venue_payload(RETIRED_NAME))
@@ -136,7 +135,7 @@ class TestAVenuesWrites:
 
         assert refusal_of(refused) == (409, Code.DUPLICATE_KEY)
         assert created.status_code == 201
-        assert (stored["name"], stored["maps_link"], stored["default_mietpreis"], stored["inactive_since"]) == (
+        assert (stored["name"], stored["maps_query"], stored["default_mietpreis"], stored["inactive_since"]) == (
             NEW_NAME,
             f"{NEW_NAME}, {ADDRESS_LINE}, Deutschland",
             120,
@@ -163,7 +162,7 @@ class TestAVenuesWrites:
         assert refusal_of(taken) == (409, Code.DUPLICATE_KEY)
         assert (kept.status_code, kept.json()["version"], moved.json()["version"]) == (200, 1, 2)
         assert (stale.status_code, stale.json()["error_code"]) == (409, Code.VERSION_STALE)
-        assert (stored["name"], stored["maps_link"], stored["default_mietpreis"], stored["version"]) == (
+        assert (stored["name"], stored["maps_query"], stored["default_mietpreis"], stored["version"]) == (
             "Halle Süd",
             f"Halle Süd, {ADDRESS_LINE}, Deutschland",
             120,

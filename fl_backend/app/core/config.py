@@ -7,13 +7,9 @@ from pathlib import Path
 from typing import Annotated, Any, Final
 
 from fastapi import Request
-from pydantic import AfterValidator, BaseModel, Field, SecretStr, ValidationError, field_validator
+from pydantic import AfterValidator, BaseModel, Field, SecretStr, ValidationError, ValidationInfo, field_validator
 from pydantic_core import ErrorDetails
 from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SecretsSettingsSource, SettingsConfigDict, SettingsError
-
-# A property of this code, never a deployment's: an environment able to set it could serve
-# `/api/v2/` from code implementing v0.
-API_VERSION = 0
 
 # The length the frontend pins each internal key to. An equality rather than a floor: the pair only
 # works when the two values are identical, so a key one side alone would refuse is a deployment
@@ -67,7 +63,15 @@ class _SecretFields(BaseModel):
 
     internal_api_key_base: InternalAPIKey = Field(description="Base internal API-key")
     internal_api_key_system: InternalAPIKey = Field(description="Internal API-key for the system router")
-    internal_api_key_admin: InternalAPIKey = Field(description="Internal API-key for the admin router")
+    internal_api_key_admin: InternalAPIKey = Field(description="Internal API-key for the routers a signed-in person or an administrator calls")
+
+    # Against each key declared above, which `info.data` holds once it passed: two tiers holding one key are one tier,
+    # every holder of the lower key reaching the other's routes. Refused at the later key, so the refusal names a file.
+    @field_validator("internal_api_key_system", "internal_api_key_admin")
+    def validate_distinct_key(cls, key: SecretStr, info: ValidationInfo) -> SecretStr:
+        if key in (info.data.get("internal_api_key_base"), info.data.get("internal_api_key_system")):
+            raise ValueError("holds another internal key's value")
+        return key
 
     @field_validator("mongodb_uri")
     def validate_mongodb_uri(cls, value: SecretStr) -> SecretStr:
@@ -77,7 +81,6 @@ class _SecretFields(BaseModel):
         return value
 
 
-# The file each secret field is read from: its alias where one is set, its own name otherwise.
 SECRET_FILES: Final = tuple(str(field.validation_alias or name) for name, field in _SecretFields.model_fields.items())
 
 
@@ -153,37 +156,29 @@ def _refusal(issues: list[ErrorDetails], *, files: set[str]) -> EnvironmentValid
     return EnvironmentValidationError("; ".join(sentences))
 
 
-def _unusable_files(directory: Path) -> tuple[list[str], list[str]]:
-    """Each unreadable file as `<path> (<errno>)`, and each required one missing or any one blank, by name.
+def _absent(directory: Path) -> set[str]:
+    """Each secret file the directory lacks, which a variable of its name stands in for without a word from the library."""
+    return {name for name in SECRET_FILES if SecretsSettingsSource.find_case_path(directory, name, case_sensitive=False) is None}
 
-    Asked before the build, which stops at its first failing read and takes a variable where a file is
-    missing; never a decode error's text, which quotes the file.
+
+def _unreadable(failure: BaseException, directory: Path) -> EnvironmentValidationError:
+    """A failed read as `<path> (<errno>)` where the failure carries both, by its type otherwise: never its text, which can quote a file.
+
+    The source wraps what a file's read raised, a warning included: the one it raises is its word for a directory at a
+    file's path, what Docker leaves where a bind mount's source file was missing.
     """
-    if not directory.is_dir():
-        return [f"{directory} ({'ENOTDIR' if directory.exists() else 'ENOENT'})"], []
-    unreadable: list[str] = []
-    absent: list[str] = []
-    # The fields of the class the build constructs, which a default it declares spares a file.
-    for name, field in zip(SECRET_FILES, [BackendConfig.model_fields[field] for field in _SecretFields.model_fields], strict=True):
-        path = SecretsSettingsSource.find_case_path(directory, name, case_sensitive=False)
-        if path is None:
-            # Counted here as well as by the build, which a variable, or a file under the field's own
-            # name, may stand in for.
-            if field.is_required():
-                absent.append(name)
-            continue
-        # What Docker leaves where a bind mount's source file was missing; Windows would read it as EACCES.
-        if path.is_dir():
-            unreadable.append(f"{path} (EISDIR)")
-            continue
-        try:
-            if path.read_text(encoding="utf-8").strip() == "":
-                absent.append(name)
-        except OSError as failure:
-            unreadable.append(f"{path} ({errno.errorcode.get(failure.errno or 0, type(failure).__name__)})")
-        except ValueError as failure:
-            unreadable.append(f"{path} ({type(failure).__name__})")
-    return unreadable, absent
+    if isinstance(failure, SettingsError) and failure.__cause__ is not None:
+        failure = failure.__cause__
+    if isinstance(failure, Warning):
+        found = (SecretsSettingsSource.find_case_path(directory, name, case_sensitive=False) for name in SECRET_FILES)
+        paths = [f"{path} (EISDIR)" for path in found if path is not None and path.is_dir()]
+    elif isinstance(failure, OSError) and failure.filename is not None:
+        paths = [f"{failure.filename} ({errno.errorcode.get(failure.errno or 0, type(failure).__name__)})"]
+    else:
+        paths = []
+    if paths:
+        return EnvironmentValidationError(f"Unreadable secret files: {', '.join(paths)}")
+    return EnvironmentValidationError(f"The environment could not be read: {type(failure).__name__}")
 
 
 @lru_cache
@@ -196,34 +191,23 @@ def get_config() -> BackendConfig:
     # Read before the build, which takes the directory as an argument: the settings loader is the one
     # reader of the environment the ban permits.
     directory = Path(os.environ.get("SECRETS_DIR", DEFAULT_SECRETS_DIR))  # noqa: TID251
-    unreadable, absent = _unusable_files(directory)
-    if unreadable:
-        # The missing and the blank beside them, which the build would never reach.
-        also = f"; Invalid secret files: {', '.join(sorted(absent))}" if absent else ""
-        raise EnvironmentValidationError(f"Unreadable secret files: {', '.join(unreadable)}{also}") from None
-    # Built even where a file is missing, so every present value is judged as well; a missing one is
-    # refused whatever the library found to stand in for it.
+    # Asked first: the source only warns for a missing directory, and no warning's text is logged.
+    if not directory.is_dir():
+        raise EnvironmentValidationError(f"Unreadable secret files: {directory} ({'ENOTDIR' if directory.exists() else 'ENOENT'})")
     try:
-        # Raised rather than printed: the source only warns for a directory at a file's path, and a
-        # warning leaves outside the log envelope.
+        # Raised rather than printed: a warning leaves outside the log envelope.
         with warnings.catch_warnings(action="error"):
             config = BackendConfig(_secrets_dir=directory)
     except ValidationError as error:
-        refused = _refusal(error.errors(), files=set(absent))
-    except Warning, SettingsError:
-        # A file that became unreadable after the question above was asked: asked again.
-        unreadable, _ = _unusable_files(directory)
-        raise EnvironmentValidationError(f"Unreadable secret files: {', '.join(unreadable) or directory}") from None
-    except ValueError as error:
-        # Below `ValidationError`'s arm, which is a `ValueError` too: the dotenv read's
-        # `UnicodeDecodeError` lands here, chaining what it wrapped and naming no field, so the type
-        # alone leaves.
-        raise EnvironmentValidationError(f"The environment could not be read: {type(error).__name__}") from None
-    else:
-        if not absent:
-            return config
-        refused = EnvironmentValidationError(f"Invalid secret files: {', '.join(sorted(absent))}")
-    raise refused from None
+        # Every present value judged, and every missing file named whatever stood in for it.
+        raise _refusal(error.errors(), files=_absent(directory)) from None
+    except (SettingsError, Warning, OSError, ValueError) as failure:
+        # Below `ValidationError`'s arm, which is a `ValueError` too, as `SettingsError` is: the dotenv read's
+        # `UnicodeDecodeError` reaches this arm unwrapped.
+        raise _unreadable(failure, directory) from None
+    if absent := _absent(directory):
+        raise _refusal([], files=absent) from None
+    return config
 
 
 def get_app_config(request: Request) -> BackendConfig:

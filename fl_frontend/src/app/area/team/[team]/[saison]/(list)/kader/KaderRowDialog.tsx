@@ -1,12 +1,11 @@
 "use client";
 
-import { Dialog } from "@/kit/Dialog";
-import { Select } from "@/kit/Select";
-import { TextField } from "@/kit/TextField";
-
 import { COPY } from "@/core/copy";
 import { kaderName } from "@/features/spieler/constants";
 import { positionOptions, rolleOptions, stufeOptions } from "@/features/spieler/options";
+import { Dialog } from "@/kit/Dialog";
+import { Select } from "@/kit/Select";
+import { TextField } from "@/kit/TextField";
 
 import { deregisterKaderRow, saveKaderRow } from "./kaderRowActs";
 

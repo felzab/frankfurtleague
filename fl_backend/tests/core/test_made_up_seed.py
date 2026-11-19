@@ -22,15 +22,15 @@ import pytest
 
 from app.api.aufstellungen.services import aufstellung_marks, find_undated_refusal
 from app.api.saisons.schemas import FLSaisonRules
-from app.api.saisons.services import find_activation_refusal, find_saison_span_refusal, has_started, unplayed_spiel_nrs
+from app.api.saisons.services import find_activation_refusal, find_saison_span_refusal, has_started
 from app.api.spielberichte.services import find_cancelled_refusal, find_not_played_refusal
-from app.api.spiele.schemas import FLSpiel
+from app.api.spiele.schemas import FLSpiel, is_unplayed
 from app.api.spiele.services import find_ergebnis_before_start_refusal, find_spiel_date_refusal
-from app.api.spieltage.services import DatedNeighbour, find_spieltag_order_refusal, find_spieltag_span_refusal
+from app.api.spieltage.services import find_spieltag_order_refusal, find_spieltag_span_refusal
 from app.api.teams.services import find_austritt_refusal
 from app.core import clock
 from app.core.config import MONGODB_URI_FILE, SECRET_FILES
-from app.core.exceptions import WriteRefusal
+from app.core.exceptions import APIError
 from tests.boot import BACKEND_ROOT, environment, secrets_folder
 from tests.made_up_seed import LANDING_STATES, UNJUDGED, MadeUpLeague, Season, is_local_server
 
@@ -122,7 +122,7 @@ def refused_writes(league: MadeUpLeague) -> list[str]:
 
     found: list[str] = []
 
-    def judge(refusal: WriteRefusal | None, what: str) -> None:
+    def judge(refusal: APIError | None, what: str) -> None:
         if refusal is not None:
             found.append(f"{refusal.error_code}: {what}")
 
@@ -143,7 +143,8 @@ def refused_writes(league: MadeUpLeague) -> list[str]:
                     target_status="future",
                     target_spiele=len(season.spiele),
                     undated_spieltage=sum(1 for row in season.spieltage if row["start"] is None),
-                    outgoing_unplayed=[] if outgoing is None else unplayed_spiel_nrs(FLSpiel.model_validate(row) for row in outgoing.spiele),
+                    outgoing_unplayed=outgoing is not None
+                    and any(is_unplayed(ergebnis=row["ergebnis"], sonderereignis=row["sonderereignis"]) for row in outgoing.spiele),
                 ),
                 label,
             )
@@ -178,8 +179,8 @@ def refused_writes(league: MadeUpLeague) -> list[str]:
                 find_spieltag_order_refusal(
                     start=row["start"],
                     stored_start=None,
-                    previous=DatedNeighbour(position=before[-1]["position"], start=before[-1]["start"]) if before else None,
-                    following=DatedNeighbour(position=after[0]["position"], start=after[0]["start"]) if after else None,
+                    previous_start=before[-1]["start"] if before else None,
+                    following_start=after[0]["start"] if after else None,
                 ),
                 what,
             )

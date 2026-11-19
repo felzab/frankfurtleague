@@ -104,6 +104,7 @@ async function readEditor(params: Props["params"]) {
       chip={chip}
       record={{ id, version: found.version, values: valuesOf(found) }}
       saison={saison}
+      ended={found.saison_status === "past"}
       save={saveSpieler}
       person={personFacts(found)}
       kader={kaderFacts(found)}

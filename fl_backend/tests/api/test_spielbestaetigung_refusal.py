@@ -6,7 +6,8 @@ import pytest
 from bson import ObjectId
 from pydantic import BaseModel, ValidationError
 
-from app.api.spielbestaetigungen.crud import JUDGED_SPIEL_FIELDS, JUDGED_VEREIN_FIELDS
+from app.api.outbox.schemas import FLSpielMailAppointment
+from app.api.spielbestaetigungen.crud import JUDGED_JUNCTION_FIELDS, JUDGED_SPIEL_FIELDS
 from app.api.spielbestaetigungen.schemas import (
     FLSpielbestaetigungAppointment,
     FLSpielbestaetigungSchiedsrichterAnswerPayload,
@@ -14,6 +15,7 @@ from app.api.spielbestaetigungen.schemas import (
 )
 from app.api.spielbestaetigungen.services import (
     AnsetzungState,
+    austritt_recipients_of,
     austritte_of,
     compose_ansetzung,
     due_by_of,
@@ -21,8 +23,10 @@ from app.api.spielbestaetigungen.services import (
     find_unanswerable_refusal,
     holds_an_open_proposal,
     lapsed_on,
+    moved_notice_of,
     proposal_payload,
     reason_of,
+    spiel_mail_ansetzung_from_spiel,
     state_of,
     view_ansetzung_of,
 )
@@ -58,7 +62,7 @@ def spiel(**overrides: Any) -> dict[str, Any]:
         "spieltag_id": SPIELTAG,
         "date": DATE,
         "time": "18:30:00",
-        "spielort": {"spielort_id": SPIELORT, "name": "Halle Ost", "maps_link": "Halle Ost, Frankfurt", "mietpreis": 40},
+        "spielort": {"spielort_id": SPIELORT, "name": "Halle Ost", "maps_query": "Halle Ost, Frankfurt", "mietpreis": 40},
         "schiedsrichter": {"schiedsrichter_id": SCHIEDSRICHTER, "name": REFEREE, "payment": 20},
         "team1": {"team_id": TEAM1, "name": "Adler", "shorthand": "ADX", "tore": None},
         "team2": {"team_id": TEAM2, "name": "Biber", "shorthand": "BIX", "tore": None},
@@ -72,7 +76,7 @@ def spiel(**overrides: Any) -> dict[str, Any]:
     }
 
 
-def verein(team_id: ObjectId, *, austritt: str | None = None) -> dict[str, Any]:
+def junction(team_id: ObjectId, *, austritt: str | None = None) -> dict[str, Any]:
     kontakte = {
         seat: {"first_name": first_name, "last_name": last_name, "email": f"{first_name.lower()}@example.com"}
         for seat, (first_name, last_name) in SEATS[team_id].items()
@@ -87,7 +91,7 @@ def verein(team_id: ObjectId, *, austritt: str | None = None) -> dict[str, Any]:
 
 
 def ansetzung_state(*, spiel_overrides: dict[str, Any] | None = None, austritt: str | None = None) -> AnsetzungState:
-    return AnsetzungState(spiel=spiel(**(spiel_overrides or {})), vereine=[verein(TEAM1, austritt=austritt), verein(TEAM2)])
+    return AnsetzungState(spiel=spiel(**(spiel_overrides or {})), junctions=[junction(TEAM1, austritt=austritt), junction(TEAM2)])
 
 
 def row(**overrides: Any) -> dict[str, Any]:
@@ -107,7 +111,10 @@ def row(**overrides: Any) -> dict[str, Any]:
 
 
 class TestADecidedSpielTakesNoAnswer:
-    """`ansetzung_decided`, which nothing else refuses: an answered row, a move and a lapsed deadline each have a route case."""
+    """An open row in time on a decided fixture, which the close's judgement alone refuses.
+
+    An answered row, a move and a lapsed deadline each have a route case.
+    """
 
     @pytest.mark.parametrize(
         "situation",
@@ -122,7 +129,7 @@ class TestADecidedSpielTakesNoAnswer:
 
         refusal = find_unanswerable_refusal(spielbestaetigung_raw=row(), ansetzung_state=ansetzung_state(**situation), now=NOW)
 
-        assert refusal is not None and refusal.error_code == Code.ANSETZUNG_DECIDED
+        assert refusal is not None and refusal.error_code == Code.ANSETZUNG_UNANSWERABLE
 
 
 class Recorded(Mapping[str, Any]):
@@ -158,33 +165,34 @@ class TestTheProjectionsHoldEverythingTheJudgesRead:
 
     def test_a_rows_state_reads_nothing_its_projections_leave_out(self):
         spiel_seen: set[str] = set()
-        vereine_seen: set[str] = set()
+        junctions_seen: set[str] = set()
         # Undecided, unmoved and open, so every judge reads to its end; the exit after the fixture's day, so its date is read.
         situation = AnsetzungState(
             spiel=Recorded(spiel(), spiel_seen),
-            vereine=[Recorded(verein(TEAM1, austritt="2027-06-01"), vereine_seen), Recorded(verein(TEAM2), vereine_seen)],
+            junctions=[Recorded(junction(TEAM1, austritt="2027-06-01"), junctions_seen), Recorded(junction(TEAM2), junctions_seen)],
         )
 
         assert state_of(spielbestaetigung_raw=row(), ansetzung_state=situation, now=NOW, vorschlag_open=None) == "valid"
         view_ansetzung_of(situation.spiel)
 
         # The premise: `decision_of` read the fixture to its last test.
-        assert {"ergebnis", "sonderereignis", "team2.tore", "austritt.date"} <= spiel_seen | vereine_seen
+        assert {"ergebnis", "sonderereignis", "team2.tore", "austritt.date"} <= spiel_seen | junctions_seen
         assert [path for path in sorted(spiel_seen) if not loaded_by(JUDGED_SPIEL_FIELDS, path)] == []
-        assert [path for path in sorted(vereine_seen) if not loaded_by(JUDGED_VEREIN_FIELDS, path)] == []
+        assert [path for path in sorted(junctions_seen) if not loaded_by(JUDGED_JUNCTION_FIELDS, path)] == []
 
-    def test_the_answer_reads_nothing_of_the_clubs_its_projection_leaves_out(self):
+    def test_the_answer_reads_nothing_of_the_teams_its_projection_leaves_out(self):
         """The fixture it reads whole, a proposal being judged as the stored fixture on a new date."""
 
-        vereine_seen: set[str] = set()
+        junctions_seen: set[str] = set()
         situation = AnsetzungState(
-            spiel=spiel(), vereine=[Recorded(verein(TEAM1, austritt="2027-06-01"), vereine_seen), Recorded(verein(TEAM2), vereine_seen)]
+            spiel=spiel(),
+            junctions=[Recorded(junction(TEAM1, austritt="2027-06-01"), junctions_seen), Recorded(junction(TEAM2), junctions_seen)],
         )
 
         assert find_unanswerable_refusal(spielbestaetigung_raw=row(), ansetzung_state=situation, now=NOW) is None
 
-        assert "austritt.date" in vereine_seen
-        assert [path for path in sorted(vereine_seen) if not loaded_by(JUDGED_VEREIN_FIELDS, path)] == []
+        assert "austritt.date" in junctions_seen
+        assert [path for path in sorted(junctions_seen) if not loaded_by(JUDGED_JUNCTION_FIELDS, path)] == []
 
 
 class TestTheProposalIsTheSpielOnItsNewDate:
@@ -267,7 +275,7 @@ class TestARefereeAnswersUntilTheKickOff:
         )
 
         assert before is None
-        assert at is not None and at.error_code == Code.ANSETZUNG_DEADLINE_PAST
+        assert at is not None and at.error_code == Code.ANSETZUNG_UNANSWERABLE
 
     def test_a_minute_before_it_the_booking_reads_open_and_from_it_lapsed(self):
         """Read by the day instead, the referee's list would offer „Zusagen“ and „Ablehnen“ until midnight beside the report it owes."""
@@ -339,17 +347,19 @@ class TestTheDayARowLapsed:
         raw, state = row(**fields), ansetzung_state(**situation)
         reason = reason_of(spielbestaetigung_raw=raw, ansetzung_state=state, now=now)
 
-        assert lapsed_on(spielbestaetigung_raw=raw, reason=reason, spiel=state.spiel, austritte=austritte_of(state), now=now) == lapsed
+        assert (
+            lapsed_on(spielbestaetigung_raw=raw, reason=reason, spiel=state.spiel, austritte=austritte_of(state.junctions), now=now) == lapsed
+        )
 
-    def test_a_referee_is_due_by_the_slot_and_a_club_by_its_deadline(self):
+    def test_a_referee_is_due_by_the_slot_and_a_team_by_its_deadline(self):
         assert (due_by_of(row(**REFEREES)), due_by_of(row())) == (DATE, DEADLINE)
 
 
-AGREED = {"kind": "agreed", "at": "2027-05-02", "by": {"kind": "kontakt", "rolle": "trainer"}, "vorschlag": None, "reason": None}
+AGREED = {"kind": "agreed", "at": "2027-05-02", "by": {"kind": "kontakt", "seat": "trainer"}, "vorschlag": None, "reason": None}
 DECLINED = {
     "kind": "declined",
     "at": "2027-05-02",
-    "by": {"kind": "kontakt", "rolle": "trainer"},
+    "by": {"kind": "kontakt", "seat": "trainer"},
     "vorschlag": {"date": "2027-05-15", "time": "17:00:00"},
     "reason": None,
 }
@@ -407,7 +417,7 @@ class TestAClosedRowReadsAsThePublicFixtureCountsIt:
         )
 
 
-class TestAClubAnswersUntilItsDeadline:
+class TestATeamAnswersUntilItsDeadline:
     def test_on_its_deadline_the_answer_is_taken_and_the_day_after_refused(self):
         on, after = (
             find_unanswerable_refusal(spielbestaetigung_raw=row(), ansetzung_state=ansetzung_state(), now=now)
@@ -415,7 +425,7 @@ class TestAClubAnswersUntilItsDeadline:
         )
 
         assert on is None
-        assert after is not None and after.error_code == Code.ANSETZUNG_DEADLINE_PAST
+        assert after is not None and after.error_code == Code.ANSETZUNG_UNANSWERABLE
 
 
 # The two ways a save or an exit overtakes a row the pass has yet to shut: the match called off, a club gone by its day.
@@ -441,7 +451,7 @@ class TestTheAdministratorSettlesAnOpenRowAlone:
     def test_the_settle(self, fields: dict[str, Any], situation: dict[str, Any], now: datetime, refused: bool):
         refusal = find_enter_refusal(spielbestaetigung_raw=row(**fields), ansetzung_state=ansetzung_state(**situation), now=now)
 
-        assert (None if refusal is None else refusal.error_code) == (Code.ANSETZUNG_NOT_ENTERABLE if refused else None)
+        assert (None if refusal is None else refusal.error_code) == (Code.ANSETZUNG_NOT_ACTIONABLE if refused else None)
 
 
 class TestADiscardAndAnAdoptionActOnAnOpenProposalAlone:
@@ -463,3 +473,80 @@ class TestADiscardAndAnAdoptionActOnAnOpenProposalAlone:
     )
     def test_the_proposal_is_open(self, fields: dict[str, Any], situation: dict[str, Any], holds: bool):
         assert holds_an_open_proposal(spielbestaetigung_raw=row(**fields), ansetzung_state=ansetzung_state(**situation), now=NOW) is holds
+
+
+# --- What a move's notice says, and whom a club's exit mails.
+
+
+def test_a_move_s_notice_names_the_ground_the_fixture_moved_to():
+    """Unnamed, a ground changed at the same hour reads „Bisher“ and „Neu“ alike, and the parties go to the old ground."""
+
+    ansetzung = spiel_mail_ansetzung_from_spiel(spiel())
+
+    assert ansetzung is not None and ansetzung.spielort == "Halle Ost"
+
+
+def test_a_move_off_its_ground_tells_the_parties_of_no_ground():
+    """A ground read off a fixture holding none raises inside the pass, which then tells nobody the fixture moved."""
+
+    appointment = FLSpielMailAppointment(team1="Adler", team2="Biber", date=DATE, time="18:30:00")
+
+    notice = moved_notice_of(
+        party_kind="team", appointment=appointment, moved_to=spiel_mail_ansetzung_from_spiel(spiel(spielort=None)), stays=True
+    )
+
+    assert notice.moved_to is not None and notice.moved_to.spielort is None
+
+
+# Read ahead of `a_fixture`'s day, so an exit then reaches it.
+EXIT_READ = datetime(2026, 4, 20, 12, tzinfo=clock.GERMANY)
+CONFIRMED_SEAT = {"trainer": {"email": "theo@example.com", "einwilligung": {"confirmed_at": "2026-03-01"}}}
+
+
+def a_fixture(**fields: Any) -> dict[str, Any]:
+    """The departed club `TEAM1` against `TEAM2`, booked to `SCHIEDSRICHTER`, still to come at `EXIT_READ`, as stored."""
+
+    return {
+        "_id": ObjectId(),
+        "date": "2026-05-02",
+        "time": "10:00:00",
+        "team1": {"team_id": TEAM1, "tore": None},
+        "team2": {"team_id": TEAM2, "tore": None},
+        "spielort": {"spielort_id": SPIELORT},
+        "schiedsrichter": {"schiedsrichter_id": SCHIEDSRICHTER},
+        "ergebnis": None,
+        "sonderereignis": None,
+        **fields,
+    }
+
+
+@pytest.mark.parametrize(
+    ("spiel", "kontakte", "asked_at", "named"),
+    [
+        pytest.param(a_fixture(), CONFIRMED_SEAT, "2026-04-10", ["team", "schiedsrichter"], id="a seated opponent and an asked referee"),
+        pytest.param(a_fixture(), {}, "2026-04-10", ["schiedsrichter"], id="an opponent no confirmed seat reaches"),
+        pytest.param(a_fixture(), CONFIRMED_SEAT, None, ["team"], id="a referee booked and never asked"),
+        pytest.param(a_fixture(ergebnis="1:0"), CONFIRMED_SEAT, "2026-04-10", [], id="a fixture decided"),
+        # One act tells both alike, about a slot still to come: a match kicked off unrecorded is told to nobody.
+        pytest.param(a_fixture(date="2026-04-18"), CONFIRMED_SEAT, "2026-04-10", [], id="a fixture kicked off, its result not yet in"),
+    ],
+)
+def test_an_exit_names_whom_its_write_and_the_pass_mail(spiel: dict[str, Any], kontakte: Any, asked_at: str | None, named: list[str]):
+    """Named by fixed words, the exit's question promised a mail to a club no seat reaches and a referee nobody asked."""
+
+    junctions = {
+        TEAM1: {"team_id": TEAM1, "name": "Adler", "kontakte": CONFIRMED_SEAT, "austritt": None},
+        TEAM2: {"team_id": TEAM2, "name": "Biber", "kontakte": kontakte, "austritt": None},
+    }
+    referee_row = {
+        "saison_id": "2026",
+        "spiel_id": spiel["_id"],
+        "party": {"kind": "schiedsrichter", "schiedsrichter_id": SCHIEDSRICHTER},
+        "ansetzung": compose_ansetzung(spiel),
+        "asked_at": asked_at,
+        "closed": None,
+    }
+
+    reached = austritt_recipients_of(team_id=TEAM1, spiele=[spiel], junctions=junctions, rows=[referee_row], now=EXIT_READ)
+
+    assert [(day, party["kind"]) for day, party in reached] == [(spiel["date"], kind) for kind in named]

@@ -1,19 +1,15 @@
-import { serveBackend } from "@/test-support/backend";
-import { doubleNextRequest } from "@/test-support/nextRequest";
-import { posted } from "@/test-support/posted";
 import { describe, expect, it } from "vitest";
 
 import { SPIELER_TEXT_VERSIONS } from "@/core/consentWordings";
+import { serveBackend } from "@/test-support/backend";
+import { doubleNextRequest } from "@/test-support/nextRequest";
+import { posted } from "@/test-support/posted";
 
 import { CONFIRMED } from "./ends";
 
-import type { FLRegistrierungConfirmationResponse } from "@/core/generated/client/types";
-
-// The answer's one write, answered as the backend stores it; any other request goes unanswered and fails its case.
+// The answer's one write, answered with the empty body the backend sends; any other request goes unanswered and fails its case.
 const backend = serveBackend(({ method, path }) =>
-  method === "POST" && path === "/registrierungen/confirmation"
-    ? ({ birth_date: "2008-03-14", media: false, outcome: "confirmed", scope: "internal" } satisfies FLRegistrierungConfirmationResponse)
-    : undefined,
+  method === "POST" && path === "/registrierungen/confirmation" ? new Response(null, { status: 204 }) : undefined,
 );
 doubleNextRequest();
 

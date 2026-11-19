@@ -78,17 +78,28 @@ def sign_in_identifier(address: str) -> str:
     return trimmed(address).translate(_ASCII_LOWER)
 
 
-# Escaped one character at a time, which Python's `re` and the server's PCRE read alike.
-_TRIMMED_CLASS: Final = "[" + "".join(re.escape(character) for character in _TRIMMED) + "]"
+# Both spellings of the country code. Neither arm can take the other's value -- `0049…` does not
+# start with `49` -- so the order carries nothing.
+_PHONE_COUNTRY_CODES = ("0049", "49")
 
 
-def trimmed_pattern(fragment: str) -> str:
-    """`fragment`, an escaped `$regex` fragment, anchored at both ends so that whatever `sign_in_identifier` trims may stand around it.
+def normalise_phone(value: str) -> str:
+    """One spelling per telephone number, so `+49 170 …` and `0170 …` compare equal.
 
-    For a value the fold equates whole, with no part a pattern may leave open.
+    Digits alone, `PHONE_REGEX` admitting spaces, brackets, hyphens and dots. No German area code
+    starts with the trunk `0`, so a leading country code folds back to it.
     """
 
-    return f"^{_TRIMMED_CLASS}*{fragment}{_TRIMMED_CLASS}*$"
+    digits = re.sub(r"[^0-9]", "", value)
+
+    for country_code in _PHONE_COUNTRY_CODES:
+        if digits.startswith(country_code):
+            # The second `removeprefix` takes the trunk zero written as `(0)`, which is the standard
+            # German notation and the commonest spelling of all. An international-format number
+            # carries no real leading zero, so dropping one can only be right.
+            return f"0{digits.removeprefix(country_code).removeprefix('0')}"
+
+    return digits
 
 
 def composed_name(value: Any) -> str:

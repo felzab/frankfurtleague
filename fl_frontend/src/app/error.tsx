@@ -1,9 +1,8 @@
 "use client";
 
-import { ClassicStatusPage } from "@/kit/StatusCard";
-
 import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
+import { ClassicStatusPage } from "@/kit/StatusCard";
 import { useReportClientCrash } from "@/shared/hooks/useReportClientCrash";
 
 /**

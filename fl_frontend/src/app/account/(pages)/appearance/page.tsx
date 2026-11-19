@@ -1,10 +1,9 @@
-import { AccountBox } from "@/kit/AccountBox";
-import { AccountPage } from "@/kit/AccountPage";
-import { ThemeChoice } from "@/kit/FrameNav";
-
 import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
 import { requireAccountSession } from "@/features/account/account";
+import { AccountBox } from "@/kit/AccountBox";
+import { AccountPage } from "@/kit/AccountPage";
+import { ThemeChoice } from "@/kit/FrameNav";
 import { pageMetadata } from "@/shared/utils/metadata";
 
 import type { Metadata, ResolvingMetadata } from "next";

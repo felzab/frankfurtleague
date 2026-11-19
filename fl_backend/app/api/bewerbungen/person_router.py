@@ -1,49 +1,44 @@
-from datetime import datetime
-from typing import Annotated
-
-from fastapi import APIRouter, Body, Depends, status
+from fastapi import APIRouter, status
 from pymongo.asynchronous.client_session import AsyncClientSession
 
-from app.api.account.crud import press_withdrawal
 from app.api.account.services import (
     changed_seat_choices,
     compose_seat_move,
     find_own_entry_refusal,
+    press_withdrawal,
     withdrawal_line,
 )
 from app.api.identity.services import own_seats
 from app.core.clock import utc_stamp
 from app.core.collections import Collection
-from app.core.config import API_VERSION
 from app.core.crud import patch_past_the_version_in_db, refuse
-from app.core.dependencies import BewerbungenCollection, DBClient, get_germany_now
+from app.core.dependencies import BewerbungenCollection, DBClient, GermanyNow
 from app.core.journal import Journal
-from app.core.security import PersonIdentifier, get_person_identifier, verify_access_admin
-from app.core.transactions import transaction_session
+from app.core.routing import by_id
+from app.core.security import PERSON_TIER, PersonIdentifier
+from app.core.transactions import transact
 from app.shared.einwilligung_evidence import FLEinwilligungChoice
-from app.shared.schemas.custom import CustomRouteObjectId
+from app.shared.schemas.custom import CustomObjectId
 from app.shared.schemas.einwilligung import FLSeatEinwilligungPayload, by_choice
-from app.shared.schemas.literals import KONTAKT_ROLLEN
+from app.shared.schemas.literals import KONTAKT_SEATS
 
 # A person's route in place of `bind_actor`: a seat holder signs in by code and holds no grant, so the administrator's
 # actor check would refuse every one of them.
-router = APIRouter(prefix=f"/api/v{API_VERSION}/bewerbungen", dependencies=[Depends(verify_access_admin), Depends(get_person_identifier)])
+router = APIRouter(prefix="/bewerbungen", dependencies=PERSON_TIER)
 
 
-# `/account/einwilligung`, its own segment: the admin router serves this application under its own paths, and one path in
-# both routers would be answered by whichever was mounted first.
 @router.patch(
-    "/{bewerbung_id:objectid}/account/einwilligung",
+    f"{by_id('bewerbung_id')}/einwilligung",
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Withdraw a seat holder's own WhatsApp and media consent on a pending Bewerbung",
 )
 async def patch_einwilligung(
-    bewerbung_id: CustomRouteObjectId,
-    einwilligung_data: Annotated[FLSeatEinwilligungPayload, Body()],
+    bewerbung_id: CustomObjectId,
+    einwilligung_data: FLSeatEinwilligungPayload,
     identifier: PersonIdentifier,
     bewerbungen_collection: BewerbungenCollection,
     db: DBClient,
-    germany_now: datetime = Depends(get_germany_now),
+    germany_now: GermanyNow,
 ) -> None:
     """Withdraw the signed-in person's WhatsApp and media consents on every seat they hold on this pending application; a grant is refused."""
 
@@ -57,24 +52,24 @@ async def patch_einwilligung(
         # Pending alone: an accepted application's seats are its season row's, and a declined one is decided.
         bewerbung = await bewerbungen_collection.find_one(
             {"_id": bewerbung_id, "status": "submitted"},
-            {f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_ROLLEN for field in ("email", "einwilligung")},
+            {f"kontakte.{seat}.{field}": 1 for seat in KONTAKT_SEATS for field in ("email", "einwilligung")},
             session=session,
         )
-        rollen = [] if bewerbung is None else own_seats(bewerbung, identifier)
-        refuse(find_own_entry_refusal(held=bool(rollen)))
+        seats = [] if bewerbung is None else own_seats(bewerbung, identifier)
+        refuse(find_own_entry_refusal(held=bool(seats)))
         assert bewerbung is not None
-        seats = {slot: bewerbung["kontakte"][slot] for slot in rollen}
-        chosen = changed_seat_choices(blocks=[seat["einwilligung"] for seat in seats.values()], pressed=pressed)
+        held = {seat: bewerbung["kontakte"][seat] for seat in seats}
+        chosen = changed_seat_choices(blocks=[person["einwilligung"] for person in held.values()], pressed=pressed)
 
         # Withdraw-only: nothing on an application grants a panel to answer a grant against.
         await press_withdrawal(
-            blocks=[seat["einwilligung"] for seat in seats.values()],
+            blocks=[person["einwilligung"] for person in held.values()],
             chosen=chosen,
             evidence_state=einwilligung_data.evidence_state.model_dump(),
         )
 
         update = compose_seat_move(
-            seats={slot: seat["einwilligung"] for slot, seat in seats.items()},
+            seats={seat: person["einwilligung"] for seat, person in held.items()},
             chosen=chosen,
             at=at,
             text_versions=by_choice(einwilligung_data.text_versions),
@@ -84,9 +79,8 @@ async def patch_einwilligung(
             await patch_past_the_version_in_db(
                 collection=bewerbungen_collection, db_filter={"_id": bewerbung["_id"]}, update=update, session=session
             )
-        if moved := withdrawal_line(blocks=[seat["einwilligung"] for seat in seats.values()], chosen=chosen):
-            journal.note("withdrawal", [f"{Collection.BEWERBUNGEN}/{bewerbung['_id']}"], choices=list(moved), seats=rollen)
+        if moved := withdrawal_line(blocks=[person["einwilligung"] for person in held.values()], chosen=chosen):
+            journal.note("withdrawal", [f"{Collection.BEWERBUNGEN}/{bewerbung['_id']}"], choices=list(moved), seats=seats)
 
     async with journal:
-        async with transaction_session(db) as session:
-            await session.with_transaction(write)
+        await transact(db, write)

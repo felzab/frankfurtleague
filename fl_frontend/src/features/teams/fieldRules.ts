@@ -13,14 +13,14 @@ import {
   teamsPatchTeamSaisonBodyNameMax,
   teamsPatchTeamSaisonBodyWebsiteUrlOneMax,
   TeamsPostTeamEntryBody,
-  teamsPostTeamEntryBodyClubTwoTeamAddressCityMax,
-  teamsPostTeamEntryBodyClubTwoTeamAddressDistrictMax,
-  teamsPostTeamEntryBodyClubTwoTeamAddressHouseNumberMax,
-  teamsPostTeamEntryBodyClubTwoTeamAddressPostcodeMax,
-  teamsPostTeamEntryBodyClubTwoTeamAddressStreetMax,
-  teamsPostTeamEntryBodyClubTwoTeamFullNameMax,
-  teamsPostTeamEntryBodyClubTwoTeamNameMax,
-  teamsPostTeamEntryBodyClubTwoTeamWebsiteUrlOneMax,
+  teamsPostTeamEntryBodyTeamTwoTeamAddressCityMax,
+  teamsPostTeamEntryBodyTeamTwoTeamAddressDistrictMax,
+  teamsPostTeamEntryBodyTeamTwoTeamAddressHouseNumberMax,
+  teamsPostTeamEntryBodyTeamTwoTeamAddressPostcodeMax,
+  teamsPostTeamEntryBodyTeamTwoTeamAddressStreetMax,
+  teamsPostTeamEntryBodyTeamTwoTeamFullNameMax,
+  teamsPostTeamEntryBodyTeamTwoTeamNameMax,
+  teamsPostTeamEntryBodyTeamTwoTeamWebsiteUrlOneMax,
   TeamsPutAustrittBody,
   teamsPutAustrittBodyReasonMax,
   TeamsPutKontaktSeatBody,
@@ -40,7 +40,7 @@ export type TeamRules = {
   address: AddressRules;
 };
 
-type TeamShape = typeof TeamsPatchTeamSaisonBody.shape | (typeof TeamsPostTeamEntryBody.shape.club.options)[1]["shape"]["team"]["shape"];
+type TeamShape = typeof TeamsPatchTeamSaisonBody.shape | (typeof TeamsPostTeamEntryBody.shape.team.options)[1]["shape"]["team"]["shape"];
 
 const requiredOf = (shape: TeamShape): TeamRules["required"] => ({
   name: requires(shape.name, ""),
@@ -56,25 +56,25 @@ const addressRequiredOf = ({ address: { shape } }: TeamShape): AddressRules["req
   city: requires(shape.city, ""),
 });
 
-const ENTERED = TeamsPostTeamEntryBody.shape.club.options[1].shape.team.shape;
+const ENTERED = TeamsPostTeamEntryBody.shape.team.options[1].shape.team.shape;
 
 export const TEAM_ENTRY_RULES: TeamRules = {
   required: requiredOf(ENTERED),
   gruppeRequired: requires(TeamsPostTeamEntryBody.shape.gruppe, ""),
   max: {
-    name: teamsPostTeamEntryBodyClubTwoTeamNameMax,
-    full_name: teamsPostTeamEntryBodyClubTwoTeamFullNameMax,
-    website_url: teamsPostTeamEntryBodyClubTwoTeamWebsiteUrlOneMax,
+    name: teamsPostTeamEntryBodyTeamTwoTeamNameMax,
+    full_name: teamsPostTeamEntryBodyTeamTwoTeamFullNameMax,
+    website_url: teamsPostTeamEntryBodyTeamTwoTeamWebsiteUrlOneMax,
   },
   address: {
     required: addressRequiredOf(ENTERED),
     maxLength: {
-      street: teamsPostTeamEntryBodyClubTwoTeamAddressStreetMax,
-      house_number: teamsPostTeamEntryBodyClubTwoTeamAddressHouseNumberMax,
-      district: teamsPostTeamEntryBodyClubTwoTeamAddressDistrictMax,
-      city: teamsPostTeamEntryBodyClubTwoTeamAddressCityMax,
+      street: teamsPostTeamEntryBodyTeamTwoTeamAddressStreetMax,
+      house_number: teamsPostTeamEntryBodyTeamTwoTeamAddressHouseNumberMax,
+      district: teamsPostTeamEntryBodyTeamTwoTeamAddressDistrictMax,
+      city: teamsPostTeamEntryBodyTeamTwoTeamAddressCityMax,
     },
-    postcodeLength: teamsPostTeamEntryBodyClubTwoTeamAddressPostcodeMax,
+    postcodeLength: teamsPostTeamEntryBodyTeamTwoTeamAddressPostcodeMax,
   },
 };
 
@@ -99,7 +99,7 @@ export const TEAM_SAVE_RULES: TeamRules = {
 };
 
 /** Whether the entry asks for a club, its select posting an id or the new school's entry. */
-export const TEAM_CLUB_REQUIRED = requires(TeamsPostTeamEntryBody.shape.club.options[0].shape.team_id, "");
+export const TEAM_CLUB_REQUIRED = requires(TeamsPostTeamEntryBody.shape.team.options[0].shape.team_id, "");
 
 /** The description's bound, the one box only the editor shows. */
 export const TEAM_DESCRIPTION_MAX = teamsPatchTeamSaisonBodyDescriptionMax;

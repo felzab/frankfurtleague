@@ -1,9 +1,5 @@
 import { notFound } from "next/navigation";
 
-import { Button } from "@/kit/Button";
-import { Link } from "@/kit/Link";
-import { ReadPage } from "@/kit/ReadPage";
-
 import { COPY } from "@/core/copy";
 import { dayOf, formatDate, formatNumber } from "@/core/format";
 import { ROUTES } from "@/core/routes";
@@ -14,6 +10,9 @@ import { STANDING_CHIP, standingOf, TEAM_DOUBLE } from "@/features/bewerbungen/s
 import { seatActKinds } from "@/features/teams/components/forms/seatActKinds";
 import { SeatActs } from "@/features/teams/components/forms/SeatActs";
 import { trikotFarbeLabel } from "@/features/teams/constants";
+import { Button } from "@/kit/Button";
+import { Link } from "@/kit/Link";
+import { ReadPage } from "@/kit/ReadPage";
 import { adminIdParamOf } from "@/shared/utils/adminRead";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
@@ -164,24 +163,27 @@ function actsOf(read: FLBewerbungSingleResponse, standing: Standing) {
   ];
 }
 
-/** A person's row: nobody's on an emptied seat, and its acts while the application stands undecided and the seat can take them. */
-function seatRowsOf(bewerbung: FLBewerbung): SeatRow[] {
-  return seatsOf(bewerbung).map(({ seat, rollen, person, state, chips, day }) => {
+/**
+ * A person's row: nobody's on an emptied seat, and its acts while the application stands undecided, its season not yet
+ * finished, and the seat can take them. A finished season's application takes no seat write and mails no link.
+ */
+function seatRowsOf(bewerbung: FLBewerbung, finished: boolean): SeatRow[] {
+  return seatsOf(bewerbung).map(({ seat, seats, person, state, chips, day }) => {
     const row = {
       id: seat,
       name: person === null ? COPY.admin.seatEmpty : { record: `${person.first_name} ${person.last_name}` },
       muted: person === null,
       chips,
-      line: { record: COPY.admin.seatLine(rollen, person?.email ?? null, day) },
+      line: { record: COPY.admin.seatLine(seats, person?.email ?? null, day) },
     };
-    if (bewerbung.status !== "submitted" || state === "erased") return row;
+    if (bewerbung.status !== "submitted" || finished || state === "erased") return row;
     const link = state === "valid" || state === "expired" ? { send: sendSeatLink, seat: { bewerbung_id: bewerbung.id, seat } } : null;
     return {
       ...row,
       sideActs: seatActKinds(link).length,
       acts: (
         <SeatActs
-          rollen={rollen}
+          seats={seats}
           person={person}
           rules={SEAT_RULES}
           write={writeSeat}
@@ -204,7 +206,17 @@ async function readRecord(params: Props["params"]): Promise<ReadRecord> {
     flag: read.duplicate ? TEAM_DOUBLE : undefined,
     groups: [
       { title: COPY.bewerbung.object, kind: "facts", facts: applicationFacts(read) },
-      { title: COPY.team.kontakte, kind: "seats", label: COPY.team.kontakte, rows: seatRowsOf(bewerbung) },
+      // An accepted application's people are its team's, whose page its act leads to: the acceptance emptied its seats.
+      ...(bewerbung.status === "accepted"
+        ? []
+        : [
+            {
+              title: COPY.team.kontakte,
+              kind: "seats" as const,
+              label: COPY.team.kontakte,
+              rows: seatRowsOf(bewerbung, read.saison.status === "past"),
+            },
+          ]),
       ...(bewerbung.schule === null ? [] : [{ title: FACTS.school, kind: "facts" as const, facts: schoolFacts(bewerbung.schule) }]),
     ],
     acts: actsOf(read, standing),
@@ -212,8 +224,8 @@ async function readRecord(params: Props["params"]): Promise<ReadRecord> {
 }
 
 /**
- * One application: what the decision reads, its two verbs under those facts, its seats, each edited in its dialog, and a
- * new school's own details. Nothing here waits on a save bar: each act writes on its own press.
+ * One application: what the decision reads, its two verbs under those facts, its seats until its acceptance moves them to
+ * its team, each edited in its dialog, and a new school's own details. Nothing here waits on a save bar: each act writes on its own press.
  */
 export default function BewerbungPage({ params }: Props) {
   return (

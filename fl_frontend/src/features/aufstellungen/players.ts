@@ -1,8 +1,7 @@
-import { NOMINEE_CHIP } from "@/kit/stateChips";
-
 import { COPY } from "@/core/copy";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { roleMarkOf, shirtNumber, spielerName } from "@/features/spieler/constants";
+import { NOMINEE_CHIP } from "@/kit/stateChips";
 
 import { STARTERS_MAX } from "./constants";
 

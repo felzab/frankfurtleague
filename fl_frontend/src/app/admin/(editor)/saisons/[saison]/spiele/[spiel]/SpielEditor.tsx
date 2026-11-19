@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 
+import { COPY } from "@/core/copy";
+import { admitsShootOut, isNoShow, scoreOutcome } from "@/features/spiele/result";
 import { AdoptLine } from "@/kit/AdoptLine";
 import { AnswerRows } from "@/kit/AnswerRows";
 import { CardActRow } from "@/kit/Card";
@@ -18,9 +20,6 @@ import { Table } from "@/kit/Table";
 import { TextField } from "@/kit/TextField";
 import { TimeField } from "@/kit/TimeField";
 import { useEditor } from "@/kit/useEditor";
-
-import { COPY } from "@/core/copy";
-import { admitsShootOut, isNoShow, scoreOutcome } from "@/features/spiele/result";
 
 import { SpielortFields } from "../../../../../SpielortFields";
 import { adoptsBerichtOf, NO_SONDEREREIGNIS, takesNoResult } from "./spielValues";

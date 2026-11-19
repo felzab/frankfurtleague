@@ -5,7 +5,6 @@ import pytest
 from bson import ObjectId
 from pydantic import BaseModel
 
-from app.api.saisons.schemas import FLSaisonRules
 from app.api.spiele.schemas import (
     FLSpiel,
     FLSpielJoined,
@@ -16,7 +15,7 @@ from app.api.spiele.schemas import (
 )
 from app.api.spieltage.services import build_spielplan
 from tests.core.app_source import api_routes, application
-from tests.documents import AUSTRITT, rules_document, spiel_document, spieltag_document
+from tests.documents import AUSTRITT, spiel_document, spieltag_document
 
 # The two figures the base tier never serves, the rent and the fee, spelled as a DOCUMENT spells them: the
 # assertions below search published property names, where a model's field name need not match.
@@ -86,7 +85,7 @@ def joined_document() -> dict[str, Any]:
         **document,
         "team1": {**document["team1"], "name": "Alpha", "shorthand": "ALX", "austritt": None, AUSTRITT_TYPE_KEY: None},
         "team2": {**document["team2"], "name": "Beta", "shorthand": "BEX", "austritt": dict(AUSTRITT), AUSTRITT_TYPE_KEY: AUSTRITT["type"]},
-        "spielort": {**document["spielort"], "name": SPIELORT_NAME, "maps_link": "Sportplatz Ost, Frankfurt"},
+        "spielort": {**document["spielort"], "name": SPIELORT_NAME, "maps_query": "Sportplatz Ost, Frankfurt"},
         "ansetzung_confirmed": None,
         "for_third_place": False,
         # A referee publishing their name and agreeing to this fixture: both gates pass, so the reduction is what is left.
@@ -131,7 +130,7 @@ def keys_under(payload: Any, field: str) -> set[str]:
 # fails. The venue's money-bearing twin extends this shape, so a relation between the two cannot
 # stand in.
 PUBLIC_EMBEDDED_FIELDS = [
-    pytest.param(FLSpielortFieldPublic, frozenset({"spielort_id", "name", "maps_link"}), id="the venue"),
+    pytest.param(FLSpielortFieldPublic, frozenset({"spielort_id", "name", "maps_query"}), id="the venue"),
     pytest.param(FLSpielSchiedsrichterFieldPublic, frozenset({"name", "name_is_public"}), id="the referee"),
 ]
 
@@ -194,16 +193,17 @@ class TestTheJoinedSideShapes:
 
 
 # The block a published and a withheld referee name are served as. A withheld name reads `name` null, which the
-# frontend words as „anonym“; a published name keeps its surname's initial alone.
+# frontend words as „anonym“; a published name keeps its surname's initial alone. The consent itself is not served:
+# the name it decides is the answer.
 REFEREE_STATES = [
-    pytest.param({"name_is_public": True}, {"name": PUBLIC_SCHIEDSRICHTER_NAME, "name_is_public": True}, id="published"),
-    pytest.param({"name_is_public": False}, {"name": None, "name_is_public": False}, id="withheld"),
+    pytest.param({"name_is_public": True}, {"name": PUBLIC_SCHIEDSRICHTER_NAME}, id="published"),
+    pytest.param({"name_is_public": False}, {"name": None}, id="withheld"),
 ]
 
 # The two base-tier reads listing a season's fixtures, each with the fields its answer holds beside the matchdays.
 SCHEDULE_READS = [
-    pytest.param("/api/v0/saisons/{saison_id}/spielplan", {"current_spieltag_id": None}, id="Spielplan"),
-    pytest.param("/api/v0/saisons/{saison_id}/ko_runde", {}, id="K.-o.-Runde"),
+    pytest.param("/api/saisons/{saison_id}/spielplan", {"current_spieltag_id": None}, id="Spielplan"),
+    pytest.param("/api/saisons/{saison_id}/ko_runde", {}, id="K.-o.-Runde"),
 ]
 
 
@@ -223,7 +223,7 @@ class TestTheScheduleServesTheRefereeByConsent:
         spieltag = spieltag_document(SPIELTAG_ID, SAISON_ID, 1)
         (route,) = [route for route in api_routes(application()) if route.path == path and route.methods == {"GET"}]
 
-        spieltage = build_spielplan([spieltag], [fixture], FLSaisonRules.model_validate(rules_document()))
+        spieltage = build_spielplan([spieltag], [fixture])
         answer = route.response_model.model_validate({"spieltage": spieltage, **beside}).model_dump(mode="json", by_alias=True)
 
         # The whole block, so the record id and the fee are refused as well as the name.
@@ -233,25 +233,14 @@ class TestTheScheduleServesTheRefereeByConsent:
 class TestTheSpielShapes:
     """What each fixture model declares, and what survives validation of ONE raw document through it."""
 
-    @pytest.mark.parametrize(("schiedsrichter_id", "served"), [pytest.param(ObjectId(), False, id="a-referee")])
-    def test_a_booking_naming_nobody_is_served_nameless_where_a_referee_s_waits_for_their_agreement(self, schiedsrichter_id, served):
-        """A booked referee yet to agree is withheld whole."""
-
+    def test_a_booked_referee_yet_to_agree_is_withheld_whole(self):
         document = joined_document()
-        nobody_agreed = {
+        yet_to_agree = {
             **document,
-            "schiedsrichter": {
-                **document["schiedsrichter"],
-                "schiedsrichter_id": schiedsrichter_id,
-                "name": None,
-                "name_is_public": False,
-                "einsatz_confirmed": False,
-            },
+            "schiedsrichter": {**document["schiedsrichter"], "name": None, "name_is_public": False, "einsatz_confirmed": False},
         }
 
-        parsed = FLSpielJoined.model_validate(nobody_agreed)
-
-        assert (parsed.schiedsrichter is not None, None if parsed.schiedsrichter is None else parsed.schiedsrichter.name) == (served, None)
+        assert FLSpielJoined.model_validate(yet_to_agree).schiedsrichter is None
 
     def test_the_base_tier_spiel_declares_exactly_these_fields(self):
         """The tier's whole membership, since neither the admin nor the internal shape narrows it.
@@ -262,7 +251,7 @@ class TestTheSpielShapes:
         assert set(FLSpielJoined.model_fields) == BASE_TIER_SPIEL_FIELDS
 
     def test_the_base_tier_spiel_drops_the_reason_and_the_day(self):
-        """`FLSpielJoined` is what the Spielplan and `GET /spiele/{spiel_id}` answer with, and Pydantic ignores an undeclared key."""
+        """`FLSpielJoined` is what the Spielplan and a match's page answer with, and Pydantic ignores an undeclared key."""
 
         dumped = FLSpielJoined.model_validate(joined_document()).model_dump()
 

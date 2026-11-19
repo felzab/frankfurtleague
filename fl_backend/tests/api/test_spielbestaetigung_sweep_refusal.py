@@ -4,7 +4,6 @@ from typing import Any
 import pytest
 from bson import ObjectId
 
-from app.api.bewerbungen.services import days_after
 from app.api.spielbestaetigungen.services import (
     AnsetzungState,
     asked_with_its_move,
@@ -18,6 +17,7 @@ from app.api.spielbestaetigungen.services import (
     team_state_of,
 )
 from app.core import clock
+from app.core.clock import days_after
 
 TODAY = "2026-04-01"
 ALPHA = ObjectId("6890a1b2c3d4e5f607760001")
@@ -86,12 +86,12 @@ class TestTheMintFirstAsksInsideItsWindow:
 
         assert request_is_due(spiel=spiel(date=TODAY), austritte={}, now=NOW, asked_before=False) is False
 
-    def test_a_club_gone_after_the_spiel_is_still_asked(self):
+    def test_a_team_gone_after_the_spiel_is_still_asked(self):
         """Its exit the day after the fixture, the club still plays it: only an exit by the fixture's day shuts the row."""
 
         assert request_is_due(spiel=spiel(), austritte={ALPHA: days_after(day=spiel()["date"], days=1)}, now=NOW, asked_before=False) is True
 
-    def test_a_club_gone_on_the_spiels_day_is_not_asked(self):
+    def test_a_team_gone_on_the_spiels_day_is_not_asked(self):
         """The next close shuts a row its club left by the fixture's day, so a request here would be minted afresh every pass."""
 
         assert request_is_due(spiel=spiel(), austritte={ALPHA: spiel()["date"]}, now=NOW, asked_before=False) is False
@@ -125,6 +125,18 @@ class TestWhyARowCloses:
             pytest.param(TEAM, {"sonderereignis": "nichtantreten_team2"}, {}, "cancelled", id="a no-show entered before the day"),
             pytest.param(TEAM, {"sonderereignis": "nichtantreten_team2", "date": TODAY}, {}, "spiel_decided", id="a no-show on the day"),
             pytest.param(TEAM, {"time": "19:00:00"}, {BETA: TODAY}, "austritt", id="the opponent gone, ahead of the move"),
+            # The exit's own write told the opponent, so a no-show entered after it is no call-off to mail again; the
+            # referee is still told the booking is off.
+            *(
+                pytest.param(
+                    party,
+                    {"sonderereignis": "nichtantreten_team2", "date": days_after(day=TODAY, days=1)},
+                    {BETA: TODAY},
+                    "austritt",
+                    id=f"the {kind} told of an exit, ahead of a no-show before the day",
+                )
+                for kind, party in (("club", TEAM), ("referee", REFEREE))
+            ),
             pytest.param(REFEREE, {"schiedsrichter": None}, {}, "schiedsrichter_switched", id="the referee taken off"),
             pytest.param(
                 REFEREE, {"schiedsrichter": None, "time": "19:00:00"}, {}, "schiedsrichter_switched", id="taken off, ahead of the move"
@@ -269,7 +281,7 @@ class TestASaveNamesOnlyThoseItsOwnChangeTells:
 
         assert told == [[TEAM], []]
 
-    def test_an_asked_move_names_the_discarded_club_its_request_tells(self):
+    def test_an_asked_move_names_the_discarded_team_its_request_tells(self):
         """The mint asks the discarded club about the new slot, naming the slot left: a mail of the move, so the question names it."""
 
         opponent = {"kind": "team", "team_id": BETA}
@@ -293,7 +305,7 @@ class TestATeamsPagesDropARowItsMatchDecided:
         """Kept until the hourly close, an unanswered row reads „Abgelaufen“ and „Die Liga entscheidet“ about a match decided."""
 
         unclosed = row(TEAM, deadline=TODAY, answer=answer, closed=None)
-        state = AnsetzungState(spiel=spiel(**decided), vereine=[])
+        state = AnsetzungState(spiel=spiel(**decided), junctions=[])
 
         assert (
             team_state_of(spielbestaetigung_raw=unclosed, ansetzung_state=state, now=KICK_OFF + timedelta(hours=2), vorschlag_open=None) is None
@@ -304,6 +316,6 @@ class TestATeamsPagesDropARowItsMatchDecided:
         """Inside its deadline, an exit ends the question: kept until the close, the row would read „Abgelaufen“ or as its answer."""
 
         unclosed = row(TEAM, deadline=TODAY, answer=answer, closed=None)
-        state = AnsetzungState(spiel=spiel(), vereine=[{"team_id": BETA, "austritt": {"date": TODAY}}])
+        state = AnsetzungState(spiel=spiel(), junctions=[{"team_id": BETA, "austritt": {"date": TODAY}}])
 
         assert team_state_of(spielbestaetigung_raw=unclosed, ansetzung_state=state, now=NOW, vorschlag_open=None) is None

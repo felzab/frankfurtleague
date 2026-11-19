@@ -1,7 +1,8 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
 import { memoryAdapterDouble, memoryStore, overriding, registerAuthDoubles } from "@/test-support/authDoubles";
 import { networkFailure, refusal, serveBackend, serveHost } from "@/test-support/backend";
 import { captureLog } from "@/test-support/stdoutCapture";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { FLOutboxHandout } from "@/core/generated/client/types";
 
@@ -14,16 +15,14 @@ type Call = `${"GET" | "POST"} /${string}`;
 /** What one request is answered with, handed the request. */
 type Answer = (request: { search: URLSearchParams; body: unknown }) => unknown;
 
-/** One call of the pupils' deletion, `after` the place the next call starts after. */
-const erasure = (spieler: number, { failed = 0, remaining = 0, after = null as string | null } = {}) => ({
+/** One pass of the pupils' deletion, the pupils it failed counted. */
+const erasure = (spieler: number, { failed = 0 } = {}) => ({
   completed_saison_id: spieler === 0 ? null : "2526",
   spieler,
   saison_spieler: spieler,
   registrierungen: 0,
   skipped: 0,
   failed,
-  remaining,
-  after,
 });
 
 /** A Postausgang holding nothing to hand out. */
@@ -47,14 +46,14 @@ let handouts: unknown[] = [];
 
 /** What every job meets on an idle day: nothing to act on, each answered as the contract shapes it. */
 const IDLE: Readonly<Record<Call, Answer>> = {
-  "GET /bewerbungen/sweep": () => ({ saison_ids: [] }),
-  "POST /address_change/sweep": () => ({ removed: 0, effective: 0, discarded: 0, remaining: 0, after: null }),
+  // Both season jobs' listing, the applications' unfiltered and the confirmations' of the running seasons.
+  "GET /saisons/sweep": () => ({ saison_ids: [] }),
+  "POST /address_change/sweep": () => ({ removed: 0, effective: 0, discarded: 0, failed: 0 }),
   "GET /address_change/sweep/moves": () => ({ moves: [] }),
   "POST /schiedsrichter/sweep": () => ({ erased: 0, failed: 0 }),
   // The one account the store holds, which a record references.
   "POST /identity/references": () => ({ unreferenced: [] }),
   "POST /identity/erasure/sweep": () => erasure(0),
-  "GET /spielbestaetigungen/sweep": () => ({ saison_ids: [] }),
   "POST /grants/handover": () => ({ handed_over: 0 }),
   "POST /outbox/handout": () => handouts.shift() ?? NOTHING_HANDED_OUT,
   "POST /outbox/result": () => ({ sent: 1, repeated: 0, abandoned: 0, held: 0, ignored: 0 }),
@@ -124,7 +123,7 @@ registerAuthDoubles({
   },
   specifiers: { "@better-auth/mongo-adapter": memoryAdapterDouble(STORE) },
 });
-const log = captureLog("production");
+const log = captureLog();
 
 const { register } = await import("./instrumentation");
 const { auth } = await import("@/core/auth/library");
@@ -142,13 +141,13 @@ const HOUR_MS = 60 * MINUTE_MS;
 
 /** Every request one idle pass sends: each job's in the order they run, then the drain's claim. */
 const EVERY_JOB: readonly Call[] = [
-  "GET /bewerbungen/sweep",
+  "GET /saisons/sweep",
   "POST /address_change/sweep",
   "GET /address_change/sweep/moves",
   "POST /schiedsrichter/sweep",
   "POST /identity/references",
   "POST /identity/erasure/sweep",
-  "GET /spielbestaetigungen/sweep",
+  "GET /saisons/sweep",
   "POST /grants/handover",
   "POST /outbox/handout",
 ];
@@ -161,15 +160,16 @@ const IDLE_COUNTS = {
   bewerbungen: {
     bewerbung_failed: 0,
     registrierung_failed: 0,
+    saison_failed: 0,
     address_change_removed: 0,
     address_change_effective: 0,
     address_change_discarded: 0,
-    address_change_remaining: 0,
+    address_change_failed: 0,
     schiedsrichter_erased: 0,
     schiedsrichter_failed: 0,
   },
   account: { unreferenced: 0, deleted: 0, already_deleted: 0, failed: 0 },
-  erasure: { completed_saison_id: null, spieler: 0, saison_spieler: 0, registrierungen: 0, skipped: 0, failed: 0, remaining: 0 },
+  erasure: { completed_saison_id: null, spieler: 0, saison_spieler: 0, registrierungen: 0, skipped: 0, failed: 0 },
   spielbestaetigungen: { closed: 0, asked: 0, reminded: 0, mails: 0, failed: 0 },
   grants: { handed_over: 0 },
 };
@@ -284,7 +284,9 @@ describe("the one scheduler", () => {
     let release = () => {};
     let arrived = () => {};
     const held = new Promise<void>((resolve) => (arrived = resolve));
-    answers.set("GET /bewerbungen/sweep", async () => {
+    // The applications' listing alone, which asks every status: the confirmations' asks the running seasons.
+    answers.set("GET /saisons/sweep", async ({ search }) => {
+      if (search.has("status")) return { saison_ids: [] };
       arrived();
       await new Promise<void>((resolve) => (release = resolve));
       return { saison_ids: [] };
@@ -298,7 +300,7 @@ describe("the one scheduler", () => {
     release();
     await backend.answered();
 
-    expect(second, "the second hour started a pass beside the first").toStrictEqual(["GET /bewerbungen/sweep"]);
+    expect(second, "the second hour started a pass beside the first").toStrictEqual(["GET /saisons/sweep"]);
     expect(schedulerLines().map(({ message }) => message)).toStrictEqual(["scheduler.pass_skipped"]);
     expect(sentNow()).toStrictEqual(EVERY_JOB);
   });
@@ -308,8 +310,15 @@ describe("the pass's one line", () => {
   /* One line per pass where anything happened, every job's counts and every drain's in it, the drains a write started
      among them; a warning where the pass left anything owed, so a level above INFO still shows it. */
   it("writes one line counting every job and every drain since the last pass, a warning where one did not finish", async () => {
-    answers.set("GET /spielbestaetigungen/sweep", () => ({ saison_ids: ["2627"] }));
-    answers.set("POST /spielbestaetigungen/sweep/2627", () => ({ saison_id: "2627", closed: 1, asked: 2, reminded: 0, mails: 2, failed: 0 }));
+    // The confirmations' listing alone names a season, so no other job's pass is asked of it.
+    answers.set("GET /saisons/sweep", ({ search }) => ({ saison_ids: search.get("status") === "active" ? ["2627"] : [] }));
+    answers.set("POST /spielbestaetigungen/saisons/2627/sweep", () => ({
+      closed: 1,
+      asked: 2,
+      reminded: 0,
+      mails: 2,
+      failed: 0,
+    }));
     await register();
     // A write's drain inside the hour, as `afterResponse.ts :: drainSoon` runs it behind a response: one mail sent.
     handouts = [HANDING_OUT_ONE, NOTHING_HANDED_OUT, HANDING_OUT_ONE];
@@ -319,11 +328,11 @@ describe("the pass's one line", () => {
     await backend.answered();
 
     answers = new Map(Object.entries(IDLE));
-    answers.set("POST /identity/erasure/sweep", ({ search }) =>
-      search.has("after") ? refusal(undefined, { status: 503 }) : erasure(4, { remaining: 3, after: `${"e".repeat(23)}5` }),
-    );
+    answers.set("POST /identity/erasure/sweep", () => refusal(undefined, { status: 503 }));
     vi.advanceTimersByTime(HOUR_MS);
     await backend.answered();
+    // A job that threw counts nothing on the line: what it did before the failure is in the backend's.
+    const { erasure: _threw, ...everyOtherJob } = IDLE_COUNTS;
 
     expect(schedulerLines()).toStrictEqual([
       {
@@ -340,8 +349,7 @@ describe("the pass's one line", () => {
         level: "WARNING",
         message: "scheduler.pass",
         fields: {
-          ...IDLE_COUNTS,
-          erasure: { completed_saison_id: "2526", spieler: 4, saison_spieler: 4, registrierungen: 0, skipped: 0, failed: 0 },
+          ...everyOtherJob,
           outbox: drained(),
           failures: ["erasure failed"],
         },
@@ -358,7 +366,7 @@ describe("the heartbeat after each pass", () => {
     await bootAndStep([MINUTE_MS]);
 
     answers.set("POST /address_change/sweep", () => refusal(undefined, { status: 503 }));
-    answers.set("POST /identity/erasure/sweep", () => erasure(4, { failed: 3, remaining: 3 }));
+    answers.set("POST /identity/erasure/sweep", () => erasure(4, { failed: 3 }));
     // Given up by a write's drain inside the hour, never the pass's own: the pass reports every drain's.
     handouts = [{ ...NOTHING_HANDED_OUT, abandoned: 2 }];
     await drainOutbox();

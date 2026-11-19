@@ -103,7 +103,6 @@ const NOT_A_REFUSAL: ReadonlySet<Code> = new Set<Code>([
   "method_not_served",
   "document_not_found",
   "version_stale",
-  "no_database_client",
   "database_failed",
   "unknown_outcome",
   "unhandled_crash",

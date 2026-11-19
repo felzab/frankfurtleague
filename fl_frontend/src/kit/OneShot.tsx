@@ -79,7 +79,7 @@ export function OneShotEnd({ children }: { children: ReactNode }) {
  * the quiet look beside the main act, and in the main act's own where it is the page's one act: the page is itself the
  * question the person opened the link to answer, so a mailed page's acts take the main act's fill and the quiet look,
  * never the outlined one, whether or not they destroy. It asks before it sends, the kit's question in the danger tone,
- * whose own press is the red one; the form holds that question's open state, as `QuestionForm` does, since its button
+ * whose own press is the red one; the form holds that question's open state, since its button
  * is the form's own rather than a question's trigger, which draws the outlined look alone. The end stands in
  * `OneShotEnd`, which the form stands inside, and outlives a visit elsewhere and the page's own re-render: what was done stays done. A form anybody
  * may send carries the bot check above its acts, Cloudflare's widget showing only when Cloudflare asks, as wide as the
@@ -117,7 +117,7 @@ export function OneShotForm({
    * field changed carries a new one, since a key never stands for two different requests.
    */
   replayField?: string;
-  /** The form's fields stand in `Section` boxes, which fill the column 24 px apart, as an editor's do, and no card. */
+  /** The form's fields stand in `Section` boxes, which fill the column 24 px apart, and no card. */
   boxes?: boolean;
   /** A sentence the press rests on, at the footer's start beside the acts, such as where a confirmation goes. */
   note?: ReactNode;
@@ -221,8 +221,8 @@ export function OneShotForm({
       />
     </FormFooter>
   );
-  // Mounted closed from the first render, as a held question must be (`useOpenUntilHidden`). Closed, it hands the focus
-  // back to the press that opened it, which held it as the question opened (React Aria's `FocusScope`).
+  // Mounted closed from the first render: strict mode's cleanup on mount would close one mounted open. Closed, it
+  // hands the focus back to the press that opened it, which held it as the question opened (React Aria's `FocusScope`).
   const question = acts.refusal !== undefined && (
     <ConfirmDialog
       verb={acts.refusal.verb}

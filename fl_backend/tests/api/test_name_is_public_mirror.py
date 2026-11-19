@@ -15,7 +15,7 @@ from bson import ObjectId
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.spiele.services import build_spiele_pipeline
-from app.api.spieler.services import build_spieler_pipeline, name_is_public
+from app.api.spieler.services import build_spieler_pipeline
 from app.core.crud import aggregate_many_from_db
 from tests.database import held_corpus, shared_client
 from tests.documents import saison_spieler_document, schiedsrichter_document, spiel_document, spieler_document
@@ -38,8 +38,8 @@ INITIAL = "M."
 # a scope no enum holds is a state it has to answer rather than one it may assume away.
 UNKNOWN_SCOPE = "kader"
 
-# A key the document does not carry, which is what `$type` answering "missing" is: the two keys were
-# added to `_EINWILLIGUNG` out of `required`, so a stored record really can be short of either.
+# A key the document does not carry, which is what `$type` answering "missing" is. `FLEinwilligung`
+# requires both keys, so no save stores a record short of either; a hand edit or a migration can.
 ABSENT: Final = "<no such key>"
 
 
@@ -78,11 +78,6 @@ NAME_IS_PUBLIC: Final[tuple[EinwilligungCase, ...]] = (
 CASE_IDS = [case.case for case in NAME_IS_PUBLIC]
 
 
-@pytest.mark.parametrize("case", NAME_IS_PUBLIC, ids=CASE_IDS)
-def test_the_python_predicate_answers_the_table(case: EinwilligungCase):
-    assert name_is_public(case.einwilligung) is case.published
-
-
 def _oid(position: int) -> ObjectId:
     return ObjectId(f"6890a1b2c3d4e5f6074100{position:02d}")
 
@@ -98,7 +93,7 @@ def _nummer_for(case: EinwilligungCase) -> str:
 
 
 @pytest.mark.db
-class TestTheSquadPipelineAnswersTheSameTable:
+class TestTheKaderPipelineAnswersTheSameTable:
     """`build_spieler_pipeline`'s `$cond`, against a real mongod: a `$cond` is only a `$cond` where Mongo evaluates it."""
 
     async def _rows(self, url: str) -> list[Mapping[str, Any]]:

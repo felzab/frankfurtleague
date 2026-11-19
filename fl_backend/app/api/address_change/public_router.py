@@ -1,8 +1,8 @@
 from collections.abc import Mapping
 from datetime import datetime
-from typing import Annotated, Any
+from typing import Any
 
-from fastapi import APIRouter, Body, Depends
+from fastapi import APIRouter, status
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
@@ -23,7 +23,6 @@ from app.api.address_change.schemas import (
     FLAddressChangeAnswer,
     FLAddressChangeAnswerPayload,
     FLAddressChangeAnswerResponse,
-    FLAddressChangeStopResponse,
     FLAddressChangeViewEnded,
     FLAddressChangeViewNew,
     FLAddressChangeViewPrevious,
@@ -37,7 +36,6 @@ from app.api.address_change.services import (
     compose_confirmation_update,
     compose_link_update,
     find_ended_refusal,
-    find_expired_refusal,
     find_nothing_refusal,
     find_unknown_refusal,
     is_expired,
@@ -49,38 +47,31 @@ from app.api.address_change.services import (
     wait_after_confirmation,
     wait_tier,
 )
-from app.api.identity.lookup import SubjectLookup
+from app.api.identity.lookup import MoveHandles, SubjectLookup
 from app.core.clock import german_day
-from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db, refuse
 from app.core.dependencies import (
-    ActionLogCollection,
     AddressChangeCollection,
     AddressChangeReadCollection,
-    BewerbungenCollection,
     DBClient,
+    GermanyNow,
     GrantsCollection,
     GrantsReadCollection,
-    MailboxAnchorsCollection,
     OutboxCollection,
-    RegistrierungenCollection,
-    SaisonTeamsCollection,
-    SchiedsrichterCollection,
-    SpielerCollection,
     SpielerReadCollection,
-    get_germany_now,
 )
+from app.core.exceptions import link_expired
 from app.core.recording import ACT_BY_SYSTEM, record_act
 from app.core.routing import SAFE
-from app.core.security import verify_access_base
-from app.core.transactions import transaction_session
+from app.core.security import BASE_TIER
+from app.core.transactions import transact
 from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.tokens import hash_token
 
 # The token is the whole credential, so these endpoints are base-tier.
 router = APIRouter(
-    prefix=f"/api/v{API_VERSION}/address_change/confirmation",
-    dependencies=[Depends(verify_access_base)],
+    prefix="/address_change/confirmation",
+    dependencies=BASE_TIER,
 )
 
 # What a link's view reads: the addresses for the judgement alone, and the new link's hashes, which say
@@ -102,25 +93,24 @@ def _day_of(moment: datetime | None) -> str | None:
     return None if moment is None else german_day(moment)
 
 
-# Causes the press refuses for the replaced address's sake, which the view reads alike as unconfirmable. The press answers
-# each by its own code; what keeps the link's holder from telling them apart is the edge, which routes no public call here.
+# Causes the press refuses for the replaced address's sake, which the view reads alike as unconfirmable, as the press
+# answers all three with one code: the link's holder learns no more than that the new address is someone's.
 _NOT_CONFIRMABLE = frozenset({"taken", "new_granted", "occupied"})
 
 
 # A POST that reads, so the token travels in a body and never in a second URL.
 @router.post(
     "/view",
-    response_model=FLAddressChangeViewResponse,
     summary="What one address link opens",
     openapi_extra=SAFE,
 )
 async def get_address_change_view(
-    view_data: Annotated[FLTokenPayload, Body()],
+    view_data: FLTokenPayload,
     address_changes_collection: AddressChangeReadCollection,
     records: SubjectLookup,
     spieler_collection: SpielerReadCollection,
     grants_collection: GrantsReadCollection,
-    germany_now: datetime = Depends(get_germany_now),
+    germany_now: GermanyNow,
 ) -> FLAddressChangeViewResponse:
     """What this token opens: the new mailbox's link, the link the address on file was mailed, or how either's change ended.
 
@@ -149,7 +139,7 @@ async def get_address_change_view(
                 kind=ended["kind"],
                 ended_on=german_day(ended_at),
                 way=record["way"],
-                released_on=None if released_at is None else german_day(released_at),
+                released_on=_day_of(released_at),
                 confirmed_on=_day_of(confirmed_at) if side == "new" else None,
             )
         )
@@ -165,7 +155,7 @@ async def get_address_change_view(
                 effective_from=effective_from,
                 way=record["way"],
                 email=previous_side_email(record, state=state_previous),
-                released_on=None if released_at is None else german_day(released_at),
+                released_on=_day_of(released_at),
             )
         )
 
@@ -202,26 +192,15 @@ async def get_address_change_view(
 
 @router.post(
     "",
-    response_model=FLAddressChangeAnswerResponse,
     summary="Confirm or decline a pending address",
-    # `uniq_spieler_email` and `uniq_grant_address` are published by the duplicate-key trace and stay unreached: the
-    # in-session reads of another pupil and of the new address's grant include every row either index holds.
+    # `uniq_spieler_email` and `uniq_grant_address` stay unreached: the in-session reads of another pupil and of the new
+    # address's grant include every row either index holds.
 )
 async def post_address_change_answer(
-    answer_data: Annotated[FLAddressChangeAnswerPayload, Body()],
-    address_changes_collection: AddressChangeCollection,
-    records: SubjectLookup,
-    spieler_collection: SpielerCollection,
-    schiedsrichter_collection: SchiedsrichterCollection,
-    saison_teams_collection: SaisonTeamsCollection,
-    bewerbungen_collection: BewerbungenCollection,
-    registrierungen_collection: RegistrierungenCollection,
-    grants_collection: GrantsCollection,
-    outbox_collection: OutboxCollection,
-    mailbox_anchors_collection: MailboxAnchorsCollection,
-    action_log_collection: ActionLogCollection,
+    answer_data: FLAddressChangeAnswerPayload,
+    collections: MoveHandles,
     db: DBClient,
-    germany_now: datetime = Depends(get_germany_now),
+    germany_now: GermanyNow,
 ) -> FLAddressChangeAnswerResponse:
     """Record whether the mailbox this link was sent to is the person's: `confirmed` confirms it, `declined` ends the change.
 
@@ -232,9 +211,9 @@ async def post_address_change_answer(
     token_hash = hash_token(answer_data.token)
 
     async def answer_the_link(session: AsyncClientSession) -> FLAddressChangeAnswerResponse:
-        """Judge, then write, everything judged read in-session, so a second press is refused by the spent link rather than writing twice."""
+        """A second press meets the spent link and is refused rather than writing twice."""
 
-        record = await address_changes_collection.find_one(build_either_link_filter(token_hash), session=session)
+        record = await collections.address_changes_collection.find_one(build_either_link_filter(token_hash), session=session)
         refuse(find_unknown_refusal(found=record is not None))
         assert record is not None
         if side_of(record, token_hash) == "previous":
@@ -242,9 +221,9 @@ async def post_address_change_answer(
                 record,
                 answer=answer_data.answer,
                 stop_hash=token_hash,
-                address_changes_collection=address_changes_collection,
-                grants_collection=grants_collection,
-                outbox_collection=outbox_collection,
+                address_changes_collection=collections.address_changes_collection,
+                grants_collection=collections.grants_collection,
+                outbox_collection=collections.outbox_collection,
                 germany_now=germany_now,
                 session=session,
             )
@@ -255,7 +234,7 @@ async def post_address_change_answer(
         # A decline is refused none of the judgements below: it removes an address nobody proved.
         if answer_data.answer == "declined":
             await end_the_change_in_session(
-                address_changes_collection=address_changes_collection,
+                address_changes_collection=collections.address_changes_collection,
                 db_filter=db_filter,
                 kind="declined",
                 now=germany_now,
@@ -263,14 +242,18 @@ async def post_address_change_answer(
             )
             return FLAddressChangeAnswerResponse(answer="declined", effective_from=None, effective=False)
 
-        holdings = await read_the_holdings(str(record["address"]), records=records, grants_collection=grants_collection, session=session)
+        holdings = await read_the_holdings(
+            str(record["address"]), records=collections.records, grants_collection=collections.grants_collection, session=session
+        )
         verdict = await judge_the_effect_in_session(
             record=record,
             holdings=holdings,
-            records=records,
-            spieler_collection=spieler_collection,
-            grants_collection=grants_collection,
-            occupancy=Occupancy(grants_collection=grants_collection, address_changes_collection=address_changes_collection),
+            records=collections.records,
+            spieler_collection=collections.spieler_collection,
+            grants_collection=collections.grants_collection,
+            occupancy=Occupancy(
+                grants_collection=collections.grants_collection, address_changes_collection=collections.address_changes_collection
+            ),
             expired=is_expired(record, now=germany_now),
             session=session,
         )
@@ -283,23 +266,14 @@ async def post_address_change_answer(
             await move_the_address_in_session(
                 record=record,
                 holdings=holdings,
-                address_changes_collection=address_changes_collection,
-                spieler_collection=spieler_collection,
-                schiedsrichter_collection=schiedsrichter_collection,
-                saison_teams_collection=saison_teams_collection,
-                bewerbungen_collection=bewerbungen_collection,
-                registrierungen_collection=registrierungen_collection,
-                grants_collection=grants_collection,
-                outbox_collection=outbox_collection,
-                action_log_collection=action_log_collection,
-                mailbox_anchors_collection=mailbox_anchors_collection,
+                collections=collections,
                 now=germany_now,
                 session=session,
             )
             return FLAddressChangeAnswerResponse(answer="confirmed", effective_from=None, effective=True)
 
         confirmed: Mapping[str, Any] = await patch_one_in_db(
-            collection=address_changes_collection,
+            collection=collections.address_changes_collection,
             db_filter=db_filter,
             update=compose_confirmation_update(wait=wait, now=germany_now),
             session=session,
@@ -309,7 +283,7 @@ async def post_address_change_answer(
         effective_from = stored_instant(confirmed["effective_from"])
         if holdings.grant is not None:
             await record_act(
-                collection=address_changes_collection,
+                collection=collections.address_changes_collection,
                 action="grant.address_change_started",
                 by=holdings.identifier if record["way"] == "account" else ACT_BY_SYSTEM,
                 record_id=record["_id"],
@@ -320,16 +294,15 @@ async def post_address_change_answer(
                 record,
                 stage="started",
                 effective_from=effective_from,
-                grants_collection=grants_collection,
-                outbox_collection=outbox_collection,
+                grants_collection=collections.grants_collection,
+                outbox_collection=collections.outbox_collection,
                 now=germany_now,
                 session=session,
             )
 
         return FLAddressChangeAnswerResponse(answer="confirmed", effective_from=effective_from, effective=False)
 
-    async with transaction_session(db) as session:
-        return await session.with_transaction(answer_the_link)
+    return await transact(db, answer_the_link)
 
 
 async def _answer_for_the_address_on_file(
@@ -360,7 +333,8 @@ async def _answer_for_the_address_on_file(
         )
         return FLAddressChangeAnswerResponse(answer="declined", effective_from=None, effective=False)
 
-    refuse(find_expired_refusal(expired=is_expired(record, now=germany_now)))
+    if is_expired(record, now=germany_now):
+        raise link_expired()
     released: Mapping[str, Any] = await patch_one_in_db(
         collection=address_changes_collection,
         db_filter=db_filter,
@@ -388,17 +362,17 @@ async def _answer_for_the_address_on_file(
 
 @router.post(
     "/stop",
-    response_model=FLAddressChangeStopResponse,
+    status_code=status.HTTP_204_NO_CONTENT,
     summary="Stop a pending address change",
 )
 async def post_address_change_stop(
-    stop_data: Annotated[FLTokenPayload, Body()],
+    stop_data: FLTokenPayload,
     address_changes_collection: AddressChangeCollection,
     grants_collection: GrantsCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
-    germany_now: datetime = Depends(get_germany_now),
-) -> FLAddressChangeStopResponse:
+    germany_now: GermanyNow,
+) -> None:
     """Stop the change the address on file was mailed about, its new address going, at any time until the change ends.
 
     The person's own change offers this link no stop until its address on file confirmed it.
@@ -406,7 +380,7 @@ async def post_address_change_stop(
 
     stop_hash = hash_token(stop_data.token)
 
-    async def stop_the_change(session: AsyncClientSession) -> FLAddressChangeStopResponse:
+    async def stop_the_change(session: AsyncClientSession) -> None:
         record = await address_changes_collection.find_one({"stop.token_hashes": stop_hash}, session=session)
         refuse(find_unknown_refusal(found=record is not None))
         assert record is not None
@@ -430,7 +404,4 @@ async def post_address_change_stop(
             session=session,
         )
 
-        return FLAddressChangeStopResponse(stopped=True)
-
-    async with transaction_session(db) as session:
-        return await session.with_transaction(stop_the_change)
+    await transact(db, stop_the_change)

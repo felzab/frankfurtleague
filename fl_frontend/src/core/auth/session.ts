@@ -61,8 +61,7 @@ export async function readServedSession(requestHeaders: Headers): Promise<Served
   return servedSessionOf(await readLibrarySession(requestHeaders, false));
 }
 
-// React's `cache`, never `"use cache"`, which would hand one request's session to another: every guard
-// of one render shares one read.
+// React's `cache`: every guard of one render shares one read.
 export const readRequestSession = cache(async (): Promise<ServedSession | null> => {
   // A render's one wait for a real request, before the sign-in store: the image's build reaches no store, and a
   // prefetched shell must carry nothing a session decides.

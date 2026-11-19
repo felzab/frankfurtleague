@@ -1,8 +1,5 @@
 import { cache } from "react";
 
-import { mailedMetadata } from "@/kit/mailedLinkState";
-import { MailedPage, TO_ACCOUNT } from "@/kit/MailedPage";
-
 import { ADDRESS_CHANGE_WAIT_DAYS } from "@/core/addressChange";
 import { COPY } from "@/core/copy";
 import { dayOf, formatInstantShort } from "@/core/format";
@@ -12,6 +9,8 @@ import { SERVER_COPY } from "@/core/serverCopy";
 import { runWithIncomingTrace } from "@/core/traceScope";
 import { accountAtNewAddress } from "@/features/address-change/account";
 import { readsAsDeadLink } from "@/features/address-change/refusals";
+import { mailedMetadata } from "@/kit/mailedLinkState";
+import { MailedPage, TO_ACCOUNT } from "@/kit/MailedPage";
 
 import { answerAddressChange, stopAddressChange } from "./answers";
 import { confirmedAgain, doneOnEnd, stoppedOn } from "./ends";
@@ -40,8 +39,7 @@ const WORDS = SERVER_COPY.addressChange;
 const INVALID: MailedState = { state: "invalid", next: TO_ACCOUNT };
 
 /** The link's read, `null` for a dead link. A failed read is no state of the link's: it reaches the frame's error boundary. */
-// `cache` memoizes per render pass, for the tab's title and the page. Never `"use cache"`, which keys on the
-// arguments rather than the caller.
+// `cache` memoizes per render pass, for the tab's title and the page.
 const readChange = cache(async (token: string) =>
   runWithIncomingTrace(() =>
     addressChangeGetAddressChangeView({ token }).catch((error: unknown) => {

@@ -13,7 +13,7 @@ from starlette.responses import Response
 from starlette.routing import Route
 from starlette.testclient import TestClient
 
-from app.core.logging import JSONFormatter, fl_logger, setup_logging
+from app.core.logging import JSONFormatter, TraceContextFilter, fl_logger, setup_logging, trace_id_var
 from app.core.middlewares import TraceContextMiddleware, record_error_code, resolve_trace_id
 
 TRACE = "a" * 32
@@ -21,7 +21,7 @@ PARENT = "b" * 16
 WELL_FORMED = f"00-{TRACE}-{PARENT}-01"
 
 
-# One table both formatters run, `fl_frontend/src/core/logging.production.test.ts` holding the other half.
+# One table both formatters run, `fl_frontend/src/core/logging.test.ts` holding the other half.
 LOG_ADDRESSES: Final = json.loads((Path(__file__).resolve().parents[1] / "shared" / "log_addresses.json").read_bytes().decode("utf-8"))
 
 # One table both trace readers refuse, `fl_frontend/src/core/trace.test.ts` holding the other half.
@@ -33,6 +33,8 @@ def a_failure_record(message: str, *, failure: str = "refused anna.beispiel@exam
         raise ValueError(failure)
     except ValueError:
         record = fl_logger.makeRecord(fl_logger.name, logging.ERROR, __file__, 1, message, (), sys.exc_info(), extra=fields)
+    # Stamped as the service's handler stamps every record before its formatter reads it.
+    TraceContextFilter().filter(record)
     return record
 
 
@@ -110,6 +112,21 @@ def logging_as_it_was() -> Iterator[None]:
             logger.setLevel(level)
             logger.propagate = propagate
             logger.disabled = disabled
+
+
+@pytest.mark.usefixtures("logging_as_it_was")
+def test_a_line_the_service_s_handler_writes_carries_the_request_s_trace(capsys: pytest.CaptureFixture[str]):
+    """The handler stamps the trace its formatter writes, which reads no fallback: a record reaching it unstamped writes no line."""
+    setup_logging()
+
+    token = trace_id_var.set(TRACE)
+    try:
+        fl_logger.info("probe.logged")
+    finally:
+        trace_id_var.reset(token)
+
+    written = [json.loads(line) for line in capsys.readouterr().out.splitlines()]
+    assert [(line["message"], line["trace_id"]) for line in written] == [("probe.logged", TRACE)]
 
 
 @pytest.mark.usefixtures("logging_as_it_was")

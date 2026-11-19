@@ -1,11 +1,10 @@
 "use client";
 
+import { COPY } from "@/core/copy";
 import { Dialog } from "@/kit/Dialog";
 import { Facts } from "@/kit/Facts";
 import { RadioGroup } from "@/kit/RadioGroup";
 import { appToast } from "@/kit/Toast";
-
-import { COPY } from "@/core/copy";
 
 import { admitRegistrierung, declineRegistrierung } from "./decideRegistrierung";
 

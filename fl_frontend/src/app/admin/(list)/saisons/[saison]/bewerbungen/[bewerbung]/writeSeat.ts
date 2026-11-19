@@ -4,11 +4,11 @@ import { z } from "zod";
 
 import { action, numberBox } from "@/core/action";
 import { COPY } from "@/core/copy";
-import { bewerbungenPostKontaktSeat, bewerbungenResendEinwilligung } from "@/core/generated/client/sdk";
+import { bewerbungenPostKontaktSeat, bewerbungenResendKontaktConfirmation } from "@/core/generated/client/sdk";
 import {
   BewerbungenPostKontaktSeatBody,
   BewerbungenPostKontaktSeatParams,
-  BewerbungenResendEinwilligungParams,
+  BewerbungenResendKontaktConfirmationParams,
 } from "@/core/generated/zod/inputs";
 
 const { shape } = BewerbungenPostKontaktSeatBody;
@@ -17,7 +17,7 @@ const { shape } = BewerbungenPostKontaktSeatBody;
  * „Sitz bearbeiten“: writes the person into the seat on the version the page read, whatever its state but an erased one,
  * and owes them a fresh link with that seat's own 14 days, which the dialog says, naming the address the write stored.
  * An address or a number another person of the application holds is refused on its box, an address the ban list holds
- * on the status line.
+ * on the status line, and so is a finished season's application, which takes no write.
  */
 export const writeSeat = action({
   lane: "admin",
@@ -31,7 +31,7 @@ export const writeSeat = action({
     phone: shape.phone,
     version: numberBox(shape.version),
   }),
-  ownWords: ["bewerbung_kontakt_email_taken", "bewerbung_kontakt_phone_taken", "email_not_accepted"],
+  ownWords: ["kontakt_email_taken", "kontakt_phone_taken", "email_not_accepted", "saison_past"],
   paths: { email: "email", phone: "phone" },
   examples: {
     first_name: COPY.shared.field.exampleFirstName,
@@ -44,13 +44,17 @@ export const writeSeat = action({
   },
 });
 
-/** Sends one seat a fresh link, its old one opening nothing, for a mail that went astray or a link that lapsed. */
+/**
+ * Sends one seat a fresh link, its old one opening nothing, for a mail that went astray or a link that lapsed. A
+ * finished season's application takes none, which the status line says.
+ */
 export const sendSeatLink = action({
   lane: "admin",
   name: "sendSeatLink",
-  input: BewerbungenResendEinwilligungParams,
+  input: BewerbungenResendKontaktConfirmationParams,
+  ownWords: ["saison_past"],
   run: async ({ bewerbung_id: id, seat }) => {
-    await bewerbungenResendEinwilligung(id, seat);
+    await bewerbungenResendKontaktConfirmation(id, seat);
     return { ok: true, value: undefined };
   },
 });

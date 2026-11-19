@@ -38,15 +38,15 @@ async def drained(database: AsyncDatabase, client: AsyncMongoClient, *, now: dat
             ban_list_collection=database[Collection.BAN_LIST],
             db=database,
             db_client=client,
-            now=claimable(now),
+            germany_now=claimable(now),
         )
         if answer.lease is None:
             return mails
 
         for mail in answer.mails:
             await post_result(
-                result_data=FLOutboxResultPayload(lease=answer.lease, id=mail.id, result="sent", message_id=None, delivery_reason=None),
+                result_data=FLOutboxResultPayload(lease=answer.lease, id=mail.id, result="sent", delivery_reason=None),
                 outbox_collection=database[Collection.OUTBOX],
-                now=now,
+                germany_now=now,
             )
         mails += answer.mails

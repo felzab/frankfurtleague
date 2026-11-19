@@ -25,7 +25,7 @@ from app.core.security import (
     AUTH_FACTOR_HEADER,
     AUTH_TIME_HEADER,
     PASSKEY_FACTOR,
-    Factor,
+    FLAuthFactor,
     bind_actor,
     get_actor_email,
     get_person_identifier,
@@ -36,16 +36,16 @@ from tests.config import ADMIN_KEY, BASE_AUTH
 from tests.session_headers import SESSION_AGE_S, actor_headers, verified_actor
 
 TEAM_ID = "6890a1b2c3d4e5f607182930"
-WRITE_PATH = f"/api/v0/teams/{TEAM_ID}"
+WRITE_PATH = f"/api/teams/{TEAM_ID}"
 
 # An admin-tier read on a router that writes nothing: the session reaches a read as it reaches a write.
-READ_PATH = "/api/v0/spielorte"
+READ_PATH = "/api/spielorte"
 
 ACTOR = "admin@example.com"
 
 
 def client() -> TestClient:
-    """No lifespan, so nothing opens the database: a request clearing every session check fails on `no_database_client`, which is observable."""
+    """No lifespan, so nothing opens the database: a request clearing every session check fails on the missing client with a 500."""
 
     return TestClient(app_under_test(), raise_server_exceptions=False)
 
@@ -54,7 +54,7 @@ def answer(response: Any) -> tuple[int, str]:
     return response.status_code, response.json()["error_code"]
 
 
-def signed_in_before(age_s: int, *, email: str = ACTOR, factor: Factor = PASSKEY_FACTOR) -> dict[str, str]:
+def signed_in_before(age_s: int, *, email: str = ACTOR, factor: FLAuthFactor = PASSKEY_FACTOR) -> dict[str, str]:
     return {**ADMIN_KEY, **actor_headers(email, signed_in_before_s=age_s, factor=factor)}
 
 
@@ -84,7 +84,7 @@ def test_a_request_without_the_admin_key_sets_no_actor():
     ],
 )
 def test_a_request_naming_no_session_is_refused_before_the_grant_read(headers: Mapping[str, str | bytes]):
-    """The real read and no database: a 503 here would mean the grants were asked before the session was read."""
+    """The real read and no database: a 500 here would mean the grants were asked before the session was read."""
 
     sent = {**ADMIN_KEY} if not headers else {**ADMIN_KEY, **actor_headers(ACTOR), **headers}
     response = client().get(READ_PATH, headers=sent)
@@ -161,10 +161,10 @@ KNOWN_IDENTIFIER = "anna@beispielschule.example.org"
 MIXED_CASE = "Anna@BeispielSchule.EXAMPLE.ORG"
 
 # A person's read with no path parameter, so a refusal can only come from the session it is sent.
-PERSON_READ_PATH = "/api/v0/spieler/self/saisons"
+PERSON_READ_PATH = "/api/spieler/self/saisons"
 
 
-def as_person(email: str = KNOWN_IDENTIFIER, *, age_s: int = SESSION_AGE_S, factor: Factor = "code") -> dict[str, str]:
+def as_person(email: str = KNOWN_IDENTIFIER, *, age_s: int = SESSION_AGE_S, factor: FLAuthFactor = "code") -> dict[str, str]:
     return {**ADMIN_KEY, **actor_headers(email, signed_in_before_s=age_s, factor=factor)}
 
 

@@ -1,6 +1,6 @@
 from typing import Annotated, Literal, Self
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, Field, model_validator
 
 from app.api.spielberichte.schemas import FLSpielberichtTeam
 from app.api.spieler.schemas import FLSpielerRolle
@@ -9,7 +9,7 @@ from app.core.exceptions import rule_refusal
 from app.shared.schemas.bounds import AUFSTELLUNG_STARTERS_MAX
 from app.shared.schemas.custom import CustomDateString, CustomObjectId, CustomTimeString, CustomVersion, FLUtcInstant
 from app.shared.schemas.literals import FLSaisonPhase, FLSaisonStatus, FLSonderereignis, FLSpielerPosition
-from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
+from app.shared.schemas.responses import BasePayload, BaseReadModel
 
 # The most pupils one line-up names, far above any squad: the squad itself is the rule a save is judged by, and this
 # only bounds what a request may carry.
@@ -21,13 +21,11 @@ AUFSTELLUNG_ENTRIES_MAX = 60
 type FLAufstellungPhase = Literal["open", "overdue", "locked"]
 
 
-class FLAufstellungEntry(BaseModel):
+class FLAufstellungEntry(BasePayload):
     """One pupil a club fields in one match: on the pitch from the start, or on the bench.
 
     A null `spieler_id` names nobody: a pupil erased after the match was played, whose place in it stands.
     """
-
-    model_config = ConfigDict(extra="forbid")
 
     spieler_id: CustomObjectId | None
     starts: bool
@@ -52,10 +50,8 @@ class FLAufstellung(Anchored):
 # --- The write: one payload for a seat's save and an administrator's.
 
 
-class FLAufstellungPayload(BaseModel):
+class FLAufstellungPayload(BasePayload):
     """A club's whole line-up for one fixture, written wholesale."""
-
-    model_config = ConfigDict(extra="forbid")
 
     spieler: Annotated[list[FLAufstellungEntry], Field(max_length=AUFSTELLUNG_ENTRIES_MAX)]
     # The document's `version` the screen was served, null where it showed no line-up: required with no default, since
@@ -125,7 +121,7 @@ class FLAufstellungMarks(BaseReadModel):
     due_at: FLUtcInstant
 
 
-class FLAufstellungResponse(BaseAPIResponse):
+class FLAufstellungResponse(BaseReadModel):
     """One club's line-up screen for one fixture: the squad to pick from, the stored line-up and what its save sends back.
 
     A finished season's line-up, which `saison_status` marks, is read-only.

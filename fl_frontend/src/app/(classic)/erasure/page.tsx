@@ -1,9 +1,6 @@
 import { cache } from "react";
 import { redirect } from "next/navigation";
 
-import { mailedMetadata } from "@/kit/mailedLinkState";
-import { MailedPage, TO_ACCOUNT } from "@/kit/MailedPage";
-
 import { erasureLinkStands } from "@/core/auth/accounts";
 import { getAccountSession } from "@/core/auth/guards";
 import { passkeysOf } from "@/core/auth/passkeys";
@@ -17,6 +14,8 @@ import { SERVER_COPY } from "@/core/serverCopy";
 import { getSubjectSession } from "@/core/subject";
 import { eraseAccount } from "@/features/account/personActions";
 import { getErasureView } from "@/features/account/queries";
+import { mailedMetadata } from "@/kit/mailedLinkState";
+import { MailedPage, TO_ACCOUNT } from "@/kit/MailedPage";
 
 import type { Copy, Words } from "@/core/copy";
 import type { FLAccountErasureViewResponse } from "@/core/generated/client/types";
@@ -42,8 +41,7 @@ export default function AccountErasurePage() {
   return <MailedPage page={readState()} />;
 }
 
-// `cache` memoizes per render pass, for the tab's title and the page. Never `"use cache"`, which keys on the
-// arguments rather than the caller.
+// `cache` memoizes per render pass, for the tab's title and the page.
 const readState = cache(async (): Promise<MailedState> => {
   const token = await mailedLinkToken();
   // Judged before the session: a spent, lapsed or unknown link is a dead end a sign-in cannot repair.
@@ -91,13 +89,15 @@ function factsOf(email: string, passkeys: number, view: FLAccountErasureViewResp
   const records = new Map<Copy, Words[]>();
   const add = (label: Copy, record: Words) => records.set(label, [...(records.get(label) ?? []), record]);
 
-  for (const { first_name: firstName, last_name: lastName } of spieler)
+  if (spieler !== null) {
+    const { first_name: firstName, last_name: lastName } = spieler;
     add(ENTRIES.spieler, { record: lastName === null ? firstName : `${firstName} ${lastName}` });
-  for (const { name } of schiedsrichter) add(ENTRIES.schiedsrichter, { record: name });
-  for (const { rolle, team_name, saison_id } of seats) {
-    add(ENTRIES.seats([rolle]), ENTRIES.teamSeason({ record: team_name }, COPY.shared.saisonName(saison_id)));
   }
-  for (const { rolle, saison_id } of bewerbungen) add(ENTRIES.seats([rolle]), ENTRIES.bewerbung(COPY.shared.saisonNameBound(saison_id)));
+  for (const { name } of schiedsrichter) add(ENTRIES.schiedsrichter, { record: name });
+  for (const { seat, team_name, saison_id } of seats) {
+    add(ENTRIES.seats([seat]), ENTRIES.teamSeason({ record: team_name }, COPY.shared.saisonName(saison_id)));
+  }
+  for (const { seat, saison_id } of bewerbungen) add(ENTRIES.seats([seat]), ENTRIES.bewerbung(COPY.shared.saisonNameBound(saison_id)));
   for (const { team_name, saison_id } of registrierungen) {
     add(ENTRIES.spieler, ENTRIES.registrierung(team_name === null ? null : { record: team_name }, COPY.shared.saisonNameBound(saison_id)));
   }

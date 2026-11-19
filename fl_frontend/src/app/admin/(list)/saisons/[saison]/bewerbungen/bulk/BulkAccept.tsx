@@ -3,17 +3,16 @@
 import { useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
-import { ConfirmDialog } from "@/kit/ConfirmDialog";
-import { EmptyBox } from "@/kit/EmptyState";
-import { RailCardBody } from "@/kit/StatusCard";
-import { CheckStep, StepCard } from "@/kit/StepCard";
-import { answering } from "@/kit/useFormAction";
-
 import { COPY } from "@/core/copy";
 import { dayOf, formatDate, formatNumber } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { STANDING_CHIP, standingOf } from "@/features/bewerbungen/standing";
 import { trikotFarbeLabel } from "@/features/teams/constants";
+import { ConfirmDialog } from "@/kit/ConfirmDialog";
+import { EmptyBox } from "@/kit/EmptyState";
+import { RailCardBody } from "@/kit/StatusCard";
+import { CheckStep, StepCard } from "@/kit/StepCard";
+import { answering } from "@/kit/useFormAction";
 
 import { AcceptFields } from "../[bewerbung]/AcceptFields";
 import { acceptBewerbung } from "../[bewerbung]/decideBewerbung";

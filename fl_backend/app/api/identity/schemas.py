@@ -1,22 +1,20 @@
-from typing import Annotated, Any
+from typing import Annotated, Any, Final
 
-from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, Field, StringConstraints
+from pydantic import AfterValidator, BaseModel, BeforeValidator, Field, StringConstraints
 
 from app.shared.folding import refuse_a_domain_beyond_ascii, trimmed
-from app.shared.schemas.bounds import ERASURE_REASON_MAX_LENGTH, KONTAKT_EMAIL_MAX_LENGTH, REFERENCES_ADDRESSES_MAX
+from app.shared.schemas.bounds import KONTAKT_EMAIL_MAX_LENGTH
 from app.shared.schemas.custom import SINGLE_LINE_PATTERN, CustomDateString, CustomObjectId, FLUtcInstant
 from app.shared.schemas.kontakt import CustomEmail
 
 # The wire's spelling of the three seats, imported rather than restated: a second closed set here
 # would name a seat no other endpoint publishes.
-from app.shared.schemas.literals import FLAdminTier, FLKontaktRolle, FLSaisonStatus
-from app.shared.schemas.responses import BaseAPIResponse
+from app.shared.schemas.literals import FLAdminTier, FLKontaktSeat, FLSaisonStatus
+from app.shared.schemas.responses import BasePayload, BaseReadModel
 
 
-class FLSubjectPayload(BaseModel):
+class FLSubjectPayload(BasePayload):
     """Which mailbox is asking, folded to the one spelling the join, the header and the log agree on."""
-
-    model_config = ConfigDict(extra="forbid")
 
     # In the body and on no path or query: an address in a URL reaches the edge's access line, which
     # the rule keeps a credential out of and an identifier is no better in.
@@ -31,8 +29,7 @@ class FLSubjectSeat(BaseModel):
 
     saison_id: str
     team_id: CustomObjectId
-    # The contact-seat sense of the word, never the captaincy's `FLSpielerRolle`.
-    rolle: FLKontaktRolle
+    seat: FLKontaktSeat
     # The junction row's own name and code, the ones the club was played under:
     # a club renamed since is still named here as its seats were held.
     team_name: str
@@ -63,20 +60,20 @@ class FLSubjectSchiedsrichter(BaseModel):
 
 
 class FLSubject(BaseModel):
-    """Which confirmed, live records one mailbox matches, as three lists rather than three optional records.
+    """Which confirmed, live records one mailbox matches: its seats and referee records as lists, and its pupil record or null.
 
-    One person holds seats at two clubs, and nothing enforces one pupil record per address.
+    One person holds seats at two clubs, and the unique index `uniq_spieler_email` holds one pupil record per address.
     """
 
     seats: list[FLSubjectSeat]
-    spieler: list[FLSubjectSpieler]
+    spieler: FLSubjectSpieler | None
     schiedsrichter: list[FLSubjectSchiedsrichter]
-    # Its own field and never read off empty lists: set, the mailbox holds records that could grant a
-    # panel and none is confirmed, which empty lists alone would report as nothing held.
+    # Its own field and never read off the records: set, the mailbox holds records that could grant a
+    # panel and none is confirmed, which the records' fields alone would report as nothing held.
     unconfirmed: bool
 
 
-class FLSubjectResponse(FLSubject, BaseAPIResponse):
+class FLSubjectResponse(FLSubject, BaseReadModel):
     """Which confirmed, live records one mailbox matches, and the grant it holds."""
 
     # The grant this mailbox holds, or null: stored, where the lists beside it are derived, so it is
@@ -96,7 +93,7 @@ class FLSignIn(BaseModel):
     account: bool
 
 
-class FLSignInResponse(FLSignIn, BaseAPIResponse):
+class FLSignInResponse(FLSignIn, BaseReadModel):
     """The sign-in gate's whole answer: the records' two flags, the ban and the grant, and no record itself.
 
     The ban narrows neither flag: whether a barred person signs in is the gate's to decide.
@@ -129,7 +126,7 @@ class FLAccountErasureSeat(BaseModel):
     saison_id: str
     # The row's own name, the one the club played that season under.
     team_name: str
-    rolle: FLKontaktRolle
+    seat: FLKontaktSeat
     first_name: str
     last_name: str
 
@@ -138,7 +135,7 @@ class FLAccountErasureBewerbung(BaseModel):
     """One seat on an application, of any status."""
 
     saison_id: str
-    rolle: FLKontaktRolle
+    seat: FLKontaktSeat
     first_name: str
     last_name: str
 
@@ -156,7 +153,8 @@ class FLAccountErasureRegistrierung(BaseModel):
 class FLAccountErasureView(BaseModel):
     """What an erasure of one address would remove, by kind and by name, and never an address or a birthdate."""
 
-    spieler: list[FLAccountErasureSpieler]
+    # Null where the address holds no pupil record, and never more than one: `uniq_spieler_email` holds one per address.
+    spieler: FLAccountErasureSpieler | None
     schiedsrichter: list[FLAccountErasureSchiedsrichter]
     seats: list[FLAccountErasureSeat]
     bewerbungen: list[FLAccountErasureBewerbung]
@@ -165,22 +163,25 @@ class FLAccountErasureView(BaseModel):
     address_change: int = Field(ge=0)
 
 
-class FLAccountErasureViewResponse(FLAccountErasureView, BaseAPIResponse):
+class FLAccountErasureViewResponse(FLAccountErasureView, BaseReadModel):
     # The tier of the live grant the address holds, read in the preview's snapshot as the press reads it.
     admin_tier: FLAdminTier | None
 
 
-class FLReferencesPayload(BaseModel):
-    """The sign-in addresses a pass of the account sweep asks about."""
+# The most addresses one references call judges, each costing about a millisecond, so one call stays far inside the
+# request deadline on a slow server.
+REFERENCES_ADDRESSES_MAX: Final = 250
 
-    model_config = ConfigDict(extra="forbid")
+
+class FLReferencesPayload(BasePayload):
+    """The sign-in addresses a pass of the account sweep asks about."""
 
     # Each held to no address rule, nor to a length: one address refused refuses the whole batch, and every
     # pass asks again, so the sweep would delete nothing ever after.
     identifiers: list[str] = Field(min_length=1, max_length=REFERENCES_ADDRESSES_MAX)
 
 
-class FLReferencesResponse(BaseAPIResponse):
+class FLReferencesResponse(BaseReadModel):
     """Which of them nothing references, and nothing of the records that reference the others."""
 
     unreferenced: list[str]
@@ -209,13 +210,16 @@ ErasureAddress = Annotated[
 ]
 
 
-class FLErasureAddressPayload(BaseModel):
+class FLErasureAddressPayload(BasePayload):
     """The mailbox an erasure or its counts are looked up by."""
-
-    model_config = ConfigDict(extra="forbid")
 
     # In the body, since an address in a URL reaches the edge's access line.
     email: ErasureAddress
+
+
+# The request an administrator's erasure answers, its log row's label: a mail's date and subject fit,
+# and the log keeps it twelve months, so a letter does not.
+ERASURE_REASON_MAX_LENGTH: Final = 200
 
 
 class FLErasurePayload(FLErasureAddressPayload):
@@ -230,7 +234,7 @@ class FLErasurePayload(FLErasureAddressPayload):
     ]
 
 
-class FLErasureViewResponse(BaseAPIResponse):
+class FLErasureViewResponse(BaseReadModel):
     """What the administrator's erasure of one address reaches, counted and never named, so the confirmation shows no person."""
 
     spieler: int = Field(ge=0)
@@ -246,14 +250,8 @@ class FLErasureViewResponse(BaseAPIResponse):
     grants: int = Field(ge=0)
 
 
-class FLErasureSweepParams(BaseModel):
-    """Where in one pass the call starts: after the pupil the call before it reached, or at the lowest id where none is named."""
-
-    after: CustomObjectId | None = None
-
-
-class FLErasureSweepResponse(BaseAPIResponse):
-    """One call's share of the season-after rule: what it erased, whom it passed over, and how many are still due."""
+class FLErasureSweepResponse(BaseReadModel):
+    """One pass of the season-after rule: what it erased and whom it passed over; a pass the deadline cut leaves the rest due."""
 
     # The latest `past` season, which the rule keeps a squad row in; null where none is `past`, nobody then being due.
     completed_saison_id: str | None
@@ -262,8 +260,5 @@ class FLErasureSweepResponse(BaseAPIResponse):
     registrierungen: int
     # Due when the call read them and not in their own transaction: a squad row or a registration arrived between.
     skipped: int
+    # A person whose erasure failed stays due for the next pass.
     failed: int
-    # The failed among them: a person whose erasure failed stays due, so a caller looping on this alone never ends.
-    remaining: int
-    # The last pupil this call reached, for the next call's `after`; null once it reached the end, which ends the pass.
-    after: CustomObjectId | None

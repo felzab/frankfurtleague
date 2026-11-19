@@ -1,9 +1,9 @@
 """
-API · a referee's own consent record, read and changed by its own person on the account page
+API · the account page's read, and the press its person makes on each record it serves
 
-The pupil's twin is `tests/api/test_spieler_self.py`, which also pins that the two PATCHes take one
-payload shape; this file holds what differs on a referee row: a record the confirmation has not
-yet written.
+Four kinds of record beside the pupil's, whose press its own suite holds: a referee row, the seats one person holds
+on a season row, their seats on a pending application, and a pending registration. Each press is judged against the
+page that sent it, so a grant is taken only where the read offered one and a press from an older page is refused.
 """
 
 from collections.abc import Awaitable, Callable, Mapping
@@ -19,7 +19,6 @@ from pymongo.asynchronous.database import AsyncDatabase
 from app.api.registrierungen.services import compose_decline_update
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.config import API_VERSION
 from app.shared.einwilligung_evidence import EVIDENCE, TextVersions, evidence_state_of
 from tests.app_client import app_client, app_under_test
 from tests.config import ADMIN_KEY, grants_for_the_suite
@@ -58,7 +57,7 @@ RETIRED = "rudolf.ruhestand@schule.example.org"
 UNCONFIRMED = "ottilie.wartezeit@schule.example.org"
 BYSTANDER = "baldur.krautzberger@example.com"
 
-ACCOUNT_PATH = f"/api/v{API_VERSION}/account/einwilligungen"
+ACCOUNT_PATH = "/api/account/einwilligungen"
 
 PAST_SAISON = "2025"
 ACTIVE_SAISON = "2026"
@@ -135,7 +134,7 @@ def _payload(*, scope: str = "kader_public", media: bool = False, state: Mapping
     }
 
 
-# The retired referee's record is seeded granting media, so its page serves a stand of its own.
+# The retired referee's record is seeded granting media, so its page serves a state of its own.
 RETIRED_STATE = evidence_state_of(blocks=[_einwilligung(media=True)])
 
 
@@ -148,7 +147,7 @@ def _person(email: str) -> StampedHeaders:
 
 
 def _referee_path(schiedsrichter_id: ObjectId | str) -> str:
-    return f"/api/v{API_VERSION}/schiedsrichter/account/{schiedsrichter_id}/einwilligung"
+    return f"/api/schiedsrichter/{schiedsrichter_id}/einwilligung"
 
 
 async def _editor_save(http: AsyncClient, database: AsyncDatabase, *, version: int, default_payment: int) -> Response:
@@ -157,7 +156,7 @@ async def _editor_save(http: AsyncClient, database: AsyncDatabase, *, version: i
     await database[Collection.GRANTS].insert_many(grants_for_the_suite())
 
     return await http.patch(
-        f"/api/v{API_VERSION}/schiedsrichter/{REFEREE_OID}",
+        f"/api/schiedsrichter/{REFEREE_OID}",
         json={
             "name": "Ortrud Zwiebelmayer",
             "schule": None,
@@ -170,7 +169,7 @@ async def _editor_save(http: AsyncClient, database: AsyncDatabase, *, version: i
 
 
 async def _served_state(http: AsyncClient, email: str, arm: str, **key: str) -> Any:
-    """The stand the account read serves one record, by the ids naming it: what a page loaded after the last press posts.
+    """The state the account read serves one record, by the ids naming it: what a page loaded after the last press posts.
 
     A press answers nothing, so a second press reads its precondition where the page does.
     """
@@ -209,7 +208,7 @@ async def _seed(database: AsyncDatabase) -> None:
     await database[Collection.SAISONS].insert_many([saison_document(PAST_SAISON, "past"), saison_document(ACTIVE_SAISON, "active")])
     await database[Collection.SAISON_TEAMS].insert_many(
         [
-            # One person in two slots of one past row: one entry, both seats named.
+            # One person in two seats of one past row: one entry, both seats named.
             saison_team_document(
                 PAST_SAISON,
                 TEAM_A_OID,
@@ -447,7 +446,7 @@ class TestGivableIsTheGrantThePressTakes:
             for seat in body["seats"]:
                 granted = await _withdrawn_then_granted(
                     http,
-                    f"/api/v{API_VERSION}/teams/{seat['team_id']}/saisons/{seat['saison_id']}/account/einwilligung",
+                    f"/api/teams/{seat['team_id']}/saisons/{seat['saison_id']}/einwilligung",
                     lambda media, state, seat=seat: {
                         "scope": seat["scope"],
                         "media": media,
@@ -501,11 +500,36 @@ class TestTheAccountPagesRead:
             (record["schiedsrichter_id"], record["name"], record["schule"], record["birth_date"], record["media_offered"])
             for record in body["schiedsrichter"]
         ] == [(str(REFEREE_OID), "Ortrud Zwiebelmayer", REFEREE_SCHULE, ADULT_BIRTHDATE, True)]
-        assert [(seat["team_name"], seat["saison_id"], sorted(seat["rollen"]), seat["media"], seat["givable"]) for seat in body["seats"]] == [
+        assert [(seat["team_name"], seat["saison_id"], sorted(seat["seats"]), seat["media"], seat["givable"]) for seat in body["seats"]] == [
             (ROW_NAME_B, ACTIVE_SAISON, ["stellvertretung"], True, True),
             (ROW_NAME_A_PAST, PAST_SAISON, ["ansprechperson", "trainer"], True, False),
         ]
         assert all(seat["media_offered"] for seat in body["seats"])
+
+    async def test_each_held_seat_serves_its_person_as_that_seat_stores_them(self, mongo_replica_set_url: str):
+        """One person on two seats may be typed two ways, so each seat's name, telephone and birthdate is served, on rows and applications."""
+
+        async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
+            await database[Collection.SAISON_TEAMS].update_one(
+                {"team_id": TEAM_A_OID, "saison_id": PAST_SAISON},
+                {"$set": {"kontakte.ansprechperson.last_name": "Zwiebelmeyer", "kontakte.ansprechperson.phone": "+49 69 90009102"}},
+            )
+            await _applications(database)
+            return await http.get(ACCOUNT_PATH, headers=_person(IDENTIFIER))
+
+        response = await served(mongo_replica_set_url, steps)
+
+        assert response.status_code == 200, response.text
+        body = response.json()
+        ortrud = {"first_name": "Ortrud", "last_name": "Ortrud-Mustermann", "phone": "+49 69 90009101", "birth_date": ADULT_BIRTHDATE}
+        [past] = [seat for seat in body["seats"] if seat["saison_id"] == PAST_SAISON]
+        assert past["persons"] == [
+            {"seat": "trainer", **ortrud},
+            {"seat": "ansprechperson", **ortrud, "last_name": "Zwiebelmeyer", "phone": "+49 69 90009102"},
+        ]
+        assert [application["persons"] for application in body["bewerbungen"]] == [
+            [{"seat": "trainer", **ortrud}, {"seat": "ansprechperson", **ortrud}]
+        ]
 
 
 # A seated grant's withdrawal, naming the grant the seat's own confirmation gave.
@@ -515,17 +539,17 @@ SEAT_WITHDRAWAL = {
 
 
 def _seated_state(held: int, **set_fields: Any) -> dict[str, str | None]:
-    """The stand a page serves for `held` of the asker's seats on one row as `_seat` seeds them, `set_fields` laid over each."""
+    """The state a page serves for `held` of the asker's seats on one row as `_seat` seeds them, `set_fields` laid over each."""
 
     return evidence_state_of(blocks=[{**_seat(REFEREE_STORED, media=True)["einwilligung"], **set_fields}] * held)
 
 
-# Per row the asker holds a confirmed seat on, how many: the stand a press echoes digests each of them.
+# Per row the asker holds a confirmed seat on, how many: the state a press echoes digests each of them.
 HELD_SEATS = {(TEAM_A_OID, PAST_SAISON): 2, (TEAM_B_OID, ACTIVE_SAISON): 1, (TEAM_A_OID, ACTIVE_SAISON): 1}
 
 
 def _seat_path(team_id: ObjectId, saison_id: str) -> str:
-    return f"/api/v{API_VERSION}/teams/{team_id}/saisons/{saison_id}/account/einwilligung"
+    return f"/api/teams/{team_id}/saisons/{saison_id}/einwilligung"
 
 
 async def _rows(database: AsyncDatabase) -> dict[Any, Any]:
@@ -598,9 +622,12 @@ class TestTheSeatsMediaChoice:
 
         assert withdrawn.status_code == 204, withdrawn.text
         assert (granted.status_code, granted.json()["error_code"]) == (403, Code.GIVING_NOT_ALLOWED)
-        for slot in ("trainer", "ansprechperson"):
-            seat = after[(TEAM_A_OID, PAST_SAISON)][slot]["einwilligung"]
-            assert (seat["media"], seat[EVIDENCE]) == (False, {"scope": SEAT_RECEIPT["scope"], "media": SEAT_WITHDRAWAL["media"]})
+        for seat in ("trainer", "ansprechperson"):
+            einwilligung = after[(TEAM_A_OID, PAST_SAISON)][seat]["einwilligung"]
+            assert (einwilligung["media"], einwilligung[EVIDENCE]) == (
+                False,
+                {"scope": SEAT_RECEIPT["scope"], "media": SEAT_WITHDRAWAL["media"]},
+            )
 
     @pytest.mark.parametrize(("email", "team_id"), [(IDENTIFIER, TEAM_A_OID), (NOBODY, TEAM_B_OID)], ids=["unconfirmed-seat", "no-seat"])
     async def test_a_row_holding_no_confirmed_seat_of_the_address_is_refused_and_unwritten(
@@ -657,15 +684,15 @@ class TestTheSeatsMediaChoice:
 
 
 async def _whatsapp_on_every_held_seat(database: AsyncDatabase) -> None:
-    """The asker's seats as their confirmations left them with WhatsApp granted: both past slots and the active one."""
+    """The asker's seats as their confirmations left them with WhatsApp granted: both past seats and the active one."""
 
-    for (team_id, saison_id), slots in {
+    for (team_id, saison_id), seats in {
         (TEAM_A_OID, PAST_SAISON): ("trainer", "ansprechperson"),
         (TEAM_B_OID, ACTIVE_SAISON): ("stellvertretung",),
     }.items():
         await database[Collection.SAISON_TEAMS].update_one(
             {"team_id": team_id, "saison_id": saison_id},
-            {"$set": {f"kontakte.{slot}.einwilligung.scope": "kontakt_data_whatsapp" for slot in slots}},
+            {"$set": {f"kontakte.{seat}.einwilligung.scope": "kontakt_data_whatsapp" for seat in seats}},
         )
 
 
@@ -673,7 +700,7 @@ async def _whatsapp_on_every_held_seat(database: AsyncDatabase) -> None:
 class TestTheSeatsWhatsAppChoice:
     """The seat control moves the WhatsApp scope beside the media consent, each with its own evidence."""
 
-    async def test_a_past_seasons_withdrawal_lands_on_every_held_slot_naming_the_grant_it_ended(self, mongo_replica_set_url: str):
+    async def test_a_past_seasons_withdrawal_lands_on_every_held_seat_naming_the_grant_it_ended(self, mongo_replica_set_url: str):
         async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
             await _whatsapp_on_every_held_seat(database)
             body = _seat_body(media=True, state=_seated_state(2, scope="kontakt_data_whatsapp"))
@@ -683,9 +710,9 @@ class TestTheSeatsWhatsAppChoice:
         response, after = await served(mongo_replica_set_url, steps)
 
         assert response.status_code == 204, response.text
-        for slot in ("trainer", "ansprechperson"):
-            seat = after[(TEAM_A_OID, PAST_SAISON)][slot]["einwilligung"]
-            assert (seat["scope"], seat["media"], seat[EVIDENCE]) == (
+        for seat in ("trainer", "ansprechperson"):
+            einwilligung = after[(TEAM_A_OID, PAST_SAISON)][seat]["einwilligung"]
+            assert (einwilligung["scope"], einwilligung["media"], einwilligung[EVIDENCE]) == (
                 "kontakt_data",
                 True,
                 {"scope": SEAT_WITHDRAWAL["scope"], "media": SEAT_RECEIPT["media"]},
@@ -743,9 +770,9 @@ class TestTheSeatsWhatsAppChoice:
         assert seat[EVIDENCE]["scope"] == SEAT_WITHDRAWAL["scope"]
 
 
-# The unanswered application reads first in the season, which `app/api/account/services.py :: BEWERBUNG_ORDER` sorts
-# by id: a read stopping at an application holding none of the person's confirmed seats, rather than passing it,
-# then drops the pending one.
+# The unanswered application reads first in the season, the account read sorting a season's applications by id: a
+# read stopping at an application holding none of the person's confirmed seats, rather than passing it, then drops the
+# pending one.
 UNANSWERED_OID = ObjectId("6890a1b2c3d4e5f607850050")
 PENDING_OID = ObjectId("6890a1b2c3d4e5f607850051")
 DECIDED_OID = ObjectId("6890a1b2c3d4e5f607850052")
@@ -788,7 +815,7 @@ async def _applications(database: AsyncDatabase) -> None:
 
 
 def _application_path(bewerbung_id: ObjectId) -> str:
-    return f"/api/v{API_VERSION}/bewerbungen/{bewerbung_id}/account/einwilligung"
+    return f"/api/bewerbungen/{bewerbung_id}/einwilligung"
 
 
 def _withdrawal(*, state: Any = None, media: bool = False) -> dict[str, Any]:
@@ -818,7 +845,17 @@ class TestAPendingApplicationsSeats:
                 "bewerbung_id": str(PENDING_OID),
                 "schule": PENDING_SCHULE,
                 "saison_id": ACTIVE_SAISON,
-                "rollen": ["trainer", "ansprechperson"],
+                "seats": ["trainer", "ansprechperson"],
+                "persons": [
+                    {
+                        "seat": seat,
+                        "first_name": "Ortrud",
+                        "last_name": "Ortrud-Mustermann",
+                        "phone": "+49 69 90009101",
+                        "birth_date": ADULT_BIRTHDATE,
+                    }
+                    for seat in ("trainer", "ansprechperson")
+                ],
                 "scope": "kontakt_data",
                 "media": True,
                 "evidence_state": _seated_state(2),
@@ -835,8 +872,8 @@ class TestAPendingApplicationsSeats:
         response, before, after = await served(mongo_replica_set_url, steps)
 
         assert response.status_code == 204, response.text
-        for slot in ("trainer", "ansprechperson"):
-            einwilligung = after[PENDING_OID][slot]["einwilligung"]
+        for seat in ("trainer", "ansprechperson"):
+            einwilligung = after[PENDING_OID][seat]["einwilligung"]
             assert (einwilligung["media"], einwilligung[EVIDENCE]) == (
                 False,
                 {"scope": SEAT_RECEIPT["scope"], "media": SEAT_WITHDRAWAL["media"]},
@@ -850,7 +887,7 @@ class TestAPendingApplicationsSeats:
         async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
             await _applications(database)
             await database[Collection.BEWERBUNGEN].update_one(
-                {"_id": PENDING_OID}, {"$set": {f"kontakte.{slot}.einwilligung.media": False for slot in ("trainer", "ansprechperson")}}
+                {"_id": PENDING_OID}, {"$set": {f"kontakte.{seat}.einwilligung.media": False for seat in ("trainer", "ansprechperson")}}
             )
             before = await _application_docs(database), await database[Collection.ACTION_LOG].count_documents({})
             response = await http.patch(
@@ -887,7 +924,7 @@ class TestAPendingApplicationsSeats:
         async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
             await _applications(database)
             await database[Collection.BEWERBUNGEN].update_one(
-                {"_id": PENDING_OID}, {"$set": {f"kontakte.{slot}.einwilligung.media": False for slot in ("trainer", "ansprechperson")}}
+                {"_id": PENDING_OID}, {"$set": {f"kontakte.{seat}.einwilligung.media": False for seat in ("trainer", "ansprechperson")}}
             )
             before = await _application_docs(database)
             body = {**_withdrawal(state=_seated_state(2, media=False)), "scope": scope, "media": media}
@@ -904,7 +941,7 @@ class TestAPendingApplicationsSeats:
             await _applications(database)
             await database[Collection.BEWERBUNGEN].update_one(
                 {"_id": PENDING_OID},
-                {"$set": {f"kontakte.{slot}.einwilligung.scope": "kontakt_data_whatsapp" for slot in ("trainer", "ansprechperson")}},
+                {"$set": {f"kontakte.{seat}.einwilligung.scope": "kontakt_data_whatsapp" for seat in ("trainer", "ansprechperson")}},
             )
             response = await http.patch(
                 _application_path(PENDING_OID),
@@ -916,8 +953,8 @@ class TestAPendingApplicationsSeats:
         response, after = await served(mongo_replica_set_url, steps)
 
         assert response.status_code == 204, response.text
-        for slot in ("trainer", "ansprechperson"):
-            einwilligung = after[PENDING_OID][slot]["einwilligung"]
+        for seat in ("trainer", "ansprechperson"):
+            einwilligung = after[PENDING_OID][seat]["einwilligung"]
             assert (einwilligung["scope"], einwilligung["media"], einwilligung[EVIDENCE]) == (
                 "kontakt_data",
                 True,
@@ -990,7 +1027,7 @@ async def _registrierungen(database: AsyncDatabase, **choices: Any) -> None:
 
 
 def _registrierung_path(registrierung_id: ObjectId) -> str:
-    return f"/api/v{API_VERSION}/registrierungen/account/{registrierung_id}/einwilligung"
+    return f"/api/registrierungen/{registrierung_id}/einwilligung"
 
 
 async def _registrierung_docs(database: AsyncDatabase) -> dict[Any, Any]:
@@ -1068,7 +1105,7 @@ class TestAPendingRegistration:
         async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
             await _registrierungen(database)
             before = await _registrierung_docs(database)
-            # The own registration's stand and choices, so only the record the path names can refuse.
+            # The own registration's state and choices, so only the record the path names can refuse.
             body = _registrierung_body(before[REGISTRIERUNG_OWN], scope="internal")
             response = await http.patch(_registrierung_path(registrierung_id), json=body, headers=_person(IDENTIFIER))
             return response, before, await _registrierung_docs(database)
@@ -1147,13 +1184,13 @@ class TestSeatsAnsweredApart:
         assert body["scope"] == "kontakt_data_whatsapp", "the page did not show the row's WhatsApp as on, so this case proves nothing"
         assert response.status_code == 204, response.text
         row = after[(TEAM_A_OID, PAST_SAISON)]
-        assert [(row[slot]["einwilligung"]["scope"], row[slot]["einwilligung"]["media"]) for slot in ("trainer", "ansprechperson")] == [
+        assert [(row[seat]["einwilligung"]["scope"], row[seat]["einwilligung"]["media"]) for seat in ("trainer", "ansprechperson")] == [
             ("kontakt_data_whatsapp", False),
             ("kontakt_data", False),
         ]
         assert all(
-            row[slot]["einwilligung"][EVIDENCE] == {"scope": SEAT_RECEIPT["scope"], "media": SEAT_WITHDRAWAL["media"]}
-            for slot in ("trainer", "ansprechperson")
+            row[seat]["einwilligung"][EVIDENCE] == {"scope": SEAT_RECEIPT["scope"], "media": SEAT_WITHDRAWAL["media"]}
+            for seat in ("trainer", "ansprechperson")
         )
 
     async def test_a_running_seasons_media_withdrawal_grants_no_whatsapp(self, mongo_replica_set_url: str):
@@ -1168,7 +1205,7 @@ class TestSeatsAnsweredApart:
         assert body["scope"] == "kontakt_data_whatsapp", "the page did not show the row's WhatsApp as on, so this case proves nothing"
         assert response.status_code == 204, response.text
         row = after[(TEAM_B_OID, ACTIVE_SAISON)]
-        assert [(row[slot]["einwilligung"]["scope"], row[slot]["einwilligung"]["media"]) for slot in ("stellvertretung", "ansprechperson")] == [
+        assert [(row[seat]["einwilligung"]["scope"], row[seat]["einwilligung"]["media"]) for seat in ("stellvertretung", "ansprechperson")] == [
             ("kontakt_data_whatsapp", False),
             ("kontakt_data", False),
         ]
@@ -1184,7 +1221,7 @@ class TestSeatsAnsweredApart:
 
         assert response.status_code == 204, response.text
         row = after[(TEAM_A_OID, PAST_SAISON)]
-        assert [(row[slot]["einwilligung"]["scope"], row[slot]["einwilligung"]["media"]) for slot in ("trainer", "ansprechperson")] == [
+        assert [(row[seat]["einwilligung"]["scope"], row[seat]["einwilligung"]["media"]) for seat in ("trainer", "ansprechperson")] == [
             ("kontakt_data", True),
             ("kontakt_data", True),
         ]
@@ -1218,7 +1255,7 @@ async def test_a_pending_applications_media_withdrawal_leaves_each_seats_whatsap
     assert entry["scope"] == "kontakt_data_whatsapp", "the page did not show the application's WhatsApp as on, so this case proves nothing"
     assert response.status_code == 204, response.text
     seats = after[PENDING_OID]
-    assert [(seats[slot]["einwilligung"]["scope"], seats[slot]["einwilligung"]["media"]) for slot in ("trainer", "ansprechperson")] == [
+    assert [(seats[seat]["einwilligung"]["scope"], seats[seat]["einwilligung"]["media"]) for seat in ("trainer", "ansprechperson")] == [
         ("kontakt_data_whatsapp", False),
         ("kontakt_data", False),
     ]

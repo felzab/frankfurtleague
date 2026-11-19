@@ -1,11 +1,11 @@
 // @vitest-environment jsdom
-import { ListQueryScope } from "@/kit/ListTable";
-import { renderUnderNext } from "@/test-support/nextContexts";
 import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
+import { ListQueryScope } from "@/kit/ListTable";
+import { renderUnderNext } from "@/test-support/nextContexts";
 
 import { deregisterKaderRow, saveKaderRow } from "./kaderRowActs";
 import { KaderTable } from "./KaderTable";
@@ -42,7 +42,7 @@ function drawn() {
     <ListQueryScope>
       <KaderTable
         head={{ nameLabel: COPY.shared.name, columns: [] }}
-        read={{ team_id: TEAM, saison_id: SAISON, allowed_stufen: ["Q1", "Q2"], kader: KADER }}
+        read={{ allowed_stufen: ["Q1", "Q2"], kader: KADER }}
         team={TEAM}
         saison={SAISON}
       />

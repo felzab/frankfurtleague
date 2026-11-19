@@ -1,12 +1,12 @@
 from collections.abc import Mapping
-from typing import Any, ClassVar, Final, Literal, TypeAliasType, get_args, get_origin
+from typing import Annotated, Any, ClassVar, Final, Literal, TypeAliasType, get_args, get_origin
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, Field
 
 from app.core.exceptions import rule_refusal
 from app.shared.einwilligung_evidence import CHOICES, FLEinwilligungChoice, TextVersions, is_given
 from app.shared.schemas.literals import FLEinwilligungScope, FLKontaktKenntnisnahmeScope
-from app.shared.schemas.responses import BaseReadModel
+from app.shared.schemas.responses import BasePayload, BaseReadModel
 
 # The label of each consent's current wording, the one a grant names: a page loaded before a deploy moved a label shows
 # words a grant's record would then cite.
@@ -66,11 +66,23 @@ class FLEinwilligungEvidence(FLEinwilligungReceipt, BaseReadModel):
     given_before: FLEinwilligungReceipt | None = None
 
 
+class FLEinwilligungMailWithdrawal(BaseReadModel):
+    """The evidence of a withdrawal an administrator entered from the person's mail, and the grant it ended.
+
+    No label: the person withdrew in their own words, reading none of the league's.
+    """
+
+    at: str
+    via: Literal["mail"]
+    given_before: FLEinwilligungReceipt | None
+
+
 class FLEinwilligungEvidenceSet(BaseReadModel):
     """Each choice's evidence, null until its person sets it: a record no person has answered carries none."""
 
-    scope: FLEinwilligungEvidence | None = None
-    media: FLEinwilligungEvidence | None = None
+    # Told apart by their required keys, `text_version` and `via`, which neither shape holds of the other.
+    scope: FLEinwilligungEvidence | FLEinwilligungMailWithdrawal | None = None
+    media: FLEinwilligungEvidence | FLEinwilligungMailWithdrawal | None = None
 
 
 class FLEinwilligungState(BaseModel):
@@ -86,16 +98,14 @@ class FLEinwilligungState(BaseModel):
 
 # As a press echoes it. Forbidden rather than ignored: a key the precondition does not compare would
 # read as judged.
-class FLEinwilligungStatePayload(FLEinwilligungState):
-    model_config = ConfigDict(extra="forbid")
+class FLEinwilligungStatePayload(FLEinwilligungState, BasePayload):
+    pass
 
 
 # The labels a press was given under, one per choice, each recorded on that choice's evidence. Both on every press, so
 # neither choice is judged by nothing; one model per kind of record, whose scope wordings differ. Each admits every label
 # its kind's records may cite, and `stale_grants` holds a grant to the current one.
-class _TextVersions(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
+class _TextVersions(BasePayload):
     # The label a grant of each choice names.
     current: ClassVar[Mapping[FLEinwilligungChoice, str]]
 
@@ -164,12 +174,15 @@ def refuse_a_stale_grant(text_versions: PressTextVersions, set_fields: Mapping[F
 
 
 def cite_their_kind(evidence_set: FLEinwilligungEvidenceSet, kind: type[_TextVersions]) -> FLEinwilligungEvidenceSet:
-    """Refuse evidence citing a label its kind's record never shows for that choice, as the read-back judges a record."""
+    """Refuse evidence citing a label its kind's record never shows for that choice, as the read-back judges a record.
+
+    A withdrawal by mail cites none, and the grant it ended is judged as a press's is.
+    """
 
     for choice in CHOICES:
         evidence = getattr(evidence_set, choice)
         receipts = [] if evidence is None else [evidence, evidence.given_before]
-        if any(receipt is not None and receipt.text_version not in kind.cited(choice) for receipt in receipts):
+        if any(isinstance(receipt, FLEinwilligungReceipt) and receipt.text_version not in kind.cited(choice) for receipt in receipts):
             raise rule_refusal("text_version_of_another_wording", "the evidence cites a wording its choice never shows", {"choice": choice})
 
     return evidence_set
@@ -178,11 +191,9 @@ def cite_their_kind(evidence_set: FLEinwilligungEvidenceSet, kind: type[_TextVer
 # The account presses' payloads take any label their kind cites, a grant's included: only a choice the press moves onto
 # a grant must name its current one, and which choices move is the stored record's to say, which the writer reads. A
 # page loaded before a rewording still withdraws one choice while leaving the other granted.
-class _OwnEinwilligungPayload(BaseModel):
+class _OwnEinwilligungPayload(BasePayload):
     # Both choices on every press, and no member defaulted: a default would let a page that forgot one
     # reset the person's other choice.
-    model_config = ConfigDict(extra="forbid")
-
     scope: FLEinwilligungScope
     media: bool
     # The record's `evidence_state` as the page was served it.
@@ -201,16 +212,26 @@ class FLSchiedsrichterAccountEinwilligungPayload(_OwnEinwilligungPayload):
     text_versions: FLSchiedsrichterTextVersions
 
 
-class FLSeatEinwilligungPayload(BaseModel):
+class FLSeatEinwilligungPayload(BasePayload):
     """A seat holder's own two choices for every seat they hold on one row, under any label their kind cites.
 
     Both choices on every press: a page that sent one alone would leave the other judged by nothing.
     """
-
-    model_config = ConfigDict(extra="forbid")
 
     scope: FLKontaktKenntnisnahmeScope
     media: bool
     text_versions: FLSeatTextVersions
     # The row's `evidence_state` as the page was served it.
     evidence_state: FLEinwilligungStatePayload
+
+
+class FLEinwilligungWithdrawalPayload(BasePayload):
+    """The choices a person asked by mail to withdraw, which an administrator enters: it withholds and never grants."""
+
+    choices: Annotated[set[FLEinwilligungChoice], Field(min_length=1)]
+
+
+# What a withdrawal sets each choice to: on a pupil's, a referee's and a registration's own record, and on a seat, whose
+# withheld scope is the acknowledgement alone.
+WITHHELD_BY_A_PERSON: Final[Mapping[FLEinwilligungChoice, FLEinwilligungScope | bool]] = {"scope": "internal", "media": False}
+WITHHELD_ON_A_SEAT: Final[Mapping[FLEinwilligungChoice, FLKontaktKenntnisnahmeScope | bool]] = {"scope": "kontakt_data", "media": False}

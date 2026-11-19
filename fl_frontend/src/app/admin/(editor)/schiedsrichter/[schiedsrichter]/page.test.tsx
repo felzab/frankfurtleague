@@ -1,8 +1,8 @@
-import { serveBackend } from "@/test-support/backend";
-import { signedInRequest } from "@/test-support/session";
 import { describe, expect, it } from "vitest";
 
 import { COPY } from "@/core/copy";
+import { serveBackend } from "@/test-support/backend";
+import { signedInRequest } from "@/test-support/session";
 
 import type { FLOutboxStatus, FLSchiedsrichterSingleResponse } from "@/core/generated/client/types";
 import type { ReactElement } from "react";
@@ -19,15 +19,14 @@ const unanswered = (delivery: FLOutboxStatus | null): FLSchiedsrichterSingleResp
     id: ID,
     name: "Mia Muster",
     schule: null,
-    birth_date: null,
     default_payment: 20,
     kontakt: { email: "mia@example.org", phone: null },
-    confirmation: { sent_at: "2026-11-01", deadline: "2026-11-15", declined_at: null },
+    confirmation: { sent_at: "2026-11-01", deadline: "2026-11-15" },
     einwilligung: null,
     inactive_since: null,
+    state: "valid",
     version: 2,
   },
-  confirmation_expired: false,
   delivery,
 });
 
@@ -38,13 +37,8 @@ const confirmed = (delivery: FLOutboxStatus | null): FLSchiedsrichterSingleRespo
     ...read,
     schiedsrichter: {
       ...read.schiedsrichter,
-      einwilligung: {
-        confirmed_at: "2026-11-03",
-        date: "2026-11-03",
-        evidence: { media: null, scope: null },
-        media: false,
-        scope: "internal",
-      },
+      state: "confirmed",
+      einwilligung: { confirmed_at: "2026-11-03", media: false, scope: "internal" },
     },
   };
 };

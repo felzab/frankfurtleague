@@ -1,13 +1,10 @@
-from datetime import datetime
-from http import HTTPStatus
-from typing import Annotated
-
-from fastapi import APIRouter, Body, Depends, Response
+from fastapi import APIRouter
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.account.services import find_own_entry_refusal
 from app.api.identity.crud import roles_of
 from app.api.identity.lookup import SubjectLookup
+from app.api.saisons.services import find_saison_past_refusal
 from app.api.spielberichte.crud import (
     anchor_the_pupils_named,
     anchor_the_season_reported_in,
@@ -22,21 +19,20 @@ from app.api.spielberichte.schemas import (
 from app.api.spielberichte.services import (
     compose_view,
     find_not_refereed_refusal,
-    find_saison_ended_refusal,
-    is_concluded,
     judge_bericht,
     kader_is_open,
     newly_named,
 )
 from app.api.spiele.services import spiel_label
-from app.core.config import API_VERSION
-from app.core.crud import find_stale_first_save_refusal, refuse
+from app.core.crud import VERSION_FIELD, anchor_in_db, find_stale_first_save_refusal, refuse
 from app.core.dependencies import (
     DBClient,
+    GermanyNow,
     SaisonsCollection,
     SaisonSpielerCollection,
     SaisonSpielerReadCollection,
     SaisonsReadCollection,
+    SchiedsrichterCollection,
     SnapshotSession,
     SpielberichteCollection,
     SpielberichteReadCollection,
@@ -44,31 +40,31 @@ from app.core.dependencies import (
     SpielerCollection,
     SpieleReadCollection,
     SpielerReadCollection,
-    get_germany_now,
 )
 from app.core.recording import ACT_BY_SCHIEDSRICHTER, record_act
 from app.core.routing import by_id
-from app.core.security import PersonIdentifier, get_person_identifier, verify_access_admin
-from app.core.transactions import transaction_session
-from app.shared.schemas.custom import CustomRouteObjectId
+from app.core.security import PERSON_TIER, PersonIdentifier
+from app.core.transactions import transact
+from app.shared.saison import season_has_ended
+from app.shared.schemas.custom import CustomObjectId
+from app.shared.schemas.responses import FLVersionResponse
 
 # The referee's own router: the person's identifier is bound at router level, and each handler judges their referee
 # records in its own session.
 router = APIRouter(
-    prefix=f"/api/v{API_VERSION}/spielberichte",
-    dependencies=[Depends(verify_access_admin), Depends(get_person_identifier)],
+    prefix="/spielberichte",
+    dependencies=PERSON_TIER,
 )
 
-BERICHT_PATH = f"{by_id('spiel_id')}/bericht"
+BERICHT_PATH = f"/spiele{by_id('spiel_id')}"
 
 
 @router.get(
     BERICHT_PATH,
-    response_model=FLSpielberichtSchiedsrichterResponse,
     summary="One fixture's report as its referee reads it",
 )
 async def get_spielbericht_bericht(
-    spiel_id: CustomRouteObjectId,
+    spiel_id: CustomObjectId,
     identifier: PersonIdentifier,
     spiele_collection: SpieleReadCollection,
     saisons_collection: SaisonsReadCollection,
@@ -77,7 +73,7 @@ async def get_spielbericht_bericht(
     spielberichte_collection: SpielberichteReadCollection,
     records: SubjectLookup,
     session: SnapshotSession,
-    now: datetime = Depends(get_germany_now),
+    germany_now: GermanyNow,
 ) -> FLSpielberichtSchiedsrichterResponse:
     """What the booked referee's report form reads: the fixture, both clubs' live squads, and the stored report or null.
 
@@ -99,8 +95,8 @@ async def get_spielbericht_bericht(
     )
 
     # After the season, the referee's page is a view of the report: no squad to pick from, no write.
-    completed = is_concluded(context)
-    kader_open = kader_is_open(context, now=now)
+    completed = season_has_ended(saison_status=context.saison_status)
+    kader_open = kader_is_open(context, now=germany_now)
     document = await spielberichte_collection.find_one({"spiel_id": spiel_id}, session=session)
     named = await pull_named(
         spieler_collection=spieler_collection,
@@ -117,26 +113,22 @@ async def get_spielbericht_bericht(
 
 @router.put(
     BERICHT_PATH,
-    response_model=FLSpielberichtSchiedsrichterResponse,
     summary="Write one fixture's report as its referee",
-    responses={
-        201: {"model": FLSpielberichtSchiedsrichterResponse, "description": "The report did not stand before, and this write created it"},
-    },
 )
 async def put_spielbericht_bericht(
-    spiel_id: CustomRouteObjectId,
-    bericht_data: Annotated[FLSpielberichtPayload, Body()],
-    response: Response,
+    spiel_id: CustomObjectId,
+    bericht_data: FLSpielberichtPayload,
     identifier: PersonIdentifier,
     spiele_collection: SpieleCollection,
     saisons_collection: SaisonsCollection,
     saison_spieler_collection: SaisonSpielerCollection,
     spieler_collection: SpielerCollection,
     spielberichte_collection: SpielberichteCollection,
+    schiedsrichter_collection: SchiedsrichterCollection,
     records: SubjectLookup,
     db: DBClient,
-    now: datetime = Depends(get_germany_now),
-) -> FLSpielberichtSchiedsrichterResponse:
+    germany_now: GermanyNow,
+) -> FLVersionResponse:
     """Write the whole report of one fixture as its booked referee, replacing what stood, and never the fixture's result.
 
     A write changing the report clears its adoption, and `version` is the report document's as the form was served it,
@@ -145,9 +137,7 @@ async def put_spielbericht_bericht(
 
     payload = bericht_data.bericht
 
-    async def write_the_report(session: AsyncClientSession) -> tuple[FLSpielberichtSchiedsrichterResponse, bool]:
-        """Judge, then write. Everything judged is read in-session, so a retry re-judges it."""
-
+    async def write_the_report(session: AsyncClientSession) -> FLVersionResponse:
         subject = await roles_of(identifier, records, session=session)
         refuse(find_own_entry_refusal(held=bool(subject.schiedsrichter)))
         own = [record.schiedsrichter_id for record in subject.schiedsrichter]
@@ -162,9 +152,9 @@ async def put_spielbericht_bericht(
         saved = await spielberichte_collection.find_one({"spiel_id": spiel_id}, session=session)
         new = newly_named(payload, None if saved is None else saved["bericht"], context.spiel)
         refuse(find_not_refereed_refusal(spiel_raw=context.spiel, schiedsrichter_ids=own))
-        refuse(find_saison_ended_refusal(context))
+        refuse(find_saison_past_refusal(saison_status=context.saison_status))
         refuse(find_stale_first_save_refusal(saved, version=bericht_data.version))
-        judge_bericht(context=context, payload=payload, new=new, now=now)
+        judge_bericht(context=context, payload=payload, new=new, now=germany_now)
 
         await anchor_the_pupils_named(spieler_collection=spieler_collection, spieler_ids=set().union(*new.values()), session=session)
         document = await write_bericht(
@@ -172,7 +162,7 @@ async def put_spielbericht_bericht(
             spiel_raw=context.spiel,
             saved=saved,
             payload=payload,
-            now=now,
+            now=germany_now,
             version=bericht_data.version,
             session=session,
         )
@@ -187,43 +177,21 @@ async def put_spielbericht_bericht(
                 session=session,
             )
             # On every write, after the report's own, so a rival first write meets it there rather than on the season. The
-            # judgement of the season's status, asked again outside the transaction, leaves a gap before the commit that
-            # the activation ending the season, which writes its row, then meets here.
+            # activation ending the season, which writes its row, then meets the season's status judged here.
             await anchor_the_season_reported_in(saisons_collection=saisons_collection, saison_id=context.spiel["saison_id"], session=session)
-        named = await pull_named(
-            spieler_collection=spieler_collection, context=context, kader_open=True, bericht=document["bericht"], session=session
-        )
+            # What else the write judged, so a referee record retired or erased, a fixture re-dated, called off or given
+            # another referee, or a pupil newly named taken out of the squad, under it conflicts with it, and the retry
+            # judges what that write left.
+            await anchor_in_db(collection=schiedsrichter_collection, db_filter={"_id": {"$in": own}}, session=session)
+            await anchor_in_db(collection=spiele_collection, db_filter={"_id": spiel_id}, session=session)
+            named = sorted(set().union(*new.values()))
+            if named:
+                await anchor_in_db(
+                    collection=saison_spieler_collection,
+                    db_filter={"saison_id": context.spiel["saison_id"], "spieler_id": {"$in": named}},
+                    session=session,
+                )
 
-        # Nothing judged is written here, so a referee retired or taken off, a fixture re-dated or called off, a pupil
-        # ausgetragen or a seat holder renamed conflicts with nothing: judged again outside the transaction.
-        async with db.start_session(snapshot=True) as outside:
-            subject_now = await roles_of(identifier, records, session=outside)
-        refuse(find_own_entry_refusal(held=bool(subject_now.schiedsrichter)))
-        current = await pull_bericht_context(
-            spiele_collection=spiele_collection,
-            saisons_collection=saisons_collection,
-            saison_spieler_collection=saison_spieler_collection,
-            spiel_id=spiel_id,
-            session=None,
-        )
-        refuse(
-            find_not_refereed_refusal(
-                spiel_raw=current.spiel, schiedsrichter_ids=[record.schiedsrichter_id for record in subject_now.schiedsrichter]
-            )
-        )
-        refuse(find_saison_ended_refusal(current))
-        judge_bericht(context=current, payload=payload, new=new, now=now)
+        return FLVersionResponse(version=document[VERSION_FIELD])
 
-        created = saved is None
-        view = {**compose_view(context, kader_open=True, named=named, document=document), "completed": False, "reportable": True}
-
-        return FLSpielberichtSchiedsrichterResponse.model_validate(view), created
-
-    async with transaction_session(db) as session:
-        answer, created = await session.with_transaction(write_the_report)
-
-    # RFC 9110's PUT: a write creating the report says so.
-    if created:
-        response.status_code = HTTPStatus.CREATED
-
-    return answer
+    return await transact(db, write_the_report)

@@ -1,37 +1,23 @@
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from http import HTTPStatus
-from typing import Any, NamedTuple
+from typing import Any, Final, NamedTuple
 
 from app.api.bewerbungen.services import seat_named
 from app.api.invitations.schemas import FLInvitationSkipReason
+from app.api.outbox.schemas import FLInvitationData, FLOutboxLink, FLOutboxReference, FLOutboxTeam
+from app.api.outbox.services import OwedMail
 from app.core.codes import Code
-from app.core.exceptions import WriteRefusal
-from app.shared.einwilligung import is_confirmed
-from app.shared.schemas.literals import KONTAKT_ROLLEN, FLKontaktRolle
+from app.core.collections import Collection
+from app.core.exceptions import APIError
+from app.shared.einwilligung import seat_is_confirmed
+from app.shared.schemas.literals import KONTAKT_SEATS, FLKontaktSeat
 
 # An exclusion rather than an inclusion list: what it subtracts is the whole credential, where a list of everything
 # else is one a later field joins by being forgotten.
 WITHOUT_TOKEN_HASH: Mapping[str, int] = {"token_hashes": 0}
 
 
-# `find_squad_refusal` asks the same question of the same junction and is pinned to its own callers, so this slice
-# asks it again rather than widening that one.
-def find_team_in_saison_refusal(*, entered: bool) -> WriteRefusal | None:
-    """`invitation_team_not_entered`: the season holds no junction row for this team.
-
-    Takes the answer rather than the lookup, so the caller's read runs in the caller's transaction.
-    """
-
-    if entered:
-        return None
-
-    return WriteRefusal(
-        error_code=Code.INVITATION_TEAM_NOT_ENTERED,
-        status=HTTPStatus.NOT_FOUND,
-    )
-
-
-def find_invitation_saison_past_refusal(*, saison_status: Any) -> WriteRefusal | None:
+def find_invitation_saison_past_refusal(*, saison_status: Any) -> APIError | None:
     """`saison_past`: the season has ended.
 
     A `future` season mints: an administrator prepares the links before the window opens, and the
@@ -41,13 +27,10 @@ def find_invitation_saison_past_refusal(*, saison_status: Any) -> WriteRefusal |
     if saison_status != "past":
         return None
 
-    return WriteRefusal(
-        error_code=Code.SAISON_PAST,
-        status=HTTPStatus.CONFLICT,
-    )
+    return APIError(HTTPStatus.CONFLICT, Code.SAISON_PAST)
 
 
-def find_unknown_invitation_refusal(*, invitation_raw: Mapping[str, Any] | None) -> WriteRefusal | None:
+def find_unknown_invitation_refusal(*, invitation_raw: Mapping[str, Any] | None) -> APIError | None:
     """`document_not_found`: the link value the visitor presented opens no live invite.
 
     Takes the row the caller's own read found, so that read runs in the caller's transaction. A revoked
@@ -57,10 +40,7 @@ def find_unknown_invitation_refusal(*, invitation_raw: Mapping[str, Any] | None)
     if invitation_raw is not None:
         return None
 
-    return WriteRefusal(
-        error_code=Code.DOCUMENT_NOT_FOUND,
-        status=HTTPStatus.NOT_FOUND,
-    )
+    return APIError(HTTPStatus.NOT_FOUND, Code.DOCUMENT_NOT_FOUND)
 
 
 # The partial filter `uniq_invitation_live` is built on, spelled as it is: the equality with `None`
@@ -123,33 +103,24 @@ def invitation_is_sent(invitation_raw: Mapping[str, Any] | None) -> bool:
     return invitation_raw is not None and invitation_raw.get("sent_at") is not None
 
 
-def _confirmed_seat(kontakte: Any, seat: str) -> Mapping[str, Any] | None:
-    """One seat whose own person has confirmed it, or `None`: an address nobody has proven gets no credential."""
-
-    entry = kontakte.get(seat) if isinstance(kontakte, Mapping) else None
-    if not isinstance(entry, Mapping):
-        return None
-
-    return entry if is_confirmed(entry.get("einwilligung")) else None
-
-
 class InvitationRecipient(NamedTuple):
     """One mailbox a link goes to, and the seat it is addressed as."""
 
-    rolle: FLKontaktRolle
+    seat: FLKontaktSeat
     email: str
 
 
-def confirmed_recipients(*, kontakte: Any) -> list[InvitationRecipient]:
+def confirmed_recipients(*, kontakte: Mapping[str, Any] | None) -> list[InvitationRecipient]:
     """The mailboxes a link may be sent to, one entry per stored address, each the fold every payload stores."""
 
     recipients: list[InvitationRecipient] = []
     seen: set[str] = set()
 
-    for seat in KONTAKT_ROLLEN:
-        entry = _confirmed_seat(kontakte, seat)
-        rolle = seat_named(seat)
-        if entry is None or rolle is None:
+    for seat in KONTAKT_SEATS:
+        entry = (kontakte or {}).get(seat)
+        named = seat_named(seat)
+        # An address nobody has proven gets no credential.
+        if not seat_is_confirmed(entry) or named is None:
             continue
 
         address = str(entry.get("email") or "")
@@ -157,19 +128,19 @@ def confirmed_recipients(*, kontakte: Any) -> list[InvitationRecipient]:
             continue
 
         seen.add(address)
-        recipients.append(InvitationRecipient(rolle=rolle, email=address))
+        recipients.append(InvitationRecipient(seat=named, email=address))
 
     return recipients
 
 
-class InvitationDispatchPlan(NamedTuple):
+class InvitationMailPlan(NamedTuple):
     """What one team's row says, before anything is minted."""
 
     recipient: list[InvitationRecipient]
     skipped: FLInvitationSkipReason | None
 
 
-def plan_invitation_dispatch(*, austritt: Any, kontakte: Any, invitation_raw: Mapping[str, Any] | None) -> InvitationDispatchPlan:
+def plan_invitation_mail(*, austritt: Any, kontakte: Mapping[str, Any] | None, invitation_raw: Mapping[str, Any] | None) -> InvitationMailPlan:
     """Who this team's link goes to, or why it is skipped.
 
     The season editor's rows and the press read this one plan, so a row never tells an administrator something the press
@@ -179,20 +150,52 @@ def plan_invitation_dispatch(*, austritt: Any, kontakte: Any, invitation_raw: Ma
     # The record's presence, never its `type` and never a flag beside it: a team is out of the
     # season by either route, and a skip naming the contact block would send somebody to repair it.
     if austritt is not None:
-        return InvitationDispatchPlan([], "austritt_entered")
+        return InvitationMailPlan([], "austritt_entered")
 
     # Its day and never the row's presence: a team holding a live link nobody was sent is a team this press exists to
     # reach, and skipping on the row would leave those links unsent for ever. Ahead of the seats: this press never
     # mails a sent link again, so a missing address over one, as the retention leaves a finished season, would send
     # somebody to repair what no press reads.
     if invitation_is_sent(invitation_raw):
-        return InvitationDispatchPlan([], "already_sent")
+        return InvitationMailPlan([], "already_sent")
 
-    if not isinstance(kontakte, Mapping):
-        return InvitationDispatchPlan([], "no_kontakt_block")
+    if kontakte is None:
+        return InvitationMailPlan([], "no_kontakt_block")
 
     recipients = confirmed_recipients(kontakte=kontakte)
     if not recipients:
-        return InvitationDispatchPlan([], "no_confirmed_kontaktperson")
+        return InvitationMailPlan([], "no_confirmed_kontaktperson")
 
-    return InvitationDispatchPlan(recipients, None)
+    return InvitationMailPlan(recipients, None)
+
+
+# Where a mailed invitation link lives. No address to judge: the row names none, its recipients standing on the season row, and the
+# link is the team's rather than a person's credential. Never superseding: a link copied off the mint stays valid beside the mailed ones.
+INVITATION_LINK: Final = FLOutboxLink(paths=["token_hashes"], addresses=[], replaced=False)
+
+
+def invitation_reference(invitation_id: Any) -> FLOutboxReference:
+    """The invite a mail is about. No seat: every recipient is mailed the team's one link, and its state is the invite's."""
+
+    return FLOutboxReference(collection=Collection.INVITATIONS, id=invitation_id, seat=None)
+
+
+def owed_invitation_mails(
+    *, invitation_id: Any, team_id: Any, team_name: str, saison_id: str, recipient: Sequence[InvitationRecipient], occasion: str
+) -> list[OwedMail]:
+    """One mail per confirmed seat, each keyed by the invite, the occasion and the seat, so a replayed write owes nothing twice.
+
+    Each names its club, so a seat its holder left before the hand-out is sent no team's link.
+    """
+
+    return [
+        OwedMail(
+            key=f"{Collection.INVITATIONS}/{invitation_id}/{occasion}/{person.seat}",
+            to=person.email,
+            data=FLInvitationData(kind="invitation", team=team_name, saison_id=saison_id),
+            reference=invitation_reference(invitation_id),
+            link=INVITATION_LINK,
+            team=FLOutboxTeam(saison_id=saison_id, team_id=team_id),
+        )
+        for person in recipient
+    ]

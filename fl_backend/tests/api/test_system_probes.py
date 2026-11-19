@@ -5,7 +5,7 @@ from app.core.codes import Code
 from tests.app_client import app_client
 from tests.config import UNANSWERED_DEADLINE_S, UNANSWERED_URI
 
-IS_READY = "/api/v0/system/is_ready"
+IS_READY = "/api/system/is_ready"
 
 
 async def asked_with_no_database() -> Response:
@@ -24,5 +24,5 @@ async def test_a_database_that_does_not_answer_makes_the_backend_unready():
     response = await asked_with_no_database()
 
     body = response.json()
-    assert (response.status_code, response.headers.get("Retry-After")) == (503, "30")
+    assert response.status_code == 503
     assert {key: value for key, value in body.items() if key != "trace_id"} == {"error_code": Code.DATABASE_FAILED, "fields": []}

@@ -1,13 +1,8 @@
 from typing import Literal
 
-from app.shared.schemas.responses import BaseAPIResponse
+from app.shared.schemas.responses import BaseReadModel
 
 
-class CheckIsLiveResponse(BaseAPIResponse):
-    # A `Literal`, not a free string: failure is already the status code.
-    status: Literal["ok"] = "ok"
-
-
-class CheckIsReadyResponse(BaseAPIResponse):
-    # A `Literal`, not a free string: a database that does not answer is the 503.
+class ProbeResponse(BaseReadModel):
+    # A `Literal`, not a free string: a failing probe is its status code.
     status: Literal["ok"] = "ok"

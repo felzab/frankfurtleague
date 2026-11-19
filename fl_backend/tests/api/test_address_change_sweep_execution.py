@@ -17,13 +17,13 @@ from bson import ObjectId
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.address_change.schemas import FLAddressChangeMovesDonePayload, FLAddressChangeSweepParams
+from app.api.address_change.schemas import FLAddressChangeMovesDonePayload
 from app.api.address_change.system_router import (
-    ADDRESS_CHANGE_PER_PASS,
     get_address_change_moves,
     post_address_change_moves_done,
     sweep_address_change,
 )
+from app.api.identity.lookup import get_move_collections
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.logging import JSONFormatter
@@ -34,7 +34,9 @@ from tests.acts import deletions_of
 from tests.config import grants_for_the_suite
 from tests.database import a_clean_database
 from tests.documents import saison_document, schiedsrichter_document, spieler_document
-from tests.records import record_collections
+from tests.handles import wired
+from tests.isolation import InterleavedCollection
+from tests.passes import refuse_writes_breaking
 from tests.whole_database import where_held
 from tests.worker import worker_database
 
@@ -132,48 +134,16 @@ async def on_a_league(url: str, body: Body, *, mutates_schema: bool = False) -> 
         return await body(database, client)
 
 
-async def sweep(database: AsyncDatabase, client: AsyncMongoClient, *, after: Any = None, **replaced: Any) -> Any:
+async def sweep(database: AsyncDatabase, client: AsyncMongoClient, **replaced: Any) -> Any:
     return await sweep_address_change(
-        params=FLAddressChangeSweepParams(after=after),
-        records=record_collections(database, **{name: value for name, value in replaced.items() if name != "address_changes_collection"}),
-        address_changes_collection=replaced.get("address_changes_collection", database[Collection.ADDRESS_CHANGES]),
-        spieler_collection=replaced.get("spieler_collection", database[Collection.SPIELER]),
-        schiedsrichter_collection=replaced.get("schiedsrichter_collection", database[Collection.SCHIEDSRICHTER]),
-        saison_teams_collection=replaced.get("saison_teams_collection", database[Collection.SAISON_TEAMS]),
-        bewerbungen_collection=replaced.get("bewerbungen_collection", database[Collection.BEWERBUNGEN]),
-        registrierungen_collection=replaced.get("registrierungen_collection", database[Collection.REGISTRIERUNGEN]),
-        grants_collection=database[Collection.GRANTS],
-        outbox_collection=database[Collection.OUTBOX],
-        action_log_collection=database[Collection.ACTION_LOG],
-        mailbox_anchors_collection=database[Collection.MAILBOX_ANCHORS],
+        collections=get_move_collections(**wired(get_move_collections, database, **replaced)),
         db=client,
         germany_now=NOW,
     )
 
 
-# More calls than any pass a case seeds can take: a pass that never ends stops here, and the case says so.
-CALLS_A_PASS = 5
-
-
-async def a_pass(database: AsyncDatabase, client: AsyncMongoClient) -> list[Any]:
-    """Calls handing each the `after` the last answered, until one answers null, as the hourly pass loops."""
-
-    answers = [await sweep(database, client)]
-    while answers[-1].after is not None:
-        assert len(answers) < CALLS_A_PASS, f"the pass did not end in {CALLS_A_PASS} calls: {[answer.after for answer in answers]}"
-        answers.append(await sweep(database, client, after=answers[-1].after))
-
-    return answers
-
-
 async def live(database: AsyncDatabase) -> list[ObjectId]:
     return await database[Collection.ADDRESS_CHANGES].distinct("_id", {"ended": None})
-
-
-async def refuse_writes_breaking(database: AsyncDatabase, collection: Collection, schema: Mapping[str, Any]) -> None:
-    """How this suite forces one row's write to fail mid-pass: a `$jsonSchema` the planted row breaks and every other row keeps."""
-
-    await database.command("collMod", str(collection), validator={"$jsonSchema": dict(schema)}, validationLevel="strict")
 
 
 def refusing_a_move_to(positions: Sequence[int]) -> dict[str, Any]:
@@ -193,7 +163,7 @@ class TestALapsedChangeEndsOnceItsDeadlinePassed:
 
         answer, ended, standing, held = await on_a_league(mongo_replica_set_url, body)
 
-        assert (answer.removed, answer.discarded, answer.effective, answer.remaining, answer.after) == (1, 0, 0, 0, None)
+        assert (answer.removed, answer.discarded, answer.effective, answer.failed) == (1, 0, 0, 0)
         assert (ended["ended"]["kind"], ended["address"], ended["email"]) == ("expired", None, None)
         assert standing == [numbered(2)]
         assert held == {pending(1): []}
@@ -246,26 +216,6 @@ class TestADueChangeTakesEffect:
         assert deletions == [("system", None, 1, None)]
 
 
-class WrittenAfterTheRead:
-    """A collection writing `rival` once the call's page read has answered and before any change's own transaction."""
-
-    def __init__(self, collection: Any, rival: Callable[[], Awaitable[Any]]) -> None:
-        self._collection = collection
-        self._rival: Callable[[], Awaitable[Any]] | None = rival
-
-    def __getattr__(self, name: str) -> Any:
-        return getattr(self._collection, name)
-
-    async def aggregate(self, *args: Any, **kwargs: Any) -> Any:
-        cursor = await self._collection.aggregate(*args, **kwargs)
-        # The page read is the one read outside a session; every change's own reads carry theirs.
-        if self._rival is not None and kwargs.get("session") is None:
-            rival, self._rival = self._rival, None
-            await rival()
-
-        return cursor
-
-
 class TestEachChangeIsJudgedAgainInItsTransaction:
     async def test_a_link_sent_again_after_the_read_keeps_its_change(self, mongo_replica_set_url: str):
         """End the change by its id alone rather than its lapsed terms and this fails: the fresh link and its address go."""
@@ -278,33 +228,17 @@ class TestEachChangeIsJudgedAgainInItsTransaction:
                     {"_id": numbered(1)}, {"$set": {"valid_until": NOW + timedelta(hours=23)}}
                 )
 
-            answer = await sweep(
-                database, client, address_changes_collection=WrittenAfterTheRead(database[Collection.ADDRESS_CHANGES], send_it_again)
-            )
+            # Once the page read has answered and before any change's own transaction: the page read is the call's first
+            # `aggregate`, and the rival runs once.
+            changes = InterleavedCollection(database[Collection.ADDRESS_CHANGES], send_it_again, after="aggregate")
+            answer = await sweep(database, client, address_changes_collection=changes)
 
-            return (answer.removed, answer.remaining), await live(database)
+            return (answer.removed, answer.failed), await live(database)
 
         counts, standing = await on_a_league(mongo_replica_set_url, body)
 
         assert counts == (0, 0)
         assert standing == [numbered(1)]
-
-
-class TestEachCallTakesAShare:
-    async def test_a_share_and_one_more_take_a_pass_of_two_calls(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.ADDRESS_CHANGES].insert_many(
-                [a_change(position, minted=MINTED_TO_LAPSE_YESTERDAY) for position in range(ADDRESS_CHANGE_PER_PASS + 1)]
-            )
-            answers = await a_pass(database, client)
-            later = await sweep(database, client)
-
-            return [(answer.removed, answer.remaining, answer.after) for answer in answers], (later.removed, later.remaining, later.after)
-
-        answers, later = await on_a_league(mongo_replica_set_url, body)
-
-        assert answers == [(ADDRESS_CHANGE_PER_PASS, 1, numbered(ADDRESS_CHANGE_PER_PASS - 1)), (1, 0, None)]
-        assert later == (0, 0, None)
 
 
 class NotTheDatabases(Exception):
@@ -348,20 +282,16 @@ class TestOneChangeHoldsBackNoOther:
                 database, client, address_changes_collection=RaisesOnOneChange(database[Collection.ADDRESS_CHANGES], numbered(1))
             )
 
-            return (answer.effective, answer.remaining, answer.after), await live(database)
+            return (answer.effective, answer.failed), await live(database)
 
         with caplog.at_level("ERROR"):
             counts, standing = await on_a_league(mongo_replica_set_url, body)
 
-        assert counts == (1, 1, None)
+        assert counts == (1, 1)
         assert standing == [numbered(1)]
         [failure] = [record for record in caplog.records if getattr(record, "error_code", None) == Code.UNHANDLED_CRASH]
-        assert (failure.levelname, failure.getMessage()) == ("ERROR", "address_change.sweep_row_failed")
-        assert (getattr(failure, "kind", None), getattr(failure, "step", None), getattr(failure, "address_change_id", None)) == (
-            "due",
-            "effect",
-            str(numbered(1)),
-        )
+        assert (failure.levelname, failure.getMessage()) == ("ERROR", "transactions.row_passed_over")
+        assert (getattr(failure, "clock", None), getattr(failure, "row_id", None)) == ("effect", str(numbered(1)))
         # Located by the frame that raised it, and never by its message, which can quote a value.
         diagnosis = getattr(failure, "diagnosis", "")
         assert re.fullmatch(r"NotTheDatabases in find_one_and_update at .+\.py:\d+", diagnosis) is not None, diagnosis
@@ -376,15 +306,15 @@ class TestOneChangeHoldsBackNoOther:
                 database, client, address_changes_collection=RaisesOnOneChange(database[Collection.ADDRESS_CHANGES], numbered(1))
             )
 
-            return (answer.removed, answer.effective, answer.remaining), await live(database)
+            return (answer.removed, answer.effective, answer.failed), await live(database)
 
         with caplog.at_level("ERROR"):
             counts, standing = await on_a_league(mongo_replica_set_url, body)
 
         assert counts == (0, 1, 1)
         assert standing == [numbered(1)]
-        assert [getattr(record, "kind", None) for record in caplog.records if record.getMessage() == "address_change.sweep_row_failed"] == [
-            "lapsed"
+        assert [getattr(record, "clock", None) for record in caplog.records if record.getMessage() == "transactions.row_passed_over"] == [
+            "lapse"
         ]
 
     async def test_a_refused_effect_is_passed_over_and_the_next_goes(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
@@ -396,7 +326,7 @@ class TestOneChangeHoldsBackNoOther:
             await refuse_writes_breaking(database, Collection.SPIELER, refusing_a_move_to([1]))
             answer = await sweep(database, client)
 
-            return (answer.effective, answer.remaining), await live(database)
+            return (answer.effective, answer.failed), await live(database)
 
         with caplog.at_level("ERROR"):
             counts, standing = await on_a_league(mongo_replica_set_url, body, mutates_schema=True)
@@ -405,27 +335,8 @@ class TestOneChangeHoldsBackNoOther:
         assert standing == [numbered(1)]
         failures = [record for record in caplog.records if getattr(record, "error_code", None) == Code.DATABASE_FAILED]
         assert [
-            getattr(record, "address_change_id", None) == str(numbered(1)) and pending(1) not in JSONFormatter().format(record)
-            for record in failures
+            getattr(record, "row_id", None) == str(numbered(1)) and pending(1) not in JSONFormatter().format(record) for record in failures
         ] == [True]
-
-    async def test_a_share_of_failing_changes_holds_back_none_behind_it_in_the_pass(self, mongo_replica_set_url: str):
-        """Restart each call at the lowest id and the same share fails every call, the last change never reached."""
-
-        failing = range(ADDRESS_CHANGE_PER_PASS)
-        last = ADDRESS_CHANGE_PER_PASS
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            for position in (*failing, last):
-                await a_due_person(database, position)
-            await refuse_writes_breaking(database, Collection.SPIELER, refusing_a_move_to(list(failing)))
-            answers = await a_pass(database, client)
-
-            return [answer.effective for answer in answers], numbered(last) in await live(database)
-
-        ended, standing = await on_a_league(mongo_replica_set_url, body, mutates_schema=True)
-
-        assert (ended, standing) == ([0, 1], False)
 
 
 # Server-side, so the database itself stops answering and only the deadline's `maxTimeMS` stops it.
@@ -489,14 +400,19 @@ class TestTheDeadlineStopsTheCall:
 
         answer, dear, moved = await on_a_league(mongo_replica_set_url, body)
 
-        assert (answer.effective, answer.remaining, answer.after) == (1, 1, numbered(2))
+        assert (answer.effective, answer.failed) == (1, 0)
         assert (dear, moved) == ([on_file(2)], [on_file(2)])
 
 
 class TestTheOwedCarries:
     """Owed by an effect on its ended record, listed until the frontend reports each carried."""
 
-    async def test_each_is_listed_until_it_is_reported_carried_and_a_repeat_counts_nothing(self, mongo_replica_set_url: str):
+    async def test_each_is_listed_until_it_is_reported_carried_and_a_repeat_takes_nothing(self, mongo_replica_set_url: str):
+        async def moves(database: AsyncDatabase) -> list[tuple[ObjectId, bool]]:
+            """Each change and whether it still owes its carry, as stored."""
+
+            return [(row["_id"], "move" in row) async for row in database[Collection.ADDRESS_CHANGES].find({}, sort=[("_id", 1)])]
+
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.ADDRESS_CHANGES].insert_many(
                 [
@@ -506,15 +422,17 @@ class TestTheOwedCarries:
             )
             listed = (await get_address_change_moves(address_changes_collection=database[Collection.ADDRESS_CHANGES])).moves
             payload = FLAddressChangeMovesDonePayload(ids=[numbered(1)])
-            first = await post_address_change_moves_done(done_data=payload, address_changes_collection=database[Collection.ADDRESS_CHANGES])
-            again = await post_address_change_moves_done(done_data=payload, address_changes_collection=database[Collection.ADDRESS_CHANGES])
+            await post_address_change_moves_done(done_data=payload, address_changes_collection=database[Collection.ADDRESS_CHANGES])
+            first = await moves(database)
+            await post_address_change_moves_done(done_data=payload, address_changes_collection=database[Collection.ADDRESS_CHANGES])
+            again = await moves(database)
             left = (await get_address_change_moves(address_changes_collection=database[Collection.ADDRESS_CHANGES])).moves
 
-            return [(row.id, row.old, row.new) for row in listed], first.done, again.done, [row.id for row in left]
+            return [(row.id, row.old, row.new) for row in listed], first, again, [row.id for row in left]
 
         assert await on_a_league(mongo_replica_set_url, body) == (
             [(numbered(1), on_file(1), pending(1)), (numbered(2), on_file(2), pending(2))],
-            1,
-            0,
+            [(numbered(1), False), (numbered(2), True)],
+            [(numbered(1), False), (numbered(2), True)],
             [numbered(2)],
         )

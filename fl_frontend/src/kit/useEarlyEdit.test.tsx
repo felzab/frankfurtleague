@@ -1,13 +1,13 @@
 // @vitest-environment jsdom
 import { cloneElement, useLayoutEffect, useState } from "react";
 
-import { underNext } from "@/test-support/nextContexts";
 import { act } from "@testing-library/react";
 import { createRoot, hydrateRoot } from "react-dom/client";
 import { renderToString } from "react-dom/server";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
+import { underNext } from "@/test-support/nextContexts";
 
 import { AddressFields } from "./AddressFields";
 import { Checkbox } from "./Checkbox";

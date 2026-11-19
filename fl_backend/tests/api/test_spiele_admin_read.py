@@ -8,7 +8,6 @@ from httpx2 import Response
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.core.collections import Collection
-from app.core.config import API_VERSION
 from tests import documents
 from tests.app_client import app_client, app_under_test
 from tests.config import ADMIN_AUTH, UNANSWERED_DEADLINE_S, UNANSWERED_URI, build_test_config, grants_for_the_suite
@@ -27,7 +26,6 @@ SCHIEDSRICHTER_ID = ObjectId("6890a1b2c3d4e5f607230022")
 LIVE_SPIELORT_ID = ObjectId("6890a1b2c3d4e5f607230023")
 RETIRED_SPIELORT_ID = ObjectId("6890a1b2c3d4e5f607230024")
 UNCONFIRMED_SCHIEDSRICHTER_ID = ObjectId("6890a1b2c3d4e5f607230025")
-DECLINED_SCHIEDSRICHTER_ID = ObjectId("6890a1b2c3d4e5f607230026")
 
 MIETPREIS = 80
 PAYMENT = 30
@@ -43,12 +41,10 @@ LATER_SAISON_ID = "2027"
 LINA = ObjectId("6890a1b2c3d4e5f607230031")
 OLE = ObjectId("6890a1b2c3d4e5f607230032")
 MIA = ObjectId("6890a1b2c3d4e5f607230033")
-BERICHT_CONFIRMATION_ID = ObjectId("6890a1b2c3d4e5f607230041")
 # Raised past the create's 0 by later writes: the one an adoption names.
 BERICHT_VERSION = 3
 
-PUBLIC_PATH = f"/api/v{API_VERSION}/spiele/{SPIEL_ID}"
-ADMIN_PATH = f"{PUBLIC_PATH}/admin"
+ADMIN_PATH = f"/api/spiele/{SPIEL_ID}"
 
 
 def spiel_document() -> dict[str, Any]:
@@ -83,7 +79,7 @@ def spielort_row(spielort_id: ObjectId, name: str, *, inactive_since: str | None
 
 
 def schiedsrichter_rows() -> list[dict[str, Any]]:
-    """The booked referee, retired since and confirmed; a live one who never answered; and one who objected."""
+    """The booked referee, retired since and confirmed, and a live one who never answered: an objection leaves no entry."""
 
     confirmed = documents.own_einwilligung_document(text_versions=documents.SCHIEDSRICHTER_TEXT_VERSIONS, confirmed_at="2026-01-10")
     return [
@@ -97,19 +93,6 @@ def schiedsrichter_rows() -> list[dict[str, Any]]:
         ),
         documents.schiedsrichter_document(
             UNCONFIRMED_SCHIEDSRICHTER_ID, email="bo@example.com", name="Bo Lenz", default_payment=25, einwilligung=None
-        ),
-        documents.schiedsrichter_document(
-            DECLINED_SCHIEDSRICHTER_ID,
-            email="cleo@example.com",
-            name="Cleo Rau",
-            default_payment=25,
-            einwilligung=None,
-            confirmation={
-                "token_hashes": [],
-                "sent_at": "2026-03-01",
-                "deadline": "2026-03-15",
-                "declined_at": "2026-03-02",
-            },
         ),
     ]
 
@@ -163,7 +146,7 @@ def spielbestaetigungen_rows(spiele: list[dict[str, Any]]) -> list[dict[str, Any
     bericht_spiel, other_spiel, _ = spiele
     return [
         documents.spielbestaetigung_document(other_spiel, party={"kind": "team", "team_id": HOME}),
-        documents.spielbestaetigung_document(bericht_spiel, party={"kind": "team", "team_id": AWAY}, _id=BERICHT_CONFIRMATION_ID),
+        documents.spielbestaetigung_document(bericht_spiel, party={"kind": "team", "team_id": AWAY}),
     ]
 
 
@@ -232,7 +215,7 @@ async def test_a_malformed_id_is_a_404_on_the_admin_path_too():
     One id shows the path carries the convertor; which ids are malformed is `tests/api/test_malformed_ids.py`'s.
     """
 
-    path = f"/api/v{API_VERSION}/spiele/not-an-id/admin"
+    path = "/api/spiele/not-an-id"
 
     assert (await answered(UNANSWERED_URI, path, ADMIN_AUTH)).status_code == 404
 
@@ -260,32 +243,30 @@ async def test_the_admin_key_gets_the_spiel_with_the_rent_and_the_payment(seeded
 async def test_the_editor_offers_the_live_rows_and_the_ones_the_spiel_books(seeded_url: str):
     """Offering a retired row the fixture does not book puts a booking on the editor the save then refuses.
 
-    The fixture's own retired venue and referee stay offered, so the booking keeps its name; the unconfirmed referee is
-    offered marked, the save refusing them, and an objection told from no answer yet: nobody asks a person who objected
-    again, so the administrator waiting on their answer waits for good.
+    The fixture's own retired venue and referee stay offered, so the booking keeps its name; an unconfirmed referee is
+    offered marked, the save refusing them.
     """
 
     answer = (await answered(seeded_url, ADMIN_PATH, ADMIN_AUTH)).json()
 
     assert [(row["name"], row["inactive_since"]) for row in answer["spielorte"]] == [("Halle Nord", None), ("Sportplatz Ost", "2026-04-01")]
-    assert [(row["name"], row["confirmed"], row["declined"], row["inactive_since"]) for row in answer["schiedsrichter"]] == [
-        ("Ada Kern", True, False, "2026-04-01"),
-        ("Bo Lenz", False, False, None),
-        ("Cleo Rau", False, True, None),
+    assert [(row["name"], row["confirmed"], row["inactive_since"]) for row in answer["schiedsrichter"]] == [
+        ("Ada Kern", True, "2026-04-01"),
+        ("Bo Lenz", False, None),
     ]
     assert (answer["spielbericht"], answer["spielbestaetigungen"]) == (None, [])
 
 
 def _editor_path(spiel_id: ObjectId) -> str:
-    return f"/api/v{API_VERSION}/spiele/{spiel_id}/admin"
+    return f"/api/spiele/{spiel_id}"
 
 
 @pytest.mark.db
 async def test_the_report_panel_shows_this_fixtures_report_by_its_stored_version_and_its_named_scorers(seeded_url: str):
     """The version is the one an adoption names: served stale, every adoption would be refused.
 
-    The state is the adoption's against the saved 2:1, and only the scorers are named: the pupil on the home squad by
-    their squad row, the one on neither squad by their record, never the pupil a card alone names.
+    The state is the adoption's against the saved 2:1, and only the scorers are named, each by their record, the pupil
+    on the home squad and the one on neither alike, never the pupil a card alone names.
     """
 
     response = await answered(seeded_url, _editor_path(BERICHT_SPIEL_ID), ADMIN_AUTH)
@@ -295,15 +276,14 @@ async def test_the_report_panel_shows_this_fixtures_report_by_its_stored_version
         "state": "adopted",
         "version": BERICHT_VERSION,
         "ergebnis_vorschlag": {"team1_tore": 2, "team2_tore": 1, "elfmeterschiessen": None, "sonderereignis": None},
-        "sides": {"team1": str(HOME), "team2": str(AWAY)},
         "scorers": [
             {"side": "team1", "spieler_id": str(LINA), "minute": "12", "eigentor": False},
             {"side": "team1", "spieler_id": str(OLE), "minute": "30", "eigentor": False},
             {"side": "team2", "spieler_id": None, "minute": "77", "eigentor": False},
         ],
         "named": [
-            {"spieler_id": str(LINA), "first_name": "Lina", "last_name": "Krause", "nummer": "7"},
-            {"spieler_id": str(OLE), "first_name": "Ole", "last_name": "Brettschneider", "nummer": None},
+            {"spieler_id": str(LINA), "first_name": "Lina", "last_name": "Krause"},
+            {"spieler_id": str(OLE), "first_name": "Ole", "last_name": "Brettschneider"},
         ],
     }
 
@@ -314,7 +294,7 @@ async def test_the_editor_lists_this_fixtures_confirmation_rows_alone(seeded_url
 
     answer = (await answered(seeded_url, _editor_path(BERICHT_SPIEL_ID), ADMIN_AUTH)).json()
 
-    assert [row["id"] for row in answer["spielbestaetigungen"]] == [str(BERICHT_CONFIRMATION_ID)]
+    assert [row["party"] for row in answer["spielbestaetigungen"]] == [{"kind": "team", "team_id": str(AWAY)}]
 
 
 @pytest.mark.db

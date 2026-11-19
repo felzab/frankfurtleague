@@ -34,7 +34,6 @@ import type {
  * Every season, the planned ones every base-tier read withholds included, oldest first by id. A club is entered into a
  * season only while it is still planned, so an admin surface that cannot see one cannot run the league.
  */
-// `cache` memoizes per render pass. Never `"use cache"`, which keys on the arguments rather than the caller.
 export const getAdminSaisons = cache(async (): Promise<FLSaisonsAdminListResponse> => runAdminRead(() => saisonsGetSaisonsAdmin()));
 
 /** `null` where no season holds the id. */

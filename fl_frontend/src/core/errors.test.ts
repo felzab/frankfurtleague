@@ -13,7 +13,7 @@ describe("a refusal read by its code, whatever its status", () => {
       "body_unreadable",
       "no_route",
       "document_not_found",
-      "no_database_client",
+      "database_failed",
       "unhandled_crash",
     ] satisfies Code[]) {
       expect(isRefusalCode(code), code).toBe(false);

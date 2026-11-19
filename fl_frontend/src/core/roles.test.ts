@@ -1,9 +1,10 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 
-import { person, seat, SEAT } from "@/test-support/subjectFixtures";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
+
+import { person, seat, SEAT } from "@/test-support/subjectFixtures";
 
 import { FLSaisonStatus } from "./generated/client/types";
 import { grantsAPanel, rolesOf, seatsAt } from "./roles";
@@ -30,13 +31,13 @@ describe("which of a subject's seats grant a panel", () => {
   });
 
   /* Per seat and never per team: a resolver collapsing one junction row's two seats into one drops
-     the second seat's `rolle`. */
+     the second seat. */
   it("answers two seats on one team as two Funktionen naming that one team", () => {
-    const { roles } = rolesOf(person({ seats: [seat({ rolle: "trainer" }), seat({ rolle: "ansprechperson" })] }));
+    const { roles } = rolesOf(person({ seats: [seat({ seat: "trainer" }), seat({ seat: "ansprechperson" })] }));
 
     expect(roles.length).toBe(2);
     expect(new Set(roles.map((role) => (role.kind === "kontakt" ? role.team_id : null)))).toStrictEqual(new Set([SEAT.team_id]));
-    expect(new Set(roles.map((role) => (role.kind === "kontakt" ? role.rolle : null)))).toStrictEqual(new Set(["trainer", "ansprechperson"]));
+    expect(new Set(roles.map((role) => (role.kind === "kontakt" ? role.seat : null)))).toStrictEqual(new Set(["trainer", "ansprechperson"]));
   });
 });
 
@@ -48,7 +49,7 @@ describe("the seats at a team page's address", () => {
     const { roles } = rolesOf(
       person({
         seats: [seat({ saison_id: "2627", saison_status: "future" }), seat({ team_id: "6890a1b2c3d4e5f607250099" }), here],
-        spieler: [{ spieler_id: "6890a1b2c3d4e5f607250077" }],
+        spieler: { spieler_id: "6890a1b2c3d4e5f607250077" },
       }),
     );
 

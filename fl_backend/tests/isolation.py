@@ -9,12 +9,6 @@ from app.core.exceptions import APIError
 # lands names the state it left instead of an exception that failed to arrive.
 COMMITTED = "the write committed"
 
-# Both ways a case's count of judgements can miss the one a rival landing inside makes, for its failure
-# to name whichever happened rather than the one its author had in mind.
-MISCOUNTED_JUDGEMENTS = (
-    "one short is a rival that landed outside the write or a conflict never judged again, one over a retry that conflicted again"
-)
-
 Rival = Callable[[], Awaitable[Any]]
 
 
@@ -100,10 +94,47 @@ class InterleavedCollection:
             await rival()
 
 
+class SeasonsRunningARivalAfterTheSessionRead(InterleavedCollection):
+    """A `saisons` stand-in running its rival once, just after the first read made inside a transaction.
+
+    A read before the transaction, such as a route's 404 check, would place the rival ahead of any snapshot.
+    """
+
+    async def find_one(self, *args: Any, **kwargs: Any) -> Any:
+        found = await self._collection.find_one(*args, **kwargs)
+        if kwargs.get("session") is not None:
+            await self.run_the_rival()
+
+        return found
+
+
+class RowsThenTheRival:
+    """A `find` cursor reaching the rival's point once its rows have arrived; `sort` and `limit` chain as the driver's do."""
+
+    def __init__(self, cursor: Any, arrived: Callable[[], Awaitable[None]]) -> None:
+        self._cursor = cursor
+        self._arrived = arrived
+
+    def sort(self, *args: Any, **kwargs: Any) -> RowsThenTheRival:
+        self._cursor = self._cursor.sort(*args, **kwargs)
+        return self
+
+    def limit(self, *args: Any, **kwargs: Any) -> RowsThenTheRival:
+        self._cursor = self._cursor.limit(*args, **kwargs)
+        return self
+
+    async def to_list(self, *args: Any, **kwargs: Any) -> list[Any]:
+        rows = await self._cursor.to_list(*args, **kwargs)
+        await self._arrived()
+
+        return rows
+
+
 class GrantsRunningARivalAfterTheFirstRead(InterleavedCollection):
     """The grants a judging transaction reads, a rival write run once after that read and before its anchor.
 
-    So only the anchor can make the two conflict.
+    So only the anchor can make the two conflict. The read is `read_grants`, a `find`; a `find_one` reads through the
+    driver's own collection, never this one, so it reaches no rival.
     """
 
     def __init__(self, collection: Any, rival: Rival) -> None:
@@ -113,8 +144,5 @@ class GrantsRunningARivalAfterTheFirstRead(InterleavedCollection):
         super().__init__(collection, reported)
         self.rival_outcome: str | None = None
 
-    async def aggregate(self, *args: Any, **kwargs: Any) -> Any:
-        cursor = await self._collection.aggregate(*args, **kwargs)
-        await self.run_the_rival()
-
-        return cursor
+    def find(self, *args: Any, **kwargs: Any) -> RowsThenTheRival:
+        return RowsThenTheRival(self._collection.find(*args, **kwargs), self.run_the_rival)

@@ -13,7 +13,8 @@ function thrownBy(run: () => unknown): unknown {
   return undefined;
 }
 
-const KEY = "k".repeat(64);
+/** A key of the class, distinct per letter, as each tier holds its own. */
+const keyOf = (letter: string) => letter.repeat(64);
 
 /** Production's environment as a deploy sets it, every variable well formed. */
 const VARIABLES = {
@@ -29,9 +30,9 @@ const FILES = {
   AUTH_SECRET: "s".repeat(32),
   AUTH_RESEND_KEY: "re_key",
   RESEND_WEBHOOK_SECRET: "whsec_key",
-  INTERNAL_API_KEY_BASE: KEY,
-  INTERNAL_API_KEY_SYSTEM: KEY,
-  INTERNAL_API_KEY_ADMIN: KEY,
+  INTERNAL_API_KEY_BASE: keyOf("b"),
+  INTERNAL_API_KEY_SYSTEM: keyOf("s"),
+  INTERNAL_API_KEY_ADMIN: keyOf("a"),
   TURNSTILE_SECRET_KEY: "0x4AAAAAAAsecretKeyOfTheLeague",
   BETTERSTACK_HEARTBEAT_URL: "https://uptime.example/heartbeat",
 };

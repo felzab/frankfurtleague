@@ -6,24 +6,23 @@ from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.identity.admin_router import post_erasure
-from app.api.identity.crud import erase_everything
+from app.api.identity.lookup import ErasureCollections, get_erasure_collections
 from app.api.identity.person_router import post_account_erasure
 from app.api.identity.schemas import FLErasurePayload
 from app.core.collections import Collection
 from app.shared.folding import sign_in_identifier
-from app.shared.schemas.literals import KONTAKT_ROLLEN
+from app.shared.schemas.literals import KONTAKT_SEATS
 from tests.acts import acting_as
 from tests.handles import wired
 
 
-def erasure_collections(database: AsyncDatabase | Mapping[Collection, Any], **replaced: Any) -> dict[str, Any]:
-    """Every collection the erasure takes, keyed as the routes take them, any replaced by name.
+def erasure_collections(database: AsyncDatabase | Mapping[Collection, Any], **replaced: Any) -> ErasureCollections:
+    """The erasure's bundle built by its routes' own dependency, over one database or a mapping of stand-ins, any handle replaced by name.
 
-    Read off the parameters of `app/api/identity/crud.py :: erase_everything`: a route taking a collection the erasure
-    does not, or the reverse, fails the call.
+    Through the dependency rather than the class, so a handle it wires to the wrong collection fails every erasure here.
     """
 
-    return wired(erase_everything, database, **replaced)
+    return get_erasure_collections(**wired(get_erasure_collections, database, **replaced))
 
 
 async def erased(
@@ -36,7 +35,7 @@ async def erased(
 
     await post_account_erasure(
         identifier=sign_in_identifier(address),
-        **erasure_collections(database, **replaced),
+        collections=erasure_collections(database, **replaced),
         db=client,
         germany_now=germany_now,
     )
@@ -60,7 +59,7 @@ async def erased_on_request(
     with acting_as(by):
         await post_erasure(
             erasure_data=FLErasurePayload(email=email, reason=reason),
-            **erasure_collections(database, **replaced),
+            collections=erasure_collections(database, **replaced),
             db=client,
             operator=by,
             germany_now=germany_now,
@@ -74,7 +73,7 @@ def seats_cleared(before: Iterable[Mapping[str, Any]], after: Iterable[Mapping[s
     """The contact seats held before and empty after, whoever held them, so a seat cleared past the address counts too."""
 
     def held(rows: Iterable[Mapping[str, Any]]) -> set[tuple[Any, str]]:
-        return {(row["_id"], seat) for row in rows for seat in KONTAKT_ROLLEN if isinstance((row.get("kontakte") or {}).get(seat), Mapping)}
+        return {(row["_id"], seat) for row in rows for seat in KONTAKT_SEATS if isinstance((row.get("kontakte") or {}).get(seat), Mapping)}
 
     return len(held(before) - held(after))
 

@@ -1,10 +1,9 @@
+import { COPY } from "@/core/copy";
+import { requestErasure, startAddressChange, withdrawAddressChange } from "@/features/account/personActions";
 import { AccountBox, AccountSentence } from "@/kit/AccountBox";
 import { Callout } from "@/kit/Callout";
 import { Facts } from "@/kit/Facts";
 import { TextField } from "@/kit/TextField";
-
-import { COPY } from "@/core/copy";
-import { requestErasure, startAddressChange, withdrawAddressChange } from "@/features/account/personActions";
 
 import type { Copy } from "@/core/copy";
 

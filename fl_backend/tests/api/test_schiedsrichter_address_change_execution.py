@@ -16,7 +16,7 @@ from bson import ObjectId
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.schiedsrichter.admin_router import invite_schiedsrichter, patch_schiedsrichter
+from app.api.schiedsrichter.admin_router import patch_schiedsrichter, resend_confirmation
 from app.api.schiedsrichter.public_router import post_confirmation
 from app.api.schiedsrichter.schemas import FLPatchSchiedsrichterPayload, FLSchiedsrichterConfirmationPayload
 from app.core.codes import Code
@@ -67,13 +67,13 @@ async def on_a_league(url: str, body: Body) -> Any:
     async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
         await database[Collection.SAISONS].insert_one(documents.saison_document(SAISON_ID, "active"))
         await database[Collection.SCHIEDSRICHTER].insert_one(referee_document())
-        await invite_schiedsrichter(
+        await resend_confirmation(
             schiedsrichter_id=SCHIEDSRICHTER_OID,
             schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
             outbox_collection=database[Collection.OUTBOX],
             db=client,
             today=TODAY,
-            now=MAIL_NOW,
+            germany_now=MAIL_NOW,
         )
         (mail,) = await drained(database, client)
         await post_confirmation(
@@ -113,7 +113,7 @@ async def save(database: AsyncDatabase, client: AsyncMongoClient, *, email: str)
         outbox_collection=database[Collection.OUTBOX],
         db=client,
         today=TODAY,
-        now=MAIL_NOW,
+        germany_now=MAIL_NOW,
     )
 
 

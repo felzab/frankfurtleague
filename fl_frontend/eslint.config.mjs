@@ -521,9 +521,8 @@ const SOURCE_BANS = [
   ),
   syntaxBan(TRANSITION_REWRAP, SOURCE),
   syntaxBan(
-    // A constant handed to a call inside a class list, `labelBadge(TONE)`, is that call's argument rather than a
-    // class list, so only a constant the class list itself holds is refused, a branch or an interpolation of it
-    // included.
+    // A constant handed to a call inside a class list is that call's argument rather than a class list, so only a
+    // constant the class list itself holds is refused, a branch or an interpolation of it included.
     syntax(
       CLASS_LIST_SITES.map((site) => `${site} ${UNSUFFIXED_CONSTANT}:not(${site} CallExpression *)`).join(", "),
       "A class list held in a constant is named `*_CLASSES`: `better-tailwindcss/no-unknown-classes` finds one by that name alone.",

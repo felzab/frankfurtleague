@@ -1,8 +1,7 @@
 import functools
 from collections.abc import AsyncIterator, Awaitable, Callable, Mapping
 from contextlib import asynccontextmanager
-from http import HTTPStatus
-from typing import Any, Final, NamedTuple
+from typing import Annotated, Any, Final, NamedTuple
 
 import pymongo
 from fastapi import Depends, FastAPI, Request
@@ -12,11 +11,9 @@ from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import ConfigurationError, OperationFailure
 
-from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import MONGODB_URI_FILE, BackendConfig, get_app_config
 from app.core.constraints import apply_constraints
-from app.core.exceptions import APIError
 from app.core.logging import fl_logger
 
 
@@ -92,9 +89,8 @@ async def warn_about_the_grants(grants_collection: AsyncCollection) -> None:
 # it prints on a failure carry it.
 SERVER_SELECTION_TIMEOUT_MS = 15_000
 
-# The options of every client that reads or writes documents, the application's, the read-back's, the made-up seed's and
-# the tests': `standard` reads a stored UUID back as `uuid.UUID`, where the driver's default reads it as `Binary`, so a
-# client without it compares and serialises such a field differently from the app.
+# The options of every client that reads or writes documents: `standard` reads a stored UUID back as `uuid.UUID`, where
+# the driver's default reads it as `Binary`, so a client without it compares and serialises such a field differently.
 CLIENT_OPTIONS: Final[Mapping[str, Any]] = {"serverSelectionTimeoutMS": SERVER_SELECTION_TIMEOUT_MS, "uuidRepresentation": "standard"}
 
 
@@ -105,7 +101,7 @@ def new_client(uri: str, **options: Any) -> AsyncMongoClient:
 
 
 # The stop's last step, which must end before the kill. Compose's `stop_grace_period` gives the backend
-# 12 s from the signal; uvicorn spends up to 0.2 s before its graceful wait and up to 11 s in it
+# 62 s from the signal; uvicorn spends up to 0.2 s before its graceful wait and up to 61 s in it
 # (`--timeout-graceful-shutdown`), which leaves 0.8 s for this close and the process's exit. `close`
 # selects a server for its `endSessions`, and with no member answering that selection would otherwise
 # wait out the boot's 15 s above. Cutting it loses nothing: the sessions specification says "Drivers
@@ -138,18 +134,12 @@ async def lifespan(app: FastAPI):
 
         # Reapplied on every boot, and a failure refuses the start.
         try:
-            constraints = await apply_constraints(app.state.db_client[config.db_base_name])
-        except Exception:
-            fl_logger.critical("db.indexes_failed", exc_info=True)
+            indexes = await apply_constraints(app.state.db_client[config.db_base_name])
+        except RuntimeError as refusal:
+            # Its message is the whole fact, naming the collection, the index and the server's code, so no `exc_info`.
+            fl_logger.critical("db.indexes_failed", extra={"refusal": str(refusal)})
             raise
-        fl_logger.info(
-            "db.indexes_applied",
-            extra={
-                "unique_indexes": constraints.unique_indexes,
-                "support_indexes": constraints.support_indexes,
-                "ttl_indexes": constraints.ttl_indexes,
-            },
-        )
+        fl_logger.info("db.indexes_applied", extra={"indexes": indexes})
 
         await warn_about_the_grants(app.state.db_client[config.db_base_name][Collection.GRANTS])
 
@@ -168,28 +158,21 @@ async def lifespan(app: FastAPI):
                 await client.close()
 
 
-# What a 503 for an absent or unanswering database asks the caller to wait, in seconds.
-RETRY_AFTER: Final = {"Retry-After": "30"}
-
-
 async def get_db_client(request: Request) -> AsyncMongoClient:
-    if not hasattr(request.app.state, "db_client"):
-        raise APIError(HTTPStatus.SERVICE_UNAVAILABLE, Code.NO_DATABASE_CLIENT, headers=RETRY_AFTER)
+    # Always set: the lifespan sets it before it yields, and a boot that cannot reach the database ends instead.
     return request.app.state.db_client
 
 
 async def get_database(
-    request: Request,
-    config: BackendConfig = Depends(get_app_config),
+    client: Annotated[AsyncMongoClient, Depends(get_db_client)],
+    config: Annotated[BackendConfig, Depends(get_app_config)],
 ) -> AsyncDatabase:
     # The application's settings, not `get_config()`: reading the environment would resolve every
     # collection dependency against its database rather than the one the application was built with.
-    if not hasattr(request.app.state, "db_client"):
-        raise APIError(HTTPStatus.SERVICE_UNAVAILABLE, Code.NO_DATABASE_CLIENT, headers=RETRY_AFTER)
-    return request.app.state.db_client[config.db_base_name]
+    return client[config.db_base_name]
 
 
-async def get_snapshot_session(client: AsyncMongoClient = Depends(get_db_client)) -> AsyncIterator[AsyncClientSession]:
+async def get_snapshot_session(client: Annotated[AsyncMongoClient, Depends(get_db_client)]) -> AsyncIterator[AsyncClientSession]:
     """A session whose reads all see one moment, for an operation writing nothing that reads several times.
 
     The session alone rather than the client it came from, so such an operation holds no handle to write through.
@@ -203,7 +186,7 @@ async def get_snapshot_session(client: AsyncMongoClient = Depends(get_db_client)
 def collection_dependency(collection: Collection) -> Callable[..., Awaitable[AsyncCollection]]:
     """The one dependency per collection, the same object on every call, so an override and FastAPI's per-request cache both key on it."""
 
-    async def get_collection(db: AsyncDatabase = Depends(get_database)) -> AsyncCollection:
+    async def get_collection(db: Annotated[AsyncDatabase, Depends(get_database)]) -> AsyncCollection:
         return db[collection]
 
     return get_collection

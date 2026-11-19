@@ -1,6 +1,7 @@
+import { describe, expect, it } from "vitest";
+
 import { serveBackend } from "@/test-support/backend";
 import { signedInRequest } from "@/test-support/session";
-import { describe, expect, it } from "vitest";
 
 import type { FLSpielberichtSchiedsrichterResponse } from "@/core/generated/client/types";
 import type { Option } from "@/kit/OptionList";
@@ -51,7 +52,7 @@ const READ: FLSpielberichtSchiedsrichterResponse = {
 // which withhold 2027. Any other read, another fixture's report among them, fails the case.
 serveBackend(({ method, path }) => {
   if (method !== "GET") return undefined;
-  if (path === `/spielberichte/${SPIEL_ID}/bericht`) return READ;
+  if (path === `/spielberichte/spiele/${SPIEL_ID}`) return READ;
   if (path === "/saisons/frame") return { active_saison_id: null, saisons: [] };
   return undefined;
 });

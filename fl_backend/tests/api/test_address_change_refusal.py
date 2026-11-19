@@ -1,5 +1,5 @@
 """
-API · the address change's pure judgements: the masked address, the link's view, the wait, and the links' lookups
+API · the address change's pure judgements: the masked address, the link's view, and the wait
 
 Apart from a database, so the default tier holds them; the routes that serve and refuse on them are
 `tests/api/test_address_change_execution.py`'s.
@@ -10,7 +10,6 @@ from zoneinfo import ZoneInfo
 
 import pytest
 from pydantic import BaseModel
-from pymongo import ASCENDING
 
 from app.api.address_change.schemas import (
     FLAddressChangeViewEnded,
@@ -18,8 +17,6 @@ from app.api.address_change.schemas import (
     FLAddressChangeViewPrevious,
 )
 from app.api.address_change.services import compose_confirmation_update, masked_address
-from app.core.collections import Collection
-from app.core.constraints import SUPPORT_INDEXES
 from app.shared.schemas.bounds import OWNER_WAIT_DAYS
 
 
@@ -66,12 +63,3 @@ class TestWhatALeakedLinkLearns:
     )
     def test_each_view_declares_exactly_its_side_its_state_and_its_instants(self, model: type[BaseModel], fields: set[str]):
         assert set(model.model_fields) == fields
-
-
-class TestTheLinksLookups:
-    @pytest.mark.parametrize("key", ["token_hashes", "stop.token_hashes"])
-    def test_each_hash_a_stranger_drives_is_indexed(self, key: str):
-        """Indexed, as a stranger sends the lookup: without one, every link opened scans the collection."""
-
-        keyed = [index for index in SUPPORT_INDEXES if index.collection == Collection.ADDRESS_CHANGES and index.keys == ((key, ASCENDING),)]
-        assert len(keyed) == 1

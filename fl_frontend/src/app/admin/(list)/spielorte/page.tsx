@@ -1,10 +1,9 @@
-import { ListPage } from "@/kit/ListPage";
-import { ACTIVE_CHIP, RETIRED_CHIP } from "@/kit/stateChips";
-
 import { COPY } from "@/core/copy";
 import { formatEuro } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { getSpielorte } from "@/features/spielorte/queries";
+import { ListPage } from "@/kit/ListPage";
+import { ACTIVE_CHIP, RETIRED_CHIP } from "@/kit/stateChips";
 import { pageMetadata } from "@/shared/utils/metadata";
 
 import { createSpielort } from "../../createSpielort";
@@ -59,8 +58,8 @@ const HEAD: TableHead = {
 };
 
 async function readSpielorte() {
-  // Retired included: the list is the one way into a retired venue's page, whose danger box brings it back.
-  const { spielorte } = await getSpielorte({ include_inactive: true });
+  // Retired ones among them: the list is the one way into a retired venue's page, whose danger box brings it back.
+  const { spielorte } = await getSpielorte();
   return {
     table: {
       label: ROUTES.adminSpielorte.title,

@@ -1,21 +1,22 @@
 import re
 import secrets
 import time
+from collections.abc import Sequence
 from contextvars import ContextVar
 from dataclasses import dataclass
-from typing import Final
+from typing import Any, Final
 
 import pymongo
 from fastapi import FastAPI
+from fastapi.routing import APIRoute, RouteContext, iter_route_contexts
 from starlette.requests import Request
+from starlette.routing import BaseRoute, Match
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
-from app.core.config import API_VERSION
 from app.core.logging import fl_logger, trace_id_var
 
-# W3C Trace Context, version 00 alone: a malformed header is attacker-chosen log text. Anchored
-# as the frontend's mirror is, with `\A` and `\Z`: `$` admits a trailing newline onto a line.
-TRACEPARENT = re.compile(r"\A00-([0-9a-f]{32})-([0-9a-f]{16})-[0-9a-f]{2}\Z")
+# W3C Trace Context, version 00 alone: a malformed header is attacker-chosen log text.
+TRACEPARENT = re.compile(r"00-([0-9a-f]{32})-([0-9a-f]{16})-[0-9a-f]{2}")
 # Each is invalid by the standard, and a validator admitting one hands every request the same id.
 ZERO_TRACE_ID = "0" * 32
 ZERO_PARENT_ID = "0" * 16
@@ -23,25 +24,42 @@ ZERO_PARENT_ID = "0" * 16
 # The two probes, whose answers would outnumber every other line: Docker's healthcheck asks the first
 # every 30 seconds, a monitor outside asks the second on a schedule of its own, and the edge logs
 # every request from outside. A failed answer is still logged: it marks when the probe began failing.
-PROBE_PATHS: Final = frozenset({f"/api/v{API_VERSION}/system/is_live", f"/api/v{API_VERSION}/system/is_ready"})
+PROBE_PATHS: Final = frozenset({"/api/system/is_live", "/api/system/is_ready"})
 
 # Under the frontend's fetch timeout by what the page's clock counts and this one cannot: the hop
 # in, the queue before this runs, the answer's way back.
 REQUEST_DEADLINE_S: Final = 10.0
 
+# An hourly pass's operation, which takes its rows one at a time until it has none left or `PASS_DEADLINE_S` cuts it.
+# Stated as an OpenAPI specification extension, as `SAFE` is, so the frontend's generated client sends such a call
+# under the bound that outlasts this deadline. A pass outrunning it finishes in the hours after.
+PASS: Final[dict[str, Any]] = {"x-pass": True}
+(_PASS_KEY,) = PASS
+
+# The longest a deploy should wait on a pass the stop met, which uvicorn's graceful wait and the backend's stop grace
+# outlast; not a measured count. The code admits thousands of pupils due together, well over an hour of one erasure
+# after another, so no wait a deploy can take covers the largest pass.
+PASS_DEADLINE_S: Final = 60.0
+
+
+def pass_routes(routes: Sequence[BaseRoute]) -> list[RouteContext]:
+    """Each operation marked `x-pass`, as the router serves it: under the prefix it was included with, with its own pattern.
+
+    Kept only where the published document lists the operation, whose `x-pass` FastAPI copies from this same
+    `openapi_extra`: the frontend's client is generated from that document, so the two halves of the bound cannot name
+    different operations.
+    """
+
+    return [
+        context
+        for context in iter_route_contexts(routes)
+        if isinstance(context.original_route, APIRoute) and context.include_in_schema and (context.openapi_extra or {}).get(_PASS_KEY) is True
+    ]
+
 
 @dataclass
 class RequestDeadline:
-    """Where the request's deadline falls, which pymongo holds and publishes no getter for, and what its aborts spent past it.
-
-    The aborts' grace (`ABORT_GRACE_S`) is the time the request's aborts may
-    run past `at`, all of them together, charged after each abort: the first abort past the deadline
-    gets the whole grace, and each later one what the earlier ones left. Never time counted from `at`:
-    the request reaches an abort only when its next database operation meets the deadline, however
-    long after it, and every moment between would come out of the abort that frees the transaction's
-    documents. Never a grace apiece either: a loop of cut transactions would wait one out per
-    transaction.
-    """
+    """Where the request's deadline falls, which pymongo holds and publishes no getter for, and what its aborts spent past it."""
 
     at: float
     aborting_s: float = 0.0
@@ -73,7 +91,6 @@ def record_error_code(code: str) -> None:
 def resolve_trace_id(header_value: str | None) -> str:
     """The incoming `traceparent`'s trace id when the header is well-formed, a freshly minted one otherwise."""
     if header_value is not None:
-        # `fullmatch` besides the pattern's own anchors, so neither alone is the guard.
         match = TRACEPARENT.fullmatch(header_value)
         if match and match.group(1) != ZERO_TRACE_ID and match.group(2) != ZERO_PARENT_ID:
             return match.group(1)
@@ -85,8 +102,21 @@ def resolve_trace_id(header_value: str | None) -> str:
 class TraceContextMiddleware:
     """Binds the trace id to every request context and writes the request's one access line."""
 
-    def __init__(self, app: ASGIApp) -> None:
+    def __init__(self, app: ASGIApp, *, passes: Sequence[RouteContext] = ()) -> None:
         self.app = app
+        self.passes = passes
+
+    def deadline_s(self, scope: Scope) -> float:
+        """The request's deadline: a pass's own, or every other request's.
+
+        Chosen here, before the routing: `pymongo.timeout` entered inside this one only narrows it.
+        """
+
+        # Matched as the router matches: the route's own convertors, its methods, and the path past any `root_path`.
+        if any(context.matches(scope)[0] is Match.FULL for context in self.passes):
+            return PASS_DEADLINE_S
+
+        return REQUEST_DEADLINE_S
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] != "http":
@@ -98,7 +128,8 @@ class TraceContextMiddleware:
         answer = _Answer()
         answer_token = answer_var.set(answer)
         started = time.perf_counter()
-        deadline_token = request_deadline_var.set(RequestDeadline(time.monotonic() + REQUEST_DEADLINE_S))
+        deadline_s = self.deadline_s(scope)
+        deadline_token = request_deadline_var.set(RequestDeadline(time.monotonic() + deadline_s))
 
         status: int | None = None
 
@@ -114,7 +145,7 @@ class TraceContextMiddleware:
             # A deadline, not the client's `timeoutMS`: `with_transaction` retries a transient failure,
             # an unreachable server's included, for 120 s, and a deadline is the one limit its loop
             # checks sooner.
-            with pymongo.timeout(REQUEST_DEADLINE_S):
+            with pymongo.timeout(deadline_s):
                 await self.app(scope, receive, send_noting_status)
         except Exception:
             # Reached by every crash, which Starlette answers and raises again for the server to log;
@@ -142,9 +173,6 @@ class TraceContextMiddleware:
         fl_logger.info(
             "http.answered",
             extra={
-                # Explicit as well as filter-stamped, so a handler without `TraceContextFilter`
-                # still reads the request's id on this record.
-                "trace_id": trace_id_var.get(),
                 "method": request.method,
                 "path": path,
                 "status": status,
@@ -161,5 +189,6 @@ class TracedApp(FastAPI):
     """
 
     def build_middleware_stack(self) -> ASGIApp:
-        # The method FastAPI itself overrides to place a layer Starlette's builder has no slot for.
-        return TraceContextMiddleware(super().build_middleware_stack())
+        # The method FastAPI itself overrides to place a layer Starlette's builder has no slot for. Built at the first
+        # call, the lifespan's included, once every route is mounted, so the walk meets every pass.
+        return TraceContextMiddleware(super().build_middleware_stack(), passes=pass_routes(self.routes))

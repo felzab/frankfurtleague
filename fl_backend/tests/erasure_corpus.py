@@ -19,7 +19,6 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.registrierungen.services import compose_decline_update
 from app.core.collections import Collection
-from app.core.config import API_VERSION
 from app.shared.tokens import hash_token
 from tests import documents
 from tests.config import ADMIN_KEY
@@ -47,7 +46,7 @@ from tests.documents import (
 from tests.erasure import erased
 from tests.session_headers import StampedHeaders
 
-PATH = f"/api/v{API_VERSION}/identity/account/erasure"
+PATH = "/api/identity/self/erasure"
 
 # A century ahead of the real clock: the TTL monitor deletes an expired tombstone, request or day's count at its next
 # pass, under a case reading it back. Every seeded day moves with it.
@@ -83,7 +82,7 @@ THEIR_VALUES = (
 HOME_TEAM_OID = ObjectId("6890a1b2c3d4e5f607b00001")
 OTHER_TEAM_OID = ObjectId("6890a1b2c3d4e5f607b00002")
 PUPIL_OID = ObjectId("6890a1b2c3d4e5f607b00011")
-THEIR_SQUAD_ROW_OID = ObjectId("6890a1b2c3d4e5f607b00013")
+THEIR_KADER_ROW_OID = ObjectId("6890a1b2c3d4e5f607b00013")
 OTHER_PUPIL_OID = ObjectId("6890a1b2c3d4e5f607b00012")
 REFEREE_OID = ObjectId("6890a1b2c3d4e5f607b00021")
 OTHER_REFEREE_OID = ObjectId("6890a1b2c3d4e5f607b00022")
@@ -234,7 +233,7 @@ async def a_person_holding_everything(database: AsyncDatabase) -> None:
             kontakte=kontakte_document(
                 ansprechperson=their_seat(),
                 stellvertretung=kontaktperson_document("Quillhilde", confirmed_at="2126-03-21"),
-                # A day of its own: the journal's seat entry is read from the person's slot, never the row's first confirmed one.
+                # A day of its own: the journal's seat entry is read from the person's seat, never the row's first confirmed one.
                 trainer=kontaktperson_document("Bramblewick", confirmed_at="2126-03-19"),
             ),
         )
@@ -274,7 +273,7 @@ async def a_person_holding_everything(database: AsyncDatabase) -> None:
     )
     await database[Collection.SAISON_SPIELER].insert_many(
         [
-            saison_spieler_document(PUPIL_OID, SAISON_ID, HOME_TEAM_OID, _id=THEIR_SQUAD_ROW_OID, nummer="7"),
+            saison_spieler_document(PUPIL_OID, SAISON_ID, HOME_TEAM_OID, _id=THEIR_KADER_ROW_OID, nummer="7"),
             saison_spieler_document(OTHER_PUPIL_OID, SAISON_ID, HOME_TEAM_OID, nummer="8"),
         ]
     )
@@ -356,6 +355,7 @@ def a_mail(kind: str, *, to: str) -> dict[str, Any]:
         "secret": None,
         "reference": None,
         "link": None,
+        "team": None,
         "state": "sent",
         # Ahead of the erasure, whose own rows carry its `now` and stand on no line.
         "recorded_at": NOW - timedelta(days=1),
@@ -365,7 +365,7 @@ def a_mail(kind: str, *, to: str) -> dict[str, Any]:
         "lease": None,
         "leased_until": None,
         "attempts": 1,
-        "message_id": None,
+        "delivery_reason": None,
         "delivery": None,
     }
 

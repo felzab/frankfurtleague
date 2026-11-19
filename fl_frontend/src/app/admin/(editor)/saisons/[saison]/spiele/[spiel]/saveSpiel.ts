@@ -145,8 +145,7 @@ const OWN_WORDS = [
 ] as const;
 
 /** The other fixtures a write moved or would move, each once, in their numbers' order. */
-const numbersOf = (entries: readonly { spiel_nr: number }[]) =>
-  [...new Set(entries.map(({ spiel_nr }) => spiel_nr))].toSorted((first, second) => first - second);
+const numbersOf = (numbers: readonly number[]) => [...new Set(numbers)].toSorted((first, second) => first - second);
 
 /** The fixture as stored, read for the fields the editor does not show, which the wholesale write sends as stored. */
 async function sending(id: string, changes: Changes): Promise<ActionAnswer<never> | Omit<FLPatchSpielDataPayload, "version">> {
@@ -162,12 +161,12 @@ async function sending(id: string, changes: Changes): Promise<ActionAnswer<never
  * shown and an unchanged save is never asked twice. A save that only mails asks nothing.
  */
 function questionOf(report: FLPatchSpielDataResponse): SaveQuestion | null {
-  const voided = report.voided_results;
+  const voided = report.voided_ergebnisse;
   if (voided.length === 0) return null;
   const mailed = (report.recipients ?? []).map(({ name }) => name).toSorted((one, other) => one.localeCompare(other, "de"));
   return {
     subject: COPY.admin.spiel.ergebnis,
-    consequence: COPY.admin.spiel.voids(numbersOf(voided)),
+    consequence: COPY.admin.spiel.voids(numbersOf(voided.map(({ spiel_nr }) => spiel_nr))),
     ...(mailed.length === 0 ? {} : { facts: [{ label: COPY.admin.facts.mailTo, value: { record: formatList(mailed) } }] }),
     confirm: JSON.stringify({ voided, mailed }),
   };
@@ -203,7 +202,7 @@ export const saveSpiel = action({
     if (question !== null && question.confirm !== confirm) return { ok: false, ask: question };
 
     // The write deletes only the results confirmed, refusing where its own transaction finds others to delete.
-    const confirmed = { ...sent, voided_results: report.voided_results };
+    const confirmed = { ...sent, voided_ergebnisse: report.voided_ergebnisse };
     const written = await spielePatchSpiel(id, confirmed, adoptsBericht === null ? undefined : { adopts_bericht: adoptsBericht });
 
     // The other fixtures the write changed: a later round's occupant or result, or a side it released on the same

@@ -1,11 +1,10 @@
-import { AccountList, AccountPage } from "@/kit/AccountPage";
-import { Callout } from "@/kit/Callout";
-
 import { rolesOf } from "@/core/roles";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { requireAccountSession } from "@/features/account/account";
 import { getAccountEinwilligungen } from "@/features/account/queries";
+import { AccountList, AccountPage } from "@/kit/AccountPage";
+import { Callout } from "@/kit/Callout";
 import { pageMetadata } from "@/shared/utils/metadata";
 
 import { ACCOUNT_ENTRIES } from "../entries";

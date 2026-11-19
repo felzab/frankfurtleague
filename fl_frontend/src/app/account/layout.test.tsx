@@ -1,15 +1,15 @@
 // @vitest-environment jsdom
 import { Suspense } from "react";
 
-import { serveBackend } from "@/test-support/backend";
-import { renderUnderNext } from "@/test-support/nextContexts";
-import { signedInRequest } from "@/test-support/session";
-import { seat } from "@/test-support/subjectFixtures";
 import { act, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
+import { serveBackend } from "@/test-support/backend";
+import { renderUnderNext } from "@/test-support/nextContexts";
+import { signedInRequest } from "@/test-support/session";
+import { seat } from "@/test-support/subjectFixtures";
 
 // No answer of its own: the frame reads nothing beyond the session's lookup, so any other request fails the case.
 serveBackend();

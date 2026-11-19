@@ -8,8 +8,6 @@ from pymongo.asynchronous.database import AsyncDatabase
 from app.api.saisons.public_router import get_teams as get_saison_teams
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.spiele.crud import advance_bracket_winners
-from app.api.teams.public_router import get_team
-from app.api.teams.schemas import FLTeamSingleFilterParams
 from app.api.teams.services import build_team_pipeline
 from app.core.collections import Collection
 from tests import documents
@@ -161,7 +159,7 @@ def played_group(saison_id: str) -> list[dict[str, Any]]:
 
 
 @pytest.mark.db
-class TestTheBracketPlacesTheClubsTheTableRanks:
+class TestTheBracketPlacesTheTeamsTheTableRanks:
     """Through the save's own resolution, over a season holding a club that left the league."""
 
     @pytest.mark.parametrize(
@@ -212,52 +210,14 @@ class TestTheBracketPlacesTheClubsTheTableRanks:
 
 
 @pytest.mark.db
-class TestTheTeamReadCountsTheLeagueAlone:
-    async def test_a_read_naming_no_scope_answers_the_group_phase_figures(self, mongo_replica_set_url: str):
-        """The site sends no scope, so a default counting the knockout would put a cup result into the club's league figures."""
-
-        async with a_clean_database(mongo_replica_set_url, BRACKET_DATABASE_NAME, constraints=True) as (_, database):
-            await database[Collection.SAISONS].insert_one(saison_document())
-            await database[Collection.TEAMS].insert_many(
-                [team_document(key, shorthand, inactive_since=None) for key, shorthand in SHORTHANDS.items()]
-            )
-            await database[Collection.SAISON_TEAMS].insert_many([junction_row(key, shorthand) for key, shorthand in SHORTHANDS.items()])
-            group, finale = played_group(SAISON)[:3], played_group(SAISON)[3]
-            # Helmholtz wins the Finale, a result the group phase must not count.
-            played_finale = {**finale, "team1": side("Helmholtz", 3), "team2": side("Goethe", 0), "ergebnis": "3:0"}
-            await database[Collection.SPIELE].insert_many([*group, played_finale])
-
-            async def statistik_of(**scope: Any) -> Any:
-                filters = FLTeamSingleFilterParams(saison_id=SAISON, **scope)
-                answered = await get_team(
-                    team_id=TEAM_OIDS["Helmholtz"],
-                    teams_collection=database[Collection.TEAMS],
-                    saisons_collection=database[Collection.SAISONS],
-                    filters=filters,
-                )
-                return answered.team.statistik
-
-            figures = {
-                "named by no caller": await statistik_of(),
-                "gruppenphase": await statistik_of(statistik_scope="gruppenphase"),
-                "total": await statistik_of(statistik_scope="total"),
-            }
-
-        # The premise: the Finale counts in the total, or the default could not be told from it.
-        assert figures["total"] != figures["gruppenphase"]
-        assert figures["named by no caller"] == figures["gruppenphase"]
-
-
-@pytest.mark.db
 class TestTheBaseTierReadsWithholdTheJunctionsContactRecords:
-    """Three people's email, phone number and date of birth sit on the junction row, and both base-tier team reads join it."""
+    """Three people's email, phone number and date of birth sit on the junction row, and the season's team list joins it."""
 
     async def test_the_aggregation_carries_none_of_it_back(self, seeded_url: str):
         """The RAW documents, before any model sees them: what the driver returned is what a leak would have to travel in."""
 
         async def body(database: AsyncDatabase) -> Any:
-            rules = FLSaisonRules.model_validate(saison_document()["rules"])
-            pipeline = build_team_pipeline(saison_id=SAISON, rules=rules)
+            pipeline = build_team_pipeline(saison_id=SAISON)
             stored = await database[Collection.SAISON_TEAMS].find_one({"team_id": TEAM_OIDS["Helmholtz"]})
 
             return stored, await (await database[Collection.TEAMS].aggregate(pipeline)).to_list(length=None)
@@ -272,25 +232,8 @@ class TestTheBaseTierReadsWithholdTheJunctionsContactRecords:
             assert "kontakte" not in row
             assert KONTAKT_PHONE not in repr(row)
 
-    async def test_the_season_s_club_list_serves_none_of_it(self, seeded_url: str):
+    async def test_the_season_s_team_list_serves_none_of_it(self, seeded_url: str):
         response = await on_a_league(seeded_url, read_saison_teams)
 
         assert response.teams
         assert KONTAKT_EMAIL not in response.model_dump_json()
-
-    async def test_the_single_team_endpoint_serves_none_of_it_either(self, seeded_url: str):
-        """The other public caller of the same pipeline, and the one an anonymous visitor reaches with an id in hand."""
-
-        async def body(database: AsyncDatabase) -> Any:
-            return await get_team(
-                team_id=TEAM_OIDS["Helmholtz"],
-                teams_collection=database[Collection.TEAMS],
-                saisons_collection=database[Collection.SAISONS],
-                filters=FLTeamSingleFilterParams(saison_id=SAISON),
-            )
-
-        response = await on_a_league(seeded_url, body)
-
-        assert response.team.name == "Helmholtz"
-        assert KONTAKT_EMAIL not in response.model_dump_json()
-        assert KONTAKT_BIRTH_DATE not in response.model_dump_json()

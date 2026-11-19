@@ -85,6 +85,7 @@ def registrierung_document(**overrides: Any) -> dict[str, Any]:
         "einwilligung": None,
         "confirmation": {**compose_confirmation(today="2026-03-26", deadline=TOMORROW, mailed=True), "token_hashes": [TOKEN_HASH]},
         "decision": None,
+        "idempotency_key": str(REGISTRIERUNG_OID),
         **overrides,
     }
 
@@ -167,11 +168,11 @@ class TestWhatAConfirmationWrites:
 
     async def test_the_date_and_the_whole_record_land_together(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            response = await answer(database, client, RAW)
+            await answer(database, client, RAW)
 
-            return response, await stored(database)
+            return await stored(database)
 
-        response, document = await on_a_league(mongo_replica_set_url, body)
+        document = await on_a_league(mongo_replica_set_url, body)
 
         assert document["birth_date"] == AT_THE_FLOOR
         assert document["einwilligung"] == {
@@ -186,12 +187,6 @@ class TestWhatAConfirmationWrites:
         }
         # NOT nulled on use: single use is the stamp's doing, so the reopened link can show its state.
         assert document["confirmation"]["token_hashes"] == [TOKEN_HASH]
-        assert (response.outcome, response.birth_date, response.scope, response.media) == (
-            "confirmed",
-            AT_THE_FLOOR,
-            "kader_public",
-            False,
-        )
 
 
 class TestTheLinkIsSpentByTheStamp:
@@ -226,7 +221,7 @@ class TestTheLinkIsSpentByTheStamp:
         code, view, document = await on_a_league(mongo_replica_set_url, body)
 
         assert code == Code.CONFIRMATION_AGE
-        assert (view.state, view.deadline, view.answered_at) == ("valid", TOMORROW, None)
+        assert (view.state, view.deadline) == ("valid", TOMORROW)
         assert document == registrierung_document()
 
     async def test_a_link_past_its_deadline_is_refused_before_the_stamp_is_judged(self, mongo_replica_set_url: str):
@@ -245,7 +240,7 @@ class TestTheLinkIsSpentByTheStamp:
     async def test_a_decided_registration_takes_no_answer_either(self, mongo_replica_set_url: str):
         """One code for both: a pupil whose registration was declined while their link stood open is told the link is over, not why."""
 
-        decision = {"made_at": YESTERDAY, "reason": "kein Platz"}
+        decision = {"made_at": YESTERDAY, "reason": "other_person"}
         declined = registrierung_document(status="declined", decision=decision)
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
@@ -254,19 +249,19 @@ class TestTheLinkIsSpentByTheStamp:
         assert await on_a_league(mongo_replica_set_url, body, registrierungen=[declined]) == Code.LINK_EXPIRED
 
     @pytest.mark.parametrize("route", ["austritt", "replacement"])
-    async def test_a_departed_clubs_link_reads_over_and_takes_no_answer(self, mongo_replica_set_url: str, route: str):
+    async def test_a_departed_teams_link_reads_over_and_takes_no_answer(self, mongo_replica_set_url: str, route: str):
         """Its club takes no one in, so the pupil's answer would stand on a registration nobody can ever admit.
 
         Either way out: a replacement hands the club's row to another club, so it leaves no record to read, only no row.
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            club_row = {"saison_id": SAISON_ID, "team_id": TEAM_OID}
+            junction_row = {"saison_id": SAISON_ID, "team_id": TEAM_OID}
             if route == "austritt":
                 austritt = {"type": "rueckzug", "reason": "Schulwechsel", "date": YESTERDAY}
-                await database[Collection.SAISON_TEAMS].update_one(club_row, {"$set": {"austritt": austritt}})
+                await database[Collection.SAISON_TEAMS].update_one(junction_row, {"$set": {"austritt": austritt}})
             else:
-                await database[Collection.SAISON_TEAMS].delete_one(club_row)
+                await database[Collection.SAISON_TEAMS].delete_one(junction_row)
             view = await read_view(database, RAW)
             return view.state, await refused_code(answer(database, client, RAW)), await stored(database)
 

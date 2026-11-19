@@ -1,4 +1,4 @@
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, Field
 
 from app.api.schiedsrichter.schemas import FLSchiedsrichterSelfPerson
 from app.api.spieler.schemas import FLSpielerSelfPerson
@@ -10,9 +10,9 @@ from app.shared.schemas.literals import (
     FLAddressChangeWay,
     FLEinwilligungScope,
     FLKontaktKenntnisnahmeScope,
-    FLKontaktRolle,
+    FLKontaktSeat,
 )
-from app.shared.schemas.responses import BaseAPIResponse
+from app.shared.schemas.responses import BasePayload, BaseReadModel
 
 
 class FLAccountEinwilligung(BaseModel):
@@ -44,10 +44,21 @@ class FLAccountSchiedsrichterEinwilligung(FLSchiedsrichterSelfPerson):
     media_offered: bool
 
 
-class FLAccountSeatEinwilligung(BaseModel):
-    """One team season on which the address holds a confirmed contact seat, with its WhatsApp and media choices.
+class FLAccountSeatPerson(BaseModel):
+    """What one held seat stores of its person, the address being the account's own."""
 
-    Per season row and not per slot: one person holding two of a row's slots answers one choice for both.
+    seat: FLKontaktSeat
+    first_name: str
+    last_name: str
+    phone: str
+    # Null until the person typed it on their own confirmation page.
+    birth_date: CustomOptionalDateString
+
+
+class FLAccountSeatEinwilligung(BaseModel):
+    """One team season on which the address holds a confirmed contact seat: its WhatsApp and media choices, and what each held seat stores.
+
+    Per season row and not per seat: one person holding two of a row's seats answers one choice for both.
     """
 
     team_id: CustomObjectId
@@ -55,11 +66,13 @@ class FLAccountSeatEinwilligung(BaseModel):
     team_name: str
     saison_id: str
     # Never empty: an entry exists for a held seat alone, and the published floor is what the page parses against.
-    rollen: list[FLKontaktRolle] = Field(min_length=1)
-    # Each on where any held slot's is, so a withdrawal stays offered.
+    seats: list[FLKontaktSeat] = Field(min_length=1)
+    # One per held seat, in `seats`' order: two seats may store one person typed two ways.
+    persons: list[FLAccountSeatPerson] = Field(min_length=1)
+    # Each on where any held seat's is, so a withdrawal stays offered.
     scope: FLKontaktKenntnisnahmeScope
     media: bool
-    # Over every held slot.
+    # Over every held seat.
     evidence_state: FLEinwilligungState
     media_offered: bool
     givable: bool
@@ -75,7 +88,8 @@ class FLAccountBewerbungSeatEinwilligung(BaseModel):
     # The school as the application names it, or the picked club's own name today.
     schule: str
     saison_id: str
-    rollen: list[FLKontaktRolle] = Field(min_length=1)
+    seats: list[FLKontaktSeat] = Field(min_length=1)
+    persons: list[FLAccountSeatPerson] = Field(min_length=1)
     scope: FLKontaktKenntnisnahmeScope
     media: bool
     evidence_state: FLEinwilligungState
@@ -112,28 +126,17 @@ class FLAccountAddressChangeOpen(BaseModel):
     expired: bool
 
 
-class FLAccountAddressChangeResponse(BaseAPIResponse):
+class FLAccountAddressChangeResponse(BaseReadModel):
     """The change pending on the signed-in address."""
 
     open: FLAccountAddressChangeOpen | None
 
 
-class FLAccountAddressChangePayload(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
+class FLAccountAddressChangePayload(BasePayload):
     email: CustomEmail
 
 
-class FLAccountAddressChangeMintResponse(BaseAPIResponse):
-    """The change started, whose link reaches the address on file by mail alone."""
-
-    id: CustomObjectId
-    valid_until: FLUtcInstant
-    # The change's new address, which that link asks the address on file about.
-    email: str
-
-
-class FLAccountEinwilligungenResponse(BaseAPIResponse):
+class FLAccountEinwilligungenResponse(BaseReadModel):
     """Every confirmed consent record the signed-in address holds, empty where it holds none.
 
     The referees a list where the pupil is one: `spieler.email` is unique, a referee's typed address is not.

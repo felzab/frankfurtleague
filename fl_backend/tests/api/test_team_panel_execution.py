@@ -16,7 +16,6 @@ from bson import ObjectId
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.core.collections import Collection
-from app.core.config import API_VERSION
 from tests import documents
 from tests.app_client import app_client, app_under_test
 from tests.config import ADMIN_KEY
@@ -38,8 +37,8 @@ NOW = datetime(2026, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
 TEAM = ObjectId("6890a1b2c3d4e5f607990001")
 OTHER = ObjectId("6890a1b2c3d4e5f607990002")
 # Two clubs out of this season from a day before their fixture with the team, one fielded at home and one away.
-LEFT_HOME_CLUB = ObjectId("6890a1b2c3d4e5f607990003")
-LEFT_AWAY_CLUB = ObjectId("6890a1b2c3d4e5f607990004")
+LEFT_HOME_TEAM = ObjectId("6890a1b2c3d4e5f607990003")
+LEFT_AWAY_TEAM = ObjectId("6890a1b2c3d4e5f607990004")
 SPIELTAG = ObjectId("6890a1b2c3d4e5f6079900a1")
 SPIELORT = ObjectId("6890a1b2c3d4e5f6079900b1")
 
@@ -89,8 +88,8 @@ OVERDUE = spiel(4, "2026-04-02", "12:00:00")
 UNDATED = spiel(6, None, None)
 MOVED = spiel(7, "2026-05-06")
 VALID = spiel(8, "2026-05-13")
-LEFT_HOME = spiel(9, "2026-05-20", home=LEFT_HOME_CLUB)
-LEFT_AWAY = spiel(10, "2026-05-24", away=LEFT_AWAY_CLUB)
+LEFT_HOME = spiel(9, "2026-05-20", home=LEFT_HOME_TEAM)
+LEFT_AWAY = spiel(10, "2026-05-24", away=LEFT_AWAY_TEAM)
 CALLED_OFF = spiel(11, "2026-05-27", sonderereignis="ausgefallen")
 SPIELE = [VORSCHLAG, DECLINED, AGREED, OVERDUE, EXPIRED, UNDATED, MOVED, VALID, LEFT_HOME, LEFT_AWAY, CALLED_OFF]
 EXIT = {"type": "rueckzug", "reason": "Schule zieht zurück", "date": "2026-05-01"}
@@ -102,8 +101,8 @@ def row(spiel_raw: Mapping[str, Any], team_id: ObjectId, **fields: Any) -> dict[
     )
 
 
-def declined(rolle: str, reason: str, date: str) -> dict[str, Any]:
-    return documents.kontakt_answer_document(rolle, reason=reason, vorschlag={"date": date, "time": "17:00:00"})
+def declined(seat: str, reason: str, date: str) -> dict[str, Any]:
+    return documents.kontakt_answer_document(seat, reason=reason, vorschlag={"date": date, "time": "17:00:00"})
 
 
 ROWS = [
@@ -111,9 +110,9 @@ ROWS = [
     row(VORSCHLAG, TEAM),
     row(VORSCHLAG, OTHER, answer=declined("trainer", OTHERS_REASON, "2026-04-16")),
     row(DECLINED, TEAM, answer=declined("ansprechperson", OWN_REASON, "2026-04-23")),
-    row(AGREED, TEAM, answer={"kind": "agreed", "at": TODAY, "by": {"kind": "kontakt", "rolle": "trainer"}, "vorschlag": None, "reason": None}),
+    row(AGREED, TEAM, answer={"kind": "agreed", "at": TODAY, "by": {"kind": "kontakt", "seat": "trainer"}, "vorschlag": None, "reason": None}),
     row(OVERDUE, TEAM, answer=declined("trainer", OWN_REASON, "2026-04-03"), closed={"reason": "discarded"}),
-    {**row(MOVED, TEAM), "ansetzung": {**row(MOVED, TEAM)["ansetzung"], "time": "16:00:00", "digest": "a-slot-left"}},
+    {**row(MOVED, TEAM), "ansetzung": {**row(MOVED, TEAM)["ansetzung"], "time": "16:00:00"}},
     row(VALID, TEAM),
     row(LEFT_HOME, TEAM),
     row(LEFT_AWAY, TEAM),
@@ -141,8 +140,8 @@ async def seed(database: AsyncDatabase) -> None:
         [
             documents.team_document(TEAM, "Zorbanax", "ZOX"),
             documents.team_document(OTHER, "Quillhilde", "QUX"),
-            documents.team_document(LEFT_HOME_CLUB, "Brackenmoor", "BRX"),
-            documents.team_document(LEFT_AWAY_CLUB, "Wraxlington", "WRX"),
+            documents.team_document(LEFT_HOME_TEAM, "Brackenmoor", "BRX"),
+            documents.team_document(LEFT_AWAY_TEAM, "Wraxlington", "WRX"),
         ]
     )
     await database[Collection.SAISON_TEAMS].insert_many(
@@ -155,8 +154,8 @@ async def seed(database: AsyncDatabase) -> None:
             documents.saison_team_document(SAISON_ID, OTHER, "Quillhilde", "QUX", kontakte=kontakte(trainer=seat("Otto"))),
             # The other club's exit from another season, which judges none of this season's rows.
             documents.saison_team_document(PAST_SAISON_ID, OTHER, "Quillhilde", "QUX", austritt={**EXIT, "date": "2025-06-01"}),
-            documents.saison_team_document(SAISON_ID, LEFT_HOME_CLUB, "Brackenmoor", "BRX", austritt=dict(EXIT)),
-            documents.saison_team_document(SAISON_ID, LEFT_AWAY_CLUB, "Wraxlington", "WRX", austritt=dict(EXIT)),
+            documents.saison_team_document(SAISON_ID, LEFT_HOME_TEAM, "Brackenmoor", "BRX", austritt=dict(EXIT)),
+            documents.saison_team_document(SAISON_ID, LEFT_AWAY_TEAM, "Wraxlington", "WRX", austritt=dict(EXIT)),
         ]
     )
     await database[Collection.SPIELTAGE].insert_one(documents.spieltag_document(SPIELTAG, SAISON_ID, 1, start="2026-03-01", end="2026-06-30"))
@@ -206,7 +205,7 @@ async def read(url: str, what: str, *, identifier: str = THEO, saison_id: str = 
         await seed(database)
         async with app_client(url, app=app_under_test(DATABASE_NAME), now=NOW) as http:
             response = await http.get(
-                f"/api/v{API_VERSION}/teams/{TEAM}/saisons/{saison_id}/self/{what}",
+                f"/api/teams/{TEAM}/saisons/{saison_id}/{what}",
                 headers=StampedHeaders(identifier, ADMIN_KEY, lane="person"),
             )
 
@@ -235,7 +234,7 @@ class TestEachReadAnswersTheTeamsSeatHoldersAlone:
 
         assert (status, served["error_code"]) == (403, "role_not_held")
 
-    async def test_no_address_telephone_birthdate_or_other_clubs_reason_at_any_depth(self, mongo_replica_set_url: str, what: str):
+    async def test_no_address_telephone_birthdate_or_other_teams_reason_at_any_depth(self, mongo_replica_set_url: str, what: str):
         """Over the serialised body, keys and values both, so a nested block cannot smuggle one in."""
 
         status, served = await read(mongo_replica_set_url, what)
@@ -252,7 +251,7 @@ class TestTheOverview:
         status, served = await read(mongo_replica_set_url, "overview")
 
         assert status == 200
-        assert (served["name"], served["full_name"], served["rollen"]) == ("Zorbanax", "Zorbanax-Schule", ["trainer"])
+        assert (served["shorthand"], served["full_name"]) == ("ZOX", "Zorbanax-Schule")
         # The date agreed, the discarded decline, the row about a slot left and the call-off ask nothing; the others by
         # their day.
         assert [
@@ -277,7 +276,7 @@ class TestTheOverview:
             (registrierung["first_name"], registrierung["position"], registrierung["stufe"], registrierung["admissible"])
             for registrierung in served["registrierungen"]
         ] == [("Pia", None, None, False), ("Ole", "Abwehr", "Q2", True)]
-        assert [(entry["rollen"], entry["name"], entry["confirmed"]) for entry in served["seats"]] == [
+        assert [(entry["seats"], entry["name"], entry["confirmed"]) for entry in served["seats"]] == [
             (["trainer"], "Theo Theo-Mustermann", True),
             (["ansprechperson"], "Anna Anna-Mustermann", False),
             (["stellvertretung"], None, False),

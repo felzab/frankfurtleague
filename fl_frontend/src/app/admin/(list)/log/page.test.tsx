@@ -1,10 +1,10 @@
-import { refusal, serveBackend } from "@/test-support/backend";
-import { signedInRequest } from "@/test-support/session";
 import { describe, expect, it, vi } from "vitest";
 
 import { byOptions } from "@/features/action-log/filters";
+import { refusal, serveBackend } from "@/test-support/backend";
+import { signedInRequest } from "@/test-support/session";
 
-import type { FLActionLogFilterPayload, FLActionLogListResponse } from "@/core/generated/client/types";
+import type { FLActionLogByOptionsResponse, FLActionLogFilterPayload, FLActionLogListResponse } from "@/core/generated/client/types";
 import type { ListMore, ListSearch } from "@/kit/ListTable";
 import type { TableBody } from "@/kit/Table";
 
@@ -14,8 +14,14 @@ const state = { answer: null as unknown };
 // A server function, which the page hands the list's „Mehr laden“ and a client reaches over the network: no case presses it.
 vi.mock("@/features/action-log/actions", () => ({ loadActionLog: () => Promise.resolve({ ok: true, value: { rows: [], cursor: null } }) }));
 
-// The log's read, through the real guard, query and generated call.
-const backend = serveBackend(({ method, path }) => (method === "POST" && path === "/action_log/view" ? state.answer : undefined));
+/** Who the log holds, which the „Wer“ filter offers. */
+const HELD: FLActionLogByOptionsResponse = { by_options: ["anna@example.net", "system"] };
+
+// The log's read and its options', through the real guard, query and generated call.
+const backend = serveBackend(({ method, path }) => {
+  if (method === "GET" && path === "/action_log/by_options") return HELD;
+  return method === "POST" && path === "/action_log/view" ? state.answer : undefined;
+});
 // An administrator's session, made by passkey, which the read's guard admits.
 signedInRequest();
 
@@ -23,7 +29,6 @@ const { default: ActionLogPage } = await import("./page");
 
 const answer = (overrides: Partial<FLActionLogListResponse>): FLActionLogListResponse => ({
   action_log: [],
-  by_options: ["anna@example.net", "system"],
   cursor: null,
   ...overrides,
 });
@@ -46,7 +51,7 @@ async function read(searchParams: Record<string, string | string[]>) {
 }
 
 /** The filters each read of the log posted, in the order the page sent them. */
-const askedFor = () => backend.sent.map(({ body }) => body as FLActionLogFilterPayload);
+const askedFor = () => backend.sent.flatMap(({ path, body }) => (path === "/action_log/view" ? [body as FLActionLogFilterPayload] : []));
 
 describe("the Protokoll's reads", () => {
   /* A next page read past the filters would run on with rows the page says it left out. */
@@ -55,6 +60,14 @@ describe("the Protokoll's reads", () => {
     const id = byOptions(["system"]).at(0)?.id ?? "";
     const { more } = await read({ by: id, type: "ban", time: "30-days" });
     expect(more.carry).toStrictEqual({ by: "system", type: "ban", time: "30-days" });
+  });
+
+  /* A read of the whole log ahead of the chosen actor's doubles what a filtered view costs, every row of it scanned. */
+  it("reads the log once for a chosen „Wer“, by the actor its option stands for", async () => {
+    state.answer = answer({});
+    const id = byOptions(["system"]).at(0)?.id ?? "";
+    await read({ by: id });
+    expect(askedFor().map(({ by }) => by)).toStrictEqual(["system"]);
   });
 
   /* The filter cannot show a value it does not offer, so honouring one would empty a list under a select reading „Alle“. */

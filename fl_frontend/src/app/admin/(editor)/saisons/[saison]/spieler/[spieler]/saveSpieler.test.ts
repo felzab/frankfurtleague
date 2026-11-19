@@ -1,14 +1,15 @@
-import { serveBackend } from "@/test-support/backend";
-import { signedInRequest } from "@/test-support/session";
 import { describe, expect, it } from "vitest";
 
-import type { FLPatchSpielerSaisonResponse, FLSpielerSaisonAdminResponse } from "@/core/generated/client/types";
+import { serveBackend } from "@/test-support/backend";
+import { signedInRequest } from "@/test-support/session";
+
+import type { FLSpielerSaisonAdminResponse, FLVersionResponse } from "@/core/generated/client/types";
 
 const SPIELER_ID = "64b000000000000000000002";
 const SAISON = "2027";
 
 /** The one address the editor's read and the save's write share. */
-const ENDPOINT = `/spieler/${SPIELER_ID}/saisons/${SAISON}/admin`;
+const ENDPOINT = `/spieler/${SPIELER_ID}/saisons/${SAISON}`;
 
 /** The player read again at a count newer than the editor's: someone saved since. */
 const STORED = {
@@ -20,7 +21,7 @@ const STORED = {
 /** The editor's read, behind the stored player. */
 const EDITOR_VERSION = 8;
 
-const WRITTEN: FLPatchSpielerSaisonResponse = { version: 11 };
+const WRITTEN: FLVersionResponse = { version: 11 };
 
 // The save reads the player again and writes it at the same address, so the real guard, query, generated call and
 // dispatch all run; anything else is unanswered and fails the case.

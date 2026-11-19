@@ -1,12 +1,12 @@
 from datetime import date, datetime
-from typing import get_args
+from typing import Final, get_args
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, Field
 
 from app.core.recording import FLAction, FLActionType
-from app.shared.schemas.bounds import ACTION_LOG_DAY_MAX, ACTION_LOG_DAY_MIN, ACTION_LOG_SEARCH_MAX_LENGTH, KONTAKT_EMAIL_MAX_LENGTH
+from app.shared.schemas.bounds import KONTAKT_EMAIL_MAX_LENGTH
 from app.shared.schemas.custom import CustomObjectId, FLUtcInstant
-from app.shared.schemas.responses import BaseAPIResponse
+from app.shared.schemas.responses import BasePayload, BaseReadModel
 
 
 class FLActionLogRecord(BaseModel):
@@ -23,10 +23,17 @@ class FLActionLogRecord(BaseModel):
     trace_id: str
 
 
-class FLActionLogFilterPayload(BaseModel):
-    """What the action log's read narrows by."""
+# The days the Protokoll's filters may name: wider than any row's, and each with a next midnight and a UTC instant that
+# `date` and BSON can hold, so a day past them is refused rather than overflowing into a 500.
+ACTION_LOG_DAY_MIN: Final = date(2000, 1, 1)
+ACTION_LOG_DAY_MAX: Final = date(2999, 12, 31)
 
-    model_config = ConfigDict(extra="forbid")
+# The longest word a row stores, an erasure's reference: a longer search matches nothing.
+ACTION_LOG_SEARCH_MAX_LENGTH: Final = 200
+
+
+class FLActionLogFilterPayload(BasePayload):
+    """What the action log's read narrows by."""
 
     # The last row of the page before.
     cursor: CustomObjectId | None = None
@@ -51,9 +58,12 @@ class FLActionLogEntry(BaseModel):
     count: int | None
 
 
-class FLActionLogListResponse(BaseAPIResponse):
+class FLActionLogListResponse(BaseReadModel):
     action_log: list[FLActionLogEntry]
     # Where the next page starts, null on the last.
     cursor: CustomObjectId | None
+
+
+class FLActionLogByOptionsResponse(BaseReadModel):
     # Every value `by` holds across the whole log, the who filter's options.
     by_options: list[str]

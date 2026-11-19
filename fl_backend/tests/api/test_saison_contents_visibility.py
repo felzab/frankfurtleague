@@ -7,7 +7,6 @@ from httpx2 import Response
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.core.collections import Collection
-from app.core.config import API_VERSION
 from tests import documents
 from tests.app_client import app_client, app_under_test
 from tests.config import BASE_AUTH
@@ -32,7 +31,7 @@ SPIELER_OID = ObjectId("6890a1b2c3d4e5f607250002")
 # The club's opponent in the archived season's one played match, which only that season's figures count.
 OPPONENT_OID = ObjectId("6890a1b2c3d4e5f607250003")
 
-PREFIX = f"/api/v{API_VERSION}"
+PREFIX = "/api"
 
 
 def an_id(kind: str, saison_id: str) -> ObjectId:
@@ -72,7 +71,7 @@ def spieler_document(spieler_id: ObjectId, first_name: str) -> dict[str, Any]:
     return documents.spieler_document(spieler_id, first_name, "Müller", einwilligung=published)
 
 
-def squad_row(saison_id: str) -> dict[str, Any]:
+def kader_row(saison_id: str) -> dict[str, Any]:
     return documents.saison_spieler_document(SPIELER_OID, saison_id, TEAM_OID, _id=an_id("4", saison_id), nummer="7", stufe="Q3")
 
 
@@ -112,7 +111,7 @@ async def seeded_league(mongo_replica_set_url: str) -> AsyncIterator[str]:
             ]
         )
         await database[Collection.SPIELER].insert_one(spieler_document(SPIELER_OID, "Maxim"))
-        await database[Collection.SAISON_SPIELER].insert_many([squad_row(saison_id) for saison_id in STATUS_OF])
+        await database[Collection.SAISON_SPIELER].insert_many([kader_row(saison_id) for saison_id in STATUS_OF])
 
     async with held_corpus(mongo_replica_set_url, DATABASE_NAME, seed):
         yield mongo_replica_set_url
@@ -185,7 +184,9 @@ class TestEveryReadScopedByASeasonResolvesIt:
 def test_the_inventory_is_read_off_the_app():
     """Not empty, so a security scheme or a parameter renamed past these filters cannot pass by matching nothing."""
 
-    assert {f"{PREFIX}/saisons/{{saison_id}}/spiele/{{spiel_id}}", f"{PREFIX}/spiele/{{spiel_id}}"} <= {path for path, _ in SEASON_SCOPED_READS}
+    assert {f"{PREFIX}/saisons/{{saison_id}}/spiele/{{spiel_id}}", f"{PREFIX}/saisons/{{saison_id}}/teams/{{team_id}}"} <= {
+        path for path, _ in SEASON_SCOPED_READS
+    }
 
 
 @pytest.mark.db

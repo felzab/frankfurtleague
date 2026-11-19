@@ -18,13 +18,11 @@ def record_collections(database: AsyncDatabase | Mapping[Collection, Any], **rep
 
 
 async def call_sign_in(database: AsyncDatabase, email: str, *, germany_now: datetime) -> FLSignInResponse:
-    """The sign-in's read of `email` outside a request, on the one snapshot a request reads it on."""
+    """The sign-in's read of `email` outside a request."""
 
-    async with database.client.start_session(snapshot=True) as session:
-        return await get_sign_in(
-            sign_in_data=FLSubjectPayload(email=email),
-            records=record_collections(database),
-            **wired(get_sign_in, database),
-            session=session,
-            germany_now=germany_now,
-        )
+    return await get_sign_in(
+        sign_in_data=FLSubjectPayload(email=email),
+        records=record_collections(database),
+        **wired(get_sign_in, database),
+        germany_now=germany_now,
+    )

@@ -7,7 +7,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import pymongo
-from pymongo import AsyncMongoClient
+from pymongo import AsyncMongoClient, IndexModel
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.uri_parser import parse_uri
 
@@ -35,16 +35,16 @@ _Key = tuple[tuple[tuple[str, int], ...], str]
 # defines, and the tier -- one worker of it, under `-n` -- runs in one process.
 _BUILT: dict[_Key, tuple[bool, Schema]] = {}
 
-# A module global for `_BUILT`'s reason. A client belongs to the loop it first ran on, and every async case and fixture
-# runs on the session's (`fl_backend/pyproject.toml :: asyncio_default_test_loop_scope`).
+# A module global, as `_BUILT` is, since the plain helpers read it. A client belongs to the loop it first ran on, and
+# every async case and fixture runs on the session's.
 _CLIENTS: dict[str, AsyncMongoClient] = {}
 
 # Bounds each close. A serial `pytest -m db` may have stopped the containers by the time the session's loop closes its
 # clients, so a close would otherwise wait pymongo's selection timeout per client.
 _CLOSE_TIMEOUT_S = 2.0
 
-# The longest a case waits on purpose: `tests/core/test_request_deadline.py`'s press waits out a whole request deadline,
-# and its case accepts an answer up to 10 s past it.
+# The longest a case waits on purpose: the request deadline's own case presses and waits out a whole deadline, and
+# accepts an answer up to 10 s past it.
 LONGEST_WAIT_S = REQUEST_DEADLINE_S + 10
 
 # MongoDB's default `transactionLifetimeLimitSeconds`, which the test servers keep
@@ -67,7 +67,7 @@ _UNFINISHED = (
     " with."
 )
 
-# Set while a case runs (`tests/conftest.py :: pytest_collection_modifyitems`): the loop time it is cut at.
+# Set while a case runs: the loop time it is cut at.
 _CASE: ContextVar[float | None] = ContextVar("_CASE", default=None)
 
 
@@ -96,7 +96,7 @@ async def bounded[T](work: Awaitable[T], *, what: str = "this", bound_s: float =
 
 
 async def bounded_case[T](case: Coroutine[Any, Any, T]) -> T:
-    """A case's body under the case's bound, as `tests/conftest.py :: pytest_collection_modifyitems` runs every async one."""
+    """A case's body under the case's bound, as the collection hook runs every async one."""
 
     token = _CASE.set(asyncio.get_running_loop().time() + CASE_BOUND_S)
     try:
@@ -174,11 +174,12 @@ def _expired_message(name: str, collection: str, key: str, found: Sequence[Mappi
 async def _expired_rows(database: AsyncDatabase) -> list[str]:
     """Each shipped TTL index's expired rows, as `_EXPIRED` words them."""
 
-    async def expired(collection: str, key: str, seconds: int) -> str | None:
-        found = await (await database[collection].aggregate(_expired_pipeline(key, seconds))).to_list(length=None)
+    async def expired(collection: str, ttl: IndexModel) -> str | None:
+        (key,) = ttl.document["key"]
+        found = await (await database[collection].aggregate(_expired_pipeline(key, ttl.document["expireAfterSeconds"]))).to_list(length=None)
         return _expired_message(database.name, collection, key, found)
 
-    return [message for message in await concurrently(*(expired(ttl.collection, ttl.key, ttl.seconds) for ttl in TTL_INDEXES)) if message]
+    return [message for message in await concurrently(*(expired(collection, ttl) for collection, ttl in TTL_INDEXES)) if message]
 
 
 async def _refused_records(client: AsyncMongoClient, name: str) -> str | None:

@@ -1,15 +1,14 @@
 import { notFound } from "next/navigation";
 
-import { filterValue } from "@/kit/filterValue";
-import { ListPage } from "@/kit/ListPage";
-import { NOT_SENT_CHIP, outOfPlayChip } from "@/kit/stateChips";
-
 import { COPY } from "@/core/copy";
 import { dayOf, formatDate } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { getBewerbungenOfSaison } from "@/features/bewerbungen/queries";
 import { SEATS, STANDING_CHIP, standingOf, TEAM_DOUBLE } from "@/features/bewerbungen/standing";
+import { filterValue } from "@/kit/filterValue";
+import { ListPage } from "@/kit/ListPage";
+import { NOT_SENT_CHIP, outOfPlayChip } from "@/kit/stateChips";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
 
@@ -95,7 +94,6 @@ async function readList(params: Props["params"], searchParams: Props["searchPara
   return {
     filters,
     bulk: canBulk ? ROUTES.adminBewerbungenBulk.path(saison) : null,
-    cut: read.complete ? null : WORDS.cut,
     table: {
       label: ROUTES.adminBewerbungen.title,
       rows: rows.map((row) => rowOf(row, saison, read.saison.status === "past")),
@@ -120,7 +118,6 @@ export default function BewerbungenPage({ params, searchParams }: Props) {
       head={{ scope: "area", title: { route: "adminBewerbungen" } }}
       filters={list.then(({ filters }) => filters)}
       link={{ label: COPY.page.adminBewerbungenBulk, href: list.then(({ bulk }) => bulk) }}
-      notice={list.then(({ cut }) => cut)}
       list={{
         kind: "table",
         search: { label: WORDS.search },

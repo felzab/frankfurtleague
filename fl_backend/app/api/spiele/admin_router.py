@@ -1,11 +1,9 @@
-from datetime import datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Body, Depends, Query
+from fastapi import APIRouter, Query
 from pymongo.asynchronous.client_session import AsyncClientSession
 
-from app.api.grants.guard import verify_actor_is_admin
-from app.api.saisons.schemas import FLSaisonRules
+from app.api.grants.guard import ADMIN_TIER
 from app.api.spiele.crud import (
     SpielSaveCollections,
     preview_spiel_save,
@@ -22,14 +20,13 @@ from app.api.spiele.services import (
 from app.api.spieltage.schemas import FLSpieleSpielplanAdminResponse
 from app.api.spieltage.services import build_admin_spielplan, current_spieltag_id
 from app.core.concurrency import concurrently
-from app.core.config import API_VERSION
 from app.core.crud import aggregate_many_from_db, pull_many_from_db, pull_one_from_db
 from app.core.dependencies import (
     AufstellungenCollection,
     AufstellungenReadCollection,
     DBClient,
+    GermanyNow,
     SaisonsCollection,
-    SaisonSpielerReadCollection,
     SaisonsReadCollection,
     SaisonTeamsCollection,
     SaisonTeamsReadCollection,
@@ -46,24 +43,20 @@ from app.core.dependencies import (
     SpieltageCollection,
     SpieltageReadCollection,
     TeamsCollection,
-    get_germany_now,
 )
 from app.core.routing import SAFE_WHEN, by_id
-from app.core.security import bind_actor, verify_access_admin
-from app.core.transactions import transaction_session
+from app.core.transactions import transact
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
-from app.shared.schemas.custom import CustomRouteObjectId
+from app.shared.schemas.custom import CustomObjectId
 
 router = APIRouter(
-    prefix=f"/api/v{API_VERSION}/spiele",
-    dependencies=[Depends(verify_access_admin), Depends(verify_actor_is_admin), Depends(bind_actor)],
+    prefix="/spiele",
+    dependencies=ADMIN_TIER,
 )
 
 
-# A static path, which the `objectid` convertor keeps out of `{spiel_id}`'s reach whichever router loads first.
 @router.get(
-    "/spielplan",
-    response_model=FLSpieleSpielplanAdminResponse,
+    "",
     summary="One Saison's Spiele by matchday, for the admin Spiele list",
 )
 async def get_spiele_spielplan(
@@ -79,38 +72,34 @@ async def get_spiele_spielplan(
     """
 
     saison_raw, spieltage_raw, spiele_raw = await concurrently(
-        pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["rules", "status"]),
+        pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["status"]),
         pull_many_from_db(collection=spieltage_collection, db_filter={"saison_id": saison_id}, limit=LIST_LIMIT_DEFAULT),
         aggregate_many_from_db(collection=spiele_collection, pipeline=build_spiele_pipeline(db_filter={"saison_id": saison_id})),
     )
 
-    spieltage = build_admin_spielplan(spieltage_raw, spiele_raw, FLSaisonRules.model_validate(saison_raw["rules"]))
+    spieltage = build_admin_spielplan(spieltage_raw, spiele_raw)
 
     return FLSpieleSpielplanAdminResponse(
         spieltage=spieltage, current_spieltag_id=current_spieltag_id(spieltage, saison_status=saison_raw["status"])
     )
 
 
-# A static suffix rather than a second `GET /{spiel_id}`: the public router owns that path at this
-# same prefix, so whichever router registered first would answer both.
 @router.get(
-    f"{by_id('spiel_id')}/admin",
-    response_model=FLSpieleAdminSingleResponse,
+    by_id("spiel_id"),
     summary="One Spiel and all the match editor offers and shows beside it",
 )
 async def get_spiel_admin(
-    spiel_id: CustomRouteObjectId,
+    spiel_id: CustomObjectId,
     spiele_collection: SpieleReadCollection,
     saisons_collection: SaisonsReadCollection,
     spielorte_collection: SpielorteReadCollection,
     schiedsrichter_collection: SchiedsrichterReadCollection,
-    saison_spieler_collection: SaisonSpielerReadCollection,
     spieler_collection: SpielerReadCollection,
     spielberichte_collection: SpielberichteReadCollection,
     spielbestaetigungen_collection: SpielbestaetigungenReadCollection,
     saison_teams_collection: SaisonTeamsReadCollection,
     aufstellungen_collection: AufstellungenReadCollection,
-    now: datetime = Depends(get_germany_now),
+    germany_now: GermanyNow,
 ) -> FLSpieleAdminSingleResponse:
     """
     The match editor's one read: the fixture in the admin shape, money and `version` included, and its season's status.
@@ -125,31 +114,23 @@ async def get_spiel_admin(
         saisons_collection=saisons_collection,
         spielorte_collection=spielorte_collection,
         schiedsrichter_collection=schiedsrichter_collection,
-        saison_spieler_collection=saison_spieler_collection,
         spieler_collection=spieler_collection,
         spielberichte_collection=spielberichte_collection,
         spielbestaetigungen_collection=spielbestaetigungen_collection,
         saison_teams_collection=saison_teams_collection,
         aufstellungen_collection=aufstellungen_collection,
-        now=now,
+        now=germany_now,
     )
-
-
-async def previewing(
-    dry_run: Annotated[bool, Query(description="Report what this payload would move and destroy, and write nothing")] = False,
-) -> bool:
-    return dry_run
 
 
 @router.patch(
     by_id("spiel_id"),
-    response_model=FLPatchSpielDataResponse,
     summary="Update a Spiel",
     openapi_extra=SAFE_WHEN,
 )
 async def patch_spiel(
-    spiel_id: CustomRouteObjectId,
-    spiel_data: Annotated[FLPatchSpielDataPayload, Body()],
+    spiel_id: CustomObjectId,
+    spiel_data: FLPatchSpielDataPayload,
     db: DBClient,
     spiele_collection: SpieleCollection,
     teams_collection: TeamsCollection,
@@ -162,12 +143,12 @@ async def patch_spiel(
     aufstellungen_collection: AufstellungenCollection,
     # Read on a `dry_run` alone, for whom the confirmation pass would mail of the save.
     spielbestaetigungen_collection: SpielbestaetigungenReadCollection,
+    germany_now: GermanyNow,
     adopts_bericht: Annotated[
         int | None,
         Query(ge=0, description="The `version` of the fixture's Spielbericht the editor was seeded from, to stamp it adopted"),
     ] = None,
-    now: datetime = Depends(get_germany_now),
-    dry_run: Annotated[bool, Depends(previewing)] = False,
+    dry_run: Annotated[bool, Query(description="Report what this payload would move and destroy, and write nothing")] = False,
 ) -> FLPatchSpielDataResponse:
     """
     Save one Spiel wholesale and resolve the season's bracket, answering every fixture the save moved beyond it.
@@ -175,7 +156,7 @@ async def patch_spiel(
     A save storing what stands, where the bracket's resolution would move nothing either, writes no fixture and raises
     no `version`: with `adopts_bericht` it stamps the Spielbericht alone, and it is refused where that stamp matches
     nothing. A `dry_run` writes nothing and answers the same report, with the parties the confirmation pass would mail and the
-    later results the save would delete, which the save's `voided_results` must name back.
+    later results the save would delete, which the save's `voided_ergebnisse` must name back.
     """
 
     collections = SpielSaveCollections(
@@ -199,17 +180,15 @@ async def patch_spiel(
                 payload=spiel_data,
                 collections=collections,
                 spielbestaetigungen_collection=spielbestaetigungen_collection,
-                now=now,
+                now=germany_now,
                 session=session,
             )
 
     async def write_and_resolve_the_bracket(session: AsyncClientSession) -> FLPatchSpielDataResponse:
         return await save_spiel_in_session(
-            spiel_id=spiel_id, payload=spiel_data, collections=collections, adopts_bericht=adopts_bericht, now=now, session=session
+            spiel_id=spiel_id, payload=spiel_data, collections=collections, adopts_bericht=adopts_bericht, now=germany_now, session=session
         )
 
-    # `with_transaction` rather than a bare `start_transaction`: two saves in one season can
-    # write-conflict on the same advanced fixture, and the callback is safe to retry, every pass
-    # re-reading what it judges.
-    async with transaction_session(db) as session:
-        return await session.with_transaction(write_and_resolve_the_bracket)
+    # `transact` rather than a bare `start_transaction`: two saves in one season can
+    # write-conflict on the same advanced fixture.
+    return await transact(db, write_and_resolve_the_bracket)

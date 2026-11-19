@@ -9,7 +9,6 @@ from httpx2 import Response
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.core.collections import Collection
-from app.core.config import API_VERSION
 from tests.app_client import app_client, app_under_test
 from tests.config import BASE_AUTH, build_test_config
 from tests.database import a_clean_database, held_corpus
@@ -20,11 +19,11 @@ from tests.worker import worker_database
 # collections from, and the home of the corpus every case sharing `seeded_url` reads.
 CORPUS_DATABASE = build_test_config().db_base_name
 
-# `served_with`'s own: it clears where it seeds, and the shared corpus is one nothing may clear under its cases.
+# A database of its own for `served_with`, which clears where it seeds: nothing may clear the shared corpus under its cases.
 WINDOW_DATABASE = worker_database("fl_bewerbung_window_test")
 
-PREFIX = f"/api/v{API_VERSION}/bewerbungen"
-LANDING = f"/api/v{API_VERSION}/saisons/landing"
+PREFIX = "/api/bewerbungen"
+LANDING = "/api/saisons/landing"
 
 # Injected through `get_germany_now`, so the window judgement is not made against the wall clock.
 NOW = datetime(2026, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
@@ -34,7 +33,7 @@ OPEN_OID = ObjectId("6890a1b2c3d4e5f607950001")
 RETIRED_OID = ObjectId("6890a1b2c3d4e5f607950002")
 
 # Neither alphabetical nor reverse-alphabetical by `_id`, so a sort key swapped for the id fails.
-CLUBS = (
+TEAMS = (
     ("Zetteltal", "ZEX", OPEN_OID),
     ("Adlerhorst", "ADX", ObjectId("6890a1b2c3d4e5f607950003")),
     ("Mittelbach", "MIX", ObjectId("6890a1b2c3d4e5f607950004")),
@@ -44,7 +43,7 @@ CLUBS = (
 
 # The season taking applications today, the one whose window has passed, and the one carrying none.
 # A club that has left, which the picker may not offer; its row still holds the season it left.
-RETIRED_CLUB = ("Verlassen", "VEX", RETIRED_OID)
+RETIRED_TEAM = ("Verlassen", "VEX", RETIRED_OID)
 AUSTRITT: Mapping[str, Any] = {"type": "rueckzug", "reason": "keine Mannschaft", "date": "2026-03-15"}
 
 OPEN_SAISON = "2026"
@@ -91,7 +90,7 @@ def website_host(name: str) -> str:
     return f"{name.lower()}.example.net"
 
 
-def _club(name: str, shorthand: str, team_id: ObjectId, *, inactive_since: str | None = None) -> dict[str, Any]:
+def _team(name: str, shorthand: str, team_id: ObjectId, *, inactive_since: str | None = None) -> dict[str, Any]:
     return team_document(
         team_id,
         name,
@@ -124,20 +123,20 @@ async def seeded_url(mongo_replica_set_url: str) -> AsyncIterator[str]:
             ]
         )
         await database[Collection.TEAMS].insert_many(
-            [_club(name, shorthand, team_id) for name, shorthand, team_id in CLUBS] + [_club(*RETIRED_CLUB, inactive_since="2025-08-01")]
+            [_team(name, shorthand, team_id) for name, shorthand, team_id in TEAMS] + [_team(*RETIRED_TEAM, inactive_since="2025-08-01")]
         )
         await database[Collection.SAISON_TEAMS].insert_many(
             [
-                _junction(OPEN_SAISON, *CLUBS[0], trikot_farbe="rot"),
-                _junction(OPEN_SAISON, *CLUBS[1], trikot_farbe="blau"),
+                _junction(OPEN_SAISON, *TEAMS[0], trikot_farbe="rot"),
+                _junction(OPEN_SAISON, *TEAMS[1], trikot_farbe="blau"),
                 # No colour assigned: `distinct` yields the null this row holds, and the answer must
                 # not carry it.
-                _junction(OPEN_SAISON, *CLUBS[2], trikot_farbe=None),
+                _junction(OPEN_SAISON, *TEAMS[2], trikot_farbe=None),
                 # A club that LEFT the season, still holding its colour: the assignment stands until
                 # an administrator clears it, which is the set the admin sees too.
-                _junction(OPEN_SAISON, *RETIRED_CLUB, trikot_farbe="gruen", austritt=dict(AUSTRITT)),
+                _junction(OPEN_SAISON, *RETIRED_TEAM, trikot_farbe="gruen", austritt=dict(AUSTRITT)),
                 # Another season's assignment, so an answer dropping the season term serves it too.
-                _junction(SHUT_SAISON, *CLUBS[0], trikot_farbe=OTHER_SEASON_FARBE),
+                _junction(SHUT_SAISON, *TEAMS[0], trikot_farbe=OTHER_SEASON_FARBE),
             ]
         )
 
@@ -177,8 +176,8 @@ pytestmark = pytest.mark.db
 class TestTheFormRead:
     """The one read of the form's page: a state it must show, and what a season not taking applications must not tell."""
 
-    async def test_a_running_window_serves_the_clubs_and_the_colours(self, seeded_url: str):
-        body = (await answered(seeded_url, f"{PREFIX}/form/{OPEN_SAISON}")).json()
+    async def test_a_running_window_serves_the_teams_and_the_colours(self, seeded_url: str):
+        body = (await answered(seeded_url, f"{PREFIX}/saisons/{OPEN_SAISON}/form")).json()
 
         assert body["window"]["state"] == "running"
         assert [row["name"] for row in body["schulen"]] == ["Adlerhorst", "Mittelbach", "Öhlerhof", "Zetteltal"]
@@ -189,7 +188,7 @@ class TestTheFormRead:
         [pytest.param(PAUSED_SAISON, id="a paused window"), pytest.param(SHUT_SAISON, id="a window that has passed")],
     )
     async def test_a_form_not_running_serves_its_state_and_nothing_else(self, seeded_url: str, saison_id: str):
-        body = (await answered(seeded_url, f"{PREFIX}/form/{saison_id}")).json()
+        body = (await answered(seeded_url, f"{PREFIX}/saisons/{saison_id}/form")).json()
 
         assert body["window"]["state"] == "closed"
         assert (body["schulen"], body["taken"]) == ([], [])
@@ -270,22 +269,18 @@ class TestTheWindowReads:
         assert response.json()["bewerbung_opens_on"] is None
         assert response.json()["bewerbung_window_held"] is held
 
-    @pytest.mark.parametrize(
-        ("saison_id", "state"),
-        [pytest.param(NOT_YET_OPEN_SAISON, "upcoming", id="a span not yet begun")],
-    )
-    async def test_a_near_miss_is_served_as_not_running(self, seeded_url: str, saison_id: str, state: str):
+    async def test_a_window_whose_span_has_not_begun_is_served_upcoming(self, seeded_url: str):
         """The form's page names the opening day of an `upcoming` window, so one served as closed tells a school nothing of when it opens."""
 
-        response = await answered(seeded_url, f"{PREFIX}/form/{saison_id}")
+        response = await answered(seeded_url, f"{PREFIX}/saisons/{NOT_YET_OPEN_SAISON}/form")
 
         assert response.status_code == 200
-        assert response.json()["window"]["state"] == state
+        assert response.json()["window"]["state"] == "upcoming"
 
     async def test_the_body_for_a_season_recording_no_window_carries_no_field_of_the_season(self, seeded_url: str):
         """Existence is the whole of the narrowing, so the undecoded body is searched."""
 
-        response = await answered(seeded_url, f"{PREFIX}/form/{WINDOWLESS_SAISON}")
+        response = await answered(seeded_url, f"{PREFIX}/saisons/{WINDOWLESS_SAISON}/form")
 
         assert response.json() == {"window": None, "schulen": [], "taken": []}
         stored = _saison(WINDOWLESS_SAISON, bewerbung=None)
@@ -296,11 +291,10 @@ class TestTheWindowReads:
 class TestTheColoursTaken:
     """What the Wunschfarbe picker closes. The ASSIGNMENTS on `saison_teams`, never another applicant's wish."""
 
-    @pytest.mark.parametrize("saison_id", [pytest.param(NOT_YET_OPEN_SAISON, id="a span not yet begun")])
-    async def test_a_season_not_taking_applications_tells_nothing(self, seeded_url: str, saison_id: str):
+    async def test_a_season_whose_window_has_not_begun_tells_nothing(self, seeded_url: str):
         """Gated on whether the season takes applications, so a closed one says neither its clubs nor its colours."""
 
-        body = (await answered(seeded_url, f"{PREFIX}/form/{saison_id}")).json()
+        body = (await answered(seeded_url, f"{PREFIX}/saisons/{NOT_YET_OPEN_SAISON}/form")).json()
 
         assert (body["schulen"], body["taken"]) == ([], [])
 
@@ -332,7 +326,7 @@ class TestASeasonThatHasEndedTakesNoApplication:
         """Both sides: a field answering one value fails a case."""
 
         form = await served_with(
-            mongo_replica_set_url, [_saison(OPEN_SAISON, bewerbung=dict(RUNNING_WINDOW), status=status)], f"{PREFIX}/form/{OPEN_SAISON}"
+            mongo_replica_set_url, [_saison(OPEN_SAISON, bewerbung=dict(RUNNING_WINDOW), status=status)], f"{PREFIX}/saisons/{OPEN_SAISON}/form"
         )
 
         assert form.json()["window"]["state"] == state

@@ -1,9 +1,5 @@
 import { cache } from "react";
 
-import { ListPage } from "@/kit/ListPage";
-import { PressAct } from "@/kit/PressAct";
-import { AGREED_CHIP, CONFIRMED_CHIP, DECLINED_CHIP, EXPIRED_CHIP, UNCONFIRMED_CHIP } from "@/kit/stateChips";
-
 import { now } from "@/core/clock";
 import { COPY } from "@/core/copy";
 import { dayIn, dayOf, timeOf } from "@/core/format";
@@ -13,6 +9,9 @@ import { AUFSTELLUNG_CHIP } from "@/features/aufstellungen/constants";
 import { readAsSeatHolder, requireTeamSeats, teamMetadata } from "@/features/roles/resolvers";
 import { matchName } from "@/features/spiele/blocks";
 import { getTeamOverview } from "@/features/teams/queries";
+import { ListPage } from "@/kit/ListPage";
+import { PressAct } from "@/kit/PressAct";
+import { AGREED_CHIP, CONFIRMED_CHIP, DECLINED_CHIP, EXPIRED_CHIP, UNCONFIRMED_CHIP } from "@/kit/stateChips";
 import { pageMetadata } from "@/shared/utils/metadata";
 
 import { agreeSpielbestaetigung } from "./answerSpielbestaetigung";
@@ -58,7 +57,6 @@ export async function generateMetadata({ params }: Props, parent: ResolvingMetad
   return teamMetadata(params, address, overviewOf, async () => pageMetadata(parent, ROUTES.teamOverview, address(await params)));
 }
 
-/** A stored day and hour as a match row writes them. */
 const whenOf = ({ date, time }: FLSpielbestaetigungAppointment): Copy => COPY.spielplan.when(dayOf(date), timeOf(time));
 
 const venueOf = (ansetzung: FLSpielbestaetigungViewAnsetzung): Words | null =>
@@ -173,21 +171,18 @@ function registrierungRow(row: FLTeamPanelRegistrierung, team: string, saison: s
  * seat into one row, and whether they confirmed; an empty seat muted. A row's seats are its key, no seat held twice.
  */
 function seatRow(seat: FLTeamSeat) {
-  const held = COPY.admin.seatLine(seat.rollen, null, null);
+  const held = COPY.admin.seatLine(seat.seats, null, null);
   return seat.name === null
-    ? { id: seat.rollen.join(" "), name: COPY.admin.seatEmpty, chips: [], line: held, muted: true }
+    ? { id: seat.seats.join(" "), name: COPY.admin.seatEmpty, chips: [], line: held, muted: true }
     : {
-        id: seat.rollen.join(" "),
+        id: seat.seats.join(" "),
         name: { record: seat.name },
         chips: [seat.confirmed ? CONFIRMED_CHIP : UNCONFIRMED_CHIP],
         line: held,
       };
 }
 
-/**
- * The team, its open work and its seats, read once for the seat the person holds at the address, and the line the
- * Registrierungen page stands over a list its read's cap cut short, the box drawing that same list whole.
- */
+/** The team, its open work and its seats, read once for the seat the person holds at the address. */
 async function readOverview(params: Props["params"]) {
   const [seat] = await requireTeamSeats(params, address);
   const { team_id: team, saison_id: saison } = seat;
@@ -195,20 +190,17 @@ async function readOverview(params: Props["params"]) {
   // The league's calendar day, which the backend judges a deadline and a proposal's day by.
   const today = dayIn(now());
   return {
-    cut: read.registrierungen_complete ? null : COPY.admin.registrierung.cut,
-    drawn: {
-      team: { plaque: { record: read.shorthand }, name: { record: read.full_name } },
-      cards: [
-        {
-          id: "spielbestaetigungen",
-          title: TITLES.spielbestaetigungen,
-          rows: read.spielbestaetigungen.map((row) => spielbestaetigungRow(row, team, saison, today)),
-        },
-        { id: "aufstellungen", title: TITLES.aufstellungen, rows: read.aufstellungen.map((row) => aufstellungRow(row, team, saison)) },
-        { id: "registrierungen", title: TITLES.registrierungen, rows: read.registrierungen.map((row) => registrierungRow(row, team, saison)) },
-      ],
-      seats: { title: TITLES.seats, rows: read.seats.map(seatRow) },
-    },
+    team: { plaque: { record: read.shorthand }, name: { record: read.full_name } },
+    cards: [
+      {
+        id: "spielbestaetigungen",
+        title: TITLES.spielbestaetigungen,
+        rows: read.spielbestaetigungen.map((row) => spielbestaetigungRow(row, team, saison, today)),
+      },
+      { id: "aufstellungen", title: TITLES.aufstellungen, rows: read.aufstellungen.map((row) => aufstellungRow(row, team, saison)) },
+      { id: "registrierungen", title: TITLES.registrierungen, rows: read.registrierungen.map((row) => registrierungRow(row, team, saison)) },
+    ],
+    seats: { title: TITLES.seats, rows: read.seats.map(seatRow) },
   };
 }
 
@@ -217,12 +209,10 @@ async function readOverview(params: Props["params"]) {
  * every day, the dates answered on their rows and everything else opening its own page, then its seats, read-only.
  */
 export default function TeamOverviewPage({ params }: Props) {
-  const overview = readOverview(params);
   return (
     <ListPage
       head={{ scope: "area", title: { route: "teamOverview" } }}
-      notice={overview.then(({ cut }) => cut)}
-      list={{ kind: "cards", content: overview.then(({ drawn }) => drawn) }}
+      list={{ kind: "cards", content: readOverview(params) }}
     />
   );
 }

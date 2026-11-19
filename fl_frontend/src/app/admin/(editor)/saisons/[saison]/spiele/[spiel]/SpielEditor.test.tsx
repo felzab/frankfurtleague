@@ -1,10 +1,10 @@
 // @vitest-environment jsdom
-import { renderUnderNext } from "@/test-support/nextContexts";
 import { getDefaultNormalizer, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
+import { renderUnderNext } from "@/test-support/nextContexts";
 
 import { SPIELORT_RULES } from "../../../../../spielortRules";
 import { SpielEditor } from "./SpielEditor";

@@ -1,49 +1,41 @@
-from datetime import datetime
-from typing import Annotated, Any
+from typing import Any
 
-from fastapi import APIRouter, Body, Depends
+from fastapi import APIRouter, status
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.results import InsertOneResult
 
 from app.api.address_change.services import build_incoming_filter
 from app.api.ban_list.crud import read_ban_list
-from app.api.ban_list.schemas import (
-    FLBanListResponse,
-    FLBanListRow,
-    FLBanListWriteResponse,
-    FLPostBanListEntryPayload,
-    FLPostBanListEntryResponse,
-)
+from app.api.ban_list.schemas import FLBanListResponse, FLBanListRow, FLPostBanListEntryPayload
 from app.api.ban_list.services import compose_barred_until_saison_id, find_admin_refusal, find_no_saison_refusal
 from app.api.grants.crud import pull_the_list_to_judge
-from app.api.grants.guard import verify_actor_is_admin
+from app.api.grants.guard import ADMIN_TIER
 from app.api.outbox.schemas import FLBanData
 from app.api.outbox.services import OwedMail, enqueue_mails
 from app.api.saisons.crud import pull_governing_saison_id
-from app.core.config import API_VERSION
 from app.core.crud import anchor_in_db, delete_many_from_db, post_one_to_db, pull_one_from_db, refuse
 from app.core.dependencies import (
     AddressChangeReadCollection,
     BanListCollection,
     BanListReadCollection,
     DBClient,
+    GermanDay,
+    GermanyNow,
     GrantsCollection,
     OutboxCollection,
     SaisonsCollection,
-    get_german_date_str,
-    get_germany_now,
 )
 from app.core.recording import record_act
 from app.core.routing import by_id
-from app.core.security import bind_actor, verify_access_admin
-from app.core.transactions import transaction_session
+from app.core.transactions import transact
 from app.shared.folding import sign_in_identifier
-from app.shared.schemas.custom import CustomRouteObjectId
+from app.shared.schemas.custom import CustomObjectId
+from app.shared.schemas.responses import FLCreatedResponse
 
 router = APIRouter(
-    prefix=f"/api/v{API_VERSION}/ban_list",
-    dependencies=[Depends(verify_access_admin), Depends(verify_actor_is_admin), Depends(bind_actor)],
+    prefix="/ban_list",
+    dependencies=ADMIN_TIER,
 )
 
 
@@ -75,7 +67,7 @@ async def _pull_the_season_a_ban_counts_from(
     return str(running_saison_id)
 
 
-@router.get("", response_model=FLBanListResponse, summary="List the banned addresses")
+@router.get("", summary="List the banned addresses")
 async def get_ban_list_entries(ban_list_collection: BanListReadCollection) -> FLBanListResponse:
     """Every ban, newest first, with the address, why, on which day and the last season it covers."""
 
@@ -86,21 +78,20 @@ async def get_ban_list_entries(ban_list_collection: BanListReadCollection) -> FL
 
 @router.post(
     "",
-    response_model=FLPostBanListEntryResponse,
     status_code=201,
     summary="Ban an email address",
 )
 async def post_ban_list_entry(
-    ban_list_data: Annotated[FLPostBanListEntryPayload, Body()],
+    ban_list_data: FLPostBanListEntryPayload,
     ban_list_collection: BanListCollection,
     saisons_collection: SaisonsCollection,
     grants_collection: GrantsCollection,
     address_changes_collection: AddressChangeReadCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
-    today: str = Depends(get_german_date_str),
-    now: datetime = Depends(get_germany_now),
-) -> FLPostBanListEntryResponse:
+    today: GermanDay,
+    germany_now: GermanyNow,
+) -> FLCreatedResponse:
     """Ban an address: it cannot sign in, and no mail leaves for it but the ban's own notice, sent where `notify` is set.
 
     The ban runs a fixed number of seasons past the running one, and it and its reason outlive the person's erasure.
@@ -109,8 +100,6 @@ async def post_ban_list_entry(
     address = str(ban_list_data.email)
 
     async def judge_and_ban(session: AsyncClientSession) -> InsertOneResult:
-        """Ask the grants, read the season, then write. Each takes this transaction's session, so a retry re-runs all three."""
-
         # Through the grants' anchor: a grant of this address committing beside this ban writes the
         # same rows, so one of the two retries and meets the other's refusal.
         grants = await pull_the_list_to_judge(grants_collection=grants_collection, session=session)
@@ -145,39 +134,33 @@ async def post_ban_list_entry(
                         data=FLBanData(kind="ban", ban_reason=ban_list_data.ban_reason, barred_until_saison_id=barred_until_saison_id),
                     )
                 ],
-                now=now,
+                now=germany_now,
             )
 
         return created
 
-    async with transaction_session(db) as session:
-        post_operation = await session.with_transaction(judge_and_ban)
+    post_operation = await transact(db, judge_and_ban)
 
-    return FLPostBanListEntryResponse(created_id=post_operation.inserted_id)
+    return FLCreatedResponse(created_id=post_operation.inserted_id)
 
 
 @router.delete(
     by_id("ban_list_entry_id"),
-    response_model=FLBanListWriteResponse,
+    status_code=status.HTTP_204_NO_CONTENT,
     summary="Lift a ban",
 )
 async def delete_ban_list_entry(
-    ban_list_entry_id: CustomRouteObjectId,
+    ban_list_entry_id: CustomObjectId,
     ban_list_collection: BanListCollection,
     db: DBClient,
-) -> FLBanListWriteResponse:
+) -> None:
     """Lift a ban before it lapses, deleting its row for good."""
 
     async def lift_the_ban(session: AsyncClientSession) -> None:
-        """Resolve the row, then remove it. Both in-session, so a retry re-resolves it."""
-
-        # Resolved first so a miss is a 404: a removal taking no row is an ordinary empty result and would answer 200.
+        # Resolved first so a miss is a 404: a removal taking no row is an ordinary empty result and would answer 204.
         await pull_one_from_db(collection=ban_list_collection, db_filter={"_id": ban_list_entry_id}, projection=["_id"], session=session)
 
         await delete_many_from_db(collection=ban_list_collection, db_filter={"_id": ban_list_entry_id}, session=session)
         await record_act(collection=ban_list_collection, action="ban.removed", record_id=ban_list_entry_id, session=session)
 
-    async with transaction_session(db) as session:
-        await session.with_transaction(lift_the_ban)
-
-    return FLBanListWriteResponse(ban_list_entry_id=ban_list_entry_id)
+    await transact(db, lift_the_ban)

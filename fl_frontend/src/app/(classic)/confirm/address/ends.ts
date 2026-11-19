@@ -1,12 +1,11 @@
 import "server-only";
 
-import { linkInvalid } from "@/kit/mailedLinkState";
-import { TO_ACCOUNT } from "@/kit/MailedPage";
-
 import { COPY } from "@/core/copy";
 import { dayIn } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
+import { linkInvalid } from "@/kit/mailedLinkState";
+import { TO_ACCOUNT } from "@/kit/MailedPage";
 
 import type { CalendarDay } from "@/core/format";
 import type { FLAddressChangeWay } from "@/core/generated/client/types";

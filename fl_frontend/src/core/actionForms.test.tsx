@@ -2,10 +2,11 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 
-import { serveBackend, serveHost } from "@/test-support/backend";
-import { signedInRequest } from "@/test-support/session";
 import { render } from "@testing-library/react";
 import { assert, describe, expect, it } from "vitest";
+
+import { serveBackend, serveHost } from "@/test-support/backend";
+import { signedInRequest } from "@/test-support/session";
 
 import type { ReactElement } from "react";
 
@@ -84,7 +85,7 @@ describe("each form's posted names meet its lane's keys", () => {
       default_payment: "25",
     };
     everyBoxTyped(names, typed);
-    takes(["POST", "/schiedsrichter", { created_id: ID, confirmation: { deadline: "2027-01-15", email: "erika@example.org" } }]);
+    takes(["POST", "/schiedsrichter", { created_id: ID }]);
 
     expect(await createSchiedsrichter(formOf(names, typed))).toStrictEqual({ ok: true, value: undefined });
     expect(requestsSent()).toStrictEqual([
@@ -178,7 +179,7 @@ describe("each form's posted names meet its lane's keys", () => {
       city: "Frankfurt am Main",
     };
     everyBoxTyped(names, typed);
-    takes(["POST", "/teams/saisons/2027/entry", { team_id: TEAM }]);
+    takes(["POST", "/teams/saisons/2027/entry", new Response(null, { status: 204 })]);
 
     // The season the dialog carries beside its boxes.
     expect(await enterTeam(formOf([...names, "saison_id"], { ...typed, saison_id: "2027" }))).toStrictEqual({ ok: true, value: undefined });
@@ -186,7 +187,7 @@ describe("each form's posted names meet its lane's keys", () => {
       [
         "POST /teams/saisons/2027/entry",
         {
-          club: {
+          team: {
             kind: "new",
             team: {
               name: "Goethe",
@@ -229,7 +230,7 @@ describe("each form's posted names meet its lane's keys", () => {
     const typed = { birth_date: "1990-05-01", scope: "kader_public", media: "on" };
     everyBoxTyped(names, typed);
     await arriveAs(null);
-    takes(["POST", "/schiedsrichter/confirmation", { id: ID }]);
+    takes(["POST", "/schiedsrichter/confirmation", new Response(null, { status: 204 })]);
 
     const answer = await answerSchiedsrichter(formOf([...names, "media", "act", "token"], { ...typed, act: "primary", token: "link-token" }));
 
@@ -260,14 +261,14 @@ describe("each form's posted names meet its lane's keys", () => {
     const typed = { birth_date: "1985-09-12", whatsapp: "on", media: "on" };
     everyBoxTyped(names, typed);
     await arriveAs(null);
-    takes(["POST", "/bewerbungen/einwilligung", {}]);
+    takes(["POST", "/bewerbungen/confirmation", new Response(null, { status: 204 })]);
 
     const answer = await answerKontakt(formOf([...names, "media", "act", "token"], { ...typed, act: "primary", token: "link-token" }));
 
     expect(answer).toMatchObject({ ok: true });
     expect(requestsSent()).toStrictEqual([
       [
-        "POST /bewerbungen/einwilligung",
+        "POST /bewerbungen/confirmation",
         { answer: "given", token: "link-token", birth_date: "1985-09-12", whatsapp: true, media: true, text_versions: SEAT_TEXT_VERSIONS },
       ],
     ]);
@@ -311,7 +312,7 @@ describe("each form's posted names meet its lane's keys", () => {
       const { startAddressChange } = await import("@/features/account/personActions");
       const posted = spelledIn("app/account/(pages)/signin/SignInBoxes.tsx");
       await arriveAs({ email: "pia@example.org" });
-      takes(["POST", "/account/address_change", {}]);
+      takes(["POST", "/account/address_change", new Response(null, { status: 204 })]);
 
       const answer = await startAddressChange(formOf(posted, { email: "pia.neu@example.org", holder: "pia@example.org" }));
 

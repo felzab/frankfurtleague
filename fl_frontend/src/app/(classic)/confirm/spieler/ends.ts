@@ -1,10 +1,9 @@
 import "server-only";
 
-import { linkInvalid } from "@/kit/mailedLinkState";
-
 import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
+import { linkInvalid } from "@/kit/mailedLinkState";
 
 import type { EndState } from "@/kit/MailedPage";
 

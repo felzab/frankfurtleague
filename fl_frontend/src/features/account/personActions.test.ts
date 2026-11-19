@@ -1,3 +1,7 @@
+import { assert, beforeEach, describe, expect, it } from "vitest";
+
+import { ROUTES } from "@/core/routes";
+import { SITE_CACHE_TAG } from "@/core/siteCache";
 import {
   configDouble,
   insertOrderedAdapter,
@@ -11,10 +15,6 @@ import { serveBackend } from "@/test-support/backend";
 import { cacheCalls, NEXT_CACHE_DOUBLE } from "@/test-support/nextRequest";
 import { answerAt, NO_RECORDS, SEAT } from "@/test-support/subjectFixtures";
 import { thrownRedirect } from "@/test-support/thrownRedirect";
-import { assert, beforeEach, describe, expect, it } from "vitest";
-
-import { ROUTES } from "@/core/routes";
-import { SITE_CACHE_TAG } from "@/core/siteCache";
 
 import type { SessionRow } from "@/test-support/authDoubles";
 import type { LookupFixture } from "@/test-support/subjectFixtures";
@@ -63,10 +63,10 @@ const HELD = new Map<string, LookupFixture>();
 /** Every erasure the backend was asked for, with the actor header each carried. */
 const erasures: { method: string; actor: string | null }[] = [];
 
-const ERASURE_PATH = "/api/v0/identity/account/erasure";
+const ERASURE_PATH = "/api/identity/self/erasure";
 
 /** The person's own address change, and the method of every request sent to it. */
-const ADDRESS_CHANGE_PATH = "/api/v0/account/address_change";
+const ADDRESS_CHANGE_PATH = "/api/account/address_change";
 const addressChanges: string[] = [];
 
 /** Every consent save that reached the backend, by its path. */
@@ -74,7 +74,7 @@ const consentWrites: string[] = [];
 
 serveBackend(({ method, path: endpoint, headers, body }) => {
   // Under the base path the client sends it on, as the cases spell every path they compare.
-  const path = `/api/v0${endpoint}`;
+  const path = `/api${endpoint}`;
   if (path.endsWith("/einwilligung")) {
     consentWrites.push(path);
     return {};

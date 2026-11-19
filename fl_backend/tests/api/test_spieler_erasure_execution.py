@@ -124,6 +124,9 @@ async def a_pupil_with_a_history(database: AsyncDatabase, *, first_name: str, te
     await database[Collection.SPIELER].insert_one(document)
     spieler_id = document["_id"]
 
+    # The earlier season's history is written while it ran, since the endpoints refuse a finished season's squad
+    # row, and the season closes once it is written. `future` rather than `active`: one season is active at a time.
+    await database[Collection.SAISONS].update_one({"_id": FORMER_SAISON_ID}, {"$set": {"status": "future"}})
     for saison_id, worn, then_worn in ((FORMER_SAISON_ID, "41", "42"), (SAISON_ID, "10", "7")):
         await database[Collection.SAISON_SPIELER].insert_one(saison_spieler_document(spieler_id, saison_id, team_id, nummer=worn))
         await save(database, spieler_id, saison_id, last_name=document["last_name"], nummer=then_worn)
@@ -134,15 +137,17 @@ async def a_pupil_with_a_history(database: AsyncDatabase, *, first_name: str, te
         spieler_id=spieler_id,
         saison_id=FORMER_SAISON_ID,
         saison_spieler_collection=database[Collection.SAISON_SPIELER],
+        saisons_collection=database[Collection.SAISONS],
         today=TODAY,
         db=database.client,
     )
+    await database[Collection.SAISONS].update_one({"_id": FORMER_SAISON_ID}, {"$set": {"status": "past"}})
     await save(database, spieler_id, SAISON_ID, last_name=f"{first_name}-Musterfrau", nummer="7")
 
     return spieler_id
 
 
-async def a_pupil_who_never_joined_a_squad(database: AsyncDatabase) -> ObjectId:
+async def a_pupil_who_never_joined_a_kader(database: AsyncDatabase) -> ObjectId:
     """A person seeded who holds no squad row."""
 
     document = person_row(LONE_FIRST_NAME)
@@ -152,7 +157,7 @@ async def a_pupil_who_never_joined_a_squad(database: AsyncDatabase) -> ObjectId:
 
 
 async def erase_the_pupil(database: AsyncDatabase, client: AsyncMongoClient, spieler_id: ObjectId) -> None:
-    """The registry's erasure of the address this pupil's row holds: the erasure is keyed on a mailbox, never on an id."""
+    """The erasure of the address this pupil's row holds: the erasure is keyed on a mailbox, never on an id."""
 
     person = await database[Collection.SPIELER].find_one({"_id": spieler_id}, {"email": 1})
     assert person is not None, f"no pupil {spieler_id} to erase"
@@ -163,7 +168,7 @@ async def erase_the_pupil(database: AsyncDatabase, client: AsyncMongoClient, spi
 class TestARetiredPupilIsErasedWhole:
     """Through the endpoint: the person and their squad rows."""
 
-    async def test_every_squad_row_they_held_is_gone(self, mongo_replica_set_url: str):
+    async def test_every_kader_row_they_held_is_gone(self, mongo_replica_set_url: str):
         """Catches removing the person alone: the squad read `$lookup`s outward from `spieler`, so an orphan is invisible."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -177,7 +182,7 @@ class TestARetiredPupilIsErasedWhole:
 
         assert (held, remaining) == (2, 0)
 
-    async def test_another_pupil_keeps_their_squad_row(self, mongo_replica_set_url: str):
+    async def test_another_pupil_keeps_their_kader_row(self, mongo_replica_set_url: str):
         """The over-breadth floor: catches a removal filtered on the collection rather than on `spieler_id`."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -217,12 +222,12 @@ class TestNothingOfTheirsIsLeftAnywhere:
         assert held[f"{OTHER_FIRST_NAME}-Musterfrau"]
 
 
-class TestAPupilWhoNeverJoinedASquad:
+class TestAPupilWhoNeverJoinedAKader:
     async def test_their_own_record_is_erased_all_the_same(self, mongo_replica_set_url: str):
         """Catches an erasure that only reaches a person who held a squad row."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            spieler_id = await a_pupil_who_never_joined_a_squad(database)
+            spieler_id = await a_pupil_who_never_joined_a_kader(database)
             await erase_the_pupil(database, client, spieler_id)
 
             return await database[Collection.SPIELER].count_documents({"_id": spieler_id}), await where_held(database, LONE_FIRST_NAME)

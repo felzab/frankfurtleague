@@ -1,14 +1,13 @@
-import { filterValue } from "@/kit/filterValue";
-import { ListPage } from "@/kit/ListPage";
-
 import { COPY } from "@/core/copy";
 import { actionLogGetActionLogBodyQOneMax } from "@/core/generated/zod/inputs";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { loadActionLog } from "@/features/action-log/actions";
 import { byOf, byOptions, logParams, PERIOD_OPTIONS, TYPE_OPTIONS } from "@/features/action-log/filters";
-import { getActionLog } from "@/features/action-log/queries";
+import { getActionLog, getActionLogByOptions } from "@/features/action-log/queries";
 import { rowOf } from "@/features/action-log/rows";
+import { filterValue } from "@/kit/filterValue";
+import { ListPage } from "@/kit/ListPage";
 import { pageMetadata } from "@/shared/utils/metadata";
 
 import type { Filter } from "@/kit/Filters";
@@ -28,12 +27,16 @@ async function readLog(searchParams: Props["searchParams"]) {
   const named = await searchParams;
   const type = filterValue(named.type, TYPE_OPTIONS);
   const time = filterValue(named.time, PERIOD_OPTIONS);
-  const first = await getActionLog(logParams({ type, time }));
-  const options = byOptions(first.by_options);
+  // Beside the options where the address names no „Wer“: a chosen one waits on them, as the address holds only the
+  // option's digest and the options alone turn it back into the `by` the log is read by.
+  const [{ by_options: held }, unfiltered] = await Promise.all([
+    getActionLogByOptions(),
+    named.by === undefined ? getActionLog(logParams({ type, time })) : null,
+  ]);
+  const options = byOptions(held);
   const who = filterValue(named.by, options);
-  // Who the address's option stands for is known only once the log is read, which answers every `by` whatever the filters keep.
-  const by = byOf(first.by_options, who);
-  const page = by === null ? first : await getActionLog(logParams({ by, type, time }));
+  const by = byOf(held, who);
+  const page = unfiltered ?? (await getActionLog(logParams({ by, type, time })));
   const filters: readonly Filter[] = [
     { name: "by", label: WORDS.who, all: SERVER_COPY.season.filter.all, options, value: who },
     { name: "type", label: COPY.admin.team.austrittType, all: SERVER_COPY.season.filter.all, options: TYPE_OPTIONS, value: type },

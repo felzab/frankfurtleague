@@ -16,10 +16,17 @@ from bson import ObjectId
 from httpx2 import Response
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.saisons.overview import _gaps
-from app.api.spiele.schemas import FLSpielJoinedInternal
+from app.api.saisons.overview import _gaps, fault_line
+from app.api.spiele.schemas import (
+    FLBracketFault,
+    FLBracketFaultClash,
+    FLBracketFaultGruppe,
+    FLBracketFaultOccupant,
+    FLBracketFaultQuelle,
+    FLBracketFaultSpiel,
+    FLSpielJoinedInternal,
+)
 from app.core.collections import Collection
-from app.core.config import API_VERSION
 from tests import documents
 from tests.app_client import app_client, app_under_test
 from tests.config import ADMIN_AUTH, build_test_config, grants_for_the_suite
@@ -27,7 +34,7 @@ from tests.database import held_corpus
 
 SAISON = "2026"
 OTHER_SAISON = "2025"
-PATH = f"/api/v{API_VERSION}/saisons/{SAISON}/overview"
+PATH = f"/api/saisons/{SAISON}/overview"
 
 NOW = datetime(2026, 3, 15, 12, tzinfo=ZoneInfo("Europe/Berlin"))
 TODAY = "2026-03-15"
@@ -36,7 +43,7 @@ TODAY = "2026-03-15"
 OID = "6890a1b2c3d4e5f6079a{:04x}"
 HOME, AWAY, PICKED = ObjectId(OID.format(0x101)), ObjectId(OID.format(0x102)), ObjectId(OID.format(0x103))
 SPIELORT, SCHIEDSRICHTER = ObjectId(OID.format(0x201)), ObjectId(OID.format(0x202))
-NEW_SCHOOL, PICKED_CLUB, DECIDED = ObjectId(OID.format(0x301)), ObjectId(OID.format(0x302)), ObjectId(OID.format(0x303))
+NEW_SCHOOL, PICKED_TEAM, DECIDED = ObjectId(OID.format(0x301)), ObjectId(OID.format(0x302)), ObjectId(OID.format(0x303))
 CLASH_SPIELTAG = ObjectId(OID.format(0x400))
 
 # One fixture per kind, numbered so a failure names it.
@@ -68,7 +75,7 @@ def spiel(nr: int, date: str | None, *, saison_id: str = SAISON, **fields: Any) 
     return documents.spiel_document(spiel_id=ObjectId(OID.format(nr)), saison_id=saison_id, spiel_nr=nr, **{**set_for, **fields})
 
 
-def club_row(spiel: dict[str, Any], team_id: ObjectId, **fields: Any) -> dict[str, Any]:
+def team_row(spiel: dict[str, Any], team_id: ObjectId, **fields: Any) -> dict[str, Any]:
     return documents.spielbestaetigung_document(spiel, party={"kind": "team", "team_id": team_id}, **fields)
 
 
@@ -94,11 +101,11 @@ SPIELE = {
 }
 
 ROWS = [
-    club_row(SPIELE[OVERDUE], HOME, deadline="2026-03-14", asked_at="2026-03-10"),
-    club_row(SPIELE[DUE_TODAY], AWAY, deadline=TODAY, asked_at=None),
+    team_row(SPIELE[OVERDUE], HOME, deadline="2026-03-14", asked_at="2026-03-10"),
+    team_row(SPIELE[DUE_TODAY], AWAY, deadline=TODAY, asked_at=None),
     # Minted for the day the fixture was set for before it moved: it speaks for an Ansetzung the fixture has left.
-    club_row({**SPIELE[MOVED], "date": "2026-03-22"}, HOME, deadline="2026-03-14", asked_at="2026-03-10"),
-    club_row(
+    team_row({**SPIELE[MOVED], "date": "2026-03-22"}, HOME, deadline="2026-03-14", asked_at="2026-03-10"),
+    team_row(
         SPIELE[PROPOSED],
         AWAY,
         deadline="2026-03-20",
@@ -106,7 +113,7 @@ ROWS = [
         answer={
             "kind": "declined",
             "at": "2026-03-14",
-            "by": {"kind": "kontakt", "rolle": "trainer"},
+            "by": {"kind": "kontakt", "seat": "trainer"},
             "vorschlag": {"date": "2026-03-27", "time": "16:00:00"},
             "reason": None,
         },
@@ -121,17 +128,21 @@ ROWS = [
     documents.spielbestaetigung_document(SPIELE[OVERDUE], party=REFEREE_PARTY, deadline="2026-03-14", asked_at="2026-03-10"),
     # The proposal's other club, asked and agreed, and its referee, never asked: an adoption has the pass tell the
     # first of the move and not the second.
-    club_row(
+    team_row(
         SPIELE[PROPOSED],
         HOME,
         deadline="2026-03-20",
         asked_at="2026-03-12",
-        answer={"kind": "agreed", "at": "2026-03-13", "by": {"kind": "kontakt", "rolle": "trainer"}, "vorschlag": None, "reason": None},
+        answer={"kind": "agreed", "at": "2026-03-13", "by": {"kind": "kontakt", "seat": "trainer"}, "vorschlag": None, "reason": None},
     ),
     documents.spielbestaetigung_document(SPIELE[PROPOSED], party=REFEREE_PARTY, deadline="2026-03-20", asked_at=None),
     # The referee alone still to answer, past the clubs' deadline: a referee answers until the kick-off, so nothing lapsed.
     documents.spielbestaetigung_document(SPIELE[REFEREE_OWED], party=REFEREE_PARTY, deadline="2026-03-12", asked_at="2026-03-05"),
 ]
+
+
+# The away club alone holds a confirmed seat, so it alone of the two clubs is mailed: the home club holds none.
+SEATS = {AWAY: documents.kontakte_document(trainer=documents.kontaktperson_document("Greta", confirmed_at="2026-03-01"))}
 
 
 def application(bewerbung_id: ObjectId, status: str, submitted_at: str, **fields: Any) -> dict[str, Any]:
@@ -164,7 +175,7 @@ async def seeded_url(mongo_replica_set_url: str) -> AsyncIterator[str]:
         )
         await database[Collection.SAISON_TEAMS].insert_many(
             [
-                documents.saison_team_document(SAISON, team_id, name, name[:3].upper())
+                documents.saison_team_document(SAISON, team_id, name, name[:3].upper(), kontakte=SEATS.get(team_id))
                 for team_id, name in ((HOME, "Lessing"), (AWAY, "Goethe"), (PICKED, "Schiller"))
             ]
         )
@@ -180,7 +191,7 @@ async def seeded_url(mongo_replica_set_url: str) -> AsyncIterator[str]:
         await database[Collection.BEWERBUNGEN].insert_many(
             [
                 application(NEW_SCHOOL, "submitted", "2026-02-01", schule=documents.new_schule_document("Riedberg")),
-                application(PICKED_CLUB, "submitted", "2026-02-10", team_id=PICKED),
+                application(PICKED_TEAM, "submitted", "2026-02-10", team_id=PICKED),
                 application(DECIDED, "declined", "2026-01-20", schule=documents.new_schule_document("Westend")),
             ]
         )
@@ -253,8 +264,9 @@ class TestEachKindLandsOnItsCard:
             {"kind": "team", "team_id": str(HOME)},
             {"kind": "schiedsrichter", "schiedsrichter_id": str(SCHIEDSRICHTER)},
         )
-        # Each recipient by the name its season row holds, so the questions name a party no fixture shows.
-        assert sorted(proposed["adoption_recipients"], key=str) == sorted([{**away, "name": "Goethe"}, {**home, "name": "Lessing"}], key=str)
+        # Each recipient by the name its season row holds, so the questions name a party no fixture shows; the home club,
+        # holding no confirmed seat, is mailed nothing, so no question names it.
+        assert proposed["adoption_recipients"] == [{**away, "name": "Goethe"}]
         assert proposed["discard_recipients"] == [{**away, "name": "Goethe"}]
         assert sorted(overdue["parties"], key=str) == sorted(
             [
@@ -280,6 +292,21 @@ class TestEachKindLandsOnItsCard:
         )
         assert (riedberg["bewerbung_id"], riedberg["seats_confirmed"], riedberg["seats"]) == (str(NEW_SCHOOL), 2, 3)
 
+    async def test_a_fault_row_serves_only_what_its_line_words(self, seeded_url: str):
+        """The club standing twice on the clash's matchday, by its season name: the fixture is the row's own, so nothing else is served."""
+
+        rows = {
+            (row["kind"], row["spiel"]["spiel_nr"]): row
+            for card in (await answered(seeded_url, PATH)).json()["cards"]
+            for row in card["rows"]
+            if "spiel" in row
+        }
+
+        assert [rows[("bracket_fault", nr)]["fault"] for nr in (CLASH_FIRST, CLASH_SECOND)] == [
+            {"reason": "fielded_twice", "team_name": "Lessing"},
+            {"reason": "fielded_twice", "team_name": "Lessing"},
+        ]
+
 
 def joined(**fields: Any) -> FLSpielJoinedInternal:
     """One fixture of the season as the read joins it, its two clubs named, every gap but those `fields` open closed."""
@@ -303,10 +330,63 @@ class TestWhatASpielStillLacks:
     def test_a_dated_spiel_with_no_time_still_lacks_its_date(self):
         assert _gaps(joined(time=None), today=TODAY) == ["appointment_missing"]
 
-    def test_a_knockout_side_awaiting_its_source_is_no_missing_club(self):
+    def test_a_knockout_side_awaiting_its_source_is_no_missing_team(self):
         """Its club arrives with the bracket's resolution: listed, it asks the administrator to pick a club the draw will place."""
 
         sourced = joined(saison_phase="halbfinale", team2=None, team2_quelle={"type": "gruppe", "gruppe": "A", "platz": 1})
         open_side = joined(saison_phase="halbfinale", team2=None)
 
         assert (_gaps(sourced, today=TODAY), _gaps(open_side, today=TODAY)) == ([], ["team_missing"])
+
+
+# Where a fault stands, which the line never words.
+AT = {"spiel_id": ObjectId(OID.format(0x600)), "spiel_nr": 1}
+
+
+@pytest.mark.parametrize(
+    ("fault", "line"),
+    [
+        pytest.param(
+            FLBracketFaultGruppe(reason="tie_unresolved", gruppe="A", platz=2, **AT),
+            {"reason": "tie_unresolved", "gruppe": "A", "platz": 2},
+            id="a tie",
+        ),
+        pytest.param(FLBracketFaultGruppe(reason="gruppe_not_run", gruppe="B", platz=1, **AT), {"reason": "wiring"}, id="a group not run"),
+        pytest.param(FLBracketFaultQuelle(reason="reference_cycle", quelle_spiel_nr=3, **AT), {"reason": "wiring"}, id="a cycle"),
+        pytest.param(FLBracketFaultSpiel(reason="same_team", **AT), {"reason": "wiring"}, id="one club on both sides"),
+        pytest.param(
+            FLBracketFaultOccupant(
+                reason="departed_occupant",
+                side="team1",
+                team_id=HOME,
+                team_name="Lessing",
+                austritt_type="rueckzug",
+                exited_since="2026-03-01",
+                spiel_date=TODAY,
+                **AT,
+            ),
+            {"reason": "departed_occupant", "team_name": "Lessing", "austritt_type": "rueckzug", "exited_since": "2026-03-01"},
+            id="a departed club",
+        ),
+        pytest.param(
+            FLBracketFaultClash(
+                reason="double_booked",
+                saison_id=SAISON,
+                booking="schiedsrichter",
+                name="Anna Körner",
+                other_spiel_id=ObjectId(OID.format(0x601)),
+                other_saison_id=SAISON,
+                other_spiel_nr=2,
+                other_date=TODAY,
+                other_time="15:00:00",
+                **AT,
+            ),
+            {"reason": "double_booked", "booking": "schiedsrichter"},
+            id="a double booking",
+        ),
+    ],
+)
+def test_a_fault_is_served_as_its_line_words_it(fault: FLBracketFault, line: dict[str, Any]):
+    """A reason the line words on its own keeps its values; every wiring shape folds into the one line no screen repairs."""
+
+    assert fault_line(fault).model_dump(mode="json") == line

@@ -1,7 +1,5 @@
 import { notFound } from "next/navigation";
 
-import { NOT_SENT_CHIP, outOfPlayChip, SENT_CHIP } from "@/kit/stateChips";
-
 import { getAdminSession } from "@/core/auth/guards";
 import { COPY } from "@/core/copy";
 import { dayOf, formatDate } from "@/core/format";
@@ -11,6 +9,7 @@ import { getAdminSaison, getAdminSaisons } from "@/features/saisons/queries";
 import { SAISON_REQUIRED } from "@/features/saisons/required";
 import { saisonChipOf } from "@/features/saisons/saisonState";
 import { adminTeamChip } from "@/features/teams/constants";
+import { NOT_SENT_CHIP, outOfPlayChip, SENT_CHIP } from "@/kit/stateChips";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
 

@@ -1,10 +1,9 @@
+import { COPY } from "@/core/copy";
+import { positionOptions, stufeOptions } from "@/features/spieler/options";
 import { ConsentLine } from "@/kit/ConsentLine";
 import { Section } from "@/kit/Section";
 import { Select } from "@/kit/Select";
 import { TextField } from "@/kit/TextField";
-
-import { COPY } from "@/core/copy";
-import { positionOptions, stufeOptions } from "@/features/spieler/options";
 
 import type { ConsentLine as Line } from "@/core/consentWordings";
 import type { FLSpielerStufe } from "@/core/generated/client/types";

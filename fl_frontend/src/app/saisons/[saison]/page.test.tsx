@@ -1,9 +1,9 @@
-import { serveBackend } from "@/test-support/backend";
-import { doubleNextRequest } from "@/test-support/nextRequest";
 import { renderToReadableStream } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
 import { NOT_FOUND_METADATA } from "@/shared/utils/notFoundMetadata";
+import { serveBackend } from "@/test-support/backend";
+import { doubleNextRequest } from "@/test-support/nextRequest";
 
 import type { FLSaisonFrameResponse } from "@/core/generated/client/types";
 import type { ResolvingMetadata } from "next";

@@ -38,7 +38,8 @@ from app.api.identity.schemas import FLSubjectSeat
 from app.api.identity.services import find_role_refusal
 from app.api.saisons.services import SAISON_AS, SAISON_LOOKUP, SPIELTAG_POSITION_LOOKUP, find_saison_past_refusal, matchday_of
 from app.api.spielberichte.crud import anchor_the_pupils_named
-from app.api.spielberichte.services import SIDES, team_id_of
+from app.api.spielberichte.services import SIDES
+from app.api.spiele.schemas import team_id_of
 from app.api.spiele.services import build_spiele_pipeline, spiel_label
 from app.core.codes import Code
 from app.core.crud import (
@@ -47,14 +48,15 @@ from app.core.crud import (
     aggregate_many_from_db,
     anchor_in_db,
     find_stale_first_save_refusal,
-    pull_many_from_db,
+    pull_whole_from_db,
     refuse,
 )
-from app.core.exceptions import DocumentNotFoundError, WriteRefusal
+from app.core.exceptions import APIError, DocumentNotFoundError
 from app.core.readonly import ReadCollection
 from app.core.recording import ACT_BY_KONTAKT
-from app.core.transactions import transaction_session
+from app.core.transactions import transact
 from app.shared.schemas.literals import FLSaisonStatus, FLSpielSide
+from app.shared.schemas.responses import FLVersionResponse
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -93,7 +95,7 @@ class _State:
     kader: Sequence[Mapping[str, Any]]
 
 
-def find_aufstellung_seat_refusal(*, seats: Sequence[FLSubjectSeat], team_id: ObjectId, saison_id: str | None) -> WriteRefusal | None:
+def find_aufstellung_seat_refusal(*, seats: Sequence[FLSubjectSeat], team_id: ObjectId, saison_id: str | None) -> APIError | None:
     """`role_not_held` for a person holding no seat on this club in the fixture's season.
 
     Where no fixture carries the id there is no season to ask, and a seat on the club in any season admits the person
@@ -105,7 +107,7 @@ def find_aufstellung_seat_refusal(*, seats: Sequence[FLSubjectSeat], team_id: Ob
     if any(seat.team_id == team_id for seat in seats):
         return None
 
-    return WriteRefusal(error_code=Code.ROLE_NOT_HELD, status=HTTPStatus.FORBIDDEN)
+    return APIError(HTTPStatus.FORBIDDEN, Code.ROLE_NOT_HELD)
 
 
 async def _pull_spiel(*, spiele_collection: ReadCollection, spiel_id: ObjectId, session: AsyncClientSession) -> Mapping[str, Any] | None:
@@ -153,7 +155,7 @@ async def _read_state(
 
 
 def _judge_the_fixture(state: _State, *, locks: bool, now: datetime) -> None:
-    """The fixture's season and its clock, as a save asks them inside its transaction and again outside it.
+    """The fixture's season and its clock, as a save asks them inside its transaction.
 
     `saison_past` first, as the match report's write asks it: a finished season's record takes no write at all, from
     anybody. A seat never meets it, since a finished season grants no seat and `role_not_held` comes first.
@@ -176,8 +178,12 @@ async def _pull_people(
     if not rest:
         return {}
 
-    people = await pull_many_from_db(
-        collection=spieler_collection, db_filter={"_id": {"$in": rest}}, projection=["first_name", "last_name"], session=session
+    people = await pull_whole_from_db(
+        collection=spieler_collection,
+        db_filter={"_id": {"$in": rest}},
+        what="the pupils a stored line-up names off the squad",
+        projection=["first_name", "last_name"],
+        session=session,
     )
 
     return {person["_id"]: person for person in people}
@@ -251,19 +257,20 @@ async def save_aufstellung_screen(
     aufstellungen_collection: AsyncCollection,
     saisons_collection: AsyncCollection,
     spieler_collection: AsyncCollection,
+    # The fixture and the squad rows the save judges, which it anchors.
+    spiele_collection: AsyncCollection,
+    saison_spieler_collection: AsyncCollection,
     db: AsyncMongoClient,
     now: datetime,
-) -> tuple[FLAufstellungResponse, bool]:
-    """Save one club's whole line-up for one fixture and answer the screen it leaves, and whether this save created it.
+) -> FLVersionResponse:
+    """Save one club's whole line-up for one fixture and answer the version it leaves.
 
     A seat's save where `seat` names its holder, refused from the lock; an administrator's where it is None, at any time.
     """
 
     entries = payload.spieler
 
-    async def write(session: AsyncClientSession) -> tuple[FLAufstellungResponse, bool]:
-        """Judge, then write. Everything judged is read in-session, so a retry re-judges it."""
-
+    async def write(session: AsyncClientSession) -> FLVersionResponse:
         state = await _read_state(seat=seat, spiel_id=spiel_id, team_id=team_id, reads=reads, session=session)
         spiel = state.spiel
         _judge_the_fixture(state, locks=seat is not None, now=now)
@@ -289,21 +296,22 @@ async def save_aufstellung_screen(
             label=spiel_label(spiel["saison_id"], spiel["spiel_nr"]),
             session=session,
         )
+        # What else the save judged, each after the line-up's own write, as the season's anchor is: a fixture re-dated or
+        # re-fielded, or a pupil newly named taken out of the squad, under this save then conflicts with it, and the retry
+        # judges what that write left. The other club's save and the fixture's save anchor or write the fixture too, so they
+        # retry one another.
+        await anchor_in_db(collection=spiele_collection, db_filter={"_id": spiel_id}, session=session)
+        if new:
+            await anchor_in_db(
+                collection=saison_spieler_collection,
+                db_filter={"saison_id": spiel["saison_id"], "spieler_id": {"$in": sorted(new)}},
+                session=session,
+            )
         if seat is not None:
             # The season row the seat was judged off: a seat ended under this save then conflicts with it, as the
-            # team's answer to a fixture does, so no line-up is saved from a seat its holder has left. After the line-up's
-            # own write, as the season's anchor is.
+            # team's answer to a fixture does, so no line-up is saved from a seat its holder has left.
             await anchor_in_db(collection=seat.saison_teams, db_filter={"saison_id": spiel["saison_id"], "team_id": team_id}, session=session)
-        people = await _pull_people(spieler_collection=reads.spieler, state=state, saved=written, session=session)
 
-        # Nothing else judged is written here, so a season closed, a fixture re-dated or re-fielded or a pupil ausgetragen
-        # conflicts with nothing: judged again outside the transaction, as the match report's write judges its own.
-        async with db.start_session(snapshot=True) as outside:
-            current = await _read_state(seat=seat, spiel_id=spiel_id, team_id=team_id, reads=reads, session=outside)
-        _judge_the_fixture(current, locks=seat is not None, now=now)
-        judge_the_names(entries=entries, new=new, nameless=nameless, kader=current.kader)
+        return FLVersionResponse(version=written[VERSION_FIELD])
 
-        return _compose(state=state, team_id=team_id, saved=written, people=people, now=now), saved is None
-
-    async with transaction_session(db) as session:
-        return await session.with_transaction(write)
+    return await transact(db, write)

@@ -6,7 +6,8 @@ A restore rolls the record back with the log, so this line is what says the pers
 """
 
 import logging
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Iterable
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -19,7 +20,6 @@ from pymongo.asynchronous.database import AsyncDatabase
 from app.api.schiedsrichter.services import compose_confirmation, confirmation_deadline_from, erase_at_from
 from app.api.teams.services import compose_kontakt_confirmation
 from app.core.collections import Collection
-from app.core.config import API_VERSION
 from app.shared.einwilligung_evidence import TextVersions, evidence_state_of
 from app.shared.tokens import hash_token
 from tests.acts import journal_records
@@ -55,7 +55,7 @@ TODAY = "2126-10-03"
 SAISON_ID = "2026"
 ADULT = "1990-05-09"
 
-V = f"/api/v{API_VERSION}"
+V = "/api"
 
 # One person holding a pupil row, a referee row and two seats.
 PERSON = "ortrud.zwiebelmayer@schule.example.org"
@@ -203,13 +203,13 @@ def declined(token: str) -> dict[str, str]:
 
 
 async def registration_withdrawal(http: AsyncClient, database: AsyncDatabase) -> Any:
-    """Its confirmation stamped evidence, so the page serves that evidence's stand."""
+    """Its confirmation stamped evidence, so the page serves that evidence's state."""
 
     stored = await database[Collection.REGISTRIERUNGEN].find_one({"_id": REGISTRATION_OID})
     assert stored is not None
 
     return await http.patch(
-        f"{V}/registrierungen/account/{REGISTRATION_OID}/einwilligung",
+        f"{V}/registrierungen/{REGISTRATION_OID}/einwilligung",
         json=withdrawal(SPIELER_TEXT_VERSIONS, stored["einwilligung"], scope="internal", media=True),
         headers=as_person(REGISTRANT),
     )
@@ -217,11 +217,11 @@ async def registration_withdrawal(http: AsyncClient, database: AsyncDatabase) ->
 
 Press = Callable[[AsyncClient, AsyncDatabase], Awaitable[Any]]
 
-# Every press writing a line, as the person makes it: its act, the record the line names and the slots saying whose block that is.
+# Every press writing a line, as the person makes it: its act, the record the line names and the seats saying whose block that is.
 PRESSES: dict[str, tuple[Press, str, Collection, ObjectId, list[str]]] = {
     "a pupil's withdrawal": (
         lambda http, _database: http.patch(
-            f"{V}/spieler/account/einwilligung",
+            f"{V}/spieler/self/einwilligung",
             json=withdrawal(SPIELER_TEXT_VERSIONS, own(SPIELER_TEXT_VERSIONS), scope="internal", media=False),
             headers=as_person(PERSON),
         ),
@@ -232,7 +232,7 @@ PRESSES: dict[str, tuple[Press, str, Collection, ObjectId, list[str]]] = {
     ),
     "a referee's withdrawal": (
         lambda http, _database: http.patch(
-            f"{V}/schiedsrichter/account/{REFEREE_OID}/einwilligung",
+            f"{V}/schiedsrichter/{REFEREE_OID}/einwilligung",
             json=withdrawal(SCHIEDSRICHTER_TEXT_VERSIONS, own(SCHIEDSRICHTER_TEXT_VERSIONS), scope="kader_public", media=False),
             headers=as_person(PERSON),
         ),
@@ -243,7 +243,7 @@ PRESSES: dict[str, tuple[Press, str, Collection, ObjectId, list[str]]] = {
     ),
     "a season seat's withdrawal": (
         lambda http, _database: http.patch(
-            f"{V}/teams/{TEAM_OID}/saisons/{SAISON_ID}/account/einwilligung",
+            f"{V}/teams/{TEAM_OID}/saisons/{SAISON_ID}/einwilligung",
             json=withdrawal(SEAT_TEXT_VERSIONS, seat(PERSON)["einwilligung"], scope="kontakt_data", media=True),
             headers=as_person(PERSON),
         ),
@@ -254,7 +254,7 @@ PRESSES: dict[str, tuple[Press, str, Collection, ObjectId, list[str]]] = {
     ),
     "a pending application seat's withdrawal": (
         lambda http, _database: http.patch(
-            f"{V}/bewerbungen/{APPLICATION_OID}/account/einwilligung",
+            f"{V}/bewerbungen/{APPLICATION_OID}/einwilligung",
             json=withdrawal(SEAT_TEXT_VERSIONS, seat(PERSON)["einwilligung"], scope="kontakt_data_whatsapp", media=False),
             headers=as_person(PERSON),
         ),
@@ -265,14 +265,14 @@ PRESSES: dict[str, tuple[Press, str, Collection, ObjectId, list[str]]] = {
     ),
     "a pending registration's withdrawal": (registration_withdrawal, "withdrawal", Collection.REGISTRIERUNGEN, REGISTRATION_OID, []),
     "an objection on an application": (
-        lambda http, _database: http.post(f"{V}/bewerbungen/einwilligung", json=declined(f"{APPLICATION_LINK}-trainer"), headers=BASE_AUTH),
+        lambda http, _database: http.post(f"{V}/bewerbungen/confirmation", json=declined(f"{APPLICATION_LINK}-trainer"), headers=BASE_AUTH),
         "objection",
         Collection.BEWERBUNGEN,
         DECLINED_APPLICATION_OID,
         ["trainer"],
     ),
     "an objection on a season row": (
-        lambda http, _database: http.post(f"{V}/bewerbungen/einwilligung", json=declined(ROW_LINK), headers=BASE_AUTH),
+        lambda http, _database: http.post(f"{V}/bewerbungen/confirmation", json=declined(ROW_LINK), headers=BASE_AUTH),
         "objection",
         Collection.SAISON_TEAMS,
         ROW_OID,
@@ -288,22 +288,68 @@ PRESSES: dict[str, tuple[Press, str, Collection, ObjectId, list[str]]] = {
 }
 
 
-@pytest.mark.parametrize("press", PRESSES, ids=PRESSES)
-async def test_each_press_writes_one_line_naming_its_record_and_no_address(
-    mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture, press: str
-):
-    """No address: the line outlives the erasure it may later have to sit beside. Its slots: a replay sets one person's block of three."""
+@dataclass(frozen=True)
+class Pressed:
+    """What one press answered and wrote: its status, its journal lines and its Protokoll rows."""
 
-    act, kind, collection, record_id, slots = PRESSES[press]
+    status: int
+    lines: list[dict[str, Any]]
+    rows: list[dict[str, Any]]
 
-    async with a_clean_database(mongo_replica_set_url, DATABASE_NAME, constraints=True) as (_client, database):
+
+async def pressed_in_turn(url: str, caplog: pytest.LogCaptureFixture, presses: Iterable[str]) -> dict[str, Pressed]:
+    """Each press on one seeded league, in the order given, with what it alone wrote.
+
+    Every press writes a record of its own but the season row's two, which run in `PRESSES`' order: the Stellvertretung's
+    objection meets the row as the trainer's withdrawal left it.
+    """
+
+    pressed: dict[str, Pressed] = {}
+    async with a_clean_database(url, DATABASE_NAME, constraints=True) as (_client, database):
         await seeded(database)
-        async with app_client(mongo_replica_set_url, app=app_under_test(DATABASE_NAME), now=NOW) as http:
-            with caplog.at_level(logging.INFO):
-                status = (await act(http, database)).status_code
-    [record] = journal_records(caplog)
-    line = {key: vars(record)[key] for key in ("act", "records", "choices", "seats")}
+        async with app_client(url, app=app_under_test(DATABASE_NAME), now=NOW) as http:
+            for press in presses:
+                earlier = await database[Collection.ACTION_LOG].distinct("_id")
+                caplog.clear()
+                with caplog.at_level(logging.INFO):
+                    status = (await PRESSES[press][0](http, database)).status_code
+                pressed[press] = Pressed(
+                    status=status,
+                    lines=[{key: vars(record)[key] for key in ("act", "records", "choices", "seats")} for record in journal_records(caplog)],
+                    rows=await database[Collection.ACTION_LOG].find({"_id": {"$nin": earlier}}).to_list(length=None),
+                )
 
-    assert status < 300
-    assert (line["act"], line["records"], line["seats"]) == (kind, [f"{collection}/{record_id}"], slots)
-    assert "@" not in str(line)
+    return pressed
+
+
+async def test_each_press_writes_one_line_naming_its_record_and_no_address(mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
+    """No address: the line outlives the erasure it may later have to sit beside. Its seats: a replay sets one person's block of three."""
+
+    pressed = await pressed_in_turn(mongo_replica_set_url, caplog, PRESSES)
+
+    assert {press: outcome.status < 300 for press, outcome in pressed.items()} == dict.fromkeys(PRESSES, True)
+    assert {press: [(line["act"], line["records"], line["seats"]) for line in outcome.lines] for press, outcome in pressed.items()} == {
+        press: [(kind, [f"{collection}/{record_id}"], seats)] for press, (_act, kind, collection, record_id, seats) in PRESSES.items()
+    }
+    assert "@" not in str([outcome.lines for outcome in pressed.values()])
+
+
+# Each objection's one Protokoll row, as what was done, by whom, for which club, on which record and about which school.
+# A referee's names no record: the objection erased it.
+OBJECTION_ROWS = {
+    "an objection on an application": ("bewerbung.seat_objected", "kontakt", None, DECLINED_APPLICATION_OID, "Helmholtz-Gymnasium"),
+    "an objection on a season row": ("team.seat_objected", "kontakt", "Helmholtz", TEAM_OID, None),
+    "a referee's objection": ("schiedsrichter.objected", "schiedsrichter", None, None, None),
+}
+
+
+async def test_each_objection_writes_one_protokoll_row(mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
+    """Unrecorded, a refusal leaves the administration a chip on a seat at most, and on a referee erased at once nothing."""
+
+    pressed = await pressed_in_turn(mongo_replica_set_url, caplog, OBJECTION_ROWS)
+
+    assert {press: outcome.status < 300 for press, outcome in pressed.items()} == dict.fromkeys(OBJECTION_ROWS, True)
+    assert {
+        press: [(row["action"], row["by"], row["team"], row["record_id"], row["label"]) for row in outcome.rows]
+        for press, outcome in pressed.items()
+    } == {press: [row] for press, row in OBJECTION_ROWS.items()}

@@ -4,7 +4,6 @@ import { z } from "zod";
 
 import { action } from "@/core/action";
 import { COPY } from "@/core/copy";
-import { ContractBreakError } from "@/core/errors";
 import { aufstellungenPutAufstellung } from "@/core/generated/client/sdk";
 import { AufstellungenPutAufstellungBody, AufstellungenPutAufstellungParams } from "@/core/generated/zod/inputs";
 import { entriesOf, refusedRows } from "@/features/aufstellungen/payload";
@@ -55,7 +54,6 @@ export const saveAufstellung = action({
       if (rows === undefined) throw error;
       return rows;
     }
-    if (written.version === null) throw new ContractBreakError("A line-up's save answered no version.");
     return { ok: true, value: written.version };
   },
 });

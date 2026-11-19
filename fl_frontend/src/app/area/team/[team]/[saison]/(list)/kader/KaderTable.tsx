@@ -2,11 +2,10 @@
 
 import { useState } from "react";
 
-import { ListTable } from "@/kit/ListTable";
-
 import { COPY } from "@/core/copy";
 import { byShirtNumber, kaderName, roleMarkOf } from "@/features/spieler/constants";
 import { rowState } from "@/features/spieler/rowChip";
+import { ListTable } from "@/kit/ListTable";
 
 import { KaderRowDialog } from "./KaderRowDialog";
 

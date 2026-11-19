@@ -1,11 +1,10 @@
 import { redirect } from "next/navigation";
 
-import { RoleChoices } from "@/kit/CardGrid";
-import { RailPage } from "@/kit/RailFrame";
-
 import { ROUTES } from "@/core/routes";
 import { requireSubjectSession } from "@/features/roles/resolvers";
 import { owesSignInStep, placeOf, placesOf } from "@/features/roles/utils";
+import { RoleChoices } from "@/kit/CardGrid";
+import { RailPage } from "@/kit/RailFrame";
 import { pageMetadata } from "@/shared/utils/metadata";
 
 import type { CardLinkProps } from "@/kit/Card";

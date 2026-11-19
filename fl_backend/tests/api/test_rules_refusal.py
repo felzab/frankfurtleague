@@ -1,4 +1,3 @@
-from collections.abc import Mapping
 from typing import Any, Literal
 
 import pytest
@@ -6,8 +5,8 @@ import pytest
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.saisons.services import find_rules_freeze_refusal, find_rules_refusal, find_undraw_refusal
 from app.core.codes import Code
-from app.core.exceptions import WriteRefusal
-from app.shared.schemas.literals import FLGruppenNames, FLSaisonPhase
+from app.core.exceptions import APIError
+from app.shared.schemas.literals import FLGruppenNames
 
 
 def rules_payload(
@@ -50,12 +49,10 @@ def judge(
     stored: FLSaisonRules | None = None,
     proposed: FLSaisonRules | None = None,
     occupancy: dict[FLGruppenNames, int] | None = None,
-    platz: int = 0,
-    largest_squad: int = 0,
-    attached: Mapping[FLSaisonPhase, int] | None = None,
+    largest_kader: int = 0,
     drawn: int = 0,
     started: bool = False,
-) -> WriteRefusal | None:
+) -> APIError | None:
     """Both judgements in the order `patch_saison` asks them: the freeze, then the rules."""
 
     stored = rules() if stored is None else stored
@@ -68,9 +65,7 @@ def judge(
         stored=stored,
         proposed=proposed,
         occupancy_by_gruppe=occupancy or {},
-        highest_wired_platz=platz,
-        largest_squad=largest_squad,
-        attached_by_phase=attached,
+        largest_kader=largest_kader,
         drawn_spiele=drawn,
     )
 
@@ -117,10 +112,10 @@ class TestTheBracketMustHaveAShape:
 class TestADrawIsNeverWorthMoreThanAWin:
     """Every table the league serves is derived from these two numbers, so a season rewarding a draw above a win scores itself incoherently."""
 
-    def test_refuses_widening_an_excess_that_already_exists(self):
-        """Worsening an excess is as much a step as introducing it, which is what stops the permission to repair one covering both."""
+    def test_refuses_an_excess_the_stored_rules_already_hold(self):
+        """Refused outright, a resubmission of the stored rules included: no stored season holds one to tolerate."""
 
-        refusal = judge(stored=rules(win=1, draw=2), proposed=rules(win=1, draw=3))
+        refusal = judge(stored=rules(win=1, draw=2), proposed=rules(win=1, draw=2))
 
         assert refusal is not None
         assert refusal.error_code == Code.RULES_UNENTSCHIEDEN_OUTVALUES_WIN
@@ -162,13 +157,6 @@ class TestEachRefusalNamesItsBound:
                 id="the capacity holds the fullest group",
             ),
             pytest.param(
-                {"stored": rules(qualifiers=2), "proposed": rules(qualifiers=1), "platz": 2},
-                Code.RULES_QUALIFIERS_BELOW_WIRING,
-                ("rules", "qualifiers_per_gruppe"),
-                {"min": 2},
-                id="the qualifiers reach the highest wired place",
-            ),
-            pytest.param(
                 {"proposed": rules(qualifiers=5, per_group=4)},
                 Code.RULES_QUALIFIERS_ABOVE_GRUPPE,
                 ("rules", "qualifiers_per_gruppe"),
@@ -190,7 +178,7 @@ class TestEachRefusalNamesItsBound:
                 id="a loss is worth at most a draw",
             ),
             pytest.param(
-                {"stored": rules(kader=18), "proposed": rules(kader=10), "largest_squad": 12},
+                {"stored": rules(kader=18), "proposed": rules(kader=10), "largest_kader": 12},
                 Code.RULES_KADER_BELOW_USE,
                 ("rules", "max_kader_size"),
                 {"min": 12},
@@ -224,11 +212,13 @@ class TestAStartedSeasonFreezes:
         assert refusal is not None
         assert refusal.error_code == Code.RULES_SAISON_STARTED
 
-    # One field: the status is judged once ahead of the field comparison, which the case above walks field by field.
-    @pytest.mark.parametrize(("field", "changed"), FROZEN_CASES[:1], ids=[field for field, _ in FROZEN_CASES[:1]])
-    def test_a_finished_season_stays_frozen_whatever_its_dates(self, field: str, changed: dict[str, Any]):
-        """`past` freezes too, so a finished season none of whose group fixtures carries a date is not reopened."""
+    def test_a_finished_season_stays_frozen_whatever_its_dates(self):
+        """`past` freezes too, so a finished season none of whose group fixtures carries a date is not reopened.
 
+        One field: the status is judged once ahead of the field comparison, which the case above walks field by field.
+        """
+
+        _, changed = FROZEN_CASES[0]
         refusal = judge(status="past", stored=rules(), proposed=rules(**changed))
 
         assert refusal is not None
@@ -280,33 +270,13 @@ class TestTheUndrawWindow:
         assert (find_undraw_refusal(saison_status=status, recorded_spiele=recorded) is None) is undraw_runs
 
 
-class TestNarrowingBelowAMatchdaysSpiele:
-    """A matchday's expected count derives from these rules; the input is the largest count one matchday holds."""
-
-    def test_narrowing_the_group_count_below_an_existing_matchday_is_refused(self):
-        """Nothing else refuses it: the groups are empty for `rules_gruppen_in_use`, and 2 x 4 is a bracket `rules_bracket_impossible` takes."""
-
-        refusal = judge(stored=rules(groups=4, qualifiers=2), proposed=rules(groups=2, qualifiers=4), attached={"gruppenphase": 8})
-
-        assert refusal is not None
-        assert refusal.error_code == Code.RULES_SPIELTAG_OVER_ITS_PHASE
-
-    def test_shortening_the_ladder_strands_a_knockout_matchday(self):
-        """4 groups by 1 qualifier leaves a Viertelfinale matchday in a phase expecting 0, which is why every phase is checked."""
-
-        refusal = judge(stored=rules(groups=4, qualifiers=2), proposed=rules(groups=4, qualifiers=1), attached={"viertelfinale": 4})
-
-        assert refusal is not None
-        assert refusal.error_code == Code.RULES_SPIELTAG_OVER_ITS_PHASE
-
-
 class TestAGroupCannotQualifyMoreThanItHolds:
     """More qualifiers than teams asks each group for a placing no standing will ever hold; a browser warning alone lets the save through."""
 
-    def test_refuses_widening_an_excess_that_already_exists(self):
-        """Worsening an excess is as much a step as introducing it, which is what stops the permission to repair one covering both."""
+    def test_refuses_an_excess_the_stored_rules_already_hold(self):
+        """Refused outright, a resubmission of the stored rules included: no stored season holds one to tolerate."""
 
-        refusal = judge(stored=rules(groups=2, qualifiers=4, per_group=2), proposed=rules(groups=2, qualifiers=8, per_group=2))
+        refusal = judge(stored=rules(groups=2, qualifiers=4, per_group=2), proposed=rules(groups=2, qualifiers=4, per_group=2))
 
         assert refusal is not None
         assert refusal.error_code == Code.RULES_QUALIFIERS_ABOVE_GRUPPE

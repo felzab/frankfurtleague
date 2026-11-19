@@ -2,12 +2,11 @@
 
 import { useId, useState } from "react";
 
+import { COPY } from "@/core/copy";
 import { Checkbox } from "@/kit/Checkbox";
 import { ConsentLine } from "@/kit/ConsentLine";
 import { DateField } from "@/kit/DateField";
 import { RadioGroup } from "@/kit/RadioGroup";
-
-import { COPY } from "@/core/copy";
 
 import type { ScopeWording, SwitchWording } from "@/core/consentWordings";
 import type { Copy } from "@/core/copy";

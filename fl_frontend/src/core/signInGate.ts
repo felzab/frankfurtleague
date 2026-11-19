@@ -14,8 +14,7 @@ import type { SubjectSession } from "./subject";
 /** The code the backend answers a payload it refuses with: here, an address no rule of its own accepts. */
 const PAYLOAD_REFUSED = "payload_refused";
 
-// React's `cache`, never `"use cache"`, which would hand one request's grant to another: the guards
-// and the switcher of one render share one read, and outside a render nothing is kept.
+// React's `cache`: the guards and the switcher of one render share one read, and outside a render nothing is kept.
 /**
  * One folded mailbox's records and grant, every reader but the sign-in gate taking them through this
  * one call: the gate, a passkey enrolment's included, reads `lookUpSignIn`. Throws on every backend
@@ -48,9 +47,8 @@ export const lookUpSubject = cache((email: string): Promise<SubjectSession["reco
 /** What the sign-in gate decides on for one mailbox: its two record flags, its ban and its grant. */
 export type SignInRecords = FLSignInResponse;
 
-// React's `cache`, never `"use cache"`, which would hand one request's answer to another. Its own read
-// rather than the subject's: only a sign-in pays for the two collections `account` reads beyond the
-// subject's three.
+// React's `cache`. Its own read rather than the subject's: only a sign-in pays for the two collections
+// `account` reads beyond the subject's three.
 /** The gate's answer for one folded mailbox. Throws on every backend failure, which `mayReceiveSignIn` closes on. */
 export const lookUpSignIn = cache(async (email: string): Promise<SignInRecords> => {
   // In the body: a URL carrying an address reaches the edge's access line.

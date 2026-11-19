@@ -1,8 +1,5 @@
 import { notFound } from "next/navigation";
 
-import { ReadFolds } from "@/kit/ReadFolds";
-import { ReadPage } from "@/kit/ReadPage";
-
 import { COPY } from "@/core/copy";
 import { dayOf, formatDateWithWeekday, formatErgebnis, formatOrdinal, formatTime, timeOf } from "@/core/format";
 import { buildMapsSearchUrl } from "@/core/maps";
@@ -14,6 +11,8 @@ import { publicSaisonOf } from "@/features/saisons/resolvers";
 import { eventOf, headOf, matchdayOf, refereeOf, sidesOf } from "@/features/spiele/blocks";
 import { creditedSide } from "@/features/spiele/result";
 import { roleMarkOf, spielerName } from "@/features/spieler/constants";
+import { ReadFolds } from "@/kit/ReadFolds";
+import { ReadPage } from "@/kit/ReadPage";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
 import { objectIdParamOf } from "@/shared/utils/routeParams";
@@ -126,7 +125,7 @@ function tilesOf(spiel: FLSpielJoined, page: FLSpielPageResponse): readonly [Sta
     { label: fact.schiedsrichter, value: refereeOf(spiel), words: true },
     spiel.spielort === null
       ? { label: fact.spielort, value: COPY.shared.noValue, words: true }
-      : { label: fact.spielort, value: { record: spiel.spielort.name }, words: true, href: buildMapsSearchUrl(spiel.spielort.maps_link) },
+      : { label: fact.spielort, value: { record: spiel.spielort.name }, words: true, href: buildMapsSearchUrl(spiel.spielort.maps_query) },
   ];
 }
 

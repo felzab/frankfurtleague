@@ -1,10 +1,11 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 
-import { documentsWrittenByAsync } from "@/test-support/stdoutCapture";
 import { MongoServerError } from "mongodb";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
+
+import { documentsWrittenByAsync } from "@/test-support/stdoutCapture";
 
 import { logger } from "./logging";
 import { runWithRequestScope } from "./requestScope";
@@ -24,7 +25,6 @@ const LOG_ADDRESSES = z
     ),
   );
 
-// Run by the `unit-production` project under a production build's `NODE_ENV`, which writes the JSON line.
 describe("logger", () => {
   it("writes no address a store error or a field quoted, and keeps the error's frames", async () => {
     const duplicate = new MongoServerError({

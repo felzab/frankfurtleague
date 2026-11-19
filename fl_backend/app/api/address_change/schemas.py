@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Annotated, Literal, Self
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, Field, model_validator
 
 from app.api.address_change.services import FLAddressChangeNewState, FLAddressChangePreviousState
 from app.api.outbox.schemas import FLOutboxStatus
@@ -14,7 +14,7 @@ from app.shared.schemas.custom import (
 )
 from app.shared.schemas.kontakt import CustomEmail, CustomStoredAddress
 from app.shared.schemas.literals import FLAddressChangeEndKind, FLAddressChangeWaitsOn, FLAddressChangeWay, FLAdminTier
-from app.shared.schemas.responses import BaseAPIResponse
+from app.shared.schemas.responses import BasePayload, BaseReadModel
 
 type FLAddressChangeAnswer = Literal["confirmed", "declined"]
 
@@ -39,7 +39,6 @@ class FLAddressChange(BaseModel):
     address: CustomStoredAddress | None
     email: CustomStoredAddress | None
     way: FLAddressChangeWay
-    sent_at: CustomDateString
     valid_until: datetime | None
     released_at: datetime | None
     confirmed_at: datetime | None
@@ -71,7 +70,7 @@ class FLAddressChangeOpenMove(BaseModel):
     new: str
 
 
-class FLAddressChangeMovesResponse(BaseAPIResponse):
+class FLAddressChangeMovesResponse(BaseReadModel):
     """The sign-in accounts the effects still owe to carry, server to server alone: each names two addresses.
 
     A page at a time; a full page means more wait.
@@ -80,21 +79,12 @@ class FLAddressChangeMovesResponse(BaseAPIResponse):
     moves: list[FLAddressChangeOpenMove]
 
 
-class FLAddressChangeMovesDonePayload(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
+class FLAddressChangeMovesDonePayload(BasePayload):
     ids: list[CustomObjectId] = Field(min_length=1, max_length=LIST_LIMIT_DEFAULT)
 
 
-class FLAddressChangeMovesDoneResponse(BaseAPIResponse):
-    # The carries this call took off their changes; an id owing none is not counted.
-    done: int = Field(ge=0)
-
-
-class FLAddressChangeAddressPayload(BaseModel):
+class FLAddressChangeAddressPayload(BasePayload):
     """Exactly one key: the new mailbox's link token, or the change a re-send names."""
-
-    model_config = ConfigDict(extra="forbid")
 
     token: CustomToken | None = None
     address_change_id: CustomObjectId | None = None
@@ -107,7 +97,7 @@ class FLAddressChangeAddressPayload(BaseModel):
         return self
 
 
-class FLAddressChangeAddressResponse(BaseAPIResponse):
+class FLAddressChangeAddressResponse(BaseReadModel):
     """A live change's new address and nothing else, server to server alone."""
 
     # Folded as the sign-in store keys an account; null where the key names no live change.
@@ -158,7 +148,7 @@ class FLAddressChangeViewEnded(BaseModel):
     confirmed_on: CustomDateString | None
 
 
-class FLAddressChangeViewResponse(BaseAPIResponse):
+class FLAddressChangeViewResponse(BaseReadModel):
     """What one address link opens: never a name or the id.
 
     The new address only where its holder judges by it: the new mailbox's `valid` link, and the address on file's link while
@@ -168,15 +158,13 @@ class FLAddressChangeViewResponse(BaseAPIResponse):
     view: Annotated[FLAddressChangeViewNew | FLAddressChangeViewPrevious | FLAddressChangeViewEnded, Field(discriminator="state")]
 
 
-class FLAddressChangeAnswerPayload(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
+class FLAddressChangeAnswerPayload(BasePayload):
     token: CustomToken
     # Required rather than defaulted: a page that omitted it would have the model answer for the person whether a mailbox is theirs.
     answer: FLAddressChangeAnswer
 
 
-class FLAddressChangeAnswerResponse(BaseAPIResponse):
+class FLAddressChangeAnswerResponse(BaseReadModel):
     """The answer recorded, and no address of the change: the notices an effect owes are queued, never answered."""
 
     answer: FLAddressChangeAnswer
@@ -184,10 +172,6 @@ class FLAddressChangeAnswerResponse(BaseAPIResponse):
     effective_from: FLUtcInstant | None
     # Set where the change took effect: its notice is owed in the Postausgang and its account's carry on the record.
     effective: bool
-
-
-class FLAddressChangeStopResponse(BaseAPIResponse):
-    stopped: Literal[True]
 
 
 class FLAddressChangeAdminOpen(BaseModel):
@@ -207,41 +191,25 @@ class FLAddressChangeAdminOpen(BaseModel):
     expired: bool
 
 
-class FLAddressChangeAdminListResponse(BaseAPIResponse):
+class FLAddressChangeAdminListResponse(BaseReadModel):
     """The running changes this administrator may act on, newest first."""
 
     changes: list[FLAddressChangeAdminOpen]
 
 
-class FLAddressChangeAdminPayload(BaseModel):
+class FLAddressChangeAdminPayload(BasePayload):
     """The address a change starts on, and the address it goes to."""
-
-    model_config = ConfigDict(extra="forbid")
 
     address: CustomEmail
     email: CustomEmail
 
 
-class FLAddressChangeIdResponse(BaseAPIResponse):
-    """A started, re-sent or discarded change: its mails are owed in the Postausgang, so no link is answered."""
-
-    id: CustomObjectId
-
-
-class FLAddressChangeSweepParams(BaseModel):
-    """Where in one pass the call starts: after the change the call before it reached, or at the lowest id where none is named."""
-
-    after: CustomObjectId | None = None
-
-
-class FLAddressChangeSweepResponse(BaseAPIResponse):
-    """One call's share of the live changes whose step lapsed or whose waiting time ended."""
+class FLAddressChangeSweepResponse(BaseReadModel):
+    """One pass over the live changes whose step lapsed or whose waiting time ended; a pass the deadline cut leaves the rest due."""
 
     removed: int
     # Due changes a judgement refused at the end of their waiting time, and due ones taken effect, each notice queued.
     discarded: int = Field(ge=0)
     effective: int = Field(ge=0)
-    # A change whose ending or effect failed among them: it stays due, so a caller looping on this alone never ends.
-    remaining: int
-    # The last change this call reached, for the next call's `after`; null once it reached the end, which ends the pass.
-    after: CustomObjectId | None
+    # The due changes whose effect failed, and the lapsed ones together where their ending failed: each stays due.
+    failed: int = Field(ge=0)

@@ -1,8 +1,7 @@
-import { StatusPage } from "@/kit/StatusPage";
-
 import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
+import { StatusPage } from "@/kit/StatusPage";
 
 /** A season or a record the public cannot read, in the rail frame its layout drew. */
 export default function SaisonsNotFound() {

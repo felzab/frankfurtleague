@@ -1,13 +1,13 @@
 // @vitest-environment jsdom
 import { Suspense } from "react";
 
-import { renderUnderNext } from "@/test-support/nextContexts";
 import { act, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
+import { renderUnderNext } from "@/test-support/nextContexts";
 
 import { BarPlaces, MenuScope, RailEntries, SaisonScope } from "./FrameNav";
 

@@ -1,10 +1,11 @@
-import { ADMIN_EMAIL } from "@/test-support/authDoubles";
-import { refusal, serveBackend } from "@/test-support/backend";
-import { signedInRequest } from "@/test-support/session";
-import { assert, beforeEach, describe, expect, it } from "vitest";
+import { assert, beforeEach, describe, expect, it, onTestFinished } from "vitest";
 
 import { COPY } from "@/core/copy";
 import { SERVER_COPY } from "@/core/serverCopy";
+import { ADMIN_EMAIL } from "@/test-support/authDoubles";
+import { refusal, serveBackend } from "@/test-support/backend";
+import { signedInRequest } from "@/test-support/session";
+import { captureLog } from "@/test-support/stdoutCapture";
 
 import type { FLErasureViewResponse } from "@/core/generated/client/types";
 
@@ -24,6 +25,9 @@ const NO_RECORDS: FLErasureViewResponse = {
 
 /** What the backend holds for the case, and whether the erased address's account stood when the records went. */
 const held = { view: NO_RECORDS, refused: false, accountAtTheErasure: undefined as boolean | undefined };
+
+/** Every line the real logger writes, read off standard output. */
+const log = captureLog();
 
 // The question's read and the erasure itself, each answered only for the address the case erases.
 const backend = serveBackend(({ method, path, body }) => {
@@ -70,6 +74,26 @@ const asked = async () => {
   return answer.value.question;
 };
 
+/**
+ * The sign-in store failing the deletion's commit for the rest of the case, after the deletion's own writes ran, with
+ * the driver's message naming the address it refused, as a refused unique key's does: the in-memory store commits a
+ * transaction by writing each of its tables back, and the account's table refuses the write.
+ */
+function failTheCommit(): void {
+  const rows = store.user;
+  Object.defineProperty(store, "user", {
+    configurable: true,
+    enumerable: true,
+    get: () => rows,
+    set: () => {
+      throw new Error(`E11000 duplicate key error collection: user index: user_email_uidx dup key: { email: "${ERASED}" }`);
+    },
+  });
+  onTestFinished(() => {
+    Object.defineProperty(store, "user", { configurable: true, enumerable: true, writable: true, value: rows });
+  });
+}
+
 beforeEach(() => {
   held.view = NO_RECORDS;
   held.refused = false;
@@ -112,5 +136,25 @@ describe("the erasure's two stores", () => {
 
     expect(await press()).toMatchObject({ ok: false, reason: SERVER_COPY.refusalLine.own_address });
     expect(accounts()).toContain(ERASED);
+  });
+
+  it("stays open on an account deletion of unknown outcome, logging no address", async () => {
+    await accountAtTheErasedAddress();
+    log.clear();
+    failTheCommit();
+
+    // Not done: the dialog stands on this answer, and its press repeats the erasure, the one way to reach the account.
+    expect(await press()).toStrictEqual({ ok: false, reason: COPY.admin.erasure.partial, warn: true });
+
+    const errors = log.lines().filter(({ level }) => level === "ERROR");
+    expect(errors.map(({ message, fields }) => ({ message, fields }))).toStrictEqual([
+      { message: "erasure.account_not_deleted", fields: { name: "Error" } },
+    ]);
+    expect(errors[0]).not.toHaveProperty("error");
+    // The logger writes an address it meets as its placeholder, so a line carrying either carried the address.
+    for (const { raw } of log.lines()) {
+      expect(raw).not.toContain(ERASED);
+      expect(raw).not.toContain("[address]");
+    }
   });
 });

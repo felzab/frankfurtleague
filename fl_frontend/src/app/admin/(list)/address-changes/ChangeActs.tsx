@@ -3,14 +3,13 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
+import { COPY } from "@/core/copy";
+import { discardChange } from "@/features/address-change/actions";
 import { ConfirmDialog } from "@/kit/ConfirmDialog";
 import { SideActs } from "@/kit/SideActs";
 import { toastAnswer } from "@/kit/Toast";
 import { answering } from "@/kit/useFormAction";
 import { usePasskeyTouch } from "@/kit/usePasskeyTouch";
-
-import { COPY } from "@/core/copy";
-import { discardChange } from "@/features/address-change/actions";
 
 import { resendChangeLink } from "./addressChangeActs";
 import { changeActKinds } from "./changeActKinds";

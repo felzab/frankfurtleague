@@ -1,5 +1,6 @@
-import { documentsWrittenByAsync } from "@/test-support/stdoutCapture";
 import { describe, expect, it } from "vitest";
+
+import { documentsWrittenByAsync } from "@/test-support/stdoutCapture";
 
 const { POST } = await import("./route");
 const { NextRequest } = await import("next/server");
@@ -14,8 +15,7 @@ function report(headers: Record<string, string>): InstanceType<typeof NextReques
   });
 }
 
-// Run by the `unit-production` project under a production build's `NODE_ENV`: its JSON line is the one a reader
-// joins to the edge's by its trace.
+// The report's line is the one a reader joins to the edge's by its trace.
 describe("POST /api/client-error", () => {
   // The route runs under no request scope, so the line's trace comes from the header it reads itself.
   it("logs the report under the ingest request's trace", async () => {

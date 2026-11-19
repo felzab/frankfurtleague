@@ -2,16 +2,16 @@
 
 The read is anchored on the season's own document, and every collection a card draws on is joined to it by an
 uncorrelated `$lookup`: the fixtures through `build_spiele_pipeline`, the confirmation rows in the administrator's
-queue and every row holding its party's question, the reports and the undecided applications. That makes one round
-trip and one document. Each kind is judged here in Python, by the predicates the confirmations, the reports and the
-applications already hold, so no rule is spelled a second time in a query. The bracket faults are the exception: they
-need the standings walk, so they are judged over the same fixtures by `bracket_faults_of`, whose own reads are the
-ones no aggregation can fold in.
+queue and every row holding its party's question, the clubs' seats, the reports and the undecided applications. That
+makes one round trip and one document. Each kind is judged here in Python, by the predicates the confirmations, the
+reports and the applications already hold, so no rule is spelled a second time in a query. The bracket faults are the
+exception: they need the standings walk, so they are judged over the same fixtures by `bracket_faults_of`, whose own
+reads are the ones no aggregation can fold in.
 """
 
 from collections.abc import Iterable, Mapping, Sequence
 from datetime import datetime
-from typing import Annotated, Any, Final, Literal, get_args
+from typing import Annotated, Any, Final, Literal, assert_never, get_args
 
 from pydantic import BaseModel, Field
 
@@ -28,24 +28,34 @@ from app.api.spielbestaetigungen.services import (
     build_triage_rows_filter,
     due_by_of,
     lapsed_on,
+    parties_mailed,
     parties_told_of_the_change,
     party_key,
     reason_to_close,
 )
 from app.api.spiele.schemas import (
     SONDEREREIGNIS_OWING_NOTHING,
+    FLBookingResource,
     FLBracketFault,
+    FLBracketFaultBooking,
+    FLBracketFaultClash,
+    FLBracketFaultGruppe,
+    FLBracketFaultOccupant,
+    FLBracketFaultQuelle,
+    FLBracketFaultSlot,
+    FLBracketFaultSpiel,
+    FLBracketFaultSpieltag,
     FLSpielbestaetigungParty,
     FLSpielJoinedAdmin,
     FLSpielJoinedInternal,
     FLSpielRecipient,
 )
-from app.api.spiele.services import PARTY_NAME_FIELD, build_party_name_stages, build_spiele_pipeline, recipients_named
+from app.api.spiele.services import build_spiele_pipeline, recipients_named
 from app.core import clock
 from app.core.collections import Collection
 from app.shared.schemas.custom import CustomDateString, CustomNonEmptyString, CustomObjectId, CustomOptionalDateString
-from app.shared.schemas.literals import KONTAKT_ROLLEN
-from app.shared.schemas.responses import BaseAPIResponse
+from app.shared.schemas.literals import KONTAKT_SEATS, FLAustrittType, FLGruppenNames
+from app.shared.schemas.responses import BaseReadModel
 
 # The four cards, in the urgency order the page shows them: what is due by a deadline, the results, the fixtures'
 # slots and casts, then the applications.
@@ -86,15 +96,15 @@ CARDS: Final[tuple[FLOverviewCardName, ...]] = get_args(FLOverviewCardName.__val
 SPIELE_AS: Final = "spiele"
 QUEUE_ROWS_AS: Final = "queue_rows"
 HELD_ROWS_AS: Final = "held_rows"
+JUNCTIONS_AS: Final = "junctions"
 SPIELBERICHTE_AS: Final = "spielberichte"
 BEWERBUNGEN_AS: Final = "bewerbungen"
-PICKED_CLUB_AS: Final = "picked_club"
+PICKED_TEAM_AS: Final = "picked_team"
 
 # The stored keys of a confirmation row this module reads raw, named once so the stored rename finds them: no model
 # of the rows serves the subset a card needs.
 ROW_PARTY: Final = "party"
 ROW_ANSWER: Final = "answer"
-ROW_DEADLINE: Final = "deadline"
 
 
 class FLOverviewSpielRow(BaseModel):
@@ -158,12 +168,77 @@ class FLOverviewSpielberichtRow(BaseModel):
     state: FLSpielberichtOpenState
 
 
+class FLOverviewFaultPlatz(BaseModel):
+    """A placing a slot waits on that its group cannot hand it: the group holds too few clubs, or no rule breaks a tie."""
+
+    reason: Literal["gruppe_too_small", "tie_unresolved"]
+    gruppe: FLGruppenNames
+    platz: int = Field(gt=0)
+
+
+class FLOverviewFaultWiring(BaseModel):
+    """Wiring of the bracket the season cannot hold, whatever its shape."""
+
+    reason: Literal["wiring"]
+
+
+class FLOverviewFaultDeparted(BaseModel):
+    """A club fielded on or after the day it left the season, by its name, the way it left and that day."""
+
+    reason: Literal["departed_occupant"]
+    team_name: str = Field(min_length=1)
+    austritt_type: FLAustrittType
+    exited_since: CustomDateString
+
+
+class FLOverviewFaultFieldedTwice(BaseModel):
+    """A club standing on another fixture of the same Spieltag too, by its name."""
+
+    reason: Literal["fielded_twice"]
+    team_name: str = Field(min_length=1)
+
+
+class FLOverviewFaultBooking(BaseModel):
+    """A venue or a referee the fixture books that has retired, or that another fixture holds at the same hour."""
+
+    reason: Literal["retired_booking", "double_booked"]
+    booking: FLBookingResource
+
+
+# What the Übersicht's line says of a fault, and nothing else of it: the fixture is the row's own.
+type FLOverviewFault = Annotated[
+    FLOverviewFaultPlatz | FLOverviewFaultWiring | FLOverviewFaultDeparted | FLOverviewFaultFieldedTwice | FLOverviewFaultBooking,
+    Field(discriminator="reason"),
+]
+
+
+def fault_line(fault: FLBracketFault) -> FLOverviewFault:
+    """One derived fault as its line words it: every shape of wiring the season cannot hold is one line, which no screen repairs."""
+
+    if isinstance(fault, FLBracketFaultGruppe):
+        if fault.reason == "gruppe_too_small" or fault.reason == "tie_unresolved":
+            return FLOverviewFaultPlatz(reason=fault.reason, gruppe=fault.gruppe, platz=fault.platz)
+        return FLOverviewFaultWiring(reason="wiring")
+    if isinstance(fault, FLBracketFaultQuelle | FLBracketFaultSlot | FLBracketFaultSpiel):
+        return FLOverviewFaultWiring(reason="wiring")
+    if isinstance(fault, FLBracketFaultOccupant):
+        return FLOverviewFaultDeparted(
+            reason=fault.reason, team_name=fault.team_name, austritt_type=fault.austritt_type, exited_since=fault.exited_since
+        )
+    if isinstance(fault, FLBracketFaultSpieltag):
+        return FLOverviewFaultFieldedTwice(reason=fault.reason, team_name=fault.team_name)
+    if isinstance(fault, FLBracketFaultBooking | FLBracketFaultClash):
+        return FLOverviewFaultBooking(reason=fault.reason, booking=fault.booking)
+
+    assert_never(fault)
+
+
 class FLOverviewBracketFaultRow(BaseModel):
     """One derived fault of the season's bracket or bookings, on the fixture it names."""
 
     kind: Literal["bracket_fault"]
     spiel: FLSpielJoinedAdmin
-    fault: FLBracketFault
+    fault: FLOverviewFault
 
 
 class FLOverviewBewerbungRow(BaseModel):
@@ -195,9 +270,39 @@ class FLOverviewCard(BaseModel):
     rows: list[FLOverviewRow]
 
 
-class FLSaisonOverviewResponse(BaseAPIResponse):
+class FLSaisonOverviewResponse(BaseReadModel):
     # All four cards in `CARDS`' order, an empty one included, so the page keeps one shape every day.
     cards: list[FLOverviewCard]
+
+
+PARTY_NAME_FIELD: Final = "party_name"
+
+
+def build_party_name_stages(*, saison_id: str) -> list[Mapping[str, Any]]:
+    """Stages setting on each confirmation row the name its party's own record holds: a club's season row, a referee's."""
+
+    return [
+        {
+            "$lookup": {
+                "from": Collection.SAISON_TEAMS,
+                "localField": "party.team_id",
+                "foreignField": "team_id",
+                "pipeline": [{"$match": {"saison_id": saison_id}}, {"$project": {"_id": 0, "name": 1}}],
+                "as": "team",
+            }
+        },
+        {
+            "$lookup": {
+                "from": Collection.SCHIEDSRICHTER,
+                "localField": "party.schiedsrichter_id",
+                "foreignField": "_id",
+                "pipeline": [{"$project": {"_id": 0, "name": 1}}],
+                "as": "referee",
+            }
+        },
+        {"$set": {PARTY_NAME_FIELD: {"$first": {"$concatArrays": ["$team.name", "$referee.name"]}}}},
+        {"$unset": ["team", "referee"]},
+    ]
 
 
 def build_overview_pipeline(*, saison_id: str, today: str) -> list[Mapping[str, Any]]:
@@ -221,7 +326,7 @@ def build_overview_pipeline(*, saison_id: str, today: str) -> list[Mapping[str, 
                     {"$match": build_triage_rows_filter(saison_id=saison_id, today=today)},
                     # An inclusion of what the close's judgement and the cards read, so nothing else a row stores reaches
                     # this handler.
-                    {"$project": dict.fromkeys([*CLOSE_FIELDS, ROW_ANSWER, ROW_DEADLINE], 1)},
+                    {"$project": dict.fromkeys([*CLOSE_FIELDS, ROW_ANSWER, "deadline"], 1)},
                     # Each party by its own record's name, as the acts' recipients below are named.
                     *build_party_name_stages(saison_id=saison_id),
                 ],
@@ -242,6 +347,14 @@ def build_overview_pipeline(*, saison_id: str, today: str) -> list[Mapping[str, 
                 "as": HELD_ROWS_AS,
             }
         },
+        # Every club's seats, which decide whether an act's mail reaches it, judged below as the pass judges them.
+        {
+            "$lookup": {
+                "from": Collection.SAISON_TEAMS,
+                "pipeline": [{"$match": {"saison_id": saison_id}}, {"$project": {"_id": 0, "team_id": 1, "kontakte": 1}}],
+                "as": JUNCTIONS_AS,
+            }
+        },
         {"$lookup": {"from": Collection.SPIELBERICHTE, "pipeline": build_state_pipeline(saison_id=saison_id), "as": SPIELBERICHTE_AS}},
         {
             "$lookup": {
@@ -260,11 +373,11 @@ def build_overview_pipeline(*, saison_id: str, today: str) -> list[Mapping[str, 
                             "localField": "team_id",
                             "foreignField": "_id",
                             "pipeline": [{"$project": {"_id": 0, "name": 1}}],
-                            "as": PICKED_CLUB_AS,
+                            "as": PICKED_TEAM_AS,
                         }
                     },
                     # The seats for their confirmation alone; nothing of a person is served.
-                    {"$project": {"schule.team_name": 1, "kontakte": 1, PICKED_CLUB_AS: 1}},
+                    {"$project": {"schule.team_name": 1, "kontakte": 1, PICKED_TEAM_AS: 1}},
                 ],
                 "as": BEWERBUNGEN_AS,
             }
@@ -339,6 +452,7 @@ def overview_of(
     for row in read[HELD_ROWS_AS]:
         held.setdefault(row["spiel_id"], []).append(row)
     names = {party_key(row[ROW_PARTY]): row.get(PARTY_NAME_FIELD) for row in read[HELD_ROWS_AS]}
+    kontakte = {row["team_id"]: row.get("kontakte") for row in read[JUNCTIONS_AS]}
 
     parties: dict[Any, list[FLOverviewParty]] = {}
     for row in read[QUEUE_ROWS_AS]:
@@ -360,17 +474,20 @@ def overview_of(
                     team_id=row[ROW_PARTY]["team_id"],
                     vorschlag=vorschlag,
                     adoption_recipients=recipients_named(
-                        parties_told_of_the_change(
-                            rows=held.get(spiel.id, []),
-                            stored=spiel_raw,
-                            changed=adopted,
-                            stored_austritte=austritte,
-                            changed_austritte=austritte,
-                            now=now,
+                        parties_mailed(
+                            parties_told_of_the_change(
+                                rows=held.get(spiel.id, []),
+                                stored=spiel_raw,
+                                changed=adopted,
+                                stored_austritte=austritte,
+                                changed_austritte=austritte,
+                                now=now,
+                            ),
+                            kontakte=kontakte,
                         ),
                         names=names,
                     ),
-                    discard_recipients=recipients_named([row[ROW_PARTY]], names=names),
+                    discard_recipients=recipients_named(parties_mailed([row[ROW_PARTY]], kontakte=kontakte), names=names),
                 )
             )
             continue
@@ -399,17 +516,17 @@ def overview_of(
         if is_open(state):
             rows.append(FLOverviewSpielberichtRow(kind="spielbericht_open", spiel=by_id[row["spiel_id"]], state=state))
 
-    rows.extend(FLOverviewBracketFaultRow(kind="bracket_fault", spiel=by_id[fault.spiel_id], fault=fault) for fault in faults)
+    rows.extend(FLOverviewBracketFaultRow(kind="bracket_fault", spiel=by_id[fault.spiel_id], fault=fault_line(fault)) for fault in faults)
 
     for bewerbung in read[BEWERBUNGEN_AS]:
-        picked = bewerbung[PICKED_CLUB_AS]
+        picked = bewerbung[PICKED_TEAM_AS]
         rows.append(
             FLOverviewBewerbungRow(
                 kind="bewerbung",
                 bewerbung_id=bewerbung["_id"],
                 name=picked[0]["name"] if picked else bewerbung["schule"]["team_name"],
-                seats_confirmed=len(KONTAKT_ROLLEN) - len(pending_seats(kontakte=bewerbung.get("kontakte"))),
-                seats=len(KONTAKT_ROLLEN),
+                seats_confirmed=len(KONTAKT_SEATS) - len(pending_seats(kontakte=bewerbung.get("kontakte"))),
+                seats=len(KONTAKT_SEATS),
             )
         )
 

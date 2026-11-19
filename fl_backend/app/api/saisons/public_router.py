@@ -1,7 +1,7 @@
 from collections.abc import Mapping
 from typing import Any, Final
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter
 
 from app.api.aufstellungen.services import compose_public_aufstellungen, public_aufstellungen_lookup
 from app.api.saisons.crud import CURRENT_SAISON_FILTER, pull_finale_by_saison, pull_landing_windows
@@ -16,15 +16,11 @@ from app.api.saisons.schemas import (
     FLLandingResponse,
     FLLandingRunning,
     FLLandingSide,
-    FLSaison,
-    FLSaisonFrameEntryListAdapter,
     FLSaisonFrameResponse,
-    FLSaisonsSingleResponse,
     FLSpielPageResponse,
     FLSpielSideStanding,
     FLSpielSideStandings,
     FLTeamPageResponse,
-    FLTeamPageSpielListAdapter,
     saison_start,
 )
 from app.api.saisons.services import (
@@ -34,11 +30,10 @@ from app.api.saisons.services import (
     decided_podium,
     has_started,
     matchday_of,
-    with_schedule,
 )
 from app.api.saisons.visibility import PublicSaison, resolve_public_saison
-from app.api.spielberichte.services import SIDES, build_public_bericht_pipeline, compose_public_bericht, team_id_of
-from app.api.spiele.schemas import FLSpielJoined, FLSpielJoinedListAdapter, FLSpielTeamFieldJoinedInternal, unplayed_filter
+from app.api.spielberichte.services import SIDES, build_public_bericht_pipeline, compose_public_bericht
+from app.api.spiele.schemas import FLSpielJoined, FLSpielJoinedListAdapter, FLSpielTeamFieldJoinedInternal, team_id_of, unplayed_filter
 from app.api.spiele.services import build_named_spiele_pipeline, build_spiele_pipeline
 from app.api.spieler.schemas import FLSpielerListAdapter
 from app.api.spieler.services import build_spieler_pipeline
@@ -50,14 +45,14 @@ from app.api.teams.schemas import (
     FLSaisonTeamEntryListAdapter,
     FLSaisonTeamsResponse,
     FLTabelleResponse,
-    FLTeamPageClub,
+    FLTeamPageTeam,
 )
 from app.api.teams.services import build_team_pipeline, counting_spiele_match
 from app.core.collections import Collection
 from app.core.concurrency import concurrently
-from app.core.config import API_VERSION
-from app.core.crud import GERMAN_COLLATION, aggregate_many_from_db, pull_many_from_db, pull_one_from_db
+from app.core.crud import GERMAN_COLLATION, aggregate_many_from_db, pull_many_from_db, pull_one_from_db, pull_whole_from_db
 from app.core.dependencies import (
+    GermanDay,
     SaisonSpielerReadCollection,
     SaisonsReadCollection,
     SaisonTeamsReadCollection,
@@ -65,22 +60,21 @@ from app.core.dependencies import (
     SpieleReadCollection,
     SpieltageReadCollection,
     TeamsReadCollection,
-    get_german_date_str,
 )
 from app.core.exceptions import DocumentNotFoundError
 from app.core.readonly import ReadCollection
 from app.core.routing import by_id
-from app.core.security import verify_access_base
+from app.core.security import BASE_TIER
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
-from app.shared.schemas.custom import CustomRouteObjectId
+from app.shared.schemas.custom import CustomObjectId
 
 router = APIRouter(
-    prefix=f"/api/v{API_VERSION}/saisons",
-    dependencies=[Depends(verify_access_base)],
+    prefix="/saisons",
+    dependencies=BASE_TIER,
 )
 
 
-@router.get("/frame", response_model=FLSaisonFrameResponse, summary="The season pages' frame")
+@router.get("/frame", summary="The season pages' frame")
 async def get_frame(saisons_collection: SaisonsReadCollection) -> FLSaisonFrameResponse:
     """Every season the public may read, the newest first, and the one the site is on; that one is null for a league that has none."""
 
@@ -96,7 +90,7 @@ async def get_frame(saisons_collection: SaisonsReadCollection) -> FLSaisonFrameR
     # season is the one write that moves it, so a finished season stays the site's until then.
     active_saison_id = next((str(raw["_id"]) for raw in saisons_raw if raw["status"] == "active"), None)
 
-    return FLSaisonFrameResponse(saisons=FLSaisonFrameEntryListAdapter.validate_python(saisons_raw), active_saison_id=active_saison_id)
+    return FLSaisonFrameResponse.model_validate({"saisons": saisons_raw, "active_saison_id": active_saison_id})
 
 
 # How many matches the landing's card shows while the season runs: one of each side where both hold one, else this many
@@ -146,63 +140,58 @@ async def _active_or_none(saisons_collection: ReadCollection) -> Mapping[str, An
         return None
 
 
-# Keeps a season's row in a count only where the public reads its season, joined on the row's `saison_id`: a planned
-# season's clubs and fixtures count once it starts being read, by the rule every base-tier season read narrows on.
-_IN_A_PUBLIC_SAISON: tuple[Mapping[str, Any], ...] = (
-    {
-        "$lookup": {
-            "from": Collection.SAISONS,
-            "localField": "saison_id",
-            "foreignField": "_id",
-            "pipeline": [{"$match": base_tier_status_term()}, {"$project": {"_id": 0, "status": 1}}],
-            "as": "public_saison",
-        }
-    },
-    {"$match": {"public_saison": {"$ne": []}}},
-)
+def _listed_team(past_ids: list[Any]) -> tuple[Mapping[str, Any], ...]:
+    """A club a season's Teams page lists: one that has not left the league, or one whose row is in a season now `past`."""
 
-# A club a season's Teams page lists, as `build_retirement_stages` keeps it: one that has not left the league, or one
-# that left it after a season now `past`, which keeps its place there.
-_LISTED_CLUB: tuple[Mapping[str, Any], ...] = (
-    {
-        "$lookup": {
-            "from": Collection.TEAMS,
-            "localField": "team_id",
-            "foreignField": "_id",
-            "pipeline": [{"$project": {"_id": 0, "inactive_since": 1}}],
-            "as": "club",
-        }
-    },
-    # `$elemMatch` rather than a `club.0.inactive_since` path, which a missing field "0" in the joined element matches as null.
-    {"$match": {"$or": [{"club": {"$elemMatch": {"inactive_since": None}}}, {"public_saison": {"$elemMatch": {"status": "past"}}}]}},
-)
+    return (
+        {
+            "$lookup": {
+                "from": Collection.TEAMS,
+                "localField": "team_id",
+                "foreignField": "_id",
+                "pipeline": [{"$project": {"_id": 0, "inactive_since": 1}}],
+                "as": "team",
+            }
+        },
+        # `$elemMatch` rather than a `team.0.inactive_since` path, which a missing field "0" in the joined element matches as null.
+        {"$match": {"$or": [{"team": {"$elemMatch": {"inactive_since": None}}}, {"saison_id": {"$in": past_ids}}]}},
+    )
 
 
 async def _league_counts(
     *, saisons_collection: ReadCollection, spiele_collection: ReadCollection, saison_teams_collection: ReadCollection
 ) -> FLLandingCounts:
-    """The league's figures over every season the public reads, three reads sent at once."""
+    """The league's figures over every season the public reads: those seasons read once, then the two counts over them at once."""
 
-    count_saisons, counted_raw, schulen_raw = await concurrently(
-        saisons_collection.count_documents(base_tier_status_term()),
+    # By the rule every base-tier season read narrows on, so a planned season's clubs and fixtures count once it is read.
+    # Whole: a season past the page would drop its clubs and matches from the figures in silence.
+    public = await pull_whole_from_db(
+        collection=saisons_collection, db_filter=base_tier_status_term(), what="the public seasons", projection=["status"]
+    )
+    in_a_public_saison = {"saison_id": {"$in": [row["_id"] for row in public]}}
+    counted_raw, schulen_raw = await concurrently(
         # The matches the Tabelle counts, every phase's: one group, so the goals and the matches stand on one basis.
         aggregate_many_from_db(
             collection=spiele_collection,
             pipeline=[
-                {"$match": counting_spiele_match()},
-                *_IN_A_PUBLIC_SAISON,
+                {"$match": {**counting_spiele_match(), **in_a_public_saison}},
                 {"$group": {"_id": None, "tore": {"$sum": {"$add": ["$team1.tore", "$team2.tore"]}}, "spiele": {"$sum": 1}}},
             ],
         ),
         # The clubs the seasons' Teams pages list, a club playing several seasons one school.
         aggregate_many_from_db(
             collection=saison_teams_collection,
-            pipeline=[*_IN_A_PUBLIC_SAISON, *_LISTED_CLUB, {"$group": {"_id": "$team_id"}}, {"$count": "schulen"}],
+            pipeline=[
+                {"$match": in_a_public_saison},
+                *_listed_team([row["_id"] for row in public if row["status"] == "past"]),
+                {"$group": {"_id": "$team_id"}},
+                {"$count": "schulen"},
+            ],
         ),
     )
 
     return FLLandingCounts(
-        count_saisons=count_saisons,
+        count_saisons=len(public),
         count_schulen=schulen_raw[0]["schulen"] if schulen_raw else 0,
         # No group row where no match counts yet.
         count_spiele=counted_raw[0]["spiele"] if counted_raw else 0,
@@ -253,7 +242,7 @@ async def _landing_saison(
         if started
         else _no_rows(),
         pull_finale_by_saison(spiele_collection=spiele_collection, saison_ids=[saison_id]),
-        _clubs_of(teams_collection=teams_collection, saison_id=saison_id),
+        _teams_of(teams_collection=teams_collection, saison_id=saison_id),
     )
 
     start = saison_start(saison_raw["start_date"])
@@ -294,13 +283,13 @@ async def _landing_saison(
             )
 
 
-@router.get("/landing", response_model=FLLandingResponse, summary="The landing")
+@router.get("/landing", summary="The landing")
 async def get_landing(
     saisons_collection: SaisonsReadCollection,
     spiele_collection: SpieleReadCollection,
     saison_teams_collection: SaisonTeamsReadCollection,
     teams_collection: TeamsReadCollection,
-    today: str = Depends(get_german_date_str),
+    today: GermanDay,
 ) -> FLLandingResponse:
     """The season the site is on, `before_start`, `running` or `decided`, null for a league that has none.
 
@@ -329,22 +318,6 @@ async def get_landing(
     )
 
 
-# Declared after `/frame` and `/landing`, which it would otherwise answer as season ids: routes match in
-# declaration order, and the `objectid` convertor cannot help here, a season id being a four-character string.
-@router.get("/{saison_id}", response_model=FLSaisonsSingleResponse, summary="One Saison")
-async def get_saison(saison_id: str, saisons_collection: SaisonsReadCollection) -> FLSaisonsSingleResponse:
-    """One season the public may read, by its id.
-
-    404 where no season carries it or it is a `future` one.
-    """
-
-    # The status term withholds a `future` season in the filter itself, so its miss is the miss of an id no season
-    # carries and nothing here needs to know it was withheld.
-    saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id, **base_tier_status_term()})
-
-    return FLSaisonsSingleResponse(saison=FLSaison.model_validate(with_schedule(saison_raw)))
-
-
 # The knockout phases, which the K.-o.-Runde shows of the same matchdays and matches the Spielplan does.
 _KNOCKOUT_TERM: Mapping[str, Any] = {"saison_phase": {"$ne": "gruppenphase"}}
 
@@ -366,14 +339,14 @@ async def _spielplan_of(
     db_filter = {"saison_id": saison_id, **phase_term}
     saison, spieltage_raw, spiele_raw = await concurrently(
         resolve_public_saison(saisons_collection=saisons_collection, saison_id=saison_id),
-        pull_many_from_db(collection=spieltage_collection, db_filter=db_filter),
+        pull_whole_from_db(collection=spieltage_collection, db_filter=db_filter, what=f"season {saison_id}'s matchdays"),
         aggregate_many_from_db(collection=spiele_collection, pipeline=build_spiele_pipeline(db_filter=db_filter)),
     )
 
-    return saison, build_spielplan(spieltage_raw, spiele_raw, saison.rules)
+    return saison, build_spielplan(spieltage_raw, spiele_raw)
 
 
-@router.get("/{saison_id}/spielplan", response_model=FLSpielplanResponse, summary="One Saison's Spielplan")
+@router.get("/{saison_id}/spielplan", summary="One Saison's Spielplan")
 async def get_spielplan(
     saison_id: str,
     saisons_collection: SaisonsReadCollection,
@@ -396,7 +369,7 @@ async def get_spielplan(
     return FLSpielplanResponse(spieltage=spieltage, current_spieltag_id=current_spieltag_id(spieltage, saison_status=saison.status))
 
 
-@router.get("/{saison_id}/ko_runde", response_model=FLKoRundeResponse, summary="One Saison's K.-o.-Runde")
+@router.get("/{saison_id}/ko_runde", summary="One Saison's K.-o.-Runde")
 async def get_ko_runde(
     saison_id: str,
     saisons_collection: SaisonsReadCollection,
@@ -419,7 +392,7 @@ async def get_ko_runde(
     return FLKoRundeResponse(spieltage=spieltage)
 
 
-@router.get("/{saison_id}/tabelle", response_model=FLTabelleResponse, summary="One Saison's Tabelle")
+@router.get("/{saison_id}/tabelle", summary="One Saison's Tabelle")
 async def get_tabelle(
     saison_id: str,
     saisons_collection: SaisonsReadCollection,
@@ -441,12 +414,12 @@ async def get_tabelle(
     return FLTabelleResponse(gruppen=tabelle, qualifiers_per_gruppe=saison.rules.qualifiers_per_gruppe)
 
 
-async def _clubs_of(*, teams_collection: ReadCollection, saison_id: str) -> list[FLSaisonTeamEntry]:
+async def _teams_of(*, teams_collection: ReadCollection, saison_id: str) -> list[FLSaisonTeamEntry]:
     """A season's clubs as the Teams page and the landing list them, a club that left the league in a `past` season alone."""
 
     teams_raw = await aggregate_many_from_db(
         collection=teams_collection,
-        pipeline=build_team_pipeline(saison_id=saison_id, rules=None),
+        pipeline=build_team_pipeline(saison_id=saison_id),
         collation=GERMAN_COLLATION,
     )
 
@@ -455,7 +428,7 @@ async def _clubs_of(*, teams_collection: ReadCollection, saison_id: str) -> list
     )
 
 
-@router.get("/{saison_id}/teams", response_model=FLSaisonTeamsResponse, summary="One Saison's teams")
+@router.get("/{saison_id}/teams", summary="One Saison's teams")
 async def get_teams(saison_id: str, saisons_collection: SaisonsReadCollection, teams_collection: TeamsReadCollection) -> FLSaisonTeamsResponse:
     """The clubs of one season by name, each under the name and shorthand it plays that season under.
 
@@ -464,16 +437,16 @@ async def get_teams(saison_id: str, saisons_collection: SaisonsReadCollection, t
 
     _, teams = await concurrently(
         resolve_public_saison(saisons_collection=saisons_collection, saison_id=saison_id),
-        _clubs_of(teams_collection=teams_collection, saison_id=saison_id),
+        _teams_of(teams_collection=teams_collection, saison_id=saison_id),
     )
 
     return FLSaisonTeamsResponse(teams=teams)
 
 
-@router.get(f"/{{saison_id}}/teams{by_id('team_id')}", response_model=FLTeamPageResponse, summary="One team's page in one Saison")
+@router.get(f"/{{saison_id}}/teams{by_id('team_id')}", summary="One team's page in one Saison")
 async def get_team(
     saison_id: str,
-    team_id: CustomRouteObjectId,
+    team_id: CustomObjectId,
     saisons_collection: SaisonsReadCollection,
     teams_collection: TeamsReadCollection,
     spiele_collection: SpieleReadCollection,
@@ -485,12 +458,11 @@ async def get_team(
     """
 
     # Beside the resolve: each needs the path's id alone, and none is served before the resolve has passed.
-    saison, club_raw, spiele_raw, kader_raw = await concurrently(
+    saison, team_raw, spiele_raw, kader_raw = await concurrently(
         resolve_public_saison(saisons_collection=saisons_collection, saison_id=saison_id),
-        # A club that left the league stays addressable by id, as `GET /teams/{team_id}` keeps it: a caller holding one
-        # was given it by something.
+        # A club that left the league stays addressable by id: a caller holding one was given it by something.
         aggregate_many_from_db(
-            collection=teams_collection, pipeline=build_team_pipeline(saison_id=saison_id, rules=None, team_id=team_id, include_inactive=True)
+            collection=teams_collection, pipeline=build_team_pipeline(saison_id=saison_id, team_id=team_id, include_inactive=True)
         ),
         aggregate_many_from_db(
             collection=spiele_collection,
@@ -509,7 +481,7 @@ async def get_team(
         ),
     )
 
-    if not club_raw:
+    if not team_raw:
         raise DocumentNotFoundError()
 
     # After the resolve, being the one read that needs the season's rules.
@@ -519,18 +491,20 @@ async def get_team(
 
     standing = next((row for rows in tabelle.root.values() for row in rows if row.id == team_id), None)
 
-    return FLTeamPageResponse(
-        team=FLTeamPageClub.model_validate(club_raw[0]),
-        standing=standing,
-        spiele=FLTeamPageSpielListAdapter.validate_python([{**spiel_raw, **matchday_of(spiel_raw)} for spiel_raw in spiele_raw]),
-        kader=FLSpielerListAdapter.validate_python(kader_raw),
+    return FLTeamPageResponse.model_validate(
+        {
+            "team": FLTeamPageTeam.model_validate(team_raw[0]),
+            "standing": standing,
+            "spiele": [{**spiel_raw, **matchday_of(spiel_raw)} for spiel_raw in spiele_raw],
+            "kader": FLSpielerListAdapter.validate_python(kader_raw),
+        }
     )
 
 
-@router.get(f"/{{saison_id}}/spiele{by_id('spiel_id')}", response_model=FLSpielPageResponse, summary="One Spiel's page")
+@router.get(f"/{{saison_id}}/spiele{by_id('spiel_id')}", summary="One Spiel's page")
 async def get_spiel(
     saison_id: str,
-    spiel_id: CustomRouteObjectId,
+    spiel_id: CustomObjectId,
     saisons_collection: SaisonsReadCollection,
     spiele_collection: SpieleReadCollection,
     teams_collection: TeamsReadCollection,

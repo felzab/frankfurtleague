@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 
 import { frontend_config } from "./config";
 import { ROUTES } from "./routes";
+import { HOUR_MS } from "./timeUnits";
 
 import type { NextRequest } from "next/server";
 
@@ -25,7 +26,7 @@ const MAILED_LINK_COOKIE = "mailed_link";
  * Long enough for the sign-in a link may wait on; the mail's own link stays valid past it. The privacy notice
  * states the hour.
  */
-const MAILED_LINK_SECONDS = 60 * 60;
+export const MAILED_LINK_HOURS = 1;
 
 /**
  * The proxy's answer to a mailed link's first request: a redirect to `page`'s plain address, its token held in
@@ -51,7 +52,8 @@ export function swapMailedLinkToken(req: NextRequest, page: string): NextRespons
     // `strict` cookie down a redirect chain another site began, so the page would read nothing.
     sameSite: "lax",
     path: page,
-    maxAge: MAILED_LINK_SECONDS,
+    // In seconds, the unit a cookie's `Max-Age` takes.
+    maxAge: (MAILED_LINK_HOURS * HOUR_MS) / 1000,
     // As the sign-in library decides its own cookies'.
     secure: new URL(frontend_config.AUTH_URL).protocol === "https:",
   });

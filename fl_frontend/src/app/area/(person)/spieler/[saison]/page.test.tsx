@@ -1,11 +1,11 @@
 // @vitest-environment jsdom
-import { serveBackend } from "@/test-support/backend";
-import { underNext } from "@/test-support/nextContexts";
-import { signedInRequest } from "@/test-support/session";
 import { prerender } from "react-dom/static";
 import { describe, expect, it } from "vitest";
 
 import { COPY } from "@/core/copy";
+import { serveBackend } from "@/test-support/backend";
+import { underNext } from "@/test-support/nextContexts";
+import { signedInRequest } from "@/test-support/session";
 
 import type { FLSpielerSaisonSelfResponse, FLSpielerSaisonSelfSpiel } from "@/core/generated/client/types";
 
@@ -20,11 +20,11 @@ serveBackend(({ method, path }) => {
   if (method !== "GET") return undefined;
   if (path === "/spieler/self/saisons") return { saisons: [SAISON_2027] };
   if (path === "/saisons/frame") return { active_saison_id: "2027", saisons: [SAISON_2027] };
-  if (path === "/spieler/self/2027") return own.read ?? undefined;
+  if (path === "/spieler/self/saisons/2027") return own.read ?? undefined;
   return undefined;
 });
 // A pupil, signed in by a typed code.
-signedInRequest({ email: "pia@example.org", records: { spieler: [{ spieler_id: "64b0000000000000000000ee" }] } });
+signedInRequest({ email: "pia@example.org", records: { spieler: { spieler_id: "64b0000000000000000000ee" } } });
 const { default: SpielerOverviewPage } = await import("./page");
 
 const SPIEL: FLSpielerSaisonSelfSpiel = {

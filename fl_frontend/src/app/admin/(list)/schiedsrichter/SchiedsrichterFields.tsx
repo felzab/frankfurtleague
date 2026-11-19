@@ -1,8 +1,7 @@
-import { FieldGroup } from "@/kit/FieldGroup";
-import { TextField } from "@/kit/TextField";
-
 import { COPY } from "@/core/copy";
 import { CREATE_RULES } from "@/features/schiedsrichter/fieldRules";
+import { FieldGroup } from "@/kit/FieldGroup";
+import { TextField } from "@/kit/TextField";
 
 const FACTS = COPY.shared.facts;
 

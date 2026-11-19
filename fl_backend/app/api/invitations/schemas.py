@@ -1,21 +1,15 @@
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, Field
 
-from app.api.outbox.schemas import FLOutboxStatus
 from app.shared.schemas.custom import CustomNonEmptyString, CustomObjectId, CustomOptionalDateString
-from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
+from app.shared.schemas.responses import BasePayload, BaseReadModel
 
 
 class FLInvitation(BaseReadModel):
-    """One minted link as it is served, without its hash."""
+    """One team's live link as it is served: never its hash."""
 
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
-    saison_id: CustomNonEmptyString
-    team_id: CustomObjectId
-    # Required as a key and null while the invite stands: `uniq_invitation_live` reaches the rows
-    # holding null, so a row that could omit it would fall outside the one-live-invite rule.
-    revoked_at: CustomOptionalDateString
     # The German day the link's mails were last owed to the team's confirmed seats, by the season's press or the team's own;
     # null where none ever was, a link minted for copying. Stored rather than read off `outbox`, whose rows are erased a
     # retention after their final state.
@@ -25,31 +19,18 @@ class FLInvitation(BaseReadModel):
 class FLInvitationRecord(FLInvitation):
     """One minted link as `invitations` stores it: the hash of the copied link and of every mailed one, each live."""
 
+    saison_id: CustomNonEmptyString
+    team_id: CustomObjectId
+    # Required as a key and null while the invite stands: `uniq_invitation_live` reaches the rows
+    # holding null, so a row that could omit it would fall outside the one-live-invite rule.
+    revoked_at: CustomOptionalDateString
     token_hashes: list[str]
 
 
-class FLInvitationRow(FLInvitation):
-    """One live link as the team's read serves it."""
-
-    # What became of the last mail owed about it, null where none was ever owed.
-    delivery: FLOutboxStatus | None
-
-
-class FLInvitationMintResponse(BaseAPIResponse):
+class FLInvitationMintResponse(BaseReadModel):
     """A freshly minted registration link, and the only answer that ever carries its raw value: no later read recovers it."""
 
-    saison_id: CustomNonEmptyString
-    team_id: CustomObjectId
-    invitation_id: CustomObjectId
     token: CustomNonEmptyString
-
-
-class FLInvitationWriteResponse(BaseAPIResponse):
-    """The revoked link, which stays stored so a delivery event about it still lands."""
-
-    saison_id: CustomNonEmptyString
-    team_id: CustomObjectId
-    invitation_id: CustomObjectId
 
 
 type FLInvitationSkipReason = Literal[
@@ -77,9 +58,9 @@ class FLInvitationLinkRow(BaseModel):
 class FLTeamLinkState(BaseModel):
     """A team's registration link: the live link, whether it opens anything, and what the season's press would do for the team."""
 
-    invitation: FLInvitationRow | None
-    # Composed here rather than derived by the reader, as the application form's window is: a link is live and opens
-    # nothing while the season takes no registration, the window's end shutting nothing.
+    invitation: FLInvitation | None
+    # Composed here rather than derived by the reader: a link is live and opens nothing while the season takes no
+    # registration, the window's end shutting nothing.
     running: bool
     # Whether the season stands paused: the window can read closed for its dates alone.
     paused: bool
@@ -87,26 +68,22 @@ class FLTeamLinkState(BaseModel):
     skipped: FLInvitationSkipReason | None
 
 
-class FLInvitationMailPayload(BaseModel):
+class FLInvitationMailPayload(BasePayload):
     """The team's live link, to be mailed to its confirmed seats."""
-
-    model_config = ConfigDict(extra="forbid")
 
     # The row the panel read, so a link replaced or withdrawn since is refused rather than another one mailed.
     invitation_id: CustomObjectId
 
 
-class FLInvitationMailResponse(BaseAPIResponse):
+class FLInvitationMailResponse(BaseReadModel):
     """How many the team's live link is owed to: its confirmed seats, one per stored address, 0 where nobody confirmed."""
 
     mailed: int = Field(ge=0)
 
 
-class FLInvitationDispatchResponse(BaseAPIResponse):
-    """How the season's press came out, counted in teams."""
+class FLInvitationsMailResponse(BaseReadModel):
+    """How the season's press came out, counted in teams; a team it skipped is counted in neither."""
 
-    saison_id: CustomNonEmptyString
     mailed: int = Field(ge=0)
-    skipped: int = Field(ge=0)
     # Each one logged with what became of its commit; a team whose commit went unanswered is counted here too.
     failed: int = Field(ge=0)

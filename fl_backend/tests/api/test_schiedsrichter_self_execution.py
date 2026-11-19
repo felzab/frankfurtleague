@@ -130,7 +130,7 @@ async def seed(database: AsyncDatabase, *, saison_status: str) -> None:
     await database[Collection.SPIELE].insert_many(SPIELE)
     # The booking Otto was first asked about moved since: only the fresh request is his to answer. Ute's row of his
     # fixture is not his at all.
-    moved = {**row(TO_ANSWER)["ansetzung"], "date": "2027-05-19", "digest": "alt"}
+    moved = {**row(TO_ANSWER)["ansetzung"], "date": "2027-05-19"}
     await database[Collection.SPIELBESTAETIGUNGEN].insert_many(
         [
             row(TO_ANSWER, _id=ObjectId("6890a1b2c3d4e5f607e50050"), ansetzung=moved, closed={"reason": "ansetzung_changed"}),
@@ -159,7 +159,7 @@ def own_spiele(identifier: str = OTTO) -> Any:
                 spiele_collection=database[Collection.SPIELE],
                 records=record_collections(database),
                 session=session,
-                now=NOW,
+                germany_now=NOW,
             )
 
     return call
@@ -228,7 +228,7 @@ class TestTheSeasonsFixtures:
     async def test_an_address_holding_no_live_confirmed_record_is_refused(self, mongo_replica_set_url: str):
         assert await refused(mongo_replica_set_url, own_spiele("niemand@example.com")) == Code.ROLE_NOT_HELD
 
-    async def test_each_entry_reads_its_clubs_rows_of_its_season_its_own_decline_its_day_and_an_open_slot(self, mongo_replica_set_url: str):
+    async def test_each_entry_reads_its_teams_rows_of_its_season_its_own_decline_its_day_and_an_open_slot(self, mongo_replica_set_url: str):
         """A request whose away or home club has left the season has ended; Adler's exit from the season before ends none.
 
         His own decline shows its reason, a fixture today is not past, an open away slot is named by nobody, and every entry
@@ -286,7 +286,7 @@ class TestTheSeasonsFixtures:
         assert {entry.time for entry in by_id.values()} == {"18:30:00"}
 
     async def test_a_closed_row_reads_by_the_reason_it_was_closed_for(self, mongo_replica_set_url: str):
-        """Its fixture moved back to the slot the row asked about, it still offers no answer: the press would meet `ansetzung_closed`."""
+        """Its fixture moved back to the slot the row asked about, it still offers no answer: the press would meet `ansetzung_unanswerable`."""
 
         moved_back = spiel(MOVED_BACK, 15, "2027-05-29")
 

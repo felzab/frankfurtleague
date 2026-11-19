@@ -1,8 +1,7 @@
-import { ClassicStatusPage } from "@/kit/StatusCard";
-
 import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
+import { ClassicStatusPage } from "@/kit/StatusCard";
 
 /**
  * A record a classic page's address names and the league does not hold, inside the frame its layout drew. The root's

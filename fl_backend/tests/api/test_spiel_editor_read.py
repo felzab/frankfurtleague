@@ -13,7 +13,7 @@ from typing import Any
 import pytest
 from bson import ObjectId
 
-from app.api.spiele.editor import FLSpieleAdminSingleResponse, read_spiel_editor
+from app.api.spiele.editor import FLSpielbestaetigungEditorRow, FLSpieleAdminSingleResponse, read_spiel_editor
 from app.core import clock
 from app.core.collections import Collection
 from tests import documents
@@ -27,7 +27,9 @@ DATABASE_NAME = worker_database("fl_spiel_editor_read_test")
 SAISON_ID = "2026"
 HOME, AWAY = (ObjectId(f"6890a1b2c3d4e5f6074600{n:02d}") for n in (1, 2))
 
-AGREED = {"kind": "agreed", "at": "2026-04-20", "by": {"kind": "kontakt", "rolle": "trainer"}, "vorschlag": None, "reason": None}
+REFEREE = ObjectId("6890a1b2c3d4e5f607460041")
+
+AGREED = {"kind": "agreed", "at": "2026-04-20", "by": {"kind": "kontakt", "seat": "trainer"}, "vorschlag": None, "reason": None}
 
 
 def _spiel(**fields: Any) -> dict[str, Any]:
@@ -46,12 +48,19 @@ def _spiel(**fields: Any) -> dict[str, Any]:
     )
 
 
+def _party_id(row: FLSpielbestaetigungEditorRow) -> Any:
+    """The club or referee a served row is about: the editor tells a party's rows apart by it."""
+
+    return row.party.team_id if row.party.kind == "team" else row.party.schiedsrichter_id
+
+
 async def _read(
     url: str,
     spiel: Mapping[str, Any],
     *,
     rows: Sequence[Mapping[str, Any]] = (),
     aufstellungen: Sequence[Mapping[str, Any]] = (),
+    junctions: Sequence[Mapping[str, Any]] = (),
     today: str = "2026-04-27",
 ) -> FLSpieleAdminSingleResponse:
     """The editor's read of `spiel` at noon `today`, beside what is stored for it, the away club having left the season on 1 May."""
@@ -65,6 +74,7 @@ async def _read(
                 documents.saison_team_document(
                     SAISON_ID, AWAY, "Beta", "BET", austritt={"type": "rueckzug", "reason": "Schulwechsel", "date": "2026-05-01"}
                 ),
+                *junctions,
             ]
         )
         for collection, stored in ((Collection.SPIELBESTAETIGUNGEN, rows), (Collection.AUFSTELLUNGEN, aufstellungen)):
@@ -76,7 +86,6 @@ async def _read(
             saisons_collection=database[Collection.SAISONS],
             spielorte_collection=database[Collection.SPIELORTE],
             schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
-            saison_spieler_collection=database[Collection.SAISON_SPIELER],
             spieler_collection=database[Collection.SPIELER],
             spielberichte_collection=database[Collection.SPIELBERICHTE],
             spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
@@ -86,7 +95,7 @@ async def _read(
         )
 
 
-async def test_an_answer_stands_past_its_deadline_and_a_club_out_by_the_match_day_lapses_in_time(mongo_replica_set_url: str):
+async def test_an_answer_stands_past_its_deadline_and_a_team_out_by_the_match_day_lapses_in_time(mongo_replica_set_url: str):
     """The home club agreed before its deadline passed; the away club's row is still in time, but the club leaves before the day.
 
     Neither lapsed, so neither is dated. The referee's row about the slot the match left on 25 April lapsed at that
@@ -98,17 +107,17 @@ async def test_an_answer_stands_past_its_deadline_and_a_club_out_by_the_match_da
     left = documents.spielbestaetigung_document(spiel, party={"kind": "team", "team_id": AWAY}, deadline="2026-04-29")
     referees = documents.spielbestaetigung_document(
         {**spiel, "date": "2026-04-25"},
-        party={"kind": "schiedsrichter", "schiedsrichter_id": ObjectId()},
+        party={"kind": "schiedsrichter", "schiedsrichter_id": REFEREE},
         deadline="2026-04-18",
         closed={"reason": "spiel_past"},
     )
 
     answer = await _read(mongo_replica_set_url, spiel, rows=[agreed, left, referees])
 
-    assert {str(row.id): (row.state, row.lapsed_on, row.due_by) for row in answer.spielbestaetigungen} == {
-        str(agreed["_id"]): ("agreed", None, "2026-04-25"),
-        str(left["_id"]): ("expired", None, "2026-04-29"),
-        str(referees["_id"]): ("expired", "2026-04-25", "2026-04-25"),
+    assert {_party_id(row): (row.state, row.lapsed_on, row.due_by) for row in answer.spielbestaetigungen} == {
+        HOME: ("agreed", None, "2026-04-25"),
+        AWAY: ("expired", None, "2026-04-29"),
+        REFEREE: ("expired", "2026-04-25", "2026-04-25"),
     }
 
 
@@ -127,9 +136,9 @@ async def test_a_row_an_exit_or_a_move_ended_before_its_answer_was_due_is_dated_
 
     answer = await _read(mongo_replica_set_url, spiel, rows=[left, moved], today="2026-05-03")
 
-    assert {str(row.id): (row.state, row.lapsed_on) for row in answer.spielbestaetigungen} == {
-        str(left["_id"]): ("expired", None),
-        str(moved["_id"]): ("invalid", None),
+    assert {_party_id(row): (row.state, row.lapsed_on) for row in answer.spielbestaetigungen} == {
+        AWAY: ("expired", None),
+        HOME: ("invalid", None),
     }
 
 
@@ -168,3 +177,31 @@ async def test_a_line_up_holding_no_entry_reads_as_none_stored(mongo_replica_set
     marks = (await _read(mongo_replica_set_url, spiel, aufstellungen=aufstellungen)).aufstellung_marks
 
     assert [None if side is None else side.stored for side in (marks.team1, marks.team2)] == [True, False]
+
+
+ZETA, OESTERBERG = (ObjectId(f"6890a1b2c3d4e5f6074600{n:02d}") for n in (3, 4))
+
+
+async def test_a_knockout_spiel_offers_every_team_of_the_season_in_german_order_judged_by_its_exit(mongo_replica_set_url: str):
+    """Each club by its season row's name and code, „Österberg“ before „Zeta“ as German sorts them, where a byte order puts it last.
+
+    Österberg left before the match and stands on no side of it, so the save would refuse fielding it; the away club
+    left too, but already stands here, which no save of this fixture is refused for.
+    """
+
+    junctions = [
+        documents.saison_team_document(SAISON_ID, ZETA, "Zeta", "ZET"),
+        documents.saison_team_document(
+            SAISON_ID, OESTERBERG, "Österberg", "OES", austritt={"type": "rueckzug", "reason": "Schulwechsel", "date": "2026-04-01"}
+        ),
+    ]
+
+    answer = await _read(mongo_replica_set_url, _spiel(saison_phase="halbfinale"), junctions=junctions)
+
+    assert answer.teams is not None
+    assert [(team.id, team.name, team.shorthand, team.on_spieltag, team.fieldable) for team in answer.teams] == [
+        (HOME, "Alpha", "ALP", False, True),
+        (AWAY, "Beta", "BET", False, True),
+        (OESTERBERG, "Österberg", "OES", False, False),
+        (ZETA, "Zeta", "ZET", False, True),
+    ]

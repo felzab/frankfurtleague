@@ -2,49 +2,56 @@ import "server-only";
 
 import { requestOf } from "@/core/errors";
 import {
-  bewerbungenGetSweepSaisons,
   bewerbungenSweepSaison,
   registrierungenSweepRegistrierungen,
+  saisonsGetSweepSaisons,
+  saisonsSweepSaisonRetention,
   schiedsrichterSweepSchiedsrichter,
 } from "@/core/generated/client/sdk";
 import { logger } from "@/core/logging";
 import { sweepAddressChange } from "@/features/address-change/sweep";
 
 /** Which half of the pass a failure line is about. Each clock family stops for its own reasons. */
-type SweepFailure = "bewerbung.sweep_failed" | "registrierung.sweep_failed";
+type SweepFailure = "bewerbung.sweep_failed" | "registrierung.sweep_failed" | "saison.sweep_failed";
 
 /** The rows each season half's calls passed over in one pass, summed over the seasons that answered. */
-type PassedOver = { bewerbung: number; registrierung: number };
+type PassedOver = { bewerbung: number; registrierung: number; saison: number };
 
 /**
  * One pass over every season, then the two clocks no season holds, the address changes' and the unconfirmed referee
  * entries'. The scheduler runs one pass at a time.
  *
  * Every reminder and notice the backend owed is the Postausgang's drain to send. Answers the rows each half passed over
- * and what the address changes and the referee clock did, `open` the erasures passed over and the lapsed changes left,
- * and the seasons' failure, once both halves have run, as `error`; a lapsed address the half could not end, or a
+ * and what the address changes and the referee clock did, `open` the erasures passed over and the changes it could not end,
+ * and the seasons' failure, once every half has run, as `error`; a lapsed address the half could not end, or a
  * referee clock that failed, rejects, for the heartbeat to name.
  */
 export async function runBewerbungSweep() {
   // A listing that failed is the seasons' failure too, and the address changes still run.
-  const saisons = await sweepAllSaisons().catch((error: unknown) => ({ passedOver: { bewerbung: 0, registrierung: 0 }, error }));
+  const saisons = await sweepAllSaisons().catch((error: unknown) => ({ passedOver: { bewerbung: 0, registrierung: 0, saison: 0 }, error }));
   // After the seasons and whatever they met, so a lapsed address is ended every hour.
-  const adressen = await sweepAddressChange();
-  // The other clock no season holds: an entry whose link lapsed unanswered or declined, erased with its log images.
+  const addressChange = await sweepAddressChange();
+  // The other clock no season holds: an entry whose link lapsed unanswered, erased.
   const schiedsrichter = await schiedsrichterSweepSchiedsrichter();
 
   return {
     count: {
       bewerbung_failed: saisons.passedOver.bewerbung,
       registrierung_failed: saisons.passedOver.registrierung,
-      address_change_removed: adressen.removed,
-      address_change_effective: adressen.effective,
-      address_change_discarded: adressen.discarded,
-      address_change_remaining: adressen.remaining,
+      saison_failed: saisons.passedOver.saison,
+      address_change_removed: addressChange.removed,
+      address_change_effective: addressChange.effective,
+      address_change_discarded: addressChange.discarded,
+      address_change_failed: addressChange.failed,
       schiedsrichter_erased: schiedsrichter.erased,
       schiedsrichter_failed: schiedsrichter.failed,
     },
-    open: saisons.passedOver.bewerbung + saisons.passedOver.registrierung + adressen.remaining + schiedsrichter.failed,
+    open:
+      saisons.passedOver.bewerbung +
+      saisons.passedOver.registrierung +
+      saisons.passedOver.saison +
+      addressChange.failed +
+      schiedsrichter.failed,
     error: saisons.error,
   };
 }
@@ -54,20 +61,24 @@ export async function runBewerbungSweep() {
  * passed over and, where any call failed, every failure as one; a listing that fails rejects.
  */
 async function sweepAllSaisons(): Promise<{ passedOver: PassedOver; error?: unknown }> {
-  // No base-tier season read can serve this: each withholds a `future` season, which is the status every season
-  // with an open application holds.
-  const { saison_ids: saisonIds } = await bewerbungenGetSweepSaisons();
+  // Every status, and no base-tier season read: each withholds a `future` season, which is the status every season with
+  // an open application holds.
+  const { saison_ids: saisonIds } = await saisonsGetSweepSaisons();
 
-  const passedOver: PassedOver = { bewerbung: 0, registrierung: 0 };
+  const passedOver: PassedOver = { bewerbung: 0, registrierung: 0, saison: 0 };
   const error: unknown[] = [];
   // Season by season and never in parallel: the sweep is on the clock of a day, and one slow pass costs nothing.
   for (const saisonId of saisonIds) {
-    // Its own event per half: one line for both cannot say which stopped, which is what an operator reads the logs for.
+    // Its own event per half: one line for all cannot say which stopped, which is what an operator reads the logs for.
     await halfRun("bewerbung.sweep_failed", saisonId, error, async () => {
       passedOver.bewerbung += (await bewerbungenSweepSaison(saisonId)).failed;
     });
     await halfRun("registrierung.sweep_failed", saisonId, error, async () => {
       passedOver.registrierung += (await registrierungenSweepRegistrierungen(saisonId)).failed;
+    });
+    // The season rows' contact persons, fixture answers and match reports.
+    await halfRun("saison.sweep_failed", saisonId, error, async () => {
+      passedOver.saison += (await saisonsSweepSaisonRetention(saisonId)).failed;
     });
   }
 

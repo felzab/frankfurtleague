@@ -6,13 +6,14 @@ from bson import ObjectId
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.saisons.admin_router import activate_saison, delete_spielplan, get_saison_admin, post_spielplan
-from app.api.saisons.schemas import FLGenerateSpielplanPayload, FLSaisonAdminResponse
+from app.api.saisons.admin_router import get_saison_admin
+from app.api.saisons.schemas import FLSaisonAdminResponse
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError
 from tests.database import a_clean_database
 from tests.documents import saison_document, saison_team_document, spiel_document, spielbericht_document
+from tests.season_routes import call_activate, call_draw, call_undraw
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -48,7 +49,7 @@ async def refused_by(write: Awaitable[Any]) -> Code | None:
 
 
 # A season of sixteen clubs, four groups of four as the default rules ask, drawn by the draw itself, then put in one state.
-CLUBS = {ObjectId(f"6890a1b2c3d4e5f6073400{index:02d}"): "ABCD"[index // 4] for index in range(16)}
+TEAMS = {ObjectId(f"6890a1b2c3d4e5f6073400{index:02d}"): "ABCD"[index // 4] for index in range(16)}
 OUTGOING_SAISON_ID = "2025"
 A_DAY = "2026-04-01"
 
@@ -70,10 +71,10 @@ async def a_report_submitted(database: AsyncDatabase) -> None:
     await database[Collection.SPIELBERICHTE].insert_one(spielbericht_document(spiel))
 
 
-async def a_club_short(database: AsyncDatabase) -> None:
+async def a_team_short(database: AsyncDatabase) -> None:
     """One group a club short of the stored rules' size, which the draw refuses until it is filled."""
 
-    await database[Collection.SAISON_TEAMS].delete_one({"saison_id": SAISON_ID, "team_id": next(iter(CLUBS))})
+    await database[Collection.SAISON_TEAMS].delete_one({"saison_id": SAISON_ID, "team_id": next(iter(TEAMS))})
 
 
 async def the_season_active(database: AsyncDatabase) -> None:
@@ -100,47 +101,11 @@ async def pressed(act: Act, database: AsyncDatabase, client: AsyncMongoClient) -
     """The act's own write, as its button presses it: a redraw confirmed with no shape, the season's stored one."""
 
     if act == "activate":
-        return await refused_by(
-            activate_saison(
-                saison_id=SAISON_ID,
-                saisons_collection=database[Collection.SAISONS],
-                spiele_collection=database[Collection.SPIELE],
-                spieltage_collection=database[Collection.SPIELTAGE],
-                ban_list_collection=database[Collection.BAN_LIST],
-                db=client,
-            )
-        )
+        return await refused_by(call_activate(database, client, SAISON_ID))
     if act == "undraw":
-        return await refused_by(
-            delete_spielplan(
-                saison_id=SAISON_ID,
-                saisons_collection=database[Collection.SAISONS],
-                spiele_collection=database[Collection.SPIELE],
-                spieltage_collection=database[Collection.SPIELTAGE],
-                spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
-                spielberichte_collection=database[Collection.SPIELBERICHTE],
-                aufstellungen_collection=database[Collection.AUFSTELLUNGEN],
-                db=client,
-            )
-        )
+        return await refused_by(call_undraw(database, client, saison_id=SAISON_ID))
 
-    return await refused_by(drawn(database, client, replace=act == "recreate"))
-
-
-def drawn(database: AsyncDatabase, client: AsyncMongoClient, *, replace: bool) -> Awaitable[Any]:
-    return post_spielplan(
-        saison_id=SAISON_ID,
-        saisons_collection=database[Collection.SAISONS],
-        saison_teams_collection=database[Collection.SAISON_TEAMS],
-        spiele_collection=database[Collection.SPIELE],
-        spieltage_collection=database[Collection.SPIELTAGE],
-        spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
-        spielberichte_collection=database[Collection.SPIELBERICHTE],
-        aufstellungen_collection=database[Collection.AUFSTELLUNGEN],
-        db=client,
-        spielplan_data=FLGenerateSpielplanPayload(replace=replace),
-        today=TODAY,
-    )
+    return await refused_by(call_draw(database, client, saison_id=SAISON_ID, replace=act == "recreate", today=TODAY))
 
 
 class TestTheEditorSaysAFixtureHasTakenPlace:
@@ -158,7 +123,9 @@ class TestTheEditorSaysAFixtureHasTakenPlace:
         """Read wrong, the start date's box stands open to a save `saison_start_taken_place` refuses, or locked for nothing."""
 
         async with a_clean_database(mongo_replica_set_url, DATABASE_NAME) as (_, database):
-            await database[Collection.SAISONS].insert_one(saison_document(SAISON_ID, "future", start_date=START))
+            await database[Collection.SAISONS].insert_one(
+                saison_document(SAISON_ID, "future", start_date=START, spielplan={"generated_at": TODAY})
+            )
             await database[Collection.SPIELE].insert_one(
                 spiel_document(
                     spiel_id=ObjectId(),
@@ -182,7 +149,7 @@ class TestTheEditorsActsAreRefusedAsTheirWritesRefuse:
         ("act", "draw", "state", "refused"),
         [
             pytest.param("create", False, as_drawn, None, id="a first draw of full groups"),
-            pytest.param("create", False, a_club_short, Code.SPIELPLAN_GRUPPEN_OFF_RULES, id="a first draw a club short"),
+            pytest.param("create", False, a_team_short, Code.SPIELPLAN_GRUPPEN_OFF_RULES, id="a first draw a club short"),
             pytest.param("create", True, as_drawn, Code.SPIELPLAN_ALREADY_DRAWN, id="a first draw of a drawn season"),
             pytest.param("recreate", True, as_drawn, None, id="a redraw of a season nothing is recorded on"),
             pytest.param("recreate", True, a_result_entered, Code.SPIELPLAN_REPLACE_OUTSIDE_ITS_WINDOW, id="a redraw past a result"),
@@ -192,8 +159,6 @@ class TestTheEditorsActsAreRefusedAsTheirWritesRefuse:
             pytest.param("undraw", True, as_drawn, None, id="an undraw of a season nothing is recorded on"),
             pytest.param("undraw", True, a_result_entered, Code.SPIELPLAN_UNDRAW_OUTSIDE_ITS_WINDOW, id="an undraw past a result"),
             pytest.param("undraw", True, a_report_submitted, Code.SPIELPLAN_BERICHTE_SUBMITTED, id="an undraw over a report"),
-            pytest.param("undraw", True, the_season_active, Code.SPIELPLAN_UNDRAW_OUTSIDE_ITS_WINDOW, id="an undraw once activated"),
-            pytest.param("undraw", True, the_season_past, Code.SPIELPLAN_UNDRAW_OUTSIDE_ITS_WINDOW, id="an undraw once finished"),
             pytest.param("activate", False, as_drawn, Code.ACTIVATE_TARGET_UNDRAWN, id="activating an undrawn season"),
             pytest.param("activate", True, as_drawn, Code.ACTIVATE_SPIELTAGE_UNDATED, id="activating a season with undated matchdays"),
             pytest.param("activate", True, matchdays_dated, None, id="activating a dated season in a fresh league"),
@@ -211,11 +176,11 @@ class TestTheEditorsActsAreRefusedAsTheirWritesRefuse:
             await database[Collection.SAISON_TEAMS].insert_many(
                 [
                     saison_team_document(SAISON_ID, team_id, f"Schule {index}", f"S{chr(65 + index)}X", gruppe=gruppe)
-                    for index, (team_id, gruppe) in enumerate(CLUBS.items())
+                    for index, (team_id, gruppe) in enumerate(TEAMS.items())
                 ]
             )
             if draw:
-                await drawn(database, client, replace=False)
+                await call_draw(database, client, saison_id=SAISON_ID, today=TODAY)
             await state(database)
 
             served = getattr((await read(database)).refusals, act)

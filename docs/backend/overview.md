@@ -2,11 +2,12 @@
 
 **Scope:** `fl_backend/`
 
-A FastAPI application over MongoDB. **No browser reaches a route here that reads or writes application
-data**: the edge forwards two paths to this service, the liveness and the readiness probe, which take
-no key; the readiness probe alone pings the database. Every other caller is the Next.js container
-over the Docker network, which is why authentication is shared API keys plus headers naming the
-person acting, rather than user sessions, and why this service sets no cache headers of its own.
+A FastAPI application over MongoDB. **No browser reaches a route here that reads or writes
+application data**: the edge forwards two paths to this service, the liveness and the readiness
+probe, which take no key; the readiness probe alone pings the database. Every other caller is the
+Next.js container over the Docker network, which is why authentication is shared API keys plus
+headers naming the person acting, rather than user sessions, and why this service sets no cache
+headers of its own.
 
 ## How it is organised
 
@@ -27,25 +28,64 @@ for that tier**:
 - `admin_router.py`: the administration
 - `system_router.py`: the frontend process's own calls, such as a retention pass
 
-Two files are named otherwise: `saisons/overview_router.py`, an administrator's router of its
-own for a season's overview, and `system/router.py`, the unguarded probes' (under
-Authorization). A person's file serving two Funktionen holds one `APIRouter` per prefix
-(`spieler/person_router.py`). `app/main.py` mounts them all, each under its slice's tag, which with
-the handler's name makes the operation's id in `openapi.json`.
+Two files are named otherwise: `saisons/overview_router.py`, an administrator's router of its own
+for a season's overview, and `system/router.py`, the unguarded probes' (under Authorization). A
+person's file serving two Funktionen holds one `APIRouter` per Funktion
+(`spieler/person_router.py`). `app/main.py` mounts them all under `/api`, so a router's own prefix
+names only its slice's segment. Each is mounted under its slice's tag, which with the handler's name
+makes the operation's id in `openapi.json`.
+
+## Addresses
+
+**Every address is built by one rule**, which `fl_backend/tests/core/test_address_rule.py` holds
+over the mounted routes, so a reader of a log line or a route table meets one shape:
+
+1. `/api`, which carries no version: the one caller is the frontend built from the same commit.
+2. The slice, which is the router's tag: `/teams`.
+3. The records the call is about, each id after its collection's name. The slice's own record
+   follows the slice directly (`/teams/{team_id}`), any other follows the name of its collection
+   (`/aufstellungen/spiele/{spiel_id}/teams/{team_id}`).
+4. `saisons/{saison_id}` last of those records where the address is season-scoped
+   (`/teams/{team_id}/saisons/{saison_id}`), a part of the season's row after it
+   (`/kontakte/{seat}`). In the saisons slice the season is the slice's own record and stands first
+   (`/saisons/{saison_id}/teams/{team_id}`).
+5. The act, in words with no id (`/confirmation/resend`, `/sweep`).
+
+The signed-in person's own record takes `self` in the place of its id (`/spieler/self/saisons`),
+since the session names it. **The tier is marked only where two tiers answer one method at one
+address**, the administration's address then ending in `/admin`
+(`/aufstellungen/spiele/{spiel_id}/teams/{team_id}/admin` beside the seat holder's): FastAPI serves
+one route per method and path, and the first mounted would answer both. An id naming what the call
+addresses is a path segment and a filter of a list a query, as
+[the decisions record](../decisions.md)'s **routing** line requires: a malformed path id answers 404
+and a query one 422.
+
+## Write answers
+
+**A write answers 204 with no body where its caller needs nothing back**, since a served field no
+caller reads still has to be kept true. A write that answers something answers what its caller reads
+next:
+
+- A create answers `FLCreatedResponse`, the minted id the caller opens the new record by.
+- An editor's save answers `FLVersionResponse`, the version its next save sends.
+- A dry run or a pass answers the report its caller shows or counts.
+
+The shared models are in `fl_backend/app/shared/schemas/responses.py`.
 
 ## Authorization
 
 **An access tier's guard sits on the `APIRouter`**, so an endpoint reaches the wrong tier only by
 being written in the wrong file. `fl_backend/app/core/security.py` holds the three key guards and
-reads the actor's headers:
+reads the actor's headers. Each router passes its tier's guards as one constant, in the order they
+run:
 
-- **`base`** — the public pages' reads, and the forms a visitor submits.
+- **`base`** — the public pages' reads, and the forms a visitor submits (`BASE_TIER`).
 - **`admin`** — every other read and write. An administrator's router also checks the actor's
   address against a stored grant (`Berechtigung`) on every request
-  (`fl_backend/app/api/grants/guard.py :: verify_actor_is_admin`); a signed-in person's router binds
-  the record that admits them (their `Funktion`) instead.
+  (`fl_backend/app/api/grants/guard.py :: ADMIN_TIER`); a signed-in person's router binds the record
+  that admits them (their `Funktion`) instead (`PERSON_TIER`).
 - **`system`** — the frontend process's own calls: the background passes, the Postausgang's hand-out
-  and its delivery events, and the sign-in's reads of what one mailbox holds.
+  and its delivery events, and the sign-in's reads of what one mailbox holds (`SYSTEM_TIER`).
 
 Each guard presents its key as a bearer scheme of its own, `BaseKey`, `AdminKey` or `SystemKey`, so
 an operation's `security` in `openapi.json` names the tier it takes.
@@ -65,23 +105,23 @@ wrong reasons.
 **The application refuses to start unless MongoDB answers and its indexes build**
 (`fl_backend/app/core/db.py :: lifespan`, `fl_backend/app/core/constraints.py`). Nothing in the
 database refuses a document's shape: each collection's record model states it
-(`fl_backend/app/readback.py :: RECORD_MODELS`), and `python -m app.readback` reads every
-stored document back through it after a migration has run.
+(`fl_backend/app/readback.py :: RECORD_MODELS`), and `python -m app.readback` reads every stored
+document back through it after a migration has run.
 
 **Every write that records a domain fact goes through the helpers in
 `fl_backend/app/core/crud.py`**, while a router may read through the driver directly. The helpers
 are keyword-only and accept a session, which is what lets a read inside a transaction see that
-transaction's own writes. A request making more than one write makes them in one transaction, so
-a refusal anywhere takes everything already written back with it. A background pass is the
-exception: it takes its rows a page or a row at a time, each in a transaction of its own
-(`fl_backend/app/core/transactions.py :: drain` for the paged ones). A pass that fails part way
-therefore keeps what it finished, and the next pass resumes from the stored state. A write helper
-records nothing: each recorded act adds one line inside its transaction
-(`Aktion`, `fl_backend/app/core/recording.py :: record_act`).
+transaction's own writes. A request making more than one write makes them in one transaction, so a
+refusal anywhere takes everything already written back with it. A background pass is the exception:
+it takes its rows one at a time, each in a transaction of its own
+(`fl_backend/app/core/transactions.py :: save_each`), save a clock whose one write no row can fail
+alone, such as a plain deletion. A pass that fails part way therefore keeps what it finished, and
+the next pass resumes from the stored state. A write helper records nothing: each recorded act adds
+one line inside its transaction (`Aktion`, `fl_backend/app/core/recording.py :: record_act`).
 
-**The domain's relations are [`../domain.md`](../domain.md)'s**, and each write enforces the
-rules it is refused under where it writes. The league table is computed from the matches on each
-read of the Tabelle (`GET /saisons/{saison_id}/tabelle`) and stored nowhere.
+**The domain's relations are [`../domain.md`](../domain.md)'s**, and each write enforces the rules
+it is refused under where it writes. The league table is computed from the matches on each read of
+the Tabelle (`GET /saisons/{saison_id}/tabelle`) and stored nowhere.
 
 ## Errors
 
@@ -90,13 +130,12 @@ shape of RFC 9457's problem details with this API's own members alone. `fields` 
 field the refusal judged, with a domain rule's bounds, and is empty where it judged none. A bound
 can be another field of the same payload, such as a span's start, but the body never carries the
 refused value or a stack trace. A code names one failure rather than a status class, and
-`fl_backend/app/core/codes.py :: Code` is every code's one spelling. `fl_backend/openapi.json`
-lists them once, as the failure body's `error_code` on the one shared
-response each status refers to, and never per operation. The status
-follows RFC 9110: 409 where the target's current state refuses the request, 422 where the payload
-contradicts itself, 404 where what it names does not exist, 403 only where the caller's own
-authority or standing does. Every refusal is one `APIError(status, code)`
-(`fl_backend/app/core/exceptions.py`), and the handlers are
+`fl_backend/app/core/codes.py :: Code` is every code's one spelling. `fl_backend/openapi.json` lists
+them once, as the failure body's `error_code` on the one shared response every operation's `default`
+refers to, whatever the status. The status follows RFC 9110: 409 where the target's current state
+refuses the request, 422 where the payload contradicts itself, 404 where what it names does not
+exist, 403 only where the caller's own authority or standing does. Every refusal is one
+`APIError(status, code)` (`fl_backend/app/core/exceptions.py`), and the handlers are
 `fl_backend/app/core/exception_handlers.py`.
 
 ## Time
@@ -104,7 +143,8 @@ authority or standing does. Every refusal is one `APIError(status, code)`
 A league date or kick-off is German wall-clock time (`Europe/Berlin`), carried as a `YYYY-MM-DD` or
 `HH:MM:SS` string. It is compared as a string, which works because the format sorts
 lexicographically, and is why the format is not negotiable. A moment, such as a deadline, a lock or
-an action-log row's time, is a UTC instant (`fl_backend/app/shared/schemas/custom.py :: FLUtcInstant`).
+an action-log row's time, is a UTC instant
+(`fl_backend/app/shared/schemas/custom.py :: FLUtcInstant`).
 
 ## Configuration
 
@@ -115,12 +155,15 @@ credential from its own file under `SECRETS_DIR`; a required one missing refuses
 
 `uv run pytest` in `fl_backend/` runs the default tier, which needs no database.
 `uv run pytest -m db` runs the tier marked `@pytest.mark.db`, against a real `mongod` it starts in
-Docker; `fl_backend/pyproject.toml :: addopts` deselects that marker by default.
-`fl_backend/tests/README.md` lists what each support module provides.
+Docker; `fl_backend/pyproject.toml :: addopts` deselects that marker by default. Both need uv and
+the Python `fl_backend/pyproject.toml :: requires-python` names, and the database tier a running
+Docker daemon; `uv run pytest -m db <file>` runs one file of it. `fl_backend/tests/README.md` lists
+what each support module provides.
 
 ## Read next
 
-- [`../domain.md`](../domain.md) — the model these routes implement, and what a write owes its neighbours
+- [`../domain.md`](../domain.md) — the model these routes implement, and what a write owes its
+  neighbours
 - [`../glossary.md`](../glossary.md) — the German domain vocabulary
 - [`../frontend/overview.md`](../frontend/overview.md) — the client behind every application route
 - [`../ops/overview.md`](../ops/overview.md) — the container this runs in

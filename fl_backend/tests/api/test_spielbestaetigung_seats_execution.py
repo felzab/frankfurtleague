@@ -14,7 +14,7 @@ from bson import ObjectId
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.bewerbungen.public_router import post_einwilligung
+from app.api.bewerbungen.public_router import post_confirmation
 from app.api.bewerbungen.schemas import FLBewerbungEinwilligungDeclined
 from app.api.identity.services import build_erasure_seat_pipeline
 from app.api.kontakte.crud import erase_kontaktperson_in_session
@@ -22,7 +22,7 @@ from app.api.teams.services import compose_kontakt_confirmation
 from app.core.collections import Collection
 from app.core.crud import aggregate_many_from_db
 from app.core.transactions import transaction_session
-from app.shared.schemas.literals import KONTAKT_ROLLEN
+from app.shared.schemas.literals import KONTAKT_SEATS
 from app.shared.tokens import hash_token
 from tests import documents
 from tests.config import build_test_config, grants_for_the_suite
@@ -109,7 +109,7 @@ async def on_a_league(url: str, body: Write) -> Any:
                         kontakte=STORED,
                         confirmations={
                             seat: {**compose_kontakt_confirmation(today=TODAY), "token_hashes": [hash_token(row_link(seat))]}
-                            for seat in KONTAKT_ROLLEN
+                            for seat in KONTAKT_SEATS
                         },
                     ),
                 },
@@ -122,7 +122,7 @@ async def on_a_league(url: str, body: Write) -> Any:
 
 
 async def erase_the_trainer(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-    """The erasure registry's seat member, given the rows the person erasure reads for it."""
+    """The erasure's seat step, given the rows the person erasure reads for it."""
 
     identifier = "ida@example.com"
 
@@ -147,28 +147,29 @@ async def erase_the_trainer(database: AsyncDatabase, client: AsyncMongoClient) -
 async def contradict(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
     """The Trainer's Widerspruch through the season row's own link."""
 
-    return await post_einwilligung(
+    return await post_confirmation(
         answer_data=FLBewerbungEinwilligungDeclined(token=row_link("trainer"), answer="declined"),
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         saisons_collection=database[Collection.SAISONS],
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
         outbox_collection=database[Collection.OUTBOX],
+        teams_collection=database[Collection.TEAMS],
         db=client,
         today=TODAY,
         germany_now=NOW,
     )
 
 
-def declined(team_id: ObjectId, spiel: Mapping[str, Any], rolle: str, reason: str) -> dict[str, Any]:
-    """A row the team declined from `rolle`, giving a reason; closed since, as a move closes an answered row."""
+def declined(team_id: ObjectId, spiel: Mapping[str, Any], seat: str, reason: str) -> dict[str, Any]:
+    """A row the team declined from `seat`, giving a reason; closed since, as a move closes an answered row."""
 
     return documents.spielbestaetigung_document(
         spiel,
         party={"kind": "team", "team_id": team_id},
         deadline="2026-04-11",
         asked_at=TODAY,
-        answer=documents.kontakt_answer_document(rolle, reason=reason),
+        answer=documents.kontakt_answer_document(seat, reason=reason),
         closed={"reason": "ansetzung_changed"},
     )
 

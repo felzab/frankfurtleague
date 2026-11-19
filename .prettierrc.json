@@ -13,9 +13,7 @@
     "",
     "<THIRD_PARTY_MODULES>",
     "",
-    "^@/core/(.*)$",
-    "^@/features/(.*)$",
-    "^@/shared/(.*)$",
+    "^@/(.*)$",
     "",
     "^[../]",
     "^[./]",
@@ -25,5 +23,15 @@
     "",
     "^(.*)\\.css$"
   ],
-  "importOrderTypeScriptVersion": "5.0.0"
+  "importOrderTypeScriptVersion": "5.0.0",
+  "overrides": [
+    {
+      "files": "*.md",
+      "options": { "printWidth": 100, "proseWrap": "always" }
+    },
+    {
+      "files": [".claude/orchestra/lenses/*.md", ".github/pull_request_template.md"],
+      "options": { "proseWrap": "preserve" }
+    }
+  ]
 }

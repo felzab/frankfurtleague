@@ -24,8 +24,8 @@ from app.api.spielberichte.services import (
     live_kader,
     named_ids_of,
     sides_of,
-    team_id_of,
 )
+from app.api.spiele.schemas import team_id_of
 from app.api.spiele.services import build_named_spiele_pipeline
 from app.core.crud import (
     GERMAN_COLLATION,
@@ -35,8 +35,8 @@ from app.core.crud import (
     patch_many_in_db,
     patch_one_in_db,
     post_one_to_db,
-    pull_many_from_db,
     pull_one_from_db,
+    pull_whole_from_db,
 )
 from app.core.exceptions import DocumentNotFoundError
 from app.core.readonly import ReadCollection
@@ -103,8 +103,12 @@ async def pull_named(
     people = (
         []
         if not rest
-        else await pull_many_from_db(
-            collection=spieler_collection, db_filter={"_id": {"$in": sorted(rest)}}, projection=["first_name", "last_name"], session=session
+        else await pull_whole_from_db(
+            collection=spieler_collection,
+            db_filter={"_id": {"$in": sorted(rest)}},
+            what="the pupils a report names off both squads",
+            projection=["first_name", "last_name"],
+            session=session,
         )
     )
 
@@ -205,7 +209,7 @@ async def strip_the_seasons_reports(
     *,
     spielberichte_collection: AsyncCollection,
     saison_id: str,
-    # The following season's end judged in the same snapshot, so an activation since the caller's read keeps them.
+    # The caller has judged the season after ended, outside this session: a past season never reopens, so that still holds.
     session: AsyncClientSession,
 ) -> int:
     """Once the season after `saison_id` has ended, every report's remarks, answering how many reports it stripped."""

@@ -1,8 +1,8 @@
-import { serveBackend } from "@/test-support/backend";
-import { signedInRequest } from "@/test-support/session";
 import { describe, expect, it, vi } from "vitest";
 
 import { textOf } from "@/core/copy";
+import { serveBackend } from "@/test-support/backend";
+import { signedInRequest } from "@/test-support/session";
 
 import type { Words } from "@/core/copy";
 import type { FLBanListRow } from "@/core/generated/client/types";

@@ -1,5 +1,6 @@
-import { serveBackend } from "@/test-support/backend";
 import { expect, it } from "vitest";
+
+import { serveBackend } from "@/test-support/backend";
 
 // Every call answered with an empty body: the cases judge what the client made of each request, not its answer.
 const backend = serveBackend(() => ({}));

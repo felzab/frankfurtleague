@@ -1,7 +1,8 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
 import { configDouble } from "@/test-support/authDoubles";
 import { networkFailure, serveBackend, serveHost } from "@/test-support/backend";
 import { TEST_SECRETS } from "@/test-support/testEnvironment.mts";
-import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { runWithRequestScope } from "./requestScope";
 
@@ -91,8 +92,8 @@ describe("one drain of the Postausgang", () => {
       [handed(2).to, [{ name: "outbox_id", value: handed(2).id }]],
     ]);
     expect(reports()).toStrictEqual([
-      { id: handed(1).id, result: "sent", message_id: "re-1", delivery_reason: null },
-      { id: handed(2).id, result: "sent", message_id: "re-1", delivery_reason: null },
+      { id: handed(1).id, result: "sent", delivery_reason: null },
+      { id: handed(2).id, result: "sent", delivery_reason: null },
     ]);
     // The claim's own give-ups count with the reports', which is what the heartbeat reads.
     expect(takeDrainCounts()).toMatchObject({ sent: 2, abandoned: 1 });
@@ -130,7 +131,7 @@ describe("one drain of the Postausgang", () => {
     } finally {
       reading.mockRestore();
     }
-    expect(reports()).toStrictEqual([{ id: handed(1).id, result: "sent", message_id: "re-1", delivery_reason: null }]);
+    expect(reports()).toStrictEqual([{ id: handed(1).id, result: "sent", delivery_reason: null }]);
   });
 
   /* The row arrives sealed under the frontend's own key (`fl_frontend/src/core/auth/mails.ts :: oweSignInMail`): a builder
@@ -178,7 +179,7 @@ describe("one drain of the Postausgang", () => {
 
     await drainOutbox();
 
-    expect(reports()).toStrictEqual([{ id: handed(1).id, result, message_id: null, delivery_reason: reason }]);
+    expect(reports()).toStrictEqual([{ id: handed(1).id, result, delivery_reason: reason }]);
   });
 
   it("reports a deployment that sends nothing as held, and reaches no provider", async () => {
@@ -188,6 +189,6 @@ describe("one drain of the Postausgang", () => {
     await drainOutbox();
 
     expect(sends()).toStrictEqual([]);
-    expect(reports()).toStrictEqual([{ id: handed(1).id, result: "held", message_id: null, delivery_reason: null }]);
+    expect(reports()).toStrictEqual([{ id: handed(1).id, result: "held", delivery_reason: null }]);
   });
 });

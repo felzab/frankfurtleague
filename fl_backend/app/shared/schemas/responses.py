@@ -3,7 +3,8 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.codes import Code
-from app.shared.schemas.custom import CustomObjectId
+from app.core.exceptions import Bound
+from app.shared.schemas.custom import CustomObjectId, CustomVersion
 
 
 class BaseReadModel(BaseModel):
@@ -17,8 +18,15 @@ class BaseReadModel(BaseModel):
     model_config = ConfigDict(json_schema_serialization_defaults_required=True)
 
 
-class BaseAPIResponse(BaseReadModel):
-    """Every response body's base."""
+class BasePayload(BaseModel):
+    """Every request body's base, and the base of each model one nests: a key the model does not declare is refused.
+
+    Beside the read base, never above it: a read model refusing an unknown key would refuse a stored document the
+    collection has grown. A payload deriving from a read shape names this base last, since Pydantic merges a model's
+    bases' configurations in order and the later wins.
+    """
+
+    model_config = ConfigDict(extra="forbid")
 
 
 class FLRefusedField(BaseModel):
@@ -31,7 +39,7 @@ class FLRefusedField(BaseModel):
     # The bounds the rule holds the refused value to, JSON scalars or a list of whole numbers, by the names the rule
     # gives them, one of which can be another field of the same payload: a domain rule's context, or an endpoint
     # refusal's bounds. Empty for Pydantic's own kinds and where the rule names none.
-    ctx: dict[str, str | int | float | bool | list[int]]
+    ctx: dict[str, Bound]
 
 
 # The failure body as published, never as built: the handler writes plain dicts, since a model raising inside a
@@ -49,13 +57,26 @@ class FLFailureBody(BaseModel):
     fields: list[FLRefusedField]
 
 
-class FLCreatedResponse(BaseAPIResponse):
+class FLCreatedResponse(BaseReadModel):
     """The id a create minted, which the caller reads the new record by."""
 
     created_id: CustomObjectId
 
 
-class FLSweepSaisonsResponse(BaseAPIResponse):
+class FLVersionResponse(BaseReadModel):
+    """The record's version after an editor's save, which the editor's next save sends."""
+
+    version: CustomVersion
+
+
+class FLSweepSaisonsResponse(BaseReadModel):
     """The seasons a system pass visits, for its caller to sweep one by one in the order given."""
 
     saison_ids: list[str]
+
+
+class FLSaisonRetentionResponse(BaseReadModel):
+    """One season's pass over its season rows, fixture answers and match reports: the rows it passed over, which the next pass meets again."""
+
+    # One sum over every clock rather than a count per clock: the line logging each row names its clock.
+    failed: int

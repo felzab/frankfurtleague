@@ -2,6 +2,10 @@
 
 import { useState } from "react";
 
+import { COPY } from "@/core/copy";
+import { dayBefore } from "@/core/dayArithmetic";
+import { formatDate, formatNumber } from "@/core/format";
+import { FLSpielerStufe } from "@/core/generated/client/types";
 import { Checkbox } from "@/kit/Checkbox";
 import { ToggleBoxes } from "@/kit/ChoiceButtons";
 import { ComboBox } from "@/kit/ComboBox";
@@ -15,11 +19,6 @@ import { Select } from "@/kit/Select";
 import { Table } from "@/kit/Table";
 import { TextField } from "@/kit/TextField";
 import { useEditor } from "@/kit/useEditor";
-
-import { COPY } from "@/core/copy";
-import { dayBefore } from "@/core/dayArithmetic";
-import { formatDate, formatNumber } from "@/core/format";
-import { FLSpielerStufe } from "@/core/generated/client/types";
 
 import type { ActionAnswer } from "@/core/action";
 import type { Copy, LockReason } from "@/core/copy";
@@ -58,11 +57,8 @@ export type SaisonFacts = {
   isCurrent: boolean;
   /** The season the site shows, which the switch onto this one leaves; `null` before the league's first. */
   siteShows: string | null;
-  /**
-   * The Spielplan the season holds, counted off its stored matchdays and fixtures as the draw's writes judge them;
-   * `drawnOn` is `null` where no draw dated them.
-   */
-  spielplan: { spieltage: number; spiele: number; drawnOn: CalendarDay | null } | null;
+  /** The Spielplan the season holds, counted off its stored matchdays and fixtures as the draw's writes judge them. */
+  spielplan: { spieltage: number; spiele: number; drawnOn: CalendarDay } | null;
   /** Why the draw and each danger act cannot run now, by the refusal its write would answer, which the read serves. */
   locked: { activate?: Copy; create?: Copy; recreate?: Copy; undraw?: Copy };
 };
@@ -488,7 +484,7 @@ export function SaisonEditor({
               { label: COPY.page.spiele, value: { record: formatNumber(facts.spielplan.spiele) }, figures: true },
               {
                 label: WORDS.drawnOn,
-                value: facts.spielplan.drawnOn === null ? COPY.shared.noValue : { record: formatDate(facts.spielplan.drawnOn) },
+                value: { record: formatDate(facts.spielplan.drawnOn) },
                 figures: true,
               },
             ]}

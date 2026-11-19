@@ -9,13 +9,12 @@ what keeps a repeated send of one hand-out from being a second mail in the inbox
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
-from typing import Any, Final
+from typing import Any, Final, Literal
 
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.outbox.schemas import (
-    FLOutboxClub,
     FLOutboxData,
     FLOutboxDeliveryState,
     FLOutboxKind,
@@ -23,6 +22,7 @@ from app.api.outbox.schemas import (
     FLOutboxReference,
     FLOutboxResultKind,
     FLOutboxRowState,
+    FLOutboxTeam,
 )
 from app.core.crud import patch_many_in_db, post_many_to_db
 from app.shared.folding import sign_in_identifier
@@ -42,10 +42,16 @@ REPETITION_AFTER: Final = timedelta(minutes=1)
 
 # How old a mail may grow unsent before it is given up, the one bound on its retries: past the provider's daily quota
 # resetting once, so a busy day delays a mail rather than losing it. A sign-in mail's bound is its secret's lapse.
-DELIVERY_DEADLINE: Final = timedelta(days=2)
+# Published, since the privacy notice states how long a deletion's notice may wait.
+type FLDeliveryDeadlineDays = Literal[2]
+DELIVERY_DEADLINE_DAYS: Final[FLDeliveryDeadlineDays] = 2
+DELIVERY_DEADLINE: Final = timedelta(days=DELIVERY_DEADLINE_DAYS)
 
 # A finished row's retention, matching the provider's own, so the delivery state lives as long as the message it is about.
-RETENTION: Final = timedelta(days=30)
+# Published, since the privacy notice states it.
+type FLOutboxRetentionDays = Literal[30]
+RETENTION_DAYS: Final[FLOutboxRetentionDays] = 30
+RETENTION: Final = timedelta(days=RETENTION_DAYS)
 
 # The sign-in library's kinds, each tried once: its own repair of a failed code is a fresh one.
 SIGN_IN_KINDS: Final[frozenset[FLOutboxKind]] = frozenset({"sign_in_code", "passkey_added", "passkey_erased", "account_erasure"})
@@ -97,7 +103,7 @@ class OwedMail:
     reference: FLOutboxReference | None = None
     link: FLOutboxLink | None = None
     valid_until: datetime | None = None
-    club: FLOutboxClub | None = None
+    team: FLOutboxTeam | None = None
 
 
 async def enqueue_mails(
@@ -120,7 +126,7 @@ async def enqueue_mails(
         raise ValueError("every mail one write owes carries a key of its own")
 
     # A first run committed before this snapshot is found; one committed after it makes the insert a write conflict the
-    # caller's `with_transaction` retries, which then finds it.
+    # caller's `transact` retries, which then finds it.
     stored = await outbox_collection.find({"key": {"$in": [mail.key for mail in mails]}}, {"key": 1, "_id": 0}, session=session).to_list(
         length=None
     )
@@ -177,7 +183,7 @@ def row_of(mail: OwedMail, *, now: datetime, secret: str | None, valid_until: da
         "reference": None if reference is None else {"collection": str(reference.collection), "id": reference.id, "seat": reference.seat},
         "link": None if mail.link is None else mail.link.model_dump(),
         # Field by field, so `team_id` is stored as an id rather than its hex string.
-        "club": None if mail.club is None else {"saison_id": mail.club.saison_id, "team_id": mail.club.team_id},
+        "team": None if mail.team is None else {"saison_id": mail.team.saison_id, "team_id": mail.team.team_id},
         "state": "open",
         "recorded_at": now,
         "deadline": deadline,
@@ -187,20 +193,19 @@ def row_of(mail: OwedMail, *, now: datetime, secret: str | None, valid_until: da
         "lease": None,
         "leased_until": None,
         "attempts": 0,
-        "message_id": None,
         "delivery_reason": None,
         "delivery": None,
     }
 
 
-def final_update(state: FLOutboxRowState, *, now: datetime, message_id: str | None = None) -> Mapping[str, Any]:
+def final_update(state: FLOutboxRowState, *, now: datetime) -> Mapping[str, Any]:
     """A row's final state: the claim released, the data and any secret removed, deleted a retention from now.
 
     `$min`, so a sign-in row keeps its own lapse, which is sooner, and an ordinary row's retention dates from this state.
     """
 
     return {
-        "$set": {"state": state, "message_id": message_id, "lease": None, "leased_until": None},
+        "$set": {"state": state, "lease": None, "leased_until": None},
         "$unset": {"data": "", "secret": ""},
         "$min": {"erase_at": now.astimezone(UTC) + RETENTION},
     }
@@ -210,7 +215,7 @@ def final_update(state: FLOutboxRowState, *, now: datetime, message_id: str | No
 # pass or a replay deciding by the key owes nothing again, and nothing naming the mailbox it went to, what that mailbox
 # reported, or the record and seat a delivery is read by.
 TOMBSTONE_UPDATE: Final[Mapping[str, Any]] = {
-    "$set": {"to": None, "reference": None, "link": None, "club": None, "message_id": None, "delivery_reason": None, "delivery": None}
+    "$set": {"to": None, "reference": None, "link": None, "team": None, "delivery_reason": None, "delivery": None}
 }
 
 

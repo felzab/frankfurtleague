@@ -22,7 +22,6 @@ from app.api.identity.admin_router import get_erasure_view, post_erasure
 from app.api.identity.schemas import FLErasureAddressPayload, FLErasurePayload
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.config import API_VERSION
 from app.core.crud import ANCHOR_FIELD
 from app.core.db import collection_dependency
 from app.core.exceptions import APIError
@@ -59,7 +58,7 @@ from tests.worker import worker_database
 
 DATABASE_NAME = worker_database("fl_erasure_on_request_test")
 
-PATH = f"/api/v{API_VERSION}/identity/erasure"
+PATH = "/api/identity/erasure"
 VIEW_PATH = f"{PATH}/view"
 
 # The suite's owner, and an administrator holding no owner's power, who presses unless a case says otherwise.
@@ -67,10 +66,6 @@ OWNER, OPERATOR = ADMINISTRATORS[0], ADMINISTRATORS[1]
 ANOTHER_ADMINISTRATOR = ADMINISTRATORS[3]
 
 REASON = "Mail vom 30.03.2026, Betreff: Bitte löscht alle meine Daten"
-
-
-# A grant typed in the person's capitals, which admits nobody and goes with their erasure.
-# Another such row, of an address nobody erases: no request matches it, so it stands.
 
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
@@ -150,7 +145,7 @@ def what_is_left(collections: Mapping[str, list[Any]]) -> Any:
 
 
 @pytest.mark.db
-class TestTheRegistryRunsWhole:
+class TestTheErasureRunsWhole:
     """The person's whole data on one pass, with no precondition about their state."""
 
     async def test_the_persons_own_route_leaves_the_same_database(self, mongo_replica_set_url: str):
@@ -190,27 +185,14 @@ def counted_by_the_handler(email: str) -> Awaitable[Any]:
         address_changes_collection=NO_HANDLE,
         session=NO_HANDLE,
         operator=OPERATOR,
-        now=NOW,
+        germany_now=NOW,
     )
 
 
 def erased_by_the_handler_alone(email: str) -> Awaitable[Any]:
     return post_erasure(
         erasure_data=FLErasurePayload.model_validate(erasure_of(email)),
-        spieler_collection=NO_HANDLE,
-        saison_spieler_collection=NO_HANDLE,
-        saison_teams_collection=NO_HANDLE,
-        bewerbungen_collection=NO_HANDLE,
-        schiedsrichter_collection=NO_HANDLE,
-        spiele_collection=NO_HANDLE,
-        spielbestaetigungen_collection=NO_HANDLE,
-        spielberichte_collection=NO_HANDLE,
-        aufstellungen_collection=NO_HANDLE,
-        registrierungen_collection=NO_HANDLE,
-        action_log_collection=NO_HANDLE,
-        grants_collection=NO_HANDLE,
-        outbox_collection=NO_HANDLE,
-        address_changes_collection=NO_HANDLE,
+        collections=NO_HANDLE,
         db=NO_HANDLE,
         operator=OPERATOR,
         germany_now=NOW,
@@ -271,7 +253,7 @@ class TestAGrantHoldersAddress:
         """
 
         granted: list[int] = []
-        racing: list[PupilsReadMeetingARival] = []
+        racing: list[InterleavedCollection] = []
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.SPIELER].insert_one(spieler_document(PUPIL_OID, FIRST_NAME, LAST_NAME, email=IDENTIFIER))
@@ -280,12 +262,14 @@ class TestAGrantHoldersAddress:
             async with app_client(mongo_replica_set_url, app=served, now=NOW) as http:
 
                 async def grant() -> None:
-                    added = await http.post(f"/api/v{API_VERSION}/grants", json={"email": IDENTIFIER}, headers=StampedHeaders(OWNER, ADMIN_KEY))
+                    added = await http.post("/api/grants", json={"email": IDENTIFIER}, headers=StampedHeaders(OWNER, ADMIN_KEY))
                     granted.append(added.status_code)
 
                 async def pupils() -> AsyncCollection:
-                    # The app's own client: the request's session belongs to it.
-                    racing.append(PupilsReadMeetingARival(served.state.db_client[DATABASE_NAME][Collection.SPIELER], grant))
+                    # The app's own client: the request's session belongs to it. The rival commits at the pupils' read
+                    # ahead of the erasure's first write, inside the attempt.
+                    spieler = served.state.db_client[DATABASE_NAME][Collection.SPIELER]
+                    racing.append(InterleavedCollection(spieler, grant, before="aggregate"))
                     return cast(AsyncCollection, racing[-1])
 
                 served.dependency_overrides[collection_dependency(Collection.SPIELER)] = pupils
@@ -405,14 +389,6 @@ class TestTheReference:
         assert [(row["by"], row["label"], row["record_id"]) for row in rows] == [(OPERATOR, REASON, None)]
 
 
-class PupilsReadMeetingARival(InterleavedCollection):
-    """The pupils the erasure reads ahead of its first write, a rival write committing first: inside the attempt."""
-
-    async def aggregate(self, *args: Any, **kwargs: Any) -> Any:
-        await self.run_the_rival()
-        return await self._collection.aggregate(*args, **kwargs)
-
-
 # Where a grant's creation names its address: the grant, its notice and its act's label.
 THE_GRANTS_OWN_ROWS = frozenset({Collection.GRANTS, Collection.OUTBOX, Collection.ACTION_LOG})
 
@@ -424,33 +400,19 @@ def aside_the_grants_own_rows(held: Mapping[str, list[str]]) -> dict[str, list[s
 # --- Refused by the payload, which the route validates before any read.
 
 
-class TestTheReasonIsRefusedAtTheBox:
+def test_a_reason_of_spaces_alone_is_refused_at_its_box():
     """A refusal alone tells nothing: one refused for another field is refused too, so the location is asserted."""
 
-    @pytest.mark.parametrize(
-        "body",
-        [
-            pytest.param(erasure_of(reason="   "), id="spaces alone"),
-        ],
-    )
-    def test_the_erasure_is_refused_naming_it(self, body: dict[str, str]):
-        with pytest.raises(ValidationError) as raised:
-            FLErasurePayload.model_validate(body)
+    with pytest.raises(ValidationError) as raised:
+        FLErasurePayload.model_validate(erasure_of(reason="   "))
 
-        assert [error["loc"] for error in raised.value.errors()] == [("reason",)]
+    assert [error["loc"] for error in raised.value.errors()] == [("reason",)]
 
 
-class TestADomainIsRefusedBeyondAscii:
+def test_a_domain_beyond_ascii_is_refused_by_the_address_rule_at_its_box():
     """Every stored domain is ASCII, so a lookup typing one in Unicode would find nothing and say nothing is held."""
 
-    @pytest.mark.parametrize(
-        ("payload", "body"),
-        [
-            pytest.param(FLErasurePayload, erasure_of("anna@müller.example.org"), id="the erasure"),
-        ],
-    )
-    def test_the_address_rule_s_own_refusal_names_the_box(self, payload: type[FLErasureAddressPayload], body: dict[str, str]):
-        with pytest.raises(ValidationError) as raised:
-            payload.model_validate(body)
+    with pytest.raises(ValidationError) as raised:
+        FLErasurePayload.model_validate(erasure_of("anna@müller.example.org"))
 
-        assert [(error["loc"], error["type"]) for error in raised.value.errors()] == [(("email",), "email_not_accepted")]
+    assert [(error["loc"], error["type"]) for error in raised.value.errors()] == [(("email",), "email_not_accepted")]

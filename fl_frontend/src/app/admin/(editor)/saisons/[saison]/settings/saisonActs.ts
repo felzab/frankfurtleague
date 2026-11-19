@@ -7,7 +7,7 @@ import { COPY } from "@/core/copy";
 import {
   saisonsActivateSaison,
   saisonsDeleteSpielplan,
-  saisonsPostInvitationsDispatch,
+  saisonsPostInvitationsMail,
   saisonsPostSpielplan,
   saisonsSwapGruppen,
   teamsReplaceSaisonTeam,
@@ -31,7 +31,7 @@ const TouchedOfSaison = z.object({ ...SAISON, ...PAGE_HOLDER });
  * editor closes both acts on the read's own judgement of the groups, so a press meets that refusal only where clubs
  * moved after the page was read.
  */
-const DRAW_WORDS = ["rules_bracket_impossible", "rules_spiele_over_one_read", "spielplan_gruppen_off_rules", "saison_past"] as const;
+const DRAW_WORDS = ["rules_bracket_impossible", "spielplan_gruppen_off_rules", "saison_past"] as const;
 
 /** Draws the season's Spielplan from its stored rules, a first draw, which the undraw takes back whole. */
 export const drawSpielplan = action({
@@ -118,7 +118,7 @@ export const sendInvitations = action({
   input: OfSaison,
   ownWords: ["saison_past"],
   run: async ({ saison_id }) => {
-    const { mailed } = await saisonsPostInvitationsDispatch(saison_id);
+    const { mailed } = await saisonsPostInvitationsMail(saison_id);
     // The teams the press owed a mail to, which the rows then show as sent.
     return { ok: true, value: undefined, note: COPY.admin.saison.sentTo(mailed) };
   },

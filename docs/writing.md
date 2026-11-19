@@ -45,6 +45,9 @@ described in the map. No document outside `.claude/` addresses an agent.
   ([the order](ops/runbooks.md#2-before-deploying-a-change-to-a-stored-shape-or-an-index)). The
   record model (`fl_backend/app/readback.py :: RECORD_MODELS`) and the read-back change in the same
   commit.
+- **A new field holding a calendar day ends in `_on`, and one holding an instant in `_at`.** A
+  stored name already holding a day under `_at`, such as `einwilligung.confirmed_at`, keeps it,
+  since its rename is a migration.
 - **A name the production host or a deploy holds**, such as a secret or a header, follows it too,
   and its rename is an owner step. A Docker volume keeps its name: renamed, it is a new, empty one.
 - **A copy catalogue key is a name, never the copy it keys.** A page title's key is its route key,
@@ -56,9 +59,9 @@ described in the map. No document outside `.claude/` addresses an agent.
   Markdown files and folders lowercase kebab-case, and a dynamic route segment its param
   (`[saison]`). A name a tool looks for keeps it (`page.tsx`).
 - **A frontend test is named after the module it stands beside**, or, where it judges the tree
-  rather than one module, after what it judges (`errorBoundaryReports.test.ts`). A backend test file is
-  named after the behaviour it holds. Where one behaviour's cases split by kind, a suffix names the
-  kind, among them `_execution` for the write carried out against a database, `_refusal` for the
+  rather than one module, after what it judges (`errorBoundaryReports.test.ts`). A backend test file
+  is named after the behaviour it holds. Where one behaviour's cases split by kind, a suffix names
+  the kind, among them `_execution` for the write carried out against a database, `_refusal` for the
   judgement that refuses it, `_read` for what a read serves and `_isolation` for a write a rival
   write races (`test_gruppe_swap_execution.py` beside `test_gruppe_swap_refusal.py`).
 

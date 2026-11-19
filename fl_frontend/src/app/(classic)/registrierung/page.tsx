@@ -1,9 +1,5 @@
 import { cache } from "react";
 
-import { ConsentLine } from "@/kit/ConsentLine";
-import { mailedMetadata } from "@/kit/mailedLinkState";
-import { MailedPage } from "@/kit/MailedPage";
-
 import { requires } from "@/core/action";
 import { KONTAKT_EMAIL, KONTAKT_MAILTO } from "@/core/brand";
 import { frontend_config } from "@/core/config";
@@ -19,6 +15,9 @@ import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { runWithIncomingTrace } from "@/core/traceScope";
 import { orderStufen } from "@/features/spieler/constants";
+import { ConsentLine } from "@/kit/ConsentLine";
+import { mailedMetadata } from "@/kit/mailedLinkState";
+import { MailedPage } from "@/kit/MailedPage";
 
 import { endOf, readInvitation, REPLAY_FIELD, TO_HOME } from "./invitation";
 import { RegistrierungFields } from "./RegistrierungFields";
@@ -79,8 +78,7 @@ export default function RegistrierungPage() {
   return <MailedPage page={readState()} />;
 }
 
-// `cache` memoizes per render pass, for the tab's title and the page. Never `"use cache"`, which keys on the
-// arguments rather than the caller.
+// `cache` memoizes per render pass, for the tab's title and the page.
 const readState = cache(async (): Promise<MailedState> => {
   const token = await mailedLinkToken();
   if (token === null) return INVALID;

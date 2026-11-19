@@ -5,7 +5,6 @@ import pytest
 
 from app.api.action_log.schemas import FLActionLogFilterPayload
 from app.api.action_log.services import build_action_log_query
-from app.core.config import API_VERSION
 from tests.core.app_source import application
 
 # Escaped, so a typed bracket finds a bracket: left raw it is a group that matches rows it should not, or a pattern the server refuses.
@@ -57,6 +56,6 @@ def test_a_filter_compiles_to_what_the_store_compares(filters: dict[str, Any], q
 def test_the_read_puts_nothing_in_a_query_string():
     """`http.answered` logs a query string and the scrubber reads no `%40`, so a filter there keeps an address for 30 days."""
 
-    operation = application().openapi()["paths"][f"/api/v{API_VERSION}/action_log/view"]["post"]
+    operation = application().openapi()["paths"]["/api/action_log/view"]["post"]
 
     assert [parameter for parameter in operation.get("parameters", []) if parameter["in"] == "query"] == []

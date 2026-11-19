@@ -1,6 +1,6 @@
 from typing import Literal, Self
 
-from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, model_validator
+from pydantic import BaseModel, Field, TypeAdapter, model_validator
 
 from app.core.crud import Anchored
 from app.shared.schemas.custom import CustomDateString, CustomNonEmptyString, CustomObjectId, CustomOptionalDateString, CustomVersion
@@ -8,14 +8,15 @@ from app.shared.schemas.einwilligung import FLEinwilligungEvidenceSet, FLSpieler
 from app.shared.schemas.kontakt import CustomKontaktName, CustomStoredAddress
 from app.shared.schemas.literals import (
     FLEinwilligungScope,
+    FLSaisonStatus,
     FLSpielerPosition,
     FLSpielerStufe,
 )
-from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
+from app.shared.schemas.responses import BasePayload, BaseReadModel
 
 # `[0-9]`, never `\d`: Python's `\d` matches Unicode decimal digits where the frontend mirror's
 # does not, and the two ends must accept and refuse the same shirt.
-SQUAD_NUMMER_PATTERN = r"^[0-9]{1,4}$"
+KADER_NUMMER_PATTERN = r"^[0-9]{1,4}$"
 
 # Slugs rather than the German `position` and `stufe` store: a role also has a label and a badge
 # Kuerzel, and a stored German word would be a third spelling for those two to drift from.
@@ -115,7 +116,7 @@ class FLSpielerRecord(_SpielerPerson, Anchored):
 FLSpielerListAdapter = TypeAdapter(list[FLSpielerPublic])
 
 
-class FLSaisonSpielerRow(BaseModel):
+class FLSaisonSpielerRow(Anchored):
     """The junction document as it is stored: the declared shape only, validated against no read."""
 
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
@@ -132,16 +133,6 @@ class FLSaisonSpielerRow(BaseModel):
     # The day this squad row was retired, which is not the day the person left the league.
     inactive_since: CustomOptionalDateString
     version: int = 0
-
-
-class FLSpielerSingleResponse(BaseAPIResponse):
-    """One player as an anonymous visitor may read them, the surname an initial and no squad field of any season."""
-
-    spieler_id: CustomObjectId
-    # Nullable: this path is masked by the squad list's predicate, which answers `null` for a person
-    # whose record does not publish them.
-    first_name: str | None
-    last_name: str | None
 
 
 class FLSpielerAdminRow(BaseReadModel):
@@ -162,7 +153,7 @@ class FLSpielerAdminRow(BaseReadModel):
     nummer_double: bool
 
 
-class FLSpielerAdminListResponse(BaseAPIResponse):
+class FLSpielerAdminListResponse(BaseReadModel):
     """One season's squad rows, every team's, live and ausgetragen alike, sorted by name."""
 
     spieler: list[FLSpielerAdminRow]
@@ -185,26 +176,22 @@ class FLSpielerSaisonKader(_SaisonSpielerWritable, BaseReadModel):
     inactive_since: CustomOptionalDateString
 
 
-class FLSpielerSaisonAdminResponse(BaseAPIResponse):
+class FLSpielerSaisonAdminResponse(BaseReadModel):
     """What the Spieler editor shows in one read: the person, their row of the season, and what its boxes may offer."""
 
     # The one count this page saves on, its two documents' added.
     version: int = Field(ge=0)
     person: FLSpielerSaisonPerson
     kader: FLSpielerSaisonKader
-    # What the Stufe box may offer, beside a value the row already holds (`kader_stufe_not_allowed`).
+    # What the Stufe box may offer, beside a value the row already holds.
     allowed_stufen: list[FLSpielerStufe] = Field(min_length=1)
-    # The roles another live row of the squad holds (`kader_rolle_taken`).
+    # The roles another live row of the squad holds, which the save refuses.
     taken_rollen: list[FLSpielerRolle]
+    # Whether the season has finished, which fixes the squad row and leaves the person's own facts open.
+    saison_status: FLSaisonStatus
 
 
-class FLPatchSpielerSaisonResponse(BaseAPIResponse):
-    """The count the editor's next save sends."""
-
-    version: int = Field(ge=0)
-
-
-class FLKaderRow(BaseAPIResponse):
+class FLKaderRow(BaseReadModel):
     """One squad row as its team's seat holder reads it, the surname whole and no address or telephone number."""
 
     # Declared from nothing rather than a public model unmasked, so the whole surname reaches no
@@ -227,18 +214,16 @@ class FLKaderRow(BaseAPIResponse):
     version: int = 0
 
 
-class FLKaderResponse(BaseAPIResponse):
+class FLKaderResponse(BaseReadModel):
     """A team's squad for one season, live and ausgetragen rows alike, with the Stufen the season's rules offer."""
 
-    team_id: CustomObjectId
-    saison_id: str
     # What the editor may offer, the save refusing anything else a row was not already holding. At
     # least one, as the season's rules guarantee, so the document publishes what the season holds.
     allowed_stufen: list[FLSpielerStufe] = Field(min_length=1)
     kader: list[FLKaderRow]
 
 
-class _KaderRowFields(BaseModel):
+class _KaderRowFields(BasePayload):
     """What an edit may change on a squad row, wholesale.
 
     The handler `$set`s these, so a field with a default would let a form that forgot it write that default over a
@@ -246,11 +231,9 @@ class _KaderRowFields(BaseModel):
     `is_nachnominiert`, which no edit sets or clears.
     """
 
-    model_config = ConfigDict(extra="forbid")
-
     # Tightened on the write side alone: a read model refusing a stored number would answer 500 for
     # the whole list over one row.
-    nummer: str | None = Field(pattern=SQUAD_NUMMER_PATTERN)
+    nummer: str | None = Field(pattern=KADER_NUMMER_PATTERN)
     position: FLSpielerPosition | None
     stufe: FLSpielerStufe | None
     rolle: FLSpielerRolle | None

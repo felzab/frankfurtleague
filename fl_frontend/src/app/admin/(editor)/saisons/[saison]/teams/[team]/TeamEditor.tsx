@@ -2,6 +2,12 @@
 
 import { useState } from "react";
 
+import { COPY } from "@/core/copy";
+import { FLAustrittType } from "@/core/generated/client/types";
+import { SHORTHAND_LENGTH } from "@/features/bewerbungen/constants";
+import { seatActKinds } from "@/features/teams/components/forms/seatActKinds";
+import { SeatActs } from "@/features/teams/components/forms/SeatActs";
+import { schulformOptions } from "@/features/teams/options";
 import { AddressFields } from "@/kit/AddressFields";
 import { Segmented } from "@/kit/ChoiceButtons";
 import { DateField } from "@/kit/DateField";
@@ -11,13 +17,6 @@ import { SeatRows } from "@/kit/SeatRows";
 import { Select } from "@/kit/Select";
 import { TextField } from "@/kit/TextField";
 import { useEditor } from "@/kit/useEditor";
-
-import { COPY } from "@/core/copy";
-import { FLAustrittType } from "@/core/generated/client/types";
-import { SHORTHAND_LENGTH } from "@/features/bewerbungen/constants";
-import { seatActKinds } from "@/features/teams/components/forms/seatActKinds";
-import { SeatActs } from "@/features/teams/components/forms/SeatActs";
-import { schulformOptions } from "@/features/teams/options";
 
 import { exitFactsOf } from "./exitFacts";
 import { FormInvitationSection } from "./FormInvitationSection";
@@ -244,7 +243,7 @@ export function TeamEditor({
                   const link = target.asks
                     ? {
                         send: sendSeatLink,
-                        seat: { team_id: team, saison_id: saison, seat: target.rolle },
+                        seat: { team_id: team, saison_id: saison, seat: target.seat },
                         ...(row.sendLocked === undefined ? {} : { locked: row.sendLocked }),
                       }
                     : null;
@@ -253,13 +252,13 @@ export function TeamEditor({
                     sideActs: seatActKinds(link).length,
                     acts: (
                       <SeatActs
-                        rollen={target.rollen}
+                        seats={target.seats}
                         person={target.person}
                         rules={seatRules}
                         write={writeSeat}
-                        carry={{ team_id: team, saison_id: saison, seat: target.rolle, version: String(row.version) }}
+                        carry={{ team_id: team, saison_id: saison, seat: target.seat, version: String(row.version) }}
                         link={link}>
-                        {target.rolle === "trainer" && (
+                        {target.seat === "trainer" && (
                           <Select
                             label={COPY.team.trainerAlso.label}
                             name="trainer_is_also"

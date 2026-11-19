@@ -14,7 +14,6 @@ from bson import ObjectId
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.identity.schemas import FLErasureSweepParams
 from app.api.identity.system_router import sweep_erasure
 from app.api.registrierungen.services import compose_decline_update
 from app.core.collections import Collection
@@ -50,7 +49,7 @@ def pupil(spieler_id: ObjectId, email: str, *, last_name: str = "Muster", **fiel
     return spieler_document(spieler_id, "Quintessa", last_name, email=email, **fields)
 
 
-def squad_row(spieler_id: ObjectId, saison_id: str, **fields: Any) -> dict[str, Any]:
+def kader_row(spieler_id: ObjectId, saison_id: str, **fields: Any) -> dict[str, Any]:
     return saison_spieler_document(spieler_id, saison_id, TEAM_OID, **fields)
 
 
@@ -77,7 +76,7 @@ def a_due_pupil(position: int) -> dict[Collection, list[dict[str, Any]]]:
 
     return {
         Collection.SPIELER: [pupil(spieler_id, address_of(position))],
-        Collection.SAISON_SPIELER: [squad_row(spieler_id, "2023"), squad_row(spieler_id, "2024")],
+        Collection.SAISON_SPIELER: [kader_row(spieler_id, "2023"), kader_row(spieler_id, "2024")],
         Collection.REGISTRIERUNGEN: [registration(numbered(5000 + position), address_of(position), declined=True)],
     }
 
@@ -104,10 +103,10 @@ async def the_league(database: AsyncDatabase, *, saisons: Mapping[str, str] = LE
     await database[Collection.TEAMS].insert_one(team_document(TEAM_OID, "Lindenschule", "LSX"))
 
 
-async def run(database: AsyncDatabase, client: AsyncMongoClient, *, after: Any = None, **replaced: Any) -> Any:
+async def run(database: AsyncDatabase, client: AsyncMongoClient, **replaced: Any) -> Any:
     return await sweep_erasure(
-        params=FLErasureSweepParams(after=after),
-        **erasure_collections(database, **({"saisons_collection": database[Collection.SAISONS]} | replaced)),
+        saisons_collection=replaced.pop("saisons_collection", database[Collection.SAISONS]),
+        collections=erasure_collections(database, **replaced),
         db=client,
         germany_now=NOW,
     )

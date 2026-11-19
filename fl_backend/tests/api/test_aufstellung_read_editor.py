@@ -27,7 +27,7 @@ HOME, AWAY, REPLACED = (ObjectId(f"6890a1b2c3d4e5f6074500{n:02d}") for n in (1, 
 LINA, OLE, MIA, TOM = (ObjectId(f"6890a1b2c3d4e5f6074500{n:02d}") for n in (11, 12, 13, 14))
 
 
-async def test_each_side_counts_the_line_up_of_the_club_it_fields_now(mongo_replica_set_url: str):
+async def test_each_side_counts_the_line_up_of_the_team_it_fields_now(mongo_replica_set_url: str):
     """The home club's three named, two starting; the away side's club has stored none, and the club it replaced has."""
 
     spiel = documents.spiel_document(
@@ -60,7 +60,6 @@ async def test_each_side_counts_the_line_up_of_the_club_it_fields_now(mongo_repl
             saisons_collection=database[Collection.SAISONS],
             spielorte_collection=database[Collection.SPIELORTE],
             schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
-            saison_spieler_collection=database[Collection.SAISON_SPIELER],
             spieler_collection=database[Collection.SPIELER],
             spielberichte_collection=database[Collection.SPIELBERICHTE],
             spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
@@ -115,7 +114,6 @@ async def test_each_side_counts_this_fixtures_line_up_alone_and_an_open_slot_cou
                 saisons_collection=database[Collection.SAISONS],
                 spielorte_collection=database[Collection.SPIELORTE],
                 schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
-                saison_spieler_collection=database[Collection.SAISON_SPIELER],
                 spieler_collection=database[Collection.SPIELER],
                 spielberichte_collection=database[Collection.SPIELBERICHTE],
                 spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],

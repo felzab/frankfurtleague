@@ -14,13 +14,13 @@ from app.core.clock import utc_stamp
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError, DocumentNotFoundError
-from app.shared.schemas.bounds import BEWERBUNG_KONTAKT_MAX_AGE_YEARS
-from app.shared.schemas.literals import KONTAKT_ROLLEN
+from app.shared.schemas.bounds import BIRTH_DATE_MAX_AGE_YEARS
+from app.shared.schemas.literals import KONTAKT_SEATS
 from app.shared.tokens import hash_token
 from tests import documents
 from tests.bewerbung_routes import answered, resent, viewed
 from tests.database import a_clean_database
-from tests.documents import kontaktperson_document, team_document
+from tests.documents import kontaktperson_document, saison_document, team_document
 from tests.isolation import refused_code
 from tests.outbox import MAIL_NOW, drained
 from tests.stored import the_row
@@ -38,14 +38,14 @@ NOW = datetime(2026, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
 
 # Fixed rather than generated, so a failure names the same row every run.
 BEWERBUNG_OID = ObjectId("6890a1b2c3d4e5f607950001")
-CLUB_OID = ObjectId("6890a1b2c3d4e5f607950011")
+TEAM_OID = ObjectId("6890a1b2c3d4e5f607950011")
 
-CLUB_NAME = "Adler"
+TEAM_NAME = "Adler"
 SCHOOL_NAME = "Zorbanax"
 
 # The raw tokens the seeded links carry, and what the database holds for each.
 RAW_PREFIX = "raw-token-for"
-RAW: Mapping[str, str] = {seat: f"{RAW_PREFIX}-{seat}" for seat in KONTAKT_ROLLEN}
+RAW: Mapping[str, str] = {seat: f"{RAW_PREFIX}-{seat}" for seat in KONTAKT_SEATS}
 HASHES: Mapping[str, str] = {seat: hash_token(raw) for seat, raw in RAW.items()}
 
 
@@ -99,10 +99,12 @@ Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
 
 async def on_a_league(url: str, body: Body, *, documents: list[dict[str, Any]] | None = None) -> Any:
-    """A clean database carrying the shipped indexes."""
+    """A clean database carrying the shipped indexes, the application's running season and its club."""
 
     async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
-        await database[Collection.TEAMS].insert_one(team_document(CLUB_OID, CLUB_NAME, "ADX", website_url=None, schulform="gymnasium_g9"))
+        # The resend reads the application's season, refusing a finished one.
+        await database[Collection.SAISONS].insert_one(saison_document(SAISON_ID, "active"))
+        await database[Collection.TEAMS].insert_one(team_document(TEAM_OID, TEAM_NAME, "ADX", website_url=None, schulform="gymnasium_g9"))
         await database[Collection.BEWERBUNGEN].insert_many(documents if documents is not None else [bewerbung_document()])
 
         return await body(database, client)
@@ -142,17 +144,17 @@ class TestWhatALinkOpens:
 
         response = await on_a_league(mongo_replica_set_url, lambda database, _: read_view(database, RAW["ansprechperson"]))
 
-        assert (response.state, response.saison_id, response.schule, response.rolle) == ("valid", SAISON_ID, SCHOOL_NAME, "ansprechperson")
-        assert response.also_rolle is None
+        assert (response.state, response.saison_id, response.schule, response.seat) == ("valid", SAISON_ID, SCHOOL_NAME, "ansprechperson")
+        assert response.also_seat is None
         rendered = response.model_dump_json()
         assert "Quillhilde" not in rendered and LAST_NAME not in rendered and MAIL_DOMAIN not in rendered and PHONE not in rendered
 
     @pytest.mark.parametrize(
-        ("seat", "also_rolle"),
+        ("seat", "also_seat"),
         [("ansprechperson", "trainer"), ("trainer", "ansprechperson"), ("stellvertretung", None)],
     )
     async def test_a_double_seated_persons_link_names_their_second_seat_and_no_other_link_does(
-        self, mongo_replica_set_url: str, seat: str, also_rolle: str | None
+        self, mongo_replica_set_url: str, seat: str, also_seat: str | None
     ):
         """The third seat is load-bearing: serving the declaration itself would tell the Stellvertretung that two OTHER seats are one person."""
 
@@ -160,19 +162,19 @@ class TestWhatALinkOpens:
 
         response = await on_a_league(mongo_replica_set_url, lambda database, _: read_view(database, RAW[seat]), documents=[paired])
 
-        assert (response.rolle, response.also_rolle) == (seat, also_rolle)
+        assert (response.seat, response.also_seat) == (seat, also_seat)
 
 
 class TestWhatAConfirmationWrites:
     """The one `$set`: the pairing lands whole, and the hash stays where it is."""
 
-    async def test_the_date_the_stamp_the_source_the_wording_and_the_scope_land_together(self, mongo_replica_set_url: str):
+    async def test_the_date_the_stamp_the_source_the_wording_and_the_scope_land_together_on_the_one_seat(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            response = await answer(database, client, RAW["trainer"])
+            await answer(database, client, RAW["trainer"])
 
-            return response, await stored(database)
+            return await stored(database)
 
-        response, document = await on_a_league(mongo_replica_set_url, body)
+        document = await on_a_league(mongo_replica_set_url, body)
 
         trainer = document["kontakte"]["trainer"]
         assert trainer["birth_date"] == AN_ADULTS_BIRTHDATE
@@ -192,7 +194,8 @@ class TestWhatAConfirmationWrites:
         }
         # NOT nulled on use: single use is the stamp's doing, so the reopened link can show its state.
         assert document["confirmations"]["trainer"]["token_hashes"] == [HASHES["trainer"]]
-        assert (response.outcome, response.birth_date, response.whatsapp) == ("confirmed", AN_ADULTS_BIRTHDATE, True)
+        for seat in ("ansprechperson", "stellvertretung"):
+            assert document["kontakte"][seat] == bewerbung_document()["kontakte"][seat], f"the {seat} moved with the Trainer's answer"
 
     async def test_a_declined_whatsapp_tick_keeps_the_narrow_scope(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -202,30 +205,18 @@ class TestWhatAConfirmationWrites:
 
         assert (await on_a_league(mongo_replica_set_url, body))["kontakte"]["trainer"]["einwilligung"]["scope"] == "kontakt_data"
 
-    async def test_the_other_seats_are_untouched(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await answer(database, client, RAW["trainer"])
-
-            return await stored(database)
-
-        document = await on_a_league(mongo_replica_set_url, body)
-
-        for seat in ("ansprechperson", "stellvertretung"):
-            assert document["kontakte"][seat] == bewerbung_document()["kontakte"][seat]
-
     async def test_the_double_seated_trainer_is_answered_on_both_seats_by_one_click(self, mongo_replica_set_url: str):
         """Without the mirror the two blocks can hold two dates, and the equality the submission asserted becomes a claim about the form."""
 
         paired = bewerbung_document(kontakte=kontakte(trainer_is_also="ansprechperson"))
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            response = await answer(database, client, RAW["ansprechperson"])
+            await answer(database, client, RAW["ansprechperson"])
 
-            return response, await stored(database)
+            return await stored(database)
 
-        response, document = await on_a_league(mongo_replica_set_url, body, documents=[paired])
+        document = await on_a_league(mongo_replica_set_url, body, documents=[paired])
 
-        assert response.outcome == "confirmed"
         for seat in ("trainer", "ansprechperson"):
             assert document["kontakte"][seat]["birth_date"] == AN_ADULTS_BIRTHDATE
             assert document["kontakte"][seat]["einwilligung"]["confirmed_at"] == TODAY
@@ -238,15 +229,14 @@ class TestTheMediaConsent:
     async def test_a_confirmation_giving_media_from_a_person_of_age_stores_it_on_the_seat_with_its_evidence(self, mongo_replica_set_url: str):
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            response = await answer(database, client, RAW["trainer"], media=True)
+            await answer(database, client, RAW["trainer"], media=True)
 
-            return response, await stored(database)
+            return await stored(database)
 
-        response, document = await on_a_league(mongo_replica_set_url, body)
+        document = await on_a_league(mongo_replica_set_url, body)
         einwilligung = document["kontakte"]["trainer"]["einwilligung"]
 
-        # The answer carries what it stored, as the referee's answer does.
-        assert response.media is einwilligung["media"] is True
+        assert einwilligung["media"] is True
         assert einwilligung["evidence"]["media"] == {"at": "2026-04-01T10:30:00+00:00", "text_version": documents.SEAT_TEXT_VERSIONS["media"]}
 
     async def test_a_trainer_below_the_media_age_giving_media_is_refused_and_spends_nothing(self, mongo_replica_set_url: str):
@@ -277,7 +267,7 @@ class TestTheDaysTheViewNames:
         trainer, ansprechperson = await on_a_league(mongo_replica_set_url, body, documents=[fresher])
 
         assert (trainer.deadline, ansprechperson.deadline) == ("2026-04-09", "2026-04-03")
-        assert (trainer.answered_at, trainer.maximum_age) == (None, BEWERBUNG_KONTAKT_MAX_AGE_YEARS)
+        assert trainer.maximum_age == BIRTH_DATE_MAX_AGE_YEARS
 
     @pytest.mark.parametrize("given", [pytest.param({}, id="a confirmation"), pytest.param({"answer": "declined"}, id="an objection")])
     async def test_a_reopened_link_names_the_day_it_was_answered(self, mongo_replica_set_url: str, given: Mapping[str, Any]):
@@ -342,21 +332,20 @@ class TestTheLinkIsSpentByTheStamp:
 
 
 class TestADecline:
-    """The person's slot is emptied in ONE transaction, as an erasure does: a person who refuses is not held."""
+    """The person's seat is emptied in ONE transaction, as an erasure does: a person who refuses is not held."""
 
-    async def test_the_slot_is_emptied_the_day_recorded_beside_it_and_the_seat_still_outstanding(self, mongo_replica_set_url: str):
+    async def test_the_seat_is_emptied_the_day_recorded_beside_it_and_still_outstanding(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            response = await answer(database, client, RAW["stellvertretung"], answer="declined", now=MAIL_NOW)
+            await answer(database, client, RAW["stellvertretung"], answer="declined", now=MAIL_NOW)
 
-            return response, await stored(database), await read_view(database, RAW["stellvertretung"])
+            return await stored(database), await read_view(database, RAW["stellvertretung"])
 
-        response, document, view = await on_a_league(mongo_replica_set_url, body)
+        document, view = await on_a_league(mongo_replica_set_url, body)
 
         assert document["kontakte"]["stellvertretung"] is None
         assert document["confirmations"]["stellvertretung"]["declined_at"] == TODAY
         # The Ansprechperson's objection notice names the deletion day, so no second notice follows it.
         assert document["erasure_announced_at"] == TODAY
-        assert (response.outcome, response.birth_date, response.media) == ("declined", None, False)
         assert view.state == "declined"
 
     async def test_a_declined_seat_takes_no_second_answer(self, mongo_replica_set_url: str):
@@ -369,23 +358,22 @@ class TestADecline:
 
 
 class TestAPairedDecline:
-    """One person in two seats, one refusal: a decline reaching one slot would leave the other holding the person who refused."""
+    """One person in two seats, one refusal: a decline reaching one seat would leave the other holding the person who refused."""
 
-    async def test_both_slots_are_emptied_and_both_days_recorded(self, mongo_replica_set_url: str):
+    async def test_both_seats_are_emptied_and_both_days_recorded(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            response = await answer(database, client, RAW["ansprechperson"], answer="declined")
+            await answer(database, client, RAW["ansprechperson"], answer="declined")
 
-            return response, await stored(database)
+            return await stored(database)
 
         paired = bewerbung_document(kontakte=kontakte(trainer_is_also="ansprechperson"))
-        response, document = await on_a_league(mongo_replica_set_url, body, documents=[paired])
+        document = await on_a_league(mongo_replica_set_url, body, documents=[paired])
 
         assert (document["kontakte"]["trainer"], document["kontakte"]["ansprechperson"]) == (None, None)
         assert document["confirmations"]["trainer"]["declined_at"] == TODAY
         assert document["confirmations"]["ansprechperson"]["declined_at"] == TODAY
         # The third seat keeps its person, and no seat carries a stamp, so all three stay outstanding.
         assert document["kontakte"]["stellvertretung"] is not None
-        assert response.outcome == "declined"
 
     async def test_a_partner_whose_bookkeeping_is_gone_is_left_alone(self, mongo_replica_set_url: str):
         """A dotted `$set` under a null parent aborts the transaction, so the person's own seat would be refused a 500 rather than declined."""
@@ -396,13 +384,12 @@ class TestAPairedDecline:
         )
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            response = await answer(database, client, RAW["ansprechperson"], answer="declined")
+            await answer(database, client, RAW["ansprechperson"], answer="declined")
 
-            return response, await stored(database)
+            return await stored(database)
 
-        response, document = await on_a_league(mongo_replica_set_url, body, documents=[emptied])
+        document = await on_a_league(mongo_replica_set_url, body, documents=[emptied])
 
-        assert response.outcome == "declined"
         assert document["kontakte"]["ansprechperson"] is None
         assert document["confirmations"]["ansprechperson"]["declined_at"] == TODAY
         assert document["confirmations"]["trainer"] is None
@@ -462,7 +449,7 @@ class TestWhatAnObjectionOwesTheAnsprechperson:
                 "data": {
                     "kind": "bewerbung_objection",
                     "saison_id": SAISON_ID,
-                    "rollen": ["ansprechperson"],
+                    "seats": ["ansprechperson"],
                     "declined": ["stellvertretung"],
                     "deadline": "2026-04-03",
                 },
@@ -486,6 +473,7 @@ class TestWhatAnObjectionOwesTheAnsprechperson:
                 ),
                 bewerbungen_collection=database[Collection.BEWERBUNGEN],
                 teams_collection=database[Collection.TEAMS],
+                saisons_collection=database[Collection.SAISONS],
                 outbox_collection=database[Collection.OUTBOX],
                 db=client,
                 today=TODAY,
@@ -517,6 +505,7 @@ class TestWhatAnObjectionOwesTheAnsprechperson:
                 ),
                 bewerbungen_collection=database[Collection.BEWERBUNGEN],
                 teams_collection=database[Collection.TEAMS],
+                saisons_collection=database[Collection.SAISONS],
                 outbox_collection=database[Collection.OUTBOX],
                 db=client,
                 today=TODAY,
@@ -582,19 +571,18 @@ class TestAResend:
         """The link reaches the seat through the hand-out of the mail the re-send owes, which mints it into `token_hashes`."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            response = await resend(database, "trainer")
+            await resend(database, "trainer")
             [mail] = await drained(database, client)
 
             code = await refused_code(read_view(database, RAW["trainer"]))
 
             assert mail.token is not None
-            return response, mail, code, await read_view(database, mail.token), await stored(database)
+            return mail, code, await read_view(database, mail.token), await stored(database)
 
-        response, mail, old_code, view, document = await on_a_league(mongo_replica_set_url, body)
+        mail, old_code, view, document = await on_a_league(mongo_replica_set_url, body)
 
         assert old_code == Code.LINK_INVALID
-        assert (view.state, view.rolle) == ("valid", "trainer")
-        assert (response.rolle, response.confirmation_deadline) == ("trainer", "2026-04-15")
+        assert (view.state, view.seat) == ("valid", "trainer")
         assert (mail.to, mail.data.kind) == ("wraxlington@example.com", "bewerbung_confirmation")
         # That seat's alone: the other two keep the days their own links carry.
         assert {seat: entry["deadline"] for seat, entry in document["confirmations"].items()} == {
@@ -607,7 +595,7 @@ class TestAResend:
             "sent_at": TODAY,
             "deadline": "2026-04-15",
             "reminded_at": None,
-            "chase_closed_at": None,
+            "confirmed_on": None,
             "declined_at": None,
         }
         # The other seats' links still open.

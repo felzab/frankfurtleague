@@ -1,7 +1,7 @@
 # Glossary
 
-**Purpose:** what each German word of the league and of the website means, and where it lives in
-the code.
+**Purpose:** what each German word of the league and of the website means, and where it lives in the
+code.
 
 Translating it in your head is fine; translating it in code is not.
 
@@ -17,18 +17,18 @@ Translating it in your head is fine; translating it in code is not.
 
 ### `Saison` — the competition year
 
-**Is:** the competition year, carrying the `rules` that configure how it is played and two
-windows: `bewerbung`, when a school may apply to play it, and `registrierung`, when a pupil may
-register for it. Its id is the year as a fixed-length string, never an ObjectId.\
-**In code:** `fl_backend/app/api/saisons/schemas.py :: FLSaison`, its windows
-`:: FLSaisonBewerbung` and `:: FLSaisonRegistrierung`.\
+**Is:** the competition year, carrying the `rules` that configure how it is played and two windows:
+`bewerbung`, when a school may apply to play it, and `registrierung`, when a pupil may register for
+it. Its id is the year as a fixed-length string, never an ObjectId.\
+**In code:** `fl_backend/app/api/saisons/schemas.py :: FLSaison`, its windows `:: FLSaisonBewerbung`
+and `:: FLSaisonRegistrierung`.\
 **See:** [`domain.md`](domain.md#the-life-of-a-season).
 
 ### `Spiel` — one match
 
 **Is:** the central entity: fixtures, results, the league table and the bracket are all views of
-matches. A match stores its teams' ids and no name, and is never a `Spieltag`, the round it
-belongs to.\
+matches. A match stores its teams' ids and no name, and is never a `Spieltag`, the round it belongs
+to.\
 **In code:** `fl_backend/app/api/spiele/schemas.py :: FLSpiel` stored, `:: FLSpielJoined` and
 `:: FLSpielJoinedAdmin` served.\
 **See:** [`domain.md`](domain.md#what-is-stored-and-what-is-computed).
@@ -36,8 +36,8 @@ belongs to.\
 ### `Spieltag` — matchday, fixture round
 
 **Is:** a block of matches within one phase of a season, never a single `Spiel`, holding its
-`position` in that phase and, once somebody sets one, a date range. Its label and its match count
-are derived on read and stored nowhere.\
+`position` in that phase and, once somebody sets one, a date range. Its label is derived on read and
+stored nowhere.\
 **In code:** `fl_backend/app/api/spieltage/schemas.py :: FLSpieltag`; the label is
 `fl_frontend/src/features/spieltage/utils.ts :: spieltagLabel`.\
 **See:** [`domain.md`](domain.md#what-is-held-true-together).
@@ -45,8 +45,8 @@ are derived on read and stored nowhere.\
 ### `Team` — club
 
 **Is:** a club as it stands today, in a season-independent `teams` document; its group, its
-`austritt`, the name a season was played under and its table come from a `saison_teams` row and
-the matches. The people who run the league are never a `Team`: on screen they are „Organisation“.\
+`austritt`, the name a season was played under and its table come from a `saison_teams` row and the
+matches. The people who run the league are never a `Team`: on screen they are „Organisation“.\
 **In code:** `fl_backend/app/api/teams/schemas.py :: FLTeam`, joined by
 `fl_backend/app/api/teams/services.py :: build_team_pipeline`.\
 **See:** [`domain.md`](domain.md#the-entities-and-what-holds-them-together).
@@ -61,11 +61,13 @@ served to the base tier.
 ### `Kader` — one team's squad in one season, as its own contact seats see it
 
 **Is:** every `saison_spieler` row one team holds for one season, live and ausgetragen alike, which
-the team's contact seats read and edit; the code's English for it is `squad`. The word also names
-an application's `kader`, the school's estimate in two counts, a pupil's own squad row of one
-season, and the consent scope `kader_public`.\
-**In code:** `fl_backend/app/api/spieler/schemas.py :: FLKaderResponse` over `:: FLKaderRow`; the
-other senses `fl_backend/app/api/bewerbungen/schemas.py :: FLBewerbungKader` and
+the team's contact seats read and edit, and which the backend's code names `kader` wherever it means
+it, its cap included; some of the frontend's names say `squad`. The word also names an application's
+`kader`, the school's estimate in two counts, a pupil's own squad row of one season, and the consent
+scope `kader_public`.\
+**In code:** `fl_backend/app/api/spieler/schemas.py :: FLKaderResponse` over `:: FLKaderRow`, its
+cap `fl_backend/app/api/spieler/services.py :: KaderRoom`; the other senses
+`fl_backend/app/api/bewerbungen/schemas.py :: FLBewerbungKader` and
 `fl_backend/app/api/spieler/schemas.py :: FLSpielerSelfKaderRow`.
 
 ### `Schiedsrichter` — referee
@@ -78,9 +80,9 @@ erased since.\
 
 ### `Spielort` — venue, playing location
 
-**Is:** a venue, referenced on a match as `{spielort_id, mietpreis}`, the venue's current `name`
-and `maps_link` joined beside it at read. `maps_link` is not a URL: it is the venue's whole postal
-address in one string, searched on Google Maps.\
+**Is:** a venue, referenced on a match as `{spielort_id, mietpreis}`, the venue's current `name` and
+`maps_query` joined beside it at read. `maps_query` is the venue's name and whole postal address in
+one string, searched on Google Maps.\
 **In code:** `fl_backend/app/api/spielorte/schemas.py :: FLSpielort`; on a match
 `fl_backend/app/api/spiele/schemas.py :: FLSpielortFieldRecord`.
 
@@ -96,16 +98,16 @@ by an administrator. It is not a `Registrierung`, a pupil's entry into a team al
 
 **Is:** one pupil's registration to play one season for one team, submitted through that team's
 `Einladung` and decided by its contact seats; `status` is `submitted` or `declined`, because an
-admission deletes the row. It is not a `Bewerbung`, a school applying to play, and it puts the
-pupil on no squad until a seat admits them.\
+admission deletes the row. It is not a `Bewerbung`, a school applying to play, and it puts the pupil
+on no squad until a seat admits them.\
 **In code:** `fl_backend/app/api/registrierungen/schemas.py :: FLRegistrierungRecord`.\
 **See:** [`domain.md`](domain.md#what-is-held-true-together).
 
 ### `Spielbestätigung` · `Spielbestaetigung` — one party's answer about one Ansetzung of a fixture
 
 **Is:** one party's answer about one `Ansetzung` of one fixture, stored as a row of
-`spielbestaetigungen`: a club's, given by whichever of its confirmed contact seats answers first,
-a booked referee's, or one an administrator records for either. It is not a
+`spielbestaetigungen`: a club's, given by whichever of its confirmed contact seats answers first, a
+booked referee's, or one an administrator records for either. It is not a
 [`Bestätigung`](#bestätigung--confirmation--one-persons-own-answer-to-their-own-link-and-the-bookkeeping-beside-it-on-a-seat-a-registration-or-a-referee),
 and it confirms nothing about the person answering.\
 **In code:** `fl_backend/app/api/spielbestaetigungen/schemas.py :: FLSpielbestaetigungRecord`, its
@@ -116,15 +118,15 @@ state `fl_backend/app/api/spielbestaetigungen/services.py :: state_of`.\
 
 **Is:** one fixture's report in `spielberichte`, written by its booked referee: a proposed result
 (`ergebnis_vorschlag`, never a club's `vorschlag` of a date), the goals by scorer, the cards and
-remarks. It is a proposal: the fixture's result is never written from it, only by an
-administrator in the match editor.\
+remarks. It is a proposal: the fixture's result is never written from it, only by an administrator
+in the match editor.\
 **In code:** `fl_backend/app/api/spielberichte/schemas.py :: FLSpielbericht`.\
 **See:** [`domain.md`](domain.md#what-is-held-true-together).
 
 ### `Aufstellung` — one club's line-up for one fixture
 
-**Is:** the pupils one club fields in one fixture and which of them start, one document per club
-per fixture in `aufstellungen`, entered by the club's contact seats until it locks one hour before
+**Is:** the pupils one club fields in one fixture and which of them start, one document per club per
+fixture in `aufstellungen`, entered by the club's contact seats until it locks one hour before
 kick-off; an entry with a null `spieler_id` names nobody, a played match's pupil erased since. It is
 no part of the `Spielbericht`, and not the `Kader` it picks from.\
 **In code:** `fl_backend/app/api/aufstellungen/schemas.py :: FLAufstellung`, its clocks
@@ -163,9 +165,9 @@ the table, which scores the match as the draw it was.\
 ### `Spielplan` — a season's whole draw
 
 **Is:** every matchday and every fixture of one season, composed in one operation from its `rules`
-and the clubs entered, each knockout side a `Quelle` reference rather than a team; nothing it
-writes carries a date. Whether a season is drawn is read off its stored fixtures, never off the
-`spielplan` watermark, which only dates the draw.\
+and the clubs entered, each knockout side a `Quelle` reference rather than a team; nothing it writes
+carries a date. Whether a season is drawn is read off its stored fixtures, never off the `spielplan`
+watermark, which only dates the draw.\
 **In code:** `fl_backend/app/api/saisons/spielplan.py :: draw_spielplan`; the watermark
 `fl_backend/app/api/saisons/schemas.py :: FLSaisonSpielplan`.\
 **See:** [`domain.md`](domain.md#the-life-of-a-season).
@@ -201,11 +203,11 @@ fields, nor the `Ansetzung`, when and where the fixture is set.\
 
 ### `Ansetzung` — the date, time, ground and two sides a fixture is set for
 
-**Is:** a fixture's `date`, `time`, ground and two sides, with `digest`, a SHA-256 over those
-five, as a `Spielbestätigung` answers about them; a change to any of the five is a new Ansetzung.
-It is neither the `Paarung` nor the `Spieltag`.\
+**Is:** a fixture's `date`, `time`, ground and two sides, as a `Spielbestätigung` answers about
+them; a change to any of the five is a new Ansetzung. It is neither the `Paarung` nor the
+`Spieltag`.\
 **In code:** `fl_backend/app/api/spielbestaetigungen/services.py :: ANSETZUNG_QUELLEN` and
-`:: ansetzung_digest_of`; stored on a row as
+`:: ansetzung_values_of`; stored on a row as
 `fl_backend/app/api/spielbestaetigungen/schemas.py :: FLSpielbestaetigungAnsetzung`.
 
 ### `Anpfiff` — kick-off
@@ -219,8 +221,8 @@ is `fl_backend/app/api/saisons/schemas.py :: FLLandingOpeningSpiel`.
 ### `Einteilung` — the message telling a referee they are booked onto one fixture
 
 **Is:** the mail telling a booked referee of one fixture's current `Ansetzung`, owed once per
-referee and Ansetzung and leading to their panel. It is not the booking, which is the match
-editor's write.\
+referee and Ansetzung and leading to their panel. It is not the booking, which is the match editor's
+write.\
 **In code:** `fl_backend/app/api/outbox/schemas.py :: FLSpielEinteilungData`; the mail
 `fl_frontend/src/core/spielEmail.ts :: buildSpielEinteilungEmail`.
 
@@ -261,9 +263,9 @@ code alone, a referee's decline of a booking (`answer.kind` `declined`), which o
 
 ### `Quelle` — where a side of a fixture comes from
 
-**Is:** `team1_quelle` and `team2_quelle`, a structural reference naming what feeds that side of
-the bracket, a group placing or a match outcome, never display text. While a reference stands it
-owns the slot, and clearing it is the only manual override.\
+**Is:** `team1_quelle` and `team2_quelle`, a structural reference naming what feeds that side of the
+bracket, a group placing or a match outcome, never display text. While a reference stands it owns
+the slot, and clearing it is the only manual override.\
 **In code:** `fl_backend/app/api/spiele/schemas.py :: FLSpielQuelle`, resolved by
 `fl_backend/app/api/spiele/services.py :: resolve_bracket`.
 
@@ -277,8 +279,8 @@ also a place on the podium, one to four, served by position rather than as a fie
 
 ### `Ausgang` — which side of a match a reference names
 
-**Is:** `ausgang` inside a `spiel` reference: `sieger` or `verlierer`, `verlierer` feeding only
-the match for third place. A level match with no shoot-out has neither.\
+**Is:** `ausgang` inside a `spiel` reference: `sieger` or `verlierer`, `verlierer` feeding only the
+match for third place. A level match with no shoot-out has neither.\
 **In code:** `fl_backend/app/api/spiele/schemas.py :: FLSpielQuelle`.\
 **See:** [`domain.md`](domain.md#the-competitions-own-rules).
 
@@ -294,8 +296,8 @@ is a stored field of its own.\
 ### `austritt` — out of one season, by which route and from when
 
 **Is:** a record on the `saison_teams` row carrying `type` (`disqualifikation` or `rueckzug`),
-`reason` and `date`: a team out of one season, never out of the league. Its absence is the null,
-and no boolean records the same fact.\
+`reason` and `date`: a team out of one season, never out of the league. Its absence is the null, and
+no boolean records the same fact.\
 **In code:** `fl_backend/app/api/teams/schemas.py :: FLAustritt`; its German is
 `fl_frontend/src/core/copy.ts :: COPY.shared.austritt`, read through
 `fl_frontend/src/features/teams/constants.ts :: austrittState` and `:: austrittChip`.\
@@ -311,10 +313,9 @@ window ended, which stands the row outside `max_kader_size`.\
 ### `rolle` — which of a squad's leading roles a player holds
 
 **Is:** the Kapitän or the Co-Kapitän of one team for one season, held on the `saison_spieler` row
-as one nullable closed set, null being the ordinary state. On a contact seat the same word names
-the seat instead.\
-**In code:** `fl_backend/app/api/spieler/schemas.py :: FLSpielerRolle`; the seat's
-`fl_backend/app/shared/schemas/literals.py :: FLKontaktRolle`.
+as one nullable closed set, null being the ordinary state. It is never a contact
+[`seat`](#seat--one-of-a-clubs-three-contact-places-and-who-holds-it).\
+**In code:** `fl_backend/app/api/spieler/schemas.py :: FLSpielerRolle`.
 
 ### `admin_tier` — which tier of access to the league's administration a grant holds
 
@@ -327,9 +328,8 @@ area, so the tier is always `admin_tier`, and it is neither `rolle` nor the sess
 ### `stufe` — which Oberstufe level a squad row records
 
 **Is:** the Halbjahr of the Hessen Oberstufe a player is in, a nullable closed set on the
-`saison_spieler` row, of which each season's `allowed_stufen` names those its squad form offers.
-It is not an age, and inside `oberstufengymnasium` and `stufengroesse` the word means something
-else.\
+`saison_spieler` row, of which each season's `allowed_stufen` names those its squad form offers. It
+is not an age, and inside `oberstufengymnasium` and `stufengroesse` the word means something else.\
 **In code:** `fl_backend/app/shared/schemas/literals.py :: FLSpielerStufe`;
 `fl_backend/app/api/saisons/schemas.py :: FLSaisonRules`' `allowed_stufen`.\
 **See:** [`domain.md`](domain.md#where-the-german-misleads).
@@ -337,16 +337,16 @@ else.\
 ### `stufengroesse` — how many pupils are in the Abi-Jahrgang the team comes from
 
 **Is:** one number on an application: the whole Abi-Jahrgang the team comes from, pupils who will
-never play included, rather than the squad it expects to field. It counts no `stufe` and is
-checked against nothing once submitted.\
+never play included, rather than the squad it expects to field. It counts no `stufe` and is checked
+against nothing once submitted.\
 **In code:** `fl_backend/app/api/bewerbungen/schemas.py :: FLBewerbung`'s `stufengroesse`.\
 **See:** [`domain.md`](domain.md#where-the-german-misleads).
 
 ### `wunschgegner` — the opponent a school wishes to meet on the first Spieltag
 
 **Is:** a school's free-text wish on its application for the side it would like to play first, or
-null where it named nobody. It is a string, never a club reference, and the `Spielplan` decides
-the pairings.\
+null where it named nobody. It is a string, never a club reference, and the `Spielplan` decides the
+pairings.\
 **In code:** `fl_backend/app/api/bewerbungen/schemas.py :: FLBewerbung`'s `wunschgegner`.
 
 ### `Kürzel` · `shorthand` — the three letters one club is known by
@@ -360,8 +360,8 @@ screen is no key to look the club up by.\
 ### `schulform` — which kind of school a club is
 
 **Is:** a closed set of school kinds on the season-independent `teams` document and on a new
-school's application, G8 and G9 being two values. Null means nobody recorded one, never a school
-of no kind.\
+school's application, G8 and G9 being two values. Null means nobody recorded one, never a school of
+no kind.\
 **In code:** `fl_backend/app/shared/schemas/literals.py :: FLSchulform`; its German
 `fl_frontend/src/core/copy.ts :: COPY.team.schulformOption`.
 
@@ -376,18 +376,30 @@ wish, and nothing copies it into the assignment.\
 ### `kontakte` — the three people the league reaches a team through
 
 **Is:** three seats, an Ansprechperson, a Stellvertretung and a Trainer, with a declaration naming
-which other seat the Trainer also holds, on a `saison_teams` row and on an application. They are
-one season's people: a new season collects them again.\
-**In code:** `fl_backend/app/api/teams/schemas.py :: FLSaisonTeamKontakte` over
-`:: FLKontaktperson` and `:: FLKontaktKenntnisnahme`.\
+which other seat the Trainer also holds, on a `saison_teams` row and on an application. They are one
+season's people: a new season collects them again.\
+**In code:** `fl_backend/app/api/teams/schemas.py :: FLSaisonTeamKontakte` over `:: FLKontaktperson`
+and `:: FLKontaktKenntnisnahme`.\
 **See:** [`domain.md`](domain.md#the-entities-and-what-holds-them-together).
+
+### `seat` — one of a club's three contact places, and who holds it
+
+**Is:** one place in `kontakte`, „Sitz“ on screen: the Ansprechperson, the Stellvertretung or the
+Trainer, on a `saison_teams` row and on an application. Each seat holds one person, and one person
+holds two where `trainer_is_also` names the Trainer's second. A seat its holder confirmed through
+their own link admits them to the team's panel while the season is coming or running, where they
+answer the club's `Spielbestätigung`, enter its `Aufstellung`, keep its `Kader` and decide its
+`Registrierung`. It is never `rolle`, the captaincy.\
+**In code:** `fl_backend/app/shared/schemas/literals.py :: FLKontaktSeat`, every module iterating
+`:: KONTAKT_SEATS`; a signed-in person's seats
+`fl_backend/app/api/identity/schemas.py :: FLSubjectSeat`.
 
 ### `Einwilligung` · `Kenntnisnahme` — one stored key over two vocabularies: a person's own consent, and what a contact seat was told
 
 **Is:** the block stored under the key `einwilligung` (`scope`, `media`, `confirmed_at` and each
-choice's `evidence`), which on a pupil, a referee and a pending registration is an Einwilligung,
-the person's own consent. On a contact seat it is a Kenntnisnahme, an acknowledgement that the
-details are held, and the seat's person's own answer to their link is a `Bestätigung`.\
+choice's `evidence`), which on a pupil, a referee and a pending registration is an Einwilligung, the
+person's own consent. On a contact seat it is a Kenntnisnahme, an acknowledgement that the details
+are held, and the seat's person's own answer to their link is a `Bestätigung`.\
 **In code:** `fl_backend/app/api/spieler/schemas.py :: FLEinwilligung`;
 `fl_backend/app/api/registrierungen/schemas.py :: FLRegistrierungEinwilligung`;
 `fl_backend/app/api/teams/schemas.py :: FLKontaktKenntnisnahme`; the evidence
@@ -395,19 +407,19 @@ details are held, and the seat's person's own answer to their link is a `Bestät
 
 ### `inactive_since` — the day something left
 
-**Is:** a nullable `YYYY-MM-DD` date on `teams`, `saison_spieler`, `spielorte` and
-`schiedsrichter` marking a retired row, null while it is current: a date, never a boolean.
-Retiring across the league is _stilllegen_ and taking a row out of one season's squad _austragen_,
-both `retire` in code; leaving one season is an `austritt`.\
+**Is:** a nullable `YYYY-MM-DD` date on `teams`, `saison_spieler`, `spielorte` and `schiedsrichter`
+marking a retired row, null while it is current: a date, never a boolean. Retiring across the league
+is _stilllegen_ and taking a row out of one season's squad _austragen_, both `retire` in code;
+leaving one season is an `austritt`.\
 **In code:** the record model of each of those collections
 (`fl_backend/app/readback.py :: RECORD_MODELS`).
 
 ### `Statistik` — the derived league-table figures
 
-**Is:** the league table's figures, computed per team and season from `spiele` on every read and
-stored nowhere. `statistik_scope` chooses the table, `gruppenphase` by default.\
-**In code:** `fl_backend/app/api/teams/schemas.py :: FLTeamStatistik`, built by
-`fl_backend/app/api/teams/services.py :: build_team_pipeline`.\
+**Is:** the league table's figures, computed per team and season from the group phase's `spiele` on
+every read and stored nowhere.\
+**In code:** `fl_backend/app/api/teams/schemas.py :: FLTeamStatistik`, counted by
+`fl_backend/app/api/teams/services.py :: build_statistik_by_team`.\
 **See:** [`domain.md`](domain.md#what-is-stored-and-what-is-computed).
 
 ### `Sieg` · `Unentschieden` · `Niederlage` — what a played match gives a club
@@ -419,9 +431,8 @@ stored nowhere. `statistik_scope` chooses the table, `gruppenphase` by default.\
 
 ### `punkte` — what a club holds in the table
 
-**Is:** a club's points in one season's table, the sum of what its wins, draws and losses are
-worth. The three worths say `points`, so a search for one spelling finds none of the other's
-sites.\
+**Is:** a club's points in one season's table, the sum of what its wins, draws and losses are worth.
+The three worths say `points`, so a search for one spelling finds none of the other's sites.\
 **In code:** `fl_backend/app/api/teams/schemas.py :: FLTeamStatistik`'s `punkte`.
 
 ### `mietpreis` · `default_mietpreis` — rental price
@@ -443,9 +454,9 @@ screen. A change of the venue's price never reaches a fixture.\
 
 ### `saison_teams` · `saison_spieler` — the season junctions
 
-**Is:** two collections joined at read time into a team or a player, which is what makes a team
-and a player season-scoped at all. In the address `/teams/{team_id}/saisons/{saison_id}`,
-`saisons` names the junction row, not a season.\
+**Is:** two collections joined at read time into a team or a player, which is what makes a team and
+a player season-scoped at all. In the address `/teams/{team_id}/saisons/{saison_id}`, `saisons`
+names the junction row, not a season.\
 **In code:** `fl_backend/app/api/teams/schemas.py :: FLSaisonTeamRecord`;
 `fl_backend/app/api/spieler/schemas.py :: FLSaisonSpielerRow`.\
 **See:** [`domain.md`](domain.md#the-entities-and-what-holds-them-together).
@@ -489,7 +500,6 @@ tree its fixtures are drawn as.\
 | `slice`                     | A frontend code-organisation unit under `src/features/`, one per business entity                                                                                                                            |
 | `surface`                   | A documentation term: frontend, backend, or ops, each with its folder under `docs/`                                                                                                                         |
 | `base` / `system` / `admin` | The three API key tiers, not user roles. See [`backend/overview.md`](backend/overview.md#authorization)                                                                                                     |
-| `format`                    | The discriminator on the teams response (`list`, or `single` from `GET /teams/{team_id}`)                                                                                                                   |
 | `Aktion`                    | In code one entry is `action_log_entry` and the log is `action_log` ([its entry](#aktion--action_log_entry--one-recorded-act))                                                                              |
 | `Einladung`                 | In code `invitation`, on screen „Registrierungslink“ ([its entry](#einladung--invitation--the-link-one-team-registers-its-players-through))                                                                 |
 | `aufnehmen`                 | In code `admit` ([its entry](#aufnehmen--admit--a-team-taking-one-registered-pupil-into-its-squad))                                                                                                         |
@@ -512,10 +522,10 @@ tree its fixtures are drawn as.\
 
 ### `Aktion` · `action_log_entry` — one recorded act
 
-**Is:** a row of `action_log`, one act of the league's: when it happened (`at`), who acted (`by`,
-an administrator's folded address or a role word), the closed `action`, the record's id, a `label`
-of league data, a pass's `count` and the request's `trace_id`. It holds no person's name and no
-address but an administrator's and a grant act's grantee's.\
+**Is:** a row of `action_log`, one act of the league's: when it happened (`at`), who acted (`by`, an
+administrator's folded address or a role word), the closed `action`, the record's id, a `label` of
+league data, a pass's `count` and the request's `trace_id`. It holds no person's name and no address
+but an administrator's and a grant act's grantee's.\
 **In code:** `fl_backend/app/core/recording.py :: record_act` and `:: FLAction`;
 `fl_backend/app/api/action_log/schemas.py :: FLActionLogEntry`.\
 **See:** [`domain.md`](domain.md#what-is-held-true-together).
@@ -525,9 +535,11 @@ address but an administrator's and a grant act's grantee's.\
 **Is:** one minted registration link for one team's season, a row of `invitations` holding the
 link's hashes and a revocation date, null while it stands; it names nobody. It is not a
 `Bestätigung`: it authorises submitting one `Registrierung`, which the team's seats then decide. On
-screen it is the „Registrierungslink“.\
+screen it is the „Registrierungslink“. Sending it to the confirmed seats, one team's or every team's
+of a season, is `mail` in code and „senden“ on screen.\
 **In code:** `fl_backend/app/api/invitations/schemas.py :: FLInvitationRecord`, minted by
-`fl_backend/app/api/teams/admin_router.py :: post_invitation`.
+`fl_backend/app/api/teams/admin_router.py :: post_invitation` and mailed by its
+`post_invitation_mail` and `fl_backend/app/api/saisons/admin_router.py :: post_invitations_mail`.
 
 ### `aufnehmen` · `admit` — a team taking one registered pupil into its squad
 
@@ -547,8 +559,8 @@ request by `fl_backend/app/api/grants/guard.py :: verify_actor_is_admin`.
 
 ### `Löschung` · `erasure` — deleting what the league holds about a person, on a request or by the season-after rule
 
-**Is:** one erasure by two routes. „Löschung auf Anfrage“ takes every record held at an address,
-and the season-after rule's hourly pass deletes a pupil's own data once none of it sits in a kept
+**Is:** one erasure by two routes. „Löschung auf Anfrage“ takes every record held at an address, and
+the season-after rule's hourly pass deletes a pupil's own data once none of it sits in a kept
 season.\
 **In code:** `fl_backend/app/api/identity/crud.py :: erase_everything`, the rule's run
 `fl_backend/app/api/identity/system_router.py :: sweep_erasure`.
@@ -556,27 +568,26 @@ season.\
 ### `Postausgang` · `outbox` — every mail the league owes, one row per recipient
 
 **Is:** the one queue every mail leaves through: a row names the mail's kind, its recipient, the
-facts its builder renders and the record it is about, and is written in the transaction of the
-write that owes it. The drain hands each row out and records what became of the message.\
+facts its builder renders and the record it is about, and is written in the transaction of the write
+that owes it. The drain hands each row out and records what became of the message.\
 **In code:** `fl_backend/app/api/outbox/schemas.py :: FLOutboxRow`, written by
 `fl_backend/app/api/outbox/services.py :: enqueue_mails`.
 
 ### `Sperrliste` · `ban_list` — the addresses barred from signing in and from the league's mail
 
-**Is:** one row per barred address: the folded address, the administrator's reason, the day and
-the last season the ban covers. It bars the sign-in and the hand-out of a mail alone, and „sperren“
-is done to an address, never to a person.\
+**Is:** one row per barred address: the folded address, the administrator's reason, the day and the
+last season the ban covers. It bars the sign-in and the hand-out of a mail alone, and „sperren“ is
+done to an address, never to a person.\
 **In code:** `fl_backend/app/api/ban_list/schemas.py :: FLBanListRow`; the checks
 `fl_backend/app/api/ban_list/crud.py :: address_is_barred` and `:: read_barred_addresses`.
 
 ### `Bestätigung` · `confirmation` — one person's own answer to their own link, and the bookkeeping beside it on a seat, a registration or a referee
 
-**Is:** one person's own answer to the link mailed about their own record (a contact seat, a
-pending registration or a referee row), with the bookkeeping beside it: the link's hashes, the days
-it was sent and chased, and its `deadline`. The link's second door, on a seat and a referee row
-alone, is the `Widerspruch`: code says `objection` and stamps `declined_at`, and it is never the
-Art. 21 DSGVO objection. It empties a seat at once, and a referee's entry goes at the midnight
-after its link's deadline.\
+**Is:** one person's own answer to the link mailed about their own record (a contact seat, a pending
+registration or a referee row), with the bookkeeping beside it: the link's hashes, the days it was
+sent and chased, and its `deadline`. The link's second door, on a seat and a referee row alone, is
+the `Widerspruch`: code says `objection`, and it is never the Art. 21 DSGVO objection. It empties a
+seat at once and stamps `declined_at` beside it, and it erases a referee's entry in the same write.\
 **In code:** `fl_backend/app/api/bewerbungen/schemas.py :: FLBewerbungConfirmationRecord`,
 `fl_backend/app/api/registrierungen/schemas.py :: FLRegistrierungConfirmationRecord`,
 `fl_backend/app/api/schiedsrichter/schemas.py :: FLSchiedsrichterConfirmationRecord` and
@@ -586,16 +597,16 @@ after its link's deadline.\
 
 **Is:** a change of the address every record of one person is keyed on, waiting as a record of its
 own until it moves every record at that address at once. On screen it is the „Änderung“ of the
-„E-Mail-Adresse“, and „Adressänderung“ in the administration. It starts on the person's account
-page (`account`) or by an administrator for a lost mailbox (`waiting_period`), and the new mailbox
+„E-Mail-Adresse“, and „Adressänderung“ in the administration. It starts on the person's account page
+(`account`) or by an administrator for a lost mailbox (`waiting_period`), and the new mailbox
 confirms it by a link.\
 **In code:** `fl_backend/app/api/address_change/services.py :: compose_record`, moved by
 `fl_backend/app/api/address_change/crud.py :: move_the_address_in_session`.
 
 ### `Fassung` · `wording` — one frozen consent wording a person was shown, under its label
 
-**Is:** the words of one consent under the label each choice's evidence stamps as `text_version`,
-A label's words never change: new words are a new label.\
+**Is:** the words of one consent under the label each choice's evidence stamps as `text_version`, A
+label's words never change: new words are a new label.\
 **In code:** `fl_frontend/src/core/consentWordings.ts :: CONSENT_WORDINGS`;
 `fl_backend/app/shared/schemas/einwilligung.py :: FLEinwilligungTextVersion`.
 
@@ -608,8 +619,8 @@ schools are never a Dublette.\
 
 ### `subject` — the data-protection subject one mailbox stands for
 
-**Is:** the league records one mailbox matches (its confirmed contact seats, pupil rows and referee
-rows) as three lists composed at read time, beside the flags `unconfirmed` and `barred` and the
+**Is:** the league records one mailbox matches, composed at read time: its confirmed contact seats
+and referee rows as lists, and its one pupil row or none, beside the flag `unconfirmed` and the
 `admin_tier` of any grant; nothing stores one. It answers records, never a count of people, and is
 not yet a `Funktion`.\
 **In code:** `fl_backend/app/api/identity/schemas.py :: FLSubjectResponse`, composed by
@@ -618,8 +629,9 @@ not yet a `Funktion`.\
 ### `Funktion` · `role` — what a person is on screen: the record that admits them to a panel
 
 **Is:** one contact seat, pupil row or referee row, or administration, each admitting the signed-in
-person to a panel; plural `Funktionen`, and „Funktion wechseln“ switches between them. It is
-neither the wire's `subject`, which it narrows, nor `rolle`, the captaincy and the contact seat.\
+person to a panel; plural `Funktionen`, and „Funktion wechseln“ switches between them. It is neither
+the wire's `subject`, which it narrows, nor a `seat`, the record one kind of it stands on, nor
+`rolle`, the captaincy.\
 **In code:** `fl_backend/app/api/identity/crud.py :: roles_of`, narrowed by
 `fl_backend/app/api/identity/services.py :: grants_a_panel`;
 `fl_frontend/src/core/roles.ts :: rolesOf`.
@@ -627,8 +639,8 @@ neither the wire's `subject`, which it narrows, nor `rolle`, the captaincy and t
 ### `Konto` · `account` — a signed-in person's account, and the records of their own that admit one
 
 **Is:** the account a person signs in to, „Konto“ on screen, at `/account` with its four pages
-„Anmeldung“, „Sicherheit“, „Darstellung“ and „Deine Einträge“. A record of the person's own admits
-a sign-in to it whether or not it grants a `Funktion`.\
+„Anmeldung“, „Sicherheit“, „Darstellung“ and „Deine Einträge“. A record of the person's own admits a
+sign-in to it whether or not it grants a `Funktion`.\
 **In code:** `fl_backend/app/api/identity/services.py :: own_entries`;
 `fl_backend/app/api/identity/schemas.py :: FLSignInResponse`'s `account`.
 
@@ -651,6 +663,6 @@ the row's own `state`. It is not a seat's `Stand`, which is what the person did.
 
 **Is:** `/area`, the first address segment of the pages a person reaches by signing in, which no
 screen word names; `team`, `spieler` and `schiedsrichter` follow it, each with a season, and
-`roles`, the chooser between a person's places. Its
-`team` is a club's seats in one season, never the `Team` document.\
+`roles`, the chooser between a person's places. Its `team` is a club's seats in one season, never
+the `Team` document.\
 **In code:** `fl_frontend/src/app/area/`; `fl_frontend/src/proxy.ts :: config`.

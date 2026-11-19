@@ -8,13 +8,14 @@ from typing import Any, Final
 from bson import ObjectId
 
 from app.api.aufstellungen.schemas import FLAufstellungenPublic, FLAufstellungEntry, FLAufstellungMarks, FLAufstellungPhase
-from app.api.spielberichte.services import SIDES, team_id_of
+from app.api.spielberichte.services import SIDES
+from app.api.spiele.schemas import team_id_of
 from app.api.spieler.services import PUBLIC_PERSON
 from app.core import clock
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.crud import refuse
-from app.core.exceptions import WriteRefusal
+from app.core.exceptions import APIError
 from app.shared.schemas.bounds import AUFSTELLUNG_DUE_DAYS, AUFSTELLUNG_LOCK_HOURS, AUFSTELLUNG_REMINDER_DAYS, AUFSTELLUNG_STARTERS_MAX
 from app.shared.schemas.literals import FLSpielSide
 
@@ -65,29 +66,59 @@ def aufstellung_reminder_owed(*, date: str | None, time: str | None, now: dateti
     )
 
 
+# --- The line-up reminder the fixture confirmations' pass owes: no line-up document exists to stamp, so the mail's own keys
+# hold it to one.
+
+
+def build_aufstellung_reminder_filter(*, saison_id: str, today: str) -> dict[str, Any]:
+    """The season's fixtures whose kick-off the line-up reminder's window can hold: from today to `AUFSTELLUNG_REMINDER_DAYS` on.
+
+    Each with a time, both sides and no decision; `aufstellung_reminder_owed` decides, this narrows the read.
+    """
+
+    return {
+        "saison_id": saison_id,
+        "date": {"$gte": today, "$lte": clock.days_after(day=today, days=AUFSTELLUNG_REMINDER_DAYS)},
+        "time": {"$ne": None},
+        "team1": {"$ne": None},
+        "team2": {"$ne": None},
+        "ergebnis": None,
+        "sonderereignis": None,
+    }
+
+
+def aufstellung_reminder_key(*, spiel_id: Any, team_id: Any, seat: str) -> str:
+    """The key of a club's line-up reminder for a fixture to one seat's mailbox: any seat's stored is the club reminded.
+
+    The outbox keeps a row a retention after its last state, far past the window, so every later pass meets it.
+    """
+
+    return f"aufstellung/{spiel_id}/{team_id}/{seat}"
+
+
 # --- What a save judges, each refusal writing nothing.
 
 
-def find_undated_refusal(marks: FLAufstellungMarks | None) -> WriteRefusal | None:
+def find_undated_refusal(marks: FLAufstellungMarks | None) -> APIError | None:
     """`aufstellung_spiel_undated`: a fixture holding no day or no hour owes no line-up and takes none, from anybody."""
 
     if marks is not None:
         return None
 
-    return WriteRefusal(error_code=Code.AUFSTELLUNG_SPIEL_UNDATED, status=HTTPStatus.CONFLICT)
+    return APIError(HTTPStatus.CONFLICT, Code.AUFSTELLUNG_SPIEL_UNDATED)
 
 
-def find_locked_refusal(marks: FLAufstellungMarks | None) -> WriteRefusal | None:
+def find_locked_refusal(marks: FLAufstellungMarks | None) -> APIError | None:
     """`aufstellung_locked`: from the lock the line-up is the administration's. A seat's alone, and never for being due or overdue."""
 
     if marks is None or marks.phase != "locked":
         return None
 
-    return WriteRefusal(error_code=Code.AUFSTELLUNG_LOCKED, status=HTTPStatus.CONFLICT)
+    return APIError(HTTPStatus.CONFLICT, Code.AUFSTELLUNG_LOCKED)
 
 
 def judge_the_kickoff(marks: FLAufstellungMarks | None, *, locks: bool) -> None:
-    """The fixture's clock, as a save asks it inside its transaction and again outside it: `locks` for a seat's save alone."""
+    """The fixture's clock, as a save asks it inside its transaction: `locks` for a seat's save alone."""
 
     refuse(find_undated_refusal(marks))
     if locks:
@@ -123,7 +154,7 @@ def newly_named(entries: Sequence[FLAufstellungEntry], saved: Mapping[str, Any] 
 
 def find_not_in_kader_refusal(
     *, entries: Sequence[FLAufstellungEntry], new: set[ObjectId], nameless: int, kader: Sequence[Mapping[str, Any]]
-) -> WriteRefusal | None:
+) -> APIError | None:
     """`spieler_not_in_kader`: a pupil newly named is in the club's live squad, and an entry naming nobody is one the line-up holds.
 
     `nameless` counts the stored entries naming nobody: a save keeps that many and adds none, since only an erasure
@@ -139,10 +170,10 @@ def find_not_in_kader_refusal(
     if not outside:
         return None
 
-    return WriteRefusal(error_code=Code.SPIELER_NOT_IN_KADER, status=HTTPStatus.CONFLICT, fields=outside)
+    return APIError(HTTPStatus.CONFLICT, Code.SPIELER_NOT_IN_KADER, fields=outside)
 
 
-def find_nominee_refusal(*, entries: Sequence[FLAufstellungEntry], kader: Sequence[Mapping[str, Any]]) -> WriteRefusal | None:
+def find_nominee_refusal(*, entries: Sequence[FLAufstellungEntry], kader: Sequence[Mapping[str, Any]]) -> APIError | None:
     """`aufstellung_nominee_without_shortage`: a line-up names nominees only into the gap its regular players leave below eleven.
 
     A pupil holding no squad row of the club, and an entry naming nobody, count as regular players: only a row says who
@@ -156,17 +187,12 @@ def find_nominee_refusal(*, entries: Sequence[FLAufstellungEntry], kader: Sequen
         return None
 
     # The bound on the list, so the screen words the eleven from the server rather than a copied figure.
-    return WriteRefusal(
-        error_code=Code.AUFSTELLUNG_NOMINEE_WITHOUT_SHORTAGE,
-        status=HTTPStatus.CONFLICT,
-        fields=(("spieler",),),
-        bounds={"max": AUFSTELLUNG_STARTERS_MAX},
+    return APIError(
+        HTTPStatus.CONFLICT, Code.AUFSTELLUNG_NOMINEE_WITHOUT_SHORTAGE, fields=(("spieler",),), bounds={"max": AUFSTELLUNG_STARTERS_MAX}
     )
 
 
 def judge_the_names(*, entries: Sequence[FLAufstellungEntry], new: set[ObjectId], nameless: int, kader: Sequence[Mapping[str, Any]]) -> None:
-    """Whom the line-up names, against the club's squad, as a save asks it inside its transaction and again outside it."""
-
     refuse(find_not_in_kader_refusal(entries=entries, new=new, nameless=nameless, kader=kader))
     refuse(find_nominee_refusal(entries=entries, kader=kader))
 
@@ -262,10 +288,10 @@ def public_aufstellungen_lookup() -> Mapping[str, Any]:
                             {"$match": {"$expr": {"$and": [{"$eq": ["$saison_id", "$$saison_id"]}, {"$eq": ["$team_id", "$$team_id"]}]}}},
                             {"$project": {"_id": 0, "spieler_id": 1, "nummer": 1, "position": 1, "rolle": 1}},
                         ],
-                        "as": "squad_rows",
+                        "as": "kader_rows",
                     }
                 },
-                {"$project": {"_id": 0, "team_id": 1, "spieler": 1, "persons": 1, "squad_rows": 1}},
+                {"$project": {"_id": 0, "team_id": 1, "spieler": 1, "persons": 1, "kader_rows": 1}},
             ],
             "as": PUBLIC_AUFSTELLUNGEN_AS,
         }
@@ -279,15 +305,15 @@ def compose_public_aufstellungen(spiel_raw: Mapping[str, Any]) -> FLAufstellunge
     ones. A line-up holding no entry stands as none.
     """
 
-    by_club = {row["team_id"]: row for row in spiel_raw[PUBLIC_AUFSTELLUNGEN_AS]}
+    by_team = {row["team_id"]: row for row in spiel_raw[PUBLIC_AUFSTELLUNGEN_AS]}
 
     def side_of(side: FLSpielSide) -> dict[str, Any] | None:
-        row = by_club.get(team_id_of(spiel_raw, side))
+        row = by_team.get(team_id_of(spiel_raw, side))
         if row is None or not aufstellung_stands(row):
             return None
 
         persons = {person["_id"]: person for person in row["persons"]}
-        squad_rows = {squad_row["spieler_id"]: squad_row for squad_row in row["squad_rows"]}
+        kader_rows = {kader_row["spieler_id"]: kader_row for kader_row in row["kader_rows"]}
 
         def entry(stored: Mapping[str, Any]) -> dict[str, Any]:
             # A null forename is the mask's answer for a withheld name, and an entry naming nobody joins no person.
@@ -295,13 +321,13 @@ def compose_public_aufstellungen(spiel_raw: Mapping[str, Any]) -> FLAufstellunge
             if person.get("first_name") is None:
                 return {"first_name": None, "last_name": None, "nummer": None, "position": None, "rolle": None, "starts": stored["starts"]}
 
-            squad_row = squad_rows.get(stored["spieler_id"], {})
+            kader_row = kader_rows.get(stored["spieler_id"], {})
             return {
                 "first_name": person["first_name"],
                 "last_name": person.get("last_name"),
-                "nummer": squad_row.get("nummer"),
-                "position": squad_row.get("position"),
-                "rolle": squad_row.get("rolle"),
+                "nummer": kader_row.get("nummer"),
+                "position": kader_row.get("position"),
+                "rolle": kader_row.get("rolle"),
                 "starts": stored["starts"],
             }
 

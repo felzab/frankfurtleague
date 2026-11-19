@@ -1,14 +1,14 @@
-from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationInfo, field_validator
+from pydantic import BaseModel, Field, TypeAdapter, ValidationInfo, field_validator
 
 from app.api.spiele.schemas import FLSpielJoined, FLSpielJoinedAdmin
 from app.shared.schemas.bounds import SAISON_ID_LENGTH
 from app.shared.schemas.custom import CustomDateString, CustomObjectId, CustomVersion, refuse_reversed_span
 from app.shared.schemas.literals import FLSaisonPhase, FLSaisonStatus
-from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
+from app.shared.schemas.responses import BasePayload, BaseReadModel
 
 
 class FLSpieltagRecord(BaseModel):
-    """A matchday as `spieltage` stores it, which `FLSpieltag` serves with its derived count."""
+    """A matchday as `spieltage` stores it, which `FLSpieltag` serves."""
 
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
 
@@ -27,9 +27,7 @@ class FLSpieltagRecord(BaseModel):
 
 
 class FLSpieltag(FLSpieltagRecord, BaseReadModel):
-    # Derived, on no document. `ge=0`, because a matchday in a phase the bracket does not reach
-    # expects none.
-    count_spiele: int = Field(ge=0)
+    """A matchday as a read serves it, its stored fields alone."""
 
 
 class FLSpieltagAdmin(FLSpieltag):
@@ -40,9 +38,7 @@ class FLSpieltagAdmin(FLSpieltag):
     count_spieltage_in_phase: int = Field(ge=1)
 
 
-class FLPatchSpieltagPayload(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
+class FLPatchSpieltagPayload(BasePayload):
     # The span alone: `saison_id`, `saison_phase` and `position` are settled when the season's
     # schedule is generated, and the fixtures drawn against them are not rewritten here.
 
@@ -84,7 +80,7 @@ class FLSpielplanSpieltagAdmin(FLSpielplanSpieltag):
 FLSpielplanSpieltagAdminListAdapter = TypeAdapter(list[FLSpielplanSpieltagAdmin])
 
 
-class FLSpielplanResponse(BaseAPIResponse):
+class FLSpielplanResponse(BaseReadModel):
     """A season's matchdays in the order they are played, and the one the Spielplan opens on.
 
     `current_spieltag_id` is the first matchday holding a match still to be played, else the last, and the last in a
@@ -95,7 +91,7 @@ class FLSpielplanResponse(BaseAPIResponse):
     current_spieltag_id: CustomObjectId | None
 
 
-class FLSpieleSpielplanAdminResponse(BaseAPIResponse):
+class FLSpieleSpielplanAdminResponse(BaseReadModel):
     """A season's matchdays and knockout rounds in playing order, matches in the admin shape, and the one to open on.
 
     `current_spieltag_id` is the Spielplan's own: the first matchday holding a match still to be played, else the last,
@@ -106,7 +102,7 @@ class FLSpieleSpielplanAdminResponse(BaseAPIResponse):
     current_spieltag_id: CustomObjectId | None
 
 
-class FLKoRundeResponse(BaseAPIResponse):
+class FLKoRundeResponse(BaseReadModel):
     """A season's knockout matchdays in the order they are played, each holding its matches.
 
     A side whose club is not yet known is null, and its `quelle` says where it comes from.
@@ -115,19 +111,9 @@ class FLKoRundeResponse(BaseAPIResponse):
     spieltage: list[FLSpielplanSpieltag]
 
 
-class FLSpieltageSingleResponse(BaseAPIResponse):
-    spieltag: FLSpieltag
-
-
 # The status on the response rather than on the matchday: a matchday carries no season-scoped state.
-class FLSpieltagAdminResponse(BaseAPIResponse):
+class FLSpieltagAdminResponse(BaseReadModel):
     """One matchday and its season's `status`, which says whether the matchday can still be re-dated."""
 
     spieltag: FLSpieltagAdmin
     saison_status: FLSaisonStatus
-
-
-class FLSpieltagWriteResponse(BaseAPIResponse):
-    spieltag_id: CustomObjectId
-    # The matchday's version after the save, which the editor's next save sends.
-    version: int

@@ -62,7 +62,7 @@ def test_nominees_fill_the_gap_below_eleven_and_no_more(regular: int, nominees: 
     assert refusal is None or (refusal.fields, refusal.bounds) == ((("spieler",),), {"max": AUFSTELLUNG_STARTERS_MAX})
 
 
-def test_a_pupil_newly_named_outside_the_live_squad_is_refused_on_each_entry_naming_one():
+def test_a_pupil_newly_named_outside_the_live_kader_is_refused_on_each_entry_naming_one():
     """The paths the screen marks its rows by: an entry stored before, or in the squad, is never among them."""
 
     outside, withdrawn = ObjectId(), ObjectId()
@@ -79,18 +79,15 @@ def test_a_pupil_newly_named_outside_the_live_squad_is_refused_on_each_entry_nam
     assert (refusal.error_code, refusal.fields) == (Code.SPIELER_NOT_IN_KADER, (("spieler", 1, "spieler_id"), ("spieler", 3, "spieler_id")))
 
 
-@pytest.mark.parametrize(
-    ("saved", "judged"),
-    [
-        pytest.param(None, {0, 1}, id="a first save judges everyone"),
-    ],
-)
-def test_only_a_pupil_the_stored_line_up_does_not_name_is_judged_against_the_squad(saved: dict[str, Any] | None, judged: set[int]):
-    """So a line-up keeps a pupil ausgetragen since it named them, and judges a newcomer all the same."""
+def test_a_first_save_judges_everyone_it_names_against_the_kader():
+    """With no stored line-up, none of its pupils is spared the squad's judgement.
+
+    A pupil a stored line-up names is spared it, so the line-up keeps one ausgetragen since; the case above holds that.
+    """
 
     entries = [FLAufstellungEntry(spieler_id=pupil, starts=False) for pupil in REGULAR[:2]]
 
-    assert newly_named(entries, saved) == {REGULAR[index] for index in judged}
+    assert newly_named(entries, None) == set(REGULAR[:2])
 
 
 def _starters(count: int) -> list[dict[str, Any]]:

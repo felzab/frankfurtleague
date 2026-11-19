@@ -2,10 +2,9 @@
 
 import { useState } from "react";
 
+import { COPY } from "@/core/copy";
 import { Segmented } from "@/kit/ChoiceButtons";
 import { Dialog } from "@/kit/Dialog";
-
-import { COPY } from "@/core/copy";
 
 import { enterZusage } from "./enterZusage";
 

@@ -6,7 +6,8 @@ helper raises `DocumentNotFoundError` on a miss and never returns `None`, and a 
 helper returns the empty result and never raises for absence.
 
 A write reaches the driver in this module alone. No helper here records anything: an act records itself, one line inside
-its own transaction.
+its own transaction. A write helper's `session` has no default, so a write outside a transaction says `session=None`
+and a transactional caller cannot leave its write outside by forgetting the argument.
 """
 
 import re
@@ -24,7 +25,7 @@ from pymongo.results import DeleteResult, InsertManyResult, InsertOneResult, Upd
 
 from app.core.codes import Code
 from app.core.collections import EDITED_COLLECTIONS
-from app.core.exceptions import APIError, DocumentNotFoundError, WriteRefusal
+from app.core.exceptions import APIError, DocumentNotFoundError, link_invalid
 from app.core.readonly import ReadCollection
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 
@@ -53,11 +54,31 @@ async def pull_one_from_db(
     return doc
 
 
+async def pull_by_token(
+    *,
+    collection: ReadCollection,
+    db_filter: Mapping[str, Any],
+    projection: Mapping[str, Any],
+    session: AsyncClientSession | None = None,
+) -> Mapping[str, Any]:
+    """The record a mailed link's token opens, a miss answering `link_invalid` rather than `document_not_found`.
+
+    An answer's read passes its transaction's `session`, so a second press is refused by the first answer it sees.
+    """
+
+    doc = await collection.find_one(filter=db_filter, projection=projection, session=session)
+    if doc is None:
+        raise link_invalid()
+
+    return doc
+
+
 async def pull_many_from_db(
     *,
     collection: ReadCollection,
     db_filter: Mapping[str, Any],
-    limit: int = LIST_LIMIT_DEFAULT,
+    # Stated by every caller, since a set past it is cut in silence; a judgement over a whole set reads `pull_whole_from_db`.
+    limit: int,
     sort_by: Sequence[tuple[str, int]] | None = None,
     projection: Mapping[str, Any] | list[str] | None = None,
     collation: Mapping[str, Any] | None = None,
@@ -129,16 +150,16 @@ def composite_version(*documents: Mapping[str, Any]) -> int:
     return sum(int(document[VERSION_FIELD]) for document in documents)
 
 
-def find_stale_save_refusal(*documents: Mapping[str, Any], version: int) -> WriteRefusal | None:
+def find_stale_save_refusal(*documents: Mapping[str, Any], version: int) -> APIError | None:
     """`version_stale`: one of the documents an editor saves together has moved since it read them."""
 
     if composite_version(*documents) == version:
         return None
 
-    return WriteRefusal(error_code=Code.VERSION_STALE, status=HTTPStatus.CONFLICT)
+    return APIError(HTTPStatus.CONFLICT, Code.VERSION_STALE)
 
 
-def find_stale_first_save_refusal(saved: Mapping[str, Any] | None, *, version: int | None) -> WriteRefusal | None:
+def find_stale_first_save_refusal(saved: Mapping[str, Any] | None, *, version: int | None) -> APIError | None:
     """`version_stale` for the save of a document its form's first save creates.
 
     A null `version` says the form showed no document, and matches only absence: a first save committed since refuses
@@ -148,7 +169,7 @@ def find_stale_first_save_refusal(saved: Mapping[str, Any] | None, *, version: i
     if (None if saved is None else int(saved[VERSION_FIELD])) == version:
         return None
 
-    return WriteRefusal(error_code=Code.VERSION_STALE, status=HTTPStatus.CONFLICT)
+    return APIError(HTTPStatus.CONFLICT, Code.VERSION_STALE)
 
 
 def _versioned(collection: AsyncCollection, update: Mapping[str, Any]) -> Mapping[str, Any]:
@@ -166,7 +187,7 @@ async def patch_one_in_db(
     db_filter: Mapping[str, Any],
     update: Mapping[str, Any],
     expected_version: int | None,
-    session: AsyncClientSession | None = None,
+    session: AsyncClientSession | None,
     return_document: bool,
 ) -> Mapping[str, Any]:
     """`expected_version` and `return_document` have no default, so a caller weighs whether it checks a version and which state it answers.
@@ -213,7 +234,7 @@ async def patch_many_in_db(
     # "$[<identifier>]" page). Such an update keeps the caller's filter unnarrowed, so that filter
     # has to match only the documents holding an element to change.
     array_filters: Sequence[Mapping[str, Any]] | None = None,
-    session: AsyncClientSession | None = None,
+    session: AsyncClientSession | None,
 ) -> UpdateResult:
     """The driver's result, unwrapped: `modified_count` is reported on the wire, so nothing here may swallow it.
 
@@ -271,9 +292,10 @@ async def patch_past_the_version_in_db(
 ) -> int:
     """Write fields no form saves onto the documents the filter names, each one's `version` left standing, and answer how many it matched.
 
-    The one way past the count, for four kinds of write: an anchor, which changes nothing a reader sees; a link's
+    The one way past the count, for five kinds of write: an anchor, which changes nothing a reader sees; a link's
     hash, minted when its mail is handed out; a person's own press on their own block, a consent moved or a seat
-    confirmed; and a job writing only bookkeeping no form saves, a reminder stamped or a chase closed or opened, so no
+    confirmed; an administrator's entry of a withdrawal its person asked for by mail, which moves what their press
+    moves; and a job writing only bookkeeping no form saves, a reminder stamped, so no
     administrator's save is refused over mail bookkeeping. A press names the state it moves in `db_filter`, or judges
     it on a read inside `session`, so a second press finds it moved: the count is not what holds a press.
 
@@ -306,7 +328,7 @@ async def anchor_mailboxes_in_db(
     collection: AsyncCollection,
     ids: Sequence[str],
     at: datetime,
-    # Required, as `anchor_in_db`'s is.
+    # Required: committed on its own, an anchor conflicts with nobody.
     session: AsyncClientSession,
 ) -> None:
     """`anchor_in_db` over documents nothing else creates: a press makes its own, and each lapses by the `at` last written."""
@@ -325,7 +347,7 @@ async def post_one_to_db(
     *,
     collection: AsyncCollection,
     document: Mapping[str, Any],
-    session: AsyncClientSession | None = None,
+    session: AsyncClientSession | None,
 ) -> InsertOneResult:
     """The driver's result, unwrapped: every create answers with `inserted_id` and `acknowledged`."""
 
@@ -336,18 +358,16 @@ async def post_many_to_db(
     *,
     collection: AsyncCollection,
     documents: Sequence[Mapping[str, Any]],
-    session: AsyncClientSession | None = None,
+    # Required: `insert_many` is ordered and not atomic, so a refused document leaves every one before it written, and
+    # only the caller's transaction, aborting, takes them back.
+    session: AsyncClientSession,
 ) -> InsertManyResult:
     """The driver's result, unwrapped: `inserted_ids` is in input order, so a caller can pair an id back to what it sent."""
 
     try:
         return await collection.insert_many(documents=[_created(collection, document) for document in documents], session=session)
     except BulkWriteError as failure:
-        # `insert_many` is ordered and not atomic: a refused document leaves every one before it written, which a
-        # 409 would deny. Inside a transaction its abort takes them back.
-        landed = int((failure.details or {}).get("nInserted", 0))
-        stands = landed > 0 and not (session is not None and session.in_transaction)
-        if not stands and (refusal := _duplicate_key_of(failure)) is not None:
+        if (refusal := _duplicate_key_of(failure)) is not None:
             raise refusal from failure
         raise
 
@@ -363,10 +383,10 @@ DUPLICATE_KEY_ERROR = 11000
 
 
 def _duplicate_key_of(failure: BulkWriteError) -> DuplicateKeyError | None:
-    """So a batch answers 409 `duplicate_key` as one insert does, asked only where nothing the batch wrote stands.
+    """So a batch answers 409 `duplicate_key` as one insert does.
 
-    A refusal says nothing was written. A write-concern error beside the refusals keeps the batch's own
-    failure, which says more.
+    A refusal says nothing was written, which the transaction every batch runs in makes true. A write-concern error
+    beside the refusals keeps the batch's own failure, which says more.
     """
 
     report = failure.details or {}
@@ -422,7 +442,7 @@ def literal_pattern(value: str) -> str:
     return re.escape(value).replace("\x00", r"\x00")
 
 
-def refuse(refusal: WriteRefusal | None) -> None:
+def refuse(refusal: APIError | None) -> None:
     """One refusal, never varargs.
 
     Varargs would run every check even after one has refused, and several call sites document the
@@ -430,7 +450,7 @@ def refuse(refusal: WriteRefusal | None) -> None:
     """
 
     if refusal is not None:
-        raise refusal.error()
+        raise refusal
 
 
 async def set_inactive_since(
@@ -438,7 +458,7 @@ async def set_inactive_since(
     collection: AsyncCollection,
     db_filter: Mapping[str, Any],
     when: str | None,
-    session: AsyncClientSession | None = None,
+    session: AsyncClientSession | None,
 ) -> Mapping[str, Any] | None:
     """Retire and revive in one helper: `inactive_since` is one nullable date, so they are one write in two directions.
 
@@ -468,7 +488,7 @@ async def insert_live(
     *,
     collection: AsyncCollection,
     document: Mapping[str, Any],
-    session: AsyncClientSession | None = None,
+    session: AsyncClientSession | None,
 ) -> InsertOneResult:
     """`inactive_since` is on no create payload, so a create states it here rather than in each router."""
 

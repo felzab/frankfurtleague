@@ -1,5 +1,7 @@
 import { DAY_MS, HOUR_MS } from "./timeUnits";
 
+import type { FLAdminWindowHours, FLPersonWindowDays } from "./generated/client/types";
+
 /** How long a session of one kind survives without use, and how long it survives at all. */
 export type Lifetime = { readonly idle: number; readonly absolute: number };
 
@@ -7,8 +9,8 @@ export type Lifetime = { readonly idle: number; readonly absolute: number };
 // figures too, and importing them from there would load Better Auth into the page.
 
 // NIST SP 800-63B-4 §2.2.3: the overall timeout "SHOULD be no more than 24 hours at AAL2", the level a
-// passkey sign-in meets. Mirrored in the backend's bounds, whose actor check refuses a token older than it.
-export const ADMIN_WINDOW_HOURS = 24;
+// passkey sign-in meets. The backend publishes it, and its actor check refuses a token older than it.
+export const ADMIN_WINDOW_HOURS = 24 satisfies FLAdminWindowHours;
 
 // The same section: "The inactivity timeout SHOULD be no more than 1 hour." Judged by the frontend
 // alone, which holds the only record of use.
@@ -16,9 +18,9 @@ export const ADMIN_IDLE_HOURS = 1;
 
 export const ADMIN_LIFETIME: Lifetime = { idle: ADMIN_IDLE_HOURS * HOUR_MS, absolute: ADMIN_WINDOW_HOURS * HOUR_MS };
 
-// A person's cap, from the sign-in however recently the session was used. Mirrored in the backend's
-// bounds, whose actor check refuses a person-lane token older than it.
-export const PERSON_WINDOW_DAYS = 30;
+// A person's cap, from the sign-in however recently the session was used. The backend publishes it, and
+// its actor check refuses a person-lane token older than it.
+export const PERSON_WINDOW_DAYS = 30 satisfies FLPersonWindowDays;
 
 // A sliding window with no cap means a stolen cookie used weekly never expires, which is why the
 // second figure is here and never redundant.

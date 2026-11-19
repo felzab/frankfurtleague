@@ -1,46 +1,44 @@
-from datetime import datetime
-from typing import Annotated
-
-from fastapi import APIRouter, Body, Depends, status
+from fastapi import APIRouter, status
 from pymongo.asynchronous.client_session import AsyncClientSession
 
-from app.api.einwilligung.services import find_self_media_refusal
+from app.api.schiedsrichter.crud import erase_referee_in_session
 from app.api.schiedsrichter.schemas import (
     FLSchiedsrichterConfirmationPayload,
-    FLSchiedsrichterConfirmationResponse,
+    FLSchiedsrichterConfirmationViewConfirmed,
+    FLSchiedsrichterConfirmationViewExpired,
     FLSchiedsrichterConfirmationViewResponse,
+    FLSchiedsrichterConfirmationViewValid,
 )
 from app.api.schiedsrichter.services import (
-    CONFIRMATION_ANSWER_FIELDS,
     CONFIRMATION_FIELD,
-    CONFIRMATION_VIEW_FIELDS,
+    CONFIRMATION_FIELDS,
     EINWILLIGUNG_FIELD,
-    answered_at_of,
     build_token_filter,
     compose_confirmation_update,
-    compose_decline_update,
-    find_age_refusal,
+    confirmation_view,
     find_already_answered_refusal,
     find_expired_token_refusal,
-    find_unknown_token_refusal,
-    state_of,
 )
 from app.core.clock import utc_stamp
 from app.core.collections import Collection
-from app.core.config import API_VERSION
-from app.core.crud import patch_past_the_version_in_db, refuse
+from app.core.crud import patch_past_the_version_in_db, pull_by_token, refuse
 from app.core.dependencies import (
     DBClient,
+    GermanDay,
+    GermanyNow,
     SchiedsrichterCollection,
     SchiedsrichterReadCollection,
-    get_german_date_str,
-    get_germany_now,
+    SpielbestaetigungenCollection,
+    SpieleCollection,
 )
 from app.core.journal import Journal
+from app.core.recording import ACT_BY_SCHIEDSRICHTER, record_act
 from app.core.routing import SAFE
-from app.core.security import verify_access_base
-from app.core.transactions import transaction_session
-from app.shared.schemas.bounds import BEWERBUNG_KONTAKT_MAX_AGE_YEARS, SCHIEDSRICHTER_MIN_AGE_YEARS
+from app.core.security import BASE_TIER
+from app.core.transactions import transact
+from app.shared.einwilligung import find_self_media_refusal
+from app.shared.links import find_age_refusal
+from app.shared.schemas.bounds import SCHIEDSRICHTER_MIN_AGE_YEARS
 from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.schemas.einwilligung import by_choice
 from app.shared.tokens import hash_token
@@ -48,8 +46,8 @@ from app.shared.tokens import hash_token
 # Beside the admin and person routers, each guarded whole: the token is the whole credential, so
 # these three endpoints alone are base-tier.
 router = APIRouter(
-    prefix=f"/api/v{API_VERSION}/schiedsrichter/confirmation",
-    dependencies=[Depends(verify_access_base)],
+    prefix="/schiedsrichter/confirmation",
+    dependencies=BASE_TIER,
 )
 
 
@@ -60,51 +58,38 @@ router = APIRouter(
     openapi_extra=SAFE,
 )
 async def get_confirmation_view(
-    view_data: Annotated[FLTokenPayload, Body()],
+    view_data: FLTokenPayload,
     schiedsrichter_collection: SchiedsrichterReadCollection,
-    today: str = Depends(get_german_date_str),
-) -> FLSchiedsrichterConfirmationViewResponse:
-    """What this token opens: the link's state and deadline, the age bounds and the day of the person's own answer.
+    today: GermanDay,
+) -> FLSchiedsrichterConfirmationViewValid | FLSchiedsrichterConfirmationViewConfirmed | FLSchiedsrichterConfirmationViewExpired:
+    """What this token opens: the link's state, a standing link's deadline and age bounds, and a confirmed one's day.
 
-    A confirmed or an expired link is served in that state rather than refused, so a reopened link shows what became of it.
+    A confirmed or an expired link is served in that state rather than refused, so a reopened link shows what became of it;
+    an objection erased the entry, so its link opens nothing.
     """
 
     # A POST that reads, so the token travels in a body and never in a URL.
     token_hash = hash_token(view_data.token)
 
-    # `find_one` rather than `pull_one_from_db`: a miss is this endpoint's own refusal, never a 404.
-    raw = await schiedsrichter_collection.find_one(build_token_filter(token_hash=token_hash), projection=dict(CONFIRMATION_VIEW_FIELDS))
-    refuse(find_unknown_token_refusal(found=raw is not None))
-    assert raw is not None
-
-    block = raw[CONFIRMATION_FIELD]
-    einwilligung = raw.get(EINWILLIGUNG_FIELD)
-
-    state = state_of(einwilligung=einwilligung, confirmation=block, today=today)
-
-    return FLSchiedsrichterConfirmationViewResponse(
-        state=state,
-        # Served rather than retyped on the page: the floor the write is judged by is the one the
-        # paragraph a person reads before consenting has to state.
-        minimum_age=SCHIEDSRICHTER_MIN_AGE_YEARS,
-        maximum_age=BEWERBUNG_KONTAKT_MAX_AGE_YEARS,
-        deadline=block["deadline"],
-        answered_at=answered_at_of(state=state, einwilligung=einwilligung, confirmation=block),
+    raw = await pull_by_token(
+        collection=schiedsrichter_collection, db_filter=build_token_filter(token_hash=token_hash), projection=CONFIRMATION_FIELDS
     )
+
+    return confirmation_view(einwilligung=raw.get(EINWILLIGUNG_FIELD), confirmation=raw[CONFIRMATION_FIELD], today=today)
 
 
 @router.post(
     "",
-    response_model=FLSchiedsrichterConfirmationResponse,
+    status_code=status.HTTP_204_NO_CONTENT,
     summary="Confirm one Schiedsrichter's entry and consent",
 )
 async def post_confirmation(
-    answer_data: Annotated[FLSchiedsrichterConfirmationPayload, Body()],
+    answer_data: FLSchiedsrichterConfirmationPayload,
     schiedsrichter_collection: SchiedsrichterCollection,
     db: DBClient,
-    today: str = Depends(get_german_date_str),
-    germany_now: datetime = Depends(get_germany_now),
-) -> FLSchiedsrichterConfirmationResponse:
+    today: GermanDay,
+    germany_now: GermanyNow,
+) -> None:
     """Record a referee's own answer for the entry their link opens: their date of birth and the consent, in one update.
 
     The caller drops the cached fixture list after a successful answer, or a withheld name goes on being served for as
@@ -113,25 +98,25 @@ async def post_confirmation(
 
     token_hash = hash_token(answer_data.token)
 
-    async def answer_for_the_person(session: AsyncClientSession) -> FLSchiedsrichterConfirmationResponse:
-        """Judge, then write, everything judged read in-session.
+    async def answer_for_the_person(session: AsyncClientSession) -> None:
+        """One transaction for a single update, so a second press landing between the read and the write is refused by the stamp.
 
-        One transaction for a single update, so a second press landing between the read and the
-        write is refused by the stamp rather than overwriting the answer already given.
+        Outside one, it would overwrite the answer already given.
         """
 
-        raw = await schiedsrichter_collection.find_one(
-            build_token_filter(token_hash=token_hash), projection=dict(CONFIRMATION_ANSWER_FIELDS), session=session
+        raw = await pull_by_token(
+            collection=schiedsrichter_collection,
+            db_filter=build_token_filter(token_hash=token_hash),
+            projection=CONFIRMATION_FIELDS,
+            session=session,
         )
-        refuse(find_unknown_token_refusal(found=raw is not None))
-        assert raw is not None
 
         # The stamp is asked first, as `state_of` ranks it: a person who answered on the last
         # valid day and presses again is told their answer stands, never that the link expired and
         # to ask for another.
-        refuse(find_already_answered_refusal(einwilligung=raw.get(EINWILLIGUNG_FIELD), confirmation=raw[CONFIRMATION_FIELD]))
+        refuse(find_already_answered_refusal(einwilligung=raw.get(EINWILLIGUNG_FIELD)))
         refuse(find_expired_token_refusal(deadline=raw[CONFIRMATION_FIELD]["deadline"], today=today))
-        refuse(find_age_refusal(birth_date=answer_data.birth_date, today=today))
+        refuse(find_age_refusal(birth_date=answer_data.birth_date, today=today, minimum_age=SCHIEDSRICHTER_MIN_AGE_YEARS))
         refuse(find_self_media_refusal(saved=None, media=answer_data.media, birth_date=answer_data.birth_date, today=today))
 
         # The person's own press, judged on the read above, on fields the referee editor never saves: an editor's save
@@ -151,16 +136,7 @@ async def post_confirmation(
             session=session,
         )
 
-        # The press's own answer rather than the stored row, which carries the whole referee: this answer is bounded to
-        # what the page renders.
-        return FLSchiedsrichterConfirmationResponse(
-            scope=answer_data.scope,
-            media=answer_data.media,
-            confirmed_at=today,
-        )
-
-    async with transaction_session(db) as session:
-        return await session.with_transaction(answer_for_the_person)
+    await transact(db, answer_for_the_person)
 
 
 @router.post(
@@ -169,15 +145,17 @@ async def post_confirmation(
     summary="Decline one Schiedsrichter's entry",
 )
 async def post_decline(
-    decline_data: Annotated[FLTokenPayload, Body()],
+    decline_data: FLTokenPayload,
     schiedsrichter_collection: SchiedsrichterCollection,
+    spiele_collection: SpieleCollection,
+    spielbestaetigungen_collection: SpielbestaetigungenCollection,
     db: DBClient,
-    today: str = Depends(get_german_date_str),
+    today: GermanDay,
+    germany_now: GermanyNow,
 ) -> None:
-    """Record the referee's objection to the entry their link opens: its day, and nothing else of the person.
+    """Erase the entry the referee's link opens, on their objection, as a contact seat's objection empties the seat.
 
-    The entry is erased at the midnight after its link's deadline, and until then no booking takes it and nobody asks
-    the person again.
+    The entry goes as the hourly pass erases one: its coming bookings removed, a played fixture's kept naming nobody.
     """
 
     token_hash = hash_token(decline_data.token)
@@ -185,23 +163,30 @@ async def post_decline(
 
     @journal.attempted
     async def object_for_the_person(session: AsyncClientSession) -> None:
-        """Judge, then write, everything judged read in-session, so a second press is refused by the first answer."""
+        """One transaction, so a consent landing between the read and the erasure conflicts rather than being erased unseen."""
 
-        raw = await schiedsrichter_collection.find_one(
-            build_token_filter(token_hash=token_hash), projection=dict(CONFIRMATION_ANSWER_FIELDS), session=session
+        raw = await pull_by_token(
+            collection=schiedsrichter_collection,
+            db_filter=build_token_filter(token_hash=token_hash),
+            projection=CONFIRMATION_FIELDS,
+            session=session,
         )
-        refuse(find_unknown_token_refusal(found=raw is not None))
-        assert raw is not None
 
-        refuse(find_already_answered_refusal(einwilligung=raw.get(EINWILLIGUNG_FIELD), confirmation=raw[CONFIRMATION_FIELD]))
+        refuse(find_already_answered_refusal(einwilligung=raw.get(EINWILLIGUNG_FIELD)))
         refuse(find_expired_token_refusal(deadline=raw[CONFIRMATION_FIELD]["deadline"], today=today))
 
-        # Past the count: the objection's day is no field the editor saves.
-        await patch_past_the_version_in_db(
-            collection=schiedsrichter_collection, db_filter={"_id": raw["_id"]}, update=compose_decline_update(today=today), session=session
+        await erase_referee_in_session(
+            schiedsrichter_collection=schiedsrichter_collection,
+            spiele_collection=spiele_collection,
+            spielbestaetigungen_collection=spielbestaetigungen_collection,
+            schiedsrichter_id=raw["_id"],
+            now=germany_now,
+            session=session,
         )
+        # Nameless, as the pass's erasure is: the entry it would name is gone.
+        await record_act(collection=schiedsrichter_collection, action="schiedsrichter.objected", by=ACT_BY_SCHIEDSRICHTER, session=session)
+        # The restore's replay reads the erased record's id off this line and erases it again.
         journal.note("objection", [f"{Collection.SCHIEDSRICHTER}/{raw['_id']}"])
 
     async with journal:
-        async with transaction_session(db) as session:
-            await session.with_transaction(object_for_the_person)
+        await transact(db, object_for_the_person)

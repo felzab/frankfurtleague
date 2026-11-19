@@ -13,7 +13,7 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.aufstellungen.schemas import FLAufstellungEntry
-from app.api.teams.services import is_played
+from app.api.spiele.schemas import is_played
 from app.core.collections import Collection
 from app.core.crud import (
     aggregate_many_from_db,
@@ -76,7 +76,7 @@ async def write_aufstellung(
         )
     # After the line-up's own write, on every save: a draw's removal writes the season, so no line-up is left on a
     # fixture the removal took, and so does the activation ending it, which no save then outlives. The save's judgement
-    # of the season's status, asked again outside the transaction, leaves a gap before the commit this closes.
+    # of the season's status holds through its commit by this anchor.
     await anchor_in_db(collection=saisons_collection, db_filter={"_id": saison_id}, session=session)
 
     await record_act(

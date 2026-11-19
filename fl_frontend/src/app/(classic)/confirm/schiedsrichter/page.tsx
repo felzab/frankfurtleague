@@ -1,8 +1,5 @@
 import { cache } from "react";
 
-import { mailedMetadata } from "@/kit/mailedLinkState";
-import { MailedPage, TO_ACCOUNT } from "@/kit/MailedPage";
-
 import { requires } from "@/core/action";
 import { MEDIA_MIN_AGE } from "@/core/bounds";
 import { now } from "@/core/clock";
@@ -15,13 +12,15 @@ import { SchiedsrichterPostConfirmationBody } from "@/core/generated/zod/inputs"
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { runWithIncomingTrace } from "@/core/traceScope";
+import { mailedMetadata } from "@/kit/mailedLinkState";
+import { MailedPage, TO_ACCOUNT } from "@/kit/MailedPage";
 
 import { ConfirmationFields } from "../ConfirmationFields";
 import { linkViewOf } from "../linkView";
 import { answerSchiedsrichter } from "./answerSchiedsrichter";
 import { END, TO_HOME } from "./ends";
 
-import type { FLSchiedsrichterConfirmationViewResponse } from "@/core/generated/client/types";
+import type { FLSchiedsrichterConfirmationViewConfirmed } from "@/core/generated/client/types";
 import type { MailedState } from "@/kit/MailedPage";
 import type { Metadata, ResolvingMetadata } from "next";
 
@@ -43,29 +42,21 @@ const REQUIRED = { birth_date: requires(shape.birth_date, null), scope: requires
 
 /**
  * `/confirm/schiedsrichter`, the link a referee's entry mails them, on the mailed-page template: the question, with
- * „Eintrag bestätigen“ and the refusal „Widersprechen“; the done states; the link opened again, saying what the
- * person did and on which day; and the link no longer valid, an expired, mistyped or tampered link alike.
+ * „Eintrag bestätigen“ and the refusal „Widersprechen“; the done states; the link opened again after a confirmation,
+ * saying on which day; and the link no longer valid, an expired, mistyped or tampered link alike, and one whose entry
+ * an objection erased.
  */
 export default function SchiedsrichterConfirmationPage({ searchParams }: Props) {
   return <MailedPage page={readState(searchParams)} />;
 }
 
 /** The link's own read; `null` for a token no referee holds or one the backend will not parse, a dead link either way. */
-// `cache` memoizes per render pass, for the tab's title and the page. Never `"use cache"`, which keys on the
-// arguments rather than the caller.
-const readView = cache(async (token: string): Promise<FLSchiedsrichterConfirmationViewResponse | null> =>
-  runWithIncomingTrace(() => linkViewOf(schiedsrichterGetConfirmationView({ token }))),
-);
+// `cache` memoizes per render pass, for the tab's title and the page.
+const readView = cache(async (token: string) => runWithIncomingTrace(() => linkViewOf(schiedsrichterGetConfirmationView({ token }))));
 
-/** The link opened again after its answer: what the person did and on which day, with the one place to go next. */
-function alreadyDone(view: FLSchiedsrichterConfirmationViewResponse, kind: "confirmed" | "objected"): MailedState {
-  // The view serves the answer's day on these two states alone; one missing is a backend older than this page.
-  if (view.answered_at === null) return INVALID;
-  const day = dayOf(view.answered_at);
-  const { title } = END[kind];
-  return kind === "confirmed"
-    ? { state: "alreadyDone", title: COPY.shared.end.doneOn(title, day), next: TO_ACCOUNT }
-    : { state: "alreadyDone", title: COPY.shared.end.doneOn(title, day), next: TO_HOME, declined: true };
+/** The link opened again after its consent: on which day, with the account as the one place to go next. */
+function alreadyConfirmed(view: FLSchiedsrichterConfirmationViewConfirmed): MailedState {
+  return { state: "alreadyDone", title: COPY.shared.end.doneOn(END.confirmed.title, dayOf(view.answered_at)), next: TO_ACCOUNT };
 }
 
 async function readState(searchParams: Props["searchParams"]): Promise<MailedState> {
@@ -81,9 +72,7 @@ async function readState(searchParams: Props["searchParams"]): Promise<MailedSta
     case "expired":
       return INVALID;
     case "confirmed":
-      return alreadyDone(view, "confirmed");
-    case "declined":
-      return alreadyDone(view, "objected");
+      return alreadyConfirmed(view);
     case "valid": {
       // Berlin's day, which the backend judges the age on.
       const today = dayIn(now());

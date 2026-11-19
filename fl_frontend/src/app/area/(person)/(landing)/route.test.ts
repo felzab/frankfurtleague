@@ -1,10 +1,10 @@
+import { describe, expect, it } from "vitest";
+
+import { ROUTES } from "@/core/routes";
 import { answerTheLookup } from "@/test-support/authDoubles";
 import { serveBackend } from "@/test-support/backend";
 import { signedInRequest } from "@/test-support/session";
 import { thrownRedirect } from "@/test-support/thrownRedirect";
-import { describe, expect, it } from "vitest";
-
-import { ROUTES } from "@/core/routes";
 
 // No answer of its own: the route reads nothing beyond the session's lookup, so any other request fails the case.
 const backend = serveBackend();

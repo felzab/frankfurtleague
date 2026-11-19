@@ -1,14 +1,13 @@
+import { COPY } from "@/core/copy";
+import { ROUTES } from "@/core/routes";
+import { SERVER_COPY } from "@/core/serverCopy";
+import { ORGANISERS } from "@/features/meta/constants";
 import { ClassicPage, ClassicSections, PageHead } from "@/kit/ClassicPage";
 import { InfoCards } from "@/kit/InfoCards";
 import { LandingSection } from "@/kit/LandingSection";
 import { Organisers } from "@/kit/Organisers";
 import { Pillars } from "@/kit/Pillars";
 import { StepsLine } from "@/kit/StepsLine";
-
-import { COPY } from "@/core/copy";
-import { ROUTES } from "@/core/routes";
-import { SERVER_COPY } from "@/core/serverCopy";
-import { ORGANISERS } from "@/features/meta/constants";
 import { pageMetadata } from "@/shared/utils/metadata";
 
 import type { Metadata, ResolvingMetadata } from "next";

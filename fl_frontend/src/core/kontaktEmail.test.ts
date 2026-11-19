@@ -12,8 +12,8 @@ const { SERVER_COPY } = await import("./serverCopy");
 const ORIGIN = "http://localhost:3000";
 
 /** One person's link as a contacts save owes it, on an open row unless `row` names a closed one. */
-const data = (row: FLKontaktRow = "open", rollen: FLKontaktLinkData["rollen"] = ["ansprechperson"]) =>
-  ({ kind: "kontakt_confirmation", saison_id: "2627", schule: "Lessing-Kolleg", rollen, deadline: "2026-10-17", row }) as const;
+const data = (row: FLKontaktRow = "open", seats: FLKontaktLinkData["seats"] = ["ansprechperson"]) =>
+  ({ kind: "kontakt_confirmation", saison_id: "2627", schule: "Lessing-Kolleg", seats, deadline: "2026-10-17", row }) as const;
 
 const rendered = (facts: ReturnType<typeof data>) => {
   const mail = mailFor("kontakt_confirmation", facts, { token: "example-one", secret: null, origin: ORIGIN });

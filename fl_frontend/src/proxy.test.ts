@@ -1,7 +1,8 @@
 // First, as Next's server loads it: its request stores take this global at their own load, and the
 // adapter `visit` runs needs real ones.
-import { thrownRedirect } from "@/test-support/thrownRedirect";
 import { assert, describe, expect, it, vi } from "vitest";
+
+import { thrownRedirect } from "@/test-support/thrownRedirect";
 
 import type { ThrownRedirect } from "@/test-support/thrownRedirect";
 

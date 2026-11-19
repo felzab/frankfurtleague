@@ -1,12 +1,12 @@
-import { ADMIN_EMAIL } from "@/test-support/authDoubles";
-import { refusal, serveBackend } from "@/test-support/backend";
-import { signedInRequest } from "@/test-support/session";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
 import { SERVER_COPY } from "@/core/serverCopy";
+import { ADMIN_EMAIL } from "@/test-support/authDoubles";
+import { refusal, serveBackend } from "@/test-support/backend";
+import { signedInRequest } from "@/test-support/session";
 
-import type { FLPostBanListEntryPayload, FLPostBanListEntryResponse } from "@/core/generated/client/types";
+import type { FLCreatedResponse, FLPostBanListEntryPayload } from "@/core/generated/client/types";
 
 const ADDRESS = "max@example.org";
 const BAN = { email: ADDRESS, ban_reason: "Ein Grund", holder: ADMIN_EMAIL };
@@ -21,7 +21,7 @@ const atThePost: number[] = [];
 const backend = serveBackend(({ method, path }) => {
   if (method !== "POST" || path !== "/ban_list") return undefined;
   atThePost.push(sessionsOfMax().length);
-  return { created_id: "65a000000000000000000001" } satisfies FLPostBanListEntryResponse;
+  return { created_id: "65a000000000000000000001" } satisfies FLCreatedResponse;
 });
 // The administrator, signed in by passkey just now, which the touch a ban sits behind takes.
 const { store } = signedInRequest();
@@ -155,21 +155,12 @@ describe("a ban", () => {
   });
 
   it.each([
-    ["an address of the wrong shape", { email: "max@example" }, SERVER_COPY.closedDialog.format.address, undefined],
-    ["a Grund of spaces", { ban_reason: "   " }, SERVER_COPY.closedDialog.reasonMissing, undefined],
-    ["a Grund holding an address", { ban_reason: ADDRESS }, SERVER_COPY.closedDialog.reasonWithAddress, "address_in_free_text"],
-  ])("refuses %s in its box's sentence, the dialog having closed", async (_case, typed, reason, rule) => {
-    if (rule !== undefined) {
-      backend.answerWith(({ method, path }) =>
-        method === "POST" && path === "/ban_list"
-          ? refusal("payload_refused", { fields: [{ path: ["ban_reason"], kind: rule, ctx: {}, in: "body" }] })
-          : undefined,
-      );
-    }
-
+    ["an address of the wrong shape", { email: "max@example" }, SERVER_COPY.closedDialog.format.address],
+    ["a Grund of spaces", { ban_reason: "   " }, SERVER_COPY.closedDialog.reasonMissing],
+  ])("refuses %s in its box's sentence, the dialog having closed", async (_case, typed, reason) => {
     expect(await enterBan({ ...BAN, ...typed })).toMatchObject({ ok: false, reason });
-    // A box the parse refuses posts nothing; the backend's own refusal is of the one ban posted.
-    expect(bansPosted()).toHaveLength(rule === undefined ? 0 : 1);
+    // A box the parse refuses posts nothing.
+    expect(bansPosted()).toHaveLength(0);
   });
 
   // A write the backend refused stands nowhere, so there is nothing for a sign-out to follow.

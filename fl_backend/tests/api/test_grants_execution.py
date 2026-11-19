@@ -26,10 +26,9 @@ from app.api.grants.services import compose_notice
 from app.api.grants.system_router import post_handover_pass
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.config import API_VERSION
 from app.core.crud import ANCHOR_FIELD
 from app.core.exceptions import APIError, DocumentNotFoundError
-from app.core.security import PASSKEY_FACTOR
+from app.core.security import PASSKEY_FACTOR, SessionActor
 from app.shared.schemas.bounds import GRANT_WAIT_HOURS, OWNER_WAIT_DAYS
 from tests import acts
 from tests.app_client import app_client, app_under_test
@@ -104,12 +103,23 @@ async def on_a_league(url: str, body: Body, *, grants: list[dict[str, Any]] | No
         return await body(database, client)
 
 
+# When the session a direct call acts in was made: at the case's clock, after every seeded row's date.
+SIGNED_IN = int(NOW.timestamp())
+
+
+def session_of(address: str, auth_time: int) -> SessionActor:
+    """The session `verify_admin_actor` hands an owner's act, a passkey's."""
+
+    return SessionActor(email=address, auth_time=auth_time, factor=PASSKEY_FACTOR)
+
+
 async def add(
     database: AsyncDatabase,
     client: AsyncMongoClient,
     email: str = NORA_TYPED,
     *,
     acting_as: str = OWNER,
+    signed_in_at: int = SIGNED_IN,
     grants: Any = None,
     outbox: Any = None,
     now: datetime = NOW,
@@ -124,13 +134,21 @@ async def add(
                 outbox_collection=outbox if outbox is not None else database[Collection.OUTBOX],
                 db=client,
                 operator=acting_as,
-                now=now,
+                signed_in=session_of(acting_as, signed_in_at),
+                germany_now=now,
             )
-        ).grant_id
+        ).created_id
 
 
 async def remove(
-    database: AsyncDatabase, client: AsyncMongoClient, grant_id: ObjectId, *, acting_as: str = OWNER, grants: Any = None, outbox: Any = None
+    database: AsyncDatabase,
+    client: AsyncMongoClient,
+    grant_id: ObjectId,
+    *,
+    acting_as: str = OWNER,
+    signed_in_at: int = SIGNED_IN,
+    grants: Any = None,
+    outbox: Any = None,
 ) -> None:
     with acts.acting_as(acting_as):
         await delete_grant(
@@ -139,7 +157,8 @@ async def remove(
             outbox_collection=outbox if outbox is not None else database[Collection.OUTBOX],
             db=client,
             operator=acting_as,
-            now=NOW,
+            signed_in=session_of(acting_as, signed_in_at),
+            germany_now=NOW,
         )
 
 
@@ -149,6 +168,7 @@ async def hand_over(
     grant_id: ObjectId = ANNA_ID,
     *,
     acting_as: str = OWNER,
+    signed_in_at: int = SIGNED_IN,
     grants: Any = None,
     now: datetime = NOW,
 ) -> None:
@@ -160,11 +180,14 @@ async def hand_over(
             outbox_collection=database[Collection.OUTBOX],
             db=client,
             operator=acting_as,
-            now=now,
+            signed_in=session_of(acting_as, signed_in_at),
+            germany_now=now,
         )
 
 
-async def stop(database: AsyncDatabase, client: AsyncMongoClient, grant_id: ObjectId = ANNA_ID, *, acting_as: str = OWNER) -> None:
+async def stop(
+    database: AsyncDatabase, client: AsyncMongoClient, grant_id: ObjectId = ANNA_ID, *, acting_as: str = OWNER, signed_in_at: int = SIGNED_IN
+) -> None:
     with acts.acting_as(acting_as):
         await delete_handover(
             grant_id=grant_id,
@@ -172,7 +195,8 @@ async def stop(database: AsyncDatabase, client: AsyncMongoClient, grant_id: Obje
             outbox_collection=database[Collection.OUTBOX],
             db=client,
             operator=acting_as,
-            now=NOW,
+            signed_in=session_of(acting_as, signed_in_at),
+            germany_now=NOW,
         )
 
 
@@ -188,7 +212,7 @@ async def pass_at(
         grants_collection=grants if grants is not None else database[Collection.GRANTS],
         outbox_collection=outbox if outbox is not None else database[Collection.OUTBOX],
         db=client,
-        now=now,
+        germany_now=now,
     )
 
     return answer.handed_over
@@ -374,6 +398,27 @@ class TestOnlyTheOwnerActs:
             return await refused_code(act(database, client)), await database[Collection.OUTBOX].count_documents({}), await addresses(database)
 
         assert await on_a_league(mongo_replica_set_url, body) == (Code.GRANT_ONLY_OWNER, 0, EVERY_HOLDER)
+
+    @pytest.mark.parametrize(
+        "act",
+        [
+            pytest.param(lambda database, client: add(database, client, acting_as=ANNA), id="an addition"),
+            pytest.param(lambda database, client: remove(database, client, BERND_ID, acting_as=ANNA), id="a removal"),
+            pytest.param(lambda database, client: hand_over(database, client, BERND_ID, acting_as=ANNA), id="a handover"),
+            pytest.param(lambda database, client: stop(database, client, BERND_ID, acting_as=ANNA), id="a stop"),
+        ],
+    )
+    async def test_a_session_older_than_the_handover_holds_no_owners_act(self, mongo_replica_set_url: str, act: Body):
+        """A handover completing after the guard admitted the session dates the new owner's row past it, which the act reads."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str, int]:
+            await hand_over(database, client)
+            await pass_at(database, client)
+            owed_before = await database[Collection.OUTBOX].count_documents({})
+
+            return await refused_code(act(database, client)), await database[Collection.OUTBOX].count_documents({}) - owed_before
+
+        assert await on_a_league(mongo_replica_set_url, body) == (Code.SESSION_REFUSED, 0)
 
 
 class TestARemoval:
@@ -679,7 +724,7 @@ class TestTheMountedRouteReadsTheGrants:
                 grant_document(NORA, "administration", effective_from=at_most(effective_in_s), _id=NORA_ID)
             )
             async with app_client(mongo_replica_set_url, app=app_under_test(DATABASE_NAME)) as http:
-                response = await http.get(f"/api/v{API_VERSION}/grants", headers=signed_in_at(NORA, int(time.time()) - 60))
+                response = await http.get("/api/grants", headers=signed_in_at(NORA, int(time.time()) - 60))
 
             return response.status_code, response.json().get("error_code")
 
@@ -694,8 +739,9 @@ class TestTheMountedRouteReadsTheGrants:
             async with app_client(mongo_replica_set_url, app=app_under_test(DATABASE_NAME)) as http:
 
                 async def removing(address: str, auth_time: int) -> tuple[int, str | None]:
-                    response = await http.delete(f"/api/v{API_VERSION}/grants/{BERND_ID}", headers=signed_in_at(address, auth_time))
-                    return response.status_code, response.json().get("error_code")
+                    response = await http.delete(f"/api/grants/{BERND_ID}", headers=signed_in_at(address, auth_time))
+                    # A removal answers no body; a refusal names its code.
+                    return response.status_code, response.json().get("error_code") if response.content else None
 
                 waiting = await removing(ANNA, older)
                 await pass_at(database, client, datetime.now(UTC))
@@ -709,29 +755,27 @@ class TestTheMountedRouteReadsTheGrants:
             (403, Code.GRANT_ONLY_OWNER),
             (401, Code.SESSION_REFUSED),
             (403, Code.GRANT_ONLY_OWNER),
-            (200, None),
+            (204, None),
         ]
 
     async def test_a_removed_administrator_is_refused_on_the_very_next_request(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[int]:
             async with app_client(mongo_replica_set_url, app=app_under_test(DATABASE_NAME)) as http:
                 headers = StampedHeaders(BERND, ADMIN_KEY)
-                before = await http.get(f"/api/v{API_VERSION}/grants", headers=headers)
-                removed = await http.delete(f"/api/v{API_VERSION}/grants/{BERND_ID}", headers=StampedHeaders(OWNER, ADMIN_KEY))
-                after = await http.get(f"/api/v{API_VERSION}/grants", headers=headers)
+                before = await http.get("/api/grants", headers=headers)
+                removed = await http.delete(f"/api/grants/{BERND_ID}", headers=StampedHeaders(OWNER, ADMIN_KEY))
+                after = await http.get("/api/grants", headers=headers)
 
             return [before.status_code, removed.status_code, after.status_code]
 
-        assert await on_a_league(mongo_replica_set_url, body) == [200, 200, 403]
+        assert await on_a_league(mongo_replica_set_url, body) == [200, 204, 403]
 
     async def test_an_addition_over_http_is_attributed_to_the_token_s_administrator_everywhere(self, mongo_replica_set_url: str):
         """The only grant case reaching `get_actor_email`: a mixed-case identity is stored folded in the log."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[Any, ...]:
             async with app_client(mongo_replica_set_url, app=app_under_test(DATABASE_NAME)) as http:
-                response = await http.post(
-                    f"/api/v{API_VERSION}/grants", headers=StampedHeaders(OWNER.upper(), ADMIN_KEY), json={"email": NORA_TYPED}
-                )
+                response = await http.post("/api/grants", headers=StampedHeaders(OWNER.upper(), ADMIN_KEY), json={"email": NORA_TYPED})
 
             row = await database[Collection.GRANTS].find_one({"address": NORA})
             assert row is not None

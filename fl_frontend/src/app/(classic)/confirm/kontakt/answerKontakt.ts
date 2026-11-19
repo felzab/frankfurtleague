@@ -4,8 +4,8 @@ import { z } from "zod";
 
 import { action } from "@/core/action";
 import { SEAT_TEXT_VERSIONS } from "@/core/consentWordings";
-import { bewerbungenPostEinwilligung } from "@/core/generated/client/sdk";
-import { BewerbungenPostEinwilligungBody } from "@/core/generated/zod/inputs";
+import { bewerbungenPostConfirmation } from "@/core/generated/client/sdk";
+import { BewerbungenPostConfirmationBody } from "@/core/generated/zod/inputs";
 
 import { refusedAs } from "../linkView";
 import { END, LINK_INVALID } from "./ends";
@@ -13,7 +13,7 @@ import { END, LINK_INVALID } from "./ends";
 import type { Code } from "@/core/generated/client/types";
 import type { EndState } from "@/kit/MailedPage";
 
-const [given, declined] = BewerbungenPostEinwilligungBody.options;
+const [given, declined] = BewerbungenPostConfirmationBody.options;
 
 /** A ticked box posts „on“, an unticked or unoffered one nothing. */
 const ticked = z.preprocess((value) => value === "on", z.boolean());
@@ -37,9 +37,9 @@ const Answer = z.discriminatedUnion("act", [
 const SPENT: ReadonlySet<Code> = new Set<Code>(["link_invalid", "link_expired"]);
 
 /** The end one answer reaches, or the link no longer valid where the link stopped holding: one message for every cause. */
-async function ended(answer: Parameters<typeof bewerbungenPostEinwilligung>[0], end: EndState): Promise<{ ok: true; value: EndState }> {
+async function ended(answer: Parameters<typeof bewerbungenPostConfirmation>[0], end: EndState): Promise<{ ok: true; value: EndState }> {
   try {
-    await bewerbungenPostEinwilligung(answer);
+    await bewerbungenPostConfirmation(answer);
     return { ok: true, value: end };
   } catch (error) {
     if (!refusedAs(error, SPENT)) throw error;

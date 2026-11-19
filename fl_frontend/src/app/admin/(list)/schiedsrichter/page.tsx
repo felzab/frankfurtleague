@@ -1,15 +1,14 @@
-import { ListPage } from "@/kit/ListPage";
-
 import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
 import { refereeChip } from "@/features/schiedsrichter/confirmationState";
 import { getSchiedsrichter } from "@/features/schiedsrichter/queries";
+import { ListPage } from "@/kit/ListPage";
 import { pageMetadata } from "@/shared/utils/metadata";
 
 import { createSchiedsrichter } from "./createSchiedsrichter";
 import { SchiedsrichterFields } from "./SchiedsrichterFields";
 
-import type { FLSchiedsrichter } from "@/core/generated/client/types";
+import type { FLSchiedsrichterAdminRow } from "@/core/generated/client/types";
 import type { TableHead, TableRow } from "@/kit/Table";
 import type { Metadata, ResolvingMetadata } from "next";
 
@@ -21,7 +20,7 @@ export async function generateMetadata(_: unknown, parent: ResolvingMetadata): P
 }
 
 /** One referee's row, opening their editor: the name with where the entry stands, „Bestätigt“ once confirmed, the address and the phone. */
-function rowOf(referee: FLSchiedsrichter): TableRow {
+function rowOf(referee: FLSchiedsrichterAdminRow): TableRow {
   return {
     id: referee.id,
     name: { record: referee.name },
@@ -29,7 +28,7 @@ function rowOf(referee: FLSchiedsrichter): TableRow {
     chip: refereeChip(referee),
     muted: referee.inactive_since !== null,
     cells: {
-      email: referee.kontakt.email === null ? COPY.shared.noValue : { record: referee.kontakt.email },
+      email: { record: referee.kontakt.email },
       phone: referee.kontakt.phone === null ? COPY.shared.noValue : { record: referee.kontakt.phone },
     },
   };
@@ -62,7 +61,7 @@ const HEAD: TableHead = {
 
 async function readSchiedsrichter() {
   // Retired included: the list is the one way into a retired referee's page, whose danger box brings them back.
-  const { schiedsrichter } = await getSchiedsrichter({ include_inactive: true });
+  const { schiedsrichter } = await getSchiedsrichter();
   return {
     table: {
       label: ROUTES.adminSchiedsrichter.title,

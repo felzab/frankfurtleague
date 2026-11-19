@@ -1,5 +1,4 @@
 from collections.abc import Mapping
-from http import HTTPStatus
 from typing import Any, Final
 
 from fastapi import APIRouter, FastAPI
@@ -25,6 +24,7 @@ from app.api.grants.system_router import router as grants_system_router
 from app.api.identity.admin_router import router as identity_admin_router
 from app.api.identity.person_router import router as identity_person_router
 from app.api.identity.system_router import router as identity_system_router
+from app.api.outbox.services import FLDeliveryDeadlineDays, FLOutboxRetentionDays
 from app.api.outbox.system_router import router as outbox_system_router
 from app.api.registrierungen.admin_router import router as registrierungen_admin_router
 from app.api.registrierungen.person_router import router as registrierungen_person_router
@@ -34,6 +34,7 @@ from app.api.registrierungen.system_router import router as registrierungen_syst
 from app.api.saisons.admin_router import router as saisons_admin_router
 from app.api.saisons.overview_router import router as saisons_overview_router
 from app.api.saisons.public_router import router as saisons_public_router
+from app.api.saisons.system_router import router as saisons_system_router
 from app.api.schiedsrichter.admin_router import router as schiedsrichter_admin_router
 from app.api.schiedsrichter.person_router import router as schiedsrichter_person_router
 from app.api.schiedsrichter.public_router import router as schiedsrichter_public_router
@@ -43,32 +44,33 @@ from app.api.spielbestaetigungen.admin_router import router as spielbestaetigung
 from app.api.spielbestaetigungen.person_router import router as spielbestaetigungen_person_router
 from app.api.spielbestaetigungen.system_router import router as spielbestaetigungen_system_router
 from app.api.spiele.admin_router import router as spiele_admin_router
-from app.api.spiele.public_router import router as spiele_public_router
 from app.api.spieler.admin_router import router as spieler_admin_router
 from app.api.spieler.person_router import router as spieler_person_router
 from app.api.spieler.person_router import spieler_router as spieler_person_spieler_router
-from app.api.spieler.public_router import router as spieler_public_router
 from app.api.spielorte.admin_router import router as spielorte_admin_router
 from app.api.spieltage.admin_router import router as spieltage_admin_router
-from app.api.spieltage.public_router import router as spieltage_public_router
 from app.api.system.router import router as system_router
 from app.api.teams.admin_router import router as teams_admin_router
 from app.api.teams.person_router import router as teams_person_router
-from app.api.teams.public_router import router as teams_public_router
 from app.core.codes import Rule
 from app.core.config import BackendConfig
 from app.core.db import lifespan
-from app.core.exception_handlers import FAILURE_RESPONSES, FAILURE_STATUSES, register_exception_handlers
+from app.core.exception_handlers import register_exception_handlers
 from app.core.logging import fl_logger
 from app.core.middlewares import TracedApp
+from app.core.recording import FLActorRole, FLErasedActorMarker
+from app.core.security import FLAuthFactor
 from app.shared.schemas.bounds import (
     ADDRESS_CHANGE_BOUNDS,
     CONSENT_BOUNDS,
     GRANT_BOUNDS,
+    RETENTION_BOUNDS,
+    SESSION_BOUNDS,
     FLActionLogPageSize,
     FLAufstellungStartersMax,
     FLBanDurationSaisons,
-    FLDeclinedRetentionDays,
+    FLKontaktEmailMaxLength,
+    FLSaisonIdLength,
     FLTeamShorthandLength,
 )
 from app.shared.schemas.einwilligung import CURRENT_TEXT_VERSIONS
@@ -93,17 +95,19 @@ ROUTERS: Mapping[str, tuple[APIRouter, ...]] = {
         registrierungen_person_spieler_router,
         registrierungen_system_router,
     ),
-    "saisons": (saisons_public_router, saisons_admin_router, saisons_overview_router),
+    # The public and system routers first: the administration's `/{saison_id}` would take their `/frame`, `/landing` and
+    # `/sweep` as season ids.
+    "saisons": (saisons_public_router, saisons_system_router, saisons_admin_router, saisons_overview_router),
     "schiedsrichter": (schiedsrichter_admin_router, schiedsrichter_public_router, schiedsrichter_person_router, schiedsrichter_system_router),
     "ban_list": (ban_list_admin_router,),
     "spielberichte": (spielberichte_person_router,),
     "spielbestaetigungen": (spielbestaetigungen_admin_router, spielbestaetigungen_person_router, spielbestaetigungen_system_router),
-    "spiele": (spiele_public_router, spiele_admin_router),
-    "spieler": (spieler_public_router, spieler_admin_router, spieler_person_router, spieler_person_spieler_router),
+    "spiele": (spiele_admin_router,),
+    "spieler": (spieler_admin_router, spieler_person_router, spieler_person_spieler_router),
     "spielorte": (spielorte_admin_router,),
-    "spieltage": (spieltage_public_router, spieltage_admin_router),
+    "spieltage": (spieltage_admin_router,),
     "system": (system_router,),
-    "teams": (teams_public_router, teams_admin_router, teams_person_router),
+    "teams": (teams_admin_router, teams_person_router),
 }
 
 
@@ -113,35 +117,35 @@ def operation_id(route: APIRoute) -> str:
     return f"{route.tags[0]}_{route.name}"
 
 
-# The two failures naming when to come back: the unavailable database's 503 and a rate refusal's 429.
-RETRY_AFTER_HEADER = {"Retry-After": {"description": "Seconds to wait before asking again", "schema": {"type": "integer"}}}
 SCHEMA_REF = "#/components/schemas/{model}"
 
-
-def failure_response(status: HTTPStatus) -> dict[str, Any]:
-    response: dict[str, Any] = {
-        "description": status.phrase,
-        "content": {"application/json": {"schema": {"$ref": SCHEMA_REF.format(model=FLFailureBody.__name__)}}},
-    }
-    if status in (HTTPStatus.SERVICE_UNAVAILABLE, HTTPStatus.TOO_MANY_REQUESTS):
-        response["headers"] = RETRY_AFTER_HEADER
-
-    return response
+# The one response every operation's failures share: the body is `FLFailureBody` whatever the status, and its
+# `error_code` is `Code`, so the document lists every code once rather than per operation or per status.
+FAILURE_RESPONSE: Final = "Failure"
+FAILURE_DESCRIPTION: Final = "A refusal or a fault, its status naming which"
+# Under `default`, never left out: an operation declaring neither a 422 nor a `default` is published with FastAPI's
+# own `HTTPValidationError`, a body this API never sends.
+FAILURE_RESPONSES: Final[dict[int | str, dict[str, Any]]] = {
+    "default": {"$ref": f"#/components/responses/{FAILURE_RESPONSE}", "description": FAILURE_DESCRIPTION}
+}
 
 
 def with_failure_responses(document: Mapping[str, Any]) -> dict[str, Any]:
-    """`document` publishing the shared response every operation's `FAILURE_RESPONSES` refers to, and the bodies they carry.
+    """`document` publishing the shared response every operation's `FAILURE_RESPONSES` refers to, and the bodies it carries.
 
-    FastAPI publishes a model only where an operation names it, and these are named by reference.
+    FastAPI publishes a model only where an operation names it, and this one is named by reference.
     """
 
     components = document.get("components", {})
     bodies = models_json_schema([(FLFailureBody, "serialization")], ref_template=SCHEMA_REF)[1]["$defs"]
     # Sorted as FastAPI sorts what it generates, so a rewrite of the committed document moves no schema.
     schemas = dict(sorted({**components.get("schemas", {}), **bodies}.items()))
-    responses = {str(int(status)): failure_response(status) for status in FAILURE_STATUSES}
+    failure = {
+        "description": FAILURE_DESCRIPTION,
+        "content": {"application/json": {"schema": {"$ref": SCHEMA_REF.format(model=FLFailureBody.__name__)}}},
+    }
 
-    return {**document, "components": {**components, "schemas": schemas, "responses": responses}}
+    return {**document, "components": {**components, "schemas": schemas, "responses": {FAILURE_RESPONSE: failure}}}
 
 
 # Every alias a frontend constant is checked against: a value a page, a mail or a control states, and the domain
@@ -152,10 +156,18 @@ MIRRORED_CONSTANTS: Final = (
     *ADDRESS_CHANGE_BOUNDS,
     *GRANT_BOUNDS,
     *CONSENT_BOUNDS,
-    FLDeclinedRetentionDays,
+    *RETENTION_BOUNDS,
+    *SESSION_BOUNDS,
     FLActionLogPageSize,
+    FLActorRole,
     FLAufstellungStartersMax,
+    FLAuthFactor,
     FLBanDurationSaisons,
+    FLDeliveryDeadlineDays,
+    FLErasedActorMarker,
+    FLKontaktEmailMaxLength,
+    FLOutboxRetentionDays,
+    FLSaisonIdLength,
     FLTeamShorthandLength,
     Rule,
 )
@@ -195,7 +207,7 @@ def publish_document(app: FastAPI) -> None:
 
 
 def mount_api(app: FastAPI) -> None:
-    """Every router, and the document they publish.
+    """Every router under `/api`, and the document they publish.
 
     Apart from `create_app`, since nothing here reads the configuration: the document is built from
     the routes alone, with no settings to supply.
@@ -203,15 +215,17 @@ def mount_api(app: FastAPI) -> None:
 
     for tag, routers in ROUTERS.items():
         for router in routers:
-            app.include_router(router, tags=[tag], responses=FAILURE_RESPONSES, generate_unique_id_function=operation_id)
+            app.include_router(router, prefix="/api", tags=[tag], responses=FAILURE_RESPONSES, generate_unique_id_function=operation_id)
 
     # After the last route is mounted and before anything asks for the document: `app.openapi()`
     # caches what it builds, so a route mounted afterwards never reaches a reader.
     publish_document(app)
 
 
-# The exit a settings refusal ends the boot with, apart from a fault's 1: the frontend's boot refusal
-# takes the same code, and `docker compose ps` shows it on the restarting container.
+# The exit a settings refusal ends the boot with, raised in place of the refusal, whose traceback uvicorn would print as
+# plain text beside the JSON lines. Uvicorn exits 3 for any start that fails, a lifespan's included, so the code says
+# only that the boot never served, and the `system.config_refused` line says why. The frontend's boot refusal takes
+# the same code.
 BOOT_REFUSED: Final = 3
 
 

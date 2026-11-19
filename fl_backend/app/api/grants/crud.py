@@ -11,12 +11,12 @@ from app.api.grants.services import ADMINISTRATION, OWNER, Notice, compose_hando
 from app.api.outbox.schemas import FLGrantData
 from app.api.outbox.services import OwedMail, enqueue_mails
 from app.core.crud import (
-    aggregate_many_from_db,
     anchor_in_db,
     delete_many_from_db,
     patch_many_in_db,
     patch_one_in_db,
     post_one_to_db,
+    pull_whole_from_db,
 )
 from app.core.readonly import ReadCollection
 from app.core.recording import ACT_BY_SYSTEM, record_act
@@ -26,9 +26,11 @@ from app.shared.schemas.literals import FLAdminTier
 
 
 async def read_grants(*, grants_collection: ReadCollection, session: AsyncClientSession | None = None) -> list[Mapping[str, Any]]:
-    """Every grant as stored, by address, a waiting row among them, and unbounded: the judgements read the whole list."""
+    """Every grant as stored, by address, a waiting row among them: the judgements read the whole list."""
 
-    return await aggregate_many_from_db(collection=grants_collection, pipeline=[{"$sort": {"address": ASCENDING}}], session=session)
+    return await pull_whole_from_db(
+        collection=grants_collection, db_filter={}, what="the grants", sort_by=[("address", ASCENDING)], session=session
+    )
 
 
 async def pull_the_list_to_judge(
@@ -58,12 +60,17 @@ async def pull_the_list_to_judge(
 
 
 async def read_admin_tier_of(
-    *, grants_collection: ReadCollection, address: str, now: datetime, session: AsyncClientSession
+    *,
+    grants_collection: ReadCollection,
+    address: str,
+    now: datetime,
+    # The admin guard's snapshot, which an admin view shares; a caller reading the grant alone needs none.
+    session: AsyncClientSession | None = None,
 ) -> tuple[FLAdminTier, datetime] | None:
     """The tier this folded address holds at `now`, and when it took effect, or `None`, a waiting row holding nothing yet.
 
-    The sign-in reads it too, so a person named on a waiting addition is admitted by nothing but their other records, and a
-    person holding a seat keeps Konto through the wait.
+    At sign-in, a person named on a waiting addition is admitted by nothing but their other records, and a person holding a
+    seat keeps Konto through the wait.
     """
 
     found = await grants_collection.find_one({"address": address}, {"admin_tier": 1, "effective_from": 1}, session=session)
@@ -109,7 +116,7 @@ async def owe_in_session(
 
     mails: list[OwedMail] = []
     for notice in notices:
-        data = FLGrantData.model_validate(notice.data)
+        data = notice.data
         recipients = {address: "named" for address in _named_recipients(data)} | holders
         mails.extend(
             OwedMail(

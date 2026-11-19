@@ -1,12 +1,12 @@
 // @vitest-environment jsdom
-import { Table } from "@/kit/Table";
-import { serveBackend } from "@/test-support/backend";
-import { doubleNextRequest } from "@/test-support/nextRequest";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { COPY } from "@/core/copy";
+import { Table } from "@/kit/Table";
 import { NOT_FOUND_METADATA } from "@/shared/utils/notFoundMetadata";
+import { serveBackend } from "@/test-support/backend";
+import { doubleNextRequest } from "@/test-support/nextRequest";
 
 import type { FLSaisonFrameResponse, FLSpielerPublic, FLTeamPageResponse } from "@/core/generated/client/types";
 import type { FoldedCard } from "@/kit/ReadFolds";

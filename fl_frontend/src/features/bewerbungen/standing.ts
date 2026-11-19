@@ -1,13 +1,12 @@
-import { DECLINED_CHIP } from "@/kit/stateChips";
-
 import { COPY } from "@/core/copy";
-import { FLKontaktRolle } from "@/core/generated/client/types";
+import { FLKontaktSeat } from "@/core/generated/client/types";
+import { DECLINED_CHIP } from "@/kit/stateChips";
 
 import type { FLBewerbungStatus } from "@/core/generated/client/types";
 import type { ChipProps } from "@/kit/Chip";
 
 /** Every application holds these three seats, so „2 von 3“ counts against them. */
-export const SEATS = Object.values(FLKontaktRolle).length;
+export const SEATS = Object.values(FLKontaktSeat).length;
 
 /** Where an application stands: its decision, or while it has none whether every seat has confirmed. */
 export type Standing = "incomplete" | "complete" | "accepted" | "declined";

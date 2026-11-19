@@ -1,23 +1,19 @@
-import { serveBackend } from "@/test-support/backend";
-import { doubleNextRequest } from "@/test-support/nextRequest";
-import { posted } from "@/test-support/posted";
 import { describe, expect, it } from "vitest";
 
 import { SCHIEDSRICHTER_TEXT_VERSIONS } from "@/core/consentWordings";
+import { serveBackend } from "@/test-support/backend";
+import { doubleNextRequest } from "@/test-support/nextRequest";
+import { posted } from "@/test-support/posted";
 
 import { END } from "./ends";
 
-import type { FLSchiedsrichterConfirmationResponse } from "@/core/generated/client/types";
-
-// The two writes an answer makes, each answered as the backend does; any other request goes unanswered and fails its
-// case.
-const backend = serveBackend(({ method, path }) => {
-  if (method !== "POST") return undefined;
-  if (path === "/schiedsrichter/confirmation") {
-    return { confirmed_at: "2026-11-13", media: false, scope: "internal" } satisfies FLSchiedsrichterConfirmationResponse;
-  }
-  return path === "/schiedsrichter/confirmation/decline" ? new Response(null, { status: 204 }) : undefined;
-});
+// The two writes an answer makes, each answered with the empty body the backend sends; any other request goes
+// unanswered and fails its case.
+const backend = serveBackend(({ method, path }) =>
+  method === "POST" && (path === "/schiedsrichter/confirmation" || path === "/schiedsrichter/confirmation/decline")
+    ? new Response(null, { status: 204 })
+    : undefined,
+);
 doubleNextRequest();
 
 const { answerSchiedsrichter } = await import("./answerSchiedsrichter");

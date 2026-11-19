@@ -175,7 +175,7 @@ class TestRecordingAnExitFromTheSeason:
         assert after == before, "a refused write changed the row"
 
 
-class TestMovingAClubBetweenGroups:
+class TestMovingATeamBetweenGroups:
     @pytest.mark.parametrize("side", ["team1", "team2"])
     async def test_a_started_season_with_a_spiel_drawn_refuses_it_and_writes_nothing(self, mongo_replica_set_url: str, side: str):
         """`entry_gruppe_locked`'s move lock through the route: the group phase is a round robin, so a move after the draw strands it."""

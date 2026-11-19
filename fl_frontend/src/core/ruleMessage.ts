@@ -50,7 +50,6 @@ const PATTERNED = {
   decline_without_reason: () => field.required,
   email_not_accepted: () => field.format(field.exampleAddress),
   url_not_accepted: () => field.format(field.exampleUrl),
-  address_in_free_text: () => field.without(COPY.signIn.address),
   // A no-show's report carries no play: the league composes its goals, and nobody scored them.
   nichtantreten_with_scorers: () => field.without(COPY.admin.spiel.scorers),
   // The registration closes before the season starts; `latest` is the day before its start.
@@ -67,7 +66,6 @@ const PATTERNED = {
   rules_gruppen_in_use: atLeast,
   rules_capacity_below_use: atLeast,
   rules_kader_below_use: atLeast,
-  rules_qualifiers_below_wiring: atLeast,
   // One mapping for both dates, the span the dated matchdays need, named on each side that falls short: the start no
   // later than the first matchday's start, the end no earlier than the last one's end.
   saison_span_below_spieltage: ({ start, end }: Context, [side]: Path) =>

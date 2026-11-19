@@ -20,11 +20,12 @@ from app.core.crud import post_one_to_db
 from app.core.logging import trace_id_var
 
 # Stands where an erased person's address stood in a record or a log row: fixed, so it singles nobody out. No `@`, so
-# no address equals it.
-ERASED_ACTOR_MARKER = "ERASED"
+# no address equals it. Published, since the Protokoll words it and its „Wer“ filter sends it back.
+type FLErasedActorMarker = Literal["ERASED"]
+ERASED_ACTOR_MARKER: Final[FLErasedActorMarker] = "ERASED"
 
-# The folded address of the administrator this request acts for, set by `bind_actor`, which every admin router depends
-# on. `None` everywhere else, so a route binding no administrator cannot record as one.
+# The folded address of the administrator this request acts for, bound on every admin route. `None` everywhere else, so
+# a route binding no administrator cannot record as one.
 actor_var: ContextVar[str | None] = ContextVar("actor", default=None)
 
 
@@ -54,21 +55,29 @@ type FLAction = Literal[
     "team.reactivated",
     "team.austritt_entered",
     "team.seat_changed",
+    "team.seat_objected",
+    "team.seat_einwilligung_withdrawn",
     "team.replaced",
     "team.invitation_created",
     "team.invitation_withdrawn",
     "bewerbung.accepted",
     "bewerbung.declined",
     "bewerbung.seat_changed",
+    "bewerbung.seat_objected",
+    "bewerbung.seat_einwilligung_withdrawn",
     "registrierung.admitted",
     "registrierung.declined",
+    "registrierung.einwilligung_withdrawn",
     "spieler.changed",
     "spieler.deregistered",
     "spieler.reactivated",
+    "spieler.einwilligung_withdrawn",
     "schiedsrichter.created",
     "schiedsrichter.changed",
     "schiedsrichter.retired",
     "schiedsrichter.reactivated",
+    "schiedsrichter.objected",
+    "schiedsrichter.einwilligung_withdrawn",
     "spielort.created",
     "spielort.changed",
     "spielort.retired",
@@ -119,11 +128,13 @@ type FLActionType = Literal[
     "retention",
 ]
 
-# Who a row names where no administrator acted, none of them anybody's name or address.
-ACT_BY_KONTAKT: Final = "kontakt"
-ACT_BY_SCHIEDSRICHTER: Final = "schiedsrichter"
-ACT_BY_SYSTEM: Final = "system"
-ACT_BY_PERSON: Final = "person"
+# Who a row names where no administrator acted, none of them anybody's name or address. Published, since the Protokoll
+# words each; `by` itself stays a string, an administrator's address being the other thing it holds.
+type FLActorRole = Literal["kontakt", "schiedsrichter", "system", "person"]
+ACT_BY_KONTAKT: Final[FLActorRole] = "kontakt"
+ACT_BY_SCHIEDSRICHTER: Final[FLActorRole] = "schiedsrichter"
+ACT_BY_SYSTEM: Final[FLActorRole] = "system"
+ACT_BY_PERSON: Final[FLActorRole] = "person"
 
 
 async def record_act(

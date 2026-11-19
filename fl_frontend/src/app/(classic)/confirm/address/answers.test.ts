@@ -1,6 +1,7 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
 import { serveBackend } from "@/test-support/backend";
 import { signedInRequest } from "@/test-support/session";
-import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { LINK_INVALID } from "./ends";
 
@@ -29,7 +30,7 @@ const backend = serveBackend(async ({ method, path, body }) => {
   if (method === "POST" && path === "/address_change/sweep/moves/done") {
     const { ids } = body as { ids: string[] };
     held.owed = held.owed.filter(({ id }) => !ids.includes(id));
-    return { reported: ids.length };
+    return new Response(null, { status: 204 });
   }
   return undefined;
 });

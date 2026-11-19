@@ -1,5 +1,3 @@
-import { ListPage } from "@/kit/ListPage";
-
 import { COPY } from "@/core/copy";
 import { dayOf, formatDate, formatNumber } from "@/core/format";
 import { ROUTES } from "@/core/routes";
@@ -8,6 +6,7 @@ import { nextSaisonOf } from "@/features/saisons/nextSaison";
 import { getAdminSaisons } from "@/features/saisons/queries";
 import { CREATE_REQUIRED } from "@/features/saisons/required";
 import { saisonChipOf } from "@/features/saisons/saisonState";
+import { ListPage } from "@/kit/ListPage";
 import { pageMetadata } from "@/shared/utils/metadata";
 
 import { CreateFields } from "./CreateFields";

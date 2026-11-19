@@ -1,12 +1,11 @@
 "use client";
 
+import { COPY } from "@/core/copy";
 import { EditorPage } from "@/kit/EditorPage";
 import { Facts } from "@/kit/Facts";
 import { SectionAct } from "@/kit/SectionAct";
 import { TextField } from "@/kit/TextField";
 import { useEditor } from "@/kit/useEditor";
-
-import { COPY } from "@/core/copy";
 
 import type { ActionAnswer } from "@/core/action";
 import type { Copy } from "@/core/copy";

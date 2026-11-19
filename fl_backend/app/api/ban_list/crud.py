@@ -4,7 +4,7 @@ from typing import Any
 from pymongo import DESCENDING
 from pymongo.asynchronous.client_session import AsyncClientSession
 
-from app.core.crud import aggregate_many_from_db, pull_many_from_db
+from app.core.crud import pull_many_from_db, pull_whole_from_db
 from app.core.readonly import ReadCollection
 from app.shared.folding import sign_in_identifier
 
@@ -21,9 +21,12 @@ async def read_ban_list(*, ban_list_collection: ReadCollection) -> list[Mapping[
     not at all.
     """
 
-    return await aggregate_many_from_db(
+    return await pull_whole_from_db(
         collection=ban_list_collection,
-        pipeline=[{"$sort": {"created_at": DESCENDING, "_id": DESCENDING}}, {"$project": dict(SERVED_FIELDS)}],
+        db_filter={},
+        what="the ban list",
+        sort_by=[("created_at", DESCENDING), ("_id", DESCENDING)],
+        projection=dict(SERVED_FIELDS),
     )
 
 
@@ -33,21 +36,13 @@ async def address_is_barred(
     address: str,
     session: AsyncClientSession | None = None,
 ) -> bool:
-    """Whether a ban holds this address, `uniq_ban_list_address` serving the equality.
+    """Whether a ban holds this address, asked of the one reader that folds it.
 
     A row's presence is the whole answer: the activation that runs past a ban removes it in the
     transaction moving the season.
     """
 
-    found = await pull_many_from_db(
-        collection=ban_list_collection,
-        db_filter={"address": sign_in_identifier(address)},
-        limit=1,
-        projection=["_id"],
-        session=session,
-    )
-
-    return bool(found)
+    return bool(await read_barred_addresses([address], ban_list_collection=ban_list_collection, session=session))
 
 
 async def read_barred_addresses(
@@ -56,7 +51,10 @@ async def read_barred_addresses(
     ban_list_collection: ReadCollection,
     session: AsyncClientSession | None = None,
 ) -> set[str]:
-    """Which of these addresses a ban holds, each answered in the spelling it was asked in, in one read."""
+    """Which of these addresses a ban holds, each answered in the spelling it was asked in, in one read.
+
+    Folded here alone, so no reader asks a ban by a spelling it was not stored in; `uniq_ban_list_address` serves the `$in`.
+    """
 
     folded = {address: sign_in_identifier(address) for address in set(addresses)}
     if not folded:

@@ -1,7 +1,8 @@
 import path from "node:path";
 
-import { filesUnder } from "@/test-support/treeWalk";
 import { describe, expect, it } from "vitest";
+
+import { filesUnder } from "@/test-support/treeWalk";
 
 import { ROUTES } from "./routes";
 
@@ -61,59 +62,59 @@ const FACTS: { [A in OutboxKind]: Member<OutboxData, A> } = {
     team_id: "6890a1b2c3d4e5f607250011",
   },
   spiel_einteilung: { kind: "spiel_einteilung", ansetzung: ANSETZUNG, moved_from: null },
-  spiel_moved: { kind: "spiel_moved", appointment: APPOINTMENT, moved_to: null, stays: false, asked_again: false, recipient: "team" },
+  spiel_moved: { kind: "spiel_moved", appointment: APPOINTMENT, moved_to: null, stays: false, recipient: "team" },
   spiel_cancelled: { kind: "spiel_cancelled", appointment: APPOINTMENT, recipient: "team", sonderereignis: "ausgefallen" },
   spiel_einteilung_lifted: { kind: "spiel_einteilung_lifted", appointment: APPOINTMENT },
   spiel_vorschlag_discarded: { kind: "spiel_vorschlag_discarded", appointment: APPOINTMENT },
   aufstellung_reminder: {
     kind: "aufstellung_reminder",
-    appointment: ANSETZUNG,
+    ansetzung: ANSETZUNG,
     due_at: "2026-10-23T14:00:00Z",
     saison_id: "2627",
     team: "Ahorn",
     team_id: "6890a1b2c3d4e5f607250011",
   },
   austritt_notice: { kind: "austritt_notice", saison_id: "2627", team: "Ahorn", spiele: [{ ...APPOINTMENT }] },
-  registrierung_confirmation: { kind: "registrierung_confirmation", saison_id: "2627", team: "Goethe-Gymnasium" },
+  registrierung_confirmation: { kind: "registrierung_confirmation", saison_id: "2627", team: "Goethe-Gymnasium", deadline: "2026-10-17" },
   registrierung_absage: { kind: "registrierung_absage", saison_id: "2627", team: "Goethe-Gymnasium", reason: null },
   invitation: { kind: "invitation", saison_id: "2627", team: "Goethe-Gymnasium" },
   bewerbung_received: {
     kind: "bewerbung_received",
     deadline: "2026-10-17",
     pending: ["stellvertretung"],
-    rollen: ["trainer"],
+    seats: ["trainer"],
     saison_id: "2627",
   },
   bewerbung_confirmation: {
     kind: "bewerbung_confirmation",
     deadline: "2026-10-17",
-    rollen: ["trainer"],
+    seats: ["trainer"],
     saison_id: "2627",
     schule: "Lessing-Kolleg",
   },
-  bewerbung_reminder: { kind: "bewerbung_reminder", deadline: "2026-10-17", rollen: ["trainer"], saison_id: "2627", schule: "Lessing-Kolleg" },
+  bewerbung_reminder: { kind: "bewerbung_reminder", deadline: "2026-10-17", seats: ["trainer"], saison_id: "2627", schule: "Lessing-Kolleg" },
   bewerbung_zusage: {
     kind: "bewerbung_zusage",
     gruppe: "A",
-    rollen: ["trainer"],
+    seats: ["trainer"],
     saison_id: "2627",
     shorthand: "LES",
     team: "Lessing",
     trikot_farbe: null,
   },
-  bewerbung_absage: { kind: "bewerbung_absage", reason: "Zu spät", rollen: ["trainer"], saison_id: "2627", team: "Lessing" },
+  bewerbung_absage: { kind: "bewerbung_absage", reason: "Zu spät", seats: ["trainer"], saison_id: "2627", team: "Lessing" },
   deletion_notice: { kind: "deletion_notice", saison_id: null },
   bewerbung_objection: {
     kind: "bewerbung_objection",
     deadline: "2026-10-17",
     declined: ["stellvertretung"],
-    rollen: ["trainer"],
+    seats: ["trainer"],
     saison_id: "2627",
   },
   kontakt_confirmation: {
     kind: "kontakt_confirmation",
     deadline: "2026-10-17",
-    rollen: ["ansprechperson"],
+    seats: ["ansprechperson"],
     row: "open",
     saison_id: "2627",
     schule: "Lessing-Kolleg",

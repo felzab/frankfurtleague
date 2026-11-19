@@ -1,12 +1,12 @@
 // @vitest-environment jsdom
 import { Activity, useState } from "react";
 
-import { renderUnderNext } from "@/test-support/nextContexts";
 import { act, getDefaultNormalizer, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
+import { renderUnderNext } from "@/test-support/nextContexts";
 
 import { Button } from "./Button";
 import { ConfirmDialog } from "./ConfirmDialog";

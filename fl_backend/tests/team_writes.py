@@ -15,7 +15,7 @@ from app.core.collections import Collection
 from app.core.crud import pull_one_from_db
 from app.core.transactions import transaction_session
 
-CLUB_FIELDS = ("name", "shorthand", "description", "full_name", "schulform", "website_url", "address")
+TEAM_FIELDS = ("name", "shorthand", "description", "full_name", "schulform", "website_url", "address")
 
 
 async def save_the_team(
@@ -28,14 +28,14 @@ async def save_the_team(
     saisons_collection: Any = None,
     **changes: Any,
 ) -> Any:
-    """`PATCH .../admin` on the club and its row as stored, with `changes` over them, on the count the editor would hold."""
+    """The editor's save on the club and its row as stored, with `changes` over them, on the count the editor would hold."""
 
     team = await database[Collection.TEAMS].find_one({"_id": team_id})
     row = await database[Collection.SAISON_TEAMS].find_one({"team_id": team_id, "saison_id": saison_id})
     assert team is not None and row is not None, "the seed holds no club or no row to save"
 
     body = {
-        **{field: team[field] for field in CLUB_FIELDS},
+        **{field: team[field] for field in TEAM_FIELDS},
         "gruppe": row["gruppe"],
         "trikot_farbe": row.get("trikot_farbe"),
         "version": team.get("version", 0) + row.get("version", 0),
@@ -80,9 +80,12 @@ async def write_the_block(
     germany_now: datetime,
     saison_teams_collection: Any = None,
 ) -> BlockWritten:
-    """What `put_kontakt_seat` stores, for a block it composes: several seats moving at once are the writer's own cases."""
+    """What `put_kontakt_seat` stores, for a block placed whole, several seats at once as no route sends them.
 
-    proposed = {slot: seat_sent(seat, today=today) if isinstance(seat, Mapping) else seat for slot, seat in block.items()}
+    A seed or a rival write beside what a case is about; a case about what a seat's write does drives `put_kontakt_seat`.
+    """
+
+    proposed = {seat: seat_sent(person, today=today) if isinstance(person, Mapping) else person for seat, person in block.items()}
     rows = database[Collection.SAISON_TEAMS] if saison_teams_collection is None else saison_teams_collection
     nonce = secrets.token_hex(8)
 

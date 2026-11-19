@@ -8,7 +8,7 @@ Invariants:
 """
 
 from collections.abc import Callable, Iterator
-from typing import Any
+from typing import Any, cast
 
 from fastapi import FastAPI
 from fastapi.dependencies.models import Dependant
@@ -38,10 +38,10 @@ def dependency_calls(dependant: Dependant) -> Iterator[Callable[..., Any]]:
 
 
 def api_routes(app: FastAPI) -> Iterator[APIRoute]:
-    """Every route the application serves, nested includes opened.
+    """Every route the application serves, nested includes opened, as it is served: its path under the prefix it was included with.
 
-    Read and never edited: each is the object its module-level router holds, which every `create_app`
-    in a process shares.
+    Read and never edited: each wraps the route its module-level router holds, which every `create_app`
+    in a process shares, and whose own path lacks that prefix.
     """
 
     for context in iter_route_contexts(app.routes):
@@ -50,4 +50,6 @@ def api_routes(app: FastAPI) -> Iterator[APIRoute]:
         if isinstance(context.original_route, (Mount, Host)):
             raise AssertionError(f"{context.original_route!r} mounts routes no sweep reading `api_routes` sees")
         if isinstance(context.original_route, APIRoute):
-            yield context.original_route
+            # Read as an API route: the context answers every attribute from the route as served, and types a path
+            # optional only because a context can wrap a route of any kind.
+            yield cast(APIRoute, context)

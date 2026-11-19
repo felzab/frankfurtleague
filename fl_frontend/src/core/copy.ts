@@ -18,7 +18,7 @@ import type {
   FLActionLogPageSize,
   FLAddressChangeWaitsOn,
   FLCardColour,
-  FLKontaktRolle,
+  FLKontaktSeat,
   FLSchulform,
   FLSonderereignis,
   FLSpielerRolle,
@@ -28,21 +28,21 @@ import type {
 
 declare const copyBrand: unique symbol;
 
-/** Each seat's name in a sentence to the public, in the order `rollenText` joins them, and a seat's box's title. */
-const KONTAKT_ROLLE_LONG_FORM = {
+/** Each seat's name in a sentence to the public, in the order `seatsText` joins them, and a seat's box's title. */
+const KONTAKT_SEAT_LONG_FORM = {
   ansprechperson: "Ansprechperson",
   stellvertretung: "Stellvertretung",
   trainer: "Trainerin oder Trainer",
-} as const satisfies Record<FLKontaktRolle, string>;
+} as const satisfies Record<FLKontaktSeat, string>;
 
 /**
  * The seats one reader holds, as the phrase a page or a mail addresses them by. In the table's order rather than the
  * argument's: a person holding two seats reads one phrase whichever record the seats were collected from.
  */
-export function rollenText(rollen: readonly FLKontaktRolle[]): string {
-  const order = Object.keys(KONTAKT_ROLLE_LONG_FORM) as FLKontaktRolle[];
+export function seatsText(seats: readonly FLKontaktSeat[]): string {
+  const order = Object.keys(KONTAKT_SEAT_LONG_FORM) as FLKontaktSeat[];
 
-  return formatList(order.filter((rolle) => rollen.includes(rolle)).map((rolle) => KONTAKT_ROLLE_LONG_FORM[rolle]));
+  return formatList(order.filter((seat) => seats.includes(seat)).map((seat) => KONTAKT_SEAT_LONG_FORM[seat]));
 }
 
 /**
@@ -180,6 +180,8 @@ const LOCK = {
   departed: "seit dem Ausscheiden",
   /** The person confirmed their entry, which fixes the address their sign-in is keyed to: only an address change moves it. */
   confirmed: "seit der Bestätigung",
+  /** The season has finished, which fixes a player's squad row: the number, position, level and role, and the row's place in the squad. */
+  sinceEnd: "seit Saisonende",
 } as const;
 
 /** Why some of an editor's fields stand locked, which its lock line says once however many it holds. */
@@ -212,8 +214,6 @@ const VALID_UNTIL = "Gültig bis";
 const ENTERED_ON = "Eingetragen am";
 // The day a grant took effect, a column's head, a fact's label and a row's line alike.
 const SINCE = "Seit";
-// The day an application or a registration came in, a column's head, a fact's label and a row's line alike.
-const RECEIVED = "Eingegangen";
 // A move's new slot, a fact's label, a column's head and a row's line alike.
 const AFTER = "Neu";
 // A person's own deletion: the action log's word for it, and the done page's.
@@ -222,6 +222,11 @@ const ACCOUNT_ERASED = "Konto gelöscht";
 const DELETED = "Gelöscht";
 // One word for every retention pass, its noun saying what it took.
 const DELETED_BY_PASS = "Nach Frist gelöscht";
+// One word for every person's objection through their own link, a seat's and a referee's alike: the act's question was
+// „Eintrag widersprechen?“.
+const ENTRY_OBJECTED = "Eintrag widersprochen";
+// One word for every withdrawal an administrator entered from a person's mail, on any kind of record.
+const WITHDRAWAL_ENTERED = "Widerruf eingetragen";
 
 /**
  * A wait a sentence states, in the unit its bound is published in. Each figure is a literal, so a bound that moves fails
@@ -572,7 +577,7 @@ export const COPY = catalogue({
   team: {
     kontakte: KONTAKTPERSONEN,
     /** Each seat's long form, where it is a box's title or a choice of its own. */
-    seatName: KONTAKT_ROLLE_LONG_FORM,
+    seatName: KONTAKT_SEAT_LONG_FORM,
     /** The object of „Sitz bearbeiten“. */
     seat: "Sitz",
     fullName: "Vollständiger Name",
@@ -877,7 +882,7 @@ export const COPY = catalogue({
      * there in the seats' order; a pupil's and a referee's by `shared`'s nouns, the administration's by its role.
      */
     role: {
-      seats: (saison: Copy, rollen: readonly FLKontaktRolle[]) => `${saison} · ${rollenText(rollen)}`,
+      seats: (saison: Copy, seats: readonly FLKontaktSeat[]) => `${saison} · ${seatsText(seats)}`,
     },
     /**
      * Each record an address holds, as Deine Einträge boxes it: titled by what the record is, a team's seats by the
@@ -892,12 +897,14 @@ export const COPY = catalogue({
         registrierung: "Deine Registrierung als Spielerin oder Spieler und was davon öffentlich ist.",
         schiedsrichter: "Dein Eintrag als Schiedsrichterin oder Schiedsrichter und was davon öffentlich ist.",
         /** A seat on a team's season and a seat in an application alike, by the seats held, in the seats' order. */
-        seat: (rollen: readonly FLKontaktRolle[]) => `Dein Eintrag ${boundBy("als", rollenText(rollen))} und wie wir dich erreichen.`,
+        seat: (seats: readonly FLKontaktSeat[]) => `Dein Eintrag ${boundBy("als", seatsText(seats))} und wie wir dich erreichen.`,
       },
       /** Under the media box of a person short of its floor, and a seat's field description on the form, by the seat's floor. */
       mediaFrom: (age: number) => `Erst ${boundBy("ab", formatNumber(age), "Jahren")}`,
       /** A seat's or a registration's team season: „Birkenschule, Saison 2027“. */
       teamSeason,
+      /** A seat entry's fact where its seats store the person typed two ways, by the seats holding this one: „Telefon als Ansprechperson“. */
+      seatFact: (label: Copy, seats: readonly FLKontaktSeat[]) => `${label} ${boundBy("als", seatsText(seats))}`,
       /**
        * The labels the deletion's list names an address's records by, each the person's part in the record: one row per
        * label, holding the records it names.
@@ -905,7 +912,7 @@ export const COPY = catalogue({
       spieler: "Als Spielerin oder Spieler",
       schiedsrichter: "Als Schiedsrichterin oder Schiedsrichter",
       /** The seats a contact person holds on one row, as one phrase in the seats' order: „Als Ansprechperson und Trainerin oder Trainer“. */
-      seats: (rollen: readonly FLKontaktRolle[]) => boundBy("Als", rollenText(rollen)),
+      seats: (seats: readonly FLKontaktSeat[]) => boundBy("Als", seatsText(seats)),
       /** An application not yet decided, by the season it applies for. */
       bewerbung: (saison: Copy) => `Bewerbung ${boundBy("für", "die", saison)}`,
       /** A pupil's registration, by its team where the team still stands. */
@@ -933,7 +940,7 @@ export const COPY = catalogue({
     /** A team's pages, which any of its contact seats reads. */
     team: {
       /** The account row's second line in a team's frame: the club's Kürzel and the seats the person holds there. */
-      accountLine: (shorthand: Words, rollen: readonly FLKontaktRolle[]) => `${textOf(shorthand)} · ${rollenText(rollen)}`,
+      accountLine: (shorthand: Words, seats: readonly FLKontaktSeat[]) => `${textOf(shorthand)} · ${seatsText(seats)}`,
       /**
        * What the league decides: the decline dialog's one sentence, a proposal moving nothing until the league saves a
        * date; and the last part of an expired date's line on the Übersicht, which takes no answer past its deadline. A
@@ -1099,10 +1106,12 @@ export const COPY = catalogue({
      * the match editor's line says the same lock above them.
      */
     untilStart: `Gesperrt ${LOCK.untilStart}`,
+    /** Why a finished season's player editor offers no removal or return of the squad row, in the lock line's own words. */
+    sinceEnd: `Gesperrt ${LOCK.sinceEnd}`,
     /** „2 von 3“, a figure under its column's or its fact's name, where `SERVER_COPY.overview.seatsConfirmed` is a whole line. */
     seatsOf: (confirmed: number, seats: number) => `${formatNumber(confirmed)} ${boundBy("von", formatNumber(seats))}`,
     /** A seat row's one muted line: the seats held, the address, and where the answer stands. An emptied seat holds no address, an erased one no day. */
-    seatLine: (rollen: readonly FLKontaktRolle[], address: string | null, day: Copy | null) => lineOf([rollenText(rollen), address, day]),
+    seatLine: (seats: readonly FLKontaktSeat[], address: string | null, day: Copy | null) => lineOf([seatsText(seats), address, day]),
     /** The name's place on an emptied seat. */
     seatEmpty: "Niemand",
     /** The description of a free text a mail hands to people it may not concern. */
@@ -1151,8 +1160,8 @@ export const COPY = catalogue({
       kontaktData: "Kontaktdaten",
       confirmation: "Bestätigung",
       /**
-       * The fact saying where the referee's confirmation stands, one of the three lines below or, while it is still
-       * awaited, `COPY.admin.spiel.answerBy`.
+       * The fact saying where the referee's confirmation stands, `confirmedOn` or `expiredOn` below or, while it is
+       * still awaited, `COPY.admin.spiel.answerBy`; `objectedOn` is a contact seat's, an objection erasing a referee.
        */
       state: "Stand",
       /** Beside the act that mailed a fresh link, and the save whose corrected address did: the address it went to. */
@@ -1217,8 +1226,6 @@ export const COPY = catalogue({
       stufen: "Stufen",
       /** Each school level by its short name, as a squad row and the season's choice of them print it. */
       stufe: { E1: "E1", E2: "E2", Q1: "Q1", Q2: "Q2", Q3: "Q3", Q4: "Q4" } satisfies Record<FLSpielerStufe, string>,
-      /** The fixture list these counts would draw is longer than one read lists, which every season page reads it in. */
-      tooManySpiele: "Aus diesen Zahlen entstehen zu viele Spiele.",
       /** The registration link paused: the window stands, and a link opens nothing until the box is cleared. */
       registrierungPaused: "Registrierung pausiert",
       /** A running season storing no registration window: a link opens nothing until the season's editor stores one. */
@@ -1381,9 +1388,7 @@ export const COPY = catalogue({
     bewerbung: {
       search: "Bewerbungen suchen",
       /** The day an application came in: a fact of the list, a card and the review page, and of a registration. */
-      received: RECEIVED,
-      /** A registration's row line on a phone, whose box leaves the „Eingegangen“ column out: „Eingegangen am 12.11.2026“. */
-      receivedOn: (day: CalendarDay) => `${RECEIVED} ${boundBy("am", formatDate(day))}`,
+      received: "Eingegangen",
       /** A row's chip and the status filter's option, by where the application stands. */
       incomplete: "Unvollständig",
       complete: "Vollständig",
@@ -1397,8 +1402,6 @@ export const COPY = catalogue({
       newSchool: "Neue Schule",
       /** A colour's description in the acceptance, by its `trikotFarbeName`. */
       wish: (farbe: string) => `Wunsch: ${farbe}`,
-      /** Over a list the read's cap cut, which a flooded season reaches. */
-      cut: "Nicht alle Bewerbungen sind geladen.",
       /** The acceptance of a new school, whose address the created team's page then shows. */
       addressPublic: "Die Adresse der Schule steht danach öffentlich auf der Teamseite.",
       /** „E-Mail an“'s value in the acceptance: it waits on every seat's answer, so every seat holds a person to mail. */
@@ -1502,11 +1505,9 @@ export const COPY = catalogue({
       reactivateConsequence: "Die Person steht wieder im Kader.",
     },
 
-    /** The Registrierungen list. */
+    /** A team's Registrierungen list. */
     registrierung: {
       search: "Registrierungen suchen",
-      /** Over a list the read's cap cut, which a link passed around reaches. */
-      cut: "Nicht alle Registrierungen sind geladen.",
     },
 
     /** Administratoren: the grants, what waits among them, and the acts on either. */
@@ -1667,21 +1668,29 @@ export const COPY = catalogue({
         "team.reactivated": "Team reaktiviert",
         "team.austritt_entered": "Austritt eingetragen",
         "team.seat_changed": "Sitz geändert",
+        "team.seat_objected": ENTRY_OBJECTED,
+        "team.seat_einwilligung_withdrawn": WITHDRAWAL_ENTERED,
         "team.replaced": "Team ersetzt",
         "team.invitation_created": "Registrierungslink angelegt",
         "team.invitation_withdrawn": "Registrierungslink zurückgezogen",
         "bewerbung.accepted": "Bewerbung angenommen",
         "bewerbung.declined": "Bewerbung abgelehnt",
         "bewerbung.seat_changed": "Sitz geändert",
+        "bewerbung.seat_objected": ENTRY_OBJECTED,
+        "bewerbung.seat_einwilligung_withdrawn": WITHDRAWAL_ENTERED,
         "spieler.changed": "Spieler geändert",
         "spieler.deregistered": "Spieler ausgetragen",
         "spieler.reactivated": "Spieler reaktiviert",
+        "spieler.einwilligung_withdrawn": WITHDRAWAL_ENTERED,
         "registrierung.admitted": "Spieler aufgenommen",
         "registrierung.declined": "Registrierung abgelehnt",
+        "registrierung.einwilligung_withdrawn": WITHDRAWAL_ENTERED,
         "schiedsrichter.created": "Schiedsrichter angelegt",
         "schiedsrichter.changed": "Schiedsrichter geändert",
         "schiedsrichter.retired": "Schiedsrichter stillgelegt",
         "schiedsrichter.reactivated": "Schiedsrichter reaktiviert",
+        "schiedsrichter.objected": ENTRY_OBJECTED,
+        "schiedsrichter.einwilligung_withdrawn": WITHDRAWAL_ENTERED,
         "spielort.created": "Spielort angelegt",
         "spielort.changed": "Spielort geändert",
         "spielort.retired": "Spielort stillgelegt",

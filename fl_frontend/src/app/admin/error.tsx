@@ -1,10 +1,9 @@
 "use client";
 
-import { RailColumn } from "@/kit/RailFrame";
-import { StatusPage } from "@/kit/StatusPage";
-
 import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
+import { RailColumn } from "@/kit/RailFrame";
+import { StatusPage } from "@/kit/StatusPage";
 import { useReportClientCrash } from "@/shared/hooks/useReportClientCrash";
 
 /**

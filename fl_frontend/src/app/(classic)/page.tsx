@@ -1,5 +1,12 @@
 import { connection } from "next/server";
 
+import { CONFIRMATION_DEADLINE_DAYS } from "@/core/bounds";
+import { INSTAGRAM_URL, KONTAKT_MAILTO, THREADS_URL } from "@/core/brand";
+import { COPY } from "@/core/copy";
+import { dayOf, formatNumber } from "@/core/format";
+import { JOIN_SECTION, ROUTES } from "@/core/routes";
+import { SERVER_COPY } from "@/core/serverCopy";
+import { ORGANISERS, SPONSORS } from "@/features/meta/constants";
 import { Doors } from "@/kit/Doors";
 import { EmptyBox } from "@/kit/EmptyState";
 import { InfoCards } from "@/kit/InfoCards";
@@ -13,14 +20,6 @@ import { StatTiles } from "@/kit/StatTiles";
 import { Steps } from "@/kit/Steps";
 import { StepsLine } from "@/kit/StepsLine";
 import { SchoolTiles, SponsorTiles } from "@/kit/TileGrid";
-
-import { INSTAGRAM_URL, KONTAKT_MAILTO, THREADS_URL } from "@/core/brand";
-import { COPY } from "@/core/copy";
-import { dayOf, formatNumber } from "@/core/format";
-import { JOIN_SECTION, ROUTES } from "@/core/routes";
-import { SERVER_COPY } from "@/core/serverCopy";
-import { BEWERBUNG_CONFIRMATION_DEADLINE_DAYS } from "@/features/bewerbungen/constants";
-import { ORGANISERS, SPONSORS } from "@/features/meta/constants";
 import { pageMetadata } from "@/shared/utils/metadata";
 
 import { readLanding, stateOf } from "./landing";
@@ -197,7 +196,7 @@ function sectionsOf(read: Promise<FLLandingResponse>): ReactNode {
         <Steps
           items={[
             words.join.apply,
-            { title: words.join.confirm.title, text: words.join.confirm.text(BEWERBUNG_CONFIRMATION_DEADLINE_DAYS) },
+            { title: words.join.confirm.title, text: words.join.confirm.text(CONFIRMATION_DEADLINE_DAYS) },
             words.join.decision,
             words.join.register,
           ]}

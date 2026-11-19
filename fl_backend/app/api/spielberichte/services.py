@@ -5,7 +5,6 @@ from typing import Any, Final, Literal, NamedTuple, TypeIs, get_args
 
 from bson import ObjectId
 
-from app.api.bewerbungen.services import season_has_ended
 from app.api.spielberichte.schemas import (
     FLSpielberichtBericht,
     FLSpielberichtBerichtPayload,
@@ -15,13 +14,13 @@ from app.api.spielberichte.schemas import (
     FLSpielberichtVorschlag,
 )
 from app.api.spielbestaetigungen.services import exit_ends_the_booking
-from app.api.spiele.schemas import SONDEREREIGNIS_NO_SHOW, SONDEREREIGNIS_WITHOUT_A_RESULT, FLSpielElfmeterschiessen
+from app.api.spiele.schemas import SONDEREREIGNIS_NO_SHOW, SONDEREREIGNIS_WITHOUT_A_RESULT, FLSpielElfmeterschiessen, is_played, team_id_of
 from app.api.spieler.services import PUBLIC_PERSON
-from app.api.teams.services import is_played
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.crud import VERSION_FIELD, refuse
-from app.core.exceptions import WriteRefusal
+from app.core.exceptions import APIError
+from app.shared.saison import season_has_ended
 from app.shared.schemas.literals import FLSpielSide
 
 SIDES: Final[tuple[FLSpielSide, ...]] = ("team1", "team2")
@@ -41,7 +40,7 @@ SPIEL_FIELDS: Final[Mapping[str, int]] = {
     "ergebnis": 1,
     "elfmeterschiessen": 1,
     # The ground the form's lead names, never its rent.
-    **dict.fromkeys(("spielort.spielort_id", "spielort.name", "spielort.maps_link"), 1),
+    **dict.fromkeys(("spielort.spielort_id", "spielort.name", "spielort.maps_query"), 1),
 }
 
 
@@ -125,12 +124,6 @@ def build_state_pipeline(*, saison_id: str) -> list[Mapping[str, Any]]:
     ]
 
 
-def team_id_of(spiel_raw: Mapping[str, Any], side: FLSpielSide) -> ObjectId | None:
-    team_field = spiel_raw.get(side)
-
-    return None if team_field is None else team_field["team_id"]
-
-
 def sides_of(spiel_raw: Mapping[str, Any]) -> dict[FLSpielSide, ObjectId | None]:
     """The clubs the fixture fields now, as a report's `sides` stores them."""
 
@@ -188,7 +181,7 @@ def newly_named(
     return {side: ids - stored[side] for side, ids in named_ids_of(payload).items()}
 
 
-def find_not_refereed_refusal(*, spiel_raw: Mapping[str, Any], schiedsrichter_ids: Iterable[ObjectId]) -> WriteRefusal | None:
+def find_not_refereed_refusal(*, spiel_raw: Mapping[str, Any], schiedsrichter_ids: Iterable[ObjectId]) -> APIError | None:
     """`bericht_not_officiated`: the report is the booked referee's, and an empty slot or one naming nobody books nobody to write it.
 
     Nor does a fixture a club's exit ends (`exit_ends_the_booking`), whose referee the pass told they no longer referee it.
@@ -198,68 +191,38 @@ def find_not_refereed_refusal(*, spiel_raw: Mapping[str, Any], schiedsrichter_id
     if booked is not None and booked in set(schiedsrichter_ids) and not exit_ends_the_booking(spiel_raw):
         return None
 
-    return WriteRefusal(
-        error_code=Code.BERICHT_NOT_OFFICIATED,
-        status=HTTPStatus.FORBIDDEN,
-    )
+    return APIError(HTTPStatus.FORBIDDEN, Code.BERICHT_NOT_OFFICIATED)
 
 
 def is_cancelled(*, sonderereignis: str | None) -> bool:
     return sonderereignis in SONDEREREIGNIS_WITHOUT_A_RESULT
 
 
-def find_not_played_refusal(*, date: str | None, time: str | None, now: datetime) -> WriteRefusal | None:
+def find_not_played_refusal(*, date: str | None, time: str | None, now: datetime) -> APIError | None:
     """`bericht_not_played`: a report follows the kick-off; the kick-off passing, or a date or time corrected, lifts it."""
 
     if is_played(date=date, time=time, now=now):
         return None
 
-    return WriteRefusal(
-        error_code=Code.BERICHT_NOT_PLAYED,
-        status=HTTPStatus.CONFLICT,
-    )
+    return APIError(HTTPStatus.CONFLICT, Code.BERICHT_NOT_PLAYED)
 
 
-def find_cancelled_refusal(*, sonderereignis: str | None) -> WriteRefusal | None:
+def find_cancelled_refusal(*, sonderereignis: str | None) -> APIError | None:
     """`bericht_cancelled`: a fixture called off or struck out took no place to report on."""
 
     if not is_cancelled(sonderereignis=sonderereignis):
         return None
 
-    return WriteRefusal(
-        error_code=Code.BERICHT_CANCELLED,
-        status=HTTPStatus.CONFLICT,
-    )
+    return APIError(HTTPStatus.CONFLICT, Code.BERICHT_CANCELLED)
 
 
-def is_concluded(context: BerichtContext) -> bool:
-    """Whether the fixture's season has ended, after which its referee reads the report and writes it no more."""
-
-    return season_has_ended(saison_status=context.saison_status)
-
-
-def find_saison_ended_refusal(context: BerichtContext) -> WriteRefusal | None:
-    """`saison_past`: the referee writes while the fixture's season runs."""
-
-    if not is_concluded(context):
-        return None
-
-    return WriteRefusal(
-        error_code=Code.SAISON_PAST,
-        status=HTTPStatus.CONFLICT,
-    )
-
-
-def find_elfmeter_in_gruppe_refusal(*, spiel_raw: Mapping[str, Any], payload: FLSpielberichtBerichtPayload) -> WriteRefusal | None:
+def find_elfmeter_in_gruppe_refusal(*, spiel_raw: Mapping[str, Any], payload: FLSpielberichtBerichtPayload) -> APIError | None:
     """`bericht_elfmeter_in_the_gruppe`: a group fixture keeps no shoot-out, so a proposal holding one could never read adopted."""
 
     if spiel_raw["saison_phase"] != "gruppenphase" or payload.ergebnis_vorschlag.elfmeterschiessen is None:
         return None
 
-    return WriteRefusal(
-        error_code=Code.BERICHT_ELFMETER_IN_THE_GRUPPE,
-        status=HTTPStatus.CONFLICT,
-    )
+    return APIError(HTTPStatus.CONFLICT, Code.BERICHT_ELFMETER_IN_THE_GRUPPE)
 
 
 def takes_a_bericht(spiel_raw: Mapping[str, Any], *, now: datetime) -> bool:
@@ -273,10 +236,10 @@ def takes_a_bericht(spiel_raw: Mapping[str, Any], *, now: datetime) -> bool:
 def kader_is_open(context: BerichtContext, *, now: datetime) -> bool:
     """Whether the referee's form serves both squads to pick from: while the fixture takes a report and its season runs."""
 
-    return takes_a_bericht(context.spiel, now=now) and not is_concluded(context)
+    return takes_a_bericht(context.spiel, now=now) and not season_has_ended(saison_status=context.saison_status)
 
 
-def find_not_in_kader_refusal(*, context: BerichtContext, new: Mapping[FLSpielSide, set[ObjectId]]) -> WriteRefusal | None:
+def find_not_in_kader_refusal(*, context: BerichtContext, new: Mapping[FLSpielSide, set[ObjectId]]) -> APIError | None:
     """`spieler_not_in_kader`: a pupil newly named on a side is in that side's live squad of the season.
 
     Naming no entry, unlike the line-up's: the referee's form takes it as a page gone stale, whose reload serves the
@@ -286,10 +249,7 @@ def find_not_in_kader_refusal(*, context: BerichtContext, new: Mapping[FLSpielSi
     for side in SIDES:
         kader = {row["spieler_id"] for row in live_kader(context, side)}
         if not new[side] <= kader:
-            return WriteRefusal(
-                error_code=Code.SPIELER_NOT_IN_KADER,
-                status=HTTPStatus.CONFLICT,
-            )
+            return APIError(HTTPStatus.CONFLICT, Code.SPIELER_NOT_IN_KADER)
 
     return None
 
@@ -301,7 +261,7 @@ def judge_bericht(
     new: Mapping[FLSpielSide, set[ObjectId]],
     now: datetime,
 ) -> None:
-    """Every refusal the report's write asks inside its transaction and again outside it, in order."""
+    """Every refusal the report's write asks inside its transaction, in order."""
 
     refuse(find_not_played_refusal(date=context.spiel.get("date"), time=context.spiel.get("time"), now=now))
     refuse(find_cancelled_refusal(sonderereignis=context.spiel.get("sonderereignis")))

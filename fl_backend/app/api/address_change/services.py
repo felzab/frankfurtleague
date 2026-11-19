@@ -5,15 +5,13 @@ the address when it takes effect. Every instant is stored as a BSON date and com
 carries `$type: "date"`, so a null never compares.
 """
 
-import math
 from collections.abc import Mapping
 from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
 from typing import Any, Final, Literal
 
-from app.core.clock import german_day
 from app.core.codes import Code
-from app.core.exceptions import APIError, WriteRefusal
+from app.core.exceptions import APIError, link_invalid
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.bounds import ADDRESS_CHANGE_VALID_HOURS, ADDRESS_CHANGE_WAITING_PERIOD_DAYS, GRANT_WAIT_HOURS, OWNER_WAIT_DAYS
 from app.shared.schemas.custom import as_utc
@@ -48,8 +46,8 @@ def valid_until_from(now: datetime) -> datetime:
 def wait_tier(grant: Mapping[str, Any] | None) -> FLAdminTier | None:
     """The tier whose wait a change of this grant's address serves, a waiting row's included.
 
-    A row a handover names serves the owner's: its 24 hours would end the wait on the role's mailbox days after the handover
-    made it the owner's, a wait that exists because nobody can take that role back.
+    A row a handover names serves the owner's: its own tier's shorter wait would end days early on a mailbox the handover
+    made the owner's, and the owner's wait exists because nobody can take that role back.
     """
 
     if grant is None:
@@ -88,7 +86,6 @@ def compose_record(
         "way": way,
         "token_hashes": [],
         "stop": {"token_hashes": []},
-        "sent_at": german_day(now),
         "valid_until": valid_until_from(now),
         "released_at": None,
         "confirmed_at": None,
@@ -103,7 +100,7 @@ def compose_link_update(*, now: datetime, released: bool) -> dict[str, Any]:
     The link itself is minted as its mail is handed out, replacing the one before (`owe_the_link_in_session`).
     """
 
-    set_fields: dict[str, Any] = {"valid_until": valid_until_from(now), "sent_at": german_day(now)}
+    set_fields: dict[str, Any] = {"valid_until": valid_until_from(now)}
     if released:
         set_fields["released_at"] = now.astimezone(UTC)
 
@@ -145,12 +142,6 @@ def compose_end_update(*, kind: FLAddressChangeEndKind, now: datetime) -> dict[s
     }
 
 
-def build_live_filter(address_change_id: Any, terms: Mapping[str, Any] | None = None) -> dict[str, Any]:
-    """One live change by its id, matching `terms`. The filter is the judgement: an ended or unknown one is the miss."""
-
-    return {"_id": address_change_id, **LIVE_TERMS, **(terms or {})}
-
-
 def build_address_filter(address: str) -> dict[str, Any]:
     """The live change of one folded address, which `uniq_address_change_address` answers by equality.
 
@@ -172,10 +163,8 @@ def build_incoming_filter(*, email: str, holders: list[str]) -> dict[str, Any]:
     return {**build_addresses_filter(holders), "email": email}
 
 
-def build_resendable_terms() -> dict[str, Any]:
-    """A change waiting on the new mailbox: the person's own awaiting its address on file, or one confirmed, has no link to re-send."""
-
-    return {"$nor": [{"way": "account", "released_at": None}], "confirmed_at": None}
+# A change waiting on the new mailbox: the person's own awaiting its address on file, or one confirmed, has no link to re-send.
+RESENDABLE_TERMS: Final[Mapping[str, Any]] = {"$nor": [{"way": "account", "released_at": None}], "confirmed_at": None}
 
 
 def asks_the_address_on_file(record: Mapping[str, Any]) -> bool:
@@ -271,7 +260,7 @@ def previous_side_email(record: Mapping[str, Any], *, state: FLAddressChangePrev
 def new_state(record: Mapping[str, Any], *, now: datetime, not_confirmable: bool) -> FLAddressChangeNewState:
     """What the new mailbox's link shows, in the order the confirmation judges, so a refused press names what a reload shows.
 
-    The unconfirmable causes read alike here; the press's own codes part them, merged only at the edge.
+    The unconfirmable causes read alike here, as the press answers them with one code.
     """
 
     if record.get("confirmed_at") is not None:
@@ -298,50 +287,34 @@ def masked_address(email: str) -> str:
     return f"{local[:1]}•••@{shortened}"
 
 
-def find_unknown_refusal(*, found: bool) -> WriteRefusal | None:
+def find_unknown_refusal(*, found: bool) -> APIError | None:
     """`link_invalid`: the link matches no change, live or kept, and so answers nothing about one."""
 
-    if found:
-        return None
-
-    return WriteRefusal(error_code=Code.LINK_INVALID, status=HTTPStatus.NOT_FOUND)
+    return None if found else link_invalid()
 
 
-def find_ended_refusal(*, is_open: bool) -> WriteRefusal | None:
+def find_ended_refusal(*, is_open: bool) -> APIError | None:
     """`address_change_ended`: the change this link or id names has ended, or this link was answered already."""
 
     if is_open:
         return None
 
-    return WriteRefusal(
-        error_code=Code.ADDRESS_CHANGE_ENDED,
-        status=HTTPStatus.CONFLICT,
-    )
+    return APIError(HTTPStatus.CONFLICT, Code.ADDRESS_CHANGE_ENDED)
 
 
-def find_expired_refusal(*, expired: bool) -> WriteRefusal | None:
-    """`link_expired`: the step the change waits on lapsed: either link's question."""
+def find_taken_refusal(*, taken: bool) -> APIError | None:
+    """`address_change_taken`: the new address is someone's, and moving the person onto it would join two people's.
 
-    if not expired:
-        return None
-
-    return WriteRefusal(
-        error_code=Code.LINK_EXPIRED,
-        status=HTTPStatus.GONE,
-    )
-
-
-def find_taken_refusal(*, taken: bool) -> WriteRefusal | None:
-    """`address_change_taken`: another pupil signs in on the new address, and one address is one pupil (`uniq_spieler_email`)."""
+    Another pupil signs in on it (one address is one pupil, `uniq_spieler_email`), an entry names it, or, judged at the
+    press alone, it holds a grant (one address holds one grant). One code for all three, so a link's holder learns no
+    more than that, and on no field: the start's dialog has closed before its answer, and the re-send and the press hold
+    no box. Never judged at the person's own start, which would tell its holder which addresses hold records.
+    """
 
     if not taken:
         return None
 
-    return WriteRefusal(
-        error_code=Code.ADDRESS_CHANGE_TAKEN,
-        status=HTTPStatus.CONFLICT,
-        fields=(("email",),),
-    )
+    return APIError(HTTPStatus.CONFLICT, Code.ADDRESS_CHANGE_TAKEN)
 
 
 # One mail every thirty seconds for a person's start, held here rather than at the edge: a server action posts its
@@ -350,7 +323,7 @@ ADDRESS_CHANGE_RESTART_SECONDS: Final = 30
 
 
 def find_restart_refusal(*, live_valid_until: Any, now: datetime) -> APIError | None:
-    """`address_change_started_recently`, a 429 naming the seconds left in `Retry-After`: the live change owed a mail too lately.
+    """`address_change_started_recently`, a 429: the live change owed a mail too lately.
 
     Read off the live change's `valid_until`, which every mail it owes sets `ADDRESS_CHANGE_VALID_HOURS` ahead, so the
     start is held to one mail per interval whichever press owed the last, and nothing beside the record is stored.
@@ -361,14 +334,13 @@ def find_restart_refusal(*, live_valid_until: Any, now: datetime) -> APIError | 
         return None
 
     owed_at = valid_until - timedelta(hours=ADDRESS_CHANGE_VALID_HOURS)
-    left = ADDRESS_CHANGE_RESTART_SECONDS - (now - owed_at).total_seconds()
-    if left <= 0:
+    if (now - owed_at).total_seconds() >= ADDRESS_CHANGE_RESTART_SECONDS:
         return None
 
-    return APIError(HTTPStatus.TOO_MANY_REQUESTS, Code.ADDRESS_CHANGE_STARTED_RECENTLY, headers={"Retry-After": str(math.ceil(left))})
+    return APIError(HTTPStatus.TOO_MANY_REQUESTS, Code.ADDRESS_CHANGE_STARTED_RECENTLY)
 
 
-def find_unchanged_refusal(*, address: str, folded: str) -> WriteRefusal | None:
+def find_unchanged_refusal(*, address: str, folded: str) -> APIError | None:
     """`address_change_unchanged`: the typed address signs in as the one on file, so it would ask a mailbox already proved.
 
     `folded` is the typed address's sign-in identifier, which the caller folds; `address` is one already.
@@ -378,59 +350,13 @@ def find_unchanged_refusal(*, address: str, folded: str) -> WriteRefusal | None:
         return None
 
     # Naming neither address: the message reaches the refusal's log line.
-    return WriteRefusal(
-        error_code=Code.ADDRESS_CHANGE_UNCHANGED,
-        status=HTTPStatus.CONFLICT,
-    )
+    return APIError(HTTPStatus.CONFLICT, Code.ADDRESS_CHANGE_UNCHANGED)
 
 
-def find_nothing_refusal(*, empty: bool) -> WriteRefusal | None:
+def find_nothing_refusal(*, empty: bool) -> APIError | None:
     """`address_change_nothing`: the address holds nothing a change moves, so there is nothing to change."""
 
     if not empty:
         return None
 
-    return WriteRefusal(
-        error_code=Code.ADDRESS_CHANGE_NOTHING,
-        status=HTTPStatus.CONFLICT,
-    )
-
-
-def find_occupied_refusal(*, occupied: bool) -> WriteRefusal | None:
-    """`address_change_occupied`: an entry names the new address, and moving the person onto it would join two people's.
-
-    Never judged at the person's own start, which would tell its holder which addresses hold entries.
-    """
-
-    if not occupied:
-        return None
-
-    return WriteRefusal(
-        error_code=Code.ADDRESS_CHANGE_OCCUPIED,
-        status=HTTPStatus.CONFLICT,
-        fields=(("email",),),
-    )
-
-
-def find_new_taken_refusal(*, taken: bool) -> WriteRefusal | None:
-    """`address_change_new_taken`: a re-send's new address has come to be another pupil's or to hold an entry, on a page with no box to mark."""
-
-    if not taken:
-        return None
-
-    return WriteRefusal(
-        error_code=Code.ADDRESS_CHANGE_NEW_TAKEN,
-        status=HTTPStatus.CONFLICT,
-    )
-
-
-def find_new_granted_refusal(*, granted: bool) -> WriteRefusal | None:
-    """`address_change_new_granted`: the new address holds a grant already, and one address holds one grant."""
-
-    if not granted:
-        return None
-
-    return WriteRefusal(
-        error_code=Code.ADDRESS_CHANGE_NEW_GRANTED,
-        status=HTTPStatus.CONFLICT,
-    )
+    return APIError(HTTPStatus.CONFLICT, Code.ADDRESS_CHANGE_NOTHING)

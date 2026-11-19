@@ -1,14 +1,14 @@
-import { serveBackend, serveHost } from "@/test-support/backend";
-import { doubleNextRequest, writtenCookies } from "@/test-support/nextRequest";
-import { posted } from "@/test-support/posted";
-import { thrownRedirect } from "@/test-support/thrownRedirect";
 import { describe, expect, it } from "vitest";
 
 import { IDEMPOTENCY_KEY_HEADER } from "@/core/idempotencyKey";
 import { ROUTES } from "@/core/routes";
 import { TURNSTILE_FIELD } from "@/core/turnstileToken";
+import { serveBackend, serveHost } from "@/test-support/backend";
+import { doubleNextRequest, writtenCookies } from "@/test-support/nextRequest";
+import { posted } from "@/test-support/posted";
+import { thrownRedirect } from "@/test-support/thrownRedirect";
 
-import type { FLPostRegistrierungResponse } from "@/core/generated/client/types";
+import type { FLCreatedResponse } from "@/core/generated/client/types";
 
 /** What Cloudflare's published test site key mints (https://developers.cloudflare.com/turnstile/troubleshooting/testing/). */
 const BOT_CHECK_TOKEN = "XXXX.DUMMY.TOKEN.XXXX";
@@ -24,9 +24,7 @@ const siteverify = serveHost("https://challenges.cloudflare.com", ({ method, url
 );
 // The registration's one write, answered as the backend stores it.
 const backend = serveBackend(({ method, path }) =>
-  method === "POST" && path === "/registrierungen"
-    ? ({ registrierung_id: "6890a1b2c3d4e5f607190001" } satisfies FLPostRegistrierungResponse)
-    : undefined,
+  method === "POST" && path === "/registrierungen" ? ({ created_id: "6890a1b2c3d4e5f607190001" } satisfies FLCreatedResponse) : undefined,
 );
 doubleNextRequest();
 

@@ -1,7 +1,7 @@
 from app.api.spieler.services import mark_shared_nummern
 
 
-class TestASharedSquadNumber:
+class TestASharedKaderNumber:
     """That the one read reporting a shared number compares what is stored."""
 
     def test_the_marker_compares_the_stored_string_between_live_rows_alone(self):

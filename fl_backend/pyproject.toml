@@ -18,21 +18,13 @@ dependencies = [
     # that name.
     "pymongo>=4.19.0",
     "starlette>=1.10.0",
-    # `ZoneInfo("Europe/Berlin")` in app/core/clock.py reads the operating system's time-zone
+    # The clock's `ZoneInfo("Europe/Berlin")` reads the operating system's time-zone
     # database. Windows has none at all and a slim image promises none, so this package is where the
     # zone comes from; without it that call raises `ZoneInfoNotFoundError`.
     "tzdata>=2026.6",
-    # The container's entrypoint -- fl_backend/Dockerfile's CMD runs uvicorn itself, so no module
-    # imports it and nothing else would declare it.
-    #
-    # `[standard]`, not bare, because uvicorn's defaults are `--loop auto` and `--http auto`: it
-    # uses uvloop and the httptools C parser when it can import them and silently drops to asyncio
-    # and h11 when it cannot. uvloop and httptools arrive only through this extra, so a bare
-    # `uvicorn` would change what the server runs on with nothing in the gate to show it. The extra
-    # also carries packages this application does not use, watchfiles and websockets among them --
-    # the alternative is hand-copying uvicorn's own platform markers for uvloop, which does not
-    # build on Windows, and owning that copy forever.
-    "uvicorn[standard]>=0.54.0",
+    # The container's entrypoint -- the image's CMD runs uvicorn itself, so no module imports it and
+    # nothing else would declare it. Bare: the CMD names the loop and the parser it runs on.
+    "uvicorn>=0.54.0",
 ]
 
 [dependency-groups]
@@ -40,18 +32,17 @@ dev = [
     "pytest>=9.2.0",
     "ruff>=0.17.4",
     # `[nodejs]`: the wrapper takes nodejs-wheel's Node ahead of a PATH node or a nodeenv download,
-    # so the lockfile pins the Node pyright runs on. Why the gate runs pyright at all: `[tool.pyright]`.
+    # so the lockfile pins the Node pyright runs on.
     "pyright[nodejs]>=1.1.414",
-    # Distributes the `db` tier (`scripts/gate/verify.sh`'s db scope) and the gate's other suites.
-    # `tests/conftest.py :: pytest_configure_node` carries `optionalhook` so a venv without this
-    # plugin still collects.
+    # Distributes the `db` tier and the gate's other suites over workers. The suite's node hook is
+    # marked optional, so a venv without this plugin still collects.
     "pytest-xdist>=3.8.0",
     # `starlette.testclient` imports `httpx2` and reaches `httpx` only under
     # `StarletteDeprecationWarning`. The API tests import both that client and this package's own
     # `ASGITransport`, so they fail at collection without it. No module in app/ touches it.
     "httpx2>=2.16.0",
-    # Starts a real mongod for the `db`-marked tests. Only those tests import it, and
-    # they are deselected by default, so a normal `pytest` run never loads it or touches Docker.
+    # Starts a real mongod for the `db`-marked tests, which are deselected by default, so a normal
+    # `pytest` run never loads it or touches Docker.
     "testcontainers[mongodb]>=4.15.0",
     # Holds `dependencies` to what `app/` imports: an import reaching a package only through
     # another's requirements, or a package there nothing imports, fails the backend scope. This group
@@ -94,6 +85,9 @@ select = [
     "F",  # pyflakes
     "I",  # isort
     "B",  # flake8-bugbear
+    # FastAPI's dependencies in its one documented form, `Annotated[T, Depends(f)]` (FAST002). FAST001,
+    # a `response_model=` restating the return annotation, reports nothing on a Python 3.14 target.
+    "FAST",  # FastAPI
     # Fixes with no judgment in them. Stable subset only: ruff holds part of FURB behind `preview`,
     # and turning that on moves every other family too.
     "FURB",  # refurb — mechanical modernisations
@@ -138,24 +132,19 @@ logger-objects = ["app.core.logging.fl_logger"]
 # instants against the wall clock it runs under, and it builds settings from the environment to judge them.
 "tests/**" = ["TID251"]
 
-# FastAPI reads a `Depends(...)` default as a declaration and calls the dependency per request, so the
-# one call evaluated at definition is the marker itself; every other call in a default stays a finding.
-[tool.ruff.lint.flake8-bugbear]
-extend-immutable-calls = ["fastapi.Depends"]
-
 # A handler reading the environment's settings answers with those whatever the app was built with.
 # The ban reaches every spelling of a read, an import, an attribute through `app.core.config` and a
 # dependency alike, which makes it the one guard against a route reading them.
 [tool.ruff.lint.flake8-tidy-imports.banned-api]
-# A rule's kind is one of `app/core/codes.py :: Rule`, which the contract publishes, so a raise names it
-# through `app/core/exceptions.py :: rule_refusal`; a direct one would word a kind the frontend cannot key.
+# A rule's kind is one the contract publishes, so a raise names it through the one helper taking that
+# type; a direct one would word a kind the frontend cannot key.
 "pydantic_core.PydanticCustomError".msg = "Raise a domain rule through `app.core.exceptions.rule_refusal`, whose `Rule` the contract publishes."
 # Each permitted import carries its own `noqa`, which RUF100 reports once nothing there needs it.
 "app.core.config.get_config".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app` and `app/readback.py`."
 "os.environ".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app` and `app/readback.py`."
 "os.getenv".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app` and `app/readback.py`."
-# The wall clock, read in `app/core/clock.py` alone, so every rule judging "now" or "today" reads one
-# instant in one zone.
+# The wall clock, read in one module alone, so every rule judging "now" or "today" reads one instant
+# in one zone.
 "datetime.datetime.now".msg = "Read the clock through `app.core.clock.now`, or in a request through `get_germany_now`."
 "datetime.date.today".msg = "Read the clock through `app.core.clock.now`, or in a request through `get_germany_now`."
 "datetime.datetime.today".msg = "Read the clock through `app.core.clock.now`, or in a request through `get_germany_now`."
@@ -182,9 +171,9 @@ extend-immutable-calls = ["fastapi.Depends"]
 # -m "not db" keeps the default suite off the container tier, and a command-line -m overrides it
 #
 # --dist loadfile keeps each file on one xdist worker wherever a run passes -n, a bare one included:
-# MongoDB holds one configuration of a fail point for the whole server the workers share, so the cases
-# of tests/api/test_commit_fail_points.py spread over workers take each other's. Without -n it changes
-# nothing, xdist reading the mode only where it starts workers.
+# MongoDB holds one configuration of a fail point for the whole server the workers share, so the
+# fail-point cases spread over workers take each other's. Without -n it changes nothing, xdist
+# reading the mode only where it starts workers.
 
 addopts = "--import-mode=importlib --strict-markers --strict-config -ra --showlocals -m \"not db\" --dist loadfile"
 testpaths = ["tests"]
@@ -198,7 +187,7 @@ markers = [
 # silent skip and takes its whole guarantee with it.
 empty_parameter_set_mark = "fail_at_collect"
 # pytest-asyncio runs every `async def` case and fixture without a mark on each. Both on the session's
-# loop, since a client of `tests/database.py :: shared_client` belongs to the loop that opened it.
+# loop, since the suite's shared database client belongs to the loop that opened it.
 asyncio_mode = "auto"
 asyncio_default_test_loop_scope = "session"
 asyncio_default_fixture_loop_scope = "session"
@@ -206,11 +195,10 @@ asyncio_default_fixture_loop_scope = "session"
 [tool.pyright]
 # The type checker the EDITOR already runs. ruff lints and pytest executes and neither checks a
 # type, so without this section a type error reaches only whoever has the file open in Pylance,
-# while `scripts/gate/verify.sh` goes green past it.
+# while the gate goes green past it.
 
 # venvPath/venv are what resolve a third-party import, in the gate as in an editor: pyright run by
-# this environment's own python (`scripts/gate/verify.sh :: scope_backend`) still reads none of
-# it without them. `scripts/pyrightconfig.json` names the same one.
+# this environment's own python still reads none of it without them.
 venvPath = "."
 venv = ".venv"
 # Pinned rather than read from whichever interpreter pyright finds: CI's Linux run judged the tree
@@ -225,7 +213,7 @@ typeCheckingMode = "standard"
 reportIncompatibleVariableOverride = false
 
 # The application's code names a type for every parameter: one left bare is `Any` to pyright, so a write through a
-# collection it is handed passes with nothing reported (`app/core/readonly.py`). Not the tests, which take fixtures and
+# collection it is handed passes with nothing reported. Not the tests, which take fixtures and
 # parametrised values bare, as pytest's own examples do. Rooted lower than the project, so told where `app.…` resolves from.
 [[tool.pyright.executionEnvironments]]
 root = "app"

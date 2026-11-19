@@ -1,9 +1,8 @@
-import { ClassicFrame } from "@/kit/ClassicFrame";
-
 import { INSTAGRAM_URL, THREADS_URL } from "@/core/brand";
 import { COPY } from "@/core/copy";
 import { LEGAL_PAGES, LIGA_PAGES, ROUTES, SAISONLESS_PAGES } from "@/core/routes";
 import { SPONSORS } from "@/features/meta/constants";
+import { ClassicFrame } from "@/kit/ClassicFrame";
 
 import type { HeaderLink } from "@/kit/HeaderLinks";
 import type { ReactNode } from "react";

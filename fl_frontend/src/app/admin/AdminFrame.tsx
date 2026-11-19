@@ -1,6 +1,3 @@
-import { RailFrame } from "@/kit/RailFrame";
-import { RailFrameBoundary } from "@/kit/RailFrameBoundary";
-
 import { getAdminSession } from "@/core/auth/guards";
 import { COPY } from "@/core/copy";
 import { dayOf, formatPeriod } from "@/core/format";
@@ -8,6 +5,8 @@ import { ROUTES } from "@/core/routes";
 import { readAccount } from "@/features/account/account";
 import { getAdminSaisons } from "@/features/saisons/queries";
 import { selectSaison } from "@/features/saisons/resolvers";
+import { RailFrame } from "@/kit/RailFrame";
+import { RailFrameBoundary } from "@/kit/RailFrameBoundary";
 
 import type { RailGroup, Saisons } from "@/kit/FrameNav";
 import type { ReactNode } from "react";
@@ -40,7 +39,6 @@ const RAIL_GROUPS: RailGroup[] = [
       { id: "bewerbungen", label: ROUTES.adminBewerbungen.title, saison: "adminBewerbungen", icon: "bewerbungen" },
       { id: "teams", label: ROUTES.adminTeams.title, saison: "adminTeams", icon: "teams" },
       { id: "spieler", label: ROUTES.adminSpieler.title, saison: "adminSpieler", icon: "spieler" },
-      { id: "registrierungen", label: ROUTES.adminRegistrierungen.title, saison: "adminRegistrierungen", icon: "registrierungen" },
     ],
   },
   {

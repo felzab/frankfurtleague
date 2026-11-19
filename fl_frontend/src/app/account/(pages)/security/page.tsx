@@ -1,5 +1,3 @@
-import { AccountPage } from "@/kit/AccountPage";
-
 import { requires } from "@/core/action";
 import { PASSKEY_LIMIT } from "@/core/auth/enrolment";
 import { isFreshForEnrolment, PASSKEY_FACTOR } from "@/core/auth/sessionStamps";
@@ -9,6 +7,7 @@ import { requireAccountSession } from "@/features/account/account";
 import { devicesOf } from "@/features/account/security";
 import { heldPasskeysOf } from "@/features/passkeys/held";
 import { PASSKEY_NAME_MAX, PasskeyNameSchema } from "@/features/passkeys/schemas";
+import { AccountPage } from "@/kit/AccountPage";
 import { pageMetadata } from "@/shared/utils/metadata";
 
 import { SecurityBoxes } from "./SecurityBoxes";

@@ -16,6 +16,9 @@ from tests.core.app_source import api_routes, application
 
 HEX_ID = "6890a1b2c3d4e5f607182930"
 
+# A well-formed season id, so the match's id is the one segment the path can refuse.
+SAISON_ID = "2026"
+
 # `ObjectId` tests length before it decodes hex, so query validation refuses this one on its
 # characters rather than on its length.
 NON_HEX_ID = "z" * 24
@@ -37,7 +40,7 @@ MALFORMED_IDS = [NON_HEX_ID, HEX_ID[:-1], f"{HEX_ID}0"]
 @pytest.mark.parametrize("spiel_id", MALFORMED_IDS)
 async def test_a_malformed_path_id_is_a_404(spiel_id: str):
     """A path identifies, so an id naming nothing is a 404 — decided by the `objectid` convertor before a handler runs."""
-    response = await answered(f"/api/v0/spiele/{spiel_id}")
+    response = await answered(f"/api/saisons/{SAISON_ID}/spiele/{spiel_id}")
 
     assert (response.status_code, response.json()["error_code"]) == (404, Code.NO_ROUTE)
 
@@ -66,3 +69,16 @@ def test_every_objectid_path_parameter_reaches_its_handler_as_an_object_id():
                 reached.append((route.path_format, name, type(TypeAdapter(annotation).validate_python(HEX_ID))))
 
     assert reached and [(path, name) for path, name, handed in reached if handed is not ObjectId] == []
+
+
+def test_every_object_id_path_parameter_is_matched_by_the_objectid_convertor():
+    """The other direction: an id the path matches as any string reaches validation, which answers a malformed one 422."""
+
+    typed = [
+        (route.path_format, name, route.param_convertors.get(name))
+        for route in api_routes(application())
+        for name, field in _path_fields(route.dependant).items()
+        if field.field_info.annotation is ObjectId
+    ]
+
+    assert typed and [(path, name) for path, name, convertor in typed if not isinstance(convertor, ObjectIdConvertor)] == []

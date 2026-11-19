@@ -2,7 +2,7 @@ from typing import Any
 
 from app.api.invitations.services import (
     confirmed_recipients,
-    plan_invitation_dispatch,
+    plan_invitation_mail,
 )
 from tests.documents import kontaktperson_document
 
@@ -47,7 +47,7 @@ class TestWhoALinkIsMailedTo:
 
         assert len(recipient) == 1
         # The FIRST seat in seat order, so the message addresses the person as the role they lead with.
-        assert recipient[0].rolle == "trainer"
+        assert recipient[0].seat == "trainer"
 
     def test_an_unconfirmed_first_seat_leaves_the_next_one_addressed(self):
         """The seats are read in turn, so stopping at the Trainer would keep the link from a person who confirmed."""
@@ -57,7 +57,7 @@ class TestWhoALinkIsMailedTo:
             ansprechperson=kontaktperson("Quillhilde", "quillhilde@example.com", confirmed_at=CONFIRMED_ON),
         )
 
-        assert [(entry.rolle, entry.email) for entry in confirmed_recipients(kontakte=block)] == [("ansprechperson", "quillhilde@example.com")]
+        assert [(entry.seat, entry.email) for entry in confirmed_recipients(kontakte=block)] == [("ansprechperson", "quillhilde@example.com")]
 
     def test_a_repeated_address_leaves_the_seat_after_it_addressed(self):
         block = kontakte(
@@ -72,6 +72,6 @@ class TestWhoALinkIsMailedTo:
 def test_a_sent_link_reads_as_sent_once_the_retention_cleared_its_seats():
     """The press mails a sent link never again, so the row names no address to repair over it."""
 
-    plan = plan_invitation_dispatch(austritt=None, kontakte=None, invitation_raw={**INVITATION, "sent_at": CONFIRMED_ON})
+    plan = plan_invitation_mail(austritt=None, kontakte=None, invitation_raw={**INVITATION, "sent_at": CONFIRMED_ON})
 
     assert plan.skipped == "already_sent"

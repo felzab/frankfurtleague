@@ -52,6 +52,44 @@ Run them, and the checks of what you touched, with these commands:
 `--docs` is the one scope of `./scripts/gate/verify.sh` you run; the gate's other scopes and its
 whole run are the coordinator's.
 
+## Looks, pages and boards
+
+The owner's bar for every surface is a professional, industry-standard look. A brief that designs a
+look, builds a page or draws a review board, a page outside the site that shows the owner a
+question's options as pictures, holds you to these rules.
+
+- **A look, a layout or an interaction.** Read first the design systems your brief names, among
+  Material 3, Apple's Human Interface Guidelines, GitHub Primer, Atlassian, Shopify Polaris, IBM
+  Carbon and GOV.UK as fit the component, and put a short quote and a one-line finding from each in
+  your report. Build what they agree on, the same way on every surface you own: the site's own pages
+  say how to apply a pattern uniformly, not which pattern is right. Decide each detail by that
+  standard and the owner's stated taste, and cite the source. A stated preference binds as stated,
+  so keep what the owner liked, and never read a complaint about one placement as a wish to remove
+  the thing placed. An old ruling or an agent's recommendation is evidence, never the answer. Send
+  the coordinator only a fork that the standard and the owner's words leave open, with the systems'
+  evidence in its options.
+- **A page.** It is done once the coordinator, which did not build it, has raised the stack and
+  driven it in a browser at desktop and phone width, recording frames and comparing them with the
+  board, and what it found is fixed before the owner's look, since a green gate, a structural read
+  and static frames prove nothing of how a page feels. You raise no stack and open no browser. Build
+  to what that drive looks for: no layout shift from skeleton to page, a visible hover state and the
+  pointer cursor on every interactive element, one option state set in every menu and list box,
+  sections and columns on one grid, and dates in one shape. A rule the owner settles on one page
+  goes into the kit and every page.
+- **A review board.** Write it in English, its questions, option names, explanations and controls
+  included, and show the site's German copy as it stands, since the owner works in English and
+  judges the copy as a visitor reads it. Draw it in the dark theme alone, adding a light frame only
+  where the question is about the light theme and says so. It is reviewed on a phone, so it fits 375
+  px with no horizontal scroll, its controls work by touch at 44 px or more with nothing behind
+  hover, and it is reached by a URL, which a localhost page is not: you write it as one HTML file in
+  your scratch folder, the coordinator publishes it as an Artifact page, and you publish nothing
+  yourself. Draw no outline or box over a picture, since it hides the edge being judged. Every
+  option is one the owner could pick with pride: before you build the board, look with the Read tool
+  at each question's recommended option in its phone frame at 360 px, a picture from the
+  coordinator's drive, redraw it where it is cramped, overflowing, clipped mid-line or invisible,
+  and name in your report what you looked at. The coordinator views no picture: your report of what
+  you looked at is the check.
+
 ## The contract
 
 Where your change moves `fl_backend/openapi.json`, run `pnpm run contract` in `fl_frontend`. It
@@ -77,8 +115,8 @@ into your scratch folder and commit it with `git commit -F <file>`: the shell to
   that exact command.
 - Never run `./scripts/ops/local.sh`: its ports 3000 and 27017 are fixed, and the machine holds one
   stack.
-- Never run `pnpm run format` or any formatter over a folder, which rewrites files other agents
-  own. Format your own files by name, as `.claude/CLAUDE.md` section 6 says.
+- Never run `pnpm run format` or any formatter over a folder, which rewrites files other agents own.
+  Format your own files by name, as `.claude/CLAUDE.md` section 6 says.
 - A programme's rulings are numbered in its records outside this public repository, so no ruling's
   number goes into a tracked file: code, comment, test name or document. A commit body cites one
   only where your brief gives its number.

@@ -10,7 +10,7 @@ from collections.abc import Awaitable, Callable, Mapping
 from contextlib import nullcontext
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import Any
+from typing import Any, get_args, get_type_hints
 from zoneinfo import ZoneInfo
 
 from bson import ObjectId
@@ -23,18 +23,19 @@ from app.api.account.schemas import FLAccountAddressChangePayload
 from app.api.address_change.admin_router import (
     delete_address_change,
     get_address_changes,
-    invite_address_change,
     post_address_change_admin,
+    resend_confirmation,
 )
 from app.api.address_change.public_router import get_address_change_view, post_address_change_answer, post_address_change_stop
 from app.api.address_change.schemas import (
     FLAddressChangeAdminPayload,
     FLAddressChangeAnswerPayload,
-    FLAddressChangeSweepParams,
 )
+from app.api.address_change.services import build_address_filter
 from app.api.address_change.system_router import sweep_address_change
 from app.api.outbox.system_router import post_handout
 from app.core.collections import Collection
+from app.shared.folding import sign_in_identifier
 from app.shared.schemas.bounds import ADDRESS_CHANGE_WAITING_PERIOD_DAYS
 from app.shared.schemas.confirmation import FLTokenPayload
 from tests import documents
@@ -134,7 +135,7 @@ async def _seed(database: AsyncDatabase, *, pupil: bool, records: bool) -> None:
                 einwilligung=documents.own_einwilligung_document(
                     text_versions=documents.SCHIEDSRICHTER_TEXT_VERSIONS, confirmed_at="2126-03-02"
                 ),
-                confirmation={"token_hashes": ["c" * 64], "sent_at": "2126-03-01", "deadline": "2126-03-15", "declined_at": None},
+                confirmation={"token_hashes": ["c" * 64], "sent_at": "2126-03-01", "deadline": "2126-03-15"},
             ),
             # Entered by an administrator under the same address and never confirmed: not this person's record yet.
             documents.schiedsrichter_document(UNCONFIRMED_REFEREE_OID, email=EMAIL, name="Lenore Q.", default_payment=20, einwilligung=None),
@@ -243,6 +244,10 @@ def call(handler: Callable[..., Awaitable[Any]], database: AsyncDatabase, client
             supplied[name] = handles[name]
         elif name == "records":
             supplied[name] = record_collections(database)
+        elif name == "collections":
+            # Built by the dependency the handler declares, so a handle it wires to the wrong collection fails here.
+            dependency = get_args(get_type_hints(handler, include_extras=True)[name])[1].dependency
+            supplied[name] = dependency(**wired(dependency, database))
         elif name == "db":
             supplied[name] = client
         elif name == "config":
@@ -280,20 +285,25 @@ _LINKS = {"address_change_link": "token", "address_change_notice": "stop_token"}
 
 @dataclass(frozen=True)
 class Minted:
-    """A write's answer, and the raw links the Postausgang's hand-out minted for the mails it owed, as the drain receives them.
+    """The change a write started or re-sent, and the raw links the hand-out minted for the mails it owed, as the drain receives them.
 
-    `None` where the write owed no such mail.
+    A link is `None` where the write owed no such mail.
     """
 
-    answer: Any
+    id: ObjectId
     token: str | None
     stop_token: str | None
 
-    def __getattr__(self, name: str) -> Any:
-        return getattr(self.answer, name)
+
+async def the_live_change(database: AsyncDatabase, address: str) -> ObjectId:
+    """The one live change of `address`, read off the database, since a start answers no body."""
+
+    live = await database[Collection.ADDRESS_CHANGES].find_one(build_address_filter(sign_in_identifier(address)), {"_id": 1})
+    assert live is not None, "the start left no live change"
+    return live["_id"]
 
 
-async def handed_out(database: AsyncDatabase, client: AsyncMongoClient, answer: Any, *, now: datetime = NOW) -> Minted:
+async def handed_out(database: AsyncDatabase, client: AsyncMongoClient, address_change_id: ObjectId, *, now: datetime = NOW) -> Minted:
     """The links owed at `now`, minted by the real hand-out and settled as sent; any other mail it claimed is left owed and free."""
 
     # Claim after claim until one holds nothing, each holding its rows past the next: a page of older mail comes first.
@@ -304,7 +314,7 @@ async def handed_out(database: AsyncDatabase, client: AsyncMongoClient, answer: 
             ban_list_collection=database[Collection.BAN_LIST],
             db=database,
             db_client=client,
-            now=claimable(now),
+            germany_now=claimable(now),
         )
     ).mails:
         mails += claim.mails
@@ -318,7 +328,7 @@ async def handed_out(database: AsyncDatabase, client: AsyncMongoClient, answer: 
             {"_id": {"$in": others}}, {"$set": {"lease": None, "leased_until": None}, "$inc": {"attempts": -1}}
         )
 
-    return Minted(answer=answer, token=links.get("token"), stop_token=links.get("stop_token"))
+    return Minted(id=address_change_id, token=links.get("token"), stop_token=links.get("stop_token"))
 
 
 async def start(database: AsyncDatabase, client: AsyncMongoClient, *, email: str = NEW_EMAIL, released: bool = True, **given: Any) -> Minted:
@@ -328,19 +338,15 @@ async def start(database: AsyncDatabase, client: AsyncMongoClient, *, email: str
     """
 
     now = given.get("germany_now", NOW)
-    started = await handed_out(
-        database,
-        client,
-        await call(post_address_change, database, client, address_change_data=FLAccountAddressChangePayload(email=email), **given),
-        now=now,
-    )
+    await call(post_address_change, database, client, address_change_data=FLAccountAddressChangePayload(email=email), **given)
+    started = await handed_out(database, client, await the_live_change(database, given.get("identifier", EMAIL)), now=now)
     if not released:
         return started
 
     await answer(database, client, started.stop_token, germany_now=now)
-    confirmed = await handed_out(database, client, started.answer, now=now)
+    confirmed = await handed_out(database, client, started.id, now=now)
 
-    return Minted(answer=started.answer, token=confirmed.token, stop_token=started.stop_token)
+    return Minted(id=started.id, token=confirmed.token, stop_token=started.stop_token)
 
 
 def stop_here(database: AsyncDatabase, client: AsyncMongoClient, **given: Any) -> Awaitable[Any]:
@@ -351,21 +357,13 @@ async def administrator_starts(
     database: AsyncDatabase, client: AsyncMongoClient, *, address: str = EMAIL, email: str = NEW_EMAIL, **given: Any
 ) -> Minted:
     payload = FLAddressChangeAdminPayload.model_validate({"address": address, "email": email})
-    return await handed_out(
-        database,
-        client,
-        await call(post_address_change_admin, database, client, address_change_data=payload, **given),
-        now=given.get("germany_now", NOW),
-    )
+    await call(post_address_change_admin, database, client, address_change_data=payload, **given)
+    return await handed_out(database, client, await the_live_change(database, address), now=given.get("germany_now", NOW))
 
 
 async def resend(database: AsyncDatabase, client: AsyncMongoClient, address_change_id: ObjectId, **given: Any) -> Minted:
-    return await handed_out(
-        database,
-        client,
-        await call(invite_address_change, database, client, address_change_id=address_change_id, **given),
-        now=given.get("germany_now", NOW),
-    )
+    await call(resend_confirmation, database, client, address_change_id=address_change_id, **given)
+    return await handed_out(database, client, address_change_id, now=given.get("germany_now", NOW))
 
 
 def running(database: AsyncDatabase, client: AsyncMongoClient, *, operator: str = ADMIN) -> Awaitable[Any]:
@@ -398,8 +396,8 @@ def view(database: AsyncDatabase, client: AsyncMongoClient, token: str | None, *
     return call(get_address_change_view, database, client, view_data=FLTokenPayload(token=_handed(token)), **given)
 
 
-def sweep(database: AsyncDatabase, client: AsyncMongoClient, *, after: Any = None, **given: Any) -> Awaitable[Any]:
-    return call(sweep_address_change, database, client, params=FLAddressChangeSweepParams(after=after), **given)
+def sweep(database: AsyncDatabase, client: AsyncMongoClient, **given: Any) -> Awaitable[Any]:
+    return call(sweep_address_change, database, client, **given)
 
 
 async def change(database: AsyncDatabase, address_change_id: ObjectId) -> Mapping[str, Any]:

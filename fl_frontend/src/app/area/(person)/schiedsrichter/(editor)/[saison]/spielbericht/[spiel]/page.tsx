@@ -1,8 +1,6 @@
 import { cache } from "react";
 import { notFound } from "next/navigation";
 
-import { StatusPage } from "@/kit/StatusPage";
-
 import { requires } from "@/core/action";
 import { COPY } from "@/core/copy";
 import { APIBadStatusError } from "@/core/errors";
@@ -19,6 +17,7 @@ import { isPublicSaison } from "@/features/saisons/resolvers";
 import { getOwnSpielbericht } from "@/features/spielberichte/queries";
 import { eventChipOf, matchName, matchTitle } from "@/features/spiele/blocks";
 import { spielerName } from "@/features/spieler/constants";
+import { StatusPage } from "@/kit/StatusPage";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
 

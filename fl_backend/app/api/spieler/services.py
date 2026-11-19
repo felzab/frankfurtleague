@@ -9,8 +9,8 @@ from app.api.spiele.services import build_spiele_pipeline
 from app.api.spieler.schemas import FLSpielerRolle
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.exceptions import WriteRefusal
-from app.shared.einwilligung import NAME_IS_PUBLIC, is_confirmed
+from app.core.exceptions import APIError
+from app.shared.einwilligung import NAME_IS_PUBLIC
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from app.shared.schemas.custom import CustomObjectId
 
@@ -30,62 +30,12 @@ PUBLIC_LAST_NAME: Mapping[str, Any] = {
     }
 }
 
-
-def public_initial(last_name: str | None) -> str | None:
-    """The surname's initial where a `find` serves the read and no aggregation runs.
-
-    `PUBLIC_LAST_NAME` above is the same rule as a Mongo expression. Slicing is by code point, as
-    `$substrCP` is.
-    """
-
-    # By type, as `PUBLIC_LAST_NAME`'s `$type` test is, and not by `is None`: the two are stated as one
-    # rule, so anything the aggregation answers `None` for has to answer `None` here rather than raise.
-    if not isinstance(last_name, str):
-        return None
-
-    return f"{last_name[:1]}."
-
-
-def name_is_public(einwilligung: Mapping[str, Any] | None) -> bool:
-    """Whether a base-tier read may serve this person's name at all.
-
-    Fails closed, so an absent record, a scope no enum holds and an unconfirmed one each withhold.
-    """
-
-    if einwilligung is None:
-        return False
-
-    # Both, never the scope alone: publication rests on the person's own confirmation, so a name is
-    # withheld unless the stamp reads as one.
-    return einwilligung.get("scope") == "kader_public" and is_confirmed(einwilligung)
-
-
 # The two name fields alone: what a read serves beside a withheld name is that read's to withhold. The
 # record is read here and projected nowhere.
 PUBLIC_PERSON: Mapping[str, Any] = {
     "first_name": {"$cond": {"if": NAME_IS_PUBLIC, "then": "$first_name", "else": None}},
     "last_name": {"$cond": {"if": NAME_IS_PUBLIC, "then": PUBLIC_LAST_NAME, "else": None}},
 }
-
-
-class PublicPerson(NamedTuple):
-    """The two name fields as the base tier serves them."""
-
-    first_name: str | None
-    last_name: str | None
-
-
-def public_person(*, first_name: str | None, last_name: str | None, einwilligung: Mapping[str, Any] | None) -> PublicPerson:
-    """`PUBLIC_PERSON` above where a `find` serves the read and no aggregation runs.
-
-    A name handed over as null is served as null: the predicate decides publication and never
-    whether a name is there to publish.
-    """
-
-    if not name_is_public(einwilligung):
-        return PublicPerson(first_name=None, last_name=None)
-
-    return PublicPerson(first_name=first_name, last_name=public_initial(last_name))
 
 
 # The key a nameless row sorts by, true where the join withheld the name, so those rows come after the named ones.
@@ -95,7 +45,7 @@ _NAMELESS = "nameless"
 # Fixed rather than asked for: ordering by a key reads it out whether or not the response carries it, so no caller
 # names one, and the chain stops at the forename, a surname this tier will not serve ordering nothing. The position is
 # null on a nameless row, so its place says nothing of it.
-SQUAD_ORDER: Mapping[str, int] = {_NAMELESS: 1, "position": 1, "first_name": 1}
+KADER_ORDER: Mapping[str, int] = {_NAMELESS: 1, "position": 1, "first_name": 1}
 
 
 # Whether the join withheld the person's name, as the mask answers it.
@@ -112,7 +62,7 @@ def build_spieler_pipeline(*, team_id: CustomObjectId, saison_id: str) -> list[M
 
     # First, so the read examines the one club's rows in the one season, through
     # `saison_spieler_saison_id_team_id_de` under the collation the callers pass, and never every person.
-    squad_match: dict[str, Any] = {
+    kader_match: dict[str, Any] = {
         "team_id": team_id,
         "saison_id": saison_id,
         # The squad row's retirement. No switch: this tier marks no row it would un-hide.
@@ -120,7 +70,7 @@ def build_spieler_pipeline(*, team_id: CustomObjectId, saison_id: str) -> list[M
     }
 
     return [
-        {"$match": squad_match},
+        {"$match": kader_match},
         {
             "$lookup": {
                 "from": Collection.SPIELER,
@@ -152,7 +102,7 @@ def build_spieler_pipeline(*, team_id: CustomObjectId, saison_id: str) -> list[M
             }
         },
         # After the projection, so `first_name` orders by the name served, which the join masked.
-        {"$sort": dict(SQUAD_ORDER)},
+        {"$sort": dict(KADER_ORDER)},
         {"$unset": _NAMELESS},
         # One page, as every season-scoped read takes.
         {"$limit": LIST_LIMIT_DEFAULT},
@@ -161,10 +111,10 @@ def build_spieler_pipeline(*, team_id: CustomObjectId, saison_id: str) -> list[M
 
 # The rows inside `max_kader_size`, whichever squad is counted. Retired rows are out: a player who left gave their place
 # back. Nominees are out: they stand outside the cap, so entering one neither needs a place nor takes one.
-CAPPED_SQUAD_ROW: Mapping[str, Any] = {"inactive_since": None, "is_nachnominiert": False}
+CAPPED_KADER_ROW: Mapping[str, Any] = {"inactive_since": None, "is_nachnominiert": False}
 
 
-def build_live_squad_filter(*, saison_id: str, team_id: CustomObjectId, excluding_spieler_id: CustomObjectId | None) -> Mapping[str, Any]:
+def build_live_kader_filter(*, saison_id: str, team_id: CustomObjectId, excluding_spieler_id: CustomObjectId | None) -> Mapping[str, Any]:
     """Which rows of one squad count towards `max_kader_size`.
 
     The writing player is out so a no-op, a reactivate of a live row, is not refused by its own place; `None` where the
@@ -174,47 +124,29 @@ def build_live_squad_filter(*, saison_id: str, team_id: CustomObjectId, excludin
     return {
         "saison_id": saison_id,
         "team_id": team_id,
-        **CAPPED_SQUAD_ROW,
+        **CAPPED_KADER_ROW,
         **({} if excluding_spieler_id is None else {"spieler_id": {"$ne": excluding_spieler_id}}),
     }
 
 
-def find_squad_refusal(*, team_in_saison: bool) -> WriteRefusal | None:
-    """Why this squad row must be refused, or `None`.
-
-    A shared shirt number is refused on no write path: the model permits it on purpose.
-    """
-
-    if not team_in_saison:
-        return WriteRefusal(
-            error_code=Code.KADER_TEAM_NOT_IN_SAISON,
-            status=HTTPStatus.CONFLICT,
-        )
-
-    return None
-
-
-class SquadRoom(NamedTuple):
+class KaderRoom(NamedTuple):
     """One squad's capped rows and its season's `max_kader_size`."""
 
     size: int
     cap: int
 
 
-def find_full_squad_refusal(*, room: SquadRoom, nominee: bool) -> WriteRefusal | None:
+def find_full_kader_refusal(*, room: KaderRoom, nominee: bool) -> APIError | None:
     """`kader_full` where the squad takes no further entry, or `None`.
 
     A nominee stands outside the cap. The one verdict on whether a squad takes an entry, so a write and a read cannot
-    disagree. Its own function rather than a clause in `find_squad_refusal`, which answers the club question alone.
+    disagree.
     """
 
     if nominee or room.size < room.cap:
         return None
 
-    return WriteRefusal(
-        error_code=Code.KADER_FULL,
-        status=HTTPStatus.CONFLICT,
-    )
+    return APIError(HTTPStatus.CONFLICT, Code.KADER_FULL)
 
 
 def build_live_rolle_filter(
@@ -235,11 +167,10 @@ def build_live_rolle_filter(
     }
 
 
-def find_squad_rolle_refusal(*, rolle: FLSpielerRolle | None, taken: bool) -> WriteRefusal | None:
+def find_kader_rolle_refusal(*, rolle: FLSpielerRolle | None, taken: bool) -> APIError | None:
     """Why this squad role may not be given away, or `None`.
 
-    Its own function rather than a clause in `find_squad_refusal`, which answers the club question
-    alone.
+    A role is one squad row's, where a shared shirt number is refused on no write path: the model permits it on purpose.
     """
 
     # A row holding no role competes with nobody, which is what makes the rule at-most-one rather
@@ -247,7 +178,7 @@ def find_squad_rolle_refusal(*, rolle: FLSpielerRolle | None, taken: bool) -> Wr
     if rolle is None or not taken:
         return None
 
-    return WriteRefusal(error_code=Code.KADER_ROLLE_TAKEN, status=HTTPStatus.CONFLICT, fields=(("rolle",),))
+    return APIError(HTTPStatus.CONFLICT, Code.KADER_ROLLE_TAKEN, fields=(("rolle",),))
 
 
 def build_kader_pipeline(*, saison_id: str, team_id: CustomObjectId | None) -> list[Mapping[str, Any]]:
@@ -308,10 +239,10 @@ def shared_nummern(rows: Sequence[Mapping[str, Any]]) -> frozenset[str]:
 def mark_shared_nummern(rows: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
     """Each row with `nummer_double`, in their order, judged against its own team's rows alone."""
 
-    squads: defaultdict[Any, list[Mapping[str, Any]]] = defaultdict(list)
+    kader_by_team: defaultdict[Any, list[Mapping[str, Any]]] = defaultdict(list)
     for row in rows:
-        squads[row["team_id"]].append(row)
-    shared = {team_id: shared_nummern(squad) for team_id, squad in squads.items()}
+        kader_by_team[row["team_id"]].append(row)
+    shared = {team_id: shared_nummern(kader) for team_id, kader in kader_by_team.items()}
 
     # `shared` holds no null, so a row without a number is never marked.
     return [{**row, "nummer_double": row.get("inactive_since") is None and row.get("nummer") in shared[row["team_id"]]} for row in rows]
@@ -329,7 +260,7 @@ def build_held_rollen_filter(*, saison_id: str, team_id: CustomObjectId, excludi
     }
 
 
-def find_kader_stufe_refusal(*, stufe: str | None, stored_stufe: str | None, allowed_stufen: Sequence[str]) -> WriteRefusal | None:
+def find_kader_stufe_refusal(*, stufe: str | None, stored_stufe: str | None, allowed_stufen: Sequence[str]) -> APIError | None:
     """`kader_stufe_not_allowed`: the edit writes a Stufe the season's rules do not offer.
 
     The stored value passes: a season narrowed after the row was written leaves it valid,
@@ -339,22 +270,16 @@ def find_kader_stufe_refusal(*, stufe: str | None, stored_stufe: str | None, all
     if stufe is None or stufe == stored_stufe or stufe in allowed_stufen:
         return None
 
-    return WriteRefusal(
-        error_code=Code.KADER_STUFE_NOT_ALLOWED,
-        status=HTTPStatus.CONFLICT,
-    )
+    return APIError(HTTPStatus.CONFLICT, Code.KADER_STUFE_NOT_ALLOWED)
 
 
-# --- The pupil's own record.
+def build_self_pupil_filter(*identifiers: str) -> Mapping[str, Any]:
+    """The pupil row each of these addresses holds, one at most an address, as `spieler.email` stores the folded form.
 
-
-def build_self_pupil_filter(identifier: str) -> Mapping[str, Any]:
-    """The one pupil row this address holds.
-
-    The `$type` term is the unique index's partial filter, which an equality alone does not imply.
+    The `$type` term is the unique index's partial filter, which a match on the address alone does not imply.
     """
 
-    return {"email": {"$eq": identifier, "$type": "string"}}
+    return {"email": {"$in": sorted(set(identifiers)), "$type": "string"}}
 
 
 # The order the account read ranks an address's pupil rows in.
@@ -404,7 +329,7 @@ def _own_spiele_lookup(saison_id: str) -> Mapping[str, Any]:
 
     # Both sides spelled out, never `$in` over an array of the two: a fixture's empty side leaves its path missing, and
     # the club's id equals no missing value.
-    fields_the_club = {"$or": [{"$eq": ["$team1.team_id", "$$own_team_id"]}, {"$eq": ["$team2.team_id", "$$own_team_id"]}]}
+    fields_the_team = {"$or": [{"$eq": ["$team1.team_id", "$$own_team_id"]}, {"$eq": ["$team2.team_id", "$$own_team_id"]}]}
     own_entry = {
         "$first": {
             "$filter": {
@@ -420,7 +345,7 @@ def _own_spiele_lookup(saison_id: str) -> Mapping[str, Any]:
             # Prefixed, so none of the fixture read's own lookups shadows them.
             "let": {"own_team_id": "$team_id", "own_spieler_id": "$spieler_id"},
             "pipeline": [
-                *build_spiele_pipeline(db_filter={"saison_id": saison_id, "$expr": fields_the_club}, sort_by=[("spiel_nr", 1)]),
+                *build_spiele_pipeline(db_filter={"saison_id": saison_id, "$expr": fields_the_team}, sort_by=[("spiel_nr", 1)]),
                 SPIELTAG_POSITION_LOOKUP,
                 {
                     "$lookup": {

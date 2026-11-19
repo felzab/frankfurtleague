@@ -5,7 +5,7 @@ import pytest
 
 from app.api.spiele.schemas import FLBracketFaultQuelle, FLBracketFaultSlot, FLSpielListAdapter
 from app.api.spiele.services import find_gruppen_not_run, resolve_bracket
-from app.api.teams.services import DecidedStanding
+from app.api.teams.standings import DecidedStanding
 from app.shared.schemas.literals import FLGruppenNames, FLSonderereignis
 from tests.payloads import PayloadFactory, SpielFactory, gruppenplatz, sieger
 
@@ -409,7 +409,7 @@ class TestReportingAFault:
     def test_a_spiel_naming_itself_is_reported(self, spiel_at: SpielFactory, side: SideFactory):
         assert faults([spiel_at(29, team1=side(1), quelle1=sieger(29))]) == [(29, "reference_cycle")]
 
-    def test_two_sources_resolving_to_one_club_are_reported(self, spiel_at: SpielFactory, side: SideFactory):
+    def test_two_sources_resolving_to_one_team_are_reported(self, spiel_at: SpielFactory, side: SideFactory):
         spiele = [
             spiel_at(25, team1=side(1, 3), team2=side(2, 1), ergebnis="3:1"),
             spiel_at(29, quelle1=sieger(25), quelle2=sieger(25)),

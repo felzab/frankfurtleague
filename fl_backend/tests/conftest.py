@@ -15,6 +15,7 @@ import pytest
 from pydantic import BaseModel, ValidationError
 from pymongo import MongoClient
 
+from app.core.logging import TraceContextFilter
 from app.core.recording import actor_var
 from tests.database import bounded_case, close_the_shared_clients
 from tests.documents import EINWILLIGUNG, rules_document
@@ -74,6 +75,19 @@ def an_administrator_bound() -> Iterator[None]:
         yield
     finally:
         actor_var.reset(token)
+
+
+@pytest.fixture(autouse=True)
+def a_capture_stamped_as_the_service_s_handler(caplog: pytest.LogCaptureFixture) -> Iterator[None]:
+    """The trace filter on pytest's capture as on the service's one handler, so a captured record carries what its line would."""
+
+    # Taken off again: pytest keeps one capture handler for the whole run.
+    stamp = TraceContextFilter()
+    caplog.handler.addFilter(stamp)
+    try:
+        yield
+    finally:
+        caplog.handler.removeFilter(stamp)
 
 
 def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
@@ -227,18 +241,11 @@ def saison() -> PayloadFactory:
             "start_date": "2026-01-01",
             "end_date": "2026-06-30",
             "status": "active",
-            # The points the model suites read back, and the shape the schedule below follows from, passed
-            # rather than left to the builder's default.
+            # The points the model suites read back, and the season's shape, passed rather than left to the builder's
+            # default.
             "rules": rules_document(win_points=3, number_of_gruppen=4, teams_per_gruppe=4, qualifiers_per_gruppe=2),
             "bewerbung": None,
             "registrierung": None,
-            # Derived and on no document; spelled out rather than computed, so a `schedule_for` change shows here.
-            "schedule": [
-                {"phase": "gruppenphase", "spieltage": 3, "matches_per_spieltag": 8},
-                {"phase": "viertelfinale", "spieltage": 1, "matches_per_spieltag": 4},
-                {"phase": "halbfinale", "spieltage": 1, "matches_per_spieltag": 2},
-                {"phase": "finale", "spieltage": 1, "matches_per_spieltag": 2},
-            ],
         }
     )
 

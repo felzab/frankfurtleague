@@ -1,8 +1,8 @@
-import { serveBackend } from "@/test-support/backend";
-import { doubleNextRequest } from "@/test-support/nextRequest";
 import { describe, expect, it } from "vitest";
 
 import { SERVER_COPY } from "@/core/serverCopy";
+import { serveBackend } from "@/test-support/backend";
+import { doubleNextRequest } from "@/test-support/nextRequest";
 
 import type { FLBewerbungFormResponse, FLLandingResponse } from "@/core/generated/client/types";
 import type { MailedState } from "@/kit/MailedPage";
@@ -30,7 +30,7 @@ serveBackend(({ method, path }) =>
           bewerbung_window_held: false,
           counts: { count_saisons: 0, count_schulen: 0, count_spiele: 0, count_tore: 0 },
         }
-      : path === `/bewerbungen/form/${SAISON}`
+      : path === `/bewerbungen/saisons/${SAISON}/form`
         ? FORM
         : undefined,
 );

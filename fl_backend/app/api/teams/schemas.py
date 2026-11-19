@@ -1,12 +1,9 @@
-import re
 from collections.abc import Mapping
 from typing import Annotated, Final, Literal, get_args
 
 from pydantic import (
     AfterValidator,
     BaseModel,
-    BeforeValidator,
-    ConfigDict,
     Field,
     RootModel,
     StringConstraints,
@@ -16,13 +13,7 @@ from pydantic import (
 from app.api.outbox.schemas import FLOutboxStatus
 from app.core.crud import Anchored
 from app.shared.schemas.addresses import FLAddress, FLAddressPayload
-from app.shared.schemas.bounds import (
-    AUSTRITT_REASON_MAX_LENGTH,
-    TEAM_DESCRIPTION_MAX_LENGTH,
-    TEAM_FULL_NAME_MAX_LENGTH,
-    TEAM_NAME_MAX_LENGTH,
-    TEAM_WEBSITE_URL_MAX_LENGTH,
-)
+from app.shared.schemas.bounds import TEAM_FULL_NAME_MAX_LENGTH, TEAM_NAME_MAX_LENGTH
 from app.shared.schemas.custom import (
     PARAGRAPH_PATTERN,
     PHONE_REGEX,
@@ -32,10 +23,9 @@ from app.shared.schemas.custom import (
     CustomObjectId,
     CustomOptionalDateString,
     CustomOptionalExternalUrl,
+    CustomOptionalWebsiteUrl,
     CustomShorthand,
     CustomVersion,
-    parse_empty_string_to_none,
-    validate_external_url,
 )
 from app.shared.schemas.einwilligung import (
     FLEinwilligungEvidenceSet,
@@ -47,48 +37,26 @@ from app.shared.schemas.literals import (
     FLAustrittType,
     FLGruppenNames,
     FLKontaktKenntnisnahmeScope,
-    FLKontaktRolle,
+    FLKontaktSeat,
     FLSaisonStatus,
     FLSchulform,
     FLTrikotFarbe,
 )
-from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
+from app.shared.schemas.responses import BasePayload, BaseReadModel
 
 # Read off the closed set rather than chosen beside it: a cap over the set size is one
 # `offered_gruppen` serves short while refusing nothing.
 MAX_NUMBER_OF_GROUPS: Final = len(get_args(FLGruppenNames.__value__))
 
-# Two values rather than a free `saison_phase` filter: a table of the Halbfinale alone is not a
-# standing, and offering it invites one.
-type FLTeamStatistikScope = Literal["gruppenphase", "total"]
-
 # Which second seat one person may hold beside the Trainer's. A closed set rather than a flag per seat: the
 # two are alternatives, and nothing can mean holding both.
 type FLTrainerAlso = Literal["ansprechperson", "stellvertretung"]
 
+TEAM_DESCRIPTION_MAX_LENGTH: Final = 4096
 
-# Both spellings of the country code. Neither arm can take the other's value -- `0049…` does not
-# start with `49` -- so the order carries nothing.
-_PHONE_COUNTRY_CODES = ("0049", "49")
-
-
-def normalise_phone(value: str) -> str:
-    """One spelling per telephone number, so `+49 170 …` and `0170 …` compare equal.
-
-    Digits alone, `PHONE_REGEX` admitting spaces, brackets, hyphens and dots. No German area code
-    starts with the trunk `0`, so a leading country code folds back to it.
-    """
-
-    digits = re.sub(r"[^0-9]", "", value)
-
-    for country_code in _PHONE_COUNTRY_CODES:
-        if digits.startswith(country_code):
-            # The second `removeprefix` takes the trunk zero written as `(0)`, which is the standard
-            # German notation and the commonest spelling of all. An international-format number
-            # carries no real leading zero, so dropping one can only be right.
-            return f"0{digits.removeprefix(country_code).removeprefix('0')}"
-
-    return digits
+# Why a team is out of a season, in an administrator's words on the team's public page: a sentence, as a
+# ban's reason is.
+AUSTRITT_REASON_MAX_LENGTH: Final = 500
 
 
 class FLAustritt(BaseModel):
@@ -105,13 +73,11 @@ class FLAustritt(BaseModel):
     date: CustomDateString
 
 
-class FLAustrittPayload(FLAustritt):
+class FLAustrittPayload(FLAustritt, BasePayload):
     """The exit as an administrator writes it: the reason ceilinged as it arrives and stripped before its floor.
 
     On the write side alone, so a read model takes a stored blank or a longer reason as it stands.
     """
-
-    model_config = ConfigDict(extra="forbid")
 
     reason: Annotated[
         str,
@@ -124,8 +90,8 @@ class FLAustrittPayload(FLAustritt):
 class FLKontaktKenntnisnahme(BaseReadModel):
     """The scope this person's record is held on, the day they were seated, and what they answered.
 
-    Kenntnisnahme and not Einwilligung: the published basis is Art. 6(1)(b)/(f), and a pupil's consent record holds
-    other values entirely.
+    Kenntnisnahme and not Einwilligung: the published basis is Art. 6(1)(f), the optional WhatsApp scope and the media
+    answer alone being consents under Art. 6(1)(a), and a pupil's consent record holds other values entirely.
     """
 
     scope: FLKontaktKenntnisnahmeScope
@@ -164,7 +130,7 @@ class FLSaisonTeamKontakte(BaseModel):
     finished season keeps those who confirmed their seat.
     """
 
-    # Nullable per slot: a person's erasure empties the slots naming them and must not reach the
+    # Nullable per seat: a person's erasure empties the seats naming them and must not reach the
     # two people beside them.
     trainer: FLKontaktperson | None
     ansprechperson: FLKontaktperson | None
@@ -201,12 +167,12 @@ class FLSaisonTeamConfirmation(BaseModel):
     # Stored rather than derived from `sent_at` and the bound: raising the bound would otherwise
     # move the deadline of every link already in somebody's inbox.
     deadline: CustomDateString
-    # Beside the slot rather than inside it: a Widerspruch empties the slot, and a marker in there would go with it.
+    # Beside the seat rather than inside it: a Widerspruch empties the seat, and a marker in there would go with it.
     declined_at: CustomOptionalDateString
 
 
 class FLSaisonTeamConfirmations(BaseModel):
-    """The three seats' links, outside `kontakte` and mirroring its slots; nullable per seat, as the slot beside each is."""
+    """The three seats' links, outside `kontakte` and mirroring its seats; nullable per seat, as the person beside each is."""
 
     trainer: FLSaisonTeamConfirmation | None
     ansprechperson: FLSaisonTeamConfirmation | None
@@ -266,9 +232,7 @@ class FLSaisonTeamConfirmationsView(BaseModel):
 # to enter at their confirmation, and no payload takes a consent record, which the server composes.
 # The ceilings are here and not on the read models above: refusing a stored value on read answers 500
 # for a whole list over one row, and locks out the write that would repair it.
-class _KontaktpersonWritablePayload(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
+class _KontaktpersonWritablePayload(BasePayload):
     # Tightened on the write side alone, in the type the public
     # application and a referee's name take too, so the editor and the form refuse a name alike.
     first_name: CustomKontaktName
@@ -306,9 +270,8 @@ class _TeamWritable(BaseModel):
     # No default here, so the payloads inherit none: `PATCH` replaces the club wholesale, and an
     # omitted key would clear a school form and fan the clearing out as an edit somebody asked for.
     schulform: FLSchulform | None
-    # Rendered straight into an href on a public page, so the scheme is constrained here as well as
-    # in the frontend (`validate_external_url`). Null where a school
-    # has no site: `""` renders as a link to the page it sits on.
+    # Rendered straight into an href on a public page, so the scheme is constrained here, on every read as on every
+    # write. Null where a school has no site: `""` renders as a link to the page it sits on.
     website_url: CustomOptionalExternalUrl
     # Public on every read, a data-protection expert consulted: a school's street stays on the base
     # tier, and the application form asking for it says so.
@@ -330,11 +293,7 @@ FLTeamListAdapter = TypeAdapter(list[FLTeam])
 
 
 class FLTeamRecord(_TeamWritable, BaseReadModel, Anchored):
-    """The club document as it is stored, and what the write endpoints echo.
-
-    The season-scoped fields would mean re-running the team pipeline, whose junction join is strict
-    -- and a club being created holds no row yet.
-    """
+    """The club document as it is stored."""
 
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
     inactive_since: CustomOptionalDateString
@@ -371,7 +330,7 @@ class FLTabelle(RootModel[Mapping[FLGruppenNames, list[FLTabelleRow]]]):
     """
 
 
-class FLTabelleResponse(BaseAPIResponse):
+class FLTabelleResponse(BaseReadModel):
     """One season's Tabelle: each group's standing over the group phase, and how many of each group advance."""
 
     gruppen: FLTabelle
@@ -392,13 +351,13 @@ class FLSaisonTeamEntry(BaseReadModel):
 FLSaisonTeamEntryListAdapter = TypeAdapter(list[FLSaisonTeamEntry])
 
 
-class FLSaisonTeamsResponse(BaseAPIResponse):
+class FLSaisonTeamsResponse(BaseReadModel):
     """A season's clubs, by name."""
 
     teams: list[FLSaisonTeamEntry]
 
 
-class FLTeamPageClub(_TeamWritable, BaseReadModel):
+class FLTeamPageTeam(_TeamWritable, BaseReadModel):
     """The club as its page in one season shows it: the school, its group, and how it left the season if it did.
 
     The whole `austritt` record, reason and day: this page is the one that publishes them.
@@ -409,6 +368,39 @@ class FLTeamPageClub(_TeamWritable, BaseReadModel):
     austritt: FLAustritt | None
 
 
+class FLKontaktKenntnisnahmeAdmin(BaseReadModel):
+    """What a seat's person answered, as the team editor reads it: the day they confirmed and their two choices, never the evidence."""
+
+    scope: FLKontaktKenntnisnahmeScope
+    # Null until the person confirms the seat themselves.
+    confirmed_at: CustomOptionalDateString
+    media: bool
+
+
+class FLKontaktpersonAdmin(BaseReadModel):
+    """One seat's person as the team editor reads them.
+
+    No birthdate: it is asked once for the age check, and no page of the administration shows it. Declared apart from
+    the stored seat rather than derived from it, since what a page reads and what the league keeps change for different
+    reasons.
+    """
+
+    first_name: CustomNonEmptyString
+    last_name: CustomNonEmptyString
+    email: str
+    phone: str
+    einwilligung: FLKontaktKenntnisnahmeAdmin
+
+
+class FLSaisonTeamKontakteAdmin(BaseReadModel):
+    """The three seats as the team editor reads them, nullable per seat as stored."""
+
+    trainer: FLKontaktpersonAdmin | None
+    ansprechperson: FLKontaktpersonAdmin | None
+    stellvertretung: FLKontaktpersonAdmin | None
+    trainer_is_also: FLTrainerAlso | None
+
+
 class FLTeamMembership(BaseReadModel):
     """One junction row as seen from its club: which season, which group, and the record if any."""
 
@@ -416,8 +408,8 @@ class FLTeamMembership(BaseReadModel):
     gruppe: FLGruppenNames
     austritt: FLAustritt | None
     trikot_farbe: FLTrikotFarbe | None
-    kontakte: FLSaisonTeamKontakte | None
-    # Each seat's link as the editor shows it, the referee editor's twin. Defaulted: `$project` omits a
+    kontakte: FLSaisonTeamKontakteAdmin | None
+    # Each seat's link as the editor shows it. Defaulted: `$project` omits a
     # key the stored row has not got, and a row holds none until a save mints its first link.
     confirmations: FLSaisonTeamConfirmationsView | None = None
     # The row's count of writes, which its two editors' saves send back.
@@ -426,9 +418,7 @@ class FLTeamMembership(BaseReadModel):
 
 # Private, so it publishes no OpenAPI component. The bounded address sits here rather than on that base,
 # which `FLTeam` and `FLTeamRecord` share.
-class _TeamPayload(_TeamWritable):
-    model_config = ConfigDict(extra="forbid")
-
+class _TeamPayload(_TeamWritable, BasePayload):
     address: FLAddressPayload
     # Stripped and ceilinged on the write side alone, so a stored value reads as it stands;
     # `name` reaches a league table row, where a space would show. The ceiling counts what arrives and
@@ -446,23 +436,9 @@ class _TeamPayload(_TeamWritable):
         StringConstraints(min_length=1),
     ]
     shorthand: CustomShorthand
-    # Stripped on the write side too: `validate_external_url` leaves surrounding whitespace on the
-    # value, so a pasted URL would be stored with it. Composed from `str` as the application's twin
-    # is, so the ceiling is judged before the host regex runs.
-    website_url: Annotated[
-        Annotated[
-            str,
-            StringConstraints(max_length=TEAM_WEBSITE_URL_MAX_LENGTH),
-            AfterValidator(str.strip),
-            AfterValidator(validate_external_url),
-        ]
-        | None,
-        BeforeValidator(parse_empty_string_to_none),
-    ]
+    website_url: CustomOptionalWebsiteUrl
 
 
-# Two names for one shape rather than an alias: the create and the edit are free to diverge, and an
-# alias would carry a change to either one into the other.
 class FLPostTeamPayload(_TeamPayload):
     pass
 
@@ -480,50 +456,30 @@ class FLPatchTeamSaisonPayload(_TeamPayload):
     version: CustomVersion
 
 
-class FLPatchTeamSaisonResponse(BaseAPIResponse):
-    """The count the editor's next save sends."""
-
-    version: int = Field(ge=0)
-
-
-class FLEntryKnownClub(BaseModel):
+class FLEntryKnownTeam(BasePayload):
     """A club the league holds, picked from the list's create dialog."""
-
-    model_config = ConfigDict(extra="forbid")
 
     kind: Literal["known"]
     team_id: CustomObjectId
 
 
-class FLEntryNewClub(BaseModel):
+class FLEntryNewTeam(BasePayload):
     """A club the entry founds, in the transaction that enters it."""
-
-    model_config = ConfigDict(extra="forbid")
 
     kind: Literal["new"]
     team: FLPostTeamPayload
 
 
-class FLPostTeamEntryPayload(BaseModel):
+class FLPostTeamEntryPayload(BasePayload):
     """One club's entry into a season, the club known or new. One field rather than two nullable ones, so no body names both."""
 
-    model_config = ConfigDict(extra="forbid")
-
-    club: Annotated[FLEntryKnownClub | FLEntryNewClub, Field(discriminator="kind")]
+    team: Annotated[FLEntryKnownTeam | FLEntryNewTeam, Field(discriminator="kind")]
     gruppe: FLGruppenNames
     trikot_farbe: FLTrikotFarbe | None
 
 
-class FLPostTeamEntryResponse(BaseAPIResponse):
-    """The club the entry wrote a row for, whose editor the list opens."""
-
-    team_id: CustomObjectId
-
-
-class FLReplaceSaisonTeamPayload(BaseModel):
+class FLReplaceSaisonTeamPayload(BasePayload):
     """Which club takes this season's row over. The path names the club going out."""
-
-    model_config = ConfigDict(extra="forbid")
 
     # The only field: the row keeps the group it stands in, and its copy of the identity is reseeded
     # from the incoming club, so a client-supplied name could only disagree with it.
@@ -537,15 +493,6 @@ class FLKontaktSeatPayload(_KontaktpersonWritablePayload):
     # left out it stands, so a dialog offering no choice claims nothing.
     trainer_is_also: FLTrainerAlso | None = None
     version: CustomVersion
-
-
-class FLTeamSingleFilterParams(BaseModel):
-    """What `GET /teams/{team_id}` accepts: only what chooses which season's figures to derive."""
-
-    saison_id: str | None = None
-    # Defaults to the group table, so an omitted parameter is the correct standing rather than the
-    # playoff-polluted one.
-    statistik_scope: FLTeamStatistikScope = Field(default="gruppenphase")
 
 
 # The list's status filter: in the season, out of it, or out of the league.
@@ -568,9 +515,6 @@ class FLTeamsAdminRow(BaseReadModel):
     shorthand: str
     gruppe: FLGruppenNames | None
     trikot_farbe: FLTrikotFarbe | None
-    # Counted per read off the row's seats, never stored.
-    seats_filled: int = Field(ge=0)
-    seats_confirmed: int = Field(ge=0)
     # The type alone, as a standing row carries it.
     austritt_type: FLAustrittType | None
     inactive_since: CustomOptionalDateString
@@ -583,26 +527,25 @@ class FLTeamGruppeOffer(BaseReadModel):
     full: bool
 
 
-class FLTeamEntryClub(BaseReadModel):
+class FLTeamEntryTeam(BaseReadModel):
     """A club the entry's picker offers: one still in the league that holds no row of the season."""
 
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
     name: str
-    shorthand: str
 
 
 class FLTeamEntryOffer(BaseReadModel):
     """What the list's create dialog offers, and why the entry would be refused now."""
 
-    clubs: list[FLTeamEntryClub]
+    teams: list[FLTeamEntryTeam]
     gruppen: list[FLTeamGruppeOffer]
     # Only a `future` season takes an entry; every other refusal is about the group or the club the dialog picks.
     closed: bool
-    # The colours a row of the season holds, which `trikot_farbe_taken` refuses.
+    # The colours a row of the season holds, which no entry may take.
     taken: list[FLTrikotFarbe]
 
 
-class FLTeamsAdminListResponse(BaseAPIResponse):
+class FLTeamsAdminListResponse(BaseReadModel):
     """One season's Teams list, and what its create dialog offers."""
 
     teams: list[FLTeamsAdminRow]
@@ -615,68 +558,27 @@ class FLTeamSaisonFacts(BaseReadModel):
     id: str
     status: FLSaisonStatus
     start_date: CustomDateString
-    # `has_started`, which an exit is refused before.
+    # Whether the season has started, which an exit is refused before.
     begun: bool
-    # The registration window's end, past which an entry through the link is a nominee (`entry_is_a_nominee`), the link
-    # opening on until the season ends; null for a season storing no window.
+    # The registration window's end, past which an entry through the link is a nominee, the link opening on until the
+    # season ends; null for a season storing no window.
     registrierung_end: CustomOptionalDateString
-
-
-class FLTeamsSingleResponse(BaseAPIResponse):
-    """One team, from `GET /teams/{team_id}`."""
-
-    format: Literal["single"] = "single"
-    team: FLTeam
 
 
 class FLKontaktMint(BaseModel):
     """One person a write owed a fresh confirmation link, which the Postausgang mails: never the link itself."""
 
     # Every seat the one link answers for, two where the Trainer holds a second: one link per person.
-    rollen: list[FLKontaktRolle]
+    seats: list[FLKontaktSeat]
     # As this transaction stored it, never a caller's earlier read: the address the mail is owed to.
     email: str
 
 
-class FLKontaktSeatResponse(BaseAPIResponse):
+class FLKontaktSeatResponse(BaseReadModel):
     """Where the seat write's link went."""
 
     # The address the fresh link is owed to, as stored. Null where the seat keeps its person, who keeps their link.
     email: str | None
-
-
-class FLKontaktInviteResponse(BaseAPIResponse):
-    """A fresh link owed one seat, and its pair where the Trainer holds both; the old link opens nothing from this write on."""
-
-    saison_id: str
-    team_id: CustomObjectId
-    confirmation: FLKontaktMint
-
-
-class FLReplaceSaisonTeamResponse(BaseAPIResponse):
-    """The junction row as the replacement left it, plus what it reached beyond that row.
-
-    `austritt` is cleared and not echoed: a club that has not withdrawn needs nothing done about it.
-    """
-
-    saison_id: str
-    outgoing_team_id: CustomObjectId
-    incoming_team_id: CustomObjectId
-    # Untouched by the replacement, and echoed because the arriving club has to be told which group
-    # it now stands in.
-    gruppe: FLGruppenNames
-    # The gap: the outgoing school's colour and its three people leave with it, so the season now
-    # has no way at all to reach this team.
-    trikot_farbe: FLTrikotFarbe | None
-    kontakte: FLSaisonTeamKontakte | None
-    # Reseeded from the incoming club, exactly as entry seeds them.
-    name: CustomNonEmptyString
-    shorthand: CustomShorthand
-    # The fixtures whose side moved to the incoming club, reported rather than assumed, as the group swap reports its own.
-    rewritten_spiele: int
-    # Reported for the same reason, and separately: the outgoing club's squad leaves the season with
-    # it, and zero is a real answer -- a club can hold a junction row and no squad at all.
-    retired_kader_rows: int
 
 
 class FLTeamSeat(BaseModel):
@@ -687,8 +589,8 @@ class FLTeamSeat(BaseModel):
     """
 
     # The seats the entry's person holds: the Trainer's first, and the seat `trainer_is_also` names beside it.
-    rollen: list[FLKontaktRolle]
-    # Null for an empty slot, which is answered rather than omitted: a missing line reads as a team
+    seats: list[FLKontaktSeat]
+    # Null for an empty seat, which is answered rather than omitted: a missing line reads as a team
     # with two seats rather than one with a seat unfilled.
     name: str | None
     # Composed from the stamp and never the stamp itself, so no date about another person crosses.

@@ -64,14 +64,16 @@ def _scrubbed(value: object) -> object:
 
 
 class JSONFormatter(logging.Formatter):
-    """The production line: one JSON document, in the envelope the frontend writes too."""
+    """The service's line: one JSON document, in the envelope the frontend writes too."""
 
     def format(self, record: logging.LogRecord) -> str:
         line: dict[str, object] = {
             "timestamp": datetime.fromtimestamp(record.created, tz=UTC).isoformat(timespec="milliseconds").replace("+00:00", "Z"),
             "level": record.levelname,
             "service": "fl_backend",
-            "trace_id": getattr(record, "trace_id", trace_id_var.get()),
+            # Stamped by `TraceContextFilter`, which the one handler formatting this line carries; read off the record's
+            # attributes as a `%(name)s` format reads one, since `LogRecord` declares none for it.
+            "trace_id": vars(record)["trace_id"],
             "message": record.getMessage(),
             "module": record.module,
             "line": record.lineno,
@@ -84,27 +86,15 @@ class JSONFormatter(logging.Formatter):
         return json.dumps(_scrubbed(line), ensure_ascii=False, default=lambda value: _scrubbed(str(value)))
 
 
-class PlainFormatter(logging.Formatter):
-    """The line a developer reads in a terminal."""
-
-    def format(self, record: logging.LogRecord) -> str:
-        fields = " ".join(f"{key}={value}" for key, value in {"trace_id": getattr(record, "trace_id", None), **_fields(record)}.items())
-        line = f"{record.levelname:<8} {self.formatTime(record)} {record.module}:{record.lineno} - {record.getMessage()} {fields}"
-        if record.exc_info:
-            line = f"{line}\n{self.formatException(record.exc_info)}"
-        return ADDRESS.sub(SCRUBBED, line)
-
-
 def setup_logging() -> None:
-    """Every record to stdout, ours and the libraries' alike, as JSON unless a person is reading the terminal."""
+    """Every record to stdout, ours and the libraries' alike, as one JSON document each, wherever the service runs."""
 
     logging.config.dictConfig(
         {
             "version": 1,
             "disable_existing_loggers": False,
             "filters": {"trace": {"()": TraceContextFilter}},
-            # A container has no terminal, so production writes JSON with no variable to set or forget.
-            "formatters": {"line": {"()": PlainFormatter if sys.stdout.isatty() else JSONFormatter}},
+            "formatters": {"line": {"()": JSONFormatter}},
             "handlers": {"stdout": {"class": "logging.StreamHandler", "stream": sys.stdout, "formatter": "line", "filters": ["trace"]}},
             "root": {"handlers": ["stdout"], "level": "INFO"},
             "loggers": {

@@ -1,7 +1,7 @@
 # Scripts
 
-The scripts that check, run and deploy this project. Each script's header is its usage, and
-`--help` prints it. On Windows, run them from Git Bash.
+The scripts that check, run and deploy this project. Each script's header is its usage, and `--help`
+prints it. On Windows, run them from Git Bash.
 
 | Path                                    | Run on        | Purpose                                                                                                    |
 | --------------------------------------- | ------------- | ---------------------------------------------------------------------------------------------------------- |

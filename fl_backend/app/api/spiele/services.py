@@ -42,14 +42,16 @@ from app.api.spiele.schemas import (
     FLSpielTeamField,
     FLSpielTeamFieldJoinedInternal,
     FLSpielTeamFieldPayload,
-    FLSpielVoidedResult,
+    FLSpielVoidedErgebnis,
+    is_played,
     is_unplayed,
     records_an_absence,
 )
-from app.api.teams.services import DecidedStanding, in_the_season_when_decided, is_played, offered_gruppen
+from app.api.teams.services import offered_gruppen
+from app.api.teams.standings import DecidedStanding, in_the_season_when_decided
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.exceptions import FieldPath, WriteRefusal
+from app.core.exceptions import APIError, FieldPath
 from app.shared.einwilligung import NAME_IS_PUBLIC
 from app.shared.schemas.custom import CustomObjectId
 from app.shared.schemas.literals import FLGruppenNames, FLSonderereignis, FLSpielSide
@@ -60,8 +62,6 @@ SAISON_TEAMS_AS_NAME = "saison_teams_rows"
 def _joined_side(side: FLSpielSide) -> Mapping[str, Any]:
     """One side with its season row folded in. `$mergeObjects`, never a rebuilt object: listing the keys copies `FLSpielTeamField`."""
 
-    # Not `$getField`, which needs MongoDB 5.0: the test tier's container cannot speak for the
-    # production server's version.
     matching_row = {"$filter": {"input": f"${SAISON_TEAMS_AS_NAME}", "cond": {"$eq": ["$$this.team_id", f"${side}.team_id"]}}}
     # One `$let` for every key, so the name a side is served under and the way its club left can never
     # be answered off different rows. Merged last, so the row's name wins over anything the document holds.
@@ -103,9 +103,9 @@ _TEAM_AGREED = "team_agreed"
 
 
 def _confirmations_lookup() -> Mapping[str, Any]:
-    """Every unclosed row and every referee's answer, marked on the five stored snapshot values, never on `ansetzung.digest`.
+    """Every unclosed row and every referee's answer, marked on the five stored snapshot values against the fixture's own.
 
-    No aggregation recomputes the digest, so an answer stops counting at a move, not at the hourly close.
+    Compared here as the pass compares them, so an answer stops counting at a move, not at the hourly close.
     """
 
     current = {"$and": [{"$eq": [f"$ansetzung.{key}", f"$${key}"]} for key in ANSETZUNG_QUELLEN]}
@@ -181,7 +181,7 @@ def _ansetzung_confirmed() -> Mapping[str, Any]:
     sides = [{"$ifNull": [f"${ANSETZUNG_QUELLEN[key]}", None]} for key in ("team1_id", "team2_id")]
     # The agreeing clubs are the two sides, never merely two rows: two answers of one club leave the
     # other's agreement missing.
-    both_clubs = {"$setEquals": [{"$map": {"input": "$$current_rows", "in": "$$this.party.team_id"}}, sides]}
+    both_teams = {"$setEquals": [{"$map": {"input": "$$current_rows", "in": "$$this.party.team_id"}}, sides]}
 
     return {
         "$let": {
@@ -190,7 +190,7 @@ def _ansetzung_confirmed() -> Mapping[str, Any]:
                 "$cond": [
                     {"$eq": [{"$size": "$$team_rows"}, 0]},
                     None,
-                    {"$let": {"vars": {"current_rows": current_rows}, "in": {"$and": [all_agreed, both_clubs]}}},
+                    {"$let": {"vars": {"current_rows": current_rows}, "in": {"$and": [all_agreed, both_teams]}}},
                 ]
             },
         }
@@ -270,7 +270,7 @@ def _referee_lookup() -> Mapping[str, Any]:
 
 
 def _venue_lookup() -> Mapping[str, Any]:
-    """The booked venue's current name and the search its Maps link runs, and nothing else of its row."""
+    """The booked venue's current name and its Maps search, and nothing else of its row."""
 
     return {
         "$lookup": {
@@ -278,7 +278,7 @@ def _venue_lookup() -> Mapping[str, Any]:
             # A fixture with no venue looks up a missing path, which the manual reads as null: no venue's `_id` is.
             "localField": "spielort.spielort_id",
             "foreignField": "_id",
-            "pipeline": [{"$project": {"_id": 0, "name": 1, "maps_link": 1}}],
+            "pipeline": [{"$project": {"_id": 0, "name": 1, "maps_query": 1}}],
             "as": SPIELORTE_AS_NAME,
         }
     }
@@ -356,7 +356,7 @@ def _joined_referee() -> Mapping[str, Any]:
     return {"$cond": [{"$eq": ["$schiedsrichter", None]}, None, {"$mergeObjects": ["$schiedsrichter", joined]}]}
 
 
-def _season_rows_lookup() -> Mapping[str, Any]:
+def _junctions_lookup() -> Mapping[str, Any]:
     """Both sides' rows of the fixture's own season: the name and shorthand each is played under, and the way it left."""
 
     return {
@@ -418,7 +418,7 @@ def build_named_spiele_pipeline(
 
     return [
         *_ordered(db_filter, sort_by, limit),
-        _season_rows_lookup(),
+        _junctions_lookup(),
         _venue_lookup(),
         {
             "$set": {
@@ -445,7 +445,7 @@ def build_spiele_pipeline(
 
     pipeline = _ordered(db_filter, sort_by, limit)
 
-    pipeline.append(_season_rows_lookup())
+    pipeline.append(_junctions_lookup())
 
     pipeline.append(_confirmations_lookup())
 
@@ -776,15 +776,15 @@ def _resolve_sides(spiel_nr: int, walk: _BracketWalk) -> ResolvedSides:
         sides.append(occupant.model_copy(update={"tore": None}) if occupant is not None else None)
         an_occupant_changed = True
 
-    both_sides_one_club = sides[0] is not None and sides[1] is not None and sides[0].team_id == sides[1].team_id
+    both_sides_one_team = sides[0] is not None and sides[1] is not None and sides[0].team_id == sides[1].team_id
 
     # Reported even where nothing moves: a fixture already holding the club its source resolves to
     # stores the contradiction rather than producing it, and the write path cannot refuse that.
-    if both_sides_one_club and a_side_is_maintained:
+    if both_sides_one_team and a_side_is_maintained:
         walk.faults.append(FLBracketFaultSpiel(reason="same_team", spiel_id=spiel.id, spiel_nr=spiel_nr))
 
     # Recorded as not maintained: claiming a change would void this result and the whole subtree's.
-    if an_occupant_changed and both_sides_one_club:
+    if an_occupant_changed and both_sides_one_team:
         walk.memo[spiel_nr] = (spiel.team1, spiel.team2, False)
         return walk.memo[spiel_nr]
 
@@ -936,7 +936,7 @@ def find_gruppen_not_run(spiele: Iterable[FLSpielCommon], *, number_of_gruppen: 
 class SaisonMembership:
     """One club's `saison_teams` row: the name this season is played under, and the day the club left it.
 
-    The season's name rather than the club's, for the release a save reports.
+    The season's name rather than the club's, for the clubs the match editor offers and the parties a dry run names.
     """
 
     name: str
@@ -948,8 +948,6 @@ class SaisonMembership:
 class BookedVenue:
     """The `spielorte` row a fixture's venue reference names, as it stands now."""
 
-    name: str
-    maps_link: str
     inactive_since: str | None
 
 
@@ -964,13 +962,11 @@ class BookedReferee:
 
 @dataclass(frozen=True)
 class ResolvedReferences:
-    """Every row this payload's references name, read in the router to keep this module synchronous.
+    """The venue and the referee this payload's references name, read by the caller to keep this module synchronous.
 
-    What the booking and eligibility rules judge: whether a club holds a row this season, and whether a venue or a
-    referee stands, live and confirmed.
+    What the booking rule judges: whether each stands, live and confirmed.
     """
 
-    teams: Mapping[CustomObjectId, SaisonMembership]
     #: `None` where the payload names none, and where the id names no row at all.
     spielort: BookedVenue | None = None
     schiedsrichter: BookedReferee | None = None
@@ -1008,10 +1004,10 @@ class ComposedResult:
 
 
 def compose_result(payload: FLPatchSpielDataPayload, rules: FLSaisonRules) -> ComposedResult:
-    """The result as the save composes it, for the document and for `booking_unknown_resource`'s question whether it stays unplayed."""
+    """The result as the save composes it."""
 
     # An unresolved slot has nobody to score, so an unresolved fixture carries no goals rather than
-    # the partial result `build_statistik_lookup_stage` has to filter against.
+    # a partial result `counted_goals` has to pass over.
     both_sides_known = payload.team1 is not None and payload.team2 is not None
     team1_tore = payload.team1.tore if both_sides_known and payload.team1 is not None else None
     team2_tore = payload.team2.tore if both_sides_known and payload.team2 is not None else None
@@ -1090,7 +1086,7 @@ def stored_in_slice(spiel_id: CustomObjectId, season: Sequence[FLSpiel]) -> FLSp
     return stored
 
 
-def find_state_refusal(payload: FLPatchSpielDataPayload) -> WriteRefusal | None:
+def find_state_refusal(payload: FLPatchSpielDataPayload) -> APIError | None:
     """Why this patch's sonderereignis must be refused, or `None`.
 
     Both read the payload alone: the event and the two goal counts arrive in one body, so the pair
@@ -1102,25 +1098,17 @@ def find_state_refusal(payload: FLPatchSpielDataPayload) -> WriteRefusal | None:
     # Refused rather than silently emptied: the goals are somebody's typing, and a save that discards
     # them without saying so is how a real result disappears.
     if payload.sonderereignis in SONDEREREIGNIS_WITHOUT_A_RESULT and submitted_goals:
-        return WriteRefusal(
-            error_code=Code.STATE_ERGEBNIS_ON_A_NON_EVENT,
-            status=HTTPStatus.UNPROCESSABLE_CONTENT,
-            fields=(("sonderereignis",),),
-        )
+        return APIError(HTTPStatus.UNPROCESSABLE_CONTENT, Code.STATE_ERGEBNIS_ON_A_NON_EVENT, fields=(("sonderereignis",),))
 
     # An unresolved slot has nobody who could have failed to appear, and the award below would have
     # no side to land on.
     if payload.sonderereignis in SONDEREREIGNIS_NO_SHOW and (payload.team1 is None or payload.team2 is None):
-        return WriteRefusal(
-            error_code=Code.STATE_NICHTANTRETEN_WITHOUT_TWO_SIDES,
-            status=HTTPStatus.UNPROCESSABLE_CONTENT,
-            fields=(("sonderereignis",),),
-        )
+        return APIError(HTTPStatus.UNPROCESSABLE_CONTENT, Code.STATE_NICHTANTRETEN_WITHOUT_TWO_SIDES, fields=(("sonderereignis",),))
 
     return None
 
 
-def find_ergebnis_before_start_refusal(stored: FLSpiel, patched: FLSpiel, *, started: bool) -> WriteRefusal | None:
+def find_ergebnis_before_start_refusal(stored: FLSpiel, patched: FLSpiel, *, started: bool) -> APIError | None:
     """`ergebnis_before_saison_start`: goals, a shoot-out, a no-show or an abandonment a save would newly store before the season's start.
 
     `started` is the season's own `has_started`, the one start every start lock reads; `patched` is the fixture as the
@@ -1149,10 +1137,7 @@ def find_ergebnis_before_start_refusal(stored: FLSpiel, patched: FLSpiel, *, sta
     if not new_goals and not new_record and not new_shoot_out:
         return None
 
-    return WriteRefusal(
-        error_code=Code.ERGEBNIS_BEFORE_SAISON_START,
-        status=HTTPStatus.CONFLICT,
-    )
+    return APIError(HTTPStatus.CONFLICT, Code.ERGEBNIS_BEFORE_SAISON_START)
 
 
 def find_eligibility_refusal(
@@ -1160,7 +1145,7 @@ def find_eligibility_refusal(
     payload: FLPatchSpielDataPayload,
     season: Sequence[FLSpiel],
     membership: Mapping[CustomObjectId, SaisonMembership],
-) -> WriteRefusal | None:
+) -> APIError | None:
     """Why this patch's occupants must be refused. Keyed on the payload's `date`, so an undated fixture is refused."""
 
     stored = stored_in_slice(spiel_id, season)
@@ -1175,10 +1160,7 @@ def find_eligibility_refusal(
         # A newly fielded club only: one already standing here without a row is a fault to correct on
         # this very fixture, and refusing every save of it would trap that correction.
         if not stays and member is None:
-            return WriteRefusal(
-                error_code=Code.ELIGIBILITY_TEAM_NOT_IN_SAISON,
-                status=HTTPStatus.CONFLICT,
-            )
+            return APIError(HTTPStatus.CONFLICT, Code.ELIGIBILITY_TEAM_NOT_IN_SAISON)
 
         # Every input the predicate reads, not just the side: the date and the event both decide its
         # answer, so clearing the carve-out is judged as a re-dating is. On the side alone, the escape
@@ -1194,11 +1176,7 @@ def find_eligibility_refusal(
         if absence_recorded or (payload.date is not None and payload.date < member.departed_from):
             continue
 
-        return WriteRefusal(
-            error_code=Code.ELIGIBILITY_DISQUALIFIED,
-            status=HTTPStatus.CONFLICT,
-            fields=((label, "team_id"),),
-        )
+        return APIError(HTTPStatus.CONFLICT, Code.ELIGIBILITY_DISQUALIFIED, fields=((label, "team_id"),))
 
     return None
 
@@ -1234,7 +1212,7 @@ def days_a_clash_can_reach(day: str) -> list[str]:
     return [str(date.fromisoformat(day) + timedelta(days=offset)) for offset in range(-CLASH_REACH_DAYS, CLASH_REACH_DAYS + 1)]
 
 
-def find_spiel_date_refusal(*, date: str | None, spieltag_start: str | None, spieltag_end: str | None) -> WriteRefusal | None:
+def find_spiel_date_refusal(*, date: str | None, spieltag_start: str | None, spieltag_end: str | None) -> APIError | None:
     """Why this fixture's date must be refused, or `None`.
 
     An undated fixture contradicts no span, and an undated matchday states none to contradict: a
@@ -1247,11 +1225,7 @@ def find_spiel_date_refusal(*, date: str | None, spieltag_start: str | None, spi
     if spieltag_start <= date <= spieltag_end:
         return None
 
-    return WriteRefusal(
-        error_code=Code.SPIEL_OUTSIDE_SPIELTAG,
-        status=HTTPStatus.CONFLICT,
-        fields=(("date",),),
-    )
+    return APIError(HTTPStatus.CONFLICT, Code.SPIEL_OUTSIDE_SPIELTAG, fields=(("date",),))
 
 
 # A fixture whose referee block carries the record's id: never `FLSpielJoined`, whose block withholds it.
@@ -1302,7 +1276,7 @@ def find_booking_refusal(
     season: Sequence[FLSpiel],
     resolved: ResolvedReferences,
     rules: FLSaisonRules,
-) -> WriteRefusal | None:
+) -> APIError | None:
     """Why this patch's venue or referee must be refused, or `None`. Only a reference `find_new_bookings` names is judged.
 
     A booking naming nobody is kept where the fixture stores one and never made: only an erasure makes one.
@@ -1314,11 +1288,7 @@ def find_booking_refusal(
         and payload.schiedsrichter.schiedsrichter_id is None
         and (stored.schiedsrichter is None or stored.schiedsrichter.schiedsrichter_id is not None)
     ):
-        return WriteRefusal(
-            error_code=Code.BOOKING_UNKNOWN_RESOURCE,
-            status=HTTPStatus.CONFLICT,
-            fields=(RESOURCE_PATHS["Schiedsrichter"],),
-        )
+        return APIError(HTTPStatus.CONFLICT, Code.BOOKING_UNKNOWN_RESOURCE, fields=(RESOURCE_PATHS["Schiedsrichter"],))
 
     new = find_new_bookings(stored, payload, rules)
 
@@ -1331,27 +1301,12 @@ def find_booking_refusal(
         if chosen is None:
             continue
 
-        if row is None:
-            return WriteRefusal(
-                error_code=Code.BOOKING_UNKNOWN_RESOURCE,
-                status=HTTPStatus.CONFLICT,
-                fields=(path,),
-            )
-
-        if row.inactive_since is not None:
-            return WriteRefusal(
-                error_code=Code.BOOKING_UNKNOWN_RESOURCE,
-                status=HTTPStatus.CONFLICT,
-                fields=(path,),
-            )
+        if row is None or row.inactive_since is not None:
+            return APIError(HTTPStatus.CONFLICT, Code.BOOKING_UNKNOWN_RESOURCE, fields=(path,))
 
     # After both arms above, so a retired referee meets the retirement first.
     if new.schiedsrichter_id is not None and resolved.schiedsrichter is not None and not resolved.schiedsrichter.confirmed:
-        return WriteRefusal(
-            error_code=Code.BOOKING_UNCONFIRMED_SCHIEDSRICHTER,
-            status=HTTPStatus.CONFLICT,
-            fields=(RESOURCE_PATHS["Schiedsrichter"],),
-        )
+        return APIError(HTTPStatus.CONFLICT, Code.BOOKING_UNCONFIRMED_SCHIEDSRICHTER, fields=(RESOURCE_PATHS["Schiedsrichter"],))
 
     return None
 
@@ -1450,55 +1405,44 @@ def slots_booked_against(claim: SlotClaim, holders: Sequence[FLSpielSlotHolder],
     ]
 
 
-def find_references_to_anchor(stored: FLSpiel, payload: FLPatchSpielDataPayload, rules: FLSaisonRules) -> BookedReferences:
-    """Every reference the save anchors: each `booking_unknown_resource` judges, and each `spiel_double_booked` claim `find_claims_made` names.
+def find_referee_to_anchor(stored: FLSpiel, payload: FLPatchSpielDataPayload, rules: FLSaisonRules) -> CustomObjectId | None:
+    """The referee the save anchors: one `booking_unknown_resource` judges, or one a `spiel_double_booked` claim names.
 
-    Read off the two functions the rules read, so no anchor misses a reference a rule judged.
+    Read off the two functions the rules read, `find_new_bookings` and `find_claims_made`, so the anchor misses no referee
+    a rule judged.
     """
 
     new = find_new_bookings(stored, payload, rules)
-    made = {claim.resource for claim in find_claims_made(stored, payload)}
+    claimed = any(claim.resource == "Schiedsrichter" for claim in find_claims_made(stored, payload))
 
-    chosen = _chosen_references(payload)
-
-    return BookedReferences(
-        spielort_id=chosen.spielort_id if new.spielort_id is not None or "Spielort" in made else None,
-        schiedsrichter_id=chosen.schiedsrichter_id if new.schiedsrichter_id is not None or "Schiedsrichter" in made else None,
-    )
+    return _chosen_references(payload).schiedsrichter_id if new.schiedsrichter_id is not None or claimed else None
 
 
-def find_clash_refusal(*, date: str | None, time: str | None, booked: Sequence[BookedSlot]) -> WriteRefusal | None:
+def find_clash_refusal(*, date: str | None, time: str | None, booked: Sequence[BookedSlot]) -> APIError | None:
     """Why this fixture's venue or referee must be refused, or `None`. `booked` is every other fixture holding it."""
 
     if date is None or time is None:
         return None
 
-    clash = _first_clash(date=date, time=time, booked=booked)
-    if clash is None:
+    slot = _first_clash(date=date, time=time, booked=booked)
+    if slot is None:
         return None
 
-    slot, gap = clash
-
-    return WriteRefusal(
-        error_code=Code.SPIEL_DOUBLE_BOOKED,
-        status=HTTPStatus.CONFLICT,
-        fields=(RESOURCE_PATHS[slot.resource],),
-    )
+    return APIError(HTTPStatus.CONFLICT, Code.SPIEL_DOUBLE_BOOKED, fields=(RESOURCE_PATHS[slot.resource],))
 
 
-def _first_clash(*, date: str, time: str, booked: Sequence[BookedSlot]) -> tuple[BookedSlot, int] | None:
-    """The earliest slot in `booked` less than the buffer away, and how far, for the refusal and the report alike."""
+def _first_clash(*, date: str, time: str, booked: Sequence[BookedSlot]) -> BookedSlot | None:
+    """The earliest slot in `booked` less than the buffer away, for the refusal and the report alike."""
 
     start = _minutes_of(date, time)
     for slot in sorted(booked, key=lambda entry: (entry.date, entry.time, entry.saison_id, entry.spiel_nr)):
-        gap = abs(_minutes_of(slot.date, slot.time) - start)
-        if gap < CLASH_BUFFER_MINUTES:
-            return slot, gap
+        if abs(_minutes_of(slot.date, slot.time) - start) < CLASH_BUFFER_MINUTES:
+            return slot
 
     return None
 
 
-def find_result_removal_refusal(spiel_id: CustomObjectId, payload: FLPatchSpielDataPayload, season: Sequence[FLSpiel]) -> WriteRefusal | None:
+def find_result_removal_refusal(spiel_id: CustomObjectId, payload: FLPatchSpielDataPayload, season: Sequence[FLSpiel]) -> APIError | None:
     """Why emptying a side that holds stored goals must be refused."""
 
     stored = stored_in_slice(spiel_id, season)
@@ -1507,10 +1451,7 @@ def find_result_removal_refusal(spiel_id: CustomObjectId, payload: FLPatchSpielD
         if submitted is not None or stored_side is None or stored_side.tore is None:
             continue
 
-        return WriteRefusal(
-            error_code=Code.ERGEBNIS_SIDE_EMPTIED,
-            status=HTTPStatus.CONFLICT,
-        )
+        return APIError(HTTPStatus.CONFLICT, Code.ERGEBNIS_SIDE_EMPTIED)
 
     return None
 
@@ -1655,11 +1596,10 @@ def find_double_bookings(spiele: Sequence[FLSpielJoinedAdmin], holders: Sequence
 
     for spiel in sorted(spiele, key=lambda entry: (entry.saison_id, entry.spiel_nr)):
         for claim in find_slot_claims(spiel):
-            clash = _first_clash(date=claim.date, time=claim.time, booked=slots_booked_against(claim, holders, spiel_id=spiel.id))
-            if clash is None:
+            slot = _first_clash(date=claim.date, time=claim.time, booked=slots_booked_against(claim, holders, spiel_id=spiel.id))
+            if slot is None:
                 continue
 
-            slot, _ = clash
             held = spiel.spielort if claim.resource == "Spielort" else spiel.schiedsrichter
 
             faults.append(
@@ -1692,7 +1632,6 @@ class SpieltagRelease:
     spiel_id: CustomObjectId
     spiel_nr: int
     side: FLSpielSide
-    team_name: str
     other_side_present: bool
     voided_ergebnis: str | None
     voided_elfmeterschiessen: FLSpielElfmeterschiessen | None
@@ -1704,7 +1643,7 @@ class SpieltagRelease:
 class SpieltagVerdict:
     """What fielding this payload does to the rest of the Spieltag; `releases` is void unless `refusal` is `None`."""
 
-    refusal: WriteRefusal | None
+    refusal: APIError | None
     releases: list[SpieltagRelease]
 
 
@@ -1712,18 +1651,14 @@ def judge_spieltag_occupancy(
     spiel_id: CustomObjectId,
     payload: FLPatchSpielDataPayload,
     season: Sequence[FLSpiel],
-    teams: Mapping[CustomObjectId, SaisonMembership],
 ) -> SpieltagVerdict:
-    """Where this payload's teams already stand on the same Spieltag; `teams` names a released side as its season row does."""
+    """Where this payload's teams already stand on the same Spieltag."""
 
     stored = stored_in_slice(spiel_id, season)
 
     if payload.team1 is not None and payload.team2 is not None and payload.team1.team_id == payload.team2.team_id:
         return SpieltagVerdict(
-            refusal=WriteRefusal(
-                error_code=Code.SPIELTAG_OCCUPIED,
-                status=HTTPStatus.CONFLICT,
-            ),
+            refusal=APIError(HTTPStatus.CONFLICT, Code.SPIELTAG_OCCUPIED),
             releases=[],
         )
 
@@ -1745,10 +1680,7 @@ def judge_spieltag_occupancy(
 
             if quelle is not None:
                 return SpieltagVerdict(
-                    refusal=WriteRefusal(
-                        error_code=Code.SPIELTAG_OCCUPIED,
-                        status=HTTPStatus.CONFLICT,
-                    ),
+                    refusal=APIError(HTTPStatus.CONFLICT, Code.SPIELTAG_OCCUPIED),
                     releases=[],
                 )
 
@@ -1757,8 +1689,6 @@ def judge_spieltag_occupancy(
                     spiel_id=other.id,
                     spiel_nr=other.spiel_nr,
                     side=label,
-                    # The released club is the one this payload fields, so it holds a row this season.
-                    team_name=teams[occupant.team_id].name,
                     # The write path strips the other side's goals -- scored against the team being
                     # removed -- so it has to know whether a side is there to strip.
                     other_side_present=(other.team2 if label == "team1" else other.team1) is not None,
@@ -1771,7 +1701,7 @@ def judge_spieltag_occupancy(
     return SpieltagVerdict(refusal=None, releases=releases)
 
 
-def find_advancement_occupancy_refusal(season: Sequence[FLSpielCommon], advancements: Sequence[SlotAdvancement]) -> WriteRefusal | None:
+def find_advancement_occupancy_refusal(season: Sequence[FLSpielCommon], advancements: Sequence[SlotAdvancement]) -> APIError | None:
     """Why resolving the bracket must be refused, or `None`.
 
     `judge_spieltag_occupancy` sees only the sides a request fields, so the sides the resolution
@@ -1793,23 +1723,20 @@ def find_advancement_occupancy_refusal(season: Sequence[FLSpielCommon], advancem
     if not keys(resolved) - keys(season):
         return None
 
-    return WriteRefusal(
-        error_code=Code.SPIELTAG_OCCUPIED_BY_THE_RESOLUTION,
-        status=HTTPStatus.CONFLICT,
-    )
+    return APIError(HTTPStatus.CONFLICT, Code.SPIELTAG_OCCUPIED_BY_THE_RESOLUTION)
 
 
 # The deleted result's own fields, whichever report carries it: a released side's adds which side and whose.
-_VOIDED_FIELDS: Final = frozenset(FLSpielVoidedResult.model_fields)
+_VOIDED_FIELDS: Final = frozenset(FLSpielVoidedErgebnis.model_fields)
 
 
-def _voided_key(result: FLSpielVoidedResult) -> str:
+def _voided_key(result: FLSpielVoidedErgebnis) -> str:
     """One deleted result as a comparable identity: its fixture and each value it held."""
 
     return result.model_dump_json(include=set(_VOIDED_FIELDS))
 
 
-def voided_results_of(rewrites: Iterable[FLSpielVoidedResult]) -> list[FLSpielVoidedResult]:
+def voided_ergebnisse_of(rewrites: Iterable[FLSpielVoidedErgebnis]) -> list[FLSpielVoidedErgebnis]:
     """Every stored result `rewrites` delete, each once, in their fixtures' numbers' order; a slot filled from empty deletes none.
 
     One reading for the dry run's answer and the save's judgement, so the set a person confirms is the set the save
@@ -1817,7 +1744,7 @@ def voided_results_of(rewrites: Iterable[FLSpielVoidedResult]) -> list[FLSpielVo
     """
 
     voided = {
-        _voided_key(rewrite): FLSpielVoidedResult.model_validate(rewrite.model_dump(include=set(_VOIDED_FIELDS), context={"keep_oid": True}))
+        _voided_key(rewrite): FLSpielVoidedErgebnis.model_validate(rewrite.model_dump(include=set(_VOIDED_FIELDS), context={"keep_oid": True}))
         for rewrite in rewrites
         if rewrite.voided_ergebnis is not None or rewrite.voided_elfmeterschiessen is not None or rewrite.voided_sonderereignis is not None
     }
@@ -1825,7 +1752,7 @@ def voided_results_of(rewrites: Iterable[FLSpielVoidedResult]) -> list[FLSpielVo
     return sorted(voided.values(), key=lambda result: result.spiel_nr)
 
 
-def find_voided_results_refusal(*, confirmed: Iterable[FLSpielVoidedResult], voided: Iterable[FLSpielVoidedResult]) -> WriteRefusal | None:
+def find_voided_ergebnisse_refusal(*, confirmed: Iterable[FLSpielVoidedErgebnis], voided: Iterable[FLSpielVoidedErgebnis]) -> APIError | None:
     """Refuse a save deleting later results other than those it confirms, by value.
 
     By value as well as by fixture, so a result changed since the question was asked is asked about again.
@@ -1834,7 +1761,7 @@ def find_voided_results_refusal(*, confirmed: Iterable[FLSpielVoidedResult], voi
     if {_voided_key(result) for result in confirmed} == {_voided_key(result) for result in voided}:
         return None
 
-    return WriteRefusal(error_code=Code.VOIDED_RESULTS_STALE, status=HTTPStatus.CONFLICT)
+    return APIError(HTTPStatus.CONFLICT, Code.VOIDED_RESULTS_STALE)
 
 
 def _quelle_key(quelle: FLSpielQuelle) -> tuple[Any, ...]:
@@ -1845,10 +1772,10 @@ def _quelle_key(quelle: FLSpielQuelle) -> tuple[Any, ...]:
     return ("gruppe", quelle.gruppe, quelle.platz)
 
 
-def _wiring_refusal() -> WriteRefusal:
+def _wiring_refusal() -> APIError:
     """One code for every shape with the same repair -- the season moved under the page, so reload."""
 
-    return WriteRefusal(error_code=Code.WIRING_UNSUPPORTED, status=HTTPStatus.CONFLICT)
+    return APIError(HTTPStatus.CONFLICT, Code.WIRING_UNSUPPORTED)
 
 
 def find_wiring_refusal(
@@ -1858,7 +1785,7 @@ def find_wiring_refusal(
     *,
     # No default: a caller that forgot it would accept a slot wired to a group the season does not run.
     number_of_gruppen: int,
-) -> WriteRefusal | None:
+) -> APIError | None:
     """Why this patch's bracket wiring must be refused -- the write path only."""
 
     stored = stored_in_slice(spiel_id, season)
@@ -1905,16 +1832,10 @@ def find_wiring_refusal(
         # Before the round check, as a dangling `spiel_nr` is judged before its phase: whether the
         # season runs the group at all comes first, whichever round the slot is in.
         if isinstance(quelle, FLSpielQuelleGruppe) and quelle.gruppe not in offered_gruppen(number_of_gruppen):
-            return WriteRefusal(
-                error_code=Code.WIRING_GRUPPE_NOT_RUN,
-                status=HTTPStatus.CONFLICT,
-            )
+            return APIError(HTTPStatus.CONFLICT, Code.WIRING_GRUPPE_NOT_RUN)
 
         if isinstance(quelle, FLSpielQuelleGruppe) and opening_round_rank is not None and opening_round_rank < PHASE_RANK[stored.saison_phase]:
-            return WriteRefusal(
-                error_code=Code.WIRING_SEED_PAST_THE_OPENING_ROUND,
-                status=HTTPStatus.CONFLICT,
-            )
+            return APIError(HTTPStatus.CONFLICT, Code.WIRING_SEED_PAST_THE_OPENING_ROUND)
 
         key = _quelle_key(quelle)
         if key in used:
@@ -1932,37 +1853,6 @@ def find_wiring_refusal(
             return _wiring_refusal()
 
     return None
-
-
-# Where `build_party_name_stages` sets a confirmation row's party's name.
-PARTY_NAME_FIELD: Final = "party_name"
-
-
-def build_party_name_stages(*, saison_id: str) -> list[Mapping[str, Any]]:
-    """Stages setting on each confirmation row the name its party's own record holds: a club's season row, a referee's."""
-
-    return [
-        {
-            "$lookup": {
-                "from": Collection.SAISON_TEAMS,
-                "localField": "party.team_id",
-                "foreignField": "team_id",
-                "pipeline": [{"$match": {"saison_id": saison_id}}, {"$project": {"_id": 0, "name": 1}}],
-                "as": "club",
-            }
-        },
-        {
-            "$lookup": {
-                "from": Collection.SCHIEDSRICHTER,
-                "localField": "party.schiedsrichter_id",
-                "foreignField": "_id",
-                "pipeline": [{"$project": {"_id": 0, "name": 1}}],
-                "as": "referee",
-            }
-        },
-        {"$set": {PARTY_NAME_FIELD: {"$first": {"$concatArrays": ["$club.name", "$referee.name"]}}}},
-        {"$unset": ["club", "referee"]},
-    ]
 
 
 def recipients_named(parties: Sequence[Mapping[str, Any]], *, names: Mapping[tuple[str, Any], str | None]) -> list[FLSpielRecipient]:

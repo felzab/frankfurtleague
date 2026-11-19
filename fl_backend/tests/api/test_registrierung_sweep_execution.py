@@ -1,4 +1,3 @@
-from collections import Counter
 from collections.abc import Awaitable, Callable, Mapping
 from datetime import datetime
 from typing import Any
@@ -11,9 +10,8 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.registrierungen.system_router import sweep_registrierungen
 from app.core.collections import Collection
-from app.core.config import API_VERSION
-from app.core.transactions import SWEEP_PAGE
 from app.shared.tokens import hash_token
+from tests.acts import deletions_of
 from tests.app_client import app_client, app_under_test
 from tests.config import ADMIN_AUTH, BASE_AUTH, SYSTEM_AUTH, build_test_config
 from tests.database import a_clean_database
@@ -25,7 +23,7 @@ from tests.documents import (
     saison_team_document,
     team_document,
 )
-from tests.wire import commands_by_name
+from tests.passes import refuse_writes_breaking
 from tests.worker import worker_database
 
 # Module level, as the other execution suites mark theirs: every test below reaches a real mongod.
@@ -47,6 +45,10 @@ INSIDE_OID = ObjectId("6890a1b2c3d4e5f607970003")
 CONFIRMED_OID = ObjectId("6890a1b2c3d4e5f607970004")
 DECLINED_OID = ObjectId("6890a1b2c3d4e5f607970005")
 OTHER_SEASON_OID = ObjectId("6890a1b2c3d4e5f607970006")
+UNDATED_OID = ObjectId("6890a1b2c3d4e5f607970007")
+DECIDED_INSIDE_OID = ObjectId("6890a1b2c3d4e5f607970008")
+DECIDED_ON_THE_DAY_OID = ObjectId("6890a1b2c3d4e5f607970009")
+DECIDED_UNDATED_OID = ObjectId("6890a1b2c3d4e5f60797000a")
 TEAM_OID = ObjectId("6890a1b2c3d4e5f607970011")
 INVITATION_OID = ObjectId("6890a1b2c3d4e5f607970021")
 
@@ -88,24 +90,40 @@ def registrierung(registrierung_id: ObjectId, *, saison_id: str = SAISON_ID, **o
         "einwilligung": None,
         "confirmation": confirmation(registrierung_id),
         "decision": None,
+        "idempotency_key": str(registrierung_id),
         **overrides,
     }
 
 
 def the_corpus() -> list[dict[str, Any]]:
-    """One registration per clock, plus one of another season that no call for `SAISON_ID` may touch."""
+    """Each clock's boundary from both sides, plus one of another season that no call for `SAISON_ID` may touch."""
 
     return [
         registrierung(WAITING_OID),
         registrierung(EXPIRED_OID, confirmation=confirmation(EXPIRED_OID, deadline=YESTERDAY)),
         # Its deadline is today, which the link still answers: the pair pins the clock's own boundary.
         registrierung(INSIDE_OID, confirmation=confirmation(INSIDE_OID, deadline=TODAY)),
-        registrierung(CONFIRMED_OID, birth_date="2008-05-09", einwilligung=einwilligung()),
+        # Past its deadline but confirmed, so it waits for the season's end.
+        registrierung(
+            CONFIRMED_OID, birth_date="2008-05-09", einwilligung=einwilligung(), confirmation=confirmation(CONFIRMED_OID, deadline=YESTERDAY)
+        ),
+        # No day to count from, so the deadline clock holds it rather than destroying it.
+        registrierung(UNDATED_OID, confirmation=None),
         registrierung(
             DECLINED_OID,
             status="declined",
-            decision={"made_at": "2026-02-15", "reason": "kein Platz"},
+            decision={"made_at": "2026-02-15", "reason": "other_person"},
         ),
+        # Decided thirteen days ago and fourteen: the decline clock's own boundary. The first is past its link's deadline
+        # too, which is the deadline clock's for a submitted row alone.
+        registrierung(
+            DECIDED_INSIDE_OID,
+            status="declined",
+            decision={"made_at": "2026-03-19", "reason": None},
+            confirmation=confirmation(DECIDED_INSIDE_OID, deadline=YESTERDAY),
+        ),
+        registrierung(DECIDED_ON_THE_DAY_OID, status="declined", decision={"made_at": "2026-03-18", "reason": None}),
+        registrierung(DECIDED_UNDATED_OID, status="declined", decision=None),
         registrierung(OTHER_SEASON_OID, saison_id=OTHER_SAISON_ID, confirmation=confirmation(OTHER_SEASON_OID, deadline=YESTERDAY)),
     ]
 
@@ -163,26 +181,39 @@ class TestTheDeadlineClock:
 
         assert OTHER_SEASON_OID in await on_a_league(mongo_replica_set_url, body)
 
+    async def test_a_running_seasons_pass_takes_exactly_the_rows_past_their_day(self, mongo_replica_set_url: str):
+        """Each clock's filter is its whole judgement: the deadline's own day still answers, and a decision's days end on the fourteenth."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await sweep(database, client)
+
+            return await standing(database)
+
+        assert await on_a_league(mongo_replica_set_url, body) == [
+            WAITING_OID,
+            INSIDE_OID,
+            CONFIRMED_OID,
+            OTHER_SEASON_OID,
+            UNDATED_OID,
+            DECIDED_INSIDE_OID,
+            DECIDED_UNDATED_OID,
+        ]
+
 
 class TestTheSeasonsOwnEnd:
     async def test_it_takes_every_undecided_row_whatever_the_pupil_answered(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            response = await sweep(database, client)
+            await sweep(database, client)
 
-            return response, await standing(database)
+            return await deletions_of(database, "retention.registrierungen"), await standing(database)
 
-        response, left = await on_a_league(mongo_replica_set_url, body, status="past")
+        erasures, left = await on_a_league(mongo_replica_set_url, body, status="past")
 
-        assert response.erased_without_decision == 4
-        # The other season's row alone: the declined one goes to the decline clock in the same pass,
-        # and every removal here names this season.
-        assert left == [OTHER_SEASON_OID]
-
-
-async def refuse_writes_breaking(database: AsyncDatabase, collection: Collection, schema: Mapping[str, Any]) -> None:
-    """How this suite forces one row's write to fail mid-pass: a `$jsonSchema` the planted row breaks and every other row keeps."""
-
-    await database.command("collMod", str(collection), validator={"$jsonSchema": dict(schema)}, validationLevel="strict")
+        # The decline clock's one write, then the season's end's: its five undecided rows, confirmed or not.
+        assert [(label, count) for _, label, count, _ in erasures] == [(SAISON_ID, 2), (SAISON_ID, 5)]
+        # The other season's row and the two declined ones the decline clock leaves: the season's end takes no decided
+        # row, and every removal here names this season.
+        assert left == [OTHER_SEASON_OID, DECIDED_INSIDE_OID, DECIDED_UNDATED_OID]
 
 
 class TestOneRowHoldsBackNoOther:
@@ -201,75 +232,8 @@ class TestOneRowHoldsBackNoOther:
 
         answer, left = await on_a_league(mongo_replica_set_url, body, mutates_schema=True)
 
-        assert (answer.erased_declined, answer.erased_unconfirmed, answer.failed) == (0, 0, 2)
+        assert answer.failed == 2
         assert {DECLINED_OID, EXPIRED_OID} <= set(left)
-
-
-# A page and a short one after it. At a page plus ONE the first read takes every row, so a clock
-# that stopped after one erasure would leave nothing behind and pass.
-OVERFLOW = SWEEP_PAGE + 5
-
-
-def overflowing(**overrides: Any) -> list[dict[str, Any]]:
-    """More due rows of one season than one page holds, each an id of its own."""
-
-    return [registrierung(ObjectId(f"6890a1b2c3d4e5f6079{position:05d}"), **overrides) for position in range(OVERFLOW)]
-
-
-class TestAPageAndOneMoreIsDrainedRatherThanRefused:
-    """More due rows than one page, which is the population only the erasure shrinks.
-
-    Seeded as real rows: a page size the endpoint took as an argument would be an API this
-    application has only because a test wants one.
-    """
-
-    @pytest.mark.parametrize(
-        ("clock", "overrides", "status", "counted"),
-        [
-            pytest.param(
-                "deadline", {"confirmation": confirmation(EXPIRED_OID, deadline=YESTERDAY)}, "active", "erased_unconfirmed", id="deadline"
-            ),
-            pytest.param("season's end", {}, "past", "erased_without_decision", id="season's end"),
-            pytest.param(
-                "decline",
-                {"status": "declined", "decision": {"made_at": "2026-02-15", "reason": None}},
-                "active",
-                "erased_declined",
-                id="decline",
-            ),
-        ],
-    )
-    async def test_every_due_row_goes_in_one_pass(self, mongo_replica_set_url: str, clock: str, overrides: Any, status: str, counted: str):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.REGISTRIERUNGEN].delete_many({})
-            await database[Collection.REGISTRIERUNGEN].insert_many(overflowing(**overrides))
-            response = await sweep(database, client)
-
-            return getattr(response, counted), await database[Collection.REGISTRIERUNGEN].count_documents({"saison_id": SAISON_ID})
-
-        erased_count, left = await on_a_league(mongo_replica_set_url, body, status=status)
-
-        assert (erased_count, left) == (OVERFLOW, 0), f"the {clock} clock left rows the next pass would read into the same full page"
-
-
-# The commands of the worst call, erasing one page per clock.
-COMMANDS = 9
-
-
-class TestTheWorstCallSendsTheCommandsItsBudgetCounts:
-    async def test_the_sweep(self, mongo_replica_set_url: str):
-        """Both erasing clocks take a page.
-
-        A command added to the call turns this red, so the call is judged against the request's deadline again.
-        """
-
-        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> tuple[Any, Counter[str]]:
-            return await commands_by_name(mongo_replica_set_url, DATABASE_NAME, sweep)
-
-        answer, names = await on_a_league(mongo_replica_set_url, body)
-
-        assert (answer.erased_declined, answer.erased_unconfirmed) == (1, 1)
-        assert sum(names.values()) == COMMANDS, names
 
 
 async def through_the_app(url: str, path: str, *, auth: Mapping[str, str]) -> tuple[int, list[Mapping[str, Any]]]:
@@ -284,7 +248,7 @@ async def through_the_app(url: str, path: str, *, auth: Mapping[str, str]) -> tu
         )
 
         async with app_client(url, app=app_under_test(), now=NOW) as http:
-            response = await http.post(f"/api/v{API_VERSION}{path}", json=None, headers=dict(auth))
+            response = await http.post(f"/api{path}", json=None, headers=dict(auth))
 
         return response.status_code, await database[Collection.ACTION_LOG].find({"action": "retention.registrierungen"}).to_list(length=None)
 
@@ -293,7 +257,7 @@ class TestTheSystemTierOverTheWire:
     """On the replica set: the erasure runs in a transaction, which a standalone mongod refuses outright."""
 
     async def test_the_erasure_answers_on_the_system_tier_and_writes_its_row(self, mongo_replica_set_url: str):
-        status, rows = await through_the_app(mongo_replica_set_url, f"/registrierungen/sweep/{SAISON_ID}", auth=SYSTEM_AUTH)
+        status, rows = await through_the_app(mongo_replica_set_url, f"/registrierungen/saisons/{SAISON_ID}/sweep", auth=SYSTEM_AUTH)
 
         assert status == 200
         assert [(row["by"], row["label"], row["count"]) for row in rows] == [("system", SAISON_ID, 1)]
@@ -302,7 +266,7 @@ class TestTheSystemTierOverTheWire:
     async def test_neither_other_key_reaches_it(self, mongo_replica_set_url: str, auth: Mapping[str, str]):
         """The other two keys are refused as the wrong credential before any body is read, so nothing is erased."""
 
-        status, rows = await through_the_app(mongo_replica_set_url, f"/registrierungen/sweep/{SAISON_ID}", auth=auth)
+        status, rows = await through_the_app(mongo_replica_set_url, f"/registrierungen/saisons/{SAISON_ID}/sweep", auth=auth)
 
         assert status == 401
         assert rows == []

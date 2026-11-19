@@ -2,12 +2,12 @@
 
 from collections.abc import Mapping, Sequence
 from datetime import datetime
-from typing import Any, Final, NamedTuple
+from http import HTTPStatus
+from typing import Any, Final
 
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
-from app.api.bewerbungen.services import OPEN_LINKS_PER_MAILBOX, mailbox_anchor_ids
 from app.api.registrierungen.services import (
     PERSON_IDENTITY_FIELDS,
     WITHOUT_TOKEN_HASHES,
@@ -16,10 +16,12 @@ from app.api.registrierungen.services import (
     build_open_link_filter,
     build_registrierungen_sort,
     build_unconfirmed_open_filter,
-    find_unknown_registrierung_refusal,
 )
-from app.core.crud import aggregate_many_from_db, anchor_mailboxes_in_db, delete_many_from_db, refuse
+from app.core.codes import Code
+from app.core.crud import aggregate_many_from_db, anchor_mailboxes_in_db, delete_many_from_db
+from app.core.exceptions import APIError
 from app.core.readonly import ReadCollection
+from app.shared.mailbox import OPEN_LINKS_PER_MAILBOX, mailbox_anchor_ids
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 
 # What the admission reads of a person: who they are, for the question, and what it overwrites.
@@ -36,8 +38,8 @@ async def pull_registrierung(
     """
 
     row = await registrierungen_collection.find_one({"_id": registrierung_id}, projection=dict(WITHOUT_TOKEN_HASHES), session=session)
-    refuse(find_unknown_registrierung_refusal(found=row is not None))
-    assert row is not None
+    if row is None:
+        raise APIError(HTTPStatus.FORBIDDEN, Code.ROLE_NOT_HELD)
 
     return row
 
@@ -77,35 +79,30 @@ async def judge_the_mailbox_in_session(
 OPEN_REGISTRIERUNGEN_CAP: Final = LIST_LIMIT_DEFAULT
 
 
-class OpenRegistrierungen(NamedTuple):
-    rows: list[Mapping[str, Any]]
-    # Whether every pending row of the team's season is among `rows`, the cap having cut none.
-    complete: bool
-
-
 async def pull_open_registrierungen(
     *, registrierungen_collection: ReadCollection, saison_id: str, team_id: Any, session: AsyncClientSession
-) -> OpenRegistrierungen:
+) -> list[Mapping[str, Any]]:
     """One team's pending rows, newest first, `OPEN_REGISTRIERUNGEN_CAP` at most, the confirmed ones taken first.
 
     Anybody holding the team's link writes an unconfirmed row with every press, so a cap taking the newest alone lets one
     flood of them bury every row a pupil confirmed. A confirmed row costs more: its own bot-checked submission and a
     mailed link opened and answered, a mailbox holding `OPEN_LINKS_PER_MAILBOX` unanswered at a time. Rows past the cap
-    stay unread, as on the administration's list, and `complete` says so. Two reads, each newest first, the second only
-    for the room the first left.
+    stay unread. Two reads, each newest first, the second only for the room the first left.
     """
 
     rows: list[Mapping[str, Any]] = []
     # Each on its own index, so neither fetches a row of the other kind to discard it.
     for db_filter in (build_confirmed_open_filter, build_unconfirmed_open_filter):
         room = OPEN_REGISTRIERUNGEN_CAP - len(rows)
-        # One row past the room, so a cut is known rather than guessed from a full page.
-        read = await aggregate_many_from_db(
+        # `$limit` refuses 0, and a full list has no room left to read for.
+        if room == 0:
+            break
+        rows += await aggregate_many_from_db(
             collection=registrierungen_collection,
             pipeline=[
                 {"$match": db_filter(saison_id=saison_id, team_id=team_id)},
                 {"$sort": dict(build_registrierungen_sort())},
-                {"$limit": room + 1},
+                {"$limit": room},
                 # An inclusion: nothing beyond the form's own fields, the consent stamp and the address
                 # the join runs on reaches this handler, let alone the wire.
                 {
@@ -117,11 +114,8 @@ async def pull_open_registrierungen(
             ],
             session=session,
         )
-        rows += read[:room]
-        if len(read) > room:
-            return OpenRegistrierungen(rows=_newest_first(rows), complete=False)
 
-    return OpenRegistrierungen(rows=_newest_first(rows), complete=True)
+    return _newest_first(rows)
 
 
 def _newest_first(rows: list[Mapping[str, Any]]) -> list[Mapping[str, Any]]:

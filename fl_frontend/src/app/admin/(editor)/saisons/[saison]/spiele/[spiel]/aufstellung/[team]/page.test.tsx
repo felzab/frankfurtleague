@@ -1,13 +1,13 @@
 // @vitest-environment jsdom
-import { serveBackend } from "@/test-support/backend";
-import { renderUnderNext } from "@/test-support/nextContexts";
-import { signedInRequest } from "@/test-support/session";
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
 import { LINEUP_WORDS } from "@/features/aufstellungen/players";
+import { serveBackend } from "@/test-support/backend";
+import { renderUnderNext } from "@/test-support/nextContexts";
+import { signedInRequest } from "@/test-support/session";
 
 import type { FLAufstellungResponse } from "@/core/generated/client/types";
 import type { NextContexts } from "@/test-support/nextContexts";
@@ -52,7 +52,7 @@ const LINEUP: FLAufstellungResponse = {
   marks: { stored: false, phase: "locked", due_at: "2026-11-13T15:00:00Z" },
   saison_status: "active",
 };
-serveBackend(({ method, path }) => (method === "GET" && path === `/aufstellungen/${SPIEL}/${TEAM}` ? LINEUP : undefined));
+serveBackend(({ method, path }) => (method === "GET" && path === `/aufstellungen/spiele/${SPIEL}/teams/${TEAM}/admin` ? LINEUP : undefined));
 // An administrator's session, made by passkey, which the read's guard admits.
 signedInRequest();
 

@@ -1,12 +1,12 @@
-from collections.abc import Mapping, Sequence
+from collections import Counter
+from collections.abc import Mapping
 from datetime import datetime
-from typing import Annotated, Any, Final, Literal
+from typing import Any, Literal
 
-from fastapi import APIRouter, Body, Depends, Query
-from pymongo import ASCENDING, AsyncMongoClient
+from fastapi import APIRouter, status
+from pymongo import ASCENDING
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
-from pymongo.errors import PyMongoError
 
 from app.api.address_change.crud import (
     Occupancy,
@@ -21,310 +21,178 @@ from app.api.address_change.schemas import (
     FLAddressChangeAddressPayload,
     FLAddressChangeAddressResponse,
     FLAddressChangeMovesDonePayload,
-    FLAddressChangeMovesDoneResponse,
     FLAddressChangeMovesResponse,
     FLAddressChangeOpenMove,
-    FLAddressChangeSweepParams,
     FLAddressChangeSweepResponse,
 )
 from app.api.address_change.services import LIVE_TERMS, build_due_terms, build_lapsed_terms, compose_end_update, is_expired
-from app.api.identity.lookup import RecordCollections, SubjectLookup
-from app.core.codes import Code
-from app.core.config import API_VERSION
-from app.core.crud import aggregate_many_from_db, patch_many_in_db, pull_many_from_db, pull_one_from_db
+from app.api.identity.lookup import MoveCollections, MoveHandles
+from app.core.crud import aggregate_many_from_db, patch_many_in_db, pull_many_from_db
 from app.core.dependencies import (
-    ActionLogCollection,
     AddressChangeCollection,
     AddressChangeReadCollection,
-    BewerbungenCollection,
     DBClient,
-    GrantsCollection,
-    MailboxAnchorsCollection,
-    OutboxCollection,
-    RegistrierungenCollection,
-    SaisonTeamsCollection,
-    SchiedsrichterCollection,
-    SpielerCollection,
-    get_germany_now,
+    GermanyNow,
 )
-from app.core.exceptions import DocumentNotFoundError
-from app.core.logging import fl_logger
+from app.core.middlewares import PASS
 from app.core.recording import ACT_BY_SYSTEM, record_act
 from app.core.routing import SAFE
-from app.core.security import verify_access_system
-from app.core.transactions import UNKNOWN_COMMIT_RESULT, diagnosis_of, transaction_session
+from app.core.security import SYSTEM_TIER
+from app.core.transactions import save_each
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from app.shared.tokens import hash_token
 
 # System tier: the clock ends a lapsed change and makes a due one take effect, and no administrator pressed anything.
 router = APIRouter(
-    prefix=f"/api/v{API_VERSION}/address_change",
-    dependencies=[Depends(verify_access_system)],
+    prefix="/address_change",
+    dependencies=SYSTEM_TIER,
 )
-
-# A call's share, each due change a transaction of its own inside the request's deadline, `REQUEST_DEADLINE_S`; a dearer
-# one meets the deadline, and the call answers where the next begins.
-ADDRESS_CHANGE_PER_PASS: Final = 4
-
-
-def _pipeline(*, now: datetime, after: Any, size: int) -> list[dict[str, Any]]:
-    """Every lapsed and due change after `after`, in `_id` order, at most `size`, with the count, as one document.
-
-    No index serves the instants: the collection holds live changes and recent tombstones alone.
-    """
-
-    page: list[dict[str, Any]] = [{"$sort": {"_id": 1}}, {"$limit": size}]
-
-    return [
-        {"$match": {"$or": [build_lapsed_terms(now), build_due_terms(now)]}},
-        # What `is_expired` labels a lapse by.
-        {"$project": {"_id": 1, "valid_until": 1}},
-        {"$facet": {"page": page if after is None else [{"$match": {"_id": {"$gt": after}}}, *page], "count": [{"$count": "count"}]}},
-    ]
 
 
 async def _end_the_lapsed_changes(
-    ids: Sequence[Any],
-    *,
-    address_changes_collection: AsyncCollection,
-    db: AsyncMongoClient,
-    now: datetime,
+    ids: list[Any], *, address_changes_collection: AsyncCollection, now: datetime, session: AsyncClientSession
 ) -> int:
-    """A page's lapsed changes and their one log row in one transaction, each judged again there, answering how many ended."""
+    """The lapsed changes read ended with their one log row, each judged again here, answering how many ended.
 
-    async def end_the_lapsed_changes(session: AsyncClientSession) -> int:
-        result = await patch_many_in_db(
+    One write and one row for them all: a lapse writes no person's data, and a row per change would fill a year's list
+    with nothing an administrator asks of it.
+    """
+
+    result = await patch_many_in_db(
+        collection=address_changes_collection,
+        db_filter={"_id": {"$in": ids}, **build_lapsed_terms(now)},
+        update=compose_end_update(kind="expired", now=now),
+        session=session,
+    )
+    if result.modified_count > 0:
+        await record_act(
             collection=address_changes_collection,
-            db_filter={"_id": {"$in": list(ids)}, **build_lapsed_terms(now)},
-            update=compose_end_update(kind="expired", now=now),
+            action="retention.address_changes",
+            by=ACT_BY_SYSTEM,
+            count=result.modified_count,
             session=session,
         )
-        if result.modified_count > 0:
-            await record_act(
-                collection=address_changes_collection,
-                action="retention.address_changes",
-                by=ACT_BY_SYSTEM,
-                count=result.modified_count,
-                session=session,
-            )
 
-        return result.modified_count
-
-    async with transaction_session(db) as session:
-        return await session.with_transaction(end_the_lapsed_changes)
+    return result.modified_count
 
 
 async def _make_the_due_change_take_effect(
-    row: Mapping[str, Any],
-    *,
-    records: RecordCollections,
-    address_changes_collection: AsyncCollection,
-    spieler_collection: AsyncCollection,
-    schiedsrichter_collection: AsyncCollection,
-    saison_teams_collection: AsyncCollection,
-    bewerbungen_collection: AsyncCollection,
-    registrierungen_collection: AsyncCollection,
-    grants_collection: AsyncCollection,
-    outbox_collection: AsyncCollection,
-    action_log_collection: AsyncCollection,
-    mailbox_anchors_collection: AsyncCollection,
-    db: AsyncMongoClient,
-    now: datetime,
-) -> Literal["effective", "discarded"]:
-    """One due change in its own transaction, judged again as its confirmation was, a holder's by confirmed entries alone.
+    row: Mapping[str, Any], *, collections: MoveCollections, now: datetime, session: AsyncClientSession
+) -> Literal["effective", "discarded"] | None:
+    """One due change judged again as its confirmation was, a holder's by confirmed entries alone, its notice owed.
 
-    Answers how it ended, its notice owed; `DocumentNotFoundError` where stopped, discarded or replaced since the page was read.
+    `None` where stopped, discarded or replaced since the read.
     """
 
-    async def take_effect(session: AsyncClientSession) -> Literal["effective", "discarded"]:
-        record = await pull_one_from_db(
-            collection=address_changes_collection, db_filter={"_id": row["_id"], **build_due_terms(now)}, session=session
-        )
-        holdings = await read_the_holdings(str(record["address"]), records=records, grants_collection=grants_collection, session=session)
-        verdict = await judge_the_effect_in_session(
+    record = await collections.address_changes_collection.find_one({"_id": row["_id"], **build_due_terms(now)}, session=session)
+    if record is None:
+        return None
+
+    holdings = await read_the_holdings(
+        str(record["address"]), records=collections.records, grants_collection=collections.grants_collection, session=session
+    )
+    verdict = await judge_the_effect_in_session(
+        record=record,
+        holdings=holdings,
+        records=collections.records,
+        spieler_collection=collections.spieler_collection,
+        grants_collection=collections.grants_collection,
+        occupancy=Occupancy(grants_collection=collections.grants_collection, address_changes_collection=collections.address_changes_collection),
+        expired=False,
+        session=session,
+        at_the_pass=True,
+    )
+    if verdict.cause is None and not verdict.empty:
+        await move_the_address_in_session(
             record=record,
             holdings=holdings,
-            records=records,
-            spieler_collection=spieler_collection,
-            grants_collection=grants_collection,
-            occupancy=Occupancy(grants_collection=grants_collection, address_changes_collection=address_changes_collection),
-            expired=False,
-            session=session,
-            at_the_pass=True,
-        )
-        if verdict.cause is None and not verdict.empty:
-            await move_the_address_in_session(
-                record=record,
-                holdings=holdings,
-                address_changes_collection=address_changes_collection,
-                spieler_collection=spieler_collection,
-                schiedsrichter_collection=schiedsrichter_collection,
-                saison_teams_collection=saison_teams_collection,
-                bewerbungen_collection=bewerbungen_collection,
-                registrierungen_collection=registrierungen_collection,
-                grants_collection=grants_collection,
-                outbox_collection=outbox_collection,
-                action_log_collection=action_log_collection,
-                mailbox_anchors_collection=mailbox_anchors_collection,
-                now=now,
-                session=session,
-            )
-            return "effective"
-
-        # Every judgement the confirmation makes, at the end of the waiting time as at its start.
-        await end_the_change_in_session(
-            address_changes_collection=address_changes_collection,
-            db_filter={"_id": record["_id"]},
-            kind="discarded",
+            collections=collections,
             now=now,
             session=session,
         )
-        await owe_the_refusal_notice_in_session(record, outbox_collection=outbox_collection, now=now, session=session)
-        await tell_the_holders_of_the_end_in_session(
-            record,
-            grants_collection=grants_collection,
-            outbox_collection=outbox_collection,
-            now=now,
-            session=session,
-        )
-        await record_act(collection=address_changes_collection, action="retention.address_changes", by=ACT_BY_SYSTEM, count=1, session=session)
-        return "discarded"
+        return "effective"
 
-    async with transaction_session(db) as session:
-        return await session.with_transaction(take_effect)
+    # Every judgement the confirmation makes, at the end of the waiting time as at its start.
+    await end_the_change_in_session(
+        address_changes_collection=collections.address_changes_collection,
+        db_filter={"_id": record["_id"]},
+        kind="discarded",
+        now=now,
+        session=session,
+    )
+    await owe_the_refusal_notice_in_session(record, outbox_collection=collections.outbox_collection, now=now, session=session)
+    await tell_the_holders_of_the_end_in_session(
+        record,
+        grants_collection=collections.grants_collection,
+        outbox_collection=collections.outbox_collection,
+        now=now,
+        session=session,
+    )
+    await record_act(
+        collection=collections.address_changes_collection, action="retention.address_changes", by=ACT_BY_SYSTEM, count=1, session=session
+    )
+    return "discarded"
 
 
 @router.post(
     "/sweep",
-    response_model=FLAddressChangeSweepResponse,
     summary="End the lapsed address changes, and make the due ones take effect",
+    openapi_extra=PASS,
 )
 async def sweep_address_change(
-    params: Annotated[FLAddressChangeSweepParams, Query()],
-    records: SubjectLookup,
-    address_changes_collection: AddressChangeCollection,
-    spieler_collection: SpielerCollection,
-    schiedsrichter_collection: SchiedsrichterCollection,
-    saison_teams_collection: SaisonTeamsCollection,
-    bewerbungen_collection: BewerbungenCollection,
-    registrierungen_collection: RegistrierungenCollection,
-    grants_collection: GrantsCollection,
-    outbox_collection: OutboxCollection,
-    action_log_collection: ActionLogCollection,
-    mailbox_anchors_collection: MailboxAnchorsCollection,
+    collections: MoveHandles,
     db: DBClient,
-    germany_now: datetime = Depends(get_germany_now),
+    germany_now: GermanyNow,
 ) -> FLAddressChangeSweepResponse:
-    """End a share of the changes whose step lapsed, and make each due one take effect, or end it where its judgement now refuses it.
+    """End the changes whose step lapsed, and make each due one take effect, or end it where its judgement now refuses it.
 
-    A pass is a run of calls, each handing the next the `after` the last answered, ending at the call answering `after`
-    null; `remaining` is no stopping condition.
+    Each due change is saved on its own, the lapsed ones together; a change whose saving fails is counted in `failed` and
+    stays due for the next pass.
     """
 
-    [read] = await aggregate_many_from_db(
-        collection=address_changes_collection,
-        # One past the share, so a call ending exactly at the share's last row can tell whether any follow.
-        pipeline=_pipeline(now=germany_now, after=params.after, size=ADDRESS_CHANGE_PER_PASS + 1),
+    read = await aggregate_many_from_db(
+        collection=collections.address_changes_collection,
+        pipeline=[
+            # No index serves the instants: the collection holds live changes and recent tombstones alone.
+            {"$match": {"$or": [build_lapsed_terms(germany_now), build_due_terms(germany_now)]}},
+            # What `is_expired` labels a lapse by.
+            {"$project": {"_id": 1, "valid_until": 1}},
+            {"$sort": {"_id": 1}},
+            {"$limit": LIST_LIMIT_DEFAULT},
+        ],
     )
     # The lapse and the due terms are disjoint, so the lapse's own judgement parts them.
-    page = [{"_id": row["_id"], "due": not is_expired(row, now=germany_now)} for row in read["page"]]
-    count = sum(row["count"] for row in read["count"])
+    lapsed = [row["_id"] for row in read if is_expired(row, now=germany_now)]
+    due = [row for row in read if not is_expired(row, now=germany_now)]
 
-    share = page[:ADDRESS_CHANGE_PER_PASS]
-    lapsed = [row["_id"] for row in share if not row["due"]]
-    due = [row for row in share if row["due"]]
-    removed, skipped = 0, 0
-    discarded, effective = 0, 0
-    reached: Any = None
-    broke_off = False
-
-    def cut_by(failure: Exception, *, which: str, was: str, address_change_id: Any) -> bool:
-        """Log a failed step by its id, answering whether the call stops there.
-
-        Any class, or the next pass stops at this change again and holds back every one behind it; never an address this
-        pass handles.
-        """
-
-        # The only branch an unanswered commit reaches: `with_transaction` retries one until the deadline and raises
-        # it as a timeout keeping the label.
-        if isinstance(failure, PyMongoError) and failure.timeout:
-            uncertain = failure.has_error_label(UNKNOWN_COMMIT_RESULT)
-            # Below the handler's ERROR: no record is at fault, and every later change would fail the same way.
-            fl_logger.warning(
-                "address_change.sweep_cut",
-                extra={
-                    "error_code": Code.UNKNOWN_OUTCOME if uncertain else Code.DATABASE_FAILED,
-                    "kind": which,
-                    "address_change_id": str(address_change_id),
-                    # The step whose commit went out unanswered, null where none did.
-                    "unanswered": was if uncertain else None,
-                },
-            )
-            return True
-
-        code, diagnosis = diagnosis_of(failure)
-        fl_logger.error(
-            "address_change.sweep_row_failed",
-            extra={"error_code": code, "kind": which, "step": was, "address_change_id": str(address_change_id), "diagnosis": diagnosis},
+    async def end_the_lapsed(session: AsyncClientSession, _: Mapping[str, Any]) -> int:
+        return await _end_the_lapsed_changes(
+            lapsed, address_changes_collection=collections.address_changes_collection, now=germany_now, session=session
         )
-        return False
 
-    if lapsed:
-        reached = lapsed[-1]
-        # Not `BaseException`, so a cancellation still ends the call.
-        try:
-            removed = await _end_the_lapsed_changes(lapsed, address_changes_collection=address_changes_collection, db=db, now=germany_now)
-            skipped = len(lapsed) - removed
-        except Exception as failure:
-            broke_off = cut_by(failure, which="lapsed", was="end", address_change_id=lapsed[0])
+    # One step for them all, named in a failure's line by the lapse rather than by any one change.
+    ended = await save_each(db=db, rows=[{"_id": "lapsed"}] if lapsed else [], save=end_the_lapsed, what="Address change", clock="lapse")
+    if ended.cut:
+        return FLAddressChangeSweepResponse(removed=0, discarded=0, effective=0, failed=0)
 
-    for row in due:
-        if broke_off:
-            break
-        reached = row["_id"]
-        # Each caught outside the change's session.
-        try:
-            ergebnis = await _make_the_due_change_take_effect(
-                row,
-                records=records,
-                address_changes_collection=address_changes_collection,
-                spieler_collection=spieler_collection,
-                schiedsrichter_collection=schiedsrichter_collection,
-                saison_teams_collection=saison_teams_collection,
-                bewerbungen_collection=bewerbungen_collection,
-                registrierungen_collection=registrierungen_collection,
-                grants_collection=grants_collection,
-                outbox_collection=outbox_collection,
-                action_log_collection=action_log_collection,
-                mailbox_anchors_collection=mailbox_anchors_collection,
-                db=db,
-                now=germany_now,
-            )
-        except DocumentNotFoundError:
-            # The filter is the judgement: stopped, discarded or replaced since the read, and not due.
-            skipped += 1
-            continue
-        except Exception as failure:
-            broke_off = cut_by(failure, which="due", was="effect", address_change_id=row["_id"])
-            continue
+    async def take_effect(session: AsyncClientSession, row: Mapping[str, Any]) -> Literal["effective", "discarded"] | None:
+        return await _make_the_due_change_take_effect(row, collections=collections, now=germany_now, session=session)
 
-        if ergebnis == "discarded":
-            discarded += 1
-        else:
-            effective += 1
+    effects = await save_each(db=db, rows=due, save=take_effect, what="Address change", clock="effect")
+    counted = Counter(effects.answers)
 
     return FLAddressChangeSweepResponse(
-        removed=removed,
-        discarded=discarded,
-        effective=effective,
-        remaining=count - removed - discarded - effective - skipped,
-        after=reached if broke_off or len(page) > ADDRESS_CHANGE_PER_PASS else None,
+        removed=sum(ended.answers),
+        discarded=counted["discarded"],
+        effective=counted["effective"],
+        # Every lapsed change stays due where their one write failed.
+        failed=(len(lapsed) if ended.failed else 0) + effects.failed,
     )
 
 
 # Server to server alone: the answer names addresses. No claim holds a row, as moving an account twice finds none left.
-@router.get("/sweep/moves", response_model=FLAddressChangeMovesResponse, summary="List the sign-in accounts the effects still owe to carry")
+@router.get("/sweep/moves", summary="List the sign-in accounts the effects still owe to carry")
 async def get_address_change_moves(address_changes_collection: AddressChangeReadCollection) -> FLAddressChangeMovesResponse:
     """The ended changes still owing to carry a sign-in account to their new address, oldest first and a page at a time.
 
@@ -346,34 +214,32 @@ async def get_address_change_moves(address_changes_collection: AddressChangeRead
 
 @router.post(
     "/sweep/moves/done",
-    response_model=FLAddressChangeMovesDoneResponse,
+    status_code=status.HTTP_204_NO_CONTENT,
     summary="Take the carries done off their changes",
 )
 async def post_address_change_moves_done(
-    done_data: Annotated[FLAddressChangeMovesDonePayload, Body()],
+    done_data: FLAddressChangeMovesDonePayload,
     address_changes_collection: AddressChangeCollection,
-) -> FLAddressChangeMovesDoneResponse:
-    """Take the owed carry off each named change, counting the ones that owed one; an id owing none is left alone."""
+) -> None:
+    """Take the owed carry off each named change; an id owing none is left alone."""
 
-    result = await patch_many_in_db(
+    await patch_many_in_db(
         collection=address_changes_collection,
         db_filter={"_id": {"$in": sorted(set(done_data.ids))}, "move": {"$type": "object"}},
         update={"$unset": {"move": ""}},
+        session=None,
     )
-
-    return FLAddressChangeMovesDoneResponse(done=result.modified_count)
 
 
 # Server to server alone, as the link's own view never serves the address; a POST that reads, so the token travels in
 # the body and the address only in the answer.
 @router.post(
     "/address",
-    response_model=FLAddressChangeAddressResponse,
     summary="Say which address a live change would move to",
     openapi_extra=SAFE,
 )
 async def get_address_change_address(
-    address_data: Annotated[FLAddressChangeAddressPayload, Body()],
+    address_data: FLAddressChangeAddressPayload,
     address_changes_collection: AddressChangeReadCollection,
 ) -> FLAddressChangeAddressResponse:
     """The new address, folded, of the live change a new-mailbox link token or a change id names.

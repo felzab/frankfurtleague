@@ -1,14 +1,11 @@
+import { assert, beforeEach, describe, expect, it } from "vitest";
+
 import { faultingAdapter, insertOrderedAdapter, memoryStore, registerAuthDoubles } from "@/test-support/authDoubles";
 import { networkFailure, refusal, serveBackend } from "@/test-support/backend";
 import { captureLog } from "@/test-support/stdoutCapture";
-import { assert, beforeEach, describe, expect, it } from "vitest";
 
 import type { FLReferencesPayload, FLReferencesResponse } from "@/core/generated/client/types";
 import type { MemoryDB } from "better-auth/adapters/memory";
-
-/* Run under a production build's `NODE_ENV`, whose JSON line carries `trace_id` and every `error` handed the logger:
-   the plain line every other project writes leaves out the trace and any `error` that is no `Error`, so a case proving
-   which trace a line carries, or that a value never reached a line, reads the JSON. */
 
 /** The sign-in store under the real library: its own in-memory one, emptied before every case. */
 const store = memoryStore("__flAccountSweepStore");
@@ -36,7 +33,7 @@ const backend = serveBackend(({ method, path, body }) => {
   return answer instanceof Response ? answer : ({ unreferenced: [...answer] } satisfies FLReferencesResponse);
 });
 const { owed } = registerAuthDoubles({ specifiers: { "@better-auth/mongo-adapter": ADAPTER } });
-const log = captureLog("production");
+const log = captureLog();
 
 const { auth } = await import("@/core/auth/library");
 const { REFERENCES_ADDRESSES_MAX, runAccountSweep } = await import("./sweep");
@@ -56,7 +53,7 @@ const standing = (): string[] => store.user.map(({ email }) => email);
 const asked = (): string[][] => backend.sent.map(({ body }) => (body as FLReferencesPayload).identifiers);
 
 /** `count` distinct addresses, as the store folds them. */
-const adressen = (count: number, prefix = "person"): string[] =>
+const addresses = (count: number, prefix = "person"): string[] =>
   Array.from({ length: count }, (_, at) => `${prefix}${String(at)}@schule.example.org`);
 
 /** Every address but those in `referenced` answered unreferenced, wherever it is asked. */
@@ -72,7 +69,7 @@ const errorFields = () =>
     .filter(({ level }) => level === "ERROR")
     .map(({ message, fields }) => ({ message, fields }));
 
-/** Every ERROR line as the production build wrote it, its time, service and level set aside, its error where it has one. */
+/** Every ERROR line as the logger wrote it, its time, service and level set aside, its error where it has one. */
 const failures = (): Record<string, unknown>[] =>
   log
     .lines()
@@ -121,7 +118,7 @@ describe("the batches a pass asks in", () => {
   /* The read refuses a batch past its ceiling whole, every pass alike, so a pass sending one would
      delete nothing ever after behind one failure line an hour. */
   it("asks one more account than the ceiling in two batches, none past it, each address once", async () => {
-    const accounts = adressen(REFERENCES_ADDRESSES_MAX + 1);
+    const accounts = addresses(REFERENCES_ADDRESSES_MAX + 1);
     await seed(accounts);
 
     await runAccountSweep();
@@ -133,7 +130,7 @@ describe("the batches a pass asks in", () => {
 
 describe("a pass meeting a failure", () => {
   it("deletes nothing a failed batch asked about, still deletes from the next, and writes one failure line", async () => {
-    const accounts = adressen(REFERENCES_ADDRESSES_MAX + 2);
+    const accounts = addresses(REFERENCES_ADDRESSES_MAX + 2);
     await seed(accounts);
     references = (identifiers) => (identifiers.length === REFERENCES_ADDRESSES_MAX ? networkFailure() : identifiers);
 
@@ -212,7 +209,7 @@ describe("a pass meeting a failure", () => {
      deleted, as every deletion of an account does, and nothing else; the Postausgang's drain is the scheduler's, after
      every job. */
   it("names no address on any line, and owes no mail but each deleted account's notice", async () => {
-    const accounts = [...adressen(REFERENCES_ADDRESSES_MAX + 1, "batch"), "geloescht@schule.example.org", "fehler@schule.example.org"];
+    const accounts = [...addresses(REFERENCES_ADDRESSES_MAX + 1, "batch"), "geloescht@schule.example.org", "fehler@schule.example.org"];
     await seed(accounts);
     references = (identifiers) => (identifiers.length === REFERENCES_ADDRESSES_MAX ? networkFailure() : identifiers);
     failing = readFailingAt("fehler@schule.example.org");

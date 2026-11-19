@@ -5,14 +5,13 @@ import pytest
 from bson import ObjectId
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.saisons.admin_router import patch_saison
-from app.api.saisons.schemas import FLPatchSaisonPayload, FLSaisonRules
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError
 from tests import documents
 from tests.database import a_clean_database
 from tests.isolation import refused_code
+from tests.season_routes import call_season_save
 from tests.stored import the_row
 from tests.worker import worker_database
 
@@ -25,8 +24,7 @@ SAISON_ID = "2026"
 SAISON_START = "2026-03-15"
 SAISON_END = "2026-06-30"
 
-# 4 groups of 4, which is 8 Gruppenphase fixtures a matchday. Widening the group is the edit under
-# test, so the seeded matchday stays under whatever the wider rules imply.
+# 4 groups of 4, which is 8 Gruppenphase fixtures a matchday. Widening the group is the edit under test.
 STORED_PER_GROUP = 4
 WIDER_PER_GROUP = 6
 DRAWN_SPIELE = 8
@@ -34,7 +32,7 @@ DRAWN_SPIELE = 8
 # Far above every cap a case below patches to, so a refusal can only be about the squad.
 STORED_KADER = 18
 
-LIVE_SQUAD = 3
+LIVE_KADER_SIZE = 3
 REFUSED_KADER = 2
 
 # Fixed rather than generated, so a failure names the same rows every run.
@@ -58,7 +56,7 @@ def matchday() -> dict[str, Any]:
     return documents.spieltag_document(SPIELTAG_OID, SAISON_ID, 1, start="2026-03-15", end="2026-03-15")
 
 
-def squad_rows() -> list[dict[str, Any]]:
+def kader_rows() -> list[dict[str, Any]]:
     return [
         documents.saison_spieler_document(
             ObjectId(MEMBERSHIP_ID.format(500 + index)),
@@ -68,7 +66,7 @@ def squad_rows() -> list[dict[str, Any]]:
             nummer=str(index),
             inactive_since=None,
         )
-        for index in range(LIVE_SQUAD)
+        for index in range(LIVE_KADER_SIZE)
     ]
 
 
@@ -99,7 +97,7 @@ async def on_a_database(
 ) -> Any:
     async with a_clean_database(url, DATABASE_NAME) as (_, database):
         await database[Collection.SAISONS].insert_one(saison_document())
-        await database[Collection.SAISON_SPIELER].insert_many(squad_rows())
+        await database[Collection.SAISON_SPIELER].insert_many(kader_rows())
         await database[Collection.SPIELTAGE].insert_one(matchday())
         if spiele:
             await database[Collection.SPIELE].insert_many(spiele)
@@ -122,32 +120,15 @@ async def stored_season(database: AsyncDatabase) -> Mapping[str, Any]:
 async def patch_the_rules(database: AsyncDatabase, *, today: str = THE_DAY_BEFORE, start_date: str = SAISON_START, **overrides: Any) -> Any:
     """The whole rules object every time, `rules` being required on the patch, so a case names only the value it changes."""
 
-    return await patch_saison(
-        saison_id=SAISON_ID,
-        saison_data=FLPatchSaisonPayload(
-            start_date=start_date,
-            end_date=SAISON_END,
-            rules=FLSaisonRules.model_validate(rules_document(**overrides)),
-            # Stated rather than omitted: the payload replaces the season wholesale, so neither
-            # window carries a default and this helper is about neither of them.
-            bewerbung=None,
-            registrierung=None,
-            version=(await database[Collection.SAISONS].find_one({"_id": SAISON_ID}, {"version": 1}) or {})["version"],
-        ),
-        saisons_collection=database[Collection.SAISONS],
-        saison_teams_collection=database[Collection.SAISON_TEAMS],
-        spiele_collection=database[Collection.SPIELE],
-        spieltage_collection=database[Collection.SPIELTAGE],
-        saison_spieler_collection=database[Collection.SAISON_SPIELER],
-        db=database.client,
-        today=today,
+    return await call_season_save(
+        database, saison_id=SAISON_ID, start_date=start_date, end_date=SAISON_END, rules=rules_document(**overrides), today=today
     )
 
 
-class TestTheSquadCapIsJudgedAgainstTheSeasonsOwnLiveRows:
+class TestTheKaderCapIsJudgedAgainstTheSeasonsOwnLiveRows:
     """`rules_kader_below_use` over the aggregation that produces its figure, which every other case hands in already counted."""
 
-    async def test_a_cap_below_the_live_squad_is_refused(self, mongo_replica_set_url: str):
+    async def test_a_cap_below_the_live_kader_is_refused(self, mongo_replica_set_url: str):
         """An aggregation answering nothing takes a cap under a live squad, leaving the team over a bound no entry was measured by."""
 
         async def body(database: AsyncDatabase) -> APIError:
@@ -165,7 +146,7 @@ class TestTheDrawItselfIsWhatFreezesTheShape:
     """`rules_shape_after_spielplan` through the endpoint, whose count of the season's fixtures is the whole of what the rule turns on."""
 
     async def test_widening_a_group_after_the_draw_is_refused(self, mongo_replica_set_url: str):
-        """A widening crosses no other bound: `rules_capacity_below_use` reads the narrowing direction, and the matchday stays under it."""
+        """A widening crosses no other bound: `rules_capacity_below_use` reads the narrowing direction."""
 
         async def body(database: AsyncDatabase) -> APIError:
             with pytest.raises(APIError) as refusal:
@@ -232,10 +213,20 @@ class TestTheStartMovesNoLaterPastAStoredExit:
 class TestTheStartIsFixedOnceASpielHasTakenPlace:
     """`saison_start_taken_place` through the endpoint, over the in-session read of every fixture of the season."""
 
-    async def test_a_moved_start_on_a_played_season_is_refused(self, mongo_replica_set_url: str):
-        """One fixture holding a result fixes the start, and the refusal writes nothing."""
+    @pytest.mark.parametrize(
+        "taken_place",
+        [
+            pytest.param({"ergebnis": "1:0"}, id="a result"),
+            # A save keeps one side's goals while the other's are blank, and stores no result until both are in: read by
+            # `saisons_with_a_spiel_taken_place` through `TAKEN_PLACE_FIELDS`, whose projection drops what it leaves out.
+            pytest.param({"team1": {"team_id": TEAM_OID, "tore": 1}}, id="the home side's goals"),
+            pytest.param({"team2": {"team_id": TEAM_OID, "tore": 1}}, id="the away side's goals"),
+        ],
+    )
+    async def test_a_moved_start_on_a_played_season_is_refused(self, mongo_replica_set_url: str, taken_place: dict[str, Any]):
+        """One fixture that has taken place fixes the start, and the refusal writes nothing."""
 
-        played = [*drawn_spiele()[1:], spiel_document(spiel_nr=1, date=FIRST_SPIEL_DAY, ergebnis="1:0")]
+        played = [*drawn_spiele()[1:], spiel_document(spiel_nr=1, date=FIRST_SPIEL_DAY, **taken_place)]
 
         async def body(database: AsyncDatabase) -> tuple[str, Mapping[str, Any]]:
             await date_the_matchday(database, A_WEEK_LATER)

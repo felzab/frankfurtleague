@@ -4,7 +4,7 @@ import { tv } from "./tv";
 
 import type { RecordText } from "@/core/copy";
 
-// The box, the gap and the name's size are the first line of `ClubHead`, so a club is headed alike on its public page
+// The box, the gap and the name's size are the first line of `TeamProfileHead`, so a club is headed alike on its public page
 // and in its own area.
 const teamHead = tv({
   slots: {

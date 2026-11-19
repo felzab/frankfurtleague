@@ -1,35 +1,26 @@
-import { networkFailure, refusal, serveBackend } from "@/test-support/backend";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { APIBadStatusError, APINetworkError } from "@/core/errors";
+import { networkFailure, refusal, serveBackend } from "@/test-support/backend";
+import { captureLog } from "@/test-support/stdoutCapture";
 
-import type { FLAddressChangeSweepResponse } from "@/core/generated/client/types";
+import type {
+  FLAddressChangeSweepResponse,
+  FLBewerbungSweepResponse,
+  FLRegistrierungSweepResponse,
+  FLSaisonRetentionResponse,
+} from "@/core/generated/client/types";
 
 /** One season half's answer, the rows it passed over counted. */
-const bewerbungPass = (saisonId: string, failed = 0) => ({
-  saison_id: saisonId,
-  reminded: 0,
-  erased: 0,
-  erased_declined: 0,
-  erased_accepted: 0,
-  erased_without_decision: 0,
-  kontakt_blocks_emptied: 0,
-  failed,
-});
-const registrierungPass = (saisonId: string, failed = 0) => ({
-  saison_id: saisonId,
-  reminded: 0,
-  erased_unconfirmed: 0,
-  erased_without_decision: 0,
-  erased_declined: 0,
-  failed,
-});
+const bewerbungPass = (failed = 0): FLBewerbungSweepResponse => ({ failed });
+const registrierungPass = (failed = 0): FLRegistrierungSweepResponse => ({ failed });
+const saisonPass = (failed = 0): FLSaisonRetentionResponse => ({ failed });
 
-/** What the address changes' one call answers, its remainder `remaining`, naming no place, so the half's pass ends on it. */
-const adressen = (remaining = 0): FLAddressChangeSweepResponse => ({ removed: 0, effective: 0, discarded: 0, remaining, after: null });
+/** What the address changes' one call answers, the changes it could not end counted. */
+const addressChangeAnswer = (failed = 0): FLAddressChangeSweepResponse => ({ removed: 0, effective: 0, discarded: 0, failed });
 
 /** The season listing, which the contract reads with a GET; every other call of the pass is a POST. */
-const LISTING = "GET /bewerbungen/sweep";
+const LISTING = "GET /saisons/sweep";
 const ADDRESS_HALF = ["POST /address_change/sweep", "GET /address_change/sweep/moves"];
 const REFEREE_CLOCK = "POST /schiedsrichter/sweep";
 
@@ -44,15 +35,16 @@ function seasons(
   saisonIds: string[],
   {
     passedOver = {},
-    addressChange = adressen(),
+    addressChange = addressChangeAnswer(),
     fails = [],
   }: { passedOver?: Record<string, number>; addressChange?: unknown; fails?: string[] } = {},
 ): void {
   answers = new Map<string, () => unknown>([
     [LISTING, () => ({ saison_ids: saisonIds })],
     ...saisonIds.flatMap((saisonId): [string, () => unknown][] => [
-      [`POST /bewerbungen/sweep/${saisonId}`, () => bewerbungPass(saisonId, passedOver[`/bewerbungen/sweep/${saisonId}`])],
-      [`POST /registrierungen/sweep/${saisonId}`, () => registrierungPass(saisonId, passedOver[`/registrierungen/sweep/${saisonId}`])],
+      [`POST /bewerbungen/saisons/${saisonId}/sweep`, () => bewerbungPass(passedOver[`/bewerbungen/saisons/${saisonId}/sweep`])],
+      [`POST /registrierungen/saisons/${saisonId}/sweep`, () => registrierungPass(passedOver[`/registrierungen/saisons/${saisonId}/sweep`])],
+      [`POST /saisons/${saisonId}/retention`, () => saisonPass(passedOver[`/saisons/${saisonId}/retention`])],
     ]),
     ["POST /address_change/sweep", () => addressChange],
     ["GET /address_change/sweep/moves", () => ({ moves: [] })],
@@ -62,42 +54,54 @@ function seasons(
 }
 
 const backend = serveBackend(({ method, path }) => answers.get(`${method} ${path}`)?.());
+/** Every line the real logger writes, read off standard output. */
+const log = captureLog();
 
 const { runBewerbungSweep } = await import("./sweep");
 
 /** Every request in the order sent. */
 const order = (): string[] => backend.sent.map(({ method, path }) => `${method} ${path}`);
 
+/** The trace a request was sent under, off the `traceparent` the backend read: `00-<trace>-<span>-<flags>`. */
+const traceOf = (call: string): string | undefined =>
+  backend.sent
+    .find(({ method, path }) => `${method} ${path}` === call)
+    ?.headers.get("traceparent")
+    ?.split("-")[1];
+
 beforeEach(() => {
   seasons([]);
 });
 
 describe("one pass of the applications' job", () => {
-  /* What the heartbeat names: the rows a pass left owed, which only a sum over every season and both halves tells
-     apart from a healthy pass. */
-  it("leaves every row the halves passed over and every lapsed change the address half left, each half counted", async () => {
+  /* What the heartbeat names: the rows a pass left owed, which only a sum over every season and every half tells
+     apart from a healthy pass. A season whose retention half went unasked would count none of its rows. */
+  it("leaves every row the halves passed over and every change the address half could not end, each half counted", async () => {
     seasons(["2526", "2627"], {
       passedOver: {
-        "/bewerbungen/sweep/2526": 1,
-        "/bewerbungen/sweep/2627": 6,
-        "/registrierungen/sweep/2627": 8,
+        "/bewerbungen/saisons/2526/sweep": 1,
+        "/bewerbungen/saisons/2627/sweep": 6,
+        "/registrierungen/saisons/2627/sweep": 8,
+        "/saisons/2526/retention": 3,
+        "/saisons/2627/retention": 1,
         "/schiedsrichter/sweep": 1,
       },
-      addressChange: { ...adressen(2), removed: 5 },
+      addressChange: { ...addressChangeAnswer(2), removed: 5 },
     });
 
     expect(await runBewerbungSweep()).toStrictEqual({
       count: {
         bewerbung_failed: 7,
         registrierung_failed: 8,
+        saison_failed: 4,
         address_change_removed: 5,
         address_change_effective: 0,
         address_change_discarded: 0,
-        address_change_remaining: 2,
+        address_change_failed: 2,
         schiedsrichter_erased: 0,
         schiedsrichter_failed: 1,
       },
-      open: 18,
+      open: 22,
       error: undefined,
     });
   });
@@ -117,11 +121,59 @@ describe("a half that fails", () => {
     expect(order()).toStrictEqual([LISTING, ...ADDRESS_HALF, REFEREE_CLOCK]);
   });
 
+  /* Each half apart: a throw in the application's clocks skips no registration, whose rows hold a minor's name,
+     address and birthdate. The line's `trace_id` is what joins a half's failure line to the backend's own for that
+     request. */
+  it("runs every other half, files a line naming the half and the season, and then fails", async () => {
+    seasons(["2526", "2627"], { fails: ["POST /bewerbungen/saisons/2526/sweep", "POST /registrierungen/saisons/2627/sweep"] });
+
+    expect((await runBewerbungSweep()).error).toBeInstanceOf(AggregateError);
+
+    expect(order()).toStrictEqual([
+      LISTING,
+      "POST /bewerbungen/saisons/2526/sweep",
+      "POST /registrierungen/saisons/2526/sweep",
+      "POST /saisons/2526/retention",
+      "POST /bewerbungen/saisons/2627/sweep",
+      "POST /registrierungen/saisons/2627/sweep",
+      "POST /saisons/2627/retention",
+      ...ADDRESS_HALF,
+      REFEREE_CLOCK,
+    ]);
+    const failures = log
+      .lines()
+      .filter(({ level }) => level === "ERROR")
+      .map(({ message, fields: { name, saison_id }, traceId }) => ({ message, name, trace_id: traceId, saison_id }));
+    expect(failures).toStrictEqual([
+      {
+        message: "bewerbung.sweep_failed",
+        name: "APINetworkError",
+        trace_id: traceOf("POST /bewerbungen/saisons/2526/sweep"),
+        saison_id: "2526",
+      },
+      {
+        message: "registrierung.sweep_failed",
+        name: "APINetworkError",
+        trace_id: traceOf("POST /registrierungen/saisons/2627/sweep"),
+        saison_id: "2627",
+      },
+    ]);
+    // Each request mints a trace of its own outside a request's scope, so the two lines carry two traces, neither the
+    // `SYSTEM` a line falls back to.
+    expect(new Set(failures.map(({ trace_id }) => trace_id)).size).toBe(2);
+  });
+
   it("rejects where the address half rejects, after every season was swept", async () => {
     seasons(["2627"], { fails: ["POST /address_change/sweep"] });
 
     await expect(runBewerbungSweep()).rejects.toThrow(APINetworkError);
 
-    expect(order()).toStrictEqual([LISTING, "POST /bewerbungen/sweep/2627", "POST /registrierungen/sweep/2627", "POST /address_change/sweep"]);
+    expect(order()).toStrictEqual([
+      LISTING,
+      "POST /bewerbungen/saisons/2627/sweep",
+      "POST /registrierungen/saisons/2627/sweep",
+      "POST /saisons/2627/retention",
+      "POST /address_change/sweep",
+    ]);
   });
 });

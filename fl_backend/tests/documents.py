@@ -23,7 +23,7 @@ from zoneinfo import ZoneInfo
 from bson import ObjectId
 
 from app.api.address_change.services import compose_record
-from app.api.bewerbungen.services import compose_confirmations, compose_einwilligung, confirmation_deadline_from, mailbox_anchor_ids
+from app.api.bewerbungen.services import compose_confirmations, compose_einwilligung, confirmation_deadline_from
 from app.api.invitations.services import compose_invitation
 from app.api.outbox.schemas import FLBanData, FLOutboxData, FLOutboxReference
 from app.api.outbox.services import OwedMail, row_of
@@ -36,8 +36,9 @@ from app.core.crud import ANCHOR_FIELD, VERSION_FIELD
 from app.readback import RECORD_MODELS
 from app.shared.einwilligung_evidence import CHOICES, EVIDENCE, TextVersions, compose_initial, compose_receipt
 from app.shared.folding import league_address
+from app.shared.mailbox import mailbox_anchor_ids
 from app.shared.schemas.einwilligung import FLMediaTextVersion, FLNameKaderTextVersion, FLNameSpielplanTextVersion, FLWhatsappTextVersion
-from app.shared.schemas.literals import KONTAKT_ROLLEN, FLAddressChangeWay
+from app.shared.schemas.literals import KONTAKT_SEATS, FLAddressChangeWay
 from app.shared.tokens import hash_token
 
 ADDRESS: Final[Mapping[str, str]] = {
@@ -128,7 +129,7 @@ def rules_document(**overrides: Any) -> dict[str, Any]:
 
 
 def saison_document(saison_id: str, status: str, **fields: Any) -> dict[str, Any]:
-    """The first half of the id's year, which covers the schedule the default rules imply; no `schedule`, which is derived on read."""
+    """The first half of the id's year, which covers the matchdays the default rules imply."""
 
     return read_back_document(
         Collection.SAISONS,
@@ -243,7 +244,7 @@ def joined_spiel_document(spiel: Mapping[str, Any]) -> dict[str, Any]:
         return None if stored is None else {"name": "Carl-Schurz", "shorthand": "CSX", "austritt": None, "austritt_type": None, **stored}
 
     def ground(stored: Mapping[str, Any] | None) -> dict[str, Any] | None:
-        return None if stored is None else {"name": "Sportplatz Ost", "maps_link": "Sportplatz Ost, Frankfurt", **stored}
+        return None if stored is None else {"name": "Sportplatz Ost", "maps_query": "Sportplatz Ost, Frankfurt", **stored}
 
     def referee(stored: Mapping[str, Any] | None) -> dict[str, Any] | None:
         return None if stored is None else {"name": "A. Referee", **stored}
@@ -260,10 +261,7 @@ def joined_spiel_document(spiel: Mapping[str, Any]) -> dict[str, Any]:
 
 
 def spielbestaetigung_document(spiel: Mapping[str, Any], *, party: Mapping[str, Any], **fields: Any) -> dict[str, Any]:
-    """An open, unanswered row as the pass mints it, its snapshot composed from `spiel` by the composer the mint calls.
-
-    So its `digest` is that of its own values, which a hand-written one never is.
-    """
+    """An open, unanswered row as the pass mints it, its snapshot composed from `spiel` by the composer the mint calls."""
 
     return read_back_document(
         Collection.SPIELBESTAETIGUNGEN,
@@ -336,13 +334,13 @@ def aufstellung_document(spiel: Mapping[str, Any], team_id: Any, *, starters: Se
     )
 
 
-def kontakt_answer_document(rolle: str, *, reason: str | None, at: str = "2026-04-01", **fields: Any) -> dict[str, Any]:
+def kontakt_answer_document(seat: str, *, reason: str | None, at: str = "2026-04-01", **fields: Any) -> dict[str, Any]:
     """A seat's decline as its link stores it, proposing another date."""
 
     return {
         "kind": "declined",
         "at": at,
-        "by": {"kind": "kontakt", "rolle": rolle},
+        "by": {"kind": "kontakt", "seat": seat},
         "vorschlag": {"date": "2026-04-25", "time": "14:00:00"},
         "reason": reason,
         **fields,
@@ -405,7 +403,7 @@ def spielort_document(spielort_id: Any, name: str, *, default_mietpreis: int = 8
             "_id": spielort_id,
             "name": name,
             "address": dict(ADDRESS),
-            "maps_link": f"{name}, Frankfurt",
+            "maps_query": f"{name}, Frankfurt",
             "default_mietpreis": default_mietpreis,
             "inactive_since": None,
             "version": 0,
@@ -455,7 +453,7 @@ def minted_confirmations(*, hashes: Mapping[str, str], today: str) -> dict[str, 
 def row_confirmations(*, hashes: Mapping[str, str], today: str) -> dict[str, Any]:
     """A season row's three seats as the hand-out of each seat's mail left them: one live link each, mailed `today`."""
 
-    return {seat: {**compose_kontakt_confirmation(today=today), "token_hashes": [hashes[seat]]} for seat in KONTAKT_ROLLEN}
+    return {seat: {**compose_kontakt_confirmation(today=today), "token_hashes": [hashes[seat]]} for seat in KONTAKT_SEATS}
 
 
 def bewerbung_document(
@@ -483,7 +481,7 @@ def bewerbung_document(
     confirmations = (
         fields.pop("confirmations")
         if "confirmations" in fields
-        else minted_confirmations(hashes={seat: hash_token(f"{prefix}-{seat}") for seat in KONTAKT_ROLLEN}, today=minted)
+        else minted_confirmations(hashes={seat: hash_token(f"{prefix}-{seat}") for seat in KONTAKT_SEATS}, today=minted)
     )
 
     return read_back_document(
@@ -530,13 +528,12 @@ def registrierung_document(
     stufe: str | None = None,
     confirmed: Mapping[str, Any] | None = None,
     invitation_id: Any = None,
-    keyed: bool = True,
     **fields: Any,
 ) -> dict[str, Any]:
     """A registration as the submission leaves it and, given `confirmed`, as its pupil's own confirmation then does, through their composers.
 
     `token` is the raw link its hash is minted from; `confirmed` the confirmation composer's keywords. Through a link nobody
-    stores unless `invitation_id` names one, and `keyed` where the submission carried the replay key the row then keeps.
+    stores unless `invitation_id` names one, and keyed by its own id, a replay key no other row holds.
     """
 
     document = {
@@ -554,7 +551,7 @@ def registrierung_document(
             confirmation={**compose_confirmation(today=submitted_at, deadline=deadline, mailed=True), "token_hashes": [hash_token(token)]},
             today=submitted_at,
         ),
-        **({"idempotency_key": str(registrierung_id)} if keyed else {}),
+        "idempotency_key": str(registrierung_id),
     }
     if confirmed is not None:
         document.update(compose_confirmation_update(**confirmed)["$set"])
@@ -717,11 +714,9 @@ def schiedsrichter_document(
 ) -> dict[str, Any]:
     """One referee row, `name` unique across the collection (`app/core/constraints.py :: uniq_schiedsrichter_name`).
 
-    `einwilligung=None` is the row as the create stores it, before the person's confirmation: with no `birth_date` and
-    no `einwilligung` at all, which only that confirmation writes.
+    `einwilligung=None` is the row before the person's confirmation: `birth_date` and `einwilligung` null, which only
+    that confirmation writes. No link is owed and no clock runs unless `fields` names them.
     """
-
-    confirmed = {} if einwilligung is None else {"birth_date": None, "einwilligung": dict(einwilligung)}
 
     return read_back_document(
         Collection.SCHIEDSRICHTER,
@@ -732,7 +727,10 @@ def schiedsrichter_document(
             "default_payment": default_payment,
             "kontakt": {"phone": "+49 69 90009202", "email": email},
             "inactive_since": None,
-            **confirmed,
+            "confirmation": None,
+            "einwilligung": None if einwilligung is None else dict(einwilligung),
+            "birth_date": None,
+            "erase_at": None,
             "version": 0,
             **fields,
         },
@@ -754,7 +752,7 @@ def confirmed_referee_document(schiedsrichter_id: Any, email: str, name: str, *,
 def kontakte_document(**seats: Any) -> dict[str, Any]:
     """A block of three seats, each empty unless named, and no seat held twice unless `trainer_is_also` says so."""
 
-    return {**dict.fromkeys(KONTAKT_ROLLEN), "trainer_is_also": None, **seats}
+    return {**dict.fromkeys(KONTAKT_SEATS), "trainer_is_also": None, **seats}
 
 
 def registrierung_confirmed(*, birth_date: str, today: str, at: str, scope: str, media: bool) -> dict[str, Any]:

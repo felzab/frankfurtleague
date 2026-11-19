@@ -245,7 +245,7 @@ export const calendarHead = tv({ base: "pb-1 text-xs font-medium text-fg-muted" 
 /**
  * A day in a date's calendar, as large as a control; the chosen day inverts. React Aria's calendar moves its focus by
  * the keys alone and marks the day under the pointer `data-hovered`, so the pointer lays the one hover layer on a day
- * as the keys' focus does (`focus.css`), over the chosen day's inverted mark too.
+ * as the keys' focus does, over the chosen day's inverted mark too.
  */
 export const calendarCell = tv({
   base: `flex size-8 cursor-pointer items-center justify-center rounded-md font-numeric text-sm transition-colors duration-(--motion-state) data-disabled:cursor-default data-disabled:opacity-50 data-outside-month:text-fg-muted data-selected:bg-fg data-selected:text-bg pointer-coarse:size-10 ${hoverLook({ host: "aria" })}`,
@@ -411,7 +411,7 @@ export const menuItem = tv({
 /**
  * How a chosen entry is marked. In every list, a select's, a combo box's and a menu's, a navigating menu's current
  * place among them: its words in the link green and its check at the end, which the list draws, with no fill, so
- * the entry under the pointer or the keys, chosen or not, takes the one hover layer alone (`focus.css`). The rail's
+ * the entry under the pointer or the keys, chosen or not, takes the one hover layer alone. The rail's
  * current page is a place of the frame rather than a list's choice, and keeps its own mark: the muted fill with the
  * words in the link green.
  */

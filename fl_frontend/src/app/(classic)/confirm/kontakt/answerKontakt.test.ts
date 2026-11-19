@@ -1,25 +1,15 @@
-import { serveBackend } from "@/test-support/backend";
-import { doubleNextRequest } from "@/test-support/nextRequest";
-import { posted } from "@/test-support/posted";
 import { describe, expect, it } from "vitest";
 
 import { SEAT_TEXT_VERSIONS } from "@/core/consentWordings";
+import { serveBackend } from "@/test-support/backend";
+import { doubleNextRequest } from "@/test-support/nextRequest";
+import { posted } from "@/test-support/posted";
 
 import { END } from "./ends";
 
-import type { FLBewerbungEinwilligungAnswerResponse } from "@/core/generated/client/types";
-
-// The answer's one write, answered as the backend stores it; any other request goes unanswered and fails its case.
+// The answer's one write, answered with the empty body the backend sends; any other request goes unanswered and fails its case.
 const backend = serveBackend(({ method, path }) =>
-  method === "POST" && path === "/bewerbungen/einwilligung"
-    ? ({
-        birth_date: null,
-        media: false,
-        whatsapp: false,
-        outcome: "declined",
-        quelle: "bewerbung",
-      } satisfies FLBewerbungEinwilligungAnswerResponse)
-    : undefined,
+  method === "POST" && path === "/bewerbungen/confirmation" ? new Response(null, { status: 204 }) : undefined,
 );
 doubleNextRequest();
 

@@ -4,7 +4,6 @@ from typing import Annotated, Final, Literal, LiteralString, get_args
 
 from pydantic import (
     BaseModel,
-    ConfigDict,
     Field,
     TypeAdapter,
     ValidationError,
@@ -17,19 +16,18 @@ from app.api.aufstellungen.schemas import FLAufstellungenPublic
 from app.api.invitations.schemas import FLInvitationLinkRow
 from app.api.spielberichte.schemas import FLSpielberichtPublic
 from app.api.spiele.schemas import FLSpielJoined
-from app.api.spieler.schemas import FLSpielerPublic
-from app.api.teams.schemas import MAX_NUMBER_OF_GROUPS, FLAustritt, FLSaisonTeamEntry, FLTabelleRow, FLTeamPageClub
+from app.api.spieler.schemas import FLSpielerPublic, FLSpielerSelfKaderRow
+
+# Imported rather than restated. Acyclic: no model of `teams` imports this file.
+from app.api.teams.schemas import MAX_NUMBER_OF_GROUPS, FLAustritt, FLSaisonTeamEntry, FLTabelleRow, FLTeamPageTeam
 from app.core import clock
 from app.core.codes import Code, Rule
-
-# Imported rather than restated. Acyclic: no model of `teams` imports this file --
-# `teams/services.py` does, and no model there.
 from app.core.crud import Anchored
 from app.core.exceptions import Bound, rule_refusal
 from app.shared.schemas.bounds import KADER_SIZE_MAX, SAISON_ID_LENGTH
 from app.shared.schemas.custom import CustomDateString, CustomObjectId, CustomTimeString, CustomVersion, refuse_reversed_span
-from app.shared.schemas.literals import FLGruppenNames, FLSaisonPhase, FLSaisonStatus, FLSonderereignis, FLSpielerStufe
-from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
+from app.shared.schemas.literals import FLGruppenNames, FLSaisonStatus, FLSonderereignis, FLSpielerStufe
+from app.shared.schemas.responses import BasePayload, BaseReadModel
 
 
 class FLSaisonForfeitErgebnis(BaseModel):
@@ -48,10 +46,10 @@ QualifiersPerGroup = Annotated[int, Field(gt=0)]
 # The season's capacity: a team enters only a group the season offers -- a prefix of the closed set
 # -- and only while it has room.
 NumberOfGroups = Annotated[int, Field(gt=0, le=MAX_NUMBER_OF_GROUPS)]
-# The floor stops a group phase generating no fixture at all; the ceiling bounds one group, where
-# what a whole season may play is `rules_spiele_over_one_read`, weighing every group and the bracket at once.
+# The floor stops a group phase generating no fixture at all. The ceiling keeps the widest season the two bounds admit,
+# every group full and the bracket at its cap, inside one page of a season-scoped read.
 MIN_TEAMS_PER_GROUP: Final = 2
-MAX_TEAMS_PER_GROUP: Final = 16
+MAX_TEAMS_PER_GROUP: Final = 8
 TeamsPerGroup = Annotated[int, Field(ge=MIN_TEAMS_PER_GROUP, le=MAX_TEAMS_PER_GROUP)]
 
 
@@ -125,18 +123,6 @@ class FLSaisonRegistrierung(BaseModel):
     end: CustomDateString
 
 
-class FLSaisonPhaseSchedule(BaseModel):
-    """One phase of a season: how many matchdays it takes, and how many matches each holds.
-
-    A phase the bracket does not reach is absent rather than present with zeroes, so the list is the
-    phases the season plays, in playing order.
-    """
-
-    phase: FLSaisonPhase
-    spieltage: int = Field(ge=0)
-    matches_per_spieltag: int = Field(ge=0)
-
-
 # Private, so the read model and both payloads state these fields once, and the base itself
 # publishes no OpenAPI component.
 class _SaisonSpan(BaseModel):
@@ -169,9 +155,7 @@ def _refused_at_the_end(
     )
 
 
-class _SaisonSpanPayload(_SaisonSpan):
-    model_config = ConfigDict(extra="forbid")
-
+class _SaisonSpanPayload(_SaisonSpan, BasePayload):
     # Field validators, each at the end its rule judges, reading the start off `info.data`: a model validator's refusal sits at
     # the model, a path no box answers. `start_date` is declared first, so it is validated first; where it failed it is absent
     # from `info.data`, and its own refusal is the one answered.
@@ -217,9 +201,11 @@ class _SaisonPayload(_SaisonSpanPayload, _SaisonWritable):
 
 
 class _SaisonStored(_SaisonWritable):
-    # Echoed as stored, held to no length: one stored row of the wrong length would otherwise answer 500 for every list
-    # it appears in. The create mints the id, so no write takes one from a payload.
-    id: str = Field(validation_alias="_id", serialization_alias="id")
+    # Its year in exactly `SAISON_ID_LENGTH` ASCII digits, as every `saison_id` referencing this one demands, and as the
+    # ban's bound and the retention sweep's successor add to it and compare the sums as strings. `[0-9]`, never `\d`,
+    # which matches Arabic-Indic and fullwidth digits too. The create mints the id, so no write takes one from a payload,
+    # and the read-back names one a hand-written file stored.
+    id: str = Field(validation_alias="_id", serialization_alias="id", pattern=f"^[0-9]{{{SAISON_ID_LENGTH}}}$")
 
     status: FLSaisonStatus
 
@@ -227,48 +213,45 @@ class _SaisonStored(_SaisonWritable):
 
 
 class FLSaison(_SaisonStored, BaseReadModel):
-    # Derived, and on no document. Injected before validation, because a computed field would close
-    # an import cycle.
-    schedule: tuple[FLSaisonPhaseSchedule, ...]
+    """A season as a read serves it, its stored fields alone."""
 
 
 class FLSaisonRecord(_SaisonStored, Anchored):
-    """A season as `saisons` stores it: no derived schedule."""
-
-    # Exactly `SAISON_ID_LENGTH` characters, as every `saison_id` referencing this one demands, so the read-back names a
-    # stored id like "2026/27", whose every match and matchday fails to read.
-    id: str = Field(validation_alias="_id", serialization_alias="id", min_length=SAISON_ID_LENGTH, max_length=SAISON_ID_LENGTH)
+    """A season as `saisons` stores it."""
 
     # Defaulted: the season's creation writes no key, the draw being what writes it. Stored and never served: the
     # editor serves its day inside `FLSaisonDrawn`, beside the counts of what the season holds.
     spielplan: FLSaisonSpielplan | None = None
 
 
-class FLSaisonAdmin(FLSaison):
-    """The same season for the admin surfaces, with whether it has started and whether a fixture of it has taken place."""
+class _SaisonAdminStates(FLSaison):
+    # The two states the list's chip and the editor both read.
 
     # Derived per read by `has_started` off the stored `start_date`, the predicate every start lock reads, so a control
     # closed on it closes exactly what the endpoint refuses.
     begun: bool
-    # Derived per read by `has_taken_place` over every fixture of the season: true, the start date is fixed
-    # (`saison_start_taken_place`), so the field closes exactly where the edit refuses.
-    taken_place: bool
     # Derived per read by `decided_podium` over the season's Finale, the rule the landing reads its `decided` state by,
     # so the list, the editor and the landing say one word of one season.
     decided: bool
 
 
-class FLSaisonAdminListed(FLSaisonAdmin):
-    """One season as the admin list shows it: the editor's season and how many clubs and matches it holds."""
+class FLSaisonAdmin(_SaisonAdminStates):
+    """The season as its editor reads it, with whether it has started, whether a fixture of it has taken place and whether it is decided."""
+
+    # Derived per read by `has_taken_place` over every fixture of the season: true, the start date is fixed
+    # (`saison_start_taken_place`), so the field closes exactly where the edit refuses. The editor's alone, since the
+    # list offers no edit it would close.
+    taken_place: bool
+
+
+class FLSaisonAdminListed(_SaisonAdminStates):
+    """One season as the admin list shows it: whether it has started and is decided, and how many clubs and matches it holds."""
 
     # Counted per read off `saison_teams`, never stored: every row, a club that left included, since a team never leaves
     # a season and the season's Teams page lists it with its Austritt.
     count_teams: int = Field(ge=0)
     # Counted per read off `spiele`, never stored, as the editor counts them (`FLSaisonDrawn`).
     count_spiele: int = Field(ge=0)
-
-
-FLSaisonAdminListAdapter = TypeAdapter(list[FLSaisonAdminListed])
 
 
 # The league's first season, the id a create mints where no season is stored. A literal because it is a fact about
@@ -294,9 +277,9 @@ FIRST_SAISON_RULES: Final = FLSaisonRules(
 )
 
 
-# The season's two days alone: the create makes the next season, which the server names
-# (`next_saison_id`) and gives the newest season's rules, so no typed year can name one
-# out of turn and no client restates the carry-over; its windows start closed, each set in the season's own editor.
+# The season's two days alone: the create makes the next season, which the server names and gives the newest season's
+# rules, so no typed year can name one out of turn and no client restates the carry-over; its windows start closed,
+# each set in the season's own editor.
 class FLPostSaisonPayload(_SaisonSpanPayload):
     pass
 
@@ -307,36 +290,19 @@ class FLPatchSaisonPayload(_SaisonPayload):
     version: CustomVersion
 
 
-class FLPatchSaisonResponse(BaseAPIResponse):
-    # The season's version after the save, which the editor's next save sends.
-    version: int
-
-
-class FLSwapGruppenPayload(BaseModel):
+class FLSwapGruppenPayload(BasePayload):
     """The two clubs a group swap exchanges, in either order.
 
     Neither side carries a `gruppe`: reading one from the payload would let a stale form write a
     group nobody stands in.
     """
 
-    model_config = ConfigDict(extra="forbid")
-
     team1_id: CustomObjectId
     team2_id: CustomObjectId
 
 
-class FLSwapGruppenResponse(BaseAPIResponse):
-    """Both junction rows as the swap left them, plus `rewritten_spiele` -- the second half of the write, reported not assumed."""
-
-    # Stated on a response because the swap builds this model
-    # in-transaction and before the junction writes: a path id outside the width aborts the exchange
-    # rather than failing the echo of a swap that landed.
-    saison_id: str = Field(min_length=SAISON_ID_LENGTH, max_length=SAISON_ID_LENGTH)
-    team1_id: CustomObjectId
-    team1_gruppe: FLGruppenNames
-    team2_id: CustomObjectId
-    team2_gruppe: FLGruppenNames
-    rewritten_spiele: int
+# What the swap judges each stored group by before it writes either club's.
+FLGruppenNamesAdapter: Final = TypeAdapter(FLGruppenNames)
 
 
 class FLSaisonAdminTeam(BaseReadModel):
@@ -363,10 +329,9 @@ class FLSaisonsAdminRefusals(BaseReadModel):
     create: Code | None
 
 
-class FLSaisonsAdminListResponse(BaseAPIResponse):
+class FLSaisonsAdminListResponse(BaseReadModel):
     """Every season, with the id the next create mints and why a create would be refused now."""
 
-    format: Literal["list"] = "list"
     saisons: list[FLSaisonAdminListed]
     next_saison_id: str = Field(min_length=SAISON_ID_LENGTH, max_length=SAISON_ID_LENGTH)
     refusals: FLSaisonsAdminRefusals
@@ -380,15 +345,13 @@ class FLSaisonFrameEntry(BaseReadModel):
     end_date: CustomDateString
 
 
-FLSaisonFrameEntryListAdapter = TypeAdapter(list[FLSaisonFrameEntry])
-
 # What every season button's read projects of a season beside its id, and the order it lists them in, the newest
 # first: the public frame's and each person's own list alike, so no two buttons order one league's seasons apart.
 SAISON_FRAME_FIELDS: Final = ("start_date", "end_date")
 SAISON_FRAME_ORDER: Final[Mapping[str, int]] = {"_id": -1}
 
 
-class FLSaisonFrameResponse(BaseAPIResponse):
+class FLSaisonFrameResponse(BaseReadModel):
     """Every season the public may read, the newest first, and the one the site is on.
 
     `active_saison_id` is null for a league no season has been activated in; a season stays active, finished or not,
@@ -399,7 +362,7 @@ class FLSaisonFrameResponse(BaseAPIResponse):
     active_saison_id: str | None
 
 
-class FLOwnSaisonsResponse(BaseAPIResponse):
+class FLOwnSaisonsResponse(BaseReadModel):
     """The seasons a signed-in person holds a row in, the newest first, which their own frame's season button offers.
 
     A season the public frame withholds, a planned one, is served as any other: the person's row in it is what the
@@ -409,86 +372,25 @@ class FLOwnSaisonsResponse(BaseAPIResponse):
     saisons: list[FLSaisonFrameEntry]
 
 
-class FLSaisonsSingleResponse(BaseAPIResponse):
-    format: Literal["single"] = "single"
-    saison: FLSaison
-
-
-class FLPostSaisonResponse(BaseAPIResponse):
+class FLPostSaisonResponse(BaseReadModel):
     created_id: str
 
 
-class FLActivateSaisonResponse(BaseAPIResponse):
-    """How many seasons the activation moved off `active` -- normally exactly one."""
-
-    deactivated: int
-
-
-class FLSpielplanShape(BaseModel):
-    """The three rules a season's fixture list is a function of, as this draw is to run from.
-
-    All three or none: the draw is one function of the whole shape, and a payload naming half
-    of it would take the rest off a season about to stop matching it.
-    """
-
-    model_config = ConfigDict(extra="forbid")
+class FLSpielplanShape(BaseReadModel):
+    """The three rules a season's fixture list is a function of, as one combination the season's other rules admit."""
 
     number_of_gruppen: NumberOfGroups
     teams_per_gruppe: TeamsPerGroup
     qualifiers_per_gruppe: QualifiersPerGroup
 
 
-class FLGenerateSpielplanPayload(BaseModel):
-    """Whether this draw may replace what the season already holds, and the shape it runs from.
+class FLGenerateSpielplanPayload(BasePayload):
+    """Whether this draw may replace what the season already holds; the draw runs on the season's stored rules.
 
-    An absent body is a first draw off the season's own rules: nothing is destroyed and no
-    number moves by omission.
+    An absent body is a first draw: nothing is destroyed by omission.
     """
-
-    # The payload the rule was found on: a misspelled `shape` validates as
-    # absent, so a confirmed replace destroys fixtures off the season's old rules, under a 201
-    # reporting a shape that never moved.
-    model_config = ConfigDict(extra="forbid")
 
     replace: bool = Field(default=False)
-
-    # Absent keeps the season's stored three, which is what drawing off its own rules is. The rest of
-    # `FLSaisonRules` stays `PATCH`'s alone: those rules shaped no fixture, and carrying them here
-    # would give every one of them a second writer.
-    shape: FLSpielplanShape | None = Field(default=None)
-
-
-class FLGenerateSpielplanResponse(BaseAPIResponse):
-    """What the draw wrote, and what a confirmed replace deleted first, flat rather than nested.
-
-    An admin reads the written counts without a second request, and they are the same numbers the
-    season editor then counts off the stored matchdays and fixtures, so the two can be compared by eye.
-    """
-
-    # No `extra="forbid"` here: the rule reaches request bodies alone, and this
-    # is a response model.
-    saison_id: str = Field(min_length=SAISON_ID_LENGTH, max_length=SAISON_ID_LENGTH)
-    spieltage: int = Field(ge=0)
-    spiele: int = Field(ge=0)
-    generated_at: CustomDateString
-
-    # Off the replace's own `DeleteResult`s, so a confirmation is answered with what it destroyed
-    # rather than with what was asked for. Zero on a first draw, which deletes nothing.
-    removed_spieltage: int = Field(default=0, ge=0)
-    removed_spiele: int = Field(default=0, ge=0)
-
-
-class FLUndrawSpielplanResponse(BaseAPIResponse):
-    """What removing the season's Spielplan took away, on the shape the draw reports.
-
-    Both counts are zero on a season already undrawn, which is why the watermark is reported apart:
-    it is the one thing a season can hold with neither collection behind it.
-    """
-
-    saison_id: str = Field(min_length=SAISON_ID_LENGTH, max_length=SAISON_ID_LENGTH)
-    spieltage: int = Field(ge=0)
-    spiele: int = Field(ge=0)
-    watermark_cleared: bool
 
 
 class FLSaisonActRefusals(BaseReadModel):
@@ -505,21 +407,18 @@ class FLSaisonActRefusals(BaseReadModel):
 
 
 class FLSaisonDrawn(BaseReadModel):
-    """A season's Spielplan as every write judges it: the matchdays and fixtures it holds, counted per read, and the draw's day.
-
-    `generated_at` is `null` on a season whose rows no draw dated.
-    """
+    """A season's Spielplan as every write judges it: the matchdays and fixtures it holds, counted per read, and the draw's day."""
 
     spieltage: int = Field(ge=0)
     spiele: int = Field(ge=0)
-    generated_at: CustomDateString | None
+    generated_at: CustomDateString
 
 
-class FLSaisonAdminResponse(BaseAPIResponse):
+class FLSaisonAdminResponse(BaseReadModel):
     """What the season editor shows, in one read: its season, clubs, shapes and matchdays, its acts' states and its registration links.
 
-    `shapes` is every shape the season's other rules admit, judged as the draw judges a shape it is given;
-    `spielplan` is the Spielplan the season holds, `null` while it holds no matchday and no fixture; `invitations`
+    `shapes` is every shape the season's other rules admit, which its rules form offers;
+    `spielplan` is the Spielplan the season holds, `null` while it holds no fixture; `invitations`
     holds one row per club, in `teams`' order.
     """
 
@@ -539,10 +438,7 @@ class FLTeamPageSpiel(FLSpielJoined):
     count_spieltage_in_phase: int = Field(ge=1)
 
 
-FLTeamPageSpielListAdapter: Final = TypeAdapter(list[FLTeamPageSpiel])
-
-
-class FLTeamPageResponse(BaseAPIResponse):
+class FLTeamPageResponse(BaseReadModel):
     """One club's page in one season: the club, its row of the Tabelle, its matches and its squad.
 
     `standing` is null for a club no group of the Tabelle lists, one that left the league; `spiele` are in the order the
@@ -550,10 +446,28 @@ class FLTeamPageResponse(BaseAPIResponse):
     pupil's consent does not publish them.
     """
 
-    team: FLTeamPageClub
+    team: FLTeamPageTeam
     standing: FLTabelleRow | None
     spiele: list[FLTeamPageSpiel]
     kader: list[FLSpielerPublic]
+
+
+class FLSpielerSaisonSelfSpiel(FLTeamPageSpiel):
+    """One fixture of the pupil's club, with their own place in the club's line-up for it."""
+
+    # True where the stored line-up starts them, false where it benches them, and null where it does not name them or
+    # the club has stored none.
+    starts: bool | None
+
+
+class FLSpielerSaisonSelfResponse(BaseReadModel):
+    """A pupil's own season: where they play, and their club's fixtures."""
+
+    saison_id: str
+    # Their squad row of this season, a deregistered one included; null where they hold none.
+    kader: FLSpielerSelfKaderRow | None
+    # Empty where they hold no squad row of this season.
+    spiele: list[FLSpielerSaisonSelfSpiel]
 
 
 class FLSpielSideStanding(BaseReadModel):
@@ -573,7 +487,7 @@ class FLSpielSideStandings(BaseReadModel):
     team2: FLSpielSideStanding | None
 
 
-class FLSpielPageResponse(BaseAPIResponse):
+class FLSpielPageResponse(BaseReadModel):
     """One match as its page and its pop-up show it.
 
     The match, its matchday's `position` and its phase's count of matchdays, which together name the matchday, where
@@ -685,7 +599,7 @@ class FLBewerbungWindow(BaseReadModel):
     end: CustomDateString
 
 
-class FLLandingResponse(BaseAPIResponse):
+class FLLandingResponse(BaseReadModel):
     """The landing's facts: the season the site is on, null for a league that has none, an open window, and the league's figures."""
 
     saison: FLLandingSaison | None

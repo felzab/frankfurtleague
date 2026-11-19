@@ -142,7 +142,7 @@ class TestTheSeatsStateDecidesTheWrite:
         assert (seat["first_name"], seat["birth_date"]) == ("Lea", None)
         assert (seat["einwilligung"]["scope"], seat["einwilligung"]["date"]) == ("kontakt_data", TODAY)
         assert (seat["einwilligung"]["confirmed_at"], seat["einwilligung"]["media"]) == (None, False)
-        assert [(mail.to, mail.data.rollen) for mail in mails] == [("lea@example.com", ["trainer"])]
+        assert [(mail.to, mail.data.seats) for mail in mails] == [("lea@example.com", ["trainer"])]
         # The seat beside it keeps its person, and with them the link they already hold.
         assert row["confirmations"]["ansprechperson"] == link_entry()
 
@@ -169,14 +169,13 @@ class TestTheSeatsStateDecidesTheWrite:
         assert acts == [(TEAM_OID, "Adler")]
         assert row["confirmations"]["trainer"] == link_entry()
 
-    @pytest.mark.parametrize("kontakte", [block()], ids=["an emptied seat"])
-    async def test_an_empty_seat_is_filled_and_its_person_owed_a_link(self, mongo_replica_set_url: str, kontakte: dict[str, Any]):
+    async def test_an_emptied_seat_is_filled_and_its_person_owed_a_link(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> Any:
             answer = await write_seat(database, "stellvertretung", sent_person("Lea"))
 
             return (answer, *await row_and_mails(database))
 
-        answer, row, mails = await on_a_row(mongo_replica_set_url, body, kontakte=kontakte)
+        answer, row, mails = await on_a_row(mongo_replica_set_url, body, kontakte=block())
 
         assert answer.email == "lea@example.com"
         assert row["kontakte"]["stellvertretung"]["first_name"] == "Lea"
@@ -217,24 +216,16 @@ class TestTheTrainersSecondSeat:
 
     PAIRED = block(ansprechperson=stored_person("Ida"), trainer_is_also="ansprechperson")
 
-    @pytest.mark.parametrize(
-        ("sent", "claim", "ansprechperson"),
-        [
-            pytest.param({}, "ansprechperson", "Lea", id="left out, the claim stands"),
-        ],
-    )
-    async def test_the_trainers_write_moves_the_claim_only_where_it_names_one(
-        self, mongo_replica_set_url: str, sent: dict[str, Any], claim: str | None, ansprechperson: str
-    ):
+    async def test_the_trainers_write_leaving_the_claim_out_keeps_it_and_moves_the_pair(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> Any:
-            await write_seat(database, "trainer", sent_person("Lea", **sent))
+            await write_seat(database, "trainer", sent_person("Lea"))
 
             return await row_and_mails(database)
 
         row, _ = await on_a_row(mongo_replica_set_url, body, kontakte=self.PAIRED)
 
-        assert row["kontakte"]["trainer_is_also"] == claim
-        assert row["kontakte"]["ansprechperson"]["first_name"] == ansprechperson
+        assert row["kontakte"]["trainer_is_also"] == "ansprechperson"
+        assert row["kontakte"]["ansprechperson"]["first_name"] == "Lea"
 
 
 LINK = "seat-write-trainer-link"
@@ -293,25 +284,19 @@ class TestAConfirmationLandingBeforeTheSave:
 
         seat = row["kontakte"]["trainer"]
         assert (seat["first_name"], seat["birth_date"], seat["einwilligung"]["confirmed_at"]) == ("Lea", None, None)
-        assert [(mail.to, mail.data.rollen) for mail in mails] == [("lea@example.com", ["trainer"])]
+        assert [(mail.to, mail.data.seats) for mail in mails] == [("lea@example.com", ["trainer"])]
 
 
 class TestTheRefusals:
-    @pytest.mark.parametrize(
-        ("sent", "code", "field"),
-        [
-            pytest.param({"email": "JONAS@example.com"}, Code.KONTAKT_EMAIL_TAKEN, "email", id="an address on the sign-in fold"),
-        ],
-    )
-    async def test_what_another_seats_person_holds_is_refused_on_its_box(
-        self, mongo_replica_set_url: str, sent: dict[str, Any], code: Code, field: str
-    ):
-        """The block's rule, which no payload can judge here: the other seats are stored, not sent."""
+    async def test_another_seats_address_sent_in_capitals_is_refused_on_its_box(self, mongo_replica_set_url: str):
+        """The block's rule, which no payload can judge here: the other seats are stored, not sent, each address folded."""
 
         seated = block()
-        answer, fields, row = await refused(mongo_replica_set_url, "trainer", {**sent_person("Lea"), **sent}, kontakte=seated)
+        answer, fields, row = await refused(
+            mongo_replica_set_url, "trainer", {**sent_person("Lea"), "email": "JONAS@example.com"}, kontakte=seated
+        )
 
-        assert (answer, fields) == (code, ((field,),))
+        assert (answer, fields) == (Code.KONTAKT_EMAIL_TAKEN, (("email",),))
         assert row["kontakte"] == seated
 
     async def test_a_write_composed_before_the_row_moved_is_refused(self, mongo_replica_set_url: str):

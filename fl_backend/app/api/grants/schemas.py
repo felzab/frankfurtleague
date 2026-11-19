@@ -1,13 +1,13 @@
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import Field
 
 from app.core.crud import Anchored
 from app.shared.schemas.custom import CustomObjectId, FLUtcInstant
 from app.shared.schemas.kontakt import CustomEmail, CustomStoredAddress
 from app.shared.schemas.literals import FLAdminTier
-from app.shared.schemas.responses import BaseAPIResponse
+from app.shared.schemas.responses import BasePayload, BaseReadModel
 
 # What a notice is about: an addition, a removal, a handover, or a holder's own address change.
 FLGrantChange = Literal["granted", "revoked", "handover", "address"]
@@ -32,36 +32,28 @@ class FLGrantRecord(Anchored):
     owner_from: datetime | None = None
 
 
-class FLGrantRow(BaseModel):
+class FLGrantRow(BaseReadModel):
     """One grant as the list serves it."""
 
-    id: CustomObjectId
+    id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
     address: str
     admin_tier: FLAdminTier
     # A future one is an addition still waiting.
     effective_from: FLUtcInstant
-    # Set exactly while a handover to this row waits.
-    owner_from: FLUtcInstant | None
+    # Set exactly while a handover to this row waits, and stored only then.
+    owner_from: FLUtcInstant | None = None
 
 
-class FLGrantsListResponse(BaseAPIResponse):
+class FLGrantsListResponse(BaseReadModel):
     """Every grant, never in part, a waiting addition among them."""
 
     grants: list[FLGrantRow]
 
 
-class FLPostGrantPayload(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
+class FLPostGrantPayload(BasePayload):
     # No tier on the payload: a grant is made as `administration`, and `owner` is reached only by a handover.
     email: CustomEmail
 
 
-class FLGrantWriteResponse(BaseAPIResponse):
-    """The grant the act named."""
-
-    grant_id: CustomObjectId
-
-
-class FLGrantHandoverPassResponse(BaseAPIResponse):
+class FLGrantHandoverPassResponse(BaseReadModel):
     handed_over: int = Field(ge=0)
