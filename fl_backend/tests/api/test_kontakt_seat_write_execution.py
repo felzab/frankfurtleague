@@ -288,8 +288,8 @@ class TestAConfirmationLandingBeforeTheSave:
 
 
 class TestTheRefusals:
-    async def test_another_seats_address_on_the_sign_in_fold_is_refused_on_its_box(self, mongo_replica_set_url: str):
-        """The block's rule, which no payload can judge here: the other seats are stored, not sent."""
+    async def test_another_seats_address_sent_in_capitals_is_refused_on_its_box(self, mongo_replica_set_url: str):
+        """The block's rule, which no payload can judge here: the other seats are stored, not sent, each address folded."""
 
         seated = block()
         answer, fields, row = await refused(
