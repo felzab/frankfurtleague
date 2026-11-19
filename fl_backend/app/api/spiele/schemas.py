@@ -125,7 +125,7 @@ TAKEN_PLACE_FIELDS: tuple[str, ...] = ("ergebnis", "sonderereignis", "team1.tore
 
 
 def has_taken_place(spiel: Mapping[str, Any]) -> bool:
-    """Whether this fixture happened. Not `unplayed_spiel_nrs` negated: a half-entered score reads unfinished there."""
+    """Whether this fixture happened. Not `is_unplayed` negated: a half-entered score reads unfinished there."""
 
     # An abandonment and a no-show each left a record of the match. A fixture called off or struck
     # out left none, so it fixes nothing that a played match fixes.

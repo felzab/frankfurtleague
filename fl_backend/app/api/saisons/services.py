@@ -1,11 +1,11 @@
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 from datetime import date, timedelta
 from http import HTTPStatus
 from typing import Any
 
 from app.api.saisons.schedule import expected_matches, knockout_phases_for, qualifier_count, schedule_for
 from app.api.saisons.schemas import FIRST_SAISON_YEAR, MAX_TEAMS_PER_GROUP, MIN_TEAMS_PER_GROUP, FLSaisonRules, FLSpielplanShape
-from app.api.spiele.schemas import FLSpiel, FLSpielJoinedInternal, FLSpielTeamFieldJoinedInternal, is_unplayed
+from app.api.spiele.schemas import FLSpielJoinedInternal, FLSpielTeamFieldJoinedInternal
 from app.api.spiele.services import podium_of
 from app.api.teams.schemas import MAX_NUMBER_OF_GROUPS
 from app.api.teams.services import offered_gruppen
@@ -531,23 +531,12 @@ def holds_a_recorded_fact(spiel: Mapping[str, Any]) -> bool:
     return (spiel.get("spielort") or {}).get("spielort_id") is not None or spiel.get("schiedsrichter") is not None
 
 
-def unplayed_spiel_nrs(spiele: Iterable[FLSpiel]) -> list[int]:
-    """The fixture numbers of every match still waiting to be played, in order.
-
-    Unplayed means no result and not cancelled; one with no occupants counts too, an open bracket
-    slot being as unfinished as an unscored match.
-    """
-
-    return sorted(spiel.spiel_nr for spiel in spiele if is_unplayed(ergebnis=spiel.ergebnis, sonderereignis=spiel.sonderereignis))
-
-
-def find_activation_refusal(
-    *, target_status: str, target_spiele: int, undated_spieltage: int, outgoing_unplayed: Sequence[int]
-) -> APIError | None:
+def find_activation_refusal(*, target_status: str, target_spiele: int, undated_spieltage: int, outgoing_unplayed: bool) -> APIError | None:
     """Why this rollover must be refused, or `None`.
 
-    `undated_spieltage` counts the target season's matchdays holding no `start`; `outgoing_unplayed`
-    is the incumbent's alone, empty where there is none, and never the target's own fixtures.
+    `undated_spieltage` counts the target season's matchdays holding no `start`; `outgoing_unplayed` is whether the
+    incumbent still owes a match by `is_unplayed`, false where there is none, and never asks the target's own fixtures.
+    An open bracket slot owes one as an unscored match does, since neither holds a result.
     """
 
     # The target first: an incumbent an admin can go and finish is beside the point where the season

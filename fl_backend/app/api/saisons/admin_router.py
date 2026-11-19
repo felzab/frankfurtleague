@@ -71,13 +71,12 @@ from app.api.saisons.services import (
     find_undraw_refusal,
     has_started,
     holds_a_recorded_fact,
-    unplayed_spiel_nrs,
     with_schedule,
     workable_shapes,
 )
 from app.api.saisons.spielplan import EnteredTeam, draw_spielplan
 from app.api.spielberichte.crud import anchor_the_season_reported_in, count_submitted_berichte
-from app.api.spiele.schemas import TAKEN_PLACE_FIELDS, FLSpielListAdapter, has_taken_place
+from app.api.spiele.schemas import TAKEN_PLACE_FIELDS, has_taken_place, unplayed_filter
 from app.api.spieler.services import CAPPED_KADER_ROW
 from app.core.codes import Code
 from app.core.concurrency import concurrently
@@ -596,19 +595,11 @@ async def _judge_the_activation(
     )
     outgoing_ids = [row["_id"] for row in outgoing]
 
-    # Empty where nothing but the target holds `active` -- a fresh league, or a re-activation.
-    unplayed: list[int] = []
-    if outgoing_ids:
-        unplayed = unplayed_spiel_nrs(
-            FLSpielListAdapter.validate_python(
-                await pull_whole_from_db(
-                    collection=spiele_collection,
-                    db_filter={"saison_id": {"$in": outgoing_ids}},
-                    what="the outgoing seasons' fixtures",
-                    session=session,
-                )
-            )
-        )
+    # None where nothing but the target holds `active` -- a fresh league, or a re-activation. One match owing a result is
+    # the whole question, so the count stops at the first.
+    outgoing_unplayed = bool(outgoing_ids) and (
+        await spiele_collection.count_documents({"saison_id": {"$in": outgoing_ids}, **unplayed_filter()}, limit=1, session=session) > 0
+    )
 
     # One call, so which of the two refusals an admin is shown stays the service's decision.
     # The target's own fixtures, not the outgoing season's: a league going live with nothing drawn
@@ -622,7 +613,7 @@ async def _judge_the_activation(
         target_status=target_status,
         target_spiele=target_spiele,
         undated_spieltage=undated_spieltage,
-        outgoing_unplayed=unplayed,
+        outgoing_unplayed=outgoing_unplayed,
     )
 
 

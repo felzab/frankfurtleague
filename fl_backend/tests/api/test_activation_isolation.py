@@ -50,7 +50,7 @@ GROUPS = 4
 TEAMS_PER_GROUP = 4
 QUALIFIERS = 2
 
-# What the seed enters on every fixture of a season it needs FINISHED: `unplayed_spiel_nrs` counts
+# What the seed enters on every fixture of a season it needs FINISHED: `is_unplayed` counts
 # the fixtures owing a result, and one carrying any result owes none.
 FINAL_SCORE = "3:0"
 
@@ -254,7 +254,7 @@ async def statuses_now(database: AsyncDatabase) -> dict[str, str]:
 
 
 async def unplayed_now(database: AsyncDatabase, saison_id: str) -> int:
-    """Fixtures owing a result, spelled as `unplayed_spiel_nrs` reads them: no result, and no cancellation standing in for one."""
+    """Fixtures owing a result, spelled as `is_unplayed` reads them: no result, and no cancellation standing in for one."""
 
     return await database[Collection.SPIELE].count_documents(
         {"saison_id": saison_id, "ergebnis": None, "sonderereignis": {"$nin": list(SONDEREREIGNIS_WITHOUT_A_RESULT)}}
