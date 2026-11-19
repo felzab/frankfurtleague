@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 from typing import Any, cast
 
 import pytest
+from pydantic import ValidationError
 
 from app.api.bewerbungen.services import (
     BEWERBUNG_REMINDER_DAYS,
@@ -20,6 +21,7 @@ from app.api.bewerbungen.services import (
     unreachable_seats,
 )
 from app.api.outbox.schemas import FLOutboxDelivery, FLOutboxDeliveryState, FLOutboxStatus
+from app.api.saisons.schemas import FLSaisonRecord
 from app.shared.schemas.literals import KONTAKT_SEATS
 from app.shared.tokens import hash_token
 from tests.documents import kontaktperson_document, minted_confirmations
@@ -417,3 +419,28 @@ class TestWhatTheNoticesNeed:
         told = application(kontakte=confirmed, erasure_announced_at=YESTERDAY)
 
         assert [mail.to for mail in owed_deletion_notices(bewerbung_raw=told, saison_id="2026")] == ["stellan@example.com"]
+
+
+class TestTheSuccessorsSeasonId:
+    """The successor adds to a season's id as a year and the clocks compare the sums as strings, which holds for four ASCII digits.
+
+    The season's record model is the one check, so the read-back names a hand-written id the sum would misread.
+    """
+
+    @pytest.mark.parametrize(
+        ("saison_id", "named"),
+        [
+            pytest.param("2026", False, id="a year"),
+            pytest.param("abcd", True, id="letters"),
+            # Each a year to `int`, whose ASCII sum sorts nowhere near the id it came from.
+            pytest.param("\uff12\uff10\uff12\uff16", True, id="fullwidth digits"),
+            pytest.param("\u0662\u0660\u0662\u0666", True, id="Arabic-Indic digits"),
+            pytest.param("20261", True, id="five digits"),
+        ],
+    )
+    def test_the_record_model_names_every_id_that_is_no_four_digit_year(self, saison_id: str, named: bool):
+        with pytest.raises(ValidationError) as raised:
+            # The id alone: every other field's absence is named too, and only the id's line is judged.
+            FLSaisonRecord.model_validate({"_id": saison_id})
+
+        assert (("_id",) in [error["loc"] for error in raised.value.errors()]) == named

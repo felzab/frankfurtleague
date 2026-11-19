@@ -47,7 +47,6 @@ DATABASE_NAME = worker_database("fl_bewerbung_sweep_test")
 
 SAISON_ID = "2026"
 NEXT_SAISON_ID = "2027"
-SKIPPED_TO_SAISON_ID = "2028"
 OTHER_SAISON_ID = "2025"
 TODAY = "2026-04-01"
 YESTERDAY = "2026-03-31"
@@ -894,16 +893,6 @@ class TestTheSeasonAndOneClock:
             return await taken_with_the_season(database)
 
         assert await on_a_league(mongo_replica_set_url, body, status="past", next_status=None) == (False, False)
-
-    async def test_a_running_season_whose_id_is_no_year_still_fails_the_pass(self, mongo_replica_set_url: str):
-        """A running season reads no later one: judged inside that read, a hand-edited id would fail no pass while its season runs."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> None:
-            await database[Collection.SAISONS].insert_one({**season(SKIPPED_TO_SAISON_ID, "active"), "_id": "abcd"})
-            with pytest.raises(ValueError):
-                await sweep(database, client, saison_id="abcd")
-
-        await on_a_league(mongo_replica_set_url, body, status="past")
 
 
 SECOND_OID = ObjectId("6890a1b2c3d4e5f607960007")
