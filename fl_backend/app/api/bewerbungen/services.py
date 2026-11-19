@@ -30,7 +30,7 @@ from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError, link_expired, link_invalid
 from app.core.readonly import ReadCollection
-from app.shared.einwilligung import is_confirmed
+from app.shared.einwilligung import seat_is_confirmed
 from app.shared.einwilligung_evidence import TextVersions, compose_choices
 from app.shared.folding import normalise_phone, sign_in_identifier
 from app.shared.links import deadline_passed
@@ -419,12 +419,6 @@ def find_expired_token_refusal(*, over: bool) -> APIError | None:
     return link_expired() if over else None
 
 
-def _seat_is_confirmed(kontakte: Mapping[str, Any] | None, seat: str) -> bool:
-    person = person_of(kontakte, seat)
-
-    return is_confirmed(None if person is None else person.get("einwilligung"))
-
-
 def _confirmed_on(kontakte: Mapping[str, Any] | None, seat: str) -> Any:
     person = person_of(kontakte, seat)
     einwilligung = None if person is None else person.get("einwilligung")
@@ -443,7 +437,7 @@ def _kept_confirmation(confirmations: Mapping[str, Any] | None, seat: str) -> An
 def _was_confirmed(kontakte: Mapping[str, Any] | None, confirmations: Mapping[str, Any] | None, seat: str) -> bool:
     """Whether the seat's person confirmed it: the seat's stamp, or on an accepted application the one kept beside its link."""
 
-    return _seat_is_confirmed(kontakte, seat) or _kept_confirmation(confirmations, seat) is not None
+    return seat_is_confirmed(person_of(kontakte, seat)) or _kept_confirmation(confirmations, seat) is not None
 
 
 def _declined_on(confirmations: Mapping[str, Any] | None, seat: str) -> Any:
@@ -458,7 +452,7 @@ def seat_is_answered(*, kontakte: Mapping[str, Any] | None, confirmations: Mappi
     No bookkeeping is an emptied seat, or a season row's seat no link was minted for: nothing to answer.
     """
 
-    if _seat_is_confirmed(kontakte, seat) or _declined_on(confirmations, seat) is not None:
+    if seat_is_confirmed(person_of(kontakte, seat)) or _declined_on(confirmations, seat) is not None:
         return True
 
     return _entry_of(confirmations, seat) is None
@@ -574,7 +568,7 @@ def saison_link_pair(
         return None
 
     entry = _entry_of(confirmations, other)
-    if entry is None or token_hash not in (entry.get("token_hashes") or ()) or _seat_is_confirmed(kontakte, other):
+    if entry is None or token_hash not in (entry.get("token_hashes") or ()) or seat_is_confirmed(person_of(kontakte, other)):
         return None
 
     return other
@@ -583,7 +577,7 @@ def saison_link_pair(
 def pending_seats(*, kontakte: Mapping[str, Any] | None) -> list[FLKontaktSeat]:
     """Every seat without a stamp, in declaration order. An emptied seat counts: the application cannot complete without it."""
 
-    return [seat for seat in KONTAKT_SEATS if not _seat_is_confirmed(kontakte, seat)]
+    return [seat for seat in KONTAKT_SEATS if not seat_is_confirmed(person_of(kontakte, seat))]
 
 
 def find_unconfirmed_kontakte_refusal(*, kontakte: Mapping[str, Any] | None) -> APIError | None:
@@ -648,7 +642,7 @@ def seat_view(
     if state == "declined":
         answered_at = _declined_on(confirmations, seat)
     else:
-        answered_at = _confirmed_on(kontakte, seat) if _seat_is_confirmed(kontakte, seat) else _kept_confirmation(confirmations, seat)
+        answered_at = _confirmed_on(kontakte, seat) if seat_is_confirmed(person_of(kontakte, seat)) else _kept_confirmation(confirmations, seat)
 
     return FLBewerbungEinwilligungViewAnswered(state=state, answered_at=answered_at)
 
@@ -785,7 +779,7 @@ def open_links_on(*, row: Mapping[str, Any], mailbox: str) -> int:
 
     kontakte, confirmations = row.get("kontakte"), row.get("confirmations")
     waiting: list[FLKontaktSeat] = [
-        seat for seat in KONTAKT_SEATS if _was_mailed(confirmations, seat) and not _seat_is_confirmed(kontakte, seat)
+        seat for seat in KONTAKT_SEATS if _was_mailed(confirmations, seat) and not seat_is_confirmed(person_of(kontakte, seat))
     ]
 
     return sum(mailbox_of(address) == mailbox for address, _ in people_with_address(kontakte=kontakte, seats=waiting))
@@ -1010,7 +1004,7 @@ def seat_reminder_is_due(
     """
 
     entry = _entry_of(confirmations, seat)
-    if entry is None or _seat_is_confirmed(kontakte, seat) or entry.get("declined_at") is not None:
+    if entry is None or seat_is_confirmed(person_of(kontakte, seat)) or entry.get("declined_at") is not None:
         return False
 
     if entry.get("reminded_at") is not None or not isinstance(entry.get("sent_at"), str):
@@ -1159,7 +1153,7 @@ def lapsed_seats(*, kontakte: Mapping[str, Any] | None, confirmations: Mapping[s
         seat
         for seat in KONTAKT_SEATS
         if deadline_passed(deadline=seat_deadline_of(confirmations=confirmations, seat=seat), today=today)
-        and not _seat_is_confirmed(kontakte, seat)
+        and not seat_is_confirmed(person_of(kontakte, seat))
     ]
 
 
@@ -1349,7 +1343,9 @@ def owed_deletion_notices(*, bewerbung_raw: Mapping[str, Any], saison_id: str) -
             to=email,
             data=FLDeletionNoticeData(kind="deletion_notice", saison_id=saison_id),
         )
-        for email, seats in people_with_address(kontakte=kontakte, seats=[seat for seat in KONTAKT_SEATS if _seat_is_confirmed(kontakte, seat)])
+        for email, seats in people_with_address(
+            kontakte=kontakte, seats=[seat for seat in KONTAKT_SEATS if seat_is_confirmed(person_of(kontakte, seat))]
+        )
         if email != told
     ]
 
