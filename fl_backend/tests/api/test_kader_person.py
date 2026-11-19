@@ -207,11 +207,8 @@ async def refused_and_untouched(
 class TestTheKaderRead:
     """What a seat holder is served: whole surnames, the shirt marker, the season's Stufen, and nobody's address."""
 
-    async def _read(self, url: str, email: str) -> Response:
-        return await on_a_league(url, lambda database, client: send(url, "GET", kader_url(), email))
-
-    async def test_a_seat_holder_reads_every_row_of_the_kader_with_whole_surnames(self, mongo_replica_set_url: str):
-        response = await self._read(mongo_replica_set_url, ANSPRECH)
+    async def test_a_seat_holder_reads_every_row_whole_with_its_shirt_marked_and_no_address(self, mongo_replica_set_url: str):
+        response = await on_a_league(mongo_replica_set_url, lambda database, client: send(mongo_replica_set_url, "GET", kader_url(), ANSPRECH))
 
         assert response.status_code == 200, response.text
         body = response.json()
@@ -222,19 +219,13 @@ class TestTheKaderRead:
         assert rows[str(KAPITAEN)]["rolle"] == "kapitaen"
         assert rows[str(RETIRED)]["inactive_since"] == "2026-02-01"
         assert body["allowed_stufen"] == ALLOWED_STUFEN
+        # The pair wearing `7` beside a row wearing a shirt of its own: that the read marks them. Which rows share is the
+        # marker's own rule.
+        marked = [rows[str(spieler_id)]["nummer_double"] for spieler_id in (KAPITAEN, SHARES_THE_SEVEN, OLD_STUFE)]
+        assert marked == [True, True, False]
 
-    async def test_the_read_marks_a_shared_shirt(self, mongo_replica_set_url: str):
-        """The pair wearing `7` is marked beside a row wearing a shirt of its own; which rows share is the marker's own rule."""
-
-        response = await self._read(mongo_replica_set_url, ANSPRECH)
-        marked = {row["spieler_id"]: row["nummer_double"] for row in response.json()["kader"]}
-
-        assert (marked[str(KAPITAEN)], marked[str(SHARES_THE_SEVEN)], marked[str(OLD_STUFE)]) == (True, True, False)
-
-    async def test_no_address_and_no_telephone_reaches_the_body_at_any_depth(self, mongo_replica_set_url: str):
-        """The serialised body scanned whole, so a nested carrier no model field names is caught too."""
-
-        text = (await self._read(mongo_replica_set_url, ANSPRECH)).text
+        # The serialised body scanned whole, so a nested carrier no model field names is caught too.
+        text = response.text
 
         assert "@" not in text
         assert PUPIL_EMAIL_DOMAIN not in text
