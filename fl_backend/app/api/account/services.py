@@ -542,7 +542,7 @@ def changed_seat_choices(
 
 
 def _seat_choices_held(held: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
-    blocks = [seat["einwilligung"] for seat in held]
+    blocks = [person["einwilligung"] for person in held]
 
     return {**seat_choices_of_row(blocks), "evidence_state": evidence_state_of(blocks=blocks)}
 

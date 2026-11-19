@@ -74,8 +74,8 @@ SHARED = {
     "admin_holds_system": Withheld({**KEYS, "internal_api_key_admin": KEYS["internal_api_key_system"]}),
 }
 
-# Under `.invalid` (RFC 2606), which no resolver answers: the driver's lookup of the service record fails as the client
-# is built, and its message quotes the host, without the wait for a server selection.
+# Under `.invalid` (RFC 2606), which no resolver answers: the driver's lookup of the service record fails at the boot's
+# first operation, and its message quotes the host, without the wait for a server selection.
 UNKNOWN_HOST = "made-up-host-7.invalid"
 UNKNOWN_HOST_URI = Withheld({MONGODB_URI_FILE: f"mongodb+srv://{UNKNOWN_HOST}"})
 

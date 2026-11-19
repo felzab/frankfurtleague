@@ -45,7 +45,7 @@ def test_settings_that_cannot_load_are_a_refusal(tmp_path: Path):
 
 
 APPLICATION_ID = ObjectId("6890a1b2c3d4e5f607c00001")
-CLUB_ID = ObjectId("6890a1b2c3d4e5f607c00002")
+TEAM_ID = ObjectId("6890a1b2c3d4e5f607c00002")
 SCHULE = new_schule_document("Zorbanax")
 
 
@@ -58,7 +58,7 @@ def an_application(status: str, *, team_id: ObjectId | None, schule: dict[str, A
         "submitted",
         kontakte=kontakte_document(ansprechperson=kontaktperson_document("Wraxlington")),
         submitted_at="2026-03-20",
-        team_id=CLUB_ID,
+        team_id=TEAM_ID,
     )
 
     return {**stored, "status": status, "team_id": team_id, "schule": schule}
@@ -69,13 +69,13 @@ class TestASubmittedApplicationNamesOneSchool:
 
     @pytest.mark.parametrize(
         ("team_id", "schule"),
-        [pytest.param(CLUB_ID, SCHULE, id="both"), pytest.param(None, None, id="neither")],
+        [pytest.param(TEAM_ID, SCHULE, id="both"), pytest.param(None, None, id="neither")],
     )
     def test_the_record_refuses_both_and_neither(self, team_id: ObjectId | None, schule: dict[str, Any] | None):
         with pytest.raises(ValidationError, match="names its school by `team_id` or by `schule`"):
             FLBewerbungRecord.model_validate(an_application("submitted", team_id=team_id, schule=schule))
 
-    def test_an_accepted_application_keeps_its_school_beside_the_club_it_became(self):
+    def test_an_accepted_application_keeps_its_school_beside_the_team_it_became(self):
         """Acceptance writes the created club's id back beside the school it was created from."""
 
-        FLBewerbungRecord.model_validate(an_application("accepted", team_id=CLUB_ID, schule=SCHULE))
+        FLBewerbungRecord.model_validate(an_application("accepted", team_id=TEAM_ID, schule=SCHULE))

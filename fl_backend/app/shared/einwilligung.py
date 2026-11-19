@@ -20,11 +20,11 @@ def is_confirmed(einwilligung: Any) -> bool:
     return isinstance(einwilligung, Mapping) and einwilligung.get("confirmed_at") is not None
 
 
-def seat_is_confirmed(seat: Any) -> TypeGuard[Mapping[str, Any]]:
-    """Whether one stored contact seat's own person has confirmed it; an emptied seat is null and confirms nothing."""
+def seat_is_confirmed(person: Mapping[str, Any] | None) -> TypeGuard[Mapping[str, Any]]:
+    """Whether a contact seat's stored person has confirmed it; an emptied seat holds null and confirms nothing."""
 
-    # `TypeGuard` rather than `TypeIs`: a false answer may still be a seat, one its person has not confirmed.
-    return isinstance(seat, Mapping) and is_confirmed(seat.get("einwilligung"))
+    # `TypeGuard` rather than `TypeIs`: a false answer may still be a person, one who has not confirmed.
+    return isinstance(person, Mapping) and is_confirmed(person.get("einwilligung"))
 
 
 # Whether a base-tier read may serve a person's name: their record present, its scope `kader_public` and its

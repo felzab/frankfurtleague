@@ -122,7 +122,13 @@ class TestEachPassTakesItsOwnDeadline:
         assert marked, "no operation carries the mark, so this check judges nothing"
         assert [entry for entry in marked if entry[0] != "post" or entry[2] != [{"SystemKey": []}]] == []
 
-    @pytest.mark.parametrize(("method", "path"), sorted(PASSES), ids=lambda part: part)
+    # One pass per path shape the middleware matches, a fixed path and one naming a season: the contract case above
+    # already turns red for any pass that loses its mark, which is what a case per pass would catch.
+    @pytest.mark.parametrize(
+        ("method", "path"),
+        sorted({min(p for p in PASSES if "{" not in p[1]), min(p for p in PASSES if "{" in p[1])}),
+        ids=lambda part: part,
+    )
     def test_a_pass_runs_under_the_pass_s_deadline(self, method: str, path: str):
         # A season's id where the operation takes one, as the scheduler sends it: a request names a season, never the template.
         assert _deadline_of(method, path.format(saison_id="2026")) == PASS_DEADLINE_S

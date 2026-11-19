@@ -358,11 +358,14 @@ async def resolve_subject(
 
 
 def _mail_sites_naming(row: Mapping[str, Any], identifier: str) -> list[str]:
-    """Where one `outbox` row names this folded address in full: its recipient, and a grant notice's address."""
+    """Where one `outbox` row names this folded address in full: its recipient, and a grant notice's address.
+
+    Compared as stored: every write stores a recipient folded, and a grant notice copies its address from a folded row.
+    """
 
     held = {"to": row["to"], "data.address": (row.get("data") or {}).get("address") if row["kind"] == "grant" else None}
 
-    return [path for path, value in held.items() if isinstance(value, str) and sign_in_identifier(value) == identifier]
+    return [path for path, value in held.items() if value == identifier]
 
 
 async def erase_the_mails_in_session(*, outbox_collection: AsyncCollection, identifier: str, session: AsyncClientSession) -> list[str]:

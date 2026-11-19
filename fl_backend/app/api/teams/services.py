@@ -258,13 +258,13 @@ def as_unconfirmed(einwilligung: Mapping[str, Any]) -> dict[str, Any]:
 SEAT_IDENTITY_FIELDS: tuple[str, ...] = ("email", "first_name", "last_name")
 
 
-def _identity_of(seat: Mapping[str, Any]) -> tuple[str, ...]:
-    """Who this seat holds, folded so two spellings of one person compare equal."""
+def _identity_of(person: Mapping[str, Any]) -> tuple[str, ...]:
+    """Who a seat's stored person is, folded so two spellings of one person compare equal."""
 
     # The address as sign-in folds it, so a stamp never crosses to another inbox, and re-typing „ida“
     # as „Ida“ still costs nobody a fresh confirmation.
     return tuple(
-        sign_in_identifier(str(seat.get(field) or "")) if field == "email" else person_name_key(seat.get(field))
+        sign_in_identifier(str(person.get(field) or "")) if field == "email" else person_name_key(person.get(field))
         for field in SEAT_IDENTITY_FIELDS
     )
 
@@ -426,12 +426,13 @@ def links_owed(*, kontakte: Mapping[str, Any], stored: Mapping[str, Any] | None)
     stored_block = stored or {}
     owed: list[tuple[FLKontaktSeat, ...]] = []
 
-    for person in people_of(kontakte):
-        if all(_seat_held_by(stored_block.get(seat), person=kontakte[seat]) is not None for seat in person):
+    # Each person's seats, one tuple per person `people_of` finds.
+    for persons_seats in people_of(kontakte):
+        if all(_seat_held_by(stored_block.get(seat), person=kontakte[seat]) is not None for seat in persons_seats):
             continue
 
         # A seat of the pair this person has already confirmed keeps its stamp and its link.
-        unconfirmed: tuple[FLKontaktSeat, ...] = tuple(seat for seat in person if not seat_is_confirmed(kontakte[seat]))
+        unconfirmed: tuple[FLKontaktSeat, ...] = tuple(seat for seat in persons_seats if not seat_is_confirmed(kontakte[seat]))
         if unconfirmed:
             owed.append(unconfirmed)
 
