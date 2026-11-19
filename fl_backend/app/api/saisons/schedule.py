@@ -76,16 +76,3 @@ def schedule_for(rules: FLSaisonRules) -> tuple[PhaseSchedule, ...]:
         remaining //= 2
 
     return tuple(schedule)
-
-
-def expected_matches(rules: FLSaisonRules, phase: FLSaisonPhase) -> int:
-    """How many matches one matchday of this phase should hold.
-
-    The Finale's counts the match for third place beside the final. Zero for a knockout round this
-    season's bracket does not reach.
-    """
-
-    for entry in schedule_for(rules):
-        if entry.phase == phase:
-            return entry.spiele_per_spieltag
-    return 0

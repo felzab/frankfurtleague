@@ -7,7 +7,6 @@ import pytest
 from bson import ObjectId
 
 from app.api.saisons.schedule import (
-    expected_matches,
     group_matchdays,
     group_matches_per_matchday,
     knockout_phases_for,
@@ -163,7 +162,6 @@ def legal_combinations() -> set[tuple[int, int]]:
             stored=None,
             proposed=rules(groups=groups, teams=max(qualifiers, 2), qualifiers=qualifiers),
             occupancy_by_gruppe={},
-            highest_wired_platz=0,
         )
         is None
     }
@@ -281,7 +279,9 @@ class TestTheDrawIsTheSeasonTheRulesDescribe:
         for spiel in plan.spiele:
             held[spiel["spieltag_id"]] += 1
 
-        assert held == {spieltag_id: expected_matches(season, phase) for spieltag_id, phase in phases.items()}
+        per_spieltag = {entry.phase: entry.spiele_per_spieltag for entry in schedule_for(season)}
+
+        assert held == {spieltag_id: per_spieltag[phase] for spieltag_id, phase in phases.items()}
 
     @pytest.mark.parametrize("shape", SHAPES)
     def test_the_bracket_halves_down_to_one_final(self, shape: tuple[int, int, int]):

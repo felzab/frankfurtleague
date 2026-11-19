@@ -3,7 +3,7 @@ from datetime import date, timedelta
 from http import HTTPStatus
 from typing import Any
 
-from app.api.saisons.schedule import expected_matches, knockout_phases_for, qualifier_count, schedule_for
+from app.api.saisons.schedule import knockout_phases_for, qualifier_count, schedule_for
 from app.api.saisons.schemas import FIRST_SAISON_YEAR, MAX_TEAMS_PER_GROUP, MIN_TEAMS_PER_GROUP, FLSaisonRules, FLSpielplanShape
 from app.api.spiele.schemas import FLSpielJoinedInternal, FLSpielTeamFieldJoinedInternal
 from app.api.spiele.services import podium_of
@@ -194,8 +194,7 @@ def find_saison_past_refusal(*, saison_status: str) -> APIError | None:
 # row holds.
 FROZEN_RULES_FIELDS: tuple[str, ...] = ("win_points", "draw_points", "loss_points", "qualifiers_per_gruppe", "tiebreak_order")
 
-# The three the fixtures were drawn from. A raise is what nothing else refuses: the rules would then
-# imply matches nobody drew, and `rules_spieltag_over_its_phase` reads the narrowing direction alone.
+# The three the fixtures were drawn from: changed either way, the rules would imply other matches than the ones drawn.
 SHAPE_RULES_FIELDS: tuple[str, ...] = ("number_of_gruppen", "teams_per_gruppe", "qualifiers_per_gruppe")
 
 
@@ -233,10 +232,7 @@ def find_rules_refusal(
     stored: FLSaisonRules | None,
     proposed: FLSaisonRules,
     occupancy_by_gruppe: dict[FLGruppenNames, int],
-    highest_wired_platz: int,
     largest_kader: int = 0,
-    # The largest count any single matchday of a phase holds, never the sum.
-    attached_by_phase: Mapping[FLSaisonPhase, int] | None = None,
     drawn_spiele: int = 0,
 ) -> APIError | None:
     """Why these rules must be refused, or `None`."""
@@ -319,25 +315,6 @@ def find_rules_refusal(
     if proposed.max_kader_size < stored.max_kader_size and largest_kader > proposed.max_kader_size:
         return APIError(HTTPStatus.CONFLICT, Code.RULES_KADER_BELOW_USE, fields=(("rules", "max_kader_size"),), bounds={"min": largest_kader})
 
-    # Only where the patch lowers it: `rules` is required, so a dates-only edit resubmits a count
-    # already under the wiring, and refusing that would leave the season unpatchable.
-    if proposed.qualifiers_per_gruppe < highest_wired_platz and proposed.qualifiers_per_gruppe < stored.qualifiers_per_gruppe:
-        return APIError(
-            HTTPStatus.CONFLICT,
-            Code.RULES_QUALIFIERS_BELOW_WIRING,
-            fields=(("rules", "qualifiers_per_gruppe"),),
-            bounds={"min": highest_wired_platz},
-        )
-
-    # Last, being the only check computing the whole schedule. Every phase: lowering the qualifier
-    # count shortens the ladder, so an unreached phase expects 0 while its matchdays keep fixtures.
-    for phase, attached in sorted((attached_by_phase or {}).items()):
-        expected = expected_matches(proposed, phase)
-        # Only where the step narrows the phase: a count nothing changed is not this edit's doing,
-        # and refusing it would leave the season unpatchable.
-        if attached > expected and expected < expected_matches(stored, phase):
-            return APIError(HTTPStatus.CONFLICT, Code.RULES_SPIELTAG_OVER_ITS_PHASE)
-
     return None
 
 
@@ -358,7 +335,7 @@ def workable_shapes(rules: FLSaisonRules) -> list[FLSpielplanShape]:
                 shape = FLSpielplanShape(number_of_gruppen=groups, teams_per_gruppe=teams, qualifiers_per_gruppe=qualifiers)
                 # `model_copy` skips validation, safely: the shape's own model declares the three under the rules' own types.
                 candidate = rules.model_copy(update=shape.model_dump())
-                if find_rules_refusal(stored=None, proposed=candidate, occupancy_by_gruppe={}, highest_wired_platz=0) is None:
+                if find_rules_refusal(stored=None, proposed=candidate, occupancy_by_gruppe={}) is None:
                     shapes.append(shape)
 
     return shapes

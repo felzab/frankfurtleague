@@ -555,8 +555,8 @@ RECORDS_CLOSING_THE_WINDOW = (
     pytest.param({"note": A_NOTE}, id="an admin's note"),
 )
 
-# Wider than the drawn shape, so `rules_capacity_below_use` and `rules_spieltag_over_its_phase` both read the other way and
-# `rules_shape_after_spielplan` is the only rule that can answer.
+# Wider than the drawn shape, so `rules_capacity_below_use` reads the other way and `rules_shape_after_spielplan` is the
+# only rule that can answer.
 WIDER_PER_GROUP = 6
 
 
