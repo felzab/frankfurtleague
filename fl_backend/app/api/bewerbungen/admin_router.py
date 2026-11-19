@@ -30,7 +30,6 @@ from app.api.bewerbungen.services import (
     build_confirmed_seat_filter,
     build_duplicates_pipeline,
     build_entry_offer_pipeline,
-    build_resend_filter,
     claimed_pair_seat,
     compose_acceptance_seats,
     compose_kontakt_seat_update,
@@ -501,10 +500,6 @@ async def resend_kontakt_confirmation(
     no fresh link.
     """
 
-    db_filter = {"_id": bewerbung_id}
-    judged = ["status", "kontakte", "confirmations"]
-    bewerbung_raw = await pull_one_from_db(collection=bewerbungen_collection, db_filter=db_filter, projection=judged)
-
     # A 404 rather than a 422, as a malformed path id answers: the segment names no seat any
     # application has, which is a miss and not a body fault.
     pressed = seat_named(seat)
@@ -528,69 +523,57 @@ async def resend_kontakt_confirmation(
 
         return (pressed, other)
 
-    seats = seats_judged_on(bewerbung_raw)
     confirmation_deadline = confirmation_deadline_from(today=today)
     # Outside the callback, so a retried transaction owes the press's one mail and a second press its own.
     nonce = secrets.token_hex(8)
 
-    # The judgement is in the filter, so a decision or an answer landing after the read leaves the row
-    # untouched rather than overwritten.
-    async def mint_on(seats: tuple[FLKontaktSeat, ...]) -> None:
-        async def mint(session: AsyncClientSession) -> None:
-            # In-session, as the seat write reads them: the filter holds the pressed seats alone, and the deletion day is every seat's.
-            stored = await pull_one_from_db(
-                collection=bewerbungen_collection,
-                db_filter=db_filter,
-                projection=["saison_id", "kontakte", "confirmations"],
-                session=session,
-            )
-            # In-session, so a season closed before this press mails nobody a link its season's end deletes with the
-            # application. Unanchored, as the confirmation's read is: the rollover reads nothing this press writes, so one
-            # committing inside it orders as one committing just before.
-            saison_raw = await pull_one_from_db(
-                collection=saisons_collection, db_filter={"_id": stored["saison_id"]}, projection=["status"], session=session
-            )
-            refuse(find_saison_past_refusal(saison_status=str(saison_raw["status"])))
-            matched = await patch_one_in_db(
-                collection=bewerbungen_collection,
-                db_filter=build_resend_filter(bewerbung_id=bewerbung_id, seats=seats),
-                update=compose_resend_update(
-                    seats=seats, today=today, kontakte=stored.get("kontakte"), confirmations=stored.get("confirmations")
-                ),
-                session=session,
-                expected_version=None,
-                return_document=ReturnDocument.BEFORE,
-            )
-            await enqueue_mails(
-                outbox_collection=outbox_collection,
-                session=session,
-                mails=[
-                    owed_link(
-                        bewerbung_id=bewerbung_id,
-                        kontakte=matched["kontakte"],
-                        seats=seats,
-                        saison_id=str(matched["saison_id"]),
-                        schule=await pull_schule_name(bewerbung_raw=matched, teams_collection=teams_collection, session=session),
-                        deadline=confirmation_deadline,
-                        key=outbox_key(bewerbung_id, "resend", seats[0], nonce),
-                    )
-                ],
-                now=germany_now,
-            )
+    async def judge_and_mint(session: AsyncClientSession) -> None:
+        db_filter = {"_id": bewerbung_id}
+        # In-session, as the seat write reads it: an answer, an erasure or a decision committing before the patch makes
+        # the patch a write conflict, and the retry judges what it left.
+        bewerbung_raw = await pull_one_from_db(
+            collection=bewerbungen_collection,
+            db_filter=db_filter,
+            projection=["status", "kontakte", "confirmations", "saison_id", "schule", "team_id"],
+            session=session,
+        )
+        seats = seats_judged_on(bewerbung_raw)
+        kontakte, confirmations = bewerbung_raw.get("kontakte"), bewerbung_raw.get("confirmations")
 
-        await transact(db, mint)
+        # So a season closed before this press mails nobody a link its season's end deletes with the application.
+        # Unanchored, as the confirmation's read is: the rollover reads nothing this press writes, so one committing
+        # inside it orders as one committing just before.
+        saison_raw = await pull_one_from_db(
+            collection=saisons_collection, db_filter={"_id": bewerbung_raw["saison_id"]}, projection=["status"], session=session
+        )
+        refuse(find_saison_past_refusal(saison_status=str(saison_raw["status"])))
 
-    try:
-        await mint_on(seats)
-    except DocumentNotFoundError:
-        # The judgement above was read outside the write's transaction, so a decision or an answer
-        # landing between them leaves the filter matching nothing. Judged again rather than answered as
-        # a miss, so the refusal names what moved.
-        reread = await pull_one_from_db(collection=bewerbungen_collection, db_filter=db_filter, projection=judged)
-        seats = seats_judged_on(reread)
-        # A re-read that passes is a row that moved back between the two, a decline and then a seat write:
-        # one more write, whose own miss is the only one answering 404.
-        await mint_on(seats)
+        await patch_one_in_db(
+            collection=bewerbungen_collection,
+            db_filter=db_filter,
+            update=compose_resend_update(seats=seats, today=today, kontakte=kontakte, confirmations=confirmations),
+            session=session,
+            expected_version=None,
+            return_document=ReturnDocument.AFTER,
+        )
+        await enqueue_mails(
+            outbox_collection=outbox_collection,
+            session=session,
+            mails=[
+                owed_link(
+                    bewerbung_id=bewerbung_id,
+                    kontakte=kontakte,
+                    seats=seats,
+                    saison_id=str(bewerbung_raw["saison_id"]),
+                    schule=await pull_schule_name(bewerbung_raw=bewerbung_raw, teams_collection=teams_collection, session=session),
+                    deadline=confirmation_deadline,
+                    key=outbox_key(bewerbung_id, "resend", seats[0], nonce),
+                )
+            ],
+            now=germany_now,
+        )
+
+    await transact(db, judge_and_mint)
 
 
 @router.post(

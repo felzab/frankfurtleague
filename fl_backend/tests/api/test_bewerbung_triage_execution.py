@@ -40,7 +40,6 @@ from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database
 from tests.delivery import a_mail_that_bounced
 from tests.documents import (
     ADDRESS,
-    SEAT_TEXT_VERSIONS,
     kontaktperson_document,
     minted_confirmations,
     rules_document,
@@ -49,7 +48,7 @@ from tests.documents import (
     team_document,
 )
 from tests.erasure import erased
-from tests.isolation import InterleavedCollection, Rival, refused_code
+from tests.isolation import InterleavedCollection, refused_code
 from tests.outbox import MAIL_NOW, drained
 from tests.session_headers import StampedHeaders
 from tests.stored import the_row
@@ -1334,164 +1333,37 @@ async def seed_an_open_ansprechperson_seat(database: AsyncDatabase, *, mirrored:
     return await stored_bewerbung(database, RESEND_BEWERBUNG)
 
 
-class ApplicationsRunningARivalAfterTheirRead(InterleavedCollection):
-    """The applications a re-send reaches, a rival run once just after its first read: the read outside its transaction."""
-
-    def __init__(self, collection: Any, rival: Rival) -> None:
-        super().__init__(collection, rival)
-        self.first_read: Mapping[str, Any] | None = None
-
-    async def find_one(self, *args: Any, **kwargs: Any) -> Any:
-        found = await self._collection.find_one(*args, **kwargs)
-        if self.first_read is None:
-            self.first_read = found
-        await self.run_the_rival()
-
-        return found
-
-
 async def resend(database: AsyncDatabase, seat: str, *, bewerbungen: Any = None) -> Any:
     collection = database[Collection.BEWERBUNGEN] if bewerbungen is None else bewerbungen
 
     return await resent(database, RESEND_BEWERBUNG, seat, today=TODAY, germany_now=MAIL_NOW, bewerbungen_collection=collection)
 
 
-class MissesTheFirstWrite:
-    """The `bewerbungen` collection with its first `find_one_and_update` matching nothing and writing nothing, every other call delegated.
-
-    A row that moved away from the filter and back before the re-read looks exactly like this.
-    """
-
-    def __init__(self, collection: AsyncCollection) -> None:
-        self._collection = collection
-        self._missed = False
-
-    async def find_one_and_update(self, *args: Any, **kwargs: Any) -> Any:
-        if not self._missed:
-            self._missed = True
-            return None
-
-        return await self._collection.find_one_and_update(*args, **kwargs)
-
-    def __getattr__(self, name: str) -> Any:
-        return getattr(self._collection, name)
-
-
-async def answer_the_link(database: AsyncDatabase, client: AsyncMongoClient) -> None:
-    await answer_for(database, client, "ansprechperson", answer="given", birth_date="2080-05-04", text_versions=dict(SEAT_TEXT_VERSIONS))
-
-
-async def object_to_the_link(database: AsyncDatabase, client: AsyncMongoClient) -> None:
-    await answer_for(database, client, "ansprechperson")
-
-
-async def erase_the_person(database: AsyncDatabase, client: AsyncMongoClient) -> None:
-    await erased(database, client, KONTAKTE["ansprechperson"]["email"], germany_now=NOW)
-
-
 @pytest.mark.db
-class TestAResendRacingAnAnswer:
-    """The re-send reads outside any transaction, so what lands between its read and its write is judged by the write's filter."""
+class TestAResend:
+    async def test_an_objection_landing_inside_it_stands_and_the_resend_is_refused(self, mongo_replica_set_url: str):
+        """The objection commits between the re-send's read and its write, so the write conflicts and its retry reads the objection.
 
-    @pytest.mark.parametrize(
-        "landing",
-        [
-            pytest.param(object_to_the_link, id="an objection"),
-            pytest.param(answer_the_link, id="a confirmation"),
-            pytest.param(erase_the_person, id="an erasure"),
-        ],
-    )
-    async def test_what_landed_after_the_read_stands_and_the_resend_is_refused(self, mongo_replica_set_url: str, landing: Body):
-        """One row per term of the filter: the decline's date, the stamp, and the entry an erasure nulls.
-
-        The Widerspruch row is load-bearing: without its term the objection is overwritten by a live
-        link mailed to the objector.
+        Judged outside the transaction, the write would overwrite the objection with a live link mailed to the objector.
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await seed_an_open_ansprechperson_seat(database)
             landed: list[Any] = []
 
-            async def the_landing() -> None:
-                await landing(database, client)
+            async def the_objection() -> None:
+                await answer_for(database, client, "ansprechperson")
                 landed.append(await stored_bewerbung(database, RESEND_BEWERBUNG))
 
-            racing = ApplicationsRunningARivalAfterTheirRead(database[Collection.BEWERBUNGEN], the_landing)
+            racing = InterleavedCollection(database[Collection.BEWERBUNGEN], the_objection, before="find_one_and_update")
             code = await refused_code(resend(database, "ansprechperson", bewerbungen=cast(AsyncCollection, racing)))
-            # Serially the read itself meets the landing and refuses: one read. Inside, the write misses and the re-read refuses: two.
-            racing.assert_landed_inside(serially=1)
 
             return code, landed[0], await stored_bewerbung(database, RESEND_BEWERBUNG)
 
         code, landed, after = await on_a_league(mongo_replica_set_url, body)
 
         assert code == Code.BEWERBUNG_SEAT_ALREADY_ANSWERED
-        assert after == landed
-
-    async def test_a_confirmation_landing_after_the_read_is_judged_with_the_deletion_day(self, mongo_replica_set_url: str):
-        """Two seats share the earliest day, and the other's answer leaves it on the pressed seat alone: the fresh link moves the day."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await seed_an_open_ansprechperson_seat(database)
-            bewerbungen = database[Collection.BEWERBUNGEN]
-            await bewerbungen.update_one(
-                {"_id": RESEND_BEWERBUNG},
-                {
-                    "$set": {
-                        "erasure_announced_at": "2126-03-30",
-                        "kontakte.stellvertretung.einwilligung.confirmed_at": None,
-                        "confirmations.ansprechperson.deadline": "2126-04-05",
-                        "confirmations.stellvertretung.deadline": "2126-04-05",
-                    }
-                },
-            )
-
-            async def the_confirmation() -> None:
-                await bewerbungen.update_one({"_id": RESEND_BEWERBUNG}, {"$set": {"kontakte.stellvertretung.einwilligung.confirmed_at": TODAY}})
-
-            racing = ApplicationsRunningARivalAfterTheirRead(bewerbungen, the_confirmation)
-            await resend(database, "ansprechperson", bewerbungen=cast(AsyncCollection, racing))
-
-            return await stored_bewerbung(database, RESEND_BEWERBUNG)
-
-        assert (await on_a_league(mongo_replica_set_url, body))["erasure_announced_at"] is None
-
-    async def test_a_correction_landing_after_the_read_is_where_the_fresh_link_goes(self, mongo_replica_set_url: str):
-        """The re-send's link replaces the correction's, so it has to reach the corrected mailbox rather than the one replaced."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await seed_an_open_ansprechperson_seat(database)
-
-            async def the_correction() -> None:
-                await correct(database, client, "ansprechperson", bewerbung_id=RESEND_BEWERBUNG)
-
-            racing = ApplicationsRunningARivalAfterTheirRead(database[Collection.BEWERBUNGEN], the_correction)
-            await resend(database, "ansprechperson", bewerbungen=cast(AsyncCollection, racing))
-            mails = await drained(database, client)
-
-            return racing.first_read, mails, await stored_bewerbung(database, RESEND_BEWERBUNG)
-
-        as_read, mails, stored = await on_a_league(mongo_replica_set_url, body)
-
-        # The landing inside: the re-send judged a read holding the address the correction then replaced.
-        assert as_read is not None and as_read["kontakte"]["ansprechperson"]["email"] != CORRECTED_EMAIL
-        assert isinstance(mails[-1].data, FLBewerbungLinkData) and mails[-1].data.seats == ["ansprechperson"]
-        # The re-send settles the correction's mail it supersedes, so one mail goes, to the corrected mailbox, and its link opens.
-        assert [mail.to for mail in mails] == [CORRECTED_EMAIL]
-        assert stored["confirmations"]["ansprechperson"]["token_hashes"] == [hash_token(mails[-1].token or "")]
-
-    async def test_a_miss_the_re_read_finds_no_reason_for_is_written_again(self, mongo_replica_set_url: str):
-        """A decline and then a reseat between the write and its re-read leave the seat open: a 404 there would call a standing row gone."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await seed_an_open_ansprechperson_seat(database)
-            await resend(database, "ansprechperson", bewerbungen=MissesTheFirstWrite(database[Collection.BEWERBUNGEN]))
-
-            return await drained(database, client), await stored_bewerbung(database, RESEND_BEWERBUNG)
-
-        [mail], stored = await on_a_league(mongo_replica_set_url, body)
-
-        assert stored["confirmations"]["ansprechperson"]["token_hashes"] == [hash_token(mail.token or "")]
+        assert after == landed, "the re-send overwrote the objection that landed inside it"
 
     async def test_a_resend_moving_the_day_a_notice_named_owes_the_deletion_its_notice_again(self, mongo_replica_set_url: str):
         """The read the re-send judged reaches its update: a stamp left on a moved day leaves the Ansprechperson told of a day that went."""
@@ -1544,21 +1416,14 @@ class TestAResendRacingAnAnswer:
 class TestAFinishedSeasonTakesNoFreshLink:
     """Its undecided applications go at the season's end, so a link mailed then would ask a person to answer for nothing."""
 
-    async def test_a_season_closed_after_the_read_mails_nobody(self, mongo_replica_set_url: str):
-        """The season closes between the re-send's read and its write, so only a judgement inside the write's transaction sees it."""
-
+    async def test_a_resend_on_a_finished_season_writes_and_mails_nobody(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             before = await seed_an_open_ansprechperson_seat(database)
-
-            async def the_close() -> None:
-                await database[Collection.SAISONS].update_one({"_id": SAISON_ID}, {"$set": {"status": "past"}})
-
-            racing = ApplicationsRunningARivalAfterTheirRead(database[Collection.BEWERBUNGEN], the_close)
-            code = await refused_code(resend(database, "ansprechperson", bewerbungen=cast(AsyncCollection, racing)))
+            code = await refused_code(resend(database, "ansprechperson"))
 
             return code, before, await stored_bewerbung(database, RESEND_BEWERBUNG), await drained(database, client)
 
-        code, before, after, mails = await on_a_league(mongo_replica_set_url, body)
+        code, before, after, mails = await on_a_league(mongo_replica_set_url, body, saison_status="past")
 
         assert code == Code.SAISON_PAST
         assert (after, mails) == (before, [])

@@ -875,22 +875,6 @@ def compose_resend_update(
     return {"$set": {**_fresh_links(seats=seats, today=today), **({"erasure_announced_at": None} if moved else {})}}
 
 
-def build_resend_filter(*, bewerbung_id: Any, seats: Sequence[str]) -> Mapping[str, Any]:
-    """`seat_is_answered` negated per seat, as the re-send's own filter.
-
-    The re-send judges on a read outside its write's transaction and replaces the whole entry, so an answer or an
-    erasure committed after that read would otherwise lose its record under a live link.
-    """
-
-    unanswered: dict[str, Any] = {}
-    for seat in seats:
-        unanswered[f"confirmations.{seat}"] = {"$type": "object"}
-        unanswered[f"confirmations.{seat}.declined_at"] = None
-        unanswered[f"kontakte.{seat}.einwilligung.confirmed_at"] = None
-
-    return {"_id": bewerbung_id, "status": "submitted", **unanswered}
-
-
 def find_repeated_contact_refusal(*, kontakte: Mapping[str, Any]) -> APIError | None:
     """Why this submission's block holds two people reachable alike, or `None`: every box repeating an earlier person's address or number.
 
