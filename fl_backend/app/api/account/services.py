@@ -1,12 +1,21 @@
-"""One module for every kind of own record, deciding from what the routers pass and reading nothing.
+"""One module for every kind of own record, deciding from what the routers pass.
 
 One module, so the kinds' PATCHes cannot answer one press differently and the account page's read judges a grant
-exactly as the PATCH it offers does.
+exactly as the PATCH it offers does. It reads only through what a router passes: the one press a person's own block
+takes runs on the collection, the client and the write its router hands it.
 """
 
 from collections.abc import Awaitable, Callable, Mapping, Sequence
+from dataclasses import dataclass
+from datetime import datetime
+from functools import partial
 from http import HTTPStatus
-from typing import Any, Final, Literal, get_args
+from operator import itemgetter
+from typing import Any, Final, Literal, Protocol
+
+from pymongo import AsyncMongoClient
+from pymongo.asynchronous.client_session import AsyncClientSession
+from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.bewerbungen.services import build_own_bewerbung_filter, schule_name
 from app.api.identity.schemas import FLSubjectSeat
@@ -16,13 +25,22 @@ from app.api.registrierungen.services import build_own_registrierung_filter
 from app.api.saisons.services import SAISON_LOOKUP
 from app.api.schiedsrichter.services import EINWILLIGUNG_FIELD, SELF_REFEREE_ORDER, build_self_referee_filter
 from app.api.spieler.services import SELF_PUPIL_ORDER, build_self_pupil_filter
+from app.core.clock import utc_stamp
 from app.core.codes import Code
 from app.core.collections import Collection as DbCollection
 from app.core.crud import refuse
 from app.core.exceptions import APIError
+from app.core.journal import Journal
+from app.core.transactions import transact
 from app.shared.einwilligung import find_self_media_refusal, media_offered
 from app.shared.einwilligung_evidence import CHOICES, FLEinwilligungChoice, TextVersions, compose_choices, evidence_state_of, is_given
-from app.shared.schemas.einwilligung import PressTextVersions, stale_grants
+from app.shared.schemas.einwilligung import (
+    FLAccountEinwilligungPayload,
+    FLSchiedsrichterAccountEinwilligungPayload,
+    PressTextVersions,
+    by_choice,
+    stale_grants,
+)
 from app.shared.schemas.literals import KONTAKT_SEATS
 
 
@@ -154,8 +172,8 @@ def find_evidence_state_refusal(*, expected: Mapping[str, Any], blocks: Sequence
 MayGive = Callable[[], Awaitable[bool]]
 
 
-async def may_always_give() -> bool:
-    """`MayGive` of a record no state of which refuses a grant: a pupil's, whose every confirmed record stands live."""
+async def may_always_give(_session: AsyncClientSession) -> bool:
+    """`Grants.may_give` of a record no state of which refuses a grant: a pupil's, whose every confirmed record stands live."""
 
     return True
 
@@ -222,6 +240,78 @@ async def press_withdrawal(
         evidence_state=evidence_state,
         may_give=None,
     )
+
+
+@dataclass(frozen=True, kw_only=True)
+class Grants:
+    """What a kind taking grants judges one by: whether its found record may take one, and the day the media age is reckoned on."""
+
+    # Asked in the press's own transaction, so a read behind it sees what the press's read saw.
+    may_give: Callable[[AsyncClientSession], Awaitable[bool]]
+    today: str
+
+
+class OwnWrite(Protocol):
+    """A kind's write of a press's move onto its found record; which count the write moves is the kind's (`docs/decisions.md`, versions)."""
+
+    def __call__(
+        self, *, collection: AsyncCollection, db_filter: Mapping[str, Any], update: Mapping[str, Any], session: AsyncClientSession
+    ) -> Awaitable[object]: ...
+
+
+async def press_own_einwilligung(
+    *,
+    einwilligung_data: FLAccountEinwilligungPayload | FLSchiedsrichterAccountEinwilligungPayload,
+    kind: DbCollection,
+    collection: AsyncCollection,
+    own_entry: Mapping[str, Any],
+    projection: Mapping[str, Any],
+    owns: Callable[[Mapping[str, Any]], bool],
+    grants: Grants | None,
+    write: OwnWrite,
+    db: AsyncMongoClient,
+    now: datetime,
+) -> None:
+    """One press on a person's own consent record of `kind`, found by `own_entry` and refused unless it `owns` it.
+
+    `grants` is `None` for a kind taking withdrawals alone. A refusal at any step writes nothing, and what the press
+    withdrew is journalled once its transaction lands.
+    """
+
+    chosen: dict[FLEinwilligungChoice, object] = {"scope": einwilligung_data.scope, "media": einwilligung_data.media}
+    evidence_state = einwilligung_data.evidence_state.model_dump()
+    # One instant for every attempt.
+    at = utc_stamp(now)
+    journal = Journal()
+
+    @journal.attempted
+    async def write_the_press(session: AsyncClientSession) -> None:
+        row = await collection.find_one(own_entry, projection=projection, session=session)
+        refuse(find_own_entry_refusal(held=row is not None and owns(row)))
+        assert row is not None
+        saved = row["einwilligung"]
+
+        if grants is None:
+            await press_withdrawal(blocks=[saved], chosen=chosen, evidence_state=evidence_state)
+        else:
+            await press_einwilligung(
+                blocks=[saved],
+                birth_dates=[row.get("birth_date")],
+                chosen=chosen,
+                evidence_state=evidence_state,
+                text_versions=einwilligung_data.text_versions,
+                may_give=partial(grants.may_give, session),
+                today=grants.today,
+            )
+
+        update = compose_person_move(saved=saved, chosen=chosen, at=at, text_versions=by_choice(einwilligung_data.text_versions))
+        if update is not None:
+            await write(collection=collection, db_filter={"_id": row["_id"]}, update=update, session=session)
+        if moved := withdrawal_line(blocks=[saved], chosen=chosen):
+            journal.note("withdrawal", [f"{kind}/{row['_id']}"], choices=list(moved))
+
+    async with journal:
+        await transact(db, write_the_press)
 
 
 def context_teams_lookup(local_field: str) -> Mapping[str, Any]:
@@ -313,6 +403,10 @@ def compose_schiedsrichter_account(row: Mapping[str, Any], *, givable: bool, tod
     }
 
 
+# What a held seat's entry serves of its person beside the address and the consent, which `_seat_persons` reads.
+_SEAT_PERSON_FIELDS: Final = ("first_name", "last_name", "phone", "birth_date")
+
+
 def build_self_seat_pipeline(identifier: str) -> list[Mapping[str, Any]]:
     """Every season row one of whose seats names the address, `own_seats` judging each slot.
 
@@ -330,7 +424,7 @@ def build_self_seat_pipeline(identifier: str) -> list[Mapping[str, Any]]:
                 "shorthand": 1,
                 # Read by the Funktionen the page judges a grant by, which come from these rows.
                 "austritt": 1,
-                **{f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_SEATS for field in ("email", "birth_date", "einwilligung")},
+                **{f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_SEATS for field in ("email", "einwilligung", *_SEAT_PERSON_FIELDS)},
             }
         },
         # Read by the same Funktionen.
@@ -369,6 +463,12 @@ def _seat_choices_held(held: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
     return {**seat_choices_of_row(blocks), "evidence_state": evidence_state_of(blocks=blocks)}
 
 
+def _seat_persons(row: Mapping[str, Any], slots: Sequence[str]) -> list[dict[str, Any]]:
+    """What each held seat stores of its person, in the seats' order: one person may be typed two ways on two seats."""
+
+    return [{"seat": slot, **{field: row["kontakte"][slot].get(field) for field in _SEAT_PERSON_FIELDS}} for slot in slots]
+
+
 def compose_seats_self(
     rows: Sequence[Mapping[str, Any]],
     identifier: str,
@@ -390,6 +490,7 @@ def compose_seats_self(
                 "team_name": row["name"],
                 "saison_id": row["saison_id"],
                 "seats": slots,
+                "persons": _seat_persons(row, slots),
                 **_seat_choices_held(held),
                 "media_offered": all(media_offered(birth_date=seat.get("birth_date"), today=today) for seat in held),
                 "givable": holds_a_seat(seats_with_panel, team_id=row["team_id"], saison_id=row["saison_id"]),
@@ -409,7 +510,7 @@ def build_self_bewerbung_pipeline(identifier: str) -> list[Mapping[str, Any]]:
                 "saison_id": 1,
                 "team_id": 1,
                 "schule.team_name": 1,
-                **{f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_SEATS for field in ("email", "einwilligung")},
+                **{f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_SEATS for field in ("email", "einwilligung", *_SEAT_PERSON_FIELDS)},
             }
         },
         context_teams_lookup("team_id"),
@@ -435,6 +536,7 @@ def compose_bewerbung_seats_self(
                 "schule": schule,
                 "saison_id": row["saison_id"],
                 "seats": slots,
+                "persons": _seat_persons(row, slots),
                 **_seat_choices_held(held),
             }
         )
@@ -501,60 +603,57 @@ BEWERBUNG_ORDER: Final[Mapping[str, int]] = {"saison_id": -1, "_id": 1}
 REGISTRIERUNG_ORDER: Final[Mapping[str, int]] = {"saison_id": -1, "_id": 1}
 
 
-def _arm(arm: AccountArm, pipeline: Sequence[Mapping[str, Any]], *, order: Mapping[str, int]) -> list[Mapping[str, Any]]:
-    """`pipeline`'s rows, each tagged with its arm and its place in `order` as `_rank`.
+_ARM_ORDERS: Final[Mapping[AccountArm, Mapping[str, int]]] = {
+    "spieler": SELF_PUPIL_ORDER,
+    "schiedsrichter": SELF_REFEREE_ORDER,
+    "seats": SEAT_ORDER,
+    "bewerbungen": BEWERBUNG_ORDER,
+    "registrierungen": REGISTRIERUNG_ORDER,
+}
 
-    A union's order is unspecified, its arms' with it, so the place is stored: a `$push` after a `$sort` collects the
-    rows in that order (the manual's `$push` page guarantees it), and the unwind numbers them. Never
-    `$setWindowFields`'s `$documentNumber`, which the server refuses any `sortBy` of more than one key, and an arm's own
-    order needs a unique last key.
-    """
 
-    return [
-        *pipeline,
-        {"$sort": dict(order)},
-        {"$group": {"_id": None, "rows": {"$push": "$$ROOT"}}},
-        {"$unwind": {"path": "$rows", "includeArrayIndex": "_rank"}},
-        {"$replaceWith": {"$mergeObjects": ["$rows", {"_rank": "$_rank", "_arm": arm}]}},
-    ]
+def _arm(arm: AccountArm, pipeline: Sequence[Mapping[str, Any]]) -> list[Mapping[str, Any]]:
+    """`pipeline`'s rows, each tagged with its arm: a union's order is unspecified, so `account_arms` sorts each arm."""
+
+    return [*pipeline, {"$addFields": {"_arm": arm}}]
 
 
 def build_account_pipeline(identifier: str) -> list[Mapping[str, Any]]:
-    """The account page's read, run on `spieler`, each arm tagged and ranked.
+    """The account page's read, run on `spieler`, each arm tagged.
 
     The pupil's and the referee's rows by the selections their account entries read, and the season rows, pending applications and
-    registrations seating the address. Each arm is sorted last, after its lookups, so no stage after it moves its order.
+    registrations seating the address.
     """
 
     return [
-        *_arm("spieler", build_account_pupil_pipeline(identifier), order=SELF_PUPIL_ORDER),
-        {
-            "$unionWith": {
-                "coll": DbCollection.SCHIEDSRICHTER,
-                "pipeline": _arm("schiedsrichter", build_account_referee_pipeline(identifier), order=SELF_REFEREE_ORDER),
-            }
-        },
-        {"$unionWith": {"coll": DbCollection.SAISON_TEAMS, "pipeline": _arm("seats", build_self_seat_pipeline(identifier), order=SEAT_ORDER)}},
-        {
-            "$unionWith": {
-                "coll": DbCollection.BEWERBUNGEN,
-                "pipeline": _arm("bewerbungen", build_self_bewerbung_pipeline(identifier), order=BEWERBUNG_ORDER),
-            }
-        },
+        *_arm("spieler", build_account_pupil_pipeline(identifier)),
+        {"$unionWith": {"coll": DbCollection.SCHIEDSRICHTER, "pipeline": _arm("schiedsrichter", build_account_referee_pipeline(identifier))}},
+        {"$unionWith": {"coll": DbCollection.SAISON_TEAMS, "pipeline": _arm("seats", build_self_seat_pipeline(identifier))}},
+        {"$unionWith": {"coll": DbCollection.BEWERBUNGEN, "pipeline": _arm("bewerbungen", build_self_bewerbung_pipeline(identifier))}},
         {
             "$unionWith": {
                 "coll": DbCollection.REGISTRIERUNGEN,
-                "pipeline": _arm("registrierungen", build_self_registrierung_pipeline(identifier), order=REGISTRIERUNG_ORDER),
+                "pipeline": _arm("registrierungen", build_self_registrierung_pipeline(identifier)),
             }
         },
     ]
+
+
+def _in_order(rows: Sequence[Mapping[str, Any]], order: Mapping[str, int]) -> list[Mapping[str, Any]]:
+    """`rows` as a `$sort` by `order` returns them: one stable sort per key, the last key first.
+
+    Every key is one the record model requires, so none is missing; strings compare by code point as the server compares
+    their UTF-8 bytes.
+    """
+
+    ordered = list(rows)
+    for key, direction in reversed(list(order.items())):
+        ordered.sort(key=itemgetter(key), reverse=direction < 0)
+
+    return ordered
 
 
 def account_arms(rows: Sequence[Mapping[str, Any]]) -> dict[AccountArm, list[Mapping[str, Any]]]:
     """The read's rows by the arm that found them, each in its arm's own order."""
 
-    arms: dict[AccountArm, list[Mapping[str, Any]]] = {arm: [] for arm in get_args(AccountArm)}
-    for row in sorted(rows, key=lambda row: row["_rank"]):
-        arms[row["_arm"]].append(row)
-
-    return arms
+    return {arm: _in_order([row for row in rows if row["_arm"] == arm], order) for arm, order in _ARM_ORDERS.items()}

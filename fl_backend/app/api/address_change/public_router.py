@@ -139,7 +139,7 @@ async def get_address_change_view(
                 kind=ended["kind"],
                 ended_on=german_day(ended_at),
                 way=record["way"],
-                released_on=None if released_at is None else german_day(released_at),
+                released_on=_day_of(released_at),
                 confirmed_on=_day_of(confirmed_at) if side == "new" else None,
             )
         )
@@ -155,7 +155,7 @@ async def get_address_change_view(
                 effective_from=effective_from,
                 way=record["way"],
                 email=previous_side_email(record, state=state_previous),
-                released_on=None if released_at is None else german_day(released_at),
+                released_on=_day_of(released_at),
             )
         )
 

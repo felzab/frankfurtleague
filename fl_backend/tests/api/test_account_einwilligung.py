@@ -506,6 +506,31 @@ class TestTheAccountPagesRead:
         ]
         assert all(seat["media_offered"] for seat in body["seats"])
 
+    async def test_each_held_seat_serves_its_person_as_that_seat_stores_them(self, mongo_replica_set_url: str):
+        """One person on two seats may be typed two ways, so each seat's name, telephone and birthdate is served, on rows and applications."""
+
+        async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
+            await database[Collection.SAISON_TEAMS].update_one(
+                {"team_id": TEAM_A_OID, "saison_id": PAST_SAISON},
+                {"$set": {"kontakte.ansprechperson.last_name": "Zwiebelmeyer", "kontakte.ansprechperson.phone": "+49 69 90009102"}},
+            )
+            await _applications(database)
+            return await http.get(ACCOUNT_PATH, headers=_person(IDENTIFIER))
+
+        response = await served(mongo_replica_set_url, steps)
+
+        assert response.status_code == 200, response.text
+        body = response.json()
+        ortrud = {"first_name": "Ortrud", "last_name": "Ortrud-Mustermann", "phone": "+49 69 90009101", "birth_date": ADULT_BIRTHDATE}
+        [past] = [seat for seat in body["seats"] if seat["saison_id"] == PAST_SAISON]
+        assert past["persons"] == [
+            {"seat": "trainer", **ortrud},
+            {"seat": "ansprechperson", **ortrud, "last_name": "Zwiebelmeyer", "phone": "+49 69 90009102"},
+        ]
+        assert [application["persons"] for application in body["bewerbungen"]] == [
+            [{"seat": "trainer", **ortrud}, {"seat": "ansprechperson", **ortrud}]
+        ]
+
 
 # A seated grant's withdrawal, naming the grant the seat's own confirmation gave.
 SEAT_WITHDRAWAL = {
@@ -818,6 +843,16 @@ class TestAPendingApplicationsSeats:
                 "schule": PENDING_SCHULE,
                 "saison_id": ACTIVE_SAISON,
                 "seats": ["trainer", "ansprechperson"],
+                "persons": [
+                    {
+                        "seat": seat,
+                        "first_name": "Ortrud",
+                        "last_name": "Ortrud-Mustermann",
+                        "phone": "+49 69 90009101",
+                        "birth_date": ADULT_BIRTHDATE,
+                    }
+                    for seat in ("trainer", "ansprechperson")
+                ],
                 "scope": "kontakt_data",
                 "media": True,
                 "evidence_state": _seated_state(2),

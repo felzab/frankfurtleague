@@ -44,8 +44,19 @@ class FLAccountSchiedsrichterEinwilligung(FLSchiedsrichterSelfPerson):
     media_offered: bool
 
 
+class FLAccountSeatPerson(BaseModel):
+    """What one held seat stores of its person, the address being the account's own."""
+
+    seat: FLKontaktSeat
+    first_name: str
+    last_name: str
+    phone: str
+    # Null until the person typed it on their own confirmation page.
+    birth_date: CustomOptionalDateString
+
+
 class FLAccountSeatEinwilligung(BaseModel):
-    """One team season on which the address holds a confirmed contact seat, with its WhatsApp and media choices.
+    """One team season on which the address holds a confirmed contact seat: its WhatsApp and media choices, and what each held seat stores.
 
     Per season row and not per slot: one person holding two of a row's slots answers one choice for both.
     """
@@ -56,6 +67,8 @@ class FLAccountSeatEinwilligung(BaseModel):
     saison_id: str
     # Never empty: an entry exists for a held seat alone, and the published floor is what the page parses against.
     seats: list[FLKontaktSeat] = Field(min_length=1)
+    # One per held seat, in `seats`' order: two seats may store one person typed two ways.
+    persons: list[FLAccountSeatPerson] = Field(min_length=1)
     # Each on where any held slot's is, so a withdrawal stays offered.
     scope: FLKontaktKenntnisnahmeScope
     media: bool
@@ -76,6 +89,7 @@ class FLAccountBewerbungSeatEinwilligung(BaseModel):
     schule: str
     saison_id: str
     seats: list[FLKontaktSeat] = Field(min_length=1)
+    persons: list[FLAccountSeatPerson] = Field(min_length=1)
     scope: FLKontaktKenntnisnahmeScope
     media: bool
     evidence_state: FLEinwilligungState

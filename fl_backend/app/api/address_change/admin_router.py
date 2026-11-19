@@ -24,8 +24,8 @@ from app.api.address_change.schemas import (
 )
 from app.api.address_change.services import (
     LIVE_KEYED_TERMS,
-    build_live_filter,
-    build_resendable_terms,
+    LIVE_TERMS,
+    RESENDABLE_TERMS,
     compose_link_update,
     compose_record,
     find_ended_refusal,
@@ -92,7 +92,7 @@ async def _pull_the_change(
     return record
 
 
-def _pending_addresses(
+def _open_change(
     record: Mapping[str, Any], *, holder: FLAdminTier | None, delivery: FLOutboxStatus | None, now: datetime
 ) -> FLAddressChangeAdminOpen:
     return FLAddressChangeAdminOpen(
@@ -133,7 +133,7 @@ async def get_address_changes(
 
     return FLAddressChangeAdminListResponse(
         changes=[
-            _pending_addresses(
+            _open_change(
                 row,
                 holder=tiers.get(str(row["address"])),
                 delivery=await state_of_the_link(outbox_collection=outbox_collection, address_change_id=row["_id"], session=session),
@@ -279,7 +279,7 @@ async def resend_confirmation(
         # stands, which is until the next hourly pass ends it.
         updated = await patch_one_in_db(
             collection=address_changes_collection,
-            db_filter=build_live_filter(address_change_id, build_resendable_terms()),
+            db_filter={"_id": address_change_id, **LIVE_TERMS, **RESENDABLE_TERMS},
             update=compose_link_update(now=germany_now, released=False),
             session=session,
             expected_version=None,

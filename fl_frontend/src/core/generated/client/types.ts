@@ -265,19 +265,30 @@ export interface FLEinwilligungState {
   scope: string | null;
 }
 
-export type FLKontaktKenntnisnahmeScope = (typeof FLKontaktKenntnisnahmeScope)[keyof typeof FLKontaktKenntnisnahmeScope];
-
-export const FLKontaktKenntnisnahmeScope = {
-  kontakt_data: "kontakt_data",
-  kontakt_data_whatsapp: "kontakt_data_whatsapp",
-} as const;
-
 export type FLKontaktSeat = (typeof FLKontaktSeat)[keyof typeof FLKontaktSeat];
 
 export const FLKontaktSeat = {
   trainer: "trainer",
   ansprechperson: "ansprechperson",
   stellvertretung: "stellvertretung",
+} as const;
+
+/**
+ * What one held seat stores of its person, the address being the account's own.
+ */
+export interface FLAccountSeatPerson {
+  birth_date: string | null;
+  first_name: string;
+  last_name: string;
+  phone: string;
+  seat: FLKontaktSeat;
+}
+
+export type FLKontaktKenntnisnahmeScope = (typeof FLKontaktKenntnisnahmeScope)[keyof typeof FLKontaktKenntnisnahmeScope];
+
+export const FLKontaktKenntnisnahmeScope = {
+  kontakt_data: "kontakt_data",
+  kontakt_data_whatsapp: "kontakt_data_whatsapp",
 } as const;
 
 /**
@@ -290,6 +301,8 @@ export interface FLAccountBewerbungSeatEinwilligung {
   bewerbung_id: string;
   evidence_state: FLEinwilligungState;
   media: boolean;
+  /** @minItems 1 */
+  persons: FLAccountSeatPerson[];
   saison_id: string;
   schule: string;
   scope: FLKontaktKenntnisnahmeScope;
@@ -379,7 +392,7 @@ export interface FLAccountSchiedsrichterEinwilligung {
 }
 
 /**
- * One team season on which the address holds a confirmed contact seat, with its WhatsApp and media choices.
+ * One team season on which the address holds a confirmed contact seat: its WhatsApp and media choices, and what each held seat stores.
  *
  * Per season row and not per slot: one person holding two of a row's slots answers one choice for both.
  */
@@ -388,6 +401,8 @@ export interface FLAccountSeatEinwilligung {
   givable: boolean;
   media: boolean;
   media_offered: boolean;
+  /** @minItems 1 */
+  persons: FLAccountSeatPerson[];
   saison_id: string;
   scope: FLKontaktKenntnisnahmeScope;
   /** @minItems 1 */

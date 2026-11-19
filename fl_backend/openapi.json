@@ -342,6 +342,14 @@
             "title": "Media",
             "type": "boolean"
           },
+          "persons": {
+            "items": {
+              "$ref": "#/components/schemas/FLAccountSeatPerson"
+            },
+            "minItems": 1,
+            "title": "Persons",
+            "type": "array"
+          },
           "saison_id": {
             "title": "Saison Id",
             "type": "string"
@@ -367,6 +375,7 @@
           "schule",
           "saison_id",
           "seats",
+          "persons",
           "scope",
           "media",
           "evidence_state"
@@ -830,7 +839,7 @@
         "type": "object"
       },
       "FLAccountSeatEinwilligung": {
-        "description": "One team season on which the address holds a confirmed contact seat, with its WhatsApp and media choices.\n\nPer season row and not per slot: one person holding two of a row's slots answers one choice for both.",
+        "description": "One team season on which the address holds a confirmed contact seat: its WhatsApp and media choices, and what each held seat stores.\n\nPer season row and not per slot: one person holding two of a row's slots answers one choice for both.",
         "properties": {
           "evidence_state": {
             "$ref": "#/components/schemas/FLEinwilligungState"
@@ -846,6 +855,14 @@
           "media_offered": {
             "title": "Media Offered",
             "type": "boolean"
+          },
+          "persons": {
+            "items": {
+              "$ref": "#/components/schemas/FLAccountSeatPerson"
+            },
+            "minItems": 1,
+            "title": "Persons",
+            "type": "array"
           },
           "saison_id": {
             "title": "Saison Id",
@@ -877,6 +894,7 @@
           "team_name",
           "saison_id",
           "seats",
+          "persons",
           "scope",
           "media",
           "evidence_state",
@@ -884,6 +902,47 @@
           "givable"
         ],
         "title": "FLAccountSeatEinwilligung",
+        "type": "object"
+      },
+      "FLAccountSeatPerson": {
+        "description": "What one held seat stores of its person, the address being the account's own.",
+        "properties": {
+          "birth_date": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Birth Date"
+          },
+          "first_name": {
+            "title": "First Name",
+            "type": "string"
+          },
+          "last_name": {
+            "title": "Last Name",
+            "type": "string"
+          },
+          "phone": {
+            "title": "Phone",
+            "type": "string"
+          },
+          "seat": {
+            "$ref": "#/components/schemas/FLKontaktSeat"
+          }
+        },
+        "required": [
+          "seat",
+          "first_name",
+          "last_name",
+          "phone",
+          "birth_date"
+        ],
+        "title": "FLAccountSeatPerson",
         "type": "object"
       },
       "FLAccountSpielerEinwilligung": {
