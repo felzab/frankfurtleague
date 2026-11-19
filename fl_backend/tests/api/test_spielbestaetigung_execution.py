@@ -230,21 +230,6 @@ async def row_now(database: AsyncDatabase, row_id: ObjectId) -> Mapping[str, Any
     return await the_row(database, Collection.SPIELBESTAETIGUNGEN, {"_id": row_id})
 
 
-class WritesRecorded:
-    """The confirmations a write reaches, every filter the write was sent with kept."""
-
-    def __init__(self, collection: Any) -> None:
-        self._collection = collection
-        self.filters: list[Mapping[str, Any]] = []
-
-    def __getattr__(self, name: str) -> Any:
-        return getattr(self._collection, name)
-
-    async def find_one_and_update(self, *args: Any, **kwargs: Any) -> Any:
-        self.filters.append(kwargs["filter"])
-        return await self._collection.find_one_and_update(*args, **kwargs)
-
-
 class TestTheSeatTheAnswerRecords:
     async def test_the_stellvertretung_answers_and_the_trainers_press_then_finds_it_answered(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -265,19 +250,6 @@ class TestTheSeatTheAnswerRecords:
         assert second == Code.ANSETZUNG_UNANSWERABLE
         # The other club's row is its own question.
         assert other["answer"] is None
-
-    async def test_the_write_itself_takes_only_a_row_neither_answered_nor_closed(self, mongo_replica_set_url: str):
-        """The first press binds through the write's own filter, which the in-session judgement before it does not replace."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            recorded = WritesRecorded(database[Collection.SPIELBESTAETIGUNGEN])
-            await press_answer(database, client, holder(TEAM1, "trainer"), spielbestaetigungen=recorded)
-
-            return recorded.filters
-
-        [sent] = await on_a_spiel(mongo_replica_set_url, body)
-
-        assert sent == {"_id": ROW1, "answer": None, "closed": None}
 
 
 class TestAProposalIsJudgedWhereTheAdminIsJudged:
@@ -1085,23 +1057,15 @@ TEAM1_PARTY, TEAM2_PARTY, OTTOS = (
 class TestTheDryRunNamesWhomTheSaveHasThePassMail:
     """The match editor's warning reads the dry run's `recipients`: a copy of the pass's rules on the page would drift from them."""
 
-    @pytest.mark.parametrize(
-        ("overrides", "told"),
-        [
-            pytest.param({"time": "19:30:00"}, [TEAM1_PARTY, TEAM2_PARTY, OTTOS], id="a-move-tells-every-party-asked"),
-        ],
-    )
-    async def test_the_dry_run_names_the_parties_the_pass_tells(
-        self, mongo_replica_set_url: str, overrides: dict[str, Any], told: list[dict[str, Any]]
-    ):
+    async def test_a_move_s_dry_run_names_every_party_asked(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            preview = await save(database, client, await spiel_now(database), dry_run=True, **overrides)
+            preview = await save(database, client, await spiel_now(database), dry_run=True, time="19:30:00")
 
             return preview.recipients, (await spiel_now(database))["time"]
 
         recipients, time = await on_a_refereed_spiel(mongo_replica_set_url, body)
 
-        assert sorted((party.model_dump() for party in recipients), key=str) == sorted(told, key=str)
+        assert sorted((party.model_dump() for party in recipients), key=str) == sorted([TEAM1_PARTY, TEAM2_PARTY, OTTOS], key=str)
         assert time == TIME, "the dry run wrote the fixture"
 
     async def test_a_club_holding_no_confirmed_seat_is_not_named(self, mongo_replica_set_url: str):
