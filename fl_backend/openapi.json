@@ -1189,6 +1189,10 @@
         "const": 50,
         "type": "integer"
       },
+      "FLActionLogRetentionYears": {
+        "const": 1,
+        "type": "integer"
+      },
       "FLActionType": {
         "enum": [
           "saison",
@@ -1208,6 +1212,15 @@
           "address_change",
           "erasure",
           "retention"
+        ],
+        "type": "string"
+      },
+      "FLActorRole": {
+        "enum": [
+          "kontakt",
+          "schiedsrichter",
+          "system",
+          "person"
         ],
         "type": "string"
       },
@@ -1651,6 +1664,10 @@
         "title": "FLAddressChangeOpenMove",
         "type": "object"
       },
+      "FLAddressChangeRetentionDays": {
+        "const": 30,
+        "type": "integer"
+      },
       "FLAddressChangeSweepResponse": {
         "description": "One pass over the live changes whose step lapsed or whose waiting time ended; a pass the deadline cut leaves the rest due.",
         "properties": {
@@ -1994,6 +2011,10 @@
           "administration"
         ],
         "type": "string"
+      },
+      "FLAdminWindowHours": {
+        "const": 24,
+        "type": "integer"
       },
       "FLAufstellungEntry": {
         "additionalProperties": false,
@@ -2656,6 +2677,13 @@
         "enum": [
           "disqualifikation",
           "rueckzug"
+        ],
+        "type": "string"
+      },
+      "FLAuthFactor": {
+        "enum": [
+          "passkey",
+          "code"
         ],
         "type": "string"
       },
@@ -4707,6 +4735,10 @@
         "title": "FLDeletionNoticeData",
         "type": "object"
       },
+      "FLDeliveryDeadlineDays": {
+        "const": 2,
+        "type": "integer"
+      },
       "FLEinwilligung": {
         "description": "What this person agreed may be published about them.\n\nIts keys stand together: a scope with no confirmation date claims somebody consented, and no surface can tell\nthat from one somebody gave.",
         "properties": {
@@ -4949,6 +4981,10 @@
         ],
         "title": "FLEntryNewTeam",
         "type": "object"
+      },
+      "FLErasedActorMarker": {
+        "const": "ERASED",
+        "type": "string"
       },
       "FLErasureAddressPayload": {
         "additionalProperties": false,
@@ -5763,6 +5799,10 @@
         "title": "FLKontakt",
         "type": "object"
       },
+      "FLKontaktEmailMaxLength": {
+        "const": 254,
+        "type": "integer"
+      },
       "FLKontaktKenntnisnahme": {
         "description": "The scope this person's record is held on, the day they were seated, and what they answered.\n\nKenntnisnahme and not Einwilligung: the published basis is Art. 6(1)(f), the optional WhatsApp scope and the media\nanswer alone being consents under Art. 6(1)(a), and a pupil's consent record holds other values entirely.",
         "properties": {
@@ -6395,6 +6435,10 @@
         "title": "FLLandingSide",
         "type": "object"
       },
+      "FLMailboxAnchorRetentionHours": {
+        "const": 1,
+        "type": "integer"
+      },
       "FLMediaMinAgeYears": {
         "const": 18,
         "type": "integer"
@@ -6935,6 +6979,10 @@
         ],
         "title": "FLOutboxResultResponse",
         "type": "object"
+      },
+      "FLOutboxRetentionDays": {
+        "const": 30,
+        "type": "integer"
       },
       "FLOutboxSignInPayload": {
         "additionalProperties": false,
@@ -8099,6 +8147,10 @@
         ],
         "title": "FLPatchTeamSaisonPayload",
         "type": "object"
+      },
+      "FLPersonWindowDays": {
+        "const": 30,
+        "type": "integer"
       },
       "FLPostBanListEntryPayload": {
         "additionalProperties": false,
@@ -9410,6 +9462,10 @@
         "title": "FLSaisonFrameResponse",
         "type": "object"
       },
+      "FLSaisonIdLength": {
+        "const": 4,
+        "type": "integer"
+      },
       "FLSaisonOverviewResponse": {
         "properties": {
           "cards": {
@@ -10077,6 +10133,10 @@
         ],
         "title": "FLSchiedsrichterListResponse",
         "type": "object"
+      },
+      "FLSchiedsrichterMinAgeYears": {
+        "const": 16,
+        "type": "integer"
       },
       "FLSchiedsrichterMint": {
         "description": "The confirmation link a write owed the referee, which the Postausgang mints and mails: never the link itself.",

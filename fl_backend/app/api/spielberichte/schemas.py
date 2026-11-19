@@ -1,10 +1,9 @@
-from typing import Annotated, Literal, Self
+from typing import Annotated, Final, Literal, Self
 
 from pydantic import AfterValidator, BaseModel, BeforeValidator, Field, StringConstraints, model_validator
 
 from app.api.spiele.schemas import SONDEREREIGNIS_NO_SHOW, FLSpielElfmeterschiessen, FLSpielElfmeterschiessenPayload, FLSpielortFieldPublic
 from app.core.exceptions import rule_refusal
-from app.shared.schemas.bounds import SPIELBERICHT_ENTRIES_MAX, SPIELBERICHT_REMARKS_MAX_LENGTH
 from app.shared.schemas.custom import (
     CustomDateString,
     CustomNonEmptyString,
@@ -21,6 +20,12 @@ from app.shared.schemas.responses import BasePayload, BaseReadModel
 MINUTE_PATTERN = r"^[0-9]{1,3}(\+[0-9]{1,2})?$"
 
 CustomSpielberichtMinute = Annotated[str, StringConstraints(pattern=MINUTE_PATTERN)]
+
+
+# A report's remarks on one match, whoever writes them, bounded on the payload alone, which keeps the report far under
+# BSON's document ceiling.
+SPIELBERICHT_REMARKS_MAX_LENGTH: Final = 2000
+
 
 # Multi-line, unlike a confirmation's reason: the referee's prose about the match, read on the editor's panel alone.
 # The ceiling counts what arrives, so the published one is what is accepted; the floor counts after the strip, so
@@ -128,6 +133,10 @@ class FLSpielberichtVorschlagPayload(BasePayload):
     # Both required as keys and null where unused: an omitted key would read as a form that forgot it.
     elfmeterschiessen: FLSpielElfmeterschiessenPayload | None
     sonderereignis: FLSpielberichtSonderereignis | None
+
+
+# The most scorers, and the most cards, one report lists, which keeps the report far under BSON's ceiling too.
+SPIELBERICHT_ENTRIES_MAX: Final = 60
 
 
 class FLSpielberichtBerichtPayload(BasePayload):

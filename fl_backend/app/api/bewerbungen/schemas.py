@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Annotated, Literal, Self
+from typing import Annotated, Final, Literal, Self
 
 from pydantic import AfterValidator, BaseModel, BeforeValidator, Field, StringConstraints, TypeAdapter, model_validator
 
@@ -11,17 +11,7 @@ from app.api.teams.schemas import FLSaisonTeamKontakte, FLSaisonTeamKontakteReco
 from app.core.crud import Anchored
 from app.core.exceptions import rule_refusal
 from app.shared.schemas.addresses import FLAddress, FLAddressPayload
-from app.shared.schemas.bounds import (
-    ADDRESS_DISTRICT_MAX_LENGTH,
-    BEWERBUNG_DECISION_REASON_MAX_LENGTH,
-    BEWERBUNG_KADER_SIZE_MAX,
-    BEWERBUNG_STUFENGROESSE_MAX,
-    BEWERBUNG_TRIKOT_SET_MAX_LENGTH,
-    BEWERBUNG_WUNSCHGEGNER_MAX_LENGTH,
-    SAISON_ID_LENGTH,
-    TEAM_FULL_NAME_MAX_LENGTH,
-    TEAM_NAME_MAX_LENGTH,
-)
+from app.shared.schemas.bounds import ADDRESS_DISTRICT_MAX_LENGTH, SAISON_ID_LENGTH, TEAM_FULL_NAME_MAX_LENGTH, TEAM_NAME_MAX_LENGTH
 from app.shared.schemas.confirmation import CustomToken
 from app.shared.schemas.custom import (
     PARAGRAPH_PATTERN,
@@ -205,6 +195,10 @@ class FLAcceptBewerbungPayload(BasePayload):
     version: CustomVersion
 
 
+# Why an application was declined, which is mailed as well as stored.
+BEWERBUNG_DECISION_REASON_MAX_LENGTH: Final = 1000
+
+
 class FLDeclineBewerbungPayload(BasePayload):
     """Why the application was declined."""
 
@@ -366,10 +360,21 @@ class FLBewerbungSchulePayload(FLBewerbungSchule, BasePayload):
     website_url: CustomOptionalWebsiteUrl
 
 
+# What kit the school already owns, in its own words, bounded because an anonymous caller writes it and it is
+# stored. Lower than a decline's reason, because a colour, a count and a size need nothing like a page.
+BEWERBUNG_TRIKOT_SET_MAX_LENGTH: Final = 500
+
+
 class FLBewerbungTrikotPayload(FLBewerbungTrikot, BasePayload):
     # No floor: a school that owns no kit writes nothing here, so the empty string is the honest
     # answer. A ceiling all the same -- an anonymous caller writes it, and it is stored.
     existing_set: str = Field(max_length=BEWERBUNG_TRIKOT_SET_MAX_LENGTH)
+
+
+# The school's estimate of its squad, and the strong players inside it. A ceiling that is a squad
+# size, not `int32`: past this the number is a typo. Not the season's `max_kader_size`, which an
+# application is held true against nothing of.
+BEWERBUNG_KADER_SIZE_MAX: Final = 200
 
 
 class FLBewerbungKaderPayload(FLBewerbungKader, BasePayload):
@@ -392,6 +397,15 @@ class FLBewerbungKaderPayload(FLBewerbungKader, BasePayload):
             raise rule_refusal("good_spieler_exceed_kader", "more strong players than the expected squad", {"max": self.expected_size})
 
         return self
+
+
+# How many pupils one Abi-Jahrgang holds, the ones who never play included. A ceiling that is a
+# cohort rather than `int32`: no German school graduates a thousand pupils in one year.
+BEWERBUNG_STUFENGROESSE_MAX: Final = 999
+
+# The opponent a school would like on the first Spieltag, typed freely rather than picked, so a school's full name
+# fits: nothing holds an applicant to a league short name.
+BEWERBUNG_WUNSCHGEGNER_MAX_LENGTH: Final = TEAM_FULL_NAME_MAX_LENGTH
 
 
 class FLPostBewerbungPayload(BasePayload):

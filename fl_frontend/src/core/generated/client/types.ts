@@ -617,6 +617,17 @@ export interface FLActionLogListResponse {
 
 export type FLActionLogPageSize = 50;
 
+export type FLActionLogRetentionYears = 1;
+
+export type FLActorRole = (typeof FLActorRole)[keyof typeof FLActorRole];
+
+export const FLActorRole = {
+  kontakt: "kontakt",
+  schiedsrichter: "schiedsrichter",
+  system: "system",
+  person: "person",
+} as const;
+
 export interface FLAddress {
   /** @minLength 1 */
   city: string;
@@ -813,6 +824,8 @@ export interface FLAddressChangeNoticeData {
   way: FLAddressChangeWay;
 }
 
+export type FLAddressChangeRetentionDays = 30;
+
 /**
  * One pass over the live changes whose step lapsed or whose waiting time ended; a pass the deadline cut leaves the rest due.
  */
@@ -928,6 +941,8 @@ export interface FLAddressPayload {
    */
   street: string;
 }
+
+export type FLAdminWindowHours = 24;
 
 /**
  * One pupil a club fields in one match: on the pitch from the start, or on the bench.
@@ -1222,6 +1237,13 @@ export interface FLAustrittRecipients {
   date: string | null;
   recipients: (FLSpielRecipientTeam | FLSpielRecipientSchiedsrichter)[];
 }
+
+export type FLAuthFactor = (typeof FLAuthFactor)[keyof typeof FLAuthFactor];
+
+export const FLAuthFactor = {
+  passkey: "passkey",
+  code: "code",
+} as const;
 
 /**
  * The ban's own notice, the one mail a ban does not stop.
@@ -2218,6 +2240,8 @@ export interface FLDeletionNoticeData {
   saison_id: string | null;
 }
 
+export type FLDeliveryDeadlineDays = 2;
+
 /**
  * What this person agreed may be published about them.
  *
@@ -2272,6 +2296,8 @@ export interface FLEntryNewTeam {
   kind: "new";
   team: FLPostTeamPayload;
 }
+
+export type FLErasedActorMarker = "ERASED";
 
 /**
  * The mailbox an erasure or its counts are looked up by.
@@ -2679,6 +2705,8 @@ export interface FLKoRundeResponse {
   spieltage: FLSpielplanSpieltag[];
 }
 
+export type FLKontaktEmailMaxLength = 254;
+
 /**
  * One person an administrator seated on a team's season row, asked to confirm.
  */
@@ -2837,6 +2865,8 @@ export interface FLLandingResponse {
   counts: FLLandingCounts;
   saison: FLLandingBeforeStart | FLLandingRunning | FLLandingDecided | null;
 }
+
+export type FLMailboxAnchorRetentionHours = 1;
 
 export type FLMediaMinAgeYears = 18;
 
@@ -3146,6 +3176,8 @@ export interface FLOutboxResultResponse {
   /** @minimum 0 */
   sent: number;
 }
+
+export type FLOutboxRetentionDays = 30;
 
 /**
  * One mail of the sign-in library, owed to the address it names.
@@ -3726,6 +3758,8 @@ export interface FLPatchTeamSaisonPayload {
   website_url: string | null;
 }
 
+export type FLPersonWindowDays = 30;
+
 export interface FLPostBanListEntryPayload {
   /**
    * @minLength 1
@@ -4107,6 +4141,8 @@ export interface FLSaisonFrameResponse {
   saisons: FLSaisonFrameEntry[];
 }
 
+export type FLSaisonIdLength = 4;
+
 export interface FLSaisonOverviewResponse {
   cards: FLOverviewCard[];
 }
@@ -4237,6 +4273,8 @@ export interface FLSchiedsrichterConfirmationViewValid {
 export interface FLSchiedsrichterListResponse {
   schiedsrichter: FLSchiedsrichter[];
 }
+
+export type FLSchiedsrichterMinAgeYears = 16;
 
 /**
  * The re-send's answer. Never null: where no link may be minted a refusal answers instead.

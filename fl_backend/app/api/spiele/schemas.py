@@ -11,10 +11,7 @@ from app.api.teams.schemas import FLAustritt
 from app.core import clock
 from app.core.crud import Anchored
 from app.core.exceptions import rule_refusal
-from app.shared.schemas.bounds import (
-    SAISON_ID_LENGTH,
-    SPIEL_NOTE_MAX_LENGTH,
-)
+from app.shared.schemas.bounds import SAISON_ID_LENGTH
 from app.shared.schemas.custom import (
     CustomDateString,
     CustomErgebnisString,
@@ -547,6 +544,10 @@ class FLSpielVoidedErgebnis(BasePayload):
     # Only ever a no-show: `ausgefallen`, `annulliert` and `abgebrochen` name no side, so a replaced
     # occupant leaves each of them true and none of them is cleared.
     voided_sonderereignis: FLSonderereignis | None
+
+
+# A fixture's admin note, bounded on the payload alone.
+SPIEL_NOTE_MAX_LENGTH: Final = 4096
 
 
 class FLPatchSpielDataPayload(BasePayload):

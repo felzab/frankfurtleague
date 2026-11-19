@@ -1,10 +1,13 @@
-from typing import Annotated
+from typing import Annotated, Final
 
 from pydantic import AfterValidator, StringConstraints
 
-from app.shared.schemas.bounds import BEWERBUNG_TOKEN_MAX_LENGTH
 from app.shared.schemas.custom import SINGLE_LINE_PATTERN, CustomDateString
 from app.shared.schemas.responses import BasePayload, BaseReadModel
+
+# One mint spells every public consent endpoint's token, a referee's included. Wide over the 43 characters
+# `secrets.token_urlsafe(32)` mints, and a ceiling all the same: an anonymous caller posts it.
+BEWERBUNG_TOKEN_MAX_LENGTH: Final = 128
 
 # The raw token of a person's link. The ceiling counts what arrives and the strip runs after it, so the
 # published `maxLength` is what the backend accepts.

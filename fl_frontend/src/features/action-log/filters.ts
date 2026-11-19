@@ -6,9 +6,10 @@ import { now } from "@/core/clock";
 import { COPY, textOf } from "@/core/copy";
 import { ERASED_ACTOR_MARKER } from "@/core/erasedActor";
 import { dayIn } from "@/core/format";
+import { ownKeyOf } from "@/core/ownKeyOf";
 
 import type { Copy, Words } from "@/core/copy";
-import type { FLActionLogFilterPayload, FLActionType } from "@/core/generated/client/types";
+import type { FLActionLogFilterPayload, FLActionType, FLActorRole, FLErasedActorMarker } from "@/core/generated/client/types";
 import type { Option } from "@/kit/OptionList";
 
 const WORDS = COPY.admin.actionLog;
@@ -70,16 +71,16 @@ export const PERIOD_CHOICES = Object.keys(PERIODS) as [PeriodChoice, ...PeriodCh
 
 export const PERIOD_OPTIONS = PERIOD_CHOICES.map((id) => ({ id, label: PERIODS[id].label }));
 
-/** What `by` holds where it holds no administrator's address. */
-const ROLE_WORDS: ReadonlyMap<string, Copy> = new Map([
-  ["kontakt", COPY.page.teams],
-  ["schiedsrichter", COPY.shared.schiedsrichter],
-  ["system", WORDS.automatic],
-  ["person", COPY.admin.spieler.person],
-  [ERASED_ACTOR_MARKER, COPY.admin.erasedActor],
-]);
+/** What `by` holds where it holds no administrator's address, each a value the backend publishes. */
+const ROLE_WORDS = {
+  kontakt: COPY.page.teams,
+  schiedsrichter: COPY.shared.schiedsrichter,
+  system: WORDS.automatic,
+  person: COPY.admin.spieler.person,
+  [ERASED_ACTOR_MARKER]: COPY.admin.erasedActor,
+} satisfies Record<FLActorRole | FLErasedActorMarker, Copy>;
 
-export const actorWords = (by: string): Words => ROLE_WORDS.get(by) ?? { record: by };
+export const actorWords = (by: string): Words => (ownKeyOf(ROLE_WORDS, by) ? ROLE_WORDS[by] : { record: by });
 
 /**
  * A „Wer“ option's id, opaque because it stands in the page's URL, which the edge's log, the next page's referer and

@@ -1,10 +1,10 @@
 from datetime import date, datetime
-from typing import get_args
+from typing import Final, get_args
 
 from pydantic import BaseModel, Field
 
 from app.core.recording import FLAction, FLActionType
-from app.shared.schemas.bounds import ACTION_LOG_DAY_MAX, ACTION_LOG_DAY_MIN, ACTION_LOG_SEARCH_MAX_LENGTH, KONTAKT_EMAIL_MAX_LENGTH
+from app.shared.schemas.bounds import KONTAKT_EMAIL_MAX_LENGTH
 from app.shared.schemas.custom import CustomObjectId, FLUtcInstant
 from app.shared.schemas.responses import BasePayload, BaseReadModel
 
@@ -21,6 +21,15 @@ class FLActionLogRecord(BaseModel):
     label: str | None
     count: int | None
     trace_id: str
+
+
+# The days the Protokoll's filters may name: wider than any row's, and each with a next midnight and a UTC instant that
+# `date` and BSON can hold, so a day past them is refused rather than overflowing into a 500.
+ACTION_LOG_DAY_MIN: Final = date(2000, 1, 1)
+ACTION_LOG_DAY_MAX: Final = date(2999, 12, 31)
+
+# The longest word a row stores, an erasure's reference: a longer search matches nothing.
+ACTION_LOG_SEARCH_MAX_LENGTH: Final = 200
 
 
 class FLActionLogFilterPayload(BasePayload):

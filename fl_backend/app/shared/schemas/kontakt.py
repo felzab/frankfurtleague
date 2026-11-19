@@ -1,9 +1,9 @@
-from typing import Annotated
+from typing import Annotated, Final
 
 from pydantic import AfterValidator, BaseModel, StringConstraints
 
 from app.shared.folding import league_address, sign_in_identifier
-from app.shared.schemas.bounds import KONTAKT_EMAIL_MAX_LENGTH, KONTAKT_NAME_MAX_LENGTH
+from app.shared.schemas.bounds import KONTAKT_EMAIL_MAX_LENGTH
 from app.shared.schemas.custom import PERSON_NAME_PATTERN, CustomOptionalPhoneString
 from app.shared.schemas.responses import BasePayload
 
@@ -24,6 +24,12 @@ def _held_folded(address: str) -> str:
 # address is an equality on the asker's fold, so a row stored otherwise is missed in silence. The fold alone and
 # never the address rule, whose tables move without us.
 CustomStoredAddress = Annotated[str, StringConstraints(min_length=1), AfterValidator(_held_folded)]
+
+
+# `PERSON_NAME_PATTERN` bounds the alphabet and not the length: generous against a hyphenated double name and a
+# multi-part surname both.
+KONTAKT_NAME_MAX_LENGTH: Final = 80
+
 
 # A person's name, or one part of one: what the public application form takes, and every payload
 # held to refuse what that form refuses, a referee's whole name among them.

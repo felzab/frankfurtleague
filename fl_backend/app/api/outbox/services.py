@@ -9,7 +9,7 @@ what keeps a repeated send of one hand-out from being a second mail in the inbox
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
-from typing import Any, Final
+from typing import Any, Final, Literal
 
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
@@ -42,10 +42,16 @@ REPETITION_AFTER: Final = timedelta(minutes=1)
 
 # How old a mail may grow unsent before it is given up, the one bound on its retries: past the provider's daily quota
 # resetting once, so a busy day delays a mail rather than losing it. A sign-in mail's bound is its secret's lapse.
-DELIVERY_DEADLINE: Final = timedelta(days=2)
+# Published, since the privacy notice states how long a deletion's notice may wait.
+type FLDeliveryDeadlineDays = Literal[2]
+DELIVERY_DEADLINE_DAYS: Final[FLDeliveryDeadlineDays] = 2
+DELIVERY_DEADLINE: Final = timedelta(days=DELIVERY_DEADLINE_DAYS)
 
 # A finished row's retention, matching the provider's own, so the delivery state lives as long as the message it is about.
-RETENTION: Final = timedelta(days=30)
+# Published, since the privacy notice states it.
+type FLOutboxRetentionDays = Literal[30]
+RETENTION_DAYS: Final[FLOutboxRetentionDays] = 30
+RETENTION: Final = timedelta(days=RETENTION_DAYS)
 
 # The sign-in library's kinds, each tried once: its own repair of a failed code is a fresh one.
 SIGN_IN_KINDS: Final[frozenset[FLOutboxKind]] = frozenset({"sign_in_code", "passkey_added", "passkey_erased", "account_erasure"})

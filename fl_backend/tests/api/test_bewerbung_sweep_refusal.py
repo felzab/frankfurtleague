@@ -5,6 +5,7 @@ from typing import Any, cast
 import pytest
 
 from app.api.bewerbungen.services import (
+    BEWERBUNG_REMINDER_DAYS,
     ansprechperson_mailbox,
     decline_erasure_is_due,
     deletion_day,
@@ -19,7 +20,6 @@ from app.api.bewerbungen.services import (
     unreachable_seats,
 )
 from app.api.outbox.schemas import FLOutboxDelivery, FLOutboxDeliveryState, FLOutboxStatus
-from app.shared.schemas.bounds import BEWERBUNG_REMINDER_DAYS
 from app.shared.schemas.literals import KONTAKT_SEATS
 from app.shared.tokens import hash_token
 from tests.documents import kontaktperson_document, minted_confirmations
@@ -95,7 +95,7 @@ def all_seats_until(deadline: str | None) -> dict[str, Any]:
 class TestTheReminderMark:
     """The three-day mark, on the seat: the day before, the day, the day after.
 
-    The bound is `fl_backend/app/shared/schemas/bounds.py :: BEWERBUNG_REMINDER_DAYS`.
+    The bound is `fl_backend/app/api/bewerbungen/services.py :: BEWERBUNG_REMINDER_DAYS`.
     """
 
     @pytest.mark.parametrize(
