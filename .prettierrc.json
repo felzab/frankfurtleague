@@ -23,5 +23,12 @@
     "",
     "^(.*)\\.css$"
   ],
-  "importOrderTypeScriptVersion": "5.0.0"
+  "importOrderTypeScriptVersion": "5.0.0",
+  "overrides": [
+    {
+      "files": "*.md",
+      "excludeFiles": [".github/pull_request_template.md"],
+      "options": { "printWidth": 100, "proseWrap": "always" }
+    }
+  ]
 }
