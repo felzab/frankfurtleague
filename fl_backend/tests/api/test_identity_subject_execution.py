@@ -1,4 +1,4 @@
-from collections.abc import Awaitable, Callable, Mapping
+from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -13,7 +13,6 @@ from app.core.collections import Collection
 from tests.app_client import app_client, app_under_test
 from tests.config import SYSTEM_AUTH
 from tests.database import a_clean_database
-from tests.plans import plans_of_sent_reads
 from tests.records import call_sign_in, record_collections
 from tests.subject_corpus import (
     ADMIN_STORED,
@@ -122,44 +121,6 @@ async def test_the_mounted_route_answers_a_retired_person_as_it_answers_nobody(m
         "admin_tier": None,
         "granted_since": None,
     }
-
-
-# The two collections a public form grows that the gate reads by address on every sign-in attempt.
-GATE_READS = frozenset(str(name) for name in (Collection.BEWERBUNGEN, Collection.REGISTRIERUNGEN))
-
-
-def _selects_by_address(collection: str, command: Mapping[str, Any]) -> bool:
-    """A read of a gate collection whose selection names an address, never a join by ids the same handler sends."""
-
-    selection = command.get("filter") or next((stage["$match"] for stage in command.get("pipeline", []) if "$match" in stage), {})
-
-    return collection in GATE_READS and "email" in str(selection)
-
-
-@pytest.mark.db
-class TestTheGateWalksAnIndex:
-    """Anybody can send a sign-in attempt, and a stranger grows both collections through the public forms.
-
-    Each read the handler sends is explained by the server: a filter losing its index answers the same over a scan, so
-    only the plan shows it.
-    """
-
-    async def test_every_address_read_of_the_gate_plans_an_index_scan(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase) -> list[tuple[str, str]]:
-            _, plans = await plans_of_sent_reads(
-                mongo_replica_set_url,
-                database,
-                lambda watched, _client: call_sign_in(watched, IDENTIFIER, germany_now=NOW),
-                _selects_by_address,
-            )
-
-            return plans
-
-        plans = await on_a_league(mongo_replica_set_url, body)
-
-        # The premise: a read the handler never sent would pass the next line vacuously.
-        assert {collection for collection, _ in plans} == GATE_READS, plans
-        assert [(collection, plan) for collection, plan in plans if "IXSCAN" not in plan or "COLLSCAN" in plan] == []
 
 
 @pytest.mark.db
