@@ -123,10 +123,10 @@ UNIQUE_INDEXES: Sequence[tuple[Collection, IndexModel]] = (
 # correctness. A collation is the one its reads use, since a read under another walks none of the index's string keys;
 # a partial filter is stated whole by its reads, or the planner may not take the index.
 SUPPORT_INDEXES: Sequence[tuple[Collection, IndexModel]] = (
-    # A season's undecided applications, oldest first on the season overview, counted by the duplicate check and erased
-    # at the season's end. Ending in `submitted_at` then `_id`, the sort order of a read filtering on the season and the
-    # status, which walks these keys in order: with the sort keys unindexed such a read sorts in memory, which is work
-    # proportional to an archive an anonymous form can grow.
+    # A season's applications in one status: the season overview's undecided ones, oldest first, walk the sort keys in
+    # order, and the duplicate check and the season's passes read the season and the status off the index. The list of
+    # a season's applications states the season alone, so `status` stands before its sort keys and it sorts the season's
+    # rows in memory, work bounded by one season rather than by the archive an anonymous form can grow.
     (
         Collection.BEWERBUNGEN,
         IndexModel(
@@ -183,8 +183,9 @@ SUPPORT_INDEXES: Sequence[tuple[Collection, IndexModel]] = (
         Collection.SPIELBESTAETIGUNGEN,
         IndexModel([("saison_id", ASCENDING), ("spiel_id", ASCENDING)], name="spielbestaetigungen_saison_id_spiel_id"),
     ),
-    # A referee's own rows, on their panel and at their erasure. Read on every load of a referee's own panel, and inside
-    # every referee erasure's transaction, neither stating a fixture the season-leading index could narrow by.
+    # A referee's rows at their erasure, read inside its transaction, which states neither a season nor a fixture the
+    # season-leading index could narrow by. A referee's panel joins their rows on the season and the fixture, the keys of
+    # the index above.
     (
         Collection.SPIELBESTAETIGUNGEN,
         IndexModel(
