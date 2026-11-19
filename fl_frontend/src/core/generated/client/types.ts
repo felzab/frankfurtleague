@@ -2474,22 +2474,21 @@ export interface FLGrantsListResponse {
 }
 
 /**
+ * One team's live link as it is served: never its hash.
+ */
+export interface FLInvitation {
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  id: string;
+  sent_at: string | null;
+}
+
+/**
  * A team's registration link, to one confirmed contact seat, for the pupils to register through.
  */
 export interface FLInvitationData {
   kind: "invitation";
   saison_id: string;
   team: string;
-}
-
-/**
- * How the season's press came out, counted in teams; a team it skipped is counted in neither.
- */
-export interface FLInvitationDispatchResponse {
-  /** @minimum 0 */
-  failed: number;
-  /** @minimum 0 */
-  mailed: number;
 }
 
 export type FLInvitationSkipReason = (typeof FLInvitationSkipReason)[keyof typeof FLInvitationSkipReason];
@@ -2538,21 +2537,6 @@ export interface FLInvitationMintResponse {
   token: string;
 }
 
-/**
- * One live link as the team's read serves it.
- */
-export interface FLInvitationRow {
-  delivery: FLOutboxStatus | null;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  id: string;
-  revoked_at: string | null;
-  /** @minLength 1 */
-  saison_id: string;
-  sent_at: string | null;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  team_id: string;
-}
-
 export type FLSpielerStufe = (typeof FLSpielerStufe)[keyof typeof FLSpielerStufe];
 
 export const FLSpielerStufe = {
@@ -2579,6 +2563,16 @@ export interface FLInvitationViewResponse {
   /** @minLength 1 */
   team: string;
   team_entered: boolean;
+}
+
+/**
+ * How the season's press came out, counted in teams; a team it skipped is counted in neither.
+ */
+export interface FLInvitationsMailResponse {
+  /** @minimum 0 */
+  failed: number;
+  /** @minimum 0 */
+  mailed: number;
 }
 
 /**
@@ -5264,7 +5258,6 @@ export interface FLTeamEntryTeam {
   /** @pattern ^[0-9a-fA-F]{24}$ */
   id: string;
   name: string;
-  shorthand: string;
 }
 
 /**
@@ -5281,7 +5274,7 @@ export interface FLTeamEntryOffer {
  * A team's registration link: the live link, whether it opens anything, and what the season's press would do for the team.
  */
 export interface FLTeamLinkState {
-  invitation: FLInvitationRow | null;
+  invitation: FLInvitation | null;
   paused: boolean;
   running: boolean;
   skipped: FLInvitationSkipReason | null;
@@ -5314,13 +5307,12 @@ export interface FLTeamMembership {
 export interface FLTeamPanelAufstellung {
   ansetzung: FLSpielbestaetigungViewAnsetzung;
   marks: FLAufstellungMarks;
-  side: FLSpielSide;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   spiel_id: string;
 }
 
 /**
- * One pending registration as the Übersicht names it: who waits, since when, as what, and whether the team may admit them yet.
+ * One pending registration as the Übersicht names it: who waits, as what, and whether the team may admit them yet.
  */
 export interface FLTeamPanelRegistrierung {
   admissible: boolean;
@@ -5332,8 +5324,6 @@ export interface FLTeamPanelRegistrierung {
   /** @pattern ^[0-9a-fA-F]{24}$ */
   registrierung_id: string;
   stufe: FLSpielerStufe | null;
-  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
-  submitted_at: string;
 }
 
 /**
@@ -5369,7 +5359,7 @@ export interface FLTeamPanelSpielbestaetigung {
 }
 
 /**
- * A team's Übersicht in one read: who the team is, the work open for it, and its three seats.
+ * A team's Übersicht in one read: the team's head, the work open for it, and its three seats.
  *
  * The three lists are open work alone and carry no totals: the dates awaiting the team's answer or the league's
  * decision, the coming fixtures the team has entered no line-up for, and the registrations awaiting its decision.
@@ -5378,18 +5368,11 @@ export interface FLTeamOverviewResponse {
   aufstellungen: FLTeamPanelAufstellung[];
   /** @minLength 1 */
   full_name: string;
-  held_seats: FLKontaktSeat[];
-  /** @minLength 1 */
-  name: string;
   registrierungen: FLTeamPanelRegistrierung[];
-  saison_id: string;
   seats: FLTeamSeat[];
   /** @minLength 1 */
   shorthand: string;
   spielbestaetigungen: FLTeamPanelSpielbestaetigung[];
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  team_id: string;
-  trikot_farbe: FLTrikotFarbe | null;
 }
 
 /**
@@ -5575,8 +5558,6 @@ export interface FLTeamsAdminRow {
   id: string;
   inactive_since: string | null;
   name: string;
-  /** @minimum 0 */
-  seats_confirmed: number;
   shorthand: string;
   trikot_farbe: FLTrikotFarbe | null;
 }

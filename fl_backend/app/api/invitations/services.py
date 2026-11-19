@@ -9,7 +9,7 @@ from app.api.outbox.services import OwedMail
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError
-from app.shared.einwilligung import is_confirmed
+from app.shared.einwilligung import seat_is_confirmed
 from app.shared.schemas.literals import KONTAKT_SEATS, FLKontaktSeat
 
 # An exclusion rather than an inclusion list: what it subtracts is the whole credential, where a list of everything
@@ -103,16 +103,6 @@ def invitation_is_sent(invitation_raw: Mapping[str, Any] | None) -> bool:
     return invitation_raw is not None and invitation_raw.get("sent_at") is not None
 
 
-def _confirmed_seat(kontakte: Any, seat: str) -> Mapping[str, Any] | None:
-    """One seat whose own person has confirmed it, or `None`: an address nobody has proven gets no credential."""
-
-    entry = kontakte.get(seat) if isinstance(kontakte, Mapping) else None
-    if not isinstance(entry, Mapping):
-        return None
-
-    return entry if is_confirmed(entry.get("einwilligung")) else None
-
-
 class InvitationRecipient(NamedTuple):
     """One mailbox a link goes to, and the seat it is addressed as."""
 
@@ -120,16 +110,17 @@ class InvitationRecipient(NamedTuple):
     email: str
 
 
-def confirmed_recipients(*, kontakte: Any) -> list[InvitationRecipient]:
+def confirmed_recipients(*, kontakte: Mapping[str, Any] | None) -> list[InvitationRecipient]:
     """The mailboxes a link may be sent to, one entry per stored address, each the fold every payload stores."""
 
     recipients: list[InvitationRecipient] = []
     seen: set[str] = set()
 
     for seat in KONTAKT_SEATS:
-        entry = _confirmed_seat(kontakte, seat)
+        entry = (kontakte or {}).get(seat)
         named = seat_named(seat)
-        if entry is None or named is None:
+        # An address nobody has proven gets no credential.
+        if not seat_is_confirmed(entry) or named is None:
             continue
 
         address = str(entry.get("email") or "")
@@ -142,14 +133,14 @@ def confirmed_recipients(*, kontakte: Any) -> list[InvitationRecipient]:
     return recipients
 
 
-class InvitationDispatchPlan(NamedTuple):
+class InvitationMailPlan(NamedTuple):
     """What one team's row says, before anything is minted."""
 
     recipient: list[InvitationRecipient]
     skipped: FLInvitationSkipReason | None
 
 
-def plan_invitation_dispatch(*, austritt: Any, kontakte: Any, invitation_raw: Mapping[str, Any] | None) -> InvitationDispatchPlan:
+def plan_invitation_mail(*, austritt: Any, kontakte: Mapping[str, Any] | None, invitation_raw: Mapping[str, Any] | None) -> InvitationMailPlan:
     """Who this team's link goes to, or why it is skipped.
 
     The season editor's rows and the press read this one plan, so a row never tells an administrator something the press
@@ -159,23 +150,23 @@ def plan_invitation_dispatch(*, austritt: Any, kontakte: Any, invitation_raw: Ma
     # The record's presence, never its `type` and never a flag beside it: a team is out of the
     # season by either route, and a skip naming the contact block would send somebody to repair it.
     if austritt is not None:
-        return InvitationDispatchPlan([], "austritt_entered")
+        return InvitationMailPlan([], "austritt_entered")
 
     # Its day and never the row's presence: a team holding a live link nobody was sent is a team this press exists to
     # reach, and skipping on the row would leave those links unsent for ever. Ahead of the seats: this press never
     # mails a sent link again, so a missing address over one, as the retention leaves a finished season, would send
     # somebody to repair what no press reads.
     if invitation_is_sent(invitation_raw):
-        return InvitationDispatchPlan([], "already_sent")
+        return InvitationMailPlan([], "already_sent")
 
-    if not isinstance(kontakte, Mapping):
-        return InvitationDispatchPlan([], "no_kontakt_block")
+    if kontakte is None:
+        return InvitationMailPlan([], "no_kontakt_block")
 
     recipients = confirmed_recipients(kontakte=kontakte)
     if not recipients:
-        return InvitationDispatchPlan([], "no_confirmed_kontaktperson")
+        return InvitationMailPlan([], "no_confirmed_kontaktperson")
 
-    return InvitationDispatchPlan(recipients, None)
+    return InvitationMailPlan(recipients, None)
 
 
 # Where a mailed invitation link lives. No address to judge: the row names none, its recipients standing on the season row, and the

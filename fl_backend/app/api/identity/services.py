@@ -21,7 +21,7 @@ from app.api.spieler.services import build_self_pupil_filter
 from app.core.codes import Code
 from app.core.collections import Collection as DbCollection
 from app.core.exceptions import APIError
-from app.shared.einwilligung import is_confirmed
+from app.shared.einwilligung import is_confirmed, seat_is_confirmed
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.literals import KONTAKT_SEATS, FLAddressChangeViewableDenied, FLKontaktSeat, FLSaisonStatus
 
@@ -292,22 +292,22 @@ def folds_to(stored: Any, identifier: str) -> bool:
     return folded(stored) == identifier
 
 
+def seat_of(row: Mapping[str, Any], slot: str) -> Any:
+    """What one slot of a row's block stores; a cleared block stores no slot."""
+
+    return (row.get("kontakte") or {}).get(slot)
+
+
 def seat_address(row: Mapping[str, Any], slot: str) -> Any:
     """What one slot of a row's block stores as its address; a cleared block and an empty slot store none."""
 
-    return ((row.get("kontakte") or {}).get(slot) or {}).get("email")
+    return (seat_of(row, slot) or {}).get("email")
 
 
 def seats_naming(rows: Sequence[Mapping[str, Any]], identifier: str) -> list[tuple[Mapping[str, Any], str]]:
     """One pair per slot rather than per row: one address stands in two of a block's person slots wherever one person was entered twice."""
 
     return [(row, slot) for row in rows for slot in KONTAKT_SEATS if folds_to(seat_address(row, slot), identifier)]
-
-
-def seat_is_confirmed(row: Mapping[str, Any], slot: str) -> bool:
-    """Per slot: one address in two slots of one row may be confirmed in one and entered by an administrator in the other."""
-
-    return is_confirmed((((row.get("kontakte") or {}).get(slot)) or {}).get("einwilligung"))
 
 
 # --- The own records: every record its own person confirmed, judged here alone for every reader. A
@@ -317,7 +317,8 @@ def seat_is_confirmed(row: Mapping[str, Any], slot: str) -> bool:
 def own_seats(row: Mapping[str, Any], identifier: str) -> list[str]:
     """The slots of one season row or application whose confirmed person is this address, in `KONTAKT_SEATS` order."""
 
-    return [slot for found, slot in seats_naming([row], identifier) if seat_is_confirmed(found, slot)]
+    # Per slot: one address in two slots of one row may be confirmed in one and entered by an administrator in the other.
+    return [slot for found, slot in seats_naming([row], identifier) if seat_is_confirmed(seat_of(found, slot))]
 
 
 def is_own_spieler(row: Mapping[str, Any]) -> bool:

@@ -7,7 +7,7 @@ import { COPY } from "@/core/copy";
 import {
   saisonsActivateSaison,
   saisonsDeleteSpielplan,
-  saisonsPostInvitationsDispatch,
+  saisonsPostInvitationsMail,
   saisonsPostSpielplan,
   saisonsSwapGruppen,
   teamsReplaceSaisonTeam,
@@ -118,7 +118,7 @@ export const sendInvitations = action({
   input: OfSaison,
   ownWords: ["saison_past"],
   run: async ({ saison_id }) => {
-    const { mailed } = await saisonsPostInvitationsDispatch(saison_id);
+    const { mailed } = await saisonsPostInvitationsMail(saison_id);
     // The teams the press owed a mail to, which the rows then show as sent.
     return { ok: true, value: undefined, note: COPY.admin.saison.sentTo(mailed) };
   },

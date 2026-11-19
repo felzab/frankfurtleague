@@ -481,8 +481,6 @@ class FLTeamsAdminRow(BaseReadModel):
     shorthand: str
     gruppe: FLGruppenNames | None
     trikot_farbe: FLTrikotFarbe | None
-    # Counted per read off the row's seats, never stored.
-    seats_confirmed: int = Field(ge=0)
     # The type alone, as a standing row carries it.
     austritt_type: FLAustrittType | None
     inactive_since: CustomOptionalDateString
@@ -500,7 +498,6 @@ class FLTeamEntryTeam(BaseReadModel):
 
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
     name: str
-    shorthand: str
 
 
 class FLTeamEntryOffer(BaseReadModel):

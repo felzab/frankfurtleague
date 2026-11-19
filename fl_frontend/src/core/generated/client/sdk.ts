@@ -56,10 +56,10 @@ import type {
   FLGenerateSpielplanPayload,
   FLGrantHandoverPassResponse,
   FLGrantsListResponse,
-  FLInvitationDispatchResponse,
   FLInvitationMailPayload,
   FLInvitationMailResponse,
   FLInvitationMintResponse,
+  FLInvitationsMailResponse,
   FLInvitationViewResponse,
   FLKaderResponse,
   FLKontaktSeatPayload,
@@ -1650,8 +1650,8 @@ export const saisonsSwapGruppen = async (
   });
 };
 
-export const getSaisonsPostInvitationsDispatchUrl = (saisonId: string) => {
-  return `/api/saisons/${encodeURIComponent(String(saisonId))}/invitations/dispatch`;
+export const getSaisonsPostInvitationsMailUrl = (saisonId: string) => {
+  return `/api/saisons/${encodeURIComponent(String(saisonId))}/invitations/mail`;
 };
 
 /**
@@ -1661,11 +1661,11 @@ export const getSaisonsPostInvitationsDispatchUrl = (saisonId: string) => {
  * was, so pressing twice mails nobody twice.
  * @summary Mint every admitted team a link
  */
-export const saisonsPostInvitationsDispatch = async (
+export const saisonsPostInvitationsMail = async (
   saisonId: string,
   options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLInvitationDispatchResponse> => {
-  return adminKeyTransport<FLInvitationDispatchResponse>(getSaisonsPostInvitationsDispatchUrl(saisonId), {
+): Promise<FLInvitationsMailResponse> => {
+  return adminKeyTransport<FLInvitationsMailResponse>(getSaisonsPostInvitationsMailUrl(saisonId), {
     ...options,
     method: "POST",
   });
@@ -2844,7 +2844,7 @@ export const getTeamsGetTeamsAdminUrl = (params: TeamsGetTeamsAdminParams) => {
 };
 
 /**
- * One season's clubs, a `future` season's included, each with its seats and state, and what entering another offers.
+ * One season's clubs, a `future` season's included, each with its state, and what entering another offers.
  *
  * `state=retired` reads past the season's rows to every retired club, which is the way back to one, and `entry.closed`
  * is true where the season, not being `future`, takes no entry.
@@ -3055,8 +3055,8 @@ export const teamsPostInvitation = async (
   });
 };
 
-export const getTeamsPostInvitationDispatchUrl = (teamId: string, saisonId: string) => {
-  return `/api/teams/${encodeURIComponent(String(teamId))}/saisons/${encodeURIComponent(String(saisonId))}/invitation/dispatch`;
+export const getTeamsPostInvitationMailUrl = (teamId: string, saisonId: string) => {
+  return `/api/teams/${encodeURIComponent(String(teamId))}/saisons/${encodeURIComponent(String(saisonId))}/invitation/mail`;
 };
 
 /**
@@ -3066,13 +3066,13 @@ export const getTeamsPostInvitationDispatchUrl = (teamId: string, saisonId: stri
  * one day owes nothing again.
  * @summary Mail this team's live registration link to its confirmed contact seats
  */
-export const teamsPostInvitationDispatch = async (
+export const teamsPostInvitationMail = async (
   teamId: string,
   saisonId: string,
   fLInvitationMailPayload: FLInvitationMailPayload,
   options?: Parameters<typeof adminKeyTransport>[1],
 ): Promise<FLInvitationMailResponse> => {
-  return adminKeyTransport<FLInvitationMailResponse>(getTeamsPostInvitationDispatchUrl(teamId, saisonId), {
+  return adminKeyTransport<FLInvitationMailResponse>(getTeamsPostInvitationMailUrl(teamId, saisonId), {
     ...options,
     method: "POST",
     headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),

@@ -17,11 +17,11 @@ from app.api.spiele.schemas import (
     SONDEREREIGNIS_WITHOUT_A_RESULT,
     FLSpielCommon,
 )
-from app.api.teams.schemas import FLKontaktMint, FLTeamGruppeOffer, FLTeamListState, FLTeamsAdminRow, FLTeamStatistik
+from app.api.teams.schemas import FLKontaktMint, FLTeamGruppeOffer, FLTeamListState, FLTeamMembership, FLTeamsAdminRow, FLTeamStatistik
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError
-from app.shared.einwilligung import is_confirmed
+from app.shared.einwilligung import seat_is_confirmed
 from app.shared.folding import normalise_phone, person_name_key, sign_in_identifier
 from app.shared.links import deadline_passed
 from app.shared.schemas.custom import CustomObjectId
@@ -29,26 +29,9 @@ from app.shared.schemas.literals import KONTAKT_SEATS, FLGruppenNames, FLKontakt
 
 AS_NAME = "saison_data"
 SAISON_PAST_AS_NAME = "saison_past_data"
-STATISTIK_AS_NAME = "statistik_data"
-CANCELLED_AS_NAME = "cancelled_data"
-CANCELLED_COUNT_NAME = "count"
 
 # Derived from the model, so a field added to `FLTeamStatistik` cannot be forgotten here.
 ZERO_STATISTIK: Mapping[str, int] = {field_name: 0 for field_name in FLTeamStatistik.model_fields}
-
-# For a `$lookup` whose `let` binds `team_oid`.
-_IS_THIS_TEAM_IN_SLOT_ONE: Mapping[str, Any] = {"$eq": ["$team1.team_id", "$$team_oid"]}
-
-
-def _spiele_of_this_team(saison_id: str) -> dict[str, Any]:
-    """Shared by the `$lookup` stages below: a `$match` per stage is another place to forget the phase filter."""
-
-    return {
-        "saison_id": saison_id,
-        # The group phase alone: a knockout result is no league result.
-        "saison_phase": "gruppenphase",
-        "$expr": {"$or": [_IS_THIS_TEAM_IN_SLOT_ONE, {"$eq": ["$team2.team_id", "$$team_oid"]}]},
-    }
 
 
 def counting_spiele_match() -> dict[str, Any]:
@@ -56,93 +39,9 @@ def counting_spiele_match() -> dict[str, Any]:
 
     return {
         "ergebnis": {"$ne": None},
-        # Both counts as well, as `counted_goals` asks them for its types: the two derivations agree.
+        # Both counts as well, as `counted_goals` asks them, so a count of played fixtures agrees with the table's.
         "team1.tore": {"$ne": None},
         "team2.tore": {"$ne": None},
-    }
-
-
-def build_statistik_lookup_stage(saison_id: str, rules: FLSaisonRules) -> Mapping[str, Any]:
-    """One team's statistics, derived from the season's group-phase matches."""
-
-    return {
-        "$lookup": {
-            "from": Collection.SPIELE,
-            "let": {"team_oid": "$_id"},
-            "pipeline": [
-                {
-                    "$match": {
-                        **_spiele_of_this_team(saison_id),
-                        **counting_spiele_match(),
-                    }
-                },
-                {
-                    # Both teams sit in one document, so each match is turned to face this one first.
-                    "$project": {
-                        "_id": 0,
-                        "tore_self": {"$cond": [_IS_THIS_TEAM_IN_SLOT_ONE, "$team1.tore", "$team2.tore"]},
-                        "tore_opponent": {"$cond": [_IS_THIS_TEAM_IN_SLOT_ONE, "$team2.tore", "$team1.tore"]},
-                    }
-                },
-                {
-                    "$group": {
-                        "_id": None,
-                        "count_played_spiele": {"$sum": 1},
-                        "siege": {"$sum": {"$cond": [{"$gt": ["$tore_self", "$tore_opponent"]}, 1, 0]}},
-                        "unentschieden": {"$sum": {"$cond": [{"$eq": ["$tore_self", "$tore_opponent"]}, 1, 0]}},
-                        "niederlagen": {"$sum": {"$cond": [{"$lt": ["$tore_self", "$tore_opponent"]}, 1, 0]}},
-                        "tore_scored": {"$sum": "$tore_self"},
-                        "tore_conceded": {"$sum": "$tore_opponent"},
-                    }
-                },
-                {
-                    "$project": {
-                        "_id": 0,
-                        "count_played_spiele": 1,
-                        "siege": 1,
-                        "unentschieden": 1,
-                        "niederlagen": 1,
-                        "tore_scored": 1,
-                        "tore_conceded": 1,
-                        "punkte": {
-                            "$add": [
-                                {"$multiply": ["$siege", rules.win_points]},
-                                {"$multiply": ["$unentschieden", rules.draw_points]},
-                                {"$multiply": ["$niederlagen", rules.loss_points]},
-                            ]
-                        },
-                    }
-                },
-            ],
-            "as": STATISTIK_AS_NAME,
-        }
-    }
-
-
-def build_cancelled_lookup_stage(saison_id: str) -> Mapping[str, Any]:
-    """This team's fixtures that ended with no result, called off or struck out, counted in a stage of their own.
-
-    Never a second accumulator inside the counting `$lookup`: aggregation `$eq: [null, null]` is
-    true, so a goalless cancellation would score as a draw.
-    """
-
-    return {
-        "$lookup": {
-            "from": Collection.SPIELE,
-            "let": {"team_oid": "$_id"},
-            "pipeline": [
-                {
-                    "$match": {
-                        **_spiele_of_this_team(saison_id),
-                        # The flag is the whole rule: a fixture with no result and no event is
-                        # one still to play, never one called off.
-                        "sonderereignis": {"$in": list(SONDEREREIGNIS_WITHOUT_A_RESULT)},
-                    }
-                },
-                {"$count": CANCELLED_COUNT_NAME},
-            ],
-            "as": CANCELLED_AS_NAME,
-        }
     }
 
 
@@ -168,7 +67,6 @@ def build_retirement_stages(saison_id: str) -> list[Mapping[str, Any]]:
 def build_team_pipeline(
     *,
     saison_id: str,
-    rules: FLSaisonRules | None,
     team_id: Any | None = None,
     # Retired clubs, for a read handed one club's id rather than discovering one. Never on a base-tier list: a standings
     # row names no leaving date, so a list that un-hid a retired club would say nothing about which one had left.
@@ -207,15 +105,7 @@ def build_team_pipeline(
     # per season it played and a table of zeros that reads as an answer.
     pipeline.append({"$unwind": f"${AS_NAME}"})
 
-    # After the strict unwind, so the matches are only summed for teams that survive the join.
-    # A scoring rule is the table, so `rules=None` derives none -- `build_statistik_by_team` is
-    # the other way to one, over fixtures this collection has not stored.
-    if rules is not None:
-        pipeline.append(build_statistik_lookup_stage(saison_id=saison_id, rules=rules))
-        pipeline.append(build_cancelled_lookup_stage(saison_id=saison_id))
-
-    # One projection, one team shape: a reduced variant trims the response and saves no query work,
-    # since every lookup runs either way.
+    # No figures: a caller wanting a table counts them with `build_statistik_by_team` over the fixtures it reads.
     pipeline.append(
         {
             "$project": {
@@ -230,21 +120,6 @@ def build_team_pipeline(
                 "schulform": 1,
                 "website_url": 1,
                 "inactive_since": 1,
-                # `$group` emits nothing for an empty input rather than a row of zeros. Left out
-                # entirely without `rules`, so a row reaching `FLTeam` unfilled is refused rather
-                # than read as a table of zeros.
-                **(
-                    {
-                        "statistik": {
-                            "$mergeObjects": [
-                                {"$ifNull": [{"$first": f"${STATISTIK_AS_NAME}"}, ZERO_STATISTIK]},
-                                {"count_cancelled_spiele": {"$ifNull": [{"$first": f"${CANCELLED_AS_NAME}.{CANCELLED_COUNT_NAME}"}, 0]}},
-                            ]
-                        }
-                    }
-                    if rules is not None
-                    else {}
-                ),
                 "gruppe": f"${AS_NAME}.gruppe",
                 "austritt": f"${AS_NAME}.austritt",
             }
@@ -257,7 +132,7 @@ def build_team_pipeline(
 
 
 def counted_goals(spiel: FLSpielCommon) -> tuple[CustomObjectId, int, CustomObjectId, int] | None:
-    """`counting_spiele_match` restated in Python, for a standing asking it of a match the pipeline already summed."""
+    """Whether a fixture counts, as `counting_spiele_match` asks it of the collection: its two sides and their goals, else `None`."""
 
     if spiel.ergebnis is None or spiel.team1 is None or spiel.team2 is None:
         return None
@@ -268,17 +143,15 @@ def counted_goals(spiel: FLSpielCommon) -> tuple[CustomObjectId, int, CustomObje
 
 
 def build_statistik_by_team(spiele: Iterable[FLSpielCommon], rules: FLSaisonRules) -> Mapping[CustomObjectId, FLTeamStatistik]:
-    """Every team's figures over the fixtures given, for a caller holding a season the collection does not.
+    """Every team's figures over the fixtures given, the one count the Tabelle and the bracket share.
 
-    `build_statistik_lookup_stage` and `build_cancelled_lookup_stage` restated. It filters nothing:
-    pass exactly the fixtures the scope names.
+    It filters nothing: pass the season's group phase alone, since a knockout result is no league result.
     """
 
     figures: dict[CustomObjectId, dict[str, int]] = {}
 
     for spiel in spiele:
-        # Distinct, because the `$lookup` matches a fixture holding one club twice -- a fault state
-        # -- once, and a second count here would put the two tables at odds over it.
+        # Distinct, so a fixture holding one club twice, a fault state, counts once for it.
         sides = {side.team_id for side in (spiel.team1, spiel.team2) if side is not None}
         for team_id in sides:
             figures.setdefault(team_id, dict(ZERO_STATISTIK))
@@ -293,8 +166,7 @@ def build_statistik_by_team(spiele: Iterable[FLSpielCommon], rules: FLSaisonRule
 
         team1_id, tore1, _, tore2 = counted
         for team_id in sides:
-            # Slot one first, as the projection's `$cond` on `_IS_THIS_TEAM_IN_SLOT_ONE` is, so the
-            # degenerate fixture above is oriented the one way both derivations orient it.
+            # Slot one first, so the fixture holding one club twice is oriented one way.
             tore_self, tore_opponent = (tore1, tore2) if team_id == team1_id else (tore2, tore1)
 
             row = figures[team_id]
@@ -315,51 +187,20 @@ def build_statistik_by_team(spiele: Iterable[FLSpielCommon], rules: FLSaisonRule
     return {team_id: FLTeamStatistik.model_validate(row) for team_id, row in figures.items()}
 
 
-def build_team_saisons_pipeline(team_id: Any) -> list[Mapping[str, Any]]:
-    """One club with every junction row it holds.
+def build_membership_pipeline(*, saison_id: str, team_id: Any) -> list[Mapping[str, Any]]:
+    """One club's row of one season as its editor reads it: the membership's fields and the row's id, which its links' mails are owed about.
 
-    Unlike `build_team_pipeline`: no season resolution, no strict join, no statistics -- the
-    question is club-centric, so a retired club stays in.
+    Read off `FLTeamMembership`, so a field added to the model reaches the read, and an allow-list, so a field added to the
+    row alone does not.
     """
 
     return [
-        {"$match": {"_id": team_id}},
-        {
-            "$lookup": {
-                "from": Collection.SAISON_TEAMS,
-                "localField": "_id",
-                "foreignField": "team_id",
-                # Admin-only, unlike `build_team_pipeline`'s join, so the contact records are in --
-                # they are what the club editor edits. Still an allow-list, so the next field added
-                # to the junction reaches this read only when somebody names it.
-                "pipeline": [
-                    {
-                        "$project": {
-                            # The row's id, which its links' mails are owed about.
-                            "_id": 1,
-                            "saison_id": 1,
-                            "gruppe": 1,
-                            "austritt": 1,
-                            "trikot_farbe": 1,
-                            "kontakte": 1,
-                            "confirmations": 1,
-                            "version": 1,
-                        }
-                    },
-                    # Each link's state and never its hash, which only the link's own lookup reads. Unset
-                    # rather than projected field by field: a sub-path projection drops a null seat's key.
-                    {"$unset": [f"confirmations.{seat}.token_hashes" for seat in KONTAKT_SEATS]},
-                ],
-                "as": "memberships",
-            }
-        },
+        {"$match": {"saison_id": saison_id, "team_id": team_id}},
+        {"$project": dict.fromkeys(["_id", *FLTeamMembership.model_fields], 1)},
+        # Each link's state and never its hash, which only the link's own lookup reads. Unset rather than projected field
+        # by field: a sub-path projection drops a null seat's key.
+        {"$unset": [f"confirmations.{seat}.token_hashes" for seat in KONTAKT_SEATS]},
     ]
-
-
-def membership_row_ids(teams_raw: Sequence[Mapping[str, Any]]) -> list[Any]:
-    """Every season row the memberships read holds a link on."""
-
-    return [row["_id"] for team in teams_raw for row in team.get("memberships", []) if isinstance(row.get("confirmations"), Mapping)]
 
 
 def _seat_state(row: Mapping[str, Any], seat: str) -> str:
@@ -377,36 +218,29 @@ def _seat_state(row: Mapping[str, Any], seat: str) -> str:
     return seat
 
 
-def with_link_state(
-    teams_raw: Sequence[Mapping[str, Any]], *, today: str, states: Mapping[tuple[Any, str | None], FLOutboxStatus]
-) -> list[dict[str, Any]]:
-    """The memberships read with each stored seat link judged as its press judges it, and what became of its mail.
+def with_link_state(row: Mapping[str, Any], *, today: str, states: Mapping[tuple[Any, str | None], FLOutboxStatus]) -> dict[str, Any]:
+    """The membership read with each stored seat link judged as its press judges it, and what became of its mail.
 
-    Lapsed only on an unanswered seat: an answered seat's link has nothing left to collect. The row's id goes here, the
-    membership naming its row by its season.
+    Lapsed only on an unanswered seat: an answered seat's link has nothing left to collect.
     """
 
-    def judged(row: Mapping[str, Any]) -> Any:
-        confirmations = row.get("confirmations")
-        if not isinstance(confirmations, Mapping):
-            return confirmations
+    confirmations: Mapping[str, Any] | None = row.get("confirmations")
+    if confirmations is None:
+        return dict(row)
 
-        def expired(seat: str, link: Mapping[str, Any]) -> bool:
-            open = not seat_is_answered(kontakte=row.get("kontakte"), confirmations=confirmations, seat=seat)
-            return open and deadline_passed(deadline=link.get("deadline"), today=today)
+    def expired(seat: str, link: Mapping[str, Any]) -> bool:
+        open = not seat_is_answered(kontakte=row.get("kontakte"), confirmations=confirmations, seat=seat)
+        return open and deadline_passed(deadline=link.get("deadline"), today=today)
 
-        return {
+    return {
+        **row,
+        "confirmations": {
             seat: {**link, "expired": expired(seat, link), "delivery": states.get((row["_id"], _seat_state(row, seat)))}
-            if isinstance(link, Mapping)
-            else link
+            if link is not None
+            else None
             for seat, link in confirmations.items()
-        }
-
-    def served(row: Mapping[str, Any]) -> dict[str, Any]:
-        rest = {key: value for key, value in row.items() if key != "_id"}
-        return {**rest, "confirmations": judged(row)}
-
-    return [{**team, "memberships": [served(row) for row in team.get("memberships", [])]} for team in teams_raw]
+        },
+    }
 
 
 def as_unconfirmed(einwilligung: Mapping[str, Any]) -> dict[str, Any]:
@@ -434,16 +268,10 @@ def _identity_of(seat: Mapping[str, Any]) -> tuple[str, ...]:
     )
 
 
-def _seat_is_stamped(seat: Mapping[str, Any]) -> bool:
-    """Whether this seat's own person has confirmed it."""
-
-    return is_confirmed(seat.get("einwilligung"))
-
-
-def _seat_held_by(stored_slot: Any, *, seat: Mapping[str, Any]) -> Mapping[str, Any] | None:
+def _seat_held_by(stored_slot: Mapping[str, Any] | None, *, seat: Mapping[str, Any]) -> Mapping[str, Any] | None:
     """The stored seat where it holds the same person as the one being written, else `None`."""
 
-    if not isinstance(stored_slot, Mapping):
+    if stored_slot is None:
         return None
 
     # A difference the fold keeps is a handover even where it is a corrected typo: nothing here can
@@ -455,7 +283,7 @@ def _seat_held_by(stored_slot: Any, *, seat: Mapping[str, Any]) -> Mapping[str, 
     return stored_slot
 
 
-def _confirmation_held_by(stored_slot: Any, *, seat: Mapping[str, Any]) -> Mapping[str, Any] | None:
+def _confirmation_held_by(stored_slot: Mapping[str, Any] | None, *, seat: Mapping[str, Any]) -> Mapping[str, Any] | None:
     """The stored record, whole, where this slot holds the same person, else `None`.
 
     The scope, media answer, label and their evidence are the person's, and the payload spells none
@@ -469,10 +297,10 @@ def _confirmation_held_by(stored_slot: Any, *, seat: Mapping[str, Any]) -> Mappi
     # The record stays the server's: only a seat's own stamp
     # confirms it, and a stored blank stamp is none.
     einwilligung = held["einwilligung"]
-    return dict(einwilligung) if _seat_is_stamped(held) else as_unconfirmed(einwilligung)
+    return dict(einwilligung) if seat_is_confirmed(held) else as_unconfirmed(einwilligung)
 
 
-def _birth_date_held_by(stored_slot: Any, *, seat: Mapping[str, Any]) -> str | None:
+def _birth_date_held_by(stored_slot: Mapping[str, Any] | None, *, seat: Mapping[str, Any]) -> str | None:
     """The date this person already sits behind in this seat, or `None`."""
 
     # The identity alone and never the confirmation beside it: a seat can hold a date under no stamp,
@@ -486,19 +314,19 @@ def _birth_date_held_by(stored_slot: Any, *, seat: Mapping[str, Any]) -> str | N
     return str(held.get("birth_date")) if held.get("birth_date") else None
 
 
-def compose_kontakte_origin(*, kontakte: Mapping[str, Any], stored: Any) -> dict[str, Any]:
+def compose_kontakte_origin(*, kontakte: Mapping[str, Any], stored: Mapping[str, Any] | None) -> dict[str, Any]:
     """Each seat's record and its birthdate, off the stored block.
 
     A seat its person keeps keeps its record and its date. Any other keeps the record `compose_seat_block` bore it with,
     so nothing of a person who left travels to the one seated.
     """
 
-    stored_block = stored if isinstance(stored, Mapping) else {}
+    stored_block = stored or {}
     composed = dict(kontakte)
 
     for slot in KONTAKT_SEATS:
         seat = kontakte.get(slot)
-        if not isinstance(seat, Mapping):
+        if seat is None:
             continue
 
         stored_slot = stored_block.get(slot)
@@ -513,7 +341,7 @@ def compose_kontakte_origin(*, kontakte: Mapping[str, Any], stored: Any) -> dict
 
 
 def compose_seat_block(
-    *, stored: Any, seat: FLKontaktSeat, sent: Mapping[str, Any], today: str
+    *, stored: Mapping[str, Any] | None, seat: FLKontaktSeat, sent: Mapping[str, Any], today: str
 ) -> tuple[dict[str, Any], tuple[FLKontaktSeat, ...]]:
     """The whole block a seat write leaves, and the seats it writes, so one person is judged and stored as a block's save judges them.
 
@@ -522,7 +350,7 @@ def compose_seat_block(
     seat reaches both. `sent` holds `trainer_is_also` only where the caller sent it.
     """
 
-    block = dict(stored) if isinstance(stored, Mapping) else {**dict.fromkeys(KONTAKT_SEATS), "trainer_is_also": None}
+    block = dict(stored) if stored is not None else {**dict.fromkeys(KONTAKT_SEATS), "trainer_is_also": None}
     claim = block.get("trainer_is_also")
     if seat == "trainer":
         claim = sent.get("trainer_is_also", claim)
@@ -544,7 +372,7 @@ def find_kontakt_taken_refusal(*, kontakte: Mapping[str, Any], seats: Sequence[F
     """
 
     person = kontakte[seats[0]]
-    others = [held for slot in KONTAKT_SEATS if slot not in seats and isinstance(held := kontakte.get(slot), Mapping)]
+    others = [held for slot in KONTAKT_SEATS if slot not in seats and (held := kontakte.get(slot)) is not None]
 
     if sign_in_identifier(person["email"]) in {sign_in_identifier(str(held.get("email") or "")) for held in others}:
         return APIError(HTTPStatus.CONFLICT, Code.KONTAKT_EMAIL_TAKEN, fields=(("email",),))
@@ -565,13 +393,13 @@ def compose_kontakt_confirmation(*, today: str) -> dict[str, Any]:
     return {"token_hashes": [], "sent_at": today, "deadline": confirmation_deadline_from(today=today), "declined_at": None}
 
 
-def people_of(kontakte: Any) -> list[tuple[FLKontaktSeat, ...]]:
+def people_of(kontakte: Mapping[str, Any] | None) -> list[tuple[FLKontaktSeat, ...]]:
     """Each person the block seats, as the filled seats they hold, the Trainer beside the seat `trainer_is_also` names.
 
     One link per person: two would leave the first answering for a seat the second already answered.
     """
 
-    block = kontakte if isinstance(kontakte, Mapping) else {}
+    block = kontakte or {}
     also = block.get("trainer_is_also")
     people: list[tuple[FLKontaktSeat, ...]] = []
 
@@ -580,37 +408,36 @@ def people_of(kontakte: Any) -> list[tuple[FLKontaktSeat, ...]]:
             continue
 
         held: tuple[FLKontaktSeat, ...] = (slot, also) if slot == "trainer" and also in KONTAKT_SEATS else (slot,)
-        filled: tuple[FLKontaktSeat, ...] = tuple(seat for seat in held if isinstance(block.get(seat), Mapping))
+        filled: tuple[FLKontaktSeat, ...] = tuple(seat for seat in held if block.get(seat) is not None)
         if filled:
             people.append(filled)
 
     return people
 
 
-def links_owed(*, kontakte: Any, stored: Any) -> list[tuple[FLKontaktSeat, ...]]:
+def links_owed(*, kontakte: Mapping[str, Any], stored: Mapping[str, Any] | None) -> list[tuple[FLKontaktSeat, ...]]:
     """Each person this save newly seats, as the unconfirmed seats one fresh link answers for.
 
     Newly is `_seat_held_by`'s identity, so a corrected name is a handover here too: the seat's last
     link reached somebody this save may have just replaced.
     """
 
-    block = kontakte if isinstance(kontakte, Mapping) else {}
-    stored_block = stored if isinstance(stored, Mapping) else {}
+    stored_block = stored or {}
     owed: list[tuple[FLKontaktSeat, ...]] = []
 
-    for person in people_of(block):
-        if all(_seat_held_by(stored_block.get(seat), seat=block[seat]) is not None for seat in person):
+    for person in people_of(kontakte):
+        if all(_seat_held_by(stored_block.get(seat), seat=kontakte[seat]) is not None for seat in person):
             continue
 
         # A seat of the pair this person has already confirmed keeps its stamp and its link.
-        unconfirmed: tuple[FLKontaktSeat, ...] = tuple(seat for seat in person if not _seat_is_stamped(block[seat]))
+        unconfirmed: tuple[FLKontaktSeat, ...] = tuple(seat for seat in person if not seat_is_confirmed(kontakte[seat]))
         if unconfirmed:
             owed.append(unconfirmed)
 
     return owed
 
 
-def compose_confirmations_with(*, stored_confirmations: Any, minted: Mapping[str, Any]) -> dict[str, Any]:
+def compose_confirmations_with(*, stored_confirmations: Mapping[str, Any] | None, minted: Mapping[str, Any]) -> dict[str, Any]:
     """The whole link block a write leaves: each link minted, and every other seat's as stored.
 
     Whole rather than dotted: a `$set` into an absent or null block leaves it short of its keys, or is
@@ -618,7 +445,7 @@ def compose_confirmations_with(*, stored_confirmations: Any, minted: Mapping[str
     no seat keeps the link of the person who left it; an empty seat keeps a Widerspruch's record of itself.
     """
 
-    stored_links = stored_confirmations if isinstance(stored_confirmations, Mapping) else {}
+    stored_links = stored_confirmations or {}
 
     return {slot: minted[slot] if slot in minted else stored_links.get(slot) for slot in KONTAKT_SEATS}
 
@@ -671,12 +498,12 @@ def owed_kontakt_link(
     )
 
 
-def seats_one_link_answers(*, kontakte: Any, seat: FLKontaktSeat) -> tuple[FLKontaktSeat, ...]:
+def seats_one_link_answers(*, kontakte: Mapping[str, Any], seat: FLKontaktSeat) -> tuple[FLKontaktSeat, ...]:
     """The pressed seat and, where one person holds both, the other seat they have not confirmed."""
 
     for person in people_of(kontakte):
         if seat in person:
-            return tuple(held for held in person if held == seat or not _seat_is_stamped(kontakte[held]))
+            return tuple(held for held in person if held == seat or not seat_is_confirmed(kontakte[held]))
 
     return (seat,)
 
@@ -702,15 +529,15 @@ def find_kontakt_row_refusal(*, saison_status: Any, austritt: Any) -> APIError |
     return APIError(HTTPStatus.CONFLICT, Code.KONTAKT_ROW_WITHOUT_SAISON)
 
 
-def find_kontakt_seat_refusal(*, kontakte: Any, seat: str) -> APIError | None:
+def find_kontakt_seat_refusal(*, kontakte: Mapping[str, Any] | None, seat: str) -> APIError | None:
     """Why this seat is sent no fresh link, or `None`: it holds nobody, or its person has confirmed it.
 
     A fresh link on a confirmed seat would replace a spent one with a credential nothing can answer.
     """
 
-    slot = kontakte.get(seat) if isinstance(kontakte, Mapping) else None
+    slot = (kontakte or {}).get(seat)
 
-    if not isinstance(slot, Mapping) or _seat_is_stamped(slot):
+    if slot is None or seat_is_confirmed(slot):
         return APIError(HTTPStatus.CONFLICT, Code.KONTAKT_SEAT_WITHOUT_CONFIRMATION)
 
     return None
@@ -768,16 +595,12 @@ def teams_admin_rows(
     entered = {row["team_id"]: row for row in rows}
 
     def listed(row: Mapping[str, Any]) -> FLTeamsAdminRow:
-        kontakte = row.get("kontakte") or {}
-        seats = [seat for slot in KONTAKT_SEATS if isinstance(seat := kontakte.get(slot), Mapping)]
-
         return FLTeamsAdminRow(
             id=row["team_id"],
             name=row["name"],
             shorthand=row["shorthand"],
             gruppe=row["gruppe"],
             trikot_farbe=row.get("trikot_farbe"),
-            seats_confirmed=sum(1 for seat in seats if _seat_is_stamped(seat)),
             austritt_type=(row.get("austritt") or {}).get("type"),
             inactive_since=retired.get(row["team_id"]),
         )
@@ -792,7 +615,6 @@ def teams_admin_rows(
                 shorthand=team["shorthand"],
                 gruppe=None,
                 trikot_farbe=None,
-                seats_confirmed=0,
                 austritt_type=None,
                 inactive_since=team["inactive_since"],
             )
@@ -880,15 +702,21 @@ def find_austritt_refusal(*, start_date: str, started: bool) -> APIError | None:
     return APIError(HTTPStatus.CONFLICT, Code.AUSTRITT_BEFORE_SAISON_START, fields=(("date",),), bounds={"earliest": start_date})
 
 
-def find_entry_refusal(saison_status: str, gruppe: FLGruppenNames, rules: FLSaisonRules, occupied: int) -> APIError | None:
-    """Why entering this team into the season must be refused, or `None`.
+def find_entry_saison_refusal(*, saison_status: str) -> APIError | None:
+    """`entry_saison_not_future`: only a planned season takes an entry. Asked of an entry alone, never of a group move."""
+
+    if saison_status == "future":
+        return None
+
+    return APIError(HTTPStatus.CONFLICT, Code.ENTRY_SAISON_NOT_FUTURE)
+
+
+def find_entry_refusal(gruppe: FLGruppenNames, rules: FLSaisonRules, occupied: int) -> APIError | None:
+    """Why placing this team into the group must be refused, or `None`, an entry's and a group move's alike.
 
     `occupied` is the group's row count, rows carrying an `austritt` included: a team never leaves a
     season, so its place stays taken.
     """
-
-    if saison_status != "future":
-        return APIError(HTTPStatus.CONFLICT, Code.ENTRY_SAISON_NOT_FUTURE)
 
     if gruppe not in offered_gruppen(rules.number_of_gruppen):
         return APIError(HTTPStatus.CONFLICT, Code.ENTRY_GRUPPE_NOT_OFFERED)

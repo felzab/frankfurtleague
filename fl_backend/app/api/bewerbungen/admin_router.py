@@ -62,7 +62,7 @@ from app.api.outbox.services import OwedMail, enqueue_mails
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.saisons.services import find_saison_past_refusal
 from app.api.teams.crud import pull_a_team_to_enter, pull_team_names_and_codes, refuse_a_full_gruppe, refuse_a_taken_colour
-from app.api.teams.services import find_shorthand_refusal, find_team_entry_refusal, offered_gruppen
+from app.api.teams.services import find_entry_saison_refusal, find_shorthand_refusal, find_team_entry_refusal, offered_gruppen
 from app.core.collections import Collection
 from app.core.concurrency import concurrently
 from app.core.crud import (
@@ -308,6 +308,7 @@ async def accept_bewerbung(
             # field is composed twice and differently.
             name, shorthand = new_team["name"], new_team["shorthand"]
 
+        refuse(find_entry_saison_refusal(saison_status=str(saison_raw["status"])))
         # The helper rather than `find_entry_refusal` directly: the count it takes is a read, which no
         # snapshot re-validates, so the group's capacity holds only where the season is written inside
         # this transaction too.
@@ -316,7 +317,6 @@ async def accept_bewerbung(
             saisons_collection=saisons_collection,
             saison_id=saison_id,
             gruppe=acceptance_data.gruppe,
-            saison_status=str(saison_raw["status"]),
             # Validated, not read raw: a season missing the capacity keys fails here rather than
             # admitting a school against a bound nobody chose.
             rules=FLSaisonRules.model_validate(saison_raw["rules"]),

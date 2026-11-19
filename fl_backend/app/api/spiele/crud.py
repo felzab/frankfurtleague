@@ -119,15 +119,13 @@ async def _resolve_one_saison(
     if gruppen_to_decide:
         # The Tabelle's own pipeline, so the bracket ranks the clubs the site's table ranks, and
         # `include_inactive` stays default: a club that table withholds must hold no placing the bracket
-        # honours. `rules=None` asks it for the rows alone.
+        # honours.
 
         # No `GERMAN_COLLATION`, unlike the reads that serve that pipeline to a page: what comes back
         # here is grouped and ranked by points, so its order reaches nobody and would only cost the
         # junction join its index.
         teams_raw = await aggregate_many_from_db(
-            collection=teams_collection,
-            pipeline=build_team_pipeline(saison_id=saison_id, rules=None),
-            session=session,
+            collection=teams_collection, pipeline=build_team_pipeline(saison_id=saison_id), session=session
         )
 
         # The group phase alone: a head-to-head drawn from playoff matches would break a tie on

@@ -13,10 +13,10 @@ from app.api.aufstellungen.crud import remove_the_seasons_aufstellungen
 from app.api.bewerbungen.services import assigned_trikot_farben, seat_named
 from app.api.grants.guard import ADMIN_TIER
 from app.api.invitations.schemas import (
+    FLInvitation,
     FLInvitationMailPayload,
     FLInvitationMailResponse,
     FLInvitationMintResponse,
-    FLInvitationRow,
     FLTeamLinkState,
 )
 from app.api.invitations.services import (
@@ -27,13 +27,12 @@ from app.api.invitations.services import (
     compose_sent_update,
     confirmed_recipients,
     find_invitation_saison_past_refusal,
-    invitation_reference,
     owed_invitation_mails,
-    plan_invitation_dispatch,
+    plan_invitation_mail,
 )
 from app.api.kontakte.crud import clear_seats
 from app.api.kontakte.services import SEAT_FIELDS, build_accepted_application_pipeline, seated_people
-from app.api.outbox.crud import state_of, states_of
+from app.api.outbox.crud import states_of
 from app.api.outbox.services import OwedMail, enqueue_mails
 from app.api.registrierungen.services import saison_takes_registrierungen
 from app.api.saisons.schemas import FLSaisonRules
@@ -65,7 +64,7 @@ from app.api.teams.schemas import (
     FLTeamSaisonFacts,
 )
 from app.api.teams.services import (
-    build_team_saisons_pipeline,
+    build_membership_pipeline,
     build_team_spiele_filter,
     compose_confirmations_with,
     compose_kontakt_confirmation,
@@ -83,7 +82,6 @@ from app.api.teams.services import (
     gruppe_offer,
     kontakt_row_of,
     links_owed,
-    membership_row_ids,
     owed_kontakt_link,
     saison_blocking_retirement,
     seats_one_link_answers,
@@ -178,17 +176,15 @@ async def _rewrite_the_outgoing_teams_sides(
         )
 
 
-async def _with_seat_states(
-    teams_raw: Sequence[Mapping[str, Any]],
-    *,
-    outbox_collection: ReadCollection,
-    today: str,
-) -> list[dict[str, Any]]:
-    """The memberships read with each seat's link state composed on."""
+async def _membership_of(row_raw: Mapping[str, Any] | None, *, outbox_collection: ReadCollection, today: str) -> FLTeamMembership | None:
+    """The membership read with each seat's link state composed on; `None` for a club holding no row of the season."""
 
-    states = await states_of(outbox_collection=outbox_collection, collection=Collection.SAISON_TEAMS, ids=membership_row_ids(teams_raw))
+    if row_raw is None:
+        return None
 
-    return with_link_state(teams_raw, today=today, states=states)
+    states = await states_of(outbox_collection=outbox_collection, collection=Collection.SAISON_TEAMS, ids=[row_raw["_id"]])
+
+    return FLTeamMembership.model_validate(with_link_state(row_raw, today=today, states=states))
 
 
 # What a write of a seat's person or link reads of the row: what it composes on, and what the mails it owes name.
@@ -266,14 +262,6 @@ async def write_the_contact_block(
     return [mint for _, mint in links]
 
 
-async def _served_invitation(live: Mapping[str, Any], *, outbox_collection: ReadCollection) -> FLInvitationRow:
-    """One live link as a read serves it, with what became of its last mail."""
-
-    state = await state_of(outbox_collection=outbox_collection, reference=invitation_reference(live["_id"]))
-
-    return FLInvitationRow.model_validate({**live, "delivery": state})
-
-
 @router.get(
     "",
     summary="One season's Teams list and what its create dialog offers",
@@ -284,7 +272,7 @@ async def get_teams_admin(
     saisons_collection: SaisonsReadCollection,
     filters: Annotated[FLTeamsAdminFilterParams, Depends()],
 ) -> FLTeamsAdminListResponse:
-    """One season's clubs, a `future` season's included, each with its seats and state, and what entering another offers.
+    """One season's clubs, a `future` season's included, each with its state, and what entering another offers.
 
     `state=retired` reads past the season's rows to every retired club, which is the way back to one, and `entry.closed`
     is true where the season, not being `future`, takes no entry.
@@ -292,20 +280,12 @@ async def get_teams_admin(
 
     saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": filters.saison_id}, projection=["status", "rules"])
     rows, teams = await concurrently(
-        # Each whole, as the group's fill is judged over every row. The seat's stamp and never its person: this list names none.
+        # Each whole, as the group's fill is judged over every row.
         pull_whole_from_db(
             collection=saison_teams_collection,
             db_filter={"saison_id": filters.saison_id},
             what=f"season {filters.saison_id}'s clubs",
-            projection=[
-                "team_id",
-                "name",
-                "shorthand",
-                "gruppe",
-                "trikot_farbe",
-                "austritt.type",
-                *[f"kontakte.{seat}.einwilligung.confirmed_at" for seat in KONTAKT_SEATS],
-            ],
+            projection=["team_id", "name", "shorthand", "gruppe", "trikot_farbe", "austritt.type"],
             sort_by=[("name", 1)],
             collation=GERMAN_COLLATION,
         ),
@@ -360,21 +340,16 @@ async def get_team_saison_admin(
     saison_raw = await pull_one_from_db(
         collection=saisons_collection, db_filter={"_id": saison_id}, projection=["status", "start_date", "rules", "registrierung"]
     )
-    teams_raw = await aggregate_many_from_db(collection=teams_collection, pipeline=build_team_saisons_pipeline(team_id))
-    if not teams_raw:
-        raise DocumentNotFoundError()
+    team_raw, rows_raw, held_saison_ids = await concurrently(
+        pull_one_from_db(collection=teams_collection, db_filter={"_id": team_id}),
+        aggregate_many_from_db(collection=saison_teams_collection, pipeline=build_membership_pipeline(saison_id=saison_id, team_id=team_id)),
+        # The seasons `retire_blocked` judges, by id alone: only this season's row is served.
+        saison_teams_collection.distinct("saison_id", {"team_id": team_id}),
+    )
+    row_raw = rows_raw[0] if rows_raw else None
 
-    team_raw = teams_raw[0]
-    held_saison_ids = [row["saison_id"] for row in team_raw["memberships"]]
-    row_raw = next((row for row in team_raw["memberships"] if row["saison_id"] == saison_id), None)
-
-    # Every membership is read for the seasons `retire_blocked` judges; only this season's seats are served.
-    served, junctions, held_saisons, spiele_drawn, live = await concurrently(
-        _with_seat_states(
-            [{**team_raw, "memberships": [] if row_raw is None else [row_raw]}],
-            outbox_collection=outbox_collection,
-            today=today,
-        ),
+    membership, junctions, held_saisons, spiele_drawn, live = await concurrently(
+        _membership_of(row_raw, outbox_collection=outbox_collection, today=today),
         pull_whole_from_db(
             collection=saison_teams_collection,
             db_filter={"saison_id": saison_id},
@@ -400,17 +375,16 @@ async def get_team_saison_admin(
     if row_raw is not None:
         registrierung = saison_raw.get("registrierung")
         link = FLTeamLinkState(
-            invitation=await _served_invitation(live[0], outbox_collection=outbox_collection) if live else None,
+            invitation=FLInvitation.model_validate(live[0]) if live else None,
             running=saison_takes_registrierungen(saison_status=saison_raw["status"], registrierung=registrierung),
             paused=registrierung is not None and not registrierung["open"],
-            skipped=plan_invitation_dispatch(
+            skipped=plan_invitation_mail(
                 austritt=row_raw.get("austritt"),
                 kontakte=row_raw.get("kontakte"),
                 invitation_raw=live[0] if live else None,
             ).skipped,
         )
 
-    memberships = served[0]["memberships"]
     austritt_recipients = (
         []
         if row_raw is None or row_raw.get("austritt") is not None
@@ -437,7 +411,7 @@ async def get_team_saison_admin(
             begun=has_started(start_date=str(saison_raw["start_date"]), today=today),
             registrierung_end=(saison_raw.get("registrierung") or {}).get("end"),
         ),
-        membership=FLTeamMembership.model_validate(memberships[0]) if memberships else None,
+        membership=membership,
         gruppen=gruppe_offer(rules=FLSaisonRules.model_validate(saison_raw["rules"]), gruppen=[row["gruppe"] for row in junctions]),
         gruppe_locked=find_gruppe_move_refusal(spiele_drawn=spiele_drawn) is not None,
         taken_trikot_farben=assigned_trikot_farben(stored=[row.get("trikot_farbe") for row in junctions if row["team_id"] != team_id]),
@@ -975,7 +949,8 @@ async def resend_kontakt_confirmation(
 
         kontakte = stored.get("kontakte")
         refuse(find_kontakt_seat_refusal(kontakte=kontakte, seat=pressed))
-        assert isinstance(kontakte, Mapping)
+        # The refusal answered a null block, so this only narrows the type.
+        assert kontakte is not None
 
         seats = seats_one_link_answers(kontakte=kontakte, seat=pressed)
 
@@ -1113,10 +1088,10 @@ async def delete_invitation(
 
 
 @router.post(
-    f"{by_id('team_id')}/saisons/{{saison_id}}/invitation/dispatch",
+    f"{by_id('team_id')}/saisons/{{saison_id}}/invitation/mail",
     summary="Mail this team's live registration link to its confirmed contact seats",
 )
-async def post_invitation_dispatch(
+async def post_invitation_mail(
     team_id: CustomObjectId,
     saison_id: str,
     mail_data: FLInvitationMailPayload,

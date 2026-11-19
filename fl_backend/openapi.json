@@ -5403,6 +5403,34 @@
         ],
         "type": "string"
       },
+      "FLInvitation": {
+        "description": "One team's live link as it is served: never its hash.",
+        "properties": {
+          "id": {
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "sent_at": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sent At"
+          }
+        },
+        "required": [
+          "id",
+          "sent_at"
+        ],
+        "title": "FLInvitation",
+        "type": "object"
+      },
       "FLInvitationData": {
         "description": "A team's registration link, to one confirmed contact seat, for the pupils to register through.",
         "properties": {
@@ -5426,27 +5454,6 @@
           "saison_id"
         ],
         "title": "FLInvitationData",
-        "type": "object"
-      },
-      "FLInvitationDispatchResponse": {
-        "description": "How the season's press came out, counted in teams; a team it skipped is counted in neither.",
-        "properties": {
-          "failed": {
-            "minimum": 0.0,
-            "title": "Failed",
-            "type": "integer"
-          },
-          "mailed": {
-            "minimum": 0.0,
-            "title": "Mailed",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "mailed",
-          "failed"
-        ],
-        "title": "FLInvitationDispatchResponse",
         "type": "object"
       },
       "FLInvitationLinkRow": {
@@ -5545,70 +5552,6 @@
         "title": "FLInvitationMintResponse",
         "type": "object"
       },
-      "FLInvitationRow": {
-        "description": "One live link as the team's read serves it.",
-        "properties": {
-          "delivery": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLOutboxStatus"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Id",
-            "type": "string"
-          },
-          "revoked_at": {
-            "anyOf": [
-              {
-                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Revoked At"
-          },
-          "saison_id": {
-            "minLength": 1,
-            "title": "Saison Id",
-            "type": "string"
-          },
-          "sent_at": {
-            "anyOf": [
-              {
-                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Sent At"
-          },
-          "team_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Team Id",
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "saison_id",
-          "team_id",
-          "revoked_at",
-          "sent_at",
-          "delivery"
-        ],
-        "title": "FLInvitationRow",
-        "type": "object"
-      },
       "FLInvitationSkipReason": {
         "enum": [
           "austritt_entered",
@@ -5674,6 +5617,27 @@
           "nachnominierung"
         ],
         "title": "FLInvitationViewResponse",
+        "type": "object"
+      },
+      "FLInvitationsMailResponse": {
+        "description": "How the season's press came out, counted in teams; a team it skipped is counted in neither.",
+        "properties": {
+          "failed": {
+            "minimum": 0.0,
+            "title": "Failed",
+            "type": "integer"
+          },
+          "mailed": {
+            "minimum": 0.0,
+            "title": "Mailed",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "mailed",
+          "failed"
+        ],
+        "title": "FLInvitationsMailResponse",
         "type": "object"
       },
       "FLKaderResponse": {
@@ -15007,16 +14971,11 @@
           "name": {
             "title": "Name",
             "type": "string"
-          },
-          "shorthand": {
-            "title": "Shorthand",
-            "type": "string"
           }
         },
         "required": [
           "id",
-          "name",
-          "shorthand"
+          "name"
         ],
         "title": "FLTeamEntryTeam",
         "type": "object"
@@ -15045,7 +15004,7 @@
           "invitation": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/FLInvitationRow"
+                "$ref": "#/components/schemas/FLInvitation"
               },
               {
                 "type": "null"
@@ -15157,7 +15116,7 @@
         "type": "object"
       },
       "FLTeamOverviewResponse": {
-        "description": "A team's Übersicht in one read: who the team is, the work open for it, and its three seats.\n\nThe three lists are open work alone and carry no totals: the dates awaiting the team's answer or the league's\ndecision, the coming fixtures the team has entered no line-up for, and the registrations awaiting its decision.",
+        "description": "A team's Übersicht in one read: the team's head, the work open for it, and its three seats.\n\nThe three lists are open work alone and carry no totals: the dates awaiting the team's answer or the league's\ndecision, the coming fixtures the team has entered no line-up for, and the registrations awaiting its decision.",
         "properties": {
           "aufstellungen": {
             "items": {
@@ -15171,28 +15130,12 @@
             "title": "Full Name",
             "type": "string"
           },
-          "held_seats": {
-            "items": {
-              "$ref": "#/components/schemas/FLKontaktSeat"
-            },
-            "title": "Held Seats",
-            "type": "array"
-          },
-          "name": {
-            "minLength": 1,
-            "title": "Name",
-            "type": "string"
-          },
           "registrierungen": {
             "items": {
               "$ref": "#/components/schemas/FLTeamPanelRegistrierung"
             },
             "title": "Registrierungen",
             "type": "array"
-          },
-          "saison_id": {
-            "title": "Saison Id",
-            "type": "string"
           },
           "seats": {
             "items": {
@@ -15212,31 +15155,11 @@
             },
             "title": "Spielbestaetigungen",
             "type": "array"
-          },
-          "team_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Team Id",
-            "type": "string"
-          },
-          "trikot_farbe": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLTrikotFarbe"
-              },
-              {
-                "type": "null"
-              }
-            ]
           }
         },
         "required": [
-          "team_id",
-          "saison_id",
-          "name",
           "shorthand",
           "full_name",
-          "trikot_farbe",
-          "held_seats",
           "spielbestaetigungen",
           "aufstellungen",
           "registrierungen",
@@ -15581,9 +15504,6 @@
           "marks": {
             "$ref": "#/components/schemas/FLAufstellungMarks"
           },
-          "side": {
-            "$ref": "#/components/schemas/FLSpielSide"
-          },
           "spiel_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Spiel Id",
@@ -15593,14 +15513,13 @@
         "required": [
           "spiel_id",
           "ansetzung",
-          "side",
           "marks"
         ],
         "title": "FLTeamPanelAufstellung",
         "type": "object"
       },
       "FLTeamPanelRegistrierung": {
-        "description": "One pending registration as the Übersicht names it: who waits, since when, as what, and whether the team may admit them yet.",
+        "description": "One pending registration as the Übersicht names it: who waits, as what, and whether the team may admit them yet.",
         "properties": {
           "admissible": {
             "title": "Admissible",
@@ -15640,18 +15559,12 @@
                 "type": "null"
               }
             ]
-          },
-          "submitted_at": {
-            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Submitted At",
-            "type": "string"
           }
         },
         "required": [
           "registrierung_id",
           "first_name",
           "last_name",
-          "submitted_at",
           "position",
           "stufe",
           "admissible"
@@ -16358,11 +16271,6 @@
             "title": "Name",
             "type": "string"
           },
-          "seats_confirmed": {
-            "minimum": 0.0,
-            "title": "Seats Confirmed",
-            "type": "integer"
-          },
           "shorthand": {
             "title": "Shorthand",
             "type": "string"
@@ -16384,7 +16292,6 @@
           "shorthand",
           "gruppe",
           "trikot_farbe",
-          "seats_confirmed",
           "austritt_type",
           "inactive_since"
         ],
@@ -19392,10 +19299,10 @@
         ]
       }
     },
-    "/api/saisons/{saison_id}/invitations/dispatch": {
+    "/api/saisons/{saison_id}/invitations/mail": {
       "post": {
         "description": "Give every admitted team of this season a fresh registration link, revoking any it held, mailed to its confirmed seats.\n\nA team that has left the season, holds no confirmed seat or was already sent its live link is skipped and left as it\nwas, so pressing twice mails nobody twice.",
-        "operationId": "saisons_post_invitations_dispatch",
+        "operationId": "saisons_post_invitations_mail",
         "parameters": [
           {
             "in": "path",
@@ -19412,7 +19319,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FLInvitationDispatchResponse"
+                  "$ref": "#/components/schemas/FLInvitationsMailResponse"
                 }
               }
             },
@@ -21841,7 +21748,7 @@
     },
     "/api/teams": {
       "get": {
-        "description": "One season's clubs, a `future` season's included, each with its seats and state, and what entering another offers.\n\n`state=retired` reads past the season's rows to every retired club, which is the way back to one, and `entry.closed`\nis true where the season, not being `future`, takes no entry.",
+        "description": "One season's clubs, a `future` season's included, each with its state, and what entering another offers.\n\n`state=retired` reads past the season's rows to every retired club, which is the way back to one, and `entry.closed`\nis true where the season, not being `future`, takes no entry.",
         "operationId": "teams_get_teams_admin",
         "parameters": [
           {
@@ -22347,10 +22254,10 @@
         ]
       }
     },
-    "/api/teams/{team_id}/saisons/{saison_id}/invitation/dispatch": {
+    "/api/teams/{team_id}/saisons/{saison_id}/invitation/mail": {
       "post": {
         "description": "Owe this team's live registration link to every seat whose own person has confirmed it, one mail each, `mailed` counting them.\n\nEach mail mints a link of its own at its hand-out, so a copied link stays valid beside them, and a second press on\none day owes nothing again.",
-        "operationId": "teams_post_invitation_dispatch",
+        "operationId": "teams_post_invitation_mail",
         "parameters": [
           {
             "in": "path",

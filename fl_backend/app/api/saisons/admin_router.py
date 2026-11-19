@@ -13,19 +13,19 @@ from app.api.aufstellungen.crud import remove_the_seasons_aufstellungen
 from app.api.grants.guard import ADMIN_TIER
 from app.api.invitations.schemas import (
     FLInvitation,
-    FLInvitationDispatchResponse,
     FLInvitationLinkRow,
+    FLInvitationsMailResponse,
 )
 from app.api.invitations.services import (
     LIVE_INVITATION,
     WITHOUT_TOKEN_HASH,
-    InvitationDispatchPlan,
+    InvitationMailPlan,
     build_live_team_filter,
     compose_invitation,
     compose_revocation_update,
     find_invitation_saison_past_refusal,
     owed_invitation_mails,
-    plan_invitation_dispatch,
+    plan_invitation_mail,
 )
 from app.api.outbox.services import enqueue_mails
 from app.api.saisons.crud import (
@@ -265,7 +265,7 @@ async def get_saison_admin(
         ),
         _pull_recorded_fact_rows(spiele_collection=spiele_collection, saison_id=saison_id, session=None),
         count_submitted_berichte(spielberichte_collection=spielberichte_collection, saison_id=saison_id, session=None),
-        _plan_the_dispatch(
+        _plan_the_mail(
             saison_id=saison_id,
             saison_teams_collection=saison_teams_collection,
             invitations_collection=invitations_collection,
@@ -1060,16 +1060,16 @@ class _PlannedTeam(NamedTuple):
 
     team: Mapping[str, Any]
     live: Mapping[str, Any] | None
-    plan: InvitationDispatchPlan
+    plan: InvitationMailPlan
 
 
-async def _plan_the_dispatch(
+async def _plan_the_mail(
     *,
     saison_id: str,
     saison_teams_collection: ReadCollection,
     invitations_collection: ReadCollection,
 ) -> list[_PlannedTeam]:
-    """Every team of the season planned by `plan_invitation_dispatch`, the function the press decides each team by.
+    """Every team of the season planned by `plan_invitation_mail`, the function the press decides each team by.
 
     Read outside any transaction, for the editor's read: the press plans each team again in its own.
     """
@@ -1090,7 +1090,7 @@ async def _plan_the_dispatch(
     planned: list[_PlannedTeam] = []
     for team in entered:
         invitation_raw = by_team.get(team["team_id"])
-        plan = plan_invitation_dispatch(
+        plan = plan_invitation_mail(
             austritt=team.get("austritt"),
             kontakte=team.get("kontakte"),
             invitation_raw=invitation_raw,
@@ -1138,7 +1138,7 @@ async def _mail_one_team(
         )
         # A link already sent is read off the day stored on it, never off the Postausgang, whose row is erased a retention
         # after it settles: pressing twice mails nobody twice.
-        plan = plan_invitation_dispatch(
+        plan = plan_invitation_mail(
             austritt=team.get("austritt"),
             kontakte=team.get("kontakte"),
             invitation_raw=live[0] if live else None,
@@ -1202,10 +1202,10 @@ async def _mail_one_team(
 
 
 @router.post(
-    "/{saison_id}/invitations/dispatch",
+    "/{saison_id}/invitations/mail",
     summary="Mint every admitted team a link",
 )
-async def post_invitations_dispatch(
+async def post_invitations_mail(
     saison_id: str,
     saison_teams_collection: SaisonTeamsCollection,
     invitations_collection: InvitationsCollection,
@@ -1214,7 +1214,7 @@ async def post_invitations_dispatch(
     db: DBClient,
     today: GermanDay,
     germany_now: GermanyNow,
-) -> FLInvitationDispatchResponse:
+) -> FLInvitationsMailResponse:
     """Give every admitted team of this season a fresh registration link, revoking any it held, mailed to its confirmed seats.
 
     A team that has left the season, holds no confirmed seat or was already sent its live link is skipped and left as it
@@ -1245,4 +1245,4 @@ async def post_invitations_dispatch(
             )
         )
 
-    return FLInvitationDispatchResponse(mailed=outcomes.count("mailed"), failed=outcomes.count("failed"))
+    return FLInvitationsMailResponse(mailed=outcomes.count("mailed"), failed=outcomes.count("failed"))

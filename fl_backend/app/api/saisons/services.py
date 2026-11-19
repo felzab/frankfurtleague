@@ -265,10 +265,7 @@ def find_rules_refusal(
 
     # Before the bracket rule, being narrower: it names two fields an admin can compare, where the
     # bracket's answer is a property of their product.
-    excess = proposed.qualifiers_per_gruppe - proposed.teams_per_gruppe
-    # The excess, against the stored one: `rules` is required on the patch, so a dates-only edit
-    # resubmits a stored violation unchanged, and shrinking an excess repairs it.
-    if excess > 0 and (stored is None or excess > stored.qualifiers_per_gruppe - stored.teams_per_gruppe):
+    if proposed.qualifiers_per_gruppe > proposed.teams_per_gruppe:
         return APIError(
             HTTPStatus.UNPROCESSABLE_CONTENT,
             Code.RULES_QUALIFIERS_ABOVE_GRUPPE,
@@ -276,10 +273,7 @@ def find_rules_refusal(
             bounds={"max": proposed.teams_per_gruppe},
         )
 
-    # The excess again, so a stored violation resubmitted unchanged passes and shrinking it repairs
-    # the season.
-    draw_excess = proposed.draw_points - proposed.win_points
-    if draw_excess > 0 and (stored is None or draw_excess > stored.draw_points - stored.win_points):
+    if proposed.draw_points > proposed.win_points:
         return APIError(
             HTTPStatus.UNPROCESSABLE_CONTENT,
             Code.RULES_UNENTSCHIEDEN_OUTVALUES_WIN,
@@ -287,9 +281,8 @@ def find_rules_refusal(
             bounds={"max": proposed.win_points},
         )
 
-    # The same order one rung down, judged by its excess as the draw's is: a loss is never the better result.
-    loss_excess = proposed.loss_points - proposed.draw_points
-    if loss_excess > 0 and (stored is None or loss_excess > stored.loss_points - stored.draw_points):
+    # The same order one rung down: a loss is never the better result.
+    if proposed.loss_points > proposed.draw_points:
         return APIError(
             HTTPStatus.UNPROCESSABLE_CONTENT,
             Code.RULES_NIEDERLAGE_OUTVALUES_UNENTSCHIEDEN,

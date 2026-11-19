@@ -17,8 +17,8 @@ from app.api.invitations.services import (
     owed_invitation_mails,
 )
 from app.api.outbox.services import enqueue_mails, final_update
-from app.api.saisons.admin_router import get_saison_admin, post_invitations_dispatch
-from app.api.teams.admin_router import delete_invitation, get_team_saison_admin, post_invitation, post_invitation_dispatch
+from app.api.saisons.admin_router import get_saison_admin, post_invitations_mail
+from app.api.teams.admin_router import delete_invitation, get_team_saison_admin, post_invitation, post_invitation_mail
 from app.core import clock
 from app.core.codes import Code
 from app.core.collections import Collection
@@ -223,7 +223,7 @@ async def editor(database: AsyncDatabase) -> Any:
 
 
 async def press(database: AsyncDatabase) -> Any:
-    return await post_invitations_dispatch(
+    return await post_invitations_mail(
         saison_id=SAISON_ID,
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         invitations_collection=database[Collection.INVITATIONS],
@@ -481,7 +481,7 @@ class TestRevokingALink:
 
 
 async def mail(database: AsyncDatabase, team_id: ObjectId, invitation_id: Any) -> Any:
-    return await post_invitation_dispatch(
+    return await post_invitation_mail(
         team_id=team_id,
         saison_id=SAISON_ID,
         mail_data=FLInvitationMailPayload(invitation_id=invitation_id),
@@ -544,7 +544,7 @@ class TestTheTeamsMailPress:
 
 
 class TestTheTeamEditorsRead:
-    async def test_it_serves_the_live_link_with_what_became_of_its_last_mail(self, mongo_replica_set_url: str):
+    async def test_it_serves_the_live_link(self, mongo_replica_set_url: str):
         """The editor's one read of a link: a failure here breaks the page for every club holding one."""
 
         async def body(database: AsyncDatabase) -> Any:
@@ -558,8 +558,7 @@ class TestTheTeamEditorsRead:
 
         minted, never_mailed, mailed, none = await on_a_league(mongo_replica_set_url, body)
 
-        assert (never_mailed.id, never_mailed.delivery) == (minted, None)
-        assert (mailed.id, mailed.delivery.state) == (SEEDED_INVITATION, "sent")
+        assert (never_mailed.id, never_mailed.sent_at, mailed.id) == (minted, None, SEEDED_INVITATION)
         assert none is None
 
 
@@ -674,7 +673,7 @@ class TestTheSeasonWidePress:
             # The seeded link never mailed, so the press revokes it and reaches the insert that fails.
             await database[Collection.INVITATIONS].update_one({"_id": SEEDED_INVITATION}, {"$set": {"sent_at": None}})
             collection = as_collection(_InsertFailsForOneTeam(database[Collection.INVITATIONS], ALREADY_MAILED))
-            done = await post_invitations_dispatch(
+            done = await post_invitations_mail(
                 saison_id=SAISON_ID,
                 saison_teams_collection=database[Collection.SAISON_TEAMS],
                 invitations_collection=collection,

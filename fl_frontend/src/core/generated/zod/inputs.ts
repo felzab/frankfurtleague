@@ -1346,7 +1346,7 @@ export const SaisonsSwapGruppenBody = zod
  * was, so pressing twice mails nobody twice.
  * @summary Mint every admitted team a link
  */
-export const SaisonsPostInvitationsDispatchParams = zod.object({
+export const SaisonsPostInvitationsMailParams = zod.object({
   saison_id: zod.string(),
 });
 
@@ -2466,7 +2466,7 @@ export const SpieltagePatchSpieltagBody = zod.object({
 });
 
 /**
- * One season's clubs, a `future` season's included, each with its seats and state, and what entering another offers.
+ * One season's clubs, a `future` season's included, each with its state, and what entering another offers.
  *
  * `state=retired` reads past the season's rows to every retired club, which is the way back to one, and `entry.closed`
  * is true where the season, not being `future`, takes no entry.
@@ -2820,18 +2820,18 @@ export const TeamsPostInvitationParams = zod.object({
  * one day owes nothing again.
  * @summary Mail this team's live registration link to its confirmed contact seats
  */
-export const teamsPostInvitationDispatchPathTeamIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
+export const teamsPostInvitationMailPathTeamIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
 
-export const TeamsPostInvitationDispatchParams = zod.object({
-  team_id: zod.string().regex(teamsPostInvitationDispatchPathTeamIdRegExp),
+export const TeamsPostInvitationMailParams = zod.object({
+  team_id: zod.string().regex(teamsPostInvitationMailPathTeamIdRegExp),
   saison_id: zod.string(),
 });
 
-export const teamsPostInvitationDispatchBodyInvitationIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
+export const teamsPostInvitationMailBodyInvitationIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
 
-export const TeamsPostInvitationDispatchBody = zod
+export const TeamsPostInvitationMailBody = zod
   .object({
-    invitation_id: zod.string().regex(teamsPostInvitationDispatchBodyInvitationIdRegExp),
+    invitation_id: zod.string().regex(teamsPostInvitationMailBodyInvitationIdRegExp),
   })
   .describe("The team's live link, to be mailed to its confirmed seats.");
 

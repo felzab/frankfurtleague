@@ -117,10 +117,10 @@ class TestTheBracketMustHaveAShape:
 class TestADrawIsNeverWorthMoreThanAWin:
     """Every table the league serves is derived from these two numbers, so a season rewarding a draw above a win scores itself incoherently."""
 
-    def test_refuses_widening_an_excess_that_already_exists(self):
-        """Worsening an excess is as much a step as introducing it, which is what stops the permission to repair one covering both."""
+    def test_refuses_an_excess_the_stored_rules_already_hold(self):
+        """Refused outright, a resubmission of the stored rules included: no stored season holds one to tolerate."""
 
-        refusal = judge(stored=rules(win=1, draw=2), proposed=rules(win=1, draw=3))
+        refusal = judge(stored=rules(win=1, draw=2), proposed=rules(win=1, draw=2))
 
         assert refusal is not None
         assert refusal.error_code == Code.RULES_UNENTSCHIEDEN_OUTVALUES_WIN
@@ -305,10 +305,10 @@ class TestNarrowingBelowAMatchdaysSpiele:
 class TestAGroupCannotQualifyMoreThanItHolds:
     """More qualifiers than teams asks each group for a placing no standing will ever hold; a browser warning alone lets the save through."""
 
-    def test_refuses_widening_an_excess_that_already_exists(self):
-        """Worsening an excess is as much a step as introducing it, which is what stops the permission to repair one covering both."""
+    def test_refuses_an_excess_the_stored_rules_already_hold(self):
+        """Refused outright, a resubmission of the stored rules included: no stored season holds one to tolerate."""
 
-        refusal = judge(stored=rules(groups=2, qualifiers=4, per_group=2), proposed=rules(groups=2, qualifiers=8, per_group=2))
+        refusal = judge(stored=rules(groups=2, qualifiers=4, per_group=2), proposed=rules(groups=2, qualifiers=4, per_group=2))
 
         assert refusal is not None
         assert refusal.error_code == Code.RULES_QUALIFIERS_ABOVE_GRUPPE

@@ -442,7 +442,7 @@ class _CommitOfUnknownOutcomeForOneTeam:
 Pressed = tuple[int, float, tuple[int, int], dict[ObjectId, list[ObjectId]], dict[ObjectId, ObjectId]]
 
 
-DISPATCH_PATH = f"/api/saisons/{SAISON_ID}/invitations/dispatch"
+MAIL_PATH = f"/api/saisons/{SAISON_ID}/invitations/mail"
 
 
 @pytest.fixture(scope="module")
@@ -486,7 +486,7 @@ async def _pressed(served: FastAPI, url: str, stand_in: Callable[[AsyncCollectio
             transport = ASGITransport(app=served, raise_app_exceptions=False)
             async with AsyncClient(transport=transport, base_url=TEST_BASE_URL) as http:
                 started = time.monotonic()
-                response = await http.post(DISPATCH_PATH, headers=ADMIN_HEADERS)
+                response = await http.post(MAIL_PATH, headers=ADMIN_HEADERS)
                 elapsed = time.monotonic() - started
         finally:
             # The app outlives the case, so the stand-in goes with it.

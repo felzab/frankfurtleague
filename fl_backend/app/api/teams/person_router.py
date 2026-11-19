@@ -16,7 +16,7 @@ from app.api.aufstellungen.schemas import FLAufstellungMarks
 from app.api.aufstellungen.services import aufstellung_marks, aufstellung_stands
 from app.api.identity.crud import roles_of
 from app.api.identity.lookup import SubjectLookup
-from app.api.identity.services import find_role_refusal, holds_a_seat, own_seats, seat_is_confirmed, seats_on
+from app.api.identity.services import find_role_refusal, holds_a_seat, own_seats
 from app.api.registrierungen.crud import pull_open_registrierungen
 from app.api.registrierungen.services import registrierung_is_confirmed
 from app.api.saisons.services import SPIELTAG_POSITION_LOOKUP, matchday_of
@@ -46,7 +46,7 @@ from app.api.teams.schemas import FLTeamSeat
 from app.api.teams.services import build_team_spiele_filter
 from app.core.clock import utc_stamp
 from app.core.collections import Collection
-from app.core.crud import aggregate_many_from_db, patch_past_the_version_in_db, refuse
+from app.core.crud import aggregate_many_from_db, patch_past_the_version_in_db, pull_one_from_db, pull_whole_from_db, refuse
 from app.core.dependencies import (
     DBClient,
     GermanDay,
@@ -63,6 +63,7 @@ from app.core.readonly import ReadCollection
 from app.core.routing import by_id
 from app.core.security import PERSON_TIER, PersonIdentifier
 from app.core.transactions import transact
+from app.shared.einwilligung import seat_is_confirmed
 from app.shared.einwilligung_evidence import FLEinwilligungChoice
 from app.shared.schemas.custom import CustomObjectId
 from app.shared.schemas.einwilligung import FLSeatEinwilligungPayload, by_choice
@@ -76,14 +77,14 @@ router = APIRouter(
 
 def _as_seat(kontakte: Mapping[str, Any], slot: FLKontaktSeat, *, also: FLKontaktSeat | None) -> FLTeamSeat:
     person = kontakte.get(slot)
-    if not isinstance(person, Mapping):
+    if person is None:
         return FLTeamSeat.model_validate({"seats": [slot], "name": None, "confirmed": False})
 
     return FLTeamSeat.model_validate(
         {
             "seats": [slot] if also is None else [slot, also],
             "name": " ".join(str(person.get(field) or "").strip() for field in ("first_name", "last_name")).strip() or None,
-            "confirmed": seat_is_confirmed({"kontakte": kontakte}, slot),
+            "confirmed": seat_is_confirmed(person),
         }
     )
 
@@ -94,7 +95,7 @@ def _seats_of(kontakte: Mapping[str, Any]) -> list[FLTeamSeat]:
     Only beside a Trainer who stands: an emptied Trainer's seat names nobody whose second seat it could be.
     """
 
-    also: FLKontaktSeat | None = kontakte.get("trainer_is_also") if isinstance(kontakte.get("trainer"), Mapping) else None
+    also: FLKontaktSeat | None = kontakte.get("trainer_is_also") if kontakte.get("trainer") is not None else None
 
     return [_as_seat(kontakte, slot, also=also if slot == "trainer" else None) for slot in KONTAKT_SEATS if slot != also]
 
@@ -300,9 +301,14 @@ async def _pull_team_spiele(
         collection=spiele_collection, pipeline=_team_spiele_pipeline(saison_id=saison_id, team_id=team_id), session=session
     )
     team_ids = {(spiel.get(side) or {}).get("team_id") for spiel in spiele for side in ("team1", "team2")} - {None}
-    junctions = await saison_teams_collection.find(
-        {"saison_id": saison_id, "team_id": {"$in": sorted(team_ids, key=str)}}, JUDGED_JUNCTION_FIELDS, session=session
-    ).to_list(length=None)
+    # Bounded by the season's clubs, far below the read's cap.
+    junctions = await pull_whole_from_db(
+        collection=saison_teams_collection,
+        db_filter={"saison_id": saison_id, "team_id": {"$in": sorted(team_ids, key=str)}},
+        what=f"season {saison_id}'s clubs facing team {team_id}",
+        projection=JUDGED_JUNCTION_FIELDS,
+        session=session,
+    )
 
     return spiele, junctions
 
@@ -334,18 +340,16 @@ async def get_team_overview(
     refuse(find_role_refusal(seats=subject.seats, team_id=team_id, saison_id=saison_id))
 
     # The seat just judged lives on this row, read in the same snapshot, so it stands.
-    row = await saison_teams_collection.find_one(
-        {"saison_id": saison_id, "team_id": team_id},
-        [
-            "name",
+    row = await pull_one_from_db(
+        collection=saison_teams_collection,
+        db_filter={"saison_id": saison_id, "team_id": team_id},
+        projection=[
             "shorthand",
-            "trikot_farbe",
             *(f"kontakte.{slot}.{field}" for slot in KONTAKT_SEATS for field in ("first_name", "last_name", "einwilligung.confirmed_at")),
         ],
         session=session,
     )
-    team = await teams_collection.find_one({"_id": team_id}, ["full_name"], session=session)
-    assert row is not None and team is not None
+    team = await pull_one_from_db(collection=teams_collection, db_filter={"_id": team_id}, projection=["full_name"], session=session)
     spiele, junctions = await _pull_team_spiele(
         spiele_collection=spiele_collection,
         saison_teams_collection=saison_teams_collection,
@@ -386,20 +390,13 @@ async def get_team_overview(
         marks = _marks_of(spiel, germany_now)
         # Open work alone: one the team can still enter, on a fixture still to be played.
         if marks is not None and not marks.stored and marks.phase != "locked":
-            aufstellungen.append(
-                FLTeamPanelAufstellung(spiel_id=spiel["_id"], ansetzung=view_ansetzung_of(spiel), side=_side_of(spiel, team_id), marks=marks)
-            )
+            aufstellungen.append(FLTeamPanelAufstellung(spiel_id=spiel["_id"], ansetzung=view_ansetzung_of(spiel), marks=marks))
 
     kontakte = row.get("kontakte") or {}
 
     return FLTeamOverviewResponse(
-        team_id=team_id,
-        saison_id=saison_id,
-        name=row["name"],
         shorthand=row["shorthand"],
         full_name=team["full_name"],
-        trikot_farbe=row.get("trikot_farbe"),
-        held_seats=seats_on(subject.seats, team_id=team_id, saison_id=saison_id),
         spielbestaetigungen=spielbestaetigungen,
         aufstellungen=aufstellungen,
         registrierungen=[
@@ -408,7 +405,6 @@ async def get_team_overview(
                     "registrierung_id": registrierung["_id"],
                     "first_name": registrierung["first_name"],
                     "last_name": registrierung["last_name"],
-                    "submitted_at": registrierung["submitted_at"],
                     "position": registrierung.get("position"),
                     "stufe": registrierung.get("stufe"),
                     "admissible": registrierung_is_confirmed(einwilligung=registrierung.get("einwilligung")),

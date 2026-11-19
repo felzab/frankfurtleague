@@ -13,7 +13,7 @@ from app.shared.schemas.custom import CustomObjectId
 from app.shared.schemas.literals import FLGruppenNames
 
 # How much enumeration the bracket's advance will pay for inside the write transaction it holds open.
-# Past it the separation test answers the group instead, soundly rather than exactly.
+# Past it the group decides no placing yet, and seeds once no more than this many fixtures stay open.
 CERTAINTY_SPIEL_LIMIT = 8
 
 
@@ -329,7 +329,7 @@ def _decide_one_gruppe(
     still_to_play: Mapping[CustomObjectId, int],
     has_unattributable: bool,
 ) -> DecidedStanding:
-    """One group's decided placings: exact by walking every ending inside `CERTAINTY_SPIEL_LIMIT`, and sound above it."""
+    """One group's decided placings, by walking every ending of its open fixtures; none while more than `CERTAINTY_SPIEL_LIMIT` are open."""
 
     # `_spiele_by_gruppe` attributes only fixtures with both sides known, so the two side checks
     # below narrow the type rather than branch.
@@ -347,20 +347,13 @@ def _decide_one_gruppe(
     placeable = frozenset(team.id for team in teams if _may_hold_a_platz(team, still_to_play.get(team.id, 0), decided_on))
     is_complete = not open_pairs and not has_unattributable
 
-    if has_unattributable:
+    if has_unattributable or len(open_pairs) > CERTAINTY_SPIEL_LIMIT:
         return DecidedStanding(eligible=len(placeable), is_complete=is_complete, by_platz={})
 
     # Every member, never `placeable` alone: filtering before the ranking drops a departed club's
     # results from the mini-table the displayed table computes with them, so the two surfaces order
     # one group differently.
     settled = frozenset(team.id for team in teams if still_to_play.get(team.id, 0) == 0)
-
-    if len(open_pairs) > CERTAINTY_SPIEL_LIMIT:
-        return DecidedStanding(
-            eligible=len(placeable),
-            is_complete=is_complete,
-            by_platz=_separated_placings(teams, spiele, rules, still_to_play, settled, placeable),
-        )
 
     by_id = {team.id: team for team in teams}
     base = {team.id: team.statistik.punkte for team in teams}
@@ -411,46 +404,6 @@ def _decide_one_gruppe(
             break
 
     return DecidedStanding(eligible=len(placeable), is_complete=is_complete, by_platz=decided or {})
-
-
-def _separated_placings(
-    teams: Sequence[FLTeam],
-    spiele: Sequence[FLSpielCommon],
-    rules: FLSaisonRules,
-    still_to_play: Mapping[CustomObjectId, int],
-    settled: Set[CustomObjectId],
-    placeable: Set[CustomObjectId],
-) -> Mapping[int, FLTeam]:
-    """The placings no ending of an outstanding fixture can reach.
-
-    Sound rather than exact: a placing two clubs could each take but never both is declined, which
-    reports as not yet decided.
-    """
-
-    # The largest of the three, never `win_points`: the rules check refuses a draw worth more
-    # than a win only where the excess grows, so a season already holding one arrives, and nothing orders a loss below either.
-    ceiling = max(rules.win_points, rules.draw_points, rules.loss_points)
-    lo = {team.id: team.statistik.punkte for team in teams}
-    hi = {team.id: lo[team.id] + ceiling * still_to_play.get(team.id, 0) for team in teams}
-
-    def separated(holder: FLTeam, other: FLTeam) -> bool:
-        if lo[other.id] > hi[holder.id] or hi[other.id] < lo[holder.id]:
-            return True
-
-        # A level pair is admitted only where `_break_tie` reads figures no ending can move. Where the
-        # holder itself has a match left, its band is never broken, so nothing below points decides it.
-        return holder.id in settled and other.id in settled and lo[other.id] == lo[holder.id]
-
-    return {
-        platz: holder
-        for platz, holder in _placings(teams, lo, settled, spiele, rules, placeable).items()
-        # `_placings` seeds only a club already in `placeable`, and the one way out of that set is a
-        # call-off emptying what it has left to play, which takes nothing counted with it.
-        if holder.statistik.count_played_spiele > 0
-        # Asked of every club, a departed one included: `_tiers` leaves a band whole while any member
-        # is unsettled, so a club that can hold no placing of its own can still cost the holder one.
-        and all(other.id == holder.id or separated(holder, other) for other in teams)
-    }
 
 
 def _placings(
