@@ -611,7 +611,7 @@ def build_erasure_due_pipeline(*, kept: frozenset[str], pending_addresses: Abstr
     """Every due pupil's id and address: `erasure_due` as one read."""
 
     return [
-        # The `$type` term keeps an addressless pupil out: the registry erases by address.
+        # The `$type` term keeps an addressless pupil out: the erasure goes by address.
         {"$match": {"email": {"$type": "string", "$nin": sorted(pending_addresses)}}},
         {
             "$lookup": {

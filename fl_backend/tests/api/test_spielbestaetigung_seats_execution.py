@@ -122,7 +122,7 @@ async def on_a_league(url: str, body: Write) -> Any:
 
 
 async def erase_the_trainer(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-    """The erasure registry's seat member, given the rows the person erasure reads for it."""
+    """The erasure's seat step, given the rows the person erasure reads for it."""
 
     identifier = "ida@example.com"
 
