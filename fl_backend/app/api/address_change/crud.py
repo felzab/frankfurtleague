@@ -129,7 +129,8 @@ async def read_the_holdings(
         pipeline=[{"$match": rows_seating(identifier)}, {"$project": dict(_SEAT_FIELDS)}, {"$sort": {"_id": 1}}],
         session=session,
     )
-    # Every status: an accepted application keeps its seats, and the erasure of the new address reaches them only there.
+    # Every status: a declined application keeps its seats until its own clock, and the erasure of the new address reaches
+    # them only there.
     bewerbung_rows = await aggregate_many_from_db(
         collection=records.bewerbungen_collection,
         pipeline=[{"$match": rows_seating(identifier)}, {"$project": {"kontakte": 1, "confirmations": 1}}, {"$sort": {"_id": 1}}],

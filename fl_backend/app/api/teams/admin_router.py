@@ -30,8 +30,6 @@ from app.api.invitations.services import (
     owed_invitation_mails,
     plan_invitation_mail,
 )
-from app.api.kontakte.crud import clear_seats
-from app.api.kontakte.services import SEAT_FIELDS, build_accepted_application_pipeline, seated_people
 from app.api.outbox.crud import states_of
 from app.api.outbox.services import OwedMail, enqueue_mails
 from app.api.registrierungen.services import saison_takes_registrierungen
@@ -109,7 +107,6 @@ from app.core.crud import (
 )
 from app.core.dependencies import (
     AufstellungenCollection,
-    BewerbungenCollection,
     DBClient,
     GermanDay,
     GermanyNow,
@@ -136,7 +133,6 @@ from app.core.recording import record_act
 from app.core.routing import by_id
 from app.core.transactions import transact
 from app.shared.schemas.custom import CustomObjectId
-from app.shared.schemas.literals import KONTAKT_SEATS
 from app.shared.schemas.responses import FLVersionResponse
 from app.shared.tokens import mint_token
 
@@ -777,7 +773,6 @@ async def replace_saison_team(
     saisons_collection: SaisonsCollection,
     spiele_collection: SpieleCollection,
     saison_spieler_collection: SaisonSpielerCollection,
-    bewerbungen_collection: BewerbungenCollection,
     aufstellungen_collection: AufstellungenCollection,
     db: DBClient,
     today: GermanDay,
@@ -795,22 +790,13 @@ async def replace_saison_team(
     await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["_id"])
 
     async def hand_the_row_over(session: AsyncClientSession) -> None:
-        # For the 404 and the people leaving with the row, and deliberately not a read of the club it
+        # For the 404, and deliberately not a read of the club it
         # names: a replacement repairs a row whose `team_id` resolves to no `teams` document, so nothing
         # here may require one.
-        outgoing_raw = await pull_one_from_db(
+        await pull_one_from_db(
             collection=saison_teams_collection,
             db_filter={"saison_id": saison_id, "team_id": team_id},
-            projection=[f"kontakte.{slot}.{field}" for slot in KONTAKT_SEATS for field in SEAT_FIELDS],
-            session=session,
-        )
-        outgoing, outgoing_names = seated_people(outgoing_raw)
-
-        # The club's accepted application seated them first, and a team's exit deletes its contacts at
-        # once, so their seats there go too.
-        applications = await aggregate_many_from_db(
-            collection=bewerbungen_collection,
-            pipeline=build_accepted_application_pipeline(saison_id=saison_id, team_id=team_id),
+            projection=["_id"],
             session=session,
         )
 
@@ -879,11 +865,6 @@ async def replace_saison_team(
             expected_version=None,
             return_document=ReturnDocument.AFTER,
         )
-        # By address and by name, the application being reached by document:
-        # it spells an address the editor corrected on the row the old
-        # way. Its other people keep their seats.
-        await clear_seats(bewerbungen_collection, applications, outgoing, session, names=outgoing_names)
-
         # Ausgetragen, not moved: the players did not transfer, and a row left standing would name a
         # season its club now holds no junction row in, a squad row the squad's save refuses to create.
         # Live rows alone, so an earlier exit keeps its own date.

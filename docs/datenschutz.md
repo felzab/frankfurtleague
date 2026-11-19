@@ -403,7 +403,9 @@ bound's conditions follow the table.
   who confirmed a seat is owed the notice in the same write.
 - **A declined application or registration** goes 14 days after the decision. The decline's mail
   says so, for a registration to a confirmed pupil.
-- **An accepted application** goes once a season after the one it applied for has ended.
+- **An accepted application** goes once a season after the one it applied for has ended. Its
+  acceptance moves its three people to the season row and empties its own seats, keeping each
+  seat's link and the day its person confirmed it, which a reopened link shows.
 - **A season row's contact seats** are cleared once the season after theirs has ended, their links
   with them. **Its unconfirmed seat** is emptied by the first hourly pass past its own 14 days,
   whatever the season's status, its link and any reason typed from it with it.

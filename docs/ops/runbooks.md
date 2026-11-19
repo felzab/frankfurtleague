@@ -1129,8 +1129,9 @@ and no record model expresses the pairing either, so the read-back (§2) reports
 **It sits on TWO collections, three seats each, and clearing one leaves the other.** One pair of
 declarations builds the block on a `saison_teams` row and on the `bewerbungen` document the people
 were collected on
-([`../glossary.md`](../glossary.md#kontakte--the-three-people-the-league-reaches-a-team-through)),
-so an accepted school holds each date twice. **The clear is run by hand against the cluster, as every
+([`../glossary.md`](../glossary.md#kontakte--the-three-people-the-league-reaches-a-team-through)).
+An open or declined application holds its own seats, and its acceptance moves them to the season
+row, emptying the application's. **The clear is run by hand against the cluster, as every
 migration here is** (§2): a file run with `mongosh --file` in a terminal, the backend image
 carrying no database shell. Four things decide whether that file is right:
 

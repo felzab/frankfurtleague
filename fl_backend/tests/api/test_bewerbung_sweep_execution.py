@@ -395,6 +395,7 @@ class TestTheReminderClock:
                 "sent_at": TODAY,
                 "deadline": confirmation_deadline_from(today=TODAY),
                 "reminded_at": None,
+                "confirmed_at": None,
                 "declined_at": None,
             }
 

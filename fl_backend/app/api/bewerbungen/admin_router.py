@@ -31,6 +31,7 @@ from app.api.bewerbungen.services import (
     build_entry_offer_pipeline,
     build_resend_filter,
     claimed_pair_seat,
+    compose_acceptance_seats,
     compose_kontakt_seat_update,
     compose_new_team,
     compose_resend_update,
@@ -223,7 +224,7 @@ async def get_bewerbung(
         entry=entry,
         name=schule_name(bewerbung_raw=bewerbung_raw, team_names=team_names),
         shorthand=team_codes.get(team_id),
-        seats_confirmed=seats_confirmed_of(kontakte=bewerbung_raw.get("kontakte")),
+        seats_confirmed=seats_confirmed_of(kontakte=bewerbung_raw.get("kontakte"), confirmations=bewerbung_raw.get("confirmations")),
         duplicate=is_duplicate(row=bewerbung_raw, doubled=teams),
         saison=offer,
     )
@@ -368,9 +369,16 @@ async def accept_bewerbung(
             # retry's read refuses it, so no status term is reached.
             db_filter={"_id": bewerbung_id},
             # `team_id` too: a new school's application named none until this write, and without it
-            # nothing joins the accepted application to the club it produced. `kontakte` stays as answered:
-            # only the season row's copy moves after.
-            update={"$set": {"status": "accepted", "team_id": team_id, "decision": _decision(today=today, reason=None)}},
+            # nothing joins the accepted application to the club it produced. The people leave with the
+            # season row's copy, so one copy of each stands.
+            update={
+                "$set": {
+                    "status": "accepted",
+                    "team_id": team_id,
+                    "decision": _decision(today=today, reason=None),
+                    **compose_acceptance_seats(kontakte=bewerbung_raw["kontakte"], confirmations=bewerbung_raw.get("confirmations")),
+                }
+            },
             session=session,
             expected_version=acceptance_data.version,
             return_document=ReturnDocument.BEFORE,

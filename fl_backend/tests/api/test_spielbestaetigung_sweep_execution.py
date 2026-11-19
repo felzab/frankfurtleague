@@ -815,7 +815,6 @@ class TestAReplacedTeamsRowsClose:
                 saisons_collection=database[Collection.SAISONS],
                 spiele_collection=database[Collection.SPIELE],
                 saison_spieler_collection=database[Collection.SAISON_SPIELER],
-                bewerbungen_collection=database[Collection.BEWERBUNGEN],
                 aufstellungen_collection=database[Collection.AUFSTELLUNGEN],
                 db=client,
                 today=TODAY,

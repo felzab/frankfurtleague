@@ -34,7 +34,7 @@ from app.core.transactions import transaction_session
 from app.shared.tokens import hash_token
 from tests import documents
 from tests.app_client import app_client, app_under_test
-from tests.bewerbung_routes import answered, resent
+from tests.bewerbung_routes import answered, resent, viewed
 from tests.config import ADMIN_AUTH, ADMIN_KEY, grants_for_the_suite
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database
 from tests.delivery import a_mail_that_bounced
@@ -318,17 +318,34 @@ class TestAnAcceptanceEntersTheSchool:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await accept(database, client, PICKED_BEWERBUNG)
-            submitted = await stored_bewerbung(database, PICKED_BEWERBUNG)
-            rows = await junction_rows(database)
 
-            return submitted["kontakte"], rows[0]
+            return (await junction_rows(database))[0]
 
-        submitted, row = await on_a_league(mongo_replica_set_url, body)
+        row = await on_a_league(mongo_replica_set_url, body)
 
-        # Against the seed as well as against the application, so a copy of an emptied block cannot pass.
-        assert submitted == row["kontakte"] == KONTAKTE
+        # Against the seed, so a copy of an emptied block cannot pass.
+        assert row["kontakte"] == KONTAKTE
         # The bookkeeping block stays on the application: a hash copied into the junction would live there for a season.
         assert "confirmations" not in row
+
+    async def test_the_application_keeps_no_copy_of_them_and_a_reopened_link_still_shows_the_confirmation(self, mongo_replica_set_url: str):
+        """One copy of each person stands, the season row's; the application keeps each seat's day, which that person's link shows."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await accept(database, client, PICKED_BEWERBUNG)
+
+            return await stored_bewerbung(database, PICKED_BEWERBUNG), await viewed(database, f"{PICKED_BEWERBUNG}-trainer", today=TODAY)
+
+        stored, view = await on_a_league(mongo_replica_set_url, body)
+
+        assert stored["kontakte"] == {"trainer": None, "ansprechperson": None, "stellvertretung": None, "trainer_is_also": None}
+        assert [name for name in ("Wraxlington", "Quillhilde", "Bramblewick") if name in str(stored)] == []
+        assert {seat: entry["confirmed_at"] for seat, entry in stored["confirmations"].items()} == {
+            "trainer": "2126-01-16",
+            "ansprechperson": "2126-01-16",
+            "stellvertretung": "2126-01-16",
+        }
+        assert (view.state, view.answered_at) == ("confirmed", "2126-01-16")
 
     async def test_the_assigned_kit_colour_is_the_administrators_and_not_the_wish(self, mongo_replica_set_url: str):
         """A wish is not an assignment: two schools may wish for one colour, and the junction records what was given."""

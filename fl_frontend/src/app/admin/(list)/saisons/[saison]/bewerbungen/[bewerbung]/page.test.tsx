@@ -103,6 +103,27 @@ describe("a Dublette on the page its decision is taken on", () => {
   });
 });
 
+describe("an accepted application", () => {
+  /* Its acceptance emptied the seats, its people now its team's: rows reading „Niemand“ would tell the administrator the
+     school lost its contacts. */
+  it("shows no seats, its decision and its way to the team standing", async () => {
+    const read = readOf({ duplicate: false });
+    const empty = { trainer: null, ansprechperson: null, stellvertretung: null, trainer_is_also: null };
+    state.read = {
+      ...read,
+      bewerbung: { ...read.bewerbung, status: "accepted", team_id: ID, decision: { made_at: "2026-11-20", reason: null }, kontakte: empty },
+      seats_confirmed: 3,
+      entry: { gruppe: "A", trikot_farbe: null },
+    };
+
+    const page = BewerbungPage(PARAMS) as { props: { record: Promise<ReadRecord> } };
+    const { groups, acts } = await page.props.record;
+
+    expect(groups.map(({ kind }) => kind)).toStrictEqual(["facts"]);
+    expect(acts).toHaveLength(1);
+  });
+});
+
 describe("a seat the submission never mailed", () => {
   /* „Link senden“ is the one way to that person, and the application goes on its day without them. */
   it("can be sent its link from the row reading „Nicht gesendet“", async () => {
