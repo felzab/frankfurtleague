@@ -224,8 +224,8 @@ def with_link_state(row: Mapping[str, Any], *, today: str, states: Mapping[tuple
     Lapsed only on an unanswered seat: an answered seat's link has nothing left to collect.
     """
 
-    confirmations = row.get("confirmations")
-    if not isinstance(confirmations, Mapping):
+    confirmations: Mapping[str, Any] | None = row.get("confirmations")
+    if confirmations is None:
         return dict(row)
 
     def expired(seat: str, link: Mapping[str, Any]) -> bool:
@@ -236,8 +236,8 @@ def with_link_state(row: Mapping[str, Any], *, today: str, states: Mapping[tuple
         **row,
         "confirmations": {
             seat: {**link, "expired": expired(seat, link), "delivery": states.get((row["_id"], _seat_state(row, seat)))}
-            if isinstance(link, Mapping)
-            else link
+            if link is not None
+            else None
             for seat, link in confirmations.items()
         },
     }
@@ -268,10 +268,10 @@ def _identity_of(seat: Mapping[str, Any]) -> tuple[str, ...]:
     )
 
 
-def _seat_held_by(stored_slot: Any, *, seat: Mapping[str, Any]) -> Mapping[str, Any] | None:
+def _seat_held_by(stored_slot: Mapping[str, Any] | None, *, seat: Mapping[str, Any]) -> Mapping[str, Any] | None:
     """The stored seat where it holds the same person as the one being written, else `None`."""
 
-    if not isinstance(stored_slot, Mapping):
+    if stored_slot is None:
         return None
 
     # A difference the fold keeps is a handover even where it is a corrected typo: nothing here can
@@ -283,7 +283,7 @@ def _seat_held_by(stored_slot: Any, *, seat: Mapping[str, Any]) -> Mapping[str, 
     return stored_slot
 
 
-def _confirmation_held_by(stored_slot: Any, *, seat: Mapping[str, Any]) -> Mapping[str, Any] | None:
+def _confirmation_held_by(stored_slot: Mapping[str, Any] | None, *, seat: Mapping[str, Any]) -> Mapping[str, Any] | None:
     """The stored record, whole, where this slot holds the same person, else `None`.
 
     The scope, media answer, label and their evidence are the person's, and the payload spells none
@@ -300,7 +300,7 @@ def _confirmation_held_by(stored_slot: Any, *, seat: Mapping[str, Any]) -> Mappi
     return dict(einwilligung) if seat_is_confirmed(held) else as_unconfirmed(einwilligung)
 
 
-def _birth_date_held_by(stored_slot: Any, *, seat: Mapping[str, Any]) -> str | None:
+def _birth_date_held_by(stored_slot: Mapping[str, Any] | None, *, seat: Mapping[str, Any]) -> str | None:
     """The date this person already sits behind in this seat, or `None`."""
 
     # The identity alone and never the confirmation beside it: a seat can hold a date under no stamp,
@@ -314,19 +314,19 @@ def _birth_date_held_by(stored_slot: Any, *, seat: Mapping[str, Any]) -> str | N
     return str(held.get("birth_date")) if held.get("birth_date") else None
 
 
-def compose_kontakte_origin(*, kontakte: Mapping[str, Any], stored: Any) -> dict[str, Any]:
+def compose_kontakte_origin(*, kontakte: Mapping[str, Any], stored: Mapping[str, Any] | None) -> dict[str, Any]:
     """Each seat's record and its birthdate, off the stored block.
 
     A seat its person keeps keeps its record and its date. Any other keeps the record `compose_seat_block` bore it with,
     so nothing of a person who left travels to the one seated.
     """
 
-    stored_block = stored if isinstance(stored, Mapping) else {}
+    stored_block = stored or {}
     composed = dict(kontakte)
 
     for slot in KONTAKT_SEATS:
         seat = kontakte.get(slot)
-        if not isinstance(seat, Mapping):
+        if seat is None:
             continue
 
         stored_slot = stored_block.get(slot)
@@ -341,7 +341,7 @@ def compose_kontakte_origin(*, kontakte: Mapping[str, Any], stored: Any) -> dict
 
 
 def compose_seat_block(
-    *, stored: Any, seat: FLKontaktSeat, sent: Mapping[str, Any], today: str
+    *, stored: Mapping[str, Any] | None, seat: FLKontaktSeat, sent: Mapping[str, Any], today: str
 ) -> tuple[dict[str, Any], tuple[FLKontaktSeat, ...]]:
     """The whole block a seat write leaves, and the seats it writes, so one person is judged and stored as a block's save judges them.
 
@@ -350,7 +350,7 @@ def compose_seat_block(
     seat reaches both. `sent` holds `trainer_is_also` only where the caller sent it.
     """
 
-    block = dict(stored) if isinstance(stored, Mapping) else {**dict.fromkeys(KONTAKT_SEATS), "trainer_is_also": None}
+    block = dict(stored) if stored is not None else {**dict.fromkeys(KONTAKT_SEATS), "trainer_is_also": None}
     claim = block.get("trainer_is_also")
     if seat == "trainer":
         claim = sent.get("trainer_is_also", claim)
@@ -372,7 +372,7 @@ def find_kontakt_taken_refusal(*, kontakte: Mapping[str, Any], seats: Sequence[F
     """
 
     person = kontakte[seats[0]]
-    others = [held for slot in KONTAKT_SEATS if slot not in seats and isinstance(held := kontakte.get(slot), Mapping)]
+    others = [held for slot in KONTAKT_SEATS if slot not in seats and (held := kontakte.get(slot)) is not None]
 
     if sign_in_identifier(person["email"]) in {sign_in_identifier(str(held.get("email") or "")) for held in others}:
         return APIError(HTTPStatus.CONFLICT, Code.KONTAKT_EMAIL_TAKEN, fields=(("email",),))
@@ -393,13 +393,13 @@ def compose_kontakt_confirmation(*, today: str) -> dict[str, Any]:
     return {"token_hashes": [], "sent_at": today, "deadline": confirmation_deadline_from(today=today), "declined_at": None}
 
 
-def people_of(kontakte: Any) -> list[tuple[FLKontaktSeat, ...]]:
+def people_of(kontakte: Mapping[str, Any] | None) -> list[tuple[FLKontaktSeat, ...]]:
     """Each person the block seats, as the filled seats they hold, the Trainer beside the seat `trainer_is_also` names.
 
     One link per person: two would leave the first answering for a seat the second already answered.
     """
 
-    block = kontakte if isinstance(kontakte, Mapping) else {}
+    block = kontakte or {}
     also = block.get("trainer_is_also")
     people: list[tuple[FLKontaktSeat, ...]] = []
 
@@ -408,37 +408,36 @@ def people_of(kontakte: Any) -> list[tuple[FLKontaktSeat, ...]]:
             continue
 
         held: tuple[FLKontaktSeat, ...] = (slot, also) if slot == "trainer" and also in KONTAKT_SEATS else (slot,)
-        filled: tuple[FLKontaktSeat, ...] = tuple(seat for seat in held if isinstance(block.get(seat), Mapping))
+        filled: tuple[FLKontaktSeat, ...] = tuple(seat for seat in held if block.get(seat) is not None)
         if filled:
             people.append(filled)
 
     return people
 
 
-def links_owed(*, kontakte: Any, stored: Any) -> list[tuple[FLKontaktSeat, ...]]:
+def links_owed(*, kontakte: Mapping[str, Any], stored: Mapping[str, Any] | None) -> list[tuple[FLKontaktSeat, ...]]:
     """Each person this save newly seats, as the unconfirmed seats one fresh link answers for.
 
     Newly is `_seat_held_by`'s identity, so a corrected name is a handover here too: the seat's last
     link reached somebody this save may have just replaced.
     """
 
-    block = kontakte if isinstance(kontakte, Mapping) else {}
-    stored_block = stored if isinstance(stored, Mapping) else {}
+    stored_block = stored or {}
     owed: list[tuple[FLKontaktSeat, ...]] = []
 
-    for person in people_of(block):
-        if all(_seat_held_by(stored_block.get(seat), seat=block[seat]) is not None for seat in person):
+    for person in people_of(kontakte):
+        if all(_seat_held_by(stored_block.get(seat), seat=kontakte[seat]) is not None for seat in person):
             continue
 
         # A seat of the pair this person has already confirmed keeps its stamp and its link.
-        unconfirmed: tuple[FLKontaktSeat, ...] = tuple(seat for seat in person if not seat_is_confirmed(block[seat]))
+        unconfirmed: tuple[FLKontaktSeat, ...] = tuple(seat for seat in person if not seat_is_confirmed(kontakte[seat]))
         if unconfirmed:
             owed.append(unconfirmed)
 
     return owed
 
 
-def compose_confirmations_with(*, stored_confirmations: Any, minted: Mapping[str, Any]) -> dict[str, Any]:
+def compose_confirmations_with(*, stored_confirmations: Mapping[str, Any] | None, minted: Mapping[str, Any]) -> dict[str, Any]:
     """The whole link block a write leaves: each link minted, and every other seat's as stored.
 
     Whole rather than dotted: a `$set` into an absent or null block leaves it short of its keys, or is
@@ -446,7 +445,7 @@ def compose_confirmations_with(*, stored_confirmations: Any, minted: Mapping[str
     no seat keeps the link of the person who left it; an empty seat keeps a Widerspruch's record of itself.
     """
 
-    stored_links = stored_confirmations if isinstance(stored_confirmations, Mapping) else {}
+    stored_links = stored_confirmations or {}
 
     return {slot: minted[slot] if slot in minted else stored_links.get(slot) for slot in KONTAKT_SEATS}
 
@@ -499,7 +498,7 @@ def owed_kontakt_link(
     )
 
 
-def seats_one_link_answers(*, kontakte: Any, seat: FLKontaktSeat) -> tuple[FLKontaktSeat, ...]:
+def seats_one_link_answers(*, kontakte: Mapping[str, Any], seat: FLKontaktSeat) -> tuple[FLKontaktSeat, ...]:
     """The pressed seat and, where one person holds both, the other seat they have not confirmed."""
 
     for person in people_of(kontakte):
@@ -530,15 +529,15 @@ def find_kontakt_row_refusal(*, saison_status: Any, austritt: Any) -> APIError |
     return APIError(HTTPStatus.CONFLICT, Code.KONTAKT_ROW_WITHOUT_SAISON)
 
 
-def find_kontakt_seat_refusal(*, kontakte: Any, seat: str) -> APIError | None:
+def find_kontakt_seat_refusal(*, kontakte: Mapping[str, Any] | None, seat: str) -> APIError | None:
     """Why this seat is sent no fresh link, or `None`: it holds nobody, or its person has confirmed it.
 
     A fresh link on a confirmed seat would replace a spent one with a credential nothing can answer.
     """
 
-    slot = kontakte.get(seat) if isinstance(kontakte, Mapping) else None
+    slot = (kontakte or {}).get(seat)
 
-    if not isinstance(slot, Mapping) or seat_is_confirmed(slot):
+    if slot is None or seat_is_confirmed(slot):
         return APIError(HTTPStatus.CONFLICT, Code.KONTAKT_SEAT_WITHOUT_CONFIRMATION)
 
     return None

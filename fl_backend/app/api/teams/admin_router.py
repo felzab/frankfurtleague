@@ -949,7 +949,8 @@ async def resend_kontakt_confirmation(
 
         kontakte = stored.get("kontakte")
         refuse(find_kontakt_seat_refusal(kontakte=kontakte, seat=pressed))
-        assert isinstance(kontakte, Mapping)
+        # The refusal answered a null block, so this only narrows the type.
+        assert kontakte is not None
 
         seats = seats_one_link_answers(kontakte=kontakte, seat=pressed)
 

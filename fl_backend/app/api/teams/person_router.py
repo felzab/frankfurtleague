@@ -77,7 +77,7 @@ router = APIRouter(
 
 def _as_seat(kontakte: Mapping[str, Any], slot: FLKontaktSeat, *, also: FLKontaktSeat | None) -> FLTeamSeat:
     person = kontakte.get(slot)
-    if not isinstance(person, Mapping):
+    if person is None:
         return FLTeamSeat.model_validate({"seats": [slot], "name": None, "confirmed": False})
 
     return FLTeamSeat.model_validate(
@@ -95,7 +95,7 @@ def _seats_of(kontakte: Mapping[str, Any]) -> list[FLTeamSeat]:
     Only beside a Trainer who stands: an emptied Trainer's seat names nobody whose second seat it could be.
     """
 
-    also: FLKontaktSeat | None = kontakte.get("trainer_is_also") if isinstance(kontakte.get("trainer"), Mapping) else None
+    also: FLKontaktSeat | None = kontakte.get("trainer_is_also") if kontakte.get("trainer") is not None else None
 
     return [_as_seat(kontakte, slot, also=also if slot == "trainer" else None) for slot in KONTAKT_SEATS if slot != also]
 

@@ -110,14 +110,14 @@ class InvitationRecipient(NamedTuple):
     email: str
 
 
-def confirmed_recipients(*, kontakte: Any) -> list[InvitationRecipient]:
+def confirmed_recipients(*, kontakte: Mapping[str, Any] | None) -> list[InvitationRecipient]:
     """The mailboxes a link may be sent to, one entry per stored address, each the fold every payload stores."""
 
     recipients: list[InvitationRecipient] = []
     seen: set[str] = set()
 
     for seat in KONTAKT_SEATS:
-        entry = kontakte.get(seat) if isinstance(kontakte, Mapping) else None
+        entry = (kontakte or {}).get(seat)
         named = seat_named(seat)
         # An address nobody has proven gets no credential.
         if not seat_is_confirmed(entry) or named is None:
@@ -140,7 +140,7 @@ class InvitationMailPlan(NamedTuple):
     skipped: FLInvitationSkipReason | None
 
 
-def plan_invitation_mail(*, austritt: Any, kontakte: Any, invitation_raw: Mapping[str, Any] | None) -> InvitationMailPlan:
+def plan_invitation_mail(*, austritt: Any, kontakte: Mapping[str, Any] | None, invitation_raw: Mapping[str, Any] | None) -> InvitationMailPlan:
     """Who this team's link goes to, or why it is skipped.
 
     The season editor's rows and the press read this one plan, so a row never tells an administrator something the press
@@ -159,7 +159,7 @@ def plan_invitation_mail(*, austritt: Any, kontakte: Any, invitation_raw: Mappin
     if invitation_is_sent(invitation_raw):
         return InvitationMailPlan([], "already_sent")
 
-    if not isinstance(kontakte, Mapping):
+    if kontakte is None:
         return InvitationMailPlan([], "no_kontakt_block")
 
     recipients = confirmed_recipients(kontakte=kontakte)
