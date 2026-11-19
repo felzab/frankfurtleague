@@ -239,12 +239,14 @@ class FLAustrittNoticeData(BaseReadModel):
 
 
 class FLRegistrierungLinkData(BaseReadModel):
-    """A pupil's confirmation link; the window its mail states is a published bound, never carried here."""
+    """A pupil's confirmation link, owed by the submission or a corrected address."""
 
     kind: Literal["registrierung_confirmation"]
     # The junction row's name, else the club's: what the pupil registered for.
     team: str
     saison_id: str
+    # The link's last day, the registration's stored deadline: the one date the mail states, as its page does.
+    deadline: CustomDateString
 
 
 class FLRegistrierungAbsageData(BaseReadModel):

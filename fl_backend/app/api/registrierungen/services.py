@@ -148,17 +148,17 @@ def compose_confirmation(*, today: str, deadline: str, mailed: bool) -> dict[str
     return {"token_hashes": [], "sent_at": today if mailed else None, "deadline": deadline}
 
 
-def confirmation_mail(*, registrierung_id: Any, key: str, address: str, team: str, saison_id: str) -> OwedMail:
+def confirmation_mail(*, registrierung_id: Any, key: str, address: str, team: str, saison_id: str, deadline: str) -> OwedMail:
     """The pupil's confirmation mail, its link minted at the hand-out while the row still holds `address`.
 
     `team` is the junction row's name, off the club's season row and never a payload: anyone holding the team's link
-    could otherwise word the league's message.
+    could otherwise word the league's message. `deadline` is the one `compose_confirmation` stores.
     """
 
     return OwedMail(
         key=key,
         to=address,
-        data=FLRegistrierungLinkData(kind="registrierung_confirmation", team=team, saison_id=saison_id),
+        data=FLRegistrierungLinkData(kind="registrierung_confirmation", team=team, saison_id=saison_id, deadline=deadline),
         reference=FLOutboxReference(collection=Collection.REGISTRIERUNGEN, id=registrierung_id, seat=None),
         link=REGISTRIERUNG_LINK,
     )

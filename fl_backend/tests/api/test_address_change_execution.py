@@ -1546,7 +1546,7 @@ class TestWhatTheEffectLeavesTheErasure:
 
         reference = FLOutboxReference(collection=Collection.REGISTRIERUNGEN, id=UNCONFIRMED_REG_OID, seat=None)
         link = FLOutboxLink(paths=["confirmation.token_hashes"], addresses=["email"], replaced=False)
-        data = FLRegistrierungLinkData(kind="registrierung_confirmation", team="Quellbrunn", saison_id=SAISON_ID)
+        data = FLRegistrierungLinkData(kind="registrierung_confirmation", team="Quellbrunn", saison_id=SAISON_ID, deadline="2126-04-06")
         # Plus-tagged, so the mailbox is the new address's and no entry names the address itself, which refuses the change.
         tagged = [f"lenore.q+{index}@neupost.example.org" for index in range(3)]
 
@@ -1633,7 +1633,9 @@ class TestWhatTheEffectLeavesTheErasure:
         # Mailed or not, the row moves to the new address, which a fresh link's mail is addressed to.
         assert moved["email"] == new_address
         mailed = case in ("room", "same-mailbox")
-        assert [(mail["to"], mail["data"]["team"]) for mail in owed] == ([(new_address, "Quellbrunn")] if mailed else [])
+        # The fresh link's own deadline, which the mail states.
+        owed_now = [(mail["to"], mail["data"]["team"], mail["data"]["deadline"]) for mail in owed]
+        assert owed_now == ([(new_address, "Quellbrunn", "2126-04-15")] if mailed else [])
         assert (old["state"], old["to"]) == ("dropped", None)
 
     async def test_a_declined_registration_moves_too(self, mongo_replica_set_url: str):

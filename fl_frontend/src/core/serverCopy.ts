@@ -57,6 +57,8 @@ const APPLICATION_DEADLINE = {
   after: ". Bestätigt eine Kontaktperson nicht rechtzeitig, löschen wir die Bewerbung.",
 };
 const applicationDeadline = (until: CalendarDay) => `${APPLICATION_DEADLINE.before}${formatDateLong(until)}${APPLICATION_DEADLINE.after}`;
+// The same in a pupil's registration, which goes alone.
+const REGISTRATION_DEADLINE = { before: "Bestätigst du nicht bis zum ", after: ", löschen wir deine Registrierung." };
 const OBJECTION_RIGHT = {
   before:
     "Du kannst der Verarbeitung deiner Angaben jederzeit widersprechen, aus Gründen, die sich aus deiner besonderen Situation ergeben (Art.\u00A021 DSGVO). Eine formlose E-Mail an\u00A0",
@@ -661,9 +663,8 @@ export const SERVER_COPY = catalogue({
       confirmation: {
         subject: (team: string) => `Registrierung bestätigen: ${team}`,
         admission: "Erst wenn du bestätigt hast, kann dein Team dich aufnehmen.",
-        /** The deadline where the mail's data counts days, the page's sentence taking a day. */
-        deadlineIn: (days: number) =>
-          `Bestätigst du nicht innerhalb ${boundBy("von", formatNumber(days), "Tagen")}, löschen wir deine Registrierung.`,
+        /** The page's deadline in the two parts around its day: the builder sets the day semibold between them. */
+        deadline: REGISTRATION_DEADLINE,
       },
       absage: {
         subject: (team: string) => `Registrierung abgelehnt: ${team}`,
@@ -1314,7 +1315,7 @@ export const SERVER_COPY = catalogue({
     stored:
       "Wir speichern deinen Namen, deine E-Mail-Adresse, dein Geburtsdatum und, wenn du sie angegeben hast, Trikotnummer, Position und Stufe, längstens bis zum Ende der Saison danach.",
     ageCheck,
-    deadline: (until: CalendarDay) => `Bestätigst du nicht ${boundBy("bis", "zum", formatDateLong(until))}, löschen wir deine Registrierung.`,
+    deadline: (until: CalendarDay) => `${REGISTRATION_DEADLINE.before}${formatDateLong(until)}${REGISTRATION_DEADLINE.after}`,
     more: MORE,
     /** The first paragraph, its sentences in reading order. */
     text: (...sentences: Copy[]) => sentences.join(" "),

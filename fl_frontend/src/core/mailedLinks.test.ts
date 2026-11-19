@@ -75,7 +75,7 @@ const FACTS: { [A in OutboxKind]: Member<OutboxData, A> } = {
     team_id: "6890a1b2c3d4e5f607250011",
   },
   austritt_notice: { kind: "austritt_notice", saison_id: "2627", team: "Ahorn", spiele: [{ ...APPOINTMENT }] },
-  registrierung_confirmation: { kind: "registrierung_confirmation", saison_id: "2627", team: "Goethe-Gymnasium" },
+  registrierung_confirmation: { kind: "registrierung_confirmation", saison_id: "2627", team: "Goethe-Gymnasium", deadline: "2026-10-17" },
   registrierung_absage: { kind: "registrierung_absage", saison_id: "2627", team: "Goethe-Gymnasium", reason: null },
   invitation: { kind: "invitation", saison_id: "2627", team: "Goethe-Gymnasium" },
   bewerbung_received: {

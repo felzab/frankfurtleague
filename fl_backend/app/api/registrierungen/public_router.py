@@ -303,6 +303,7 @@ async def post_registrierung(
                     # the row is missing.
                     team=str((junction_raw or {}).get("name", "")),
                     saison_id=saison_id,
+                    deadline=deadline,
                 )
             ]
             if mailed

@@ -3,6 +3,7 @@ import "server-only";
 import { CONFIRMATION_DEADLINE_DAYS } from "./bounds";
 import { COPY } from "./copy";
 import { mailOrigin } from "./emailShell";
+import { dayOf, formatDateLong } from "./format";
 import { ROUTES } from "./routes";
 import { SERVER_COPY } from "./serverCopy";
 
@@ -24,12 +25,13 @@ function spielerConfirmationLink(origin: string, token: string): string {
 
 /**
  * The link a submission mints, named for the deadline the sweep deletes on. It names no pupil: this address has proved
- * nothing, and after a typo its stranger is owed no pupil's name. Its lead is the confirmation page's own.
- *
- * **The number is the backend's published bound, never a word here**: the mail and the page would otherwise state
- * two deadlines, and one would not move.
+ * nothing, and after a typo its stranger is owed no pupil's name. Its lead and its deadline are the confirmation
+ * page's own, the deadline the stored day the row carries, so the mail and the page name one day.
  */
-export function buildRegistrierungConfirmationEmail({ team, saison_id: saisonId }: FLRegistrierungLinkData, { origin, token }: MailLink): Mail {
+export function buildRegistrierungConfirmationEmail(
+  { team, saison_id: saisonId, deadline }: FLRegistrierungLinkData,
+  { origin, token }: MailLink,
+): Mail {
   // Through `mailOrigin` once, and the link minted on what it answered: a raw `AUTH_URL` with a
   // trailing slash would otherwise put `//confirm/spieler` in every registering pupil's mail.
   const site = mailOrigin(origin);
@@ -43,7 +45,7 @@ export function buildRegistrierungConfirmationEmail({ team, saison_id: saisonId 
     paragraphs: [
       [SERVER_COPY.registrierungConfirmation.opening({ record: team }, saisonId)],
       [WORDS.confirmation.admission],
-      [WORDS.confirmation.deadlineIn(CONFIRMATION_DEADLINE_DAYS)],
+      [[WORDS.confirmation.deadline.before, { strong: formatDateLong(dayOf(deadline)) }, WORDS.confirmation.deadline.after]],
     ],
     button: { label: COPY.page.registrierungConfirmation, href: spielerConfirmationLink(site, token) },
   };
