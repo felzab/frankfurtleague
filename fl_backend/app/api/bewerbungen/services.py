@@ -1085,33 +1085,6 @@ def deletion_day(*, kontakte: Mapping[str, Any] | None, confirmations: Mapping[s
     return _earliest_deadline(confirmations=confirmations, seats=pending_seats(kontakte=kontakte))
 
 
-def deletion_is_due(*, bewerbung_raw: Mapping[str, Any], today: str) -> bool:
-    """Whether the fourteen-day clock takes this application: submitted, an outstanding seat past its own deadline.
-
-    A seat's deadline is that person's: past it the application goes, however long another seat's fresh link still
-    runs, or a re-send of one seat would keep the others' details past their own (`build_deletion_filter`). A seat an
-    erasure emptied holds no deadline and takes nobody else, so that application goes once no seat's link runs.
-
-    Nothing about anybody's mail holds the day up: the people named were promised it, and `owed_deletion_notices` tells
-    whoever confirmed a seat.
-
-    Strictly past: the link answers on the deadline's own day, so the deletion waits a day. An
-    emptied seat is outstanding.
-    """
-
-    if bewerbung_raw.get("status") != "submitted":
-        return False
-
-    kontakte, confirmations = bewerbung_raw.get("kontakte"), bewerbung_raw.get("confirmations")
-    day = deletion_day(kontakte=kontakte, confirmations=confirmations)
-    if deadline_passed(deadline=day, today=today):
-        return True
-
-    days = [seat_deadline_of(confirmations=confirmations, seat=seat) for seat in KONTAKT_SEATS]
-
-    return None in days and not any(isinstance(other, str) and other >= today for other in days)
-
-
 def deletion_was_announced(*, bewerbung_raw: Mapping[str, Any]) -> bool:
     """Whether a Widerspruch's notice named this application's deletion day to its Ansprechperson, who is told nothing twice."""
 
@@ -1151,10 +1124,17 @@ def _lapsed_seat_term(*, seat: str, today: str) -> Mapping[str, Any]:
 
 
 def build_deletion_filter(*, saison_id: str, today: str) -> Mapping[str, Any]:
-    """Every application the fourteen-day clock may take, as a query: a confirmed one would otherwise fill the page ahead of a due one.
+    """Every application the fourteen-day clock takes: undecided, with an outstanding seat past its own deadline.
 
-    Each seat's two terms are `deletion_is_due`'s two arms: its own deadline passed unconfirmed, or the entry an erasure
-    emptied with no other seat's link running.
+    The clock's one statement, in the query, so a confirmed application never fills the read ahead of a due one.
+
+    A seat's deadline is that person's: past it the application goes, however long another seat's fresh link still
+    runs, or a re-send of one seat would keep the others' details past their own. Strictly past, as the link answers on
+    its deadline's own day. A seat a Widerspruch emptied is outstanding. A seat an erasure emptied holds no deadline, so
+    that application goes once no other seat's link runs.
+
+    Nothing about anybody's mail holds the day up: the people named were promised it, and `owed_deletion_notices` tells
+    whoever confirmed a seat.
     """
 
     passed = [_lapsed_seat_term(seat=seat, today=today) for seat in KONTAKT_SEATS]
@@ -1200,36 +1180,6 @@ def compose_lapsed_seats_update(*, kontakte: Mapping[str, Any] | None, seats: Se
     slots = {} if kontakte is None else {f"kontakte.{seat}": None for seat in seats}
 
     return {"$set": {**slots, **{f"confirmations.{seat}": None for seat in seats}}}
-
-
-def decline_erasure_is_due(*, bewerbung_raw: Mapping[str, Any], today: str) -> bool:
-    """Whether the decline clock takes this declined application, counted from the day the decision was taken."""
-
-    if bewerbung_raw.get("status") != "declined":
-        return False
-
-    decision = bewerbung_raw.get("decision")
-    made_at = None if decision is None else decision.get("made_at")
-
-    return isinstance(made_at, str) and days_after(day=made_at, days=CONFIRMATION_DEADLINE_DAYS) <= today
-
-
-def acceptance_erasure_is_due(*, bewerbung_raw: Mapping[str, Any], later_saison_status: Any) -> bool:
-    """The accepted clock, whose test the contact block shares: any season after the one applied for has ended.
-
-    The router asks it only while the season applied for is not `active`, the rule's other half.
-    """
-
-    return bewerbung_raw.get("status") == "accepted" and season_has_ended(saison_status=later_saison_status)
-
-
-def undecided_erasure_is_due(*, bewerbung_raw: Mapping[str, Any], saison_status: Any) -> bool:
-    """Whether the season's own end takes this application: undecided, and its season is over.
-
-    Nothing else is asked: a confirmed seat drops an application out of the fourteen-day clock.
-    """
-
-    return bewerbung_raw.get("status") == "submitted" and season_has_ended(saison_status=saison_status)
 
 
 def schule_name(*, bewerbung_raw: Mapping[str, Any], team_names: Mapping[Any, str]) -> str:
