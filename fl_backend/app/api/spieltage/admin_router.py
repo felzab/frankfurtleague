@@ -14,12 +14,7 @@ from app.api.spieltage.schemas import (
     FLSpieltagAdminResponse,
     FLSpieltagRecord,
 )
-from app.api.spieltage.services import (
-    dated_neighbour,
-    dated_start,
-    find_spieltag_order_refusal,
-    find_spieltag_span_refusal,
-)
+from app.api.spieltage.services import find_spieltag_order_refusal, find_spieltag_span_refusal
 from app.core.crud import anchor_in_db, patch_one_in_db, pull_one_from_db, refuse
 from app.core.dependencies import (
     DBClient,
@@ -98,22 +93,21 @@ async def _refuse_an_out_of_order_start(
         "saison_phase": stored_raw["saison_phase"],
         "start": {"$ne": None},
     }
-    neighbour_fields = {"position": 1, "start": 1}
     previous_raw = await spieltage_collection.find_one(
-        {**neighbourhood, "position": {"$lt": stored_raw["position"]}}, neighbour_fields, sort=[("position", -1)], session=session
+        {**neighbourhood, "position": {"$lt": stored_raw["position"]}}, {"start": 1}, sort=[("position", -1)], session=session
     )
     following_raw = await spieltage_collection.find_one(
-        {**neighbourhood, "position": {"$gt": stored_raw["position"]}}, neighbour_fields, sort=[("position", 1)], session=session
+        {**neighbourhood, "position": {"$gt": stored_raw["position"]}}, {"start": 1}, sort=[("position", 1)], session=session
     )
 
     refuse(
         find_spieltag_order_refusal(
             start=start,
-            # The read its neighbours go through as well, so what an undated row means is decided in
-            # one place rather than at each side of the comparison.
-            stored_start=dated_start(stored_raw),
-            previous=dated_neighbour(previous_raw),
-            following=dated_neighbour(following_raw),
+            # Each `start` as stored, string or null, and never through `str()`, which would turn an undated row into a day
+            # above every ISO date.
+            stored_start=stored_raw["start"],
+            previous_start=None if previous_raw is None else previous_raw["start"],
+            following_start=None if following_raw is None else following_raw["start"],
         )
     )
 

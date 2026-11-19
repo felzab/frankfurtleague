@@ -1,8 +1,6 @@
-from collections.abc import Mapping, Sequence
+from collections.abc import Sequence
 from http import HTTPStatus
-from typing import Any
 
-from app.api.spiele.schemas import unplayed_filter
 from app.core.codes import Code
 from app.core.exceptions import APIError
 from app.shared.schemas.addresses import FLAddress
@@ -11,12 +9,6 @@ from app.shared.schemas.addresses import FLAddress
 def compose_maps_query(name: str, address: FLAddress) -> str:
     """The Google Maps search, derived here so a client can never supply one."""
     return f"{name}, {address.to_string}, Deutschland"
-
-
-def build_unplayed_booking_filter(spielort_id: Any) -> Mapping[str, Any]:
-    """A venue's unplayed bookings."""
-
-    return {"spielort.spielort_id": spielort_id, **unplayed_filter()}
 
 
 def find_venue_retire_refusal(*, upcoming_spiel_nrs: Sequence[int]) -> APIError | None:

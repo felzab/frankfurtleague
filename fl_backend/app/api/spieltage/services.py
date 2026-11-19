@@ -1,5 +1,4 @@
 from collections.abc import Iterable, Mapping, Sequence
-from dataclasses import dataclass
 from http import HTTPStatus
 from typing import Any
 
@@ -89,46 +88,17 @@ def find_spieltag_span_refusal(
     return None
 
 
-@dataclass(frozen=True)
-class DatedNeighbour:
-    """One dated matchday beside the one being re-dated, inside the same phase of the same season."""
-
-    position: int
-    start: str
-
-
-def dated_start(spieltag_raw: Mapping[str, Any]) -> str | None:
-    """One stored `start` as the rule takes it, or `None` for an undated row.
-
-    The record model reads the field string-or-null, so nothing converts it: a `str()` would turn an undated row into
-    a day above every ISO date.
-    """
-
-    return spieltag_raw["start"]
-
-
-def dated_neighbour(spieltag_raw: Mapping[str, Any] | None) -> DatedNeighbour | None:
-    """The neighbouring row as the refusal takes it, or `None` where that side holds no dated matchday."""
-
-    if spieltag_raw is None:
-        return None
-
-    start = dated_start(spieltag_raw)
-
-    return None if start is None else DatedNeighbour(position=spieltag_raw["position"], start=start)
-
-
 def find_spieltag_order_refusal(
     *,
     start: str,
     stored_start: str | None,
-    previous: DatedNeighbour | None,
-    following: DatedNeighbour | None,
+    previous_start: str | None,
+    following_start: str | None,
 ) -> APIError | None:
     """Why this matchday's `start` must be refused for its place in the phase, or `None`.
 
-    `previous` and `following` are the nearest dated matchday below and above this `position`; an
-    undated one states no date to compare, so the caller passes neither.
+    `previous_start` and `following_start` are the starts of the nearest dated matchday below and above this
+    `position`, `None` where that side holds none; an undated one states no date to compare, so the caller steps over it.
     """
 
     # The step, never the state: an `end`-only edit resubmits this
@@ -138,10 +108,10 @@ def find_spieltag_order_refusal(
 
     # The predecessor first, and both are reachable at once only for a first dating landing between
     # two neighbours already out of order: the earlier position is the pair a reader checks first.
-    if previous is not None and moved_earlier and start < previous.start:
+    if previous_start is not None and moved_earlier and start < previous_start:
         return APIError(HTTPStatus.CONFLICT, Code.SPIELTAG_START_OUT_OF_ORDER)
 
-    if following is not None and moved_later and following.start < start:
+    if following_start is not None and moved_later and following_start < start:
         return APIError(HTTPStatus.CONFLICT, Code.SPIELTAG_START_OUT_OF_ORDER)
 
     return None

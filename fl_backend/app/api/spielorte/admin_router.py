@@ -4,6 +4,7 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.results import InsertOneResult
 
 from app.api.grants.guard import ADMIN_TIER
+from app.api.spiele.schemas import unplayed_filter
 from app.api.spielorte.schemas import (
     FLPatchSpielortPayload,
     FLPostSpielortPayload,
@@ -11,7 +12,7 @@ from app.api.spielorte.schemas import (
     FLSpielorteListResponse,
     FLSpielorteSingleResponse,
 )
-from app.api.spielorte.services import build_unplayed_booking_filter, compose_maps_query, find_venue_name_refusal, find_venue_retire_refusal
+from app.api.spielorte.services import compose_maps_query, find_venue_name_refusal, find_venue_retire_refusal
 from app.core.crud import (
     GERMAN_COLLATION,
     insert_live,
@@ -156,7 +157,7 @@ async def delete_spielort(
     async def retire_the_venue(session: AsyncClientSession) -> None:
         booked = await pull_whole_from_db(
             collection=spiele_collection,
-            db_filter=build_unplayed_booking_filter(spielort_id),
+            db_filter={"spielort.spielort_id": spielort_id, **unplayed_filter()},
             what=f"venue {spielort_id}'s unplayed fixtures",
             projection={"spiel_nr": 1},
             session=session,

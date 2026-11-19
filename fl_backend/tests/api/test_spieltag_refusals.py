@@ -1,7 +1,4 @@
-from app.api.spieltage.services import (
-    DatedNeighbour,
-    find_spieltag_order_refusal,
-)
+from app.api.spieltage.services import find_spieltag_order_refusal
 from app.core.codes import Code
 
 
@@ -16,14 +13,7 @@ class TestAMatchdayNeverBeginsBeforeItsPredecessor:
         previous: str | None = None,
         following: str | None = None,
     ):
-        """The neighbours as bare dates, at fixed positions: every case below turns on the dates alone."""
-
-        return find_spieltag_order_refusal(
-            start=start,
-            stored_start=stored,
-            previous=None if previous is None else DatedNeighbour(position=2, start=previous),
-            following=None if following is None else DatedNeighbour(position=4, start=following),
-        )
+        return find_spieltag_order_refusal(start=start, stored_start=stored, previous_start=previous, following_start=following)
 
     def test_a_first_dating_is_judged_against_both_sides(self):
         """An undated matchday sits in no pair, so its first date introduces whatever it lands in, in either direction."""
