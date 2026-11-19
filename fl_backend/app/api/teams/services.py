@@ -768,16 +768,12 @@ def teams_admin_rows(
     entered = {row["team_id"]: row for row in rows}
 
     def listed(row: Mapping[str, Any]) -> FLTeamsAdminRow:
-        kontakte = row.get("kontakte") or {}
-        seats = [seat for slot in KONTAKT_SEATS if isinstance(seat := kontakte.get(slot), Mapping)]
-
         return FLTeamsAdminRow(
             id=row["team_id"],
             name=row["name"],
             shorthand=row["shorthand"],
             gruppe=row["gruppe"],
             trikot_farbe=row.get("trikot_farbe"),
-            seats_confirmed=sum(1 for seat in seats if _seat_is_stamped(seat)),
             austritt_type=(row.get("austritt") or {}).get("type"),
             inactive_since=retired.get(row["team_id"]),
         )
@@ -792,7 +788,6 @@ def teams_admin_rows(
                 shorthand=team["shorthand"],
                 gruppe=None,
                 trikot_farbe=None,
-                seats_confirmed=0,
                 austritt_type=None,
                 inactive_since=team["inactive_since"],
             )

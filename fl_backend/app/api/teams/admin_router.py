@@ -13,10 +13,10 @@ from app.api.aufstellungen.crud import remove_the_seasons_aufstellungen
 from app.api.bewerbungen.services import assigned_trikot_farben, seat_named
 from app.api.grants.guard import ADMIN_TIER
 from app.api.invitations.schemas import (
+    FLInvitation,
     FLInvitationMailPayload,
     FLInvitationMailResponse,
     FLInvitationMintResponse,
-    FLInvitationRow,
     FLTeamLinkState,
 )
 from app.api.invitations.services import (
@@ -27,13 +27,12 @@ from app.api.invitations.services import (
     compose_sent_update,
     confirmed_recipients,
     find_invitation_saison_past_refusal,
-    invitation_reference,
     owed_invitation_mails,
     plan_invitation_dispatch,
 )
 from app.api.kontakte.crud import clear_seats
 from app.api.kontakte.services import SEAT_FIELDS, build_accepted_application_pipeline, seated_people
-from app.api.outbox.crud import state_of, states_of
+from app.api.outbox.crud import states_of
 from app.api.outbox.services import OwedMail, enqueue_mails
 from app.api.registrierungen.services import saison_takes_registrierungen
 from app.api.saisons.schemas import FLSaisonRules
@@ -266,14 +265,6 @@ async def write_the_contact_block(
     return [mint for _, mint in links]
 
 
-async def _served_invitation(live: Mapping[str, Any], *, outbox_collection: ReadCollection) -> FLInvitationRow:
-    """One live link as a read serves it, with what became of its last mail."""
-
-    state = await state_of(outbox_collection=outbox_collection, reference=invitation_reference(live["_id"]))
-
-    return FLInvitationRow.model_validate({**live, "delivery": state})
-
-
 @router.get(
     "",
     summary="One season's Teams list and what its create dialog offers",
@@ -284,7 +275,7 @@ async def get_teams_admin(
     saisons_collection: SaisonsReadCollection,
     filters: Annotated[FLTeamsAdminFilterParams, Depends()],
 ) -> FLTeamsAdminListResponse:
-    """One season's clubs, a `future` season's included, each with its seats and state, and what entering another offers.
+    """One season's clubs, a `future` season's included, each with its state, and what entering another offers.
 
     `state=retired` reads past the season's rows to every retired club, which is the way back to one, and `entry.closed`
     is true where the season, not being `future`, takes no entry.
@@ -292,20 +283,12 @@ async def get_teams_admin(
 
     saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": filters.saison_id}, projection=["status", "rules"])
     rows, teams = await concurrently(
-        # Each whole, as the group's fill is judged over every row. The seat's stamp and never its person: this list names none.
+        # Each whole, as the group's fill is judged over every row.
         pull_whole_from_db(
             collection=saison_teams_collection,
             db_filter={"saison_id": filters.saison_id},
             what=f"season {filters.saison_id}'s clubs",
-            projection=[
-                "team_id",
-                "name",
-                "shorthand",
-                "gruppe",
-                "trikot_farbe",
-                "austritt.type",
-                *[f"kontakte.{seat}.einwilligung.confirmed_at" for seat in KONTAKT_SEATS],
-            ],
+            projection=["team_id", "name", "shorthand", "gruppe", "trikot_farbe", "austritt.type"],
             sort_by=[("name", 1)],
             collation=GERMAN_COLLATION,
         ),
@@ -400,7 +383,7 @@ async def get_team_saison_admin(
     if row_raw is not None:
         registrierung = saison_raw.get("registrierung")
         link = FLTeamLinkState(
-            invitation=await _served_invitation(live[0], outbox_collection=outbox_collection) if live else None,
+            invitation=FLInvitation.model_validate(live[0]) if live else None,
             running=saison_takes_registrierungen(saison_status=saison_raw["status"], registrierung=registrierung),
             paused=registrierung is not None and not registrierung["open"],
             skipped=plan_invitation_dispatch(

@@ -544,7 +544,7 @@ class TestTheTeamsMailPress:
 
 
 class TestTheTeamEditorsRead:
-    async def test_it_serves_the_live_link_with_what_became_of_its_last_mail(self, mongo_replica_set_url: str):
+    async def test_it_serves_the_live_link(self, mongo_replica_set_url: str):
         """The editor's one read of a link: a failure here breaks the page for every club holding one."""
 
         async def body(database: AsyncDatabase) -> Any:
@@ -558,8 +558,7 @@ class TestTheTeamEditorsRead:
 
         minted, never_mailed, mailed, none = await on_a_league(mongo_replica_set_url, body)
 
-        assert (never_mailed.id, never_mailed.delivery) == (minted, None)
-        assert (mailed.id, mailed.delivery.state) == (SEEDED_INVITATION, "sent")
+        assert (never_mailed.id, never_mailed.sent_at, mailed.id) == (minted, None, SEEDED_INVITATION)
         assert none is None
 
 

@@ -7,14 +7,7 @@ import { linkFactsOf } from "./linkFacts";
 import type { FLTeamLinkState } from "@/core/generated/client/types";
 
 const SENT: FLTeamLinkState = {
-  invitation: {
-    id: "6890a1b2c3d4e5f607260011",
-    saison_id: "2026",
-    team_id: "6890a1b2c3d4e5f607260001",
-    revoked_at: null,
-    sent_at: "2026-09-02",
-    delivery: null,
-  },
+  invitation: { id: "6890a1b2c3d4e5f607260011", sent_at: "2026-09-02" },
   running: true,
   paused: false,
   skipped: "already_sent",

@@ -365,30 +365,6 @@ class TestTheList:
 
         assert await on_a_league(mongo_replica_set_url, body) == [["Adler", "Eule"], ["Bieber"]]
 
-    async def test_a_row_counts_its_seats_and_names_nobody(self, mongo_replica_set_url: str):
-        """The count of confirmed seats is the list's one fact about them, on a read that carries no person."""
-
-        async def body(database: AsyncDatabase) -> Any:
-            await database[Collection.SAISON_TEAMS].update_one(
-                {"team_id": ADLER},
-                {
-                    "$set": {
-                        "kontakte": {
-                            "trainer": kontaktperson_document("Ida", confirmed_at="2026-03-20"),
-                            "ansprechperson": kontaktperson_document("Jonas", confirmed_at=None),
-                            "stellvertretung": None,
-                            "trainer_is_also": None,
-                        }
-                    }
-                },
-            )
-
-            return (await listing(database, gruppe="A")).teams
-
-        rows = await on_a_league(mongo_replica_set_url, body)
-
-        assert [row.seats_confirmed for row in rows] == [1]
-
     async def test_the_entry_offers_the_teams_it_would_take(self, mongo_replica_set_url: str):
         """Neither a club already entered, which the unique index refuses, nor a retired one, which `team_retired` does."""
 
