@@ -193,8 +193,6 @@ def find_nominee_refusal(*, entries: Sequence[FLAufstellungEntry], kader: Sequen
 
 
 def judge_the_names(*, entries: Sequence[FLAufstellungEntry], new: set[ObjectId], nameless: int, kader: Sequence[Mapping[str, Any]]) -> None:
-    """Whom the line-up names, against the club's squad, as a save asks it inside its transaction."""
-
     refuse(find_not_in_kader_refusal(entries=entries, new=new, nameless=nameless, kader=kader))
     refuse(find_nominee_refusal(entries=entries, kader=kader))
 

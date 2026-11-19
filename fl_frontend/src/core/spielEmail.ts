@@ -33,7 +33,6 @@ const paarung = ({ team1, team2 }: Pick<FLSpielMailAppointment, "team1" | "team2
 
 const moment = ({ date, time }: FLSpielMailAppointment): string => formatDayAndTime(dayOf(date), timeOf(time));
 
-/** A sentence whose moment stands semibold between its two parts. */
 const around = (before: Copy, value: string, after: Copy): Sentence => [before, { strong: value }, after];
 
 /** The day and the hour, one fact to a row, so a reader scanning for the day finds it alone. */

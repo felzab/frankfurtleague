@@ -57,7 +57,6 @@ export async function generateMetadata({ params }: Props, parent: ResolvingMetad
   return teamMetadata(params, address, overviewOf, async () => pageMetadata(parent, ROUTES.teamOverview, address(await params)));
 }
 
-/** A stored day and hour as a match row writes them. */
 const whenOf = ({ date, time }: FLSpielbestaetigungAppointment): Copy => COPY.spielplan.when(dayOf(date), timeOf(time));
 
 const venueOf = (ansetzung: FLSpielbestaetigungViewAnsetzung): Words | null =>
