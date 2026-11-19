@@ -441,6 +441,19 @@ class TestTheEditorRead:
         assert link.skipped == "no_kontakt_block"
         assert link.paused is False
 
+    async def test_a_seat_serves_neither_its_birthdate_nor_its_consents_evidence(self, mongo_replica_set_url: str):
+        """Both are stored for the age check and the proof, and no page of the administration shows either."""
+
+        async def body(database: AsyncDatabase) -> Any:
+            seated = kontakte_document(trainer=kontaktperson_document("Theo", confirmed_at="2026-04-01"))
+            await database[Collection.SAISON_TEAMS].update_one({"team_id": ADLER}, {"$set": {"kontakte": seated}})
+            return (await editor(database)).model_dump(mode="json", by_alias=True)["membership"]["kontakte"]
+
+        kontakte = await on_a_league(mongo_replica_set_url, body)
+
+        assert set(kontakte["trainer"]) == {"first_name", "last_name", "email", "phone", "einwilligung"}
+        assert kontakte["trainer"]["einwilligung"] == {"scope": "kontakt_data", "confirmed_at": "2026-04-01", "media": False}
+
 
 REFEREE = ObjectId("6890a1b2c3d4e5f6072800c1")
 
