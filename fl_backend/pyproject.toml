@@ -23,16 +23,8 @@ dependencies = [
     # zone comes from; without it that call raises `ZoneInfoNotFoundError`.
     "tzdata>=2026.6",
     # The container's entrypoint -- the image's CMD runs uvicorn itself, so no module imports it and
-    # nothing else would declare it.
-    #
-    # `[standard]`, not bare, because uvicorn's defaults are `--loop auto` and `--http auto`: it
-    # uses uvloop and the httptools C parser when it can import them and silently drops to asyncio
-    # and h11 when it cannot. uvloop and httptools arrive only through this extra, so a bare
-    # `uvicorn` would change what the server runs on with nothing in the gate to show it. The extra
-    # also carries packages this application does not use, watchfiles and websockets among them --
-    # the alternative is hand-copying uvicorn's own platform markers for uvloop, which does not
-    # build on Windows, and owning that copy forever.
-    "uvicorn[standard]>=0.54.0",
+    # nothing else would declare it. Bare: the CMD names the loop and the parser it runs on.
+    "uvicorn>=0.54.0",
 ]
 
 [dependency-groups]

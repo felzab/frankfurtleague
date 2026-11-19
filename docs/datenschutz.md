@@ -412,7 +412,7 @@ bound's conditions follow the table.
 - **An unconfirmed registration** goes the day after its stored deadline, 14 days from the link.
 - **An admitted registration** goes in the admission's own transaction, with every other pending
   registration of its address that season.
-- **A pupil** goes once the season after their last squad season has ended, by the hourly pass after
+- **A pupil** goes once the season after their last squad season has ended, by the hourly passes after
   the activation.
 - **A registration link's entry** has no clock: the link ends with its season, its team's Austritt,
   or when withdrawn or replaced.

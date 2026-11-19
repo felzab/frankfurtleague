@@ -1,4 +1,3 @@
-from collections import Counter
 from collections.abc import Awaitable, Callable, Mapping
 from datetime import datetime
 from typing import Any
@@ -11,7 +10,6 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.registrierungen.system_router import sweep_registrierungen
 from app.core.collections import Collection
-from app.core.transactions import SWEEP_PAGE
 from app.shared.tokens import hash_token
 from tests.acts import deletions_of
 from tests.app_client import app_client, app_under_test
@@ -25,7 +23,6 @@ from tests.documents import (
     saison_team_document,
     team_document,
 )
-from tests.wire import commands_by_name
 from tests.worker import worker_database
 
 # Module level, as the other execution suites mark theirs: every test below reaches a real mongod.
@@ -174,7 +171,7 @@ class TestTheSeasonsOwnEnd:
 
         erasures, left = await on_a_league(mongo_replica_set_url, body, status="past")
 
-        # The decline clock's one page, then the season's end's: its four undecided rows, confirmed or not.
+        # The decline clock's one write, then the season's end's: its four undecided rows, confirmed or not.
         assert [(label, count) for _, label, count, _ in erasures] == [(SAISON_ID, 1), (SAISON_ID, 4)]
         # The other season's row alone: the declined one goes to the decline clock in the same pass,
         # and every removal here names this season.
@@ -205,76 +202,6 @@ class TestOneRowHoldsBackNoOther:
 
         assert answer.failed == 2
         assert {DECLINED_OID, EXPIRED_OID} <= set(left)
-
-
-# A page and a short one after it. At a page plus ONE the first read takes every row, so a clock
-# that stopped after one erasure would leave nothing behind and pass.
-OVERFLOW = SWEEP_PAGE + 5
-
-
-def overflowing(**overrides: Any) -> list[dict[str, Any]]:
-    """More due rows of one season than one page holds, each an id of its own."""
-
-    return [registrierung(ObjectId(f"6890a1b2c3d4e5f6079{position:05d}"), **overrides) for position in range(OVERFLOW)]
-
-
-class TestAPageAndOneMoreIsDrainedRatherThanRefused:
-    """More due rows than one page, which is the population only the erasure shrinks.
-
-    Seeded as real rows: a page size the endpoint took as an argument would be an API this
-    application has only because a test wants one.
-    """
-
-    @pytest.mark.parametrize(
-        ("clock", "overrides", "status"),
-        [
-            pytest.param("deadline", {"confirmation": confirmation(EXPIRED_OID, deadline=YESTERDAY)}, "active", id="deadline"),
-            pytest.param("season's end", {}, "past", id="season's end"),
-            pytest.param(
-                "decline",
-                {"status": "declined", "decision": {"made_at": "2026-02-15", "reason": None}},
-                "active",
-                id="decline",
-            ),
-        ],
-    )
-    async def test_every_due_row_goes_in_one_pass(self, mongo_replica_set_url: str, clock: str, overrides: Any, status: str):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.REGISTRIERUNGEN].delete_many({})
-            await database[Collection.REGISTRIERUNGEN].insert_many(overflowing(**overrides))
-            await sweep(database, client)
-            erasures = await deletions_of(database, "retention.registrierungen")
-
-            return sum(count or 0 for _, _, count, _ in erasures), await database[Collection.REGISTRIERUNGEN].count_documents(
-                {"saison_id": SAISON_ID}
-            )
-
-        erased_count, left = await on_a_league(mongo_replica_set_url, body, status=status)
-
-        assert (erased_count, left) == (OVERFLOW, 0), f"the {clock} clock left rows the next pass would read into the same full page"
-
-
-# The commands of the worst call, erasing one page per clock.
-COMMANDS = 9
-
-
-class TestTheWorstCallSendsTheCommandsItsBudgetCounts:
-    async def test_the_sweep(self, mongo_replica_set_url: str):
-        """Both erasing clocks take a page.
-
-        A command added to the call turns this red, so the call is judged against the request's deadline again.
-        """
-
-        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> tuple[list[int | None], Counter[str]]:
-            _, names = await commands_by_name(mongo_replica_set_url, DATABASE_NAME, sweep)
-
-            return [count for _, _, count, _ in await deletions_of(database, "retention.registrierungen")], names
-
-        erased, names = await on_a_league(mongo_replica_set_url, body)
-
-        # The decline clock's page and the deadline's, one row each.
-        assert erased == [1, 1]
-        assert sum(names.values()) == COMMANDS, names
 
 
 async def through_the_app(url: str, path: str, *, auth: Mapping[str, str]) -> tuple[int, list[Mapping[str, Any]]]:

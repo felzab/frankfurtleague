@@ -75,6 +75,9 @@ ENV APP_VERSION=$APP_VERSION
 # and a refusal's code uvicorn's could not. Importing the app takes uvicorn's own handlers off, so
 # what uvicorn still logs reaches the app's.
 
-# --timeout-graceful-shutdown at a request's whole bound, the deadline and its aborts' grace, so a
-# stop cancels no request still inside it; unset, uvicorn waits without limit.
-CMD ["tini", "--", "uvicorn", "app.asgi:app", "--host", "0.0.0.0", "--port", "8000", "--no-access-log", "--timeout-graceful-shutdown", "11"]
+# --loop asyncio --http h11, the pure-Python pair bare uvicorn ships with, named so that no import
+# decides what the server runs on.
+
+# --timeout-graceful-shutdown at the longest request's whole bound, an hourly pass's deadline and its
+# aborts' grace, so a stop cancels no request still inside it; unset, uvicorn waits without limit.
+CMD ["tini", "--", "uvicorn", "app.asgi:app", "--host", "0.0.0.0", "--port", "8000", "--no-access-log", "--loop", "asyncio", "--http", "h11", "--timeout-graceful-shutdown", "61"]

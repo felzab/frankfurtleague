@@ -1652,20 +1652,8 @@
         "type": "object"
       },
       "FLAddressChangeSweepResponse": {
-        "description": "One call's share of the live changes whose step lapsed or whose waiting time ended.",
+        "description": "One pass over the live changes whose step lapsed or whose waiting time ended; a pass the deadline cut leaves the rest due.",
         "properties": {
-          "after": {
-            "anyOf": [
-              {
-                "pattern": "^[0-9a-fA-F]{24}$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "After"
-          },
           "discarded": {
             "minimum": 0.0,
             "title": "Discarded",
@@ -1676,8 +1664,9 @@
             "title": "Effective",
             "type": "integer"
           },
-          "remaining": {
-            "title": "Remaining",
+          "failed": {
+            "minimum": 0.0,
+            "title": "Failed",
             "type": "integer"
           },
           "removed": {
@@ -1689,8 +1678,7 @@
           "removed",
           "discarded",
           "effective",
-          "remaining",
-          "after"
+          "failed"
         ],
         "title": "FLAddressChangeSweepResponse",
         "type": "object"
@@ -5007,20 +4995,8 @@
         "type": "object"
       },
       "FLErasureSweepResponse": {
-        "description": "One call's share of the season-after rule: what it erased, whom it passed over, and how many are still due.",
+        "description": "One pass of the season-after rule: what it erased and whom it passed over; a pass the deadline cut leaves the rest due.",
         "properties": {
-          "after": {
-            "anyOf": [
-              {
-                "pattern": "^[0-9a-fA-F]{24}$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "After"
-          },
           "completed_saison_id": {
             "anyOf": [
               {
@@ -5038,10 +5014,6 @@
           },
           "registrierungen": {
             "title": "Registrierungen",
-            "type": "integer"
-          },
-          "remaining": {
-            "title": "Remaining",
             "type": "integer"
           },
           "saison_spieler": {
@@ -5063,9 +5035,7 @@
           "saison_spieler",
           "registrierungen",
           "skipped",
-          "failed",
-          "remaining",
-          "after"
+          "failed"
         ],
         "title": "FLErasureSweepResponse",
         "type": "object"
@@ -16820,27 +16790,8 @@
     },
     "/api/address_change/sweep": {
       "post": {
-        "description": "End a share of the changes whose step lapsed, and make each due one take effect, or end it where its judgement now refuses it.\n\nA pass is a run of calls, each handing the next the `after` the last answered, ending at the call answering `after`\nnull; `remaining` is no stopping condition.",
+        "description": "End the changes whose step lapsed, and make each due one take effect, or end it where its judgement now refuses it.\n\nEach due change is saved on its own, the lapsed ones together; a change whose saving fails is counted in `failed` and\nstays due for the next pass.",
         "operationId": "address_change_sweep_address_change",
-        "parameters": [
-          {
-            "in": "query",
-            "name": "after",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "pattern": "^[0-9a-fA-F]{24}$",
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "After"
-            }
-          }
-        ],
         "responses": {
           "200": {
             "content": {
@@ -16865,7 +16816,8 @@
         "summary": "End the lapsed address changes, and make the due ones take effect",
         "tags": [
           "address_change"
-        ]
+        ],
+        "x-pass": true
       }
     },
     "/api/address_change/sweep/moves": {
@@ -17591,7 +17543,7 @@
     },
     "/api/bewerbungen/saisons/{saison_id}/sweep": {
       "post": {
-        "description": "Run one season's retention clocks as of today, each reminder and deletion notice owed in the write it belongs to.\n\nA row that cannot be written is passed over, counted in `failed`, and met again by the next pass; what each clock\nerased is recorded in the action log.",
+        "description": "Run one season's retention clocks as of today, each reminder and deletion notice owed in the write it belongs to.\n\nA row that cannot be written is passed over, counted in `failed`, and met again by the next pass, as is a clock\nwritten in one go whose write fails; what each clock erased is recorded in the action log.",
         "operationId": "bewerbungen_sweep_saison",
         "parameters": [
           {
@@ -17628,7 +17580,8 @@
         "summary": "Run one season's retention clocks",
         "tags": [
           "bewerbungen"
-        ]
+        ],
+        "x-pass": true
       }
     },
     "/api/bewerbungen/sweep": {
@@ -18193,27 +18146,8 @@
     },
     "/api/identity/erasure/sweep": {
       "post": {
-        "description": "Delete a bounded share of the pupils whose last squad season is over by a whole season, and answer what went and how many remain.\n\nA pass is a run of calls, each handing the next the `after` the last answered, and it ends at the call answering\n`after` null; `remaining` counts the pupils still due, the failed among them, so it is no stopping condition.",
+        "description": "Delete the pupils whose last squad season is over by a whole season, one at a time, and answer what went.\n\nA pupil whose erasure fails is counted in `failed` and stays due, and those the call's deadline leaves are the next pass's.",
         "operationId": "identity_sweep_erasure",
-        "parameters": [
-          {
-            "in": "query",
-            "name": "after",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "pattern": "^[0-9a-fA-F]{24}$",
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "After"
-            }
-          }
-        ],
         "responses": {
           "200": {
             "content": {
@@ -18235,10 +18169,11 @@
             "SystemKey": []
           }
         ],
-        "summary": "Delete one share of the pupils the season-after rule makes due",
+        "summary": "Delete the pupils the season-after rule makes due",
         "tags": [
           "identity"
-        ]
+        ],
+        "x-pass": true
       }
     },
     "/api/identity/erasure/view": {
@@ -18803,7 +18738,7 @@
     },
     "/api/registrierungen/saisons/{saison_id}/sweep": {
       "post": {
-        "description": "Erase one season's due registrations, as of today in Europe/Berlin.\n\nA declined one goes once its wait after the decision has run out, an unconfirmed one past its deadline, and every one\nstill undecided once the season is `past`; one whose erasure fails is counted in `failed` and met again next pass.\nWhat each page erased is recorded in the action log.",
+        "description": "Erase one season's due registrations, as of today in Europe/Berlin.\n\nA declined one goes once its wait after the decision has run out, an unconfirmed one past its deadline, and every one\nstill undecided once the season is `past`. A clock whose erasure fails is counted once in `failed` and met again next\npass; what each clock erased is recorded in the action log.",
         "operationId": "registrierungen_sweep_registrierungen",
         "parameters": [
           {
@@ -18840,7 +18775,8 @@
         "summary": "Run one season's registration retention clocks",
         "tags": [
           "registrierungen"
-        ]
+        ],
+        "x-pass": true
       }
     },
     "/api/registrierungen/teams/{team_id}/saisons/{saison_id}": {
@@ -20054,7 +19990,7 @@
     },
     "/api/schiedsrichter/sweep": {
       "post": {
-        "description": "Erase every referee entry nobody confirmed once the midnight after its link's last day has passed.\n\nEach goes as a person's own erasure takes a referee entry, and one whose erasure fails is counted in `failed` and\nstays due for the next pass.",
+        "description": "Erase every referee entry nobody confirmed once the midnight after its link's last day has passed.\n\nEach goes as a person's own erasure takes a referee entry, one at a time, and one whose erasure fails is counted in\n`failed` and stays due for the next pass, as do those the call's deadline leaves.",
         "operationId": "schiedsrichter_sweep_schiedsrichter",
         "responses": {
           "200": {
@@ -20080,7 +20016,8 @@
         "summary": "Erase the referee entries whose link lapsed unanswered",
         "tags": [
           "schiedsrichter"
-        ]
+        ],
+        "x-pass": true
       }
     },
     "/api/schiedsrichter/{schiedsrichter_id}": {
@@ -20432,7 +20369,7 @@
     },
     "/api/spielbestaetigungen/saisons/{saison_id}/sweep": {
       "post": {
-        "description": "Close, mint and remind one season's fixture confirmations as of today, owing each mail with its row, and answer what it did, counted.\n\nEach step takes a bounded share and leaves the rest due, and a season that is not `active` is passed by whole.",
+        "description": "Close, mint and remind one season's fixture confirmations as of today, owing each mail with its row, and answer what it did, counted.\n\nEach step saves one row or fixture at a time, one that fails passed over and counted in `failed`, and those the call's\ndeadline leaves stay due for the next pass. A season that is not `active` is passed by whole.",
         "operationId": "spielbestaetigungen_sweep_spielbestaetigungen",
         "parameters": [
           {
@@ -20469,7 +20406,8 @@
         "summary": "Run one season's fixture confirmation pass",
         "tags": [
           "spielbestaetigungen"
-        ]
+        ],
+        "x-pass": true
       }
     },
     "/api/spielbestaetigungen/sweep": {

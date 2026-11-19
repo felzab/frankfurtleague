@@ -25,12 +25,13 @@ from app.core.collections import Collection
 from app.core.crud import post_one_to_db
 from app.core.db import CLOSE_TIMEOUT_S, collection_dependency, new_client
 from app.core.logging import fl_logger
-from app.core.middlewares import REQUEST_DEADLINE_S
+from app.core.middlewares import PASS, PASS_DEADLINE_S, REQUEST_DEADLINE_S, TraceContextMiddleware
 from app.core.transactions import ABORT_GRACE_S, transaction_session
 from app.main import create_app, create_shell
 from app.shared.tokens import hash_token
 from tests.boot import image_command
 from tests.config import ADMIN_KEY, TEST_BASE_URL, build_test_config, grants_for_the_suite
+from tests.core.app_source import application
 from tests.database import LONGEST_WAIT_S, a_clean_database, held_corpus
 from tests.documents import kontaktperson_document, rules_document, saison_document, saison_team_document
 from tests.session_headers import StampedHeaders
@@ -40,6 +41,9 @@ BACKEND_ROOT = Path(__file__).resolve().parents[2]
 
 # The frontend's bound on each call to this API, which the frontend's suite holds `FETCH_TIMEOUT_MS` to.
 FETCH_TIMEOUT_MS: Final[int] = json.loads((BACKEND_ROOT / "tests" / "shared" / "drain_bounds.json").read_bytes())["fetch_timeout_ms"]
+
+# The frontend's bound on each call to an operation marked `x-pass`, which the frontend's suite holds its own to.
+PASS_FETCH_TIMEOUT_MS: Final[int] = json.loads((BACKEND_ROOT / "tests" / "shared" / "pass_bounds.json").read_bytes())["pass_fetch_timeout_ms"]
 
 # Far under the stall's 60 s, what the case below would wait with no deadline, so an answer in time can
 # only be the deadline's doing.
@@ -53,15 +57,109 @@ CUTS_DATABASE_NAME = worker_database("fl_request_deadline_cuts_test")
 
 
 class TestTheDeadlinesTheApplicationSets:
-    def test_it_is_positive_and_ends_before_the_page_stops_waiting(self):
+    @pytest.mark.parametrize(
+        ("deadline_s", "fetch_timeout_ms"),
+        [(REQUEST_DEADLINE_S, FETCH_TIMEOUT_MS), (PASS_DEADLINE_S, PASS_FETCH_TIMEOUT_MS)],
+        ids=["a request", "a pass"],
+    )
+    def test_it_is_positive_and_ends_before_the_caller_stops_waiting(self, deadline_s: float, fetch_timeout_ms: int):
         """The aborts' grace inside the margin the deadline leaves, since a request cut at its deadline answers only after its aborts.
 
         Those run one grace between them, as `app/core/middlewares.py :: RequestDeadline` counts it.
         """
 
         # Positive, because pymongo reads a zero deadline as none at all.
-        assert 0 < REQUEST_DEADLINE_S < FETCH_TIMEOUT_MS / 1000
-        assert 0 < ABORT_GRACE_S < FETCH_TIMEOUT_MS / 1000 - REQUEST_DEADLINE_S
+        assert 0 < deadline_s < fetch_timeout_ms / 1000
+        assert 0 < ABORT_GRACE_S < fetch_timeout_ms / 1000 - deadline_s
+
+
+# Every hourly pass, by the operation the frontend's scheduler sends: each takes its rows one at a time for as long as
+# a pass's deadline allows.
+PASSES = {
+    ("POST", "/api/address_change/sweep"),
+    ("POST", "/api/bewerbungen/saisons/{saison_id}/sweep"),
+    ("POST", "/api/identity/erasure/sweep"),
+    ("POST", "/api/registrierungen/saisons/{saison_id}/sweep"),
+    ("POST", "/api/schiedsrichter/sweep"),
+    ("POST", "/api/spielbestaetigungen/saisons/{saison_id}/sweep"),
+}
+(PASS_KEY,) = PASS
+
+
+def _deadline_of(method: str, path: str) -> float:
+    """The deadline the application's own middleware sets a request to `path`, its stack built as the first request builds it."""
+
+    stack = application().build_middleware_stack()
+    assert isinstance(stack, TraceContextMiddleware)
+
+    return stack.deadline_s({"type": "http", "method": method, "path": path})
+
+
+class TestEachPassTakesItsOwnDeadline:
+    def test_the_contract_marks_the_passes_alone(self):
+        """A pass left unmarked is cut at the visitor's deadline, and the frontend aborts it at the visitor's bound."""
+
+        marked = {
+            (method.upper(), path)
+            for path, operations in application().openapi()["paths"].items()
+            for method, operation in operations.items()
+            if operation.get(PASS_KEY) is True
+        }
+
+        assert marked == PASSES
+
+    def test_every_marked_operation_is_a_system_tier_post(self):
+        """A visitor's or an administrator's call holding a worker a minute would answer a page nobody waits for."""
+
+        marked = [
+            (method, path, operation.get("security"))
+            for path, operations in application().openapi()["paths"].items()
+            for method, operation in operations.items()
+            if operation.get(PASS_KEY) is True
+        ]
+
+        assert marked, "no operation carries the mark, so this check judges nothing"
+        assert [entry for entry in marked if entry[0] != "post" or entry[2] != [{"SystemKey": []}]] == []
+
+    @pytest.mark.parametrize("path", ["/api/identity/erasure/sweep", "/api/bewerbungen/saisons/2026/sweep"])
+    def test_a_pass_runs_under_the_pass_s_deadline(self, path: str):
+        assert _deadline_of("POST", path) == PASS_DEADLINE_S
+
+    @pytest.mark.parametrize(
+        ("method", "path"),
+        [
+            # The drain's claim, whose lease is counted off the frontend's bound for every other call.
+            ("POST", "/api/outbox/handout"),
+            # The sign-in's read, which a visitor's page waits on.
+            ("POST", "/api/identity/sign_in"),
+            # A pass's path under another method: the season listing beside the applications' pass.
+            ("GET", "/api/bewerbungen/sweep"),
+        ],
+    )
+    def test_any_other_system_call_keeps_the_request_s_deadline(self, method: str, path: str):
+        assert _deadline_of(method, path) == REQUEST_DEADLINE_S
+
+    async def test_the_deadline_chosen_is_the_one_the_request_runs_under(self):
+        """The choice reaching the request: the deadline the handler reads, and so the one `pymongo.timeout` holds it to."""
+
+        served = create_shell()
+
+        async def left() -> float:
+            deadline = middlewares.request_deadline_var.get()
+            assert deadline is not None
+            return deadline.at - time.monotonic()
+
+        served.add_api_route("/pass", left, methods=["POST"], openapi_extra=PASS)
+        served.add_api_route("/other", left, methods=["POST"])
+
+        transport = ASGITransport(app=served)
+        async with AsyncClient(transport=transport, base_url=TEST_BASE_URL) as http:
+            on_the_pass = (await http.post("/pass")).json()
+            on_the_other = (await http.post("/other")).json()
+
+        # Each within a second of its deadline: what the request spent before the handler read it.
+        assert PASS_DEADLINE_S - 1 < on_the_pass <= PASS_DEADLINE_S
+        assert REQUEST_DEADLINE_S - 1 < on_the_other <= REQUEST_DEADLINE_S
 
 
 COMPOSE_FILE = BACKEND_ROOT.parent / "docker-compose.yml"
@@ -104,9 +202,9 @@ class TestAStoppedContainerOutlastsEveryRequest:
     """Four budgets nested, each inside the next, or the outer one cuts what the inner one allows."""
 
     def test_uvicorn_waits_out_a_request_s_whole_bound(self):
-        """A request cut at its deadline: the deadline, then the one grace its aborts share."""
+        """A request cut at its deadline, a pass's the longest: the deadline, then the one grace its aborts share."""
 
-        assert _uvicorn_s_graceful_wait() >= REQUEST_DEADLINE_S + ABORT_GRACE_S
+        assert _uvicorn_s_graceful_wait() >= max(REQUEST_DEADLINE_S, PASS_DEADLINE_S) + ABORT_GRACE_S
 
     def test_the_engine_kills_only_after_uvicorn_s_wait_and_the_client_s_close(self):
         """The lifespan closes the client once uvicorn's wait ends, and the process exits in what the close leaves: hence strictly."""

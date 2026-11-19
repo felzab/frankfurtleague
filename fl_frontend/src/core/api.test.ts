@@ -1,4 +1,8 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
+
 import { beforeEach, expect, it, vi } from "vitest";
+import { z } from "zod";
 
 /** How many drains the client asked for behind the response. */
 let drains = 0;
@@ -21,13 +25,33 @@ vi.doMock("next/server", async (importOriginal) => ({
   },
 }));
 
-const { sendToBackend } = await import("./api");
+const { FETCH_TIMEOUT_MS, PASS_FETCH_TIMEOUT_MS, sendToBackend } = await import("./api");
 const { requestWriteMayStand, runInBackground, runWithRequestScope } = await import("./requestScope");
+const { systemKeyPassTransport, systemKeyTransport } = await import("./transport");
+
+/** The pass's bound as the backend's deadline counts it; the backend's own tests hold the deadline's half. */
+const PASS_BOUNDS = z
+  .strictObject({ pass_fetch_timeout_ms: z.number() })
+  .parse(
+    JSON.parse(readFileSync(path.resolve(import.meta.dirname, "..", "..", "..", "fl_backend", "tests", "shared", "pass_bounds.json"), "utf8")),
+  );
 
 beforeEach(() => {
   drains = 0;
   status = 200;
   vi.spyOn(globalThis, "fetch").mockImplementation(async () => Response.json({ error_code: "duplicate_key" }, { status }));
+});
+
+/* A pass sent under the other calls' bound is aborted at 15 s while the backend takes its rows for a minute, its writes
+   landing after the scheduler reported the pass failed; a bound raised here alone lets the backend's deadline pass it. */
+it("bounds a pass's call by the pass's bound and every other call by its own", async () => {
+  const bounds = vi.spyOn(AbortSignal, "timeout");
+
+  await systemKeyPassTransport("/api/identity/erasure/sweep", { method: "POST" });
+  await systemKeyTransport("/api/outbox/handout", { method: "POST" });
+
+  expect(bounds.mock.calls.map(([ms]) => ms)).toStrictEqual([PASS_FETCH_TIMEOUT_MS, FETCH_TIMEOUT_MS]);
+  expect(PASS_FETCH_TIMEOUT_MS).toBe(PASS_BOUNDS.pass_fetch_timeout_ms);
 });
 
 /* `new URL` resolves `..` before any check runs, so an id spelling it would aim an authenticated call at another

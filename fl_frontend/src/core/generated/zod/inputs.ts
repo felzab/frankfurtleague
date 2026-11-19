@@ -158,19 +158,6 @@ export const AddressChangeGetAddressChangeViewBody = zod
   .describe("The token of the link a person opened, in the body: a token in a URL reaches the edge's access line.");
 
 /**
- * End a share of the changes whose step lapsed, and make each due one take effect, or end it where its judgement now refuses it.
- *
- * A pass is a run of calls, each handing the next the `after` the last answered, ending at the call answering `after`
- * null; `remaining` is no stopping condition.
- * @summary End the lapsed address changes, and make the due ones take effect
- */
-export const addressChangeSweepAddressChangeQueryAfterOneRegExp = new RegExp("^[0-9a-fA-F]{24}$");
-
-export const AddressChangeSweepAddressChangeQueryParams = zod.object({
-  after: zod.union([zod.string().regex(addressChangeSweepAddressChangeQueryAfterOneRegExp), zod.null()]).optional(),
-});
-
-/**
  * Take the owed carry off each named change; an id owing none is left alone.
  * @summary Take the carries done off their changes
  */
@@ -621,8 +608,8 @@ export const BewerbungenGetFormParams = zod.object({
 /**
  * Run one season's retention clocks as of today, each reminder and deletion notice owed in the write it belongs to.
  *
- * A row that cannot be written is passed over, counted in `failed`, and met again by the next pass; what each clock
- * erased is recorded in the action log.
+ * A row that cannot be written is passed over, counted in `failed`, and met again by the next pass, as is a clock
+ * written in one go whose write fails; what each clock erased is recorded in the action log.
  * @summary Run one season's retention clocks
  */
 export const BewerbungenSweepSaisonParams = zod.object({
@@ -863,19 +850,6 @@ export const IdentityPostErasureBody = zod
     reason: zod.string().min(1).max(identityPostErasureBodyReasonMax).regex(identityPostErasureBodyReasonRegExp),
   })
   .describe("The mailbox, and the reference to the request the erasure answers, free text the log's row keeps.");
-
-/**
- * Delete a bounded share of the pupils whose last squad season is over by a whole season, and answer what went and how many remain.
- *
- * A pass is a run of calls, each handing the next the `after` the last answered, and it ends at the call answering
- * `after` null; `remaining` counts the pupils still due, the failed among them, so it is no stopping condition.
- * @summary Delete one share of the pupils the season-after rule makes due
- */
-export const identitySweepErasureQueryAfterOneRegExp = new RegExp("^[0-9a-fA-F]{24}$");
-
-export const IdentitySweepErasureQueryParams = zod.object({
-  after: zod.union([zod.string().regex(identitySweepErasureQueryAfterOneRegExp), zod.null()]).optional(),
-});
 
 /**
  * Count what `POST /identity/erasure` would remove or empty for this address, by kind, naming nothing and storing nothing.
@@ -1126,8 +1100,8 @@ export const RegistrierungenPostInvitationViewBody = zod
  * Erase one season's due registrations, as of today in Europe/Berlin.
  *
  * A declined one goes once its wait after the decision has run out, an unconfirmed one past its deadline, and every one
- * still undecided once the season is `past`; one whose erasure fails is counted in `failed` and met again next pass.
- * What each page erased is recorded in the action log.
+ * still undecided once the season is `past`. A clock whose erasure fails is counted once in `failed` and met again next
+ * pass; what each clock erased is recorded in the action log.
  * @summary Run one season's registration retention clocks
  */
 export const RegistrierungenSweepRegistrierungenParams = zod.object({
@@ -1813,7 +1787,8 @@ export const SpielberichtePutSpielberichtBerichtBody = zod
 /**
  * Close, mint and remind one season's fixture confirmations as of today, owing each mail with its row, and answer what it did, counted.
  *
- * Each step takes a bounded share and leaves the rest due, and a season that is not `active` is passed by whole.
+ * Each step saves one row or fixture at a time, one that fails passed over and counted in `failed`, and those the call's
+ * deadline leaves stay due for the next pass. A season that is not `active` is passed by whole.
  * @summary Run one season's fixture confirmation pass
  */
 export const SpielbestaetigungenSweepSpielbestaetigungenParams = zod.object({

@@ -5,13 +5,13 @@ import {
   baseKeyReadTransport,
   baseKeyTransport,
   serializeQuery,
+  systemKeyPassTransport,
   systemKeyReadTransport,
   systemKeyTransport,
   unkeyedTransport,
 } from "@/core/transport";
 
 import type {
-  AddressChangeSweepAddressChangeParams,
   BewerbungenGetBewerbungenAdminParams,
   FLAcceptBewerbungPayload,
   FLAccountAddressChangePayload,
@@ -148,7 +148,6 @@ import type {
   FLTeamSpieleResponse,
   FLTokenPayload,
   FLVersionResponse,
-  IdentitySweepErasureParams,
   ProbeResponse,
   SchiedsrichterGetSchiedsrichterParams,
   SpieleGetSpieleSpielplanParams,
@@ -401,24 +400,21 @@ export const addressChangeGetAddressChangeView = async (
   });
 };
 
-export const getAddressChangeSweepAddressChangeUrl = (params?: AddressChangeSweepAddressChangeParams) => {
-  const stringifiedParams = serializeQuery(params);
-
-  return stringifiedParams.length > 0 ? `/api/address_change/sweep?${stringifiedParams}` : `/api/address_change/sweep`;
+export const getAddressChangeSweepAddressChangeUrl = () => {
+  return `/api/address_change/sweep`;
 };
 
 /**
- * End a share of the changes whose step lapsed, and make each due one take effect, or end it where its judgement now refuses it.
+ * End the changes whose step lapsed, and make each due one take effect, or end it where its judgement now refuses it.
  *
- * A pass is a run of calls, each handing the next the `after` the last answered, ending at the call answering `after`
- * null; `remaining` is no stopping condition.
+ * Each due change is saved on its own, the lapsed ones together; a change whose saving fails is counted in `failed` and
+ * stays due for the next pass.
  * @summary End the lapsed address changes, and make the due ones take effect
  */
 export const addressChangeSweepAddressChange = async (
-  params?: AddressChangeSweepAddressChangeParams,
-  options?: Parameters<typeof systemKeyTransport>[1],
+  options?: Parameters<typeof systemKeyPassTransport>[1],
 ): Promise<FLAddressChangeSweepResponse> => {
-  return systemKeyTransport<FLAddressChangeSweepResponse>(getAddressChangeSweepAddressChangeUrl(params), {
+  return systemKeyPassTransport<FLAddressChangeSweepResponse>(getAddressChangeSweepAddressChangeUrl(), {
     ...options,
     method: "POST",
   });
@@ -771,15 +767,15 @@ export const getBewerbungenSweepSaisonUrl = (saisonId: string) => {
 /**
  * Run one season's retention clocks as of today, each reminder and deletion notice owed in the write it belongs to.
  *
- * A row that cannot be written is passed over, counted in `failed`, and met again by the next pass; what each clock
- * erased is recorded in the action log.
+ * A row that cannot be written is passed over, counted in `failed`, and met again by the next pass, as is a clock
+ * written in one go whose write fails; what each clock erased is recorded in the action log.
  * @summary Run one season's retention clocks
  */
 export const bewerbungenSweepSaison = async (
   saisonId: string,
-  options?: Parameters<typeof systemKeyTransport>[1],
+  options?: Parameters<typeof systemKeyPassTransport>[1],
 ): Promise<FLBewerbungSweepResponse> => {
-  return systemKeyTransport<FLBewerbungSweepResponse>(getBewerbungenSweepSaisonUrl(saisonId), {
+  return systemKeyPassTransport<FLBewerbungSweepResponse>(getBewerbungenSweepSaisonUrl(saisonId), {
     ...options,
     method: "POST",
   });
@@ -1060,24 +1056,18 @@ export const identityPostErasure = async (
   });
 };
 
-export const getIdentitySweepErasureUrl = (params?: IdentitySweepErasureParams) => {
-  const stringifiedParams = serializeQuery(params);
-
-  return stringifiedParams.length > 0 ? `/api/identity/erasure/sweep?${stringifiedParams}` : `/api/identity/erasure/sweep`;
+export const getIdentitySweepErasureUrl = () => {
+  return `/api/identity/erasure/sweep`;
 };
 
 /**
- * Delete a bounded share of the pupils whose last squad season is over by a whole season, and answer what went and how many remain.
+ * Delete the pupils whose last squad season is over by a whole season, one at a time, and answer what went.
  *
- * A pass is a run of calls, each handing the next the `after` the last answered, and it ends at the call answering
- * `after` null; `remaining` counts the pupils still due, the failed among them, so it is no stopping condition.
- * @summary Delete one share of the pupils the season-after rule makes due
+ * A pupil whose erasure fails is counted in `failed` and stays due, and those the call's deadline leaves are the next pass's.
+ * @summary Delete the pupils the season-after rule makes due
  */
-export const identitySweepErasure = async (
-  params?: IdentitySweepErasureParams,
-  options?: Parameters<typeof systemKeyTransport>[1],
-): Promise<FLErasureSweepResponse> => {
-  return systemKeyTransport<FLErasureSweepResponse>(getIdentitySweepErasureUrl(params), {
+export const identitySweepErasure = async (options?: Parameters<typeof systemKeyPassTransport>[1]): Promise<FLErasureSweepResponse> => {
+  return systemKeyPassTransport<FLErasureSweepResponse>(getIdentitySweepErasureUrl(), {
     ...options,
     method: "POST",
   });
@@ -1393,15 +1383,15 @@ export const getRegistrierungenSweepRegistrierungenUrl = (saisonId: string) => {
  * Erase one season's due registrations, as of today in Europe/Berlin.
  *
  * A declined one goes once its wait after the decision has run out, an unconfirmed one past its deadline, and every one
- * still undecided once the season is `past`; one whose erasure fails is counted in `failed` and met again next pass.
- * What each page erased is recorded in the action log.
+ * still undecided once the season is `past`. A clock whose erasure fails is counted once in `failed` and met again next
+ * pass; what each clock erased is recorded in the action log.
  * @summary Run one season's registration retention clocks
  */
 export const registrierungenSweepRegistrierungen = async (
   saisonId: string,
-  options?: Parameters<typeof systemKeyTransport>[1],
+  options?: Parameters<typeof systemKeyPassTransport>[1],
 ): Promise<FLRegistrierungSweepResponse> => {
-  return systemKeyTransport<FLRegistrierungSweepResponse>(getRegistrierungenSweepRegistrierungenUrl(saisonId), {
+  return systemKeyPassTransport<FLRegistrierungSweepResponse>(getRegistrierungenSweepRegistrierungenUrl(saisonId), {
     ...options,
     method: "POST",
   });
@@ -2011,14 +2001,14 @@ export const getSchiedsrichterSweepSchiedsrichterUrl = () => {
 /**
  * Erase every referee entry nobody confirmed once the midnight after its link's last day has passed.
  *
- * Each goes as a person's own erasure takes a referee entry, and one whose erasure fails is counted in `failed` and
- * stays due for the next pass.
+ * Each goes as a person's own erasure takes a referee entry, one at a time, and one whose erasure fails is counted in
+ * `failed` and stays due for the next pass, as do those the call's deadline leaves.
  * @summary Erase the referee entries whose link lapsed unanswered
  */
 export const schiedsrichterSweepSchiedsrichter = async (
-  options?: Parameters<typeof systemKeyTransport>[1],
+  options?: Parameters<typeof systemKeyPassTransport>[1],
 ): Promise<FLSchiedsrichterSweepResponse> => {
-  return systemKeyTransport<FLSchiedsrichterSweepResponse>(getSchiedsrichterSweepSchiedsrichterUrl(), {
+  return systemKeyPassTransport<FLSchiedsrichterSweepResponse>(getSchiedsrichterSweepSchiedsrichterUrl(), {
     ...options,
     method: "POST",
   });
@@ -2203,14 +2193,15 @@ export const getSpielbestaetigungenSweepSpielbestaetigungenUrl = (saisonId: stri
 /**
  * Close, mint and remind one season's fixture confirmations as of today, owing each mail with its row, and answer what it did, counted.
  *
- * Each step takes a bounded share and leaves the rest due, and a season that is not `active` is passed by whole.
+ * Each step saves one row or fixture at a time, one that fails passed over and counted in `failed`, and those the call's
+ * deadline leaves stay due for the next pass. A season that is not `active` is passed by whole.
  * @summary Run one season's fixture confirmation pass
  */
 export const spielbestaetigungenSweepSpielbestaetigungen = async (
   saisonId: string,
-  options?: Parameters<typeof systemKeyTransport>[1],
+  options?: Parameters<typeof systemKeyPassTransport>[1],
 ): Promise<FLSpielbestaetigungSweepResponse> => {
-  return systemKeyTransport<FLSpielbestaetigungSweepResponse>(getSpielbestaetigungenSweepSpielbestaetigungenUrl(saisonId), {
+  return systemKeyPassTransport<FLSpielbestaetigungSweepResponse>(getSpielbestaetigungenSweepSpielbestaetigungenUrl(saisonId), {
     ...options,
     method: "POST",
   });

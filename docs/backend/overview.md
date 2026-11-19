@@ -111,8 +111,9 @@ stored document back through it after a migration has run.
 are keyword-only and accept a session, which is what lets a read inside a transaction see that
 transaction's own writes. A request making more than one write makes them in one transaction, so
 a refusal anywhere takes everything already written back with it. A background pass is the
-exception: it takes its rows a page or a row at a time, each in a transaction of its own
-(`fl_backend/app/core/transactions.py :: drain` for the paged ones). A pass that fails part way
+exception: it takes its rows one at a time, each in a transaction of its own
+(`fl_backend/app/core/transactions.py :: save_each`), save a clock whose one write no row can fail
+alone, such as a plain deletion. A pass that fails part way
 therefore keeps what it finished, and the next pass resumes from the stored state. A write helper
 records nothing: each recorded act adds one line inside its transaction
 (`Aktion`, `fl_backend/app/core/recording.py :: record_act`).

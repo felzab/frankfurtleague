@@ -1,13 +1,16 @@
 import re
 import secrets
 import time
+from collections.abc import Mapping, Sequence
 from contextvars import ContextVar
 from dataclasses import dataclass
-from typing import Final
+from re import Pattern
+from typing import Any, Final
 
 import pymongo
 from fastapi import FastAPI
 from starlette.requests import Request
+from starlette.routing import compile_path
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from app.core.logging import fl_logger, trace_id_var
@@ -26,6 +29,32 @@ PROBE_PATHS: Final = frozenset({"/api/system/is_live", "/api/system/is_ready"})
 # Under the frontend's fetch timeout by what the page's clock counts and this one cannot: the hop
 # in, the queue before this runs, the answer's way back.
 REQUEST_DEADLINE_S: Final = 10.0
+
+# An hourly pass's operation, which takes its rows one at a time until it has none left or `PASS_DEADLINE_S` cuts it.
+# Stated as an OpenAPI specification extension, as `SAFE` is, so the frontend's generated client sends such a call
+# under the bound that outlasts this deadline. A pass outrunning it finishes in the hours after.
+PASS: Final[dict[str, Any]] = {"x-pass": True}
+(_PASS_KEY,) = PASS
+
+# The longest a deploy should wait on a pass the stop met, which uvicorn's graceful wait and the backend's stop grace
+# outlast; not a measured count. The code admits thousands of pupils due together, well over an hour of one erasure
+# after another, so no wait a deploy can take covers the largest pass.
+PASS_DEADLINE_S: Final = 60.0
+
+
+def pass_operations(document: Mapping[str, Any]) -> list[tuple[Pattern[str], str]]:
+    """Each operation the published document marks `x-pass`, as its path's pattern and its method.
+
+    Read off the document rather than the routes: it is the one list the frontend's client is generated from, so the two
+    halves of the bound cannot name different operations.
+    """
+
+    return [
+        (compile_path(path)[0], method.upper())
+        for path, operations in document.get("paths", {}).items()
+        for method, operation in operations.items()
+        if operation.get(_PASS_KEY) is True
+    ]
 
 
 @dataclass
@@ -73,8 +102,21 @@ def resolve_trace_id(header_value: str | None) -> str:
 class TraceContextMiddleware:
     """Binds the trace id to every request context and writes the request's one access line."""
 
-    def __init__(self, app: ASGIApp) -> None:
+    def __init__(self, app: ASGIApp, *, passes: Sequence[tuple[Pattern[str], str]] = ()) -> None:
         self.app = app
+        self.passes = passes
+
+    def deadline_s(self, scope: Scope) -> float:
+        """The request's deadline: a pass's own, or every other request's.
+
+        Chosen here, before the routing: `pymongo.timeout` entered inside this one only narrows it.
+        """
+
+        method, path = scope["method"], scope["path"]
+        if any(method == pass_method and pattern.match(path) for pattern, pass_method in self.passes):
+            return PASS_DEADLINE_S
+
+        return REQUEST_DEADLINE_S
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] != "http":
@@ -86,7 +128,8 @@ class TraceContextMiddleware:
         answer = _Answer()
         answer_token = answer_var.set(answer)
         started = time.perf_counter()
-        deadline_token = request_deadline_var.set(RequestDeadline(time.monotonic() + REQUEST_DEADLINE_S))
+        deadline_s = self.deadline_s(scope)
+        deadline_token = request_deadline_var.set(RequestDeadline(time.monotonic() + deadline_s))
 
         status: int | None = None
 
@@ -102,7 +145,7 @@ class TraceContextMiddleware:
             # A deadline, not the client's `timeoutMS`: `with_transaction` retries a transient failure,
             # an unreachable server's included, for 120 s, and a deadline is the one limit its loop
             # checks sooner.
-            with pymongo.timeout(REQUEST_DEADLINE_S):
+            with pymongo.timeout(deadline_s):
                 await self.app(scope, receive, send_noting_status)
         except Exception:
             # Reached by every crash, which Starlette answers and raises again for the server to log;
@@ -146,5 +189,6 @@ class TracedApp(FastAPI):
     """
 
     def build_middleware_stack(self) -> ASGIApp:
-        # The method FastAPI itself overrides to place a layer Starlette's builder has no slot for.
-        return TraceContextMiddleware(super().build_middleware_stack())
+        # The method FastAPI itself overrides to place a layer Starlette's builder has no slot for. Built at the first
+        # request, once every route is mounted, so the document lists every pass.
+        return TraceContextMiddleware(super().build_middleware_stack(), passes=pass_operations(self.openapi()))

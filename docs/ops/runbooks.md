@@ -957,13 +957,17 @@ half. Every other half and season still runs, and the job then fails, which `sch
 `bewerbungen` and the heartbeat as `bewerbungen failed`. A pass that ran but passed rows over reaches the heartbeat
 as `bewerbungen left <n>`.
 
-**A row either pass cannot write is passed over and named, and the pass goes on.** The
-backend's line names the application, the registration or the season row by id, the error's class
-and what locates it, never a person's values: `database_failed` is a write the database refused;
+**A row either pass cannot write is passed over and named, and the pass goes on.** Each row is
+saved in a transaction of its own, and the backend's `transactions.row_passed_over` line names its
+clock and the application, the season team or the referee entry by id, the error's class and what
+locates it, never a person's values: `database_failed` is a write the database refused;
 `stored_data_invalid` a stored value the answer cannot carry, such as
 a hand-edited deadline or an empty first name, with the fields refused; and `unhandled_crash` any other
 failure, with the file, line and function it was raised in. The rest of that clock's rows go, and
-the named one stays due: every later pass names it again until its record is repaired. **An application the fourteen-day clock passes over is owed no notice**: the notice is owed in the erasure's own
+the named one stays due: every later pass names it again until its record is repaired. **The
+clocks that only delete, the applications' declined and accepted ones and the registrations' three,
+and the contact blocks' clearing, are one write each**, as no row of theirs can fail alone: their
+line names the season, and every row of that clock stays due. **An application the fourteen-day clock passes over is owed no notice**: the notice is owed in the erasure's own
 write, so the application stands past its fourteen days, nobody told, until the erasure lands or its season is
 `past`. Every reminder and deletion notice the sweep owes leaves through the Postausgang's drain, whose own lines
 report a mail that did not go. **The confirmation strip clock
@@ -973,16 +977,15 @@ tries again.
 
 **A `bewerbung_failed` or `registrierung_failed` above zero is a clock passing rows
 over, not a pass that ran clean.** A clock failing on every row still finishes its pass, so this
-count, summing the rows that half's clocks passed over across every season, is the only sign of it.
-The backend's lines then name each row, as above.
+count, summing the rows that half's clocks passed over across every season, a one-write clock that
+failed counting once, is the only sign of it. The backend's lines then name each row, as above.
 
-**A clock owing a message answers what it had done when the deadline stops it taking rows apart;
-every other clock fails the call.** The clocks owing one are the two reminder clocks and the
-registrations' season's end. For them a warning that the database deadline passed, or that it held
-no further attempt, is the call answering every half that committed, and the next pass goes on;
-where the warning names a commit unanswered, under `unknown_outcome`, the rows it names may have been
-written with nobody told, and a later pass meets again only those it did not write. Any other clock
-the deadline stops there fails its call, as the failure lines above report.
+**Every pass ends at the database deadline with what it saved, and the next pass goes on.** A
+deadline that stops a pass is one `transactions.pass_cut` warning, naming the clock and the row it
+reached, and the call answers every row that committed before it; that row and the rest stay due
+for the next hour, and it needs nothing from you. Where the warning carries `unknown_outcome`, the
+named row's commit went unanswered: it may have been written, its notices queued in the same
+transaction, and a later pass meets it again only if it was not.
 
 **The half after the seasons stamps no day, so its counts are the record.** Every pass ends by
 ending the address changes whose step lapsed and making the due ones take effect, each end owing its
@@ -990,7 +993,7 @@ notice to the Postausgang: each replaced address gets its completion notice and 
 confirmed change refused at its due time a notice naming nobody. The pass ends
 by carrying each sign-in account an effect still owes
 (`fl_frontend/src/features/address-change/moves.ts :: runAddressChangeMoves`). Its counts and no person
-are the pass line's `address_change_` ones, `address_change_remaining` the rows it left due. A half that threw fails the applications' job once the seasons have run, which
+are the pass line's `address_change_` ones, `address_change_failed` the changes it could not end. A half that threw fails the applications' job once the seasons have run, which
 `scheduler.job_failed` names as `bewerbungen`.
 
 **A notice the drain could not send stays owed in the Postausgang**, which retries it as it retries
@@ -1011,10 +1014,9 @@ held an account of its own, and the person signs in there anew.
 
 **The pupils' deletion runs on every pass**
 (`fl_frontend/src/features/saisons/sweep.ts :: runErasureSweep`). It stamps no day either: each
-pass deletes the pupils the season-after rule makes due, drops the squad cache after its last call,
-and counts on the pass's line what it erased and the pupils it failed or passed over; a pass whose
-call threw fails the job, its counts on that line all the same, which `scheduler.job_failed` names
-as `erasure`.
+pass deletes the pupils the season-after rule makes due, each in a transaction of its own, and
+counts on the pass's line what it erased, the pupils it skipped as changed since its read and those
+it failed; a pass whose call threw fails the job, which `scheduler.job_failed` names as `erasure`.
 
 **Activating a season deletes nobody**: the first pass after it deletes the pupils the new season
 makes due.
@@ -1024,12 +1026,11 @@ backend's line names that pupil's id, the error's class and what locates it, nev
 under `database_failed` the write the database refused, under `stored_data_invalid`
 the fields a model refused, and under `unhandled_crash` the file, line and function a failure the
 database did not raise came from. Find the record it points to and repair it, and the pass after
-deletes the pupil. A warning saying the database deadline
-passed at a pupil or at an address change is the call stopping in time rather than a refusal: the
-pass goes on from the next call, and it needs nothing from you. Where it adds that the erasure, the
-removal or the effect went unanswered, under `unknown_outcome`, that one's outcome is unknown: one that
-did not commit is judged afresh by the next pass, and an effect or a refusal that did is told by
-the outbox's drain, its notice queued in the same transaction.
+deletes the pupil. A `transactions.pass_cut` warning at a pupil or at an address change is the
+pass ending at its deadline rather than a refusal, as above: the next pass goes on, and it needs
+nothing from you. Under `unknown_outcome` the erasure, the removal or the effect it names went
+unanswered: one that did not commit is judged afresh by the next pass, and an effect or a refusal
+that did is told by the outbox's drain, its notice queued in the same transaction.
 
 **A `stored_data_invalid` warning naming pupils left out of the deletion is a stored address no request
 matches** — empty, not in the form sign-in folds it to, or refused by the address rule, which only
@@ -1076,7 +1077,7 @@ docker compose logs --since 2h frontend | grep -E 'scheduler\.(pass|job_failed)'
 dated fixture of the running season inside the answer window
 (`fl_backend/app/shared/schemas/bounds.py :: SPIEL_CONFIRMATION_DEADLINE_DAYS` plus
 `:: SPIEL_REQUEST_LEAD_TIME_DAYS` days ahead), every mailbox of both clubs' seats and each booked
-referee, spread over as many hourly passes as the per-pass share needs, and a fixture inside the
+referee, spread over as many hourly passes as the pass's deadline needs, and a fixture inside the
 deadline's own days is due the day it is asked.
 
 **The account sweep stores no date, so its counts on the pass's line are the answer**

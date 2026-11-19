@@ -205,20 +205,12 @@ class FLAddressChangeAdminPayload(BasePayload):
     email: CustomEmail
 
 
-class FLAddressChangeSweepParams(BaseModel):
-    """Where in one pass the call starts: after the change the call before it reached, or at the lowest id where none is named."""
-
-    after: CustomObjectId | None = None
-
-
 class FLAddressChangeSweepResponse(BaseReadModel):
-    """One call's share of the live changes whose step lapsed or whose waiting time ended."""
+    """One pass over the live changes whose step lapsed or whose waiting time ended; a pass the deadline cut leaves the rest due."""
 
     removed: int
     # Due changes a judgement refused at the end of their waiting time, and due ones taken effect, each notice queued.
     discarded: int = Field(ge=0)
     effective: int = Field(ge=0)
-    # A change whose ending or effect failed among them: it stays due, so a caller looping on this alone never ends.
-    remaining: int
-    # The last change this call reached, for the next call's `after`; null once it reached the end, which ends the pass.
-    after: CustomObjectId | None
+    # The due changes whose effect failed, and the lapsed ones together where their ending failed: each stays due.
+    failed: int = Field(ge=0)

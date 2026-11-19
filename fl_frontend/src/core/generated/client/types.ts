@@ -814,15 +814,15 @@ export interface FLAddressChangeNoticeData {
 }
 
 /**
- * One call's share of the live changes whose step lapsed or whose waiting time ended.
+ * One pass over the live changes whose step lapsed or whose waiting time ended; a pass the deadline cut leaves the rest due.
  */
 export interface FLAddressChangeSweepResponse {
-  after: string | null;
   /** @minimum 0 */
   discarded: number;
   /** @minimum 0 */
   effective: number;
-  remaining: number;
+  /** @minimum 0 */
+  failed: number;
   removed: number;
 }
 
@@ -2304,14 +2304,12 @@ export interface FLErasurePayload {
 }
 
 /**
- * One call's share of the season-after rule: what it erased, whom it passed over, and how many are still due.
+ * One pass of the season-after rule: what it erased and whom it passed over; a pass the deadline cut leaves the rest due.
  */
 export interface FLErasureSweepResponse {
-  after: string | null;
   completed_saison_id: string | null;
   failed: number;
   registrierungen: number;
-  remaining: number;
   saison_spieler: number;
   skipped: number;
   spieler: number;
@@ -5596,16 +5594,8 @@ export const Rule = {
  */
 export type FailureResponse = FLFailureBody;
 
-export type AddressChangeSweepAddressChangeParams = {
-  after?: string | null;
-};
-
 export type BewerbungenGetBewerbungenAdminParams = {
   saison_id: string;
-};
-
-export type IdentitySweepErasureParams = {
-  after?: string | null;
 };
 
 export type SchiedsrichterGetSchiedsrichterParams = {

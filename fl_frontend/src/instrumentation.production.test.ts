@@ -15,16 +15,14 @@ type Call = `${"GET" | "POST"} /${string}`;
 /** What one request is answered with, handed the request. */
 type Answer = (request: { search: URLSearchParams; body: unknown }) => unknown;
 
-/** One call of the pupils' deletion, `after` the place the next call starts after. */
-const erasure = (spieler: number, { failed = 0, remaining = 0, after = null as string | null } = {}) => ({
+/** One pass of the pupils' deletion, the pupils it failed counted. */
+const erasure = (spieler: number, { failed = 0 } = {}) => ({
   completed_saison_id: spieler === 0 ? null : "2526",
   spieler,
   saison_spieler: spieler,
   registrierungen: 0,
   skipped: 0,
   failed,
-  remaining,
-  after,
 });
 
 /** A Postausgang holding nothing to hand out. */
@@ -49,7 +47,7 @@ let handouts: unknown[] = [];
 /** What every job meets on an idle day: nothing to act on, each answered as the contract shapes it. */
 const IDLE: Readonly<Record<Call, Answer>> = {
   "GET /bewerbungen/sweep": () => ({ saison_ids: [] }),
-  "POST /address_change/sweep": () => ({ removed: 0, effective: 0, discarded: 0, remaining: 0, after: null }),
+  "POST /address_change/sweep": () => ({ removed: 0, effective: 0, discarded: 0, failed: 0 }),
   "GET /address_change/sweep/moves": () => ({ moves: [] }),
   "POST /schiedsrichter/sweep": () => ({ erased: 0, failed: 0 }),
   // The one account the store holds, which a record references.
@@ -165,12 +163,12 @@ const IDLE_COUNTS = {
     address_change_removed: 0,
     address_change_effective: 0,
     address_change_discarded: 0,
-    address_change_remaining: 0,
+    address_change_failed: 0,
     schiedsrichter_erased: 0,
     schiedsrichter_failed: 0,
   },
   account: { unreferenced: 0, deleted: 0, already_deleted: 0, failed: 0 },
-  erasure: { completed_saison_id: null, spieler: 0, saison_spieler: 0, registrierungen: 0, skipped: 0, failed: 0, remaining: 0 },
+  erasure: { completed_saison_id: null, spieler: 0, saison_spieler: 0, registrierungen: 0, skipped: 0, failed: 0 },
   spielbestaetigungen: { closed: 0, asked: 0, reminded: 0, mails: 0, failed: 0 },
   grants: { handed_over: 0 },
 };
@@ -326,11 +324,11 @@ describe("the pass's one line", () => {
     await backend.answered();
 
     answers = new Map(Object.entries(IDLE));
-    answers.set("POST /identity/erasure/sweep", ({ search }) =>
-      search.has("after") ? refusal(undefined, { status: 503 }) : erasure(4, { remaining: 3, after: `${"e".repeat(23)}5` }),
-    );
+    answers.set("POST /identity/erasure/sweep", () => refusal(undefined, { status: 503 }));
     vi.advanceTimersByTime(HOUR_MS);
     await backend.answered();
+    // A job that threw counts nothing on the line: what it did before the failure is in the backend's.
+    const { erasure: _threw, ...everyOtherJob } = IDLE_COUNTS;
 
     expect(schedulerLines()).toStrictEqual([
       {
@@ -347,8 +345,7 @@ describe("the pass's one line", () => {
         level: "WARNING",
         message: "scheduler.pass",
         fields: {
-          ...IDLE_COUNTS,
-          erasure: { completed_saison_id: "2526", spieler: 4, saison_spieler: 4, registrierungen: 0, skipped: 0, failed: 0 },
+          ...everyOtherJob,
           outbox: drained(),
           failures: ["erasure failed"],
         },
@@ -365,7 +362,7 @@ describe("the heartbeat after each pass", () => {
     await bootAndStep([MINUTE_MS]);
 
     answers.set("POST /address_change/sweep", () => refusal(undefined, { status: 503 }));
-    answers.set("POST /identity/erasure/sweep", () => erasure(4, { failed: 3, remaining: 3 }));
+    answers.set("POST /identity/erasure/sweep", () => erasure(4, { failed: 3 }));
     // Given up by a write's drain inside the hour, never the pass's own: the pass reports every drain's.
     handouts = [{ ...NOTHING_HANDED_OUT, abandoned: 2 }];
     await drainOutbox();

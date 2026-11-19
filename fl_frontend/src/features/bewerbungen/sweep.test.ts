@@ -10,8 +10,8 @@ import type { FLAddressChangeSweepResponse, FLBewerbungSweepResponse, FLRegistri
 const bewerbungPass = (failed = 0): FLBewerbungSweepResponse => ({ failed });
 const registrierungPass = (failed = 0): FLRegistrierungSweepResponse => ({ failed });
 
-/** What the address changes' one call answers, its remainder `remaining`, naming no place, so the half's pass ends on it. */
-const adressen = (remaining = 0): FLAddressChangeSweepResponse => ({ removed: 0, effective: 0, discarded: 0, remaining, after: null });
+/** What the address changes' one call answers, the changes it could not end counted. */
+const adressen = (failed = 0): FLAddressChangeSweepResponse => ({ removed: 0, effective: 0, discarded: 0, failed });
 
 /** The season listing, which the contract reads with a GET; every other call of the pass is a POST. */
 const LISTING = "GET /bewerbungen/sweep";
@@ -69,7 +69,7 @@ beforeEach(() => {
 describe("one pass of the applications' job", () => {
   /* What the heartbeat names: the rows a pass left owed, which only a sum over every season and both halves tells
      apart from a healthy pass. */
-  it("leaves every row the halves passed over and every lapsed change the address half left, each half counted", async () => {
+  it("leaves every row the halves passed over and every change the address half could not end, each half counted", async () => {
     seasons(["2526", "2627"], {
       passedOver: {
         "/bewerbungen/saisons/2526/sweep": 1,
@@ -87,7 +87,7 @@ describe("one pass of the applications' job", () => {
         address_change_removed: 5,
         address_change_effective: 0,
         address_change_discarded: 0,
-        address_change_remaining: 2,
+        address_change_failed: 2,
         schiedsrichter_erased: 0,
         schiedsrichter_failed: 1,
       },
