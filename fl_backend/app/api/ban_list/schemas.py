@@ -1,30 +1,11 @@
-import re
 from typing import Annotated, Final
 
 from pydantic import AfterValidator, BaseModel, Field, StringConstraints
 
-from app.core.exceptions import rule_refusal
 from app.shared.schemas.bounds import SAISON_ID_LENGTH
 from app.shared.schemas.custom import SINGLE_LINE_PATTERN, CustomDateString, CustomNonEmptyString, CustomObjectId
 from app.shared.schemas.kontakt import CustomEmail, CustomStoredAddress
 from app.shared.schemas.responses import BasePayload, BaseReadModel
-
-# A deliverable shape and never a bare `@`: „Nach Absprache @ Schulleitung" is German prose an
-# administrator writes, and refusing it catches the rare case by refusing the ordinary one.
-ADDRESS_IN_FREE_TEXT: Final = re.compile(r"[^\s@]+@[^\s@]+\.[A-Za-z]{2,}")
-
-
-def refuse_an_address_in_the_reason(value: str) -> str:
-    """Refuse an address in free text a row keeps past its person's erasure.
-
-    `ban_reason` is served, mailed and outlives the erasure, so an address typed here is a second
-    person's, kept on a row that person has no way to reach.
-    """
-
-    if ADDRESS_IN_FREE_TEXT.search(value) is not None:
-        raise rule_refusal("address_in_free_text", "the text holds an email address")
-
-    return value
 
 
 class FLBanListRow(BaseModel):
@@ -65,7 +46,6 @@ class FLPostBanListEntryPayload(BasePayload):
         StringConstraints(max_length=BAN_REASON_MAX_LENGTH, pattern=SINGLE_LINE_PATTERN),
         AfterValidator(str.strip),
         StringConstraints(min_length=1),
-        AfterValidator(refuse_an_address_in_the_reason),
     ]
 
 

@@ -50,7 +50,6 @@ const PATTERNED = {
   decline_without_reason: () => field.required,
   email_not_accepted: () => field.format(field.exampleAddress),
   url_not_accepted: () => field.format(field.exampleUrl),
-  address_in_free_text: () => field.without(COPY.signIn.address),
   // A no-show's report carries no play: the league composes its goals, and nobody scored them.
   nichtantreten_with_scorers: () => field.without(COPY.admin.spiel.scorers),
   // The registration closes before the season starts; `latest` is the day before its start.

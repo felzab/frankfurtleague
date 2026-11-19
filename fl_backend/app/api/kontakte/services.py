@@ -1,22 +1,8 @@
 from collections.abc import Iterable, Mapping, Sequence, Set
 from typing import Any
 
-from app.core.crud import literal_pattern
-from app.shared.folding import person_name_key, sign_in_identifier, trimmed_pattern
+from app.shared.folding import person_name_key, sign_in_identifier
 from app.shared.schemas.literals import KONTAKT_SEATS
-
-
-def same_address(identifier: str) -> Mapping[str, Any]:
-    """A case-blind pre-filter, the sign-in fold deciding.
-
-    For a grant's rows alone: a grant is pasted by hand and checked folded only by the read-back an operator runs, where
-    every other record stores the fold its write made.
-    """
-
-    # Folded here whatever a caller hands on: built off an unfolded spelling, a padded or a blank one above all, the
-    # pattern reads less than that spelling's fold claims. The fold moves a value by its trim and its ASCII case alone,
-    # which the pattern's anchors and `i` take.
-    return {"$regex": trimmed_pattern(literal_pattern(sign_in_identifier(identifier))), "$options": "i"}
 
 
 def rows_seating(*identifiers: str) -> Mapping[str, Any]:

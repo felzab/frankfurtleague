@@ -248,9 +248,8 @@ export const SERVER_COPY = catalogue({
       previous: `Die bisherige E-Mail-Adresse hat nicht das Format ${COPY.shared.field.exampleAddress}.`,
       next: `Die neue E-Mail-Adresse hat nicht das Format ${COPY.shared.field.exampleAddress}.`,
     },
-    /** A ban's Grund, left holding nothing but spaces, or holding an address, which outlives the person's erasure. */
+    /** A ban's Grund, left holding nothing but spaces. */
     reasonMissing: "Der Grund fehlt.",
-    reasonWithAddress: "Der Grund enthält eine E-Mail-Adresse.",
   },
 
   /** The image a shared link's preview shows, by its alt, which a screen reader reads in the preview's place. */

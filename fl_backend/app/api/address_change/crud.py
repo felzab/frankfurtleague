@@ -31,7 +31,7 @@ from app.api.grants.schemas import FLGrantNoticeStage
 from app.api.grants.services import compose_notice
 from app.api.identity.lookup import MoveCollections, RecordCollections
 from app.api.identity.services import is_own_schiedsrichter, is_own_spieler, own_seats
-from app.api.kontakte.services import rows_seating, same_address
+from app.api.kontakte.services import rows_seating
 from app.api.outbox.schemas import (
     FLAddressChangeDiscardedData,
     FLAddressChangeEffectiveData,
@@ -682,19 +682,18 @@ async def _carry_the_mail(outbox_collection: AsyncCollection, old: str, new: str
     the seat's. The row stands as a tombstone of its key: a pass deciding by its key whether a mail was owed (the line-up
     reminder's) or a replayed write would otherwise owe it a second time, to the new address. The tombstone goes a
     retention after its final state, as the row would have. The sign-in library's mails stay where they were owed, each
-    tied to the sign-in it was asked from. Matched on the sign-in fold, a recipient being stored as its mail was owed;
-    then written by id.
+    tied to the sign-in it was asked from. Matched by equality on `old`, folded as every recipient is stored; then
+    written by id.
     """
 
     rows = await aggregate_many_from_db(
         collection=outbox_collection,
-        pipeline=[{"$match": {"kind": {"$nin": sorted(SIGN_IN_KINDS)}, "to": same_address(old)}}, {"$project": {"to": 1, "state": 1}}],
+        pipeline=[{"$match": {"kind": {"$nin": sorted(SIGN_IN_KINDS)}, "to": old}}, {"$project": {"state": 1}}],
         session=session,
     )
-    held = [row for row in rows if sign_in_identifier(str(row["to"])) == old]
-    if open := [row["_id"] for row in held if row["state"] == "open"]:
+    if open := [row["_id"] for row in rows if row["state"] == "open"]:
         await patch_many_in_db(collection=outbox_collection, db_filter={"_id": {"$in": open}}, update={"$set": {"to": new}}, session=session)
-    if sent := [row["_id"] for row in held if row["state"] != "open"]:
+    if sent := [row["_id"] for row in rows if row["state"] != "open"]:
         await patch_many_in_db(collection=outbox_collection, db_filter={"_id": {"$in": sent}}, update=TOMBSTONE_UPDATE, session=session)
 
 

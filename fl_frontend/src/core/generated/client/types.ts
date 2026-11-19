@@ -5674,7 +5674,6 @@ export type Rule = (typeof Rule)[keyof typeof Rule];
 export const Rule = {
   acceptance_with_proposal: "acceptance_with_proposal",
   acceptance_with_reason: "acceptance_with_reason",
-  address_in_free_text: "address_in_free_text",
   bewerbung_window_ends_before_start: "bewerbung_window_ends_before_start",
   date_not_in_calendar: "date_not_in_calendar",
   decline_without_proposal: "decline_without_proposal",

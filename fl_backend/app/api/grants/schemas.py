@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import Field
 
 from app.core.crud import Anchored
 from app.shared.schemas.custom import CustomObjectId, FLUtcInstant
@@ -32,16 +32,16 @@ class FLGrantRecord(Anchored):
     owner_from: datetime | None = None
 
 
-class FLGrantRow(BaseModel):
+class FLGrantRow(BaseReadModel):
     """One grant as the list serves it."""
 
-    id: CustomObjectId
+    id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
     address: str
     admin_tier: FLAdminTier
     # A future one is an addition still waiting.
     effective_from: FLUtcInstant
-    # Set exactly while a handover to this row waits.
-    owner_from: FLUtcInstant | None
+    # Set exactly while a handover to this row waits, and stored only then.
+    owner_from: FLUtcInstant | None = None
 
 
 class FLGrantsListResponse(BaseReadModel):

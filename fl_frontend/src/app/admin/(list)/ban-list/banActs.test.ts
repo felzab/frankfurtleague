@@ -155,21 +155,12 @@ describe("a ban", () => {
   });
 
   it.each([
-    ["an address of the wrong shape", { email: "max@example" }, SERVER_COPY.closedDialog.format.address, undefined],
-    ["a Grund of spaces", { ban_reason: "   " }, SERVER_COPY.closedDialog.reasonMissing, undefined],
-    ["a Grund holding an address", { ban_reason: ADDRESS }, SERVER_COPY.closedDialog.reasonWithAddress, "address_in_free_text"],
-  ])("refuses %s in its box's sentence, the dialog having closed", async (_case, typed, reason, rule) => {
-    if (rule !== undefined) {
-      backend.answerWith(({ method, path }) =>
-        method === "POST" && path === "/ban_list"
-          ? refusal("payload_refused", { fields: [{ path: ["ban_reason"], kind: rule, ctx: {}, in: "body" }] })
-          : undefined,
-      );
-    }
-
+    ["an address of the wrong shape", { email: "max@example" }, SERVER_COPY.closedDialog.format.address],
+    ["a Grund of spaces", { ban_reason: "   " }, SERVER_COPY.closedDialog.reasonMissing],
+  ])("refuses %s in its box's sentence, the dialog having closed", async (_case, typed, reason) => {
     expect(await enterBan({ ...BAN, ...typed })).toMatchObject({ ok: false, reason });
-    // A box the parse refuses posts nothing; the backend's own refusal is of the one ban posted.
-    expect(bansPosted()).toHaveLength(rule === undefined ? 0 : 1);
+    // A box the parse refuses posts nothing.
+    expect(bansPosted()).toHaveLength(0);
   });
 
   // A write the backend refused stands nowhere, so there is nothing for a sign-out to follow.

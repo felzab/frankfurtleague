@@ -1,4 +1,6 @@
-from fastapi import APIRouter, status
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, status
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.address_change.crud import end_the_change_in_session
@@ -33,7 +35,7 @@ from app.core.dependencies import (
 )
 from app.core.exceptions import DocumentNotFoundError
 from app.core.routing import by_id
-from app.core.security import ActorEmail
+from app.core.security import ActorEmail, SessionActor, verify_admin_actor
 from app.core.transactions import transact
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.custom import CustomObjectId
@@ -54,19 +56,7 @@ async def get_grants(grants_collection: GrantsReadCollection) -> FLGrantsListRes
 
     rows = await read_grants(grants_collection=grants_collection)
 
-    return FLGrantsListResponse(
-        grants=[
-            FLGrantRow(
-                id=row["_id"],
-                address=row["address"],
-                admin_tier=row["admin_tier"],
-                effective_from=row["effective_from"],
-                # Stored only while a handover to the row waits.
-                owner_from=row.get("owner_from"),
-            )
-            for row in rows
-        ]
-    )
+    return FLGrantsListResponse(grants=[FLGrantRow.model_validate(row) for row in rows])
 
 
 @router.post("", status_code=201, summary="Add an administrator")
@@ -78,6 +68,7 @@ async def post_grant(
     outbox_collection: OutboxCollection,
     db: DBClient,
     operator: ActorEmail,
+    signed_in: Annotated[SessionActor, Depends(verify_admin_actor)],
     germany_now: GermanyNow,
 ) -> FLCreatedResponse:
     """Add an address as `administration`, holding once its wait has passed; only the owner adds one, and no request grants `owner`.
@@ -90,7 +81,7 @@ async def post_grant(
 
     async def judge_and_grant(session: AsyncClientSession) -> FLCreatedResponse:
         grants = await pull_the_list_to_judge(grants_collection=grants_collection, session=session)
-        refuse(find_only_owner_refusal(actor=operator, grants=grants))
+        refuse(find_only_owner_refusal(actor=operator, auth_time=signed_in.auth_time, grants=grants))
         refuse(find_exists_refusal(address=address, grants=grants))
         refuse(find_barred_refusal(barred=await address_is_barred(ban_list_collection=ban_list_collection, address=address, session=session)))
 
@@ -126,6 +117,7 @@ async def delete_grant(
     outbox_collection: OutboxCollection,
     db: DBClient,
     operator: ActorEmail,
+    signed_in: Annotated[SessionActor, Depends(verify_admin_actor)],
     germany_now: GermanyNow,
 ) -> None:
     """Remove a grant for good, its address losing access on its next request, or withdraw an addition still waiting.
@@ -136,7 +128,7 @@ async def delete_grant(
     async def judge_and_revoke(session: AsyncClientSession) -> None:
         grants = await pull_the_list_to_judge(grants_collection=grants_collection, session=session)
         # Judged before anything about the target is answered.
-        refuse(find_only_owner_refusal(actor=operator, grants=grants))
+        refuse(find_only_owner_refusal(actor=operator, auth_time=signed_in.auth_time, grants=grants))
 
         grant = next((row for row in grants if row["_id"] == grant_id), None)
         if grant is None:
@@ -165,6 +157,7 @@ async def post_handover(
     outbox_collection: OutboxCollection,
     db: DBClient,
     operator: ActorEmail,
+    signed_in: Annotated[SessionActor, Depends(verify_admin_actor)],
     germany_now: GermanyNow,
 ) -> None:
     """Start handing the owner role to an administrator in effect, completing once its wait has passed; the owner stays the owner until then.
@@ -174,7 +167,7 @@ async def post_handover(
 
     async def judge_and_start(session: AsyncClientSession) -> None:
         grants = await pull_the_list_to_judge(grants_collection=grants_collection, session=session)
-        refuse(find_only_owner_refusal(actor=operator, grants=grants))
+        refuse(find_only_owner_refusal(actor=operator, auth_time=signed_in.auth_time, grants=grants))
 
         grant = next((row for row in grants if row["_id"] == grant_id), None)
         if grant is None:
@@ -205,13 +198,14 @@ async def delete_handover(
     outbox_collection: OutboxCollection,
     db: DBClient,
     operator: ActorEmail,
+    signed_in: Annotated[SessionActor, Depends(verify_admin_actor)],
     germany_now: GermanyNow,
 ) -> None:
     """Stop a waiting handover, the role staying with the owner; only the owner stops one, and every holder in effect is told."""
 
     async def judge_and_stop(session: AsyncClientSession) -> None:
         grants = await pull_the_list_to_judge(grants_collection=grants_collection, session=session)
-        refuse(find_only_owner_refusal(actor=operator, grants=grants))
+        refuse(find_only_owner_refusal(actor=operator, auth_time=signed_in.auth_time, grants=grants))
 
         grant = next((row for row in grants if row["_id"] == grant_id and row.get("owner_from") is not None), None)
         if grant is None:

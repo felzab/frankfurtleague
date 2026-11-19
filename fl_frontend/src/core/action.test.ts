@@ -371,11 +371,11 @@ describe("a list of records", () => {
       lane: "admin",
       name: "saveBericht",
       input: Report,
-      ownWords: ["address_in_free_text"],
+      ownWords: ["nichtantreten_with_scorers"],
       paths,
       examples: { "changes.scorers.*.minute": field.exampleDigits },
       run: async () => {
-        const refused: FLRefusedField = { in: "body", kind: "address_in_free_text", ctx: {}, path: ["bericht", "scorers", 2, "minute"] };
+        const refused: FLRefusedField = { in: "body", kind: "nichtantreten_with_scorers", ctx: {}, path: ["bericht", "scorers", 2, "minute"] };
         await sends("PUT", refusal("payload_refused", { fields: [refused] }));
         return { ok: true, value: undefined };
       },
@@ -398,7 +398,7 @@ describe("a list of records", () => {
     expect(await save({ "bericht.scorers.*.minute": "changes.scorers.*.minute" })(scorers("12", "45", "90"))).toStrictEqual({
       ok: false,
       errorCode: "payload_refused",
-      fieldErrors: { "changes.scorers.2.minute": field.without(COPY.signIn.address) },
+      fieldErrors: { "changes.scorers.2.minute": field.without(COPY.admin.spiel.scorers) },
     });
   });
 
@@ -414,7 +414,7 @@ describe("a list of records", () => {
 // The harm: a dialog closed behind the passkey touch answers in a toast, where a box's phrase has no box in sight and the
 // line pointing at the fields points at nothing.
 describe("a screen showing no box with its answer", () => {
-  const { format, reasonMissing, reasonWithAddress } = SERVER_COPY.closedDialog;
+  const { format, reasonMissing } = SERVER_COPY.closedDialog;
   const Ban = z.object({
     email: z.string().refine((value) => value.includes("@")),
     ban_reason: z
@@ -429,11 +429,12 @@ describe("a screen showing no box with its answer", () => {
       lane: "admin",
       name: "enterBan",
       input: Ban,
-      ownWords: ["address_in_free_text", "email_not_accepted"],
+      ownWords: ["email_not_accepted"],
       paths: { email: "email", ban_reason: "ban_reason" },
       boxless: {
-        email: { value: format.address, email_not_accepted: format.address },
-        ban_reason: { required: reasonMissing, address_in_free_text: reasonWithAddress },
+        // The rule's sentence apart from the box's own, so the answer shows which of the two was read.
+        email: { value: format.address, email_not_accepted: format.next },
+        ban_reason: { required: reasonMissing },
       },
       run: async () => {
         await sends("POST", refused === undefined ? undefined : refusal("payload_refused", { fields: [refused] }));
@@ -447,12 +448,12 @@ describe("a screen showing no box with its answer", () => {
   });
 
   it("answers a box the backend's rule refused in the sentence declared for that rule", async () => {
-    const refused: FLRefusedField = { in: "body", kind: "address_in_free_text", ctx: {}, path: ["ban_reason"] };
+    const refused: FLRefusedField = { in: "body", kind: "email_not_accepted", ctx: {}, path: ["email"] };
 
-    expect(await ban(refused)({ email: "max@example.org", ban_reason: "max@example.org" })).toStrictEqual({
+    expect(await ban(refused)({ email: "max@example.org", ban_reason: "Ein Grund" })).toStrictEqual({
       ok: false,
       errorCode: "payload_refused",
-      reason: reasonWithAddress,
+      reason: format.next,
     });
   });
 

@@ -173,13 +173,13 @@ async def post_handout(
             if row.get("team") is not None:
                 # An anchor on the seat's row, judged by its filter: a seat edit landing beside this claim conflicts with
                 # it, and the retry reads the seat as it then stands.
-                held = await patch_past_the_version_in_db(
+                anchored = await patch_past_the_version_in_db(
                     collection=db[Collection.SAISON_TEAMS],
                     db_filter=_team_seat_filter(row),
                     update={"$inc": {ANCHOR_FIELD: 1}},
                     session=session,
                 )
-                if held == 0:
+                if anchored == 0:
                     dropped_ids.append(row["_id"])
                     continue
             if row["link"] is None:
@@ -218,7 +218,7 @@ async def post_handout(
             return [], None, abandoned, unreadable
 
         lease = secrets.token_urlsafe(24)
-        # Every claimed row written, so two overlapping claims conflict on the rows both read and the retry finds them held;
+        # Every claimed row written, so two overlapping claims conflict on the rows both read and the retry finds them claimed;
         # the count rises in this write, so a retried claim counts once.
         await patch_many_in_db(
             collection=outbox_collection,
@@ -271,12 +271,14 @@ async def post_result(
     """
 
     # Each write names the claim, so its check and the outcome are one atomic operation on one row, needing no transaction.
-    held = {"_id": result_data.id, "lease": result_data.lease, "state": "open"}
+    still_claimed = {"_id": result_data.id, "lease": result_data.lease, "state": "open"}
 
     async def settled(update: Mapping[str, Any], narrowed: Mapping[str, Any]) -> bool:
         # Every report writes its refusal or none, so a mail sent after a failed send keeps no reason it no longer has.
         with_delivery_reason = {**update, "$set": {**update["$set"], "delivery_reason": result_data.delivery_reason}}
-        result = await patch_many_in_db(collection=outbox_collection, db_filter={**held, **narrowed}, update=with_delivery_reason, session=None)
+        result = await patch_many_in_db(
+            collection=outbox_collection, db_filter={**still_claimed, **narrowed}, update=with_delivery_reason, session=None
+        )
         return result.modified_count > 0
 
     result = result_data.result

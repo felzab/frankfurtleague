@@ -20,7 +20,6 @@ from app.api.address_change.services import masked_address
 from app.api.grants.erasure import erase_grants_in_session
 from app.api.grants.services import compose_notice
 from app.api.identity.crud import erase_the_mails_in_session
-from app.api.outbox.schemas import FLGrantData
 from app.core.collections import Collection
 from app.readback import RECORD_MODELS
 from tests.database import a_clean_database
@@ -40,24 +39,16 @@ RUNNING = "2026"
 
 # The person erased. Distinctive, so the whole-database scan finding it is no coincidence.
 ERIKA = "erika.zwirbelmoos@frankfurtleague.de"
-# Her mailbox as a paste, or an actor stored before the fold, typed it: the fold claims it.
+# Her mailbox as an actor stored before the fold typed it: the fold claims it.
 ERIKA_TYPED = "Erika.Zwirbelmoos@FrankfurtLeague.de"
-# Another mailbox, which a pattern leaving the dot unescaped takes as hers.
+# Another mailbox, one character from hers.
 NAHE = "erikaxzwirbelmoos@frankfurtleague.de"
-# Another mailbox, a long s where hers has an s: the pattern's `i` may read it as hers, the fold does not.
-LANGES_S = ERIKA.replace("moos@", f"moo{chr(0x17F)}@")
-# Her mailbox at a punycode domain, and as a hand-typed paste may spell it, in capitals and padded: the fold equates
-# the two, and a read asking the stored spelling alone misses it.
-ERIKA_PUNYCODE = "erika@xn--mller-kva.example.org"
-ERIKA_PUNYCODE_PASTED = f"Erika@XN--MLLER-KVA.EXAMPLE.ORG{chr(0xA0)}"
 # The owner, erasing her as the administrator's own route will.
 DORA = "dora.inhaberin@frankfurtleague.de"
 BERND = "bernd.admin@frankfurtleague.de"
 CLARA = "clara.admin@frankfurtleague.de"
 
 ERIKA_ID = ObjectId("6890a1b2c3d4e5f607a10001")
-# A second row of hers in a spelling no request matches: a dead grant still holds the address.
-ERIKA_DEAD_ID = ObjectId("6890a1b2c3d4e5f607a10002")
 DORA_ID = ObjectId("6890a1b2c3d4e5f607a10003")
 BERND_ID = ObjectId("6890a1b2c3d4e5f607a10004")
 CLARA_ID = ObjectId("6890a1b2c3d4e5f607a10005")
@@ -72,9 +63,6 @@ ERIKA_ELSEWHERE = ERIKA.replace("@frankfurtleague.de", "@anderswo.example.org")
 ELSEWHERE_GRANTED_ID = ObjectId("6890a1b2c3d4e5f607a10008")
 
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
-
-# The seed's dead spelling of hers, which a case erasing another address of hers, or none, leaves standing.
-PASTED_BY_HAND = "a grant pasted by hand in a spelling the sign-in does not fold to, which no route stores"
 
 
 def grant_row(grant_id: ObjectId, address: str, admin_tier: str) -> dict[str, Any]:
@@ -92,7 +80,7 @@ def notice(row_id: ObjectId, grant_id: ObjectId, change: Any, address: str | Non
     composed = compose_notice(grant_id=grant_id, change=change, stage="started", address=address)
     key = f"grant/{grant_id}/{change}/started/{QUEUED.isoformat()}/{DORA_ID}"
 
-    return outbox_document(key, to=DORA, now=QUEUED, data=FLGrantData.model_validate(composed.data), _id=row_id)
+    return outbox_document(key, to=DORA, now=QUEUED, data=composed.data, _id=row_id)
 
 
 async def a_league_she_administered(database: AsyncDatabase) -> None:
@@ -100,7 +88,6 @@ async def a_league_she_administered(database: AsyncDatabase) -> None:
     await database[Collection.GRANTS].insert_many(
         [
             grant_row(ERIKA_ID, ERIKA, "administration"),
-            grant_row(ERIKA_DEAD_ID, ERIKA_TYPED, "administration"),
             grant_row(DORA_ID, DORA, "owner"),
             grant_row(BERND_ID, BERND, "administration"),
             grant_row(CLARA_ID, CLARA, "administration"),
@@ -178,33 +165,13 @@ async def queued_for(database: AsyncDatabase, grant_id: ObjectId) -> list[Mappin
 
 
 class TestHerGrantsGo:
-    async def test_every_grant_her_address_holds_goes_a_dead_spelling_included(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[set[ObjectId], set[ObjectId]]:
-            before = await ids_in(database, Collection.GRANTS)
+    async def test_her_grant_goes_and_nobody_elses(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> set[ObjectId]:
             await erase(database, client)
 
-            return before, await ids_in(database, Collection.GRANTS)
+            return await ids_in(database, Collection.GRANTS)
 
-        before, grants = await on_a_league(mongo_replica_set_url, body)
-
-        assert grants == {DORA_ID, BERND_ID, CLARA_ID, NAHE_ID}
-        # Hers and the dead spelling: two, and nobody else's beside them.
-        assert len(before - grants) == 2
-
-    async def test_a_grant_pasted_unfolded_goes(self, mongo_replica_set_url: str):
-        """Catches a read asking the stored spelling alone, which leaves this grant standing."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[bool, dict[str, list[str]]]:
-            pasted = ObjectId()
-            await database[Collection.GRANTS].insert_one(grant_row(pasted, ERIKA_PUNYCODE_PASTED, "administration"))
-            await erase(database, client, identifier=ERIKA_PUNYCODE)
-            stands = await database[Collection.GRANTS].find_one({"_id": pasted}) is not None
-            # Owed every holder left, her dead spelling among them, each in the fold.
-            await outbox_read_back(database)
-
-            return stands, await where_held(database, "MLLER-KVA", folded=True)
-
-        assert await on_a_league(mongo_replica_set_url, body, stores_a_refused_shape=PASTED_BY_HAND) == (False, {"MLLER-KVA": []})
+        assert await on_a_league(mongo_replica_set_url, body) == {DORA_ID, BERND_ID, CLARA_ID, NAHE_ID}
 
 
 class TestTheNotices:
@@ -239,7 +206,7 @@ class TestTheNotices:
 
             return await ids_in(database, Collection.OUTBOX), lines
 
-        left, lines = await on_a_league(mongo_replica_set_url, body, stores_a_refused_shape=PASTED_BY_HAND)
+        left, lines = await on_a_league(mongo_replica_set_url, body)
 
         assert left.isdisjoint({NAMING_HER_GRANT, typed, completed})
         assert left >= {NOT_HERS, ELSEWHERE, settled}
@@ -260,15 +227,15 @@ class TestTheNotices:
         ]
 
 
-async def test_her_address_is_held_nowhere_in_the_database_in_either_spelling(mongo_replica_set_url: str):
+async def test_her_address_is_held_nowhere_in_the_database(mongo_replica_set_url: str):
     """Rendered whole, the step's own log rows included: an image or a filter naming her would keep what the step destroys."""
 
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> dict[str, list[str]]:
-        held = await where_held(database, ERIKA, ERIKA_TYPED)
-        assert held[ERIKA] and held[ERIKA_TYPED], f"the control: the seed holds her nowhere, so the scan below proves nothing: {held}"
+        held = await where_held(database, ERIKA)
+        assert held[ERIKA], f"the control: the seed holds her nowhere, so the scan below proves nothing: {held}"
         await erase(database, client)
         await erase_the_mails(database, client)
 
-        return await where_held(database, ERIKA, ERIKA_TYPED)
+        return await where_held(database, ERIKA)
 
-    assert await on_a_league(mongo_replica_set_url, body) == {ERIKA: [], ERIKA_TYPED: []}
+    assert await on_a_league(mongo_replica_set_url, body) == {ERIKA: []}
