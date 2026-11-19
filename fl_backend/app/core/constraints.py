@@ -241,6 +241,9 @@ SUPPORT_INDEXES: Sequence[tuple[Collection, IndexModel]] = (
         (Collection.BEWERBUNGEN, IndexModel([(f"kontakte.{seat}.email", ASCENDING)], name=f"bewerbungen_kontakte_{seat}_email"))
         for seat in KONTAKT_SEATS
     ),
+    # A person's referee rows, which the subject lookup reads on every signed-in page. Not a unique one: one address may
+    # hold several referee rows, each its own entry on the account page.
+    (Collection.SCHIEDSRICHTER, IndexModel([("kontakt.email", ASCENDING)], name="schiedsrichter_kontakt_email")),
     # A person's registrations, which every sign-in attempt and account page read. Compound, so the sign-in's `status`
     # term is read off the index; the erasure's read of every status walks its prefix.
     (Collection.REGISTRIERUNGEN, IndexModel([("email", ASCENDING), ("status", ASCENDING)], name="registrierungen_email_status")),
