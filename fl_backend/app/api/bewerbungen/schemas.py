@@ -154,10 +154,9 @@ class FLBewerbungConfirmationRecord(_FLBewerbungSeatState):
     # The day this seat's one reminder was owed. A re-send and a seat write clear it. Served to nobody: the reminder
     # clock reads it, and no page does.
     reminded_at: CustomOptionalDateString
-    # The day the clock closed this seat's chase, its last mail not having arrived, which takes it out of the clock's read.
-    # A delivered mail to the seat's address, a re-send and a seat write clear it. Served to nobody: the page reads the
-    # seat's last mail. A row stored without the key reads as null.
-    chase_closed_at: CustomOptionalDateString = None
+    # The day this seat's person confirmed it, kept here by the acceptance, which moves the person to the season row and
+    # empties the slot: a reopened link still shows what they did and when. Null while the slot holds its own stamp.
+    confirmed_at: CustomOptionalDateString
 
 
 class FLBewerbungConfirmationsRecord(FLBewerbungConfirmations):

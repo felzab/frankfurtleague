@@ -528,6 +528,7 @@ export const FLAction = {
   teamaustritt_entered: "team.austritt_entered",
   teamseat_changed: "team.seat_changed",
   teamseat_objected: "team.seat_objected",
+  teamseat_einwilligung_withdrawn: "team.seat_einwilligung_withdrawn",
   teamreplaced: "team.replaced",
   teaminvitation_created: "team.invitation_created",
   teaminvitation_withdrawn: "team.invitation_withdrawn",
@@ -535,16 +536,20 @@ export const FLAction = {
   bewerbungdeclined: "bewerbung.declined",
   bewerbungseat_changed: "bewerbung.seat_changed",
   bewerbungseat_objected: "bewerbung.seat_objected",
+  bewerbungseat_einwilligung_withdrawn: "bewerbung.seat_einwilligung_withdrawn",
   registrierungadmitted: "registrierung.admitted",
   registrierungdeclined: "registrierung.declined",
+  registrierungeinwilligung_withdrawn: "registrierung.einwilligung_withdrawn",
   spielerchanged: "spieler.changed",
   spielerderegistered: "spieler.deregistered",
   spielerreactivated: "spieler.reactivated",
+  spielereinwilligung_withdrawn: "spieler.einwilligung_withdrawn",
   schiedsrichtercreated: "schiedsrichter.created",
   schiedsrichterchanged: "schiedsrichter.changed",
   schiedsrichterretired: "schiedsrichter.retired",
   schiedsrichterreactivated: "schiedsrichter.reactivated",
   schiedsrichterobjected: "schiedsrichter.objected",
+  schiedsrichtereinwilligung_withdrawn: "schiedsrichter.einwilligung_withdrawn",
   spielortcreated: "spielort.created",
   spielortchanged: "spielort.changed",
   spielortretired: "spielort.retired",
@@ -1991,11 +1996,22 @@ export interface FLEinwilligungEvidence {
 }
 
 /**
+ * The evidence of a withdrawal an administrator entered from the person's mail, and the grant it ended.
+ *
+ * No label: the person withdrew in their own words, reading none of the league's.
+ */
+export interface FLEinwilligungMailWithdrawal {
+  at: string;
+  given_before: FLEinwilligungReceipt | null;
+  via: "mail";
+}
+
+/**
  * Each choice's evidence, null until its person sets it: a record no person has answered carries none.
  */
 export interface FLEinwilligungEvidenceSet {
-  media: FLEinwilligungEvidence | null;
-  scope: FLEinwilligungEvidence | null;
+  media: FLEinwilligungEvidence | FLEinwilligungMailWithdrawal | null;
+  scope: FLEinwilligungEvidence | FLEinwilligungMailWithdrawal | null;
 }
 
 /**
@@ -2012,6 +2028,22 @@ export interface FLEinwilligung {
   evidence: FLEinwilligungEvidenceSet;
   media: boolean;
   scope: FLEinwilligungScope;
+}
+
+export type FLEinwilligungWithdrawalPayloadChoicesItem =
+  (typeof FLEinwilligungWithdrawalPayloadChoicesItem)[keyof typeof FLEinwilligungWithdrawalPayloadChoicesItem];
+
+export const FLEinwilligungWithdrawalPayloadChoicesItem = {
+  scope: "scope",
+  media: "media",
+} as const;
+
+/**
+ * The choices a person asked by mail to withdraw, which an administrator enters: it withholds and never grants.
+ */
+export interface FLEinwilligungWithdrawalPayload {
+  /** @minItems 1 */
+  choices: FLEinwilligungWithdrawalPayloadChoicesItem[];
 }
 
 /**
@@ -3880,10 +3912,7 @@ export interface FLSaisonAdmin {
   decided: boolean;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   end_date: string;
-  /**
-   * @minLength 4
-   * @maxLength 4
-   */
+  /** @pattern ^[0-9]{4}$ */
   id: string;
   registrierung: FLSaisonRegistrierung | null;
   rules: FLSaisonRules;
@@ -3917,10 +3946,7 @@ export interface FLSaisonAdminListed {
   decided: boolean;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   end_date: string;
-  /**
-   * @minLength 4
-   * @maxLength 4
-   */
+  /** @pattern ^[0-9]{4}$ */
   id: string;
   registrierung: FLSaisonRegistrierung | null;
   rules: FLSaisonRules;

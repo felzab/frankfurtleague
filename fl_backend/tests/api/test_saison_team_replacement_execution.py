@@ -277,7 +277,6 @@ async def call_replace(
         saisons_collection=saisons_collection if saisons_collection is not None else database[Collection.SAISONS],
         spiele_collection=database[Collection.SPIELE],
         saison_spieler_collection=database[Collection.SAISON_SPIELER],
-        bewerbungen_collection=database[Collection.BEWERBUNGEN],
         aufstellungen_collection=aufstellungen_collection if aufstellungen_collection is not None else database[Collection.AUFSTELLUNGEN],
         db=client,
         today=REPLACED_ON,

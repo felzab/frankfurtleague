@@ -50,6 +50,7 @@ import type {
   FLBewerbungSweepResponse,
   FLCreatedResponse,
   FLDeclineBewerbungPayload,
+  FLEinwilligungWithdrawalPayload,
   FLErasureAddressPayload,
   FLErasurePayload,
   FLErasureSweepResponse,
@@ -933,6 +934,32 @@ export const bewerbungenResendKontaktConfirmation = async (
   });
 };
 
+export const getBewerbungenWithdrawKontaktEinwilligungUrl = (bewerbungId: string, seat: string) => {
+  return `/api/bewerbungen/${encodeURIComponent(String(bewerbungId))}/kontakte/${encodeURIComponent(String(seat))}/einwilligung/withdrawal`;
+};
+
+/**
+ * Withdraw the named choices, WhatsApp and media, on every confirmed seat of this application its person holds, as their own press does.
+ *
+ * A decided application takes it too; an accepted one holds no seat, its people being its season row's. A choice
+ * already withheld stays as it is, so a second mail or a seat its person never confirmed writes nothing, and nothing
+ * is ever granted.
+ * @summary Enter a withdrawal of a contact seat's consent that its person asked for by mail
+ */
+export const bewerbungenWithdrawKontaktEinwilligung = async (
+  bewerbungId: string,
+  seat: string,
+  fLEinwilligungWithdrawalPayload: FLEinwilligungWithdrawalPayload,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<void> => {
+  return adminKeyTransport<void>(getBewerbungenWithdrawKontaktEinwilligungUrl(bewerbungId, seat), {
+    ...options,
+    method: "POST",
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
+    body: JSON.stringify(fLEinwilligungWithdrawalPayload),
+  });
+};
+
 export const getGrantsGetGrantsUrl = () => {
   return `/api/grants`;
 };
@@ -1209,8 +1236,7 @@ export const getOutboxPostEventUrl = () => {
 /**
  * Record what the mail provider reported about one message on its mail's row, where the row's state may follow into it.
  *
- * A redelivered or out-of-order event changes nothing, and a delivery of a mail about an application reopens the
- * closed chase of every seat holding its address.
+ * A redelivered or out-of-order event changes nothing.
  * @summary Record one delivery event on its mail's row
  */
 export const outboxPostEvent = async (
@@ -1492,6 +1518,30 @@ export const registrierungenPatchEinwilligung = async (
     method: "PATCH",
     headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(fLAccountEinwilligungPayload),
+  });
+};
+
+export const getRegistrierungenWithdrawRegistrierungEinwilligungUrl = (registrierungId: string) => {
+  return `/api/registrierungen/${encodeURIComponent(String(registrierungId))}/einwilligung/withdrawal`;
+};
+
+/**
+ * Withdraw the named choices of the consent a pupil gave on a registration, which an admission would carry onto them.
+ *
+ * A decided registration takes it too. A choice already withheld stays as it is, so a second mail or a registration
+ * its pupil never confirmed writes nothing, and nothing is ever granted.
+ * @summary Enter a withdrawal of a registration's consent that its pupil asked for by mail
+ */
+export const registrierungenWithdrawRegistrierungEinwilligung = async (
+  registrierungId: string,
+  fLEinwilligungWithdrawalPayload: FLEinwilligungWithdrawalPayload,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<void> => {
+  return adminKeyTransport<void>(getRegistrierungenWithdrawRegistrierungEinwilligungUrl(registrierungId), {
+    ...options,
+    method: "POST",
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
+    body: JSON.stringify(fLEinwilligungWithdrawalPayload),
   });
 };
 
@@ -2167,6 +2217,30 @@ export const schiedsrichterPatchEinwilligung = async (
   });
 };
 
+export const getSchiedsrichterWithdrawSchiedsrichterEinwilligungUrl = (schiedsrichterId: string) => {
+  return `/api/schiedsrichter/${encodeURIComponent(String(schiedsrichterId))}/einwilligung/withdrawal`;
+};
+
+/**
+ * Withdraw the named choices of a referee's consent, the name on the fixtures leaving the public pages and the media consent ending.
+ *
+ * A choice already withheld stays as it is, so a second mail or a record its person never confirmed writes nothing,
+ * and nothing is ever granted.
+ * @summary Enter a withdrawal of a Schiedsrichter's consent that they asked for by mail
+ */
+export const schiedsrichterWithdrawSchiedsrichterEinwilligung = async (
+  schiedsrichterId: string,
+  fLEinwilligungWithdrawalPayload: FLEinwilligungWithdrawalPayload,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<void> => {
+  return adminKeyTransport<void>(getSchiedsrichterWithdrawSchiedsrichterEinwilligungUrl(schiedsrichterId), {
+    ...options,
+    method: "POST",
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
+    body: JSON.stringify(fLEinwilligungWithdrawalPayload),
+  });
+};
+
 export const getSchiedsrichterReactivateSchiedsrichterUrl = (schiedsrichterId: string) => {
   return `/api/schiedsrichter/${encodeURIComponent(String(schiedsrichterId))}/reactivate`;
 };
@@ -2540,6 +2614,30 @@ export const spielerGetKader = async (
   return adminKeyTransport<FLKaderResponse>(getSpielerGetKaderUrl(teamId, saisonId), {
     ...options,
     method: "GET",
+  });
+};
+
+export const getSpielerWithdrawSpielerEinwilligungUrl = (spielerId: string) => {
+  return `/api/spieler/${encodeURIComponent(String(spielerId))}/einwilligung/withdrawal`;
+};
+
+/**
+ * Withdraw the named choices of a pupil's consent, the name on the squad leaving the public pages and the media consent ending.
+ *
+ * A choice already withheld stays as it is, so a second mail writes nothing, and nothing is ever granted. The caller
+ * drops its cached squad lists after a success, since the scope decides whether a name is served.
+ * @summary Enter a withdrawal of a Spieler's consent that they asked for by mail
+ */
+export const spielerWithdrawSpielerEinwilligung = async (
+  spielerId: string,
+  fLEinwilligungWithdrawalPayload: FLEinwilligungWithdrawalPayload,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<void> => {
+  return adminKeyTransport<void>(getSpielerWithdrawSpielerEinwilligungUrl(spielerId), {
+    ...options,
+    method: "POST",
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
+    body: JSON.stringify(fLEinwilligungWithdrawalPayload),
   });
 };
 
@@ -3156,6 +3254,32 @@ export const teamsResendKontaktConfirmation = async (
   return adminKeyTransport<void>(getTeamsResendKontaktConfirmationUrl(teamId, saisonId, seat), {
     ...options,
     method: "POST",
+  });
+};
+
+export const getTeamsWithdrawKontaktEinwilligungUrl = (teamId: string, saisonId: string, seat: string) => {
+  return `/api/teams/${encodeURIComponent(String(teamId))}/saisons/${encodeURIComponent(String(saisonId))}/kontakte/${encodeURIComponent(String(seat))}/einwilligung/withdrawal`;
+};
+
+/**
+ * Withdraw the named choices, WhatsApp and media, on every confirmed seat of this row its person holds, as their own press does.
+ *
+ * A finished season's row and a withdrawn team's take it too. A choice already withheld stays as it is, so a second mail
+ * or a seat its person never confirmed writes nothing, and nothing is ever granted.
+ * @summary Enter a withdrawal of a contact seat's consent that its person asked for by mail
+ */
+export const teamsWithdrawKontaktEinwilligung = async (
+  teamId: string,
+  saisonId: string,
+  seat: string,
+  fLEinwilligungWithdrawalPayload: FLEinwilligungWithdrawalPayload,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<void> => {
+  return adminKeyTransport<void>(getTeamsWithdrawKontaktEinwilligungUrl(teamId, saisonId, seat), {
+    ...options,
+    method: "POST",
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
+    body: JSON.stringify(fLEinwilligungWithdrawalPayload),
   });
 };
 

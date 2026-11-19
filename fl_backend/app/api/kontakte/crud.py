@@ -7,7 +7,6 @@ from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.bewerbungen.services import deletion_was_announced, leaving_moves_the_deletion_day
 from app.api.kontakte.services import (
-    PersonName,
     build_clearing_update,
     departing_slots,
 )
@@ -25,13 +24,11 @@ async def clear_seats(
     # Folded: each seat's address is compared on the fold.
     identifiers: Set[str],
     session: AsyncClientSession,
-    *,
-    names: Set[PersonName] = frozenset(),
 ) -> None:
     """Null these people's slots, one patch per row holding any and never one over many: which slots a row gives up is that row's own."""
 
     for row in rows:
-        slots = departing_slots(row, identifiers, names)
+        slots = departing_slots(row, identifiers)
         if not slots:
             continue
 

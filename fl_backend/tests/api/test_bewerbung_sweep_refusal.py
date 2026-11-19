@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 from typing import Any, cast
 
 import pytest
+from pydantic import ValidationError
 
 from app.api.bewerbungen.services import (
     BEWERBUNG_REMINDER_DAYS,
@@ -14,12 +15,12 @@ from app.api.bewerbungen.services import (
     lapsed_seats,
     owed_deletion_notices,
     reminder_seats,
-    reopened_chases,
     schule_name,
     seat_reminder_is_due,
     unreachable_seats,
 )
 from app.api.outbox.schemas import FLOutboxDelivery, FLOutboxDeliveryState, FLOutboxStatus
+from app.api.saisons.schemas import FLSaisonRecord
 from app.shared.schemas.literals import KONTAKT_SEATS
 from app.shared.tokens import hash_token
 from tests.documents import kontaktperson_document, minted_confirmations
@@ -127,12 +128,6 @@ class TestTheReminderMark:
                 "reminded once",
                 id="reminded once",
             ),
-            pytest.param(
-                kontakte(),
-                confirmations(trainer={**confirmations()["trainer"], "chase_closed_at": YESTERDAY}),
-                "chase closed",
-                id="chase closed",
-            ),
             pytest.param(kontakte(trainer=None), confirmations(trainer=None), "erased", id="erased"),
         ],
     )
@@ -186,55 +181,7 @@ class TestTheReminderMark:
         ]
 
 
-ADDRESS = "ansgar.reopened@example.com"
-
-
-def closed_chase(**seats: Any) -> dict[str, Any]:
-    """The Ansprechperson's chase closed, any entry replaced by a case's own."""
-
-    return confirmations(**{"ansprechperson": {**confirmations()["ansprechperson"], "chase_closed_at": YESTERDAY}, **seats})
-
-
-def reachable(**seats: Any) -> dict[str, Any]:
-    """The Ansprechperson at `ADDRESS`, any slot replaced by a case's own."""
-
-    return kontakte(**{"ansprechperson": {**kontaktperson_document("Ansgar"), "email": ADDRESS}, **seats})
-
-
-class TestAMailDeliveredToAClosedChase:
-    def test_it_opens_every_closed_seat_holding_its_address(self):
-        """The Trainer mirrors the seat by holding its address, so the one mail answers for both."""
-
-        stored = application(
-            kontakte=reachable(trainer={**kontaktperson_document("Ansgar"), "email": ADDRESS}, trainer_is_also="ansprechperson"),
-            confirmations=closed_chase(trainer={**confirmations()["trainer"], "chase_closed_at": YESTERDAY}),
-        )
-
-        assert reopened_chases(bewerbung_raw=stored, to=ADDRESS) == ["ansprechperson", "trainer"]
-
-    @pytest.mark.parametrize(
-        ("kontakte_block", "bookkeeping", "to"),
-        [
-            pytest.param(reachable(), closed_chase(), "another@example.com", id="another address"),
-            pytest.param(reachable(), confirmations(), ADDRESS, id="no chase closed"),
-            pytest.param(kontakte(ansprechperson=None), closed_chase(ansprechperson=None), ADDRESS, id="an erased seat"),
-            pytest.param(
-                reachable(ansprechperson={**kontaktperson_document("Ansgar", confirmed_at=YESTERDAY), "email": ADDRESS}),
-                closed_chase(),
-                ADDRESS,
-                id="a confirmed seat",
-            ),
-            pytest.param(
-                reachable(),
-                closed_chase(ansprechperson={**closed_chase()["ansprechperson"], "declined_at": YESTERDAY}),
-                ADDRESS,
-                id="a declined seat",
-            ),
-        ],
-    )
-    def test_it_leaves_every_other_seat_as_it_stands(self, kontakte_block: Any, bookkeeping: Any, to: str):
-        assert reopened_chases(bewerbung_raw=application(kontakte=kontakte_block, confirmations=bookkeeping), to=to) == []
-
+class TestASeatsLastMail:
     @pytest.mark.parametrize("delivery", ["delivered", "delayed"])
     def test_a_seat_a_later_message_may_still_reach_is_chased(self, delivery: str):
         """A delayed message still arrives, and a delivered one arrived: neither is a reason to skip the chase."""
@@ -417,3 +364,28 @@ class TestWhatTheNoticesNeed:
         told = application(kontakte=confirmed, erasure_announced_at=YESTERDAY)
 
         assert [mail.to for mail in owed_deletion_notices(bewerbung_raw=told, saison_id="2026")] == ["stellan@example.com"]
+
+
+class TestTheSuccessorsSeasonId:
+    """The successor adds to a season's id as a year and the clocks compare the sums as strings, which holds for four ASCII digits.
+
+    The season's record model is the one check, so the read-back names a hand-written id the sum would misread.
+    """
+
+    @pytest.mark.parametrize(
+        ("saison_id", "named"),
+        [
+            pytest.param("2026", False, id="a year"),
+            pytest.param("abcd", True, id="letters"),
+            # Each a year to `int`, whose ASCII sum sorts nowhere near the id it came from.
+            pytest.param("\uff12\uff10\uff12\uff16", True, id="fullwidth digits"),
+            pytest.param("\u0662\u0660\u0662\u0666", True, id="Arabic-Indic digits"),
+            pytest.param("20261", True, id="five digits"),
+        ],
+    )
+    def test_the_record_model_names_every_id_that_is_no_four_digit_year(self, saison_id: str, named: bool):
+        with pytest.raises(ValidationError) as raised:
+            # The id alone: every other field's absence is named too, and only the id's line is judged.
+            FLSaisonRecord.model_validate({"_id": saison_id})
+
+        assert (("_id",) in [error["loc"] for error in raised.value.errors()]) == named

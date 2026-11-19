@@ -512,8 +512,6 @@ class TestTheDeliveryEvent:
                     await post_event(
                         event_data=payload,
                         outbox_collection=database[Collection.OUTBOX],
-                        bewerbungen_collection=database[Collection.BEWERBUNGEN],
-                        db_client=client,
                     )
                 ).applied
 

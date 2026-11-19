@@ -111,7 +111,7 @@ def the_corpus() -> list[dict[str, Any]]:
         registrierung(
             DECLINED_OID,
             status="declined",
-            decision={"made_at": "2026-02-15", "reason": "kein Platz"},
+            decision={"made_at": "2026-02-15", "reason": "other_person"},
         ),
         # Decided thirteen days ago and fourteen: the decline clock's own boundary. The first is past its link's deadline
         # too, which is the deadline clock's for a submitted row alone.

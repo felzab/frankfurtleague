@@ -7,6 +7,7 @@ from fastapi import APIRouter, Query, status
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
+from app.api.account.services import held_by_the_seat, withdraw_by_mail
 from app.api.bewerbungen.schemas import (
     FLAcceptBewerbungPayload,
     FLBewerbung,
@@ -31,6 +32,7 @@ from app.api.bewerbungen.services import (
     build_entry_offer_pipeline,
     build_resend_filter,
     claimed_pair_seat,
+    compose_acceptance_seats,
     compose_kontakt_seat_update,
     compose_new_team,
     compose_resend_update,
@@ -97,7 +99,8 @@ from app.core.routing import by_id
 from app.core.transactions import transact
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from app.shared.schemas.custom import CustomObjectId
-from app.shared.schemas.literals import FLKontaktSeat
+from app.shared.schemas.einwilligung import WITHHELD_ON_A_SEAT, FLEinwilligungWithdrawalPayload
+from app.shared.schemas.literals import KONTAKT_SEATS, FLKontaktSeat
 
 # Admin-guarded, not base: an application carries three people's names, addresses, telephone numbers and dates of
 # birth, and says which schools asked and were turned down. The public router shares this prefix at base tier and
@@ -223,7 +226,7 @@ async def get_bewerbung(
         entry=entry,
         name=schule_name(bewerbung_raw=bewerbung_raw, team_names=team_names),
         shorthand=team_codes.get(team_id),
-        seats_confirmed=seats_confirmed_of(kontakte=bewerbung_raw.get("kontakte")),
+        seats_confirmed=seats_confirmed_of(kontakte=bewerbung_raw.get("kontakte"), confirmations=bewerbung_raw.get("confirmations")),
         duplicate=is_duplicate(row=bewerbung_raw, doubled=teams),
         saison=offer,
     )
@@ -368,9 +371,16 @@ async def accept_bewerbung(
             # retry's read refuses it, so no status term is reached.
             db_filter={"_id": bewerbung_id},
             # `team_id` too: a new school's application named none until this write, and without it
-            # nothing joins the accepted application to the club it produced. `kontakte` stays as answered:
-            # only the season row's copy moves after.
-            update={"$set": {"status": "accepted", "team_id": team_id, "decision": _decision(today=today, reason=None)}},
+            # nothing joins the accepted application to the club it produced. The people leave with the
+            # season row's copy, so one copy of each stands.
+            update={
+                "$set": {
+                    "status": "accepted",
+                    "team_id": team_id,
+                    "decision": _decision(today=today, reason=None),
+                    **compose_acceptance_seats(kontakte=bewerbung_raw["kontakte"], confirmations=bewerbung_raw.get("confirmations")),
+                }
+            },
             session=session,
             expected_version=acceptance_data.version,
             return_document=ReturnDocument.BEFORE,
@@ -679,3 +689,56 @@ async def post_kontakt_seat(
     # One transaction: this write moves a person as well as a credential, so a decision landing mid-request must leave
     # neither half standing.
     return await transact(db, seat_and_mint)
+
+
+@router.post(
+    f"{by_id('bewerbung_id')}/kontakte/{{seat}}/einwilligung/withdrawal",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Enter a withdrawal of a contact seat's consent that its person asked for by mail",
+)
+async def withdraw_kontakt_einwilligung(
+    bewerbung_id: CustomObjectId,
+    seat: str,
+    withdrawal_data: FLEinwilligungWithdrawalPayload,
+    bewerbungen_collection: BewerbungenCollection,
+    teams_collection: TeamsCollection,
+    db: DBClient,
+    germany_now: GermanyNow,
+) -> None:
+    """Withdraw the named choices, WhatsApp and media, on every confirmed seat of this application its person holds, as their own press does.
+
+    A decided application takes it too; an accepted one holds no seat, its people being its season row's. A choice
+    already withheld stays as it is, so a second mail or a seat its person never confirmed writes nothing, and nothing
+    is ever granted.
+    """
+
+    # A 404 rather than a 422, as a malformed path id answers: the segment names no seat any application has.
+    pressed = seat_named(seat)
+    if pressed is None:
+        raise DocumentNotFoundError()
+
+    async def record(row: Mapping[str, Any], session: AsyncClientSession) -> None:
+        schule = await pull_schule_name(bewerbung_raw=row, teams_collection=teams_collection, session=session)
+        await record_act(
+            collection=bewerbungen_collection,
+            action="bewerbung.seat_einwilligung_withdrawn",
+            record_id=bewerbung_id,
+            label=schule,
+            session=session,
+        )
+
+    await withdraw_by_mail(
+        kind=Collection.BEWERBUNGEN,
+        collection=bewerbungen_collection,
+        db_filter={"_id": bewerbung_id},
+        projection={
+            "team_id": 1,
+            "schule": 1,
+            **{f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_SEATS for field in ("email", "einwilligung")},
+        },
+        held_of=lambda row: held_by_the_seat(row, pressed),
+        withheld={choice: WITHHELD_ON_A_SEAT[choice] for choice in withdrawal_data.choices},
+        act=record,
+        db=db,
+        now=germany_now,
+    )

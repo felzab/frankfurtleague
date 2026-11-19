@@ -203,7 +203,10 @@ async function readRecord(params: Props["params"]): Promise<ReadRecord> {
     flag: read.duplicate ? TEAM_DOUBLE : undefined,
     groups: [
       { title: COPY.bewerbung.object, kind: "facts", facts: applicationFacts(read) },
-      { title: COPY.team.kontakte, kind: "seats", label: COPY.team.kontakte, rows: seatRowsOf(bewerbung) },
+      // An accepted application's people are its team's, whose page its act leads to: the acceptance emptied its seats.
+      ...(bewerbung.status === "accepted"
+        ? []
+        : [{ title: COPY.team.kontakte, kind: "seats" as const, label: COPY.team.kontakte, rows: seatRowsOf(bewerbung) }]),
       ...(bewerbung.schule === null ? [] : [{ title: FACTS.school, kind: "facts" as const, facts: schoolFacts(bewerbung.schule) }]),
     ],
     acts: actsOf(read, standing),
@@ -211,8 +214,8 @@ async function readRecord(params: Props["params"]): Promise<ReadRecord> {
 }
 
 /**
- * One application: what the decision reads, its two verbs under those facts, its seats, each edited in its dialog, and a
- * new school's own details. Nothing here waits on a save bar: each act writes on its own press.
+ * One application: what the decision reads, its two verbs under those facts, its seats until its acceptance moves them to
+ * its team, each edited in its dialog, and a new school's own details. Nothing here waits on a save bar: each act writes on its own press.
  */
 export default function BewerbungPage({ params }: Props) {
   return (

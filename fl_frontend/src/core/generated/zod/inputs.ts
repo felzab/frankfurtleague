@@ -782,6 +782,27 @@ export const BewerbungenResendKontaktConfirmationParams = zod.object({
 });
 
 /**
+ * Withdraw the named choices, WhatsApp and media, on every confirmed seat of this application its person holds, as their own press does.
+ *
+ * A decided application takes it too; an accepted one holds no seat, its people being its season row's. A choice
+ * already withheld stays as it is, so a second mail or a seat its person never confirmed writes nothing, and nothing
+ * is ever granted.
+ * @summary Enter a withdrawal of a contact seat's consent that its person asked for by mail
+ */
+export const bewerbungenWithdrawKontaktEinwilligungPathBewerbungIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
+
+export const BewerbungenWithdrawKontaktEinwilligungParams = zod.object({
+  bewerbung_id: zod.string().regex(bewerbungenWithdrawKontaktEinwilligungPathBewerbungIdRegExp),
+  seat: zod.string(),
+});
+
+export const BewerbungenWithdrawKontaktEinwilligungBody = zod
+  .object({
+    choices: zod.array(zod.enum(["scope", "media"])).min(1),
+  })
+  .describe("The choices a person asked by mail to withdraw, which an administrator enters: it withholds and never grants.");
+
+/**
  * Add an address as `administration`, holding once its wait has passed; only the owner adds one, and no request grants `owner`.
  *
  * Every holder in effect and the address named are told, with the date it holds from.
@@ -915,8 +936,7 @@ export const IdentityGetSubjectBody = zod
 /**
  * Record what the mail provider reported about one message on its mail's row, where the row's state may follow into it.
  *
- * A redelivered or out-of-order event changes nothing, and a delivery of a mail about an application reopens the
- * closed chase of every seat holding its address.
+ * A redelivered or out-of-order event changes nothing.
  * @summary Record one delivery event on its mail's row
  */
 export const outboxPostEventBodyIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -1188,6 +1208,25 @@ export const RegistrierungenPatchEinwilligungBody = zod
       .describe("A pupil's two wordings: the name on the squad and the media switch."),
   })
   .describe("A pupil's or a registration's own two choices on their record.");
+
+/**
+ * Withdraw the named choices of the consent a pupil gave on a registration, which an admission would carry onto them.
+ *
+ * A decided registration takes it too. A choice already withheld stays as it is, so a second mail or a registration
+ * its pupil never confirmed writes nothing, and nothing is ever granted.
+ * @summary Enter a withdrawal of a registration's consent that its pupil asked for by mail
+ */
+export const registrierungenWithdrawRegistrierungEinwilligungPathRegistrierungIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
+
+export const RegistrierungenWithdrawRegistrierungEinwilligungParams = zod.object({
+  registrierung_id: zod.string().regex(registrierungenWithdrawRegistrierungEinwilligungPathRegistrierungIdRegExp),
+});
+
+export const RegistrierungenWithdrawRegistrierungEinwilligungBody = zod
+  .object({
+    choices: zod.array(zod.enum(["scope", "media"])).min(1),
+  })
+  .describe("The choices a person asked by mail to withdraw, which an administrator enters: it withholds and never grants.");
 
 /**
  * Create the next season, always `future`, from its two days, answering the id it minted.
@@ -1684,6 +1723,25 @@ export const SchiedsrichterPatchEinwilligungBody = zod
       .describe("A referee's two wordings: the name on the fixtures and the media switch."),
   })
   .describe("A referee's own two choices on their record.");
+
+/**
+ * Withdraw the named choices of a referee's consent, the name on the fixtures leaving the public pages and the media consent ending.
+ *
+ * A choice already withheld stays as it is, so a second mail or a record its person never confirmed writes nothing,
+ * and nothing is ever granted.
+ * @summary Enter a withdrawal of a Schiedsrichter's consent that they asked for by mail
+ */
+export const schiedsrichterWithdrawSchiedsrichterEinwilligungPathSchiedsrichterIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
+
+export const SchiedsrichterWithdrawSchiedsrichterEinwilligungParams = zod.object({
+  schiedsrichter_id: zod.string().regex(schiedsrichterWithdrawSchiedsrichterEinwilligungPathSchiedsrichterIdRegExp),
+});
+
+export const SchiedsrichterWithdrawSchiedsrichterEinwilligungBody = zod
+  .object({
+    choices: zod.array(zod.enum(["scope", "media"])).min(1),
+  })
+  .describe("The choices a person asked by mail to withdraw, which an administrator enters: it withholds and never grants.");
 
 /**
  * Bring a retired referee back into the picker and every default read.
@@ -2195,6 +2253,25 @@ export const SpielerGetKaderParams = zod.object({
   team_id: zod.string().regex(spielerGetKaderPathTeamIdRegExp),
   saison_id: zod.string(),
 });
+
+/**
+ * Withdraw the named choices of a pupil's consent, the name on the squad leaving the public pages and the media consent ending.
+ *
+ * A choice already withheld stays as it is, so a second mail writes nothing, and nothing is ever granted. The caller
+ * drops its cached squad lists after a success, since the scope decides whether a name is served.
+ * @summary Enter a withdrawal of a Spieler's consent that they asked for by mail
+ */
+export const spielerWithdrawSpielerEinwilligungPathSpielerIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
+
+export const SpielerWithdrawSpielerEinwilligungParams = zod.object({
+  spieler_id: zod.string().regex(spielerWithdrawSpielerEinwilligungPathSpielerIdRegExp),
+});
+
+export const SpielerWithdrawSpielerEinwilligungBody = zod
+  .object({
+    choices: zod.array(zod.enum(["scope", "media"])).min(1),
+  })
+  .describe("The choices a person asked by mail to withdraw, which an administrator enters: it withholds and never grants.");
 
 /**
  * Take a player out of a season's squad, the row staying, marked by `inactive_since`.
@@ -2895,6 +2972,27 @@ export const TeamsResendKontaktConfirmationParams = zod.object({
   saison_id: zod.string(),
   seat: zod.string(),
 });
+
+/**
+ * Withdraw the named choices, WhatsApp and media, on every confirmed seat of this row its person holds, as their own press does.
+ *
+ * A finished season's row and a withdrawn team's take it too. A choice already withheld stays as it is, so a second mail
+ * or a seat its person never confirmed writes nothing, and nothing is ever granted.
+ * @summary Enter a withdrawal of a contact seat's consent that its person asked for by mail
+ */
+export const teamsWithdrawKontaktEinwilligungPathTeamIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
+
+export const TeamsWithdrawKontaktEinwilligungParams = zod.object({
+  team_id: zod.string().regex(teamsWithdrawKontaktEinwilligungPathTeamIdRegExp),
+  saison_id: zod.string(),
+  seat: zod.string(),
+});
+
+export const TeamsWithdrawKontaktEinwilligungBody = zod
+  .object({
+    choices: zod.array(zod.enum(["scope", "media"])).min(1),
+  })
+  .describe("The choices a person asked by mail to withdraw, which an administrator enters: it withholds and never grants.");
 
 /**
  * Everything a team's Übersicht shows in one read, for a person holding any contact seat on the team in this season.

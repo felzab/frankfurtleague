@@ -9,6 +9,7 @@ from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
+from app.api.account.services import held_by_the_seat, withdraw_by_mail
 from app.api.aufstellungen.crud import remove_the_seasons_aufstellungen
 from app.api.bewerbungen.services import assigned_trikot_farben, seat_named
 from app.api.grants.guard import ADMIN_TIER
@@ -30,8 +31,6 @@ from app.api.invitations.services import (
     owed_invitation_mails,
     plan_invitation_mail,
 )
-from app.api.kontakte.crud import clear_seats
-from app.api.kontakte.services import SEAT_FIELDS, build_accepted_application_pipeline, seated_people
 from app.api.outbox.crud import states_of
 from app.api.outbox.services import OwedMail, enqueue_mails
 from app.api.registrierungen.services import saison_takes_registrierungen
@@ -109,7 +108,6 @@ from app.core.crud import (
 )
 from app.core.dependencies import (
     AufstellungenCollection,
-    BewerbungenCollection,
     DBClient,
     GermanDay,
     GermanyNow,
@@ -136,6 +134,7 @@ from app.core.recording import record_act
 from app.core.routing import by_id
 from app.core.transactions import transact
 from app.shared.schemas.custom import CustomObjectId
+from app.shared.schemas.einwilligung import WITHHELD_ON_A_SEAT, FLEinwilligungWithdrawalPayload
 from app.shared.schemas.literals import KONTAKT_SEATS
 from app.shared.schemas.responses import FLVersionResponse
 from app.shared.tokens import mint_token
@@ -777,7 +776,6 @@ async def replace_saison_team(
     saisons_collection: SaisonsCollection,
     spiele_collection: SpieleCollection,
     saison_spieler_collection: SaisonSpielerCollection,
-    bewerbungen_collection: BewerbungenCollection,
     aufstellungen_collection: AufstellungenCollection,
     db: DBClient,
     today: GermanDay,
@@ -795,22 +793,13 @@ async def replace_saison_team(
     await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["_id"])
 
     async def hand_the_row_over(session: AsyncClientSession) -> None:
-        # For the 404 and the people leaving with the row, and deliberately not a read of the club it
+        # For the 404, and deliberately not a read of the club it
         # names: a replacement repairs a row whose `team_id` resolves to no `teams` document, so nothing
         # here may require one.
-        outgoing_raw = await pull_one_from_db(
+        await pull_one_from_db(
             collection=saison_teams_collection,
             db_filter={"saison_id": saison_id, "team_id": team_id},
-            projection=[f"kontakte.{slot}.{field}" for slot in KONTAKT_SEATS for field in SEAT_FIELDS],
-            session=session,
-        )
-        outgoing, outgoing_names = seated_people(outgoing_raw)
-
-        # The club's accepted application seated them first, and a team's exit deletes its contacts at
-        # once, so their seats there go too.
-        applications = await aggregate_many_from_db(
-            collection=bewerbungen_collection,
-            pipeline=build_accepted_application_pipeline(saison_id=saison_id, team_id=team_id),
+            projection=["_id"],
             session=session,
         )
 
@@ -879,11 +868,6 @@ async def replace_saison_team(
             expected_version=None,
             return_document=ReturnDocument.AFTER,
         )
-        # By address and by name, the application being reached by document:
-        # it spells an address the editor corrected on the row the old
-        # way. Its other people keep their seats.
-        await clear_seats(bewerbungen_collection, applications, outgoing, session, names=outgoing_names)
-
         # Ausgetragen, not moved: the players did not transfer, and a row left standing would name a
         # season its club now holds no junction row in, a squad row the squad's save refuses to create.
         # Live rows alone, so an earlier exit keeps its own date.
@@ -1156,3 +1140,50 @@ async def post_invitation_mail(
         return FLInvitationMailResponse(mailed=len(recipients))
 
     return await transact(db, owe_the_link)
+
+
+@router.post(
+    f"{by_id('team_id')}/saisons/{{saison_id}}/kontakte/{{seat}}/einwilligung/withdrawal",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Enter a withdrawal of a contact seat's consent that its person asked for by mail",
+)
+async def withdraw_kontakt_einwilligung(
+    team_id: CustomObjectId,
+    saison_id: str,
+    seat: str,
+    withdrawal_data: FLEinwilligungWithdrawalPayload,
+    saison_teams_collection: SaisonTeamsCollection,
+    db: DBClient,
+    germany_now: GermanyNow,
+) -> None:
+    """Withdraw the named choices, WhatsApp and media, on every confirmed seat of this row its person holds, as their own press does.
+
+    A finished season's row and a withdrawn team's take it too. A choice already withheld stays as it is, so a second mail
+    or a seat its person never confirmed writes nothing, and nothing is ever granted.
+    """
+
+    # A 404 rather than a 422, as a malformed path id answers: the segment names no seat any row has.
+    pressed = seat_named(seat)
+    if pressed is None:
+        raise DocumentNotFoundError()
+
+    async def record(row: Mapping[str, Any], session: AsyncClientSession) -> None:
+        await record_act(
+            collection=saison_teams_collection,
+            action="team.seat_einwilligung_withdrawn",
+            record_id=team_id,
+            label=str(row["name"]),
+            session=session,
+        )
+
+    await withdraw_by_mail(
+        kind=Collection.SAISON_TEAMS,
+        collection=saison_teams_collection,
+        db_filter={"team_id": team_id, "saison_id": saison_id},
+        projection={"name": 1, **{f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_SEATS for field in ("email", "einwilligung")}},
+        held_of=lambda row: held_by_the_seat(row, pressed),
+        withheld={choice: WITHHELD_ON_A_SEAT[choice] for choice in withdrawal_data.choices},
+        act=record,
+        db=db,
+        now=germany_now,
+    )

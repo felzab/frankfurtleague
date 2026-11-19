@@ -87,7 +87,7 @@ ADDRESS_CHANGE_OID = ObjectId("6890a1b2c3d4e5f6072000a1")
 IDEMPOTENCY_KEY = "1b4e28ba-2fa1-4d2b-883f-0016d3cca427"
 
 # One declared support index, planted under different keys so its build is the one that fails.
-CONFLICTING_SUPPORT_INDEX = "address_change_token_hashes"
+CONFLICTING_SUPPORT_INDEX = "address_change_email"
 # The same planting for the TTL kind: the name is claimed and the keys disagree.
 CONFLICTING_TTL_INDEX = "action_log_retention"
 
@@ -425,7 +425,7 @@ async def test_the_startup_apply_fails_rather_than_skipping_a_broken_support_ind
     async def body(database: AsyncDatabase) -> str:
         # The same name over different keys: `create_index` refuses rather than replacing, which is
         # the one way a declared support index fails on a database holding no documents.
-        await database[Collection.ADDRESS_CHANGES].create_index([("email", ASCENDING)], name=CONFLICTING_SUPPORT_INDEX)
+        await database[Collection.ADDRESS_CHANGES].create_index([("token_hashes", ASCENDING)], name=CONFLICTING_SUPPORT_INDEX)
         try:
             await apply_constraints(database)
         except RuntimeError as failure:

@@ -90,7 +90,9 @@ stand in [section 11](#11-open-and-owed-a-decision). Other documents link sectio
 - **Each consent choice keeps its own evidence**: when its person last set it, under which wording's
   label, and on a withdrawal the grant it ended (`fl_backend/app/shared/einwilligung_evidence.py`).
   The labels are `fl_frontend/src/core/consentWordings.ts :: CONSENT_WORDINGS`' keys, each frozen
-  with its words. Only the person's own act grants a choice or stamps its evidence. One paste, run
+  with its words. Only the person's own act grants a choice or stamps evidence under a label. An
+  administrator's entry of a withdrawal the person asked for by mail withholds alone, its evidence
+  marked `via` `mail` in a label's place, since the person read none of the league's words. One paste, run
   with the deploy that first serves the current wordings, re-points every label stored before it to
   its consent's current wording. A record stamped before that deploy therefore names words its
   person may not have been shown, which is [section 11](#11-open-and-owed-a-decision)'s first
@@ -403,7 +405,9 @@ bound's conditions follow the table.
   who confirmed a seat is owed the notice in the same write.
 - **A declined application or registration** goes 14 days after the decision. The decline's mail
   says so, for a registration to a confirmed pupil.
-- **An accepted application** goes once a season after the one it applied for has ended.
+- **An accepted application** goes once a season after the one it applied for has ended. Its
+  acceptance moves its three people to the season row and empties its own seats, keeping each
+  seat's link and the day its person confirmed it, which a reopened link shows.
 - **A season row's contact seats** are cleared once the season after theirs has ended, their links
   with them. **Its unconfirmed seat** is emptied by the first hourly pass past its own 14 days,
   whatever the season's status, its link and any reason typed from it with it.

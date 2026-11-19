@@ -1669,8 +1669,6 @@ class TestWhatTheEffectLeavesTheErasure:
             late = await post_event(
                 event_data=FLOutboxEventPayload(id=sent["_id"], state="complaint", reason=None, at=NOW),
                 outbox_collection=database[Collection.OUTBOX],
-                bewerbungen_collection=database[Collection.BEWERBUNGEN],
-                db_client=client,
             )
             return late.applied, {key: await database[Collection.OUTBOX].find_one({"key": key}) for key in ("reminder/sent", "reminder/owed")}
 

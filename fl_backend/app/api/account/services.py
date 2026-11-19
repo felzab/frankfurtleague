@@ -2,7 +2,8 @@
 
 One module, so the kinds' PATCHes cannot answer one press differently and the account page's read judges a grant
 exactly as the PATCH it offers does. It reads only through what a router passes: the one press a person's own block
-takes runs on the collection, the client and the write its router hands it.
+takes runs on the collection, the client and the write its router hands it. An administrator's entry of a withdrawal a
+person asked for by mail is here too, so it reaches the blocks their own press reaches.
 """
 
 from collections.abc import Awaitable, Callable, Mapping, Sequence
@@ -19,7 +20,7 @@ from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.bewerbungen.services import build_own_bewerbung_filter, schule_name
 from app.api.identity.schemas import FLSubjectSeat
-from app.api.identity.services import holds_a_seat, is_own_registrierung, own_seats
+from app.api.identity.services import folded, holds_a_seat, is_own_registrierung, own_seats, seat_address
 from app.api.kontakte.services import rows_seating
 from app.api.registrierungen.services import build_own_registrierung_filter
 from app.api.saisons.services import SAISON_LOOKUP
@@ -28,12 +29,20 @@ from app.api.spieler.services import SELF_PUPIL_ORDER, build_self_pupil_filter
 from app.core.clock import utc_stamp
 from app.core.codes import Code
 from app.core.collections import Collection as DbCollection
-from app.core.crud import refuse
+from app.core.crud import patch_past_the_version_in_db, pull_one_from_db, refuse
 from app.core.exceptions import APIError
 from app.core.journal import Journal
 from app.core.transactions import transact
 from app.shared.einwilligung import find_self_media_refusal, media_offered
-from app.shared.einwilligung_evidence import CHOICES, FLEinwilligungChoice, TextVersions, compose_choices, evidence_state_of, is_given
+from app.shared.einwilligung_evidence import (
+    CHOICES,
+    FLEinwilligungChoice,
+    TextVersions,
+    compose_choices,
+    compose_mail_withdrawal,
+    evidence_state_of,
+    is_given,
+)
 from app.shared.schemas.einwilligung import (
     FLAccountEinwilligungPayload,
     FLSchiedsrichterAccountEinwilligungPayload,
@@ -312,6 +321,78 @@ async def press_own_einwilligung(
 
     async with journal:
         await transact(db, write_the_press)
+
+
+@dataclass(frozen=True, kw_only=True)
+class Held:
+    """The consent blocks one record holds of the person whose mail asked a withdrawal, keyed by path, and on a seat's record their slots."""
+
+    blocks: Mapping[str, Mapping[str, Any]]
+    seats: Sequence[str] = ()
+
+
+def held_by_the_record(row: Mapping[str, Any]) -> Held:
+    """A pupil's, a referee's or a registration's own block; none before its person confirmed it."""
+
+    block = row.get("einwilligung")
+
+    return Held(blocks={"einwilligung": block} if isinstance(block, Mapping) else {})
+
+
+def held_by_the_seat(row: Mapping[str, Any], seat: str) -> Held:
+    """Every confirmed seat of a season row or an application at the named seat's address, as their own press moves them together.
+
+    One person's seats on a row are one entry on their account page, which shows a choice on where any seat grants it.
+    """
+
+    identifier = folded(seat_address(row, seat))
+    slots = [] if identifier is None else own_seats(row, identifier)
+
+    return Held(blocks={f"kontakte.{slot}.einwilligung": row["kontakte"][slot]["einwilligung"] for slot in slots}, seats=slots)
+
+
+async def withdraw_by_mail(
+    *,
+    kind: DbCollection,
+    collection: AsyncCollection,
+    db_filter: Mapping[str, Any],
+    projection: Mapping[str, Any],
+    held_of: Callable[[Mapping[str, Any]], Held],
+    withheld: Mapping[FLEinwilligungChoice, Any],
+    act: Callable[[Mapping[str, Any], AsyncClientSession], Awaitable[None]],
+    db: AsyncMongoClient,
+    now: datetime,
+) -> None:
+    """An administrator's entry of a withdrawal the person asked for by mail, on the record `db_filter` finds, 404 where none stands.
+
+    Withholds each choice of `withheld` on every block `held_of` finds granting it, writes nothing where none does, and
+    `act` records the act; the withdrawal is journalled once its transaction lands, as the person's own press is.
+    """
+
+    at = utc_stamp(now)
+    journal = Journal()
+
+    @journal.attempted
+    async def write_the_withdrawal(session: AsyncClientSession) -> None:
+        row = await pull_one_from_db(collection=collection, db_filter=db_filter, projection=projection, session=session)
+        held = held_of(row)
+        moved = withdrawal_line(blocks=list(held.blocks.values()), chosen=withheld)
+        if moved is None:
+            return
+
+        # Past the count, as the person's own press is: no form saves the consent, and the read above in this
+        # transaction is what a second withdrawal or a press is judged against.
+        await patch_past_the_version_in_db(
+            collection=collection,
+            db_filter={"_id": row["_id"]},
+            update={"$set": compose_mail_withdrawal(blocks=held.blocks, withheld=withheld, at=at)},
+            session=session,
+        )
+        await act(row, session)
+        journal.note("withdrawal", [f"{kind}/{row['_id']}"], choices=list(moved), seats=held.seats)
+
+    async with journal:
+        await transact(db, write_the_withdrawal)
 
 
 def context_teams_lookup(local_field: str) -> Mapping[str, Any]:

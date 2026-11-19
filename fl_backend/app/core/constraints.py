@@ -132,7 +132,9 @@ UNIQUE_INDEXES: Sequence[tuple[Collection, IndexModel]] = (
 
 # One read each, which this database would otherwise answer with a collection scan. Dropping one costs speed, not
 # correctness. A collation is the one its reads use, since a read under another walks none of the index's string keys;
-# a partial filter is stated whole by its reads, or the planner may not take the index.
+# a partial filter is stated whole by its reads, or the planner may not take the index. A mailed link's lookup is indexed
+# only on a collection a stranger can grow, through a public form or a link anyone may hold, since there nothing bounds
+# the rows a scan walks; the rows only an administrator or a signed-in person adds stay few enough to scan.
 SUPPORT_INDEXES: Sequence[tuple[Collection, IndexModel]] = (
     # A season's applications in one status: the season overview's undecided ones, oldest first, walk the sort keys in
     # order, and the duplicate check and the season's passes read the season and the status off the index. The list of
@@ -145,20 +147,11 @@ SUPPORT_INDEXES: Sequence[tuple[Collection, IndexModel]] = (
             name="bewerbungen_saison_id_status_queue",
         ),
     ),
-    # The address page's lookup, driven by strangers. Multikey, each array's every hash a key, so a lookup's equality on
-    # one finds its change. A tombstone keeps its hashes, so each link answers how its change ended.
-    (Collection.ADDRESS_CHANGES, IndexModel([("token_hashes", ASCENDING)], name="address_change_token_hashes")),
-    # The address page's stop lookup, driven by strangers.
-    (Collection.ADDRESS_CHANGES, IndexModel([("stop.token_hashes", ASCENDING)], name="address_change_stop_token_hashes")),
-    # The invite page's lookup, driven by strangers. Not a unique one, though a hash collides with nothing: a revoked row
-    # keeps its hashes, so the key holds as many rows as the team has been reissued links. Multikey, a row keeping the
-    # copied link and every mailed one.
-    (Collection.INVITATIONS, IndexModel([("token_hashes", ASCENDING)], name="invitations_token_hashes")),
-    # The confirmation page's lookup, driven by strangers. Multikey, the row keeping every link it was mailed.
+    # The confirmation page's lookup, on rows grown by strangers: anybody holding a team's invite registers. Multikey,
+    # the row keeping every link it was mailed.
     (Collection.REGISTRIERUNGEN, IndexModel([("confirmation.token_hashes", ASCENDING)], name="registrierungen_confirmation_token_hashes")),
-    # A contact seat's confirmation page, through the application's lookup, driven by strangers. One per clause of the
-    # lookup's `$or`, each multikey: every open of a contact's link reads this collection by the hash, and anybody can
-    # grow it through the public application form.
+    # A contact seat's confirmation page, through the application's lookup, on rows grown by strangers through the public
+    # application form. One per clause of the lookup's `$or`, each multikey.
     *(
         (
             Collection.BEWERBUNGEN,
@@ -248,6 +241,9 @@ SUPPORT_INDEXES: Sequence[tuple[Collection, IndexModel]] = (
         (Collection.BEWERBUNGEN, IndexModel([(f"kontakte.{seat}.email", ASCENDING)], name=f"bewerbungen_kontakte_{seat}_email"))
         for seat in KONTAKT_SEATS
     ),
+    # A person's referee rows, which the subject lookup reads on every signed-in page. Not a unique one: one address may
+    # hold several referee rows, each its own entry on the account page.
+    (Collection.SCHIEDSRICHTER, IndexModel([("kontakt.email", ASCENDING)], name="schiedsrichter_kontakt_email")),
     # A person's registrations, which every sign-in attempt and account page read. Compound, so the sign-in's `status`
     # term is read off the index; the erasure's read of every status walks its prefix.
     (Collection.REGISTRIERUNGEN, IndexModel([("email", ASCENDING), ("status", ASCENDING)], name="registrierungen_email_status")),

@@ -292,9 +292,10 @@ async def patch_past_the_version_in_db(
 ) -> int:
     """Write fields no form saves onto the documents the filter names, each one's `version` left standing, and answer how many it matched.
 
-    The one way past the count, for four kinds of write: an anchor, which changes nothing a reader sees; a link's
+    The one way past the count, for five kinds of write: an anchor, which changes nothing a reader sees; a link's
     hash, minted when its mail is handed out; a person's own press on their own block, a consent moved or a seat
-    confirmed; and a job writing only bookkeeping no form saves, a reminder stamped or a chase closed or opened, so no
+    confirmed; an administrator's entry of a withdrawal its person asked for by mail, which moves what their press
+    moves; and a job writing only bookkeeping no form saves, a reminder stamped, so no
     administrator's save is refused over mail bookkeeping. A press names the state it moves in `db_filter`, or judges
     it on a read inside `session`, so a second press finds it moved: the count is not what holds a press.
 

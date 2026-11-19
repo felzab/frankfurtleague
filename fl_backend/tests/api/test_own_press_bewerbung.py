@@ -128,14 +128,13 @@ async def pressed_then_accepted(url: str, press: Press, *, ansprechperson_confir
 
 
 class TestTheAcceptanceLandsOverThePress:
-    async def test_a_withdrawn_media_consent_stands_on_the_application_and_on_the_season_row(self, mongo_replica_set_url: str):
+    async def test_a_withdrawn_media_consent_stands_on_the_season_row(self, mongo_replica_set_url: str):
+        """The season row holds the one copy of the person, the acceptance emptying the application's slot."""
+
         bewerbung, row = await pressed_then_accepted(mongo_replica_set_url, withdraw_media, ansprechperson_confirmed_at="2026-02-10")
 
         assert bewerbung["status"] == "accepted"
-        assert (bewerbung["kontakte"]["trainer"]["einwilligung"]["media"], row["kontakte"]["trainer"]["einwilligung"]["media"]) == (
-            False,
-            False,
-        )
+        assert (bewerbung["kontakte"]["trainer"], row["kontakte"]["trainer"]["einwilligung"]["media"]) == (None, False)
 
     async def test_the_last_seats_confirmation_stands_and_lets_the_acceptance_in(self, mongo_replica_set_url: str):
         """The page was read while the seat was open; the acceptance judges the seat as the confirmation left it."""

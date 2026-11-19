@@ -8,10 +8,8 @@ from fastapi import APIRouter, status
 from pydantic import TypeAdapter, ValidationError
 from pymongo import ASCENDING
 from pymongo.asynchronous.client_session import AsyncClientSession
-from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.ban_list.crud import read_barred_addresses
-from app.api.bewerbungen.services import compose_chase_update, reopened_chases
 from app.api.outbox.schemas import (
     FLOutboxData,
     FLOutboxEventPayload,
@@ -36,7 +34,7 @@ from app.api.outbox.services import (
 )
 from app.core.collections import Collection
 from app.core.crud import ANCHOR_FIELD, patch_many_in_db, patch_past_the_version_in_db, post_one_to_db, pull_many_from_db
-from app.core.dependencies import DB, BanListReadCollection, BewerbungenCollection, DBClient, GermanyNow, OutboxCollection
+from app.core.dependencies import DB, BanListReadCollection, DBClient, GermanyNow, OutboxCollection
 from app.core.logging import fl_logger
 from app.core.security import SYSTEM_TIER
 from app.core.transactions import transact
@@ -317,64 +315,28 @@ async def post_sign_in(
     )
 
 
-async def _reopen_chases(
-    *, mail_id: Any, outbox_collection: AsyncCollection, bewerbungen_collection: AsyncCollection, session: AsyncClientSession
-) -> None:
-    """Opens every chase the delivered mail's address proves reachable, on the application the mail is about."""
-
-    mail = await outbox_collection.find_one(
-        {"_id": mail_id, "reference.collection": str(Collection.BEWERBUNGEN)}, {"to": 1, "reference": 1}, session=session
-    )
-    row = (
-        None
-        if mail is None
-        else await bewerbungen_collection.find_one({"_id": mail["reference"]["id"]}, {"kontakte": 1, "confirmations": 1}, session=session)
-    )
-    if mail is None or row is None:
-        return
-
-    if seats := reopened_chases(bewerbung_raw=row, to=mail["to"]):
-        # Past the version: the chase's stamp is mail bookkeeping no form saves, so a decision read before it still lands.
-        await patch_past_the_version_in_db(
-            collection=bewerbungen_collection,
-            db_filter={"_id": row["_id"]},
-            update=compose_chase_update(seats=seats, closed_at=None),
-            session=session,
-        )
-
-
 @router.post("/event", summary="Record one delivery event on its mail's row")
 async def post_event(
     event_data: FLOutboxEventPayload,
     outbox_collection: OutboxCollection,
-    bewerbungen_collection: BewerbungenCollection,
-    db_client: DBClient,
 ) -> FLOutboxEventResponse:
     """Record what the mail provider reported about one message on its mail's row, where the row's state may follow into it.
 
-    A redelivered or out-of-order event changes nothing, and a delivery of a mail about an application reopens the
-    closed chase of every seat holding its address.
+    A redelivered or out-of-order event changes nothing.
     """
 
-    async def record(session: AsyncClientSession) -> bool:
-        result = await patch_many_in_db(
-            collection=outbox_collection,
-            db_filter={
-                "_id": event_data.id,
-                # Never back from a later state, so a redelivery or an event arriving after a later one changes nothing.
-                "delivery.state": {"$in": list(FOLLOWS[event_data.state])},
-                # A tombstone takes no event: what its replaced mailbox reports is no longer the person's.
-                "to": {"$type": "string"},
-            },
-            update={"$set": {"delivery": {"state": event_data.state, "reason": event_data.reason, "at": event_data.at}}},
-            session=session,
-        )
-        applied = result.modified_count > 0
-        if applied and event_data.state == "delivered":
-            await _reopen_chases(
-                mail_id=event_data.id, outbox_collection=outbox_collection, bewerbungen_collection=bewerbungen_collection, session=session
-            )
+    # One document, so the filter's condition and the write are one atomic operation and need no transaction.
+    result = await patch_many_in_db(
+        collection=outbox_collection,
+        db_filter={
+            "_id": event_data.id,
+            # Never back from a later state, so a redelivery or an event arriving after a later one changes nothing.
+            "delivery.state": {"$in": list(FOLLOWS[event_data.state])},
+            # A tombstone takes no event: what its replaced mailbox reports is no longer the person's.
+            "to": {"$type": "string"},
+        },
+        update={"$set": {"delivery": {"state": event_data.state, "reason": event_data.reason, "at": event_data.at}}},
+        session=None,
+    )
 
-        return applied
-
-    return FLOutboxEventResponse(applied=await transact(db_client, record))
+    return FLOutboxEventResponse(applied=result.modified_count > 0)

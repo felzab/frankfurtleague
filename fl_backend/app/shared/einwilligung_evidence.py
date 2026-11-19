@@ -5,8 +5,11 @@ which wording, and a withdrawal keeps the grant it ended: proof for as long as t
 bounded at one act per choice.
 
 Invariants:
-- Only the person's own writes grant a choice or stamp its evidence, an admission renewing from their own
-  registration and a restore replaying their journalled withdrawal among them; no administrative write does.
+- Only the person's own writes grant a choice, an admission renewing from their own registration among them; no
+  administrative write does.
+- Only the person's own writes stamp evidence under a wording, a restore replaying their journalled withdrawal among
+  them. The one administrative write stamping any is a withdrawal the person asked for by mail, which withholds alone
+  and names no wording, the person having read none.
 - A choice and its evidence move in one update, never one without the other.
 """
 
@@ -18,6 +21,9 @@ from typing import Any, Final, Literal
 
 EVIDENCE: Final = "evidence"
 GIVEN_BEFORE: Final = "given_before"
+# A receipt's mark of a withdrawal an administrator entered from the person's mail, standing where a press's label does.
+VIA: Final = "via"
+MAIL: Final = "mail"
 
 FLEinwilligungChoice = Literal["scope", "media"]
 CHOICES: Final[tuple[FLEinwilligungChoice, ...]] = ("scope", "media")
@@ -40,7 +46,16 @@ def is_given(choice: FLEinwilligungChoice, value: Any) -> bool:
 def compose_receipt(*, saved: Mapping[str, Any], choice: FLEinwilligungChoice, value: Any, at: str, text_version: str) -> dict[str, Any]:
     """The evidence a choice set to `value` keeps, `saved` being the block as it stood before the act."""
 
-    receipt: dict[str, Any] = {"at": at, "text_version": text_version}
+    return _receipt({"at": at, "text_version": text_version}, saved=saved, choice=choice, value=value)
+
+
+def _receipt(stamp: Mapping[str, Any], *, saved: Mapping[str, Any], choice: FLEinwilligungChoice, value: Any) -> dict[str, Any]:
+    """`stamp`, the act's instant and its label or its mark, as the evidence of a choice set to `value` keeps it."""
+
+    receipt: dict[str, Any] = dict(stamp)
+    if VIA in receipt:
+        # Stated on every withdrawal by mail, whose record model holds the key required.
+        receipt[GIVEN_BEFORE] = None
     if is_given(choice, value):
         return receipt
 
@@ -112,7 +127,10 @@ def evidence_state_of(*, blocks: Sequence[Any]) -> dict[str, str | None]:
 
 
 def receipt_of(block: Mapping[str, Any], choice: FLEinwilligungChoice) -> tuple[datetime, dict[str, str]] | None:
-    """When a block's choice was set, and its evidence; `None` where no evidence says, its person never having set it."""
+    """When a block's choice was set, and its evidence but the grant it ended; `None` where no evidence says, its person never having set it.
+
+    The evidence names its label, or its mark where an administrator entered a withdrawal by mail.
+    """
 
     at = _at_of(block, choice)
     if at is None:
@@ -120,7 +138,7 @@ def receipt_of(block: Mapping[str, Any], choice: FLEinwilligungChoice) -> tuple[
 
     receipt = block[EVIDENCE][choice]
 
-    return at, {"at": receipt["at"], "text_version": receipt["text_version"]}
+    return at, {field: value for field, value in receipt.items() if field != GIVEN_BEFORE}
 
 
 def compose_renewed(*, path: str, saved: Mapping[str, Any], renewed: Mapping[str, Any]) -> dict[str, Any]:
@@ -143,11 +161,33 @@ def compose_renewed(*, path: str, saved: Mapping[str, Any], renewed: Mapping[str
 
         set_fields[f"{path}.{choice}"] = renewed[choice]
         # Judged against the stored block, so a withdrawal names the grant it ended there.
-        set_fields[f"{path}.{EVIDENCE}.{choice}"] = compose_receipt(
-            saved=saved, choice=choice, value=renewed[choice], at=new[1]["at"], text_version=new[1]["text_version"]
-        )
+        set_fields[f"{path}.{EVIDENCE}.{choice}"] = _receipt(new[1], saved=saved, choice=choice, value=renewed[choice])
 
     return set_fields
+
+
+def compose_mail_withdrawal(
+    *, blocks: Mapping[str, Mapping[str, Any]], withheld: Mapping[FLEinwilligungChoice, Any], at: str
+) -> dict[str, Any]:
+    """The dotted `$set` withdrawing every choice of `withheld` a block grants, `blocks` keyed by their path; empty where none grants.
+
+    For a withdrawal the person asked for by mail: each receipt carries the mark `via` where a press's carries its
+    label, and names the grant it ended as a press's withdrawal does. A choice the block already withholds keeps its
+    own evidence, so a second mail moves nothing.
+    """
+
+    if any(is_given(choice, value) for choice, value in withheld.items()):
+        raise ValueError("a withdrawal by mail grants nothing")
+
+    set_document: dict[str, Any] = {}
+    for path, saved in blocks.items():
+        for choice, value in withheld.items():
+            if not is_given(choice, saved.get(choice)):
+                continue
+            set_document[f"{path}.{choice}"] = value
+            set_document[f"{path}.{EVIDENCE}.{choice}"] = _receipt({"at": at, VIA: MAIL}, saved=saved, choice=choice, value=value)
+
+    return set_document
 
 
 def compose_initial(*, block: Mapping[str, Any], at: str, text_versions: TextVersions) -> dict[str, Any]:

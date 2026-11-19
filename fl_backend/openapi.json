@@ -1020,6 +1020,7 @@
           "team.austritt_entered",
           "team.seat_changed",
           "team.seat_objected",
+          "team.seat_einwilligung_withdrawn",
           "team.replaced",
           "team.invitation_created",
           "team.invitation_withdrawn",
@@ -1027,16 +1028,20 @@
           "bewerbung.declined",
           "bewerbung.seat_changed",
           "bewerbung.seat_objected",
+          "bewerbung.seat_einwilligung_withdrawn",
           "registrierung.admitted",
           "registrierung.declined",
+          "registrierung.einwilligung_withdrawn",
           "spieler.changed",
           "spieler.deregistered",
           "spieler.reactivated",
+          "spieler.einwilligung_withdrawn",
           "schiedsrichter.created",
           "schiedsrichter.changed",
           "schiedsrichter.retired",
           "schiedsrichter.reactivated",
           "schiedsrichter.objected",
+          "schiedsrichter.einwilligung_withdrawn",
           "spielort.created",
           "spielort.changed",
           "spielort.retired",
@@ -4442,9 +4447,13 @@
                 "$ref": "#/components/schemas/FLEinwilligungEvidence"
               },
               {
+                "$ref": "#/components/schemas/FLEinwilligungMailWithdrawal"
+              },
+              {
                 "type": "null"
               }
-            ]
+            ],
+            "title": "Media"
           },
           "scope": {
             "anyOf": [
@@ -4452,9 +4461,13 @@
                 "$ref": "#/components/schemas/FLEinwilligungEvidence"
               },
               {
+                "$ref": "#/components/schemas/FLEinwilligungMailWithdrawal"
+              },
+              {
                 "type": "null"
               }
-            ]
+            ],
+            "title": "Scope"
           }
         },
         "required": [
@@ -4462,6 +4475,37 @@
           "media"
         ],
         "title": "FLEinwilligungEvidenceSet",
+        "type": "object"
+      },
+      "FLEinwilligungMailWithdrawal": {
+        "description": "The evidence of a withdrawal an administrator entered from the person's mail, and the grant it ended.\n\nNo label: the person withdrew in their own words, reading none of the league's.",
+        "properties": {
+          "at": {
+            "title": "At",
+            "type": "string"
+          },
+          "given_before": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLEinwilligungReceipt"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "via": {
+            "const": "mail",
+            "title": "Via",
+            "type": "string"
+          }
+        },
+        "required": [
+          "at",
+          "via",
+          "given_before"
+        ],
+        "title": "FLEinwilligungMailWithdrawal",
         "type": "object"
       },
       "FLEinwilligungReceipt": {
@@ -4570,6 +4614,30 @@
             "$ref": "#/components/schemas/FLCitedMediaTextVersion"
           }
         ]
+      },
+      "FLEinwilligungWithdrawalPayload": {
+        "additionalProperties": false,
+        "description": "The choices a person asked by mail to withdraw, which an administrator enters: it withholds and never grants.",
+        "properties": {
+          "choices": {
+            "items": {
+              "enum": [
+                "scope",
+                "media"
+              ],
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Choices",
+            "type": "array",
+            "uniqueItems": true
+          }
+        },
+        "required": [
+          "choices"
+        ],
+        "title": "FLEinwilligungWithdrawalPayload",
+        "type": "object"
       },
       "FLEntryKnownTeam": {
         "additionalProperties": false,
@@ -8732,8 +8800,7 @@
             "type": "string"
           },
           "id": {
-            "maxLength": 4,
-            "minLength": 4,
+            "pattern": "^[0-9]{4}$",
             "title": "Id",
             "type": "string"
           },
@@ -8846,8 +8913,7 @@
             "type": "string"
           },
           "id": {
-            "maxLength": 4,
-            "minLength": 4,
+            "pattern": "^[0-9]{4}$",
             "title": "Id",
             "type": "string"
           },
@@ -17675,6 +17741,61 @@
         ]
       }
     },
+    "/api/bewerbungen/{bewerbung_id}/kontakte/{seat}/einwilligung/withdrawal": {
+      "post": {
+        "description": "Withdraw the named choices, WhatsApp and media, on every confirmed seat of this application its person holds, as their own press does.\n\nA decided application takes it too; an accepted one holds no seat, its people being its season row's. A choice\nalready withheld stays as it is, so a second mail or a seat its person never confirmed writes nothing, and nothing\nis ever granted.",
+        "operationId": "bewerbungen_withdraw_kontakt_einwilligung",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "bewerbung_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "title": "Bewerbung Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "seat",
+            "required": true,
+            "schema": {
+              "title": "Seat",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLEinwilligungWithdrawalPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "default": {
+            "$ref": "#/components/responses/Failure",
+            "description": "A refusal or a fault, its status naming which"
+          }
+        },
+        "security": [
+          {
+            "AdminKey": []
+          }
+        ],
+        "summary": "Enter a withdrawal of a contact seat's consent that its person asked for by mail",
+        "tags": [
+          "bewerbungen"
+        ]
+      }
+    },
     "/api/grants": {
       "get": {
         "description": "Every grant by address: its tier, when it holds, and when a handover to it completes.\n\nA future `effective_from` is an addition still waiting, and `owner_from` a handover still waiting.",
@@ -18173,7 +18294,7 @@
     },
     "/api/outbox/event": {
       "post": {
-        "description": "Record what the mail provider reported about one message on its mail's row, where the row's state may follow into it.\n\nA redelivered or out-of-order event changes nothing, and a delivery of a mail about an application reopens the\nclosed chase of every seat holding its address.",
+        "description": "Record what the mail provider reported about one message on its mail's row, where the row's state may follow into it.\n\nA redelivered or out-of-order event changes nothing.",
         "operationId": "outbox_post_event",
         "requestBody": {
           "content": {
@@ -18736,6 +18857,52 @@
           }
         ],
         "summary": "Withdraw a pupil's own publication and media consent on their pending registration",
+        "tags": [
+          "registrierungen"
+        ]
+      }
+    },
+    "/api/registrierungen/{registrierung_id}/einwilligung/withdrawal": {
+      "post": {
+        "description": "Withdraw the named choices of the consent a pupil gave on a registration, which an admission would carry onto them.\n\nA decided registration takes it too. A choice already withheld stays as it is, so a second mail or a registration\nits pupil never confirmed writes nothing, and nothing is ever granted.",
+        "operationId": "registrierungen_withdraw_registrierung_einwilligung",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "registrierung_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "title": "Registrierung Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLEinwilligungWithdrawalPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "default": {
+            "$ref": "#/components/responses/Failure",
+            "description": "A refusal or a fault, its status naming which"
+          }
+        },
+        "security": [
+          {
+            "AdminKey": []
+          }
+        ],
+        "summary": "Enter a withdrawal of a registration's consent that its pupil asked for by mail",
         "tags": [
           "registrierungen"
         ]
@@ -20089,6 +20256,52 @@
         ]
       }
     },
+    "/api/schiedsrichter/{schiedsrichter_id}/einwilligung/withdrawal": {
+      "post": {
+        "description": "Withdraw the named choices of a referee's consent, the name on the fixtures leaving the public pages and the media consent ending.\n\nA choice already withheld stays as it is, so a second mail or a record its person never confirmed writes nothing,\nand nothing is ever granted.",
+        "operationId": "schiedsrichter_withdraw_schiedsrichter_einwilligung",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "schiedsrichter_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "title": "Schiedsrichter Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLEinwilligungWithdrawalPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "default": {
+            "$ref": "#/components/responses/Failure",
+            "description": "A refusal or a fault, its status naming which"
+          }
+        },
+        "security": [
+          {
+            "AdminKey": []
+          }
+        ],
+        "summary": "Enter a withdrawal of a Schiedsrichter's consent that they asked for by mail",
+        "tags": [
+          "schiedsrichter"
+        ]
+      }
+    },
     "/api/schiedsrichter/{schiedsrichter_id}/reactivate": {
       "post": {
         "description": "Bring a retired referee back into the picker and every default read.\n\nOne who has not answered is owed a fresh link, since a retired referee's save mails nothing.",
@@ -20838,6 +21051,52 @@
           }
         ],
         "summary": "Read a team's squad as its seat holder",
+        "tags": [
+          "spieler"
+        ]
+      }
+    },
+    "/api/spieler/{spieler_id}/einwilligung/withdrawal": {
+      "post": {
+        "description": "Withdraw the named choices of a pupil's consent, the name on the squad leaving the public pages and the media consent ending.\n\nA choice already withheld stays as it is, so a second mail writes nothing, and nothing is ever granted. The caller\ndrops its cached squad lists after a success, since the scope decides whether a name is served.",
+        "operationId": "spieler_withdraw_spieler_einwilligung",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "spieler_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "title": "Spieler Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLEinwilligungWithdrawalPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "default": {
+            "$ref": "#/components/responses/Failure",
+            "description": "A refusal or a fault, its status naming which"
+          }
+        },
+        "security": [
+          {
+            "AdminKey": []
+          }
+        ],
+        "summary": "Enter a withdrawal of a Spieler's consent that they asked for by mail",
         "tags": [
           "spieler"
         ]
@@ -22231,6 +22490,70 @@
           }
         ],
         "summary": "Send one contact seat a fresh confirmation link",
+        "tags": [
+          "teams"
+        ]
+      }
+    },
+    "/api/teams/{team_id}/saisons/{saison_id}/kontakte/{seat}/einwilligung/withdrawal": {
+      "post": {
+        "description": "Withdraw the named choices, WhatsApp and media, on every confirmed seat of this row its person holds, as their own press does.\n\nA finished season's row and a withdrawn team's take it too. A choice already withheld stays as it is, so a second mail\nor a seat its person never confirmed writes nothing, and nothing is ever granted.",
+        "operationId": "teams_withdraw_kontakt_einwilligung",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "team_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "title": "Team Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "saison_id",
+            "required": true,
+            "schema": {
+              "title": "Saison Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "seat",
+            "required": true,
+            "schema": {
+              "title": "Seat",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLEinwilligungWithdrawalPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "default": {
+            "$ref": "#/components/responses/Failure",
+            "description": "A refusal or a fault, its status naming which"
+          }
+        },
+        "security": [
+          {
+            "AdminKey": []
+          }
+        ],
+        "summary": "Enter a withdrawal of a contact seat's consent that its person asked for by mail",
         "tags": [
           "teams"
         ]
