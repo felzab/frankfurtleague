@@ -275,7 +275,6 @@ class Code(StrEnum):
 type Rule = Literal[
     "acceptance_with_proposal",
     "acceptance_with_reason",
-    "address_in_free_text",
     "bewerbung_window_ends_before_start",
     "date_not_in_calendar",
     "decline_without_proposal",
