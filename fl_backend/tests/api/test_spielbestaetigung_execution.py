@@ -155,10 +155,10 @@ def confirmation(row_id: ObjectId, team_id: ObjectId, **fields: Any) -> dict[str
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
 
-async def on_a_spiel(url: str, body: Body, *, rows: list[dict[str, Any]] | None = None, mutates_schema: bool = False) -> Any:
+async def on_a_spiel(url: str, body: Body, *, rows: list[dict[str, Any]] | None = None) -> Any:
     """The running season, its two clubs with three seats each, the fixture, its ground and referee, and one open row per club."""
 
-    async with a_clean_database(url, DATABASE_NAME, mutates_schema=mutates_schema) as (client, database):
+    async with a_clean_database(url, DATABASE_NAME) as (client, database):
         await database[Collection.SAISONS].insert_one(documents.saison_document(SAISON_ID, "active"))
         for team_id, (name, shorthand) in NAMES.items():
             await database[Collection.TEAMS].insert_one(documents.team_document(team_id, name, shorthand))
