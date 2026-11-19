@@ -473,33 +473,41 @@ class TestARecordedActWhoseCommitIsRefused:
 class TestAConfirmationMintWhoseCommitAnswerIsLost:
     """The driver's own lost answer, a `WTimeoutError` whose label the driver adds and the server's reply never carries."""
 
-    async def test_the_pass_raises_and_the_mints_rows_stand_with_the_mails_they_owe(self, mongo_replica_set_url: str):
+    async def test_the_pass_warns_and_the_mints_rows_stand_with_the_mails_they_owe(
+        self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture
+    ):
         """The rows and their mails commit in one transaction, so none stands unmailed and the next pass owes them nothing more.
 
-        Raised rather than answered: the job rejects, and the heartbeat reports the pass a failure.
+        The lost answer is one `transactions.pass_cut` warning rather than a raise, as every pass's deadline is, naming the
+        fixture whose commit went unanswered.
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await confirmations.sweep(database, client)
             await database[Collection.SPIELE].update_one({"_id": confirmations.SPIEL}, {"$set": {"time": "19:00:00"}})
             commits = _Commits()
-            # The close's commit passes; the mint's, the next one this client sends, lands and loses its answer.
-            async with failing_client(client, mongo_replica_set_url, UNANSWERED, mode={"skip": 1}, listener=commits) as losing:
-                with pytest.raises(PyMongoError) as lost:
+            # The move is the mint's to close, so the close writes nothing: the mint's commit is the first this client sends,
+            # and it lands and loses its answer.
+            async with failing_client(client, mongo_replica_set_url, UNANSWERED, mode={"times": 1}, listener=commits) as losing:
+                with caplog.at_level(logging.WARNING):
                     await confirmations.a_pass(losing[database.name], losing)
             standing = await confirmations.rows(database, closed=None)
             owed = await database[Collection.OUTBOX].find({"reference.id": {"$in": [row["_id"] for row in standing]}}, {"kind": 1}).to_list()
 
-            return commits.answered, lost.value, standing, owed, await confirmations.a_pass(database, client)
+            return commits.answered, standing, owed, await confirmations.a_pass(database, client)
 
         spiele = [confirmations.a_spiel(confirmations.SPIEL, 1, confirmations.NEXT_WEEK)]
-        commits, lost, standing, owed, nxt = await on_a_league(
+        commits, standing, owed, nxt = await on_a_league(
             mongo_replica_set_url, lambda database: confirmations.the_league(database, spiele=spiele), body
         )
 
-        # The premise first: the close committed, and the mint's commit landed with its answer lost.
-        assert commits[:2] == [None, MAX_TIME_EXPIRED]
-        assert lost.has_error_label(UNKNOWN_COMMIT_RESULT)
+        # The premise first: the mint's commit landed with its answer lost.
+        assert commits[:1] == [MAX_TIME_EXPIRED]
+        assert [
+            (record.getMessage(), getattr(record, "error_code", None), getattr(record, "row_id", None), getattr(record, "unanswered", None))
+            for record in caplog.records
+            if record.levelname == "WARNING"
+        ] == [("transactions.pass_cut", Code.UNKNOWN_OUTCOME, str(confirmations.SPIEL), True)]
         # Each side's fresh row and the referee's, about the moved Ansetzung, each stamped with the mails it owes beside it.
         assert sorted((row["party"]["kind"], row["ansetzung"]["time"], row["asked_at"]) for row in standing) == [
             ("schiedsrichter", "19:00:00", confirmations.TODAY),
