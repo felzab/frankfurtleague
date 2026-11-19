@@ -649,8 +649,8 @@ STAMP_STATES = [
 ]
 
 
-class TestTheClocksQueriesReadAStampAsThePredicateDoes:
-    """In the query, where a row the predicate would take is otherwise never read to be judged."""
+class TestTheFourteenDayClocksTerms:
+    """Its rule is its query alone (`build_deletion_filter`), so each of its terms is pinned here."""
 
     @pytest.mark.parametrize(("update", "outstanding"), STAMP_STATES)
     async def test_the_fourteen_day_clock_takes_an_application_whose_seat_is_unconfirmed(
@@ -665,8 +665,35 @@ class TestTheClocksQueriesReadAStampAsThePredicateDoes:
 
         assert await on_a_league(mongo_replica_set_url, body) is outstanding
 
+    async def test_an_application_on_its_deadlines_own_day_stands(self, mongo_replica_set_url: str):
+        """Strictly past: the link still answers on its deadline's own day."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            on_the_day = {f"confirmations.{seat}.deadline": TODAY for seat in KONTAKT_SEATS}
+            await database[Collection.BEWERBUNGEN].update_one({"_id": DELETE_OID}, {"$set": on_the_day})
+            await sweep(database, client)
+
+            return await stored(database, DELETE_OID) is None
+
+        assert await on_a_league(mongo_replica_set_url, body) is False
+
+    async def test_an_accepted_application_whose_links_have_lapsed_stands(self, mongo_replica_set_url: str):
+        """The acceptance empties the slots and its links pass their day, so the status alone keeps it off this clock."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            lapsed = {
+                **{f"kontakte.{seat}": None for seat in KONTAKT_SEATS},
+                **{f"confirmations.{seat}.deadline": YESTERDAY for seat in KONTAKT_SEATS},
+            }
+            await database[Collection.BEWERBUNGEN].update_one({"_id": ACCEPTED_OID}, {"$set": lapsed})
+            await sweep(database, client)
+
+            return await stored(database, ACCEPTED_OID) is None
+
+        assert await on_a_league(mongo_replica_set_url, body) is False
+
     async def test_one_seats_lapsed_deadline_reaches_the_query_beside_another_seats_fresh_link(self, mongo_replica_set_url: str):
-        """The filter's first arm: a read judging the latest deadline never hands the predicate this row."""
+        """The filter's first arm, each seat its own: a read judging the latest deadline would wait on the fresh link."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.BEWERBUNGEN].update_one(
@@ -680,7 +707,7 @@ class TestTheClocksQueriesReadAStampAsThePredicateDoes:
 
     @pytest.mark.parametrize(
         ("other_deadline", "taken"),
-        [pytest.param("2026-04-12", False, id="another seat's link still runs"), pytest.param(YESTERDAY, True, id="no link runs")],
+        [pytest.param(TODAY, False, id="another seat's link runs its last day"), pytest.param(YESTERDAY, True, id="no link runs")],
     )
     async def test_a_seat_an_erasure_emptied_reaches_the_query_once_no_link_runs(
         self, mongo_replica_set_url: str, other_deadline: str, taken: bool
@@ -708,13 +735,22 @@ class TestTheClocksQueriesReadAStampAsThePredicateDoes:
 
 
 class TestTheDeclineClock:
-    async def test_a_declined_application_past_its_fourteen_days_is_erased_in_the_first_call(self, mongo_replica_set_url: str):
+    """Its rule is its query alone, so its boundary is pinned here."""
+
+    @pytest.mark.parametrize(
+        ("made_at", "erased"),
+        [pytest.param("2026-03-19", False, id="decided thirteen days ago"), pytest.param("2026-03-18", True, id="decided fourteen days ago")],
+    )
+    async def test_a_declined_application_goes_on_the_fourteenth_day_after_its_decision(
+        self, mongo_replica_set_url: str, made_at: str, erased: bool
+    ):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.BEWERBUNGEN].update_one({"_id": DECLINED_OID}, {"$set": {"decision.made_at": made_at}})
             await sweep(database, client)
 
-            return await stored(database, DECLINED_OID)
+            return await stored(database, DECLINED_OID) is None
 
-        assert await on_a_league(mongo_replica_set_url, body) is None
+        assert await on_a_league(mongo_replica_set_url, body) is erased
 
 
 class TestTheSeasonsOwnEndClock:

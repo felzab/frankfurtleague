@@ -7,20 +7,16 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.bewerbungen.schemas import FLBewerbungSweepResponse
 from app.api.bewerbungen.services import (
-    acceptance_erasure_is_due,
     build_deletion_filter,
     build_ended_after_filter,
     build_reminder_filter,
     compose_reminder_update,
-    decline_erasure_is_due,
-    deletion_is_due,
     outbox_key,
     owed_deletion_notices,
     owed_link,
     people_with_address,
     reminder_seats,
     schule_name,
-    undecided_erasure_is_due,
     unreachable_seats,
 )
 from app.api.outbox.crud import states_of
@@ -135,10 +131,8 @@ async def sweep_saison(
 
         async def erase_one(session: AsyncClientSession, row: Mapping[str, Any]) -> int:
             stored = await bewerbungen_collection.find_one({"_id": row["_id"], **clock}, session=session)
-            if stored is None or not undecided_erasure_is_due(bewerbung_raw=stored, saison_status=saison_status):
-                return 0
 
-            return await erase_with_its_notices(session, stored)
+            return 0 if stored is None else await erase_with_its_notices(session, stored)
 
         return await save_each(db=db, rows=await due_ids(clock), save=erase_one, what="Application", clock="season's end")
 
@@ -149,10 +143,8 @@ async def sweep_saison(
 
         async def erase_one(session: AsyncClientSession, row: Mapping[str, Any]) -> int:
             stored = await bewerbungen_collection.find_one({"_id": row["_id"], **clock}, session=session)
-            if stored is None or not deletion_is_due(bewerbung_raw=stored, today=today):
-                return 0
 
-            return await erase_with_its_notices(session, stored)
+            return 0 if stored is None else await erase_with_its_notices(session, stored)
 
         return await save_each(db=db, rows=await due_ids(clock), save=erase_one, what="Application", clock="fourteen-day")
 
@@ -220,20 +212,22 @@ async def sweep_saison(
     # logged under the season.
 
     async def erase_declined() -> Saved[int]:
+        """The decline clock: a declined application goes fourteen days after the decision, that day included."""
+
         async def erase_them(session: AsyncClientSession, _: Mapping[str, Any]) -> int:
             rows = await pull_many_from_db(
                 collection=bewerbungen_collection,
-                # Narrowed to the decisions whose days are behind them: a read full of fresh ones would hide a due one.
+                # The rule in the query: a read full of fresh decisions would hide a due one.
                 db_filter={
                     "saison_id": saison_id,
                     "status": "declined",
                     "decision.made_at": {"$lte": days_after(day=today, days=-CONFIRMATION_DEADLINE_DAYS)},
                 },
-                projection=["status", "decision"],
+                projection=["_id"],
                 limit=LIST_LIMIT_DEFAULT,
                 session=session,
             )
-            ids = [row["_id"] for row in rows if decline_erasure_is_due(bewerbung_raw=row, today=today)]
+            ids = [row["_id"] for row in rows]
 
             return await erase(ids, session) if ids else 0
 
@@ -246,11 +240,11 @@ async def sweep_saison(
             rows = await pull_many_from_db(
                 collection=bewerbungen_collection,
                 db_filter={"saison_id": saison_id, "status": "accepted"},
-                projection=["status"],
+                projection=["_id"],
                 limit=LIST_LIMIT_DEFAULT,
                 session=session,
             )
-            ids = [row["_id"] for row in rows if acceptance_erasure_is_due(bewerbung_raw=row, later_saison_status=later_saison_status)]
+            ids = [row["_id"] for row in rows]
 
             return await erase(ids, session) if ids else 0
 

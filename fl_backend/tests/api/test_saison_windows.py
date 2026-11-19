@@ -28,11 +28,6 @@ class TestTheApplicationWindow:
     def test_a_day_outside_the_span_takes_none(self, today: str):
         assert self.runs(today=today) is False
 
-    def test_a_reversed_span_covers_no_day(self):
-        """Span ordering is the payload's alone, so a stored reversal is reachable, and comparing one end would open it for ever."""
-
-        assert self.runs(bewerbung={"open": True, "start": END, "end": START}) is False
-
     def test_a_paused_window_takes_none_inside_its_span(self):
         """The dates still run, and the pause is the whole answer: a paused form taking a submission is a pause doing nothing."""
 

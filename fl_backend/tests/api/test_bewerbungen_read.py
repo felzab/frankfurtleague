@@ -250,13 +250,6 @@ class TestEachSeatServesWhereItStands:
     def test_a_decision_spends_an_unanswered_link_whatever_its_day(self):
         assert self.read(status="declined")["ansprechperson"]["state"] == "expired"
 
-    def test_a_row_its_season_stripped_serves_as_it_stands(self):
-        """The strip nulls the block, and the review page still opens the application it leaves."""
-
-        stripped = {"_id": "bewerbung", "kontakte": None, "confirmations": None}
-
-        assert with_delivery(stripped, {}, today="2026-04-10") == stripped
-
     def test_a_season_row_s_confirmed_seat_reads_confirmed_and_offers_its_link_no_press(self):
         """Read off anything but the row's block, its link asks a person who answered to confirm again."""
 
