@@ -7,7 +7,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import pymongo
-from pymongo import AsyncMongoClient
+from pymongo import AsyncMongoClient, IndexModel
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.uri_parser import parse_uri
 
@@ -174,11 +174,12 @@ def _expired_message(name: str, collection: str, key: str, found: Sequence[Mappi
 async def _expired_rows(database: AsyncDatabase) -> list[str]:
     """Each shipped TTL index's expired rows, as `_EXPIRED` words them."""
 
-    async def expired(collection: str, key: str, seconds: int) -> str | None:
-        found = await (await database[collection].aggregate(_expired_pipeline(key, seconds))).to_list(length=None)
+    async def expired(collection: str, ttl: IndexModel) -> str | None:
+        (key,) = ttl.document["key"]
+        found = await (await database[collection].aggregate(_expired_pipeline(key, ttl.document["expireAfterSeconds"]))).to_list(length=None)
         return _expired_message(database.name, collection, key, found)
 
-    return [message for message in await concurrently(*(expired(ttl.collection, ttl.key, ttl.seconds) for ttl in TTL_INDEXES)) if message]
+    return [message for message in await concurrently(*(expired(collection, ttl) for collection, ttl in TTL_INDEXES)) if message]
 
 
 async def _refused_records(client: AsyncMongoClient, name: str) -> str | None:

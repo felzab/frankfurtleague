@@ -249,7 +249,7 @@ here is the order, on the server in the checkout:
    own check. A rename is written as a count of the rows still holding the old name, the rename,
    and the same count again, which must read 0; an added field as a count of the rows lacking it,
    the write, and the same count again, which must read 0. The rename's file drops any index the
-   old name held, by a `dropIndex` line: `create_index` refuses a name already held at different
+   old name held, by a `dropIndex` line: `createIndexes` refuses a name already held at different
    options and creates nothing under a name it does not declare, so the boot would leave the old
    index standing forever.
 4. **Deploy**: `git pull`, then `./scripts/ops/deploy.sh --no-rollback`, since the build before it
@@ -298,12 +298,14 @@ yet. While it holds:
   holding the segment. Measured against a copy of production, 2026-09-08.
 
 **A change that only adds an index has nothing for the read-back to answer**: no stored document can
-be in breach of a read index (`fl_backend/app/core/constraints.py :: SupportIndex`). The next boot
+be in breach of a read index (`fl_backend/app/core/constraints.py :: SUPPORT_INDEXES`). The next boot
 builds it, and fails loudly if it cannot. A new unique index is the exception: one
 aggregate grouping the collection by its keys, counting the groups holding more than one document,
-says before the deploy whether its build will meet a duplicate, which fails the boot.
+says before the deploy whether its build will meet a duplicate, which fails the boot. The boot's
+refusal, `db.indexes_failed`, names the collection, the index and the server's code, and never the
+duplicated value, which can be a person's name: the same aggregate over the index's keys finds it.
 
-**Two index changes stop the deploy, and both for one reason.** `create_index` refuses a name already
+**Two index changes stop the deploy, and both for one reason.** `createIndexes` refuses a name already
 held at different options rather than moving it, so `apply_constraints` raises and
 `fl_backend/app/core/db.py :: lifespan` fails the boot — the old index still serving, which the
 refusal does not say. **A changed RETENTION bound** is moved first by a migration file on the owner's
@@ -311,7 +313,7 @@ checklist, setting the `action_log_retention` index's `expireAfterSeconds` to th
 equal `fl_backend/app/shared/schemas/bounds.py :: ACTION_LOG_ENTRY_RETENTION_SECONDS` in the checkout about to
 deploy, or the boot raises on the difference that is left.
 
-**A uniqueness rule narrowed or widened by a `partial_filter`** is a different index rather than a
+**A uniqueness rule narrowed or widened by a `partialFilterExpression`** is a different index rather than a
 changed one, so the live index is dropped by a `dropIndex` line, and the boot that follows builds the
 new one from `fl_backend/app/core/constraints.py :: UNIQUE_INDEXES`. Drop it just before the
 deploy, because the refusal above is what the new build's boot answers with while the old index

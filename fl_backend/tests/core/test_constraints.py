@@ -3,9 +3,10 @@ from typing import Any, get_args
 
 import pytest
 from pydantic import BaseModel
+from pymongo import IndexModel
 
 from app.core.collections import Collection
-from app.core.constraints import TTL_INDEXES, TTLIndex
+from app.core.constraints import TTL_INDEXES
 from app.readback import RECORD_MODELS
 
 # The TTL index keyed on a date a live row never holds: the row expires once ended, its key's parent then written whole.
@@ -23,18 +24,23 @@ def _model_in(annotation: Any) -> type[BaseModel]:
     return model
 
 
-@pytest.mark.parametrize("ttl", [ttl for ttl in TTL_INDEXES if ttl.collection in RECORD_MODELS], ids=lambda ttl: ttl.name)
-def test_every_ttl_index_expires_on_a_required_date(ttl: TTLIndex):
+@pytest.mark.parametrize(
+    ("collection", "ttl"),
+    [pytest.param(collection, ttl, id=ttl.document["name"]) for collection, ttl in TTL_INDEXES if collection in RECORD_MODELS],
+)
+def test_every_ttl_index_expires_on_a_required_date(collection: Collection, ttl: IndexModel):
     """A TTL index over a string, or over a key a row may leave out, builds, serves reads and expires nothing, reporting neither."""
 
-    *parents, key = ttl.key.split(".")
-    model = RECORD_MODELS[Collection(ttl.collection)]
+    name = ttl.document["name"]
+    (path,) = ttl.document["key"]
+    *parents, key = path.split(".")
+    model = RECORD_MODELS[collection]
     for parent in parents:
         holder = model.model_fields[parent]
-        assert holder.is_required(), f"{ttl.name} expires on {ttl.key!r}, and {parent!r} may be left out"
+        assert holder.is_required(), f"{name} expires on {path!r}, and {parent!r} may be left out"
         # Where the key sits in a block a live row holds null, that block is all a live row may hold there.
-        assert (ttl.name in ENDED_ROW_TTL_INDEXES) is (type(None) in get_args(holder.annotation)), ttl.name
+        assert (name in ENDED_ROW_TTL_INDEXES) is (type(None) in get_args(holder.annotation)), name
         model = _model_in(holder.annotation)
 
     field = model.model_fields[key]
-    assert (field.annotation, field.is_required()) == (datetime, True), f"{ttl.name} expires on {ttl.key!r}, typed {field.annotation}"
+    assert (field.annotation, field.is_required()) == (datetime, True), f"{name} expires on {path!r}, typed {field.annotation}"
