@@ -604,7 +604,7 @@ class TestAResend:
             "sent_at": TODAY,
             "deadline": "2026-04-15",
             "reminded_at": None,
-            "confirmed_at": None,
+            "confirmed_on": None,
             "declined_at": None,
         }
         # The other seats' links still open.

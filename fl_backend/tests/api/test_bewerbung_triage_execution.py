@@ -340,7 +340,7 @@ class TestAnAcceptanceEntersTheSchool:
 
         assert stored["kontakte"] == {"trainer": None, "ansprechperson": None, "stellvertretung": None, "trainer_is_also": None}
         assert [name for name in ("Wraxlington", "Quillhilde", "Bramblewick") if name in str(stored)] == []
-        assert {seat: entry["confirmed_at"] for seat, entry in stored["confirmations"].items()} == {
+        assert {seat: entry["confirmed_on"] for seat, entry in stored["confirmations"].items()} == {
             "trainer": "2126-01-16",
             "ansprechperson": "2126-01-16",
             "stellvertretung": "2126-01-16",
