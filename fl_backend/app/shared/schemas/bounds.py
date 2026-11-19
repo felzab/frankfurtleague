@@ -23,8 +23,6 @@ ADDRESS_HOUSE_NUMBER_MAX_LENGTH: Final = 16
 type FLKontaktEmailMaxLength = Literal[254]
 KONTAKT_EMAIL_MAX_LENGTH: Final[FLKontaktEmailMaxLength] = 254
 
-TEAM_DESCRIPTION_MAX_LENGTH: Final = 4096
-
 type FLBewerbungKontaktMinAgeYears = Literal[16]
 BEWERBUNG_KONTAKT_MIN_AGE_YEARS: Final[FLBewerbungKontaktMinAgeYears] = 16
 
@@ -66,7 +64,7 @@ LIST_LIMIT_DEFAULT: Final = 1024
 
 # How long the action log keeps a row, counted from the write it recorded. Published in years, which the privacy notice
 # states in months; a plain year of seconds below, because the database counts no calendar months and seconds are the
-# unit `create_index(expireAfterSeconds=)` takes.
+# unit an index's `expireAfterSeconds` takes.
 type FLActionLogRetentionYears = Literal[1]
 ACTION_LOG_RETENTION_YEARS: Final[FLActionLogRetentionYears] = 1
 ACTION_LOG_ENTRY_RETENTION_SECONDS: Final = ACTION_LOG_RETENTION_YEARS * 365 * 24 * 60 * 60
@@ -75,10 +73,6 @@ ACTION_LOG_ENTRY_RETENTION_SECONDS: Final = ACTION_LOG_RETENTION_YEARS * 365 * 2
 # checks its constant against this alias.
 type FLActionLogPageSize = Literal[50]
 ACTION_LOG_PAGE_SIZE: Final[FLActionLogPageSize] = 50
-
-# Why a team is out of a season, in an administrator's words on the team's public page: a sentence, as a
-# ban's reason is.
-AUSTRITT_REASON_MAX_LENGTH: Final = 500
 
 # How many full seasons a ban outlives the one it was entered under. The season it is entered in
 # does not count, so the fifth one after it is the last the ban covers.

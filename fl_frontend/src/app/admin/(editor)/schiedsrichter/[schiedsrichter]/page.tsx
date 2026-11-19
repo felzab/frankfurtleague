@@ -5,7 +5,7 @@ import { COPY } from "@/core/copy";
 import { dayOf, formatDate } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { deliveryChip } from "@/features/bewerbungen/deliveryState";
-import { confirmationStateOf, refereeChip } from "@/features/schiedsrichter/confirmationState";
+import { refereeChip } from "@/features/schiedsrichter/confirmationState";
 import { SAVE_RULES } from "@/features/schiedsrichter/fieldRules";
 import { getSchiedsrichterById } from "@/features/schiedsrichter/queries";
 import { adminIdParamOf } from "@/shared/utils/adminRead";
@@ -69,14 +69,14 @@ function chipsOf({ schiedsrichter: referee, delivery }: FLSchiedsrichterSingleRe
  * backend judging which by the rule its press refuses on. A retired entry no link has gone to yet says nothing, its
  * return asking the person.
  */
-function standingOf({ schiedsrichter: referee, confirmation_expired: expired }: FLSchiedsrichterSingleResponse): Copy | null {
-  const { einwilligung, confirmation } = referee;
-  switch (confirmationStateOf(referee)) {
+function standingOf({ schiedsrichter: { state, einwilligung, confirmation } }: FLSchiedsrichterSingleResponse): Copy | null {
+  switch (state) {
     case "confirmed":
       return einwilligung === null ? null : WORDS.confirmedOn(dayOf(einwilligung.confirmed_at));
-    case "unanswered":
-      if (confirmation === null) return null;
-      return expired ? WORDS.expiredOn(dayOf(confirmation.deadline)) : COPY.admin.spiel.answerBy(dayOf(confirmation.deadline));
+    case "valid":
+      return confirmation === null ? null : COPY.admin.spiel.answerBy(dayOf(confirmation.deadline));
+    case "expired":
+      return confirmation === null ? null : WORDS.expiredOn(dayOf(confirmation.deadline));
     case "unasked":
       return null;
   }
@@ -104,10 +104,10 @@ function confirmationFacts(read: FLSchiedsrichterSingleResponse): Fact[] {
 async function readEditor(params: Props["params"]) {
   const found = await readSchiedsrichter(params);
   const referee = found.schiedsrichter;
-  const state = confirmationStateOf(referee);
+  const { state } = referee;
   const retired = referee.inactive_since !== null;
-  // A link goes only to an entry waiting on its answer, as the invite's own refusals say: a live one with an address.
-  const asking = state === "unanswered" && !retired && referee.kontakt.email !== null;
+  // A link goes only to a live entry waiting on its answer, its link standing or lapsed, as the invite's own refusals say.
+  const asking = (state === "valid" || state === "expired") && !retired;
 
   return (
     <SchiedsrichterEditor

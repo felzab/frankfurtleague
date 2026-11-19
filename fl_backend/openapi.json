@@ -5875,6 +5875,37 @@
         "title": "FLKontaktKenntnisnahme",
         "type": "object"
       },
+      "FLKontaktKenntnisnahmeAdmin": {
+        "description": "What a seat's person answered, as the team editor reads it: the day they confirmed and their two choices, never the evidence.",
+        "properties": {
+          "confirmed_at": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confirmed At"
+          },
+          "media": {
+            "title": "Media",
+            "type": "boolean"
+          },
+          "scope": {
+            "$ref": "#/components/schemas/FLKontaktKenntnisnahmeScope"
+          }
+        },
+        "required": [
+          "scope",
+          "confirmed_at",
+          "media"
+        ],
+        "title": "FLKontaktKenntnisnahmeAdmin",
+        "type": "object"
+      },
       "FLKontaktKenntnisnahmeScope": {
         "enum": [
           "kontakt_data",
@@ -6095,6 +6126,41 @@
           "einwilligung"
         ],
         "title": "FLKontaktperson",
+        "type": "object"
+      },
+      "FLKontaktpersonAdmin": {
+        "description": "One seat's person as the team editor reads them.\n\nNo birthdate: it is asked once for the age check, and no page of the administration shows it. Declared apart from\nthe stored seat rather than derived from it, since what a page reads and what the league keeps change for different\nreasons.",
+        "properties": {
+          "einwilligung": {
+            "$ref": "#/components/schemas/FLKontaktKenntnisnahmeAdmin"
+          },
+          "email": {
+            "title": "Email",
+            "type": "string"
+          },
+          "first_name": {
+            "minLength": 1,
+            "title": "First Name",
+            "type": "string"
+          },
+          "last_name": {
+            "minLength": 1,
+            "title": "Last Name",
+            "type": "string"
+          },
+          "phone": {
+            "title": "Phone",
+            "type": "string"
+          }
+        },
+        "required": [
+          "first_name",
+          "last_name",
+          "email",
+          "phone",
+          "einwilligung"
+        ],
+        "title": "FLKontaktpersonAdmin",
         "type": "object"
       },
       "FLLandingBeforeStart": {
@@ -9851,6 +9917,59 @@
         "title": "FLSaisonTeamKontakte",
         "type": "object"
       },
+      "FLSaisonTeamKontakteAdmin": {
+        "description": "The three seats as the team editor reads them, nullable per slot as stored.",
+        "properties": {
+          "ansprechperson": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLKontaktpersonAdmin"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "stellvertretung": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLKontaktpersonAdmin"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "trainer": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLKontaktpersonAdmin"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "trainer_is_also": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLTrainerAlso"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "trainer",
+          "ansprechperson",
+          "stellvertretung",
+          "trainer_is_also"
+        ],
+        "title": "FLSaisonTeamKontakteAdmin",
+        "type": "object"
+      },
       "FLSaisonTeamsResponse": {
         "description": "A season's clubs, by name.",
         "properties": {
@@ -9916,101 +10035,6 @@
         "title": "FLSaisonsAdminRefusals",
         "type": "object"
       },
-      "FLSchiedsrichter": {
-        "properties": {
-          "birth_date": {
-            "anyOf": [
-              {
-                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Birth Date"
-          },
-          "confirmation": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLConfirmation"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "default_payment": {
-            "minimum": 0.0,
-            "title": "Default Payment",
-            "type": "integer"
-          },
-          "einwilligung": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLEinwilligung"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Id",
-            "type": "string"
-          },
-          "inactive_since": {
-            "anyOf": [
-              {
-                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Inactive Since"
-          },
-          "kontakt": {
-            "$ref": "#/components/schemas/FLKontakt"
-          },
-          "name": {
-            "minLength": 1,
-            "title": "Name",
-            "type": "string"
-          },
-          "schule": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Schule"
-          },
-          "version": {
-            "title": "Version",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "kontakt",
-          "name",
-          "schule",
-          "default_payment",
-          "id",
-          "inactive_since",
-          "confirmation",
-          "einwilligung",
-          "birth_date",
-          "version"
-        ],
-        "title": "FLSchiedsrichter",
-        "type": "object"
-      },
       "FLSchiedsrichterAccountEinwilligungPayload": {
         "additionalProperties": false,
         "description": "A referee's own two choices on their record.",
@@ -10036,6 +10060,158 @@
           "text_versions"
         ],
         "title": "FLSchiedsrichterAccountEinwilligungPayload",
+        "type": "object"
+      },
+      "FLSchiedsrichterAdmin": {
+        "description": "One referee as their editor reads them: the list's row, the fields the save writes, and the link's days.\n\nNo birthdate: it is asked once for the age check, and no page of the administration shows it.",
+        "properties": {
+          "confirmation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLConfirmation"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "default_payment": {
+            "title": "Default Payment",
+            "type": "integer"
+          },
+          "einwilligung": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSchiedsrichterAnswer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "id": {
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "inactive_since": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Inactive Since"
+          },
+          "kontakt": {
+            "$ref": "#/components/schemas/FLSchiedsrichterKontakt"
+          },
+          "name": {
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "schule": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Schule"
+          },
+          "state": {
+            "$ref": "#/components/schemas/FLSchiedsrichterEntryState"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "kontakt",
+          "inactive_since",
+          "state",
+          "schule",
+          "default_payment",
+          "version",
+          "confirmation",
+          "einwilligung"
+        ],
+        "title": "FLSchiedsrichterAdmin",
+        "type": "object"
+      },
+      "FLSchiedsrichterAdminRow": {
+        "description": "One referee as the administration's list shows them: the name, where the entry stands, and how to reach them.",
+        "properties": {
+          "id": {
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "inactive_since": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Inactive Since"
+          },
+          "kontakt": {
+            "$ref": "#/components/schemas/FLSchiedsrichterKontakt"
+          },
+          "name": {
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "state": {
+            "$ref": "#/components/schemas/FLSchiedsrichterEntryState"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "kontakt",
+          "inactive_since",
+          "state"
+        ],
+        "title": "FLSchiedsrichterAdminRow",
+        "type": "object"
+      },
+      "FLSchiedsrichterAnswer": {
+        "description": "What a referee answered through their link, as the administration reads it: the day and the two choices, never the evidence.",
+        "properties": {
+          "confirmed_at": {
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Confirmed At",
+            "type": "string"
+          },
+          "media": {
+            "title": "Media",
+            "type": "boolean"
+          },
+          "scope": {
+            "$ref": "#/components/schemas/FLEinwilligungScope"
+          }
+        },
+        "required": [
+          "confirmed_at",
+          "scope",
+          "media"
+        ],
+        "title": "FLSchiedsrichterAnswer",
         "type": "object"
       },
       "FLSchiedsrichterConfirmationData": {
@@ -10163,11 +10339,46 @@
         "title": "FLSchiedsrichterConfirmationViewValid",
         "type": "object"
       },
+      "FLSchiedsrichterEntryState": {
+        "enum": [
+          "unasked",
+          "valid",
+          "expired",
+          "confirmed"
+        ],
+        "type": "string"
+      },
+      "FLSchiedsrichterKontakt": {
+        "description": "A referee's channel as the administration reads it.",
+        "properties": {
+          "email": {
+            "title": "Email",
+            "type": "string"
+          },
+          "phone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phone"
+          }
+        },
+        "required": [
+          "phone",
+          "email"
+        ],
+        "title": "FLSchiedsrichterKontakt",
+        "type": "object"
+      },
       "FLSchiedsrichterListResponse": {
         "properties": {
           "schiedsrichter": {
             "items": {
-              "$ref": "#/components/schemas/FLSchiedsrichter"
+              "$ref": "#/components/schemas/FLSchiedsrichterAdminRow"
             },
             "title": "Schiedsrichter",
             "type": "array"
@@ -10223,10 +10434,6 @@
       },
       "FLSchiedsrichterSingleResponse": {
         "properties": {
-          "confirmation_expired": {
-            "title": "Confirmation Expired",
-            "type": "boolean"
-          },
           "delivery": {
             "anyOf": [
               {
@@ -10238,12 +10445,11 @@
             ]
           },
           "schiedsrichter": {
-            "$ref": "#/components/schemas/FLSchiedsrichter"
+            "$ref": "#/components/schemas/FLSchiedsrichterAdmin"
           }
         },
         "required": [
           "schiedsrichter",
-          "confirmation_expired",
           "delivery"
         ],
         "title": "FLSchiedsrichterSingleResponse",
@@ -13656,6 +13862,9 @@
           "person": {
             "$ref": "#/components/schemas/FLSpielerSaisonPerson"
           },
+          "saison_status": {
+            "$ref": "#/components/schemas/FLSaisonStatus"
+          },
           "taken_rollen": {
             "items": {
               "$ref": "#/components/schemas/FLSpielerRolle"
@@ -13674,7 +13883,8 @@
           "person",
           "kader",
           "allowed_stufen",
-          "taken_rollen"
+          "taken_rollen",
+          "saison_status"
         ],
         "title": "FLSpielerSaisonAdminResponse",
         "type": "object"
@@ -15098,7 +15308,7 @@
           "kontakte": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/FLSaisonTeamKontakte"
+                "$ref": "#/components/schemas/FLSaisonTeamKontakteAdmin"
               },
               {
                 "type": "null"
@@ -19846,20 +20056,8 @@
     },
     "/api/schiedsrichter": {
       "get": {
-        "description": "Every referee in name order, retired ones included where `include_inactive` asks, since a played match still names them.",
+        "description": "Every referee in name order, retired ones included, each with where their entry stands today.\n\nThe list is the one way into a retired referee's page, and a played match still names them.",
         "operationId": "schiedsrichter_get_schiedsrichter",
-        "parameters": [
-          {
-            "in": "query",
-            "name": "include_inactive",
-            "required": false,
-            "schema": {
-              "default": false,
-              "title": "Include Inactive",
-              "type": "boolean"
-            }
-          }
-        ],
         "responses": {
           "200": {
             "content": {
@@ -20196,7 +20394,7 @@
         ]
       },
       "get": {
-        "description": "One referee, a retired one included, with whether their consent link has lapsed today and what became of their last confirmation mail.\n\nAn erased referee's id answers 404.",
+        "description": "One referee, a retired one included, with where their entry stands today and what became of their last confirmation mail.\n\nAn erased referee's id answers 404.",
         "operationId": "schiedsrichter_get_schiedsrichter_by_id",
         "parameters": [
           {
@@ -21133,7 +21331,7 @@
     },
     "/api/spieler/{spieler_id}/saisons/{saison_id}": {
       "delete": {
-        "description": "Take a player out of a season's squad, the row staying, marked by `inactive_since`.\n\nThe row records that this player wore this number in this squad, which stays true after they leave.",
+        "description": "Take a player out of a season's squad, the row staying, marked by `inactive_since`.\n\nThe row records that this player wore this number in this squad, which stays true after they leave. A finished\nseason's squad is its record and is refused.",
         "operationId": "spieler_delete_saison_spieler",
         "parameters": [
           {
@@ -21288,7 +21486,7 @@
     },
     "/api/spieler/{spieler_id}/saisons/{saison_id}/reactivate": {
       "post": {
-        "description": "Clear a squad row's `inactive_since`, the row returning with the number, position and role it had.",
+        "description": "Clear a squad row's `inactive_since`, the row returning with the number, position and role it had.\n\nA finished season's squad is its record and is refused.",
         "operationId": "spieler_reactivate_saison_spieler",
         "parameters": [
           {

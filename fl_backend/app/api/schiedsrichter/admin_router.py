@@ -1,6 +1,6 @@
-from typing import Annotated, Any
+from typing import Any
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, status
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
@@ -13,23 +13,23 @@ from app.api.schiedsrichter.schemas import (
     FLPatchSchiedsrichterResponse,
     FLPostSchiedsrichterPayload,
     FLSchiedsrichter,
-    FLSchiedsrichterFilterParams,
-    FLSchiedsrichterListAdapter,
+    FLSchiedsrichterAdmin,
+    FLSchiedsrichterAdminRow,
     FLSchiedsrichterListResponse,
     FLSchiedsrichterMint,
     FLSchiedsrichterMintResponse,
     FLSchiedsrichterSingleResponse,
 )
 from app.api.schiedsrichter.services import (
-    CONFIRMATION_FIELD,
+    ADMIN_ROW_FIELDS,
     EINWILLIGUNG_FIELD,
     INVITE_FIELDS,
     build_unplayed_assignment_filter,
+    compose_admin,
     compose_correction_update,
     compose_entry,
     compose_mint_update,
     confirmation_deadline_from,
-    confirmation_expired,
     find_already_answered_refusal,
     find_confirmed_address_refusal,
     find_missing_address_refusal,
@@ -77,19 +77,25 @@ router = APIRouter(
 @router.get("", summary="List Schiedsrichter")
 async def get_schiedsrichter(
     schiedsrichter_collection: SchiedsrichterReadCollection,
-    filters: Annotated[FLSchiedsrichterFilterParams, Depends()],
+    today: GermanDay,
 ) -> FLSchiedsrichterListResponse:
-    """Every referee in name order, retired ones included where `include_inactive` asks, since a played match still names them."""
+    """Every referee in name order, retired ones included, each with where their entry stands today.
+
+    The list is the one way into a retired referee's page, and a played match still names them.
+    """
 
     schiedsrichter_raw = await pull_whole_from_db(
         collection=schiedsrichter_collection,
-        db_filter={} if filters.include_inactive else {"inactive_since": None},
+        db_filter={},
         what="the referees",
+        projection=dict(ADMIN_ROW_FIELDS),
         sort_by=[("name", 1)],
         collation=GERMAN_COLLATION,
     )
 
-    return FLSchiedsrichterListResponse(schiedsrichter=FLSchiedsrichterListAdapter.validate_python(schiedsrichter_raw))
+    return FLSchiedsrichterListResponse(
+        schiedsrichter=[FLSchiedsrichterAdminRow.model_validate(compose_admin(row, today=today)) for row in schiedsrichter_raw]
+    )
 
 
 @router.get(
@@ -102,7 +108,7 @@ async def get_schiedsrichter_by_id(
     outbox_collection: OutboxReadCollection,
     today: GermanDay,
 ) -> FLSchiedsrichterSingleResponse:
-    """One referee, a retired one included, with whether their consent link has lapsed today and what became of their last confirmation mail.
+    """One referee, a retired one included, with where their entry stands today and what became of their last confirmation mail.
 
     An erased referee's id answers 404.
     """
@@ -110,8 +116,7 @@ async def get_schiedsrichter_by_id(
     schiedsrichter_raw = await pull_one_from_db(collection=schiedsrichter_collection, db_filter={"_id": schiedsrichter_id})
 
     return FLSchiedsrichterSingleResponse(
-        schiedsrichter=FLSchiedsrichter(**schiedsrichter_raw),
-        confirmation_expired=confirmation_expired(schiedsrichter_raw.get(CONFIRMATION_FIELD), today=today),
+        schiedsrichter=FLSchiedsrichterAdmin.model_validate(compose_admin(schiedsrichter_raw, today=today)),
         delivery=await state_of(
             outbox_collection=outbox_collection,
             reference=FLOutboxReference(collection=Collection.SCHIEDSRICHTER, id=schiedsrichter_raw["_id"], seat=None),

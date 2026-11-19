@@ -1,13 +1,12 @@
-from collections.abc import Mapping
 from datetime import datetime
-from typing import Annotated, Any, Final, NamedTuple
+from typing import NamedTuple
 
-from pydantic import TypeAdapter
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.aufstellungen.crud import erase_pupil_from_aufstellungen_in_session
 from app.api.saisons.schemas import FLSaisonRules
+from app.api.saisons.services import find_saison_past_refusal
 from app.api.spielberichte.crud import empty_pupil_entries_in_session
 from app.api.spieler.schemas import FLSpielerRolle
 from app.api.spieler.services import (
@@ -33,9 +32,9 @@ async def refuse_a_full_kader(
     saison_spieler_collection: AsyncCollection,
     saisons_collection: AsyncCollection,
     saison_id: str,
-    # The season's stored `rules`, which the caller reads in this session beside whatever else of the season it needs:
-    # the anchor below, not that read, is what closes the race.
-    rules: Mapping[str, Any],
+    # The season's rules, which the caller reads in this session beside whatever else of the season it needs: the
+    # anchor below, not that read, is what closes the race.
+    rules: FLSaisonRules,
     team_id: CustomObjectId,
     spieler_id: CustomObjectId,
     # Whether the row entering is a nominee's, which the caller reads or derives: a nominee stands outside the cap.
@@ -71,19 +70,14 @@ async def refuse_a_full_kader(
     refuse(find_full_kader_refusal(room=room, nominee=nominee))
 
 
-# The season's cap judged by its own field's rule and nothing else, so a read projecting the rules' other fields away
-# reads it too: a season missing the key, or holding one the rule refuses, fails here rather than admitting a player
-# against a bound nobody chose, or reading every squad as full.
-_KADER_SIZE: Final = TypeAdapter[int](Annotated[int, *FLSaisonRules.model_fields["max_kader_size"].metadata])
-
-
 async def pull_kader_room(
     *,
     saison_spieler_collection: ReadCollection,
     saison_id: str,
     team_id: CustomObjectId,
-    # The season's stored `rules`, whole or projected to `max_kader_size`.
-    rules: Mapping[str, Any],
+    # Validated by the caller, so a season holding rules the model refuses fails there rather than admitting a player
+    # against a bound nobody chose, or reading every squad as full.
+    rules: FLSaisonRules,
     # The writing player, whose own row takes no place from them; `None` where the count is asked for nobody.
     excluding_spieler_id: CustomObjectId | None,
     session: AsyncClientSession | None,
@@ -94,7 +88,28 @@ async def pull_kader_room(
         build_live_kader_filter(saison_id=saison_id, team_id=team_id, excluding_spieler_id=excluding_spieler_id), session=session
     )
 
-    return KaderRoom(size=size, cap=_KADER_SIZE.validate_python(rules.get("max_kader_size")))
+    return KaderRoom(size=size, cap=rules.max_kader_size)
+
+
+async def refuse_a_closed_kader(
+    *,
+    saisons_collection: AsyncCollection,
+    saison_id: str,
+    # Required: the anchor below closes the race.
+    session: AsyncClientSession,
+) -> None:
+    """Refuse `saison_past` when the season has finished: its squad rows are its record, as its other records are.
+
+    For a write moving a squad row, its number, position, level or role, or taking it out or back; a person's own facts
+    belong to no season and stay open.
+    """
+
+    saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["status"], session=session)
+    # Anchored, so the status belongs to this write set: `activate_saison` writes this document, so a rollover landing
+    # under the write conflicts and the retry reads `past`.
+    await anchor_in_db(collection=saisons_collection, db_filter={"_id": saison_id}, session=session)
+
+    refuse(find_saison_past_refusal(saison_status=str(saison_raw["status"])))
 
 
 async def refuse_a_taken_rolle(

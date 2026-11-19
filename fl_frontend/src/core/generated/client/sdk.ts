@@ -152,7 +152,6 @@ import type {
   FLVersionResponse,
   ProbeResponse,
   SaisonsGetSweepSaisonsParams,
-  SchiedsrichterGetSchiedsrichterParams,
   SpieleGetSpieleSpielplanParams,
   SpielePatchSpielParams,
   SpielerGetSpielerAdminParams,
@@ -1893,21 +1892,20 @@ export const saisonsGetTeam = async (
   });
 };
 
-export const getSchiedsrichterGetSchiedsrichterUrl = (params?: SchiedsrichterGetSchiedsrichterParams) => {
-  const stringifiedParams = serializeQuery(params);
-
-  return stringifiedParams.length > 0 ? `/api/schiedsrichter?${stringifiedParams}` : `/api/schiedsrichter`;
+export const getSchiedsrichterGetSchiedsrichterUrl = () => {
+  return `/api/schiedsrichter`;
 };
 
 /**
- * Every referee in name order, retired ones included where `include_inactive` asks, since a played match still names them.
+ * Every referee in name order, retired ones included, each with where their entry stands today.
+ *
+ * The list is the one way into a retired referee's page, and a played match still names them.
  * @summary List Schiedsrichter
  */
 export const schiedsrichterGetSchiedsrichter = async (
-  params?: SchiedsrichterGetSchiedsrichterParams,
   options?: Parameters<typeof adminKeyTransport>[1],
 ): Promise<FLSchiedsrichterListResponse> => {
-  return adminKeyTransport<FLSchiedsrichterListResponse>(getSchiedsrichterGetSchiedsrichterUrl(params), {
+  return adminKeyTransport<FLSchiedsrichterListResponse>(getSchiedsrichterGetSchiedsrichterUrl(), {
     ...options,
     method: "GET",
   });
@@ -2086,7 +2084,7 @@ export const getSchiedsrichterGetSchiedsrichterByIdUrl = (schiedsrichterId: stri
 };
 
 /**
- * One referee, a retired one included, with whether their consent link has lapsed today and what became of their last confirmation mail.
+ * One referee, a retired one included, with where their entry stands today and what became of their last confirmation mail.
  *
  * An erased referee's id answers 404.
  * @summary One Schiedsrichter
@@ -2552,7 +2550,8 @@ export const getSpielerDeleteSaisonSpielerUrl = (spielerId: string, saisonId: st
 /**
  * Take a player out of a season's squad, the row staying, marked by `inactive_since`.
  *
- * The row records that this player wore this number in this squad, which stays true after they leave.
+ * The row records that this player wore this number in this squad, which stays true after they leave. A finished
+ * season's squad is its record and is refused.
  * @summary Remove a Spieler from a squad
  */
 export const spielerDeleteSaisonSpieler = async (
@@ -2617,6 +2616,8 @@ export const getSpielerReactivateSaisonSpielerUrl = (spielerId: string, saisonId
 
 /**
  * Clear a squad row's `inactive_since`, the row returning with the number, position and role it had.
+ *
+ * A finished season's squad is its record and is refused.
  * @summary Put a Spieler back in a squad they left
  */
 export const spielerReactivateSaisonSpieler = async (

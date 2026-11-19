@@ -13,12 +13,7 @@ from pydantic import (
 from app.api.outbox.schemas import FLOutboxStatus
 from app.core.crud import Anchored
 from app.shared.schemas.addresses import FLAddress, FLAddressPayload
-from app.shared.schemas.bounds import (
-    AUSTRITT_REASON_MAX_LENGTH,
-    TEAM_DESCRIPTION_MAX_LENGTH,
-    TEAM_FULL_NAME_MAX_LENGTH,
-    TEAM_NAME_MAX_LENGTH,
-)
+from app.shared.schemas.bounds import TEAM_FULL_NAME_MAX_LENGTH, TEAM_NAME_MAX_LENGTH
 from app.shared.schemas.custom import (
     PARAGRAPH_PATTERN,
     PHONE_REGEX,
@@ -56,6 +51,12 @@ MAX_NUMBER_OF_GROUPS: Final = len(get_args(FLGruppenNames.__value__))
 # Which second seat one person may hold beside the Trainer's. A closed set rather than a flag per seat: the
 # two are alternatives, and nothing can mean holding both.
 type FLTrainerAlso = Literal["ansprechperson", "stellvertretung"]
+
+TEAM_DESCRIPTION_MAX_LENGTH: Final = 4096
+
+# Why a team is out of a season, in an administrator's words on the team's public page: a sentence, as a
+# ban's reason is.
+AUSTRITT_REASON_MAX_LENGTH: Final = 500
 
 
 class FLAustritt(BaseModel):
@@ -367,6 +368,39 @@ class FLTeamPageTeam(_TeamWritable, BaseReadModel):
     austritt: FLAustritt | None
 
 
+class FLKontaktKenntnisnahmeAdmin(BaseReadModel):
+    """What a seat's person answered, as the team editor reads it: the day they confirmed and their two choices, never the evidence."""
+
+    scope: FLKontaktKenntnisnahmeScope
+    # Null until the person confirms the seat themselves.
+    confirmed_at: CustomOptionalDateString
+    media: bool
+
+
+class FLKontaktpersonAdmin(BaseReadModel):
+    """One seat's person as the team editor reads them.
+
+    No birthdate: it is asked once for the age check, and no page of the administration shows it. Declared apart from
+    the stored seat rather than derived from it, since what a page reads and what the league keeps change for different
+    reasons.
+    """
+
+    first_name: CustomNonEmptyString
+    last_name: CustomNonEmptyString
+    email: str
+    phone: str
+    einwilligung: FLKontaktKenntnisnahmeAdmin
+
+
+class FLSaisonTeamKontakteAdmin(BaseReadModel):
+    """The three seats as the team editor reads them, nullable per slot as stored."""
+
+    trainer: FLKontaktpersonAdmin | None
+    ansprechperson: FLKontaktpersonAdmin | None
+    stellvertretung: FLKontaktpersonAdmin | None
+    trainer_is_also: FLTrainerAlso | None
+
+
 class FLTeamMembership(BaseReadModel):
     """One junction row as seen from its club: which season, which group, and the record if any."""
 
@@ -374,7 +408,7 @@ class FLTeamMembership(BaseReadModel):
     gruppe: FLGruppenNames
     austritt: FLAustritt | None
     trikot_farbe: FLTrikotFarbe | None
-    kontakte: FLSaisonTeamKontakte | None
+    kontakte: FLSaisonTeamKontakteAdmin | None
     # Each seat's link as the editor shows it. Defaulted: `$project` omits a
     # key the stored row has not got, and a row holds none until a save mints its first link.
     confirmations: FLSaisonTeamConfirmationsView | None = None

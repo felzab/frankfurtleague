@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Annotated, Final, Literal, Self
 
-from pydantic import BaseModel, Field, TypeAdapter, model_validator
+from pydantic import BaseModel, Field, model_validator
 
 from app.api.outbox.schemas import FLOutboxStatus
 from app.api.spielbestaetigungen.schemas import FLSpielbestaetigungSchiedsrichterState
@@ -95,7 +95,15 @@ class FLSchiedsrichterConfirmationRecord(FLConfirmation):
     token_hashes: list[str]
 
 
-class FLSchiedsrichterKontaktRecord(FLKontakt):
+class FLSchiedsrichterKontakt(FLKontakt):
+    """A referee's channel as the administration reads it."""
+
+    # Required as the record requires it, and with no rule: a row stored before the address rule moved still reads,
+    # rather than answering 500 for the whole list.
+    email: str
+
+
+class FLSchiedsrichterKontaktRecord(FLSchiedsrichterKontakt):
     """A referee's channel as stored: the address in the fold every lookup of the referee compares, which the read-back holds."""
 
     # Required as the payloads require it: every referee is entered by an administrator, and the address is how the
@@ -118,15 +126,52 @@ class FLSchiedsrichterRecord(FLSchiedsrichter, Anchored):
         return self
 
 
-FLSchiedsrichterListAdapter = TypeAdapter(list[FLSchiedsrichter])
+# Where a referee's entry stands as the administration reads it: the link page's states, and `unasked` for an entry no
+# link has gone to, a retired one whose corrected address was stored unmailed. Its own type and not the link page's:
+# that page never opens on an entry without a link. An objection erases the entry, so none stands objected.
+type FLSchiedsrichterEntryState = Literal["unasked", "valid", "expired", "confirmed"]
 
 
-class FLSchiedsrichterFilterParams(BaseModel):
-    include_inactive: bool = False
+class FLSchiedsrichterAdminRow(BaseReadModel):
+    """One referee as the administration's list shows them: the name, where the entry stands, and how to reach them."""
+
+    id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
+    # Without the payload's ceiling and pattern: a read refusing a stored name would answer 500 for the whole list.
+    name: CustomNonEmptyString
+    kontakt: FLSchiedsrichterKontakt
+    inactive_since: CustomOptionalDateString
+    # Judged on the read by the rule the link refuses on, at the server's date, so no page compares a deadline to a
+    # clock of its own.
+    state: FLSchiedsrichterEntryState
+
+
+class FLSchiedsrichterAnswer(BaseReadModel):
+    """What a referee answered through their link, as the administration reads it: the day and the two choices, never the evidence."""
+
+    confirmed_at: CustomDateString
+    scope: FLEinwilligungScope
+    media: bool
+
+
+class FLSchiedsrichterAdmin(FLSchiedsrichterAdminRow):
+    """One referee as their editor reads them: the list's row, the fields the save writes, and the link's days.
+
+    No birthdate: it is asked once for the age check, and no page of the administration shows it.
+    """
+
+    # Redeclared without the payload's empty-string coercion: a read answers with the value as stored.
+    schule: str | None
+    default_payment: int
+    # The writes counted so far, which the editor's save sends back.
+    version: int
+    # Null until a link is owed, and after an address correction on a retired, unconfirmed referee.
+    confirmation: FLConfirmation | None
+    # Null until the referee confirms.
+    einwilligung: FLSchiedsrichterAnswer | None
 
 
 class FLSchiedsrichterListResponse(BaseReadModel):
-    schiedsrichter: list[FLSchiedsrichter]
+    schiedsrichter: list[FLSchiedsrichterAdminRow]
 
 
 class FLPatchSchiedsrichterResponse(BaseReadModel):
@@ -202,10 +247,7 @@ class FLSchiedsrichterConfirmationPayload(BasePayload):
 
 
 class FLSchiedsrichterSingleResponse(BaseReadModel):
-    schiedsrichter: FLSchiedsrichter
-    # Whether the link's deadline has passed today, judged by the rule its press refuses on, so the
-    # editor reads no day of its own; false where the row holds no such link.
-    confirmation_expired: bool
+    schiedsrichter: FLSchiedsrichterAdmin
     # What became of the last confirmation mail the referee was owed; null where none was.
     delivery: FLOutboxStatus | None
 

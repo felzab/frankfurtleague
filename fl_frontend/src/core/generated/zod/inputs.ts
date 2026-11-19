@@ -1482,16 +1482,6 @@ export const SaisonsGetTeamParams = zod.object({
 });
 
 /**
- * Every referee in name order, retired ones included where `include_inactive` asks, since a played match still names them.
- * @summary List Schiedsrichter
- */
-export const schiedsrichterGetSchiedsrichterQueryIncludeInactiveDefault = false;
-
-export const SchiedsrichterGetSchiedsrichterQueryParams = zod.object({
-  include_inactive: zod.boolean().default(schiedsrichterGetSchiedsrichterQueryIncludeInactiveDefault),
-});
-
-/**
  * Create a referee and owe them their confirmation link.
  *
  * Entering a referee is the invitation, with no second press deciding whether they are asked, since a referee nobody
@@ -1604,7 +1594,7 @@ export const SchiedsrichterDeleteSchiedsrichterParams = zod.object({
 });
 
 /**
- * One referee, a retired one included, with whether their consent link has lapsed today and what became of their last confirmation mail.
+ * One referee, a retired one included, with where their entry stands today and what became of their last confirmation mail.
  *
  * An erased referee's id answers 404.
  * @summary One Schiedsrichter
@@ -2212,7 +2202,8 @@ export const SpielerGetKaderParams = zod.object({
 /**
  * Take a player out of a season's squad, the row staying, marked by `inactive_since`.
  *
- * The row records that this player wore this number in this squad, which stays true after they leave.
+ * The row records that this player wore this number in this squad, which stays true after they leave. A finished
+ * season's squad is its record and is refused.
  * @summary Remove a Spieler from a squad
  */
 export const spielerDeleteSaisonSpielerPathSpielerIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -2278,6 +2269,8 @@ export const SpielerPatchSpielerSaisonBody = zod
 
 /**
  * Clear a squad row's `inactive_since`, the row returning with the number, position and role it had.
+ *
+ * A finished season's squad is its record and is refused.
  * @summary Put a Spieler back in a squad they left
  */
 export const spielerReactivateSaisonSpielerPathSpielerIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");

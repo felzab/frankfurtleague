@@ -2720,6 +2720,15 @@ export interface FLKoRundeResponse {
 export type FLKontaktEmailMaxLength = 254;
 
 /**
+ * What a seat's person answered, as the team editor reads it: the day they confirmed and their two choices, never the evidence.
+ */
+export interface FLKontaktKenntnisnahmeAdmin {
+  confirmed_at: string | null;
+  media: boolean;
+  scope: FLKontaktKenntnisnahmeScope;
+}
+
+/**
  * One person an administrator seated on a team's season row, asked to confirm.
  */
 export interface FLKontaktLinkData {
@@ -2769,6 +2778,23 @@ export interface FLKontaktSeatPayload {
  */
 export interface FLKontaktSeatResponse {
   email: string | null;
+}
+
+/**
+ * One seat's person as the team editor reads them.
+ *
+ * No birthdate: it is asked once for the age check, and no page of the administration shows it. Declared apart from
+ * the stored seat rather than derived from it, since what a page reads and what the league keeps change for different
+ * reasons.
+ */
+export interface FLKontaktpersonAdmin {
+  einwilligung: FLKontaktKenntnisnahmeAdmin;
+  email: string;
+  /** @minLength 1 */
+  first_name: string;
+  /** @minLength 1 */
+  last_name: string;
+  phone: string;
 }
 
 /**
@@ -4186,6 +4212,16 @@ export interface FLSaisonTeamConfirmationsView {
 }
 
 /**
+ * The three seats as the team editor reads them, nullable per slot as stored.
+ */
+export interface FLSaisonTeamKontakteAdmin {
+  ansprechperson: FLKontaktpersonAdmin | null;
+  stellvertretung: FLKontaktpersonAdmin | null;
+  trainer: FLKontaktpersonAdmin | null;
+  trainer_is_also: FLTrainerAlso | null;
+}
+
+/**
  * A season's clubs, by name.
  */
 export interface FLSaisonTeamsResponse {
@@ -4212,22 +4248,6 @@ export interface FLSaisonsAdminListResponse {
   saisons: FLSaisonAdminListed[];
 }
 
-export interface FLSchiedsrichter {
-  birth_date: string | null;
-  confirmation: FLConfirmation | null;
-  /** @minimum 0 */
-  default_payment: number;
-  einwilligung: FLEinwilligung | null;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  id: string;
-  inactive_since: string | null;
-  kontakt: FLKontakt;
-  /** @minLength 1 */
-  name: string;
-  schule: string | null;
-  version: number;
-}
-
 /**
  * A referee's two wordings: the name on the fixtures and the media switch.
  */
@@ -4244,6 +4264,66 @@ export interface FLSchiedsrichterAccountEinwilligungPayload {
   media: boolean;
   scope: FLEinwilligungScope;
   text_versions: FLSchiedsrichterTextVersions;
+}
+
+/**
+ * What a referee answered through their link, as the administration reads it: the day and the two choices, never the evidence.
+ */
+export interface FLSchiedsrichterAnswer {
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
+  confirmed_at: string;
+  media: boolean;
+  scope: FLEinwilligungScope;
+}
+
+/**
+ * A referee's channel as the administration reads it.
+ */
+export interface FLSchiedsrichterKontakt {
+  email: string;
+  phone: string | null;
+}
+
+export type FLSchiedsrichterEntryState = (typeof FLSchiedsrichterEntryState)[keyof typeof FLSchiedsrichterEntryState];
+
+export const FLSchiedsrichterEntryState = {
+  unasked: "unasked",
+  valid: "valid",
+  expired: "expired",
+  confirmed: "confirmed",
+} as const;
+
+/**
+ * One referee as their editor reads them: the list's row, the fields the save writes, and the link's days.
+ *
+ * No birthdate: it is asked once for the age check, and no page of the administration shows it.
+ */
+export interface FLSchiedsrichterAdmin {
+  confirmation: FLConfirmation | null;
+  default_payment: number;
+  einwilligung: FLSchiedsrichterAnswer | null;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  id: string;
+  inactive_since: string | null;
+  kontakt: FLSchiedsrichterKontakt;
+  /** @minLength 1 */
+  name: string;
+  schule: string | null;
+  state: FLSchiedsrichterEntryState;
+  version: number;
+}
+
+/**
+ * One referee as the administration's list shows them: the name, where the entry stands, and how to reach them.
+ */
+export interface FLSchiedsrichterAdminRow {
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  id: string;
+  inactive_since: string | null;
+  kontakt: FLSchiedsrichterKontakt;
+  /** @minLength 1 */
+  name: string;
+  state: FLSchiedsrichterEntryState;
 }
 
 export interface FLSchiedsrichterConfirmationPayload {
@@ -4290,7 +4370,7 @@ export interface FLSchiedsrichterConfirmationViewValid {
 }
 
 export interface FLSchiedsrichterListResponse {
-  schiedsrichter: FLSchiedsrichter[];
+  schiedsrichter: FLSchiedsrichterAdminRow[];
 }
 
 export type FLSchiedsrichterMinAgeYears = 16;
@@ -4303,9 +4383,8 @@ export interface FLSchiedsrichterMintResponse {
 }
 
 export interface FLSchiedsrichterSingleResponse {
-  confirmation_expired: boolean;
   delivery: FLOutboxStatus | null;
-  schiedsrichter: FLSchiedsrichter;
+  schiedsrichter: FLSchiedsrichterAdmin;
 }
 
 export type FLSchiedsrichterSpielState = (typeof FLSchiedsrichterSpielState)[keyof typeof FLSchiedsrichterSpielState] | null;
@@ -4993,6 +5072,7 @@ export interface FLSpielerSaisonAdminResponse {
   allowed_stufen: FLSpielerStufe[];
   kader: FLSpielerSaisonKader;
   person: FLSpielerSaisonPerson;
+  saison_status: FLSaisonStatus;
   taken_rollen: FLSpielerRolle[];
   /** @minimum 0 */
   version: number;
@@ -5305,7 +5385,7 @@ export interface FLTeamMembership {
   austritt: FLAustritt | null;
   confirmations: FLSaisonTeamConfirmationsView | null;
   gruppe: FLGruppenNames;
-  kontakte: FLSaisonTeamKontakte | null;
+  kontakte: FLSaisonTeamKontakteAdmin | null;
   saison_id: string;
   trikot_farbe: FLTrikotFarbe | null;
   version: number;
@@ -5644,10 +5724,6 @@ export type BewerbungenGetBewerbungenAdminParams = {
 
 export type SaisonsGetSweepSaisonsParams = {
   status?: FLSaisonStatus | null;
-};
-
-export type SchiedsrichterGetSchiedsrichterParams = {
-  include_inactive?: boolean;
 };
 
 export type SpieleGetSpieleSpielplanParams = {

@@ -6,7 +6,7 @@ import { CONFIRMED_CHIP, ERASED_CHIP, EXPIRED_CHIP, OBJECTED_CHIP, UNCONFIRMED_C
 
 import type { Copy } from "@/core/copy";
 import type {
-  FLKontaktperson,
+  FLKontaktpersonAdmin,
   FLKontaktSeat,
   FLSaisonTeamConfirmationView,
   FLTeamMembership,
@@ -31,7 +31,7 @@ export type SeatTarget = {
 
 /** Where a seat stands: its chip and the day under its name, `chip` none for a seat nobody ever held. */
 function standingOf(
-  person: FLKontaktperson | null,
+  person: FLKontaktpersonAdmin | null,
   link: FLSaisonTeamConfirmationView | null,
   entered: boolean,
 ): { chip: ChipProps | null; day: Copy | null; asks: boolean } {
