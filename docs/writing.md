@@ -46,8 +46,8 @@ described in the map. No document outside `.claude/` addresses an agent.
   record model (`fl_backend/app/readback.py :: RECORD_MODELS`) and the read-back change in the same
   commit.
 - **A new field holding a calendar day ends in `_on`, and one holding an instant in `_at`.** A
-  stored name already holding a day under `_at`, such as `answered_at`, keeps it, since its rename
-  is a migration.
+  stored name already holding a day under `_at`, such as `einwilligung.confirmed_at`, keeps it,
+  since its rename is a migration.
 - **A name the production host or a deploy holds**, such as a secret or a header, follows it too,
   and its rename is an owner step. A Docker volume keeps its name: renamed, it is a new, empty one.
 - **A copy catalogue key is a name, never the copy it keys.** A page title's key is its route key,
