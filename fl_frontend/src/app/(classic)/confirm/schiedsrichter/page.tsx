@@ -20,7 +20,7 @@ import { linkViewOf } from "../linkView";
 import { answerSchiedsrichter } from "./answerSchiedsrichter";
 import { END, TO_HOME } from "./ends";
 
-import type { FLSchiedsrichterConfirmationViewResponse } from "@/core/generated/client/types";
+import type { FLSchiedsrichterConfirmationViewConfirmed } from "@/core/generated/client/types";
 import type { MailedState } from "@/kit/MailedPage";
 import type { Metadata, ResolvingMetadata } from "next";
 
@@ -52,14 +52,10 @@ export default function SchiedsrichterConfirmationPage({ searchParams }: Props) 
 
 /** The link's own read; `null` for a token no referee holds or one the backend will not parse, a dead link either way. */
 // `cache` memoizes per render pass, for the tab's title and the page.
-const readView = cache(async (token: string): Promise<FLSchiedsrichterConfirmationViewResponse | null> =>
-  runWithIncomingTrace(() => linkViewOf(schiedsrichterGetConfirmationView({ token }))),
-);
+const readView = cache(async (token: string) => runWithIncomingTrace(() => linkViewOf(schiedsrichterGetConfirmationView({ token }))));
 
 /** The link opened again after its consent: on which day, with the account as the one place to go next. */
-function alreadyConfirmed(view: FLSchiedsrichterConfirmationViewResponse): MailedState {
-  // The view serves the consent's day on this state alone; one missing is a backend older than this page.
-  if (view.answered_at === null) return INVALID;
+function alreadyConfirmed(view: FLSchiedsrichterConfirmationViewConfirmed): MailedState {
   return { state: "alreadyDone", title: COPY.shared.end.doneOn(END.confirmed.title, dayOf(view.answered_at)), next: TO_ACCOUNT };
 }
 

@@ -37,7 +37,10 @@ import type {
   FLBanListResponse,
   FLBewerbungEinwilligungDeclined,
   FLBewerbungEinwilligungGiven,
-  FLBewerbungEinwilligungViewResponse,
+  FLBewerbungEinwilligungViewAnswered,
+  FLBewerbungEinwilligungViewExpired,
+  FLBewerbungEinwilligungViewSaisonPast,
+  FLBewerbungEinwilligungViewValid,
   FLBewerbungenAdminListResponse,
   FLBewerbungFormResponse,
   FLBewerbungKontaktSeatPayload,
@@ -94,7 +97,9 @@ import type {
   FLReferencesResponse,
   FLRegistrierungAdmitPayload,
   FLRegistrierungConfirmationPayload,
-  FLRegistrierungConfirmationViewResponse,
+  FLRegistrierungConfirmationViewConfirmed,
+  FLRegistrierungConfirmationViewExpired,
+  FLRegistrierungConfirmationViewValid,
   FLRegistrierungDeclinePayload,
   FLRegistrierungSweepResponse,
   FLReplaceSaisonTeamPayload,
@@ -105,7 +110,9 @@ import type {
   FLSaisonTeamsResponse,
   FLSchiedsrichterAccountEinwilligungPayload,
   FLSchiedsrichterConfirmationPayload,
-  FLSchiedsrichterConfirmationViewResponse,
+  FLSchiedsrichterConfirmationViewConfirmed,
+  FLSchiedsrichterConfirmationViewExpired,
+  FLSchiedsrichterConfirmationViewValid,
   FLSchiedsrichterListResponse,
   FLSchiedsrichterMintResponse,
   FLSchiedsrichterSingleResponse,
@@ -718,8 +725,18 @@ export const getBewerbungenGetConfirmationViewUrl = () => {
 export const bewerbungenGetConfirmationView = async (
   fLTokenPayload: FLTokenPayload,
   options?: Parameters<typeof baseKeyReadTransport>[1],
-): Promise<FLBewerbungEinwilligungViewResponse> => {
-  return baseKeyReadTransport<FLBewerbungEinwilligungViewResponse>(getBewerbungenGetConfirmationViewUrl(), {
+): Promise<
+  | FLBewerbungEinwilligungViewValid
+  | FLBewerbungEinwilligungViewSaisonPast
+  | FLBewerbungEinwilligungViewAnswered
+  | FLBewerbungEinwilligungViewExpired
+> => {
+  return baseKeyReadTransport<
+    | FLBewerbungEinwilligungViewValid
+    | FLBewerbungEinwilligungViewSaisonPast
+    | FLBewerbungEinwilligungViewAnswered
+    | FLBewerbungEinwilligungViewExpired
+  >(getBewerbungenGetConfirmationViewUrl(), {
     ...options,
     method: "POST",
     headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
@@ -1335,8 +1352,10 @@ export const getRegistrierungenGetConfirmationViewUrl = () => {
 export const registrierungenGetConfirmationView = async (
   fLTokenPayload: FLTokenPayload,
   options?: Parameters<typeof baseKeyReadTransport>[1],
-): Promise<FLRegistrierungConfirmationViewResponse> => {
-  return baseKeyReadTransport<FLRegistrierungConfirmationViewResponse>(getRegistrierungenGetConfirmationViewUrl(), {
+): Promise<FLRegistrierungConfirmationViewValid | FLRegistrierungConfirmationViewConfirmed | FLRegistrierungConfirmationViewExpired> => {
+  return baseKeyReadTransport<
+    FLRegistrierungConfirmationViewValid | FLRegistrierungConfirmationViewConfirmed | FLRegistrierungConfirmationViewExpired
+  >(getRegistrierungenGetConfirmationViewUrl(), {
     ...options,
     method: "POST",
     headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
@@ -1930,7 +1949,7 @@ export const getSchiedsrichterGetConfirmationViewUrl = () => {
 };
 
 /**
- * What this token opens: the link's state and deadline, the age bounds and the day of the person's consent.
+ * What this token opens: the link's state, a standing link's deadline and age bounds, and a confirmed one's day.
  *
  * A confirmed or an expired link is served in that state rather than refused, so a reopened link shows what became of it;
  * an objection erased the entry, so its link opens nothing.
@@ -1939,8 +1958,10 @@ export const getSchiedsrichterGetConfirmationViewUrl = () => {
 export const schiedsrichterGetConfirmationView = async (
   fLTokenPayload: FLTokenPayload,
   options?: Parameters<typeof baseKeyReadTransport>[1],
-): Promise<FLSchiedsrichterConfirmationViewResponse> => {
-  return baseKeyReadTransport<FLSchiedsrichterConfirmationViewResponse>(getSchiedsrichterGetConfirmationViewUrl(), {
+): Promise<FLSchiedsrichterConfirmationViewValid | FLSchiedsrichterConfirmationViewConfirmed | FLSchiedsrichterConfirmationViewExpired> => {
+  return baseKeyReadTransport<
+    FLSchiedsrichterConfirmationViewValid | FLSchiedsrichterConfirmationViewConfirmed | FLSchiedsrichterConfirmationViewExpired
+  >(getSchiedsrichterGetConfirmationViewUrl(), {
     ...options,
     method: "POST",
     headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),

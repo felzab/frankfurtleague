@@ -5,7 +5,15 @@ from typing import Any, Final, Literal, TypeIs, get_args
 from pydantic import ValidationError
 from pymongo.asynchronous.client_session import AsyncClientSession
 
-from app.api.bewerbungen.schemas import FLBewerbungEinwilligungState, FLBewerbungWindowState
+from app.api.bewerbungen.schemas import (
+    FLBewerbungEinwilligungState,
+    FLBewerbungEinwilligungViewAnswered,
+    FLBewerbungEinwilligungViewExpired,
+    FLBewerbungEinwilligungViewValid,
+    FLBewerbungSeatState,
+    FLBewerbungWindowState,
+    FLEinwilligungRecordKind,
+)
 from app.api.kontakte.services import rows_seating
 from app.api.outbox.schemas import (
     FLBewerbungLinkData,
@@ -31,6 +39,7 @@ from app.shared.saison import season_has_ended
 from app.shared.schemas.bounds import (
     BEWERBUNG_KONTAKT_MIN_AGE_YEARS,
     BEWERBUNG_REMINDER_DAYS,
+    BIRTH_DATE_MAX_AGE_YEARS,
     CONFIRMATION_DEADLINE_DAYS,
     SAISON_ID_LENGTH,
     SIGNATORY_MIN_AGE_YEARS,
@@ -419,6 +428,13 @@ def _seat_is_confirmed(kontakte: Mapping[str, Any] | None, seat: str) -> bool:
     return is_confirmed(None if slot is None else slot.get("einwilligung"))
 
 
+def _confirmed_on(kontakte: Mapping[str, Any] | None, seat: str) -> Any:
+    slot = _slot_of(kontakte, seat)
+    einwilligung = None if slot is None else slot.get("einwilligung")
+
+    return None if einwilligung is None else einwilligung.get("confirmed_at")
+
+
 def _declined_on(confirmations: Mapping[str, Any] | None, seat: str) -> Any:
     entry = _entry_of(confirmations, seat)
 
@@ -448,7 +464,7 @@ def find_already_answered_refusal(*, kontakte: Mapping[str, Any] | None, confirm
 
 def _seat_state_of(
     *, kontakte: Mapping[str, Any] | None, confirmations: Mapping[str, Any] | None, seat: str, over: bool
-) -> FLBewerbungEinwilligungState:
+) -> FLBewerbungSeatState:
     """The one ranking both records' links are shown in: a stamp, then the deadline."""
 
     if _seat_is_confirmed(kontakte, seat):
@@ -460,7 +476,7 @@ def _seat_state_of(
     return "expired" if over else "valid"
 
 
-def state_of(*, bewerbung_raw: Mapping[str, Any], seat: str, today: str) -> FLBewerbungEinwilligungState:
+def state_of(*, bewerbung_raw: Mapping[str, Any], seat: str, today: str) -> FLBewerbungSeatState:
     """What a reopened link shows. A confirmed seat on an accepted application reads as confirmed."""
 
     confirmations = bewerbung_raw.get("confirmations")
@@ -585,14 +601,42 @@ def paired_seat(*, kontakte: Mapping[str, Any] | None, confirmations: Mapping[st
     return other if other is not None and seat_stands(kontakte=kontakte, confirmations=confirmations, seat=other) else None
 
 
-def seat_answered_at(*, kontakte: Mapping[str, Any] | None, confirmations: Mapping[str, Any] | None, seat: str) -> Any:
-    """The day this seat's person answered, a stamp on the slot or a decline beside it, or `None`."""
+def seat_view(
+    *,
+    state: FLBewerbungSeatState,
+    record: FLEinwilligungRecordKind,
+    kontakte: Mapping[str, Any] | None,
+    confirmations: Mapping[str, Any] | None,
+    seat: FLKontaktSeat,
+    also: FLKontaktSeat | None,
+    saison_id: str,
+    schule: str,
+) -> FLBewerbungEinwilligungViewValid | FLBewerbungEinwilligungViewAnswered | FLBewerbungEinwilligungViewExpired:
+    """What a link shows in a state both records serve, with the fields its page reads in that state and no others."""
 
-    slot = _slot_of(kontakte, seat)
-    einwilligung = None if slot is None else slot.get("einwilligung")
-    confirmed_at = None if einwilligung is None else einwilligung.get("confirmed_at")
+    if state == "valid":
+        # The answer's own resolution, so the page names exactly the seats a press will write and states the floor that
+        # press will be judged by.
+        seats = (seat,) if also is None else (seat, also)
+        return FLBewerbungEinwilligungViewValid(
+            state=state,
+            record=record,
+            saison_id=saison_id,
+            schule=schule,
+            seat=seat,
+            also_seat=also,
+            minimum_age=minimum_age_for(seats),
+            maximum_age=BIRTH_DATE_MAX_AGE_YEARS,
+            deadline=seat_deadline_of(confirmations=confirmations, seat=seat),
+        )
 
-    return confirmed_at or _declined_on(confirmations, seat)
+    if state == "expired":
+        return FLBewerbungEinwilligungViewExpired(state=state)
+
+    # The decline beside the slot or the stamp on it, whichever the state was read off.
+    answered_at = _declined_on(confirmations, seat) if state == "declined" else _confirmed_on(kontakte, seat)
+
+    return FLBewerbungEinwilligungViewAnswered(state=state, answered_at=answered_at)
 
 
 def _was_mailed(confirmations: Mapping[str, Any] | None, seat: str) -> bool:

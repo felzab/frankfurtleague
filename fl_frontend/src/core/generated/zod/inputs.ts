@@ -1571,7 +1571,7 @@ export const SchiedsrichterPostDeclineBody = zod
   .describe("The token of the link a person opened, in the body: a token in a URL reaches the edge's access line.");
 
 /**
- * What this token opens: the link's state and deadline, the age bounds and the day of the person's consent.
+ * What this token opens: the link's state, a standing link's deadline and age bounds, and a confirmed one's day.
  *
  * A confirmed or an expired link is served in that state rather than refused, so a reopened link shows what became of it;
  * an objection erased the entry, so its link opens nothing.

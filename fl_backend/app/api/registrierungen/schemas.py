@@ -18,7 +18,6 @@ from app.shared.schemas.einwilligung import (
 )
 from app.shared.schemas.kontakt import CustomEmail, CustomKontaktName, CustomStoredAddress
 from app.shared.schemas.literals import (
-    FLConfirmationState,
     FLEinwilligungScope,
     FLRegistrierungStatus,
     FLSaisonStatus,
@@ -127,10 +126,10 @@ class FLPostRegistrierungPayload(BasePayload):
 # payload forbids an undeclared key.
 
 
-class FLRegistrierungConfirmationViewResponse(BaseReadModel):
-    """What one confirmation link opens, and no field past the ones declared here."""
+class FLRegistrierungConfirmationViewValid(BaseReadModel):
+    """A standing link: what the pupil registered for, until when, and the age bounds their answer is judged by."""
 
-    state: FLConfirmationState
+    state: Literal["valid"]
     # The club's short name and its own `full_name`, a club here being a school: the consent text
     # renders both, and a slot with no value renders as a hole in it.
     team: CustomNonEmptyString
@@ -143,9 +142,28 @@ class FLRegistrierungConfirmationViewResponse(BaseReadModel):
     maximum_age: int = Field(gt=0)
     # The link's last day, stored at the mint: the page states it as the mail did.
     deadline: CustomDateString
-    # The day of the pupil's own answer, so a reopened link says what they did and when; null on every state showing
-    # no answer.
-    answered_at: CustomOptionalDateString
+
+
+class FLRegistrierungConfirmationViewConfirmed(BaseReadModel):
+    """A link opened again after the pupil's own answer."""
+
+    state: Literal["confirmed"]
+    # The day of that answer, so the page says when.
+    answered_at: CustomDateString
+
+
+class FLRegistrierungConfirmationViewExpired(BaseReadModel):
+    """A lapsed link, or one whose club left the season, which opens nothing more."""
+
+    state: Literal["expired"]
+
+
+# One member per state, as the landing's season is: each state is served with exactly the fields its page reads, so a
+# confirmed link holding no day is a refused answer rather than a null the page must guess about.
+FLRegistrierungConfirmationViewResponse = Annotated[
+    FLRegistrierungConfirmationViewValid | FLRegistrierungConfirmationViewConfirmed | FLRegistrierungConfirmationViewExpired,
+    Field(discriminator="state"),
+]
 
 
 class FLRegistrierungConfirmationPayload(BasePayload):

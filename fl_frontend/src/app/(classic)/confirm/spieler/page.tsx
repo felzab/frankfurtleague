@@ -20,7 +20,7 @@ import { linkViewOf } from "../linkView";
 import { answerRegistrierung } from "./answerRegistrierung";
 import { CONFIRMED, TO_HOME } from "./ends";
 
-import type { FLRegistrierungConfirmationViewResponse } from "@/core/generated/client/types";
+import type { FLRegistrierungConfirmationViewValid } from "@/core/generated/client/types";
 import type { MailedState } from "@/kit/MailedPage";
 import type { Metadata, ResolvingMetadata } from "next";
 
@@ -52,12 +52,10 @@ export default function RegistrierungConfirmationPage({ searchParams }: Props) {
 
 /** The link's own read; `null` for a token no registration holds or one the backend will not parse, a dead link either way. */
 // `cache` memoizes per render pass, for the tab's title and the page.
-const readView = cache(async (token: string): Promise<FLRegistrierungConfirmationViewResponse | null> =>
-  runWithIncomingTrace(() => linkViewOf(registrierungenGetConfirmationView({ token }))),
-);
+const readView = cache(async (token: string) => runWithIncomingTrace(() => linkViewOf(registrierungenGetConfirmationView({ token }))));
 
 /** The question: for which team, school and season the pupil registered, until when, and the answer's fields. */
-function question(view: FLRegistrierungConfirmationViewResponse, token: string): MailedState {
+function question(view: FLRegistrierungConfirmationViewValid, token: string): MailedState {
   const until = dayOf(view.deadline);
   // Berlin's day, which the backend judges the age on.
   const today = dayIn(now());
@@ -104,10 +102,7 @@ async function readState(searchParams: Props["searchParams"]): Promise<MailedSta
     case "expired":
       return INVALID;
     case "confirmed":
-      // The view serves the answer's day on a confirmed link; one missing is a backend older than this page.
-      return view.answered_at === null
-        ? INVALID
-        : { state: "alreadyDone", title: COPY.shared.end.doneOn(CONFIRMED.title, dayOf(view.answered_at)), next: TO_ACCOUNT };
+      return { state: "alreadyDone", title: COPY.shared.end.doneOn(CONFIRMED.title, dayOf(view.answered_at)), next: TO_ACCOUNT };
     case "valid":
       return question(view, token);
   }

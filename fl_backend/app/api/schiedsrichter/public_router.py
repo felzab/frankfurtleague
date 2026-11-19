@@ -4,18 +4,20 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from app.api.schiedsrichter.crud import erase_referee_in_session
 from app.api.schiedsrichter.schemas import (
     FLSchiedsrichterConfirmationPayload,
+    FLSchiedsrichterConfirmationViewConfirmed,
+    FLSchiedsrichterConfirmationViewExpired,
     FLSchiedsrichterConfirmationViewResponse,
+    FLSchiedsrichterConfirmationViewValid,
 )
 from app.api.schiedsrichter.services import (
     CONFIRMATION_FIELD,
     CONFIRMATION_FIELDS,
     EINWILLIGUNG_FIELD,
-    answered_at_of,
     build_token_filter,
     compose_confirmation_update,
+    confirmation_view,
     find_already_answered_refusal,
     find_expired_token_refusal,
-    state_of,
 )
 from app.core.clock import utc_stamp
 from app.core.collections import Collection
@@ -36,7 +38,7 @@ from app.core.security import BASE_TIER
 from app.core.transactions import transact
 from app.shared.einwilligung import find_self_media_refusal
 from app.shared.links import find_age_refusal
-from app.shared.schemas.bounds import BIRTH_DATE_MAX_AGE_YEARS, SCHIEDSRICHTER_MIN_AGE_YEARS
+from app.shared.schemas.bounds import SCHIEDSRICHTER_MIN_AGE_YEARS
 from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.schemas.einwilligung import by_choice
 from app.shared.tokens import hash_token
@@ -51,6 +53,7 @@ router = APIRouter(
 
 @router.post(
     "/view",
+    response_model=FLSchiedsrichterConfirmationViewResponse,
     summary="What one Schiedsrichter confirmation link opens",
     openapi_extra=SAFE,
 )
@@ -58,8 +61,8 @@ async def get_confirmation_view(
     view_data: FLTokenPayload,
     schiedsrichter_collection: SchiedsrichterReadCollection,
     today: GermanDay,
-) -> FLSchiedsrichterConfirmationViewResponse:
-    """What this token opens: the link's state and deadline, the age bounds and the day of the person's consent.
+) -> FLSchiedsrichterConfirmationViewValid | FLSchiedsrichterConfirmationViewConfirmed | FLSchiedsrichterConfirmationViewExpired:
+    """What this token opens: the link's state, a standing link's deadline and age bounds, and a confirmed one's day.
 
     A confirmed or an expired link is served in that state rather than refused, so a reopened link shows what became of it;
     an objection erased the entry, so its link opens nothing.
@@ -72,20 +75,7 @@ async def get_confirmation_view(
         collection=schiedsrichter_collection, db_filter=build_token_filter(token_hash=token_hash), projection=CONFIRMATION_FIELDS
     )
 
-    block = raw[CONFIRMATION_FIELD]
-    einwilligung = raw.get(EINWILLIGUNG_FIELD)
-
-    state = state_of(einwilligung=einwilligung, confirmation=block, today=today)
-
-    return FLSchiedsrichterConfirmationViewResponse(
-        state=state,
-        # Served rather than retyped on the page: the floor the write is judged by is the one the
-        # paragraph a person reads before consenting has to state.
-        minimum_age=SCHIEDSRICHTER_MIN_AGE_YEARS,
-        maximum_age=BIRTH_DATE_MAX_AGE_YEARS,
-        deadline=block["deadline"],
-        answered_at=answered_at_of(state=state, einwilligung=einwilligung),
-    )
+    return confirmation_view(einwilligung=raw.get(EINWILLIGUNG_FIELD), confirmation=raw[CONFIRMATION_FIELD], today=today)
 
 
 @router.post(

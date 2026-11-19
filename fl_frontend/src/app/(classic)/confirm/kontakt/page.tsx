@@ -22,7 +22,11 @@ import { END, TO_HOME } from "./ends";
 
 import type { Copy } from "@/core/copy";
 import type { CalendarDay } from "@/core/format";
-import type { FLBewerbungEinwilligungViewResponse } from "@/core/generated/client/types";
+import type {
+  FLBewerbungEinwilligungViewAnswered,
+  FLBewerbungEinwilligungViewSaisonPast,
+  FLBewerbungEinwilligungViewValid,
+} from "@/core/generated/client/types";
 import type { Fact } from "@/kit/Facts";
 import type { MailedState } from "@/kit/MailedPage";
 import type { Metadata, ResolvingMetadata } from "next";
@@ -53,14 +57,10 @@ export default function KontaktConfirmationPage({ searchParams }: Props) {
 
 /** The link's own read; `null` for a token no seat holds or one the backend will not parse, a dead link either way. */
 // `cache` memoizes per render pass, for the tab's title and the page.
-const readView = cache(async (token: string): Promise<FLBewerbungEinwilligungViewResponse | null> =>
-  runWithIncomingTrace(() => linkViewOf(bewerbungenGetConfirmationView({ token }))),
-);
+const readView = cache(async (token: string) => runWithIncomingTrace(() => linkViewOf(bewerbungenGetConfirmationView({ token }))));
 
 /** The link opened again after its answer: what the person did and on which day, with the one place to go next. */
-function alreadyDone(view: FLBewerbungEinwilligungViewResponse, kind: "confirmed" | "objected"): MailedState {
-  // The view serves the answer's day on these two states alone; one missing is a backend older than this page.
-  if (view.answered_at === null) return INVALID;
+function alreadyDone(view: FLBewerbungEinwilligungViewAnswered, kind: "confirmed" | "objected"): MailedState {
   const day = dayOf(view.answered_at);
   const { title } = END[kind];
   return kind === "confirmed"
@@ -68,15 +68,18 @@ function alreadyDone(view: FLBewerbungEinwilligungViewResponse, kind: "confirmed
     : { state: "alreadyDone", title: COPY.shared.end.doneOn(title, day), next: TO_HOME, declined: true };
 }
 
+/** A view that still names its seat: the question's, and a closed row's objection. */
+type SeatView = FLBewerbungEinwilligungViewValid | FLBewerbungEinwilligungViewSaisonPast;
+
 /** Every seat one answer on this link writes, which the page names as the mail named them. */
-const seatsHeld = ({ seat, also_seat: also }: FLBewerbungEinwilligungViewResponse) => ({
+const seatsHeld = ({ seat, also_seat: also }: SeatView) => ({
   record: seatsText(also === null ? [seat] : [seat, also]),
 });
 
 /** For whom the person stands, in which season and as what: a season row's seat is entered for a team. */
-const standsFor = (view: FLBewerbungEinwilligungViewResponse): Fact[] => [
+const standsFor = (view: SeatView): Fact[] => [
   {
-    label: view.quelle === "saison" ? COPY.shared.facts.team : COPY.shared.facts.school,
+    label: view.record === "saison" ? COPY.shared.facts.team : COPY.shared.facts.school,
     value: { record: view.schule },
   },
   { label: COPY.shared.saison, value: COPY.shared.saisonName(view.saison_id) },
@@ -87,7 +90,7 @@ const standsFor = (view: FLBewerbungEinwilligungViewResponse): Fact[] => [
 const objection = (consequence: Copy) => ({ verb: "oppose", subject: COPY.shared.entry, consequence }) as const;
 
 /** A season row whose season ended or whose club left: it takes no confirmation, so the page offers the objection alone. */
-function closedRow(view: FLBewerbungEinwilligungViewResponse, token: string): MailedState {
+function closedRow(view: FLBewerbungEinwilligungViewSaisonPast, token: string): MailedState {
   const team = { record: view.schule };
   return {
     state: "question",
@@ -107,9 +110,9 @@ function closedRow(view: FLBewerbungEinwilligungViewResponse, token: string): Ma
 }
 
 /** The question, in the words of the record the seat stands on: an application goes whole with one lapsed seat. */
-function question(view: FLBewerbungEinwilligungViewResponse, token: string, until: CalendarDay): MailedState {
+function question(view: FLBewerbungEinwilligungViewValid, token: string, until: CalendarDay): MailedState {
   const schule = { record: view.schule };
-  const onSeasonRow = view.quelle === "saison";
+  const onSeasonRow = view.record === "saison";
   // Berlin's day, which the backend judges the age on.
   const today = dayIn(now());
   return {
@@ -168,8 +171,7 @@ async function readState(searchParams: Props["searchParams"]): Promise<MailedSta
       return alreadyDone(view, "objected");
     case "saison_past":
       return closedRow(view, token);
-    // A standing seat always holds its day; one missing is a backend older than this page.
     case "valid":
-      return view.deadline === null ? INVALID : question(view, token, dayOf(view.deadline));
+      return question(view, token, dayOf(view.deadline));
   }
 }

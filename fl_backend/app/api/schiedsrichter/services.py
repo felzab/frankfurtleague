@@ -5,7 +5,12 @@ from typing import Any, Final
 
 from app.api.saisons.schemas import SAISON_FRAME_FIELDS, SAISON_FRAME_ORDER
 from app.api.saisons.services import SAISON_AS, SAISON_LOOKUP
-from app.api.schiedsrichter.schemas import FLSchiedsrichterSpiel
+from app.api.schiedsrichter.schemas import (
+    FLSchiedsrichterConfirmationViewConfirmed,
+    FLSchiedsrichterConfirmationViewExpired,
+    FLSchiedsrichterConfirmationViewValid,
+    FLSchiedsrichterSpiel,
+)
 from app.api.spielberichte.services import takes_a_bericht
 from app.api.spielbestaetigungen.crud import JUDGED_JUNCTION_FIELDS, JUDGED_SPIEL_FIELDS, OWN_ROW_FIELDS
 from app.api.spielbestaetigungen.services import AnsetzungState, exit_ends_the_booking, schiedsrichter_state_of
@@ -21,7 +26,7 @@ from app.shared.einwilligung_evidence import TextVersions, compose_initial
 from app.shared.folding import league_address, sign_in_identifier
 from app.shared.links import deadline_passed
 from app.shared.saison import season_has_ended
-from app.shared.schemas.bounds import CONFIRMATION_DEADLINE_DAYS
+from app.shared.schemas.bounds import BIRTH_DATE_MAX_AGE_YEARS, CONFIRMATION_DEADLINE_DAYS, SCHIEDSRICHTER_MIN_AGE_YEARS
 from app.shared.schemas.literals import FLConfirmationState
 
 
@@ -189,10 +194,24 @@ def state_of(*, einwilligung: Any, confirmation: Mapping[str, Any], today: str) 
     return "expired" if deadline_passed(deadline=confirmation["deadline"], today=today) else "valid"
 
 
-def answered_at_of(*, state: FLConfirmationState, einwilligung: Any) -> str | None:
-    """The day of the consent `state` shows; `None` where it shows none."""
+def confirmation_view(
+    *, einwilligung: Any, confirmation: Mapping[str, Any], today: str
+) -> FLSchiedsrichterConfirmationViewValid | FLSchiedsrichterConfirmationViewConfirmed | FLSchiedsrichterConfirmationViewExpired:
+    """What a reopened link shows, `state_of`'s state with the fields its page reads in that state."""
 
-    return str(einwilligung["confirmed_at"]) if state == "confirmed" else None
+    state = state_of(einwilligung=einwilligung, confirmation=confirmation, today=today)
+
+    if state == "confirmed":
+        return FLSchiedsrichterConfirmationViewConfirmed(state=state, answered_at=str(einwilligung["confirmed_at"]))
+
+    if state == "expired":
+        return FLSchiedsrichterConfirmationViewExpired(state=state)
+
+    # Served rather than retyped on the page: the floor the write is judged by is the one the paragraph a person reads
+    # before consenting has to state.
+    return FLSchiedsrichterConfirmationViewValid(
+        state=state, minimum_age=SCHIEDSRICHTER_MIN_AGE_YEARS, maximum_age=BIRTH_DATE_MAX_AGE_YEARS, deadline=confirmation["deadline"]
+    )
 
 
 def find_expired_token_refusal(*, deadline: str, today: str) -> APIError | None:

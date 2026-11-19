@@ -3146,8 +3146,47 @@
         "title": "FLBewerbungEinwilligungGiven",
         "type": "object"
       },
-      "FLBewerbungEinwilligungViewResponse": {
-        "description": "What the page renders for one seat, and nothing of the person.",
+      "FLBewerbungEinwilligungViewAnswered": {
+        "description": "A link opened again after its person's consent or Widerspruch.",
+        "properties": {
+          "answered_at": {
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Answered At",
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "confirmed",
+              "declined"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state",
+          "answered_at"
+        ],
+        "title": "FLBewerbungEinwilligungViewAnswered",
+        "type": "object"
+      },
+      "FLBewerbungEinwilligungViewExpired": {
+        "description": "A spent link, its deadline passed or its application decided, which opens nothing more.",
+        "properties": {
+          "state": {
+            "const": "expired",
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state"
+        ],
+        "title": "FLBewerbungEinwilligungViewExpired",
+        "type": "object"
+      },
+      "FLBewerbungEinwilligungViewSaisonPast": {
+        "description": "A season row's link once its season ended or its club left: it takes a Widerspruch and no consent.",
         "properties": {
           "also_seat": {
             "anyOf": [
@@ -3159,55 +3198,13 @@
               }
             ]
           },
-          "answered_at": {
-            "anyOf": [
-              {
-                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Answered At"
-          },
-          "deadline": {
-            "anyOf": [
-              {
-                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Deadline"
-          },
-          "maximum_age": {
-            "title": "Maximum Age",
-            "type": "integer"
-          },
-          "minimum_age": {
-            "title": "Minimum Age",
-            "type": "integer"
-          },
-          "quelle": {
-            "enum": [
-              "bewerbung",
-              "saison"
-            ],
-            "title": "Quelle",
+          "record": {
+            "const": "saison",
+            "title": "Record",
             "type": "string"
           },
           "row": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLKontaktRow"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "$ref": "#/components/schemas/FLKontaktRow"
           },
           "saison_id": {
             "title": "Saison Id",
@@ -3221,31 +3218,86 @@
             "$ref": "#/components/schemas/FLKontaktSeat"
           },
           "state": {
-            "enum": [
-              "valid",
-              "confirmed",
-              "declined",
-              "expired",
-              "saison_past"
-            ],
+            "const": "saison_past",
             "title": "State",
             "type": "string"
           }
         },
         "required": [
-          "quelle",
-          "state",
-          "row",
           "saison_id",
           "schule",
           "seat",
           "also_seat",
+          "state",
+          "record",
+          "row"
+        ],
+        "title": "FLBewerbungEinwilligungViewSaisonPast",
+        "type": "object"
+      },
+      "FLBewerbungEinwilligungViewValid": {
+        "description": "A standing link: the question, until its day, judged by the age bounds of the seats it answers for.",
+        "properties": {
+          "also_seat": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLKontaktSeat"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "deadline": {
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Deadline",
+            "type": "string"
+          },
+          "maximum_age": {
+            "title": "Maximum Age",
+            "type": "integer"
+          },
+          "minimum_age": {
+            "title": "Minimum Age",
+            "type": "integer"
+          },
+          "record": {
+            "enum": [
+              "bewerbung",
+              "saison"
+            ],
+            "title": "Record",
+            "type": "string"
+          },
+          "saison_id": {
+            "title": "Saison Id",
+            "type": "string"
+          },
+          "schule": {
+            "title": "Schule",
+            "type": "string"
+          },
+          "seat": {
+            "$ref": "#/components/schemas/FLKontaktSeat"
+          },
+          "state": {
+            "const": "valid",
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "saison_id",
+          "schule",
+          "seat",
+          "also_seat",
+          "state",
+          "record",
           "minimum_age",
           "maximum_age",
-          "deadline",
-          "answered_at"
+          "deadline"
         ],
-        "title": "FLBewerbungEinwilligungViewResponse",
+        "title": "FLBewerbungEinwilligungViewValid",
         "type": "object"
       },
       "FLBewerbungEntry": {
@@ -4600,14 +4652,6 @@
       "FLConfirmationDeadlineDays": {
         "const": 14,
         "type": "integer"
-      },
-      "FLConfirmationState": {
-        "enum": [
-          "valid",
-          "confirmed",
-          "expired"
-        ],
-        "type": "string"
       },
       "FLCreatedResponse": {
         "description": "The id a create minted, which the caller reads the new record by.",
@@ -8669,21 +8713,45 @@
         "title": "FLRegistrierungConfirmationPayload",
         "type": "object"
       },
-      "FLRegistrierungConfirmationViewResponse": {
-        "description": "What one confirmation link opens, and no field past the ones declared here.",
+      "FLRegistrierungConfirmationViewConfirmed": {
+        "description": "A link opened again after the pupil's own answer.",
         "properties": {
           "answered_at": {
-            "anyOf": [
-              {
-                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Answered At"
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Answered At",
+            "type": "string"
           },
+          "state": {
+            "const": "confirmed",
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state",
+          "answered_at"
+        ],
+        "title": "FLRegistrierungConfirmationViewConfirmed",
+        "type": "object"
+      },
+      "FLRegistrierungConfirmationViewExpired": {
+        "description": "A lapsed link, or one whose club left the season, which opens nothing more.",
+        "properties": {
+          "state": {
+            "const": "expired",
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state"
+        ],
+        "title": "FLRegistrierungConfirmationViewExpired",
+        "type": "object"
+      },
+      "FLRegistrierungConfirmationViewValid": {
+        "description": "A standing link: what the pupil registered for, until when, and the age bounds their answer is judged by.",
+        "properties": {
           "deadline": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
             "title": "Deadline",
@@ -8708,7 +8776,9 @@
             "type": "string"
           },
           "state": {
-            "$ref": "#/components/schemas/FLConfirmationState"
+            "const": "valid",
+            "title": "State",
+            "type": "string"
           },
           "team": {
             "minLength": 1,
@@ -8723,10 +8793,9 @@
           "saison_id",
           "minimum_age",
           "maximum_age",
-          "deadline",
-          "answered_at"
+          "deadline"
         ],
-        "title": "FLRegistrierungConfirmationViewResponse",
+        "title": "FLRegistrierungConfirmationViewValid",
         "type": "object"
       },
       "FLRegistrierungDeclinePayload": {
@@ -9955,21 +10024,45 @@
         "title": "FLSchiedsrichterConfirmationPayload",
         "type": "object"
       },
-      "FLSchiedsrichterConfirmationViewResponse": {
-        "description": "What one confirmation link opens, and nothing that says who its person is.\n\nThe link went to an address an administrator typed and nobody has confirmed, which behind a typo is a stranger's.",
+      "FLSchiedsrichterConfirmationViewConfirmed": {
+        "description": "A link opened again after its consent.",
         "properties": {
           "answered_at": {
-            "anyOf": [
-              {
-                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Answered At"
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Answered At",
+            "type": "string"
           },
+          "state": {
+            "const": "confirmed",
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state",
+          "answered_at"
+        ],
+        "title": "FLSchiedsrichterConfirmationViewConfirmed",
+        "type": "object"
+      },
+      "FLSchiedsrichterConfirmationViewExpired": {
+        "description": "A lapsed link, which opens nothing more.",
+        "properties": {
+          "state": {
+            "const": "expired",
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state"
+        ],
+        "title": "FLSchiedsrichterConfirmationViewExpired",
+        "type": "object"
+      },
+      "FLSchiedsrichterConfirmationViewValid": {
+        "description": "A standing link: the question's day and the age bounds its answer is judged by.",
+        "properties": {
           "deadline": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
             "title": "Deadline",
@@ -9985,17 +10078,18 @@
             "type": "integer"
           },
           "state": {
-            "$ref": "#/components/schemas/FLConfirmationState"
+            "const": "valid",
+            "title": "State",
+            "type": "string"
           }
         },
         "required": [
           "state",
           "minimum_age",
           "maximum_age",
-          "deadline",
-          "answered_at"
+          "deadline"
         ],
-        "title": "FLSchiedsrichterConfirmationViewResponse",
+        "title": "FLSchiedsrichterConfirmationViewValid",
         "type": "object"
       },
       "FLSchiedsrichterListResponse": {
@@ -17406,7 +17500,31 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FLBewerbungEinwilligungViewResponse"
+                  "discriminator": {
+                    "mapping": {
+                      "confirmed": "#/components/schemas/FLBewerbungEinwilligungViewAnswered",
+                      "declined": "#/components/schemas/FLBewerbungEinwilligungViewAnswered",
+                      "expired": "#/components/schemas/FLBewerbungEinwilligungViewExpired",
+                      "saison_past": "#/components/schemas/FLBewerbungEinwilligungViewSaisonPast",
+                      "valid": "#/components/schemas/FLBewerbungEinwilligungViewValid"
+                    },
+                    "propertyName": "state"
+                  },
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/FLBewerbungEinwilligungViewValid"
+                    },
+                    {
+                      "$ref": "#/components/schemas/FLBewerbungEinwilligungViewSaisonPast"
+                    },
+                    {
+                      "$ref": "#/components/schemas/FLBewerbungEinwilligungViewAnswered"
+                    },
+                    {
+                      "$ref": "#/components/schemas/FLBewerbungEinwilligungViewExpired"
+                    }
+                  ],
+                  "title": "Response Bewerbungen Get Confirmation View"
                 }
               }
             },
@@ -18599,7 +18717,26 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FLRegistrierungConfirmationViewResponse"
+                  "discriminator": {
+                    "mapping": {
+                      "confirmed": "#/components/schemas/FLRegistrierungConfirmationViewConfirmed",
+                      "expired": "#/components/schemas/FLRegistrierungConfirmationViewExpired",
+                      "valid": "#/components/schemas/FLRegistrierungConfirmationViewValid"
+                    },
+                    "propertyName": "state"
+                  },
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/FLRegistrierungConfirmationViewValid"
+                    },
+                    {
+                      "$ref": "#/components/schemas/FLRegistrierungConfirmationViewConfirmed"
+                    },
+                    {
+                      "$ref": "#/components/schemas/FLRegistrierungConfirmationViewExpired"
+                    }
+                  ],
+                  "title": "Response Registrierungen Get Confirmation View"
                 }
               }
             },
@@ -19783,7 +19920,7 @@
     },
     "/api/schiedsrichter/confirmation/view": {
       "post": {
-        "description": "What this token opens: the link's state and deadline, the age bounds and the day of the person's consent.\n\nA confirmed or an expired link is served in that state rather than refused, so a reopened link shows what became of it;\nan objection erased the entry, so its link opens nothing.",
+        "description": "What this token opens: the link's state, a standing link's deadline and age bounds, and a confirmed one's day.\n\nA confirmed or an expired link is served in that state rather than refused, so a reopened link shows what became of it;\nan objection erased the entry, so its link opens nothing.",
         "operationId": "schiedsrichter_get_confirmation_view",
         "requestBody": {
           "content": {
@@ -19800,7 +19937,26 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FLSchiedsrichterConfirmationViewResponse"
+                  "discriminator": {
+                    "mapping": {
+                      "confirmed": "#/components/schemas/FLSchiedsrichterConfirmationViewConfirmed",
+                      "expired": "#/components/schemas/FLSchiedsrichterConfirmationViewExpired",
+                      "valid": "#/components/schemas/FLSchiedsrichterConfirmationViewValid"
+                    },
+                    "propertyName": "state"
+                  },
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/FLSchiedsrichterConfirmationViewValid"
+                    },
+                    {
+                      "$ref": "#/components/schemas/FLSchiedsrichterConfirmationViewConfirmed"
+                    },
+                    {
+                      "$ref": "#/components/schemas/FLSchiedsrichterConfirmationViewExpired"
+                    }
+                  ],
+                  "title": "Response Schiedsrichter Get Confirmation View"
                 }
               }
             },

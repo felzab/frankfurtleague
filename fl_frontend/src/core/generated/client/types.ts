@@ -1535,24 +1535,30 @@ export interface FLBewerbungEinwilligungGiven {
   whatsapp: boolean;
 }
 
-export type FLBewerbungEinwilligungViewResponseQuelle =
-  (typeof FLBewerbungEinwilligungViewResponseQuelle)[keyof typeof FLBewerbungEinwilligungViewResponseQuelle];
+export type FLBewerbungEinwilligungViewAnsweredState =
+  (typeof FLBewerbungEinwilligungViewAnsweredState)[keyof typeof FLBewerbungEinwilligungViewAnsweredState];
 
-export const FLBewerbungEinwilligungViewResponseQuelle = {
-  bewerbung: "bewerbung",
-  saison: "saison",
-} as const;
-
-export type FLBewerbungEinwilligungViewResponseState =
-  (typeof FLBewerbungEinwilligungViewResponseState)[keyof typeof FLBewerbungEinwilligungViewResponseState];
-
-export const FLBewerbungEinwilligungViewResponseState = {
-  valid: "valid",
+export const FLBewerbungEinwilligungViewAnsweredState = {
   confirmed: "confirmed",
   declined: "declined",
-  expired: "expired",
-  saison_past: "saison_past",
 } as const;
+
+/**
+ * A link opened again after its person's consent or Widerspruch.
+ */
+export interface FLBewerbungEinwilligungViewAnswered {
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
+  answered_at: string;
+  state: FLBewerbungEinwilligungViewAnsweredState;
+}
+
+/**
+ * A spent link, its deadline passed or its application decided, which opens nothing more.
+ */
+export const FLBewerbungEinwilligungViewExpiredValue = {
+  state: "expired",
+} as const;
+export type FLBewerbungEinwilligungViewExpired = typeof FLBewerbungEinwilligungViewExpiredValue;
 
 export type FLKontaktRow = (typeof FLKontaktRow)[keyof typeof FLKontaktRow];
 
@@ -1563,20 +1569,40 @@ export const FLKontaktRow = {
 } as const;
 
 /**
- * What the page renders for one seat, and nothing of the person.
+ * A season row's link once its season ended or its club left: it takes a Widerspruch and no consent.
  */
-export interface FLBewerbungEinwilligungViewResponse {
+export interface FLBewerbungEinwilligungViewSaisonPast {
   also_seat: FLKontaktSeat | null;
-  answered_at: string | null;
-  deadline: string | null;
-  maximum_age: number;
-  minimum_age: number;
-  quelle: FLBewerbungEinwilligungViewResponseQuelle;
-  row: FLKontaktRow | null;
+  record: "saison";
+  row: FLKontaktRow;
   saison_id: string;
   schule: string;
   seat: FLKontaktSeat;
-  state: FLBewerbungEinwilligungViewResponseState;
+  state: "saison_past";
+}
+
+export type FLBewerbungEinwilligungViewValidRecord =
+  (typeof FLBewerbungEinwilligungViewValidRecord)[keyof typeof FLBewerbungEinwilligungViewValidRecord];
+
+export const FLBewerbungEinwilligungViewValidRecord = {
+  bewerbung: "bewerbung",
+  saison: "saison",
+} as const;
+
+/**
+ * A standing link: the question, until its day, judged by the age bounds of the seats it answers for.
+ */
+export interface FLBewerbungEinwilligungViewValid {
+  also_seat: FLKontaktSeat | null;
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
+  deadline: string;
+  maximum_age: number;
+  minimum_age: number;
+  record: FLBewerbungEinwilligungViewValidRecord;
+  saison_id: string;
+  schule: string;
+  seat: FLKontaktSeat;
+  state: "valid";
 }
 
 /**
@@ -2161,14 +2187,6 @@ export interface FLConfirmation {
 }
 
 export type FLConfirmationDeadlineDays = 14;
-
-export type FLConfirmationState = (typeof FLConfirmationState)[keyof typeof FLConfirmationState];
-
-export const FLConfirmationState = {
-  valid: "valid",
-  confirmed: "confirmed",
-  expired: "expired",
-} as const;
 
 /**
  * The id a create minted, which the caller reads the new record by.
@@ -3869,10 +3887,26 @@ export interface FLRegistrierungConfirmationPayload {
 }
 
 /**
- * What one confirmation link opens, and no field past the ones declared here.
+ * A link opened again after the pupil's own answer.
  */
-export interface FLRegistrierungConfirmationViewResponse {
-  answered_at: string | null;
+export interface FLRegistrierungConfirmationViewConfirmed {
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
+  answered_at: string;
+  state: "confirmed";
+}
+
+/**
+ * A lapsed link, or one whose club left the season, which opens nothing more.
+ */
+export const FLRegistrierungConfirmationViewExpiredValue = {
+  state: "expired",
+} as const;
+export type FLRegistrierungConfirmationViewExpired = typeof FLRegistrierungConfirmationViewExpiredValue;
+
+/**
+ * A standing link: what the pupil registered for, until when, and the age bounds their answer is judged by.
+ */
+export interface FLRegistrierungConfirmationViewValid {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   deadline: string;
   /** @exclusiveMinimum 0 */
@@ -3881,7 +3915,7 @@ export interface FLRegistrierungConfirmationViewResponse {
   saison_id: string;
   /** @minLength 1 */
   schule: string;
-  state: FLConfirmationState;
+  state: "valid";
   /** @minLength 1 */
   team: string;
 }
@@ -4174,18 +4208,32 @@ export interface FLSchiedsrichterConfirmationPayload {
 }
 
 /**
- * What one confirmation link opens, and nothing that says who its person is.
- *
- * The link went to an address an administrator typed and nobody has confirmed, which behind a typo is a stranger's.
+ * A link opened again after its consent.
  */
-export interface FLSchiedsrichterConfirmationViewResponse {
-  answered_at: string | null;
+export interface FLSchiedsrichterConfirmationViewConfirmed {
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
+  answered_at: string;
+  state: "confirmed";
+}
+
+/**
+ * A lapsed link, which opens nothing more.
+ */
+export const FLSchiedsrichterConfirmationViewExpiredValue = {
+  state: "expired",
+} as const;
+export type FLSchiedsrichterConfirmationViewExpired = typeof FLSchiedsrichterConfirmationViewExpiredValue;
+
+/**
+ * A standing link: the question's day and the age bounds its answer is judged by.
+ */
+export interface FLSchiedsrichterConfirmationViewValid {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   deadline: string;
   /** @exclusiveMinimum 0 */
   maximum_age: number;
   minimum_age: number;
-  state: FLConfirmationState;
+  state: "valid";
 }
 
 export interface FLSchiedsrichterListResponse {
