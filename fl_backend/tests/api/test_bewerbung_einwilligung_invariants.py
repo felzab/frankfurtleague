@@ -50,9 +50,8 @@ def kontakte(**overrides: Any) -> dict[str, Any]:
 class TestThePairedSeat:
     """The double-seated Trainer: one click answers for the person, whichever of their two links they opened."""
 
-    @pytest.mark.parametrize("also", ["stellvertretung"])
-    def test_the_pairing_reads_in_both_directions(self, also: str):
-        block = kontakte(trainer_is_also=also)
+    def test_a_trainer_who_is_the_stellvertretung_is_paired_both_ways(self):
+        block = kontakte(trainer_is_also="stellvertretung")
 
-        assert paired_seat(kontakte=block, confirmations=CONFIRMATIONS, seat="trainer") == also
-        assert paired_seat(kontakte=block, confirmations=CONFIRMATIONS, seat=also) == "trainer"
+        assert paired_seat(kontakte=block, confirmations=CONFIRMATIONS, seat="trainer") == "stellvertretung"
+        assert paired_seat(kontakte=block, confirmations=CONFIRMATIONS, seat="stellvertretung") == "trainer"

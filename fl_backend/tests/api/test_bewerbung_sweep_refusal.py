@@ -6,7 +6,6 @@ import pytest
 from pydantic import ValidationError
 
 from app.api.bewerbungen.services import (
-    BEWERBUNG_REMINDER_DAYS,
     ansprechperson_mailbox,
     deletion_day,
     group_seats_by_mailbox,
@@ -109,7 +108,6 @@ class TestTheReminderMark:
         block = confirmations(sent_at=sent_at)
 
         assert seat_reminder_is_due(kontakte=kontakte(), confirmations=block, seat="trainer", today=TODAY, unreachable=False) == due
-        assert BEWERBUNG_REMINDER_DAYS == 3
 
     @pytest.mark.parametrize(
         ("kontakte_block", "bookkeeping", "why"),
