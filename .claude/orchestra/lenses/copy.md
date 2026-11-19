@@ -31,7 +31,6 @@ taste the standard does not rule on, which the owner flags on the screen it sits
 **Silent.** Yes: a string off the standard renders and passes every check, and a mail or a rare
 state may never reach the owner's screen.
 
-**Applies.** paths `fl_frontend/src/**` except `**/*.test.*`, `fl_frontend/src/test-support/**`,
-`fl_frontend/src/core/generated/**`.
+**Applies.** paths `fl_frontend/src/**` except `**/*.test.*`, `fl_frontend/src/test-support/**`, `fl_frontend/src/core/generated/**`.
 
 **Run by.** auditor.
