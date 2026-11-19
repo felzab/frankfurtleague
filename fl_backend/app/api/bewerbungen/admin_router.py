@@ -562,7 +562,7 @@ async def resend_kontakt_confirmation(
             mails=[
                 owed_link(
                     bewerbung_id=bewerbung_id,
-                    kontakte=kontakte,
+                    kontakte=bewerbung_raw["kontakte"],
                     seats=seats,
                     saison_id=str(bewerbung_raw["saison_id"]),
                     schule=await pull_schule_name(bewerbung_raw=bewerbung_raw, teams_collection=teams_collection, session=session),
