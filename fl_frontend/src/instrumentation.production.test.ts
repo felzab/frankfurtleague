@@ -46,14 +46,14 @@ let handouts: unknown[] = [];
 
 /** What every job meets on an idle day: nothing to act on, each answered as the contract shapes it. */
 const IDLE: Readonly<Record<Call, Answer>> = {
-  "GET /bewerbungen/sweep": () => ({ saison_ids: [] }),
+  // Both season jobs' listing, the applications' unfiltered and the confirmations' of the running seasons.
+  "GET /saisons/sweep": () => ({ saison_ids: [] }),
   "POST /address_change/sweep": () => ({ removed: 0, effective: 0, discarded: 0, failed: 0 }),
   "GET /address_change/sweep/moves": () => ({ moves: [] }),
   "POST /schiedsrichter/sweep": () => ({ erased: 0, failed: 0 }),
   // The one account the store holds, which a record references.
   "POST /identity/references": () => ({ unreferenced: [] }),
   "POST /identity/erasure/sweep": () => erasure(0),
-  "GET /spielbestaetigungen/sweep": () => ({ saison_ids: [] }),
   "POST /grants/handover": () => ({ handed_over: 0 }),
   "POST /outbox/handout": () => handouts.shift() ?? NOTHING_HANDED_OUT,
   "POST /outbox/result": () => ({ sent: 1, repeated: 0, abandoned: 0, held: 0, ignored: 0 }),
@@ -141,13 +141,13 @@ const HOUR_MS = 60 * MINUTE_MS;
 
 /** Every request one idle pass sends: each job's in the order they run, then the drain's claim. */
 const EVERY_JOB: readonly Call[] = [
-  "GET /bewerbungen/sweep",
+  "GET /saisons/sweep",
   "POST /address_change/sweep",
   "GET /address_change/sweep/moves",
   "POST /schiedsrichter/sweep",
   "POST /identity/references",
   "POST /identity/erasure/sweep",
-  "GET /spielbestaetigungen/sweep",
+  "GET /saisons/sweep",
   "POST /grants/handover",
   "POST /outbox/handout",
 ];
@@ -160,6 +160,7 @@ const IDLE_COUNTS = {
   bewerbungen: {
     bewerbung_failed: 0,
     registrierung_failed: 0,
+    saison_failed: 0,
     address_change_removed: 0,
     address_change_effective: 0,
     address_change_discarded: 0,
@@ -283,7 +284,9 @@ describe("the one scheduler", () => {
     let release = () => {};
     let arrived = () => {};
     const held = new Promise<void>((resolve) => (arrived = resolve));
-    answers.set("GET /bewerbungen/sweep", async () => {
+    // The applications' listing alone, which asks every status: the confirmations' asks the running seasons.
+    answers.set("GET /saisons/sweep", async ({ search }) => {
+      if (search.has("status")) return { saison_ids: [] };
       arrived();
       await new Promise<void>((resolve) => (release = resolve));
       return { saison_ids: [] };
@@ -297,7 +300,7 @@ describe("the one scheduler", () => {
     release();
     await backend.answered();
 
-    expect(second, "the second hour started a pass beside the first").toStrictEqual(["GET /bewerbungen/sweep"]);
+    expect(second, "the second hour started a pass beside the first").toStrictEqual(["GET /saisons/sweep"]);
     expect(schedulerLines().map(({ message }) => message)).toStrictEqual(["scheduler.pass_skipped"]);
     expect(sentNow()).toStrictEqual(EVERY_JOB);
   });
@@ -307,7 +310,8 @@ describe("the pass's one line", () => {
   /* One line per pass where anything happened, every job's counts and every drain's in it, the drains a write started
      among them; a warning where the pass left anything owed, so a level above INFO still shows it. */
   it("writes one line counting every job and every drain since the last pass, a warning where one did not finish", async () => {
-    answers.set("GET /spielbestaetigungen/sweep", () => ({ saison_ids: ["2627"] }));
+    // The confirmations' listing alone names a season, so no other job's pass is asked of it.
+    answers.set("GET /saisons/sweep", ({ search }) => ({ saison_ids: search.get("status") === "active" ? ["2627"] : [] }));
     answers.set("POST /spielbestaetigungen/saisons/2627/sweep", () => ({
       closed: 1,
       asked: 2,

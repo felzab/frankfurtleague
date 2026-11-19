@@ -84,7 +84,6 @@ from app.core.dependencies import (
     GermanyNow,
     OutboxCollection,
     SaisonsCollection,
-    SaisonsReadCollection,
     SaisonTeamsCollection,
     SchiedsrichterCollection,
     SpielbestaetigungenCollection,
@@ -95,7 +94,6 @@ from app.core.security import SYSTEM_TIER
 from app.core.transactions import Saved, save_each
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from app.shared.schemas.literals import KONTAKT_SEATS
-from app.shared.schemas.responses import FLSweepSaisonsResponse
 
 # System tier: the timer holds no session.
 router = APIRouter(
@@ -261,21 +259,6 @@ class _Minted:
     asked: int
     closed: int
     mails: int
-
-
-@router.get("/sweep", summary="Every season the confirmation pass visits")
-async def get_sweep_saisons(saisons_collection: SaisonsReadCollection) -> FLSweepSaisonsResponse:
-    """Every `active` season's id, oldest first: a confirmation serves no purpose once its season is over."""
-
-    seasons = await pull_many_from_db(
-        collection=saisons_collection,
-        db_filter={"status": "active"},
-        projection=["_id"],
-        sort_by=[("_id", ASCENDING)],
-        limit=LIST_LIMIT_DEFAULT,
-    )
-
-    return FLSweepSaisonsResponse(saison_ids=[str(season["_id"]) for season in seasons])
 
 
 @router.post(

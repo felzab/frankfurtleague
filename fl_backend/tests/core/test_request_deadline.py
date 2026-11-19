@@ -80,6 +80,7 @@ PASSES = {
     ("POST", "/api/bewerbungen/saisons/{saison_id}/sweep"),
     ("POST", "/api/identity/erasure/sweep"),
     ("POST", "/api/registrierungen/saisons/{saison_id}/sweep"),
+    ("POST", "/api/saisons/{saison_id}/retention"),
     ("POST", "/api/schiedsrichter/sweep"),
     ("POST", "/api/spielbestaetigungen/saisons/{saison_id}/sweep"),
 }
@@ -132,8 +133,8 @@ class TestEachPassTakesItsOwnDeadline:
             ("POST", "/api/outbox/handout"),
             # The sign-in's read, which a visitor's page waits on.
             ("POST", "/api/identity/sign_in"),
-            # A pass's path under another method: the season listing beside the applications' pass.
-            ("GET", "/api/bewerbungen/sweep"),
+            # The season listing the passes read first, a system read and no pass.
+            ("GET", "/api/saisons/sweep"),
         ],
     )
     def test_any_other_system_call_keeps_the_request_s_deadline(self, method: str, path: str):

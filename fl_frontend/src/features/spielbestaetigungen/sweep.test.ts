@@ -3,7 +3,8 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { APINetworkError } from "@/core/errors";
 import { networkFailure, serveBackend } from "@/test-support/backend";
 
-const LIST = "/spielbestaetigungen/sweep";
+/** The running seasons alone: a confirmation serves no purpose once its season is over. */
+const LIST = "/saisons/sweep";
 
 /** The listing's answer, and each season's pass's, which a case sets. */
 let listAnswer: () => unknown;
@@ -22,8 +23,8 @@ const pass = (counts: Partial<Record<"closed" | "asked" | "reminded" | "mails" |
 const SEASON_PASS = /^\/spielbestaetigungen\/saisons\/(\d+)\/sweep$/;
 
 // The listing read and each season's pass, and nothing else: any other request fails the case.
-const backend = serveBackend(({ method, path }) => {
-  if (method === "GET" && path === LIST) return listAnswer();
+const backend = serveBackend(({ method, path, search }) => {
+  if (method === "GET" && path === LIST && search.get("status") === "active") return listAnswer();
   const saisonId = method === "POST" ? SEASON_PASS.exec(path)?.[1] : undefined;
   return saisonId === undefined ? undefined : passAnswer(saisonId);
 });

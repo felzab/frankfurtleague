@@ -4,17 +4,23 @@ import { APIBadStatusError, APINetworkError } from "@/core/errors";
 import { networkFailure, refusal, serveBackend } from "@/test-support/backend";
 import { captureLog } from "@/test-support/stdoutCapture";
 
-import type { FLAddressChangeSweepResponse, FLBewerbungSweepResponse, FLRegistrierungSweepResponse } from "@/core/generated/client/types";
+import type {
+  FLAddressChangeSweepResponse,
+  FLBewerbungSweepResponse,
+  FLRegistrierungSweepResponse,
+  FLSaisonRetentionResponse,
+} from "@/core/generated/client/types";
 
 /** One season half's answer, the rows it passed over counted. */
 const bewerbungPass = (failed = 0): FLBewerbungSweepResponse => ({ failed });
 const registrierungPass = (failed = 0): FLRegistrierungSweepResponse => ({ failed });
+const saisonPass = (failed = 0): FLSaisonRetentionResponse => ({ failed });
 
 /** What the address changes' one call answers, the changes it could not end counted. */
 const addressChangeAnswer = (failed = 0): FLAddressChangeSweepResponse => ({ removed: 0, effective: 0, discarded: 0, failed });
 
 /** The season listing, which the contract reads with a GET; every other call of the pass is a POST. */
-const LISTING = "GET /bewerbungen/sweep";
+const LISTING = "GET /saisons/sweep";
 const ADDRESS_HALF = ["POST /address_change/sweep", "GET /address_change/sweep/moves"];
 const REFEREE_CLOCK = "POST /schiedsrichter/sweep";
 
@@ -38,6 +44,7 @@ function seasons(
     ...saisonIds.flatMap((saisonId): [string, () => unknown][] => [
       [`POST /bewerbungen/saisons/${saisonId}/sweep`, () => bewerbungPass(passedOver[`/bewerbungen/saisons/${saisonId}/sweep`])],
       [`POST /registrierungen/saisons/${saisonId}/sweep`, () => registrierungPass(passedOver[`/registrierungen/saisons/${saisonId}/sweep`])],
+      [`POST /saisons/${saisonId}/retention`, () => saisonPass(passedOver[`/saisons/${saisonId}/retention`])],
     ]),
     ["POST /address_change/sweep", () => addressChange],
     ["GET /address_change/sweep/moves", () => ({ moves: [] })],
@@ -67,14 +74,16 @@ beforeEach(() => {
 });
 
 describe("one pass of the applications' job", () => {
-  /* What the heartbeat names: the rows a pass left owed, which only a sum over every season and both halves tells
-     apart from a healthy pass. */
+  /* What the heartbeat names: the rows a pass left owed, which only a sum over every season and every half tells
+     apart from a healthy pass. A season whose retention half went unasked would count none of its rows. */
   it("leaves every row the halves passed over and every change the address half could not end, each half counted", async () => {
     seasons(["2526", "2627"], {
       passedOver: {
         "/bewerbungen/saisons/2526/sweep": 1,
         "/bewerbungen/saisons/2627/sweep": 6,
         "/registrierungen/saisons/2627/sweep": 8,
+        "/saisons/2526/retention": 3,
+        "/saisons/2627/retention": 1,
         "/schiedsrichter/sweep": 1,
       },
       addressChange: { ...addressChangeAnswer(2), removed: 5 },
@@ -84,6 +93,7 @@ describe("one pass of the applications' job", () => {
       count: {
         bewerbung_failed: 7,
         registrierung_failed: 8,
+        saison_failed: 4,
         address_change_removed: 5,
         address_change_effective: 0,
         address_change_discarded: 0,
@@ -91,7 +101,7 @@ describe("one pass of the applications' job", () => {
         schiedsrichter_erased: 0,
         schiedsrichter_failed: 1,
       },
-      open: 18,
+      open: 22,
       error: undefined,
     });
   });
@@ -123,8 +133,10 @@ describe("a half that fails", () => {
       LISTING,
       "POST /bewerbungen/saisons/2526/sweep",
       "POST /registrierungen/saisons/2526/sweep",
+      "POST /saisons/2526/retention",
       "POST /bewerbungen/saisons/2627/sweep",
       "POST /registrierungen/saisons/2627/sweep",
+      "POST /saisons/2627/retention",
       ...ADDRESS_HALF,
       REFEREE_CLOCK,
     ]);
@@ -160,6 +172,7 @@ describe("a half that fails", () => {
       LISTING,
       "POST /bewerbungen/saisons/2627/sweep",
       "POST /registrierungen/saisons/2627/sweep",
+      "POST /saisons/2627/retention",
       "POST /address_change/sweep",
     ]);
   });
