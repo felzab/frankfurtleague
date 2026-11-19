@@ -168,7 +168,7 @@ class TestWhatALinkOpens:
 class TestWhatAConfirmationWrites:
     """The one `$set`: the pairing lands whole, and the hash stays where it is."""
 
-    async def test_the_date_the_stamp_the_source_the_wording_and_the_scope_land_together(self, mongo_replica_set_url: str):
+    async def test_the_date_the_stamp_the_source_the_wording_and_the_scope_land_together_on_the_one_seat(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await answer(database, client, RAW["trainer"])
 
@@ -194,6 +194,8 @@ class TestWhatAConfirmationWrites:
         }
         # NOT nulled on use: single use is the stamp's doing, so the reopened link can show its state.
         assert document["confirmations"]["trainer"]["token_hashes"] == [HASHES["trainer"]]
+        for seat in ("ansprechperson", "stellvertretung"):
+            assert document["kontakte"][seat] == bewerbung_document()["kontakte"][seat], f"the {seat} moved with the Trainer's answer"
 
     async def test_a_declined_whatsapp_tick_keeps_the_narrow_scope(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -202,17 +204,6 @@ class TestWhatAConfirmationWrites:
             return await stored(database)
 
         assert (await on_a_league(mongo_replica_set_url, body))["kontakte"]["trainer"]["einwilligung"]["scope"] == "kontakt_data"
-
-    async def test_the_other_seats_are_untouched(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await answer(database, client, RAW["trainer"])
-
-            return await stored(database)
-
-        document = await on_a_league(mongo_replica_set_url, body)
-
-        for seat in ("ansprechperson", "stellvertretung"):
-            assert document["kontakte"][seat] == bewerbung_document()["kontakte"][seat]
 
     async def test_the_double_seated_trainer_is_answered_on_both_seats_by_one_click(self, mongo_replica_set_url: str):
         """Without the mirror the two blocks can hold two dates, and the equality the submission asserted becomes a claim about the form."""
