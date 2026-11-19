@@ -517,11 +517,10 @@ class TestAnUnconfirmedRefereeIsNeverBooked:
             (SCHIEDSRICHTER_PATH,),
         )
 
-    @pytest.mark.parametrize(("seasoned", "nr", "overrides"), REOPENING_SAVES[:1])
-    def test_a_save_reopening_the_spiel_books_the_unconfirmed_referee_it_kept(self, saison, seasoned, nr, overrides):
+    def test_lifting_a_call_off_books_the_unconfirmed_referee_it_kept(self, saison):
         resolved = references(spielort=LIVE_SPIELORT, schiedsrichter=UNCONFIRMED_SCHIEDSRICHTER)
 
-        assert booking_refusal_for(seasoned(saison), nr, resolved, **overrides) == (
+        assert booking_refusal_for(called_off_first(saison), 1, resolved, sonderereignis=None) == (
             Code.BOOKING_UNCONFIRMED_SCHIEDSRICHTER,
             (SCHIEDSRICHTER_PATH,),
         )
@@ -949,12 +948,11 @@ class TestTheDisqualifiedOccupantFault:
 
         assert [fault.side for fault in faults] == ["team1"]
 
-    @pytest.mark.parametrize("sonderereignis", ["ausgefallen"])
-    def test_a_knockout_spiel_awarding_nothing_is_still_reported(self, sonderereignis):
+    def test_a_called_off_knockout_spiel_is_still_reported(self):
         """A cancelled knockout advances nobody, so the slot still has to say who plays it."""
 
         faults = occupant_faults(
-            joined(nr=1, date="2026-04-01", side_disqualified_from="2026-03-15", sonderereignis=sonderereignis, saison_phase="viertelfinale")
+            joined(nr=1, date="2026-04-01", side_disqualified_from="2026-03-15", sonderereignis="ausgefallen", saison_phase="viertelfinale")
         )
 
         assert [fault.reason for fault in faults] == ["departed_occupant"]

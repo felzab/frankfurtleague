@@ -43,15 +43,14 @@ class TestSpieler:
 
         assert [error["type"] for error in refused.errors()] == ["extra_forbidden"]
 
-    @pytest.mark.parametrize("field", ["email"])
-    def test_the_record_refuses_a_person_stored_as_nobody(self, field):
+    def test_the_record_refuses_a_person_stored_without_an_address(self):
         """No write stores such a person, so the read-back is the one place a hand edit blanking one shows.
 
         Without an address the person is out of every erasure's reach, each finding a person by address.
         """
 
         with pytest.raises(ValidationError):
-            FLSpielerRecord.model_validate(spieler_document(ObjectId(), **{"first_name": "Max", "last_name": "Mustermann", field: None}))
+            FLSpielerRecord.model_validate(spieler_document(ObjectId(), first_name="Max", last_name="Mustermann", email=None))
 
     @pytest.mark.parametrize("absent", [True, False], ids=["absent", "null"])
     def test_the_person_patch_requires_a_birthdate(self, absent: bool):

@@ -241,10 +241,9 @@ class TestThePublicationGate:
         """Against the SERIALISED body: what the page ships is the whole payload, not the part it renders."""
         assert name not in json.dumps(await self._read(masked_url), ensure_ascii=False)
 
-    @pytest.mark.parametrize("case", ["Internal"])
-    async def test_no_pupil_s_record_id_appears_anywhere_in_the_response(self, masked_url: str, case: str):
+    async def test_the_withheld_pupil_s_record_id_appears_nowhere_in_the_response(self, masked_url: str):
         """Against the SERIALISED body: an id outlives every season and team, so it would tie a withheld row to its others."""
-        assert str(MASKED_KADER[case].oid) not in json.dumps(await self._read(masked_url))
+        assert str(MASKED_KADER["Internal"].oid) not in json.dumps(await self._read(masked_url))
 
 
 @pytest.fixture(scope="module")
