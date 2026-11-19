@@ -92,6 +92,7 @@ PUBLIC_WRITES = [
 SYSTEM_WRITES = [
     ("/api/bewerbungen/saisons/{saison_id}/sweep", "post"),
     ("/api/registrierungen/saisons/{saison_id}/sweep", "post"),
+    ("/api/saisons/{saison_id}/retention", "post"),
     ("/api/spielbestaetigungen/saisons/{saison_id}/sweep", "post"),
     # A POST that stores nothing: the address travels in a body, so `MUTATIONS` would cover it, and
     # this exemption leaves its one guard the system tier's.
@@ -287,14 +288,10 @@ def test_a_public_write_is_unreachable_without_the_base_key():
     assert response.json()["error_code"] == MISSING_BEARER_TOKEN
 
 
-# The sweep's one read, listing every season for the caller: system tier because
-# the rule keeps a `future` season off the base one, and the seasons taking
-# applications are exactly those.
+# The passes' one listing of seasons, asked by the timer and by no page: system tier because the
+# rule keeps a `future` season off the base one, and the seasons taking applications are exactly those.
 SYSTEM_READS = [
-    ("/api/bewerbungen/sweep", "get"),
-    # The confirmation pass's own bookkeeping, asked by the timer running it and by no page: the
-    # seasons it lists are `active`, which the base tier serves, so the rule is not its reason.
-    ("/api/spielbestaetigungen/sweep", "get"),
+    ("/api/saisons/sweep", "get"),
     # Read by the frontend's server alone: each owed carry names two addresses.
     ("/api/address_change/sweep/moves", "get"),
 ]
