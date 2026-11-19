@@ -27,7 +27,7 @@ HOME, AWAY = ObjectId("6890a1b2c3d4e5f607e70011"), ObjectId("6890a1b2c3d4e5f607e
 
 @pytest.mark.parametrize("ergebnis", ["3:", ":1", "1:2:3", " 3:1"])
 def test_rejects_a_malformed_result(spiel, ergebnis):
-    """A trailing `3:` and a leading `:1` are load-bearing: the frontend splits this string for win/draw/loss."""
+    """A score is the two sides' goals and nothing else, as a save composes it from the two `tore`."""
     with pytest.raises(ValidationError):
         FLSpiel.model_validate(spiel(ergebnis=ergebnis))
 
@@ -68,7 +68,7 @@ async def test_the_unplayed_filter_selects_what_the_predicate_answers(mongo_repl
 
 
 class TestShootout:
-    """A scoreline of its own, never a third number in `ergebnis`: both ends parse that string for win/draw/loss."""
+    """A scoreline of its own, never a third number in `ergebnis`, which holds the two sides' goals alone."""
 
     def test_rejects_a_level_shootout(self, spiel, assert_rejects):
         """The one value the field could hold and still name nobody."""
