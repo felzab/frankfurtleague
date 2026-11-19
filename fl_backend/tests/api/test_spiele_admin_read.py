@@ -265,8 +265,8 @@ def _editor_path(spiel_id: ObjectId) -> str:
 async def test_the_report_panel_shows_this_fixtures_report_by_its_stored_version_and_its_named_scorers(seeded_url: str):
     """The version is the one an adoption names: served stale, every adoption would be refused.
 
-    The state is the adoption's against the saved 2:1, and only the scorers are named: the pupil on the home squad by
-    their squad row, the one on neither squad by their record, never the pupil a card alone names.
+    The state is the adoption's against the saved 2:1, and only the scorers are named, each by their record, the pupil
+    on the home squad and the one on neither alike, never the pupil a card alone names.
     """
 
     response = await answered(seeded_url, _editor_path(BERICHT_SPIEL_ID), ADMIN_AUTH)
@@ -282,8 +282,8 @@ async def test_the_report_panel_shows_this_fixtures_report_by_its_stored_version
             {"side": "team2", "spieler_id": None, "minute": "77", "eigentor": False},
         ],
         "named": [
-            {"spieler_id": str(LINA), "first_name": "Lina", "last_name": "Krause", "nummer": "7"},
-            {"spieler_id": str(OLE), "first_name": "Ole", "last_name": "Brettschneider", "nummer": None},
+            {"spieler_id": str(LINA), "first_name": "Lina", "last_name": "Krause"},
+            {"spieler_id": str(OLE), "first_name": "Ole", "last_name": "Brettschneider"},
         ],
     }
 

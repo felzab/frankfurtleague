@@ -2,7 +2,7 @@ from collections.abc import Mapping, Sequence, Set
 from dataclasses import dataclass
 from datetime import datetime
 from http import HTTPStatus
-from typing import Any, NamedTuple
+from typing import Any, Final, NamedTuple
 
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
@@ -259,6 +259,17 @@ async def pull_booked_slots(
     return [slot for claim in claims for slot in slots_booked_against(claim, holders, spiel_id=spiel_id)]
 
 
+# What `membership_of` reads off a `saison_teams` row.
+MEMBERSHIP_FIELDS: Final = ["team_id", "austritt", "name"]
+
+
+def membership_of(row: Mapping[str, Any]) -> SaisonMembership:
+    """One `saison_teams` row as the eligibility rule judges its club, by the name it plays this season under."""
+
+    # The `.get` is for the null record: a present `austritt` always carries a `date`.
+    return SaisonMembership(name=row["name"], departed_from=(row["austritt"] or {}).get("date"))
+
+
 async def pull_saison_membership(
     saison_teams_collection: ReadCollection,
     saison_id: str,
@@ -274,18 +285,11 @@ async def pull_saison_membership(
         collection=saison_teams_collection,
         db_filter={"saison_id": saison_id},
         what=f"season {saison_id}'s clubs",
-        projection={"team_id": 1, "austritt": 1, "name": 1},
+        projection=MEMBERSHIP_FIELDS,
         session=session,
     )
 
-    return {
-        row["team_id"]: SaisonMembership(
-            name=row["name"],
-            # The `.get` is for the null record: a present `austritt` always carries a `date`.
-            departed_from=(row["austritt"] or {}).get("date"),
-        )
-        for row in rows
-    }
+    return {row["team_id"]: membership_of(row) for row in rows}
 
 
 class SpieltagSpan(NamedTuple):

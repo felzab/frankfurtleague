@@ -60,6 +60,7 @@ async def _read(
     *,
     rows: Sequence[Mapping[str, Any]] = (),
     aufstellungen: Sequence[Mapping[str, Any]] = (),
+    clubs: Sequence[Mapping[str, Any]] = (),
     today: str = "2026-04-27",
 ) -> FLSpieleAdminSingleResponse:
     """The editor's read of `spiel` at noon `today`, beside what is stored for it, the away club having left the season on 1 May."""
@@ -73,6 +74,7 @@ async def _read(
                 documents.saison_team_document(
                     SAISON_ID, AWAY, "Beta", "BET", austritt={"type": "rueckzug", "reason": "Schulwechsel", "date": "2026-05-01"}
                 ),
+                *clubs,
             ]
         )
         for collection, stored in ((Collection.SPIELBESTAETIGUNGEN, rows), (Collection.AUFSTELLUNGEN, aufstellungen)):
@@ -84,7 +86,6 @@ async def _read(
             saisons_collection=database[Collection.SAISONS],
             spielorte_collection=database[Collection.SPIELORTE],
             schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
-            saison_spieler_collection=database[Collection.SAISON_SPIELER],
             spieler_collection=database[Collection.SPIELER],
             spielberichte_collection=database[Collection.SPIELBERICHTE],
             spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
@@ -176,3 +177,31 @@ async def test_a_line_up_holding_no_entry_reads_as_none_stored(mongo_replica_set
     marks = (await _read(mongo_replica_set_url, spiel, aufstellungen=aufstellungen)).aufstellung_marks
 
     assert [None if side is None else side.stored for side in (marks.team1, marks.team2)] == [True, False]
+
+
+ZETA, OESTERBERG = (ObjectId(f"6890a1b2c3d4e5f6074600{n:02d}") for n in (3, 4))
+
+
+async def test_a_knockout_spiel_offers_every_club_of_the_season_in_german_order_judged_by_its_exit(mongo_replica_set_url: str):
+    """Each club by its season row's name and code, „Österberg“ before „Zeta“ as German sorts them, where a byte order puts it last.
+
+    Österberg left before the match and stands on no side of it, so the save would refuse fielding it; the away club
+    left too, but already stands here, which no save of this fixture is refused for.
+    """
+
+    clubs = [
+        documents.saison_team_document(SAISON_ID, ZETA, "Zeta", "ZET"),
+        documents.saison_team_document(
+            SAISON_ID, OESTERBERG, "Österberg", "OES", austritt={"type": "rueckzug", "reason": "Schulwechsel", "date": "2026-04-01"}
+        ),
+    ]
+
+    answer = await _read(mongo_replica_set_url, _spiel(saison_phase="halbfinale"), clubs=clubs)
+
+    assert answer.teams is not None
+    assert [(team.id, team.name, team.shorthand, team.on_spieltag, team.fieldable) for team in answer.teams] == [
+        (HOME, "Alpha", "ALP", False, True),
+        (AWAY, "Beta", "BET", False, True),
+        (OESTERBERG, "Österberg", "OES", False, False),
+        (ZETA, "Zeta", "ZET", False, True),
+    ]
