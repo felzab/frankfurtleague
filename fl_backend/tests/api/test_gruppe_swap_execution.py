@@ -1,4 +1,4 @@
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Mapping
 from typing import Any
 
 import pytest
@@ -12,6 +12,7 @@ from app.api.saisons.admin_router import swap_gruppen
 from app.api.saisons.schemas import FLSwapGruppenPayload
 from app.core.codes import Code
 from app.core.collections import Collection
+from app.core.crud import ANCHOR_FIELD, VERSION_FIELD
 from tests.app_client import app_client, app_under_test
 from tests.config import ADMIN_AUTH, grants_for_the_suite
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database
@@ -182,16 +183,48 @@ async def everything_now(database: AsyncDatabase) -> dict[str, list[Any]]:
 # Each drawn against their own group's rival, neither dated, so the season has not started.
 DRAWN_ROUND_ROBIN = [gruppen_spiel(1, ALPHA, ALPHA_RIVAL), gruppen_spiel(2, BETA_RIVAL, BETA)]
 
+# The round robin and a fixture of neither club, each with its ground and referee booked, and a bracket slot naming one
+# of the two: a rewrite filtered on the season, or reaching past the group phase, shows on one of them.
+BOOKED_LEAGUE = [
+    *(
+        {**spiel, "spielort": {"spielort_id": ObjectId(), "mietpreis": 80}, "schiedsrichter": {"schiedsrichter_id": ObjectId(), "payment": 20}}
+        for spiel in (*DRAWN_ROUND_ROBIN, gruppen_spiel(3, ALPHA_RIVAL, BETA_RIVAL))
+    ),
+    {**knockout_spiel(ergebnis=None), "team1": side(ALPHA), "team2": None},
+]
 
-class TestASwapCommitsBothRows:
-    async def test_the_two_teams_end_in_each_others_groups(self, mongo_replica_set_url: str):
+
+def uncounted(spiel: Mapping[str, Any]) -> dict[str, Any]:
+    """A fixture without its write count and its anchor count, which a write raises and no reader shows."""
+
+    return {key: value for key, value in spiel.items() if key not in (VERSION_FIELD, ANCHOR_FIELD)}
+
+
+class TestASwapExchangesTheTwoClubsAndNothingElse:
+    async def test_the_rows_and_the_drawn_sides_exchange_and_everything_else_stands(self, mongo_replica_set_url: str):
+        """The rows, the round robin, a fixture of neither club and a bracket slot naming one, each fixture booked, as one after-image.
+
+        Grounds and referees are booked before a season starts, and the start is the swap's one lock, so a booking holds no
+        swap back and stays on its fixture: each club inherits the other's schedule rather than carrying its own.
+        """
+
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            before = await spiele_now(database)
             await call_swap(database, client, ALPHA, BETA)
-            return await gruppen_now(database)
 
-        stored = await on_a_seeded_season(mongo_replica_set_url, body, spiele=list(DRAWN_ROUND_ROBIN))
+            return before, await gruppen_now(database), await spiele_now(database)
 
-        assert stored == {ALPHA: "B", ALPHA_RIVAL: "A", BETA: "A", BETA_RIVAL: "B"}
+        before, gruppen, after = await on_a_seeded_season(mongo_replica_set_url, body, spiele=BOOKED_LEAGUE)
+
+        assert gruppen == {ALPHA: "B", ALPHA_RIVAL: "A", BETA: "A", BETA_RIVAL: "B"}, "the two clubs' rows did not exchange their groups"
+        assert {nr: uncounted(spiel) for nr, spiel in after.items()} == {
+            **{nr: uncounted(spiel) for nr, spiel in before.items()},
+            1: {**uncounted(before[1]), "team1": side(BETA)},
+            2: {**uncounted(before[2]), "team2": side(ALPHA)},
+        }, (
+            "the fixtures: each club takes over the other's drawn sides, on both slots, keeping the opponent, the matchday, the "
+            "date and the bookings; a fixture of neither club and a bracket side, a statement about the club, stand"
+        )
 
 
 class TestWhatTheSwapJudgesBeforeItsFirstWrite:
@@ -238,83 +271,7 @@ class TestWhatTheSwapJudgesBeforeItsFirstWrite:
 
 
 class TestTheDrawnSpieleMoveWithTheTeams:
-    async def test_each_team_takes_over_the_others_spiele(self, mongo_replica_set_url: str):
-        """Both slots: a rewrite handling one would leave the other naming a club that has left."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await call_swap(database, client, ALPHA, BETA)
-            return await sides_now(database)
-
-        sides = await on_a_seeded_season(mongo_replica_set_url, body, spiele=list(DRAWN_ROUND_ROBIN))
-
-        assert sides == {1: (BETA, ALPHA_RIVAL), 2: (BETA_RIVAL, ALPHA)}
-
-    async def test_a_booked_venue_and_referee_hold_no_swap_back_and_stay_on_their_spiel(self, mongo_replica_set_url: str):
-        """Grounds and referees are booked before a season starts, and the start is the swap's one lock."""
-
-        spiele = [
-            {
-                **spiel,
-                "spielort": {"spielort_id": ObjectId(), "mietpreis": 80},
-                "schiedsrichter": {"schiedsrichter_id": ObjectId(), "payment": 20},
-            }
-            for spiel in DRAWN_ROUND_ROBIN
-        ]
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await call_swap(database, client, ALPHA, BETA)
-            return await spiele_now(database)
-
-        after = await on_a_seeded_season(mongo_replica_set_url, body, spiele=spiele)
-
-        assert (after[1]["team1"], after[2]["team2"]) == (side(BETA), side(ALPHA))
-        assert [(after[spiel["spiel_nr"]]["spielort"], after[spiel["spiel_nr"]]["schiedsrichter"]) for spiel in spiele] == [
-            (spiel["spielort"], spiel["schiedsrichter"]) for spiel in spiele
-        ]
-
-    async def test_the_opponent_and_the_slot_are_left_alone(self, mongo_replica_set_url: str):
-        """The date, venue and matchday stay with the fixture, so each club inherits the other's schedule rather than carrying its own."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            before = await spiele_now(database)
-            await call_swap(database, client, ALPHA, BETA)
-            return before, await spiele_now(database)
-
-        before, after = await on_a_seeded_season(mongo_replica_set_url, body, spiele=list(DRAWN_ROUND_ROBIN))
-
-        assert after[1]["team2"] == before[1]["team2"], "the opponent was rewritten"
-        assert after[1]["spieltag_id"] == before[1]["spieltag_id"]
-        assert after[2]["team1"] == before[2]["team1"], "the opponent was rewritten"
-
-    async def test_a_spiel_of_neither_team_is_untouched(self, mongo_replica_set_url: str):
-        """A rewrite filtered on the season rather than on the two clubs passes every assertion above and fails this."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await call_swap(database, client, ALPHA, BETA)
-            return await sides_now(database)
-
-        sides = await on_a_seeded_season(
-            mongo_replica_set_url,
-            body,
-            spiele=[*DRAWN_ROUND_ROBIN, gruppen_spiel(3, ALPHA_RIVAL, BETA_RIVAL)],
-        )
-
-        assert sides == {1: (BETA, ALPHA_RIVAL), 2: (BETA_RIVAL, ALPHA), 3: (ALPHA_RIVAL, BETA_RIVAL)}, (
-            "a fixture fielding neither club was rewritten"
-        )
-
-    async def test_a_knockout_spiel_naming_a_team_is_untouched(self, mongo_replica_set_url: str):
-        """A bracket side is the resolution's or an admin's pick — a statement about the club, not its group."""
-
-        knockout = {**knockout_spiel(ergebnis=None), "spiel_nr": 9, "team1": side(ALPHA), "team2": None}
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await call_swap(database, client, ALPHA, BETA)
-            return await sides_now(database)
-
-        sides = await on_a_seeded_season(mongo_replica_set_url, body, spiele=[*DRAWN_ROUND_ROBIN, knockout])
-
-        assert sides == {1: (BETA, ALPHA_RIVAL), 2: (BETA_RIVAL, ALPHA), 9: (ALPHA, None)}
+    """The two shapes the round robin cannot hold beside the fold above."""
 
     async def test_a_spiel_between_the_two_teams_exchanges_both_sides(self, mongo_replica_set_url: str):
         """Both clubs in one fixture: the passes are disjoint, so the second never swaps back what the first wrote."""
