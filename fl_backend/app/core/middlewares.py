@@ -1,16 +1,16 @@
 import re
 import secrets
 import time
-from collections.abc import Mapping, Sequence
+from collections.abc import Sequence
 from contextvars import ContextVar
 from dataclasses import dataclass
-from re import Pattern
 from typing import Any, Final
 
 import pymongo
 from fastapi import FastAPI
+from fastapi.routing import APIRoute, RouteContext, iter_route_contexts
 from starlette.requests import Request
-from starlette.routing import compile_path
+from starlette.routing import BaseRoute, Match
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from app.core.logging import fl_logger, trace_id_var
@@ -42,18 +42,18 @@ PASS: Final[dict[str, Any]] = {"x-pass": True}
 PASS_DEADLINE_S: Final = 60.0
 
 
-def pass_operations(document: Mapping[str, Any]) -> list[tuple[Pattern[str], str]]:
-    """Each operation the published document marks `x-pass`, as its path's pattern and its method.
+def pass_routes(routes: Sequence[BaseRoute]) -> list[RouteContext]:
+    """Each operation marked `x-pass`, as the router serves it: under the prefix it was included with, with its own pattern.
 
-    Read off the document rather than the routes: it is the one list the frontend's client is generated from, so the two
-    halves of the bound cannot name different operations.
+    Kept only where the published document lists the operation, whose `x-pass` FastAPI copies from this same
+    `openapi_extra`: the frontend's client is generated from that document, so the two halves of the bound cannot name
+    different operations.
     """
 
     return [
-        (compile_path(path)[0], method.upper())
-        for path, operations in document.get("paths", {}).items()
-        for method, operation in operations.items()
-        if operation.get(_PASS_KEY) is True
+        context
+        for context in iter_route_contexts(routes)
+        if isinstance(context.original_route, APIRoute) and context.include_in_schema and (context.openapi_extra or {}).get(_PASS_KEY) is True
     ]
 
 
@@ -102,7 +102,7 @@ def resolve_trace_id(header_value: str | None) -> str:
 class TraceContextMiddleware:
     """Binds the trace id to every request context and writes the request's one access line."""
 
-    def __init__(self, app: ASGIApp, *, passes: Sequence[tuple[Pattern[str], str]] = ()) -> None:
+    def __init__(self, app: ASGIApp, *, passes: Sequence[RouteContext] = ()) -> None:
         self.app = app
         self.passes = passes
 
@@ -112,8 +112,8 @@ class TraceContextMiddleware:
         Chosen here, before the routing: `pymongo.timeout` entered inside this one only narrows it.
         """
 
-        method, path = scope["method"], scope["path"]
-        if any(method == pass_method and pattern.match(path) for pattern, pass_method in self.passes):
+        # Matched as the router matches: the route's own convertors, its methods, and the path past any `root_path`.
+        if any(context.matches(scope)[0] is Match.FULL for context in self.passes):
             return PASS_DEADLINE_S
 
         return REQUEST_DEADLINE_S
@@ -190,5 +190,5 @@ class TracedApp(FastAPI):
 
     def build_middleware_stack(self) -> ASGIApp:
         # The method FastAPI itself overrides to place a layer Starlette's builder has no slot for. Built at the first
-        # request, once every route is mounted, so the document lists every pass.
-        return TraceContextMiddleware(super().build_middleware_stack(), passes=pass_operations(self.openapi()))
+        # call, the lifespan's included, once every route is mounted, so the walk meets every pass.
+        return TraceContextMiddleware(super().build_middleware_stack(), passes=pass_routes(self.routes))

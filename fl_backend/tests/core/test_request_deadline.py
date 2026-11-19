@@ -122,9 +122,10 @@ class TestEachPassTakesItsOwnDeadline:
         assert marked, "no operation carries the mark, so this check judges nothing"
         assert [entry for entry in marked if entry[0] != "post" or entry[2] != [{"SystemKey": []}]] == []
 
-    @pytest.mark.parametrize("path", ["/api/identity/erasure/sweep", "/api/bewerbungen/saisons/2026/sweep"])
-    def test_a_pass_runs_under_the_pass_s_deadline(self, path: str):
-        assert _deadline_of("POST", path) == PASS_DEADLINE_S
+    @pytest.mark.parametrize(("method", "path"), sorted(PASSES), ids=lambda part: part)
+    def test_a_pass_runs_under_the_pass_s_deadline(self, method: str, path: str):
+        # A season's id where the operation takes one, as the scheduler sends it: a request names a season, never the template.
+        assert _deadline_of(method, path.format(saison_id="2026")) == PASS_DEADLINE_S
 
     @pytest.mark.parametrize(
         ("method", "path"),
@@ -448,11 +449,7 @@ MAIL_PATH = f"/api/saisons/{SAISON_ID}/invitations/mail"
 
 @pytest.fixture(scope="module")
 def pressing_app() -> FastAPI:
-    """One app for every press.
-
-    The first request into a router branch builds it, and an app per press would pay that build inside every case. The
-    case that reaches the branch first pays it once, inside its deadline.
-    """
+    """One app for every press, whose first request builds every router branch once, before the trace layer sets a deadline."""
 
     return create_app(build_test_config().model_copy(update={"db_base_name": DATABASE_NAME}))
 
