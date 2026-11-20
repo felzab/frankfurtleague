@@ -84,9 +84,10 @@ async function barsOf(rows: FLTabelleRow[]): Promise<Record<string, TableStandin
   );
 }
 
-// The bar tells a visitor which clubs go on to the K.-o.-Runde: one place off, or a level pair drawn as settled,
-// shows the wrong qualifiers with nothing failing.
-describe("the Tabelle's qualification bar", () => {
+// The mark tells a visitor which clubs go on to the K.-o.-Runde: one place off, or a level pair said as settled, names
+// the wrong qualifiers with nothing failing. These cases hear it as a screen reader does; the coloured edge a sighted
+// visitor sees beside it is the page's look, which no case here reads.
+describe("the Tabelle's spoken qualification mark", () => {
   it("marks the places up to the qualifier count, and none below it", async () => {
     expect(await barsOf([row("a", 1), row("b", 2), row("c", 3), row("d", 4)])).toStrictEqual({
       ["a".repeat(24)]: "settled",
