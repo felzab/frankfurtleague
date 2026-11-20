@@ -8,7 +8,6 @@ import { Form, FormContext } from "react-aria-components/Form";
 
 import { textOf } from "@/core/copy";
 import { COPY } from "@/core/copy/shared";
-import { goBackOrPush } from "@/core/goBackOrPush";
 
 import { Button } from "./Button";
 import { ConfirmDialog, TriggerButton } from "./ConfirmDialog";
@@ -26,7 +25,6 @@ import { usePasskeyTouch } from "./usePasskeyTouch";
 
 import type { ActionAnswer } from "@/core/action";
 import type { Copy } from "@/core/copy";
-import type { Route } from "next";
 import type { ReactElement, ReactNode } from "react";
 import type { Tone, Trigger } from "./ConfirmDialog";
 import type { DialogAct, DialogDanger } from "./dialogAct";
@@ -82,16 +80,10 @@ export function RouteDialogBody({
  * leaves the page beneath as it was. Always open: Next keeps a departed route in a hidden `Activity`, which hides the
  * overlay's portal with it and runs its effects' cleanup, the scroll lock's included.
  */
-export function RouteDialog({
-  beneath,
-  children,
-}: {
-  /** The page it opens over, reached instead of Back where the tab's history holds nothing to go back to. */
-  beneath: Route;
-  children: ReactNode;
-}) {
+export function RouteDialog({ children }: { children: ReactNode }) {
   const router = useRouter();
-  const close = () => goBackOrPush(router, beneath);
+  // An intercepting route catches a client navigation alone, so the tab's history always holds the page beneath it.
+  const close = () => router.back();
   const dialog = useRef<HTMLElement>(null);
   useLayoutEffect(() => {
     const box = dialog.current;

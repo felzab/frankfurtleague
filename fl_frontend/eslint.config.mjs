@@ -653,13 +653,16 @@ const SOURCE_BANS = [
 
 const PROPERTY_BANS = [
   // `back` on the history and on Next's router, a destructured `{ back }` of either included. A test's
-  // router double counts its own `back`. `goBackOrPush.ts` IS the history guard.
+  // router double counts its own `back`. A route dialog may go back: an intercepting route never mounts on
+  // a cold entry, so the tab's history always holds the page beneath it.
   ...["history", "router"].map((object) =>
     ban(
       "no-restricted-properties",
-      { object, property: "back", message: "A bare history back is a silent no-op on a cold entry. Use `goBackOrPush`." },
+      { object, property: "back", message: "A bare history back is a silent no-op on a cold entry: lead to the page's address instead." },
       SOURCE,
-      { allow: ["src/core/goBackOrPush.ts"] },
+      {
+        allow: ["src/kit/Dialog.tsx"],
+      },
     ),
   ),
   // The passkey plugin's own deletion, on whatever object or binding carries it. A test may call it to

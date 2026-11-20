@@ -368,7 +368,7 @@ function PageUnderRoute({ route }: { route: "none" | "open" | "hidden" }) {
       />
       <Activity mode={route === "hidden" ? "hidden" : "visible"}>
         {route !== "none" && (
-          <RouteDialog beneath="/saisons">
+          <RouteDialog>
             <RouteDialogBody
               title={NAME}
               act={
