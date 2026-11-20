@@ -1,4 +1,4 @@
-import { ACCOUNT_ERASED, boundBy, catalogue, PASSKEY_WITHOUT_CODE, PRIVACY_NOTICE, seatsText, textOf, waitWords } from "../copy";
+import { ACCOUNT_ERASED, boundBy, catalogue, PRIVACY_NOTICE, seatsText, textOf, waitWords } from "../copy";
 import { formatDate, formatInstant, formatList, formatNumber } from "../format";
 
 import type { Copy, RecordText, Wait, Words } from "../copy";
@@ -6,6 +6,7 @@ import type { FLKontaktSeat } from "../generated/client/types";
 
 // What a person's own record's box holds beyond its title, which names the record: a pupil's, a registration's, a referee's.
 const OWN_DETAILS = "Deine Angaben und was davon öffentlich ist.";
+const PASSKEY_WITHOUT_CODE = "Mit einem Passkey meldest du dich ohne Code an.";
 // The pending change's opening, before its new address.
 const NEW_ADDRESS = "Die neue Adresse ";
 const teamSeason = (team: Words, saison: Copy) => `${textOf(team)}, ${saison}`;

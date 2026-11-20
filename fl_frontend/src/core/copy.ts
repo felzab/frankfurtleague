@@ -108,7 +108,6 @@ export const K_O_RUNDE = "K.-o.-Runde";
 export const GRUPPE = (gruppe: string) => `Gruppe ${gruppe}`;
 
 export const DATE_OPEN = "Termin offen";
-export const PASSKEY_WITHOUT_CODE = "Mit einem Passkey meldest du dich ohne Code an.";
 export const SPIELER = "Spieler";
 export const SCHIEDSRICHTER = "Schiedsrichter";
 // The privacy notice's title, which the deletion box's sentence names as the place listing what outlives an erasure.
