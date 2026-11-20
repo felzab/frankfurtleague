@@ -704,6 +704,10 @@ passkey touch, and stands in the Protokoll as „Widerruf eingetragen“ on each
 (`fl_backend/app/api/account/services.py :: withdraw_at_address`); only the person can consent
 again, on Konto's „Deine Einträge“, `/account/entries`.
 
+**The page refuses two kinds of address, and says so before anyone confirms**: the administrator's
+own, whose consents they withdraw themselves on Konto's „Deine Einträge“; and any holding a grant,
+to anyone but the owner.
+
 - **A mail from another address than the one the records hold**, or written for somebody else, is
   answered by asking the person to write from the address their record holds, or to withdraw on
   „Deine Einträge“ after signing in with it: the entry acts for the typed address alone, and nobody
