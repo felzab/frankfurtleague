@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition, useRef, useState } from "react";
+import { useRef } from "react";
 
 import { COPY } from "@/core/copy/shared";
 
@@ -15,17 +15,16 @@ import { FieldStack } from "./FieldStack";
 import { FormFooter } from "./FormFooter";
 import { HeldForm } from "./HeldForm";
 import { boxHead, dangerEdge, SectionTitle } from "./Section";
-import { appToast } from "./Toast";
+import { toastAnswer } from "./Toast";
 import { tv } from "./tv";
 import { statusOf, useFormAction } from "./useFormAction";
 import { usePasskeyTouch } from "./usePasskeyTouch";
 
 import type { ActionAnswer } from "@/core/action";
-import type { Copy, RecordText, Verb, Words } from "@/core/copy";
+import type { Copy, RecordText, Words } from "@/core/copy";
 import type { ReactElement, ReactNode } from "react";
 import type { ConfirmWords } from "./ConfirmDialog";
-import type { TouchVerb } from "./dialogAct";
-import type { FormStatus } from "./useFormAction";
+import type { DoneVerb } from "./dialogAct";
 
 /**
  * What a box's act does: a server action, or the browser's own act such as a passkey's set-up, the box's fields
@@ -44,15 +43,17 @@ export type AccountAct = {
    * action's reference alone.
    */
   carry?: Readonly<Record<string, string>>;
-  /** The toast once it is done, for an act that leaves nothing in the box to change. */
+  /**
+   * The toast's title once it is done, where its answer brings no note: none for an act whose box shows what it
+   * changed, such as a passkey set up, which then raises a toast only for a note.
+   */
   done?: Copy;
   /** Why the act cannot run on the box's present state, the button saying why. */
   locked?: Copy;
-  /** The act saves the box's fields, which the line then says beside its button, „Gespeichert“. */
-  saves?: true;
 } & (
   | {
-      button: { label: Copy };
+      /** `variant` is `primary` for the box's save of its own fields, its main act. */
+      button: { label: Copy; variant?: "primary" | "secondary" };
       /** The button's press asks the passkey touch ahead of `run`, for a person holding a passkey (`usePasskeyTouch`). */
       touch?: boolean;
     }
@@ -67,26 +68,26 @@ export type AccountAct = {
 );
 
 /**
- * The line an act shows: a refusal; a save's „Gespeichert“, or what else it moved; any other done act's note where it
- * moved more than its box shows, and nothing else, since the box's own content says what changed.
+ * The act on the box's fields and what it carries, a done one saying itself in a toast: the note its answer brings, or
+ * the act's `done`, and nothing where neither stands, the box's own content saying what changed.
  */
-function lineOf(answer: ActionAnswer<unknown> | null, isBlocked: boolean, isPending: boolean, saves: boolean): FormStatus {
-  if (answer?.ok === true && !saves) return answer.note === undefined || isPending ? null : { tone: "success", text: answer.note };
-  return statusOf(answer, isBlocked, isPending);
+function runOf({ run, carry, done }: Pick<AccountAct, "run" | "carry" | "done">): Run {
+  return async (formData) => {
+    for (const [name, value] of Object.entries(carry ?? {})) formData.set(name, value);
+    const answered = await run(formData);
+    const title = answered.ok ? (answered.note ?? done) : undefined;
+    if (title !== undefined) toastAnswer(answered, title);
+    return answered;
+  };
 }
 
-function useAct({ run, touch = false, done, saves, carry }: Pick<AccountAct, "run" | "touch" | "done" | "saves" | "carry">) {
-  const touched = usePasskeyTouch(touch, carry?.holder);
-  const { answer, submit, block, isBlocked, isPending } = useFormAction(
-    touched(async (formData: FormData) => {
-      const answered = await run(formData);
-      if (answered.ok && done !== undefined) appToast("success", done);
-      return answered;
-    }),
-    { resetOnLeave: true },
-  );
-
-  return { send: submit, block, status: lineOf(answer, isBlocked, isPending, saves === true), answer, isBusy: isPending };
+/** The box's own press, its line a refusal's alone: a done act says itself in its toast, if anywhere. */
+function useAct(act: AccountAct) {
+  const touched = usePasskeyTouch(act.touch === true, act.carry?.holder);
+  const run = runOf(act);
+  const { answer, submit, block, isBlocked, isPending } = useFormAction(touched(run), { resetOnLeave: true });
+  const status = answer?.ok === true ? null : statusOf(answer, isBlocked, isPending);
+  return { run, send: submit, block, status, answer, isBusy: isPending };
 }
 
 const box = tv({
@@ -103,8 +104,9 @@ const box = tv({
  * status line and its one act. A box whose act asks a danger's question takes the danger edge and title an editor's
  * danger box takes. A box holding one control that acts at once, Darstellung's, has no footer; nor has a box holding
  * nothing this page acts on, an address change an administrator started, which the old address's stop link ends. A
- * refusal stands in the footer's line with the input kept, a field's message under its field; a done act leaves the
- * line empty, the box showing what changed, and the line's answer is cleared once the page is left. An act asking a
+ * refusal stands in the footer's line with the input kept, a field's message under its field, and is cleared once the
+ * page is left; a done act leaves the line empty and says itself in a toast where its answer notes more than the box
+ * shows or the act names its word (`done`), the line taking no row a phone's page would move by. An act asking a
  * question first answers a refusal in the question, which stays open with it, as every question does.
  */
 export function AccountBox(
@@ -161,35 +163,20 @@ function ActBox({ act, words, danger, children }: { act: AccountAct; words: Reac
   const slots = box();
   // The footer's own hairline parts a box with nothing under its head from the footer.
   const held = boxHead({ ruled: children !== undefined });
-  const { send, block, status, answer, isBusy } = useAct(act);
-  // What a done question moved beyond the box, the question having closed with its own line.
-  const [questionNote, setQuestionNote] = useState<FormStatus>(null);
+  const { run, send, block, status, answer, isBusy } = useAct(act);
   const form = useRef<HTMLFormElement>(null);
   const locked = useLocked(act.locked);
 
-  const carried = (formData: FormData) => {
-    for (const [name, value] of Object.entries(act.carry ?? {})) formData.set(name, value);
-    return formData;
-  };
-
-  // A question's act runs inside the question, which shows its refusal and words a throw; the line says what a done one
-  // moved beyond the box, as `lineOf` words a done act.
-  const confirmed = async () => {
-    setQuestionNote(null);
-    const answered = await act.run(carried(new FormData(form.current ?? undefined)));
-    if (answered.ok && act.done !== undefined) appToast("success", act.done);
-    const { note } = answered.ok ? answered : { note: undefined };
-    // An update after the `await` lands outside the press's transition unless it opens one of its own.
-    if (note !== undefined) startTransition(() => setQuestionNote({ tone: "success", text: note }));
-    return answered;
-  };
+  // A question's act runs inside the question, which shows its refusal and words a throw; done, it says itself in the
+  // box's toast, as the box's own press does.
+  const confirmed = () => run(new FormData(form.current ?? undefined));
 
   const question = "confirm" in act.button ? act.button.confirm : undefined;
   const label = "label" in act.button ? act.button.label : COPY.shared.withObject(act.button.confirm.subject, act.button.confirm.verb);
   const button = (
     <Button
       // A locked act asking a question keeps the look its question's trigger takes.
-      variant={question === undefined ? (act.saves === true ? "primary" : "secondary") : askingLook(question.tone)}
+      variant={"label" in act.button ? (act.button.variant ?? "secondary") : askingLook(act.button.confirm.tone)}
       type={question === undefined ? "submit" : "button"}
       label={label}
       isBusy={isBusy}
@@ -206,8 +193,7 @@ function ActBox({ act, words, danger, children }: { act: AccountAct; words: Reac
         onSend={(formData) => {
           // A locked act's button is a plain one, but Enter in a lone field submits a form with no submit button.
           if (isBusy || locked !== undefined) return;
-          setQuestionNote(null);
-          send(carried(formData));
+          send(formData);
         }}>
         <div className={held.head()}>{words}</div>
         {children !== undefined && (
@@ -217,13 +203,14 @@ function ActBox({ act, words, danger, children }: { act: AccountAct; words: Reac
         )}
         <FormFooter
           place="strip"
-          status={questionNote ?? status}>
+          status={status}>
           {question === undefined || locked !== undefined ? (
             button
           ) : (
             <ConfirmDialog
               {...question}
               onConfirm={confirmed}
+              doneShown
               trigger={{ label, isBusy }}
             />
           )}
@@ -252,19 +239,15 @@ type Rename = { title: Copy; run: (formData: FormData) => Promise<ActionAnswer>;
  * where the page knows at render that the act would be refused, the button saying why.
  */
 type Remove = {
+  /** The act's verb, which its toast words as done. */
+  verb: DoneVerb;
   subject: Copy;
   consequence: Copy;
   locked?: Copy;
   run: () => Promise<ActionAnswer<unknown>>;
-} & (
-  | { verb: Verb; touch?: never }
-  | {
-      /** A verb the touched act's toast words as done. */
-      verb: TouchVerb;
-      /** The address the page was drawn for, the one account the touch may answer for. */
-      touch: { holder: string };
-    }
-);
+  /** The address the page was drawn for, the one account the touch may answer for. */
+  touch?: { holder: string };
+};
 
 export type AccountRow = { id: string; name: RecordText; detail: Copy; rename?: Rename; remove: Remove };
 
@@ -280,8 +263,8 @@ const rowLook = tv({
 });
 
 /**
- * A box's records as rows, each with its own acts, whose outcome stands in the act's own dialog, or, for an act behind
- * the passkey touch, in its toast.
+ * A box's records as rows, each with its own acts: a done act says itself in a toast, and a refusal stands in the act's
+ * own dialog, or, for an act behind the passkey touch, in its toast too.
  */
 export function AccountRows({ rows: records }: { rows: ReadonlyArray<AccountRow> }) {
   const slots = rowLook();
@@ -339,7 +322,8 @@ function RemoveAct({ remove }: { remove: Remove }) {
     );
   return (
     <ConfirmDialog
-      {...(remove.touch === undefined ? { verb: remove.verb } : { verb: remove.verb, touch: remove.touch })}
+      verb={remove.verb}
+      {...(remove.touch === undefined ? {} : { touch: remove.touch })}
       subject={remove.subject}
       consequence={remove.consequence}
       tone="danger"

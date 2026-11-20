@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition, useLayoutEffect, useState, useTransition } from "react";
+import { startTransition, useState, useTransition } from "react";
 
 import { COPY } from "@/core/copy/shared";
 
@@ -18,8 +18,7 @@ import { statusOf, useFormAction } from "./useFormAction";
 import type { ActionAnswer } from "@/core/action";
 import type { ReactNode } from "react";
 import type { ConfirmWords } from "./ConfirmDialog";
-import type { TouchVerb } from "./dialogAct";
-import type { FormStatus } from "./useFormAction";
+import type { DoneVerb } from "./dialogAct";
 
 /**
  * One box as wide as the sign-in's column from `lg`, its fields filling it, a page that is one question reading as that
@@ -41,8 +40,8 @@ export type AskedInput<Input> = {
  * over what it will reach: a question standing on data the form holds until the press. `read`'s refusal stands in the
  * form's line, no question asked. The question's final press closes it, asks the touch and calls `run`, the form's
  * press busy until it answers, a refusal in a toast (`ConfirmDialog`); an act off the touch's list runs inside the
- * question instead, a refusal standing in the question's line. A done act names itself in its answer's `note`, which
- * stands in the form's line over boxes drawn empty, and in that line alone.
+ * question instead, a refusal standing in the question's line. A done act empties the boxes and names itself in the
+ * question's toast, its answer's `note`.
  */
 export function QuestionForm<Input>({
   verb,
@@ -53,8 +52,8 @@ export function QuestionForm<Input>({
   holder,
   children,
 }: {
-  /** The act's verb, one its toast words as done where the touch is asked. */
-  verb: TouchVerb;
+  /** The act's verb, which its toast words as done where its answer brings no note. */
+  verb: DoneVerb;
   /** The press's and the question's button alike. */
   tone: ConfirmWords["tone"];
   /** Whether the act is on the touch's fixed list, as an erasure is and a withdrawal is not. */
@@ -74,10 +73,6 @@ export function QuestionForm<Input>({
   // Raised to draw the boxes anew, as `HeldForm` refuses a form's reset.
   const [emptied, setEmptied] = useState(0);
 
-  // What a done act said, the question having closed with its own line. Gone as the page hides, as a form's answer is.
-  const [done, setDone] = useState<FormStatus>(null);
-  useLayoutEffect(() => () => setDone(null), []);
-
   const { answer, submit, block, isBlocked, isPending } = useFormAction(
     async (press: FormData): Promise<ActionAnswer> => {
       const answered = await read(press);
@@ -93,23 +88,17 @@ export function QuestionForm<Input>({
   );
   const refused = answer !== null && !answer.ok ? answer : null;
   // A read that opened the question says nothing here: the question is its answer.
-  const status = done ?? (answer?.ok === true ? null : statusOf(answer, isBlocked, isPending));
+  const status = answer?.ok === true ? null : statusOf(answer, isBlocked, isPending);
   const open = { isOpen: isAsking, onOpenChange: setAsking };
-  // Typed as the two shapes it takes, since two object literals in one conditional widen to one with both keys optional.
-  const touched: { touch: { holder: string }; doneShown: true } | { touch?: never; doneShown?: never } = touch
-    ? { touch: { holder }, doneShown: true }
-    : {};
+  const touched = touch ? { touch: { holder } } : {};
 
   return (
     <>
       <HeldForm
         validationErrors={refused?.fieldErrors}
         onInvalid={block}
-        // A done act's line is about the boxes it emptied: what is typed next is another act's.
-        onEdit={() => setDone(null)}
         onSend={(formData) => {
           if (isPending || isActing) return;
-          setDone(null);
           submit(formData);
         }}
         className={BOX_CLASSES}>
@@ -136,7 +125,7 @@ export function QuestionForm<Input>({
           open={open}
           transition={acting}
           onConfirm={() => undefined}
-          {...(touch ? { touch: { holder } } : {})}
+          {...touched}
         />
       ) : (
         <ConfirmDialog
@@ -147,17 +136,12 @@ export function QuestionForm<Input>({
           {...(asked.question.facts === undefined ? {} : { facts: asked.question.facts })}
           open={open}
           transition={acting}
-          // Without the touch the question shows a refusal itself and closes on a done act, which the form's line names.
+          // Without the touch the question shows a refusal itself and closes on a done act.
           {...touched}
           onConfirm={async () => {
             const answered = await run({ ...asked.input, holder });
             // An update after the `await` lands outside the press's transition unless it opens one of its own.
-            if (answered.ok) {
-              startTransition(() => {
-                setEmptied((count) => count + 1);
-                setDone(statusOf(answered, false, false));
-              });
-            }
+            if (answered.ok) startTransition(() => setEmptied((count) => count + 1));
             return answered;
           }}
         />

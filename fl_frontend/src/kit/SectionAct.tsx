@@ -45,21 +45,11 @@ const NO_INPUTS: ReadonlyArray<unknown> = [];
 const sameInputs = (now: ReadonlyArray<unknown>, then: ReadonlyArray<unknown>) =>
   now.length === then.length && now.every((value, index) => Object.is(value, then[index]));
 
-/** What a press hands the one form action: the pressed act's `run`, or the answer a question's act reached inside it. */
+/** What a press hands the one form action: the pressed act's `run`. */
 type Press = () => Promise<ActionAnswer>;
 
 /** One act's button, behind its question where it asks one; its own component, since its lock is read by a hook. */
-function ActButton({
-  act,
-  isBusy,
-  onPress,
-  onAnswered,
-}: {
-  act: SectionActItem;
-  isBusy: boolean;
-  onPress: () => void;
-  onAnswered: (ran: ActionAnswer) => void;
-}) {
+function ActButton({ act, isBusy, onPress }: { act: SectionActItem; isBusy: boolean; onPress: () => void }) {
   const reason = useLocked(act.locked);
   if (act.press !== undefined)
     return (
@@ -87,11 +77,9 @@ function ActButton({
   return (
     <ConfirmDialog
       {...confirm}
-      onConfirm={async () => {
+      onConfirm={() => {
         onPress();
-        const answered = await act.run();
-        if (answered.ok) onAnswered(answered);
-        return answered;
+        return act.run();
       }}
       trigger={{ label: act.label, variant: act.variant, isDisabled: act.isDisabled ?? false }}
     />
@@ -104,7 +92,7 @@ function ActButton({
  * status line its last press's outcome stands in at the left, „Gespeichert“ or its refusal. It stands last in its
  * section. It stands inside an editor's own form, whose fields and save are another record's, so each act sends what its
  * inputs hold as one typed object through `run`, never as a form; an act asking a question first answers a refusal in
- * the question's own line, and its done act here, in the act's own note where it has one. A done line speaks of the
+ * the question's own line, and its done act in the question's toast. A done line speaks of the
  * inputs it was pressed on: it goes once one of `inputs` changes, as the editor's bar trades its „Gespeichert“ for the
  * next edit, and once the page is left. Inside an editor whose draft holds unsaved changes every act is closed as a
  * locked one is (`useLocked`).
@@ -121,9 +109,9 @@ export function SectionAct({
   /** The values the acts' `run` reads; none for acts taking no input. */
   inputs?: ReadonlyArray<unknown>;
 }) {
-  // One answer for every act, cleared as Next hides the page: a plain act runs here; a question's act runs inside its
-  // question, which shows its refusal, and hands its done answer over to stand in the line.
-  const { answer, submit, isPending } = useFormAction((press: Press) => press(), { resetOnLeave: true });
+  // One answer for every plain act, cleared as Next hides the page; a question's act runs inside its question, which
+  // shows its refusal and says its done act in a toast, so its press only clears the line of the act before.
+  const { answer, submit, reset, isPending } = useFormAction((press: Press) => press(), { resetOnLeave: true });
   // The inputs of the last press, whose answer the line shows only while they still hold, and the act pressed.
   const [pressed, setPressed] = useState({ on: inputs, at: 0 });
   const status = sameInputs(inputs, pressed.on) ? statusOf(answer, false, isPending) : null;
@@ -142,9 +130,10 @@ export function SectionAct({
             onPress={() => {
               setPressed({ on: inputs, at });
               // An act at once never calls this: its button runs it alone.
-              if (act.run !== undefined && act.confirm === undefined) submit(act.run);
+              if (act.run === undefined) return;
+              if (act.confirm === undefined) submit(act.run);
+              else reset();
             }}
-            onAnswered={(ran) => submit(() => Promise.resolve(ran))}
           />
         ))}
       </FormFooter>

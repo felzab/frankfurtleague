@@ -132,7 +132,12 @@ export function EntriesBoxes({
       key={entry.id}
       title={entry.title}
       description={entry.description}
-      act={{ run: saveConsent, carry: { ...entry.carry, holder }, button: { label: COPY.shared.verb.save }, saves: true }}>
+      act={{
+        run: saveConsent,
+        carry: { ...entry.carry, holder },
+        button: { label: COPY.shared.verb.save, variant: "primary" },
+        done: COPY.shared.toast.done.save,
+      }}>
       <Facts
         look="free"
         facts={entry.facts}

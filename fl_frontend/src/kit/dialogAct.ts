@@ -30,10 +30,10 @@ export type DialogDanger = {
 };
 
 /**
- * A verb an act behind the passkey touch may carry: one the catalogue words the act's toast for, as done
- * (`COPY.shared.toast.done`), since the act's question or dialog has closed before it answers.
+ * A verb an act answering in a toast may carry: one the catalogue words the act's toast for, as done
+ * (`COPY.shared.toast.done`), since the act's question or dialog has closed when it answers.
  */
-export type TouchVerb = keyof typeof COPY.shared.toast.done;
+export type DoneVerb = keyof typeof COPY.shared.toast.done;
 
 /** The verb, with its object where the verb alone does not say what it acts on („Spielort anlegen“). */
 type ActWords<V extends Verb> = { verb: V; object?: Copy };
@@ -42,7 +42,8 @@ type ActWords<V extends Verb> = { verb: V; object?: Copy };
 export type DialogAct<T extends Tone = Tone> = {
   /** What the dialog is about: the act in the catalogue's words, or the record a small record's dialog edits, by its name. */
   title: Words;
-  act: ActWords<Verb>;
+  /** The act, whose verb names the dialog's button and words its toast once done. */
+  act: ActWords<DoneVerb>;
   /** The server action doing the act, reading the form's fields by their `name`s. */
   run: (formData: FormData) => Promise<ActionAnswer>;
   /** The act's inputs: the kit's fields. */
@@ -67,20 +68,15 @@ export type DialogAct<T extends Tone = Tone> = {
    * act is a function, which cannot cross from the server.
    */
   danger?: DialogDanger;
-} & (
-  | { touch?: never }
-  | {
-      act: ActWords<TouchVerb>;
-      /**
-       * The passkey touch the act's button asks ahead of `run`, for an act on its fixed list a person holding a
-       * passkey presses: the address the page was drawn for, which the form posts as `holder` (`usePasskeyTouch`). The
-       * press closes the dialog for good before the browser asks, and the act answers in a toast, a refusal in a
-       * sentence of its own, since no field stands to carry a field's phrase, the dialog's opening button standing
-       * again for a new try with the inputs typed anew.
-       */
-      touch: { holder: string };
-    }
-);
+  /**
+   * The passkey touch the act's button asks ahead of `run`, for an act on its fixed list a person holding a passkey
+   * presses: the address the page was drawn for, which the form posts as `holder` (`usePasskeyTouch`). The press closes
+   * the dialog for good before the browser asks, and the act answers in a toast, a refusal in a sentence of its own,
+   * since no field stands to carry a field's phrase, the dialog's opening button standing again for a new try with the
+   * inputs typed anew.
+   */
+  touch?: { holder: string };
+};
 
 /** The act's label, on the dialog's own button and on a trigger naming the same act. */
 export function actLabel({ verb, object }: ActWords<Verb>): Copy {

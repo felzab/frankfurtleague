@@ -171,19 +171,19 @@ function changedSince(opened: FormData | null, form: HTMLFormElement | null) {
 
 /**
  * The dialog and its form, mounted anew at each opening, so a refusal it showed goes with the dialog and never greets
- * the next opening. A done act closes the dialog, but one whose answer notes what else the write moved, which stays open
- * with that note in its status line, its act closed, so the person reads it before leaving by „Zurück“; a refused one
- * stays with its input kept, each field's message under its field and the reason in the status line beside the acts, as
- * a Konto box shows it. A press outside never closes it; Escape and „Zurück“ ask before they drop typed input, and are
- * both closed while the act runs, as a question's are, because its answer is the dialog's to show and nowhere else
- * stands to show it. An act behind the passkey touch is sent past the dialog instead (`send`), which closes, its answer
- * a toast (`Dialog`). The act ending the record, where the dialog has one, stands as its own part after the inputs and
- * above the footer (`DangerRow`), apart from „Zurück“ and the save, and before the sentence and the facts of the
- * dialog's own act, which stay directly over its two buttons.
+ * the next opening. A done act closes the dialog and says itself in a toast, `done` or the note its answer brings on
+ * what else the write moved; a refused one stays with its input kept, each field's message under its field and the
+ * reason in the status line beside the acts, as a Konto box shows it. A press outside never closes it; Escape and
+ * „Zurück“ ask before they drop typed input, and are both closed while the act runs, as a question's are, because a
+ * refusal is the dialog's to show and nowhere else stands to show it. An act behind the passkey touch is sent past the
+ * dialog instead (`send`), which closes, its answer a toast (`Dialog`). The act ending the record, where the dialog has
+ * one, stands as its own part after the inputs and above the footer (`DangerRow`), apart from „Zurück“ and the save,
+ * and before the sentence and the facts of the dialog's own act, which stay directly over its two buttons.
  */
 function ActDialog({
   title,
   label,
+  done,
   run,
   send,
   opened,
@@ -197,6 +197,8 @@ function ActDialog({
   children,
 }: Pick<DialogAct, "title" | "run" | "carry" | "lead" | "consequence" | "facts" | "tone" | "locked" | "danger" | "children"> & {
   label: Copy;
+  /** The done act's toast where its answer brings no note: its verb's done word. */
+  done: Copy;
   opened: HeldOpen;
   /** Sends the inputs past this dialog, which closes as it does: an act behind the passkey touch (`Dialog`). */
   send: ((formData: FormData) => void) | null;
@@ -205,17 +207,18 @@ function ActDialog({
   const { answer, submit, block, isBlocked, isPending } = useFormAction(
     async (formData: FormData) => {
       const answered = await run(formData);
-      // A form's action runs in a transition, and an update after its `await` commits outside it.
-      if (answered.ok && answered.note === undefined) startTransition(close);
+      if (answered.ok) {
+        // A form's action runs in a transition, and an update after its `await` commits outside it.
+        startTransition(close);
+        toastAnswer(answered, done);
+      }
       return answered;
     },
     // The next opening draws this anew, which clears its answer.
     { resetOnLeave: false },
   );
   const refused = answer !== null && !answer.ok ? answer : null;
-  // A done act standing open says its note alone; pressed again, it would send the same act on a record it changed.
-  const noted = answer !== null && answer.ok && answer.note !== undefined ? answer : null;
-  const status = statusOf(refused ?? noted, isBlocked, isPending);
+  const status = statusOf(refused, isBlocked, isPending);
 
   const form = useRef<HTMLFormElement>(null);
   // The inputs as the dialog opened, taken once its form stands, which a way out compares to count what it would lose.
@@ -225,9 +228,9 @@ function ActDialog({
   });
   const [lost, setLost] = useState(0);
   const [isAsking, setAsking] = useState(false);
-  // Asked as every way out of an editor is; a dialog standing on a done act's note holds nothing unsaved.
+  // Asked as every way out of an editor is.
   const leave = () => {
-    const count = noted === null ? changedSince(opening.current, form.current) : 0;
+    const count = changedSince(opening.current, form.current);
     if (count === 0) {
       close();
       return;
@@ -291,7 +294,6 @@ function ActDialog({
                 type="submit"
                 label={label}
                 isBusy={isPending}
-                isDisabled={noted !== null}
                 locked={locked}
               />
             </FormFooter>
@@ -324,9 +326,9 @@ type Opening<T extends Tone> =
 /**
  * One act done where its record shows, in a centred dialog: its title, its few inputs, „Zurück“ and its
  * verb. A record's creation opens it over its list, or from the create entry of a field choosing among its
- * records. The verb sends the inputs to `run` through the one form wrapper: a done act closes the dialog, one
- * noting more than it was asked leaves it open on its note, in the warn tone where the answer marks it `warn`, and a
- * refused one leaves it open with the input kept and the refusal shown.
+ * records. The verb sends the inputs to `run` through the one form wrapper: a done act closes the dialog and says
+ * itself in a toast, its verb's done word or the note its answer brings, in the warn tone where the answer marks it
+ * `warn`, and a refused one leaves it open with the input kept and the refusal shown.
  *
  * An act behind the passkey touch is asked as an identity check is, with no modal standing (`DialogAct`'s `touch`):
  * React Aria's modal makes the rest of the page inert, and a password manager draws its prompt in the page. Its press
@@ -340,10 +342,10 @@ export function Dialog<T extends Tone = "primary">(props: DialogAct<T> & Opening
   const [isOpen, setOpen] = useOpenUntilHidden(open);
   const [isRunning, startRun] = useTransition();
   const touched = usePasskeyTouch(touch !== undefined, touch?.holder);
-  const done = props.touch === undefined ? null : COPY.shared.toast.done[props.act.verb];
+  const done = COPY.shared.toast.done[act.verb];
   const sent = answering(touched(form.run), router.refresh);
   const send =
-    done === null
+    touch === undefined
       ? null
       : (formData: FormData) => {
           // Closed in the press, outside the transition, as a touched question closes (`ConfirmDialog`): committed with
@@ -368,6 +370,7 @@ export function Dialog<T extends Tone = "primary">(props: DialogAct<T> & Opening
       {...form}
       carry={touch === undefined ? form.carry : { ...form.carry, holder: touch.holder }}
       label={label}
+      done={done}
       opened={{ isOpen, onOpenChange: setOpen }}
       send={send}
     />
