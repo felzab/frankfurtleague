@@ -45,7 +45,7 @@ async function readSeason(params: Props["params"], searchParams: Props["searchPa
 /**
  * Teams: the season's clubs in one alphabetical list of tiles, each naming its group under its name and opening
  * the club's page, narrowed by group, the value in the address, and by the text typed into its search field, which
- * stays on the page, as the Spielsuche narrows its matches.
+ * stays on the page, as the Spielsuche's does.
  */
 export default function TeamsPage({ params, searchParams }: Props) {
   const season = readSeason(params, searchParams);
