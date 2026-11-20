@@ -1,7 +1,7 @@
 import { ADMIN_COPY } from "@/core/copy/admin";
 import { COPY } from "@/core/copy/shared";
 import { FLSchulform } from "@/core/generated/client/types";
-import { TRIKOT_FARBEN } from "@/core/trikotFarben";
+import { trikotFarbeOptions } from "@/core/trikotFarben";
 
 import type { FLGruppenNames, FLTeamGruppeOffer } from "@/core/generated/client/types";
 import type { Option } from "@/kit/OptionList";
@@ -25,13 +25,7 @@ export const gruppeOptions = (offers: readonly FLTeamGruppeOffer[], own: FLGrupp
   });
 
 /**
- * The kit colours in their sheet's order, each one `taken` closed, as the public form closes it: a season's colour is
- * one team's, and the write refuses a second. The empty entry stays open, a club without a colour taking none.
+ * The kit colours as the public form lists them, after the empty entry, which stays open and has no swatch: a club
+ * without a colour takes none.
  */
-export const trikotOptions = (taken: readonly string[]): readonly Option[] => [
-  NONE,
-  ...TRIKOT_FARBEN.map(({ value, label }) => {
-    const option = { id: value, label: { record: label } };
-    return taken.includes(value) ? { ...option, isDisabled: true } : option;
-  }),
-];
+export const trikotOptions = (taken: readonly string[]): readonly Option[] => [NONE, ...trikotFarbeOptions(taken)];

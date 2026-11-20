@@ -16,9 +16,12 @@ import type { Copy, Words } from "@/core/copy";
 /**
  * One choice of a select or a combo box. Its label is the catalogue's word, or a record's data such as a team's
  * name; a choice that cannot be made stays in the list, disabled, with a short note why where one says more than the
- * muted entry does.
+ * muted entry does. A choice that is a colour, such as a shirt's, shows its `swatch` before its label, the label kept
+ * so the colour never carries the meaning alone.
  */
-export type Option = { id: string; label: Words } & ({ isDisabled?: false; note?: never } | { isDisabled: true; note?: Copy });
+export type Option = { id: string; label: Words; swatch?: `#${string}` } & (
+  { isDisabled?: false; note?: never } | { isDisabled: true; note?: Copy }
+);
 
 /**
  * An entry that acts rather than chooses, such as a combo box's „Spielort anlegen“, which creates the record
@@ -49,9 +52,20 @@ export function OptionList({ options, act }: { options: readonly Option[]; act?:
               className={`${menuItem()} ${entryMark({ mark: "chosen" })}`}>
               {({ isSelected }) => (
                 <>
-                  <span className="flex min-w-0 flex-col">
-                    <span className="truncate">{textOf(option.label)}</span>
-                    {option.note !== undefined && <span className={messageLine({ tone: "description", width: "words" })}>{option.note}</span>}
+                  <span className="flex min-w-0 items-center gap-2">
+                    {option.swatch !== undefined && (
+                      <span
+                        aria-hidden
+                        // The colour is the record's data, one of many, so it is painted inline rather than named as a
+                        // class; the ring gives a white swatch its edge on the light ground and a black one on the dark.
+                        className="size-4 shrink-0 rounded-full inset-ring inset-ring-border-control"
+                        style={{ backgroundColor: option.swatch }}
+                      />
+                    )}
+                    <span className="flex min-w-0 flex-col">
+                      <span className="truncate">{textOf(option.label)}</span>
+                      {option.note !== undefined && <span className={messageLine({ tone: "description", width: "words" })}>{option.note}</span>}
+                    </span>
                   </span>
                   {isSelected && (
                     <Icon

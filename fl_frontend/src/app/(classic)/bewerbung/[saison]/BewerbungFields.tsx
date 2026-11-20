@@ -4,7 +4,7 @@ import { useId, useState } from "react";
 
 import { PUBLIC_COPY } from "@/core/copy/public";
 import { COPY } from "@/core/copy/shared";
-import { TRIKOT_FARBEN } from "@/core/trikotFarben";
+import { trikotFarbeOptions } from "@/core/trikotFarben";
 import { BEWERBUNG_MIN_AGE, SIGNATORY_MIN_AGE } from "@/features/bewerbungen/constants";
 import { KONTAKT_SEATS } from "@/features/teams/constants";
 import { AddressFields } from "@/kit/AddressFields";
@@ -247,9 +247,7 @@ export function BewerbungFields({
           name="trikot.wunschfarbe"
           isRequired={required.wunschfarbe}
           onChange={() => setHasTyped(true)}
-          options={TRIKOT_FARBEN.map(({ value, label }) =>
-            taken.includes(value) ? { id: value, label: { record: label }, isDisabled: true } : { id: value, label: { record: label } },
-          )}
+          options={trikotFarbeOptions(taken)}
         />
         <TextField
           {...box("kader.expected_size")}
