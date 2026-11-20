@@ -39,11 +39,8 @@ export const ACCOUNT_COPY = catalogue({
   },
   passkeys: {
     description: PASSKEY_WITHOUT_CODE,
-    /** When a passkey was set up, and when it last signed in where it has. */
-    dates: (created: Date, lastUsed: Date | null) =>
-      lastUsed === null
-        ? `Eingerichtet ${boundBy("am", formatDate(created))}`
-        : `Eingerichtet ${boundBy("am", formatDate(created))} · Zuletzt verwendet ${boundBy("am", formatDate(lastUsed))}`,
+    /** When a passkey was set up. */
+    dates: (created: Date) => `Eingerichtet ${boundBy("am", formatDate(created))}`,
     /**
      * The deletion's consequence, which the question words before the passkey touch: the devices the passkey signed
      * in, and this one where the page's session was made by it or it is the person's only passkey, which the touch

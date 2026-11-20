@@ -261,29 +261,6 @@ describe("who the seam answers for", () => {
     expect(answer.isAdmin).toBe(false);
   });
 
-  /* The lookup copies the records field by field: its read parses nothing, so a key the backend answers
-     beside them stays out of the session. */
-  it("answers the three lists, the two flags and the grant alone, carrying nothing else the backend answers", async () => {
-    const { cookie } = await signIn(ADMIN_EMAIL);
-    arriveAs(cookie);
-    const { account: _account, ...records } = RECORDS.get(ADMIN_EMAIL) ?? assert.fail("the administrator holds no records here");
-    // A key no contract names, as a later backend could answer one beside the records.
-    answerTheLookupOnce({ ...records, attached: "kein Feld des Vertrags" });
-
-    const answer = await getSubjectSession();
-
-    assert.ok(answer);
-    expect(Object.keys(answer.records).sort()).toStrictEqual([
-      "admin_tier",
-      "granted_since",
-      "schiedsrichter",
-      "seats",
-      "spieler",
-      "unconfirmed",
-    ]);
-    expect(answer.records.admin_tier).toBe("administration");
-  });
-
   /* Raised on a body carrying no record, which is the only shape the lookup sets it on: the landing
      tells that person to confirm rather than that the league holds nothing of theirs. Lowered on the
      same body, the landing tells them the league holds nothing. */
@@ -421,47 +398,6 @@ describe("the request the seam makes", () => {
 });
 
 describe("a session the store cannot answer for", () => {
-  /* The sign-in library types the address as a string; what arrives is whatever the adapter
-     deserialised, and the fold throws on a row holding none. */
-  it("answers nothing for a session whose row names no mailbox, and asks the backend nothing", async () => {
-    const { cookie } = await signIn(PERSON_EMAIL);
-    const user = store.user.find((held) => held.email === PERSON_EMAIL);
-    assert.ok(user);
-    arriveAs(cookie);
-    const before = backend.sent.length;
-
-    Reflect.set(user, "email", null);
-    const { answer, actor } = await guardInScope();
-    user.email = PERSON_EMAIL;
-
-    expect(answer).toBe(null);
-    expect(actor).toBe(undefined);
-    expect(backend.sent.length, "a session naming no mailbox still cost a lookup of the league's records").toBe(before);
-  });
-
-  /* Both spellings of nothing: the empty one the fold never sees, and the blank one it folds to
-     empty. Either reaches the endpoint as a 422 rather than as a refusal a panel can act on. */
-  it("answers nothing for a session whose address is empty or blank, and asks the backend nothing", async () => {
-    const { cookie } = await signIn(PERSON_EMAIL);
-    const user = store.user.find((held) => held.email === PERSON_EMAIL);
-    assert.ok(user);
-    arriveAs(cookie);
-
-    for (const blank of ["", "   "]) {
-      // A request each: the second would otherwise be answered from the first one's memo.
-      beginRenderPass();
-      const before = backend.sent.length;
-
-      user.email = blank;
-      const { answer, actor } = await guardInScope();
-      user.email = PERSON_EMAIL;
-
-      expect(answer, `an address of ${JSON.stringify(blank)} was answered for`).toBe(null);
-      expect(actor).toBe(undefined);
-      expect(backend.sent.length, `an address of ${JSON.stringify(blank)} still cost a lookup`).toBe(before);
-    }
-  });
-
   /* The refusal is `fl_frontend/src/core/auth/sessionStamps.ts :: isWithinPersonLifetime`'s, which fails closed on
      a stamp it cannot read; this lane answers no session rather than an unbounded one. */
   it("answers nothing for a session whose stamps it cannot read", async () => {

@@ -562,6 +562,19 @@ describe("what the mounted HTTP surface answers", () => {
     }
   });
 
+  /* The case above posts an empty body, which names no address for the mail cap to count: a send naming one, refused
+     after the cap had counted it, would leave a stranger filling that address's hour with nothing served. */
+  it("writes no mail row for an address posted at the code's send over HTTP, which the in-process send counts", async () => {
+    const mailRows = () => store.verification.filter((row) => row.identifier.startsWith("sign-in-mail-"));
+    const body = { email: PERSON_EMAIL, type: "sign-in" } as const;
+
+    expect((await overHttp("/email-otp/send-verification-otp", { method: "POST", body })).status).toBe(404);
+    expect(mailRows(), "the refused send counted against the address it named").toStrictEqual([]);
+
+    await auth.api.sendVerificationOTP({ body, headers: new Headers(ORIGIN) });
+    expect(mailRows().length, "the in-process send wrote no mail row, so the empty list above proves nothing").toBe(1);
+  });
+
   /* Left writable, this field is one `fetch` from any session to a factor it never presented. The
      route is now refused on both arms, so what drives `input: false` is the case below. */
   it("refuses the route that would stamp a session's own factor, on both arms, and leaves the stamp standing", async () => {
