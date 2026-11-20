@@ -13,7 +13,7 @@ export const REQUEST_DEADLINE_MS = 30000;
  * As long as a request's own, counted from when `runBehindTheResponse` starts: its work is a request's half
  * moved behind the answer, sending the same calls. A stopping container waits out both.
  */
-export const AFTER_RESPONSE_DEADLINE_MS = 30000;
+const AFTER_RESPONSE_DEADLINE_MS = REQUEST_DEADLINE_MS;
 
 /** Which guard recorded the actor: the administrator's, or a person's. */
 export type ActorLane = "admin" | "person";

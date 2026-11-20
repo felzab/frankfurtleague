@@ -44,7 +44,7 @@ const log = captureLog();
 const { action, numberBox, PAGE_HOLDER } = await import("./action");
 const { afterTheResponse } = await import("./afterResponse");
 const { sendToBackend } = await import("./api");
-const { AFTER_RESPONSE_DEADLINE_MS, getRequestActor, requestTimeLeft } = await import("./requestScope");
+const { getRequestActor, REQUEST_DEADLINE_MS, requestTimeLeft } = await import("./requestScope");
 
 /** A person granted nothing, whom a case arrives as for the person lane. */
 const PERSON = "spielerin@example.org";
@@ -376,7 +376,7 @@ describe("the site's cache", () => {
 
     expect(sent()).toStrictEqual([`POST ${PROBE}`]);
     expect(cacheSteps()).toStrictEqual([]);
-    expect(seen).toStrictEqual([{ actor: undefined, left: AFTER_RESPONSE_DEADLINE_MS }]);
+    expect(seen).toStrictEqual([{ actor: undefined, left: REQUEST_DEADLINE_MS }]);
   });
 });
 
