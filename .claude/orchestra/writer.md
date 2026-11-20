@@ -28,6 +28,9 @@ Run them, and the checks of what you touched, with these commands:
   root holds no `pyproject.toml`, so a bare `uv run` there runs no pytest. A path under
   `scripts/tests` runs from Git Bash alone, the one shell whose bash
   `scripts/tests/conftest.py :: pytest_configure` lets run the cases.
+- Database cases: that command deselects every case marked `db`, so each test file of your set that
+  holds one runs again on its own, `uv run --frozen pytest -m db <file>` from `fl_backend`, whether
+  or not your brief mentions the database. A file holds one where it contains `pytest.mark.db`.
 - Where you touched `fl_frontend`: `pnpm run typecheck`, `pnpm run lint`, `pnpm run knip` and
   `pnpm run knip:prod`. The typecheck runs `next typegen` first, without which a fresh worktree's
   `tsc` passes a page that breaks Next's route types. The two knip runs fail an export or a file
@@ -85,10 +88,12 @@ question's options as pictures, holds you to these rules.
   your scratch folder, the coordinator publishes it as an Artifact page, and you publish nothing
   yourself. Draw no outline or box over a picture, since it hides the edge being judged. Every
   option is one the owner could pick with pride: before you build the board, look with the Read tool
-  at each question's recommended option in its phone frame at 360 px, a picture from the
-  coordinator's drive, redraw it where it is cramped, overflowing, clipped mid-line or invisible,
-  and name in your report what you looked at. The coordinator views no picture: your report of what
-  you looked at is the check.
+  at each question's recommended option in its phone frame at 360 px. The coordinator records those
+  frames in its drive and saves them as image files in the folder your brief names; where the brief
+  names none or a frame is missing, message the coordinator rather than build without the look.
+  Redraw an option where it is cramped, overflowing, clipped mid-line or invisible, and name in your
+  report each file you looked at and what it showed. That look is the check of those pictures, and
+  the coordinator does not judge them a second time.
 
 ## The contract
 
@@ -109,8 +114,15 @@ into your scratch folder and commit it with `git commit -F <file>`: the shell to
   exclusion from either is a workaround the owner must approve. Where the work needs a package,
   message the coordinator.
 - The database tier runs one file at a time, `uv run --frozen pytest -m db <file>` from
-  `fl_backend`, and only where your brief allows database files. It never runs whole, as
-  `pytest -m db` with no path and `pnpm run test:db` run it. Each run starts its own containers.
+  `fl_backend`, for every test file of your set that holds a case marked `db`, as part of that set:
+  a rename that breaks a database case breaks it whether or not your brief mentions the database. It
+  never runs whole, as `pytest -m db` with no path and `pnpm run test:db` run it. Each run starts
+  its own containers.
+- A check that needs a database shell runs the host's `mongosh` against the published port of the
+  database your brief names, as `mongosh "mongodb://127.0.0.1:<port>/?directConnection=true"`.
+  Without `directConnection=true` the client follows the replica set's container-internal member
+  address and reaches nothing. Never use `docker exec`, which the project's settings refuse; where
+  your brief names no database and port, message the coordinator.
 - No check runs against an environment's database, which reaches real data, unless your brief names
   that exact command.
 - Never run `./scripts/ops/local.sh`: its ports 3000 and 27017 are fixed, and the machine holds one
