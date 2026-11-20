@@ -45,7 +45,7 @@ const renderWithToasts = (drawn: ReactElement) =>
   );
 
 const VERB = COPY.shared.verb.delete;
-const SUBJECT = COPY.account.passkeys.title;
+const SUBJECT = COPY.shared.passkeys;
 const ENTER = COPY.shared.verb.enter;
 
 const question = (onConfirm: () => Promise<ActionAnswer>, touch?: { holder: string }) => (

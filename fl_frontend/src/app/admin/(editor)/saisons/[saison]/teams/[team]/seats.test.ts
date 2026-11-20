@@ -34,20 +34,20 @@ describe("where a team's seat stands", () => {
 
   it("reads a confirmed person as confirmed, whatever their link says", () => {
     const held = { ...NOBODY, ansprechperson: person("Anna", "2026-10-02") };
-    expect(chipOf(held, { trainer: null, stellvertretung: null, ansprechperson: link({ expired: true }) })).toBe(COPY.admin.confirmed);
+    expect(chipOf(held, { trainer: null, stellvertretung: null, ansprechperson: link({ expired: true }) })).toBe(COPY.shared.state.confirmed);
   });
 
   it("tells a lapsed link from an open one", () => {
     const held = { ...NOBODY, ansprechperson: person("Anna") };
-    expect(chipOf(held, { trainer: null, stellvertretung: null, ansprechperson: link({}) })).toBe(COPY.admin.schiedsrichter.unconfirmed);
-    expect(chipOf(held, { trainer: null, stellvertretung: null, ansprechperson: link({ expired: true }) })).toBe(COPY.admin.expired);
+    expect(chipOf(held, { trainer: null, stellvertretung: null, ansprechperson: link({}) })).toBe(COPY.shared.state.unconfirmed);
+    expect(chipOf(held, { trainer: null, stellvertretung: null, ansprechperson: link({ expired: true }) })).toBe(COPY.shared.state.expired);
   });
 
   it("tells a seat its person objected to from one an erasure emptied", () => {
     expect(chipOf(NOBODY, { trainer: null, stellvertretung: null, ansprechperson: link({ declined_at: "2026-10-03" }) })).toBe(
       SERVER_COPY.entryConfirmation.objected,
     );
-    expect(chipOf(NOBODY, null)).toBe(COPY.admin.erased);
+    expect(chipOf(NOBODY, null)).toBe(COPY.shared.state.erased);
   });
 
   it("adds the chip of a link that never reached its person, beside the seat's own", () => {
@@ -57,6 +57,6 @@ describe("where a team's seat stands", () => {
       (row) => row.id === "ansprechperson",
     );
 
-    expect(seat?.chips.map(({ label }) => label)).toStrictEqual([COPY.admin.schiedsrichter.unconfirmed, COPY.admin.delivery.abandoned]);
+    expect(seat?.chips.map(({ label }) => label)).toStrictEqual([COPY.shared.state.unconfirmed, COPY.admin.delivery.abandoned]);
   });
 });

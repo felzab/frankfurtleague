@@ -30,7 +30,7 @@ import type { Metadata, ResolvingMetadata } from "next";
 
 type Props = PageProps<"/area/schiedsrichter/[saison]">;
 
-const SPIEL = COPY.admin.spiel;
+const SPIEL = COPY.spielplan;
 const TITLE = COPY.page.spiele;
 
 /**
@@ -68,7 +68,7 @@ function standingOf(spiel: FLSchiedsrichterSpiel): Standing {
     return { chip: DECLINED_CHIP, ...(spiel.reason === null ? {} : { adds: { record: spiel.reason } }) };
   }
   if (spiel.state === "valid" && !spiel.past) {
-    return { chip: owedChip(SERVER_COPY.overview.missing(COPY.area.answer)), open: true };
+    return { chip: owedChip(SERVER_COPY.overview.missing(COPY.spielplan.answer)), open: true };
   }
   if (spiel.submitted_at !== null) return { chip: { tone: "success", label: COPY.area.schiedsrichter.reported } };
   if (spiel.state === "agreed") {
@@ -82,13 +82,13 @@ function standingOf(spiel: FLSchiedsrichterSpiel): Standing {
 function ReasonField() {
   return (
     <TextField
-      label={COPY.admin.overview.reason}
+      label={COPY.spielplan.answerNote}
       // The name `declineEinteilung` reads the reason by.
       name="reason"
       kind="paragraph"
       isRequired={requires(SpielbestaetigungenPostSchiedsrichterAnswerBody.shape.reason, "")}
       maxLength={spielbestaetigungenPostSchiedsrichterAnswerBodyReasonOneMax}
-      description={COPY.admin.noNames}
+      description={COPY.shared.noNames}
     />
   );
 }

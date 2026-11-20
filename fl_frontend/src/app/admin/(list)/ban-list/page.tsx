@@ -16,7 +16,7 @@ import type { TableHead, TableRow } from "@/kit/Table";
 import type { Metadata, ResolvingMetadata } from "next";
 
 const WORDS = COPY.admin.banList;
-const ENTER = COPY.shared.withObject(WORDS.object, "enter");
+const ENTER = COPY.shared.withObject(COPY.shared.ban, "enter");
 
 export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
   return pageMetadata(parent, ROUTES.adminBanList, ROUTES.adminBanList.path());
@@ -27,9 +27,9 @@ export async function generateMetadata(_: unknown, parent: ResolvingMetadata): P
  * columns would.
  */
 const HEAD: TableHead = {
-  nameLabel: COPY.signIn.address,
+  nameLabel: COPY.shared.emailAddress,
   columns: [
-    { key: "reason", label: COPY.admin.spiel.reason, hideOnPhone: true, width: "excerpt", cut: true },
+    { key: "reason", label: COPY.shared.reason, hideOnPhone: true, width: "excerpt", cut: true },
     { key: "until", label: COPY.admin.banList.until, hideOnPhone: true, width: "date" },
     { key: "enteredOn", label: COPY.admin.facts.enteredOn, hideOnPhone: true, width: "date" },
   ],
@@ -60,11 +60,11 @@ const rowOf = (ban: FLBanListRow, holder: string): TableRow => {
     acts: (
       <RowAct
         verb="remove"
-        subject={WORDS.object}
+        subject={COPY.shared.ban}
         consequence={WORDS.liftConsequence}
         facts={[
-          { label: COPY.signIn.address, value: { record: ban.address, address: true } },
-          { label: COPY.admin.spiel.reason, value: { record: ban.ban_reason } },
+          { label: COPY.shared.emailAddress, value: { record: ban.address, address: true } },
+          { label: COPY.shared.reason, value: { record: ban.ban_reason } },
         ]}
         run={liftBan}
         id={ban.id}
@@ -94,7 +94,7 @@ export default function BanListPage() {
       head={{ scope: "area", title: { route: "adminBanList" } }}
       create={holder.then((address) => ({
         title: ENTER,
-        act: { verb: "enter", object: WORDS.object },
+        act: { verb: "enter", object: COPY.shared.ban },
         run: enterBan,
         consequence: WORDS.consequence,
         facts: [{ label: WORDS.duration, value: WORDS.durationSaisons(BAN_DURATION_SAISONS) }],

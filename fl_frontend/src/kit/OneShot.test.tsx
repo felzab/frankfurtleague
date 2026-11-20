@@ -105,7 +105,7 @@ describe("a form anybody may send", () => {
   });
 });
 
-const REFUSAL = { verb: "oppose", subject: COPY.shared.entry, consequence: COPY.admin.addressChange.previousStays } as const;
+const REFUSAL = { verb: "oppose", subject: COPY.shared.entry, consequence: COPY.shared.addressChange.previousStays } as const;
 const QUESTION = COPY.shared.question(REFUSAL.subject, REFUSAL.verb);
 const OPPOSE = COPY.shared.verb.oppose;
 

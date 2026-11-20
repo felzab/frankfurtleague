@@ -33,7 +33,7 @@ const figure = (label: Fact["label"], value: number): Fact => ({ label, value: {
 
 /** The facts a card's group and colour are judged on. */
 const factsOf = (row: FLBewerbungListRow): readonly Fact[] => [
-  { label: WORDS.received, value: { record: formatDate(dayOf(row.submitted_at)) } },
+  { label: COPY.shared.facts.received, value: { record: formatDate(dayOf(row.submitted_at)) } },
   figure(COPY.team.stufengroesse, row.stufengroesse),
   figure(COPY.team.expectedKader, row.expected_kader),
   { label: COPY.team.wunschfarbe, value: trikotFarbeLabel(row.wunschfarbe) },
@@ -195,7 +195,7 @@ export function BulkAccept({
       table={{
         label: TITLE,
         nameLabel: COPY.shared.facts.school,
-        state: { label: COPY.admin.schiedsrichter.state },
+        state: { label: COPY.shared.facts.state },
         columns: [
           { key: "gruppe", label: COPY.team.gruppe, narrow: true, width: "word" },
           { key: "farbe", label: COPY.team.trikotFarbe, hideOnPhone: true, width: "word" },

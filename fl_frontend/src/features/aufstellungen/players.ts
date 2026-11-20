@@ -11,7 +11,7 @@ import type { LineupPlayer, LineupWords } from "@/kit/Lineup";
 
 export const LINEUP_WORDS: LineupWords = {
   picked: SERVER_COPY.season.spiel.aufstellung,
-  rest: COPY.area.team.aufstellung.rest,
+  rest: COPY.aufstellung.rest,
   name: SERVER_COPY.season.column.name,
   nummer: SERVER_COPY.season.column.nummer,
   position: SERVER_COPY.season.column.position,
@@ -21,7 +21,7 @@ export const LINEUP_WORDS: LineupWords = {
   none: { kind: "none", plural: SERVER_COPY.season.spiel.aufstellung },
   noKader: { kind: "none", plural: COPY.shared.kader, one: true },
   startersFull: COPY.shared.field.max(STARTERS_MAX),
-  nomineeLocked: COPY.area.team.aufstellung.nomineeLocked(STARTERS_MAX),
+  nomineeLocked: COPY.aufstellung.nomineeLocked(STARTERS_MAX),
   anonymous: COPY.shared.anonymous,
 };
 
@@ -42,7 +42,7 @@ function playerOf(spieler: FLAufstellungSpieler, gone: boolean): LineupPlayer {
     ...(chip === undefined ? {} : { chip }),
     ...(spieler.is_nachnominiert ? { nominee: true } : {}),
     // A pupil the stored line-up names whom the squad no longer holds: deregistered or erased since.
-    ...(gone ? { gone: COPY.admin.spieler.deregistered } : {}),
+    ...(gone ? { gone: COPY.kader.deregistered } : {}),
   };
 }
 

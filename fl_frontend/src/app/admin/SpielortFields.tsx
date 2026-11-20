@@ -39,7 +39,7 @@ export function SpielortFields({
         unit={COPY.shared.unit.euro}
         isRequired={required.mietpreis}
       />
-      <FieldGroup name={WORDS.address}>
+      <FieldGroup name={COPY.shared.address.title}>
         <AddressFields rules={address} />
       </FieldGroup>
     </>

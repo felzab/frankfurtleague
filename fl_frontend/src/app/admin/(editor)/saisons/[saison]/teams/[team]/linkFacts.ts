@@ -21,7 +21,7 @@ function linkStateOf({ skipped, invitation, paused, running }: FLTeamLinkState, 
   if (paused) return LINK_WORDS.registrierungPaused;
   // Not paused and not taking registrations while it runs: the season stores no window, so the link stays shut.
   if (!running && status === "active") return LINK_WORDS.noRegistrierungWindow;
-  return invitation.sent_at === null ? LINK_WORDS.linkNotSent : LINK_WORDS.linkSentOn(dayOf(invitation.sent_at));
+  return invitation.sent_at === null ? COPY.shared.state.linkNotSent : LINK_WORDS.linkSentOn(dayOf(invitation.sent_at));
 }
 
 /**
@@ -34,7 +34,7 @@ export function linkFactsOf(
   { registrierung_end: end, status }: Pick<FLTeamSaisonFacts, "registrierung_end" | "status">,
 ): Fact[] {
   return [
-    { label: COPY.admin.schiedsrichter.state, value: linkStateOf(link, status) },
+    { label: COPY.shared.facts.state, value: linkStateOf(link, status) },
     { label: WORDS.nomineeFrom, value: end === null ? COPY.shared.noValue : { record: formatDate(dayAfter(dayOf(end))) }, figures: true },
   ];
 }

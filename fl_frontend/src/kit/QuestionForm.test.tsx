@@ -20,10 +20,10 @@ type Input = { email: string };
 const ADDRESS = "max@example.org";
 const HOLDER = "pia@example.org";
 const VERB = COPY.shared.verb.delete;
-const SENTENCE = COPY.admin.erasure.consequence;
+const SENTENCE = COPY.account.erasure.consequence;
 const READ: ActionAnswer<AskedInput<Input>> = {
   ok: true,
-  value: { question: { subject: COPY.admin.erasure.object, consequence: SENTENCE }, input: { email: ADDRESS } },
+  value: { question: { subject: COPY.template.account, consequence: SENTENCE }, input: { email: ADDRESS } },
 };
 
 const acts = vi.hoisted(() => ({ read: vi.fn(), run: vi.fn(), touch: vi.fn() }));
@@ -42,7 +42,7 @@ const FORM = (
     run={acts.run}
     holder={HOLDER}>
     <TextField
-      label={COPY.signIn.address}
+      label={COPY.shared.emailAddress}
       name="email"
       kind="email"
     />
@@ -50,7 +50,7 @@ const FORM = (
 );
 
 /** The question the press opens, by its name: a toast is an alert dialog too. */
-const QUESTION = COPY.shared.question(COPY.admin.erasure.object, "delete");
+const QUESTION = COPY.shared.question(COPY.template.account, "delete");
 
 /** The form typed and pressed, the frame's toast region beside it. */
 async function press() {
@@ -81,7 +81,7 @@ describe("a form asking its question over what the press read", () => {
   // The harm: the touch ahead of the question, the act sending what the boxes hold rather than what the read held, or
   // the done act said twice, in the line and in a toast.
   it("runs the act behind the touch on the read's input, emptying the boxes under its done line alone", async () => {
-    acts.run.mockResolvedValue({ ok: true, value: undefined, note: COPY.admin.erased });
+    acts.run.mockResolvedValue({ ok: true, value: undefined, note: COPY.shared.state.erased });
     await press();
 
     const question = await screen.findByRole("alertdialog", { name: QUESTION });
@@ -89,41 +89,41 @@ describe("a form asking its question over what the press read", () => {
     expect(acts.touch).not.toHaveBeenCalled();
     await userEvent.click(within(question).getByRole("button", { name: VERB }));
 
-    expect(await screen.findByText(COPY.admin.erased)).toBeTruthy();
+    expect(await screen.findByText(COPY.shared.state.erased)).toBeTruthy();
     expect(acts.touch).toHaveBeenCalledOnce();
     expect(acts.run).toHaveBeenCalledWith({ email: ADDRESS, holder: HOLDER });
     await waitFor(() => {
       expect(box().value).toBe("");
     });
     // The line alone, the question closed: a toast, in any words, would say the act a second time.
-    expect([screen.getAllByText(COPY.admin.erased).length, screen.queryAllByRole("alertdialog")]).toStrictEqual([1, []]);
+    expect([screen.getAllByText(COPY.shared.state.erased).length, screen.queryAllByRole("alertdialog")]).toStrictEqual([1, []]);
   });
 
   // The harm: an erasure's done line greeting a later visit, or standing over the next address typed.
   it("clears a done act's line as the next address is typed and once the page hides", async () => {
-    acts.run.mockResolvedValue({ ok: true, value: undefined, note: COPY.admin.erased });
+    acts.run.mockResolvedValue({ ok: true, value: undefined, note: COPY.shared.state.erased });
     const { rerender } = renderUnderNext(<Activity mode="visible">{FORM}</Activity>);
     await userEvent.type(box(), ADDRESS);
     await userEvent.click(screen.getByRole("button", { name: VERB }));
     await userEvent.click(within(await screen.findByRole("alertdialog", { name: QUESTION })).getByRole("button", { name: VERB }));
-    await screen.findByText(COPY.admin.erased);
+    await screen.findByText(COPY.shared.state.erased);
 
     await userEvent.type(box(), ADDRESS);
-    expect(screen.queryByText(COPY.admin.erased)).toBeNull();
+    expect(screen.queryByText(COPY.shared.state.erased)).toBeNull();
     await userEvent.click(screen.getByRole("button", { name: VERB }));
     await userEvent.click(within(await screen.findByRole("alertdialog", { name: QUESTION })).getByRole("button", { name: VERB }));
-    await screen.findByText(COPY.admin.erased);
+    await screen.findByText(COPY.shared.state.erased);
 
     rerender(<Activity mode="hidden">{FORM}</Activity>);
     rerender(<Activity mode="visible">{FORM}</Activity>);
     await waitFor(() => {
-      expect(screen.queryByText(COPY.admin.erased)).toBeNull();
+      expect(screen.queryByText(COPY.shared.state.erased)).toBeNull();
     });
   });
 
   // The harm: a passkey touch asked for an act off its fixed list, such as a withdrawal entered from a mail.
   it("runs an act off the touch's list inside its question, asking no touch", async () => {
-    acts.run.mockResolvedValue({ ok: true, value: undefined, note: COPY.admin.erased });
+    acts.run.mockResolvedValue({ ok: true, value: undefined, note: COPY.shared.state.erased });
     renderUnderNext(
       <QuestionForm
         verb="delete"
@@ -133,7 +133,7 @@ describe("a form asking its question over what the press read", () => {
         run={acts.run}
         holder={HOLDER}>
         <TextField
-          label={COPY.signIn.address}
+          label={COPY.shared.emailAddress}
           name="email"
           kind="email"
         />
@@ -143,7 +143,7 @@ describe("a form asking its question over what the press read", () => {
     await userEvent.click(screen.getByRole("button", { name: VERB }));
     await userEvent.click(within(await screen.findByRole("alertdialog", { name: QUESTION })).getByRole("button", { name: VERB }));
 
-    expect(await screen.findByText(COPY.admin.erased)).toBeTruthy();
+    expect(await screen.findByText(COPY.shared.state.erased)).toBeTruthy();
     expect(acts.run).toHaveBeenCalledWith({ email: ADDRESS, holder: HOLDER });
     expect(acts.touch).not.toHaveBeenCalled();
     await waitFor(() => {
@@ -153,11 +153,11 @@ describe("a form asking its question over what the press read", () => {
 
   // The harm: a refused erasure's address gone, so the repeat that reaches the account left standing is typed anew.
   it("toasts an act's refusal, its boxes kept, and the form's press runs the act again", async () => {
-    acts.run.mockResolvedValue({ ok: false, reason: COPY.admin.erasure.partial });
+    acts.run.mockResolvedValue({ ok: false, reason: COPY.shared.failure.stale });
     await press();
 
     await userEvent.click(within(await screen.findByRole("alertdialog", { name: QUESTION })).getByRole("button", { name: VERB }));
-    const toast = await screen.findByRole("alertdialog", { name: COPY.admin.erasure.partial });
+    const toast = await screen.findByRole("alertdialog", { name: COPY.shared.failure.stale });
     expect(toast.querySelector(".text-danger")).toBeTruthy();
     expect([screen.queryByRole("alertdialog", { name: QUESTION }), box().value]).toStrictEqual([null, ADDRESS]);
 

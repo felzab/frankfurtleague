@@ -17,7 +17,7 @@ describe("the sign-in template", () => {
         view="address"
         title={WORDS.title}
         row={null}
-        address={{ label: WORDS.address, value: "", onChange: () => undefined, error }}
+        address={{ label: COPY.shared.emailAddress, value: "", onChange: () => undefined, error }}
         check={null}
         send={{ label: WORDS.sendCode, onPress: () => undefined }}
         or={WORDS.or}
@@ -26,7 +26,7 @@ describe("the sign-in template", () => {
     );
     const refusal = COPY.shared.field.format(COPY.shared.field.exampleAddress);
     const { rerender } = render(addressView(undefined));
-    const field = screen.getByRole("textbox", { name: WORDS.address });
+    const field = screen.getByRole("textbox", { name: COPY.shared.emailAddress });
     const send = screen.getByRole("button", { name: WORDS.sendCode });
     expect(document.activeElement).not.toBe(field);
 

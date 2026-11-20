@@ -104,13 +104,13 @@ function factsOf(email: string, passkeys: number, view: FLAccountErasureViewResp
     figure === 0 ? [] : [{ label, value: { record: formatNumber(figure) }, figures: true }];
 
   return [
-    { label: COPY.signIn.address, value: { record: email, address: true } },
+    { label: COPY.shared.emailAddress, value: { record: email, address: true } },
     ...count(WORDS.passkeys, passkeys),
     ...[...records].map(([label, held]): Fact => ({
       label,
       value: held.length === 1 && held[0] !== undefined ? held[0] : ENTRIES.several(held),
     })),
     ...count(WORDS.addressChanges, address_change),
-    ...(admin_tier === null ? [] : [{ label: WORDS.grant, value: COPY.admin.role }]),
+    ...(admin_tier === null ? [] : [{ label: WORDS.grant, value: COPY.shared.administration }]),
   ];
 }

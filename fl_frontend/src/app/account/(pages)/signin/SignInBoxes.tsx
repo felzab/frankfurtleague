@@ -40,25 +40,25 @@ export function SignInBoxes({
   const address = (
     <Facts
       look="free"
-      facts={[{ label: COPY.account.address.current, value: { record: email, address: true } }]}
+      facts={[{ label: COPY.shared.addressChange.current, value: { record: email, address: true } }]}
     />
   );
   return (
     <>
       {pending === null ? (
         <AccountBox
-          title={COPY.signIn.address}
+          title={COPY.shared.emailAddress}
           description={COPY.account.address.description}
           act={{
             run: startAddressChange,
             // The address the page is drawn for, which every act of the account posts.
             carry: { holder: email },
-            button: { label: COPY.shared.withObject(COPY.account.address.link, "send") },
+            button: { label: COPY.shared.withObject(COPY.shared.link, "send") },
             touch: held,
           }}>
           {address}
           <TextField
-            label={COPY.account.address.new}
+            label={COPY.shared.addressChange.new}
             name="email"
             kind="email"
             autofill="email"
@@ -67,14 +67,14 @@ export function SignInBoxes({
         </AccountBox>
       ) : (
         <AccountBox
-          title={COPY.signIn.address}
+          title={COPY.shared.emailAddress}
           description={COPY.account.address.description}
           act={
             pending.own
               ? {
                   run: withdrawAddressChange,
                   carry: { holder: email },
-                  button: { label: COPY.shared.withObject(COPY.account.address.change, "withdraw") },
+                  button: { label: COPY.shared.withObject(COPY.shared.addressChange.change, "withdraw") },
                 }
               : undefined
           }>

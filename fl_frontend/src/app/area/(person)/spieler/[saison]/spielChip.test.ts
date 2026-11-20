@@ -21,7 +21,7 @@ describe("the chip on a pupil's match card", () => {
   });
 
   it("says „Vorläufig“ for an unconfirmed date the line-up leaves the pupil out of", () => {
-    expect(spielChipOf({ ...CONFIRMED, ansetzung_confirmed: false }, false)?.label).toBe(COPY.admin.spiel.provisional);
+    expect(spielChipOf({ ...CONFIRMED, ansetzung_confirmed: false }, false)?.label).toBe(COPY.spielplan.provisional);
     expect(spielChipOf(CONFIRMED, false)).toBe(undefined);
   });
 });

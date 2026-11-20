@@ -42,7 +42,7 @@ const TIEBREAK: readonly Option[] = [
   { id: "direkter_vergleich", label: WORDS.direkterVergleich },
 ];
 
-const STUFEN = Object.values(FLSpielerStufe).map((stufe) => ({ id: stufe, label: WORDS.stufe[stufe] }));
+const STUFEN = Object.values(FLSpielerStufe).map((stufe) => ({ id: stufe, label: COPY.kader.stufeName[stufe] }));
 
 /** One club of the season as the swap and the replacement list it. */
 export type SaisonTeam = { id: string; name: string; gruppe: string };
@@ -101,7 +101,7 @@ function Swap({ saison, teams, swap, locked }: { saison: string; teams: readonly
         },
       ]}>
       <ComboBox
-        label={WORDS.swapFirst}
+        label={COPY.shared.teamPair.team1}
         options={teams.map(optionOf)}
         isLocked={locked}
         value={first}
@@ -111,7 +111,7 @@ function Swap({ saison, teams, swap, locked }: { saison: string; teams: readonly
         }}
       />
       <ComboBox
-        label={WORDS.swapSecond}
+        label={COPY.shared.teamPair.team2}
         options={partners.map(optionOf)}
         isLocked={locked}
         value={second}
@@ -610,7 +610,7 @@ export function SaisonEditor({
               consequence: WORDS.activateQuestion,
               facts: [
                 {
-                  label: COPY.admin.facts.before,
+                  label: COPY.shared.facts.before,
                   value: facts.siteShows === null ? COPY.shared.noValue : COPY.shared.saisonName(facts.siteShows),
                 },
                 { label: COPY.admin.facts.fromNow, value: COPY.shared.saisonName(saison) },

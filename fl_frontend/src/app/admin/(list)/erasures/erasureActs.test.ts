@@ -109,7 +109,7 @@ describe("the erasure's question", () => {
       consequence: COPY.admin.erasure.consequence,
       facts: [
         { label: COPY.template.account, value: { record: "1" } },
-        { label: COPY.account.passkeys.title, value: { record: "2" } },
+        { label: COPY.shared.passkeys, value: { record: "2" } },
       ],
     });
   });
@@ -123,7 +123,7 @@ describe("the erasure's two stores", () => {
   it("deletes the account after the records, and says so", async () => {
     await accountAtTheErasedAddress();
 
-    expect(await press()).toStrictEqual({ ok: true, value: undefined, note: COPY.admin.erased });
+    expect(await press()).toStrictEqual({ ok: true, value: undefined, note: COPY.shared.state.erased });
     expect(backend.sent.map(({ method, path }) => `${method} ${path}`)).toStrictEqual(["POST /identity/erasure"]);
     // The account stood while the records went, and is gone once the press answers.
     expect(held.accountAtTheErasure).toBe(true);

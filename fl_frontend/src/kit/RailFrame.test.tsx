@@ -46,7 +46,7 @@ function signOutAnswers(status: number) {
 const SIGN_OUT = { url: "/api/auth/sign-out", method: "POST" };
 
 // An administrator: the grant stores no name.
-const ACCOUNT: Account = { role: COPY.admin.role, address: { record: "verwaltung@example.com" } };
+const ACCOUNT: Account = { role: COPY.shared.administration, address: { record: "verwaltung@example.com" } };
 
 /** The frame of a one-page area around a page, its account read as given. */
 async function renderFrame(account: Promise<Account | null>) {
@@ -65,7 +65,7 @@ async function renderFrame(account: Promise<Account | null>) {
 
 /** Opens the account menu from the rail's row, which holds the role. */
 async function openMenu() {
-  const row = screen.getByText(COPY.admin.role).closest("button");
+  const row = screen.getByText(COPY.shared.administration).closest("button");
   if (row === null) throw new Error("the account row is no button");
   await userEvent.click(row);
 }
@@ -137,7 +137,7 @@ describe("the account menu", () => {
 
     await userEvent.click(screen.getByRole("menuitem", { name: COPY.shared.verb.signOut }));
 
-    const toast = await screen.findByRole("alertdialog", { name: COPY.shared.toast.failure });
+    const toast = await screen.findByRole("alertdialog", { name: COPY.shared.failure.unexpected });
     expect(toast.querySelector(".text-danger")).toBeTruthy();
     expect([sent, leave.leaveDocumentFor.mock.calls]).toStrictEqual([[SIGN_OUT], []]);
   });

@@ -17,7 +17,7 @@ describe("an address field's autofill", () => {
   it("offers nothing unless the field names the person's own", () => {
     render(
       <TextField
-        label={COPY.signIn.address}
+        label={COPY.shared.emailAddress}
         kind="email"
       />,
     );
@@ -86,7 +86,7 @@ describe("what the browser takes and the server refuses", () => {
   it("refuses an address outside the API's rule on the press, a host with no dot", async () => {
     const sent = await pressing(
       <TextField
-        label={COPY.signIn.address}
+        label={COPY.shared.emailAddress}
         name="email"
         kind="email"
       />,
@@ -144,7 +144,7 @@ describe("a minute field", () => {
     render(
       <Form onSubmit={(event) => event.preventDefault()}>
         <TextField
-          label={COPY.admin.spiel.minute}
+          label={COPY.spielplan.minute}
           name="minute"
           kind="minute"
           holds={5}

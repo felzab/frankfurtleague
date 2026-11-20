@@ -36,7 +36,7 @@ function NewSchool({ box, rules }: { box: Box; rules: BewerbungRules }) {
     <>
       <TextField
         {...box("schule.team_name")}
-        label={bewerbung.teamName}
+        label={team.teamName}
         description={bewerbung.teamNameDescription}
         kind="text"
         isRequired={required.teamName}
@@ -57,7 +57,7 @@ function NewSchool({ box, rules }: { box: Box; rules: BewerbungRules }) {
         isRequired={required.schulform}
         options={SCHULFORMEN.map((id) => ({ id, label: team.schulformOption[id] }))}
       />
-      <FieldSubgroup name={COPY.admin.spielort.address}>
+      <FieldSubgroup name={COPY.shared.address.title}>
         <AddressFields
           rules={rules}
           box={(field) => box(`schule.address.${field}`)}
@@ -85,7 +85,7 @@ function SeatBoxes({ seat, floor, box, rules }: { seat: FLKontaktSeat; floor: nu
       <TextField
         {...path("first_name")}
         label={shared.firstName}
-        description={COPY.account.entries.mediaFrom(floor)}
+        description={COPY.shared.mediaFrom(floor)}
         kind="text"
         isRequired={required.firstName}
         maxLength={maxLength.firstName}
@@ -99,7 +99,7 @@ function SeatBoxes({ seat, floor, box, rules }: { seat: FLKontaktSeat; floor: nu
       />
       <TextField
         {...path("email")}
-        label={COPY.signIn.address}
+        label={COPY.shared.emailAddress}
         description={bewerbung.ownAddress}
         kind="email"
         isRequired={required.email}

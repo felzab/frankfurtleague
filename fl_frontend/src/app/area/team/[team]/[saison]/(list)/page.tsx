@@ -41,7 +41,7 @@ const line = COPY.shared.line;
 
 const TITLES = {
   spielbestaetigungen: WORDS.card.dates,
-  aufstellungen: TEAM.aufstellung.plural,
+  aufstellungen: COPY.aufstellung.plural,
   registrierungen: COPY.page.registrierungen,
   seats: COPY.team.kontakte,
 } as const;
@@ -85,7 +85,7 @@ function spielbestaetigungRow(row: FLTeamPanelSpielbestaetigung, team: string, s
     case "valid":
     case "vorschlag": {
       const proposal = row.state === "vorschlag" && row.vorschlag !== null ? WORDS.proposal(whenOf(row.vorschlag), opponentOf(row)) : null;
-      const due = deadline === today ? WORDS.answerDue : COPY.admin.spiel.answerBy(deadline);
+      const due = deadline === today ? WORDS.answerDue : COPY.shared.answerBy(deadline);
       return {
         ...base,
         line: line([when, proposal ?? venueOf(ansetzung), due]),
@@ -97,7 +97,7 @@ function spielbestaetigungRow(row: FLTeamPanelSpielbestaetigung, team: string, s
               label={COPY.shared.verb.agree}
               run={agreeSpielbestaetigung}
               payload={{ id: row.spielbestaetigung_id }}
-              done={COPY.shared.toast.agreed}
+              done={COPY.shared.state.agreed}
             />
             <DeclineDialog
               id={row.spielbestaetigung_id}
@@ -113,18 +113,13 @@ function spielbestaetigungRow(row: FLTeamPanelSpielbestaetigung, team: string, s
         ...base,
         chip: EXPIRED_CHIP,
         // A row an exit ended before its deadline lapsed on no day, its deadline never reached.
-        line: line([
-          when,
-          venueOf(ansetzung),
-          row.lapsed_on === null ? null : COPY.admin.schiedsrichter.expiredOn(dayOf(row.lapsed_on)),
-          TEAM.leagueDecides,
-        ]),
+        line: line([when, venueOf(ansetzung), row.lapsed_on === null ? null : COPY.shared.expiredOn(dayOf(row.lapsed_on)), TEAM.leagueDecides]),
       };
     case "declined":
       return {
         ...base,
         chip: DECLINED_CHIP,
-        line: line([when, row.vorschlag === null ? null : COPY.admin.spiel.proposed(whenOf(row.vorschlag))]),
+        line: line([when, row.vorschlag === null ? null : COPY.spielplan.proposed(whenOf(row.vorschlag))]),
       };
     case "agreed":
       return { ...base, chip: AGREED_CHIP, line: line([when, venueOf(ansetzung)]) };
@@ -143,7 +138,7 @@ function aufstellungRow(row: FLTeamPanelAufstellung, team: string, saison: strin
     href: ROUTES.teamAufstellung.path(team, saison, row.spiel_id),
     name: matchName(row.ansetzung.team1_name, row.ansetzung.team2_name),
     ...(chip === undefined ? {} : { chip }),
-    line: line([whenOf(row.ansetzung), row.marks.phase === "open" ? TEAM.aufstellung.dueBy(due) : TEAM.aufstellung.overdueSince(due)]),
+    line: line([whenOf(row.ansetzung), row.marks.phase === "open" ? COPY.aufstellung.dueBy(due) : COPY.aufstellung.overdueSince(due)]),
   };
 }
 
@@ -155,7 +150,7 @@ function registrierungRow(row: FLTeamPanelRegistrierung, team: string, saison: s
   const plays =
     row.position === null && row.stufe === null
       ? null
-      : line([row.position === null ? null : { record: row.position }, row.stufe === null ? null : COPY.admin.saison.stufe[row.stufe]]);
+      : line([row.position === null ? null : { record: row.position }, row.stufe === null ? null : COPY.kader.stufeName[row.stufe]]);
   return {
     id: row.registrierung_id,
     href: ROUTES.teamRegistrierungen.path(team, saison),
@@ -170,9 +165,9 @@ function registrierungRow(row: FLTeamPanelRegistrierung, team: string, saison: s
  * seat into one row, and whether they confirmed; an empty seat muted. A row's seats are its key, no seat held twice.
  */
 function seatRow(seat: FLTeamSeat) {
-  const held = COPY.admin.seatLine(seat.seats, null, null);
+  const held = COPY.team.seatLine(seat.seats, null, null);
   return seat.name === null
-    ? { id: seat.seats.join(" "), name: COPY.admin.seatEmpty, chips: [], line: held, muted: true }
+    ? { id: seat.seats.join(" "), name: COPY.team.seatEmpty, chips: [], line: held, muted: true }
     : {
         id: seat.seats.join(" "),
         name: { record: seat.name },

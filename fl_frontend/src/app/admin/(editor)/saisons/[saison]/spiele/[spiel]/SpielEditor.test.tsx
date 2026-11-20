@@ -42,7 +42,7 @@ const STORED: SpielValues = {
 /** The referee's report at its second version, proposing the same 1:0. */
 const ADOPTION: Adoption = {
   version: 2,
-  text: WORDS.fromReport(WORDS.score({ team1: 1, team2: 0 }, null)),
+  text: WORDS.fromReport(COPY.spielplan.score({ team1: 1, team2: 0 }, null)),
   values: { sonderereignis: NO_SONDEREREIGNIS, hasResult: true, tore1: "1", tore2: "0", shootOut1: "", shootOut2: "" },
 };
 
@@ -63,7 +63,7 @@ function Editor({ save }: { save: Parameters<typeof SpielEditor>[0]["save"] }) {
       teams={null}
       spielorte={[]}
       schiedsrichter={[]}
-      sonderereignisse={[{ id: NO_SONDEREREIGNIS, label: WORDS.none }]}
+      sonderereignisse={[{ id: NO_SONDEREREIGNIS, label: COPY.spielplan.sonderereignis.none }]}
       noteMax={500}
       required={{ mietpreis: true, payment: true }}
       report={{ head: { nameLabel: COPY.shared.spieler, stack: true, columns: [] }, rows: [] }}

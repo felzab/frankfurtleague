@@ -11,7 +11,7 @@ import type { Fact } from "@/kit/Facts";
 /** One question's words: its short sentence, and the facts it rests on. */
 type Question = { consequence: Copy; facts: ReadonlyArray<Fact> };
 
-const SUBJECT = COPY.admin.overview.vorschlag;
+const SUBJECT = COPY.spielplan.vorschlag;
 
 /**
  * A club's proposed date on its row: „Übernehmen“ moves the fixture there and „Verwerfen“ keeps the date, each asked

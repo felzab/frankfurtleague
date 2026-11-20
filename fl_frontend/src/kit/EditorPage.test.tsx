@@ -76,10 +76,10 @@ describe("the editor template's save", () => {
   // act calls the decline too, so a question dropped or confirmed wrongly here leaves a save that can never complete,
   // the bar counting the changes and saying nothing.
   it("asks the question a held-back save answers, and sends it again with its token once confirmed", async () => {
-    const consequence = COPY.admin.spiel.voids([5]);
+    const consequence = COPY.spielplan.shootOutMissing;
     const save = vi
       .fn<(change: EditorSave<Spielort>) => Promise<ActionAnswer<number>>>()
-      .mockResolvedValueOnce({ ok: false, ask: { subject: COPY.admin.spiel.ergebnis, consequence, confirm: "5" } })
+      .mockResolvedValueOnce({ ok: false, ask: { subject: COPY.spielplan.ergebnis, consequence, confirm: "5" } })
       .mockResolvedValueOnce({ ok: true, value: 2 });
     renderUnderNext(<Served save={save} />, AT_ADDRESS);
 
@@ -125,15 +125,15 @@ function ActingEditor({ act }: { act: () => Promise<ActionAnswer> }) {
         },
       ]}
       danger={{
-        title: COPY.admin.retirement,
+        title: COPY.kader.fromKader,
         acts: [
           {
-            name: COPY.shared.withObject(COPY.admin.spielort.object, "retire"),
-            consequence: COPY.admin.spielort.retireConsequence,
+            name: COPY.shared.withObject(COPY.kader.fromKader, "deregister"),
+            consequence: COPY.kader.deregisterConsequence,
             confirm: {
-              verb: "retire",
-              subject: COPY.admin.spielort.object,
-              consequence: COPY.admin.spielort.retireConsequence,
+              verb: "deregister",
+              subject: COPY.kader.fromKader,
+              consequence: COPY.kader.deregisterConsequence,
               tone: "danger",
               onConfirm: act,
             },
@@ -147,7 +147,7 @@ function ActingEditor({ act }: { act: () => Promise<ActionAnswer> }) {
 // An act raises the record's version and runs on the stored values: pressed under a draft, it would act on values the
 // boxes show changed, and the draft's save would then be refused as stale.
 describe("an editor's own acts", () => {
-  it.each([COPY.shared.withObject(COPY.page.spielplan, "create"), COPY.shared.verb.retire])(
+  it.each([COPY.shared.withObject(COPY.page.spielplan, "create"), COPY.shared.verb.deregister])(
     "answer a press with the draft's reason while it holds a change, asking nothing and running nothing: %s",
     async (name) => {
       const act = vi.fn();

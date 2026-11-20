@@ -72,7 +72,7 @@ describe("an editor's draft", () => {
   });
 
   it("says what else the save moved in place of „Gespeichert“", async () => {
-    const note = COPY.admin.spiel.alsoChanged([31]);
+    const note = COPY.aufstellung.lockedLine;
     const { result, rerender } = editorOn(STORED, async () => ({ ok: true, value: 2, note }));
 
     act(() => result.current.set("postcode", "60439"));
@@ -156,7 +156,7 @@ describe("an editor's list of records", () => {
 
 // The harm: a confirmation reaching a draft it was not asked about, or a question nobody can answer.
 describe("an editor's save the server holds back for a question", () => {
-  const QUESTION = { subject: COPY.admin.spiel.ergebnis, consequence: COPY.admin.spiel.voids([31]), confirm: "31" };
+  const QUESTION = { subject: COPY.spielplan.ergebnis, consequence: COPY.spielplan.shootOutMissing, confirm: "31" };
 
   /** A server holding every save back for its question. */
   const heldBack = () => editorOn(STORED, async () => ({ ok: false, ask: QUESTION }));

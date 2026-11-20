@@ -5,7 +5,6 @@ import { dayOf, formatDateWithWeekday, formatErgebnis, formatOrdinal, formatTime
 import { buildMapsSearchUrl } from "@/core/maps";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
-import { PHASE_LABELS } from "@/features/saisons/constants";
 import { getSpielPage } from "@/features/saisons/queries";
 import { publicSaisonOf } from "@/features/saisons/resolvers";
 import { eventOf, headOf, matchdayOf, refereeOf, sidesOf } from "@/features/spiele/blocks";
@@ -118,7 +117,7 @@ function tilesOf(spiel: FLSpielJoined, page: FLSpielPageResponse): readonly [Sta
   const group = spiel.saison_phase === "gruppenphase";
   return [
     group
-      ? { label: fact.spieltag, value: { record: formatOrdinal(page.spieltag_position) }, line: PHASE_LABELS.gruppenphase }
+      ? { label: fact.spieltag, value: { record: formatOrdinal(page.spieltag_position) }, line: COPY.shared.phase.gruppenphase }
       : { label: fact.spieltag, value: matchdayOf(spiel, page), words: true },
     dateTileOf(spiel.date === null ? null : dayOf(spiel.date)),
     { label: fact.time, value: spiel.time === null ? COPY.shared.noValue : { record: formatTime(timeOf(spiel.time)) } },

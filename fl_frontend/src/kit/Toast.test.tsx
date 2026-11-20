@@ -6,7 +6,7 @@ import { COPY } from "@/core/copy";
 
 import { appToast, toastAnswer, ToastRegion } from "./Toast";
 
-const TITLE = COPY.shared.toast.failure;
+const TITLE = COPY.shared.failure.unexpected;
 
 // The queue is the module's own, shared by every test here: each toast leaves before the next test, a done act's on
 // the timer its region started and any other by its close button, pressed while the test's region still stands.
@@ -33,12 +33,12 @@ describe("the toast region", () => {
 // The harm: an act that partly happened told as done or as refused, the person left to think it did all or nothing.
 describe("an act's answer as its toast", () => {
   it.each([
-    ["done", { ok: true, value: undefined }, COPY.shared.toast.agreed, "text-success"],
+    ["done", { ok: true, value: undefined }, COPY.shared.state.agreed, "text-success"],
     ["refused", { ok: false, reason: COPY.shared.failure.stale }, COPY.shared.failure.stale, "text-danger"],
   ] as const)("says %s in its own tone", (_case, answer, title, hue) => {
     render(<ToastRegion frame="rail" />);
 
-    act(() => toastAnswer(answer, COPY.shared.toast.agreed));
+    act(() => toastAnswer(answer, COPY.shared.state.agreed));
 
     const toast = screen.getByText(title).closest<HTMLElement>("[data-kit-focus='ring']");
     expect(toast?.querySelector(`.${hue}`)).toBeTruthy();
@@ -49,23 +49,23 @@ describe("an act's answer as its toast", () => {
   it("lets a done act's toast leave by itself and keeps a refusal and a partial outcome until each is closed", () => {
     render(<ToastRegion frame="rail" />);
     act(() => {
-      toastAnswer({ ok: true, value: undefined }, COPY.shared.toast.agreed);
-      toastAnswer({ ok: false, reason: COPY.shared.failure.stale }, COPY.shared.toast.agreed);
-      toastAnswer({ ok: false, reason: COPY.admin.banList.partial.sessions, warn: true }, COPY.shared.toast.agreed);
-      toastAnswer({ ok: true, value: undefined, note: COPY.admin.banList.partial.notice, warn: true }, COPY.shared.toast.agreed);
+      toastAnswer({ ok: true, value: undefined }, COPY.shared.state.agreed);
+      toastAnswer({ ok: false, reason: COPY.shared.failure.stale }, COPY.shared.state.agreed);
+      toastAnswer({ ok: false, reason: COPY.shared.failure.tooManyAttempts, warn: true }, COPY.shared.state.agreed);
+      toastAnswer({ ok: true, value: undefined, note: COPY.shared.addressChange.previousStays, warn: true }, COPY.shared.state.agreed);
     });
 
     act(() => vi.runAllTimers());
 
-    expect(screen.queryByText(COPY.shared.toast.agreed)).toBeNull();
+    expect(screen.queryByText(COPY.shared.state.agreed)).toBeNull();
     expect(screen.getByText(COPY.shared.failure.stale)).toBeTruthy();
-    expect(screen.getByText(COPY.admin.banList.partial.sessions)).toBeTruthy();
-    expect(screen.getByText(COPY.admin.banList.partial.notice)).toBeTruthy();
+    expect(screen.getByText(COPY.shared.failure.tooManyAttempts)).toBeTruthy();
+    expect(screen.getByText(COPY.shared.addressChange.previousStays)).toBeTruthy();
 
     for (const close of screen.getAllByRole("button", { name: COPY.shared.close })) act(() => close.click());
 
     expect(screen.queryByText(COPY.shared.failure.stale)).toBeNull();
-    expect(screen.queryByText(COPY.admin.banList.partial.sessions)).toBeNull();
-    expect(screen.queryByText(COPY.admin.banList.partial.notice)).toBeNull();
+    expect(screen.queryByText(COPY.shared.failure.tooManyAttempts)).toBeNull();
+    expect(screen.queryByText(COPY.shared.addressChange.previousStays)).toBeNull();
   });
 });

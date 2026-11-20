@@ -22,7 +22,7 @@ import type { Metadata, ResolvingMetadata } from "next";
 
 type Props = PageProps<"/area/spieler/[saison]">;
 
-const WORDS = COPY.admin.spieler;
+const WORDS = COPY.kader;
 
 /**
  * The pupil's own season: `null` for a season none of their records stands in, which the frame's own read judges at no
@@ -60,7 +60,7 @@ function tilesOf(saison: string, kader: FLSpielerSelfKaderRow, isPublic: boolean
     },
     { label: WORDS.nummer, value: factOf(kader.nummer) },
     { label: WORDS.position, value: factOf(kader.position), words: true },
-    { label: WORDS.stufe, value: kader.stufe === null ? COPY.shared.noValue : COPY.admin.saison.stufe[kader.stufe], words: true },
+    { label: WORDS.stufe, value: kader.stufe === null ? COPY.shared.noValue : COPY.kader.stufeName[kader.stufe], words: true },
   ];
 }
 

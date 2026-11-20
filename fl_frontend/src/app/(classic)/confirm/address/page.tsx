@@ -120,8 +120,8 @@ async function newState(view: FLAddressChangeViewNew, token: string): Promise<Ma
     side: "new",
     way: view.way,
     token,
-    title: COPY.shared.withObject(COPY.signIn.address, "confirm"),
-    label: COPY.signIn.address,
+    title: COPY.shared.withObject(COPY.shared.emailAddress, "confirm"),
+    label: COPY.shared.emailAddress,
     email: view.email,
     sentence: WORDS.new.question,
     ...(view.way === "waiting_period" ? { waits: WORDS.new.waits({ days: ADDRESS_CHANGE_WAIT_DAYS }) } : {}),
@@ -158,7 +158,7 @@ function question({
     acts: {
       primary: title,
       // Either side's decline ends the change, so the account keeps the address it has.
-      refusal: { verb: "decline", subject: WORDS.change, consequence: COPY.admin.addressChange.previousStays },
+      refusal: { verb: "decline", subject: WORDS.change, consequence: COPY.shared.addressChange.previousStays },
     },
     carry: { token, side, way },
   };
@@ -168,7 +168,7 @@ function question({
 function stop({ email, effective_from: effectiveFrom }: FLAddressChangeViewPrevious, token: string): MailedState {
   const facts: Fact[] = [];
   if (email !== null) facts.push({ label: WORDS.newAddress, value: { record: email, address: true } });
-  if (effectiveFrom !== null) facts.push({ label: COPY.admin.facts.effectiveFrom, value: { record: formatInstantShort(effectiveFrom) } });
+  if (effectiveFrom !== null) facts.push({ label: COPY.shared.facts.effectiveFrom, value: { record: formatInstantShort(effectiveFrom) } });
   return {
     state: "question",
     title: COPY.account.address.stop,

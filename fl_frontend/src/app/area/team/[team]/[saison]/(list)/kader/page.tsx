@@ -16,7 +16,7 @@ import type { Metadata, ResolvingMetadata } from "next";
 
 type Props = PageProps<"/area/team/[team]/[saison]/kader">;
 
-const WORDS = COPY.admin.spieler;
+const WORDS = COPY.kader;
 
 const address = ({ team, saison }: { team: string; saison: string }) => ROUTES.teamKader.path(team, saison);
 
@@ -34,7 +34,7 @@ export async function generateMetadata({ params }: Props, parent: ResolvingMetad
  */
 const HEAD: TableHead = {
   nameLabel: COPY.shared.name,
-  state: { label: COPY.admin.schiedsrichter.state },
+  state: { label: COPY.shared.facts.state },
   columns: [
     { key: "nummer", label: SERVER_COPY.season.column.nummer, figures: true, narrow: true, width: "count" },
     { key: "position", label: WORDS.position, hideOnPhone: true, width: "word" },

@@ -12,8 +12,8 @@ const SIDES = [
 ] as const;
 
 const SHOOT_OUT = {
-  label: COPY.admin.spiel.elfmeterschiessen,
-  head: COPY.admin.spiel.afterElfmeterschiessen,
+  label: COPY.spielplan.elfmeterschiessen,
+  head: COPY.shared.afterElfmeterschiessen,
   names: ["shootOut1", "shootOut2"],
   values: ["4", "3"],
   onChange: () => undefined,
@@ -48,7 +48,7 @@ describe("a score counted from goals entered elsewhere", () => {
       />,
     );
     const home = screen.getByRole("group", { name: "Ahorn" });
-    expect(within(home).getByRole("textbox", { name: COPY.admin.spiel.elfmeterschiessen }).getAttribute("name")).toBe("shootOut1");
+    expect(within(home).getByRole("textbox", { name: COPY.spielplan.elfmeterschiessen }).getAttribute("name")).toBe("shootOut1");
     expect(screen.getAllByRole("textbox")).toHaveLength(2);
   });
 });

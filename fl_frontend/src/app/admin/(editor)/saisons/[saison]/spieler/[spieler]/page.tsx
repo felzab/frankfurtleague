@@ -67,7 +67,7 @@ export default async function SpielerEditorPage({ params }: Props) {
 
 /** The Person box's fact: the address, a mail link to the person. */
 function personFacts({ person }: FLSpielerSaisonAdminResponse): Fact[] {
-  return [{ label: COPY.signIn.address, link: { href: `mailto:${person.email}` as Route, label: { record: person.email } } }];
+  return [{ label: COPY.shared.emailAddress, link: { href: `mailto:${person.email}` as Route, label: { record: person.email } } }];
 }
 
 /** The Kader box's facts: the team, and for an ausgetragen row the day it left. */

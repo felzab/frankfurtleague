@@ -11,9 +11,8 @@ import { IDEMPOTENCY_KEY_HEADER } from "@/core/idempotencyKey";
 import { applicationOf, REPLAY_FIELD } from "./application";
 import { SUBMITTED } from "./ends";
 
-const { exampleFirstName, exampleLastName } = COPY.shared.field;
-const { phoneExample } = COPY.admin.schiedsrichter;
-const { houseNumberExample, postcodeExample } = COPY.admin.spielort;
+const { exampleFirstName, exampleLastName, examplePhone } = COPY.shared.field;
+const { houseNumberExample, postcodeExample } = COPY.shared.address;
 
 const Application = z.preprocess(applicationOf, BewerbungenPostBewerbungBody.extend({ [REPLAY_FIELD]: z.uuid() }));
 
@@ -50,13 +49,13 @@ export const submitBewerbung = action({
   examples: {
     "kontakte.trainer.first_name": exampleFirstName,
     "kontakte.trainer.last_name": exampleLastName,
-    "kontakte.trainer.phone": phoneExample,
+    "kontakte.trainer.phone": examplePhone,
     "kontakte.ansprechperson.first_name": exampleFirstName,
     "kontakte.ansprechperson.last_name": exampleLastName,
-    "kontakte.ansprechperson.phone": phoneExample,
+    "kontakte.ansprechperson.phone": examplePhone,
     "kontakte.stellvertretung.first_name": exampleFirstName,
     "kontakte.stellvertretung.last_name": exampleLastName,
-    "kontakte.stellvertretung.phone": phoneExample,
+    "kontakte.stellvertretung.phone": examplePhone,
     "schule.address.postcode": postcodeExample,
     "schule.address.house_number": houseNumberExample,
   },

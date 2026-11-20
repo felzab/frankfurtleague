@@ -32,7 +32,7 @@ export function EinteilungActs({
         label={COPY.shared.verb.agree}
         run={agreeEinteilung}
         payload={{ id }}
-        done={COPY.shared.toast.agreed}
+        done={COPY.shared.state.agreed}
       />
       <Dialog
         title={TITLE}

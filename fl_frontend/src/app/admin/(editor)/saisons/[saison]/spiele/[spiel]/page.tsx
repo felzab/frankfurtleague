@@ -45,11 +45,11 @@ type Props = PageProps<"/admin/saisons/[saison]/spiele/[spiel]">;
 const WORDS = COPY.admin.spiel;
 
 const SONDEREREIGNISSE: Readonly<Record<FLSonderereignis, Copy>> = {
-  ausgefallen: WORDS.ausgefallen,
+  ausgefallen: COPY.spielplan.sonderereignis.ausgefallen,
   nichtantreten_team1: WORDS.nichtantretenTeam1,
   nichtantreten_team2: WORDS.nichtantretenTeam2,
-  abgebrochen: WORDS.abgebrochen,
-  annulliert: WORDS.annulliert,
+  abgebrochen: COPY.spielplan.sonderereignis.abgebrochen,
+  annulliert: COPY.spielplan.sonderereignis.annulliert,
 };
 
 const { spielort, schiedsrichter } = SpielePatchSpielBody.shape;
@@ -66,8 +66,8 @@ const REPORT_HEAD: TableHead = {
   stack: true,
   columns: [
     { key: "event", label: WORDS.event },
-    { key: "minute", label: WORDS.minute, figures: true },
-    { key: "score", label: WORDS.ergebnis, figures: true },
+    { key: "minute", label: COPY.spielplan.minute, figures: true },
+    { key: "score", label: COPY.spielplan.ergebnis, figures: true },
   ],
 };
 
@@ -142,7 +142,7 @@ function berichtRows(spiel: FLSpielJoinedAdmin, bericht: FLSpielEditorBericht): 
         cells: {
           event: tor.eigentor ? words.eigentor : words.tor,
           minute: { record: tor.minute },
-          score: WORDS.score(score, null),
+          score: COPY.spielplan.score(score, null),
         },
       };
     });
@@ -173,11 +173,11 @@ function adoptionOf(spiel: FLSpielJoinedAdmin, bericht: FLSpielEditorBericht | n
     shootOut1: elfmeterschiessen === null ? "" : String(elfmeterschiessen.team1),
     shootOut2: elfmeterschiessen === null ? "" : String(elfmeterschiessen.team2),
   };
-  return { version: bericht.version, text: WORDS.fromReport(WORDS.score({ team1: tore1, team2: tore2 }, elfmeterschiessen)), values };
+  return { version: bericht.version, text: WORDS.fromReport(COPY.spielplan.score({ team1: tore1, team2: tore2 }, elfmeterschiessen)), values };
 }
 
 /** An answer the party has not given: the chip of one still owed, and the line of one that lapsed on no day. */
-const ANSWER_MISSING = SERVER_COPY.overview.missing(COPY.area.answer);
+const ANSWER_MISSING = SERVER_COPY.overview.missing(COPY.spielplan.answer);
 
 /**
  * One party's answer as a row, by the state its newest row reads as: its name, its chip, and under them the answer's
@@ -201,21 +201,21 @@ function answerRow(id: string, name: Words, plaque: string | null, row: FLSpielb
     return { ...shown, chip: { tone: "warn", label: COPY.template.open }, line: WORDS.notAsked };
   }
   if (row.state === "expired") {
-    const line = row.lapsed_on === null ? ANSWER_MISSING : COPY.admin.schiedsrichter.expiredOn(dayOf(row.lapsed_on));
+    const line = row.lapsed_on === null ? ANSWER_MISSING : COPY.shared.expiredOn(dayOf(row.lapsed_on));
     return { ...shown, chip: EXPIRED_CHIP, line };
   }
   const { answer } = row;
   // Unanswered and in time: its party may still answer, a referee until the slot's day, which no deadline binds.
-  if (answer === null) return { ...shown, chip: owedChip(ANSWER_MISSING), line: WORDS.answerBy(dayOf(row.due_by)) };
+  if (answer === null) return { ...shown, chip: owedChip(ANSWER_MISSING), line: COPY.shared.answerBy(dayOf(row.due_by)) };
   const reason = answer.reason === null ? {} : { reason: { record: answer.reason } };
   if (row.state === "invalid") {
     const slot = SERVER_COPY.season.labelled(
-      COPY.admin.facts.before,
+      COPY.shared.facts.before,
       COPY.spielplan.when(dayOf(row.ansetzung.date), timeOf(row.ansetzung.time)),
     );
     return answer.kind === "agreed" ? { ...shown, chip: AGREED_CHIP, line: slot } : { ...shown, chip: DECLINED_CHIP, line: slot, ...reason };
   }
-  const day: Words = answer.by.kind === "admin" ? WORDS.enteredByLeague : { record: formatDate(dayOf(answer.at)) };
+  const day: Words = answer.by.kind === "admin" ? COPY.spielplan.enteredByLeague : { record: formatDate(dayOf(answer.at)) };
   // The chip follows the state, so a decline whose proposal the league discarded reads as the agreement it counts as.
   if (row.state === "agreed") {
     return answer.kind === "agreed"
@@ -226,7 +226,7 @@ function answerRow(id: string, name: Words, plaque: string | null, row: FLSpielb
   const line =
     vorschlag === null
       ? day
-      : SERVER_COPY.season.labelled(day, WORDS.proposed(COPY.spielplan.when(dayOf(vorschlag.date), timeOf(vorschlag.time))));
+      : SERVER_COPY.season.labelled(day, COPY.spielplan.proposed(COPY.spielplan.when(dayOf(vorschlag.date), timeOf(vorschlag.time))));
   return { ...shown, chip: DECLINED_CHIP, line, ...reason };
 }
 
@@ -276,7 +276,7 @@ function aufstellungRows(view: FLSpieleAdminSingleResponse): Array<CardActRowPro
   if (spiel.date === null || spiel.time === null) return [];
   // The served marks read the clock alone and never the event, so the page judges the event itself.
   const owed = spiel.sonderereignis === null;
-  const words = COPY.area.team.aufstellung;
+  const words = COPY.aufstellung;
   return (["team1", "team2"] as const).flatMap((side) => {
     const team = spiel[side];
     if (team === null) return [];
@@ -319,7 +319,7 @@ async function readEditor(params: Props["params"]) {
   const begun = view.saison_begun;
   const bothSides = saved.team1 !== null && saved.team2 !== null;
   const sonderereignisse: Option[] = [
-    { id: NO_SONDEREREIGNIS, label: WORDS.none },
+    { id: NO_SONDEREREIGNIS, label: COPY.spielplan.sonderereignis.none },
     ...Object.values(FLSonderereignis).map((event): Option => {
       const label = SONDEREREIGNISSE[event];
       if (!begun && !takesNoResult(event)) return { id: event, label, isDisabled: true, note: COPY.admin.untilStart };
@@ -364,7 +364,7 @@ async function readEditor(params: Props["params"]) {
               ? { id: person.id, label: { record: person.name }, isDisabled: true, note: COPY.shared.retired }
               : person.confirmed
                 ? { id: person.id, label: { record: person.name } }
-                : { id: person.id, label: { record: person.name }, isDisabled: true, note: COPY.admin.schiedsrichter.unconfirmed },
+                : { id: person.id, label: { record: person.name }, isDisabled: true, note: COPY.shared.state.unconfirmed },
           price: person.default_payment,
         })),
       ]}

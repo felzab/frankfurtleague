@@ -21,7 +21,7 @@ import type { SideAct } from "@/kit/SideActs";
 import type { ReactNode } from "react";
 
 const EDIT = COPY.shared.withObject(COPY.team.seat, "edit");
-const SEND = COPY.shared.withObject(COPY.account.address.link, "send");
+const SEND = COPY.shared.withObject(COPY.shared.link, "send");
 const ACT = { verb: "save" } as const;
 
 /**
@@ -105,7 +105,7 @@ export function SeatActs<Key>({
           defaultValue={person?.last_name}
         />
         <TextField
-          label={COPY.signIn.address}
+          label={COPY.shared.emailAddress}
           name="email"
           kind="email"
           isRequired={required.email}

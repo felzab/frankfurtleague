@@ -31,13 +31,19 @@ you write one; the strings themselves live in the catalogue, `fl_frontend/src/co
 
 ## A string lives in the catalogue and nowhere else
 
-- **One typed catalogue in two modules, German only, keyed by area**, with the frozen consent
-  wordings beside it and the association's fixed facts in `fl_frontend/src/core/brand.ts`. Its
-  `shared` section comes first and every area draws from it; an area adds a key of its own only for
-  a string `shared` lacks. No test hunts duplicate text, so review is what keeps a second
-  „Gespeichert“ out. A string only the server reads, a mail, a refusal's sentence or a page's
-  description among them, lives in its second object,
+- **One typed catalogue in two modules, German only, keyed by who reads it**, with the frozen
+  consent wordings beside it and the association's fixed facts in `fl_frontend/src/core/brand.ts`.
+  Its `shared` section comes first and holds what several areas read. A record's words that several
+  areas read stand under the record's noun: a club's in `team`, a match's in `spielplan`, a squad
+  row's in `kader` and a line-up's in `aufstellung`. An area's own section holds only what that area
+  alone reads, and the administration's, `COPY.admin`, is read nowhere else: lint refuses a read of
+  it outside `fl_frontend/src/app/admin` and the feature modules only the administration imports
+  (`fl_frontend/eslint.config.mjs`). A string has one key; no test hunts duplicate text, so review
+  is what keeps a second „Gespeichert“ out. A string only the server reads, a mail, a refusal's
+  sentence or a page's description among them, lives in its second object,
   `fl_frontend/src/core/serverCopy.ts :: SERVER_COPY`, so no client bundle carries it.
+- **A group indexed by a union the backend serves names that union** in a `satisfies Record<…>` on
+  its literal, so an entry for a member the backend no longer serves fails the type check.
 - **A component's text prop takes `fl_frontend/src/core/copy.ts :: Copy`, or a record's own data as
   `{ record }` (`Words`)**, so a string typed into a page does not compile, and lint refuses a
   literal inside a `{ record }`. A prop holding a block, such as a door's act, takes a

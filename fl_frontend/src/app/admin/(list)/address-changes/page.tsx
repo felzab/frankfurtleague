@@ -27,7 +27,7 @@ import type { StartRules } from "./StartFields";
 
 const WORDS = COPY.admin.addressChange;
 
-const START = COPY.shared.withObject(COPY.account.address.change, "enter");
+const START = COPY.shared.withObject(COPY.shared.addressChange.change, "enter");
 
 export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
   return pageMetadata(parent, ROUTES.adminAddressChanges, ROUTES.adminAddressChanges.path());
@@ -61,10 +61,10 @@ function untilOf({ effective_from, valid_until, waits_on }: FLAddressChangeAdmin
 function endFactsOf({ address, email, effective_from, holder, waits_on }: FLAddressChangeAdminOpen): ReadonlyArray<Fact> {
   const toldHolders = holder !== null && waits_on === "waiting_period";
   return [
-    { label: COPY.admin.facts.before, value: { record: address, address: true } },
-    { label: COPY.admin.facts.after, value: { record: email, address: true } },
-    ...(effective_from === null ? [] : [{ label: COPY.admin.facts.effectiveFrom, value: { record: formatInstantShort(effective_from) } }]),
-    { label: COPY.admin.facts.mailTo, value: toldHolders ? COPY.admin.mailTo.holders : COPY.admin.seatEmpty },
+    { label: COPY.shared.facts.before, value: { record: address, address: true } },
+    { label: COPY.shared.facts.after, value: { record: email, address: true } },
+    ...(effective_from === null ? [] : [{ label: COPY.shared.facts.effectiveFrom, value: { record: formatInstantShort(effective_from) } }]),
+    { label: COPY.admin.facts.mailTo, value: toldHolders ? COPY.admin.mailTo.holders : COPY.team.seatEmpty },
   ];
 }
 
@@ -111,9 +111,9 @@ function rowOf(change: FLAddressChangeAdminOpen, holder: string): TableRow {
  * step ends in the table, where it has one, and the new address before it on a stacked row.
  */
 const HEAD: TableHead = {
-  nameLabel: COPY.admin.facts.before,
-  state: { label: COPY.admin.schiedsrichter.state, delivery: true },
-  columns: [{ key: "after", label: COPY.admin.facts.after, hideOnPhone: true, width: "line", cut: true }],
+  nameLabel: COPY.shared.facts.before,
+  state: { label: COPY.shared.facts.state, delivery: true },
+  columns: [{ key: "after", label: COPY.shared.facts.after, hideOnPhone: true, width: "line", cut: true }],
 };
 
 const START_RULES: StartRules = {
@@ -135,7 +135,7 @@ export default function AddressChangesPage() {
       head={{ scope: "area", title: { route: "adminAddressChanges" } }}
       create={read.then(({ changes, holder }): ListCreate => ({
         title: START,
-        act: { verb: "enter", object: COPY.account.address.change },
+        act: { verb: "enter", object: COPY.shared.addressChange.change },
         run: startLostMailboxChange,
         consequence: WORDS.startConsequence({ days: ADDRESS_CHANGE_WAIT_DAYS }),
         facts: [{ label: COPY.admin.facts.mailTo, value: COPY.admin.mailTo.bothAddresses }],

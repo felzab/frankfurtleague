@@ -5,7 +5,7 @@ import { TextField } from "./TextField";
 
 import type { Copy } from "@/core/copy";
 
-const WORDS = COPY.admin.spielort;
+const WORDS = COPY.shared.address;
 
 /** An address's boxes, by the names they post under. */
 type AddressField = "street" | "house_number" | "postcode" | "district" | "city";

@@ -17,7 +17,7 @@ export function buildBanEmail({ ban_reason, barred_until_saison_id }: FLBanData,
     subjectLine: WORDS.subject,
     origin: mailOrigin(origin),
     paragraphs: [[WORDS.lead, WORDS.effect, WORDS.ends(barred_until_saison_id)]],
-    block: { title: COPY.admin.banList.object, facts: [{ label: COPY.admin.spiel.reason, value: ban_reason }] },
+    block: { title: COPY.shared.ban, facts: [{ label: COPY.shared.reason, value: ban_reason }] },
     afterBlock: [
       // Art. 13: what is kept and on what basis, named because this mail is the only record its reader ever gets.
       [WORDS.stored, WORDS.account, WORDS.basis],

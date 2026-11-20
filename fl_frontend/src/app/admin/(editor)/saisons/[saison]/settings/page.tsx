@@ -35,7 +35,7 @@ const TEAM = COPY.shared.facts.team;
  */
 const LINKS_HEAD: TableHead = {
   nameLabel: TEAM,
-  state: { label: COPY.admin.schiedsrichter.state },
+  state: { label: COPY.shared.facts.state },
   // Secondary, as every list's day column: on a phone the row keeps its name and its chip.
   columns: [{ key: "sentOn", label: WORDS.sentOn, hideOnPhone: true, width: "date" }],
 };

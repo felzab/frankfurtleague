@@ -66,7 +66,7 @@ function question(view: FLRegistrierungConfirmationViewValid, token: string): Ma
       { label: COPY.shared.saison, value: COPY.shared.saisonName(view.saison_id) },
       { label: SERVER_COPY.kontaktConfirmation.confirmBy, value: { record: formatDate(until) } },
     ],
-    sentence: WORDS.text(WORDS.opening({ record: view.team }, view.saison_id), WORDS.stored),
+    sentence: SERVER_COPY.paragraph(WORDS.opening({ record: view.team }, view.saison_id), WORDS.stored),
     more: WORDS.more,
     sentenceAfter: WORDS.deadline(until),
     run: answerRegistrierung,

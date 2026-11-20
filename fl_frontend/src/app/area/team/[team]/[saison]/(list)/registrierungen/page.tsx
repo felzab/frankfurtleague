@@ -41,7 +41,7 @@ export async function generateMetadata({ params }: Props, parent: ResolvingMetad
  * else at once, into that stored person or a new one.
  */
 function admissionOf(row: FLOpenRegistrierung): Admission {
-  if (!row.admissible) return { kind: "locked", reason: WORDS.awaitsConfirmation };
+  if (!row.admissible) return { kind: "locked", reason: COPY.shared.afterConfirmation };
   if (row.kader_full) return { kind: "locked", reason: WORDS.kaderFull };
   if (row.person?.deviates_from === true) return { kind: "asks", spieler_id: row.person.spieler_id, name: kaderName(row.person) };
   return { kind: "once", spieler_id: row.person?.spieler_id ?? null };
@@ -53,7 +53,7 @@ function admissionOf(row: FLOpenRegistrierung): Admission {
  */
 function rowOf(row: FLOpenRegistrierung, at: Omit<Decided, "registrierung_id">): RegistrierungRow {
   const name = `${row.first_name} ${row.last_name}`;
-  const notes = [...(row.person === null ? [] : [WORDS.returning]), ...(row.nummer_double ? [COPY.admin.spieler.nummerDouble] : [])];
+  const notes = [...(row.person === null ? [] : [WORDS.returning]), ...(row.nummer_double ? [COPY.kader.nummerDouble] : [])];
   const line = notes.length === 0 ? undefined : COPY.shared.line(notes);
   const received = { record: formatDate(dayOf(row.submitted_at)) };
   return {
@@ -68,9 +68,9 @@ function rowOf(row: FLOpenRegistrierung, at: Omit<Decided, "registrierung_id">):
       ...(line === undefined ? {} : { notes: line }),
       facts: [
         { label: SERVER_COPY.season.column.nummer, value: row.nummer === null ? COPY.shared.noValue : { record: row.nummer }, figures: true },
-        { label: COPY.admin.spieler.position, value: row.position === null ? COPY.shared.noValue : { record: row.position } },
-        { label: COPY.admin.spieler.stufe, value: row.stufe === null ? COPY.shared.noValue : COPY.admin.saison.stufe[row.stufe] },
-        { label: COPY.admin.bewerbung.received, value: received, figures: true },
+        { label: COPY.kader.position, value: row.position === null ? COPY.shared.noValue : { record: row.position } },
+        { label: COPY.kader.stufe, value: row.stufe === null ? COPY.shared.noValue : COPY.kader.stufeName[row.stufe] },
+        { label: COPY.shared.facts.received, value: received, figures: true },
       ],
       admission: admissionOf(row),
     },
@@ -83,8 +83,8 @@ function rowOf(row: FLOpenRegistrierung, at: Omit<Decided, "registrierung_id">):
  */
 const HEAD: TableHead = {
   nameLabel: COPY.shared.name,
-  state: { label: COPY.admin.schiedsrichter.state },
-  columns: [{ key: "received", label: COPY.admin.bewerbung.received, hideOnPhone: true, width: "date" }],
+  state: { label: COPY.shared.facts.state },
+  columns: [{ key: "received", label: COPY.shared.facts.received, hideOnPhone: true, width: "date" }],
 };
 
 /** The empty list's state: only the league mints and mails a team's registration link, so it names whom to ask. */
@@ -120,7 +120,7 @@ export default function RegistrierungenPage({ params }: Props) {
       head={{ scope: "area", title: { route: "teamRegistrierungen" } }}
       list={{
         kind: "table",
-        search: { label: COPY.admin.registrierung.search },
+        search: { label: COPY.area.team.registrierung.search },
         head: HEAD,
         content: readRegistrierungen(params),
       }}

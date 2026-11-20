@@ -126,7 +126,7 @@ export function SchiedsrichterEditor({
               />
               {/* The fee is the person's own, as their name is, so it stands in their box. */}
               <TextField
-                label={COPY.admin.payment}
+                label={COPY.shared.payment}
                 name="default_payment"
                 holds={5}
                 kind="digits"
@@ -145,7 +145,7 @@ export function SchiedsrichterEditor({
             <>
               {address === "fixed" ? (
                 <TextField
-                  label={COPY.signIn.address}
+                  label={COPY.shared.emailAddress}
                   name="email"
                   kind="email"
                   isLocked
@@ -153,7 +153,7 @@ export function SchiedsrichterEditor({
                 />
               ) : (
                 <TextField
-                  label={COPY.signIn.address}
+                  label={COPY.shared.emailAddress}
                   name="email"
                   kind="email"
                   isRequired={required.email}
@@ -186,7 +186,7 @@ export function SchiedsrichterEditor({
                     {/* An act of its box, as the season editor's are: the line under it says where the link went, or why not. */}
                     {sendLink !== undefined && (
                       <SectionAct
-                        acts={[{ label: COPY.shared.withObject(COPY.account.address.link, "send"), run: () => sendLink({ id: record.id }) }]}
+                        acts={[{ label: COPY.shared.withObject(COPY.shared.link, "send"), run: () => sendLink({ id: record.id }) }]}
                       />
                     )}
                   </>

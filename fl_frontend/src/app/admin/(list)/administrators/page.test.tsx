@@ -73,7 +73,7 @@ async function read(grants: readonly FLGrantRow[], changes: readonly FLAddressCh
     side: await props.side,
     create: await props.create,
     cards: cards.map(({ title, count }) => ({ title, count })),
-    active: tableOf(COPY.admin.team.active)?.rows ?? [],
+    active: tableOf(COPY.shared.state.active)?.rows ?? [],
     waiting: tableOf(COPY.admin.administrators.pending)?.rows ?? [],
     waitingEmpty: tableOf(COPY.admin.administrators.pending)?.empty,
   };
@@ -108,7 +108,7 @@ describe("who holds access and what waits", () => {
     const { cards, waitingEmpty } = await read([THE_OWNER, grant("anna@example.org")]);
 
     expect(cards).toStrictEqual([
-      { title: COPY.admin.team.active, count: 2 },
+      { title: COPY.shared.state.active, count: 2 },
       { title: COPY.admin.administrators.pending, count: 0 },
     ]);
     expect(waitingEmpty).toStrictEqual({ kind: "clear" });
@@ -139,7 +139,7 @@ describe("the owner's acts", () => {
     const { create, active } = await read([THE_OWNER, grant("anna@example.org")]);
 
     expect(create.locked).toBeUndefined();
-    expect(actsOf(active)).toStrictEqual([COPY.admin.administrators.afterHandover, "runs"]);
+    expect(actsOf(active)).toStrictEqual([COPY.shared.afterHandover, "runs"]);
   });
 
   it("offer the handover from the administrators in effect, locked while one waits or none stands to take over", async () => {

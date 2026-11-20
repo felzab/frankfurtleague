@@ -17,7 +17,7 @@ import type { Copy } from "@/core/copy";
 import type { PasskeyRow } from "@/features/passkeys/held";
 import type { AccountRow } from "@/kit/AccountBox";
 
-const PASSKEY = COPY.signIn.passkeyTitle;
+const PASSKEY = COPY.shared.passkey;
 
 /**
  * Sicherheit's two boxes: the passkeys, each a row with its rename and its removal, the set-up in the footer; and the
@@ -101,7 +101,7 @@ export function SecurityBoxes({
   return (
     <>
       <AccountBox
-        title={COPY.account.passkeys.title}
+        title={COPY.shared.passkeys}
         description={COPY.account.passkeys.description}
         act={{
           run: setUp,

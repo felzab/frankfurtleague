@@ -7,7 +7,7 @@ import { acceptBewerbung, declineBewerbung } from "./decideBewerbung";
 
 import type { ReactNode } from "react";
 
-const OBJECT = COPY.bewerbung.object;
+const OBJECT = COPY.shared.bewerbung;
 
 /** The record a decision writes: which application, on the version the page read. */
 type Decided = { id: string; version: number };
@@ -42,12 +42,12 @@ export function DeclineDialog({ id, version, required, max }: Decided & { requir
       carry={{ id, version: String(version) }}
       trigger={{ label: COPY.shared.verb.decline }}>
       <TextField
-        label={COPY.admin.spiel.reason}
+        label={COPY.shared.reason}
         name="reason"
         kind="paragraph"
         isRequired={required}
         maxLength={max}
-        description={COPY.admin.noNames}
+        description={COPY.shared.noNames}
       />
       <Facts facts={[{ label: COPY.admin.facts.mailTo, value: COPY.admin.bewerbung.mailedSeats }]} />
     </Dialog>

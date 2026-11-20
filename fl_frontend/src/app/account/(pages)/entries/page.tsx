@@ -55,7 +55,7 @@ function seatFacts(persons: readonly FLAccountSeatPerson[], affiliation: Fact): 
 }
 
 /** Why the media choice may not be given, where the record is short of its floor and the choice is not held. */
-const mediaFrom = (offered: boolean): Copy | null => (offered ? null : WORDS.mediaFrom(MEDIA_MIN_AGE));
+const mediaFrom = (offered: boolean): Copy | null => (offered ? null : COPY.shared.mediaFrom(MEDIA_MIN_AGE));
 
 /** Every record the person holds, one box each, in the order a person reads their own: themselves, then their seats. */
 function entriesOf({ spieler, schiedsrichter, registrierungen, seats, bewerbungen }: FLAccountEinwilligungenResponse): Entry[] {
@@ -84,9 +84,9 @@ function entriesOf({ spieler, schiedsrichter, registrierungen, seats, bewerbunge
       fact(COPY.shared.name, row.name),
       birthday(row.birth_date),
       fact(COPY.shared.facts.school, row.schule),
-      fact(COPY.signIn.address, row.kontakt.email),
+      fact(COPY.shared.emailAddress, row.kontakt.email),
       fact(COPY.shared.facts.phone, row.kontakt.phone),
-      fact(COPY.admin.payment, formatEuro(row.default_payment)),
+      fact(COPY.shared.payment, formatEuro(row.default_payment)),
     ],
     save: { kind: "schiedsrichter", schiedsrichter_id: row.schiedsrichter_id },
     scope: row.einwilligung.scope,

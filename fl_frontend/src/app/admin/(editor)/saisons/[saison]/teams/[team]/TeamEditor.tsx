@@ -192,7 +192,7 @@ export function TeamEditor({
 
   const adresse: EditorSection = {
     id: "adresse",
-    title: COPY.admin.spielort.address,
+    title: COPY.shared.address.title,
     fields: (
       <AddressFields
         rules={address}
@@ -320,7 +320,7 @@ export function TeamEditor({
                   onChange={setRoute}
                 />
                 <TextField
-                  label={COPY.admin.spiel.reason}
+                  label={COPY.shared.reason}
                   name="reason"
                   kind="paragraph"
                   isRequired={austrittRules.required.reason}

@@ -32,8 +32,8 @@ export const createSpielort = action({
   ownWords: ["duplicate_key"],
   paths: { name: "name" },
   examples: {
-    postcode: COPY.admin.spielort.postcodeExample,
-    house_number: COPY.admin.spielort.houseNumberExample,
+    postcode: COPY.shared.address.postcodeExample,
+    house_number: COPY.shared.address.houseNumberExample,
     mietpreis: COPY.admin.spielort.mietpreisExample,
   },
   run: async ({ mietpreis, name, ...address }) => {

@@ -51,7 +51,7 @@ export function appToast(tone: Tone, title: Copy) {
  */
 export function toastAnswer(answer: ActionAnswer<unknown>, done: Copy) {
   if (answer.ok) appToast(answer.warn === true ? "warn" : "success", answer.note ?? done);
-  else appToast(answer.warn === true ? "warn" : "danger", answer.reason ?? COPY.shared.toast.failure);
+  else appToast(answer.warn === true ? "warn" : "danger", answer.reason ?? COPY.shared.failure.unexpected);
 }
 
 const region = tv({

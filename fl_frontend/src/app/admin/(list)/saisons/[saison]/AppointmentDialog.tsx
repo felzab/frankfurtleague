@@ -10,7 +10,7 @@ import { TimeField } from "@/kit/TimeField";
 import type { ActionAnswer } from "@/core/action";
 import type { CalendarDay, TimeOfDay } from "@/core/format";
 
-const ACT = { verb: "set", object: COPY.admin.overview.appointment } as const;
+const ACT = { verb: "set", object: COPY.spielplan.appointment } as const;
 const TITLE = COPY.shared.withObject(ACT.object, ACT.verb);
 
 // Each box posts under the path the match editor's save places its refusal on.
@@ -61,12 +61,12 @@ export function AppointmentDialog({
       trigger={{ label: TITLE }}>
       <FieldPair>
         <DateField
-          label={COPY.admin.spiel.date}
+          label={COPY.spielplan.fact.date}
           name={DATE}
           defaultValue={date}
         />
         <TimeField
-          label={COPY.admin.spiel.time}
+          label={COPY.spielplan.fact.time}
           name={TIME}
           defaultValue={time}
         />

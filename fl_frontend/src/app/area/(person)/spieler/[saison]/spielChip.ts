@@ -16,5 +16,5 @@ export function spielChipOf(
   if (spiel.sonderereignis !== null) return undefined;
   if (!deregistered && spiel.starts === true) return { tone: "success", label: COPY.area.spieler.lineupPlace.starts };
   if (!deregistered && spiel.starts === false) return { tone: "neutral", label: COPY.area.spieler.lineupPlace.bench };
-  return spiel.ansetzung_confirmed === false ? { tone: "warn", label: COPY.admin.spiel.provisional } : undefined;
+  return spiel.ansetzung_confirmed === false ? { tone: "warn", label: COPY.spielplan.provisional } : undefined;
 }

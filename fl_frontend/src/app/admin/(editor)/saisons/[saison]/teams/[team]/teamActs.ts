@@ -24,7 +24,7 @@ import {
 const SEAT_EXAMPLES = {
   first_name: COPY.shared.field.exampleFirstName,
   last_name: COPY.shared.field.exampleLastName,
-  phone: COPY.admin.schiedsrichter.phoneExample,
+  phone: COPY.shared.field.examplePhone,
 };
 
 /**

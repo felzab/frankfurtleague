@@ -51,7 +51,7 @@ export function ChangeActs({
   const [isEnding] = ending;
 
   const send: SideAct = {
-    label: COPY.shared.withObject(COPY.account.address.link, "send"),
+    label: COPY.shared.withObject(COPY.shared.link, "send"),
     isBusy: isSending,
     onPress: () =>
       startSending(async () => {
@@ -64,8 +64,8 @@ export function ChangeActs({
     <SideActs acts={changeActKinds(resends).map((kind) => ({ send, end })[kind])}>
       <ConfirmDialog
         verb={verb}
-        subject={COPY.account.address.change}
-        consequence={COPY.admin.addressChange.previousStays}
+        subject={COPY.shared.addressChange.change}
+        consequence={COPY.shared.addressChange.previousStays}
         facts={facts}
         tone="danger"
         touch={{ holder }}

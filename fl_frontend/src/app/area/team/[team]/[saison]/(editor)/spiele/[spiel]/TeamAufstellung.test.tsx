@@ -66,10 +66,10 @@ describe("the line-up's editor at the team's address", () => {
   it("counts the starters the ticks and the entries naming nobody hold on its bar, beside the pupils moved", async () => {
     renderEditor();
     const line = () => bar().querySelector("p")?.textContent;
-    expect(line()).toBe(COPY.area.team.aufstellung.startelfCount(3, 11));
+    expect(line()).toBe(COPY.aufstellung.startelfCount(3, 11));
 
     await userEvent.click(tickOf(3));
-    expect(line()).toBe(`${COPY.area.team.aufstellung.startelfCount(4, 11)}${COPY.template.changesPending(1)}`);
+    expect(line()).toBe(`${COPY.aufstellung.startelfCount(4, 11)}${COPY.template.changesPending(1)}`);
   });
 
   // The harm: a save sent for another club or match, which a person holding seats on two clubs could write unawares.

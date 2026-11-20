@@ -4,7 +4,7 @@ import { COPY, textOf } from "@/core/copy";
 import { dayOf, formatDate, formatNumber } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
-import { PHASE_LABELS, SAISON_PHASE_OPTIONS } from "@/features/saisons/constants";
+import { SAISON_PHASE_OPTIONS } from "@/features/saisons/constants";
 import { getSpielplan } from "@/features/saisons/queries";
 import { publicSaisonOf, resolvePublicSaisonParam } from "@/features/saisons/resolvers";
 import { matchRowOf, sidesOf, whenOf } from "@/features/spiele/blocks";
@@ -53,7 +53,7 @@ async function readSeason(params: Props["params"], searchParams: Props["searchPa
       words.phase,
       SAISON_PHASE_OPTIONS.filter((phase) => spieltage.some((spieltag) => spieltag.saison_phase === phase)).map((phase) => ({
         id: phase,
-        label: PHASE_LABELS[phase],
+        label: COPY.shared.phase[phase],
       })),
     ),
     filter(

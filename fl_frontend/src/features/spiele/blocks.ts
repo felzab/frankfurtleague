@@ -135,8 +135,8 @@ export const whenOf = (spiel: Pick<FLSpielJoined, "date" | "time">): Copy => COP
 export function previewOf(spiel: Sides & Played & Pick<FLSpielJoined, "date" | "time" | "sonderereignis">): Copy {
   const { team1, team2 } = sidesOf(spiel);
   const tore = toreOf(spiel);
-  const result = tore === null ? (eventOf(spiel)?.title ?? COPY.admin.spiel.noResult) : COPY.admin.spiel.score(tore, spiel.elfmeterschiessen);
-  return COPY.admin.spiel.preview(COPY.page.spiel(team1.name, team2.name), whenOf(spiel), result);
+  const result = tore === null ? (eventOf(spiel)?.title ?? COPY.spielplan.noResult) : COPY.spielplan.score(tore, spiel.elfmeterschiessen);
+  return COPY.spielplan.preview(COPY.page.spiel(team1.name, team2.name), whenOf(spiel), result);
 }
 
 /**
@@ -168,7 +168,7 @@ function befellOf(spiel: Sides & Pick<FLSpielJoined, "sonderereignis">): Pick<Sp
  */
 export function adminSpielChipOf(spiel: Sides & Pick<FLSpielJoined, "sonderereignis" | "ansetzung_confirmed">): ChipProps | undefined {
   if (spiel.sonderereignis !== null) return eventChip(spiel.sonderereignis, namesOf(spiel));
-  return spiel.ansetzung_confirmed === false ? { tone: "warn", label: COPY.admin.spiel.provisional } : undefined;
+  return spiel.ansetzung_confirmed === false ? { tone: "warn", label: COPY.spielplan.provisional } : undefined;
 }
 
 function rowOf(spiel: Listed, when: Copy, linked = true): SpielRowProps & { id: string } {

@@ -16,17 +16,17 @@ export function BanFields() {
   return (
     <>
       <TextField
-        label={COPY.signIn.address}
+        label={COPY.shared.emailAddress}
         name="email"
         kind="email"
         isRequired={requires(SignInPayloadSchema.shape.email, "")}
         maxLength={banListPostBanListEntryBodyEmailMax}
       />
       <TextField
-        label={COPY.admin.spiel.reason}
+        label={COPY.shared.reason}
         name="ban_reason"
         kind="text"
-        description={COPY.admin.noNames}
+        description={COPY.shared.noNames}
         isRequired={requires(BanListPostBanListEntryBody.shape.ban_reason, "")}
         maxLength={banListPostBanListEntryBodyBanReasonMax}
       />

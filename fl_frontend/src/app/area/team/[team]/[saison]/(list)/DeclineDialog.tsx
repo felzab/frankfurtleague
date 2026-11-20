@@ -41,7 +41,7 @@ export function DeclineDialog({
 }) {
   return (
     <Dialog
-      title={COPY.shared.withObject(COPY.admin.overview.appointment, "decline")}
+      title={COPY.shared.withObject(COPY.spielplan.appointment, "decline")}
       act={{ verb: "decline" }}
       // A refusal is the dialog's destroying act: the red fill every destroying press takes.
       tone="danger"
@@ -50,29 +50,29 @@ export function DeclineDialog({
       carry={{ id }}
       consequence={COPY.area.team.declineConsequence}
       trigger={{ label: COPY.shared.verb.decline }}>
-      <FieldGroup name={COPY.admin.overview.vorschlag}>
+      <FieldGroup name={COPY.spielplan.vorschlag}>
         <FieldPair>
           <DateField
-            label={COPY.admin.spiel.date}
+            label={COPY.spielplan.fact.date}
             name="date"
             isRequired={REQUIRED.date}
             minValue={today}
           />
           <TimeField
-            label={COPY.admin.spiel.time}
+            label={COPY.spielplan.fact.time}
             name="time"
             isRequired={REQUIRED.time}
           />
         </FieldPair>
       </FieldGroup>
       <TextField
-        label={COPY.admin.overview.reason}
+        label={COPY.spielplan.answerNote}
         name="reason"
         // A paragraph, at four lines, its line breaks kept, as the administration's reasons are.
         kind="paragraph"
         isRequired={REQUIRED.reason}
         maxLength={spielbestaetigungenPostTeamAnswerBodyReasonOneMax}
-        description={COPY.admin.noNames}
+        description={COPY.shared.noNames}
       />
     </Dialog>
   );

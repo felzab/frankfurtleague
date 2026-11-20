@@ -97,7 +97,7 @@ describe("the acts behind the passkey touch", () => {
     await withoutAFreshTouch[visitor]();
     const held = structuredClone(store);
 
-    expect(await press()).toStrictEqual({ ok: false, reason: COPY.signIn.refusal.touchMissing });
+    expect(await press()).toStrictEqual({ ok: false, reason: COPY.shared.touchMissing });
 
     await backend.answered();
     // Nothing reached the backend, nothing was owed by mail, and the store holds what it held.

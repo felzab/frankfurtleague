@@ -60,7 +60,7 @@ describe("where a seat stands", () => {
   it("says a seat the submission never mailed was not sent", () => {
     const read = bewerbung({ confirmations: { trainer: entry({ sent_at: null }), ansprechperson: entry(), stellvertretung: entry() } });
 
-    expect(seat(read, "trainer")?.chips).toContainEqual({ tone: "warn", label: COPY.admin.saison.linkNotSent });
+    expect(seat(read, "trainer")?.chips).toContainEqual({ tone: "warn", label: COPY.shared.state.linkNotSent });
     expect(seat(read, "ansprechperson")?.chips).toHaveLength(1);
   });
 
@@ -74,7 +74,7 @@ describe("where a seat stands", () => {
     });
 
     expect(seat(read, "trainer")?.chips.map(({ label }) => label)).toStrictEqual([
-      COPY.admin.schiedsrichter.unconfirmed,
+      COPY.shared.state.unconfirmed,
       COPY.admin.delivery.abandoned,
     ]);
   });

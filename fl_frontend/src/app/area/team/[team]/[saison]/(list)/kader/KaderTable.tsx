@@ -21,10 +21,9 @@ function rowsOf(kader: readonly FLKaderRow[], open: (row: FLKaderRow) => void): 
   return kader.toSorted(byShirtNumber).map((row) => {
     const isLive = row.inactive_since === null;
     const mark = rolleMarkOf(row.rolle);
-    const facts = [
-      row.position === null ? null : { record: row.position },
-      row.stufe === null ? null : COPY.admin.saison.stufe[row.stufe],
-    ].filter((fact) => fact !== null);
+    const facts = [row.position === null ? null : { record: row.position }, row.stufe === null ? null : COPY.kader.stufeName[row.stufe]].filter(
+      (fact) => fact !== null,
+    );
     return {
       id: row.spieler_id,
       name: { record: kaderName(row) },
@@ -37,7 +36,7 @@ function rowsOf(kader: readonly FLKaderRow[], open: (row: FLKaderRow) => void): 
       cells: {
         nummer: row.nummer === null ? COPY.shared.noValue : { record: row.nummer },
         position: row.position === null ? COPY.shared.noValue : { record: row.position },
-        stufe: row.stufe === null ? COPY.shared.noValue : COPY.admin.saison.stufe[row.stufe],
+        stufe: row.stufe === null ? COPY.shared.noValue : COPY.kader.stufeName[row.stufe],
       },
     };
   });

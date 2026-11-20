@@ -94,7 +94,7 @@ export function buildBewerbungAbsageEmail({ team, saison_id, seats, reason }: FL
       facts: [
         // Identification rather than a verdict: it says why the mail reached this reader.
         { label: WORDS.registeredAs, value: seatsText(seats) },
-        { label: COPY.admin.spiel.reason, value: reason },
+        { label: COPY.shared.reason, value: reason },
       ],
     },
   };
@@ -113,7 +113,7 @@ export function buildBewerbungConfirmationEmail(
     origin: site,
     paragraphs: [[WORDS.link.lead(schule), WORDS.confirmOrOppose], [deadlineSentence(deadline)]],
     block: {
-      title: WORDS.entry,
+      title: SERVER_COPY.kontaktConfirmation.ownEntry,
       facts: [
         { label: COPY.shared.saison, value: saison_id },
         { label: WORDS.registeredAs, value: seatsText(seats) },

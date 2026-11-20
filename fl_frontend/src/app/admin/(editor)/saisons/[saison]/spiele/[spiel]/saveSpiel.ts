@@ -164,7 +164,7 @@ function questionOf(report: FLPatchSpielDataResponse): SaveQuestion | null {
   if (voided.length === 0) return null;
   const mailed = (report.recipients ?? []).map(({ name }) => name).toSorted((one, other) => one.localeCompare(other, "de"));
   return {
-    subject: COPY.admin.spiel.ergebnis,
+    subject: COPY.spielplan.ergebnis,
     consequence: COPY.admin.spiel.voids(numbersOf(voided.map(({ spiel_nr }) => spiel_nr))),
     ...(mailed.length === 0 ? {} : { facts: [{ label: COPY.admin.facts.mailTo, value: { record: formatList(mailed) } }] }),
     confirm: JSON.stringify({ voided, mailed }),

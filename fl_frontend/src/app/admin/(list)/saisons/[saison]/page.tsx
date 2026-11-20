@@ -102,8 +102,8 @@ function faultLine(fault: FLOverviewFault): Copy {
  */
 function dueLine(parties: readonly FLOverviewParty[]): Copy {
   const [owing] = parties.toSorted((one, other) => one.due_by.localeCompare(other.due_by));
-  if (owing === undefined) return WORDS.missing(COPY.area.answer);
-  return owing.asked_at === null ? SPIEL.notAsked : SPIEL.answerBy(dayOf(owing.due_by));
+  if (owing === undefined) return WORDS.missing(COPY.spielplan.answer);
+  return owing.asked_at === null ? SPIEL.notAsked : COPY.shared.answerBy(dayOf(owing.due_by));
 }
 
 /** Whether the Zusage's write asks for the party's row, which its segments choose. */
@@ -113,7 +113,7 @@ const PARTY_REQUIRED = requires(SpielbestaetigungenEnterSpielbestaetigungParams.
 function ReasonField() {
   return (
     <TextField
-      label={COPY.admin.overview.reason}
+      label={COPY.spielplan.answerNote}
       // The name `enterZusage` reads the reason by.
       name="reason"
       // A paragraph: a reason a person writes, at four lines, its line breaks kept.
@@ -139,7 +139,7 @@ function openOf(row: Exclude<FLOverviewRow, { kind: "bewerbung" }>): { chip?: Ch
       const shown =
         row.kind === "spielbestaetigung_due" || lapsed === undefined
           ? { line: dueLine(row.parties) }
-          : { chip: EXPIRED_CHIP, line: COPY.admin.schiedsrichter.expiredOn(dayOf(lapsed)) };
+          : { chip: EXPIRED_CHIP, line: COPY.shared.expiredOn(dayOf(lapsed)) };
       const [first, ...rest] = parties;
       return first === undefined
         ? shown
@@ -167,13 +167,17 @@ function openOf(row: Exclude<FLOverviewRow, { kind: "bewerbung" }>): { chip?: Ch
             id={row.spielbestaetigung_id}
             adopt={{
               consequence: WORDS.adoptConsequence,
-              facts: [{ label: FACTS.before, value: from }, { label: FACTS.after, value: to }, ...mailTo(row.adoption_recipients)],
+              facts: [
+                { label: COPY.shared.facts.before, value: from },
+                { label: COPY.shared.facts.after, value: to },
+                ...mailTo(row.adoption_recipients),
+              ],
             }}
             discard={{
               consequence: WORDS.discardConsequence,
               facts: [
-                { label: COPY.admin.overview.appointment, value: from },
-                { label: COPY.admin.overview.vorschlag, value: to },
+                { label: COPY.spielplan.appointment, value: from },
+                { label: COPY.spielplan.vorschlag, value: to },
                 ...mailTo(row.discard_recipients),
               ],
             }}
@@ -187,7 +191,7 @@ function openOf(row: Exclude<FLOverviewRow, { kind: "bewerbung" }>): { chip?: Ch
       return { line: faultLine(row.fault) };
     case "appointment_missing":
       return {
-        line: WORDS.missing(COPY.admin.overview.appointment),
+        line: WORDS.missing(COPY.spielplan.appointment),
         acts: (
           <AppointmentDialog
             spiel={spiel.id}
@@ -198,7 +202,7 @@ function openOf(row: Exclude<FLOverviewRow, { kind: "bewerbung" }>): { chip?: Ch
         ),
       };
     case "ergebnis_missing":
-      return { line: WORDS.missing(SPIEL.ergebnis) };
+      return { line: WORDS.missing(COPY.spielplan.ergebnis) };
     case "spielort_missing":
       return { line: WORDS.missing(COPY.admin.spielort.object) };
     case "schiedsrichter_missing":

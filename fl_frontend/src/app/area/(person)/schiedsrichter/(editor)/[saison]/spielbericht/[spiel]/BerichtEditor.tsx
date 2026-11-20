@@ -33,7 +33,7 @@ import type { BerichtValues, Card, Goal } from "./berichtValues";
 type Cells = RowCells<Pick<Goal, "side" | "spieler_id" | "minute">>;
 
 const WORDS = COPY.area.schiedsrichter.spielbericht;
-const SPIEL = COPY.admin.spiel;
+const SPIEL = COPY.spielplan;
 const MINUTE_UNIT = COPY.shared.unit.minute;
 
 /**
@@ -116,10 +116,10 @@ export function BerichtEditor({
     return plaque === null ? { id, label: name } : { id, label: plaque, spoken: name };
   });
   const sonderereignisse: Option[] = [
-    { id: NO_SONDEREREIGNIS, label: SPIEL.none },
+    { id: NO_SONDEREREIGNIS, label: SPIEL.sonderereignis.none },
     { id: "nichtantreten_team1", label: COPY.spielplan.sonderereignis.nichtantreten(sides.team1.name) },
     { id: "nichtantreten_team2", label: COPY.spielplan.sonderereignis.nichtantreten(sides.team2.name) },
-    { id: "abgebrochen", label: SPIEL.abgebrochen },
+    { id: "abgebrochen", label: SPIEL.sonderereignis.abgebrochen },
   ];
 
   /** A row's side: choosing another club empties its player, who plays for the club left. */
@@ -174,7 +174,7 @@ export function BerichtEditor({
     ),
   });
 
-  const goalNoun = WORDS.goal;
+  const goalNoun = SPIEL.goal;
   const cardNoun = WORDS.card;
 
   return (
@@ -200,7 +200,7 @@ export function BerichtEditor({
                     shootOut
                       ? {
                           label: SPIEL.elfmeterschiessen,
-                          head: SPIEL.afterElfmeterschiessen,
+                          head: COPY.shared.afterElfmeterschiessen,
                           names: ["shootOut1", "shootOut2"],
                           values: [draft.shootOut1, draft.shootOut2],
                           onChange: (side, value) => set(side === 0 ? "shootOut1" : "shootOut2", value),
@@ -214,7 +214,7 @@ export function BerichtEditor({
               )}
               {!noShow && <SectionRule />}
               <Select
-                label={SPIEL.sonderereignis}
+                label={SPIEL.sonderereignis.label}
                 name="sonderereignis"
                 options={sonderereignisse}
                 value={draft.sonderereignis}
@@ -319,7 +319,7 @@ export function BerichtEditor({
               labelHidden
               name="remarks"
               kind="paragraph"
-              description={COPY.admin.noNames}
+              description={COPY.shared.noNames}
               maxLength={remarksMax}
               value={draft.remarks}
               onChange={(remarks) => set("remarks", remarks)}

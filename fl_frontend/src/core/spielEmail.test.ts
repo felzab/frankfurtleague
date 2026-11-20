@@ -101,7 +101,12 @@ describe("the notice of a move", () => {
       // The word in a move's subject and in its sentence alike, each time after a space.
       expect(JSON.stringify(mail)).not.toContain(" verlegt");
       // The slot named once, and beside it the pairing that held it: a „Neu“ row would repeat the moment left.
-      expect(labels).toStrictEqual([COPY.spielplan.fact.date, COPY.spielplan.fact.time, COPY.admin.facts.before, COPY.spielplan.fact.spielort]);
+      expect(labels).toStrictEqual([
+        COPY.spielplan.fact.date,
+        COPY.spielplan.fact.time,
+        COPY.shared.facts.before,
+        COPY.spielplan.fact.spielort,
+      ]);
       expect(JSON.stringify(mail)).toContain(left.team1);
       // The lead opens on the change the mail exists for, the new pairing at the slot it keeps.
       expect(mail?.paragraphs[0]?.[0]).toBe(`Am selben Termin spielt jetzt ${replaced.team1} vs. ${replaced.team2}.`);
