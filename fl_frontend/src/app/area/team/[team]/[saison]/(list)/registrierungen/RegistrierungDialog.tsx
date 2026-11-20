@@ -5,7 +5,6 @@ import { COPY } from "@/core/copy/shared";
 import { Dialog } from "@/kit/Dialog";
 import { Facts } from "@/kit/Facts";
 import { RadioGroup } from "@/kit/RadioGroup";
-import { appToast } from "@/kit/Toast";
 
 import { admitRegistrierung, declineRegistrierung } from "./decideRegistrierung";
 
@@ -35,17 +34,19 @@ const SAME = "same";
 const OTHER = "other";
 
 /**
- * „Aufnehmen“ as the entry's admission says: an admission done says „Aufgenommen“, and a wrong one is
- * undone in the Kader by „Austragen“; where the team is asked, the other person's answer declines the registration, and
- * the pupil's mail asks them to register under an address of their own.
+ * „Aufnehmen“ as the entry's admission says: an admission done says „Aufgenommen“ in the dialog's toast, and a wrong
+ * one is undone in the Kader by „Austragen“; where the team is asked, the other person's answer declines the
+ * registration, which its toast says, and the pupil's mail asks them to register under an address of their own.
  */
 async function admitted({ decided, admission }: RegistrierungEntry, formData: FormData): Promise<ActionAnswer> {
   // The locked act sends nothing; the reason answers all the same should a press reach here.
   if (admission.kind === "locked") return { ok: false, reason: admission.reason };
-  if (admission.kind === "asks" && formData.get("answer") === OTHER) return declineRegistrierung({ ...decided, reason: "other_person" });
-  const answer = await admitRegistrierung({ ...decided, spieler_id: admission.spieler_id });
-  if (answer.ok) appToast("success", COPY.shared.toast.admitted);
-  return answer;
+  if (admission.kind === "asks" && formData.get("answer") === OTHER) {
+    const declined = await declineRegistrierung({ ...decided, reason: "other_person" });
+    // The dialog's act is „Aufnehmen“, whose done word would name the act this answer did not do.
+    return declined.ok ? { ...declined, note: COPY.shared.toast.done.decline } : declined;
+  }
+  return admitRegistrierung({ ...decided, spieler_id: admission.spieler_id });
 }
 
 /**

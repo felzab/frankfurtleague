@@ -110,24 +110,23 @@ export function EditorBar({
           onPress={onSave}
         />
       </div>
-      {/* One dialog in one place either way, so it keeps its state: before the first question it stands closed with
-          nothing to say. */}
-      {shown === null ? (
-        <ConfirmDialog
-          open={held}
-          onConfirm={question.confirm}
-        />
-      ) : (
-        <ConfirmDialog
-          verb="save"
-          subject={shown.subject}
-          consequence={shown.consequence}
-          {...(shown.facts === undefined ? {} : { facts: shown.facts })}
-          tone="primary"
-          open={held}
-          onConfirm={question.confirm}
-        />
-      )}
+      {/* Mounted from the first render, so it keeps its state: before the first question it stands closed with nothing
+          to say. */}
+      <ConfirmDialog
+        question={
+          shown === null
+            ? null
+            : {
+                verb: "save",
+                subject: shown.subject,
+                consequence: shown.consequence,
+                ...(shown.facts === undefined ? {} : { facts: shown.facts }),
+                tone: "primary",
+              }
+        }
+        open={held}
+        onConfirm={question.confirm}
+      />
     </div>
   );
 }

@@ -38,6 +38,20 @@ describe("an editor's draft", () => {
     expect(save).toHaveBeenCalledWith({ id: "ort-1", version: 1, changes: { mietpreis: "120" } });
   });
 
+  // The harm: a save of nothing raises the stored record's version, turning every other open editor of it stale, and
+  // logs a change nobody made, which only the Protokoll shows.
+  it("sends nothing for a save with nothing changed, and says „Gespeichert“", async () => {
+    const { result, save } = editorOn(STORED);
+
+    // Typed and typed back: nothing differs from the stored record.
+    act(() => result.current.set("name", "SC Riedberg"));
+    act(() => result.current.set("name", "Riedberg"));
+    await press(result.current.submit);
+
+    expect(save).not.toHaveBeenCalled();
+    expect(result.current.status).toStrictEqual({ tone: "success", text: COPY.shared.saved });
+  });
+
   it("keeps the old version when a newer read arrives under unsaved changes", async () => {
     const { result, rerender, save } = editorOn(STORED);
 

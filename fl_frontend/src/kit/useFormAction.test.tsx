@@ -28,7 +28,12 @@ import type { FormStatus } from "./useFormAction";
 describe("a form a visitor reaches before hydration", () => {
   it("hands its press to React, never the browser", () => {
     const held = document.createElement("div");
-    held.innerHTML = renderToString(<HeldForm onSend={() => undefined} />);
+    held.innerHTML = renderToString(
+      <HeldForm
+        isBusy={false}
+        onSend={() => undefined}
+      />,
+    );
     expect(held.querySelector("form")?.getAttribute("action")).toMatch(/^javascript:/);
   });
 });

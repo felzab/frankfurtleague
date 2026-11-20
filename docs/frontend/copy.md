@@ -154,16 +154,21 @@ Each pattern is an entry of `COPY.shared`; what the entry cannot say is when it 
   not run and anything else. A refusal the screen closes off before the press, a race between two
   writes and a precondition only the system knows are never explained, since the reader cannot act
   on the detail.
-- **A saved record** shows `saved` beside its save button, never as a toast.
-- **A toast** answers an act that leaves nothing on the page to change, and an act behind the
-  passkey touch whose question or dialog has closed before it answers: one of `toast`'s titles or
-  the act's note once done, in the warn tone where it partly happened, and the refusal's own
-  sentence once refused (`fl_frontend/src/kit/Toast.tsx :: toastAnswer`). A done act's toast leaves
-  by itself, while a refusal or a partial outcome stands until it is closed. No field stands beside
-  a toast, so an act whose dialog closes words every refusal as a sentence naming what was refused,
-  never a field's phrase or `template.checkFields`: its lane declares a sentence per box and cause
-  (`boxless` in `fl_frontend/src/core/action.ts`). A form left standing under its closed question
-  says a done act on its own line alone.
+- **A saved record** shows `saved` on its editor's save bar, beside the save button, never as a
+  toast. The save bar is the one place a done act stays on a line, since its line is a fixed row
+  that moves nothing as it speaks.
+- **A toast** answers every other done act: a closed question, a closed dialog with fields, a
+  section's act in an editor, a Konto box, a page that is one question, and an act that leaves
+  nothing on the page to change. Its title is the act's note, else its verb's past participle from
+  `toast.done` or another of `toast`'s titles, in the warn tone where the act partly happened
+  (`fl_frontend/src/kit/Toast.tsx :: toastAnswer`). A done act's toast leaves by itself, while a
+  refusal or a partial outcome stands until it is closed.
+- **A refusal** keeps its line beside what it names: the question's, the dialog's, the box's or the
+  section's. It stands in a toast only where no line is left, for an act behind the passkey touch
+  whose question or dialog has closed before it answers. No field stands beside a toast, so an act
+  whose dialog closes words every refusal as a sentence naming what was refused, never a field's
+  phrase or `template.checkFields`: its lane declares a sentence per box and cause (`boxless` in
+  `fl_frontend/src/core/action.ts`).
 - **A busy button** keeps its label and shows a spinner named `loading`; no „Speichert …“.
 - **An empty list** says `empty.search`, `empty.filter`, `empty.none` or `empty.skipped` with its
   own plural; `empty.filter` only where the list keeps a filter, `empty.skipped` only where a person

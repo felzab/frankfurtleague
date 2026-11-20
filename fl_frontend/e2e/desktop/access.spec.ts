@@ -75,7 +75,7 @@ test("an administrator's acts on Adressänderungen and Löschungen take the touc
   await page.goto("/admin/log");
   await chooseWho(page, main, ADMINISTRATOR);
   const logged = main.getByRole("row");
-  await expect(logged.filter({ hasText: "Adressänderung eingetragen" })).toBeVisible();
+  await expect(logged.filter({ hasText: "Adressänderung gestartet" })).toBeVisible();
   await expect(logged.filter({ hasText: "Adressänderung verworfen" })).toBeVisible();
   await expect(logged.filter({ hasText: `Löschung auf Anfrage · ${REFERENCE}` })).toBeVisible();
 });

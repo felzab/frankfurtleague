@@ -57,6 +57,14 @@ const KADER = "Kader";
 const ENTRY = "Eintrag";
 const startelfCount = (count: number, max: number) => `Startelf ${formatNumber(count)} ${boundBy("von", formatNumber(max))}`;
 const DELETED = "Gelöscht";
+// Words a record's state, a form's line or a toast shares with a done act's toast, kept as one string each.
+const SAVED = "Gespeichert";
+const RETIRED = "Stillgelegt";
+const SENT = "Gesendet";
+const DECLINED = "Abgelehnt";
+const OBJECTED = "Widersprochen";
+const DEREGISTERED = "Ausgetragen";
+const ADMITTED = "Aufgenommen";
 const FILTER = "Filter";
 // A list's search label from its plural: `shared.search` gives it the other catalogues, and the squad's stands here.
 const search = (plural: string) => `${plural} suchen`;
@@ -122,21 +130,21 @@ export const COPY = catalogue({
      */
     touchMissing: "Die Freigabe mit deinem Passkey fehlt.",
 
-    saved: "Gespeichert",
-    retired: "Stillgelegt",
+    saved: SAVED,
+    retired: RETIRED,
 
     state: {
       active: "Aktiv",
       confirmed: "Bestätigt",
       unconfirmed: "Unbestätigt",
-      objected: "Widersprochen",
+      objected: OBJECTED,
       erased: DELETED,
       expired: "Abgelaufen",
       agreed: "Zugesagt",
       /** A club's decline and a referee's alike; a match called off reads as its event, „Ausgefallen“. */
-      declined: "Abgelehnt",
+      declined: DECLINED,
       nominee: "Nachnominiert",
-      linkSent: "Gesendet",
+      linkSent: SENT,
       linkNotSent: "Nicht gesendet",
     },
     confirmedOn: (day: CalendarDay) => `Bestätigt ${boundBy("am", formatDate(day))}`,
@@ -193,10 +201,10 @@ export const COPY = catalogue({
       copied: "Kopiert",
       linkSent: "Link gesendet",
       othersSignedOut: "Alle anderen abgemeldet",
-      admitted: "Aufgenommen",
+      admitted: ADMITTED,
       /**
-       * An act behind the passkey touch done, by its verb: its question or dialog closed before the touch, so the toast
-       * is where it answers. A handover only starts its wait, as its row under „Angekündigt“ says.
+       * A done act, by its verb, where its answer brings no note of its own: a closed question's or dialog's, a section
+       * act's, a box's. A handover only starts its wait, as its row under „Angekündigt“ says.
        */
       done: {
         remove: "Entfernt",
@@ -207,6 +215,22 @@ export const COPY = catalogue({
         activate: "Umgestellt",
         enter: "Eingetragen",
         handOver: "Übergabe angekündigt",
+        replace: "Ersetzt",
+        swap: "Getauscht",
+        create: "Angelegt",
+        reactivate: "Reaktiviert",
+        deregister: DEREGISTERED,
+        adopt: "Übernommen",
+        save: SAVED,
+        retire: RETIRED,
+        admit: ADMITTED,
+        send: SENT,
+        decline: DECLINED,
+        accept: "Angenommen",
+        set: "Gesetzt",
+        rename: "Umbenannt",
+        signOut: "Abgemeldet",
+        oppose: OBJECTED,
       } satisfies Partial<Record<Verb, string>>,
     },
 
@@ -562,7 +586,7 @@ export const COPY = catalogue({
     stufe: "Stufe",
     rolle: "Rolle",
     rolleOption: { kapitaen: "Kapitän", co_kapitaen: "Co-Kapitän" } satisfies Record<FLSpielerRolle, string>,
-    deregistered: "Ausgetragen",
+    deregistered: DEREGISTERED,
     nummerDouble: "Nummer doppelt",
     fromKader: "Aus dem Kader",
     deregisterConsequence: "Die Person steht in dieser Saison nicht mehr im Kader.",

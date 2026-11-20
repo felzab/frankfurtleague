@@ -13,6 +13,7 @@ import { ConfirmDialog } from "./ConfirmDialog";
 import { Dialog, RouteDialog, RouteDialogBody } from "./Dialog";
 import { EditorPage } from "./EditorPage";
 import { TextField } from "./TextField";
+import { ToastRegion } from "./Toast";
 import { useEditor } from "./useEditor";
 
 import type { ActionAnswer } from "@/core/action";
@@ -90,10 +91,7 @@ describe("the kit's confirmation", () => {
     const reason = COPY.shared.failure.stale;
     renderUnderNext(
       <ConfirmDialog
-        verb="retire"
-        subject={NAME}
-        consequence={COPY.kader.deregisterConsequence}
-        tone="danger"
+        question={{ verb: "retire", subject: NAME, consequence: COPY.kader.deregisterConsequence, tone: "danger" }}
         trigger={{ label: COPY.shared.verb.retire }}
         onConfirm={async () => ({ ok: false, reason })}
       />,
@@ -127,10 +125,7 @@ describe("the kit's confirmation", () => {
 function RetireQuestion({ onConfirm }: { onConfirm: () => Promise<ActionAnswer> }) {
   return (
     <ConfirmDialog
-      verb="retire"
-      subject={NAME}
-      consequence={COPY.kader.deregisterConsequence}
-      tone="danger"
+      question={{ verb: "retire", subject: NAME, consequence: COPY.kader.deregisterConsequence, tone: "danger" }}
       trigger={{ label: COPY.shared.verb.retire }}
       onConfirm={onConfirm}
     />
@@ -228,16 +223,31 @@ describe("the kit's dialog", () => {
     expect(screen.getByText(COPY.template.changesPending(1), { normalizer: getDefaultNormalizer({ collapseWhitespace: false }) })).toBeTruthy();
   });
 
-  /* The note is the one place the person learns the write moved more than the dialog asked, such as other fixtures. */
-  it("stays open on a done act noting more than it was asked, the note in its line and its act closed", async () => {
+  // The harm: a dialog closing in silence, so the person never learns the act ran, nor that the write moved more than
+  // the dialog asked, such as other fixtures, which only its note says.
+  it("closes on a done act and says it in a toast, its note where it brings one, else its verb's done word", async () => {
     const note = COPY.aufstellung.lockedLine;
-    renderUnderNext(<CreateDialog create={async () => ({ ok: true, value: undefined, note })} />);
+    const create = vi
+      .fn<(formData: FormData) => Promise<ActionAnswer>>()
+      .mockResolvedValueOnce({ ok: true, value: undefined, note })
+      .mockResolvedValueOnce(DONE);
+    renderUnderNext(
+      <>
+        <CreateDialog create={create} />
+        <ToastRegion frame="rail" />
+      </>,
+    );
+    // The toast queue is the module's own: an earlier case's done act left its toast in it.
+    for (const close of screen.queryAllByRole("button", { name: COPY.shared.close })) act(() => close.click());
 
     await createThroughTheDialog();
+    await screen.findByRole("alertdialog", { name: note });
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
 
-    await waitFor(() => expect(screen.getByText(note)).toBeTruthy());
-    expect(screen.getByRole("dialog")).toBeTruthy();
-    expect(screen.getByRole("button", { name: COPY.shared.withObject(NAME, "create") }).hasAttribute("disabled")).toBe(true);
+    await createThroughTheDialog();
+    await screen.findByRole("alertdialog", { name: COPY.shared.toast.done.create });
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    for (const close of screen.queryAllByRole("button", { name: COPY.shared.close })) act(() => close.click());
   });
 
   // The harm: a dialog left while its act runs takes the answer with it, and a partly done act's note reaches nobody.

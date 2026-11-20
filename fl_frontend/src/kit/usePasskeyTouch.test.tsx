@@ -51,10 +51,7 @@ const ENTER = COPY.shared.verb.enter;
 
 const question = (onConfirm: () => Promise<ActionAnswer>, touch?: { holder: string }) => (
   <ConfirmDialog
-    verb="delete"
-    subject={SUBJECT}
-    consequence={COPY.shared.failure.stale}
-    tone="danger"
+    question={{ verb: "delete", subject: SUBJECT, consequence: COPY.shared.failure.stale, tone: "danger" }}
     onConfirm={onConfirm}
     trigger={{ label: VERB }}
     {...(touch === undefined ? {} : { touch })}

@@ -211,11 +211,13 @@ export function BulkAccept({
       act={
         count === 0 ? null : (
           <ConfirmDialog
-            verb="accept"
-            subject={WORDS.count(count)}
-            consequence={WORDS.acceptManyConsequence(saison)}
-            facts={[{ label: ADMIN_COPY.facts.mailTo, value: WORDS.kontaktCount(open.reduce((sum, row) => sum + row.people, 0)) }]}
-            tone="primary"
+            question={{
+              verb: "accept",
+              subject: WORDS.count(count),
+              consequence: WORDS.acceptManyConsequence(saison),
+              facts: [{ label: ADMIN_COPY.facts.mailTo, value: WORDS.kontaktCount(open.reduce((sum, row) => sum + row.people, 0)) }],
+              tone: "primary",
+            }}
             onConfirm={confirm}
             trigger={{ label: COPY.shared.withObject(WORDS.count(count), "accept"), variant: "primary" }}
           />

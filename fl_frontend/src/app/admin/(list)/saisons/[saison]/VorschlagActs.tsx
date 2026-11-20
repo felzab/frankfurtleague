@@ -30,21 +30,13 @@ export function VorschlagActs({
   return (
     <>
       <ConfirmDialog
-        verb="adopt"
-        subject={SUBJECT}
-        consequence={adopt.consequence}
-        facts={adopt.facts}
-        tone="primary"
+        question={{ verb: "adopt", subject: SUBJECT, consequence: adopt.consequence, facts: adopt.facts, tone: "primary" }}
         onConfirm={() => adoptVorschlag({ id })}
         trigger={{ label: COPY.shared.verb.adopt, variant: "primary" }}
       />
       <ConfirmDialog
-        verb="discard"
-        subject={SUBJECT}
-        consequence={discard.consequence}
-        facts={discard.facts}
         // Keeping the stored date destroys nothing, so its question asks in the neutral primary, as „Übernehmen“'s does.
-        tone="primary"
+        question={{ verb: "discard", subject: SUBJECT, consequence: discard.consequence, facts: discard.facts, tone: "primary" }}
         onConfirm={() => discardVorschlag({ id })}
         trigger={{ label: COPY.shared.verb.discard }}
       />

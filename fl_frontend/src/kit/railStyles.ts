@@ -31,11 +31,11 @@ export const groupHeading = tv({ base: "text-xs font-medium text-fg-muted" });
  * editor's own column, the status at the column's left edge and the save at its right, the content's and the bar's
  * paddings alike centring the column. The row ends at its right as `FormFooter`'s does, since a status line with
  * nothing to say leaves the row's flow (`statusLine`'s `quiet`) and the save must not move when it starts or stops
- * speaking.
+ * speaking. From `lg`, where the column is wide, the line's words end at the save rather than start at its left edge.
  */
 export const editorBarLook = tv({
   slots: {
     bar: "sticky bottom-0 z-10 flex h-14 items-center border-t border-border bg-bg px-4 [view-transition-name:bar] lg:h-(--rail-foot) lg:px-8",
-    row: "mx-auto flex w-full max-w-form items-center justify-end gap-4",
+    row: "mx-auto flex w-full max-w-form items-center justify-end gap-4 lg:text-end",
   },
 });
