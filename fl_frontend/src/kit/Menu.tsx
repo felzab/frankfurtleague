@@ -17,9 +17,9 @@ import { Text } from "react-aria-components/Text";
 import { textOf } from "@/core/copy";
 import { COPY } from "@/core/copy/shared";
 
-import { entryMark, menuPopover } from "./fieldStyles";
 import { Icon } from "./Icon";
 import { menuEntry } from "./Link";
+import { entryMark, menuPopover } from "./menuStyles";
 import { SheetFrame } from "./Sheet";
 import { tv } from "./tv";
 import { useDesktop } from "./useDesktop";
