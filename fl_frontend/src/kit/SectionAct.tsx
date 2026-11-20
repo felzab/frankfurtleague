@@ -25,14 +25,12 @@ type Sending = {
   run: () => Promise<ActionAnswer>;
   label?: never;
   press?: never;
-} & (
-  | {
-      /** The question it asks before it runs; its button then carries the question's verb and tone. */
-      confirm?: ConfirmWords & { tone: "primary" };
-    }
-  // An act that destroys takes the outlined danger look its question's trigger takes everywhere (`Trigger`).
-  | { confirm: ConfirmWords & { tone: "danger" } }
-);
+  /**
+   * The question it asks before it runs; its button then carries the question's verb and tone. An act that destroys
+   * takes the outlined danger look its question's trigger takes everywhere (`Trigger`).
+   */
+  confirm?: ConfirmWords;
+};
 
 /**
  * An act that writes nothing and runs at once, such as copying a link the section shows: a secondary button whose

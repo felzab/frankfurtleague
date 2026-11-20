@@ -189,7 +189,8 @@ class FLSchiedsrichterSweepResponse(BaseReadModel):
 
 
 class FLSchiedsrichterReactivateResponse(BaseReadModel):
-    # Null unless the press brought back a referee who has not answered, which owes them a fresh link.
+    # Null unless the press brought back a referee who has not answered and holds an address a link
+    # can go to, which owes them a fresh link.
     confirmation: FLSchiedsrichterMint | None
 
 

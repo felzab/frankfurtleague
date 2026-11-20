@@ -20265,7 +20265,7 @@
     },
     "/api/schiedsrichter/{schiedsrichter_id}/reactivate": {
       "post": {
-        "description": "Bring a retired referee back into the picker and every default read, answering where a fresh link goes.\n\nOne who has not answered is owed a fresh link, named in `confirmation`, since a retired referee's save mails nothing;\none who has answered, or is back already, is owed none.",
+        "description": "Bring a retired referee back into the picker and every default read, answering where a fresh link goes.\n\nOne who has not answered is owed a fresh link, named in `confirmation`, since a retired referee's save mails nothing;\none who has answered, holds no address a link can go to, or is back already, is owed none.",
         "operationId": "schiedsrichter_reactivate_schiedsrichter",
         "parameters": [
           {

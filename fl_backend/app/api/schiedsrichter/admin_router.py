@@ -321,7 +321,7 @@ async def reactivate_schiedsrichter(
     """Bring a retired referee back into the picker and every default read, answering where a fresh link goes.
 
     One who has not answered is owed a fresh link, named in `confirmation`, since a retired referee's save mails nothing;
-    one who has answered, or is back already, is owed none.
+    one who has answered, holds no address a link can go to, or is back already, is owed none.
     """
 
     async def reactivate_and_ask(session: AsyncClientSession) -> str | None:
