@@ -322,7 +322,8 @@ export function BerichtEditor({
               labelHidden
               name="remarks"
               kind="paragraph"
-              description={COPY.shared.noNames}
+              // How to write the remarks, which a finished season's form takes none of.
+              {...(closed === undefined ? { description: COPY.shared.noNames } : {})}
               maxLength={remarksMax}
               value={draft.remarks}
               onChange={(remarks) => set("remarks", remarks)}
