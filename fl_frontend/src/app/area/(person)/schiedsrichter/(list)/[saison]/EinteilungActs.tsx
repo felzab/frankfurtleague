@@ -1,12 +1,17 @@
+import { requires } from "@/core/action";
 import { AREA_COPY } from "@/core/copy/area";
 import { COPY } from "@/core/copy/shared";
+import {
+  SpielbestaetigungenPostSchiedsrichterAnswerBody,
+  spielbestaetigungenPostSchiedsrichterAnswerBodyReasonOneMax,
+} from "@/core/generated/zod/inputs";
 import { Dialog } from "@/kit/Dialog";
 import { PressAct } from "@/kit/PressAct";
+import { TextField } from "@/kit/TextField";
 
 import { agreeEinteilung, declineEinteilung } from "./answerEinteilung";
 
 import type { Words } from "@/core/copy";
-import type { ReactNode } from "react";
 
 const TITLE = COPY.shared.withObject(AREA_COPY.schiedsrichter.einteilung, "decline");
 
@@ -18,13 +23,10 @@ const TITLE = COPY.shared.withObject(AREA_COPY.schiedsrichter.einteilung, "decli
 export function EinteilungActs({
   id,
   spiel,
-  children,
 }: {
   /** The confirmation row both answers name. */
   id: string;
   spiel: Words;
-  /** The reason's box, drawn on the server so the write's schema stays there. */
-  children: ReactNode;
 }) {
   return (
     <>
@@ -43,7 +45,15 @@ export function EinteilungActs({
         run={declineEinteilung}
         carry={{ id }}
         trigger={{ label: COPY.shared.verb.decline }}>
-        {children}
+        <TextField
+          label={COPY.shared.reason}
+          // The name `declineEinteilung` reads the reason by.
+          name="reason"
+          kind="paragraph"
+          isRequired={requires(SpielbestaetigungenPostSchiedsrichterAnswerBody.shape.reason, "")}
+          maxLength={spielbestaetigungenPostSchiedsrichterAnswerBodyReasonOneMax}
+          description={COPY.shared.noNames}
+        />
       </Dialog>
     </>
   );
