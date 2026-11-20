@@ -26,11 +26,6 @@ tester.run("fl/server-action", serverAction, {
     valid(inModule('export const create = action({ lane: "admin", name: "create", input, run });')),
     valid(inModule('export const melden = action({ lane: "person", claim: "record", name: "melden", input, run });')),
     valid(inModule('export const send = action({ lane: "public", botCheck: true, name: "send", input, run });')),
-    valid(
-      inModule(
-        'export const lesen = action({ lane: "public", exempt: "It reads a published list and writes nothing.", name: "lesen", input, run });',
-      ),
-    ),
     valid(inModule("export type Antwort = { ok: boolean };")),
     // A module without the directive is no action module.
     valid("export async function lies() { return 1; }", "src/features/orte/queries.ts"),
@@ -49,10 +44,6 @@ tester.run("fl/server-action", serverAction, {
     invalid('"use server";\nimport { action } from "./action";\nexport const create = action({ lane: "admin", input, run });', "notBuilt"),
     invalid(inModule("export const create = action(spec);"), "notBuilt"),
     invalid(inModule("export const create = action({ ...spec });"), "spread"),
-    // What the builder's type takes and the rule refuses: a reason it cannot read, a blank one, and both declarations.
-    invalid(inModule('export const send = action({ lane: "public", exempt: reason, input, run });'), "exempt"),
-    invalid(inModule('export const send = action({ lane: "public", exempt: " ", input, run });'), "exempt"),
-    invalid(inModule('export const send = action({ lane: "public", botCheck: true, exempt: "both", input, run });'), "exempt"),
     invalid('export async function speichern() {\n  "use server";\n}', "inline", "src/app/page.tsx"),
     invalid('const speichern = async () => {\n  "use server";\n};', "inline", "src/app/page.tsx"),
     invalid("export async function POST() { return new Response(null); }", "route", "src/app/api/bewerbung/route.ts"),

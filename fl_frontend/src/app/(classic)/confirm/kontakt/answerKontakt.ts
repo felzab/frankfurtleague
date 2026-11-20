@@ -55,7 +55,7 @@ export const answerKontakt = action({
   lane: "public",
   name: "answerKontakt",
   input: Answer,
-  exempt: "The link's token is the whole credential, minted for one mailbox and spent by its answer.",
+  exempt: "mailedLink",
   // The age the write judges on its own day, which the box's range bounds before the send by the page's day: on its
   // box, from the range the refusal carries.
   ownWords: ["confirmation_age"],
@@ -72,6 +72,6 @@ export const objectKontakt = action({
   lane: "public",
   name: "objectKontakt",
   input: z.object({ token: declined.shape.token }),
-  exempt: "The link's token is the whole credential, minted for one mailbox and spent by its answer.",
+  exempt: "mailedLink",
   run: async ({ token }) => ended({ answer: "declined", token }, END.objected),
 });

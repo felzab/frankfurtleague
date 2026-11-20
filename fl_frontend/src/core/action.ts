@@ -194,13 +194,22 @@ type PersonLane<Schema extends z.ZodType, Value> = Declared<Schema> &
   );
 
 /**
+ * Why a public write needs no bot check, by the name its lane declares: one sentence a reason, saying why a script
+ * choosing what it sends gains nothing there. The names are the only exemptions a lane can declare. A type rather than
+ * a value, since only the builder's type reads it.
+ */
+type Exemptions = {
+  readonly mailedLink: "The link's token is the whole credential, minted for one mailbox and spent by its answer or its stop.";
+};
+
+/**
  * A write anybody may send: the bot check answers before anything of the input is read, or the lane names why a
- * script choosing what it sends gains nothing here.
+ * script choosing what it sends gains nothing here, never both.
  */
 type PublicLane<Schema extends z.ZodType, Value> = Declared<Schema> & {
   readonly lane: "public";
   readonly run: Run<Schema, undefined, Value>;
-} & ({ readonly botCheck: true } | { readonly exempt: string });
+} & ({ readonly botCheck: true; readonly exempt?: never } | { readonly exempt: keyof Exemptions; readonly botCheck?: never });
 
 type Lane<Schema extends z.ZodType, Value> = AdminLane<Schema, Value> | PersonLane<Schema, Value> | PublicLane<Schema, Value>;
 

@@ -1,11 +1,10 @@
 /**
  * The one way to a server action and the few route handlers, read off syntax. A `"use server"` module exports
  * nothing but `action({...})` calls of the builder (`fl_frontend/src/core/action.ts`), whose type holds each lane's
- * declaration: the admin lane, the person lane with its claim, and the public lane behind the bot check or under an
- * exemption. The rule reads what that type cannot: that an exemption says why, in a literal that is not blank, and
- * stands without the bot check. A function-level `"use server"` is an action no builder made, and a route handler
- * stands only in the files the options keep. Whatever the rule cannot read as one of these fails, so a new shape is
- * refused rather than waved through.
+ * declaration: the admin lane, the person lane with its claim, and the public lane behind the bot check or under one
+ * of the exemptions it names. A function-level `"use server"` is an action no builder made, and a route handler stands
+ * only in the files the options keep. Whatever the rule cannot read as one of these fails, so a new shape is refused
+ * rather than waved through.
  */
 
 import path from "node:path";
@@ -15,13 +14,6 @@ const BUILDER = "@/core/action";
 const ROUTE = /(?:^|\/)src\/app\/(?:.*\/)?route\.tsx?$/;
 /** `fl_frontend`, read off this file's place rather than the directory ESLint was started in. */
 const ROOT = path.resolve(import.meta.dirname, "..");
-
-/**
- * What an object literal with no spread or computed key holds at `key`, or `undefined` where it has none. An accessor
- * or a method holds a function, which no check below reads as a literal.
- */
-const property = (object, key) =>
-  object.properties.find((entry) => (entry.key.type === "Identifier" ? entry.key.name : entry.key.value) === key)?.value;
 
 /** @type {import("eslint").Rule.RuleModule} */
 const serverAction = {
@@ -38,8 +30,6 @@ const serverAction = {
     messages: {
       notBuilt: 'Every export of a "use server" module is `export const <name> = action({...})`, the builder from @/core/action.',
       spread: "Spell the action's declaration out: the rule cannot read a spread or a computed key.",
-      exempt:
-        "A public action's `exempt` is a literal giving the reason a script choosing what it sends gains nothing, and stands without `botCheck`.",
       inline: 'A function-level "use server" is an action no builder made: export it from a "use server" module, built by `action`.',
       route: "A route handler stands only in the kept files. A browser's form posts through a server action built by `action`.",
     },
@@ -51,20 +41,14 @@ const serverAction = {
     const filename = path.relative(ROOT, path.resolve(ROOT, context.filename)).replaceAll("\\", "/");
     let builder = null;
 
-    /** Judges one `action({...})` declaration. */
+    /**
+     * Judges one `action({...})` declaration by its shape alone: the lane, a person's claim and a public action's bot
+     * check or exemption are the builder's type's to hold.
+     */
     function judge(declaration) {
       const [spec, ...rest] = declaration.arguments;
       if (spec?.type !== "ObjectExpression" || rest.length > 0) return context.report({ node: declaration, messageId: "notBuilt" });
-      if (spec.properties.some((entry) => entry.type !== "Property" || entry.computed))
-        return context.report({ node: spec, messageId: "spread" });
-
-      // The lane, a person's claim and a public action's bot check or exemption are the builder's type's to hold. It
-      // takes any string as the reason, a blank one included, and an exemption beside `botCheck: true`.
-      const exempt = property(spec, "exempt");
-      if (exempt === undefined) return;
-      const reason = exempt.type === "Literal" ? exempt.value : undefined;
-      if (typeof reason !== "string" || reason.trim() === "" || property(spec, "botCheck") !== undefined)
-        context.report({ node: spec, messageId: "exempt" });
+      if (spec.properties.some((entry) => entry.type !== "Property" || entry.computed)) context.report({ node: spec, messageId: "spread" });
     }
 
     /** Whether `node` calls the builder as imported here. */

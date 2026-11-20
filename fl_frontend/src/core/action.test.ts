@@ -282,7 +282,7 @@ function onLane(lane: "admin" | "person" | "public", work: () => Promise<unknown
     case "person":
       return action({ ...declared, lane, claim: "record", run });
     case "public":
-      return action({ ...declared, lane, exempt: "a case's own action", run });
+      return action({ ...declared, lane, exempt: "mailedLink", run });
   }
 }
 
