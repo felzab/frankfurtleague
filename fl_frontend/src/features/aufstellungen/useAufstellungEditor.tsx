@@ -8,7 +8,6 @@ import { STARTERS_MAX } from "./constants";
 import { REFUSED_ROW } from "./payload";
 
 import type { ActionAnswer } from "@/core/action";
-import type { Copy } from "@/core/copy";
 import type { FLAufstellungEntry } from "@/core/generated/client/types";
 import type { LineupPlayer, LineupValue, LineupWords } from "@/kit/Lineup";
 import type { EditorSave } from "@/kit/useEditor";
@@ -24,8 +23,11 @@ export type AufstellungEditing = {
   aufstellung: { id: string; version: number | null; spieler: ReadonlyArray<FLAufstellungEntry> };
   players: ReadonlyArray<LineupPlayer>;
   words: LineupWords;
-  /** Why nobody can be named as the fixture stands, such as its having no day or hour yet. */
-  locked?: Copy;
+  /**
+   * How the block's acts stand while the editor is closed, which its caller alone can tell: drawn locked while the line-up
+   * may change again, left out once its season has finished (`Lineup`'s `acts`).
+   */
+  acts?: "locked" | "out";
   save: (change: AufstellungSave) => Promise<ActionAnswer<number>>;
 };
 
@@ -35,7 +37,7 @@ export type AufstellungEditing = {
  * starters ticked over the squad's other pupils. It knows nothing of whose address it stands at: the page's own editor
  * places the three in its `EditorPage` and hands it the save.
  */
-export function useAufstellungEditor({ aufstellung, players, words, locked, save }: AufstellungEditing) {
+export function useAufstellungEditor({ aufstellung, players, words, acts, save }: AufstellungEditing) {
   const named = aufstellung.spieler.flatMap(({ spieler_id, starts }) => (spieler_id === null ? [] : [{ spieler_id, starts }]));
   const nameless = aufstellung.spieler.filter((entry) => entry.spieler_id === null).map(({ starts }) => ({ starts }));
   const record = {
@@ -71,7 +73,7 @@ export function useAufstellungEditor({ aufstellung, players, words, locked, save
         }}
         startersMax={STARTERS_MAX}
         words={words}
-        locked={locked}
+        acts={acts}
         refusals={refusals}
       />
     ),
