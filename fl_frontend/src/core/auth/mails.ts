@@ -45,10 +45,6 @@ export async function notifyPasskey(kind: FLPasskeyDataKind, email: string): Pro
   }
 }
 
-export async function notifyPasskeyRemoved(email: string): Promise<void> {
-  await notifyPasskey("passkey_erased", email);
-}
-
 /**
  * Tells a person their account went, for a deletion they did not press themselves, which nothing else would tell
  * them of. Owed after the deletion and never holding it up: a failed notice leaves the deletion standing.

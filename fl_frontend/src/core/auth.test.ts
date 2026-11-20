@@ -725,7 +725,7 @@ describe("why the admin guard refused", () => {
     BACKENDS.set(ADMIN_EMAIL, { ...NOTHING_HELD, seats: [A_SEAT], account: true });
 
     expect(await getAdminSession(), "the guard admitted a session holding no grant").toBe(null);
-    expect(await judgeAdminRequest()).toStrictEqual({ refused: "grantGone" });
+    expect(await judgeAdminRequest()).toStrictEqual({ refused: "noGrant" });
   });
 });
 

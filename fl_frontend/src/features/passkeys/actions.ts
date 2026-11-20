@@ -8,7 +8,7 @@ import { z } from "zod";
 
 import { action, PAGE_HOLDER } from "@/core/action";
 import { afterTheResponse } from "@/core/afterResponse";
-import { notifyPasskeyRemoved } from "@/core/auth/mails";
+import { notifyPasskey } from "@/core/auth/mails";
 import { passkeysOf, removePasskey, renamePasskey } from "@/core/auth/passkeys";
 import { ACCOUNT_COPY } from "@/core/copy/account";
 import { COPY } from "@/core/copy/shared";
@@ -59,7 +59,7 @@ export const removePasskeyAction = action({
     if (removal === "absent") return { ok: false, reason: COPY.shared.failure.stale };
 
     const { email } = served.user;
-    afterTheResponse(() => notifyPasskeyRemoved(email));
+    afterTheResponse(() => notifyPasskey("passkey_erased", email));
     if (thisDevice) return { ok: true, value: "thisDevice" satisfies Removed };
     refresh();
     return { ok: true, value: "otherDevices" satisfies Removed };

@@ -322,13 +322,12 @@ const STALE: ReadonlySet<Code> = new Set<Code>([
 ]);
 
 /**
- * The admin guard's refusals: an ended sign-in and a gone grant each in the words of what holds, and a grant the backend
- * left unread, an outage nothing the person does repairs, as every other failure.
+ * The admin guard's refusals: an ended sign-in and a missing grant each in the words of what holds, and a grant the
+ * backend left unread, an outage nothing the person does repairs, as every other failure.
  */
 const TURNED_AWAY: Readonly<Record<AdminRefusal, Copy>> = {
   signIn: COPY.shared.failure.signInExpired,
   noGrant: COPY.shared.failure.accessGone,
-  grantGone: COPY.shared.failure.accessGone,
   unread: COPY.shared.failure.unexpected,
 };
 
