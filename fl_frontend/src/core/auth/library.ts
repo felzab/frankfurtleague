@@ -481,6 +481,14 @@ const authOptions = (origin: URL, client: MongoClient) =>
 
     hooks: {
       before: createAuthMiddleware(async (ctx) => {
+        // First, ahead of both counters and every session read below: an arrival over HTTP at a path the browser never
+        // calls writes no row before it is refused. The switch above is a denylist, so an endpoint the next upgrade
+        // mounts arrives open; this is the default-deny net behind it, over `ctx.path`, the endpoint's own declared
+        // route rather than a string derived from the URL a caller sent. An absent `ctx.request` is the library's own
+        // test for a call that did not arrive over HTTP, taken by `originCheckMiddleware` and by
+        // `requestOnlySessionMiddleware`; nothing in process is filtered, those callers being this repository's own code.
+        if (ctx.request !== undefined && !BROWSER_PATHS.has(ctx.path)) throw APIError.fromStatus("NOT_FOUND");
+
         // The library types a request's body `any`: read here as what it is, a value nothing has checked yet.
         const body: unknown = ctx.body;
         // Refused ahead of the count, and rather than dropped, as an enrolment's `name` is: the library
@@ -505,9 +513,9 @@ const authOptions = (origin: URL, client: MongoClient) =>
           if (typeof body === "object" && body !== null) attemptRows.set(body, own);
         }
 
-        // Ahead of the plugin, which writes each new code before its send callback runs: capped there,
-        // a send voids the held code and mails none. Ahead of the gate, so the store's rows never tell a
-        // member from a stranger.
+        // Reached in process alone, the deny above refusing the send over HTTP. Ahead of the plugin, which writes each
+        // new code before its send callback runs: capped there, a send voids the held code and mails none. Ahead of the
+        // gate, so the store's rows never tell a member from a stranger.
         const recipient = ctx.path === CODE_SEND_PATH ? codeSendAddress(body) : null;
 
         if (
@@ -553,17 +561,8 @@ const authOptions = (origin: URL, client: MongoClient) =>
               };
         const carried = enrolmentRead === undefined ? undefined : { context: { [ENROLMENT_READ]: enrolmentRead } };
 
-        // An absent `ctx.request` is the library's own test for a call that did not arrive over HTTP,
-        // taken by `originCheckMiddleware` and by `requestOnlySessionMiddleware`. Nothing in process
-        // is filtered here: those callers are this repository's own code.
-        if (ctx.request === undefined) return carried;
-
-        // The switch above is a denylist, so an endpoint the next upgrade mounts arrives open; this
-        // is the default-deny net behind it, over `ctx.path`, the endpoint's own declared route
-        // rather than a string derived from the URL a caller sent.
-        if (!BROWSER_PATHS.has(ctx.path)) throw APIError.fromStatus("NOT_FOUND");
-
-        if (!ENROLMENT_PATHS.has(ctx.path)) return carried;
+        // What follows judges an enrolment arriving over HTTP: an in-process call is this repository's own code.
+        if (ctx.request === undefined || !ENROLMENT_PATHS.has(ctx.path)) return carried;
 
         // Refused rather than dropped: a caller who read the plugin's own body schema is answered,
         // and a request reshaped behind its back is how the next reader believes the field works.
