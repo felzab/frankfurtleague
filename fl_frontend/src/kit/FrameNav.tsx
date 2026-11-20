@@ -13,15 +13,16 @@ import { signOut } from "@/shared/utils/signOut";
 
 import { ConfirmDialog } from "./ConfirmDialog";
 import { CutText } from "./CutText";
-import { entryMark } from "./fieldStyles";
 import { GlyphChoices } from "./GlyphChoices";
 import { hoverLook } from "./hoverStyles";
 import { Icon } from "./Icon";
 import { useAsked } from "./LeaveGuard";
 import { menuEntry } from "./Link";
 import { Menu } from "./Menu";
+import { entryMark } from "./menuStyles";
 import { currentOf, placeOf } from "./navPlace";
-import { RailTooltip, useRailCollapsed } from "./RailState";
+import { useRailCollapsed } from "./railContext";
+import { RailTooltip } from "./RailState";
 import { groupHeading, railFade, railGlyph } from "./railStyles";
 import { FreshPerPage, Sheet } from "./Sheet";
 import { appToast } from "./Toast";

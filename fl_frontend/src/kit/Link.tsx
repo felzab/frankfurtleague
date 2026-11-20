@@ -2,10 +2,10 @@ import { textOf } from "@/core/copy";
 
 import { buttonLook } from "./buttonStyles";
 import { cardHover } from "./cardStyles";
-import { entryMark } from "./fieldStyles";
 import { hoverLook } from "./hoverStyles";
 import { Icon } from "./Icon";
 import { IconLink } from "./IconLink";
+import { entryMark } from "./menuStyles";
 import { tv } from "./tv";
 import { NavigationLink } from "./WholePage";
 

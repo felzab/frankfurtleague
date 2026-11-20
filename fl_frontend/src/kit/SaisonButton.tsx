@@ -10,7 +10,7 @@ import { counterpart, useFrameSaison } from "./FrameNav";
 import { hoverLook } from "./hoverStyles";
 import { Icon } from "./Icon";
 import { Menu } from "./Menu";
-import { useRailCollapsed } from "./RailState";
+import { useRailCollapsed } from "./railContext";
 import { railFade } from "./railStyles";
 import { tv } from "./tv";
 import { usePressed } from "./WholePage";

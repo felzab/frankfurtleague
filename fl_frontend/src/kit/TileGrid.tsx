@@ -101,12 +101,10 @@ export function SponsorTiles({ sponsors }: { sponsors: readonly Sponsor[] }) {
                 title={sponsor.name.record}
                 className={slots.content()}>
                 <span className="relative block h-16 rounded-md bg-bg-logo">
-                  {/* An SVG served as it is, which the image optimiser has nothing to do for, fitted into the plate. */}
                   <Image
                     src={sponsor.logo}
                     alt={sponsor.name.record}
                     fill
-                    unoptimized
                     sizes="12rem"
                     className="object-contain p-2"
                   />

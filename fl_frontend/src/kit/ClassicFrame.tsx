@@ -3,6 +3,7 @@ import Image from "next/image";
 
 import { now } from "@/core/clock";
 import { COPY } from "@/core/copy/shared";
+import { LEGAL_PAGES, ROUTES } from "@/core/routes";
 import { SITE_CACHE_TAG } from "@/core/siteCache";
 
 import { Brand } from "./Brand";
@@ -26,6 +27,10 @@ async function Year() {
   return COPY.template.copyright(now().getFullYear(), COPY.brand.name);
 }
 
+// The legal pages, opened rarely: a prefetch would load each one's shell on every page the footer stands on, so their
+// links load nothing ahead, and a press on one waits a server round trip, as the site holds no `loading.tsx`.
+const UNPREFETCHED: ReadonlySet<string> = new Set(LEGAL_PAGES.map((page) => ROUTES[page].path()));
+
 function FooterGroup({ heading, links }: { heading: Copy; links: ReadonlyArray<HeaderLink> }) {
   return (
     <nav
@@ -38,6 +43,7 @@ function FooterGroup({ heading, links }: { heading: Copy; links: ReadonlyArray<H
           href={link.href}
           placement="footer"
           label={link.label}
+          prefetch={UNPREFETCHED.has(link.href) ? false : undefined}
         />
       ))}
     </nav>
@@ -133,13 +139,11 @@ export function ClassicFrame({
                     <span
                       title={sponsor.name.record}
                       className="flex items-center gap-2 text-xs">
-                      {/* An SVG served as it is, which the image optimiser has nothing to do for. */}
                       <span className="relative block h-6 w-24">
                         <Image
                           src={sponsor.logo}
                           alt={sponsor.name.record}
                           fill
-                          unoptimized
                           sizes="6rem"
                           className="object-contain object-left grayscale"
                         />

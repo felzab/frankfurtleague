@@ -7,8 +7,9 @@ import { Separator } from "react-aria-components/Separator";
 
 import { textOf } from "@/core/copy";
 
-import { entryMark, menuItem, menuPopover, messageLine } from "./fieldStyles";
+import { menuItem, messageLine } from "./fieldStyles";
 import { Icon } from "./Icon";
+import { entryMark, menuPopover } from "./menuStyles";
 
 import type { Copy, Words } from "@/core/copy";
 

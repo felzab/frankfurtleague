@@ -3,8 +3,8 @@ import { tv } from "./tv";
 
 /*
  * The look every field shares, kept in one place so a ruling changes it in one edit: the label, the
- * frame, the message line, the drawn box of a checkbox, radio or switch, and the menu a select or a
- * combo box opens. Each is a `tv()` recipe, which the class lint reads. A border's colour is named
+ * frame, the message line, the drawn box of a checkbox, radio or switch, and the entries of the menu a
+ * select or a combo box opens. Each is a `tv()` recipe, which the class lint reads. A border's colour is named
  * because a border naming none takes its element's text colour.
  *
  * A disabled control dims to half, since nothing can be done with it until something else is given. A read-only one, a
@@ -379,22 +379,6 @@ export const switchThumb = tv({
   },
 });
 
-/** The menu a select, a combo box or a date's calendar opens, fading in and out. */
-export const menuPopover = tv({
-  base: "overflow-auto rounded-lg bg-bg-overlay p-1 shadow-menu transition-opacity duration-(--motion-in) data-entering:opacity-0 data-exiting:opacity-0 data-exiting:duration-(--motion-out)",
-  variants: {
-    // A list is as wide as the field that opened it, or as its longest entry, never narrower than its field or
-    // wider than the screen; a menu keeps a floor of 224 px, so a short list of words does not open as a
-    // sliver, and takes its trigger's width where the trigger is a full-width row.
-    fit: {
-      field: "w-(--trigger-width)",
-      content: "max-w-panel min-w-(--trigger-width)",
-      menu: "min-w-56",
-      trigger: "w-(--trigger-width) min-w-56",
-    },
-  },
-});
-
 /**
  * The pop-up the help behind a section's ⓘ opens in, anchored to its control and dimming nothing: a few sentences set
  * at 320 px so they wrap at one measure, never wider than the screen, in the control edge, which stands apart from the
@@ -404,25 +388,9 @@ export const popoverSurface = tv({
   base: "w-popover max-w-panel rounded-lg border border-border-control bg-bg-overlay p-3 text-sm text-fg shadow-menu transition-opacity duration-(--motion-in) data-entering:opacity-0 data-exiting:opacity-0 data-exiting:duration-(--motion-out)",
 });
 
-/** One entry of that menu: a fill when the pointer or the arrow keys reach it. */
+/** One entry of the menu a select or a combo box opens: a fill when the pointer or the arrow keys reach it. */
 export const menuItem = tv({
   base: "flex min-h-8 cursor-pointer items-center justify-between gap-2 rounded-md px-3 text-sm text-fg data-disabled:cursor-default data-disabled:opacity-50 pointer-coarse:min-h-10 pointer-coarse:text-base",
-});
-
-/**
- * How a chosen entry is marked. In every list, a select's, a combo box's and a menu's, a navigating menu's current
- * place among them: its words in the link green and its check at the end, which the list draws, with no fill, so
- * the entry under the pointer or the keys, chosen or not, takes the one hover layer alone. The rail's current page is
- * a place of the frame rather than a list's choice, and keeps its own mark: the muted fill with the words in the link
- * green.
- */
-export const entryMark = tv({
-  variants: {
-    mark: {
-      chosen: "data-selected:text-brand",
-      place: "data-selected:bg-bg-muted data-selected:text-brand",
-    },
-  },
 });
 
 /**

@@ -17,8 +17,9 @@ import { Heading } from "react-aria-components/Heading";
 
 import { Segments } from "./dateParts";
 import { FieldLabel, MessageLine, useFieldLock } from "./FieldParts";
-import { calendarCell, calendarHead, fieldButton, fieldFrame, fieldRoot, menuPopover, monthArrow } from "./fieldStyles";
+import { calendarCell, calendarHead, fieldButton, fieldFrame, fieldRoot, monthArrow } from "./fieldStyles";
 import { Icon } from "./Icon";
+import { menuPopover } from "./menuStyles";
 
 import type { Copy, Words } from "@/core/copy";
 import type { CalendarDay } from "@/core/format";

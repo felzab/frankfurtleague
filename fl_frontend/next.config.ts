@@ -15,6 +15,10 @@ const nextConfig: NextConfig = {
   deploymentId: process.env.APP_VERSION || undefined,
   // Next names itself on every response by default, which tells a scanner which framework's flaws to try.
   poweredByHeader: false,
+  // Every `next/image` serves its file as it is, and `/_next/image` answers 404 rather than resizing for anyone who
+  // asks: the one picture it draws, a sponsor's logo, is an SVG, which the optimiser has nothing to do for. A raster
+  // picture drawn through `next/image` later is served at its file's full size until this key goes.
+  images: { unoptimized: true },
   async headers() {
     return [
       {
@@ -57,6 +61,11 @@ const nextConfig: NextConfig = {
     agentUpgrade: false,
   },
   output: "standalone",
+  // The server's own trace carries sharp, which only the image optimiser loads, and that is off above. Next applies
+  // the patterns under the key `next-server` to that trace, as its own build does for the same two packages on Vercel.
+  outputFileTracingExcludes: {
+    "next-server": ["**/node_modules/sharp/**/*", "**/node_modules/@img/**/*"],
+  },
   // No type check inside `next build`, the image's included: the gate's frontend scope runs tsc on
   // every CI event, and the publish job needs it green. Next skips its own check whole rather than
   // hiding what it finds.
