@@ -108,15 +108,18 @@ type Declared<Schema extends z.ZodType> = {
   /**
    * The boxes this screen shows, by their names, a box's being its input's path joined by dots (`fieldOf`). A refusal
    * whose path names one lands on it. A row's field is declared once for every row, `*` standing where the index does,
-   * `"changes.scorers.*.minute"`, and a refusal naming row 2 lands on row 2's box. A field the form carries unseen, a
-   * record's id, a page's token, its version or the replay key, is none: a phrase has no subject but its box, so a
-   * refusal only a phrase words, about a field this screen does not show, is not its own, and a row's refusal never
-   * falls back to its list's box. A screen showing no box with its answer declares its boxes by `boxless` instead.
+   * `"changes.scorers.*.minute"`, and a refusal naming row 2 lands on row 2's box. An editor's input declares its boxes
+   * itself: each field of its `changes` is a box, and a refused path naming one lands on `changes.<path>` undeclared
+   * here. A field the form carries unseen, a record's id, a page's token, its version or the replay key, is none: a
+   * phrase has no subject but its box, so a refusal only a phrase words, about a field this screen does not show, is not
+   * its own, and a row's refusal never falls back to its list's box. A screen showing no box with its answer declares
+   * its boxes by `boxless` instead.
    */
   readonly boxes?: readonly Field<z.output<Schema>>[];
   /**
    * The box showing a field pattern's phrase where the backend names the refused field by another path than the box's
-   * name, by that path: the editors' `changes.*`, or a box standing for a whole group. A row's field is declared as
+   * name, by that path: a box standing for a whole group, or an editor's box named otherwise than the write names its
+   * field. An editor's box named for the write's own path needs no entry (`boxes`). A row's field is declared as
    * `boxes` declares it, `*` on both sides, `"bericht.scorers.*.minute": "changes.scorers.*.minute"`.
    */
   readonly paths?: { readonly [path: string]: Field<z.output<Schema>> };
@@ -467,16 +470,54 @@ const wordsOwn = <Schema extends z.ZodType>(declared: Declared<Schema>, kind: st
  */
 type Words = { readonly path: FLRefusedField["path"]; readonly kind: string } & ({ readonly field: Copy } | { readonly line: Copy });
 
+/** The object an editor's input holds its boxes in, each under its name. */
+const CHANGES = "changes";
+
+/**
+ * Whether a schema holds a field at a declared path, as `fieldOf` declares it: a name may hold dots of its own, as an
+ * editor's box named for the write's path does (`rules.win_points`), and `*` stands for each row of a list. It walks
+ * the schemas' definitions, as Zod's core documents for a tool traversing schemas; a wrapper, a pipe's two ends and a
+ * union's options each hold what their inner schemas hold.
+ */
+function holds(schema: z.core.$ZodType, path: string): boolean {
+  const def = (schema as z.core.$ZodTypes)._zod.def;
+  switch (def.type) {
+    case "object":
+      return Object.entries(def.shape).some(
+        ([name, field]) => path === name || (path.startsWith(`${name}.`) && holds(field, path.slice(name.length + 1))),
+      );
+    case "array":
+      return path.startsWith(`${EVERY_ROW}.`) && holds(def.element, path.slice(EVERY_ROW.length + 1));
+    case "optional":
+    case "nullable":
+    case "default":
+    case "prefault":
+    case "nonoptional":
+    case "readonly":
+    case "catch":
+      return holds(def.innerType, path);
+    case "pipe":
+      return holds(def.in, path) || holds(def.out, path);
+    case "union":
+      return def.options.some((option) => holds(option, path));
+    default:
+      return false;
+  }
+}
+
 /**
  * The box a refused path stands for, both as `fieldOf` declares them: the box `paths` renames it to, else the path's own
- * box where the screen shows it, as `boxes` declares, or as `boxless` does on a screen showing no box with its answer.
- * `undefined` for a field the screen shows no box for, such as one its form carries unseen.
+ * box where the screen shows it, as `boxes` declares, or as `boxless` does on a screen showing no box with its answer,
+ * else the editor's box of that name, where the input's `changes` holds one. `undefined` for a field the screen shows
+ * no box for, such as one its form carries unseen.
  */
 function boxFor<Schema extends z.ZodType>(declared: Declared<Schema>, path: string): string | undefined {
   const renamed: string | undefined = declared.paths?.[path];
   if (renamed !== undefined) return renamed;
   const shown = declared.boxless === undefined ? (declared.boxes?.some((box) => box === path) ?? false) : Object.hasOwn(declared.boxless, path);
-  return shown ? path : undefined;
+  if (shown) return path;
+  const change = `${CHANGES}.${path}`;
+  return holds(declared.input, change) ? change : undefined;
 }
 
 /**

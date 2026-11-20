@@ -43,7 +43,6 @@ export const saveSpielort = action({
   name: "saveSpielort",
   input: SaveSpielort,
   ownWords: ["duplicate_key"],
-  paths: { name: "changes.name" },
   examples: {
     "changes.postcode": COPY.shared.address.postcodeExample,
     "changes.house_number": COPY.shared.address.houseNumberExample,

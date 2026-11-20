@@ -413,8 +413,11 @@ describe("a list of records", () => {
   const Report = z.object({ changes: z.object({ scorers: z.array(z.object({ minute: z.string().regex(/^\d{1,3}$/) })).max(3) }) });
   const scorers = (...minutes: string[]) => ({ changes: { scorers: minutes.map((minute) => ({ minute })) } });
 
-  /** A save of the report's rows, which the backend refuses for the third row's minute. */
-  const save = (paths: { [path: string]: "changes.scorers" | "changes.scorers.*.minute" }) =>
+  /** A save of the report's rows, which the backend refuses for the third row's minute, by the path `refusedAt` gives. */
+  const save = (
+    paths: { [path: string]: "changes.scorers" | "changes.scorers.*.minute" },
+    refusedAt: readonly string[] = ["bericht", "scorers"],
+  ) =>
     action({
       lane: "admin",
       name: "saveBericht",
@@ -423,7 +426,7 @@ describe("a list of records", () => {
       paths,
       examples: { "changes.scorers.*.minute": field.exampleDigits },
       run: async () => {
-        const refused: FLRefusedField = { in: "body", kind: "nichtantreten_with_scorers", ctx: {}, path: ["bericht", "scorers", 2, "minute"] };
+        const refused: FLRefusedField = { in: "body", kind: "nichtantreten_with_scorers", ctx: {}, path: [...refusedAt, 2, "minute"] };
         await sends("PUT", refusal("payload_refused", { fields: [refused] }));
         return { ok: true, value: undefined };
       },
@@ -444,6 +447,15 @@ describe("a list of records", () => {
 
   it("places the backend's refusal of a row's field on that row's box", async () => {
     expect(await save({ "bericht.scorers.*.minute": "changes.scorers.*.minute" })(scorers("12", "45", "90"))).toStrictEqual({
+      ok: false,
+      errorCode: "payload_refused",
+      fieldErrors: { "changes.scorers.2.minute": field.without(COPY.spielplan.scorers) },
+    });
+  });
+
+  // The harm: an editor's box added without a `paths` entry answers the backend's refusal of it with the shared line.
+  it("places the backend's refusal of a path the editor's changes hold on that box, no path declared", async () => {
+    expect(await save({}, ["scorers"])(scorers("12", "45", "90"))).toStrictEqual({
       ok: false,
       errorCode: "payload_refused",
       fieldErrors: { "changes.scorers.2.minute": field.without(COPY.spielplan.scorers) },

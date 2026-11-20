@@ -25,22 +25,22 @@ const bewerbung = patch.bewerbung.options[0].shape;
  */
 export const SAISON_SAVE_RULES = {
   required: {
-    start: requires(patch.start_date, null),
-    end: requires(patch.end_date, null),
-    bewerbungStart: requires(bewerbung.start, null),
-    bewerbungEnd: requires(bewerbung.end, null),
-    winPoints: requires(rules.win_points, null),
-    drawPoints: requires(rules.draw_points, null),
-    lossPoints: requires(rules.loss_points, null),
-    tiebreak: requires(rules.tiebreak_order, null),
-    gruppen: requires(rules.number_of_gruppen, null),
-    teamsPerGruppe: requires(rules.teams_per_gruppe, null),
-    qualifiers: requires(rules.qualifiers_per_gruppe, null),
-    maxKader: requires(rules.max_kader_size, null),
+    start_date: requires(patch.start_date, null),
+    end_date: requires(patch.end_date, null),
+    "bewerbung.start": requires(bewerbung.start, null),
+    "bewerbung.end": requires(bewerbung.end, null),
+    "rules.win_points": requires(rules.win_points, null),
+    "rules.draw_points": requires(rules.draw_points, null),
+    "rules.loss_points": requires(rules.loss_points, null),
+    "rules.tiebreak_order": requires(rules.tiebreak_order, null),
+    "rules.number_of_gruppen": requires(rules.number_of_gruppen, null),
+    "rules.teams_per_gruppe": requires(rules.teams_per_gruppe, null),
+    "rules.qualifiers_per_gruppe": requires(rules.qualifiers_per_gruppe, null),
+    "rules.max_kader_size": requires(rules.max_kader_size, null),
     // An empty choice of Stufen is refused: the season admits at least one.
-    stufen: requires(rules.allowed_stufen, []),
-    forfeitWinner: requires(rules.forfeit_ergebnis.shape.sieger_tore, null),
-    forfeitLoser: requires(rules.forfeit_ergebnis.shape.verlierer_tore, null),
+    "rules.allowed_stufen": requires(rules.allowed_stufen, []),
+    "rules.forfeit_ergebnis.sieger_tore": requires(rules.forfeit_ergebnis.shape.sieger_tore, null),
+    "rules.forfeit_ergebnis.verlierer_tore": requires(rules.forfeit_ergebnis.shape.verlierer_tore, null),
   },
 };
 
