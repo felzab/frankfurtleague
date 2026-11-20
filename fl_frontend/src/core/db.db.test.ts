@@ -29,10 +29,13 @@ const errorLines = (): Record<string, unknown>[] =>
 // under test is the one it builds.
 const PRODUCTION_DB = "@/core/db";
 
+/** The client a library instance is built on while a case sets it, in place of the file's shared one. */
+let handedStore: MongoClient | undefined;
+
 registerAuthDoubles({
   core: {
     config: configDouble({}, { mongodbUri: () => RELAYED_URL }),
-    db: overriding(PRODUCTION_DB, {}),
+    db: overriding(PRODUCTION_DB, { signInStore: (real) => () => handedStore ?? (real.signInStore as () => MongoClient)() }),
   },
 });
 
@@ -54,6 +57,9 @@ const authIndexes = await import("./authIndexes");
 const { MONGO_DB_NAME, buildAuthIndexes } = authIndexes;
 // The same module evaluated again, so the boot's connect starts on a client no other case has opened.
 const boot = await storeOf(`${import.meta.resolve("./db.ts")}?boot`);
+// Both evaluated again for the one case whose bound depends on how many connections its pool holds.
+const own = await storeOf(`${import.meta.resolve("./db.ts")}?own`);
+const ownLibrary = (await import(`${import.meta.resolve("./auth/library.ts")}?own`)) as { auth: typeof auth };
 
 signInIndexesForTheFile(authIndexes, mongod);
 
@@ -75,6 +81,32 @@ const endedWithin = (bound: number, what: string, run: () => Promise<unknown>): 
     bound + LATENESS_MS,
     `${what} had not settled ${String(bound + LATENESS_MS)} ms in`,
   );
+
+/**
+ * Resolves once a checkout has begun on `client`'s pool and every one begun is back or has failed: the adapter's index
+ * builds start unawaited when its instance is built, and a close would cut one still on the wire.
+ */
+async function poolSettled(client: MongoClient, withinMs: number): Promise<void> {
+  let begun = 0;
+  let open = 0;
+  const started = () => {
+    begun += 1;
+    open += 1;
+  };
+  const ended = () => {
+    open -= 1;
+  };
+  client.on("connectionCheckOutStarted", started);
+  client.on("connectionCheckOutFailed", ended);
+  client.on("connectionCheckedIn", ended);
+  try {
+    await expect.poll(() => begun > 0 && open === 0, { timeout: withinMs, interval: 50, message: "the pool never settled" }).toBe(true);
+  } finally {
+    client.off("connectionCheckOutStarted", started);
+    client.off("connectionCheckOutFailed", ended);
+    client.off("connectionCheckedIn", ended);
+  }
+}
 
 describe("the boot's connect recovers from a cold start the store refused", () => {
   /* The driver closes the topology a refused connect built and builds no other on its own, so only the boot's retry
@@ -111,16 +143,32 @@ describe("the sign-in store's client bounds every operation it sends", () => {
     assert.ok(isAPIError(outcome) && outcome.status === "INTERNAL_SERVER_ERROR", `the hung read settled with ${String(outcome)}`);
   });
 
-  /* A code's sign-in runs the adapter's own transaction to consume its row. Three stages: the
-     commit's socket, the checkout of the commit the driver sends again, and the checkout of the
-     adapter's abort after it (`@better-auth/mongo-adapter :: abortTransactionCommand`). */
-  it("ends the adapter's own transaction within three stages' bounds when the store never answers its commit", async () => {
-    const otp = await auth.api.createVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" } });
+  /* A code's sign-in runs the adapter's own transaction to consume its row. Three stages, on a pool
+     holding the one connection the sign-in opened: the commit's socket, the checkout of the commit
+     the driver sends again, and the checkout of the adapter's abort after it
+     (`@better-auth/mongo-adapter :: abortTransactionCommand`). Each idle connection a pool holds
+     turns a checkout into a socket's wait and adds a stage, and the adapter's index builds at its
+     start leave several in a shared one, so the case builds a library instance on a client of its
+     own and opens that client again once those builds are done. */
+  it("ends the adapter's own transaction within three stages' bounds when the store never answers its commit", async ({ task }) => {
+    // Within the case's own time limit: each build waits out the opening of a connection through the relay.
+    const settled = poolSettled(own.client, task.timeout);
+    handedStore = own.client;
+    // Read through the instance's lazy build, which takes the store client once, here.
+    const context = ownLibrary.auth.$context;
+    handedStore = undefined;
+    await context;
+    await settled;
+    await own.client.close();
+    await own.client.connect();
+    const { auth: ownAuth } = ownLibrary;
+
+    const otp = await ownAuth.api.createVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" } });
     log.clear();
 
     const outcome = await relay.hangFrom("commitTransaction", () =>
       endedWithin(STAGE_BOUND * 3, "the hung commit", () =>
-        auth.api.signInEmailOTP({ body: { email: ADMIN_EMAIL, otp }, headers: new Headers(ORIGIN), returnHeaders: true }),
+        ownAuth.api.signInEmailOTP({ body: { email: ADMIN_EMAIL, otp }, headers: new Headers(ORIGIN), returnHeaders: true }),
       ),
     );
     // The commit never reached the server, whose transaction would otherwise hold the sign-in's
