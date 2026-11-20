@@ -399,6 +399,7 @@ export const COPY = catalogue({
     legalNotice: "Impressum",
     privacyNotice: PRIVACY_NOTICE,
     sitemap: "Sitemap",
+    signIn: VERB.signIn,
     accountSignIn: SIGN_IN,
     accountSecurity: "Sicherheit",
     accountAppearance: "Darstellung",

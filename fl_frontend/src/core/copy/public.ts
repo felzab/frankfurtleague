@@ -1,4 +1,4 @@
-import { boundBy, catalogue, spieltagName, VERB } from "../copy";
+import { boundBy, catalogue, spieltagName } from "../copy";
 import { formatNumber } from "../format";
 import { COPY } from "./shared";
 
@@ -43,7 +43,7 @@ export const PUBLIC_COPY = catalogue({
   },
 
   signIn: {
-    title: VERB.signIn,
+    title: COPY.page.signIn,
 
     sendCode: "Code senden",
     or: "oder",
