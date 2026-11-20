@@ -170,6 +170,7 @@ describe("one drain of the Postausgang", () => {
     ["a rate limit", () => Response.json({ name: "rate_limit_exceeded" }, { status: 429 }), "retry", "rate_limit_exceeded"],
     ["the daily quota", () => Response.json({ name: "daily_quota_exceeded" }, { status: 429 }), "retry", "daily_quota_exceeded"],
     ["an outage", () => new Response(null, { status: 503 }), "retry", null],
+    ["a named outage", () => Response.json({ name: "dns_lookup_failed" }, { status: 503 }), "retry", "dns_lookup_failed"],
     ["a broken connection", () => networkFailure(), "retry", null],
     ["a refusal of the message itself", () => Response.json({ name: "validation_error" }, { status: 422 }), "abandon", "validation_error"],
     ["a refusal named past the endpoint's bound", () => Response.json({ name: "x".repeat(200) }, { status: 422 }), "abandon", null],

@@ -178,19 +178,11 @@ export function requestOf(error: unknown): { status?: number; server_error_code?
 }
 
 /**
- * The refusals Resend's published error reference calls temporary, mirrored here because the token
- * decides whether a second attempt can succeed. **The source moves without us**
- * (<https://resend.com/docs/api-reference/errors>).
+ * The two 409s Resend's error reference tells a caller to try again later, a repeat of a send still in progress and a
+ * resource held by another request. Every other 409 names a request no repeat repairs, `invalid_idempotent_request`
+ * among them (<https://resend.com/docs/api-reference/errors>).
  */
-const TRANSIENT_PROVIDER_ERRORS: ReadonlySet<string> = new Set([
-  "concurrent_idempotent_requests",
-  "resource_locked",
-  "daily_quota_exceeded",
-  "monthly_quota_exceeded",
-  "rate_limit_exceeded",
-  "application_error",
-  "service_unavailable",
-]);
+const TRANSIENT_CONFLICTS: ReadonlySet<string> = new Set(["concurrent_idempotent_requests", "resource_locked"]);
 
 export class MailSendError extends Error {
   traceId: string;
@@ -198,13 +190,14 @@ export class MailSendError extends Error {
   providerErrorName?: string;
 
   /**
-   * Whether a second attempt could land. The token decides where the body carried one; the status
-   * decides otherwise, `409 invalid_idempotent_request` being the one 4xx a retry cannot repair.
+   * Whether a second attempt could land. By the status for a rate limit, a quota and an outage, which the reference
+   * answers at 429 and at 500 or above whatever their name, so a name it adds there is retried too; by the name for
+   * the two temporary conflicts.
    */
   get isTransient(): boolean {
-    if (this.providerErrorName !== undefined) return TRANSIENT_PROVIDER_ERRORS.has(this.providerErrorName);
+    if (this.statusCode === 429 || this.statusCode >= 500) return true;
 
-    return this.statusCode === 429 || this.statusCode >= 500;
+    return this.providerErrorName !== undefined && TRANSIENT_CONFLICTS.has(this.providerErrorName);
   }
 
   constructor({
