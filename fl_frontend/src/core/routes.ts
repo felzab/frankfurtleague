@@ -22,9 +22,10 @@ export type RouteEntry = {
   readonly title: Copy | ((...names: never) => Copy) | null;
   readonly crawl: Crawl;
   /**
-   * The menu entry the page belongs to, where its address lies under another entry's: a frame marks that entry and
-   * leads back to it rather than to the entry the address lies under. `entry` is the entry's row; `pattern` is the address the page answers at as its route folder writes it, each dynamic segment
-   * `[name]`.
+   * The page the page belongs to, where its address lies under another entry's: a frame leads back to it, and marks it
+   * where it is an entry of the menu, else the entry the address lies under. `entry` is that page's row, whose address
+   * takes the page's dynamic segments in their order, as many as it names; `pattern` is the address the page answers
+   * at as its route folder writes it, each dynamic segment `[name]`.
    */
   readonly place?: { readonly entry: string; readonly pattern: `/${string}` };
 };
@@ -160,13 +161,12 @@ export const ROUTES = {
   registrierungDone: { path: () => "/registrierung/done" as const, title: COPY.page.registrierung, crawl: "disallow" },
 
   /**
-   * Konto, a signed-in person's own pages whatever they hold, outside every area: the list of its four pages, which a
-   * phone opens on, and the four.
+   * Konto, a signed-in person's own pages whatever they hold, outside every area: the list of its three pages, which a
+   * phone opens on, and the three.
    */
   account: { path: () => "/account" as const, title: COPY.template.account, crawl: "disallow" },
   accountSignIn: { path: () => "/account/signin" as const, title: COPY.page.accountSignIn, crawl: "disallow" },
   accountSecurity: { path: () => "/account/security" as const, title: COPY.page.accountSecurity, crawl: "disallow" },
-  accountAppearance: { path: () => "/account/appearance" as const, title: COPY.page.accountAppearance, crawl: "disallow" },
   accountEntries: { path: () => "/account/entries" as const, title: COPY.page.accountEntries, crawl: "disallow" },
 
   /**
@@ -210,10 +210,10 @@ export const ROUTES = {
     title: COPY.page.spiele,
     crawl: "disallow",
   },
-  /** A match's line-up as its club's seats enter it, named by the match's two teams. */
+  /** A match's line-up as its club's seats enter it, named by the club. */
   teamAufstellung: {
     path: (team: string, saison: string, spiel: string) => `/area/team/${team}/${saison}/spiele/${spiel}` as const,
-    title: COPY.page.spiel,
+    title: COPY.aufstellung.ofTeam,
     crawl: "disallow",
   },
   teamKader: {
@@ -266,11 +266,16 @@ export const ROUTES = {
     title: COPY.page.spiel,
     crawl: "disallow",
   },
-  /** One club's line-up for a match as the league enters it, named by the match's two teams as the team's own is. */
+  /**
+   * One club's line-up for a match as the league enters it, named by the club as the match editor's link to it is, and
+   * the team's own is. It belongs to the match editor it is opened from, which leads back there, and the rail marks
+   * the Spiele list, which the match editor belongs to.
+   */
   adminAufstellung: {
     path: (saison: string, spiel: string, team: string) => `/admin/saisons/${saison}/spiele/${spiel}/aufstellung/${team}` as const,
-    title: COPY.page.spiel,
+    title: COPY.aufstellung.ofTeam,
     crawl: "disallow",
+    place: { entry: "adminSpiel", pattern: "/admin/saisons/[saison]/spiele/[spiel]/aufstellung/[team]" },
   },
   adminSpielorte: { path: () => "/admin/spielorte" as const, title: COPY.page.adminSpielorte, crawl: "disallow" },
   /** A venue's own page, named by the venue. */
