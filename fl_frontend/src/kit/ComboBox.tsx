@@ -21,13 +21,13 @@ import type { Option } from "./OptionList";
  * typed, and alone where nothing matches. `onCreate` receives the text typed into the field, which the create
  * dialog starts from, or nothing where the field shows the chosen record's own name.
  */
-export type CreateEntry = { label: Copy; onCreate: (typed: string) => void };
+type CreateEntry = { label: Copy; onCreate: (typed: string) => void };
 
 /**
  * A combo box whose answer is its text, the options suggestions rather than the set, as a school may wish to play one
  * no list holds yet: the form receives what is typed, up to `maxLength`, and `arrow` names the button opening the list.
  */
-export type FreeText = { arrow: Copy; maxLength?: number };
+type FreeText = { arrow: Copy; maxLength?: number };
 
 /**
  * What the list shows where the text typed matches no option: the create entry standing alone, nothing for a box whose
