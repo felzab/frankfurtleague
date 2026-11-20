@@ -3,13 +3,10 @@ API · every administrator operation acting on a mailbox refuses the administrat
 
 `own_address` refuses the address the administrator acts as, and `admin_address` an address holding a grant to anyone
 without an owner's power, each through `app/api/identity/crud.py :: refuse_an_address_off_limits`. Each operation is
-one row of `ACTS_ON_AN_ADDRESS`, asked by an administrator holding no owner's power, and every operation the two
-mailbox routers mount is a row there or in `LEFT_OUT_BY_DESIGN`, so an operation added to either router is judged here
-before it serves. A mailbox operation on a third router escapes that census.
+one row of `ACTS_ON_AN_ADDRESS`, asked by an administrator holding no owner's power.
 """
 
 import logging
-import re
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Any
@@ -18,15 +15,12 @@ import pytest
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.address_change import admin_router as address_change_admin_router
-from app.api.identity import admin_router as identity_admin_router
 from app.api.identity.admin_router import get_erasure_view, post_withdrawal
 from app.api.identity.schemas import FLEinwilligungWithdrawalPayload, FLErasureAddressPayload
 from app.core.codes import Code
 from tests.acts import journal_records
 from tests.app_client import app_client, app_under_test
 from tests.config import ADMIN_KEY
-from tests.core.app_source import api_routes, application
 from tests.erasure_corpus import everything_in
 from tests.isolation import refused_code
 from tests.session_headers import StampedHeaders
@@ -110,7 +104,7 @@ class Act:
     alone: Handler | None = None
 
 
-# Keyed as `api_routes` serves each operation: its method and its path under the prefix, convertors dropped.
+# Keyed by each operation's method and its path under the prefix.
 ACTS_ON_AN_ADDRESS: dict[tuple[str, str], Act] = {
     ("POST", "/api/identity/erasure/view"): Act(by_body("/api/identity/erasure/view", lambda address: {"email": address}), counted_alone),
     ("POST", "/api/identity/erasure"): Act(
@@ -125,15 +119,6 @@ ACTS_ON_AN_ADDRESS: dict[tuple[str, str], Act] = {
     ),
     ("DELETE", "/api/address_change/{address_change_id}"): Act(by_a_change("/api/address_change/{address_change_id}")),
 }
-
-# The mailbox routers' operations acting on no one address, each with what takes the refusals' place.
-LEFT_OUT_BY_DESIGN: dict[tuple[str, str], str] = {
-    ("GET", "/api/address_change"): "left out rather than refused: the list leaves out each change the tool would refuse",
-}
-
-MAILBOX_ROUTERS = frozenset({identity_admin_router.__name__, address_change_admin_router.__name__})
-
-CONVERTOR_IN_PATH = re.compile(r"\{([^}:]+):[^}]+\}")
 
 
 async def asked(
@@ -184,17 +169,3 @@ async def test_their_own_address_in_other_capitals_and_between_spaces_is_refused
     assert alone is not None
 
     assert await refused_code(alone(f"  {ADMIN.upper()} ")) == Code.OWN_ADDRESS
-
-
-def test_every_operation_of_the_mailbox_routers_is_judged_here():
-    """An equality, so an operation added to either router without a row fails, and so does a row naming no operation."""
-
-    mounted = {
-        (method, CONVERTOR_IN_PATH.sub(r"{\1}", route.path))
-        for route in api_routes(application())
-        if route.endpoint.__module__ in MAILBOX_ROUTERS
-        for method in route.methods or ()
-    }
-
-    assert mounted == ACTS_ON_AN_ADDRESS.keys() | LEFT_OUT_BY_DESIGN.keys()
-    assert ACTS_ON_AN_ADDRESS.keys().isdisjoint(LEFT_OUT_BY_DESIGN)

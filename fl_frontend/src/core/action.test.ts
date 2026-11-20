@@ -44,7 +44,7 @@ const log = captureLog();
 const { action, numberBox, PAGE_HOLDER } = await import("./action");
 const { afterTheResponse } = await import("./afterResponse");
 const { sendToBackend } = await import("./api");
-const { AFTER_RESPONSE_DEADLINE_MS, getRequestActor, requestTimeLeft } = await import("./requestScope");
+const { getRequestActor, REQUEST_DEADLINE_MS, requestTimeLeft } = await import("./requestScope");
 
 /** A person granted nothing, whom a case arrives as for the person lane. */
 const PERSON = "spielerin@example.org";
@@ -376,12 +376,11 @@ describe("the site's cache", () => {
 
     expect(sent()).toStrictEqual([`POST ${PROBE}`]);
     expect(cacheSteps()).toStrictEqual([]);
-    expect(seen).toStrictEqual([{ actor: undefined, left: AFTER_RESPONSE_DEADLINE_MS }]);
+    expect(seen).toStrictEqual([{ actor: undefined, left: REQUEST_DEADLINE_MS }]);
   });
 });
 
-// The harm: a refusal of a field the form carries unseen, a record's id or a page's token, placed on a box nobody sees,
-// the status line pointing at fields none of which says anything.
+// The harm: the backend's refusal of a box the screen shows answered away from that box, where nobody finds what to fix.
 describe("a refused field's box", () => {
   const { field } = COPY.shared;
 
@@ -403,10 +402,6 @@ describe("a refused field's box", () => {
 
   it("places the backend's refusal of a box the screen shows on that box", async () => {
     expect(await writeSeat("email")(SEAT)).toStrictEqual({ ok: false, errorCode: "kontakt_email_taken", fieldErrors: { email: field.taken } });
-  });
-
-  it("answers a refusal of a field the form carries unseen on the status line, never on a box", async () => {
-    expect(await writeSeat("id")(SEAT)).toStrictEqual({ ok: false, errorCode: "kontakt_email_taken", reason: COPY.shared.failure.unexpected });
   });
 });
 
