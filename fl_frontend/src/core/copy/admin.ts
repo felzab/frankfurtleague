@@ -436,7 +436,6 @@ export const ADMIN_COPY = catalogue({
     noneChosen: "Kein Widerruf gewählt.",
     /** No record at the address grants a ticked choice, none at all included. */
     nothingGranted: "Unter dieser Adresse ist nichts davon erteilt.",
-    entered: WITHDRAWAL_ENTERED,
   },
 
   addressChange: {
