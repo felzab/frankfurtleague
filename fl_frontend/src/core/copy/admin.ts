@@ -82,7 +82,7 @@ export const ADMIN_COPY = catalogue({
   /** Why a finished season's player editor offers no removal or return of the squad row, in the lock line's own words. */
   sinceEnd: `Gesperrt ${LOCK.sinceEnd}`,
   /** „2 von 3“, a figure under its column's or its fact's name, where `SERVER_COPY.overview.seatsConfirmed` is a whole line. */
-  seatsOf: (confirmed: number, seats: number) => `${formatNumber(confirmed)} ${boundBy("von", formatNumber(seats))}`,
+  seatsOf: (confirmed: number, seats: number) => `${formatNumber(confirmed)} von ${formatNumber(seats)}`,
   /** A seat's or a link's chip where its last mail met trouble. */
   delivery: {
     delayed: "Noch nicht zugestellt",
@@ -114,7 +114,7 @@ export const ADMIN_COPY = catalogue({
     withArticle: "Die Person",
     kontaktData: "Kontaktdaten",
     confirmation: "Bestätigung",
-    sentTo: (address: string) => `${boundBy("An", address)} gesendet`,
+    sentTo: (address: string) => `An ${address} gesendet`,
   },
 
   saison: {
@@ -192,7 +192,7 @@ export const ADMIN_COPY = catalogue({
     incoming: "Nachrückendes Team",
     /** What the replacement does: the incoming club takes the outgoing one's group and every match of it. */
     replaceConsequence: (incoming: Words, outgoing: Words, gruppe: string) =>
-      `${textOf(incoming)} übernimmt ${GRUPPE(gruppe)} und alle Spiele ${boundBy("von", textOf(outgoing))}.`,
+      `${textOf(incoming)} übernimmt ${GRUPPE(gruppe)} und alle Spiele von ${textOf(outgoing)}.`,
 
     /**
      * Why the draw cannot be redrawn or removed now: reports stand, the season went live, or a match holds something
@@ -206,19 +206,19 @@ export const ADMIN_COPY = catalogue({
      * Each team's registration link as its row states it, by what the press would do with it; a sent one's day also on
      * the links table's line on a phone, whose box leaves the „Gesendet am“ column out.
      */
-    linkSentOn: (day: CalendarDay) => `${SENT_ON}\u00A0${formatDate(day)}`,
+    linkSentOn: (day: CalendarDay) => `${SENT_ON} ${formatDate(day)}`,
     sentOn: SENT_ON,
     noLinkYet: "Noch kein Link",
     noConfirmedAddress: "Keine bestätigte Adresse",
     addressBarred: "Adresse auf der Sperrliste",
     /** The rows say the rest. */
-    sentTo: (count: number) => (count === 1 ? "An\u00A01\u00A0Team gesendet" : `${boundBy("An", formatNumber(count), "Teams")} gesendet`),
+    sentTo: (count: number) => (count === 1 ? "An 1\u00A0Team gesendet" : `An ${boundBy(formatNumber(count), "Teams")} gesendet`),
     dispatchConsequence: (count: number) =>
       count === 1 ? "1\u00A0Team bekommt seinen Link per E-Mail." : `${boundBy(formatNumber(count), "Teams")} bekommen ihren Link per E-Mail.`,
 
     /** The activation's subject, and the season the site shows from then on. */
-    onto: (saison: string) => boundBy("Auf", saisonNameBound(saison)),
-    activateConsequence: (saison: string) => `Die Website zeigt ab sofort ${boundBy("die", saisonNameBound(saison))}.`,
+    onto: (saison: string) => `Auf ${saisonNameBound(saison)}`,
+    activateConsequence: (saison: string) => `Die Website zeigt ab sofort die ${saisonNameBound(saison)}.`,
     activateQuestion: "Die Website wechselt die Saison.",
     /** Why the activation cannot run yet: the season the site shows owes results, or this one's matchdays owe dates. */
     unfinished: "Die bisherige Saison hat noch Spiele ohne Ergebnis.",
@@ -285,7 +285,7 @@ export const ADMIN_COPY = catalogue({
     allSeats: "Alle Kontaktpersonen",
     /** „E-Mail an“'s value in the decline: a seat past the mailbox bound has heard of no application, so it hears of no decline. */
     mailedSeats: "Angeschriebene Kontaktpersonen",
-    cardOf: (position: number, total: number) => `Bewerbung ${formatNumber(position)} ${boundBy("von", formatNumber(total))}`,
+    cardOf: (position: number, total: number) => `Bewerbung ${formatNumber(position)} von ${formatNumber(total)}`,
     count: (count: number) => (count === 1 ? "1\u00A0Bewerbung" : boundBy(formatNumber(count), "Bewerbungen")),
     acceptManyConsequence: (saison: string) => `Die Teams werden endgültig Teil der ${saisonNameBound(saison)}.`,
     /** „E-Mail an“'s value in the bulk's question. An application names at least two people, so the count is never 1. */
@@ -304,7 +304,7 @@ export const ADMIN_COPY = catalogue({
     /** „Team eintragen“'s reason while locked, and „Annehmen“'s in a running season: either enters a club. */
     onlyPlanned: "Nur in einer geplanten Saison",
     enterDescription: "Ein bekanntes Team oder eine neue Schule",
-    inSaison: (saison: string) => boundBy("In", "der", saisonNameBound(saison)),
+    inSaison: (saison: string) => `In der ${saisonNameBound(saison)}`,
     /** Under Name and Kürzel once changed: a finished season keeps the name it was played under. */
     renameReach: "Gilt für laufende und geplante Saisons",
     description: "Beschreibung",
@@ -353,7 +353,7 @@ export const ADMIN_COPY = catalogue({
     pendingKind: { addition: "Neuer Administrator", handover: `Übergabe der ${OWNER_TIER}` },
     /** A waiting row's one muted line: what waits, a new address where one does, and its date. */
     pendingLine: (kind: Copy, address: string | null, moment: string) =>
-      lineOf([kind, address, boundBy(EFFECTIVE_FROM, formatInstantShort(moment))]),
+      lineOf([kind, address, `${EFFECTIVE_FROM} ${formatInstantShort(moment)}`]),
     additionConsequence: (wait: Wait) => `Der Zugang gilt ${waitWords(wait).after}.`,
     removeConsequence: "Der Zugang endet sofort.",
     handoverConsequence: (wait: Wait) => `Die ${OWNER_TIER} geht ${waitWords(wait).after} über, und du bleibst in der Verwaltung.`,
@@ -424,8 +424,8 @@ export const ADMIN_COPY = catalogue({
       string
     >,
     /** A row's muted line, the moment its step ends: while a link is open, and in the wait. */
-    until: (moment: string) => boundBy("bis", formatInstantShort(moment)),
-    from: (moment: string) => boundBy("ab", formatInstantShort(moment)),
+    until: (moment: string) => `bis ${formatInstantShort(moment)}`,
+    from: (moment: string) => `ab ${formatInstantShort(moment)}`,
     startConsequence: (wait: Wait) => `Die neue Adresse gilt erst ${waitWords(wait).span}, nachdem sie bestätigt ist.`,
     /** The typed address matching a listed row. */
     replaces: "Eine laufende Änderung wird ersetzt.",

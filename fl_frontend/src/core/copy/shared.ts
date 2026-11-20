@@ -55,7 +55,7 @@ const AFTER_ELFMETERSCHIESSEN = "n.\u00A0E.";
 const SIGN_IN = "Anmeldung";
 const KADER = "Kader";
 const ENTRY = "Eintrag";
-const startelfCount = (count: number, max: number) => `Startelf ${formatNumber(count)} ${boundBy("von", formatNumber(max))}`;
+const startelfCount = (count: number, max: number) => `Startelf ${formatNumber(count)} von ${formatNumber(max)}`;
 const DELETED = "Gelöscht";
 // Words a record's state, a form's line or a toast shares with a done act's toast, kept as one string each.
 const SAVED = "Gespeichert";
@@ -108,7 +108,7 @@ export const COPY = catalogue({
       // One-sided bounds of a number or of a list, the box's label saying what is counted.
       max: (count: number) => `Höchstens ${formatNumber(count)}`,
       min: (count: number) => `Mindestens ${formatNumber(count)}`,
-      without: (thing: Copy) => boundBy("Ohne", thing),
+      without: (thing: Copy) => `Ohne ${thing}`,
       earliest: (day: CalendarDay) => `Frühestens ${formatDate(day)}`,
       latest: (day: CalendarDay) => `Spätestens ${formatDate(day)}`,
       taken: "Schon vergeben",
@@ -147,13 +147,13 @@ export const COPY = catalogue({
       linkSent: SENT,
       linkNotSent: "Nicht gesendet",
     },
-    confirmedOn: (day: CalendarDay) => `Bestätigt ${boundBy("am", formatDate(day))}`,
-    expiredOn: (day: CalendarDay) => `Abgelaufen ${boundBy("am", formatDate(day))}`,
-    answerBy: (day: CalendarDay) => `Antwort ${boundBy("bis", formatDate(day))}`,
+    confirmedOn: (day: CalendarDay) => `Bestätigt am ${formatDate(day)}`,
+    expiredOn: (day: CalendarDay) => `Abgelaufen am ${formatDate(day)}`,
+    answerBy: (day: CalendarDay) => `Antwort bis ${formatDate(day)}`,
     /** The day a state took effect, beside the chip naming the state: „am 09.11.2026“. */
-    onDay: (day: CalendarDay) => boundBy("am", formatDate(day)),
+    onDay: (day: CalendarDay) => `am ${formatDate(day)}`,
     afterConfirmation: "Erst nach Bestätigung",
-    afterHandover: `Erst nach Übergabe ${boundBy("der", OWNER_TIER)}`,
+    afterHandover: `Erst nach Übergabe der ${OWNER_TIER}`,
     reason: "Grund",
     /**
      * A danger box's consequence of retiring a record and of bringing it back, by the record as a noun phrase with its
@@ -163,7 +163,7 @@ export const COPY = catalogue({
     reactivateConsequence: (subject: Copy) => `${subject} steht wieder zur Auswahl.`,
     /** The description of a free text a mail hands to people it may not concern. */
     noNames: "Ohne Namen",
-    mediaFrom: (age: number) => `Erst ${boundBy("ab", formatNumber(age), "Jahren")}`,
+    mediaFrom: (age: number) => `Erst ab ${boundBy(formatNumber(age), "Jahren")}`,
 
     administration: "Verwaltung",
     owner: OWNER_TIER,
@@ -263,7 +263,7 @@ export const COPY = catalogue({
     close: "Schließen",
 
     end: {
-      doneOn: (done: Copy, day: CalendarDay) => `${done} ${boundBy("am", formatDateLong(day))}`,
+      doneOn: (done: Copy, day: CalendarDay) => `${done} am ${formatDateLong(day)}`,
       toHome: "Zur Startseite",
       toAccount: "Zum Konto",
       toOverview: "Zur Übersicht",
@@ -308,7 +308,7 @@ export const COPY = catalogue({
       rueckzug: { label: "Rückzug", state: "Zurückgezogen", shorthand: "RZ" },
     } satisfies Record<FLAustrittType, { label: string; state: string; shorthand: string }>,
     /** A club's exit note's head: its route's `state` and the day it took effect. */
-    austrittSince: (state: Copy, day: CalendarDay) => `${state} ${boundBy("seit", formatDate(day))}`,
+    austrittSince: (state: Copy, day: CalendarDay) => `${state} seit ${formatDate(day)}`,
     startelf: "Startelf",
     bank: "Bank",
     /**
@@ -536,7 +536,7 @@ export const COPY = catalogue({
        */
       consequence: {
         notScored: "Das Spiel wird nicht gewertet.",
-        nichtantreten: (opponent: Words) => `Das Spiel wird ${boundBy("für", textOf(opponent))} gewertet.`,
+        nichtantreten: (opponent: Words) => `Das Spiel wird für ${textOf(opponent)} gewertet.`,
         abgebrochenScored: "Das eingetragene Ergebnis wird gewertet.",
         abgebrochenOpen: "Die Wertung steht noch nicht fest.",
       },
@@ -606,11 +606,11 @@ export const COPY = catalogue({
      * Why „Aufstellen“ is locked on a nominee's row once the line-up names `max` of the squad's own players, a nominee
      * filling a shortage alone: the bound the backend publishes, never a typed figure.
      */
-    nomineeLocked: (max: number) => `Nur bei weniger ${boundBy("als", formatNumber(max))}`,
+    nomineeLocked: (max: number) => `Nur bei weniger als ${formatNumber(max)}`,
     needsSlot: "Erst mit Datum und Uhrzeit",
-    dueBy: (day: CalendarDay) => `Aufstellung ${boundBy("bis", formatDate(day))}`,
+    dueBy: (day: CalendarDay) => `Aufstellung bis ${formatDate(day)}`,
     /** Beside the „Überfällig“ chip, which says the rest. */
-    overdueSince: (day: CalendarDay) => `Aufstellung ${boundBy("seit", formatDate(day))}`,
+    overdueSince: (day: CalendarDay) => `Aufstellung seit ${formatDate(day)}`,
     overdue: "Überfällig",
     overdueOnCard: "Aufstellung überfällig",
     /** Once the team's seats can change nothing more before the match. */
@@ -669,6 +669,6 @@ export const COPY = catalogue({
     name: "Frankfurt League",
     shortName: "FL",
     description:
-      "Die Frankfurt League ist die Fußballliga der Frankfurter Oberstufen. Abi-Jahrgänge spielen 11\u00A0gegen\u00A011 um den Titel. Jedes Spiel bringt Geld für den Abiball.",
+      "Die Frankfurt League ist die Fußballliga der Frankfurter Oberstufen. Abi-Jahrgänge spielen 11 gegen 11 um den Titel. Jedes Spiel bringt Geld für den Abiball.",
   },
 });

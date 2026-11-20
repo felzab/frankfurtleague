@@ -166,17 +166,15 @@ export type Wait = { readonly hours: 24 } | { readonly days: 7 };
 /** A wait's two German forms, digits always: `span` after „gilt erst“, and `after` taking the dative. */
 export const waitWords = (wait: Wait) =>
   "hours" in wait
-    ? { span: boundBy(formatNumber(wait.hours), "Stunden"), after: boundBy("nach", formatNumber(wait.hours), "Stunden") }
-    : { span: boundBy(formatNumber(wait.days), "Tage"), after: boundBy("nach", formatNumber(wait.days), "Tagen") };
+    ? { span: boundBy(formatNumber(wait.hours), "Stunden"), after: `nach ${boundBy(formatNumber(wait.hours), "Stunden")}` }
+    : { span: boundBy(formatNumber(wait.days), "Tage"), after: `nach ${boundBy(formatNumber(wait.days), "Tagen")}` };
 
 /**
- * „bis 12.11.2026, 17:54“, „nach 15 Tagen“, „für die Saison 2027“, „Erst ab 16 Jahren“: the words of a phrase joined by
- * no-break spaces, so a line never ends on a preposition or an article apart from its value, nor on a number apart from
- * its unit. A phrase of several words takes each as a part: `boundBy("für", "die", saison)`. Only the spaces it joins
- * bind, so a value holding a space of its own comes bound: a season's name as `saisonNameBound`, and a short instant,
- * whose date and time `formatInstantShort` binds. Prose before words with no value, „bis zum Ende der Saison“, breaks
- * as any words do. A mail's subject joins nothing: it is one header line, which a mail program shows and searches as
- * typed.
+ * „15 Tagen“, „16 Jahren“: a number and its unit joined by a no-break space, so a line never parts them. That and an
+ * abbreviation's own spaces, „Art. 6 Abs. 1“, are the only spaces the catalogue binds: a preposition or an article
+ * before a value, „nach 15 Tagen“, „für die Saison 2027“, breaks as any words do. A value holding a space of its own
+ * comes bound: a season's name as `saisonNameBound`, and a short instant, whose date and time `formatInstantShort`
+ * binds. A mail's subject joins nothing: it is one header line, which a mail program shows and searches as typed.
  */
 export const boundBy = (...parts: string[]) => parts.join("\u00A0");
 

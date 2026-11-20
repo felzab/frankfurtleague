@@ -57,6 +57,12 @@ export interface Mail {
   readonly origin: string;
   readonly paragraphs: readonly [Paragraph, ...Paragraph[]];
   /**
+   * The first paragraph opens on a noun the catalogue's words begin with, such as a pairing's club names typed into the
+   * lead. Without it the shell lower-cases the paragraph's first letter: a greeting closing on a comma runs on into the
+   * paragraph after it, which then begins small (Duden, D 132, point 2), while the same sentence opens a page capitalised.
+   */
+  readonly opensOnNoun?: true;
+  /**
    * The one facts block: a column of rows under the title naming them, the sign-in code, or a link a reader passes
    * on, standing alone in its box.
    */
@@ -186,6 +192,15 @@ const sentenceText = (sentence: Sentence): string => runs(sentence).map(runText)
 const paragraphText = (paragraph: Paragraph): string => paragraph.map(sentenceText).join(" ");
 const paragraphHtml = (paragraph: Paragraph): string => paragraph.map((sentence) => runs(sentence).map(runHtml).join("")).join(" ");
 
+/**
+ * Whether the first paragraph begins small under the greeting: it does unless the mail opens on a noun. A run that is a
+ * record's value is never re-cased, so a lead opening on a club's name keeps it as stored.
+ */
+const opensSmall = (mail: Mail): boolean => mail.opensOnNoun !== true && typeof runs(mail.paragraphs[0][0])[0] === "string";
+
+/** A rendered paragraph, its first letter lower-cased: escaping leaves a letter as it is, so the HTML takes it too. */
+const smallFirst = (rendered: string): string => `${rendered.charAt(0).toLocaleLowerCase("de")}${rendered.slice(1)}`;
+
 /** A fact's value as lines, every line after the first indented so none of them begins where a label does. */
 const valueText = (value: string): string => value.replace(/\r\n|\r|\n/g, "\n  ");
 const valueHtml = (value: string): string => escapeHtml(value).replace(/\r\n?|\n/g, "<br />");
@@ -207,10 +222,13 @@ type Block = { readonly html: string; readonly gap: number };
 
 const p = (inner: string, grade = BODY_TEXT): string => `<p style="margin:0;${grade}">${inner}</p>`;
 
-/** The paragraphs of one group, a paragraph's gap between them and a block's gap after the last. */
-function paragraphBlocks(paragraphs: readonly Paragraph[]): Block[] {
+/**
+ * The paragraphs of one group, a paragraph's gap between them and a block's gap after the last; the group under the
+ * greeting passes whether its first begins small.
+ */
+function paragraphBlocks(paragraphs: readonly Paragraph[], firstSmall = false): Block[] {
   return paragraphs.map((paragraph, index) => ({
-    html: p(paragraphHtml(paragraph)),
+    html: p(index === 0 && firstSmall ? smallFirst(paragraphHtml(paragraph)) : paragraphHtml(paragraph)),
     gap: index === paragraphs.length - 1 ? GAP.block : GAP.paragraph,
   }));
 }
@@ -278,7 +296,7 @@ function renderHtml(mail: Mail, subjectLine: string): string {
       gap: GAP.headText,
     },
     { html: p(escapeHtml(SERVER_COPY.mail.greeting)), gap: GAP.paragraph },
-    ...paragraphBlocks(mail.paragraphs),
+    ...paragraphBlocks(mail.paragraphs, opensSmall(mail)),
     ...(mail.block === undefined ? [] : [blockHtml(mail.block)]),
     ...paragraphBlocks(mail.afterBlock ?? []),
     ...(mail.button === undefined ? [] : buttonBlocks(mail.button)),
@@ -350,7 +368,9 @@ function renderText(mail: Mail, subjectLine: string): string {
   const groups: string[][] = [
     [subjectLine],
     [SERVER_COPY.mail.greeting],
-    ...mail.paragraphs.map((paragraph) => [paragraphText(paragraph)]),
+    ...mail.paragraphs.map((paragraph, index) => [
+      index === 0 && opensSmall(mail) ? smallFirst(paragraphText(paragraph)) : paragraphText(paragraph),
+    ]),
     ...(mail.block === undefined
       ? []
       : [

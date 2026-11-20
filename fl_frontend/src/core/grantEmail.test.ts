@@ -29,6 +29,10 @@ const rendered = (fields: Partial<FLGrantData>) => {
   return renderMail(mail).text;
 };
 
+/* The lead as the line under „Hallo,“ shows it, its first letter small (Duden, D 132): a no-op on a stored address,
+   which the backend keeps folded to lower case. */
+const underGreeting = (lead: string) => `${lead.charAt(0).toLowerCase()}${lead.slice(1)}`;
+
 describe("a grant notice", () => {
   /* The address came from the owner and may be mistyped, so this may be a stranger's first word from the league. */
   it("carries the Art. 21 line and its „Nicht du?“ on an addition's start and on nothing later", () => {
@@ -42,7 +46,9 @@ describe("a grant notice", () => {
   });
 
   it("reads an erased address as a sentence on a handover's withdrawal", () => {
-    expect(rendered({ change: "handover", stage: "withdrawn", address: null })).toContain(WORDS.lead.withdrawn.handover(WORDS.unnamedTarget));
+    expect(rendered({ change: "handover", stage: "withdrawn", address: null })).toContain(
+      underGreeting(WORDS.lead.withdrawn.handover(WORDS.unnamedTarget)),
+    );
   });
 
   it("names the moved address's old side where the new one was erased", () => {
@@ -60,6 +66,6 @@ describe("a grant notice", () => {
     { previous: ADDRESS, next: null, lead: WORDS.lead.completed.address(ADDRESS, WORDS.unnamedNewAddress) },
     { previous: null, next: null, lead: WORDS.lead.completed.address(WORDS.unnamedAddress, WORDS.unnamedNewAddress) },
   ])("reads the completed address change as a sentence from $previous to $next", ({ previous, next, lead }) => {
-    expect(rendered({ change: "address", stage: "completed", address: previous, new_address: next })).toContain(lead);
+    expect(rendered({ change: "address", stage: "completed", address: previous, new_address: next })).toContain(underGreeting(lead));
   });
 });

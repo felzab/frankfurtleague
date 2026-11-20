@@ -1,4 +1,4 @@
-import { boundBy, catalogue, seatsText, textOf } from "../copy";
+import { catalogue, seatsText, textOf } from "../copy";
 import { formatNumber } from "../format";
 import { COPY } from "./shared";
 
@@ -32,7 +32,7 @@ export const AREA_COPY = catalogue({
        * as its link: only the league mints and mails a team's link.
        */
       linkFromLeague: (league: { readonly href: Route; readonly label: Words }) =>
-        ["Den Registrierungslink schickt die Liga, erreichbar unter\u00A0", league, "."] as const,
+        ["Den Registrierungslink schickt die Liga, erreichbar unter ", league, "."] as const,
       /** The registration's address is a stored person's. */
       returning: "War schon in der Liga",
       /** Why „Aufnehmen“ is locked: the squad is at its cap, or the pupil's own link is unanswered. */
@@ -44,7 +44,7 @@ export const AREA_COPY = catalogue({
        * no address, so the line names the person alone.
        */
       earlierEntry: (name: Words) => `Ein früherer Eintrag nennt ${textOf(name)}.`,
-      admitAs: (name: Words) => `${boundBy("Als", textOf(name))} aufnehmen`,
+      admitAs: (name: Words) => `Als ${textOf(name)} aufnehmen`,
       otherPerson: "Andere Person, ablehnen",
     },
   },
