@@ -6,7 +6,7 @@ import { turnstileSecretKey } from "./config";
 import { COPY } from "./copy/shared";
 import { logger } from "./logging";
 import { boundCall } from "./requestScope";
-import { CONFIRM_HUMAN } from "./turnstileToken";
+import { BOT_CHECK_WAIT_MS, CONFIRM_HUMAN } from "./turnstileToken";
 
 import type { Copy } from "./copy";
 import type { LogMeta } from "./logging";
@@ -14,11 +14,8 @@ import type { LogMeta } from "./logging";
 /** Called from the server alone: a secret the page held would let anyone pass the check without a browser. */
 const SITEVERIFY_URL = "https://challenges.cloudflare.com/turnstile/v0/siteverify";
 
-// Cloudflare's own example's bound, from https://developers.cloudflare.com/turnstile/get-started/server-side-validation/,
-// over both attempts: past it the submission is refused rather than waiting longer.
-const SITEVERIFY_TIMEOUT_MS = 10_000;
-
-// The published ceiling on a token, from the same page: a longer one is no token Cloudflare minted.
+// The published ceiling on a token, from https://developers.cloudflare.com/turnstile/get-started/server-side-validation/:
+// a longer one is no token Cloudflare minted.
 const TOKEN_MAX_LENGTH = 2048;
 
 /** Cloudflare's own failure, which its page answers with "Retry the request", once. */
@@ -78,7 +75,7 @@ export async function turnstileRefusal(token: string | null): Promise<Copy | nul
 
   // One key over both attempts, so Cloudflare answers a retry of one judgement rather than spending the token twice.
   const request = JSON.stringify({ secret: turnstileSecretKey(), response: token, idempotency_key: crypto.randomUUID() });
-  const signal = boundCall(SITEVERIFY_TIMEOUT_MS);
+  const signal = boundCall(BOT_CHECK_WAIT_MS);
   let answer = await ask(request, signal);
   if ("theirs" in answer && answer.theirs) answer = await ask(request, signal);
 

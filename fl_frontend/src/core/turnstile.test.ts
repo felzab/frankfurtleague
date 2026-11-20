@@ -23,9 +23,6 @@ const carriesTheToken = (line: LoggedLine | undefined): boolean =>
 
 const SITEVERIFY_URL = "https://challenges.cloudflare.com/turnstile/v0/siteverify";
 
-/** The check's bound on Cloudflare's answer. */
-const SITEVERIFY_TIMEOUT_MS = 10_000;
-
 /** Cloudflare's answers in turn, the last one repeating; a case naming none leaves the request unanswered. */
 let answers: (() => Response | Promise<Response>)[] = [];
 
@@ -41,7 +38,7 @@ const asked = serveHost(new URL(SITEVERIFY_URL).origin, ({ method, url }) => {
 const postedAt = (index: number) => asked[index]?.body as Record<string, unknown> | undefined;
 
 const { CHECK_DISRUPTED, turnstileRefusal } = await import("./turnstile");
-const { CONFIRM_HUMAN } = await import("./turnstileToken");
+const { BOT_CHECK_WAIT_MS, CONFIRM_HUMAN } = await import("./turnstileToken");
 
 const json = (body: unknown, status = 200): Response =>
   new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
@@ -149,7 +146,7 @@ describe("an answer that is no judgement of the token", () => {
       answers = [answer];
 
       const verdict = turnstileRefusal(TEST_TOKEN);
-      await vi.advanceTimersByTimeAsync(SITEVERIFY_TIMEOUT_MS);
+      await vi.advanceTimersByTimeAsync(BOT_CHECK_WAIT_MS);
 
       expect(await verdict).toBe(CHECK_DISRUPTED);
       expect(asked.length).toBe(times);
