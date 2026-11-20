@@ -40,24 +40,28 @@ export type AskedInput<Input> = {
  * The press sends the fields to `read`, whose answer is the question, worded from what it read, so the act is confirmed
  * over what it will reach: a question standing on data the form holds until the press. `read`'s refusal stands in the
  * form's line, no question asked. The question's final press closes it, asks the touch and runs `act`, the form's
- * press busy until it answers, a refusal in a toast (`ConfirmDialog`). A done act names itself in its answer's `note`,
- * which stands in the form's line over boxes drawn empty, and in that line alone.
+ * press busy until it answers, a refusal in a toast (`ConfirmDialog`); an act off the touch's list runs inside the
+ * question instead, a refusal standing in the question's line. A done act names itself in its answer's `note`, which
+ * stands in the form's line over boxes drawn empty, and in that line alone.
  */
 export function QuestionForm<Input>({
   verb,
   tone,
+  touch = true,
   read,
   act,
   holder,
   children,
 }: {
-  /** The act's verb, behind the passkey touch, so one its toast words as done. */
+  /** The act's verb, one its toast words as done where the touch is asked. */
   verb: TouchVerb;
   /** The press's and the question's button alike. */
   tone: ConfirmWords["tone"];
+  /** Whether the act is on the touch's fixed list, as an erasure is and a withdrawal is not. */
+  touch?: boolean;
   read: (formData: FormData) => Promise<ActionAnswer<AskedInput<Input>>>;
   act: (input: Input & { holder: string }) => Promise<ActionAnswer>;
-  /** The address the page was drawn for: the act is on the touch's list (`usePasskeyTouch`). */
+  /** The address the page was drawn for, the one account the touch may answer for. */
   holder: string;
   /** The form's fields, the kit's, each with its `name`. */
   children: ReactNode;
@@ -91,6 +95,10 @@ export function QuestionForm<Input>({
   // A read that opened the question says nothing here: the question is its answer.
   const status = done ?? (answer?.ok === true ? null : statusOf(answer, isBlocked, isPending));
   const open = { isOpen: isAsking, onOpenChange: setAsking };
+  // Typed as the two shapes it takes, since two object literals in one conditional widen to one with both keys optional.
+  const touched: { touch: { holder: string }; doneShown: true } | { touch?: never; doneShown?: never } = touch
+    ? { touch: { holder }, doneShown: true }
+    : {};
 
   return (
     <>
@@ -128,7 +136,7 @@ export function QuestionForm<Input>({
           open={open}
           transition={acting}
           onConfirm={() => undefined}
-          touch={{ holder }}
+          {...(touch ? { touch: { holder } } : {})}
         />
       ) : (
         <ConfirmDialog
@@ -139,8 +147,8 @@ export function QuestionForm<Input>({
           {...(asked.question.facts === undefined ? {} : { facts: asked.question.facts })}
           open={open}
           transition={acting}
-          touch={{ holder }}
-          doneShown
+          // Without the touch the question shows a refusal itself and closes on a done act, which the form's line names.
+          {...touched}
           onConfirm={async () => {
             const answered = await act({ ...asked.input, holder });
             // An update after the `await` lands outside the press's transition unless it opens one of its own.
