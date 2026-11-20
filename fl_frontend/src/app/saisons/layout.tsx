@@ -4,8 +4,7 @@ import { COPY } from "@/core/copy/shared";
 import { dayOf, formatPeriod } from "@/core/format";
 import { ROUTES, SAISON_PAGES } from "@/core/routes";
 import { getSaisonFrame } from "@/features/saisons/queries";
-import { RailFrame } from "@/kit/RailFrame";
-import { RailFrameBoundary } from "@/kit/RailFrameBoundary";
+import { GuardedRailFrame } from "@/kit/GuardedRailFrame";
 
 import type { Saisons } from "@/kit/FrameNav";
 import type { ReactNode } from "react";
@@ -35,20 +34,15 @@ async function readSeasons(): Promise<Saisons | null> {
 export default function SaisonsLayout({ children }: { children: ReactNode }) {
   return (
     // A failed read of the frame's own is answered in the rail frame: this segment's `error.tsx` stands inside this layout.
-    <RailFrameBoundary
+    <GuardedRailFrame
       groups={GROUPS}
       bar={SAISON_PAGES}
+      saison={{ saisons: readSeasons(), home: "spielplan" }}
+      foot={{ kind: "signIn", href: ROUTES.signIn.path() }}
       next={{ label: COPY.shared.end.toHome, href: ROUTES.home.path() }}
-      signIn={ROUTES.signIn.path()}>
-      <RailFrame
-        groups={GROUPS}
-        bar={SAISON_PAGES}
-        saison={{ saisons: readSeasons(), home: "spielplan" }}
-        foot={{ kind: "signIn", href: ROUTES.signIn.path() }}
-        // Four pages, each read from caches every visitor shares, so a press lands on the page whole.
-        prefetch>
-        {children}
-      </RailFrame>
-    </RailFrameBoundary>
+      // Four pages, each read from caches every visitor shares, so a press lands on the page whole.
+      prefetch>
+      {children}
+    </GuardedRailFrame>
   );
 }

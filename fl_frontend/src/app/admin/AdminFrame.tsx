@@ -6,8 +6,7 @@ import { ROUTES } from "@/core/routes";
 import { readAccount } from "@/features/account/account";
 import { getAdminSaisons } from "@/features/saisons/queries";
 import { selectSaison } from "@/features/saisons/resolvers";
-import { RailFrame } from "@/kit/RailFrame";
-import { RailFrameBoundary } from "@/kit/RailFrameBoundary";
+import { GuardedRailFrame } from "@/kit/GuardedRailFrame";
 
 import type { RailGroup, Saisons } from "@/kit/FrameNav";
 import type { ReactNode } from "react";
@@ -83,23 +82,19 @@ export function AdminFrame({ children }: { children: ReactNode }) {
 
   return (
     // A failed read of the frame's own is answered in the rail frame: the area's `error.tsx` stands inside this layout.
-    <RailFrameBoundary
+    <GuardedRailFrame
       groups={RAIL_GROUPS}
       bar={BAR}
-      next={{ label: COPY.shared.end.toOverview, href: ROUTES.admin.path() }}>
-      <RailFrame
-        groups={RAIL_GROUPS}
-        bar={BAR}
-        // A league-wide page has no counterpart in another season, so a switch there lands on the season's Übersicht.
-        saison={{ saisons: readSeasons(session), home: "adminOverview", withoutSaison: ROUTES.adminSaisons.path() }}
-        foot={{
-          kind: "account",
-          account: session.then((served) => (served === null ? null : readAccount(COPY.shared.administration))),
-        }}
-        columnInLayouts>
-        {children}
-      </RailFrame>
-    </RailFrameBoundary>
+      // A league-wide page has no counterpart in another season, so a switch there lands on the season's Übersicht.
+      saison={{ saisons: readSeasons(session), home: "adminOverview", withoutSaison: ROUTES.adminSaisons.path() }}
+      foot={{
+        kind: "account",
+        account: session.then((served) => (served === null ? null : readAccount(COPY.shared.administration))),
+      }}
+      next={{ label: COPY.shared.end.toOverview, href: ROUTES.admin.path() }}
+      columnInLayouts>
+      {children}
+    </GuardedRailFrame>
   );
 }
 
