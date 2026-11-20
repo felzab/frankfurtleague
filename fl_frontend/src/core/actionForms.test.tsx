@@ -302,8 +302,8 @@ describe("each form's posted names meet its lane's keys", () => {
      in a source, or a key renamed in its lane, leaves its value out of the request. */
   describe("a form its sources spell", () => {
     it("loses no key of a Zusage's dialog", async () => {
-      const { enterZusage } = await import("@/app/admin/(list)/saisons/[saison]/enterZusage");
-      const posted = spelledIn("app/admin/(list)/saisons/[saison]/AdminOverview.tsx", "app/admin/(list)/saisons/[saison]/ZusageDialog.tsx");
+      const { enterZusage } = await import("@/features/spielbestaetigungen/enterZusage");
+      const posted = spelledIn("features/spielbestaetigungen/answerActs.tsx", "features/spielbestaetigungen/ZusageDialog.tsx");
       takes(["POST", `/spielbestaetigungen/${ID}/enter`, { version: 2 }]);
 
       expect(await enterZusage(formOf(posted, { id: ID, reason: "Telefonisch zugesagt" }))).toStrictEqual({ ok: true, value: undefined });
