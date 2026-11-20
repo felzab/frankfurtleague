@@ -9,9 +9,7 @@ import { underNext } from "@/test-support/nextContexts";
 import { doubleNextRequest } from "@/test-support/nextRequest";
 
 import type { FLSaisonFrameResponse, FLTabelleResponse, FLTabelleRow } from "@/core/generated/client/types";
-import type { ListPage } from "@/kit/ListPage";
 import type { TableStandingRow } from "@/kit/TableStanding";
-import type { ComponentProps, ReactElement } from "react";
 
 const STATISTIK = {
   count_cancelled_spiele: 0,
@@ -54,15 +52,37 @@ doubleNextRequest();
 
 const { default: TabellePage } = await import("./page");
 
-/** Each row's bar as the page hands it to the table, by the club's id. */
+/** The page as it lands for `gruppen`, two qualifying in each group. */
+async function landed(gruppen: FLTabelleResponse["gruppen"]) {
+  tabelle = { gruppen, qualifiers_per_gruppe: 2 };
+  const { prelude } = await prerender(
+    underNext(
+      <TabellePage
+        params={Promise.resolve({ saison: "2027" })}
+        searchParams={Promise.resolve({})}
+      />,
+      { pathname: "/saisons/2027/tabelle" },
+    ),
+    { progressiveChunkSize: Number.MAX_SAFE_INTEGER },
+  );
+  const page = document.createElement("div");
+  page.innerHTML = await new Response(prelude).text();
+  return page;
+}
+
+/** The rank cell of a club's row, found by its fragment, the club's id. */
+const rankOf = (page: HTMLElement, id: string) => page.querySelector(`tr[id="${id}"] td`)?.textContent ?? "";
+
+/** Each row's bar as its rank cell says it to a screen reader, by the club's id. */
 async function barsOf(rows: FLTabelleRow[]): Promise<Record<string, TableStandingRow["qualifies"]>> {
-  tabelle = { gruppen: { A: rows }, qualifiers_per_gruppe: 2 };
-  const page = TabellePage({ params: Promise.resolve({ saison: "2027" }), searchParams: Promise.resolve({}) }) as ReactElement<
-    ComponentProps<typeof ListPage>
-  >;
-  if (page.props.list.kind !== "groups") throw new Error("the Tabelle lists groups");
-  const { groups } = await page.props.list.content;
-  return Object.fromEntries((groups[0]?.table.rows ?? []).map((each) => [each.id, each.qualifies]));
+  const page = await landed({ A: rows });
+  const { qualifies } = COPY.shared.season;
+  return Object.fromEntries(
+    rows.map(({ id }) => {
+      const rank = rankOf(page, id);
+      return [id, rank.includes(qualifies.settled) ? "settled" : rank.includes(qualifies.level) ? "level" : undefined];
+    }),
+  );
 }
 
 // The bar tells a visitor which clubs go on to the K.-o.-Runde: one place off, or a level pair drawn as settled,
@@ -95,27 +115,6 @@ describe("the Tabelle's qualification bar", () => {
   });
 });
 
-/** The page as it lands for `gruppen`, two qualifying in each group. */
-async function landed(gruppen: FLTabelleResponse["gruppen"]) {
-  tabelle = { gruppen, qualifiers_per_gruppe: 2 };
-  const { prelude } = await prerender(
-    underNext(
-      <TabellePage
-        params={Promise.resolve({ saison: "2027" })}
-        searchParams={Promise.resolve({})}
-      />,
-      { pathname: "/saisons/2027/tabelle" },
-    ),
-    { progressiveChunkSize: Number.MAX_SAFE_INTEGER },
-  );
-  const page = document.createElement("div");
-  page.innerHTML = await new Response(prelude).text();
-  return page;
-}
-
-/** The rank cell of a club's row, found by its fragment. */
-const rankOf = (page: HTMLElement, id: string) => page.querySelector(`tr[id="${id.repeat(24)}"] td`)?.textContent ?? "";
-
 // The edge is a colour alone: a sighted visitor learns what it and the other marks mean only behind the ⓘ, and a
 // screen reader hears none of it but these words.
 describe("the Tabelle's marks", () => {
@@ -126,8 +125,8 @@ describe("the Tabelle's marks", () => {
     expect(cards).toHaveLength(2);
     for (const card of cards) within(card).getByRole("button", { name: COPY.shared.help });
 
-    expect(rankOf(page, "a")).toContain(COPY.shared.season.qualifies.settled);
-    expect(rankOf(page, "b")).toContain(COPY.shared.season.qualifies.level);
-    expect(rankOf(page, "e")).not.toContain(COPY.shared.season.qualifies.settled);
+    expect(rankOf(page, "a".repeat(24))).toContain(COPY.shared.season.qualifies.settled);
+    expect(rankOf(page, "b".repeat(24))).toContain(COPY.shared.season.qualifies.level);
+    expect(rankOf(page, "e".repeat(24))).not.toContain(COPY.shared.season.qualifies.settled);
   });
 });

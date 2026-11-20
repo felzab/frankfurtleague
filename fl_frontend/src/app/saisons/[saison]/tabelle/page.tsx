@@ -7,12 +7,15 @@ import { SERVER_COPY } from "@/core/serverCopy";
 import { getTabelle } from "@/features/saisons/queries";
 import { publicSaisonOf, resolvePublicSaisonParam } from "@/features/saisons/resolvers";
 import { austrittChip } from "@/features/teams/constants";
+import { Card } from "@/kit/Card";
+import { EmptyBox } from "@/kit/EmptyState";
 import { ListPage } from "@/kit/ListPage";
+import { TableStanding } from "@/kit/TableStanding";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
 
 import type { FLTabelleRow } from "@/core/generated/client/types";
-import type { TableStandingBody, TableStandingHead, TableStandingProps, TableStandingRow } from "@/kit/TableStanding";
+import type { TableStandingHead, TableStandingProps, TableStandingRow } from "@/kit/TableStanding";
 import type { Metadata, ResolvingMetadata } from "next";
 
 type Props = PageProps<"/saisons/[saison]/tabelle">;
@@ -32,7 +35,7 @@ export default function TabellePage({ params }: Props) {
   return (
     <ListPage
       head={{ scope: "saison", title: { route: "tabelle" } }}
-      list={{ kind: "groups", head: HEAD, content: readGroups(params) }}
+      list={{ kind: "drawn", content: readGroups(params) }}
     />
   );
 }
@@ -90,23 +93,32 @@ function rowOf(saison: string, row: FLTabelleRow, qualifiers: number, rows: read
   };
 }
 
+const EMPTY = { kind: "none", plural: COPY.page.tabelle, glyph: "tabelle" } as const;
+
+/** Each group's card, its name and count over its standing, or the empty state while the season holds no group. */
 async function readGroups(params: Props["params"]) {
   const saison = await resolvePublicSaisonParam(params);
   const tabelle = await getTabelle(saison);
   if (tabelle === null) notFound();
   const groups = Object.entries(tabelle.gruppen).sort(([one], [other]) => one.localeCompare(other));
-  return {
-    groups: groups.map(([gruppe, rows]) => ({
-      id: gruppe,
-      title: SERVER_COPY.season.gruppe(gruppe),
-      // One ⓘ for each group's card, each explaining the marks its standing draws.
-      help: SERVER_COPY.season.tabelle.help,
-      table: {
-        label: SERVER_COPY.season.gruppe(gruppe),
-        rows: rows.map((row) => rowOf(saison, row, tabelle.qualifiers_per_gruppe, rows)),
-        empty: { kind: "none", plural: COPY.page.tabelle, glyph: "tabelle" },
-      } satisfies TableStandingBody,
-    })),
-    empty: { kind: "none", plural: COPY.page.tabelle, glyph: "tabelle" } as const,
-  };
+  if (groups.length === 0) return <EmptyBox {...EMPTY} />;
+  return (
+    <>
+      {groups.map(([gruppe, rows]) => (
+        <Card
+          key={gruppe}
+          title={SERVER_COPY.season.gruppe(gruppe)}
+          // One ⓘ for each group's card, each explaining the marks its standing draws.
+          help={SERVER_COPY.season.tabelle.help}
+          count={rows.length}>
+          <TableStanding
+            {...HEAD}
+            label={SERVER_COPY.season.gruppe(gruppe)}
+            rows={rows.map((row) => rowOf(saison, row, tabelle.qualifiers_per_gruppe, rows))}
+            empty={EMPTY}
+          />
+        </Card>
+      ))}
+    </>
+  );
 }

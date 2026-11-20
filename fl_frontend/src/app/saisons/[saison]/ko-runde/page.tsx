@@ -5,6 +5,8 @@ import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { getKoRunde } from "@/features/saisons/queries";
 import { publicSaisonOf, resolvePublicSaisonParam } from "@/features/saisons/resolvers";
+import { BracketTree } from "@/kit/BracketTree";
+import { EmptyBox } from "@/kit/EmptyState";
 import { ListPage } from "@/kit/ListPage";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
@@ -26,13 +28,23 @@ export default function KoRundePage({ params }: Props) {
   return (
     <ListPage
       head={{ scope: "saison", title: { route: "kORunde" } }}
-      list={{ kind: "tree", content: readTree(params) }}
+      list={{ kind: "drawn", content: readTree(params) }}
     />
   );
 }
 
+/** The K.-o.-Baum, or the empty state before the draw. */
 async function readTree(params: Props["params"]) {
   const read = await getKoRunde(await resolvePublicSaisonParam(params));
   if (read === null) notFound();
-  return { tree: treeOf(read.spieltage), empty: { kind: "none" as const, plural: COPY.shared.kORunde, glyph: "kORunde" as const } };
+  const tree = treeOf(read.spieltage);
+  return tree === null ? (
+    <EmptyBox
+      kind="none"
+      plural={COPY.shared.kORunde}
+      glyph="kORunde"
+    />
+  ) : (
+    <BracketTree {...tree} />
+  );
 }

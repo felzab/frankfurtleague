@@ -322,7 +322,7 @@ export default function AdministratorsPage() {
       head={{ scope: "area", title: { route: "adminAdministrators" } }}
       side={access.then(handoverOf)}
       create={access.then(addOf)}
-      list={{ kind: "folds", content: foldsOf(access) }}
+      list={{ kind: "drawn", content: foldsOf(access) }}
     />
   );
 }

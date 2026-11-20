@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 
 import { COPY } from "@/core/copy/shared";
 
-import { ListPage } from "./ListPage";
+import { ListPage, SpielCards } from "./ListPage";
 
 import type { ComponentProps } from "react";
 
@@ -58,29 +58,18 @@ describe("a page of one card holding a list", () => {
 });
 
 describe("one club's matches under their matchdays", () => {
-  type Groups = Extract<ComponentProps<typeof ListPage>["list"], { kind: "spielGroups" }>;
-
-  /** The page as a browser holds it once its read has landed. */
-  async function drawn(content: Awaited<Groups["content"]>) {
+  /** The page as a browser holds it once its read has landed, its matches drawn as a team's Spiele page draws them. */
+  async function drawn(groups: ComponentProps<typeof SpielCards>["groups"]) {
     const { prelude } = await prerender(
       <ListPage
         head={{ scope: "area", title: { route: "teamSpiele" } }}
-        list={{ kind: "spielGroups", content: Promise.resolve(content) }}
+        list={{ kind: "drawn", content: Promise.resolve(<SpielCards groups={groups} />) }}
       />,
     );
     const landed = document.createElement("div");
     landed.innerHTML = await new Response(prelude).text();
     return { landed };
   }
-
-  const EMPTY = { kind: "none", plural: COPY.page.spiele } as const;
-
-  // The harm: a season before its draw drawn as an empty box, which reads as a list that failed to load.
-  it("gives way to the list's own empty state", async () => {
-    const { landed } = await drawn({ groups: [], empty: EMPTY });
-
-    expect(landed.querySelector("main")?.textContent).toBe(COPY.shared.empty.none(COPY.page.spiele));
-  });
 
   // The harm: a matchday's head a rung too low, so a screen reader's outline skips from the page's title to a third
   // level with no second between, and nothing on screen shows it.
@@ -92,7 +81,7 @@ describe("one club's matches under their matchdays", () => {
       team1: { name: { record: "Heim" }, plaque: { record: "HEI" } },
       team2: { name: { record: "Gast" }, plaque: { record: "GAS" } },
     };
-    const { landed } = await drawn({ groups: [{ head, spiel }], empty: EMPTY });
+    const { landed } = await drawn([{ head, spiel }]);
 
     expect(landed.querySelector("main h2")?.textContent).toBe(head);
     expect(landed.querySelector("main h3")).toBeNull();
