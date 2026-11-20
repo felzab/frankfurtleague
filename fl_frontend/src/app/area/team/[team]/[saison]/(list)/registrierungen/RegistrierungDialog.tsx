@@ -17,7 +17,7 @@ import type { HeldOpen } from "@/kit/useOpenUntilHidden";
 const WORDS = AREA_COPY.team.registrierung;
 
 /** The registration a dialog decides, whose own team the backend judges the seat against. */
-export type Decided = { registrierung_id: string };
+type Decided = { registrierung_id: string };
 
 /**
  * What „Aufnehmen“ does: nothing, with its reason, while the registration cannot be admitted; at once, into the stored
