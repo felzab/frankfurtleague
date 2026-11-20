@@ -1,12 +1,11 @@
 import { BracketTree } from "./BracketTree";
 import { Button } from "./Button";
-import { CappedRows } from "./CappedRows";
-import { Card, CardActRow } from "./Card";
+import { Card } from "./Card";
 import { CardGrid } from "./CardGrid";
 import { cardSurface } from "./cardStyles";
 import { Dialog } from "./Dialog";
 import { actLabel } from "./dialogAct";
-import { EmptyBox, EmptyState } from "./EmptyState";
+import { EmptyBox } from "./EmptyState";
 import { Filters } from "./Filters";
 import { Link } from "./Link";
 import { ListCard, ListMatches, ListQueryScope, ListSearchField, ListTable, ListTiles } from "./ListTable";
@@ -320,41 +319,17 @@ async function ListBody({ list }: { list: ListContent }) {
         <>
           {team !== undefined && <TeamHead {...team} />}
           <Cards boxes={cards.length + (seats === undefined ? 0 : 1)}>
-            {cards.map((entry) =>
-              // A searched card is drawn where the search is held, since which rows it caps depends on the text typed.
-              list.search !== undefined ? (
-                <ListCard
-                  key={entry.id}
-                  title={entry.title}
-                  rows={entry.rows}
-                  {...(entry.count === false ? { count: false } : {})}
-                  {...(entry.empty === undefined ? {} : { empty: entry.empty })}
-                />
-              ) : entry.rows.length === 0 && entry.empty !== undefined ? (
-                <EmptyBox
-                  key={entry.id}
-                  {...entry.empty}
-                />
-              ) : (
-                <Card
-                  key={entry.id}
-                  title={entry.title}
-                  {...(entry.count === false ? {} : { count: entry.rows.length })}>
-                  {entry.rows.length === 0 ? (
-                    <EmptyState kind="clear" />
-                  ) : (
-                    <CappedRows
-                      rows={entry.rows.map(({ id, words: _words, ...row }) => (
-                        <CardActRow
-                          key={id}
-                          {...row}
-                        />
-                      ))}
-                    />
-                  )}
-                </Card>
-              ),
-            )}
+            {cards.map((entry) => (
+              // Drawn where the search is held, since which rows it caps depends on the text typed; with no search
+              // nothing is typed, and it shows every row.
+              <ListCard
+                key={entry.id}
+                title={entry.title}
+                rows={entry.rows}
+                {...(entry.count === false ? { count: false } : {})}
+                {...(entry.empty === undefined ? {} : { empty: entry.empty })}
+              />
+            ))}
             {seats !== undefined && (
               <Card title={seats.title}>
                 <SeatRows
