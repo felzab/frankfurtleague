@@ -53,7 +53,7 @@ export const readErasureCounts = action({
   name: "readErasureCounts",
   input: IdentityPostErasureBody,
   ownWords: ["own_address", "admin_address", "email_not_accepted"],
-  paths: { email: "email" },
+  boxes: ["email"],
   examples: { email: COPY.shared.field.exampleAddress },
   run: async ({ email, reason }) => {
     const view = await identityGetErasureView({ email });
@@ -88,7 +88,7 @@ export const eraseAddress = action({
   passkey: true,
   input: z.object({ ...IdentityPostErasureBody.shape, ...PAGE_HOLDER }),
   ownWords: ["own_address", "admin_address", "foreign_address_change", "email_not_accepted"],
-  paths: { email: "email" },
+  boxes: ["email"],
   examples: { email: COPY.shared.field.exampleAddress },
   run: async ({ email, reason }) => {
     await identityPostErasure({ email, reason });

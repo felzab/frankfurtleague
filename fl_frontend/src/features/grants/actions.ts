@@ -25,7 +25,6 @@ export const addAdministrator = action({
   passkey: true,
   input: NewGrant,
   ownWords: ["grant_exists", "grant_barred", "email_not_accepted"],
-  paths: { email: "email" },
   examples: { email: COPY.shared.field.exampleAddress },
   // The dialog has closed before any answer, which its toast says: every refusal is a sentence, never a box's phrase.
   boxless: { email: { value: ADDRESS_FORMAT, email_not_accepted: ADDRESS_FORMAT } },

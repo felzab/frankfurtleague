@@ -97,19 +97,25 @@ type Declared<Schema extends z.ZodType> = {
   readonly input: Schema;
   /**
    * The codes and the rules this screen words, a person causing each knowingly from it. A field pattern's phrase is
-   * placed on the box `paths` names for the path its refusal names; a sentence stands on the status line. One whose
-   * phrase names a path `paths` does not declare, or whose sentence names a path its entry holds none for, answers
-   * as every other code does, and so does a refused payload breaking any rule the screen does not word: with a
-   * shared failure line.
+   * placed on the box the path its refusal names stands for (`boxes`, `paths`); a sentence stands on the status line.
+   * One whose phrase names a path standing for no box here, or whose sentence names a path its entry holds none for,
+   * answers as every other code does, and so does a refused payload breaking any rule the screen does not word: with
+   * a shared failure line.
    */
   readonly ownWords?: readonly (WordedCode | WordedRule)[];
   /**
-   * The box showing a field pattern's phrase, by the path the backend names for the refused field, its names joined
-   * by dots as a box's are (`fieldOf`). A row's field is declared once for every row, `*` standing where the index
-   * does on both sides, `"bericht.scorers.*.minute": "changes.scorers.*.minute"`, and a refusal naming row 2 lands on
-   * row 2's box. A field the screen shows no box for has no entry: a phrase has no subject but its box, so a refusal
-   * only a phrase words, about a field this screen does not show, is not its own, and a row's refusal never falls
-   * back to its list's box.
+   * The boxes this screen shows, by their names, a box's being its input's path joined by dots (`fieldOf`). A refusal
+   * whose path names one lands on it. A row's field is declared once for every row, `*` standing where the index does,
+   * `"changes.scorers.*.minute"`, and a refusal naming row 2 lands on row 2's box. A field the form carries unseen, a
+   * record's id, a page's token, its version or the replay key, is none: a phrase has no subject but its box, so a
+   * refusal only a phrase words, about a field this screen does not show, is not its own, and a row's refusal never
+   * falls back to its list's box. A screen showing no box with its answer declares its boxes by `boxless` instead.
+   */
+  readonly boxes?: readonly Field<z.output<Schema>>[];
+  /**
+   * The box showing a field pattern's phrase where the backend names the refused field by another path than the box's
+   * name, by that path: the editors' `changes.*`, or a box standing for a whole group. A row's field is declared as
+   * `boxes` declares it, `*` on both sides, `"bericht.scorers.*.minute": "changes.scorers.*.minute"`.
    */
   readonly paths?: { readonly [path: string]: Field<z.output<Schema>> };
   /** The example a box's „Format: …“ message names, by the box; a row's field names it for every row. */
@@ -119,7 +125,8 @@ type Declared<Schema extends z.ZodType> = {
    * toast says: a box's phrase has no subject there, so each refusal of a box is the sentence declared for it here, by
    * its cause, on the status line. A box's own rule refused in the parse is its `value`, or its `required` where it
    * held nothing once stripped; a rule or a code the backend refused it by is that rule's kind or that code. A refusal
-   * of a box with no sentence for its cause answers as a refusal the screen does not word.
+   * of a box with no sentence for its cause, or of a field with no entry here, answers as a refusal the screen does not
+   * word.
    */
   readonly boxless?: { readonly [F in Field<z.output<Schema>>]?: BoxSentences };
 };
@@ -439,11 +446,23 @@ const wordsOwn = <Schema extends z.ZodType>(declared: Declared<Schema>, kind: st
 type Words = { readonly path: FLRefusedField["path"]; readonly kind: string } & ({ readonly field: Copy } | { readonly line: Copy });
 
 /**
- * Each refusal where this screen shows it: a phrase on the box `paths` names for its path, a sentence on the status
- * line, or, on a screen showing no box with its answer, the sentence `boxless` declares for the box by the kind it was
- * refused by. The first a box meets is the one it shows, and the first sentence the one the line shows. `undefined`
- * where a phrase's path has no box here, or no sentence where no box stands, so no field phrase reaches the status
- * line without its field.
+ * The box a refused path stands for, both as `fieldOf` declares them: the box `paths` renames it to, else the path's own
+ * box where the screen shows it, as `boxes` declares, or as `boxless` does on a screen showing no box with its answer.
+ * `undefined` for a field the screen shows no box for, such as one its form carries unseen.
+ */
+function boxFor<Schema extends z.ZodType>(declared: Declared<Schema>, path: string): string | undefined {
+  const renamed: string | undefined = declared.paths?.[path];
+  if (renamed !== undefined) return renamed;
+  const shown = declared.boxless === undefined ? (declared.boxes?.some((box) => box === path) ?? false) : Object.hasOwn(declared.boxless, path);
+  return shown ? path : undefined;
+}
+
+/**
+ * Each refusal where this screen shows it: a phrase on the box its path stands for (`boxFor`), a sentence on the
+ * status line, or, on a screen showing no box with its answer, the sentence `boxless` declares for the box by the kind
+ * it was refused by. The first a box meets is the one it shows, and the first sentence the one the line shows.
+ * `undefined` where a phrase's path has no box here, or no sentence where no box stands, so no field phrase reaches the
+ * status line without its field.
  */
 function placed<Schema extends z.ZodType>(declared: Declared<Schema>, code: Code, refusals: readonly Words[]): ActionAnswer<never> | undefined {
   if (refusals.length === 0) return undefined;
@@ -456,7 +475,7 @@ function placed<Schema extends z.ZodType>(declared: Declared<Schema>, code: Code
       continue;
     }
     const field = fieldOf(refusal.path);
-    const shown = field === undefined ? undefined : declared.paths?.[field.declared];
+    const shown = field === undefined ? undefined : boxFor(declared, field.declared);
     const box = field === undefined || shown === undefined ? undefined : inRows(shown, field.rows);
     if (box === undefined || shown === undefined) return undefined;
     if (boxless !== undefined) {

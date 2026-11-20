@@ -57,7 +57,7 @@ export const readWithdrawal = action({
   name: "readWithdrawal",
   input: WithdrawalForm,
   ownWords: ["email_not_accepted"],
-  paths: { email: "email" },
+  boxes: ["email"],
   examples: { email: COPY.shared.field.exampleAddress },
   run: async (form) => {
     const choices = CHOICES.filter((choice) => form[choice] !== undefined);
@@ -80,7 +80,7 @@ export const enterWithdrawal = action({
   name: "enterWithdrawal",
   input: IdentityPostWithdrawalBody,
   ownWords: ["email_not_accepted"],
-  paths: { email: "email" },
+  boxes: ["email"],
   examples: { email: COPY.shared.field.exampleAddress },
   run: async (entry) => {
     await identityPostWithdrawal(entry);

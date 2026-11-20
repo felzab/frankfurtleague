@@ -88,7 +88,6 @@ export const enterBan = action({
   name: "enterBan",
   input: BanForm,
   ownWords: ["ban_list_admin", "ban_list_no_saison", "email_not_accepted"],
-  paths: { email: "email", ban_reason: "ban_reason" },
   examples: { email: COPY.shared.field.exampleAddress },
   boxless: {
     email: { value: CLOSED.format.address, email_not_accepted: CLOSED.format.address },

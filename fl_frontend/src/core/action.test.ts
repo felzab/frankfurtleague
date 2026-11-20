@@ -371,7 +371,7 @@ describe("a refused field's box", () => {
       name: "writeSeat",
       input: z.object({ id: z.string().min(1), email: z.email() }),
       ownWords: ["kontakt_email_taken"],
-      paths: { email: "email" },
+      boxes: ["email"],
       run: async () => {
         const refused: FLRefusedField = { in: "body", kind: "kontakt_email_taken", ctx: {}, path: [refusedAt] };
         await sends("PUT", refusal("kontakt_email_taken", { fields: [refused] }));
@@ -460,7 +460,6 @@ describe("a screen showing no box with its answer", () => {
       name: "enterBan",
       input: Ban,
       ownWords: ["email_not_accepted"],
-      paths: { email: "email", ban_reason: "ban_reason" },
       boxless: {
         // The rule's sentence apart from the box's own, so the answer shows which of the two was read.
         email: { value: format.address, email_not_accepted: format.next },

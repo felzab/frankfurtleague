@@ -33,7 +33,7 @@ export const acceptBewerbung = action({
     version: numberBox(accepted.version),
   }),
   ownWords: ["duplicate_key", "trikot_farbe_taken", "bewerbung_picked_team_already_entered", "team_retired"],
-  paths: { shorthand: "shorthand", trikot_farbe: "trikot_farbe" },
+  boxes: ["shorthand", "trikot_farbe"],
   examples: { shorthand: COPY.team.shorthandExample },
   run: async ({ id, ...body }) => {
     await bewerbungenAcceptBewerbung(id, body);

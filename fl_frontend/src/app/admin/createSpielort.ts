@@ -31,7 +31,7 @@ export const createSpielort = action({
   name: "createSpielort",
   input: CreateSpielortForm,
   ownWords: ["duplicate_key"],
-  paths: { name: "name" },
+  boxes: ["name"],
   examples: {
     postcode: COPY.shared.address.postcodeExample,
     house_number: COPY.shared.address.houseNumberExample,

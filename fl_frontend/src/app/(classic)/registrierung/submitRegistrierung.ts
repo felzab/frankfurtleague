@@ -56,7 +56,7 @@ export const submitRegistrierung = action({
   name: "submitRegistrierung",
   input: Registration,
   ownWords: ["email_not_accepted"],
-  paths: { email: "email" },
+  boxes: ["email"],
   examples: { first_name: exampleFirstName, last_name: exampleLastName, nummer: exampleDigits },
   run: async ({ [REPLAY_FIELD]: key, ...registration }) => {
     try {
