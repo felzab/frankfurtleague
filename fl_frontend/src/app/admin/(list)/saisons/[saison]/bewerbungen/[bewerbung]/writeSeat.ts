@@ -23,10 +23,10 @@ const CLOSED = SERVER_COPY.closedDialog;
  * number another person of the application holds names its box, and a finished season's application, which takes no
  * write, says so.
  */
-export const writeSeat = action({
+export const writeBewerbungSeat = action({
   lane: "admin",
   passkey: true,
-  name: "writeSeat",
+  name: "writeBewerbungSeat",
   input: z.object({
     id: BewerbungenPostKontaktSeatParams.shape.bewerbung_id,
     seat: BewerbungenPostKontaktSeatParams.shape.seat,
@@ -55,9 +55,9 @@ export const writeSeat = action({
  * Sends one seat a fresh link, its old one opening nothing, for a mail that went astray or a link that lapsed. A
  * finished season's application takes none, which the status line says.
  */
-export const sendSeatLink = action({
+export const sendBewerbungSeatLink = action({
   lane: "admin",
-  name: "sendSeatLink",
+  name: "sendBewerbungSeatLink",
   input: BewerbungenResendKontaktConfirmationParams,
   ownWords: ["saison_past"],
   run: async ({ bewerbung_id: id, seat }) => {

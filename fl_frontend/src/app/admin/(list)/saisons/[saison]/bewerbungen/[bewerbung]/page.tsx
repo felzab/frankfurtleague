@@ -12,6 +12,7 @@ import { seatsOf } from "@/features/bewerbungen/seats";
 import { STANDING_CHIP, standingOf, TEAM_DOUBLE } from "@/features/bewerbungen/standing";
 import { trikotFarbeLabel } from "@/features/teams/constants";
 import { SeatActs } from "@/features/teams/SeatActs";
+import { seatRow } from "@/features/teams/seatRow";
 import { Button } from "@/kit/Button";
 import { Link } from "@/kit/Link";
 import { ReadPage } from "@/kit/ReadPage";
@@ -20,7 +21,7 @@ import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
 
 import { AcceptDialog, DeclineDialog } from "./DecisionDialogs";
-import { sendSeatLink, writeSeat } from "./writeSeat";
+import { sendBewerbungSeatLink, writeBewerbungSeat } from "./writeSeat";
 
 import type { Copy, Words } from "@/core/copy";
 import type { FLBewerbung, FLBewerbungSchule, FLBewerbungSingleResponse } from "@/core/generated/client/types";
@@ -170,15 +171,9 @@ function actsOf(read: FLBewerbungSingleResponse, standing: Standing) {
  */
 function seatRowsOf(bewerbung: FLBewerbung, finished: boolean, holder: string): SeatRow[] {
   return seatsOf(bewerbung).map(({ seat, seats, person, state, chips, day }) => {
-    const row = {
-      id: seat,
-      name: person === null ? COPY.team.seatEmpty : { record: `${person.first_name} ${person.last_name}` },
-      muted: person === null,
-      chips,
-      line: { record: COPY.team.seatLine(seats, person?.email ?? null, day) },
-    };
+    const row = { id: seat, ...seatRow(seats, person, day), chips };
     if (bewerbung.status !== "submitted" || finished || state === "erased") return row;
-    const link = state === "valid" || state === "expired" ? { send: sendSeatLink, seat: { bewerbung_id: bewerbung.id, seat } } : null;
+    const link = state === "valid" || state === "expired" ? { send: sendBewerbungSeatLink, seat: { bewerbung_id: bewerbung.id, seat } } : null;
     return {
       ...row,
       acts: (
@@ -186,7 +181,7 @@ function seatRowsOf(bewerbung: FLBewerbung, finished: boolean, holder: string): 
           seats={seats}
           person={person}
           rules={SEAT_RULES}
-          write={writeSeat}
+          write={writeBewerbungSeat}
           carry={{ id: bewerbung.id, seat, version: String(bewerbung.version) }}
           holder={holder}
           link={link}

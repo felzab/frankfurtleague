@@ -386,12 +386,12 @@ describe("each form's posted names meet its lane's keys", () => {
     });
 
     it("loses no key of an application's „Sitz bearbeiten“", async () => {
-      const { writeSeat } = await import("@/app/admin/(list)/saisons/[saison]/bewerbungen/[bewerbung]/writeSeat");
+      const { writeBewerbungSeat } = await import("@/app/admin/(list)/saisons/[saison]/bewerbungen/[bewerbung]/writeSeat");
       const posted = seatPosted("features/teams/SeatActs.tsx", "app/admin/(list)/saisons/[saison]/bewerbungen/[bewerbung]/page.tsx");
       takes(["POST", `/bewerbungen/${ID}/kontakte/trainer`, { email: "jana@example.org" }]);
 
       const typed = { id: ID, seat: "trainer", ...SEAT_PERSON, version: "3", holder: ADMIN_EMAIL };
-      expect(await writeSeat(formOf(posted, typed))).toMatchObject({ ok: true });
+      expect(await writeBewerbungSeat(formOf(posted, typed))).toMatchObject({ ok: true });
       expect(requestsSent()).toStrictEqual([[`POST /bewerbungen/${ID}/kontakte/trainer`, { ...SEAT_PERSON, version: 3 }]]);
     });
   });
