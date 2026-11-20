@@ -72,10 +72,22 @@ const state = {
   sent: [] as unknown[],
   answer: null as unknown,
   dryRun: null as unknown,
+  // What the backend comes to hold once it has answered a request, a later result entered or removed between two
+  // requests of one press: called with the request's endpoint after its answer is composed.
+  answered: null as ((endpoint: string) => void) | null,
 };
 
 /** Every request the save made of the write's endpoint, its dry run's among them, with its query. */
 const calls: { endpoint: string; method: string }[] = [];
+
+/** The dry run's report, or the write's answer: a refusal where it names other results to delete than the report. */
+function patched(dryRun: boolean, body: FLPatchSpielDataPayload) {
+  const report = state.dryRun as FLPatchSpielDataResponse;
+  if (dryRun) return report;
+  if (JSON.stringify(body.voided_ergebnisse ?? []) !== JSON.stringify(report.voided_ergebnisse)) return refusal("voided_results_stale");
+  state.sent.push(body);
+  return state.answer;
+}
 
 // The backend answers the editor's read with the fixture, the dry run with its report and the write with its answer,
 // so the save runs through the real guard, read, generated call and dispatch, which counts the write. A write naming
@@ -84,13 +96,11 @@ serveBackend(({ method, path, search, body }) => {
   if (method === "GET" && path === `/spiele/${SPIEL_ID}`) return { spiel: state.read };
   if (method !== "PATCH" || path !== `/spiele/${SPIEL_ID}`) return undefined;
 
-  calls.push({ endpoint: search.size > 0 ? `${path}?${search.toString()}` : path, method });
-  const report = state.dryRun as FLPatchSpielDataResponse;
-  if (search.get("dry_run") === "true") return report;
-  const named = (body as FLPatchSpielDataPayload).voided_ergebnisse ?? [];
-  if (JSON.stringify(named) !== JSON.stringify(report.voided_ergebnisse)) return refusal("voided_results_stale");
-  state.sent.push(body);
-  return state.answer;
+  const endpoint = search.size > 0 ? `${path}?${search.toString()}` : path;
+  calls.push({ endpoint, method });
+  const answer = patched(search.get("dry_run") === "true", body as FLPatchSpielDataPayload);
+  state.answered?.(endpoint);
+  return answer;
 });
 // An administrator's session, made by passkey, which the save's guard admits.
 signedInRequest();
@@ -105,6 +115,7 @@ beforeEach(() => {
   state.sent = [];
   state.answer = NOTHING_MOVED;
   state.dryRun = NOTHING_MOVED;
+  state.answered = null;
 });
 
 /** A save of these changes on the version the editor was read at, carrying over no report. */
@@ -283,6 +294,23 @@ describe("the match editor's question before it deletes a later result", () => {
       state.dryRun = { ...(state.dryRun as FLPatchSpielDataResponse), voided_ergebnisse };
       expect(await saveSpiel({ ...saving({ tore1: "3", tore2: "1" }), confirm })).toMatchObject({ ok: false, ask: {} });
     }
+    expect(state.sent).toEqual([]);
+  });
+
+  it("asks again, from one more dry run, where a result entered after the confirmed dry run has the write refuse", async () => {
+    const { confirm } = await asked({ tore1: "3", tore2: "1" });
+    calls.length = 0;
+    const VOIDED_35 = { spiel_id: "64b00000000000000000000b", spiel_nr: 35, ...VOIDED_NONE, voided_ergebnis: "0:1" };
+    const confirmed = state.dryRun as FLPatchSpielDataResponse;
+    // Match 35's result entered once the confirming press's dry run has answered, so its write names one result too few.
+    state.answered = (endpoint) => {
+      if (endpoint === DRY_RUN) state.dryRun = { ...confirmed, voided_ergebnisse: [...confirmed.voided_ergebnisse, VOIDED_35] };
+    };
+
+    const answer = await saveSpiel({ ...saving({ tore1: "3", tore2: "1" }), confirm });
+
+    expect(answer).toMatchObject({ ok: false, ask: { consequence: ADMIN_COPY.spiel.voids([31, 33, 35]) } });
+    expect(calls.map(({ endpoint }) => endpoint)).toStrictEqual([DRY_RUN, `/spiele/${SPIEL_ID}`, DRY_RUN]);
     expect(state.sent).toEqual([]);
   });
 });
