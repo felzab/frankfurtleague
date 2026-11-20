@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 
+import { getAdminHolder } from "@/core/auth/guards";
 import { now } from "@/core/clock";
 import { ADMIN_COPY } from "@/core/copy/admin";
 import { COPY } from "@/core/copy/shared";
@@ -82,7 +83,7 @@ function rowOf(read: FLTeamSaisonAdminResponse, membership: FLTeamMembership, li
 }
 
 export default async function TeamEditorPage({ params }: Props) {
-  const read = await find(params);
+  const [read, holder] = await Promise.all([find(params), getAdminHolder()]);
   if (read === null) notFound();
 
   const { team, saison, membership, link, retire_blocked_by: blocked } = read;
@@ -104,6 +105,7 @@ export default async function TeamEditorPage({ params }: Props) {
       rules={TEAM_SAVE_RULES}
       descriptionMax={TEAM_DESCRIPTION_MAX}
       seatRules={SEAT_RULES}
+      holder={holder}
       austrittRules={AUSTRITT_RULES}
       retirement={retired ? { kind: "reactivate" } : { kind: "retire", ...(blocked === null ? {} : { locked: WORDS.retireLocked }) }}
       row={row}

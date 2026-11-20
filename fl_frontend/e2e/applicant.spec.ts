@@ -1,12 +1,13 @@
 /**
  * E2E · an application, under each project, where no lower tier sees the form, a seat's mailed link or the acceptance
- * break at a join between them, the public form's real controls fail on either engine, a rejection's reason miss a seat,
- * or an objection's fresh link fail to seat the new person. Each project's schools are its own (`applicants`).
+ * break at a join between them, the public form's real controls fail on either engine, or a rejection's reason miss a
+ * seat. Each project's schools are its own (`applicants`). A seat written anew asks the passkey touch, which the shared
+ * administrator's device cannot answer, so its journey is desktop's alone.
  */
 import { expect } from "@playwright/test";
 
-import { apply, confirmSeat, fillSeat, openApplication, personOf, SEATS, SUBJECT } from "./support/application";
-import { choose, enteredDialog, enteredQuestion, pressRowAct, toast, typeInto } from "./support/controls";
+import { apply, confirmSeat, openApplication, personOf, SEATS, SUBJECT } from "./support/application";
+import { choose, enteredDialog, typeInto } from "./support/controls";
 import { test } from "./support/journey";
 import { PLANNED } from "./support/madeUpLeague";
 import { filedMessages, mailedLink, mailedMessage } from "./support/mailSink";
@@ -68,43 +69,4 @@ test("a listed school is rejected, and every seat reads the reason", async ({ pa
     const mail = await mailedMessage(personOf(school, seat).address, SUBJECT.declined, decided);
     expect(mail.join("\n"), `the rejection mailed to the ${seat}`).toContain(reason);
   }
-});
-
-test("a seat objects, „Sitz bearbeiten“ seats another person, and the fresh link confirms them", async ({
-  page,
-  administration,
-  applicants,
-}) => {
-  const school = applicants.objected;
-  const before = await filedMessages();
-
-  await page.goto(`/bewerbung/${PLANNED}`);
-  await apply(page, school, { isListed: false });
-
-  // The Stellvertretung objects, which empties the seat and tells the Ansprechperson.
-  await page.goto(await mailedLink(personOf(school, "stellvertretung").address, SUBJECT.seat, before));
-  await page.getByRole("main").getByRole("button", { name: "Widersprechen" }).click();
-  // The objection asks before it acts; its question's own press does it.
-  await (await enteredQuestion(page, "Eintrag widersprechen?")).getByRole("button", { name: "Widersprechen" }).click();
-  await expect(page.getByRole("main").getByRole("heading", { name: "Widersprochen", exact: true })).toBeVisible();
-  await mailedMessage(personOf(school, "ansprechperson").address, SUBJECT.objected, before);
-
-  // The emptied seat's row takes another person.
-  await openApplication(administration, school);
-  const seats = administration.getByRole("list", { name: "Kontaktpersonen" }).getByRole("listitem");
-  const replaced = await filedMessages();
-  await pressRowAct(seats.filter({ hasText: "Niemand" }), "Sitz bearbeiten");
-  const dialog = await enteredDialog(administration, "Sitz bearbeiten");
-  const replacement = { firstName: "Noah", lastName: "Neumann", address: `neu.${school.toLowerCase()}@example.com`, phone: "069 90009004" };
-  await fillSeat(dialog, replacement);
-  await dialog.getByRole("button", { name: "Speichern" }).click();
-  // The write owes the person a link, so the dialog closes on a toast naming the address that link goes to.
-  await expect(toast(administration, replacement.address)).toBeVisible();
-  await expect(dialog).toBeHidden();
-
-  // The seat's fresh link is the new person's, and their confirmation fills it.
-  await confirmSeat(page, await mailedLink(replacement.address, SUBJECT.seat, replaced));
-  await administration.reload();
-  const seated = seats.filter({ hasText: `${replacement.firstName} ${replacement.lastName}` });
-  await expect(seated.getByText("Bestätigt", { exact: true })).toBeVisible();
 });

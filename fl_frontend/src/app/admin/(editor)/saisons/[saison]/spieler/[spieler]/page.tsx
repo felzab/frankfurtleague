@@ -32,6 +32,7 @@ import type { Metadata, ResolvingMetadata, Route } from "next";
 type Props = PageProps<"/admin/saisons/[saison]/spieler/[spieler]">;
 
 const WORDS = ADMIN_COPY.spieler;
+const CONSENT = ADMIN_COPY.einwilligung;
 const { shape } = SpielerPatchSpielerSaisonBody;
 
 /** What the save asks of each of the person's boxes, read off the write's schema. */
@@ -79,8 +80,8 @@ function kaderFacts({ kader }: FLSpielerSaisonAdminResponse): Fact[] {
 /** What the person agreed to, in the words they chose it in. */
 function einwilligungFacts({ person: { einwilligung } }: FLSpielerSaisonAdminResponse): Fact[] {
   return [
-    { label: WORDS.nameOnSite, value: { record: SPIELER_WORDINGS.scope.options[einwilligung.scope] } },
-    { label: WORDS.media, value: einwilligung.media ? WORDS.mediaYes : WORDS.mediaNo },
+    { label: CONSENT.nameOnSite, value: { record: SPIELER_WORDINGS.scope.options[einwilligung.scope] } },
+    { label: CONSENT.media, value: einwilligung.media ? CONSENT.yes : CONSENT.no },
     { label: WORDS.givenOn, value: { record: formatDate(dayOf(einwilligung.date)) }, figures: true },
     { label: WORDS.confirmedOn, value: { record: formatDate(dayOf(einwilligung.confirmed_at)) }, figures: true },
   ];

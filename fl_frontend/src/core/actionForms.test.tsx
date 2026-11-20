@@ -5,6 +5,7 @@ import path from "node:path";
 import { render } from "@testing-library/react";
 import { assert, describe, expect, it } from "vitest";
 
+import { ADMIN_EMAIL } from "@/test-support/authDoubles";
 import { serveBackend } from "@/test-support/backend";
 import { signedInRequest } from "@/test-support/session";
 import { thrownRedirect } from "@/test-support/thrownRedirect";
@@ -361,13 +362,23 @@ describe("each form's posted names meet its lane's keys", () => {
     });
 
     const SEAT_PERSON = { first_name: "Jana", last_name: "Schmidt", email: "jana@example.org", phone: "069 90009765" };
+    // The seat's dialog is behind the passkey touch, which posts the page's holder beside its carry (`Dialog`'s `touch`).
+    const seatPosted = (...files: readonly string[]) => new Set([...spelledIn(...files), "holder"]);
 
     it("loses no key of „Sitz bearbeiten“", async () => {
       const { writeSeat } = await import("@/app/admin/(editor)/saisons/[saison]/teams/[team]/teamActs");
-      const posted = spelledIn("features/teams/SeatActs.tsx", "app/admin/(editor)/saisons/[saison]/teams/[team]/TeamEditor.tsx");
+      const posted = seatPosted("features/teams/SeatActs.tsx", "app/admin/(editor)/saisons/[saison]/teams/[team]/TeamEditor.tsx");
       takes(["PUT", `/teams/${TEAM}/saisons/2027/kontakte/trainer`, { email: null }]);
 
-      const typed = { team_id: TEAM, saison_id: "2027", seat: "trainer", ...SEAT_PERSON, trainer_is_also: "ansprechperson", version: "3" };
+      const typed = {
+        team_id: TEAM,
+        saison_id: "2027",
+        seat: "trainer",
+        ...SEAT_PERSON,
+        trainer_is_also: "ansprechperson",
+        version: "3",
+        holder: ADMIN_EMAIL,
+      };
       expect(await writeSeat(formOf(posted, typed))).toStrictEqual({ ok: true, value: undefined });
       expect(requestsSent()).toStrictEqual([
         [`PUT /teams/${TEAM}/saisons/2027/kontakte/trainer`, { ...SEAT_PERSON, trainer_is_also: "ansprechperson", version: 3 }],
@@ -375,12 +386,12 @@ describe("each form's posted names meet its lane's keys", () => {
     });
 
     it("loses no key of an application's „Sitz bearbeiten“", async () => {
-      const { writeSeat } = await import("@/app/admin/(list)/saisons/[saison]/bewerbungen/[bewerbung]/writeSeat");
-      const posted = spelledIn("features/teams/SeatActs.tsx", "app/admin/(list)/saisons/[saison]/bewerbungen/[bewerbung]/page.tsx");
+      const { writeBewerbungSeat } = await import("@/app/admin/(list)/saisons/[saison]/bewerbungen/[bewerbung]/writeSeat");
+      const posted = seatPosted("features/teams/SeatActs.tsx", "app/admin/(list)/saisons/[saison]/bewerbungen/[bewerbung]/page.tsx");
       takes(["POST", `/bewerbungen/${ID}/kontakte/trainer`, { email: "jana@example.org" }]);
 
-      const typed = { id: ID, seat: "trainer", ...SEAT_PERSON, version: "3" };
-      expect(await writeSeat(formOf(posted, typed))).toMatchObject({ ok: true });
+      const typed = { id: ID, seat: "trainer", ...SEAT_PERSON, version: "3", holder: ADMIN_EMAIL };
+      expect(await writeBewerbungSeat(formOf(posted, typed))).toMatchObject({ ok: true });
       expect(requestsSent()).toStrictEqual([[`POST /bewerbungen/${ID}/kontakte/trainer`, { ...SEAT_PERSON, version: 3 }]]);
     });
   });

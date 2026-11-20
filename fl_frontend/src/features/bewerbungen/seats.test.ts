@@ -35,7 +35,7 @@ function bewerbung(overrides: Partial<Pick<FLBewerbung, "status" | "kontakte" | 
   } as FLBewerbung;
 }
 
-const seat = (read: FLBewerbung, wanted: string) => seatsOf(read).find((view) => view.seat === wanted);
+const seat = (read: FLBewerbung, wanted: string) => seatsOf(read, false).find((view) => view.seat === wanted);
 
 describe("where a seat stands", () => {
   /* A Widerspruch and an erasure leave one empty seat, and only the first takes a new person: read as one, an
@@ -91,7 +91,7 @@ describe("one person on two seats", () => {
       trainer_is_also: "ansprechperson",
     } as const;
 
-    const rows = seatsOf(bewerbung({ kontakte }));
+    const rows = seatsOf(bewerbung({ kontakte }), false);
 
     expect(rows.map((row) => row.seat)).toStrictEqual(["trainer", "stellvertretung"]);
     expect(rows[0]?.seats).toStrictEqual(["trainer", "ansprechperson"]);

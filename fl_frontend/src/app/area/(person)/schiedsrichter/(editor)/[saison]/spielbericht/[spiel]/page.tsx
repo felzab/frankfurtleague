@@ -134,14 +134,17 @@ export default async function SpielberichtPage({ params }: Props) {
 
   const { spiel } = found;
   const title = titleOf(found);
-  // A finished season's report is read, never written (`saison_past`), whatever became of its fixture since.
-  if (!found.completed) {
-    // The write's own refusals a page can foresee from the fixture it serves, stated before any press meets them.
+  // A finished season's stored report is read, never written (`saison_past`), whatever became of its fixture since.
+  if (!found.completed || found.bericht === null) {
+    // The write's own refusals a page can foresee from the fixture it serves, stated before any press meets them, and
+    // after the season the reason its fixture took no report.
     if (spiel.sonderereignis === "ausgefallen" || spiel.sonderereignis === "annulliert") {
       return card(title, "danger", WORDS.befell[spiel.sonderereignis], saison);
     }
     const day = dayOf(spiel.date);
     if (day === null) return card(title, "info", COPY.spielplan.when(null, null), saison);
+    // A finished season's form takes no report, so one never written has nothing to show.
+    if (found.completed) return card(title, "info", SERVER_COPY.area.schiedsrichter.unreported, saison);
     // The backend judges the kick-off on Germany's clock, as the write's `bericht_not_played` does.
     if (!found.reportable) {
       return card(title, "info", SERVER_COPY.area.schiedsrichter.spielberichtFrom(COPY.spielplan.when(day, timeOf(spiel.time))), saison);

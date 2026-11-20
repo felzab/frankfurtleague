@@ -9,6 +9,7 @@
     "successor": "admin.nachfolge@example.com",
     "moving": "admin.umzug@example.com",
     "banning": "admin.sperre@example.com",
+    "seat": "admin.sitz@example.com",
     "access": "admin.zugang@example.com"
   },
   "projects": {

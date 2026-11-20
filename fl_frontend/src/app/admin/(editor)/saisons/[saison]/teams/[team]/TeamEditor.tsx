@@ -100,6 +100,7 @@ export function TeamEditor({
   rules,
   descriptionMax,
   seatRules,
+  holder,
   austrittRules,
   retirement,
   row,
@@ -115,6 +116,8 @@ export function TeamEditor({
   rules: TeamRules;
   descriptionMax: number;
   seatRules: SeatRules;
+  /** The address the page was drawn for, which a seat's write behind the passkey touch posts. */
+  holder: string;
   austrittRules: AustrittRules;
   /** The danger box's league-wide act: the retiring, closed where a season holds the club, or the return. */
   retirement: { kind: "retire"; locked?: Copy } | { kind: "reactivate" };
@@ -258,6 +261,7 @@ export function TeamEditor({
                         rules={seatRules}
                         write={writeSeat}
                         carry={{ team_id: team, saison_id: saison, seat: target.seat, version: String(row.version) }}
+                        holder={holder}
                         link={link}>
                         {target.seat === "trainer" && (
                           <Select
