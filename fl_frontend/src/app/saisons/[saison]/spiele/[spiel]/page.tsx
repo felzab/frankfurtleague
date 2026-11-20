@@ -8,7 +8,7 @@ import { SERVER_COPY } from "@/core/serverCopy";
 import { getSpielPage } from "@/features/saisons/queries";
 import { publicSaisonOf } from "@/features/saisons/resolvers";
 import { eventOf, headOf, matchdayOf, refereeOf, sidesOf } from "@/features/spiele/blocks";
-import { creditedSide } from "@/features/spiele/result";
+import { byMinute, creditedSide } from "@/features/spiele/result";
 import { publicPupilHead, publicPupilRow, spielerName } from "@/features/spieler/constants";
 import { ReadFolds } from "@/kit/ReadFolds";
 import { ReadPage } from "@/kit/ReadPage";
@@ -199,16 +199,6 @@ function lineupOf(aufstellung: FLAufstellungPublic | null): Pick<FoldedCard, "co
   };
 }
 
-/** A minute as the report writes it, „45+2“, in the order it was played. */
-const minuteOf = (minute: string): [number, number] => {
-  const [base = "0", added = "0"] = minute.split("+");
-  return [Number(base), Number(added)];
-};
-const earlier = (one: string, other: string) => {
-  const [a, b] = [minuteOf(one), minuteOf(other)];
-  return a[0] - b[0] || a[1] - b[1];
-};
-
 /**
  * The goals and cards by minute, a checkpoint each: what happened and to whom, the side's Kürzel, and after a goal
  * the score it made. An own goal counts for the other side.
@@ -219,7 +209,7 @@ function eventsOf(spiel: FLSpielJoined, tore: readonly FLSpielberichtScorerPubli
   const events = [
     ...tore.map((tor) => ({ kind: "tor" as const, minute: tor.minute, tor })),
     ...cards.map((card) => ({ kind: "card" as const, minute: card.minute, card })),
-  ].sort((one, other) => earlier(one.minute, other.minute));
+  ].sort((one, other) => byMinute(one.minute, other.minute));
   const score = { team1: 0, team2: 0 };
   return events.map((event, index) => {
     if (event.kind === "card") {
