@@ -4,7 +4,6 @@ import { formatDate, formatInstant, formatList, formatNumber } from "../format";
 import type { Copy, RecordText, Wait, Words } from "../copy";
 import type { FLKontaktSeat } from "../generated/client/types";
 
-const PASSKEY_WITHOUT_CODE = "Mit einem Passkey meldest du dich ohne Code an.";
 // The pending change's opening, before its new address.
 const NEW_ADDRESS = "Die neue Adresse ";
 const teamSeason = (team: Words, saison: Copy) => `${textOf(team)}, ${saison}`;
@@ -43,12 +42,12 @@ export const ACCOUNT_COPY = catalogue({
   },
   erasure: {
     // What outlives an erasure is the privacy notice's to list, never this sentence's.
-    description: `Dein Konto und deine Angaben werden gelöscht, bis auf das, was unter „${PRIVACY_NOTICE}“ steht.`,
+    description: `Was bleibt, steht unter „${PRIVACY_NOTICE}“.`,
     consequence: "Den Link zum Löschen bekommst du per E-Mail.",
     done: ACCOUNT_ERASED,
   },
   passkeys: {
-    description: PASSKEY_WITHOUT_CODE,
+    description: "Ein Passkey meldet dich ohne Code an.",
     /** When a passkey was set up. */
     dates: (created: Date) => `Eingerichtet am ${formatDate(created)}`,
     /**
@@ -98,10 +97,12 @@ export const ACCOUNT_COPY = catalogue({
     description: {
       /** A person's own record, which the title names: a pupil's, a registration's, a referee's. */
       own: "Deine Angaben und was davon öffentlich ist",
-      /** A seat on a team's season and a seat in an application alike, by the seats held, in the seats' order. */
-      seat: (seats: readonly FLKontaktSeat[]) => `Dein Eintrag als ${seatsText(seats)} und wie wir dich erreichen`,
+      /** A seat on a team's season and a seat in an application alike, its seats named by a fact (`seatsHeld`). */
+      seat: "Deine Angaben im Team",
     },
     teamSeason,
+    /** A seat entry's fact naming the seats the person holds, in the seats' order, under `COPY.team.seat`. */
+    seatsHeld: (seats: readonly FLKontaktSeat[]) => seatsText(seats),
     /** A seat entry's fact where its seats store the person typed two ways, by the seats holding this one: „Telefon als Ansprechperson“. */
     seatFact: (label: Copy, seats: readonly FLKontaktSeat[]) => `${label} als ${seatsText(seats)}`,
     /**

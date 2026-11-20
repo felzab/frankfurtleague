@@ -253,9 +253,20 @@ export const SERVER_COPY = catalogue({
       address: `Die E-Mail-Adresse hat nicht das Format ${COPY.shared.field.exampleAddress}.`,
       previous: `Die bisherige E-Mail-Adresse hat nicht das Format ${COPY.shared.field.exampleAddress}.`,
       next: `Die neue E-Mail-Adresse hat nicht das Format ${COPY.shared.field.exampleAddress}.`,
+      phone: `Die Telefonnummer hat nicht das Format ${COPY.shared.field.examplePhone}.`,
+      firstName: `Der Vorname hat nicht das Format ${COPY.shared.field.exampleFirstName}.`,
+      lastName: `Der Nachname hat nicht das Format ${COPY.shared.field.exampleLastName}.`,
+    },
+    /** A seat's address or number, which another person of the same record holds. */
+    taken: {
+      address: "Die E-Mail-Adresse ist schon vergeben.",
+      phone: "Die Telefonnummer ist schon vergeben.",
     },
     /** A ban's Grund, left holding nothing but spaces. */
     reasonMissing: "Der Grund fehlt.",
+    /** A seat's names, each left holding nothing but spaces. */
+    firstNameMissing: "Der Vorname fehlt.",
+    lastNameMissing: "Der Nachname fehlt.",
   },
 
   /** The image a shared link's preview shows, by its alt, which a screen reader reads in the preview's place. */
@@ -827,6 +838,8 @@ export const SERVER_COPY = catalogue({
       spielberichtFrom: (when: Copy) => `Spielbericht ab ${when}`,
       /** A fixture another referee is booked onto, or one a club's exit took the booking off, on the list's chip too. */
       unbooked: "Nicht mehr eingeteilt",
+      /** A finished season's fixture whose report was never written, which its form takes no more of. */
+      unreported: "Kein Spielbericht eingetragen",
     },
   },
 
@@ -879,7 +892,7 @@ export const SERVER_COPY = catalogue({
       ],
     },
 
-    /** Teams' group filter, and „Alle“ (all), the choice every filter opens on. */
+    /** Teams' group filter, and „Alle“ (all), the choice a filter opens on where no entry of its own names a narrower one. */
     filter: { gruppe: COPY.team.gruppe, all: "Alle" },
 
     team: {

@@ -2,6 +2,9 @@ import { readFileSync } from "node:fs";
 
 import { defineConfig } from "orval";
 
+// The one query parameter `adminKeyDryRunTransport` reads a dry run off.
+import { DRY_RUN } from "./src/core/dryRun";
+
 // The gate's contract check names a scratch folder of its own here, so it generates beside the tree, never into it.
 const SCRATCH = process.env.CONTRACT_SCRATCH;
 const DOCUMENT_PATH = SCRATCH ? `${SCRATCH}/openapi.json` : "../fl_backend/openapi.json";
@@ -22,9 +25,6 @@ const TRANSPORTS_BY_SCHEME: Readonly<Record<string, Transports>> = {
 // left out, so the client holds no call without a key.
 const PROBES = ["system_check_is_live", "system_check_is_ready"];
 
-// The one query parameter `adminKeyDryRunTransport` reads a dry run off.
-const DRY_RUN = "dry_run";
-
 type Security = readonly Readonly<Record<string, readonly string[]>>[];
 type Operation = { operationId: string; security?: Security; "x-safe"?: boolean; "x-safe-when"?: string; "x-pass"?: boolean };
 type Document = { security?: Security; paths: Record<string, Record<string, Operation>> };
@@ -36,7 +36,9 @@ const document = JSON.parse(readFileSync(DOCUMENT_PATH, "utf8")) as Document;
  * its `security` names, and whether it writes, which the backend states where the method does not say it, as
  * `x-safe` on a POST that writes nothing and `x-safe-when` on a write whose dry run writes nothing (the backend's
  * `SAFE`), and whether it is an hourly pass, which `x-pass` states (the backend's `PASS`). An operation naming no key,
- * and a scheme or a mark no transport here serves, fails the generation.
+ * and a scheme or a mark no transport here serves, fails the generation. `x-safe-when` is compared with `DRY_RUN`
+ * rather than trusted, so a backend renaming the parameter fails here instead of the transport sending its dry runs as
+ * writes.
  */
 function transportOf(operation: Operation): string {
   const { operationId, security = document.security ?? [] } = operation;

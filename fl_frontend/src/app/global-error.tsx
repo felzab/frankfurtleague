@@ -3,6 +3,7 @@
 // The root layout's stylesheet, which this page needs of its own: it stands in place of that layout.
 import "./globals.css";
 
+import { SITE_LOCALE } from "@/core/brand";
 import { COPY } from "@/core/copy/shared";
 import { TO_HOME } from "@/kit/mailedLinkState";
 import { ClassicStatusPage } from "@/kit/StatusCard";
@@ -21,7 +22,7 @@ const TAB_TITLE = `${COPY.shared.failure.unexpected} | ${COPY.brand.name}`;
 export default function GlobalError({ error }: { error: unknown }) {
   useReportClientCrash(error);
   return (
-    <html lang="de">
+    <html lang={SITE_LOCALE}>
       {/* The root layout's body, so the card stands where the root boundary's does. */}
       <body className="flex min-h-dvh w-full flex-col bg-bg font-primary text-fg antialiased">
         <title>{TAB_TITLE}</title>

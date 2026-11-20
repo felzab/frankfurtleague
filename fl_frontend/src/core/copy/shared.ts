@@ -240,6 +240,11 @@ export const COPY = catalogue({
       nothingOpen: "Nichts offen.",
       /** A run's list a person left every row out of: the records stand, where `none` would say there are none yet. */
       skipped: (plural: Copy) => `Alle ${plural} übersprungen.`,
+      /**
+       * A closed record's list holding none, a finished season's report naming no card: none is to come, where `none`
+       * would say one still is.
+       */
+      unrecorded: (plural: Copy) => `Keine ${plural} eingetragen.`,
     },
     /** A list's search box, by the list's plural. */
     search: (plural: Copy) => searchLabel(plural),
@@ -394,6 +399,7 @@ export const COPY = catalogue({
     legalNotice: "Impressum",
     privacyNotice: PRIVACY_NOTICE,
     sitemap: "Sitemap",
+    signIn: VERB.signIn,
     accountSignIn: SIGN_IN,
     accountSecurity: "Sicherheit",
     accountAppearance: "Darstellung",

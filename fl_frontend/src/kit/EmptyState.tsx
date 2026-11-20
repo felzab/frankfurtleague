@@ -10,11 +10,12 @@ import type { IconName } from "./Icon";
 
 /**
  * An empty list's cause, apart from its wording: `kind` says what emptied it, a search, the filters, nothing there
- * yet, or a person who left every row out of a run, as the Sammel-Zusage's check table does where each card was
- * skipped; the catalogue words each cause with the list's own plural, so a search can empty any list and still be said.
+ * yet, a person who left every row out of a run, as the Sammel-Zusage's check table does where each card was
+ * skipped, or a closed record holding none, which takes no more; the catalogue words each cause with the list's own
+ * plural, so a search can empty any list and still be said.
  */
 export type EmptyStateProps = {
-  kind: "search" | "filter" | "none" | "skipped";
+  kind: "search" | "filter" | "none" | "skipped" | "unrecorded";
   /**
    * The list's own plural: its title's entry where its title is a plural, „Spielorte“, and otherwise the noun the
    * catalogue keeps for its rows, „Sperren“ under the title „Sperrliste“.
@@ -94,7 +95,9 @@ export function EmptyState(props: EmptyStateProps | Clear) {
         ? COPY.shared.empty.search(props.searchPlural ?? props.plural)
         : props.kind === "skipped"
           ? COPY.shared.empty.skipped(props.plural)
-          : COPY.shared.empty.filter(props.plural);
+          : props.kind === "unrecorded"
+            ? COPY.shared.empty.unrecorded(props.plural)
+            : COPY.shared.empty.filter(props.plural);
   return (
     <div className={`grid ${rowHeight()} grid-cols-1 items-center px-4 py-3 text-base text-fg-muted lg:py-0 lg:text-sm`}>
       <p>{sentence}</p>

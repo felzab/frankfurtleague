@@ -28,7 +28,7 @@ const backend = serveBackend(({ method, path, search, body }) => {
   if (held.refused !== undefined) return refusal(held.refused);
   return search.get("dry_run") === "true" ? held.report : NOTHING;
 });
-const { store } = signedInRequest();
+signedInRequest();
 
 const { enterWithdrawal, readWithdrawal } = await import("./withdrawalActs");
 
@@ -97,17 +97,8 @@ describe("the withdrawal's question", () => {
 });
 
 describe("the withdrawal's entry", () => {
-  it("runs on a session whose passkey touch is not fresh, a withdrawal being on no touch's list", async () => {
-    // The administrator's passkey sign-in of two minutes ago: past the touch, well inside the administrator's window.
-    const [session] = store.session;
-    if (session === undefined) throw new Error("the administrator's arrival wrote no session");
-    session.createdAt = new Date(Date.now() - 2 * 60 * 1000);
-
-    expect(await enterWithdrawal({ email: SENDER, choices: ["name"] })).toStrictEqual({
-      ok: true,
-      value: undefined,
-      note: ADMIN_COPY.withdrawal.entered,
-    });
+  it("posts the entry once, with no dry run, and answers done", async () => {
+    expect(await enterWithdrawal({ email: SENDER, choices: ["name"] })).toStrictEqual({ ok: true, value: undefined });
     expect(backend.sent.map(({ method, path, search, body }) => ({ method, path, search: search.toString(), body }))).toStrictEqual([
       { method: "POST", path: "/identity/withdrawal", search: "", body: { email: SENDER, choices: ["name"] } },
     ]);

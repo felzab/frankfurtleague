@@ -22,18 +22,36 @@ const facts = (fields: Partial<FLGrantData>): FLGrantData => ({
   ...fields,
 });
 
-const rendered = (fields: Partial<FLGrantData>) => {
+const built = (fields: Partial<FLGrantData>) => {
   const mail = mailFor("grant", facts(fields), { token: null, secret: null, origin: "http://localhost:3000" });
   if (mail === undefined) throw new Error("the kind has no builder");
 
-  return renderMail(mail).text;
+  return mail;
 };
+
+const rendered = (fields: Partial<FLGrantData>) => renderMail(built(fields)).text;
 
 /* The lead as the line under „Hallo,“ shows it, its first letter small (Duden, D 132): a no-op on a stored address,
    which the backend keeps folded to lower case. */
 const underGreeting = (lead: string) => `${lead.charAt(0).toLowerCase()}${lead.slice(1)}`;
 
 describe("a grant notice", () => {
+  /* A security notice whose subject contradicts its lead is a fault no reader of the mail would report. The rows are
+     the pairs the backend sends: it never completes an addition, so that pair reaches no mail. */
+  it.each([
+    { change: "granted", stage: "started", subject: WORDS.subject.granted },
+    { change: "granted", stage: "withdrawn", subject: WORDS.subject.withdrawn },
+    { change: "revoked", stage: "completed", subject: WORDS.subject.revoked },
+    { change: "handover", stage: "started", subject: WORDS.subject.handover },
+    { change: "handover", stage: "withdrawn", subject: WORDS.subject.withdrawn },
+    { change: "handover", stage: "completed", subject: WORDS.subject.completed.handover },
+    { change: "address", stage: "started", subject: WORDS.subject.address },
+    { change: "address", stage: "withdrawn", subject: WORDS.subject.withdrawn },
+    { change: "address", stage: "completed", subject: WORDS.subject.completed.address },
+  ] as const)("gives the $change notice's $stage stage the subject its lead's meaning requires", ({ change, stage, subject }) => {
+    expect(built({ change, stage }).subjectLine).toBe(subject);
+  });
+
   /* The address came from the owner and may be mistyped, so this may be a stranger's first word from the league. */
   it("carries the Art. 21 line and its „Nicht du?“ on an addition's start and on nothing later", () => {
     const [objection] = SERVER_COPY.mail.objection(KONTAKT_EMAIL);

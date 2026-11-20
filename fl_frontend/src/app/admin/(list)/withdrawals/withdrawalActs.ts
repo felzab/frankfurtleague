@@ -8,14 +8,13 @@ import { COPY } from "@/core/copy/shared";
 import { identityPostWithdrawal } from "@/core/generated/client/sdk";
 import { IdentityPostWithdrawalBody } from "@/core/generated/zod/inputs";
 
+import { WITHDRAWAL_CHOICES } from "./withdrawalChoices";
+
 import type { Copy } from "@/core/copy";
-import type { FLEinwilligungWithdrawalReport, FLWithdrawalChoice } from "@/core/generated/client/types";
+import type { FLEinwilligungWithdrawalReport } from "@/core/generated/client/types";
 import type { Fact } from "@/kit/Facts";
 
 const WORDS = ADMIN_COPY.withdrawal;
-
-/** The choices in the boxes' order, each box posting under the choice's own name. */
-const CHOICES = ["name", "whatsapp", "media"] as const satisfies readonly FLWithdrawalChoice[];
 
 /** The kinds of record a fact's value can name, in the order it names them, each as the erasure's counts name it. */
 const KINDS = [
@@ -29,7 +28,10 @@ const KINDS = [
 /** A box ticked posts its value, „on“ where it names none, and one left empty posts nothing. */
 const ticked = z.literal("on").optional();
 
-/** The form as it posts: the address and the three boxes, each under its own name, since a repeated name keeps its last value. */
+/**
+ * The form as it posts: the address and a box per choice, each under its own name, since a repeated name keeps its last
+ * value. The question reads it by the list that names the page's boxes, so a choice missing here fails to type.
+ */
 const WithdrawalForm = z.object({
   email: IdentityPostWithdrawalBody.shape.email,
   name: ticked,
@@ -42,7 +44,7 @@ const WithdrawalForm = z.object({
  * list choices, and the „und“ inside „Fotos und Videos“ would blur where one ends.
  */
 const factsOf = (report: FLEinwilligungWithdrawalReport): Fact[] =>
-  CHOICES.flatMap((choice) => {
+  WITHDRAWAL_CHOICES.flatMap((choice) => {
     const kinds = KINDS.filter(([, kind]) => report[kind].includes(choice)).map(([label]) => label);
     return kinds.length === 0 ? [] : [{ label: WORDS.choice[choice], value: WORDS.ended(kinds) }];
   });
@@ -60,7 +62,7 @@ export const readWithdrawal = action({
   boxes: ["email"],
   examples: { email: COPY.shared.field.exampleAddress },
   run: async (form) => {
-    const choices = CHOICES.filter((choice) => form[choice] !== undefined);
+    const choices = WITHDRAWAL_CHOICES.filter((choice) => form[choice] !== undefined);
     if (choices.length === 0) return { ok: false, reason: WORDS.noneChosen };
     const facts = factsOf(await identityPostWithdrawal({ email: form.email, choices }, { dry_run: true }));
     if (facts.length === 0) return { ok: false, reason: WORDS.nothingGranted };
@@ -84,6 +86,6 @@ export const enterWithdrawal = action({
   examples: { email: COPY.shared.field.exampleAddress },
   run: async (entry) => {
     await identityPostWithdrawal(entry);
-    return { ok: true, value: undefined, note: WORDS.entered };
+    return { ok: true, value: undefined };
   },
 });

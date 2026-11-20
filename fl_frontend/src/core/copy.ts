@@ -99,6 +99,8 @@ export const VERB = {
   reactivate: "Reaktivieren",
   next: "Weiter",
   skip: "Überspringen",
+  /** An error card's one act, Next's `retry()`, which draws the failed part again in place. */
+  retry: "Erneut versuchen",
 } as const;
 
 /** The closed set of button verbs: a button names its act with one of these. */

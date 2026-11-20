@@ -47,6 +47,7 @@ const ADDRESS_CHANGE_STARTED = "Adressänderung gestartet";
 const SEAT_CHANGED = "Sitz geändert";
 const NAME_ON_SITE = "Name auf der Website";
 const MEDIA = "Fotos und Videos";
+const WHATSAPP = "WhatsApp";
 const SENT_ON = "Gesendet am";
 // A person's confirmation's day, as a player's fact labels it and a referee's Bestätigung states it.
 const CONFIRMED_ON = "Bestätigt am";
@@ -350,14 +351,22 @@ export const ADMIN_COPY = catalogue({
     retireLocked: "Team spielt noch eine Saison",
   },
 
+  /**
+   * A person's consent answers as facts, a pupil's, a referee's and a contact seat's alike, each choice by its name: the
+   * name's answer in the words of the option chosen, WhatsApp's and the photographs' as yes or no.
+   */
+  einwilligung: {
+    nameOnSite: NAME_ON_SITE,
+    whatsapp: WHATSAPP,
+    media: MEDIA,
+    yes: "Ja",
+    no: "Nein",
+  },
+
   spieler: {
     person: "Person",
     deregisteredOn: "Ausgetragen am",
     einwilligung: "Einwilligung",
-    nameOnSite: NAME_ON_SITE,
-    media: MEDIA,
-    mediaYes: "Ja",
-    mediaNo: "Nein",
     givenOn: "Erteilt am",
     confirmedOn: CONFIRMED_ON,
     kaderEntry: "Kadereintrag",
@@ -419,7 +428,7 @@ export const ADMIN_COPY = catalogue({
 
   withdrawal: {
     object: "Widerruf",
-    choice: { name: NAME_ON_SITE, whatsapp: "WhatsApp", media: MEDIA } satisfies Record<FLWithdrawalChoice, string>,
+    choice: { name: NAME_ON_SITE, whatsapp: WHATSAPP, media: MEDIA } satisfies Record<FLWithdrawalChoice, string>,
     /** A fact's value: the kinds of record the entry ends one choice on. */
     ended: (kinds: readonly Copy[]) => formatList(kinds),
     /** What no press of the administration undoes: no administrative write grants a consent. */
@@ -427,7 +436,6 @@ export const ADMIN_COPY = catalogue({
     noneChosen: "Kein Widerruf gewählt.",
     /** No record at the address grants a ticked choice, none at all included. */
     nothingGranted: "Unter dieser Adresse ist nichts davon erteilt.",
-    entered: WITHDRAWAL_ENTERED,
   },
 
   addressChange: {

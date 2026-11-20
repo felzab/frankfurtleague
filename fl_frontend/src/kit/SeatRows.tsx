@@ -2,11 +2,13 @@ import { textOf } from "@/core/copy";
 
 import { PartyHead } from "./AnswerRows";
 import { actRow, cardSurface, stacked } from "./cardStyles";
+import { Facts } from "./Facts";
 import { tv } from "./tv";
 
 import type { Copy, Words } from "@/core/copy";
 import type { ReactElement } from "react";
 import type { ChipProps } from "./Chip";
+import type { Fact } from "./Facts";
 
 export type SeatRow = {
   id: string;
@@ -15,6 +17,8 @@ export type SeatRow = {
   chips: ReadonlyArray<ChipProps>;
   /** The muted line: the seats held, the address and where the answer stands (`COPY.team.seatLine`). */
   line: Words;
+  /** What the seat's person answered, under the line, once they have: each choice's label over its answer. */
+  facts?: ReadonlyArray<Fact>;
   /** The row's side acts, the page's own, drawn by `SideActs` in the form the list decides. */
   acts?: ReactElement;
   /** A seat nobody holds: its name muted. */
@@ -70,6 +74,15 @@ export function SeatRows({
                 muted={seat.muted === true}
               />
               <span className={row.line()}>{textOf(seat.line)}</span>
+              {seat.facts !== undefined && seat.facts.length > 0 && (
+                // Free of a box, since the row is the list's box; a step apart from the line it follows.
+                <div className="mt-1.5">
+                  <Facts
+                    facts={seat.facts}
+                    look="free"
+                  />
+                </div>
+              )}
             </span>
             {seat.acts !== undefined && <div className={row.acts()}>{seat.acts}</div>}
           </span>

@@ -12,6 +12,7 @@ import { runAdminRead } from "@/shared/utils/adminRead";
 import { pageMetadata } from "@/shared/utils/metadata";
 
 import { enterWithdrawal, readWithdrawal } from "./withdrawalActs";
+import { WITHDRAWAL_CHOICES } from "./withdrawalChoices";
 
 import type { Metadata, ResolvingMetadata } from "next";
 
@@ -46,18 +47,13 @@ export default function WithdrawalsPage() {
         maxLength={identityPostWithdrawalBodyEmailMax}
       />
       <FieldGroup name={WORDS.object}>
-        <Checkbox
-          name="name"
-          label={WORDS.choice.name}
-        />
-        <Checkbox
-          name="whatsapp"
-          label={WORDS.choice.whatsapp}
-        />
-        <Checkbox
-          name="media"
-          label={WORDS.choice.media}
-        />
+        {WITHDRAWAL_CHOICES.map((choice) => (
+          <Checkbox
+            key={choice}
+            name={choice}
+            label={WORDS.choice[choice]}
+          />
+        ))}
       </FieldGroup>
     </QuestionPage>
   );

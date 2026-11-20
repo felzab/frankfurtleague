@@ -1,10 +1,10 @@
-import { GRANT_WAIT, OWNER_WAIT } from "@/core/addressChange";
 import { getAdminHolder } from "@/core/auth/guards";
 import { now } from "@/core/clock";
 import { ADMIN_COPY } from "@/core/copy/admin";
 import { COPY } from "@/core/copy/shared";
 import { asSignInIdentifier } from "@/core/emailAddress";
 import { formatDate, formatInstantShort } from "@/core/format";
+import { GRANT_WAIT, OWNER_WAIT } from "@/core/grant";
 import { ROUTES } from "@/core/routes";
 import { DAY_MS } from "@/core/timeUnits";
 import { discardChange } from "@/features/address-change/actions";
