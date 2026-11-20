@@ -922,78 +922,113 @@ export const SERVER_COPY = catalogue({
           `Verantwortlich ist der ${VEREIN_NAME}, ${VEREIN_ADDRESS}.`,
           "Wir verarbeiten, was du uns für eine Bewerbung, einen Kader, ein Spiel oder deine Anmeldung angibst, und die technischen Daten jedes Aufrufs.",
           "Wir brauchen diese Daten, um den Spielbetrieb der Liga durchzuführen, dich zu erreichen und die Website sicher zu betreiben.",
-          "Öffentlich sind Teams, Spielpläne, Ergebnisse und Aufstellungen; deinen Namen zeigen wir dort nur mit deiner Einwilligung.",
+          "Öffentlich sind Teams, Spielpläne, Ergebnisse und Aufstellungen. Deinen Namen zeigen wir dort nur mit deiner Einwilligung.",
           "Wir messen nicht, was du auf der Website tust, und verkaufen keine Daten.",
-          "Du kannst Auskunft, Berichtigung, Löschung, Einschränkung und die Herausgabe deiner Daten verlangen, widersprechen, jede Einwilligung widerrufen und dich bei der Aufsichtsbehörde beschweren.",
+          "Du kannst Auskunft über deine Daten verlangen, ihre Berichtigung, Löschung oder Einschränkung und ihre Herausgabe. Du kannst widersprechen und jede Einwilligung widerrufen. Und du kannst dich bei der Aufsichtsbehörde beschweren.",
         ],
         contact: (mail: ProseLink) => ["Dafür genügt eine formlose E-Mail an ", mail, "."] as const,
       },
       basis: {
         heading: "Rechtsgrundlagen",
-        text: "Wo nichts anderes steht, verarbeiten wir deine Daten auf Grundlage von Art.\u00A06 Abs.\u00A01 lit.\u00A0f DSGVO; unser berechtigtes Interesse ist, den Spielbetrieb der Liga durchzuführen, dich zu erreichen, Fehler in den Daten zu erkennen und die Website vor Angriffen und Missbrauch zu schützen. Wo du eine Einwilligung gibst, ist sie die Grundlage (Art.\u00A06 Abs.\u00A01 lit.\u00A0a DSGVO). Die Namen des Vorstands im Impressum nennen wir, weil das Gesetz es verlangt (§\u00A05 DDG, Art.\u00A06 Abs.\u00A01 lit.\u00A0c DSGVO).",
+        text: "Wo nichts anderes steht, verarbeiten wir deine Daten auf Grundlage von Art.\u00A06 Abs.\u00A01 lit.\u00A0f DSGVO. Unser berechtigtes Interesse ist, den Spielbetrieb der Liga durchzuführen, dich zu erreichen, Fehler in den Daten zu erkennen und die Website vor Angriffen und Missbrauch zu schützen. Wo du eine Einwilligung gibst, ist sie die Grundlage (Art.\u00A06 Abs.\u00A01 lit.\u00A0a DSGVO). Die Namen des Vorstands im Impressum nennen wir, weil das Gesetz es verlangt (§\u00A05 DDG, Art.\u00A06 Abs.\u00A01 lit.\u00A0c DSGVO).",
       },
       website: {
         heading: "Website und Browser",
         requests:
-          "Jede Anfrage an die Website läuft zuerst über Cloudflare, Inc.; Cloudflare sieht dabei deine IP-Adresse, die aufgerufene Adresse, die Angaben deines Browsers und jedes Formular, das du abschickst. Bei jedem Aufruf speichert unser Server deine IP-Adresse, den Zeitpunkt, die aufgerufene Seite, den Statuscode und die Kennung deines Browsers.",
-        // The passkey cookie's 5 minutes are Better Auth's own, which the library sets and exports no name for. The mailed
-        // link's hour is typed as its one figure, the singular „Stunde“ being the sentence's.
-        browser: (mailedLinkHours: 1) =>
-          `In deinem Browser legt die Website nur ab, was ihr Betrieb braucht: ein Sitzungs-Cookie, sobald du dich anmeldest, ein Cookie für die Anmeldung mit einem Passkey, das 5\u00A0Minuten gilt, ein Cookie, das einen Link aus einer E-Mail ${boundBy(formatNumber(mailedLinkHours), "Stunde")} lang hält, bis du ihn benutzt, und im lokalen Speicher die Darstellung, hell oder dunkel, die du wählst. Auf der Anmeldeseite, im Bewerbungsformular und im Registrierungsformular prüft Cloudflare Turnstile, ob ein Mensch das Formular abschickt, und fragt dafür Merkmale deines Browsers und deiner Verbindung ab; Cloudflare nutzt sie auch in eigener Verantwortung, um seine Erkennung automatisierter Zugriffe zu verbessern. Beides ist nach §\u00A025 Abs.\u00A02 Nr.\u00A02 TDDDG ohne Einwilligung zulässig.`,
+          "Jede Anfrage an die Website läuft zuerst über Cloudflare, Inc. Cloudflare sieht dabei deine IP-Adresse, die aufgerufene Adresse, die Angaben deines Browsers und jedes Formular, das du abschickst. Bei jedem Aufruf speichert unser Server deine IP-Adresse, den Zeitpunkt, die aufgerufene Seite, den Statuscode und die Kennung deines Browsers.",
+        // One sentence per thing the browser holds. The passkey cookie's 5 minutes are Better Auth's own, which the library
+        // sets and exports no name for. The code's cookie lives as long as the code it was asked for. The mailed link's
+        // hour is typed as its one figure, the singular „Stunde“ being the sentence's.
+        browser: (codeMinutes: number, mailedLinkHours: 1) =>
+          `In deinem Browser legt die Website nur ab, was ihr Betrieb braucht. Meldest du dich an, legt sie ein Sitzungs-Cookie ab. Für die Anmeldung mit einem Passkey legt sie ein Cookie ab, das 5\u00A0Minuten gilt. Forderst du einen Code zur Anmeldung an, legt sie ein Cookie ab, das den Code an diesen Browser bindet; es gilt ${boundBy(formatNumber(codeMinutes), "Minuten")}. Öffnest du einen Link aus einer E-Mail, hält ein Cookie ihn ${boundBy(formatNumber(mailedLinkHours), "Stunde")} lang, bis du ihn benutzt. Im lokalen Speicher legt sie die Darstellung ab, hell oder dunkel, die du wählst.`,
+        turnstile:
+          "Auf der Anmeldeseite, im Bewerbungsformular und im Registrierungsformular prüft Cloudflare Turnstile, ob ein Mensch das Formular abschickt. Dafür fragt Turnstile Merkmale deines Browsers und deiner Verbindung ab. Cloudflare nutzt sie auch in eigener Verantwortung, um seine Erkennung automatisierter Zugriffe zu verbessern. Was die Website in deinem Browser ablegt und was Turnstile abfragt, ist nach §\u00A025 Abs.\u00A02 Nr.\u00A02 TDDDG ohne Einwilligung zulässig.",
       },
       bewerbung: {
         heading: "Bewerbung einer Schule",
-        form: "Das Bewerbungsformular fragt Angaben zur Schule und zu ihrem Team ab, darunter die Anschrift der Schule. Für jede Rolle, Trainerin oder Trainer, Ansprechperson und Stellvertretung, fragt es Name, E-Mail-Adresse und Telefonnummer einer Person ab; eine Person kann zwei Rollen haben. Freiwillig sind nur die Website der Schule, der Trikotsatz und der Wunschgegner. Die Angaben zu den Kontaktpersonen erhalten wir von der Person, die die Bewerbung einreicht.",
+        form: "Das Bewerbungsformular fragt Angaben zur Schule und zu ihrem Team ab, darunter die Anschrift der Schule. Für jede Rolle fragt es Name, E-Mail-Adresse und Telefonnummer einer Person ab. Die Rollen sind Trainerin oder Trainer, Ansprechperson und Stellvertretung. Eine Person kann zwei Rollen haben. Freiwillig sind nur die Website der Schule, der Trikotsatz und der Wunschgegner. Die Angaben zu den Kontaktpersonen erhalten wir von der Person, die die Bewerbung einreicht.",
         confirmation: (days: number, trainerAge: number, otherAge: number) =>
-          `Jede Kontaktperson bestätigt ihren Eintrag innerhalb von ${boundBy(formatNumber(days), "Tagen")} über einen eigenen Link mit ihrem Geburtsdatum oder widerspricht ihm, ebenso wenn die Liga sie selbst einträgt. An eine E-Mail-Adresse mit mehreren offenen Links der Saison geht kein weiterer, außer die Liga sendet ihn. Das Mindestalter ist ${boundBy(formatNumber(otherAge), "Jahre")}, für eine Trainerin oder einen Trainer ohne zweite Rolle ${formatNumber(trainerAge)}. Die Ansprechperson erfährt, wenn sie angeschrieben ist, die Rollen der anderen Kontaktpersonen und wer widerspricht. Die Kontaktpersonen eines Teams sehen in dessen Übersicht die Namen und Rollen der anderen und wer bestätigt hat; E-Mail-Adresse, Telefonnummer und Geburtsdatum sehen sie nicht. Widerspricht eine Kontaktperson, entfernen wir ihre Angaben aus der Bewerbung. Bestätigt eine Kontaktperson nicht rechtzeitig, löschen wir die Bewerbung und schreiben das allen, die ihren Eintrag bestätigt haben. Hat die Liga sie direkt bei einem Team eingetragen, löschen wir nur ihren Eintrag.`,
+          `Jede Kontaktperson bestätigt ihren Eintrag innerhalb von ${boundBy(formatNumber(days), "Tagen")} über einen eigenen Link mit ihrem Geburtsdatum, oder sie widerspricht ihm. Das gilt auch, wenn die Liga sie selbst einträgt. Liegen an einer E-Mail-Adresse schon mehrere offene Links der Saison, bekommt sie keinen weiteren, außer die Liga sendet ihn. Das Mindestalter ist ${boundBy(formatNumber(otherAge), "Jahre")}. Für eine Trainerin oder einen Trainer ohne zweite Rolle ist es ${boundBy(formatNumber(trainerAge), "Jahre")}.`,
+        // An objection's mail names the seat it emptied, never its holder.
+        visibility:
+          "Sobald wir die Ansprechperson angeschrieben haben, erfährt sie die Rollen der anderen Kontaktpersonen. Widerspricht eine Kontaktperson, erfährt die Ansprechperson ihre Rolle, nicht ihren Namen. Die Kontaktpersonen eines Teams sehen in dessen Übersicht die Namen und Rollen der anderen und wer bestätigt hat. E-Mail-Adresse, Telefonnummer und Geburtsdatum der anderen sehen sie nicht.",
+        outcome:
+          "Widerspricht eine Kontaktperson, entfernen wir ihre Angaben aus der Bewerbung. Bestätigt eine Kontaktperson nicht rechtzeitig, löschen wir die Bewerbung und schreiben das allen, die ihren Eintrag bestätigt haben. Hat die Liga sie direkt bei einem Team eingetragen, löschen wir nur ihren Eintrag.",
       },
       kader: {
         heading: "Im Kader",
         text: (minAge: number, days: number) =>
-          `Für den Kader eines Teams registrierst du dich über dessen Link mit Name und E-Mail-Adresse, wenn du willst, auch mit Trikotnummer, Position und Stufe, und bestätigst innerhalb von ${boundBy(formatNumber(days), "Tagen")} über einen Link mit deinem Geburtsdatum, dass du mindestens ${boundBy(formatNumber(minAge), "Jahre")} alt bist. Über die Aufnahme entscheiden die Kontaktpersonen des Teams; deine E-Mail-Adresse, dein Geburtsdatum und deine Antworten sehen sie nicht. Wer ein Spiel deines Teams pfeift, sieht für den Spielbericht beide Kader mit Vor- und Nachnamen und Trikotnummer.`,
+          `Für den Kader eines Teams registrierst du dich über dessen Link mit Name und E-Mail-Adresse. Wenn du willst, gibst du auch Trikotnummer, Position und Stufe an. Innerhalb von ${boundBy(formatNumber(days), "Tagen")} bestätigst du über einen Link mit deinem Geburtsdatum, dass du mindestens ${boundBy(formatNumber(minAge), "Jahre")} alt bist. Über die Aufnahme entscheiden die Kontaktpersonen des Teams. Deine E-Mail-Adresse, dein Geburtsdatum und deine Antworten sehen sie nicht. Wer ein Spiel deines Teams pfeift, sieht für den Spielbericht beide Kader mit Vor- und Nachnamen und Trikotnummer.`,
       },
       schiedsrichter: {
         heading: "Schiedsrichterinnen und Schiedsrichter",
         text: (days: number, minAge: number) =>
-          `Pfeifst du für die Liga, trägt sie dich mit Name, Kontaktdaten, Schule und Honorar ein, so wie du oder die Person, die dich genannt hat, sie uns mitteilt. Über einen Link bestätigst du den Eintrag innerhalb von ${boundBy(formatNumber(days), "Tagen")} mit deinem Geburtsdatum; pfeifen kann, wer mindestens ${boundBy(formatNumber(minAge), "Jahre")} alt ist. ${OBJECTION_DELETES_ENTRY} Löschen wir deinen Eintrag, steht an deinen gespielten Spielen „anonym“ mit dem Honorar, und aus angesetzten Spielen nehmen wir dich heraus.`,
+          `Pfeifst du für die Liga, trägt sie dich mit Name, Kontaktdaten, Schule und Honorar ein. Diese Angaben haben wir von dir oder von der Person, die dich genannt hat. Über einen Link bestätigst du den Eintrag innerhalb von ${boundBy(formatNumber(days), "Tagen")} mit deinem Geburtsdatum. Pfeifen kann, wer mindestens ${boundBy(formatNumber(minAge), "Jahre")} alt ist. ${OBJECTION_DELETES_ENTRY} Löschen wir deinen Eintrag, steht an deinen gespielten Spielen „anonym“ mit dem Honorar, und aus angesetzten Spielen nehmen wir dich heraus.`,
       },
       spiele: {
         heading: "Spiele und Spielberichte",
-        text: "Vor einem Spiel fragen wir beide Teams und die Schiedsrichterin oder den Schiedsrichter, ob der Termin steht; eine Absage kann eine Begründung als freien Text tragen. Nach dem Spiel trägt die Schiedsrichterin oder der Schiedsrichter einen Spielbericht ein: Ergebnis, Tore und Karten mit Minute und Person sowie Bemerkungen als freien Text.",
+        // The decline's box is labelled „Grund“, and the administration's entry of an answer requires one.
+        text: "Vor einem Spiel fragen wir beide Teams und die Schiedsrichterin oder den Schiedsrichter, ob der Termin steht. Wer einen Termin ablehnt, kann einen Grund als freien Text angeben. Trägt die Verwaltung eine Antwort ein, schreibt sie dazu, wie sie zustande kam. Nach dem Spiel trägt die Schiedsrichterin oder der Schiedsrichter einen Spielbericht ein: Ergebnis, Tore und Karten mit Minute und Person sowie Bemerkungen als freien Text.",
       },
+      /** A person's sign-in and account; what holds only with access to the administration is `administration`'s. */
       account: {
         heading: "Anmeldung und Konto",
-        // An administrator's idle hour is typed as its one figure: a sentence reading „nach 1 Stunde“ is singular.
-        signIn: (
-          code: { minutes: number },
-          person: { idleDays: number; days: number },
-          admin: { idleHours: 1; hours: number },
-          sessionDays: number,
-        ) =>
-          `Du meldest dich mit einem Code an, den wir dir schicken und nach ${boundBy(formatNumber(code.minutes), "Minuten")} löschen, oder mit einem Passkey, zu dem wir seinen öffentlichen Schlüssel mit Kennung und Zähler, den Anbieter, bei dem er liegt, ob er gesichert ist, wie dein Gerät ihn erreicht, seinen Namen und seine letzte Nutzung speichern, nie seinen privaten Schlüssel; mit Zugang zur Verwaltung nur mit einem Passkey. Eine Sitzung endet nach ${boundBy(formatNumber(person.idleDays), "Tagen")} ohne Nutzung, spätestens nach ${boundBy(formatNumber(person.days), "Tagen")}; für die Verwaltung endet sie schon nach ${boundBy(formatNumber(admin.idleHours), "Stunde")} ohne Nutzung, spätestens nach ${boundBy(formatNumber(admin.hours), "Stunden")}. Wir löschen eine Sitzung ${boundBy(formatNumber(sessionDays), "Tage")} nach ihrer letzten Nutzung.`,
-        changes: (linkHours: number, stopDays: number, administratorWait: Wait, ownerWait: Wait) =>
-          `Eine neue E-Mail-Adresse bestätigst du zuerst über einen Link an deine bisherige Adresse und danach über einen Link an die neue, jeder ${boundBy(formatNumber(linkHours), "Stunden")} gültig; sie gilt, sobald du beide bestätigt hast. Kommst du an deine bisherige Adresse nicht mehr heran, ändert die Liga sie auf deine Anfrage; die bisherige Adresse erfährt davon und kann die Änderung ${boundBy(formatNumber(stopDays), "Tage")} lang stoppen. Mit Zugang zur Verwaltung gilt eine neue Adresse erst ${waitWords(administratorWait).span}, nachdem du beide bestätigt hast, für die ${ownerTier} und die Person, an die sie übergeben wird, erst ${waitWords(ownerWait).after}; bis dahin gilt die bisherige. Ein neuer Zugang gilt erst ${waitWords(administratorWait).after}, die Übergabe der ${ownerTier} erst ${waitWords(ownerWait).after}. Alle mit Zugang und die genannte Person erfahren sofort davon. Bis dahin kann die ${ownerTier} alles davon zurücknehmen; eine neue Adresse auch du selbst, im Konto oder über den Link an deine bisherige Adresse. Dein Konto löschst du selbst, bestätigt über einen Link an deine Adresse. Mit der ${ownerTier} geht das erst nach ihrer Übergabe, weil die Liga immer eine ${ownerTier} braucht; deine Rechte unter „Deine Rechte“ bleiben davon unberührt. Sonst bleibt es, solange unter deiner Adresse ein Eintrag bei uns besteht.`,
+        signIn: (codeMinutes: number) =>
+          `Du meldest dich mit einem Code an, den wir dir schicken. Den Code löschen wir nach ${boundBy(formatNumber(codeMinutes), "Minuten")}.`,
+        sessions: (idleDays: number, days: number, sessionDays: number) =>
+          `Eine Sitzung endet nach ${boundBy(formatNumber(idleDays), "Tagen")} ohne Nutzung, spätestens nach ${boundBy(formatNumber(days), "Tagen")}. Wir löschen eine Sitzung ${boundBy(formatNumber(sessionDays), "Tage")} nach ihrer letzten Nutzung.`,
+        changes: (linkHours: number, stopDays: number) =>
+          `Eine neue E-Mail-Adresse bestätigst du zuerst über einen Link an deine bisherige Adresse, danach über einen Link an die neue. Jeder Link gilt ${boundBy(formatNumber(linkHours), "Stunden")}. Die neue Adresse gilt, sobald du beide bestätigt hast. Kommst du an deine bisherige Adresse nicht mehr heran, ändert die Liga sie auf deine Anfrage. Die bisherige Adresse erfährt davon und kann die Änderung ${boundBy(formatNumber(stopDays), "Tage")} lang stoppen.`,
+        erasure:
+          "Dein Konto löschst du selbst. Das bestätigst du über einen Link an deine Adresse. Sonst bleibt dein Konto, solange unter deiner Adresse ein Eintrag bei uns besteht.",
         ban: "Stört eine Adresse den Spielbetrieb, kann die Verwaltung sie sperren. Mit ihr meldet sich dann niemand an, und sie bekommt keine E-Mails. Hat sie ein Konto, schreiben wir das dorthin.",
+      },
+      /** What holds only with access to the administration, the passkey among it: no other account holds one. */
+      administration: {
+        heading: "Zugang zur Verwaltung",
+        // An administrator's idle hour is typed as its one figure: a sentence reading „nach 1 Stunde“ is singular.
+        signIn: (idleHours: 1, hours: number) =>
+          `Mit Zugang zur Verwaltung meldest du dich nur mit einem Passkey an. Eine Sitzung für die Verwaltung endet schon nach ${boundBy(formatNumber(idleHours), "Stunde")} ohne Nutzung, spätestens nach ${boundBy(formatNumber(hours), "Stunden")}.`,
+        passkey: {
+          lead: "Zu einem Passkey speichern wir:",
+          items: [
+            "seinen öffentlichen Schlüssel mit Kennung und Zähler,",
+            "den Anbieter, bei dem er liegt,",
+            "ob er gesichert ist,",
+            "wie dein Gerät ihn erreicht,",
+            "seinen Namen.",
+          ],
+          never: "Seinen privaten Schlüssel speichern wir nie.",
+        },
+        address: (administratorWait: Wait, ownerWait: Wait) =>
+          `Änderst du mit Zugang zur Verwaltung deine Adresse, gilt die neue erst ${waitWords(administratorWait).span}, nachdem du beide bestätigt hast. Für die ${ownerTier} und für die Person, an die sie gerade übergeben wird, gilt sie erst ${waitWords(ownerWait).after}. Bis dahin gilt die bisherige Adresse.`,
+        grants: (administratorWait: Wait, ownerWait: Wait) =>
+          `Ein neuer Zugang gilt erst ${waitWords(administratorWait).after}. Die Übergabe der ${ownerTier} gilt erst ${waitWords(ownerWait).after}. Von jedem dieser Schritte erfahren alle mit Zugang und die genannte Person sofort.`,
+        undo: `Bis dahin kann die ${ownerTier} jeden dieser Schritte zurücknehmen. Eine neue Adresse kannst auch du selbst zurücknehmen, im Konto oder über den Link an deine bisherige Adresse.`,
+        erasure: `Mit der ${ownerTier} kannst du dein Konto erst nach ihrer Übergabe löschen, weil die Liga immer eine ${ownerTier} braucht. Deine Rechte unter „Deine Rechte“ bleiben davon unberührt.`,
       },
       mail: {
         heading: "E-Mail und WhatsApp",
         senders: (signIn: string, league: string) =>
-          `Unsere E-Mails verschicken wir über Resend, Codes und Sicherheitshinweise von ${signIn}, alle anderen von ${league}; Resend meldet uns, ob eine E-Mail ankommt, und wir speichern das bei der Nachricht.`,
+          `Unsere E-Mails verschicken wir über Resend. Codes und Sicherheitshinweise kommen von ${signIn}, alle anderen von ${league}. Resend meldet uns, ob eine E-Mail ankommt. Das speichern wir bei der Nachricht.`,
         forwarding:
-          "E-Mails an die Liga kommen in ihr Postfach bei Google Workspace, das ein Mitglied des Vorstands liest und das jede Nachricht an ein Mitglied des Vorstands weiterleitet. Im Postfach der Liga löschen wir jede Nachricht 6\u00A0Monate nach ihrem Eingang.",
+          "E-Mails an die Liga kommen in ihr Postfach bei Google Workspace. Ein Mitglied des Vorstands liest dieses Postfach. Das Postfach leitet jede Nachricht an ein Mitglied des Vereins weiter. Im Postfach der Liga löschen wir jede Nachricht 6\u00A0Monate nach ihrem Eingang.",
         whatsapp:
-          "Über WhatsApp schreiben wir dir nur, wenn du das erlaubt hast oder uns dort schreibst; dann erhält WhatsApp deine Telefonnummer und die Nachrichten.",
+          "Über WhatsApp schreiben wir dir nur, wenn du das erlaubt hast oder uns dort schreibst. Dann erhält WhatsApp deine Telefonnummer und die Nachrichten.",
       },
       published: {
         heading: "Was wir veröffentlichen",
         record:
-          "Auf der Website stehen Name, Kürzel, Schule und Anschrift jedes Teams, Spielpläne, Ergebnisse und Tabellen, Aufstellungen, sobald ein Team sie einträgt, Tore und Karten, sobald der Spielbericht feststeht, und als freier Text Notizen zu Spielen, Beschreibungen von Teams und der Grund für einen Rückzug.",
+          "Auf der Website stehen Name, Kürzel, Schule und Anschrift jedes Teams. Dazu kommen Spielpläne, Ergebnisse und Tabellen. Aufstellungen stehen dort, sobald ein Team sie einträgt, Tore und Karten, sobald der Spielbericht feststeht. Als freier Text stehen dort Notizen zu Spielen, Beschreibungen von Teams und der Grund für einen Rückzug.",
         names:
-          "Stehst du im Kader, zeigen wir dort, in Aufstellungen und bei Toren und Karten deinen Vornamen und den Anfangsbuchstaben deines Nachnamens; pfeifst du, zeigen wir an deinen Spielen den ersten Teil deines Namens und den Anfangsbuchstaben des nächsten, bei nur einem Namen diesen ganz. Beides zeigen wir nur mit deiner Einwilligung, sonst steht dort nur „anonym“. Trikotnummer und Position zeigen wir nur neben deinem Namen. Hast du im Kader die Rolle „Kapitän“ oder „Co-Kapitän“, zeigen wir sie dort und in Aufstellungen neben deinem Namen, nie neben „anonym“.",
-        consented: (mediaAge: number) =>
-          `Ebenfalls nur mit Einwilligung zeigen wir die Vornamen der Personen, die die Liga organisieren, auf der Startseite und unter „${COPY.page.about}“ und, ab ${boundBy(formatNumber(mediaAge), "Jahren")}, Fotos, Videos und Interviews, auf denen du zu erkennen bist, hier und auf dem Instagram-Kanal der Liga. Widerrufst du, entfernen wir Fotos, Videos und Interviews von dir von der Website und vom Instagram-Kanal der Liga.`,
+          "Stehst du im Kader, zeigen wir deinen Vornamen und den Anfangsbuchstaben deines Nachnamens: im Kader, in Aufstellungen und bei Toren und Karten. Pfeifst du, zeigen wir an deinen Spielen den ersten Teil deines Namens und den Anfangsbuchstaben des nächsten. Hast du nur einen Namen, zeigen wir ihn ganz. Beides zeigen wir nur mit deiner Einwilligung, sonst steht dort nur „anonym“. Trikotnummer und Position zeigen wir nur neben deinem Namen. Hast du im Kader die Rolle „Kapitän“ oder „Co-Kapitän“, zeigen wir sie dort und in Aufstellungen neben deinem Namen, nie neben „anonym“.",
+        // The names stand in the public source code too, whose earlier versions keep a removed one.
+        organisers: `Ebenfalls nur mit Einwilligung zeigen wir die Vornamen der Personen, die die Liga organisieren. Sie stehen auf der Startseite, unter „${COPY.page.about}“ und im öffentlichen Quellcode der Website. Nimmt jemand von ihnen seine Einwilligung zurück, entfernen wir den Namen von der Website und aus dem aktuellen Quellcode. Frühere Versionen des Quellcodes behalten ihn.`,
+        media: (mediaAge: number) =>
+          `Ab ${boundBy(formatNumber(mediaAge), "Jahren")} zeigen wir, ebenfalls nur mit deiner Einwilligung, Fotos, Videos und Interviews, auf denen du zu erkennen bist, hier und auf dem Instagram-Kanal der Liga. Widerrufst du, entfernen wir Fotos, Videos und Interviews von dir von der Website und vom Instagram-Kanal der Liga.`,
+        // The Stufe is a squad row's; no referee record holds one.
         never:
-          "Nie veröffentlichen wir Kontaktdaten, Geburtsdaten, Registrierungen, Kontaktpersonen, Antworten zu Einwilligungen, die Stufe, Schule und Honorar einer Schiedsrichterin oder eines Schiedsrichters und die Bemerkungen eines Spielberichts.",
+          "Nie veröffentlichen wir Kontaktdaten, Geburtsdaten, Registrierungen, Kontaktpersonen, Antworten zu Einwilligungen, die Stufe im Kader, Schule und Honorar einer Schiedsrichterin oder eines Schiedsrichters und die Bemerkungen eines Spielberichts.",
       },
       recipients: {
         heading: "Empfänger",
@@ -1004,12 +1039,12 @@ export const SERVER_COPY = catalogue({
           "MongoDB, Inc.: die Datenbank und ihre Sicherungskopien, in Frankfurt am Main;",
           "Resend (Plus Five Five, Inc.): unsere E-Mails;",
           "Google Cloud EMEA Limited, Dublin (Google Workspace for Nonprofits): E-Mails an die Liga;",
-          "die Anbieter der privaten Postfächer: Mitteilungen zum Zugang zur Verwaltung und, wo ein Mitglied des Vorstands sie dort liest, E-Mails an die Liga, ohne Vertrag zur Auftragsverarbeitung;",
+          "die Anbieter der privaten Postfächer: Mitteilungen zum Zugang zur Verwaltung und, wo ein Mitglied des Vereins sie dort liest, E-Mails an die Liga, ohne Vertrag zur Auftragsverarbeitung;",
           "WhatsApp Ireland Limited, wenn du WhatsApp erlaubst: die gewöhnliche App, ohne Vertrag zur Auftragsverarbeitung;",
           "Meta (Instagram), selbst verantwortlich: die Fotos, Videos und Interviews, die du erlaubst.",
         ],
         transfers:
-          "In die Vereinigten Staaten übermitteln wir auf Grundlage des Angemessenheitsbeschlusses zum EU-US Data Privacy Framework (Art.\u00A045 DSGVO), für Cloudflare und Resend auch der Standardvertragsklauseln der Europäischen Kommission (Art.\u00A046 Abs.\u00A02 lit.\u00A0c DSGVO); in andere Länder ohne Angemessenheitsbeschluss übermittelt Google auf Grundlage dieser Klauseln. Eine Kopie der Klauseln schicken wir dir auf Anfrage. Ein privates Postfach kann in einem Land ohne Angemessenheitsbeschluss liegen; für diese Übermittlung gibt es keine geeigneten Garantien. Darüber hinaus geben wir keine Daten weiter, auch nicht an unsere Sponsoren.",
+          "Daten, die in die Vereinigten Staaten gehen, übermitteln wir auf Grundlage des Angemessenheitsbeschlusses zum EU-US Data Privacy Framework (Art.\u00A045 DSGVO). Für Cloudflare gelten zusätzlich die Standardvertragsklauseln der Europäischen Kommission (Art.\u00A046 Abs.\u00A02 lit.\u00A0c DSGVO). Für Resend gelten sie ebenso. Google übermittelt in andere Länder ohne Angemessenheitsbeschluss auf Grundlage dieser Klauseln. Eine Kopie der Klauseln schicken wir dir auf Anfrage. Ein privates Postfach kann in einem Land ohne Angemessenheitsbeschluss liegen. Für diese Übermittlung gibt es keine geeigneten Garantien. Darüber hinaus geben wir keine Daten weiter, auch nicht an unsere Sponsoren.",
       },
       /**
        * The retention table: each store's name, what it holds and how long. A bound the code holds is a parameter; a
@@ -1046,10 +1081,11 @@ export const SERVER_COPY = catalogue({
             content: "Team, Saison",
             period: "ohne Frist",
           },
+          // A returning pupil's earlier squad rows stand until the season after their last.
           {
             name: "Kader und Aufstellungen",
             content: "Name, Adresse, Geburtsdatum, Trikotnummer, Position, Stufe, Rolle, Antworten",
-            period: "bis zum Ende der Saison danach",
+            period: "bis zum Ende der Saison nach deiner letzten im Kader",
           },
           {
             name: "Schiedsrichter",
@@ -1062,21 +1098,27 @@ export const SERVER_COPY = catalogue({
             content: "Ergebnisse, Tore, Karten, Notizen",
             period: "als Chronik der Liga; Namen darin nur, solange der Eintrag der Person besteht",
           },
-          { name: "Freie Texte zu Spielen", content: "Absagegründe, Bemerkungen", period: "bis zum Ende der Saison danach" },
+          {
+            name: "Freie Texte zu Spielen",
+            content: "Gründe beim Ablehnen eines Termins und beim Eintragen einer Antwort, Bemerkungen",
+            period: "bis zum Ende der Saison danach",
+          },
           {
             name: "Gesperrte Adresse",
             content: "Adresse, Grund, Datum",
             period: (bound: RetentionBounds) => `bis zum Ende der ${boundBy(formatOrdinal(bound.banSaisons), "Saison")} danach`,
           },
+          // The tier by the words its chips show.
           {
             name: "Zugang zur Verwaltung",
-            content: "Adresse, Stufe, Beginn",
+            content: `Adresse, ${ownerTier} oder Verwaltung, Beginn`,
             period: "bis er endet",
           },
           { name: "Konto", content: "Adresse, Passkeys", period: "solange ein Eintrag besteht" },
+          // The sign-in stores the plain address of anyone typed into the form, up to the mail cap.
           {
             name: "Anmeldung",
-            content: "Code; Zahl der Codes und der Fehlversuche je Adresse, pseudonymisiert",
+            content: "Adresse, Code; Zahl der Codes und der Fehlversuche je Adresse, pseudonymisiert",
             period: (bound: RetentionBounds) =>
               `Code ${boundBy(formatNumber(bound.code.minutes), "Minuten")}; Codes ${boundBy(formatNumber(bound.code.mailHours), "Stunde")}, Fehlversuche ${boundBy(formatNumber(bound.code.failureHours), "Stunden")}`,
           },
@@ -1105,7 +1147,7 @@ export const SERVER_COPY = catalogue({
           },
           {
             name: "Unsere E-Mails",
-            content: "Inhalt, Adresse, Zustellstand",
+            content: "Inhalt, Adresse, was Resend zur Zustellung meldet",
             period: (bound: RetentionBounds) =>
               `Inhalt bis zum Versand, der Rest ${boundBy(formatNumber(bound.outboxRetentionDays), "Tage")} danach`,
           },
@@ -1124,16 +1166,37 @@ export const SERVER_COPY = catalogue({
       },
       erasure: {
         heading: "Löschung",
-        text: (deliveryDays: number, anchorHours: 1) =>
-          `Löschen wir Daten, auf deinen Wunsch oder nach ihrer Frist, verschwinden sie sofort aus der Datenbank und nach etwa 8\u00A0Tagen aus den Sicherungskopien; spielen wir eine ältere Sicherung ein, löschen wir sie erneut. Es bleiben die Kopien bei Resend und, von deinen E-Mails an uns, bei Google bis zu ihren Fristen und im Postfach des Mitglieds des Vorstands, an das wir sie weiterleiten, bis wir sie dort auf deine Anfrage löschen, die Protokolle des Servers mit der Nummer eines Eintrags und, bei Kontaktpersonen, dem Tag der Bestätigung bis zu ihrer Frist, nach der Zusage zu einer Bewerbung oder nach deinem Widerspruch der Link aus deiner E-Mail und der Tag deiner Antwort, ohne Namen und Adresse, längstens bis zum Ende der Saison danach, eine Sperre deiner Adresse bis zu ihrem Ende, die E-Mail mit dem Link zur Löschung, bis er abläuft, unsere Nachricht über die Löschung höchstens ${boundBy(formatNumber(deliveryDays), "Tage")}, deine Adresse pseudonymisiert ${boundBy(formatNumber(anchorHours), "Stunde")} lang, Mitteilungen zum Zugang zur Verwaltung, die andere schon erhalten haben, und freie Texte, die nicht unter deiner Adresse stehen. Löschen wir ein bestätigtes Konto, schreiben wir dir das, ebenso, wenn wir eine Bewerbung löschen, die nicht zustande kam und in der du deinen Eintrag bestätigt hast, außer an eine gesperrte Adresse; eine Absage nennt die Löschung schon selbst.`,
+        text: "Löschen wir Daten, auf deinen Wunsch oder nach ihrer Frist, verschwinden sie sofort aus der Datenbank. Aus den Sicherungskopien verschwinden sie nach etwa 8\u00A0Tagen. Spielen wir eine ältere Sicherung ein, löschen wir sie erneut.",
+        remainsLead: "Es bleiben:",
+        /**
+         * What outlives a deletion, one item each. The last is a deletion by a period's: no sweep deletes the address's
+         * mail rows, which the address may still be owed under another role, so they keep the row „Unsere E-Mails“'s period.
+         */
+        remains: (deliveryDays: number, anchorHours: 1, outboxDays: number) => [
+          "die Kopien bei Resend, bis zu ihren Fristen;",
+          "von deinen E-Mails an uns die Kopien bei Google, bis zu ihren Fristen;",
+          "von deinen E-Mails an uns die Kopien im Postfach des Mitglieds des Vereins, an das wir sie weiterleiten, bis wir sie dort auf deine Anfrage löschen;",
+          "die Protokolle des Servers mit der Nummer eines Eintrags und, bei Kontaktpersonen, dem Tag der Bestätigung, bis zu ihrer Frist;",
+          "nach der Zusage zu einer Bewerbung oder nach deinem Widerspruch der Link aus deiner E-Mail und der Tag deiner Antwort, ohne Namen und Adresse, längstens bis zum Ende der Saison danach;",
+          "eine Sperre deiner Adresse, bis sie endet;",
+          "die E-Mail mit dem Link zur Löschung, bis der Link abläuft;",
+          `unsere Nachricht über die Löschung, höchstens ${boundBy(formatNumber(deliveryDays), "Tage")};`,
+          `deine Adresse, pseudonymisiert, ${boundBy(formatNumber(anchorHours), "Stunde")} lang;`,
+          "Mitteilungen zum Zugang zur Verwaltung, die andere schon erhalten haben;",
+          "freie Texte, die nicht unter deiner Adresse stehen;",
+          `nach einer Löschung nach ihrer Frist unsere E-Mails an deine Adresse: ihr Inhalt bis zum Versand, der Rest ${boundBy(formatNumber(outboxDays), "Tage")} danach.`,
+        ],
+        // One's own deletion is confirmed on the page that made it, so no notice follows it.
+        notices:
+          "Löschen wir ein bestätigtes Konto, schreiben wir dir das, außer du hast es selbst gelöscht. Wir schreiben dir auch, wenn wir eine Bewerbung löschen, die nicht zustande kam und in der du deinen Eintrag bestätigt hast. An eine gesperrte Adresse schreiben wir in beiden Fällen nicht. Eine Absage nennt die Löschung schon selbst.",
         log: (logYears: number) =>
-          `Was die Verwaltung an den Daten der Liga ändert, halten wir ${boundBy(monthsOf(logYears), "Monate")} im Protokoll der Liga fest, ebenso, was Kontaktpersonen und Schiedsrichter für andere ändern, und die Löschung von Einträgen. Ein Eintrag sagt, wer es war, was geschah und wann, ohne alten oder neuen Inhalt. Beim Zugang zur Verwaltung steht darin die Adresse der genannten Person, auch wenn der Zugang nie galt. Die Verwaltung steht darin mit ihrer Adresse, alle anderen ohne Namen und Adresse. Zu einer Löschung stehen dort, wer sie veranlasst hat, und ein Verweis auf die Anfrage. Löschen wir deine Daten, ersetzt ein fester Vermerk deine Adresse.`,
+          `Was die Verwaltung an den Daten der Liga ändert, halten wir ${boundBy(monthsOf(logYears), "Monate")} im Protokoll der Liga fest. Ebenso halten wir fest, was Kontaktpersonen und Schiedsrichter für andere ändern, und die Löschung von Einträgen. Ein Eintrag sagt, wer es war, was geschah und wann, ohne alten oder neuen Inhalt. Beim Zugang zur Verwaltung steht darin die Adresse der genannten Person, auch wenn der Zugang nie galt. Die Verwaltung steht darin mit ihrer Adresse, alle anderen ohne Namen und Adresse. Zu einer Löschung stehen dort, wer sie veranlasst hat, und ein Verweis auf die Anfrage. Löschen wir deine Daten, ersetzt ein fester Vermerk deine Adresse.`,
       },
       rights: {
         heading: "Deine Rechte",
         text: (mail: ProseLink) =>
           [
-            "Du hast das Recht auf Auskunft, Berichtigung, Löschung, Einschränkung der Verarbeitung und Datenübertragbarkeit (Art.\u00A015 bis 18 und 20 DSGVO). Eine Einwilligung widerrufst du jederzeit für die Zukunft, in deinem Konto oder per E-Mail; was bis dahin geschah, bleibt rechtmäßig. Für alles genügt eine formlose E-Mail an ",
+            "Du hast das Recht auf Auskunft, Berichtigung, Löschung, Einschränkung der Verarbeitung und Datenübertragbarkeit (Art.\u00A015 bis 18 und 20 DSGVO). Eine Einwilligung widerrufst du jederzeit für die Zukunft, in deinem Konto oder per E-Mail. Was bis dahin geschah, bleibt rechtmäßig. Für alles genügt eine formlose E-Mail an ",
             mail,
             ".",
           ] as const,
