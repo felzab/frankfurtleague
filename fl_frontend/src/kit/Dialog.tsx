@@ -125,7 +125,7 @@ export function RouteDialog({ children }: { children: ReactNode }) {
 
 /**
  * A dialog's part ending its record, shaped as a row of an editor's danger box in a dialog's width, its hairlines
- * running out to both of the dialog's edges through the padding the box declares, as a field group's do.
+ * running out to both of the dialog's edges through the padding the box declares, as the pop-up's band does.
  */
 const dialogDangerPart = tv({
   base: "-mx-(--dialog-padding) flex items-center gap-3 justify-self-stretch border-y border-border px-(--dialog-padding) py-4",

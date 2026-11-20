@@ -9,7 +9,7 @@ import { BEWERBUNG_MIN_AGE, SIGNATORY_MIN_AGE } from "@/features/bewerbungen/con
 import { AddressFields } from "@/kit/AddressFields";
 import { ComboBox } from "@/kit/ComboBox";
 import { ConsentLine } from "@/kit/ConsentLine";
-import { FieldSubgroup } from "@/kit/FieldRows";
+import { FieldGroup } from "@/kit/FieldGroup";
 import { Section } from "@/kit/Section";
 import { Select } from "@/kit/Select";
 import { Switch } from "@/kit/Switch";
@@ -59,13 +59,13 @@ function NewSchool({ box, rules }: { box: Box; rules: BewerbungRules }) {
         isRequired={required.schulform}
         options={SCHULFORMEN.map((id) => ({ id, label: team.schulformOption[id] }))}
       />
-      <FieldSubgroup name={COPY.shared.address.title}>
+      <FieldGroup name={COPY.shared.address.title}>
         <AddressFields
           rules={rules}
           box={(field) => box(`schule.address.${field}`)}
           streetDescription={bewerbung.addressPublic}
         />
-      </FieldSubgroup>
+      </FieldGroup>
       <TextField
         {...box("schule.website_url")}
         label={team.website}

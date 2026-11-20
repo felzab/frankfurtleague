@@ -14,7 +14,7 @@ import { filesUnder } from "@/test-support/treeWalk";
 import { AccountBox } from "./AccountBox";
 import { Dialog } from "./Dialog";
 import { FieldGroup } from "./FieldGroup";
-import { FieldRows, FieldSubgroup } from "./FieldRows";
+import { FieldRows } from "./FieldRows";
 import { fieldStack } from "./fieldStyles";
 import { Filters } from "./Filters";
 import { OneShotForm } from "./OneShot";
@@ -84,9 +84,8 @@ const CONTAINERS: Readonly<Record<string, ReadonlyArray<readonly [string, () => 
         ),
     ],
   ],
-  "FieldGroup.tsx": [["a dialog's field group", () => holding(<FieldGroup name={COPY.shared.help}>{twoFields()}</FieldGroup>)]],
+  "FieldGroup.tsx": [["a named group of fields", () => holding(<FieldGroup name={COPY.shared.help}>{twoFields()}</FieldGroup>)]],
   "FieldRows.tsx": [
-    ["a box's subgroup", () => holding(<FieldSubgroup name={COPY.shared.help}>{twoFields()}</FieldSubgroup>)],
     ["label-left rows", () => holding(<FieldRows>{twoFields()}</FieldRows>)],
     ["named label-left rows", () => holding(<FieldRows label={COPY.shared.help}>{twoFields()}</FieldRows>)],
   ],
