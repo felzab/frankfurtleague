@@ -577,12 +577,14 @@ const SOURCE_BANS = [
     { allow: ["src/core/action.ts"] },
   ),
   syntaxBan(
-    // A route handler's half of the same rule, Next refusing `updateTag` outside a server action.
+    // A route handler's half of the same rule, Next refusing `updateTag` outside a server action. The spine itself
+    // expires the tag on a public form's failed press, which keeps the form standing rather than rendering it again.
     syntax(
       `:matches(ImportDeclaration[source.value="next/cache"] > ImportSpecifier[imported.name=/^revalidate(?:Tag|Path)$/], ${readsOff("/^revalidate(?:Tag|Path)$/")})`,
       "A route handler clears no cache tag: every write a browser makes is a server action, whose spine in fl_frontend/src/core/action.ts clears the site's tag.",
     ),
     SOURCE,
+    { allow: ["src/core/action.ts"] },
   ),
   syntaxBan(
     // Per function, where its tag and its lifetime stand beside it; a module-wide directive caches every export
