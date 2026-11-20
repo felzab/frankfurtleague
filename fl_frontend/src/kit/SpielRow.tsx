@@ -66,14 +66,14 @@ export const spielColumns = tv({ base: `${SPIEL_COLUMNS_CLASSES} grid grid-cols-
  * so its width alone picks its row's form: a box of a pair is at most (80 rem − 12 px) / 2, 634 px, and a lone box is
  * narrower than 42 rem, so every box takes the two-line card.
  */
-export const spielPairs = tv({
+const spielPairs = tv({
   slots: {
     list: "grid gap-3 @2xl:grid-cols-2",
     box: cardSurface({ class: `@container overflow-hidden ${spielColumns()}` }),
   },
 });
 
-export function SpielPairList({ children }: { children: ReactNode }) {
+function SpielPairList({ children }: { children: ReactNode }) {
   return (
     <BlockBox>
       <div className={spielPairs().list()}>{children}</div>
