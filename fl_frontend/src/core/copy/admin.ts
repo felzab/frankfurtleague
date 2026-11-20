@@ -147,11 +147,8 @@ export const ADMIN_COPY = catalogue({
     dangerBox: (draw: boolean, activation: boolean) =>
       draw && activation ? "Neuanlage, Löschung und Umstellung" : draw ? "Neuanlage und Löschung" : "Umstellung",
 
-    /** What the Wertung rules do, one statement a line. */
-    scoringHelp: [
-      "Punkte und die Regel bei Punktgleichheit ordnen die Tabelle.",
-      "Ein Nichtantreten zählt als Spiel mit den eingetragenen Toren.",
-    ],
+    /** What the Wertung's fields leave unsaid: how a no-show counts. */
+    scoringHelp: ["Ein Nichtantreten zählt als Spiel mit den eingetragenen Toren."],
     punkte: "Punkte",
     winPoints: "Sieg",
     drawPoints: "Unentschieden",
