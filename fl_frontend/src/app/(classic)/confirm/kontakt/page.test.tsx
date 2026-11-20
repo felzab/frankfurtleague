@@ -26,7 +26,7 @@ serveBackend(({ method, path, body }) =>
 doubleNextRequest();
 
 const { objectKontakt } = await import("./answerKontakt");
-const { END, TO_HOME } = await import("./ends");
+const { END, TO_HOME } = await import("../ends");
 const { default: KontaktConfirmationPage } = await import("./page");
 
 const DAY = "2026-11-04";

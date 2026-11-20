@@ -5,7 +5,7 @@ import { serveBackend } from "@/test-support/backend";
 import { doubleNextRequest } from "@/test-support/nextRequest";
 import { posted } from "@/test-support/posted";
 
-import { END } from "./ends";
+import { END } from "../ends";
 
 // The two writes an answer makes, each answered with the empty body the backend sends; any other request goes
 // unanswered and fails its case.

@@ -7,8 +7,8 @@ import { SEAT_TEXT_VERSIONS } from "@/core/consentWordings";
 import { bewerbungenPostConfirmation } from "@/core/generated/client/sdk";
 import { BewerbungenPostConfirmationBody } from "@/core/generated/zod/inputs";
 
+import { END, LINK_INVALID } from "../ends";
 import { refusedAs } from "../linkView";
-import { END, LINK_INVALID } from "./ends";
 
 import type { Code } from "@/core/generated/client/types";
 import type { EndState } from "@/kit/MailedPage";

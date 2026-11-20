@@ -5,7 +5,7 @@ import { serveBackend } from "@/test-support/backend";
 import { doubleNextRequest } from "@/test-support/nextRequest";
 import { posted } from "@/test-support/posted";
 
-import { CONFIRMED } from "./ends";
+import { REGISTRIERUNG_CONFIRMED } from "../ends";
 
 // The answer's one write, answered with the empty body the backend sends; any other request goes unanswered and fails its case.
 const backend = serveBackend(({ method, path }) =>
@@ -24,8 +24,8 @@ describe("the pupil's answer", () => {
   // The harm: an answer the page refuses before it is sent, or a ticked media consent stored as refused, or an unticked
   // one as given, nothing on the page saying so.
   it("confirms with the choice and the media tick under the payload's names and the wordings the page showed", async () => {
-    expect(await answerRegistrierung(confirmation("on"))).toStrictEqual({ ok: true, value: CONFIRMED });
-    expect(await answerRegistrierung(confirmation())).toStrictEqual({ ok: true, value: CONFIRMED });
+    expect(await answerRegistrierung(confirmation("on"))).toStrictEqual({ ok: true, value: REGISTRIERUNG_CONFIRMED });
+    expect(await answerRegistrierung(confirmation())).toStrictEqual({ ok: true, value: REGISTRIERUNG_CONFIRMED });
 
     expect(backend.sent.map(({ path, body }) => ({ path, body }))).toStrictEqual(
       [true, false].map((media) => ({

@@ -14,12 +14,12 @@ import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { runWithIncomingTrace } from "@/core/traceScope";
 import { mailedMetadata } from "@/kit/mailedLinkState";
-import { MailedPage, TO_ACCOUNT } from "@/kit/MailedPage";
+import { MailedPage } from "@/kit/MailedPage";
 
 import { ConfirmationFields } from "../ConfirmationFields";
-import { linkViewOf } from "../linkView";
+import { REGISTRIERUNG_CONFIRMED, TO_HOME } from "../ends";
+import { alreadyDone, linkViewOf } from "../linkView";
 import { answerRegistrierung } from "./answerRegistrierung";
-import { CONFIRMED, TO_HOME } from "./ends";
 
 import type { FLRegistrierungConfirmationViewValid } from "@/core/generated/client/types";
 import type { MailedState } from "@/kit/MailedPage";
@@ -98,7 +98,7 @@ async function readState(): Promise<MailedState> {
     case "expired":
       return INVALID;
     case "confirmed":
-      return { state: "alreadyDone", title: COPY.shared.end.doneOn(CONFIRMED.title, dayOf(view.answered_at)), next: TO_ACCOUNT };
+      return alreadyDone(view.answered_at, "confirmed", REGISTRIERUNG_CONFIRMED);
     case "valid":
       return question(view, token);
   }

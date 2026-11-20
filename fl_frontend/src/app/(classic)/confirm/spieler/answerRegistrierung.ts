@@ -7,8 +7,8 @@ import { SPIELER_TEXT_VERSIONS } from "@/core/consentWordings";
 import { registrierungenPostConfirmation } from "@/core/generated/client/sdk";
 import { RegistrierungenPostConfirmationBody } from "@/core/generated/zod/inputs";
 
+import { LINK_INVALID, REGISTRIERUNG_CONFIRMED } from "../ends";
 import { refusedAs } from "../linkView";
-import { CONFIRMED, LINK_INVALID } from "./ends";
 
 import type { Code } from "@/core/generated/client/types";
 import type { EndState } from "@/kit/MailedPage";
@@ -43,7 +43,7 @@ export const answerRegistrierung = action({
   run: async ({ token, birth_date: birthDate, scope, media }): Promise<{ ok: true; value: EndState }> => {
     try {
       await registrierungenPostConfirmation({ token, birth_date: birthDate, scope, media, text_versions: SPIELER_TEXT_VERSIONS });
-      return { ok: true, value: CONFIRMED };
+      return { ok: true, value: REGISTRIERUNG_CONFIRMED };
     } catch (error) {
       if (!refusedAs(error, SPENT)) throw error;
       return { ok: true, value: LINK_INVALID };

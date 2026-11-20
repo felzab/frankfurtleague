@@ -15,20 +15,16 @@ import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { runWithIncomingTrace } from "@/core/traceScope";
 import { mailedMetadata } from "@/kit/mailedLinkState";
-import { MailedPage, TO_ACCOUNT } from "@/kit/MailedPage";
+import { MailedPage } from "@/kit/MailedPage";
 
 import { ConfirmationFields } from "../ConfirmationFields";
-import { linkViewOf } from "../linkView";
+import { END, TO_HOME } from "../ends";
+import { alreadyDone, linkViewOf } from "../linkView";
 import { answerKontakt, objectKontakt } from "./answerKontakt";
-import { END, TO_HOME } from "./ends";
 
 import type { Copy } from "@/core/copy";
 import type { CalendarDay } from "@/core/format";
-import type {
-  FLBewerbungEinwilligungViewAnswered,
-  FLBewerbungEinwilligungViewSaisonPast,
-  FLBewerbungEinwilligungViewValid,
-} from "@/core/generated/client/types";
+import type { FLBewerbungEinwilligungViewSaisonPast, FLBewerbungEinwilligungViewValid } from "@/core/generated/client/types";
 import type { Fact } from "@/kit/Facts";
 import type { MailedState } from "@/kit/MailedPage";
 import type { Metadata, ResolvingMetadata } from "next";
@@ -56,15 +52,6 @@ export default function KontaktConfirmationPage() {
 
 /** The link's own read; `null` for a token no seat holds or one the backend will not parse, a dead link either way. */
 const readView = cache(async (token: string) => runWithIncomingTrace(() => linkViewOf(bewerbungenGetConfirmationView({ token }))));
-
-/** The link opened again after its answer: what the person did and on which day, with the one place to go next. */
-function alreadyDone(view: FLBewerbungEinwilligungViewAnswered, kind: "confirmed" | "objected"): MailedState {
-  const day = dayOf(view.answered_at);
-  const { title } = END[kind];
-  return kind === "confirmed"
-    ? { state: "alreadyDone", title: COPY.shared.end.doneOn(title, day), next: TO_ACCOUNT }
-    : { state: "alreadyDone", title: COPY.shared.end.doneOn(title, day), next: TO_HOME, declined: true };
-}
 
 /** A view that still names its seat: the question's, and a closed row's objection. */
 type SeatView = FLBewerbungEinwilligungViewValid | FLBewerbungEinwilligungViewSaisonPast;
@@ -163,9 +150,9 @@ async function readState(): Promise<MailedState> {
     case "expired":
       return INVALID;
     case "confirmed":
-      return alreadyDone(view, "confirmed");
+      return alreadyDone(view.answered_at, "confirmed", END.confirmed);
     case "declined":
-      return alreadyDone(view, "objected");
+      return alreadyDone(view.answered_at, "objected", END.objected);
     case "saison_past":
       return closedRow(view, token);
     case "valid":

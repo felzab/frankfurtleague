@@ -14,14 +14,13 @@ import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { runWithIncomingTrace } from "@/core/traceScope";
 import { mailedMetadata } from "@/kit/mailedLinkState";
-import { MailedPage, TO_ACCOUNT } from "@/kit/MailedPage";
+import { MailedPage } from "@/kit/MailedPage";
 
 import { ConfirmationFields } from "../ConfirmationFields";
-import { linkViewOf } from "../linkView";
+import { END, TO_HOME } from "../ends";
+import { alreadyDone, linkViewOf } from "../linkView";
 import { answerSchiedsrichter } from "./answerSchiedsrichter";
-import { END, TO_HOME } from "./ends";
 
-import type { FLSchiedsrichterConfirmationViewConfirmed } from "@/core/generated/client/types";
 import type { MailedState } from "@/kit/MailedPage";
 import type { Metadata, ResolvingMetadata } from "next";
 
@@ -51,11 +50,6 @@ export default function SchiedsrichterConfirmationPage() {
 /** The link's own read; `null` for a token no referee holds or one the backend will not parse, a dead link either way. */
 const readView = cache(async (token: string) => runWithIncomingTrace(() => linkViewOf(schiedsrichterGetConfirmationView({ token }))));
 
-/** The link opened again after its consent: on which day, with the account as the one place to go next. */
-function alreadyConfirmed(view: FLSchiedsrichterConfirmationViewConfirmed): MailedState {
-  return { state: "alreadyDone", title: COPY.shared.end.doneOn(END.confirmed.title, dayOf(view.answered_at)), next: TO_ACCOUNT };
-}
-
 async function readState(): Promise<MailedState> {
   const token = await mailedLinkToken();
   if (token === null) return INVALID;
@@ -68,7 +62,7 @@ async function readState(): Promise<MailedState> {
     case "expired":
       return INVALID;
     case "confirmed":
-      return alreadyConfirmed(view);
+      return alreadyDone(view.answered_at, "confirmed", END.confirmed);
     case "valid": {
       // Berlin's day, which the backend judges the age on.
       const today = dayIn(now());
