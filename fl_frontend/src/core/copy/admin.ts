@@ -47,6 +47,8 @@ const SEAT_CHANGED = "Sitz geändert";
 const NAME_ON_SITE = "Name auf der Website";
 const MEDIA = "Fotos und Videos";
 const SENT_ON = "Gesendet am";
+// A person's confirmation's day, as a player's fact labels it and a referee's Bestätigung states it.
+const CONFIRMED_ON = "Bestätigt am";
 const LOG_ENTRIES = "Einträge";
 
 /** The administration's own words, which no page outside it reads. */
@@ -112,12 +114,20 @@ export const ADMIN_COPY = catalogue({
     bothAddresses: "Beide Adressen",
   },
   retirement: RETIREMENT,
+  /**
+   * A danger box's consequence of retiring a record and of bringing it back, by the record as a noun phrase with its
+   * article („Der Spielort“), and for retiring the records it is no longer picked for.
+   */
+  retireConsequence: (subject: Copy, what: Copy) => `${subject} steht für neue ${what} nicht mehr zur Auswahl.`,
+  reactivateConsequence: (subject: Copy) => `${subject} steht wieder zur Auswahl.`,
 
   schiedsrichter: {
     search: COPY.shared.search(COPY.page.adminSchiedsrichter),
     withArticle: "Die Person",
     kontaktData: "Kontaktdaten",
     confirmation: "Bestätigung",
+    /** Where a confirmed entry's Bestätigung stands, by the day of its confirmation. */
+    confirmedOn: (day: CalendarDay) => `${CONFIRMED_ON} ${formatDate(day)}`,
     sentTo: (address: string) => `An ${address} gesendet`,
   },
 
@@ -346,7 +356,7 @@ export const ADMIN_COPY = catalogue({
     mediaYes: "Ja",
     mediaNo: "Nein",
     givenOn: "Erteilt am",
-    confirmedOn: "Bestätigt am",
+    confirmedOn: CONFIRMED_ON,
     kaderEntry: "Kadereintrag",
     reactivateConsequence: "Die Person steht wieder im Kader.",
   },

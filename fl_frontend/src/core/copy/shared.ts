@@ -146,7 +146,6 @@ export const COPY = catalogue({
       linkSent: SENT,
       linkNotSent: "Nicht gesendet",
     },
-    confirmedOn: (day: CalendarDay) => `Bestätigt am ${formatDate(day)}`,
     expiredOn: (day: CalendarDay) => `Abgelaufen am ${formatDate(day)}`,
     answerBy: (day: CalendarDay) => `Antwort bis ${formatDate(day)}`,
     /** The day a state took effect, beside the chip naming the state: „am 09.11.2026“. */
@@ -154,12 +153,6 @@ export const COPY = catalogue({
     afterConfirmation: "Erst nach Bestätigung",
     afterHandover: `Erst nach Übergabe der ${OWNER_TIER}`,
     reason: "Grund",
-    /**
-     * A danger box's consequence of retiring a record and of bringing it back, by the record as a noun phrase with its
-     * article („Der Spielort“), and for retiring the records it is no longer picked for.
-     */
-    retireConsequence: (subject: Copy, what: Copy) => `${subject} steht für neue ${what} nicht mehr zur Auswahl.`,
-    reactivateConsequence: (subject: Copy) => `${subject} steht wieder zur Auswahl.`,
     /** The description of a free text a mail hands to people it may not concern. */
     noNames: "Ohne Namen",
     mediaFrom: (age: number) => `Erst ab ${boundBy(formatNumber(age), "Jahren")}`,
