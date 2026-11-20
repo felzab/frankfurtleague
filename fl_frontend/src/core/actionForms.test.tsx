@@ -97,9 +97,9 @@ describe("each form's posted names meet its lane's keys", () => {
   });
 
   it("loses no box of the venue create dialog", async () => {
-    const { createSpielort } = await import("@/app/admin/createSpielort");
-    const { SpielortFields } = await import("@/app/admin/SpielortFields");
-    const { SPIELORT_RULES } = await import("@/app/admin/spielortRules");
+    const { createSpielort } = await import("@/features/spielorte/createSpielort");
+    const { SpielortFields } = await import("@/features/spielorte/SpielortFields");
+    const { SPIELORT_RULES } = await import("@/features/spielorte/fieldRules");
     const names = namesIn(<SpielortFields rules={SPIELORT_RULES} />);
     const typed = {
       name: "Sporthalle Nord",
@@ -108,7 +108,7 @@ describe("each form's posted names meet its lane's keys", () => {
       postcode: "60311",
       district: "Innenstadt",
       city: "Frankfurt am Main",
-      mietpreis: "40",
+      default_mietpreis: "40",
     };
     everyBoxTyped(names, typed);
     takes(["POST", "/spielorte", { created_id: ID }]);
@@ -127,7 +127,7 @@ describe("each form's posted names meet its lane's keys", () => {
   });
 
   it("loses no box of the season create dialog", async () => {
-    const { createSaison } = await import("@/features/saisons/createSaison");
+    const { createSaison } = await import("@/app/admin/(list)/saisons/createSaison");
     const { CreateFields } = await import("@/app/admin/(list)/saisons/CreateFields");
     const names = namesIn(
       <CreateFields

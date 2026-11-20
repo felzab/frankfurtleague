@@ -5,9 +5,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ADMIN_COPY } from "@/core/copy/admin";
 import { COPY } from "@/core/copy/shared";
+import { acceptBewerbung } from "@/features/bewerbungen/acceptBewerbung";
 import { renderUnderNext } from "@/test-support/nextContexts";
 
-import { acceptBewerbung } from "../[bewerbung]/decideBewerbung";
 import { BulkAccept } from "./BulkAccept";
 
 import type { FLBewerbungListRow } from "@/core/generated/client/types";
@@ -15,7 +15,7 @@ import type { NextContexts } from "@/test-support/nextContexts";
 
 const ADDRESS = "/admin/saisons/2027/bewerbungen/bulk";
 
-vi.mock("../[bewerbung]/decideBewerbung", () => ({ acceptBewerbung: vi.fn() }));
+vi.mock("@/features/bewerbungen/acceptBewerbung", () => ({ acceptBewerbung: vi.fn() }));
 /** Next's navigation at the page, its search as the steps leave it at each render. */
 const atThePage = (): NextContexts => ({ pathname: ADDRESS, search: window.location.search });
 

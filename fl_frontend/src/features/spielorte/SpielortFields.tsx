@@ -4,7 +4,7 @@ import { AddressFields } from "@/kit/AddressFields";
 import { FieldGroup } from "@/kit/FieldGroup";
 import { TextField } from "@/kit/TextField";
 
-import type { SpielortRules } from "./spielortRules";
+import type { SpielortRules } from "./fieldRules";
 
 const WORDS = ADMIN_COPY.spielort;
 
@@ -34,11 +34,11 @@ export function SpielortFields({
       />
       <TextField
         label={WORDS.mietpreis}
-        name="mietpreis"
+        name="default_mietpreis"
         holds={5}
         kind="digits"
         unit={COPY.shared.unit.euro}
-        isRequired={required.mietpreis}
+        isRequired={required.default_mietpreis}
       />
       <FieldGroup name={COPY.shared.address.title}>
         <AddressFields rules={address} />

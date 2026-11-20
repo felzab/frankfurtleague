@@ -7,6 +7,8 @@ import { ADMIN_COPY } from "@/core/copy/admin";
 import { COPY } from "@/core/copy/shared";
 import { dayOf, formatDate, formatNumber } from "@/core/format";
 import { ROUTES } from "@/core/routes";
+import { acceptBewerbung } from "@/features/bewerbungen/acceptBewerbung";
+import { AcceptFields } from "@/features/bewerbungen/AcceptFields";
 import { STANDING_CHIP, standingOf } from "@/features/bewerbungen/standing";
 import { trikotFarbeLabel } from "@/features/teams/constants";
 import { ConfirmDialog } from "@/kit/ConfirmDialog";
@@ -15,8 +17,6 @@ import { RailCardBody } from "@/kit/StatusCard";
 import { CheckStep, StepCard } from "@/kit/StepCard";
 import { answering } from "@/kit/useFormAction";
 
-import { AcceptFields } from "../[bewerbung]/AcceptFields";
-import { acceptBewerbung } from "../[bewerbung]/decideBewerbung";
 import { cardOf, gruppenFor, openRows, outcomeOf, takenFor } from "./run";
 
 import type { FLBewerbungGruppeOffer, FLBewerbungListRow, FLTrikotFarbe } from "@/core/generated/client/types";

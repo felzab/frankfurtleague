@@ -226,15 +226,19 @@ export function SaisonEditor({
   // The qualifiers per group the typed counts admit, as the draw judges them; the stored count stays listed, so the
   // box never empties under its value.
   const offered = shapes
-    .filter((shape) => String(shape.number_of_gruppen) === draft.gruppen && String(shape.teams_per_gruppe) === draft.teamsPerGruppe)
+    .filter(
+      (shape) =>
+        String(shape.number_of_gruppen) === draft["rules.number_of_gruppen"] &&
+        String(shape.teams_per_gruppe) === draft["rules.teams_per_gruppe"],
+    )
     .map((shape) => String(shape.qualifiers_per_gruppe));
-  const qualifiers = [...new Set([...offered, draft.qualifiers])]
+  const qualifiers = [...new Set([...offered, draft["rules.qualifiers_per_gruppe"]])]
     .filter((value) => value !== "")
     .toSorted((one, other) => Number(one) - Number(other))
     .map((value): Option => ({ id: value, label: { record: value } }));
 
   // The application window is none or both of its days, so each is asked for once either holds one.
-  const bewerbungSet = draft.bewerbungStart !== null || draft.bewerbungEnd !== null;
+  const bewerbungSet = draft["bewerbung.start"] !== null || draft["bewerbung.end"] !== null;
 
   const touch = { holder };
   const of = { saison_id: saison, holder };
@@ -252,20 +256,20 @@ export function SaisonEditor({
         <FieldRows>
           <DateField
             label={WORDS.start}
-            name="start"
-            isRequired={required.start}
+            name="start_date"
+            isRequired={required.start_date}
             isLocked={facts.takenPlace}
-            value={draft.start}
-            onChange={(day) => set("start", day)}
+            value={draft.start_date}
+            onChange={(day) => set("start_date", day)}
           />
           <DateField
             label={WORDS.end}
-            name="end"
-            isRequired={required.end}
-            value={draft.end}
-            onChange={(day) => set("end", day)}
+            name="end_date"
+            isRequired={required.end_date}
+            value={draft.end_date}
+            onChange={(day) => set("end_date", day)}
             // A span ending before it begins is refused here, before the write sees it.
-            {...(draft.start === null ? {} : { minValue: draft.start })}
+            {...(draft.start_date === null ? {} : { minValue: draft.start_date })}
           />
         </FieldRows>
       ),
@@ -280,65 +284,65 @@ export function SaisonEditor({
           <FieldRows label={WORDS.punkte}>
             <TextField
               label={WORDS.winPoints}
-              name="winPoints"
+              name="rules.win_points"
               holds={2}
               kind="digits"
-              isRequired={required.winPoints}
+              isRequired={required["rules.win_points"]}
               isLocked={facts.begun}
-              value={draft.winPoints}
-              onChange={(value) => set("winPoints", value)}
+              value={draft["rules.win_points"]}
+              onChange={(value) => set("rules.win_points", value)}
             />
             <TextField
               label={WORDS.drawPoints}
-              name="drawPoints"
+              name="rules.draw_points"
               holds={2}
               kind="digits"
-              isRequired={required.drawPoints}
+              isRequired={required["rules.draw_points"]}
               isLocked={facts.begun}
-              value={draft.drawPoints}
-              onChange={(value) => set("drawPoints", value)}
+              value={draft["rules.draw_points"]}
+              onChange={(value) => set("rules.draw_points", value)}
             />
             <TextField
               label={WORDS.lossPoints}
-              name="lossPoints"
+              name="rules.loss_points"
               holds={2}
               kind="digits"
-              isRequired={required.lossPoints}
+              isRequired={required["rules.loss_points"]}
               isLocked={facts.begun}
-              value={draft.lossPoints}
-              onChange={(value) => set("lossPoints", value)}
+              value={draft["rules.loss_points"]}
+              onChange={(value) => set("rules.loss_points", value)}
             />
           </FieldRows>
           <Select
             label={WORDS.tiebreak}
-            name="tiebreak"
+            name="rules.tiebreak_order"
             options={TIEBREAK}
-            isRequired={required.tiebreak}
+            isRequired={required["rules.tiebreak_order"]}
             isLocked={facts.begun}
-            value={draft.tiebreak}
+            value={draft["rules.tiebreak_order"]}
             onChange={(id) => {
-              if (id !== null) set("tiebreak", id);
+              if (id !== null) set("rules.tiebreak_order", id);
             }}
           />
           {/* The goals a no-show is scored with, named as one value: their own labels say no more than a score's. */}
           <FieldRows label={WORDS.forfeit}>
             <TextField
               label={WORDS.forfeitWinner}
-              name="forfeitWinner"
+              name="rules.forfeit_ergebnis.sieger_tore"
               holds={2}
               kind="digits"
-              isRequired={required.forfeitWinner}
-              value={draft.forfeitWinner}
-              onChange={(value) => set("forfeitWinner", value)}
+              isRequired={required["rules.forfeit_ergebnis.sieger_tore"]}
+              value={draft["rules.forfeit_ergebnis.sieger_tore"]}
+              onChange={(value) => set("rules.forfeit_ergebnis.sieger_tore", value)}
             />
             <TextField
               label={WORDS.forfeitLoser}
-              name="forfeitLoser"
+              name="rules.forfeit_ergebnis.verlierer_tore"
               holds={2}
               kind="digits"
-              isRequired={required.forfeitLoser}
-              value={draft.forfeitLoser}
-              onChange={(value) => set("forfeitLoser", value)}
+              isRequired={required["rules.forfeit_ergebnis.verlierer_tore"]}
+              value={draft["rules.forfeit_ergebnis.verlierer_tore"]}
+              onChange={(value) => set("rules.forfeit_ergebnis.verlierer_tore", value)}
             />
           </FieldRows>
         </>
@@ -351,35 +355,35 @@ export function SaisonEditor({
         <FieldRows>
           <TextField
             label={WORDS.gruppen}
-            name="gruppen"
+            name="rules.number_of_gruppen"
             holds={2}
             kind="digits"
-            isRequired={required.gruppen}
+            isRequired={required["rules.number_of_gruppen"]}
             isLocked={drawn}
-            value={draft.gruppen}
-            onChange={(value) => set("gruppen", value)}
+            value={draft["rules.number_of_gruppen"]}
+            onChange={(value) => set("rules.number_of_gruppen", value)}
           />
           <TextField
             label={WORDS.teamsPerGruppe}
-            name="teamsPerGruppe"
+            name="rules.teams_per_gruppe"
             holds={2}
             kind="digits"
-            isRequired={required.teamsPerGruppe}
+            isRequired={required["rules.teams_per_gruppe"]}
             isLocked={drawn}
-            value={draft.teamsPerGruppe}
-            onChange={(value) => set("teamsPerGruppe", value)}
+            value={draft["rules.teams_per_gruppe"]}
+            onChange={(value) => set("rules.teams_per_gruppe", value)}
           />
           {/* A count like the two above, offered as a choice because only the counts the draw admits are valid. */}
           <Select
             label={WORDS.qualifiers}
-            name="qualifiers"
+            name="rules.qualifiers_per_gruppe"
             holds={2}
             options={qualifiers}
-            isRequired={required.qualifiers}
+            isRequired={required["rules.qualifiers_per_gruppe"]}
             isLocked={facts.begun || drawn}
-            value={draft.qualifiers}
+            value={draft["rules.qualifiers_per_gruppe"]}
             onChange={(id) => {
-              if (id !== null) set("qualifiers", id);
+              if (id !== null) set("rules.qualifiers_per_gruppe", id);
             }}
           />
         </FieldRows>
@@ -392,20 +396,20 @@ export function SaisonEditor({
         <>
           <TextField
             label={WORDS.maxKader}
-            name="maxKader"
+            name="rules.max_kader_size"
             holds={2}
             kind="digits"
-            isRequired={required.maxKader}
-            value={draft.maxKader}
-            onChange={(value) => set("maxKader", value)}
+            isRequired={required["rules.max_kader_size"]}
+            value={draft["rules.max_kader_size"]}
+            onChange={(value) => set("rules.max_kader_size", value)}
           />
           <ToggleBoxes
             label={WORDS.stufen}
-            errorMessage={editor.fieldErrors?.stufen}
+            errorMessage={editor.fieldErrors?.["rules.allowed_stufen"]}
             choices={STUFEN}
-            isRequired={required.stufen}
-            value={draft.stufen}
-            onChange={(ids) => set("stufen", ids)}
+            isRequired={required["rules.allowed_stufen"]}
+            value={draft["rules.allowed_stufen"]}
+            onChange={(ids) => set("rules.allowed_stufen", ids)}
           />
         </>
       ),
@@ -418,19 +422,19 @@ export function SaisonEditor({
           <FieldRows>
             <DateField
               label={WORDS.start}
-              name="bewerbungStart"
-              isRequired={bewerbungSet && required.bewerbungStart}
-              value={draft.bewerbungStart}
-              onChange={(day) => set("bewerbungStart", day)}
+              name="bewerbung.start"
+              isRequired={bewerbungSet && required["bewerbung.start"]}
+              value={draft["bewerbung.start"]}
+              onChange={(day) => set("bewerbung.start", day)}
             />
             <DateField
               label={WORDS.end}
-              name="bewerbungEnd"
-              isRequired={bewerbungSet && required.bewerbungEnd}
-              value={draft.bewerbungEnd}
-              onChange={(day) => set("bewerbungEnd", day)}
+              name="bewerbung.end"
+              isRequired={bewerbungSet && required["bewerbung.end"]}
+              value={draft["bewerbung.end"]}
+              onChange={(day) => set("bewerbung.end", day)}
               // A span ending before it begins is refused here, before the write sees it.
-              {...(draft.bewerbungStart === null ? {} : { minValue: draft.bewerbungStart })}
+              {...(draft["bewerbung.start"] === null ? {} : { minValue: draft["bewerbung.start"] })}
             />
           </FieldRows>
           <Checkbox
@@ -449,10 +453,10 @@ export function SaisonEditor({
         <>
           <DateField
             label={WORDS.end}
-            name="registrierungEnd"
-            value={draft.registrierungEnd}
-            onChange={(day) => set("registrierungEnd", day)}
-            {...(draft.start === null ? {} : { maxValue: dayBefore(draft.start) })}
+            name="registrierung.end"
+            value={draft["registrierung.end"]}
+            onChange={(day) => set("registrierung.end", day)}
+            {...(draft.start_date === null ? {} : { maxValue: dayBefore(draft.start_date) })}
           />
           <Checkbox
             label={WORDS.registrierungPaused}

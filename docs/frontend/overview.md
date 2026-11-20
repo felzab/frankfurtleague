@@ -20,18 +20,21 @@ its invalidation live here rather than in the backend.
 | `src/test-support/`      | What the unit and database tests share and production never imports: doubles, fixtures, the test setup and the sweeps' tree walk                                                                            |
 | `e2e/`                   | The Playwright journeys against the end-to-end stack, both browser projects' at its top and one project's under `desktop/`, `phone/` or `first-pass/`; and `support/`, the fixtures and helpers they import |
 
-**Routes are thin**: a page fetches, then hands off. A page's own write sits beside its route, in
-one module per act or per record's acts (`saveSpiel.ts` beside the match editor, `kaderRowActs.ts`
-beside a team's Kader). Every administration and person read lives in a slice's `queries.ts`, even
-where one route alone calls it. A slice holds only the modules it needs: `queries.ts` for reads,
-`mutations.ts` for a write that shapes its arguments before the generated client sends them (a write
-passing them through calls the generated client itself), `actions.ts` or an act's own module for its
-server actions (`features/saisons/createSaison.ts`), `personActions.ts` for those a signed-in
-person's own pages call, `schemas.ts` for its Zod schemas, and `fieldRules.ts` for what a write asks
-of its form's boxes. A rules module reads them off the write's generated schema: `required`, whether
-each box may stay empty, and `max`, the longest each text may be where the write bounds one. It
-opens with `import "server-only"`, so no schema reaches a client bundle. A route's own form may keep
-its rules module beside the route under the same name.
+**Routes are thin**: a page fetches, then hands off. A write with a single page sits beside that
+page's route, in one module per act or per record's acts (`saveSpieler.ts` beside its editor,
+`kaderRowActs.ts` beside a team's Kader). A write with callers in more than one route folder lives
+in its slice, since no route folder is its home, and the boxes its form posts move with it
+(`features/spielorte/SpielortFields.tsx` beside `createSpielort.ts`). Every administration and
+person read lives in a slice's `queries.ts`, even where one route alone calls it. A slice holds only
+the modules it needs: `queries.ts` for reads, `mutations.ts` for a write that shapes its arguments
+before the generated client sends them (a write passing them through calls the generated client
+itself), `actions.ts` or an act's own module for its server actions (`features/spiele/saveSpiel.ts`,
+which the match editor and a season Übersicht's appointment dialog call), `personActions.ts` for
+those a signed-in person's own pages call, `schemas.ts` for its Zod schemas, and `fieldRules.ts` for
+what a write asks of its form's boxes. A rules module reads them off the write's generated schema:
+`required`, whether each box may stay empty, and `max`, the longest each text may be where the write
+bounds one. It opens with `import "server-only"`, so no schema reaches a client bundle. A route's
+own form may keep its rules module beside the route under the same name.
 
 **Imports run one way.** `src/core/` imports neither `src/shared/` nor `src/features/`,
 `src/shared/` does not import `src/features/`, and `src/kit/` imports neither `src/features/` nor

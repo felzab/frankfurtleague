@@ -1,10 +1,11 @@
 import { ADMIN_COPY } from "@/core/copy/admin";
 import { COPY } from "@/core/copy/shared";
+import { acceptBewerbung } from "@/features/bewerbungen/acceptBewerbung";
 import { Dialog } from "@/kit/Dialog";
 import { Facts } from "@/kit/Facts";
 import { TextField } from "@/kit/TextField";
 
-import { acceptBewerbung, declineBewerbung } from "./decideBewerbung";
+import { declineBewerbung } from "./declineBewerbung";
 
 import type { ReactNode } from "react";
 

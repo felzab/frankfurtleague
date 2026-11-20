@@ -4,6 +4,7 @@ import { ADMIN_COPY } from "@/core/copy/admin";
 import { COPY } from "@/core/copy/shared";
 import { dayOf, formatDate, formatNumber } from "@/core/format";
 import { ROUTES } from "@/core/routes";
+import { AcceptFields } from "@/features/bewerbungen/AcceptFields";
 import { ACCEPT_RULES, DECLINE_RULES, SEAT_RULES } from "@/features/bewerbungen/fieldRules";
 import { getBewerbungById } from "@/features/bewerbungen/queries";
 import { seatsOf } from "@/features/bewerbungen/seats";
@@ -17,7 +18,6 @@ import { adminIdParamOf } from "@/shared/utils/adminRead";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
 
-import { AcceptFields } from "./AcceptFields";
 import { AcceptDialog, DeclineDialog } from "./DecisionDialogs";
 import { sendSeatLink, writeSeat } from "./writeSeat";
 

@@ -13,7 +13,7 @@ const backend = serveBackend(({ method, path }) =>
 // An administrator's session, made by passkey, which the act's guard admits.
 signedInRequest();
 
-const { acceptBewerbung } = await import("./decideBewerbung");
+const { acceptBewerbung } = await import("./acceptBewerbung");
 
 /** An acceptance as the dialog posts it: a closed box posts nothing at all. */
 function posted(fields: Readonly<Record<string, string>>): FormData {
