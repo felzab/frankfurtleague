@@ -47,6 +47,20 @@ describe("renderMail", () => {
     assert.notInclude(html, '"><script>');
   });
 
+  // „Hallo,“ runs on into the first paragraph, which begins small (Duden, D 132), while the same sentence opens a page
+  // capitalised; a paragraph opening on a club's name keeps it.
+  it("begins the paragraph under the greeting small in both versions, unless it opens on a noun", () => {
+    const opening = SERVER_COPY.mail.bewerbung.confirmOrOppose;
+    const small = `${opening.charAt(0).toLowerCase()}${opening.slice(1)}`;
+    const { html, text } = renderMail(MAIL);
+    const named = renderMail({ ...MAIL, paragraphs: [[naming("Ahorn")]], opensOnNoun: true });
+
+    assert.include(html, `>${small}</p>`);
+    assert.include(text.split("\n"), small);
+    assert.include(named.html, `>${naming("Ahorn")}</p>`);
+    assert.include(named.text.split("\n"), naming("Ahorn"));
+  });
+
   // A break in a header ends it, and whatever follows is a header of its own.
   it("folds the subject to one line", () => {
     assert.notMatch(renderMail({ ...MAIL, subjectLine: naming("Ahorn\r\nBcc: fremd@example.com") }).subject, /[\r\n]/);
