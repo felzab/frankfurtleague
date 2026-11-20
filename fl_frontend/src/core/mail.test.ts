@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { configDouble } from "@/test-support/authDoubles";
 import { networkFailure, refusal, serveBackend, serveHost } from "@/test-support/backend";
@@ -159,18 +159,27 @@ describe("one drain of the Postausgang", () => {
      send can repair would be retried until its deadline. The provider's name for a refusal is the row's one record of
      why, no line beside it; a name the endpoint would refuse is dropped rather than failing the report. */
   it.each([
-    ["a rate limit", () => Response.json({ name: "rate_limit_exceeded" }, { status: 429 }), "retry", "rate_limit_exceeded"],
-    ["the daily quota", () => Response.json({ name: "daily_quota_exceeded" }, { status: 429 }), "retry", "daily_quota_exceeded"],
-    ["an outage", () => new Response(null, { status: 503 }), "retry", null],
-    ["a named outage", () => Response.json({ name: "dns_lookup_failed" }, { status: 503 }), "retry", "dns_lookup_failed"],
-    ["a broken connection", () => networkFailure(), "retry", null],
-    ["a refusal of the message itself", () => Response.json({ name: "validation_error" }, { status: 422 }), "abandon", "validation_error"],
-    ["a refusal named past the endpoint's bound", () => Response.json({ name: "x".repeat(200) }, { status: 422 }), "abandon", null],
-  ] as const)("reports %s as %s", async (_name, answer, result, reason) => {
+    ["a rate limit", "retry", () => Response.json({ name: "rate_limit_exceeded" }, { status: 429 }), "rate_limit_exceeded"],
+    ["the daily quota", "retry", () => Response.json({ name: "daily_quota_exceeded" }, { status: 429 }), "daily_quota_exceeded"],
+    ["an outage", "retry", () => new Response(null, { status: 503 }), null],
+    ["a named outage", "retry", () => Response.json({ name: "dns_lookup_failed" }, { status: 503 }), "dns_lookup_failed"],
+    ["a broken connection", "retry", () => networkFailure(), null],
+    ["a refusal of the message itself", "abandon", () => Response.json({ name: "validation_error" }, { status: 422 }), "validation_error"],
+    ["a refusal named past the endpoint's bound", "abandon", () => Response.json({ name: "x".repeat(200) }, { status: 422 }), null],
+  ] as const)("reports %s as %s", async (_name, result, answer, reason) => {
+    // The pauses between attempts on the case's clock, which the case runs out: `fakeNodeBuiltins` reaches the drain's
+    // `node:timers/promises` import, which a fake of the global alone leaves on the wall clock. The send's own bound is
+    // an `AbortSignal.timeout`, which stays on the wall clock and so never fires here.
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"], fakeNodeBuiltins: true });
+    onTestFinished(() => {
+      vi.useRealTimers();
+    });
     claims = [{ mails: [handed(1)], abandoned: 0 }];
     provider = answer;
 
-    await drainOutbox();
+    const drained = drainOutbox();
+    await vi.runAllTimersAsync();
+    await drained;
 
     expect(reports()).toStrictEqual([{ id: handed(1).id, result, delivery_reason: reason }]);
   });

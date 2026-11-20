@@ -114,9 +114,13 @@ describe("an answer that is no judgement of the token", () => {
     ["an answer past the bound", () => new Promise<never>(() => undefined), 1, { name: "TimeoutError" }],
     ["a 500", () => json({}, 500), 1, { status: 500 }],
     ["a 503", () => json({}, 503), 1, { status: 503 }],
-    ...["missing-input-secret", "invalid-input-secret", "bad-request"].map(
-      (code) => [`a 400 naming ${code}`, () => json({ success: false, "error-codes": [code] }, 400), 1, { status: 400, codes: code }] as const,
-    ),
+    // The answer a wrong secret met when probed; another code at 400 takes the same branch.
+    [
+      "a 400 naming invalid-input-secret",
+      () => json({ success: false, "error-codes": ["invalid-input-secret"] }, 400),
+      1,
+      { status: 400, codes: "invalid-input-secret" },
+    ],
     ["a 400 naming no code", () => new Response("<html>", { status: 400 }), 1, { status: 400, name: "SyntaxError" }],
     ["a 403 naming a code", () => json({ success: false, "error-codes": ["bad-request"] }, 403), 1, { status: 403, codes: "bad-request" }],
     ["a 403 naming no code", () => new Response("<html>", { status: 403 }), 1, { status: 403, name: "SyntaxError" }],
@@ -129,6 +133,10 @@ describe("an answer that is no judgement of the token", () => {
     ],
     ["a 200 whose body is no JSON", () => new Response("<html>", { status: 200 }), 1, { status: 200, name: "SyntaxError" }],
     ["a 200 whose body is of another shape", () => json({ ok: true }), 1, { status: 200, name: "UnreadableAnswer" }],
+    // Cloudflare's page documents these codes and no status for them: today they come at 400.
+    ...["missing-input-secret", "invalid-input-secret", "bad-request"].map(
+      (code) => [`a 200 naming ${code}`, judged([code]), 1, { status: 200, codes: code }] as const,
+    ),
     ["internal-error twice", judged(["internal-error"]), 2, { status: 200, codes: "internal-error" }],
   ];
 

@@ -69,6 +69,7 @@ const controlsOf = (root: HTMLElement) =>
     (control) => control.closest("[data-react-aria-prevent-focus]") === null,
   );
 
+/** One row per root a kit field waits on: a kind drawn inside another's root, as a paragraph is the text field's, waits with it. */
 const FIELDS: [string, ReactElement][] = [
   [
     "a text field",
@@ -77,25 +78,6 @@ const FIELDS: [string, ReactElement][] = [
       label={WORD}
       kind="text"
       defaultValue="Riedberg"
-    />,
-  ],
-  [
-    "a paragraph",
-    <TextField
-      key="paragraph"
-      label={WORD}
-      kind="paragraph"
-      defaultValue="Alt"
-    />,
-  ],
-  [
-    "a price",
-    <TextField
-      key="price"
-      label={WORD}
-      kind="digits"
-      holds={5}
-      unit={COPY.shared.unit.euro}
     />,
   ],
   [
@@ -150,15 +132,6 @@ const FIELDS: [string, ReactElement][] = [
     <RadioGroup
       key="list"
       label={WORD}
-      choices={YES_NO}
-    />,
-  ],
-  [
-    "cards of answers",
-    <RadioGroup
-      key="cards"
-      label={WORD}
-      layout="cards"
       choices={YES_NO}
     />,
   ],

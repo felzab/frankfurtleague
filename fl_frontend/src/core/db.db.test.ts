@@ -116,7 +116,7 @@ describe("the sign-in store's indexes recover with the store", () => {
      that recovery with no `open`: only a new topology emits one. */
   it("builds an index again once a store that stopped answering after the first open answers again", async ({ task }) => {
     const sessions = client.db(MONGO_DB_NAME).collection("session");
-    await sessions.dropIndex("session_userId_idx");
+    await sessions.dropIndex("expiresAt_1");
     let opens = 0;
     const counted = () => {
       opens += 1;
@@ -128,10 +128,10 @@ describe("the sign-in store's indexes recover with the store", () => {
       // A severed store fails each index of a collection on its own server selection, under its own bound.
       await relay.sever(() => buildAuthIndexes());
       assert.ok(
-        errorLines().some((line) => line.event === "auth.index_unbuilt" && line.index === "session_userId_idx"),
+        errorLines().some((line) => line.event === "auth.index_unbuilt" && line.index === "expiresAt_1"),
         `the run met no outage: ${JSON.stringify(errorLines())}`,
       );
-      const indexed = async () => (await sessions.indexes()).some(({ name }) => name === "session_userId_idx");
+      const indexed = async () => (await sessions.indexes()).some(({ name }) => name === "expiresAt_1");
 
       // Production asks again on every writable heartbeat until a build succeeds, so the case waits for the index, within
       // its own time limit, rather than for a count of attempts.

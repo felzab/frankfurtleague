@@ -84,9 +84,10 @@ async function barsOf(rows: FLTabelleRow[]): Promise<Record<string, TableStandin
   );
 }
 
-// The bar tells a visitor which clubs go on to the K.-o.-Runde: one place off, or a level pair drawn as settled,
-// shows the wrong qualifiers with nothing failing.
-describe("the Tabelle's qualification bar", () => {
+// The mark tells a visitor which clubs go on to the K.-o.-Runde: one place off, or a level pair said as settled, names
+// the wrong qualifiers with nothing failing. These cases hear it as a screen reader does; the coloured edge a sighted
+// visitor sees beside it is the page's look, which no case here reads.
+describe("the Tabelle's spoken qualification mark", () => {
   it("marks the places up to the qualifier count, and none below it", async () => {
     expect(await barsOf([row("a", 1), row("b", 2), row("c", 3), row("d", 4)])).toStrictEqual({
       ["a".repeat(24)]: "settled",
@@ -114,14 +115,14 @@ describe("the Tabelle's qualification bar", () => {
   });
 });
 
-// The edge is a colour alone: a sighted visitor learns what it and the other marks mean only behind the ⓘ, and a
-// screen reader hears none of it but these words.
-describe("the Tabelle's marks", () => {
-  it("say the edge's tones to a screen reader", async () => {
+// A place is shared only among the clubs of one group: judged across the groups, group B's own first place would make
+// group A's sole first club read as level.
+describe("the Tabelle's groups", () => {
+  it("judges a shared place within its own group", async () => {
     const page = await landed({ A: [row("a", 1), row("b", 2), row("c", 2)], B: [row("d", 1), row("e", 3)] });
 
     expect(rankOf(page, "a".repeat(24))).toContain(COPY.shared.season.qualifies.settled);
+    expect(rankOf(page, "d".repeat(24))).toContain(COPY.shared.season.qualifies.settled);
     expect(rankOf(page, "b".repeat(24))).toContain(COPY.shared.season.qualifies.level);
-    expect(rankOf(page, "e".repeat(24))).not.toContain(COPY.shared.season.qualifies.settled);
   });
 });

@@ -82,7 +82,7 @@ const tree = tv({
 
 /**
  * One round: its name over its cards in one row, each card centred over the span its match takes of the first round's
- * columns. The name names the list too, so it is read once.
+ * columns. The heading names the list too, so the round's name has one source.
  */
 function Row({ label, matches, width, fed }: { label: Copy; matches: ReadonlyArray<BracketMatch>; width: Width; fed: boolean }) {
   const name = useId();

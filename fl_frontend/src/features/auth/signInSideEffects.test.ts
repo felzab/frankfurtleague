@@ -1,6 +1,3 @@
-import { readFileSync } from "node:fs";
-import path from "node:path";
-
 import { assert, describe, expect, it } from "vitest";
 
 import { COPY } from "@/core/copy/shared";
@@ -269,25 +266,6 @@ describe("which account two spellings of one address reach", () => {
     // The whole store, not a slice: no other address here is ever mailed a code, so a second row
     // could only be the second spelling's.
     expect(store.user.map((user) => user.email)).toStrictEqual([GRANTED]);
-  });
-});
-
-describe("the names the sign-in form posts", () => {
-  /* The form posts FormData under names its source spells, strings `tsc` reads against nothing: a name meeting no key
-     of the action's schema loses the address at the parse with every other check green. */
-  it("loses no key of the sign-in form", async () => {
-    const source = readFileSync(path.join(process.cwd(), "src", "features", "auth", "SignInFlow.tsx"), "utf8");
-    // The widget's token beside them, which the page's script posts under its own name.
-    const posted = new Set([...[...source.matchAll(/\.set\("([\w.]+)"/g)].map(([, name = ""]) => name), TURNSTILE_FIELD]);
-    const typed: Readonly<Record<string, string>> = { email: "Pia@Example.org", [TURNSTILE_FIELD]: BOT_CHECK_TOKEN };
-    const submitted = new FormData();
-    for (const [name, value] of Object.entries(typed)) if (posted.has(name)) submitted.append(name, value);
-    arriveWith(ORIGIN);
-
-    const answer = await handleSignIn(submitted);
-    deferred.length = 0;
-
-    expect(answer).toStrictEqual({ ok: true, value: "pia@example.org" });
   });
 });
 

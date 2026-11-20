@@ -35,7 +35,8 @@ export const handleSignIn = action({
     const email = asSignInIdentifier(typed);
 
     // In this response, never behind it, and on every press alike, capped or not: the code check takes a code only
-    // from the browser that asked for its address, so a stranger's guesses at it spend nobody's day.
+    // from the browser that asked for its address, so a stranger's guesses spend an address's day only after asking
+    // for its code, which mails the person.
     const asked = await codeAskedCookie(email);
     (await cookies()).set(asked.name, asked.value, asked.options);
 

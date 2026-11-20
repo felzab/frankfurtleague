@@ -23,8 +23,8 @@ test("asking for a code sets the same cookies, and no session, for a member and 
     await context.clearCookies();
     await askForCode(page, address);
 
-    // Every cookie the site holds, whatever request set it, by name alone: a signed-out visitor holds none until a
-    // passkey ceremony starts, which nothing here presses. Scoped to the site, whose cookies these are.
+    // Every cookie the site holds after the ask, by name alone: nothing here presses a passkey ceremony, whose cookie
+    // would stand beside it. Scoped to the site, whose cookies these are.
     named.push((await context.cookies(String(baseURL))).map((cookie) => cookie.name).sort());
   }
 

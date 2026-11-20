@@ -268,8 +268,10 @@ async def refuse_an_address_off_limits(identifier: str, *, actor: str, grants_co
     """An administrator's two refusals on a mailbox, answering the grants it read for the act to judge by.
 
     Their own address (`own_address`), refused before any read, who asks being known from the token alone; and a holder's
-    but for the owner (`admin_address`). Every administrator operation acting on an address calls it in the session its
-    act reads in, so a judgement inside a transaction is retried with it.
+    but for the owner (`admin_address`). Each operation of the identity and address-change administrator routers acting
+    on an address calls it, in the session its act reads in where a judgement there is retried with the act; the
+    withdrawal judges in its snapshot, since its entry writes no row a grant writes. The ban refuses every holder by its
+    own rule.
     """
 
     refuse(find_own_address_refusal(identifier=identifier, actor=actor))
