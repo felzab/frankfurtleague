@@ -72,27 +72,26 @@ doubleNextRequest();
 
 const { default: SpielSearchPage } = await import("./page");
 
-/** The numbers of the matches the page lists for the address's query. */
-async function found(query: Record<string, string>) {
-  const page = SpielSearchPage({ params: Promise.resolve({ saison: "2027" }), searchParams: Promise.resolve(query) }) as ReactElement<
+/** The ids of the matches whose words hold `typed`, as the list's search field narrows them, case aside. */
+async function found(typed: string) {
+  const page = SpielSearchPage({ params: Promise.resolve({ saison: "2027" }), searchParams: Promise.resolve({}) }) as ReactElement<
     ComponentProps<typeof ListPage>
   >;
   const { list } = page.props;
   if (list.kind !== "spiele") throw new Error("the Spielsuche lists matches");
   const { matches } = await list.content;
-  return matches.map(({ row }) => row.id);
+  return matches.filter(({ words }) => words.toLowerCase().includes(typed.toLowerCase())).map(({ row }) => row.id);
 }
 
 const id = (nr: number) => String(nr).repeat(24);
 
-// A filter that passes the wrong matches shows a visitor fixtures the address did not ask for, or hides the
-// ones it did, with nothing failing.
-describe("the Spielsuche's filters", () => {
+// Words that miss a match's phase, matchday or club hide it from a visitor typing them, with nothing failing.
+describe("the Spielsuche's words", () => {
   it.each([
-    ["phase", { phase: "finale" }, [id(3)]],
-    ["a club standing on either side", { team: GOETHE.team_id }, [id(1), id(3)]],
-    ["matchday, its phase and position as the Spielplan's tabs name it", { spieltag: "gruppenphase-2" }, [id(2)]],
-  ])("narrow by %s", async (_by, query, ids) => {
-    expect(await found(query)).toStrictEqual(ids);
+    ["the phase", "Gruppenphase", [id(1), id(2)]],
+    ["a club standing on either side", GOETHE.name, [id(1), id(3)]],
+    ["the matchday's name as the Spielplan's tab names it", "2. Spieltag", [id(2)]],
+  ])("find a match by %s", async (_by, typed, ids) => {
+    expect(await found(typed)).toStrictEqual(ids);
   });
 });

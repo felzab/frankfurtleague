@@ -8,7 +8,7 @@ import { SERVER_COPY } from "@/core/serverCopy";
 import { getTeamPage } from "@/features/saisons/queries";
 import { publicSaisonOf } from "@/features/saisons/resolvers";
 import { headedMatchOf, outcomeFor } from "@/features/spiele/blocks";
-import { rolleMarkOf, spielerName } from "@/features/spieler/constants";
+import { publicPupilHead, publicPupilRow } from "@/features/spieler/constants";
 import { austrittChip, austrittState } from "@/features/teams/constants";
 import { ReadFolds } from "@/kit/ReadFolds";
 import { ReadPage } from "@/kit/ReadPage";
@@ -17,10 +17,9 @@ import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
 import { objectIdParamOf } from "@/shared/utils/routeParams";
 
-import type { FLSpielerPublic, FLTeamPageResponse } from "@/core/generated/client/types";
+import type { FLTeamPageResponse } from "@/core/generated/client/types";
 import type { ReadRecord } from "@/kit/ReadPage";
 import type { StatTile } from "@/kit/StatTiles";
-import type { TableRow } from "@/kit/Table";
 import type { Metadata, ResolvingMetadata } from "next";
 
 type Props = PageProps<"/saisons/[saison]/teams/[team]">;
@@ -60,27 +59,6 @@ export default function TeamPage({ params }: Props) {
     />
   );
 }
-
-/**
- * A pupil of the squad as the public read names them: a name the consent publishes, with the captain's or the
- * Co-Kapitän's mark after it; else „anonym“, never with a mark, which would say who the nameless pupil is.
- */
-function personOf(spieler: FLSpielerPublic): Pick<TableRow, "name" | "mark"> {
-  const name = spielerName(spieler);
-  const mark = spieler.first_name === null ? undefined : rolleMarkOf(spieler.rolle);
-  return mark === undefined ? { name } : { name, mark };
-}
-
-/**
- * A pupil's number and position, each left out while the record holds none; both also on the row's line, which a phone
- * shows in the columns' place, since the row opens nothing.
- */
-const numberAndPositionOf = ({ nummer, position }: Pick<FLSpielerPublic, "nummer" | "position">): Pick<TableRow, "cells"> => ({
-  cells: {
-    ...(nummer === null ? {} : { nummer: { record: nummer } }),
-    ...(position === null ? {} : { position: { record: position } }),
-  },
-});
 
 /** The club's standing at a glance: its place in its group, its points, its matches played and its goals. */
 function tilesOf({ team, standing }: FLTeamPageResponse): readonly [StatTile, StatTile, StatTile, StatTile] {
@@ -145,14 +123,17 @@ async function readRecord(params: Props["params"]): Promise<ReadRecord> {
         title: COPY.page.spiele,
         kind: "timeline",
         label: COPY.page.spiele,
-        items: spiele.map((spiel, index) => ({
-          id: spiel.id,
-          point: { record: formatNumber(index + 1) },
-          counts: true,
-          outcome: outcomeFor(spiel, team.id),
-          title: headedMatchOf(spiel).head,
-          spiel: headedMatchOf(spiel).spiel,
-        })),
+        items: spiele.map((spiel, index) => {
+          const headed = headedMatchOf(spiel);
+          return {
+            id: spiel.id,
+            point: { record: formatNumber(index + 1) },
+            counts: true,
+            outcome: outcomeFor(spiel, team.id),
+            title: headed.head,
+            spiel: headed.spiel,
+          };
+        }),
         empty: { kind: "none", plural: COPY.page.spiele, glyph: "spielplan" },
       },
       {
@@ -166,16 +147,8 @@ async function readRecord(params: Props["params"]): Promise<ReadRecord> {
                 tables: [
                   {
                     label: COPY.page.teamKader,
-                    nameLabel: column.name,
-                    columns: [
-                      { key: "nummer", label: column.nummer, figures: true, narrow: true, onLine: "labelled", width: "count" },
-                      { key: "position", label: column.position, hideOnPhone: true, onLine: "value", width: "word" },
-                    ],
-                    rows: kader.map((spieler, index) => ({
-                      id: String(index),
-                      ...personOf(spieler),
-                      ...numberAndPositionOf(spieler),
-                    })),
+                    ...publicPupilHead(column),
+                    rows: kader.map((spieler, index) => ({ id: String(index), ...publicPupilRow(spieler) })),
                     empty: { kind: "none", plural: COPY.page.teamKader, one: true, glyph: "teams" },
                   },
                 ],

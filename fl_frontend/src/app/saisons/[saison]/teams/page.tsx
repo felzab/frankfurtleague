@@ -45,7 +45,7 @@ async function readSeason(params: Props["params"], searchParams: Props["searchPa
 /**
  * Teams: the season's clubs in one alphabetical list of tiles, each naming its group under its name and opening
  * the club's page, narrowed by group, the value in the address, and by the text typed into its search field, which
- * stays on the page, as the Spielsuche narrows its matches.
+ * stays on the page, as the Spielsuche's does.
  */
 export default function TeamsPage({ params, searchParams }: Props) {
   const season = readSeason(params, searchParams);
@@ -55,7 +55,7 @@ export default function TeamsPage({ params, searchParams }: Props) {
       filters={season.then(({ filter }) => [filter])}
       list={{
         kind: "tiles",
-        search: { label: COPY.page.teams },
+        search: { label: COPY.shared.search(COPY.page.teams) },
         content: season.then(({ saison, teams, filter }) => ({
           tiles: teams
             .filter((team) => filter.value === null || team.gruppe === filter.value)
