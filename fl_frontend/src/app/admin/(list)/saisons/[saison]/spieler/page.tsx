@@ -49,7 +49,7 @@ function rowOf(saison: string, row: FLSpielerAdminRow): TableRow {
     cells: {
       team: row.team_name === null ? COPY.shared.noValue : { record: row.team_name },
       nummer: row.nummer === null ? COPY.shared.noValue : { record: row.nummer },
-      stufe: row.stufe === null ? COPY.shared.noValue : COPY.kader.stufeName[row.stufe],
+      stufe: row.stufe === null ? COPY.shared.noValue : { record: row.stufe },
     },
   };
 }

@@ -1,5 +1,6 @@
 import { boundBy, catalogue, seatsText, textOf } from "../copy";
 import { formatNumber } from "../format";
+import { COPY } from "./shared";
 
 import type { Route } from "next";
 import type { Copy, Words } from "../copy";
@@ -25,7 +26,7 @@ export const AREA_COPY = catalogue({
     leagueDecides: "Die Liga entscheidet",
 
     registrierung: {
-      search: "Registrierungen suchen",
+      search: COPY.shared.search(COPY.page.registrierungen),
       /**
        * The page's one standing line above the list, filled or empty, around the league's address, which the page sets
        * as its link: only the league mints and mails a team's link.
@@ -49,7 +50,7 @@ export const AREA_COPY = catalogue({
   },
 
   schiedsrichter: {
-    search: "Spiele suchen",
+    search: COPY.shared.search(COPY.page.spiele),
     einteilung: "Einteilung",
     /** A game's chip on the referee's list once their report is stored, apart from the action log's entry of the same words. */
     reported: "Spielbericht eingetragen",

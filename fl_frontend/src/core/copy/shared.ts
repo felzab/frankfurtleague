@@ -44,7 +44,6 @@ import type {
   FLSaisonPhase,
   FLSchulform,
   FLSpielerRolle,
-  FLSpielerStufe,
   FLSpielSide,
   FLTrikotFarbe,
 } from "../generated/client/types";
@@ -556,11 +555,10 @@ export const COPY = catalogue({
 
   /** A squad row's fields, one word each wherever a person meets them. */
   kader: {
-    search: "Spieler suchen",
+    search: search(SPIELER),
     nummer: "Nummer",
     position: "Position",
     stufe: "Stufe",
-    stufeName: { E1: "E1", E2: "E2", Q1: "Q1", Q2: "Q2", Q3: "Q3", Q4: "Q4" } satisfies Record<FLSpielerStufe, string>,
     rolle: "Rolle",
     rolleOption: { kapitaen: "Kapitän", co_kapitaen: "Co-Kapitän" } satisfies Record<FLSpielerRolle, string>,
     deregistered: "Ausgetragen",

@@ -69,7 +69,7 @@ function rowOf(row: FLOpenRegistrierung): RegistrierungRow {
       facts: [
         { label: COPY.kader.nummer, value: row.nummer === null ? COPY.shared.noValue : { record: row.nummer }, figures: true },
         { label: COPY.kader.position, value: row.position === null ? COPY.shared.noValue : { record: row.position } },
-        { label: COPY.kader.stufe, value: row.stufe === null ? COPY.shared.noValue : COPY.kader.stufeName[row.stufe] },
+        { label: COPY.kader.stufe, value: row.stufe === null ? COPY.shared.noValue : { record: row.stufe } },
         { label: COPY.shared.facts.received, value: received, figures: true },
       ],
       admission: admissionOf(row),

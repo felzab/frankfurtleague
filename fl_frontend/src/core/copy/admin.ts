@@ -21,6 +21,7 @@ import {
   waitWords,
 } from "../copy";
 import { formatDate, formatInstantShort, formatList, formatNumber, formatPeriod } from "../format";
+import { COPY } from "./shared";
 
 import type { Copy, Wait, Words } from "../copy";
 import type { CalendarDay } from "../format";
@@ -42,6 +43,8 @@ const WITHDRAWAL_ENTERED = "Widerruf eingetragen";
 const NAME_ON_SITE = "Name auf der Website";
 const MEDIA = "Fotos und Videos";
 const SENT_ON = "Gesendet am";
+// The plurals of the administration's own lists that no other catalogue holds, branded ahead of the entries searching them.
+const PLURAL = catalogue({ bans: BANS, logEntries: "Einträge" });
 
 /** The administration's own words, which no page outside it reads. */
 export const ADMIN_COPY = catalogue({
@@ -66,7 +69,7 @@ export const ADMIN_COPY = catalogue({
     object: "Spielort",
     /** The record as a danger box's sentence names it. */
     withArticle: "Der Spielort",
-    search: "Spielorte suchen",
+    search: COPY.shared.search(COPY.page.adminSpielorte),
     mietpreis: "Mietpreis",
     mietpreisExample: "60",
     retireConsequence: "Der Spielort steht für neue Spiele nicht mehr zur Auswahl.",
@@ -110,7 +113,7 @@ export const ADMIN_COPY = catalogue({
   retirement: RETIREMENT,
 
   schiedsrichter: {
-    search: "Schiedsrichter suchen",
+    search: COPY.shared.search(COPY.page.adminSchiedsrichter),
     withArticle: "Die Person",
     kontaktData: "Kontaktdaten",
     confirmation: "Bestätigung",
@@ -265,7 +268,7 @@ export const ADMIN_COPY = catalogue({
   },
 
   bewerbung: {
-    search: "Bewerbungen suchen",
+    search: COPY.shared.search(COPY.page.adminBewerbungen),
     incomplete: "Unvollständig",
     complete: "Vollständig",
     accepted: "Angenommen",
@@ -296,7 +299,7 @@ export const ADMIN_COPY = catalogue({
   },
 
   team: {
-    search: "Teams suchen",
+    search: COPY.shared.search(COPY.page.teams),
     withArticle: "Das Team",
     gruppeFull: "Voll",
     /** „Team eintragen“'s reason while locked, and „Annehmen“'s in a running season: either enters a club. */
@@ -370,8 +373,8 @@ export const ADMIN_COPY = catalogue({
   },
 
   banList: {
-    plural: BANS,
-    search: `${BANS} suchen`,
+    plural: PLURAL.bans,
+    search: COPY.shared.search(PLURAL.bans),
     consequence: "Die Adresse kann sich nicht mehr anmelden und bekommt keine E-Mails.",
     duration: "Dauer",
     until: VALID_UNTIL,
@@ -431,8 +434,8 @@ export const ADMIN_COPY = catalogue({
   /** Composed from the stored action. */
   actionLog: {
     /** The log's rows, apart from Konto's entries of the same word. */
-    plural: "Einträge",
-    search: "Einträge suchen",
+    plural: PLURAL.logEntries,
+    search: COPY.shared.search(PLURAL.logEntries),
     what: "Was",
     who: "Wer",
     when: "Wann",

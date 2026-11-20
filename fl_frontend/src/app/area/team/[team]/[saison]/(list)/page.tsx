@@ -151,7 +151,7 @@ function registrierungRow(row: FLTeamPanelRegistrierung, team: string, saison: s
   const plays =
     row.position === null && row.stufe === null
       ? null
-      : line([row.position === null ? null : { record: row.position }, row.stufe === null ? null : COPY.kader.stufeName[row.stufe]]);
+      : line([row.position === null ? null : { record: row.position }, row.stufe === null ? null : { record: row.stufe }]);
   return {
     id: row.registrierung_id,
     href: ROUTES.teamRegistrierungen.path(team, saison),
