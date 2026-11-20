@@ -27,7 +27,11 @@ where one route alone calls it. A slice holds only the modules it needs: `querie
 `mutations.ts` for a write that shapes its arguments before the generated client sends them (a write
 passing them through calls the generated client itself), `actions.ts` or an act's own module for its
 server actions (`features/saisons/createSaison.ts`), `personActions.ts` for those a signed-in
-person's own pages call, `schemas.ts` for its Zod schemas.
+person's own pages call, `schemas.ts` for its Zod schemas, and `fieldRules.ts` for what a write asks
+of its form's boxes. A rules module reads them off the write's generated schema: `required`, whether
+each box may stay empty, and `max`, the longest each text may be where the write bounds one. It
+opens with `import "server-only"`, so no schema reaches a client bundle. A route's own form may keep
+its rules module beside the route under the same name.
 
 **Imports run one way.** `src/core/` imports neither `src/shared/` nor `src/features/`,
 `src/shared/` does not import `src/features/`, and `src/kit/` imports neither `src/features/` nor
