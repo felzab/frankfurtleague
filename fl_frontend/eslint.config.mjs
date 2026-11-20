@@ -1375,9 +1375,10 @@ const eslintConfig = defineConfig([
       "@typescript-eslint/no-unused-vars": ["error", { args: "all", argsIgnorePattern: "^_", varsIgnorePattern: "^_" }],
       "@typescript-eslint/no-unused-private-class-members": "error",
 
-      // A zero-width or line-separator character in code, a comment or a template reads as nothing and
-      // changes what the line means. Plain strings stay free for the typography's no-break spaces.
-      "no-irregular-whitespace": "error",
+      // An irregular space reads as a plain one or as nothing in review, and changes what the line means, so code, a
+      // comment, a string, a template, a regular expression and JSX text each write it as its escape, a no-break space
+      // in a string as `\u00A0`. Strings are the one place the rule skips unless told.
+      "no-irregular-whitespace": ["error", { skipStrings: false }],
 
       // `token` rather than `token: token`. Properties alone: a function property keeps the shape it was written in.
       "object-shorthand": ["error", "properties"],

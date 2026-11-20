@@ -100,7 +100,7 @@ export function formatInstantShort(instant: string | Date): string {
   const date = typeof instant === "string" ? new Date(instant) : instant;
   if (Number.isNaN(date.getTime())) return String(instant);
   return INSTANT_SHORT.formatToParts(date)
-    .map((part) => (part.type === "literal" ? part.value.replace(/\s/gu, " ") : part.value))
+    .map((part) => (part.type === "literal" ? part.value.replace(/\s/gu, "\u00A0") : part.value))
     .join("");
 }
 
