@@ -10045,6 +10045,25 @@
         "title": "FLSchiedsrichterMintResponse",
         "type": "object"
       },
+      "FLSchiedsrichterReactivateResponse": {
+        "properties": {
+          "confirmation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSchiedsrichterMint"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "confirmation"
+        ],
+        "title": "FLSchiedsrichterReactivateResponse",
+        "type": "object"
+      },
       "FLSchiedsrichterSingleResponse": {
         "properties": {
           "delivery": {
@@ -20246,7 +20265,7 @@
     },
     "/api/schiedsrichter/{schiedsrichter_id}/reactivate": {
       "post": {
-        "description": "Bring a retired referee back into the picker and every default read.\n\nOne who has not answered is owed a fresh link, since a retired referee's save mails nothing.",
+        "description": "Bring a retired referee back into the picker and every default read, answering where a fresh link goes.\n\nOne who has not answered is owed a fresh link, named in `confirmation`, since a retired referee's save mails nothing;\none who has answered, or is back already, is owed none.",
         "operationId": "schiedsrichter_reactivate_schiedsrichter",
         "parameters": [
           {
@@ -20261,7 +20280,14 @@
           }
         ],
         "responses": {
-          "204": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSchiedsrichterReactivateResponse"
+                }
+              }
+            },
             "description": "Successful Response"
           },
           "default": {

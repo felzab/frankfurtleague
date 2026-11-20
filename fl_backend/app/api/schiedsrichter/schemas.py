@@ -188,6 +188,11 @@ class FLSchiedsrichterSweepResponse(BaseReadModel):
     failed: int
 
 
+class FLSchiedsrichterReactivateResponse(BaseReadModel):
+    # Null unless the press brought back a referee who has not answered, which owes them a fresh link.
+    confirmation: FLSchiedsrichterMint | None
+
+
 class FLSchiedsrichterMintResponse(BaseReadModel):
     """The re-send's answer. Never null: where no link may be minted a refusal answers instead."""
 

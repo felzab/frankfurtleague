@@ -4224,6 +4224,10 @@ export interface FLSchiedsrichterMintResponse {
   confirmation: FLSchiedsrichterMint;
 }
 
+export interface FLSchiedsrichterReactivateResponse {
+  confirmation: FLSchiedsrichterMint | null;
+}
+
 export interface FLSchiedsrichterSingleResponse {
   delivery: FLOutboxStatus | null;
   schiedsrichter: FLSchiedsrichterAdmin;
