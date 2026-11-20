@@ -281,14 +281,15 @@ const CATALOGUE_BRAND = {
 
 /**
  * The administration's catalogue: a visitor's page importing it would carry the administration's words into its
- * bundle. The administration's routes import it, and so do the feature modules only they import. `serverCopy.ts` is
- * spared: it ships in no bundle, and its refusal lines reading `ADMIN_COPY` are the administration's own, which only
- * its screens show.
+ * bundle. The administration's routes import it, and so does each module the ban's allow list names, which nothing
+ * but a reviewer holds to the administration's pages. Named as `copy/admin`, and as `./admin`, the spelling a sibling
+ * catalogue under `core/copy/` would write. `serverCopy.ts` is spared: it ships in no bundle, and its refusal lines
+ * reading `ADMIN_COPY` are the administration's own, which only its screens show.
  */
 const ADMIN_CATALOGUE = {
-  regex: moduleNamed(String.raw`copy\x2Fadmin`),
+  regex: String.raw`${moduleNamed(String.raw`copy\x2Fadmin`)}|^\.\x2Fadmin(?:\.tsx?)?$`,
   message:
-    "ADMIN_COPY is the administration's: outside fl_frontend/src/app/admin, read the shared COPY or the audience's own catalogue, and move a key there that more than the administration reads.",
+    "ADMIN_COPY is the administration's: outside fl_frontend/src/app/admin and the modules this ban allows, read the shared COPY or the audience's own catalogue, and move a key there that more than the administration reads.",
 };
 
 /**
