@@ -585,7 +585,8 @@ export const COPY = catalogue({
     /** The account's place, one word signed in and out alike. */
     account: "Konto",
     menu: "Menü",
-    theme: { system: "System", light: "Hell", dark: "Dunkel" },
+    /** The third follows the device's own setting, the words Konto's Darstellung says it in. */
+    theme: { system: "Wie dein Gerät", light: "Hell", dark: "Dunkel" },
     /** Named for what the next press does. */
     sidebar: { collapse: "Seitenleiste einklappen", expand: "Seitenleiste ausklappen" },
 

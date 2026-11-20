@@ -72,7 +72,8 @@ export const ACCOUNT_COPY = catalogue({
     consequence: "Nur dieses Gerät bleibt angemeldet.",
   },
   appearance: {
-    description: "Hell, dunkel oder wie dein Gerät.",
+    /** The theme's three choices in the order its control shows them, the third in `COPY.template.theme`'s words. */
+    description: "Dunkel, hell oder wie dein Gerät.",
   },
   /**
    * „Funktion wechseln“'s entries: a team by its name, with this line under it naming the season and the seats held
