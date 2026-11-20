@@ -74,6 +74,8 @@ export function statusOf(answer: ActionAnswer<unknown> | null, isBlocked: boolea
   if (answer.ok) return answerLine(answer);
   // A save held back for its question: the question says what, and nothing failed.
   if (answer.ask !== undefined) return null;
+  // A passkey sheet the person closed: the act never ran, and nothing failed.
+  if (answer.closed === true) return null;
   if (answer.fieldErrors === undefined) return answerLine(answer);
   // A reason beside the fields stands before their pointer, being said nowhere else, unless a box already says it.
   const { reason } = answer;

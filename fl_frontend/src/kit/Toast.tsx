@@ -46,6 +46,8 @@ export function appToast(tone: AnswerTone, title: Copy) {
 
 /** An act's answer as its toast, worded and toned as a form's status line words the same answer (`answerLine`). */
 export function toastAnswer(answer: ActionAnswer<unknown>, done: Copy) {
+  // A passkey sheet the person closed raises no toast: the act never ran, and nothing failed.
+  if (!answer.ok && answer.closed === true) return;
   const line = answerLine(answer, done);
   appToast(line.tone, line.text);
 }

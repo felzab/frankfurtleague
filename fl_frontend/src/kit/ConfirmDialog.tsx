@@ -205,8 +205,9 @@ export function ConfirmDialog<T extends Tone>(props: ConfirmDialogProps<T> | Una
       const answer = await act(undefined);
       // An update after the `await` commits outside the transition unless it opens one of its own.
       startAct(() => {
-        if (!answer.ok) setRefusal(answerLine(answer));
-        else setOpen(false);
+        if (answer.ok) setOpen(false);
+        // A passkey sheet the person closed leaves the question standing with no line: the act never ran.
+        else if (answer.closed !== true) setRefusal(answerLine(answer));
       });
     });
   };
