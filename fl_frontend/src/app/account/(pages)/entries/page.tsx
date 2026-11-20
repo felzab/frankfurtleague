@@ -36,10 +36,11 @@ const birthday = (date: string | null, label: Copy = COPY.shared.facts.birthday)
   fact(label, date === null ? null : formatDate(dayOf(date)));
 
 /**
- * A seat entry's facts in the referee box's order: name, birthday, the team or school, telephone. Seats storing the
- * person alike list them once; a second spelling on another seat follows with its own name, birthday and telephone.
+ * A seat entry's facts in the referee box's order: name, birthday, the team or school, the seats held, telephone. Seats
+ * storing the person alike list them once; a second spelling on another seat follows with its own name, birthday and
+ * telephone.
  */
-function seatFacts(persons: readonly FLAccountSeatPerson[], affiliation: Fact): Fact[] {
+function seatFacts(persons: readonly FLAccountSeatPerson[], affiliation: Fact, held: readonly FLKontaktSeat[]): Fact[] {
   const spellings = new Map<string, { person: FLAccountSeatPerson; seats: FLKontaktSeat[] }>();
   for (const person of persons) {
     const key = JSON.stringify([person.first_name, person.last_name, person.birth_date, person.phone]);
@@ -52,7 +53,7 @@ function seatFacts(persons: readonly FLAccountSeatPerson[], affiliation: Fact): 
   return [...spellings.values()].flatMap(({ person, seats }, index) => [
     fact(labelOf(COPY.shared.name, seats), `${person.first_name} ${person.last_name}`),
     birthday(person.birth_date, labelOf(COPY.shared.facts.birthday, seats)),
-    ...(index === 0 ? [affiliation] : []),
+    ...(index === 0 ? [affiliation, { label: COPY.team.seat, value: WORDS.seatsHeld(held) }] : []),
     fact(labelOf(COPY.shared.facts.phone, seats), person.phone),
   ]);
 }
@@ -143,10 +144,11 @@ function entriesOf({ spieler, schiedsrichter, registrierungen, seats, bewerbunge
   const seated = seats.map((seat): Entry => ({
     id: `seat-${seat.team_id}-${seat.saison_id}`,
     title: { record: seat.team_name },
-    description: WORDS.description.seat(seat.seats),
+    description: WORDS.description.seat,
     facts: seatFacts(
       seat.persons,
       fact(COPY.shared.facts.team, WORDS.teamSeason({ record: seat.team_name }, COPY.shared.saisonName(seat.saison_id))),
+      seat.seats,
     ),
     ...saved({ kind: "seat", team_id: seat.team_id, saison_id: seat.saison_id }, seat.evidence_state, SEAT_TEXT_VERSIONS),
     scope: seat.scope,
@@ -158,8 +160,8 @@ function entriesOf({ spieler, schiedsrichter, registrierungen, seats, bewerbunge
     id: `bewerbung-${bewerbung.bewerbung_id}`,
     // An application stands for no team yet: titled as its page is, by the season it applies for.
     title: COPY.page.bewerbung(bewerbung.saison_id),
-    description: WORDS.description.seat(bewerbung.seats),
-    facts: seatFacts(bewerbung.persons, fact(COPY.shared.facts.school, bewerbung.schule)),
+    description: WORDS.description.seat,
+    facts: seatFacts(bewerbung.persons, fact(COPY.shared.facts.school, bewerbung.schule), bewerbung.seats),
     ...saved({ kind: "bewerbung", bewerbung_id: bewerbung.bewerbung_id }, bewerbung.evidence_state, SEAT_TEXT_VERSIONS),
     scope: bewerbung.scope,
     media: bewerbung.media,

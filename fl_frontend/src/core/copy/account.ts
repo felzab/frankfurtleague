@@ -97,10 +97,12 @@ export const ACCOUNT_COPY = catalogue({
     description: {
       /** A person's own record, which the title names: a pupil's, a registration's, a referee's. */
       own: "Deine Angaben und was davon öffentlich ist",
-      /** A seat on a team's season and a seat in an application alike, by the seats held, in the seats' order. */
-      seat: (seats: readonly FLKontaktSeat[]) => `Deine Angaben als ${seatsText(seats)}`,
+      /** A seat on a team's season and a seat in an application alike, its seats named by a fact (`seatsHeld`). */
+      seat: "Deine Angaben im Team",
     },
     teamSeason,
+    /** A seat entry's fact naming the seats the person holds, in the seats' order, under `COPY.team.seat`. */
+    seatsHeld: (seats: readonly FLKontaktSeat[]) => seatsText(seats),
     /** A seat entry's fact where its seats store the person typed two ways, by the seats holding this one: „Telefon als Ansprechperson“. */
     seatFact: (label: Copy, seats: readonly FLKontaktSeat[]) => `${label} als ${seatsText(seats)}`,
     /**
