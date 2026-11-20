@@ -1088,11 +1088,12 @@ call-off, or a club's line-up reminder, is a Postausgang row written in the tran
 its confirmation row or, for the line-up, under its own keys, so a row reads as asked exactly where
 its mail is owed; the drain after the pass sends them and retries each, and a mail it gives up is
 counted on the pass's line and reported to the heartbeat. A notice about a match already kicked off
-is owed nobody. A listing or a season's pass that fails ends the job, which the scheduler logs and
-the heartbeat reports; the next pass repeats nothing that committed. No mail of the pass carries a
-link: a club answers on its Übersicht and a referee on theirs, signed in. The pass's line holds its
-counts under the key `spielbestaetigungen`, and `scheduler.job_failed` names that job where it
-threw:
+is owed nobody. A season's pass that fails files `spielbestaetigung.sweep_failed`, naming the
+season, and the job goes on past it to every later season and then fails; a listing that fails ends
+the job at once. The scheduler logs either and the heartbeat reports it, and the next pass repeats
+nothing that committed. No mail of the pass carries a link: a club answers on its Übersicht and a
+referee on theirs, signed in. The pass's line holds its counts under the key `spielbestaetigungen`,
+and `scheduler.job_failed` names that job where it threw:
 
 ```bash
 docker compose logs --since 2h frontend | grep -E 'scheduler\.(pass|job_failed)'

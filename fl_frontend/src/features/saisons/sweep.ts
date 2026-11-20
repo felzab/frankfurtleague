@@ -9,8 +9,8 @@ import {
 } from "@/core/generated/client/sdk";
 import { logger } from "@/core/logging";
 
-/** Which half of the pass a failure line is about. Each clock family stops for its own reasons. */
-type SweepFailure = "bewerbung.sweep_failed" | "registrierung.sweep_failed" | "saison.sweep_failed";
+/** Which half of a pass over the seasons a failure line is about. Each clock family stops for its own reasons. */
+type SweepFailure = "bewerbung.sweep_failed" | "registrierung.sweep_failed" | "saison.sweep_failed" | "spielbestaetigung.sweep_failed";
 
 /**
  * One pass over every season, each half of each apart: a throw in one leaves the others' clocks running. The scheduler
@@ -49,7 +49,7 @@ export async function runSaisonSweep() {
   };
 }
 
-async function halfRun(event: SweepFailure, saisonId: string, errors: unknown[], run: () => Promise<void>): Promise<void> {
+export async function halfRun(event: SweepFailure, saisonId: string, errors: unknown[], run: () => Promise<void>): Promise<void> {
   try {
     await run();
   } catch (error) {
