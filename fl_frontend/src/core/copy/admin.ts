@@ -40,6 +40,10 @@ const DELETED_BY_PASS = "Nach Frist gelöscht";
 const ENTRY_OBJECTED = "Eintrag widersprochen";
 // One word for every withdrawal an administrator entered from a person's mail, on any kind of record.
 const WITHDRAWAL_ENTERED = "Widerruf eingetragen";
+// One word for every address change started, one the administration starts for an address and a holder's own alike.
+const ADDRESS_CHANGE_STARTED = "Adressänderung gestartet";
+// One word for every seat an administrator changed, on a team's season and in an application alike.
+const SEAT_CHANGED = "Sitz geändert";
 const NAME_ON_SITE = "Name auf der Website";
 const MEDIA = "Fotos und Videos";
 const SENT_ON = "Gesendet am";
@@ -485,7 +489,7 @@ export const ADMIN_COPY = catalogue({
       "team.retired": "Team stillgelegt",
       "team.reactivated": "Team reaktiviert",
       "team.austritt_entered": "Austritt eingetragen",
-      "team.seat_changed": "Sitz geändert",
+      "team.seat_changed": SEAT_CHANGED,
       "team.seat_objected": ENTRY_OBJECTED,
       "team.seat_einwilligung_withdrawn": WITHDRAWAL_ENTERED,
       "team.replaced": "Team ersetzt",
@@ -493,7 +497,7 @@ export const ADMIN_COPY = catalogue({
       "team.invitation_withdrawn": "Registrierungslink zurückgezogen",
       "bewerbung.accepted": "Bewerbung angenommen",
       "bewerbung.declined": "Bewerbung abgelehnt",
-      "bewerbung.seat_changed": "Sitz geändert",
+      "bewerbung.seat_changed": SEAT_CHANGED,
       "bewerbung.seat_objected": ENTRY_OBJECTED,
       "bewerbung.seat_einwilligung_withdrawn": WITHDRAWAL_ENTERED,
       "spieler.changed": "Spieler geändert",
@@ -519,11 +523,11 @@ export const ADMIN_COPY = catalogue({
       "grant.handover_started": "Übergabe gestartet",
       "grant.handover_withdrawn": "Übergabe zurückgezogen",
       "grant.handover_completed": "Übergabe abgeschlossen",
-      "grant.address_change_started": "Adressänderung gestartet",
+      "grant.address_change_started": ADDRESS_CHANGE_STARTED,
       "grant.address_switched": "Adresse gewechselt",
       "ban.added": "Sperre eingetragen",
       "ban.removed": "Sperre entfernt",
-      "address_change.started": "Adressänderung gestartet",
+      "address_change.started": ADDRESS_CHANGE_STARTED,
       "address_change.discarded": "Adressänderung verworfen",
       "erasure.on_request": "Löschung auf Anfrage",
       "erasure.own": ACCOUNT_ERASED,
