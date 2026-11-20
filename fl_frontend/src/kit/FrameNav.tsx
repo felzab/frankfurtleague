@@ -26,7 +26,7 @@ import { FreshPerPage, Sheet } from "./Sheet";
 import { ThemeChoice, ThemeRow } from "./ThemeChoice";
 import { appToast } from "./Toast";
 import { tv } from "./tv";
-import { NavigationLink, usePressed } from "./WholePage";
+import { NavigationLink, useLeftArea, usePressed } from "./WholePage";
 
 import type { Copy, RecordText } from "@/core/copy";
 import type { Route } from "next";
@@ -781,12 +781,14 @@ export function LeaveQuestion() {
 }
 
 /**
- * An area's own way back once the read naming it has landed: „‹ Zurück“ to the address it answers, or `none`, the
- * logo, where it answers no address, the person having nowhere to go back to.
+ * Konto's own way back once the read naming it has landed: „‹ Zurück“ to the page of an area Konto was opened from,
+ * where a navigation since the document loaded left one, else to the address the read answers; or `none`, the logo,
+ * where the read answers no address, the person having nowhere to go back to.
  */
 export function ReadBack({ back, none }: { back: Promise<Route | null>; none: ReactNode }) {
   const href = use(back);
-  return href === null ? none : <BackControl href={href} />;
+  const left = useLeftArea();
+  return href === null ? none : <BackControl href={left ?? href} />;
 }
 
 /**

@@ -11,11 +11,11 @@ const GROUPS = [{ entries: ACCOUNT_ENTRIES }];
 
 /**
  * Konto's frame, in place of the area's: its own rail of its three pages, „‹ Zurück“ in the logo's place leading to
- * the Übersicht, and no bottom bar, the phone opening on the list of the three instead. A person holding no Funktion
- * keeps the logo: the Übersicht sends them here. The account row and the way back arrive with the page, and each page's
- * own read sends a session turned away to sign in.
- * The phone's band is the route groups' (`(list)`, `(pages)`), since its way back differs: the list's to the
- * Übersicht, a page's to the list.
+ * the area's page Konto was opened from, or to the Übersicht after a reload, and no bottom bar, the phone opening on
+ * the list of the three instead. A person holding no Funktion keeps the logo: the Übersicht sends them here. The
+ * account row and the way back arrive with the page, and each page's own read sends a session turned away to sign in.
+ * The phone's band is the route groups' (`(list)`, `(pages)`), since its way back differs: the list's to where the
+ * rail's head leads, a page's to the list.
  */
 export default function AccountLayout({ children }: { children: ReactNode }) {
   return (
