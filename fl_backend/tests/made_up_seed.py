@@ -500,6 +500,7 @@ class MadeUpLeague:
             # The holder whose own address change waits (`holder_change`).
             grant_document(administrators["moving"], "administration", effective_from=self.in_effect),
             grant_document(administrators["banning"], "administration", effective_from=self.in_effect),
+            grant_document(administrators["seat"], "administration", effective_from=self.in_effect),
             grant_document(administrators["access"], "administration", effective_from=self.in_effect),
         ]
 

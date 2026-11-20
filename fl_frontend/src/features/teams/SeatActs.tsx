@@ -26,7 +26,9 @@ const ACT = { verb: "save" } as const;
 /**
  * A seat row's acts, on an application and on a club alike: „Link senden“ while its person owes an answer, and „Sitz
  * bearbeiten“, whose dialog replaces the person, or fills a seat emptied, each box posting under the name both writes
- * read. An act inside an editor waits for an unsaved draft, since the write raises the count the draft's save sends.
+ * read. The seat's write hands the team's panel to the address it stores, so it is behind the passkey touch: its press
+ * closes the dialog, asks the touch and writes, its answer a toast. An act inside an editor waits for an unsaved draft,
+ * since the write raises the count the draft's save sends.
  * Both are the row's side acts (`SideActs`), in the form the list decides: their labelled buttons in a wide box and the
  * entries of one „⋯“ in a narrow one, a locked one saying why either way, the fresh link first.
  */
@@ -36,6 +38,7 @@ export function SeatActs<Key>({
   rules: { required, max },
   write,
   carry,
+  holder,
   link,
   children,
 }: {
@@ -47,6 +50,8 @@ export function SeatActs<Key>({
   write: (form: FormData) => Promise<ActionAnswer>;
   /** What the dialog posts beside its boxes: the seat and the version the page read. */
   carry: Readonly<Record<string, string>>;
+  /** The address the page was drawn for, which the touch and the seat's write post. */
+  holder: string;
   /** The fresh link's press, `null` while the seat waits on nobody; `locked` says why no link goes. */
   link: { send: (key: Key) => Promise<ActionAnswer>; seat: Key; locked?: Copy } | null;
   /** The boxes this record's seat holds beside the person's. */
@@ -85,6 +90,7 @@ export function SeatActs<Key>({
         act={ACT}
         run={write}
         carry={carry}
+        touch={{ holder }}
         open={{ isOpen: isEditing, onOpenChange: setEditing }}>
         <TextField
           label={COPY.shared.firstName}

@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 
+import { getAdminHolder } from "@/core/auth/guards";
 import { ADMIN_COPY } from "@/core/copy/admin";
 import { COPY } from "@/core/copy/shared";
 import { dayOf, formatDate, formatNumber } from "@/core/format";
@@ -167,7 +168,7 @@ function actsOf(read: FLBewerbungSingleResponse, standing: Standing) {
  * A person's row: nobody's on an emptied seat, and its acts while the application stands undecided, its season not yet
  * finished, and the seat can take them. A finished season's application takes no seat write and mails no link.
  */
-function seatRowsOf(bewerbung: FLBewerbung, finished: boolean): SeatRow[] {
+function seatRowsOf(bewerbung: FLBewerbung, finished: boolean, holder: string): SeatRow[] {
   return seatsOf(bewerbung).map(({ seat, seats, person, state, chips, day }) => {
     const row = {
       id: seat,
@@ -187,6 +188,7 @@ function seatRowsOf(bewerbung: FLBewerbung, finished: boolean): SeatRow[] {
           rules={SEAT_RULES}
           write={writeSeat}
           carry={{ id: bewerbung.id, seat, version: String(bewerbung.version) }}
+          holder={holder}
           link={link}
         />
       ),
@@ -195,7 +197,7 @@ function seatRowsOf(bewerbung: FLBewerbung, finished: boolean): SeatRow[] {
 }
 
 async function readRecord(params: Props["params"]): Promise<ReadRecord> {
-  const read = await findBewerbung(params);
+  const [read, holder] = await Promise.all([findBewerbung(params), getAdminHolder()]);
   if (read === null) notFound();
   const { bewerbung, name } = read;
   const standing = standingOf({ status: bewerbung.status, seats_confirmed: read.seats_confirmed });
@@ -213,7 +215,7 @@ async function readRecord(params: Props["params"]): Promise<ReadRecord> {
               title: COPY.team.kontakte,
               kind: "seats" as const,
               label: COPY.team.kontakte,
-              rows: seatRowsOf(bewerbung, read.saison.status === "past"),
+              rows: seatRowsOf(bewerbung, read.saison.status === "past", holder),
             },
           ]),
       ...(bewerbung.schule === null ? [] : [{ title: FACTS.school, kind: "facts" as const, facts: schoolFacts(bewerbung.schule) }]),
