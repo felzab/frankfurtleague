@@ -1,13 +1,14 @@
 // @vitest-environment jsdom
-import { screen, waitFor, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { ACCOUNT_COPY } from "@/core/copy/account";
 import { COPY } from "@/core/copy/shared";
 import { renderUnderNext } from "@/test-support/nextContexts";
 
 import { AccountBox, AccountRows } from "./AccountBox";
+import { ToastRegion } from "./Toast";
 
 import type { ActionAnswer } from "@/core/action";
 
@@ -15,36 +16,49 @@ const PASSKEY = COPY.shared.passkeys;
 const REFUSAL = COPY.shared.failure.stale;
 const NOTE = COPY.shared.toast.linkSent;
 const CONSEQUENCE = ACCOUNT_COPY.passkeys.endsDevices;
+/** The question's name: a toast is an alert dialog too. */
+const QUESTION = COPY.shared.question(PASSKEY, "delete");
 
 /** The question's own act button, beside „Zurück“. */
 const confirmIn = (question: HTMLElement, verb: keyof typeof COPY.shared.verb) =>
   within(question).getByRole("button", { name: COPY.shared.verb[verb] });
 
+// The toast queue is the module's own, so a toast outlives its case: each is closed while the case's region stands.
+afterEach(() => {
+  for (const close of screen.queryAllByRole("button", { name: COPY.shared.close })) act(() => close.click());
+});
+
 // A Konto box's act asking first answers in its question as every question does: a refusal closing the question would
-// leave the reason shown nowhere, and a done act's note belongs on the box's own line once the question has gone.
+// leave the reason shown nowhere, and a done act's note, once the question has gone, belongs in the box's one toast,
+// the question raising none of its own beside it.
 describe("a Konto box's act behind a question", () => {
-  it("keeps the question open with a refusal, and once done says the act's note on the box's line", async () => {
+  it("keeps the question open with a refusal, and once done says the act's note in one toast", async () => {
     const run = vi
       .fn<() => Promise<ActionAnswer<unknown>>>()
       .mockResolvedValueOnce({ ok: false, reason: REFUSAL })
       .mockResolvedValueOnce({ ok: true, value: undefined, note: NOTE });
     renderUnderNext(
-      <AccountBox
-        title={PASSKEY}
-        description={ACCOUNT_COPY.passkeys.description}
-        act={{ run, button: { confirm: { verb: "delete", subject: PASSKEY, consequence: CONSEQUENCE, tone: "danger" } } }}
-      />,
+      <>
+        <AccountBox
+          title={PASSKEY}
+          description={ACCOUNT_COPY.passkeys.description}
+          act={{ run, button: { confirm: { verb: "delete", subject: PASSKEY, consequence: CONSEQUENCE, tone: "danger" } } }}
+        />
+        <ToastRegion frame="rail" />
+      </>,
     );
 
     await userEvent.click(screen.getByRole("button", { name: COPY.shared.withObject(PASSKEY, "delete") }));
-    await userEvent.click(confirmIn(screen.getByRole("alertdialog"), "delete"));
-    const question = await screen.findByRole("alertdialog");
+    const question = screen.getByRole("alertdialog", { name: QUESTION });
+    await userEvent.click(confirmIn(question, "delete"));
     await within(question).findByText(REFUSAL);
 
     await userEvent.click(confirmIn(question, "delete"));
-    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
+    await screen.findByRole("alertdialog", { name: NOTE });
+    await waitFor(() => expect(screen.queryByRole("alertdialog", { name: QUESTION })).toBeNull());
     expect(run).toHaveBeenCalledTimes(2);
-    expect(screen.getByText(NOTE)).toBeTruthy();
+    // The note's toast alone: the box's line says nothing, nor does the question's verb raise a toast of its own.
+    expect([screen.getAllByRole("alertdialog").length, screen.getByRole("status").textContent]).toStrictEqual([1, ""]);
   });
 });
 

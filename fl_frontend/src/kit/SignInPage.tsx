@@ -201,6 +201,7 @@ function AddressBody({ title, address, check, send: { onPress: send, ...button }
         ref={form}
         validationErrors={address.error}
         // The send's press is the form's submit, so `Enter` in the field sends too.
+        isBusy={button.isBusy === true}
         onSend={(formData) => send(String(formData.get("email")))}
         className={slots.form()}>
         <FieldStack>

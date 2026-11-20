@@ -19,8 +19,9 @@ import { statusOf, useFormAction } from "./useFormAction";
 import { usePasskeyTouch } from "./usePasskeyTouch";
 
 import type { ActionAnswer } from "@/core/action";
-import type { Copy, Verb } from "@/core/copy";
+import type { Copy } from "@/core/copy";
 import type { ReactElement, ReactNode } from "react";
+import type { DoneVerb } from "./dialogAct";
 import type { StatusCardProps } from "./StatusCard";
 import type { FormStatus } from "./useFormAction";
 
@@ -34,7 +35,7 @@ type ActKind = "primary" | "secondary";
  * The refusal of what the link offers, an objection or a decline, by the question it asks before it sends: its verb,
  * which names its button, the record it ends, and one sentence of what it does.
  */
-type Refusal = { verb: Verb; subject: Copy; consequence: Copy };
+type Refusal = { verb: DoneVerb; subject: Copy; consequence: Copy };
 
 /**
  * A one-shot form's acts: the main act and, where the link's offer can be refused, the refusal beside it; or the
@@ -55,10 +56,10 @@ export type OneShotRun = (formData: FormData) => Promise<ActionAnswer<EndState>>
 const AnsweredEnd = createContext<((end: EndState) => void) | null>(null);
 
 /**
- * The one-shot's end, held above the mailed page's state, whose place a done answer takes for good. A done action
- * renders the page again with the cache tag its write cleared, and the
- * link read again is in another state, the opened-again one, which takes the form's place in the same response.
- * React keeps a component's state only while its type stays at its place in the tree
+ * The one-shot's end, held above the mailed page's state, whose place a done answer takes for good. A mailed
+ * confirmation's done answer is drawn on its own done page; the opened-again state is what the mail's link shows when
+ * it is opened again. A done action renders the page again with the cache tag its write cleared, and React keeps a
+ * component's state only while its type stays at its place in the tree
  * (https://react.dev/learn/preserving-and-resetting-state), so the answer is lifted to this boundary, whose place the
  * re-render never changes, rather than kept in the form the re-render replaces.
  */
@@ -226,10 +227,7 @@ export function OneShotForm({
   // hands the focus back to the press that opened it, which held it as the question opened (React Aria's `FocusScope`).
   const question = acts.refusal !== undefined && (
     <ConfirmDialog
-      verb={acts.refusal.verb}
-      subject={acts.refusal.subject}
-      consequence={acts.refusal.consequence}
-      tone="danger"
+      question={{ verb: acts.refusal.verb, subject: acts.refusal.subject, consequence: acts.refusal.consequence, tone: "danger" }}
       open={{ isOpen: isAsking, onOpenChange: setAsking }}
       onConfirm={() => {
         if (asked !== null && !isBusy) send(asked.formData, asked.act);
@@ -240,8 +238,8 @@ export function OneShotForm({
     ref: form,
     validationErrors: refused?.fieldErrors,
     onInvalid: block,
+    isBusy,
     onSend: (formData: FormData) => {
-      if (isBusy) return;
       // The refusal alone is the form's main act, and asks before it posts as one.
       if (acts.primary === undefined) ask(formData, "primary");
       else send(formData, "primary");

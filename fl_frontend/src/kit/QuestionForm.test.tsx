@@ -1,6 +1,4 @@
 // @vitest-environment jsdom
-import { Activity } from "react";
-
 import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -80,8 +78,8 @@ afterEach(() => {
 
 describe("a form asking its question over what the press read", () => {
   // The harm: the touch ahead of the question, the act sending what the boxes hold rather than what the read held, or
-  // the done act said twice, in the line and in a toast.
-  it("runs the act behind the touch on the read's input, emptying the boxes under its done line alone", async () => {
+  // the done act said twice.
+  it("runs the act behind the touch on the read's input, emptying the boxes and saying its note in one toast", async () => {
     acts.run.mockResolvedValue({ ok: true, value: undefined, note: COPY.shared.state.erased });
     await press();
 
@@ -90,65 +88,46 @@ describe("a form asking its question over what the press read", () => {
     expect(acts.touch).not.toHaveBeenCalled();
     await userEvent.click(within(question).getByRole("button", { name: VERB }));
 
-    expect(await screen.findByText(COPY.shared.state.erased)).toBeTruthy();
+    expect((await screen.findByRole("alertdialog", { name: COPY.shared.state.erased })).querySelector(".text-success")).toBeTruthy();
     expect(acts.touch).toHaveBeenCalledOnce();
     expect(acts.run).toHaveBeenCalledWith({ email: ADDRESS, holder: HOLDER });
     await waitFor(() => {
       expect(box().value).toBe("");
     });
-    // The line alone, the question closed: a toast, in any words, would say the act a second time.
-    expect([screen.getAllByText(COPY.shared.state.erased).length, screen.queryAllByRole("alertdialog")]).toStrictEqual([1, []]);
-  });
-
-  // The harm: an erasure's done line greeting a later visit, or standing over the next address typed.
-  it("clears a done act's line as the next address is typed and once the page hides", async () => {
-    acts.run.mockResolvedValue({ ok: true, value: undefined, note: COPY.shared.state.erased });
-    const { rerender } = renderUnderNext(<Activity mode="visible">{FORM}</Activity>);
-    await userEvent.type(box(), ADDRESS);
-    await userEvent.click(screen.getByRole("button", { name: VERB }));
-    await userEvent.click(within(await screen.findByRole("alertdialog", { name: QUESTION })).getByRole("button", { name: VERB }));
-    await screen.findByText(COPY.shared.state.erased);
-
-    await userEvent.type(box(), ADDRESS);
-    expect(screen.queryByText(COPY.shared.state.erased)).toBeNull();
-    await userEvent.click(screen.getByRole("button", { name: VERB }));
-    await userEvent.click(within(await screen.findByRole("alertdialog", { name: QUESTION })).getByRole("button", { name: VERB }));
-    await screen.findByText(COPY.shared.state.erased);
-
-    rerender(<Activity mode="hidden">{FORM}</Activity>);
-    rerender(<Activity mode="visible">{FORM}</Activity>);
-    await waitFor(() => {
-      expect(screen.queryByText(COPY.shared.state.erased)).toBeNull();
-    });
+    // The toast alone, the question closed and the form's line empty: the line would say the act a second time.
+    expect([screen.getAllByText(COPY.shared.state.erased).length, screen.getAllByRole("alertdialog").length]).toStrictEqual([1, 1]);
   });
 
   // The harm: a passkey touch asked for an act off its fixed list, such as a withdrawal entered from a mail.
   it("runs an act off the touch's list inside its question, asking no touch", async () => {
     acts.run.mockResolvedValue({ ok: true, value: undefined, note: COPY.shared.state.erased });
     renderUnderNext(
-      <QuestionForm
-        verb="delete"
-        tone="danger"
-        touch={false}
-        read={acts.read}
-        run={acts.run}
-        holder={HOLDER}>
-        <TextField
-          label={COPY.shared.emailAddress}
-          name="email"
-          kind="email"
-        />
-      </QuestionForm>,
+      <>
+        <QuestionForm
+          verb="delete"
+          tone="danger"
+          touch={false}
+          read={acts.read}
+          run={acts.run}
+          holder={HOLDER}>
+          <TextField
+            label={COPY.shared.emailAddress}
+            name="email"
+            kind="email"
+          />
+        </QuestionForm>
+        <ToastRegion frame="rail" />
+      </>,
     );
     await userEvent.type(box(), ADDRESS);
     await userEvent.click(screen.getByRole("button", { name: VERB }));
     await userEvent.click(within(await screen.findByRole("alertdialog", { name: QUESTION })).getByRole("button", { name: VERB }));
 
-    expect(await screen.findByText(COPY.shared.state.erased)).toBeTruthy();
+    expect(await screen.findByRole("alertdialog", { name: COPY.shared.state.erased })).toBeTruthy();
     expect(acts.run).toHaveBeenCalledWith({ email: ADDRESS, holder: HOLDER });
     expect(acts.touch).not.toHaveBeenCalled();
     await waitFor(() => {
-      expect(screen.queryAllByRole("alertdialog")).toStrictEqual([]);
+      expect(screen.queryByRole("alertdialog", { name: QUESTION })).toBeNull();
     });
   });
 

@@ -55,6 +55,8 @@ export function StepCard({
         className={body()}
         validationErrors={fieldErrors}
         onInvalid={() => setBlocked(true)}
+        // „Weiter“ hands the inputs over and sends nothing, so nothing is ever on its way.
+        isBusy={false}
         onSend={onNext}>
         <Facts facts={facts} />
         <FieldStack>{children}</FieldStack>

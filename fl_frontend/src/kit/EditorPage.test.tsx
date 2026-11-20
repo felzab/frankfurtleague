@@ -119,7 +119,7 @@ function ActingEditor({ act }: { act: () => Promise<ActionAnswer> }) {
                 value={editor.draft.name}
                 onChange={(name) => editor.set("name", name)}
               />
-              <SectionAct acts={[{ label: COPY.shared.withObject(COPY.page.spielplan, "create"), run: act }]} />
+              <SectionAct acts={[{ act: { verb: "create", object: COPY.page.spielplan }, run: act }]} />
             </>
           ),
         },

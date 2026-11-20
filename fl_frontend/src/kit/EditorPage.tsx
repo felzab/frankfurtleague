@@ -4,8 +4,6 @@ import { Fragment, useRef } from "react";
 
 import { COPY } from "@/core/copy/shared";
 
-import { Button } from "./Button";
-import { askingLook } from "./buttonStyles";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { Dialog } from "./Dialog";
 import { actLabel } from "./dialogAct";
@@ -21,7 +19,7 @@ import type { Copy, LockReason } from "@/core/copy";
 import type { Route } from "next";
 import type { ReactElement } from "react";
 import type { ChipProps } from "./Chip";
-import type { ConfirmQuestion } from "./ConfirmDialog";
+import type { ConfirmQuestion, Trigger } from "./ConfirmDialog";
 import type { DialogAct } from "./dialogAct";
 import type { PageTitle } from "./RailFrame";
 import type { Editor, EditorValue } from "./useEditor";
@@ -82,24 +80,31 @@ function DangerRow({ act }: { act: DangerAct }) {
         <p className={dangerConsequence()}>{act.consequence}</p>
       </div>
       {/* Its button says the verb alone, „Löschen“, so the row's name says what it acts on, as a list row's does. */}
-      {locked !== undefined ? (
-        <Button
-          variant={askingLook(act.dialog === undefined ? act.confirm.tone : act.dialog.tone)}
-          label={label}
-          locked={locked}
-        />
-      ) : act.dialog === undefined ? (
-        <ConfirmDialog
-          {...act.confirm}
-          trigger={{ label }}
+      {act.dialog === undefined ? (
+        <DangerQuestion
+          confirm={act.confirm}
+          trigger={{ label, locked }}
         />
       ) : (
         <Dialog
           {...act.dialog}
-          trigger={{ label }}
+          trigger={{ label, locked }}
         />
       )}
     </div>
+  );
+}
+
+function DangerQuestion({ confirm, trigger }: { confirm: ConfirmQuestion; trigger: Trigger }) {
+  const { onConfirm, doneShown, touch, ...question } = confirm;
+  return (
+    <ConfirmDialog
+      question={question}
+      onConfirm={onConfirm}
+      doneShown={doneShown}
+      touch={touch}
+      trigger={trigger}
+    />
   );
 }
 
@@ -193,12 +198,10 @@ export function EditorPage<Values extends Record<string, EditorValue>>({
         validationErrors={editor.fieldErrors}
         // The browser judges each field's own rules first; a field it keeps back points the status line at it.
         onInvalid={() => editor.block()}
-        // The bar's busy button is not the whole guard: Enter in a lone field submits a form with no submit button too,
-        // and a second save mid-flight would go on the version the first stores past, its refusal standing over a save
-        // that went through.
-        onSend={() => {
-          if (!editor.isPending) editor.submit();
-        }}
+        // A second save mid-flight would go on the version the first stores past, its refusal standing over a save that
+        // went through.
+        isBusy={editor.isPending}
+        onSend={() => editor.submit()}
         className={formColumn()}>
         {/* The lines under the title, the Vorschau and the lock, one step apart as a box's title and its line are. */}
         <div className={editorHead()}>

@@ -69,16 +69,16 @@ export function FormInvitationSection({ team, saison, view }: { team: string; sa
         </>
       )}
       {live === null ? (
-        <SectionAct acts={[...copying, { label: COPY.shared.withObject(LINK, "create"), locked, run: mint }]} />
+        <SectionAct acts={[...copying, { act: { verb: "create", object: LINK }, locked, run: mint }]} />
       ) : (
         // The live link's three acts share the box's one footer and its one line, after the minted link's copy.
         <SectionAct
           acts={[
             ...copying,
-            { label: COPY.shared.withObject(LINK, "send"), locked, run: () => mailInvitation({ ...key, invitation_id: live }) },
-            { label: COPY.shared.withObject(LINK, "replace"), locked, confirm: REPLACED, run: mint },
+            { act: { verb: "send", object: LINK }, locked, run: () => mailInvitation({ ...key, invitation_id: live }) },
+            { act: { verb: "replace", object: LINK }, locked, confirm: REPLACED, run: mint },
             {
-              label: COPY.shared.withObject(LINK, "withdraw"),
+              act: { verb: "withdraw", object: LINK },
               locked,
               confirm: TAKEN_BACK,
               run: async () => {

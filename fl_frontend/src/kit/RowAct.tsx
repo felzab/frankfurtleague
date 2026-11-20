@@ -55,11 +55,7 @@ export function RowAct({
         },
       ]}>
       <ConfirmDialog
-        verb={verb}
-        subject={subject}
-        consequence={consequence}
-        facts={facts}
-        tone="danger"
+        question={{ verb, subject, consequence, facts, tone: "danger" }}
         touch={{ holder }}
         onConfirm={() => run({ id, holder })}
         open={{ isOpen: isAsking, onOpenChange: setAsking }}
