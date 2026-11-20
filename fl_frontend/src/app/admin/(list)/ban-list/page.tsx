@@ -31,7 +31,7 @@ const HEAD: TableHead = {
   nameLabel: COPY.shared.emailAddress,
   columns: [
     { key: "reason", label: COPY.shared.reason, hideOnPhone: true, onLine: "value", width: "excerpt", cut: true },
-    { key: "until", label: ADMIN_COPY.banList.until, hideOnPhone: true, onLine: "labelled", width: "date" },
+    { key: "until", label: ADMIN_COPY.banList.until, hideOnPhone: true, onLine: "labelled", width: "word" },
     { key: "enteredOn", label: ADMIN_COPY.facts.enteredOn, hideOnPhone: true, onLine: "labelled", width: "date" },
   ],
 };

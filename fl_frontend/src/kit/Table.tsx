@@ -291,18 +291,19 @@ const table = tv({
     // other column its min-content width (CSS Tables 3, 3.9.3), which a cell's `min-width` raises and a `<col>`'s width
     // does not. Automatic layout, not `fixed`: a value past its column widens the column and the name gives way, where
     // `fixed` would cut it or lay it over the next cell. Each holds its padding: a count two figures, a code three
-    // capitals, such as a Stufe or a club's shorthand, a word ten letters, one of a set the contract or the catalogue fixes, such as a position („Mittelfeld“, 62 px measured), a
-    // group („Gruppe M“), a kit colour or a count of seats („2 von 3“), a date ten characters, an instant 20, „bis“
-    // before its date and time, an excerpt 20, the start of a `cut` text in a row whose acts need the room a whole line
-    // would take, a phone number 20, a line of an address 35 where the box is 56 rem or wider and 20 below it, where a
-    // name beside a state, the line and a phone number would keep less than its least width. A date stands at the start
-    // in the body's face, never as `figures`, which would centre it and set it apart from every other date column.
+    // capitals, such as a Stufe or a club's shorthand, a word ten letters, one of a set the contract or the catalogue
+    // fixes, such as a position („Mittelfeld“, 62 px measured), a group („Gruppe M“), a kit colour or a count of seats
+    // („2 von 3“), a date ten characters, an instant 20, „bis“ before its date and time, an excerpt 20, the start of a
+    // `cut` text in a row whose acts need the room a whole line would take, a phone number 20, a line of an address 35
+    // where the box is 56 rem or wider and 20 below it, where a name beside a state, the line and a phone number would
+    // keep less than its least width. A date and an instant stand at the start in the numeric face, whose tabular
+    // figures line a column's digits up, as every date column's do; never as `figures`, which would centre them.
     width: {
       count: { head: "min-w-12" },
       code: { head: "min-w-16" },
       word: { head: "min-w-24" },
-      date: { head: "min-w-28" },
-      instant: { head: "min-w-40" },
+      date: { head: "min-w-28", cell: "font-numeric" },
+      instant: { head: "min-w-40", cell: "font-numeric" },
       excerpt: { head: "min-w-40" },
       phone: { head: "min-w-44" },
       line: { head: "min-w-44 @4xl:min-w-72" },
