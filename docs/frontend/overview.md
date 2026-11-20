@@ -238,15 +238,17 @@ administration request. A backend that cannot answer admits nobody, and a revoke
 nothing from the next request on. Every admin server action opens on
 `fl_frontend/src/core/auth/guards.ts :: judgeAdminRequest`, through the builder's admin lane.
 
-**Route protection is layered.** `src/proxy.ts` turns away a request to `/area`, `/admin` or
+**Route protection is layered.** `src/proxy.ts` turns away a page request to `/area`, `/admin` or
 `/account` carrying no session cookie before any read, as Next's and Better Auth's guidance has a
-proxy check. It sends a page load of `/signin` whose cookie names a stored session on to the
-sign-in's landing, which decides where that session goes. It sends a page load of `/signin/passkey`
-on to the landing too where the request holds no passkey step, asking
-`fl_frontend/src/core/auth/landing.ts :: getRequestPasskeyStep`, the page's own judgement, so the
-page never paints its frame only to redirect. Both carry the return address through the allowlist
-and judge nothing further. The session, its sign-in factor and the grant are judged where the data
-is read: no layout turns a session away, because Next renders a page whatever its layout decides.
+proxy check. A server action posted there meets its own lane's guard instead, which answers on the
+form that the sign-in has ended, so the person keeps what they typed. The proxy sends a page load of
+`/signin` whose cookie names a stored session on to the sign-in's landing, which decides where that
+session goes. It sends a page load of `/signin/passkey` on to the landing too where the request
+holds no passkey step, asking `fl_frontend/src/core/auth/landing.ts :: getRequestPasskeyStep`, the
+page's own judgement, so the page never paints its frame only to redirect. Both carry the return
+address through the allowlist and judge nothing further. The session, its sign-in factor and the
+grant are judged where the data is read: no layout turns a session away, because Next renders a page
+whatever its layout decides.
 
 **A person's sign-in is managed on Konto, `/account` and its four pages**, whichever area they hold:
 every frame's account menu links it, and an act on the passkey touch's fixed list, a passkey's
