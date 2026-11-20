@@ -5,7 +5,7 @@ import { COPY } from "@/core/copy/shared";
 import { formatNumber } from "@/core/format";
 
 import { AddressWords, addressWords, isAddress } from "./AddressWords";
-import { cardHover, cardSurface, columnHead, nameWithChips, stacked } from "./cardStyles";
+import { cardHover, cardSurface, columnHead, nameWithChips, rowHeight, stacked } from "./cardStyles";
 import { Chip } from "./Chip";
 import { CutRow, CutText } from "./CutText";
 import { EmptyState } from "./EmptyState";
@@ -191,9 +191,10 @@ const PHONE_WRAPS_CLASSES = "@max-2xl:wrap-anywhere @max-2xl:whitespace-normal";
  * side acts fold into there. A line that holds nothing takes no height, and a head cell's
  * words stand on a 40-px line, since a grid item's stand at its top where a table cell's stand in its middle.
  *
- * A row is 56 px at the least, 52 from `lg`, its hairline among them. Chips the name's line cannot hold stand 2 px under
- * it, and a name over its chips is 42, a plaque standing beside the two lines, so at 6 px of padding, 4 from `lg`, such
- * a row stands exactly as tall as one whose chips stand after its name.
+ * A row is a list row's height (`rowHeight`), its hairline among it: in a table exactly that, and stacked at the least.
+ * Chips the name's line cannot hold stand 2 px under it, and a name over its chips is 42, a plaque standing beside the
+ * two lines, so at 6 px of padding on the 56-px row, 4 on the 52, such a row stands exactly as tall as one whose chips
+ * stand after its name.
  */
 const table = tv({
   slots: {
@@ -204,7 +205,7 @@ const table = tv({
     headRow: columnHead().rule(),
     // `thead` and `tbody`, whose rows a stacked list sets in the table's own tracks.
     part: "",
-    row: `relative h-14 ${stacked()} lg:h-13`,
+    row: `relative ${rowHeight({ form: "table" })} ${stacked()}`,
     cell: "px-3 whitespace-nowrap",
     // The name takes the room the facts leave, which it shares with a column that gives way (`shares`), and is cut with
     // „…“ where it is longer (`nameLine`).
@@ -303,7 +304,7 @@ const table = tv({
     prose: {
       true: {
         head: "@max-2xl:sr-only",
-        row: "@max-2xl:grid @max-2xl:h-auto @max-2xl:gap-1 @max-2xl:px-3 @max-2xl:py-3",
+        row: "@max-2xl:grid @max-2xl:gap-1 @max-2xl:px-3 @max-2xl:py-3",
         name: "w-auto py-3 align-top @max-2xl:col-start-1 @max-2xl:px-0 @max-2xl:py-0 @max-2xl:font-semibold",
         cell: "py-3 align-top whitespace-normal @max-2xl:col-start-1 @max-2xl:grid @max-2xl:grid-cols-[4rem_minmax(0,1fr)] @max-2xl:gap-x-3 @max-2xl:px-0",
         label: "text-xs text-fg-muted @2xl:hidden",
@@ -315,7 +316,7 @@ const table = tv({
     stack: {
       true: {
         head: "@max-2xl:sr-only",
-        row: "@max-2xl:grid @max-2xl:h-auto @max-2xl:grid-cols-1 @max-2xl:gap-1 @max-2xl:px-3 @max-2xl:py-3",
+        row: "@max-2xl:grid @max-2xl:grid-cols-1 @max-2xl:gap-1 @max-2xl:px-3 @max-2xl:py-3",
         name: "@max-2xl:col-start-1 @max-2xl:w-auto @max-2xl:px-0 @max-2xl:py-0",
         whole: WRAPS_CLASSES,
         cell: `@max-2xl:col-start-1 @max-2xl:grid @max-2xl:grid-cols-[4rem_minmax(0,1fr)] @max-2xl:gap-x-3 @max-2xl:px-0 @max-2xl:text-start ${PHONE_WRAPS_CLASSES}`,
@@ -331,7 +332,7 @@ const table = tv({
         part: "@max-2xl:contents",
         headRow: "@max-2xl:col-span-full @max-2xl:grid @max-2xl:grid-cols-subgrid",
         head: "@max-2xl:row-start-1 @max-2xl:leading-10",
-        row: "@max-2xl:col-span-full @max-2xl:grid @max-2xl:h-auto @max-2xl:min-h-14 @max-2xl:grid-cols-subgrid @max-2xl:content-center @max-2xl:items-center @max-2xl:py-1.5 lg:@max-2xl:min-h-13 lg:@max-2xl:py-1",
+        row: `@max-2xl:col-span-full @max-2xl:grid ${rowHeight({ form: "stacked" })} @max-2xl:grid-cols-subgrid @max-2xl:content-center @max-2xl:items-center @max-2xl:py-1.5 lg:@max-2xl:py-1`,
         name: "@max-2xl:contents",
         // A stacked row's chips stand on its name's line (`chipsOnLine`).
         state: "@max-2xl:hidden",

@@ -2,7 +2,7 @@ import { textOf } from "@/core/copy";
 import { COPY } from "@/core/copy/shared";
 import { formatNumber } from "@/core/format";
 
-import { cardHover, columnHead, nameWithChips, stacked } from "./cardStyles";
+import { cardHover, columnHead, nameWithChips, rowHeight, stacked } from "./cardStyles";
 import { Chip } from "./Chip";
 import { CutRow, CutText } from "./CutText";
 import { EmptyState } from "./EmptyState";
@@ -94,7 +94,7 @@ const standing = tv({
     sheet: "w-full border-collapse text-sm",
     headRow: columnHead().rule(),
     // A row a link may point to by its fragment, marked while the address names it.
-    row: `kit-target relative h-14 ${stacked()} lg:h-13 ${cardHover()}`,
+    row: `kit-target relative ${rowHeight({ form: "fixed" })} ${stacked()} ${cardHover()}`,
     cell: "px-3 whitespace-nowrap @max-2xl:px-1.5 @max-2xl:text-xs",
     // The club takes the room the figures leave.
     name: "w-full px-3 py-2 @max-2xl:px-1.5",

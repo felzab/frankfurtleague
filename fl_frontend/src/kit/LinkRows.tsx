@@ -1,6 +1,6 @@
 import { textOf } from "@/core/copy";
 
-import { cardHover, cardSurface, stacked } from "./cardStyles";
+import { cardHover, cardSurface, rowHeight, stacked } from "./cardStyles";
 import { CutHost, CutRow, CutText } from "./CutText";
 import { Icon } from "./Icon";
 import { Link } from "./Link";
@@ -24,7 +24,7 @@ export function LinkRows({ rows }: { rows: readonly LinkRow[] }) {
         <div
           key={row.href}
           className={cardHover({
-            class: `relative flex min-h-14 items-center gap-3 ${stacked()} px-4 py-2 text-base lg:min-h-13 lg:text-sm`,
+            class: `relative flex ${rowHeight()} items-center gap-3 ${stacked()} px-4 py-2 text-base lg:text-sm`,
           })}>
           {/* The link stretches over the row, so the address's whole, while it is cut, is the tooltip the link's
               holder carries under the pointer (`CutRow`). */}

@@ -6,7 +6,7 @@ import { textOf } from "@/core/copy";
 import { formatNumber } from "@/core/format";
 
 import { Button } from "./Button";
-import { card, columnHead, nameWithChips, stacked } from "./cardStyles";
+import { card, columnHead, nameWithChips, rowHeight, stacked } from "./cardStyles";
 import { Tick } from "./Checkbox";
 import { Chip } from "./Chip";
 import { CutText } from "./CutText";
@@ -37,7 +37,7 @@ const lineup = tv({
     sheet: "w-full border-collapse text-sm",
     headRow: columnHead().rule(),
     head: columnHead().text(),
-    row: `relative h-14 ${stacked()} lg:h-13`,
+    row: `relative ${rowHeight({ form: "fixed" })} ${stacked()}`,
     // The name takes the room the facts leave and is cut with „…“ where it is longer. A phone's line holds a name's
     // least width and „Nachnominiert“ only one over the other: a name over its chip is 42 px, which 6 px of padding
     // keep inside the row's 56, so such a row stands as tall as one without a chip.

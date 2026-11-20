@@ -6,7 +6,7 @@ import { COPY } from "@/core/copy/shared";
 
 import { Button } from "./Button";
 import { askingLook } from "./buttonStyles";
-import { cardSurface, stacked } from "./cardStyles";
+import { cardSurface, rowHeight, stacked } from "./cardStyles";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { CutText } from "./CutText";
 import { Dialog } from "./Dialog";
@@ -268,7 +268,7 @@ export type AccountRow = { id: string; name: RecordText; detail: Copy; rename?: 
 const rowLook = tv({
   slots: {
     list: "grid w-full",
-    row: `flex min-h-14 items-center gap-3 ${stacked()} py-2 lg:min-h-13`,
+    row: `flex ${rowHeight()} items-center gap-3 ${stacked()} py-2`,
     words: "grid min-w-0 flex-1 text-sm",
     name: "truncate font-semibold",
     // The grey line wraps, as every row's grey line does: cut, it would hide the end of a row's detail on a phone.

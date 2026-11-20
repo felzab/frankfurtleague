@@ -2,7 +2,7 @@ import { textOf } from "@/core/copy";
 import { COPY } from "@/core/copy/shared";
 
 import { Button } from "./Button";
-import { cardSurface, stacked } from "./cardStyles";
+import { cardSurface, rowHeight, stacked } from "./cardStyles";
 import { FieldStack } from "./FieldStack";
 import { HelpPopover } from "./HelpPopover";
 import { tv } from "./tv";
@@ -69,7 +69,7 @@ export function SectionRule() {
 }
 
 /** One flat row of an editor's danger box. */
-export const dangerRow = tv({ base: `flex min-h-14 items-center gap-3 px-4 py-2 lg:min-h-13 ${stacked()}` });
+export const dangerRow = tv({ base: `flex ${rowHeight()} items-center gap-3 px-4 py-2 ${stacked()}` });
 
 /**
  * A form's or a settings page's group of fields: a box exactly as tall as its content, its title over a hairline, a
