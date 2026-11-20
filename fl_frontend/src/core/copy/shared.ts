@@ -249,12 +249,12 @@ export const COPY = catalogue({
       /** A run's list a person left every row out of: the records stand, where `none` would say there are none yet. */
       skipped: (plural: Copy) => `Alle ${plural} übersprungen.`,
     },
+    /** A list's search box, by the list's plural. */
+    search: (plural: Copy) => search(plural),
     /**
      * What a screen reader hears once a searched list's typed text settles: „Treffer“ is one noun for any list's rows
      * in the singular and the plural, and a search finding none says `empty.search`.
      */
-    /** A list's search box, by the list's plural. */
-    search: (plural: Copy) => search(plural),
     searchCount: (count: number) => `${boundBy(formatNumber(count), "Treffer")} für diese Suche.`,
 
     /** „Passkey löschen?“: a confirmation asks with the verb its button carries. */
