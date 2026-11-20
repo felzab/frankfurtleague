@@ -9,7 +9,6 @@ import type { FLAufstellungResponse, FLAufstellungSpieler } from "@/core/generat
 import type { ChipProps } from "@/kit/Chip";
 import type { LineupPlayer, LineupWords } from "@/kit/Lineup";
 
-/** Every word the line-up's block shows, on the team's page and the administrator's alike. */
 export const LINEUP_WORDS: LineupWords = {
   picked: SERVER_COPY.season.spiel.aufstellung,
   rest: COPY.area.team.aufstellung.rest,

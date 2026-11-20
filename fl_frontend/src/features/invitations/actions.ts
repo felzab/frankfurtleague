@@ -28,8 +28,9 @@ export const mintInvitation = action({
 });
 
 /**
- * Owes the team's live link to its confirmed seats. Each mail mints a link of its own when it leaves, so a copied one stays valid beside them. A link replaced or withdrawn since the page was read
- * is the stale page it is, and a press reaching nobody says so, having sent nothing.
+ * Owes the team's live link to its confirmed seats. Each mail mints a link of its own when it leaves, so a copied one
+ * stays valid beside them. A link replaced or withdrawn since the page was read is the stale page it is, and a press
+ * reaching nobody says so, having sent nothing.
  */
 export const mailInvitation = action({
   lane: "admin",

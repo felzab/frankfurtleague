@@ -70,9 +70,9 @@ const FORBIDDEN_METADATA: Metadata = { ...NOT_FOUND_METADATA, title: SERVER_COPY
  * A team page's metadata off the page's own read, `read` for the seat the person holds at its address, memoised by the
  * page so the tab and the card share it: `metadataOf` what it found; the not-found title where it found nothing; and
  * the „Kein Zugang“ card's title where the person holds no seat there, or the backend finds the seat gone after the
- * session's check, so the tab says what the card says. It answers each miss rather than throwing
- * it, since a `notFound()` thrown from `generateMetadata` leaves the tab the layout's title, and a failed read as
- * `metadataFor` does.
+ * session's check, so the tab says what the card says. It answers each miss rather than throwing it, since a
+ * `notFound()` thrown from `generateMetadata` leaves the tab the layout's title, and a failed read as `metadataFor`
+ * does.
  */
 export async function teamMetadata<Segments extends { team: string; saison: string }, Read>(
   params: Promise<Segments>,
@@ -97,8 +97,8 @@ export async function teamMetadata<Segments extends { team: string; saison: stri
 function refuseWithoutSeat(): never {
   logRefused("/area/team/[team]/[saison]", "no_seat");
   // The team area's not-found boundary draws „Kein Zugang“ here: Next's own interrupt for a refused page,
-  // `forbidden()`, is experimental. Once it is stable, the change is this throw and
-  // a `forbidden.tsx` beside that boundary.
+  // `forbidden()`, is experimental. Once it is stable, the change is this throw and a `forbidden.tsx` beside that
+  // boundary.
   notFound();
 }
 

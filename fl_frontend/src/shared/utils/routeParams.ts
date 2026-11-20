@@ -3,9 +3,9 @@ import { notFound } from "next/navigation";
 import { CustomObjectIdStringSchema } from "@/core/objectId";
 
 /**
- * Parse, not cast: nothing checks what an id segment holds, and an arbitrary one becomes a
- * backend request plus a `use cache` entry per variant. `null` for a malformed one, which no record holds, so a
- * page's metadata answers it as the not-found it is.
+ * Parse, not cast: nothing checks what an id segment holds, and an arbitrary one becomes a backend request plus a
+ * `use cache` entry per variant. `null` for a malformed one, which no record holds, so a page's metadata answers it as
+ * the not-found it is.
  */
 export async function objectIdParamOf<TKey extends string>(paramsPromise: Promise<Record<TKey, string>>, key: TKey): Promise<string | null> {
   const parsed = CustomObjectIdStringSchema.safeParse((await paramsPromise)[key]);

@@ -18,7 +18,7 @@ export function rowChip(row: Row): ChipProps | undefined {
   return row.nummer_double === true ? { tone: "warn", label: WORDS.nummerDouble } : undefined;
 }
 
-/** The row's state, a list's „Stand“ column's and the editor's head alike: its one chip, „Aktiv“ for a regular row. */
+/** The row's state: its one chip, „Aktiv“ for a regular row. */
 export function rowState(row: Row): ChipProps {
   return rowChip(row) ?? ACTIVE_CHIP;
 }

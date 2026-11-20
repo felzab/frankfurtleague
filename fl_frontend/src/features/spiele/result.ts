@@ -6,11 +6,6 @@ import type { FLSaisonPhase, FLSonderereignis, FLSpielSide } from "@/core/genera
 import type { ScoreOutcome } from "@/kit/ScoreRows";
 
 /**
- * One place for the rules a match's result is read by, so the administrator's preview and the referee's never read a
- * match apart.
- */
-
-/**
  * Whether a Sonderereignis, or a select's choice of one, is one of the two no-shows, whose goals the league composes from
  * the season's rules and which take no goal of their own.
  */

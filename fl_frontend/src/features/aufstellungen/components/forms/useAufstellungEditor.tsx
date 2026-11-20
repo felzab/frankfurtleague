@@ -16,7 +16,6 @@ import type { EditorSave } from "@/kit/useEditor";
 /** What a line-up's save is handed: the fixture, the version the editor was read at, and the half of the line-up it changed. */
 type AufstellungSave = EditorSave<LineupValue, number | null>;
 
-/** What the line-up's editor is handed, at whichever address it stands. */
 export type AufstellungEditing = {
   /**
    * The line-up as read: the fixture's id, the stored `version`, `null` where none is stored, and its entries, those
@@ -31,10 +30,10 @@ export type AufstellungEditing = {
 };
 
 /**
- * One club's line-up for one fixture as an editor holds it, for the team's page and the administrator's alike: the
- * editor over the stored line-up, counting the pupils moved; the bar's words, the starters of the most that may start;
- * and the block, everyone named in one list with the starters ticked over the squad's other pupils. It knows nothing of
- * whose address it stands at: the page's own editor places the three in its `EditorPage` and hands it the save.
+ * One club's line-up for one fixture as an editor holds it: the editor over the stored line-up, counting the pupils
+ * moved; the bar's words, the starters of the most that may start; and the block, everyone named in one list with the
+ * starters ticked over the squad's other pupils. It knows nothing of whose address it stands at: the page's own editor
+ * places the three in its `EditorPage` and hands it the save.
  */
 export function useAufstellungEditor({ aufstellung, players, words, locked, save }: AufstellungEditing) {
   const named = aufstellung.spieler.flatMap(({ spieler_id, starts }) => (spieler_id === null ? [] : [{ spieler_id, starts }]));

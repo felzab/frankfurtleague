@@ -27,7 +27,7 @@ const SPONSOR_ENTRIES: ReadonlyArray<{ name: string; short?: string; logo: strin
   { name: "Stiftung Polytechnische Gesellschaft", short: "SPTG", logo: "/icons/sponsors/sptg.svg", href: "https://sptg.de" },
 ];
 
-/** The sponsors as the kit's tiles and the footer take them, each name marked as the record's own data. */
+/** Each name marked as the record's own data. */
 export const SPONSORS: readonly Sponsor[] = SPONSOR_ENTRIES.map(({ name, short, ...sponsor }) => ({
   ...sponsor,
   name: { record: name },

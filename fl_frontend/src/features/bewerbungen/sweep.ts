@@ -22,8 +22,8 @@ type PassedOver = { bewerbung: number; registrierung: number; saison: number };
  * entries'. The scheduler runs one pass at a time.
  *
  * Every reminder and notice the backend owed is the Postausgang's drain to send. Answers the rows each half passed over
- * and what the address changes and the referee clock did, `open` the erasures passed over and the changes it could not end,
- * and the seasons' failure, once every half has run, as `error`; a lapsed address the half could not end, or a
+ * and what the address changes and the referee clock did, `open` the erasures passed over and the changes it could not
+ * end, and the seasons' failure, once every half has run, as `error`; a lapsed address the half could not end, or a
  * referee clock that failed, rejects, for the heartbeat to name.
  */
 export async function runBewerbungSweep() {
