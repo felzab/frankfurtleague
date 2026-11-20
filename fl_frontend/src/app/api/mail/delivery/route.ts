@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { Webhook } from "svix";
+import { Webhook } from "standardwebhooks";
 import z from "zod";
 
 import { resendWebhookSecret } from "@/core/config";
@@ -14,8 +14,15 @@ import { runWithIncomingTrace } from "@/core/traceScope";
 import type { FLOutboxEventPayload } from "@/core/generated/client/types";
 import type { NextRequest } from "next/server";
 
-/** The three headers Svix signs with, which the verifier is handed by name. */
-const SVIX_HEADERS = ["svix-id", "svix-timestamp", "svix-signature"] as const;
+/**
+ * The three headers the provider's sender, Svix, signs with, each beside the Standard Webhooks name the verifier reads
+ * it by: Svix implements that specification under its own header prefix.
+ */
+const SIGNING_HEADERS = [
+  ["svix-id", "webhook-id"],
+  ["svix-timestamp", "webhook-timestamp"],
+  ["svix-signature", "webhook-signature"],
+] as const;
 
 /**
  * What the provider is told, and it is the status that carries the meaning: anything but 200 starts
@@ -99,7 +106,9 @@ function signedByProvider(raw: string, headers: Record<string, string>): boolean
   if (secret === undefined) return false;
 
   try {
-    new Webhook(secret).verify(raw, headers);
+    // Checked only, never parsed: by default the verifier parses the body too, and a signed body that is no JSON
+    // would then read as a forgery, answered 400 and retried, rather than as the provider's change of shape.
+    new Webhook(secret).verify(raw, headers, { jsonParse: false });
     return true;
   } catch {
     return false;
@@ -115,7 +124,7 @@ export async function POST(request: NextRequest) {
   // key order and whitespace, and every event would then verify as a forgery.
   const raw = await request.text();
 
-  const headers = Object.fromEntries(SVIX_HEADERS.map((name) => [name, request.headers.get(name) ?? ""]));
+  const headers = Object.fromEntries(SIGNING_HEADERS.map(([sent, read]) => [read, request.headers.get(sent) ?? ""]));
 
   if (!signedByProvider(raw, headers)) {
     // 400 rather than 503: a forgery is not worth the provider's retries, and neither is a

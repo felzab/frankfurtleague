@@ -49,7 +49,7 @@
     "react-aria-components": "^1.22.1",
     "react-dom": "^19.3.1",
     "server-only": "^0.0.1",
-    "svix": "^2.10.0",
+    "standardwebhooks": "^1.1.1",
     "tailwind-variants": "^3.3.1",
     "zod": "~4.6.7"
   },

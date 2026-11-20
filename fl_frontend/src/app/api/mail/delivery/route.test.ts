@@ -35,7 +35,7 @@ doubleNextRequest();
 
 const { POST } = await import("./route");
 const { NextRequest } = await import("next/server");
-const { Webhook } = await import("svix");
+const { Webhook } = await import("standardwebhooks");
 
 const ROW_ID = `${"b".repeat(23)}2`;
 const ADDRESS = "erika@schule.example.org";
