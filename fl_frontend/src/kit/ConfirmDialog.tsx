@@ -19,7 +19,6 @@ import { usePasskeyTouch } from "./usePasskeyTouch";
 
 import type { ActionAnswer } from "@/core/action";
 import type { Copy, Verb } from "@/core/copy";
-import type { ReactElement } from "react";
 import type { TouchVerb } from "./dialogAct";
 import type { Fact } from "./Facts";
 import type { IconName } from "./Icon";
@@ -84,31 +83,22 @@ export function TriggerButton({ trigger, tone }: { trigger: Trigger; tone: Tone 
 type ActTransition = ReturnType<typeof useTransition>;
 
 /**
- * What opens the question: its own trigger, which it draws; the open state another control holds, as the kit's `Dialog`
- * takes it; or a control in a look of the frame's own that is no button, such as the band's „‹ Zurück“, which asks
- * before it drops an editor's unsaved changes. A button opening a question is a `trigger`, but for a form's own press
- * that asks first, whose form holds the open state: `QuestionForm`'s, and a mailed page's refusal (`OneShotForm`).
+ * What opens the question: its own trigger, which it draws, or the open state another control holds, as the kit's
+ * `Dialog` takes it. A button opening a question is a `trigger`, but for a form's own press that asks first, whose form
+ * holds the open state: `QuestionForm`'s, a mailed page's refusal (`OneShotForm`), and a way out of an editor holding
+ * unsaved changes (`LeaveQuestion`).
  */
 type Opening<T extends Tone> =
   | {
       trigger: Trigger<T>;
       open?: never;
       transition?: never;
-      control?: never;
     }
   | ({
       /** The open state, held by the control that asks, such as the save bar a held-back save answers on. */
       open: HeldOpen;
       trigger?: never;
-      control?: never;
-    } & HeldAct)
-  | {
-      /** A pressable React Aria control the kit draws in a look of its own, never the kit's `Button`. */
-      control: ReactElement;
-      trigger?: never;
-      open?: never;
-      transition?: never;
-    };
+    } & HeldAct);
 
 /** What a holder of the open state may also hold: the act's running, lifted up to it. */
 type HeldAct = {
@@ -158,7 +148,7 @@ type ConfirmDialogProps<T extends Tone> = ConfirmWords & { tone: T } & Confirmin
  * sign-in client's chunk with it, ahead of the question it will ask.
  */
 type Unasked = Confirming &
-  HeldAct & { touch?: Holder; doneShown?: never; open: HeldOpen; trigger?: never; control?: never } & {
+  HeldAct & { touch?: Holder; doneShown?: never; open: HeldOpen; trigger?: never } & {
     [Word in keyof ConfirmWords]?: never;
   };
 
@@ -176,7 +166,7 @@ type Unasked = Confirming &
  * the holder of the open state, which hands its own transition for it (`HeldAct`).
  */
 export function ConfirmDialog<T extends Tone>(props: ConfirmDialogProps<T> | Unasked) {
-  const { trigger, control, open, onConfirm, touch } = props;
+  const { trigger, open, onConfirm, touch } = props;
   const words = props.verb === undefined ? null : props;
   const done = props.touch !== undefined && props.verb !== undefined ? COPY.shared.toast.done[props.verb] : null;
   const router = useRouter();
@@ -256,19 +246,17 @@ export function ConfirmDialog<T extends Tone>(props: ConfirmDialogProps<T> | Una
       </AriaDialog>
     </DialogOverlay>
   );
-  if (trigger === undefined && control === undefined) return overlay;
+  if (trigger === undefined) return overlay;
   return (
     <DialogTrigger
       isOpen={isOpen}
       onOpenChange={setOpen}>
-      {trigger !== undefined && words !== null ? (
+      {words !== null && (
         <TriggerButton
           // A touched act runs after its question closed, so its trigger is where it shows busy.
           trigger={done !== null && isBusy ? { ...trigger, isBusy } : trigger}
           tone={words.tone}
         />
-      ) : (
-        control
       )}
       {overlay}
     </DialogTrigger>
