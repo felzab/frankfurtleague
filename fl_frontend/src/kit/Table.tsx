@@ -61,15 +61,16 @@ type TableColumn = {
   /**
    * The fact short enough to stand beside a name on a phone, left out of a box narrower than 20 rem. A list marks at
    * most one column so and leaves its others out. At most a date's width, which leaves the name 184 px at 360 px; a
-   * wider column, a team's name or a phone number, leaves it too little.
+   * wider column, a team's name or a phone number, leaves it too little. The row's line carries it (`onLine`) in a box
+   * narrower than 20 rem alone.
    */
-  | { narrow: true; hideOnPhone?: never; width?: "count" | "code" | "word" | "date"; onLine?: never }
+  | { narrow: true; hideOnPhone?: never; width?: "count" | "code" | "word" | "date"; onLine?: LineForm }
 );
 
 /**
  * How a column a box leaves out stands on a stacked row's muted line, the table composing the line from such cells in
- * their order, joined by „·“, the row's own `line` last: its value alone, where the value says what it is, such as a
- * position, or after its label where it does not, „Gültig bis Saison 2027“. A column stating neither holds a
+ * their order, a narrow column's first, joined by „·“, the row's own `line` last: its value alone, where the value says what it is, such as a
+ * position, or after its label where it does not, „Gültig bis Saison 2027“, „Nr. 19“. A column stating neither holds a
  * fact the row's own page or dialog shows. A cell holding nothing, or the words for nothing, stands on no line.
  */
 type LineForm = "value" | "labelled";
@@ -516,19 +517,27 @@ function Cell({ cell, cut }: { cell: Words | undefined; cut: boolean }) {
 }
 
 /** A part of a stacked row's line standing for a column its box leaves out (`onLine`). */
-type LinePart = { key: string; words: Words | AddressText; label?: Copy };
+type LinePart = { key: string; words: Words | AddressText; label?: Copy; narrow: boolean };
 
 /** The words a cell holds where it holds nothing, which state no fact on a line. */
 const NOTHING: ReadonlySet<string> = new Set([COPY.shared.noValue, COPY.shared.notProvided, ""]);
 
-/** The parts of a row's line, each column's that states its form (`onLine`) and holds a value. */
+/**
+ * The parts of a row's line, each column's that states its form (`onLine`) and holds a value. A narrow column's part
+ * leads, since it shows in a box narrower than 20 rem alone, where every other part shows too, so whatever follows a
+ * part shows wherever the part does, and the „·“ after it with it.
+ */
 function linePartsOf(columns: ReadonlyArray<TableColumn>, row: TableRow): LinePart[] {
-  return columns.flatMap((column) => {
+  const parts = columns.flatMap((column) => {
     const words = row.cells[column.key];
     if (column.onLine === undefined || words === undefined || NOTHING.has(textOf(words))) return [];
-    return [{ key: column.key, words, ...(column.onLine === "labelled" ? { label: column.label } : {}) }];
+    return [{ key: column.key, words, narrow: column.narrow === true, ...(column.onLine === "labelled" ? { label: column.label } : {}) }];
   });
+  return [...parts.filter((part) => part.narrow), ...parts.filter((part) => !part.narrow)];
 }
+
+/** Where a line of parts alone leaves: where the widest-shown of its columns shows again. */
+const lineGone = (parts: readonly LinePart[]) => (parts.some((part) => !part.narrow) ? "@2xl:hidden" : "@xs:hidden");
 
 const partText = (part: LinePart) => (part.label === undefined ? textOf(part.words) : boundBy(part.label, textOf(part.words)));
 
@@ -546,7 +555,7 @@ function RowLine({ parts, line, className }: { parts: readonly LinePart[]; line:
       {parts.map((part, index) => (
         <span
           key={part.key}
-          className="@2xl:hidden">
+          className={part.narrow ? "@xs:hidden" : "@2xl:hidden"}>
           {isAddress(part.words) ? (
             <>
               {/* The label bound to the address's start, which breaks after its „@“ alone. */}
@@ -700,7 +709,7 @@ function NameCell({
         </span>
       </span>
       {(row.line !== undefined || lineParts.length > 0) && (
-        <span className={s.line({ class: row.line === undefined ? "@2xl:hidden" : "" })}>
+        <span className={s.line({ class: row.line === undefined ? lineGone(lineParts) : "" })}>
           <RowLine
             parts={lineParts}
             line={row.line}
