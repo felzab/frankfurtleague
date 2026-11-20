@@ -17,7 +17,10 @@ const TRANSPORTS_BY_SCHEME: Readonly<Record<string, Transports>> = {
   SystemKey: { write: "systemKeyTransport", read: "systemKeyReadTransport", pass: "systemKeyPassTransport" },
   AdminKey: { write: "adminKeyTransport", read: "adminKeyReadTransport", dryRun: "adminKeyDryRunTransport" },
 };
-const UNKEYED: Transports = { write: "unkeyedTransport" };
+
+// The backend's two unkeyed operations, which the container's healthcheck and nginx call and no frontend code does:
+// left out, so the client holds no call without a key.
+const PROBES = ["system_check_is_live", "system_check_is_ready"];
 
 // The one query parameter `adminKeyDryRunTransport` reads a dry run off.
 const DRY_RUN = "dry_run";
@@ -32,13 +35,13 @@ const document = JSON.parse(readFileSync(DOCUMENT_PATH, "utf8")) as Document;
  * The transport an operation is sent through, read off the operation itself, so no call site chooses either: the key
  * its `security` names, and whether it writes, which the backend states where the method does not say it, as
  * `x-safe` on a POST that writes nothing and `x-safe-when` on a write whose dry run writes nothing (the backend's
- * `SAFE`), and whether it is an hourly pass, which `x-pass` states (the backend's `PASS`). A scheme or a mark no
- * transport here serves fails the generation.
+ * `SAFE`), and whether it is an hourly pass, which `x-pass` states (the backend's `PASS`). An operation naming no key,
+ * and a scheme or a mark no transport here serves, fails the generation.
  */
 function transportOf(operation: Operation): string {
   const { operationId, security = document.security ?? [] } = operation;
   const schemes = security.flatMap(Object.keys);
-  const transports = schemes.length === 0 ? UNKEYED : schemes.length === 1 ? TRANSPORTS_BY_SCHEME[schemes[0] ?? ""] : undefined;
+  const transports = schemes.length === 1 ? TRANSPORTS_BY_SCHEME[schemes[0] ?? ""] : undefined;
   if (!transports) throw new Error(`${operationId}: no transport for the security ${JSON.stringify(security)}`);
 
   const safeWhen = operation["x-safe-when"];
@@ -62,6 +65,7 @@ function transportOf(operation: Operation): string {
 const operations = Object.fromEntries(
   Object.values(document.paths)
     .flatMap((methods) => Object.values(methods))
+    .filter(({ operationId }) => !PROBES.includes(operationId))
     .map((operation) => [operation.operationId, { mutator: { path: TRANSPORT_PATH, name: transportOf(operation) } }]),
 );
 
@@ -73,7 +77,11 @@ const SERVER_ONLY = () => "import 'server-only';\n";
 // directly and never `.prettierignore`, which keeps the format scope off this folder.
 export default defineConfig({
   client: {
-    input: { target: DOCUMENT_PATH },
+    input: {
+      target: DOCUMENT_PATH,
+      // Every schema kept: the backend publishes bounds no operation names, which the client's types mirror.
+      filters: { mode: "exclude", operationIds: PROBES, includeUnreferencedSchemas: true },
+    },
     output: {
       mode: "single",
       client: "fetch",

@@ -46,7 +46,7 @@ function isPathAsSpelled(endpoint: string, builtPathname: string, basePathname: 
 
 export interface FetchOptions extends RequestInit {
   /** The key the call sends, which the operation's `security` names. */
-  authType: "base" | "system" | "admin" | "none";
+  authType: "base" | "system" | "admin";
   /**
    * A call changing nothing whatever its method says, such as a POST keeping a token out of the URL or
    * a dry run: its timeout is a read that failed, never a write of unknown outcome. Set by the operation's
@@ -63,8 +63,6 @@ const getFetchHeaders = (type: FetchOptions["authType"]): Record<string, string>
   };
 
   switch (type) {
-    case "none":
-      break;
     case "system":
       headers["Authorization"] = `Bearer ${internalApiKeySystem()}`;
       break;
