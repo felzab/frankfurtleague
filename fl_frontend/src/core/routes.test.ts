@@ -58,7 +58,6 @@ const ADDRESS_WORDS = [
   "admin",
   "administrators",
   "api",
-  "appearance",
   "area",
   "auth",
   "ban-list",

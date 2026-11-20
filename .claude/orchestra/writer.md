@@ -9,10 +9,10 @@
 
 ## The targeted set
 
-Your set is the tests of every file you changed and of every module importing one, found through
-every import form the tree uses: the `@/` alias, a relative path and a dotted Python module. Add the
-tests naming a registry that gains a member, and the sweeps, which judge a whole tree rather than
-the modules they import:
+Your set is the tests of every file you changed and of every module importing one directly, found
+through every import form the tree uses: the `@/` alias, a relative path and a dotted Python module.
+Add the tests naming a registry that gains a member, and the sweeps, which judge a whole tree rather
+than the modules they import:
 
 - where you touched `fl_backend/app`, every test importing `fl_backend/tests/core/app_source.py`,
   which judges every operation of the mounted application;
@@ -29,8 +29,9 @@ Run them, and the checks of what you touched, with these commands:
   `scripts/tests` runs from Git Bash alone, the one shell whose bash
   `scripts/tests/conftest.py :: pytest_configure` lets run the cases.
 - Database cases: that command deselects every case marked `db`, so each test file of your set that
-  holds one runs again on its own, `uv run --frozen pytest -m db <file>` from `fl_backend`, whether
-  or not your brief mentions the database. A file holds one where it contains `pytest.mark.db`.
+  holds one runs again on its own, `uv run --frozen pytest -m db <file>` from `fl_backend`, with
+  `<file>` relative to that folder, as `tests/api/test_roles.py`, whether or not your brief mentions
+  the database. A file holds one where it contains `pytest.mark.db`.
 - Where you touched `fl_frontend`: `pnpm run typecheck`, `pnpm run lint`, `pnpm run knip` and
   `pnpm run knip:prod`. The typecheck runs `next typegen` first, without which a fresh worktree's
   `tsc` passes a page that breaks Next's route types. The two knip runs fail an export or a file
@@ -115,11 +116,8 @@ into your scratch folder and commit it with `git commit -F <file>`: the shell to
   `fl_backend/pyproject.toml :: exclude-newer` refuse a release younger than their window, and an
   exclusion from either is a workaround the owner must approve. Where the work needs a package,
   message the coordinator.
-- The database tier runs one file at a time, `uv run --frozen pytest -m db <file>` from
-  `fl_backend`, for every test file of your set that holds a case marked `db`, as part of that set:
-  a rename that breaks a database case breaks it whether or not your brief mentions the database. It
-  never runs whole, as `pytest -m db` with no path and `pnpm run test:db` run it. Each run starts
-  its own containers.
+- The database tier never runs whole, as `pytest -m db` with no path and `pnpm run test:db` run it.
+  Each run starts its own containers.
 - A check that needs a database shell runs the host's `mongosh` against the published port of the
   database your brief names, as `mongosh "mongodb://127.0.0.1:<port>/?directConnection=true"`.
   Without `directConnection=true` the client follows the replica set's container-internal member

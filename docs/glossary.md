@@ -646,9 +646,9 @@ the wire's `subject`, which it narrows, nor a `seat`, the record one kind of it 
 
 ### `Konto` · `account` — a signed-in person's account, and the records of their own that admit one
 
-**Is:** the account a person signs in to, „Konto“ on screen, at `/account` with its four pages
-„Anmeldung“, „Sicherheit“, „Darstellung“ and „Deine Einträge“. A record of the person's own admits a
-sign-in to it whether or not it grants a `Funktion`.\
+**Is:** the account a person signs in to, „Konto“ on screen, at `/account` with its three pages
+„Anmeldung“, „Sicherheit“ and „Deine Einträge“. A record of the person's own admits a sign-in to it
+whether or not it grants a `Funktion`.\
 **In code:** `fl_backend/app/api/identity/services.py :: own_entries`;
 `fl_backend/app/api/identity/schemas.py :: FLSignInResponse`'s `account`.
 

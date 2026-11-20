@@ -10,7 +10,7 @@ const WORDS = COPY.shared.address;
 /** An address's boxes, by the names they post under. */
 type AddressField = "street" | "house_number" | "postcode" | "district" | "city";
 
-/** What a write asks of an address, read off its schema on the server, so the schema never reaches the browser. */
+/** What a write asks of an address, read off its schema on the server. */
 export type AddressRules = {
   required: Readonly<Record<AddressField, boolean>>;
   max: Readonly<Record<Exclude<AddressField, "postcode">, number>>;

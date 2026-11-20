@@ -12,6 +12,7 @@ import { PageFade } from "./PageFade";
 import { RailRoot, RailToggle, RailTooltip } from "./RailState";
 import { RAIL_ID, railFade, railGlyph } from "./railStyles";
 import { SaisonButton } from "./SaisonButton";
+import { ThemeRow } from "./ThemeChoice";
 import { ToastRegion } from "./Toast";
 import { tv } from "./tv";
 import { NavigationBar, NavigationLink, PageContent } from "./WholePage";
@@ -22,7 +23,7 @@ import type { ReactElement, ReactNode } from "react";
 import type { ChipProps } from "./Chip";
 import type { AccountRead, FrameSaisons, RailGroup } from "./FrameNav";
 
-/** The rail's foot: the account signed in, or „Konto“ leading to the sign-in where nobody is. */
+/** The rail's foot: the account signed in, or „Konto“ leading to the sign-in where nobody is, with the theme under it. */
 type RailFoot = { kind: "account"; account: AccountRead } | { kind: "signIn"; href: Route };
 
 /**
@@ -126,20 +127,24 @@ export function RailFrame({
               ) : (
                 // Drawn as an entry is, its glyph before its words: collapsed, the glyph alone stands centred
                 // and the tooltip names it.
-                <RailTooltip label={COPY.template.account}>
-                  <NavigationLink
-                    href={foot.href}
-                    data-kit-focus="ring"
-                    className={frameLink({ tone: "rail", class: "gap-3 overflow-hidden" })}>
-                    <span className={railGlyph()}>
-                      <Icon
-                        glyph="signin"
-                        size={18}
-                      />
-                    </span>
-                    <span className={railFade()}>{COPY.template.account}</span>
-                  </NavigationLink>
-                </RailTooltip>
+                <>
+                  <RailTooltip label={COPY.template.account}>
+                    <NavigationLink
+                      href={foot.href}
+                      data-kit-focus="ring"
+                      className={frameLink({ tone: "rail", class: "gap-3 overflow-hidden" })}>
+                      <span className={railGlyph()}>
+                        <Icon
+                          glyph="signin"
+                          size={18}
+                        />
+                      </span>
+                      <span className={railFade()}>{COPY.template.account}</span>
+                    </NavigationLink>
+                  </RailTooltip>
+                  {/* Signed out, no account menu holds the theme, so it stands under „Konto“. */}
+                  <ThemeRow place="rail" />
+                </>
               )}
             </div>
           </aside>

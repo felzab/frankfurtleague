@@ -25,9 +25,9 @@ type CreateEntry = { label: Copy; onCreate: (typed: string) => void };
 
 /**
  * A combo box whose answer is its text, the options suggestions rather than the set, as a school may wish to play one
- * no list holds yet: the form receives what is typed, up to `maxLength`, and `arrow` names the button opening the list.
+ * no list holds yet: the form receives what is typed, up to `maxLength`.
  */
-type FreeText = { arrow: Copy; maxLength?: number };
+type FreeText = { maxLength?: number };
 
 /**
  * What the list shows where the text typed matches no option: the create entry standing alone, nothing for a box whose
@@ -120,7 +120,7 @@ export function ComboBox({
         <Button
           data-kit-focus
           // Named by the catalogue in every box, since React Aria's own name for it is a wording of its own.
-          aria-label={free?.arrow ?? COPY.shared.showSuggestions}
+          aria-label={COPY.shared.showSuggestions}
           className={fieldButton()}>
           <Icon
             glyph="expand"

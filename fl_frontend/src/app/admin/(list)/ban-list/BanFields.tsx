@@ -10,7 +10,7 @@ import { TextField } from "@/kit/TextField";
 
 /**
  * The ban dialog's inputs: the address and the Grund, which a mail hands to the address, so it holds no names. Drawn on
- * the server, so the schema never reaches the browser.
+ * the server.
  */
 export function BanFields() {
   return (

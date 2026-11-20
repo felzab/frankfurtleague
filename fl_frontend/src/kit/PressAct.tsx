@@ -22,20 +22,18 @@ export function PressAct<Payload, Value>({
   run,
   payload,
   done,
-  variant,
 }: {
   label: Copy;
   run: (payload: Payload) => Promise<ActionAnswer<Value>>;
   payload: Payload;
   /** The toast's title once the act is done, from the catalogue's toast titles. */
   done: Copy;
-  variant: "primary" | "secondary";
 }) {
   const router = useRouter();
   const [isRunning, startRunning] = useTransition();
   return (
     <Button
-      variant={variant}
+      variant="primary"
       label={label}
       isBusy={isRunning}
       onPress={() =>

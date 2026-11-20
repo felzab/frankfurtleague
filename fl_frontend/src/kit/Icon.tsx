@@ -37,7 +37,6 @@ import ScrollText from "lucide-react/icons/scroll-text";
 import Search from "lucide-react/icons/search";
 import Shield from "lucide-react/icons/shield";
 import Sun from "lucide-react/icons/sun";
-import SunMoon from "lucide-react/icons/sun-moon";
 import Trash from "lucide-react/icons/trash-2";
 import TriangleAlert from "lucide-react/icons/triangle-alert";
 import Trophy from "lucide-react/icons/trophy";
@@ -148,10 +147,9 @@ const GLYPHS = {
   // An e-mail address: the administration's address changes, and the league's own on the question door and Kontakt.
   email: Mail,
   log: ScrollText,
-  // Konto's pages beside Anmeldung's `signin`: the passkeys as a key, the theme as the sun and the moon, and
-  // the person's own entries as a list on a clipboard.
+  // Konto's pages beside Anmeldung's `signin`: the passkeys as a key, and the person's own entries as a list on a
+  // clipboard.
   key: KeyRound,
-  appearance: SunMoon,
   entries: ClipboardList,
 
   // The landing's: its three pillars, who plays (the Abi year), how it is played and what the takings pay

@@ -162,7 +162,7 @@ export function Prose({ sections }: { sections: ReadonlyArray<ProseSection> }) {
 export function ReadingPage({ sections, ...head }: { sections: ReadonlyArray<ProseSection> } & ComponentProps<typeof PageHead>) {
   const text = identified(sections);
   return (
-    <ClassicPage width="reading">
+    <ClassicPage width="frame">
       <PageHead {...head} />
       <div className="grid gap-8 lg:grid-cols-[minmax(0,43.5rem)_minmax(0,1fr)] lg:gap-x-12">
         {/* The rail takes the second column's first row, so the text, placed after it, takes the first column's. */}

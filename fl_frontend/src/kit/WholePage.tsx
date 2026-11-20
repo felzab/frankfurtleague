@@ -29,7 +29,17 @@ type Navigation = {
   /** Whether the pending navigation has lasted `SHOWN_AFTER`, from when the sign shows until the commit. */
   shown: boolean;
   navigate: (href: string, options?: NavigateOptions) => void;
+  /**
+   * The last page of an area, the administration's or a Funktion's, a client navigation left, its query kept: where
+   * Konto, which every area's account menu opens, leads back to. React state alone, gone after a reload.
+   */
+  leftArea: string | null;
 };
+
+/** The areas Konto is opened from, by the address each lies under. */
+const AREAS = [ROUTES.admin.path(), ROUTES.area.path()];
+
+const inArea = (path: string) => AREAS.some((area) => path === area || path.startsWith(`${area}/`));
 
 /**
  * How long a navigation is pending before its sign shows: the fast ones, most of them, end sooner and show nothing, as
@@ -58,11 +68,13 @@ function pendingTo(href: string): Pending {
  *
  * It also holds the one fact every navigating control feeds, the address a navigation is on its way to: set inside the
  * navigation's own transition as optimistic state, so React drops it in the very render that commits the new page, as
- * Next's own link status is held.
+ * Next's own link status is held. Beside it stands the last page of an area a navigation left, which Konto's way back
+ * reads, since the server rendering Konto knows only where the person's landing leads.
  */
 export function WholePages({ children }: { children: ReactNode }) {
   const router = useRouter();
   const [pending, setPending] = useOptimistic<Pending | null>(null);
+  const [leftArea, setLeftArea] = useState<string | null>(null);
   const shown = useShownAfterDelay(pending !== null);
   const navigate = (href: string, { replace = false, scroll = true }: NavigateOptions = {}) => {
     const next = pendingTo(href);
@@ -70,11 +82,13 @@ export function WholePages({ children }: { children: ReactNode }) {
     if (next.href === pending?.href) return;
     startTransition(() => {
       setPending(next);
+      // Set in the navigation's transition, so it commits with the page the navigation goes to.
+      if (inArea(next.from.pathname)) setLeftArea(`${next.from.pathname}${next.from.search}`);
       if (replace) router.replace(href, { scroll });
       else router.push(href, { scroll });
     });
   };
-  return <NavigationContext value={{ pending, shown, navigate }}>{children}</NavigationContext>;
+  return <NavigationContext value={{ pending, shown, navigate, leftArea }}>{children}</NavigationContext>;
 }
 
 /**
@@ -106,6 +120,11 @@ export function usePressed<Href extends string>(hrefs: ReadonlyArray<Href>): Hre
     const { pathname, search } = new URL(href, pending.from);
     return pathname === pending.path && (search === "" || search === pending.search);
   });
+}
+
+/** The last page of an area a client navigation left (`leftArea`): `null` before one has, and outside `WholePages`. */
+export function useLeftArea(): string | null {
+  return useContext(NavigationContext)?.leftArea ?? null;
 }
 
 /** Whether the pending navigation stays on the page's own path, as a filter or a tab does. */
