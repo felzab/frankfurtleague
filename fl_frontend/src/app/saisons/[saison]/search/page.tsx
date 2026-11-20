@@ -7,7 +7,7 @@ import { ROUTES } from "@/core/routes";
 import { getSpielplan } from "@/features/saisons/queries";
 import { publicSaisonOf, resolvePublicSaisonParam } from "@/features/saisons/resolvers";
 import { matchRowOf, sidesOf, whenOf } from "@/features/spiele/blocks";
-import { spieltagNamer } from "@/features/spieltage/utils";
+import { byKickOff, spieltagNamer } from "@/features/spieltage/utils";
 import { ListPage } from "@/kit/ListPage";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
@@ -22,13 +22,13 @@ export async function generateMetadata({ params }: Props, parent: ResolvingMetad
   return metadataFor(publicSaisonOf(params), (saison) => pageMetadata(parent, ROUTES.spielSearch, ROUTES.spielSearch.path(saison)));
 }
 
-/** The season's matches, each with its matchday's name as the Spielplan's tab names it. */
+/** The season's matches, each matchday's by kick-off, each with its matchday's name as the Spielplan's tab names it. */
 async function readMatches(params: Props["params"]) {
   const spielplan = await getSpielplan(await resolvePublicSaisonParam(params));
   if (spielplan === null) notFound();
   const { spieltage } = spielplan;
   const nameOf = spieltagNamer(spieltage);
-  return spieltage.flatMap((spieltag) => spieltag.spiele.map((spiel) => ({ spiel, spieltag: nameOf(spieltag) })));
+  return spieltage.flatMap((spieltag) => spieltag.spiele.toSorted(byKickOff).map((spiel) => ({ spiel, spieltag: nameOf(spieltag) })));
 }
 
 /**
