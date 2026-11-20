@@ -24,8 +24,8 @@ import tokenContrast from "./eslint-rules/token-contrast.mjs";
 const TEST = /\.test\.tsx?$/;
 const TEST_FILES = ["src/**/*.test.{ts,tsx}"];
 
-/** Next.js requires the root layout to write `<html>` and `<body>`. */
-const ROOT_DOCUMENT = ["src/app/layout.tsx"];
+/** Next.js requires the root layout, and the global error page standing in for it, to write `<html>` and `<body>`. */
+const ROOT_DOCUMENT = ["src/app/layout.tsx", "src/app/global-error.tsx"];
 
 const layerOf = (path) => (path.startsWith("src/core/") ? "core" : path.startsWith("src/shared/") ? "shared" : "other");
 
@@ -1503,7 +1503,7 @@ const eslintConfig = defineConfig([
       ],
       "check-file/filename-naming-convention": [
         "error",
-        { "src/**/!(not-found).{ts,tsx}": MODULE_FILE_CASE, "e2e/**/*.ts": MODULE_FILE_CASE },
+        { "src/**/!(not-found|global-error).{ts,tsx}": MODULE_FILE_CASE, "e2e/**/*.ts": MODULE_FILE_CASE },
         { ignoreMiddleExtensions: true },
       ],
     },
