@@ -636,18 +636,15 @@ async function heldOf({ userId, pending }: { userId: string; pending: readonly s
    never shows: a row they miss stands here and nowhere else. */
 describe("an account deleted, against a real database", () => {
   it("leaves nothing of the address once its own link completes, and nothing of anybody else's goes", async () => {
-    const { runWithRequestScope } = await import("./requestScope");
+    const { runWithRequestScope, setRequestActor } = await import("./requestScope");
     const bystander = await seedAccount("unbeteiligt-db@example.org");
     const person = await seedAccount("loeschende-db@example.org");
     const erasuresBefore = erasuresAsked;
 
-    const answer = await runWithRequestScope(
-      {
-        traceId: `${"0".repeat(31)}4`,
-        actor: { email: "loeschende-db@example.org", lane: "person", authTime: 0, factor: "code" },
-      },
-      () => deleteOwnAccount(person.token, new Headers({ ...ORIGIN, cookie: person.cookie })),
-    );
+    const answer = await runWithRequestScope({ traceId: `${"0".repeat(31)}4` }, () => {
+      setRequestActor({ email: "loeschende-db@example.org", lane: "person", authTime: 0, factor: "code" });
+      return deleteOwnAccount(person.token, new Headers({ ...ORIGIN, cookie: person.cookie }));
+    });
 
     expect([answer, erasuresAsked - erasuresBefore]).toStrictEqual(["deleted", 1]);
     expect(await heldOf(person)).toStrictEqual({ user: 0, sessions: 0, passkeys: 0, pending: 0 });
@@ -657,18 +654,15 @@ describe("an account deleted, against a real database", () => {
   /* Both deletion paths find an account by its user row, so the helper goes first: a failure at that row
      leaves it for them to find, and no passkey past their reach. */
   it("leaves the user row alone where the library's delete of it fails, its passkeys and pending rows gone", async () => {
-    const { runWithRequestScope } = await import("./requestScope");
+    const { runWithRequestScope, setRequestActor } = await import("./requestScope");
     const person = await seedAccount("nutzerzeile-db@example.org");
     deletingUser = () => Promise.reject(new Error("planted: the user row's delete fails"));
 
     await expect(
-      runWithRequestScope(
-        {
-          traceId: `${"0".repeat(31)}5`,
-          actor: { email: "nutzerzeile-db@example.org", lane: "person", authTime: 0, factor: "code" },
-        },
-        () => deleteOwnAccount(person.token, new Headers({ ...ORIGIN, cookie: person.cookie })),
-      ),
+      runWithRequestScope({ traceId: `${"0".repeat(31)}5` }, () => {
+        setRequestActor({ email: "nutzerzeile-db@example.org", lane: "person", authTime: 0, factor: "code" });
+        return deleteOwnAccount(person.token, new Headers({ ...ORIGIN, cookie: person.cookie }));
+      }),
       // Past the library's spend of the link, so of an outcome the press cannot name, the planted failure its cause.
     ).rejects.toSatisfy(
       (thrown: Error) =>

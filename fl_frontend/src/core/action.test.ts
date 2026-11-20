@@ -44,7 +44,7 @@ const log = captureLog();
 const { action, numberBox, PAGE_HOLDER } = await import("./action");
 const { afterTheResponse } = await import("./afterResponse");
 const { sendToBackend } = await import("./api");
-const { getRequestActor, REQUEST_DEADLINE_MS, requestTimeLeft } = await import("./requestScope");
+const { boundCall, getRequestActor, REQUEST_DEADLINE_MS } = await import("./requestScope");
 
 /** A person granted nothing, whom a case arrives as for the person lane. */
 const PERSON = "spielerin@example.org";
@@ -354,12 +354,16 @@ describe("the site's cache", () => {
   // rather than what the action's 30 seconds have left.
   it("stands when the body's write runs behind the response, in a scope of its own", async () => {
     const clock = vi.spyOn(performance, "now").mockReturnValue(0);
-    const seen: { actor: unknown; left: number }[] = [];
+    const bounds = vi.spyOn(AbortSignal, "timeout");
+    const seen: { actor: unknown; bound: unknown }[] = [];
     try {
       // Under the actor the administrator's guard recorded for the action.
       const answer = await onLane("admin", async () => {
         afterTheResponse(async () => {
-          seen.push({ actor: getRequestActor(), left: requestTimeLeft() });
+          // A bound past the deadline's length, so the call is cut to what the work's deadline has left: the action's
+          // 10 seconds where it inherited them, its own 30, or the bound itself where no scope encloses it.
+          boundCall(REQUEST_DEADLINE_MS + 1);
+          seen.push({ actor: getRequestActor(), bound: bounds.mock.calls.at(-1)?.[0] });
           await sends("POST");
         });
       })({ name: "Nord" });
@@ -369,11 +373,12 @@ describe("the site's cache", () => {
       for (const task of behind.splice(0)) await task();
     } finally {
       clock.mockRestore();
+      bounds.mockRestore();
     }
 
     expect(sent()).toStrictEqual([`POST ${PROBE}`]);
     expect(cacheSteps()).toStrictEqual([]);
-    expect(seen).toStrictEqual([{ actor: undefined, left: REQUEST_DEADLINE_MS }]);
+    expect(seen).toStrictEqual([{ actor: undefined, bound: REQUEST_DEADLINE_MS }]);
   });
 });
 
