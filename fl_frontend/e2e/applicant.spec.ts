@@ -6,7 +6,7 @@
 import { expect } from "@playwright/test";
 
 import { apply, confirmSeat, fillSeat, openApplication, personOf, SEATS, SUBJECT } from "./support/application";
-import { choose, enteredDialog, enteredQuestion, pressRowAct, typeInto } from "./support/controls";
+import { choose, enteredDialog, enteredQuestion, pressRowAct, toast, typeInto } from "./support/controls";
 import { test } from "./support/journey";
 import { PLANNED } from "./support/madeUpLeague";
 import { filedMessages, mailedLink, mailedMessage } from "./support/mailSink";
@@ -98,9 +98,8 @@ test("a seat objects, „Sitz bearbeiten“ seats another person, and the fresh 
   const replacement = { firstName: "Noah", lastName: "Neumann", address: `neu.${school.toLowerCase()}@example.com`, phone: "069 90009004" };
   await fillSeat(dialog, replacement);
   await dialog.getByRole("button", { name: "Speichern" }).click();
-  // The write owes the person a link, so the dialog stays open on the address that link goes to.
-  await expect(dialog.getByText(replacement.address)).toBeVisible();
-  await dialog.getByRole("button", { name: "Zurück" }).click();
+  // The write owes the person a link, so the dialog closes on a toast naming the address that link goes to.
+  await expect(toast(administration, replacement.address)).toBeVisible();
   await expect(dialog).toBeHidden();
 
   // The seat's fresh link is the new person's, and their confirmation fills it.

@@ -50,7 +50,8 @@ test("a contact answers the date, admits the pupil and enters the line-up", asyn
   const fixtureLink = page.getByRole("link", { name: fixture, exact: true });
   await expect(spielbestaetigungen.getByRole("link", { name: fixture, exact: true })).toBeVisible();
   await expect(box(page, "Aufstellungen").getByRole("link", { name: fixture, exact: true })).toBeVisible();
-  await expect(box(page, "Registrierungen").getByRole("link", { name: pupil, exact: true })).toBeVisible();
+  // The card names the pupil, and its title is the one link to the list.
+  await expect(box(page, "Registrierungen").getByText(pupil, { exact: true })).toBeVisible();
 
   // „Zusagen“ acts at once: its toast, and the answered date leaves the box. A card row carries no role, so the row is
   // the kit's marked one holding the fixture's link.
