@@ -61,6 +61,11 @@ const nextConfig: NextConfig = {
     agentUpgrade: false,
   },
   output: "standalone",
+  // The server's own trace carries sharp, which only the image optimiser loads, and that is off above. Next applies
+  // the patterns under the key `next-server` to that trace, as its own build does for the same two packages on Vercel.
+  outputFileTracingExcludes: {
+    "next-server": ["**/node_modules/sharp/**/*", "**/node_modules/@img/**/*"],
+  },
   // No type check inside `next build`, the image's included: the gate's frontend scope runs tsc on
   // every CI event, and the publish job needs it green. Next skips its own check whole rather than
   // hiding what it finds.
