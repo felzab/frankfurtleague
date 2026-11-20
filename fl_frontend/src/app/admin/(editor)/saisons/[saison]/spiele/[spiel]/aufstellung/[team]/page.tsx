@@ -9,6 +9,7 @@ import { SERVER_COPY } from "@/core/serverCopy";
 import { LINEUP_WORDS, playersOf } from "@/features/aufstellungen/players";
 import { getAufstellung } from "@/features/aufstellungen/queries";
 import { eventChipOf, matchdayOf, matchName } from "@/features/spiele/blocks";
+import { StatusPage } from "@/kit/StatusPage";
 import { adminIdParamOf } from "@/shared/utils/adminRead";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
@@ -65,21 +66,34 @@ function leadOf({ spiel }: FLAufstellungResponse): Copy {
 /**
  * One club's line-up for a match as the league enters it, on one read of the fixture, the squad and the stored line-up:
  * the editor, open before the team's lock and after it alike, since the clock locks nothing for the league. A match with
- * no day or hour takes no line-up, so its editor opens with nobody to name. A finished season's line-ups take no write
- * (`saison_past`), so the editor opens on one read-only, as the match editor does.
+ * no day or hour takes no line-up, so the page says its date is open, as the referee's report page does, and leads to
+ * the match editor, where the slot is set. A finished season's line-ups take no write (`saison_past`), so the editor
+ * opens on one read-only, as the match editor does, whatever became of the match's slot since.
  */
 export default async function AdminAufstellungPage({ params }: Props) {
   const found = await findAufstellung(params);
   if (found === null) notFound();
 
-  const closed = found.saison_status === "past" ? SERVER_COPY.refusalLine.saison_past : undefined;
-  // The block's every act answers a press with why it is closed: the season's end before the missing slot.
-  const locked = closed ?? (found.marks === null ? COPY.aufstellung.needsSlot : undefined);
   const { spiel } = found;
+  const title = titleOf(found);
+  const closed = found.saison_status === "past" ? SERVER_COPY.refusalLine.saison_past : undefined;
+  if (closed === undefined && found.marks === null) {
+    return (
+      <StatusPage
+        scope="area"
+        title={title}
+        card={{
+          tone: "info",
+          title: COPY.spielplan.when(null, null),
+          next: { label: COPY.shared.toSpiel, href: ROUTES.adminSpiel.path(spiel.saison_id, spiel.spiel_id) },
+        }}
+      />
+    );
+  }
   return (
     <AdminAufstellung
       team={found.team_id}
-      title={titleOf(found)}
+      title={title}
       // What befell the match, after the title as every match block draws it.
       {...(spiel.sonderereignis === null
         ? {}
@@ -88,8 +102,8 @@ export default async function AdminAufstellungPage({ params }: Props) {
       aufstellung={{ id: found.spiel.spiel_id, version: found.version, spieler: found.spieler }}
       players={playersOf(found)}
       words={LINEUP_WORDS}
-      {...(locked === undefined ? {} : { locked })}
-      {...(closed === undefined ? {} : { closed })}
+      // The block's every act answers a press with why it is closed.
+      {...(closed === undefined ? {} : { locked: closed, closed })}
     />
   );
 }

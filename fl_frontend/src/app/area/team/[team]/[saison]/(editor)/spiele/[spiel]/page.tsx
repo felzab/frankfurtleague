@@ -10,6 +10,7 @@ import { LINEUP_WORDS, playersOf } from "@/features/aufstellungen/players";
 import { getAufstellungSelf } from "@/features/aufstellungen/queries";
 import { readAsSeatHolder, requireTeamSeats, teamMetadata } from "@/features/roles/resolvers";
 import { eventChipOf, matchdayOf, matchName } from "@/features/spiele/blocks";
+import { StatusPage } from "@/kit/StatusPage";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { objectIdParamOf } from "@/shared/utils/routeParams";
 
@@ -82,29 +83,40 @@ function chipOf({ spiel, marks }: FLAufstellungResponse): ChipProps | undefined 
  * A match's line-up as its club's seats enter it, on one read of the fixture, the squad and the stored line-up: the
  * editor until one hour before kick-off, and from then the same editor closed, as the administration opens a record it
  * may no longer change, since the league alone changes the line-up now. A match with no day or hour takes no line-up,
- * so its editor opens with nobody to name.
+ * so the page says its date is open, as the referee's report page does, and leads to the team's Übersicht.
  */
 export default async function AufstellungPage({ params }: Props) {
   const [seat] = await requireTeamSeats(params, address);
   const found = await readAsSeatHolder(() => lineupAt(params, seat.team_id, seat.saison_id));
   if (found === null) notFound();
 
-  const words = COPY.aufstellung;
-  const closed = found.marks?.phase === "locked" ? words.lockedLine : undefined;
-  // The block's every act answers a press with why it is closed: the lock before the missing slot.
-  const locked = closed ?? (found.marks === null ? words.needsSlot : undefined);
+  const title = titleOf(found);
+  if (found.marks === null) {
+    return (
+      <StatusPage
+        scope="area"
+        title={title}
+        card={{
+          tone: "info",
+          title: COPY.spielplan.when(null, null),
+          next: { label: COPY.shared.end.toOverview, href: ROUTES.teamOverview.path(seat.team_id, seat.saison_id) },
+        }}
+      />
+    );
+  }
+  const closed = found.marks.phase === "locked" ? COPY.aufstellung.lockedLine : undefined;
   const chip = chipOf(found);
   return (
     <TeamAufstellung
       team={seat.team_id}
-      title={titleOf(found)}
+      title={title}
       {...(chip === undefined ? {} : { chip })}
       lead={leadOf(found)}
       aufstellung={{ id: found.spiel.spiel_id, version: found.version, spieler: found.spieler }}
       players={playersOf(found)}
       words={LINEUP_WORDS}
-      {...(locked === undefined ? {} : { locked })}
-      {...(closed === undefined ? {} : { closed })}
+      // The block's every act answers a press with why it is closed.
+      {...(closed === undefined ? {} : { locked: closed, closed })}
     />
   );
 }
