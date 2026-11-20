@@ -85,8 +85,8 @@ const lockedBy = (reason: Copy | undefined) => (reason === undefined ? {} : { lo
 const optionOf = (team: SaisonTeam): Option => ({ id: team.id, label: { record: `${team.name} · ${COPY.shared.season.gruppe(team.gruppe)}` } });
 
 /**
- * What the swap and the replacement are handed of the season: whether it has begun, which locks both, and whether it
- * has finished, which leaves their act out.
+ * What the swap and the replacement are handed of the season: whether it has begun, which locks both, their lock line
+ * saying so once, and whether it has finished, which leaves their act out.
  */
 type SeasonState = { begun: boolean; isClosed: boolean };
 
@@ -134,7 +134,9 @@ function Swap({
       acts={[
         {
           act: { verb: "swap", object: WORDS.gruppen },
-          isDisabled: begun || first === null || second === null,
+          isDisabled: first === null || second === null,
+          // Locked from the start, which the editor's lock line says.
+          locked: begun || undefined,
           run: async () => (first === null || second === null ? { ok: false } : swap({ saison_id: saison, team1_id: first, team2_id: second })),
         },
       ]}>
@@ -194,7 +196,8 @@ function Replacement({
       acts={[
         {
           act: { verb: "replace", object: TEAM },
-          isDisabled: begun || consequence === undefined,
+          isDisabled: consequence === undefined,
+          locked: begun || undefined,
           // Asked only once both clubs are chosen, the button staying closed until then.
           confirm: { verb: "replace", subject: TEAM, consequence: consequence ?? COPY.shared.noValue, tone: "primary" },
           run: async () =>

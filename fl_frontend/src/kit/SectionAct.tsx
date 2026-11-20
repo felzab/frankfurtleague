@@ -44,8 +44,11 @@ type AtOnce = { label: Copy; press: () => void; act?: never; run?: never; varian
 export type SectionActItem = {
   /** Closed while the section's inputs are incomplete, its fields showing what is missing, or while the press would reach nobody. */
   isDisabled?: boolean;
-  /** Why its write would refuse the record as it stands, which the page read, the button saying why. */
-  locked?: Copy;
+  /**
+   * Why its write would refuse the record as it stands, which the page read, the button saying why; `true` where the
+   * editor's lock line already says it, the button locked with no reason of its own.
+   */
+  locked?: Copy | true;
 } & (Sending | AtOnce);
 
 const NO_INPUTS: ReadonlyArray<unknown> = [];
@@ -59,14 +62,16 @@ type Press = { run: () => Promise<ActionAnswer>; verb: DoneVerb };
 
 /** One act's button, behind its question where it asks one; its own component, since its lock is read by a hook. */
 function ActButton({ item, isBusy, onPress }: { item: SectionActItem; isBusy: boolean; onPress: () => void }) {
-  const reason = useLocked(item.locked);
+  // A lock the lock line says wins over the unsaved draft's reason, since a save would not open it.
+  const reason = useLocked(item.locked === true ? undefined : item.locked);
+  const lock = item.locked === true ? true : reason;
   if (item.press !== undefined)
     return (
       <Button
         variant="secondary"
         label={item.label}
         isDisabled={item.isDisabled ?? false}
-        locked={reason}
+        locked={lock}
         onPress={item.press}
       />
     );
@@ -79,7 +84,7 @@ function ActButton({ item, isBusy, onPress }: { item: SectionActItem; isBusy: bo
         label={label}
         isBusy={isBusy}
         isDisabled={item.isDisabled ?? false}
-        locked={reason}
+        locked={lock}
         onPress={onPress}
       />
     );
@@ -90,7 +95,7 @@ function ActButton({ item, isBusy, onPress }: { item: SectionActItem; isBusy: bo
         onPress();
         return item.run();
       }}
-      trigger={{ label, variant: item.variant, isDisabled: item.isDisabled ?? false, locked: reason }}
+      trigger={{ label, variant: item.variant, isDisabled: item.isDisabled ?? false, locked: lock }}
     />
   );
 }
