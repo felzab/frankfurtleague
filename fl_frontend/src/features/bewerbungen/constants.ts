@@ -1,10 +1,4 @@
-import type { FLBewerbungKontaktMinAgeYears, FLSignatoryMinAgeYears, FLTeamShorthandLength } from "@/core/generated/client/types";
-
-/**
- * A client control cannot import the generated module that holds the pattern, so a control's `maxLength` and the check
- * of a complete code read the length from here.
- */
-export const SHORTHAND_LENGTH = 3 satisfies FLTeamShorthandLength;
+import type { FLBewerbungKontaktMinAgeYears, FLSignatoryMinAgeYears } from "@/core/generated/client/types";
 
 /** The floor a contact person's birthdate has to clear. */
 export const BEWERBUNG_MIN_AGE = 16 satisfies FLBewerbungKontaktMinAgeYears;

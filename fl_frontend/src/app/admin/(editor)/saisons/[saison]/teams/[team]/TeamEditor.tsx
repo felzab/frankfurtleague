@@ -5,7 +5,7 @@ import { useState } from "react";
 import { ADMIN_COPY } from "@/core/copy/admin";
 import { COPY } from "@/core/copy/shared";
 import { FLAustrittType } from "@/core/generated/client/types";
-import { SHORTHAND_LENGTH } from "@/features/bewerbungen/constants";
+import { SHORTHAND_LENGTH } from "@/features/teams/constants";
 import { schulformOptions } from "@/features/teams/options";
 import { SeatActs } from "@/features/teams/SeatActs";
 import { AddressFields } from "@/kit/AddressFields";

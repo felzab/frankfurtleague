@@ -4,7 +4,7 @@ import { useState } from "react";
 
 import { ADMIN_COPY } from "@/core/copy/admin";
 import { COPY } from "@/core/copy/shared";
-import { SHORTHAND_LENGTH } from "@/features/bewerbungen/constants";
+import { SHORTHAND_LENGTH } from "@/features/teams/constants";
 import { schulformOptions } from "@/features/teams/options";
 import { AddressFields } from "@/kit/AddressFields";
 import { FieldGroup } from "@/kit/FieldGroup";

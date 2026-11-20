@@ -1,7 +1,6 @@
 import { ADMIN_COPY } from "@/core/copy/admin";
 import { COPY } from "@/core/copy/shared";
-import { SHORTHAND_LENGTH } from "@/features/bewerbungen/constants";
-import { trikotFarbeLabel } from "@/features/teams/constants";
+import { SHORTHAND_LENGTH, trikotFarbeLabel } from "@/features/teams/constants";
 import { trikotOptions } from "@/features/teams/options";
 import { Callout } from "@/kit/Callout";
 import { FieldGroup } from "@/kit/FieldGroup";

@@ -2,7 +2,7 @@ import { COPY } from "@/core/copy/shared";
 import { ACTIVE_CHIP, RETIRED_CHIP } from "@/kit/stateChips";
 
 import type { Copy } from "@/core/copy";
-import type { FLAustrittType, FLKontaktSeat, FLTrainerAlso, FLTrikotFarbe } from "@/core/generated/client/types";
+import type { FLAustrittType, FLKontaktSeat, FLTeamShorthandLength, FLTrainerAlso, FLTrikotFarbe } from "@/core/generated/client/types";
 import type { ChipProps } from "@/kit/Chip";
 
 // Keyed by every route, so a route the contract adds fails to compile until the catalogue words it.
@@ -34,6 +34,12 @@ export function adminTeamChip(retiredSince: string | null, exit: FLAustrittType 
   if (retiredSince !== null) return RETIRED_CHIP;
   return exit === null ? ACTIVE_CHIP : { tone: "danger", label: austrittState(exit) };
 }
+
+/**
+ * A client control cannot import the generated module that holds the pattern, so a control's `maxLength` and the check
+ * of a complete code read the length from here.
+ */
+export const SHORTHAND_LENGTH = 3 satisfies FLTeamShorthandLength;
 
 export function trikotFarbeLabel(farbe: FLTrikotFarbe): Copy {
   return COPY.team.trikotFarbeName[farbe];
