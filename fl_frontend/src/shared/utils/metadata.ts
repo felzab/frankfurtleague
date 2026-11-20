@@ -1,3 +1,4 @@
+import { SITE_LOCALE } from "@/core/brand";
 import { textOf } from "@/core/copy";
 import { COPY } from "@/core/copy/shared";
 
@@ -5,8 +6,11 @@ import type { Copy, Words } from "@/core/copy";
 import type { RouteEntry } from "@/core/routes";
 import type { Metadata, ResolvingMetadata } from "next";
 
-/** The preview fields every page shares, which the root layout declares beside the share image. */
-export const SITE_OPEN_GRAPH = { siteName: COPY.brand.name, locale: "de_DE", type: "website" } as const;
+/**
+ * The preview fields every page shares, which the root layout declares beside the share image. Open Graph spells the
+ * locale with an underscore, `de_DE`.
+ */
+export const SITE_OPEN_GRAPH = { siteName: COPY.brand.name, locale: SITE_LOCALE.replace("-", "_"), type: "website" } as const;
 
 /**
  * A page's metadata from its route's row and its address: the title, the description, the address as the
