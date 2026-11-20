@@ -40,8 +40,9 @@ const lineup = tv({
     row: `relative ${rowHeight({ form: "fixed" })} ${stacked()}`,
     // The name takes the room the facts leave and is cut with „…“ where it is longer. A phone's line holds a name's
     // least width and „Nachnominiert“ only one over the other: a name over its chip is 42 px, which 6 px of padding
-    // keep inside the row's 56, so such a row stands as tall as one without a chip.
-    name: "w-full px-3 py-2 @max-2xl:py-1.5",
+    // keep inside the row's 56 on a touch screen and 4 inside its 52 with a mouse, so such a row stands as tall as one
+    // without a chip.
+    name: "w-full px-3 py-2 @max-2xl:py-1 pointer-coarse:@max-2xl:py-1.5",
     // The line's least width is the name's, 5 rem, so the facts beside it narrow the column to no less. No status
     // column: a row's tick and act stand taller than its name's line, which a row of several lines cannot centre
     // against them.

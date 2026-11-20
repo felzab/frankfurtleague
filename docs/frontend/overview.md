@@ -194,8 +194,8 @@ switch by the screen at `lg` instead:
   `fl_frontend/src/kit/Prose.tsx`). Every block inside a landing section reads its own box, as on a
   rail page.
 - **A part that answers a phone's touch rather than the room**: a form footer's acts stacking across
-  the width, the filters folding into a sheet, a read page's acts, and a row's taller touch height.
-  The screen tells the device, and a box does not.
+  the width, the filters folding into a sheet, and a read page's acts. The screen tells the device,
+  and a box does not.
 
 A new block takes the box's rule unless it is one of these.
 
@@ -203,7 +203,9 @@ A new block takes the box's rule unless it is one of these.
 (`pointer-coarse:h-10`, as in `fl_frontend/src/kit/Tabs.tsx`). That is less than Apple's 44 pt and
 Android's 48 dp, since the league's visitors are mostly young and a larger control reads as bulky. A
 link the kit draws as a control (`fl_frontend/src/kit/Link.tsx :: frameLink`, a menu's entries) is
-40 px like one; a small text link, such as the footer's, keeps the height of its text.
+40 px like one; a small text link, such as the footer's, keeps the height of its text. A list row
+answers the pointer the same way, 52 px tall with a mouse and 56 on a touch screen
+(`fl_frontend/src/kit/cardStyles.ts :: rowHeight`), and a school's tile 44 and 48.
 
 **Every string a visitor reads comes from the catalogue**, and the kit's text props refuse one typed
 into a page: [`copy.md`](copy.md) says where each string, date and number comes from and how it is
