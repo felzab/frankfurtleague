@@ -134,6 +134,8 @@ export function BewerbungFields({
 }) {
   const [hasTyped, setHasTyped] = useState(false);
   const [switchedOn, setSwitchedOn] = useState(false);
+  // The picker's pick, held here because the picker shows none while the switch is on and gives it back once it is off.
+  const [picked, setPicked] = useState<string | null>(null);
   const [trainerAlso, setTrainerAlso] = useState<string>(NO_SECOND_SEAT);
   // Written as it is typed and read when a box comes back, so no render follows a keystroke.
   const [typed] = useState(() => new Map<string, string>());
@@ -162,12 +164,17 @@ export function BewerbungFields({
       <Section title={COPY.shared.facts.school}>
         {isListed && (
           <>
+            {/* Drawn while the switch is on, so the switch never moves under the finger, but dimmed and empty: the new
+                school is the answer then, and a disabled box posts nothing. */}
             <ComboBox
               label={COPY.shared.facts.school}
               description={bewerbung.schoolDescription}
               name="team_id"
               isRequired={!isNewSchool}
+              isDisabled={switchedOn}
               options={schools}
+              value={switchedOn ? null : picked}
+              onChange={setPicked}
             />
             <Switch
               label={bewerbung.schoolNotListed}
