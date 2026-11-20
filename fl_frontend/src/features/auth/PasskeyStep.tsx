@@ -4,11 +4,10 @@ import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import { loadAuthClient, usePreloadedAuthClient } from "@/core/auth/browserClient";
-import { allowedReturnAddress, RETURN_PARAMETER, withReturnAddress } from "@/core/auth/returnAddress";
+import { RETURN_PARAMETER, withReturnAddress } from "@/core/auth/returnAddress";
 import { PUBLIC_COPY } from "@/core/copy/public";
 import { COPY } from "@/core/copy/shared";
 import { SignInPage } from "@/kit/SignInPage";
-import { useNavigate } from "@/kit/WholePage";
 import { leaveDocumentFor } from "@/shared/utils/documentNavigation";
 
 import { describeCeremonyRefusal, refusalCode, refusalStatus, SESSION_NOT_FRESH } from "./passkeyAnswers";
@@ -16,16 +15,16 @@ import { describeCeremonyRefusal, refusalCode, refusalStatus, SESSION_NOT_FRESH 
 import type { Copy } from "@/core/copy";
 
 /** The landing's `PasskeyStep` verdict, which the page hands over. */
-type Step = "enrol" | "assert" | "offer";
+type Step = "enrol" | "assert";
 
 /** One set of words per step, so a heading and its control cannot drift apart. */
-const WORDS = { enrol: PUBLIC_COPY.signIn.passkey.setUp, assert: PUBLIC_COPY.signIn.passkey.signIn, offer: PUBLIC_COPY.signIn.passkey.offer };
+const WORDS = { enrol: PUBLIC_COPY.signIn.passkey.setUp, assert: PUBLIC_COPY.signIn.passkey.signIn };
 
 /** What the reader is told, and whether the step this view was handed may have moved on. */
 type Held = { readonly sentence: Copy; readonly stale: boolean };
 
 async function ceremonyHeld(step: Step): Promise<Held | null> {
-  const enrolling = step !== "assert";
+  const enrolling = step === "enrol";
 
   try {
     // The library's own client both ways: it holds the WebAuthn call beside the two endpoints that
@@ -54,21 +53,17 @@ async function ceremonyHeld(step: Step): Promise<Held | null> {
 
 // Removal lives behind a fresh sign-in, and the plugin's own three management paths stay refused to the browser.
 
-/** Where „Später“ goes, which only the offer carries: the requirement and the assertion have no way past them. */
-type Props = { readonly address: string; readonly next: string } & (
-  { readonly step: "enrol" | "assert" } | { readonly step: "offer"; readonly later: string }
-);
+/** The requirement and the assertion have no way past them: the administration admits no session without the passkey. */
+type Props = { readonly step: Step; readonly address: string; readonly next: string };
 
-export function PasskeyStep(props: Props) {
-  const { step, address, next } = props;
+export function PasskeyStep({ step, address, next }: Props) {
   const router = useRouter();
-  const navigate = useNavigate();
   const [isPending, setIsPending] = useState(false);
   const [error, setError] = useState<Copy | null>(null);
   const words = WORDS[step];
   usePreloadedAuthClient();
-  // The address a mailed link asked for, which both ways on carry where the allowlist holds it.
-  const asked = allowedReturnAddress(useSearchParams().get(RETURN_PARAMETER));
+  // The address a mailed link asked for, carried on where the allowlist holds it.
+  const asked = useSearchParams().get(RETURN_PARAMETER);
 
   const run = async () => {
     setIsPending(true);
@@ -98,12 +93,6 @@ export function PasskeyStep(props: Props) {
       // `isBusy` is the whole of the double-press guard: a second prompt aborts the first, which this view would
       // then report as a refusal of a press made while it ran.
       go={{ label: words.button, isBusy: isPending, onPress: () => void run() }}
-      // The session is unchanged, so a soft navigation is the right tool here.
-      later={
-        props.step === "offer"
-          ? { label: PUBLIC_COPY.signIn.passkey.later, isDisabled: isPending, onPress: () => navigate(asked ?? props.later) }
-          : undefined
-      }
       row={error}
     />
   );

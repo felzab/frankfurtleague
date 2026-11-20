@@ -41,7 +41,9 @@ async function SecurityContent() {
     <SecurityBoxes
       holder={subject.email}
       passkeys={held.rows}
-      setUpClosed={setUpClosedOf(served, held)}
+      // An administrator's alone: a person's first passkey would outrank their mailbox for good, and the enrolment
+      // refuses it. A person keeps the passkeys they hold, each with its removal.
+      setUp={served.isAdmin ? { closed: setUpClosedOf(served, held) } : undefined}
       // An administrator's last passkey is their only way into the administration, which the removal refuses.
       lastKept={served.isAdmin && held.rows.length === 1 ? ACCOUNT_COPY.passkeys.lastKeptLocked : undefined}
       devices={ACCOUNT_COPY.devices.description(devices)}
@@ -50,7 +52,7 @@ async function SecurityContent() {
   );
 }
 
-/** Sicherheit: the passkeys, and „Alle anderen abmelden“. */
+/** Sicherheit: an administrator's passkeys or those a person holds, and „Alle anderen abmelden“. */
 export default function AccountSecurityPage() {
   return (
     <AccountPage route="accountSecurity">

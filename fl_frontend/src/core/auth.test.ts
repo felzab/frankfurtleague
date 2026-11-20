@@ -1200,8 +1200,8 @@ describe("which sessions may enrol a passkey, and how many rows they may leave",
   });
 
   /* The `auth.api` arm, which the hook returns early for: the library's own `freshAge` holds it as it holds HTTP. */
-  it("refuses a person's first passkey past the library's `freshAge` where the hook never runs", async () => {
-    const { cookie, row } = await signIn(PERSON_EMAIL);
+  it("refuses an administrator's first passkey past the library's `freshAge` where the hook never runs", async () => {
+    const { cookie, row } = await signIn(ADMIN_EMAIL);
     const headers = new Headers({ ...ORIGIN, cookie, origin: "http://localhost:3000" });
 
     const offered = await auth.api.generatePasskeyRegistrationOptions({ headers, returnHeaders: true });
@@ -1217,12 +1217,33 @@ describe("which sessions may enrol a passkey, and how many rows they may leave",
     expect(store.passkey).toStrictEqual([]);
   });
 
-  it("refuses the enrolment that would take a person past the cap", async () => {
-    const { cookie, row } = await signIn(PERSON_EMAIL);
-    for (let index = 0; index < PASSKEY_LIMIT; index += 1) store.passkey.push({ ...aPasskeyFor(row.userId), id: `a-passkey-${String(index)}` });
+  /* A person's first passkey would outrank their mailbox for good, so no page offers one, and only a request built by
+     hand reaches this refusal. The verify half is met with options served while the address held a grant. */
+  it("refuses a person's enrolment at both halves, writing no passkey and leaving the code's session", async () => {
+    const PERSON = { ...NOTHING_HELD, seats: [A_SEAT], account: true };
+    BACKENDS.set(PERSON_EMAIL, PERSON);
+    try {
+      const { cookie, row } = await signIn(PERSON_EMAIL);
+      expect((await overHttp("/passkey/generate-register-options", { cookie })).status, "the options half served a person").toBe(404);
 
-    expect((await overHttp("/passkey/generate-register-options", { cookie })).status).toBe(404);
-    expect(store.passkey.length).toBe(PASSKEY_LIMIT);
+      BACKENDS.set(PERSON_EMAIL, A_GRANT);
+      const offered = await overHttp("/passkey/generate-register-options", { cookie });
+      expect(offered.status, await offered.clone().text()).toBe(200);
+      const { challenge } = (await offered.json()) as { challenge: string };
+      BACKENDS.set(PERSON_EMAIL, PERSON);
+
+      const refused = await overHttp("/passkey/verify-registration", {
+        method: "POST",
+        cookie: `${cookie}; ${cookieHeader(offered)}`,
+        body: { response: registrationFor(challenge, true) },
+      });
+
+      expect(refused.status).toBe(404);
+      expect(store.passkey, "a person enrolled a passkey").toStrictEqual([]);
+      assert.ok(holdsSession(row), "a refused enrolment signed its caller out");
+    } finally {
+      BACKENDS.delete(PERSON_EMAIL);
+    }
   });
 
   /* Driven at `HEAD` of the design: one stepped-up session wrote twenty-one rows with nothing
@@ -1749,14 +1770,16 @@ describe("what a ban ends in the sign-in store", () => {
   /* The enrolment arm reads its caller through the library, past every lane above: a stamped session
      still inside the enrolment window would add a passkey once the ban is lifted. */
   it("enrols no passkey from a session the ending stamped, once the ban is lifted", async () => {
-    BACKENDS.set(PERSON_EMAIL, { ...NOTHING_HELD, seats: [A_SEAT], account: true });
+    // An administrator of its own, since an administrator alone enrols, and the stamp outlives the case.
+    const STAMPED_EMAIL = "verwaltung-gestempelt@example.org";
+    BACKENDS.set(STAMPED_EMAIL, A_GRANT);
     try {
-      const { cookie, row } = await signIn(PERSON_EMAIL);
+      const { cookie, row } = await signIn(STAMPED_EMAIL);
       expect((await overHttp("/passkey/generate-register-options", { cookie })).status, "the control was refused before any ending").toBe(200);
 
       adapterCalls.refusing = (key, { model }) => key === "deleteMany" && model === "session";
       try {
-        await endSessionsOfAddress(PERSON_EMAIL);
+        await endSessionsOfAddress(STAMPED_EMAIL);
       } finally {
         adapterCalls.refusing = undefined;
       }
@@ -1764,7 +1787,7 @@ describe("what a ban ends in the sign-in store", () => {
 
       expect((await overHttp("/passkey/generate-register-options", { cookie })).status).toBe(404);
     } finally {
-      BACKENDS.delete(PERSON_EMAIL);
+      BACKENDS.delete(STAMPED_EMAIL);
     }
   });
 });
@@ -2255,16 +2278,18 @@ describe("which sign-ins the gate admits as the session is minted", () => {
   /* The account page enrols with no `createSession`, so no mint's gate stands in front of it: a session
      a ban's ending missed, or one a mint raced, would otherwise leave a passkey that outlives both. */
   it("refuses a barred address's enrolment that signs nobody in, at both halves, writing no passkey", async () => {
-    const { cookie } = await signIn(BARRED_EMAIL);
-    BACKENDS.set(BARRED_EMAIL, { ...NOTHING_HELD, seats: [A_SEAT], account: true, barred: true });
+    // An administrator's address, so the ban is the one refusal it meets.
+    const { cookie } = await signIn(ADMIN_EMAIL);
+    BACKENDS.set(ADMIN_EMAIL, { ...A_GRANT, barred: true });
 
     expect((await overHttp("/passkey/generate-register-options", { cookie })).status, "the options half served a barred address").toBe(404);
 
     // The verify half, reached with options served before the ban.
-    BACKENDS.delete(BARRED_EMAIL);
+    BACKENDS.delete(ADMIN_EMAIL);
     const offered = await overHttp("/passkey/generate-register-options", { cookie });
+    expect(offered.status, await offered.clone().text()).toBe(200);
     const { challenge } = (await offered.json()) as { challenge: string };
-    BACKENDS.set(BARRED_EMAIL, { ...NOTHING_HELD, seats: [A_SEAT], account: true, barred: true });
+    BACKENDS.set(ADMIN_EMAIL, { ...A_GRANT, barred: true });
 
     const refused = await overHttp("/passkey/verify-registration", {
       method: "POST",
@@ -2368,7 +2393,8 @@ describe("a sign-in the ban's ending overtook between its gate read and its row"
      transaction later, so its row is dated by that earlier read. */
   it("dates a passkey set-up's session no later than the read its before hook carried", async () => {
     const { cookie, row } = await signIn(OVERTAKEN_EMAIL);
-    BACKENDS.set(OVERTAKEN_EMAIL, { ...NOTHING_HELD, seats: [A_SEAT], account: true });
+    // Granted, since an administrator alone sets a passkey up.
+    BACKENDS.set(OVERTAKEN_EMAIL, A_GRANT);
 
     try {
       const offered = await overHttp("/passkey/generate-register-options", { cookie });

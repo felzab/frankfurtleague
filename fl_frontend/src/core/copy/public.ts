@@ -1,7 +1,6 @@
-import { catalogue, PASSKEY_WITHOUT_CODE, spieltagName, VERB } from "../copy";
+import { catalogue, spieltagName, VERB } from "../copy";
 
 const SIGN_IN_WITH_PASSKEY = "Mit Passkey anmelden";
-const SET_UP_PASSKEY = { title: "Passkey einrichten", button: "Jetzt einrichten" } as const;
 const PASSKEY_REQUIRED = "Die Verwaltung ist erst mit einem Passkey erreichbar.";
 
 /** The words of the public forms, the sign-in and the landing, which a visitor reads. */
@@ -56,10 +55,8 @@ export const PUBLIC_COPY = catalogue({
     otherAddress: "Andere E-Mail-Adresse verwenden",
 
     passkey: {
-      setUp: { ...SET_UP_PASSKEY, sentence: PASSKEY_REQUIRED },
+      setUp: { title: "Passkey einrichten", sentence: PASSKEY_REQUIRED, button: "Jetzt einrichten" },
       signIn: { title: SIGN_IN_WITH_PASSKEY, sentence: PASSKEY_REQUIRED, button: "Jetzt anmelden" },
-      offer: { ...SET_UP_PASSKEY, sentence: PASSKEY_WITHOUT_CODE },
-      later: "Später",
     },
 
     /**

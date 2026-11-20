@@ -21,15 +21,16 @@ import type { AccountRow } from "@/kit/AccountBox";
 const PASSKEY = COPY.shared.passkey;
 
 /**
- * Sicherheit's two boxes: the passkeys, each a row with its rename and its removal, the set-up in the footer; and the
- * devices, with „Alle anderen abmelden“. `held` says the person holds a passkey, whose set-up and removal then ask the
- * passkey touch from their final press; `setUpClosed` closes the set-up where the page knows it would be refused, and
- * `lastKept` the removal of the one passkey an administrator must keep.
+ * Sicherheit's two boxes: the passkeys, each a row with its rename and its removal, an administrator's set-up in the
+ * footer, the box standing only where it holds a row or the set-up; and the devices, with „Alle anderen abmelden“.
+ * `held` says the person holds a passkey, whose set-up and removal then ask the passkey touch from their final press;
+ * `setUp.closed` closes the set-up where the page knows it would be refused, and `lastKept` the removal of the one
+ * passkey an administrator must keep.
  */
 export function SecurityBoxes({
   holder,
   passkeys,
-  setUpClosed,
+  setUp,
   lastKept,
   devices,
   name,
@@ -37,8 +38,8 @@ export function SecurityBoxes({
   /** The address the page is drawn for, which every act of the account posts and every touch answers for. */
   holder: string;
   passkeys: readonly PasskeyRow[];
-  /** Why no further passkey may be set up, or `undefined` where one may. */
-  setUpClosed: Copy | undefined;
+  /** An administrator's set-up, and why no further passkey may be set up, `undefined` where one may; `undefined` for a person. */
+  setUp: { closed: Copy | undefined } | undefined;
   /** Why the one passkey may not be removed, or `undefined` where every row's removal is open. */
   lastKept: Copy | undefined;
   /** Geräte's sentence, the count of devices signed in. */
@@ -50,7 +51,7 @@ export function SecurityBoxes({
   const held = passkeys.length > 0;
 
   // The library's own registration, a request of the browser's past every server action: the page is read again.
-  const setUp = async (): Promise<ActionAnswer> => {
+  const runSetUp = async (): Promise<ActionAnswer> => {
     const authClient = await loadAuthClient();
     const { error } = await authClient.passkey.addPasskey();
     if (error !== null) return { ok: false, reason: describeSetUpRefusal(error) };
@@ -101,19 +102,26 @@ export function SecurityBoxes({
 
   return (
     <>
-      <AccountBox
-        title={COPY.shared.passkeys}
-        description={ACCOUNT_COPY.passkeys.description}
-        act={{
-          run: setUp,
-          // The browser's own act posts no holder, so the touch before it answers for the page's address alone.
-          carry: { holder },
-          button: { label: COPY.shared.withObject(PASSKEY, "setUp") },
-          touch: held,
-          locked: setUpClosed,
-        }}>
-        {rows.length > 0 ? <AccountRows rows={rows} /> : undefined}
-      </AccountBox>
+      {/* A person holding none has nothing here to act on, and no way to add one. */}
+      {(setUp !== undefined || held) && (
+        <AccountBox
+          title={COPY.shared.passkeys}
+          description={ACCOUNT_COPY.passkeys.description}
+          act={
+            setUp === undefined
+              ? undefined
+              : {
+                  run: runSetUp,
+                  // The browser's own act posts no holder, so the touch before it answers for the page's address alone.
+                  carry: { holder },
+                  button: { label: COPY.shared.withObject(PASSKEY, "setUp") },
+                  touch: held,
+                  locked: setUp.closed,
+                }
+          }>
+          {held ? <AccountRows rows={rows} /> : undefined}
+        </AccountBox>
+      )}
       <AccountBox
         title={ACCOUNT_COPY.devices.title}
         description={devices}

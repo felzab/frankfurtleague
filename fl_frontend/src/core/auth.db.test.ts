@@ -151,6 +151,9 @@ const ERASURE_PATH = "/api/identity/self/erasure";
 /** How many erasures the backend has been asked for. */
 let erasuresAsked = 0;
 
+/** A second administrator, for the account a credential the first holds is enrolled on again. */
+const SECOND_ADMIN_EMAIL = "zweite-verwaltung@example.org";
+
 // The backend alone: a request to any other host fails its case.
 serveBackend(({ path: endpoint, body }) => {
   // Under the base path the client sends it on, as the cases spell every path they compare.
@@ -160,9 +163,9 @@ serveBackend(({ path: endpoint, body }) => {
     return new Response(null, { status: 204 });
   }
 
-  // The grant is what makes `ADMIN_EMAIL` an administrator's; every other address holds none.
+  // The grant is what makes `ADMIN_EMAIL` and `SECOND_ADMIN_EMAIL` administrators'; every other address holds none.
   const { email } = (body ?? {}) as { email?: string };
-  const granted = email === ADMIN_EMAIL;
+  const granted = email === ADMIN_EMAIL || email === SECOND_ADMIN_EMAIL;
   return answerAt(path, {
     ...NO_RECORDS,
     admin_tier: granted ? "administration" : null,
@@ -287,13 +290,12 @@ describe("a passkey setup that signs in, against a real database", () => {
   it("refuses a setup naming a credential another account holds as the plugin's failure, on the conflict's warning", async () => {
     const administrator = await offer(await signIn(ADMIN_EMAIL));
     expect((await verify(administrator, AUTHENTICATOR_A)).status, "the administrator holds no passkey, so nothing is named twice").toBe(200);
-    gateAnswer = { seats: [SEAT], barred: false, account: true };
-    const person = await offer(await signIn("zweites-konto@example.org"));
+    const other = await offer(await signIn(SECOND_ADMIN_EMAIL));
     // The administrator's own enrolment above is not the conflict read below.
     const warnedFrom = log.lines().length;
     const mailedBefore = sent.length;
 
-    const refused = await verify(person, AUTHENTICATOR_A, { createSession: true });
+    const refused = await verify(other, AUTHENTICATOR_A, { createSession: true });
 
     expect({
       status: refused.status,
@@ -474,28 +476,6 @@ describe("an address's failures, against a real database", () => {
     const reached = answers.filter((answer) => answer !== "ADDRESS_ATTEMPTS_EXHAUSTED").length;
     assert.ok(reached <= 10, `${String(reached)} of 15 concurrent attempts reached the code`);
     assert.ok((await failureRows()).length <= 10);
-  });
-});
-
-/* The set-up that signs in mints inside the registration's transaction, so the gate refusing that mint
-   takes the passkey row back with it; the enrolment refuses a barred
-   person before any mint. */
-describe("a set-up the gate refuses, against a real database", () => {
-  it("writes no passkey for a person holding nothing by the set-up, and leaves them signed in by code", async () => {
-    const email = "ohne-sitz-spaeter@example.org";
-
-    gateAnswer = { seats: [SEAT], barred: false, account: true };
-    const cookie = cookieHeader(await signInByCode(auth, email));
-    expect((await sessionRows()).length, "the seated person was not signed in, so the case below proves nothing").toBe(1);
-
-    const offered = await offer(cookie);
-    gateAnswer = { seats: [], barred: false, account: false };
-    const refused = await verify(offered, AUTHENTICATOR_A, { createSession: true });
-
-    expect(refused.status, await refused.clone().text()).toBe(403);
-    expect(((await refused.clone().json()) as { code?: string }).code).toBe("SIGN_IN_REFUSED");
-    expect(await passkeyRows(), "the refused set-up left its passkey behind").toStrictEqual([]);
-    expect((await sessionRows()).map(({ authFactor }) => authFactor)).toStrictEqual(["code"]);
   });
 });
 

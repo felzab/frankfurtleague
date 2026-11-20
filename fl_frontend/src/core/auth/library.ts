@@ -31,7 +31,7 @@ import { readTraceparent, TRACEPARENT_HEADER } from "../trace";
 import { assertionAnswer } from "./assertionAnswer";
 import { ceremonyCredentialId, challengeIssuedAt, isDuplicateCredential, refuseAnotherAccountsPasskey } from "./ceremony";
 import { ADDRESS_ATTEMPTS_EXHAUSTED, CODE_NOT_ASKED_HERE } from "./codeRefusal";
-import { carriedEnrolmentRead, carriedOrRefuse, ENROLMENT_READ, refuseBarred, refuseEnrolment } from "./enrolment";
+import { carriedEnrolmentRead, carriedOrRefuse, ENROLMENT_READ, refuseBarred, refuseEnrolment, refuseWithoutGrant } from "./enrolment";
 import { enrolmentSignIn } from "./gateReads";
 import { notifyPasskey, oweSignInMail, sendDeletionLink } from "./mails";
 import { endReplacedSession, lineageOf, refuseUnadmitted, replacedToken } from "./minting";
@@ -255,7 +255,8 @@ const REGISTRATION_FAILED = "Failed to verify registration";
 const sessionOptions = {
   expiresIn: SESSION_EXPIRES_IN_SECONDS,
   updateAge: SESSION_UPDATE_AGE_SECONDS,
-  // `passkeyStepOf` offers an enrolment on the same figure, so the page never offers what the library refuses.
+  // `passkeyStepOf` offers an administrator's enrolment on the same figure, so the page never offers what the library
+  // refuses.
   freshAge: FRESH_SIGN_IN_SECONDS,
   // Off, so revocation stays a store read on every request and the guards judge a stored row rather than
   // a signed copy of one.
@@ -592,7 +593,9 @@ const authOptions = (origin: URL, client: MongoClient) =>
         // session it cannot read, and the in-process arm already refuses one.
         if (caller === null || endedByItsAccount(caller)) throw APIError.fromStatus("NOT_FOUND");
 
-        refuseBarred(enrolmentRead?.signIn ?? (await enrolmentSignIn(caller.user.email)));
+        const signIn = enrolmentRead?.signIn ?? (await enrolmentSignIn(caller.user.email));
+        refuseBarred(signIn);
+        refuseWithoutGrant(signIn);
         // The options request is judged now; the verify call as of its ceremony's options, or now where none stands.
         await refuseEnrolment(ctx.context.adapter, caller.user.id, stampsOf(caller.session), enrolmentRead?.challengeIssuedAt ?? undefined);
 
@@ -710,7 +713,11 @@ const authOptions = (origin: URL, client: MongoClient) =>
             const enrolling = ctx.context.session ?? null;
             // Judged again here, the last point before the row is written, and reached by an `auth.api`
             // call the hook lets through; off the hook's carried read, and nothing where it carried none.
-            if (enrolling !== null) refuseBarred(carriedOrRefuse(ctx, enrolling.user.id));
+            if (enrolling !== null) {
+              const signIn = carriedOrRefuse(ctx, enrolling.user.id);
+              refuseBarred(signIn);
+              refuseWithoutGrant(signIn);
+            }
             await refuseEnrolment(
               adapter,
               user.id,

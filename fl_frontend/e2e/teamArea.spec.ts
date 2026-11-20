@@ -7,7 +7,7 @@ import { expect } from "@playwright/test";
 import { box, enteredDialog, labelOf, save, saveBar, toast } from "./support/controls";
 import { test } from "./support/journey";
 import { RUNNING } from "./support/madeUpLeague";
-import { declinePasskeyOffer, signInWithCode } from "./support/signIn";
+import { expectLandedAt, signInWithCode } from "./support/signIn";
 
 import type { Locator, Page } from "@playwright/test";
 
@@ -42,7 +42,7 @@ async function openPage(page: Page, name: string): Promise<void> {
 test("a contact answers the date, admits the pupil and enters the line-up", async ({ page, contact: { address, fixture, pupil } }) => {
   await signInWithCode(page, address);
   // The seat is the person's one place, so the sign-in lands on its Übersicht.
-  await declinePasskeyOffer(page, TEAM_LANDING);
+  await expectLandedAt(page, TEAM_LANDING);
   await expect(titleOf(page, "Übersicht")).toBeVisible();
 
   // The open work: the date to answer, the line-up it owes, and the registration waiting on the team.
