@@ -115,7 +115,7 @@ wraps and takes a second line, which moves what stands below it.
 | Field label             | 3 words                                                    | a noun, no colon                                                                               |
 | Button                  | 3 words                                                    | a verb from the catalogue's closed set, with an object where needed („Team anlegen“)           |
 | Field description       | 1 sentence, 90 characters                                  | says what the thing is; none where the label suffices; no field has a placeholder              |
-| Box description         | 1 sentence, 90 characters, one visible line                | says what a Konto box holds, under its title                                                   |
+| Box description         | 1 sentence, one visible line at 390 px, 45 characters      | says what a Konto box holds, under its title                                                   |
 | Tooltip                 | 5 words                                                    | names an icon-only control, or says why a locked act cannot run                                |
 | Section info tip (ⓘ)    | 2 sentences, or a key of short lines; about 200 characters | one per section, after its title, only where a named question needs it; a key, „Mark: meaning“ |
 | Field error             | one phrase, 80 characters                                  | a fixed pattern                                                                                |
@@ -241,7 +241,10 @@ both.
 
 - **Subject, preview, heading, paragraphs, facts, one button, one note**, nothing else. The heading
   repeats the subject and the hidden preview is the first sentence, so neither is written twice.
-- **The greeting is „Hallo,“** on every mail.
+- **The greeting is „Hallo,“** on every mail, and the paragraph after it begins small (Duden, D
+  132): the catalogue writes each opening as the sentence it is, and
+  `fl_frontend/src/core/emailShell.ts` lower-cases its first letter unless the mail's `opensOnNoun`
+  says it opens on a noun, a record's value run never being re-cased.
 - **A „not you?“ line only on a sign-in, security or first-contact mail**; the objection line only
   on a first contact, in its one wording.
 - **Replies go to the contact address**, so no mail says that nobody reads them.

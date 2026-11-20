@@ -1,6 +1,6 @@
 "use client";
 
-import { useId } from "react";
+import { useContext, useId } from "react";
 
 import { textOf } from "@/core/copy";
 import { formatNumber } from "@/core/format";
@@ -8,6 +8,7 @@ import { formatNumber } from "@/core/format";
 import { smallCaps } from "./cardStyles";
 import { LockMark, RequiredMark, useFieldLock } from "./FieldParts";
 import { fieldFrame } from "./fieldStyles";
+import { FormClosed } from "./formClosed";
 import { TeamPlaque } from "./TeamPlaque";
 import { TextField } from "./TextField";
 import { tv } from "./tv";
@@ -113,9 +114,9 @@ const SIDES = [0, 1] as const;
  * figure is never read as a goal.
  *
  * Each field keeps its own message line for its value's error. The one line under the rows says what the score as a
- * whole sets off, such as level knockout goals leaving the bracket waiting, else what the figures decide, „… gewinnt
- * 3:1“ or „Unentschieden 2:2“, in its outcome's tone. A row is a group named by its club, so a field is heard as its
- * column on its club's row.
+ * whole sets off in an open form, such as level knockout goals leaving the bracket waiting, else what the figures
+ * decide, „… gewinnt 3:1“ or „Unentschieden 2:2“, in its outcome's tone. A row is a group named by its club, so a
+ * field is heard as its column on its club's row.
  *
  * Goals counted elsewhere on the form stand as figures in their fields' place (`counted`), heard as the column's label
  * and the figure, beside a shoot-out's fields, which stay typed.
@@ -138,8 +139,10 @@ export function ScoreRows({
   outcome: ScoreOutcome | null;
 }) {
   const id = useId();
-  const said = consequence ?? outcome?.text;
-  const tone = consequence !== undefined ? "warn" : outcome === null ? "none" : HUE[outcome.tone];
+  // A closed form changes nothing, so nothing is set off there.
+  const shown = useContext(FormClosed) ? undefined : consequence;
+  const said = shown ?? outcome?.text;
+  const tone = shown !== undefined ? "warn" : outcome === null ? "none" : HUE[outcome.tone];
   const slots = scoreRows({ tone, columns: shootOut === null ? 1 : 2 });
   const lineId = `${id}-line`;
   // A plaque on both sides or on neither, so the two names start at one edge.

@@ -168,9 +168,10 @@ export function StatusLine({ status, placement }: { status: FormStatus; placemen
 
 /**
  * The line under a field: the error once the value is committed or the form submitted, else a change's consequence,
- * else the description, else nothing seen, so a field with nothing to say ends at its frame. `data-kit-message`
- * names it to the layouts that place a field's line apart from its frame, each ending it under its field and letting it
- * run on past a short field's edge: a label-left row's (`FieldRows`) and the score's (`ScoreRows`).
+ * else the description, else nothing seen, so a field with nothing to say ends at its frame. A closed form draws no
+ * consequence, since nothing is changed there to cause one, and keeps the description saying what the field is.
+ * `data-kit-message` names it to the layouts that place a field's line apart from its frame, each ending it under its
+ * field and letting it run on past a short field's edge: a label-left row's (`FieldRows`) and the score's (`ScoreRows`).
  */
 export function MessageLine({
   description,
@@ -182,6 +183,7 @@ export function MessageLine({
   constraints?: Constraints;
 }) {
   const validation = useContext(FieldErrorContext);
+  const shown = useContext(FormClosed) ? undefined : consequence;
 
   if (validation?.isInvalid) {
     return (
@@ -192,13 +194,13 @@ export function MessageLine({
       </FieldError>
     );
   }
-  const words = consequence ?? description;
+  const words = shown ?? description;
   return (
     words !== undefined && (
       <Text
         slot="description"
         data-kit-message
-        className={messageLine({ tone: consequence === undefined ? "description" : "consequence" })}>
+        className={messageLine({ tone: shown === undefined ? "description" : "consequence" })}>
         {words}
       </Text>
     )
