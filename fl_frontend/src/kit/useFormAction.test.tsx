@@ -1,5 +1,7 @@
 // @vitest-environment jsdom
 import { Activity } from "react";
+// The class Next's client throws for an action its server does not recognise.
+import { UnrecognizedActionError } from "next/dist/client/components/unrecognized-action-error";
 import { redirect } from "next/navigation";
 
 import { act, renderHook } from "@testing-library/react";
@@ -32,10 +34,28 @@ describe("a form a visitor reaches before hydration", () => {
 });
 
 describe("a form's action through the one wrapper", () => {
-  it("answers any throw with the stale-page line and reads the page again, since the press may have written before its answer was lost", async () => {
+  // The harm: a refresh the frontend cannot answer becomes a document load, and the edge's error page replaces the form
+  // with every typed answer, which nobody sees between outages.
+  it.each<[string, Error]>([
+    // Next's own wording for an answer that is not its own, such as the edge's 502 page.
+    ["the edge's error page", new Error("An unexpected response was received from the server.")],
+    ["a failed fetch", new TypeError("Failed to fetch")],
+  ])("answers %s, which no answer of the frontend's carried, as the unexpected failure, reading nothing again", async (_case, error) => {
     const refresh = vi.fn();
     const answered = answering(async () => {
-      throw new Error("An unexpected response was received from the server.");
+      throw error;
+    }, refresh);
+    expect(await answered(undefined)).toStrictEqual({ ok: false, reason: COPY.shared.failure.unexpected });
+    expect(refresh).not.toHaveBeenCalled();
+  });
+
+  it.each<[string, Error]>([
+    ["an action that threw on the server", Object.assign(new Error("An error occurred in the Server Components render."), { digest: "1234" })],
+    ["an action a newer build no longer serves", new UnrecognizedActionError('Server Action "0" was not found on the server.')],
+  ])("answers %s with the stale-page line and reads the page again, since the frontend answered", async (_case, error) => {
+    const refresh = vi.fn();
+    const answered = answering(async () => {
+      throw error;
     }, refresh);
     expect(await answered(undefined)).toStrictEqual({ ok: false, reason: COPY.shared.failure.stale });
     expect(refresh).toHaveBeenCalledOnce();

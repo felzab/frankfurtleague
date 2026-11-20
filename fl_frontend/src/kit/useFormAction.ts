@@ -1,7 +1,7 @@
 "use client";
 
 import { startTransition, useActionState, useLayoutEffect, useRef, useState } from "react";
-import { unstable_rethrow, useRouter } from "next/navigation";
+import { unstable_isUnrecognizedActionError, unstable_rethrow, useRouter } from "next/navigation";
 
 import { COPY } from "@/core/copy/shared";
 
@@ -11,10 +11,13 @@ import type { ActionAnswer } from "@/core/action";
 import type { Copy } from "@/core/copy";
 
 /**
- * Anything the action throws is answered with the stale-page line, and the page is read again: the press may
- * have reached the server and written before its answer was lost, and only the fresh page shows whether it
- * did, where a second press could repeat the write. Next's redirect and not-found pass through, and the edge's
- * own rate refusal, which reached nothing behind the edge, says so and when to retry, reading nothing again.
+ * A throw the frontend answered is worded with the stale-page line, and the page is read again: an action that threw
+ * on the server, whose error carries Next's `digest`, may have written first, and only the fresh page shows whether it
+ * did; an action Next does not recognise means a newer build serves the page. Any other throw is a press no answer of
+ * the frontend's reached, such as the edge's 502 or a failed fetch, and is the unexpected failure with nothing read
+ * again: Next turns a read the frontend cannot answer into a document load, which puts the edge's error page over the
+ * form and every typed answer. Next's redirect and not-found pass through, and the edge's own rate refusal, which
+ * reached nothing behind the edge, says so and when to retry, reading nothing again.
  */
 export function answering<Payload, Value>(
   action: (payload: Payload) => Promise<ActionAnswer<Value>>,
@@ -27,6 +30,10 @@ export function answering<Payload, Value>(
       // A redirect or a not-found is how the action leads on; React hands it to Next's boundary.
       unstable_rethrow(thrown);
       if (isEdgeRefusal(thrown)) return { ok: false, reason: COPY.shared.failure.tooManyAttempts };
+      // React's Flight client sets `digest` only on an error the server's own answer carried.
+      const frontendAnswered =
+        unstable_isUnrecognizedActionError(thrown) || (thrown instanceof Error && "digest" in thrown && typeof thrown.digest === "string");
+      if (!frontendAnswered) return { ok: false, reason: COPY.shared.failure.unexpected };
       refresh();
       return { ok: false, reason: COPY.shared.failure.stale };
     }
