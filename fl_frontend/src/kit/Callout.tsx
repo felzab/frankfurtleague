@@ -1,3 +1,5 @@
+import { textOf } from "@/core/copy";
+
 import { tv } from "./tv";
 
 import type { Copy, Words } from "@/core/copy";
@@ -42,7 +44,7 @@ export function Callout({ tone, title, text, size }: CalloutProps) {
   return (
     <div className={root()}>
       {title !== undefined && <p className={heading()}>{title}</p>}
-      <p>{typeof text === "string" ? text : text.record}</p>
+      <p>{textOf(text)}</p>
     </div>
   );
 }
