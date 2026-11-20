@@ -313,4 +313,19 @@ describe("the match editor's question before it deletes a later result", () => {
     expect(calls.map(({ endpoint }) => endpoint)).toStrictEqual([DRY_RUN, `/spiele/${SPIEL_ID}`, DRY_RUN]);
     expect(state.sent).toEqual([]);
   });
+
+  // The harm: a save that would now delete nothing answered „Das löscht ein späteres Ergebnis.“, untrue at that
+  // moment, so the person gives up a save a second press would land.
+  it("answers the stale-page line where the result the write refused to delete is gone before its dry run", async () => {
+    // Matches 31's and 33's results removed once the write has refused, so its dry run finds nothing to delete.
+    state.answered = (endpoint) => {
+      if (endpoint === `/spiele/${SPIEL_ID}`) state.dryRun = NOTHING_MOVED;
+    };
+
+    const answer = await saveSpiel(saving({ tore1: "3", tore2: "1" }));
+
+    expect(answer).toStrictEqual({ ok: false, reason: COPY.shared.failure.stale });
+    expect(calls.map(({ endpoint }) => endpoint)).toStrictEqual([`/spiele/${SPIEL_ID}`, DRY_RUN]);
+    expect(state.sent).toEqual([]);
+  });
 });
