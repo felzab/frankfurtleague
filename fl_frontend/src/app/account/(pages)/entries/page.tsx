@@ -89,7 +89,8 @@ function entriesOf({ spieler, schiedsrichter, registrierungen, seats, bewerbunge
       : [
           {
             id: `spieler-${spieler.spieler_id}`,
-            title: COPY.shared.kader,
+            // By the person's role, as the referee's box is: „Kader“ would name the whole squad.
+            title: COPY.shared.spieler,
             description: WORDS.description.own,
             facts: [fact(COPY.shared.name, kaderName(spieler)), birthday(spieler.birth_date)],
             ...saved({ kind: "spieler" }, spieler.evidence_state, SPIELER_TEXT_VERSIONS),
