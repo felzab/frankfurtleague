@@ -8,5 +8,5 @@ import { GRANT_ID } from "./schemas";
 
 export const GRANT_RULES = {
   required: { email: requires(SignInAddressSchema, ""), grant_id: requires(GRANT_ID, "") },
-  emailMax: grantsPostGrantBodyEmailMax,
+  max: { email: grantsPostGrantBodyEmailMax },
 } as const;

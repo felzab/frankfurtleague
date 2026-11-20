@@ -23,7 +23,7 @@ import type { AddressRules } from "@/kit/AddressFields";
 /** What a venue write asks of each field, read on the server so its schema never reaches the browser. */
 export type SpielortRules = {
   required: Readonly<Record<"name" | "mietpreis", boolean>>;
-  nameMax: number;
+  max: Readonly<Record<"name", number>>;
   address: AddressRules;
 };
 
@@ -49,10 +49,10 @@ const addressRequiredOf = ({ shape }: Body): AddressRules["required"] => {
 /** The create's rules. */
 export const SPIELORT_RULES: SpielortRules = {
   required: requiredOf(SpielortePostSpielortBody),
-  nameMax: spielortePostSpielortBodyNameMax,
+  max: { name: spielortePostSpielortBodyNameMax },
   address: {
     required: addressRequiredOf(SpielortePostSpielortBody),
-    maxLength: {
+    max: {
       street: spielortePostSpielortBodyAddressStreetMax,
       house_number: spielortePostSpielortBodyAddressHouseNumberMax,
       district: spielortePostSpielortBodyAddressDistrictMax,
@@ -64,10 +64,10 @@ export const SPIELORT_RULES: SpielortRules = {
 
 export const SPIELORT_SAVE_RULES: SpielortRules = {
   required: requiredOf(SpielortePatchSpielortBody),
-  nameMax: spielortePatchSpielortBodyNameMax,
+  max: { name: spielortePatchSpielortBodyNameMax },
   address: {
     required: addressRequiredOf(SpielortePatchSpielortBody),
-    maxLength: {
+    max: {
       street: spielortePatchSpielortBodyAddressStreetMax,
       house_number: spielortePatchSpielortBodyAddressHouseNumberMax,
       district: spielortePatchSpielortBodyAddressDistrictMax,

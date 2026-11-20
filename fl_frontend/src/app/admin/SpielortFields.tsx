@@ -21,7 +21,7 @@ export function SpielortFields({
   /** The name typed into the match editor's venue field before its create entry was chosen. */
   name?: string;
 }) {
-  const { required, nameMax, address } = rules;
+  const { required, max, address } = rules;
   return (
     <>
       <TextField
@@ -30,7 +30,7 @@ export function SpielortFields({
         kind="text"
         defaultValue={name}
         isRequired={required.name}
-        maxLength={nameMax}
+        maxLength={max.name}
       />
       <TextField
         label={WORDS.mietpreis}

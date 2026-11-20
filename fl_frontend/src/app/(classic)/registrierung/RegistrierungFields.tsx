@@ -15,7 +15,7 @@ const KADER = COPY.kader;
 /** What the write asks of the three typed boxes, read on the server so its schema never reaches the browser. */
 export type RegistrierungRules = {
   required: { firstName: boolean; lastName: boolean; email: boolean };
-  maxLength: { firstName: number; lastName: number; email: number };
+  max: { firstName: number; lastName: number; email: number };
 };
 
 /**
@@ -37,7 +37,7 @@ export function RegistrierungFields({
    */
   objection: Line;
 }) {
-  const { required, maxLength } = rules;
+  const { required, max } = rules;
 
   return (
     <>
@@ -49,7 +49,7 @@ export function RegistrierungFields({
           kind="text"
           autofill="given-name"
           isRequired={required.firstName}
-          maxLength={maxLength.firstName}
+          maxLength={max.firstName}
         />
         <TextField
           label={COPY.shared.lastName}
@@ -57,7 +57,7 @@ export function RegistrierungFields({
           kind="text"
           autofill="family-name"
           isRequired={required.lastName}
-          maxLength={maxLength.lastName}
+          maxLength={max.lastName}
         />
         <TextField
           label={COPY.shared.emailAddress}
@@ -66,7 +66,7 @@ export function RegistrierungFields({
           kind="email"
           autofill="email"
           isRequired={required.email}
-          maxLength={maxLength.email}
+          maxLength={max.email}
         />
         <TextField
           label={WORDS.nummer}

@@ -4,7 +4,10 @@ import { getAdminSession } from "@/core/auth/guards";
 import { ADMIN_COPY } from "@/core/copy/admin";
 import { COPY } from "@/core/copy/shared";
 import { formatInstantShort } from "@/core/format";
-import { addressChangePostAddressChangeAdminBodyAddressMax } from "@/core/generated/zod/inputs";
+import {
+  addressChangePostAddressChangeAdminBodyAddressMax,
+  addressChangePostAddressChangeAdminBodyEmailMax,
+} from "@/core/generated/zod/inputs";
 import { ROUTES } from "@/core/routes";
 import { getAddressChanges } from "@/features/address-change/queries";
 import { SignInAddressSchema, SignInPayloadSchema } from "@/features/auth/schemas";
@@ -115,7 +118,7 @@ const START_RULES: StartRules = {
     address: requires(SignInPayloadSchema.shape.email, ""),
     email: requires(SignInAddressSchema, ""),
   },
-  addressMax: addressChangePostAddressChangeAdminBodyAddressMax,
+  max: { address: addressChangePostAddressChangeAdminBodyAddressMax, email: addressChangePostAddressChangeAdminBodyEmailMax },
 };
 
 /**

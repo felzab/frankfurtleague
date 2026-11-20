@@ -44,7 +44,7 @@ export function SpielortEditor({
 }) {
   const editor = useEditor(record, save);
   const { draft, set } = editor;
-  const { required, nameMax } = rules;
+  const { required, max } = rules;
 
   const danger: DangerAct = retired
     ? {
@@ -88,7 +88,7 @@ export function SpielortEditor({
                 name="name"
                 kind="text"
                 isRequired={required.name}
-                maxLength={nameMax}
+                maxLength={max.name}
                 value={draft.name}
                 onChange={(name) => set("name", name)}
               />

@@ -323,7 +323,7 @@ export function TeamEditor({
                   name="reason"
                   kind="paragraph"
                   isRequired={austrittRules.required.reason}
-                  maxLength={austrittRules.reasonMax}
+                  maxLength={austrittRules.max.reason}
                   description={WORDS.austrittReasonDescription}
                 />
                 <ExitDay

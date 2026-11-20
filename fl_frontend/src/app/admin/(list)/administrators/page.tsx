@@ -271,7 +271,7 @@ function addOf({ reader, readerIsOwner }: Access): ListCreate {
         name="email"
         kind="email"
         isRequired={GRANT_RULES.required.email}
-        maxLength={GRANT_RULES.emailMax}
+        maxLength={GRANT_RULES.max.email}
         description={COPY.shared.field.format(COPY.shared.field.exampleAddress)}
       />
     ),
