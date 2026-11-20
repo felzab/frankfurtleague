@@ -708,7 +708,7 @@ const OFF_SCALE = (except) =>
 /** The one spacing class off the scale, and its one file: a toggle's drawn box or track sits 1 px down. */
 const TOGGLE_OFFSET = { name: "mt-px", home: "src/kit/fieldStyles.ts" };
 
-const TABLE_BLOCK = { allow: ["src/kit/Table.tsx", "src/kit/Lineup.tsx"] };
+const TABLE_BLOCK = { allow: ["src/kit/Table.tsx", "src/kit/TableStanding.tsx", "src/kit/Lineup.tsx"] };
 const SIDES = "(?:t|r|b|l|s|e|tl|tr|br|bl|ss|se|es|ee)";
 
 const DESIGN_BANS = [
@@ -738,8 +738,9 @@ const DESIGN_BANS = [
       "react/forbid-elements",
       { element, message: "render the kit's control or block for it, built on React Aria." },
       KIT,
-      // The table block writes a table, and the line-up's block its own, whose rows hold a control and stay one line
-      // on a phone; the kit's link writes the one plain anchor, its full-document load, which Next's link never makes.
+      // The table block writes a table, the Tabelle's standing its own, whose rows stay one line on a phone, and the
+      // line-up's block its own, whose rows hold a control and stay one line on a phone; the kit's link writes the one
+      // plain anchor, its full-document load, which Next's link never makes.
       {
         a: { allow: ["src/kit/Link.tsx"] },
         table: TABLE_BLOCK,
@@ -947,15 +948,16 @@ const DESIGN_BANS = [
       message: "A chip is handed to the name it belongs to through a block's typed `chip` prop.",
     },
     PRODUCTION,
-    // The eleven blocks carrying a name: a table row's, a card's and a card row's, a line-up's pupil, a match's row, its
-    // bracket card and the season card's opening line, a record's facts, the page header's title, a school's tile, a
-    // figure's tile and a party's answer.
+    // The twelve blocks carrying a name: a table row's, a standing's club, a card's and a card row's, a line-up's
+    // pupil, a match's row, its bracket card and the season card's opening line, a record's facts, the page header's
+    // title, a school's tile, a figure's tile and a party's answer.
     {
       allow: [
         "src/kit/AnswerRows.tsx",
         "src/kit/BracketCard.tsx",
         "src/kit/SaisonBlock.tsx",
         "src/kit/Table.tsx",
+        "src/kit/TableStanding.tsx",
         "src/kit/Card.tsx",
         "src/kit/Lineup.tsx",
         "src/kit/SpielRow.tsx",
