@@ -4035,8 +4035,6 @@ export interface FLSaisonFrameResponse {
   saisons: FLSaisonFrameEntry[];
 }
 
-export type FLSaisonIdLength = 4;
-
 export interface FLSaisonOverviewResponse {
   cards: FLOverviewCard[];
 }

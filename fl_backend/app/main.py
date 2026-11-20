@@ -69,7 +69,6 @@ from app.shared.schemas.bounds import (
     FLAufstellungStartersMax,
     FLBanDurationSaisons,
     FLKontaktEmailMaxLength,
-    FLSaisonIdLength,
     FLTeamShorthandLength,
 )
 from app.shared.schemas.einwilligung import CURRENT_TEXT_VERSIONS
@@ -165,7 +164,6 @@ MIRRORED_CONSTANTS: Final = (
     FLErasedActorMarker,
     FLKontaktEmailMaxLength,
     FLOutboxRetentionDays,
-    FLSaisonIdLength,
     FLTeamShorthandLength,
     Rule,
 )

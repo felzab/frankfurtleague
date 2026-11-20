@@ -9264,10 +9264,6 @@
         "title": "FLSaisonFrameResponse",
         "type": "object"
       },
-      "FLSaisonIdLength": {
-        "const": 4,
-        "type": "integer"
-      },
       "FLSaisonOverviewResponse": {
         "properties": {
           "cards": {
