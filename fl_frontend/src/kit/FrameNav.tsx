@@ -107,34 +107,43 @@ export type FrameSaisons = SaisonFrame | TeamFrame;
 
 type SaisonScopeValue = (SaisonFrame & { pages: readonly SaisonPage[] }) | (TeamFrame & { pages: readonly TeamPage[] });
 
-/** A frame's seasons, with the season the last address naming one named, which a page whose address names none works in. */
-const SaisonContext = createContext<(SaisonScopeValue & { chosen?: string }) | null>(null);
+/**
+ * A frame's seasons, with the season the last address naming one named, which a page whose address names none works in;
+ * none once the frame's root has been shown since.
+ */
+const SaisonContext = createContext<(SaisonScopeValue & { chosen: string | undefined }) | null>(null);
 
 /**
  * Hands the frame's seasons and its season pages to its menus, which a layout's server code cannot reach, and holds the
- * last season an address named for as long as the frame's layout stays mounted: React state alone, so a reload or a new
- * sign-in starts at the standard season, and nothing is stored.
+ * last season an address named for as long as the frame's layout stays mounted, until the frame's root is shown: React
+ * state alone, so a reload or a new sign-in starts at the standard season, and nothing is stored.
  */
 export function SaisonScope({ value, children }: { value: SaisonScopeValue; children: ReactNode }) {
   const [chosen, setChosen] = useState<string>();
   return (
     <SaisonContext value={{ ...value, chosen }}>
       {/* Reads the address, which no prerender knows: it renders with the page, at the page's request. */}
-      <SaisonMemory choose={setChosen} />
+      <SaisonMemory
+        root={rootOf(value)}
+        choose={setChosen}
+      />
       {children}
     </SaisonContext>
   );
 }
 
 /**
- * Records the season the address names once the page showing it is committed. The record is read only on a page whose
- * address names none, so the render after it changes nothing a person sees.
+ * Records the season the address names once the page showing it is committed, and forgets it at the frame's root, which
+ * works in the standard season: kept, the next page naming no season would turn back to the season shown before the
+ * root. The record is read only on a page whose address names none, so the render after it changes nothing a person sees.
  */
-function SaisonMemory({ choose }: { choose: (saison: string) => void }) {
+function SaisonMemory({ root, choose }: { root: Route | undefined; choose: (saison: string | undefined) => void }) {
   const { saison } = useParams();
+  const path = usePathname();
   useEffect(() => {
     if (typeof saison === "string") choose(saison);
-  }, [saison, choose]);
+    else if (path === root) choose(undefined);
+  }, [saison, path, root, choose]);
   return null;
 }
 
