@@ -1,4 +1,5 @@
-import { catalogue, spieltagName, VERB } from "../copy";
+import { boundBy, catalogue, spieltagName, VERB } from "../copy";
+import { formatNumber } from "../format";
 
 import type { Route } from "next";
 import type { Copy, RecordText } from "../copy";
@@ -18,6 +19,8 @@ export const PUBLIC_COPY = catalogue({
     stufengroesseDescription: "Wie viele im Abi-Jahrgang sind",
     /** Each seat confirms for one person, which a shared inbox would let one person do for two. */
     ownAddress: "Die eigene Adresse der Person",
+    /** Under a seat's first name: the youngest age the write takes for whoever holds the seat. */
+    seatFloor: (age: number) => boundBy("Ab", formatNumber(age), "Jahren"),
     seatCovered: "Übernimmt die Trainerin oder der Trainer.",
     /** A promise the form makes, which the privacy record states. */
     addressPublic: "Steht nach der Zusage öffentlich auf der Teamseite",
