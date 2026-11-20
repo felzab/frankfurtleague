@@ -10,10 +10,10 @@ import { AccountBox, AccountRows } from "./AccountBox";
 
 import type { ActionAnswer } from "@/core/action";
 
-const PASSKEY = COPY.account.passkeys.title;
+const PASSKEY = COPY.shared.passkeys;
 const REFUSAL = COPY.shared.failure.stale;
 const NOTE = COPY.shared.toast.linkSent;
-const CONSEQUENCE = COPY.admin.spielort.retireConsequence;
+const CONSEQUENCE = COPY.account.passkeys.endsDevices;
 
 /** The question's own act button, beside „Zurück“. */
 const confirmIn = (question: HTMLElement, verb: keyof typeof COPY.shared.verb) =>

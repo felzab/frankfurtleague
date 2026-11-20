@@ -39,11 +39,11 @@ const UNANSWERED: ReadonlySet<FLTeamPanelSpiel["spielbestaetigung"]> = new Set([
  */
 function openOn({ spielbestaetigung, aufstellung }: FLTeamPanelSpiel): ChipProps | undefined {
   const { missing } = SERVER_COPY.overview;
-  if (UNANSWERED.has(spielbestaetigung)) return owedChip(missing(COPY.area.answer));
+  if (UNANSWERED.has(spielbestaetigung)) return owedChip(missing(COPY.spielplan.answer));
   if (spielbestaetigung === "expired") return EXPIRED_CHIP;
   if (aufstellung === null || aufstellung.stored) return undefined;
   if (aufstellung.phase === "open") return owedChip(missing(SERVER_COPY.season.spiel.aufstellung));
-  if (aufstellung.phase === "overdue") return { ...AUFSTELLUNG_CHIP.overdue, label: COPY.area.team.aufstellung.overdueOnCard };
+  if (aufstellung.phase === "overdue") return { ...AUFSTELLUNG_CHIP.overdue, label: COPY.aufstellung.overdueOnCard };
   return undefined;
 }
 

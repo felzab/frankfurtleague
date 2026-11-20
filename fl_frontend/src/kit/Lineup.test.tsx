@@ -21,8 +21,8 @@ const WORDS: LineupWords = {
   picked: COPY.shared.spieler,
   rest: COPY.shared.kader,
   name: COPY.shared.name,
-  nummer: COPY.admin.spieler.nummer,
-  position: COPY.admin.spieler.position,
+  nummer: COPY.kader.nummer,
+  position: COPY.kader.position,
   starts: COPY.shared.startelf,
   pick: COPY.shared.verb.create,
   remove: COPY.shared.verb.remove,
@@ -49,7 +49,7 @@ const nominee = (nummer: number): LineupPlayer => ({
   name: { record: nameOf(nummer) },
   nummer,
   nominee: true,
-  chip: { tone: "info", label: COPY.admin.spieler.nominee },
+  chip: { tone: "info", label: COPY.shared.state.nominee },
 });
 
 /** The block over a value held as its page's editor holds it, `seen` taking each value it raises. */
@@ -159,21 +159,21 @@ describe("a line-up's states", () => {
         players={kader(3)}
         start={lineupValue([idOf(1)], [])}
         seen={seen}
-        locked={COPY.admin.spiel.departed}
+        locked={COPY.aufstellung.needsSlot}
       />,
       AT_ADDRESS,
     );
 
     expect(tickOf(1).disabled).toBe(true);
     await userEvent.click(crossOf(1));
-    expect((await screen.findByRole("tooltip")).textContent).toBe(COPY.admin.spiel.departed);
+    expect((await screen.findByRole("tooltip")).textContent).toBe(COPY.aufstellung.needsSlot);
     await pick(2);
     expect(seen).not.toHaveBeenCalled();
   });
 
   // The harm: a pupil the squad lost offered again once taken out, or a refused entry with no row saying which.
   it("says a refused pupil's reason and a departed pupil's state on their own rows, and offers a departed one no more", async () => {
-    const gone: LineupPlayer = { id: "g1", name: { record: nameOf(40) }, nummer: 40, gone: COPY.admin.spiel.departed };
+    const gone: LineupPlayer = { id: "g1", name: { record: nameOf(40) }, nummer: 40, gone: COPY.kader.deregistered };
     renderUnderNext(
       <Held
         players={[...kader(2), gone]}
@@ -184,7 +184,7 @@ describe("a line-up's states", () => {
     );
 
     expect(within(rowOf(1)).getByText(COPY.shared.failure.stale)).toBeTruthy();
-    expect(within(rowOf(40)).getByText(COPY.admin.spiel.departed)).toBeTruthy();
+    expect(within(rowOf(40)).getByText(COPY.kader.deregistered)).toBeTruthy();
     expect(tickOf(40).disabled).toBe(true);
 
     await userEvent.click(crossOf(40));

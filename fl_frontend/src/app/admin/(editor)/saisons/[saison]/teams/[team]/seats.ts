@@ -15,8 +15,6 @@ import type {
 import type { ChipProps } from "@/kit/Chip";
 import type { SeatRow } from "@/kit/SeatRows";
 
-const DAYS = COPY.admin.schiedsrichter;
-
 /** What a seat's acts read: which seat, whether it waits on an answer, and the person the dialog starts from. */
 export type SeatTarget = {
   seat: FLKontaktSeat;
@@ -37,17 +35,17 @@ function standingOf(
 ): { chip: ChipProps | null; day: Copy | null; asks: boolean } {
   if (person === null) {
     if (link?.declined_at != null) {
-      return { chip: OBJECTED_CHIP, day: DAYS.objectedOn(dayOf(link.declined_at)), asks: false };
+      return { chip: OBJECTED_CHIP, day: COPY.shared.objectedOn(dayOf(link.declined_at)), asks: false };
     }
     // A row whose block stands holds an empty seat only by its person's erasure; a row with no block never held one.
     return { chip: entered ? ERASED_CHIP : null, day: null, asks: false };
   }
   const confirmed = person.einwilligung.confirmed_at;
-  if (confirmed !== null) return { chip: CONFIRMED_CHIP, day: DAYS.confirmedOn(dayOf(confirmed)), asks: false };
+  if (confirmed !== null) return { chip: CONFIRMED_CHIP, day: COPY.shared.confirmedOn(dayOf(confirmed)), asks: false };
   if (link === null) return { chip: UNCONFIRMED_CHIP, day: null, asks: true };
   return link.expired
-    ? { chip: EXPIRED_CHIP, day: DAYS.expiredOn(dayOf(link.deadline)), asks: true }
-    : { chip: UNCONFIRMED_CHIP, day: COPY.admin.spiel.answerBy(dayOf(link.deadline)), asks: true };
+    ? { chip: EXPIRED_CHIP, day: COPY.shared.expiredOn(dayOf(link.deadline)), asks: true }
+    : { chip: UNCONFIRMED_CHIP, day: COPY.shared.answerBy(dayOf(link.deadline)), asks: true };
 }
 
 /** One seat's row, and what its acts read: one row per person, the Trainer's carrying a second seat they hold. */
@@ -64,9 +62,9 @@ export function seatsOf({
     const delivery = deliveryChip(link?.delivery ?? null);
     return {
       id: seat,
-      name: person === null ? COPY.admin.seatEmpty : { record: `${person.first_name} ${person.last_name}` },
+      name: person === null ? COPY.team.seatEmpty : { record: `${person.first_name} ${person.last_name}` },
       chips: [...(chip === null ? [] : [chip]), ...(delivery === null ? [] : [delivery])],
-      line: COPY.admin.seatLine(seats, person?.email ?? null, day),
+      line: COPY.team.seatLine(seats, person?.email ?? null, day),
       muted: person === null,
       target: {
         seat,

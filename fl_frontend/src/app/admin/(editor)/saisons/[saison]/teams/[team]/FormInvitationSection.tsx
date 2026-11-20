@@ -16,7 +16,7 @@ import type { Fact } from "@/kit/Facts";
 import type { SectionActItem } from "@/kit/SectionAct";
 
 const WORDS = COPY.admin.team;
-const LINK = COPY.account.address.link;
+const LINK = COPY.shared.link;
 
 /** The box as the read leaves it: where the link stands, the live link's id, and why its acts are closed. */
 export type InvitationView = {
@@ -49,7 +49,7 @@ export function FormInvitationSection({ team, saison, view }: { team: string; sa
 
   const copy = (link: string) => {
     void copyTextToClipboard(link).then((copied) => {
-      appToast(copied ? "success" : "danger", copied ? COPY.shared.toast.copied : COPY.shared.toast.failure);
+      appToast(copied ? "success" : "danger", copied ? COPY.shared.toast.copied : COPY.shared.failure.unexpected);
     });
   };
   // The minted link's copy, the footer's first act while the link shows: it writes nothing, so it answers in its toast.

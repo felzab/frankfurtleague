@@ -45,7 +45,7 @@ export async function heldPasskeysOf(served: {
     .sort((a, b) => a.created.getTime() - b.created.getTime())
     .map(({ row, created }): PasskeyRow => ({
       id: row.id,
-      name: row.name ?? getAuthenticatorName(row.aaguid) ?? COPY.signIn.passkeyTitle,
+      name: row.name ?? getAuthenticatorName(row.aaguid) ?? COPY.shared.passkey,
       // Not on the plugin's declared row: the `passkeyLastUse` plugin adds the field.
       dates: COPY.account.passkeys.dates(created, dateOf(Reflect.get(row, "lastUsedAt"))),
       thisDevice: served.session.passkeyCredentialId === row.credentialID,

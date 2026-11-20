@@ -36,7 +36,7 @@ import type { EditorSave } from "./useEditor";
 /** A page as it stands at an editor's address, under Next's router, in the server's markup and in the browser alike. */
 const atTheEditor = (page: ReactElement) => underNext(page, { pathname: "/admin/spielorte/ort-1", params: { spielort: "ort-1" } });
 
-const WORD = COPY.signIn.address;
+const WORD = COPY.shared.emailAddress;
 const YES_NO = [
   { id: "yes", label: COPY.shared.verb.save },
   { id: "no", label: COPY.shared.verb.delete },

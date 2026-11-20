@@ -81,7 +81,7 @@ const titleOf = ({ spiel }: FLSpielberichtSchiedsrichterResponse): PageTitle =>
 export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
   return metadataFor(findIn(params), async (found) =>
     pageMetadata(parent, ROUTES.schiedsrichterSpielbericht, address(await params), {
-      title: found === "unbooked" ? COPY.admin.spiel.spielbericht : matchName(found.spiel.team1?.name ?? null, found.spiel.team2?.name ?? null),
+      title: found === "unbooked" ? COPY.spielplan.spielbericht : matchName(found.spiel.team1?.name ?? null, found.spiel.team2?.name ?? null),
     }),
   );
 }
@@ -112,7 +112,7 @@ function kaderOf(read: FLSpielberichtSchiedsrichterResponse): Record<FLSpielSide
     );
     const kept = read.named
       .filter((spieler) => named.has(spieler.spieler_id) && !read.kader[side].some((own) => own.spieler_id === spieler.spieler_id))
-      .map((spieler): Option => ({ ...optionOf(spieler), isDisabled: true, note: COPY.admin.spieler.deregistered }));
+      .map((spieler): Option => ({ ...optionOf(spieler), isDisabled: true, note: COPY.kader.deregistered }));
     return [...read.kader[side].map(optionOf), ...kept];
   };
   return { team1: sideOf("team1"), team2: sideOf("team2") };
@@ -133,7 +133,7 @@ async function readPage(params: Props["params"]) {
   const { saison } = await params;
   const found = await findIn(params);
   if (found === null) notFound();
-  if (found === "unbooked") return card(COPY.admin.spiel.spielbericht, "warn", SERVER_COPY.area.schiedsrichter.unbooked, saison);
+  if (found === "unbooked") return card(COPY.spielplan.spielbericht, "warn", SERVER_COPY.area.schiedsrichter.unbooked, saison);
 
   const { spiel } = found;
   const title = titleOf(found);
@@ -154,7 +154,9 @@ async function readPage(params: Props["params"]) {
   // The form tells its two sides apart, so a side the knockout has not settled goes by its place, never „Noch offen“ twice.
   const sideOf = (side: FLSpielSide) => {
     const team = found.spiel[side];
-    return team === null ? { name: COPY.admin.spiel[side], plaque: null } : { name: { record: team.name }, plaque: { record: team.shorthand } };
+    return team === null
+      ? { name: COPY.shared.teamPair[side], plaque: null }
+      : { name: { record: team.name }, plaque: { record: team.shorthand } };
   };
 
   return (

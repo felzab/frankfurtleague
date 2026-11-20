@@ -46,7 +46,7 @@ export const saveSchiedsrichter = action({
   input: SaveSchiedsrichter,
   ownWords: ["duplicate_key", "email_not_accepted"],
   paths: { name: "changes.name", "kontakt.email": "changes.email" },
-  examples: { "changes.name": COPY.shared.field.exampleName, "changes.phone": COPY.admin.schiedsrichter.phoneExample },
+  examples: { "changes.name": COPY.shared.field.exampleName, "changes.phone": COPY.shared.field.examplePhone },
   run: async ({ id, version, changes }): Promise<ActionAnswer<number>> => {
     const read = await getSchiedsrichterById(id);
     if (read === null) return { ok: false, reason: COPY.shared.failure.stale };

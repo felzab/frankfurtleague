@@ -150,7 +150,7 @@ describe("a lapsed date", () => {
 
     const when = COPY.spielplan.when("2026-11-14", "16:00:00");
     expect(rows.map(({ line }) => line)).toStrictEqual([
-      COPY.shared.line([when, COPY.admin.schiedsrichter.expiredOn("2026-11-08"), COPY.area.team.leagueDecides]),
+      COPY.shared.line([when, COPY.shared.expiredOn("2026-11-08"), COPY.area.team.leagueDecides]),
       COPY.shared.line([when, COPY.area.team.leagueDecides]),
     ]);
   });
@@ -166,7 +166,7 @@ describe("a line-up's row", () => {
     });
     const rows = await rowsOf("aufstellungen", { aufstellungen: [aufstellung("open"), aufstellung("overdue"), aufstellung("locked")] });
 
-    const overdue = { tone: "danger", label: COPY.area.team.aufstellung.overdue };
-    expect(rows.map(({ chip }) => chip)).toStrictEqual([undefined, overdue, { tone: "neutral", label: COPY.area.team.aufstellung.locked }]);
+    const overdue = { tone: "danger", label: COPY.aufstellung.overdue };
+    expect(rows.map(({ chip }) => chip)).toStrictEqual([undefined, overdue, { tone: "neutral", label: COPY.aufstellung.locked }]);
   });
 });

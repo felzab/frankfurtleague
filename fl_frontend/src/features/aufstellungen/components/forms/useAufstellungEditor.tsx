@@ -59,7 +59,7 @@ export function useAufstellungEditor({ aufstellung, players, words, locked, save
   return {
     editor,
     // The starters alone: beside the count of moves it fits a phone's bar, where the longer line pushes the count out.
-    barText: COPY.area.team.aufstellung.startelfCount(lineupStarters(draft, nameless), STARTERS_MAX),
+    barText: COPY.aufstellung.startelfCount(lineupStarters(draft, nameless), STARTERS_MAX),
     block: (
       <Lineup
         players={players}

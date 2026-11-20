@@ -12,6 +12,6 @@ export const STARTERS_MAX = 11 satisfies FLAufstellungStartersMax;
  */
 export const AUFSTELLUNG_CHIP = {
   open: undefined,
-  overdue: { tone: "danger", label: COPY.area.team.aufstellung.overdue },
-  locked: { tone: "neutral", label: COPY.area.team.aufstellung.locked },
+  overdue: { tone: "danger", label: COPY.aufstellung.overdue },
+  locked: { tone: "neutral", label: COPY.aufstellung.locked },
 } as const satisfies Record<FLAufstellungPhase, ChipProps | undefined>;

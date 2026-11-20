@@ -133,7 +133,7 @@ describe("the league's save of a line-up", () => {
     expect(answer).toStrictEqual({
       ok: false,
       errorCode: "spieler_not_in_kader",
-      fieldErrors: { [`changes.picked.${THREE}`]: COPY.admin.spieler.deregistered },
+      fieldErrors: { [`changes.picked.${THREE}`]: COPY.kader.deregistered },
     });
   });
 

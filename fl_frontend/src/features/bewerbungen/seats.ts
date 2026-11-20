@@ -25,8 +25,6 @@ export type SeatView = {
   day: Copy | null;
 };
 
-const WORDS = COPY.admin.schiedsrichter;
-
 const STATE_CHIP: Readonly<Record<SeatState, ChipProps>> = {
   confirmed: CONFIRMED_CHIP,
   valid: UNCONFIRMED_CHIP,
@@ -40,13 +38,13 @@ function dayOfState({ status, kontakte }: FLBewerbung, seat: FLKontaktSeat, entr
   const confirmedAt = kontakte[seat]?.einwilligung.confirmed_at ?? null;
   switch (entry.state) {
     case "confirmed":
-      return confirmedAt === null ? null : WORDS.confirmedOn(dayOf(confirmedAt));
+      return confirmedAt === null ? null : COPY.shared.confirmedOn(dayOf(confirmedAt));
     case "declined":
-      return entry.declined_at === null ? null : WORDS.objectedOn(dayOf(entry.declined_at));
+      return entry.declined_at === null ? null : COPY.shared.objectedOn(dayOf(entry.declined_at));
     case "expired":
-      return status === "submitted" ? WORDS.expiredOn(dayOf(entry.deadline)) : null;
+      return status === "submitted" ? COPY.shared.expiredOn(dayOf(entry.deadline)) : null;
     case "valid":
-      return COPY.admin.spiel.answerBy(dayOf(entry.deadline));
+      return COPY.shared.answerBy(dayOf(entry.deadline));
   }
 }
 

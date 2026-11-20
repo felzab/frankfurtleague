@@ -33,9 +33,9 @@ export async function generateMetadata({ params }: Props, parent: ResolvingMetad
 /** The table's head: a phone keeps the name and its chip. */
 const HEAD: TableHead = {
   nameLabel: COPY.shared.facts.school,
-  state: { label: COPY.admin.schiedsrichter.state },
+  state: { label: COPY.shared.facts.state },
   columns: [
-    { key: "received", label: WORDS.received, hideOnPhone: true, width: "date" },
+    { key: "received", label: COPY.shared.facts.received, hideOnPhone: true, width: "date" },
     { key: "seats", label: COPY.admin.spiel.confirmations, hideOnPhone: true, width: "word" },
   ],
 };
@@ -84,7 +84,7 @@ async function readList(params: Props["params"], searchParams: Props["searchPara
   const state = filterValue(addressed.state, STATE_OPTIONS);
   const origin = filterValue(addressed.origin, ORIGIN_OPTIONS);
   const filters: Filter[] = [
-    { name: "state", label: COPY.admin.schiedsrichter.state, all: ALL, options: STATE_OPTIONS, value: state },
+    { name: "state", label: COPY.shared.facts.state, all: ALL, options: STATE_OPTIONS, value: state },
     { name: "origin", label: WORDS.origin, all: ALL, options: ORIGIN_OPTIONS, value: origin },
   ];
   const rows = read.bewerbungen.filter(

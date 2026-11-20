@@ -32,7 +32,7 @@ export default function ErasuresPage() {
       holder={runAdminRead(async () => (await getAdminSession())?.user.email ?? "")}
       fields={[
         {
-          label: COPY.signIn.address,
+          label: COPY.shared.emailAddress,
           name: "email",
           kind: "email",
           isRequired: requires(email, ""),
@@ -42,7 +42,7 @@ export default function ErasuresPage() {
           label: COPY.admin.erasure.reference,
           name: "reason",
           kind: "text",
-          description: COPY.admin.noNames,
+          description: COPY.shared.noNames,
           isRequired: requires(reason, ""),
           maxLength: identityPostErasureBodyReasonMax,
         },

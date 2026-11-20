@@ -94,13 +94,13 @@ export function SpielerEditor({
           ...(locked === undefined ? {} : { locked }),
         }
       : {
-          name: COPY.shared.withObject(WORDS.fromKader, "deregister"),
-          consequence: WORDS.deregisterConsequence,
+          name: COPY.shared.withObject(COPY.kader.fromKader, "deregister"),
+          consequence: COPY.kader.deregisterConsequence,
           ...(locked === undefined ? {} : { locked }),
           confirm: {
             verb: "deregister",
             subject: OBJECT,
-            consequence: WORDS.deregisterConsequence,
+            consequence: COPY.kader.deregisterConsequence,
             tone: "danger",
             onConfirm: press(danger.act),
           },
@@ -155,7 +155,7 @@ export function SpielerEditor({
             <>
               <Facts facts={kader} />
               <TextField
-                label={WORDS.nummer}
+                label={COPY.kader.nummer}
                 name="nummer"
                 holds={2}
                 kind="digits"
@@ -164,7 +164,7 @@ export function SpielerEditor({
                 onChange={(nummer) => set("nummer", nummer)}
               />
               <Select
-                label={WORDS.position}
+                label={COPY.kader.position}
                 name="position"
                 isLocked={ended}
                 options={positions}
@@ -172,7 +172,7 @@ export function SpielerEditor({
                 onChange={(position) => set("position", position ?? "")}
               />
               <Select
-                label={WORDS.stufe}
+                label={COPY.kader.stufe}
                 name="stufe"
                 isLocked={ended}
                 options={stufen}
@@ -180,7 +180,7 @@ export function SpielerEditor({
                 onChange={(stufe) => set("stufe", stufe ?? "")}
               />
               <Select
-                label={WORDS.rolle}
+                label={COPY.kader.rolle}
                 name="rolle"
                 isLocked={ended}
                 options={rolleOptions(takenRollen)}

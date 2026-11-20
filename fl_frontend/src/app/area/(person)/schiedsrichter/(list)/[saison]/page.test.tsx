@@ -137,7 +137,7 @@ describe("a game owing its report", () => {
       spiel({ spiel_id: "5f0000000000000000000002", state: "cancelled", sonderereignis: "abgebrochen", ...owed }),
     );
 
-    const missing = { tone: "warn", label: SERVER_COPY.overview.missing(COPY.admin.spiel.spielbericht) };
+    const missing = { tone: "warn", label: SERVER_COPY.overview.missing(COPY.spielplan.spielbericht) };
     expect(rows.map(({ chip }) => chip)).toStrictEqual([missing, missing]);
   });
 });

@@ -70,11 +70,11 @@ function chipsOf({ schiedsrichter: referee, delivery }: FLSchiedsrichterSingleRe
 function standingOf({ schiedsrichter: { state, einwilligung, confirmation } }: FLSchiedsrichterSingleResponse): Copy | null {
   switch (state) {
     case "confirmed":
-      return einwilligung === null ? null : WORDS.confirmedOn(dayOf(einwilligung.confirmed_at));
+      return einwilligung === null ? null : COPY.shared.confirmedOn(dayOf(einwilligung.confirmed_at));
     case "valid":
-      return confirmation === null ? null : COPY.admin.spiel.answerBy(dayOf(confirmation.deadline));
+      return confirmation === null ? null : COPY.shared.answerBy(dayOf(confirmation.deadline));
     case "expired":
-      return confirmation === null ? null : WORDS.expiredOn(dayOf(confirmation.deadline));
+      return confirmation === null ? null : COPY.shared.expiredOn(dayOf(confirmation.deadline));
     case "unasked":
       return null;
   }
@@ -90,7 +90,7 @@ function confirmationFacts(read: FLSchiedsrichterSingleResponse): Fact[] {
   const sent = read.schiedsrichter.confirmation?.sent_at ?? null;
   if (standing === null && sent === null) return [];
   return [
-    { label: WORDS.state, value: standing ?? COPY.shared.noValue },
+    { label: COPY.shared.facts.state, value: standing ?? COPY.shared.noValue },
     {
       label: COPY.shared.toast.linkSent,
       value: sent === null ? COPY.shared.noValue : { record: formatDate(dayOf(sent)) },

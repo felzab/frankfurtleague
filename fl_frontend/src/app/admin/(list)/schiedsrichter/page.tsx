@@ -52,9 +52,9 @@ export default function SchiedsrichterPage() {
 
 const HEAD: TableHead = {
   nameLabel: COPY.shared.name,
-  state: { label: COPY.admin.schiedsrichter.state },
+  state: { label: COPY.shared.facts.state },
   columns: [
-    { key: "email", label: COPY.signIn.address, hideOnPhone: true, width: "line", cut: true },
+    { key: "email", label: COPY.shared.emailAddress, hideOnPhone: true, width: "line", cut: true },
     { key: "phone", label: COPY.shared.facts.phone, hideOnPhone: true, width: "phone" },
   ],
 };

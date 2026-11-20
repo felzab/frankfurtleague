@@ -225,7 +225,7 @@ describe("the match editor's question before it deletes a later result", () => {
   it("holds the save back with its question, naming the matches the write's own dry run would delete, and writes nothing", async () => {
     const question = await asked({ tore1: "3", tore2: "1" });
 
-    expect(question).toMatchObject({ subject: COPY.admin.spiel.ergebnis, consequence: COPY.admin.spiel.voids([31, 33]) });
+    expect(question).toMatchObject({ subject: COPY.spielplan.ergebnis, consequence: COPY.admin.spiel.voids([31, 33]) });
     expect(question).not.toHaveProperty("facts");
     expect(calls.map(({ endpoint }) => endpoint)).toStrictEqual([DRY_RUN]);
     expect(state.sent).toEqual([]);

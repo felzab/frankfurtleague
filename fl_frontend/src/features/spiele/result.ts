@@ -35,7 +35,7 @@ export function admitsShootOut(saisonPhase: FLSaisonPhase, team1: Side, team2: S
 }
 
 export function scoreOutcome(goals: Pair, added: Pair | null, names: readonly [Words, Words]): ScoreOutcome {
-  const words = COPY.admin.spiel;
+  const words = COPY.spielplan;
   const score = words.score(goals, added);
   const [one, other] = [goals.team1 + (added?.team1 ?? 0), goals.team2 + (added?.team2 ?? 0)];
   if (one === other) return { text: words.drawn(score), tone: "draw" };

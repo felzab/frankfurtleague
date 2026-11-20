@@ -94,7 +94,7 @@ describe("the address on file's link", () => {
     expect(state).toMatchObject({ state: "question", title: COPY.account.address.stop });
     expect(state.state === "question" ? state.facts?.map(({ label }) => label) : []).toStrictEqual([
       WORDS.newAddress,
-      COPY.admin.facts.effectiveFrom,
+      COPY.shared.facts.effectiveFrom,
     ]);
   });
 

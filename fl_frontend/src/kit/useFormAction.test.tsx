@@ -64,8 +64,8 @@ describe("a form's status line", () => {
     ["done", { ok: true, value: undefined }, { tone: "saved", text: COPY.shared.saved }],
     [
       "partly done",
-      { ok: true, value: undefined, note: COPY.admin.banList.partial.notice, warn: true },
-      { tone: "warn", text: COPY.admin.banList.partial.notice },
+      { ok: true, value: undefined, note: COPY.shared.addressChange.previousStays, warn: true },
+      { tone: "warn", text: COPY.shared.addressChange.previousStays },
     ],
     ["refused", { ok: false, reason: COPY.shared.failure.stale }, { tone: "error", text: COPY.shared.failure.stale }],
     ["partly refused", { ok: false, reason: COPY.shared.failure.stale, warn: true }, { tone: "warn", text: COPY.shared.failure.stale }],

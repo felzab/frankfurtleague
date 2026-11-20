@@ -55,7 +55,7 @@ export async function generateMetadata({ params }: Props, parent: ResolvingMetad
  */
 function leadOf({ spiel, marks }: FLAufstellungResponse): Copy {
   const when = COPY.spielplan.when(dayOf(spiel.date), timeOf(spiel.time));
-  const words = COPY.area.team.aufstellung;
+  const words = COPY.aufstellung;
   const due =
     marks === null || marks.stored || marks.phase === "locked" || spiel.sonderereignis !== null ? null : dayIn(new Date(marks.due_at));
   const owed = due === null ? null : marks?.phase === "overdue" ? words.overdueSince(due) : words.dueBy(due);
@@ -83,7 +83,7 @@ async function readEditor(params: Props["params"]) {
   const found = await readAsSeatHolder(() => lineupAt(params, seat.team_id, seat.saison_id));
   if (found === null) notFound();
 
-  const words = COPY.area.team.aufstellung;
+  const words = COPY.aufstellung;
   const closed = found.marks?.phase === "locked" ? words.lockedLine : undefined;
   // The block's every act answers a press with why it is closed: the lock before the missing slot.
   const locked = closed ?? (found.marks === null ? words.needsSlot : undefined);

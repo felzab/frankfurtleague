@@ -27,7 +27,7 @@ export function StartFields({
   return (
     <>
       <TextField
-        label={COPY.account.address.current}
+        label={COPY.shared.addressChange.current}
         name="address"
         kind="email"
         isRequired={required.address}
@@ -41,7 +41,7 @@ export function StartFields({
         />
       )}
       <TextField
-        label={COPY.account.address.new}
+        label={COPY.shared.addressChange.new}
         name="email"
         kind="email"
         isRequired={required.email}

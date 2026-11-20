@@ -12,7 +12,7 @@ import { deregisterKaderRow, saveKaderRow } from "./kaderRowActs";
 import type { FLKaderRow, FLSpielerRolle, FLSpielerStufe } from "@/core/generated/client/types";
 import type { HeldOpen } from "@/kit/useOpenUntilHidden";
 
-const WORDS = COPY.admin.spieler;
+const WORDS = COPY.kader;
 
 /**
  * A live squad row's dialog, the record titled by the player's name: its four values one under another, Nummer,

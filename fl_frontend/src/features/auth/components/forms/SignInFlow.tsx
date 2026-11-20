@@ -140,7 +140,7 @@ export function SignInFlow({ next, siteKey }: { next: string; siteKey: string })
     <SignInPage
       view="address"
       title={COPY.signIn.title}
-      address={{ label: COPY.signIn.address, value: email, onChange: setEmail, error: refused?.fieldErrors }}
+      address={{ label: COPY.shared.emailAddress, value: email, onChange: setEmail, error: refused?.fieldErrors }}
       check={humanCheck.widget}
       send={{
         label: COPY.signIn.sendCode,

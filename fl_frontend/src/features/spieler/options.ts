@@ -20,14 +20,14 @@ export const positionOptions = (): readonly Option[] => [
  */
 export const stufeOptions = (allowed: readonly FLSpielerStufe[], held: FLSpielerStufe | null = null): readonly Option[] => [
   NONE,
-  ...orderStufen([...allowed, ...(held === null ? [] : [held])]).map((stufe) => ({ id: stufe, label: COPY.admin.saison.stufe[stufe] })),
+  ...orderStufen([...allowed, ...(held === null ? [] : [held])]).map((stufe) => ({ id: stufe, label: COPY.kader.stufeName[stufe] })),
 ];
 
 /** The two roles, each another live row of the squad holds closed with its note, as the write refuses a second holder. */
 export const rolleOptions = (taken: readonly FLSpielerRolle[]): readonly Option[] => [
   NONE,
   ...Object.values(FLSpielerRolle).map((rolle): Option => {
-    const option = { id: rolle, label: COPY.admin.spieler.rolleOption[rolle] };
+    const option = { id: rolle, label: COPY.kader.rolleOption[rolle] };
     return taken.includes(rolle) ? { ...option, isDisabled: true, note: COPY.shared.field.taken } : option;
   }),
 ];

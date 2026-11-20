@@ -9,7 +9,7 @@ import type { ConsentLine as Line } from "@/core/consentWordings";
 import type { FLSpielerStufe } from "@/core/generated/client/types";
 
 const WORDS = COPY.registrierung;
-const KADER = COPY.admin.spieler;
+const KADER = COPY.kader;
 
 /** What the write asks of the three typed boxes, read on the server so its schema never reaches the browser. */
 export type RegistrierungRules = {
@@ -59,7 +59,7 @@ export function RegistrierungFields({
           maxLength={maxLength.lastName}
         />
         <TextField
-          label={COPY.signIn.address}
+          label={COPY.shared.emailAddress}
           name="email"
           description={WORDS.ownAddress}
           kind="email"

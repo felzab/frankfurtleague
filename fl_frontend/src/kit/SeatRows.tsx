@@ -15,7 +15,7 @@ export type SeatRow = {
   name: Words;
   /** The seat's state, and beside it, where the last mail met trouble, the delivery's. */
   chips: ReadonlyArray<ChipProps>;
-  /** The muted line: the seats held, the address and where the answer stands (`COPY.admin.seatLine`). */
+  /** The muted line: the seats held, the address and where the answer stands (`COPY.team.seatLine`). */
   line: Words;
   /** The row's side acts, the page's own, drawn by `SideActs` in the form the list decides. */
   acts?: ReactElement;

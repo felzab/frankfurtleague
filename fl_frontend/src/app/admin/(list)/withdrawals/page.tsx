@@ -38,7 +38,7 @@ export default function WithdrawalsPage() {
       holder={runAdminRead(async () => (await getAdminSession())?.user.email ?? "")}
       fields={[
         {
-          label: COPY.signIn.address,
+          label: COPY.shared.emailAddress,
           name: "email",
           kind: "email",
           isRequired: requires(email, ""),

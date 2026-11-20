@@ -84,7 +84,7 @@ export function TeamEntryFields({
             options={schulformOptions()}
             defaultValue=""
           />
-          <FieldGroup name={COPY.admin.spielort.address}>
+          <FieldGroup name={COPY.shared.address.title}>
             <AddressFields rules={address} />
           </FieldGroup>
           <TextField

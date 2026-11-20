@@ -74,13 +74,13 @@ describe("the overview's row of a fixture owing answers", () => {
       reads: "due, a club and its referee owing on their own days",
       kind: "spielbestaetigung_due" as const,
       parties: [party("schiedsrichter", null), party("team", null)],
-      line: COPY.admin.spiel.answerBy(dayOf("2026-11-10")),
+      line: COPY.shared.answerBy(dayOf("2026-11-10")),
     },
     {
       reads: "due, its referee alone owing",
       kind: "spielbestaetigung_due" as const,
       parties: [party("schiedsrichter", null)],
-      line: COPY.admin.spiel.answerBy(dayOf("2026-11-14")),
+      line: COPY.shared.answerBy(dayOf("2026-11-14")),
     },
     {
       reads: "due, a club never asked",
@@ -92,7 +92,7 @@ describe("the overview's row of a fixture owing answers", () => {
       reads: "overdue",
       kind: "spielbestaetigung_overdue" as const,
       parties: [party("schiedsrichter", null), party("team", "2026-11-10")],
-      line: COPY.admin.schiedsrichter.expiredOn(dayOf("2026-11-10")),
+      line: COPY.shared.expiredOn(dayOf("2026-11-10")),
     },
   ])("says when the answer is owed, $reads", async ({ kind, parties, line }) => {
     expect((await dueRowOver(kind, parties)).line).toStrictEqual(line);

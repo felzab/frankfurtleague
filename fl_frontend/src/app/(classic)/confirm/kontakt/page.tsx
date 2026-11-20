@@ -92,9 +92,9 @@ function closedRow(view: FLBewerbungEinwilligungViewSaisonPast, token: string): 
   const team = { record: view.schule };
   return {
     state: "question",
-    title: WORDS.closedTitle,
+    title: WORDS.ownEntry,
     facts: standsFor(view),
-    sentence: WORDS.text(
+    sentence: SERVER_COPY.paragraph(
       WORDS.opening.seasonRow(team, view.saison_id, seatsHeld(view)),
       WORDS.closedStored,
       view.row === "exited" ? WORDS.teamDeparted(team) : SERVER_COPY.refusalLine.saison_past,
@@ -118,13 +118,13 @@ function question(view: FLBewerbungEinwilligungViewValid, token: string, until: 
     title: COPY.page.entryConfirmation,
     facts: [...standsFor(view), { label: WORDS.confirmBy, value: { record: formatDate(until) } }],
     sentence: onSeasonRow
-      ? WORDS.text(
+      ? SERVER_COPY.paragraph(
           WORDS.opening.seasonRow(schule, view.saison_id, seatsHeld(view)),
           WORDS.stored,
           WORDS.seatDeadline(until),
           WORDS.objectionEffect.seasonRow,
         )
-      : WORDS.text(
+      : SERVER_COPY.paragraph(
           WORDS.opening.named(schule, view.saison_id, seatsHeld(view)),
           WORDS.stored,
           WORDS.applicationDeadline(until),

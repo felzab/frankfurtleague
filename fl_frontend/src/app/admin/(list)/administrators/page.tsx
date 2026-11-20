@@ -30,10 +30,10 @@ import type { Metadata, ResolvingMetadata } from "next";
 const WORDS = COPY.admin.administrators;
 const FACTS = COPY.admin.facts;
 const MAIL_TO = COPY.admin.mailTo;
-const ADDRESS = COPY.signIn.address;
+const ADDRESS = COPY.shared.emailAddress;
 
 const ADD = { verb: "enter", object: WORDS.object } as const;
-const HAND_OVER = { verb: "handOver", object: WORDS.owner } as const;
+const HAND_OVER = { verb: "handOver", object: COPY.shared.owner } as const;
 const ADD_FACE = { title: actLabel(ADD), act: ADD, run: addAdministrator } as const;
 const HAND_OVER_FACE = { title: actLabel(HAND_OVER), act: HAND_OVER, run: startHandover } as const;
 
@@ -92,11 +92,11 @@ const instantOf = (moment: string) => ({ record: formatInstantShort(moment) });
  */
 function activeRow(grant: FLGrantRow, { reader, readerIsOwner }: Pick<Access, "reader" | "readerIsOwner">): TableRow {
   const isOwner = grant.admin_tier === "owner";
-  const locked = !readerIsOwner ? WORDS.ownerOnly : isOwner ? WORDS.afterHandover : undefined;
+  const locked = !readerIsOwner ? WORDS.ownerOnly : isOwner ? COPY.shared.afterHandover : undefined;
   return {
     id: grant.id,
     name: { record: grant.address, address: true },
-    chip: { tone: "success", label: isOwner ? WORDS.owner : COPY.admin.role },
+    chip: { tone: "success", label: isOwner ? COPY.shared.owner : COPY.shared.administration },
     phoneLine: WORDS.sinceOn(grant.effective_from),
     cells: { since: dayOf(grant.effective_from) },
     sideActs: 1,
@@ -146,7 +146,7 @@ function waitingRow({
     acts: (
       <RowAct
         verb="withdraw"
-        subject={COPY.account.address.change}
+        subject={COPY.shared.addressChange.change}
         consequence={consequence}
         facts={facts}
         run={act}
@@ -170,7 +170,7 @@ function waitingRows({ reader, readerIsOwner, additions, handover, changes }: Ac
         consequence: WORDS.withdrawConsequence.addition,
         facts: [
           { label: ADDRESS, value: { record: grant.address, address: true } },
-          { label: FACTS.effectiveFrom, value: instantOf(grant.effective_from) },
+          { label: COPY.shared.facts.effectiveFrom, value: instantOf(grant.effective_from) },
           { label: FACTS.mailTo, value: MAIL_TO.holdersAndPerson },
         ],
         act: removeAdministrator,
@@ -187,8 +187,8 @@ function waitingRows({ reader, readerIsOwner, additions, handover, changes }: Ac
             readerIsOwner,
             consequence: WORDS.withdrawConsequence.handover,
             facts: [
-              { label: FACTS.after, value: { record: handover.address, address: true } },
-              { label: FACTS.effectiveFrom, value: instantOf(handover.owner_from) },
+              { label: COPY.shared.facts.after, value: { record: handover.address, address: true } },
+              { label: COPY.shared.facts.effectiveFrom, value: instantOf(handover.owner_from) },
               { label: FACTS.mailTo, value: MAIL_TO.holders },
             ],
             act: stopHandover,
@@ -198,14 +198,14 @@ function waitingRows({ reader, readerIsOwner, additions, handover, changes }: Ac
       waitingRow({
         id: change.id,
         address: change.address,
-        line: WORDS.pendingLine(COPY.account.address.new, change.email, change.effective_from),
+        line: WORDS.pendingLine(COPY.shared.addressChange.new, change.email, change.effective_from),
         reader,
         readerIsOwner,
-        consequence: COPY.admin.addressChange.previousStays,
+        consequence: COPY.shared.addressChange.previousStays,
         facts: [
-          { label: FACTS.before, value: { record: change.address, address: true } },
-          { label: FACTS.after, value: { record: change.email, address: true } },
-          { label: FACTS.effectiveFrom, value: instantOf(change.effective_from) },
+          { label: COPY.shared.facts.before, value: { record: change.address, address: true } },
+          { label: COPY.shared.facts.after, value: { record: change.email, address: true } },
+          { label: COPY.shared.facts.effectiveFrom, value: instantOf(change.effective_from) },
           { label: FACTS.mailTo, value: MAIL_TO.holders },
         ],
         act: discardChange,
@@ -216,7 +216,7 @@ function waitingRows({ reader, readerIsOwner, additions, handover, changes }: Ac
 
 /** The columns of the list of who holds access: on a phone a row's line stands for the „Seit“ column. */
 const HEAD = {
-  state: { label: COPY.admin.schiedsrichter.state },
+  state: { label: COPY.shared.facts.state },
   columns: [{ key: "since", label: WORDS.since, hideOnPhone: true, width: "date" }],
 } as const satisfies Pick<TableProps, "columns" | "state">;
 
@@ -239,7 +239,7 @@ async function foldsOf(access: Promise<Access>) {
       column
       cards={[
         {
-          title: COPY.admin.team.active,
+          title: COPY.shared.state.active,
           count: read.active.length,
           open: true,
           tables: [
@@ -295,14 +295,14 @@ function handoverOf({ reader, readerIsOwner, active, handover }: Access): ListCr
     ...(handover === undefined ? {} : { locked: WORDS.handoverRunning }),
     consequence: WORDS.handoverConsequence(OWNER_WAIT),
     facts: [
-      { label: FACTS.before, value: { record: owner.address, address: true } },
+      { label: COPY.shared.facts.before, value: { record: owner.address, address: true } },
       // Counted from this read: the press sets the date itself, and the row and the mail then state it.
-      { label: FACTS.effectiveFrom, value: instantOf(new Date(now().getTime() + OWNER_WAIT.days * DAY_MS).toISOString()) },
+      { label: COPY.shared.facts.effectiveFrom, value: instantOf(new Date(now().getTime() + OWNER_WAIT.days * DAY_MS).toISOString()) },
       { label: FACTS.mailTo, value: MAIL_TO.holders },
     ],
     children: (
       <Select
-        label={FACTS.after}
+        label={COPY.shared.facts.after}
         name="grant_id"
         options={administrators.map((grant) => ({ id: grant.id, label: { record: grant.address } }))}
         isRequired={GRANT_RULES.required.grant_id}

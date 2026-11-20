@@ -151,7 +151,7 @@ export const ROUTES = {
   /** Signing in, which every page signed out offers as „Konto“. */
   signIn: { path: () => "/signin" as const, title: COPY.signIn.title, crawl: "noindex" },
   /** The passkey step a sign-in reaches where its session is to set one up, use one or is offered one. */
-  signInPasskey: { path: () => "/signin/passkey" as const, title: COPY.signIn.passkeyTitle, crawl: "noindex" },
+  signInPasskey: { path: () => "/signin/passkey" as const, title: COPY.shared.passkey, crawl: "noindex" },
   /**
    * Where every finished sign-in step lands: a route handler, not a page, which sends the session on to the page it
    * goes to next in one redirect, so nothing renders at this address and it has no title.

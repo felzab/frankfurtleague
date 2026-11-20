@@ -19,6 +19,7 @@ import type {
   FLAddressChangeWaitsOn,
   FLCardColour,
   FLKontaktSeat,
+  FLSaisonPhase,
   FLSchulform,
   FLSonderereignis,
   FLSpielerRolle,
@@ -122,26 +123,15 @@ export type Verb = keyof typeof VERB;
 
 const infinitive = (verb: Verb): string => `${VERB[verb].charAt(0).toLowerCase()}${VERB[verb].slice(1)}`;
 
-// One line for every failure no reason names, the same in a toast and in a status line.
-const UNEXPECTED = "Etwas ist schiefgelaufen";
-
 // The glossary's one spelling, which the season editor's sentence about it takes too.
 const K_O_RUNDE = "K.-o.-Runde";
 /** A group by its letter, „Gruppe A“, which the season's blocks and the replacement's sentence both say. */
 const GRUPPE = (gruppe: string) => `Gruppe ${gruppe}`;
 
-// Words two areas of this one object say alike, each written once and read under both keys: a match's facts and
-// its events as a visitor reads them and as the editor's fields name them, and the sign-in's acts and pages.
-const SPIEL_FACT = { date: "Datum", time: "Uhrzeit" } as const;
 // A match or a matchday not dated yet, as a match row and a matchday's line say it.
 const DATE_OPEN = "Termin offen";
 // The mark beside a score a shoot-out decided, its two parts joined by a no-break space so a narrow row never parts them.
 const AFTER_ELFMETERSCHIESSEN = "n.\u00A0E.";
-// A party's agreement to a fixture's date: its chip, and the toast as the agreed row leaves its list.
-const AGREED = "Zugesagt";
-const SONDEREREIGNIS = { ausgefallen: "Ausgefallen", abgebrochen: "Abgebrochen", annulliert: "Annulliert" } as const;
-// Two clubs named by their place in a pair: a fixture's two sides, and the group swap's two clubs.
-const TEAM_PAIR = { team1: "Team 1", team2: "Team 2" } as const;
 const SIGN_IN = "Anmeldung";
 const SIGN_IN_WITH_PASSKEY = "Mit Passkey anmelden";
 const SET_UP_PASSKEY = { title: "Passkey einrichten", button: "Jetzt einrichten" } as const;
@@ -159,8 +149,6 @@ const ENTRY = "Eintrag";
 const PRIVACY_NOTICE = "Datenschutz";
 // The danger box over a record's retiring: a venue's, a referee's and a club's alike.
 const RETIREMENT = "Stilllegung";
-// An act locked until its people confirmed: a pupil's admission and an application's acceptance alike.
-const AFTER_CONFIRMATION = "Erst nach Bestätigung";
 
 /**
  * Each reason an editor's fields can stand locked for, as its lock line says it after „Gesperrt“, in the order the
@@ -255,9 +243,6 @@ export const waitWords = (wait: Wait) =>
  */
 export const boundBy = (...parts: string[]) => parts.join("\u00A0");
 
-// An act the owner's own grant holds back until the handover: the owner's removal and the owner's deletion alike.
-const AFTER_HANDOVER = `Erst nach \u00DCbergabe ${boundBy("der", OWNER_TIER)}`;
-
 /** Between the parts of a row's one muted line, and between a mail's legal links, which are HTML. */
 export const LINE_SEPARATOR = " \u00B7 ";
 
@@ -298,6 +283,8 @@ export const COPY = catalogue({
       exampleDate: "31.12.2026",
       // Reserved as the address example's domain is.
       exampleUrl: "https://example.com",
+      /** The example a phone box's message names, from the Federal Network Agency's range for media use. */
+      examplePhone: "069 90009123",
       between: (from: number, to: number) => `Zwischen ${formatNumber(from)} und ${formatNumber(to)}`,
       // One-sided bounds of a number or of a list, the box's label saying what is counted.
       max: (count: number) => `Höchstens ${formatNumber(count)}`,
@@ -312,7 +299,7 @@ export const COPY = catalogue({
 
     /** The three lines every refusal no person causes knowingly from the screen falls back to. */
     failure: {
-      unexpected: UNEXPECTED,
+      unexpected: "Etwas ist schiefgelaufen",
       stale: "Die Seite ist nicht mehr aktuell.",
       signInExpired: "Deine Anmeldung ist abgelaufen.",
       /** A press past any limit on tries, whatever was counted: the edge's rate, a code's wrong tries, an address's codes. */
@@ -320,11 +307,93 @@ export const COPY = catalogue({
       /** An administrator's grant is gone or was never held: no sign-in and no retry repairs it. */
       accessGone: "Dein Zugang zur Verwaltung besteht nicht mehr.",
     },
+    /** An act the passkey touch guards, sent without a passkey sign-in of the last minute by a person holding one. */
+    touchMissing: "Die Bestätigung mit deinem Passkey fehlt.",
 
     /** Beside the save button once the record is stored. */
     saved: "Gespeichert",
     /** The chip of a venue or a referee taken out of use, and its greyed entry where a match books one. */
     retired: "Stillgelegt",
+
+    /** The chips of the states several pages draw, each one word wherever it stands. */
+    state: {
+      /** A record in play: the state filter's option for a club playing on, and the chip of a list's default row. */
+      active: "Aktiv",
+      confirmed: "Bestätigt",
+      /** An entry waiting on its person's confirmation: the chip after the name, and the note on the match editor's closed choice. */
+      unconfirmed: "Unbestätigt",
+      /** A person's objection through their own link: the chip of a seat and of a referee, and the end their link reaches. */
+      objected: "Widersprochen",
+      erased: DELETED,
+      expired: "Abgelaufen",
+      /** A party's agreement to a fixture's date: its chip, and the toast as the agreed row leaves its list. */
+      agreed: "Zugesagt",
+      /** A club's decline and a referee's alike; a match called off reads as its event, „Ausgefallen“. */
+      declined: "Abgelehnt",
+      nominee: "Nachnominiert",
+      /** A registration link mailed, and one no mail went out for. */
+      linkSent: "Gesendet",
+      linkNotSent: "Nicht gesendet",
+    },
+    /** Where an entry's confirmation stands, by the day: a referee's, a seat's and a registration's alike. */
+    confirmedOn: (day: CalendarDay) => `Bestätigt ${boundBy("am", formatDate(day))}`,
+    expiredOn: (day: CalendarDay) => `Abgelaufen ${boundBy("am", formatDate(day))}`,
+    objectedOn: (day: CalendarDay) => `Widersprochen ${boundBy("am", formatDate(day))}`,
+    /** The day an awaited answer is due by: a party's about a date, and a seat's or a referee's about their entry. */
+    answerBy: (day: CalendarDay) => `Antwort ${boundBy("bis", formatDate(day))}`,
+    /** An act locked until its people confirmed: a pupil's admission and an application's acceptance alike. */
+    afterConfirmation: "Erst nach Bestätigung",
+    /** An act the owner's own grant holds back until the handover: the owner's removal and the owner's deletion alike. */
+    afterHandover: `Erst nach Übergabe ${boundBy("der", OWNER_TIER)}`,
+    /** A stated reason: a rejection's, a ban's and a club's exit's, its box and its fact. */
+    reason: "Grund",
+    /** The description of a free text a mail hands to people it may not concern. */
+    noNames: "Ohne Namen",
+    /** Under the media box of a person short of its floor, and a seat's field description on the form, by the seat's floor. */
+    mediaFrom: (age: number) => `Erst ${boundBy("ab", formatNumber(age), "Jahren")}`,
+
+    /** The role an administrator acts in: the account row's second line, a Funktion, a grant's row. */
+    administration: "Verwaltung",
+    /** The owner tier's one word: its chip, its acts and every sentence naming it, the server's among them. */
+    owner: OWNER_TIER,
+    /** A referee's fee for a match: the referee's own default, and a match's booking. */
+    payment: "Honorar",
+
+    /** The address a person signs in with: its box, its fact and its column. */
+    emailAddress: "E-Mail-Adresse",
+    /** The object of „Link senden“. */
+    link: "Link",
+    /** A change of the address a person signs in with, as Konto and the administration's address tool word it. */
+    addressChange: {
+      /** The pending change's noun, „Änderung zurückziehen“, the glossary's screen word. */
+      change: "Änderung",
+      /** The address on file, shown over the field for its replacement. */
+      current: "Bisherige E-Mail-Adresse",
+      new: "Neue E-Mail-Adresse",
+      /** A withdrawal's and a discard's sentence. */
+      previousStays: "Die bisherige Adresse bleibt.",
+    },
+    passkey: "Passkey",
+    passkeys: "Passkeys",
+
+    /** A postal address's group and boxes, a venue's and a school's alike. */
+    address: {
+      title: "Adresse",
+      street: "Straße",
+      houseNumber: "Nr.",
+      postcode: "PLZ",
+      district: "Stadtteil",
+      city: "Stadt",
+      /** What a new address's city starts as: the league plays in one city. */
+      cityDefault: "Frankfurt am Main",
+      /** The examples each box's message line shows where its value is off its pattern. */
+      postcodeExample: "60438",
+      houseNumberExample: "12a",
+      /** One line of an address: its street and number. */
+      streetWithHouseNumber: (street: string, houseNumber: string) => `${street} ${houseNumber}`,
+      /** A whole address on one line, „Schulweg 8, 60317 Frankfurt am Main“, after its street line. */
+      addressLine: (street: Copy, postcode: string, city: string) => `${street}, ${postcode} ${city}`,
+    },
 
     /**
      * The toast titles; a toast carries no body. `linkSent` labels the referee editor's fact for the day the last
@@ -335,10 +404,7 @@ export const COPY = catalogue({
       linkSent: "Link gesendet",
       /** Every other device's session ended, this one's kept. */
       othersSignedOut: "Alle anderen abgemeldet",
-      /** A row leaving its list with its act done: a fixture's date agreed, in its chip's word, and a registration admitted. */
-      agreed: AGREED,
       admitted: "Aufgenommen",
-      failure: UNEXPECTED,
       /**
        * An act behind the passkey touch done, by its verb: its question or dialog closed before the touch, so the toast
        * is where it answers. A handover only starts its wait, as its row under „Angekündigt“ says.
@@ -416,7 +482,7 @@ export const COPY = catalogue({
       viertelfinale: "Viertelfinale",
       halbfinale: "Halbfinale",
       finale: "Finale",
-    },
+    } satisfies Record<FLSaisonPhase, string>,
     /** A group matchday, by its served `position`: the season's lists, a match's head and the season card name it alike. */
     spieltag: spieltagName,
     /** A knockout matchday where its phase spans several, „Viertelfinale (2)“: the phase's name and the matchday's place in it. */
@@ -447,8 +513,29 @@ export const COPY = catalogue({
     /** A person's two names, each its own box wherever a person is entered. */
     firstName: "Vorname",
     lastName: "Nachname",
-    /** A person's or a school's facts by their labels: a box, a fact in a list, a column head. */
-    facts: { birthday: "Geburtsdatum", phone: "Telefon", school: "Schule", team: "Team" },
+    /** Facts by their labels: a box, a fact in a list or a question, a column head. */
+    facts: {
+      birthday: "Geburtsdatum",
+      phone: "Telefon",
+      school: "Schule",
+      team: "Team",
+      /** Where a record stands: a list's state column and filter, and an entry's confirmation fact. */
+      state: "Stand",
+      /** The day an application or a registration came in. */
+      received: "Eingegangen",
+      /** A move's two slots, the old and the new. */
+      before: "Bisher",
+      after: AFTER,
+      effectiveFrom: EFFECTIVE_FROM,
+    },
+    /** Two clubs named by their place in a pair: a fixture's two sides, and the group swap's two clubs. */
+    teamPair: { team1: "Team 1", team2: "Team 2" },
+    /** The record's name, the object of „Bewerbung abschicken“, „Bewerbung annehmen“ and „Bewerbung ablehnen“. */
+    bewerbung: "Bewerbung",
+    /** The object of „Sperre eintragen“ and „Sperre entfernen“, and the block's title in the ban's mail. */
+    ban: "Sperre",
+    /** The rows an erasure removes beyond the entries `shared` and `page` name, on its confirmation and on Konto's deletion page. */
+    erasureCount: { addressChanges: "Laufende Adressänderungen", grant: "Zugang" },
     /** The glossary's nouns for a pupil, a referee and a squad: a page's title, a Funktion, an entry's box. */
     spieler: SPIELER,
     schiedsrichter: SCHIEDSRICHTER,
@@ -540,12 +627,9 @@ export const COPY = catalogue({
 
   /** The public application form's own words; what the administration names alike stands in `team`. */
   bewerbung: {
-    /** The object of „Bewerbung abschicken“, „Bewerbung annehmen“ and „Bewerbung ablehnen“, and the review page's first box. */
-    object: "Bewerbung",
     schoolDescription: "Die Schulen, die schon mitgespielt haben",
     /** The switch under the school picker, revealing a new school's fields. */
     schoolNotListed: "Meine Schule ist nicht in der Liste",
-    teamName: "Teamname",
     teamNameDescription: "Kurz, wie das Team genannt wird",
     stufengroesseDescription: "Wie viele im Abi-Jahrgang sind",
     /** Each seat confirms for one person, which a shared inbox would let one person do for two. */
@@ -585,6 +669,12 @@ export const COPY = catalogue({
     seatName: KONTAKT_SEAT_LONG_FORM,
     /** The object of „Sitz bearbeiten“. */
     seat: "Sitz",
+    /** A seat row's one muted line: the seats held, the address, and where the answer stands. An emptied seat holds no address, an erased one no day. */
+    seatLine: (seats: readonly FLKontaktSeat[], address: string | null, day: Copy | null) => lineOf([seatsText(seats), address, day]),
+    /** The name's place on an emptied seat. */
+    seatEmpty: "Niemand",
+    /** The club's name as the application form asks it. */
+    teamName: "Teamname",
     fullName: "Vollständiger Name",
     shorthand: "Kürzel",
     /** By the length the backend fixes a club's code at. */
@@ -669,12 +759,16 @@ export const COPY = catalogue({
 
     /** What befell a match, as a visitor reads it: a no-show names the club that did not turn up. */
     sonderereignis: {
-      ausgefallen: SONDEREREIGNIS.ausgefallen,
+      /** The box choosing it, in the match editor and the referee's report. */
+      label: "Sonderereignis",
+      /** The box's first entry: nothing beyond the match being played. */
+      none: "Keines",
+      ausgefallen: "Ausgefallen",
       nichtantreten: (team: Words) => `${textOf(team)} nicht angetreten`,
       /** A no-show's chip in a match row, whose struck side names the club. */
       nichtantretenChip: "Nicht angetreten",
-      abgebrochen: SONDEREREIGNIS.abgebrochen,
-      annulliert: SONDEREREIGNIS.annulliert,
+      abgebrochen: "Abgebrochen",
+      annulliert: "Annulliert",
       /**
        * What the event means for the result, under its name in the pop-up's callout, which the name does not
        * repeat: a match called off or struck out awards nothing, a no-show awards the side that turned up the
@@ -692,11 +786,98 @@ export const COPY = catalogue({
     /** A match's facts, each by its label. */
     fact: {
       spieltag: "Spieltag",
-      date: SPIEL_FACT.date,
-      time: SPIEL_FACT.time,
+      date: "Datum",
+      time: "Uhrzeit",
       spielort: "Ort",
       schiedsrichter: SCHIEDSRICHTER,
     },
+
+    ergebnis: "Ergebnis",
+    /** The match report, the section of the match editor, and the noun what is missing names. */
+    spielbericht: "Spielbericht",
+    /** The players credited with a result's goals, as a field's message names what it must not hold. */
+    scorers: "Torschützen",
+    /** One goal: the object of „Tor eintragen“ and „Tor entfernen“, the noun its row is counted by, and a match's timeline mark. */
+    goal: "Tor",
+    minute: "Minute",
+    elfmeterschiessen: "Elfmeterschießen",
+    /** Level knockout goals saved without a shoot-out leave the match undecided, and the bracket after it. */
+    shootOutMissing: "Ohne Elfmeterschießen steht kein Sieger fest.",
+    /** Why the result's switch is closed: the Sonderereignis composes the result, or leaves the match without one. */
+    byEvent: "Folgt aus dem Sonderereignis",
+    /** The chip of a knockout match whose pairing is not yet confirmed. */
+    provisional: "Vorläufig",
+    /** A row's result: the goals, and after a shoot-out each side's goals and shoot-out goals added, marked „n. E.“. */
+    score: (tore: Pair, elfmeterschiessen: Pair | null) =>
+      elfmeterschiessen === null ? formatErgebnis(tore) : `${formatErgebnis(tore, elfmeterschiessen)} ${AFTER_ELFMETERSCHIESSEN}`,
+    /** What the result's figures decide: a club winning by the score, or a draw. */
+    wins: (team: Words, score: Copy) => `${textOf(team)} gewinnt ${score}`,
+    drawn: (score: Copy) => `Unentschieden ${score}`,
+    noResult: "Noch kein Ergebnis",
+    /** The Vorschau of a match as stored: its pairing, when it is played and its result. */
+    preview: (pairing: Copy, when: Copy, result: Copy) => `${pairing} · ${when} · ${result}`,
+
+    /** A fixture's date as its parties answer it: what it waits on, the objects of the acts on it, and the answer's facts. */
+    answer: "Antwort",
+    appointment: "Termin",
+    vorschlag: "Vorschlag",
+    /** What a declining club proposed, after its answer's date on the party's line. */
+    proposed: (when: Copy) => `Vorschlag ${when}`,
+    /** The free text a party's answer carries: a club's or a referee's decline, and the Zusage the league enters. */
+    answerNote: "Begründung",
+    enteredByLeague: "Von der Verwaltung eingetragen",
+  },
+
+  /** A squad row's fields, one word each wherever a person meets them: the registration form, a team's Kader, a pupil's season, the public pages and the administration. */
+  kader: {
+    search: "Spieler suchen",
+    nummer: "Nummer",
+    position: "Position",
+    stufe: "Stufe",
+    /** Each school level by its short name, as a squad row and the season's choice of them print it. */
+    stufeName: { E1: "E1", E2: "E2", Q1: "Q1", Q2: "Q2", Q3: "Q3", Q4: "Q4" } satisfies Record<FLSpielerStufe, string>,
+    rolle: "Rolle",
+    rolleOption: { kapitaen: "Kapitän", co_kapitaen: "Co-Kapitän" } satisfies Record<FLSpielerRolle, string>,
+    deregistered: "Ausgetragen",
+    nummerDouble: "Nummer doppelt",
+    /** The object of „Aus dem Kader austragen“. */
+    fromKader: "Aus dem Kader",
+    /** The removal's consequence, under the act's name and in its question alike. */
+    deregisterConsequence: "Die Person steht in dieser Saison nicht mehr im Kader.",
+  },
+
+  /** A match's line-up, wherever it shows: the team's Übersicht and Spiele, the line-up's page and the match editor. */
+  aufstellung: {
+    /** The Übersicht's box of the coming matches whose line-up is missing. */
+    plural: "Aufstellungen",
+    /** One club's line-up by the club's name, „Aufstellung Ahorn“: the match editor's link to it. */
+    ofTeam: (team: Words) => `Aufstellung ${textOf(team)}`,
+    /** That link's line where no line-up stands, under a name that already says what is missing. */
+    missing: "Fehlt",
+    /** How many of a line-up's players start, of the most that may: the save bar's own line beside its count of changes. */
+    startelfCount,
+    /** The same after how many players the line-up names, „14 aufgestellt · Startelf 11 von 11“: that link's line where one stands. */
+    counts: (picked: number, starting: number, max: number) => `${formatNumber(picked)} aufgestellt · ${startelfCount(starting, max)}`,
+    /** The lower list's title: the squad's players the line-up does not name. */
+    rest: "Nicht aufgestellt",
+    /**
+     * Why „Aufstellen“ is locked on a nominee's row once the line-up names `max` of the squad's own players, a nominee
+     * filling a shortage alone: the bound the backend publishes, never a typed figure.
+     */
+    nomineeLocked: (max: number) => `Nur bei weniger ${boundBy("als", formatNumber(max))}`,
+    needsSlot: "Erst mit Datum und Uhrzeit",
+    /** A missing line-up's line, by the day it is due: until then, and from then on. */
+    dueBy: (day: CalendarDay) => `Aufstellung ${boundBy("bis", formatDate(day))}`,
+    overdueSince: (day: CalendarDay) => `Aufstellung ${boundBy("seit", formatDate(day))} überfällig`,
+    /**
+     * The chip of a line-up overdue, after its page's title and on the Übersicht's row; on a Spiele card the chip names
+     * what is overdue.
+     */
+    overdue: "Überfällig",
+    overdueOnCard: "Aufstellung überfällig",
+    /** Once the team's seats can change nothing more before the match: the page's chip, and its one line. */
+    locked: "Gesperrt",
+    lockedLine: "Änderungen trägt jetzt die Liga ein.",
   },
 
   /** The page templates' own words: the frames around a page, the editor's bar, a list's paging, the end states. */
@@ -763,9 +944,7 @@ export const COPY = catalogue({
   signIn: {
     /** `/signin`'s tab title, and its card's heading, signed out and signed in: the act its button names. */
     title: VERB.signIn,
-    passkeyTitle: "Passkey",
 
-    address: "E-Mail-Adresse",
     sendCode: "Code senden",
     or: "oder",
     withPasskey: SIGN_IN_WITH_PASSKEY,
@@ -798,8 +977,6 @@ export const COPY = catalogue({
       codeWrong: "Falsch oder nicht mehr gültig",
       noRecord: "Mit dieser Adresse ist keine Anmeldung möglich.",
       unverified: "Dieser Passkey hat nicht bestätigt, dass du es bist.",
-      /** An act the passkey touch guards, sent without a passkey sign-in of the last minute by a person holding one. */
-      touchMissing: "Die Bestätigung mit deinem Passkey fehlt.",
     },
   },
 
@@ -807,13 +984,6 @@ export const COPY = catalogue({
   account: {
     address: {
       description: "Mit dieser Adresse meldest du dich an.",
-      /** The address on file, shown over the field for its replacement; the pending change's sentence calls it the same. */
-      current: "Bisherige E-Mail-Adresse",
-      new: "Neue E-Mail-Adresse",
-      /** The act's noun, „Link senden“. */
-      link: "Link",
-      /** The pending change's noun, „Änderung zurückziehen“, the glossary's screen word. */
-      change: "Änderung",
       /**
        * The pending change, in the two parts around its new address, which the box sets semibold between them: waiting
        * on the address on file's link, which confirms first, or on the new address's own, by the step's deadline.
@@ -840,11 +1010,9 @@ export const COPY = catalogue({
       // What outlives an erasure is the privacy notice's to list, never this sentence's.
       description: `Dein Konto und deine Angaben werden gelöscht, bis auf das, was unter „${PRIVACY_NOTICE}“ steht.`,
       consequence: "Den Link zum Löschen bekommst du per E-Mail.",
-      /** The deletion's tooltip for the owner, whose status line says `refusalLine.owner_erasure`. */
-      ownerLocked: AFTER_HANDOVER,
+      done: ACCOUNT_ERASED,
     },
     passkeys: {
-      title: "Passkeys",
       description: PASSKEY_WITHOUT_CODE,
       /** A row's line under its name, in a list's date form: when it was set up, and when it last signed in where it has. */
       dates: (created: Date, lastUsed: Date | null) =>
@@ -904,8 +1072,6 @@ export const COPY = catalogue({
         /** A seat on a team's season and a seat in an application alike, by the seats held, in the seats' order. */
         seat: (seats: readonly FLKontaktSeat[]) => `Dein Eintrag ${boundBy("als", seatsText(seats))} und wie wir dich erreichen.`,
       },
-      /** Under the media box of a person short of its floor, and a seat's field description on the form, by the seat's floor. */
-      mediaFrom: (age: number) => `Erst ${boundBy("ab", formatNumber(age), "Jahren")}`,
       /** A seat's or a registration's team season: „Birkenschule, Saison 2027“. */
       teamSeason,
       /** A seat entry's fact where its seats store the person typed two ways, by the seats holding this one: „Telefon als Ansprechperson“. */
@@ -933,9 +1099,6 @@ export const COPY = catalogue({
    * read. What the administration names alike stands in `admin`, and what only a server page reads in `SERVER_COPY.area`.
    */
   area: {
-    /** What a fixture's date still waits on from a club or a referee: the noun of the chip „Antwort fehlt“. */
-    answer: "Antwort",
-
     /** A pupil's own pages. */
     spieler: {
       /** A match card's chip on the pupil's own season: their place in their club's line-up, said to them. */
@@ -954,42 +1117,9 @@ export const COPY = catalogue({
       declineConsequence: "Über den Termin entscheidet die Liga.",
       leagueDecides: "Die Liga entscheidet",
 
-      /** A match's line-up: the Übersicht's box, a Spiele card's chip, the line-up's own page and the match editor's link to it. */
-      aufstellung: {
-        /** The Übersicht's box of the coming matches whose line-up is missing. */
-        plural: "Aufstellungen",
-        /** One club's line-up by the club's name, „Aufstellung Ahorn“: the match editor's link to it. */
-        ofTeam: (team: Words) => `Aufstellung ${textOf(team)}`,
-        /** That link's line where no line-up stands, under a name that already says what is missing. */
-        missing: "Fehlt",
-        /** How many of a line-up's players start, of the most that may: the save bar's own line beside its count of changes. */
-        startelfCount,
-        /** The same after how many players the line-up names, „14 aufgestellt · Startelf 11 von 11“: that link's line where one stands. */
-        counts: (picked: number, starting: number, max: number) => `${formatNumber(picked)} aufgestellt · ${startelfCount(starting, max)}`,
-        /** The lower list's title: the squad's players the line-up does not name. */
-        rest: "Nicht aufgestellt",
-        /**
-         * Why „Aufstellen“ is locked on a nominee's row once the line-up names `max` of the squad's own players, a nominee
-         * filling a shortage alone: the bound the backend publishes, never a typed figure.
-         */
-        nomineeLocked: (max: number) => `Nur bei weniger ${boundBy("als", formatNumber(max))}`,
-        needsSlot: "Erst mit Datum und Uhrzeit",
-        /** A missing line-up's line, by the day it is due: until then, and from then on. */
-        dueBy: (day: CalendarDay) => `Aufstellung ${boundBy("bis", formatDate(day))}`,
-        overdueSince: (day: CalendarDay) => `Aufstellung ${boundBy("seit", formatDate(day))} überfällig`,
-        /**
-         * The chip of a line-up overdue, after its page's title and on the Übersicht's row; on a Spiele card the chip names
-         * what is overdue.
-         */
-        overdue: "Überfällig",
-        overdueOnCard: "Aufstellung überfällig",
-        /** Once the team's seats can change nothing more before the match: the page's chip, and its one line. */
-        locked: "Gesperrt",
-        lockedLine: "Änderungen trägt jetzt die Liga ein.",
-      },
-
       /** The team's Registrierungen: its list, the admission and the decline. */
       registrierung: {
+        search: "Registrierungen suchen",
         /**
          * The page's one standing line above the list, filled or empty, in the two parts around the league's address,
          * which the page sets as its link: only the league mints and mails a team's link.
@@ -999,7 +1129,6 @@ export const COPY = catalogue({
         returning: "War schon in der Liga",
         /** Why „Aufnehmen“ is locked: the squad is at its cap, or the pupil's own link is unanswered. */
         kaderFull: "Kader voll",
-        awaitsConfirmation: AFTER_CONFIRMATION,
         /** The decline's one sentence, under its question. */
         declineConsequence: "Die Person kommt nicht in den Kader.",
         /**
@@ -1031,8 +1160,6 @@ export const COPY = catalogue({
         colour: { gelb: "Gelb", gelb_rot: "Gelb-Rot", rot: "Rot" } satisfies Record<FLCardColour, string>,
         /** The section for what no field holds, and its text area's label. */
         remarks: "Bemerkungen",
-        /** One goal: the object of „Tor eintragen“ and „Tor entfernen“, and the noun its row is counted by. */
-        goal: "Tor",
         /** The label over a goal's or a card's row, counting the rows from 1: „Tor 3“, „Karte 1“. */
         numbered: (noun: Copy, number: number) => `${noun} ${formatNumber(number)}`,
         /** The status card of a match called off or struck out, which takes no report. */
@@ -1043,8 +1170,6 @@ export const COPY = catalogue({
 
   /** The administration's own words: its frame, the Spielorte list, the match editor and the season editor. */
   admin: {
-    /** The role an administrator acts in, the account row's second line. */
-    role: "Verwaltung",
     /** The rail's headings over its groups; the Übersicht stands above them with none. */
     group: {
       saisonsAndSpiele: "Saisons und Spiele",
@@ -1054,13 +1179,9 @@ export const COPY = catalogue({
 
     /** The Übersicht's acts done in a dialog from a card's row: the objects they name, and the Zusage's inputs. */
     overview: {
-      appointment: "Termin",
       zusage: "Zusage",
-      vorschlag: "Vorschlag",
       /** Which of the row's open parties agreed: one segment each. */
       zusageFrom: "Zusage von",
-      /** How the party's agreement reached the league, which the confirmation stores. */
-      reason: "Begründung",
       /**
        * Why a fixture's save did not run, on the match editor, an Übersicht row's act or the Termin dialog alike: it
        * would delete a later match's result it was not asked about, a question only the match editor asks.
@@ -1072,39 +1193,14 @@ export const COPY = catalogue({
       /** The object of „Spielort anlegen“. */
       object: "Spielort",
       search: "Spielorte suchen",
-      /** The create dialog's group of the address's lines, and the editor's box holding them. */
-      address: "Adresse",
-      street: "Straße",
-      houseNumber: "Nr.",
-      postcode: "PLZ",
-      district: "Stadtteil",
-      city: "Stadt",
-      /** What a new venue's city starts as: the league plays in one city. */
-      cityDefault: "Frankfurt am Main",
       mietpreis: "Mietpreis",
-      /** The examples each box's message line shows where its value is off its pattern. */
+      /** The example the box's message line shows where its value is off its pattern. */
       mietpreisExample: "60",
-      postcodeExample: "60438",
-      houseNumberExample: "12a",
       /** The danger box's two consequences, under the act's name and in its question alike. */
       retireConsequence: "Der Spielort steht für neue Spiele nicht mehr zur Auswahl.",
       reactivateConsequence: "Der Spielort steht wieder zur Auswahl.",
-      /** The venue list's last entry, which opens the create dialog with the name typed so far. */
-      createEntry: "Spielort anlegen",
-      /** One line of a venue's address: its street and number. */
-      streetWithHouseNumber: (street: string, houseNumber: string) => `${street} ${houseNumber}`,
-      /** A whole address on one line, „Schulweg 8, 60317 Frankfurt am Main“, after its street line. */
-      addressLine: (street: Copy, postcode: string, city: string) => `${street}, ${postcode} ${city}`,
     },
 
-    /** A referee's fee for a match: the referee's own default, and a match's booking. */
-    payment: "Honorar",
-    /** The chip of a contact seat, and of a registration where it says confirmed. */
-    confirmed: "Bestätigt",
-    expired: "Abgelaufen",
-    /** A person's objection through their own link: the chip of a seat and of a referee, and the end their link reaches. */
-    objected: "Widersprochen",
-    erased: DELETED,
     /**
      * Why a choice waits for the season's start: the team editor's exit, whose route before the start is the replacement,
      * and the match editor's events that record the match, offered disabled until then. In the lock line's own words, as
@@ -1115,12 +1211,6 @@ export const COPY = catalogue({
     sinceEnd: `Gesperrt ${LOCK.sinceEnd}`,
     /** „2 von 3“, a figure under its column's or its fact's name, where `SERVER_COPY.overview.seatsConfirmed` is a whole line. */
     seatsOf: (confirmed: number, seats: number) => `${formatNumber(confirmed)} ${boundBy("von", formatNumber(seats))}`,
-    /** A seat row's one muted line: the seats held, the address, and where the answer stands. An emptied seat holds no address, an erased one no day. */
-    seatLine: (seats: readonly FLKontaktSeat[], address: string | null, day: Copy | null) => lineOf([seatsText(seats), address, day]),
-    /** The name's place on an emptied seat. */
-    seatEmpty: "Niemand",
-    /** The description of a free text a mail hands to people it may not concern. */
-    noNames: "Ohne Namen",
     /** The chip beside a seat's or a link's state, where its last mail met trouble. */
     delivery: {
       delayed: "Noch nicht zugestellt",
@@ -1134,12 +1224,9 @@ export const COPY = catalogue({
 
     /** The rows of a question's facts: a move's two slots, the season the site leaves and takes, and whom its act mails. */
     facts: {
-      before: "Bisher",
-      after: AFTER,
       fromNow: "Ab sofort",
       mailTo: "E-Mail an",
       enteredOn: ENTERED_ON,
-      effectiveFrom: EFFECTIVE_FROM,
     },
     /** The place of an address the log's erasure step replaced, in „Wer“. */
     erasedActor: "Gelöschte Person",
@@ -1156,26 +1243,11 @@ export const COPY = catalogue({
 
     schiedsrichter: {
       search: "Schiedsrichter suchen",
-      /**
-       * An entry waiting on its person's confirmation, a referee's, a seat's or a registration's: the chip after the
-       * name, and the note on the match editor's closed choice.
-       */
-      unconfirmed: "Unbestätigt",
       /** The editor's sections beyond the record's own name: how to reach the person, and what became of their link. */
       kontaktData: "Kontaktdaten",
       confirmation: "Bestätigung",
-      /**
-       * The fact saying where the referee's confirmation stands, `confirmedOn` or `expiredOn` below or, while it is
-       * still awaited, `COPY.admin.spiel.answerBy`; `objectedOn` is a contact seat's, an objection erasing a referee.
-       */
-      state: "Stand",
       /** Beside the act that mailed a fresh link, and the save whose corrected address did: the address it went to. */
       sentTo: (address: string) => `${boundBy("An", address)} gesendet`,
-      confirmedOn: (day: CalendarDay) => `Bestätigt ${boundBy("am", formatDate(day))}`,
-      expiredOn: (day: CalendarDay) => `Abgelaufen ${boundBy("am", formatDate(day))}`,
-      objectedOn: (day: CalendarDay) => `Widersprochen ${boundBy("am", formatDate(day))}`,
-      /** The example a phone box's message names, from the Federal Network Agency's range for media use. */
-      phoneExample: "069 90009123",
       retireConsequence: "Die Person steht für neue Spiele nicht mehr zur Auswahl.",
       reactivateConsequence: "Die Person steht wieder zur Auswahl.",
     },
@@ -1229,8 +1301,6 @@ export const COPY = catalogue({
       forfeitLoser: "Tore des Verlierers",
       maxKader: "Maximale Kadergröße",
       stufen: "Stufen",
-      /** Each school level by its short name, as a squad row and the season's choice of them print it. */
-      stufe: { E1: "E1", E2: "E2", Q1: "Q1", Q2: "Q2", Q3: "Q3", Q4: "Q4" } satisfies Record<FLSpielerStufe, string>,
       /** The registration link paused: the window stands, and a link opens nothing until the box is cleared. */
       registrierungPaused: "Registrierung pausiert",
       /** A running season storing no registration window: a link opens nothing until the season's editor stores one. */
@@ -1253,9 +1323,6 @@ export const COPY = catalogue({
       recreateConsequence: "Alle Spieltage und Spiele werden gelöscht und neu angelegt.",
       deleteConsequence: "Alle Spieltage und Spiele werden gelöscht.",
 
-      /** The group swap's two clubs; the swap exchanges their groups. */
-      swapFirst: TEAM_PAIR.team1,
-      swapSecond: TEAM_PAIR.team2,
       /** The replacement's two clubs: the one leaving the season, and the one taking over its row. */
       outgoing: "Ausscheidendes Team",
       incoming: "Nachrückendes Team",
@@ -1276,10 +1343,8 @@ export const COPY = catalogue({
        * the links table's line on a phone, whose box leaves the „Gesendet am“ column out.
        */
       linkSentOn: (day: CalendarDay) => `${SENT_ON}\u00A0${formatDate(day)}`,
-      /** The links table's chip of a link mailed, and the column of the day it was. */
-      linkSent: "Gesendet",
+      /** The links table's column of the day a link was mailed. */
       sentOn: SENT_ON,
-      linkNotSent: "Nicht gesendet",
       noLinkYet: "Noch kein Link",
       noConfirmedAddress: "Keine bestätigte Adresse",
       addressBarred: "Adresse auf der Sperrliste",
@@ -1312,75 +1377,32 @@ export const COPY = catalogue({
       /** The editor of a match whose two teams are not both known yet, named by its number. */
       number: (nr: number) => `Spiel ${formatNumber(nr)}`,
       ansetzung: "Ansetzung",
-      ergebnis: "Ergebnis",
-      /** The players credited with a result's goals, as a field's message names what it must not hold. */
-      scorers: "Torschützen",
       note: "Notiz",
-      date: SPIEL_FACT.date,
-      time: SPIEL_FACT.time,
-      sonderereignis: "Sonderereignis",
-      /** The Sonderereignis' first entry: nothing beyond the match being played. */
-      none: "Keines",
-      ausgefallen: SONDEREREIGNIS.ausgefallen,
       nichtantretenTeam1: "Nichtantreten Team 1",
       nichtantretenTeam2: "Nichtantreten Team 2",
-      /** The fixture's two sides, by the names the Sonderereignis' entries give them. */
-      team1: TEAM_PAIR.team1,
-      team2: TEAM_PAIR.team2,
-      abgebrochen: SONDEREREIGNIS.abgebrochen,
-      annulliert: SONDEREREIGNIS.annulliert,
       /** Why a no-show cannot be picked while a side is open. */
       needsBothSides: "Nur mit beiden Teams",
-      /** Why the result's switch is closed: the Sonderereignis composes the result, or leaves the match without one. */
-      byEvent: "Folgt aus dem Sonderereignis",
       /** The save's done line where the write moved other matches too, by their numbers: „Auch Spiel 5 und 7 geändert“. */
       alsoChanged: (spiele: readonly number[]) => `Auch Spiel ${formatList(spiele.map(formatNumber))} geändert`,
 
       /** A knockout match's pairing, its editor's box, and the chip a match not yet confirmed carries in the Spiele list. */
       begegnung: "Begegnung",
-      provisional: "Vorläufig",
-      /** What the result's figures decide, under them in the editor: a club winning by the score, or a draw. */
-      wins: (team: Words, score: Copy) => `${textOf(team)} gewinnt ${score}`,
-      drawn: (score: Copy) => `Unentschieden ${score}`,
-      /** A row's result: the goals, and after a shoot-out each side's goals and shoot-out goals added, marked „n. E.“. */
-      score: (tore: Pair, elfmeterschiessen: Pair | null) =>
-        elfmeterschiessen === null ? formatErgebnis(tore) : `${formatErgebnis(tore, elfmeterschiessen)} ${AFTER_ELFMETERSCHIESSEN}`,
       /** A matchday's dates over its matches, until it is dated what is still to settle. */
       span: (start: CalendarDay | null, end: CalendarDay | null) => (start === null || end === null ? DATE_OPEN : formatPeriod(start, end)),
 
-      /** The match editor's sections for a knockout match's clubs, the report and the answers. */
-      spielbericht: "Spielbericht",
+      /** The match editor's section for the answers. */
       confirmations: CONFIRMATIONS,
-      /** The Vorschau under the editor's title: the match as stored, its pairing, when it is played and its result. */
-      preview: (pairing: Copy, when: Copy, result: Copy) => `${pairing} · ${when} · ${result}`,
-      noResult: "Noch kein Ergebnis",
       /** A club picked by hand over the side's source, which the side no longer follows once saved. */
       replacesQuelle: (quelle: Copy) => `Ersetzt ${quelle}`,
       /** Why a club cannot take a side: it stands on another match of the matchday, or has left the season. */
       onSpieltag: "Spielt schon an diesem Spieltag",
       departed: "Aus der Saison ausgeschieden",
-      elfmeterschiessen: "Elfmeterschießen",
-      /** The shoot-out's column head, the mark its score carries. */
-      afterElfmeterschiessen: AFTER_ELFMETERSCHIESSEN,
-      /** Level knockout goals saved without a shoot-out leave the match undecided, and the bracket after it. */
-      shootOutMissing: "Ohne Elfmeterschießen steht kein Sieger fest.",
       /** An event after which the match carries no result, chosen over a stored one. */
       resultDropped: (score: Copy) => `Ergebnis ${score} wird verworfen`,
       /** The referee's proposal, which „Übernehmen“ carries into the fields: „Laut Spielbericht 3:1“. */
       fromReport: (result: Words) => `Laut Spielbericht ${textOf(result)}`,
       /** The report's goals as rows: what happened, the minute, and the score it made. */
       event: "Ereignis",
-      minute: "Minute",
-      /** What a declining club proposed, after its answer's date on the party's line. */
-      proposed: (when: Copy) => `Vorschlag ${when}`,
-      agreed: AGREED,
-      /** A club's decline and a referee's alike; a match called off reads as its event, „Ausgefallen“. */
-      declined: "Abgelehnt",
-      /** A rejection's and a club's exit's stated reason: its box and its fact. */
-      reason: "Grund",
-      /** The day an awaited answer is due by: a party's about a date, and a seat's or a referee's about their entry. */
-      answerBy: (day: CalendarDay) => `Antwort ${boundBy("bis", formatDate(day))}`,
-      enteredByLeague: "Von der Verwaltung eingetragen",
       notAsked: "Noch nicht angefragt",
       /** A save voiding later matches' results, which it asks before. */
       voids: (spiele: readonly number[]) =>
@@ -1392,8 +1414,6 @@ export const COPY = catalogue({
     /** The Bewerbungen list, its two dialogs, the Sammel-Zusage and the review page. */
     bewerbung: {
       search: "Bewerbungen suchen",
-      /** The day an application came in: a fact of the list, a card and the review page, and of a registration. */
-      received: "Eingegangen",
       /** A row's chip and the status filter's option, by where the application stands. */
       incomplete: "Unvollständig",
       complete: "Vollständig",
@@ -1428,8 +1448,6 @@ export const COPY = catalogue({
       /** The review page's facts of a decided application. */
       acceptedOn: "Angenommen am",
       declinedOn: "Abgelehnt am",
-      /** „Annehmen“'s reason while locked, a seat open, objected or erased alike. */
-      awaitsConfirmations: AFTER_CONFIRMATION,
     },
 
     /** The Teams list, its create dialog and the team editor. */
@@ -1439,8 +1457,6 @@ export const COPY = catalogue({
       gruppeFull: "Voll",
       /** „Team eintragen“'s reason while locked, and „Annehmen“'s in a running season: either enters a club. */
       onlyPlanned: "Nur in einer geplanten Saison",
-      /** A record in play: the state filter's option for a club playing on, and the chip of a list's default row. */
-      active: "Aktiv",
       enterDescription: "Ein bekanntes Team oder eine neue Schule",
       /** The field group over the season's fields in „Team eintragen“. */
       inSaison: (saison: string) => boundBy("In", "der", saisonNameBound(saison)),
@@ -1480,19 +1496,9 @@ export const COPY = catalogue({
 
     /** The Spieler list and its editor. */
     spieler: {
-      search: "Spieler suchen",
-      /** A row's chips, and with `team.active` the state filter's options. */
-      nominee: "Nachnominiert",
-      deregistered: "Ausgetragen",
-      nummerDouble: "Nummer doppelt",
       /** The editor's boxes and fields. */
       person: "Person",
       deregisteredOn: "Ausgetragen am",
-      nummer: "Nummer",
-      position: "Position",
-      stufe: "Stufe",
-      rolle: "Rolle",
-      rolleOption: { kapitaen: "Kapitän", co_kapitaen: "Co-Kapitän" } satisfies Record<FLSpielerRolle, string>,
       /** The read-only box of what the pupil chose. */
       einwilligung: "Einwilligung",
       nameOnSite: NAME_ON_SITE,
@@ -1503,24 +1509,14 @@ export const COPY = catalogue({
       confirmedOn: "Bestätigt am",
       /** The danger box's title, and the object of its reactivation. */
       kaderEntry: "Kadereintrag",
-      /** The object of „Aus dem Kader austragen“. */
-      fromKader: "Aus dem Kader",
-      /** The danger box's two consequences, under the act's name and in its question alike. */
-      deregisterConsequence: "Die Person steht in dieser Saison nicht mehr im Kader.",
+      /** The reactivation's consequence, under the act's name and in its question alike. */
       reactivateConsequence: "Die Person steht wieder im Kader.",
-    },
-
-    /** A team's Registrierungen list. */
-    registrierung: {
-      search: "Registrierungen suchen",
     },
 
     /** Administratoren: the grants, what waits among them, and the acts on either. */
     administrators: {
       /** The object of „Administrator eintragen“ and „Administrator entfernen“. */
       object: "Administrator",
-      /** The owner's chip, and the object of the handover. */
-      owner: OWNER_TIER,
       /** The heading over what waits. */
       pending: "Angekündigt",
       /** A grant's `effective_from`, as a date under this label. */
@@ -1539,8 +1535,6 @@ export const COPY = catalogue({
       noAdministrator: "Noch kein Administrator",
       /** Why the owner's acts, on the toolbar and on every row, are locked for an administrator, who reads the page. */
       ownerOnly: `Nur für die ${OWNER_TIER}`,
-      /** Why the owner's own row cannot be removed: the owner leaves the role by the handover. */
-      afterHandover: AFTER_HANDOVER,
       /** A withdrawal's sentence, by what waited; an address change's is `addressChange.previousStays`. */
       withdrawConsequence: {
         addition: "Die Adresse bekommt keinen Zugang.",
@@ -1550,8 +1544,6 @@ export const COPY = catalogue({
 
     /** Sperrliste: a ban's two dialogs and what a ban's write can leave undone. */
     banList: {
-      /** The object of „Sperre eintragen“ and „Sperre entfernen“, and the block's title in the ban's mail. */
-      object: "Sperre",
       /** The list's plural in its empty states, and a pass's noun. */
       plural: BANS,
       search: `${BANS} suchen`,
@@ -1589,8 +1581,6 @@ export const COPY = catalogue({
         teamSeats: "Sitze in Teams",
         bewerbungSeats: "Sitze in Bewerbungen",
         spiele: "Eingeteilte Spiele",
-        addressChanges: "Laufende Adressänderungen",
-        grant: "Zugang",
       },
       /** The toast's note, the account undeleted or unknown: the form keeps the address, so its „Löschen“ retries. */
       partial: "Die Daten sind gelöscht, das Konto vielleicht nicht.",
@@ -1636,6 +1626,8 @@ export const COPY = catalogue({
 
     /** The Protokoll: its one list, its filters and each row's words, composed from the stored action. */
     actionLog: {
+      /** The log's rows, in its empty state. */
+      plural: "Einträge",
       search: "Einträge suchen",
       what: "Was",
       who: "Wer",

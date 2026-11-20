@@ -36,7 +36,7 @@ export const writeSeat = action({
   examples: {
     first_name: COPY.shared.field.exampleFirstName,
     last_name: COPY.shared.field.exampleLastName,
-    phone: COPY.admin.schiedsrichter.phoneExample,
+    phone: COPY.shared.field.examplePhone,
   },
   run: async ({ id, seat, ...person }) => {
     const { email } = await bewerbungenPostKontaktSeat(id, seat, person);

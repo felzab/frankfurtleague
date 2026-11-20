@@ -315,7 +315,7 @@ async function signOutAndLeave() {
     leaveDocumentFor("/");
     return;
   }
-  appToast("danger", COPY.shared.toast.failure);
+  appToast("danger", COPY.shared.failure.unexpected);
 }
 
 /** The themes as next-themes names them, each by its glyph, in the order the owner set: dark, light, system. */

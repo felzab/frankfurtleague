@@ -25,7 +25,7 @@ export function kaderName({ first_name, last_name }: { first_name: string; last_
 }
 
 export function rolleMarkOf(rolle: FLSpielerRolle | null): RolleMarkProps | undefined {
-  return rolle === null ? undefined : { letters: COPY.shared.rolleMark[rolle], label: COPY.admin.spieler.rolleOption[rolle] };
+  return rolle === null ? undefined : { letters: COPY.shared.rolleMark[rolle], label: COPY.kader.rolleOption[rolle] };
 }
 
 /**

@@ -44,8 +44,8 @@ export const saveSpielort = action({
   ownWords: ["duplicate_key"],
   paths: { name: "changes.name" },
   examples: {
-    "changes.postcode": COPY.admin.spielort.postcodeExample,
-    "changes.house_number": COPY.admin.spielort.houseNumberExample,
+    "changes.postcode": COPY.shared.address.postcodeExample,
+    "changes.house_number": COPY.shared.address.houseNumberExample,
     "changes.mietpreis": COPY.admin.spielort.mietpreisExample,
   },
   run: async ({ id, version, changes }): Promise<ActionAnswer<number>> => {

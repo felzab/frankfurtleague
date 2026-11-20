@@ -62,7 +62,7 @@ function decisionFacts({ bewerbung: { status, decision }, entry }: FLBewerbungSi
   if (status === "declined") {
     return [
       { label: WORDS.declinedOn, value: day },
-      { label: COPY.admin.spiel.reason, value: orDash(decision.reason) },
+      { label: COPY.shared.reason, value: orDash(decision.reason) },
     ];
   }
   const farbe = entry?.trikot_farbe ?? null;
@@ -78,7 +78,7 @@ function applicationFacts(read: FLBewerbungSingleResponse): readonly Fact[] {
   const { bewerbung, name } = read;
   return [
     { label: FACTS.school, value: { record: bewerbung.schule?.full_name ?? name } },
-    { label: WORDS.received, value: { record: formatDate(dayOf(bewerbung.submitted_at)) } },
+    { label: COPY.shared.facts.received, value: { record: formatDate(dayOf(bewerbung.submitted_at)) } },
     figure(COPY.team.stufengroesse, bewerbung.stufengroesse),
     figure(COPY.team.expectedKader, bewerbung.kader.expected_size),
     figure(COPY.team.goodSpieler, bewerbung.kader.good_spieler),
@@ -91,13 +91,13 @@ function applicationFacts(read: FLBewerbungSingleResponse): readonly Fact[] {
 
 /** A new school's third box: what its acceptance makes a club of. */
 function schoolFacts({ team_name, full_name, schulform, address, website_url }: FLBewerbungSchule): readonly Fact[] {
-  const { streetWithHouseNumber, addressLine } = COPY.admin.spielort;
+  const { streetWithHouseNumber, addressLine } = COPY.shared.address;
   return [
-    { label: COPY.bewerbung.teamName, value: { record: team_name } },
+    { label: COPY.team.teamName, value: { record: team_name } },
     { label: COPY.team.fullName, value: { record: full_name } },
     { label: COPY.team.schulform, value: schulform === null ? COPY.shared.noValue : COPY.team.schulformOption[schulform] },
     {
-      label: COPY.admin.spielort.address,
+      label: COPY.shared.address.title,
       value: { record: addressLine(streetWithHouseNumber(address.street, address.house_number), address.postcode, address.city) },
     },
     { label: COPY.team.website, value: orDash(website_url) },
@@ -111,7 +111,7 @@ function schoolFacts({ team_name, full_name, schulform, address, website_url }: 
 function lockedReason(status: FLBewerbungSingleResponse["saison"]["status"], standing: Standing): Copy | undefined {
   if (status === "past") return COPY.template.closed;
   if (status === "active") return COPY.admin.team.onlyPlanned;
-  return standing === "complete" ? undefined : WORDS.awaitsConfirmations;
+  return standing === "complete" ? undefined : COPY.shared.afterConfirmation;
 }
 
 /** The decision's verbs under the facts they decide on, while the application stands undecided, and an accepted one's way to its team. */
@@ -171,10 +171,10 @@ function seatRowsOf(bewerbung: FLBewerbung, finished: boolean): SeatRow[] {
   return seatsOf(bewerbung).map(({ seat, seats, person, state, chips, day }) => {
     const row = {
       id: seat,
-      name: person === null ? COPY.admin.seatEmpty : { record: `${person.first_name} ${person.last_name}` },
+      name: person === null ? COPY.team.seatEmpty : { record: `${person.first_name} ${person.last_name}` },
       muted: person === null,
       chips,
-      line: { record: COPY.admin.seatLine(seats, person?.email ?? null, day) },
+      line: { record: COPY.team.seatLine(seats, person?.email ?? null, day) },
     };
     if (bewerbung.status !== "submitted" || finished || state === "erased") return row;
     const link = state === "valid" || state === "expired" ? { send: sendSeatLink, seat: { bewerbung_id: bewerbung.id, seat } } : null;
@@ -205,7 +205,7 @@ async function readRecord(params: Props["params"]): Promise<ReadRecord> {
     chip: STANDING_CHIP[standing],
     flag: read.duplicate ? TEAM_DOUBLE : undefined,
     groups: [
-      { title: COPY.bewerbung.object, kind: "facts", facts: applicationFacts(read) },
+      { title: COPY.shared.bewerbung, kind: "facts", facts: applicationFacts(read) },
       // An accepted application's people are its team's, whose page its act leads to: the acceptance emptied its seats.
       ...(bewerbung.status === "accepted"
         ? []

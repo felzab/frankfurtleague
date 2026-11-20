@@ -26,7 +26,7 @@ function Addressed({ validationErrors }: Pick<ComponentProps<typeof Form>, "vali
       <TextField
         name="adresse"
         type="email"
-        aria-label={COPY.signIn.address}>
+        aria-label={COPY.shared.emailAddress}>
         <Input />
         <MessageLine />
       </TextField>
@@ -45,20 +45,20 @@ describe("a field's label", () => {
     const { container } = render(
       <>
         <FieldLabel
-          label={COPY.signIn.address}
+          label={COPY.shared.emailAddress}
           isRequired
         />
         <FormClosed value>
           <FieldLabel
-            label={COPY.signIn.address}
+            label={COPY.shared.emailAddress}
             isRequired
           />
         </FormClosed>
       </>,
     );
     expect([...container.querySelectorAll("label")].map((label) => label.textContent)).toStrictEqual([
-      `${COPY.signIn.address} *`,
-      COPY.signIn.address,
+      `${COPY.shared.emailAddress} *`,
+      COPY.shared.emailAddress,
     ]);
   });
 });
@@ -84,19 +84,19 @@ describe("a locked field", () => {
           />
         </FormClosed>
         <Select
-          label={COPY.signIn.address}
+          label={COPY.shared.emailAddress}
           options={options}
           isLocked
           value="a"
         />
         <ComboBox
-          label={COPY.signIn.address}
+          label={COPY.shared.emailAddress}
           options={options}
           isLocked
           value="a"
         />
         <DateField
-          label={COPY.signIn.address}
+          label={COPY.shared.emailAddress}
           isLocked
           value="2027-03-14"
         />

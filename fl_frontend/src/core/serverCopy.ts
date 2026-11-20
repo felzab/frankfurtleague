@@ -12,8 +12,8 @@ import type { ROUTES } from "./routes";
 /** The route keys of the pages a search engine may list. */
 type ListedRoute = { [Key in keyof typeof ROUTES]: (typeof ROUTES)[Key]["crawl"] extends "index" ? Key : never }[keyof typeof ROUTES];
 
-const { team1, team2 } = COPY.admin.spiel;
-const ownerTier = COPY.admin.administrators.owner;
+const { team1, team2 } = COPY.shared.teamPair;
+const ownerTier = COPY.shared.owner;
 
 // Words two entries of this one object say alike, each written once: a club's place, a group, the goals' difference
 // and match operations, the season line's eyebrow and an organiser's role.
@@ -357,8 +357,8 @@ export const SERVER_COPY = catalogue({
        * The block's rows of a move, beside the slot's own: the moment it left and the one it moved to, in the words
        * „Übernehmen“'s question names them by.
        */
-      previous: COPY.admin.facts.before,
-      next: COPY.admin.facts.after,
+      previous: COPY.shared.facts.before,
+      next: COPY.shared.facts.after,
       /** The moment a move left, where the move also changed the sides: the pairing that slot held, then the moment. */
       previousPairing: (spiel: Words, moment: string) => `${textOf(spiel)}, ${moment}`,
       /** A club taken off a fixture it was asked about, around the moment it was asked about. */
@@ -437,8 +437,6 @@ export const SERVER_COPY = catalogue({
       registeredAs: "Eingetragen als",
       /** The title of the facts the Ansprechperson is told. */
       status: "Stand der Bewerbung",
-      /** The title of a seat's own facts. */
-      entry: "Dein Eintrag",
 
       /**
        * The Ansprechperson's link mail. It says an application came in, never that the reader sent it, and names no
@@ -672,9 +670,9 @@ export const SERVER_COPY = catalogue({
    */
   addressChange: {
     /** The noun of the address on file's act, „Änderung bestätigen“: Konto's word for the pending change. */
-    change: COPY.account.address.change,
+    change: COPY.shared.addressChange.change,
     /** The address on file's question names the address the change goes to under Konto's label for it. */
-    newAddress: COPY.account.address.new,
+    newAddress: COPY.shared.addressChange.new,
     previous: {
       question: "Für dein Konto soll eine neue E-Mail-Adresse gelten.",
       confirmed: "Änderung bestätigt",
@@ -694,10 +692,10 @@ export const SERVER_COPY = catalogue({
     /** Under the list of what goes, each row a record the read found. */
     question: "Alles oben wird endgültig gelöscht.",
     /** The list's rows beside each record's own: the account's passkeys, under their box's title, its live address changes, its grant. */
-    passkeys: COPY.account.passkeys.title,
-    addressChanges: COPY.admin.erasure.count.addressChanges,
-    grant: COPY.admin.erasure.count.grant,
-    done: COPY.admin.actionLog.action["erasure.own"],
+    passkeys: COPY.shared.passkeys,
+    addressChanges: COPY.shared.erasureCount.addressChanges,
+    grant: COPY.shared.erasureCount.grant,
+    done: COPY.account.erasure.done,
   },
 
   /**
@@ -835,6 +833,9 @@ export const SERVER_COPY = catalogue({
   /** The not-found page's title, in every frame. */
   notFound: "Seite nicht gefunden",
 
+  /** One paragraph of a confirmation page, its sentences in reading order. */
+  paragraph: (...sentences: Copy[]) => sentences.join(" "),
+
   /**
    * The areas under `/area` as a server page alone words them, beside `COPY.area`: the forbidden page, the landing of
    * a person no entry admits to a page, a row's line, and the match report's page where no form stands.
@@ -891,7 +892,7 @@ export const SERVER_COPY = catalogue({
       punkte: "Pkt.",
       name: COPY.shared.name,
       nummer: "Nr.",
-      position: COPY.admin.spieler.position,
+      position: COPY.kader.position,
     },
 
     /** The Spielsuche's three filters and Teams' one, each opening on every match or club. */
@@ -917,7 +918,7 @@ export const SERVER_COPY = catalogue({
        * „Noch keine Tore und Karten.“
        */
       officialToreAndCards: "offiziellen Tore und Karten",
-      tor: COPY.area.schiedsrichter.spielbericht.goal,
+      tor: COPY.spielplan.goal,
       eigentor: "Eigentor",
       card: { gelb: "Gelbe Karte", gelb_rot: "Gelb-Rote Karte", rot: "Rote Karte" },
       /** A checkpoint's title: what happened, and to whom. */
@@ -1227,8 +1228,8 @@ export const SERVER_COPY = catalogue({
    * `CONSENT_WORDINGS`'; nobody accepts the notice, which informs and asks no consent.
    */
   kontaktConfirmation: {
-    /** The title of a closed row's page, a past season's or a departed club's, which confirms nothing. */
-    closedTitle: "Dein Eintrag",
+    /** The person's own entry: the title of a closed row's page, which confirms nothing, and of a seat's own facts in an application's mail. */
+    ownEntry: "Dein Eintrag",
     /** The fact naming the seat's own last day, in a list's date form; a closed row holds none. */
     confirmBy: "Bestätigen bis",
     /** The first sentence, by the record the seat stands on. */
@@ -1258,8 +1259,6 @@ export const SERVER_COPY = catalogue({
     teamDeparted: (team: Words) => `${textOf(team)} ist aus der Saison ausgeschieden.`,
     /** The last line, around the privacy notice's title, which the page sets as its link. */
     more: MORE,
-    /** The page's one paragraph, its sentences in reading order, each chosen by the seat's record and row. */
-    text: (...sentences: Copy[]) => sentences.join(" "),
   },
 
   /**
@@ -1268,7 +1267,7 @@ export const SERVER_COPY = catalogue({
    */
   entryConfirmation: {
     confirmed: "Eintrag bestätigt",
-    objected: COPY.admin.objected,
+    objected: COPY.shared.state.objected,
   },
 
   /**
@@ -1301,8 +1300,6 @@ export const SERVER_COPY = catalogue({
     ageCheck,
     deadline: (until: CalendarDay) => `${REGISTRATION_DEADLINE.before}${formatDateLong(until)}${REGISTRATION_DEADLINE.after}`,
     more: MORE,
-    /** The first paragraph, its sentences in reading order. */
-    text: (...sentences: Copy[]) => sentences.join(" "),
     /** The done card's title; the link opened again titles it with the day (`COPY.shared.end.doneOn`). */
     confirmed: "Registrierung bestätigt",
   },

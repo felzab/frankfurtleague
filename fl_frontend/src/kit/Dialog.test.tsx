@@ -92,7 +92,7 @@ describe("the kit's confirmation", () => {
       <ConfirmDialog
         verb="retire"
         subject={NAME}
-        consequence={COPY.admin.spielort.retireConsequence}
+        consequence={COPY.kader.deregisterConsequence}
         tone="danger"
         trigger={{ label: COPY.shared.verb.retire }}
         onConfirm={async () => ({ ok: false, reason })}
@@ -129,7 +129,7 @@ function RetireQuestion({ onConfirm }: { onConfirm: () => Promise<ActionAnswer> 
     <ConfirmDialog
       verb="retire"
       subject={NAME}
-      consequence={COPY.admin.spielort.retireConsequence}
+      consequence={COPY.kader.deregisterConsequence}
       tone="danger"
       trigger={{ label: COPY.shared.verb.retire }}
       onConfirm={onConfirm}
@@ -230,7 +230,7 @@ describe("the kit's dialog", () => {
 
   /* The note is the one place the person learns the write moved more than the dialog asked, such as other fixtures. */
   it("stays open on a done act noting more than it was asked, the note in its line and its act closed", async () => {
-    const note = COPY.admin.spiel.alsoChanged([5, 7]);
+    const note = COPY.aufstellung.lockedLine;
     renderUnderNext(<CreateDialog create={async () => ({ ok: true, value: undefined, note })} />);
 
     await createThroughTheDialog();
@@ -294,8 +294,8 @@ function RecordDialog({ save, end }: { save: (formData: FormData) => Promise<Act
       run={save}
       danger={{
         name: COPY.shared.withObject(NAME, "deregister"),
-        consequence: COPY.admin.spielort.retireConsequence,
-        confirm: { verb: "deregister", subject: NAME, consequence: COPY.admin.spielort.retireConsequence, tone: "danger", onConfirm: end },
+        consequence: COPY.kader.deregisterConsequence,
+        confirm: { verb: "deregister", subject: NAME, consequence: COPY.kader.deregisterConsequence, tone: "danger", onConfirm: end },
       }}
       trigger={{ label: COPY.shared.verb.edit }}>
       <TextField

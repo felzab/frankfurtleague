@@ -143,9 +143,9 @@ describe("a seat the submission never mailed", () => {
     const row = (await seatRows()).find(({ id }) => id === "trainer");
     renderUnderNext(<>{row?.acts}</>);
 
-    expect(row?.chips).toContainEqual({ tone: "warn", label: COPY.admin.saison.linkNotSent });
+    expect(row?.chips).toContainEqual({ tone: "warn", label: COPY.shared.state.linkNotSent });
     // A seat's acts stand in its row's „⋯“.
     await userEvent.click(screen.getByRole("button", { name: COPY.template.more }));
-    expect(screen.getByRole("menuitem", { name: COPY.shared.withObject(COPY.account.address.link, "send") })).toBeTruthy();
+    expect(screen.getByRole("menuitem", { name: COPY.shared.withObject(COPY.shared.link, "send") })).toBeTruthy();
   });
 });

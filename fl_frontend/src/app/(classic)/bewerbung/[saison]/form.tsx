@@ -18,7 +18,7 @@ import { submitBewerbung } from "./submitBewerbung";
 import type { FLBewerbungFormResponse } from "@/core/generated/client/types";
 import type { MailedState } from "@/kit/MailedPage";
 
-const SUBMIT = COPY.shared.withObject(COPY.bewerbung.object, "submit");
+const SUBMIT = COPY.shared.withObject(COPY.shared.bewerbung, "submit");
 
 /** The notice's id, which describes the send: the page holds one form. */
 const NOTICE_ID = "bewerbung-notice";

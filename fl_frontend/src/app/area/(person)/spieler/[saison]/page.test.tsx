@@ -90,12 +90,12 @@ describe("a pupil's own season", () => {
   // The read still names a deregistered pupil in their club's stored line-ups; the page shows them in none.
   it("shows a deregistered pupil their exit after the club and no place in a line-up", async () => {
     const page = await landed("2027-03-01");
-    expect(page).toContain(COPY.admin.spieler.deregistered);
+    expect(page).toContain(COPY.kader.deregistered);
     expect(page).not.toContain(COPY.area.spieler.lineupPlace.starts);
 
     // The same page for a pupil in the squad: one reading every pupil as deregistered passes the half above.
     const inKader = await landed(null);
-    expect(inKader).not.toContain(COPY.admin.spieler.deregistered);
+    expect(inKader).not.toContain(COPY.kader.deregistered);
     expect(inKader).toContain(COPY.area.spieler.lineupPlace.starts);
   });
 });

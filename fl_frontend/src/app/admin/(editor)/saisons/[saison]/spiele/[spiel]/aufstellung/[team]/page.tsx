@@ -51,7 +51,7 @@ function leadOf({ spiel, team_id }: FLAufstellungResponse): Copy {
   const team = [spiel.team1, spiel.team2].find((side) => side?.team_id === team_id);
   if (team === undefined || team === null) throw new ContractBreakError("A line-up's read named a club its fixture does not field.");
   return COPY.shared.line([
-    COPY.area.team.aufstellung.ofTeam({ record: team.name }),
+    COPY.aufstellung.ofTeam({ record: team.name }),
     matchdayOf(spiel, spiel),
     COPY.spielplan.when(dayOf(spiel.date), timeOf(spiel.time)),
   ]);
@@ -68,7 +68,7 @@ async function readEditor(params: Props["params"]) {
 
   const closed = found.saison_status === "past" ? SERVER_COPY.refusalLine.saison_past : undefined;
   // The block's every act answers a press with why it is closed: the season's end before the missing slot.
-  const locked = closed ?? (found.marks === null ? COPY.area.team.aufstellung.needsSlot : undefined);
+  const locked = closed ?? (found.marks === null ? COPY.aufstellung.needsSlot : undefined);
   const { spiel } = found;
   return (
     <AdminAufstellung

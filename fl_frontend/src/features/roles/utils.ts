@@ -89,6 +89,6 @@ export function placeOf(target: RoleTarget): { href: Route; name: Words; seats?:
     case "schiedsrichter":
       return { href, name: COPY.shared.schiedsrichter };
     case "administration":
-      return { href, name: COPY.admin.role };
+      return { href, name: COPY.shared.administration };
   }
 }

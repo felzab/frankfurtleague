@@ -115,12 +115,8 @@ async function readRecord(params: Props["params"]): Promise<ReadRecord> {
   const page = await readPage(params);
   const { team, spiele, kader } = page;
   const { column } = SERVER_COPY.season;
-  const { spielort } = COPY.admin;
-  const address = spielort.addressLine(
-    spielort.streetWithHouseNumber(team.address.street, team.address.house_number),
-    team.address.postcode,
-    team.address.city,
-  );
+  const { addressLine, streetWithHouseNumber } = COPY.shared.address;
+  const address = addressLine(streetWithHouseNumber(team.address.street, team.address.house_number), team.address.postcode, team.address.city);
   return {
     title: { record: team.name },
     ...(team.austritt === null ? {} : { chip: austrittChip(team.austritt.type) }),

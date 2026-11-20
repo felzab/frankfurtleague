@@ -53,8 +53,8 @@ export const saveTeam = action({
   paths: { shorthand: "changes.shorthand", trikot_farbe: "changes.trikot_farbe" },
   examples: {
     "changes.shorthand": COPY.team.shorthandExample,
-    "changes.postcode": COPY.admin.spielort.postcodeExample,
-    "changes.house_number": COPY.admin.spielort.houseNumberExample,
+    "changes.postcode": COPY.shared.address.postcodeExample,
+    "changes.house_number": COPY.shared.address.houseNumberExample,
   },
   run: async ({ id, saison_id, version, changes }): Promise<ActionAnswer<number>> => {
     const read = await getTeamSaisonAdmin(id, saison_id);

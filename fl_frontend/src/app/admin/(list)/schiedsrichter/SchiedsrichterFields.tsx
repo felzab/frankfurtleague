@@ -31,7 +31,7 @@ export function SchiedsrichterFields() {
         maxLength={max.schule}
       />
       <TextField
-        label={COPY.admin.payment}
+        label={COPY.shared.payment}
         name="default_payment"
         holds={5}
         kind="digits"
@@ -40,7 +40,7 @@ export function SchiedsrichterFields() {
       />
       <FieldGroup name={COPY.admin.schiedsrichter.kontaktData}>
         <TextField
-          label={COPY.signIn.address}
+          label={COPY.shared.emailAddress}
           name="email"
           kind="email"
           isRequired={required.email}

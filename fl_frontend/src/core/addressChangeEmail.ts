@@ -39,7 +39,7 @@ const LOST_MAILBOX_WAIT: Wait = { days: ADDRESS_CHANGE_WAIT_DAYS };
 export function buildAddressChangeEmail({ way, holder }: FLAddressChangeLinkData, { origin, token }: MailLink): Mail {
   const site = mailOrigin(origin);
   // One wording for the mail's subject, its button and the title of the page the button opens.
-  const subjectLine = COPY.shared.withObject(COPY.signIn.address, "confirm");
+  const subjectLine = COPY.shared.withObject(COPY.shared.emailAddress, "confirm");
   const button = { label: subjectLine, href: addressChangeLink(site, token) };
 
   // The person's own change, the address on file having confirmed it first: the page's question, its title the button.

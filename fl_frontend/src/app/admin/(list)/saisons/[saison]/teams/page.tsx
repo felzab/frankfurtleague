@@ -74,7 +74,7 @@ function rowOf(saison: string, team: FLTeamsAdminRow): TableRow {
 
 const HEAD: TableHead = {
   nameLabel: TEAM,
-  state: { label: COPY.admin.schiedsrichter.state },
+  state: { label: COPY.shared.facts.state },
   columns: [
     { key: "gruppe", label: COPY.team.gruppe, narrow: true, width: "word" },
     { key: "trikotFarbe", label: COPY.team.trikotFarbe, hideOnPhone: true, width: "word" },
@@ -115,10 +115,10 @@ async function readFilters(list: Promise<FLTeamsAdminListResponse>, searchParams
     },
     {
       name: "state",
-      label: COPY.admin.schiedsrichter.state,
+      label: COPY.shared.facts.state,
       all: SERVER_COPY.season.filter.all,
       options: [
-        { id: FLTeamListState.active, label: WORDS.active },
+        { id: FLTeamListState.active, label: COPY.shared.state.active },
         { id: FLTeamListState.departed, label: COPY.admin.spiel.departed },
         { id: FLTeamListState.retired, label: COPY.shared.retired },
       ],

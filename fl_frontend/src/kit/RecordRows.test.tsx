@@ -18,7 +18,7 @@ import type { Copy } from "@/core/copy";
 type Goal = { side: string | null; spieler_id: string | null; minute: string };
 
 const TEAM = COPY.shared.facts.team;
-const MINUTE = COPY.admin.spiel.minute;
+const MINUTE = COPY.spielplan.minute;
 const REQUIRED = COPY.shared.field.required;
 const REMOVE = COPY.shared.verb.remove;
 const ADD = COPY.shared.verb.create;
@@ -34,7 +34,7 @@ const GOALS: ReadonlyArray<Goal> = [
 ];
 
 /** The label over a row by its number, as a page counts its rows. */
-const rowLabel = (number: number) => COPY.admin.spiel.number(number);
+const rowLabel = (number: number) => COPY.area.schiedsrichter.spielbericht.numbered(COPY.spielplan.goal, number);
 
 /** The list in a form serving `errors`, as an editor's page holds it: the draft in state, the refusals by box. */
 function Goals({ errors, locked }: { errors?: Readonly<Record<string, Copy>>; locked?: Copy }) {

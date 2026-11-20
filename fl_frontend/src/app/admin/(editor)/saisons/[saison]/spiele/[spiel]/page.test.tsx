@@ -77,7 +77,7 @@ describe("the match editor's links to the line-ups", () => {
   it("states and links each side's own club's line-up", async () => {
     const editor = await editorOver(VIEW);
 
-    const words = COPY.area.team.aufstellung;
+    const words = COPY.aufstellung;
     expect(editor.props.aufstellungen).toStrictEqual([
       {
         id: "team1",
@@ -102,10 +102,7 @@ describe("the match editor's links to the line-ups", () => {
     const team2 = { stored: false, phase: "locked" as const, due_at: "2026-11-11T15:00:00Z" };
     const editor = await editorOver({ ...VIEW, aufstellung_marks: { ...VIEW.aufstellung_marks, team2 } });
 
-    expect(editor.props.aufstellungen.map(({ chip }) => chip)).toStrictEqual([
-      undefined,
-      { tone: "danger", label: COPY.area.team.aufstellung.overdue },
-    ]);
+    expect(editor.props.aufstellungen.map(({ chip }) => chip)).toStrictEqual([undefined, { tone: "danger", label: COPY.aufstellung.overdue }]);
   });
 
   // The harm: a match that owes no line-up any more, called off, struck out, abandoned or not turned up to, drawn with
@@ -115,7 +112,7 @@ describe("the match editor's links to the line-ups", () => {
     for (const sonderereignis of Object.values(FLSonderereignis)) {
       const editor = await editorOver({ ...VIEW, spiel: { ...VIEW.spiel, sonderereignis } });
 
-      const words = COPY.area.team.aufstellung;
+      const words = COPY.aufstellung;
       expect(editor.props.aufstellungen, sonderereignis).toStrictEqual([
         {
           id: "team1",
@@ -167,9 +164,9 @@ describe("the match editor's answers", () => {
     reason: null,
   };
   const notAsked = { chip: { tone: "warn", label: COPY.template.open }, line: COPY.admin.spiel.notAsked };
-  const lapsed = { tone: "neutral", label: COPY.admin.expired };
-  const missing = SERVER_COPY.overview.missing(COPY.area.answer);
-  const agreed = { tone: "success", label: COPY.admin.spiel.agreed };
+  const lapsed = { tone: "neutral", label: COPY.shared.state.expired };
+  const missing = SERVER_COPY.overview.missing(COPY.spielplan.answer);
+  const agreed = { tone: "success", label: COPY.shared.state.agreed };
 
   // The harm: an answer drawn in a state its party's row is not in: open where the backend lets the party answer
   // nothing more, lapsed or not asked where the party answered, so the league chases or trusts the wrong club.
@@ -178,14 +175,14 @@ describe("the match editor's answers", () => {
       reads: "lapsed",
       rows: [row("expired", { lapsed_on: "2026-11-10" })],
       // The day it lapsed on, as every other page under that chip says, not a day still to come.
-      shown: { chip: lapsed, line: COPY.admin.schiedsrichter.expiredOn("2026-11-10") },
+      shown: { chip: lapsed, line: COPY.shared.expiredOn("2026-11-10") },
     },
     // An exit or a decision ended it before its deadline, which it never lapsed on.
     { reads: "ended on no day", rows: [row("expired")], shown: { chip: lapsed, line: missing } },
     {
       reads: "in time",
       rows: [row("valid")],
-      shown: { chip: { tone: "warn", label: missing }, line: COPY.admin.spiel.answerBy("2026-11-10") },
+      shown: { chip: { tone: "warn", label: missing }, line: COPY.shared.answerBy("2026-11-10") },
     },
     {
       reads: "agreed, its row closed at the kick-off",
@@ -212,7 +209,7 @@ describe("the match editor's answers", () => {
       // Moved since it agreed: the answer is about its old slot alone, which „not asked“ would hide.
       reads: "answered about a slot the match has left",
       rows: [row("invalid", { ansetzung: { ...ansetzung, date: "2026-11-07", time: "15:00:00" }, answer: agreement })],
-      shown: { chip: agreed, line: SERVER_COPY.season.labelled(COPY.admin.facts.before, COPY.spielplan.when("2026-11-07", "15:00:00")) },
+      shown: { chip: agreed, line: SERVER_COPY.season.labelled(COPY.shared.facts.before, COPY.spielplan.when("2026-11-07", "15:00:00")) },
     },
     {
       reads: "about a call-off since undone",
@@ -231,11 +228,11 @@ describe("the match editor's answers", () => {
   // The harm: a referee, whom the clubs' deadline does not bind, drawn as due or lapsed on it, so the league chases
   // them days early.
   it.each([
-    { reads: "in time", fields: { state: "valid" as const }, line: COPY.admin.spiel.answerBy("2026-11-14") },
+    { reads: "in time", fields: { state: "valid" as const }, line: COPY.shared.answerBy("2026-11-14") },
     {
       reads: "lapsed",
       fields: { state: "expired" as const, lapsed_on: "2026-11-14" },
-      line: COPY.admin.schiedsrichter.expiredOn("2026-11-14"),
+      line: COPY.shared.expiredOn("2026-11-14"),
     },
   ])("dates the referee's answer $reads by the slot's day", async ({ fields, line }) => {
     const referee = "64b000000000000000000005";

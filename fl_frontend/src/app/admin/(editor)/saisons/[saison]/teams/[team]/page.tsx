@@ -62,7 +62,7 @@ function rowOf(read: FLTeamSaisonAdminResponse, membership: FLTeamMembership, li
         : [
             { label: WORDS.austrittType, value: stands.label },
             { label: WORDS.austrittFrom, value: { record: formatDate(dayOf(austritt.date)) }, figures: true },
-            { label: COPY.admin.spiel.reason, value: { record: austritt.reason } },
+            { label: COPY.shared.reason, value: { record: austritt.reason } },
           ],
     version: membership.version,
     seats: seatsOf(membership),

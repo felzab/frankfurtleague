@@ -82,8 +82,8 @@ export const enterTeam = action({
   paths: { shorthand: "shorthand", trikot_farbe: "trikot_farbe" },
   examples: {
     shorthand: COPY.team.shorthandExample,
-    postcode: COPY.admin.spielort.postcodeExample,
-    house_number: COPY.admin.spielort.houseNumberExample,
+    postcode: COPY.shared.address.postcodeExample,
+    house_number: COPY.shared.address.houseNumberExample,
   },
   run: async (entered) => {
     const { saison_id, gruppe, trikot_farbe } = entered;

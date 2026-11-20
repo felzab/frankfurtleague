@@ -27,7 +27,7 @@ const rowOf = (spielort: FLSpielort): TableRow => ({
   href: ROUTES.adminSpielort.path(spielort.id),
   ...(spielort.inactive_since === null ? { chip: ACTIVE_CHIP } : { chip: RETIRED_CHIP, muted: true }),
   cells: {
-    adresse: WORDS.streetWithHouseNumber(spielort.address.street, spielort.address.house_number),
+    adresse: COPY.shared.address.streetWithHouseNumber(spielort.address.street, spielort.address.house_number),
     mietpreis: { record: formatEuro(spielort.default_mietpreis) },
   },
 });
@@ -50,9 +50,9 @@ export default function SpielortePage() {
 
 const HEAD: TableHead = {
   nameLabel: COPY.shared.name,
-  state: { label: COPY.admin.schiedsrichter.state },
+  state: { label: COPY.shared.facts.state },
   columns: [
-    { key: "adresse", label: WORDS.address, hideOnPhone: true, width: "line", cut: true },
+    { key: "adresse", label: COPY.shared.address.title, hideOnPhone: true, width: "line", cut: true },
     { key: "mietpreis", label: WORDS.mietpreis, figures: true, narrow: true },
   ],
 };

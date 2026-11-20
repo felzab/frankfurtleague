@@ -398,7 +398,7 @@ describe("a list of records", () => {
     expect(await save({ "bericht.scorers.*.minute": "changes.scorers.*.minute" })(scorers("12", "45", "90"))).toStrictEqual({
       ok: false,
       errorCode: "payload_refused",
-      fieldErrors: { "changes.scorers.2.minute": field.without(COPY.admin.spiel.scorers) },
+      fieldErrors: { "changes.scorers.2.minute": field.without(COPY.spielplan.scorers) },
     });
   });
 

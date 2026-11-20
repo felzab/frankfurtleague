@@ -583,7 +583,7 @@ async function admitted<Schema extends z.ZodType, Value>(
   run: (input: z.output<Schema>) => Promise<ActionAnswer<Value>>,
 ): Promise<ActionAnswer<Value>> {
   const touched = "passkey" in lane && lane.passkey === true;
-  if (touched && !(await passesPasskeyTouch(getRequestActor()))) return { ok: false, reason: COPY.signIn.refusal.touchMissing };
+  if (touched && !(await passesPasskeyTouch(getRequestActor()))) return { ok: false, reason: COPY.shared.touchMissing };
   const read = parsed(lane, raw);
   if ("answer" in read) return read.answer;
   const held = touched || (lane.lane === "person" && lane.claim === "account");

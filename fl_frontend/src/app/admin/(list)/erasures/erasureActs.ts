@@ -22,15 +22,15 @@ type ErasureCounts = FLErasureViewResponse & { account: number; passkeys: number
 /** The rows the confirmation can show, in the order it shows them. */
 const COUNTS = [
   [COPY.template.account, "account"],
-  [COPY.account.passkeys.title, "passkeys"],
+  [COPY.shared.passkeys, "passkeys"],
   [COPY.shared.spieler, "spieler"],
   [COPY.shared.schiedsrichter, "schiedsrichter"],
   [WORDS.count.teamSeats, "kontakt_seats"],
   [WORDS.count.bewerbungSeats, "bewerbung_seats"],
   [COPY.page.registrierungen, "registrierungen"],
   [WORDS.count.spiele, "spiele"],
-  [WORDS.count.addressChanges, "address_change"],
-  [WORDS.count.grant, "grants"],
+  [COPY.shared.erasureCount.addressChanges, "address_change"],
+  [COPY.shared.erasureCount.grant, "grants"],
 ] as const satisfies ReadonlyArray<readonly [Copy, keyof ErasureCounts]>;
 
 /** Only what is there. */
@@ -91,7 +91,7 @@ export const eraseAddress = action({
   examples: { email: COPY.shared.field.exampleAddress },
   run: async ({ email, reason }) => {
     await identityPostErasure({ email, reason });
-    if (await accountCleared(email)) return { ok: true, value: undefined, note: COPY.admin.erased };
+    if (await accountCleared(email)) return { ok: true, value: undefined, note: COPY.shared.state.erased };
     return { ok: false, reason: WORDS.partial, warn: true };
   },
 });

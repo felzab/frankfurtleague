@@ -106,7 +106,7 @@ export function SpielortEditor({
         },
         {
           id: "adresse",
-          title: WORDS.address,
+          title: COPY.shared.address.title,
           fields: (
             <AddressFields
               rules={rules.address}

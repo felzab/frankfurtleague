@@ -187,14 +187,14 @@ const CONTAINERS: Readonly<Record<string, ReadonlyArray<readonly [string, () => 
             view="address"
             title={COPY.signIn.title}
             row={null}
-            address={{ label: COPY.signIn.address, value: "", onChange: () => undefined }}
+            address={{ label: COPY.shared.emailAddress, value: "", onChange: () => undefined }}
             check={null}
             send={{ label: COPY.signIn.sendCode, onPress: () => undefined }}
             or={COPY.signIn.or}
             passkey={{ label: COPY.signIn.withPasskey, onPress: () => undefined }}
           />,
         );
-        return [screen.getByRole("textbox", { name: COPY.signIn.address }), screen.getByRole("button", { name: COPY.signIn.sendCode })];
+        return [screen.getByRole("textbox", { name: COPY.shared.emailAddress }), screen.getByRole("button", { name: COPY.signIn.sendCode })];
       },
     ],
   ],

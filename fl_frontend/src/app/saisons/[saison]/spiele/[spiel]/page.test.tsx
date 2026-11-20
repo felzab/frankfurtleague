@@ -107,7 +107,7 @@ describe("the match page's server render", () => {
 
 describe("a line-up's role marks", () => {
   const { rolleMark } = COPY.shared;
-  const { rolleOption } = COPY.admin.spieler;
+  const { rolleOption } = COPY.kader;
 
   // The harm: a captain's letters swapped with the Co-Kapitän's, or a mark naming the wrong role to a screen reader.
   it("sets the captain's and the Co-Kapitän's mark after the name, each named by its role", async () => {

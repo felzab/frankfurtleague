@@ -3,7 +3,7 @@ import { ACTIVE_CHIP, NOMINEE_CHIP } from "@/kit/stateChips";
 
 import type { ChipProps } from "@/kit/Chip";
 
-const WORDS = COPY.admin.spieler;
+const WORDS = COPY.kader;
 
 type Row = { inactive_since: string | null; is_nachnominiert: boolean; nummer_double?: boolean };
 

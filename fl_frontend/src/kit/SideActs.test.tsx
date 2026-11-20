@@ -12,7 +12,7 @@ import { Table } from "./Table";
 
 import type { SideAct } from "./SideActs";
 
-const SEND = COPY.shared.withObject(COPY.account.address.link, "send");
+const SEND = COPY.shared.withObject(COPY.shared.link, "send");
 const DISCARD = COPY.shared.verb.discard;
 const MORE = COPY.template.more;
 
@@ -51,8 +51,8 @@ describe("a row's side acts folded", () => {
 const LISTS = {
   table: (rows: ReadonlyArray<ReadonlyArray<SideAct>>) => (
     <Table
-      label={COPY.account.address.change}
-      nameLabel={COPY.admin.facts.before}
+      label={COPY.shared.addressChange.change}
+      nameLabel={COPY.shared.facts.before}
       columns={[]}
       rows={rows.map((acts, index) => ({
         id: String(index),
@@ -61,7 +61,7 @@ const LISTS = {
         sideActs: acts.length,
         acts: <SideActs acts={acts} />,
       }))}
-      empty={{ kind: "none", plural: COPY.account.address.change }}
+      empty={{ kind: "none", plural: COPY.shared.addressChange.change }}
     />
   ),
   seats: (rows: ReadonlyArray<ReadonlyArray<SideAct>>) => (
