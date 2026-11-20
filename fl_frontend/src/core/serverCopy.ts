@@ -535,7 +535,7 @@ export const SERVER_COPY = catalogue({
      * every way a change takes.
      */
     addressChange: {
-      /** The address on file's request opens on the page's question; the subject is the page's title. */
+      /** The address on file's request opens on the page's question; the subject is its button's act. */
       previousEffect: "Sie gilt, sobald beide Adressen sie bestätigt haben.",
       /** To the replaced address, in the two parts around the moment, which the shell sets semibold between them. */
       effective: {

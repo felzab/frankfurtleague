@@ -63,9 +63,11 @@ export function buildAddressChangeEmail({ way, holder }: FLAddressChangeLinkData
 export function buildAddressChangeNoticeEmail({ way, holder }: FLAddressChangeNoticeData, { origin, token: stopToken }: MailLink): Mail {
   // The person's own change asks the address on file first: its link confirms or declines the change.
   if (way === "account") {
+    // One wording for the mail's subject and its button, the act the mail asks for.
+    const confirm = COPY.shared.withObject(WORDS.change, "confirm");
     return {
       audience: "security",
-      subjectLine: COPY.page.addressChangeConfirmation,
+      subjectLine: confirm,
       origin,
       paragraphs: [
         [
@@ -74,10 +76,7 @@ export function buildAddressChangeNoticeEmail({ way, holder }: FLAddressChangeNo
         ],
         LINK_VALID,
       ],
-      button: {
-        label: COPY.shared.withObject(WORDS.change, "confirm"),
-        href: mailedLinkTo(origin, ROUTES.addressChangeConfirmation, stopToken),
-      },
+      button: { label: confirm, href: mailedLinkTo(origin, ROUTES.addressChangeConfirmation, stopToken) },
     };
   }
 
