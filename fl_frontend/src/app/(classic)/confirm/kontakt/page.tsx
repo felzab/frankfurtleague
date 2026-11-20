@@ -61,12 +61,12 @@ const seatsHeld = ({ seat, also_seat: also }: SeatView) => ({
   record: seatsText(also === null ? [seat] : [seat, also]),
 });
 
-/** For whom the person stands, in which season and as what: a season row's seat is entered for a team. */
+/**
+ * For whom the person stands, in which season and as what: a season row's seat is entered for a team, which the league
+ * named. An application's school is left out, as its mails leave it out: anyone sending the form types it.
+ */
 const standsFor = (view: SeatView): Fact[] => [
-  {
-    label: view.record === "saison" ? COPY.shared.facts.team : COPY.shared.facts.school,
-    value: { record: view.schule },
-  },
+  ...(view.record === "saison" ? [{ label: COPY.shared.facts.team, value: { record: view.schule } }] : []),
   { label: COPY.shared.saison, value: COPY.shared.saisonName(view.saison_id) },
   { label: SERVER_COPY.mail.bewerbung.registeredAs, value: seatsHeld(view) },
 ];
@@ -96,7 +96,8 @@ function closedRow(view: FLBewerbungEinwilligungViewSaisonPast, token: string): 
 
 /** The question, in the words of the record the seat stands on: an application goes whole with one lapsed seat. */
 function question(view: FLBewerbungEinwilligungViewValid, token: string, until: CalendarDay): MailedState {
-  const schule = { record: view.schule };
+  // A season row's team, which the league named; an application's typed school is never shown.
+  const team = { record: view.schule };
   const onSeasonRow = view.record === "saison";
   // Berlin's day, which the backend judges the age on.
   const today = dayIn(now());
@@ -105,8 +106,8 @@ function question(view: FLBewerbungEinwilligungViewValid, token: string, until: 
     title: COPY.page.entryConfirmation,
     facts: standsFor(view),
     sentence: onSeasonRow
-      ? SERVER_COPY.paragraph(WORDS.opening.seasonRow(schule, view.saison_id, seatsHeld(view)), WORDS.stored, WORDS.objectionEffect.seasonRow)
-      : SERVER_COPY.paragraph(WORDS.opening.named(schule, view.saison_id, seatsHeld(view)), WORDS.stored, WORDS.objectionEffect.application),
+      ? SERVER_COPY.paragraph(WORDS.opening.seasonRow(team, view.saison_id, seatsHeld(view)), WORDS.stored, WORDS.objectionEffect.seasonRow)
+      : SERVER_COPY.paragraph(WORDS.opening.named(view.saison_id, seatsHeld(view)), WORDS.stored, WORDS.objectionEffect.application),
     more: WORDS.more,
     // Last, as on every confirmation: the day the answer waits for.
     sentenceAfter: onSeasonRow ? SERVER_COPY.entryConfirmation.deadline(until) : WORDS.applicationDeadline(until),

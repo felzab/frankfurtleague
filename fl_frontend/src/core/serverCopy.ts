@@ -7,8 +7,7 @@ import { ADMIN_COPY } from "./copy/admin";
 import { COPY } from "./copy/shared";
 import { formatDate, formatDateLong, formatDayAndTime, formatInstant, formatList, formatNumber, formatOrdinal, formatSigned } from "./format";
 
-import type { Route } from "next";
-import type { Copy, Wait, Words } from "./copy";
+import type { Copy, TextLink, Wait, Words } from "./copy";
 import type { CalendarDay, TimeOfDay } from "./format";
 import type {
   Code,
@@ -75,9 +74,7 @@ const objectionRight = <Contact>(contact: Contact) =>
     " genügt.",
   ] as const;
 // Around the privacy notice's link, which the page draws.
-const more = (link: { readonly href: Route; readonly label: Copy }) => ["Mehr unter ", link, "."] as const;
-/** A link a legal page sets inside its text, named by the catalogue or by its own data, such as an address. */
-type ProseLink = { readonly href: Route; readonly label: Words };
+const more = (link: TextLink) => ["Mehr unter ", link, "."] as const;
 // What an objection does to a contact's seat on a season row and to a referee's entry, each erased in its own write.
 const OBJECTION_DELETES_ENTRY = "Widersprichst du, löschen wir deinen Eintrag.";
 // A referee's confirmation's opening, which its mail opens on too, and what the league stores of the entry.
@@ -874,15 +871,16 @@ export const SERVER_COPY = catalogue({
       /** A key to the standing's marks, one short line each, as the owner asked: each mark, then what it says. */
       help: [
         `${COPY.shared.season.cancelledMark(1)} bei ${SPIELE_SHORT}: ${COPY.shared.season.cancelled(1)}`,
-        `${COPY.shared.austritt.disqualifikation.shorthand}: disqualifiziert`,
-        `${COPY.shared.austritt.rueckzug.shorthand}: zurückgezogen`,
-        `Grüner Rand: reicht derzeit für die ${COPY.shared.kORunde}`,
-        "Grauer Rand: geteilter Platz",
+        // Each meaning is the entry the mark's own words come from, so a rewording reaches the key too.
+        `${COPY.shared.austritt.disqualifikation.shorthand}: ${COPY.shared.austritt.disqualifikation.state}`,
+        `${COPY.shared.austritt.rueckzug.shorthand}: ${COPY.shared.austritt.rueckzug.state}`,
+        `Grüner Rand: ${COPY.shared.season.qualifies.settled}`,
+        `Grauer Rand: ${COPY.shared.season.qualifies.level}`,
       ],
     },
 
-    /** The Spielsuche's three filters and Teams' one, each opening on every match or club. */
-    filter: { phase: "Phase", team: TEAM, spieltag: COPY.spielplan.fact.spieltag, gruppe: COPY.team.gruppe, all: "Alle" },
+    /** Teams' group filter, and „Alle“ (all), the choice every filter opens on. */
+    filter: { gruppe: COPY.team.gruppe, all: "Alle" },
 
     team: {
       platz: PLATZ,
@@ -926,7 +924,7 @@ export const SERVER_COPY = catalogue({
           "Wir messen nicht, was du auf der Website tust, und verkaufen keine Daten.",
           "Du kannst Auskunft über deine Daten verlangen, ihre Berichtigung, Löschung oder Einschränkung und ihre Herausgabe. Du kannst widersprechen und jede Einwilligung widerrufen. Und du kannst dich bei der Aufsichtsbehörde beschweren.",
         ],
-        contact: (mail: ProseLink) => ["Dafür genügt eine formlose E-Mail an ", mail, "."] as const,
+        contact: (mail: TextLink<Words>) => ["Dafür genügt eine formlose E-Mail an ", mail, "."] as const,
       },
       basis: {
         heading: "Rechtsgrundlagen",
@@ -1194,7 +1192,7 @@ export const SERVER_COPY = catalogue({
       },
       rights: {
         heading: "Deine Rechte",
-        text: (mail: ProseLink) =>
+        text: (mail: TextLink<Words>) =>
           [
             "Du hast das Recht auf Auskunft, Berichtigung, Löschung, Einschränkung der Verarbeitung und Datenübertragbarkeit (Art.\u00A015 bis 18 und 20 DSGVO). Eine Einwilligung widerrufst du jederzeit für die Zukunft, in deinem Konto oder per E-Mail. Was bis dahin geschah, bleibt rechtmäßig. Für alles genügt eine formlose E-Mail an ",
             mail,
@@ -1216,7 +1214,7 @@ export const SERVER_COPY = catalogue({
       provider: { heading: "Anbieter", name: VEREIN_NAME, address: VEREIN_ADDRESS },
       representation: {
         heading: "Vertretung",
-        rule: `Je ${formatNumber(VORSTAND_JOINTLY)} Mitglieder des Vorstands vertreten den Verein gemeinsam:`,
+        rule: `Je ${boundBy(formatNumber(VORSTAND_JOINTLY), "Mitglieder")} des Vorstands vertreten den Verein gemeinsam:`,
         member: (name: string, amt: string) => `${name}, ${amt}`,
       },
       /** Before the league's address, which the page sets as a link after it. */
@@ -1251,7 +1249,7 @@ export const SERVER_COPY = catalogue({
      * The Art. 21 DSGVO objection, read before anything is typed, in the one wording the first-contact mail closes on,
      * around the league's address, which the page sets as a link.
      */
-    objection: (link: { readonly href: Route; readonly label: string }) => objectionRight(link),
+    objection: (link: TextLink<string>) => objectionRight(link),
     end: {
       /** The outcome replacing the form, a replayed press alike: the title is what the pupil does next. */
       submitted: "Bestätige deine Registrierung per E-Mail",
@@ -1274,9 +1272,12 @@ export const SERVER_COPY = catalogue({
     /** The person's own entry: the title of a closed row's page, which confirms nothing, and of a seat's own facts in an application's mail. */
     ownEntry: "Dein Eintrag",
     opening: {
-      /** A seat in an application, one text for all: it names no submitter, the form recording none. */
-      named: (schule: Words, saison: string, seats: Words) =>
-        `Du bist in der Bewerbung von ${textOf(schule)} für die ${COPY.shared.saisonNameBound(saison)} als ${textOf(seats)} genannt.`,
+      /**
+       * A seat in an application, one text for all: it names no submitter, the form recording none, and no school, which
+       * anyone sending the form types, as the application's mails name none.
+       */
+      named: (saison: string, seats: Words) =>
+        `Du bist in der Bewerbung für die ${COPY.shared.saisonNameBound(saison)} als ${textOf(seats)} genannt.`,
       /** Seated by the league on a team's season, with no application. */
       seasonRow: (team: Words, saison: string, seats: Words) =>
         `Die Liga hat dich für ${textOf(team)} in der ${COPY.shared.saisonNameBound(saison)} als ${textOf(seats)} eingetragen.`,
@@ -1335,8 +1336,10 @@ export const SERVER_COPY = catalogue({
   registrierungConfirmation: {
     opening: (team: Words, saison: string) =>
       `Du hast dich über den Link von ${textOf(team)} für den Kader in der ${COPY.shared.saisonNameBound(saison)} registriert.`,
+    // Admitted, the pupil's data stands on their squad rows, which the erasure sweep keeps until the season after the
+    // last: the privacy notice's „Kader und Aufstellungen“ row in its own words.
     stored:
-      "Wir speichern deinen Namen, deine E-Mail-Adresse, dein Geburtsdatum und, wenn du sie angegeben hast, Trikotnummer, Position und Stufe, längstens bis zum Ende der Saison danach.",
+      "Wir speichern deinen Namen, deine E-Mail-Adresse, dein Geburtsdatum und, wenn du sie angegeben hast, Trikotnummer, Position und Stufe, längstens bis zum Ende der Saison nach deiner letzten im Kader.",
     ageCheck,
     deadline: (until: CalendarDay) => runsText(registrationDeadline(formatDateLong(until))),
     more,

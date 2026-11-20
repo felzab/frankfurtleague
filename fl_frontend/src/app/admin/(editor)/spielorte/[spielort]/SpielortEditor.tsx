@@ -16,8 +16,8 @@ import type { EditorRecord, EditorSave } from "@/kit/useEditor";
 import type { SpielortValues } from "./spielortValues";
 
 const WORDS = ADMIN_COPY.spielort;
-const RETIRE_CONSEQUENCE = COPY.shared.retireConsequence(WORDS.withArticle, COPY.page.spiele);
-const REACTIVATE_CONSEQUENCE = COPY.shared.reactivateConsequence(WORDS.withArticle);
+const RETIRE_CONSEQUENCE = ADMIN_COPY.retireConsequence(WORDS.withArticle, COPY.page.spiele);
+const REACTIVATE_CONSEQUENCE = ADMIN_COPY.reactivateConsequence(WORDS.withArticle);
 
 /** One act of the danger box: a server action taking the venue's id, which a server page passes on as it is. */
 type Act = (input: { id: string }) => Promise<ActionAnswer>;

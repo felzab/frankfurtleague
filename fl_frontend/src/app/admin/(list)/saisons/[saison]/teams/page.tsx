@@ -117,7 +117,7 @@ async function readFilters(list: Promise<FLTeamsAdminListResponse>, searchParams
     {
       name: "state",
       label: COPY.shared.facts.state,
-      all: SERVER_COPY.season.filter.all,
+      all: ADMIN_COPY.team.ofSaison,
       options: [
         { id: FLTeamListState.active, label: COPY.shared.state.active },
         { id: FLTeamListState.departed, label: ADMIN_COPY.spiel.departed },

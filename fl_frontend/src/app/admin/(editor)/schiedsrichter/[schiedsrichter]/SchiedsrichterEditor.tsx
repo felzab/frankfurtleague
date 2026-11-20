@@ -19,7 +19,7 @@ import type { EditorRecord, EditorSave } from "@/kit/useEditor";
 import type { SchiedsrichterValues } from "./schiedsrichterValues";
 
 const WORDS = ADMIN_COPY.schiedsrichter;
-const RETIRE_CONSEQUENCE = COPY.shared.retireConsequence(WORDS.withArticle, COPY.page.spiele);
+const RETIRE_CONSEQUENCE = ADMIN_COPY.retireConsequence(WORDS.withArticle, COPY.page.spiele);
 const FACTS = COPY.shared.facts;
 const OBJECT = COPY.shared.schiedsrichter;
 

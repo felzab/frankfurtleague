@@ -1,5 +1,6 @@
 import { formatList, formatNumber, formatOrdinal } from "./format";
 
+import type { Route } from "next";
 import type { FLKontaktSeat } from "./generated/client/types";
 
 declare const copyBrand: unique symbol;
@@ -37,6 +38,9 @@ export type RecordText = { readonly record: string };
 export type Words = Copy | RecordText;
 
 export const textOf = (words: Words): string => (typeof words === "string" ? words : words.record);
+
+/** A link inside a sentence's runs, named by the catalogue, or by a record's own data where `Label` says so. */
+export type TextLink<Label = Copy> = { readonly href: Route; readonly label: Label };
 
 type Catalogue<T> = T extends string
   ? Copy
@@ -110,11 +114,6 @@ export const GRUPPE = (gruppe: string) => `Gruppe ${gruppe}`;
 export const DATE_OPEN = "Termin offen";
 export const SPIELER = "Spieler";
 export const SCHIEDSRICHTER = "Schiedsrichter";
-/**
- * The theme's three choices in the order its control shows them, the third following the device's own setting as every
- * app names it: the control's labels, and Konto's Darstellung box naming them.
- */
-export const THEME = { dark: "Dunkel", light: "Hell", system: "System" } as const;
 // The privacy notice's title, which the deletion box's sentence names as the place listing what outlives an erasure.
 export const PRIVACY_NOTICE = "Datenschutz";
 
@@ -144,11 +143,15 @@ export const LOCK = {
 /** Why some of an editor's fields stand locked, which its lock line says once however many it holds. */
 export type LockReason = keyof typeof LOCK;
 
+/** A list's search label from its plural, for an entry whose plural the catalogue holds as a plain word. */
+export const searchLabel = (plural: string) => `${plural} suchen`;
 export const saisonName = (id: string) => `Saison ${id}`;
 // The same name with a no-break space, for a phrase binding a word to it.
 export const saisonNameBound = (id: string) => boundBy("Saison", id);
 export const spieltagName = (position: number) => `${formatOrdinal(position)} Spieltag`;
 export const OWNER_TIER = "Leitung";
+// The glossary's screen word for an address's access to the administration, a grant.
+export const GRANT = "Zugang";
 export const BEWERBUNGEN = "Bewerbungen";
 export const REGISTRIERUNGEN = "Registrierungen";
 export const KONTAKTPERSONEN = "Kontaktpersonen";

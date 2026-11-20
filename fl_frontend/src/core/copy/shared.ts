@@ -6,6 +6,7 @@ import {
   catalogue,
   DATE_OPEN,
   EFFECTIVE_FROM,
+  GRANT,
   GRUPPE,
   K_O_RUNDE,
   KONTAKT_SEAT_LONG_FORM,
@@ -18,11 +19,11 @@ import {
   saisonName,
   saisonNameBound,
   SCHIEDSRICHTER,
+  searchLabel,
   seatsText,
   SPIELER,
   spieltagName,
   textOf,
-  THEME,
   VERB,
 } from "../copy";
 import {
@@ -66,8 +67,6 @@ const OBJECTED = "Widersprochen";
 const DEREGISTERED = "Ausgetragen";
 const ADMITTED = "Aufgenommen";
 const FILTER = "Filter";
-// A list's search label from its plural: `shared.search` gives it the other catalogues, and the squad's stands here.
-const search = (plural: string) => `${plural} suchen`;
 
 /**
  * The words every audience reads: the kit's, the shared section's, the route titles' and the records' noun sections. It
@@ -147,7 +146,6 @@ export const COPY = catalogue({
       linkSent: SENT,
       linkNotSent: "Nicht gesendet",
     },
-    confirmedOn: (day: CalendarDay) => `Bestätigt am ${formatDate(day)}`,
     expiredOn: (day: CalendarDay) => `Abgelaufen am ${formatDate(day)}`,
     answerBy: (day: CalendarDay) => `Antwort bis ${formatDate(day)}`,
     /** The day a state took effect, beside the chip naming the state: „am 09.11.2026“. */
@@ -155,12 +153,6 @@ export const COPY = catalogue({
     afterConfirmation: "Erst nach Bestätigung",
     afterHandover: `Erst nach Übergabe der ${OWNER_TIER}`,
     reason: "Grund",
-    /**
-     * A danger box's consequence of retiring a record and of bringing it back, by the record as a noun phrase with its
-     * article („Der Spielort“), and for retiring the records it is no longer picked for.
-     */
-    retireConsequence: (subject: Copy, what: Copy) => `${subject} steht für neue ${what} nicht mehr zur Auswahl.`,
-    reactivateConsequence: (subject: Copy) => `${subject} steht wieder zur Auswahl.`,
     /** The description of a free text a mail hands to people it may not concern. */
     noNames: "Ohne Namen",
     mediaFrom: (age: number) => `Erst ab ${boundBy(formatNumber(age), "Jahren")}`,
@@ -249,12 +241,12 @@ export const COPY = catalogue({
       /** A run's list a person left every row out of: the records stand, where `none` would say there are none yet. */
       skipped: (plural: Copy) => `Alle ${plural} übersprungen.`,
     },
+    /** A list's search box, by the list's plural. */
+    search: (plural: Copy) => searchLabel(plural),
     /**
      * What a screen reader hears once a searched list's typed text settles: „Treffer“ is one noun for any list's rows
      * in the singular and the plural, and a search finding none says `empty.search`.
      */
-    /** A list's search box, by the list's plural. */
-    search: (plural: Copy) => search(plural),
     searchCount: (count: number) => `${boundBy(formatNumber(count), "Treffer")} für diese Suche.`,
 
     /** „Passkey löschen?“: a confirmation asks with the verb its button carries. */
@@ -336,7 +328,7 @@ export const COPY = catalogue({
     bewerbung: "Bewerbung",
     ban: "Sperre",
     /** The rows an erasure removes beyond the entries `shared` and `page` name. */
-    erasureCount: { addressChanges: "Laufende Adressänderungen", grant: "Zugang" },
+    erasureCount: { addressChanges: "Laufende Adressänderungen", grant: GRANT },
     spieler: SPIELER,
     schiedsrichter: SCHIEDSRICHTER,
     /** The schools a picker lists, the plural its empty search names. */
@@ -582,7 +574,7 @@ export const COPY = catalogue({
 
   /** A squad row's fields, one word each wherever a person meets them. */
   kader: {
-    search: search(SPIELER),
+    search: searchLabel(SPIELER),
     nummer: "Nummer",
     position: "Position",
     stufe: "Stufe",
@@ -607,10 +599,9 @@ export const COPY = catalogue({
      * filling a shortage alone: the bound the backend publishes, never a typed figure.
      */
     nomineeLocked: (max: number) => `Nur bei weniger als ${formatNumber(max)}`,
-    needsSlot: "Erst mit Datum und Uhrzeit",
     dueBy: (day: CalendarDay) => `Aufstellung bis ${formatDate(day)}`,
-    /** Beside the „Überfällig“ chip, which says the rest. */
-    overdueSince: (day: CalendarDay) => `Aufstellung seit ${formatDate(day)}`,
+    /** Beside the „Überfällig“ chip, a whole phrase still: „seit“ with the noun alone would say the line-up stands. */
+    overdueSince: (day: CalendarDay) => `Aufstellung seit ${formatDate(day)} überfällig`,
     overdue: "Überfällig",
     overdueOnCard: "Aufstellung überfällig",
     /** Once the team's seats can change nothing more before the match. */
@@ -626,7 +617,8 @@ export const COPY = catalogue({
     /** The account's place, one word signed in and out alike. */
     account: "Konto",
     menu: "Menü",
-    theme: THEME,
+    /** The theme's three choices in the order its control shows them, the third following the device's own setting. */
+    theme: { dark: "Dunkel", light: "Hell", system: "System" },
     /** Named for what the next press does. */
     sidebar: { collapse: "Seitenleiste einklappen", expand: "Seitenleiste ausklappen" },
 

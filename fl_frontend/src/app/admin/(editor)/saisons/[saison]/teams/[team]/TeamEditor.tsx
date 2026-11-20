@@ -40,8 +40,8 @@ import type { TeamValues } from "./teamValues";
 
 const WORDS = ADMIN_COPY.team;
 const TEAM = COPY.shared.facts.team;
-const RETIRE_CONSEQUENCE = COPY.shared.retireConsequence(WORDS.withArticle, COPY.page.adminSaisons);
-const REACTIVATE_CONSEQUENCE = COPY.shared.reactivateConsequence(WORDS.withArticle);
+const RETIRE_CONSEQUENCE = ADMIN_COPY.retireConsequence(WORDS.withArticle, COPY.page.adminSaisons);
+const REACTIVATE_CONSEQUENCE = ADMIN_COPY.reactivateConsequence(WORDS.withArticle);
 
 /** The boxes of the club's row of the season, which a retired club holding none leaves out. */
 export type TeamRow = {

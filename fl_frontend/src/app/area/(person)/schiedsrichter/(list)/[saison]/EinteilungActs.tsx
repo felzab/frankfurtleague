@@ -13,7 +13,7 @@ import { agreeEinteilung, declineEinteilung } from "./answerEinteilung";
 
 import type { Words } from "@/core/copy";
 
-const TITLE = COPY.shared.withObject(AREA_COPY.schiedsrichter.einteilung, "decline");
+const TITLE = COPY.shared.withObject(AREA_COPY.schiedsrichter.einsatz, "decline");
 
 /**
  * A booking still to answer, on its game's row: „Zusagen“ at once, its answer a toast as the row turns „Zugesagt“,

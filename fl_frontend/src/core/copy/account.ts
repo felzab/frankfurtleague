@@ -1,11 +1,9 @@
-import { ACCOUNT_ERASED, boundBy, catalogue, PRIVACY_NOTICE, seatsText, textOf, THEME, waitWords } from "../copy";
+import { ACCOUNT_ERASED, boundBy, catalogue, PRIVACY_NOTICE, seatsText, textOf, waitWords } from "../copy";
 import { formatDate, formatInstant, formatList, formatNumber } from "../format";
 
 import type { Copy, RecordText, Wait, Words } from "../copy";
 import type { FLKontaktSeat } from "../generated/client/types";
 
-// What a person's own record's box holds beyond its title, which names the record: a pupil's, a registration's, a referee's.
-const OWN_DETAILS = "Deine Angaben und was davon öffentlich ist.";
 const PASSKEY_WITHOUT_CODE = "Mit einem Passkey meldest du dich ohne Code an.";
 // The pending change's opening, before its new address.
 const NEW_ADDRESS = "Die neue Adresse ";
@@ -80,10 +78,6 @@ export const ACCOUNT_COPY = catalogue({
     allOthers: "Alle anderen",
     consequence: "Nur dieses Gerät bleibt angemeldet.",
   },
-  appearance: {
-    /** The theme's three choices by the control's own labels, in its order. */
-    description: `Du wählst zwischen ${formatList([THEME.dark, THEME.light, THEME.system])}.`,
-  },
   /**
    * „Funktion wechseln“'s entries: a team by its name, with this line under it naming the season and the seats held
    * there in the seats' order; a pupil's and a referee's by `shared`'s nouns, the administration's by its role.
@@ -93,17 +87,19 @@ export const ACCOUNT_COPY = catalogue({
   },
   /**
    * Each record an address holds, as Deine Einträge boxes it: titled by what the record is, a team's seats by the
-   * team's name, the rest by `shared`'s noun or the page's, and described by the person's part in it.
+   * team's name, the rest by `shared`'s noun or the page's, and described by what the box holds beyond its title.
    */
   entries: {
     plural: "Einträge",
-    /** Each entry box's one sentence, by the kind of record it holds, adding to the title what the box holds. */
+    /**
+     * Each entry box's one phrase, by the kind of record it holds, adding to the title what the box holds: a noun
+     * phrase, so it takes no full stop.
+     */
     description: {
-      spieler: OWN_DETAILS,
-      registrierung: OWN_DETAILS,
-      schiedsrichter: OWN_DETAILS,
+      /** A person's own record, which the title names: a pupil's, a registration's, a referee's. */
+      own: "Deine Angaben und was davon öffentlich ist",
       /** A seat on a team's season and a seat in an application alike, by the seats held, in the seats' order. */
-      seat: (seats: readonly FLKontaktSeat[]) => `Dein Eintrag als ${seatsText(seats)} und wie wir dich erreichen.`,
+      seat: (seats: readonly FLKontaktSeat[]) => `Dein Eintrag als ${seatsText(seats)} und wie wir dich erreichen`,
     },
     teamSeason,
     /** A seat entry's fact where its seats store the person typed two ways, by the seats holding this one: „Telefon als Ansprechperson“. */

@@ -5,8 +5,7 @@ import { Icon } from "./Icon";
 import { Link } from "./Link";
 import { tv } from "./tv";
 
-import type { Copy, Words } from "@/core/copy";
-import type { Route } from "next";
+import type { Copy, TextLink, Words } from "@/core/copy";
 import type { IconName } from "./Icon";
 
 /**
@@ -35,7 +34,7 @@ export type EmptyStateProps = {
    * A muted line under the sentence of a list with nothing in it yet, saying where its records come from: the
    * catalogue's words around one link, such as the league's address a team's registration link comes from.
    */
-  line?: readonly [Copy, { readonly href: Route; readonly label: Words }, Copy];
+  line?: readonly [Copy, TextLink<Words>, Copy];
   /** The mark over a list with nothing in it yet: the list's own rail mark, ⓘ where it names none. */
   glyph?: IconName;
 };

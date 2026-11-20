@@ -6,6 +6,7 @@ import {
   catalogue,
   DATE_OPEN,
   EFFECTIVE_FROM,
+  GRANT,
   GRUPPE,
   K_O_RUNDE,
   KONTAKTPERSONEN,
@@ -15,6 +16,7 @@ import {
   REGISTRIERUNGEN,
   saisonNameBound,
   SCHIEDSRICHTER,
+  searchLabel,
   SPIELER,
   textOf,
   waitWords,
@@ -39,11 +41,16 @@ const DELETED_BY_PASS = "Nach Frist gelöscht";
 const ENTRY_OBJECTED = "Eintrag widersprochen";
 // One word for every withdrawal an administrator entered from a person's mail, on any kind of record.
 const WITHDRAWAL_ENTERED = "Widerruf eingetragen";
+// One word for every address change started, one the administration starts for an address and a holder's own alike.
+const ADDRESS_CHANGE_STARTED = "Adressänderung gestartet";
+// One word for every seat an administrator changed, on a team's season and in an application alike.
+const SEAT_CHANGED = "Sitz geändert";
 const NAME_ON_SITE = "Name auf der Website";
 const MEDIA = "Fotos und Videos";
 const SENT_ON = "Gesendet am";
-// The plurals of the administration's own lists that no other catalogue holds, branded ahead of the entries searching them.
-const PLURAL = catalogue({ bans: BANS, logEntries: "Einträge" });
+// A person's confirmation's day, as a player's fact labels it and a referee's Bestätigung states it.
+const CONFIRMED_ON = "Bestätigt am";
+const LOG_ENTRIES = "Einträge";
 
 /** The administration's own words, which no page outside it reads. */
 export const ADMIN_COPY = catalogue({
@@ -108,12 +115,20 @@ export const ADMIN_COPY = catalogue({
     bothAddresses: "Beide Adressen",
   },
   retirement: RETIREMENT,
+  /**
+   * A danger box's consequence of retiring a record and of bringing it back, by the record as a noun phrase with its
+   * article („Der Spielort“), and for retiring the records it is no longer picked for.
+   */
+  retireConsequence: (subject: Copy, what: Copy) => `${subject} steht für neue ${what} nicht mehr zur Auswahl.`,
+  reactivateConsequence: (subject: Copy) => `${subject} steht wieder zur Auswahl.`,
 
   schiedsrichter: {
     search: COPY.shared.search(COPY.page.adminSchiedsrichter),
     withArticle: "Die Person",
     kontaktData: "Kontaktdaten",
     confirmation: "Bestätigung",
+    /** Where a confirmed entry's Bestätigung stands, by the day of its confirmation. */
+    confirmedOn: (day: CalendarDay) => `${CONFIRMED_ON} ${formatDate(day)}`,
     sentTo: (address: string) => `An ${address} gesendet`,
   },
 
@@ -147,11 +162,8 @@ export const ADMIN_COPY = catalogue({
     dangerBox: (draw: boolean, activation: boolean) =>
       draw && activation ? "Neuanlage, Löschung und Umstellung" : draw ? "Neuanlage und Löschung" : "Umstellung",
 
-    /** What the Wertung rules do, one statement a line. */
-    scoringHelp: [
-      "Punkte und die Regel bei Punktgleichheit ordnen die Tabelle.",
-      "Ein Nichtantreten zählt als Spiel mit den eingetragenen Toren.",
-    ],
+    /** What the Wertung's fields leave unsaid: how a no-show counts. */
+    scoringHelp: ["Ein Nichtantreten zählt als Spiel mit den eingetragenen Toren."],
     punkte: "Punkte",
     winPoints: "Sieg",
     drawPoints: "Unentschieden",
@@ -190,6 +202,8 @@ export const ADMIN_COPY = catalogue({
     /** The replacement's two clubs: the one leaving the season, and the one taking over its row. */
     outgoing: "Ausscheidendes Team",
     incoming: "Nachrückendes Team",
+    /** Why the swap and the replacement cannot run yet: one of their two clubs is still to choose. */
+    bothTeamsLocked: "Erst mit beiden Teams",
     /** What the replacement does: the incoming club takes the outgoing one's group and every match of it. */
     replaceConsequence: (incoming: Words, outgoing: Words, gruppe: string) =>
       `${textOf(incoming)} übernimmt ${GRUPPE(gruppe)} und alle Spiele von ${textOf(outgoing)}.`,
@@ -213,6 +227,8 @@ export const ADMIN_COPY = catalogue({
     addressBarred: "Adresse auf der Sperrliste",
     /** The rows say the rest. */
     sentTo: (count: number) => (count === 1 ? "An 1\u00A0Team gesendet" : `An ${boundBy(formatNumber(count), "Teams")} gesendet`),
+    /** Why the send is locked: every team is passed over or already mailed, which its row says. */
+    dispatchLocked: "Kein Link zu senden",
     dispatchConsequence: (count: number) =>
       count === 1 ? "1\u00A0Team bekommt seinen Link per E-Mail." : `${boundBy(formatNumber(count), "Teams")} bekommen ihren Link per E-Mail.`,
 
@@ -300,6 +316,8 @@ export const ADMIN_COPY = catalogue({
   team: {
     search: COPY.shared.search(COPY.page.teams),
     withArticle: "Das Team",
+    /** The state filter's default, the season's clubs, where its option „Stillgelegt“ reads past them to every retired club. */
+    ofSaison: "Alle Teams der Saison",
     gruppeFull: "Voll",
     /** „Team eintragen“'s reason while locked, and „Annehmen“'s in a running season: either enters a club. */
     onlyPlanned: "Nur in einer geplanten Saison",
@@ -341,13 +359,15 @@ export const ADMIN_COPY = catalogue({
     mediaYes: "Ja",
     mediaNo: "Nein",
     givenOn: "Erteilt am",
-    confirmedOn: "Bestätigt am",
+    confirmedOn: CONFIRMED_ON,
     kaderEntry: "Kadereintrag",
     reactivateConsequence: "Die Person steht wieder im Kader.",
   },
 
   administrators: {
     object: "Administrator",
+    /** The column holding each row's tier, „Leitung“ or „Verwaltung“: which access the address holds. */
+    tier: GRANT,
     pending: "Angekündigt",
     since: SINCE,
     pendingKind: { addition: "Neuer Administrator", handover: `Übergabe der ${OWNER_TIER}` },
@@ -370,8 +390,8 @@ export const ADMIN_COPY = catalogue({
   },
 
   banList: {
-    plural: PLURAL.bans,
-    search: COPY.shared.search(PLURAL.bans),
+    plural: BANS,
+    search: searchLabel(BANS),
     /** After the ban's own notice, which `mailTo` names: the ban bars the hand-out of every later mail. */
     consequence: "Die Adresse kann sich nicht mehr anmelden und bekommt danach keine E-Mails.",
     /** „E-Mail an“'s value: the notice goes only where an account stands, which the press reads once the address is typed. */
@@ -379,14 +399,6 @@ export const ADMIN_COPY = catalogue({
     duration: "Dauer",
     until: VALID_UNTIL,
     durationSaisons: (count: number) => (count === 1 ? "1\u00A0Saison" : boundBy(formatNumber(count), "Saisons")),
-    /** The toast once the ban stands, by what did not follow it. */
-    partial: {
-      sessions: "Die Sperre steht, aber die Geräte bleiben angemeldet.",
-      notice: "Die Sperre steht, aber die E-Mail ist nicht gesendet.",
-      both: "Die Sperre steht, aber die Geräte bleiben angemeldet und die E-Mail ist nicht gesendet.",
-      /** The second press's note, once it ended what the first left running. */
-      ended: "Die Geräte sind abgemeldet.",
-    },
     liftConsequence: "Die Adresse kann sich wieder anmelden.",
   },
 
@@ -434,8 +446,8 @@ export const ADMIN_COPY = catalogue({
   /** Composed from the stored action. */
   actionLog: {
     /** The log's rows, apart from Konto's entries of the same word. */
-    plural: PLURAL.logEntries,
-    search: COPY.shared.search(PLURAL.logEntries),
+    plural: LOG_ENTRIES,
+    search: searchLabel(LOG_ENTRIES),
     what: "Was",
     who: "Wer",
     when: "Wann",
@@ -484,7 +496,7 @@ export const ADMIN_COPY = catalogue({
       "team.retired": "Team stillgelegt",
       "team.reactivated": "Team reaktiviert",
       "team.austritt_entered": "Austritt eingetragen",
-      "team.seat_changed": "Sitz geändert",
+      "team.seat_changed": SEAT_CHANGED,
       "team.seat_objected": ENTRY_OBJECTED,
       "team.seat_einwilligung_withdrawn": WITHDRAWAL_ENTERED,
       "team.replaced": "Team ersetzt",
@@ -492,7 +504,7 @@ export const ADMIN_COPY = catalogue({
       "team.invitation_withdrawn": "Registrierungslink zurückgezogen",
       "bewerbung.accepted": "Bewerbung angenommen",
       "bewerbung.declined": "Bewerbung abgelehnt",
-      "bewerbung.seat_changed": "Sitz geändert",
+      "bewerbung.seat_changed": SEAT_CHANGED,
       "bewerbung.seat_objected": ENTRY_OBJECTED,
       "bewerbung.seat_einwilligung_withdrawn": WITHDRAWAL_ENTERED,
       "spieler.changed": "Spieler geändert",
@@ -518,11 +530,11 @@ export const ADMIN_COPY = catalogue({
       "grant.handover_started": "Übergabe gestartet",
       "grant.handover_withdrawn": "Übergabe zurückgezogen",
       "grant.handover_completed": "Übergabe abgeschlossen",
-      "grant.address_change_started": "Adressänderung gestartet",
+      "grant.address_change_started": ADDRESS_CHANGE_STARTED,
       "grant.address_switched": "Adresse gewechselt",
       "ban.added": "Sperre eingetragen",
       "ban.removed": "Sperre entfernt",
-      "address_change.started": "Adressänderung gestartet",
+      "address_change.started": ADDRESS_CHANGE_STARTED,
       "address_change.discarded": "Adressänderung verworfen",
       "erasure.on_request": "Löschung auf Anfrage",
       "erasure.own": ACCOUNT_ERASED,

@@ -1,4 +1,3 @@
-import { ACCOUNT_COPY } from "@/core/copy/account";
 import { ADMIN_COPY } from "@/core/copy/admin";
 import { actionLogGetActionLogBodyQOneMax } from "@/core/generated/zod/inputs";
 import { ROUTES } from "@/core/routes";
@@ -76,7 +75,7 @@ export default function ActionLogPage({ searchParams }: Props) {
             table: {
               label: ROUTES.adminActionLog.title,
               rows: page.action_log.map(rowOf),
-              empty: { kind: chosen.length === 0 ? "none" : "filter", plural: ACCOUNT_COPY.entries.plural, glyph: "log" } as const,
+              empty: { kind: chosen.length === 0 ? "none" : "filter", plural: WORDS.plural, glyph: "log" } as const,
             },
             // The next page's read posts what the actor's option stands for, in a body no log keeps.
             more: { cursor: page.cursor, carry: { ...Object.fromEntries(chosen), ...(by === null ? {} : { by }) }, load: loadActionLog },

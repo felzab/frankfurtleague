@@ -61,7 +61,7 @@ function chipsOf({ schiedsrichter: referee, delivery }: FLSchiedsrichterSingleRe
 function standingOf({ schiedsrichter: { state, einwilligung, confirmation } }: FLSchiedsrichterSingleResponse): Copy | null {
   switch (state) {
     case "confirmed":
-      return einwilligung === null ? null : COPY.shared.confirmedOn(dayOf(einwilligung.confirmed_at));
+      return einwilligung === null ? null : WORDS.confirmedOn(dayOf(einwilligung.confirmed_at));
     case "valid":
       return confirmation === null ? null : COPY.shared.answerBy(dayOf(confirmation.deadline));
     case "expired":
@@ -112,7 +112,7 @@ export default async function SchiedsrichterEditorPage({ params }: Props) {
       {...(asking ? { sendLink: sendSchiedsrichterLink } : {})}
       danger={
         retired
-          ? { kind: "reactivate", act: reactivateSchiedsrichter, consequence: COPY.shared.reactivateConsequence(WORDS.withArticle) }
+          ? { kind: "reactivate", act: reactivateSchiedsrichter, consequence: ADMIN_COPY.reactivateConsequence(WORDS.withArticle) }
           : { kind: "retire", act: retireSchiedsrichter }
       }
     />
