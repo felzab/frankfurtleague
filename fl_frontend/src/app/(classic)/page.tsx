@@ -6,23 +6,20 @@ import { COPY } from "@/core/copy/shared";
 import { dayOf, formatNumber } from "@/core/format";
 import { JOIN_SECTION, ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
-import { ORGANISERS, SPONSORS } from "@/features/meta/constants";
+import { SPONSORS } from "@/features/meta/constants";
 import { Doors } from "@/kit/Doors";
 import { EmptyBox } from "@/kit/EmptyState";
-import { InfoCards } from "@/kit/InfoCards";
 import { OrganizationJsonLd } from "@/kit/JsonLd";
 import { LandingPage } from "@/kit/LandingPage";
 import { LandingSection } from "@/kit/LandingSection";
-import { Organisers } from "@/kit/Organisers";
-import { Pillars } from "@/kit/Pillars";
 import { SaisonBlock } from "@/kit/SaisonBlock";
 import { StatTiles } from "@/kit/StatTiles";
 import { Steps } from "@/kit/Steps";
-import { StepsLine } from "@/kit/StepsLine";
 import { SchoolTiles, SponsorTiles } from "@/kit/TileGrid";
 import { pageMetadata } from "@/shared/utils/metadata";
 
 import { readLanding, stateOf } from "./landing";
+import { OrganisersSection, PillarsSection, SeasonSection } from "./LeagueSections";
 
 import type { FLBewerbungWindow, FLLandingResponse } from "@/core/generated/client/types";
 import type { LandingContent } from "@/kit/LandingPage";
@@ -72,7 +69,7 @@ function asideOf(saison: LandingSaison | null, window: FLBewerbungWindow | null)
     ) : (
       <SaisonBlock
         title={COPY.shared.saisonName(window.saison_id)}
-        state={{ kind: "window", until: dayOf(window.end), apply: ROUTES.bewerbung.path(window.saison_id) }}
+        state={{ kind: "window", until: dayOf(window.end), apply: ROUTES.bewerbungRoot.path() }}
       />
     );
   }
@@ -90,7 +87,7 @@ async function heroOf(read: Promise<FLLandingResponse>): Promise<LandingContent>
     // The season's own Spielplan, the address the header's season entry takes, so the press lands in one hop;
     // `/saisons` only while the league has no season, where it shows the card saying so rather than redirecting.
     primary: { label: COPY.page.spielplan, href: saison === null ? ROUTES.saisons.path() : ROUTES.spielplan.path(saison.id) },
-    secondary: window === null ? ABOUT : { label: words.toBewerbung, href: ROUTES.bewerbung.path(window.saison_id) },
+    secondary: window === null ? ABOUT : { label: words.toBewerbung, href: ROUTES.bewerbungRoot.path() },
     aside: asideOf(saison, window),
   };
 }
@@ -105,7 +102,7 @@ async function bandOf(read: Promise<FLLandingResponse>): ComponentProps<typeof S
     return {
       open: true,
       sentence: words.saison.windowUntil(dayOf(window.end)),
-      act: { label: words.toBewerbung, href: ROUTES.bewerbung.path(window.saison_id) },
+      act: { label: words.toBewerbung, href: ROUTES.bewerbungRoot.path() },
     };
   }
   if (opensOn !== null) return { open: false, sentence: FORM_END.opensOn(dayOf(opensOn)), act: ABOUT };
@@ -144,9 +141,10 @@ async function DoorsSection({ read }: { read: Promise<FLLandingResponse> }) {
           ? undefined
           : {
               title: words.doors.school.title,
-              // The date stands on the join band and the season card, each fact once: the door says only that the window is open.
+              // Each element states one fact: the door says that the window is open, and the window's closing date stands
+              // on the join band and on the season card, not on the door.
               text: words.join.opened,
-              act: { label: words.toBewerbung, href: ROUTES.bewerbung.path(window.saison_id) },
+              act: { label: words.toBewerbung, href: ROUTES.bewerbungRoot.path() },
             }
       }
     />
@@ -177,17 +175,7 @@ async function SchoolsSection({ read }: { read: Promise<FLLandingResponse> }) {
 function sectionsOf(read: Promise<FLLandingResponse>): ReactNode {
   return (
     <>
-      <LandingSection
-        eyebrow={words.pillars.eyebrow}
-        title={words.pillars.title}>
-        <Pillars
-          items={[
-            { glyph: "pupils", ...words.about.who },
-            { glyph: "play", ...words.about.rules },
-            { glyph: "proceeds", ...words.about.purpose },
-          ]}
-        />
-      </LandingSection>
+      <PillarsSection />
       <LandingSection
         eyebrow={words.join.eyebrow}
         title={words.join.title}
@@ -202,26 +190,9 @@ function sectionsOf(read: Promise<FLLandingResponse>): ReactNode {
           band={bandOf(read)}
         />
       </LandingSection>
-      <LandingSection
-        eyebrow={words.season.eyebrow}
-        title={words.season.title}>
-        <StepsLine
-          items={[
-            { title: COPY.shared.phase.gruppenphase, text: words.season.gruppenphase },
-            { title: COPY.shared.kORunde, text: words.season.kORunde },
-            { title: SERVER_COPY.season.thirdPlace, text: words.season.platz3 },
-            { title: COPY.shared.phase.finale, text: words.season.finale },
-          ]}
-        />
-        <InfoCards items={[words.about.spielorte, words.about.admission, words.about.safety]} />
-      </LandingSection>
+      <SeasonSection />
       <FiguresSection read={read} />
-      <LandingSection
-        eyebrow={words.organisers.eyebrow}
-        title={words.organisers.title}
-        more={ABOUT}>
-        <Organisers people={ORGANISERS.map((person) => ({ name: { record: person.name }, role: words.organisers.role[person.role] }))} />
-      </LandingSection>
+      <OrganisersSection more={ABOUT} />
       <LandingSection
         eyebrow={words.sponsors.eyebrow}
         title={COPY.page.sponsors}

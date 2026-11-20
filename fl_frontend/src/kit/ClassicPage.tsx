@@ -19,7 +19,7 @@ const page = tv({
       mailed: { column: "max-w-dialog" },
       card: { column: "max-w-card justify-center" },
       signin: { column: "max-w-signin justify-center" },
-      landing: { column: "max-w-classic gap-12 lg:gap-16" },
+      landing: { column: "max-w-classic" },
       reading: { column: "max-w-classic" },
     },
   },
@@ -76,11 +76,6 @@ export const mailedCard = tv({
     check: "px-4",
   },
 });
-
-/** Landing sections under a page's head, as far apart as the landing's. */
-export function ClassicSections({ children }: { children: ReactNode }) {
-  return <div className="grid gap-12 lg:gap-16">{children}</div>;
-}
 
 const head = tv({
   slots: {

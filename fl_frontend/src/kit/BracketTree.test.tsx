@@ -32,8 +32,20 @@ function bracket(count: number): readonly [BracketRound, ...BracketRound[]] {
   return [first, ...rest];
 }
 
-/** Each round's list as the page reads it, top to bottom, with its count of cards. */
-const rowsOf = () => screen.getAllByRole("list").map((list) => [list.getAttribute("aria-label"), within(list).getAllByRole("link").length]);
+/**
+ * Each round as the page reads it, top to bottom: its heading's words, with the count of cards in the one list that
+ * bears that name and no other.
+ */
+function rowsOf() {
+  const lists = screen.getAllByRole("list");
+  const rows = screen.getAllByRole("heading", { level: 2 }).map((heading) => {
+    const name = heading.textContent;
+    return [name, within(screen.getByRole("list", { name })).getAllByRole("link").length];
+  });
+  // Every list is one round's, named by its heading.
+  expect(rows).toHaveLength(lists.length);
+  return rows;
+}
 
 describe("the K.-o.-Baum", () => {
   it.each([
@@ -67,5 +79,20 @@ describe("the K.-o.-Baum", () => {
 
     expect(screen.getByRole("region", { name: COPY.shared.kOBaum })).toBeTruthy();
     expect(rowsOf()).toStrictEqual(rows);
+  });
+
+  it("names the match for third place on its own row above the Finale", () => {
+    render(
+      <BracketTree
+        rounds={bracket(2)}
+        third={match("platz-3")}
+      />,
+    );
+
+    expect(rowsOf()).toStrictEqual([
+      ["Halbfinale", 2],
+      ["Spiel um Platz 3", 1],
+      ["Finale", 1],
+    ]);
   });
 });
