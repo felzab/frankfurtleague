@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 
-import { MongoServerError } from "mongodb";
+import { MongoServerError, ObjectId } from "mongodb";
 import { assert, beforeEach, describe, expect, it } from "vitest";
 
 import {
@@ -134,12 +134,16 @@ let deletingAccounts: () => Promise<unknown> = async () => undefined;
 /** What runs as a user row is deleted, by the library or by a deletion's transaction. */
 let deletingUser: () => Promise<unknown> = async () => undefined;
 
+/** What the request a guard reads carries; a case sets it and `beforeEach` resets it. */
+let requestHeaders: Headers | undefined;
+
 const { sent } = registerAuthDoubles({
   // The admin key the person lane's erasure is sent under, beside the store's address.
   core: {
     config: configDouble({}, { mongodbUri: () => MONGO_URL, internalApiKeyAdmin: () => "fabricated-admin-not-a-credential" }),
     db: DB_DOUBLE,
   },
+  specifiers: { "next/headers": { headers: () => Promise.resolve(requestHeaders) } },
 });
 
 /** What the sign-in gate's backend read answers every address; a case sets it and `beforeEach` resets it. */
@@ -193,7 +197,8 @@ const counting = new Barrier();
 const { toNextJsHandler } = await import("better-auth/next-js");
 const { auth, codeMailCapped } = await import("./auth/library");
 const { carryAccount, deleteAccountFor, deleteOwnAccount, requestAccountDeletion } = await import("./auth/accounts");
-const { endSessionsOfAddress } = await import("./auth/accountSessions");
+const { endOtherSessions, endSessionsOfAddress } = await import("./auth/accountSessions");
+const { getAccountSession } = await import("./auth/guards");
 const authIndexes = await import("./authIndexes");
 const { MONGO_DB_NAME } = authIndexes;
 
@@ -205,6 +210,7 @@ signInIndexesForTheFile(authIndexes, mongod);
 
 beforeEach(async () => {
   gateAnswer = { seats: [], barred: false, account: false };
+  requestHeaders = undefined;
   barrier.disarm();
   counting.disarm();
   atCommit = async () => undefined;
@@ -349,6 +355,33 @@ describe("what a ban ends, against a real database", () => {
     ).toStrictEqual([other.id]);
     expect((await authDb().collection("user").find({}).toArray()).length).toBe(2);
     expect((await passkeyRows()).length).toBe(1);
+  });
+});
+
+describe("ending every other session, against a real database", () => {
+  /** A person rather than an administrator, whose sessions by a mailed code the account page serves. */
+  const PERSON = "person@example.org";
+
+  /* Every other suite stands in for `endOtherSessions`: the adapter's conversion of both ids is met here alone. */
+  it("ends every other session and keeps its own", async () => {
+    gateAnswer = { seats: [SEAT], barred: false, account: true };
+    const kept = await signIn(PERSON);
+    requestHeaders = new Headers({ ...ORIGIN, cookie: kept });
+    await signIn(PERSON);
+    await signIn(PERSON);
+    const served = await getAccountSession();
+    assert.ok(served, "the account page refused the session");
+    const sessions = authDb().collection("session");
+    const owned = { userId: new ObjectId(served.user.id) };
+    expect(await sessions.countDocuments(owned), "fewer than three sessions stood, so the ending proves nothing").toBe(3);
+
+    await endOtherSessions(served.user.id, served.session.id);
+
+    const standing = await sessions.find(owned).toArray();
+    expect(
+      standing.map(({ _id }) => String(_id)),
+      "another device's session stood past the ending, or the kept one went",
+    ).toStrictEqual([served.session.id]);
   });
 });
 
@@ -591,7 +624,6 @@ async function seedAccount(email: string): Promise<{ cookie: string; userId: str
 /** What the store still holds of a seeded account, by kind. */
 async function heldOf({ userId, pending }: { userId: string; pending: readonly string[] }) {
   const of = async (name: string, filter: object) => (await authDb().collection(name).find(filter).toArray()).length;
-  const { ObjectId } = await import("mongodb");
   return {
     user: await of("user", { _id: new ObjectId(userId) }),
     sessions: await of("session", { userId: new ObjectId(userId) }),
