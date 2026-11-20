@@ -86,25 +86,28 @@ const optionOf = (team: SaisonTeam): Option => ({ id: team.id, label: { record: 
 
 /**
  * What the swap and the replacement are handed of the season: whether it has begun, which locks both, their lock line
- * saying so once, and whether it has finished, which leaves their act out.
+ * saying so once.
  */
-type SeasonState = { begun: boolean; isClosed: boolean };
+type SeasonState = { begun: boolean };
 
 /** The group swap: two clubs of different groups. */
-function Swap({
-  saison,
-  teams,
-  swap,
-  begun,
-  isClosed,
-}: { saison: string; teams: readonly SaisonTeam[]; swap: SaisonActs["swap"] } & SeasonState) {
+function Swap({ saison, teams, swap, begun }: { saison: string; teams: readonly SaisonTeam[]; swap: SaisonActs["swap"] } & SeasonState) {
   const [first, setFirst] = useState<string | null>(null);
   const [second, setSecond] = useState<string | null>(null);
   const chosen = teams.find((team) => team.id === first);
   // A swap within one group exchanges nothing: the second club is one of another group.
   const partners = chosen === undefined ? teams : teams.filter((team) => team.gruppe !== chosen.gruppe);
-  const pickers = (
-    <>
+  return (
+    <SectionAct
+      inputs={[first, second]}
+      acts={[
+        {
+          act: { verb: "swap", object: WORDS.gruppen },
+          // Locked from the start, which the editor's lock line says; until both clubs are chosen, with the reason.
+          locked: begun || (first === null || second === null ? WORDS.bothTeamsLocked : undefined),
+          run: async () => (first === null || second === null ? { ok: false } : swap({ saison_id: saison, team1_id: first, team2_id: second })),
+        },
+      ]}>
       <ComboBox
         label={COPY.shared.teamPair.team1}
         options={teams.map(optionOf)}
@@ -124,22 +127,6 @@ function Swap({
         value={second}
         onChange={setSecond}
       />
-    </>
-  );
-  // A finished season's page leaves out the act it cannot run, its pickers standing read-only as the page's fields do.
-  if (isClosed) return pickers;
-  return (
-    <SectionAct
-      inputs={[first, second]}
-      acts={[
-        {
-          act: { verb: "swap", object: WORDS.gruppen },
-          // Locked from the start, which the editor's lock line says; until both clubs are chosen, with the reason.
-          locked: begun || (first === null || second === null ? WORDS.bothTeamsLocked : undefined),
-          run: async () => (first === null || second === null ? { ok: false } : swap({ saison_id: saison, team1_id: first, team2_id: second })),
-        },
-      ]}>
-      {pickers}
     </SectionAct>
   );
 }
@@ -151,7 +138,6 @@ function Replacement({
   incoming,
   replace,
   begun,
-  isClosed,
 }: {
   saison: string;
   teams: readonly SaisonTeam[];
@@ -166,8 +152,19 @@ function Replacement({
     leaving === undefined || arriving === undefined
       ? undefined
       : WORDS.replaceConsequence({ record: arriving.name }, { record: leaving.name }, leaving.gruppe);
-  const pickers = (
-    <>
+  return (
+    <SectionAct
+      inputs={[out, into]}
+      acts={[
+        {
+          act: { verb: "replace", object: TEAM },
+          locked: begun || (consequence === undefined ? WORDS.bothTeamsLocked : undefined),
+          // Asked only once both clubs are chosen, the button locked with its reason until then.
+          confirm: { verb: "replace", subject: TEAM, consequence: consequence ?? COPY.shared.noValue, tone: "primary" },
+          run: async () =>
+            out === null || into === null ? { ok: false } : replace({ saison_id: saison, team_id: out, incoming_team_id: into }),
+        },
+      ]}>
       <ComboBox
         label={WORDS.outgoing}
         options={teams.map(optionOf)}
@@ -185,24 +182,6 @@ function Replacement({
         onChange={setInto}
         consequence={consequence}
       />
-    </>
-  );
-  // As the swap's: left out on a finished season's page.
-  if (isClosed) return pickers;
-  return (
-    <SectionAct
-      inputs={[out, into]}
-      acts={[
-        {
-          act: { verb: "replace", object: TEAM },
-          locked: begun || (consequence === undefined ? WORDS.bothTeamsLocked : undefined),
-          // Asked only once both clubs are chosen, the button locked with its reason until then.
-          confirm: { verb: "replace", subject: TEAM, consequence: consequence ?? COPY.shared.noValue, tone: "primary" },
-          run: async () =>
-            out === null || into === null ? { ok: false } : replace({ saison_id: saison, team_id: out, incoming_team_id: into }),
-        },
-      ]}>
-      {pickers}
     </SectionAct>
   );
 }
@@ -210,7 +189,7 @@ function Replacement({
 /**
  * The season editor: its dates, its rules and its two windows, saved together from the editor's bar; then its draw,
  * its group swap, its replacement and its registration links, each an act of its own box, which a finished season's
- * page leaves out, each box keeping what it shows; its irreversible acts, the
+ * page leaves out, a box holding nothing else going with its act; its irreversible acts, the
  * draw's regeneration and removal and the switch of the site onto it, in the danger rows behind the passkey touch, each
  * closed with its reason where its write would refuse it now.
  */
@@ -532,33 +511,36 @@ export function SaisonEditor({
               ),
           },
         ]),
-    {
-      id: "gruppentausch",
-      title: WORDS.gruppentausch,
-      fields: (
-        <Swap
-          saison={saison}
-          teams={teams}
-          swap={acts.swap}
-          begun={facts.begun}
-          isClosed={isClosed}
-        />
-      ),
-    },
-    {
-      id: "replacement",
-      title: WORDS.replacement,
-      fields: (
-        <Replacement
-          saison={saison}
-          teams={teams}
-          incoming={incoming}
-          replace={acts.replace}
-          begun={facts.begun}
-          isClosed={isClosed}
-        />
-      ),
-    },
+    // A finished season's swap and replacement are acts it cannot run, and their pickers hold no record, so both boxes go.
+    ...(isClosed
+      ? []
+      : [
+          {
+            id: "gruppentausch",
+            title: WORDS.gruppentausch,
+            fields: (
+              <Swap
+                saison={saison}
+                teams={teams}
+                swap={acts.swap}
+                begun={facts.begun}
+              />
+            ),
+          },
+          {
+            id: "replacement",
+            title: WORDS.replacement,
+            fields: (
+              <Replacement
+                saison={saison}
+                teams={teams}
+                incoming={incoming}
+                replace={acts.replace}
+                begun={facts.begun}
+              />
+            ),
+          },
+        ]),
     {
       id: "invitations",
       // Its own section, the table edge to edge in its box, so the table's width is the box's, which picks its form.
