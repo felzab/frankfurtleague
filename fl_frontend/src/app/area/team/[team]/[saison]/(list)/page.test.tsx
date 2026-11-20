@@ -151,7 +151,7 @@ describe("a lapsed date", () => {
 
     const when = COPY.spielplan.when("2026-11-14", "16:00:00");
     expect(rows.map(({ line }) => line)).toStrictEqual([
-      COPY.shared.line([when, COPY.shared.onDay("2026-11-08"), AREA_COPY.team.leagueDecides]),
+      COPY.shared.line([when, COPY.shared.expiredOn("2026-11-08"), AREA_COPY.team.leagueDecides]),
       COPY.shared.line([when, AREA_COPY.team.leagueDecides]),
     ]);
   });
