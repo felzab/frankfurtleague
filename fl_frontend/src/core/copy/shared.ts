@@ -22,6 +22,7 @@ import {
   SPIELER,
   spieltagName,
   textOf,
+  THEME,
   VERB,
 } from "../copy";
 import {
@@ -599,8 +600,7 @@ export const COPY = catalogue({
     /** The account's place, one word signed in and out alike. */
     account: "Konto",
     menu: "Menü",
-    /** The third follows the device's own setting, named as every app names it and as Konto's Darstellung says it. */
-    theme: { system: "System", light: "Hell", dark: "Dunkel" },
+    theme: THEME,
     /** Named for what the next press does. */
     sidebar: { collapse: "Seitenleiste einklappen", expand: "Seitenleiste ausklappen" },
 
