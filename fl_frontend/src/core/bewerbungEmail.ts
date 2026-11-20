@@ -49,7 +49,7 @@ export function buildBewerbungZusageEmail(
   const hex = farbe !== undefined && FARBE_HEX.test(farbe.hex) ? farbe.hex : null;
 
   return {
-    kind: "notice",
+    audience: "notice",
     subjectLine: WORDS.zusage.subject(saison_id),
     origin,
     paragraphs: [[[{ strong: team }, WORDS.zusage.lead.after(saison_id)], WORDS.zusage.lead.welcome]],
@@ -77,7 +77,7 @@ export function buildBewerbungZusageEmail(
 /** The decision and the reason it was given, unabridged and last: the one thing the mail exists to hand over. */
 export function buildBewerbungAbsageEmail({ team, saison_id, seats, reason }: FLBewerbungAbsageData, { origin }: MailOrigin): Mail {
   return {
-    kind: "notice",
+    audience: "notice",
     subjectLine: WORDS.absage.subject(saison_id),
     origin,
     paragraphs: [
@@ -104,7 +104,7 @@ export function buildBewerbungConfirmationEmail(
   { origin, token }: MailLink,
 ): Mail {
   return {
-    kind: "firstContact",
+    audience: "firstContact",
     subjectLine: WORDS.link.subject(saison_id),
     origin,
     paragraphs: [[WORDS.link.lead(schule), WORDS.confirmOrOppose], [deadlineSentence(deadline)]],
@@ -121,7 +121,7 @@ export function buildBewerbungConfirmationEmail(
 
 export function buildBewerbungReminderEmail({ saison_id, schule, deadline }: FLBewerbungLinkData, { origin, token }: MailLink): Mail {
   return {
-    kind: "firstContact",
+    audience: "firstContact",
     subjectLine: WORDS.reminder.subject(saison_id),
     origin,
     paragraphs: [[WORDS.reminder.lead(schule), WORDS.confirmOrOppose], [deadlineSentence(deadline)]],
@@ -141,7 +141,7 @@ export function buildBewerbungReceivedEmail(
   { origin, token }: MailLink,
 ): Mail {
   return {
-    kind: "firstContact",
+    audience: "firstContact",
     subjectLine: WORDS.received.subject(saison_id),
     origin,
     paragraphs: [
@@ -164,7 +164,7 @@ export function buildBewerbungReceivedEmail(
 export function buildDeletionNoticeEmail({ saison_id }: FLDeletionNoticeData, { origin }: MailOrigin): Mail {
   if (saison_id === null) {
     return {
-      kind: "notice",
+      audience: "notice",
       subjectLine: SERVER_COPY.accountErasure.done,
       origin,
       paragraphs: [[SERVER_COPY.mail.deletion.account]],
@@ -172,7 +172,7 @@ export function buildDeletionNoticeEmail({ saison_id }: FLDeletionNoticeData, { 
   }
 
   return {
-    kind: "notice",
+    audience: "notice",
     subjectLine: WORDS.erasure.subject(saison_id),
     origin,
     paragraphs: [[SERVER_COPY.mail.deletion.bewerbung.lead(saison_id), SERVER_COPY.mail.deletion.bewerbung.deleted], [WORDS.erasure.again]],
@@ -188,7 +188,7 @@ export function buildBewerbungObjectionEmail({ saison_id, seats, declined, deadl
   const emptied = seatsText(declined);
 
   return {
-    kind: "notice",
+    audience: "notice",
     subjectLine: WORDS.objection.subject(saison_id),
     origin,
     paragraphs: [

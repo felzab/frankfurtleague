@@ -47,7 +47,7 @@ export function buildGrantEmail(data: FLGrantData, { origin }: MailOrigin): Mail
   const takesEffect: Paragraph[] = effectiveFrom === null ? [] : [[WORDS.effectiveFrom(effectiveFrom)]];
 
   return {
-    kind: data.change === "granted" && data.stage === "started" ? "firstContact" : "notice",
+    audience: data.change === "granted" && data.stage === "started" ? "firstContact" : "notice",
     subjectLine: subjectOf(data),
     origin,
     paragraphs: [[leadOf(data)], ...takesEffect, [WORDS.warn]],

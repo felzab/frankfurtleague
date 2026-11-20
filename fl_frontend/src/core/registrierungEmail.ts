@@ -22,7 +22,7 @@ export function buildRegistrierungConfirmationEmail(
   { origin, token }: MailLink,
 ): Mail {
   return {
-    kind: "firstContact",
+    audience: "firstContact",
     // The team is in the subject because a pupil registering for two of them gets two of these, and
     // the season alone does not tell one from the other in an inbox.
     subjectLine: WORDS.confirmation.subject(team),
@@ -54,7 +54,7 @@ const DECLINE_NEXT_STEPS: Readonly<Record<NonNullable<FLRegistrierungAbsageData[
  */
 export function buildRegistrierungAbsageEmail({ team, saison_id: saisonId, reason }: FLRegistrierungAbsageData, { origin }: MailOrigin): Mail {
   return {
-    kind: "notice",
+    audience: "notice",
     subjectLine: WORDS.absage.subject(team),
     origin,
     paragraphs: [

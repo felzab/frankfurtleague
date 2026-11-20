@@ -16,7 +16,7 @@ const WORDS = SERVER_COPY.mail.signInCode;
 // without it opens a second `/signin` holding none of the step the reader is standing in.
 export function buildCodeEmail(code: string, origin: string): Mail {
   return {
-    kind: "signIn",
+    audience: "signIn",
     subjectLine: WORDS.subject,
     origin,
     paragraphs: [[WORDS.lead]],

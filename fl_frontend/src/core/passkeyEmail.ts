@@ -32,7 +32,7 @@ type Occasion = { instant: Date; origin: string };
 
 function build(event: PasskeyEvent, { instant, origin }: Occasion): Mail {
   return {
-    kind: "security",
+    audience: "security",
     subjectLine: event.subject,
     origin,
     paragraphs: [event.paragraph(formatInstant(instant))],

@@ -16,7 +16,7 @@ const WORDS = SERVER_COPY.mail.erasureLink;
 // The link opens on any browser: a signed-out one is led through the sign-in and back to it.
 export function buildErasureEmail({ origin, token }: { origin: string; token: string }): Mail {
   return {
-    kind: "security",
+    audience: "security",
     subjectLine: COPY.page.accountErasure,
     origin,
     paragraphs: [[WORDS.lead], [[{ strong: WORDS.consequence }]], [SERVER_COPY.mail.linkValidFor(ERASURE_LINK_VALID_HOURS)]],

@@ -25,7 +25,7 @@ export function buildKontaktConfirmationEmail(
 ): Mail {
   const opening = PAGE.opening.seasonRow({ record: schule }, saison, { record: seatsText(seats) });
   const href = mailedLinkTo(origin, ROUTES.kontaktConfirmation, token);
-  const shell = { kind: "firstContact", origin } as const;
+  const shell = { audience: "firstContact", origin } as const;
 
   if (row === "open") {
     return {

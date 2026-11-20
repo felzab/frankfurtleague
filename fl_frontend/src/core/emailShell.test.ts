@@ -15,7 +15,7 @@ const ORIGIN = "https://example.com";
 const naming = (typed: string) => COPY.page.spiel({ record: typed }, { record: "Eiche" });
 
 const MAIL: Mail = {
-  kind: "notice",
+  audience: "notice",
   subjectLine: naming("Ahorn"),
   origin: ORIGIN,
   paragraphs: [[SERVER_COPY.mail.bewerbung.confirmOrOppose]],

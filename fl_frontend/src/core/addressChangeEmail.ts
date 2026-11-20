@@ -36,7 +36,7 @@ export function buildAddressChangeEmail({ way, holder }: FLAddressChangeLinkData
   // The person's own change, the address on file having confirmed it first: the page's question, its title the button.
   if (way === "account") {
     return {
-      kind: "security",
+      audience: "security",
       subjectLine,
       origin,
       paragraphs: [
@@ -48,7 +48,7 @@ export function buildAddressChangeEmail({ way, holder }: FLAddressChangeLinkData
   }
 
   return {
-    kind: "security",
+    audience: "security",
     subjectLine,
     origin,
     paragraphs: [[SERVER_COPY.mail.addressChange.administrator.lead, WORDS.new.waits(LOST_MAILBOX_WAIT)], LINK_VALID],
@@ -64,7 +64,7 @@ export function buildAddressChangeNoticeEmail({ way, holder }: FLAddressChangeNo
   // The person's own change asks the address on file first: its link confirms or declines the change.
   if (way === "account") {
     return {
-      kind: "security",
+      audience: "security",
       subjectLine: COPY.page.addressChangeConfirmation,
       origin,
       paragraphs: [
@@ -83,7 +83,7 @@ export function buildAddressChangeNoticeEmail({ way, holder }: FLAddressChangeNo
 
   const { noticeSubject, noticeLead, noticeWait, noticeStop } = SERVER_COPY.mail.addressChange.administrator;
   return {
-    kind: "security",
+    audience: "security",
     // Telling of the change and asking nothing: a real holder refuses a pretext by the stop alone.
     subjectLine: noticeSubject,
     origin,
@@ -95,12 +95,12 @@ export function buildAddressChangeNoticeEmail({ way, holder }: FLAddressChangeNo
 
 /**
  * The completion notice: no control and no new address. The way to repudiate the change (NIST SP 800-63B-4:
- * "clear instructions, including contact information") is the security kind's own last line.
+ * "clear instructions, including contact information") is the security audience's own last line.
  */
 export function buildAddressChangeEffectiveEmail({ instant }: FLAddressChangeEffectiveData, { origin }: MailOrigin): Mail {
   const { subject, lead } = SERVER_COPY.mail.addressChange.effective;
   return {
-    kind: "security",
+    audience: "security",
     subjectLine: subject,
     origin,
     // Never says the old address stops signing in: a seat not yet confirmed stays behind and still signs in there.
@@ -115,7 +115,7 @@ export function buildAddressChangeEffectiveEmail({ instant }: FLAddressChangeEff
 export function buildAddressChangeDiscardedEmail(_data: FLAddressChangeDiscardedData, { origin }: MailOrigin): Mail {
   const { subject, lead } = SERVER_COPY.mail.addressChange.discarded;
   return {
-    kind: "security",
+    audience: "security",
     subjectLine: subject,
     origin,
     paragraphs: [[lead]],

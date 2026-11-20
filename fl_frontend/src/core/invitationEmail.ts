@@ -15,7 +15,7 @@ const WORDS = SERVER_COPY.mail.invitation;
  */
 export function buildInvitationEmail({ team, saison_id: saisonId }: FLInvitationData, { origin, token }: MailLink): Mail {
   return {
-    kind: "notice",
+    audience: "notice",
     subjectLine: WORDS.subject(team),
     origin,
     paragraphs: [[WORDS.passOn(saisonId, team)]],

@@ -13,7 +13,7 @@ const WORDS = SERVER_COPY.mail.ban;
 
 export function buildBanEmail({ ban_reason, barred_until_saison_id }: FLBanData, { origin }: MailOrigin): Mail {
   return {
-    kind: "notice",
+    audience: "notice",
     subjectLine: WORDS.subject,
     origin,
     paragraphs: [[WORDS.lead, WORDS.effect, WORDS.ends(barred_until_saison_id)]],

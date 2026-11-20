@@ -97,7 +97,7 @@ export function buildSpielRequestEmail(
         : [WORDS.requestSubject(day), movedFrom === null ? [ask] : [WORDS.newPairing(paarung(ansetzung)), ask]];
 
   return {
-    kind: "notice",
+    audience: "notice",
     subjectLine,
     origin,
     paragraphs: [lead],
@@ -119,7 +119,7 @@ export function buildSpielEinteilungEmail({ ansetzung, moved_from: movedFrom }: 
   const lead = moved ? WORDS.moved(spiel) : movedFrom === null ? WORDS.booked(spiel) : WORDS.newPairing(spiel);
 
   return {
-    kind: "notice",
+    audience: "notice",
     subjectLine: moved ? WORDS.movedSubject(dayOf(ansetzung.date)) : WORDS.bookedSubject(dayOf(ansetzung.date)),
     origin,
     paragraphs: [[lead]],
@@ -132,7 +132,7 @@ export function buildSpielEinteilungEmail({ ansetzung, moved_from: movedFrom }: 
 /** The word to a referee that they no longer referee a fixture they were told of: nothing is left for them to answer. */
 function unbookedEmail(appointment: FLSpielMailAppointment, origin: string): Mail {
   return {
-    kind: "notice",
+    audience: "notice",
     subjectLine: WORDS.unbookedSubject(dayOf(appointment.date)),
     origin,
     paragraphs: [[around(WORDS.unbooked.before(paarung(appointment)), moment(appointment), WORDS.unbooked.after)]],
@@ -142,7 +142,7 @@ function unbookedEmail(appointment: FLSpielMailAppointment, origin: string): Mai
 /** A notice naming a fixture, with no button: nothing is left to answer, and no later mail is promised. */
 function noticeEmail(subjectLine: Copy, origin: string, paragraph: Paragraph, block?: Mail["block"]): Mail {
   return {
-    kind: "notice",
+    audience: "notice",
     subjectLine,
     origin,
     paragraphs: [paragraph],
@@ -249,7 +249,7 @@ export function buildAufstellungReminderEmail(
   const words = SERVER_COPY.mail.aufstellung;
 
   return {
-    kind: "notice",
+    audience: "notice",
     subjectLine: words.reminderSubject(dayOf(ansetzung.date)),
     origin,
     paragraphs: [[words.missing({ record: team })]],

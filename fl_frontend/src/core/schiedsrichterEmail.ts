@@ -20,7 +20,7 @@ const PAGE = SERVER_COPY.schiedsrichterConfirmation;
 export function buildSchiedsrichterConfirmationEmail({ deadline }: FLSchiedsrichterConfirmationData, { origin, token }: MailLink): Mail {
   return {
     // A first contact, so the shell closes on the „not you“ line and the objection.
-    kind: "firstContact",
+    audience: "firstContact",
     subjectLine: COPY.page.entryConfirmation,
     origin,
     // Both answers named before the press, in the sentence a contact seat's mail asks them in; then the deadline, its

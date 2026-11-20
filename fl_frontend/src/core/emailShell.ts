@@ -9,15 +9,15 @@ import { SERVER_COPY } from "./serverCopy";
 import type { Copy } from "./copy";
 
 /**
- * What a mail is, which decides its sender, its „Nicht du?“ line and its Art. 21 line, so no caller can
- * pair them apart: a sign-in code, a change to what signs in, the first word to an address somebody
- * else typed, or anything else.
+ * Whom a mail reaches and in what standing, which decides its sender, its „Nicht du?“ line and its Art. 21 line, so no
+ * caller can pair them apart: a person signing in, the holder told of a change to what signs in, an address somebody
+ * else typed hearing from the league first, or anyone else.
  */
-type MailKind = "signIn" | "security" | "firstContact" | "notice";
+type MailAudience = "signIn" | "security" | "firstContact" | "notice";
 
 export type MailSender = "signIn" | "league";
 
-const SENDER: Readonly<Record<MailKind, MailSender>> = {
+const SENDER: Readonly<Record<MailAudience, MailSender>> = {
   signIn: "signIn",
   security: "signIn",
   firstContact: "league",
@@ -50,7 +50,7 @@ interface Button {
 
 /** One mail as its template states it: data only, which `renderMail` turns into both versions. */
 export interface Mail {
-  readonly kind: MailKind;
+  readonly audience: MailAudience;
   /** The subject, topic first, which the heading repeats. */
   readonly subjectLine: Copy;
   /** Already through `mailOrigin`, which `mailFor` applies before any builder runs: the footer's links and the logo stand on it. */
@@ -198,8 +198,8 @@ function previewBy(mail: Mail): string {
 /** The Art. 21 line, the address in it a link. */
 export const OBJECTION: Sentence = [SERVER_COPY.mail.objection.before, { address: KONTAKT_EMAIL }, SERVER_COPY.mail.objection.after];
 
-function notYou(kind: MailKind): string | undefined {
-  return kind === "notice" ? undefined : SERVER_COPY.mail.notYou[kind];
+function notYou(audience: MailAudience): string | undefined {
+  return audience === "notice" ? undefined : SERVER_COPY.mail.notYou[audience];
 }
 
 /** One block of the card and the gap under it; the last block of the card takes none. */
@@ -287,7 +287,7 @@ function renderHtml(mail: Mail, subjectLine: string): string {
   const last = content.length - 1;
   const body = content.map((block, index) => (index === last ? { ...block, gap: GAP.beforeLine } : block));
 
-  const row = notYou(mail.kind);
+  const row = notYou(mail.audience);
   const footer: Block[] = [
     { html: `<hr style="border:none;border-top:1px solid ${RULE_COLOR};margin:0;" />`, gap: GAP.afterLine },
     { html: p(escapeHtml(VEREIN_ROW), FOOTER_TEXT), gap: GAP.footer },
@@ -300,7 +300,7 @@ function renderHtml(mail: Mail, subjectLine: string): string {
       ),
       gap: GAP.footer,
     },
-    ...(mail.kind === "firstContact" ? [{ html: p(paragraphHtml([OBJECTION]), MUTED_TEXT), gap: GAP.footer }] : []),
+    ...(mail.audience === "firstContact" ? [{ html: p(paragraphHtml([OBJECTION]), MUTED_TEXT), gap: GAP.footer }] : []),
     // Last, after the footer: it is not part of the message's content.
     ...(row === undefined ? [] : [{ html: p(escapeHtml(row), MUTED_TEXT), gap: 0 }]),
   ];
@@ -363,17 +363,17 @@ function renderText(mail: Mail, subjectLine: string): string {
     ...(mail.afterBlock ?? []).map((paragraph) => [paragraphText(paragraph)]),
     ...(mail.button === undefined ? [] : [buttonText(mail.button)]),
     [VEREIN_ROW, ...legalLinks(mail.origin).map(({ label, href }) => `${label}: ${href}`)],
-    ...(mail.kind === "firstContact" ? [[sentenceText(OBJECTION)]] : []),
+    ...(mail.audience === "firstContact" ? [[sentenceText(OBJECTION)]] : []),
   ];
-  const row = notYou(mail.kind);
+  const row = notYou(mail.audience);
 
   return [...groups, ...(row === undefined ? [] : [[row]])].map((group) => group.join("\n")).join("\n\n");
 }
 
-/** One mail in both versions, from the same data, with the sender its kind names. */
+/** One mail in both versions, from the same data, with the sender its audience names. */
 export function renderMail(mail: Mail): RenderedMail {
   // One line: a break in a subject is a header injection.
   const subjectLine = singleLine(mail.subjectLine);
 
-  return { subject: subjectLine, html: renderHtml(mail, subjectLine), text: renderText(mail, subjectLine), sender: SENDER[mail.kind] };
+  return { subject: subjectLine, html: renderHtml(mail, subjectLine), text: renderText(mail, subjectLine), sender: SENDER[mail.audience] };
 }
