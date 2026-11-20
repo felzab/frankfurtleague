@@ -1,4 +1,4 @@
-import { ADDRESS_ATTEMPTS_EXHAUSTED } from "@/core/auth/codeRefusal";
+import { ADDRESS_ATTEMPTS_EXHAUSTED, CODE_NOT_ASKED_HERE } from "@/core/auth/codeRefusal";
 import { PUBLIC_COPY } from "@/core/copy/public";
 import { COPY } from "@/core/copy/shared";
 import { SIGN_IN_REFUSED } from "@/core/passkeyRefusal";
@@ -12,12 +12,14 @@ const { refusal } = PUBLIC_COPY.signIn;
 /**
  * The library's refusals of a typed code by their code. Each reaches an address holding an account and one holding
  * none alike, so none of them names which it met; the mint's, met only past a right code, is one code for a barred
- * address and one holding no record. A code never mailed, one already spent, one a newer mail replaced and one expired
- * are no longer valid alike, and every limit on tries is the one shared line, whatever it counted.
+ * address and one holding no record. A code never mailed, one already spent, one a newer mail replaced, one expired
+ * and one this browser did not ask for are no longer valid alike, and every limit on tries is the one shared line,
+ * whatever it counted.
  */
 const CODE_REFUSALS: ReadonlyMap<string, Copy> = new Map([
   ["INVALID_OTP", refusal.codeWrong],
   ["OTP_EXPIRED", refusal.codeWrong],
+  [CODE_NOT_ASKED_HERE, refusal.codeWrong],
   ["TOO_MANY_ATTEMPTS", COPY.shared.failure.tooManyAttempts],
   [ADDRESS_ATTEMPTS_EXHAUSTED, COPY.shared.failure.tooManyAttempts],
   [SIGN_IN_REFUSED, refusal.noRecord],

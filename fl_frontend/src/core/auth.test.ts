@@ -239,7 +239,7 @@ const { toNextJsHandler } = await import("better-auth/next-js");
 const { runWithEndpointContext } = (await import(
   pathToFileURL(createRequire(import.meta.resolve("better-auth")).resolve("@better-auth/core/context")).href
 )) as { runWithEndpointContext: <T>(context: object, run: () => Promise<T>) => Promise<T> };
-const { auth } = await import("./auth/library");
+const { auth, codeAskedCookie, codeMailCapped } = await import("./auth/library");
 const { deleteAccountFor, deleteOwnAccount, listAccounts, requestAccountDeletion } = await import("./auth/accounts");
 const { endSessionsOfAddress } = await import("./auth/accountSessions");
 const { getAccountSession, getAdminSession, isAdminSession, judgeAdminRequest, passesPasskeyTouch } = await import("./auth/guards");
@@ -270,9 +270,17 @@ beforeEach(() => {
 /** What a typed code is answered with: the refusal's status, code and message, or the success's status. */
 type Refusal = { status: number; code?: unknown; message?: unknown };
 
-async function answerOf(email: string, otp: string): Promise<Refusal> {
+/** The `Cookie` header of a browser that asked for `email`'s code, as the sign-in action sets it. */
+async function askedFor(email: string): Promise<string> {
+  const { name, value } = await codeAskedCookie(email);
+  return `${name}=${value}`;
+}
+
+/** A typed code's answer, from the browser that asked for `email`'s code unless `cookie` names another, or `null` none. */
+async function answerOf(email: string, otp: string, cookie?: string | null): Promise<Refusal> {
+  const carried = cookie === undefined ? await askedFor(email) : (cookie ?? undefined);
   // Over the mounted handler, the one route the page's client posts a code by.
-  const answered = await overHttp("/sign-in/email-otp", { method: "POST", body: { email, otp } });
+  const answered = await overHttp("/sign-in/email-otp", { method: "POST", cookie: carried, body: { email, otp } });
   if (answered.ok) return { status: 200 };
 
   // A refusal by status alone, as the mint's outage is, answers no body at all.
@@ -491,12 +499,13 @@ describe("what the mounted HTTP surface answers", () => {
     assert.ok(otp !== null);
     const sessions = store.session.length;
 
-    const named = await overHttp("/sign-in/email-otp", { method: "POST", body: { email: ADMIN_EMAIL, otp, name: "Jemand" } });
+    const cookie = await askedFor(ADMIN_EMAIL);
+    const named = await overHttp("/sign-in/email-otp", { method: "POST", cookie, body: { email: ADMIN_EMAIL, otp, name: "Jemand" } });
     expect(named.status).toBe(400);
     expect(store.session.length, "the refused body minted a session on its way out").toBe(sessions);
     expect(failureRows(), "the refused body was counted as a guess").toStrictEqual([]);
 
-    const verified = await overHttp("/sign-in/email-otp", { method: "POST", body: { email: ADMIN_EMAIL, otp } });
+    const verified = await overHttp("/sign-in/email-otp", { method: "POST", cookie, body: { email: ADMIN_EMAIL, otp } });
     expect(await verified.json()).toStrictEqual({ status: true });
     const minted = store.session.at(-1);
     assert.ok(minted !== undefined && store.session.length === sessions + 1, "the refused body spent the code");
@@ -560,19 +569,6 @@ describe("what the mounted HTTP surface answers", () => {
 
       expect(answer.status, `${method} ${asked} answered ${String(answer.status)}`).toBe(404);
     }
-  });
-
-  /* The case above posts an empty body, which names no address for the mail cap to count: a send naming one, refused
-     after the cap had counted it, would leave a stranger filling that address's hour with nothing served. */
-  it("writes no mail row for an address posted at the code's send over HTTP, which the in-process send counts", async () => {
-    const mailRows = () => store.verification.filter((row) => row.identifier.startsWith("sign-in-mail-"));
-    const body = { email: PERSON_EMAIL, type: "sign-in" } as const;
-
-    expect((await overHttp("/email-otp/send-verification-otp", { method: "POST", body })).status).toBe(404);
-    expect(mailRows(), "the refused send counted against the address it named").toStrictEqual([]);
-
-    await auth.api.sendVerificationOTP({ body, headers: new Headers(ORIGIN) });
-    expect(mailRows().length, "the in-process send wrote no mail row, so the empty list above proves nothing").toBe(1);
   });
 
   /* Left writable, this field is one `fetch` from any session to a factor it never presented. The
@@ -1987,6 +1983,42 @@ describe("the failures one address may spend, across every code it is sent", () 
     expect(store.session.length, "the right code signed in past the bound").toBe(sessions);
   });
 
+  /* The day's ten are the address's, so a try from a browser that never asked for its code would let anyone who knows
+     the address lock its person out: refused before it is counted, a right code included. */
+  it("refuses a right code from a browser that did not ask for it, counting nothing and minting nothing", async () => {
+    const otp = await mailedCode();
+    const sessions = store.session.length;
+
+    const refused = await answerOf(ADMIN_EMAIL, otp, null);
+    expect(refused.code).toBe("CODE_NOT_ASKED_HERE");
+    expect(failureRows(), "the refused try was counted against the address").toStrictEqual([]);
+    expect(store.session.length, "the refused try minted a session").toBe(sessions);
+
+    expect((await answerOf(ADMIN_EMAIL, otp)).status, "the code was not the right one, so the refusal proves nothing").toBe(200);
+  });
+
+  it("refuses a code whose browser asked for another address alike", async () => {
+    const otp = await mailedCode();
+
+    const refused = await answerOf(ADMIN_EMAIL, otp, await askedFor(PERSON_EMAIL));
+
+    expect(refused.code).toBe("CODE_NOT_ASKED_HERE");
+    expect(failureRows()).toStrictEqual([]);
+  });
+
+  /* A cookie's value copied out of the browser outlives the cookie, so the token's own expiry is what makes each
+     round of tries cost a new ask, which mails the address. */
+  it("refuses the cookie of an ask past the code's lifetime", async ({ onTestFinished }) => {
+    const otp = await mailedCode();
+    const cookie = await askedFor(ADMIN_EMAIL);
+
+    vi.useFakeTimers({ toFake: ["Date"], now: Date.now() + CODE_VALIDITY_MINUTES * MINUTE_MS + 1000 });
+    onTestFinished(() => void vi.useRealTimers());
+
+    expect((await answerOf(ADMIN_EMAIL, otp, cookie)).code).toBe("CODE_NOT_ASKED_HERE");
+    expect(failureRows()).toStrictEqual([]);
+  });
+
   it("keeps the address out of the rows that count it", async () => {
     const otp = await mailedCode();
     await answerOf(ADMIN_EMAIL, wrongFor(otp));
@@ -1999,31 +2031,25 @@ describe("the failures one address may spend, across every code it is sent", () 
 });
 
 describe("the code mails one address may be sent in an hour", () => {
-  it("mails nothing past the fifth, on the same answer as the first", async () => {
-    const before = sent.length;
-    const answers = [];
-    for (let send = 0; send < 6; send += 1) {
-      answers.push(await auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) }));
-    }
+  it("caps the sixth ask of the hour, for that address alone", async () => {
+    log.clear();
+    const capped = [];
+    for (let ask = 0; ask < 6; ask += 1) capped.push(await codeMailCapped(ADMIN_EMAIL));
 
-    expect(sent.length - before).toBe(5);
-    expect(answers.at(-1), "the capped send answered otherwise than a mailed one").toStrictEqual(answers[0]);
+    expect(capped).toStrictEqual([false, false, false, false, false, true]);
+    expect(await codeMailCapped(PERSON_EMAIL), "another address shared the capped one's hour").toBe(false);
+    expect(informed().map((line) => line.message)).toStrictEqual(["auth.code_mail_capped"]);
   });
 
-  /* The cap's own race: each send's row goes in before it counts, and the barrier holds every send at
+  /* The cap's own race: each ask's row goes in before it counts, and the barrier holds every ask at
      its count until the whole burst has arrived. */
-  it("mails no burst of concurrent sends past the fifth", async () => {
-    const before = sent.length;
-
+  it("admits no burst of concurrent asks past the fifth", async () => {
     adapterCalls.counts.arm(8);
-    await Promise.all(
-      Array.from({ length: 8 }, () =>
-        auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) }),
-      ),
-    );
+    const capped = await Promise.all(Array.from({ length: 8 }, () => codeMailCapped(ADMIN_EMAIL)));
     assert.ok(await adapterCalls.counts.filled, "the burst never met at the count, so it ran no race");
 
-    assert.ok(sent.length - before <= 5, `${String(sent.length - before)} of 8 concurrent sends were mailed`);
+    const admitted = capped.filter((held) => !held).length;
+    assert.ok(admitted <= 5, `${String(admitted)} of 8 concurrent asks were admitted`);
   });
 });
 
@@ -2404,6 +2430,8 @@ async function seedAccount(email: string): Promise<{ cookie: string; userId: str
 
   BACKENDS.set(email, { ...NOTHING_HELD, seats: [A_SEAT], account: true });
   try {
+    // Counted, then sent, as the sign-in action asks for a code.
+    expect(await codeMailCapped(email)).toBe(false);
     await auth.api.sendVerificationOTP({ body: { email, type: "sign-in" }, headers: new Headers(ORIGIN) });
     expect((await answerOf(email, await wrongCodeFor(email))).code).toBe("INVALID_OTP");
   } finally {
@@ -2579,23 +2607,15 @@ describe("a person's own account deletion", () => {
     expect(informed().filter((line) => line.message === "auth.deletion_link_capped").length).toBe(45);
   });
 
-  it("holds a sign-in code back after five deletion links, one row counting both", async () => {
+  it("caps a sign-in code after five deletion links, one row counting both", async () => {
     const email = "loeschlink-dann-code@example.org";
     const { cookie } = await signIn(email);
     const headers = new Headers({ ...ORIGIN, cookie });
     for (let press = 0; press < 5; press += 1) await requestAccountDeletion(headers);
     expect(sent.filter((entry) => entry.to === email).length, "fewer than five links were mailed, so the case proves nothing").toBe(5);
-
-    // Admitted at the send, so a code past the gate would be mailed: only the shared count holds it back.
-    BACKENDS.set(email, { ...NOTHING_HELD, seats: [A_SEAT], account: true });
     log.clear();
-    try {
-      await auth.api.sendVerificationOTP({ body: { email, type: "sign-in" }, headers: new Headers(ORIGIN) });
-    } finally {
-      BACKENDS.delete(email);
-    }
 
-    expect(sent.filter((entry) => entry.to === email).length, "a code was mailed past five links").toBe(5);
+    expect(await codeMailCapped(email), "a code was admitted past five links").toBe(true);
     expect(informed().map((line) => line.message)).toStrictEqual(["auth.code_mail_capped"]);
   });
 
@@ -2603,20 +2623,14 @@ describe("a person's own account deletion", () => {
     const email = "code-dann-loeschlink@example.org";
     const { cookie, row } = await signIn(email);
     const headers = new Headers({ ...ORIGIN, cookie });
-    BACKENDS.set(email, { ...NOTHING_HELD, seats: [A_SEAT], account: true });
-    try {
-      for (let send = 0; send < 5; send += 1) {
-        await auth.api.sendVerificationOTP({ body: { email, type: "sign-in" }, headers: new Headers(ORIGIN) });
-      }
-    } finally {
-      BACKENDS.delete(email);
-    }
-    expect(sent.filter((entry) => entry.to === email).length, "fewer than five codes were mailed, so the case proves nothing").toBe(5);
+    const capped = [];
+    for (let ask = 0; ask < 5; ask += 1) capped.push(await codeMailCapped(email));
+    expect(capped, "a code was capped inside the five, so the case proves nothing").toStrictEqual([false, false, false, false, false]);
     log.clear();
 
     await requestAccountDeletion(headers);
 
-    expect(sent.filter((entry) => entry.to === email).length, "a link was mailed past five codes").toBe(5);
+    expect(sent.filter((entry) => entry.to === email).length, "a link was mailed past five codes").toBe(0);
     expect(store.verification.filter((held) => held.identifier.startsWith("delete-account-") && held.value === row.userId).length).toBe(0);
     expect(informed().filter((line) => line.message === "auth.deletion_link_capped").length).toBe(1);
   });

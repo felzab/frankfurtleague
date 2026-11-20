@@ -1455,9 +1455,9 @@ it ships; the repair is the list's entry taking the library's name.
 
 ## 15. When a sign-in code does not arrive
 
-**To the person, every reason a code does not arrive looks alike**: the page answers one sentence
-whether a code went or not, so the frontend's log is the only record, and no line on this path
-carries the address. Ask when they tried and read that window:
+**To the person, every reason a code does not arrive looks alike, but the hourly cap**: the page
+answers one sentence whether a code went or not, so the frontend's log is the only record, and no
+line on this path carries the address. Ask when they tried and read that window:
 
 - `auth.sign_in_gate_failed`: the send gate could not read what the backend holds for the address,
   its ban included, so it sent nothing — the backend unreachable, failing, or answering unreadably.
@@ -1468,9 +1468,9 @@ carries the address. Ask when they tried and read that window:
   `abandoned` is the provider refusing it, its `delivery_reason` the provider's own name for the
   refusal.
 - `auth.code_mail_capped`, an info line: five codes had been asked for the address inside the hour,
-  so this one was sent nothing. The five count every request, a stranger's and one the gate refused
-  included, so an address can be capped with nothing mailed; retries during a backend outage spend a
-  person's hour the same way.
+  so this one was sent nothing and the person was told there were too many tries. The five count
+  every request, a stranger's and one the gate refused included, so an address can be capped with
+  nothing mailed; retries during a backend outage spend a person's hour the same way.
 - `auth.deletion_link_capped`, an info line: a signed-in person asked for an account deletion link
   past their address's five mails of the hour, codes and links counted together, so nothing was
   minted or mailed and the press read as sent. A link they already hold stands for its day.
@@ -1572,8 +1572,10 @@ nobody can account for is then removed on the „Administratoren“ page.
 
 An address that has failed ten codes in a row, with no sign-in between them, is refused every code
 until the oldest of those failures is a day old, the right code included; the person is told there
-were too many tries with this address. Anyone who knows an address can bring it on, and the rows
-counting it carry a keyed hash rather than the address, so no row can be picked out for one person:
+were too many tries with this address. A code is checked only in the browser that asked for it, for
+the code's ten minutes, so a stranger can bring the lock on only by asking for the person's own
+address, which mails them a code and spends one of their hour's five each time. The rows counting it
+carry a keyed hash rather than the address, so no row can be picked out for one person:
 
 - **A person holding a passkey needs nothing**: a passkey sign-in never meets the lock, and clears
   it.
@@ -1584,8 +1586,15 @@ counting it carry a keyed hash rather than the address, so no row can be picked 
   Every address then has its ten tries back, which is the price of an identifier nobody can compute
   by hand.
 
+A code typed in a browser that did not ask for it is refused as a wrong one and counted nowhere, the
+info line `auth.code_not_asked_here` naming its trace: a person who meets „Falsch oder nicht mehr
+gültig“ for a code they just received has typed it in another browser, or in one that keeps no
+cookies.
+
 The five-an-hour mail cap keeps rows of the same shape under `sign-in-mail-`; they lift within the
-hour. They can be lifted sooner the same way, by deleting every row whose `identifier` starts with
+hour. Its refusal tells the person there were too many tries, as the lock does, so one who met that
+sentence on asking for a code met the cap, and one who met it on typing a code met the lock. The
+cap's rows can be lifted sooner the same way, by deleting every row whose `identifier` starts with
 `sign-in-mail-`, which gives every address its hour back.
 
 ## 18. The Node a checkout runs

@@ -7,6 +7,7 @@ import { passkey } from "@better-auth/passkey";
 import { betterAuth, getCurrentAdapter } from "better-auth";
 import { APIError, createAuthMiddleware, getSessionFromCtx, isAPIError } from "better-auth/api";
 import { getSessionCookie, SECURE_COOKIE_PREFIX } from "better-auth/cookies";
+import { makeSignature, signJWT, verifyJWT } from "better-auth/crypto";
 import { nextCookies } from "better-auth/next-js";
 import { emailOTP } from "better-auth/plugins/email-otp";
 
@@ -29,10 +30,10 @@ import { HOUR_MS } from "../timeUnits";
 import { readTraceparent, TRACEPARENT_HEADER } from "../trace";
 import { assertionAnswer } from "./assertionAnswer";
 import { ceremonyCredentialId, challengeIssuedAt, isDuplicateCredential, refuseAnotherAccountsPasskey } from "./ceremony";
-import { ADDRESS_ATTEMPTS_EXHAUSTED } from "./codeRefusal";
+import { ADDRESS_ATTEMPTS_EXHAUSTED, CODE_NOT_ASKED_HERE } from "./codeRefusal";
 import { carriedEnrolmentRead, carriedOrRefuse, ENROLMENT_READ, refuseBarred, refuseEnrolment } from "./enrolment";
 import { enrolmentSignIn } from "./gateReads";
-import { notifyAccountDeleted, notifyPasskey, oweSignInMail, sendDeletionLink } from "./mails";
+import { notifyPasskey, oweSignInMail, sendDeletionLink } from "./mails";
 import { endReplacedSession, lineageOf, refuseUnadmitted, replacedToken } from "./minting";
 import {
   CODE_FACTOR,
@@ -136,16 +137,39 @@ function asksForDeletionLink(body: unknown): boolean {
   return !token;
 }
 
-/** The address a sign-in code is asked for, or `null` for a send of any other type. */
-function codeSendAddress(body: unknown): string | null {
-  const type: unknown = typeof body === "object" && body !== null ? Reflect.get(body, "type") : undefined;
-  return type === "sign-in" ? codeSignInAddress(body) : null;
-}
-
 /** The address a code sign-in names, or `null` where the body carries none the library would read. */
 function codeSignInAddress(body: unknown): string | null {
   const email: unknown = typeof body === "object" && body !== null ? Reflect.get(body, "email") : undefined;
   return typeof email === "string" ? email : null;
+}
+
+/** The cookie a code's ask sets in the asking browser, named by the library as it names the session's. */
+const CODE_ASKED_COOKIE = "code_asked";
+
+/** The claim of that cookie's token naming the address it was asked for. */
+const ASKED_CLAIM = "asked";
+
+/**
+ * The address a code was asked for, as the cookie carries it: keyed, since an address is guessable, and over the
+ * cookie's own name ahead of it, since the counters' rows key the bare address with the session cookie's own
+ * construction, and handing that digest to any browser that asks would sign posted text for whoever posts it.
+ */
+async function askedDigest(email: string, secret: string): Promise<string> {
+  return makeSignature(`${CODE_ASKED_COOKIE}:${asSignInIdentifier(email)}`, secret);
+}
+
+/**
+ * Whether the request carries the cookie of an ask for `address`, inside the code's lifetime. The token carries its
+ * own expiry, since a value copied out of the browser outlives the cookie's: each round of tries costs a new ask,
+ * which mails the address and spends its hour.
+ */
+async function askedHere(ctx: GenericEndpointContext, address: string | null): Promise<boolean> {
+  const token = ctx.getCookie(ctx.context.createAuthCookie(CODE_ASKED_COOKIE).name);
+  if (address === null || token === null) return false;
+
+  // Read as what it is: claims a caller sent, which only the signature has checked.
+  const claims = await verifyJWT<Partial<Record<typeof ASKED_CLAIM, unknown>>>(token, ctx.context.secret);
+  return claims !== null && claims[ASKED_CLAIM] === (await askedDigest(address, ctx.context.secret));
 }
 
 // The library mounts far more endpoints than a browser here calls, and an upgrade adds more, so the
@@ -257,13 +281,14 @@ const userOptions = {
     // `input: false`, so no session writes it for itself.
     [SESSIONS_ENDED_FIELD]: { type: "date", required: false, input: false },
   },
-  // Both halves run in process alone, `DISABLED_PATHS` refusing `/delete-user` and its callback over HTTP.
+  // Both halves run in process alone, `DISABLED_PATHS` refusing `/delete-user` and its callback over HTTP. Nothing
+  // is mailed once it has deleted: this deletion is the person's own press, whose done page tells them it went, and
+  // the deletion notice is for a deletion they did not press.
   deleteUser: {
     enabled: true,
     deleteTokenExpiresIn: ERASURE_LINK_VALID_HOURS * 60 * 60,
     sendDeleteAccountVerification: sendDeletionLink,
     beforeDelete: eraseBeforeTheAccount,
-    afterDelete: (user) => notifyAccountDeleted(user.email),
   },
 } satisfies BetterAuthOptions["user"];
 
@@ -480,7 +505,7 @@ const authOptions = (origin: URL, client: MongoClient) =>
 
     hooks: {
       before: createAuthMiddleware(async (ctx) => {
-        // First, ahead of both counters and every session read below: an arrival over HTTP at a path the browser never
+        // First, ahead of every count and every session read below: an arrival over HTTP at a path the browser never
         // calls writes no row before it is refused. The switch above is a denylist, so an endpoint the next upgrade
         // mounts arrives open; this is the default-deny net behind it, over `ctx.path`, the endpoint's own declared
         // route rather than a string derived from the URL a caller sent. An absent `ctx.request` is the library's own
@@ -494,6 +519,13 @@ const authOptions = (origin: URL, client: MongoClient) =>
         // writes a name and an image it is handed onto a first sign-in's account.
         if (ctx.path === CODE_SIGN_IN_PATH && typeof body === "object" && body !== null) {
           if (Object.keys(body).some((field) => !CODE_SIGN_IN_FIELDS.has(field))) throw APIError.fromStatus("BAD_REQUEST");
+        }
+        // Over HTTP, ahead of the count: a code is checked only in the browser that asked for its address, so a
+        // stranger's guesses spend no address's day. In process there is no browser, every caller being this
+        // repository's own code, as the deny above reads it.
+        if (ctx.path === CODE_SIGN_IN_PATH && ctx.request !== undefined && !(await askedHere(ctx, codeSignInAddress(body)))) {
+          logger.info("auth.code_not_asked_here", { trace_id: signInTrace(ctx) });
+          throw new APIError("BAD_REQUEST", { code: CODE_NOT_ASKED_HERE, message: "No code was asked for this address in this browser." });
         }
         // On both arms, ahead of the in-process return below. Counted whatever the address holds: a
         // lock only members met would be a membership oracle.
@@ -512,27 +544,8 @@ const authOptions = (origin: URL, client: MongoClient) =>
           if (typeof body === "object" && body !== null) attemptRows.set(body, own);
         }
 
-        // Reached in process alone, the deny above refusing the send over HTTP. Ahead of the plugin, which writes each
-        // new code before its send callback runs: capped there, a send voids the held code and mails none. Ahead of the
-        // gate, so the store's rows never tell a member from a stranger.
-        const recipient = ctx.path === CODE_SEND_PATH ? codeSendAddress(body) : null;
-
-        if (
-          recipient !== null &&
-          (await withinBound(
-            ctx.context,
-            await boundIdentifier(MAIL_ROW_PREFIX, recipient, ctx.context.secret),
-            CODE_MAIL_LIMIT,
-            CODE_MAIL_WINDOW_HOURS * HOUR_MS,
-          )) === null
-        ) {
-          logger.info("auth.code_mail_capped");
-          // The plugin's own answer to a send, so a capped one reads as a mailed one.
-          return ctx.json({ success: true });
-        }
-
         // Ahead of the library, which mints the token row before its sender runs: capped, nothing is minted or
-        // mailed and the answer reads as mailed, as a capped code send's does. No session is the library's to refuse.
+        // mailed and the answer reads as mailed. No session is the library's to refuse.
         if (ctx.path === DELETE_USER_PATH && asksForDeletionLink(body)) {
           const asking = await getSessionFromCtx(ctx);
           if (asking !== null && (await deletionLinkCapped(ctx.context, asking.user.email))) {
@@ -738,3 +751,43 @@ export const auth = new Proxy({} as ReturnType<typeof build>, {
 
 export const sendSignInCode = (email: string, requestHeaders: Headers) =>
   auth.api.sendVerificationOTP({ body: { email, type: "sign-in" }, headers: requestHeaders });
+
+/**
+ * Whether a sign-in code asked for `email` would be its address's sixth mail of the hour, this ask counted whatever
+ * the address holds. Asked ahead of the gate, so the store's rows never tell a member from a stranger, and on the rows
+ * the deletion link counts on, so the two mails a visitor can ask for share one bound. A store that cannot count
+ * throws.
+ */
+export async function codeMailCapped(email: string): Promise<boolean> {
+  const context = await auth.$context;
+  const perAddress = await boundIdentifier(MAIL_ROW_PREFIX, email, context.secret);
+  if ((await withinBound(context, perAddress, CODE_MAIL_LIMIT, CODE_MAIL_WINDOW_HOURS * HOUR_MS)) !== null) return false;
+
+  logger.info("auth.code_mail_capped");
+  return true;
+}
+
+/**
+ * The cookie the sign-in action sets on every ask for a code, which the code check reads: a token naming the address,
+ * living as long as the code it asked for, and nothing the gate decided, so a member's and a stranger's are alike.
+ * `Lax` and host-bound as the session's: a post from another site carries none.
+ */
+export async function codeAskedCookie(email: string) {
+  const { createAuthCookie, secret } = await auth.$context;
+  const { name } = createAuthCookie(CODE_ASKED_COOKIE);
+  const value = await signJWT({ [ASKED_CLAIM]: await askedDigest(email, secret) }, secret, CODE_VALIDITY_SECONDS);
+
+  return {
+    name,
+    value,
+    options: {
+      httpOnly: true,
+      sameSite: "lax",
+      path: "/",
+      // Spelled out: the library's own setter adds it to a `__Host-` name, which a browser drops without it, and Next's
+      // does not.
+      secure: new URL(frontend_config.AUTH_URL).protocol === "https:",
+      maxAge: CODE_VALIDITY_SECONDS,
+    },
+  } as const;
+}
