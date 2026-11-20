@@ -38,7 +38,7 @@ export function HelpPopover({
         offset={4}
         crossOffset={-8}
         data-kit-focus
-        className={popoverSurface({ width: "help" })}>
+        className={popoverSurface()}>
         <AriaDialog
           aria-label={textOf(subject)}
           data-kit-focus

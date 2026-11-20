@@ -69,7 +69,7 @@ export function RadioGroup({
         label={label}
         isRequired={lock.isRequired}
       />
-      <div className={radioList({ layout: answers.layout ?? "list" })}>
+      <div className={radioList()}>
         {answers.layout === "cards"
           ? answers.choices.map((choice) => {
               const card = choiceCard();

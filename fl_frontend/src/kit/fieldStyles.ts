@@ -89,8 +89,6 @@ export const statusLine = tv({
     },
     tone: {
       changes: "text-fg",
-      // A danger row's second line at rest, its act's consequence in the small muted face.
-      resting: "text-xs text-fg-muted",
       saved: "text-success",
       // An act that partly happened: neither of the two beside it.
       warn: "text-warn",
@@ -100,11 +98,10 @@ export const statusLine = tv({
 });
 
 /**
- * A select's trigger holding a count, as wide as a text field holding the same count (`holds`) with its arrow: the
- * count and one more, the 12-px start inset, the 8-px gap, the 16-px arrow and the 8-px end inset, with 2 px to spare
- * as a text field keeps them.
+ * A danger row's second line, under its name: what its act does, in the small muted face. A word wraps anywhere, as on
+ * the status line, since the line can name a record's own words, an address among them.
  */
-const triggerHolds = { 2: "w-[calc(3ch+2.875rem)]" } as const;
+export const dangerConsequence = tv({ base: "text-xs wrap-anywhere text-fg-muted" });
 
 /**
  * The edge a value is typed into: 32 px with a mouse, 40 px and 16-px text on a touch screen, transparent inside
@@ -165,8 +162,10 @@ export const fieldFrame = tv({
       true: "font-numeric",
     },
   },
-  // A select's trigger holds its arrow beside the count, so its short width is the text field's and the arrow's room.
-  compoundVariants: [{ layout: "trigger", holds: 2, class: triggerHolds[2] }],
+  // A select's trigger holding a count is as wide as a text field holding the same count with its arrow: the count and
+  // one more, the 12-px start inset, the 8-px gap, the 16-px arrow and the 8-px end inset, with 2 px to spare as a text
+  // field keeps them.
+  compoundVariants: [{ layout: "trigger", holds: 2, class: "w-[calc(3ch+2.875rem)]" }],
 });
 
 /**
@@ -316,16 +315,10 @@ export const toggleLine = tv({ base: "col-start-2 grid empty:hidden" });
 /**
  * A radio group's answers, one under another at every width: plain answers, or, where each answer is described,
  * cards. Answers stand side by side only where there are two and both are short, and a card's title may carry a
- * person's name; a dialog's box, at most 512 px, never reaches the 42 rem a row of cards would need.
+ * person's name; a dialog's box, at most 512 px, never reaches the 42 rem a row of cards would need. A column of flex
+ * items rather than a grid, whose track an answer holding one long unbroken word widens to that word, past its column.
  */
-export const radioList = tv({
-  variants: {
-    layout: {
-      list: "flex flex-col gap-2",
-      cards: "grid gap-2",
-    },
-  },
-});
+export const radioList = tv({ base: "flex flex-col gap-2" });
 
 /**
  * A described answer drawn as a card: its circle, then its title over its line, 10 px apart as a box and its
@@ -407,12 +400,7 @@ export const menuPopover = tv({
  * row or the box beneath it where the hairline is lost on it.
  */
 export const popoverSurface = tv({
-  base: "max-w-panel rounded-lg border border-border-control bg-bg-overlay p-3 text-sm text-fg shadow-menu transition-opacity duration-(--motion-in) data-entering:opacity-0 data-exiting:opacity-0 data-exiting:duration-(--motion-out)",
-  variants: {
-    width: {
-      help: "w-popover",
-    },
-  },
+  base: "w-popover max-w-panel rounded-lg border border-border-control bg-bg-overlay p-3 text-sm text-fg shadow-menu transition-opacity duration-(--motion-in) data-entering:opacity-0 data-exiting:opacity-0 data-exiting:duration-(--motion-out)",
 });
 
 /** One entry of that menu: a fill when the pointer or the arrow keys reach it. */

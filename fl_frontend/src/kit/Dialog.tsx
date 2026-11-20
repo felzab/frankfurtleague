@@ -15,7 +15,7 @@ import { actLabel } from "./dialogAct";
 import { DialogOverlay } from "./DialogOverlay";
 import { Facts } from "./Facts";
 import { FieldStack } from "./FieldStack";
-import { statusLine } from "./fieldStyles";
+import { dangerConsequence } from "./fieldStyles";
 import { FormFooter } from "./FormFooter";
 import { toastAnswer } from "./Toast";
 import { tv } from "./tv";
@@ -143,7 +143,7 @@ function DangerRow({ danger, isClosed, onDone }: { danger: DialogDanger; isClose
     <div className={dialogDangerPart()}>
       <div className="grid min-w-0 flex-1 text-sm">
         <span className="font-semibold">{danger.name}</span>
-        <p className={statusLine({ placement: "column", tone: "resting" })}>{danger.consequence}</p>
+        <p className={dangerConsequence()}>{danger.consequence}</p>
       </div>
       {/* Its button says the verb alone, as an editor's danger row's does, so the part's name says what it acts on. */}
       <ConfirmDialog
