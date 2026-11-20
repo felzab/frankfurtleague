@@ -2,13 +2,13 @@ import { ADMIN_COPY } from "@/core/copy/admin";
 import { COPY } from "@/core/copy/shared";
 import { formatEuro } from "@/core/format";
 import { ROUTES } from "@/core/routes";
+import { createSpielort } from "@/features/spielorte/createSpielort";
 import { getSpielorte } from "@/features/spielorte/queries";
+import { SpielortFields } from "@/features/spielorte/SpielortFields";
 import { ListPage } from "@/kit/ListPage";
 import { ACTIVE_CHIP, RETIRED_CHIP } from "@/kit/stateChips";
 import { pageMetadata } from "@/shared/utils/metadata";
 
-import { createSpielort } from "../../createSpielort";
-import { SpielortFields } from "../../SpielortFields";
 import { SPIELORT_RULES } from "../../spielortRules";
 
 import type { FLSpielort } from "@/core/generated/client/types";

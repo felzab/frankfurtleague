@@ -2,7 +2,6 @@ import { ADMIN_COPY } from "@/core/copy/admin";
 import { COPY } from "@/core/copy/shared";
 import { dayOf, formatDate, formatNumber } from "@/core/format";
 import { ROUTES } from "@/core/routes";
-import { createSaison } from "@/features/saisons/createSaison";
 import { SAISON_CREATE_RULES } from "@/features/saisons/fieldRules";
 import { nextSaisonOf } from "@/features/saisons/nextSaison";
 import { getAdminSaisons } from "@/features/saisons/queries";
@@ -11,6 +10,7 @@ import { ListPage } from "@/kit/ListPage";
 import { pageMetadata } from "@/shared/utils/metadata";
 
 import { CreateFields } from "./CreateFields";
+import { createSaison } from "./createSaison";
 
 import type { Copy } from "@/core/copy";
 import type { Code, FLSaisonAdminListed } from "@/core/generated/client/types";

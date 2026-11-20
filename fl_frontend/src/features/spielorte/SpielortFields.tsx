@@ -4,7 +4,7 @@ import { AddressFields } from "@/kit/AddressFields";
 import { FieldGroup } from "@/kit/FieldGroup";
 import { TextField } from "@/kit/TextField";
 
-import type { SpielortRules } from "./spielortRules";
+import type { SpielortRules } from "@/app/admin/spielortRules";
 
 const WORDS = ADMIN_COPY.spielort;
 

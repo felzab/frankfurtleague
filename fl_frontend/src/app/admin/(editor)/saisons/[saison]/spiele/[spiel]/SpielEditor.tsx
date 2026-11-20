@@ -5,6 +5,8 @@ import { useState } from "react";
 import { ADMIN_COPY } from "@/core/copy/admin";
 import { COPY } from "@/core/copy/shared";
 import { admitsShootOut, isNoShow, scoreOutcome } from "@/features/spiele/result";
+import { adoptsBerichtOf, NO_SONDEREREIGNIS, takesNoResult } from "@/features/spiele/spielValues";
+import { SpielortFields } from "@/features/spielorte/SpielortFields";
 import { AdoptLine } from "@/kit/AdoptLine";
 import { AnswerRows } from "@/kit/AnswerRows";
 import { CardActRow } from "@/kit/Card";
@@ -22,12 +24,10 @@ import { TextField } from "@/kit/TextField";
 import { TimeField } from "@/kit/TimeField";
 import { useEditor } from "@/kit/useEditor";
 
-import { SpielortFields } from "../../../../../SpielortFields";
-import { adoptsBerichtOf, NO_SONDEREREIGNIS, takesNoResult } from "./spielValues";
-
 import type { ActionAnswer } from "@/core/action";
 import type { Copy, LockReason, Words } from "@/core/copy";
 import type { FLSaisonPhase, FLSonderereignis } from "@/core/generated/client/types";
+import type { Proposal, SpielValues } from "@/features/spiele/spielValues";
 import type { AnswerRow } from "@/kit/AnswerRows";
 import type { CardActRowProps } from "@/kit/Card";
 import type { ChipProps } from "@/kit/Chip";
@@ -39,7 +39,6 @@ import type { TableHead, TableRow } from "@/kit/Table";
 import type { EditorRecord, EditorSave } from "@/kit/useEditor";
 import type { Route } from "next";
 import type { SpielortRules } from "../../../../../spielortRules";
-import type { Proposal, SpielValues } from "./spielValues";
 
 const WORDS = ADMIN_COPY.spiel;
 const ORT = ADMIN_COPY.spielort;

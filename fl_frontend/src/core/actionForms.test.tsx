@@ -97,8 +97,8 @@ describe("each form's posted names meet its lane's keys", () => {
   });
 
   it("loses no box of the venue create dialog", async () => {
-    const { createSpielort } = await import("@/app/admin/createSpielort");
-    const { SpielortFields } = await import("@/app/admin/SpielortFields");
+    const { createSpielort } = await import("@/features/spielorte/createSpielort");
+    const { SpielortFields } = await import("@/features/spielorte/SpielortFields");
     const { SPIELORT_RULES } = await import("@/app/admin/spielortRules");
     const names = namesIn(<SpielortFields rules={SPIELORT_RULES} />);
     const typed = {
@@ -127,7 +127,7 @@ describe("each form's posted names meet its lane's keys", () => {
   });
 
   it("loses no box of the season create dialog", async () => {
-    const { createSaison } = await import("@/features/saisons/createSaison");
+    const { createSaison } = await import("@/app/admin/(list)/saisons/createSaison");
     const { CreateFields } = await import("@/app/admin/(list)/saisons/CreateFields");
     const names = namesIn(
       <CreateFields

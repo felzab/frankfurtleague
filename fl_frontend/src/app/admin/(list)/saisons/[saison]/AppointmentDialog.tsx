@@ -1,8 +1,8 @@
 "use client";
 
-import { saveSpiel } from "@/app/admin/(editor)/saisons/[saison]/spiele/[spiel]/saveSpiel";
 import { ADMIN_COPY } from "@/core/copy/admin";
 import { COPY } from "@/core/copy/shared";
+import { saveSpiel } from "@/features/spiele/saveSpiel";
 import { DateField } from "@/kit/DateField";
 import { Dialog } from "@/kit/Dialog";
 import { FieldPair } from "@/kit/FieldPair";
