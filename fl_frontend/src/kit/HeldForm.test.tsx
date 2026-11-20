@@ -205,10 +205,14 @@ function Held({ send }: { send: (email: FormDataEntryValue | null) => void }) {
   );
 }
 
-type Save = (change: EditorSave<{ name: string }>) => Promise<ActionAnswer<number>>;
+type Save = (change: EditorSave<{ name: string }, number | null>) => Promise<ActionAnswer<number>>;
 
+/**
+ * An editor of a record no save has stored yet, whose untouched save is sent all the same: a field takes no input
+ * before the page hydrates, and a stored record's untouched save sends nothing.
+ */
 function Editor({ save }: { save: Save }) {
-  const editor = useEditor({ id: "ort-1", version: 1, values: { name: "Riedberg" } }, save);
+  const editor = useEditor<{ name: string }, number | null>({ id: "ort-1", version: null, values: { name: "Riedberg" } }, save);
   return (
     <EditorPage
       title={{ record: "Riedberg" }}
@@ -374,6 +378,6 @@ describe("a press held across hydration", () => {
     live.remove();
 
     expect(heldSave.mock.calls).toStrictEqual(hydratedSave.mock.calls);
-    expect(heldSave).toHaveBeenCalledExactlyOnceWith({ id: "ort-1", version: 1, changes: {} });
+    expect(heldSave).toHaveBeenCalledExactlyOnceWith({ id: "ort-1", version: null, changes: {} });
   });
 });

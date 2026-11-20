@@ -132,6 +132,9 @@ function lessSent<Values extends Record<string, EditorValue>>(edits: Partial<Val
  * where nothing unsaved rests on the read before it; a draft made on a read someone else has since changed
  * keeps its version, so its save is refused as stale rather than overwriting.
  *
+ * A save with nothing changed sends nothing and answers „Gespeichert“, the save staying pressable: the stored record
+ * already holds what the fields show. A record not stored yet is the exception, its first save creating it.
+ *
  * A save the server holds back for a question (`ActionAnswer.ask`), such as the later results a new score deletes,
  * stands as `question` over the draft it was asked for, and goes with the next edit: confirmed, the same changes go
  * again carrying its token, which the server judges against what the save would now set off; declined, nothing is
@@ -179,6 +182,8 @@ export function useEditor<Values extends Record<string, EditorValue>, Version ex
 
   const form = useFormAction(
     async (sent: EditorSave<Values, Version>): Promise<ActionAnswer> => {
+      // Sent, a save of nothing would raise the record's `version` and log a change that changed nothing.
+      if (sent.version !== null && Object.keys(sent.changes).length === 0) return { ok: true, value: undefined };
       const answer = await save(sent);
       if (!answer.ok) return answer;
       const settled = { from: sent.version, stored: answer.value, changes: sent.changes };
