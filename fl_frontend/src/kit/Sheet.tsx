@@ -1,5 +1,8 @@
 "use client";
 
+import { Fragment } from "react";
+import { usePathname } from "next/navigation";
+
 import { DialogTrigger } from "react-aria-components/Dialog";
 import { Sheet as AriaSheet, SheetBackdrop, SheetContent, SheetOverlay } from "react-aria-components/Sheet";
 
@@ -65,4 +68,12 @@ export function Sheet({ label, trigger, children }: { label: Copy; trigger: Reac
       <SheetFrame label={label}>{children}</SheetFrame>
     </DialogTrigger>
   );
+}
+
+/**
+ * Its children afresh on every page: a sheet the layout keeps would otherwise stay open after one of its links
+ * led on, since a layout outlives the page it surrounds.
+ */
+export function FreshPerPage({ children }: { children: ReactNode }) {
+  return <Fragment key={usePathname()}>{children}</Fragment>;
 }
