@@ -2,15 +2,12 @@ import { boundBy, catalogue, spieltagName, VERB } from "../copy";
 import { formatNumber } from "../format";
 import { COPY } from "./shared";
 
-import type { Route } from "next";
-import type { Copy, RecordText } from "../copy";
+import type { RecordText, TextLink } from "../copy";
 
 const SIGN_IN_WITH_PASSKEY = "Mit Passkey anmelden";
 // Konto's set-up composes the same words, so one act reads one label on both pages.
 const SET_UP_PASSKEY = COPY.shared.withObject(COPY.shared.passkey, "setUp");
 const PASSKEY_REQUIRED = "Die Verwaltung ist erst mit einem Passkey erreichbar.";
-/** The privacy notice's link, which a form's sentence beside its send holds. */
-type NoticeLink = { readonly href: Route; readonly label: Copy };
 
 /** The words of the public forms, the sign-in and the landing, which a visitor reads. */
 export const PUBLIC_COPY = catalogue({
@@ -31,7 +28,7 @@ export const PUBLIC_COPY = catalogue({
     goodSpielerDescription: "Aktiv, mindestens Verbandsliga",
     wunschgegnerDescription: `Für den ${spieltagName(1)}`,
     /** The sentence above the submit, around the privacy notice's link. */
-    notice: (link: NoticeLink) => ["Jede Kontaktperson bestätigt ihren Eintrag per E-Mail, mehr unter ", link, "."] as const,
+    notice: (link: TextLink) => ["Jede Kontaktperson bestätigt ihren Eintrag per E-Mail, mehr unter ", link, "."] as const,
   },
 
   /** The public registration form's own words; its squad fields read the labels `kader` gives them. */
@@ -42,7 +39,7 @@ export const PUBLIC_COPY = catalogue({
     /** The number box's label, the shirt's own word, which a pupil reads where the squad's lists say „Nummer“. */
     nummer: "Trikotnummer",
     /** The sentence above the submit, around the privacy notice's link, as `bewerbung.notice`. */
-    notice: (link: NoticeLink) => ["Du bestätigst deine Registrierung per E-Mail, mehr unter ", link, "."] as const,
+    notice: (link: TextLink) => ["Du bestätigst deine Registrierung per E-Mail, mehr unter ", link, "."] as const,
   },
 
   signIn: {

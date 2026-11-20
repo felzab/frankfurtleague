@@ -2,8 +2,7 @@ import { catalogue, seatsText, textOf } from "../copy";
 import { formatNumber } from "../format";
 import { COPY } from "./shared";
 
-import type { Route } from "next";
-import type { Copy, Words } from "../copy";
+import type { Copy, TextLink, Words } from "../copy";
 import type { FLCardColour, FLKontaktSeat, FLSonderereignis } from "../generated/client/types";
 
 /**
@@ -31,8 +30,7 @@ export const AREA_COPY = catalogue({
        * The page's one standing line above the list, filled or empty, around the league's address, which the page sets
        * as its link: only the league mints and mails a team's link.
        */
-      linkFromLeague: (league: { readonly href: Route; readonly label: Words }) =>
-        ["Den Registrierungslink schickt die Liga, erreichbar unter ", league, "."] as const,
+      linkFromLeague: (league: TextLink<Words>) => ["Den Registrierungslink schickt die Liga, erreichbar unter ", league, "."] as const,
       /** The registration's address is a stored person's. */
       returning: "War schon in der Liga",
       /** Why „Aufnehmen“ is locked: the squad is at its cap, or the pupil's own link is unanswered. */

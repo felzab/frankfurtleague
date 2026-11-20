@@ -7,8 +7,7 @@ import { ADMIN_COPY } from "./copy/admin";
 import { COPY } from "./copy/shared";
 import { formatDate, formatDateLong, formatDayAndTime, formatInstant, formatList, formatNumber, formatOrdinal, formatSigned } from "./format";
 
-import type { Route } from "next";
-import type { Copy, Wait, Words } from "./copy";
+import type { Copy, TextLink, Wait, Words } from "./copy";
 import type { CalendarDay, TimeOfDay } from "./format";
 import type {
   Code,
@@ -75,9 +74,7 @@ const objectionRight = <Contact>(contact: Contact) =>
     " genügt.",
   ] as const;
 // Around the privacy notice's link, which the page draws.
-const more = (link: { readonly href: Route; readonly label: Copy }) => ["Mehr unter ", link, "."] as const;
-/** A link a legal page sets inside its text, named by the catalogue or by its own data, such as an address. */
-type ProseLink = { readonly href: Route; readonly label: Words };
+const more = (link: TextLink) => ["Mehr unter ", link, "."] as const;
 // What an objection does to a contact's seat on a season row and to a referee's entry, each erased in its own write.
 const OBJECTION_DELETES_ENTRY = "Widersprichst du, löschen wir deinen Eintrag.";
 // A referee's confirmation's opening, which its mail opens on too, and what the league stores of the entry.
@@ -926,7 +923,7 @@ export const SERVER_COPY = catalogue({
           "Wir messen nicht, was du auf der Website tust, und verkaufen keine Daten.",
           "Du kannst Auskunft über deine Daten verlangen, ihre Berichtigung, Löschung oder Einschränkung und ihre Herausgabe. Du kannst widersprechen und jede Einwilligung widerrufen. Und du kannst dich bei der Aufsichtsbehörde beschweren.",
         ],
-        contact: (mail: ProseLink) => ["Dafür genügt eine formlose E-Mail an ", mail, "."] as const,
+        contact: (mail: TextLink<Words>) => ["Dafür genügt eine formlose E-Mail an ", mail, "."] as const,
       },
       basis: {
         heading: "Rechtsgrundlagen",
@@ -1194,7 +1191,7 @@ export const SERVER_COPY = catalogue({
       },
       rights: {
         heading: "Deine Rechte",
-        text: (mail: ProseLink) =>
+        text: (mail: TextLink<Words>) =>
           [
             "Du hast das Recht auf Auskunft, Berichtigung, Löschung, Einschränkung der Verarbeitung und Datenübertragbarkeit (Art.\u00A015 bis 18 und 20 DSGVO). Eine Einwilligung widerrufst du jederzeit für die Zukunft, in deinem Konto oder per E-Mail. Was bis dahin geschah, bleibt rechtmäßig. Für alles genügt eine formlose E-Mail an ",
             mail,
@@ -1251,7 +1248,7 @@ export const SERVER_COPY = catalogue({
      * The Art. 21 DSGVO objection, read before anything is typed, in the one wording the first-contact mail closes on,
      * around the league's address, which the page sets as a link.
      */
-    objection: (link: { readonly href: Route; readonly label: string }) => objectionRight(link),
+    objection: (link: TextLink<string>) => objectionRight(link),
     end: {
       /** The outcome replacing the form, a replayed press alike: the title is what the pupil does next. */
       submitted: "Bestätige deine Registrierung per E-Mail",

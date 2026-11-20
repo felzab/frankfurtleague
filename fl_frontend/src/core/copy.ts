@@ -1,5 +1,6 @@
 import { formatList, formatNumber, formatOrdinal } from "./format";
 
+import type { Route } from "next";
 import type { FLKontaktSeat } from "./generated/client/types";
 
 declare const copyBrand: unique symbol;
@@ -37,6 +38,9 @@ export type RecordText = { readonly record: string };
 export type Words = Copy | RecordText;
 
 export const textOf = (words: Words): string => (typeof words === "string" ? words : words.record);
+
+/** A link inside a sentence's runs, named by the catalogue, or by a record's own data where `Label` says so. */
+export type TextLink<Label = Copy> = { readonly href: Route; readonly label: Label };
 
 type Catalogue<T> = T extends string
   ? Copy

@@ -8,8 +8,7 @@ import { linkInvalid } from "./mailedLinkState";
 import { OneShotEnd, OneShotForm } from "./OneShot";
 import { ClassicStatusPage } from "./StatusCard";
 
-import type { Copy } from "@/core/copy";
-import type { Route } from "next";
+import type { Copy, TextLink } from "@/core/copy";
 import type { ReactNode } from "react";
 import type { Fact } from "./Facts";
 import type { EndState, OneShotActs, OneShotRun } from "./OneShot";
@@ -70,8 +69,7 @@ export type MailedState =
   | { state: "invalid"; next: StatusCardProps["next"] }
   | ({ state: "end" } & EndState);
 
-type PrivacyLink = { readonly href: Route; readonly label: Copy };
-type PrivacyMore = (link: PrivacyLink) => readonly [Copy, PrivacyLink, Copy];
+type PrivacyMore = (link: TextLink) => readonly [Copy, TextLink, Copy];
 
 /** The sentence's close, after a space: the catalogue's words around the privacy notice's link. */
 function More({ more }: { more: PrivacyMore }) {
