@@ -271,7 +271,7 @@ export function popupFactsOf(spiel: FLSpielJoined): Fact[] {
       : {
           label: fact.spielort,
           glyph: "spielorte",
-          elsewhere: { href: buildMapsSearchUrl(spiel.spielort.maps_query), label: { record: spiel.spielort.name } },
+          link: { href: buildMapsSearchUrl(spiel.spielort.maps_query), label: { record: spiel.spielort.name } },
         },
     { label: fact.schiedsrichter, glyph: "schiedsrichter", value: refereeOf(spiel) },
   ];
