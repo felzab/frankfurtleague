@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 const { mailFor } = await import("./mailKinds");
+const { renderMail } = await import("./emailShell");
 const { ROUTES } = await import("./routes");
 const { COPY } = await import("./copy/shared");
 const { SERVER_COPY } = await import("./serverCopy");
@@ -133,6 +134,19 @@ describe("the notice of a move", () => {
       // The lead opens on the change the mail exists for, the new pairing at the slot it keeps.
       expect(mail?.paragraphs[0]?.[0]).toBe(WORDS.newPairing(paarung(replaced)));
     }
+  });
+
+  /* The shell lowers a mail's first letter after „Hallo,“ unless the mail opens on a noun: a lead opening on the pairing
+     loses that mark, and the first club's name would reach the reader lower-cased. */
+  it("renders a moved fixture's lead with the pairing as the catalogue writes it, capital first", () => {
+    const mail = mailFor(
+      "spiel_moved",
+      { kind: "spiel_moved", recipient: "team", appointment: left, moved_to: next, stays: true },
+      { token: null, secret: null, origin: ORIGIN },
+    );
+    if (mail === undefined) throw new Error("the move built no mail");
+
+    expect(renderMail(mail).text.split("\n")).toContain(WORDS.moved(paarung(next)));
   });
 
   // An hour moved on the same day is a move, whatever the sides did.
