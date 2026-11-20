@@ -4,7 +4,7 @@ import { AsyncLocalStorage } from "node:async_hooks";
 
 import { mongodbAdapter } from "@better-auth/mongo-adapter";
 import { passkey } from "@better-auth/passkey";
-import { betterAuth, getCurrentAdapter } from "better-auth";
+import { betterAuth } from "better-auth";
 import { APIError, createAuthMiddleware, getSessionFromCtx, isAPIError } from "better-auth/api";
 import { getSessionCookie, SECURE_COOKIE_PREFIX } from "better-auth/cookies";
 import { makeSignature, signJWT, verifyJWT } from "better-auth/crypto";
@@ -31,7 +31,7 @@ import { readTraceparent, TRACEPARENT_HEADER } from "../trace";
 import { assertionAnswer } from "./assertionAnswer";
 import { ceremonyCredentialId, challengeIssuedAt, isDuplicateCredential, refuseAnotherAccountsPasskey } from "./ceremony";
 import { ADDRESS_ATTEMPTS_EXHAUSTED, CODE_NOT_ASKED_HERE } from "./codeRefusal";
-import { carriedEnrolmentRead, carriedOrRefuse, ENROLMENT_READ, refuseBarred, refuseEnrolment, refuseWithoutGrant } from "./enrolment";
+import { ENROLMENT_READ, refuseBarred, refuseEnrolment, refuseWithoutGrant } from "./enrolment";
 import { enrolmentSignIn } from "./gateReads";
 import { notifyPasskey, oweSignInMail, sendDeletionLink } from "./mails";
 import { endReplacedSession, lineageOf, refuseUnadmitted, replacedToken } from "./minting";
@@ -493,8 +493,8 @@ const authOptions = (origin: URL, client: MongoClient) =>
         // the library is a class naming itself.
         const raised = args.find((argument) => argument instanceof Error);
 
-        // A second row for a credential the index holds: one authenticator enrolled twice at once without signing in, or
-        // a credential another account holds. Set-ups of one authenticator at once conflict in a transaction retried to a 404.
+        // A second row for a credential the index holds: one authenticator enrolled twice at once, or a credential
+        // another account holds. Set-ups of one authenticator at once conflict in a transaction whose retry meets it.
         if (message.startsWith(REGISTRATION_FAILED) && isDuplicateCredential(raised)) {
           logger.warn("auth.passkey_enrolment_conflict");
           return;
@@ -557,25 +557,13 @@ const authOptions = (origin: URL, client: MongoClient) =>
         // Both arms: an in-process assertion answered by another account's passkey is no less that account's.
         if (ctx.path === PASSKEY_ASSERTION_PATH) await refuseAnotherAccountsPasskey(ctx);
 
-        // Above the in-process return, so both arms carry it: the registration's transaction opens later,
-        // and a backend round trip inside it would hold it open.
-        const enrolling = ctx.path === PASSKEY_REGISTRATION_PATH ? await getSessionFromCtx(ctx) : null;
-        // Taken before the read is sent: the session a set-up mints is dated by it.
-        const sentAt = now();
-        const enrolmentRead: EnrolmentRead | undefined =
-          enrolling === null
-            ? undefined
-            : {
-                userId: enrolling.user.id,
-                signIn: await enrolmentSignIn(enrolling.user.email),
-                sentAt,
-                // Here, before the plugin spends the challenge the verify call reads.
-                challengeIssuedAt: await challengeIssuedAt(ctx),
-              };
-        const carried = enrolmentRead === undefined ? undefined : { context: { [ENROLMENT_READ]: enrolmentRead } };
+        if (!ENROLMENT_PATHS.has(ctx.path)) return undefined;
 
-        // What follows judges an enrolment arriving over HTTP: an in-process call is this repository's own code.
-        if (ctx.request === undefined || !ENROLMENT_PATHS.has(ctx.path)) return carried;
+        // The one judgement of an enrolment, on both arms, an `auth.api` call among them: the plugin gates its two
+        // registration endpoints on its `freshAge` alone, and `registration.afterVerification` judges nothing but the
+        // posted id. A second judgement there would read the same session, the same gate answer and the same rows a
+        // moment later, closing no race the hook leaves open, a transaction around it included: two enrolments of
+        // different authenticators at once may both stand, and one authenticator's twice meets the unique index.
 
         // Refused rather than dropped: a caller who read the plugin's own body schema is answered,
         // and a request reshaped behind its back is how the next reader believes the field works.
@@ -586,20 +574,37 @@ const authOptions = (origin: URL, client: MongoClient) =>
           if (Reflect.get(ctx.query ?? {}, field) !== undefined) throw APIError.fromStatus("BAD_REQUEST");
         }
 
-        const caller = enrolling ?? (await getSessionFromCtx(ctx));
+        const caller = await getSessionFromCtx(ctx);
 
         // Refused rather than left to the plugin's `freshSessionMiddleware`, which is mounted only
-        // while `registration.requireSession` keeps its default: this arm judges nothing about a
-        // session it cannot read, and the in-process arm already refuses one.
+        // while `registration.requireSession` keeps its default: this judges nothing about a session
+        // it cannot read.
         if (caller === null || endedByItsAccount(caller)) throw APIError.fromStatus("NOT_FOUND");
 
-        const signIn = enrolmentRead?.signIn ?? (await enrolmentSignIn(caller.user.email));
+        // Taken before the read is sent: the session a set-up mints is dated by it.
+        const sentAt = now();
+        const signIn = await enrolmentSignIn(caller.user.email);
         refuseBarred(signIn);
         refuseWithoutGrant(signIn);
-        // The options request is judged now; the verify call as of its ceremony's options, or now where none stands.
-        await refuseEnrolment(ctx.context.adapter, caller.user.id, stampsOf(caller.session), enrolmentRead?.challengeIssuedAt ?? undefined);
 
-        return carried;
+        const verifying = ctx.path === PASSKEY_REGISTRATION_PATH;
+        // The verify call's posted id, which `registration.afterVerification` holds to the attested credential, so an
+        // authenticator the account already holds is refused here.
+        const posted = verifying ? declaredCredentialId(ctx) : undefined;
+        // The options request is judged now; the verify call as of its ceremony's options, read here before the plugin
+        // spends the challenge, or now where none stands.
+        await refuseEnrolment(
+          ctx.context.adapter,
+          caller.user.id,
+          stampsOf(caller.session),
+          verifying ? ((await challengeIssuedAt(ctx)) ?? undefined) : undefined,
+          typeof posted === "string" ? posted : undefined,
+        );
+
+        // Carried on the endpoint's context into the registration's transaction, where the mint asks the gate again
+        // of this read: a backend round trip inside it would hold it open.
+        const carried: EnrolmentRead = { userId: caller.user.id, signIn, sentAt };
+        return verifying ? { context: { [ENROLMENT_READ]: carried } } : undefined;
       }),
 
       // The `Set-Cookie` the endpoint wrote is untouched: `runAfterHooks` merges this hook's own
@@ -695,37 +700,13 @@ const authOptions = (origin: URL, client: MongoClient) =>
         // conditions the check on.
         authenticatorSelection: { userVerification: "required", residentKey: "required" },
         // The callback runs before the plugin writes the passkey row, so a refusal here leaves the store
-        // as it found it.
+        // as it found it. The enrolment itself is judged in the before hook, once.
         registration: {
-          afterVerification: async ({ ctx, verification, user }) => {
+          afterVerification: async ({ ctx, verification }) => {
             // The verifier holds the posted `id` to `rawId` and neither to the attested credential, so
-            // a session this enrolment mints would otherwise name whichever passkey its caller chose.
+            // a session this enrolment mints would otherwise name whichever passkey its caller chose,
+            // and the hook's refusal of a credential the account holds would judge the wrong one.
             if (declaredCredentialId(ctx) !== verification.registrationInfo?.credential.id) throw APIError.fromStatus("BAD_REQUEST");
-
-            // The transaction the plugin opens around a set-up that signs in, where one is open, so the
-            // count below reads the snapshot the row is written in. Two enrolments at once may both
-            // stand.
-            const adapter = await getCurrentAdapter(ctx.context.adapter);
-
-            // `ctx.context.session` is put there by the plugin's own `freshSessionMiddleware`, which it
-            // mounts only while `registration.requireSession` keeps its default: unset it and this arm
-            // sees no factor at all and refuses every enrolment.
-            const enrolling = ctx.context.session ?? null;
-            // Judged again here, the last point before the row is written, and reached by an `auth.api`
-            // call the hook lets through; off the hook's carried read, and nothing where it carried none.
-            if (enrolling !== null) {
-              const signIn = carriedOrRefuse(ctx, enrolling.user.id);
-              refuseBarred(signIn);
-              refuseWithoutGrant(signIn);
-            }
-            await refuseEnrolment(
-              adapter,
-              user.id,
-              enrolling === null ? null : stampsOf(enrolling.session),
-              // As of the ceremony's options, as the hook judged it, the challenge being spent by now.
-              (enrolling === null ? undefined : carriedEnrolmentRead(ctx, enrolling.user.id)?.challengeIssuedAt) ?? undefined,
-              verification.registrationInfo?.credential.id,
-            );
           },
         },
       }),

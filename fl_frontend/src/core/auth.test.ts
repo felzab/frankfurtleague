@@ -1174,9 +1174,9 @@ describe("which sessions may enrol a passkey, and how many rows they may leave",
     expect(store.passkey.length).toBe(1);
   });
 
-  /* The `auth.api` arm, which the hook returns early for, aged inside the library's `freshAge`: the touch in
-     `registration.afterVerification` is then the only thing that refuses it. */
-  it("refuses that same stale session where the hook never runs", async () => {
+  /* The `auth.api` arm, aged inside the library's `freshAge` and past the touch after its options: the hook judges it as
+     it judges HTTP, `registration.afterVerification` judging nothing but the posted id. */
+  it("refuses that same stale session on the in-process arm", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
     steppedUp(row);
     const headers = new Headers({ ...ORIGIN, cookie, origin: "http://localhost:3000" });
@@ -1196,11 +1196,11 @@ describe("which sessions may enrol a passkey, and how many rows they may leave",
       }),
     ).rejects.toSatisfy((raised: unknown) => Reflect.get(raised as object, "status") === "NOT_FOUND");
 
-    expect(store.passkey, "the callback let a stale session write a row").toStrictEqual([held]);
+    expect(store.passkey, "the in-process arm let a stale session write a row").toStrictEqual([held]);
   });
 
-  /* The `auth.api` arm, which the hook returns early for: the library's own `freshAge` holds it as it holds HTTP. */
-  it("refuses an administrator's first passkey past the library's `freshAge` where the hook never runs", async () => {
+  /* The `auth.api` arm's verify call: the library's own `freshAge` holds it as it holds HTTP. */
+  it("refuses an administrator's first passkey past the library's `freshAge` on the in-process arm", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
     const headers = new Headers({ ...ORIGIN, cookie, origin: "http://localhost:3000" });
 
@@ -1307,9 +1307,9 @@ describe("which sessions may enrol a passkey, and how many rows they may leave",
     }
   });
 
-  /* The hook filters HTTP alone, so the callback is what stands between an `auth.api` enrolment and
-     the write. Driven through the library's own dispatch, which is the route a page would take. */
-  it("refuses the plugin's own write where the hook never runs, leaving the held passkey alone", async () => {
+  /* The hook judges an `auth.api` enrolment as it judges HTTP, and nothing after it judges again. Driven through the
+     library's own dispatch, which is the route a page would take. */
+  it("refuses the plugin's own write on the in-process arm, leaving the held passkey alone", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
     const headers = new Headers({ ...ORIGIN, cookie, origin: "http://localhost:3000" });
 
@@ -1327,7 +1327,7 @@ describe("which sessions may enrol a passkey, and how many rows they may leave",
       }),
     ).rejects.toThrow();
 
-    expect(store.passkey, "the callback let a second passkey through").toStrictEqual([held]);
+    expect(store.passkey, "the in-process arm let a second passkey through").toStrictEqual([held]);
   });
 
   /* The plugin writes the caller's own `name` onto the row, and the dialog draws a passkey's make:

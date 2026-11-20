@@ -30,16 +30,14 @@ export function refuseWithoutGrant(signIn: SignInRecords): void {
 }
 
 /**
- * The gate's answer for the caller, read in the registration's before hook and carried on the
- * endpoint's context into its transaction, whose checks then decide without a backend round trip holding it open;
- * and when the ceremony's options were issued, read there before the plugin spends the challenge, `null` where none
- * stood.
+ * The gate's answer for the caller, read in the registration's before hook and when that read was sent, carried on
+ * the endpoint's context into its transaction, where the mint of a set-up that signs in asks the gate of it rather
+ * than make a backend round trip holding the transaction open.
  */
 export type EnrolmentRead = {
   readonly userId: string;
   readonly signIn: SignInRecords;
   readonly sentAt: Date;
-  readonly challengeIssuedAt: Date | null;
 };
 
 /** The context key the carried read travels under; a string, the library merging no symbol key. */
@@ -50,13 +48,6 @@ export function carriedEnrolmentRead(ctx: object | undefined, userId: string): E
   if (typeof read !== "object" || read === null) return undefined;
 
   return Reflect.get(read, "userId") === userId ? (read as EnrolmentRead) : undefined;
-}
-
-/** The carried read, or the default-deny net's refusal where the hook carried none for this caller. */
-export function carriedOrRefuse(ctx: object, userId: string): SignInRecords {
-  const read = carriedEnrolmentRead(ctx, userId);
-  if (read === undefined) throw APIError.fromStatus("NOT_FOUND");
-  return read.signIn;
 }
 
 /**

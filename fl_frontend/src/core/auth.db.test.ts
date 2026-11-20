@@ -263,9 +263,9 @@ const AUTHENTICATOR_A = Buffer.from("fl-auth-db-authenticator-a");
 /* The session a setup mints is written inside the transaction the plugin opens around a registration
    that signs in, so a setup the database refuses signs nobody in and nobody out. */
 describe("a passkey setup that signs in, against a real database", () => {
-  /* One authenticator twice: the loser's insert conflicts inside its transaction, and the run the
-     adapter retries meets the winner's row in the enrolment guard, whose refusal is a 404 and no line. */
-  it("mints one session for the winner of two setups at once, and refuses the loser, leaving it signed in by code", async () => {
+  /* One authenticator twice: both pass the hook, the loser's insert conflicts inside its transaction, and the run the
+     adapter retries meets the winner's row in the unique index on the credential, a duplicate no retry clears. */
+  it("mints one session for the winner of two setups at once, and refuses the loser on the index, leaving it signed in by code", async () => {
     const a = await offer(await signIn(ADMIN_EMAIL));
     const b = await offer(await signIn(ADMIN_EMAIL));
     const mailedBefore = sent.length;
@@ -278,8 +278,8 @@ describe("a passkey setup that signs in, against a real database", () => {
     barrier.disarm();
     assert.ok(await barrier.filled, "the setups were not both held at their first write, so no race was run");
 
-    expect(responses.map((response) => response.status).sort()).toStrictEqual([200, 404]);
-    expect([eventsAt("WARNING"), eventsAt("ERROR")]).toStrictEqual([[], []]);
+    expect(responses.map((response) => response.status).sort()).toStrictEqual([200, 500]);
+    expect([eventsAt("WARNING"), eventsAt("ERROR")]).toStrictEqual([["auth.passkey_enrolment_conflict"], []]);
     expect(sent.length - mailedBefore).toBe(1);
     const factors = (await sessionRows()).map(({ authFactor }) => authFactor).sort();
     expect(factors, "the refused setup minted a session or ended its caller's").toStrictEqual(["code", "passkey"]);
