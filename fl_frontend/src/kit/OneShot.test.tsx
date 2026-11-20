@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy/shared";
+import { IDEMPOTENCY_KEY_FIELD } from "@/core/idempotencyKey";
 import { TURNSTILE_FIELD } from "@/core/turnstileToken";
 import { renderUnderNext } from "@/test-support/nextContexts";
 
@@ -50,7 +51,7 @@ const form = (run: (formData: FormData) => Promise<ActionAnswer<EndState>>, fiel
     run={run}
     acts={{ primary: COPY.shared.verb.next }}
     botCheck={{ siteKey: "key" }}
-    replayField="replay">
+    replays>
     {fields}
   </OneShotForm>
 );
@@ -98,10 +99,10 @@ describe("a form anybody may send", () => {
 
     const [first, retry, edited] = run.mock.calls.map(([sent]) => sent);
     expect([first, retry, edited].map((sent) => sent?.get(TURNSTILE_FIELD))).toStrictEqual(["first", "second", "third"]);
-    expect(first?.get("replay")).toBeTruthy();
-    expect(retry?.get("replay")).toBe(first?.get("replay"));
-    expect(edited?.get("replay")).toBeTruthy();
-    expect(edited?.get("replay")).not.toBe(first?.get("replay"));
+    expect(first?.get(IDEMPOTENCY_KEY_FIELD)).toBeTruthy();
+    expect(retry?.get(IDEMPOTENCY_KEY_FIELD)).toBe(first?.get(IDEMPOTENCY_KEY_FIELD));
+    expect(edited?.get(IDEMPOTENCY_KEY_FIELD)).toBeTruthy();
+    expect(edited?.get(IDEMPOTENCY_KEY_FIELD)).not.toBe(first?.get(IDEMPOTENCY_KEY_FIELD));
   });
 });
 
@@ -141,6 +142,8 @@ describe("a mailed page's refusal", () => {
     await userEvent.click(await confirmIn());
     await waitFor(() => expect(run).toHaveBeenCalledTimes(1));
     expect(run.mock.calls[0]?.[0].get("act")).toBe("secondary");
+    // A form that declares no replay posts no key: its action sends none, and a second press meets the first's answer.
+    expect(run.mock.calls[0]?.[0].has(IDEMPOTENCY_KEY_FIELD)).toBe(false);
   });
 
   it("asks as the page's one act too, and posts as its main act", async () => {

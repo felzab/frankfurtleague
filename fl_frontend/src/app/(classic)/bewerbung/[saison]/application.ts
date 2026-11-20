@@ -1,9 +1,7 @@
+import { IDEMPOTENCY_KEY_FIELD } from "@/core/idempotencyKey";
 import { KONTAKT_SEATS } from "@/features/teams/constants";
 
 import type { FLKontaktSeat } from "@/core/generated/client/types";
-
-/** The field the one-shot form's replay key posts under, the kit's `replayField`. */
-export const REPLAY_FIELD = "idempotency_key";
 
 /** „Keine weitere Rolle“, the select's first entry: the wire's `trainer_is_also: null`, which no option's id can be. */
 export const NO_SECOND_SEAT = "none";
@@ -41,7 +39,7 @@ export function applicationOf(raw: unknown): unknown {
   const also = posted["kontakte.trainer_is_also"];
   const trainer = seatOf(posted, "trainer");
   return {
-    [REPLAY_FIELD]: posted[REPLAY_FIELD],
+    [IDEMPOTENCY_KEY_FIELD]: posted[IDEMPOTENCY_KEY_FIELD],
     saison_id: posted.saison_id,
     team_id: isNewSchool ? null : orNull(posted.team_id),
     schule: isNewSchool

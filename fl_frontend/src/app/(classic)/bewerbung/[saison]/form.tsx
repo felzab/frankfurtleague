@@ -10,7 +10,6 @@ import { runWithIncomingTrace } from "@/core/traceScope";
 import { SAISON_ID_LENGTH } from "@/features/saisons/constants";
 import { ConsentLine } from "@/kit/ConsentLine";
 
-import { REPLAY_FIELD } from "./application";
 import { BewerbungFields } from "./BewerbungFields";
 import { BEWERBUNG_RULES } from "./bewerbungRules";
 import { endOf } from "./ends";
@@ -45,7 +44,7 @@ export function formStateOf(saison: string, form: FLBewerbungFormResponse): Mail
     run: submitBewerbung,
     acts: { primary: SUBMIT },
     carry: { saison_id: saison },
-    replayField: REPLAY_FIELD,
+    replays: true,
     // Off the request's settings, past the form's read that hands `form` in: a prerendered shell would carry the
     // build's, which is none.
     botCheck: { siteKey: frontend_config.TURNSTILE_SITE_KEY },

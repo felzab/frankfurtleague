@@ -79,7 +79,7 @@ export const enterTeam = action({
   name: "enterTeam",
   input: EnterTeam,
   ownWords: ["duplicate_key", "bewerbung_picked_team_already_entered", "trikot_farbe_taken"],
-  paths: { shorthand: "shorthand", trikot_farbe: "trikot_farbe" },
+  boxes: ["shorthand", "trikot_farbe"],
   examples: {
     shorthand: COPY.team.shorthandExample,
     postcode: COPY.shared.address.postcodeExample,

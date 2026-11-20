@@ -39,7 +39,7 @@ export const answerRegistrierung = action({
   // The age the write judges on its own day, which the box's range bounds before the send by the page's day: on its
   // box, from the range the refusal carries.
   ownWords: ["confirmation_age"],
-  paths: { birth_date: "birth_date" },
+  boxes: ["birth_date"],
   run: async ({ token, birth_date: birthDate, scope, media }): Promise<{ ok: true; value: EndState }> => {
     try {
       await registrierungenPostConfirmation({ token, birth_date: birthDate, scope, media, text_versions: SPIELER_TEXT_VERSIONS });

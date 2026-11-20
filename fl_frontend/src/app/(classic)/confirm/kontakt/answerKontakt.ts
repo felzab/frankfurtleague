@@ -59,7 +59,7 @@ export const answerKontakt = action({
   // The age the write judges on its own day, which the box's range bounds before the send by the page's day: on its
   // box, from the range the refusal carries.
   ownWords: ["confirmation_age"],
-  paths: { birth_date: "birth_date" },
+  boxes: ["birth_date"],
   run: async (answer) => {
     if (answer.act === "secondary") return ended({ answer: "declined", token: answer.token }, END.objected);
     const { token, birth_date: birthDate, whatsapp, media } = answer;

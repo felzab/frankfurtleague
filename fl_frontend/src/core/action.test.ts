@@ -170,6 +170,23 @@ describe("the person lane", () => {
     ]);
   });
 
+  // The harm: the grant gone between the guard's read and the backend's answered as a crash, which says nothing of why.
+  it("words the guard's own lookup the backend refused by its code, logging no failure", async () => {
+    await arriveAs({ email: PERSON });
+    // The guard's lookup of the person's records, past the sign-in's, reaches the case's own answer.
+    answerTheLookup(() => undefined);
+    backend.answerWith(({ method, path }) => (method === "POST" && path === "/identity/subject" ? refusal("actor_not_admin") : undefined));
+    log.clear();
+
+    expect(await register({ team_id: "t1", saison_id: "2027" })).toStrictEqual({
+      ok: false,
+      errorCode: "actor_not_admin",
+      reason: COPY.shared.failure.accessGone,
+    });
+    expect(ran).toStrictEqual([]);
+    expect(log.lines().filter(({ message }) => message === "action.failed")).toStrictEqual([]);
+  });
+
   it.each([
     ["in another season", { team_id: "t1", saison_id: "2026" }],
     ["at another team in the same season", { team_id: "t2", saison_id: "2027" }],
@@ -292,9 +309,20 @@ function onLane(lane: "admin" | "person" | "public", work: () => Promise<unknown
   }
 }
 
-/** What the action did to the site's cache, in order. */
+/** What the action did to the site's cache, in order, an expiry with the profile it was handed. */
 const cacheSteps = () =>
-  cacheCalls.flatMap(({ name, args }) => (name === "updateTag" ? [`updateTag ${String(args[0])}`] : name === "refresh" ? [name] : []));
+  cacheCalls.flatMap(({ name, args }) => {
+    switch (name) {
+      case "updateTag":
+        return [`updateTag ${String(args[0])}`];
+      case "revalidateTag":
+        return [`revalidateTag ${String(args[0])} ${JSON.stringify(args[1])}`];
+      case "refresh":
+        return [name];
+      default:
+        return [];
+    }
+  });
 
 describe("the site's cache", () => {
   it.each(["admin", "person", "public"] as const)("is cleared on the %s lane once the body sent a write", async (lane) => {
@@ -320,6 +348,22 @@ describe("the site's cache", () => {
 
     expect(sent()).toStrictEqual([`POST ${PROBE}`]);
     expect(cacheSteps()).toStrictEqual(["updateTag site"]);
+  });
+
+  /* The harm: the same response's render replaces a visitor's form with the error card, its typed answers and its replay
+     key lost, so a second press after an outage makes a second write. */
+  it.each([
+    ["whose answer never came", networkFailure()],
+    ["the backend answered as one that may stand", refusal("unknown_outcome", { status: 500 })],
+  ])("is expired without a render on the public lane for a write %s", async (_answer, answer) => {
+    const answered = await onLane("public", () => sends("POST", answer))({ name: "Nord" });
+
+    expect(answered).toMatchObject({ ok: false, reason: COPY.shared.failure.unexpected });
+    expect(cacheCalls.map(({ name, args: [tag] }) => `${name} ${String(tag)}`)).toStrictEqual(["revalidateTag site"]);
+    // `{ expire: 0 }`, or no profile, renders the page again in the same response, as `updateTag` does.
+    const profile = cacheCalls[0]?.args[1] as { readonly expire?: unknown } | undefined;
+    expect(Object.keys(profile ?? {})).toStrictEqual(["expire"]);
+    expect(profile?.expire).toBeGreaterThan(0);
   });
 
   it("is cleared where one write landed before another was refused", async () => {
@@ -356,6 +400,36 @@ describe("the site's cache", () => {
     expect(sent()).toStrictEqual([`POST ${PROBE}`]);
     expect(cacheSteps()).toStrictEqual([]);
     expect(seen).toStrictEqual([{ actor: undefined, left: AFTER_RESPONSE_DEADLINE_MS }]);
+  });
+});
+
+// The harm: a refusal of a field the form carries unseen, a record's id or a page's token, placed on a box nobody sees,
+// the status line pointing at fields none of which says anything.
+describe("a refused field's box", () => {
+  const { field } = COPY.shared;
+
+  /** A seat's address, sent beside the record's id the form carries unseen, which the backend refuses for `refusedAt`. */
+  const writeSeat = (refusedAt: string) =>
+    action({
+      lane: "admin",
+      name: "writeSeat",
+      input: z.object({ id: z.string().min(1), email: z.email() }),
+      ownWords: ["kontakt_email_taken"],
+      boxes: ["email"],
+      run: async () => {
+        const refused: FLRefusedField = { in: "body", kind: "kontakt_email_taken", ctx: {}, path: [refusedAt] };
+        await sends("PUT", refusal("kontakt_email_taken", { fields: [refused] }));
+        return { ok: true, value: undefined };
+      },
+    });
+  const SEAT = { id: "6890a1b2c3d4e5f607190001", email: "lena@example.com" };
+
+  it("places the backend's refusal of a box the screen shows on that box", async () => {
+    expect(await writeSeat("email")(SEAT)).toStrictEqual({ ok: false, errorCode: "kontakt_email_taken", fieldErrors: { email: field.taken } });
+  });
+
+  it("answers a refusal of a field the form carries unseen on the status line, never on a box", async () => {
+    expect(await writeSeat("id")(SEAT)).toStrictEqual({ ok: false, errorCode: "kontakt_email_taken", reason: COPY.shared.failure.unexpected });
   });
 });
 
@@ -430,7 +504,6 @@ describe("a screen showing no box with its answer", () => {
       name: "enterBan",
       input: Ban,
       ownWords: ["email_not_accepted"],
-      paths: { email: "email", ban_reason: "ban_reason" },
       boxless: {
         // The rule's sentence apart from the box's own, so the answer shows which of the two was read.
         email: { value: format.address, email_not_accepted: format.next },

@@ -6,15 +6,26 @@ import { action } from "@/core/action";
 import { COPY } from "@/core/copy/shared";
 import { bewerbungenPostBewerbung } from "@/core/generated/client/sdk";
 import { BewerbungenPostBewerbungBody } from "@/core/generated/zod/inputs";
-import { IDEMPOTENCY_KEY_HEADER } from "@/core/idempotencyKey";
+import { IDEMPOTENCY_KEY_FIELD, IDEMPOTENCY_KEY_HEADER } from "@/core/idempotencyKey";
 
-import { applicationOf, REPLAY_FIELD } from "./application";
+import { applicationOf, SEATS } from "./application";
 import { SUBMITTED } from "./ends";
+
+import type { Copy } from "@/core/copy";
+import type { FLBewerbungKontaktpersonPayload } from "@/core/generated/client/types";
 
 const { exampleFirstName, exampleLastName, examplePhone } = COPY.shared.field;
 const { houseNumberExample, postcodeExample } = COPY.shared.address;
 
-const Application = z.preprocess(applicationOf, BewerbungenPostBewerbungBody.extend({ [REPLAY_FIELD]: z.uuid() }));
+/** Every seat's box for `field`, by its dotted name. */
+const eachSeat = <Field extends keyof FLBewerbungKontaktpersonPayload>(field: Field) =>
+  SEATS.map((seat) => `kontakte.${seat}.${field}` as const);
+
+/** The same example for every seat's box for `field`. */
+const exampleOfEachSeat = (field: keyof FLBewerbungKontaktpersonPayload, example: Copy) =>
+  Object.fromEntries(eachSeat(field).map((box) => [box, example]));
+
+const Application = z.preprocess(applicationOf, BewerbungenPostBewerbungBody.extend({ [IDEMPOTENCY_KEY_FIELD]: z.uuid() }));
 
 /**
  * One school's application, sent by a visitor with no session. Public by necessity, so the bot check answers before
@@ -36,30 +47,17 @@ export const submitBewerbung = action({
     "email_not_accepted",
     "url_not_accepted",
   ],
-  paths: {
-    kader: "kader.good_spieler",
-    "kontakte.trainer.email": "kontakte.trainer.email",
-    "kontakte.trainer.phone": "kontakte.trainer.phone",
-    "kontakte.ansprechperson.email": "kontakte.ansprechperson.email",
-    "kontakte.ansprechperson.phone": "kontakte.ansprechperson.phone",
-    "kontakte.stellvertretung.email": "kontakte.stellvertretung.email",
-    "kontakte.stellvertretung.phone": "kontakte.stellvertretung.phone",
-    "schule.website_url": "schule.website_url",
-  },
+  boxes: [...eachSeat("email"), ...eachSeat("phone"), "schule.website_url"],
+  // The squad's rule refuses its group as a whole, and its phrase stands under the count it bounds.
+  paths: { kader: "kader.good_spieler" },
   examples: {
-    "kontakte.trainer.first_name": exampleFirstName,
-    "kontakte.trainer.last_name": exampleLastName,
-    "kontakte.trainer.phone": examplePhone,
-    "kontakte.ansprechperson.first_name": exampleFirstName,
-    "kontakte.ansprechperson.last_name": exampleLastName,
-    "kontakte.ansprechperson.phone": examplePhone,
-    "kontakte.stellvertretung.first_name": exampleFirstName,
-    "kontakte.stellvertretung.last_name": exampleLastName,
-    "kontakte.stellvertretung.phone": examplePhone,
+    ...exampleOfEachSeat("first_name", exampleFirstName),
+    ...exampleOfEachSeat("last_name", exampleLastName),
+    ...exampleOfEachSeat("phone", examplePhone),
     "schule.address.postcode": postcodeExample,
     "schule.address.house_number": houseNumberExample,
   },
-  run: async ({ [REPLAY_FIELD]: key, ...application }) => {
+  run: async ({ [IDEMPOTENCY_KEY_FIELD]: key, ...application }) => {
     await bewerbungenPostBewerbung(application, { headers: { [IDEMPOTENCY_KEY_HEADER]: key } });
     return { ok: true, value: SUBMITTED };
   },

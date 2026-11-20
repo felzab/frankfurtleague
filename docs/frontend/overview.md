@@ -47,7 +47,12 @@ lint rule `fl/server-action` (`fl_frontend/eslint-rules/server-action.mjs`) refu
 any other way. Every cached scope carries one tag,
 `fl_frontend/src/core/siteCache.ts :: SITE_CACHE_TAG`, so no write names the reads it moves. The
 builder clears it at the end of an action exactly when the action's body sent a backend write that
-may have landed, on every lane. It reads the count
+may have landed, on every lane. A clean answer, and every answer on a person's lane or the
+administrator's, clears it with `updateTag`, which renders the page again in the same response, so a
+failed save shows whether it landed. A public form whose answer failed expires the tag with
+`revalidateTag` and an `expire` of a few seconds, which renders nothing again: the form keeps its
+typed values and its replay key, so a second press repeats the first rather than writing again.
+`{ expire: 0 }` would render the page again as `updateTag` does. The builder reads the count
 `fl_frontend/src/core/apiDispatch.ts :: dispatchRequest` keeps: each write is counted before it is
 sent, since a write whose answer is lost may have landed, and taken back once its answer is a 4xx
 carrying a code, the backend's refusal of it. A 5xx keeps the count, since the server may fail after

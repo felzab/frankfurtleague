@@ -64,7 +64,7 @@ export const recordAustritt = action({
   name: "recordAustritt",
   input: TeamsPutAustrittBody.extend(TeamsPutAustrittParams.shape),
   ownWords: ["austritt_before_saison_start", "saison_past"],
-  paths: { date: "date" },
+  boxes: ["date"],
   run: async ({ team_id, saison_id, ...austritt }) => {
     await teamsPutAustritt(team_id, saison_id, austritt);
     return { ok: true, value: undefined };
@@ -89,7 +89,7 @@ export const writeSeat = action({
     version: numberBox(TeamsPutKontaktSeatBody.shape.version),
   }),
   ownWords: ["kontakt_email_taken", "kontakt_phone_taken", "email_not_accepted"],
-  paths: { email: "email", phone: "phone" },
+  boxes: ["email", "phone"],
   examples: SEAT_EXAMPLES,
   run: async ({ team_id, saison_id, seat, ...person }) => {
     const { email } = await teamsPutKontaktSeat(team_id, saison_id, seat, person);

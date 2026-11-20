@@ -36,7 +36,6 @@ export const startLostMailboxChange = action({
     "address_change_unchanged",
     "email_not_accepted",
   ],
-  paths: { address: "address", email: "email" },
   examples: { address: COPY.shared.field.exampleAddress, email: COPY.shared.field.exampleAddress },
   // The dialog has closed before any answer, which its toast says: every refusal is a sentence, never a box's phrase.
   boxless: {
