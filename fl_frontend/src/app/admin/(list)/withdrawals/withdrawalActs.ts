@@ -56,7 +56,7 @@ export const readWithdrawal = action({
   lane: "admin",
   name: "readWithdrawal",
   input: WithdrawalForm,
-  ownWords: ["email_not_accepted"],
+  ownWords: ["own_address", "admin_address", "email_not_accepted"],
   boxes: ["email"],
   examples: { email: COPY.shared.field.exampleAddress },
   run: async (form) => {
@@ -79,7 +79,7 @@ export const enterWithdrawal = action({
   lane: "admin",
   name: "enterWithdrawal",
   input: IdentityPostWithdrawalBody,
-  ownWords: ["email_not_accepted"],
+  ownWords: ["own_address", "admin_address", "email_not_accepted"],
   boxes: ["email"],
   examples: { email: COPY.shared.field.exampleAddress },
   run: async (entry) => {
