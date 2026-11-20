@@ -173,6 +173,7 @@ export function BewerbungFields({
               isRequired={!isNewSchool}
               isDisabled={switchedOn}
               options={schools}
+              plural={COPY.shared.schulen}
               value={switchedOn ? null : picked}
               onChange={setPicked}
             />

@@ -104,6 +104,7 @@ function Swap({ saison, teams, swap, locked }: { saison: string; teams: readonly
       <ComboBox
         label={COPY.shared.teamPair.team1}
         options={teams.map(optionOf)}
+        plural={COPY.page.teams}
         isLocked={locked}
         value={first}
         onChange={(id) => {
@@ -114,6 +115,7 @@ function Swap({ saison, teams, swap, locked }: { saison: string; teams: readonly
       <ComboBox
         label={COPY.shared.teamPair.team2}
         options={partners.map(optionOf)}
+        plural={COPY.page.teams}
         isLocked={locked}
         value={second}
         onChange={setSecond}
@@ -160,6 +162,7 @@ function Replacement({
       <ComboBox
         label={WORDS.outgoing}
         options={teams.map(optionOf)}
+        plural={COPY.page.teams}
         isLocked={locked}
         value={out}
         onChange={setOut}
@@ -167,6 +170,7 @@ function Replacement({
       <ComboBox
         label={WORDS.incoming}
         options={incoming.map((team) => ({ id: team.id, label: { record: team.name } }))}
+        plural={COPY.page.teams}
         isLocked={locked}
         value={into}
         onChange={setInto}

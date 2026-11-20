@@ -92,6 +92,7 @@ describe("a locked field", () => {
         <ComboBox
           label={COPY.shared.emailAddress}
           options={options}
+          plural={COPY.page.teams}
           isLocked
           value="a"
         />

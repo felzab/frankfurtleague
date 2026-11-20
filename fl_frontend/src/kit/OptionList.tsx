@@ -32,16 +32,28 @@ export type ActEntry = { label: Copy; typed: string; onAction: () => void };
 
 /**
  * The menu of choices under a select or a combo box, the chosen one marked as every list marks it: as wide as its
- * longest choice and never narrower than its field, a choice too long for the screen cut short. A combo box filters the options as it is typed into; an act entry stands last, under the hairline a menu
- * draws between its groups, which is not drawn over the entry standing alone.
+ * longest choice and never narrower than its field, a choice too long for the screen cut short. A combo box filters the
+ * options as it is typed into, and `empty` is the muted row standing where its text matches none; an act entry stands
+ * last, under the hairline a menu draws between its groups, which is not drawn over the entry standing alone.
  */
-export function OptionList({ options, act }: { options: readonly Option[]; act?: ActEntry }) {
+export function OptionList({ options, empty, act }: { options: readonly Option[]; empty?: Copy; act?: ActEntry }) {
   return (
     <Popover
       data-kit-focus
       offset={4}
       className={menuPopover({ fit: "content" })}>
-      <ListBox data-kit-focus>
+      <ListBox
+        data-kit-focus
+        // React Aria's own empty row, outside the collection, so no press or key can choose it and it posts nothing.
+        renderEmptyState={
+          empty === undefined
+            ? undefined
+            : () => (
+                <span className="flex min-h-8 items-center px-3 text-sm text-fg-muted pointer-coarse:min-h-10 pointer-coarse:text-base">
+                  {empty}
+                </span>
+              )
+        }>
         <Collection items={options}>
           {(option) => (
             <ListBoxItem

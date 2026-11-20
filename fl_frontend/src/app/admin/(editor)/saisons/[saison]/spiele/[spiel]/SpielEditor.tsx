@@ -314,6 +314,7 @@ export function SpielEditor({
                 label={COPY.shared.schiedsrichter}
                 name="schiedsrichter"
                 options={schiedsrichter.map((person) => person.option)}
+                plural={COPY.shared.schiedsrichter}
                 value={draft.schiedsrichter}
                 onChange={(id) => {
                   set("schiedsrichter", id);

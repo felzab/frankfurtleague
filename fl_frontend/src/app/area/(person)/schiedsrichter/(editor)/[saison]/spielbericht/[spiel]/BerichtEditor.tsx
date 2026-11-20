@@ -169,6 +169,7 @@ export function BerichtEditor({
         name={name}
         isRequired={isRequired}
         options={row.side === null ? [] : [UNKNOWN, ...kader[row.side]]}
+        plural={COPY.shared.spieler}
         value={row.spieler_id}
         onChange={(spielerId) => change({ spieler_id: spielerId })}
       />

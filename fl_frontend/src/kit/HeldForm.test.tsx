@@ -102,6 +102,7 @@ const FIELDS: [string, ReactElement][] = [
       key="combo"
       label={WORD}
       options={[{ id: "riedberg", label: { record: "Riedberg" } }]}
+      plural={COPY.shared.schulen}
     />,
   ],
   [
