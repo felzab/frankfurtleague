@@ -77,9 +77,8 @@ function outboxStateFrom({ type, data }: OutboxEvent): Pick<FLOutboxEventPayload
 }
 
 /**
- * The write one event asks for, or `null` where it asks none: an event about no row, a mail sent before the Postausgang
- * among them, and one that leaves no state. Every `null` is answered 200, so the provider neither retries it nor
- * disables the endpoint over it.
+ * The write one event asks for, or `null` where it asks none: an event about no row and one that leaves no state. Every
+ * `null` is answered 200, so the provider neither retries it nor disables the endpoint over it.
  */
 function readOutboxEvent(raw: unknown): FLOutboxEventPayload | null {
   const read = OutboxEventSchema.safeParse(raw);

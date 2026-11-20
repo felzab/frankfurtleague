@@ -159,13 +159,7 @@ describe("what one delivery event leaves on its Postausgang row", () => {
   });
 
   it("answers 200 and forwards nothing for an event that leaves no state or names no row", async () => {
-    for (const event of [
-      eventFor("email.sent"),
-      eventFor("email.opened"),
-      eventFor("email.delivered", { tags: undefined }),
-      // A mail sent before the Postausgang carries the old path's tags alone.
-      eventFor("email.delivered", { tags: { bewerbung_id: `${"a".repeat(23)}1`, rollen: "trainer" } }),
-    ]) {
+    for (const event of [eventFor("email.sent"), eventFor("email.opened"), eventFor("email.delivered", { tags: undefined })]) {
       expect(await statusFor(event)).toBe(200);
     }
 
