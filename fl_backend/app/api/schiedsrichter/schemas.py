@@ -64,7 +64,6 @@ class FLPatchSchiedsrichterPayload(_SchiedsrichterPayload):
 class FLSchiedsrichterMint(BaseModel):
     """The confirmation link a write owed the referee, which the Postausgang mints and mails: never the link itself."""
 
-    deadline: CustomDateString
     # The address the mail is owed to, read in the write's own transaction, so the answer names the mailbox the link
     # goes to rather than one a rival save has replaced.
     email: CustomNonEmptyString
@@ -187,6 +186,11 @@ class FLSchiedsrichterSweepResponse(BaseReadModel):
 
     erased: int
     failed: int
+
+
+class FLSchiedsrichterReactivateResponse(BaseReadModel):
+    # Null unless the press brought back a referee who has not answered, which owes them a fresh link.
+    confirmation: FLSchiedsrichterMint | None
 
 
 class FLSchiedsrichterMintResponse(BaseReadModel):
