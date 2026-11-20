@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { Webhook } from "standardwebhooks";
-import z from "zod";
+import { z } from "zod";
 
 import { resendWebhookSecret } from "@/core/config";
 import { APIBadStatusError } from "@/core/errors";
