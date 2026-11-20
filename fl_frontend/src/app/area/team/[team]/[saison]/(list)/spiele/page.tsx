@@ -7,7 +7,8 @@ import { AUFSTELLUNG_CHIP } from "@/features/aufstellungen/constants";
 import { readAsSeatHolder, requireTeamSeats, teamMetadata } from "@/features/roles/resolvers";
 import { headedMatchOf } from "@/features/spiele/blocks";
 import { getTeamSpiele } from "@/features/spiele/queries";
-import { ListPage } from "@/kit/ListPage";
+import { EmptyBox } from "@/kit/EmptyState";
+import { ListPage, SpielCards } from "@/kit/ListPage";
 import { EXPIRED_CHIP, owedChip } from "@/kit/stateChips";
 import { pageMetadata } from "@/shared/utils/metadata";
 
@@ -54,21 +55,31 @@ function openOn({ spielbestaetigung, aufstellung }: FLTeamPanelSpiel): ChipProps
 async function readSpiele(params: Props["params"]) {
   const [seat] = await requireTeamSeats(params, address);
   const { spiele } = await readAsSeatHolder(() => spieleOf(seat));
-  return {
-    groups: spiele.map((spiel) => {
-      const { head, spiel: row } = headedMatchOf(spiel);
-      const chip = row.chip ?? openOn(spiel);
-      return {
-        head,
-        spiel: {
-          ...row,
-          href: ROUTES.teamAufstellung.path(seat.team_id, seat.saison_id, spiel.id),
-          ...(chip === undefined ? {} : { chip }),
-        },
-      };
-    }),
-    empty: { kind: "none", plural: COPY.page.spiele, glyph: "spielplan" } as const,
-  };
+  if (spiele.length === 0) {
+    return (
+      <EmptyBox
+        kind="none"
+        plural={COPY.page.spiele}
+        glyph="spielplan"
+      />
+    );
+  }
+  return (
+    <SpielCards
+      groups={spiele.map((spiel) => {
+        const { head, spiel: row } = headedMatchOf(spiel);
+        const chip = row.chip ?? openOn(spiel);
+        return {
+          head,
+          spiel: {
+            ...row,
+            href: ROUTES.teamAufstellung.path(seat.team_id, seat.saison_id, spiel.id),
+            ...(chip === undefined ? {} : { chip }),
+          },
+        };
+      })}
+    />
+  );
 }
 
 /** A club's matches in one season, each with the one thing it still needs from the club. */
@@ -76,7 +87,7 @@ export default function TeamSpielePage({ params }: Props) {
   return (
     <ListPage
       head={{ scope: "area", title: { route: "teamSpiele" } }}
-      list={{ kind: "spielGroups", content: readSpiele(params) }}
+      list={{ kind: "drawn", content: readSpiele(params) }}
     />
   );
 }

@@ -40,19 +40,27 @@ function addressWith(pathname: string, filters: ReadonlyArray<Filter>, name: str
   return (search === "" ? pathname : `${pathname}?${search}`) as Route;
 }
 
+/**
+ * Each filter's choice from the press on: the one the navigation carries, before the page read with it lands, else the
+ * one the page read.
+ */
+function useChosen(filters: ReadonlyArray<Filter>): ReadonlyArray<string | null> {
+  const pending = usePendingQuery();
+  return filters.map((filter) => (pending === null ? filter.value : pending.get(filter.name)));
+}
+
 function FilterSelects({ filters }: { filters: ReadonlyArray<Filter> }) {
   const navigate = useNavigate();
   const pathname = usePathname();
-  // From the press, each select shows the choice the navigation carries, before the page read with it lands.
-  const pending = usePendingQuery();
-  return filters.map((filter) => (
+  const chosen = useChosen(filters);
+  return filters.map((filter, index) => (
     <div
       key={filter.name}
       className="min-w-40 max-lg:w-full">
       <Select
         label={filter.label}
         options={[{ id: ALL, label: filter.all }, ...filter.options]}
-        value={(pending === null ? filter.value : pending.get(filter.name)) ?? ALL}
+        value={chosen[index] ?? ALL}
         onChange={(value) => navigate(addressWith(pathname, filters, filter.name, value), { replace: true, scroll: false })}
       />
     </div>
@@ -61,10 +69,12 @@ function FilterSelects({ filters }: { filters: ReadonlyArray<Filter> }) {
 
 /**
  * Narrowing a list: selects in a row above it on desktop, and on a phone a „Filter“ button opening a
- * sheet of the same selects, the button leading with the filter glyph and naming no count. Each choice
- * replaces the page's address, which the page reads its list from; typed search text never enters it.
+ * sheet of the same selects, the button leading with the filter glyph and naming how many filters are
+ * chosen, since the phone shows no select's value outside the sheet. Each choice replaces the page's
+ * address, which the page reads its list from; typed search text never enters it.
  */
 export function Filters({ filters }: { filters: ReadonlyArray<Filter> }) {
+  const count = useChosen(filters).filter((value) => value !== null).length;
   return (
     <>
       <div className="flex flex-wrap items-start gap-3 max-lg:hidden">
@@ -77,7 +87,7 @@ export function Filters({ filters }: { filters: ReadonlyArray<Filter> }) {
             <Button
               variant="secondary"
               leadingIcon="filter"
-              label={COPY.shared.filter}
+              label={count === 0 ? COPY.shared.filter : COPY.shared.filterCount(count)}
             />
           }>
           <div className="grid gap-3 px-2 pt-2">

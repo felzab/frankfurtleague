@@ -152,10 +152,23 @@ export function FieldLabel({ label, isRequired, isLocked = false }: { label: Wor
 
 /**
  * A form's status line at its acts: a refusal, a done save, why its act cannot run, or the editor's count of unsaved
- * fields. With nothing to say it is not drawn, so it takes no room.
+ * fields. The outcome stands in a status region a screen reader speaks, which is there from the first render, empty,
+ * since a region drawn together with its first words is not reliably heard; while empty it stands out of the flow, as
+ * the visually hidden do, so it takes no room and no gap beside the acts. The count of unsaved fields stands outside
+ * it, as it changes on every keystroke.
  */
 export function StatusLine({ status, placement }: { status: FormStatus; placement: "row" | "column" }) {
-  return status !== null && <p className={statusLine({ placement, tone: status.tone })}>{status.text}</p>;
+  const outcome = status?.tone === "changes" ? null : status;
+  return (
+    <>
+      {status?.tone === "changes" && <p className={statusLine({ placement, tone: "changes" })}>{status.text}</p>}
+      <p
+        role="status"
+        className={statusLine({ placement, tone: outcome?.tone, class: "empty:sr-only" })}>
+        {outcome?.text}
+      </p>
+    </>
+  );
 }
 
 /**

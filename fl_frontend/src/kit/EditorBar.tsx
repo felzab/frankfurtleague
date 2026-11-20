@@ -32,19 +32,25 @@ const pageLine = tv({
  * The bar's line on a page that states something of its own there, such as how many a line-up names and how many
  * start: the page's text, then the count of unsaved changes after a dot, on one line. The text keeps its place: where
  * both do not fit, as on a phone, the count gives way whole, and a text wider than the line alone is cut with „…“. A
- * save with something to say, a refusal or „Gespeichert“, takes the whole line, wrapping as every status line does,
- * and the page's text returns with the next edit.
+ * save with something to say, a refusal or „Gespeichert“, takes the whole line in the status line's region, wrapping
+ * as every status line does, and the page's text returns with the next edit.
  */
 function PageLine({ text, status }: { text: Copy; status: FormStatus }) {
   const look = pageLine();
-  if (status !== null && status.tone !== "changes") {
-    return <p className={statusLine({ placement: "row", tone: status.tone })}>{status.text}</p>;
-  }
+  const isOutcome = status !== null && status.tone !== "changes";
   return (
-    <p className={look.line()}>
-      <span className={look.text()}>{text}</span>
-      {status !== null && <span className={look.count()}>{status.text}</span>}
-    </p>
+    <>
+      {!isOutcome && (
+        <p className={look.line()}>
+          <span className={look.text()}>{text}</span>
+          {status !== null && <span className={look.count()}>{status.text}</span>}
+        </p>
+      )}
+      <StatusLine
+        status={isOutcome ? status : null}
+        placement="row"
+      />
+    </>
   );
 }
 

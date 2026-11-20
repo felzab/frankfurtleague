@@ -10,7 +10,7 @@ import { COPY } from "@/core/copy/shared";
 import { Button } from "./Button";
 import { ComboBox } from "./ComboBox";
 import { DateField } from "./DateField";
-import { FieldLabel, MessageLine } from "./FieldParts";
+import { FieldLabel, MessageLine, StatusLine } from "./FieldParts";
 import { FormClosed } from "./formClosed";
 import { Select } from "./Select";
 import { TextField as KitTextField } from "./TextField";
@@ -112,6 +112,31 @@ describe("a locked field", () => {
       expect(document.activeElement).toBe(field);
       expect(field instanceof HTMLInputElement ? field.readOnly : field.getAttribute("aria-readonly") === "true").toBe(true);
     }
+  });
+});
+
+// The harm: a screen reader hears nothing when a save succeeds or fails, since a region drawn together with its first
+// words is not reliably announced, and no sighted tester notices.
+describe("a form's status line", () => {
+  it("stands as a status region from the first render, empty, and holds the outcome once there is one", () => {
+    const { rerender } = render(
+      <StatusLine
+        status={null}
+        placement="row"
+      />,
+    );
+    const region = screen.getByRole("status");
+    expect(region.textContent).toBe("");
+
+    rerender(
+      <StatusLine
+        status={{ tone: "saved", text: COPY.shared.saved }}
+        placement="row"
+      />,
+    );
+    // The same node: a region replaced by one holding the words is one drawn together with them.
+    expect(screen.getByRole("status")).toBe(region);
+    expect(region.textContent).toBe(COPY.shared.saved);
   });
 });
 
