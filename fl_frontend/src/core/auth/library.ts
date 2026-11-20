@@ -21,7 +21,6 @@ import { ERASURE_LINK_VALID_HOURS } from "../erasureEmail";
 import { identityPostAccountErasure } from "../generated/client/sdk";
 import { logger } from "../logging";
 import { declaredCredentialId, PASSKEY_ASSERTION_PATH } from "../passkeyCeremony";
-import { passkeyLastUse } from "../passkeyLastUse";
 import { getRequestActor } from "../requestScope";
 import { ADMIN_LIFETIME, SESSION_EXPIRES_IN_DAYS } from "../sessionLifetimes";
 import { CODE_FAILURE_LIMIT, CODE_FAILURE_WINDOW_HOURS, CODE_MAIL_LIMIT, CODE_MAIL_WINDOW_HOURS, SIGN_IN_CODE_LENGTH } from "../signInCode";
@@ -710,8 +709,6 @@ const authOptions = (origin: URL, client: MongoClient) =>
           },
         },
       }),
-
-      passkeyLastUse(),
 
       // No `customSession`: it reshapes `/get-session`, which `DISABLED_PATHS` closes to every browser, so
       // `readLibrarySession` would be its one reader, and `projected` already builds that reader's copy over
