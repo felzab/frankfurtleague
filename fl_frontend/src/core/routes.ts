@@ -30,6 +30,16 @@ export type RouteEntry = {
   readonly place?: { readonly entry: string; readonly pattern: `/${string}` };
 };
 
+/** How many segments a row's address takes. */
+export const segmentCount = (row: RouteEntry): number => row.path.length;
+
+/** A row's address with each of its segments `filler`, for a reader walking every row rather than linking one. */
+export function addressOf(row: RouteEntry, filler: string): `/${string}` {
+  // A row's `path` takes `never`, so a link names its row; walking the rows, every segment takes the same string.
+  const path = row.path as (...segments: string[]) => `/${string}`;
+  return path(...Array.from({ length: path.length }, () => filler));
+}
+
 /**
  * Every page whose name is settled. Each segment is a league word or an English word its test lists; a page under a season
  * carries the season in its address.
