@@ -2,7 +2,6 @@ import { Fragment } from "react";
 
 import { boundBy, LINE_SEPARATOR, lineOf, textOf } from "@/core/copy";
 import { COPY } from "@/core/copy/shared";
-import { formatNumber } from "@/core/format";
 
 import { AddressWords, addressWords, isAddress } from "./AddressWords";
 import { cardHover, cardSurface, columnHead, nameWithChips, rowHeight, stacked } from "./cardStyles";
@@ -72,9 +71,6 @@ type TableColumn = {
  * fact the row's own page or dialog shows. A cell holding nothing, or the words for nothing, stands on no line.
  */
 type LineForm = "value" | "labelled";
-
-/** A club's won, drawn and lost counts. */
-export type Counts = readonly [won: number, drawn: number, lost: number];
 
 export type TableRow = {
   id: string;
@@ -388,26 +384,6 @@ const table = tv({
     { stack: true, chevrons: true, class: { row: PHONE_END_ROW_CLASSES, end: PHONE_END_CLASSES } },
   ],
 });
-
-/** The hyphen between a record's counts, „3-1-0“, as its head „S-U-N“ joins their letters. */
-const RECORD_JOIN = "-";
-
-/**
- * A club's won, drawn and lost counts, „3-1-0“, each in its own colour, the hyphens between them in the text's: the
- * Tabelle's „S-U-N“ column (`TableStanding`) and a club's stat tile alike.
- */
-export function RecordFigures({ counts }: { counts: Counts }) {
-  const [won, drawn, lost] = counts;
-  return (
-    <>
-      <span className="font-semibold text-success">{formatNumber(won)}</span>
-      {RECORD_JOIN}
-      <span className="font-semibold text-warn">{formatNumber(drawn)}</span>
-      {RECORD_JOIN}
-      <span className="font-semibold text-danger">{formatNumber(lost)}</span>
-    </>
-  );
-}
 
 /**
  * How a table's rows stack: a list's by its box, every list's at one width, and not as a list's where the table has a

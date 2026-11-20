@@ -12,9 +12,9 @@ import type { AddressText } from "./AddressWords";
 import type { IconName } from "./Icon";
 
 /**
- * One fact: its label, and its value as a record's data, a link to it on the site, or a link to it on
- * another site, such as a venue on a map. A value the record does not hold is `COPY.shared.noValue`, the row
- * staying, so a record's block keeps one shape.
+ * One fact: its label, and its value as a record's data or a link to it, on the site or on another one, such as a
+ * venue on a map. A value the record does not hold is `COPY.shared.noValue`, the row staying, so a record's block
+ * keeps one shape.
  */
 export type Fact = {
   label: Copy;
@@ -26,11 +26,9 @@ export type Fact = {
       value: Words | AddressText;
       /** Figures, set in Inter with columns that line up. */ figures?: boolean;
       link?: never;
-      elsewhere?: never;
     }
-  | { link: { href: Route; label: Words }; value?: never; figures?: never; elsewhere?: never }
-  /** Another site's address, which `Link` opens in a new tab, leaving the site's page in place. */
-  | { elsewhere: { href: `https://${string}`; label: Words }; value?: never; figures?: never; link?: never }
+  /** A page of the site or another site's address; `Link` opens another site's in a new tab, leaving the site's page in place. */
+  | { link: { href: Route | `https://${string}`; label: Words }; value?: never; figures?: never }
 );
 
 const facts = tv({
@@ -86,7 +84,6 @@ export function Facts({ facts: rows, look = "boxed" }: { facts: ReadonlyArray<Fa
         {rows.map((fact) => {
           const address = fact.value !== undefined && isAddress(fact.value);
           const { row, term, detail } = facts({ look, figures: fact.figures === true, address });
-          const to = fact.link ?? fact.elsewhere;
           const nth = above.get(fact.label) ?? 0;
           above.set(fact.label, nth + 1);
           return (
@@ -110,13 +107,11 @@ export function Facts({ facts: rows, look = "boxed" }: { facts: ReadonlyArray<Fa
                     textOf(fact.value)
                   )
                 ) : (
-                  to !== undefined && (
-                    <Link
-                      href={to.href}
-                      placement="standalone"
-                      label={to.label}
-                    />
-                  )
+                  <Link
+                    href={fact.link.href}
+                    placement="standalone"
+                    label={fact.link.label}
+                  />
                 )}
               </dd>
             </div>

@@ -1,9 +1,7 @@
 import { BlockBox } from "./BlockBox";
-import { CardLink } from "./Card";
 import { tv } from "./tv";
 
 import type { ReactNode } from "react";
-import type { CardLinkProps } from "./Card";
 
 const grid = tv({
   base: "grid gap-6",
@@ -31,19 +29,5 @@ export function CardGrid({
     <BlockBox>
       <div className={grid({ across })}>{children}</div>
     </BlockBox>
-  );
-}
-
-/** The role chooser's places, each a card linking it, the page arriving whole with them. */
-export async function RoleChoices({ choices }: { choices: Promise<ReadonlyArray<CardLinkProps>> }) {
-  return (
-    <CardGrid across={3}>
-      {(await choices).map((choice) => (
-        <CardLink
-          key={choice.href}
-          {...choice}
-        />
-      ))}
-    </CardGrid>
   );
 }

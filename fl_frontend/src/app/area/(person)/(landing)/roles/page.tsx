@@ -3,7 +3,8 @@ import { redirect } from "next/navigation";
 import { ROUTES } from "@/core/routes";
 import { requireSubjectSession } from "@/features/roles/resolvers";
 import { owesSignInStep, placeOf, placesOf } from "@/features/roles/utils";
-import { RoleChoices } from "@/kit/CardGrid";
+import { CardLink } from "@/kit/Card";
+import { CardGrid } from "@/kit/CardGrid";
 import { RailPage } from "@/kit/RailFrame";
 import { pageMetadata } from "@/shared/utils/metadata";
 
@@ -22,6 +23,20 @@ async function readChoices(): Promise<ReadonlyArray<CardLinkProps>> {
     const { href, name, seats } = placeOf(target);
     return { href, title: name, ...(seats === undefined ? {} : { line: seats }) };
   });
+}
+
+/** The role chooser's places, each a card linking it, the page arriving whole with them. */
+async function RoleChoices({ choices }: { choices: Promise<ReadonlyArray<CardLinkProps>> }) {
+  return (
+    <CardGrid across={3}>
+      {(await choices).map((choice) => (
+        <CardLink
+          key={choice.href}
+          {...choice}
+        />
+      ))}
+    </CardGrid>
+  );
 }
 
 /**
