@@ -11,7 +11,6 @@ import { makeSignature, signJWT, verifyJWT } from "better-auth/crypto";
 import { nextCookies } from "better-auth/next-js";
 import { emailOTP } from "better-auth/plugins/email-otp";
 
-import { CODE_VALIDITY_MINUTES } from "../authEmail";
 import { MONGO_DB_NAME } from "../authIndexes";
 import { now } from "../clock";
 import { authSecret, frontend_config } from "../config";
@@ -24,17 +23,25 @@ import { logger } from "../logging";
 import { declaredCredentialId, PASSKEY_ASSERTION_PATH } from "../passkeyCeremony";
 import { getRequestActor } from "../requestScope";
 import { ADMIN_LIFETIME, SESSION_EXPIRES_IN_DAYS } from "../sessionLifetimes";
-import { CODE_FAILURE_LIMIT, CODE_FAILURE_WINDOW_HOURS, CODE_MAIL_LIMIT, CODE_MAIL_WINDOW_HOURS, SIGN_IN_CODE_LENGTH } from "../signInCode";
+import {
+  CODE_ATTEMPTS,
+  CODE_FAILURE_LIMIT,
+  CODE_FAILURE_WINDOW_HOURS,
+  CODE_MAIL_LIMIT,
+  CODE_MAIL_WINDOW_HOURS,
+  CODE_VALIDITY_MINUTES,
+  SIGN_IN_CODE_LENGTH,
+} from "../signInCode";
 import { mayReceiveSignIn } from "../signInGate";
 import { HOUR_MS } from "../timeUnits";
 import { readTraceparent, TRACEPARENT_HEADER } from "../trace";
 import { assertionAnswer } from "./assertionAnswer";
 import { ceremonyCredentialId, challengeIssuedAt, isDuplicateCredential, refuseAnotherAccountsPasskey } from "./ceremony";
-import { ADDRESS_ATTEMPTS_EXHAUSTED, CODE_NOT_ASKED_HERE } from "./codeRefusal";
 import { ENROLMENT_READ, refuseBarred, refuseEnrolment, refuseWithoutGrant } from "./enrolment";
 import { enrolmentSignIn } from "./gateReads";
 import { notifyPasskey, oweSignInMail, sendDeletionLink } from "./mails";
 import { endReplacedSession, lineageOf, refuseUnadmitted, replacedToken } from "./minting";
+import { ADDRESS_ATTEMPTS_EXHAUSTED, CODE_NOT_ASKED_HERE } from "./refusalCodes";
 import {
   CODE_FACTOR,
   endedByItsAccount,
@@ -653,7 +660,7 @@ const authOptions = (origin: URL, client: MongoClient) =>
       emailOTP({
         otpLength: SIGN_IN_CODE_LENGTH,
         expiresIn: CODE_VALIDITY_SECONDS,
-        allowedAttempts: 3,
+        allowedAttempts: CODE_ATTEMPTS,
         // Encrypted under the secret rather than hashed: an unkeyed hash of six digits is undone by
         // trying all million of them.
         storeOTP: "encrypted",

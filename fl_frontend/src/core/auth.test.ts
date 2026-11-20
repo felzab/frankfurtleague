@@ -26,6 +26,7 @@ import { assertionFor, COSE_KEY, CREDENTIAL_ID, CREDENTIAL_RAW_ID, registrationF
 
 import { assertionAnswer } from "./auth/assertionAnswer";
 import { PASSKEY_TOUCH_SECONDS } from "./sessionLifetimes";
+import { CODE_ATTEMPTS, CODE_VALIDITY_MINUTES } from "./signInCode";
 
 import type { MemoryStore, SessionRow } from "@/test-support/authDoubles";
 import type { LoggedLine } from "@/test-support/stdoutCapture";
@@ -239,6 +240,10 @@ const { toNextJsHandler } = await import("better-auth/next-js");
 const { runWithEndpointContext } = (await import(
   pathToFileURL(createRequire(import.meta.resolve("better-auth")).resolve("@better-auth/core/context")).href
 )) as { runWithEndpointContext: <T>(context: object, run: () => Promise<T>) => Promise<T> };
+// The process-wide logger the Mongo adapter writes through, from that same copy.
+const { logger: processLogger } = (await import(
+  pathToFileURL(createRequire(import.meta.resolve("better-auth")).resolve("@better-auth/core/env")).href
+)) as { logger: { error: (message: string, ...args: unknown[]) => void } };
 const { auth, codeAskedCookie, codeMailCapped } = await import("./auth/library");
 const { deleteAccountFor, deleteOwnAccount, listAccounts, requestAccountDeletion } = await import("./auth/accounts");
 const { endSessionsOfAddress } = await import("./auth/accountSessions");
@@ -247,7 +252,6 @@ const { getPasskeyStep, getSignInLanding } = await import("./auth/landing");
 const { PASSKEY_LIMIT } = await import("./auth/enrolment");
 const { readServedSession } = await import("./auth/session");
 const { getSubjectSession } = await import("./subject");
-const { CODE_VALIDITY_MINUTES } = await import("./authEmail");
 const { proxy } = await import("../proxy");
 const { NextRequest } = await import("next/server");
 
@@ -725,7 +729,7 @@ describe("why the admin guard refused", () => {
     BACKENDS.set(ADMIN_EMAIL, { ...NOTHING_HELD, seats: [A_SEAT], account: true });
 
     expect(await getAdminSession(), "the guard admitted a session holding no grant").toBe(null);
-    expect(await judgeAdminRequest()).toStrictEqual({ refused: "grantGone" });
+    expect(await judgeAdminRequest()).toStrictEqual({ refused: "noGrant" });
   });
 });
 
@@ -1073,6 +1077,22 @@ describe("what the library's own log stream reaches this application as", () => 
       expect(Object.keys(fields).sort()).toStrictEqual(["name"]);
       assert.ok(!raw.includes("foreign-site"), "the submitted origin reached the stream");
     }
+  });
+
+  /* The adapter's line for an abort that failed after a failed commit, written through the process-wide logger, which
+     hands it to this instance's inside an endpoint: the one sign that the store holds the transaction open, its
+     collections locked until the transaction's lifetime runs out. */
+  it("names an abort the adapter left open after a failed commit", async () => {
+    const context = await auth.$context;
+    log.clear();
+
+    await runWithEndpointContext({ path: "/sign-in/email-otp", body: {}, context }, async () => {
+      processLogger.error("Failed to abort a MongoDB transaction whose commit did not complete", new Error("connection reset"));
+    });
+
+    expect(log.lines().map(({ level, message, fields }) => [level, message, fields.name])).toStrictEqual([
+      ["ERROR", "auth.transaction_left_open", "Error"],
+    ]);
   });
 
   /* Anything the map does not recognise, an upgrade's reworded message included, takes the last
@@ -1944,7 +1964,7 @@ describe("what a typed code is answered, with an account and without", () => {
     await sendBoth();
     for (const email of [ADMIN_EMAIL, STRANGER_EMAIL]) {
       const wrong = await wrongCodeFor(email);
-      for (let attempt = 0; attempt < 3; attempt += 1) await answerOf(email, wrong);
+      for (let attempt = 0; attempt < CODE_ATTEMPTS; attempt += 1) await answerOf(email, wrong);
     }
 
     const member = await guessed(ADMIN_EMAIL, "000000");
@@ -1984,7 +2004,7 @@ describe("the failures one address may spend, across every code it is sent", () 
     // Two codes spent whole, four failures each: the fourth entry ends the exhausted code.
     for (let code = 0; code < 2; code += 1) {
       const wrong = wrongFor(await mailedCode());
-      for (let attempt = 0; attempt < 3; attempt += 1) expect((await answerOf(ADMIN_EMAIL, wrong)).code).toBe("INVALID_OTP");
+      for (let attempt = 0; attempt < CODE_ATTEMPTS; attempt += 1) expect((await answerOf(ADMIN_EMAIL, wrong)).code).toBe("INVALID_OTP");
       expect((await answerOf(ADMIN_EMAIL, wrong)).code).toBe("TOO_MANY_ATTEMPTS");
     }
 

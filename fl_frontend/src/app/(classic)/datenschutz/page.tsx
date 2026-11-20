@@ -1,5 +1,4 @@
 import { ADDRESS_CHANGE_VALID_HOURS, ADDRESS_CHANGE_WAIT_DAYS, HOLDER_WAIT } from "@/core/addressChange";
-import { CODE_VALIDITY_MINUTES } from "@/core/authEmail";
 import {
   ACTION_LOG_RETENTION_YEARS,
   ADDRESS_CHANGE_RETENTION_DAYS,
@@ -17,9 +16,8 @@ import { SENDER_ADDRESSES } from "@/core/mail";
 import { MAILED_LINK_HOURS } from "@/core/mailedLink";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
-import { ADMIN_IDLE_HOURS, ADMIN_WINDOW_HOURS, PERSON_LIFETIME, PERSON_WINDOW_DAYS, SESSION_EXPIRES_IN_DAYS } from "@/core/sessionLifetimes";
-import { CODE_FAILURE_WINDOW_HOURS, CODE_MAIL_WINDOW_HOURS } from "@/core/signInCode";
-import { DAY_MS } from "@/core/timeUnits";
+import { ADMIN_IDLE_HOURS, ADMIN_WINDOW_HOURS, PERSON_IDLE_DAYS, PERSON_WINDOW_DAYS, SESSION_EXPIRES_IN_DAYS } from "@/core/sessionLifetimes";
+import { CODE_FAILURE_WINDOW_HOURS, CODE_MAIL_WINDOW_HOURS, CODE_VALIDITY_MINUTES } from "@/core/signInCode";
 import { BEWERBUNG_MIN_AGE, SIGNATORY_MIN_AGE } from "@/features/bewerbungen/constants";
 import { DATENSCHUTZ_AS_OF } from "@/features/meta/constants";
 import { REGISTRIERUNG_MIN_AGE } from "@/features/registrierungen/constants";
@@ -76,7 +74,7 @@ export default function PrivacyNoticePage() {
         paragraph(
           words.account.signIn(
             { minutes: CODE_VALIDITY_MINUTES },
-            { idleDays: PERSON_LIFETIME.idle / DAY_MS, days: PERSON_WINDOW_DAYS },
+            { idleDays: PERSON_IDLE_DAYS, days: PERSON_WINDOW_DAYS },
             { idleHours: ADMIN_IDLE_HOURS, hours: ADMIN_WINDOW_HOURS },
             SESSION_EXPIRES_IN_DAYS,
           ),

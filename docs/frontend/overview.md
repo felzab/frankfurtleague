@@ -229,10 +229,10 @@ league data (`fl_frontend/src/core/authIndexes.ts :: MONGO_DB_NAME`, reached thr
 and sits on every authorization check. Application data goes through FastAPI without exception.
 
 **Administration is a stored grant, read on every request.** A row of `grants` (`Berechtigung`)
-makes an address an administrator; the frontend reads it through
-`fl_frontend/src/core/grant.ts :: grantOf`, and the backend checks it again on every administration
-request. A backend that cannot answer admits nobody, and a revoked grant admits nothing from the
-next request on. Every admin server action opens on
+makes an address an administrator; the frontend reads it in the subject lookup
+(`fl_frontend/src/core/signInGate.ts :: lookUpSubject`), and the backend checks it again on every
+administration request. A backend that cannot answer admits nobody, and a revoked grant admits
+nothing from the next request on. Every admin server action opens on
 `fl_frontend/src/core/auth/guards.ts :: judgeAdminRequest`, through the builder's admin lane.
 
 **Route protection is layered.** `src/proxy.ts` turns away a request to `/area`, `/admin` or

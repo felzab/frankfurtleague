@@ -414,7 +414,7 @@ describe("a session the store cannot answer for", () => {
   });
 });
 
-describe("the person's two lifetimes, compared in this guard as well as the other", () => {
+describe("the person's two lifetimes, past which the guard and the landing each refuse the session", () => {
   it("answers nothing for a session fifteen days idle, and sends the same session to the sign-in", async () => {
     const { cookie, row } = await signIn(PERSON_EMAIL);
     ageRow(row, { created: 15 * DAY_MS, idle: 15 * DAY_MS });
@@ -424,7 +424,7 @@ describe("the person's two lifetimes, compared in this guard as well as the othe
 
     expect(answer).toBe(null);
     expect(actor, "a refused session named the actor of whatever this request writes next").toBe(undefined);
-    expect((await getSignInLanding()).destination, "the two copies of the idle figure answer differently").toBe("/signin");
+    expect((await getSignInLanding()).destination, "the landing kept a session past the idle window the guard refused").toBe("/signin");
   });
 
   /* The case that fails first if the absolute cap is dropped as redundant: a session kept sliding
@@ -438,7 +438,7 @@ describe("the person's two lifetimes, compared in this guard as well as the othe
 
     expect(answer).toBe(null);
     expect(actor, "a refused session named the actor of whatever this request writes next").toBe(undefined);
-    expect((await getSignInLanding()).destination, "the two copies of the absolute figure answer differently").toBe("/signin");
+    expect((await getSignInLanding()).destination, "the landing kept a session past the cap the guard refused").toBe("/signin");
   });
 
   it("serves a session thirteen days idle and twenty-nine old, so the two cases above are the windows and not the harness", async () => {
@@ -572,8 +572,9 @@ describe("the guard across one render pass", () => {
   });
 });
 
-/* React's `cache` keeps nothing outside a render, so before the request's own memo every admin read
-   in an action's body ran the whole guard again: a session read, a backend lookup and a token. */
+/* React's `cache` keeps nothing outside a render, so an action's body holds the administrator's judgement on
+   its request scope: without it every admin read in the body runs the whole guard again, a session read, a
+   backend lookup and a token. */
 describe("the administrator's guard across a server action", () => {
   it("judges the action's body and every admin read in it once, and the render after it afresh", async () => {
     const { runWithIncomingTrace } = await import("./traceScope");

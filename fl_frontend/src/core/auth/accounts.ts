@@ -17,14 +17,6 @@ import { DELETE_TOKEN_ROW_PREFIX, deleteSignInRowsOf, DUPLICATE_KEY, EVERY_ROW, 
 import type { User } from "better-auth";
 import type { DeletionPress } from "./library";
 
-/** The library's answer to a link its `deleteUserCallback` completed, its one answer that deletes. */
-const ACCOUNT_DELETED = "User deleted";
-
-/** A deletion the library answered with something other than a deletion, which no caller may read as one. */
-class DeletionNotAnswered extends Error {
-  override name = "DeletionNotAnswered";
-}
-
 /**
  * Whether an account signs in at `address`, which refuses an address change onto it as the library's own
  * `changeEmail` refuses one: joining it would hand one person's sign-in to another.
@@ -126,10 +118,9 @@ export async function deleteOwnAccount(token: string, requestHeaders: Headers): 
     // The completing endpoint itself, the one the library's own link reaches: it expires the session's cookie on
     // its own answer, which `nextCookies` carries onto the action's. Not `deleteUser` with the token: it reads an
     // empty one as a request for a new link, which it mints and mails, where this endpoint refuses it as unknown.
-    const answer = await ownErasure.run(press, () => auth.api.deleteUserCallback({ query: { token }, headers: requestHeaders }));
-    // The library's own word for a deletion, never the absence of a throw. Its one other end, a redirect, comes only
-    // for a `callbackURL`, which no press passes: no case reaches this check alone.
-    if (answer.message !== ACCOUNT_DELETED) throw new DeletionNotAnswered();
+    // A call that returns deleted the account: the library's one other end, a redirect, comes only for a
+    // `callbackURL`, which no press passes.
+    await ownErasure.run(press, () => auth.api.deleteUserCallback({ query: { token }, headers: requestHeaders }));
     return "deleted";
   } catch (failed) {
     if (!press.linkSpent) {

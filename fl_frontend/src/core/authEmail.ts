@@ -1,14 +1,9 @@
 import "server-only";
 
 import { SERVER_COPY } from "./serverCopy";
+import { CODE_VALIDITY_MINUTES } from "./signInCode";
 
 import type { Mail } from "./emailShell";
-
-/**
- * The one figure the sign-in library expires the code on and this message states. It lives here because the import
- * the other way round would read it inside its own dead zone.
- */
-export const CODE_VALIDITY_MINUTES = 10;
 
 const WORDS = SERVER_COPY.mail.signInCode;
 

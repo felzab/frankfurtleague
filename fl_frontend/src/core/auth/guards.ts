@@ -4,10 +4,10 @@ import { cache } from "react";
 
 import { asSignInIdentifier } from "../emailAddress";
 import { madeSince } from "../grant";
-import { oncePerRequest, setRequestActor } from "../requestScope";
+import { judgedOncePerRequest, setRequestActor } from "../requestScope";
 import { ADMIN_LIFETIME } from "../sessionLifetimes";
 import { lookUpSubject } from "../signInGate";
-import { grantOrNull } from "./gateReads";
+import { subjectOrNull } from "./gateReads";
 import { auth } from "./library";
 import { readRequestSession } from "./session";
 import { CODE_FACTOR, isPasskeyTouch, isWithinPersonLifetime, PASSKEY_FACTOR, withinLifetime } from "./sessionStamps";
@@ -66,11 +66,6 @@ export function isAdminWithinWindow(served: ServedSession): boolean {
   return served.session.adminLapsed !== true && withinLifetime(served.session, ADMIN_LIFETIME);
 }
 
-/** Every administrator's condition the grant itself does not decide: a passkey session inside both of the administrator's figures. */
-function passesButForItsGrant(served: ServedSession): boolean {
-  return isAdminWithinWindow(served) && served.session.authFactor === PASSKEY_FACTOR;
-}
-
 /**
  * Whether this served session may act as an administrator — its address holding a grant it was made
  * since, inside both of the administrator's figures, and made by the passkey rather than by a mailed code alone.
@@ -78,14 +73,19 @@ function passesButForItsGrant(served: ServedSession): boolean {
 export function isAdminSession(served: ServedSession, { admin_tier, granted_since }: Grant): boolean {
   // A passkey enrolled before the grant still admits, on a sign-in after it: the grant is the privilege,
   // and a passkey the factor it asks, enrolled on the mailbox's own authority.
-  return admin_tier !== null && madeSince(served.session.createdAt, granted_since) && passesButForItsGrant(served);
+  return (
+    admin_tier !== null &&
+    madeSince(served.session.createdAt, granted_since) &&
+    isAdminWithinWindow(served) &&
+    served.session.authFactor === PASSKEY_FACTOR
+  );
 }
 
 /**
  * Why the administrator's guard turned a request away, by what repairs it: a sign-in for `signIn`; no
- * caller for `noGrant`, nor for `grantGone`, a session passing but for its grant; the backend for `unread`.
+ * caller for `noGrant`; the backend for `unread`.
  */
-export type AdminRefusal = "signIn" | "noGrant" | "grantGone" | "unread";
+export type AdminRefusal = "signIn" | "noGrant" | "unread";
 
 /**
  * The actor a guard records for this request, as the backend reads it beside the admin key. `null`
@@ -106,33 +106,37 @@ export function requestActorOf(
   return { email, lane, authTime, factor };
 }
 
-// React's `cache` within a render and `oncePerRequest` within an action, so one request reads its session once.
-const readAdminRequest = cache(
-  oncePerRequest(async (): Promise<{ readonly session: JudgedSession; readonly actor: RequestActor } | { readonly refused: AdminRefusal }> => {
-    const served = await readRequestSession();
-    if (!served) return { refused: "signIn" };
+/** The administrator's guard's judgement of one request: the session and the actor it states, or why it was refused. */
+export type AdminJudgement = { readonly session: JudgedSession; readonly actor: RequestActor } | { readonly refused: AdminRefusal };
 
-    // An unread grant admits nobody, so the administration is shut while the backend is.
-    const grant = await grantOrNull(served.user.email);
-    if (grant === null) return { refused: "unread" };
-    if (grant.admin_tier === null) return { refused: passesButForItsGrant(served) ? "grantGone" : "noGrant" };
-    // A session made before its grant among them, which a sign-in after the grant repairs.
-    if (!isAdminSession(served, grant)) return { refused: "signIn" };
+async function judgeAdmin(): Promise<AdminJudgement> {
+  const served = await readRequestSession();
+  if (!served) return { refused: "signIn" };
 
-    // A session no actor can state truthfully is repaired by signing in afresh.
-    const actor = requestActorOf(served, "admin");
-    if (actor === null) return { refused: "signIn" };
+  // An unread grant admits nobody, so the administration is shut while the backend is.
+  const records = await subjectOrNull(served.user.email);
+  if (records === null) return { refused: "unread" };
+  if (records.admin_tier === null) return { refused: "noGrant" };
+  // A session made before its grant among them, which a sign-in after the grant repairs.
+  if (!isAdminSession(served, records)) return { refused: "signIn" };
 
-    return { session: { ...served, isAdmin: true }, actor };
-  }),
-);
+  // A session no actor can state truthfully is repaired by signing in afresh.
+  const actor = requestActorOf(served, "admin");
+  if (actor === null) return { refused: "signIn" };
+
+  return { session: { ...served, isAdmin: true }, actor };
+}
+
+// React's `cache` within a render and the request scope's held judgement within an action, so one request reads its
+// session once.
+const readAdminRequest = cache(() => judgedOncePerRequest(judgeAdmin));
 
 export async function judgeAdminRequest(): Promise<{ readonly session: JudgedSession } | { readonly refused: AdminRefusal }> {
   const judged = await readAdminRequest();
   if ("refused" in judged) return judged;
 
-  // On every call, outside the memo: a render's first read may precede every scope, and a later
-  // scope answered from the memo would name nobody. The ordering is load-bearing.
+  // On every call, outside the held judgement: a render's first read may precede every scope, and a later
+  // scope answered from it would name nobody. The ordering is load-bearing.
   setRequestActor(judged.actor);
 
   return { session: judged.session };

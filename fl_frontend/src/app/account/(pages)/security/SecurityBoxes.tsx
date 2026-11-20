@@ -52,7 +52,11 @@ export function SecurityBoxes({
   // The library's own registration, a request of the browser's past every server action: the page is read again.
   const runSetUp = async (): Promise<ActionAnswer> => {
     const refusal = await clientRefusal((authClient) => authClient.passkey.addPasskey());
-    if (refusal !== null) return { ok: false, reason: describeSetUpRefusal(refusal) };
+    if (refusal !== null) {
+      const reason = describeSetUpRefusal(refusal);
+      // A sheet the person closed set nothing up and says nothing.
+      return reason === null ? { ok: false, closed: true } : { ok: false, reason };
+    }
     router.refresh();
     return { ok: true, value: undefined };
   };

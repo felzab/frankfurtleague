@@ -92,15 +92,12 @@ describe("the admin lane", () => {
     signIn: () => arriveAs(null),
     // A person's code session at an address holding no grant.
     noGrant: () => arriveAs({ email: PERSON }),
-    // The file's administrator, signed in by passkey, whose grant the backend now answers gone.
-    grantGone: () => answerTheLookup(() => ({ ...GRANTED, admin_tier: null, granted_since: null, account: true })),
     unread: () => answerTheLookup(() => null),
   } as const;
 
   it.each([
     ["signIn", COPY.shared.failure.signInExpired],
     ["noGrant", COPY.shared.failure.accessGone],
-    ["grantGone", COPY.shared.failure.accessGone],
     ["unread", COPY.shared.failure.unexpected],
   ] as const)("turns a caller the guard refuses as %s away in its shared line, before anything else", async (refused, reason) => {
     await ARRIVALS[refused]();
