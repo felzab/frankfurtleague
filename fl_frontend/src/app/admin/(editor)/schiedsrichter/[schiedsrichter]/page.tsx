@@ -13,8 +13,8 @@ import { adminIdParamOf } from "@/shared/utils/adminRead";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
 
-import { reactivateSchiedsrichter, retireSchiedsrichter, sendSchiedsrichterLink } from "./retireSchiedsrichter";
 import { saveSchiedsrichter } from "./saveSchiedsrichter";
+import { reactivateSchiedsrichter, retireSchiedsrichter, sendSchiedsrichterLink } from "./schiedsrichterActs";
 import { SchiedsrichterEditor } from "./SchiedsrichterEditor";
 import { valuesOf } from "./schiedsrichterValues";
 
@@ -36,22 +36,12 @@ async function findSchiedsrichter(params: Props["params"]) {
   return id === null ? null : read(id);
 }
 
-async function readSchiedsrichter(params: Props["params"]) {
-  const found = await findSchiedsrichter(params);
-  if (found === null) notFound();
-  return found;
-}
-
 export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
   return metadataFor(findSchiedsrichter(params), ({ schiedsrichter }) =>
     pageMetadata(parent, ROUTES.adminSchiedsrichterRecord, ROUTES.adminSchiedsrichterRecord.path(schiedsrichter.id), {
       title: { record: schiedsrichter.name },
     }),
   );
-}
-
-export default async function SchiedsrichterEditorPage({ params }: Props) {
-  return await readEditor(params);
 }
 
 /**
@@ -93,15 +83,17 @@ function confirmationFacts(read: FLSchiedsrichterSingleResponse): Fact[] {
   return [
     { label: COPY.shared.facts.state, value: standing ?? COPY.shared.noValue },
     {
-      label: COPY.shared.toast.linkSent,
+      // The season's key, being the one label for the day any link was mailed.
+      label: ADMIN_COPY.saison.sentOn,
       value: sent === null ? COPY.shared.noValue : { record: formatDate(dayOf(sent)) },
       figures: true,
     },
   ];
 }
 
-async function readEditor(params: Props["params"]) {
-  const found = await readSchiedsrichter(params);
+export default async function SchiedsrichterEditorPage({ params }: Props) {
+  const found = await findSchiedsrichter(params);
+  if (found === null) notFound();
   const referee = found.schiedsrichter;
   const { state } = referee;
   const retired = referee.inactive_since !== null;

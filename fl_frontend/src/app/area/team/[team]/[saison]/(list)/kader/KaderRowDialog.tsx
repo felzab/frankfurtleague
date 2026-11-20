@@ -61,8 +61,9 @@ export function KaderRowDialog({
       <TextField
         label={WORDS.nummer}
         name="nummer"
-        holds={2}
+        holds={5}
         kind="digits"
+        maxLength={4}
         defaultValue={row.nummer ?? ""}
       />
       <Select

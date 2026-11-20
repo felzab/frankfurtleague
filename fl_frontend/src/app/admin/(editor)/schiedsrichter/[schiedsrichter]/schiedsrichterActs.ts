@@ -3,7 +3,7 @@
 import { z } from "zod";
 
 import { action } from "@/core/action";
-import { ADMIN_COPY } from "@/core/copy/admin";
+import { COPY } from "@/core/copy/shared";
 import {
   schiedsrichterDeleteSchiedsrichter,
   schiedsrichterReactivateSchiedsrichter,
@@ -46,16 +46,16 @@ export const reactivateSchiedsrichter = action({
 });
 
 /**
- * Mails a referee who has not answered a fresh link, the deadline starting again and the old link void, its line
- * naming the address the backend read it to. The editor offers it only while their entry waits on an answer, so a
- * retirement, an answer or an address gone since is a stale page.
+ * Mails a referee who has not answered a fresh link, the deadline starting again and the old link void, answered as
+ * every resent link is, since the address stands on the editor already. The editor offers it only while their entry
+ * waits on an answer, so a retirement, an answer or an address gone since is a stale page.
  */
 export const sendSchiedsrichterLink = action({
   lane: "admin",
   name: "sendSchiedsrichterLink",
   input: z.object({ id: SchiedsrichterResendConfirmationParams.shape.schiedsrichter_id }),
   run: async ({ id }) => {
-    const { confirmation } = await schiedsrichterResendConfirmation(id);
-    return { ok: true, value: undefined, note: ADMIN_COPY.schiedsrichter.sentTo(confirmation.email) };
+    await schiedsrichterResendConfirmation(id);
+    return { ok: true, value: undefined, note: COPY.shared.toast.linkSent };
   },
 });

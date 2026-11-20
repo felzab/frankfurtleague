@@ -74,11 +74,12 @@ function chipOf({ spiel, marks }: FLAufstellungResponse): ChipProps | undefined 
 }
 
 /**
- * The page once read: the editor until one hour before kick-off, and from then the same editor closed, as the
- * administration opens a record it may no longer change, since the league alone changes the line-up now. A match with
- * no day or hour takes no line-up, so its editor opens with nobody to name.
+ * A match's line-up as its club's seats enter it, on one read of the fixture, the squad and the stored line-up: the
+ * editor until one hour before kick-off, and from then the same editor closed, as the administration opens a record it
+ * may no longer change, since the league alone changes the line-up now. A match with no day or hour takes no line-up,
+ * so its editor opens with nobody to name.
  */
-async function readEditor(params: Props["params"]) {
+export default async function AufstellungPage({ params }: Props) {
   const [seat] = await requireTeamSeats(params, address);
   const found = await readAsSeatHolder(() => lineupAt(params, seat.team_id, seat.saison_id));
   if (found === null) notFound();
@@ -101,9 +102,4 @@ async function readEditor(params: Props["params"]) {
       {...(closed === undefined ? {} : { closed })}
     />
   );
-}
-
-/** A match's line-up as its club's seats enter it, on one read of the fixture, the squad and the stored line-up. */
-export default async function AufstellungPage({ params }: Props) {
-  return await readEditor(params);
 }

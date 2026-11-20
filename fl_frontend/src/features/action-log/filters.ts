@@ -75,7 +75,7 @@ export const PERIOD_OPTIONS = PERIOD_CHOICES.map((id) => ({ id, label: PERIODS[i
 
 /** What `by` holds where it holds no administrator's address, each a value the backend publishes. */
 const ROLE_WORDS = {
-  kontakt: COPY.page.teams,
+  kontakt: WORDS.actor.contactNoTeam,
   schiedsrichter: COPY.shared.schiedsrichter,
   system: WORDS.automatic,
   person: ADMIN_COPY.spieler.person,

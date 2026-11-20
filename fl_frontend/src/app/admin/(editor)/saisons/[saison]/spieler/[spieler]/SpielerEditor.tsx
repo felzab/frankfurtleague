@@ -83,11 +83,12 @@ export function SpielerEditor({
   const dangerAct: DangerAct =
     danger.kind === "reactivate"
       ? {
-          name: COPY.shared.withObject(WORDS.kaderEntry, "reactivate"),
+          // The player, as the deregistration's question names them, so the return asks of the one it took out.
+          name: COPY.shared.withObject(OBJECT, "reactivate"),
           consequence: WORDS.reactivateConsequence,
           confirm: {
             verb: "reactivate",
-            subject: WORDS.kaderEntry,
+            subject: OBJECT,
             consequence: WORDS.reactivateConsequence,
             tone: "primary",
             onConfirm: press(danger.act),
@@ -158,8 +159,9 @@ export function SpielerEditor({
               <TextField
                 label={COPY.kader.nummer}
                 name="nummer"
-                holds={2}
+                holds={5}
                 kind="digits"
+                maxLength={4}
                 isLocked={ended}
                 value={draft.nummer}
                 onChange={(nummer) => set("nummer", nummer)}

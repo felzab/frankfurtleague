@@ -40,10 +40,6 @@ export async function generateMetadata({ params }: Props, parent: ResolvingMetad
   );
 }
 
-export default async function TeamEditorPage({ params }: Props) {
-  return await readEditor(params);
-}
-
 /** The boxes of the club's row of the season, each lock read off what its write would refuse. */
 function rowOf(read: FLTeamSaisonAdminResponse, membership: FLTeamMembership, link: FLTeamLinkState): TeamRow {
   const { saison, gruppen, gruppe_locked: drawn, taken_trikot_farben: taken } = read;
@@ -85,7 +81,7 @@ function rowOf(read: FLTeamSaisonAdminResponse, membership: FLTeamMembership, li
   };
 }
 
-async function readEditor(params: Props["params"]) {
+export default async function TeamEditorPage({ params }: Props) {
   const read = await find(params);
   if (read === null) notFound();
 

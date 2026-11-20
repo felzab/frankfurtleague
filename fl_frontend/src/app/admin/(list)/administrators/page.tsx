@@ -1,5 +1,5 @@
 import { GRANT_WAIT, OWNER_WAIT } from "@/core/addressChange";
-import { getAdminSession } from "@/core/auth/guards";
+import { getAdminHolder } from "@/core/auth/guards";
 import { now } from "@/core/clock";
 import { ADMIN_COPY } from "@/core/copy/admin";
 import { COPY } from "@/core/copy/shared";
@@ -63,9 +63,7 @@ type Access = {
  * reader's own, which Konto shows.
  */
 async function readAccess(): Promise<Access> {
-  const [{ grants }, { changes }, session] = await Promise.all([getGrants(), getAddressChanges(), getAdminSession()]);
-  // The page's read turned a refused session away to the sign-in before this line.
-  const reader = session?.user.email ?? "";
+  const [{ grants }, { changes }, reader] = await Promise.all([getGrants(), getAddressChanges(), getAdminHolder()]);
   const moment = now().getTime();
   const inEffect = grants.filter((grant) => new Date(grant.effective_from).getTime() <= moment);
   const owner = inEffect.filter((grant) => grant.admin_tier === "owner");

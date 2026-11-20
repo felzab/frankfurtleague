@@ -146,3 +146,12 @@ export async function getAdminSession(): Promise<JudgedSession | null> {
   const judged = await judgeAdminRequest();
   return "session" in judged ? judged.session : null;
 }
+
+/**
+ * The address an administration page was drawn for, which its acts behind the passkey touch post, since an acting
+ * administrator signs in by passkey alone. Empty for a refused session rather than a throw: the page's own guard turns
+ * that one away to the sign-in, and a throw racing it would show an error page in its place.
+ */
+export async function getAdminHolder(): Promise<string> {
+  return (await getAdminSession())?.user.email ?? "";
+}

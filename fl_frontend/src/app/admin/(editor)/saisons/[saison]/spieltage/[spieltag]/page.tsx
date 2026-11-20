@@ -39,12 +39,6 @@ async function findSpieltag(params: Props["params"]): Promise<FLSpieltagAdminRes
   return view === null || view.spieltag.saison_id !== saison ? null : view;
 }
 
-async function readSpieltag(params: Props["params"]): Promise<FLSpieltagAdminResponse> {
-  const view = await findSpieltag(params);
-  if (view === null) notFound();
-  return view;
-}
-
 /** A matchday is named as its tab in the Spiele list names it. */
 const nameOf = (spieltag: FLSpieltagAdmin) =>
   spieltagLabel({ phase: spieltag.saison_phase, ordinal: spieltag.position, countInPhase: spieltag.count_spieltage_in_phase });
@@ -56,11 +50,9 @@ export async function generateMetadata({ params }: Props, parent: ResolvingMetad
 }
 
 export default async function SpieltagEditorPage({ params }: Props) {
-  return await readEditor(params);
-}
-
-async function readEditor(params: Props["params"]) {
-  const { spieltag, saison_status } = await readSpieltag(params);
+  const view = await findSpieltag(params);
+  if (view === null) notFound();
+  const { spieltag, saison_status } = view;
   return (
     <SpieltagEditor
       title={nameOf(spieltag)}

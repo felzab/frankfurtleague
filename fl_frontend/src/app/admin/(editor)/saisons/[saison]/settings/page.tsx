@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 
-import { getAdminSession } from "@/core/auth/guards";
+import { getAdminHolder } from "@/core/auth/guards";
 import { ADMIN_COPY } from "@/core/copy/admin";
 import { COPY } from "@/core/copy/shared";
 import { dayOf, formatDate } from "@/core/format";
@@ -40,14 +40,6 @@ const LINKS_HEAD: TableHead = {
   // Secondary, as every list's day column: on a phone the row keeps its name and its chip.
   columns: [{ key: "sentOn", label: WORDS.sentOn, hideOnPhone: true, onLine: "labelled", width: "date" }],
 };
-
-/** The season the address names, or the not-found page. */
-async function readSaison(params: Props["params"]) {
-  const { saison } = await params;
-  const read = await getAdminSaison(saison);
-  if (read === null) notFound();
-  return read;
-}
 
 export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
   const { saison } = await params;
@@ -109,19 +101,11 @@ function waitingOf(row: FLInvitationLinkRow): ChipProps | null {
 }
 
 export default async function SaisonSettingsPage({ params }: Props) {
-  return await readEditor(params);
-}
-
-async function readEditor(params: Props["params"]) {
+  const { saison: id } = await params;
   // The frame's own season list, which the switch's question names the season the site leaves from, beside the view read.
-  const [{ saison, teams, incoming_teams, shapes, spielplan, refusals, invitations }, { saisons }, session] = await Promise.all([
-    readSaison(params),
-    getAdminSaisons(),
-    getAdminSession(),
-  ]);
-  // The page's read turned a refused session away to the sign-in before this line; an acting administrator signs in
-  // by passkey alone, so every act behind the touch asks it.
-  const holder = session?.user.email ?? "";
+  const [read, { saisons }, holder] = await Promise.all([getAdminSaison(id), getAdminSaisons(), getAdminHolder()]);
+  if (read === null) notFound();
+  const { saison, teams, incoming_teams, shapes, spielplan, refusals, invitations } = read;
   // The teams the registration links' press would mail now, by the press's own plan.
   const mailed = invitations.filter((row) => row.skipped === null);
 

@@ -8,8 +8,8 @@ import { adminIdParamOf } from "@/shared/utils/adminRead";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
 
-import { reactivateSpielort, retireSpielort } from "./retireSpielort";
 import { saveSpielort } from "./saveSpielort";
+import { reactivateSpielort, retireSpielort } from "./spielortActs";
 import { SpielortEditor } from "./SpielortEditor";
 import { valuesOf } from "./spielortValues";
 
@@ -25,12 +25,6 @@ async function findSpielort(params: Props["params"]) {
   return id === null ? null : read(id);
 }
 
-async function readSpielort(params: Props["params"]) {
-  const spielort = await findSpielort(params);
-  if (spielort === null) notFound();
-  return spielort;
-}
-
 export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
   return metadataFor(findSpielort(params), (spielort) =>
     pageMetadata(parent, ROUTES.adminSpielort, ROUTES.adminSpielort.path(spielort.id), { title: { record: spielort.name } }),
@@ -38,11 +32,8 @@ export async function generateMetadata({ params }: Props, parent: ResolvingMetad
 }
 
 export default async function SpielortEditorPage({ params }: Props) {
-  return await readEditor(params);
-}
-
-async function readEditor(params: Props["params"]) {
-  const spielort = await readSpielort(params);
+  const spielort = await findSpielort(params);
+  if (spielort === null) notFound();
   return (
     <SpielortEditor
       title={{ record: spielort.name }}

@@ -58,11 +58,12 @@ function leadOf({ spiel, team_id }: FLAufstellungResponse): Copy {
 }
 
 /**
- * The page once read: the editor, open before the team's lock and after it alike, since the clock locks nothing for the
- * league. A match with no day or hour takes no line-up, so its editor opens with nobody to name. A finished season's
- * line-ups take no write (`saison_past`), so the editor opens on one read-only, as the match editor does.
+ * One club's line-up for a match as the league enters it, on one read of the fixture, the squad and the stored line-up:
+ * the editor, open before the team's lock and after it alike, since the clock locks nothing for the league. A match with
+ * no day or hour takes no line-up, so its editor opens with nobody to name. A finished season's line-ups take no write
+ * (`saison_past`), so the editor opens on one read-only, as the match editor does.
  */
-async function readEditor(params: Props["params"]) {
+export default async function AdminAufstellungPage({ params }: Props) {
   const found = await findAufstellung(params);
   if (found === null) notFound();
 
@@ -86,9 +87,4 @@ async function readEditor(params: Props["params"]) {
       {...(closed === undefined ? {} : { closed })}
     />
   );
-}
-
-/** One club's line-up for a match as the league enters it, on one read of the fixture, the squad and the stored line-up. */
-export default async function AdminAufstellungPage({ params }: Props) {
-  return await readEditor(params);
 }

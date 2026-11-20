@@ -1,6 +1,6 @@
 import { requires } from "@/core/action";
 import { ADDRESS_CHANGE_WAIT_DAYS } from "@/core/addressChange";
-import { getAdminSession } from "@/core/auth/guards";
+import { getAdminHolder } from "@/core/auth/guards";
 import { ADMIN_COPY } from "@/core/copy/admin";
 import { COPY } from "@/core/copy/shared";
 import { formatInstantShort } from "@/core/format";
@@ -38,10 +38,8 @@ export async function generateMetadata(_: unknown, parent: ResolvingMetadata): P
 
 /** The running changes, and the address the page is drawn for: one read for the list and the toolbar's act alike. */
 async function readChanges() {
-  const [{ changes }, session] = await Promise.all([getAddressChanges(), getAdminSession()]);
-  // The page's read turned a refused session away to the sign-in before this line; an acting administrator signs in by
-  // passkey alone, so every act here asks the touch.
-  return { changes, holder: session?.user.email ?? "" };
+  const [{ changes }, holder] = await Promise.all([getAddressChanges(), getAdminHolder()]);
+  return { changes, holder };
 }
 
 const WAITS_ON_TONE: Readonly<Record<FLAddressChangeWaitsOn, ChipProps["tone"]>> = {
@@ -60,14 +58,17 @@ function untilOf({ effective_from, valid_until, waits_on }: FLAddressChangeAdmin
   return valid_until === null ? undefined : WORDS.until(valid_until);
 }
 
-/** The ending's facts: a holder's change in its wait has told every holder, who hear of its end; nothing else is mailed. */
+/**
+ * The ending's facts: a holder's change in its wait has told every holder, who hear of its end; nothing else is mailed,
+ * and the question then names no mail, as every question mailing nobody leaves the row out.
+ */
 function endFactsOf({ address, email, effective_from, holder, waits_on }: FLAddressChangeAdminOpen): ReadonlyArray<Fact> {
   const toldHolders = holder !== null && waits_on === "waiting_period";
   return [
     { label: COPY.shared.facts.before, value: { record: address, address: true } },
     { label: COPY.shared.facts.after, value: { record: email, address: true } },
     ...(effective_from === null ? [] : [{ label: COPY.shared.facts.effectiveFrom, value: { record: formatInstantShort(effective_from) } }]),
-    { label: ADMIN_COPY.facts.mailTo, value: toldHolders ? ADMIN_COPY.mailTo.holders : COPY.team.seatEmpty },
+    ...(toldHolders ? [{ label: ADMIN_COPY.facts.mailTo, value: ADMIN_COPY.mailTo.holders }] : []),
   ];
 }
 

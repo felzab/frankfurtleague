@@ -1,5 +1,5 @@
 import { requires } from "@/core/action";
-import { getAdminSession } from "@/core/auth/guards";
+import { getAdminHolder } from "@/core/auth/guards";
 import { ADMIN_COPY } from "@/core/copy/admin";
 import { COPY } from "@/core/copy/shared";
 import { IdentityPostWithdrawalBody, identityPostWithdrawalBodyEmailMax } from "@/core/generated/zod/inputs";
@@ -37,7 +37,7 @@ export default function WithdrawalsPage() {
       touch={false}
       read={readWithdrawal}
       run={enterWithdrawal}
-      holder={runAdminRead(async () => (await getAdminSession())?.user.email ?? "")}>
+      holder={runAdminRead(getAdminHolder)}>
       <TextField
         label={COPY.shared.emailAddress}
         name="email"
