@@ -17,7 +17,7 @@ import type { CalendarDay } from "@/core/format";
 const answer = SpielbestaetigungenPostTeamAnswerBody.shape;
 const vorschlag = answer.vorschlag.options[0].shape;
 
-// Read off the write's schema on the server, so it never reaches the browser.
+// Read off the write's schema on the server.
 const REQUIRED = {
   date: requires(vorschlag.date, ""),
   time: requires(vorschlag.time, ""),

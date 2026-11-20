@@ -90,7 +90,7 @@ export function LandingPage({
 }) {
   const slots = hero();
   return (
-    <ClassicPage width="landing">
+    <ClassicPage width="frame">
       <div className={slots.root()}>
         <h1 className={slots.title()}>{title}</h1>
         <div className={slots.words()}>

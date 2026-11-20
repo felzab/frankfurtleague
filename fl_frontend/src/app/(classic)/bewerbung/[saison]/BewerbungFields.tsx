@@ -271,7 +271,7 @@ export function BewerbungFields({
           name="wunschgegner"
           isRequired={required.wunschgegner}
           options={schools}
-          free={{ arrow: COPY.shared.showSuggestions, maxLength: max.wunschgegner }}
+          free={{ maxLength: max.wunschgegner }}
         />
       </Section>
     </>

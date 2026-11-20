@@ -21,7 +21,7 @@ export type FoldedCard = {
   tables: readonly [TableProps] | ReadonlyArray<{ head: Copy; table: TableProps }>;
 };
 
-const SPLIT_FOLDS_CLASSES = "grid content-start items-start gap-3 @2xl:grid-cols-2";
+const SPLIT_FOLDS_CLASSES = "grid content-start items-start gap-6 @2xl:grid-cols-2";
 const folds = (count: number) => (count > 1 ? SPLIT_FOLDS_CLASSES : "grid");
 
 function FoldsBox({ count, children }: { count: number; children: ReactNode }) {

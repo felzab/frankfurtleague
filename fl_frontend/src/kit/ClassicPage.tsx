@@ -19,8 +19,8 @@ const page = tv({
       mailed: { column: "max-w-dialog" },
       card: { column: "max-w-card justify-center" },
       signin: { column: "max-w-signin justify-center" },
-      landing: { column: "max-w-classic" },
-      reading: { column: "max-w-classic" },
+      // As wide as the frame's header and footer.
+      frame: { column: "max-w-classic" },
     },
   },
 });
@@ -30,13 +30,7 @@ const page = tv({
  * frame's layout places the header and the footer around it; a template places this, which with `RailPage`
  * writes every page's `main`.
  */
-export function ClassicPage({
-  width,
-  children,
-}: {
-  width: "form" | "mailed" | "card" | "signin" | "landing" | "reading";
-  children: ReactNode;
-}) {
+export function ClassicPage({ width, children }: { width: "form" | "mailed" | "card" | "signin" | "frame"; children: ReactNode }) {
   const { main, column } = page({ width });
   return (
     <PageFade>

@@ -15,7 +15,8 @@ change adds or alters.
 1. Each new or changed sentence: would a reader do something wrong without it? Where not, it goes.
 2. Does a message under a field take one of `COPY.shared.field`'s patterns, filled with the rule's
    bounds, and does a status line or callout say what is so, never why or how to repair it?
-3. Does a new entry repeat what `shared` or another area already says? No test hunts duplicate text.
+3. Does a new entry repeat what `COPY`'s `shared` section or another audience's constant already
+   says? No test hunts duplicate text.
 4. Is each string within its kind's ceiling, in the voice and punctuation the standard sets?
 5. Does each date, time, number, score and season's name go through the formatting module or the
    catalogue's season entries, and the current time through the clock module?

@@ -30,8 +30,9 @@ export const groupHeading = tv({ base: "text-xs font-medium text-fg-muted" });
  * however long (`AccountRow`). Its hairline runs the content's whole width, and its contents stand in a row over the
  * editor's own column, the status at the column's left edge and the save at its right, the content's and the bar's
  * paddings alike centring the column. The row ends at its right as `FormFooter`'s does, since a status line with
- * nothing to say leaves the row's flow (`statusLine`'s `quiet`) and the save must not move when it starts or stops
- * speaking. From `lg`, where the column is wide, the line's words end at the save rather than start at its left edge.
+ * nothing to say leaves the row's flow (`StatusLine`'s `empty:sr-only`), one speaking takes the row's free width
+ * (`statusLine`'s `row` placement), and the save must not move when it starts or stops speaking. From `lg`, where the
+ * column is wide, the line's words end at the save rather than start at its left edge.
  */
 export const editorBarLook = tv({
   slots: {

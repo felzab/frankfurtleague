@@ -39,16 +39,18 @@ export const AUTH_INDEXES: readonly AuthIndex[] = [
   { collection: "user", key: { email: 1 }, options: { name: "user_email_uidx", unique: true } },
 ];
 
-/** The run in flight, which the next waits out, so no two runs race on one collection. */
+/** The run in flight, which the next waits out, so no two runs build at once. */
 let running: Promise<void> = Promise.resolve();
 
 /** Whether a rebuild already waits on the store's recovery, so one outage arms one. */
 let rebuildArmed = false;
 
 /**
- * Every build one after another, after any run still in flight: MongoDB documents nothing about two
- * builds racing on one collection. Never rejects, so the boot's unawaited call leaves no rejection
- * unhandled.
+ * Every build one after another, after any run still in flight. The server runs at most `maxNumActiveUserIndexBuilds`
+ * index builds at once, three by default, and blocks the rest until one ends
+ * (https://www.mongodb.com/docs/manual/core/index-creation/#maximum-concurrent-index-builds). A blocked build waits
+ * inside the client's socket bound, and the adapter's own builds count against the same limit, so a run holds at most
+ * one of them. Never rejects, so the boot's unawaited call leaves no rejection unhandled.
  */
 export function buildAuthIndexes(): Promise<void> {
   running = running.then(buildOnce);

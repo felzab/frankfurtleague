@@ -94,7 +94,6 @@ function spielbestaetigungRow(row: FLTeamPanelSpielbestaetigung, team: string, s
           <>
             {/* At once, as the administration's at-once acts are: „Zugesagt“ as the agreed row leaves the box. */}
             <PressAct
-              variant="primary"
               label={COPY.shared.verb.agree}
               run={agreeSpielbestaetigung}
               payload={{ id: row.spielbestaetigung_id }}
