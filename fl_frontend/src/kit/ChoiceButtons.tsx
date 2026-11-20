@@ -11,12 +11,12 @@ import { CutText } from "./CutText";
 import { FieldLabel, MessageLine, useFieldLock, useFieldWait } from "./FieldParts";
 import { choiceButton, choiceField, choiceGroup, fieldRoot, messageLine } from "./fieldStyles";
 
-import type { Copy } from "@/core/copy";
+import type { Copy, Words } from "@/core/copy";
 import type { ReactNode } from "react";
 import type { Choice } from "./FieldParts";
 
 type Shared = {
-  label: Copy;
+  label: Words;
   choices: readonly Choice[];
   /** The write takes no record without an answer here: the asterisk after the label, and the group heard as required. */
   isRequired?: boolean;
@@ -77,7 +77,7 @@ export function Segmented({
     <RadioGroup
       inert={useFieldWait()}
       className={fieldRoot()}
-      aria-label={labelHidden ? label : undefined}
+      aria-label={labelHidden ? textOf(label) : undefined}
       orientation="horizontal"
       value={value}
       onChange={onChange}

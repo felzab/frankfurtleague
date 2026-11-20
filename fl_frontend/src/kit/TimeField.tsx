@@ -7,7 +7,7 @@ import { Segments } from "./dateParts";
 import { FieldLabel, MessageLine, useFieldLock } from "./FieldParts";
 import { fieldRoot } from "./fieldStyles";
 
-import type { Copy } from "@/core/copy";
+import type { Words } from "@/core/copy";
 import type { TimeOfDay } from "@/core/format";
 import type { Time } from "@internationalized/date";
 
@@ -27,7 +27,7 @@ export function TimeField({
   defaultValue,
   onChange,
 }: {
-  label: Copy;
+  label: Words;
   isRequired?: boolean;
   name?: string;
   value?: TimeOfDay | null;

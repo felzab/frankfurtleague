@@ -11,7 +11,7 @@ import { Icon } from "./Icon";
 import { OptionList } from "./OptionList";
 import { ChosenField } from "./TextField";
 
-import type { Copy } from "@/core/copy";
+import type { Copy, Words } from "@/core/copy";
 import type { Option } from "./OptionList";
 
 /**
@@ -36,7 +36,7 @@ export function Select({
   defaultValue,
   onChange,
 }: {
-  label: Copy;
+  label: Words;
   /** Whether the label names the field to a screen reader alone, the title of a section holding this one field. */
   labelHidden?: boolean;
   /** The characters the longest choice holds, where every choice is a count. */

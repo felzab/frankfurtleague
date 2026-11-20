@@ -2,11 +2,13 @@
 
 import { SearchField as AriaSearchField, Button, Input } from "react-aria-components/SearchField";
 
+import { textOf } from "@/core/copy";
+
 import { useFieldWait } from "./FieldParts";
 import { fieldFrame, searchClear, searchGlyph, searchInput } from "./fieldStyles";
 import { Icon } from "./Icon";
 
-import type { Copy } from "@/core/copy";
+import type { Words } from "@/core/copy";
 
 /**
  * Find in a list: one field above it, named by `label` for assistive technology, with the magnifier at
@@ -20,7 +22,7 @@ export function SearchField({
   onChange,
   maxLength,
 }: {
-  label: Copy;
+  label: Words;
   value?: string;
   onChange: (text: string) => void;
   maxLength?: number;
@@ -28,7 +30,7 @@ export function SearchField({
   return (
     <AriaSearchField
       inert={useFieldWait()}
-      aria-label={label}
+      aria-label={textOf(label)}
       value={value}
       onChange={onChange}
       maxLength={maxLength}

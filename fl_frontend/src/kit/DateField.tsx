@@ -20,7 +20,7 @@ import { FieldLabel, MessageLine, useFieldLock } from "./FieldParts";
 import { calendarCell, calendarHead, fieldButton, fieldFrame, fieldRoot, menuPopover, monthArrow } from "./fieldStyles";
 import { Icon } from "./Icon";
 
-import type { Copy } from "@/core/copy";
+import type { Copy, Words } from "@/core/copy";
 import type { CalendarDay } from "@/core/format";
 import type { CalendarDate } from "@internationalized/date";
 
@@ -91,7 +91,7 @@ export function DateField({
   minValue,
   maxValue,
 }: {
-  label: Copy;
+  label: Words;
   description?: Copy;
   consequence?: Copy;
   isRequired?: boolean;

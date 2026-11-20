@@ -13,7 +13,7 @@ import { fieldButton, fieldFrame, fieldRoot, groupInput } from "./fieldStyles";
 import { Icon } from "./Icon";
 import { OptionList } from "./OptionList";
 
-import type { Copy } from "@/core/copy";
+import type { Copy, Words } from "@/core/copy";
 import type { Option } from "./OptionList";
 
 /**
@@ -48,7 +48,7 @@ export function ComboBox({
   value,
   onChange,
 }: {
-  label: Copy;
+  label: Words;
   /** Whether the label names the field to a screen reader alone, the place around it naming it on the screen. */
   labelHidden?: boolean;
   description?: Copy;
@@ -76,7 +76,7 @@ export function ComboBox({
     <AriaComboBox
       inert={useFieldWait()}
       className={fieldRoot()}
-      aria-label={labelHidden ? label : undefined}
+      aria-label={labelHidden ? textOf(label) : undefined}
       name={name}
       // The form receives the chosen record's id, not the text typed to find it, unless the text is the answer.
       formValue="key"
