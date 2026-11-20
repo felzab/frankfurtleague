@@ -12,7 +12,7 @@ import { COPY } from "@/core/copy/shared";
 
 import { Button } from "./Button";
 import { Icon } from "./Icon";
-import { useRailCollapsed } from "./RailState";
+import { useRailCollapsed } from "./railContext";
 import { tv } from "./tv";
 import { answerLine } from "./useFormAction";
 
