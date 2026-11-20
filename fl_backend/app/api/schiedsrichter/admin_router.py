@@ -247,7 +247,7 @@ async def patch_schiedsrichter(
     answer, re_minted = await transact(db, correct_and_ask)
 
     if re_minted:
-        answer.confirmation = FLSchiedsrichterMint(deadline=confirmation_deadline_from(today=today), email=email)
+        answer.confirmation = FLSchiedsrichterMint(email=email)
 
     return answer
 
@@ -420,4 +420,4 @@ async def resend_confirmation(
     # request: a save moving it in between would otherwise send the link to the previous mailbox.
     minted_for = await transact(db, judge_and_mint)
 
-    return FLSchiedsrichterMintResponse(confirmation=FLSchiedsrichterMint(deadline=confirmation_deadline_from(today=today), email=minted_for))
+    return FLSchiedsrichterMintResponse(confirmation=FLSchiedsrichterMint(email=minted_for))

@@ -10020,11 +10020,6 @@
       "FLSchiedsrichterMint": {
         "description": "The confirmation link a write owed the referee, which the Postausgang mints and mails: never the link itself.",
         "properties": {
-          "deadline": {
-            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Deadline",
-            "type": "string"
-          },
           "email": {
             "minLength": 1,
             "title": "Email",
@@ -10032,7 +10027,6 @@
           }
         },
         "required": [
-          "deadline",
           "email"
         ],
         "title": "FLSchiedsrichterMint",
