@@ -1375,6 +1375,9 @@ const eslintConfig = defineConfig([
       // A check its types say cannot fail is a dead branch, or a type narrower than what the runtime hands over,
       // which is widened where the value enters rather than the check dropped.
       "@typescript-eslint/no-unnecessary-condition": "error",
+      // A part its library marks `@deprecated` goes at the library's next major, when the build fails on a markup
+      // change nobody has looked at; refused here, it moves to the replacement while the two stand side by side.
+      "@typescript-eslint/no-deprecated": "error",
     },
   },
 

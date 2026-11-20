@@ -1,14 +1,15 @@
 "use client";
 
-import { Checkbox, CheckboxGroup } from "react-aria-components/CheckboxGroup";
-import { Radio, RadioGroup } from "react-aria-components/RadioGroup";
+import { CheckboxButton, CheckboxField } from "react-aria-components/Checkbox";
+import { CheckboxGroup } from "react-aria-components/CheckboxGroup";
+import { RadioButton, RadioField, RadioGroup } from "react-aria-components/RadioGroup";
 import { Text } from "react-aria-components/Text";
 
 import { textOf } from "@/core/copy";
 
 import { CutText } from "./CutText";
 import { FieldLabel, MessageLine, useFieldLock, useFieldWait } from "./FieldParts";
-import { choiceButton, choiceGroup, fieldRoot, messageLine } from "./fieldStyles";
+import { choiceButton, choiceField, choiceGroup, fieldRoot, messageLine } from "./fieldStyles";
 
 import type { Copy } from "@/core/copy";
 import type { ReactNode } from "react";
@@ -93,20 +94,23 @@ export function Segmented({
       )}
       <div className={choiceGroup({ kind: "segmented" })}>
         {choices.map((choice) => (
-          <Radio
+          <RadioField
             key={choice.id}
             value={choice.id}
             aria-label={choice.spoken === undefined ? undefined : textOf(choice.spoken)}
-            data-kit-focus="ring"
-            className={choiceButton({ kind: "segmented" })}>
-            <span className="inline-flex min-w-0 items-center gap-1.5">
-              {choice.mark}
-              <CutText
-                text={textOf(choice.label)}
-                className="min-w-0 truncate"
-              />
-            </span>
-          </Radio>
+            className={choiceField()}>
+            <RadioButton
+              data-kit-focus="ring"
+              className={choiceButton({ kind: "segmented" })}>
+              <span className="inline-flex min-w-0 items-center gap-1.5">
+                {choice.mark}
+                <CutText
+                  text={textOf(choice.label)}
+                  className="min-w-0 truncate"
+                />
+              </span>
+            </RadioButton>
+          </RadioField>
         ))}
       </div>
       <GroupMessage errorMessage={errorMessage} />
@@ -148,13 +152,16 @@ export function ToggleBoxes({
       />
       <div className={choiceGroup({ kind: "boxes" })}>
         {choices.map((choice) => (
-          <Checkbox
+          <CheckboxField
             key={choice.id}
             value={choice.id}
-            data-kit-focus="ring"
-            className={choiceButton({ kind: "boxes" })}>
-            {textOf(choice.label)}
-          </Checkbox>
+            className={choiceField()}>
+            <CheckboxButton
+              data-kit-focus="ring"
+              className={choiceButton({ kind: "boxes" })}>
+              {textOf(choice.label)}
+            </CheckboxButton>
+          </CheckboxField>
         ))}
       </div>
       <GroupMessage errorMessage={errorMessage} />

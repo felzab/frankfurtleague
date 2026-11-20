@@ -341,6 +341,13 @@ export const choiceCard = tv({
 });
 
 /**
+ * The field React Aria wraps each answer of a radio group, a segmented choice or toggle boxes in, which hands the
+ * answer's state to its button: it draws no box of its own, so each button stands in its group's row, list or grid as
+ * the answer itself, and carries the answer's look.
+ */
+export const choiceField = tv({ base: "contents" });
+
+/**
  * The dot inside a chosen radio, in the page's ground.
  */
 export const radioDot = tv({ base: "size-2.5 rounded-full bg-bg" });
@@ -444,7 +451,8 @@ export const choiceGroup = tv({
     kind: {
       segmented:
         "inline-flex h-8 max-w-full self-start rounded-lg border border-border-control bg-transparent p-0.5 group-data-invalid:border-danger pointer-coarse:h-10",
-      boxes: "flex-wrap gap-2 group-data-invalid:*:not-data-selected:border-danger",
+      // Each box is the button inside its answer's field (`choiceField`), two levels down.
+      boxes: "flex-wrap gap-2 group-data-invalid:*:*:not-data-selected:border-danger",
     },
   },
 });

@@ -211,6 +211,9 @@ typeCheckingMode = "standard"
 # Off alone: every payload schema narrowing a base model's field, the shape it exists for, would
 # report it.
 reportIncompatibleVariableOverride = false
+# A use of what a library or the standard library's stubs mark deprecated, refused while its
+# replacement stands beside it rather than found at the release that removes it.
+reportDeprecated = "error"
 
 # The application's code names a type for every parameter: one left bare is `Any` to pyright, so a write through a
 # collection it is handed passes with nothing reported. Not the tests, which take fixtures and
