@@ -9,7 +9,7 @@ import { getSpielPage } from "@/features/saisons/queries";
 import { publicSaisonOf } from "@/features/saisons/resolvers";
 import { eventOf, headOf, matchdayOf, refereeOf, sidesOf } from "@/features/spiele/blocks";
 import { creditedSide } from "@/features/spiele/result";
-import { rolleMarkOf, spielerName } from "@/features/spieler/constants";
+import { publicPupilHead, publicPupilRow, spielerName } from "@/features/spieler/constants";
 import { ReadFolds } from "@/kit/ReadFolds";
 import { ReadPage } from "@/kit/ReadPage";
 import { pageMetadata } from "@/shared/utils/metadata";
@@ -30,7 +30,7 @@ import type {
 import type { FoldedCard } from "@/kit/ReadFolds";
 import type { ReadRecord } from "@/kit/ReadPage";
 import type { StatTile } from "@/kit/StatTiles";
-import type { TableProps, TableRow } from "@/kit/Table";
+import type { TableProps } from "@/kit/Table";
 import type { Checkpoint } from "@/kit/Timeline";
 import type { Metadata, ResolvingMetadata } from "next";
 
@@ -170,34 +170,13 @@ function dateTileOf(day: CalendarDay | null): StatTile {
     : { label: date, value: { record: formatDateWithWeekday(day) }, line: { record: day.slice(0, 4) } };
 }
 
-/** A line-up's pupil as their row names them: the captain's or the Co-Kapitän's mark after a published name, never after „anonym“. */
-function rowNameOf(entry: FLAufstellungEntryPublic): Pick<TableRow, "name" | "mark"> {
-  const name = spielerName(entry);
-  const mark = typeof name === "string" ? undefined : rolleMarkOf(entry.rolle);
-  return mark === undefined ? { name } : { name, mark };
-}
-
-/**
- * A line-up's pupils as one table: a row a pupil, with their number and position; both also on the row's line, which a
- * phone shows in the columns' place, since the row opens nothing.
- */
+/** A line-up's pupils as one table: a row a pupil, as every public pupils' table sets one. */
 function tableOf(label: Copy, spieler: readonly FLAufstellungEntryPublic[]): TableProps {
   const { column, spiel } = SERVER_COPY.season;
   return {
     label,
-    nameLabel: column.name,
-    columns: [
-      { key: "nummer", label: column.nummer, figures: true, narrow: true, onLine: "labelled", width: "count" },
-      { key: "position", label: column.position, hideOnPhone: true, onLine: "value", width: "word" },
-    ],
-    rows: spieler.map((entry, index) => ({
-      id: String(index),
-      ...rowNameOf(entry),
-      cells: {
-        ...(entry.nummer === null ? {} : { nummer: { record: entry.nummer } }),
-        ...(entry.position === null ? {} : { position: { record: entry.position } }),
-      },
-    })),
+    ...publicPupilHead(column),
+    rows: spieler.map((entry, index) => ({ id: String(index), ...publicPupilRow(entry) })),
     empty: { kind: "none", plural: spiel.aufstellung },
   };
 }
