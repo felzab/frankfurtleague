@@ -86,6 +86,6 @@ export const enterWithdrawal = action({
   examples: { email: COPY.shared.field.exampleAddress },
   run: async (entry) => {
     await identityPostWithdrawal(entry);
-    return { ok: true, value: undefined, note: WORDS.entered };
+    return { ok: true, value: undefined };
   },
 });

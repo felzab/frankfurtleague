@@ -98,11 +98,7 @@ describe("the withdrawal's question", () => {
 
 describe("the withdrawal's entry", () => {
   it("posts the entry once, with no dry run, and answers done", async () => {
-    expect(await enterWithdrawal({ email: SENDER, choices: ["name"] })).toStrictEqual({
-      ok: true,
-      value: undefined,
-      note: ADMIN_COPY.withdrawal.entered,
-    });
+    expect(await enterWithdrawal({ email: SENDER, choices: ["name"] })).toStrictEqual({ ok: true, value: undefined });
     expect(backend.sent.map(({ method, path, search, body }) => ({ method, path, search: search.toString(), body }))).toStrictEqual([
       { method: "POST", path: "/identity/withdrawal", search: "", body: { email: SENDER, choices: ["name"] } },
     ]);
