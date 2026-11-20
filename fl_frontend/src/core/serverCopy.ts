@@ -1216,7 +1216,7 @@ export const SERVER_COPY = catalogue({
       provider: { heading: "Anbieter", name: VEREIN_NAME, address: VEREIN_ADDRESS },
       representation: {
         heading: "Vertretung",
-        rule: `Je ${formatNumber(VORSTAND_JOINTLY)} Mitglieder des Vorstands vertreten den Verein gemeinsam:`,
+        rule: `Je ${boundBy(formatNumber(VORSTAND_JOINTLY), "Mitglieder")} des Vorstands vertreten den Verein gemeinsam:`,
         member: (name: string, amt: string) => `${name}, ${amt}`,
       },
       /** Before the league's address, which the page sets as a link after it. */
