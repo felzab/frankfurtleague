@@ -3,8 +3,7 @@ import { rolesOf } from "@/core/roles";
 import { ROUTES } from "@/core/routes";
 import { getSubjectSession } from "@/core/subject";
 import { readAccount } from "@/features/account/account";
-import { RailFrame } from "@/kit/RailFrame";
-import { RailFrameBoundary } from "@/kit/RailFrameBoundary";
+import { GuardedRailFrame } from "@/kit/GuardedRailFrame";
 
 import { AREA_HOME } from "../areaHome";
 
@@ -76,19 +75,15 @@ async function readTeams(): Teams {
 export default function TeamLayout({ children }: { children: ReactNode }) {
   return (
     // A failed read of the frame's own is answered in the rail frame: this segment's `error.tsx` stands inside this layout.
-    <RailFrameBoundary
+    <GuardedRailFrame
       groups={RAIL_GROUPS}
       bar={BAR}
-      next={AREA_HOME}>
-      <RailFrame
-        groups={RAIL_GROUPS}
-        bar={BAR}
-        saison={{ teams: readTeams(), home: "teamOverview" }}
-        // The row's second line is the place's own, the team's Kürzel and the seats held there: the frame names no team.
-        foot={{ kind: "account", account: readAccount() }}
-        columnInLayouts>
-        {children}
-      </RailFrame>
-    </RailFrameBoundary>
+      saison={{ teams: readTeams(), home: "teamOverview" }}
+      // The row's second line is the place's own, the team's Kürzel and the seats held there: the frame names no team.
+      foot={{ kind: "account", account: readAccount() }}
+      next={AREA_HOME}
+      columnInLayouts>
+      {children}
+    </GuardedRailFrame>
   );
 }

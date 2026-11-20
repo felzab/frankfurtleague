@@ -3,13 +3,16 @@ import { Suspense } from "react";
 
 import { act, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { ThemeProvider } from "next-themes";
+import { hydrateRoot } from "react-dom/client";
+import { renderToString } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { COPY } from "@/core/copy/shared";
 import { ROUTES } from "@/core/routes";
 import { renderUnderNext } from "@/test-support/nextContexts";
 
-import { BarPlaces, MenuScope, RailEntries, SaisonScope } from "./FrameNav";
+import { BarPlaces, MenuScope, RailEntries, SaisonScope, ThemeChoice } from "./FrameNav";
 
 import type { NextContexts } from "@/test-support/nextContexts";
 import type { RailGroup, Saisons } from "./FrameNav";
@@ -109,6 +112,23 @@ describe("the entry marked as the current page", () => {
     );
 
     expect(lit()).toEqual([page.title]);
+  });
+
+  // On a phone a page the bar leaves to „Mehr“, such as the Widerrufe, was marked nowhere a person sees: the bar lit no
+  // place, and the sheet drew its entry as every other.
+  it("lights „Mehr“ and marks its sheet's entry as the rail marks one, on a page the bar leaves to the sheet", async () => {
+    await renderMenus(ROUTES.adminSpiele.path("2026"), { entries: [{ id: "2026", span: "" }], standard: "2026" });
+
+    const more = screen.getByRole("button", { name: COPY.template.more });
+    expect(more.className.split(" ")).toContain("text-brand");
+    expect(more.className.split(" ")).not.toContain("text-fg-muted");
+    await userEvent.click(more);
+    const sheet = await screen.findByRole("dialog", { name: COPY.template.more });
+    const marked = within(sheet).getByRole("link", { current: "page" });
+    expect(marked.textContent).toBe(ROUTES.adminSpiele.title);
+    // The rail's mark of the page a person is on, drawn on the entry that carries `data-selected`.
+    expect(marked.hasAttribute("data-selected")).toBe(true);
+    expect(marked.className.split(" ")).toEqual(expect.arrayContaining(["data-selected:bg-bg-muted", "data-selected:text-brand"]));
   });
 });
 
@@ -252,5 +272,38 @@ describe("a team frame's rail", () => {
       "/area/team/linde/2025/registrierungen",
     ]);
     expect(lit()).toEqual([ROUTES.teamKader.title]);
+  });
+});
+
+// Opened by its address, Darstellung hydrates markup the server drew without the choice the browser stores: a control
+// marking that choice while it hydrates is a mismatch React leaves standing, and the page shows no theme chosen. A
+// client navigation to it renders afresh and shows it right, so only a reload or a link from outside sees the fault.
+describe("the theme control", () => {
+  it("marks the theme the browser stores once the page opened by its address has hydrated", async () => {
+    const control = () => (
+      <ThemeProvider
+        enableSystem
+        defaultTheme="system">
+        <ThemeChoice />
+      </ThemeProvider>
+    );
+    // The server's markup, drawn before the browser holds the choice, as the server never reads it.
+    const page = document.createElement("div");
+    page.innerHTML = renderToString(control());
+    document.body.append(page);
+    localStorage.setItem("theme", "dark");
+    onTestFinished(() => {
+      localStorage.clear();
+      page.remove();
+    });
+
+    const root = await act(async () => hydrateRoot(page, control()));
+    onTestFinished(() => act(() => root.unmount()));
+
+    const chosen = within(page)
+      .getAllByRole("radio")
+      .filter((choice) => choice.getAttribute("aria-checked") === "true")
+      .map((choice) => choice.getAttribute("aria-label"));
+    expect(chosen).toEqual([COPY.template.theme.dark]);
   });
 });

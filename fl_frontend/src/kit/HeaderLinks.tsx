@@ -1,6 +1,5 @@
 "use client";
 
-import { Fragment } from "react";
 import { usePathname } from "next/navigation";
 
 import { Button as AriaButton } from "react-aria-components/Button";
@@ -11,7 +10,7 @@ import { hoverLook } from "./hoverStyles";
 import { Icon } from "./Icon";
 import { frameLink, menuEntry } from "./Link";
 import { currentOf } from "./navPlace";
-import { Sheet } from "./Sheet";
+import { FreshPerPage, Sheet } from "./Sheet";
 import { NavigationLink, usePressed } from "./WholePage";
 
 import type { Copy } from "@/core/copy";
@@ -57,7 +56,7 @@ export function HeaderLinks({ links, signIn }: HeaderLinksProps) {
         {COPY.template.account}
       </NavigationLink>
       <div className="ms-auto lg:hidden">
-        <Fragment key={path}>
+        <FreshPerPage>
           <Sheet
             label={COPY.template.menu}
             trigger={
@@ -77,14 +76,15 @@ export function HeaderLinks({ links, signIn }: HeaderLinksProps) {
                   key={link.href}
                   href={link.href}
                   aria-current={link.href === current ? "page" : undefined}
+                  data-selected={link.href === current || undefined}
                   data-kit-focus="inset"
-                  className={menuEntry({ size: "phone" })}>
+                  className={menuEntry({ size: "phone", current: link.href === current })}>
                   {link.label}
                 </NavigationLink>
               ))}
             </div>
           </Sheet>
-        </Fragment>
+        </FreshPerPage>
       </div>
     </>
   );

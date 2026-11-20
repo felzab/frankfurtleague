@@ -2,8 +2,7 @@ import { COPY } from "@/core/copy/shared";
 import { ROUTES } from "@/core/routes";
 import { readAccount } from "@/features/account/account";
 import { getOwnSaisons } from "@/features/roles/queries";
-import { RailFrame } from "@/kit/RailFrame";
-import { RailFrameBoundary } from "@/kit/RailFrameBoundary";
+import { GuardedRailFrame } from "@/kit/GuardedRailFrame";
 
 import { AREA_HOME } from "../areaHome";
 
@@ -64,18 +63,14 @@ export function PersonFrame({ place, children }: { place: keyof typeof FRAMES; c
   const frame: Frame = FRAMES[place];
   return (
     // A failed read of the frame's own is answered in the rail frame: the place's `error.tsx` stands inside its layout.
-    <RailFrameBoundary
+    <GuardedRailFrame
       groups={frame.groups}
       bar={BAR}
-      next={AREA_HOME}>
-      <RailFrame
-        groups={frame.groups}
-        bar={BAR}
-        saison={place === "landing" ? undefined : { saisons: getOwnSaisons(place), ...FRAMES[place].saison }}
-        foot={{ kind: "account", account: readAccount(frame.role) }}
-        columnInLayouts={frame.columnInLayouts}>
-        {children}
-      </RailFrame>
-    </RailFrameBoundary>
+      saison={place === "landing" ? undefined : { saisons: getOwnSaisons(place), ...FRAMES[place].saison }}
+      foot={{ kind: "account", account: readAccount(frame.role) }}
+      next={AREA_HOME}
+      columnInLayouts={frame.columnInLayouts}>
+      {children}
+    </GuardedRailFrame>
   );
 }

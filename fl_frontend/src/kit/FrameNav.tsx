@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, use, useContext, useEffect, useState } from "react";
+import { createContext, use, useContext, useEffect, useState, useSyncExternalStore } from "react";
 import { useParams, usePathname } from "next/navigation";
 
 import { useTheme } from "next-themes";
@@ -20,10 +20,10 @@ import { Icon } from "./Icon";
 import { useLeaveGuard } from "./LeaveGuard";
 import { menuEntry } from "./Link";
 import { Menu } from "./Menu";
-import { currentOf, FreshPerPage, placeOf } from "./navPlace";
+import { currentOf, placeOf } from "./navPlace";
 import { RailTooltip, useRailCollapsed } from "./RailState";
 import { groupHeading, railFade, railGlyph } from "./railStyles";
-import { Sheet } from "./Sheet";
+import { FreshPerPage, Sheet } from "./Sheet";
 import { appToast } from "./Toast";
 import { tv } from "./tv";
 import { NavigationLink, useNavigate, usePressed } from "./WholePage";
@@ -197,7 +197,8 @@ export function useFrameSaison(): FrameSaison | null {
 }
 
 /**
- * The same page in season `to`: the address with its season swapped, so a team's page stays its team's. A record's
+ * The same page in season `to`: the path with its season swapped, so a team's page stays its team's, and the
+ * Spielsuche the Spielsuche, its filters dropped with the query, since they name one season's teams and matchdays. A record's
  * page, an address naming a record past the season, has no counterpart there and lands on the list it lies under,
  * the season page the rail marks for it; a page whose address names no season lands on the season's first page.
  */
@@ -219,7 +220,11 @@ export function counterpart({
   const at = typeof from === "string" ? segments.indexOf(from) : -1;
   if (typeof from !== "string" || at === -1) return home(to);
 
-  const records = Object.entries(params).flatMap(([name, value]) => (name === "saison" || value === undefined ? [] : [value].flat()));
+  // The root's `@modal` slot catches every address none of its pop-ups intercepts, so its `catchAll` holds the whole
+  // path, a page's own name among it, and names no record: counted, it sent the Spielsuche to the season's first page.
+  const records = Object.entries(params).flatMap(([name, value]) =>
+    name === "saison" || name === "catchAll" || value === undefined ? [] : [value].flat(),
+  );
   if (segments.slice(at + 1).some((segment) => records.includes(segment))) {
     const lists = pages.map((page) => ({ page, href: page(from) }));
     const list = lists.find(
@@ -318,6 +323,8 @@ async function signOutAndLeave() {
   appToast("danger", COPY.shared.failure.unexpected);
 }
 
+const neverChanges = () => () => undefined;
+
 /** The themes as next-themes names them, each by its glyph, in the order the owner set: dark, light, system. */
 const THEMES: readonly GlyphChoice[] = [
   { id: "dark", glyph: "dark", label: COPY.template.theme.dark },
@@ -330,13 +337,20 @@ const THEMES: readonly GlyphChoice[] = [
  * glyphs, each named by its tooltip, acting at once.
  */
 export function ThemeChoice() {
-  // The theme next-themes holds, unknown until the page hydrates, so none is chosen before.
   const { theme, setTheme } = useTheme();
+  // The server cannot read the theme next-themes stores in the browser, so its markup marks none, and a hydrating render
+  // marking the stored one is a mismatch React does not repair: the page opened by its address showed none chosen. The
+  // hydrating render draws what the server drew, and the render after marks the stored theme, the glyphs unmoved.
+  const hydrated = useSyncExternalStore(
+    neverChanges,
+    () => true,
+    () => false,
+  );
   return (
     <GlyphChoices
       label={COPY.page.accountAppearance}
       choices={THEMES}
-      value={theme ?? null}
+      value={hydrated ? (theme ?? null) : null}
       onChange={setTheme}
     />
   );
@@ -619,6 +633,8 @@ function Places({ groups: given, bar, extra, account, prefetch }: FrameMenu) {
   const rest = groups
     .map((group) => ({ ...group, entries: group.entries.filter((entry) => !bar.includes(entry.id)) }))
     .filter((group) => group.entries.length > 0);
+  // „Mehr“ is lit as the place of a page its sheet leads to, as a bar place is of its own, so the bar always marks one.
+  const inSheet = rest.some((group) => group.entries.some((entry) => entry === current));
 
   return (
     // At the column's foot, by its margin, whether a page stands above it or none does yet.
@@ -649,7 +665,7 @@ function Places({ groups: given, bar, extra, account, prefetch }: FrameMenu) {
             trigger={
               <AriaButton
                 data-kit-focus="inset"
-                className={barPlace({ current: false, host: "aria" })}>
+                className={barPlace({ current: inSheet, host: "aria" })}>
                 <Icon
                   glyph="more"
                   size={18}
@@ -669,8 +685,9 @@ function Places({ groups: given, bar, extra, account, prefetch }: FrameMenu) {
                       href={entry.href}
                       prefetch={prefetch}
                       aria-current={entry === current ? "page" : undefined}
+                      data-selected={entry === current || undefined}
                       data-kit-focus="inset"
-                      className={menuEntry({ size: "phone" })}>
+                      className={menuEntry({ size: "phone", current: entry === current })}>
                       <Icon
                         glyph={entry.icon}
                         size={18}
