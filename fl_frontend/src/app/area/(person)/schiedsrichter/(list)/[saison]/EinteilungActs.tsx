@@ -29,7 +29,6 @@ export function EinteilungActs({
   return (
     <>
       <PressAct
-        variant="primary"
         label={COPY.shared.verb.agree}
         run={agreeEinteilung}
         payload={{ id }}
