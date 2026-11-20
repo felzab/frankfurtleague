@@ -36,11 +36,11 @@ const birthday = (date: string | null, label: Copy = COPY.shared.facts.birthday)
   fact(label, date === null ? null : formatDate(dayOf(date)));
 
 /**
- * A seat entry's facts in the referee box's order: name, birthday, the team or school, the seats held, telephone. Seats
- * storing the person alike list them once; a second spelling on another seat follows with its own name, birthday and
- * telephone.
+ * A seat entry's facts in the referee box's order: name, birthday, the team where the seat has one, the seats held,
+ * telephone. Seats storing the person alike list them once; a second spelling on another seat follows with its own
+ * name, birthday and telephone.
  */
-function seatFacts(persons: readonly FLAccountSeatPerson[], affiliation: Fact, held: readonly FLKontaktSeat[]): Fact[] {
+function seatFacts(persons: readonly FLAccountSeatPerson[], team: Fact | null, held: readonly FLKontaktSeat[]): Fact[] {
   const spellings = new Map<string, { person: FLAccountSeatPerson; seats: FLKontaktSeat[] }>();
   for (const person of persons) {
     const key = JSON.stringify([person.first_name, person.last_name, person.birth_date, person.phone]);
@@ -53,7 +53,7 @@ function seatFacts(persons: readonly FLAccountSeatPerson[], affiliation: Fact, h
   return [...spellings.values()].flatMap(({ person, seats }, index) => [
     fact(labelOf(COPY.shared.name, seats), `${person.first_name} ${person.last_name}`),
     birthday(person.birth_date, labelOf(COPY.shared.facts.birthday, seats)),
-    ...(index === 0 ? [affiliation, { label: COPY.team.seat, value: WORDS.seatsHeld(held) }] : []),
+    ...(index === 0 ? [...(team === null ? [] : [team]), { label: COPY.team.seat, value: WORDS.seatsHeld(held) }] : []),
     fact(labelOf(COPY.shared.facts.phone, seats), person.phone),
   ]);
 }
@@ -161,7 +161,9 @@ function entriesOf({ spieler, schiedsrichter, registrierungen, seats, bewerbunge
     // An application stands for no team yet: titled as its page is, by the season it applies for.
     title: COPY.page.bewerbung(bewerbung.saison_id),
     description: WORDS.description.seat,
-    facts: seatFacts(bewerbung.persons, fact(COPY.shared.facts.school, bewerbung.schule), bewerbung.seats),
+    // No school: the read serves a new school's name as the form's sender typed it beside this person's address, in the
+    // one string it serves a listed club's by, and no page or mail repeats that text. The title names the season.
+    facts: seatFacts(bewerbung.persons, null, bewerbung.seats),
     ...saved({ kind: "bewerbung", bewerbung_id: bewerbung.bewerbung_id }, bewerbung.evidence_state, SEAT_TEXT_VERSIONS),
     scope: bewerbung.scope,
     media: bewerbung.media,
