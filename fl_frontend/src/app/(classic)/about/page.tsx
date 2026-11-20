@@ -2,8 +2,9 @@ import { COPY } from "@/core/copy/shared";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { ORGANISERS } from "@/features/meta/constants";
-import { ClassicPage, ClassicSections, PageHead } from "@/kit/ClassicPage";
+import { ClassicPage, PageHead } from "@/kit/ClassicPage";
 import { InfoCards } from "@/kit/InfoCards";
+import { SectionStack } from "@/kit/LandingPage";
 import { LandingSection } from "@/kit/LandingSection";
 import { Organisers } from "@/kit/Organisers";
 import { Pillars } from "@/kit/Pillars";
@@ -30,7 +31,7 @@ export default function AboutPage() {
         title={COPY.page.about}
         lead={words.paragraphs}
       />
-      <ClassicSections>
+      <SectionStack>
         <LandingSection
           eyebrow={words.pillars.eyebrow}
           title={words.pillars.title}>
@@ -60,7 +61,7 @@ export default function AboutPage() {
           title={words.organisers.title}>
           <Organisers people={ORGANISERS.map((person) => ({ name: { record: person.name }, role: words.organisers.role[person.role] }))} />
         </LandingSection>
-      </ClassicSections>
+      </SectionStack>
     </ClassicPage>
   );
 }

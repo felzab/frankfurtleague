@@ -17,6 +17,9 @@ export type LandingContent = {
   aside: ReactElement;
 };
 
+/** The space between the landing's sections, the same on every page that places them. */
+const sectionGap = tv({ base: "grid gap-12 lg:gap-16" });
+
 const hero = tv({
   slots: {
     // Split from `lg`: the tagline and the words under it at the left, the season card at the right beside both; one
@@ -31,9 +34,14 @@ const hero = tv({
     // From `lg` the card stands beside both rows, from the title's top to the words' foot, the taller of the two setting
     // the hero's height. A grid of one, so the card fills it.
     aside: "min-w-0 lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:grid lg:self-stretch",
-    sections: "grid gap-12 pt-12 lg:col-span-2 lg:gap-16 lg:pt-16",
+    sections: sectionGap({ class: "pt-12 lg:col-span-2 lg:pt-16" }),
   },
 });
+
+/** The landing's sections on a page of their own, under its head, as far apart as on the landing. */
+export function SectionStack({ children }: { children: ReactNode }) {
+  return <div className={sectionGap()}>{children}</div>;
+}
 
 async function Acts({ content }: { content: Promise<LandingContent> }) {
   const { primary, secondary } = await content;
