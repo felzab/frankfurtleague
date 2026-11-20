@@ -1,10 +1,14 @@
+// @vitest-environment jsdom
+import { screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { ADMIN_COPY } from "@/core/copy/admin";
 import { COPY } from "@/core/copy/shared";
 import { FLSonderereignis } from "@/core/generated/client/types";
 import { SERVER_COPY } from "@/core/serverCopy";
+import { AnswerRows } from "@/kit/AnswerRows";
 import { serveBackend } from "@/test-support/backend";
+import { renderUnderNext } from "@/test-support/nextContexts";
 import { signedInRequest } from "@/test-support/session";
 
 import type { FLSpielbestaetigungEditorRow, FLSpieleAdminSingleResponse } from "@/core/generated/client/types";
@@ -270,5 +274,47 @@ describe("the match editor's answers", () => {
         sonderereignis,
       ).toStrictEqual(["team2", "schiedsrichter"]);
     }
+  });
+
+  // The harm: an act offered on the Übersicht's row and missing here goes unseen, so the league, opening the match from
+  // its list, cannot enter a club's Zusage or decide its proposal; or one offered on a finished season, which the backend
+  // refuses only once pressed.
+  it("offers a club's proposal „Übernehmen“ and „Verwerfen“ and a lapsed party „Zusage eintragen“, and a finished season's match neither", async () => {
+    const vorschlag = { date: "2026-11-21", time: "16:00:00" };
+    const rows = [
+      row("declined", {
+        id: "64b000000000000000000011",
+        answer: { ...agreement, kind: "declined", vorschlag },
+        vorschlag_open: {
+          vorschlag,
+          adoption_recipients: [{ kind: "team", team_id: TEAM1, name: "Ahorn" }],
+          discard_recipients: [{ kind: "team", team_id: TEAM1, name: "Ahorn" }],
+        },
+      }),
+      row("expired", { id: "64b000000000000000000012", party: { kind: "team", team_id: TEAM2 }, lapsed_on: "2026-11-10", enterable: true }),
+    ];
+
+    const open = await editorOver({ ...VIEW, spielbestaetigungen: rows });
+    // Drawn by the kit's answer list, as the editor draws them, so its slot for a row's acts is held too.
+    renderUnderNext(
+      <AnswerRows
+        label={ADMIN_COPY.spiel.confirmations}
+        rows={open.props.answers}
+        empty={{ kind: "none", plural: ADMIN_COPY.spiel.confirmations }}
+      />,
+    );
+
+    const zusage = COPY.shared.withObject(ADMIN_COPY.overview.zusage, "enter");
+    expect(screen.getAllByRole("button").map((button) => button.textContent)).toStrictEqual([
+      COPY.shared.verb.adopt,
+      COPY.shared.verb.discard,
+      zusage,
+    ]);
+    // Each act writes the row it stands on.
+    const [proposed, lapsed] = open.props.answers.map(({ acts }) => acts?.props as { id?: string; parties?: { id: string }[] });
+    expect([proposed?.id, lapsed?.parties?.map(({ id }) => id)]).toStrictEqual(["64b000000000000000000011", ["64b000000000000000000012"]]);
+
+    const closed = await editorOver({ ...VIEW, saison_status: "past", spielbestaetigungen: rows });
+    expect(closed.props.answers.map(({ acts }) => acts)).toStrictEqual([undefined, undefined]);
   });
 });
