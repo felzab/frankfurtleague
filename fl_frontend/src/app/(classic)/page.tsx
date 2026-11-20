@@ -141,7 +141,8 @@ async function DoorsSection({ read }: { read: Promise<FLLandingResponse> }) {
           ? undefined
           : {
               title: words.doors.school.title,
-              // The date stands on the join band and the season card, each fact once: the door says only that the window is open.
+              // Each element states one fact: the door says that the window is open, and the window's closing date stands
+              // on the join band and on the season card, not on the door.
               text: words.join.opened,
               act: { label: words.toBewerbung, href: ROUTES.bewerbungRoot.path() },
             }
