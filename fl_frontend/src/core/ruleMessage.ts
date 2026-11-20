@@ -1,5 +1,3 @@
-// Apart from the Zod map, which the instrumentation installs on both runtimes: the rule phrases are the server's
-// own catalogue, which neither instrumentation bundle is to carry.
 import { now } from "./clock";
 import { COPY } from "./copy/shared";
 import { bornBy } from "./dayArithmetic";
@@ -21,8 +19,7 @@ type Path = FLRefusedField["path"];
  * box's own latest day, which the field's own check names first. A date past the ceiling the box's earliest day catches
  * before the send.
  */
-const ageRange = ({ min, max }: Context) =>
-  typeof min === "number" && typeof max === "number" ? field.latest(bornBy(dayIn(now()), min)) : undefined;
+const ageRange = ({ min }: Context) => (typeof min === "number" ? field.latest(bornBy(dayIn(now()), min)) : undefined);
 
 /** A span's end: earliest its start, which the backend's rule names, as the end box's own earliest day reads. */
 const notBeforeStart = ({ start }: Context) => (typeof start === "string" ? field.earliest(dayOf(start)) : undefined);
@@ -32,6 +29,12 @@ const atMost = ({ max }: Context) => (typeof max === "number" ? field.max(max) :
 
 /** A figure held over the bound the server names, `min`: the least the box takes now. */
 const atLeast = ({ min }: Context) => (typeof min === "number" ? field.min(min) : undefined);
+
+/** A day held to the last day the server names, `latest`: the latest day the box takes now. */
+const notAfter = ({ latest }: Context) => (typeof latest === "string" ? field.latest(dayOf(latest)) : undefined);
+
+/** A day held to the first day the server names, `earliest`: the earliest day the box takes now. */
+const notBefore = ({ earliest }: Context) => (typeof earliest === "string" ? field.earliest(dayOf(earliest)) : undefined);
 
 /**
  * Each rule the backend refuses a payload with that a field pattern words, by its kind, from the bounds the rule's
@@ -43,7 +46,7 @@ const PATTERNED = {
   saison_ends_before_start: notBeforeStart,
   bewerbung_window_ends_before_start: notBeforeStart,
   spieltag_ends_before_start: notBeforeStart,
-  good_spieler_exceed_kader: ({ max }: Context) => (typeof max === "number" ? field.max(max) : undefined),
+  good_spieler_exceed_kader: atMost,
   // The confirmation pages' birthdate, refused for an age outside the range the write names.
   confirmation_age: ageRange,
   // A box left empty that the rule requires once another box is set.
@@ -53,7 +56,7 @@ const PATTERNED = {
   // A no-show's report carries no play: the league composes its goals, and nobody scored them.
   nichtantreten_with_scorers: () => field.without(COPY.spielplan.scorers),
   // The registration closes before the season starts; `latest` is the day before its start.
-  registrierung_window_reaches_saison_start: ({ latest }: Context) => (typeof latest === "string" ? field.latest(dayOf(latest)) : undefined),
+  registrierung_window_reaches_saison_start: notAfter,
   // A season's rules held to what the season already holds, each bound read by the server from the season as it stands.
   rules_qualifiers_above_gruppe: atMost,
   // Between the floor the write publishes for the box and the points a win is worth.
@@ -75,11 +78,11 @@ const PATTERNED = {
         ? field.earliest(dayOf(end))
         : undefined,
   // A season too short for the matchdays its rules draw, on its end: `earliest` is the first end that holds them all.
-  saison_span_below_spielplan: ({ earliest }: Context) => (typeof earliest === "string" ? field.earliest(dayOf(earliest)) : undefined),
+  saison_span_below_spielplan: notBefore,
   // A start moved later than a stored exit allows, an exit recorded since the start the season had: `latest` is that start.
-  saison_start_austritt_stored: ({ latest }: Context) => (typeof latest === "string" ? field.latest(dayOf(latest)) : undefined),
+  saison_start_austritt_stored: notAfter,
   // An exit dated before the season's start, when the replacement is the route: the season's start is the earliest day.
-  austritt_before_saison_start: ({ earliest }: Context) => (typeof earliest === "string" ? field.earliest(dayOf(earliest)) : undefined),
+  austritt_before_saison_start: notBefore,
 } satisfies Partial<Record<Rule | Code, (context: Context, path: Path) => Copy | undefined>>;
 
 /**
