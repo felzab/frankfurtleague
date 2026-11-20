@@ -7,8 +7,7 @@ export type Counts = readonly [won: number, drawn: number, lost: number];
 const RECORD_JOIN = "-";
 
 /**
- * A club's won, drawn and lost counts, „3-1-0“, each in its own colour, the hyphens between them in the text's: the
- * Tabelle's „S-U-N“ column (`TableStanding`) and a club's stat tile alike.
+ * A club's won, drawn and lost counts, „3-1-0“, each in its own colour, the hyphens between them in the text's.
  */
 export function RecordFigures({ counts }: { counts: Counts }) {
   const [won, drawn, lost] = counts;

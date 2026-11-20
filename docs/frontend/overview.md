@@ -130,9 +130,13 @@ commit until it ends.
   an address no route matches, is in the device's own colour scheme: the head carries the root
   layout's `color-scheme` meta. On a light device, a visitor who chose the dark theme sees a white
   ground first.
-- A bare error document prerendered at build time carries no such meta, since Next builds that shell
-  without the page's viewport, so its ground is white on every device. Two stand in the build: the
-  area's catch-all at `/area/<anything>`, which answers 404, and Next's global error document.
+- The one error document the build prerenders is Next's own error page (`_global-error.html`, which
+  the build also writes as `pages/500.html`): its words are Next's English, and it draws its ground
+  in the device's colour scheme by its own styles.
+- A failure above every boundary, the root layout's own included, draws
+  `fl_frontend/src/app/global-error.tsx` in place of the root layout: the root boundary's card in
+  German, in the stylesheet's light theme and the system's face, since the theme script and the
+  fonts live in the layout it replaces.
 - A client navigation keeps the page it leaves until the next one is complete, since Next's router
   makes it a transition and a transition never hides content it has revealed. The page fade runs
   once, between two finished pages.
