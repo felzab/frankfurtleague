@@ -68,7 +68,6 @@ export const PUBLIC_COPY = catalogue({
     refusal: {
       codeWrong: "Falsch oder nicht mehr gültig",
       noRecord: "Mit dieser Adresse ist keine Anmeldung möglich.",
-      unverified: "Dieser Passkey hat nicht bestätigt, dass du es bist.",
     },
   },
 

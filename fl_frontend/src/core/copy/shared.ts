@@ -114,7 +114,10 @@ export const COPY = catalogue({
       /** An administrator's grant is gone or was never held: no sign-in and no retry repairs it. */
       accessGone: "Dein Zugang zur Verwaltung besteht nicht mehr.",
     },
-    /** An act the passkey touch guards, sent without a passkey sign-in of the last minute by a person holding one. */
+    /**
+     * An act the passkey touch guards that its passkey did not answer for: refused in the browser's prompt, or sent
+     * without a passkey sign-in of the last minute by a person holding one.
+     */
     touchMissing: "Die Freigabe mit deinem Passkey fehlt.",
 
     saved: "Gespeichert",

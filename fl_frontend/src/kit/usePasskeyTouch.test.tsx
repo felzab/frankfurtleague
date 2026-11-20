@@ -3,7 +3,6 @@ import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 
-import { PUBLIC_COPY } from "@/core/copy/public";
 import { COPY } from "@/core/copy/shared";
 import { renderUnderNext } from "@/test-support/nextContexts";
 
@@ -18,7 +17,8 @@ import type { ReactElement } from "react";
 
 const HOLDER = "anna@example.com";
 const SIGNED_IN = { data: { status: true, email: HOLDER }, error: null };
-const CANCELLED = { data: null, error: { message: "cancelled" } };
+// A refusal carrying no code of a closed sheet: an authenticator or the server turned the touch down.
+const REFUSED = { data: null, error: { message: "refused" } };
 const DONE: ActionAnswer = { ok: true, value: undefined };
 
 const passkey = vi.hoisted(() => ({ prompt: vi.fn() }));
@@ -117,7 +117,7 @@ describe("a question behind the passkey touch", () => {
   });
 
   it("toasts a refused touch, the act not run, its trigger standing for a new question that asks again", async () => {
-    passkey.prompt.mockResolvedValueOnce(CANCELLED).mockResolvedValueOnce(SIGNED_IN);
+    passkey.prompt.mockResolvedValueOnce(REFUSED).mockResolvedValueOnce(SIGNED_IN);
     const onConfirm = vi.fn(async () => DONE);
     renderWithToasts(question(onConfirm, { holder: HOLDER }));
 
@@ -125,7 +125,7 @@ describe("a question behind the passkey touch", () => {
     await userEvent.click(trigger);
     await pressIn(await screen.findByRole("alertdialog", { name: QUESTION }), VERB);
 
-    expect(await toasted(PUBLIC_COPY.signIn.refusal.unverified)).toBe("refused");
+    expect(await toasted(COPY.shared.touchMissing)).toBe("refused");
     // The toast queue commits outside the act's transition, so the toast stands a render before the trigger leaves busy.
     await waitFor(() => expect(isBusy(trigger)).toBe(false));
     expect([onConfirm.mock.calls.length, screen.queryByRole("alertdialog", { name: QUESTION }), isBusy(trigger)]).toStrictEqual([
@@ -143,7 +143,7 @@ describe("a question behind the passkey touch", () => {
 
 describe("a dialog of inputs behind the passkey touch", () => {
   it("toasts a refused touch, the act not run, and posts what the next opening's press sends with the holder", async () => {
-    passkey.prompt.mockResolvedValueOnce(CANCELLED).mockResolvedValueOnce(SIGNED_IN);
+    passkey.prompt.mockResolvedValueOnce(REFUSED).mockResolvedValueOnce(SIGNED_IN);
     const run = vi.fn(async (_: FormData) => DONE);
     renderWithToasts(inputs(run));
 
@@ -154,7 +154,7 @@ describe("a dialog of inputs behind the passkey touch", () => {
     expect(passkey.prompt).not.toHaveBeenCalled();
 
     await pressIn(dialog, ENTER);
-    expect(await toasted(PUBLIC_COPY.signIn.refusal.unverified)).toBe("refused");
+    expect(await toasted(COPY.shared.touchMissing)).toBe("refused");
     // As the question's: the toast stands a render before the trigger leaves busy.
     await waitFor(() => expect(isBusy(trigger)).toBe(false));
     expect([run.mock.calls.length, screen.queryByRole("dialog"), isBusy(trigger)]).toStrictEqual([0, null, false]);
