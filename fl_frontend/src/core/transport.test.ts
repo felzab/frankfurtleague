@@ -7,7 +7,7 @@ const backend = serveBackend(() => ({}));
 
 const { serializeQuery } = await import("./transport");
 const sdk = await import("./generated/client/sdk");
-const { requestWriteMayStand, runWithRequestScope } = await import("./requestScope");
+const { requestWriteMayStand, runWithRequestScope, setRequestActor } = await import("./requestScope");
 
 /* Every generated call's query passes through here: a null sent as "null" would filter on that word. */
 it("leaves an absent value out", () => {
@@ -30,7 +30,8 @@ it.each([
   ["a system-tier read over POST", () => sdk.identityGetSubject({ email: "a@schule.example.org" }), false],
   ["an admin-tier read over POST", () => sdk.identityGetErasureView({ email: "a@schule.example.org" }), false],
 ])("sends %s as its operation's contract states", async (_, send, standing) => {
-  const mayStand = await runWithRequestScope({ traceId: "0".repeat(31) + "1", actor: ACTOR }, async () => {
+  const mayStand = await runWithRequestScope({ traceId: "0".repeat(31) + "1" }, async () => {
+    setRequestActor(ACTOR);
     await send();
     return requestWriteMayStand();
   });

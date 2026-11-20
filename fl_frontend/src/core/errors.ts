@@ -1,9 +1,6 @@
 import type { Code, FLRefusedField } from "./generated/client/types";
 
-/**
- * Required on every API error rather than defaulted, since a failed write may have landed and a failed read changed
- * nothing.
- */
+/** A call as `mayHaveWritten` judges it: its method, and whether its operation's contract marks it read-only. */
 export type SentRequest = {
   method: string;
   /** A call changing nothing whatever its method says, as its operation's contract states. */
@@ -45,10 +42,11 @@ export class UnreadGrantError extends Error {
 }
 
 export class APIBadStatusError extends Error {
-  traceId: string;
-  statusCode: number;
-  serverErrorCode?: Code;
-  refusedFields: readonly FLRefusedField[];
+  override name = "APIBadStatusError";
+  readonly traceId: string;
+  readonly statusCode: number;
+  readonly serverErrorCode?: Code;
+  readonly refusedFields: readonly FLRefusedField[];
 
   constructor({
     message,
@@ -65,7 +63,6 @@ export class APIBadStatusError extends Error {
   }) {
     super(message);
 
-    this.name = "APIBadStatusError";
     this.traceId = traceId;
     this.statusCode = statusCode;
     this.serverErrorCode = serverErrorCode;
@@ -74,46 +71,11 @@ export class APIBadStatusError extends Error {
 }
 
 /**
- * Every code that is no rule refusing what was asked: a credential, a request the API cannot take, a route it does
- * not serve, the store answering, the server failing. Every other code is one a slice's mapper words, the unique
- * index's `duplicate_key` among them.
- */
-const NOT_A_REFUSAL: ReadonlySet<Code> = new Set<Code>([
-  "access_key_refused",
-  "missing_actor",
-  "actor_not_admin",
-  "session_refused",
-  "payload_refused",
-  "body_unreadable",
-  "no_route",
-  "method_not_served",
-  "document_not_found",
-  "version_stale",
-  "database_failed",
-  "unknown_outcome",
-  "unhandled_crash",
-  "stored_data_invalid",
-]);
-
-/** Whether a code is one a slice's mapper words, by the code alone, never its status. */
-export function isRefusalCode(code: Code | undefined): boolean {
-  return code !== undefined && !NOT_A_REFUSAL.has(code);
-}
-
-/**
  * The API's refusal of the request, which every mapper reads before the code, `null` for any other error: a 4xx, at
  * whatever status the code's rule answers with. Never a 5xx, after which a write may have landed.
  */
 export function asRefusal(error: unknown): APIBadStatusError | null {
   return error instanceof APIBadStatusError && error.statusCode >= 400 && error.statusCode < 500 ? error : null;
-}
-
-/**
- * Whether one of the API's rules refused the request, by the code's class: a code no arm names reaches its kind's
- * fallback at any status, and a protocol code, a routing one included, never does.
- */
-export function isRuleRefusal(error: unknown): boolean {
-  return isRefusalCode(asRefusal(error)?.serverErrorCode);
 }
 
 /**
@@ -147,13 +109,13 @@ export class ContractBreakError extends Error {
 }
 
 export class APINetworkError extends Error {
-  traceId: string;
+  override name = "APINetworkError";
+  readonly traceId: string;
 
   constructor({ message, traceId, originalError }: { message: string; traceId: string; originalError?: unknown }) {
     // The failure `fetch` threw, as the standard cause: the one place it appears in the error Next prints.
     super(message, { cause: originalError });
 
-    this.name = "APINetworkError";
     this.traceId = traceId;
   }
 }
@@ -185,9 +147,10 @@ export function requestOf(error: unknown): { status?: number; server_error_code?
 const TRANSIENT_CONFLICTS: ReadonlySet<string> = new Set(["concurrent_idempotent_requests", "resource_locked"]);
 
 export class MailSendError extends Error {
-  traceId: string;
-  statusCode: number;
-  providerErrorName?: string;
+  override name = "MailSendError";
+  readonly traceId: string;
+  readonly statusCode: number;
+  readonly providerErrorName?: string;
 
   /**
    * Whether a second attempt could land. By the status for a rate limit, a quota and an outage, which the reference
@@ -213,7 +176,6 @@ export class MailSendError extends Error {
   }) {
     super(message);
 
-    this.name = "MailSendError";
     this.traceId = traceId;
     this.statusCode = statusCode;
     this.providerErrorName = providerErrorName;

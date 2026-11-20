@@ -2445,15 +2445,12 @@ describe("a sign-in the ban's ending overtook between its gate read and its row"
 
 /** Runs `run` as one request of `email`'s, its person recorded as the actor, as the person spine records one. */
 async function asPerson<T>(email: string, run: () => Promise<T>): Promise<T> {
-  const { runWithRequestScope } = await import("./requestScope");
-  return runWithRequestScope(
-    {
-      traceId: `${"0".repeat(31)}3`,
-      // A token nobody verifies: the backend these cases reach is the one `serveBackend` answers above.
-      actor: { email, lane: "person", authTime: 0, factor: "code" },
-    },
-    run,
-  );
+  const { runWithRequestScope, setRequestActor } = await import("./requestScope");
+  return runWithRequestScope({ traceId: `${"0".repeat(31)}3` }, () => {
+    // A token nobody verifies: the backend these cases reach is the one `serveBackend` answers above.
+    setRequestActor({ email, lane: "person", authTime: 0, factor: "code" });
+    return run();
+  });
 }
 
 /** The token the last deletion mail to `email` carries, read off the link its text branch spells. */

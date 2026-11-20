@@ -195,7 +195,7 @@ export async function sendToBackend<T>(endpoint: string, options: FetchOptions):
 
   const asNetworkError = (error: unknown) =>
     new APINetworkError({
-      message: "Network request failed. Please check your connection.",
+      message: "The backend call failed before its answer was read.",
       traceId,
       originalError: error,
     });

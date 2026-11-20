@@ -49,7 +49,7 @@ const storage = new AsyncLocalStorage<RequestScope>();
 // its request.
 const scopeOfThisRender = cache((): { scope?: RequestScope } => ({}));
 
-export function runWithRequestScope<T>(scope: Pick<RequestScope, "traceId" | "actor">, fn: () => Promise<T>): Promise<T> {
+export function runWithRequestScope<T>(scope: Pick<RequestScope, "traceId">, fn: () => Promise<T>): Promise<T> {
   // One request, one scope: a slice's read opens one inside the action awaiting it, and a scope of its
   // own there would restart the deadline and drop the actor the guard recorded.
   if (storage.getStore() !== undefined) return fn();
@@ -121,7 +121,7 @@ export function inBackground(): boolean {
 }
 
 /** What is left of the request's deadline: unbounded outside a scope, where a cache fill and a timer's pass run. */
-export function requestTimeLeft(): number {
+function requestTimeLeft(): number {
   const store = storage.getStore();
 
   return store === undefined ? Infinity : store.deadlineAt - performance.now();
