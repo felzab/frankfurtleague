@@ -5,7 +5,7 @@ import { doubleNextRequest } from "@/test-support/nextRequest";
 
 import type { FLSaisonFrameResponse, FLTabelleResponse, FLTabelleRow } from "@/core/generated/client/types";
 import type { ListPage } from "@/kit/ListPage";
-import type { TableRow } from "@/kit/Table";
+import type { TableStandingRow } from "@/kit/TableStanding";
 import type { ComponentProps, ReactElement } from "react";
 
 const STATISTIK = {
@@ -50,7 +50,7 @@ doubleNextRequest();
 const { default: TabellePage } = await import("./page");
 
 /** Each row's bar as the page hands it to the table, by the club's id. */
-async function barsOf(rows: FLTabelleRow[]): Promise<Record<string, TableRow["qualifies"]>> {
+async function barsOf(rows: FLTabelleRow[]): Promise<Record<string, TableStandingRow["qualifies"]>> {
   tabelle = { gruppen: { A: rows }, qualifiers_per_gruppe: 2 };
   const page = TabellePage({ params: Promise.resolve({ saison: "2027" }), searchParams: Promise.resolve({}) }) as ReactElement<
     ComponentProps<typeof ListPage>

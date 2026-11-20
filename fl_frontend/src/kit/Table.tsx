@@ -1,7 +1,6 @@
 import { Fragment } from "react";
 
 import { textOf } from "@/core/copy";
-import { COPY } from "@/core/copy/shared";
 import { formatNumber } from "@/core/format";
 
 import { AddressWords, addressWords, isAddress } from "./AddressWords";
@@ -15,7 +14,6 @@ import { RowEnd } from "./RowEnd";
 import { RowPress } from "./RowPress";
 import { SideActsScope } from "./SideActs";
 import { sideActsForm } from "./sideActsForm";
-import { TargetMark } from "./TargetMark";
 import { TeamPlaque } from "./TeamPlaque";
 import { tv } from "./tv";
 
@@ -32,17 +30,15 @@ import type { Plaque } from "./TeamPlaque";
 type TableColumn = {
   key: string;
   label: Copy;
-  /** Figures, set in Inter with columns that line up, centred under their head as the rank is. */
+  /** Figures, set in Inter with columns that line up, centred under their head. */
   figures?: boolean;
-  /** The column that decides, such as points: its figures in the strong weight. */
-  strong?: boolean;
   /**
    * What the column holds, which sets the least it takes in the table: its edges stand at one place whatever the rows
    * hold while every value fits in that least, and a longer value widens the column to its own width. Every column
    * whose values are bounded by construction states it, an enumerated value or a fixed-format one. Any other column
    * stating none holds free text, whose width is the record's.
    */
-  width?: "count" | "pair" | "marked" | "code" | "word" | "date" | "instant" | "excerpt" | "phone" | "line";
+  width?: "count" | "code" | "word" | "date" | "instant" | "excerpt" | "phone" | "line";
   /**
    * A value that may run longer than its column, such as a ban's Grund, an address or a club's name: as wide as its
    * longest value while the row has room, sharing what the row leaves free with the name, and cut with „…“ only once the
@@ -60,26 +56,17 @@ type TableColumn = {
    * `phoneLine`, after the column's label where the value alone would not say what it is.
    */
   (
-    | { hideOnPhone?: boolean; phoneOnly?: never; narrow?: never }
-    /** Drawn on a phone alone, such as one column standing for several the phone leaves out. */
-    | { phoneOnly: true; hideOnPhone?: never; narrow?: never }
+    | { hideOnPhone?: boolean; narrow?: never }
     /**
      * The fact short enough to stand beside a name on a phone, left out of a box narrower than 20 rem. A list marks at
      * most one column so and leaves its others out. At most a date's width, which leaves the name 184 px at 360 px; a
      * wider column, a team's name or a phone number, leaves it too little.
      */
-    | { narrow: true; hideOnPhone?: never; phoneOnly?: never; width?: "count" | "pair" | "marked" | "code" | "word" | "date" }
+    | { narrow: true; hideOnPhone?: never; width?: "count" | "code" | "word" | "date" }
   );
 
 /** A club's won, drawn and lost counts. */
 export type Counts = readonly [won: number, drawn: number, lost: number];
-
-/**
- * A cell's value: its words; a figure some of the club's fixtures left short, such as its count of matches
- * while some were called off, carrying the mark that says how many, which its name tells a screen reader and
- * no line explains; or a club's won, drawn and lost counts in one cell, „3-1-0“, each in its own colour.
- */
-type TableCell = Words | { value: Words; cancelled: number } | { counts: Counts };
 
 /**
  * A muted line holding an address amid the catalogue's words, „Neu: <address> · bis 12.11., 15:12“: the address
@@ -110,23 +97,9 @@ export type TableRow = {
   /** Why the row's record was turned away, on a line of its own under the name, in the danger colour. */
   refusal?: Copy;
   /** The row's values, by column key; a missing value leaves its cell empty. */
-  cells: Readonly<Record<string, TableCell>>;
-  /**
-   * A place that qualifies, the 2-px bar at the row's left edge: in the brand's green where the place is the row's
-   * alone, `settled`, and in the control grey where level clubs share it, `level`, since until the tie resolves the
-   * bracket seeds none of them. Drawn in the row's first cell, so on a table whose rows are one line at every width
-   * (`compact`).
-   */
-  qualifies?: "settled" | "level";
+  cells: Readonly<Record<string, Words>>;
   /** A row that no longer counts, such as a disqualified team's: its text and its plaque muted. */
   muted?: boolean;
-  /** The row's fragment, so a link elsewhere, such as a club's line in a match head, opens the page at it. */
-  anchor?: string;
-  /**
-   * Its place in the rank column, as the record holds it: level rows share one, and a row holding none, such as a
-   * club that has played no match, shows a dash.
-   */
-  place?: number | null;
   /** The muted line under the name, cut as a name is: what the row's record is, or when it takes effect. */
   line?: Words;
   /**
@@ -171,8 +144,6 @@ export type TableRow = {
 export type TableProps = {
   label: Copy;
   nameLabel: Copy;
-  /** A leading rank column, its head; each row's place is its `place`. */
-  rankLabel?: Copy;
   /**
    * The status column of a list whose rows carry a state: its head, and whether a row may carry the delivery's chip
    * beside the state's. It stands directly after the name, each row's chips side by side in it, and its least width is
@@ -188,12 +159,6 @@ export type TableProps = {
   /** The rows alone, without the table's own box, inside a card's body, whose box already holds them. */
   bare?: boolean;
   /**
-   * A table of more figures than a phone's width holds at the standard padding, the Tabelle's: its rows are one line at
-   * every width, and on a phone every column keeps its place by compact cells. Every other table keeps its 12-px cells
-   * on a phone.
-   */
-  compact?: boolean;
-  /**
    * A table of sentences rather than figures, such as the privacy notice's retention table: its cells wrap at every
    * width, and in a box narrower than 42 rem, which has no room for its columns side by side, each row stacks, its name
    * over its cells and every cell after its column's label.
@@ -206,25 +171,10 @@ export type TableProps = {
    * rest would stand nowhere a touch reaches.
    */
   stack?: boolean;
-  /**
-   * Whether a linked row's chevron stands on a phone too, as on every list opening a record. The Tabelle alone
-   * leaves it out there, the whole row still the link: the owner's ruling for that table, not a matter of room,
-   * since its cells hold the chevron, so `compact` does not decide it.
-   */
-  chevronOnPhone?: boolean;
-  /**
-   * Whether each row's name is its plaque's own club, as the Tabelle's: on a phone the plaque then stands for the club,
-   * the name read but not drawn. Every other table draws the name beside its plaque, since a plaque says nothing of a
-   * scorer.
-   */
-  plaqueAlone?: boolean;
 };
 
 /** A table's heads, its columns and how its cells set, which a page states once, beside the rows it reads. */
-export type TableHead = Pick<
-  TableProps,
-  "nameLabel" | "rankLabel" | "state" | "columns" | "compact" | "chevronOnPhone" | "plaqueAlone" | "stack"
->;
+export type TableHead = Pick<TableProps, "nameLabel" | "state" | "columns" | "stack">;
 
 export type TableBody = Omit<TableProps, keyof TableHead>;
 
@@ -266,14 +216,11 @@ const table = tv({
     headRow: columnHead().rule(),
     // `thead` and `tbody`, whose rows a stacked list sets in the table's own tracks.
     part: "",
-    // A row a link may point to by its fragment, marked while the address names it.
-    row: `kit-target relative h-14 ${stacked()} lg:h-13`,
+    row: `relative h-14 ${stacked()} lg:h-13`,
     cell: "px-3 whitespace-nowrap",
     // The name takes the room the facts leave, which it shares with a column that gives way (`shares`), and is cut with
     // „…“ where it is longer (`nameLine`).
     name: "w-full px-3 py-2",
-    // A club's name beside its plaque, read but not drawn on a phone, where the plaque stands for it alone.
-    teamName: "@max-2xl:sr-only",
     // A linked row's last cell, as narrow as the chevron that says the row leads on.
     end: "w-0 pe-3",
     // A prose or a stack table's cell's column label on a stacked row, drawn for the eye alone: the read head names the
@@ -302,18 +249,10 @@ const table = tv({
   variants: {
     align: {
       start: { head: "text-start", cell: "text-start" },
-      // A league table's figures stand centred under their heads: a head wider than its figures, „Pkt.“ over „4“,
+      // Figures stand centred under their heads, as the Tabelle's do (`TableStanding`): a head wider than its figures
       // reads as one column with them only centred over them, and the tabular figures keep each digit's width, so a
       // column's values still line up.
       figure: { head: "text-center", cell: "text-center" },
-      centre: { head: "w-11 text-center", cell: "w-11 text-center text-fg-muted" },
-    },
-    compact: {
-      true: {
-        head: "@max-2xl:px-1.5 @max-2xl:text-2xs @max-2xl:tracking-normal",
-        cell: "@max-2xl:px-1.5 @max-2xl:text-xs",
-        name: "@max-2xl:px-1.5",
-      },
     },
     figures: {
       true: { cell: "font-numeric" },
@@ -338,14 +277,10 @@ const table = tv({
     pair: {
       true: {},
     },
-    strong: {
-      true: { cell: "font-semibold" },
-    },
     // A phone is a box narrower than 42 rem, judged by the box's own width: a column has one width over all its rows,
     // so no row's name can decide.
     phone: {
       hidden: { head: "@max-2xl:hidden", cell: "@max-2xl:hidden" },
-      only: { head: "@2xl:hidden", cell: "@2xl:hidden" },
       // From 20 rem a date column, the chevron and the padding leave a name some twenty characters.
       narrow: { head: "@max-xs:hidden", cell: "@max-xs:hidden" },
       shown: {},
@@ -354,9 +289,8 @@ const table = tv({
     // value fits in it, and the widest value past it sets the column. A minimum, since the name's `w-full` leaves every
     // other column its min-content width (CSS Tables 3, 3.9.3), which a cell's `min-width` raises and a `<col>`'s width
     // does not. Automatic layout, not `fixed`: a value past its column widens the column and the name gives way, where
-    // `fixed` would cut it or lay it over the next cell. Each holds its padding: a count two figures, a pair „12:10“ or
-    // „3-1-0“, a count with its mark's slots, a code three capitals, such as a Stufe or a club's shorthand, a word ten
-    // letters, one of a set the contract or the catalogue fixes, such as a position („Mittelfeld“, 62 px measured), a
+    // `fixed` would cut it or lay it over the next cell. Each holds its padding: a count two figures, a code three
+    // capitals, such as a Stufe or a club's shorthand, a word ten letters, one of a set the contract or the catalogue fixes, such as a position („Mittelfeld“, 62 px measured), a
     // group („Gruppe M“), a kit colour or a count of seats („2 von 3“), a date ten characters, an instant 20, „bis“
     // before its date and time, an excerpt 20, the start of a `cut` text in a row whose acts need the room a whole line
     // would take, a phone number 20, a line of an address 35 where the box is 56 rem or wider and 20 below it, where a
@@ -364,8 +298,6 @@ const table = tv({
     // in the body's face, never as `figures`, which would centre it and set it apart from every other date column.
     width: {
       count: { head: "min-w-12" },
-      pair: { head: "min-w-16 @max-2xl:min-w-13" },
-      marked: { head: "min-w-16 @max-2xl:min-w-11" },
       code: { head: "min-w-16" },
       word: { head: "min-w-24" },
       date: { head: "min-w-28" },
@@ -401,8 +333,8 @@ const table = tv({
         label: "text-xs text-fg-muted @2xl:hidden",
       },
     },
-    // Where a list's rows are stacked; `none` is a table whose rows are one line at every width, the Tabelle's, or one
-    // whose rows stack in a form of their own, a `prose` and a `stack` table's.
+    // Where a list's rows are stacked; `none` is a table whose rows stack in a form of their own, a `prose` and a `stack`
+    // table's.
     stacks: {
       none: {},
       list: {
@@ -443,21 +375,15 @@ const table = tv({
     linked: {
       true: { row: cardHover() },
     },
-    chevronOnPhone: {
+    // A table some row of which opens its record, which draws the chevrons' column.
+    chevrons: {
       true: {},
-      false: { end: "@max-2xl:hidden" },
     },
     muted: {
       true: { row: "text-fg-muted" },
     },
-    qualifies: {
-      // Drawn inside the first cell, so it takes no width and moves nothing.
-      settled: { cell: "shadow-[inset_2px_0_0_var(--brand)]", name: "shadow-[inset_2px_0_0_var(--brand)]" },
-      level: { cell: "shadow-[inset_2px_0_0_var(--border-control)]", name: "shadow-[inset_2px_0_0_var(--border-control)]" },
-    },
   },
   compoundVariants: [
-    { align: "centre", compact: true, class: { head: "@max-2xl:w-7", cell: "@max-2xl:w-7" } },
     // Restated after the variants, so a `prose` or a `stack` table's stacked row, whose cells are grids there, never
     // draws a column a narrow box leaves out: the merger keeps the later of two `display` classes.
     { phone: "hidden", class: { head: "@max-2xl:hidden", cell: "@max-2xl:hidden" } },
@@ -484,15 +410,18 @@ const table = tv({
     },
     // A prose or a stack table's stacked row stands its cells in one column and its chevron in a column of its own at
     // its end, spanning every cell's line so it is centred on the row's height (`phoneEndStyle`).
-    { prose: true, chevronOnPhone: true, class: { row: PHONE_END_ROW_CLASSES, end: PHONE_END_CLASSES } },
-    { stack: true, chevronOnPhone: true, class: { row: PHONE_END_ROW_CLASSES, end: PHONE_END_CLASSES } },
+    { prose: true, chevrons: true, class: { row: PHONE_END_ROW_CLASSES, end: PHONE_END_CLASSES } },
+    { stack: true, chevrons: true, class: { row: PHONE_END_ROW_CLASSES, end: PHONE_END_CLASSES } },
   ],
 });
 
 /** The hyphen between a record's counts, „3-1-0“, as its head „S-U-N“ joins their letters. */
 const RECORD_JOIN = "-";
 
-/** A club's won, drawn and lost counts, „3-1-0“, each in its own colour, the hyphens between them in the text's. */
+/**
+ * A club's won, drawn and lost counts, „3-1-0“, each in its own colour, the hyphens between them in the text's: the
+ * Tabelle's „S-U-N“ column (`TableStanding`) and a club's stat tile alike.
+ */
 export function RecordFigures({ counts }: { counts: Counts }) {
   const [won, drawn, lost] = counts;
   return (
@@ -508,13 +437,11 @@ export function RecordFigures({ counts }: { counts: Counts }) {
 
 /**
  * How a table's rows stack: a list's by its box, every list's at one width, and not as a list's where the table has a
- * stacked form of its own, a `prose` and a `stack` table, which stacks at the same width, or a rank column, whose rows
- * are one line.
+ * stacked form of its own, a `prose` and a `stack` table, which stacks at the same width.
  */
 type Stacks = "none" | "list";
 
-const stacksOf = (kind: { ranked: boolean; compact: boolean; prose: boolean; stack: boolean }): Stacks =>
-  kind.ranked || kind.compact || kind.prose || kind.stack ? "none" : "list";
+const stacksOf = (kind: { prose: boolean; stack: boolean }): Stacks => (kind.prose || kind.stack ? "none" : "list");
 
 /**
  * Where a row's chips stand on its name's line: at every width on a table that names no status column, on the stacked
@@ -525,22 +452,20 @@ type ChipsOnLine = "always" | "stacked" | "never";
 const chipsOnLineOf = (state: TableProps["state"], stacks: Stacks): ChipsOnLine =>
   state === undefined ? "always" : stacks === "list" ? "stacked" : "never";
 
-/** Whether a column stands on a phone: left out, drawn there alone, drawn where it fits, or drawn at every width. */
+/** Whether a column stands on a phone: left out, drawn where it fits, or drawn at every width. */
 function phoneOf(column: TableColumn) {
   if (column.hideOnPhone === true) return "hidden";
-  if (column.phoneOnly === true) return "only";
   return column.narrow === true ? "narrow" : "shown";
 }
 
 /** How a column sets, for its head and its cells alike. */
-const columnLook = (column: TableColumn, stacks: Stacks, compact: boolean) =>
+const columnLook = (column: TableColumn, stacks: Stacks) =>
   ({
     align: column.figures === true ? "figure" : "start",
     phone: phoneOf(column),
     width: column.width,
     cut: column.cut === true,
     stacks,
-    compact,
   }) as const;
 
 /**
@@ -563,26 +488,18 @@ function stackedTracks(stacks: Stacks, columns: ReadonlyArray<TableColumn>, plaq
 const stackedTrack = (stacks: Stacks, index: number) => (stacks === "none" ? undefined : { gridColumnStart: index + 2 });
 
 /**
- * A `prose` or a `stack` table's stacked row's chevron spans the lines of every cell the row draws, the rank, the name
- * and each column it keeps: a count no grid rule can name, since a span to the last line reaches no line the cells add
+ * A `prose` or a `stack` table's stacked row's chevron spans the lines of every cell the row draws, the name and each
+ * column it keeps: a count no grid rule can name, since a span to the last line reaches no line the cells add
  * themselves. A grid placement, which that stacked row alone reads: a table cell ignores it.
  */
-function phoneEndStyle(rankLabel: Copy | undefined, columns: ReadonlyArray<TableColumn>) {
-  const cells = (rankLabel === undefined ? 0 : 1) + 1 + columns.filter((column) => column.hideOnPhone !== true).length;
+function phoneEndStyle(columns: ReadonlyArray<TableColumn>) {
+  const cells = 1 + columns.filter((column) => column.hideOnPhone !== true).length;
   return { gridRow: `1 / span ${String(cells)}` };
 }
 
-/**
- * A cell's value. In a column where some row's figure is short of fixtures called off, every row keeps the
- * mark's slot at the figure's end, so the digits stand under each other whether a row carries the mark or
- * not, and as much room at its start, so the figure stays centred under its head; the mark, a small red „+N“,
- * stands over the figure's top-right corner, three quarters of it right of the corner, over the slot and clear
- * of the digits, and its name tells a screen reader what no line explains.
- */
-function Cell({ cell, slot, cut }: { cell: TableCell | undefined; slot: boolean; cut: boolean }) {
+/** A cell's value: its words, cut with „…“ in a cut column. */
+function Cell({ cell, cut }: { cell: Words | undefined; cut: boolean }) {
   if (cell === undefined) return null;
-  if (typeof cell === "object" && "counts" in cell) return <RecordFigures counts={cell.counts} />;
-  const { value, cancelled } = typeof cell === "object" && "cancelled" in cell ? cell : { value: cell, cancelled: 0 };
   if (cut)
     return (
       // One track no wider than the words that may shrink to nothing: the words count whole towards the column's widest
@@ -590,27 +507,12 @@ function Cell({ cell, slot, cut }: { cell: TableCell | undefined; slot: boolean;
       // could not say apart.
       <span className="grid grid-cols-[minmax(0,max-content)]">
         <CutText
-          text={textOf(value)}
+          text={textOf(cell)}
           className="truncate"
         />
       </span>
     );
-  if (!slot) return textOf(value);
-  return (
-    <span className="inline-block px-2">
-      <span className="relative inline-block">
-        {textOf(value)}
-        {cancelled > 0 && (
-          <span
-            aria-hidden
-            className="absolute end-0 top-0 translate-x-3/4 -translate-y-1/2 text-2xs leading-none font-semibold text-danger">
-            {COPY.shared.season.cancelledMark(cancelled)}
-          </span>
-        )}
-      </span>
-      {cancelled > 0 && <span className="sr-only">{COPY.shared.season.cancelled(cancelled)}</span>}
-    </span>
-  );
+  return textOf(cell);
 }
 
 /**
@@ -629,10 +531,6 @@ const nameLine = tv({
       name: "min-w-20",
       plaque: "min-w-32",
     },
-    // A phone's Tabelle, whose plaque stands for its club, the name read but not drawn: the plaque's own least. Its chip
-    // takes the next line where the column cannot hold it beside the plaque, as a name's chips do, so the column's least
-    // is the wider of the two and never their sum.
-    lonePlaque: { true: "@max-2xl:min-w-0 @max-2xl:flex-wrap" },
     // The first line of a stacked row, in the name's track (`table`'s `stacks`).
     stacks: {
       none: "",
@@ -660,12 +558,6 @@ const nameParts = tv({
     cut: {
       true: { words: "truncate" },
     },
-    // A phone's lone plaque, whose name draws nothing: the line and the group give way to their parts, so what follows
-    // the plaque stands in the plaque's own row, and the name's span takes back the gap before it, which a margin does
-    // in a flex row alone. The chip then stands as far from the plaque as from a name.
-    lonePlaque: {
-      true: { line: "@max-2xl:contents", group: "@max-2xl:contents", words: "@max-2xl:-ms-2" },
-    },
   },
 });
 
@@ -684,34 +576,25 @@ function Chips({ row }: { row: TableRow }) {
  * directly after it on the name's line (`chipsOnLine`), and take the next line where the line cannot hold them beside
  * the name's least width. A club's plaque stands before the line, so the cut never takes it and it stands beside a name
  * over its chips, and outside the row's link; the link's stretched box still covers it, so a press on it opens the
- * row's record, which on a phone, where a club's plaque may stand alone, the link names by the club's full name. Under
- * the name line stand the muted line and a refusal.
+ * row's record. Under the name line stand the muted line and a refusal.
  */
 function NameCell({
   row,
-  barred,
-  compact,
   prose,
   stack,
   stacks,
-  plaqueAlone,
   chipsOnLine,
   shares,
 }: {
   row: TableRow;
-  barred: TableRow["qualifies"];
-  compact: boolean;
   prose: boolean;
   stack: boolean;
   stacks: Stacks;
-  plaqueAlone: boolean;
   chipsOnLine: ChipsOnLine;
   /** Whether the list holds a column that gives way, which shares the row's free room with the name (`table`'s `shares`). */
   shares: boolean;
 }) {
   const s = table({
-    qualifies: barred,
-    compact,
     prose,
     stack,
     stacks,
@@ -719,19 +602,18 @@ function NameCell({
     shares,
   });
   const { plaque } = row;
-  const lonePlaque = plaqueAlone && plaque !== undefined;
   const name = textOf(row.name);
   const address = isAddress(row.name);
-  const words = lonePlaque ? <span className={s.teamName()}>{name}</span> : address ? <AddressWords address={name} /> : name;
+  const words = address ? <AddressWords address={name} /> : name;
   const opens = row.onOpen === undefined ? words : <RowPress onPress={row.onOpen}>{words}</RowPress>;
   const shape = prose ? "wraps" : plaque === undefined ? "name" : "plaque";
   const held = nameWithChips({ address, led: true });
-  const parts = nameParts({ wraps: prose, cut: !prose && !stack && !address, lonePlaque });
+  const parts = nameParts({ wraps: prose, cut: !prose && !stack && !address });
   return (
     <td
       role="cell"
       className={s.name()}>
-      <span className={nameLine({ shape, lonePlaque, stacks, address })}>
+      <span className={nameLine({ shape, stacks, address })}>
         {plaque !== undefined && (
           <TeamPlaque
             plaque={plaque}
@@ -816,24 +698,10 @@ function NameCell({
  * roles in writing, since a stacked row's and a prose row's `display: grid` drops the semantics an engine infers from
  * the elements alone.
  */
-export function Table({
-  label,
-  nameLabel,
-  rankLabel,
-  state,
-  columns,
-  rows,
-  empty,
-  bare = false,
-  compact = false,
-  prose = false,
-  stack = false,
-  chevronOnPhone = true,
-  plaqueAlone = false,
-}: TableProps) {
+export function Table({ label, nameLabel, state, columns, rows, empty, bare = false, prose = false, stack = false }: TableProps) {
   // Any row's acts give the whole table its column, whose head names nothing, as the chevrons' does.
   const hasActs = rows.some((row) => row.acts !== undefined);
-  const stacks = stacksOf({ ranked: rankLabel !== undefined, compact, prose, stack });
+  const stacks = stacksOf({ prose, stack });
   const sideActs = sideActsForm(rows);
   // Where a stacked row's acts stand: a decision's under its words, side acts' „⋯“ at its end.
   const acts = !hasActs ? undefined : sideActs.carried ? "folded" : "under";
@@ -843,23 +711,11 @@ export function Table({
   const leadsOn = (row: TableRow) => row.href !== undefined || row.onOpen !== undefined;
   const isLinked = rows.some(leadsOn);
   // Every row keeps the chevron's room on a phone where some row draws one there.
-  const phoneEnd = { prose, stack, stacks, chevronOnPhone: isLinked && chevronOnPhone };
-  const endStyle = prose || stack ? phoneEndStyle(rankLabel, columns) : undefined;
-  // The columns where some row carries the mark of fixtures called off, whose every row keeps its slot.
-  const marked = new Set(
-    columns
-      .filter((column) =>
-        rows.some((row) => {
-          const cell = row.cells[column.key];
-          return typeof cell === "object" && "cancelled" in cell;
-        }),
-      )
-      .map((column) => column.key),
-  );
+  const phoneEnd = { prose, stack, stacks, chevrons: isLinked };
+  const endStyle = prose || stack ? phoneEndStyle(columns) : undefined;
   return (
     // `w-full`: a Section's grid starts its children, which would shrink the table and cut its cells.
     <div className={bare ? "@container w-full overflow-x-auto" : cardSurface({ class: "@container w-full overflow-x-auto" })}>
-      {rows.some((row) => row.anchor !== undefined) && <TargetMark />}
       {rows.length === 0 ? (
         <EmptyState {...empty} />
       ) : (
@@ -876,18 +732,10 @@ export function Table({
             <tr
               role="row"
               className={parts.headRow()}>
-              {rankLabel !== undefined && (
-                <th
-                  role="columnheader"
-                  scope="col"
-                  className={table({ align: "centre", compact }).head()}>
-                  {rankLabel}
-                </th>
-              )}
               <th
                 role="columnheader"
                 scope="col"
-                className={table({ align: "start", compact, prose, stack, stacks }).head()}>
+                className={table({ align: "start", prose, stack, stacks }).head()}>
                 {nameLabel}
               </th>
               {state !== undefined && (
@@ -903,7 +751,7 @@ export function Table({
                   key={column.key}
                   role="columnheader"
                   scope="col"
-                  className={table({ ...columnLook(column, stacks, compact), prose, stack }).head()}
+                  className={table({ ...columnLook(column, stacks), prose, stack }).head()}
                   style={stackedTrack(stacks, index)}>
                   {column.label}
                 </th>
@@ -912,7 +760,7 @@ export function Table({
               {isLinked && (
                 <td
                   role="cell"
-                  className={table({ phone: chevronOnPhone ? "shown" : "hidden", prose, stack, stacks, lone: true }).head()}
+                  className={table({ prose, stack, stacks, lone: true }).head()}
                 />
               )}
               {hasActs && (
@@ -931,26 +779,15 @@ export function Table({
               return (
                 <tr
                   key={row.id}
-                  id={row.anchor}
                   data-kit-row
                   role="row"
                   className={table({ linked: leadsOn(row), muted: row.muted === true, acts, ...phoneEnd }).row()}>
                   <Stretched>
-                    {rankLabel !== undefined && (
-                      <td
-                        role="cell"
-                        className={table({ align: "centre", figures: true, qualifies: row.qualifies, compact }).cell()}>
-                        {row.place == null ? COPY.shared.noValue : formatNumber(row.place)}
-                      </td>
-                    )}
                     <NameCell
                       row={row}
-                      barred={rankLabel === undefined ? row.qualifies : undefined}
-                      compact={compact}
                       prose={prose}
                       stack={stack}
                       stacks={stacks}
-                      plaqueAlone={plaqueAlone}
                       chipsOnLine={chipsOnLineOf(state, stacks)}
                       shares={shares}
                     />
@@ -965,9 +802,8 @@ export function Table({
                     )}
                     {columns.map((column, index) => {
                       const s = table({
-                        ...columnLook(column, stacks, compact),
+                        ...columnLook(column, stacks),
                         figures: column.figures === true,
-                        strong: column.strong === true,
                         prose,
                         stack,
                         shares,
@@ -987,7 +823,6 @@ export function Table({
                           )}
                           <Cell
                             cell={row.cells[column.key]}
-                            slot={marked.has(column.key)}
                             cut={column.cut === true}
                           />
                         </td>
