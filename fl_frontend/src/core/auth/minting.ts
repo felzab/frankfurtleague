@@ -5,9 +5,9 @@ import { makeSignature } from "better-auth/crypto";
 
 import { now } from "../clock";
 import { logger } from "../logging";
-import { SIGN_IN_REFUSED } from "../passkeyRefusal";
 import { mayReceiveSignIn, signInVerdictOf } from "../signInGate";
 import { carriedEnrolmentRead } from "./enrolment";
+import { SIGN_IN_REFUSED } from "./refusalCodes";
 import { REPLACED_SESSION_FIELD } from "./sessionStamps";
 import { EVERY_ROW } from "./signInRows";
 

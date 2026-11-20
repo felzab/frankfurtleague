@@ -30,11 +30,11 @@ import { HOUR_MS } from "../timeUnits";
 import { readTraceparent, TRACEPARENT_HEADER } from "../trace";
 import { assertionAnswer } from "./assertionAnswer";
 import { ceremonyCredentialId, challengeIssuedAt, isDuplicateCredential, refuseAnotherAccountsPasskey } from "./ceremony";
-import { ADDRESS_ATTEMPTS_EXHAUSTED, CODE_NOT_ASKED_HERE } from "./codeRefusal";
 import { ENROLMENT_READ, refuseBarred, refuseEnrolment, refuseWithoutGrant } from "./enrolment";
 import { enrolmentSignIn } from "./gateReads";
 import { notifyPasskey, oweSignInMail, sendDeletionLink } from "./mails";
 import { endReplacedSession, lineageOf, refuseUnadmitted, replacedToken } from "./minting";
+import { ADDRESS_ATTEMPTS_EXHAUSTED, CODE_NOT_ASKED_HERE } from "./refusalCodes";
 import {
   CODE_FACTOR,
   endedByItsAccount,

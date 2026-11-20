@@ -6,9 +6,9 @@ import { makeSignature } from "better-auth/crypto";
 import { now } from "../clock";
 import { asSignInIdentifier } from "../emailAddress";
 import { logger } from "../logging";
-import { SIGN_IN_REFUSED } from "../passkeyRefusal";
 import { CODE_MAIL_LIMIT, CODE_MAIL_WINDOW_HOURS } from "../signInCode";
 import { HOUR_MS } from "../timeUnits";
+import { SIGN_IN_REFUSED } from "./refusalCodes";
 
 import type { AuthContext, DBTransactionAdapter } from "better-auth";
 import type { APIError } from "better-auth/api";

@@ -1,8 +1,8 @@
 import { loadAuthClient } from "@/core/auth/browserClient";
+import { SIGN_IN_REFUSED } from "@/core/auth/refusalCodes";
 import { ACCOUNT_COPY } from "@/core/copy/account";
 import { PUBLIC_COPY } from "@/core/copy/public";
 import { COPY } from "@/core/copy/shared";
-import { SIGN_IN_REFUSED } from "@/core/passkeyRefusal";
 
 import type { authClient } from "@/core/authClient";
 import type { Copy } from "@/core/copy";

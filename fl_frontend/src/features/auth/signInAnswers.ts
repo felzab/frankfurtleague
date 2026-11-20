@@ -1,7 +1,6 @@
-import { ADDRESS_ATTEMPTS_EXHAUSTED, CODE_NOT_ASKED_HERE } from "@/core/auth/codeRefusal";
+import { ADDRESS_ATTEMPTS_EXHAUSTED, CODE_NOT_ASKED_HERE, SIGN_IN_REFUSED } from "@/core/auth/refusalCodes";
 import { PUBLIC_COPY } from "@/core/copy/public";
 import { COPY } from "@/core/copy/shared";
-import { SIGN_IN_REFUSED } from "@/core/passkeyRefusal";
 
 import { refusalCode } from "./passkeyAnswers";
 
