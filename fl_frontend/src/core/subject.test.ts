@@ -572,8 +572,9 @@ describe("the guard across one render pass", () => {
   });
 });
 
-/* React's `cache` keeps nothing outside a render, so before the request's own memo every admin read
-   in an action's body ran the whole guard again: a session read, a backend lookup and a token. */
+/* React's `cache` keeps nothing outside a render, so an action's body holds the administrator's judgement on
+   its request scope: without it every admin read in the body runs the whole guard again, a session read, a
+   backend lookup and a token. */
 describe("the administrator's guard across a server action", () => {
   it("judges the action's body and every admin read in it once, and the render after it afresh", async () => {
     const { runWithIncomingTrace } = await import("./traceScope");

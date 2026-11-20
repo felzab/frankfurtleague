@@ -4,7 +4,7 @@ import { cache } from "react";
 
 import { asSignInIdentifier } from "../emailAddress";
 import { madeSince } from "../grant";
-import { oncePerRequest, setRequestActor } from "../requestScope";
+import { judgedOncePerRequest, setRequestActor } from "../requestScope";
 import { ADMIN_LIFETIME } from "../sessionLifetimes";
 import { lookUpSubject } from "../signInGate";
 import { subjectOrNull } from "./gateReads";
@@ -106,33 +106,37 @@ export function requestActorOf(
   return { email, lane, authTime, factor };
 }
 
-// React's `cache` within a render and `oncePerRequest` within an action, so one request reads its session once.
-const readAdminRequest = cache(
-  oncePerRequest(async (): Promise<{ readonly session: JudgedSession; readonly actor: RequestActor } | { readonly refused: AdminRefusal }> => {
-    const served = await readRequestSession();
-    if (!served) return { refused: "signIn" };
+/** The administrator's guard's judgement of one request: the session and the actor it states, or why it was refused. */
+export type AdminJudgement = { readonly session: JudgedSession; readonly actor: RequestActor } | { readonly refused: AdminRefusal };
 
-    // An unread grant admits nobody, so the administration is shut while the backend is.
-    const records = await subjectOrNull(served.user.email);
-    if (records === null) return { refused: "unread" };
-    if (records.admin_tier === null) return { refused: "noGrant" };
-    // A session made before its grant among them, which a sign-in after the grant repairs.
-    if (!isAdminSession(served, records)) return { refused: "signIn" };
+async function judgeAdmin(): Promise<AdminJudgement> {
+  const served = await readRequestSession();
+  if (!served) return { refused: "signIn" };
 
-    // A session no actor can state truthfully is repaired by signing in afresh.
-    const actor = requestActorOf(served, "admin");
-    if (actor === null) return { refused: "signIn" };
+  // An unread grant admits nobody, so the administration is shut while the backend is.
+  const records = await subjectOrNull(served.user.email);
+  if (records === null) return { refused: "unread" };
+  if (records.admin_tier === null) return { refused: "noGrant" };
+  // A session made before its grant among them, which a sign-in after the grant repairs.
+  if (!isAdminSession(served, records)) return { refused: "signIn" };
 
-    return { session: { ...served, isAdmin: true }, actor };
-  }),
-);
+  // A session no actor can state truthfully is repaired by signing in afresh.
+  const actor = requestActorOf(served, "admin");
+  if (actor === null) return { refused: "signIn" };
+
+  return { session: { ...served, isAdmin: true }, actor };
+}
+
+// React's `cache` within a render and the request scope's held judgement within an action, so one request reads its
+// session once.
+const readAdminRequest = cache(() => judgedOncePerRequest(judgeAdmin));
 
 export async function judgeAdminRequest(): Promise<{ readonly session: JudgedSession } | { readonly refused: AdminRefusal }> {
   const judged = await readAdminRequest();
   if ("refused" in judged) return judged;
 
-  // On every call, outside the memo: a render's first read may precede every scope, and a later
-  // scope answered from the memo would name nobody. The ordering is load-bearing.
+  // On every call, outside the held judgement: a render's first read may precede every scope, and a later
+  // scope answered from it would name nobody. The ordering is load-bearing.
   setRequestActor(judged.actor);
 
   return { session: judged.session };
