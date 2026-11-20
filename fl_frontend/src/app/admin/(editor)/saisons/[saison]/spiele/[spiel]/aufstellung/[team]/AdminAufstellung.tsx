@@ -25,7 +25,7 @@ export function AdminAufstellung({
   team: string;
   title: PageTitle;
   chip?: ChipProps;
-  /** The line-up as the line under the title states it: whose it is, its matchday and when the match is played. */
+  /** The line-up as the line under the title states it: its match, its matchday and when the match is played. */
   lead: Copy;
   /** Why the line-up is closed read-only: its season has finished, and the write refuses every change to it. */
   closed?: Copy;

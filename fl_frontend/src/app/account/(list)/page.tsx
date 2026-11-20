@@ -54,7 +54,7 @@ async function AccountListContent() {
   );
 }
 
-/** Konto's list of its four pages, which a phone opens on. */
+/** Konto's list of its three pages, which a phone opens on. */
 export default function AccountListPage() {
   return (
     <AccountPage route="account">
