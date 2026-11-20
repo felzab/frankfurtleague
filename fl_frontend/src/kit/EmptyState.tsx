@@ -1,6 +1,6 @@
 import { COPY } from "@/core/copy/shared";
 
-import { cardSurface } from "./cardStyles";
+import { cardSurface, rowHeight } from "./cardStyles";
 import { Icon } from "./Icon";
 import { Link } from "./Link";
 import { tv } from "./tv";
@@ -97,7 +97,7 @@ export function EmptyState(props: EmptyStateProps | Clear) {
           ? COPY.shared.empty.skipped(props.plural)
           : COPY.shared.empty.filter(props.plural);
   return (
-    <div className="grid min-h-14 grid-cols-1 items-center px-4 py-3 text-base text-fg-muted lg:min-h-13 lg:py-0 lg:text-sm">
+    <div className={`grid ${rowHeight()} grid-cols-1 items-center px-4 py-3 text-base text-fg-muted lg:py-0 lg:text-sm`}>
       <p>{sentence}</p>
     </div>
   );

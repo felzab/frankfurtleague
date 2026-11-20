@@ -15,9 +15,8 @@ import type { Fact } from "./Facts";
  * A row's act ending what the row shows, its one side act (`SideActs`), in the form its list decides: its labelled
  * button in the outlined danger look, or its entry in the row's „⋯“, either opening its question over the facts, then
  * the passkey touch from the question's final press. Where it cannot run on the row as it stands, it is listed all the
- * same, locked with its reason. A row standing in a `Table` says it carries one side act (`sideActs`). A client module
- * because a server page cannot hand the question a closure binding its record: the page hands the server action and
- * the record, and this binds them.
+ * same, locked with its reason. A client module because a server page cannot hand the question a closure binding its
+ * record: the page hands the server action and the record, and this binds them.
  */
 export function RowAct({
   verb,

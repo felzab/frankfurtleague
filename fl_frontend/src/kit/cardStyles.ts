@@ -23,6 +23,25 @@ export const headGround = tv({ base: "bg-bg-card-head" });
 export const stacked = tv({ base: "border-t border-border first:border-t-0" });
 
 /**
+ * A list row's height, its hairline among it: 52 px at the least with a mouse, 56 on a touch screen, which takes a
+ * finger's size by the pointer as every kit control does (`buttonStyles`). Every list row reads it, so the rows of one
+ * list stand as tall as another's: `least` for a row that grows with its lines, `fixed` for a row of one line at
+ * every width, and a kit table's row its two forms by its box's width (`Table`'s `stacks`), `table` from 42 rem, where
+ * a table row takes no least height, and `stacked` below it, where the row is a grid that grows with its lines.
+ */
+export const rowHeight = tv({
+  variants: {
+    form: {
+      least: "min-h-13 pointer-coarse:min-h-14",
+      fixed: "h-13 pointer-coarse:h-14",
+      table: "@2xl:h-13 pointer-coarse:@2xl:h-14",
+      stacked: "@max-2xl:min-h-13 pointer-coarse:@max-2xl:min-h-14",
+    },
+  },
+  defaultVariants: { form: "least" },
+});
+
+/**
  * The kit's label rung: small muted capitals, set apart by their tracking. Every label on the rung wears it, so one
  * ruling on the rung reaches each of them from here.
  */
@@ -105,7 +124,7 @@ export const nameWithChips = tv({
 export const actRow = tv({
   slots: {
     // No column gap: a row without acts leaves their column empty, and a gap beside it would take 12 px off its words.
-    frame: "grid min-h-14 items-center px-4 py-3 lg:min-h-13",
+    frame: `grid ${rowHeight()} items-center px-4 py-3`,
     words: "col-start-1 grid min-w-0 gap-0.5",
     // Positioned above a row's stretched link, so a press on an act does the act rather than open the record.
     acts: "relative z-10 col-start-1 row-start-2 mt-2 flex items-center gap-2 @lg:col-start-2 @lg:row-start-1 @lg:ms-3 @lg:mt-0",

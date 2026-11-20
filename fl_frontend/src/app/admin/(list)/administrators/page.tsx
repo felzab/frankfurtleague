@@ -99,7 +99,6 @@ function activeRow(grant: FLGrantRow, { reader, readerIsOwner }: Pick<Access, "r
     name: { record: grant.address, address: true },
     chip: { tone: "success", label: isOwner ? COPY.shared.owner : COPY.shared.administration },
     cells: { since: dayOf(grant.effective_from) },
-    sideActs: 1,
     acts: (
       <RowAct
         verb="remove"
@@ -142,7 +141,6 @@ function waitingRow({
     name: { record: address, address: true },
     line,
     cells: {},
-    sideActs: 1,
     acts: (
       <RowAct
         verb="withdraw"

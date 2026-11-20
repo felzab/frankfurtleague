@@ -56,7 +56,6 @@ const rowOf = (ban: FLBanListRow, holder: string): TableRow => {
       until,
       enteredOn: { record: formatDate(dayOf(ban.created_at)) },
     },
-    sideActs: 1,
     acts: (
       <RowAct
         verb="remove"

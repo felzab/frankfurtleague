@@ -36,7 +36,7 @@ const grid = tv({
   variants: {
     kind: {
       // A school's tile, the plaque before the name, which breaks at its own hyphens rather than being cut.
-      school: { content: "flex min-h-12 items-center gap-2 px-2.5 py-1 lg:min-h-11" },
+      school: { content: "flex min-h-11 items-center gap-2 px-2.5 py-1 pointer-coarse:min-h-12" },
       // The logo over the short name; the logo on a white plate in both themes, so it keeps its own colours
       // on the dark one.
       sponsor: { content: "grid content-start gap-2 p-2 text-center" },

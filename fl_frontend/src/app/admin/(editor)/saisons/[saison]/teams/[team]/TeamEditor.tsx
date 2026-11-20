@@ -7,7 +7,6 @@ import { COPY } from "@/core/copy/shared";
 import { FLAustrittType } from "@/core/generated/client/types";
 import { SHORTHAND_LENGTH } from "@/features/bewerbungen/constants";
 import { schulformOptions } from "@/features/teams/options";
-import { seatActKinds } from "@/features/teams/seatActKinds";
 import { SeatActs } from "@/features/teams/SeatActs";
 import { AddressFields } from "@/kit/AddressFields";
 import { Segmented } from "@/kit/ChoiceButtons";
@@ -250,7 +249,6 @@ export function TeamEditor({
                     : null;
                   return {
                     ...seat,
-                    sideActs: seatActKinds(link).length,
                     acts: (
                       <SeatActs
                         seats={target.seats}

@@ -14,7 +14,6 @@ import { EXPIRED_CHIP } from "@/kit/stateChips";
 import { pageMetadata } from "@/shared/utils/metadata";
 
 import { startLostMailboxChange } from "./addressChangeActs";
-import { changeActKinds } from "./changeActKinds";
 import { ChangeActs } from "./ChangeActs";
 import { StartFields } from "./StartFields";
 
@@ -87,7 +86,6 @@ function rowOf(change: FLAddressChangeAdminOpen, holder: string): TableRow {
     ...(delivery === null ? {} : { delivery }),
     ...(until === undefined ? {} : { line: until }),
     cells: { after: { record: change.email, address: true } },
-    sideActs: changeActKinds(resends).length,
     acts: (
       <ChangeActs
         id={change.id}

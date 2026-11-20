@@ -100,9 +100,9 @@ export async function choose(page: Page, scope: Locator, label: RegExp, option: 
 
 /**
  * Presses a row's act by its name, as a person finds it: the row's own button where the row shows one, else the row's
- * „Mehr“ and then the menu's entry of that name. A row's acts have these two homes by their list, at every width: a
- * decision and a list's one side act are buttons, and the side acts of a list whose rows carry two or more stand in
- * each row's one „⋯“. It fails where the row shows neither.
+ * „Mehr“ and then the menu's entry of that name. A row's acts have these two homes: a decision's are buttons at every
+ * width, and side acts are buttons where the list's box is 42 rem wide or more and each row's one „⋯“ where it is
+ * narrower. It fails where the row shows neither.
  */
 export async function pressRowAct(row: Locator, name: string): Promise<void> {
   const button = row.getByRole("button", { name, exact: true });

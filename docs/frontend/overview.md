@@ -176,16 +176,16 @@ because the rail opens and closes under one viewport, so only the box says how m
 has. Lists, tables and bordered boxes, match rows, card grids and folds among them, stack below 42
 rem (`@2xl`) and spread from it. A list of records is a table from 42 rem, and below it each row
 stacks: the name with its chips, at most one `narrow` column beside them, one muted line under the
-name, then a decision's acts. A column the stacked row leaves out keeps its fact where
-[a recurring job's pattern](copy.md#a-recurring-job-takes-its-fixed-pattern) says. The Tabelle, a
-`stack` table and a `prose` table keep forms of their own (`fl_frontend/src/kit/Table.tsx`). A
-card's act row, `Facts` and `LinkRows` switch at 32 rem (`@lg`). The five match tiles stand in one
-row from 47.5 rem, the form column's width (`fl_frontend/src/kit/StatTiles.tsx`). The K.-o.-Baum
-draws its cards of plaques alone below 42 rem and with each side's name and the date line from it,
-by the tree's box, since a card's own width is the form's result
-(`fl_frontend/src/kit/BracketTree.tsx`). The organisers stand in four columns from 44 rem, where the
-widest entry fits whole (`fl_frontend/src/kit/Organisers.tsx`). Two kinds of part switch by the
-screen at `lg` instead:
+name, and its side acts folded into one „⋯“ at the row's end. A column the stacked row leaves out
+keeps its fact where [a recurring job's pattern](copy.md#a-recurring-job-takes-its-fixed-pattern)
+says. The Tabelle, a `stack` table and a `prose` table keep forms of their own
+(`fl_frontend/src/kit/Table.tsx`). A card's act row, `Facts` and `LinkRows` switch at 32 rem
+(`@lg`). The five match tiles stand in one row from 47.5 rem, the form column's width
+(`fl_frontend/src/kit/StatTiles.tsx`). The K.-o.-Baum draws its cards of plaques alone below 42 rem
+and with each side's name and the date line from it, by the tree's box, since a card's own width is
+the form's result (`fl_frontend/src/kit/BracketTree.tsx`). The organisers stand in four columns from
+44 rem, where the widest entry fits whole (`fl_frontend/src/kit/Organisers.tsx`). Two kinds of part
+switch by the screen at `lg` instead:
 
 - **A frame, and a classic page's own layout, which no block's box holds**: the frames' bands, rail
   and footer, a classic page's spacing, the landing's hero beside the season card, the gaps between
@@ -194,8 +194,8 @@ screen at `lg` instead:
   `fl_frontend/src/kit/Prose.tsx`). Every block inside a landing section reads its own box, as on a
   rail page.
 - **A part that answers a phone's touch rather than the room**: a form footer's acts stacking across
-  the width, the filters folding into a sheet, a read page's acts, and a row's taller touch height.
-  The screen tells the device, and a box does not.
+  the width, the filters folding into a sheet, and a read page's acts. The screen tells the device,
+  and a box does not.
 
 A new block takes the box's rule unless it is one of these.
 
@@ -203,7 +203,9 @@ A new block takes the box's rule unless it is one of these.
 (`pointer-coarse:h-10`, as in `fl_frontend/src/kit/Tabs.tsx`). That is less than Apple's 44 pt and
 Android's 48 dp, since the league's visitors are mostly young and a larger control reads as bulky. A
 link the kit draws as a control (`fl_frontend/src/kit/Link.tsx :: frameLink`, a menu's entries) is
-40 px like one; a small text link, such as the footer's, keeps the height of its text.
+40 px like one; a small text link, such as the footer's, keeps the height of its text. A list row
+answers the pointer the same way, 52 px tall with a mouse and 56 on a touch screen
+(`fl_frontend/src/kit/cardStyles.ts :: rowHeight`), and a school's tile 44 and 48.
 
 **Every string a visitor reads comes from the catalogue**, and the kit's text props refuse one typed
 into a page: [`copy.md`](copy.md) says where each string, date and number comes from and how it is

@@ -25,6 +25,7 @@ describe("a row's side acts folded", () => {
   // The harm: a locked act's entry is one the keys pass over, as a disabled entry is, so nobody on a keyboard reaches
   // the reason under its label; or its press runs the act after all.
   it("keep a locked act's entry in the keys' reach, its press running nothing", async () => {
+    // Both forms are drawn, and jsdom applies no container query: the „⋯“ is the narrow form's alone.
     const edit = vi.fn();
     renderUnderNext(
       <SideActs
@@ -47,7 +48,7 @@ describe("a row's side acts folded", () => {
   });
 });
 
-/** Each row's side acts, the row saying how many it carries, as every page builds its rows. */
+/** Each row's side acts, as every page builds its rows. */
 const LISTS = {
   table: (rows: ReadonlyArray<ReadonlyArray<SideAct>>) => (
     <Table
@@ -58,7 +59,6 @@ const LISTS = {
         id: String(index),
         name: { record: `person${String(index)}@example.org` },
         cells: {},
-        sideActs: acts.length,
         acts: <SideActs acts={acts} />,
       }))}
       empty={{ kind: "none", plural: COPY.shared.addressChange.change }}
@@ -72,7 +72,6 @@ const LISTS = {
         name: { record: `Person ${String(index)}` },
         chips: [],
         line: { record: `person${String(index)}@example.org` },
-        sideActs: acts.length,
         acts: <SideActs acts={acts} />,
       }))}
     />
