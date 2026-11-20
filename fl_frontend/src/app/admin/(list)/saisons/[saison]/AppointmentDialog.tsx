@@ -47,7 +47,7 @@ export function AppointmentDialog({
       adoptsBericht: null,
       changes: { date: posted(form, DATE), time: posted(form, TIME) },
     });
-    // The note names the other fixtures the save moved, which the dialog stays open to say.
+    // The note names the other fixtures the save moved, which the dialog's toast says as it closes.
     if (answer.ok) return { ok: true, value: undefined, ...(answer.note === undefined ? {} : { note: answer.note }) };
     // A save held back for its question deletes a later result, which only a stale bracket's resolution sets off from a
     // date alone: the match editor asks it, and this dialog says so rather than stand open with nothing written.
