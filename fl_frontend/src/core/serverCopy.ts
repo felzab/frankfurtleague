@@ -827,6 +827,8 @@ export const SERVER_COPY = catalogue({
       spielberichtFrom: (when: Copy) => `Spielbericht ab ${when}`,
       /** A fixture another referee is booked onto, or one a club's exit took the booking off, on the list's chip too. */
       unbooked: "Nicht mehr eingeteilt",
+      /** A finished season's fixture whose report was never written, which its form takes no more of. */
+      unreported: "Kein Spielbericht eingetragen",
     },
   },
 
