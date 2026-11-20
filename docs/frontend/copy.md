@@ -41,11 +41,9 @@ you write one; the strings themselves live in the catalogue, under `fl_frontend/
   - `account.ts :: ACCOUNT_COPY`, for Konto and the mailed pages that act on it;
   - `area.ts :: AREA_COPY`, for the pages under `/area`;
   - `admin.ts :: ADMIN_COPY`, for the administration.
-- **The shared constant keeps the name `COPY`** that the single catalogue had. Nearly every module
-  reads it, and keeping the name left their reads as they were, so the name is kept on purpose and
-  no rename is unfinished. No barrel joins the five modules. `fl_frontend/src/core/copy.ts` holds
-  what they share: the `Copy` brand, `catalogue`, the helpers, and the plain words that more than
-  one audience builds its entries from.
+- **No barrel joins the five modules.** `fl_frontend/src/core/copy.ts` holds what they share: the
+  `Copy` brand, `catalogue`, the helpers, and the plain words that more than one audience builds its
+  entries from.
 - **`COPY`'s `shared` section comes first** and holds what several areas read. A record's words that
   several areas read stand under the record's noun in `COPY`: a club's in `team`, a match's in
   `spielplan`, a squad row's in `kader` and a line-up's in `aufstellung`. Each other audience's
