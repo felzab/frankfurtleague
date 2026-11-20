@@ -228,13 +228,8 @@ it("starts the sign-in store's connect at a production boot without waiting on i
     await bootAndStep([]);
 
     expect(storeConnects).toBe(1);
-    // The first index of each collection asked, none of them built, and the boot returned all the same.
-    expect(indexesAsked).toStrictEqual([
-      "session session_token_uidx",
-      "passkey credentialID_1",
-      "verification expiresAt_1",
-      "user user_email_uidx",
-    ]);
+    // The list's first index asked and not built, the rest waiting behind it, and the boot returned all the same.
+    expect(indexesAsked).toStrictEqual(["session session_token_uidx"]);
   } finally {
     release();
     indexBuilt = Promise.resolve();
