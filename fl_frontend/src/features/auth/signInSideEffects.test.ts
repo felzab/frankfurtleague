@@ -1,5 +1,6 @@
 import { assert, describe, expect, it } from "vitest";
 
+import { COPY } from "@/core/copy/shared";
 import { TURNSTILE_FIELD } from "@/core/turnstileToken";
 import { ADMIN_EMAIL, memoryAdapterDouble, memoryStore, ORIGIN, overriding, registerAuthDoubles } from "@/test-support/authDoubles";
 import { serveBackend, serveHost } from "@/test-support/backend";
@@ -90,8 +91,8 @@ interface Attempt {
   readonly mailedWhileAnswering: readonly string[];
   /** Recipients recorded once the work scheduled behind the response has been run here. */
   readonly mailed: readonly string[];
-  /** Verification rows the store gained while the caller was still waiting. */
-  readonly writtenWhileAnswering: number;
+  /** The identifier of each verification row the store gained while the caller was still waiting. */
+  readonly writtenWhileAnswering: readonly string[];
   /** The identifier of each verification row the store gained once the deferred work ran. */
   readonly writtenAfter: readonly string[];
   /** Backend reads the gate had made while the caller was still waiting, and once the deferred work ran. */
@@ -107,14 +108,13 @@ async function signInWith(email: string): Promise<Attempt> {
   submitted.set(TURNSTILE_FIELD, BOT_CHECK_TOKEN);
 
   const mailedBefore = sent.length;
-  const storedBefore = store.verification.length;
   const rowsBefore = new Set(store.verification);
   const askedBefore = asked.length;
   deferred.length = 0;
 
   const result = await handleSignIn(submitted);
   const mailedWhileAnswering = sent.slice(mailedBefore).map((message) => message.to);
-  const writtenWhileAnswering = store.verification.length - storedBefore;
+  const writtenWhileAnswering = store.verification.filter((row) => !rowsBefore.has(row)).map((row) => row.identifier);
   const askedWhileAnswering = asked.length - askedBefore;
 
   const scheduled = deferred.splice(0);
@@ -202,9 +202,13 @@ describe("what a sign-in leaves behind on the response", () => {
     expect(rejected.scheduled, "the rejected branch scheduled nothing, so the two are distinguishable by what they defer").toBe(1);
   });
 
-  it("writes the code's row and the address's count behind the response on both branches alike", () => {
-    expect(granted.writtenWhileAnswering, "the caller waited on a store write").toBe(0);
-    expect(rejected.writtenWhileAnswering).toBe(0);
+  /* The count answers the press, so it is the one write the caller waits on: ahead of the gate, it is the same
+     write for every address. */
+  it("writes the address's count ahead of the answer and the code's row behind it, on both branches alike", () => {
+    expect(kindsOf(granted.writtenWhileAnswering, GRANTED), "the caller waited on a write other than the count").toStrictEqual([
+      "the address's count",
+    ]);
+    expect(kindsOf(rejected.writtenWhileAnswering, REJECTED)).toStrictEqual(["the address's count"]);
     expect(kindsOf(granted.writtenAfter, GRANTED)).toStrictEqual(["the address's count", "the code"]);
     expect(
       kindsOf(rejected.writtenAfter, REJECTED),
@@ -217,7 +221,9 @@ describe("what a sign-in leaves behind on the response", () => {
 function assertNothingAheadOfTheAnswer(attempt: Attempt): void {
   expect(attempt.askedWhileAnswering, "the caller waited on a backend read").toBe(0);
   expect([...attempt.mailedWhileAnswering]).toStrictEqual([]);
-  expect(attempt.writtenWhileAnswering, "the caller waited on a store write").toBe(0);
+  expect(kindsOf(attempt.writtenWhileAnswering, ""), "the caller waited on a write other than the count").toStrictEqual([
+    "the address's count",
+  ]);
   expect(attempt.scheduled, "the branch deferred other than the one task every branch defers").toBe(1);
   expect(bodyWithoutEcho(attempt.result)).toStrictEqual(bodyWithoutEcho(granted.result));
 }
@@ -246,5 +252,40 @@ describe("which account two spellings of one address reach", () => {
     // The whole store, not a slice: no other address here is ever mailed a code, so a second row
     // could only be the second spelling's.
     expect(store.user.map((user) => user.email)).toStrictEqual([GRANTED]);
+  });
+});
+
+describe("the sixth press of an address's hour", () => {
+  /* The count stands ahead of the gate, so the refusal past it is reached by a member and a stranger alike and says
+     only that the address was asked for five times. A send it scheduled would write a new code, voiding the one mailed. */
+  it("answers a member and a stranger the limit's line with one body, scheduling no send", async () => {
+    // The hour starts empty: the presses above spent part of both addresses' five.
+    store.verification.length = 0;
+
+    const presses = async (email: string): Promise<Attempt[]> => {
+      const attempts = [];
+      for (let press = 0; press < 6; press += 1) attempts.push(await signInWith(email));
+      return attempts;
+    };
+    const member = await presses(GRANTED);
+    const stranger = await presses(REJECTED);
+
+    for (const attempts of [member, stranger]) {
+      expect(
+        attempts.slice(0, 5).map((attempt) => attempt.result.ok),
+        "a press inside the five was refused, so the hour is counted more than once a press",
+      ).toStrictEqual([true, true, true, true, true]);
+    }
+    expect(
+      member.flatMap((attempt) => attempt.mailed),
+      "the member's five presses were not each mailed",
+    ).toStrictEqual(Array(5).fill(GRANTED));
+
+    const [memberSixth, strangerSixth] = [member.at(-1), stranger.at(-1)];
+    assert.ok(memberSixth !== undefined && strangerSixth !== undefined);
+    expect(memberSixth.result).toStrictEqual({ ok: false, reason: COPY.shared.failure.tooManyAttempts });
+    expect(strangerSixth.result, "a stranger's sixth press answered apart from a member's").toStrictEqual(memberSixth.result);
+    expect([memberSixth.scheduled, strangerSixth.scheduled], "a capped press scheduled a send").toStrictEqual([0, 0]);
+    expect(memberSixth.mailed).toStrictEqual([]);
   });
 });

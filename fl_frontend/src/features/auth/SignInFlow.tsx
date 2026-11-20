@@ -32,8 +32,9 @@ export function SignInFlow({ next, siteKey }: { next: string; siteKey: string })
 
   usePreloadedAuthClient();
 
-  // The send answers every address alike: the code view and its sentence are written here from the address
-  // the action folded, never from what the action says, so a member's answer and a stranger's cannot differ.
+  // The send answers every address alike, the code on its way or the hour's limit on the address view: the code view
+  // and its sentence are written here from the address the action folded and nothing else it says, so a member's
+  // answer and a stranger's cannot differ.
   const send = useFormAction(
     async (address: string): Promise<ActionAnswer<string>> => {
       const request = await humanCheck.takeToken();

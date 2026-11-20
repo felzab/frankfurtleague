@@ -136,12 +136,6 @@ function asksForDeletionLink(body: unknown): boolean {
   return !token;
 }
 
-/** The address a sign-in code is asked for, or `null` for a send of any other type. */
-function codeSendAddress(body: unknown): string | null {
-  const type: unknown = typeof body === "object" && body !== null ? Reflect.get(body, "type") : undefined;
-  return type === "sign-in" ? codeSignInAddress(body) : null;
-}
-
 /** The address a code sign-in names, or `null` where the body carries none the library would read. */
 function codeSignInAddress(body: unknown): string | null {
   const email: unknown = typeof body === "object" && body !== null ? Reflect.get(body, "email") : undefined;
@@ -481,7 +475,7 @@ const authOptions = (origin: URL, client: MongoClient) =>
 
     hooks: {
       before: createAuthMiddleware(async (ctx) => {
-        // First, ahead of both counters and every session read below: an arrival over HTTP at a path the browser never
+        // First, ahead of every count and every session read below: an arrival over HTTP at a path the browser never
         // calls writes no row before it is refused. The switch above is a denylist, so an endpoint the next upgrade
         // mounts arrives open; this is the default-deny net behind it, over `ctx.path`, the endpoint's own declared
         // route rather than a string derived from the URL a caller sent. An absent `ctx.request` is the library's own
@@ -513,27 +507,8 @@ const authOptions = (origin: URL, client: MongoClient) =>
           if (typeof body === "object" && body !== null) attemptRows.set(body, own);
         }
 
-        // Reached in process alone, the deny above refusing the send over HTTP. Ahead of the plugin, which writes each
-        // new code before its send callback runs: capped there, a send voids the held code and mails none. Ahead of the
-        // gate, so the store's rows never tell a member from a stranger.
-        const recipient = ctx.path === CODE_SEND_PATH ? codeSendAddress(body) : null;
-
-        if (
-          recipient !== null &&
-          (await withinBound(
-            ctx.context,
-            await boundIdentifier(MAIL_ROW_PREFIX, recipient, ctx.context.secret),
-            CODE_MAIL_LIMIT,
-            CODE_MAIL_WINDOW_HOURS * HOUR_MS,
-          )) === null
-        ) {
-          logger.info("auth.code_mail_capped");
-          // The plugin's own answer to a send, so a capped one reads as a mailed one.
-          return ctx.json({ success: true });
-        }
-
         // Ahead of the library, which mints the token row before its sender runs: capped, nothing is minted or
-        // mailed and the answer reads as mailed, as a capped code send's does. No session is the library's to refuse.
+        // mailed and the answer reads as mailed. No session is the library's to refuse.
         if (ctx.path === DELETE_USER_PATH && asksForDeletionLink(body)) {
           const asking = await getSessionFromCtx(ctx);
           if (asking !== null && (await deletionLinkCapped(ctx.context, asking.user.email))) {
@@ -739,3 +714,18 @@ export const auth = new Proxy({} as ReturnType<typeof build>, {
 
 export const sendSignInCode = (email: string, requestHeaders: Headers) =>
   auth.api.sendVerificationOTP({ body: { email, type: "sign-in" }, headers: requestHeaders });
+
+/**
+ * Whether a sign-in code asked for `email` would be its address's sixth mail of the hour, this ask counted whatever
+ * the address holds. Asked ahead of the gate, so the store's rows never tell a member from a stranger, and on the rows
+ * the deletion link counts on, so the two mails a visitor can ask for share one bound. A store that cannot count
+ * throws.
+ */
+export async function codeMailCapped(email: string): Promise<boolean> {
+  const context = await auth.$context;
+  const perAddress = await boundIdentifier(MAIL_ROW_PREFIX, email, context.secret);
+  if ((await withinBound(context, perAddress, CODE_MAIL_LIMIT, CODE_MAIL_WINDOW_HOURS * HOUR_MS)) !== null) return false;
+
+  logger.info("auth.code_mail_capped");
+  return true;
+}

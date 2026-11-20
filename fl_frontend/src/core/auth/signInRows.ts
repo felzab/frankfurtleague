@@ -49,7 +49,12 @@ export class RemovalOutsideTransaction extends Error {
   override name = "RemovalOutsideTransaction";
 }
 
-type BoundContext = Pick<AuthContext, "adapter" | "internalAdapter" | "secret">;
+/** What the bounds call on the store, narrowed to those calls so the instance's own context, typed by this league's options, fits. */
+type BoundContext = {
+  readonly adapter: Pick<DBTransactionAdapter, "count" | "delete" | "deleteMany">;
+  readonly internalAdapter: Pick<AuthContext["internalAdapter"], "createVerificationValue" | "findUserById">;
+  readonly secret: string;
+};
 
 /**
  * Keyed under the library's own secret, never hashed plain: an address is guessable, so an unkeyed

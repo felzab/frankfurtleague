@@ -11,7 +11,10 @@ import { filedMessages, mailedCode } from "./mailSink";
 
 import type { BrowserContext, Locator, Page } from "@playwright/test";
 
-/** The step a send that mailed a code, or would have, shows in the address step's place, by its heading. */
+/**
+ * The step every send under its address's hourly cap shows in the address step's place, a code mailed or the gate
+ * refusing one, by its heading.
+ */
 const codeStep = (page: Page): Locator => page.getByRole("main").getByRole("heading", { name: "Prüfe dein Postfach" });
 
 /** Asks for a code on `/signin`, as far as the step a send that mailed one shows. */
