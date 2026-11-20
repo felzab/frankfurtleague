@@ -8,9 +8,9 @@ import { ACCEPT_RULES, DECLINE_RULES, SEAT_RULES } from "@/features/bewerbungen/
 import { getBewerbungById } from "@/features/bewerbungen/queries";
 import { seatsOf } from "@/features/bewerbungen/seats";
 import { STANDING_CHIP, standingOf, TEAM_DOUBLE } from "@/features/bewerbungen/standing";
-import { seatActKinds } from "@/features/teams/components/forms/seatActKinds";
-import { SeatActs } from "@/features/teams/components/forms/SeatActs";
 import { trikotFarbeLabel } from "@/features/teams/constants";
+import { seatActKinds } from "@/features/teams/seatActKinds";
+import { SeatActs } from "@/features/teams/SeatActs";
 import { Button } from "@/kit/Button";
 import { Link } from "@/kit/Link";
 import { ReadPage } from "@/kit/ReadPage";

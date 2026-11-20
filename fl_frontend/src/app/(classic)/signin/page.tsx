@@ -2,7 +2,7 @@ import { connection } from "next/server";
 
 import { frontend_config } from "@/core/config";
 import { ROUTES } from "@/core/routes";
-import { SignInFlow } from "@/features/auth/components/forms/SignInFlow";
+import { SignInFlow } from "@/features/auth/SignInFlow";
 import { pageMetadata } from "@/shared/utils/metadata";
 
 import type { Metadata, ResolvingMetadata } from "next";

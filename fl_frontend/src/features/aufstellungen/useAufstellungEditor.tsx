@@ -4,8 +4,8 @@ import { COPY } from "@/core/copy/shared";
 import { Lineup, lineupMoves, lineupStarters, lineupValue } from "@/kit/Lineup";
 import { useEditor } from "@/kit/useEditor";
 
-import { STARTERS_MAX } from "../../constants";
-import { REFUSED_ROW } from "../../payload";
+import { STARTERS_MAX } from "./constants";
+import { REFUSED_ROW } from "./payload";
 
 import type { ActionAnswer } from "@/core/action";
 import type { Copy } from "@/core/copy";

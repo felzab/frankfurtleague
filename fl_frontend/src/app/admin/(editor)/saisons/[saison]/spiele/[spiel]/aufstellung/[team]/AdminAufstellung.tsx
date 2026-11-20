@@ -1,12 +1,12 @@
 "use client";
 
-import { useAufstellungEditor } from "@/features/aufstellungen/components/forms/useAufstellungEditor";
+import { useAufstellungEditor } from "@/features/aufstellungen/useAufstellungEditor";
 import { EditorPage } from "@/kit/EditorPage";
 
 import { saveAufstellung } from "./saveAufstellung";
 
 import type { Copy } from "@/core/copy";
-import type { AufstellungEditing } from "@/features/aufstellungen/components/forms/useAufstellungEditor";
+import type { AufstellungEditing } from "@/features/aufstellungen/useAufstellungEditor";
 import type { ChipProps } from "@/kit/Chip";
 import type { PageTitle } from "@/kit/RailFrame";
 

@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { getPasskeyStep } from "@/core/auth/landing";
 import { RETURN_PARAMETER, withReturnAddress } from "@/core/auth/returnAddress";
 import { ROUTES } from "@/core/routes";
-import { PasskeyStep } from "@/features/auth/components/forms/PasskeyStep";
+import { PasskeyStep } from "@/features/auth/PasskeyStep";
 import { pageMetadata } from "@/shared/utils/metadata";
 
 import type { Metadata, ResolvingMetadata } from "next";

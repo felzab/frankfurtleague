@@ -11,7 +11,7 @@ import { SignInPage } from "@/kit/SignInPage";
 import { useNavigate } from "@/kit/WholePage";
 import { leaveDocumentFor } from "@/shared/utils/documentNavigation";
 
-import { describeCeremonyRefusal, refusalCode, refusalStatus, SESSION_NOT_FRESH } from "../../passkeyAnswers";
+import { describeCeremonyRefusal, refusalCode, refusalStatus, SESSION_NOT_FRESH } from "./passkeyAnswers";
 
 import type { Copy } from "@/core/copy";
 

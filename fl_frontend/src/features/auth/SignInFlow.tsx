@@ -13,9 +13,9 @@ import { useBotCheck } from "@/kit/useBotCheck";
 import { useFormAction } from "@/kit/useFormAction";
 import { leaveDocumentFor } from "@/shared/utils/documentNavigation";
 
-import { handleSignIn } from "../../actions";
-import { CEREMONY_ABORTED, describeCeremonyRefusal, refusalCode } from "../../passkeyAnswers";
-import { codeRefusal } from "../../signInAnswers";
+import { handleSignIn } from "./actions";
+import { CEREMONY_ABORTED, describeCeremonyRefusal, refusalCode } from "./passkeyAnswers";
+import { codeRefusal } from "./signInAnswers";
 
 import type { ActionAnswer } from "@/core/action";
 import type { Copy } from "@/core/copy";

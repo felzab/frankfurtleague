@@ -351,7 +351,7 @@ describe("each form's posted names meet its lane's keys", () => {
     it("loses no key of the sign-in form", async () => {
       const { handleSignIn } = await import("@/features/auth/actions");
       const { TURNSTILE_FIELD } = await import("@/core/turnstileToken");
-      const posted = spelledIn("features/auth/components/forms/SignInFlow.tsx");
+      const posted = spelledIn("features/auth/SignInFlow.tsx");
       await arriveAs(null);
 
       // The widget's token, which the page's script posts under its own name beside the form's boxes.
@@ -376,10 +376,7 @@ describe("each form's posted names meet its lane's keys", () => {
 
     it("loses no key of „Sitz bearbeiten“", async () => {
       const { writeSeat } = await import("@/app/admin/(editor)/saisons/[saison]/teams/[team]/teamActs");
-      const posted = spelledIn(
-        "features/teams/components/forms/SeatActs.tsx",
-        "app/admin/(editor)/saisons/[saison]/teams/[team]/TeamEditor.tsx",
-      );
+      const posted = spelledIn("features/teams/SeatActs.tsx", "app/admin/(editor)/saisons/[saison]/teams/[team]/TeamEditor.tsx");
       takes(["PUT", `/teams/${TEAM}/saisons/2027/kontakte/trainer`, { email: null }]);
 
       const typed = { team_id: TEAM, saison_id: "2027", seat: "trainer", ...SEAT_PERSON, trainer_is_also: "ansprechperson", version: "3" };
@@ -391,10 +388,7 @@ describe("each form's posted names meet its lane's keys", () => {
 
     it("loses no key of an application's „Sitz bearbeiten“", async () => {
       const { writeSeat } = await import("@/app/admin/(list)/saisons/[saison]/bewerbungen/[bewerbung]/writeSeat");
-      const posted = spelledIn(
-        "features/teams/components/forms/SeatActs.tsx",
-        "app/admin/(list)/saisons/[saison]/bewerbungen/[bewerbung]/page.tsx",
-      );
+      const posted = spelledIn("features/teams/SeatActs.tsx", "app/admin/(list)/saisons/[saison]/bewerbungen/[bewerbung]/page.tsx");
       takes(["POST", `/bewerbungen/${ID}/kontakte/trainer`, { email: "jana@example.org" }]);
 
       const typed = { id: ID, seat: "trainer", ...SEAT_PERSON, version: "3" };
