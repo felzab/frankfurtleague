@@ -13,7 +13,7 @@ const WORDS = SERVER_COPY.bewerbung.end;
 export const TO_HOME = { label: COPY.shared.end.toHome, href: ROUTES.home.path() };
 
 /** The outcome replacing the form, a replayed press alike. */
-export const SUBMITTED: EndState = { tone: "success", title: WORDS.submitted, next: TO_HOME };
+export const SUBMITTED: EndState = { tone: "info", title: WORDS.submitted, next: TO_HOME };
 
 /** The card standing in the form's place, or `null` while the window runs: the state is the server's whole judgement. */
 export function endOf(window: FLBewerbungFormResponse["window"]): EndState | null {
