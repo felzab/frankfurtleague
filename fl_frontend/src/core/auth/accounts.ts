@@ -124,8 +124,8 @@ export async function deleteOwnAccount(token: string, requestHeaders: Headers): 
   const press: DeletionPress = { linkSpent: false };
   try {
     // The completing endpoint itself, the one the library's own link reaches: it expires the session's cookie on
-    // its own answer, which `nextCookies` carries onto the action's. `deleteUser` with a token calls it as a plain
-    // function and answers without that expiry, leaving the browser a cookie naming a gone session.
+    // its own answer, which `nextCookies` carries onto the action's. Not `deleteUser` with the token: it reads an
+    // empty one as a request for a new link, which it mints and mails, where this endpoint refuses it as unknown.
     const answer = await ownErasure.run(press, () => auth.api.deleteUserCallback({ query: { token }, headers: requestHeaders }));
     // The library's own word for a deletion, never the absence of a throw. Its one other end, a redirect, comes only
     // for a `callbackURL`, which no press passes: no case reaches this check alone.

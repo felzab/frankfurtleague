@@ -35,10 +35,10 @@
     "e2e": "playwright test"
   },
   "dependencies": {
-    "@better-auth/mongo-adapter": "^1.7.20",
-    "@better-auth/passkey": "^1.7.20",
+    "@better-auth/mongo-adapter": "^1.7.26",
+    "@better-auth/passkey": "^1.7.26",
     "@internationalized/date": "^3.12.4",
-    "better-auth": "^1.7.20",
+    "better-auth": "^1.7.26",
     "client-only": "^0.0.1",
     "lucide-react": "^1.73.0",
     "mongodb": "^7.9.0",
