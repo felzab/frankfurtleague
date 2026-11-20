@@ -522,7 +522,7 @@ export const SERVER_COPY = catalogue({
     /** The deletion link: the subject and the button are the act's own words, `COPY.page.accountErasure`. */
     erasureLink: {
       lead: "Du hast angefordert, dein Konto zu löschen.",
-      /** The deletion box's own sentence, so the box and its mail word what goes, and what outlives it, alike. */
+      /** The deletion box's own sentence, so the box and its mail point alike to where what outlives the deletion is listed. */
       consequence: ACCOUNT_COPY.erasure.description,
     },
 
