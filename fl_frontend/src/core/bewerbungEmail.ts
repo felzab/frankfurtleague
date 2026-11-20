@@ -37,16 +37,12 @@ const deadlineSentence = (deadline: string): Sentence => [
   WORDS.deadline.after,
 ];
 
-/** A fill named by its hex, in this shape alone: no supplier could match any other. */
-const FARBE_HEX = /^#[0-9a-f]{6}$/i;
-
 /** What an accepted application is told, each person naming the seats they were entered for. */
 export function buildBewerbungZusageEmail(
   { team, shorthand, saison_id, seats, gruppe, trikot_farbe }: FLBewerbungZusageData,
   { origin }: MailOrigin,
 ): Mail {
   const farbe = TRIKOT_FARBEN.find((entry) => entry.value === trikot_farbe);
-  const hex = farbe !== undefined && FARBE_HEX.test(farbe.hex) ? farbe.hex : null;
 
   return {
     audience: "notice",
@@ -63,7 +59,7 @@ export function buildBewerbungZusageEmail(
         // hex beside the name: the name alone leaves neighbours such as Grün and Smaragd for a supplier to guess between.
         {
           label: COPY.team.trikotFarbe,
-          value: farbe === undefined ? COPY.shared.notProvided : hex === null ? farbe.label : `${farbe.label} (${hex})`,
+          value: farbe === undefined ? COPY.shared.notProvided : `${farbe.label} (${farbe.hex})`,
         },
         // The one row that differs per reader: each person is told the seats they were entered for.
         { label: WORDS.registeredAs, value: seatsText(seats) },

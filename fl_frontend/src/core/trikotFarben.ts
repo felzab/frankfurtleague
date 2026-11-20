@@ -33,7 +33,7 @@ const TRIKOT_HEX = {
   violett: "#7138b5",
   magenta: "#c52a87",
   rosa: "#e14b9a",
-} as const satisfies Record<FLTrikotFarbe, string>;
+} as const satisfies Record<FLTrikotFarbe, `#${string}`>;
 
 export const TRIKOT_FARBEN: readonly { readonly value: FLTrikotFarbe; readonly label: string; readonly hex: string }[] = Object.values(
   FLTrikotFarbe,
