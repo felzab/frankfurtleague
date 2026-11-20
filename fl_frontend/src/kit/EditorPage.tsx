@@ -19,7 +19,7 @@ import type { Copy, LockReason } from "@/core/copy";
 import type { Route } from "next";
 import type { ReactElement } from "react";
 import type { ChipProps } from "./Chip";
-import type { ConfirmQuestion } from "./ConfirmDialog";
+import type { ConfirmQuestion, Trigger } from "./ConfirmDialog";
 import type { DialogAct } from "./dialogAct";
 import type { PageTitle } from "./RailFrame";
 import type { Editor, EditorValue } from "./useEditor";
@@ -81,8 +81,8 @@ function DangerRow({ act }: { act: DangerAct }) {
       </div>
       {/* Its button says the verb alone, „Löschen“, so the row's name says what it acts on, as a list row's does. */}
       {act.dialog === undefined ? (
-        <ConfirmDialog
-          {...act.confirm}
+        <DangerQuestion
+          confirm={act.confirm}
           trigger={{ label, locked }}
         />
       ) : (
@@ -92,6 +92,19 @@ function DangerRow({ act }: { act: DangerAct }) {
         />
       )}
     </div>
+  );
+}
+
+function DangerQuestion({ confirm, trigger }: { confirm: ConfirmQuestion; trigger: Trigger }) {
+  const { onConfirm, doneShown, touch, ...question } = confirm;
+  return (
+    <ConfirmDialog
+      question={question}
+      onConfirm={onConfirm}
+      doneShown={doneShown}
+      touch={touch}
+      trigger={trigger}
+    />
   );
 }
 

@@ -91,10 +91,7 @@ describe("the kit's confirmation", () => {
     const reason = COPY.shared.failure.stale;
     renderUnderNext(
       <ConfirmDialog
-        verb="retire"
-        subject={NAME}
-        consequence={COPY.kader.deregisterConsequence}
-        tone="danger"
+        question={{ verb: "retire", subject: NAME, consequence: COPY.kader.deregisterConsequence, tone: "danger" }}
         trigger={{ label: COPY.shared.verb.retire }}
         onConfirm={async () => ({ ok: false, reason })}
       />,
@@ -128,10 +125,7 @@ describe("the kit's confirmation", () => {
 function RetireQuestion({ onConfirm }: { onConfirm: () => Promise<ActionAnswer> }) {
   return (
     <ConfirmDialog
-      verb="retire"
-      subject={NAME}
-      consequence={COPY.kader.deregisterConsequence}
-      tone="danger"
+      question={{ verb: "retire", subject: NAME, consequence: COPY.kader.deregisterConsequence, tone: "danger" }}
       trigger={{ label: COPY.shared.verb.retire }}
       onConfirm={onConfirm}
     />

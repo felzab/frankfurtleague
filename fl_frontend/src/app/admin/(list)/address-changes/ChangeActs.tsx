@@ -62,11 +62,13 @@ export function ChangeActs({
   return (
     <SideActs acts={resends ? [send, end] : [end]}>
       <ConfirmDialog
-        verb={verb}
-        subject={COPY.shared.addressChange.change}
-        consequence={COPY.shared.addressChange.previousStays}
-        facts={facts}
-        tone="danger"
+        question={{
+          verb,
+          subject: COPY.shared.addressChange.change,
+          consequence: COPY.shared.addressChange.previousStays,
+          facts,
+          tone: "danger",
+        }}
         touch={{ holder }}
         onConfirm={() => discardChange({ id, holder })}
         open={{ isOpen: isAsking, onOpenChange: setAsking }}

@@ -115,35 +115,36 @@ export function QuestionForm<Input>({
           />
         </FormFooter>
       </HeldForm>
-      {/* Mounted closed from the first render, the sign-in client's chunk with it (`usePasskeyTouch`), and one component
-          type in both arms: a swapped one would unmount, and its unmount closes the question it opens
-          (`useOpenUntilHidden`). */}
-      {asked === null ? (
-        <ConfirmDialog
-          open={open}
-          transition={acting}
-          onConfirm={() => undefined}
-          {...touched}
-        />
-      ) : (
-        <ConfirmDialog
-          verb={verb}
-          tone={tone}
-          subject={asked.question.subject}
-          consequence={asked.question.consequence}
-          {...(asked.question.facts === undefined ? {} : { facts: asked.question.facts })}
-          open={open}
-          transition={acting}
-          // Without the touch the question shows a refusal itself and closes on a done act.
-          {...touched}
-          onConfirm={async () => {
-            const answered = await run({ ...asked.input, holder });
-            // An update after the `await` lands outside the press's transition unless it opens one of its own.
-            if (answered.ok) startTransition(() => setEmptied((count) => count + 1));
-            return answered;
-          }}
-        />
-      )}
+      {/* Mounted closed from the first render, the sign-in client's chunk with it (`usePasskeyTouch`): one mounted only
+          once asked would mount open, and a remount closes the question it opens (`useOpenUntilHidden`). */}
+      <ConfirmDialog
+        question={
+          asked === null
+            ? null
+            : {
+                verb,
+                tone,
+                subject: asked.question.subject,
+                consequence: asked.question.consequence,
+                ...(asked.question.facts === undefined ? {} : { facts: asked.question.facts }),
+              }
+        }
+        open={open}
+        transition={acting}
+        // Without the touch the question shows a refusal itself and closes on a done act.
+        {...touched}
+        onConfirm={
+          // Unasked, the question shows no button to press.
+          asked === null
+            ? () => undefined
+            : async () => {
+                const answered = await run({ ...asked.input, holder });
+                // An update after the `await` lands outside the press's transition unless it opens one of its own.
+                if (answered.ok) startTransition(() => setEmptied((count) => count + 1));
+                return answered;
+              }
+        }
+      />
     </>
   );
 }

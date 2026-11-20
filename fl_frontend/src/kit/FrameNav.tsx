@@ -785,17 +785,13 @@ export function LeaveQuestion() {
     asked?.leave();
   };
   // Mounted closed from the first render, as a held question is, with its words from the first way out that asks.
-  return asked === null ? (
+  return (
     <ConfirmDialog
-      open={open}
-      onConfirm={onConfirm}
-    />
-  ) : (
-    <ConfirmDialog
-      verb="discard"
-      subject={COPY.template.changes}
-      consequence={COPY.template.changesLost(asked.guard.count)}
-      tone="danger"
+      question={
+        asked === null
+          ? null
+          : { verb: "discard", subject: COPY.template.changes, consequence: COPY.template.changesLost(asked.guard.count), tone: "danger" }
+      }
       open={open}
       onConfirm={onConfirm}
     />

@@ -198,7 +198,7 @@ function ActBox({ act, words, danger, children }: { act: AccountAct; words: Reac
             />
           ) : (
             <ConfirmDialog
-              {...act.button.confirm}
+              question={act.button.confirm}
               onConfirm={confirmed}
               doneShown
               trigger={{ label: COPY.shared.withObject(act.button.confirm.subject, act.button.confirm.verb), isBusy, locked }}
@@ -305,11 +305,8 @@ function RemoveAct({ remove }: { remove: Remove }) {
   const face = { icon: "erasures", label: COPY.shared.verb[remove.verb], locked: remove.locked } as const;
   return (
     <ConfirmDialog
-      verb={remove.verb}
+      question={{ verb: remove.verb, subject: remove.subject, consequence: remove.consequence, tone: "danger" }}
       {...(remove.touch === undefined ? {} : { touch: remove.touch })}
-      subject={remove.subject}
-      consequence={remove.consequence}
-      tone="danger"
       onConfirm={remove.run}
       trigger={face}
     />

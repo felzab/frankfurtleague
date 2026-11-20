@@ -99,11 +99,18 @@ type ActTransition = ReturnType<typeof useTransition>;
  */
 type Opening<T extends Tone> =
   | {
+      question: ConfirmWords & { tone: T };
       trigger: Trigger<T>;
       open?: never;
       transition?: never;
     }
   | ({
+      /**
+       * The question's words, or `null` for one its holder has not asked yet, such as the save bar's before any save
+       * was held back: mounted closed from the first render, as a held dialog must be, it has nothing to say. A touch's
+       * holder mounts the sign-in client's chunk with it, ahead of the question it will ask.
+       */
+      question: ConfirmWords | null;
       /** The open state, held by the control that asks, such as the save bar a held-back save answers on. */
       open: HeldOpen;
       trigger?: never;
@@ -145,17 +152,7 @@ type Touch = { touch?: Holder };
 /** A question as the part asking it is handed it, before that part opens it its own way: its words and its act. */
 export type ConfirmQuestion = ConfirmWords & Confirming & Touch;
 
-type ConfirmDialogProps<T extends Tone> = ConfirmWords & { tone: T } & Confirming & Touch & Opening<T>;
-
-/**
- * A held question its holder has not asked yet, such as the save bar's before any save was held back: mounted closed
- * from the first render, as a held dialog must be, it takes no words, having none to say. A touch's holder mounts the
- * sign-in client's chunk with it, ahead of the question it will ask.
- */
-type Unasked = Confirming &
-  HeldAct & { touch?: Holder; open: HeldOpen; trigger?: never } & {
-    [Word in keyof ConfirmWords]?: never;
-  };
+type ConfirmDialogProps<T extends Tone> = Confirming & Touch & Opening<T>;
 
 /**
  * The question before an act that cannot be undone: the act and its record, one short sentence of consequence over
@@ -172,9 +169,8 @@ type Unasked = Confirming &
  * question, then asks the touch and runs the act, its answer a toast, the trigger busy until it lands, or the press of
  * the holder of the open state, which hands its own transition for it (`HeldAct`).
  */
-export function ConfirmDialog<T extends Tone>(props: ConfirmDialogProps<T> | Unasked) {
-  const { trigger, open, onConfirm, touch } = props;
-  const words = props.verb === undefined ? null : props;
+export function ConfirmDialog<T extends Tone>(props: ConfirmDialogProps<T>) {
+  const { trigger, open, onConfirm, touch, question: words } = props;
   const router = useRouter();
   const [isOpen, setOpen] = useOpenUntilHidden(open);
   const ownAct = useTransition();

@@ -85,7 +85,7 @@ function ActButton({ item, isBusy, onPress }: { item: SectionActItem; isBusy: bo
     );
   return (
     <ConfirmDialog
-      {...confirm}
+      question={confirm}
       onConfirm={() => {
         onPress();
         return item.run();
