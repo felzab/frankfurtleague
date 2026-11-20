@@ -21,6 +21,7 @@ import type { CalendarDay } from "@/core/format";
 import type {
   FLAufstellungEntryPublic,
   FLAufstellungPublic,
+  FLSonderereignis,
   FLSpielberichtCardPublic,
   FLSpielberichtScorerPublic,
   FLSpielJoined,
@@ -60,8 +61,8 @@ export async function generateMetadata({ params }: Props, parent: ResolvingMetad
 
 /**
  * A match's own page, on a direct load, a reload or „Zum Spiel“: its head, its five facts as tiles, the line-ups
- * folded side by side, and its goals and cards along the dotted line. Opened from a match card, the pop-up shows
- * instead.
+ * folded side by side, and its goals and cards along the dotted line, each of the last two only where the match can
+ * have it (`drawn`). Opened from a match card, the pop-up shows instead.
  */
 export default function SpielPage({ params }: Props) {
   return (
@@ -80,32 +81,61 @@ async function readRecord(params: Props["params"]): Promise<ReadRecord> {
   // The goals and cards as official: null until the report is adopted and where none is stored, so a result
   // awaiting its report never reads as nobody having scored, which an adopted report's empty lists say.
   const official = bericht?.scorers == null || bericht.cards === null ? null : { tore: bericht.scorers, cards: bericht.cards };
+  const events = official === null ? [] : eventsOf(spiel, official.tore, official.cards);
+  const lineupHeld = [aufstellungen.team1, aufstellungen.team2].some((aufstellung) => (aufstellung?.spieler.length ?? 0) > 0);
   return {
     title: { route: "spiel", team1: team1.name, team2: team2.name },
     spiel: { head: headOf(spiel, page, standings), sonderereignis: eventOf(spiel) },
     groups: [
       { kind: "tiles", tiles: { layout: "five", items: tilesOf(spiel, page) } },
-      {
-        title: words.aufstellung,
-        kind: "folds",
-        folds: (
-          <ReadFolds
-            cards={[
-              { title: team1.name, ...lineupOf(aufstellungen.team1) },
-              { title: team2.name, ...lineupOf(aufstellungen.team2) },
-            ]}
-          />
-        ),
-      },
-      {
-        title: words.toreAndCards,
-        kind: "timeline",
-        label: words.toreAndCards,
-        items: official === null ? [] : eventsOf(spiel, official.tore, official.cards),
-        empty: { kind: "none", plural: official === null ? words.officialToreAndCards : words.toreAndCards },
-      },
+      ...(drawn(spiel.sonderereignis, lineupHeld)
+        ? [
+            {
+              title: words.aufstellung,
+              kind: "folds" as const,
+              folds: (
+                <ReadFolds
+                  cards={[
+                    { title: team1.name, ...lineupOf(aufstellungen.team1) },
+                    { title: team2.name, ...lineupOf(aufstellungen.team2) },
+                  ]}
+                />
+              ),
+            },
+          ]
+        : []),
+      ...(drawn(spiel.sonderereignis, events.length > 0)
+        ? [
+            {
+              title: words.toreAndCards,
+              kind: "timeline" as const,
+              label: words.toreAndCards,
+              items: events,
+              empty: { kind: "none" as const, plural: official === null ? words.officialToreAndCards : words.toreAndCards },
+            },
+          ]
+        : []),
     ],
   };
+}
+
+/**
+ * Whether the match can have what a section shows, by what befell it: a match called off or forfeited was never
+ * played, so it holds no line-up and no goals; an abandoned one keeps what it reached; an annulled one may have been
+ * played, so it keeps a section that `holds` something and leaves out an empty one.
+ */
+function drawn(sonderereignis: FLSonderereignis | null, holds: boolean): boolean {
+  switch (sonderereignis) {
+    case null:
+    case "abgebrochen":
+      return true;
+    case "annulliert":
+      return holds;
+    case "ausgefallen":
+    case "nichtantreten_team1":
+    case "nichtantreten_team2":
+      return false;
+  }
 }
 
 /**
