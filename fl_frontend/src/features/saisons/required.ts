@@ -5,7 +5,6 @@ import { SaisonsPatchSaisonBody, SaisonsPostSaisonBody } from "@/core/generated/
 
 const create = SaisonsPostSaisonBody.shape;
 
-/** Read on the server so its schema never reaches the browser. */
 export const CREATE_REQUIRED = {
   start: requires(create.start_date, ""),
   end: requires(create.end_date, ""),

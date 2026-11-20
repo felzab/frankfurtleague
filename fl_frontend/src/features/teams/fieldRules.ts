@@ -31,7 +31,6 @@ import {
 
 import type { AddressRules } from "@/kit/AddressFields";
 
-/** Read on the server so its schema never reaches the browser. */
 export type TeamRules = {
   required: Readonly<Record<"name" | "shorthand" | "full_name", boolean>>;
   /** The season's row, which an editor of a retired club never sends. */

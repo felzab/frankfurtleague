@@ -14,7 +14,6 @@ import {
 
 type SchiedsrichterField = "name" | "email" | "phone" | "schule" | "default_payment";
 
-/** Read on the server so its schema never reaches the browser. */
 export type SchiedsrichterRules = {
   required: Readonly<Record<SchiedsrichterField, boolean>>;
   max: Readonly<Record<"name" | "email" | "schule", number>>;
