@@ -1,8 +1,11 @@
+import { useId } from "react";
+
 import { COPY } from "@/core/copy/shared";
 import { SERVER_COPY } from "@/core/serverCopy";
 
 import { BlockBox } from "./BlockBox";
 import { BracketCard } from "./BracketCard";
+import { smallCaps } from "./cardStyles";
 import { TargetMark } from "./TargetMark";
 import { tv } from "./tv";
 
@@ -24,7 +27,10 @@ const tree = tv({
   slots: {
     // The block's box chooses the tree's form: the narrow form below 42 rem, as a list stacks there, and the wide one
     // from it.
-    root: "overflow-x-auto [--bracket-gap:2rem] [--bracket-third-bus:0.875rem] [--bracket-third-inset:1.5rem] @2xl:[--bracket-gap:3rem]",
+    root: "overflow-x-auto [--bracket-gap:2rem] [--bracket-head:2rem] [--bracket-third-bus:0.875rem] [--bracket-third-inset:1.5rem] @2xl:[--bracket-gap:3rem]",
+    // The round's name on a line of its own over its cards, centred, where no line feeding a round of two or more
+    // cards runs, and in the path of the one line into a lone card, which ends on it.
+    head: smallCaps({ class: "flex h-(--bracket-head) items-center justify-center" }),
     row: "grid",
     cell: "flex justify-center",
     // One column wide whatever its match spans, so every card of the tree is the same size. In the narrow form the
@@ -65,28 +71,45 @@ const tree = tv({
       "4": { cell: "col-span-4", card: "@2xl:w-1/4", feed: "col-span-4" },
       "8": { cell: "col-span-8", card: "@2xl:w-1/8", feed: "col-span-8" },
     },
+    // A card fed from the round above, off the row's centre: its feeding line runs on past the name's line to its top.
+    fed: {
+      true: {
+        cell: "relative before:absolute before:bottom-full before:left-1/2 before:h-(--bracket-head) before:border-l before:border-border",
+      },
+    },
   },
 });
 
-/** One round's cards in one row, each centred over the span its match takes of the first round's columns. */
-function Row({ label, matches, width }: { label: Copy; matches: ReadonlyArray<BracketMatch>; width: Width }) {
+/**
+ * One round: its name over its cards in one row, each card centred over the span its match takes of the first round's
+ * columns. The name names the list too, so it is read once.
+ */
+function Row({ label, matches, width, fed }: { label: Copy; matches: ReadonlyArray<BracketMatch>; width: Width; fed: boolean }) {
+  const name = useId();
   const span = width / matches.length;
   if (!isWidth(span)) return null;
-  const { row, cell, card } = tree({ columns: key(width), span: key(span) });
+  const { head, row, cell, card } = tree({ columns: key(width), span: key(span), fed: fed && matches.length > 1 });
   return (
-    <ol
-      aria-label={label}
-      className={row()}>
-      {matches.map(({ id, ...match }) => (
-        <li
-          key={id}
-          className={cell()}>
-          <div className={card()}>
-            <BracketCard {...match} />
-          </div>
-        </li>
-      ))}
-    </ol>
+    <>
+      <h2
+        id={name}
+        className={head()}>
+        {label}
+      </h2>
+      <ol
+        aria-labelledby={name}
+        className={row()}>
+        {matches.map(({ id, ...match }) => (
+          <li
+            key={id}
+            className={cell()}>
+            <div className={card()}>
+              <BracketCard {...match} />
+            </div>
+          </li>
+        ))}
+      </ol>
+    </>
   );
 }
 
@@ -145,8 +168,9 @@ function ThirdPlace({ children }: { children: ReactNode }) {
 
 /**
  * The K.-o.-Baum, upright: the first round on top and the Finale at the bottom, each match's card under the two
- * that feed it, joined by hairlines, every card the same size. The match for third place stands on its own row
- * above the Finale. Where the first round is wider than the tree's box the tree scrolls sideways inside it.
+ * that feed it, joined by hairlines, every card the same size, each round's name over its row at every width. The match
+ * for third place stands on its own row above the Finale. Where the first round is wider than the tree's box the tree
+ * scrolls sideways inside it.
  */
 export function BracketTree({ rounds, third }: { rounds: readonly [BracketRound, ...BracketRound[]]; third?: BracketMatch }) {
   const width = rounds[0].matches.length;
@@ -172,6 +196,7 @@ export function BracketTree({ rounds, third }: { rounds: readonly [BracketRound,
                     label={SERVER_COPY.season.thirdPlace}
                     matches={[third]}
                     width={width}
+                    fed
                   />
                 </ThirdPlace>
               ) : (
@@ -184,6 +209,7 @@ export function BracketTree({ rounds, third }: { rounds: readonly [BracketRound,
               label={round.label}
               matches={round.matches}
               width={width}
+              fed={index > 0}
             />
           </div>
         ))}
