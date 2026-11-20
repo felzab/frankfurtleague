@@ -114,14 +114,14 @@ describe("the Tabelle's qualification bar", () => {
   });
 });
 
-// The edge is a colour alone: a sighted visitor learns what it and the other marks mean only behind the ⓘ, and a
-// screen reader hears none of it but these words.
-describe("the Tabelle's marks", () => {
-  it("say the edge's tones to a screen reader", async () => {
+// A place is shared only among the clubs of one group: judged across the groups, group B's own first place would make
+// group A's sole first club read as level.
+describe("the Tabelle's groups", () => {
+  it("judges a shared place within its own group", async () => {
     const page = await landed({ A: [row("a", 1), row("b", 2), row("c", 2)], B: [row("d", 1), row("e", 3)] });
 
     expect(rankOf(page, "a".repeat(24))).toContain(COPY.shared.season.qualifies.settled);
+    expect(rankOf(page, "d".repeat(24))).toContain(COPY.shared.season.qualifies.settled);
     expect(rankOf(page, "b".repeat(24))).toContain(COPY.shared.season.qualifies.level);
-    expect(rankOf(page, "e".repeat(24))).not.toContain(COPY.shared.season.qualifies.settled);
   });
 });
