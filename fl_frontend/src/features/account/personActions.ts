@@ -6,7 +6,7 @@ import { redirect } from "next/navigation";
 
 import { z } from "zod";
 
-import { action, PAGE_HOLDER } from "@/core/action";
+import { action, PAGE_HOLDER, ticked } from "@/core/action";
 import { deleteOwnAccount, DeletionOutcomeUnknown, requestAccountDeletion } from "@/core/auth/accounts";
 import { endOtherSessions } from "@/core/auth/accountSessions";
 import { COPY } from "@/core/copy/shared";
@@ -40,6 +40,7 @@ import { linkInvalid } from "@/kit/mailedLinkState";
 import { TO_ACCOUNT } from "@/kit/MailedPage";
 
 import type { ActionAnswer } from "@/core/action";
+import type { FLKontaktKenntnisnahmeScope } from "@/core/generated/client/types";
 import type { EndState } from "@/kit/MailedPage";
 
 /** An act that posts no field but its page's holder: the signed-in session names everything it acts on. */
@@ -165,53 +166,79 @@ async function savedUnlessAgedOut(save: () => Promise<unknown>): Promise<ActionA
   return { ok: true, value: undefined };
 }
 
-export const saveSpielerConsent = action({
-  lane: "person",
-  claim: "account",
-  name: "saveSpielerConsent",
-  input: SpielerPatchEinwilligungBody.extend(PAGE_HOLDER),
-  run: ({ holder: _holder, ...choices }) => savedUnlessAgedOut(() => spielerPatchEinwilligung(choices)),
-});
+/**
+ * A box's fields as its kind's write spells them: the evidence and the labels the page carries under dotted names, an
+ * evidence the record holds none of posting nothing.
+ */
+function consentOf(raw: unknown): unknown {
+  if (typeof raw !== "object" || raw === null) return raw;
+  const posted = raw as Readonly<Record<string, unknown>>;
+  return {
+    ...posted,
+    evidence_state: { scope: posted["evidence_state.scope"] ?? null, media: posted["evidence_state.media"] ?? null },
+    text_versions: { scope: posted["text_versions.scope"], media: posted["text_versions.media"] },
+  };
+}
 
-/** One address may hold several referee rows. */
-export const saveSchiedsrichterConsent = action({
-  lane: "person",
-  claim: "account",
-  name: "saveSchiedsrichterConsent",
-  input: SchiedsrichterPatchEinwilligungParams.extend(SchiedsrichterPatchEinwilligungBody.shape).extend(PAGE_HOLDER),
-  run: ({ schiedsrichter_id, holder: _holder, ...choices }) =>
-    savedUnlessAgedOut(() => schiedsrichterPatchEinwilligung(schiedsrichter_id, choices)),
-});
+/** What every box posts beside its write's fields: the media box, ticked or not, and the address its page was drawn for. */
+const BOX = { media: ticked, ...PAGE_HOLDER };
 
-/** A pupil's withdrawal on their pending registration, whose grant waits on the team's admission. */
-export const saveRegistrierungConsent = action({
-  lane: "person",
-  claim: "account",
-  name: "saveRegistrierungConsent",
-  input: RegistrierungenPatchEinwilligungParams.extend(RegistrierungenPatchEinwilligungBody.shape).extend(PAGE_HOLDER),
-  run: async ({ registrierung_id, holder: _holder, ...choices }) => {
-    await registrierungenPatchEinwilligung(registrierung_id, choices);
-    return { ok: true, value: undefined };
-  },
-});
+/** A contact's scope, its WhatsApp box ticked or not; a name's is the option its choice posts, as the write's own enum takes it. */
+const whatsapp = ticked.transform((given): FLKontaktKenntnisnahmeScope => (given ? "kontakt_data_whatsapp" : "kontakt_data"));
 
-/** A seat holder's own two choices for every seat they hold on one team's season, a past season's to withdraw. */
-export const saveSeatConsent = action({
-  lane: "person",
-  claim: "account",
-  name: "saveSeatConsent",
-  input: TeamsPatchEinwilligungParams.extend(TeamsPatchEinwilligungBody.shape).extend(PAGE_HOLDER),
-  run: ({ team_id, saison_id, holder: _holder, ...choices }) => savedUnlessAgedOut(() => teamsPatchEinwilligung(team_id, saison_id, choices)),
-});
+/** One box's press, by the kind of record it saves, with the ids naming the record. */
+const Consent = z.preprocess(
+  consentOf,
+  z.discriminatedUnion("kind", [
+    SpielerPatchEinwilligungBody.extend({ kind: z.literal("spieler"), ...BOX }),
+    RegistrierungenPatchEinwilligungParams.extend({ ...RegistrierungenPatchEinwilligungBody.shape, kind: z.literal("registrierung"), ...BOX }),
+    SchiedsrichterPatchEinwilligungParams.extend({ ...SchiedsrichterPatchEinwilligungBody.shape, kind: z.literal("schiedsrichter"), ...BOX }),
+    TeamsPatchEinwilligungParams.extend({ ...TeamsPatchEinwilligungBody.shape, kind: z.literal("seat"), scope: whatsapp, ...BOX }),
+    BewerbungenPatchEinwilligungParams.extend({
+      ...BewerbungenPatchEinwilligungBody.shape,
+      kind: z.literal("bewerbung"),
+      scope: whatsapp,
+      ...BOX,
+    }),
+  ]),
+);
 
-/** A seat holder's withdrawal on a pending application, whose grant is its confirmation page's alone. */
-export const saveBewerbungConsent = action({
+/** The write's own body out of a press, which also names its kind, its record and its page's address. */
+const choicesOf = <Press extends { scope: unknown; media: boolean; evidence_state: unknown; text_versions: unknown }>({
+  scope,
+  media,
+  evidence_state,
+  text_versions,
+}: Press): Pick<Press, "scope" | "media" | "evidence_state" | "text_versions"> => ({ scope, media, evidence_state, text_versions });
+
+/**
+ * One box's save, by its kind's write. The kind, the ids, the evidence and the labels are carried by the page unseen
+ * and trusted no further than the write checks them again: the backend judges the record the session's own and the
+ * evidence current, and a label other than its choice's current one answers as a stale page before anything is sent.
+ */
+export const saveConsent = action({
   lane: "person",
   claim: "account",
-  name: "saveBewerbungConsent",
-  input: BewerbungenPatchEinwilligungParams.extend(BewerbungenPatchEinwilligungBody.shape).extend(PAGE_HOLDER),
-  run: async ({ bewerbung_id, holder: _holder, ...choices }) => {
-    await bewerbungenPatchEinwilligung(bewerbung_id, choices);
-    return { ok: true, value: undefined };
+  name: "saveConsent",
+  input: Consent,
+  run: async (press) => {
+    switch (press.kind) {
+      case "spieler":
+        return savedUnlessAgedOut(() => spielerPatchEinwilligung(choicesOf(press)));
+      // One address may hold several referee rows.
+      case "schiedsrichter":
+        return savedUnlessAgedOut(() => schiedsrichterPatchEinwilligung(press.schiedsrichter_id, choicesOf(press)));
+      // A seat holder's own two choices for every seat they hold on one team's season, a past season's to withdraw.
+      case "seat":
+        return savedUnlessAgedOut(() => teamsPatchEinwilligung(press.team_id, press.saison_id, choicesOf(press)));
+      // A pupil's withdrawal on their pending registration, whose grant waits on the team's admission.
+      case "registrierung":
+        await registrierungenPatchEinwilligung(press.registrierung_id, choicesOf(press));
+        return { ok: true, value: undefined };
+      // A seat holder's withdrawal on a pending application, whose grant is its confirmation page's alone.
+      case "bewerbung":
+        await bewerbungenPatchEinwilligung(press.bewerbung_id, choicesOf(press));
+        return { ok: true, value: undefined };
+    }
   },
 });
