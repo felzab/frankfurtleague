@@ -83,7 +83,8 @@ function confirmationFacts(read: FLSchiedsrichterSingleResponse): Fact[] {
   return [
     { label: COPY.shared.facts.state, value: standing ?? COPY.shared.noValue },
     {
-      label: COPY.shared.toast.linkSent,
+      // The season's key, being the one label for the day any link was mailed.
+      label: ADMIN_COPY.saison.sentOn,
       value: sent === null ? COPY.shared.noValue : { record: formatDate(dayOf(sent)) },
       figures: true,
     },
