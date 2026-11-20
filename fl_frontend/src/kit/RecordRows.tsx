@@ -4,6 +4,7 @@ import { useContext, useId, useState } from "react";
 
 import { Button } from "./Button";
 import { smallCaps, stacked } from "./cardStyles";
+import { EmptyState } from "./EmptyState";
 import { messageLine, toggleBox, toggleField, toggleRow } from "./fieldStyles";
 import { FormClosed } from "./formClosed";
 import { tv } from "./tv";
@@ -205,7 +206,7 @@ export function RecordRows<Row extends EditorRow>({
   locked,
   errors,
 }: {
-  /** The list's name for a screen reader, the section's title naming it on the screen. */
+  /** The list's name for a screen reader, the section's title naming it on the screen: a plural, „Tore“. */
   label: Copy;
   /** The list's box, `scorers`, which names each row's boxes: `scorers.2.minute`. */
   name: string;
@@ -250,7 +251,14 @@ export function RecordRows<Row extends EditorRow>({
       aria-label={label}
       aria-describedby={listError === undefined ? undefined : lineId}
       className={slots.root()}>
-      {/* An empty list is its foot alone, which then stands first and draws no hairline over itself. */}
+      {/* An empty list is its foot alone, which then stands first and draws no hairline over itself. A closed form's
+          has no foot, so it says that none was entered rather than leave its box's head over nothing. */}
+      {isClosed && rows.length === 0 && (
+        <EmptyState
+          kind="unrecorded"
+          plural={label}
+        />
+      )}
       {rows.length > 0 && (
         <div className={slots.grid()}>
           {rows.map((row, index) => (
