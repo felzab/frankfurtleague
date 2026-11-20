@@ -7,9 +7,16 @@ import { APIBadStatusError, APINetworkError, mayHaveWritten } from "./errors";
 import { Code } from "./generated/client/types";
 import { ownKeyOf } from "./ownKeyOf";
 import { boundCall, getRequestActor, getRequestTraceId, inBackground } from "./requestScope";
-import { ACTOR_HEADER, AUTH_FACTOR_HEADER, AUTH_TIME_HEADER, formatTraceparent, mintTraceId, TRACEPARENT_HEADER } from "./trace";
+import { formatTraceparent, mintTraceId, TRACEPARENT_HEADER } from "./trace";
 
 import type { FLRefusedField } from "./generated/client/types";
+
+// No proxied path reaches a backend write, so the actor is always the one the session set.
+const ACTOR_HEADER = "X-FL-Actor";
+
+// The actor's session beside its address, which the backend's window checks read.
+const AUTH_TIME_HEADER = "X-FL-Auth-Time";
+const AUTH_FACTOR_HEADER = "X-FL-Auth-Factor";
 
 /**
  * Past the backend's own deadline on a request, its `REQUEST_DEADLINE_S`, which bounds every database call it makes:
