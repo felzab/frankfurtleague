@@ -28,6 +28,7 @@ vi.doMock("next/server", async (importOriginal) => ({
 const { FETCH_TIMEOUT_MS, PASS_FETCH_TIMEOUT_MS, sendToBackend } = await import("./api");
 const { requestWriteMayStand, runInBackground, runWithRequestScope } = await import("./requestScope");
 const { systemKeyPassTransport, systemKeyTransport } = await import("./transport");
+const { saisonsGetTabelle } = await import("./generated/client/sdk");
 
 /** The pass's bound as the backend's deadline counts it; the backend's own tests hold the deadline's half. */
 const PASS_BOUNDS = z
@@ -61,6 +62,15 @@ it("refuses an endpoint the URL parser rewrote, sending nothing", async () => {
 
   await expect(sendToBackend("/bewerbungen/../teams", { authType: "base" })).rejects.toThrow("does not address");
   expect(vi.mocked(globalThis.fetch).mock.calls.length).toBe(sent);
+});
+
+/* `isPathAsSpelled` cannot see an id carrying a plain `/`: it survives parsing untouched and reads as a nested endpoint,
+   so the generated path builder percent-encodes every parameter before the client sees it. */
+it("keeps an id carrying a slash one path segment, by the generator's `urlEncodeParameters`", async () => {
+  await saisonsGetTabelle("2027/teams");
+
+  const [called] = vi.mocked(globalThis.fetch).mock.calls.at(-1) ?? [];
+  expect(called instanceof URL ? called.pathname : called).toBe("/api/saisons/2027%2Fteams/tabelle");
 });
 
 /* Every mail a write owes is written in that write's own transaction, so a write that asks for no drain leaves its mail
