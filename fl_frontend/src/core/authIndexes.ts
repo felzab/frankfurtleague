@@ -19,29 +19,24 @@ type AuthIndex = {
 };
 
 /**
- * One index per query the library and this application send to the sign-in store. The library's adapter also builds
- * one for each field its schema marks, most under the same name and options as an entry here, so the two builds make
- * one index. The list stays this application's: the adapter builds no expiry and no unique credential, and it reports
- * a build failed at its start on the console, outside the envelope. A unique index is the one guard against two writes racing
- * for a key, so this build logs a failure as an event of its own and, after an outage, asks again once the store
- * answers. The adapter's plain index on the passkey's `credentialID`, beside the unique one here, comes back at every
- * boot.
+ * The sign-in store's indexes the library's adapter leaves to this application. The adapter builds one for each field
+ * its schema marks, the plain ones on the session's and the passkey's `userId` and the code row's `identifier` among
+ * them, and it reports a build failed at its start on the console, outside the envelope. It builds no expiry and no
+ * unique credential. A unique index is the one guard against two writes racing for a key, so each stands here, the two
+ * the adapter builds under the same name and options included: this build logs a failure as an event of its own and,
+ * after an outage, asks again once the store answers. The adapter's plain index on the passkey's `credentialID`,
+ * beside the unique one here, comes back at every boot.
  */
 export const AUTH_INDEXES: readonly AuthIndex[] = [
   // The cookie's own value, read by every guard.
   { collection: "session", key: { token: 1 }, options: { name: "session_token_uidx", unique: true } },
-  { collection: "session", key: { userId: 1 }, options: { name: "session_userId_idx" } },
   // Each of these three names is the one production's hand-made index carries, which can change there
   // without us: a same-key index under another name refuses the build with code 85.
   { collection: "session", key: { expiresAt: 1 }, options: { name: "expiresAt_1", expireAfterSeconds: 0 } },
   { collection: "passkey", key: { credentialID: 1 }, options: { name: "credentialID_1", unique: true } },
   { collection: "verification", key: { expiresAt: 1 }, options: { name: "expiresAt_1", expireAfterSeconds: 0 } },
-  // Never unique: each administrator holds several passkeys.
-  { collection: "passkey", key: { userId: 1 }, options: { name: "passkey_userId_idx" } },
   // Unique, or a ban ending the sessions of one account at an address leaves a second one's standing.
   { collection: "user", key: { email: 1 }, options: { name: "user_email_uidx", unique: true } },
-  // Never unique: each bound counts several rows under one identifier.
-  { collection: "verification", key: { identifier: 1 }, options: { name: "verification_identifier_idx" } },
 ];
 
 /** The run in flight, which the next waits out, so no two runs race on one collection. */
