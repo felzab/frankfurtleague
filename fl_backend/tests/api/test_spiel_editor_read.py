@@ -34,6 +34,9 @@ HOME, AWAY = (ObjectId(f"6890a1b2c3d4e5f6074600{n:02d}") for n in (1, 2))
 
 REFEREE = ObjectId("6890a1b2c3d4e5f607460041")
 
+# The day a row's request was mailed, where a case's party was asked.
+ASKED = "2026-04-20"
+
 AGREED = {"kind": "agreed", "at": "2026-04-20", "by": {"kind": "kontakt", "seat": "trainer"}, "vorschlag": None, "reason": None}
 
 
@@ -151,6 +154,28 @@ async def test_a_row_an_exit_or_a_move_ended_before_its_answer_was_due_is_dated_
     }
 
 
+async def test_a_lapsed_row_takes_a_zusage_and_one_an_exit_ended_takes_none(mongo_replica_set_url: str):
+    """Two unanswered rows read as lapsed: one past its deadline, one its club's exit ended before its match.
+
+    The home club's deadline passed before a match on 30 April, the day before the away club leaves, and the away
+    club's row is about a match on 2 May, after it has left. The Zusage's write refuses nothing for a deadline gone by,
+    so the league enters one the club gave by telephone; it refuses a row the exit ends. Offered on the state alone,
+    the editor would hide the first act or offer the second.
+    """
+
+    before_the_exit = {**_spiel(), "date": "2026-04-30"}
+    after_the_exit = _spiel()
+    lapsed = documents.spielbestaetigung_document(
+        before_the_exit, party={"kind": "team", "team_id": HOME}, deadline="2026-04-25", asked_at=ASKED
+    )
+    left = documents.spielbestaetigung_document(after_the_exit, party={"kind": "team", "team_id": AWAY}, deadline="2026-04-29", asked_at=ASKED)
+
+    (lapsed_row,) = (await _read(mongo_replica_set_url, before_the_exit, rows=[lapsed])).spielbestaetigungen
+    (left_row,) = (await _read(mongo_replica_set_url, after_the_exit, rows=[left])).spielbestaetigungen
+
+    assert [(row.state, row.enterable) for row in (lapsed_row, left_row)] == [("expired", True), ("expired", False)]
+
+
 async def test_an_open_row_on_a_called_off_match_reads_cancelled(mongo_replica_set_url: str):
     """Still in time and unanswered, on a match called off since, which takes no answer."""
 
@@ -214,9 +239,6 @@ async def test_a_knockout_spiel_offers_every_team_of_the_season_in_german_order_
         (OESTERBERG, "Österberg", "OES", False, False),
         (ZETA, "Zeta", "ZET", False, True),
     ]
-
-
-ASKED = "2026-04-20"
 
 
 async def test_a_standing_proposal_serves_its_row_and_whom_each_act_mails_as_the_uebersicht_does(mongo_replica_set_url: str):
