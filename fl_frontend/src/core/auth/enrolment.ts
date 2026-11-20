@@ -55,9 +55,9 @@ export function carriedEnrolmentRead(ctx: object | undefined, userId: string): E
  * registration endpoints on that and on nothing else. The touch is judged as of `touchAt`, now where it is
  * `undefined`: the options request judges it now, and the verify call as of that ceremony's options, so the browser's
  * own prompt, a cross-device one by QR code among them, never runs the touch's window down. What bounds the prompt is
- * the library's `freshAge`, which holds the verify call to the session's creation (`FRESH_SIGN_IN_SECONDS`, 300): after a
- * touch, whose options fall inside `PASSKEY_TOUCH_SECONDS` (60), that leaves the prompt between 240 and 300 seconds, and
- * a prompt running past it is refused as a sign-in too old.
+ * the library's `freshAge`, which holds the verify call to the session's creation (`FRESH_SIGN_IN_SECONDS`): after a
+ * touch, whose options fall inside `PASSKEY_TOUCH_SECONDS`, that leaves the prompt the difference of the two at least,
+ * and a prompt running past it is refused as a sign-in too old.
  */
 export async function refuseEnrolment(
   adapter: DBTransactionAdapter,

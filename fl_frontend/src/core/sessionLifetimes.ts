@@ -22,9 +22,12 @@ export const ADMIN_LIFETIME: Lifetime = { idle: ADMIN_IDLE_HOURS * HOUR_MS, abso
 // its actor check refuses a person-lane token older than it.
 export const PERSON_WINDOW_DAYS = 30 satisfies FLPersonWindowDays;
 
+// How long a person's session survives without use.
+export const PERSON_IDLE_DAYS = 14;
+
 // A sliding window with no cap means a stolen cookie used weekly never expires, which is why the
 // second figure is here and never redundant.
-export const PERSON_LIFETIME: Lifetime = { idle: 14 * DAY_MS, absolute: PERSON_WINDOW_DAYS * DAY_MS };
+export const PERSON_LIFETIME: Lifetime = { idle: PERSON_IDLE_DAYS * DAY_MS, absolute: PERSON_WINDOW_DAYS * DAY_MS };
 
 // The library's `expiresIn` slides on every refresh, so it is an idle window and takes the longest
 // one: an absolute figure here would keep a person's idle row alive past its own window.

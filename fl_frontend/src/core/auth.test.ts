@@ -26,6 +26,7 @@ import { assertionFor, COSE_KEY, CREDENTIAL_ID, CREDENTIAL_RAW_ID, registrationF
 
 import { assertionAnswer } from "./auth/assertionAnswer";
 import { PASSKEY_TOUCH_SECONDS } from "./sessionLifetimes";
+import { CODE_ATTEMPTS, CODE_VALIDITY_MINUTES } from "./signInCode";
 
 import type { MemoryStore, SessionRow } from "@/test-support/authDoubles";
 import type { LoggedLine } from "@/test-support/stdoutCapture";
@@ -247,7 +248,6 @@ const { getPasskeyStep, getSignInLanding } = await import("./auth/landing");
 const { PASSKEY_LIMIT } = await import("./auth/enrolment");
 const { readServedSession } = await import("./auth/session");
 const { getSubjectSession } = await import("./subject");
-const { CODE_VALIDITY_MINUTES } = await import("./authEmail");
 const { proxy } = await import("../proxy");
 const { NextRequest } = await import("next/server");
 
@@ -1944,7 +1944,7 @@ describe("what a typed code is answered, with an account and without", () => {
     await sendBoth();
     for (const email of [ADMIN_EMAIL, STRANGER_EMAIL]) {
       const wrong = await wrongCodeFor(email);
-      for (let attempt = 0; attempt < 3; attempt += 1) await answerOf(email, wrong);
+      for (let attempt = 0; attempt < CODE_ATTEMPTS; attempt += 1) await answerOf(email, wrong);
     }
 
     const member = await guessed(ADMIN_EMAIL, "000000");
@@ -1984,7 +1984,7 @@ describe("the failures one address may spend, across every code it is sent", () 
     // Two codes spent whole, four failures each: the fourth entry ends the exhausted code.
     for (let code = 0; code < 2; code += 1) {
       const wrong = wrongFor(await mailedCode());
-      for (let attempt = 0; attempt < 3; attempt += 1) expect((await answerOf(ADMIN_EMAIL, wrong)).code).toBe("INVALID_OTP");
+      for (let attempt = 0; attempt < CODE_ATTEMPTS; attempt += 1) expect((await answerOf(ADMIN_EMAIL, wrong)).code).toBe("INVALID_OTP");
       expect((await answerOf(ADMIN_EMAIL, wrong)).code).toBe("TOO_MANY_ATTEMPTS");
     }
 
