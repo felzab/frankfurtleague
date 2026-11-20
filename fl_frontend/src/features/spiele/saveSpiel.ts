@@ -189,11 +189,11 @@ const refusedToDelete = (failed: unknown): failed is APIBadStatusError =>
  * its own transaction to delete a later match's result it was not named, on the server, so no ordering of presses and
  * no failed or unfinished check on the page lets a deletion through unasked; its refusal names none, so only then is
  * the write's own dry run asked, to word the question. A press confirming a question asks the dry run afresh and
- * writes only while the question's token still names exactly what it finds, naming those results to the write; a
- * write refused even so, by a result entered after that dry run, asks again from one more. So the write is the gate
- * and the dry run only words its question. A dry run the write refuses is that refusal, answered as the write's would
- * be. A refused write whose dry run then finds nothing to delete answers the stale-page line, the result it refused
- * gone since.
+ * writes only while the question's token still names exactly what it finds, or while it finds nothing to delete,
+ * naming those results to the write; a write refused even so, by a result entered after that dry run, asks again from
+ * one more. So the write is the gate and the dry run only words its question. A dry run the write refuses is that
+ * refusal, answered as the write's would be. A refused write whose dry run then finds nothing to delete answers the
+ * stale-page line, the result it refused gone since.
  */
 export const saveSpiel = action({
   lane: "admin",
