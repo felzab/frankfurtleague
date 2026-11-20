@@ -123,14 +123,17 @@ async function readRecord(params: Props["params"]): Promise<ReadRecord> {
         title: COPY.page.spiele,
         kind: "timeline",
         label: COPY.page.spiele,
-        items: spiele.map((spiel, index) => ({
-          id: spiel.id,
-          point: { record: formatNumber(index + 1) },
-          counts: true,
-          outcome: outcomeFor(spiel, team.id),
-          title: headedMatchOf(spiel).head,
-          spiel: headedMatchOf(spiel).spiel,
-        })),
+        items: spiele.map((spiel, index) => {
+          const headed = headedMatchOf(spiel);
+          return {
+            id: spiel.id,
+            point: { record: formatNumber(index + 1) },
+            counts: true,
+            outcome: outcomeFor(spiel, team.id),
+            title: headed.head,
+            spiel: headed.spiel,
+          };
+        }),
         empty: { kind: "none", plural: COPY.page.spiele, glyph: "spielplan" },
       },
       {
