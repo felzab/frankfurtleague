@@ -140,7 +140,6 @@ export const COPY = catalogue({
     },
     confirmedOn: (day: CalendarDay) => `Bestätigt ${boundBy("am", formatDate(day))}`,
     expiredOn: (day: CalendarDay) => `Abgelaufen ${boundBy("am", formatDate(day))}`,
-    objectedOn: (day: CalendarDay) => `Widersprochen ${boundBy("am", formatDate(day))}`,
     answerBy: (day: CalendarDay) => `Antwort ${boundBy("bis", formatDate(day))}`,
     /** The day a state took effect, beside the chip naming the state: „am 09.11.2026“. */
     onDay: (day: CalendarDay) => boundBy("am", formatDate(day)),

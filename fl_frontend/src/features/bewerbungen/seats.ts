@@ -38,11 +38,11 @@ function dayOfState({ status, kontakte }: FLBewerbung, seat: FLKontaktSeat, entr
   const confirmedAt = kontakte[seat]?.einwilligung.confirmed_at ?? null;
   switch (entry.state) {
     case "confirmed":
-      return confirmedAt === null ? null : COPY.shared.confirmedOn(dayOf(confirmedAt));
+      return confirmedAt === null ? null : COPY.shared.onDay(dayOf(confirmedAt));
     case "declined":
-      return entry.declined_at === null ? null : COPY.shared.objectedOn(dayOf(entry.declined_at));
+      return entry.declined_at === null ? null : COPY.shared.onDay(dayOf(entry.declined_at));
     case "expired":
-      return status === "submitted" ? COPY.shared.expiredOn(dayOf(entry.deadline)) : null;
+      return status === "submitted" ? COPY.shared.onDay(dayOf(entry.deadline)) : null;
     case "valid":
       return COPY.shared.answerBy(dayOf(entry.deadline));
   }

@@ -140,7 +140,7 @@ function openOf(row: Exclude<FLOverviewRow, { kind: "bewerbung" }>): { chip?: Ch
       const shown =
         row.kind === "spielbestaetigung_due" || lapsed === undefined
           ? { line: dueLine(row.parties) }
-          : { chip: EXPIRED_CHIP, line: COPY.shared.expiredOn(dayOf(lapsed)) };
+          : { chip: EXPIRED_CHIP, line: COPY.shared.onDay(dayOf(lapsed)) };
       const [first, ...rest] = parties;
       return first === undefined
         ? shown
