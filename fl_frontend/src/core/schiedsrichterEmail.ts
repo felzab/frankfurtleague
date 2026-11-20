@@ -20,11 +20,11 @@ function schiedsrichterConfirmationLink(origin: string, token: string): string {
 
 const PAGE = SERVER_COPY.schiedsrichterConfirmation;
 
-// No season: a referee's entry is bound to none, so the deadline is the only date here.
 /**
  * What one referee is asked to confirm, from the facts the Postausgang row holds and the link its hand-out minted: the
- * page's title and its opening and deadline sentences. `origin` is the serving origin, never `SITE_URL`; `token` is a
- * bearer credential and is never taken apart here.
+ * page's title and its opening and deadline sentences. No season: a referee's entry is bound to none, so the deadline
+ * is the only date here. `origin` is the serving origin, never `SITE_URL`; `token` is a bearer credential and is never
+ * taken apart here.
  */
 export function buildSchiedsrichterConfirmationEmail({ deadline }: FLSchiedsrichterConfirmationData, { origin, token }: MailLink): Mail {
   const site = mailOrigin(origin);

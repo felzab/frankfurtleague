@@ -13,11 +13,11 @@ import type { MailLink } from "./mailKinds";
 const PAGE = SERVER_COPY.kontaktConfirmation;
 const DEADLINE = SERVER_COPY.schiedsrichterConfirmation.deadline;
 
-// One person a mail: an address is one person, so `seats` are every seat that one person holds.
 /**
  * What one person an administrator seated on a team's season row is asked, from the facts the Postausgang row holds and
  * the link its hand-out minted: on an open row to answer by the seat's own day, on a closed row, whose link takes the
- * Widerspruch alone, why and what an objection does. `token` is a bearer credential and is never taken apart here.
+ * Widerspruch alone, why and what an objection does. One person a mail: an address is one person, so `seats` are every
+ * seat that one person holds. `token` is a bearer credential and is never taken apart here.
  */
 export function buildKontaktConfirmationEmail(
   { seats, schule, saison_id: saison, deadline, row }: FLKontaktLinkData,

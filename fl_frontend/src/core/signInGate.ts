@@ -14,11 +14,10 @@ import type { SubjectSession } from "./subject";
 /** The code the backend answers a payload it refuses with: here, an address no rule of its own accepts. */
 const PAYLOAD_REFUSED = "payload_refused";
 
-// React's `cache`: the guards and the switcher of one render share one read, and outside a render nothing is kept.
 /**
  * One folded mailbox's records and grant, every reader but the sign-in gate taking them through this
  * one call: the gate, a passkey enrolment's included, reads `lookUpSignIn`. Throws on every backend
- * failure.
+ * failure. The guards and the switcher of one render share one read, and outside a render nothing is kept.
  */
 export const lookUpSubject = cache((email: string): Promise<SubjectSession["records"]> =>
   // Under the edge's trace: a render's first guard and the sign-in landing's handler reach here before anything
@@ -47,9 +46,11 @@ export const lookUpSubject = cache((email: string): Promise<SubjectSession["reco
 /** What the sign-in gate decides on for one mailbox: its two record flags, its ban and its grant. */
 export type SignInRecords = FLSignInResponse;
 
-// React's `cache`. Its own read rather than the subject's: only a sign-in pays for the two collections
-// `account` reads beyond the subject's three.
-/** The gate's answer for one folded mailbox. Throws on every backend failure, which `mayReceiveSignIn` closes on. */
+/**
+ * The gate's answer for one folded mailbox. Throws on every backend failure, which `mayReceiveSignIn` closes on. Its
+ * own read rather than the subject's: only a sign-in pays for the two collections `account` reads beyond the subject's
+ * three.
+ */
 export const lookUpSignIn = cache(async (email: string): Promise<SignInRecords> => {
   // In the body: a URL carrying an address reaches the edge's access line.
   const answer = await identityGetSignIn({ email });

@@ -1,8 +1,8 @@
 import type { Code, FLRefusedField } from "./generated/client/types";
 
 /**
- * What a request was, a write that may have landed or a read that changed nothing. Required on every API error rather
- * than defaulted, since a failed write may have landed and a failed read changed nothing.
+ * Required on every API error rather than defaulted, since a failed write may have landed and a failed read changed
+ * nothing.
  */
 export type SentRequest = {
   method: string;
@@ -16,7 +16,6 @@ export type SentRequest = {
  */
 const SAFE_METHODS: ReadonlySet<string> = new Set(["GET", "HEAD", "OPTIONS"]);
 
-/** Whether a request whose answer went wrong could have changed anything on the server. */
 export function mayHaveWritten({ method, readOnly }: SentRequest): boolean {
   return !SAFE_METHODS.has(method) && !readOnly;
 }
