@@ -111,9 +111,14 @@ const triggerHolds = { 2: "w-[calc(3ch+2.875rem)]" } as const;
  * its control edge, as every control is, so it takes the fill of the page or the card it stands on, as the
  * secondary button does. The edge is an inset ring, as the switch's track draws its own, so the frame's parts fill
  * its whole height by the touch rule at this file's head, the edge lying inside the frame's inset.
+ *
+ * Under the pointer the edge steps one shade towards the text, to the muted words' grey, as Material 3, Fluent 2 and
+ * Polaris draw a field's hover. React Aria marks the hover `data-hovered` on its own input, group or button, which a
+ * touch never sets: on the frame where the frame is that part, else on a part inside it. A disabled, refused or
+ * read-only field keeps its edge, since none of them takes an edit, and a focused one draws its focus edge over it.
  */
 export const fieldFrame = tv({
-  base: "rounded-lg bg-transparent text-sm text-fg inset-ring inset-ring-border-control transition-[color,outline-color,box-shadow] duration-(--motion-state) group-data-invalid:inset-ring-danger group-data-readonly:cursor-default group-data-readonly:inset-ring-border data-disabled:opacity-50 data-invalid:inset-ring-danger pointer-coarse:text-base",
+  base: "rounded-lg bg-transparent text-sm text-fg inset-ring inset-ring-border-control transition-[color,outline-color,box-shadow] duration-(--motion-state) group-data-invalid:inset-ring-danger group-data-readonly:cursor-default group-data-readonly:inset-ring-border not-group-data-disabled:not-group-data-invalid:not-group-data-readonly:has-data-hovered:inset-ring-fg-muted data-disabled:opacity-50 not-group-data-disabled:not-group-data-invalid:not-group-data-readonly:data-hovered:inset-ring-fg-muted data-invalid:inset-ring-danger pointer-coarse:text-base",
   variants: {
     // A field's width says what it holds, since a person reads the length of a field as the length of its answer:
     // three widths at one left edge, each with the same 12-px inset, so the values of a box start at one x whatever
