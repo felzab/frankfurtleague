@@ -6,30 +6,31 @@ import { MongoClient, ServerApiVersion } from "mongodb";
 
 import { mongodbUri } from "./config";
 
+// One bound per stage, each taken again by every attempt the driver retries: a read the store never
+// answers ends after its own socket bound and its retry's checkout. An admin action reads the
+// session in the proxy's slide, its guard and the render after it, so a slow store costs it
+// several times this.
+const STAGE_BOUND_MS = 3000;
+
 const options = {
   serverApi: {
     version: ServerApiVersion.v1,
     strict: true,
     deprecationErrors: true,
   },
-  // One bound per stage, each taken again by every attempt the driver retries: a read the store never
-  // answers ends after its own socket bound and its retry's checkout. An admin action reads the
-  // session in the proxy's slide, its guard and the render after it, so a slow store costs it
-  // several times these.
-
   // An unreachable store. Tighter than the backend's `SERVER_SELECTION_TIMEOUT_MS`, which only its boot
   // waits on, where no visitor does.
-  serverSelectionTimeoutMS: 3000,
+  serverSelectionTimeoutMS: STAGE_BOUND_MS,
   // A checkout from the pool, which waits out the opening of the connection it hands over: a store
   // that accepts and never answers a handshake.
-  waitQueueTimeoutMS: 3000,
+  waitQueueTimeoutMS: STAGE_BOUND_MS,
   // One connection's opening and handshake, which the checkout above stops waiting for but the pool
   // does not: the opening holds one of its two `maxConnecting` slots until this ends. The monitor
   // times its checks out on it too, so a store whose handshake takes longer reads as down.
-  connectTimeoutMS: 3000,
+  connectTimeoutMS: STAGE_BOUND_MS,
   // Each send and receive on an open connection: a read or a commit the store never answers, and
   // the index build.
-  socketTimeoutMS: 3000,
+  socketTimeoutMS: STAGE_BOUND_MS,
   // Nothing bounds a transaction whole. The adapter runs one through the driver's `withTransaction`,
   // which retries a write conflict, and sends again a commit whose answer was lost, for up to 120 s:
   // no per-stage option shortens that, and the `timeoutMS` the adapter's documentation offers for it
