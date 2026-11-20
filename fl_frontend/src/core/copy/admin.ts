@@ -140,8 +140,12 @@ export const ADMIN_COPY = catalogue({
     gruppentausch: "Gruppentausch",
     replacement: "Ersatz",
     invitations: "Registrierungslinks",
-    /** By what its rows are about: the draw's regeneration and removal, the switch, or both. */
-    dangerBox: (draw: boolean, activation: boolean) => (draw && activation ? "Spielplan und Umstellung" : draw ? "Spielplan" : "Umstellung"),
+    /**
+     * By what its rows do, as the team's box is titled: the draw's regeneration and removal, the switch, or all three;
+     * never „Spielplan“, which already titles the box of the draw's facts above it.
+     */
+    dangerBox: (draw: boolean, activation: boolean) =>
+      draw && activation ? "Neuanlage, Löschung und Umstellung" : draw ? "Neuanlage und Löschung" : "Umstellung",
 
     /** What the Wertung rules do, one statement a line. */
     scoringHelp: [
@@ -368,7 +372,10 @@ export const ADMIN_COPY = catalogue({
   banList: {
     plural: PLURAL.bans,
     search: COPY.shared.search(PLURAL.bans),
-    consequence: "Die Adresse kann sich nicht mehr anmelden und bekommt keine E-Mails.",
+    /** After the ban's own notice, which `mailTo` names: the ban bars the hand-out of every later mail. */
+    consequence: "Die Adresse kann sich nicht mehr anmelden und bekommt danach keine E-Mails.",
+    /** „E-Mail an“'s value: the notice goes only where an account stands, which the press reads once the address is typed. */
+    mailTo: "Die Adresse, falls sie ein Konto hat",
     duration: "Dauer",
     until: VALID_UNTIL,
     durationSaisons: (count: number) => (count === 1 ? "1\u00A0Saison" : boundBy(formatNumber(count), "Saisons")),
