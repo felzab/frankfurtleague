@@ -71,46 +71,11 @@ export class APIBadStatusError extends Error {
 }
 
 /**
- * Every code that is no rule refusing what was asked: a credential, a request the API cannot take, a route it does
- * not serve, the store answering, the server failing. Every other code is one a slice's mapper words, the unique
- * index's `duplicate_key` among them.
- */
-const NOT_A_REFUSAL: ReadonlySet<Code> = new Set<Code>([
-  "access_key_refused",
-  "missing_actor",
-  "actor_not_admin",
-  "session_refused",
-  "payload_refused",
-  "body_unreadable",
-  "no_route",
-  "method_not_served",
-  "document_not_found",
-  "version_stale",
-  "database_failed",
-  "unknown_outcome",
-  "unhandled_crash",
-  "stored_data_invalid",
-]);
-
-/** Whether a code is one a slice's mapper words, by the code alone, never its status. */
-export function isRefusalCode(code: Code | undefined): boolean {
-  return code !== undefined && !NOT_A_REFUSAL.has(code);
-}
-
-/**
  * The API's refusal of the request, which every mapper reads before the code, `null` for any other error: a 4xx, at
  * whatever status the code's rule answers with. Never a 5xx, after which a write may have landed.
  */
 export function asRefusal(error: unknown): APIBadStatusError | null {
   return error instanceof APIBadStatusError && error.statusCode >= 400 && error.statusCode < 500 ? error : null;
-}
-
-/**
- * Whether one of the API's rules refused the request, by the code's class: a code no arm names reaches its kind's
- * fallback at any status, and a protocol code, a routing one included, never does.
- */
-export function isRuleRefusal(error: unknown): boolean {
-  return isRefusalCode(asRefusal(error)?.serverErrorCode);
 }
 
 /**
