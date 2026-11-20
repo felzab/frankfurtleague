@@ -19,8 +19,13 @@ type AuthIndex = {
 };
 
 /**
- * One index per query the library and this application send to the sign-in store.
- * The library declares none of them at table level, so its adapter builds none.
+ * One index per query the library and this application send to the sign-in store. The library's adapter also builds
+ * one for each field its schema marks, most under the same name and options as an entry here, so the two builds make
+ * one index. The list stays this application's: the adapter builds no expiry and no unique credential, and it reports
+ * a build failed at its start on the console, outside the envelope. A unique index is the one guard against two writes racing
+ * for a key, so this build logs a failure as an event of its own and, after an outage, asks again once the store
+ * answers. The adapter's plain index on the passkey's `credentialID`, beside the unique one here, comes back at every
+ * boot.
  */
 export const AUTH_INDEXES: readonly AuthIndex[] = [
   // The cookie's own value, read by every guard.
