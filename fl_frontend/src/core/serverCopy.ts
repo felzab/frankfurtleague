@@ -253,9 +253,20 @@ export const SERVER_COPY = catalogue({
       address: `Die E-Mail-Adresse hat nicht das Format ${COPY.shared.field.exampleAddress}.`,
       previous: `Die bisherige E-Mail-Adresse hat nicht das Format ${COPY.shared.field.exampleAddress}.`,
       next: `Die neue E-Mail-Adresse hat nicht das Format ${COPY.shared.field.exampleAddress}.`,
+      phone: `Die Telefonnummer hat nicht das Format ${COPY.shared.field.examplePhone}.`,
+      firstName: `Der Vorname hat nicht das Format ${COPY.shared.field.exampleFirstName}.`,
+      lastName: `Der Nachname hat nicht das Format ${COPY.shared.field.exampleLastName}.`,
+    },
+    /** A seat's address or number, which another person of the same record holds. */
+    taken: {
+      address: "Die E-Mail-Adresse ist schon vergeben.",
+      phone: "Die Telefonnummer ist schon vergeben.",
     },
     /** A ban's Grund, left holding nothing but spaces. */
     reasonMissing: "Der Grund fehlt.",
+    /** A seat's names, each left holding nothing but spaces. */
+    firstNameMissing: "Der Vorname fehlt.",
+    lastNameMissing: "Der Nachname fehlt.",
   },
 
   /** The image a shared link's preview shows, by its alt, which a screen reader reads in the preview's place. */
