@@ -95,15 +95,12 @@ export function buildBewerbungAbsageEmail({ team, saison_id, seats, reason }: FL
 }
 
 /** What one person is asked to confirm: every seat they hold, answered through the one link. */
-export function buildBewerbungConfirmationEmail(
-  { saison_id, schule, seats, deadline }: FLBewerbungLinkData,
-  { origin, token }: MailLink,
-): Mail {
+export function buildBewerbungConfirmationEmail({ saison_id, seats, deadline }: FLBewerbungLinkData, { origin, token }: MailLink): Mail {
   return {
     audience: "firstContact",
     subjectLine: WORDS.link.subject(saison_id),
     origin,
-    paragraphs: [[WORDS.link.lead(schule), WORDS.confirmOrOppose], [deadlineSentence(deadline)]],
+    paragraphs: [[WORDS.link.named, WORDS.confirmOrOppose], [deadlineSentence(deadline)]],
     block: {
       title: SERVER_COPY.kontaktConfirmation.ownEntry,
       facts: [
@@ -115,12 +112,12 @@ export function buildBewerbungConfirmationEmail(
   };
 }
 
-export function buildBewerbungReminderEmail({ saison_id, schule, deadline }: FLBewerbungLinkData, { origin, token }: MailLink): Mail {
+export function buildBewerbungReminderEmail({ saison_id, deadline }: FLBewerbungLinkData, { origin, token }: MailLink): Mail {
   return {
     audience: "firstContact",
     subjectLine: WORDS.reminder.subject(saison_id),
     origin,
-    paragraphs: [[WORDS.reminder.lead(schule), WORDS.confirmOrOppose], [deadlineSentence(deadline)]],
+    paragraphs: [[WORDS.reminder.missing, WORDS.confirmOrOppose], [deadlineSentence(deadline)]],
     // A fresh link, minted beside the first one rather than in place of it: a reminder that voided
     // the link somebody is still looking at would punish the reader it is chasing.
     button: { label: COPY.page.entryConfirmation, href: mailedLinkTo(origin, ROUTES.kontaktConfirmation, token) },

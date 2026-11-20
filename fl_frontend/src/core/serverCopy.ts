@@ -426,8 +426,8 @@ export const SERVER_COPY = catalogue({
     },
 
     /**
-     * An application's mails. A link mail names no submitter, the form recording none. A name a lead sets semibold
-     * stands outside its parts, whose spaces they hold.
+     * An application's mails. A link mail names no submitter, the form recording none, and no school, which anyone sending
+     * the form types. A name a lead sets semibold stands outside its parts, whose spaces they hold.
      */
     bewerbung: {
       confirmOrOppose: "Bestätige deinen Eintrag oder widersprich ihm.",
@@ -450,12 +450,10 @@ export const SERVER_COPY = catalogue({
       /** A seat's link mail, and the fresh link „Sitz bearbeiten“ mails: each seat holds its own days, so it says one day alone. */
       link: {
         subject: (saison: string) => `Eintrag für die ${COPY.shared.saisonName(saison)} bestätigen`,
-        lead: (schule: string) => `Die Bewerbung ${boundBy("von", schule)} nennt dich als Kontaktperson.`,
         named: "Eine Bewerbung nennt dich als Kontaktperson.",
       },
       reminder: {
         subject: (saison: string) => `Erinnerung: Eintrag für die ${COPY.shared.saisonName(saison)} bestätigen`,
-        lead: (schule: string) => `Deine Antwort zur Bewerbung ${boundBy("von", schule)} fehlt noch.`,
         missing: "Deine Antwort zur Bewerbung fehlt noch.",
       },
       zusage: {
