@@ -381,7 +381,7 @@ export const COPY = catalogue({
     adminWithdrawals: "Widerrufe",
     adminAddressChanges: ADDRESS_CHANGES,
     adminActionLog: "Protokoll",
-    addressChangeConfirmation: "Änderung der E-Mail-Adresse",
+    addressChangeConfirmation: "E-Mail-Adresse ändern",
     entryConfirmation: `${ENTRY} ${infinitive("confirm")}`,
     registrierungConfirmation: "Registrierung bestätigen",
     accountErasure: "Konto löschen",

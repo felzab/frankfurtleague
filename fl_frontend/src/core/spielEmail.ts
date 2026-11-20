@@ -152,7 +152,7 @@ function noticeEmail(subjectLine: Copy, origin: string, paragraph: Paragraph, bl
 
 /**
  * The word that a fixture a party was asked about will not be played, by its event: the slot it was asked about, and
- * what the event means for the result as the match page's callout says it. No later mail is promised.
+ * after a no-show the side the match counts for, as the match page's callout says it. No later mail is promised.
  */
 function cancelledEmail({ appointment, sonderereignis }: FLSpielNoticeData, origin: string): Mail {
   const day = dayOf(appointment.date);
@@ -164,9 +164,9 @@ function cancelledEmail({ appointment, sonderereignis }: FLSpielNoticeData, orig
 
   switch (sonderereignis) {
     case "ausgefallen":
-      return noticeEmail(cancelled.ausgefallen.subject(day), origin, [lead(cancelled.ausgefallen, spiel), consequence.notScored]);
+      return noticeEmail(cancelled.ausgefallen.subject(day), origin, [lead(cancelled.ausgefallen, spiel)]);
     case "annulliert":
-      return noticeEmail(cancelled.annulliert.subject(day), origin, [lead(cancelled.annulliert, spiel), consequence.notScored]);
+      return noticeEmail(cancelled.annulliert.subject(day), origin, [lead(cancelled.annulliert, spiel)]);
     // The side that stayed away, then the one the match is counted for.
     case "nichtantreten_team1":
     case "nichtantreten_team2": {
@@ -233,7 +233,6 @@ export function buildSpielEinteilungLiftedEmail({ appointment }: FLSpielEinteilu
 export function buildSpielVorschlagDiscardedEmail({ appointment }: FLSpielVorschlagDiscardedData, { origin }: MailOrigin): Mail {
   return noticeEmail(WORDS.keptSubject(dayOf(appointment.date)), origin, [
     around(WORDS.kept.before(paarung(appointment)), moment(appointment), WORDS.kept.after),
-    WORDS.keptDiscarded,
   ]);
 }
 
