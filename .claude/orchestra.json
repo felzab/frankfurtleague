@@ -86,7 +86,7 @@
       },
       {
         "name": "accessibility",
-        "when": ["fl_frontend/src/app", "fl_frontend/src/kit", "fl_frontend/src/features/*/components"]
+        "when": ["fl_frontend/src/app", "fl_frontend/src/kit", "fl_frontend/src/features/*/*.tsx"]
       },
       { "name": "disclosure", "when": ["**"] },
       {
