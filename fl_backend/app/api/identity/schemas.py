@@ -254,21 +254,17 @@ class FLErasureViewResponse(BaseReadModel):
 # --- The administrator's entry of a withdrawal asked for by mail.
 
 
+# The erasure's address, as both answer a mailed request for every record the address holds.
 class FLEinwilligungWithdrawalPayload(FLErasureAddressPayload):
-    """The address a mail came from and what it withdraws, which an administrator enters: it withholds and never grants.
-
-    The address is the erasure's, as both answer a mailed request for every record the address holds.
-    """
+    """The address a mail came from and what it withdraws, which an administrator enters: it withholds and never grants."""
 
     choices: Annotated[set[FLWithdrawalChoice], Field(min_length=1)]
 
 
 class FLEinwilligungWithdrawalReport(BaseReadModel):
-    """Per kind of record at the address, the choices the entry ends there, empty where it ends none.
+    """Per kind of record at the address, the choices the entry ends there, empty where it ends none; never a record itself."""
 
-    By kind and never by record, so the confirmation names no person, as the erasure's counts name none. A choice no
-    record of a kind grants is absent from it, a second mail's included.
-    """
+    # By kind and never by record, so the confirmation names no person, as the erasure's counts name none.
 
     spieler: list[FLWithdrawalChoice]
     schiedsrichter: list[FLWithdrawalChoice]

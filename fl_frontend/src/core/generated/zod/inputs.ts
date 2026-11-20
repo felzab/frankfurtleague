@@ -938,9 +938,7 @@ export const IdentityPostWithdrawalBody = zod
       .regex(identityPostWithdrawalBodyEmailRegExp)
       .describe("Its domain, after the last `@`, in ASCII alone, an international one in punycode; else `email_not_accepted`."),
   })
-  .describe(
-    "The address a mail came from and what it withdraws, which an administrator enters: it withholds and never grants.\n\nThe address is the erasure's, as both answer a mailed request for every record the address holds.",
-  );
+  .describe("The address a mail came from and what it withdraws, which an administrator enters: it withholds and never grants.");
 
 /**
  * Record what the mail provider reported about one message on its mail's row, where the row's state may follow into it.

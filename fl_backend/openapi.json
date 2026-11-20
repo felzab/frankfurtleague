@@ -4617,7 +4617,7 @@
       },
       "FLEinwilligungWithdrawalPayload": {
         "additionalProperties": false,
-        "description": "The address a mail came from and what it withdraws, which an administrator enters: it withholds and never grants.\n\nThe address is the erasure's, as both answer a mailed request for every record the address holds.",
+        "description": "The address a mail came from and what it withdraws, which an administrator enters: it withholds and never grants.",
         "properties": {
           "choices": {
             "items": {
@@ -4644,7 +4644,7 @@
         "type": "object"
       },
       "FLEinwilligungWithdrawalReport": {
-        "description": "Per kind of record at the address, the choices the entry ends there, empty where it ends none.\n\nBy kind and never by record, so the confirmation names no person, as the erasure's counts name none. A choice no\nrecord of a kind grants is absent from it, a second mail's included.",
+        "description": "Per kind of record at the address, the choices the entry ends there, empty where it ends none; never a record itself.",
         "properties": {
           "bewerbung_seats": {
             "items": {

@@ -2040,8 +2040,6 @@ export const FLWithdrawalChoice = {
 
 /**
  * The address a mail came from and what it withdraws, which an administrator enters: it withholds and never grants.
- *
- * The address is the erasure's, as both answer a mailed request for every record the address holds.
  */
 export interface FLEinwilligungWithdrawalPayload {
   /** @minItems 1 */
@@ -2055,10 +2053,7 @@ export interface FLEinwilligungWithdrawalPayload {
 }
 
 /**
- * Per kind of record at the address, the choices the entry ends there, empty where it ends none.
- *
- * By kind and never by record, so the confirmation names no person, as the erasure's counts name none. A choice no
- * record of a kind grants is absent from it, a second mail's included.
+ * Per kind of record at the address, the choices the entry ends there, empty where it ends none; never a record itself.
  */
 export interface FLEinwilligungWithdrawalReport {
   bewerbung_seats: FLWithdrawalChoice[];
