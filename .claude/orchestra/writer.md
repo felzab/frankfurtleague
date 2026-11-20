@@ -9,10 +9,10 @@
 
 ## The targeted set
 
-Your set is the tests of every file you changed and of every module importing one, found through
-every import form the tree uses: the `@/` alias, a relative path and a dotted Python module. Add the
-tests naming a registry that gains a member, and the sweeps, which judge a whole tree rather than
-the modules they import:
+Your set is the tests of every file you changed and of every module importing one directly, found
+through every import form the tree uses: the `@/` alias, a relative path and a dotted Python module.
+Add the tests naming a registry that gains a member, and the sweeps, which judge a whole tree rather
+than the modules they import:
 
 - where you touched `fl_backend/app`, every test importing `fl_backend/tests/core/app_source.py`,
   which judges every operation of the mounted application;
