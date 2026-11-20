@@ -117,6 +117,7 @@ function failingVariableNames(issues: readonly z.core.$ZodIssueBase[]): string[]
   return [...new Set(issues.map(({ path }) => (path.length > 0 ? String(path[0]) : "<unknown>")))].sort();
 }
 
+// A third member would name a stack nothing here deploys.
 const APP_ENVIRONMENTS = ["production", "local"] as const;
 
 // Files only: the production stack hands each as a file secret, never a variable.

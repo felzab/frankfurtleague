@@ -66,9 +66,10 @@ function Line({ side, score, part, muted = false, absent }: LineProps) {
 
 /**
  * A knockout match in the bracket, the whole card a link to it, or opening nothing where it has no `href`. Every card
- * is the same size, one figure per side with a shoot-out's goals added and no mark for it. The narrow card, of plaques
- * alone, has no room for a chip, so its plaques carry the muting and the strike, and its date line, chip included, is
- * heard by a screen reader alone.
+ * is the same size, one figure per side with a shoot-out's goals added and no mark for it. A match something befell
+ * draws as a match row does (`SpielRow`): both sides muted, the side that did not turn up struck, and on the wide card
+ * the event's chip at the date line's end. The narrow card, of plaques alone, has no room for a chip, so its plaques
+ * carry the muting and the strike, and its date line, chip included, is heard by a screen reader alone.
  */
 export function BracketCard({
   href,
