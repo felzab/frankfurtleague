@@ -132,7 +132,7 @@ describe("each form's posted names meet its lane's keys", () => {
     const names = namesIn(
       <CreateFields
         next={{ start: null, end: null }}
-        required={{ start: true, end: true }}
+        rules={{ required: { start: true, end: true } }}
       />,
     );
     const typed = { start_date: "2027-03-06", end_date: "2027-07-03" };
