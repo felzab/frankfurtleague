@@ -7,8 +7,8 @@ import { Chip } from "./Chip";
 import { CutRow, CutText } from "./CutText";
 import { EmptyState } from "./EmptyState";
 import { Link } from "./Link";
+import { RecordFigures } from "./RecordFigures";
 import { RowEnd } from "./RowEnd";
-import { RecordFigures } from "./Table";
 import { TargetMark } from "./TargetMark";
 import { TeamPlaque } from "./TeamPlaque";
 import { tv } from "./tv";
@@ -17,7 +17,7 @@ import type { Copy, Words } from "@/core/copy";
 import type { Route } from "next";
 import type { ChipProps } from "./Chip";
 import type { EmptyStateProps } from "./EmptyState";
-import type { Counts } from "./Table";
+import type { Counts } from "./RecordFigures";
 import type { Plaque } from "./TeamPlaque";
 
 /** A column after the club: its head, and how its figures set, centred under their head as the place is. */
