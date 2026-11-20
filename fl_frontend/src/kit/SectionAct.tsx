@@ -27,19 +27,18 @@ type Sending = {
   press?: never;
 } & (
   | {
-      variant?: "primary" | "secondary";
       /** The question it asks before it runs; its button then carries the question's verb and tone. */
       confirm?: ConfirmWords & { tone: "primary" };
     }
   // An act that destroys takes the outlined danger look its question's trigger takes everywhere (`Trigger`).
-  | { variant?: never; confirm: ConfirmWords & { tone: "danger" } }
+  | { confirm: ConfirmWords & { tone: "danger" } }
 );
 
 /**
  * An act that writes nothing and runs at once, such as copying a link the section shows: a secondary button whose
  * outcome is its own toast, so the status line, which speaks of the section's writes, stays as it was.
  */
-type AtOnce = { label: Copy; press: () => void; act?: never; run?: never; variant?: never; confirm?: never };
+type AtOnce = { label: Copy; press: () => void; act?: never; run?: never; confirm?: never };
 
 export type SectionActItem = {
   /** Closed while the section's inputs are incomplete, its fields showing what is missing, or while the press would reach nobody. */
@@ -80,7 +79,7 @@ function ActButton({ item, isBusy, onPress }: { item: SectionActItem; isBusy: bo
   if (confirm === undefined)
     return (
       <Button
-        variant={item.variant ?? "secondary"}
+        variant="secondary"
         label={label}
         isBusy={isBusy}
         isDisabled={item.isDisabled ?? false}
@@ -95,7 +94,7 @@ function ActButton({ item, isBusy, onPress }: { item: SectionActItem; isBusy: bo
         onPress();
         return item.run();
       }}
-      trigger={{ label, variant: item.variant, isDisabled: item.isDisabled ?? false, locked: lock }}
+      trigger={{ label, isDisabled: item.isDisabled ?? false, locked: lock }}
     />
   );
 }

@@ -514,7 +514,6 @@ export function SaisonEditor({
                   acts={[
                     {
                       act: { verb: "create", object: SPIELPLAN },
-                      variant: "primary",
                       locked: facts.locked.create,
                       run: () => acts.draw({ saison_id: saison }),
                     },
@@ -583,7 +582,6 @@ export function SaisonEditor({
               acts={[
                 {
                   act: { verb: "send", object: WORDS.invitations },
-                  variant: "primary",
                   // The press's own plan reaches nobody: every team is passed over or already mailed.
                   isDisabled: links.mailed === 0,
                   confirm: {
