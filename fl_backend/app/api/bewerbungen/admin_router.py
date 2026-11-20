@@ -7,7 +7,6 @@ from fastapi import APIRouter, Query, status
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
-from app.api.account.services import held_by_the_seat, withdraw_by_mail
 from app.api.bewerbungen.schemas import (
     FLAcceptBewerbungPayload,
     FLBewerbung,
@@ -98,8 +97,7 @@ from app.core.routing import by_id
 from app.core.transactions import transact
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from app.shared.schemas.custom import CustomObjectId
-from app.shared.schemas.einwilligung import WITHHELD_ON_A_SEAT, FLEinwilligungWithdrawalPayload
-from app.shared.schemas.literals import KONTAKT_SEATS, FLKontaktSeat
+from app.shared.schemas.literals import FLKontaktSeat
 
 # Admin-guarded, not base: an application carries three people's names, addresses, telephone numbers and dates of
 # birth, and says which schools asked and were turned down. The public router shares this prefix at base tier and
@@ -679,56 +677,3 @@ async def post_kontakt_seat(
     # One transaction: this write moves a person as well as a credential, so a decision landing mid-request must leave
     # neither half standing.
     return await transact(db, seat_and_mint)
-
-
-@router.post(
-    f"{by_id('bewerbung_id')}/kontakte/{{seat}}/einwilligung/withdrawal",
-    status_code=status.HTTP_204_NO_CONTENT,
-    summary="Enter a withdrawal of a contact seat's consent that its person asked for by mail",
-)
-async def withdraw_kontakt_einwilligung(
-    bewerbung_id: CustomObjectId,
-    seat: str,
-    withdrawal_data: FLEinwilligungWithdrawalPayload,
-    bewerbungen_collection: BewerbungenCollection,
-    teams_collection: TeamsCollection,
-    db: DBClient,
-    germany_now: GermanyNow,
-) -> None:
-    """Withdraw the named choices, WhatsApp and media, on every confirmed seat of this application its person holds, as their own press does.
-
-    A decided application takes it too; an accepted one holds no seat, its people being its season row's. A choice
-    already withheld stays as it is, so a second mail or a seat its person never confirmed writes nothing, and nothing
-    is ever granted.
-    """
-
-    # A 404 rather than a 422, as a malformed path id answers: the segment names no seat any application has.
-    pressed = seat_named(seat)
-    if pressed is None:
-        raise DocumentNotFoundError()
-
-    async def record(row: Mapping[str, Any], session: AsyncClientSession) -> None:
-        schule = await pull_schule_name(bewerbung_raw=row, teams_collection=teams_collection, session=session)
-        await record_act(
-            collection=bewerbungen_collection,
-            action="bewerbung.seat_einwilligung_withdrawn",
-            record_id=bewerbung_id,
-            label=schule,
-            session=session,
-        )
-
-    await withdraw_by_mail(
-        kind=Collection.BEWERBUNGEN,
-        collection=bewerbungen_collection,
-        db_filter={"_id": bewerbung_id},
-        projection={
-            "team_id": 1,
-            "schule": 1,
-            **{f"kontakte.{seat}.{field}": 1 for seat in KONTAKT_SEATS for field in ("email", "einwilligung")},
-        },
-        held_of=lambda row: held_by_the_seat(row, pressed),
-        withheld={choice: WITHHELD_ON_A_SEAT[choice] for choice in withdrawal_data.choices},
-        act=record,
-        db=db,
-        now=germany_now,
-    )

@@ -1,11 +1,9 @@
-from collections.abc import Mapping
 from typing import Any
 
 from fastapi import APIRouter, status
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
-from app.api.account.services import held_by_the_record, withdraw_by_mail
 from app.api.grants.guard import ADMIN_TIER
 from app.api.outbox.crud import state_of
 from app.api.outbox.schemas import FLOutboxReference
@@ -66,7 +64,6 @@ from app.core.recording import record_act
 from app.core.routing import by_id
 from app.core.transactions import transact
 from app.shared.schemas.custom import CustomObjectId
-from app.shared.schemas.einwilligung import WITHHELD_BY_A_PERSON, FLEinwilligungWithdrawalPayload
 from app.shared.schemas.responses import FLCreatedResponse
 
 # Admin-guarded, not base: a referee is a pupil, so their contact details and school are admin-tier, as is the fee,
@@ -424,39 +421,3 @@ async def resend_confirmation(
     minted_for = await transact(db, judge_and_mint)
 
     return FLSchiedsrichterMintResponse(confirmation=FLSchiedsrichterMint(deadline=confirmation_deadline_from(today=today), email=minted_for))
-
-
-@router.post(
-    f"{by_id('schiedsrichter_id')}/einwilligung/withdrawal",
-    status_code=status.HTTP_204_NO_CONTENT,
-    summary="Enter a withdrawal of a Schiedsrichter's consent that they asked for by mail",
-)
-async def withdraw_schiedsrichter_einwilligung(
-    schiedsrichter_id: CustomObjectId,
-    withdrawal_data: FLEinwilligungWithdrawalPayload,
-    schiedsrichter_collection: SchiedsrichterCollection,
-    db: DBClient,
-    germany_now: GermanyNow,
-) -> None:
-    """Withdraw the named choices of a referee's consent, the name on the fixtures leaving the public pages and the media consent ending.
-
-    A choice already withheld stays as it is, so a second mail or a record its person never confirmed writes nothing,
-    and nothing is ever granted.
-    """
-
-    async def record(row: Mapping[str, Any], session: AsyncClientSession) -> None:
-        await record_act(
-            collection=schiedsrichter_collection, action="schiedsrichter.einwilligung_withdrawn", record_id=row["_id"], session=session
-        )
-
-    await withdraw_by_mail(
-        kind=Collection.SCHIEDSRICHTER,
-        collection=schiedsrichter_collection,
-        db_filter={"_id": schiedsrichter_id},
-        projection={EINWILLIGUNG_FIELD: 1},
-        held_of=held_by_the_record,
-        withheld={choice: WITHHELD_BY_A_PERSON[choice] for choice in withdrawal_data.choices},
-        act=record,
-        db=db,
-        now=germany_now,
-    )

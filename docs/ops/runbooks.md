@@ -473,8 +473,8 @@ per-visitor control, the one figure in that section never exercised against a re
 
 Access, rectification, objection, restriction and portability all arrive the same way and are
 answered by one person by hand. The withdrawal of a consent is the person's own write on their
-account page, and a request for one by mail is answered by pointing them there (below). Erasure has
-its own mechanisms and is
+account page, or, where they ask by mail, an administrator's entry of it on „Widerrufe“ (below).
+Erasure has its own mechanisms and is
 [`../datenschutz.md`](../datenschutz.md#5-erasure-reaches-everyone-who-asks)'s; everything else is
 this section.
 
@@ -691,22 +691,30 @@ in the contacts editor under the new address: the seat is then a new entry, its 
 choice and birthdate asked again through the fresh link, and the old entry's records stay at the old
 address.
 
-**Withdrawing a consent is the person's own write on Konto's „Deine Einträge“, `/account/entries`,
-and never an erasure or an edit by hand**. Point a request arriving by mail at the control for its
-record, which the person reaches by signing in with the address that record holds:
+**A consent withdrawn by mail is entered on „Widerrufe“, `/admin/withdrawals`, for the address the
+mail came from, and never by an erasure or an edit by hand.** Paste that address, tick exactly what
+the mail withdraws, and press „Eintragen“: „Name auf der Website“ for the name a pupil's, a
+referee's or a registration's record publishes, „WhatsApp“ for a contact seat's WhatsApp consent,
+and „Fotos und Videos“ for the media consent on every record. A mail withdrawing its consent without
+naming one ticks all three. The question names by kind, never by name, the records the entry ends a
+choice on, which are every record the address holds: a finished season's row, a retired club's or
+referee's, a pending registration and a decided application among them. Where it says that nothing
+of it is granted, tell the person so. The entry grants nothing, raises no record's version, asks no
+passkey touch, and stands in the Protokoll as „Widerruf eingetragen“ on each record it moved
+(`fl_backend/app/api/account/services.py :: withdraw_at_address`); only the person can consent
+again, on Konto's „Deine Einträge“, `/account/entries`.
 
-- **A referee's publication scope and media consent:**
-  `PATCH /schiedsrichter/{schiedsrichter_id}/einwilligung`.
-- **A seat's WhatsApp scope and media consent on a team's season row:**
-  `PATCH /teams/{team_id}/saisons/{saison_id}/einwilligung`, for every seat the address holds on
-  that row.
-- **A seat's WhatsApp scope and media consent on a pending application:**
-  `PATCH /bewerbungen/{bewerbung_id}/einwilligung`, which withdraws them and never grants either.
-- **A pending registration's publication scope and media consent:**
-  `PATCH /registrierungen/{registrierung_id}/einwilligung`, which withdraws them and grants neither.
-  The admission deletes the registration, and its choices then move on the pupil's own control
-  above.
-- **A pupil's:** the paragraph below.
+- **A mail from another address than the one the records hold**, or written for somebody else, is
+  answered by asking the person to write from the address their record holds, or to withdraw on
+  „Deine Einträge“ after signing in with it: the entry acts for the typed address alone, and nobody
+  withdraws for another person.
+- **A mail withdrawing on one record alone**, one season's seat say, is pointed to „Deine Einträge“,
+  which withdraws record by record: the page withdraws on every record the address holds.
+- **A withdrawn name** leaves the public squad page and the fixture list at the next read; check the
+  squad page before you answer. An admission carries a registration's withdrawal onto the pupil.
+- **A withdrawn media consent** stops what is published from then on; take down by hand any photo,
+  video or interview of the person already on the website or the league's Instagram, as the privacy
+  notice promises.
 
 **Taking a contact person off their seat is an erasure, unless the seat's own link still takes their
 Widerspruch.** On an application, which of the three cases below you are in is decided by that
@@ -740,21 +748,20 @@ seat's own link, not by the person's role; a seat on a team's season row is the 
   link such a row already holds still takes a Widerspruch. Where no live link is left, or the seat
   has already answered, the route is „Löschungen“.
 
-**A pupil withdrawing the consent that publishes their name does it on their account page.**
-`PATCH /spieler/self/einwilligung` moves the record, and no administration page writes it. A request
-arriving by mail instead has two answers, and which one you give is the person's to choose:
+**A pupil's request by mail to come off the website has two answers**, and which one you give is the
+person's to choose:
 
 - **They want off the website and out of the league.** „Löschungen“ on the address their record
   holds, which takes the squad rows with the person and asks no retirement first.
-- **They want their name withheld and their place kept.** Answer by pointing them to the control on
-  Konto's „Deine Einträge“, `/account/entries`, which they reach by signing in with the address
-  their record holds. **Never edit a consent block by hand**, in the console or anywhere else: a
-  choice the person did not make is not their consent. The write that withholds the name drops the
-  cached squad list, and the next read serves the row as a nameless slot; check the public squad
-  page before you answer.
+- **They want their name withheld and their place kept.** Enter it on „Widerrufe“ as above, or point
+  them to Konto's „Deine Einträge“, `/account/entries`, which they reach by signing in with the
+  address their record holds. **Never edit a consent block by hand**, in the console or anywhere
+  else: a choice the person did not make is not their consent. The write that withholds the name
+  drops the cached squad list, and the next read serves the row as a nameless slot; check the public
+  squad page before you answer.
 
-Tell them that the first cannot be undone, and that the second is theirs to change back on the same
-page.
+Tell them that the first cannot be undone, and that the second is theirs to change back on „Deine
+Einträge“.
 
 **Objection, restriction and portability have no mechanism and need none at this scale.** Answer the
 person in writing: say what is held, on what basis, and what you have done. Where a restriction is
@@ -771,9 +778,13 @@ passed on to, while Google keeps it restorable for its own period and a private 
 stay beyond reach; and an erasure is keyed on an email address, so it clears every record that
 address holds, in every season and every collection. **The erasure takes the address typed, and
 reaches a record only where that record's address folds to the same spelling** once its capitals are
-lowered (`fl_backend/app/shared/folding.py :: sign_in_identifier`). **Read the counts before the
-final press**: „Löschen“ on `/admin/erasures` asks over a count of each kind of record the address
-holds, the account and its passkeys among them, and names nobody
+lowered (`fl_backend/app/shared/folding.py :: sign_in_identifier`). **Erase only for the address the
+request came from**, as a withdrawal is entered: a mail from another address than the one the
+records hold, or written for somebody else, is answered by asking the person to write from the
+address their record holds, or to delete their data on Konto after signing in with it, and nobody
+erases for another person. **Read the counts before the final press**: „Löschen“ on
+`/admin/erasures` asks over a count of each kind of record the address holds, the account and its
+passkeys among them, and names nobody
 (`fl_frontend/src/app/admin/(list)/erasures/erasureActs.ts :: readErasureCounts`); „Eingeteilte
 Spiele“ above zero is the fixtures that need a new referee afterwards, and a note in the dialog that
 the account may stand means pressing „Löschen“ again, which deletes an account left standing.
