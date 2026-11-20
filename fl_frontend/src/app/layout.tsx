@@ -86,7 +86,7 @@ export const instant = false;
  * The browser's own ground and controls in the visitor's system scheme wherever neither the stylesheet nor the theme
  * script has set them yet, which is only in a bare error document. Once the theme script runs it writes the chosen
  * theme's `color-scheme` on the root, which wins over this. It reaches an error document rendered per request and
- * Next's own not-found document; an error document the build prerenders, as the area's catch-all, carries no viewport.
+ * Next's own not-found document; the global error page the build prerenders carries no viewport.
  */
 export const viewport: Viewport = {
   colorScheme: "light dark",
