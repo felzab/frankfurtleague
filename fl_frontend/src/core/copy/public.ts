@@ -20,7 +20,7 @@ export const PUBLIC_COPY = catalogue({
     /** Each seat confirms for one person, which a shared inbox would let one person do for two. */
     ownAddress: "Die eigene Adresse der Person",
     /** Under a seat's first name: the youngest age the write takes for whoever holds the seat. */
-    seatFloor: (age: number) => boundBy("Ab", formatNumber(age), "Jahren"),
+    seatFloor: (age: number) => `Ab ${boundBy(formatNumber(age), "Jahren")}`,
     seatCovered: "Übernimmt die Trainerin oder der Trainer.",
     /** A promise the form makes, which the privacy record states. */
     addressPublic: "Steht nach der Zusage öffentlich auf der Teamseite",
@@ -28,7 +28,7 @@ export const PUBLIC_COPY = catalogue({
     goodSpielerDescription: "Aktiv, mindestens Verbandsliga",
     wunschgegnerDescription: `Für den ${spieltagName(1)}`,
     /** The sentence above the submit, around the privacy notice's link. */
-    notice: (link: NoticeLink) => ["Jede Kontaktperson bestätigt ihren Eintrag per E-Mail, mehr unter\u00A0", link, "."] as const,
+    notice: (link: NoticeLink) => ["Jede Kontaktperson bestätigt ihren Eintrag per E-Mail, mehr unter ", link, "."] as const,
   },
 
   /** The public registration form's own words; its squad fields read the labels `kader` gives them. */
@@ -39,7 +39,7 @@ export const PUBLIC_COPY = catalogue({
     /** The number box's label, the shirt's own word, which a pupil reads where the squad's lists say „Nummer“. */
     nummer: "Trikotnummer",
     /** The sentence above the submit, around the privacy notice's link, as `bewerbung.notice`. */
-    notice: (link: NoticeLink) => ["Du bestätigst deine Registrierung per E-Mail, mehr unter\u00A0", link, "."] as const,
+    notice: (link: NoticeLink) => ["Du bestätigst deine Registrierung per E-Mail, mehr unter ", link, "."] as const,
   },
 
   signIn: {

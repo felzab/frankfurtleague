@@ -26,16 +26,16 @@ export const ACCOUNT_COPY = catalogue({
           address,
           until === null
             ? " wartet auf die Bestätigung deiner bisherigen Adresse."
-            : ` wartet ${boundBy("bis", formatInstant(until))} auf die Bestätigung deiner bisherigen Adresse.`,
+            : ` wartet bis ${formatInstant(until)} auf die Bestätigung deiner bisherigen Adresse.`,
         ] as const,
       new: (address: RecordText, until: string | null) =>
         [
           NEW_ADDRESS,
           address,
-          until === null ? " wartet auf ihre Bestätigung." : ` wartet ${boundBy("bis", formatInstant(until))} auf ihre Bestätigung.`,
+          until === null ? " wartet auf ihre Bestätigung." : ` wartet bis ${formatInstant(until)} auf ihre Bestätigung.`,
         ] as const,
       /** Both addresses have confirmed and the wait runs. */
-      waiting: (address: RecordText, moment: string) => [NEW_ADDRESS, address, ` gilt ${boundBy("ab", formatInstant(moment))}.`] as const,
+      waiting: (address: RecordText, moment: string) => [NEW_ADDRESS, address, ` gilt ab ${formatInstant(moment)}.`] as const,
     },
     /** The step the change waits on lapsed; the hourly pass ends it. */
     lapsed: "Die Änderung ist abgelaufen.",
@@ -52,7 +52,7 @@ export const ACCOUNT_COPY = catalogue({
   passkeys: {
     description: PASSKEY_WITHOUT_CODE,
     /** When a passkey was set up. */
-    dates: (created: Date) => `Eingerichtet ${boundBy("am", formatDate(created))}`,
+    dates: (created: Date) => `Eingerichtet am ${formatDate(created)}`,
     /**
      * The deletion's consequence, which the question words before the passkey touch: the devices the passkey signed
      * in, and this one where the page's session was made by it or it is the person's only passkey, which the touch
@@ -76,7 +76,7 @@ export const ACCOUNT_COPY = catalogue({
   devices: {
     title: "Geräte",
     description: (count: number) =>
-      count === 1 ? "Du bist auf\u00A01\u00A0Gerät angemeldet." : `Du bist ${boundBy("auf", formatNumber(count), "Geräten")} angemeldet.`,
+      count === 1 ? "Du bist auf 1\u00A0Gerät angemeldet." : `Du bist auf ${boundBy(formatNumber(count), "Geräten")} angemeldet.`,
     allOthers: "Alle anderen",
     consequence: "Nur dieses Gerät bleibt angemeldet.",
   },
@@ -103,11 +103,11 @@ export const ACCOUNT_COPY = catalogue({
       registrierung: OWN_DETAILS,
       schiedsrichter: OWN_DETAILS,
       /** A seat on a team's season and a seat in an application alike, by the seats held, in the seats' order. */
-      seat: (seats: readonly FLKontaktSeat[]) => `Dein Eintrag ${boundBy("als", seatsText(seats))} und wie wir dich erreichen.`,
+      seat: (seats: readonly FLKontaktSeat[]) => `Dein Eintrag als ${seatsText(seats)} und wie wir dich erreichen.`,
     },
     teamSeason,
     /** A seat entry's fact where its seats store the person typed two ways, by the seats holding this one: „Telefon als Ansprechperson“. */
-    seatFact: (label: Copy, seats: readonly FLKontaktSeat[]) => `${label} ${boundBy("als", seatsText(seats))}`,
+    seatFact: (label: Copy, seats: readonly FLKontaktSeat[]) => `${label} als ${seatsText(seats)}`,
     /**
      * The labels the deletion's list names an address's records by, each the person's part in the record: one row per
      * label, holding the records it names.
@@ -115,11 +115,11 @@ export const ACCOUNT_COPY = catalogue({
     spieler: "Als Spielerin oder Spieler",
     schiedsrichter: "Als Schiedsrichterin oder Schiedsrichter",
     /** The seats a contact person holds on one row, as one phrase in the seats' order: „Als Ansprechperson und Trainerin oder Trainer“. */
-    seats: (seats: readonly FLKontaktSeat[]) => boundBy("Als", seatsText(seats)),
-    bewerbung: (saison: Copy) => `Bewerbung ${boundBy("für", "die", saison)}`,
+    seats: (seats: readonly FLKontaktSeat[]) => `Als ${seatsText(seats)}`,
+    bewerbung: (saison: Copy) => `Bewerbung für die ${saison}`,
     /** A pupil's registration, by its team where the team still stands. */
     registrierung: (team: Words | null, saison: Copy) =>
-      team === null ? `Registrierung ${boundBy("für", "die", saison)}` : `Registrierung ${boundBy("für", teamSeason(team, saison))}`,
+      team === null ? `Registrierung für die ${saison}` : `Registrierung für ${teamSeason(team, saison)}`,
     /** One label's records, where an address holds several under it. */
     several: (records: readonly Words[]) => formatList(records.map(textOf)),
   },
