@@ -216,28 +216,14 @@ function ToolbarAct({ act: { locked, ...act }, side = false }: { act: ListCreate
   );
 }
 
-async function ToolbarActOnceRead({ act, side }: { act: Promise<ListCreate>; side: boolean }) {
+/**
+ * A toolbar act as stated, or as the read words it: its words, and `locked` while the list as read, or the reader's
+ * role, shuts it. Awaiting a stated act yields it as it is.
+ */
+async function ToolbarActOnceRead({ act, side = false }: { act: ListCreate | Promise<ListCreate>; side?: boolean }) {
   return (
     <ToolbarAct
       act={await act}
-      side={side}
-    />
-  );
-}
-
-/**
- * A toolbar act as stated, or as the read words it: its words, and `locked` while the list as read, or the reader's
- * role, shuts it.
- */
-function ToolbarActOf({ act, side = false }: { act: ListCreate | Promise<ListCreate>; side?: boolean }) {
-  return act instanceof Promise ? (
-    <ToolbarActOnceRead
-      act={act}
-      side={side}
-    />
-  ) : (
-    <ToolbarAct
-      act={act}
       side={side}
     />
   );
@@ -438,12 +424,12 @@ export function ListPage({
             {(side !== undefined || create !== undefined) && (
               <ToolbarActs>
                 {side !== undefined && (
-                  <ToolbarActOf
+                  <ToolbarActOnceRead
                     act={side}
                     side
                   />
                 )}
-                {create !== undefined && <ToolbarActOf act={create} />}
+                {create !== undefined && <ToolbarActOnceRead act={create} />}
               </ToolbarActs>
             )}
             {link !== undefined && (
