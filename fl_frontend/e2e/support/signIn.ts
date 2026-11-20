@@ -107,7 +107,7 @@ export async function enrolPasskey(page: Page, context: BrowserContext): Promise
   // Installed only now, on the page whose ceremony it answers, and the page loaded again under it.
   await context.credentials.install();
   await page.reload();
-  await page.getByRole("button", { name: "Jetzt einrichten" }).click();
+  await page.getByRole("button", { name: "Passkey einrichten" }).click();
   // Where every administrator lands, which a session short of the passkey would leave for the passkey step. Waited for
   // to the end of its in-stream redirect, so the journey's next address interrupts nothing.
   await expect(page).toHaveURL((url) => url.pathname === ADMINISTRATION_LANDING);

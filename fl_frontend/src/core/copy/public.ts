@@ -1,10 +1,13 @@
 import { boundBy, catalogue, spieltagName, VERB } from "../copy";
 import { formatNumber } from "../format";
+import { COPY } from "./shared";
 
 import type { Route } from "next";
 import type { Copy, RecordText } from "../copy";
 
 const SIGN_IN_WITH_PASSKEY = "Mit Passkey anmelden";
+// Konto's set-up composes the same words, so one act reads one label on both pages.
+const SET_UP_PASSKEY = COPY.shared.withObject(COPY.shared.passkey, "setUp");
 const PASSKEY_REQUIRED = "Die Verwaltung ist erst mit einem Passkey erreichbar.";
 /** The privacy notice's link, which a form's sentence beside its send holds. */
 type NoticeLink = { readonly href: Route; readonly label: Copy };
@@ -59,9 +62,10 @@ export const PUBLIC_COPY = catalogue({
     code: "Code aus der E-Mail",
     otherAddress: "Andere E-Mail-Adresse verwenden",
 
+    /** The passkey step's card: its button repeats its title, as Konto's set-up names the same act. */
     passkey: {
-      setUp: { title: "Passkey einrichten", sentence: PASSKEY_REQUIRED, button: "Jetzt einrichten" },
-      signIn: { title: SIGN_IN_WITH_PASSKEY, sentence: PASSKEY_REQUIRED, button: "Jetzt anmelden" },
+      setUp: { title: SET_UP_PASSKEY, sentence: PASSKEY_REQUIRED, button: SET_UP_PASSKEY },
+      signIn: { title: SIGN_IN_WITH_PASSKEY, sentence: PASSKEY_REQUIRED, button: SIGN_IN_WITH_PASSKEY },
     },
 
     /**

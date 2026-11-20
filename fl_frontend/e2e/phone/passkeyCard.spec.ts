@@ -16,7 +16,7 @@ test("an administrator's mailed code leads to setting up a passkey", async ({ pa
   // In `main`: the code step the browser came through stays in the document, hidden, and names the address too.
   const card = page.getByRole("main");
   await expect(card.getByText(administrator, { exact: true })).toBeVisible();
-  await expect(card.getByRole("button", { name: "Jetzt einrichten" })).toBeVisible();
+  await expect(card.getByRole("button", { name: "Passkey einrichten" })).toBeVisible();
 
   // Asked for by its address, a Verwaltung page shows the session nothing: its read turns the session
   // to the sign-in's landing, which sends an administrator who owes a passkey back to this card.
