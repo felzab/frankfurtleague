@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { configDouble } from "@/test-support/authDoubles";
 import { networkFailure, refusal, serveBackend, serveHost } from "@/test-support/backend";
@@ -167,10 +167,19 @@ describe("one drain of the Postausgang", () => {
     ["a refusal of the message itself", () => Response.json({ name: "validation_error" }, { status: 422 }), "abandon", "validation_error"],
     ["a refusal named past the endpoint's bound", () => Response.json({ name: "x".repeat(200) }, { status: 422 }), "abandon", null],
   ] as const)("reports %s as %s", async (_name, answer, result, reason) => {
+    // The pauses between attempts on the case's clock, which the case runs out: `fakeNodeBuiltins` reaches the drain's
+    // `node:timers/promises` import, which a fake of the global alone leaves on the wall clock. The send's own bound is
+    // an `AbortSignal.timeout`, which stays on the wall clock and so never fires here.
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"], fakeNodeBuiltins: true });
+    onTestFinished(() => {
+      vi.useRealTimers();
+    });
     claims = [{ mails: [handed(1)], abandoned: 0 }];
     provider = answer;
 
-    await drainOutbox();
+    const drained = drainOutbox();
+    await vi.runAllTimersAsync();
+    await drained;
 
     expect(reports()).toStrictEqual([{ id: handed(1).id, result, delivery_reason: reason }]);
   });
