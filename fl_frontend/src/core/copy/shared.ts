@@ -313,6 +313,8 @@ export const COPY = catalogue({
     },
 
     help: "Hilfe",
+    /** A combo box's button opening its list, whether or not the box takes free text. */
+    showSuggestions: "Vorschläge anzeigen",
     filter: "Filter",
     done: "Fertig",
     saison: "Saison",

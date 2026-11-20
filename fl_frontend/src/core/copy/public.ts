@@ -20,7 +20,6 @@ export const PUBLIC_COPY = catalogue({
     trikotSetDescription: "Zum Beispiel 15\u00A0rote Trikots",
     goodSpielerDescription: "Aktiv, mindestens Verbandsliga",
     wunschgegnerDescription: `Für den ${spieltagName(1)}`,
-    suggestions: "Vorschläge anzeigen",
     /**
      * The sentence above the submit, in the two parts around the privacy notice's title, which the form sets as its
      * link.
