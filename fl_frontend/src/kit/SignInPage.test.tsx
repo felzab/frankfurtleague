@@ -16,7 +16,7 @@ describe("the sign-in template", () => {
     const addressView = (error: Readonly<Record<string, Copy>> | undefined) => (
       <SignInPage
         view="address"
-        title={WORDS.title}
+        title={COPY.page.signIn}
         row={null}
         address={{ label: COPY.shared.emailAddress, value: "", onChange: () => undefined, error }}
         check={null}

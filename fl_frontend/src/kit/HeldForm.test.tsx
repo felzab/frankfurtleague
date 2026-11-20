@@ -295,7 +295,7 @@ describe("a press held across hydration", () => {
       return (
         <SignInPage
           view="address"
-          title={PUBLIC_COPY.signIn.title}
+          title={COPY.page.signIn}
           row={null}
           address={{ label: WORD, value, onChange: setValue }}
           check={null}

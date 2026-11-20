@@ -128,7 +128,7 @@ export function SignInFlow({ next, siteKey }: { next: string; siteKey: string })
   return (
     <SignInPage
       view="address"
-      title={PUBLIC_COPY.signIn.title}
+      title={COPY.page.signIn}
       address={{ label: COPY.shared.emailAddress, value: email, onChange: setEmail, error: refused?.fieldErrors }}
       check={humanCheck.widget}
       send={{

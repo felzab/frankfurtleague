@@ -181,7 +181,7 @@ const CONTAINERS: Readonly<Record<string, ReadonlyArray<readonly [string, () => 
         renderUnderNext(
           <SignInPage
             view="address"
-            title={PUBLIC_COPY.signIn.title}
+            title={COPY.page.signIn}
             row={null}
             address={{ label: COPY.shared.emailAddress, value: "", onChange: () => undefined }}
             check={null}

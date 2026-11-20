@@ -43,8 +43,6 @@ export const PUBLIC_COPY = catalogue({
   },
 
   signIn: {
-    title: COPY.page.signIn,
-
     sendCode: "Code senden",
     or: "oder",
     withPasskey: SIGN_IN_WITH_PASSKEY,
