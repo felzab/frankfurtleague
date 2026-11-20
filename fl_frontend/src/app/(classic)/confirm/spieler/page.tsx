@@ -13,11 +13,11 @@ import { mailedLinkToken } from "@/core/mailedLink";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { runWithIncomingTrace } from "@/core/traceScope";
-import { mailedMetadata } from "@/kit/mailedLinkState";
+import { mailedMetadata, TO_HOME } from "@/kit/mailedLinkState";
 import { MailedPage } from "@/kit/MailedPage";
 
 import { ConfirmationFields } from "../ConfirmationFields";
-import { REGISTRIERUNG_CONFIRMED, TO_HOME } from "../ends";
+import { REGISTRIERUNG_CONFIRMED } from "../ends";
 import { alreadyDone, linkViewOf } from "../linkView";
 import { answerRegistrierung } from "./answerRegistrierung";
 

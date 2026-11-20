@@ -3,13 +3,11 @@ import "server-only";
 import { COPY } from "@/core/copy/shared";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
-import { linkInvalid } from "@/kit/mailedLinkState";
+import { linkInvalid, TO_HOME } from "@/kit/mailedLinkState";
 
 import type { EndState } from "@/kit/MailedPage";
 
 const WORDS = SERVER_COPY.entryConfirmation;
-
-export const TO_HOME = { label: COPY.shared.end.toHome, href: ROUTES.home.path() };
 
 export const LINK_INVALID: EndState = linkInvalid(TO_HOME);
 

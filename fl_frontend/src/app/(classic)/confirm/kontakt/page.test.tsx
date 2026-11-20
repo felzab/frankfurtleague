@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { COPY } from "@/core/copy/shared";
+import { TO_HOME } from "@/kit/mailedLinkState";
 import { TO_ACCOUNT } from "@/kit/MailedPage";
 import { serveBackend } from "@/test-support/backend";
 import { arriveWith, doubleNextRequest } from "@/test-support/nextRequest";
@@ -26,7 +27,7 @@ serveBackend(({ method, path, body }) =>
 doubleNextRequest();
 
 const { objectKontakt } = await import("./answerKontakt");
-const { END, TO_HOME } = await import("../ends");
+const { END } = await import("../ends");
 const { default: KontaktConfirmationPage } = await import("./page");
 
 const DAY = "2026-11-04";

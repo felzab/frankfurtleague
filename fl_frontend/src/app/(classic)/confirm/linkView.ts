@@ -1,9 +1,8 @@
 import { COPY } from "@/core/copy/shared";
 import { APIBadStatusError } from "@/core/errors";
 import { dayOf } from "@/core/format";
+import { TO_HOME } from "@/kit/mailedLinkState";
 import { TO_ACCOUNT } from "@/kit/MailedPage";
-
-import { TO_HOME } from "./ends";
 
 import type { Code } from "@/core/generated/client/types";
 import type { EndState, MailedState } from "@/kit/MailedPage";

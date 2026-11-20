@@ -17,10 +17,10 @@ import { SERVER_COPY } from "@/core/serverCopy";
 import { runWithIncomingTrace } from "@/core/traceScope";
 import { orderStufen } from "@/features/spieler/constants";
 import { ConsentLine } from "@/kit/ConsentLine";
-import { mailedMetadata } from "@/kit/mailedLinkState";
+import { mailedMetadata, TO_HOME } from "@/kit/mailedLinkState";
 import { MailedPage } from "@/kit/MailedPage";
 
-import { endOf, readInvitation, TO_HOME } from "./invitation";
+import { endOf, readInvitation } from "./invitation";
 import { RegistrierungFields } from "./RegistrierungFields";
 import { submitRegistrierung } from "./submitRegistrierung";
 

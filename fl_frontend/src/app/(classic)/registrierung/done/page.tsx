@@ -1,9 +1,8 @@
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
+import { TO_HOME } from "@/kit/mailedLinkState";
 import { ClassicStatusPage } from "@/kit/StatusCard";
 import { pageMetadata } from "@/shared/utils/metadata";
-
-import { TO_HOME } from "../invitation";
 
 import type { Metadata, ResolvingMetadata } from "next";
 

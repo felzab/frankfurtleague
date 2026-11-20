@@ -1,16 +1,13 @@
 import "server-only";
 
-import { COPY } from "@/core/copy/shared";
 import { dayOf } from "@/core/format";
-import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
+import { TO_HOME } from "@/kit/mailedLinkState";
 
 import type { FLBewerbungFormResponse } from "@/core/generated/client/types";
 import type { EndState } from "@/kit/MailedPage";
 
 const WORDS = SERVER_COPY.bewerbung.end;
-
-export const TO_HOME = { label: COPY.shared.end.toHome, href: ROUTES.home.path() };
 
 /** The outcome replacing the form, a replayed press alike. */
 export const SUBMITTED: EndState = { tone: "info", title: WORDS.submitted, next: TO_HOME };

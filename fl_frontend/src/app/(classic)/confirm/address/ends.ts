@@ -4,7 +4,7 @@ import { COPY } from "@/core/copy/shared";
 import { dayIn } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
-import { linkInvalid } from "@/kit/mailedLinkState";
+import { linkInvalid, TO_HOME } from "@/kit/mailedLinkState";
 import { TO_ACCOUNT } from "@/kit/MailedPage";
 
 import type { CalendarDay } from "@/core/format";
@@ -12,8 +12,6 @@ import type { FLAddressChangeWay } from "@/core/generated/client/types";
 import type { EndState } from "@/kit/MailedPage";
 
 const WORDS = SERVER_COPY.addressChange;
-
-const TO_HOME = { label: COPY.shared.end.toHome, href: ROUTES.home.path() };
 
 /** The link's side, the address on file's or the new mailbox's, which words its question and its ends. */
 export type Side = "previous" | "new";

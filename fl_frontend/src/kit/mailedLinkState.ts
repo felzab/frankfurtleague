@@ -1,4 +1,5 @@
 import { COPY } from "@/core/copy/shared";
+import { ROUTES } from "@/core/routes";
 import { pageMetadata } from "@/shared/utils/metadata";
 
 import type { Copy } from "@/core/copy";
@@ -8,10 +9,12 @@ import type { EndState, MailedState } from "./MailedPage";
 import type { StatusCardProps } from "./StatusCard";
 
 /*
- * What a mailed page's link reads as, for the modules that word it without drawing the page: its tab's title and the
- * end a link no longer valid reaches. Apart from `MailedPage`, whose one-shot form brings the client's stack to every
- * route importing it.
+ * What a mailed page's link reads as, for the modules that word it without drawing the page: its tab's title, the
+ * end a link no longer valid reaches, and the way to the start page every status card offers. Apart from `MailedPage`,
+ * whose one-shot form brings the client's stack to every route importing it, error boundaries among them.
  */
+
+export const TO_HOME = { label: COPY.shared.end.toHome, href: ROUTES.home.path() } as const satisfies StatusCardProps["next"];
 
 /**
  * The link no longer valid, one message for an expired, mistyped or tampered link alike, as the page opens on it
