@@ -333,11 +333,8 @@ const THEMES: readonly GlyphChoice[] = [
   { id: "system", glyph: "system", label: COPY.template.theme.system },
 ];
 
-/**
- * The theme as the account menu's foot and Konto's Darstellung set it, one control in both places: the three
- * glyphs, each named by its tooltip, acting at once.
- */
-export function ThemeChoice() {
+/** The theme as the account menu's foot sets it: the three glyphs, each named by its tooltip, acting at once. */
+function ThemeChoice() {
   const { theme, setTheme } = useTheme();
   // The server cannot read the theme next-themes stores in the browser, so its markup marks none, and a hydrating render
   // marking the stored one is a mismatch React does not repair: the page opened by its address showed none chosen. The

@@ -12,7 +12,7 @@ import type { Route } from "next";
 import type { ReactNode } from "react";
 import type { IconName } from "./Icon";
 
-type AccountRoute = "account" | "accountSignIn" | "accountSecurity" | "accountAppearance" | "accountEntries";
+type AccountRoute = "account" | "accountSignIn" | "accountSecurity" | "accountEntries";
 
 export function AccountPage({ route, children }: { route: AccountRoute; children: ReactNode }) {
   return (

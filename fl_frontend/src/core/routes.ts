@@ -160,13 +160,12 @@ export const ROUTES = {
   registrierungDone: { path: () => "/registrierung/done" as const, title: COPY.page.registrierung, crawl: "disallow" },
 
   /**
-   * Konto, a signed-in person's own pages whatever they hold, outside every area: the list of its four pages, which a
-   * phone opens on, and the four.
+   * Konto, a signed-in person's own pages whatever they hold, outside every area: the list of its three pages, which a
+   * phone opens on, and the three.
    */
   account: { path: () => "/account" as const, title: COPY.template.account, crawl: "disallow" },
   accountSignIn: { path: () => "/account/signin" as const, title: COPY.page.accountSignIn, crawl: "disallow" },
   accountSecurity: { path: () => "/account/security" as const, title: COPY.page.accountSecurity, crawl: "disallow" },
-  accountAppearance: { path: () => "/account/appearance" as const, title: COPY.page.accountAppearance, crawl: "disallow" },
   accountEntries: { path: () => "/account/entries" as const, title: COPY.page.accountEntries, crawl: "disallow" },
 
   /**
