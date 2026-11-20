@@ -892,7 +892,7 @@ export const SERVER_COPY = catalogue({
       ],
     },
 
-    /** Teams' group filter, and „Alle“ (all), the choice every filter opens on. */
+    /** Teams' group filter, and „Alle“ (all), the choice a filter opens on where no entry of its own names a narrower one. */
     filter: { gruppe: COPY.team.gruppe, all: "Alle" },
 
     team: {
