@@ -91,16 +91,19 @@ export const ACCOUNT_COPY = catalogue({
   },
   /**
    * Each record an address holds, as Deine Einträge boxes it: titled by what the record is, a team's seats by the
-   * team's name, the rest by `shared`'s noun or the page's, and described by the person's part in it.
+   * team's name, the rest by `shared`'s noun or the page's, and described by what the box holds beyond its title.
    */
   entries: {
     plural: "Einträge",
-    /** Each entry box's one sentence, by the kind of record it holds, adding to the title what the box holds. */
+    /**
+     * Each entry box's one phrase, by the kind of record it holds, adding to the title what the box holds: a noun
+     * phrase, so it takes no full stop.
+     */
     description: {
       /** A person's own record, which the title names: a pupil's, a registration's, a referee's. */
-      own: "Deine Angaben und was davon öffentlich ist.",
+      own: "Deine Angaben und was davon öffentlich ist",
       /** A seat on a team's season and a seat in an application alike, by the seats held, in the seats' order. */
-      seat: (seats: readonly FLKontaktSeat[]) => `Dein Eintrag als ${seatsText(seats)} und wie wir dich erreichen.`,
+      seat: (seats: readonly FLKontaktSeat[]) => `Dein Eintrag als ${seatsText(seats)} und wie wir dich erreichen`,
     },
     teamSeason,
     /** A seat entry's fact where its seats store the person typed two ways, by the seats holding this one: „Telefon als Ansprechperson“. */
