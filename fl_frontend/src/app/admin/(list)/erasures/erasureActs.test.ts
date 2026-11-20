@@ -1,6 +1,7 @@
 import { assert, beforeEach, describe, expect, it, onTestFinished } from "vitest";
 
-import { COPY } from "@/core/copy";
+import { ADMIN_COPY } from "@/core/copy/admin";
+import { COPY } from "@/core/copy/shared";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { ADMIN_EMAIL } from "@/test-support/authDoubles";
 import { refusal, serveBackend } from "@/test-support/backend";
@@ -106,7 +107,7 @@ describe("the erasure's question", () => {
     await accountAtTheErasedAddress(2);
 
     expect(await asked()).toMatchObject({
-      consequence: COPY.admin.erasure.consequence,
+      consequence: ADMIN_COPY.erasure.consequence,
       facts: [
         { label: COPY.template.account, value: { record: "1" } },
         { label: COPY.shared.passkeys, value: { record: "2" } },
@@ -115,7 +116,7 @@ describe("the erasure's question", () => {
   });
 
   it("says an address holds nothing only where the league and the sign-in store both do", async () => {
-    expect(await asked()).toMatchObject({ consequence: COPY.admin.nothingAtAddress, facts: [] });
+    expect(await asked()).toMatchObject({ consequence: ADMIN_COPY.nothingAtAddress, facts: [] });
   });
 });
 
@@ -144,7 +145,7 @@ describe("the erasure's two stores", () => {
     failTheCommit();
 
     // Not done: the dialog stands on this answer, and its press repeats the erasure, the one way to reach the account.
-    expect(await press()).toStrictEqual({ ok: false, reason: COPY.admin.erasure.partial, warn: true });
+    expect(await press()).toStrictEqual({ ok: false, reason: ADMIN_COPY.erasure.partial, warn: true });
 
     const errors = log.lines().filter(({ level }) => level === "ERROR");
     expect(errors.map(({ message, fields }) => ({ message, fields }))).toStrictEqual([

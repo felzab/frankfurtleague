@@ -1,6 +1,7 @@
 "use client";
 
-import { COPY } from "@/core/copy";
+import { AREA_COPY } from "@/core/copy/area";
+import { COPY } from "@/core/copy/shared";
 import { FLCardColour } from "@/core/generated/client/types";
 import { admitsShootOut, isNoShow, scoreOutcome } from "@/features/spiele/result";
 import { CardMark } from "@/kit/CardMark";
@@ -32,7 +33,7 @@ import type { BerichtValues, Card, Goal } from "./berichtValues";
 /** The cells of the fields a goal's row and a card's hold alike. */
 type Cells = RowCells<Pick<Goal, "side" | "spieler_id" | "minute">>;
 
-const WORDS = COPY.area.schiedsrichter.spielbericht;
+const WORDS = AREA_COPY.schiedsrichter.spielbericht;
 const SPIEL = COPY.spielplan;
 const MINUTE_UNIT = COPY.shared.unit.minute;
 

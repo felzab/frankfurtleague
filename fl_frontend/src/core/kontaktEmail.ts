@@ -1,6 +1,7 @@
 import "server-only";
 
-import { COPY, seatsText } from "./copy";
+import { seatsText } from "./copy";
+import { COPY } from "./copy/shared";
 import { mailOrigin } from "./emailShell";
 import { dayOf, formatDateLong } from "./format";
 import { kontaktConfirmationLink } from "./kontaktLink";

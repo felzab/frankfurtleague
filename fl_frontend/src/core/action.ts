@@ -6,7 +6,7 @@ import { unstable_rethrow } from "next/navigation";
 import { z } from "zod";
 
 import { getAccountSession, judgeAdminRequest, passesPasskeyTouch } from "./auth/guards";
-import { COPY } from "./copy";
+import { COPY } from "./copy/shared";
 import { asSignInIdentifier, KONTAKT_EMAIL_MAX_LENGTH } from "./emailAddress";
 import { APIBadStatusError, loggedByBackend, requestOf } from "./errors";
 import { logger } from "./logging";

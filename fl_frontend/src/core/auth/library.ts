@@ -14,7 +14,7 @@ import { CODE_VALIDITY_MINUTES } from "../authEmail";
 import { MONGO_DB_NAME } from "../authIndexes";
 import { now } from "../clock";
 import { authSecret, frontend_config } from "../config";
-import { COPY } from "../copy";
+import { COPY } from "../copy/shared";
 import { signInStore } from "../db";
 import { asSignInIdentifier } from "../emailAddress";
 import { ERASURE_LINK_VALID_HOURS } from "../erasureEmail";

@@ -1,4 +1,4 @@
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 
 import type { FLAufstellungPhase, FLAufstellungStartersMax } from "@/core/generated/client/types";
 import type { ChipProps } from "@/kit/Chip";

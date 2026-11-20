@@ -1,4 +1,5 @@
-import { COPY, textOf } from "@/core/copy";
+import { textOf } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 import { ERGEBNIS_SEPARATOR } from "@/core/format";
 
 import { BlockBox } from "./BlockBox";

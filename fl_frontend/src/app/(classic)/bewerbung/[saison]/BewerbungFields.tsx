@@ -2,7 +2,8 @@
 
 import { useId, useState } from "react";
 
-import { COPY } from "@/core/copy";
+import { PUBLIC_COPY } from "@/core/copy/public";
+import { COPY } from "@/core/copy/shared";
 import { TRIKOT_FARBEN } from "@/core/trikotFarben";
 import { BEWERBUNG_MIN_AGE, SIGNATORY_MIN_AGE } from "@/features/bewerbungen/constants";
 import { AddressFields } from "@/kit/AddressFields";
@@ -21,7 +22,8 @@ import type { FLBewerbungSchuleOption, FLKontaktSeat, FLSchulform, FLTrikotFarbe
 import type { Option } from "@/kit/OptionList";
 import type { BewerbungRules } from "./bewerbungRules";
 
-const { bewerbung, team, shared } = COPY;
+const { team, shared } = COPY;
+const { bewerbung } = PUBLIC_COPY;
 
 const SCHULFORMEN = Object.keys(team.schulformOption) as FLSchulform[];
 

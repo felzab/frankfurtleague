@@ -1,6 +1,6 @@
 import "server-only";
 
-import { COPY } from "./copy";
+import { COPY } from "./copy/shared";
 import { mailOrigin } from "./emailShell";
 import { ROUTES } from "./routes";
 import { SERVER_COPY } from "./serverCopy";

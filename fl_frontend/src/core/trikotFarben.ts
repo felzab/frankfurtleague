@@ -1,4 +1,4 @@
-import { COPY } from "./copy";
+import { COPY } from "./copy/shared";
 import { FLTrikotFarbe } from "./generated/client/types";
 
 /**

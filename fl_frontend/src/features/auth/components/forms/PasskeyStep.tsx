@@ -5,7 +5,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 
 import { loadAuthClient, usePreloadedAuthClient } from "@/core/auth/browserClient";
 import { allowedReturnAddress, RETURN_PARAMETER, withReturnAddress } from "@/core/auth/returnAddress";
-import { COPY } from "@/core/copy";
+import { PUBLIC_COPY } from "@/core/copy/public";
+import { COPY } from "@/core/copy/shared";
 import { SignInPage } from "@/kit/SignInPage";
 import { useNavigate } from "@/kit/WholePage";
 import { leaveDocumentFor } from "@/shared/utils/documentNavigation";
@@ -18,7 +19,7 @@ import type { Copy } from "@/core/copy";
 type Step = "enrol" | "assert" | "offer";
 
 /** One set of words per step, so a heading and its control cannot drift apart. */
-const WORDS = { enrol: COPY.signIn.passkey.setUp, assert: COPY.signIn.passkey.signIn, offer: COPY.signIn.passkey.offer };
+const WORDS = { enrol: PUBLIC_COPY.signIn.passkey.setUp, assert: PUBLIC_COPY.signIn.passkey.signIn, offer: PUBLIC_COPY.signIn.passkey.offer };
 
 /** What the reader is told, and whether the step this view was handed may have moved on. */
 type Held = { readonly sentence: Copy; readonly stale: boolean };
@@ -100,7 +101,7 @@ export function PasskeyStep(props: Props) {
       // The session is unchanged, so a soft navigation is the right tool here.
       later={
         props.step === "offer"
-          ? { label: COPY.signIn.passkey.later, isDisabled: isPending, onPress: () => navigate(asked ?? props.later) }
+          ? { label: PUBLIC_COPY.signIn.passkey.later, isDisabled: isPending, onPress: () => navigate(asked ?? props.later) }
           : undefined
       }
       row={error}

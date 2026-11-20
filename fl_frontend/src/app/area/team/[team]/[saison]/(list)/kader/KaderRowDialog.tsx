@@ -1,6 +1,6 @@
 "use client";
 
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 import { kaderName } from "@/features/spieler/constants";
 import { positionOptions, rolleOptions, stufeOptions } from "@/features/spieler/options";
 import { Dialog } from "@/kit/Dialog";

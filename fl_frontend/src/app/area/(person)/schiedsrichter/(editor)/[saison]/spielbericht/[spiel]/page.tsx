@@ -2,7 +2,8 @@ import { cache } from "react";
 import { notFound } from "next/navigation";
 
 import { requires } from "@/core/action";
-import { COPY } from "@/core/copy";
+import { AREA_COPY } from "@/core/copy/area";
+import { COPY } from "@/core/copy/shared";
 import { APIBadStatusError } from "@/core/errors";
 import { dayOf, timeOf } from "@/core/format";
 import {
@@ -36,7 +37,7 @@ type Props = PageProps<"/area/schiedsrichter/[saison]/spielbericht/[spiel]">;
 
 type Segments = { saison: string; spiel: string };
 
-const WORDS = COPY.area.schiedsrichter.spielbericht;
+const WORDS = AREA_COPY.schiedsrichter.spielbericht;
 
 /** Whether a row's minute and each list's player are required, read off the rules the save holds them to. */
 const REQUIRED = {

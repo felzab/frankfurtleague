@@ -5,7 +5,8 @@ import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 
-import { COPY } from "@/core/copy";
+import { AREA_COPY } from "@/core/copy/area";
+import { COPY } from "@/core/copy/shared";
 
 import { Segmented } from "./ChoiceButtons";
 import { ComboBox } from "./ComboBox";
@@ -34,7 +35,7 @@ const GOALS: ReadonlyArray<Goal> = [
 ];
 
 /** The label over a row by its number, as a page counts its rows. */
-const rowLabel = (number: number) => COPY.area.schiedsrichter.spielbericht.numbered(COPY.spielplan.goal, number);
+const rowLabel = (number: number) => AREA_COPY.schiedsrichter.spielbericht.numbered(COPY.spielplan.goal, number);
 
 /** The list in a form serving `errors`, as an editor's page holds it: the draft in state, the refusals by box. */
 function Goals({ errors, locked }: { errors?: Readonly<Record<string, Copy>>; locked?: Copy }) {

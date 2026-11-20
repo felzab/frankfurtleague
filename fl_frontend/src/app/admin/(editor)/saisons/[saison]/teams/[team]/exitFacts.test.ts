@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { COPY } from "@/core/copy";
+import { ADMIN_COPY } from "@/core/copy/admin";
 import { dayOf, formatList } from "@/core/format";
 
 import { exitFactsOf } from "./exitFacts";
@@ -19,7 +19,7 @@ describe("the exit's „E-Mail an“", () => {
     { date: "2027-04-27", recipients: [OTTO] },
     { date: null, recipients: [EULE] },
   ];
-  const mailTo = (...names: string[]) => [{ label: COPY.admin.facts.mailTo, value: { record: formatList(names) } }];
+  const mailTo = (...names: string[]) => [{ label: ADMIN_COPY.facts.mailTo, value: { record: formatList(names) } }];
 
   it.each([
     { day: "2027-04-20", named: ["Bieber", "Eule", "Otto Gruber"] },

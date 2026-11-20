@@ -1,5 +1,6 @@
 import { getAdminSession } from "@/core/auth/guards";
-import { COPY } from "@/core/copy";
+import { ADMIN_COPY } from "@/core/copy/admin";
+import { COPY } from "@/core/copy/shared";
 import { dayOf, formatPeriod } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { readAccount } from "@/features/account/account";
@@ -20,7 +21,7 @@ const RAIL_GROUPS: RailGroup[] = [
     entries: [{ id: "overview", label: ROUTES.adminOverview.title, saison: "adminOverview", icon: "overview" }],
   },
   {
-    heading: COPY.admin.group.saisonsAndSpiele,
+    heading: ADMIN_COPY.group.saisonsAndSpiele,
     entries: [
       { id: "saisons", label: ROUTES.adminSaisons.title, href: ROUTES.adminSaisons.path(), icon: "saisons" },
       { id: "spiele", label: ROUTES.adminSpiele.title, saison: "adminSpiele", icon: "spielplan" },
@@ -34,7 +35,7 @@ const RAIL_GROUPS: RailGroup[] = [
     ],
   },
   {
-    heading: COPY.admin.group.schulenAndSpieler,
+    heading: ADMIN_COPY.group.schulenAndSpieler,
     entries: [
       { id: "bewerbungen", label: ROUTES.adminBewerbungen.title, saison: "adminBewerbungen", icon: "bewerbungen" },
       { id: "teams", label: ROUTES.adminTeams.title, saison: "adminTeams", icon: "teams" },
@@ -42,7 +43,7 @@ const RAIL_GROUPS: RailGroup[] = [
     ],
   },
   {
-    heading: COPY.admin.group.accessAndPrivacy,
+    heading: ADMIN_COPY.group.accessAndPrivacy,
     entries: [
       {
         id: "administrators",

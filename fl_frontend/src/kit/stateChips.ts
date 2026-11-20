@@ -1,4 +1,4 @@
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 
 import type { Copy } from "@/core/copy";
 import type { ChipProps } from "./Chip";

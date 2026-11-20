@@ -3,7 +3,7 @@ import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 import { LINEUP_WORDS } from "@/features/aufstellungen/players";
 import { serveBackend } from "@/test-support/backend";
 import { renderUnderNext } from "@/test-support/nextContexts";

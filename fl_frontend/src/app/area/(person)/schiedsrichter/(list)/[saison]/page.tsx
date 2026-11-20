@@ -2,7 +2,9 @@ import { cache } from "react";
 import { notFound } from "next/navigation";
 
 import { requires } from "@/core/action";
-import { COPY, textOf } from "@/core/copy";
+import { textOf } from "@/core/copy";
+import { AREA_COPY } from "@/core/copy/area";
+import { COPY } from "@/core/copy/shared";
 import { dayOf, formatDate, timeOf } from "@/core/format";
 import {
   SpielbestaetigungenPostSchiedsrichterAnswerBody,
@@ -70,7 +72,7 @@ function standingOf(spiel: FLSchiedsrichterSpiel): Standing {
   if (spiel.state === "valid" && !spiel.past) {
     return { chip: owedChip(SERVER_COPY.overview.missing(COPY.spielplan.answer)), open: true };
   }
-  if (spiel.submitted_at !== null) return { chip: { tone: "success", label: COPY.area.schiedsrichter.reported } };
+  if (spiel.submitted_at !== null) return { chip: { tone: "success", label: AREA_COPY.schiedsrichter.reported } };
   if (spiel.state === "agreed") {
     return { chip: AGREED_CHIP, ...(spiel.entered ? { adds: SPIEL.enteredByLeague } : {}) };
   }
@@ -165,7 +167,7 @@ export function SchiedsrichterOverview({ saison }: { saison: Promise<string | nu
       head={{ scope: "area", title: { route: "schiedsrichterOverview" } }}
       list={{
         kind: "cards",
-        search: { label: COPY.area.schiedsrichter.search },
+        search: { label: AREA_COPY.schiedsrichter.search },
         content: readSpiele(saison),
       }}
     />

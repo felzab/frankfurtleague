@@ -1,6 +1,6 @@
 import "server-only";
 
-import { COPY } from "./copy";
+import { COPY } from "./copy/shared";
 import { mailOrigin } from "./emailShell";
 import { dayOf, formatDateLong } from "./format";
 import { ROUTES } from "./routes";

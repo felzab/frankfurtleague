@@ -1,4 +1,5 @@
-import { COPY } from "@/core/copy";
+import { ACCOUNT_COPY } from "@/core/copy/account";
+import { ADMIN_COPY } from "@/core/copy/admin";
 import { actionLogGetActionLogBodyQOneMax } from "@/core/generated/zod/inputs";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
@@ -16,7 +17,7 @@ import type { Metadata, ResolvingMetadata } from "next";
 
 type Props = PageProps<"/admin/log">;
 
-const WORDS = COPY.admin.actionLog;
+const WORDS = ADMIN_COPY.actionLog;
 
 export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
   return pageMetadata(parent, ROUTES.adminActionLog, ROUTES.adminActionLog.path());
@@ -39,8 +40,8 @@ async function readLog(searchParams: Props["searchParams"]) {
   const page = unfiltered ?? (await getActionLog(logParams({ by, type, time })));
   const filters: readonly Filter[] = [
     { name: "by", label: WORDS.who, all: SERVER_COPY.season.filter.all, options, value: who },
-    { name: "type", label: COPY.admin.team.austrittType, all: SERVER_COPY.season.filter.all, options: TYPE_OPTIONS, value: type },
-    { name: "time", label: COPY.admin.saison.period, all: SERVER_COPY.season.filter.all, options: PERIOD_OPTIONS, value: time },
+    { name: "type", label: ADMIN_COPY.team.austrittType, all: SERVER_COPY.season.filter.all, options: TYPE_OPTIONS, value: type },
+    { name: "time", label: ADMIN_COPY.saison.period, all: SERVER_COPY.season.filter.all, options: PERIOD_OPTIONS, value: time },
   ];
   return { filters, page, by };
 }
@@ -75,7 +76,7 @@ export default function ActionLogPage({ searchParams }: Props) {
             table: {
               label: ROUTES.adminActionLog.title,
               rows: page.action_log.map(rowOf),
-              empty: { kind: chosen.length === 0 ? "none" : "filter", plural: COPY.account.entries.plural, glyph: "log" } as const,
+              empty: { kind: chosen.length === 0 ? "none" : "filter", plural: ACCOUNT_COPY.entries.plural, glyph: "log" } as const,
             },
             // The next page's read posts what the actor's option stands for, in a body no log keeps.
             more: { cursor: page.cursor, carry: { ...Object.fromEntries(chosen), ...(by === null ? {} : { by }) }, load: loadActionLog },

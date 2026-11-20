@@ -1,11 +1,12 @@
-import { COPY } from "@/core/copy";
+import { ADMIN_COPY } from "@/core/copy/admin";
+import { COPY } from "@/core/copy/shared";
 import { AddressFields } from "@/kit/AddressFields";
 import { FieldGroup } from "@/kit/FieldGroup";
 import { TextField } from "@/kit/TextField";
 
 import type { SpielortRules } from "./spielortRules";
 
-const WORDS = COPY.admin.spielort;
+const WORDS = ADMIN_COPY.spielort;
 
 /**
  * A new venue's inputs, in the create dialog over the venue list and over the match editor alike: its name and its

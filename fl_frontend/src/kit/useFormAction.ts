@@ -3,7 +3,7 @@
 import { startTransition, useActionState, useLayoutEffect, useRef, useState } from "react";
 import { unstable_rethrow, useRouter } from "next/navigation";
 
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 
 import { isEdgeRefusal } from "./edgeRefusal";
 

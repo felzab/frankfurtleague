@@ -273,9 +273,10 @@ async function removeAtOnce(cookie: string, ids: readonly string[]) {
   };
 }
 
-const { COPY } = await import("@/core/copy");
+const { COPY } = await import("@/core/copy/shared");
+const { ACCOUNT_COPY } = await import("@/core/copy/account");
 
-const LAST_PASSKEY = COPY.account.passkeys.lastKept;
+const LAST_PASSKEY = ACCOUNT_COPY.passkeys.lastKept;
 
 /** A removal the store failed under, whatever became of it. */
 const UNEXPECTED = { ok: false, reason: COPY.shared.failure.unexpected };

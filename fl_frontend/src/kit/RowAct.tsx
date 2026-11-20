@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 
 import { ConfirmDialog } from "./ConfirmDialog";
 import { SideActs } from "./SideActs";

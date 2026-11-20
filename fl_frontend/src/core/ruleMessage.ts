@@ -1,7 +1,7 @@
 // Apart from the Zod map, which the instrumentation installs on both runtimes: the rule phrases are the server's
 // own catalogue, which neither instrumentation bundle is to carry.
 import { now } from "./clock";
-import { COPY } from "./copy";
+import { COPY } from "./copy/shared";
 import { bornBy } from "./dayArithmetic";
 import { dayIn, dayOf } from "./format";
 import { saisonsPatchSaisonBodyRulesDrawPointsMin, saisonsPatchSaisonBodyRulesLossPointsMin } from "./generated/zod/inputs";

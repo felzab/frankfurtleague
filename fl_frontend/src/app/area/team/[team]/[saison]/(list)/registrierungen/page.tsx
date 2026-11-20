@@ -1,7 +1,8 @@
 import { cache } from "react";
 
 import { KONTAKT_EMAIL, KONTAKT_MAILTO } from "@/core/brand";
-import { COPY } from "@/core/copy";
+import { AREA_COPY } from "@/core/copy/area";
+import { COPY } from "@/core/copy/shared";
 import { dayOf, formatDate } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
@@ -23,7 +24,7 @@ import type { RegistrierungRow } from "./RegistrierungTable";
 
 type Props = PageProps<"/area/team/[team]/[saison]/registrierungen">;
 
-const WORDS = COPY.area.team.registrierung;
+const WORDS = AREA_COPY.team.registrierung;
 
 const address = ({ team, saison }: { team: string; saison: string }) => ROUTES.teamRegistrierungen.path(team, saison);
 
@@ -120,7 +121,7 @@ export default function RegistrierungenPage({ params }: Props) {
       head={{ scope: "area", title: { route: "teamRegistrierungen" } }}
       list={{
         kind: "table",
-        search: { label: COPY.area.team.registrierung.search },
+        search: { label: AREA_COPY.team.registrierung.search },
         head: HEAD,
         content: readRegistrierungen(params),
       }}

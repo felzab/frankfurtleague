@@ -2,7 +2,7 @@
 
 import { usePathname } from "next/navigation";
 
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 
 import { Button } from "./Button";
 import { FieldStack } from "./FieldStack";

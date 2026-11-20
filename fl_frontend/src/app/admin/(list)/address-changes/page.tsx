@@ -1,7 +1,8 @@
 import { requires } from "@/core/action";
 import { ADDRESS_CHANGE_WAIT_DAYS } from "@/core/addressChange";
 import { getAdminSession } from "@/core/auth/guards";
-import { COPY } from "@/core/copy";
+import { ADMIN_COPY } from "@/core/copy/admin";
+import { COPY } from "@/core/copy/shared";
 import { formatInstantShort } from "@/core/format";
 import { addressChangePostAddressChangeAdminBodyAddressMax } from "@/core/generated/zod/inputs";
 import { ROUTES } from "@/core/routes";
@@ -25,7 +26,7 @@ import type { TableHead, TableRow } from "@/kit/Table";
 import type { Metadata, ResolvingMetadata } from "next";
 import type { StartRules } from "./StartFields";
 
-const WORDS = COPY.admin.addressChange;
+const WORDS = ADMIN_COPY.addressChange;
 
 const START = COPY.shared.withObject(COPY.shared.addressChange.change, "enter");
 
@@ -64,7 +65,7 @@ function endFactsOf({ address, email, effective_from, holder, waits_on }: FLAddr
     { label: COPY.shared.facts.before, value: { record: address, address: true } },
     { label: COPY.shared.facts.after, value: { record: email, address: true } },
     ...(effective_from === null ? [] : [{ label: COPY.shared.facts.effectiveFrom, value: { record: formatInstantShort(effective_from) } }]),
-    { label: COPY.admin.facts.mailTo, value: toldHolders ? COPY.admin.mailTo.holders : COPY.team.seatEmpty },
+    { label: ADMIN_COPY.facts.mailTo, value: toldHolders ? ADMIN_COPY.mailTo.holders : COPY.team.seatEmpty },
   ];
 }
 
@@ -138,7 +139,7 @@ export default function AddressChangesPage() {
         act: { verb: "enter", object: COPY.shared.addressChange.change },
         run: startLostMailboxChange,
         consequence: WORDS.startConsequence({ days: ADDRESS_CHANGE_WAIT_DAYS }),
-        facts: [{ label: COPY.admin.facts.mailTo, value: COPY.admin.mailTo.bothAddresses }],
+        facts: [{ label: ADMIN_COPY.facts.mailTo, value: ADMIN_COPY.mailTo.bothAddresses }],
         touch: { holder },
         children: (
           <StartFields

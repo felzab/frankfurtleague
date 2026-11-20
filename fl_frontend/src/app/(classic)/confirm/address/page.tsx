@@ -1,7 +1,8 @@
 import { cache } from "react";
 
 import { ADDRESS_CHANGE_WAIT_DAYS } from "@/core/addressChange";
-import { COPY } from "@/core/copy";
+import { ACCOUNT_COPY } from "@/core/copy/account";
+import { COPY } from "@/core/copy/shared";
 import { dayOf, formatInstantShort } from "@/core/format";
 import { addressChangeGetAddressChangeView } from "@/core/generated/client/sdk";
 import { ROUTES } from "@/core/routes";
@@ -171,11 +172,11 @@ function stop({ email, effective_from: effectiveFrom }: FLAddressChangeViewPrevi
   if (effectiveFrom !== null) facts.push({ label: COPY.shared.facts.effectiveFrom, value: { record: formatInstantShort(effectiveFrom) } });
   return {
     state: "question",
-    title: COPY.account.address.stop,
+    title: ACCOUNT_COPY.address.stop,
     facts,
     sentence: WORDS.previous.question,
     run: stopAddressChange,
-    acts: { primary: COPY.account.address.stop },
+    acts: { primary: ACCOUNT_COPY.address.stop },
     carry: { token },
   };
 }

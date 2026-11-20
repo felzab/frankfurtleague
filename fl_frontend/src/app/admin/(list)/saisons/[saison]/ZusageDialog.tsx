@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 
-import { COPY } from "@/core/copy";
+import { ADMIN_COPY } from "@/core/copy/admin";
+import { COPY } from "@/core/copy/shared";
 import { Segmented } from "@/kit/ChoiceButtons";
 import { Dialog } from "@/kit/Dialog";
 
@@ -12,7 +13,7 @@ import type { ActionAnswer } from "@/core/action";
 import type { Words } from "@/core/copy";
 import type { ReactNode } from "react";
 
-const WORDS = COPY.admin.overview;
+const WORDS = ADMIN_COPY.overview;
 const ACT = { verb: "enter", object: WORDS.zusage } as const;
 const TITLE = COPY.shared.withObject(ACT.object, ACT.verb);
 

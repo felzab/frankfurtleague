@@ -2,7 +2,7 @@
 
 import { useId, useState } from "react";
 
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 import { Checkbox } from "@/kit/Checkbox";
 import { ConsentLine } from "@/kit/ConsentLine";
 import { DateField } from "@/kit/DateField";

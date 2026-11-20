@@ -6,7 +6,8 @@ import { useRouter } from "next/navigation";
 import { Dialog as AriaDialog, DialogTrigger, Heading } from "react-aria-components/Dialog";
 import { Form, FormContext } from "react-aria-components/Form";
 
-import { COPY, textOf } from "@/core/copy";
+import { textOf } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 import { goBackOrPush } from "@/core/goBackOrPush";
 
 import { Button } from "./Button";

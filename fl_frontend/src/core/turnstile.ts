@@ -3,7 +3,7 @@ import "server-only";
 import { z } from "zod";
 
 import { turnstileSecretKey } from "./config";
-import { COPY } from "./copy";
+import { COPY } from "./copy/shared";
 import { logger } from "./logging";
 import { boundCall } from "./requestScope";
 import { CONFIRM_HUMAN } from "./turnstileToken";

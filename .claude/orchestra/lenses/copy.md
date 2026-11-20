@@ -5,7 +5,8 @@
 the shared entry rather than a second one, or a sentence that should not exist, only a reader holds.
 
 **Read first.** `docs/frontend/copy.md` whole and the glossary, `docs/glossary.md`. Then the change
-to the catalogue, `fl_frontend/src/core/copy.ts`, `fl_frontend/src/core/serverCopy.ts` and
+to the catalogue, `fl_frontend/src/core/copy.ts` and its audience files under
+`fl_frontend/src/core/copy/`, `fl_frontend/src/core/serverCopy.ts` and
 `fl_frontend/src/core/consentWordings.ts`, and each component, action or mail using an entry the
 change adds or alters.
 

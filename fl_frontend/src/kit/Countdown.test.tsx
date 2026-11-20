@@ -5,7 +5,7 @@ import { hydrateRoot } from "react-dom/client";
 import { renderToString } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { COPY } from "@/core/copy";
+import { PUBLIC_COPY } from "@/core/copy/public";
 import { DAY_MS, HOUR_MS } from "@/core/timeUnits";
 
 import { Countdown } from "./Countdown";
@@ -38,7 +38,7 @@ describe("the countdown", () => {
     container.innerHTML = markup;
     document.body.append(container);
     expect(figuresOf(container)).toStrictEqual(["2", "3", "4"]);
-    expect(container.textContent).toContain(COPY.landing.saison.days);
+    expect(container.textContent).toContain(PUBLIC_COPY.landing.saison.days);
 
     // The visitor's clock stands ten minutes past the server's, so a first render reading it would differ.
     vi.setSystemTime(SEED + 10 * 60_000);

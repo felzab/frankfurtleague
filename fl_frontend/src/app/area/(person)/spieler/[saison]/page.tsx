@@ -1,7 +1,7 @@
 import { cache } from "react";
 import { notFound } from "next/navigation";
 
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 import { ROUTES } from "@/core/routes";
 import { readAsRoleHolder } from "@/features/roles/resolvers";
 import { isPublicSaison } from "@/features/saisons/resolvers";

@@ -1,12 +1,13 @@
 import { ADDRESS_ATTEMPTS_EXHAUSTED } from "@/core/auth/codeRefusal";
-import { COPY } from "@/core/copy";
+import { PUBLIC_COPY } from "@/core/copy/public";
+import { COPY } from "@/core/copy/shared";
 import { SIGN_IN_REFUSED } from "@/core/passkeyRefusal";
 
 import { refusalCode, refusalStatus } from "./passkeyAnswers";
 
 import type { Copy } from "@/core/copy";
 
-const { refusal } = COPY.signIn;
+const { refusal } = PUBLIC_COPY.signIn;
 
 /**
  * The library's refusals of a typed code by their code. Each reaches an address holding an account and one holding

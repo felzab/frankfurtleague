@@ -1,4 +1,5 @@
-import { COPY } from "@/core/copy";
+import { ADMIN_COPY } from "@/core/copy/admin";
+import { COPY } from "@/core/copy/shared";
 import { Dialog } from "@/kit/Dialog";
 import { Facts } from "@/kit/Facts";
 import { TextField } from "@/kit/TextField";
@@ -25,7 +26,7 @@ export function AcceptDialog({ id, version, children }: Decided & { children: Re
       carry={{ id, version: String(version) }}
       trigger={{ label: COPY.shared.verb.accept, variant: "primary" }}>
       {children}
-      <Facts facts={[{ label: COPY.admin.facts.mailTo, value: COPY.admin.bewerbung.allSeats }]} />
+      <Facts facts={[{ label: ADMIN_COPY.facts.mailTo, value: ADMIN_COPY.bewerbung.allSeats }]} />
     </Dialog>
   );
 }
@@ -49,7 +50,7 @@ export function DeclineDialog({ id, version, required, max }: Decided & { requir
         maxLength={max}
         description={COPY.shared.noNames}
       />
-      <Facts facts={[{ label: COPY.admin.facts.mailTo, value: COPY.admin.bewerbung.mailedSeats }]} />
+      <Facts facts={[{ label: ADMIN_COPY.facts.mailTo, value: ADMIN_COPY.bewerbung.mailedSeats }]} />
     </Dialog>
   );
 }

@@ -1,4 +1,4 @@
-import { COPY } from "@/core/copy";
+import { ADMIN_COPY } from "@/core/copy/admin";
 import { FLKontaktSeat } from "@/core/generated/client/types";
 import { DECLINED_CHIP } from "@/kit/stateChips";
 
@@ -11,7 +11,7 @@ export const SEATS = Object.values(FLKontaktSeat).length;
 /** Where an application stands: its decision, or while it has none whether every seat has confirmed. */
 export type Standing = "incomplete" | "complete" | "accepted" | "declined";
 
-const WORDS = COPY.admin.bewerbung;
+const WORDS = ADMIN_COPY.bewerbung;
 
 export const STANDING_CHIP: Readonly<Record<Standing, ChipProps>> = {
   incomplete: { tone: "warn", label: WORDS.incomplete },

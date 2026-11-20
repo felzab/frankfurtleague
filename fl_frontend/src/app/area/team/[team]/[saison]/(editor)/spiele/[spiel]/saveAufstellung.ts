@@ -3,7 +3,7 @@
 import { z } from "zod";
 
 import { action } from "@/core/action";
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 import { aufstellungenPutAufstellungSelf } from "@/core/generated/client/sdk";
 import {
   AufstellungenPutAufstellungSelfBody,

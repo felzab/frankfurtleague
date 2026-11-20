@@ -1,6 +1,6 @@
 "use client";
 
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 import { StatusPage } from "@/kit/StatusPage";
 import { useReportClientCrash } from "@/shared/hooks/useReportClientCrash";
 

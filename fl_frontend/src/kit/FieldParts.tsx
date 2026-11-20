@@ -6,7 +6,8 @@ import { FieldError, FieldErrorContext } from "react-aria-components/FieldError"
 import { Label } from "react-aria-components/Label";
 import { Text } from "react-aria-components/Text";
 
-import { COPY, textOf } from "@/core/copy";
+import { textOf } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 
 import { fieldLabel, lockMark, messageLine, requiredMark, statusLine } from "./fieldStyles";
 import { FormClosed } from "./formClosed";

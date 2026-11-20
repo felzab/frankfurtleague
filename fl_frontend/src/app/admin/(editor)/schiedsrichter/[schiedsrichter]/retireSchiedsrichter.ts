@@ -3,7 +3,7 @@
 import { z } from "zod";
 
 import { action } from "@/core/action";
-import { COPY } from "@/core/copy";
+import { ADMIN_COPY } from "@/core/copy/admin";
 import {
   schiedsrichterDeleteSchiedsrichter,
   schiedsrichterReactivateSchiedsrichter,
@@ -56,6 +56,6 @@ export const sendSchiedsrichterLink = action({
   input: z.object({ id: SchiedsrichterResendConfirmationParams.shape.schiedsrichter_id }),
   run: async ({ id }) => {
     const { confirmation } = await schiedsrichterResendConfirmation(id);
-    return { ok: true, value: undefined, note: COPY.admin.schiedsrichter.sentTo(confirmation.email) };
+    return { ok: true, value: undefined, note: ADMIN_COPY.schiedsrichter.sentTo(confirmation.email) };
   },
 });

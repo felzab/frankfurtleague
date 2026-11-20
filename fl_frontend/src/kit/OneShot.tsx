@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useRef, useState } from "react";
 
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 import { TURNSTILE_FIELD } from "@/core/turnstileToken";
 
 import { Button } from "./Button";

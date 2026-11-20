@@ -1,7 +1,8 @@
 import { cache } from "react";
 
 import { frontend_config } from "@/core/config";
-import { COPY } from "@/core/copy";
+import { PUBLIC_COPY } from "@/core/copy/public";
+import { COPY } from "@/core/copy/shared";
 import { orMissing } from "@/core/errors";
 import { bewerbungenGetForm } from "@/core/generated/client/sdk";
 import { ROUTES } from "@/core/routes";
@@ -54,9 +55,9 @@ export function formStateOf(saison: string, form: FLBewerbungFormResponse): Mail
       <ConsentLine
         id={NOTICE_ID}
         line={[
-          COPY.bewerbung.notice.before,
+          PUBLIC_COPY.bewerbung.notice.before,
           { href: ROUTES.privacyNotice.path(), label: COPY.page.privacyNotice },
-          COPY.bewerbung.notice.after,
+          PUBLIC_COPY.bewerbung.notice.after,
         ]}
       />
     ),

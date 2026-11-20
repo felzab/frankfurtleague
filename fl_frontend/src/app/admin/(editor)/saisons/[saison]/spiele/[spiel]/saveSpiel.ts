@@ -3,7 +3,8 @@
 import { z } from "zod";
 
 import { action, numberBox } from "@/core/action";
-import { COPY } from "@/core/copy";
+import { ADMIN_COPY } from "@/core/copy/admin";
+import { COPY } from "@/core/copy/shared";
 import { formatList } from "@/core/format";
 import { spielePatchSpiel } from "@/core/generated/client/sdk";
 import { SpielePatchSpielBody, SpielePatchSpielParams } from "@/core/generated/zod/inputs";
@@ -165,8 +166,8 @@ function questionOf(report: FLPatchSpielDataResponse): SaveQuestion | null {
   const mailed = (report.recipients ?? []).map(({ name }) => name).toSorted((one, other) => one.localeCompare(other, "de"));
   return {
     subject: COPY.spielplan.ergebnis,
-    consequence: COPY.admin.spiel.voids(numbersOf(voided.map(({ spiel_nr }) => spiel_nr))),
-    ...(mailed.length === 0 ? {} : { facts: [{ label: COPY.admin.facts.mailTo, value: { record: formatList(mailed) } }] }),
+    consequence: ADMIN_COPY.spiel.voids(numbersOf(voided.map(({ spiel_nr }) => spiel_nr))),
+    ...(mailed.length === 0 ? {} : { facts: [{ label: ADMIN_COPY.facts.mailTo, value: { record: formatList(mailed) } }] }),
     confirm: JSON.stringify({ voided, mailed }),
   };
 }
@@ -190,7 +191,7 @@ export const saveSpiel = action({
   ownWords: OWN_WORDS,
   // The boxes a field pattern's phrase lands on; every other refusal here is a sentence naming its field itself.
   paths: { sonderereignis: "changes.sonderereignis" },
-  examples: { "changes.mietpreis": COPY.admin.spielort.mietpreisExample },
+  examples: { "changes.mietpreis": ADMIN_COPY.spielort.mietpreisExample },
   run: async ({ id, version, adoptsBericht, changes, confirm }): Promise<ActionAnswer<number>> => {
     const payload = await sending(id, changes);
     if ("ok" in payload) return payload;
@@ -208,6 +209,6 @@ export const saveSpiel = action({
     // Spieltag. The match's own page says what changed there.
     const value = written.version;
     const changed = numbersOf([...written.advanced_to, ...written.released_sides]);
-    return changed.length === 0 ? { ok: true, value } : { ok: true, value, note: COPY.admin.spiel.alsoChanged(changed) };
+    return changed.length === 0 ? { ok: true, value } : { ok: true, value, note: ADMIN_COPY.spiel.alsoChanged(changed) };
   },
 });

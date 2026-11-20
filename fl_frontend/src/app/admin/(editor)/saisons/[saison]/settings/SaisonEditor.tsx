@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 
-import { COPY } from "@/core/copy";
+import { ADMIN_COPY } from "@/core/copy/admin";
+import { COPY } from "@/core/copy/shared";
 import { dayBefore } from "@/core/dayArithmetic";
 import { formatDate, formatNumber } from "@/core/format";
 import { FLSpielerStufe } from "@/core/generated/client/types";
@@ -33,7 +34,7 @@ import type { TableHead, TableRow } from "@/kit/Table";
 import type { EditorRecord, EditorSave } from "@/kit/useEditor";
 import type { SaisonValues } from "./saisonValues";
 
-const WORDS = COPY.admin.saison;
+const WORDS = ADMIN_COPY.saison;
 const SPIELPLAN = COPY.page.spielplan;
 const TEAM = COPY.shared.facts.team;
 
@@ -613,7 +614,7 @@ export function SaisonEditor({
                   label: COPY.shared.facts.before,
                   value: facts.siteShows === null ? COPY.shared.noValue : COPY.shared.saisonName(facts.siteShows),
                 },
-                { label: COPY.admin.facts.fromNow, value: COPY.shared.saisonName(saison) },
+                { label: ADMIN_COPY.facts.fromNow, value: COPY.shared.saisonName(saison) },
               ],
               tone: "primary",
               onConfirm: () => acts.activate(of),

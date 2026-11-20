@@ -1,7 +1,8 @@
 import { cache } from "react";
 import { notFound } from "next/navigation";
 
-import { COPY } from "@/core/copy";
+import { ADMIN_COPY } from "@/core/copy/admin";
+import { COPY } from "@/core/copy/shared";
 import { dayOf } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { adminSpielChipOf, matchRowOf } from "@/features/spiele/blocks";
@@ -22,7 +23,7 @@ import type { Metadata, ResolvingMetadata } from "next";
 
 type Props = PageProps<"/admin/saisons/[saison]/spiele">;
 
-const WORDS = COPY.admin.spiel;
+const WORDS = ADMIN_COPY.spiel;
 
 /** The season's fixtures by matchday, `null` for a season the league does not hold. */
 const read = cache(getAdminSpielplan);

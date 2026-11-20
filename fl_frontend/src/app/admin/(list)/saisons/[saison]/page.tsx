@@ -1,7 +1,8 @@
 import { notFound, redirect } from "next/navigation";
 
 import { requires } from "@/core/action";
-import { COPY } from "@/core/copy";
+import { ADMIN_COPY } from "@/core/copy/admin";
+import { COPY } from "@/core/copy/shared";
 import { dayOf, formatList, timeOf } from "@/core/format";
 import {
   SpielbestaetigungenEnterSpielbestaetigungBody,
@@ -39,8 +40,8 @@ import type { OpenParty } from "./ZusageDialog";
 type Props = PageProps<"/admin/saisons/[saison]">;
 
 const WORDS = SERVER_COPY.overview;
-const SPIEL = COPY.admin.spiel;
-const FACTS = COPY.admin.facts;
+const SPIEL = ADMIN_COPY.spiel;
+const FACTS = ADMIN_COPY.facts;
 
 export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
   const { saison } = await params;
@@ -71,7 +72,7 @@ function mailTo(recipients: readonly (FLSpielRecipientTeam | FLSpielRecipientSch
 
 const appointmentOf = (date: string | null, time: string | null) => ({ day: dayOf(date), time: timeOf(time) });
 
-const BOOKED = { spielort: COPY.admin.spielort.object, schiedsrichter: COPY.shared.schiedsrichter } as const;
+const BOOKED = { spielort: ADMIN_COPY.spielort.object, schiedsrichter: COPY.shared.schiedsrichter } as const;
 
 /** A fault of the bracket or of the fixture's bookings, in one line. */
 function faultLine(fault: FLOverviewFault): Copy {
@@ -204,7 +205,7 @@ function openOf(row: Exclude<FLOverviewRow, { kind: "bewerbung" }>): { chip?: Ch
     case "ergebnis_missing":
       return { line: WORDS.missing(COPY.spielplan.ergebnis) };
     case "spielort_missing":
-      return { line: WORDS.missing(COPY.admin.spielort.object) };
+      return { line: WORDS.missing(ADMIN_COPY.spielort.object) };
     case "schiedsrichter_missing":
       return { line: WORDS.missing(COPY.shared.schiedsrichter) };
     case "team_missing":

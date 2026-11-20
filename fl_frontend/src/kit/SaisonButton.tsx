@@ -4,7 +4,7 @@ import { useParams, usePathname } from "next/navigation";
 
 import { Button as AriaButton } from "react-aria-components/Button";
 
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 
 import { counterpart, useFrameSaison } from "./FrameNav";
 import { hoverLook } from "./hoverStyles";

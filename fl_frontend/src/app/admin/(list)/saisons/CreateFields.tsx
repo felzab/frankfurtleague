@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-import { COPY } from "@/core/copy";
+import { ADMIN_COPY } from "@/core/copy/admin";
 import { DateField } from "@/kit/DateField";
 import { FieldRows } from "@/kit/FieldRows";
 
@@ -10,7 +10,7 @@ import type { CalendarDay } from "@/core/format";
 import type { NextSaison } from "@/features/saisons/nextSaison";
 import type { SaisonCreateRequired } from "@/features/saisons/required";
 
-const WORDS = COPY.admin.saison;
+const WORDS = ADMIN_COPY.saison;
 
 /** The create dialog's boxes, starting from the days the newest season suggests. */
 export function CreateFields({ next, required }: { next: NextSaison; required: SaisonCreateRequired }) {

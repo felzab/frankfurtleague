@@ -8,7 +8,7 @@ import { symmetricDecrypt } from "better-auth/crypto";
 import { KONTAKT_EMAIL } from "./brand";
 import { now } from "./clock";
 import { authResendKey, authSecret, frontend_config } from "./config";
-import { COPY } from "./copy";
+import { COPY } from "./copy/shared";
 import { isOneBareMailbox } from "./emailAddress";
 import { renderMail } from "./emailShell";
 import { APINetworkError, MailSendError } from "./errors";

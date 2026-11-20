@@ -1,7 +1,8 @@
 import { GRANT_WAIT, OWNER_WAIT } from "@/core/addressChange";
 import { getAdminSession } from "@/core/auth/guards";
 import { now } from "@/core/clock";
-import { COPY } from "@/core/copy";
+import { ADMIN_COPY } from "@/core/copy/admin";
+import { COPY } from "@/core/copy/shared";
 import { asSignInIdentifier } from "@/core/emailAddress";
 import { formatDate, formatInstantShort } from "@/core/format";
 import { ROUTES } from "@/core/routes";
@@ -27,9 +28,9 @@ import type { ListCreate } from "@/kit/ListPage";
 import type { TableProps, TableRow } from "@/kit/Table";
 import type { Metadata, ResolvingMetadata } from "next";
 
-const WORDS = COPY.admin.administrators;
-const FACTS = COPY.admin.facts;
-const MAIL_TO = COPY.admin.mailTo;
+const WORDS = ADMIN_COPY.administrators;
+const FACTS = ADMIN_COPY.facts;
+const MAIL_TO = ADMIN_COPY.mailTo;
 const ADDRESS = COPY.shared.emailAddress;
 
 const ADD = { verb: "enter", object: WORDS.object } as const;

@@ -1,4 +1,4 @@
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 
 import { cardHover, cardSurface, stacked } from "./cardStyles";
 import { EmptyBox } from "./EmptyState";

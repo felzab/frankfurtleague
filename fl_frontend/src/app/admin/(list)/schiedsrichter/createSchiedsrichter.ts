@@ -3,7 +3,7 @@
 import { z } from "zod";
 
 import { action, blankIsNull, numberBox } from "@/core/action";
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 import { schiedsrichterPostSchiedsrichter } from "@/core/generated/client/sdk";
 import { SchiedsrichterPostSchiedsrichterBody } from "@/core/generated/zod/inputs";
 

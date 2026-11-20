@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { COPY } from "./copy";
+import { COPY } from "./copy/shared";
 
 import type { FLKontaktLinkData, FLKontaktRow } from "./generated/client/types";
 

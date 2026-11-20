@@ -3,7 +3,7 @@
 import { z } from "zod";
 
 import { action } from "@/core/action";
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 import { bewerbungenPostBewerbung } from "@/core/generated/client/sdk";
 import { BewerbungenPostBewerbungBody } from "@/core/generated/zod/inputs";
 import { IDEMPOTENCY_KEY_HEADER } from "@/core/idempotencyKey";

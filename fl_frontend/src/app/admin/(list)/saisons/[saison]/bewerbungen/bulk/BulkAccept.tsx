@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
-import { COPY } from "@/core/copy";
+import { ADMIN_COPY } from "@/core/copy/admin";
+import { COPY } from "@/core/copy/shared";
 import { dayOf, formatDate, formatNumber } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { STANDING_CHIP, standingOf } from "@/features/bewerbungen/standing";
@@ -24,7 +25,7 @@ import type { Fact } from "@/kit/Facts";
 import type { TableRow } from "@/kit/Table";
 import type { Draft, Outcome, Run } from "./run";
 
-const WORDS = COPY.admin.bewerbung;
+const WORDS = ADMIN_COPY.bewerbung;
 const TITLE = COPY.page.adminBewerbungenBulk;
 /** The address's name of the card a row or Back returns to. */
 const CARD = "card";
@@ -212,7 +213,7 @@ export function BulkAccept({
             verb="accept"
             subject={WORDS.count(count)}
             consequence={WORDS.acceptManyConsequence(saison)}
-            facts={[{ label: COPY.admin.facts.mailTo, value: WORDS.kontaktCount(open.reduce((sum, row) => sum + row.people, 0)) }]}
+            facts={[{ label: ADMIN_COPY.facts.mailTo, value: WORDS.kontaktCount(open.reduce((sum, row) => sum + row.people, 0)) }]}
             tone="primary"
             onConfirm={confirm}
             trigger={{ label: COPY.shared.withObject(WORDS.count(count), "accept"), variant: "primary" }}

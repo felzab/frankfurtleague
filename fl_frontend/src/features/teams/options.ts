@@ -1,4 +1,5 @@
-import { COPY } from "@/core/copy";
+import { ADMIN_COPY } from "@/core/copy/admin";
+import { COPY } from "@/core/copy/shared";
 import { FLSchulform } from "@/core/generated/client/types";
 import { TRIKOT_FARBEN } from "@/core/trikotFarben";
 
@@ -20,7 +21,7 @@ export const schulformOptions = (): readonly Option[] => [
 export const gruppeOptions = (offers: readonly FLTeamGruppeOffer[], own: FLGruppenNames | null): readonly Option[] =>
   offers.map(({ gruppe, full }) => {
     const option = { id: gruppe, label: COPY.shared.season.gruppe(gruppe) };
-    return full && gruppe !== own ? { ...option, isDisabled: true, note: COPY.admin.team.gruppeFull } : option;
+    return full && gruppe !== own ? { ...option, isDisabled: true, note: ADMIN_COPY.team.gruppeFull } : option;
   });
 
 /**

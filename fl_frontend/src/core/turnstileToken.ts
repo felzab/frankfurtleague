@@ -1,7 +1,7 @@
 // A module of its own so the browser's forms and the server's checks spell one name each, the bot check's
 // module being server-only.
 
-import { COPY } from "./copy";
+import { COPY } from "./copy/shared";
 
 export const TURNSTILE_FIELD = "cf-turnstile-response";
 

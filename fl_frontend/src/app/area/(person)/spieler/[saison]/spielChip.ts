@@ -1,4 +1,5 @@
-import { COPY } from "@/core/copy";
+import { AREA_COPY } from "@/core/copy/area";
+import { COPY } from "@/core/copy/shared";
 
 import type { FLSpielerSaisonSelfSpiel } from "@/core/generated/client/types";
 import type { ChipProps } from "@/kit/Chip";
@@ -14,7 +15,7 @@ export function spielChipOf(
   deregistered: boolean,
 ): ChipProps | undefined {
   if (spiel.sonderereignis !== null) return undefined;
-  if (!deregistered && spiel.starts === true) return { tone: "success", label: COPY.area.spieler.lineupPlace.starts };
-  if (!deregistered && spiel.starts === false) return { tone: "neutral", label: COPY.area.spieler.lineupPlace.bench };
+  if (!deregistered && spiel.starts === true) return { tone: "success", label: AREA_COPY.spieler.lineupPlace.starts };
+  if (!deregistered && spiel.starts === false) return { tone: "neutral", label: AREA_COPY.spieler.lineupPlace.bench };
   return spiel.ansetzung_confirmed === false ? { tone: "warn", label: COPY.spielplan.provisional } : undefined;
 }

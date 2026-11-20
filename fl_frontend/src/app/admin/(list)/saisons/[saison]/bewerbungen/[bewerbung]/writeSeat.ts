@@ -3,7 +3,8 @@
 import { z } from "zod";
 
 import { action, numberBox } from "@/core/action";
-import { COPY } from "@/core/copy";
+import { ADMIN_COPY } from "@/core/copy/admin";
+import { COPY } from "@/core/copy/shared";
 import { bewerbungenPostKontaktSeat, bewerbungenResendKontaktConfirmation } from "@/core/generated/client/sdk";
 import {
   BewerbungenPostKontaktSeatBody,
@@ -40,7 +41,7 @@ export const writeSeat = action({
   },
   run: async ({ id, seat, ...person }) => {
     const { email } = await bewerbungenPostKontaktSeat(id, seat, person);
-    return { ok: true, value: undefined, note: COPY.admin.schiedsrichter.sentTo(email) };
+    return { ok: true, value: undefined, note: ADMIN_COPY.schiedsrichter.sentTo(email) };
   },
 });
 

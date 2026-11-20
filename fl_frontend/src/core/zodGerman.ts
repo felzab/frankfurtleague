@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { COPY } from "./copy";
+import { COPY } from "./copy/shared";
 
 import type { Copy } from "./copy";
 

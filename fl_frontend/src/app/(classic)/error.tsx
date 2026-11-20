@@ -1,6 +1,6 @@
 "use client";
 
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 import { ROUTES } from "@/core/routes";
 import { ClassicStatusPage } from "@/kit/StatusCard";
 import { useReportClientCrash } from "@/shared/hooks/useReportClientCrash";

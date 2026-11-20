@@ -1,4 +1,4 @@
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 import { ACTIVE_CHIP, NOMINEE_CHIP } from "@/kit/stateChips";
 
 import type { ChipProps } from "@/kit/Chip";

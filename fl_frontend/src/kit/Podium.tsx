@@ -1,4 +1,5 @@
-import { COPY, textOf } from "@/core/copy";
+import { textOf } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 import { formatNumber } from "@/core/format";
 import { SERVER_COPY } from "@/core/serverCopy";
 

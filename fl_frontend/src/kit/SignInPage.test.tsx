@@ -2,13 +2,14 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { COPY } from "@/core/copy";
+import { PUBLIC_COPY } from "@/core/copy/public";
+import { COPY } from "@/core/copy/shared";
 
 import { SignInPage } from "./SignInPage";
 
 import type { Copy } from "@/core/copy";
 
-const WORDS = COPY.signIn;
+const WORDS = PUBLIC_COPY.signIn;
 
 describe("the sign-in template", () => {
   it("moves the focus to the address field on each of the server's refusals, so a screen reader reads it", () => {

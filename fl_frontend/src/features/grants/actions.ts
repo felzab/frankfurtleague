@@ -3,7 +3,7 @@
 import { z } from "zod";
 
 import { action, PAGE_HOLDER } from "@/core/action";
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 import { grantsDeleteGrant, grantsDeleteHandover, grantsPostGrant, grantsPostHandover } from "@/core/generated/client/sdk";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { SignInAddressSchema } from "@/features/auth/schemas";

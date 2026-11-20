@@ -3,7 +3,8 @@
 import { createContext, use, useEffect, useEffectEvent, useRef, useState, useTransition } from "react";
 import { unstable_rethrow } from "next/navigation";
 
-import { COPY, textOf } from "@/core/copy";
+import { textOf } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 
 import { Button } from "./Button";
 import { CappedRows } from "./CappedRows";

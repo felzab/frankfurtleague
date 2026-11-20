@@ -1,4 +1,5 @@
-import { COPY } from "@/core/copy";
+import { ADMIN_COPY } from "@/core/copy/admin";
+import { COPY } from "@/core/copy/shared";
 import { ROUTES } from "@/core/routes";
 import { refereeChip } from "@/features/schiedsrichter/confirmationState";
 import { getSchiedsrichter } from "@/features/schiedsrichter/queries";
@@ -12,7 +13,7 @@ import type { FLSchiedsrichterAdminRow } from "@/core/generated/client/types";
 import type { TableHead, TableRow } from "@/kit/Table";
 import type { Metadata, ResolvingMetadata } from "next";
 
-const WORDS = COPY.admin.schiedsrichter;
+const WORDS = ADMIN_COPY.schiedsrichter;
 const OBJECT = COPY.shared.schiedsrichter;
 
 export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {

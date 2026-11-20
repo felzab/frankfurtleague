@@ -3,7 +3,7 @@
 import { z } from "zod";
 
 import { action, blankIsNull, numberBox } from "@/core/action";
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 import { spielerDeleteKaderRow, spielerPatchKaderRow } from "@/core/generated/client/sdk";
 import { SpielerDeleteKaderRowParams, SpielerPatchKaderRowBody, SpielerPatchKaderRowParams } from "@/core/generated/zod/inputs";
 

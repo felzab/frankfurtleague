@@ -3,7 +3,8 @@ import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { COPY } from "@/core/copy";
+import { AREA_COPY } from "@/core/copy/area";
+import { COPY } from "@/core/copy/shared";
 import { renderUnderNext } from "@/test-support/nextContexts";
 
 import { admitRegistrierung, declineRegistrierung } from "./decideRegistrierung";
@@ -59,7 +60,7 @@ describe("a registration's dialog", () => {
 
   it("answers the same-person question: the other person's answer declines the registration as another person", async () => {
     const dialog = opened({ kind: "asks", spieler_id: KNOWN, name: "Pia Sandner" });
-    await userEvent.click(dialog.getByRole("radio", { name: COPY.area.team.registrierung.otherPerson }));
+    await userEvent.click(dialog.getByRole("radio", { name: AREA_COPY.team.registrierung.otherPerson }));
     await userEvent.click(dialog.getByRole("button", { name: COPY.shared.verb.admit }));
 
     await waitFor(() =>

@@ -4,7 +4,7 @@ import { requires } from "@/core/action";
 import { MEDIA_MIN_AGE } from "@/core/bounds";
 import { now } from "@/core/clock";
 import { SCHIEDSRICHTER_WORDINGS } from "@/core/consentWordings";
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 import { bornAfter, bornBy } from "@/core/dayArithmetic";
 import { dayIn, dayOf } from "@/core/format";
 import { schiedsrichterGetConfirmationView } from "@/core/generated/client/sdk";

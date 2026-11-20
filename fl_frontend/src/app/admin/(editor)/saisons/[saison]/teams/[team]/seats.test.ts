@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { COPY } from "@/core/copy";
+import { ADMIN_COPY } from "@/core/copy/admin";
+import { COPY } from "@/core/copy/shared";
 import { SERVER_COPY } from "@/core/serverCopy";
 
 import { seatsOf } from "./seats";
@@ -57,6 +58,6 @@ describe("where a team's seat stands", () => {
       (row) => row.id === "ansprechperson",
     );
 
-    expect(seat?.chips.map(({ label }) => label)).toStrictEqual([COPY.shared.state.unconfirmed, COPY.admin.delivery.abandoned]);
+    expect(seat?.chips.map(({ label }) => label)).toStrictEqual([COPY.shared.state.unconfirmed, ADMIN_COPY.delivery.abandoned]);
   });
 });

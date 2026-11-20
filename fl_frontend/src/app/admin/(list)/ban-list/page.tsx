@@ -1,6 +1,7 @@
 import { getAdminSession } from "@/core/auth/guards";
 import { BAN_DURATION_SAISONS } from "@/core/bounds";
-import { COPY } from "@/core/copy";
+import { ADMIN_COPY } from "@/core/copy/admin";
+import { COPY } from "@/core/copy/shared";
 import { dayOf, formatDate } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { getBanList } from "@/features/ban-list/queries";
@@ -15,7 +16,7 @@ import type { FLBanListRow } from "@/core/generated/client/types";
 import type { TableHead, TableRow } from "@/kit/Table";
 import type { Metadata, ResolvingMetadata } from "next";
 
-const WORDS = COPY.admin.banList;
+const WORDS = ADMIN_COPY.banList;
 const ENTER = COPY.shared.withObject(COPY.shared.ban, "enter");
 
 export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
@@ -30,8 +31,8 @@ const HEAD: TableHead = {
   nameLabel: COPY.shared.emailAddress,
   columns: [
     { key: "reason", label: COPY.shared.reason, hideOnPhone: true, width: "excerpt", cut: true },
-    { key: "until", label: COPY.admin.banList.until, hideOnPhone: true, width: "date" },
-    { key: "enteredOn", label: COPY.admin.facts.enteredOn, hideOnPhone: true, width: "date" },
+    { key: "until", label: ADMIN_COPY.banList.until, hideOnPhone: true, width: "date" },
+    { key: "enteredOn", label: ADMIN_COPY.facts.enteredOn, hideOnPhone: true, width: "date" },
   ],
 };
 

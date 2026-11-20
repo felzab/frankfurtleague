@@ -2,7 +2,8 @@
 import { prerender } from "react-dom/static";
 import { describe, expect, it } from "vitest";
 
-import { COPY } from "@/core/copy";
+import { AREA_COPY } from "@/core/copy/area";
+import { COPY } from "@/core/copy/shared";
 import { serveBackend } from "@/test-support/backend";
 import { underNext } from "@/test-support/nextContexts";
 import { signedInRequest } from "@/test-support/session";
@@ -91,11 +92,11 @@ describe("a pupil's own season", () => {
   it("shows a deregistered pupil their exit after the club and no place in a line-up", async () => {
     const page = await landed("2027-03-01");
     expect(page).toContain(COPY.kader.deregistered);
-    expect(page).not.toContain(COPY.area.spieler.lineupPlace.starts);
+    expect(page).not.toContain(AREA_COPY.spieler.lineupPlace.starts);
 
     // The same page for a pupil in the squad: one reading every pupil as deregistered passes the half above.
     const inKader = await landed(null);
     expect(inKader).not.toContain(COPY.kader.deregistered);
-    expect(inKader).toContain(COPY.area.spieler.lineupPlace.starts);
+    expect(inKader).toContain(AREA_COPY.spieler.lineupPlace.starts);
   });
 });

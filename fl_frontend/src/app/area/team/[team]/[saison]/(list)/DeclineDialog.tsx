@@ -1,5 +1,6 @@
 import { blankIsNull, requires } from "@/core/action";
-import { COPY } from "@/core/copy";
+import { AREA_COPY } from "@/core/copy/area";
+import { COPY } from "@/core/copy/shared";
 import { SpielbestaetigungenPostTeamAnswerBody, spielbestaetigungenPostTeamAnswerBodyReasonOneMax } from "@/core/generated/zod/inputs";
 import { DateField } from "@/kit/DateField";
 import { Dialog } from "@/kit/Dialog";
@@ -48,7 +49,7 @@ export function DeclineDialog({
       lead={spiel}
       run={declineSpielbestaetigung}
       carry={{ id }}
-      consequence={COPY.area.team.declineConsequence}
+      consequence={AREA_COPY.team.declineConsequence}
       trigger={{ label: COPY.shared.verb.decline }}>
       <FieldGroup name={COPY.spielplan.vorschlag}>
         <FieldPair>

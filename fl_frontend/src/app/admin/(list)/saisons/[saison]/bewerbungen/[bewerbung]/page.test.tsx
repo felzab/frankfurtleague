@@ -4,7 +4,8 @@ import userEvent from "@testing-library/user-event";
 import { renderToReadableStream } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
-import { COPY } from "@/core/copy";
+import { ADMIN_COPY } from "@/core/copy/admin";
+import { COPY } from "@/core/copy/shared";
 import { serveBackend } from "@/test-support/backend";
 import { renderUnderNext, underNext } from "@/test-support/nextContexts";
 import { signedInRequest } from "@/test-support/session";
@@ -98,8 +99,8 @@ async function stripOf(read: unknown): Promise<string | null | undefined> {
 describe("a Dublette on the page its decision is taken on", () => {
   /* The list's row may say „Nicht gesendet“ instead, so this is the one place an administrator is sure to read it. */
   it("stands beside the standing chip, which stays", async () => {
-    expect(await stripOf(readOf({ duplicate: true }))).toBe(`Lessing${COPY.admin.bewerbung.incomplete}${COPY.admin.bewerbung.teamDouble}`);
-    expect(await stripOf(readOf({ duplicate: false }))).toBe(`Lessing${COPY.admin.bewerbung.incomplete}`);
+    expect(await stripOf(readOf({ duplicate: true }))).toBe(`Lessing${ADMIN_COPY.bewerbung.incomplete}${ADMIN_COPY.bewerbung.teamDouble}`);
+    expect(await stripOf(readOf({ duplicate: false }))).toBe(`Lessing${ADMIN_COPY.bewerbung.incomplete}`);
   });
 });
 

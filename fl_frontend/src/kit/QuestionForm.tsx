@@ -2,7 +2,7 @@
 
 import { startTransition, useLayoutEffect, useState, useTransition } from "react";
 
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 
 import { Button } from "./Button";
 import { askingLook } from "./buttonStyles";

@@ -4,7 +4,8 @@ import { getAuthenticatorName } from "@better-auth/passkey";
 
 import { PASSKEY_LIMIT } from "@/core/auth/enrolment";
 import { passkeysOf } from "@/core/auth/passkeys";
-import { COPY } from "@/core/copy";
+import { ACCOUNT_COPY } from "@/core/copy/account";
+import { COPY } from "@/core/copy/shared";
 
 import type { Copy } from "@/core/copy";
 
@@ -47,7 +48,7 @@ export async function heldPasskeysOf(served: {
       id: row.id,
       name: row.name ?? getAuthenticatorName(row.aaguid) ?? COPY.shared.passkey,
       // Not on the plugin's declared row: the `passkeyLastUse` plugin adds the field.
-      dates: COPY.account.passkeys.dates(created, dateOf(Reflect.get(row, "lastUsedAt"))),
+      dates: ACCOUNT_COPY.passkeys.dates(created, dateOf(Reflect.get(row, "lastUsedAt"))),
       thisDevice: served.session.passkeyCredentialId === row.credentialID,
     }));
   // The cap is judged again at the set-up itself; this closes the act, so the person meets a sentence rather than a

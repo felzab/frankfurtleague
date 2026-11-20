@@ -3,7 +3,7 @@
 import { z } from "zod";
 
 import { action, blankIsNull } from "@/core/action";
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 import { spielerPatchSpielerSaison } from "@/core/generated/client/sdk";
 import { SpielerPatchSpielerSaisonBody, SpielerPatchSpielerSaisonParams } from "@/core/generated/zod/inputs";
 import { getSpielerSaison } from "@/features/spieler/queries";

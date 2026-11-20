@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 
-import { COPY } from "@/core/copy";
+import { ADMIN_COPY } from "@/core/copy/admin";
+import { COPY } from "@/core/copy/shared";
 import { dayOf, formatDate, formatNumber } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { ACCEPT_RULES, DECLINE_RULES, SEAT_RULES } from "@/features/bewerbungen/fieldRules";
@@ -31,7 +32,7 @@ import type { Metadata, ResolvingMetadata } from "next";
 
 type Props = PageProps<"/admin/saisons/[saison]/bewerbungen/[bewerbung]">;
 
-const WORDS = COPY.admin.bewerbung;
+const WORDS = ADMIN_COPY.bewerbung;
 const FACTS = COPY.shared.facts;
 
 /** A record's text as a fact's value, or the dash a fact the application left empty keeps its row with. */
@@ -110,7 +111,7 @@ function schoolFacts({ team_name, full_name, schulform, address, website_url }: 
  */
 function lockedReason(status: FLBewerbungSingleResponse["saison"]["status"], standing: Standing): Copy | undefined {
   if (status === "past") return COPY.template.closed;
-  if (status === "active") return COPY.admin.team.onlyPlanned;
+  if (status === "active") return ADMIN_COPY.team.onlyPlanned;
   return standing === "complete" ? undefined : COPY.shared.afterConfirmation;
 }
 

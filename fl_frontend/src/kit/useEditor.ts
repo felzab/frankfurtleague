@@ -2,7 +2,7 @@
 
 import { startTransition, useMemo, useState } from "react";
 
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 
 import { useHoldLeave } from "./LeaveGuard";
 import { statusOf, useFormAction } from "./useFormAction";

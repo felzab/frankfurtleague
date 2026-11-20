@@ -3,11 +3,11 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
-import { COPY } from "@/core/copy";
+import { PUBLIC_COPY } from "@/core/copy/public";
 
 import { CodeField } from "./CodeField";
 
-const { code } = COPY.signIn;
+const { code } = PUBLIC_COPY.signIn;
 
 /** The six drawn boxes, which assistive technology does not reach. */
 const boxes = (container: HTMLElement) => [...container.querySelectorAll<HTMLElement>("[aria-hidden][data-kit-focus=field]")];

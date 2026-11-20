@@ -8,7 +8,7 @@ import { signedInRequest } from "@/test-support/session";
 import { captureLog } from "@/test-support/stdoutCapture";
 import { seat } from "@/test-support/subjectFixtures";
 
-import { COPY } from "./copy";
+import { COPY } from "./copy/shared";
 import { SERVER_COPY } from "./serverCopy";
 
 import type { FLRefusedField } from "./generated/client/types";

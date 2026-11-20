@@ -1,7 +1,8 @@
 import "server-only";
 
 import { KONTAKT_EMAIL, VEREIN_ADDRESS, VEREIN_NAME } from "./brand";
-import { COPY, LINE_SEPARATOR } from "./copy";
+import { LINE_SEPARATOR } from "./copy";
+import { COPY } from "./copy/shared";
 import { ROUTES } from "./routes";
 import { SERVER_COPY } from "./serverCopy";
 

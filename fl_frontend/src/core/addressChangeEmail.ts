@@ -1,7 +1,8 @@
 import "server-only";
 
 import { ADDRESS_CHANGE_VALID_HOURS, ADDRESS_CHANGE_WAIT_DAYS, HOLDER_WAIT } from "./addressChange";
-import { COPY } from "./copy";
+import { ACCOUNT_COPY } from "./copy/account";
+import { COPY } from "./copy/shared";
 import { mailOrigin } from "./emailShell";
 import { formatInstant } from "./format";
 import { ROUTES } from "./routes";
@@ -49,7 +50,7 @@ export function buildAddressChangeEmail({ way, holder }: FLAddressChangeLinkData
       subjectLine,
       origin: site,
       paragraphs: [
-        holder === null ? [WORDS.new.question] : [WORDS.new.question, COPY.account.address.holderWait(HOLDER_WAIT[holder])],
+        holder === null ? [WORDS.new.question] : [WORDS.new.question, ACCOUNT_COPY.address.holderWait(HOLDER_WAIT[holder])],
         LINK_VALID,
       ],
       button,
@@ -81,7 +82,7 @@ export function buildAddressChangeNoticeEmail({ way, holder }: FLAddressChangeNo
       paragraphs: [
         [
           WORDS.previous.question,
-          holder === null ? SERVER_COPY.mail.addressChange.previousEffect : COPY.account.address.holderWait(HOLDER_WAIT[holder]),
+          holder === null ? SERVER_COPY.mail.addressChange.previousEffect : ACCOUNT_COPY.address.holderWait(HOLDER_WAIT[holder]),
         ],
         LINK_VALID,
       ],
@@ -97,7 +98,7 @@ export function buildAddressChangeNoticeEmail({ way, holder }: FLAddressChangeNo
     origin: site,
     paragraphs: [[noticeLead, noticeWait(LOST_MAILBOX_WAIT), noticeStop]],
     // The stop: no link approves anything.
-    button: { label: COPY.account.address.stop, href: addressChangeLink(site, stopToken) },
+    button: { label: ACCOUNT_COPY.address.stop, href: addressChangeLink(site, stopToken) },
   };
 }
 

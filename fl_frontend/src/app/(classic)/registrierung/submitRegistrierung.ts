@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { action, blankIsNull } from "@/core/action";
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 import { APIBadStatusError } from "@/core/errors";
 import { registrierungenPostRegistrierung } from "@/core/generated/client/sdk";
 import { RegistrierungenPostRegistrierungBody } from "@/core/generated/zod/inputs";

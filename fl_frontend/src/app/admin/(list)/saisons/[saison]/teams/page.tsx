@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 
-import { COPY } from "@/core/copy";
+import { ADMIN_COPY } from "@/core/copy/admin";
+import { COPY } from "@/core/copy/shared";
 import { FLGruppenNames, FLTeamListState } from "@/core/generated/client/types";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
@@ -24,7 +25,7 @@ import type { Metadata, ResolvingMetadata } from "next";
 
 type Props = PageProps<"/admin/saisons/[saison]/teams">;
 
-const WORDS = COPY.admin.team;
+const WORDS = ADMIN_COPY.team;
 const TEAM = COPY.shared.facts.team;
 const ACT = { verb: "enter", object: TEAM } as const;
 
@@ -119,7 +120,7 @@ async function readFilters(list: Promise<FLTeamsAdminListResponse>, searchParams
       all: SERVER_COPY.season.filter.all,
       options: [
         { id: FLTeamListState.active, label: COPY.shared.state.active },
-        { id: FLTeamListState.departed, label: COPY.admin.spiel.departed },
+        { id: FLTeamListState.departed, label: ADMIN_COPY.spiel.departed },
         { id: FLTeamListState.retired, label: COPY.shared.retired },
       ],
       value: state,

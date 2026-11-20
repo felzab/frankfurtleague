@@ -6,7 +6,7 @@ import { Button as AriaButton } from "react-aria-components/Button";
 import { ProgressBar } from "react-aria-components/ProgressBar";
 import { useInteractOutside } from "react-aria/useInteractOutside";
 
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 
 import { buttonLook } from "./buttonStyles";
 import { Icon } from "./Icon";

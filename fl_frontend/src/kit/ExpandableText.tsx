@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "react-aria-components/Button";
 import { usePress } from "react-aria/usePress";
 
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 
 import { hoverLook } from "./hoverStyles";
 import { tv } from "./tv";
