@@ -186,11 +186,19 @@ const ANSWER_MISSING = SERVER_COPY.overview.missing(COPY.spielplan.answer);
  * its reason in its own words. An answer that lapsed unanswered, which the party can no longer give, says so and the day
  * it lapsed on, as every other page under that chip does; one an exit or a decision ended before its answer was due
  * lapsed on no day, and its line says the answer is missing. A discarded proposal reads as the agreement the fixture
- * counts. An answer about a slot the match has left is drawn as given beside that slot, which it alone is about. A row
- * about a slot the match has left that holds no answer, or about a call-off since undone, asks nothing about the match
- * as it stands, and a row in time that nobody could be mailed on has asked nothing yet: the party reads as not asked.
+ * counts. An answer about a slot the match has left is drawn as given beside that slot, which it alone is about; one
+ * whose fixture changed its ground, a side or its referee at the slot the match still holds is drawn as given, since
+ * „Bisher“ beside the match's own slot would name a move that never happened. A row about a slot the match has left
+ * that holds no answer, or about a call-off since undone, asks nothing about the match as it stands, and a row in time
+ * that nobody could be mailed on has asked nothing yet: the party reads as not asked. `slot` is the match's own.
  */
-function answerRow(id: string, name: Words, plaque: string | null, row: FLSpielbestaetigungEditorRow | undefined): AnswerRow {
+function answerRow(
+  id: string,
+  name: Words,
+  plaque: string | null,
+  row: FLSpielbestaetigungEditorRow | undefined,
+  slot: { date: string | null; time: string | null },
+): AnswerRow {
   const shown = { id, name, ...(plaque === null ? {} : { plaque: { record: plaque } }) };
   // Both wait in the warn hue: a party never asked on the league, one asked on its answer, in the word its own list says.
   if (
@@ -202,22 +210,24 @@ function answerRow(id: string, name: Words, plaque: string | null, row: FLSpielb
     return { ...shown, chip: { tone: "warn", label: COPY.template.open }, line: WORDS.notAsked };
   }
   if (row.state === "expired") {
-    const line = row.lapsed_on === null ? ANSWER_MISSING : COPY.shared.expiredOn(dayOf(row.lapsed_on));
+    const line = row.lapsed_on === null ? ANSWER_MISSING : COPY.shared.onDay(dayOf(row.lapsed_on));
     return { ...shown, chip: EXPIRED_CHIP, line };
   }
   const { answer } = row;
   // Unanswered and in time: its party may still answer, a referee until the slot's day, which no deadline binds.
   if (answer === null) return { ...shown, chip: owedChip(ANSWER_MISSING), line: COPY.shared.answerBy(dayOf(row.due_by)) };
   const reason = answer.reason === null ? {} : { reason: { record: answer.reason } };
-  if (row.state === "invalid") {
-    const slot = SERVER_COPY.season.labelled(
+  const kept = row.ansetzung.date === slot.date && row.ansetzung.time === slot.time;
+  if (row.state === "invalid" && !kept) {
+    const left = SERVER_COPY.season.labelled(
       COPY.shared.facts.before,
       COPY.spielplan.when(dayOf(row.ansetzung.date), timeOf(row.ansetzung.time)),
     );
-    return answer.kind === "agreed" ? { ...shown, chip: AGREED_CHIP, line: slot } : { ...shown, chip: DECLINED_CHIP, line: slot, ...reason };
+    return answer.kind === "agreed" ? { ...shown, chip: AGREED_CHIP, line: left } : { ...shown, chip: DECLINED_CHIP, line: left, ...reason };
   }
   const day: Words = answer.by.kind === "admin" ? COPY.spielplan.enteredByLeague : { record: formatDate(dayOf(answer.at)) };
   // The chip follows the state, so a decline whose proposal the league discarded reads as the agreement it counts as.
+  if (row.state === "invalid" && answer.kind === "agreed") return { ...shown, chip: AGREED_CHIP, line: day };
   if (row.state === "agreed") {
     return answer.kind === "agreed"
       ? { ...shown, chip: AGREED_CHIP, line: day }
@@ -240,7 +250,7 @@ function answerRow(id: string, name: Words, plaque: string | null, row: FLSpielb
 function answerRows(view: FLSpieleAdminSingleResponse): AnswerRow[] {
   const { spiel, spielbestaetigungen: rows } = view;
   const party = (id: string, name: Words, plaque: string | null, row: FLSpielbestaetigungEditorRow | undefined) =>
-    spiel.sonderereignis === null || row?.state === "agreed" || row?.state === "declined" ? [answerRow(id, name, plaque, row)] : [];
+    spiel.sonderereignis === null || row?.state === "agreed" || row?.state === "declined" ? [answerRow(id, name, plaque, row, spiel)] : [];
   // The rows are served newest first, so a party's first row is its newest.
   const teamRows = (side: "team1" | "team2", team: FLSpielTeamFieldJoined | null) =>
     team === null

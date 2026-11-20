@@ -30,7 +30,7 @@ import type { Metadata, ResolvingMetadata } from "next";
 
 const words = SERVER_COPY.legal.privacyNotice;
 
-const MAIL: ProseText[number] = { href: KONTAKT_MAILTO, label: { record: KONTAKT_EMAIL } };
+const MAIL = { href: KONTAKT_MAILTO, label: { record: KONTAKT_EMAIL } } as const;
 
 const paragraph = (...text: ProseText): ProseBlock => ({ kind: "paragraph", text });
 
@@ -49,9 +49,7 @@ export default function PrivacyNoticePage() {
   const sections: ReadonlyArray<ProseSection> = [
     {
       heading: firstLayer.heading,
-      blocks: [
-        { kind: "list", items: [...firstLayer.items.map((item) => [item]), [firstLayer.contact.before, MAIL, firstLayer.contact.after]] },
-      ],
+      blocks: [{ kind: "list", items: [...firstLayer.items.map((item) => [item]), firstLayer.contact(MAIL)] }],
     },
     { heading: words.basis.heading, blocks: [paragraph(words.basis.text)] },
     { heading: words.website.heading, blocks: [paragraph(words.website.requests), paragraph(words.website.browser(MAILED_LINK_HOURS))] },
@@ -162,7 +160,7 @@ export default function PrivacyNoticePage() {
     {
       heading: rights.heading,
       blocks: [
-        paragraph(rights.text.before, MAIL, rights.text.after),
+        paragraph(...rights.text(MAIL)),
         { kind: "callout", callout: { tone: "info", title: rights.objection.title, text: rights.objection.text } },
         paragraph(rights.closing),
       ],

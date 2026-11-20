@@ -59,12 +59,8 @@ const RULES: RegistrierungRules = {
 
 /** The two lines of the form: the Art. 21 objection around the league's address, and the sentence beside the send. */
 const LINES: { objection: Line; notice: Line } = {
-  objection: [WORDS.objection.before, { href: KONTAKT_MAILTO, label: KONTAKT_EMAIL }, WORDS.objection.after],
-  notice: [
-    PUBLIC_COPY.registrierung.notice.before,
-    { href: ROUTES.privacyNotice.path(), label: COPY.page.privacyNotice },
-    PUBLIC_COPY.registrierung.notice.after,
-  ],
+  objection: WORDS.objection({ href: KONTAKT_MAILTO, label: KONTAKT_EMAIL }),
+  notice: PUBLIC_COPY.registrierung.notice({ href: ROUTES.privacyNotice.path(), label: COPY.page.privacyNotice }),
 };
 
 /**

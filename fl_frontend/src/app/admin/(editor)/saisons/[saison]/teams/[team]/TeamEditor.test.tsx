@@ -86,7 +86,7 @@ describe("the exit dialog's „E-Mail an“", () => {
     );
 
     // The danger row's button carries the dialog's verb.
-    await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.remove }));
+    await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.enter }));
     const dialog = await screen.findByRole("dialog");
     const mailTo = () => within(dialog).getByText(ADMIN_COPY.facts.mailTo).nextElementSibling?.textContent;
     expect(mailTo()).toBe(formatList(["Bieber", "Otto Gruber"]));

@@ -20,7 +20,7 @@ export const positionOptions = (): readonly Option[] => [
  */
 export const stufeOptions = (allowed: readonly FLSpielerStufe[], held: FLSpielerStufe | null = null): readonly Option[] => [
   NONE,
-  ...orderStufen([...allowed, ...(held === null ? [] : [held])]).map((stufe) => ({ id: stufe, label: COPY.kader.stufeName[stufe] })),
+  ...orderStufen([...allowed, ...(held === null ? [] : [held])]).map((stufe) => ({ id: stufe, label: { record: stufe } })),
 ];
 
 /** The two roles, each another live row of the squad holds closed with its note, as the write refuses a second holder. */

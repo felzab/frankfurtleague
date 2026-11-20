@@ -69,7 +69,7 @@ function rowOf(row: FLOpenRegistrierung): RegistrierungRow {
       facts: [
         { label: COPY.kader.nummer, value: row.nummer === null ? COPY.shared.noValue : { record: row.nummer }, figures: true },
         { label: COPY.kader.position, value: row.position === null ? COPY.shared.noValue : { record: row.position } },
-        { label: COPY.kader.stufe, value: row.stufe === null ? COPY.shared.noValue : COPY.kader.stufeName[row.stufe] },
+        { label: COPY.kader.stufe, value: row.stufe === null ? COPY.shared.noValue : { record: row.stufe } },
         { label: COPY.shared.facts.received, value: received, figures: true },
       ],
       admission: admissionOf(row),
@@ -92,7 +92,7 @@ const EMPTY = {
   kind: "none",
   plural: ROUTES.teamRegistrierungen.title,
   glyph: "registrierungen",
-  line: { ...WORDS.linkFromLeague, link: { href: KONTAKT_MAILTO as Route, label: { record: KONTAKT_EMAIL } } },
+  line: WORDS.linkFromLeague({ href: KONTAKT_MAILTO as Route, label: { record: KONTAKT_EMAIL } }),
 } as const;
 
 /** The page's one read, after the seat it is drawn for, handed to its template running. */

@@ -5,8 +5,8 @@ import { dayOf, formatDateLong, formatDayAndTime, formatInstant, formatTime, tim
 import { ROUTES } from "./routes";
 import { SERVER_COPY } from "./serverCopy";
 
-import type { Copy, Words } from "./copy";
-import type { Fact, Mail, Paragraph, Sentence } from "./emailShell";
+import type { Copy } from "./copy";
+import type { Fact, Mail, Paragraph } from "./emailShell";
 import type {
   FLAufstellungReminderData,
   FLAustrittNoticeData,
@@ -31,8 +31,6 @@ const paarung = ({ team1, team2 }: Pick<FLSpielMailAppointment, "team1" | "team2
   COPY.page.spiel({ record: team1 }, { record: team2 });
 
 const moment = ({ date, time }: FLSpielMailAppointment): string => formatDayAndTime(dayOf(date), timeOf(time));
-
-const around = (before: Copy, value: string, after: Copy): Sentence => [before, { strong: value }, after];
 
 /** The day and the hour, one fact to a row, so a reader scanning for the day finds it alone. */
 const whenFacts = ({ date, time }: FLSpielMailAppointment): Fact[] => [
@@ -71,10 +69,7 @@ function ansetzungBlock(ansetzung: FLSpielMailAnsetzung, movedFrom: FLSpielMailA
 }
 
 /** The deadline and the first-answer rule: any seat of the club answers, so a reader told nothing takes a date already answered for one lost. */
-const answerParagraph = (deadline: string): Paragraph => [
-  around(WORDS.answerUntil.before, formatDateLong(dayOf(deadline)), WORDS.answerUntil.after),
-  WORDS.firstAnswerCounts,
-];
+const answerParagraph = (deadline: string): Paragraph => [WORDS.answerUntil(formatDateLong(dayOf(deadline))), WORDS.firstAnswerCounts];
 
 /**
  * A club's request to confirm a fixture, the reminder of it, or the request about the slot a move went to, which is then
@@ -135,7 +130,7 @@ function unbookedEmail(appointment: FLSpielMailAppointment, origin: string): Mai
     audience: "notice",
     subjectLine: WORDS.unbookedSubject(dayOf(appointment.date)),
     origin,
-    paragraphs: [[around(WORDS.unbooked.before(paarung(appointment)), moment(appointment), WORDS.unbooked.after)]],
+    paragraphs: [[WORDS.unbooked(paarung(appointment), moment(appointment))]],
   };
 }
 
@@ -158,22 +153,21 @@ function cancelledEmail({ appointment, sonderereignis }: FLSpielNoticeData, orig
   const day = dayOf(appointment.date);
   const { cancelled } = WORDS;
   const { consequence } = COPY.spielplan.sonderereignis;
-  const lead = (words: { before: (subject: Words) => Copy; after: Copy }, subject: Words): Sentence =>
-    around(words.before(subject), moment(appointment), words.after);
+  const when = moment(appointment);
   const spiel = paarung(appointment);
 
   switch (sonderereignis) {
     case "ausgefallen":
-      return noticeEmail(cancelled.ausgefallen.subject(day), origin, [lead(cancelled.ausgefallen, spiel)]);
+      return noticeEmail(cancelled.ausgefallen.subject(day), origin, [cancelled.ausgefallen.lead(spiel, when)]);
     case "annulliert":
-      return noticeEmail(cancelled.annulliert.subject(day), origin, [lead(cancelled.annulliert, spiel)]);
+      return noticeEmail(cancelled.annulliert.subject(day), origin, [cancelled.annulliert.lead(spiel, when)]);
     // The side that stayed away, then the one the match is counted for.
     case "nichtantreten_team1":
     case "nichtantreten_team2": {
       const [absent, opponent] =
         sonderereignis === "nichtantreten_team1" ? [appointment.team1, appointment.team2] : [appointment.team2, appointment.team1];
       return noticeEmail(cancelled.nichtantreten.subject(day), origin, [
-        lead(cancelled.nichtantreten, { record: absent }),
+        cancelled.nichtantreten.lead({ record: absent }, when),
         consequence.nichtantreten({ record: opponent }),
       ]);
     }
@@ -193,9 +187,7 @@ export function buildSpielNoticeEmail(data: FLSpielMovedData | FLSpielNoticeData
   // Taken off the fixture by the move: the void notice, naming the slot left alone.
   if (movedTo === null && !stays) {
     if (recipient === "schiedsrichter") return unbookedEmail(appointment, origin);
-    return noticeEmail(WORDS.voidSubject(dayOf(appointment.date)), origin, [
-      around(WORDS.void.before(paarung(appointment)), moment(appointment), WORDS.void.after),
-    ]);
+    return noticeEmail(WORDS.voidSubject(dayOf(appointment.date)), origin, [WORDS.void(paarung(appointment), moment(appointment))]);
   }
 
   const lead: Paragraph = [WORDS.moved(paarung(movedTo ?? appointment))];
@@ -231,9 +223,7 @@ export function buildSpielEinteilungLiftedEmail({ appointment }: FLSpielEinteilu
  * decides, and nothing else tells it the league has.
  */
 export function buildSpielVorschlagDiscardedEmail({ appointment }: FLSpielVorschlagDiscardedData, { origin }: MailOrigin): Mail {
-  return noticeEmail(WORDS.keptSubject(dayOf(appointment.date)), origin, [
-    around(WORDS.kept.before(paarung(appointment)), moment(appointment), WORDS.kept.after),
-  ]);
+  return noticeEmail(WORDS.keptSubject(dayOf(appointment.date)), origin, [WORDS.kept(paarung(appointment), moment(appointment))]);
 }
 
 /**
@@ -253,7 +243,7 @@ export function buildAufstellungReminderEmail(
     origin,
     paragraphs: [[words.missing({ record: team })]],
     block: ansetzungBlock(ansetzung, null),
-    afterBlock: [[around(words.dueUntil.before, formatInstant(dueAt), words.dueUntil.after)]],
+    afterBlock: [[words.dueUntil(formatInstant(dueAt))]],
     button: { label: COPY.shared.end.toOverview, href: `${origin}${ROUTES.teamOverview.path(teamId, saison)}` },
   };
 }
@@ -265,7 +255,7 @@ export function buildAufstellungReminderEmail(
 export function buildAustrittNoticeEmail({ team, saison_id: saison, spiele }: FLAustrittNoticeData, { origin }: MailOrigin): Mail {
   const words = SERVER_COPY.mail.austrittNotice;
 
-  return noticeEmail(words.subject(team), origin, [[{ strong: team }, words.lead.after(saison)]], {
+  return noticeEmail(words.subject(team), origin, [words.lead(team, saison)], {
     title: COPY.page.spiele,
     facts: spiele.map((spiel) => ({
       label: words.when(dayOf(spiel.date), timeOf(spiel.time)),

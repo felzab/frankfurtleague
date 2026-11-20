@@ -35,7 +35,7 @@ export type EmptyStateProps = {
    * A muted line under the sentence of a list with nothing in it yet, saying where its records come from: the
    * catalogue's words around one link, such as the league's address a team's registration link comes from.
    */
-  line?: { before: Copy; link: { href: Route; label: Words }; after: Copy };
+  line?: readonly [Copy, { readonly href: Route; readonly label: Words }, Copy];
   /** The mark over a list with nothing in it yet: the list's own rail mark, ⓘ where it names none. */
   glyph?: IconName;
 };
@@ -76,13 +76,13 @@ export function EmptyState(props: EmptyStateProps | Clear) {
         <p className={s.sentence()}>{props.one === true ? COPY.shared.empty.noneOne(props.plural) : COPY.shared.empty.none(props.plural)}</p>
         {props.line !== undefined && (
           <p className="text-sm text-fg-muted">
-            {props.line.before}
+            {props.line[0]}
             <Link
-              href={props.line.link.href}
+              href={props.line[1].href}
               placement="text"
-              label={props.line.link.label}
+              label={props.line[1].label}
             />
-            {props.line.after}
+            {props.line[2]}
           </p>
         )}
       </div>

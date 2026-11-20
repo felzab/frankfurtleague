@@ -42,7 +42,15 @@ type Catalogue<T> = T extends string
   ? Copy
   : T extends (...args: infer A) => string
     ? (...args: A) => Copy
-    : { readonly [K in keyof T]: Catalogue<T[K]> };
+    : T extends (...args: infer A) => readonly unknown[]
+      ? (...args: A) => Runs<ReturnType<T>>
+      : { readonly [K in keyof T]: Catalogue<T[K]> };
+
+/**
+ * A sentence around a value, as an entry returns it in reading order: each of its own words a `Copy`, and the value as
+ * its reader marks it, set semibold or as a link, left as it came.
+ */
+type Runs<R> = { readonly [K in keyof R]: R[K] extends string ? Copy : R[K] };
 
 /**
  * The only assertion to `Copy`: the whole tree is branded at once, so no entry can be left plain. Called anywhere but
@@ -100,9 +108,13 @@ export const K_O_RUNDE = "K.-o.-Runde";
 export const GRUPPE = (gruppe: string) => `Gruppe ${gruppe}`;
 
 export const DATE_OPEN = "Termin offen";
-export const PASSKEY_WITHOUT_CODE = "Mit einem Passkey meldest du dich ohne Code an.";
 export const SPIELER = "Spieler";
 export const SCHIEDSRICHTER = "Schiedsrichter";
+/**
+ * The theme's three choices in the order its control shows them, the third following the device's own setting as every
+ * app names it: the control's labels, and Konto's Darstellung box naming them.
+ */
+export const THEME = { dark: "Dunkel", light: "Hell", system: "System" } as const;
 // The privacy notice's title, which the deletion box's sentence names as the place listing what outlives an erasure.
 export const PRIVACY_NOTICE = "Datenschutz";
 
@@ -122,7 +134,7 @@ export const LOCK = {
   /** A Spielplan stands: the counts it was drawn from and a club's group move only with a new draw. */
   byDraw: "durch Spielplan",
   /** The club left the season, which fixes its group and its colour. */
-  departed: "seit dem Ausscheiden",
+  departed: "seit dem Austritt",
   /** The person confirmed their entry, which fixes the address their sign-in is keyed to: only an address change moves it. */
   confirmed: "seit der Bestätigung",
   /** The season has finished, which fixes a player's squad row: the number, position, level and role, and the row's place in the squad. */
@@ -167,6 +179,10 @@ export const waitWords = (wait: Wait) =>
  * typed.
  */
 export const boundBy = (...parts: string[]) => parts.join("\u00A0");
+
+/** A sentence's runs as one string, for a page that writes its value in the sentence's own weight. */
+export const runsText = (runs: readonly (string | { readonly strong: string })[]) =>
+  runs.map((run) => (typeof run === "string" ? run : run.strong)).join("");
 
 export const LINE_SEPARATOR = " \u00B7 ";
 

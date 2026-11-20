@@ -40,6 +40,8 @@ import type { TeamValues } from "./teamValues";
 
 const WORDS = ADMIN_COPY.team;
 const TEAM = COPY.shared.facts.team;
+const RETIRE_CONSEQUENCE = COPY.shared.retireConsequence(WORDS.withArticle, COPY.page.adminSaisons);
+const REACTIVATE_CONSEQUENCE = COPY.shared.reactivateConsequence(WORDS.withArticle);
 
 /** The boxes of the club's row of the season, which a retired club holding none leaves out. */
 export type TeamRow = {
@@ -302,7 +304,7 @@ export function TeamEditor({
           ...(exit.locked === undefined ? {} : { locked: exit.locked }),
           dialog: {
             title: WORDS.austrittAct,
-            act: { verb: "remove" },
+            act: { verb: "enter" },
             tone: "danger",
             run: recordAustritt,
             carry: { team_id: team, saison_id: saison, type: route },
@@ -339,23 +341,23 @@ export function TeamEditor({
     retirement.kind === "reactivate"
       ? {
           name: COPY.shared.withObject(TEAM, "reactivate"),
-          consequence: WORDS.reactivateConsequence,
+          consequence: REACTIVATE_CONSEQUENCE,
           confirm: {
             verb: "reactivate",
             subject: TEAM,
-            consequence: WORDS.reactivateConsequence,
+            consequence: REACTIVATE_CONSEQUENCE,
             tone: "primary",
             onConfirm: () => reactivateTeam({ id: team }),
           },
         }
       : {
           name: COPY.shared.withObject(TEAM, "retire"),
-          consequence: WORDS.retireConsequence,
+          consequence: RETIRE_CONSEQUENCE,
           ...(retirement.locked === undefined ? {} : { locked: retirement.locked }),
           confirm: {
             verb: "retire",
             subject: TEAM,
-            consequence: WORDS.retireConsequence,
+            consequence: RETIRE_CONSEQUENCE,
             tone: "danger",
             onConfirm: () => retireTeam({ id: team }),
           },

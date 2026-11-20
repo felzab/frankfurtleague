@@ -31,11 +31,7 @@ const toBewerbung = (origin: string, saisonId: string) => ({
 });
 
 /** A seat's own last day set semibold: each seat holds its own day. */
-const deadlineSentence = (deadline: string): Sentence => [
-  WORDS.deadline.before,
-  { strong: formatDateLong(dayOf(deadline)) },
-  WORDS.deadline.after,
-];
+const deadlineSentence = (deadline: string): Sentence => WORDS.deadline(formatDateLong(dayOf(deadline)));
 
 /** What an accepted application is told, each person naming the seats they were entered for. */
 export function buildBewerbungZusageEmail(
@@ -48,7 +44,7 @@ export function buildBewerbungZusageEmail(
     audience: "notice",
     subjectLine: WORDS.zusage.subject(saison_id),
     origin,
-    paragraphs: [[[{ strong: team }, WORDS.zusage.lead.after(saison_id)], WORDS.zusage.lead.welcome]],
+    paragraphs: [[WORDS.zusage.lead(team, saison_id), WORDS.zusage.welcome]],
     block: {
       title: COPY.shared.saisonName(saison_id),
       facts: [
@@ -76,13 +72,7 @@ export function buildBewerbungAbsageEmail({ team, saison_id, seats, reason }: FL
     audience: "notice",
     subjectLine: WORDS.absage.subject(saison_id),
     origin,
-    paragraphs: [
-      [
-        [WORDS.absage.lead.before, { strong: team }, WORDS.absage.lead.after(saison_id)],
-        WORDS.absage.decision,
-        WORDS.absage.deletion(CONFIRMATION_DEADLINE_DAYS),
-      ],
-    ],
+    paragraphs: [[WORDS.absage.lead(team, saison_id), WORDS.absage.decision, WORDS.absage.deletion(CONFIRMATION_DEADLINE_DAYS)]],
     block: {
       title: WORDS.absage.title,
       facts: [
@@ -185,8 +175,8 @@ export function buildBewerbungObjectionEmail({ saison_id, seats, declined, deadl
     subjectLine: WORDS.objection.subject(saison_id),
     origin,
     paragraphs: [
-      [[WORDS.objection.lead.before, { strong: emptied }, WORDS.objection.lead.after], WORDS.objection.removed],
-      [WORDS.objection.replace, [WORDS.objection.until.before, { strong: formatDateLong(dayOf(deadline)) }, WORDS.objection.until.after]],
+      [WORDS.objection.lead(emptied), WORDS.objection.removed],
+      [WORDS.objection.replace, WORDS.objection.until(formatDateLong(dayOf(deadline)))],
     ],
     block: {
       title: WORDS.status,

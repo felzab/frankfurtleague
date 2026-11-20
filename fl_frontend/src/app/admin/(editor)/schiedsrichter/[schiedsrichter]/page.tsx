@@ -120,7 +120,7 @@ async function readEditor(params: Props["params"]) {
       {...(asking ? { sendLink: sendSchiedsrichterLink } : {})}
       danger={
         retired
-          ? { kind: "reactivate", act: reactivateSchiedsrichter, consequence: WORDS.reactivateConsequence }
+          ? { kind: "reactivate", act: reactivateSchiedsrichter, consequence: COPY.shared.reactivateConsequence(WORDS.withArticle) }
           : { kind: "retire", act: retireSchiedsrichter }
       }
     />

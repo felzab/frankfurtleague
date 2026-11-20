@@ -93,7 +93,7 @@ describe("the overview's row of a fixture owing answers", () => {
       reads: "overdue",
       kind: "spielbestaetigung_overdue" as const,
       parties: [party("schiedsrichter", null), party("team", "2026-11-10")],
-      line: COPY.shared.expiredOn(dayOf("2026-11-10")),
+      line: COPY.shared.onDay(dayOf("2026-11-10")),
     },
   ])("says when the answer is owed, $reads", async ({ kind, parties, line }) => {
     expect((await dueRowOver(kind, parties)).line).toStrictEqual(line);

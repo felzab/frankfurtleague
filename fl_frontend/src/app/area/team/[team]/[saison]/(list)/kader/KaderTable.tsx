@@ -32,7 +32,7 @@ function rowsOf(kader: readonly FLKaderRow[], open: (row: FLKaderRow) => void): 
       cells: {
         nummer: row.nummer === null ? COPY.shared.noValue : { record: row.nummer },
         position: row.position === null ? COPY.shared.noValue : { record: row.position },
-        stufe: row.stufe === null ? COPY.shared.noValue : COPY.kader.stufeName[row.stufe],
+        stufe: row.stufe === null ? COPY.shared.noValue : { record: row.stufe },
       },
     };
   });

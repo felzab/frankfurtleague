@@ -12,7 +12,7 @@ import { HeldForm } from "./HeldForm";
 import { TextField } from "./TextField";
 import { tv } from "./tv";
 
-import type { Copy } from "@/core/copy";
+import type { Copy, RecordText } from "@/core/copy";
 import type { ReactNode } from "react";
 
 type Press = { label: Copy; onPress: () => void; isBusy?: boolean; isDisabled?: boolean };
@@ -46,8 +46,8 @@ type AddressView = Head & {
 
 type CodeView = Head & {
   view: "code";
-  /** The sentence's two parts around the address. */
-  sentence: { before: Copy; after: Copy };
+  /** The sentence around the address, which the view sets semibold. */
+  sentence: (address: RecordText) => readonly [Copy, RecordText, Copy];
   /** The address the code went to: data, not catalogue text. */
   address: string;
   code: {
@@ -118,6 +118,7 @@ function Body(props: SignInView) {
 
     case "code": {
       const { code, back } = props;
+      const [before, address, after] = props.sentence({ record: props.address });
       return (
         <>
           <div className={slots.head()}>
@@ -126,7 +127,9 @@ function Body(props: SignInView) {
               place="page"
             />
             <p className={slots.sentence()}>
-              {props.sentence.before} <strong className={slots.marked()}>{props.address}</strong> {props.sentence.after}
+              {before}
+              <strong className={slots.marked()}>{address.record}</strong>
+              {after}
             </p>
           </div>
           <CodeField

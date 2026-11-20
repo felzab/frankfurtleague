@@ -60,7 +60,7 @@ function tilesOf(saison: string, kader: FLSpielerSelfKaderRow, isPublic: boolean
     },
     { label: WORDS.nummer, value: factOf(kader.nummer) },
     { label: WORDS.position, value: factOf(kader.position), words: true },
-    { label: WORDS.stufe, value: kader.stufe === null ? COPY.shared.noValue : COPY.kader.stufeName[kader.stufe], words: true },
+    { label: WORDS.stufe, value: kader.stufe === null ? COPY.shared.noValue : { record: kader.stufe }, words: true },
   ];
 }
 

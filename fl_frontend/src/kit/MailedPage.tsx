@@ -9,6 +9,7 @@ import { OneShotEnd, OneShotForm } from "./OneShot";
 import { ClassicStatusPage } from "./StatusCard";
 
 import type { Copy } from "@/core/copy";
+import type { Route } from "next";
 import type { ReactNode } from "react";
 import type { Fact } from "./Facts";
 import type { EndState, OneShotActs, OneShotRun } from "./OneShot";
@@ -44,8 +45,8 @@ export type MailedState =
       sentence?: Copy;
       /** A second sentence, a paragraph of its own under the first: how long the answer waits. */
       sentenceAfter?: Copy;
-      /** The words closing the sentence around the privacy notice's title, which stands between them as its link. */
-      more?: { before: Copy; after: Copy };
+      /** The words closing the sentence, around the privacy notice's link. */
+      more?: PrivacyMore;
       run: OneShotRun;
       acts: OneShotActs;
       /** What the form posts unseen beside its fields: the link's token. */
@@ -68,6 +69,26 @@ export type MailedState =
   | { state: "alreadyDone"; title: Copy; next: StatusCardProps["next"]; declined?: boolean }
   | { state: "invalid"; next: StatusCardProps["next"] }
   | ({ state: "end" } & EndState);
+
+type PrivacyLink = { readonly href: Route; readonly label: Copy };
+type PrivacyMore = (link: PrivacyLink) => readonly [Copy, PrivacyLink, Copy];
+
+/** The sentence's close, after a space: the catalogue's words around the privacy notice's link. */
+function More({ more }: { more: PrivacyMore }) {
+  const [before, link, after] = more({ href: ROUTES.privacyNotice.path(), label: COPY.page.privacyNotice });
+  return (
+    <>
+      {" "}
+      {before}
+      <Link
+        href={link.href}
+        placement="text"
+        label={link.label}
+      />
+      {after}
+    </>
+  );
+}
 
 async function MailedBody({ page }: { page: Promise<MailedState> }) {
   const props = await page;
@@ -119,18 +140,7 @@ async function MailedBody({ page }: { page: Promise<MailedState> }) {
               {props.sentence !== undefined && (
                 <p className="text-base">
                   {props.sentence}
-                  {props.more !== undefined && (
-                    <>
-                      {" "}
-                      {props.more.before}
-                      <Link
-                        href={ROUTES.privacyNotice.path()}
-                        placement="text"
-                        label={COPY.page.privacyNotice}
-                      />
-                      {props.more.after}
-                    </>
-                  )}
+                  {props.more !== undefined && <More more={props.more} />}
                 </p>
               )}
               {props.sentenceAfter !== undefined && <p className="text-base">{props.sentenceAfter}</p>}

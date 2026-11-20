@@ -23,12 +23,9 @@ export function buildSchiedsrichterConfirmationEmail({ deadline }: FLSchiedsrich
     audience: "firstContact",
     subjectLine: COPY.page.entryConfirmation,
     origin,
-    // Both answers named before the press, in the sentence a contact seat's mail asks them in; then the deadline, its
-    // day semibold, between the page's two parts around it.
-    paragraphs: [
-      [PAGE.opening, SERVER_COPY.mail.bewerbung.confirmOrOppose],
-      [[PAGE.deadline.before, { strong: formatDateLong(dayOf(deadline)) }, PAGE.deadline.after]],
-    ],
+    // Both answers named before the press, in the sentence a contact seat's mail asks them in; then the page's
+    // deadline, its day semibold.
+    paragraphs: [[PAGE.opening, SERVER_COPY.mail.bewerbung.confirmOrOppose], [PAGE.deadline(formatDateLong(dayOf(deadline)))]],
     button: { label: COPY.page.entryConfirmation, href: mailedLinkTo(origin, ROUTES.schiedsrichterConfirmation, token) },
   };
 }

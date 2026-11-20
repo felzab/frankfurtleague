@@ -35,16 +35,16 @@ function standingOf(
 ): { chip: ChipProps | null; day: Copy | null; asks: boolean } {
   if (person === null) {
     if (link?.declined_at != null) {
-      return { chip: OBJECTED_CHIP, day: COPY.shared.objectedOn(dayOf(link.declined_at)), asks: false };
+      return { chip: OBJECTED_CHIP, day: COPY.shared.onDay(dayOf(link.declined_at)), asks: false };
     }
     // A row whose block stands holds an empty seat only by its person's erasure; a row with no block never held one.
     return { chip: entered ? ERASED_CHIP : null, day: null, asks: false };
   }
   const confirmed = person.einwilligung.confirmed_at;
-  if (confirmed !== null) return { chip: CONFIRMED_CHIP, day: COPY.shared.confirmedOn(dayOf(confirmed)), asks: false };
+  if (confirmed !== null) return { chip: CONFIRMED_CHIP, day: COPY.shared.onDay(dayOf(confirmed)), asks: false };
   if (link === null) return { chip: UNCONFIRMED_CHIP, day: null, asks: true };
   return link.expired
-    ? { chip: EXPIRED_CHIP, day: COPY.shared.expiredOn(dayOf(link.deadline)), asks: true }
+    ? { chip: EXPIRED_CHIP, day: COPY.shared.onDay(dayOf(link.deadline)), asks: true }
     : { chip: UNCONFIRMED_CHIP, day: COPY.shared.answerBy(dayOf(link.deadline)), asks: true };
 }
 

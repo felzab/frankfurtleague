@@ -18,14 +18,14 @@ interface PasskeyEvent {
 
 const ADDED: PasskeyEvent = {
   subject: passkeyAdded.subject,
-  paragraph: (time) => [[passkeyAdded.lead.before, { strong: time }, passkeyAdded.lead.after]],
+  paragraph: (time) => [passkeyAdded.lead(time)],
 };
 
 const ERASED: PasskeyEvent = {
   subject: passkeyRemoved.subject,
   // Only the devices that passkey signed in: a removal ends the sessions carrying its credential and
   // leaves every other standing.
-  paragraph: (time) => [[passkeyRemoved.lead.before, { strong: time }, passkeyRemoved.lead.after], passkeyRemoved.devices],
+  paragraph: (time) => [passkeyRemoved.lead(time), passkeyRemoved.devices],
 };
 
 type Occasion = { instant: Date; origin: string };

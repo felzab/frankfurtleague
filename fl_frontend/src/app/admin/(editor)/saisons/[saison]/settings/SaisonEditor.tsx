@@ -43,7 +43,7 @@ const TIEBREAK: readonly Option[] = [
   { id: "direkter_vergleich", label: WORDS.direkterVergleich },
 ];
 
-const STUFEN = Object.values(FLSpielerStufe).map((stufe) => ({ id: stufe, label: COPY.kader.stufeName[stufe] }));
+const STUFEN = Object.values(FLSpielerStufe).map((stufe) => ({ id: stufe, label: { record: stufe } }));
 
 /** One club of the season as the swap and the replacement list it. */
 export type SaisonTeam = { id: string; name: string; gruppe: string };

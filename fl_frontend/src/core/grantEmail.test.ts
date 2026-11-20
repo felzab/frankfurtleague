@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 
+import { KONTAKT_EMAIL } from "./brand";
+
 import type { FLGrantData } from "./generated/client/types";
 
 const { mailFor } = await import("./mailKinds");
@@ -30,7 +32,7 @@ const rendered = (fields: Partial<FLGrantData>) => {
 describe("a grant notice", () => {
   /* The address came from the owner and may be mistyped, so this may be a stranger's first word from the league. */
   it("carries the Art. 21 line and its „Nicht du?“ on an addition's start and on nothing later", () => {
-    const objection = SERVER_COPY.mail.objection.before;
+    const [objection] = SERVER_COPY.mail.objection(KONTAKT_EMAIL);
     const notYou = SERVER_COPY.mail.notYou.firstContact;
 
     expect(rendered({ effective_from: FROM })).toContain(objection);

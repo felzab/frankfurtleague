@@ -21,15 +21,15 @@ test("a club leaves the season, and its opponent is told at once", async ({ page
 
   // The dialog opens on a withdrawal from today: the reason is what it cannot know.
   const before = await filedMessages();
-  await page.getByRole("main").getByRole("button", { name: "Entfernen" }).click();
-  const dialog = await enteredDialog(page, "Aus der Saison nehmen");
+  await page.getByRole("main").getByRole("button", { name: "Eintragen", exact: true }).click();
+  const dialog = await enteredDialog(page, "Austritt eintragen");
   await typeInto(dialog.getByRole("textbox", { name: /^Grund/ }), "Das Team tritt nicht mehr an.");
-  await dialog.getByRole("button", { name: "Entfernen" }).click();
+  await dialog.getByRole("button", { name: "Eintragen", exact: true }).click();
   await expect(dialog).toBeHidden();
 
   // The club reads as gone, and no act on the page could bring it back.
   await expect(page.getByRole("banner").getByText("Zurückgezogen", { exact: true })).toBeVisible();
-  await expect(page.getByRole("main").getByRole("button", { name: "Entfernen" })).toHaveCount(0);
+  await expect(page.getByRole("main").getByRole("button", { name: "Eintragen", exact: true })).toHaveCount(0);
 
   // The opponent's notice names the fixture still open between the two.
   const notice = await mailedMessage(OPPONENT, `Ausgeschieden: ${team}`, before);

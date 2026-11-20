@@ -22,6 +22,7 @@ import {
   SPIELER,
   spieltagName,
   textOf,
+  THEME,
   VERB,
 } from "../copy";
 import {
@@ -44,7 +45,6 @@ import type {
   FLSaisonPhase,
   FLSchulform,
   FLSpielerRolle,
-  FLSpielerStufe,
   FLSpielSide,
   FLTrikotFarbe,
 } from "../generated/client/types";
@@ -58,6 +58,8 @@ const ENTRY = "Eintrag";
 const startelfCount = (count: number, max: number) => `Startelf ${formatNumber(count)} ${boundBy("von", formatNumber(max))}`;
 const DELETED = "Gelöscht";
 const FILTER = "Filter";
+// A list's search label from its plural: `shared.search` gives it the other catalogues, and the squad's stands here.
+const search = (plural: string) => `${plural} suchen`;
 
 /**
  * The words every audience reads: the kit's, the shared section's, the route titles' and the records' noun sections. It
@@ -139,11 +141,18 @@ export const COPY = catalogue({
     },
     confirmedOn: (day: CalendarDay) => `Bestätigt ${boundBy("am", formatDate(day))}`,
     expiredOn: (day: CalendarDay) => `Abgelaufen ${boundBy("am", formatDate(day))}`,
-    objectedOn: (day: CalendarDay) => `Widersprochen ${boundBy("am", formatDate(day))}`,
     answerBy: (day: CalendarDay) => `Antwort ${boundBy("bis", formatDate(day))}`,
+    /** The day a state took effect, beside the chip naming the state: „am 09.11.2026“. */
+    onDay: (day: CalendarDay) => boundBy("am", formatDate(day)),
     afterConfirmation: "Erst nach Bestätigung",
     afterHandover: `Erst nach Übergabe ${boundBy("der", OWNER_TIER)}`,
     reason: "Grund",
+    /**
+     * A danger box's consequence of retiring a record and of bringing it back, by the record as a noun phrase with its
+     * article („Der Spielort“), and for retiring the records it is no longer picked for.
+     */
+    retireConsequence: (subject: Copy, what: Copy) => `${subject} steht für neue ${what} nicht mehr zur Auswahl.`,
+    reactivateConsequence: (subject: Copy) => `${subject} steht wieder zur Auswahl.`,
     /** The description of a free text a mail hands to people it may not concern. */
     noNames: "Ohne Namen",
     mediaFrom: (age: number) => `Erst ${boundBy("ab", formatNumber(age), "Jahren")}`,
@@ -220,6 +229,8 @@ export const COPY = catalogue({
      * What a screen reader hears once a searched list's typed text settles: „Treffer“ is one noun for any list's rows
      * in the singular and the plural, and a search finding none says `empty.search`.
      */
+    /** A list's search box, by the list's plural. */
+    search: (plural: Copy) => search(plural),
     searchCount: (count: number) => `${boundBy(formatNumber(count), "Treffer")} für diese Suche.`,
 
     /** „Passkey löschen?“: a confirmation asks with the verb its button carries. */
@@ -509,7 +520,7 @@ export const COPY = catalogue({
       spieltag: "Spieltag",
       date: "Datum",
       time: "Uhrzeit",
-      spielort: "Ort",
+      spielort: "Spielort",
       schiedsrichter: SCHIEDSRICHTER,
     },
 
@@ -538,17 +549,17 @@ export const COPY = catalogue({
     appointment: "Termin",
     vorschlag: "Vorschlag",
     proposed: (when: Copy) => `Vorschlag ${when}`,
+    /** The administrator's note on a Zusage they enter for a party, how it reached the league; a decline's is `shared.reason`. */
     answerNote: "Begründung",
     enteredByLeague: "Von der Verwaltung eingetragen",
   },
 
   /** A squad row's fields, one word each wherever a person meets them. */
   kader: {
-    search: "Spieler suchen",
+    search: search(SPIELER),
     nummer: "Nummer",
     position: "Position",
     stufe: "Stufe",
-    stufeName: { E1: "E1", E2: "E2", Q1: "Q1", Q2: "Q2", Q3: "Q3", Q4: "Q4" } satisfies Record<FLSpielerStufe, string>,
     rolle: "Rolle",
     rolleOption: { kapitaen: "Kapitän", co_kapitaen: "Co-Kapitän" } satisfies Record<FLSpielerRolle, string>,
     deregistered: "Ausgetragen",
@@ -572,7 +583,8 @@ export const COPY = catalogue({
     nomineeLocked: (max: number) => `Nur bei weniger ${boundBy("als", formatNumber(max))}`,
     needsSlot: "Erst mit Datum und Uhrzeit",
     dueBy: (day: CalendarDay) => `Aufstellung ${boundBy("bis", formatDate(day))}`,
-    overdueSince: (day: CalendarDay) => `Aufstellung ${boundBy("seit", formatDate(day))} überfällig`,
+    /** Beside the „Überfällig“ chip, which says the rest. */
+    overdueSince: (day: CalendarDay) => `Aufstellung ${boundBy("seit", formatDate(day))}`,
     overdue: "Überfällig",
     overdueOnCard: "Aufstellung überfällig",
     /** Once the team's seats can change nothing more before the match. */
@@ -588,8 +600,7 @@ export const COPY = catalogue({
     /** The account's place, one word signed in and out alike. */
     account: "Konto",
     menu: "Menü",
-    /** The third follows the device's own setting, named as every app names it and as Konto's Darstellung says it. */
-    theme: { system: "System", light: "Hell", dark: "Dunkel" },
+    theme: THEME,
     /** Named for what the next press does. */
     sidebar: { collapse: "Seitenleiste einklappen", expand: "Seitenleiste ausklappen" },
 

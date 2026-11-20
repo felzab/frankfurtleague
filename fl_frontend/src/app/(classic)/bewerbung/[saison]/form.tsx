@@ -53,11 +53,7 @@ export function formStateOf(saison: string, form: FLBewerbungFormResponse): Mail
     note: (
       <ConsentLine
         id={NOTICE_ID}
-        line={[
-          PUBLIC_COPY.bewerbung.notice.before,
-          { href: ROUTES.privacyNotice.path(), label: COPY.page.privacyNotice },
-          PUBLIC_COPY.bewerbung.notice.after,
-        ]}
+        line={PUBLIC_COPY.bewerbung.notice({ href: ROUTES.privacyNotice.path(), label: COPY.page.privacyNotice })}
       />
     ),
     describedBy: NOTICE_ID,

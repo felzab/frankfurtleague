@@ -176,7 +176,7 @@ describe("the match editor's answers", () => {
       reads: "lapsed",
       rows: [row("expired", { lapsed_on: "2026-11-10" })],
       // The day it lapsed on, as every other page under that chip says, not a day still to come.
-      shown: { chip: lapsed, line: COPY.shared.expiredOn("2026-11-10") },
+      shown: { chip: lapsed, line: COPY.shared.onDay("2026-11-10") },
     },
     // An exit or a decision ended it before its deadline, which it never lapsed on.
     { reads: "ended on no day", rows: [row("expired")], shown: { chip: lapsed, line: missing } },
@@ -233,7 +233,7 @@ describe("the match editor's answers", () => {
     {
       reads: "lapsed",
       fields: { state: "expired" as const, lapsed_on: "2026-11-14" },
-      line: COPY.shared.expiredOn("2026-11-14"),
+      line: COPY.shared.onDay("2026-11-14"),
     },
   ])("dates the referee's answer $reads by the slot's day", async ({ fields, line }) => {
     const referee = "64b000000000000000000005";

@@ -13,7 +13,6 @@ import {
   LOCK,
   OWNER_TIER,
   REGISTRIERUNGEN,
-  saisonName,
   saisonNameBound,
   SCHIEDSRICHTER,
   SPIELER,
@@ -21,6 +20,7 @@ import {
   waitWords,
 } from "../copy";
 import { formatDate, formatInstantShort, formatList, formatNumber, formatPeriod } from "../format";
+import { COPY } from "./shared";
 
 import type { Copy, Wait, Words } from "../copy";
 import type { CalendarDay } from "../format";
@@ -42,6 +42,8 @@ const WITHDRAWAL_ENTERED = "Widerruf eingetragen";
 const NAME_ON_SITE = "Name auf der Website";
 const MEDIA = "Fotos und Videos";
 const SENT_ON = "Gesendet am";
+// The plurals of the administration's own lists that no other catalogue holds, branded ahead of the entries searching them.
+const PLURAL = catalogue({ bans: BANS, logEntries: "Einträge" });
 
 /** The administration's own words, which no page outside it reads. */
 export const ADMIN_COPY = catalogue({
@@ -64,11 +66,11 @@ export const ADMIN_COPY = catalogue({
 
   spielort: {
     object: "Spielort",
-    search: "Spielorte suchen",
+    /** The record as a danger box's sentence names it. */
+    withArticle: "Der Spielort",
+    search: COPY.shared.search(COPY.page.adminSpielorte),
     mietpreis: "Mietpreis",
     mietpreisExample: "60",
-    retireConsequence: "Der Spielort steht für neue Spiele nicht mehr zur Auswahl.",
-    reactivateConsequence: "Der Spielort steht wieder zur Auswahl.",
   },
 
   /**
@@ -108,12 +110,11 @@ export const ADMIN_COPY = catalogue({
   retirement: RETIREMENT,
 
   schiedsrichter: {
-    search: "Schiedsrichter suchen",
+    search: COPY.shared.search(COPY.page.adminSchiedsrichter),
+    withArticle: "Die Person",
     kontaktData: "Kontaktdaten",
     confirmation: "Bestätigung",
     sentTo: (address: string) => `${boundBy("An", address)} gesendet`,
-    retireConsequence: "Die Person steht für neue Spiele nicht mehr zur Auswahl.",
-    reactivateConsequence: "Die Person steht wieder zur Auswahl.",
   },
 
   saison: {
@@ -144,7 +145,7 @@ export const ADMIN_COPY = catalogue({
 
     /** What the Wertung rules do, one statement a line. */
     scoringHelp: [
-      "Punkte und Reihenfolge ordnen die Tabelle und sind ab Saisonbeginn gesperrt.",
+      "Punkte und die Regel bei Punktgleichheit ordnen die Tabelle.",
       "Ein Nichtantreten zählt als Spiel mit den eingetragenen Toren.",
     ],
     punkte: "Punkte",
@@ -194,7 +195,7 @@ export const ADMIN_COPY = catalogue({
      * entered since the draw beyond its date.
      */
     reportsHold: "Spielberichte liegen vor",
-    lockedSinceActivation: "Seit der Umstellung gesperrt",
+    lockedSinceActivation: "Gesperrt seit der Umstellung",
     entriesHold: "Spiele sind schon bearbeitet",
 
     /**
@@ -262,7 +263,7 @@ export const ADMIN_COPY = catalogue({
   },
 
   bewerbung: {
-    search: "Bewerbungen suchen",
+    search: COPY.shared.search(COPY.page.adminBewerbungen),
     incomplete: "Unvollständig",
     complete: "Vollständig",
     accepted: "Angenommen",
@@ -282,7 +283,7 @@ export const ADMIN_COPY = catalogue({
     mailedSeats: "Angeschriebene Kontaktpersonen",
     cardOf: (position: number, total: number) => `Bewerbung ${formatNumber(position)} ${boundBy("von", formatNumber(total))}`,
     count: (count: number) => (count === 1 ? "1\u00A0Bewerbung" : boundBy(formatNumber(count), "Bewerbungen")),
-    acceptManyConsequence: (saison: string) => `Die Teams werden endgültig Teil der ${saisonName(saison)}.`,
+    acceptManyConsequence: (saison: string) => `Die Teams werden endgültig Teil der ${saisonNameBound(saison)}.`,
     /** „E-Mail an“'s value in the bulk's question. An application names at least two people, so the count is never 1. */
     kontaktCount: (count: number) => boundBy(formatNumber(count), "Kontaktpersonen"),
     shorthandTaken: "Kürzel vergeben",
@@ -293,7 +294,8 @@ export const ADMIN_COPY = catalogue({
   },
 
   team: {
-    search: "Teams suchen",
+    search: COPY.shared.search(COPY.page.teams),
+    withArticle: "Das Team",
     gruppeFull: "Voll",
     /** „Team eintragen“'s reason while locked, and „Annehmen“'s in a running season: either enters a club. */
     onlyPlanned: "Nur in einer geplanten Saison",
@@ -314,16 +316,15 @@ export const ADMIN_COPY = catalogue({
     /** By what its rows are about: the exit, the retiring, or both. */
     dangerBox: (austritt: boolean, retirement: boolean) =>
       austritt && retirement ? `Austritt und ${RETIREMENT}` : austritt ? "Austritt" : RETIREMENT,
-    austrittAct: "Aus der Saison nehmen",
-    austrittRowLine: "Das Team scheidet aus dieser Saison aus.",
+    austrittAct: "Austritt eintragen",
+    /** What the exit does, as `austrittLine` says it under the date. */
+    austrittRowLine: "Offene Anfragen enden, Aufstellungen trägt die Liga ein.",
     austrittReasonDescription: "Steht ohne Namen auf der Website",
     /**
      * Under the exit's date: the write calls no fixture off, so the line says only what it ends, the club's requests,
      * and that its seats lose the line-up's page and its reminders, so the league alone enters a line-up from then.
      */
     austrittLine: "Offene Anfragen zu Spielen ab diesem Tag enden, Aufstellungen trägt die Liga ein.",
-    retireConsequence: "Das Team steht für neue Saisons nicht mehr zur Auswahl.",
-    reactivateConsequence: "Das Team steht wieder zur Auswahl.",
     retireLocked: "Team spielt noch eine Saison",
   },
 
@@ -365,19 +366,19 @@ export const ADMIN_COPY = catalogue({
   },
 
   banList: {
-    plural: BANS,
-    search: `${BANS} suchen`,
+    plural: PLURAL.bans,
+    search: COPY.shared.search(PLURAL.bans),
     consequence: "Die Adresse kann sich nicht mehr anmelden und bekommt keine E-Mails.",
     duration: "Dauer",
     until: VALID_UNTIL,
     durationSaisons: (count: number) => (count === 1 ? "1\u00A0Saison" : boundBy(formatNumber(count), "Saisons")),
     /** The toast once the ban stands, by what did not follow it. */
     partial: {
-      sessions: "Die Sperre steht, aber die Anmeldungen laufen weiter.",
+      sessions: "Die Sperre steht, aber die Geräte bleiben angemeldet.",
       notice: "Die Sperre steht, aber die E-Mail ist nicht gesendet.",
-      both: "Die Sperre steht, aber die Anmeldungen laufen weiter und die E-Mail ist nicht gesendet.",
+      both: "Die Sperre steht, aber die Geräte bleiben angemeldet und die E-Mail ist nicht gesendet.",
       /** The second press's note, once it ended what the first left running. */
-      ended: "Die Anmeldungen sind beendet.",
+      ended: "Die Geräte sind abgemeldet.",
     },
     liftConsequence: "Die Adresse kann sich wieder anmelden.",
   },
@@ -426,8 +427,8 @@ export const ADMIN_COPY = catalogue({
   /** Composed from the stored action. */
   actionLog: {
     /** The log's rows, apart from Konto's entries of the same word. */
-    plural: "Einträge",
-    search: "Einträge suchen",
+    plural: PLURAL.logEntries,
+    search: COPY.shared.search(PLURAL.logEntries),
     what: "Was",
     who: "Wer",
     when: "Wann",
@@ -514,7 +515,7 @@ export const ADMIN_COPY = catalogue({
       "grant.address_switched": "Adresse gewechselt",
       "ban.added": "Sperre eingetragen",
       "ban.removed": "Sperre entfernt",
-      "address_change.started": "Adressänderung eingetragen",
+      "address_change.started": "Adressänderung gestartet",
       "address_change.discarded": "Adressänderung verworfen",
       "erasure.on_request": "Löschung auf Anfrage",
       "erasure.own": ACCOUNT_ERASED,
