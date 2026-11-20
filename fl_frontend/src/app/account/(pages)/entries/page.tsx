@@ -1,4 +1,5 @@
 import { MEDIA_MIN_AGE } from "@/core/bounds";
+import { SCHIEDSRICHTER_TEXT_VERSIONS, SEAT_TEXT_VERSIONS, SPIELER_TEXT_VERSIONS } from "@/core/consentWordings";
 import { ACCOUNT_COPY } from "@/core/copy/account";
 import { COPY } from "@/core/copy/shared";
 import { dayOf, formatDate, formatEuro } from "@/core/format";
@@ -13,7 +14,7 @@ import { pageMetadata } from "@/shared/utils/metadata";
 import { EntriesBoxes } from "./EntriesBoxes";
 
 import type { Copy } from "@/core/copy";
-import type { FLAccountEinwilligungenResponse, FLAccountSeatPerson, FLKontaktSeat } from "@/core/generated/client/types";
+import type { FLAccountEinwilligungenResponse, FLAccountSeatPerson, FLEinwilligungState, FLKontaktSeat } from "@/core/generated/client/types";
 import type { Fact } from "@/kit/Facts";
 import type { Metadata, ResolvingMetadata } from "next";
 import type { Entry } from "./EntriesBoxes";
@@ -59,6 +60,27 @@ function seatFacts(persons: readonly FLAccountSeatPerson[], affiliation: Fact): 
 /** Why the media choice may not be given, where the record is short of its floor and the choice is not held. */
 const mediaFrom = (offered: boolean): Copy | null => (offered ? null : COPY.shared.mediaFrom(MEDIA_MIN_AGE));
 
+/**
+ * What an entry's save posts unseen, drawn here rather than by the browser: the record's kind and ids, the evidence it
+ * was served, an evidence the record holds none of posting nothing, and the labels of the words its box shows.
+ */
+function saved(
+  record: { readonly kind: Entry["kind"] } & Readonly<Record<string, string>>,
+  evidence: FLEinwilligungState,
+  labels: { readonly scope: string; readonly media: string },
+): Pick<Entry, "kind" | "carry"> {
+  return {
+    kind: record.kind,
+    carry: {
+      ...record,
+      ...(evidence.scope === null ? {} : { "evidence_state.scope": evidence.scope }),
+      ...(evidence.media === null ? {} : { "evidence_state.media": evidence.media }),
+      "text_versions.scope": labels.scope,
+      "text_versions.media": labels.media,
+    },
+  };
+}
+
 /** Every record the person holds, one box each, in the order a person reads their own: themselves, then their seats. */
 function entriesOf({ spieler, schiedsrichter, registrierungen, seats, bewerbungen }: FLAccountEinwilligungenResponse): Entry[] {
   const pupil: Entry[] =
@@ -70,10 +92,9 @@ function entriesOf({ spieler, schiedsrichter, registrierungen, seats, bewerbunge
             title: COPY.shared.kader,
             description: WORDS.description.spieler,
             facts: [fact(COPY.shared.name, kaderName(spieler)), birthday(spieler.birth_date)],
-            save: { kind: "spieler" },
+            ...saved({ kind: "spieler" }, spieler.evidence_state, SPIELER_TEXT_VERSIONS),
             scope: spieler.einwilligung.scope,
             media: spieler.einwilligung.media,
-            evidence: spieler.evidence_state,
             givable: true,
             mediaFrom: mediaFrom(spieler.media_offered),
           },
@@ -90,10 +111,9 @@ function entriesOf({ spieler, schiedsrichter, registrierungen, seats, bewerbunge
       fact(COPY.shared.facts.phone, row.kontakt.phone),
       fact(COPY.shared.payment, formatEuro(row.default_payment)),
     ],
-    save: { kind: "schiedsrichter", schiedsrichter_id: row.schiedsrichter_id },
+    ...saved({ kind: "schiedsrichter", schiedsrichter_id: row.schiedsrichter_id }, row.evidence_state, SCHIEDSRICHTER_TEXT_VERSIONS),
     scope: row.einwilligung.scope,
     media: row.einwilligung.media,
-    evidence: row.evidence_state,
     givable: row.givable,
     mediaFrom: mediaFrom(row.media_offered),
   }));
@@ -112,10 +132,9 @@ function entriesOf({ spieler, schiedsrichter, registrierungen, seats, bewerbunge
           : WORDS.teamSeason({ record: row.team_name }, COPY.shared.saisonName(row.saison_id)),
       ),
     ],
-    save: { kind: "registrierung", registrierung_id: row.registrierung_id },
+    ...saved({ kind: "registrierung", registrierung_id: row.registrierung_id }, row.evidence_state, SPIELER_TEXT_VERSIONS),
     scope: row.scope,
     media: row.media,
-    evidence: row.evidence_state,
     // Withdraw-only: a grant on a pending registration waits on its team's admission.
     givable: false,
     mediaFrom: null,
@@ -128,10 +147,9 @@ function entriesOf({ spieler, schiedsrichter, registrierungen, seats, bewerbunge
       seat.persons,
       fact(COPY.shared.facts.team, WORDS.teamSeason({ record: seat.team_name }, COPY.shared.saisonName(seat.saison_id))),
     ),
-    save: { kind: "seat", team_id: seat.team_id, saison_id: seat.saison_id },
+    ...saved({ kind: "seat", team_id: seat.team_id, saison_id: seat.saison_id }, seat.evidence_state, SEAT_TEXT_VERSIONS),
     scope: seat.scope,
     media: seat.media,
-    evidence: seat.evidence_state,
     givable: seat.givable,
     mediaFrom: mediaFrom(seat.media_offered),
   }));
@@ -141,10 +159,9 @@ function entriesOf({ spieler, schiedsrichter, registrierungen, seats, bewerbunge
     title: COPY.page.bewerbung(bewerbung.saison_id),
     description: WORDS.description.seat(bewerbung.seats),
     facts: seatFacts(bewerbung.persons, fact(COPY.shared.facts.school, bewerbung.schule)),
-    save: { kind: "bewerbung", bewerbung_id: bewerbung.bewerbung_id },
+    ...saved({ kind: "bewerbung", bewerbung_id: bewerbung.bewerbung_id }, bewerbung.evidence_state, SEAT_TEXT_VERSIONS),
     scope: bewerbung.scope,
     media: bewerbung.media,
-    evidence: bewerbung.evidence_state,
     // Withdraw-only: a grant on a pending application is its confirmation page's alone.
     givable: false,
     mediaFrom: null,
