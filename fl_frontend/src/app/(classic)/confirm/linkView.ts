@@ -1,14 +1,11 @@
 import { COPY } from "@/core/copy/shared";
-import { APIBadStatusError } from "@/core/errors";
+import { refusedAs } from "@/core/errors";
 import { dayOf } from "@/core/format";
 import { TO_HOME } from "@/kit/mailedLinkState";
 import { TO_ACCOUNT } from "@/kit/MailedPage";
 
 import type { Code } from "@/core/generated/client/types";
 import type { EndState, MailedState } from "@/kit/MailedPage";
-
-export const refusedAs = (error: unknown, codes: ReadonlySet<Code>): boolean =>
-  error instanceof APIBadStatusError && error.serverErrorCode !== undefined && codes.has(error.serverErrorCode);
 
 /** A token no record holds, and one the backend will not parse: a dead link either way. */
 const DEAD: ReadonlySet<Code> = new Set<Code>(["link_invalid", "payload_refused"]);

@@ -1,16 +1,19 @@
 import "server-only";
 
-import { APIBadStatusError } from "@/core/errors";
+import { refusedAs } from "@/core/errors";
 import { registrierungenPostInvitationView } from "@/core/generated/client/sdk";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { linkInvalid, TO_HOME } from "@/kit/mailedLinkState";
 
-import type { FLInvitationViewResponse } from "@/core/generated/client/types";
+import type { Code, FLInvitationViewResponse } from "@/core/generated/client/types";
 import type { EndState } from "@/kit/MailedPage";
 
 const WORDS = SERVER_COPY.registrierung.end;
 
 export const LINK_INVALID: EndState = linkInvalid(TO_HOME);
+
+/** A token no live invite holds, and one the backend will not parse: a dead link either way. */
+const DEAD: ReadonlySet<Code> = new Set<Code>(["document_not_found", "payload_refused"]);
 
 /**
  * What the team's link opens, or `null` for a link that opens no live invite, a club that left the season or a token the
@@ -18,9 +21,7 @@ export const LINK_INVALID: EndState = linkInvalid(TO_HOME);
  */
 export async function readInvitation(token: string): Promise<FLInvitationViewResponse | null> {
   return registrierungenPostInvitationView({ token }).catch((error: unknown) => {
-    if (error instanceof APIBadStatusError && (error.serverErrorCode === "document_not_found" || error.serverErrorCode === "payload_refused")) {
-      return null;
-    }
+    if (refusedAs(error, DEAD)) return null;
     throw error;
   });
 }

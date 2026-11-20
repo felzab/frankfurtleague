@@ -4,11 +4,11 @@ import { z } from "zod";
 
 import { action, ticked } from "@/core/action";
 import { SPIELER_TEXT_VERSIONS } from "@/core/consentWordings";
+import { refusedAs } from "@/core/errors";
 import { registrierungenPostConfirmation } from "@/core/generated/client/sdk";
 import { RegistrierungenPostConfirmationBody } from "@/core/generated/zod/inputs";
 
 import { LINK_INVALID, REGISTRIERUNG_CONFIRMED } from "../ends";
-import { refusedAs } from "../linkView";
 
 import type { Code } from "@/core/generated/client/types";
 import type { EndState } from "@/kit/MailedPage";

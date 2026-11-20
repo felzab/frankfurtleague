@@ -4,11 +4,11 @@ import { z } from "zod";
 
 import { action, ticked } from "@/core/action";
 import { SEAT_TEXT_VERSIONS } from "@/core/consentWordings";
+import { refusedAs } from "@/core/errors";
 import { bewerbungenPostConfirmation } from "@/core/generated/client/sdk";
 import { BewerbungenPostConfirmationBody } from "@/core/generated/zod/inputs";
 
 import { END, LINK_INVALID } from "../ends";
-import { refusedAs } from "../linkView";
 
 import type { Code } from "@/core/generated/client/types";
 import type { EndState } from "@/kit/MailedPage";
