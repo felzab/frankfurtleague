@@ -325,7 +325,6 @@ export function RailPage({
             <Link
               href={link.href}
               placement="frame"
-              tone="link"
               fullPage
               label={link.label}
             />

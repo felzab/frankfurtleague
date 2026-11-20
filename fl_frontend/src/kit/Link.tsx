@@ -38,7 +38,7 @@ const link = tv({
       footer: `rounded-md text-sm leading-6 text-fg-muted transition-colors duration-(--motion-state) ${hoverLook({ host: "link", answer: "fullUnderline" })}`,
       // Drawn by `buttonLook` in the look the link names.
       button: "",
-      // Drawn by `frameLink` in the tone the link names.
+      // Drawn by `frameLink` in its `link` tone.
       frame: "",
       // An entry of a reading page's contents list, on the list's 2-px track: muted until the pointer is over it, and
       // the section the reader is in marked by the track's brand stretch and its words in full.
@@ -133,7 +133,11 @@ type Footer = { placement: "footer" } & (Worded | { children: ReactNode; label?:
  */
 type Contents = { placement: "contents"; current: boolean } & Worded;
 
-type Frame = { placement: "frame"; tone: "band" | "bandMuted" | "strip" | "link" | "rail" } & Worded;
+/**
+ * The title strip's way to a record's own page, in `frameLink`'s `link` tone: a whole document where `fullPage` asks
+ * it, which the frames' own links, drawn with Next's client navigation, cannot be.
+ */
+type Frame = { placement: "frame" } & Worded;
 
 type Card = {
   placement: "card";
@@ -202,7 +206,7 @@ export function Link<T extends string>(
       button !== undefined
         ? buttonLook({ look: button.look, host: "link" })
         : props.placement === "frame"
-          ? frameLink({ tone: props.tone })
+          ? frameLink({ tone: "link" })
           : link({ placement: props.placement, subgrid: props.placement === "card" && props.subgrid === true }),
     "aria-current": props.placement === "contents" && props.current ? ("location" as const) : undefined,
     ...tab,
