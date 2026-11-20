@@ -5,8 +5,6 @@ import { getSubjectSession } from "@/core/subject";
 import { readAccount } from "@/features/account/account";
 import { GuardedRailFrame } from "@/kit/GuardedRailFrame";
 
-import { AREA_HOME } from "../areaHome";
-
 import type { TeamSeat } from "@/features/roles/resolvers";
 import type { FrameSaisons, RailGroup } from "@/kit/FrameNav";
 import type { ReactNode } from "react";
@@ -81,7 +79,6 @@ export default function TeamLayout({ children }: { children: ReactNode }) {
       saison={{ teams: readTeams(), home: "teamOverview" }}
       // The row's second line is the place's own, the team's Kürzel and the seats held there: the frame names no team.
       foot={{ kind: "account", account: readAccount() }}
-      next={AREA_HOME}
       columnInLayouts>
       {children}
     </GuardedRailFrame>

@@ -3,7 +3,7 @@ import { ROUTES } from "@/core/routes";
 import { readAccount, readAreaBack } from "@/features/account/account";
 import { GuardedRailFrame } from "@/kit/GuardedRailFrame";
 
-import { ACCOUNT_ENTRIES, ACCOUNT_HOME } from "./entries";
+import { ACCOUNT_ENTRIES } from "./entries";
 
 import type { ReactNode } from "react";
 
@@ -25,7 +25,6 @@ export default function AccountLayout({ children }: { children: ReactNode }) {
       bar={["signin"]}
       foot={{ kind: "account", account: readAccount(COPY.template.account) }}
       back={{ read: readAreaBack(), failed: ROUTES.area.path() }}
-      next={ACCOUNT_HOME}
       columnInLayouts>
       {children}
     </GuardedRailFrame>
