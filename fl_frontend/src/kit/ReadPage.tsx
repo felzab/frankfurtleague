@@ -4,9 +4,8 @@ import { Facts } from "./Facts";
 import { formColumn, RailPage } from "./RailFrame";
 import { SeatRows } from "./SeatRows";
 import { SectionTitle } from "./Section";
-import { SpielGroup } from "./SpielGroup";
+import { SpielCards } from "./SpielCards";
 import { SpielHead } from "./SpielHead";
-import { SpielPairList, spielPairs } from "./SpielRow";
 import { StatTiles } from "./StatTiles";
 import { Timeline } from "./Timeline";
 import { tv } from "./tv";
@@ -106,19 +105,11 @@ function GroupBody({ group }: { group: GroupContent }) {
       return group.spiele.length === 0 ? (
         <EmptyBox {...group.empty} />
       ) : (
-        <SpielPairList>
-          {group.spiele.map(({ head, spiel }) => (
-            <div
-              key={spiel.id}
-              className={spielPairs().box()}>
-              <SpielGroup
-                head={head}
-                spiele={[spiel]}
-                columns="outer"
-              />
-            </div>
-          ))}
-        </SpielPairList>
+        // Each matchday's head stands under the group's own title, a rung below it.
+        <SpielCards
+          groups={group.spiele}
+          level={3}
+        />
       );
     case "seats":
       return (

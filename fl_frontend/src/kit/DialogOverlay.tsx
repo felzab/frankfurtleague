@@ -24,7 +24,7 @@ const dim = tv({
  * the visible window less the 1-rem margin its centring wrapper keeps, and scrolls inside past that, so a
  * long form's act stays in reach: `--visual-viewport-height` is the height React Aria's `ModalOverlay`
  * writes for its modal to cap itself by. Its padding is declared once, as a variable, so a part running out to
- * the box's edges (a field group's line, the pop-up's band) takes back the same measure, as Radix Themes'
+ * the box's edges (a danger part's hairlines, the pop-up's band) takes back the same measure, as Radix Themes'
  * `Inset` reads its card's.
  */
 const dialogBox = tv({

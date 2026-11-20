@@ -5,7 +5,8 @@ import { describe, expect, it } from "vitest";
 
 import { COPY } from "@/core/copy/shared";
 
-import { ListPage, SpielCards } from "./ListPage";
+import { ListPage } from "./ListPage";
+import { SpielCards } from "./SpielCards";
 
 import type { ComponentProps } from "react";
 
