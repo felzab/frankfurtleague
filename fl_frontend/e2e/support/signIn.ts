@@ -36,7 +36,9 @@ export async function signInWithCodeHere(page: Page, address: string): Promise<v
 
 /** Presses „Code senden“ for `address` on the sign-in page the browser stands on. */
 async function sendFromHere(page: Page, address: string): Promise<void> {
-  await typeInto(page.getByLabel("E-Mail-Adresse"), address);
+  // The text box by its role: a label match takes any element whose name holds the words, such as a status card's
+  // „E-Mail-Adresse bestätigen“ still in the document from the page before.
+  await typeInto(page.getByRole("textbox", { name: /^E-Mail-Adresse/ }), address);
   await page.getByRole("button", { name: "Code senden" }).click();
 }
 
