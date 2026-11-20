@@ -609,8 +609,8 @@ export const COPY = catalogue({
     nomineeLocked: (max: number) => `Nur bei weniger als ${formatNumber(max)}`,
     needsSlot: "Erst mit Datum und Uhrzeit",
     dueBy: (day: CalendarDay) => `Aufstellung bis ${formatDate(day)}`,
-    /** Beside the „Überfällig“ chip, which says the rest. */
-    overdueSince: (day: CalendarDay) => `Aufstellung seit ${formatDate(day)}`,
+    /** Beside the „Überfällig“ chip, a whole phrase still: „seit“ with the noun alone would say the line-up stands. */
+    overdueSince: (day: CalendarDay) => `Aufstellung seit ${formatDate(day)} überfällig`,
     overdue: "Überfällig",
     overdueOnCard: "Aufstellung überfällig",
     /** Once the team's seats can change nothing more before the match. */
