@@ -37,6 +37,12 @@ export const SOURCE_URL = "https://github.com/felzab/frankfurtleague";
 /** The `id` of the mark's drawing in the document's one sprite, which every logo points at. */
 export const MARK_ID = "fl-mark";
 
+/**
+ * The brand's solid green, `--brand-solid` in `tokens.css`, copied once into TypeScript because neither the web app's
+ * manifest nor a mail can resolve a CSS token.
+ */
+export const BRAND_SOLID = "#033f11";
+
 /** The site's one language, as the document declares it and every date, number and list is formatted in. */
 export const SITE_LOCALE = "de-DE";
 
