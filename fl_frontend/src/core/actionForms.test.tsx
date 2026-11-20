@@ -296,7 +296,7 @@ describe("each form's posted names meet its lane's keys", () => {
   describe("a form its sources spell", () => {
     it("loses no key of a Zusage's dialog", async () => {
       const { enterZusage } = await import("@/app/admin/(list)/saisons/[saison]/enterZusage");
-      const posted = spelledIn("app/admin/(list)/saisons/[saison]/page.tsx", "app/admin/(list)/saisons/[saison]/ZusageDialog.tsx");
+      const posted = spelledIn("app/admin/(list)/saisons/[saison]/AdminOverview.tsx", "app/admin/(list)/saisons/[saison]/ZusageDialog.tsx");
       takes(["POST", `/spielbestaetigungen/${ID}/enter`, { version: 2 }]);
 
       expect(await enterZusage(formOf(posted, { id: ID, reason: "Telefonisch zugesagt" }))).toStrictEqual({ ok: true, value: undefined });
