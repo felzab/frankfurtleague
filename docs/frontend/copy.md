@@ -175,7 +175,11 @@ Each pattern is an entry of `COPY.shared`; what the entry cannot say is when it 
   under it as facts rows, never inside it: a move's old and new slot, the season a switch leaves and
   takes, the counts an act removes, and whom the act mails.
 - **A status card** is a mark, a title and its way on, with no sentence: a not-found, an error, a
-  state with nothing to show yet such as `end.noSaison`, and every end of a page a mail opens.
+  state with nothing to show yet such as `end.noSaison`, and every end of a page a mail opens. In a
+  rail frame the title stands once. A page with a name of its own keeps that name in the strip, and
+  its card carries the end's title, as `/saisons` says that the league has no season yet. A boundary
+  with no page of its own, the not-found and the error page, has its title in the strip, and its
+  card holds no second one.
 - **A page a mail opens** ends in a status card: done, already done titled with what the person did
   and the day (`end.doneOn`), or `template.linkInvalid`, one title for an expired, mistyped or
   tampered link alike. Each ends in one button to the logical next step: `verb.signIn` after a
