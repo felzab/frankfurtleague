@@ -187,8 +187,11 @@ describe("a person's own account deletion through the mailed link's page", () =>
     expect(heldOf(row.userId)).toStrictEqual({ user: 0, passkeys: 0 });
     expect(cacheCalls.filter(({ name }) => name === "updateTag").flatMap(({ args }) => args)).toStrictEqual([SITE_CACHE_TAG]);
     expect(deletedCookies, "the used link stayed in the browser for its hour").toStrictEqual([ERASURE_LINK_COOKIE]);
-    // Mailed nowhere, a person would never learn their account went.
-    expect(mail.owed.at(-1)?.data).toStrictEqual({ kind: "deletion_notice", saison_id: null });
+    // The person pressed this deletion and the done page says it went: the notice is owed only for one they did not press.
+    expect(
+      mail.owed.map(({ data }) => data.kind),
+      "the person's own deletion owed the notice of one they did not press",
+    ).not.toContain("deletion_notice");
   });
 
   it("refuses the league's owner before the link is spent, and deletes on the same link after a handover", async () => {

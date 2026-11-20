@@ -50,8 +50,8 @@ export async function notifyPasskeyRemoved(email: string): Promise<void> {
 }
 
 /**
- * Tells a person their account went. Owed after the deletion and never holding it up: a failed notice leaves the
- * deletion standing, whichever of the two roots owed it.
+ * Tells a person their account went, for a deletion they did not press themselves, which nothing else would tell
+ * them of. Owed after the deletion and never holding it up: a failed notice leaves the deletion standing.
  */
 export async function notifyAccountDeleted(email: string): Promise<void> {
   try {

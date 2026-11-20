@@ -32,7 +32,7 @@ import { ceremonyCredentialId, challengeIssuedAt, isDuplicateCredential, refuseA
 import { ADDRESS_ATTEMPTS_EXHAUSTED } from "./codeRefusal";
 import { carriedEnrolmentRead, carriedOrRefuse, ENROLMENT_READ, refuseBarred, refuseEnrolment } from "./enrolment";
 import { enrolmentSignIn } from "./gateReads";
-import { notifyAccountDeleted, notifyPasskey, oweSignInMail, sendDeletionLink } from "./mails";
+import { notifyPasskey, oweSignInMail, sendDeletionLink } from "./mails";
 import { endReplacedSession, lineageOf, refuseUnadmitted, replacedToken } from "./minting";
 import {
   CODE_FACTOR,
@@ -257,13 +257,14 @@ const userOptions = {
     // `input: false`, so no session writes it for itself.
     [SESSIONS_ENDED_FIELD]: { type: "date", required: false, input: false },
   },
-  // Both halves run in process alone, `DISABLED_PATHS` refusing `/delete-user` and its callback over HTTP.
+  // Both halves run in process alone, `DISABLED_PATHS` refusing `/delete-user` and its callback over HTTP. Nothing
+  // is mailed once it has deleted: this deletion is the person's own press, whose done page tells them it went, and
+  // the deletion notice is for a deletion they did not press.
   deleteUser: {
     enabled: true,
     deleteTokenExpiresIn: ERASURE_LINK_VALID_HOURS * 60 * 60,
     sendDeleteAccountVerification: sendDeletionLink,
     beforeDelete: eraseBeforeTheAccount,
-    afterDelete: (user) => notifyAccountDeleted(user.email),
   },
 } satisfies BetterAuthOptions["user"];
 
