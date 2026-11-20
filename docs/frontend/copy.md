@@ -115,7 +115,7 @@ wraps and takes a second line, which moves what stands below it.
 | Field label             | 3 words                                                    | a noun, no colon                                                                               |
 | Button                  | 3 words                                                    | a verb from the catalogue's closed set, with an object where needed („Team anlegen“)           |
 | Field description       | 1 sentence, 90 characters                                  | says what the thing is; none where the label suffices; no field has a placeholder              |
-| Box description         | 1 sentence, 90 characters, one visible line                | says what a Konto box holds, under its title                                                   |
+| Box description         | 1 sentence, one visible line at 390 px, 45 characters      | says what a Konto box holds, under its title                                                   |
 | Tooltip                 | 5 words                                                    | names an icon-only control, or says why a locked act cannot run                                |
 | Section info tip (ⓘ)    | 2 sentences, or a key of short lines; about 200 characters | one per section, after its title, only where a named question needs it; a key, „Mark: meaning“ |
 | Field error             | one phrase, 80 characters                                  | a fixed pattern                                                                                |
