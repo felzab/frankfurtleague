@@ -1253,16 +1253,19 @@ export const SERVER_COPY = catalogue({
   entryConfirmation: {
     confirmed: "Eintrag bestätigt",
     objected: COPY.shared.state.objected,
+    /** The deadline of an entry that goes alone, a seat on a team's season and a referee's, the page's last paragraph. */
+    deadline: (until: CalendarDay) => runsText(entryDeadline(formatDateLong(until))),
   },
 
   /**
-   * The fixed text of a referee's confirmation page, `ROUTES.schiedsrichterConfirmation`: who named the person and for
-   * what, what is stored and until when, the deadline, and what an objection does, the page's one sentence before its
-   * two acts. The age floor is the birthdate field's bound, read off the link's view; the Art. 21 objection with the
-   * league's address stands in the first-contact mail, and each consent's line names the privacy notice.
+   * The fixed text of a referee's confirmation page, `ROUTES.schiedsrichterConfirmation`, in the order of a contact's
+   * and a pupil's: who named the person and for what, what is stored and until when, what an objection does and the
+   * privacy notice's link, then the deadline (`entryConfirmation.deadline`). The age floor is the birthdate field's
+   * bound, read off the link's view; the Art. 21 objection with the league's address stands in the first-contact mail.
    */
   schiedsrichterConfirmation: {
     opening: REFEREE_OPENING,
+    stored: REFEREE_STORED,
     /** The deadline around its day: the mail sets the day semibold, the page writes it in the sentence's weight. */
     deadline: (day: string) => entryDeadline(day),
     /** Both answers that end the entry, an unanswered deadline and an objection, each in a season row seat's sentence. */
@@ -1270,6 +1273,8 @@ export const SERVER_COPY = catalogue({
       `${REFEREE_OPENING} ${REFEREE_STORED} ${runsText(entryDeadline(formatDateLong(until)))} ${OBJECTION_DELETES_ENTRY}`,
     /** What an objection does, the objection's question's sentence: it erases the entry at once, as a seat's empties the seat. */
     objectionEffect: OBJECTION_DELETES_ENTRY,
+    /** The last words of the page's first paragraph, around the privacy notice's title, which the page sets as its link. */
+    more,
   },
 
   /**
