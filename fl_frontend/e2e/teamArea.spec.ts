@@ -39,7 +39,7 @@ async function openPage(page: Page, name: string): Promise<void> {
   await expect(titleOf(page, name)).toBeVisible();
 }
 
-test("a contact answers the date, admits the pupil and enters the line-up", async ({ page, contact: { address, fixture, pupil } }) => {
+test("a contact answers the date, admits the pupil and enters the line-up", async ({ page, contact: { address, team, fixture, pupil } }) => {
   await signInWithCode(page, address);
   // The seat is the person's one place, so the sign-in lands on its Übersicht.
   await expectLandedAt(page, TEAM_LANDING);
@@ -79,7 +79,8 @@ test("a contact answers the date, admits the pupil and enters the line-up", asyn
   const match = page.getByRole("main").getByRole("link", { name: new RegExp(fixture.replace(" vs. ", ".*")) });
   await expect(match).toContainText("Aufstellung fehlt");
   await match.click();
-  await expect(titleOf(page, fixture)).toBeVisible();
+  // The line-up is the club's own, so its title names the club, not the pairing.
+  await expect(titleOf(page, `Aufstellung ${team}`)).toBeVisible();
 
   const main = page.getByRole("main");
   const lineUp = main.getByRole("table", { name: "Aufstellung" });
