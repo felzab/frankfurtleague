@@ -226,7 +226,7 @@ const strip = tv({
     // title wraps, every part after the title stands centred on the title's first line rather than on all its lines:
     // the parts stand at the head's top, each one line of the head tall (`chips`), and the title's first line stands
     // centred on that line (`first`). One line of the head is the title's own, or a control's where the head holds one,
-    // which is never shorter (`controls`).
+    // which is never shorter (`controls`); on a season page under a finger, the control's whether it holds one or not.
     head: "flex min-w-0 shrink-0 items-start gap-4 px-4 pt-4 [view-transition-name:title] lg:sticky lg:top-0 lg:z-10 lg:h-(--rail-strip) lg:items-center lg:border-b lg:border-transparent lg:ps-8 lg:pe-8 lg:pt-0",
     // A long name wraps on a phone, where the title heads the content, and is cut short only in the desktop strip.
     heading: "min-w-0 font-heading tracking-display break-words uppercase lg:truncate",
@@ -237,8 +237,16 @@ const strip = tv({
   },
   variants: {
     // The chips' box takes the title's size too, so its `1lh` is the title's line; each chip sets its own words' size.
+    // Under a finger every season page's head takes the 40-px line the Spielplan's magnifier sets, so the content starts
+    // at one height across the pages the bar moves between: the head as tall as its top inset and that line, and the
+    // title's first line 4 px lower, centred on it, as a public page's 32-px line beside 40.
     scope: {
-      saison: { heading: "text-2xl", chips: "text-2xl" },
+      saison: {
+        head: "max-lg:pointer-coarse:min-h-14",
+        heading: "text-2xl",
+        first: "max-lg:pointer-coarse:pt-1",
+        chips: "text-2xl max-lg:pointer-coarse:h-10",
+      },
       area: { heading: "text-xl", chips: "text-xl" },
     },
     // A head holding a control after the title, the way on or the strip's link, never shorter than the title's line:
@@ -249,9 +257,8 @@ const strip = tv({
   },
   compoundVariants: [
     // The title's first line stands half of what the control is taller than it lower: 2 px for a signed-in page's 28-px
-    // line beside 32 px, 6 beside 40, and 4 for a public page's 32-px line beside 40.
+    // line beside 32 px, and 6 beside 40.
     { scope: "area", controls: true, class: { first: "max-lg:pt-0.5 max-lg:pointer-coarse:pt-1.5" } },
-    { scope: "saison", controls: true, class: { first: "max-lg:pointer-coarse:pt-1" } },
   ],
 });
 
