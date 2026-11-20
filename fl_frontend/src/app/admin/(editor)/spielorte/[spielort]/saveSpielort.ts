@@ -27,7 +27,7 @@ const SaveSpielort = z.object({
       postcode: address.postcode,
       district: address.district,
       city: address.city,
-      mietpreis: numberBox(shape.default_mietpreis),
+      default_mietpreis: numberBox(shape.default_mietpreis),
     })
     .partial(),
 });
@@ -46,18 +46,18 @@ export const saveSpielort = action({
   examples: {
     "changes.postcode": COPY.shared.address.postcodeExample,
     "changes.house_number": COPY.shared.address.houseNumberExample,
-    "changes.mietpreis": ADMIN_COPY.spielort.mietpreisExample,
+    "changes.default_mietpreis": ADMIN_COPY.spielort.mietpreisExample,
   },
   run: async ({ id, version, changes }): Promise<ActionAnswer<number>> => {
     const stored = await getSpielort(id);
     if (stored === null) return { ok: false, reason: COPY.shared.failure.stale };
 
-    const { mietpreis, ...text } = changes;
+    const { default_mietpreis, ...text } = changes;
     const { name, street, house_number, postcode, district, city } = { ...valuesOf(stored), ...text };
     const written = await spielortePatchSpielort(id, {
       name,
       // The stored figure where the price was left alone, never the text the editor shows it as.
-      default_mietpreis: mietpreis ?? stored.default_mietpreis,
+      default_mietpreis: default_mietpreis ?? stored.default_mietpreis,
       address: { street, house_number, postcode, district, city },
       version,
     });

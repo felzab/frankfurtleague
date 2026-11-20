@@ -22,7 +22,7 @@ import type { AddressRules } from "@/kit/AddressFields";
 
 /** What a venue write asks of each field, read on the server so its schema never reaches the browser. */
 export type SpielortRules = {
-  required: Readonly<Record<"name" | "mietpreis", boolean>>;
+  required: Readonly<Record<"name" | "default_mietpreis", boolean>>;
   max: Readonly<Record<"name", number>>;
   address: AddressRules;
 };
@@ -32,7 +32,7 @@ type Body = typeof SpielortePostSpielortBody | typeof SpielortePatchSpielortBody
 /** An untouched text box posts "", and the price's box sends no figure (`numberBox`). */
 const requiredOf = ({ shape }: Body): SpielortRules["required"] => ({
   name: requires(shape.name, ""),
-  mietpreis: requires(shape.default_mietpreis, null),
+  default_mietpreis: requires(shape.default_mietpreis, null),
 });
 
 const addressRequiredOf = ({ shape }: Body): AddressRules["required"] => {

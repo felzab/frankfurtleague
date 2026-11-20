@@ -108,7 +108,7 @@ describe("each form's posted names meet its lane's keys", () => {
       postcode: "60311",
       district: "Innenstadt",
       city: "Frankfurt am Main",
-      mietpreis: "40",
+      default_mietpreis: "40",
     };
     everyBoxTyped(names, typed);
     takes(["POST", "/spielorte", { created_id: ID }]);

@@ -34,11 +34,11 @@ export function SpielortFields({
       />
       <TextField
         label={WORDS.mietpreis}
-        name="mietpreis"
+        name="default_mietpreis"
         holds={5}
         kind="digits"
         unit={COPY.shared.unit.euro}
-        isRequired={required.mietpreis}
+        isRequired={required.default_mietpreis}
       />
       <FieldGroup name={COPY.shared.address.title}>
         <AddressFields rules={address} />
