@@ -152,6 +152,11 @@ press.
   `PageContent`, is `inert`; the frame stays pressable, and a navigation staying on the path leaves
   the page live.
 - `NavigationLink` never prefetches the sign-in, which the proxy's matcher skips on a prefetch.
+- While an editor holds unsaved changes (`fl_frontend/src/kit/LeaveGuard.tsx :: useHoldLeave`), a
+  press of a `NavigationLink` leaving its page asks the rail frame's one discard question first, and
+  navigates only once the person discards them. A press with a modifier key never reaches
+  `onNavigate`, so a new tab is never asked; the browser's own back is not asked either, and the
+  draft it leaves stays only while Next keeps the page.
 
 ## Styling and copy
 

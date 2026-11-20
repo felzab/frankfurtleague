@@ -190,9 +190,9 @@ async function PopupBody({ popup }: { popup: Promise<SpielPopupContent> }) {
  * the match where something did, and the way to the match's page as the dialog's act. It opens with its match read,
  * the page it was pressed on standing until then.
  */
-export function SpielPopup({ beneath, popup }: { beneath: Route; popup: Promise<SpielPopupContent> }) {
+export function SpielPopup({ popup }: { popup: Promise<SpielPopupContent> }) {
   return (
-    <RouteDialog beneath={beneath}>
+    <RouteDialog>
       <PopupBody popup={popup} />
     </RouteDialog>
   );
@@ -202,9 +202,9 @@ export function SpielPopup({ beneath, popup }: { beneath: Route; popup: Promise<
  * The match pop-up whose match is not there, as a match deleted after its Spielplan was read: the status card in the
  * dialog, its title naming the dialog in a status card's title look, so a missing match opens where a found one does.
  */
-export function SpielPopupEnd({ beneath, tone, title, next }: { beneath: Route } & Omit<StatusCardProps, "quiet">) {
+export function SpielPopupEnd({ tone, title, next }: Omit<StatusCardProps, "quiet">) {
   return (
-    <RouteDialog beneath={beneath}>
+    <RouteDialog>
       <StatusCardBody
         place="dialog"
         tone={tone}

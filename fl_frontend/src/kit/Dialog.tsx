@@ -8,7 +8,6 @@ import { Form, FormContext } from "react-aria-components/Form";
 
 import { textOf } from "@/core/copy";
 import { COPY } from "@/core/copy/shared";
-import { goBackOrPush } from "@/core/goBackOrPush";
 
 import { Button } from "./Button";
 import { ConfirmDialog, TriggerButton } from "./ConfirmDialog";
@@ -26,7 +25,6 @@ import { usePasskeyTouch } from "./usePasskeyTouch";
 
 import type { ActionAnswer } from "@/core/action";
 import type { Copy } from "@/core/copy";
-import type { Route } from "next";
 import type { ReactElement, ReactNode } from "react";
 import type { Tone, Trigger } from "./ConfirmDialog";
 import type { DialogAct, DialogDanger } from "./dialogAct";
@@ -82,16 +80,10 @@ export function RouteDialogBody({
  * leaves the page beneath as it was. Always open: Next keeps a departed route in a hidden `Activity`, which hides the
  * overlay's portal with it and runs its effects' cleanup, the scroll lock's included.
  */
-export function RouteDialog({
-  beneath,
-  children,
-}: {
-  /** The page it opens over, reached instead of Back where the tab's history holds nothing to go back to. */
-  beneath: Route;
-  children: ReactNode;
-}) {
+export function RouteDialog({ children }: { children: ReactNode }) {
   const router = useRouter();
-  const close = () => goBackOrPush(router, beneath);
+  // An intercepting route catches a client navigation alone, so the tab's history always holds the page beneath it.
+  const close = () => router.back();
   const dialog = useRef<HTMLElement>(null);
   useLayoutEffect(() => {
     const box = dialog.current;
@@ -169,17 +161,25 @@ function DangerRow({ danger, isClosed, onDone }: { danger: DialogDanger; isClose
   );
 }
 
+/** How many of a form's fields hold other values than they did in `opened`, the form as it opened. */
+function changedSince(opened: FormData | null, form: HTMLFormElement | null) {
+  if (opened === null || form === null) return 0;
+  const now = new FormData(form);
+  const names = new Set([...opened.keys(), ...now.keys()]);
+  return [...names].filter((name) => String(opened.getAll(name)) !== String(now.getAll(name))).length;
+}
+
 /**
  * The dialog and its form, mounted anew at each opening, so a refusal it showed goes with the dialog and never greets
  * the next opening. A done act closes the dialog, but one whose answer notes what else the write moved, which stays open
  * with that note in its status line, its act closed, so the person reads it before leaving by „Zurück“; a refused one
  * stays with its input kept, each field's message under its field and the reason in the status line beside the acts, as
- * a Konto box shows it. Escape, a press outside and „Zurück“ are all closed while the act runs, as a question's are,
- * because its answer is the dialog's to show and nowhere else stands to show it. An act behind the passkey touch is
- * sent past the dialog instead (`send`), which closes, its answer a toast (`Dialog`). The act ending the record, where
- * the dialog has one, stands as its own part after the inputs and above the footer (`DangerRow`), apart from „Zurück“
- * and the save, and before the sentence and the facts of the dialog's own act, which stay directly over its two
- * buttons.
+ * a Konto box shows it. A press outside never closes it; Escape and „Zurück“ ask before they drop typed input, and are
+ * both closed while the act runs, as a question's are, because its answer is the dialog's to show and nowhere else
+ * stands to show it. An act behind the passkey touch is sent past the dialog instead (`send`), which closes, its answer
+ * a toast (`Dialog`). The act ending the record, where the dialog has one, stands as its own part after the inputs and
+ * above the footer (`DangerRow`), apart from „Zurück“ and the save, and before the sentence and the facts of the
+ * dialog's own act, which stay directly over its two buttons.
  */
 function ActDialog({
   title,
@@ -217,17 +217,39 @@ function ActDialog({
   const noted = answer !== null && answer.ok && answer.note !== undefined ? answer : null;
   const status = statusOf(refused ?? noted, isBlocked, isPending);
 
+  const form = useRef<HTMLFormElement>(null);
+  // The inputs as the dialog opened, taken once its form stands, which a way out compares to count what it would lose.
+  const opening = useRef<FormData | null>(null);
+  useLayoutEffect(() => {
+    if (opening.current === null && form.current !== null) opening.current = new FormData(form.current);
+  });
+  const [lost, setLost] = useState(0);
+  const [isAsking, setAsking] = useState(false);
+  // Asked as every way out of an editor is; a dialog standing on a done act's note holds nothing unsaved.
+  const leave = () => {
+    const count = noted === null ? changedSince(opening.current, form.current) : 0;
+    if (count === 0) {
+      close();
+      return;
+    }
+    setLost(count);
+    setAsking(true);
+  };
+
   return (
     <DialogOverlay
       width="form"
-      isDismissable={!isPending}
+      // A press outside never closes it: on a phone the dim is most of the screen, and a stray press would drop the input.
+      isDismissable={false}
       isKeyboardDismissDisabled={isPending}
-      {...opened}>
+      isOpen={opened.isOpen}
+      onOpenChange={(isOpen) => (isOpen ? opened.onOpenChange(true) : leave())}>
       <AriaDialog data-kit-focus>
         {/* A dialog opened from inside another form, such as an editor's section, is a form of its own: React Aria's
             `Form` would otherwise take the outer form's props from its context, the outer submit handler among them. */}
         <FormContext value={null}>
           <Form
+            ref={form}
             className="grid gap-6"
             validationErrors={refused?.fieldErrors}
             onInvalid={block}
@@ -262,7 +284,7 @@ function ActDialog({
                 variant="secondary"
                 label={COPY.shared.back}
                 isDisabled={isPending}
-                onPress={close}
+                onPress={leave}
               />
               <Button
                 variant={tone}
@@ -275,6 +297,14 @@ function ActDialog({
             </FormFooter>
           </Form>
         </FormContext>
+        <ConfirmDialog
+          verb="discard"
+          subject={COPY.template.changes}
+          consequence={COPY.template.changesLost(lost)}
+          tone="danger"
+          open={{ isOpen: isAsking, onOpenChange: setAsking }}
+          onConfirm={close}
+        />
       </AriaDialog>
     </DialogOverlay>
   );
