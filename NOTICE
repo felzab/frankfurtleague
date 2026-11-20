@@ -4,6 +4,10 @@ Copyright (c) 2026 Felix Zabudkin
 The source code in this repository is licensed under the Elastic License 2.0.
 See LICENSE for the full terms.
 
+The third-party packages the website and its server are built from keep their
+own licences. They are listed in fl_frontend/pnpm-lock.yaml, which holds what a
+visitor's browser receives, and in fl_backend/uv.lock.
+
 --------------------------------------------------------------------------------
 NOT COVERED BY THAT LICENSE
 --------------------------------------------------------------------------------
