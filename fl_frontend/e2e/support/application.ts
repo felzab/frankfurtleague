@@ -105,7 +105,8 @@ export async function confirmSeat(page: Page, link: string): Promise<void> {
   await birthDate.getByRole("spinbutton").or(birthDate.getByRole("textbox")).first().click();
   await page.keyboard.type("01011990");
   await main.getByRole("button", { name: "Eintrag bestätigen" }).click();
-  // By its exact title: the same link read again is titled with the day.
+  // On the done page the answer leads to, the link forgotten.
+  await expect(page).toHaveURL((url) => url.pathname === "/confirm/kontakt/done");
   await expect(main.getByRole("heading", { name: "Eintrag bestätigt", exact: true })).toBeVisible();
 }
 

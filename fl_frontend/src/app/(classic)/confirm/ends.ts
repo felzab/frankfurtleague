@@ -1,5 +1,9 @@
 import "server-only";
 
+import { notFound } from "next/navigation";
+
+import { z } from "zod";
+
 import { COPY } from "@/core/copy/shared";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
@@ -32,3 +36,22 @@ export const REGISTRIERUNG_CONFIRMED = {
   title: SERVER_COPY.registrierungConfirmation.confirmed,
   next: TO_SIGN_IN,
 } as const satisfies EndState;
+
+/** Which of `END` an entry's answer reached. */
+export type EntryAnswer = keyof typeof END;
+
+/** A done page's query, as Next hands it to the page. */
+export type DoneQuery = Promise<Readonly<Record<string, string | string[] | undefined>>>;
+
+/** What an entry's done page reads: an objection's end, where a confirmation's address carries nothing. */
+const EntryDone = z.strictObject({ end: z.literal("objected").optional() });
+
+/** The done page an entry's answer leads to, `done` being the contact's or the referee's. */
+export const entryDoneAt = (done: string, kind: EntryAnswer): string => (kind === "objected" ? `${done}?end=objected` : done);
+
+/** The end an entry's done page draws, or Next's not-found page for any query no answer leads to. */
+export async function entryEndOf(query: DoneQuery): Promise<EndState> {
+  const read = EntryDone.safeParse(await query);
+  if (!read.success) notFound();
+  return read.data.end === "objected" ? END.objected : END.confirmed;
+}

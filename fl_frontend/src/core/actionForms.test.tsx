@@ -7,6 +7,7 @@ import { assert, describe, expect, it } from "vitest";
 
 import { serveBackend } from "@/test-support/backend";
 import { signedInRequest } from "@/test-support/session";
+import { thrownRedirect } from "@/test-support/thrownRedirect";
 
 import type { ReactElement } from "react";
 
@@ -227,9 +228,9 @@ describe("each form's posted names meet its lane's keys", () => {
     await arriveAs(null);
     takes(["POST", "/schiedsrichter/confirmation", new Response(null, { status: 204 })]);
 
-    const answer = await answerSchiedsrichter(formOf([...names, "media", "act", "token"], { ...typed, act: "primary", token: "link-token" }));
+    // Done, the press leads on to the done page, which Next's redirect thrown past the action names.
+    await thrownRedirect(answerSchiedsrichter(formOf([...names, "media", "act", "token"], { ...typed, act: "primary", token: "link-token" })));
 
-    expect(answer).toMatchObject({ ok: true });
     expect(requestsSent()).toStrictEqual([
       [
         "POST /schiedsrichter/confirmation",
@@ -258,9 +259,9 @@ describe("each form's posted names meet its lane's keys", () => {
     await arriveAs(null);
     takes(["POST", "/bewerbungen/confirmation", new Response(null, { status: 204 })]);
 
-    const answer = await answerKontakt(formOf([...names, "media", "act", "token"], { ...typed, act: "primary", token: "link-token" }));
+    // Done, the press leads on to the done page, which Next's redirect thrown past the action names.
+    await thrownRedirect(answerKontakt(formOf([...names, "media", "act", "token"], { ...typed, act: "primary", token: "link-token" })));
 
-    expect(answer).toMatchObject({ ok: true });
     expect(requestsSent()).toStrictEqual([
       [
         "POST /bewerbungen/confirmation",

@@ -1,7 +1,11 @@
 import "server-only";
 
+import { notFound } from "next/navigation";
+
+import { z } from "zod";
+
 import { COPY } from "@/core/copy/shared";
-import { dayIn } from "@/core/format";
+import { dayIn, dayOf } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { linkInvalid, TO_HOME } from "@/kit/mailedLinkState";
@@ -10,6 +14,7 @@ import { TO_ACCOUNT } from "@/kit/MailedPage";
 import type { CalendarDay } from "@/core/format";
 import type { FLAddressChangeWay } from "@/core/generated/client/types";
 import type { EndState } from "@/kit/MailedPage";
+import type { DoneQuery } from "../ends";
 
 const WORDS = SERVER_COPY.addressChange;
 
@@ -18,8 +23,6 @@ export type Side = "previous" | "new";
 
 /** A link that holds no more at the press: answered, ended or refused since the page opened. */
 export const LINK_INVALID: EndState = linkInvalid(TO_ACCOUNT);
-
-export const STOPPED: EndState = { tone: "danger", title: WORDS.previous.stopped, next: TO_HOME };
 
 /** What the person did through either link, as its done state says it and an opened-again link names it. */
 const DONE = {
@@ -31,15 +34,44 @@ const DONE = {
 const wayOn = (way: FLAddressChangeWay) => (way === "account" ? TO_ACCOUNT : TO_HOME);
 
 /**
- * The end an answer reaches. The new address's confirmation leads to signing in with it; the address on file's to
- * Konto, where the change waits on the new mailbox; a decline, on the danger tint, to the start page. A confirmed change
- * that waits says so in the done state's title with its day, on the info tint, in place of the sign-in.
+ * The ends an answer or the stop reaches, by the name its done page's address carries. The new address's confirmation
+ * leads to signing in with it; the address on file's to Konto, where the change waits on the new mailbox; a decline and
+ * the stop, on the danger tint, to the start page.
  */
-export function endOf(side: Side, answer: "confirmed" | "declined", effectiveFrom: string | null, way: FLAddressChangeWay): EndState {
-  if (answer === "declined") return { tone: "danger", title: WORDS.declined, next: TO_HOME };
-  if (side === "previous") return { tone: "success", title: DONE.previous, next: TO_ACCOUNT };
-  if (effectiveFrom !== null) return { tone: "info", title: WORDS.new.confirmedFrom(dayIn(new Date(effectiveFrom))), next: wayOn(way) };
-  return { tone: "success", title: DONE.new, next: { label: COPY.shared.verb.signIn, href: ROUTES.signIn.path() } };
+const ENDS = {
+  previous: { tone: "success", title: DONE.previous, next: TO_ACCOUNT },
+  new: { tone: "success", title: DONE.new, next: { label: COPY.shared.verb.signIn, href: ROUTES.signIn.path() } },
+  declined: { tone: "danger", title: WORDS.declined, next: TO_HOME },
+  stopped: { tone: "danger", title: WORDS.previous.stopped, next: TO_HOME },
+} as const satisfies Readonly<Record<string, EndState>>;
+
+/**
+ * What the done page's address names: one of `ENDS`, or a confirmed change that waits, with the day it holds from and
+ * its way, which decides where it leads. Nothing else, so no address and no token ever stands in it.
+ */
+const Done = z.union([
+  z.strictObject({ end: z.enum(["previous", "new", "declined", "stopped"]) }),
+  z.strictObject({ end: z.literal("waits"), from: z.iso.date(), way: z.enum(["account", "waiting_period"]) }),
+]);
+
+const doneAddress = (done: z.infer<typeof Done>): string => `${ROUTES.addressChangeDone.path()}?${new URLSearchParams(done)}`;
+
+/** The done page an answer leads to: a confirmed change that waits says so with its day, in place of the sign-in. */
+export function doneAt(side: Side, answer: "confirmed" | "declined", effectiveFrom: string | null, way: FLAddressChangeWay): string {
+  if (answer === "declined") return doneAddress({ end: "declined" });
+  if (side === "previous") return doneAddress({ end: "previous" });
+  if (effectiveFrom !== null) return doneAddress({ end: "waits", from: dayIn(new Date(effectiveFrom)), way });
+  return doneAddress({ end: "new" });
+}
+
+export const STOPPED_AT = doneAddress({ end: "stopped" });
+
+/** The end the done page draws, on the info tint for a waited change, or Next's not-found page for any other query. */
+export async function endOfDone(query: DoneQuery): Promise<EndState> {
+  const read = Done.safeParse(await query);
+  if (!read.success) notFound();
+  const done = read.data;
+  return done.end === "waits" ? { tone: "info", title: WORDS.new.confirmedFrom(dayOf(done.from)), next: wayOn(done.way) } : ENDS[done.end];
 }
 
 /** A link opened again: what its holder did, and the day, leading on as the answer did, or to the start page after a decline. */

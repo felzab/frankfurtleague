@@ -1,5 +1,7 @@
 "use server";
 
+import { redirect } from "next/navigation";
+
 import { z } from "zod";
 
 import { action, ticked } from "@/core/action";
@@ -7,8 +9,10 @@ import { SCHIEDSRICHTER_TEXT_VERSIONS } from "@/core/consentWordings";
 import { refusedAs } from "@/core/errors";
 import { schiedsrichterPostConfirmation, schiedsrichterPostDecline } from "@/core/generated/client/sdk";
 import { SchiedsrichterPostConfirmationBody } from "@/core/generated/zod/inputs";
+import { forgetMailedLink } from "@/core/mailedLink";
+import { ROUTES } from "@/core/routes";
 
-import { END, LINK_INVALID } from "../ends";
+import { entryDoneAt, LINK_INVALID } from "../ends";
 
 import type { Code } from "@/core/generated/client/types";
 import type { EndState } from "@/kit/MailedPage";
@@ -37,6 +41,10 @@ const SPENT: ReadonlySet<Code> = new Set<Code>(["link_invalid", "link_expired", 
  * A referee's answer through their link: the main act confirms the entry with the birthdate and the consent, under the
  * labels of the wordings the page showed; the refusal objects, the entry then going when the link lapses. A link
  * that holds no more at the press ends as the link no longer valid, one message for every cause.
+ *
+ * Done, the page forgets the link, as the privacy notice says of a mailed link once it is used, and leads on to the
+ * done page naming the answer: the link's page, rendered again on the forgotten link, would title the tab and a reload
+ * as a link no longer valid.
  */
 export const answerSchiedsrichter = action({
   lane: "public",
@@ -51,14 +59,15 @@ export const answerSchiedsrichter = action({
     try {
       if (answer.act === "secondary") {
         await schiedsrichterPostDecline({ token: answer.token });
-        return { ok: true, value: END.objected };
+      } else {
+        const { token, birth_date: birthDate, scope, media } = answer;
+        await schiedsrichterPostConfirmation({ token, birth_date: birthDate, scope, media, text_versions: SCHIEDSRICHTER_TEXT_VERSIONS });
       }
-      const { token, birth_date: birthDate, scope, media } = answer;
-      await schiedsrichterPostConfirmation({ token, birth_date: birthDate, scope, media, text_versions: SCHIEDSRICHTER_TEXT_VERSIONS });
-      return { ok: true, value: END.confirmed };
     } catch (error) {
       if (!refusedAs(error, SPENT)) throw error;
       return { ok: true, value: LINK_INVALID };
     }
+    await forgetMailedLink(ROUTES.schiedsrichterConfirmation.path());
+    redirect(entryDoneAt(ROUTES.schiedsrichterConfirmationDone.path(), answer.act === "secondary" ? "objected" : "confirmed"));
   },
 });

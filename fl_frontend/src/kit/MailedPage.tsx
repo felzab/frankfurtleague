@@ -30,7 +30,7 @@ export const TO_ACCOUNT = { label: COPY.shared.end.toAccount, href: ROUTES.accou
  * - `question`: the question, opening on its act: a title, the facts the answer rests on, one sentence, the
  *   fields where the answer needs any, and the acts, sent once with the token the page carries, the main one
  *   behind the passkey touch where the act takes it; the answer replaces the page by the status template (the
- *   done state, worded by the server);
+ *   done state, worded by the server), or leads to a done page of its own where it forgets the link;
  * - `alreadyDone`: the link opened again, its title saying what the person did and when, with the one place to
  *   change it where there is one, on the danger tint where what they did was to decline;
  * - `invalid`: an expired, mistyped or tampered link alike, with the one sensible way on and no resend;

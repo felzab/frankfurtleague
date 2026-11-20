@@ -1,7 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { ROUTES } from "@/core/routes";
 import { serveBackend } from "@/test-support/backend";
+import { writtenCookies } from "@/test-support/nextRequest";
 import { signedInRequest } from "@/test-support/session";
+import { thrownRedirect } from "@/test-support/thrownRedirect";
 
 import { LINK_INVALID } from "./ends";
 
@@ -73,7 +76,8 @@ describe("the effect's account carry", () => {
     held.movesRead = new Promise((resolve) => (release = resolve));
 
     let settled = false;
-    const answer = answerAddressChange({ token: TOKEN, side: "new", way: "account", act: "primary" }).then((value) => {
+    // Next's redirect, thrown past the action, names the done page the press leads to.
+    const answer = thrownRedirect(answerAddressChange({ token: TOKEN, side: "new", way: "account", act: "primary" })).then((value) => {
       settled = true;
       return value;
     });
@@ -82,7 +86,12 @@ describe("the effect's account carry", () => {
     expect(settled).toBe(false);
 
     release();
-    expect(await answer).toMatchObject({ ok: true, value: { tone: "success" } });
+    expect((await answer).address).toBe(`${ROUTES.addressChangeDone.path()}?end=new`);
+    // Forgotten once done, on the page's own path, the path it was set on.
+    const forgotten = writtenCookies().filter(({ name }) => name === "mailed_link");
+    expect(forgotten.map(({ value, path }) => ({ value, path }))).toStrictEqual([
+      { value: undefined, path: ROUTES.addressChangeConfirmation.path() },
+    ]);
     // Carried by the time the press answered: the account signs in at the new address, the carry reported done.
     expect(store.user.map(({ email }) => email)).toStrictEqual([NEW]);
     expect(backend.sent.find(({ path }) => path === "/address_change/sweep/moves/done")?.body).toStrictEqual({ ids: [MOVE.id] });

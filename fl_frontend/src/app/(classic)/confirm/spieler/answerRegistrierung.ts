@@ -1,5 +1,7 @@
 "use server";
 
+import { redirect } from "next/navigation";
+
 import { z } from "zod";
 
 import { action, ticked } from "@/core/action";
@@ -7,8 +9,10 @@ import { SPIELER_TEXT_VERSIONS } from "@/core/consentWordings";
 import { refusedAs } from "@/core/errors";
 import { registrierungenPostConfirmation } from "@/core/generated/client/sdk";
 import { RegistrierungenPostConfirmationBody } from "@/core/generated/zod/inputs";
+import { forgetMailedLink } from "@/core/mailedLink";
+import { ROUTES } from "@/core/routes";
 
-import { LINK_INVALID, REGISTRIERUNG_CONFIRMED } from "../ends";
+import { LINK_INVALID } from "../ends";
 
 import type { Code } from "@/core/generated/client/types";
 import type { EndState } from "@/kit/MailedPage";
@@ -30,6 +34,10 @@ const SPENT: ReadonlySet<Code> = new Set<Code>(["link_invalid", "link_expired", 
  * A pupil's answer through their link: the birthdate, what of their name the site may show and the media consent,
  * under the labels of the wordings the page showed. A link that holds no more at the press ends as the link no longer
  * valid, one message for every cause.
+ *
+ * Done, the page forgets the link, as the privacy notice says of a mailed link once it is used, and leads on to the
+ * confirmation's done page: the link's page, rendered again on the forgotten link, would title the tab and a reload as
+ * a link no longer valid.
  */
 export const answerRegistrierung = action({
   lane: "public",
@@ -43,10 +51,11 @@ export const answerRegistrierung = action({
   run: async ({ token, birth_date: birthDate, scope, media }): Promise<{ ok: true; value: EndState }> => {
     try {
       await registrierungenPostConfirmation({ token, birth_date: birthDate, scope, media, text_versions: SPIELER_TEXT_VERSIONS });
-      return { ok: true, value: REGISTRIERUNG_CONFIRMED };
     } catch (error) {
       if (!refusedAs(error, SPENT)) throw error;
       return { ok: true, value: LINK_INVALID };
     }
+    await forgetMailedLink(ROUTES.registrierungConfirmation.path());
+    redirect(ROUTES.registrierungConfirmationDone.path());
   },
 });

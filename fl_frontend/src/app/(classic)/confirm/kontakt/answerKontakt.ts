@@ -1,5 +1,7 @@
 "use server";
 
+import { redirect } from "next/navigation";
+
 import { z } from "zod";
 
 import { action, ticked } from "@/core/action";
@@ -7,11 +9,14 @@ import { SEAT_TEXT_VERSIONS } from "@/core/consentWordings";
 import { refusedAs } from "@/core/errors";
 import { bewerbungenPostConfirmation } from "@/core/generated/client/sdk";
 import { BewerbungenPostConfirmationBody } from "@/core/generated/zod/inputs";
+import { forgetMailedLink } from "@/core/mailedLink";
+import { ROUTES } from "@/core/routes";
 
-import { END, LINK_INVALID } from "../ends";
+import { entryDoneAt, LINK_INVALID } from "../ends";
 
 import type { Code } from "@/core/generated/client/types";
 import type { EndState } from "@/kit/MailedPage";
+import type { EntryAnswer } from "../ends";
 
 const [given, declined] = BewerbungenPostConfirmationBody.options;
 
@@ -33,15 +38,20 @@ const Answer = z.discriminatedUnion("act", [
 /** The refusals that say the link holds no more since the page opened: lapsed or mistyped. */
 const SPENT: ReadonlySet<Code> = new Set<Code>(["link_invalid", "link_expired"]);
 
-/** The end one answer reaches, or the link no longer valid where the link stopped holding: one message for every cause. */
-async function ended(answer: Parameters<typeof bewerbungenPostConfirmation>[0], end: EndState): Promise<{ ok: true; value: EndState }> {
+/**
+ * The done page one answer leads to, or the link no longer valid where the link stopped holding: one message for every
+ * cause. Done, the page forgets the link, as the privacy notice says of a mailed link once it is used: the link's page,
+ * rendered again on the forgotten link, would title the tab and a reload as a link no longer valid.
+ */
+async function ended(answer: Parameters<typeof bewerbungenPostConfirmation>[0], kind: EntryAnswer): Promise<{ ok: true; value: EndState }> {
   try {
     await bewerbungenPostConfirmation(answer);
-    return { ok: true, value: end };
   } catch (error) {
     if (!refusedAs(error, SPENT)) throw error;
     return { ok: true, value: LINK_INVALID };
   }
+  await forgetMailedLink(ROUTES.kontaktConfirmation.path());
+  redirect(entryDoneAt(ROUTES.kontaktConfirmationDone.path(), kind));
 }
 
 /**
@@ -58,9 +68,9 @@ export const answerKontakt = action({
   ownWords: ["confirmation_age"],
   boxes: ["birth_date"],
   run: async (answer) => {
-    if (answer.act === "secondary") return ended({ answer: "declined", token: answer.token }, END.objected);
+    if (answer.act === "secondary") return ended({ answer: "declined", token: answer.token }, "objected");
     const { token, birth_date: birthDate, whatsapp, media } = answer;
-    return ended({ answer: "given", token, birth_date: birthDate, whatsapp, media, text_versions: SEAT_TEXT_VERSIONS }, END.confirmed);
+    return ended({ answer: "given", token, birth_date: birthDate, whatsapp, media, text_versions: SEAT_TEXT_VERSIONS }, "confirmed");
   },
 });
 
@@ -70,5 +80,5 @@ export const objectKontakt = action({
   name: "objectKontakt",
   input: z.object({ token: declined.shape.token }),
   exempt: "mailedLink",
-  run: async ({ token }) => ended({ answer: "declined", token }, END.objected),
+  run: async ({ token }) => ended({ answer: "declined", token }, "objected"),
 });
