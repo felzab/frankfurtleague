@@ -24,7 +24,6 @@ import {
   SPIELER,
   spieltagName,
   textOf,
-  THEME,
   VERB,
 } from "../copy";
 import {
@@ -600,7 +599,6 @@ export const COPY = catalogue({
      * filling a shortage alone: the bound the backend publishes, never a typed figure.
      */
     nomineeLocked: (max: number) => `Nur bei weniger als ${formatNumber(max)}`,
-    needsSlot: "Erst mit Datum und Uhrzeit",
     dueBy: (day: CalendarDay) => `Aufstellung bis ${formatDate(day)}`,
     /** Beside the „Überfällig“ chip, a whole phrase still: „seit“ with the noun alone would say the line-up stands. */
     overdueSince: (day: CalendarDay) => `Aufstellung seit ${formatDate(day)} überfällig`,
@@ -619,7 +617,8 @@ export const COPY = catalogue({
     /** The account's place, one word signed in and out alike. */
     account: "Konto",
     menu: "Menü",
-    theme: THEME,
+    /** The theme's three choices in the order its control shows them, the third following the device's own setting. */
+    theme: { dark: "Dunkel", light: "Hell", system: "System" },
     /** Named for what the next press does. */
     sidebar: { collapse: "Seitenleiste einklappen", expand: "Seitenleiste ausklappen" },
 

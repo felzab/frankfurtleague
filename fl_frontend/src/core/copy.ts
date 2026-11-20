@@ -114,11 +114,6 @@ export const GRUPPE = (gruppe: string) => `Gruppe ${gruppe}`;
 export const DATE_OPEN = "Termin offen";
 export const SPIELER = "Spieler";
 export const SCHIEDSRICHTER = "Schiedsrichter";
-/**
- * The theme's three choices in the order its control shows them, the third following the device's own setting as every
- * app names it: the control's labels, and Konto's Darstellung box naming them.
- */
-export const THEME = { dark: "Dunkel", light: "Hell", system: "System" } as const;
 // The privacy notice's title, which the deletion box's sentence names as the place listing what outlives an erasure.
 export const PRIVACY_NOTICE = "Datenschutz";
 

@@ -1,4 +1,4 @@
-import { ACCOUNT_ERASED, boundBy, catalogue, PRIVACY_NOTICE, seatsText, textOf, THEME, waitWords } from "../copy";
+import { ACCOUNT_ERASED, boundBy, catalogue, PRIVACY_NOTICE, seatsText, textOf, waitWords } from "../copy";
 import { formatDate, formatInstant, formatList, formatNumber } from "../format";
 
 import type { Copy, RecordText, Wait, Words } from "../copy";
@@ -77,10 +77,6 @@ export const ACCOUNT_COPY = catalogue({
       count === 1 ? "Du bist auf 1\u00A0Gerät angemeldet." : `Du bist auf ${boundBy(formatNumber(count), "Geräten")} angemeldet.`,
     allOthers: "Alle anderen",
     consequence: "Nur dieses Gerät bleibt angemeldet.",
-  },
-  appearance: {
-    /** The theme's three choices by the control's own labels, in its order. */
-    description: `Du wählst zwischen ${formatList([THEME.dark, THEME.light, THEME.system])}.`,
   },
   /**
    * „Funktion wechseln“'s entries: a team by its name, with this line under it naming the season and the seats held
