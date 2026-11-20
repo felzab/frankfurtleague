@@ -5,6 +5,7 @@ import { COPY } from "@/core/copy/shared";
 import { IdentityPostErasureBody, identityPostErasureBodyEmailMax, identityPostErasureBodyReasonMax } from "@/core/generated/zod/inputs";
 import { ROUTES } from "@/core/routes";
 import { QuestionPage } from "@/kit/QuestionPage";
+import { TextField } from "@/kit/TextField";
 import { runAdminRead } from "@/shared/utils/adminRead";
 import { pageMetadata } from "@/shared/utils/metadata";
 
@@ -30,24 +31,22 @@ export default function ErasuresPage() {
       tone="danger"
       read={readErasureCounts}
       run={eraseAddress}
-      holder={runAdminRead(async () => (await getAdminSession())?.user.email ?? "")}
-      fields={[
-        {
-          label: COPY.shared.emailAddress,
-          name: "email",
-          kind: "email",
-          isRequired: requires(email, ""),
-          maxLength: identityPostErasureBodyEmailMax,
-        },
-        {
-          label: ADMIN_COPY.erasure.reference,
-          name: "reason",
-          kind: "text",
-          description: COPY.shared.noNames,
-          isRequired: requires(reason, ""),
-          maxLength: identityPostErasureBodyReasonMax,
-        },
-      ]}
-    />
+      holder={runAdminRead(async () => (await getAdminSession())?.user.email ?? "")}>
+      <TextField
+        label={COPY.shared.emailAddress}
+        name="email"
+        kind="email"
+        isRequired={requires(email, "")}
+        maxLength={identityPostErasureBodyEmailMax}
+      />
+      <TextField
+        label={ADMIN_COPY.erasure.reference}
+        name="reason"
+        kind="text"
+        description={COPY.shared.noNames}
+        isRequired={requires(reason, "")}
+        maxLength={identityPostErasureBodyReasonMax}
+      />
+    </QuestionPage>
   );
 }

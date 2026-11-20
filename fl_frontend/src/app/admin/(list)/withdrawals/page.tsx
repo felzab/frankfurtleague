@@ -7,6 +7,7 @@ import { ROUTES } from "@/core/routes";
 import { Checkbox } from "@/kit/Checkbox";
 import { FieldGroup } from "@/kit/FieldGroup";
 import { QuestionPage } from "@/kit/QuestionPage";
+import { TextField } from "@/kit/TextField";
 import { runAdminRead } from "@/shared/utils/adminRead";
 import { pageMetadata } from "@/shared/utils/metadata";
 
@@ -36,16 +37,14 @@ export default function WithdrawalsPage() {
       touch={false}
       read={readWithdrawal}
       run={enterWithdrawal}
-      holder={runAdminRead(async () => (await getAdminSession())?.user.email ?? "")}
-      fields={[
-        {
-          label: COPY.shared.emailAddress,
-          name: "email",
-          kind: "email",
-          isRequired: requires(email, ""),
-          maxLength: identityPostWithdrawalBodyEmailMax,
-        },
-      ]}>
+      holder={runAdminRead(async () => (await getAdminSession())?.user.email ?? "")}>
+      <TextField
+        label={COPY.shared.emailAddress}
+        name="email"
+        kind="email"
+        isRequired={requires(email, "")}
+        maxLength={identityPostWithdrawalBodyEmailMax}
+      />
       <FieldGroup name={WORDS.object}>
         <Checkbox
           name="name"
