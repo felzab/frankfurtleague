@@ -1,3 +1,5 @@
+import { SITE_LOCALE } from "./brand";
+
 /** A calendar day as the API stores it, `YYYY-MM-DD`. */
 export type CalendarDay = `${number}-${number}-${number}`;
 
@@ -25,27 +27,27 @@ export type Pair = { readonly team1: number; readonly team2: number };
 // UTC and a browser elsewhere disagree about the day and the hour. The frontend's one spelling of it.
 const TIME_ZONE = "Europe/Berlin";
 
-const DATE = new Intl.DateTimeFormat("de-DE", { timeZone: TIME_ZONE, day: "2-digit", month: "2-digit", year: "numeric" });
-const DATE_WITH_WEEKDAY = new Intl.DateTimeFormat("de-DE", { timeZone: TIME_ZONE, weekday: "short", day: "2-digit", month: "2-digit" });
-const DATE_WITH_WEEKDAY_AND_YEAR = new Intl.DateTimeFormat("de-DE", {
+const DATE = new Intl.DateTimeFormat(SITE_LOCALE, { timeZone: TIME_ZONE, day: "2-digit", month: "2-digit", year: "numeric" });
+const DATE_WITH_WEEKDAY = new Intl.DateTimeFormat(SITE_LOCALE, { timeZone: TIME_ZONE, weekday: "short", day: "2-digit", month: "2-digit" });
+const DATE_WITH_WEEKDAY_AND_YEAR = new Intl.DateTimeFormat(SITE_LOCALE, {
   timeZone: TIME_ZONE,
   weekday: "short",
   day: "2-digit",
   month: "2-digit",
   year: "numeric",
 });
-const DATE_LONG = new Intl.DateTimeFormat("de-DE", { timeZone: TIME_ZONE, day: "numeric", month: "long", year: "numeric" });
-const INSTANT = new Intl.DateTimeFormat("de-DE", { timeZone: TIME_ZONE, dateStyle: "long", timeStyle: "short" });
-const INSTANT_SHORT = new Intl.DateTimeFormat("de-DE", { timeZone: TIME_ZONE, dateStyle: "medium", timeStyle: "short" });
-const TIME = new Intl.DateTimeFormat("de-DE", { timeZone: TIME_ZONE, hour: "2-digit", minute: "2-digit" });
+const DATE_LONG = new Intl.DateTimeFormat(SITE_LOCALE, { timeZone: TIME_ZONE, day: "numeric", month: "long", year: "numeric" });
+const INSTANT = new Intl.DateTimeFormat(SITE_LOCALE, { timeZone: TIME_ZONE, dateStyle: "long", timeStyle: "short" });
+const INSTANT_SHORT = new Intl.DateTimeFormat(SITE_LOCALE, { timeZone: TIME_ZONE, dateStyle: "medium", timeStyle: "short" });
+const TIME = new Intl.DateTimeFormat(SITE_LOCALE, { timeZone: TIME_ZONE, hour: "2-digit", minute: "2-digit" });
 // A stored time of day names no instant, so it is read in UTC, where no clock change can move it.
-const TIME_SAVED = new Intl.DateTimeFormat("de-DE", { timeZone: "UTC", hour: "2-digit", minute: "2-digit" });
+const TIME_SAVED = new Intl.DateTimeFormat(SITE_LOCALE, { timeZone: "UTC", hour: "2-digit", minute: "2-digit" });
 // A stored day and time together, read in UTC as the time alone is, in the instant's own form.
-const DAY_AND_TIME_SAVED = new Intl.DateTimeFormat("de-DE", { timeZone: "UTC", dateStyle: "long", timeStyle: "short" });
-const NUMBER = new Intl.NumberFormat("de-DE");
-const SIGNED = new Intl.NumberFormat("de-DE", { signDisplay: "exceptZero" });
-const EURO = new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" });
-const LIST = new Intl.ListFormat("de-DE", { type: "conjunction" });
+const DAY_AND_TIME_SAVED = new Intl.DateTimeFormat(SITE_LOCALE, { timeZone: "UTC", dateStyle: "long", timeStyle: "short" });
+const NUMBER = new Intl.NumberFormat(SITE_LOCALE);
+const SIGNED = new Intl.NumberFormat(SITE_LOCALE, { signDisplay: "exceptZero" });
+const EURO = new Intl.NumberFormat(SITE_LOCALE, { style: "currency", currency: "EUR" });
+const LIST = new Intl.ListFormat(SITE_LOCALE, { type: "conjunction" });
 
 // The ISO day's parts, which the Canadian English locale writes in that order.
 const ISO_DAY = new Intl.DateTimeFormat("en-CA", { timeZone: TIME_ZONE, year: "numeric", month: "2-digit", day: "2-digit" });
@@ -98,7 +100,7 @@ export function formatInstantShort(instant: string | Date): string {
   const date = typeof instant === "string" ? new Date(instant) : instant;
   if (Number.isNaN(date.getTime())) return String(instant);
   return INSTANT_SHORT.formatToParts(date)
-    .map((part) => (part.type === "literal" ? part.value.replace(/\s/gu, " ") : part.value))
+    .map((part) => (part.type === "literal" ? part.value.replace(/\s/gu, "\u00A0") : part.value))
     .join("");
 }
 

@@ -1,6 +1,10 @@
 import "server-only";
 
-import type { FLSubjectResponse } from "./generated/client/types";
+import type { FLGrantWaitHours, FLOwnerWaitDays, FLSubjectResponse } from "./generated/client/types";
+
+/** How long an addition waits, and a handover. */
+export const GRANT_WAIT = { hours: 24 } as const satisfies { hours: FLGrantWaitHours };
+export const OWNER_WAIT = { days: 7 } as const satisfies { days: FLOwnerWaitDays };
 
 /**
  * The grant an address holds in effect, its tier and when it took effect, as the subject lookup serves them: null

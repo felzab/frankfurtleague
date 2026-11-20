@@ -2,7 +2,7 @@ import "./globals.css";
 
 import { Anton, Inter, Raleway } from "next/font/google";
 
-import { SITE_URL } from "@/core/brand";
+import { SITE_LOCALE, SITE_URL } from "@/core/brand";
 import { COPY } from "@/core/copy/shared";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { BrandSprite } from "@/kit/BrandSprite";
@@ -104,7 +104,7 @@ const DOCUMENT_END = "document-end";
 export default function RootLayout({ children, modal }: LayoutProps<"/">) {
   return (
     <html
-      lang="de"
+      lang={SITE_LOCALE}
       suppressHydrationWarning
       // The viewport's scroll container is `<html>`, never `<body>`. Its track always shows: a page that grows
       // keeps the content's width, and a full-width line meets the track, where a reserved gutter would

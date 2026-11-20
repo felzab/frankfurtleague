@@ -1,7 +1,7 @@
 import { connection } from "next/server";
 
 import { SITE_URL } from "@/core/brand";
-import { ROUTES } from "@/core/routes";
+import { addressOf, ROUTES, segmentCount } from "@/core/routes";
 import { DATENSCHUTZ_AS_OF } from "@/features/meta/constants";
 import { getSaisonFrame } from "@/features/saisons/queries";
 
@@ -27,10 +27,10 @@ function listed(saisons: readonly string[]): MetadataRoute.Sitemap {
   return rows
     .filter((row) => row.crawl === "index")
     .flatMap((row) => {
-      // A row's segments are typed by its own `path`; one taking a single segment takes the season.
-      const path = row.path as (...segments: string[]) => string;
-      if (path.length === 0) return [path()];
-      return path.length === 1 ? saisons.map((saison) => path(saison)) : [];
+      // A row taking a single segment takes the season.
+      const segments = segmentCount(row);
+      if (segments === 0) return [addressOf(row, "")];
+      return segments === 1 ? saisons.map((saison) => addressOf(row, saison)) : [];
     })
     .map((address) => ({
       url: `${SITE_URL}${address}`,

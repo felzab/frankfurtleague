@@ -1,6 +1,6 @@
 import { cache } from "react";
 
-import { ADDRESS_CHANGE_WAIT_DAYS } from "@/core/addressChange";
+import { ADDRESS_CHANGE_WAITING_PERIOD } from "@/core/addressChange";
 import { ACCOUNT_COPY } from "@/core/copy/account";
 import { COPY } from "@/core/copy/shared";
 import { dayOf, formatInstantShort } from "@/core/format";
@@ -123,7 +123,7 @@ async function newState(view: FLAddressChangeViewNew, token: string): Promise<Ma
     label: COPY.shared.emailAddress,
     email: view.email,
     sentence: WORDS.new.question,
-    ...(view.way === "waiting_period" ? { waits: WORDS.new.waits({ days: ADDRESS_CHANGE_WAIT_DAYS }) } : {}),
+    ...(view.way === "waiting_period" ? { waits: WORDS.new.waits(ADDRESS_CHANGE_WAITING_PERIOD) } : {}),
   });
 }
 

@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import { filesUnder } from "@/test-support/treeWalk";
 
-import { ROUTES } from "./routes";
+import { addressOf, ROUTES } from "./routes";
 
 import type { RouteEntry } from "./routes";
 
@@ -95,8 +95,7 @@ const PLACEHOLDER = "[]";
 /** Every address this tree answers at, a row's and a page's or route handler's, by where it is written. */
 function addresses(): { where: string; segments: string[] }[] {
   const rows = Object.entries(ROUTES as Record<string, RouteEntry>).map(([key, row]) => {
-    const build = row.path as (...segments: string[]) => string;
-    const address = build(...Array.from({ length: build.length }, () => PLACEHOLDER));
+    const address = addressOf(row, PLACEHOLDER);
     return { where: `ROUTES.${key}`, segments: address.split("/").filter((segment) => segment !== "") };
   });
   const files = filesUnder(APP, (name) => name === "page.tsx" || name === "route.ts", 40).map((file) => ({
