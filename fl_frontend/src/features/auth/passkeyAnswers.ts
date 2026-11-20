@@ -37,13 +37,20 @@ export const refusalCode = (refusal: ClientRefusal): string | undefined => (type
 const CEREMONY_ABORTED = "ERROR_CEREMONY_ABORTED";
 
 /**
- * A ceremony's refusal on the status line, or `null` for one no line reports. The refusal a retry would meet again, an
- * address holding no record of its own in the league or a barred one, is worded; a refused prompt, an authenticator
- * that did not verify its user and a backend that did not answer are one answer, the shared failure line.
+ * The browser's `NotAllowedError`, passed through by `@simplewebauthn/browser` under this code: a sheet the reader
+ * closed, which is no failure either, and with it a browser's timeout and an authenticator refusing to verify, which
+ * the library cannot tell apart from it.
+ */
+const PASSED_THROUGH = "ERROR_PASSTHROUGH_SEE_CAUSE_PROPERTY";
+
+/**
+ * A ceremony's refusal on the status line, or `null` for a cancelled one, which the reader, or the browser on their
+ * behalf, ended. The refusal a retry would meet again, an address holding no record of its own in the league or a
+ * barred one, is worded; every other, a backend that did not answer among them, is the shared failure line.
  */
 export function describeCeremonyRefusal(refusal: ClientRefusal): Copy | null {
   const code = refusalCode(refusal);
-  if (code === CEREMONY_ABORTED) return null;
+  if (code === CEREMONY_ABORTED || code === PASSED_THROUGH) return null;
   return code === SIGN_IN_REFUSED ? PUBLIC_COPY.signIn.refusal.noRecord : COPY.shared.failure.unexpected;
 }
 
