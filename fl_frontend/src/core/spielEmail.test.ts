@@ -3,6 +3,10 @@ import { describe, expect, it } from "vitest";
 const { mailFor } = await import("./mailKinds");
 const { ROUTES } = await import("./routes");
 const { COPY } = await import("./copy/shared");
+const { SERVER_COPY } = await import("./serverCopy");
+const { dayOf, formatDayAndTime, timeOf } = await import("./format");
+
+const WORDS = SERVER_COPY.mail.spiel;
 
 /** The origin the local stack serves from, which `docker-compose.local.yml` sets `AUTH_URL` to. */
 const ORIGIN = "http://localhost:3000";
@@ -131,37 +135,54 @@ describe("the notice of a move", () => {
    asked about by nobody. */
 describe("the notice of a match that will not be played", () => {
   const appointment = { team1: "Ernst-Reuter-Schule", team2: "Goethe-Gymnasium", date: "2026-11-20", time: "14:30:00" };
-  // What the event means for the result, in the match page's own sentence: a no-show counts for the side that turned up.
+  const day = dayOf(appointment.date);
+  const spiel = COPY.page.spiel({ record: appointment.team1 }, { record: appointment.team2 });
+  const when = { strong: formatDayAndTime(day, timeOf(appointment.time)) };
+  const { cancelled } = WORDS;
+  // A no-show counts for the side that turned up, in the match page's own sentence.
   const { consequence } = COPY.spielplan.sonderereignis;
   const events = [
-    { sonderereignis: "ausgefallen", subject: "Ausgefallen: Spiel am 20. November 2026", counted: consequence.notScored },
-    { sonderereignis: "annulliert", subject: "Annulliert: Spiel am 20. November 2026", counted: consequence.notScored },
+    {
+      sonderereignis: "ausgefallen",
+      subject: cancelled.ausgefallen.subject(day),
+      paragraph: [[cancelled.ausgefallen.before(spiel), when, cancelled.ausgefallen.after]],
+    },
+    {
+      sonderereignis: "annulliert",
+      subject: cancelled.annulliert.subject(day),
+      paragraph: [[cancelled.annulliert.before(spiel), when, cancelled.annulliert.after]],
+    },
     {
       sonderereignis: "nichtantreten_team1",
-      subject: "Nicht angetreten: Spiel am 20. November 2026",
-      counted: consequence.nichtantreten({ record: appointment.team2 }),
+      subject: cancelled.nichtantreten.subject(day),
+      paragraph: [
+        [cancelled.nichtantreten.before({ record: appointment.team1 }), when, cancelled.nichtantreten.after],
+        consequence.nichtantreten({ record: appointment.team2 }),
+      ],
     },
     {
       sonderereignis: "nichtantreten_team2",
-      subject: "Nicht angetreten: Spiel am 20. November 2026",
-      counted: consequence.nichtantreten({ record: appointment.team1 }),
+      subject: cancelled.nichtantreten.subject(day),
+      paragraph: [
+        [cancelled.nichtantreten.before({ record: appointment.team2 }), when, cancelled.nichtantreten.after],
+        consequence.nichtantreten({ record: appointment.team1 }),
+      ],
     },
   ] as const;
 
   it.each(events)(
-    "names $sonderereignis in its subject, counts the match as the match page does, and promises no request",
-    ({ sonderereignis, subject, counted }) => {
+    "names $sonderereignis in its subject and its one paragraph, and promises no request",
+    ({ sonderereignis, subject, paragraph }) => {
       for (const recipient of ["team", "schiedsrichter"] as const) {
         const mail = mailFor(
           "spiel_cancelled",
           { kind: "spiel_cancelled", recipient, appointment, sonderereignis },
           { token: null, secret: null, origin: ORIGIN },
         );
-        const text = JSON.stringify(mail);
 
         expect(mail?.subjectLine).toBe(subject);
-        expect(text.includes(counted)).toBe(true);
-        expect(text).not.toMatch(/neue (Anfrage|Einteilung)/);
+        expect(mail?.paragraphs).toStrictEqual([paragraph]);
+        expect(mail?.afterBlock).toBeUndefined();
       }
     },
   );

@@ -400,7 +400,6 @@ export const SERVER_COPY = catalogue({
       /** A club's proposal the league discarded, around the moment that stands. */
       keptSubject: (day: CalendarDay) => `Termin bleibt: Spiel am ${formatDateLong(day)}`,
       kept: { before: (spiel: Words) => `${textOf(spiel)} bleibt am\u00A0`, after: "." },
-      keptDiscarded: "Den Vorschlag deines Teams hat die Liga verworfen.",
     },
 
     /**
