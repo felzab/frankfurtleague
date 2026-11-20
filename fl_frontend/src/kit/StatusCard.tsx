@@ -20,8 +20,12 @@ type StatusTone = Exclude<ChipProps["tone"], "neutral">;
 
 const GLYPH: Readonly<Record<StatusTone, IconName>> = { success: "done", info: "info", warn: "warning", danger: "error" };
 
-/** A way on from an end: its label and its address, each per page in the catalogue. */
-type WayOn = { label: Copy; href: Route };
+/**
+ * A way on from an end: its label and its address, each per page in the catalogue. `fullPage` loads it as a whole
+ * document, for an error card leading to the address it stands at: Next clears an error boundary on a client
+ * navigation to another path alone, so a client one would leave the card standing.
+ */
+type WayOn = { label: Copy; href: Route; fullPage?: boolean };
 
 /**
  * One end state: its hue, its title, and its one way on; beneath it, where the end points to a page that says more,
@@ -89,6 +93,7 @@ export function StatusCardBody({
         placement="button"
         look="primary"
         label={next.label}
+        fullPage={next.fullPage}
       />
       {quiet !== undefined && (
         <Link
