@@ -64,8 +64,8 @@ stand in [section 11](#11-open-and-owed-a-decision). Other documents link sectio
   confirms their own entry through their own link and enters their own birthdate there. No
   administrative payload grants a consent choice; the one naming a choice, an administrator's entry
   of a withdrawal asked for by mail, withholds alone
-  (`fl_backend/app/shared/schemas/einwilligung.py :: FLEinwilligungWithdrawalPayload`). The one
-  write creating a player is a team's admission of the pupil's own confirmed registration
+  (`fl_backend/app/api/identity/schemas.py :: FLEinwilligungWithdrawalPayload`). The one write
+  creating a player is a team's admission of the pupil's own confirmed registration
   (`fl_backend/app/api/registrierungen/person_router.py :: admit`). There is no guardian workflow:
   the record names nobody else as its source
   (`fl_backend/app/api/spieler/schemas.py :: FLEinwilligung`).
@@ -93,14 +93,14 @@ stand in [section 11](#11-open-and-owed-a-decision). Other documents link sectio
   label, and on a withdrawal the grant it ended (`fl_backend/app/shared/einwilligung_evidence.py`).
   The labels are `fl_frontend/src/core/consentWordings.ts :: CONSENT_WORDINGS`' keys, each frozen
   with its words. Only the person's own act grants a choice or stamps evidence under a label. An
-  administrator's entry of a withdrawal the person asked for by mail
-  (`fl_backend/app/api/account/services.py :: withdraw_by_mail`) marks its evidence `via` `mail` in
-  a label's place, since the person read none of the league's words. No page of the administration
-  calls it, so a withdrawal by mail is answered as
+  administrator's entry of a withdrawal the person asked for by mail, on „Widerrufe“
+  (`fl_backend/app/api/account/services.py :: withdraw_at_address`), withholds the named choices on
+  every record the address holds and marks its evidence `via` `mail` in a label's place, since the
+  person read none of the league's words. It acts for the address the mail came from alone, and
   [`ops/runbooks.md`](ops/runbooks.md#5-when-somebody-asks-for-their-data-or-asks-us-to-change-it)
-  says. One paste, run with the deploy that first serves the current wordings, re-points every label
-  stored before it to its consent's current wording. A record stamped before that deploy therefore
-  names words its person may not have been shown, which is
+  is the procedure. One paste, run with the deploy that first serves the current wordings, re-points
+  every label stored before it to its consent's current wording. A record stamped before that deploy
+  therefore names words its person may not have been shown, which is
   [section 11](#11-open-and-owed-a-decision)'s first question. A label stamped since names the words
   its person saw.
 - **Some refusals are taken by the code alone**, each before anything is written. Whether any meets

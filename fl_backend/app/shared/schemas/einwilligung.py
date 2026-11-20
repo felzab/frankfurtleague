@@ -1,7 +1,7 @@
 from collections.abc import Mapping
-from typing import Annotated, Any, ClassVar, Final, Literal, TypeAliasType, get_args, get_origin
+from typing import Any, ClassVar, Final, Literal, TypeAliasType, get_args, get_origin
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from app.core.exceptions import rule_refusal
 from app.shared.einwilligung_evidence import CHOICES, FLEinwilligungChoice, TextVersions, is_given
@@ -225,13 +225,19 @@ class FLSeatEinwilligungPayload(BasePayload):
     evidence_state: FLEinwilligungStatePayload
 
 
-class FLEinwilligungWithdrawalPayload(BasePayload):
-    """The choices a person asked by mail to withdraw, which an administrator enters: it withholds and never grants."""
+# What a person withdraws by mail, in their words rather than a record's: the name on the website, the WhatsApp consent
+# and the media consent. An address holds records of several kinds, whose `scope` means the name on some and WhatsApp
+# on a seat, so a record's own two choices cannot say which the mail meant.
+type FLWithdrawalChoice = Literal["name", "whatsapp", "media"]
 
-    choices: Annotated[set[FLEinwilligungChoice], Field(min_length=1)]
-
-
-# What a withdrawal sets each choice to: on a pupil's, a referee's and a registration's own record, and on a seat, whose
-# withheld scope is the acknowledgement alone.
-WITHHELD_BY_A_PERSON: Final[Mapping[FLEinwilligungChoice, FLEinwilligungScope | bool]] = {"scope": "internal", "media": False}
-WITHHELD_ON_A_SEAT: Final[Mapping[FLEinwilligungChoice, FLKontaktKenntnisnahmeScope | bool]] = {"scope": "kontakt_data", "media": False}
+# Each withdrawal choice as the record choice it withholds and the value it sets there: on a pupil's, a referee's and a
+# registration's own record, and on a seat, whose withheld scope is the acknowledgement alone. A choice a kind holds no
+# consent for is absent, and withholds nothing there.
+WITHHELD_BY_A_PERSON: Final[Mapping[FLWithdrawalChoice, tuple[FLEinwilligungChoice, FLEinwilligungScope | bool]]] = {
+    "name": ("scope", "internal"),
+    "media": ("media", False),
+}
+WITHHELD_ON_A_SEAT: Final[Mapping[FLWithdrawalChoice, tuple[FLEinwilligungChoice, FLKontaktKenntnisnahmeScope | bool]]] = {
+    "whatsapp": ("scope", "kontakt_data"),
+    "media": ("media", False),
+}

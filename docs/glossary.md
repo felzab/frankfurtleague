@@ -505,6 +505,7 @@ tree its fixtures are drawn as.\
 | `aufnehmen`                 | In code `admit` ([its entry](#aufnehmen--admit--a-team-taking-one-registered-pupil-into-its-squad))                                                                                                         |
 | `Berechtigung`              | In code `grant` ([its entry](#berechtigung--grant--one-addresss-access-to-the-verwaltung-stored))                                                                                                           |
 | `Löschung`                  | In code `erasure` ([its entry](#löschung--erasure--deleting-what-the-league-holds-about-a-person-on-a-request-or-by-the-season-after-rule))                                                                 |
+| `Widerruf`                  | In code `withdrawal`, on screen „Widerrufe“ the page entering one by mail ([its entry](#widerruf--withdrawal--a-person-taking-back-a-consent-on-konto-or-by-mail))                                          |
 | `Postausgang`               | In code `outbox`, the collection too ([its entry](#postausgang--outbox--every-mail-the-league-owes-one-row-per-recipient))                                                                                  |
 | `Sperrliste`                | In code `ban_list` ([its entry](#sperrliste--ban_list--the-addresses-barred-from-signing-in-and-from-the-leagues-mail))                                                                                     |
 | `Bestätigung`               | In code `confirmation` ([its entry](#bestätigung--confirmation--one-persons-own-answer-to-their-own-link-and-the-bookkeeping-beside-it-on-a-seat-a-registration-or-a-referee))                              |
@@ -564,6 +565,14 @@ the season-after rule's hourly pass deletes a pupil's own data once none of it s
 season.\
 **In code:** `fl_backend/app/api/identity/crud.py :: erase_everything`, the rule's run
 `fl_backend/app/api/identity/system_router.py :: sweep_erasure`.
+
+### `Widerruf` · `withdrawal` — a person taking back a consent, on Konto or by mail
+
+**Is:** the withholding of a consent choice its person gave, by their own press on Konto's „Deine
+Einträge“ or, asked for by mail, by an administrator's entry on „Widerrufe“, which withholds on
+every record the address holds. It never grants.\
+**In code:** `fl_backend/app/api/account/services.py :: press_own_einwilligung` and
+`:: withdraw_at_address`; the page `fl_frontend/src/core/routes.ts :: ROUTES.adminWithdrawals`.
 
 ### `Postausgang` · `outbox` — every mail the league owes, one row per recipient
 

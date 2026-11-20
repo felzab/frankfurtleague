@@ -2030,20 +2030,42 @@ export interface FLEinwilligung {
   scope: FLEinwilligungScope;
 }
 
-export type FLEinwilligungWithdrawalPayloadChoicesItem =
-  (typeof FLEinwilligungWithdrawalPayloadChoicesItem)[keyof typeof FLEinwilligungWithdrawalPayloadChoicesItem];
+export type FLWithdrawalChoice = (typeof FLWithdrawalChoice)[keyof typeof FLWithdrawalChoice];
 
-export const FLEinwilligungWithdrawalPayloadChoicesItem = {
-  scope: "scope",
+export const FLWithdrawalChoice = {
+  name: "name",
+  whatsapp: "whatsapp",
   media: "media",
 } as const;
 
 /**
- * The choices a person asked by mail to withdraw, which an administrator enters: it withholds and never grants.
+ * The address a mail came from and what it withdraws, which an administrator enters: it withholds and never grants.
+ *
+ * The address is the erasure's, as both answer a mailed request for every record the address holds.
  */
 export interface FLEinwilligungWithdrawalPayload {
   /** @minItems 1 */
-  choices: FLEinwilligungWithdrawalPayloadChoicesItem[];
+  choices: FLWithdrawalChoice[];
+  /**
+   * Its domain, after the last `@`, in ASCII alone, an international one in punycode; else `email_not_accepted`.
+   * @maxLength 254
+   * @pattern @
+   */
+  email: string;
+}
+
+/**
+ * Per kind of record at the address, the choices the entry ends there, empty where it ends none.
+ *
+ * By kind and never by record, so the confirmation names no person, as the erasure's counts name none. A choice no
+ * record of a kind grants is absent from it, a second mail's included.
+ */
+export interface FLEinwilligungWithdrawalReport {
+  bewerbung_seats: FLWithdrawalChoice[];
+  kontakt_seats: FLWithdrawalChoice[];
+  registrierungen: FLWithdrawalChoice[];
+  schiedsrichter: FLWithdrawalChoice[];
+  spieler: FLWithdrawalChoice[];
 }
 
 /**
@@ -5569,6 +5591,11 @@ export type FailureResponse = FLFailureBody;
 
 export type BewerbungenGetBewerbungenAdminParams = {
   saison_id: string;
+};
+
+export type IdentityPostWithdrawalParams = {
+  /** Report what this entry would end, and write nothing */
+  dry_run?: boolean;
 };
 
 export type SaisonsGetSweepSaisonsParams = {
