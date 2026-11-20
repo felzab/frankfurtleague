@@ -45,10 +45,11 @@ export class UnreadGrantError extends Error {
 }
 
 export class APIBadStatusError extends Error {
-  traceId: string;
-  statusCode: number;
-  serverErrorCode?: Code;
-  refusedFields: readonly FLRefusedField[];
+  override name = "APIBadStatusError";
+  readonly traceId: string;
+  readonly statusCode: number;
+  readonly serverErrorCode?: Code;
+  readonly refusedFields: readonly FLRefusedField[];
 
   constructor({
     message,
@@ -65,7 +66,6 @@ export class APIBadStatusError extends Error {
   }) {
     super(message);
 
-    this.name = "APIBadStatusError";
     this.traceId = traceId;
     this.statusCode = statusCode;
     this.serverErrorCode = serverErrorCode;
@@ -147,13 +147,13 @@ export class ContractBreakError extends Error {
 }
 
 export class APINetworkError extends Error {
-  traceId: string;
+  override name = "APINetworkError";
+  readonly traceId: string;
 
   constructor({ message, traceId, originalError }: { message: string; traceId: string; originalError?: unknown }) {
     // The failure `fetch` threw, as the standard cause: the one place it appears in the error Next prints.
     super(message, { cause: originalError });
 
-    this.name = "APINetworkError";
     this.traceId = traceId;
   }
 }
@@ -185,9 +185,10 @@ export function requestOf(error: unknown): { status?: number; server_error_code?
 const TRANSIENT_CONFLICTS: ReadonlySet<string> = new Set(["concurrent_idempotent_requests", "resource_locked"]);
 
 export class MailSendError extends Error {
-  traceId: string;
-  statusCode: number;
-  providerErrorName?: string;
+  override name = "MailSendError";
+  readonly traceId: string;
+  readonly statusCode: number;
+  readonly providerErrorName?: string;
 
   /**
    * Whether a second attempt could land. By the status for a rate limit, a quota and an outage, which the reference
@@ -213,7 +214,6 @@ export class MailSendError extends Error {
   }) {
     super(message);
 
-    this.name = "MailSendError";
     this.traceId = traceId;
     this.statusCode = statusCode;
     this.providerErrorName = providerErrorName;
