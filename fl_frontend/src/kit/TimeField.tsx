@@ -34,7 +34,7 @@ export function TimeField({
   defaultValue?: TimeOfDay | null;
   onChange?: (time: TimeOfDay | null) => void;
 }) {
-  const lock = useFieldLock(false, false, isRequired);
+  const lock = useFieldLock(false, isRequired);
   return (
     <AriaTimeField<Time>
       className={fieldRoot()}
@@ -45,7 +45,6 @@ export function TimeField({
       hourCycle={24}
       shouldForceLeadingZeros
       isRequired={lock.isRequired}
-      isDisabled={lock.isDisabled}
       isReadOnly={lock.isReadOnly}>
       <FieldLabel
         label={label}

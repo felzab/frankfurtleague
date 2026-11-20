@@ -174,7 +174,7 @@ export function TextField(props: TextFieldProps) {
     );
   const unit = fieldUnit({ holds: props.holds });
   const unitId = useId();
-  const lock = useFieldLock(isDisabled, isLocked, isRequired);
+  const lock = useFieldLock(isLocked, isRequired);
 
   return (
     <AriaTextField
@@ -187,7 +187,7 @@ export function TextField(props: TextFieldProps) {
       onChange={props.onChange}
       isRequired={lock.isRequired}
       validate={judgeOf(kind, lock.isRequired)}
-      isDisabled={lock.isDisabled}
+      isDisabled={isDisabled}
       isReadOnly={lock.isReadOnly}
       maxLength={maxLength}
       minLength={minLength}

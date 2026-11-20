@@ -29,7 +29,7 @@ export function Switch({
   isSelected?: boolean;
   onChange?: (isSelected: boolean) => void;
 }) {
-  const lock = useFieldLock(isDisabled, isLocked);
+  const lock = useFieldLock(isLocked);
   return (
     <SwitchField
       inert={useFieldWait()}
@@ -37,7 +37,7 @@ export function Switch({
       name={name}
       isSelected={isSelected}
       onChange={onChange}
-      isDisabled={lock.isDisabled}
+      isDisabled={isDisabled}
       isReadOnly={lock.isReadOnly}>
       <SwitchButton className={toggleRow({ in: "field" })}>
         {({ isSelected: selected }) => (

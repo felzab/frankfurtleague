@@ -53,7 +53,7 @@ export function Select({
   defaultValue?: string | null;
   onChange?: (id: string | null) => void;
 }) {
-  const lock = useFieldLock(isDisabled, isLocked, isRequired);
+  const lock = useFieldLock(isLocked, isRequired);
   const frame = {
     width: holds === undefined ? "standard" : "short",
     holds,
@@ -61,7 +61,7 @@ export function Select({
     inset: "start",
     layout: "trigger",
   } as const;
-  if (lock.isReadOnly && !lock.isDisabled) {
+  if (lock.isReadOnly && !isDisabled) {
     const chosen = options.find((option) => option.id === (value === undefined ? defaultValue : value));
     return (
       <ChosenField
@@ -86,7 +86,7 @@ export function Select({
       // Every option's id is a string, so the key handed back is one.
       onChange={onChange && ((key) => onChange(key === null ? null : String(key)))}
       isRequired={lock.isRequired}
-      isDisabled={lock.isDisabled}
+      isDisabled={isDisabled}
       // Nothing while none is chosen, as an empty text field shows nothing: no field has a placeholder,
       // and React Aria's own, „Element wählen“, is words outside the catalogue.
       placeholder="">

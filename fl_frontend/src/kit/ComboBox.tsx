@@ -71,7 +71,7 @@ export function ComboBox({
   const [chosen, setChosen] = useState<string | null>(null);
   const chosenLabel = options.find((option) => option.id === (value === undefined ? chosen : value))?.label;
   const shown = chosenLabel === undefined ? "" : textOf(chosenLabel);
-  const lock = useFieldLock(isDisabled, isLocked, isRequired);
+  const lock = useFieldLock(isLocked, isRequired);
   return (
     <AriaComboBox
       inert={useFieldWait()}
@@ -89,7 +89,7 @@ export function ComboBox({
       }}
       onInputChange={setText}
       isRequired={lock.isRequired}
-      isDisabled={lock.isDisabled}
+      isDisabled={isDisabled}
       isReadOnly={lock.isReadOnly}>
       {!labelHidden && (
         <FieldLabel

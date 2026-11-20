@@ -72,7 +72,7 @@ export function Segmented({
   onChange?: (id: string) => void;
   labelHidden?: boolean;
 }) {
-  const lock = useFieldLock(false, false, isRequired);
+  const lock = useFieldLock(false, isRequired);
   return (
     <RadioGroup
       inert={useFieldWait()}
@@ -84,7 +84,6 @@ export function Segmented({
       isRequired={lock.isRequired}
       // Only while refused: a stated `false` would hide the browser's own check, which React Aria then never shows.
       isInvalid={errorMessage === undefined ? undefined : true}
-      isDisabled={lock.isDisabled}
       isReadOnly={lock.isReadOnly}>
       {!labelHidden && (
         <FieldLabel
@@ -134,7 +133,7 @@ export function ToggleBoxes({
   value?: readonly string[];
   onChange?: (ids: string[]) => void;
 }) {
-  const lock = useFieldLock(false, false, isRequired);
+  const lock = useFieldLock(false, isRequired);
   return (
     <CheckboxGroup
       inert={useFieldWait()}
@@ -144,7 +143,6 @@ export function ToggleBoxes({
       isRequired={lock.isRequired}
       // Only while refused, as `Segmented`'s.
       isInvalid={errorMessage === undefined ? undefined : true}
-      isDisabled={lock.isDisabled}
       isReadOnly={lock.isReadOnly}>
       <FieldLabel
         label={label}
