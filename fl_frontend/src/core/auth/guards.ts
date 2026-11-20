@@ -89,8 +89,8 @@ export type AdminRefusal = "signIn" | "noGrant" | "grantGone" | "unread";
 
 /**
  * The actor a guard records for this request, as the backend reads it beside the admin key. `null`
- * where the session cannot be stated truthfully: no address to fold, an unreadable creation stamp, or
- * a factor this league does not mint; the guard then answers no session.
+ * where the session cannot be stated truthfully: an unreadable creation stamp, or a factor this league
+ * does not mint; the guard then answers no session.
  */
 export function requestActorOf(
   served: { readonly user: { readonly email: string }; readonly session: { readonly createdAt: Date | string; readonly authFactor?: unknown } },
@@ -100,7 +100,7 @@ export function requestActorOf(
   const authTime = Math.floor(new Date(served.session.createdAt).getTime() / 1000);
   const factor = served.session.authFactor;
 
-  if (email === "" || !Number.isFinite(authTime)) return null;
+  if (!Number.isFinite(authTime)) return null;
   if (factor !== PASSKEY_FACTOR && factor !== CODE_FACTOR) return null;
 
   return { email, lane, authTime, factor };

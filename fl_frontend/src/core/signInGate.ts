@@ -24,23 +24,9 @@ export const lookUpSubject = cache((email: string): Promise<SubjectSession["reco
   // has opened the request's scope, and a call outside one is filed under a trace no edge line carries. Inside a
   // scope already open, an action's or the render's, the read joins it rather than opening another; but the wrapper
   // reads the request first, which Next refuses in an `after()` a render scheduled and in a scheduler pass, which
-  // serves no request, so neither may call this.
-  runWithIncomingTrace(async () => {
-    // In the body and on no query parameter: a URL carrying an address reaches the edge's access
-    // line, which nothing downstream un-logs.
-    const answer = await identityGetSubject({ email });
-
-    // Field by field rather than the body: the generated call types the answer and parses nothing, so the body
-    // would carry into the session whatever else the backend ever answered.
-    return {
-      seats: answer.seats,
-      spieler: answer.spieler,
-      schiedsrichter: answer.schiedsrichter,
-      unconfirmed: answer.unconfirmed,
-      admin_tier: answer.admin_tier,
-      granted_since: answer.granted_since,
-    };
-  }),
+  // serves no request, so neither may call this. The address goes in the body and on no query parameter: a URL
+  // carrying one reaches the edge's access line, which nothing downstream un-logs.
+  runWithIncomingTrace(() => identityGetSubject({ email })),
 );
 
 /** What the sign-in gate decides on for one mailbox: its two record flags, its ban and its grant. */
@@ -51,13 +37,10 @@ export type SignInRecords = FLSignInResponse;
  * own read rather than the subject's: only a sign-in pays for the two collections `account` reads beyond the subject's
  * three.
  */
-export const lookUpSignIn = cache(async (email: string): Promise<SignInRecords> => {
+export const lookUpSignIn = cache(
   // In the body: a URL carrying an address reaches the edge's access line.
-  const answer = await identityGetSignIn({ email });
-
-  // Field by field: the generated call parses nothing, so the body would carry whatever else the backend answered.
-  return { unconfirmed: answer.unconfirmed, account: answer.account, barred: answer.barred, admin_tier: answer.admin_tier };
-});
+  (email: string): Promise<SignInRecords> => identityGetSignIn({ email }),
+);
 
 /**
  * Why a sign-in is or is not offered; `admitted` alone is offered one. A sender that answers the

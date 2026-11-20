@@ -41,15 +41,10 @@ const judgeSubjectSession = cache(async (): Promise<{ subject: SubjectSession; a
   // the cap does not exist.
   if (!served || !isWithinPersonLifetime(served.session)) return null;
 
-  // One spelling per person, and none to fold is no session: the address as the session holds it
-  // names a second mailbox to the join, the actor and the log alike.
-  const email = served.user.email ? asSignInIdentifier(served.user.email) : "";
+  // One spelling per person: the address as the session holds it names a second mailbox to the join,
+  // the actor and the log alike.
+  const email = asSignInIdentifier(served.user.email);
 
-  // The library types this address as a string and the adapter answers whatever the row held, so an
-  // empty one is refused here rather than at the endpoint, which answers 422.
-  if (email === "") return null;
-
-  // The records and the grant, never the parsed body.
   const records = await lookUpSubject(email);
 
   // Built here rather than at the write: a person's route refuses a request naming no session.
