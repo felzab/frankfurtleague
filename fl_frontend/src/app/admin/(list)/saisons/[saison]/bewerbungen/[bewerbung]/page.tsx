@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 
+import { getAdminHolder } from "@/core/auth/guards";
 import { ADMIN_COPY } from "@/core/copy/admin";
 import { COPY } from "@/core/copy/shared";
 import { dayOf, formatDate, formatNumber } from "@/core/format";
@@ -11,6 +12,7 @@ import { seatsOf } from "@/features/bewerbungen/seats";
 import { STANDING_CHIP, standingOf, TEAM_DOUBLE } from "@/features/bewerbungen/standing";
 import { trikotFarbeLabel } from "@/features/teams/constants";
 import { SeatActs } from "@/features/teams/SeatActs";
+import { seatRow } from "@/features/teams/seatRow";
 import { Button } from "@/kit/Button";
 import { Link } from "@/kit/Link";
 import { ReadPage } from "@/kit/ReadPage";
@@ -19,7 +21,7 @@ import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
 
 import { AcceptDialog, DeclineDialog } from "./DecisionDialogs";
-import { sendSeatLink, writeSeat } from "./writeSeat";
+import { sendBewerbungSeatLink, writeBewerbungSeat } from "./writeSeat";
 
 import type { Copy, Words } from "@/core/copy";
 import type { FLBewerbung, FLBewerbungSchule, FLBewerbungSingleResponse } from "@/core/generated/client/types";
@@ -167,17 +169,11 @@ function actsOf(read: FLBewerbungSingleResponse, standing: Standing) {
  * A person's row: nobody's on an emptied seat, and its acts while the application stands undecided, its season not yet
  * finished, and the seat can take them. A finished season's application takes no seat write and mails no link.
  */
-function seatRowsOf(bewerbung: FLBewerbung, finished: boolean): SeatRow[] {
-  return seatsOf(bewerbung).map(({ seat, seats, person, state, chips, day }) => {
-    const row = {
-      id: seat,
-      name: person === null ? COPY.team.seatEmpty : { record: `${person.first_name} ${person.last_name}` },
-      muted: person === null,
-      chips,
-      line: { record: COPY.team.seatLine(seats, person?.email ?? null, day) },
-    };
+function seatRowsOf(bewerbung: FLBewerbung, finished: boolean, holder: string): SeatRow[] {
+  return seatsOf(bewerbung, finished).map(({ seat, seats, person, state, chips, day }) => {
+    const row = { id: seat, ...seatRow(seats, person, day), chips };
     if (bewerbung.status !== "submitted" || finished || state === "erased") return row;
-    const link = state === "valid" || state === "expired" ? { send: sendSeatLink, seat: { bewerbung_id: bewerbung.id, seat } } : null;
+    const link = state === "valid" || state === "expired" ? { send: sendBewerbungSeatLink, seat: { bewerbung_id: bewerbung.id, seat } } : null;
     return {
       ...row,
       acts: (
@@ -185,8 +181,9 @@ function seatRowsOf(bewerbung: FLBewerbung, finished: boolean): SeatRow[] {
           seats={seats}
           person={person}
           rules={SEAT_RULES}
-          write={writeSeat}
+          write={writeBewerbungSeat}
           carry={{ id: bewerbung.id, seat, version: String(bewerbung.version) }}
+          holder={holder}
           link={link}
         />
       ),
@@ -195,7 +192,7 @@ function seatRowsOf(bewerbung: FLBewerbung, finished: boolean): SeatRow[] {
 }
 
 async function readRecord(params: Props["params"]): Promise<ReadRecord> {
-  const read = await findBewerbung(params);
+  const [read, holder] = await Promise.all([findBewerbung(params), getAdminHolder()]);
   if (read === null) notFound();
   const { bewerbung, name } = read;
   const standing = standingOf({ status: bewerbung.status, seats_confirmed: read.seats_confirmed });
@@ -213,7 +210,7 @@ async function readRecord(params: Props["params"]): Promise<ReadRecord> {
               title: COPY.team.kontakte,
               kind: "seats" as const,
               label: COPY.team.kontakte,
-              rows: seatRowsOf(bewerbung, read.saison.status === "past"),
+              rows: seatRowsOf(bewerbung, read.saison.status === "past", holder),
             },
           ]),
       ...(bewerbung.schule === null ? [] : [{ title: FACTS.school, kind: "facts" as const, facts: schoolFacts(bewerbung.schule) }]),

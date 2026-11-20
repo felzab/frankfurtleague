@@ -1,6 +1,7 @@
 import { cache } from "react";
 import { notFound } from "next/navigation";
 
+import { SCHIEDSRICHTER_WORDINGS } from "@/core/consentWordings";
 import { ADMIN_COPY } from "@/core/copy/admin";
 import { COPY } from "@/core/copy/shared";
 import { dayOf, formatDate } from "@/core/format";
@@ -27,6 +28,7 @@ import type { Metadata, ResolvingMetadata } from "next";
 type Props = PageProps<"/admin/schiedsrichter/[schiedsrichter]">;
 
 const WORDS = ADMIN_COPY.schiedsrichter;
+const CONSENT = ADMIN_COPY.einwilligung;
 
 const read = cache(getSchiedsrichterById);
 
@@ -71,10 +73,20 @@ function standingOf({ schiedsrichter: { state, einwilligung, confirmation } }: F
   }
 }
 
+/** A confirmed referee's two answers, the name's in the words of the option chosen, as the pupil's editor shows a pupil's. */
+function answerFacts({ schiedsrichter: { einwilligung } }: FLSchiedsrichterSingleResponse): Fact[] {
+  if (einwilligung === null) return [];
+  return [
+    { label: CONSENT.nameOnSite, value: { record: SCHIEDSRICHTER_WORDINGS.scope.options[einwilligung.scope] } },
+    { label: CONSENT.media, value: einwilligung.media ? CONSENT.yes : CONSENT.no },
+  ];
+}
+
 /**
- * The Bestätigung's facts: where it stands, and the day the last link went, a fresh one replacing it; the address and
- * the phone stand in their own fields above, each reached from there. An entry never asked has neither, and no such
- * block stands for it; once one holds a value both rows stand, the other a dash.
+ * The Bestätigung's facts: where it stands, and the day the last link went, a fresh one replacing it, then what a
+ * confirmed referee answered; the address and the phone stand in their own fields above, each reached from there. An
+ * entry never asked has none of them, and no such block stands for it; once one holds a value both first rows stand,
+ * the other a dash.
  */
 function confirmationFacts(read: FLSchiedsrichterSingleResponse): Fact[] {
   const standing = standingOf(read);
@@ -88,6 +100,7 @@ function confirmationFacts(read: FLSchiedsrichterSingleResponse): Fact[] {
       value: sent === null ? COPY.shared.noValue : { record: formatDate(dayOf(sent)) },
       figures: true,
     },
+    ...answerFacts(read),
   ];
 }
 

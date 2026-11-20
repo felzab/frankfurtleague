@@ -1,7 +1,7 @@
 import { COPY } from "@/core/copy/shared";
 import { dayOf } from "@/core/format";
 import { KONTAKT_SEATS, seatBesideTrainer } from "@/features/teams/constants";
-import { CONFIRMED_CHIP, ERASED_CHIP, EXPIRED_CHIP, NOT_SENT_CHIP, OBJECTED_CHIP, UNCONFIRMED_CHIP } from "@/kit/stateChips";
+import { CONFIRMED_CHIP, ERASED_CHIP, EXPIRED_CHIP, NOT_SENT_CHIP, OBJECTED_CHIP, outOfPlayChip, UNCONFIRMED_CHIP } from "@/kit/stateChips";
 
 import { deliveryChip } from "./deliveryState";
 
@@ -51,8 +51,9 @@ function dayOfState({ status, kontakte }: FLBewerbung, seat: FLKontaktSeat, entr
 /**
  * The application's people, the Trainer first. One person holding two seats (`trainer_is_also`) stands once, on the
  * Trainer's row, as a club's seats do: the seat write and the re-send reach both from either, and one answer covers both.
+ * A link never sent is out of play once the season is `past`, as the applications list draws it: nobody can send it.
  */
-export function seatsOf(bewerbung: FLBewerbung): SeatView[] {
+export function seatsOf(bewerbung: FLBewerbung, past: boolean): SeatView[] {
   const { kontakte, confirmations } = bewerbung;
   const also = seatBesideTrainer(kontakte);
   return KONTAKT_SEATS.filter((seat) => seat !== also).map((seat) => {
@@ -60,7 +61,8 @@ export function seatsOf(bewerbung: FLBewerbung): SeatView[] {
     // An erasure clears the entry, which is all that parts it from the empty seat a Widerspruch leaves.
     const state = entry?.state ?? "erased";
     const day = entry === null ? null : dayOfState(bewerbung, seat, entry);
-    const delivery = entry?.sent_at === null ? NOT_SENT_CHIP : deliveryChip(entry?.delivery ?? null);
+    const unsent = past ? outOfPlayChip(NOT_SENT_CHIP) : NOT_SENT_CHIP;
+    const delivery = entry?.sent_at === null ? unsent : deliveryChip(entry?.delivery ?? null);
     return {
       seat,
       seats: seat === "trainer" && also !== null ? [seat, also] : [seat],

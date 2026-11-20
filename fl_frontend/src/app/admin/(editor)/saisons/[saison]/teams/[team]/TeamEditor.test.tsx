@@ -78,6 +78,7 @@ describe("the exit dialog's „E-Mail an“", () => {
         rules={TEAM_SAVE_RULES}
         descriptionMax={TEAM_DESCRIPTION_MAX}
         seatRules={SEAT_RULES}
+        holder="admin@example.org"
         austrittRules={AUSTRITT_RULES}
         retirement={{ kind: "retire" }}
         row={ROW}
