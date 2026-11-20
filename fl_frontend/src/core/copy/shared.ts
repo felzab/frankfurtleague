@@ -115,7 +115,7 @@ export const COPY = catalogue({
       accessGone: "Dein Zugang zur Verwaltung besteht nicht mehr.",
     },
     /** An act the passkey touch guards, sent without a passkey sign-in of the last minute by a person holding one. */
-    touchMissing: "Die Bestätigung mit deinem Passkey fehlt.",
+    touchMissing: "Die Freigabe mit deinem Passkey fehlt.",
 
     saved: "Gespeichert",
     retired: "Stillgelegt",
@@ -345,7 +345,7 @@ export const COPY = catalogue({
      * The bot check's one answer a person can act on, its click shown or its judgement against the token; a check that
      * did not load, mint or reach Cloudflare is the unexpected failure.
      */
-    botCheck: "Die Bestätigung, dass du ein Mensch bist, fehlt.",
+    botCheck: "Die Prüfung, dass du ein Mensch bist, fehlt.",
   },
 
   /** Each page's own name, keyed by its `ROUTES` key; a name several pages share is one entry, keyed by its noun. */
