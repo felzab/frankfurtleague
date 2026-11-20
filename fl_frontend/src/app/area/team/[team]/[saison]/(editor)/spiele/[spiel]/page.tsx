@@ -91,7 +91,6 @@ async function readEditor(params: Props["params"]) {
   return (
     <TeamAufstellung
       team={seat.team_id}
-      saison={seat.saison_id}
       title={matchTitle(found.spiel.team1?.name ?? null, found.spiel.team2?.name ?? null)}
       {...(chip === undefined ? {} : { chip })}
       lead={leadOf(found)}

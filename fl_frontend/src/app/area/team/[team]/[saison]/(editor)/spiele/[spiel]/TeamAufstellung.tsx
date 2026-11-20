@@ -11,12 +11,11 @@ import type { ChipProps } from "@/kit/Chip";
 import type { PageTitle } from "@/kit/RailFrame";
 
 /**
- * The line-up's editor at the team's address: its save claims the seat at the club and the season the page was read
- * for, which the shared editor does not know.
+ * The line-up's editor at the team's address: its save names the club the page was read for, which the shared editor
+ * does not know.
  */
 export function TeamAufstellung({
   team,
-  saison,
   title,
   chip,
   lead,
@@ -24,7 +23,6 @@ export function TeamAufstellung({
   ...editing
 }: Omit<AufstellungEditing, "save"> & {
   team: string;
-  saison: string;
   title: PageTitle;
   chip?: ChipProps;
   /** The fixture as the line under the title states it: when it is played, and when the line-up is due. */
@@ -34,7 +32,7 @@ export function TeamAufstellung({
 }) {
   const { editor, barText, block } = useAufstellungEditor({
     ...editing,
-    save: (change) => saveAufstellung({ ...change, team_id: team, saison_id: saison }),
+    save: (change) => saveAufstellung({ ...change, team_id: team }),
   });
   return (
     <EditorPage

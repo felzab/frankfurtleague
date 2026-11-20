@@ -24,7 +24,7 @@ const invalid = (code, messageId, filename = ACTIONS) => ({ code, filename, opti
 tester.run("fl/server-action", serverAction, {
   valid: [
     valid(inModule('export const create = action({ lane: "admin", name: "create", input, run });')),
-    valid(inModule('export const melden = action({ lane: "person", claim: "seat", name: "melden", input, run });')),
+    valid(inModule('export const melden = action({ lane: "person", claim: "record", name: "melden", input, run });')),
     valid(inModule('export const send = action({ lane: "public", botCheck: true, name: "send", input, run });')),
     valid(
       inModule(

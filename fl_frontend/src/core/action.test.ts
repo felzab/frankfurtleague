@@ -6,7 +6,6 @@ import { networkFailure, refusal, serveBackend, serveHost } from "@/test-support
 import { cacheCalls } from "@/test-support/nextRequest";
 import { signedInRequest } from "@/test-support/session";
 import { captureLog } from "@/test-support/stdoutCapture";
-import { seat } from "@/test-support/subjectFixtures";
 
 import { COPY } from "./copy/shared";
 import { SERVER_COPY } from "./serverCopy";
@@ -143,16 +142,14 @@ describe("the admin lane", () => {
   });
 });
 
-const Seat = z.object({ team_id: z.string().min(1), saison_id: z.string().min(1) });
-
 describe("the person lane", () => {
   const register = action({
     lane: "person",
-    claim: "seat",
+    claim: "record",
     name: "melden",
-    input: Seat,
-    run: async (_input, { seats }) => {
-      ran.push(`body ${String(seats.length)}`);
+    input: z.object({ team_id: z.string().min(1), saison_id: z.string().min(1) }),
+    run: async () => {
+      ran.push("body");
       return { ok: true, value: undefined };
     },
   });
@@ -185,26 +182,6 @@ describe("the person lane", () => {
     });
     expect(ran).toStrictEqual([]);
     expect(log.lines().filter(({ message }) => message === "action.failed")).toStrictEqual([]);
-  });
-
-  it.each([
-    ["in another season", { team_id: "t1", saison_id: "2026" }],
-    ["at another team in the same season", { team_id: "t2", saison_id: "2027" }],
-  ])("refuses a seat the person holds %s, naming nothing of the address", async (_where, held) => {
-    await arriveAs({ email: PERSON, records: { seats: [seat(held)] } });
-    // The arrival's own sign-in line is not the refusal's.
-    log.clear();
-
-    expect(await register({ team_id: "t1", saison_id: "2027" })).toStrictEqual({ ok: false, reason: COPY.shared.failure.stale });
-    expect(ran).toStrictEqual([]);
-    const lines = log.lines();
-    expect(lines.map(({ level, message, fields }) => [level, message, fields])).toStrictEqual([
-      ["INFO", "roles.refused", { operation: "melden", reason: "no_seat" }],
-    ]);
-    for (const { error, raw } of lines) {
-      expect(error, "an error reached the line").toBe(undefined);
-      assert.ok(!carriesAnAddress(raw), `the address reached the line: ${raw}`);
-    }
   });
 });
 

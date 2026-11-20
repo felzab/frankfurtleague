@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { serveBackend } from "@/test-support/backend";
+import { COPY } from "@/core/copy/shared";
+import { refusal, serveBackend } from "@/test-support/backend";
 import { signedInRequest } from "@/test-support/session";
 import { seat } from "@/test-support/subjectFixtures";
 
@@ -48,14 +49,17 @@ const STORED: FLAufstellungResponse = {
   marks: null,
 };
 
+const LINEUP = `/aufstellungen/spiele/${SPIEL}/teams/${TEAM}`;
+
 // The merge's read and the write, each answered only at the line-up of the match and the club the case names: a save
 // reaching for another club's line-up goes unanswered and fails the case.
 const backend = serveBackend(({ method, path }) => {
-  if (path !== `/aufstellungen/spiele/${SPIEL}/teams/${TEAM}`) return undefined;
+  if (path !== LINEUP) return undefined;
   if (method === "GET") return STORED;
   return method === "PUT" ? { version: 4 } : undefined;
 });
-// A person holding seats on two clubs of the season, so a save sent for the wrong one would pass the seat's claim.
+// A person holding seats on two clubs of the season, either of which the backend admits, so only the club the save
+// names keeps it to the line-up it was pressed for.
 signedInRequest({
   email: "pia@example.org",
   records: { seats: [seat({ team_id: TEAM, saison_id: "2027" }), seat({ team_id: OTHER_TEAM, saison_id: "2027" })] },
@@ -67,13 +71,13 @@ describe("a line-up's save", () => {
   // The write takes the line-up whole: sent for another match or club it would write that line-up, and the half the
   // editor did not change left out would empty it, each answered „Gespeichert“.
   it("writes the line-up of the match and the club it names, whole, the starters it changed over the pupils as stored", async () => {
-    const answer = await saveAufstellung({ team_id: TEAM, saison_id: "2027", id: SPIEL, version: 3, changes: { starters: [ONE] } });
+    const answer = await saveAufstellung({ team_id: TEAM, id: SPIEL, version: 3, changes: { starters: [ONE] } });
 
     expect(backend.sent.map(({ path, method, body }) => ({ path, method, body }))).toStrictEqual([
       // The merge reads the line-up of the same match and club it writes, of the two clubs the person holds seats on.
-      { path: `/aufstellungen/spiele/${SPIEL}/teams/${TEAM}`, method: "GET", body: undefined },
+      { path: LINEUP, method: "GET", body: undefined },
       {
-        path: `/aufstellungen/spiele/${SPIEL}/teams/${TEAM}`,
+        path: LINEUP,
         method: "PUT",
         // In shirt-number order, on the version the editor read.
         body: {
@@ -86,5 +90,17 @@ describe("a line-up's save", () => {
       },
     ]);
     expect(answer).toStrictEqual({ ok: true, value: 4 });
+  });
+
+  // The harm: a seat ended since the page was read, which the backend judges inside the save, answered as a crash
+  // rather than as the page gone stale, whose reload shows the club closed to the person.
+  it("answers a seat the backend no longer finds as a stale page", async () => {
+    backend.answerWith(({ path }) => (path === LINEUP ? refusal("role_not_held", { status: 403 }) : undefined));
+
+    expect(await saveAufstellung({ team_id: TEAM, id: SPIEL, version: 3, changes: { starters: [ONE] } })).toStrictEqual({
+      ok: false,
+      errorCode: "role_not_held",
+      reason: COPY.shared.failure.stale,
+    });
   });
 });
