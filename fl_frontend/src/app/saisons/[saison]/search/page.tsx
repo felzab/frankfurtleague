@@ -63,7 +63,7 @@ export default function SpielSearchPage({ params }: Props) {
       head={{ scope: "saison", title: { route: "spielSearch" } }}
       list={{
         kind: "spiele",
-        search: { label: COPY.page.spielSearch },
+        search: { label: COPY.shared.search(COPY.page.spiele) },
         content: readMatches(params).then((matches) => ({
           matches: matches.map(({ spiel, spieltag }) => ({ row: matchRowOf(spiel), words: wordsOf(spiel, spieltag) })),
           empty: { kind: "none", plural: COPY.page.spiele, glyph: "search" },

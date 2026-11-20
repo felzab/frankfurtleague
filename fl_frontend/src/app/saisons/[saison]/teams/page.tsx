@@ -55,7 +55,7 @@ export default function TeamsPage({ params, searchParams }: Props) {
       filters={season.then(({ filter }) => [filter])}
       list={{
         kind: "tiles",
-        search: { label: COPY.page.teams },
+        search: { label: COPY.shared.search(COPY.page.teams) },
         content: season.then(({ saison, teams, filter }) => ({
           tiles: teams
             .filter((team) => filter.value === null || team.gruppe === filter.value)
