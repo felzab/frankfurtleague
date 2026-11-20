@@ -121,6 +121,36 @@ describe("a form asking its question over what the press read", () => {
     });
   });
 
+  // The harm: a passkey touch asked for an act off its fixed list, such as a withdrawal entered from a mail.
+  it("runs an act off the touch's list inside its question, asking no touch", async () => {
+    acts.act.mockResolvedValue({ ok: true, value: undefined, note: COPY.admin.erased });
+    renderUnderNext(
+      <QuestionForm
+        verb="delete"
+        tone="danger"
+        touch={false}
+        read={acts.read}
+        act={acts.act}
+        holder={HOLDER}>
+        <TextField
+          label={COPY.signIn.address}
+          name="email"
+          kind="email"
+        />
+      </QuestionForm>,
+    );
+    await userEvent.type(box(), ADDRESS);
+    await userEvent.click(screen.getByRole("button", { name: VERB }));
+    await userEvent.click(within(await screen.findByRole("alertdialog", { name: QUESTION })).getByRole("button", { name: VERB }));
+
+    expect(await screen.findByText(COPY.admin.erased)).toBeTruthy();
+    expect(acts.act).toHaveBeenCalledWith({ email: ADDRESS, holder: HOLDER });
+    expect(acts.touch).not.toHaveBeenCalled();
+    await waitFor(() => {
+      expect(screen.queryAllByRole("alertdialog")).toStrictEqual([]);
+    });
+  });
+
   // The harm: a refused erasure's address gone, so the repeat that reaches the account left standing is typed anew.
   it("toasts an act's refusal, its boxes kept, and the form's press runs the act again", async () => {
     acts.act.mockResolvedValue({ ok: false, reason: COPY.admin.erasure.partial });

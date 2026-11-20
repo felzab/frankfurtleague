@@ -16,7 +16,7 @@ const WORDS = COPY.admin.withdrawal;
 /** The choices in the boxes' order, each box posting under the choice's own name. */
 const CHOICES = ["name", "whatsapp", "media"] as const satisfies readonly FLWithdrawalChoice[];
 
-/** The rows the confirmation can show, in the order it shows them, each kind named as the erasure's counts name it. */
+/** The kinds of record a fact's value can name, in the order it names them, each as the erasure's counts name it. */
 const KINDS = [
   [COPY.shared.spieler, "spieler"],
   [COPY.shared.schiedsrichter, "schiedsrichter"],
@@ -36,16 +36,20 @@ const WithdrawalForm = z.object({
   media: ticked,
 });
 
-/** Only the kinds the entry ends something on, each with the choices it ends there. */
+/**
+ * One row per choice the entry ends anywhere, labelled as its box is, with the kinds it ends on: a row per kind would
+ * list choices, and the „und“ inside „Fotos und Videos“ would blur where one ends.
+ */
 const factsOf = (report: FLEinwilligungWithdrawalReport): Fact[] =>
-  KINDS.filter(([, kind]) => report[kind].length > 0).map(([label, kind]) => ({
-    label,
-    value: WORDS.ended(report[kind].map((choice) => WORDS.choice[choice])),
-  }));
+  CHOICES.flatMap((choice) => {
+    const kinds = KINDS.filter(([, kind]) => report[kind].includes(choice)).map(([label]) => label);
+    return kinds.length === 0 ? [] : [{ label: WORDS.choice[choice], value: WORDS.ended(kinds) }];
+  });
 
 /**
- * What the entry would end at the address, by kind and never by name, read from its dry run at the form's press. No box
- * ticked refuses before anything is read, and an address granting none of the ticked choices refuses with no question.
+ * What the entry would end at the address, by choice and kind and never by name, read from its dry run at the form's
+ * press. No box ticked refuses before anything is read, and an address granting none of the ticked choices refuses with
+ * no question.
  */
 export const readWithdrawal = action({
   lane: "admin",

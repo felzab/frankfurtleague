@@ -12,6 +12,7 @@ import CircleX from "lucide-react/icons/circle-x";
 import ClipboardList from "lucide-react/icons/clipboard-list";
 import Clock from "lucide-react/icons/clock";
 import Ellipsis from "lucide-react/icons/ellipsis";
+import EyeOff from "lucide-react/icons/eye-off";
 import FileText from "lucide-react/icons/file-text";
 import Goal from "lucide-react/icons/goal";
 import GraduationCap from "lucide-react/icons/graduation-cap";
@@ -142,6 +143,8 @@ const GLYPHS = {
   administrators: Shield,
   banList: Ban,
   erasures: Trash,
+  // A consent withdrawn by mail, drawn as what it mostly withholds: a name or a photo no longer shown.
+  withdrawals: EyeOff,
   // An e-mail address: the administration's address changes, and the league's own on the question door and Kontakt.
   email: Mail,
   log: ScrollText,

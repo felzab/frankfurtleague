@@ -52,6 +52,7 @@ const RAIL_GROUPS: RailGroup[] = [
       },
       { id: "banList", label: ROUTES.adminBanList.title, href: ROUTES.adminBanList.path(), icon: "banList" },
       { id: "erasures", label: ROUTES.adminErasures.title, href: ROUTES.adminErasures.path(), icon: "erasures" },
+      { id: "withdrawals", label: ROUTES.adminWithdrawals.title, href: ROUTES.adminWithdrawals.path(), icon: "withdrawals" },
       {
         id: "addressChanges",
         label: ROUTES.adminAddressChanges.title,
