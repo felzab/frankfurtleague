@@ -1,7 +1,7 @@
 import { loggedAt } from "./clock";
 import { getRequestTraceId } from "./requestScope";
 
-type Level = "DEBUG" | "INFO" | "WARNING" | "ERROR" | "CRITICAL";
+type Level = "INFO" | "WARNING" | "ERROR" | "CRITICAL";
 
 export type LogMeta = Record<string, unknown>;
 
@@ -36,7 +36,6 @@ function log(level: Level, message: string, { trace_id, error, ...fields }: LogM
 }
 
 export const logger = {
-  debug: (message: string, meta?: LogMeta) => log("DEBUG", message, meta),
   info: (message: string, meta?: LogMeta) => log("INFO", message, meta),
   warn: (message: string, meta?: LogMeta) => log("WARNING", message, meta),
   error: (message: string, error?: unknown, meta?: LogMeta) => log("ERROR", message, { ...meta, error }),
