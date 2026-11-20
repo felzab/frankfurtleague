@@ -30,7 +30,7 @@ export function EinteilungActs({
       <PressAct
         variant="primary"
         label={COPY.shared.verb.agree}
-        act={agreeEinteilung}
+        run={agreeEinteilung}
         payload={{ id }}
         done={COPY.shared.toast.agreed}
       />
@@ -40,7 +40,7 @@ export function EinteilungActs({
         // A refusal is the dialog's destroying act: the red fill every destroying press takes.
         tone="danger"
         lead={spiel}
-        action={declineEinteilung}
+        run={declineEinteilung}
         carry={{ id }}
         trigger={{ label: COPY.shared.verb.decline }}>
         {children}

@@ -356,7 +356,7 @@ export function Lineup({ players, value, nameless, onChange, startersMax, words,
                           aria-describedby={line === null ? undefined : lineId}
                           isSelected={starts}
                           isDisabled={locked !== undefined || player.gone !== undefined}
-                          locked={isOpenTick}
+                          columnFull={isOpenTick}
                           onChange={(isSelected) => tick(player, isSelected)}
                         />
                       </td>

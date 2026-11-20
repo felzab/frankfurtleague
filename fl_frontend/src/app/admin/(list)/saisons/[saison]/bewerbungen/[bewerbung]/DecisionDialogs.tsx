@@ -21,7 +21,7 @@ export function AcceptDialog({ id, version, children }: Decided & { children: Re
     <Dialog
       title={COPY.shared.withObject(OBJECT, "accept")}
       act={{ verb: "accept" }}
-      action={acceptBewerbung}
+      run={acceptBewerbung}
       carry={{ id, version: String(version) }}
       trigger={{ label: COPY.shared.verb.accept, variant: "primary" }}>
       {children}
@@ -38,7 +38,7 @@ export function DeclineDialog({ id, version, required, max }: Decided & { requir
       act={{ verb: "decline" }}
       // A refusal is the dialog's destroying act: the red fill every destroying press takes.
       tone="danger"
-      action={declineBewerbung}
+      run={declineBewerbung}
       carry={{ id, version: String(version) }}
       trigger={{ label: COPY.shared.verb.decline }}>
       <TextField

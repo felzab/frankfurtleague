@@ -70,7 +70,7 @@ async function readCreate(read: ReturnType<typeof getAdminSaisons>): Promise<Lis
   return {
     title: COPY.shared.withObject(name, "create"),
     act: { verb: "create", object: name },
-    action: createSaison,
+    run: createSaison,
     // Read oldest first, the order `getAdminSaisons` asks for.
     children: (
       <CreateFields

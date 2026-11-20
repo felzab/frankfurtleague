@@ -15,7 +15,7 @@ import { tv } from "./tv";
 import type { Copy } from "@/core/copy";
 import type { ReactNode } from "react";
 
-type Act = { label: Copy; onPress: () => void; isBusy?: boolean; isDisabled?: boolean };
+type Press = { label: Copy; onPress: () => void; isBusy?: boolean; isDisabled?: boolean };
 
 /** What every view says first: its heading, and the one line under its acts for what went wrong. */
 type Head = {
@@ -39,9 +39,9 @@ type AddressView = Head & {
   /** The bot check guarding the send, standing before it as Cloudflare's example places it. */
   check: ReactNode;
   /** The send, handed the address the press left in the field. */
-  send: Omit<Act, "onPress"> & { onPress: (address: string) => void };
+  send: Omit<Press, "onPress"> & { onPress: (address: string) => void };
   or: Copy;
-  passkey: Act;
+  passkey: Press;
 };
 
 type CodeView = Head & {
@@ -59,7 +59,7 @@ type CodeView = Head & {
     isDisabled: boolean;
     onComplete: (code: string) => void;
   };
-  back: Act;
+  back: Press;
 };
 
 /** A passkey view: one sentence, the address, one primary press; the offer adds „Später“ as the quiet button. */
@@ -68,8 +68,8 @@ type PasskeyView = Head & {
   sentence: Copy;
   /** The account the passkey belongs to: data, not catalogue text. */
   address: string;
-  go: Act;
-  later?: Act;
+  go: Press;
+  later?: Press;
 };
 
 export type SignInView = AddressView | CodeView | PasskeyView;

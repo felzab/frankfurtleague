@@ -66,7 +66,7 @@ const rowOf = (ban: FLBanListRow, holder: string): TableRow => {
           { label: COPY.signIn.address, value: { record: ban.address, address: true } },
           { label: COPY.admin.spiel.reason, value: { record: ban.ban_reason } },
         ]}
-        act={liftBan}
+        run={liftBan}
         id={ban.id}
         holder={holder}
       />
@@ -95,7 +95,7 @@ export default function BanListPage() {
       create={holder.then((address) => ({
         title: ENTER,
         act: { verb: "enter", object: WORDS.object },
-        action: enterBan,
+        run: enterBan,
         consequence: WORDS.consequence,
         facts: [{ label: WORDS.duration, value: WORDS.durationSaisons(BAN_DURATION_SAISONS) }],
         touch: { holder: address },

@@ -57,7 +57,7 @@ export function AppointmentDialog({
     <Dialog
       title={TITLE}
       act={ACT}
-      action={save}
+      run={save}
       trigger={{ label: TITLE }}>
       <FieldPair>
         <DateField

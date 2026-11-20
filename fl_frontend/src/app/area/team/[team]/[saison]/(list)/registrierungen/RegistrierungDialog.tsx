@@ -61,7 +61,7 @@ export function RegistrierungDialog({ entry, open }: { entry: RegistrierungEntry
       title={{ record: name }}
       {...(notes === undefined ? {} : { lead: notes })}
       act={{ verb: "admit" }}
-      action={(formData) => admitted(entry, formData)}
+      run={(formData) => admitted(entry, formData)}
       {...(admission.kind === "locked" ? { locked: admission.reason } : {})}
       open={open}
       danger={{

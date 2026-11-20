@@ -40,7 +40,7 @@ export default function SpielortePage() {
       create={{
         title: COPY.shared.withObject(WORDS.object, "create"),
         act: { verb: "create", object: WORDS.object },
-        action: createSpielort,
+        run: createSpielort,
         children: <SpielortFields rules={SPIELORT_RULES} />,
       }}
       list={{ kind: "table", search: { label: WORDS.search }, head: HEAD, content: readSpielorte() }}

@@ -46,7 +46,7 @@ export function DeclineDialog({
       // A refusal is the dialog's destroying act: the red fill every destroying press takes.
       tone="danger"
       lead={spiel}
-      action={declineSpielbestaetigung}
+      run={declineSpielbestaetigung}
       carry={{ id }}
       consequence={COPY.area.team.declineConsequence}
       trigger={{ label: COPY.shared.verb.decline }}>

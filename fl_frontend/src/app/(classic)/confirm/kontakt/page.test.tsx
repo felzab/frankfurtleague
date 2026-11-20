@@ -80,7 +80,7 @@ describe("a closed row's link", () => {
     } as const;
     expect(await stateFor(closed)).toMatchObject({
       state: "question",
-      action: objectKontakt,
+      run: objectKontakt,
       acts: { refusal: { verb: "oppose" } },
     });
   });

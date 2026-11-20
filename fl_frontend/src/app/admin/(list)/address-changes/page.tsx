@@ -136,7 +136,7 @@ export default function AddressChangesPage() {
       create={read.then(({ changes, holder }): ListCreate => ({
         title: START,
         act: { verb: "enter", object: COPY.account.address.change },
-        action: startLostMailboxChange,
+        run: startLostMailboxChange,
         consequence: WORDS.startConsequence({ days: ADDRESS_CHANGE_WAIT_DAYS }),
         facts: [{ label: COPY.admin.facts.mailTo, value: COPY.admin.mailTo.bothAddresses }],
         touch: { holder },

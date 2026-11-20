@@ -50,7 +50,7 @@ export function ZusageDialog({
     <Dialog
       title={TITLE}
       act={ACT}
-      action={enter}
+      run={enter}
       trigger={{ label: TITLE }}>
       <Segmented
         label={WORDS.zusageFrom}

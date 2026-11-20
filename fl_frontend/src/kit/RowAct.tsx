@@ -24,7 +24,7 @@ export function RowAct({
   subject,
   consequence,
   facts,
-  act,
+  run,
   id,
   holder,
   locked,
@@ -34,7 +34,7 @@ export function RowAct({
   consequence: Copy;
   facts: ReadonlyArray<Fact>;
   /** The server action, which takes the row's record and the address the page was drawn for. */
-  act: (input: { id: string; holder: string }) => Promise<ActionAnswer>;
+  run: (input: { id: string; holder: string }) => Promise<ActionAnswer>;
   id: string;
   holder: string;
   /** Why the act cannot run on this row, such as on the reader's own: its button or its entry says so, and asks nothing. */
@@ -62,7 +62,7 @@ export function RowAct({
         facts={facts}
         tone="danger"
         touch={{ holder }}
-        onConfirm={() => act({ id, holder })}
+        onConfirm={() => run({ id, holder })}
         open={{ isOpen: isAsking, onOpenChange: setAsking }}
         transition={acting}
       />

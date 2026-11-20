@@ -44,7 +44,7 @@ export type DialogAct<T extends Tone = Tone> = {
   title: Words;
   act: ActWords<Verb>;
   /** The server action doing the act, reading the form's fields by their `name`s. */
-  action: (formData: FormData) => Promise<ActionAnswer>;
+  run: (formData: FormData) => Promise<ActionAnswer>;
   /** The act's inputs: the kit's fields. */
   children: ReactNode;
   /** The record the act is about, posted beside the inputs under these names, as a mailed form carries its key. */
@@ -72,7 +72,7 @@ export type DialogAct<T extends Tone = Tone> = {
   | {
       act: ActWords<TouchVerb>;
       /**
-       * The passkey touch the act's button asks ahead of `action`, for an act on its fixed list a person holding a
+       * The passkey touch the act's button asks ahead of `run`, for an act on its fixed list a person holding a
        * passkey presses: the address the page was drawn for, which the form posts as `holder` (`usePasskeyTouch`). The
        * press closes the dialog for good before the browser asks, and the act answers in a toast, a refusal in a
        * sentence of its own, since no field stands to carry a field's phrase, the dialog's opening button standing

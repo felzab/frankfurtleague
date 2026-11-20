@@ -305,7 +305,7 @@ export function TeamEditor({
             title: WORDS.austrittAct,
             act: { verb: "remove" },
             tone: "danger",
-            action: recordAustritt,
+            run: recordAustritt,
             carry: { team_id: team, saison_id: saison, type: route },
             children: (
               <>

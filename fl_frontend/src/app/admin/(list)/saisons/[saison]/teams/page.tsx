@@ -133,7 +133,7 @@ async function readCreate(list: Promise<FLTeamsAdminListResponse>, params: Props
   return {
     title: COPY.shared.withObject(TEAM, ACT.verb),
     act: ACT,
-    action: enterTeam,
+    run: enterTeam,
     carry: { saison_id: saison },
     children: (
       <TeamEntryFields

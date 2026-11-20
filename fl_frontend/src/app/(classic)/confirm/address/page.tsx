@@ -154,7 +154,7 @@ function question({
     facts: [{ label, value: { record: email, address: true } }],
     sentence,
     ...(waits === undefined ? {} : { sentenceAfter: waits }),
-    action: answerAddressChange,
+    run: answerAddressChange,
     acts: {
       primary: title,
       // Either side's decline ends the change, so the account keeps the address it has.
@@ -174,7 +174,7 @@ function stop({ email, effective_from: effectiveFrom }: FLAddressChangeViewPrevi
     title: COPY.account.address.stop,
     facts,
     sentence: WORDS.previous.question,
-    action: stopAddressChange,
+    run: stopAddressChange,
     acts: { primary: COPY.account.address.stop },
     carry: { token },
   };

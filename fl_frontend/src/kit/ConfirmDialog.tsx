@@ -120,7 +120,7 @@ type HeldAct = {
   transition?: ActTransition;
 };
 
-type Act = {
+type Confirming = {
   /**
    * Does the act. The dialog closes once it has run, unless the act answers with a refusal, such as a venue still
    * booked, or throws, as a lost answer does: the dialog then stays open with the refusal in its status line beside
@@ -147,16 +147,16 @@ type Touch =
     };
 
 /** A question as the part asking it is handed it, before that part opens it its own way: its words and its act. */
-export type ConfirmQuestion = ConfirmWords & Act & Touch;
+export type ConfirmQuestion = ConfirmWords & Confirming & Touch;
 
-type ConfirmDialogProps<T extends Tone> = ConfirmWords & { tone: T } & Act & Touch & Opening<T>;
+type ConfirmDialogProps<T extends Tone> = ConfirmWords & { tone: T } & Confirming & Touch & Opening<T>;
 
 /**
  * A held question its holder has not asked yet, such as the save bar's before any save was held back: mounted closed
  * from the first render, as a held dialog must be, it takes no words, having none to say. A touch's holder mounts the
  * sign-in client's chunk with it, ahead of the question it will ask.
  */
-type Unasked = Act &
+type Unasked = Confirming &
   HeldAct & { touch?: Holder; doneShown?: never; open: HeldOpen; trigger?: never; control?: never } & {
     [Word in keyof ConfirmWords]?: never;
   };

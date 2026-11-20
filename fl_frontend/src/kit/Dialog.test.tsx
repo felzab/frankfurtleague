@@ -31,7 +31,7 @@ function CreateDialog({ create, locked }: { create: (formData: FormData) => Prom
     <Dialog
       title={NAME}
       act={{ verb: "create", object: NAME }}
-      action={create}
+      run={create}
       locked={locked}
       trigger={{ label: COPY.shared.verb.create }}>
       <TextField
@@ -156,7 +156,7 @@ function HeldDialog() {
       <Dialog
         title={NAME}
         act={{ verb: "create", object: NAME }}
-        action={async () => DONE}
+        run={async () => DONE}
         open={{ isOpen, onOpenChange: setOpen }}>
         <TextField
           label={INPUT}
@@ -291,7 +291,7 @@ function RecordDialog({ save, end }: { save: (formData: FormData) => Promise<Act
     <Dialog
       title={NAME}
       act={{ verb: "save" }}
-      action={save}
+      run={save}
       danger={{
         name: COPY.shared.withObject(NAME, "deregister"),
         consequence: COPY.admin.spielort.retireConsequence,

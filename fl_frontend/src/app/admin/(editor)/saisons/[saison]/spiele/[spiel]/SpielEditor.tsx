@@ -335,7 +335,7 @@ export function SpielEditor({
               <Dialog
                 title={COPY.shared.withObject(ORT.object, "create")}
                 act={{ verb: "create", object: ORT.object }}
-                action={createSpielort}
+                run={createSpielort}
                 open={{ isOpen: creating, onOpenChange: setCreating }}>
                 <SpielortFields
                   rules={spielortRules}

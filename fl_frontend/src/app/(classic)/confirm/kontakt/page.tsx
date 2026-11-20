@@ -101,7 +101,7 @@ function closedRow(view: FLBewerbungEinwilligungViewSaisonPast, token: string): 
       WORDS.objectionEffect.seasonRow,
     ),
     more: WORDS.more,
-    action: objectKontakt,
+    run: objectKontakt,
     acts: { refusal: objection(WORDS.objectionEffect.seasonRow) },
     carry: { token },
   };
@@ -131,7 +131,7 @@ function question(view: FLBewerbungEinwilligungViewValid, token: string, until: 
           WORDS.objectionEffect.application,
         ),
     more: WORDS.more,
-    action: answerKontakt,
+    run: answerKontakt,
     acts: {
       primary: COPY.page.entryConfirmation,
       refusal: objection(onSeasonRow ? WORDS.objectionEffect.seasonRow : WORDS.objectionEffect.application),
