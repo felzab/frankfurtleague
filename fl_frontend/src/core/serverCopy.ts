@@ -1336,8 +1336,10 @@ export const SERVER_COPY = catalogue({
   registrierungConfirmation: {
     opening: (team: Words, saison: string) =>
       `Du hast dich über den Link von ${textOf(team)} für den Kader in der ${COPY.shared.saisonNameBound(saison)} registriert.`,
+    // Admitted, the pupil's data stands on their squad rows, which the erasure sweep keeps until the season after the
+    // last: the privacy notice's „Kader und Aufstellungen“ row in its own words.
     stored:
-      "Wir speichern deinen Namen, deine E-Mail-Adresse, dein Geburtsdatum und, wenn du sie angegeben hast, Trikotnummer, Position und Stufe, längstens bis zum Ende der Saison danach.",
+      "Wir speichern deinen Namen, deine E-Mail-Adresse, dein Geburtsdatum und, wenn du sie angegeben hast, Trikotnummer, Position und Stufe, längstens bis zum Ende der Saison nach deiner letzten im Kader.",
     ageCheck,
     deadline: (until: CalendarDay) => runsText(registrationDeadline(formatDateLong(until))),
     more,
