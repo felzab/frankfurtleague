@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, use, useContext, useEffect, useState } from "react";
+import { createContext, use, useContext, useEffect, useState, useSyncExternalStore } from "react";
 import { useParams, usePathname } from "next/navigation";
 
 import { useTheme } from "next-themes";
@@ -323,6 +323,8 @@ async function signOutAndLeave() {
   appToast("danger", COPY.shared.failure.unexpected);
 }
 
+const neverChanges = () => () => undefined;
+
 /** The themes as next-themes names them, each by its glyph, in the order the owner set: dark, light, system. */
 const THEMES: readonly GlyphChoice[] = [
   { id: "dark", glyph: "dark", label: COPY.template.theme.dark },
@@ -335,13 +337,20 @@ const THEMES: readonly GlyphChoice[] = [
  * glyphs, each named by its tooltip, acting at once.
  */
 export function ThemeChoice() {
-  // The theme next-themes holds, unknown until the page hydrates, so none is chosen before.
   const { theme, setTheme } = useTheme();
+  // The server cannot read the theme next-themes stores in the browser, so its markup marks none, and a hydrating render
+  // marking the stored one is a mismatch React does not repair: the page opened by its address showed none chosen. The
+  // hydrating render draws what the server drew, and the render after marks the stored theme, the glyphs unmoved.
+  const hydrated = useSyncExternalStore(
+    neverChanges,
+    () => true,
+    () => false,
+  );
   return (
     <GlyphChoices
       label={COPY.page.accountAppearance}
       choices={THEMES}
-      value={theme ?? null}
+      value={hydrated ? (theme ?? null) : null}
       onChange={setTheme}
     />
   );
