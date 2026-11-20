@@ -148,6 +148,7 @@ describe("the match editor's answers", () => {
     state: FLSpielbestaetigungEditorRow["state"],
     fields: Partial<FLSpielbestaetigungEditorRow> = {},
   ): FLSpielbestaetigungEditorRow => ({
+    id: "64b000000000000000000010",
     party: { kind: "team", team_id: TEAM1 },
     ansetzung,
     due_by: "2026-11-10",
@@ -155,6 +156,8 @@ describe("the match editor's answers", () => {
     asked_at: "2026-11-03",
     answer: null,
     state,
+    enterable: false,
+    vorschlag_open: null,
     ...fields,
   });
   const agreement = {

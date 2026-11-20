@@ -12864,7 +12864,7 @@
         "type": "object"
       },
       "FLSpielbestaetigungEditorRow": {
-        "description": "A confirmation row as the match editor reads it, and the state it stands in, a closed row's included.\n\nNever `vorschlag`, which only a club's own page tells: an open row reads `valid` while its party may still answer.",
+        "description": "A confirmation row as the match editor reads it, the state it stands in, a closed row's included, and the league's acts it takes.\n\nNever `vorschlag`, which only a club's own page tells: an open row reads `valid` while its party may still answer.",
         "properties": {
           "ansetzung": {
             "$ref": "#/components/schemas/FLSpielbestaetigungAppointment"
@@ -12894,6 +12894,15 @@
           "due_by": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
             "title": "Due By",
+            "type": "string"
+          },
+          "enterable": {
+            "title": "Enterable",
+            "type": "boolean"
+          },
+          "id": {
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Id",
             "type": "string"
           },
           "lapsed_on": {
@@ -12938,18 +12947,88 @@
             ],
             "title": "State",
             "type": "string"
+          },
+          "vorschlag_open": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielbestaetigungEditorVorschlag"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
+          "id",
           "party",
           "ansetzung",
           "asked_at",
           "answer",
           "state",
           "due_by",
-          "lapsed_on"
+          "lapsed_on",
+          "enterable",
+          "vorschlag_open"
         ],
         "title": "FLSpielbestaetigungEditorRow",
+        "type": "object"
+      },
+      "FLSpielbestaetigungEditorVorschlag": {
+        "description": "A club's decline proposing another date and hour, neither adopted nor discarded, and whom each act on it mails.\n\nEach recipient by the name its own record holds, as the Übersicht names them: `adoption_recipients` those the\nconfirmation pass tells of the move, `discard_recipients` the club the discard tells the date stands.",
+        "properties": {
+          "adoption_recipients": {
+            "items": {
+              "discriminator": {
+                "mapping": {
+                  "schiedsrichter": "#/components/schemas/FLSpielRecipientSchiedsrichter",
+                  "team": "#/components/schemas/FLSpielRecipientTeam"
+                },
+                "propertyName": "kind"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/FLSpielRecipientTeam"
+                },
+                {
+                  "$ref": "#/components/schemas/FLSpielRecipientSchiedsrichter"
+                }
+              ]
+            },
+            "title": "Adoption Recipients",
+            "type": "array"
+          },
+          "discard_recipients": {
+            "items": {
+              "discriminator": {
+                "mapping": {
+                  "schiedsrichter": "#/components/schemas/FLSpielRecipientSchiedsrichter",
+                  "team": "#/components/schemas/FLSpielRecipientTeam"
+                },
+                "propertyName": "kind"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/FLSpielRecipientTeam"
+                },
+                {
+                  "$ref": "#/components/schemas/FLSpielRecipientSchiedsrichter"
+                }
+              ]
+            },
+            "title": "Discard Recipients",
+            "type": "array"
+          },
+          "vorschlag": {
+            "$ref": "#/components/schemas/FLSpielbestaetigungAppointment"
+          }
+        },
+        "required": [
+          "vorschlag",
+          "adoption_recipients",
+          "discard_recipients"
+        ],
+        "title": "FLSpielbestaetigungEditorVorschlag",
         "type": "object"
       },
       "FLSpielbestaetigungEnterPayload": {
