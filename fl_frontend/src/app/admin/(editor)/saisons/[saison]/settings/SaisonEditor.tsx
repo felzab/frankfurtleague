@@ -25,7 +25,7 @@ import type { ActionAnswer } from "@/core/action";
 import type { Copy, LockReason } from "@/core/copy";
 import type { CalendarDay } from "@/core/format";
 import type { FLSpielplanShape } from "@/core/generated/client/types";
-import type { SaisonRequired } from "@/features/saisons/required";
+import type { SaisonRequired } from "@/features/saisons/fieldRules";
 import type { ChipProps } from "@/kit/Chip";
 import type { DangerAct, EditorPart } from "@/kit/EditorPage";
 import type { Option } from "@/kit/OptionList";

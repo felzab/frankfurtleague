@@ -7,8 +7,8 @@ import { DateField } from "@/kit/DateField";
 import { FieldRows } from "@/kit/FieldRows";
 
 import type { CalendarDay } from "@/core/format";
+import type { SaisonCreateRequired } from "@/features/saisons/fieldRules";
 import type { NextSaison } from "@/features/saisons/nextSaison";
-import type { SaisonCreateRequired } from "@/features/saisons/required";
 
 const WORDS = ADMIN_COPY.saison;
 

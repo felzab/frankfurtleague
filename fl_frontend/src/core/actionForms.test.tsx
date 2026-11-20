@@ -276,7 +276,7 @@ describe("each form's posted names meet its lane's keys", () => {
     ["a listed school's", [{ id: "team", name: "Schule" }]],
   ])("carries every box of %s application into its body", async (_, schulen) => {
     const { applicationOf } = await import("@/app/(classic)/bewerbung/[saison]/application");
-    const { BEWERBUNG_RULES } = await import("@/app/(classic)/bewerbung/[saison]/bewerbungRules");
+    const { BEWERBUNG_RULES } = await import("@/app/(classic)/bewerbung/[saison]/fieldRules");
     const { BewerbungFields } = await import("@/app/(classic)/bewerbung/[saison]/BewerbungFields");
     const names = namesIn(
       <BewerbungFields

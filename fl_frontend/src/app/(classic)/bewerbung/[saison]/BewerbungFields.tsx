@@ -20,7 +20,7 @@ import { NO_SECOND_SEAT, SEATS } from "./application";
 
 import type { FLBewerbungSchuleOption, FLKontaktSeat, FLSchulform, FLTrikotFarbe } from "@/core/generated/client/types";
 import type { Option } from "@/kit/OptionList";
-import type { BewerbungRules } from "./bewerbungRules";
+import type { BewerbungRules } from "./fieldRules";
 
 const { team, shared } = COPY;
 const { bewerbung } = PUBLIC_COPY;
