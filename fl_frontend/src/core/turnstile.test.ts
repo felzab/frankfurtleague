@@ -129,6 +129,10 @@ describe("an answer that is no judgement of the token", () => {
     ],
     ["a 200 whose body is no JSON", () => new Response("<html>", { status: 200 }), 1, { status: 200, name: "SyntaxError" }],
     ["a 200 whose body is of another shape", () => json({ ok: true }), 1, { status: 200, name: "UnreadableAnswer" }],
+    // Cloudflare's page documents these codes and no status for them: today they come at 400, the rows above.
+    ...["missing-input-secret", "invalid-input-secret", "bad-request"].map(
+      (code) => [`a 200 naming ${code}`, judged([code]), 1, { status: 200, codes: code }] as const,
+    ),
     ["internal-error twice", judged(["internal-error"]), 2, { status: 200, codes: "internal-error" }],
   ];
 

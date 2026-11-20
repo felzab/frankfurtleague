@@ -21,6 +21,13 @@ const TOKEN_MAX_LENGTH = 2048;
 /** Cloudflare's own failure, which its page answers with "Retry the request", once. */
 const THEIRS = "internal-error";
 
+/**
+ * The codes naming our secret or our request rather than the token, which its page answers with checking the secret or
+ * the request. The page documents these codes and no status for them, so they judge no token whatever status carries
+ * them.
+ */
+const OURS: ReadonlySet<string> = new Set(["missing-input-secret", "invalid-input-secret", "bad-request"]);
+
 /** Every field but these two is ignored: the widget sets no action, and a site key's hostnames are the dashboard's. */
 const SiteverifyAnswerSchema = z.object({ success: z.boolean(), "error-codes": z.array(z.string()).default([]) });
 
@@ -52,12 +59,13 @@ async function ask(request: string, signal: AbortSignal): Promise<Answer> {
   const answer = SiteverifyAnswerSchema.safeParse(body);
   // A line leaves out a field it has no value for.
   const codes = answer.success && answer.data["error-codes"].length > 0 ? answer.data["error-codes"].join(", ") : undefined;
-  // Only a 200 judges the token: a 4xx is Cloudflare refusing our request, naming a wrong secret or a malformed request
+  // Only a 200 can judge the token: a 4xx is Cloudflare refusing our request, naming a wrong secret or a malformed request
   // in its codes, or declining to judge it, as a 429 does; a 5xx is its failing.
   if (status !== 200) return { unanswered: { status, codes }, theirs: false };
   if (!answer.success) return { unanswered: { status, name: "UnreadableAnswer" }, theirs: false };
 
   const { success, "error-codes": judged } = answer.data;
+  if (judged.some((code) => OURS.has(code))) return { unanswered: { status, codes }, theirs: false };
   // Alone, Cloudflare's own failure judges nothing; beside any other code, the token was judged.
   const theirs = !success && judged.length > 0 && judged.every((code) => code === THEIRS);
 
