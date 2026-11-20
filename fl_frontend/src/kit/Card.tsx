@@ -26,6 +26,11 @@ export type CardProps = {
    * statement each, such as what the marks of a group's standing mean.
    */
   help?: readonly [Copy, ...Copy[]];
+  /**
+   * The body takes the spare height of a card its grid stretches, such as the landing's decided season card beside the
+   * hero, so the body's content can fill it rather than leave an empty card under it.
+   */
+  fill?: boolean;
 } & (
   | {
       /** How many items the card holds open. */
@@ -44,11 +49,13 @@ export type CardProps = {
  * body folds behind its head is `CardFold`, a module of its own, so a page placing only plain cards ships none
  * of the fold's client code.
  */
-export function Card({ title, count, chip, body = "rows", children, line, help }: CardProps) {
+export function Card({ title, count, chip, body = "rows", children, line, help, fill = false }: CardProps) {
   const s = card({ body });
   const heading = <h2 className={s.title()}>{textOf(title)}</h2>;
   return (
-    <section className={s.root()}>
+    // The body's `fr` row takes the spare height before the root's `content-start` packs anything; a card as tall as
+    // its content has none, so `fill` changes nothing there.
+    <section className={s.root({ class: fill ? "grid-rows-[auto_1fr]" : undefined })}>
       <div className={s.head()}>
         {help === undefined ? (
           heading
@@ -79,7 +86,7 @@ export function Card({ title, count, chip, body = "rows", children, line, help }
         {count !== undefined && <span className={s.count()}>{count}</span>}
         {line !== undefined && <span className={s.line()}>{textOf(line)}</span>}
       </div>
-      {children !== undefined && <div className={s.body()}>{children}</div>}
+      {children !== undefined && <div className={s.body({ class: fill ? "grid" : undefined })}>{children}</div>}
     </section>
   );
 }

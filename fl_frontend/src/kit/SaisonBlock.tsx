@@ -166,7 +166,10 @@ export function SaisonBlock({ title, state }: { title: Copy; state: SaisonState 
   return (
     <Card
       title={title}
-      chip={STATE_CHIP[state.kind]}>
+      chip={STATE_CHIP[state.kind]}
+      // From `lg` the hero stretches the card; the podium grows its steps into the spare height, where every other
+      // state's content packs at the top.
+      fill={state.kind === "decided"}>
       <Body state={state} />
     </Card>
   );
