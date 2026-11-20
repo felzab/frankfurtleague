@@ -612,9 +612,9 @@ Every store of section 6 ends by one of four triggers, each with its mechanism:
 - **The purpose standing**: a confirmed referee, a grant, a club's record, deleted by a decision and
   nothing else.
 
-The hourly scheduler (`fl_frontend/src/instrumentationNode.ts :: armScheduler`) runs every pass. It
-pings the heartbeat monitor, naming on `/fail` each job that threw or left a due deletion. A claim
-that a period was honoured rests on that and on each job's line in the log
+The hourly scheduler (`fl_frontend/src/scheduler.ts :: armScheduler`) runs every pass. It pings the
+heartbeat monitor, naming on `/fail` each job that threw or left a due deletion. A claim that a
+period was honoured rests on that and on each job's line in the log
 ([`ops/runbooks.md`](ops/runbooks.md#9-checking-that-the-hourly-passes-have-run)). One switch holds
 every pass back: `RESTORE_HOLD=on` in the server's `fl_frontend/.env`
 (`fl_frontend/src/core/config.ts :: RESTORE_HOLD`), set only while a restore or a change to a stored

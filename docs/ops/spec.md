@@ -107,9 +107,10 @@ which lets every user bind below 1024 (read 2026-09-27, on engine 29.8.0). With 
 container, none can read the traffic crossing `frankfurtleague-app` (§4).
 
 **The frontend container also runs the background jobs, from one scheduler.**
-`fl_frontend/src/instrumentationNode.ts :: registerOnNode` arms `:: armScheduler` under a production
-build, which runs one pass a minute after start and then hourly, in the process that serves the
-site. A pass runs each job in turn:
+`fl_frontend/src/instrumentationNode.ts :: registerOnNode` arms
+`fl_frontend/src/scheduler.ts :: armScheduler` under a production build, which runs one pass a
+minute after start and then hourly, in the process that serves the site. A pass runs each job in
+turn:
 
 - the retention sweep over the seasons
   (`fl_frontend/src/features/saisons/sweep.ts :: runSaisonSweep`);

@@ -2,9 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import { documentsWrittenByAsync } from "@/test-support/stdoutCapture";
 
-import { APIBadStatusError, APINetworkError, MailSendError } from "./errors";
-import { onRequestError } from "./instrumentation";
-import { formatTraceparent } from "./trace";
+import { APIBadStatusError, APINetworkError, MailSendError } from "./core/errors";
+import { formatTraceparent } from "./core/trace";
+import { onRequestError } from "./instrumentationNode";
 
 import type { Instrumentation } from "next";
 

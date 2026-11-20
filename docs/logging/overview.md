@@ -98,8 +98,8 @@ to `POST /api/client-error` (`fl_frontend/src/app/api/client-error/route.ts`), w
 `client.crash_reported` line; the bot-check widget reports a failure the same way. The route is
 public, so nginx rate-limits it and the route caps every field. A failure rendered on the server is
 logged as `system.request_crashed` with a digest instead. Next captures one failure at several
-stages (`fl_frontend/src/core/instrumentation.ts`), and each capture's line names its stage:
-`route_type`, `render_source` and, for a revalidation, `revalidate_reason`.
+stages (`fl_frontend/src/instrumentationNode.ts :: onRequestError`), and each capture's line names
+its stage: `route_type`, `render_source` and, for a revalidation, `revalidate_reason`.
 
 ## In development
 
