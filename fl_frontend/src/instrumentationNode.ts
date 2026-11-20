@@ -61,8 +61,10 @@ async function loadJobs(): Promise<{
   drain: () => Promise<void>;
   takeDrainCounts: () => Readonly<Record<string, number>> & { readonly abandoned: number };
 }> {
-  const [bewerbungen, account, erasure, spiele, grants, mail] = await Promise.all([
-    import("./features/bewerbungen/sweep"),
+  const [saisons, addressChange, schiedsrichter, account, erasure, spiele, grants, mail] = await Promise.all([
+    import("./features/saisons/sweep"),
+    import("./features/address-change/sweep"),
+    import("./features/schiedsrichter/sweep"),
     import("./features/account/sweep"),
     import("./features/spieler/sweep"),
     import("./features/spielbestaetigungen/sweep"),
@@ -72,7 +74,9 @@ async function loadJobs(): Promise<{
 
   return {
     jobs: [
-      { name: "bewerbungen", run: bewerbungen.runBewerbungSweep },
+      { name: "saisons", run: saisons.runSaisonSweep },
+      { name: "address-change", run: addressChange.sweepAddressChange },
+      { name: "schiedsrichter", run: schiedsrichter.runSchiedsrichterSweep },
       { name: "account", run: account.runAccountSweep },
       { name: "erasure", run: erasure.runErasureSweep },
       { name: "spielbestaetigungen", run: spiele.runSpielSweep },

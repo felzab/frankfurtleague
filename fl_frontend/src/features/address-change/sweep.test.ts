@@ -30,7 +30,10 @@ describe("the address changes' hourly pass", () => {
   it("ends the changes, then carries what their effects owe, answering what the call did", async () => {
     answer = ANSWER;
 
-    expect(await sweepAddressChange()).toStrictEqual(ANSWER);
+    expect(await sweepAddressChange()).toStrictEqual({
+      count: { address_change_removed: 2, address_change_effective: 1, address_change_discarded: 0, address_change_failed: 1 },
+      open: 1,
+    });
     expect(calls()).toStrictEqual([SWEEP, MOVES]);
   });
 

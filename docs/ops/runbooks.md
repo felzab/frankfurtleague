@@ -974,9 +974,8 @@ docker compose logs --since 2h frontend | grep scheduler.pass
 season rows', says why in the frontend's log.** Each files its own failure line,
 `bewerbung.sweep_failed`, `registrierung.sweep_failed` and `saison.sweep_failed`, naming the season,
 so the event name is what names the half. Every other half and season still runs, and the job then
-fails, which `scheduler.job_failed` names as `bewerbungen` and the heartbeat as
-`bewerbungen failed`. A pass that ran but passed rows over reaches the heartbeat as
-`bewerbungen left <n>`.
+fails, which `scheduler.job_failed` names as `saisons` and the heartbeat as `saisons failed`. A pass
+that ran but passed rows over reaches the heartbeat as `saisons left <n>`.
 
 **A row either pass cannot write is passed over and named, and the pass goes on.** Each row is saved
 in a transaction of its own, and the backend's `transactions.row_passed_over` line names its clock
@@ -1008,15 +1007,19 @@ the next hour, and it needs nothing from you. Where the warning carries `unknown
 row's commit went unanswered: it may have been written, its notices queued in the same transaction,
 and a later pass meets it again only if it was not.
 
-**The half after the seasons stamps no day, so its counts are the record.** Every pass ends by
-ending the address changes whose step lapsed and making the due ones take effect, each end owing its
-notice to the Postausgang: each replaced address gets its completion notice and the new address of a
-confirmed change refused at its due time a notice naming nobody. The pass ends by carrying each
-sign-in account an effect still owes
+**The referee entries' clock is a job of its own**, `schiedsrichter`, counting
+`schiedsrichter_erased` and `schiedsrichter_failed` on the pass line. A call that threw reaches the
+heartbeat as `schiedsrichter failed`, and entries it passed over as `schiedsrichter left <n>`.
+
+**The address changes' job stamps no day, so its counts are the record.** Every pass runs it after
+the seasons' job, ending the address changes whose step lapsed and making the due ones take effect,
+each end owing its notice to the Postausgang: each replaced address gets its completion notice and
+the new address of a confirmed change refused at its due time a notice naming nobody. The job ends
+by carrying each sign-in account an effect still owes
 (`fl_frontend/src/features/address-change/moves.ts :: runAddressChangeMoves`). Its counts and no
 person are the pass line's `address_change_` ones, `address_change_failed` the changes it could not
-end. A half that threw fails the applications' job once the seasons have run, which
-`scheduler.job_failed` names as `bewerbungen`.
+end. A call that threw fails this job alone, which `scheduler.job_failed` names as `address-change`
+and the heartbeat as `address-change failed`.
 
 **A notice the drain could not send stays owed in the Postausgang**, which retries it as it retries
 every owed mail, and a notice it gives up is counted on the pass's line and reported to the
@@ -1067,7 +1070,7 @@ fold, and an empty one or one the rule refuses to the folded address the person 
 hold, as [section 5](#5-when-somebody-asks-for-their-data-or-asks-us-to-change-it) establishes a
 lost mailbox's.
 
-**Two promises rest on the retention sweep's pass**
+**Two promises rest on the address changes' pass**
 (`fl_frontend/src/features/address-change/sweep.ts :: sweepAddressChange`): the privacy notice's
 word that a change whose step lapsed ends „innerhalb einer Stunde“, and the word, in the notice and
 in both mails the change sends (`fl_frontend/src/core/addressChangeEmail.ts`), that a change an

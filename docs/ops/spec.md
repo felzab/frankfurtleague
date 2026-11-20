@@ -111,7 +111,11 @@ container, none can read the traffic crossing `frankfurtleague-app` (§4).
 build, which runs one pass a minute after start and then hourly, in the process that serves the
 site. A pass runs each job in turn:
 
-- the retention sweep (`fl_frontend/src/features/bewerbungen/sweep.ts :: runBewerbungSweep`);
+- the retention sweep over the seasons
+  (`fl_frontend/src/features/saisons/sweep.ts :: runSaisonSweep`);
+- the address changes (`fl_frontend/src/features/address-change/sweep.ts :: sweepAddressChange`);
+- the referee entries' lapse
+  (`fl_frontend/src/features/schiedsrichter/sweep.ts :: runSchiedsrichterSweep`);
 - the account sweep (`fl_frontend/src/features/account/sweep.ts :: runAccountSweep`);
 - the pupils' deletion (`fl_frontend/src/features/spieler/sweep.ts :: runErasureSweep`);
 - the fixture confirmations
