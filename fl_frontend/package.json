@@ -17,7 +17,6 @@
   "scripts": {
     "dev": "NODE_OPTIONS=--max-old-space-size=8192 SECRETS_DIR=../secrets next dev --turbo",
     "build": "next build",
-    "start": "next start",
     "lint": "pnpm typegen && pnpm lint:only",
     "lint:only": "eslint . --max-warnings 0 --concurrency auto",
     "knip": "knip --no-progress --treat-config-hints-as-errors",
