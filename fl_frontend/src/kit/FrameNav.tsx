@@ -1,9 +1,8 @@
 "use client";
 
-import { createContext, use, useContext, useEffect, useState, useSyncExternalStore } from "react";
+import { createContext, use, useContext, useEffect, useState } from "react";
 import { useParams, usePathname } from "next/navigation";
 
-import { useTheme } from "next-themes";
 import { Button as AriaButton } from "react-aria-components/Button";
 
 import { COPY } from "@/core/copy/shared";
@@ -13,7 +12,6 @@ import { signOut } from "@/shared/utils/signOut";
 
 import { ConfirmDialog } from "./ConfirmDialog";
 import { CutText } from "./CutText";
-import { GlyphChoices } from "./GlyphChoices";
 import { hoverLook } from "./hoverStyles";
 import { Icon } from "./Icon";
 import { useAsked } from "./LeaveGuard";
@@ -25,6 +23,7 @@ import { useRailCollapsed } from "./railContext";
 import { RailTooltip } from "./RailState";
 import { groupHeading, railFade, railGlyph } from "./railStyles";
 import { FreshPerPage, Sheet } from "./Sheet";
+import { ThemeChoice, ThemeRow } from "./ThemeChoice";
 import { appToast } from "./Toast";
 import { tv } from "./tv";
 import { NavigationLink, usePressed } from "./WholePage";
@@ -32,7 +31,6 @@ import { NavigationLink, usePressed } from "./WholePage";
 import type { Copy, RecordText } from "@/core/copy";
 import type { Route } from "next";
 import type { ReactElement, ReactNode } from "react";
-import type { GlyphChoice } from "./GlyphChoices";
 import type { IconName } from "./Icon";
 import type { MenuEntry, MenuLink } from "./Menu";
 
@@ -333,36 +331,6 @@ async function signOutAndLeave() {
   appToast("danger", COPY.shared.failure.unexpected);
 }
 
-const neverChanges = () => () => undefined;
-
-/** The themes as next-themes names them, each by its glyph, in the order the owner set: dark, light, system. */
-const THEMES: readonly GlyphChoice[] = [
-  { id: "dark", glyph: "dark", label: COPY.template.theme.dark },
-  { id: "light", glyph: "light", label: COPY.template.theme.light },
-  { id: "system", glyph: "system", label: COPY.template.theme.system },
-];
-
-/** The theme as the account menu's foot sets it: the three glyphs, each named by its tooltip, acting at once. */
-function ThemeChoice() {
-  const { theme, setTheme } = useTheme();
-  // The server cannot read the theme next-themes stores in the browser, so its markup marks none, and a hydrating render
-  // marking the stored one is a mismatch React does not repair: the page opened by its address showed none chosen. The
-  // hydrating render draws what the server drew, and the render after marks the stored theme, the glyphs unmoved.
-  const hydrated = useSyncExternalStore(
-    neverChanges,
-    () => true,
-    () => false,
-  );
-  return (
-    <GlyphChoices
-      label={COPY.page.accountAppearance}
-      choices={THEMES}
-      value={hydrated ? (theme ?? null) : null}
-      onChange={setTheme}
-    />
-  );
-}
-
 /**
  * The account menu, the same in every area: „Funktion wechseln“ in a group of its own for a person holding two or
  * more Funktionen, its submenu marking the one the page lies under; Konto and Abmelden; Impressum and Datenschutz; and at
@@ -625,7 +593,8 @@ export function MenuScope({ value, children }: { value: FrameMenu; children: Rea
 
 /**
  * The phone's bottom bar: its pages, „Mehr“ where the menu holds more, and the account as a place of its
- * own. „Mehr“ opens the rest of the menu as a sheet, grouped as the rail is, with the frame's extra links.
+ * own. „Mehr“ opens the rest of the menu as a sheet, grouped as the rail is, with the frame's extra links and, where
+ * nobody is signed in, the theme at its foot.
  */
 export function BarPlaces() {
   const menu = useContext(MenuContext);
@@ -717,6 +686,8 @@ function Places({ groups: given, bar, extra, account, prefetch }: FrameMenu) {
                   ))}
                 </div>
               )}
+              {/* Signed out, no account menu stands in the bar, so its foot's theme stands at the sheet's foot. */}
+              {account === undefined && <ThemeRow place="sheet" />}
             </div>
           </Sheet>
         </FreshPerPage>
