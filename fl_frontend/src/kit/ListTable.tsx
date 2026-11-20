@@ -19,6 +19,7 @@ import { SchoolTiles } from "./TileGrid";
 
 import type { ActionAnswer } from "@/core/action";
 import type { Copy, Words } from "@/core/copy";
+import type { Route } from "next";
 import type { ReactNode } from "react";
 import type { CardActRowProps } from "./Card";
 import type { Clear, EmptyStateProps } from "./EmptyState";
@@ -183,11 +184,14 @@ export function ListTiles({ tiles, empty }: { tiles: ReadonlyArray<{ tile: Schoo
  */
 export function ListCard({
   title,
+  href,
   count,
   rows,
   empty,
 }: {
   title: Copy;
+  /** The page listing the card's records in full, which its title links. */
+  href?: Route;
   /** `false` on a card holding a list rather than open work: a count says how much is open. */
   count?: false;
   rows: ReadonlyArray<CardActRowProps & { id: string; words?: string }>;
@@ -203,6 +207,7 @@ export function ListCard({
       ) : (
         <Card
           title={title}
+          {...(href === undefined ? {} : { href })}
           {...(count === false ? {} : { count: rows.length })}>
           {shown.length === 0 ? (
             <EmptyState kind="clear" />

@@ -144,17 +144,17 @@ function aufstellungRow(row: FLTeamPanelAufstellung, team: string, saison: strin
 }
 
 /**
- * A registration awaiting the team's decision, which its own page takes: confirmed by the pupil or not, and what they
- * play, a line only where the pupil named a position or a Stufe.
+ * A registration awaiting the team's decision, which the team's list takes, linked once by the card's title: no row
+ * opens a page, since a registration has none of its own. Confirmed by the pupil or not, and what they play, a line
+ * only where the pupil named a position or a Stufe.
  */
-function registrierungRow(row: FLTeamPanelRegistrierung, team: string, saison: string): Row {
+function registrierungRow(row: FLTeamPanelRegistrierung): Row {
   const plays =
     row.position === null && row.stufe === null
       ? null
       : line([row.position === null ? null : { record: row.position }, row.stufe === null ? null : { record: row.stufe }]);
   return {
     id: row.registrierung_id,
-    href: ROUTES.teamRegistrierungen.path(team, saison),
     name: { record: `${row.first_name} ${row.last_name}` },
     chip: row.admissible ? CONFIRMED_CHIP : UNCONFIRMED_CHIP,
     ...(plays === null ? {} : { line: plays }),
@@ -193,7 +193,12 @@ async function readOverview(params: Props["params"]) {
         rows: read.spielbestaetigungen.map((row) => spielbestaetigungRow(row, team, saison, today)),
       },
       { id: "aufstellungen", title: TITLES.aufstellungen, rows: read.aufstellungen.map((row) => aufstellungRow(row, team, saison)) },
-      { id: "registrierungen", title: TITLES.registrierungen, rows: read.registrierungen.map((row) => registrierungRow(row, team, saison)) },
+      {
+        id: "registrierungen",
+        title: TITLES.registrierungen,
+        href: ROUTES.teamRegistrierungen.path(team, saison),
+        rows: read.registrierungen.map(registrierungRow),
+      },
     ],
     seats: { title: TITLES.seats, rows: read.seats.map(seatRow) },
   };
@@ -201,7 +206,8 @@ async function readOverview(params: Props["params"]) {
 
 /**
  * The team contact's Übersicht of one season: the team's head, then its open work in three boxes, every box drawn
- * every day, the dates answered on their rows and everything else opening its own page, then its seats, read-only.
+ * every day, the dates answered on their rows, each line-up opening its own page and the registrations their list
+ * from the card's title, then its seats, read-only.
  */
 export default function TeamOverviewPage({ params }: Props) {
   return (
