@@ -24,8 +24,8 @@ import { tv } from "./tv";
  */
 
 /**
- * A field's label, its frame and its message line, one under another, 6 px apart. It fills its column, so a box's
- * grid can place every child at its own width without a field narrowing to its label.
+ * A field's label, its frame and its message line, one under another. It fills its column, so a box's grid can place
+ * every child at its own width without a field narrowing to its label.
  */
 export const fieldRoot = tv({ base: "group flex w-full min-w-0 flex-col gap-1.5" });
 
@@ -234,8 +234,8 @@ export const codeInput = tv({
 });
 
 /**
- * One segment of a date or a time; the active one fills, at the 6-px corners of a highlighted part. An empty
- * segment shows its placeholder in capitals, „TT.MM.JJJJ“, as German forms write it.
+ * One segment of a date or a time; the active one fills, as a highlighted part does. An empty segment shows its
+ * placeholder in capitals, „TT.MM.JJJJ“, as German forms write it.
  */
 export const dateSegment = tv({ base: "rounded-md caret-transparent data-placeholder:text-fg-muted data-placeholder:uppercase" });
 
@@ -258,9 +258,9 @@ export const calendarCell = tv({
 export const toggleField = tv({ base: "grid w-full grid-cols-[auto_minmax(0,1fr)] gap-x-2.5 gap-y-1.5" });
 
 /**
- * A checkbox, a radio or a switch: the drawn box, its label 10 px to the right. The row is the control's press
- * target, its label included, and on a touch screen it is the kit's control height at least, 10 px over and under
- * a line's 20 px, by the touch rule at this file's head.
+ * A checkbox, a radio or a switch: the drawn box, then its label. The row is the control's press target, its label
+ * included, and on a touch screen it is the kit's control height at least, 10 px over and under a line's 20 px, by the
+ * touch rule at this file's head.
  */
 export const toggleRow = tv({
   base: "group/toggle cursor-pointer items-start text-sm text-fg data-disabled:cursor-default data-disabled:opacity-50 data-readonly:cursor-default pointer-coarse:py-2.5",
@@ -411,9 +411,9 @@ export const menuItem = tv({
 /**
  * How a chosen entry is marked. In every list, a select's, a combo box's and a menu's, a navigating menu's current
  * place among them: its words in the link green and its check at the end, which the list draws, with no fill, so
- * the entry under the pointer or the keys, chosen or not, takes the one hover layer alone. The rail's
- * current page is a place of the frame rather than a list's choice, and keeps its own mark: the muted fill with the
- * words in the link green.
+ * the entry under the pointer or the keys, chosen or not, takes the one hover layer alone. The rail's current page is
+ * a place of the frame rather than a list's choice, and keeps its own mark: the muted fill with the words in the link
+ * green.
  */
 export const entryMark = tv({
   variants: {

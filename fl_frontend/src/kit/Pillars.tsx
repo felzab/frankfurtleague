@@ -6,24 +6,19 @@ import { tv } from "./tv";
 import type { Copy } from "@/core/copy";
 import type { IconName } from "./Icon";
 
-/** One pillar: its glyph, its title and its one paragraph. */
 type Pillar = { glyph: IconName; title: Copy; text: Copy };
 
 const pillars = tv({
   slots: {
     root: "grid gap-4 @2xl:grid-cols-3",
     card: `grid content-start gap-2 ${cardSurface()} p-6`,
-    // The glyph's box, 40 px on the muted fill.
     mark: "mb-1 flex size-10 items-center justify-center rounded-lg bg-bg-muted text-fg",
     title: "text-base font-semibold",
     text: "text-base text-fg-muted",
   },
 });
 
-/**
- * What the league is for, in three cards side by side from 42 rem of the block's own width and one under another
- * below it.
- */
+/** What the league is for, in three cards. */
 export function Pillars({ items }: { items: readonly [Pillar, Pillar, Pillar] }) {
   const slots = pillars();
   return (

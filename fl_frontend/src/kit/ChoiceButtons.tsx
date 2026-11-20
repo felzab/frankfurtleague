@@ -51,8 +51,7 @@ function GroupMessage({ errorMessage }: { errorMessage: Copy | undefined }) {
 type MarkedChoice = Choice & { mark?: ReactNode };
 
 /**
- * One short single choice of two to four answers, such as a goal's side: the answers as segments of one frame, the
- * chosen one raised, the label above and the message line below, or the label naming the group to a screen reader
+ * One short single choice of two to four answers, such as a goal's side, its label naming the group to a screen reader
  * alone (`labelHidden`) where the place around it names it on the screen. React Aria's `RadioGroup`, the segments its
  * radios, so the group is heard as required and as invalid, the browser's own check refuses it left empty at the send,
  * and an arrow key moves the answer as a radio group's does. `null` chooses none while the answer is not yet given, as
@@ -102,7 +101,6 @@ export function Segmented({
             aria-label={choice.spoken === undefined ? undefined : textOf(choice.spoken)}
             data-kit-focus="ring"
             className={choiceButton({ kind: "segmented" })}>
-            {/* 6 px apart, the mark centred on the word's line; the words cut where the frame is held narrower. */}
             <span className="inline-flex min-w-0 items-center gap-1.5">
               {choice.mark}
               <CutText
@@ -119,8 +117,8 @@ export function Segmented({
 }
 
 /**
- * A small multi-select of short words, such as a season's allowed Stufen: the label above, one box per answer,
- * each chosen box edged and tinted in the link green. React Aria's `CheckboxGroup`, the boxes its checkboxes, so the
+ * A small multi-select of short words, such as a season's allowed Stufen, one box per answer. React Aria's
+ * `CheckboxGroup`, the boxes its checkboxes, so the
  * group is heard as required and as invalid, and the browser's own check refuses it left with none chosen at the send.
  */
 export function ToggleBoxes({

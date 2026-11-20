@@ -34,10 +34,10 @@ export type Checkpoint = {
 export type Outcome = "won" | "drawn" | "lost" | "none";
 
 /**
- * The point and the line every line of checkpoints draws, the season's stages on the landing among them: a
- * point outlined in the brand green, or in a club's match in its outcome's colour, with its figure inside, and from it a dotted line in the control edge's
- * grey to the next. A figure longer than two characters, a minute of stoppage time, widens the point into a pill.
- * Each block places the line, a `before:` box, by its own geometry.
+ * The point and the line every line of checkpoints draws, the season's stages on the landing among them: a point
+ * outlined in the brand green, or in a club's match in its outcome's colour, with its figure inside, and from it a
+ * dotted line in the control edge's grey to the next. A figure longer than two characters, a minute of stoppage time,
+ * widens the point into a pill. Each block places the line, a `before:` box, by its own geometry.
  */
 export const checkpoint = tv({
   slots: {

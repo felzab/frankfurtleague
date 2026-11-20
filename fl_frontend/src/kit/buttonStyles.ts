@@ -37,9 +37,8 @@ export const buttonLook = tv({
       false: "",
     },
   },
-  // Under the pointer every look but the quiet one lays the one hover layer over its fill (`bg-layer`, 12 % of its own
-  // words' colour), so the step shows on the page, a card, a card's head and an overlay alike, and over a row's own
-  // layer.
+  // Under the pointer every look but the quiet one lays the one hover layer over its fill (`hoverLook`), so the step
+  // shows on the page, a card, a card's head and an overlay alike, and over a row's own layer.
   compoundVariants: [
     { look: ["primary", "secondary", "danger", "dangerOutline", "icon"], host: "aria", locked: false, class: hoverLook({ host: "aria" }) },
     { look: ["primary", "secondary", "icon"], host: "link", class: hoverLook({ host: "link" }) },
@@ -54,10 +53,9 @@ export const buttonLook = tv({
 /**
  * The look of a button opening the question an act asks first, by the question's tone: an act that destroys takes the
  * outlined danger look, any other the secondary one, since the fill belongs to the question's own button that does the
- * act. Every question's and dialog's trigger is drawn by it (`TriggerButton`), and so is the
- * locked button standing in a trigger's place and the question form's press, so one destroying act looks the same
- * wherever it stands but on a mailed page, whose acts take the main act's fill and the quiet look, never the outlined
- * one (`OneShotForm`).
+ * act. Every question's and dialog's trigger is drawn by it (`TriggerButton`), and so is the locked button standing
+ * in a trigger's place and the question form's press, so one destroying act looks the same wherever it stands but on a
+ * mailed page, whose acts take the main act's fill and the quiet look, never the outlined one (`OneShotForm`).
  */
 export function askingLook(tone: "danger" | "primary") {
   return tone === "danger" ? "dangerOutline" : "secondary";

@@ -51,10 +51,9 @@ export function SheetFrame({
 }
 
 /**
- * More on a phone: a sheet from the bottom, the page dimmed and blurred behind it. „Mehr“ and the
- * account menu open as sheets, and so does the phone's filter block. `DialogTrigger`, which marks its trigger pressed
- * while what it opened stands, as a menu's trigger is: React Aria's `SheetTrigger` is that component with the mark
- * taken off.
+ * More on a phone: a sheet from the bottom, the page dimmed and blurred behind it. `DialogTrigger`, which marks its
+ * trigger pressed while what it opened stands, as a menu's trigger is: React Aria's `SheetTrigger` is that component
+ * with the mark taken off.
  */
 export function Sheet({ label, trigger, children }: { label: Copy; trigger: ReactElement; children: ReactNode }) {
   const [isOpen, setOpen] = useOpenUntilHidden();

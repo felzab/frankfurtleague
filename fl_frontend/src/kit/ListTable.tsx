@@ -87,13 +87,11 @@ function searched<Item>(items: ReadonlyArray<Item>, query: string, wordsOf: (ite
   };
 }
 
-/** A row's words, its name where it states none. */
 const rowWords = (row: { name: Words; words?: string }) => row.words ?? textOf(row.name);
 
 /**
  * The list template's matches, each with the words a visitor may search it by, searched by the text its scope
- * holds, as the Spielsuche narrows the season's matches the filters left: the cards, two a row, and a search
- * that empties the list says so.
+ * holds; a search that empties the list says so.
  */
 export function ListMatches({
   matches,
@@ -116,8 +114,7 @@ export function ListMatches({
 
 /**
  * The list template's school tiles, each with the words a visitor may search it by, searched by the text its
- * scope holds, as `ListMatches` searches the matches: four a row, two on a phone, and a search that empties the
- * list says so.
+ * scope holds; a search that empties the list says so.
  */
 export function ListTiles({ tiles, empty }: { tiles: ReadonlyArray<{ tile: SchoolTile; words: string }>; empty: EmptyStateProps }) {
   const { query } = use(ListQuery);
@@ -179,7 +176,6 @@ export function ListQueryScope({ children }: { children: ReactNode }) {
   return <ListQuery value={{ query, setQuery }}>{children}</ListQuery>;
 }
 
-/** The search field over a list, at a reading width in the toolbar row and the full width on a phone. */
 export function ListSearchField({ label, maxLength }: ListSearch) {
   const { query, setQuery } = use(ListQuery);
   return (

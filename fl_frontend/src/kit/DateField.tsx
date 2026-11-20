@@ -31,7 +31,6 @@ const toDay = (date: CalendarDate | null): CalendarDay | null =>
 const fromDay = (day: CalendarDay | null | undefined): CalendarDate | null | undefined =>
   day === null || day === undefined ? day : parseDate(day);
 
-/** The month a date's calendar button opens, under the field. */
 function MonthCalendar() {
   return (
     <Calendar
@@ -75,9 +74,8 @@ function MonthCalendar() {
 }
 
 /**
- * Enter a date: segmented in German order, with the calendar button beside it, the field as wide as a date's figures
- * and its button. The value is the stored `YYYY-MM-DD` day, so no page handles a date library's objects; a form
- * receives the same string.
+ * Enter a date: segmented in German order, with the calendar button beside it. The value is the stored `YYYY-MM-DD`
+ * day, so no page handles a date library's objects; a form receives the same string.
  */
 export function DateField({
   label,

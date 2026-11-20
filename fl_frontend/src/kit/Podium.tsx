@@ -29,7 +29,6 @@ const podium = tv({
     fourthPlace: "shrink-0 text-fg-muted",
   },
   variants: {
-    // The steps' heights, 104, 72 and 52 px, and the winner's on the band's green.
     platz: {
       1: { place: "col-start-2 row-start-1", step: "h-26 bg-brand-solid text-on-brand" },
       2: { place: "col-start-1 row-start-1", step: "h-18 bg-bg-muted text-fg" },
@@ -40,8 +39,8 @@ const podium = tv({
 
 /**
  * A place's plaque and name. A vacant place draws the dashed open plaque holding the dash, which already says no
- * club stands there, and its label one rung under a name, 12 px muted, so it says why without standing where a
- * club's name would; the label alone is what a screen reader reads for it.
+ * club stands there, and its label one rung under a name, muted, so it says why without standing where a club's
+ * name would; the label alone is what a screen reader reads for it.
  */
 function Who({ club, nameClass }: { club: Place; nameClass: string }) {
   return club === null ? (

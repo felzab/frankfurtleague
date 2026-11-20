@@ -12,7 +12,6 @@ import type { Copy } from "@/core/copy";
 import type { ReactNode } from "react";
 import type { EditorRow } from "./useEditor";
 
-/** What a row's cell hands its control. */
 type RowControl<Row extends EditorRow> = {
   row: Row;
   /** The box's name, the list's, the row's index and the field, `scorers.2.minute`, by which a kit field takes its refusal. */
@@ -69,12 +68,11 @@ const recordRows = tv({
     // widths, the main field taking the room that is left, since a row spans its box, up to its own standard width,
     // then the cell beside it at its own width and the remove control.
     grid: "grid w-full grid-cols-[auto_minmax(0,1fr)_auto] gap-x-2 text-sm @2xl:grid-cols-[auto_auto_minmax(0,1fr)_auto_auto] @2xl:gap-x-3 pointer-coarse:text-base",
-    // A row brings the box's 16-px insets itself, so the hairline over it reaches the box's edges. Its label and its
-    // lines stand 8 px apart, 16 px inside the hairlines over and under it. A field's message stands under that field
-    // in its own cell, as under any field, and only while it has words, so the row grows by it as a refusal lands; the
-    // cells hang from their tops, so the controls of a row stay on one line while one of them says something.
+    // A row brings the box's insets itself, so the hairline over it reaches the box's edges. A field's message stands
+    // under that field in its own cell, as under any field, and only while it has words, so the row grows by it as a
+    // refusal lands; the cells hang from their tops, so the controls of a row stay on one line while one of them says
+    // something.
     row: `col-span-full grid grid-cols-subgrid items-start gap-y-2 p-4 ${stacked()}`,
-    // The label counting the row, „Tor 1“, on the kit's label rung, the same at every width.
     label: smallCaps({ class: "col-span-full row-start-1" }),
     lead: "col-start-1 row-start-2",
     figure: "col-start-2 row-start-2",
@@ -89,7 +87,7 @@ const recordRows = tv({
     // room it keeps around its 16-px glyph, 8 px with a mouse and 12 px on a touch screen.
     remove: "col-start-3 row-start-2 -me-2 justify-self-end @2xl:col-start-5 pointer-coarse:-me-3",
     // The add control in the box's padding, under the hairline that parts it from the last row, and the list's own
-    // refusal 6 px under it while there is one, as a field's message stands under its field.
+    // refusal under it while there is one, as a field's message stands under its field.
     foot: `grid justify-items-start gap-1.5 p-4 ${stacked()}`,
     line: messageLine({ tone: "error" }),
   },
@@ -181,9 +179,7 @@ function RecordRow<Row extends EditorRow>({
 }
 
 /**
- * A list of records as rows of fields, such as a Spielbericht's goals: each row under the label counting it, its
- * fields on two or three lines in a list narrower than 42 rem and on one, or two with a cell below, from it, the remove
- * control at the end of its first line, and the add
+ * A list of records as rows of fields, such as a Spielbericht's goals, each row under the label counting it and the add
  * control in the foot under the list. It stands edge to edge in its box (`Section`'s `list`), the hairline
  * between two rows reaching the box's edges. The value is the editor's (`EditorRow`): `rows` its
  * draft's list, `onChange` the whole list anew.

@@ -49,9 +49,8 @@ function PageLine({ text, status }: { text: Copy; status: FormStatus }) {
 }
 
 /**
- * The editor's one save: a bar at the bottom of the viewport, its hairline from the rail's separator to the edge, holding
- * over the editor's column the status line at its left once it has something to say and „Speichern“ at its right,
- * never disabled; on a phone it stands where the bottom bar stood. A save whose change reaches beyond the record, such as later results a match's new score
+ * The editor's one save: a bar at the bottom of the viewport holding the status line once it has something to say and
+ * „Speichern“, never disabled. A save whose change reaches beyond the record, such as later results a match's new score
  * deletes, is held back by the server with its question, which the bar asks; confirmed, the save goes again.
  */
 export function EditorBar({
@@ -62,7 +61,7 @@ export function EditorBar({
   onSave,
 }: {
   status: FormStatus;
-  /** The page's own words on the status line, which a save's outcome takes the place of (`PageLine`). */
+  /** The page's own words on the status line, which a save's outcome takes the place of. */
   text?: Copy;
   isPending: boolean;
   question: BarQuestion;

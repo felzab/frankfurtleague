@@ -27,7 +27,6 @@ import type { FormStatus } from "./useFormAction";
  */
 const BOX_CLASSES = formColumn({ class: cardSurface({ class: "gap-0 overflow-hidden lg:max-w-signin" }) });
 
-/** The fields in the box's 16 px, as a box's content stands under its head (`boxHead`). */
 const CONTENT_CLASSES = boxHead().content();
 
 /** What the press read: the question's words, and the input the final press sends as the read held it to its rules. */

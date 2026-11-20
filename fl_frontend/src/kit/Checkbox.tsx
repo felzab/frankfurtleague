@@ -106,10 +106,7 @@ export function Tick({
   );
 }
 
-/**
- * A saved yes or no, such as a consent: the drawn box, its label to the right, and its description's line under the
- * label where it has one.
- */
+/** A saved yes or no, such as a consent. */
 export function Checkbox({
   label,
   description,

@@ -73,7 +73,6 @@ export type MenuEntry =
   | { kind: "submenu"; label: Copy; links: ReadonlyArray<MenuLink> };
 
 export type MenuProps = {
-  /** The menu's name. */
   label: Copy;
   /** The kit control that opens it. */
   trigger: ReactElement;
@@ -116,7 +115,6 @@ const item = tv({
   },
 });
 
-// The foot's row under its separator, at the entries' inset and grade.
 const foot = tv({
   base: "mt-1 flex items-center justify-between gap-3 border-t border-border px-3",
   variants: {
@@ -174,7 +172,6 @@ function Entry({
           </Text>
         </span>
       )}
-      {/* The chosen entry's check, in its words' link green, as every list marks its chosen entry. */}
       {isChosen && (
         <span className="ms-auto flex shrink-0">
           <Icon
@@ -426,7 +423,7 @@ function Foot({ foot: row, size }: { foot: NonNullable<MenuProps["foot"]>; size:
 }
 
 /**
- * Choosing among actions: entries at 6-px corners, a separator between groups. On desktop it opens on the
+ * Choosing among actions, a separator between groups. On desktop it opens on the
  * page, a submenu beside it; on a phone, below the rail's breakpoint, as a bottom sheet, a submenu as a
  * second sheet led by „Zurück“.
  */

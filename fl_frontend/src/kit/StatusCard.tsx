@@ -18,7 +18,6 @@ import type { RailPageHead } from "./RailFrame";
 /** What the end says at a glance, in the hues a chip names: done, a fact, a link or a page that is no more, a failure. */
 type StatusTone = Exclude<ChipProps["tone"], "neutral">;
 
-/** Each hue's glyph in the card's mark. */
 const GLYPH: Readonly<Record<StatusTone, IconName>> = { success: "done", info: "info", warn: "warning", danger: "error" };
 
 /** A way on from an end: its label and its address, each per page in the catalogue. */
@@ -43,14 +42,13 @@ const statusCard = tv({
     railTitle: "font-heading tracking-display uppercase",
   },
   variants: {
-    // The mark's tint is 12 % of its hue over the card.
     tone: {
       success: { mark: "bg-success/12 text-success" },
       info: { mark: "bg-info/12 text-info" },
       warn: { mark: "bg-warn/12 text-warn" },
       danger: { mark: "bg-danger/12 text-danger" },
     },
-    // A public season page's title at 24 px, a signed-in page's at 20 px, as the strip's.
+    // At the strip title's size for the same scope.
     scope: {
       saison: { railTitle: "text-2xl" },
       area: { railTitle: "text-xl" },

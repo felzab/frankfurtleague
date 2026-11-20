@@ -14,17 +14,11 @@ const page = tv({
     column: "mx-auto flex w-full flex-1 flex-col gap-6",
   },
   variants: {
-    // A form or a mailed page in the form column; a mailed page's question, one card as wide as a dialog holding a
-    // form; one card centred on the page as a status page stands; the sign-in's column, which proportions its
-    // full-width controls as Vercel's sign-in does; or, as wide as the header's and the footer's row, the landing,
-    // its sections farther apart than a form's, and a long legal text's `ReadingPage`, its text hanging from the
-    // logo's edge beside its contents list.
     width: {
       form: { column: "max-w-form" },
       mailed: { column: "max-w-dialog" },
       card: { column: "max-w-card justify-center" },
       signin: { column: "max-w-signin justify-center" },
-      // The gap between the landing's sections, 48 px on a phone and 64 px from `lg`.
       landing: { column: "max-w-classic gap-12 lg:gap-16" },
       reading: { column: "max-w-classic" },
     },
@@ -53,10 +47,6 @@ export function ClassicPage({
   );
 }
 
-/**
- * A classic page's one title's look: in Anton, at 32 px where it stands on the
- * page, the landing's hero's rung, and at 24 px inside a card, a status card's or a mailed question's.
- */
 export const classicTitle = tv({
   base: "font-heading tracking-display uppercase",
   variants: {
@@ -75,7 +65,7 @@ export function ClassicTitle({ text, place = "card" }: { text: Copy; place?: "pa
 
 /**
  * A mailed page's question as one card, as a Konto box stands: its title, facts, sentences and fields inside the box's
- * 16-px inset, and its acts in the footer's strip across the box's foot. A card holds one topic with its actions, as
+ * inset, and its acts in the footer's strip across the box's foot. A card holds one topic with its actions, as
  * Material's card guidelines put it, and the page's end, the status card, is a card too.
  */
 export const mailedCard = tv({
@@ -87,7 +77,7 @@ export const mailedCard = tv({
   },
 });
 
-/** Landing sections under a page's head, About's, as far apart as the landing's: 48 px on a phone and 64 px from `lg`. */
+/** Landing sections under a page's head, as far apart as the landing's. */
 export function ClassicSections({ children }: { children: ReactNode }) {
   return <div className="grid gap-12 lg:gap-16">{children}</div>;
 }
@@ -96,7 +86,6 @@ const head = tv({
   slots: {
     // Parted from what the page says by space alone, as the text's sections are from each other.
     root: "grid gap-3 pb-6",
-    // A lead paragraph a step above the text from `lg`, in the muted grey the landing's lead takes.
     lead: "max-w-measure text-base text-fg-muted lg:text-xl",
     date: "text-sm text-fg-muted",
   },

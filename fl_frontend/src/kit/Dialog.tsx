@@ -50,7 +50,7 @@ export function DialogTitle({ text, className }: { text: Copy; className: string
 
 /**
  * What a route dialog holds, read on the server: its title read but not drawn, its body, which is the page's own body,
- * and last its one act, the blocks 24 px apart as a dialog's fields and acts are.
+ * and last its one act.
  */
 export function RouteDialogBody({
   title,
@@ -115,9 +115,8 @@ export function RouteDialog({
         ref={dialog}
         data-kit-focus
         className="relative grid gap-6">
-        {/* In the box's corner, 12 px from its edges, over whatever the first block draws there: Primer's dialog
-            requires the close button and forbids hiding it. Its hover is the one layer, laid over the match head's
-            band as over any ground. */}
+        {/* In the box's corner, over whatever the first block draws there: Primer's dialog requires the close button
+            and forbids hiding it. */}
         <div className="absolute -end-3 -top-3 z-10">
           <Button
             icon="close"
@@ -132,10 +131,8 @@ export function RouteDialog({
 }
 
 /**
- * A dialog's part ending its record, shaped as a row of an editor's danger box in a dialog's width:
- * a part of its own between the fields and the footer, a hairline over it and under it running out to both of the
- * dialog's edges through the padding the box declares, as a field group's does, and between them, 16 px from each, the
- * act's name over its consequence at the left and its outlined button at the right.
+ * A dialog's part ending its record, shaped as a row of an editor's danger box in a dialog's width, its hairlines
+ * running out to both of the dialog's edges through the padding the box declares, as a field group's do.
  */
 const dangerRow = tv({
   base: "-mx-(--dialog-padding) flex items-center gap-3 justify-self-stretch border-y border-border px-(--dialog-padding) py-4",
@@ -282,7 +279,6 @@ function ActDialog({
   );
 }
 
-/** What opens the dialog: its own trigger, which it draws by its tone (`Trigger`), or the open state another control holds. */
 type Opening<T extends Tone> =
   | {
       trigger: Trigger<T>;

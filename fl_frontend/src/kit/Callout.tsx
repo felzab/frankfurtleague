@@ -3,7 +3,6 @@ import { tv } from "./tv";
 import type { Copy, Words } from "@/core/copy";
 
 const box = tv({
-  // The tint is 12 % of the hue over the surface; the title takes the hue, the text the text colour.
   slots: {
     // `w-full`: a dialog's or a section's start-aligned grid would hold the box at its words' width, short of the frame.
     root: "grid w-full gap-1 rounded-lg px-4 py-3 text-sm text-fg",
@@ -30,9 +29,8 @@ export type CalloutProps = {
   tone: "success" | "info" | "warn" | "danger";
   /** A short head in the hue, where the sentence needs one. */
   title?: Copy;
-  /** A sentence of the catalogue's, or a record's own text, shown as it was stored, as `PageTitle` takes a record's name. */
+  /** A sentence of the catalogue's, or a record's own text, shown as it was stored. */
   text: Words;
-  /** `text` inside running text, where the box's sentence takes the text's 16 px. */
   size?: "small" | "text";
 };
 

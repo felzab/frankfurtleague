@@ -28,7 +28,6 @@ import type { HeldOpen } from "./useOpenUntilHidden";
 
 const DONE: ActionAnswer<unknown> = { ok: true, value: undefined };
 
-/** What the question says, which names its act and the button that does it. */
 export type ConfirmWords = {
   /** The act, which names the question and the button that does it. */
   verb: Verb;
@@ -41,7 +40,6 @@ export type ConfirmWords = {
    * counts an act removes. A question whose sentence says it all takes none.
    */
   facts?: ReadonlyArray<Fact>;
-  /** `danger` for a destructive act, `primary` for one that is merely irreversible. */
   tone: Tone;
 };
 
@@ -64,7 +62,6 @@ export type Trigger<T extends Tone = Tone> = {
       : { variant?: "primary" | "secondary" }))
 );
 
-/** A question's or a dialog's trigger, drawn as its tone says (`Trigger`). */
 export function TriggerButton({ trigger, tone }: { trigger: Trigger; tone: Tone }) {
   const { label, isBusy } = trigger;
   return trigger.icon !== undefined ? (
@@ -84,7 +81,6 @@ export function TriggerButton({ trigger, tone }: { trigger: Trigger; tone: Tone 
   );
 }
 
-/** The transition an act runs in, as `useTransition` returns it: whether it is running, and how to start it. */
 type ActTransition = ReturnType<typeof useTransition>;
 
 /**
@@ -196,7 +192,6 @@ export function ConfirmDialog<T extends Tone>(props: ConfirmDialogProps<T> | Una
     setRefusal(null);
   }
   const touched = usePasskeyTouch(touch !== undefined, touch?.holder);
-  // An act answering nothing is done; one answering is judged by its answer.
   const act = answering(
     touched(async () => (await onConfirm()) ?? DONE),
     router.refresh,

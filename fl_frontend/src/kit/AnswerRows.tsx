@@ -12,11 +12,9 @@ import type { ChipProps } from "./Chip";
 import type { EmptyStateProps } from "./EmptyState";
 import type { Plaque } from "./TeamPlaque";
 
-/** One party's answer: who, where the answer stands, and what the party said beyond it. */
 export type AnswerRow = {
   id: string;
   name: Words;
-  /** A club's plaque before its name. */
   plaque?: Plaque;
   chip: ChipProps;
   /** The muted line under the name: the answer's date and what it proposes, or when an answer is due. */
@@ -25,8 +23,7 @@ export type AnswerRow = {
   reason?: Words;
 };
 
-// The name's and the line's sizes are a `Card` row's, so a party reads alike on the Übersicht and here. The hairline
-// stands inside the box's padding, 12 px clear on each side, and the first and last rows take the padding as their own.
+// The name's and the line's sizes are a `Card` row's, so a party reads alike on the Übersicht and here.
 const answerRows = tv({
   slots: {
     root: "grid w-full text-sm",
@@ -36,14 +33,8 @@ const answerRows = tv({
   },
 });
 
-// A party's plaque before its line of name and chips, centred on the lines they take.
 const PARTY_CLASSES = "flex min-w-0 items-center gap-2";
 
-/**
- * A party's name with its chips, here and on a seat's row (`SeatRows`): the chips directly after the name on its line,
- * as every row holds them (`nameWithChips`), after its plaque. A name too long for its line is cut with
- * „…“.
- */
 export function PartyHead({
   name,
   plaque,
@@ -82,10 +73,7 @@ export function PartyHead({
   );
 }
 
-/**
- * The parties' answers about a record, read-only, inside a box's body: a row a party, its name with its chip, a muted
- * line under it, and its reason on a line of its own, wrapping as long as it runs.
- */
+/** The parties' answers about a record, read-only, inside a box's body. */
 export function AnswerRows({ label, rows, empty }: { label: Copy; rows: ReadonlyArray<AnswerRow>; empty: EmptyStateProps }) {
   const s = answerRows();
   if (rows.length === 0) return <EmptyState {...empty} />;

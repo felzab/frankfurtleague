@@ -51,10 +51,6 @@ type Bar = readonly [string] | readonly [string, string] | readonly [string, str
 
 /**
  * The frame of every public season page and every signed-in area, which a layout places around its pages.
- * From 1024 px the rail stands at the left: the logo and the wordmark, the season button, the entries in
- * their groups, the foot; the strip's toggle folds it to its glyphs. Below it the
- * dark-green band stands at the top with the logo, the wordmark and the season button, and the bottom bar
- * holds the pages, „Mehr“ and the account.
  *
  * `back` is an area's own way back, as Konto's: „‹ Zurück“ in the logo's place in the rail's head and in the
  * band, and no bottom bar. Where it is a read answering no address, the logo stands, and the area still has no bar.
@@ -114,7 +110,6 @@ export function RailFrame({
           <aside
             id={RAIL_ID}
             className="sticky top-0 hidden h-dvh flex-col overflow-hidden border-r border-border bg-bg-surface lg:flex">
-            {/* The dark-green band heads every frame: here the rail's head, in one line with the strip. */}
             <div className="flex h-(--rail-strip) shrink-0 items-center bg-brand-solid px-6 text-on-brand [--focus-ring:var(--on-brand)]">
               <HeadStart back={back} />
             </div>
@@ -175,8 +170,8 @@ export function RailFrame({
 }
 
 /**
- * A rail frame's column below 1024 px around its page: the dark-green band at the top with the logo and the
- * season button, and the bottom bar under the page. An editor's band holds „‹ Zurück“ to its list in the
+ * A rail frame's column below 1024 px around its page, the band above it and the bottom bar under it. An editor's band
+ * holds „‹ Zurück“ to its list in the
  * logo's place; an area's own `back` does the same for every page of the area, and no bottom bar follows. A page
  * with a bar of its own, an editor's save, stands it in the bottom bar's place, so the bottom bar gives way to it
  * there alone: a status card or a read page at an editor's address keeps the bottom bar, as the same address's
@@ -240,14 +235,13 @@ const strip = tv({
     chips: "flex h-lh shrink-0 items-center gap-2",
   },
   variants: {
-    // A public page's title at 24 px on a 32-px line, a signed-in page's at 20 px on a 28-px line. The chips' box takes
-    // the size too, so its `1lh` is the title's line; each chip sets its own words' size.
+    // The chips' box takes the title's size too, so its `1lh` is the title's line; each chip sets its own words' size.
     scope: {
       saison: { heading: "text-2xl", chips: "text-2xl" },
       area: { heading: "text-xl", chips: "text-xl" },
     },
-    // A head holding a control after the title, the way on or the strip's link, 32 px tall and 40 under a finger, never
-    // shorter than the title's line: one line of the head is the control's.
+    // A head holding a control after the title, the way on or the strip's link, never shorter than the title's line:
+    // one line of the head is the control's.
     controls: {
       true: { chips: "h-8 pointer-coarse:h-10" },
     },
@@ -260,10 +254,7 @@ const strip = tv({
   ],
 });
 
-/**
- * The column an editor and a read page set their blocks in, inside a rail page's content: at most 760 px,
- * centred, the blocks 24 px apart.
- */
+/** The column an editor and a read page set their blocks in, inside a rail page's content. */
 export const formColumn = tv({ base: "mx-auto grid w-full max-w-form gap-6" });
 
 /**
@@ -349,8 +340,8 @@ export function RailPage({
         )}
       </header>
       <PageFade>
-        {/* The content in one column of at most 1280 px, centred beside the rail on a wide screen, the gutter
-            outside it; the editor's bar spans the whole width under it. */}
+        {/* The content in one column, centred beside the rail on a wide screen, the gutter outside it; the editor's
+            bar spans the whole width under it. */}
         <main className="flex w-full min-w-0 flex-1 flex-col px-4 pt-4 pb-8 overflow-anchor-none lg:px-8 lg:pt-8 lg:pb-12">
           <PageContent>
             <div className="mx-auto flex w-full max-w-content min-w-0 flex-1 flex-col gap-6">{children}</div>

@@ -26,7 +26,6 @@ async function Year() {
   return COPY.template.copyright(now().getFullYear(), COPY.brand.name);
 }
 
-/** One of the footer's link groups under its heading, a landmark named by it. */
 function FooterGroup({ heading, links }: { heading: Copy; links: ReadonlyArray<HeaderLink> }) {
   return (
     <nav
@@ -46,14 +45,8 @@ function FooterGroup({ heading, links }: { heading: Copy; links: ReadonlyArray<H
 }
 
 /**
- * The classic public frame, which a layout places around the landing, About, Kontakt, the sponsors page,
- * the legal pages, the application form, the pages a mail opens and the sign-in: the dark-green band with
- * the logo, its links and „Konto“, the way to the sign-in, at the top, the footer at the foot. The footer holds the logo and the
- * league's line at the left with Instagram and Threads as glyph links under them, the question door's, and to
- * their right three link groups, „Saison“, „Liga“ and „Rechtliches“, two a row on a phone; under them the sponsors'
- * logos under „Mit Unterstützung von“ above the © line.
- *
- * Each page's template writes its title and its content through `ClassicPage` and `ClassicTitle`.
+ * The classic public frame: the band with the logo, its links and „Konto“, the way to the sign-in, at the top, and the
+ * footer at the foot. Each page's template writes its title and its content through `ClassicPage` and `ClassicTitle`.
  */
 export function ClassicFrame({
   links,
@@ -65,18 +58,12 @@ export function ClassicFrame({
   sponsors,
   children,
 }: {
-  /** The header's links, between the logo and „Konto“, the way to the sign-in. */
   links: ReadonlyArray<HeaderLink>;
-  /** Where „Konto“, the way to the sign-in, leads. */
   signIn: Route;
-  /** The „Saison“ group's links. */
   saison: ReadonlyArray<HeaderLink>;
-  /** The „Liga“ group's links. */
   liga: ReadonlyArray<HeaderLink>;
-  /** The „Rechtliches“ group's links, the legal pages. */
   legal: ReadonlyArray<HeaderLink>;
   social: { instagram: string; threads: string };
-  /** Each sponsor's logo, small and grey, as a link to its site, its full name the logo's name, its short name beside it where it has one; no line while there are none. */
   sponsors: ReadonlyArray<Sponsor>;
   children: ReactNode;
 }) {
@@ -146,8 +133,7 @@ export function ClassicFrame({
                     <span
                       title={sponsor.name.record}
                       className="flex items-center gap-2 text-xs">
-                      {/* An SVG served as it is, which the image optimiser has nothing to do for; small and grey,
-                        each logo fitted into the same box whatever its own proportions. */}
+                      {/* An SVG served as it is, which the image optimiser has nothing to do for. */}
                       <span className="relative block h-6 w-24">
                         <Image
                           src={sponsor.logo}

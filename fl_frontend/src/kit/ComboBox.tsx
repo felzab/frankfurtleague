@@ -30,9 +30,8 @@ export type CreateEntry = { label: Copy; onCreate: (typed: string) => void };
 export type FreeText = { arrow: Copy; maxLength?: number };
 
 /**
- * Pick one of many records by typing part of its name: the field filters its menu as it is typed into,
- * and the whole field shows its edge while it holds the focus. A record the list lacks is created from the
- * list's last entry.
+ * Pick one of many records by typing part of its name: the field filters its menu as it is typed into. A record the
+ * list lacks is created from the list's last entry.
  */
 export function ComboBox({
   label,

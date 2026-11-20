@@ -44,18 +44,16 @@ export type EditorSection = {
  */
 type EditorBlock = { id: string; block: ReactElement };
 
-/** One part of an editor's column, in the order the person's task takes them: a titled section or a bare block. */
 export type EditorPart = EditorSection | EditorBlock;
 
 /**
- * An irreversible or retiring act, which stands as one row in an editor's danger box: its name and its
- * consequence at the left, its button at the right, which asks before it acts: a question, or a dialog where the act
- * takes inputs first, such as an exit's route, reason and day.
+ * An irreversible or retiring act, which stands as one row in an editor's danger box, its button asking before it
+ * acts: a question, or a dialog where the act takes inputs first, such as an exit's route, reason and day.
  */
 export type DangerAct = {
   name: Copy;
   consequence: Copy;
-  /** Why the act cannot run on the record as it stands, which the page read, the button saying why (`Button`). */
+  /** Why the act cannot run on the record as it stands, which the page read, the button saying why. */
   locked?: Copy;
 } & (
   | {
@@ -74,12 +72,10 @@ export type DangerAct = {
     }
 );
 
-/** One danger row, whose question or dialog answers for its act, or, behind the passkey touch, its toast. */
 function DangerRow({ act }: { act: DangerAct }) {
   const label = act.dialog === undefined ? COPY.shared.verb[act.confirm.verb] : actLabel(act.dialog.act);
   const locked = useLocked(act.locked);
   return (
-    // A flat row across the danger box, parted from the one above by the hairline every stacked part takes.
     <div className={dangerRow()}>
       <div className="grid min-w-0 flex-1 text-sm">
         <span className="font-semibold">{act.name}</span>
@@ -108,9 +104,8 @@ function DangerRow({ act }: { act: DangerAct }) {
 }
 
 /**
- * The editor template: its sections one under another in the column of at most 760 px centred in the
- * content (`formColumn`, as the read page's), each a box exactly as tall as its content under its 16-px
- * title, and the record's one save in `EditorBar` at the foot of the viewport. There is no „Abbrechen“: the
+ * The editor template: its sections one under another in the form column, and the record's one save in `EditorBar` at
+ * the foot of the viewport. There is no „Abbrechen“: the
  * way out is the frame's „‹ Zurück“ to the record's list, which an editor's route group places
  * (`RailColumn`) and which asks before it drops unsaved changes. The danger box comes last, a box of its own
  * under its own title holding the danger rows, the one place an editor's irreversible and retiring acts stand,
@@ -145,14 +140,14 @@ export function EditorPage<Values extends Record<string, EditorValue>>({
 }: {
   title: PageTitle;
   chip?: ChipProps;
-  /** What that status leaves unsaid, after it (`RailPage`). */
+  /** What that status leaves unsaid, after it. */
   flag?: ChipProps;
   /**
    * The Vorschau: one line under the title saying a fact about the record as it is stored, such as a match's pairing,
    * its day and its result or that none is stored yet. Never the unsaved changes, which the bar's status line counts.
    */
   lead?: Copy;
-  /** The way to the record's public page in the strip, such as a match's own page, once the record has one (`RailPage`). */
+  /** The way to the record's public page in the strip, such as a match's own page, once the record has one. */
   link?: { href: Route; label: Copy };
   /**
    * Why some of its fields stand locked while the record is open, each reason once, which the lock line says; each
@@ -165,7 +160,7 @@ export function EditorPage<Values extends Record<string, EditorValue>>({
    */
   closed?: Copy;
   editor: Editor<Values>;
-  /** The page's own words on the bar's status line, before its count of unsaved changes (`EditorBar`'s `text`). */
+  /** The page's own words on the bar's status line, before its count of unsaved changes. */
   barText?: Copy;
   sections: readonly [EditorPart, ...EditorPart[]];
   /** The danger box: its title, naming what its acts are about, and its rows. */
@@ -188,7 +183,6 @@ export function EditorPage<Values extends Record<string, EditorValue>>({
             status={editor.status}
             text={barText}
             isPending={editor.isPending}
-            // A save the server held back asks its question from the bar, before it goes again.
             question={{ asked: editor.question, confirm: editor.confirm, decline: editor.decline }}
             onSave={() => form.current?.requestSubmit()}
           />

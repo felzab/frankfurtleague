@@ -17,7 +17,6 @@ import { NavigationLink, usePressed } from "./WholePage";
 import type { Copy } from "@/core/copy";
 import type { Route } from "next";
 
-/** A link of the classic header: catalogue words and an address the layout gives. */
 export type HeaderLink = { label: Copy; href: Route };
 
 type HeaderLinksProps = {

@@ -80,7 +80,6 @@ const tiles = tv({
   },
 });
 
-/** A tile's value: its words, or the link to where it stands, another site's or a page of this one. */
 function TileValue({ item }: { item: StatTile }) {
   if (item.href === undefined) return textOf(item.value);
   return (

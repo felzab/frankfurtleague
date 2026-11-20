@@ -11,9 +11,8 @@ import type { Copy } from "@/core/copy";
 /**
  * The passkey touch's browser half, the last step of an act on its fixed list: the person presses the act, answers any
  * dialog, presses the final button, and that press asks the touch and then runs the act. So every input is typed before
- * the touch, whose session the action's lane admits for `PASSKEY_TOUCH_SECONDS` alone
- * (the lane's `passkey` slot), and the prompt comes from the press itself, the user
- * activation Safari asks of WebAuthn, which an effect has not.
+ * the touch, whose session the action's lane admits for `PASSKEY_TOUCH_SECONDS` alone (the lane's `passkey` slot), and
+ * the prompt comes from the press itself, the user activation Safari asks of WebAuthn, which an effect has not.
  *
  * Mounted with the page rather than with a dialog, so the client's chunk is here before the press. `held` is whether the
  * person holds a passkey, which the page read; a person holding none is asked nothing, as the lane admits them. It

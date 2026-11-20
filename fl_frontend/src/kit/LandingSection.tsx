@@ -18,8 +18,8 @@ const section = tv({
 });
 
 /**
- * One of the landing's sections, the page's second heading step: its eyebrow, its title in Anton at 24 px, a
- * link on to the page that tells more, and its block. No intro: a section's title is its explanation.
+ * One of the landing's sections, the page's second heading step: its eyebrow, its title, a link on to the page
+ * that tells more, and its block. No intro: a section's title is its explanation.
  */
 export function LandingSection({
   eyebrow,

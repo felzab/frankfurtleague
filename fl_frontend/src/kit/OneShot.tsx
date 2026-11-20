@@ -117,7 +117,7 @@ export function OneShotForm({
    * field changed carries a new one, since a key never stands for two different requests.
    */
   replayField?: string;
-  /** The form's fields stand in `Section` boxes, which fill the column 24 px apart, and no card. */
+  /** The form's fields stand in `Section` boxes, which fill the column, and no card. */
   boxes?: boolean;
   /** A sentence the press rests on, at the footer's start beside the acts, such as where a confirmation goes. */
   note?: ReactNode;

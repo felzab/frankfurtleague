@@ -8,7 +8,6 @@ import { tv } from "./tv";
 import type { Copy } from "@/core/copy";
 import type { ComponentProps, ReactNode } from "react";
 
-/** One knockout match in the tree: its card, by its id. */
 export type BracketMatch = ComponentProps<typeof BracketCard> & { id: string };
 
 /** One round, its matches in the bracket's order, so a match stands under the two that feed it. */
@@ -25,8 +24,6 @@ const tree = tv({
     // The box whose width chooses the tree's form, a block's as every block's: the narrow form below 42 rem, as a list
     // stacks there, and the wide one from it. Around the tree, since a container query styles what stands inside it.
     box: "@container w-full",
-    // The rounds 32 px apart in the narrow form and 48 px in the wide one; the third place's dashed lines 24 px inward
-    // of the Finale's, meeting on a bus 14 px above its card.
     root: "overflow-x-auto [--bracket-gap:2rem] [--bracket-third-bus:0.875rem] [--bracket-third-inset:1.5rem] @2xl:[--bracket-gap:3rem]",
     row: "grid",
     cell: "flex justify-center",
@@ -119,7 +116,7 @@ function Feeds({ into, width }: { into: number; width: Width }) {
  * past it from the semi-finals' centres; its own dashed lines leave the semi-finals' bottoms further in and meet on a
  * bus just above its card.
  */
-function ThirdPlace({ children }: { /** The row and its card. */ children: ReactNode }) {
+function ThirdPlace({ children }: { children: ReactNode }) {
   const style = tree();
   return (
     <div className="relative">

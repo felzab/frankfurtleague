@@ -23,12 +23,10 @@ export const addressWords = tv({ base: "min-w-0 wrap-anywhere" });
  */
 export type AddressText = RecordText & { readonly address: true };
 
-/** Whether a row's name is an address its list marked as one (`AddressText`). */
 export function isAddress(name: Words | AddressText) {
   return typeof name !== "string" && "address" in name;
 }
 
-/** A part of an address with a break opportunity before each of its „.“. */
 function Dotted({ part }: { part: string }) {
   return part.split(/(?=\.)/u).map((piece, index) => (
     // The pieces are fixed for one address, so their place is their identity.
