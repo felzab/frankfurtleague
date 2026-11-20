@@ -19,10 +19,7 @@ export async function generateMetadata(_: unknown, parent: ResolvingMetadata): P
 export default function KontaktPage() {
   return (
     <ClassicPage width="form">
-      <PageHead
-        title={COPY.page.contact}
-        lead={[SERVER_COPY.description.contact]}
-      />
+      <PageHead title={COPY.page.contact} />
       <LinkRows
         rows={[
           {

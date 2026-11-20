@@ -81,10 +81,11 @@ const head = tv({
 });
 
 /**
- * A page's head where its title stands on the page: its title at the page's rung, the lead under it, the page's own
- * description or, on About, the landing's paragraphs, and the day its words took effect where the page has one.
+ * A page's head where its title stands on the page: its title at the page's rung, a lead under it where the page opens
+ * on content of its own, as About opens on the landing's paragraphs, and the day its words took effect where the page
+ * has one. A page's title is its explanation, so no page writes an intro as its lead.
  */
-export function PageHead({ title, lead, date }: { title: Copy; lead: readonly Copy[]; date?: Copy }) {
+export function PageHead({ title, lead = [], date }: { title: Copy; lead?: readonly Copy[]; date?: Copy }) {
   const slots = head();
   return (
     <header className={slots.root()}>

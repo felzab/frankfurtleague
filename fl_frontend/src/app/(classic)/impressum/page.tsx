@@ -22,10 +22,7 @@ export default function LegalNoticePage() {
   const { provider, representation, contact, register, licence } = words;
   return (
     <ClassicPage width="form">
-      <PageHead
-        title={COPY.page.legalNotice}
-        lead={[SERVER_COPY.description.legalNotice]}
-      />
+      <PageHead title={COPY.page.legalNotice} />
       <Prose
         sections={[
           {

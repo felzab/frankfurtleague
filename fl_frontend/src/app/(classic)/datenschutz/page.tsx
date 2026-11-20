@@ -194,7 +194,6 @@ export default function PrivacyNoticePage() {
   return (
     <ReadingPage
       title={COPY.page.privacyNotice}
-      lead={[SERVER_COPY.description.privacyNotice]}
       date={words.asOf(DATENSCHUTZ_AS_OF)}
       sections={sections}
     />

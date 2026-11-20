@@ -60,7 +60,6 @@ describe("a reading page's contents list", () => {
     render(
       <ReadingPage
         title={words.a}
-        lead={[]}
         sections={SECTIONS}
       />,
     );
@@ -83,7 +82,6 @@ describe("a reading page's contents list", () => {
     render(
       <ReadingPage
         title={words.a}
-        lead={[]}
         sections={SECTIONS}
       />,
     );
@@ -100,7 +98,6 @@ describe("a reading page's contents list", () => {
     render(
       <ReadingPage
         title={words.a}
-        lead={[]}
         sections={SECTIONS}
       />,
     );
