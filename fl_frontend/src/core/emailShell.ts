@@ -196,7 +196,7 @@ function previewBy(mail: Mail): string {
 }
 
 /** The Art. 21 line, the address in it a link. */
-export const OBJECTION: Sentence = [SERVER_COPY.mail.objection.before, { address: KONTAKT_EMAIL }, SERVER_COPY.mail.objection.after];
+export const OBJECTION: Sentence = SERVER_COPY.mail.objection(KONTAKT_EMAIL);
 
 function notYou(audience: MailAudience): string | undefined {
   return audience === "notice" ? undefined : SERVER_COPY.mail.notYou[audience];

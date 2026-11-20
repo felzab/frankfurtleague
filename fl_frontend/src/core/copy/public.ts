@@ -1,7 +1,12 @@
 import { catalogue, spieltagName, VERB } from "../copy";
 
+import type { Route } from "next";
+import type { Copy, RecordText } from "../copy";
+
 const SIGN_IN_WITH_PASSKEY = "Mit Passkey anmelden";
 const PASSKEY_REQUIRED = "Die Verwaltung ist erst mit einem Passkey erreichbar.";
+/** The privacy notice's link, which a form's sentence beside its send holds. */
+type NoticeLink = { readonly href: Route; readonly label: Copy };
 
 /** The words of the public forms, the sign-in and the landing, which a visitor reads. */
 export const PUBLIC_COPY = catalogue({
@@ -19,11 +24,8 @@ export const PUBLIC_COPY = catalogue({
     trikotSetDescription: "Zum Beispiel 15\u00A0rote Trikots",
     goodSpielerDescription: "Aktiv, mindestens Verbandsliga",
     wunschgegnerDescription: `Für den ${spieltagName(1)}`,
-    /**
-     * The sentence above the submit, in the two parts around the privacy notice's title, which the form sets as its
-     * link.
-     */
-    notice: { before: "Jede Kontaktperson bestätigt ihren Eintrag per E-Mail, mehr unter\u00A0", after: "." },
+    /** The sentence above the submit, around the privacy notice's link. */
+    notice: (link: NoticeLink) => ["Jede Kontaktperson bestätigt ihren Eintrag per E-Mail, mehr unter\u00A0", link, "."] as const,
   },
 
   /** The public registration form's own words; its squad fields read the labels `kader` gives them. */
@@ -33,8 +35,8 @@ export const PUBLIC_COPY = catalogue({
     ownAddress: "Deine eigene Adresse",
     /** The number box's label, the shirt's own word, which a pupil reads where the squad's lists say „Nummer“. */
     nummer: "Trikotnummer",
-    /** The sentence above the submit, in the two parts around the privacy notice's title, as `bewerbung.notice`. */
-    notice: { before: "Du bestätigst deine Registrierung per E-Mail, mehr unter\u00A0", after: "." },
+    /** The sentence above the submit, around the privacy notice's link, as `bewerbung.notice`. */
+    notice: (link: NoticeLink) => ["Du bestätigst deine Registrierung per E-Mail, mehr unter\u00A0", link, "."] as const,
   },
 
   signIn: {
@@ -45,11 +47,11 @@ export const PUBLIC_COPY = catalogue({
     withPasskey: SIGN_IN_WITH_PASSKEY,
 
     /**
-     * The code view: one sentence for every address, so it says nothing about who holds an account, in the two
-     * parts around the address, which the template sets semibold between them.
+     * The code view: one sentence for every address, so it says nothing about who holds an account, around the
+     * address, which the template sets semibold.
      */
     inbox: "Prüfe dein Postfach",
-    codeOnItsWay: { before: "Falls zu", after: "ein Konto gehört, ist ein Anmeldecode unterwegs." },
+    codeOnItsWay: (address: RecordText) => ["Falls zu ", address, " ein Konto gehört, ist ein Anmeldecode unterwegs."] as const,
     /** The six boxes' accessible name: no label stands above them. */
     code: "Code aus der E-Mail",
     otherAddress: "Andere E-Mail-Adresse verwenden",

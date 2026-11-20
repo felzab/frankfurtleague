@@ -6,12 +6,11 @@ import { Callout } from "@/kit/Callout";
 import { Facts } from "@/kit/Facts";
 import { TextField } from "@/kit/TextField";
 
-import type { Copy } from "@/core/copy";
+import type { Copy, RecordText } from "@/core/copy";
 
-/** A change pending on the address, as the server words it: its sentence's parts, and its new address. */
+/** A change pending on the address, as the server words it: its sentence's runs, around its new address. */
 export type Pending = {
-  readonly parts: { before: Copy; after: Copy };
-  readonly email: string;
+  readonly sentence: readonly [Copy, RecordText, Copy];
   /** Said where the step it waits on lapsed. */
   readonly lapsed: boolean;
   /** The person's own change, which this page withdraws; an administrator's the old address's stop link ends. */
@@ -80,10 +79,7 @@ export function SignInBoxes({
               : undefined
           }>
           {address}
-          <AccountSentence
-            parts={pending.parts}
-            record={{ record: pending.email }}
-          />
+          <AccountSentence sentence={pending.sentence} />
           {pending.lapsed && (
             <Callout
               tone="warn"

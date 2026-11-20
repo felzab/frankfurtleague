@@ -233,10 +233,13 @@ function ActBox({ act, words, danger, children }: { act: AccountAct; words: Reac
   );
 }
 
-export function AccountSentence({ parts, record }: { parts: { before: Copy; after: Copy }; record: RecordText }) {
+/** A box's sentence around a record's own value, such as an address, which it sets semibold. */
+export function AccountSentence({ sentence: [before, record, after] }: { sentence: readonly [Copy, RecordText, Copy] }) {
   return (
     <p className="text-sm text-fg">
-      {parts.before} <strong className="font-semibold break-all">{record.record}</strong> {parts.after}
+      {before}
+      <strong className="font-semibold break-all">{record.record}</strong>
+      {after}
     </p>
   );
 }

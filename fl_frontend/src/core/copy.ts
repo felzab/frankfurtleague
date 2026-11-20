@@ -42,7 +42,15 @@ type Catalogue<T> = T extends string
   ? Copy
   : T extends (...args: infer A) => string
     ? (...args: A) => Copy
-    : { readonly [K in keyof T]: Catalogue<T[K]> };
+    : T extends (...args: infer A) => readonly unknown[]
+      ? (...args: A) => Runs<ReturnType<T>>
+      : { readonly [K in keyof T]: Catalogue<T[K]> };
+
+/**
+ * A sentence around a value, as an entry returns it in reading order: each of its own words a `Copy`, and the value as
+ * its reader marks it, set semibold or as a link, left as it came.
+ */
+type Runs<R> = { readonly [K in keyof R]: R[K] extends string ? Copy : R[K] };
 
 /**
  * The only assertion to `Copy`: the whole tree is branded at once, so no entry can be left plain. Called anywhere but
@@ -167,6 +175,10 @@ export const waitWords = (wait: Wait) =>
  * typed.
  */
 export const boundBy = (...parts: string[]) => parts.join("\u00A0");
+
+/** A sentence's runs as one string, for a page that writes its value in the sentence's own weight. */
+export const runsText = (runs: readonly (string | { readonly strong: string })[]) =>
+  runs.map((run) => (typeof run === "string" ? run : run.strong)).join("");
 
 export const LINE_SEPARATOR = " \u00B7 ";
 

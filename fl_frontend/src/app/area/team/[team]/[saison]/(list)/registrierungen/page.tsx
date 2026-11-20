@@ -92,7 +92,7 @@ const EMPTY = {
   kind: "none",
   plural: ROUTES.teamRegistrierungen.title,
   glyph: "registrierungen",
-  line: { ...WORDS.linkFromLeague, link: { href: KONTAKT_MAILTO as Route, label: { record: KONTAKT_EMAIL } } },
+  line: WORDS.linkFromLeague({ href: KONTAKT_MAILTO as Route, label: { record: KONTAKT_EMAIL } }),
 } as const;
 
 /** The page's one read, after the seat it is drawn for, handed to its template running. */

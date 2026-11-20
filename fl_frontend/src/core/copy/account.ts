@@ -1,11 +1,13 @@
 import { ACCOUNT_ERASED, boundBy, catalogue, PASSKEY_WITHOUT_CODE, PRIVACY_NOTICE, seatsText, textOf, waitWords } from "../copy";
 import { formatDate, formatInstant, formatList, formatNumber } from "../format";
 
-import type { Copy, Wait, Words } from "../copy";
+import type { Copy, RecordText, Wait, Words } from "../copy";
 import type { FLKontaktSeat } from "../generated/client/types";
 
 // What a person's own record's box holds beyond its title, which names the record: a pupil's, a registration's, a referee's.
 const OWN_DETAILS = "Deine Angaben und was davon öffentlich ist.";
+// The pending change's opening, before its new address.
+const NEW_ADDRESS = "Die neue Adresse ";
 const teamSeason = (team: Words, saison: Copy) => `${textOf(team)}, ${saison}`;
 
 /** The words of a person's own Konto, at `/account`, and of the mailed pages acting on its address and its erasure. */
@@ -13,19 +15,26 @@ export const ACCOUNT_COPY = catalogue({
   address: {
     description: "Mit dieser Adresse meldest du dich an.",
     /**
-     * The pending change, in the two parts around its new address, which the box sets semibold between them: waiting
-     * on the address on file's link, which confirms first, or on the new address's own, by the step's deadline.
+     * The pending change, around its new address, which the box sets semibold: waiting on the address on file's link,
+     * which confirms first, or on the new address's own, by the step's deadline.
      */
     pending: {
-      before: "Die neue Adresse",
-      previous: (until: string | null) =>
-        until === null
-          ? "wartet auf die Bestätigung deiner bisherigen Adresse."
-          : `wartet ${boundBy("bis", formatInstant(until))} auf die Bestätigung deiner bisherigen Adresse.`,
-      new: (until: string | null) =>
-        until === null ? "wartet auf ihre Bestätigung." : `wartet ${boundBy("bis", formatInstant(until))} auf ihre Bestätigung.`,
+      previous: (address: RecordText, until: string | null) =>
+        [
+          NEW_ADDRESS,
+          address,
+          until === null
+            ? " wartet auf die Bestätigung deiner bisherigen Adresse."
+            : ` wartet ${boundBy("bis", formatInstant(until))} auf die Bestätigung deiner bisherigen Adresse.`,
+        ] as const,
+      new: (address: RecordText, until: string | null) =>
+        [
+          NEW_ADDRESS,
+          address,
+          until === null ? " wartet auf ihre Bestätigung." : ` wartet ${boundBy("bis", formatInstant(until))} auf ihre Bestätigung.`,
+        ] as const,
       /** Both addresses have confirmed and the wait runs. */
-      waiting: (moment: string) => `gilt ${boundBy("ab", formatInstant(moment))}.`,
+      waiting: (address: RecordText, moment: string) => [NEW_ADDRESS, address, ` gilt ${boundBy("ab", formatInstant(moment))}.`] as const,
     },
     /** The step the change waits on lapsed; the hourly pass ends it. */
     lapsed: "Die Änderung ist abgelaufen.",

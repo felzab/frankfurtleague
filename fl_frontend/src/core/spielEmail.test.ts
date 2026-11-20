@@ -65,7 +65,7 @@ describe("the notice of a move", () => {
     );
 
     expect(mail?.subjectLine).toBe(WORDS.voidSubject(dayOf(left.date)));
-    expect(mail?.paragraphs).toStrictEqual([[[WORDS.void.before(paarung(left)), moment(left), WORDS.void.after]]]);
+    expect(mail?.paragraphs).toStrictEqual([[WORDS.void(paarung(left), moment(left).strong)]]);
   });
 
   it("names the ground the fixture moved to, in the block a request names it in", () => {
@@ -164,18 +164,18 @@ describe("the notice of a match that will not be played", () => {
     {
       sonderereignis: "ausgefallen",
       subject: cancelled.ausgefallen.subject(day),
-      paragraph: [[cancelled.ausgefallen.before(spiel), when, cancelled.ausgefallen.after]],
+      paragraph: [cancelled.ausgefallen.lead(spiel, when.strong)],
     },
     {
       sonderereignis: "annulliert",
       subject: cancelled.annulliert.subject(day),
-      paragraph: [[cancelled.annulliert.before(spiel), when, cancelled.annulliert.after]],
+      paragraph: [cancelled.annulliert.lead(spiel, when.strong)],
     },
     {
       sonderereignis: "nichtantreten_team1",
       subject: cancelled.nichtantreten.subject(day),
       paragraph: [
-        [cancelled.nichtantreten.before({ record: appointment.team1 }), when, cancelled.nichtantreten.after],
+        cancelled.nichtantreten.lead({ record: appointment.team1 }, when.strong),
         consequence.nichtantreten({ record: appointment.team2 }),
       ],
     },
@@ -183,7 +183,7 @@ describe("the notice of a match that will not be played", () => {
       sonderereignis: "nichtantreten_team2",
       subject: cancelled.nichtantreten.subject(day),
       paragraph: [
-        [cancelled.nichtantreten.before({ record: appointment.team2 }), when, cancelled.nichtantreten.after],
+        cancelled.nichtantreten.lead({ record: appointment.team2 }, when.strong),
         consequence.nichtantreten({ record: appointment.team1 }),
       ],
     },

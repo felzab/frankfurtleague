@@ -31,10 +31,7 @@ export function buildKontaktConfirmationEmail(
     return {
       ...shell,
       subjectLine: SERVER_COPY.mail.kontakt.subject(schule),
-      paragraphs: [
-        [opening, SERVER_COPY.mail.bewerbung.confirmOrOppose],
-        [[DEADLINE.before, { strong: formatDateLong(dayOf(deadline)) }, DEADLINE.after]],
-      ],
+      paragraphs: [[opening, SERVER_COPY.mail.bewerbung.confirmOrOppose], [DEADLINE(formatDateLong(dayOf(deadline)))]],
       button: { label: COPY.page.entryConfirmation, href },
     };
   }

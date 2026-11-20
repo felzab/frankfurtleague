@@ -21,7 +21,7 @@ export function buildBanEmail({ ban_reason, barred_until_saison_id }: FLBanData,
     afterBlock: [
       // Art. 13: what is kept and on what basis, named because this mail is the only record its reader ever gets.
       [WORDS.stored, WORDS.account, WORDS.basis],
-      [[WORDS.rights.before, { address: KONTAKT_EMAIL }, WORDS.rights.after]],
+      [WORDS.rights(KONTAKT_EMAIL)],
       // Art. 21 (4) asks that the right to object be brought to the reader's attention explicitly and separately at
       // the first communication, which this message is: its own paragraph, the last.
       [OBJECTION],

@@ -30,7 +30,7 @@ export function buildRegistrierungConfirmationEmail(
     paragraphs: [
       [SERVER_COPY.registrierungConfirmation.opening({ record: team }, saisonId)],
       [WORDS.confirmation.admission],
-      [[WORDS.confirmation.deadline.before, { strong: formatDateLong(dayOf(deadline)) }, WORDS.confirmation.deadline.after]],
+      [WORDS.confirmation.deadline(formatDateLong(dayOf(deadline)))],
     ],
     button: { label: COPY.page.registrierungConfirmation, href: mailedLinkTo(origin, ROUTES.registrierungConfirmation, token) },
   };
@@ -58,7 +58,7 @@ export function buildRegistrierungAbsageEmail({ team, saison_id: saisonId, reaso
     subjectLine: WORDS.absage.subject(team),
     origin,
     paragraphs: [
-      [[{ strong: team }, WORDS.absage.lead.after(saisonId)]],
+      [WORDS.absage.lead(team, saisonId)],
       DECLINE_NEXT_STEPS[reason ?? "none"],
       [WORDS.absage.deletion(CONFIRMATION_DEADLINE_DAYS)],
     ],
