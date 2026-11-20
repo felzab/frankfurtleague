@@ -11,7 +11,7 @@ import { ClassicStatusPage } from "./StatusCard";
 import type { Copy } from "@/core/copy";
 import type { ReactNode } from "react";
 import type { Fact } from "./Facts";
-import type { EndState, OneShotAction, OneShotActs } from "./OneShot";
+import type { EndState, OneShotActs, OneShotRun } from "./OneShot";
 import type { StatusCardProps } from "./StatusCard";
 
 // The end a mailed page's answer reaches, handed on from the one-shot submit, which no page imports but this template.
@@ -46,7 +46,7 @@ export type MailedState =
       sentenceAfter?: Copy;
       /** The words closing the sentence around the privacy notice's title, which stands between them as its link. */
       more?: { before: Copy; after: Copy };
-      action: OneShotAction;
+      run: OneShotRun;
       acts: OneShotActs;
       /** What the form posts unseen beside its fields: the link's token. */
       carry: Readonly<Record<string, string>>;
@@ -94,7 +94,7 @@ async function MailedBody({ page }: { page: Promise<MailedState> }) {
     case "question":
       return (
         <OneShotForm
-          action={props.action}
+          run={props.run}
           acts={props.acts}
           carry={props.carry}
           touch={props.touch}

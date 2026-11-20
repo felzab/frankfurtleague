@@ -9,7 +9,7 @@ import { Chip } from "./Chip";
 import { CutRow, CutText } from "./CutText";
 import { EmptyState } from "./EmptyState";
 import { Link } from "./Link";
-import { RoleMark } from "./RoleMark";
+import { RolleMark } from "./RolleMark";
 import { RowEnd } from "./RowEnd";
 import { RowPress } from "./RowPress";
 import { SideActsScope } from "./SideActs";
@@ -24,7 +24,7 @@ import type { ReactElement } from "react";
 import type { AddressText } from "./AddressWords";
 import type { ChipProps } from "./Chip";
 import type { Clear, EmptyStateProps } from "./EmptyState";
-import type { RoleMarkProps } from "./RoleMark";
+import type { RolleMarkProps } from "./RolleMark";
 import type { Plaque } from "./TeamPlaque";
 
 /** A column after the name: its head, and how its values set. */
@@ -98,7 +98,7 @@ export type TableRow = {
   /** A club's plaque before its name, or before a name of the club's own, such as a scorer's. */
   plaque?: Plaque;
   /** The role a player's row holds in its squad, the boxed letter directly after the name and before any chip. */
-  mark?: RoleMarkProps;
+  mark?: RolleMarkProps;
   /**
    * Where the row's record stands: directly after the name on its line, and in the status column of a list that names
    * one (`state`) where the list is a table.
@@ -272,7 +272,7 @@ const table = tv({
     // „…“ where it is longer (`nameLine`).
     name: "w-full px-3 py-2",
     // A club's name beside its plaque, read but not drawn on a phone, where the plaque stands for it alone.
-    clubName: "@max-2xl:sr-only",
+    teamName: "@max-2xl:sr-only",
     // A linked row's last cell, as narrow as the chevron that says the row leads on.
     end: "w-0 pe-3",
     // A prose or a stack table's cell's column label on a stacked row, drawn for the eye alone: the read head names the
@@ -721,7 +721,7 @@ function NameCell({
   const lonePlaque = plaqueAlone && plaque !== undefined;
   const name = textOf(row.name);
   const address = isAddress(row.name);
-  const words = lonePlaque ? <span className={s.clubName()}>{name}</span> : address ? <AddressWords address={name} /> : name;
+  const words = lonePlaque ? <span className={s.teamName()}>{name}</span> : address ? <AddressWords address={name} /> : name;
   const opens = row.onOpen === undefined ? words : <RowPress onPress={row.onOpen}>{words}</RowPress>;
   const shape = prose ? "wraps" : plaque === undefined ? "name" : "plaque";
   const held = nameWithChips({ address, led: true });
@@ -752,7 +752,7 @@ function NameCell({
                 </Link>
               )}
             </CutText>
-            {row.mark !== undefined && <RoleMark {...row.mark} />}
+            {row.mark !== undefined && <RolleMark {...row.mark} />}
           </span>
           {/* A list with a status column draws a row's chips twice, here for its stacked rows and in the column's cell
               for its table: a stacked row's chips wrap with its name in this line, a table's stand in a cell of their

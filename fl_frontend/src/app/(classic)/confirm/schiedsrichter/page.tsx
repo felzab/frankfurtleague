@@ -78,7 +78,7 @@ async function readState(searchParams: Props["searchParams"]): Promise<MailedSta
         state: "question",
         title: COPY.page.entryConfirmation,
         sentence: WORDS.question(dayOf(view.deadline)),
-        action: answerSchiedsrichter,
+        run: answerSchiedsrichter,
         acts: {
           primary: COPY.page.entryConfirmation,
           refusal: { verb: "oppose", subject: COPY.shared.entry, consequence: WORDS.objectionEffect },

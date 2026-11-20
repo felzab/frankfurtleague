@@ -54,7 +54,7 @@ const nameOf = (spiel: FLSpielJoinedAdmin): Copy =>
     : ROUTES.adminSpiel.title({ record: spiel.team1.name }, { record: spiel.team2.name });
 
 /** A club of the fixture by its id, `null` where the fixture no longer fields it. */
-function clubOf(spiel: FLSpielJoinedAdmin, teamId: string): Words | null {
+function teamOf(spiel: FLSpielJoinedAdmin, teamId: string): Words | null {
   const side = [spiel.team1, spiel.team2].find((team) => team?.team_id === teamId);
   return side === undefined || side === null ? null : { record: side.name };
 }
@@ -69,7 +69,7 @@ function mailTo(recipients: readonly (FLSpielRecipientTeam | FLSpielRecipientSch
   return names.length === 0 ? [] : [{ label: FACTS.mailTo, value: { record: formatList(names) } }];
 }
 
-const slotOf = (date: string | null, time: string | null) => ({ day: dayOf(date), time: timeOf(time) });
+const appointmentOf = (date: string | null, time: string | null) => ({ day: dayOf(date), time: timeOf(time) });
 
 const BOOKED = { spielort: COPY.admin.spielort.object, schiedsrichter: COPY.shared.schiedsrichter } as const;
 
@@ -155,9 +155,9 @@ function openOf(row: Exclude<FLOverviewRow, { kind: "bewerbung" }>): { chip?: Ch
           };
     }
     case "vorschlag_open": {
-      const team = clubOf(spiel, row.team_id);
-      const proposed = slotOf(row.vorschlag.date, row.vorschlag.time);
-      const current = slotOf(spiel.date, spiel.time);
+      const team = teamOf(spiel, row.team_id);
+      const proposed = appointmentOf(row.vorschlag.date, row.vorschlag.time);
+      const current = appointmentOf(spiel.date, spiel.time);
       const [from, to] = [COPY.spielplan.when(current.day, current.time), COPY.spielplan.when(proposed.day, proposed.time)];
       return {
         chip: DECLINED_CHIP,

@@ -8,7 +8,7 @@ import { SERVER_COPY } from "@/core/serverCopy";
 import { getTeamPage } from "@/features/saisons/queries";
 import { publicSaisonOf } from "@/features/saisons/resolvers";
 import { headedMatchOf, outcomeFor } from "@/features/spiele/blocks";
-import { roleMarkOf, spielerName } from "@/features/spieler/constants";
+import { rolleMarkOf, spielerName } from "@/features/spieler/constants";
 import { austrittChip, austrittState } from "@/features/teams/constants";
 import { ReadFolds } from "@/kit/ReadFolds";
 import { ReadPage } from "@/kit/ReadPage";
@@ -67,7 +67,7 @@ export default function TeamPage({ params }: Props) {
  */
 function personOf(spieler: FLSpielerPublic): Pick<TableRow, "name" | "mark"> {
   const name = spielerName(spieler);
-  const mark = spieler.first_name === null ? undefined : roleMarkOf(spieler.rolle);
+  const mark = spieler.first_name === null ? undefined : rolleMarkOf(spieler.rolle);
   return mark === undefined ? { name } : { name, mark };
 }
 
@@ -85,7 +85,7 @@ const numberAndPositionOf = ({ nummer, position }: Pick<FLSpielerPublic, "nummer
 
 /** The club's standing at a glance: its place in its group, its points, its matches played and its goals. */
 function tilesOf({ team, standing }: FLTeamPageResponse): readonly [StatTile, StatTile, StatTile, StatTile] {
-  const words = SERVER_COPY.season.club;
+  const words = SERVER_COPY.season.team;
   const group = SERVER_COPY.season.gruppe(team.gruppe);
   if (standing === null)
     return [
@@ -124,7 +124,7 @@ async function readRecord(params: Props["params"]): Promise<ReadRecord> {
   return {
     title: { record: team.name },
     ...(team.austritt === null ? {} : { chip: austrittChip(team.austritt.type) }),
-    club: {
+    team: {
       head: (
         <TeamProfileHead
           plaque={{ record: team.shorthand }}

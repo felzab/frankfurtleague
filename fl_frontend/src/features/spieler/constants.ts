@@ -3,7 +3,7 @@ import { FLSpielerStufe } from "@/core/generated/client/types";
 
 import type { Words } from "@/core/copy";
 import type { FLSpielerRolle } from "@/core/generated/client/types";
-import type { RoleMarkProps } from "@/kit/RoleMark";
+import type { RolleMarkProps } from "@/kit/RolleMark";
 
 /**
  * A form offers a season's `rules.allowed_stufen`, not this. This is the vocabulary, and the ordering authority a
@@ -24,7 +24,7 @@ export function kaderName({ first_name, last_name }: { first_name: string; last_
   return last_name === null ? first_name : `${first_name} ${last_name}`;
 }
 
-export function roleMarkOf(rolle: FLSpielerRolle | null): RoleMarkProps | undefined {
+export function rolleMarkOf(rolle: FLSpielerRolle | null): RolleMarkProps | undefined {
   return rolle === null ? undefined : { letters: COPY.shared.rolleMark[rolle], label: COPY.admin.spieler.rolleOption[rolle] };
 }
 

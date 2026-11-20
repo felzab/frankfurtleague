@@ -147,8 +147,8 @@ async function readEditor(params: Props["params"]) {
         },
       }}
       shapes={shapes}
-      clubs={teams.map((team) => ({ id: team.team_id, name: team.name, gruppe: team.gruppe }))}
-      incoming={incoming_teams.map((club) => ({ id: club.id, name: club.name }))}
+      teams={teams.map((team) => ({ id: team.team_id, name: team.name, gruppe: team.gruppe }))}
+      incoming={incoming_teams.map((team) => ({ id: team.id, name: team.name }))}
       links={{
         head: LINKS_HEAD,
         rows: invitations.map((row): TableRow => {

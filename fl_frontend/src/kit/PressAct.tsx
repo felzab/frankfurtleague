@@ -18,13 +18,13 @@ import type { Copy } from "@/core/copy";
  */
 export function PressAct<Payload, Value>({
   label,
-  act,
+  run,
   payload,
   done,
   variant,
 }: {
   label: Copy;
-  act: (payload: Payload) => Promise<ActionAnswer<Value>>;
+  run: (payload: Payload) => Promise<ActionAnswer<Value>>;
   payload: Payload;
   /** The toast's title once the act is done, from the catalogue's toast titles. */
   done: Copy;
@@ -39,7 +39,7 @@ export function PressAct<Payload, Value>({
       isBusy={isRunning}
       onPress={() =>
         startRunning(async () => {
-          toastAnswer(await answering(act, router.refresh)(payload), done);
+          toastAnswer(await answering(run, router.refresh)(payload), done);
         })
       }
     />

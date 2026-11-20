@@ -50,15 +50,15 @@ function optionsOf(project: typeof PEOPLE.projects.desktop, { accepted, objected
     leaver: project.leaver.address,
     applicants: { accepted, declined: project.applicants.declined, objected },
     departing: project.departing,
-    entered: { club: project.entered.club, colour },
-    squadded: project.squadded,
+    entered: { team: project.entered.team, colour },
+    kaderPupil: project.kaderPupil,
     contact: {
       address: project.contact.trainer.address,
-      club: project.contact.club,
+      team: project.contact.team,
       fixture: project.contact.fixture,
       pupil: nameOf(project.contact.pupil),
     },
-    registering: { club: project.registering.club, token: project.registering.token, admitter: project.registering.admitter.address },
+    registering: { team: project.registering.team, token: project.registering.token, admitter: project.registering.admitter.address },
     booked: { address: project.booked.referee.address, played: project.booked.played, coming: project.booked.coming },
   };
 }

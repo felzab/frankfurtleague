@@ -3,7 +3,7 @@
 import { useState } from "react";
 
 import { COPY } from "@/core/copy";
-import { byShirtNumber, kaderName, roleMarkOf } from "@/features/spieler/constants";
+import { byShirtNumber, kaderName, rolleMarkOf } from "@/features/spieler/constants";
 import { rowState } from "@/features/spieler/rowChip";
 import { ListTable } from "@/kit/ListTable";
 
@@ -20,7 +20,7 @@ import type { TableHead, TableRow } from "@/kit/Table";
 function rowsOf(kader: readonly FLKaderRow[], open: (row: FLKaderRow) => void): TableRow[] {
   return kader.toSorted(byShirtNumber).map((row) => {
     const isLive = row.inactive_since === null;
-    const mark = roleMarkOf(row.rolle);
+    const mark = rolleMarkOf(row.rolle);
     const facts = [
       row.position === null ? null : { record: row.position },
       row.stufe === null ? null : COPY.admin.saison.stufe[row.stufe],

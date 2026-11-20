@@ -14,12 +14,12 @@ import { declinePasskeyOffer, signInWithCode } from "./support/signIn";
 /** Where a contact seat holding one team lands: its Übersicht of the season, under the team's id, which the seed mints. */
 const TEAM_OVERVIEW = new RegExp(`^/area/team/[0-9a-f]{24}/${RUNNING}$`);
 
-/** The pupil the journey registers through `club`'s link, and what they answer of the squad's three optional fields. */
-function pupilOf(club: string) {
+/** The pupil the journey registers through `team`'s link, and what they answer of the squad's three optional fields. */
+function pupilOf(team: string) {
   return {
     firstName: "Nele",
     lastName: "Neumann",
-    address: `nele.neumann.${club.toLowerCase()}@schule.example`,
+    address: `nele.neumann.${team.toLowerCase()}@schule.example`,
     nummer: "27",
     position: "Abwehr",
     stufe: "Q2",
@@ -38,9 +38,9 @@ test("a pupil registers through their team's link, confirms, is admitted, and fi
   page,
   // The team contact's device beside the pupil's.
   secondDevice: team,
-  registering: { club, token, admitter },
+  registering: { team: teamName, token, admitter },
 }) => {
-  const pupil = pupilOf(club);
+  const pupil = pupilOf(teamName);
   const name = `${pupil.firstName} ${pupil.lastName}`;
   const before = await filedMessages();
 
@@ -60,7 +60,7 @@ test("a pupil registers through their team's link, confirms, is admitted, and fi
   await expect(main.getByRole("heading", { name: "Bestätige deine Registrierung per E-Mail" })).toBeVisible();
 
   // The mailed link asks the birthdate and what of the name the site may show.
-  await page.goto(await mailedLink(pupil.address, `Registrierung bestätigen: ${club}`, before));
+  await page.goto(await mailedLink(pupil.address, `Registrierung bestätigen: ${teamName}`, before));
   await expect(main.getByRole("heading", { name: "Registrierung bestätigen" })).toBeVisible();
   // React Aria makes a segment a text box where the browser says it is an iPhone, and a spin button everywhere else.
   const birthday = main.getByRole("group", { name: /^Geburtsdatum/ });
@@ -88,7 +88,7 @@ test("a pupil registers through their team's link, confirms, is admitted, and fi
   // Admitted, the pupil signs in and lands on their own season: their club, number, position and Stufe.
   await signInWithCode(page, pupil.address);
   await declinePasskeyOffer(page, "/area/spieler");
-  await expect(valueOf(main, "Team").getByRole("link", { name: club, exact: true })).toBeVisible();
+  await expect(valueOf(main, "Team").getByRole("link", { name: teamName, exact: true })).toBeVisible();
   await expect(valueOf(main, "Nummer")).toHaveText(pupil.nummer);
   await expect(valueOf(main, "Position")).toHaveText(pupil.position);
   await expect(valueOf(main, "Stufe")).toHaveText(pupil.stufe);

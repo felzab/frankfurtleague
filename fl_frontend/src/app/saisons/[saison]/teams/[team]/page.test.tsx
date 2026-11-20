@@ -65,8 +65,8 @@ async function renderKader(kader: FLSpielerPublic[]) {
   const { groups } = await page.props.record;
   const folds = groups.find((group) => group.kind === "folds");
   if (folds?.kind !== "folds") throw new Error("no squad on the page");
-  const [squad] = (folds.folds as ReactElement<{ cards: readonly FoldedCard[] }>).props.cards;
-  const [table] = squad?.tables ?? [];
+  const [kaderCard] = (folds.folds as ReactElement<{ cards: readonly FoldedCard[] }>).props.cards;
+  const [table] = kaderCard?.tables ?? [];
   render(<Table {...(table as TableProps)} />);
 }
 

@@ -44,7 +44,7 @@ const WORDS = COPY.admin.spiel;
 const ORT = COPY.admin.spielort;
 
 /** A club a knockout match's side may be given by hand, with its Kürzel; one the write would not field carries why. */
-export type Club = { id: string; name: string; shorthand: string; note?: Copy };
+export type Team = { id: string; name: string; shorthand: string; note?: Copy };
 
 /** The referee's proposal with the line saying it, „Laut Spielbericht 3:1“, beside „Übernehmen“. */
 export type Adoption = Proposal & { text: Copy };
@@ -79,7 +79,7 @@ export function SpielEditor({
   begun,
   sides,
   quellen,
-  clubs,
+  teams,
   spielorte,
   schiedsrichter,
   sonderereignisse,
@@ -109,7 +109,7 @@ export function SpielEditor({
   /** Where each side comes from in the bracket, in full, `null` where it follows nothing. */
   quellen: { team1: Copy | null; team2: Copy | null };
   /** A knockout match's clubs to pick its sides from; `null` on a group match, whose sides the draw sets. */
-  clubs: readonly Club[] | null;
+  teams: readonly Team[] | null;
   spielorte: readonly Booking[];
   schiedsrichter: readonly Booking[];
   /** „Keines“ first, then each event, an event this fixture cannot take disabled with its reason. */
@@ -149,13 +149,13 @@ export function SpielEditor({
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState("");
 
-  const clubOf = (id: string | null) => (id === null ? undefined : clubs?.find((each) => each.id === id));
+  const teamOf = (id: string | null) => (id === null ? undefined : teams?.find((each) => each.id === id));
   // Each side's field named by its club, as it now stands in the draft, a club picked by hand with the plaque the
   // picker's list carries for it, and by its place while the side is open.
   const sideOf = (side: "team1" | "team2"): ScoreSide => {
     if (draft[side] === record.values[side] && sides[side] !== null) return sides[side];
-    const club = clubOf(draft[side]);
-    return club === undefined ? { name: WORDS[side], plaque: null } : { name: { record: club.name }, plaque: { record: club.shorthand } };
+    const team = teamOf(draft[side]);
+    return team === undefined ? { name: WORDS[side], plaque: null } : { name: { record: team.name }, plaque: { record: team.shorthand } };
   };
   const scoreSides: readonly [ScoreSide, ScoreSide] = [sideOf("team1"), sideOf("team2")];
   const sideNames: readonly [Words, Words] = [scoreSides[0].name, scoreSides[1].name];
@@ -196,11 +196,11 @@ export function SpielEditor({
     <Select
       label={WORDS[side]}
       name={side}
-      options={(clubs ?? []).map((club): Option => {
-        if (club.note !== undefined) return { id: club.id, label: { record: club.name }, isDisabled: true, note: club.note };
-        return club.id === other
-          ? { id: club.id, label: { record: club.name }, isDisabled: true, note: WORDS.onSpieltag }
-          : { id: club.id, label: { record: club.name } };
+      options={(teams ?? []).map((team): Option => {
+        if (team.note !== undefined) return { id: team.id, label: { record: team.name }, isDisabled: true, note: team.note };
+        return team.id === other
+          ? { id: team.id, label: { record: team.name }, isDisabled: true, note: WORDS.onSpieltag }
+          : { id: team.id, label: { record: team.name } };
       })}
       value={draft[side]}
       onChange={(id) => set(side, id)}
@@ -210,7 +210,7 @@ export function SpielEditor({
 
   // First on a knockout match, the clubs being what the rest of the match is about; a group match has none to pick.
   const begegnung: EditorSection | null =
-    clubs === null
+    teams === null
       ? null
       : {
           id: "begegnung",
@@ -335,7 +335,7 @@ export function SpielEditor({
               <Dialog
                 title={COPY.shared.withObject(ORT.object, "create")}
                 act={{ verb: "create", object: ORT.object }}
-                action={createSpielort}
+                run={createSpielort}
                 open={{ isOpen: creating, onOpenChange: setCreating }}>
                 <SpielortFields
                   rules={spielortRules}

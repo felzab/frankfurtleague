@@ -56,7 +56,7 @@ const tick = tv({
   },
   variants: {
     // Dimmed as a locked act is, the pointing hand kept, since a press is answered with the reason.
-    locked: { true: { target: "opacity-50" } },
+    columnFull: { true: { target: "opacity-50" } },
   },
 });
 
@@ -68,7 +68,7 @@ const tick = tv({
 export function Tick({
   isSelected,
   isDisabled = false,
-  locked = false,
+  columnFull = false,
   onChange,
   ...named
 }: {
@@ -81,10 +81,10 @@ export function Tick({
    * No further box of its column may be taken as things stand, such as a twelfth starter: dimmed and still pressed,
    * the press asking its owner, who keeps the box empty and says why on the line `aria-describedby` names.
    */
-  locked?: boolean;
+  columnFull?: boolean;
   onChange: (isSelected: boolean) => void;
 }) {
-  const look = tick({ locked });
+  const look = tick({ columnFull });
   return (
     <BoxField
       className={look.root()}

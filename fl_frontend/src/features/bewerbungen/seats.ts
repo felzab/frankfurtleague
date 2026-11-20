@@ -59,7 +59,7 @@ export function seatsOf(bewerbung: FLBewerbung): SeatView[] {
   const also = seatBesideTrainer(kontakte);
   return KONTAKT_SEATS.filter((seat) => seat !== also).map((seat) => {
     const entry = confirmations[seat];
-    // An erasure clears the entry, which is all that parts it from the empty slot a Widerspruch leaves.
+    // An erasure clears the entry, which is all that parts it from the empty seat a Widerspruch leaves.
     const state = entry?.state ?? "erased";
     const day = entry === null ? null : dayOfState(bewerbung, seat, entry);
     const delivery = entry?.sent_at === null ? NOT_SENT_CHIP : deliveryChip(entry?.delivery ?? null);

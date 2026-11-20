@@ -76,7 +76,7 @@ const CONTAINERS: Readonly<Record<string, ReadonlyArray<readonly [string, () => 
           <Dialog
             title={COPY.shared.help}
             act={{ verb: "save" }}
-            action={noAnswer}
+            run={noAnswer}
             open={{ isOpen: true, onOpenChange: () => {} }}>
             {twoFields()}
           </Dialog>,
@@ -124,7 +124,7 @@ const CONTAINERS: Readonly<Record<string, ReadonlyArray<readonly [string, () => 
             verb="delete"
             tone="danger"
             read={noAnswer}
-            act={noAnswer}
+            run={noAnswer}
             holder="pia@example.org">
             {twoFields()}
           </QuestionForm>,
@@ -138,7 +138,7 @@ const CONTAINERS: Readonly<Record<string, ReadonlyArray<readonly [string, () => 
         holding(
           <OneShotForm
             head={<span />}
-            action={noAnswer}
+            run={noAnswer}
             acts={{ primary: COPY.shared.verb.next }}>
             {twoFields()}
           </OneShotForm>,

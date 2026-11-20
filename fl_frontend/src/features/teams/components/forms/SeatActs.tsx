@@ -85,7 +85,7 @@ export function SeatActs<Key>({
         title={EDIT}
         lead={{ record: seatsText(seats) }}
         act={ACT}
-        action={write}
+        run={write}
         carry={carry}
         open={{ isOpen: isEditing, onOpenChange: setEditing }}>
         <TextField

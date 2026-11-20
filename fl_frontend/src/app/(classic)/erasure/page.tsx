@@ -72,7 +72,7 @@ const readState = cache(async (): Promise<MailedState> => {
     title: COPY.page.accountErasure,
     facts: factsOf(subject.email, passkeys, view),
     sentence: WORDS.question,
-    action: eraseAccount,
+    run: eraseAccount,
     acts: { primary: COPY.page.accountErasure },
     carry: { token, holder: subject.email },
     // Every person holding a passkey touches it at the press, an administrator always among them.

@@ -64,7 +64,7 @@ const pairingOnly = (from: FLSpielMailAppointment, to: FLSpielMailAppointment): 
   from.date === to.date && from.time === to.time && (from.team1 !== to.team1 || from.team2 !== to.team2);
 
 /** The fixture under its pairing, its ground last; after a move, the move's rows in the day's and the time's place. */
-function slotBlock(ansetzung: FLSpielMailAnsetzung, movedFrom: FLSpielMailAppointment | null): NonNullable<Mail["block"]> {
+function ansetzungBlock(ansetzung: FLSpielMailAnsetzung, movedFrom: FLSpielMailAppointment | null): NonNullable<Mail["block"]> {
   const when = movedFrom === null ? whenFacts(ansetzung) : moveFacts(movedFrom, ansetzung);
 
   // A ground nobody assigned, in words: a mail has no glyph for it.
@@ -103,7 +103,7 @@ export function buildSpielRequestEmail(
     subjectLine,
     origin: site,
     paragraphs: [lead],
-    block: slotBlock(ansetzung, movedFrom),
+    block: ansetzungBlock(ansetzung, movedFrom),
     afterBlock: [answerParagraph(deadline)],
     button: { label: COPY.shared.end.toOverview, href: `${site}${ROUTES.teamOverview.path(teamId, saison)}` },
   };
@@ -126,7 +126,7 @@ export function buildSpielEinteilungEmail({ ansetzung, moved_from: movedFrom }: 
     subjectLine: moved ? WORDS.movedSubject(dayOf(ansetzung.date)) : WORDS.bookedSubject(dayOf(ansetzung.date)),
     origin: site,
     paragraphs: [[lead]],
-    block: slotBlock(ansetzung, movedFrom),
+    block: ansetzungBlock(ansetzung, movedFrom),
     afterBlock: [[WORDS.sayYesOrNo]],
     button: { label: COPY.shared.end.toOverview, href: `${site}${SCHIEDSRICHTER_PANEL_PATH}` },
   };
@@ -213,10 +213,15 @@ export function buildSpielNoticeEmail(data: FLSpielMovedData | FLSpielNoticeData
   // A new pairing at the slot moved nothing: the subject says the slot stands, the lead names the new pairing, and the
   // block the pairing left.
   if (pairingOnly(appointment, movedTo)) {
-    return noticeEmail(WORDS.keptSubject(dayOf(movedTo.date)), origin, [WORDS.newPairing(paarung(movedTo))], slotBlock(movedTo, appointment));
+    return noticeEmail(
+      WORDS.keptSubject(dayOf(movedTo.date)),
+      origin,
+      [WORDS.newPairing(paarung(movedTo))],
+      ansetzungBlock(movedTo, appointment),
+    );
   }
 
-  return noticeEmail(WORDS.movedSubject(dayOf(movedTo.date)), origin, lead, slotBlock(movedTo, appointment));
+  return noticeEmail(WORDS.movedSubject(dayOf(movedTo.date)), origin, lead, ansetzungBlock(movedTo, appointment));
 }
 
 /** The word to a referee that their Einteilung is lifted, whoever took them off the fixture. */
@@ -252,7 +257,7 @@ export function buildAufstellungReminderEmail(
     subjectLine: words.reminderSubject(dayOf(ansetzung.date)),
     origin: site,
     paragraphs: [[words.missing({ record: team })]],
-    block: slotBlock(ansetzung, null),
+    block: ansetzungBlock(ansetzung, null),
     afterBlock: [[around(words.dueUntil.before, formatInstant(dueAt), words.dueUntil.after)]],
     button: { label: COPY.shared.end.toOverview, href: `${site}${ROUTES.teamOverview.path(teamId, saison)}` },
   };

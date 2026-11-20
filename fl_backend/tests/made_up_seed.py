@@ -128,7 +128,7 @@ from tests.documents import (
 )
 
 # The seasons, people, clubs, fixtures and links the journeys type, read by them too.
-# Its `club` and `squadded` keys are the journeys' option names, so they follow the frontend's names, not `team` and `kader`.
+# Its `team` and `kaderPupil` keys are the journeys' option names, so they follow the frontend's names.
 PEOPLE: Final[Mapping[str, Any]] = json.loads(Path(__file__).with_name("made_up_people.json").read_text(encoding="utf-8"))
 PROJECTS: Final[Sequence[Mapping[str, Any]]] = (PEOPLE["projects"]["desktop"], PEOPLE["projects"]["phone"])
 FINISHED: Final[str] = PEOPLE["seasons"]["finished"]
@@ -247,7 +247,7 @@ AHORN_KADER: Final = (
 )
 
 # Ulme's squad, the phone's contact seat's line-up to enter, at the cap as Ahorn's is; and Kastanie's beside Lena, the
-# club's line-up for match 10. No name holds either `squadded` pupil's, whom the administration's journey opens by a link
+# club's line-up for match 10. No name holds either `kaderPupil` pupil's, whom the administration's journey opens by a link
 # whose name holds theirs.
 ULME_KADER: Final = (
     ("Anton", "Umbach"),
@@ -812,7 +812,7 @@ class MadeUpLeague:
         notice reaches.
         """
 
-        if team_name in {project["departing"]["club"] for project in PROJECTS}:
+        if team_name in {project["departing"]["team"] for project in PROJECTS}:
             raise ValueError(f"{team_name} holds a journey's seat and departs in another journey")
         self.running.row(team_name).update(
             self.row_seats(
@@ -858,17 +858,17 @@ class MadeUpLeague:
         # registering through the club's link. Kastanie's Ansprechperson is no journey's: the person a drive of the team's
         # pages signs in as, the club holding a stored line-up, a locked one, an agreed date and several registrations.
         for project in PROJECTS:
-            self.journey_seat(project["contact"]["club"], project["contact"]["trainer"])
+            self.journey_seat(project["contact"]["team"], project["contact"]["trainer"])
         contact = PEOPLE["others"]["contact"]
         desktop_registering, phone_registering = (project["registering"] for project in PROJECTS)
-        if desktop_registering["club"] != "Kastanie":
+        if desktop_registering["team"] != "Kastanie":
             raise ValueError(
-                f"the desktop's registration journey names {desktop_registering['club']}, where the seed seats its Ansprechperson at Kastanie"
+                f"the desktop's registration journey names {desktop_registering['team']}, where the seed seats its Ansprechperson at Kastanie"
             )
         self.journey_seat(
             "Kastanie", desktop_registering["admitter"], self.confirmed_seat(contact["first_name"], contact["last_name"], contact["address"])
         )
-        self.journey_seat(phone_registering["club"], phone_registering["admitter"])
+        self.journey_seat(phone_registering["team"], phone_registering["admitter"])
 
     # --- The confirmations a fixture's parties owe ----------------------------------------------------------------
 
@@ -915,7 +915,7 @@ class MadeUpLeague:
             request
             for project, nr in zip(PROJECTS, (9, 10), strict=True)
             for request in (
-                self.request(running.spiel(nr), self.team_party(project["contact"]["club"]), -12),
+                self.request(running.spiel(nr), self.team_party(project["contact"]["team"]), -12),
                 self.request(running.spiel(nr), self.schiedsrichter_of(running.spiel(nr)), -12),
             )
         ]
@@ -984,7 +984,7 @@ class MadeUpLeague:
         )
 
     def _kader_rows(self) -> None:
-        mia, desktop, phone = PEOPLE["others"]["pupil"], *(project["squadded"] for project in PROJECTS)
+        mia, desktop, phone = PEOPLE["others"]["pupil"], *(project["kaderPupil"] for project in PROJECTS)
         self.mia = self.pupil(mia["first_name"], mia["last_name"], email=mia["address"])
         self.jonas = self.pupil(desktop, "Ahornberg")
         self.lena = self.pupil(phone, "Kastner")
@@ -1034,10 +1034,10 @@ class MadeUpLeague:
         }
         for project in PROJECTS:
             registering = project["registering"]
-            invitation = self.invitations.get(registering["club"])
+            invitation = self.invitations.get(registering["team"])
             if invitation is None or invitation["token_hashes"] != [hash_token(registering["token"])]:
                 raise ValueError(
-                    f"the registration journey opens {registering['token']}, which is no link the seed mints for {registering['club']}"
+                    f"the registration journey opens {registering['token']}, which is no link the seed mints for {registering['team']}"
                 )
 
         def registration(
@@ -1086,7 +1086,7 @@ class MadeUpLeague:
                 registration(
                     self.pupil(project["contact"]["pupil"]["first_name"], project["contact"]["pupil"]["last_name"], -1),
                     -2,
-                    team_name=project["contact"]["club"],
+                    team_name=project["contact"]["team"],
                     confirmed=True,
                 )
                 for project in PROJECTS
@@ -1375,7 +1375,7 @@ class MadeUpLeague:
         ]
         entered = {row["name"] for row in self.planned_rows}
         for project in PROJECTS:
-            for team_name in (project["applicants"]["declined"], project["entered"]["club"]):
+            for team_name in (project["applicants"]["declined"], project["entered"]["team"]):
                 if team_name in entered:
                     raise ValueError(f"a journey enters {team_name} into the planned season, which the seed has entered already")
 

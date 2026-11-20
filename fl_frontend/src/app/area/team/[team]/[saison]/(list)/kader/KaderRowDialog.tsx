@@ -43,7 +43,7 @@ export function KaderRowDialog({
     <Dialog
       title={{ record: name }}
       act={{ verb: "save" }}
-      action={saveKaderRow}
+      run={saveKaderRow}
       carry={{ ...where, version: String(row.version) }}
       open={open}
       danger={{

@@ -64,7 +64,7 @@ export function BerichtEditor({
   save,
   phase,
   sides,
-  squads,
+  kader,
   minute,
   required,
   eigentor,
@@ -82,7 +82,7 @@ export function BerichtEditor({
   phase: FLSaisonPhase;
   sides: Readonly<Record<FLSpielSide, Side>>;
   /** Each side's pupils to pick from, its squad's and any a stored row names beside them, each by number and name. */
-  squads: Readonly<Record<FLSpielSide, readonly Option[]>>;
+  kader: Readonly<Record<FLSpielSide, readonly Option[]>>;
   minute: MinuteRule;
   /** Whether a row's minute, its side, each list's player and a card's colour are required, read from the write's rules on the server. */
   required: { minute: boolean; goalPlayer: boolean; cardPlayer: boolean; side: boolean; cardColour: boolean };
@@ -167,7 +167,7 @@ export function BerichtEditor({
         labelHidden
         name={name}
         isRequired={isRequired}
-        options={row.side === null ? [] : [UNKNOWN, ...squads[row.side]]}
+        options={row.side === null ? [] : [UNKNOWN, ...kader[row.side]]}
         value={row.spieler_id}
         onChange={(spielerId) => change({ spieler_id: spielerId })}
       />

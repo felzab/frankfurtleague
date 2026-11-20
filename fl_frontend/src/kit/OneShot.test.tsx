@@ -44,10 +44,10 @@ afterEach(() => {
 
 const REFUSED: ActionAnswer<EndState> = { ok: false, reason: COPY.shared.failure.tooManyAttempts };
 
-const form = (action: (formData: FormData) => Promise<ActionAnswer<EndState>>, fields?: ReactNode) => (
+const form = (run: (formData: FormData) => Promise<ActionAnswer<EndState>>, fields?: ReactNode) => (
   <OneShotForm
     head={<h1>{COPY.shared.help}</h1>}
-    action={action}
+    run={run}
     acts={{ primary: COPY.shared.verb.next }}
     botCheck={{ siteKey: "key" }}
     replayField="replay">
@@ -60,24 +60,24 @@ const press = () => act(async () => void fireEvent.click(screen.getByRole("butto
 describe("a form anybody may send", () => {
   // The harm: a press with no token is refused on the server in words that tell the visitor nothing they can do.
   it("sends nothing while the check holds no token, and says the check's own sentence", async () => {
-    const action = vi.fn(async () => REFUSED);
-    renderUnderNext(form(action));
+    const run = vi.fn(async () => REFUSED);
+    renderUnderNext(form(run));
     // Cloudflare asks the visitor to click, so no token is minted until they do.
     cloudflare("before-interactive-callback")();
 
     await press();
 
-    expect(action).not.toHaveBeenCalled();
+    expect(run).not.toHaveBeenCalled();
     expect(screen.getByText(COPY.shared.botCheck)).toBeTruthy();
   });
 
   // The harm: a retry carrying a new key, after an answer lost on its way, stores a second application; an edit sent
   // under the old key is answered as the press before it, the edit stored nowhere and nothing on the page saying so.
   it("posts each press's token, the last press's key on a retry, and a new key once a field changed", async () => {
-    const action = vi.fn<(formData: FormData) => Promise<ActionAnswer<EndState>>>(async () => REFUSED);
+    const run = vi.fn<(formData: FormData) => Promise<ActionAnswer<EndState>>>(async () => REFUSED);
     renderUnderNext(
       form(
-        action,
+        run,
         <TextField
           label={COPY.shared.firstName}
           name="first_name"
@@ -96,7 +96,7 @@ describe("a form anybody may send", () => {
     minted("third");
     await press();
 
-    const [first, retry, edited] = action.mock.calls.map(([sent]) => sent);
+    const [first, retry, edited] = run.mock.calls.map(([sent]) => sent);
     expect([first, retry, edited].map((sent) => sent?.get(TURNSTILE_FIELD))).toStrictEqual(["first", "second", "third"]);
     expect(first?.get("replay")).toBeTruthy();
     expect(retry?.get("replay")).toBe(first?.get("replay"));
@@ -109,10 +109,10 @@ const REFUSAL = { verb: "oppose", subject: COPY.shared.entry, consequence: COPY.
 const QUESTION = COPY.shared.question(REFUSAL.subject, REFUSAL.verb);
 const OPPOSE = COPY.shared.verb.oppose;
 
-const refusalForm = (action: (formData: FormData) => Promise<ActionAnswer<EndState>>, acts: OneShotActs) => (
+const refusalForm = (run: (formData: FormData) => Promise<ActionAnswer<EndState>>, acts: OneShotActs) => (
   <OneShotForm
     head={<h1>{COPY.shared.help}</h1>}
-    action={action}
+    run={run}
     acts={acts}
   />
 );
@@ -123,8 +123,8 @@ const confirmIn = async () => within(await screen.findByRole("alertdialog", { na
 // The harm: a refusal ends what the link offered, the entry deleted, on one stray press.
 describe("a mailed page's refusal", () => {
   it("asks before it posts, posting nothing when the question closes unanswered", async () => {
-    const action = vi.fn<(formData: FormData) => Promise<ActionAnswer<EndState>>>(async () => REFUSED);
-    renderUnderNext(refusalForm(action, { primary: COPY.page.entryConfirmation, refusal: REFUSAL }));
+    const run = vi.fn<(formData: FormData) => Promise<ActionAnswer<EndState>>>(async () => REFUSED);
+    renderUnderNext(refusalForm(run, { primary: COPY.page.entryConfirmation, refusal: REFUSAL }));
     const refusal = screen.getByRole("button", { name: OPPOSE });
 
     await userEvent.click(refusal);
@@ -135,23 +135,23 @@ describe("a mailed page's refusal", () => {
     await screen.findByRole("alertdialog", { name: QUESTION });
     await userEvent.keyboard("{Escape}");
     await waitFor(() => expect(screen.queryByRole("alertdialog")).toBe(null));
-    expect(action).not.toHaveBeenCalled();
+    expect(run).not.toHaveBeenCalled();
 
     await userEvent.click(refusal);
     await userEvent.click(await confirmIn());
-    await waitFor(() => expect(action).toHaveBeenCalledTimes(1));
-    expect(action.mock.calls[0]?.[0].get("act")).toBe("secondary");
+    await waitFor(() => expect(run).toHaveBeenCalledTimes(1));
+    expect(run.mock.calls[0]?.[0].get("act")).toBe("secondary");
   });
 
   it("asks as the page's one act too, and posts as its main act", async () => {
-    const action = vi.fn<(formData: FormData) => Promise<ActionAnswer<EndState>>>(async () => REFUSED);
-    renderUnderNext(refusalForm(action, { refusal: REFUSAL }));
+    const run = vi.fn<(formData: FormData) => Promise<ActionAnswer<EndState>>>(async () => REFUSED);
+    renderUnderNext(refusalForm(run, { refusal: REFUSAL }));
 
     await userEvent.click(screen.getByRole("button", { name: OPPOSE }));
-    expect(action).not.toHaveBeenCalled();
+    expect(run).not.toHaveBeenCalled();
     await userEvent.click(await confirmIn());
 
-    await waitFor(() => expect(action).toHaveBeenCalledTimes(1));
-    expect(action.mock.calls[0]?.[0].get("act")).toBe("primary");
+    await waitFor(() => expect(run).toHaveBeenCalledTimes(1));
+    expect(run.mock.calls[0]?.[0].get("act")).toBe("primary");
   });
 });

@@ -98,7 +98,7 @@ export const TEAM_SAVE_RULES: TeamRules = {
 };
 
 /** Whether the entry asks for a club, its select posting an id or the new school's entry. */
-export const TEAM_CLUB_REQUIRED = requires(TeamsPostTeamEntryBody.shape.team.options[0].shape.team_id, "");
+export const TEAM_ENTRY_TEAM_REQUIRED = requires(TeamsPostTeamEntryBody.shape.team.options[0].shape.team_id, "");
 
 /** The description's bound, the one box only the editor shows. */
 export const TEAM_DESCRIPTION_MAX = teamsPatchTeamSaisonBodyDescriptionMax;

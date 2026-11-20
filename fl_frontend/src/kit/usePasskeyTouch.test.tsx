@@ -60,11 +60,11 @@ const question = (onConfirm: () => Promise<ActionAnswer>, touch?: { holder: stri
   />
 );
 
-const inputs = (action: (formData: FormData) => Promise<ActionAnswer>) => (
+const inputs = (run: (formData: FormData) => Promise<ActionAnswer>) => (
   <Dialog
     title={COPY.shared.help}
     act={{ verb: "enter" }}
-    action={action}
+    run={run}
     touch={{ holder: HOLDER }}
     trigger={{ label: VERB }}>
     <TextField
@@ -143,8 +143,8 @@ describe("a question behind the passkey touch", () => {
 describe("a dialog of inputs behind the passkey touch", () => {
   it("toasts a refused touch, the act not run, and posts what the next opening's press sends with the holder", async () => {
     passkey.prompt.mockResolvedValueOnce(CANCELLED).mockResolvedValueOnce(SIGNED_IN);
-    const action = vi.fn(async (_: FormData) => DONE);
-    renderWithToasts(inputs(action));
+    const run = vi.fn(async (_: FormData) => DONE);
+    renderWithToasts(inputs(run));
 
     const trigger = screen.getByRole("button", { name: VERB });
     await userEvent.click(trigger);
@@ -156,14 +156,14 @@ describe("a dialog of inputs behind the passkey touch", () => {
     expect(await toasted(COPY.signIn.refusal.unverified)).toBe("refused");
     // As the question's: the toast stands a render before the trigger leaves busy.
     await waitFor(() => expect(isBusy(trigger)).toBe(false));
-    expect([action.mock.calls.length, screen.queryByRole("dialog"), isBusy(trigger)]).toStrictEqual([0, null, false]);
+    expect([run.mock.calls.length, screen.queryByRole("dialog"), isBusy(trigger)]).toStrictEqual([0, null, false]);
 
     await userEvent.click(trigger);
     const again = await screen.findByRole("dialog");
     await userEvent.type(within(again).getByRole("textbox"), "Berta");
     await pressIn(again, ENTER);
-    await waitFor(() => expect(action).toHaveBeenCalledTimes(1));
-    const posted = action.mock.calls[0]?.[0];
+    await waitFor(() => expect(run).toHaveBeenCalledTimes(1));
+    const posted = run.mock.calls[0]?.[0];
     expect([posted?.get("name"), posted?.get("holder")]).toStrictEqual(["Berta", HOLDER]);
     expect(await toasted(COPY.shared.toast.done.enter)).toBe("done");
   });

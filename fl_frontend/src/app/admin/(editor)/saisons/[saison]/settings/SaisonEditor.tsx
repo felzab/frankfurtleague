@@ -45,7 +45,7 @@ const TIEBREAK: readonly Option[] = [
 const STUFEN = Object.values(FLSpielerStufe).map((stufe) => ({ id: stufe, label: WORDS.stufe[stufe] }));
 
 /** One club of the season as the swap and the replacement list it. */
-export type SaisonClub = { id: string; name: string; gruppe: string };
+export type SaisonTeam = { id: string; name: string; gruppe: string };
 
 /** What the season holds beyond its fields: where it stands, its draw, and what the editor's acts read. */
 export type SaisonFacts = {
@@ -81,15 +81,15 @@ export type SaisonActs = {
 const lockedBy = (reason: Copy | undefined) => (reason === undefined ? {} : { locked: reason });
 
 /** A club as a picker lists it, „Lessing · Gruppe A“. */
-const optionOf = (club: SaisonClub): Option => ({ id: club.id, label: { record: `${club.name} · ${COPY.shared.season.gruppe(club.gruppe)}` } });
+const optionOf = (team: SaisonTeam): Option => ({ id: team.id, label: { record: `${team.name} · ${COPY.shared.season.gruppe(team.gruppe)}` } });
 
 /** The group swap: two clubs of different groups. */
-function Swap({ saison, clubs, swap, locked }: { saison: string; clubs: readonly SaisonClub[]; swap: SaisonActs["swap"]; locked: boolean }) {
+function Swap({ saison, teams, swap, locked }: { saison: string; teams: readonly SaisonTeam[]; swap: SaisonActs["swap"]; locked: boolean }) {
   const [first, setFirst] = useState<string | null>(null);
   const [second, setSecond] = useState<string | null>(null);
-  const chosen = clubs.find((club) => club.id === first);
+  const chosen = teams.find((team) => team.id === first);
   // A swap within one group exchanges nothing: the second club is one of another group.
-  const partners = chosen === undefined ? clubs : clubs.filter((club) => club.gruppe !== chosen.gruppe);
+  const partners = chosen === undefined ? teams : teams.filter((team) => team.gruppe !== chosen.gruppe);
   return (
     <SectionAct
       inputs={[first, second]}
@@ -102,7 +102,7 @@ function Swap({ saison, clubs, swap, locked }: { saison: string; clubs: readonly
       ]}>
       <ComboBox
         label={WORDS.swapFirst}
-        options={clubs.map(optionOf)}
+        options={teams.map(optionOf)}
         isLocked={locked}
         value={first}
         onChange={(id) => {
@@ -124,21 +124,21 @@ function Swap({ saison, clubs, swap, locked }: { saison: string; clubs: readonly
 /** The replacement: a club leaving the season, and the club taking over. */
 function Replacement({
   saison,
-  clubs,
+  teams,
   incoming,
   replace,
   locked,
 }: {
   saison: string;
-  clubs: readonly SaisonClub[];
+  teams: readonly SaisonTeam[];
   incoming: readonly { id: string; name: string }[];
   replace: SaisonActs["replace"];
   locked: boolean;
 }) {
   const [out, setOut] = useState<string | null>(null);
   const [into, setInto] = useState<string | null>(null);
-  const leaving = clubs.find((club) => club.id === out);
-  const arriving = incoming.find((club) => club.id === into);
+  const leaving = teams.find((team) => team.id === out);
+  const arriving = incoming.find((team) => team.id === into);
   const consequence =
     leaving === undefined || arriving === undefined
       ? undefined
@@ -158,14 +158,14 @@ function Replacement({
       ]}>
       <ComboBox
         label={WORDS.outgoing}
-        options={clubs.map(optionOf)}
+        options={teams.map(optionOf)}
         isLocked={locked}
         value={out}
         onChange={setOut}
       />
       <ComboBox
         label={WORDS.incoming}
-        options={incoming.map((club) => ({ id: club.id, label: { record: club.name } }))}
+        options={incoming.map((team) => ({ id: team.id, label: { record: team.name } }))}
         isLocked={locked}
         value={into}
         onChange={setInto}
@@ -190,7 +190,7 @@ export function SaisonEditor({
   required,
   facts,
   shapes,
-  clubs,
+  teams,
   incoming,
   links,
   holder,
@@ -207,7 +207,7 @@ export function SaisonEditor({
   facts: SaisonFacts;
   /** Every shape the draw admits beside the season's other rules, which the qualifiers are offered from. */
   shapes: readonly FLSpielplanShape[];
-  clubs: readonly SaisonClub[];
+  teams: readonly SaisonTeam[];
   incoming: readonly { id: string; name: string }[];
   links: SaisonLinks;
   /** The address the page was drawn for, which an act behind the passkey touch posts. */
@@ -497,7 +497,7 @@ export function SaisonEditor({
       fields: (
         <Swap
           saison={saison}
-          clubs={clubs}
+          teams={teams}
           swap={acts.swap}
           locked={facts.begun || isClosed}
         />
@@ -509,7 +509,7 @@ export function SaisonEditor({
       fields: (
         <Replacement
           saison={saison}
-          clubs={clubs}
+          teams={teams}
           incoming={incoming}
           replace={acts.replace}
           locked={facts.begun || isClosed}

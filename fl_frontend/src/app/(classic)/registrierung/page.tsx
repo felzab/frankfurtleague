@@ -97,7 +97,7 @@ const readState = cache(async (): Promise<MailedState> => {
     ],
     // Said before anything is typed: the season has begun, so the entry stands outside the squad's cap.
     ...(view.nachnominierung ? { sentence: WORDS.nominee } : {}),
-    action: submitRegistrierung,
+    run: submitRegistrierung,
     acts: { primary: SUBMIT },
     carry: { token },
     replayField: REPLAY_FIELD,

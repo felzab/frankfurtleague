@@ -26,7 +26,7 @@ const SIDES = [
   { id: "team1", label: { record: "AHO" } },
   { id: "team2", label: { record: "KAS" } },
 ];
-const SQUAD = [{ id: "s9", label: { record: "9 · Mia Ahornberg" } }];
+const KADER = [{ id: "s9", label: { record: "9 · Mia Ahornberg" } }];
 const GOALS: ReadonlyArray<Goal> = [
   { side: "team1", spieler_id: "s9", minute: "12" },
   { side: "team2", spieler_id: null, minute: "27" },
@@ -93,7 +93,7 @@ function Goals({ errors, locked }: { errors?: Readonly<Record<string, Copy>>; lo
                 label={label}
                 labelHidden
                 name={name}
-                options={SQUAD}
+                options={KADER}
                 value={row.spieler_id}
                 onChange={(spieler_id) => change({ spieler_id })}
               />

@@ -103,7 +103,7 @@ function optionOf({ spieler_id: id, nummer, first_name: first, last_name: last }
  * report was written offers its squad alone: its rows naming a pupil outside it have lost their player, and the
  * departed club's pupils are no deregistration of the club playing.
  */
-function squadsOf(read: FLSpielberichtSchiedsrichterResponse): Record<FLSpielSide, Option[]> {
+function kaderOf(read: FLSpielberichtSchiedsrichterResponse): Record<FLSpielSide, Option[]> {
   const stored = read.bericht;
   const sideOf = (side: FLSpielSide): Option[] => {
     if (read.sides_changed.includes(side)) return read.kader[side].map(optionOf);
@@ -174,7 +174,7 @@ async function readPage(params: Props["params"]) {
       save={saveBericht}
       phase={spiel.saison_phase}
       sides={{ team1: sideOf("team1"), team2: sideOf("team2") }}
-      squads={squadsOf(found)}
+      kader={kaderOf(found)}
       minute={{ pattern: spielberichtePutSpielberichtBerichtBodyBerichtScorersItemMinuteRegExp.source }}
       required={REQUIRED}
       eigentor={SERVER_COPY.season.spiel.eigentor}

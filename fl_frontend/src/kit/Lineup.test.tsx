@@ -27,7 +27,7 @@ const WORDS: LineupWords = {
   pick: COPY.shared.verb.create,
   remove: COPY.shared.verb.remove,
   none: { kind: "none", plural: COPY.shared.spieler },
-  noSquad: { kind: "none", plural: COPY.shared.kader, one: true },
+  noKader: { kind: "none", plural: COPY.shared.kader, one: true },
   startersFull: COPY.shared.field.max(MAX),
   nomineeLocked: COPY.template.draftUnsaved,
   anonymous: COPY.shared.anonymous,
@@ -39,7 +39,7 @@ const nameOf = (nummer: number) => `Spieler ${String(nummer)}`;
  * `count` regular pupils numbered from 1. An id sorts the other way round than its number, so the lists' order is
  * the numbers' and never the ids' or the order of naming.
  */
-const squad = (count: number): LineupPlayer[] =>
+const kader = (count: number): LineupPlayer[] =>
   Array.from({ length: count }, (_, index) => ({ id: `p${String(99 - index)}`, name: { record: nameOf(index + 1) }, nummer: index + 1 }));
 
 const idOf = (nummer: number) => `p${String(100 - nummer)}`;
@@ -110,7 +110,7 @@ describe("a line-up", () => {
     const seen = vi.fn();
     renderUnderNext(
       <Held
-        players={squad(13)}
+        players={kader(13)}
         seen={seen}
       />,
       AT_ADDRESS,
@@ -156,7 +156,7 @@ describe("a line-up's states", () => {
     const seen = vi.fn();
     renderUnderNext(
       <Held
-        players={squad(3)}
+        players={kader(3)}
         start={lineupValue([idOf(1)], [])}
         seen={seen}
         locked={COPY.admin.spiel.departed}
@@ -176,7 +176,7 @@ describe("a line-up's states", () => {
     const gone: LineupPlayer = { id: "g1", name: { record: nameOf(40) }, nummer: 40, gone: COPY.admin.spiel.departed };
     renderUnderNext(
       <Held
-        players={[...squad(2), gone]}
+        players={[...kader(2), gone]}
         start={lineupValue([idOf(1), "g1"], [])}
         refusals={{ [idOf(1)]: COPY.shared.failure.stale }}
       />,
@@ -199,7 +199,7 @@ describe("a line-up keeping entries naming nobody", () => {
     const seen = vi.fn();
     renderUnderNext(
       <Held
-        players={[...squad(11), nominee(20)]}
+        players={[...kader(11), nominee(20)]}
         start={lineupValue(ids(1, 2, 3, 4, 5, 6, 7, 8, 9, 10), ids(1, 2, 3, 4, 5, 6, 7, 8, 9, 10))}
         nameless={[{ starts: true }]}
         seen={seen}

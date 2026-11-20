@@ -27,7 +27,7 @@ import type { FormStatus } from "./useFormAction";
 export type EndState = StatusCardProps;
 
 /** Which of the form's acts was pressed: the main one, or the refusal before it. */
-export type Act = "primary" | "secondary";
+type ActKind = "primary" | "secondary";
 
 /**
  * The refusal of what the link offers, an objection or a decline, by the question it asks before it sends: its verb,
@@ -48,7 +48,7 @@ const ACT_FIELD = "act";
  * The server action a one-shot form posts to, built by `action`: the fields by their
  * `name`s, the values the page carries, and the act pressed under `ACT_FIELD`.
  */
-export type OneShotAction = (formData: FormData) => Promise<ActionAnswer<EndState>>;
+export type OneShotRun = (formData: FormData) => Promise<ActionAnswer<EndState>>;
 
 /** Where a one-shot form hands the end its action reached, to the boundary holding it above the page's state. */
 const AnsweredEnd = createContext<((end: EndState) => void) | null>(null);
@@ -87,7 +87,7 @@ export function OneShotEnd({ children }: { children: ReactNode }) {
  */
 export function OneShotForm({
   head,
-  action,
+  run,
   acts,
   carry = {},
   touch = false,
@@ -100,12 +100,12 @@ export function OneShotForm({
 }: {
   /** What stands above the fields: the page's title and what the person answers. */
   head: ReactElement;
-  action: OneShotAction;
+  run: OneShotRun;
   acts: OneShotActs;
   /** What the form posts beside its fields, unseen: the token the page's link carries. */
   carry?: Readonly<Record<string, string>>;
   /**
-   * The main act's press asks the passkey touch ahead of `action`, for a person holding a passkey (`usePasskeyTouch`).
+   * The main act's press asks the passkey touch ahead of `run`, for a person holding a passkey (`usePasskeyTouch`).
    * Such a form is a signed-in person's and takes no bot check, whose wait would lose the press the prompt needs.
    */
   touch?: boolean;
@@ -131,7 +131,7 @@ export function OneShotForm({
   const { answer, submit, block, isBlocked, isPending } = useFormAction(
     async (formData: FormData) => {
       // The refusal posts without the touch: an objection hands nothing over.
-      const reached = await (formData.get(ACT_FIELD) === "primary" ? touched(action) : action)(formData);
+      const reached = await (formData.get(ACT_FIELD) === "primary" ? touched(run) : run)(formData);
       // Handed up before the answer settles here: the same response may already have replaced this form.
       if (reached.ok) answered?.(reached.value);
       return reached;
@@ -142,10 +142,10 @@ export function OneShotForm({
   // What the last press posted and the key it carried, read again by every press however often the page reads again.
   const lastSent = useRef<{ posted: string; key: string } | null>(null);
   const form = useRef<HTMLFormElement>(null);
-  const [pressed, setPressed] = useState<Act>("primary");
+  const [pressed, setPressed] = useState<ActKind>("primary");
   const [isChecking, setChecking] = useState(false);
   // The refusal's question, and the press it waits on: the form's fields as the press left them, and the act it posts as.
-  const [asked, setAsked] = useState<{ formData: FormData; act: Act } | null>(null);
+  const [asked, setAsked] = useState<{ formData: FormData; act: ActKind } | null>(null);
   const [isAsking, setAsking] = useState(false);
   // The check's own refusal: the action never ran, so no answer of its says it.
   const [checkRefusal, setCheckRefusal] = useState<Copy | null>(null);
@@ -182,12 +182,12 @@ export function OneShotForm({
   };
 
   /** The refusal asks first: its press opens the question, whose own press sends what the refusal's press left. */
-  const ask = (formData: FormData, act: Act) => {
+  const ask = (formData: FormData, act: ActKind) => {
     setAsked({ formData, act });
     setAsking(true);
   };
 
-  const send = (formData: FormData, act: Act) => {
+  const send = (formData: FormData, act: ActKind) => {
     setPressed(act);
     for (const [name, value] of Object.entries(carry)) formData.set(name, value);
     formData.set(ACT_FIELD, act);

@@ -41,7 +41,7 @@ describe("a first report opened at the league's no-show", () => {
           team1: { name: { record: "Birke" }, plaque: { record: "BIR" } },
           team2: { name: { record: "Weide" }, plaque: { record: "WEI" } },
         }}
-        squads={{ team1: [], team2: [] }}
+        kader={{ team1: [], team2: [] }}
         minute={{ pattern: spielberichtePutSpielberichtBerichtBodyBerichtScorersItemMinuteRegExp.source }}
         required={{ minute: true, goalPlayer: true, cardPlayer: true, side: true, cardColour: true }}
         eigentor={SERVER_COPY.season.spiel.eigentor}

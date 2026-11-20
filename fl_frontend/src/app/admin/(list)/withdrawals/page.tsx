@@ -34,7 +34,7 @@ export default function WithdrawalsPage() {
       tone="primary"
       touch={false}
       read={readWithdrawal}
-      act={enterWithdrawal}
+      run={enterWithdrawal}
       holder={runAdminRead(async () => (await getAdminSession())?.user.email ?? "")}
       fields={[
         {

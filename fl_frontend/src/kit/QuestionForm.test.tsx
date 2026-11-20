@@ -26,7 +26,7 @@ const READ: ActionAnswer<AskedInput<Input>> = {
   value: { question: { subject: COPY.admin.erasure.object, consequence: SENTENCE }, input: { email: ADDRESS } },
 };
 
-const acts = vi.hoisted(() => ({ read: vi.fn(), act: vi.fn(), touch: vi.fn() }));
+const acts = vi.hoisted(() => ({ read: vi.fn(), run: vi.fn(), touch: vi.fn() }));
 
 vi.mock("@/core/auth/browserClient", () => ({
   loadAuthClient: async () => ({ signIn: { passkey: acts.touch } }),
@@ -39,7 +39,7 @@ const FORM = (
     verb="delete"
     tone="danger"
     read={acts.read}
-    act={acts.act}
+    run={acts.run}
     holder={HOLDER}>
     <TextField
       label={COPY.signIn.address}
@@ -66,7 +66,7 @@ async function press() {
 
 beforeEach(() => {
   acts.read.mockReset();
-  acts.act.mockReset();
+  acts.run.mockReset();
   acts.touch.mockReset();
   acts.read.mockResolvedValue(READ);
   acts.touch.mockResolvedValue({ data: { status: true, email: HOLDER }, error: null });
@@ -81,7 +81,7 @@ describe("a form asking its question over what the press read", () => {
   // The harm: the touch ahead of the question, the act sending what the boxes hold rather than what the read held, or
   // the done act said twice, in the line and in a toast.
   it("runs the act behind the touch on the read's input, emptying the boxes under its done line alone", async () => {
-    acts.act.mockResolvedValue({ ok: true, value: undefined, note: COPY.admin.erased });
+    acts.run.mockResolvedValue({ ok: true, value: undefined, note: COPY.admin.erased });
     await press();
 
     const question = await screen.findByRole("alertdialog", { name: QUESTION });
@@ -91,7 +91,7 @@ describe("a form asking its question over what the press read", () => {
 
     expect(await screen.findByText(COPY.admin.erased)).toBeTruthy();
     expect(acts.touch).toHaveBeenCalledOnce();
-    expect(acts.act).toHaveBeenCalledWith({ email: ADDRESS, holder: HOLDER });
+    expect(acts.run).toHaveBeenCalledWith({ email: ADDRESS, holder: HOLDER });
     await waitFor(() => {
       expect(box().value).toBe("");
     });
@@ -101,7 +101,7 @@ describe("a form asking its question over what the press read", () => {
 
   // The harm: an erasure's done line greeting a later visit, or standing over the next address typed.
   it("clears a done act's line as the next address is typed and once the page hides", async () => {
-    acts.act.mockResolvedValue({ ok: true, value: undefined, note: COPY.admin.erased });
+    acts.run.mockResolvedValue({ ok: true, value: undefined, note: COPY.admin.erased });
     const { rerender } = renderUnderNext(<Activity mode="visible">{FORM}</Activity>);
     await userEvent.type(box(), ADDRESS);
     await userEvent.click(screen.getByRole("button", { name: VERB }));
@@ -123,14 +123,14 @@ describe("a form asking its question over what the press read", () => {
 
   // The harm: a passkey touch asked for an act off its fixed list, such as a withdrawal entered from a mail.
   it("runs an act off the touch's list inside its question, asking no touch", async () => {
-    acts.act.mockResolvedValue({ ok: true, value: undefined, note: COPY.admin.erased });
+    acts.run.mockResolvedValue({ ok: true, value: undefined, note: COPY.admin.erased });
     renderUnderNext(
       <QuestionForm
         verb="delete"
         tone="danger"
         touch={false}
         read={acts.read}
-        act={acts.act}
+        run={acts.run}
         holder={HOLDER}>
         <TextField
           label={COPY.signIn.address}
@@ -144,7 +144,7 @@ describe("a form asking its question over what the press read", () => {
     await userEvent.click(within(await screen.findByRole("alertdialog", { name: QUESTION })).getByRole("button", { name: VERB }));
 
     expect(await screen.findByText(COPY.admin.erased)).toBeTruthy();
-    expect(acts.act).toHaveBeenCalledWith({ email: ADDRESS, holder: HOLDER });
+    expect(acts.run).toHaveBeenCalledWith({ email: ADDRESS, holder: HOLDER });
     expect(acts.touch).not.toHaveBeenCalled();
     await waitFor(() => {
       expect(screen.queryAllByRole("alertdialog")).toStrictEqual([]);
@@ -153,7 +153,7 @@ describe("a form asking its question over what the press read", () => {
 
   // The harm: a refused erasure's address gone, so the repeat that reaches the account left standing is typed anew.
   it("toasts an act's refusal, its boxes kept, and the form's press runs the act again", async () => {
-    acts.act.mockResolvedValue({ ok: false, reason: COPY.admin.erasure.partial });
+    acts.run.mockResolvedValue({ ok: false, reason: COPY.admin.erasure.partial });
     await press();
 
     await userEvent.click(within(await screen.findByRole("alertdialog", { name: QUESTION })).getByRole("button", { name: VERB }));
@@ -170,7 +170,7 @@ describe("a form asking its question over what the press read", () => {
     await userEvent.click(again);
     await userEvent.click(within(await screen.findByRole("alertdialog", { name: QUESTION })).getByRole("button", { name: VERB }));
     await waitFor(() => {
-      expect(acts.act).toHaveBeenCalledTimes(2);
+      expect(acts.run).toHaveBeenCalledTimes(2);
     });
   });
 });

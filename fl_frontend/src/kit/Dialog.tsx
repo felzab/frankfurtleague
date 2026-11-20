@@ -134,7 +134,7 @@ export function RouteDialog({
  * A dialog's part ending its record, shaped as a row of an editor's danger box in a dialog's width, its hairlines
  * running out to both of the dialog's edges through the padding the box declares, as a field group's do.
  */
-const dangerRow = tv({
+const dialogDangerPart = tv({
   base: "-mx-(--dialog-padding) flex items-center gap-3 justify-self-stretch border-y border-border px-(--dialog-padding) py-4",
 });
 
@@ -147,7 +147,7 @@ const dangerRow = tv({
 function DangerRow({ danger, isClosed, onDone }: { danger: DialogDanger; isClosed: boolean; onDone: () => void }) {
   const { confirm } = danger;
   return (
-    <div className={dangerRow()}>
+    <div className={dialogDangerPart()}>
       <div className="grid min-w-0 flex-1 text-sm">
         <span className="font-semibold">{danger.name}</span>
         <p className={statusLine({ placement: "column", tone: "resting" })}>{danger.consequence}</p>
@@ -183,7 +183,7 @@ function DangerRow({ danger, isClosed, onDone }: { danger: DialogDanger; isClose
 function ActDialog({
   title,
   label,
-  action,
+  run,
   send,
   opened,
   carry = {},
@@ -194,7 +194,7 @@ function ActDialog({
   locked,
   danger,
   children,
-}: Pick<DialogAct, "title" | "action" | "carry" | "lead" | "consequence" | "facts" | "tone" | "locked" | "danger" | "children"> & {
+}: Pick<DialogAct, "title" | "run" | "carry" | "lead" | "consequence" | "facts" | "tone" | "locked" | "danger" | "children"> & {
   label: Copy;
   opened: HeldOpen;
   /** Sends the inputs past this dialog, which closes as it does: an act behind the passkey touch (`Dialog`). */
@@ -203,7 +203,7 @@ function ActDialog({
   const close = () => opened.onOpenChange(false);
   const { answer, submit, block, isBlocked, isPending } = useFormAction(
     async (formData: FormData) => {
-      const answered = await action(formData);
+      const answered = await run(formData);
       // A form's action runs in a transition, and an update after its `await` commits outside it.
       if (answered.ok && answered.note === undefined) startTransition(close);
       return answered;
@@ -293,7 +293,7 @@ type Opening<T extends Tone> =
 /**
  * One act done where its record shows, in a centred dialog: its title, its few inputs, „Zurück“ and its
  * verb. A record's creation opens it over its list, or from the create entry of a field choosing among its
- * records. The verb sends the inputs to `action` through the one form wrapper: a done act closes the dialog, one
+ * records. The verb sends the inputs to `run` through the one form wrapper: a done act closes the dialog, one
  * noting more than it was asked leaves it open on its note, in the warn tone where the answer marks it `warn`, and a
  * refused one leaves it open with the input kept and the refusal shown.
  *
@@ -310,7 +310,7 @@ export function Dialog<T extends Tone = "primary">(props: DialogAct<T> & Opening
   const [isRunning, startRun] = useTransition();
   const touched = usePasskeyTouch(touch !== undefined, touch?.holder);
   const done = props.touch === undefined ? null : COPY.shared.toast.done[props.act.verb];
-  const sent = answering(touched(form.action), router.refresh);
+  const sent = answering(touched(form.run), router.refresh);
   const send =
     done === null
       ? null

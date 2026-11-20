@@ -34,8 +34,8 @@ const ADDRESS = COPY.signIn.address;
 
 const ADD = { verb: "enter", object: WORDS.object } as const;
 const HAND_OVER = { verb: "handOver", object: WORDS.owner } as const;
-const ADD_FACE = { title: actLabel(ADD), act: ADD, action: addAdministrator } as const;
-const HAND_OVER_FACE = { title: actLabel(HAND_OVER), act: HAND_OVER, action: startHandover } as const;
+const ADD_FACE = { title: actLabel(ADD), act: ADD, run: addAdministrator } as const;
+const HAND_OVER_FACE = { title: actLabel(HAND_OVER), act: HAND_OVER, run: startHandover } as const;
 
 export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
   return pageMetadata(parent, ROUTES.adminAdministrators, ROUTES.adminAdministrators.path());
@@ -110,7 +110,7 @@ function activeRow(grant: FLGrantRow, { reader, readerIsOwner }: Pick<Access, "r
           { label: WORDS.since, value: dayOf(grant.effective_from) },
           { label: FACTS.mailTo, value: MAIL_TO.holdersAndPerson },
         ]}
-        act={removeAdministrator}
+        run={removeAdministrator}
         id={grant.id}
         holder={reader}
         {...(locked === undefined ? {} : { locked })}
@@ -149,7 +149,7 @@ function waitingRow({
         subject={COPY.account.address.change}
         consequence={consequence}
         facts={facts}
-        act={act}
+        run={act}
         id={id}
         holder={reader}
         {...(readerIsOwner ? {} : { locked: WORDS.ownerOnly })}

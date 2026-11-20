@@ -1,6 +1,6 @@
 import { COPY } from "@/core/copy";
 import { SERVER_COPY } from "@/core/serverCopy";
-import { roleMarkOf, shirtNumber, spielerName } from "@/features/spieler/constants";
+import { rolleMarkOf, shirtNumber, spielerName } from "@/features/spieler/constants";
 import { NOMINEE_CHIP } from "@/kit/stateChips";
 
 import { STARTERS_MAX } from "./constants";
@@ -19,7 +19,7 @@ export const LINEUP_WORDS: LineupWords = {
   pick: COPY.shared.verb.lineUp,
   remove: COPY.shared.verb.remove,
   none: { kind: "none", plural: SERVER_COPY.season.spiel.aufstellung },
-  noSquad: { kind: "none", plural: COPY.shared.kader, one: true },
+  noKader: { kind: "none", plural: COPY.shared.kader, one: true },
   startersFull: COPY.shared.field.max(STARTERS_MAX),
   nomineeLocked: COPY.area.team.aufstellung.nomineeLocked(STARTERS_MAX),
   anonymous: COPY.shared.anonymous,
@@ -31,7 +31,7 @@ function chipOf({ is_nachnominiert }: Pick<FLAufstellungSpieler, "is_nachnominie
 }
 
 function playerOf(spieler: FLAufstellungSpieler, gone: boolean): LineupPlayer {
-  const mark = roleMarkOf(spieler.rolle);
+  const mark = rolleMarkOf(spieler.rolle);
   const chip = chipOf(spieler);
   return {
     id: spieler.spieler_id,

@@ -69,7 +69,7 @@ function question(view: FLRegistrierungConfirmationViewValid, token: string): Ma
     sentence: WORDS.text(WORDS.opening({ record: view.team }, view.saison_id), WORDS.stored),
     more: WORDS.more,
     sentenceAfter: WORDS.deadline(until),
-    action: answerRegistrierung,
+    run: answerRegistrierung,
     acts: { primary: COPY.page.registrierungConfirmation },
     carry: { token },
     children: (

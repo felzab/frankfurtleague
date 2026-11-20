@@ -41,7 +41,7 @@ export function formStateOf(saison: string, form: FLBewerbungFormResponse): Mail
   return {
     state: "question",
     title: COPY.page.bewerbung(saison),
-    action: submitBewerbung,
+    run: submitBewerbung,
     acts: { primary: SUBMIT },
     carry: { saison_id: saison },
     replayField: REPLAY_FIELD,

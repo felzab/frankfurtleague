@@ -48,10 +48,10 @@ export async function generateMetadata({ params }: Props, parent: ResolvingMetad
  * names it, and when the match is played. No due day: the league enters a line-up whenever the match has its slot.
  */
 function leadOf({ spiel, team_id }: FLAufstellungResponse): Copy {
-  const club = [spiel.team1, spiel.team2].find((side) => side?.team_id === team_id);
-  if (club === undefined || club === null) throw new ContractBreakError("A line-up's read named a club its fixture does not field.");
+  const team = [spiel.team1, spiel.team2].find((side) => side?.team_id === team_id);
+  if (team === undefined || team === null) throw new ContractBreakError("A line-up's read named a club its fixture does not field.");
   return COPY.shared.line([
-    COPY.area.team.aufstellung.ofTeam({ record: club.name }),
+    COPY.area.team.aufstellung.ofTeam({ record: team.name }),
     matchdayOf(spiel, spiel),
     COPY.spielplan.when(dayOf(spiel.date), timeOf(spiel.time)),
   ]);

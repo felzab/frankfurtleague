@@ -28,7 +28,7 @@ export default function ErasuresPage() {
       verb="delete"
       tone="danger"
       read={readErasureCounts}
-      act={eraseAddress}
+      run={eraseAddress}
       holder={runAdminRead(async () => (await getAdminSession())?.user.email ?? "")}
       fields={[
         {

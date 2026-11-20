@@ -60,7 +60,7 @@ function Editor({ save }: { save: Parameters<typeof SpielEditor>[0]["save"] }) {
         team2: { name: { record: "Eiche" }, plaque: { record: "EIC" } },
       }}
       quellen={{ team1: null, team2: null }}
-      clubs={null}
+      teams={null}
       spielorte={[]}
       schiedsrichter={[]}
       sonderereignisse={[{ id: NO_SONDEREREIGNIS, label: WORDS.none }]}

@@ -42,7 +42,7 @@ export default function SchiedsrichterPage() {
       create={{
         title: COPY.shared.withObject(OBJECT, "create"),
         act: { verb: "create", object: OBJECT },
-        action: createSchiedsrichter,
+        run: createSchiedsrichter,
         children: <SchiedsrichterFields />,
       }}
       list={{ kind: "table", search: { label: WORDS.search }, head: HEAD, content: readSchiedsrichter() }}

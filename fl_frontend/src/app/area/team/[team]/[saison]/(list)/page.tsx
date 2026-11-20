@@ -95,7 +95,7 @@ function spielbestaetigungRow(row: FLTeamPanelSpielbestaetigung, team: string, s
             <PressAct
               variant="primary"
               label={COPY.shared.verb.agree}
-              act={agreeSpielbestaetigung}
+              run={agreeSpielbestaetigung}
               payload={{ id: row.spielbestaetigung_id }}
               done={COPY.shared.toast.agreed}
             />

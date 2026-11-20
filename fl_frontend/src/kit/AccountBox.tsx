@@ -318,7 +318,7 @@ function RenameAct({ rename }: { rename: Rename }) {
     <Dialog
       title={rename.title}
       act={{ verb: "rename" }}
-      action={rename.run}
+      run={rename.run}
       trigger={{ icon: "rename", label: COPY.shared.verb.rename }}>
       {rename.field}
     </Dialog>
