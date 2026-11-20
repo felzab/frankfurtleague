@@ -2,8 +2,8 @@
 
 import { useEffect, useRef } from "react";
 
+import { TAB_PARAM } from "./filterValue";
 import { hoverLook } from "./hoverStyles";
-import { TAB_PARAM } from "./tabChoice";
 import { tv } from "./tv";
 import { NavigationLink, usePressed } from "./WholePage";
 

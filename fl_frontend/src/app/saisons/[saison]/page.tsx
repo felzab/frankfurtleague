@@ -7,10 +7,10 @@ import { getSpielplan } from "@/features/saisons/queries";
 import { publicSaisonOf, resolvePublicSaisonParam } from "@/features/saisons/resolvers";
 import { matchRowOf } from "@/features/spiele/blocks";
 import { spieltagNamer } from "@/features/spieltage/utils";
+import { chosenTab } from "@/kit/filterValue";
 import { Link } from "@/kit/Link";
 import { ListPage } from "@/kit/ListPage";
 import { SpielList } from "@/kit/SpielRow";
-import { chosenTab } from "@/kit/tabChoice";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
 
