@@ -1403,10 +1403,10 @@ since="$(docker inspect -f '{{.State.StartedAt}}' "$(docker compose ps -q fronte
 docker compose logs --since "$since" frontend | grep auth.index_unbuilt
 ```
 
-**Read it once about 30 seconds have passed since that start.** Each build waits at most nine
+**Read it once about 75 seconds have passed since that start.** Each build waits at most nine
 seconds, the client's selection, checkout and socket bounds of three seconds each
-(`fl_frontend/src/core/db.ts`), and the `session` collection's three are built one after another, so
-the boot's last line comes within about 27 seconds.
+(`fl_frontend/src/core/db.ts`), and the list's eight are built one after another, so the boot's last
+line comes within about 72 seconds.
 
 | The line's `code` | What stands                                                                 | What to do                                                                                                                                                               |
 | ----------------- | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
