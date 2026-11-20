@@ -399,14 +399,6 @@ export const ADMIN_COPY = catalogue({
     duration: "Dauer",
     until: VALID_UNTIL,
     durationSaisons: (count: number) => (count === 1 ? "1\u00A0Saison" : boundBy(formatNumber(count), "Saisons")),
-    /** The toast once the ban stands, by what did not follow it. */
-    partial: {
-      sessions: "Die Sperre steht, aber die Geräte bleiben angemeldet.",
-      notice: "Die Sperre steht, aber die E-Mail ist nicht gesendet.",
-      both: "Die Sperre steht, aber die Geräte bleiben angemeldet und die E-Mail ist nicht gesendet.",
-      /** The second press's note, once it ended what the first left running. */
-      ended: "Die Geräte sind abgemeldet.",
-    },
     liftConsequence: "Die Adresse kann sich wieder anmelden.",
   },
 
