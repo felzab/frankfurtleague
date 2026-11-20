@@ -6,6 +6,7 @@ import {
   catalogue,
   DATE_OPEN,
   EFFECTIVE_FROM,
+  GRANT,
   GRUPPE,
   K_O_RUNDE,
   KONTAKT_SEAT_LONG_FORM,
@@ -328,7 +329,7 @@ export const COPY = catalogue({
     bewerbung: "Bewerbung",
     ban: "Sperre",
     /** The rows an erasure removes beyond the entries `shared` and `page` name. */
-    erasureCount: { addressChanges: "Laufende Adressänderungen", grant: "Zugang" },
+    erasureCount: { addressChanges: "Laufende Adressänderungen", grant: GRANT },
     spieler: SPIELER,
     schiedsrichter: SCHIEDSRICHTER,
     /** The schools a picker lists, the plural its empty search names. */

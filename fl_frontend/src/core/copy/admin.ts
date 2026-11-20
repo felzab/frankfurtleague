@@ -6,6 +6,7 @@ import {
   catalogue,
   DATE_OPEN,
   EFFECTIVE_FROM,
+  GRANT,
   GRUPPE,
   K_O_RUNDE,
   KONTAKTPERSONEN,
@@ -315,6 +316,8 @@ export const ADMIN_COPY = catalogue({
   team: {
     search: COPY.shared.search(COPY.page.teams),
     withArticle: "Das Team",
+    /** The state filter's default, the season's clubs, where its option „Stillgelegt“ reads past them to every retired club. */
+    ofSaison: "Alle Teams der Saison",
     gruppeFull: "Voll",
     /** „Team eintragen“'s reason while locked, and „Annehmen“'s in a running season: either enters a club. */
     onlyPlanned: "Nur in einer geplanten Saison",
@@ -363,6 +366,8 @@ export const ADMIN_COPY = catalogue({
 
   administrators: {
     object: "Administrator",
+    /** The column holding each row's tier, „Leitung“ or „Verwaltung“: which access the address holds. */
+    tier: GRANT,
     pending: "Angekündigt",
     since: SINCE,
     pendingKind: { addition: "Neuer Administrator", handover: `Übergabe der ${OWNER_TIER}` },

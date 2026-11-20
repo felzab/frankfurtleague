@@ -151,6 +151,8 @@ export const saisonName = (id: string) => `Saison ${id}`;
 export const saisonNameBound = (id: string) => boundBy("Saison", id);
 export const spieltagName = (position: number) => `${formatOrdinal(position)} Spieltag`;
 export const OWNER_TIER = "Leitung";
+// The glossary's screen word for an address's access to the administration, a grant.
+export const GRANT = "Zugang";
 export const BEWERBUNGEN = "Bewerbungen";
 export const REGISTRIERUNGEN = "Registrierungen";
 export const KONTAKTPERSONEN = "Kontaktpersonen";

@@ -212,7 +212,7 @@ function waitingRows({ reader, readerIsOwner, additions, handover, changes }: Ac
 
 /** The columns of the list of who holds access: on a phone a row's line stands for the „Seit“ column. */
 const HEAD = {
-  state: { label: COPY.shared.facts.state },
+  state: { label: WORDS.tier },
   columns: [{ key: "since", label: WORDS.since, hideOnPhone: true, onLine: "labelled", width: "date" }],
 } as const satisfies Pick<TableProps, "columns" | "state">;
 
