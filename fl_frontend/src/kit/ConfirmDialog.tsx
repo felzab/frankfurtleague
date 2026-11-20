@@ -13,7 +13,7 @@ import { DialogOverlay } from "./DialogOverlay";
 import { Facts } from "./Facts";
 import { FormFooter } from "./FormFooter";
 import { toastAnswer } from "./Toast";
-import { answering } from "./useFormAction";
+import { answering, answerLine } from "./useFormAction";
 import { useOpenUntilHidden } from "./useOpenUntilHidden";
 import { usePasskeyTouch } from "./usePasskeyTouch";
 
@@ -205,7 +205,7 @@ export function ConfirmDialog<T extends Tone>(props: ConfirmDialogProps<T> | Una
       const answer = await act(undefined);
       // An update after the `await` commits outside the transition unless it opens one of its own.
       startAct(() => {
-        if (!answer.ok) setRefusal({ tone: answer.warn === true ? "warn" : "error", text: answer.reason ?? COPY.shared.failure.unexpected });
+        if (!answer.ok) setRefusal(answerLine(answer));
         else setOpen(false);
       });
     });

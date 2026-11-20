@@ -14,18 +14,17 @@ import { Button } from "./Button";
 import { Icon } from "./Icon";
 import { useRailCollapsed } from "./RailState";
 import { tv } from "./tv";
+import { answerLine } from "./useFormAction";
 
 import type { ActionAnswer } from "@/core/action";
 import type { Copy } from "@/core/copy";
+import type { AnswerTone } from "./useFormAction";
 
 // React Aria exports its toast under `UNSTABLE_` names alone: the API may change in a minor release.
-type ToastContentData = { tone: Tone; title: Copy };
-
-/** Done, partly done (an answer's `warn`), or not done. */
-type Tone = "success" | "warn" | "danger";
+type ToastContentData = { tone: AnswerTone; title: Copy };
 
 /** Each tone's hue, as a status card marks the same outcome. */
-const TONE_CLASSES: Readonly<Record<Tone, string>> = { success: "text-success", warn: "text-warn", danger: "text-danger" };
+const TONE_CLASSES: Readonly<Record<AnswerTone, string>> = { success: "text-success", warn: "text-warn", danger: "text-danger" };
 
 /** Each tone's glyph, a status card's. */
 const GLYPH = { success: "done", warn: "warning", danger: "error" } as const;
@@ -41,17 +40,14 @@ const TIMEOUT_MS = 5000;
  * closed, since the page says it nowhere else (React Aria's Toast closes by itself only what is not critical or may be
  * found elsewhere).
  */
-export function appToast(tone: Tone, title: Copy) {
+export function appToast(tone: AnswerTone, title: Copy) {
   queue.add({ tone, title }, tone === "success" ? { timeout: TIMEOUT_MS } : undefined);
 }
 
-/**
- * An act's answer as its toast: `done` where it was done, or the line the answer brings, its note or its reason, in
- * the warn tone where it partly happened (`ActionAnswer`'s `warn`), as a form's status line reads the same answer.
- */
+/** An act's answer as its toast, worded and toned as a form's status line words the same answer (`answerLine`). */
 export function toastAnswer(answer: ActionAnswer<unknown>, done: Copy) {
-  if (answer.ok) appToast(answer.warn === true ? "warn" : "success", answer.note ?? done);
-  else appToast(answer.warn === true ? "warn" : "danger", answer.reason ?? COPY.shared.failure.unexpected);
+  const line = answerLine(answer, done);
+  appToast(line.tone, line.text);
 }
 
 const region = tv({

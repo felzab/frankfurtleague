@@ -187,7 +187,7 @@ export function MessageLine({
     return (
       <FieldError
         data-kit-message
-        className={messageLine({ tone: "error" })}>
+        className={messageLine({ tone: "danger" })}>
         {(result) => fieldMessage(result, constraints)}
       </FieldError>
     );

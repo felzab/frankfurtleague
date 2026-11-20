@@ -40,11 +40,25 @@ export function answering<Payload, Value>(
   };
 }
 
+/** An act's outcome as a hue: done, partly done (an answer's `warn`), or not done. */
+export type AnswerTone = "success" | "warn" | "danger";
+
 /**
- * A form's status line: its words and its tone, or nothing. `changes` is the editor's count of unsaved fields, `warn`
- * an act that partly happened.
+ * An act's answer as the line saying it: `done` or the note a done answer brings, else the refusal's reason, each in
+ * the warn tone where the act partly happened. The one rule from an answer to its tone and words, so a form's status
+ * line, a question's line and a toast never word one answer two ways. `done` is a form's „Gespeichert“ unless the act
+ * names its own word.
  */
-export type FormStatus = { tone: "changes" | "saved" | "warn" | "error"; text: Copy } | null;
+export function answerLine(answer: ActionAnswer<unknown>, done: Copy = COPY.shared.saved): { tone: AnswerTone; text: Copy } {
+  if (answer.ok) return { tone: answer.warn === true ? "warn" : "success", text: answer.note ?? done };
+  return { tone: answer.warn === true ? "warn" : "danger", text: answer.reason ?? COPY.shared.failure.unexpected };
+}
+
+/**
+ * A form's status line: its words and its tone, or nothing. `changes` is the editor's count of unsaved fields, which no
+ * answer and no toast takes.
+ */
+export type FormStatus = { tone: "changes" | AnswerTone; text: Copy } | null;
 
 /**
  * The status line of a send. One the browser kept back for a field's own rule points at the fields, as does
@@ -55,17 +69,16 @@ export type FormStatus = { tone: "changes" | "saved" | "warn" | "error"; text: C
  * last answer is none to the press still running.
  */
 export function statusOf(answer: ActionAnswer<unknown> | null, isBlocked: boolean, isPending: boolean): FormStatus {
-  if (isBlocked) return { tone: "error", text: COPY.template.checkFields };
+  if (isBlocked) return { tone: "danger", text: COPY.template.checkFields };
   if (answer === null || isPending) return null;
-  if (answer.ok) return { tone: answer.warn === true ? "warn" : "saved", text: answer.note ?? COPY.shared.saved };
+  if (answer.ok) return answerLine(answer);
   // A save held back for its question: the question says what, and nothing failed.
   if (answer.ask !== undefined) return null;
-  if (answer.fieldErrors === undefined)
-    return { tone: answer.warn === true ? "warn" : "error", text: answer.reason ?? COPY.shared.failure.unexpected };
+  if (answer.fieldErrors === undefined) return answerLine(answer);
   // A reason beside the fields stands before their pointer, being said nowhere else, unless a box already says it.
   const { reason } = answer;
   const unsaid = reason !== undefined && !Object.values(answer.fieldErrors).includes(reason);
-  return { tone: "error", text: unsaid ? reason : COPY.template.checkFields };
+  return { tone: "danger", text: unsaid ? reason : COPY.template.checkFields };
 }
 
 type Step<Payload> = { kind: "send"; payload: Payload } | { kind: "reset" };

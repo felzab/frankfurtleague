@@ -60,7 +60,7 @@ describe("an editor's draft", () => {
     await press(result.current.submit);
     // The page serves the record anew, under the version the save was sent from.
     rerender({ shown: { ...STORED, values: { ...STORED.values } } });
-    expect(result.current.status).toStrictEqual({ tone: "saved", text: COPY.shared.saved });
+    expect(result.current.status).toStrictEqual({ tone: "success", text: COPY.shared.saved });
     expect(result.current.draft.mietpreis).toBeNull();
 
     act(() => result.current.set("postcode", "60439"));
@@ -79,7 +79,7 @@ describe("an editor's draft", () => {
     await press(result.current.submit);
     rerender({ shown: { id: "ort-1", version: 2, values: { ...STORED.values, postcode: "60439" } } });
 
-    expect(result.current.status).toStrictEqual({ tone: "saved", text: note });
+    expect(result.current.status).toStrictEqual({ tone: "success", text: note });
   });
 
   it("keeps its own save's version where someone else wrote before the page served it, under an unsaved edit", async () => {

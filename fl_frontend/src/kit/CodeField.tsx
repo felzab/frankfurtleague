@@ -102,7 +102,7 @@ export function CodeField({
           className={codeInput()}
         />
       </div>
-      <FieldError className={messageLine({ tone: "error" })}>{error}</FieldError>
+      <FieldError className={messageLine({ tone: "danger" })}>{error}</FieldError>
     </TextField>
   );
 }

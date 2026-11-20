@@ -68,7 +68,7 @@ export const messageLine = tv({
     tone: {
       description: "text-fg-muted",
       consequence: "text-warn",
-      error: "text-danger",
+      danger: "text-danger",
     },
   },
   defaultVariants: { width: "field" },
@@ -89,10 +89,10 @@ export const statusLine = tv({
     },
     tone: {
       changes: "text-fg",
-      saved: "text-success",
+      success: "text-success",
       // An act that partly happened: neither of the two beside it.
       warn: "text-warn",
-      error: "text-danger",
+      danger: "text-danger",
     },
   },
 });

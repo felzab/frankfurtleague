@@ -58,7 +58,7 @@ export function StepCard({
         onSend={onNext}>
         <Facts facts={facts} />
         <FieldStack>{children}</FieldStack>
-        <FormFooter status={isBlocked ? { tone: "error", text: COPY.template.checkFields } : null}>
+        <FormFooter status={isBlocked ? { tone: "danger", text: COPY.template.checkFields } : null}>
           <Button
             variant="quiet"
             label={COPY.shared.verb.skip}
@@ -84,7 +84,7 @@ export function CheckStep({ table, refused, act }: { table: TableProps; refused:
   return (
     <>
       <Table {...table} />
-      <FormFooter status={refused ? { tone: "error", text: COPY.template.checkFields } : null}>{act}</FormFooter>
+      <FormFooter status={refused ? { tone: "danger", text: COPY.template.checkFields } : null}>{act}</FormFooter>
     </>
   );
 }

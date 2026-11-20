@@ -71,7 +71,7 @@ export type AccountAct = {
  * moved more than its box shows, and nothing else, since the box's own content says what changed.
  */
 function lineOf(answer: ActionAnswer<unknown> | null, isBlocked: boolean, isPending: boolean, saves: boolean): FormStatus {
-  if (answer?.ok === true && !saves) return answer.note === undefined || isPending ? null : { tone: "saved", text: answer.note };
+  if (answer?.ok === true && !saves) return answer.note === undefined || isPending ? null : { tone: "success", text: answer.note };
   return statusOf(answer, isBlocked, isPending);
 }
 
@@ -180,7 +180,7 @@ function ActBox({ act, words, danger, children }: { act: AccountAct; words: Reac
     if (answered.ok && act.done !== undefined) appToast("success", act.done);
     const { note } = answered.ok ? answered : { note: undefined };
     // An update after the `await` lands outside the press's transition unless it opens one of its own.
-    if (note !== undefined) startTransition(() => setQuestionNote({ tone: "saved", text: note }));
+    if (note !== undefined) startTransition(() => setQuestionNote({ tone: "success", text: note }));
     return answered;
   };
 

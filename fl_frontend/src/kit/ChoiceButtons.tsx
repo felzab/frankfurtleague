@@ -38,7 +38,7 @@ function GroupMessage({ errorMessage }: { errorMessage: Copy | undefined }) {
     <Text
       slot="errorMessage"
       data-kit-message
-      className={messageLine({ tone: "error" })}>
+      className={messageLine({ tone: "danger" })}>
       {errorMessage}
     </Text>
   );
