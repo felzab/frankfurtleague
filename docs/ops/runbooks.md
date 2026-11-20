@@ -1572,8 +1572,10 @@ nobody can account for is then removed on the „Administratoren“ page.
 
 An address that has failed ten codes in a row, with no sign-in between them, is refused every code
 until the oldest of those failures is a day old, the right code included; the person is told there
-were too many tries with this address. Anyone who knows an address can bring it on, and the rows
-counting it carry a keyed hash rather than the address, so no row can be picked out for one person:
+were too many tries with this address. A code is checked only in the browser that asked for it, for
+the code's ten minutes, so a stranger can bring the lock on only by asking for the person's own
+address, which mails them a code and spends one of their hour's five each time. The rows counting it
+carry a keyed hash rather than the address, so no row can be picked out for one person:
 
 - **A person holding a passkey needs nothing**: a passkey sign-in never meets the lock, and clears
   it.
@@ -1583,6 +1585,11 @@ counting it carry a keyed hash rather than the address, so no row can be picked 
   database's `verification` collection every row whose `identifier` starts with `sign-in-attempt-`.
   Every address then has its ten tries back, which is the price of an identifier nobody can compute
   by hand.
+
+A code typed in a browser that did not ask for it is refused as a wrong one and counted nowhere, the
+info line `auth.code_not_asked_here` naming its trace: a person who meets „Falsch oder nicht mehr
+gültig“ for a code they just received has typed it in another browser, or in one that keeps no
+cookies.
 
 The five-an-hour mail cap keeps rows of the same shape under `sign-in-mail-`; they lift within the
 hour. Its refusal tells the person there were too many tries, as the lock does, so one who met that

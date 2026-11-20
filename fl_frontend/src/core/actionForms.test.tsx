@@ -5,7 +5,7 @@ import path from "node:path";
 import { render } from "@testing-library/react";
 import { assert, describe, expect, it } from "vitest";
 
-import { serveBackend, serveHost } from "@/test-support/backend";
+import { serveBackend } from "@/test-support/backend";
 import { signedInRequest } from "@/test-support/session";
 
 import type { ReactElement } from "react";
@@ -16,11 +16,6 @@ import type { ReactElement } from "react";
    took: a box whose name meets no key is a value missing from it, or the action's refusal of a key nothing posted. */
 const backend = serveBackend();
 const { arriveAs, store } = signedInRequest();
-
-// The bot check the sign-in form passes before its address is read.
-serveHost("https://challenges.cloudflare.com", ({ method, url }) =>
-  method === "POST" && url.pathname === "/turnstile/v0/siteverify" ? { success: true, "error-codes": [] } : undefined,
-);
 
 /** One request the backend takes for a form, by its method and its endpoint, and its answer; any other request fails the case. */
 type Takes = readonly [method: string, endpoint: string, answer: unknown];
@@ -345,19 +340,6 @@ describe("each form's posted names meet its lane's keys", () => {
       expect(answer).toStrictEqual({ ok: true, value: undefined });
       const own = store.passkey.filter(({ userId }) => userId === account.id);
       expect(own.map(({ id, name }) => [id, name])).toStrictEqual([["pk-1", "Telefon"]]);
-    });
-
-    // The address is the one answer the sign-in gives every address it admits, the code's mail sent behind it.
-    it("loses no key of the sign-in form", async () => {
-      const { handleSignIn } = await import("@/features/auth/actions");
-      const { TURNSTILE_FIELD } = await import("@/core/turnstileToken");
-      const posted = spelledIn("features/auth/SignInFlow.tsx");
-      await arriveAs(null);
-
-      // The widget's token, which the page's script posts under its own name beside the form's boxes.
-      const answer = await handleSignIn(formOf([...posted, TURNSTILE_FIELD], { email: "Pia@Example.org", [TURNSTILE_FIELD]: "widget-token" }));
-
-      expect(answer).toStrictEqual({ ok: true, value: "pia@example.org" });
     });
 
     it("loses no key of a team's exit", async () => {

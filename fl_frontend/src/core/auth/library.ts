@@ -7,6 +7,7 @@ import { passkey } from "@better-auth/passkey";
 import { betterAuth, getCurrentAdapter } from "better-auth";
 import { APIError, createAuthMiddleware, getSessionFromCtx, isAPIError } from "better-auth/api";
 import { getSessionCookie, SECURE_COOKIE_PREFIX } from "better-auth/cookies";
+import { makeSignature, signJWT, verifyJWT } from "better-auth/crypto";
 import { nextCookies } from "better-auth/next-js";
 import { emailOTP } from "better-auth/plugins/email-otp";
 
@@ -29,7 +30,7 @@ import { HOUR_MS } from "../timeUnits";
 import { readTraceparent, TRACEPARENT_HEADER } from "../trace";
 import { assertionAnswer } from "./assertionAnswer";
 import { ceremonyCredentialId, challengeIssuedAt, isDuplicateCredential, refuseAnotherAccountsPasskey } from "./ceremony";
-import { ADDRESS_ATTEMPTS_EXHAUSTED } from "./codeRefusal";
+import { ADDRESS_ATTEMPTS_EXHAUSTED, CODE_NOT_ASKED_HERE } from "./codeRefusal";
 import { carriedEnrolmentRead, carriedOrRefuse, ENROLMENT_READ, refuseBarred, refuseEnrolment } from "./enrolment";
 import { enrolmentSignIn } from "./gateReads";
 import { notifyPasskey, oweSignInMail, sendDeletionLink } from "./mails";
@@ -140,6 +141,35 @@ function asksForDeletionLink(body: unknown): boolean {
 function codeSignInAddress(body: unknown): string | null {
   const email: unknown = typeof body === "object" && body !== null ? Reflect.get(body, "email") : undefined;
   return typeof email === "string" ? email : null;
+}
+
+/** The cookie a code's ask sets in the asking browser, named by the library as it names the session's. */
+const CODE_ASKED_COOKIE = "code_asked";
+
+/** The claim of that cookie's token naming the address it was asked for. */
+const ASKED_CLAIM = "asked";
+
+/**
+ * The address a code was asked for, as the cookie carries it: keyed, since an address is guessable, and over the
+ * cookie's own name ahead of it, since the counters' rows key the bare address with the session cookie's own
+ * construction, and handing that digest to any browser that asks would sign posted text for whoever posts it.
+ */
+async function askedDigest(email: string, secret: string): Promise<string> {
+  return makeSignature(`${CODE_ASKED_COOKIE}:${asSignInIdentifier(email)}`, secret);
+}
+
+/**
+ * Whether the request carries the cookie of an ask for `address`, inside the code's lifetime. The token carries its
+ * own expiry, since a value copied out of the browser outlives the cookie's: each round of tries costs a new ask,
+ * which mails the address and spends its hour.
+ */
+async function askedHere(ctx: GenericEndpointContext, address: string | null): Promise<boolean> {
+  const token = ctx.getCookie(ctx.context.createAuthCookie(CODE_ASKED_COOKIE).name);
+  if (address === null || token === null) return false;
+
+  // Read as what it is: claims a caller sent, which only the signature has checked.
+  const claims = await verifyJWT<Partial<Record<typeof ASKED_CLAIM, unknown>>>(token, ctx.context.secret);
+  return claims !== null && claims[ASKED_CLAIM] === (await askedDigest(address, ctx.context.secret));
 }
 
 // The library mounts far more endpoints than a browser here calls, and an upgrade adds more, so the
@@ -490,6 +520,13 @@ const authOptions = (origin: URL, client: MongoClient) =>
         if (ctx.path === CODE_SIGN_IN_PATH && typeof body === "object" && body !== null) {
           if (Object.keys(body).some((field) => !CODE_SIGN_IN_FIELDS.has(field))) throw APIError.fromStatus("BAD_REQUEST");
         }
+        // Over HTTP, ahead of the count: a code is checked only in the browser that asked for its address, so a
+        // stranger's guesses spend no address's day. In process there is no browser, every caller being this
+        // repository's own code, as the deny above reads it.
+        if (ctx.path === CODE_SIGN_IN_PATH && ctx.request !== undefined && !(await askedHere(ctx, codeSignInAddress(body)))) {
+          logger.info("auth.code_not_asked_here", { trace_id: signInTrace(ctx) });
+          throw new APIError("BAD_REQUEST", { code: CODE_NOT_ASKED_HERE, message: "No code was asked for this address in this browser." });
+        }
         // On both arms, ahead of the in-process return below. Counted whatever the address holds: a
         // lock only members met would be a membership oracle.
         const address = ctx.path === CODE_SIGN_IN_PATH ? codeSignInAddress(body) : null;
@@ -728,4 +765,29 @@ export async function codeMailCapped(email: string): Promise<boolean> {
 
   logger.info("auth.code_mail_capped");
   return true;
+}
+
+/**
+ * The cookie the sign-in action sets on every ask for a code, which the code check reads: a token naming the address,
+ * living as long as the code it asked for, and nothing the gate decided, so a member's and a stranger's are alike.
+ * `Lax` and host-bound as the session's: a post from another site carries none.
+ */
+export async function codeAskedCookie(email: string) {
+  const { createAuthCookie, secret } = await auth.$context;
+  const { name } = createAuthCookie(CODE_ASKED_COOKIE);
+  const value = await signJWT({ [ASKED_CLAIM]: await askedDigest(email, secret) }, secret, CODE_VALIDITY_SECONDS);
+
+  return {
+    name,
+    value,
+    options: {
+      httpOnly: true,
+      sameSite: "lax",
+      path: "/",
+      // Spelled out: the library's own setter adds it to a `__Host-` name, which a browser drops without it, and Next's
+      // does not.
+      secure: new URL(frontend_config.AUTH_URL).protocol === "https:",
+      maxAge: CODE_VALIDITY_SECONDS,
+    },
+  } as const;
 }

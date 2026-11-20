@@ -1,3 +1,6 @@
+// The class Next's own `cookies()` writes a response's cookies with.
+import { ResponseCookies } from "next/dist/server/web/spec-extension/cookies.js";
+
 import { assert, describe, expect, it } from "vitest";
 
 import { ADMIN_EMAIL, configDouble, memoryAdapterDouble, memoryStore, registerAuthDoubles, signInByCode } from "@/test-support/authDoubles";
@@ -15,7 +18,7 @@ registerAuthDoubles({
 });
 
 // Imported here rather than at the top: `vi.doMock` reaches only the modules imported after it.
-const { auth } = await import("./auth/library");
+const { auth, codeAskedCookie } = await import("./auth/library");
 
 const HEADERS = { host: "liga.example", "x-forwarded-proto": "https" };
 
@@ -51,5 +54,21 @@ describe("the session cookie over https", () => {
     assert.ok(challenge, "the options call set no cookie");
     assert.ok(challenge.name.startsWith("__Host-auth."), `the challenge cookie is ${challenge.name}`);
     assert.ok(challenge.attributes.includes("secure"));
+  });
+
+  /* The sign-in action sets this one through Next's `cookies()`, which, unlike the library's own setter, adds no
+     `Secure` to a `__Host-` name: a browser drops such a cookie, and every typed code would then be refused. */
+  it("host-binds the code's ask cookie as well", async () => {
+    const { name, value, options } = await codeAskedCookie(ADMIN_EMAIL);
+    // Written as Next's `cookies().set` writes it onto the response.
+    const response = new Headers();
+    new ResponseCookies(response).set(name, value, options);
+
+    const [asked] = cookiesOf({ headers: response });
+    assert.ok(asked, "no cookie was written");
+    assert.ok(asked.name.startsWith("__Host-auth."), `the ask's cookie is ${asked.name}`);
+    assert.ok(asked.attributes.includes("secure"), "the host-bound cookie lacks `Secure`, so a browser drops it");
+    assert.ok(asked.attributes.includes("path=/"));
+    assert.ok(!asked.attributes.some((attribute) => attribute.startsWith("domain=")), "the cookie reaches other hosts");
   });
 });

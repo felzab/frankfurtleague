@@ -239,7 +239,7 @@ const { toNextJsHandler } = await import("better-auth/next-js");
 const { runWithEndpointContext } = (await import(
   pathToFileURL(createRequire(import.meta.resolve("better-auth")).resolve("@better-auth/core/context")).href
 )) as { runWithEndpointContext: <T>(context: object, run: () => Promise<T>) => Promise<T> };
-const { auth, codeMailCapped } = await import("./auth/library");
+const { auth, codeAskedCookie, codeMailCapped } = await import("./auth/library");
 const { deleteAccountFor, deleteOwnAccount, listAccounts, requestAccountDeletion } = await import("./auth/accounts");
 const { endSessionsOfAddress } = await import("./auth/accountSessions");
 const { getAccountSession, getAdminSession, isAdminSession, judgeAdminRequest, passesPasskeyTouch } = await import("./auth/guards");
@@ -270,9 +270,17 @@ beforeEach(() => {
 /** What a typed code is answered with: the refusal's status, code and message, or the success's status. */
 type Refusal = { status: number; code?: unknown; message?: unknown };
 
-async function answerOf(email: string, otp: string): Promise<Refusal> {
+/** The `Cookie` header of a browser that asked for `email`'s code, as the sign-in action sets it. */
+async function askedFor(email: string): Promise<string> {
+  const { name, value } = await codeAskedCookie(email);
+  return `${name}=${value}`;
+}
+
+/** A typed code's answer, from the browser that asked for `email`'s code unless `cookie` names another, or `null` none. */
+async function answerOf(email: string, otp: string, cookie?: string | null): Promise<Refusal> {
+  const carried = cookie === undefined ? await askedFor(email) : (cookie ?? undefined);
   // Over the mounted handler, the one route the page's client posts a code by.
-  const answered = await overHttp("/sign-in/email-otp", { method: "POST", body: { email, otp } });
+  const answered = await overHttp("/sign-in/email-otp", { method: "POST", cookie: carried, body: { email, otp } });
   if (answered.ok) return { status: 200 };
 
   // A refusal by status alone, as the mint's outage is, answers no body at all.
@@ -491,12 +499,13 @@ describe("what the mounted HTTP surface answers", () => {
     assert.ok(otp !== null);
     const sessions = store.session.length;
 
-    const named = await overHttp("/sign-in/email-otp", { method: "POST", body: { email: ADMIN_EMAIL, otp, name: "Jemand" } });
+    const cookie = await askedFor(ADMIN_EMAIL);
+    const named = await overHttp("/sign-in/email-otp", { method: "POST", cookie, body: { email: ADMIN_EMAIL, otp, name: "Jemand" } });
     expect(named.status).toBe(400);
     expect(store.session.length, "the refused body minted a session on its way out").toBe(sessions);
     expect(failureRows(), "the refused body was counted as a guess").toStrictEqual([]);
 
-    const verified = await overHttp("/sign-in/email-otp", { method: "POST", body: { email: ADMIN_EMAIL, otp } });
+    const verified = await overHttp("/sign-in/email-otp", { method: "POST", cookie, body: { email: ADMIN_EMAIL, otp } });
     expect(await verified.json()).toStrictEqual({ status: true });
     const minted = store.session.at(-1);
     assert.ok(minted !== undefined && store.session.length === sessions + 1, "the refused body spent the code");
@@ -1972,6 +1981,42 @@ describe("the failures one address may spend, across every code it is sent", () 
 
     expect((await answerOf(ADMIN_EMAIL, otp)).code).toBe("ADDRESS_ATTEMPTS_EXHAUSTED");
     expect(store.session.length, "the right code signed in past the bound").toBe(sessions);
+  });
+
+  /* The day's ten are the address's, so a try from a browser that never asked for its code would let anyone who knows
+     the address lock its person out: refused before it is counted, a right code included. */
+  it("refuses a right code from a browser that did not ask for it, counting nothing and minting nothing", async () => {
+    const otp = await mailedCode();
+    const sessions = store.session.length;
+
+    const refused = await answerOf(ADMIN_EMAIL, otp, null);
+    expect(refused.code).toBe("CODE_NOT_ASKED_HERE");
+    expect(failureRows(), "the refused try was counted against the address").toStrictEqual([]);
+    expect(store.session.length, "the refused try minted a session").toBe(sessions);
+
+    expect((await answerOf(ADMIN_EMAIL, otp)).status, "the code was not the right one, so the refusal proves nothing").toBe(200);
+  });
+
+  it("refuses a code whose browser asked for another address alike", async () => {
+    const otp = await mailedCode();
+
+    const refused = await answerOf(ADMIN_EMAIL, otp, await askedFor(PERSON_EMAIL));
+
+    expect(refused.code).toBe("CODE_NOT_ASKED_HERE");
+    expect(failureRows()).toStrictEqual([]);
+  });
+
+  /* A cookie's value copied out of the browser outlives the cookie, so the token's own expiry is what makes each
+     round of tries cost a new ask, which mails the address. */
+  it("refuses the cookie of an ask past the code's lifetime", async ({ onTestFinished }) => {
+    const otp = await mailedCode();
+    const cookie = await askedFor(ADMIN_EMAIL);
+
+    vi.useFakeTimers({ toFake: ["Date"], now: Date.now() + CODE_VALIDITY_MINUTES * MINUTE_MS + 1000 });
+    onTestFinished(() => void vi.useRealTimers());
+
+    expect((await answerOf(ADMIN_EMAIL, otp, cookie)).code).toBe("CODE_NOT_ASKED_HERE");
+    expect(failureRows()).toStrictEqual([]);
   });
 
   it("keeps the address out of the rows that count it", async () => {

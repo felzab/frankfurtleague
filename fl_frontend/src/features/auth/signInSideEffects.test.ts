@@ -1,18 +1,19 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
+
 import { assert, describe, expect, it } from "vitest";
 
 import { COPY } from "@/core/copy/shared";
 import { TURNSTILE_FIELD } from "@/core/turnstileToken";
 import { ADMIN_EMAIL, memoryAdapterDouble, memoryStore, ORIGIN, overriding, registerAuthDoubles } from "@/test-support/authDoubles";
 import { serveBackend, serveHost } from "@/test-support/backend";
+import { arriveWith, NEXT_HEADERS_DOUBLE, writtenCookies } from "@/test-support/nextRequest";
 import { answerAt, NO_RECORDS } from "@/test-support/subjectFixtures";
 
 import type { ActionAnswer } from "@/core/action";
 import type { LookupFixture } from "@/test-support/subjectFixtures";
 
 const STORE = "__flSignInStore";
-
-/** What `headers()` answers. */
-const requestHeaders = new Headers(ORIGIN);
 
 /** Holding a grant and no league record, so the grant alone is what the gate admits it on. */
 const GRANTED = ADMIN_EMAIL;
@@ -53,9 +54,6 @@ serveHost("https://challenges.cloudflare.com", ({ method, url, body }) =>
     : undefined,
 );
 
-/** `headers()` feeds the trace scope and the endpoint's own `requireHeaders`. */
-const HEADERS_DOUBLE = { headers: () => Promise.resolve(requestHeaders) };
-
 /**
  * Collected rather than run: work the real `after` puts behind the response is work no case here may
  * see inside one. `NextRequest` is the real export beside it, this file building each request itself.
@@ -70,7 +68,8 @@ const NEXT_SERVER_DOUBLE = overriding("next/server", {
 // would compare two refusals and pass.
 const { sent } = registerAuthDoubles({
   specifiers: {
-    "next/headers": HEADERS_DOUBLE,
+    // `headers()` feeds the trace scope and the endpoint's own `requireHeaders`; `cookies()` writes onto the response.
+    "next/headers": NEXT_HEADERS_DOUBLE,
     "next/server": NEXT_SERVER_DOUBLE,
     // What this file watches is the response rather than the store.
     "@better-auth/mongo-adapter": memoryAdapterDouble(STORE),
@@ -100,6 +99,9 @@ interface Attempt {
   readonly askedAfter: number;
   readonly scheduled: number;
   readonly result: ActionAnswer<string>;
+  /** The names of the cookies the response sets, and the `Cookie` header the browser sends back after it. */
+  readonly cookieNames: readonly string[];
+  readonly cookie: string;
 }
 
 async function signInWith(email: string): Promise<Attempt> {
@@ -111,8 +113,11 @@ async function signInWith(email: string): Promise<Attempt> {
   const rowsBefore = new Set(store.verification);
   const askedBefore = asked.length;
   deferred.length = 0;
+  // Each press a browser's own, arriving with no cookie and its response's cookies its own.
+  arriveWith(ORIGIN);
 
   const result = await handleSignIn(submitted);
+  const written = writtenCookies();
   const mailedWhileAnswering = sent.slice(mailedBefore).map((message) => message.to);
   const writtenWhileAnswering = store.verification.filter((row) => !rowsBefore.has(row)).map((row) => row.identifier);
   const askedWhileAnswering = asked.length - askedBefore;
@@ -129,6 +134,8 @@ async function signInWith(email: string): Promise<Attempt> {
     askedAfter: asked.length - askedBefore,
     scheduled: scheduled.length,
     result,
+    cookieNames: written.map((cookie) => cookie.name),
+    cookie: written.map(({ name, value }) => `${name}=${value}`).join("; "),
   };
 }
 
@@ -143,12 +150,12 @@ function theLastCode(): string {
   return found[1];
 }
 
-/** Types `code` for `email` into the code step, as the page's client posts it to the library's own route. */
-async function typeTheCode(email: string, code: string): Promise<Response> {
+/** Types `code` for `email` into the code step of the browser `attempt` asked from, as the page's client posts it. */
+async function typeTheCode(attempt: Attempt, email: string, code: string): Promise<Response> {
   return handler.POST(
     new Request("http://localhost:3000/api/auth/sign-in/email-otp", {
       method: "POST",
-      headers: { ...ORIGIN, origin: "http://localhost:3000", "content-type": "application/json" },
+      headers: { ...ORIGIN, origin: "http://localhost:3000", "content-type": "application/json", cookie: attempt.cookie },
       body: JSON.stringify({ email, otp: code }),
     }),
   );
@@ -202,6 +209,14 @@ describe("what a sign-in leaves behind on the response", () => {
     expect(rejected.scheduled, "the rejected branch scheduled nothing, so the two are distinguishable by what they defer").toBe(1);
   });
 
+  /* The cookie the code check reads is set in the answer itself, so it must be the same for every address: a cookie
+     only the mailed branch set would tell the two apart, and a session cookie would sign a press in. */
+  it("sets the same cookies on both branches, none of them a session", () => {
+    expect(granted.cookieNames, "the press set no cookie, so the code check would refuse every code").toHaveLength(1);
+    expect(rejected.cookieNames, "the two branches set different cookies, which is an oracle").toStrictEqual(granted.cookieNames);
+    expect(granted.cookieNames.filter((name) => name.endsWith(".session_token"))).toStrictEqual([]);
+  });
+
   /* The count answers the press, so it is the one write the caller waits on: ahead of the gate, it is the same
      write for every address. */
   it("writes the address's count ahead of the answer and the code's row behind it, on both branches alike", () => {
@@ -246,12 +261,33 @@ describe("which account two spellings of one address reach", () => {
 
     for (const spelling of [GRANTED, spelledOtherwise]) {
       const attempt = await signInWith(spelling);
-      expect(await (await typeTheCode(sentTo(attempt), theLastCode())).json(), `${spelling} was not signed in`).toStrictEqual({ status: true });
+      expect(await (await typeTheCode(attempt, sentTo(attempt), theLastCode())).json(), `${spelling} was not signed in`).toStrictEqual({
+        status: true,
+      });
     }
 
     // The whole store, not a slice: no other address here is ever mailed a code, so a second row
     // could only be the second spelling's.
     expect(store.user.map((user) => user.email)).toStrictEqual([GRANTED]);
+  });
+});
+
+describe("the names the sign-in form posts", () => {
+  /* The form posts FormData under names its source spells, strings `tsc` reads against nothing: a name meeting no key
+     of the action's schema loses the address at the parse with every other check green. */
+  it("loses no key of the sign-in form", async () => {
+    const source = readFileSync(path.join(process.cwd(), "src", "features", "auth", "SignInFlow.tsx"), "utf8");
+    // The widget's token beside them, which the page's script posts under its own name.
+    const posted = new Set([...[...source.matchAll(/\.set\("([\w.]+)"/g)].map(([, name = ""]) => name), TURNSTILE_FIELD]);
+    const typed: Readonly<Record<string, string>> = { email: "Pia@Example.org", [TURNSTILE_FIELD]: BOT_CHECK_TOKEN };
+    const submitted = new FormData();
+    for (const [name, value] of Object.entries(typed)) if (posted.has(name)) submitted.append(name, value);
+    arriveWith(ORIGIN);
+
+    const answer = await handleSignIn(submitted);
+    deferred.length = 0;
+
+    expect(answer).toStrictEqual({ ok: true, value: "pia@example.org" });
   });
 });
 
@@ -287,5 +323,7 @@ describe("the sixth press of an address's hour", () => {
     expect(strangerSixth.result, "a stranger's sixth press answered apart from a member's").toStrictEqual(memberSixth.result);
     expect([memberSixth.scheduled, strangerSixth.scheduled], "a capped press scheduled a send").toStrictEqual([0, 0]);
     expect(memberSixth.mailed).toStrictEqual([]);
+    // Set on the capped press as on any: a browser holding the hour's earlier code can still type it.
+    expect([memberSixth.cookieNames, strangerSixth.cookieNames]).toStrictEqual([granted.cookieNames, granted.cookieNames]);
   });
 });

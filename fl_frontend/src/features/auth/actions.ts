@@ -1,10 +1,10 @@
 "use server";
 
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
 
 import { action } from "@/core/action";
 import { afterTheResponse } from "@/core/afterResponse";
-import { codeMailCapped, sendSignInCode } from "@/core/auth/library";
+import { codeAskedCookie, codeMailCapped, sendSignInCode } from "@/core/auth/library";
 import { COPY } from "@/core/copy/shared";
 import { asSignInIdentifier } from "@/core/emailAddress";
 import { logger } from "@/core/logging";
@@ -33,6 +33,11 @@ export const handleSignIn = action({
     // stored `user` row all carry one string. The library folds case alone and never trims, so the fold's trimmed
     // spelling is the one every sign-in of that person carries.
     const email = asSignInIdentifier(typed);
+
+    // In this response, never behind it, and on every press alike, capped or not: the code check takes a code only
+    // from the browser that asked for its address, so a stranger's guesses at it spend nobody's day.
+    const asked = await codeAskedCookie(email);
+    (await cookies()).set(asked.name, asked.value, asked.options);
 
     // Counted ahead of the answer and of the gate, so a member and a stranger spend one hour alike and the refusal
     // past it tells a prober only that the address was asked for five times. A capped press schedules no send: the
