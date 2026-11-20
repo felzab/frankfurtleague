@@ -22,9 +22,8 @@ than the modules they import:
 
 Run them, and the checks of what you touched, with these commands:
 
-- Frontend tests: `pnpm run test:base <files>` in `fl_frontend`, a `.db.test.ts` file of your set
-  included, which starts its own containers, split into several runs where Windows refuses the line
-  as too long.
+- Frontend tests: `pnpm run test:base <files>` in `fl_frontend`, split into several runs where
+  Windows refuses the line as too long.
 - Backend and script tests: `uv run --project fl_backend --frozen pytest <paths>` from the root. The
   root holds no `pyproject.toml`, so a bare `uv run` there runs no pytest. A path under
   `scripts/tests` runs from Git Bash alone, the one shell whose bash
