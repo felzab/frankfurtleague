@@ -844,6 +844,30 @@ const DESIGN_BANS = [
     PRODUCTION,
     { allow: ["src/kit/EditorPage.tsx"] },
   ),
+  // A field on a native control takes what a person did before hydration and loses it to React's next render unless its
+  // root waits, so the file of a new one joins this list having set `inert={useFieldWait()}` on its root
+  // (`src/kit/FieldParts.tsx`) and given its root a row of `src/kit/HeldForm.test.tsx :: FIELDS`.
+  importBan(
+    {
+      // The package's root is in the list too, since it exports every one of them.
+      regex: String.raw`^react-aria-components(?:\x2F(?:Autocomplete|Checkbox|CheckboxGroup|ColorArea|ColorField|ColorSlider|ColorThumb|ColorWheel|ComboBox|Input|NumberField|RadioGroup|SearchField|Slider|Switch|TextArea|TextField|TokenField))?$`,
+      message:
+        "A field on a native control sets `inert={useFieldWait()}` on its root and gives it a row of `src/kit/HeldForm.test.tsx :: FIELDS`, then joins this list.",
+    },
+    KIT,
+    {
+      allow: [
+        "src/kit/Checkbox.tsx",
+        "src/kit/ChoiceButtons.tsx",
+        "src/kit/CodeField.tsx",
+        "src/kit/ComboBox.tsx",
+        "src/kit/RadioGroup.tsx",
+        "src/kit/SearchField.tsx",
+        "src/kit/Switch.tsx",
+        "src/kit/TextField.tsx",
+      ],
+    },
+  ),
   ...[
     [String.raw`${packageUnder("react-aria", "react-aria-components")}|^@react-(?:aria|stately)\x2F`, "React Aria"],
     [packageUnder("lucide-react"), "The icon set"],
