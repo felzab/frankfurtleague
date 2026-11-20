@@ -2,10 +2,11 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import { ADMIN_COPY } from "@/core/copy/admin";
 import { COPY } from "@/core/copy/shared";
-import { serveBackend } from "@/test-support/backend";
+import { SERVER_COPY } from "@/core/serverCopy";
+import { refusal, serveBackend } from "@/test-support/backend";
 import { signedInRequest } from "@/test-support/session";
 
-import type { FLEinwilligungWithdrawalReport } from "@/core/generated/client/types";
+import type { Code, FLEinwilligungWithdrawalReport } from "@/core/generated/client/types";
 
 /** The address the mail came from. */
 const SENDER = "max@example.org";
@@ -18,12 +19,13 @@ const NOTHING: FLEinwilligungWithdrawalReport = {
   registrierungen: [],
 };
 
-/** What the dry run answers for the case. */
-const held = { report: NOTHING };
+/** What the dry run answers for the case: its report, or the refusal of the address. */
+const held: { report: FLEinwilligungWithdrawalReport; refused: Code | undefined } = { report: NOTHING, refused: undefined };
 
 // The entry's dry run and its write, each answered only for the address the case enters.
 const backend = serveBackend(({ method, path, search, body }) => {
   if (method !== "POST" || path !== "/identity/withdrawal" || (body as { email?: string }).email !== SENDER) return undefined;
+  if (held.refused !== undefined) return refusal(held.refused);
   return search.get("dry_run") === "true" ? held.report : NOTHING;
 });
 const { store } = signedInRequest();
@@ -40,6 +42,7 @@ function form(...ticked: readonly string[]): FormData {
 
 beforeEach(() => {
   held.report = NOTHING;
+  held.refused = undefined;
 });
 
 describe("the withdrawal's question", () => {
@@ -82,6 +85,14 @@ describe("the withdrawal's question", () => {
   // The harm: a question over nothing, whose press then records nothing and says it entered a withdrawal.
   it("refuses an address on which nothing ticked is granted", async () => {
     expect(await readWithdrawal(form("media"))).toStrictEqual({ ok: false, reason: ADMIN_COPY.withdrawal.nothingGranted });
+  });
+
+  // The harm: read as the shared failure line, the refusal names no reason and sends the administrator to a retry the
+  // same rule refuses again.
+  it.each(["own_address", "admin_address"] as const)("answers the backend's refusal of %s in its own words", async (code) => {
+    held.refused = code;
+
+    expect(await readWithdrawal(form("name"))).toMatchObject({ ok: false, reason: SERVER_COPY.refusalLine[code] });
   });
 });
 
