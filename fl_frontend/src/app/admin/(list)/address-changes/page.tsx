@@ -1,5 +1,5 @@
 import { requires } from "@/core/action";
-import { ADDRESS_CHANGE_WAIT_DAYS } from "@/core/addressChange";
+import { ADDRESS_CHANGE_WAITING_PERIOD } from "@/core/addressChange";
 import { getAdminHolder } from "@/core/auth/guards";
 import { ADMIN_COPY } from "@/core/copy/admin";
 import { COPY } from "@/core/copy/shared";
@@ -135,7 +135,7 @@ export default function AddressChangesPage() {
         title: START,
         act: { verb: "enter", object: COPY.shared.addressChange.change },
         run: startLostMailboxChange,
-        consequence: WORDS.startConsequence({ days: ADDRESS_CHANGE_WAIT_DAYS }),
+        consequence: WORDS.startConsequence(ADDRESS_CHANGE_WAITING_PERIOD),
         facts: [{ label: ADMIN_COPY.facts.mailTo, value: ADMIN_COPY.mailTo.bothAddresses }],
         touch: { holder },
         children: (

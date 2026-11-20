@@ -1,6 +1,6 @@
 import "server-only";
 
-import { KONTAKT_EMAIL, VEREIN_ADDRESS, VEREIN_NAME } from "./brand";
+import { BRAND_SOLID, KONTAKT_EMAIL, SITE_LOCALE, VEREIN_ADDRESS, VEREIN_NAME } from "./brand";
 import { LINE_SEPARATOR } from "./copy";
 import { COPY } from "./copy/shared";
 import { ROUTES } from "./routes";
@@ -78,9 +78,9 @@ export interface RenderedMail {
   readonly sender: MailSender;
 }
 
-// The mail's own palette: one light design, in colours that still read where a mail app darkens it.
+// The mail's own palette: one light design, in colours that still read where a mail app darkens it. The band and the
+// button take the site's brand fill, `BRAND_SOLID`, deliberately shared, so a mail's green is the site's.
 const BRAND_COLOR = "#216c2d";
-const BRAND_SOLID_COLOR = "#033f11";
 const SURFACE_COLOR = "#f5f5f5";
 const CARD_COLOR = "#ffffff";
 const TEXT_COLOR = "#525252";
@@ -270,7 +270,7 @@ function blockHtml(block: NonNullable<Mail["block"]>): Block {
 function buttonBlocks(button: Button): Block[] {
   return [
     {
-      html: `<table ${TABLE_ATTRS} class="fl-button" align="center" style="margin:0 auto;"><tr><td align="center" style="background-color:${BRAND_SOLID_COLOR};border-radius:8px;"><a href="${escapeHtml(singleLine(button.href))}" style="display:inline-block;padding:11px 24px;font-family:${FONT_STACK};font-size:16px;line-height:22px;font-weight:700;color:${ON_BRAND_COLOR};text-decoration:none;">${escapeHtml(singleLine(button.label))}</a></td></tr></table>`,
+      html: `<table ${TABLE_ATTRS} class="fl-button" align="center" style="margin:0 auto;"><tr><td align="center" style="background-color:${BRAND_SOLID};border-radius:8px;"><a href="${escapeHtml(singleLine(button.href))}" style="display:inline-block;padding:11px 24px;font-family:${FONT_STACK};font-size:16px;line-height:22px;font-weight:700;color:${ON_BRAND_COLOR};text-decoration:none;">${escapeHtml(singleLine(button.label))}</a></td></tr></table>`,
       gap: GAP.paragraph,
     },
     {
@@ -329,7 +329,7 @@ function renderHtml(mail: Mail, subjectLine: string): string {
   );
 
   return `<!doctype html>
-<html lang="de">
+<html lang="${SITE_LOCALE}">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
@@ -342,9 +342,9 @@ function renderHtml(mail: Mail, subjectLine: string): string {
       <tr>
         <td align="center" style="padding:24px 12px;font-family:${FONT_STACK};">
           <!--[if mso]><table ${TABLE_ATTRS} width="${String(CARD_WIDTH)}" align="center"><tr><td><![endif]-->
-          <table ${TABLE_ATTRS} width="100%" align="center" lang="de" style="max-width:${String(CARD_WIDTH)}px;margin:0 auto;background-color:${CARD_COLOR};border-radius:12px;">
+          <table ${TABLE_ATTRS} width="100%" align="center" lang="${SITE_LOCALE}" style="max-width:${String(CARD_WIDTH)}px;margin:0 auto;background-color:${CARD_COLOR};border-radius:12px;">
             <tr>
-              <td class="fl-pad" style="background-color:${BRAND_SOLID_COLOR};border-radius:12px 12px 0 0;padding:${String(GAP.band)}px ${String(GAP.card)}px;"><img src="${escapeHtml(`${mail.origin}${LOGO.path}`)}" width="${String(LOGO.width)}" height="${String(LOGO.height)}" alt="${escapeHtml(COPY.brand.name)}" style="display:block;width:${String(LOGO.width)}px;height:${String(LOGO.height)}px;border:0;outline:none;text-decoration:none;" /></td>
+              <td class="fl-pad" style="background-color:${BRAND_SOLID};border-radius:12px 12px 0 0;padding:${String(GAP.band)}px ${String(GAP.card)}px;"><img src="${escapeHtml(`${mail.origin}${LOGO.path}`)}" width="${String(LOGO.width)}" height="${String(LOGO.height)}" alt="${escapeHtml(COPY.brand.name)}" style="display:block;width:${String(LOGO.width)}px;height:${String(LOGO.height)}px;border:0;outline:none;text-decoration:none;" /></td>
             </tr>
             <tr>
               <td class="fl-pad" style="padding:${String(GAP.card)}px;font-family:${FONT_STACK};">

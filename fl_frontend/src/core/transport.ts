@@ -1,6 +1,7 @@
 import "server-only";
 
 import { BASE_FETCH_PATH, sendToBackend } from "./api";
+import { DRY_RUN } from "./dryRun";
 
 import type { FetchOptions } from "./api";
 
@@ -12,9 +13,6 @@ import type { FetchOptions } from "./api";
 type CallOptions = Omit<FetchOptions, "authType" | "readOnly" | "pass">;
 
 type Tier = FetchOptions["authType"];
-
-/** The query parameter whose `true` makes a dry run of a write, which the backend's `x-safe-when` names. */
-const DRY_RUN = "dry_run";
 
 function send<T>(tier: Tier, url: string, options: CallOptions | undefined, readOnly: boolean, pass = false): Promise<T> {
   // The generated URL spells the document's whole path, and `sendToBackend` prefixes its base path itself.
