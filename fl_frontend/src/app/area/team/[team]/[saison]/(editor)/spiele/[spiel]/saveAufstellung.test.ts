@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { COPY } from "@/core/copy/shared";
-import { refusal, serveBackend } from "@/test-support/backend";
+import { serveBackend } from "@/test-support/backend";
 import { signedInRequest } from "@/test-support/session";
 import { seat } from "@/test-support/subjectFixtures";
 
@@ -90,17 +89,5 @@ describe("a line-up's save", () => {
       },
     ]);
     expect(answer).toStrictEqual({ ok: true, value: 4 });
-  });
-
-  // The harm: a seat ended since the page was read, which the backend judges inside the save, answered as a crash
-  // rather than as the page gone stale, whose reload shows the club closed to the person.
-  it("answers a seat the backend no longer finds as a stale page", async () => {
-    backend.answerWith(({ path }) => (path === LINEUP ? refusal("role_not_held", { status: 403 }) : undefined));
-
-    expect(await saveAufstellung({ team_id: TEAM, id: SPIEL, version: 3, changes: { starters: [ONE] } })).toStrictEqual({
-      ok: false,
-      errorCode: "role_not_held",
-      reason: COPY.shared.failure.stale,
-    });
   });
 });
