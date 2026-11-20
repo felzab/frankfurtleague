@@ -37,7 +37,7 @@ import type { CardActRowProps } from "@/kit/Card";
 import type { Option } from "@/kit/OptionList";
 import type { TableHead, TableRow } from "@/kit/Table";
 import type { Metadata, ResolvingMetadata } from "next";
-import type { Adoption, Club } from "./SpielEditor";
+import type { Adoption, Team } from "./SpielEditor";
 import type { SpielValues } from "./spielValues";
 
 type Props = PageProps<"/admin/saisons/[saison]/spiele/[spiel]">;
@@ -241,7 +241,7 @@ function answerRows(view: FLSpieleAdminSingleResponse): AnswerRow[] {
   const party = (id: string, name: Words, plaque: string | null, row: FLSpielbestaetigungEditorRow | undefined) =>
     spiel.sonderereignis === null || row?.state === "agreed" || row?.state === "declined" ? [answerRow(id, name, plaque, row)] : [];
   // The rows are served newest first, so a party's first row is its newest.
-  const club = (side: "team1" | "team2", team: FLSpielTeamFieldJoined | null) =>
+  const teamRows = (side: "team1" | "team2", team: FLSpielTeamFieldJoined | null) =>
     team === null
       ? []
       : party(
@@ -261,7 +261,7 @@ function answerRows(view: FLSpieleAdminSingleResponse): AnswerRow[] {
           null,
           rows.find((row) => row.party.kind === "schiedsrichter" && row.party.schiedsrichter_id === booked.schiedsrichter_id),
         );
-  return [...club("team1", spiel.team1), ...club("team2", spiel.team2), ...referee];
+  return [...teamRows("team1", spiel.team1), ...teamRows("team2", spiel.team2), ...referee];
 }
 
 /**
@@ -278,8 +278,8 @@ function aufstellungRows(view: FLSpieleAdminSingleResponse): Array<CardActRowPro
   const owed = spiel.sonderereignis === null;
   const words = COPY.area.team.aufstellung;
   return (["team1", "team2"] as const).flatMap((side) => {
-    const club = spiel[side];
-    if (club === null) return [];
+    const team = spiel[side];
+    if (team === null) return [];
     const stored = aufstellungen[side];
     const mark = marks[side];
     // The club's lock locks nothing for the league, which still enters the line-up: a missing one past it is overdue here.
@@ -288,8 +288,8 @@ function aufstellungRows(view: FLSpieleAdminSingleResponse): Array<CardActRowPro
     return [
       {
         id: side,
-        href: ROUTES.adminAufstellung.path(spiel.saison_id, spiel.id, club.team_id),
-        name: words.ofTeam({ record: club.name }),
+        href: ROUTES.adminAufstellung.path(spiel.saison_id, spiel.id, team.team_id),
+        name: words.ofTeam({ record: team.name }),
         ...(chip === undefined ? {} : { chip }),
         ...(line === undefined ? {} : { line }),
       },
@@ -298,7 +298,7 @@ function aufstellungRows(view: FLSpieleAdminSingleResponse): Array<CardActRowPro
 }
 
 /** A knockout match's clubs for its two sides by hand, each a club the write would not field noted why. */
-function clubsOf(view: FLSpieleAdminSingleResponse): Club[] | null {
+function teamsOf(view: FLSpieleAdminSingleResponse): Team[] | null {
   return (
     view.teams?.map((team) =>
       team.fieldable
@@ -341,7 +341,7 @@ async function readEditor(params: Props["params"]) {
         team2: saved.team2 === null ? null : { name: { record: saved.team2.name }, plaque: { record: saved.team2.shorthand } },
       }}
       quellen={{ team1: quelleWords(saved.team1_quelle)?.long ?? null, team2: quelleWords(saved.team2_quelle)?.long ?? null }}
-      clubs={clubsOf(view)}
+      teams={teamsOf(view)}
       spielorte={view.spielorte.map((spielort) => ({
         // The match's own retired venue stays in the list, marked and not to be chosen again once left.
         option:

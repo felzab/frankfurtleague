@@ -59,7 +59,7 @@ export type ReadRecord = {
    * A club's head over the groups, `TeamProfileHead`, which the club's page places as `folds` holds `ReadFolds`; and, where
    * the club has left the season, its route and day over the reason as it was stored.
    */
-  club?: { head: ReactElement; austritt: { title: Copy; text: RecordText } | null };
+  team?: { head: ReactElement; austritt: { title: Copy; text: RecordText } | null };
   /** The first group goes without a title where it is the page's only one: the page's own title names it. */
   groups: readonly [ReadGroup, ...ReadGroup[]];
   /** The decision's acts, the kit's buttons and the dialogs they open, under the first group. */
@@ -134,7 +134,7 @@ function GroupBody({ group }: { group: GroupContent }) {
 
 async function ReadBody({ scope, width, named }: { scope: "saison" | "area"; width: ReadWidth | undefined; named: Named }) {
   const { title, read } = await titled(named);
-  const { chip, flag, spiel, club, groups, acts } = read;
+  const { chip, flag, spiel, team, groups, acts } = read;
   const [first, ...rest] = groups;
   return (
     <RailPage
@@ -158,14 +158,14 @@ async function ReadBody({ scope, width, named }: { scope: "saison" | "area"; wid
             )}
           </div>
         )}
-        {club !== undefined && (
+        {team !== undefined && (
           <div className="grid gap-3">
-            {club.head}
-            {club.austritt !== null && (
+            {team.head}
+            {team.austritt !== null && (
               <Callout
                 tone="danger"
-                title={club.austritt.title}
-                text={club.austritt.text}
+                title={team.austritt.title}
+                text={team.austritt.text}
               />
             )}
           </div>

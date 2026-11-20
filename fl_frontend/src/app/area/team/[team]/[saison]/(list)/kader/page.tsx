@@ -45,12 +45,12 @@ const HEAD: TableHead = {
 /** The page's one read, after the seat it is drawn for, handed to its template running. */
 async function read(params: Props["params"]) {
   const [seat] = await requireTeamSeats(params, address);
-  const squad = await readAsSeatHolder(() => kaderOf(seat));
+  const kader = await readAsSeatHolder(() => kaderOf(seat));
   return {
     drawn: (
       <KaderTable
         head={HEAD}
-        read={squad}
+        read={kader}
         team={seat.team_id}
         saison={seat.saison_id}
       />

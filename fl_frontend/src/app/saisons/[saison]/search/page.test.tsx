@@ -7,16 +7,16 @@ import type { FLSaisonFrameResponse, FLSpielJoined, FLSpielplanResponse } from "
 import type { ListPage } from "@/kit/ListPage";
 import type { ComponentProps, ReactElement } from "react";
 
-const club = (id: string, name: string) => ({
+const team = (id: string, name: string) => ({
   team_id: id.repeat(24),
   name,
   shorthand: name.slice(0, 3).toUpperCase(),
   tore: null,
   austritt_type: null,
 });
-const GOETHE = club("a", "Goethe");
-const HELMHOLTZ = club("b", "Helmholtz");
-const LESSING = club("c", "Lessing");
+const GOETHE = team("a", "Goethe");
+const HELMHOLTZ = team("b", "Helmholtz");
+const LESSING = team("c", "Lessing");
 
 /** One match `nr` of the matchday `spieltag` between two clubs. */
 const spiel = (

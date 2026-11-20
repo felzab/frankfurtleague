@@ -10,7 +10,7 @@ import { getSpielPage } from "@/features/saisons/queries";
 import { publicSaisonOf } from "@/features/saisons/resolvers";
 import { eventOf, headOf, matchdayOf, refereeOf, sidesOf } from "@/features/spiele/blocks";
 import { creditedSide } from "@/features/spiele/result";
-import { roleMarkOf, spielerName } from "@/features/spieler/constants";
+import { rolleMarkOf, spielerName } from "@/features/spieler/constants";
 import { ReadFolds } from "@/kit/ReadFolds";
 import { ReadPage } from "@/kit/ReadPage";
 import { pageMetadata } from "@/shared/utils/metadata";
@@ -144,7 +144,7 @@ function dateTileOf(day: CalendarDay | null): StatTile {
 /** A line-up's pupil as their row names them: the captain's or the Co-Kapitän's mark after a published name, never after „anonym“. */
 function rowNameOf(entry: FLAufstellungEntryPublic): Pick<TableRow, "name" | "mark"> {
   const name = spielerName(entry);
-  const mark = typeof name === "string" ? undefined : roleMarkOf(entry.rolle);
+  const mark = typeof name === "string" ? undefined : rolleMarkOf(entry.rolle);
   return mark === undefined ? { name } : { name, mark };
 }
 

@@ -150,21 +150,21 @@ describe("each form's posted names meet its lane's keys", () => {
 
   it("loses no box of a new school's entry", async () => {
     const { enterTeam } = await import("@/app/admin/(list)/saisons/[saison]/teams/enterTeam");
-    const { NEW_CLUB } = await import("@/app/admin/(list)/saisons/[saison]/teams/newClub");
+    const { NEW_TEAM } = await import("@/app/admin/(list)/saisons/[saison]/teams/newTeam");
     const { TeamEntryFields } = await import("@/app/admin/(list)/saisons/[saison]/teams/TeamEntryFields");
     const { TEAM_ENTRY_RULES } = await import("@/features/teams/fieldRules");
     const names = namesIn(
       <TeamEntryFields
         saison="2027"
-        clubs={[]}
+        teams={[]}
         gruppen={[]}
         colours={[]}
         rules={TEAM_ENTRY_RULES}
-        clubRequired
+        teamRequired
       />,
     );
     const typed = {
-      club: NEW_CLUB,
+      team: NEW_TEAM,
       gruppe: "B",
       trikot_farbe: "rot",
       name: "Goethe",

@@ -36,7 +36,7 @@ async function readSeason(params: Props["params"], searchParams: Props["searchPa
   const { spieltage } = spielplan;
   const matches = spieltage.flatMap((spieltag) => spieltag.spiele.map((spiel) => ({ spiel, spieltag: keyOf(spieltag) })));
   const nameOf = spieltagNamer(spieltage);
-  const clubs = new Map(
+  const teams = new Map(
     matches.flatMap(({ spiel }) => [spiel.team1, spiel.team2].flatMap((team) => (team === null ? [] : [[team.team_id, team.name] as const]))),
   );
   const words = SERVER_COPY.season.filter;
@@ -59,7 +59,7 @@ async function readSeason(params: Props["params"], searchParams: Props["searchPa
     filter(
       "team",
       words.team,
-      [...clubs].sort(([, one], [, other]) => one.localeCompare(other, "de")).map(([id, name]) => ({ id, label: { record: name } })),
+      [...teams].sort(([, one], [, other]) => one.localeCompare(other, "de")).map(([id, name]) => ({ id, label: { record: name } })),
     ),
     filter(
       "spieltag",

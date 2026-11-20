@@ -34,10 +34,10 @@ function bewerbung(overrides: Partial<Pick<FLBewerbung, "status" | "kontakte" | 
   } as FLBewerbung;
 }
 
-const seat = (read: FLBewerbung, slot: string) => seatsOf(read).find((view) => view.seat === slot);
+const seat = (read: FLBewerbung, wanted: string) => seatsOf(read).find((view) => view.seat === wanted);
 
 describe("where a seat stands", () => {
-  /* A Widerspruch and an erasure leave one empty slot, and only the first takes a new person: read as one, an
+  /* A Widerspruch and an erasure leave one empty seat, and only the first takes a new person: read as one, an
      administrator is offered a write the backend refuses, or none where it would take one. */
   it("parts a seat its person objected to from one an erasure emptied", () => {
     const read = bewerbung({

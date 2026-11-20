@@ -94,8 +94,8 @@ describe("a pupil's own season", () => {
     expect(page).not.toContain(COPY.area.spieler.lineupPlace.starts);
 
     // The same page for a pupil in the squad: one reading every pupil as deregistered passes the half above.
-    const inSquad = await landed(null);
-    expect(inSquad).not.toContain(COPY.admin.spieler.deregistered);
-    expect(inSquad).toContain(COPY.area.spieler.lineupPlace.starts);
+    const inKader = await landed(null);
+    expect(inKader).not.toContain(COPY.admin.spieler.deregistered);
+    expect(inKader).toContain(COPY.area.spieler.lineupPlace.starts);
   });
 });

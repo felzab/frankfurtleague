@@ -11,13 +11,13 @@ import { Tick } from "./Checkbox";
 import { Chip } from "./Chip";
 import { CutText } from "./CutText";
 import { EmptyState } from "./EmptyState";
-import { RoleMark } from "./RoleMark";
+import { RolleMark } from "./RolleMark";
 import { tv } from "./tv";
 
 import type { Copy, Words } from "@/core/copy";
 import type { ChipProps } from "./Chip";
 import type { EmptyStateProps } from "./EmptyState";
-import type { RoleMarkProps } from "./RoleMark";
+import type { RolleMarkProps } from "./RolleMark";
 
 /**
  * The block's look, which `Lineup` draws from: two cards, each a table of one row a pupil at every
@@ -112,7 +112,7 @@ export type LineupPlayer = {
   /** In a box from 42 rem alone: a phone's row is the name, the number and the row's controls. */
   position?: Words;
   /** The role the pupil holds in the squad, the boxed letter after the name, which the block draws as `Table` does. */
-  mark?: RoleMarkProps;
+  mark?: RolleMarkProps;
   chip?: ChipProps;
   /**
    * Registered after the season began: named only while fewer regular pupils than `startersMax` are, and no more of
@@ -144,7 +144,7 @@ export type LineupWords = {
   /** In the picked list's place while it names nobody: its blank slate, as an editor's every list with nothing in it yet. */
   none: EmptyStateProps;
   /** In the other list's place where the team has no squad, alike. */
-  noSquad: EmptyStateProps;
+  noKader: EmptyStateProps;
   /** On the row of a tick pressed while `startersMax` pupils already start. */
   startersFull: Copy;
   /** Why a nominee cannot be named, and on a named nominee's row once the regular pupils leave no gap for them. */
@@ -202,7 +202,7 @@ function NameCell({ player, nameId, line = null, lineId }: { player: LineupPlaye
             text={textOf(player.name)}
             className={words.name()}
           />
-          {player.mark !== undefined && <RoleMark {...player.mark} />}
+          {player.mark !== undefined && <RolleMark {...player.mark} />}
         </span>
         {player.chip !== undefined && (
           <span className={words.chips()}>
@@ -276,7 +276,7 @@ export function Lineup({ players, value, nameless, onChange, startersMax, words,
   const ordered = [...players].sort(byNummer);
   const picked = ordered.filter((player) => value.picked.includes(player.id));
   const rest = ordered.filter((player) => !value.picked.includes(player.id) && player.gone === undefined);
-  const hasSquad = players.some((player) => player.gone === undefined);
+  const hasKader = players.some((player) => player.gone === undefined);
 
   const isFull = lineupStarters(value, nameless) >= startersMax;
   const nominees = picked.filter((player) => player.nominee === true).length;
@@ -408,9 +408,9 @@ export function Lineup({ players, value, nameless, onChange, startersMax, words,
           <h2 className={s.title()}>{words.rest}</h2>
           <span className={s.count()}>{rest.length}</span>
         </div>
-        {!hasSquad && (
+        {!hasKader && (
           <div className={s.box()}>
-            <EmptyState {...words.noSquad} />
+            <EmptyState {...words.noKader} />
           </div>
         )}
         {rest.length > 0 && (

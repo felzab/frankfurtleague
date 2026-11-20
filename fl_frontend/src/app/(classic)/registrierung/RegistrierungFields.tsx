@@ -9,7 +9,7 @@ import type { ConsentLine as Line } from "@/core/consentWordings";
 import type { FLSpielerStufe } from "@/core/generated/client/types";
 
 const WORDS = COPY.registrierung;
-const SQUAD = COPY.admin.spieler;
+const KADER = COPY.admin.spieler;
 
 /** What the write asks of the three typed boxes, read on the server so its schema never reaches the browser. */
 export type RegistrierungRules = {
@@ -74,13 +74,13 @@ export function RegistrierungFields({
           kind="digits"
         />
         <Select
-          label={SQUAD.position}
+          label={KADER.position}
           name="position"
           defaultValue=""
           options={positionOptions()}
         />
         <Select
-          label={SQUAD.stufe}
+          label={KADER.stufe}
           name="stufe"
           defaultValue=""
           options={stufeOptions(stufen)}

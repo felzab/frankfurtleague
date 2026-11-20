@@ -42,8 +42,8 @@ const podium = tv({
  * club stands there, and its label one rung under a name, muted, so it says why without standing where a club's
  * name would; the label alone is what a screen reader reads for it.
  */
-function Who({ club, nameClass }: { club: Place; nameClass: string }) {
-  return club === null ? (
+function Who({ team, nameClass }: { team: Place; nameClass: string }) {
+  return team === null ? (
     <>
       <span aria-hidden>
         <TeamPlaque plaque={{ quelle: COPY.shared.noValue }} />
@@ -52,8 +52,8 @@ function Who({ club, nameClass }: { club: Place; nameClass: string }) {
     </>
   ) : (
     <>
-      <TeamPlaque plaque={club.plaque} />
-      <span className={nameClass}>{textOf(club.name)}</span>
+      <TeamPlaque plaque={team.plaque} />
+      <span className={nameClass}>{textOf(team.name)}</span>
     </>
   );
 }
@@ -68,7 +68,7 @@ export function Podium({ places }: { places: readonly [Place, Place, Place, Plac
   return (
     <div className={slots.root()}>
       <ol className={slots.steps()}>
-        {[first, second, third].map((club, index) => {
+        {[first, second, third].map((team, index) => {
           const platz = (index + 1) as 1 | 2 | 3;
           const look = podium({ platz });
           return (
@@ -78,7 +78,7 @@ export function Podium({ places }: { places: readonly [Place, Place, Place, Plac
               className={look.place()}>
               <span className={look.who()}>
                 <Who
-                  club={club}
+                  team={team}
                   nameClass={look.name()}
                 />
               </span>
@@ -94,7 +94,7 @@ export function Podium({ places }: { places: readonly [Place, Place, Place, Plac
       <p className={slots.fourth()}>
         <span className={slots.fourthPlace()}>{SERVER_COPY.landing.saison.place(4)}</span>
         <Who
-          club={fourth}
+          team={fourth}
           nameClass="min-w-0 font-medium"
         />
       </p>

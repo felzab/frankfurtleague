@@ -898,7 +898,7 @@ export const SERVER_COPY = catalogue({
     filter: { phase: "Phase", team: TEAM, spieltag: COPY.spielplan.fact.spieltag, gruppe: COPY.team.gruppe, all: "Alle" },
 
     /** A club's page: its tiles, its matches and its squad. */
-    club: {
+    team: {
       platz: PLATZ,
       punkte: "Punkte",
       spiele: COPY.page.spiele,

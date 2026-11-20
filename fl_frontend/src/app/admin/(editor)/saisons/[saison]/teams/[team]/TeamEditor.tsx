@@ -126,7 +126,7 @@ export function TeamEditor({
   const renamed = draft.name !== record.values.name || draft.shorthand !== record.values.shorthand;
   const isClosed = closed !== undefined;
 
-  const club: EditorSection = {
+  const teamBox: EditorSection = {
     id: "team",
     title: TEAM,
     fields: (
@@ -372,7 +372,7 @@ export function TeamEditor({
       editor={editor}
       {...(closed === undefined ? {} : { closed })}
       locks={locks}
-      sections={[club, adresse, ...seasonBoxes]}
+      sections={[teamBox, adresse, ...seasonBoxes]}
       danger={{
         title: WORDS.dangerBox(exitAct !== null, true),
         acts: exitAct === null ? [retirementAct] : [exitAct, retirementAct],

@@ -10,7 +10,7 @@ import { FieldGroup } from "@/kit/FieldGroup";
 import { Select } from "@/kit/Select";
 import { TextField } from "@/kit/TextField";
 
-import { NEW_CLUB } from "./newClub";
+import { NEW_TEAM } from "./newTeam";
 
 import type { TeamRules } from "@/features/teams/fieldRules";
 import type { Option } from "@/kit/OptionList";
@@ -24,35 +24,35 @@ const WORDS = COPY.admin.team;
  */
 export function TeamEntryFields({
   saison,
-  clubs,
+  teams,
   gruppen,
   colours,
   rules,
-  clubRequired,
+  teamRequired,
 }: {
   saison: string;
   /** Every club still in the league holding no row of the season. */
-  clubs: readonly Option[];
+  teams: readonly Option[];
   gruppen: readonly Option[];
   colours: readonly Option[];
   rules: TeamRules;
-  clubRequired: boolean;
+  teamRequired: boolean;
 }) {
   // A league knowing no other club has one way to enter a team.
-  const [club, setClub] = useState<string | null>(clubs.length === 0 ? NEW_CLUB : null);
+  const [team, setTeam] = useState<string | null>(teams.length === 0 ? NEW_TEAM : null);
   const { required, max, address } = rules;
   return (
     <>
       <Select
         label={COPY.shared.facts.team}
-        name="club"
-        isRequired={clubRequired}
+        name="team"
+        isRequired={teamRequired}
         description={WORDS.enterDescription}
-        options={[...clubs, { id: NEW_CLUB, label: COPY.admin.bewerbung.newSchool }]}
-        value={club}
-        onChange={setClub}
+        options={[...teams, { id: NEW_TEAM, label: COPY.admin.bewerbung.newSchool }]}
+        value={team}
+        onChange={setTeam}
       />
-      {club === NEW_CLUB && (
+      {team === NEW_TEAM && (
         <FieldGroup name={COPY.admin.bewerbung.newSchool}>
           <TextField
             label={COPY.shared.name}

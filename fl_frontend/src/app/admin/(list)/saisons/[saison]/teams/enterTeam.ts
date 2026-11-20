@@ -7,7 +7,7 @@ import { COPY } from "@/core/copy";
 import { teamsPostTeamEntry } from "@/core/generated/client/sdk";
 import { TeamsPostTeamEntryBody, TeamsPostTeamEntryParams } from "@/core/generated/zod/inputs";
 
-import { NEW_CLUB } from "./newClub";
+import { NEW_TEAM } from "./newTeam";
 
 import type { FLPostTeamEntryPayload } from "@/core/generated/client/types";
 
@@ -28,9 +28,9 @@ const ENTRY = {
  * club's select says which of the two forms it posted, `kind` read off its value as the write's own union names them.
  */
 const EnterTeam = z.preprocess(
-  (raw) => (typeof raw === "object" && raw !== null && "club" in raw ? { ...raw, kind: raw.club === NEW_CLUB ? "new" : "known" } : raw),
+  (raw) => (typeof raw === "object" && raw !== null && "team" in raw ? { ...raw, kind: raw.team === NEW_TEAM ? "new" : "known" } : raw),
   z.discriminatedUnion("kind", [
-    z.object({ ...ENTRY, kind: z.literal("known"), club: known.shape.team_id }),
+    z.object({ ...ENTRY, kind: z.literal("known"), team: known.shape.team_id }),
     z.object({
       ...ENTRY,
       kind: z.literal("new"),
@@ -51,8 +51,8 @@ const EnterTeam = z.preprocess(
 type Entered = z.output<typeof EnterTeam>;
 
 /** The write's club: the one picked, or the one the entry founds, its description left for its editor. */
-function clubOf(entered: Entered): FLPostTeamEntryPayload["team"] {
-  if (entered.kind === "known") return { kind: "known", team_id: entered.club };
+function teamOf(entered: Entered): FLPostTeamEntryPayload["team"] {
+  if (entered.kind === "known") return { kind: "known", team_id: entered.team };
   const { name, shorthand, full_name, schulform, website_url, street, house_number, postcode, district, city } = entered;
   return {
     kind: "new",
@@ -87,7 +87,7 @@ export const enterTeam = action({
   },
   run: async (entered) => {
     const { saison_id, gruppe, trikot_farbe } = entered;
-    await teamsPostTeamEntry(saison_id, { team: clubOf(entered), gruppe, trikot_farbe });
+    await teamsPostTeamEntry(saison_id, { team: teamOf(entered), gruppe, trikot_farbe });
     return { ok: true, value: undefined };
   },
 });

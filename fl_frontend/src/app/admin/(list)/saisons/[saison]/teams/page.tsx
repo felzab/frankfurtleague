@@ -5,7 +5,7 @@ import { FLGruppenNames, FLTeamListState } from "@/core/generated/client/types";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { adminTeamChip, trikotFarbeLabel } from "@/features/teams/constants";
-import { TEAM_CLUB_REQUIRED, TEAM_ENTRY_RULES } from "@/features/teams/fieldRules";
+import { TEAM_ENTRY_RULES, TEAM_ENTRY_TEAM_REQUIRED } from "@/features/teams/fieldRules";
 import { gruppeOptions, trikotOptions } from "@/features/teams/options";
 import { getTeamsAdmin } from "@/features/teams/queries";
 import { filterValue } from "@/kit/filterValue";
@@ -138,11 +138,11 @@ async function readCreate(list: Promise<FLTeamsAdminListResponse>, params: Props
     children: (
       <TeamEntryFields
         saison={saison}
-        clubs={entry.teams.map((club) => ({ id: club.id, label: { record: club.name } }))}
+        teams={entry.teams.map((team) => ({ id: team.id, label: { record: team.name } }))}
         gruppen={gruppeOptions(entry.gruppen, null)}
         colours={trikotOptions(entry.taken)}
         rules={TEAM_ENTRY_RULES}
-        clubRequired={TEAM_CLUB_REQUIRED}
+        teamRequired={TEAM_ENTRY_TEAM_REQUIRED}
       />
     ),
     ...(entry.closed ? { locked: WORDS.onlyPlanned } : {}),
