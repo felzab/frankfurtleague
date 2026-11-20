@@ -64,6 +64,8 @@ export const ADMIN_COPY = catalogue({
 
   spielort: {
     object: "Spielort",
+    /** The record as a danger box's sentence names it. */
+    withArticle: "Der Spielort",
     search: "Spielorte suchen",
     mietpreis: "Mietpreis",
     mietpreisExample: "60",
@@ -109,6 +111,7 @@ export const ADMIN_COPY = catalogue({
 
   schiedsrichter: {
     search: "Schiedsrichter suchen",
+    withArticle: "Die Person",
     kontaktData: "Kontaktdaten",
     confirmation: "Bestätigung",
     sentTo: (address: string) => `${boundBy("An", address)} gesendet`,
@@ -144,7 +147,7 @@ export const ADMIN_COPY = catalogue({
 
     /** What the Wertung rules do, one statement a line. */
     scoringHelp: [
-      "Punkte und Reihenfolge ordnen die Tabelle und sind ab Saisonbeginn gesperrt.",
+      "Punkte und die Regel bei Punktgleichheit ordnen die Tabelle.",
       "Ein Nichtantreten zählt als Spiel mit den eingetragenen Toren.",
     ],
     punkte: "Punkte",
@@ -194,7 +197,7 @@ export const ADMIN_COPY = catalogue({
      * entered since the draw beyond its date.
      */
     reportsHold: "Spielberichte liegen vor",
-    lockedSinceActivation: "Seit der Umstellung gesperrt",
+    lockedSinceActivation: "Gesperrt seit der Umstellung",
     entriesHold: "Spiele sind schon bearbeitet",
 
     /**
@@ -294,6 +297,7 @@ export const ADMIN_COPY = catalogue({
 
   team: {
     search: "Teams suchen",
+    withArticle: "Das Team",
     gruppeFull: "Voll",
     /** „Team eintragen“'s reason while locked, and „Annehmen“'s in a running season: either enters a club. */
     onlyPlanned: "Nur in einer geplanten Saison",
@@ -314,8 +318,9 @@ export const ADMIN_COPY = catalogue({
     /** By what its rows are about: the exit, the retiring, or both. */
     dangerBox: (austritt: boolean, retirement: boolean) =>
       austritt && retirement ? `Austritt und ${RETIREMENT}` : austritt ? "Austritt" : RETIREMENT,
-    austrittAct: "Aus der Saison nehmen",
-    austrittRowLine: "Das Team scheidet aus dieser Saison aus.",
+    austrittAct: "Austritt eintragen",
+    /** What the exit does, as `austrittLine` says it under the date. */
+    austrittRowLine: "Offene Anfragen enden, Aufstellungen trägt die Liga ein.",
     austrittReasonDescription: "Steht ohne Namen auf der Website",
     /**
      * Under the exit's date: the write calls no fixture off, so the line says only what it ends, the club's requests,
@@ -373,11 +378,11 @@ export const ADMIN_COPY = catalogue({
     durationSaisons: (count: number) => (count === 1 ? "1\u00A0Saison" : boundBy(formatNumber(count), "Saisons")),
     /** The toast once the ban stands, by what did not follow it. */
     partial: {
-      sessions: "Die Sperre steht, aber die Anmeldungen laufen weiter.",
+      sessions: "Die Sperre steht, aber die Geräte bleiben angemeldet.",
       notice: "Die Sperre steht, aber die E-Mail ist nicht gesendet.",
-      both: "Die Sperre steht, aber die Anmeldungen laufen weiter und die E-Mail ist nicht gesendet.",
+      both: "Die Sperre steht, aber die Geräte bleiben angemeldet und die E-Mail ist nicht gesendet.",
       /** The second press's note, once it ended what the first left running. */
-      ended: "Die Anmeldungen sind beendet.",
+      ended: "Die Geräte sind abgemeldet.",
     },
     liftConsequence: "Die Adresse kann sich wieder anmelden.",
   },
@@ -514,7 +519,7 @@ export const ADMIN_COPY = catalogue({
       "grant.address_switched": "Adresse gewechselt",
       "ban.added": "Sperre eingetragen",
       "ban.removed": "Sperre entfernt",
-      "address_change.started": "Adressänderung eingetragen",
+      "address_change.started": "Adressänderung gestartet",
       "address_change.discarded": "Adressänderung verworfen",
       "erasure.on_request": "Löschung auf Anfrage",
       "erasure.own": ACCOUNT_ERASED,

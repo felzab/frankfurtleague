@@ -58,6 +58,8 @@ const ENTRY = "Eintrag";
 const startelfCount = (count: number, max: number) => `Startelf ${formatNumber(count)} ${boundBy("von", formatNumber(max))}`;
 const DELETED = "Gelöscht";
 const FILTER = "Filter";
+// A list's search label from its plural: `shared.search` gives it the other catalogues, and the squad's stands here.
+const search = (plural: string) => `${plural} suchen`;
 
 /**
  * The words every audience reads: the kit's, the shared section's, the route titles' and the records' noun sections. It
@@ -141,9 +143,17 @@ export const COPY = catalogue({
     expiredOn: (day: CalendarDay) => `Abgelaufen ${boundBy("am", formatDate(day))}`,
     objectedOn: (day: CalendarDay) => `Widersprochen ${boundBy("am", formatDate(day))}`,
     answerBy: (day: CalendarDay) => `Antwort ${boundBy("bis", formatDate(day))}`,
+    /** The day a state took effect, beside the chip naming the state: „am 09.11.2026“. */
+    onDay: (day: CalendarDay) => boundBy("am", formatDate(day)),
     afterConfirmation: "Erst nach Bestätigung",
     afterHandover: `Erst nach Übergabe ${boundBy("der", OWNER_TIER)}`,
     reason: "Grund",
+    /**
+     * A danger box's consequence of retiring a record and of bringing it back, by the record as a noun phrase with its
+     * article („Der Spielort“), and for retiring the records it is no longer picked for.
+     */
+    retireConsequence: (subject: Copy, what: Copy) => `${subject} steht für neue ${what} nicht mehr zur Auswahl.`,
+    reactivateConsequence: (subject: Copy) => `${subject} steht wieder zur Auswahl.`,
     /** The description of a free text a mail hands to people it may not concern. */
     noNames: "Ohne Namen",
     mediaFrom: (age: number) => `Erst ${boundBy("ab", formatNumber(age), "Jahren")}`,
@@ -220,6 +230,8 @@ export const COPY = catalogue({
      * What a screen reader hears once a searched list's typed text settles: „Treffer“ is one noun for any list's rows
      * in the singular and the plural, and a search finding none says `empty.search`.
      */
+    /** A list's search box, by the list's plural. */
+    search: (plural: Copy) => search(plural),
     searchCount: (count: number) => `${boundBy(formatNumber(count), "Treffer")} für diese Suche.`,
 
     /** „Passkey löschen?“: a confirmation asks with the verb its button carries. */
@@ -509,7 +521,7 @@ export const COPY = catalogue({
       spieltag: "Spieltag",
       date: "Datum",
       time: "Uhrzeit",
-      spielort: "Ort",
+      spielort: "Spielort",
       schiedsrichter: SCHIEDSRICHTER,
     },
 
@@ -572,7 +584,8 @@ export const COPY = catalogue({
     nomineeLocked: (max: number) => `Nur bei weniger ${boundBy("als", formatNumber(max))}`,
     needsSlot: "Erst mit Datum und Uhrzeit",
     dueBy: (day: CalendarDay) => `Aufstellung ${boundBy("bis", formatDate(day))}`,
-    overdueSince: (day: CalendarDay) => `Aufstellung ${boundBy("seit", formatDate(day))} überfällig`,
+    /** Beside the „Überfällig“ chip, which says the rest. */
+    overdueSince: (day: CalendarDay) => `Aufstellung ${boundBy("seit", formatDate(day))}`,
     overdue: "Überfällig",
     overdueOnCard: "Aufstellung überfällig",
     /** Once the team's seats can change nothing more before the match. */

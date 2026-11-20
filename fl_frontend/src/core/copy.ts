@@ -122,7 +122,7 @@ export const LOCK = {
   /** A Spielplan stands: the counts it was drawn from and a club's group move only with a new draw. */
   byDraw: "durch Spielplan",
   /** The club left the season, which fixes its group and its colour. */
-  departed: "seit dem Ausscheiden",
+  departed: "seit dem Austritt",
   /** The person confirmed their entry, which fixes the address their sign-in is keyed to: only an address change moves it. */
   confirmed: "seit der Bestätigung",
   /** The season has finished, which fixes a player's squad row: the number, position, level and role, and the row's place in the squad. */
