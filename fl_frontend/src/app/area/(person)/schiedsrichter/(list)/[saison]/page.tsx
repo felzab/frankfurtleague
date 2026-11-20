@@ -34,8 +34,8 @@ const SPIEL = COPY.admin.spiel;
 const TITLE = COPY.page.spiele;
 
 /**
- * The signed-in referee's games of the address's season, `null` for a season none of their bookings stands in: one
- * read for the tab's title and the page alike. A person holding no referee record is sent on before anything is read.
+ * The signed-in referee's games of the address's season, `null` for a season none of their bookings stands in. A
+ * person holding no referee record is sent on before anything is read.
  */
 const spieleOf = cache(async (saison: string) => {
   if (!(await isOwnSaison("schiedsrichter", saison))) return null;

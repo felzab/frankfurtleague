@@ -8,7 +8,7 @@ import type { Metadata } from "next";
 
 type Props = PageProps<"/area/team/[team]/[saison]/[...unknown]">;
 
-/** The team's Übersicht, which a session sent to sign in comes back to: this address names no page of its own. */
+/** The team's Übersicht: this address names no page of its own. */
 const address = ({ team, saison }: { team: string; saison: string }) => ROUTES.teamOverview.path(team, saison);
 
 /** The tab titled as the card the team's not-found page draws: „Kein Zugang“ without a seat there, else not found. */

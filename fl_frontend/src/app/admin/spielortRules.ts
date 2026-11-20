@@ -46,7 +46,7 @@ const addressRequiredOf = ({ shape }: Body): AddressRules["required"] => {
   };
 };
 
-/** The create's rules, which the dialog over the venue list and over the match editor holds its boxes to. */
+/** The create's rules. */
 export const SPIELORT_RULES: SpielortRules = {
   required: requiredOf(SpielortePostSpielortBody),
   nameMax: spielortePostSpielortBodyNameMax,
@@ -62,7 +62,6 @@ export const SPIELORT_RULES: SpielortRules = {
   },
 };
 
-/** The save's rules, which the venue editor holds its boxes to. */
 export const SPIELORT_SAVE_RULES: SpielortRules = {
   required: requiredOf(SpielortePatchSpielortBody),
   nameMax: spielortePatchSpielortBodyNameMax,

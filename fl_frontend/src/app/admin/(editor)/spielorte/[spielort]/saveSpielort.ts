@@ -15,7 +15,6 @@ import type { ActionAnswer } from "@/core/action";
 const { shape } = SpielortePatchSpielortBody;
 const address = shape.address.shape;
 
-/** What the editor's boxes send, each held to the venue write's own published rule for it. */
 const SaveSpielort = z.object({
   id: SpielortePatchSpielortParams.shape.spielort_id,
   version: shape.version,

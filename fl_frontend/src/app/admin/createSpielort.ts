@@ -10,7 +10,6 @@ import { SpielortePostSpielortBody } from "@/core/generated/zod/inputs";
 const { shape } = SpielortePostSpielortBody;
 const address = shape.address.shape;
 
-/** The create dialog's boxes, by the names they post under, each held to the create's own published rule. */
 const CreateSpielortForm = z.object({
   name: shape.name,
   street: address.street,

@@ -24,7 +24,7 @@ type Props = PageProps<"/admin/saisons/[saison]/spiele">;
 
 const WORDS = COPY.admin.spiel;
 
-/** The season's fixtures by matchday, `null` for a season the league does not hold: one read for the tab's title and the page alike. */
+/** The season's fixtures by matchday, `null` for a season the league does not hold. */
 const read = cache(getAdminSpielplan);
 
 export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {

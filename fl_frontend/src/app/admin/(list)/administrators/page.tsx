@@ -32,7 +32,6 @@ const FACTS = COPY.admin.facts;
 const MAIL_TO = COPY.admin.mailTo;
 const ADDRESS = COPY.signIn.address;
 
-/** The two toolbar acts, each naming its button and its dialog, and the server action its form posts to. */
 const ADD = { verb: "enter", object: WORDS.object } as const;
 const HAND_OVER = { verb: "handOver", object: WORDS.owner } as const;
 const ADD_FACE = { title: actLabel(ADD), act: ADD, action: addAdministrator } as const;

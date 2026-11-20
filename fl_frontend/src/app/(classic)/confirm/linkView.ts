@@ -2,7 +2,6 @@ import { APIBadStatusError } from "@/core/errors";
 
 import type { Code } from "@/core/generated/client/types";
 
-/** Whether the backend refused a call with one of `codes`. */
 export const refusedAs = (error: unknown, codes: ReadonlySet<Code>): boolean =>
   error instanceof APIBadStatusError && error.serverErrorCode !== undefined && codes.has(error.serverErrorCode);
 

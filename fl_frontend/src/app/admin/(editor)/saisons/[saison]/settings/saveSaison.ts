@@ -25,7 +25,6 @@ const fromBox = <Box, Rule extends z.ZodType>(rule: Rule) => z.preprocess((value
 /** A window's day: an empty box is no day. */
 const day = <Stored extends z.ZodType>(stored: Stored) => z.union([stored, z.null()]);
 
-/** What the editor's boxes send, each held to the season write's own published rule for it. */
 const SaveSaison = z.object({
   id: SaisonsPatchSaisonParams.shape.saison_id,
   version: shape.version,

@@ -33,7 +33,6 @@ import type { Metadata, ResolvingMetadata } from "next";
 
 type Props = PageProps<"/confirm/kontakt">;
 
-/** A row no crawler fetches: the URL carries the link's token. */
 export async function generateMetadata({ searchParams }: Pick<Props, "searchParams">, parent: ResolvingMetadata): Promise<Metadata> {
   return mailedMetadata(parent, ROUTES.kontaktConfirmation, readState(searchParams));
 }
@@ -56,7 +55,6 @@ export default function KontaktConfirmationPage({ searchParams }: Props) {
 }
 
 /** The link's own read; `null` for a token no seat holds or one the backend will not parse, a dead link either way. */
-// `cache` memoizes per render pass, for the tab's title and the page.
 const readView = cache(async (token: string) => runWithIncomingTrace(() => linkViewOf(bewerbungenGetConfirmationView({ token }))));
 
 /** The link opened again after its answer: what the person did and on which day, with the one place to go next. */

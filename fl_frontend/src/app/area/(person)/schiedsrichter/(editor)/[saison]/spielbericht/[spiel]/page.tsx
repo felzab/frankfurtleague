@@ -48,14 +48,13 @@ const REQUIRED = {
   cardColour: requires(Card.shape.colour, null),
 };
 
-/** The page's own address, which a session sent to sign in comes back to. */
 const address = ({ saison, spiel }: Segments) => ROUTES.schiedsrichterSpielbericht.path(saison, spiel);
 
 /**
  * What the address holds for the signed-in referee: the report's read, or `unbooked` for a fixture booked to another
- * referee or one a club's exit took them off, whose read is refused; `null` for a malformed id, a fixture that does not exist and one of another season.
- * A referee whose record went between the frame's check and the read is sent on as every person place sends them.
- * Memoised for the render, so the tab's title and the page share the one read.
+ * referee or one a club's exit took them off, whose read is refused; `null` for a malformed id, a fixture that does not
+ * exist and one of another season. A referee whose record went between the frame's check and the read is sent on as
+ * every person place sends them.
  */
 const find = cache(async (saison: string, spiel: string): Promise<FLSpielberichtSchiedsrichterResponse | "unbooked" | null> => {
   await requireRole("schiedsrichter", address({ saison, spiel }));

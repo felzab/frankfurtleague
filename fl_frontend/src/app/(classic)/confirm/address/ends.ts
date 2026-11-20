@@ -21,7 +21,6 @@ export type Side = "previous" | "new";
 /** A link that holds no more at the press: answered, ended or refused since the page opened. */
 export const LINK_INVALID: EndState = linkInvalid(TO_ACCOUNT);
 
-/** The address on file's stop, on the danger tint, leading to the start page. */
 export const STOPPED: EndState = { tone: "danger", title: WORDS.previous.stopped, next: TO_HOME };
 
 /** What the person did through either link, as its done state says it and an opened-again link names it. */

@@ -122,7 +122,6 @@ export function BerichtEditor({
     { id: "abgebrochen", label: SPIEL.abgebrochen },
   ];
 
-  // The cells a goal's row and a card's share, each over the fields the two rows hold alike.
   /** A row's side: choosing another club empties its player, who plays for the club left. */
   const sideCell: Cells["lead"] = {
     field: "side",

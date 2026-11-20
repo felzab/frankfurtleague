@@ -35,7 +35,6 @@ function pendingOf(open: FLAccountAddressChangeOpen): Pending {
   };
 }
 
-/** The address and the deletion, read for the session the page is drawn for. */
 async function SignInContent() {
   const { subject, served } = await requireAccountSession(ROUTES.accountSignIn.path());
   const [change, held] = await Promise.all([getAccountAddressChange(), passkeysOf(served.user.id).then((rows) => rows.length > 0)]);

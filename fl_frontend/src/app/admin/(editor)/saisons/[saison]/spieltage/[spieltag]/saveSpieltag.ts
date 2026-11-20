@@ -14,7 +14,6 @@ import type { ActionAnswer } from "@/core/action";
 
 const { shape } = SpieltagePatchSpieltagBody;
 
-/** What the editor's two boxes send, each held to the matchday write's own published rule for it. */
 const SaveSpieltag = z.object({
   id: SpieltagePatchSpieltagParams.shape.spieltag_id,
   version: shape.version,

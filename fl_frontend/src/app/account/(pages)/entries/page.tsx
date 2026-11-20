@@ -150,7 +150,6 @@ function entriesOf({ spieler, schiedsrichter, registrierungen, seats, bewerbunge
   return [...pupil, ...registered, ...referee, ...seated, ...applied];
 }
 
-/** The person's records, read for the session the page is drawn for. */
 async function EntriesContent() {
   const { subject } = await requireAccountSession(ROUTES.accountEntries.path());
   const entries = entriesOf(await getAccountEinwilligungen());

@@ -20,7 +20,6 @@ const { bericht, version } = SpielberichtePutSpielberichtBerichtBody.shape;
 const { ergebnis_vorschlag: vorschlag, remarks } = bericht.shape;
 const [shootOutShape] = vorschlag.shape.elfmeterschiessen.options;
 
-/** What the report's form sends, each box held to the write's own published rule for it. */
 const SaveBericht = z.object({
   id: SpielberichtePutSpielberichtBerichtParams.shape.spiel_id,
   // The report's version as the form read it, `null` where it read none.

@@ -14,7 +14,6 @@ export const SEATS = KONTAKT_SEATS;
 /** What the boxes post, each under its dotted name, a box not shown posting nothing. */
 type Posted = Readonly<Record<string, unknown>>;
 
-/** A box whose emptiness is no value. */
 const orNull = (value: unknown): unknown => (value === "" || value === undefined ? null : value);
 
 /** A digit box's text as its figure: an empty box no value, anything but digits the text, which the rule refuses. */

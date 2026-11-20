@@ -18,10 +18,9 @@ type Props = PageProps<"/area/team/[team]/[saison]/kader">;
 
 const WORDS = COPY.admin.spieler;
 
-/** The page's own address, which a session sent to sign in comes back to. */
 const address = ({ team, saison }: { team: string; saison: string }) => ROUTES.teamKader.path(team, saison);
 
-/** The page's one read, memoised for the render on its two ids, which `cache` compares by identity, so the tab's title and the page share it. */
+/** Keyed on the seat's two ids rather than the seat, since `cache` compares its arguments by identity. */
 const kaderRead = cache(getKader);
 const kaderOf = (seat: TeamSeat) => kaderRead(seat.team_id, seat.saison_id);
 

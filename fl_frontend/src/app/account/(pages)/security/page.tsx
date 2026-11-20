@@ -34,7 +34,6 @@ function setUpClosedOf(
   return isFreshForEnrolment(served.session) ? undefined : COPY.account.passkeys.signInTooOldLocked;
 }
 
-/** The passkeys and the devices, read for the session the page is drawn for. */
 async function SecurityContent() {
   const { subject, served } = await requireAccountSession(ROUTES.accountSecurity.path());
   const [held, devices] = await Promise.all([heldPasskeysOf(served), devicesOf(served)]);

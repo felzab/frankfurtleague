@@ -23,7 +23,6 @@ import type { Fact } from "@/kit/Facts";
 import type { MailedState } from "@/kit/MailedPage";
 import type { Metadata, ResolvingMetadata } from "next";
 
-/** A row no crawler fetches, titled by the link's state. */
 export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
   return mailedMetadata(parent, ROUTES.accountErasure, readState());
 }
@@ -41,7 +40,6 @@ export default function AccountErasurePage() {
   return <MailedPage page={readState()} />;
 }
 
-// `cache` memoizes per render pass, for the tab's title and the page.
 const readState = cache(async (): Promise<MailedState> => {
   const token = await mailedLinkToken();
   // Judged before the session: a spent, lapsed or unknown link is a dead end a sign-in cannot repair.

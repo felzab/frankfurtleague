@@ -7,7 +7,6 @@ import { TO_HOME } from "../invitation";
 
 import type { Metadata, ResolvingMetadata } from "next";
 
-/** A row no crawler fetches, as the registration link's page beside it. */
 export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
   const row = ROUTES.registrierungDone;
   return pageMetadata(parent, row, row.path());

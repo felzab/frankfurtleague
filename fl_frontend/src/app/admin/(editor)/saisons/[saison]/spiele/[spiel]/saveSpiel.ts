@@ -25,7 +25,6 @@ const [shootOutShape] = shape.elfmeterschiessen.options;
 /** A figure's box, which the editor may leave empty: no figure where the stored fixture holds none. */
 const figure = (rule: z.ZodType<number>) => numberBox(z.union([rule, z.null()]));
 
-/** What the editor's boxes send, each held to the match write's own published rule for it. */
 const SaveSpiel = z.object({
   id: SpielePatchSpielParams.shape.spiel_id,
   version: shape.version,
@@ -156,9 +155,9 @@ async function sending(id: string, changes: Changes): Promise<ActionAnswer<never
 /**
  * The question a save asks before it deletes a later match's result, `null` for a save deleting none, naming under its
  * sentence whom the save mails, each by the name the dry run reads off its own record, as every question naming its
- * act's mails does. Its token names each deleted result by
- * its value as well as its match, and the parties in their names' order, so a confirmation covers exactly what it was
- * shown and an unchanged save is never asked twice. A save that only mails asks nothing.
+ * act's mails does. Its token names each deleted result by its value as well as its match, and the parties in their
+ * names' order, so a confirmation covers exactly what it was shown and an unchanged save is never asked twice. A save
+ * that only mails asks nothing.
  */
 function questionOf(report: FLPatchSpielDataResponse): SaveQuestion | null {
   const voided = report.voided_ergebnisse;

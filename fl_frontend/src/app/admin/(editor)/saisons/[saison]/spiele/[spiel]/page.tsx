@@ -71,7 +71,6 @@ const REPORT_HEAD: TableHead = {
   ],
 };
 
-/** One read of the editor's whole view, for the tab's title and the page alike. */
 const read = cache(getAdminSpiel);
 
 /**
@@ -103,7 +102,6 @@ export async function generateMetadata({ params }: Props, parent: ResolvingMetad
   );
 }
 
-/** The match editor, on its one view read. */
 export default async function SpielEditorPage({ params }: Props) {
   return await readEditor(params);
 }
@@ -185,11 +183,11 @@ const ANSWER_MISSING = SERVER_COPY.overview.missing(COPY.area.answer);
  * One party's answer as a row, by the state its newest row reads as: its name, its chip, and under them the answer's
  * day, the day it is due by, or that the party has not been asked; a declining club's proposed date after its day, and
  * its reason in its own words. An answer that lapsed unanswered, which the party can no longer give, says so and the day
- * it lapsed on, as every other page under that chip does; one an exit or a decision ended before its answer was due lapsed on no day, and its line
- * says the answer is missing. A discarded proposal reads as the agreement the fixture counts. An answer about a slot the
- * match has left is drawn as given beside that slot, which it alone is about. A row about a slot the match has left that
- * holds no answer, or about a call-off since undone, asks nothing about the match as it stands, and a row in time that
- * nobody could be mailed on has asked nothing yet: the party reads as not asked.
+ * it lapsed on, as every other page under that chip does; one an exit or a decision ended before its answer was due
+ * lapsed on no day, and its line says the answer is missing. A discarded proposal reads as the agreement the fixture
+ * counts. An answer about a slot the match has left is drawn as given beside that slot, which it alone is about. A row
+ * about a slot the match has left that holds no answer, or about a call-off since undone, asks nothing about the match
+ * as it stands, and a row in time that nobody could be mailed on has asked nothing yet: the party reads as not asked.
  */
 function answerRow(id: string, name: Words, plaque: string | null, row: FLSpielbestaetigungEditorRow | undefined): AnswerRow {
   const shown = { id, name, ...(plaque === null ? {} : { plaque: { record: plaque } }) };

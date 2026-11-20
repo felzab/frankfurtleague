@@ -24,7 +24,6 @@ export const LIGA_LINKS: ReadonlyArray<HeaderLink> = [
   { label: COPY.template.account, href: ROUTES.signIn.path() },
 ];
 
-/** The legal pages, in the sitemap page's group and, with the sitemap page itself, in the footer's. */
 export const LEGAL_LINKS: ReadonlyArray<HeaderLink> = LEGAL_PAGES.map((page) => ({ label: ROUTES[page].title, href: ROUTES[page].path() }));
 
 /**
@@ -33,7 +32,6 @@ export const LEGAL_LINKS: ReadonlyArray<HeaderLink> = LEGAL_PAGES.map((page) => 
  */
 const SAISON = { label: COPY.shared.saison, href: ROUTES.saisons.path() };
 
-/** The classic public frame around a page, as its layout places it. */
 export function Classic({ children }: { children: ReactNode }) {
   return (
     <ClassicFrame

@@ -27,7 +27,6 @@ type Props = PageProps<"/admin/schiedsrichter/[schiedsrichter]">;
 
 const WORDS = COPY.admin.schiedsrichter;
 
-/** One read of the referee by id for the tab's title and the page alike. */
 const read = cache(getSchiedsrichterById);
 
 /** The referee the address names, retired or not: `null` for a malformed id and for one no referee holds. */
@@ -50,7 +49,6 @@ export async function generateMetadata({ params }: Props, parent: ResolvingMetad
   );
 }
 
-/** A referee's editor, on its one read by id and its write on the version it was read at. */
 export default async function SchiedsrichterEditorPage({ params }: Props) {
   return await readEditor(params);
 }

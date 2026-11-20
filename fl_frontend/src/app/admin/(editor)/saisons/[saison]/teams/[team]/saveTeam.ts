@@ -15,7 +15,6 @@ import type { ActionAnswer } from "@/core/action";
 const { shape } = TeamsPatchTeamSaisonBody;
 const address = shape.address.shape;
 
-/** What the editor's boxes send, each held to the save's own published rule for it. */
 const SaveTeam = z.object({
   id: TeamsPatchTeamSaisonParams.shape.team_id,
   saison_id: TeamsPatchTeamSaisonParams.shape.saison_id,

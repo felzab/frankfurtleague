@@ -15,8 +15,9 @@ const FORMAT = SERVER_COPY.closedDialog.format;
 
 /**
  * A change started for a person who says they cannot sign in: the address on file, and the new one, held as an address
- * the person will sign in at. An account standing at the new address is refused before the mint, which writes: the backend cannot see the sign-in store. The address's running change ends
- * replaced, which the dialog says as the address is typed.
+ * the person will sign in at. An account standing at the new address is refused before the mint, which writes: the
+ * backend cannot see the sign-in store. The address's running change ends replaced, which the dialog says as the
+ * address is typed.
  */
 export const startLostMailboxChange = action({
   lane: "admin",
