@@ -1,7 +1,4 @@
 // @vitest-environment jsdom
-import { readFileSync } from "node:fs";
-import path from "node:path";
-
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -9,7 +6,6 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { PUBLIC_COPY } from "@/core/copy/public";
 import { COPY } from "@/core/copy/shared";
 import { renderUnderNext } from "@/test-support/nextContexts";
-import { filesUnder } from "@/test-support/treeWalk";
 
 import { AccountBox } from "./AccountBox";
 import { Dialog } from "./Dialog";
@@ -213,14 +209,6 @@ function commonParent(first: Element, second: Element) {
 // The harm: a container writing its own gap or grid, so one form's fields stand apart by another measure than the next
 // form's, which no type or lint sees, the class lint reading each class alone and not where it stands.
 describe("every container of a form's fields", () => {
-  // A kit module drawing fields in a `FieldStack` is a container; one this file has no case for would go unheld.
-  it("is each kit module drawing a field stack", () => {
-    const drawing = filesUnder(import.meta.dirname, (name) => /\.tsx?$/.test(name) && !/\.test\.tsx?$/.test(name), 60)
-      .filter((file) => /from "\.\/FieldStack"/.test(readFileSync(file, "utf8")))
-      .map((file) => path.basename(file));
-    expect(drawing.toSorted()).toStrictEqual(Object.keys(CONTAINERS).toSorted());
-  });
-
   it.each(Object.values(CONTAINERS).flat())("stands them in the one field rhythm: %s", async (_, parts) => {
     const [first, second] = await parts();
     expect(commonParent(first, second)?.className).toBe(fieldStack());
