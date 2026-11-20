@@ -40,6 +40,7 @@ from tests.documents import (
     spieler_document,
     team_document,
 )
+from tests.erasure_corpus import everything_in
 from tests.worker import worker_database
 
 # Module level: each entry is one transaction on a real mongod.
@@ -187,12 +188,6 @@ async def records_of(database: AsyncDatabase) -> dict[str, dict[str, Any]]:
     assert all(record is not None for record in found.values())
 
     return {kind: dict(record or {}) for kind, record in found.items()}
-
-
-async def everything_in(database: AsyncDatabase) -> dict[str, list[dict[str, Any]]]:
-    """Every document of every collection, by collection, in id order."""
-
-    return {name: await database[name].find().sort("_id", 1).to_list() for name in sorted(await database.list_collection_names())}
 
 
 async def entered(url: str, choices: list[str]) -> tuple[Response, dict[str, dict[str, Any]], dict[str, dict[str, Any]], list[Any], list[Any]]:
