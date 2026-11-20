@@ -53,7 +53,7 @@ type OutboxKind = OutboxData["kind"];
 type Member<D, A> = D extends { kind: infer K } ? (A extends K ? D : never) : never;
 
 /** Each kind's own member, so a builder is handed its kind's typed facts and no other's. */
-type DataPerKind = { [A in OutboxKind]: Member<OutboxData, A> };
+export type DataPerKind = { [A in OutboxKind]: Member<OutboxData, A> };
 
 /** What the hand-out answers beside the facts, and where the mail's links stand. */
 interface Handout {
@@ -110,7 +110,7 @@ const MAIL_KINDS: { [A in OutboxKind]: MailBuilder<A> } = {
   ban: buildBanEmail,
   grant: buildGrantEmail,
   address_change_link: (data, handout) => buildAddressChangeEmail(data, minted(handout)),
-  // The stop link, minted into the change's `stopp.token_hashes`.
+  // The stop link, minted into the change's `stop.token_hashes`.
   address_change_notice: (data, handout) => buildAddressChangeNoticeEmail(data, minted(handout)),
   address_change_effective: buildAddressChangeEffectiveEmail,
   address_change_discarded: buildAddressChangeDiscardedEmail,
@@ -125,7 +125,7 @@ const MAIL_KINDS: { [A in OutboxKind]: MailBuilder<A> } = {
 
 /** A secret kind's secret, which its every row carries. */
 function secretOf(secret: string | null): string {
-  if (secret === null) throw new Error("The mail's kind carries a secret, and its row holds none.");
+  if (secret === null) throw new ContractBreakError("The mail's kind carries a secret, and its row holds none.");
 
   return secret;
 }

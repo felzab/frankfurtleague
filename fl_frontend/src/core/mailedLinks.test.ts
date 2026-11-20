@@ -6,7 +6,7 @@ import { filesUnder } from "@/test-support/treeWalk";
 
 import { ROUTES } from "./routes";
 
-import type { FLOutboxHandout } from "./generated/client/types";
+import type { DataPerKind } from "./mailKinds";
 
 const { mailFor } = await import("./mailKinds");
 
@@ -17,11 +17,8 @@ const ORIGIN = "http://localhost:3000";
 /** Made up, and spelled so no other part of a mail can hold it by chance. */
 const TOKEN = "example-mailed-link-token";
 
-type OutboxData = FLOutboxHandout["data"];
-type OutboxKind = OutboxData["kind"];
-
-/** The member whose `kind` admits `A`, as `core/mailKinds.ts` reads the union. */
-type Member<D, A> = D extends { kind: infer K } ? (A extends K ? D : never) : never;
+type OutboxKind = keyof DataPerKind;
+type OutboxData = DataPerKind[OutboxKind];
 
 const ANSETZUNG = { date: "2026-10-24", time: "16:00:00", team1: "Ahorn", team2: "Kastanie", spielort: "Sportpark Riedberg" };
 const APPOINTMENT = { date: "2026-10-24", time: "16:00:00", team1: "Ahorn", team2: "Kastanie" };
@@ -31,7 +28,7 @@ const APPOINTMENT = { date: "2026-10-24", time: "16:00:00", team1: "Ahorn", team
  * fails the type check here until it takes a row: the table is held to the contract rather than to how a builder
  * happens to spell its link.
  */
-const FACTS: { [A in OutboxKind]: Member<OutboxData, A> } = {
+const FACTS: DataPerKind = {
   sign_in_code: { kind: "sign_in_code" },
   passkey_added: { kind: "passkey_added", instant: "2026-10-17T10:00:00Z" },
   passkey_erased: { kind: "passkey_erased", instant: "2026-10-17T10:00:00Z" },
