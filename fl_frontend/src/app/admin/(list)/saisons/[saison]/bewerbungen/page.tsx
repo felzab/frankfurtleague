@@ -86,8 +86,8 @@ async function readList(params: Props["params"], searchParams: Props["searchPara
   const state = filterValue(addressed.state, STATE_OPTIONS);
   const origin = filterValue(addressed.origin, ORIGIN_OPTIONS);
   const filters: Filter[] = [
-    { name: "state", label: COPY.shared.facts.state, all: ALL, options: STATE_OPTIONS, value: state },
     { name: "origin", label: WORDS.origin, all: ALL, options: ORIGIN_OPTIONS, value: origin },
+    { name: "state", label: COPY.shared.facts.state, all: ALL, options: STATE_OPTIONS, value: state },
   ];
   const rows = read.bewerbungen.filter(
     (row) => (state === null || standingOf(row) === state) && (origin === null || row.new_school === (origin === "new")),
