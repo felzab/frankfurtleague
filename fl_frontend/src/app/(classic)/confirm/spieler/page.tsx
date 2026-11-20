@@ -6,7 +6,7 @@ import { now } from "@/core/clock";
 import { SPIELER_WORDINGS } from "@/core/consentWordings";
 import { COPY } from "@/core/copy/shared";
 import { bornAfter, bornBy } from "@/core/dayArithmetic";
-import { dayIn, dayOf, formatDate } from "@/core/format";
+import { dayIn, dayOf } from "@/core/format";
 import { registrierungenGetConfirmationView } from "@/core/generated/client/sdk";
 import { RegistrierungenPostConfirmationBody } from "@/core/generated/zod/inputs";
 import { mailedLinkToken } from "@/core/mailedLink";
@@ -63,7 +63,6 @@ function question(view: FLRegistrierungConfirmationViewValid, token: string): Ma
       { label: COPY.shared.facts.team, value: { record: view.team } },
       { label: COPY.shared.facts.school, value: { record: view.schule } },
       { label: COPY.shared.saison, value: COPY.shared.saisonName(view.saison_id) },
-      { label: SERVER_COPY.kontaktConfirmation.confirmBy, value: { record: formatDate(until) } },
     ],
     sentence: SERVER_COPY.paragraph(WORDS.opening({ record: view.team }, view.saison_id), WORDS.stored),
     more: WORDS.more,

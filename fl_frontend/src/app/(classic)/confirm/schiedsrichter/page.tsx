@@ -69,7 +69,10 @@ async function readState(): Promise<MailedState> {
       return {
         state: "question",
         title: COPY.page.entryConfirmation,
-        sentence: WORDS.question(dayOf(view.deadline)),
+        // No facts rows: the link's view names no record beyond the deadline, which stands last.
+        sentence: SERVER_COPY.paragraph(WORDS.opening, WORDS.stored, WORDS.objectionEffect),
+        more: WORDS.more,
+        sentenceAfter: SERVER_COPY.entryConfirmation.deadline(dayOf(view.deadline)),
         run: answerSchiedsrichter,
         acts: {
           primary: COPY.page.entryConfirmation,

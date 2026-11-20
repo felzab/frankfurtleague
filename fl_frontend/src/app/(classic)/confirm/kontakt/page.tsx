@@ -7,7 +7,7 @@ import { SEAT_WORDINGS } from "@/core/consentWordings";
 import { seatsText } from "@/core/copy";
 import { COPY } from "@/core/copy/shared";
 import { bornAfter, bornBy } from "@/core/dayArithmetic";
-import { dayIn, dayOf, formatDate } from "@/core/format";
+import { dayIn, dayOf } from "@/core/format";
 import { bewerbungenGetConfirmationView } from "@/core/generated/client/sdk";
 import { BewerbungenPostConfirmationBody } from "@/core/generated/zod/inputs";
 import { mailedLinkToken } from "@/core/mailedLink";
@@ -103,21 +103,13 @@ function question(view: FLBewerbungEinwilligungViewValid, token: string, until: 
   return {
     state: "question",
     title: COPY.page.entryConfirmation,
-    facts: [...standsFor(view), { label: WORDS.confirmBy, value: { record: formatDate(until) } }],
+    facts: standsFor(view),
     sentence: onSeasonRow
-      ? SERVER_COPY.paragraph(
-          WORDS.opening.seasonRow(schule, view.saison_id, seatsHeld(view)),
-          WORDS.stored,
-          WORDS.seatDeadline(until),
-          WORDS.objectionEffect.seasonRow,
-        )
-      : SERVER_COPY.paragraph(
-          WORDS.opening.named(schule, view.saison_id, seatsHeld(view)),
-          WORDS.stored,
-          WORDS.applicationDeadline(until),
-          WORDS.objectionEffect.application,
-        ),
+      ? SERVER_COPY.paragraph(WORDS.opening.seasonRow(schule, view.saison_id, seatsHeld(view)), WORDS.stored, WORDS.objectionEffect.seasonRow)
+      : SERVER_COPY.paragraph(WORDS.opening.named(schule, view.saison_id, seatsHeld(view)), WORDS.stored, WORDS.objectionEffect.application),
     more: WORDS.more,
+    // Last, as on every confirmation: the day the answer waits for.
+    sentenceAfter: onSeasonRow ? SERVER_COPY.entryConfirmation.deadline(until) : WORDS.applicationDeadline(until),
     run: answerKontakt,
     acts: {
       primary: COPY.page.entryConfirmation,
