@@ -16,6 +16,8 @@ import type { SpielortRules } from "../../../spielortRules";
 import type { SpielortValues } from "./spielortValues";
 
 const WORDS = ADMIN_COPY.spielort;
+const RETIRE_CONSEQUENCE = COPY.shared.retireConsequence(WORDS.withArticle, COPY.page.spiele);
+const REACTIVATE_CONSEQUENCE = COPY.shared.reactivateConsequence(WORDS.withArticle);
 
 /** One act of the danger box: a server action taking the venue's id, which a server page passes on as it is. */
 type Act = (input: { id: string }) => Promise<ActionAnswer>;
@@ -49,22 +51,22 @@ export function SpielortEditor({
   const danger: DangerAct = retired
     ? {
         name: COPY.shared.withObject(WORDS.object, "reactivate"),
-        consequence: WORDS.reactivateConsequence,
+        consequence: REACTIVATE_CONSEQUENCE,
         confirm: {
           verb: "reactivate",
           subject: WORDS.object,
-          consequence: WORDS.reactivateConsequence,
+          consequence: REACTIVATE_CONSEQUENCE,
           tone: "primary",
           onConfirm: () => reactivate({ id: record.id }),
         },
       }
     : {
         name: COPY.shared.withObject(WORDS.object, "retire"),
-        consequence: WORDS.retireConsequence,
+        consequence: RETIRE_CONSEQUENCE,
         confirm: {
           verb: "retire",
           subject: WORDS.object,
-          consequence: WORDS.retireConsequence,
+          consequence: RETIRE_CONSEQUENCE,
           tone: "danger",
           onConfirm: () => retire({ id: record.id }),
         },

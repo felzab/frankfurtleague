@@ -13,7 +13,6 @@ import {
   LOCK,
   OWNER_TIER,
   REGISTRIERUNGEN,
-  saisonName,
   saisonNameBound,
   SCHIEDSRICHTER,
   SPIELER,
@@ -72,8 +71,6 @@ export const ADMIN_COPY = catalogue({
     search: COPY.shared.search(COPY.page.adminSpielorte),
     mietpreis: "Mietpreis",
     mietpreisExample: "60",
-    retireConsequence: "Der Spielort steht für neue Spiele nicht mehr zur Auswahl.",
-    reactivateConsequence: "Der Spielort steht wieder zur Auswahl.",
   },
 
   /**
@@ -118,8 +115,6 @@ export const ADMIN_COPY = catalogue({
     kontaktData: "Kontaktdaten",
     confirmation: "Bestätigung",
     sentTo: (address: string) => `${boundBy("An", address)} gesendet`,
-    retireConsequence: "Die Person steht für neue Spiele nicht mehr zur Auswahl.",
-    reactivateConsequence: "Die Person steht wieder zur Auswahl.",
   },
 
   saison: {
@@ -288,7 +283,7 @@ export const ADMIN_COPY = catalogue({
     mailedSeats: "Angeschriebene Kontaktpersonen",
     cardOf: (position: number, total: number) => `Bewerbung ${formatNumber(position)} ${boundBy("von", formatNumber(total))}`,
     count: (count: number) => (count === 1 ? "1\u00A0Bewerbung" : boundBy(formatNumber(count), "Bewerbungen")),
-    acceptManyConsequence: (saison: string) => `Die Teams werden endgültig Teil der ${saisonName(saison)}.`,
+    acceptManyConsequence: (saison: string) => `Die Teams werden endgültig Teil der ${saisonNameBound(saison)}.`,
     /** „E-Mail an“'s value in the bulk's question. An application names at least two people, so the count is never 1. */
     kontaktCount: (count: number) => boundBy(formatNumber(count), "Kontaktpersonen"),
     shorthandTaken: "Kürzel vergeben",
@@ -330,8 +325,6 @@ export const ADMIN_COPY = catalogue({
      * and that its seats lose the line-up's page and its reminders, so the league alone enters a line-up from then.
      */
     austrittLine: "Offene Anfragen zu Spielen ab diesem Tag enden, Aufstellungen trägt die Liga ein.",
-    retireConsequence: "Das Team steht für neue Saisons nicht mehr zur Auswahl.",
-    reactivateConsequence: "Das Team steht wieder zur Auswahl.",
     retireLocked: "Team spielt noch eine Saison",
   },
 

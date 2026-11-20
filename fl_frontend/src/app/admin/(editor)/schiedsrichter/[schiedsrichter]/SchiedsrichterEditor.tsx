@@ -19,6 +19,7 @@ import type { EditorRecord, EditorSave } from "@/kit/useEditor";
 import type { SchiedsrichterValues } from "./schiedsrichterValues";
 
 const WORDS = ADMIN_COPY.schiedsrichter;
+const RETIRE_CONSEQUENCE = COPY.shared.retireConsequence(WORDS.withArticle, COPY.page.spiele);
 const FACTS = COPY.shared.facts;
 const OBJECT = COPY.shared.schiedsrichter;
 
@@ -83,11 +84,11 @@ export function SchiedsrichterEditor({
         }
       : {
           name: COPY.shared.withObject(OBJECT, "retire"),
-          consequence: WORDS.retireConsequence,
+          consequence: RETIRE_CONSEQUENCE,
           confirm: {
             verb: "retire",
             subject: OBJECT,
-            consequence: WORDS.retireConsequence,
+            consequence: RETIRE_CONSEQUENCE,
             tone: "danger",
             onConfirm: () => danger.act({ id: record.id }),
           },
