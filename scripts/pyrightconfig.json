@@ -22,5 +22,5 @@
   "venvPath": "../fl_backend",
   "venv": ".venv",
   "typeCheckingMode": "standard",
-  "pythonVersion": "3.14"
+  "pythonVersion": "3.15"
 }
