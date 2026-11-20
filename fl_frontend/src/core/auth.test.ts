@@ -240,6 +240,10 @@ const { toNextJsHandler } = await import("better-auth/next-js");
 const { runWithEndpointContext } = (await import(
   pathToFileURL(createRequire(import.meta.resolve("better-auth")).resolve("@better-auth/core/context")).href
 )) as { runWithEndpointContext: <T>(context: object, run: () => Promise<T>) => Promise<T> };
+// The process-wide logger the Mongo adapter writes through, from that same copy.
+const { logger: processLogger } = (await import(
+  pathToFileURL(createRequire(import.meta.resolve("better-auth")).resolve("@better-auth/core/env")).href
+)) as { logger: { error: (message: string, ...args: unknown[]) => void } };
 const { auth, codeAskedCookie, codeMailCapped } = await import("./auth/library");
 const { deleteAccountFor, deleteOwnAccount, listAccounts, requestAccountDeletion } = await import("./auth/accounts");
 const { endSessionsOfAddress } = await import("./auth/accountSessions");
@@ -1073,6 +1077,22 @@ describe("what the library's own log stream reaches this application as", () => 
       expect(Object.keys(fields).sort()).toStrictEqual(["name"]);
       assert.ok(!raw.includes("foreign-site"), "the submitted origin reached the stream");
     }
+  });
+
+  /* The adapter's line for an abort that failed after a failed commit, written through the process-wide logger, which
+     hands it to this instance's inside an endpoint: the one sign that the store holds the transaction open, its
+     collections locked until the transaction's lifetime runs out. */
+  it("names an abort the adapter left open after a failed commit", async () => {
+    const context = await auth.$context;
+    log.clear();
+
+    await runWithEndpointContext({ path: "/sign-in/email-otp", body: {}, context }, async () => {
+      processLogger.error("Failed to abort a MongoDB transaction whose commit did not complete", new Error("connection reset"));
+    });
+
+    expect(log.lines().map(({ level, message, fields }) => [level, message, fields.name])).toStrictEqual([
+      ["ERROR", "auth.transaction_left_open", "Error"],
+    ]);
   });
 
   /* Anything the map does not recognise, an upgrade's reworded message included, takes the last
