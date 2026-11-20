@@ -136,9 +136,9 @@ export const fieldFrame = tv({
     // size, inside the two 12-px insets with 2 px to spare (1.625 rem together). A unit after the value stands
     // inside the frame, which is then as wide as the two (`fieldUnit`).
     holds: {
-      // A score, a shirt number, a count.
+      // A score, a count.
       2: "w-[calc(3ch+1.625rem)]",
-      // A minute, a price, a postcode, a house number, a time's „19:30“.
+      // A shirt number, a minute, a price, a postcode, a house number, a time's „19:30“.
       5: "w-[calc(6ch+1.625rem)]",
       // A date's „14.03.2027“ and its calendar button: the ten figures and one more inside the 12-px start inset, then
       // the button, as wide as the field is tall.

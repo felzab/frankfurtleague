@@ -76,8 +76,8 @@ type Kind =
  */
 
 /**
- * A value of a known length, as wide as it is: `holds` counts its characters, 2 for a score, a shirt number or a
- * count, 5 for a minute, a price, a postcode or a house number. `unit` stands after the value inside the field, as
+ * A value of a known length, as wide as it is: `holds` counts its characters, 2 for a score or a count, 5 for a
+ * shirt number, a minute, a price, a postcode or a house number. `unit` stands after the value inside the field, as
  * „€“ after a price.
  */
 type Short = { holds: 2 | 5; unit?: Copy } & Kind;

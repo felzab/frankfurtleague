@@ -61,7 +61,7 @@ test("the Protokoll's filter sheet narrows to one who", async ({ page }) => {
   const main = page.getByRole("main");
   const rows = main.getByRole("row");
   // A row of each kind of who the seed wrote, and the one the sheet chooses.
-  const chosen = { option: "Teams", what: `Termin beantwortet · ${FINISHED}`, who: `Kontaktperson · ${PEOPLE.access.loggedTeam}` };
+  const chosen = { option: "Kontaktperson", what: `Termin beantwortet · ${FINISHED}`, who: `Kontaktperson · ${PEOPLE.access.loggedTeam}` };
   const others = [
     `Administrator eingetragen · ${PEOPLE.administrators.waiting}`,
     `Spielbericht eingetragen · ${FINISHED} / 1`,
