@@ -12,9 +12,9 @@ import { SERVER_COPY } from "@/core/serverCopy";
 import { AUFSTELLUNG_CHIP, STARTERS_MAX } from "@/features/aufstellungen/constants";
 import { adminSpielChipOf, eventOf, previewOf, quelleWords } from "@/features/spiele/blocks";
 import { getAdminSpiel } from "@/features/spiele/queries";
-import { creditedSide, isNoShow } from "@/features/spiele/result";
+import { byMinute, creditedSide, isNoShow } from "@/features/spiele/result";
 import { saveSpiel } from "@/features/spiele/saveSpiel";
-import { NO_SONDEREREIGNIS, NOBODY, takesNoResult, valuesOf } from "@/features/spiele/spielValues";
+import { NOBODY, takesNoResult, valuesOf } from "@/features/spiele/spielValues";
 import { spielerName } from "@/features/spieler/constants";
 import { createSpielort } from "@/features/spielorte/createSpielort";
 import { SPIELORT_RULES } from "@/features/spielorte/fieldRules";
@@ -103,12 +103,6 @@ function scorerOf(bericht: FLSpielEditorBericht, spielerId: string | null): Word
   return named === undefined ? COPY.shared.anonymous : spielerName(named);
 }
 
-/** A minute as the report writes it, „45+2“, in the order it was played. */
-const minuteOf = (minute: string): [number, number] => {
-  const [base = "0", added = "0"] = minute.split("+");
-  return [Number(base), Number(added)];
-};
-
 /**
  * The report's goals as rows, read-only, since its referee writes them: each in the order it was scored, the side's
  * plaque before the scorer, and the score the goal made. An own goal counts for the other side.
@@ -117,12 +111,10 @@ function berichtRows(spiel: FLSpielJoinedAdmin, bericht: FLSpielEditorBericht): 
   const words = SERVER_COPY.season.spiel;
   const plaques = { team1: spiel.team1?.shorthand ?? null, team2: spiel.team2?.shorthand ?? null };
   const score = { team1: 0, team2: 0 };
+  // The sort is stable, so goals in the same minute keep the report's order.
   return bericht.scorers
     .map((tor, index) => ({ tor, index }))
-    .toSorted((one, other) => {
-      const [a, b] = [minuteOf(one.tor.minute), minuteOf(other.tor.minute)];
-      return a[0] - b[0] || a[1] - b[1] || one.index - other.index;
-    })
+    .toSorted((one, other) => byMinute(one.tor.minute, other.tor.minute))
     .map(({ tor, index }) => {
       score[creditedSide(tor)] += 1;
       const plaque = plaques[tor.side];
@@ -143,7 +135,7 @@ function berichtRows(spiel: FLSpielJoinedAdmin, bericht: FLSpielEditorBericht): 
 function adoptionOf(spiel: FLSpielJoinedAdmin, bericht: FLSpielEditorBericht | null): Adoption | null {
   if (bericht === null || (bericht.state !== "proposed" && bericht.state !== "differing")) return null;
   const { team1_tore: tore1, team2_tore: tore2, elfmeterschiessen, sonderereignis } = bericht.ergebnis_vorschlag;
-  const event = sonderereignis ?? NO_SONDEREREIGNIS;
+  const event = sonderereignis ?? "";
   // A no-show's goals are the award the write composes: the proposal names the side that stayed away alone.
   if (isNoShow(sonderereignis)) {
     const words = eventOf({ ...spiel, sonderereignis, ergebnis: null });
@@ -321,7 +313,7 @@ export default async function SpielEditorPage({ params }: Props) {
   const begun = view.saison_begun;
   const bothSides = saved.team1 !== null && saved.team2 !== null;
   const sonderereignisse: Option[] = [
-    { id: NO_SONDEREREIGNIS, label: COPY.spielplan.sonderereignis.none },
+    { id: "", label: COPY.spielplan.sonderereignis.none },
     ...Object.values(FLSonderereignis).map((event): Option => {
       const label = SONDEREREIGNISSE[event];
       if (!begun && !takesNoResult(event)) return { id: event, label, isDisabled: true, note: ADMIN_COPY.untilStart };

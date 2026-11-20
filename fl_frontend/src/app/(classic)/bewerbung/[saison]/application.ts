@@ -2,9 +2,6 @@ import { IDEMPOTENCY_KEY_FIELD } from "@/core/idempotencyKey";
 
 import type { FLKontaktSeat } from "@/core/generated/client/types";
 
-/** „Keine weitere Rolle“, the select's first entry: the wire's `trainer_is_also: null`, which no option's id can be. */
-export const NO_SECOND_SEAT = "none";
-
 /** What the boxes post, each under its dotted name, a box not shown posting nothing. */
 type Posted = Readonly<Record<string, unknown>>;
 
@@ -57,7 +54,8 @@ export function applicationOf(raw: unknown): unknown {
       trainer,
       ansprechperson: also === "ansprechperson" ? trainer : seatOf(posted, "ansprechperson"),
       stellvertretung: also === "stellvertretung" ? trainer : seatOf(posted, "stellvertretung"),
-      trainer_is_also: also === NO_SECOND_SEAT ? null : also,
+      // „Keine weitere Rolle“ posts the empty entry.
+      trainer_is_also: orNull(also),
     },
     trikot: { existing_set: posted["trikot.existing_set"], wunschfarbe: orNull(posted["trikot.wunschfarbe"]) },
     kader: { expected_size: figure(posted["kader.expected_size"]), good_spieler: figure(posted["kader.good_spieler"]) },

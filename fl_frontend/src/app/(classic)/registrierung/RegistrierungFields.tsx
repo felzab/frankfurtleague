@@ -12,7 +12,7 @@ import type { FLSpielerStufe } from "@/core/generated/client/types";
 const WORDS = PUBLIC_COPY.registrierung;
 const KADER = COPY.kader;
 
-/** What the write asks of the three typed boxes, read on the server so its schema never reaches the browser. */
+/** What the write asks of the three typed boxes. */
 export type RegistrierungRules = {
   required: { firstName: boolean; lastName: boolean; email: boolean };
   max: { firstName: number; lastName: number; email: number };

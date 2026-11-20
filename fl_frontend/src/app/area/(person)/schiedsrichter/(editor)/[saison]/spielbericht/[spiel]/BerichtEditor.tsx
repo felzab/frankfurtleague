@@ -16,7 +16,7 @@ import { Select } from "@/kit/Select";
 import { TextField } from "@/kit/TextField";
 import { useEditor } from "@/kit/useEditor";
 
-import { counted, NO_SONDEREREIGNIS, UNKNOWN_PLAYER, wholeOnFirstSave } from "./berichtValues";
+import { counted, UNKNOWN_PLAYER, wholeOnFirstSave } from "./berichtValues";
 
 import type { ActionAnswer } from "@/core/action";
 import type { Copy, RecordText, Words } from "@/core/copy";
@@ -98,7 +98,7 @@ export function BerichtEditor({
   const editor = useEditor(record, (sent) => save(wholeOnFirstSave(record.values, sent)));
   const { draft, set } = editor;
 
-  const sonderereignis = draft.sonderereignis === NO_SONDEREREIGNIS ? null : (draft.sonderereignis as FLSonderereignis);
+  const sonderereignis = draft.sonderereignis === "" ? null : (draft.sonderereignis as FLSonderereignis);
   const noShow = isNoShow(sonderereignis);
   const goals = counted(draft.scorers);
   const shootOut = !noShow && admitsShootOut(phase, { tore: goals.team1 }, { tore: goals.team2 }, sonderereignis);
@@ -117,7 +117,7 @@ export function BerichtEditor({
     return plaque === null ? { id, label: name } : { id, label: plaque, spoken: name };
   });
   const sonderereignisse: Option[] = [
-    { id: NO_SONDEREREIGNIS, label: SPIEL.sonderereignis.none },
+    { id: "", label: SPIEL.sonderereignis.none },
     { id: "nichtantreten_team1", label: COPY.spielplan.sonderereignis.nichtantreten(sides.team1.name) },
     { id: "nichtantreten_team2", label: COPY.spielplan.sonderereignis.nichtantreten(sides.team2.name) },
     { id: "abgebrochen", label: SPIEL.sonderereignis.abgebrochen },
@@ -222,6 +222,7 @@ export function BerichtEditor({
                 value={draft.sonderereignis}
                 // A no-show's result is the league's award, which no goal decides.
                 {...(noShow ? { description: SPIEL.byEvent } : {})}
+                // „Keines“ is the entry `""`, a chosen key: only `null`, no entry at all, is dropped.
                 onChange={(id) => {
                   if (id !== null) set("sonderereignis", id);
                 }}

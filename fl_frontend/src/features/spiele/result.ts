@@ -14,6 +14,18 @@ export const isNoShow = (sonderereignis: string | null) => sonderereignis === "n
 export const creditedSide = ({ side, eigentor }: { side: FLSpielSide; eigentor: boolean }): FLSpielSide =>
   eigentor ? (side === "team1" ? "team2" : "team1") : side;
 
+/** A minute as the report writes it, „45+2“, as its minute and its added time, a minute without added time `+0`. */
+const minuteOf = (minute: string): [number, number] => {
+  const [base = "0", added = "0"] = minute.split("+");
+  return [Number(base), Number(added)];
+};
+
+/** Orders two of a report's minutes in the order they were played: „45+2“ after „45“ and before „46“. */
+export const byMinute = (one: string, other: string): number => {
+  const [a, b] = [minuteOf(one), minuteOf(other)];
+  return a[0] - b[0] || a[1] - b[1];
+};
+
 /** A side as the rule reads it: its goals alone, `null` while none are entered. */
 type Side = { readonly tore: number | null } | null;
 

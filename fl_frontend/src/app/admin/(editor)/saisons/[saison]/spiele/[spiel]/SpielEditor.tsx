@@ -5,7 +5,7 @@ import { useState } from "react";
 import { ADMIN_COPY } from "@/core/copy/admin";
 import { COPY } from "@/core/copy/shared";
 import { admitsShootOut, isNoShow, scoreOutcome } from "@/features/spiele/result";
-import { adoptsBerichtOf, NO_SONDEREREIGNIS, takesNoResult } from "@/features/spiele/spielValues";
+import { adoptsBerichtOf, takesNoResult } from "@/features/spiele/spielValues";
 import { SpielortFields } from "@/features/spielorte/SpielortFields";
 import { AdoptLine } from "@/kit/AdoptLine";
 import { AnswerRows } from "@/kit/AnswerRows";
@@ -162,7 +162,7 @@ export function SpielEditor({
   const scoreSides: readonly [ScoreSide, ScoreSide] = [sideOf("team1"), sideOf("team2")];
   const sideNames: readonly [Words, Words] = [scoreSides[0].name, scoreSides[1].name];
   const bothSides = draft.team1 !== null && draft.team2 !== null;
-  const sonderereignis = draft.sonderereignis === NO_SONDEREREIGNIS ? null : (draft.sonderereignis as FLSonderereignis);
+  const sonderereignis = draft.sonderereignis === "" ? null : (draft.sonderereignis as FLSonderereignis);
   // A result is entered on a match that was played, an abandoned one included; a no-show's is composed, and a match
   // called off or struck out carries none.
   const resultShown = !isNoShow(sonderereignis) && !takesNoResult(sonderereignis);
@@ -440,6 +440,7 @@ export function SpielEditor({
               name="sonderereignis"
               options={sonderereignisse}
               value={draft.sonderereignis}
+              // „Keines“ is the entry `""`, a chosen key: only `null`, no entry at all, is dropped.
               onChange={(id) => {
                 if (id !== null) set("sonderereignis", id);
               }}

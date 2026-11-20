@@ -8,7 +8,7 @@ import { SERVER_COPY } from "@/core/serverCopy";
 import { getSpielPage } from "@/features/saisons/queries";
 import { publicSaisonOf } from "@/features/saisons/resolvers";
 import { eventOf, headOf, matchdayOf, refereeOf, sidesOf } from "@/features/spiele/blocks";
-import { creditedSide } from "@/features/spiele/result";
+import { byMinute, creditedSide } from "@/features/spiele/result";
 import { publicPupilHead, publicPupilRow, spielerName } from "@/features/spieler/constants";
 import { ReadFolds } from "@/kit/ReadFolds";
 import { ReadPage } from "@/kit/ReadPage";
@@ -62,7 +62,8 @@ export async function generateMetadata({ params }: Props, parent: ResolvingMetad
 /**
  * A match's own page, on a direct load, a reload or „Zum Spiel“: its head, its five facts as tiles, the line-ups
  * folded side by side, and its goals and cards along the dotted line, each of the last two only where the match can
- * have it (`drawn`). Opened from a match card, the pop-up shows instead.
+ * have it (`drawn`), the goals and cards also wherever the read serves one. Opened from a match card, the pop-up shows
+ * instead.
  */
 export default function SpielPage({ params }: Props) {
   return (
@@ -104,7 +105,8 @@ async function readRecord(params: Props["params"]): Promise<ReadRecord> {
             },
           ]
         : []),
-      ...(drawn(spiel.sonderereignis, events.length > 0)
+      // Wherever the read serves an event too: a forfeit's adopted report may carry cards.
+      ...(drawn(spiel.sonderereignis, false) || events.length > 0
         ? [
             {
               title: words.toreAndCards,
@@ -121,8 +123,10 @@ async function readRecord(params: Props["params"]): Promise<ReadRecord> {
 
 /**
  * Whether the match can have what a section shows, by what befell it: a match called off or forfeited was never
- * played, so it holds no line-up and no goals; an abandoned one keeps what it reached; an annulled one may have been
- * played, so it keeps a section that `holds` something and leaves out an empty one.
+ * played, so it holds no line-up; an abandoned one keeps what it reached; an annulled one may have been played, so it
+ * keeps a section that `holds` something and leaves out an empty one. The goals and cards stand besides wherever the
+ * read serves one: a forfeit's adopted report may carry cards, while the read serves none on a match called off or
+ * annulled.
  */
 function drawn(sonderereignis: FLSonderereignis | null, holds: boolean): boolean {
   switch (sonderereignis) {
@@ -199,16 +203,6 @@ function lineupOf(aufstellung: FLAufstellungPublic | null): Pick<FoldedCard, "co
   };
 }
 
-/** A minute as the report writes it, „45+2“, in the order it was played. */
-const minuteOf = (minute: string): [number, number] => {
-  const [base = "0", added = "0"] = minute.split("+");
-  return [Number(base), Number(added)];
-};
-const earlier = (one: string, other: string) => {
-  const [a, b] = [minuteOf(one), minuteOf(other)];
-  return a[0] - b[0] || a[1] - b[1];
-};
-
 /**
  * The goals and cards by minute, a checkpoint each: what happened and to whom, the side's Kürzel, and after a goal
  * the score it made. An own goal counts for the other side.
@@ -219,7 +213,7 @@ function eventsOf(spiel: FLSpielJoined, tore: readonly FLSpielberichtScorerPubli
   const events = [
     ...tore.map((tor) => ({ kind: "tor" as const, minute: tor.minute, tor })),
     ...cards.map((card) => ({ kind: "card" as const, minute: card.minute, card })),
-  ].sort((one, other) => earlier(one.minute, other.minute));
+  ].sort((one, other) => byMinute(one.minute, other.minute));
   const score = { team1: 0, team2: 0 };
   return events.map((event, index) => {
     if (event.kind === "card") {

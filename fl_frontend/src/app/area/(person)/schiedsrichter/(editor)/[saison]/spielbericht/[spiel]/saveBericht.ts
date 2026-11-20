@@ -11,7 +11,7 @@ import { getOwnSpielbericht } from "@/features/spielberichte/queries";
 import { admitsShootOut } from "@/features/spiele/result";
 
 import { Cards, Goals } from "./berichtRules";
-import { counted, NO_SONDEREREIGNIS, UNKNOWN_PLAYER, valuesOf } from "./berichtValues";
+import { counted, UNKNOWN_PLAYER, valuesOf } from "./berichtValues";
 
 import type { ActionAnswer } from "@/core/action";
 import type { Copy } from "@/core/copy";
@@ -27,7 +27,7 @@ const SaveBericht = z.object({
   version,
   changes: z
     .object({
-      sonderereignis: z.preprocess((value) => (value === NO_SONDEREREIGNIS ? null : value), vorschlag.shape.sonderereignis),
+      sonderereignis: blankIsNull(vorschlag.shape.sonderereignis),
       shootOut1: numberBox(z.union([shootOutShape.shape.team1, z.null()])),
       shootOut2: numberBox(z.union([shootOutShape.shape.team2, z.null()])),
       scorers: Goals,
