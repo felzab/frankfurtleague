@@ -25,18 +25,28 @@ const CONTEXT: Context = {
   revalidateReason: undefined,
 };
 
+/** The page request whose render failed, under `trace`. */
+const requestUnder = (trace: string) => ({ path: "/saisons/2026", method: "GET", headers: { traceparent: formatTraceparent(trace) } });
+
 /** The crash line the hook writes for `thrown`, its clock reading left out. */
 async function crashLine(thrown: unknown): Promise<Record<string, unknown>> {
-  const request = { path: "/saisons/2026", method: "GET", headers: { traceparent: formatTraceparent(REQUEST_TRACE) } };
-  const [line, ...rest] = await documentsWrittenByAsync(async () => onRequestError(thrown, request, CONTEXT));
+  const [line, ...rest] = await documentsWrittenByAsync(async () => onRequestError(thrown, requestUnder(REQUEST_TRACE), CONTEXT));
   expect(rest).toStrictEqual([]);
 
   const { timestamp: _timestamp, ...fields } = line ?? {};
   return fields;
 }
 
-/** The fields every crash line carries, whatever was thrown. */
-const ENVELOPE = { level: "ERROR", service: "fl_frontend", trace_id: REQUEST_TRACE, message: "system.request_crashed", route: ROUTE };
+/** The fields every crash line carries, whatever was thrown; a plain request names no revalidation. */
+const ENVELOPE = {
+  level: "ERROR",
+  service: "fl_frontend",
+  trace_id: REQUEST_TRACE,
+  message: "system.request_crashed",
+  route: ROUTE,
+  route_type: "render",
+  render_source: "server-rendering",
+};
 
 describe("the request-error hook", () => {
   /* Next catches a throw of the hook's own and prints it as plain text, so the line joining the crash to its request
@@ -75,5 +85,23 @@ describe("the request-error hook", () => {
     const failed = Object.assign(new Error("Render failed."), { digest: "1234567890" });
 
     expect(await crashLine(failed)).toStrictEqual({ ...ENVELOPE, name: "Error", digest: "1234567890" });
+  });
+
+  /* Next calls the hook once for each stage that captured one failure, so a line per call would count one failure
+     several times; the same error on another request is another failure. */
+  it("writes one line per failure however often Next captures it, and one for the same error on another request", async () => {
+    const failed = Object.assign(new Error("Render failed."), { digest: "2345678901" });
+    const otherRequest = "c".repeat(32);
+
+    const lines = await documentsWrittenByAsync(async () => {
+      onRequestError(failed, requestUnder(REQUEST_TRACE), CONTEXT);
+      onRequestError(failed, requestUnder(REQUEST_TRACE), { ...CONTEXT, renderSource: "react-server-components" });
+      onRequestError(failed, requestUnder(otherRequest), CONTEXT);
+    });
+
+    expect(lines.map(({ trace_id, render_source }) => ({ trace_id, render_source }))).toStrictEqual([
+      { trace_id: REQUEST_TRACE, render_source: "server-rendering" },
+      { trace_id: otherRequest, render_source: "server-rendering" },
+    ]);
   });
 });
