@@ -24,6 +24,7 @@ import type {
   FLSpielerRolle,
   FLSpielerStufe,
   FLTrikotFarbe,
+  FLWithdrawalChoice,
 } from "./generated/client/types";
 
 declare const copyBrand: unique symbol;
@@ -227,6 +228,9 @@ const DELETED_BY_PASS = "Nach Frist gelöscht";
 const ENTRY_OBJECTED = "Eintrag widersprochen";
 // One word for every withdrawal an administrator entered from a person's mail, on any kind of record.
 const WITHDRAWAL_ENTERED = "Widerruf eingetragen";
+// A pupil's two consents as the player editor shows them, the words „Widerrufe“ ticks them by too.
+const NAME_ON_SITE = "Name auf der Website";
+const MEDIA = "Fotos und Videos";
 
 /**
  * A wait a sentence states, in the unit its bound is published in. Each figure is a literal, so a bound that moves fails
@@ -522,6 +526,7 @@ export const COPY = catalogue({
     adminAdministrators: "Administratoren",
     adminBanList: "Sperrliste",
     adminErasures: "Löschungen",
+    adminWithdrawals: "Widerrufe",
     adminAddressChanges: ADDRESS_CHANGES,
     adminActionLog: "Protokoll",
     addressChangeConfirmation: "Änderung der E-Mail-Adresse",
@@ -1490,8 +1495,8 @@ export const COPY = catalogue({
       rolleOption: { kapitaen: "Kapitän", co_kapitaen: "Co-Kapitän" } satisfies Record<FLSpielerRolle, string>,
       /** The read-only box of what the pupil chose. */
       einwilligung: "Einwilligung",
-      nameOnSite: "Name auf der Website",
-      media: "Fotos und Videos",
+      nameOnSite: NAME_ON_SITE,
+      media: MEDIA,
       mediaYes: "Ja",
       mediaNo: "Nein",
       givenOn: "Erteilt am",
@@ -1589,6 +1594,22 @@ export const COPY = catalogue({
       },
       /** The toast's note, the account undeleted or unknown: the form keeps the address, so its „Löschen“ retries. */
       partial: "Die Daten sind gelöscht, das Konto vielleicht nicht.",
+    },
+
+    /** Widerrufe: the one form entering a withdrawal a person asked for by mail, and its confirmation. */
+    withdrawal: {
+      /** The boxes' group, and the object of „Widerruf eintragen“. */
+      object: "Widerruf",
+      /** Each box, by the choice it withdraws. */
+      choice: { name: NAME_ON_SITE, whatsapp: "WhatsApp", media: MEDIA } satisfies Record<FLWithdrawalChoice, string>,
+      /** A fact's value: the choices the entry ends on one kind of record. */
+      ended: (choices: readonly Copy[]) => formatList(choices),
+      /** What no press of the administration undoes: no administrative write grants a consent. */
+      consequence: "Nur die Person kann wieder einwilligen.",
+      noneChosen: "Kein Widerruf gewählt.",
+      /** No record at the address grants a ticked choice, none at all included. */
+      nothingGranted: "Unter dieser Adresse ist nichts davon erteilt.",
+      entered: WITHDRAWAL_ENTERED,
     },
 
     /** Adressänderungen: the running changes and the start's dialog. */

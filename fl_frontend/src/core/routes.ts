@@ -68,6 +68,7 @@ export const ADDRESS_WORDS = [
   "signin",
   "sitemap",
   "sponsors",
+  "withdrawals",
   // The one exception, two German words naming no league thing: the Impressum is a duty under German law, and
   // `/impressum` and `/datenschutz` are where a German visitor looks for it and for the privacy notice.
   "impressum",
@@ -372,6 +373,11 @@ export const ROUTES = {
   adminErasures: {
     path: () => "/admin/erasures" as const,
     title: COPY.page.adminErasures,
+    crawl: "disallow",
+  },
+  adminWithdrawals: {
+    path: () => "/admin/withdrawals" as const,
+    title: COPY.page.adminWithdrawals,
     crawl: "disallow",
   },
   adminAddressChanges: {
