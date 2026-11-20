@@ -29,7 +29,7 @@ const GROUPS: RailGroup[] = [
     entries: [
       { id: "overview", label: ROUTES.teamOverview.title, team: "teamOverview", icon: "overview" },
       { id: "spiele", label: ROUTES.teamSpiele.title, team: "teamSpiele", icon: "spielplan" },
-      { id: "kader", label: ROUTES.teamKader.title, team: "teamKader", icon: "spieler" },
+      { id: "kader", label: ROUTES.teamKader.title, team: "teamKader", icon: "teams" },
     ],
   },
 ];
