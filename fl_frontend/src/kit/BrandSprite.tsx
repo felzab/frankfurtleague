@@ -1,4 +1,4 @@
-import { MARK_ID } from "@/core/brand";
+import { MARK_ID } from "./FLLogo";
 
 type TrophyPath = { d: string; evenOdd?: true };
 
