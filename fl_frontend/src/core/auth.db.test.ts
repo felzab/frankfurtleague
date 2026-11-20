@@ -188,7 +188,7 @@ const counting = new Barrier();
 
 // Imported here rather than at the top: `vi.doMock` reaches only the modules imported after it.
 const { toNextJsHandler } = await import("better-auth/next-js");
-const { auth } = await import("./auth/library");
+const { auth, codeMailCapped } = await import("./auth/library");
 const { carryAccount, deleteAccountFor, deleteOwnAccount, requestAccountDeletion } = await import("./auth/accounts");
 const { endSessionsOfAddress } = await import("./auth/accountSessions");
 const authIndexes = await import("./authIndexes");
@@ -575,6 +575,8 @@ async function seedAccount(email: string): Promise<{ cookie: string; userId: str
   const before = new Set((await authDb().collection("verification").find({}).toArray()).map((row) => String(row._id)));
 
   const headers = new Headers(ORIGIN);
+  // Counted, then sent, as the sign-in action asks for a code.
+  expect(await codeMailCapped(email)).toBe(false);
   await auth.api.sendVerificationOTP({ body: { email, type: "sign-in" }, headers });
   const otp = lastMailedCode(sent, email);
   assert.ok(otp !== null, "the send mailed no code");
