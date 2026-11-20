@@ -18,7 +18,7 @@ import type { FLOpenRegistrierung } from "@/core/generated/client/types";
 import type { TeamSeat } from "@/features/roles/resolvers";
 import type { TableHead } from "@/kit/Table";
 import type { Metadata, ResolvingMetadata, Route } from "next";
-import type { Admission, Decided } from "./RegistrierungDialog";
+import type { Admission } from "./RegistrierungDialog";
 import type { RegistrierungRow } from "./RegistrierungTable";
 
 type Props = PageProps<"/area/team/[team]/[saison]/registrierungen">;
@@ -51,7 +51,7 @@ function admissionOf(row: FLOpenRegistrierung): Admission {
  * One pending registration: its row, the name, whether the pupil confirmed and the received day, a row opening its
  * dialog; the dialog, its notes as the line under the pupil's name, every fact the registration holds, and its two acts.
  */
-function rowOf(row: FLOpenRegistrierung, at: Omit<Decided, "registrierung_id">): RegistrierungRow {
+function rowOf(row: FLOpenRegistrierung): RegistrierungRow {
   const name = `${row.first_name} ${row.last_name}`;
   const notes = [...(row.person === null ? [] : [WORDS.returning]), ...(row.nummer_double ? [COPY.kader.nummerDouble] : [])];
   const line = notes.length === 0 ? undefined : COPY.shared.line(notes);
@@ -63,7 +63,7 @@ function rowOf(row: FLOpenRegistrierung, at: Omit<Decided, "registrierung_id">):
     ...(line === undefined ? {} : { line }),
     cells: { received },
     entry: {
-      decided: { ...at, registrierung_id: row.registrierung_id },
+      decided: { registrierung_id: row.registrierung_id },
       name,
       ...(line === undefined ? {} : { notes: line }),
       facts: [
@@ -98,12 +98,12 @@ const EMPTY = {
 /** The page's one read, after the seat it is drawn for, handed to its template running. */
 async function readRegistrierungen(params: Props["params"]) {
   const [seat] = await requireTeamSeats(params, address);
-  const { team_id, saison_id, registrierungen } = await readAsSeatHolder(() => registrierungenOf(seat));
+  const { registrierungen } = await readAsSeatHolder(() => registrierungenOf(seat));
   return {
     drawn: (
       <RegistrierungTable
         head={HEAD}
-        rows={registrierungen.map((row) => rowOf(row, { team_id, saison_id }))}
+        rows={registrierungen.map(rowOf)}
         empty={EMPTY}
       />
     ),

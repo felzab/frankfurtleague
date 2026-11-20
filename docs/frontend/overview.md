@@ -41,10 +41,10 @@ module some `src/core/` module imports belongs in `src/core/`, and one importing
 
 **Reads are cached with `"use cache"`, and a write is a server action.** Every server action is
 built by `fl_frontend/src/core/action.ts :: action`, which runs its lane's guard (the
-administrator's, a person's seat or record, or the bot check), strips and parses the input against
-the generated schema, and answers the kit's `ActionAnswer`, the backend's refusal code with it; the
-lint rule `fl/server-action` (`fl_frontend/eslint-rules/server-action.mjs`) refuses an action built
-any other way. Every cached scope carries one tag,
+administrator's, a person's record or account, or the bot check), strips and parses the input
+against the generated schema, and answers the kit's `ActionAnswer`, the backend's refusal code with
+it; the lint rule `fl/server-action` (`fl_frontend/eslint-rules/server-action.mjs`) refuses an
+action built any other way. Every cached scope carries one tag,
 `fl_frontend/src/core/siteCache.ts :: SITE_CACHE_TAG`, so no write names the reads it moves. The
 builder clears it at the end of an action exactly when the action's body sent a backend write that
 may have landed, on every lane. A clean answer, and every answer on a person's lane or the

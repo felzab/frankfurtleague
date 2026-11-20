@@ -32,7 +32,7 @@ export const answerAddressChange = action({
     way: z.enum(["account", "waiting_period"]),
     act: z.enum(["primary", "secondary"]),
   }),
-  exempt: "The link's token is the whole credential, minted for one mailbox and spent by its answer.",
+  exempt: "mailedLink",
   run: async ({ token: link, side, way, act }): Promise<{ ok: true; value: EndState }> => {
     const answer = act === "primary" ? "confirmed" : "declined";
     // The sign-in store is this server's, so the backend's press cannot refuse an account at the new address: refused
@@ -58,7 +58,7 @@ export const stopAddressChange = action({
   lane: "public",
   name: "stopAddressChange",
   input: z.object({ token }),
-  exempt: "The link's token is the whole credential, minted for one mailbox and spent by its stop.",
+  exempt: "mailedLink",
   run: async ({ token: link }): Promise<{ ok: true; value: EndState }> => {
     try {
       await addressChangePostAddressChangeStop({ token: link });

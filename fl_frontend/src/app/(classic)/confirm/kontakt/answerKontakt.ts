@@ -2,7 +2,7 @@
 
 import { z } from "zod";
 
-import { action } from "@/core/action";
+import { action, ticked } from "@/core/action";
 import { SEAT_TEXT_VERSIONS } from "@/core/consentWordings";
 import { bewerbungenPostConfirmation } from "@/core/generated/client/sdk";
 import { BewerbungenPostConfirmationBody } from "@/core/generated/zod/inputs";
@@ -14,9 +14,6 @@ import type { Code } from "@/core/generated/client/types";
 import type { EndState } from "@/kit/MailedPage";
 
 const [given, declined] = BewerbungenPostConfirmationBody.options;
-
-/** A ticked box posts „on“, an unticked or unoffered one nothing. */
-const ticked = z.preprocess((value) => value === "on", z.boolean());
 
 /**
  * What the two acts post, the one-shot form's `act` naming the one pressed: the main act the answer's fields, the
@@ -55,7 +52,7 @@ export const answerKontakt = action({
   lane: "public",
   name: "answerKontakt",
   input: Answer,
-  exempt: "The link's token is the whole credential, minted for one mailbox and spent by its answer.",
+  exempt: "mailedLink",
   // The age the write judges on its own day, which the box's range bounds before the send by the page's day: on its
   // box, from the range the refusal carries.
   ownWords: ["confirmation_age"],
@@ -72,6 +69,6 @@ export const objectKontakt = action({
   lane: "public",
   name: "objectKontakt",
   input: z.object({ token: declined.shape.token }),
-  exempt: "The link's token is the whole credential, minted for one mailbox and spent by its answer.",
+  exempt: "mailedLink",
   run: async ({ token }) => ended({ answer: "declined", token }, END.objected),
 });

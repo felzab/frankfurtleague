@@ -16,7 +16,7 @@ const { shape } = SpielerPatchKaderRowBody;
  */
 export const saveKaderRow = action({
   lane: "person",
-  claim: "seat",
+  claim: "record",
   name: "saveKaderRow",
   input: z.object({
     ...SpielerPatchKaderRowParams.shape,
@@ -41,7 +41,7 @@ export const saveKaderRow = action({
  */
 export const deregisterKaderRow = action({
   lane: "person",
-  claim: "seat",
+  claim: "record",
   name: "deregisterKaderRow",
   input: z.object(SpielerDeleteKaderRowParams.shape),
   run: async ({ team_id, saison_id, spieler_id }) => {

@@ -17,7 +17,6 @@ vi.mock("./decideRegistrierung", () => ({
   declineRegistrierung: vi.fn(() => Promise.resolve({ ok: true, value: undefined })),
 }));
 
-const AT = { team_id: "aaaaaaaaaaaaaaaaaaaaaaaa", saison_id: "2027" };
 const PIA = "cccccccccccccccccccccccc";
 const KNOWN = "dddddddddddddddddddddddd";
 
@@ -25,7 +24,7 @@ const KNOWN = "dddddddddddddddddddddddd";
 function opened(admission: Admission) {
   renderUnderNext(
     <RegistrierungDialog
-      entry={{ decided: { ...AT, registrierung_id: PIA }, name: "Pia Sander", facts: [], admission }}
+      entry={{ decided: { registrierung_id: PIA }, name: "Pia Sander", facts: [], admission }}
       open={{ isOpen: true, onOpenChange: () => undefined }}
     />,
   );
@@ -42,9 +41,7 @@ describe("a registration's dialog", () => {
   it("admits its own registration, into the person its entry names", async () => {
     await userEvent.click(opened({ kind: "once", spieler_id: KNOWN }).getByRole("button", { name: COPY.shared.verb.admit }));
 
-    await waitFor(() =>
-      expect(vi.mocked(admitRegistrierung).mock.calls).toStrictEqual([[{ ...AT, registrierung_id: PIA, spieler_id: KNOWN }]]),
-    );
+    await waitFor(() => expect(vi.mocked(admitRegistrierung).mock.calls).toStrictEqual([[{ registrierung_id: PIA, spieler_id: KNOWN }]]));
   });
 
   it("declines its own registration once asked, naming its pupil in the question", async () => {
@@ -54,7 +51,7 @@ describe("a registration's dialog", () => {
     expect(question.getByText("Pia Sander")).toBeTruthy();
     await userEvent.click(question.getByRole("button", { name: COPY.shared.verb.decline }));
 
-    await waitFor(() => expect(vi.mocked(declineRegistrierung).mock.calls).toStrictEqual([[{ ...AT, registrierung_id: PIA, reason: null }]]));
+    await waitFor(() => expect(vi.mocked(declineRegistrierung).mock.calls).toStrictEqual([[{ registrierung_id: PIA, reason: null }]]));
     expect(admitRegistrierung).not.toHaveBeenCalled();
   });
 
@@ -64,7 +61,7 @@ describe("a registration's dialog", () => {
     await userEvent.click(dialog.getByRole("button", { name: COPY.shared.verb.admit }));
 
     await waitFor(() =>
-      expect(vi.mocked(declineRegistrierung).mock.calls).toStrictEqual([[{ ...AT, registrierung_id: PIA, reason: "other_person" }]]),
+      expect(vi.mocked(declineRegistrierung).mock.calls).toStrictEqual([[{ registrierung_id: PIA, reason: "other_person" }]]),
     );
     expect(admitRegistrierung).not.toHaveBeenCalled();
   });

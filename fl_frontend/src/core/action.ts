@@ -13,7 +13,6 @@ import { logger } from "./logging";
 import { ownKeyOf } from "./ownKeyOf";
 import { logRefused } from "./refused";
 import { getRequestActor, requestWriteMayStand } from "./requestScope";
-import { rolesOf, seatsAt } from "./roles";
 import { isBoundedCode, isWordedRule, ruleMessage } from "./ruleMessage";
 import { SERVER_COPY } from "./serverCopy";
 import { SITE_CACHE_TAG } from "./siteCache";
@@ -26,7 +25,6 @@ import { fieldMessage } from "./zodGerman";
 import type { AdminRefusal, JudgedSession } from "./auth/guards";
 import type { Words as CatalogueWords, Copy } from "./copy";
 import type { Code, FLRefusedField } from "./generated/client/types";
-import type { Role } from "./roles";
 import type { WordedRule } from "./ruleMessage";
 import type { SubjectSession } from "./subject";
 
@@ -84,11 +82,6 @@ type Field<T, Above extends string = ""> = T extends readonly unknown[]
             : `${Above}${K}`;
       }[keyof T & string]
     : never;
-
-/** A seat a person's write claims: the team and the season it names, read off the input. */
-type SeatClaim = { readonly team_id: string; readonly saison_id: string };
-
-type Seat = Extract<Role, { kind: "kontakt" }>;
 
 /** What every lane declares: its name for the failure line, its input's schema, and how its refusals are placed. */
 type Declared<Schema extends z.ZodType> = {
@@ -167,6 +160,9 @@ export const numberBox = <Figure extends z.ZodType>(rule: Figure) =>
 /** A text box whose emptiness is no value, held to its rule: an empty box `null`, anything else as typed. */
 export const blankIsNull = <Text extends z.ZodType>(rule: Text) => z.preprocess((value) => (value === "" ? null : value), rule);
 
+/** A checkbox read as yes or no: a ticked box posts „on“, an unticked or unoffered one nothing. */
+export const ticked = z.preprocess((value) => value === "on", z.boolean());
+
 /** Declarable only over an input carrying `PAGE_HOLDER`, so no such act is posted without it. */
 type Held<Schema extends z.ZodType> = z.output<Schema> extends { readonly holder: string } ? unknown : never;
 
@@ -185,14 +181,14 @@ type AdminLane<Schema extends z.ZodType, Value> = Declared<Schema> &
   };
 
 /**
- * A person's write, by the claim it makes: a seat the session must hold at the team and season its input names; a
- * record of the person's own, which the backend authorises in its transaction; or an act only Konto's pages reach,
- * which the account's own guard admits too, handing the body the session it judged, so a session an administrator's
- * mailbox made changes nothing of that administrator's account, their consents among it. An act of the account runs only for the address its page was drawn for.
+ * A person's write, by the claim it makes: a record of the person's own, a seat's write on its club among them, which
+ * the backend authorises in its transaction; or an act only Konto's pages reach, which the account's own guard admits
+ * too, handing the body the session it judged, so a session an administrator's mailbox made changes nothing of that
+ * administrator's account, their consents among it. An act of the account runs only for the address its page was drawn
+ * for.
  */
 type PersonLane<Schema extends z.ZodType, Value> = Declared<Schema> &
   Touched<Schema> & { readonly lane: "person" } & (
-    | { readonly claim: "seat"; readonly run: Run<Schema, { readonly subject: SubjectSession; readonly seats: readonly Seat[] }, Value> }
     | { readonly claim: "record"; readonly run: Run<Schema, { readonly subject: SubjectSession }, Value> }
     | ({
         readonly claim: "account";
@@ -201,13 +197,22 @@ type PersonLane<Schema extends z.ZodType, Value> = Declared<Schema> &
   );
 
 /**
+ * Why a public write needs no bot check, by the name its lane declares: one sentence a reason, saying why a script
+ * choosing what it sends gains nothing there. The names are the only exemptions a lane can declare. A type rather than
+ * a value, since only the builder's type reads it.
+ */
+type Exemptions = {
+  readonly mailedLink: "The link's token is the whole credential, minted for one mailbox and spent by its answer or its stop.";
+};
+
+/**
  * A write anybody may send: the bot check answers before anything of the input is read, or the lane names why a
- * script choosing what it sends gains nothing here.
+ * script choosing what it sends gains nothing here, never both.
  */
 type PublicLane<Schema extends z.ZodType, Value> = Declared<Schema> & {
   readonly lane: "public";
   readonly run: Run<Schema, undefined, Value>;
-} & ({ readonly botCheck: true } | { readonly exempt: string });
+} & ({ readonly botCheck: true; readonly exempt?: never } | { readonly exempt: keyof Exemptions; readonly botCheck?: never });
 
 type Lane<Schema extends z.ZodType, Value> = AdminLane<Schema, Value> | PersonLane<Schema, Value> | PublicLane<Schema, Value>;
 
@@ -575,10 +580,10 @@ function logFailure(name: string, error: unknown): void {
   logger.error("action.failed", undefined, { action: name, name: error instanceof Error ? error.name : "unknown", ...requestOf(error) });
 }
 
-/** A person turned away, logged as a page's turn-away is. */
-function turnedAwayPerson(operation: string, refusal: "no_session" | "no_seat"): ActionAnswer<never> {
-  logRefused(operation, refusal);
-  return { ok: false, reason: refusal === "no_session" ? COPY.shared.failure.signInExpired : COPY.shared.failure.stale };
+/** A person with no session turned away, logged as a page's turn-away is. */
+function turnedAwayPerson(operation: string): ActionAnswer<never> {
+  logRefused(operation, "no_session");
+  return { ok: false, reason: COPY.shared.failure.signInExpired };
 }
 
 /**
@@ -622,23 +627,15 @@ async function guarded<Schema extends z.ZodType, Value>(lane: Lane<Schema, Value
     }
     case "person": {
       const subject = await getSubjectSession();
-      if (subject === null) return turnedAwayPerson(lane.name, "no_session");
+      if (subject === null) return turnedAwayPerson(lane.name);
       switch (lane.claim) {
         case "record":
           return admitted(lane, raw, (input) => lane.run(input, { subject }));
         case "account": {
           const served = await getAccountSession();
-          if (served === null) return turnedAwayPerson(lane.name, "no_session");
+          if (served === null) return turnedAwayPerson(lane.name);
           return admitted(lane, raw, (input) => lane.run(input, { subject, served }));
         }
-        case "seat":
-          return admitted(lane, raw, (input) => {
-            // A request can hand an action anything at all, so the claim is read as possibly absent.
-            const { team_id: team, saison_id: saison } = (input ?? {}) as Partial<SeatClaim>;
-            const seats = typeof team === "string" && typeof saison === "string" ? seatsAt(rolesOf(subject).roles, team, saison) : [];
-            if (seats.length === 0) return Promise.resolve(turnedAwayPerson(lane.name, "no_seat"));
-            return lane.run(input, { subject, seats });
-          });
       }
     }
     case "public": {

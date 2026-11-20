@@ -9,22 +9,17 @@ import {
   RegistrierungenAdmitParams,
   RegistrierungenDeclineBody,
   RegistrierungenDeclineParams,
-  RegistrierungenGetOpenRegistrierungenParams,
 } from "@/core/generated/zod/inputs";
 
 /**
  * Admits one registration into the team's squad, into the person `spieler_id` names, or a new one where it names
- * nobody. Claimed on the seat the page stands at; the backend judges the seat again against the registration's own team.
+ * nobody. The backend judges the seat against the registration's own team.
  */
 export const admitRegistrierung = action({
   lane: "person",
-  claim: "seat",
+  claim: "record",
   name: "admitRegistrierung",
-  input: z.object({
-    ...RegistrierungenGetOpenRegistrierungenParams.shape,
-    ...RegistrierungenAdmitParams.shape,
-    ...RegistrierungenAdmitBody.shape,
-  }),
+  input: z.object({ ...RegistrierungenAdmitParams.shape, ...RegistrierungenAdmitBody.shape }),
   ownWords: ["kader_full", "registrierung_already_in_kader", "registrierung_stufe_not_allowed"],
   run: async ({ registrierung_id, spieler_id }) => {
     await registrierungenAdmit(registrierung_id, { spieler_id });
@@ -32,16 +27,12 @@ export const admitRegistrierung = action({
   },
 });
 
-/** Declines one registration, for the closed reason or none, at the seat the page stands at. */
+/** Declines one registration, for the closed reason or none, the backend judging the seat against its own team. */
 export const declineRegistrierung = action({
   lane: "person",
-  claim: "seat",
+  claim: "record",
   name: "declineRegistrierung",
-  input: z.object({
-    ...RegistrierungenGetOpenRegistrierungenParams.shape,
-    ...RegistrierungenDeclineParams.shape,
-    ...RegistrierungenDeclineBody.shape,
-  }),
+  input: z.object({ ...RegistrierungenDeclineParams.shape, ...RegistrierungenDeclineBody.shape }),
   run: async ({ registrierung_id, reason }) => {
     await registrierungenDecline(registrierung_id, { reason });
     return { ok: true, value: undefined };
