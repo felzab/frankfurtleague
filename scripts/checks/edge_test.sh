@@ -886,7 +886,8 @@ BODY_FAILURES=0
 # Next's `serverActions.bodySizeLimit` at its default, `1024 * 1024` bytes, which the frontend's config
 # leaves standing. Every page path takes a server action, so `/` stands for the server block's cap.
 ACTION_BODY_MAX=1048576
-# Room for the largest report the client-error route's `ClientErrorReportSchema` takes.
+# Room for the largest report the client-error route takes, its fields bounded by the frontend's
+# `CLIENT_ERROR_MAX`.
 REPORT_BODY_MAX=32768
 # No application figure bounds these two: the edge's own headroom over an address and six digits, and
 # over a delivery event of about a kilobyte.
