@@ -700,14 +700,19 @@ class MadeUpLeague:
         self.running.saison["registrierung"] = {"open": True, "end": self.day(-36)}
 
         # Each journey's fixtures are the ones set up for it above, its contact's and its booked referee's coming one the
-        # same, its departing club's fixture still to play.
+        # same, its departing club's fixture still to play on a later day: a notice lists only a fixture before its
+        # kick-off, so one dated today would drop off it once the seed is loaded past that hour.
         for project, played, coming in zip(PROJECTS, (2, 5), (9, 10), strict=True):
             self.expect_fixture(project["booked"]["played"], played)
             self.expect_fixture(project["booked"]["coming"], coming)
             self.expect_fixture(project["contact"]["fixture"], coming)
             departing = self.running.number_of(project["departing"]["fixture"])
-            if departing is None or self.running.spiel(departing)["ergebnis"] is not None:
-                raise ValueError(f"the journeys' departing fixture {project['departing']['fixture']} is no open fixture of the running season")
+            spiel = None if departing is None else self.running.spiel(departing)
+            if spiel is None or spiel["ergebnis"] is not None or (spiel["date"] is not None and spiel["date"] <= self.today):
+                raise ValueError(
+                    f"the journeys' departing fixture {project['departing']['fixture']} is no fixture of the running season, is played,"
+                    " or is dated today or earlier"
+                )
         # The Spielplan's journey opens the first matchday's first match and reads its result, the match editor moves the
         # kick-off of today's match alone at its venue and with its referee, and the first pass lifts the booking of the
         # disqualified club's fixture still to play.
