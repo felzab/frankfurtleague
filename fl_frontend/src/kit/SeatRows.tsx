@@ -2,7 +2,6 @@ import { textOf } from "@/core/copy";
 
 import { PartyHead } from "./AnswerRows";
 import { actRow, cardSurface, stacked } from "./cardStyles";
-import { SideActsScope } from "./SideActs";
 import { sideActsForm } from "./sideActsForm";
 import { tv } from "./tv";
 
@@ -80,11 +79,7 @@ export function SeatRows({
               />
               <span className={row.line()}>{textOf(seat.line)}</span>
             </span>
-            {seat.acts !== undefined && (
-              <div className={row.acts()}>
-                <SideActsScope folds={sideActs.foldsEverywhere}>{seat.acts}</SideActsScope>
-              </div>
-            )}
+            {seat.acts !== undefined && <div className={row.acts()}>{seat.acts}</div>}
           </span>
         </li>
       ))}

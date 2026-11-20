@@ -25,6 +25,7 @@ describe("a row's side acts folded", () => {
   // The harm: a locked act's entry is one the keys pass over, as a disabled entry is, so nobody on a keyboard reaches
   // the reason under its label; or its press runs the act after all.
   it("keep a locked act's entry in the keys' reach, its press running nothing", async () => {
+    // Both forms are drawn, and jsdom applies no container query: the „⋯“ is the narrow form's alone.
     const edit = vi.fn();
     renderUnderNext(
       <SideActs

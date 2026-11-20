@@ -1,7 +1,5 @@
 "use client";
 
-import { createContext, use } from "react";
-
 import { COPY } from "@/core/copy/shared";
 
 import { Button } from "./Button";
@@ -35,21 +33,6 @@ export type SideAct = {
   onPress: () => void;
 };
 
-/**
- * Whether the list a row stands in folds its rows' side acts at every width, which it decides once for all its rows.
- * A row outside any list folds them.
- */
-const ListFolds = createContext(true);
-
-/**
- * What a list hands its rows' side acts: whether it folds them at every width, as the list decides it from what each
- * row says it carries (`sideActsForm`). A client part, since a list may be drawn on the server, where no context is
- * given.
- */
-export function SideActsScope({ folds, children }: { folds: boolean; children: ReactNode }) {
-  return <ListFolds value={folds}>{children}</ListFolds>;
-}
-
 const entryOf = ({ label, tone, locked, onPress }: SideAct): MenuEntry =>
   locked === undefined
     ? { kind: "action", label, ...(tone === undefined ? {} : { tone }), onAction: onPress }
@@ -70,8 +53,7 @@ const NARROW_CLASSES = "contents @2xl:hidden";
  * locked one dimmed, saying why on hover, focus and press (`Button`'s `locked`). In a narrower box, a phone's, every
  * row's acts fold into one „⋯“ at the row's end, which opens the kit's menu on the acts in their order, a destroying
  * one after the others, each entry its words alone, and a locked one dimmed with its reason as the line under it. A
- * list some row of which carries more than its buttons can hold folds at every width (`sideActsForm`). A row's
- * decision, such as „Zusagen“ and „Ablehnen“, keeps its labelled buttons and is never drawn here.
+ * row's decision, such as „Zusagen“ and „Ablehnen“, keeps its labelled buttons and is never drawn here.
  *
  * `children` are the questions and dialogs the acts open, each on the open state its act's press sets: one opened from
  * the menu hands the focus back to the „⋯“ as it closes, as the menu itself does.
@@ -94,25 +76,19 @@ export function SideActs({ acts, children }: { acts: ReadonlyArray<SideAct>; chi
   );
   return (
     <>
-      {use(ListFolds) ? (
-        menu
-      ) : (
-        <>
-          <span className={WIDE_CLASSES}>
-            {acts.map((act) => (
-              <Button
-                key={act.label}
-                variant={askingLook(act.tone ?? "primary")}
-                label={act.label}
-                isBusy={act.isBusy}
-                locked={act.locked}
-                onPress={act.onPress}
-              />
-            ))}
-          </span>
-          <span className={NARROW_CLASSES}>{menu}</span>
-        </>
-      )}
+      <span className={WIDE_CLASSES}>
+        {acts.map((act) => (
+          <Button
+            key={act.label}
+            variant={askingLook(act.tone ?? "primary")}
+            label={act.label}
+            isBusy={act.isBusy}
+            locked={act.locked}
+            onPress={act.onPress}
+          />
+        ))}
+      </span>
+      <span className={NARROW_CLASSES}>{menu}</span>
       {children}
     </>
   );

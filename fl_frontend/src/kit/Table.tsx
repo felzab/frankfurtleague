@@ -13,7 +13,6 @@ import { Link } from "./Link";
 import { RolleMark } from "./RolleMark";
 import { RowEnd } from "./RowEnd";
 import { RowPress } from "./RowPress";
-import { SideActsScope } from "./SideActs";
 import { sideActsForm } from "./sideActsForm";
 import { TeamPlaque } from "./TeamPlaque";
 import { tv } from "./tv";
@@ -128,8 +127,7 @@ export type TableRow = {
        * one or two kit buttons, each the trigger of its dialog, as a card's act row holds them: on one line under the
        * row's words where the list is stacked, at the row's end where it is a table. Side acts (`SideActs`) are their
        * labelled buttons at the row's end where the list is a table, and one „⋯“ at its end, across its lines, where
-       * it is stacked; a list some row of which carries more than its buttons hold folds them at every width
-       * (`sideActsForm`). A row the reader can do nothing to takes none, and a table none of whose rows takes any draws
+       * it is stacked. A row the reader can do nothing to takes none, and a table none of whose rows takes any draws
        * no act column.
        */
       acts?: ReactElement;
@@ -885,11 +883,7 @@ export function Table({ label, nameLabel, state, columns, rows, empty, bare = fa
                       <td
                         role="cell"
                         className={parts.acts()}>
-                        {row.acts !== undefined && (
-                          <div className={parts.actsLine()}>
-                            <SideActsScope folds={sideActs.foldsEverywhere}>{row.acts}</SideActsScope>
-                          </div>
-                        )}
+                        {row.acts !== undefined && <div className={parts.actsLine()}>{row.acts}</div>}
                       </td>
                     )}
                   </Stretched>
