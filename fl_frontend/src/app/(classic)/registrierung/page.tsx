@@ -20,7 +20,7 @@ import { ConsentLine } from "@/kit/ConsentLine";
 import { mailedMetadata } from "@/kit/mailedLinkState";
 import { MailedPage } from "@/kit/MailedPage";
 
-import { endOf, readInvitation, REPLAY_FIELD, TO_HOME } from "./invitation";
+import { endOf, readInvitation, TO_HOME } from "./invitation";
 import { RegistrierungFields } from "./RegistrierungFields";
 import { submitRegistrierung } from "./submitRegistrierung";
 
@@ -101,7 +101,7 @@ const readState = cache(async (): Promise<MailedState> => {
     run: submitRegistrierung,
     acts: { primary: SUBMIT },
     carry: { token },
-    replayField: REPLAY_FIELD,
+    replays: true,
     // Off the request's settings, past the read above: a prerendered shell would carry the build's, which is none.
     botCheck: { siteKey: frontend_config.TURNSTILE_SITE_KEY },
     boxes: true,

@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
 
 import { COPY } from "@/core/copy/shared";
-import { IDEMPOTENCY_KEY_HEADER } from "@/core/idempotencyKey";
+import { IDEMPOTENCY_KEY_FIELD, IDEMPOTENCY_KEY_HEADER } from "@/core/idempotencyKey";
 import { TURNSTILE_FIELD } from "@/core/turnstileToken";
 import { serveBackend, serveHost } from "@/test-support/backend";
 import { doubleNextRequest } from "@/test-support/nextRequest";
 import { posted } from "@/test-support/posted";
 
-import { NO_SECOND_SEAT, REPLAY_FIELD } from "./application";
+import { NO_SECOND_SEAT } from "./application";
 import { SUBMITTED } from "./ends";
 
 import type { FLCreatedResponse } from "@/core/generated/client/types";
@@ -53,7 +53,7 @@ const seat = (name: string, first: string, phone: string) => ({
 const BOXES: Readonly<Record<string, string>> = {
   act: "primary",
   saison_id: "2027",
-  [REPLAY_FIELD]: KEY,
+  [IDEMPOTENCY_KEY_FIELD]: KEY,
   [TURNSTILE_FIELD]: TOKEN,
   team_id: TEAM,
   stufengroesse: "90",

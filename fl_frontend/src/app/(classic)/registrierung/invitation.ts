@@ -12,9 +12,6 @@ import type { EndState } from "@/kit/MailedPage";
 
 const WORDS = SERVER_COPY.registrierung.end;
 
-/** The field the one-shot form's replay key posts under, the kit's `replayField`. */
-export const REPLAY_FIELD = "idempotency_key";
-
 export const TO_HOME = { label: COPY.shared.end.toHome, href: ROUTES.home.path() };
 
 export const LINK_INVALID: EndState = linkInvalid(TO_HOME);

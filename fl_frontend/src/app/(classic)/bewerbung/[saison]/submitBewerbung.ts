@@ -6,9 +6,9 @@ import { action } from "@/core/action";
 import { COPY } from "@/core/copy/shared";
 import { bewerbungenPostBewerbung } from "@/core/generated/client/sdk";
 import { BewerbungenPostBewerbungBody } from "@/core/generated/zod/inputs";
-import { IDEMPOTENCY_KEY_HEADER } from "@/core/idempotencyKey";
+import { IDEMPOTENCY_KEY_FIELD, IDEMPOTENCY_KEY_HEADER } from "@/core/idempotencyKey";
 
-import { applicationOf, REPLAY_FIELD, SEATS } from "./application";
+import { applicationOf, SEATS } from "./application";
 import { SUBMITTED } from "./ends";
 
 import type { Copy } from "@/core/copy";
@@ -25,7 +25,7 @@ const eachSeat = <Field extends keyof FLBewerbungKontaktpersonPayload>(field: Fi
 const exampleOfEachSeat = (field: keyof FLBewerbungKontaktpersonPayload, example: Copy) =>
   Object.fromEntries(eachSeat(field).map((box) => [box, example]));
 
-const Application = z.preprocess(applicationOf, BewerbungenPostBewerbungBody.extend({ [REPLAY_FIELD]: z.uuid() }));
+const Application = z.preprocess(applicationOf, BewerbungenPostBewerbungBody.extend({ [IDEMPOTENCY_KEY_FIELD]: z.uuid() }));
 
 /**
  * One school's application, sent by a visitor with no session. Public by necessity, so the bot check answers before
@@ -57,7 +57,7 @@ export const submitBewerbung = action({
     "schule.address.postcode": postcodeExample,
     "schule.address.house_number": houseNumberExample,
   },
-  run: async ({ [REPLAY_FIELD]: key, ...application }) => {
+  run: async ({ [IDEMPOTENCY_KEY_FIELD]: key, ...application }) => {
     await bewerbungenPostBewerbung(application, { headers: { [IDEMPOTENCY_KEY_HEADER]: key } });
     return { ok: true, value: SUBMITTED };
   },

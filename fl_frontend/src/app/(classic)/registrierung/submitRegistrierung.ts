@@ -9,11 +9,11 @@ import { COPY } from "@/core/copy/shared";
 import { APIBadStatusError } from "@/core/errors";
 import { registrierungenPostRegistrierung } from "@/core/generated/client/sdk";
 import { RegistrierungenPostRegistrierungBody } from "@/core/generated/zod/inputs";
-import { IDEMPOTENCY_KEY_HEADER } from "@/core/idempotencyKey";
+import { IDEMPOTENCY_KEY_FIELD, IDEMPOTENCY_KEY_HEADER } from "@/core/idempotencyKey";
 import { forgetMailedLink } from "@/core/mailedLink";
 import { ROUTES } from "@/core/routes";
 
-import { endOf, LINK_INVALID, readInvitation, REPLAY_FIELD } from "./invitation";
+import { endOf, LINK_INVALID, readInvitation } from "./invitation";
 
 import type { Code } from "@/core/generated/client/types";
 
@@ -29,7 +29,7 @@ const Registration = z.object({
   nummer: blankIsNull(shape.nummer),
   position: blankIsNull(shape.position),
   stufe: blankIsNull(shape.stufe),
-  [REPLAY_FIELD]: z.uuid(),
+  [IDEMPOTENCY_KEY_FIELD]: z.uuid(),
 });
 
 /**
@@ -58,7 +58,7 @@ export const submitRegistrierung = action({
   ownWords: ["email_not_accepted"],
   boxes: ["email"],
   examples: { first_name: exampleFirstName, last_name: exampleLastName, nummer: exampleDigits },
-  run: async ({ [REPLAY_FIELD]: key, ...registration }) => {
+  run: async ({ [IDEMPOTENCY_KEY_FIELD]: key, ...registration }) => {
     try {
       await registrierungenPostRegistrierung(registration, { headers: { [IDEMPOTENCY_KEY_HEADER]: key } });
     } catch (error) {

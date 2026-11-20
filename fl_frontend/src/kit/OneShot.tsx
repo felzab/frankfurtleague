@@ -3,6 +3,7 @@
 import { createContext, useContext, useRef, useState } from "react";
 
 import { COPY } from "@/core/copy/shared";
+import { IDEMPOTENCY_KEY_FIELD } from "@/core/idempotencyKey";
 import { TURNSTILE_FIELD } from "@/core/turnstileToken";
 
 import { Button } from "./Button";
@@ -92,7 +93,7 @@ export function OneShotForm({
   carry = {},
   touch = false,
   botCheck,
-  replayField,
+  replays = false,
   boxes = false,
   note,
   describedBy,
@@ -112,11 +113,11 @@ export function OneShotForm({
   /** The bot check's public key, on a form whose action declares the check. */
   botCheck?: { siteKey: string };
   /**
-   * The field a replay key posts under, where a press whose answer was lost may have landed: a press posting what the
-   * last one posted carries its key, so a retry finds the first press rather than repeating it, and a press after any
-   * field changed carries a new one, since a key never stands for two different requests.
+   * The form posts a replay key, where a press whose answer was lost may have landed: a press posting what the last one
+   * posted carries its key, so a retry finds the first press rather than repeating it, and a press after any field
+   * changed carries a new one, since a key never stands for two different requests.
    */
-  replayField?: string;
+  replays?: boolean;
   /** The form's fields stand in `Section` boxes, which fill the column, and no card. */
   boxes?: boolean;
   /** A sentence the press rests on, at the footer's start beside the acts, such as where a confirmation goes. */
@@ -191,7 +192,7 @@ export function OneShotForm({
     setPressed(act);
     for (const [name, value] of Object.entries(carry)) formData.set(name, value);
     formData.set(ACT_FIELD, act);
-    if (replayField !== undefined) formData.set(replayField, replayKeyFor(formData));
+    if (replays) formData.set(IDEMPOTENCY_KEY_FIELD, replayKeyFor(formData));
     if (botCheck === undefined) submit(formData);
     else void checked(formData);
   };

@@ -54,8 +54,8 @@ export type MailedState =
       touch?: boolean;
       /** The bot check's public key, on a page no link's token admits. */
       botCheck?: { siteKey: string };
-      /** The field the form's replay key posts under, where a press whose answer was lost may have landed. */
-      replayField?: string;
+      /** The form posts a replay key, where a press whose answer was lost may have landed (`OneShotForm`'s `replays`). */
+      replays?: boolean;
       /** The fields stand in `Section` boxes, filling the column. */
       boxes?: boolean;
       /** A sentence the press rests on, at the footer's start beside the acts (`OneShotForm`'s `note`). */
@@ -99,7 +99,7 @@ async function MailedBody({ page }: { page: Promise<MailedState> }) {
           carry={props.carry}
           touch={props.touch}
           botCheck={props.botCheck}
-          replayField={props.replayField}
+          replays={props.replays}
           boxes={props.boxes}
           note={props.note}
           describedBy={props.describedBy}
