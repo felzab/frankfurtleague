@@ -8,11 +8,10 @@ import { Group } from "react-aria-components/Group";
 import { textOf } from "@/core/copy";
 import { COPY } from "@/core/copy/shared";
 
-import { FieldLabel, MessageLine, useFieldLock } from "./FieldParts";
+import { FieldLabel, MessageLine, useFieldLock, useFieldWait } from "./FieldParts";
 import { fieldButton, fieldFrame, fieldRoot, groupInput } from "./fieldStyles";
 import { Icon } from "./Icon";
 import { OptionList } from "./OptionList";
-import { useEarlyEdit } from "./useEarlyEdit";
 
 import type { Copy } from "@/core/copy";
 import type { Option } from "./OptionList";
@@ -72,11 +71,10 @@ export function ComboBox({
   const [chosen, setChosen] = useState<string | null>(null);
   const chosenLabel = options.find((option) => option.id === (value === undefined ? chosen : value))?.label;
   const shown = chosenLabel === undefined ? "" : textOf(chosenLabel);
-  const root = useEarlyEdit();
   const lock = useFieldLock(isDisabled, isLocked, isRequired);
   return (
     <AriaComboBox
-      ref={root}
+      inert={useFieldWait()}
       className={fieldRoot()}
       aria-label={labelHidden ? label : undefined}
       name={name}

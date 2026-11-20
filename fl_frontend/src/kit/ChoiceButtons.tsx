@@ -7,9 +7,8 @@ import { Text } from "react-aria-components/Text";
 import { textOf } from "@/core/copy";
 
 import { CutText } from "./CutText";
-import { FieldLabel, MessageLine, useFieldLock } from "./FieldParts";
+import { FieldLabel, MessageLine, useFieldLock, useFieldWait } from "./FieldParts";
 import { choiceButton, choiceGroup, fieldRoot, messageLine } from "./fieldStyles";
-import { useEarlyEdit } from "./useEarlyEdit";
 
 import type { Copy } from "@/core/copy";
 import type { ReactNode } from "react";
@@ -72,11 +71,10 @@ export function Segmented({
   onChange?: (id: string) => void;
   labelHidden?: boolean;
 }) {
-  const root = useEarlyEdit();
   const lock = useFieldLock(false, false, isRequired);
   return (
     <RadioGroup
-      ref={root}
+      inert={useFieldWait()}
       className={fieldRoot()}
       aria-label={labelHidden ? label : undefined}
       orientation="horizontal"
@@ -132,11 +130,10 @@ export function ToggleBoxes({
   value?: readonly string[];
   onChange?: (ids: string[]) => void;
 }) {
-  const root = useEarlyEdit();
   const lock = useFieldLock(false, false, isRequired);
   return (
     <CheckboxGroup
-      ref={root}
+      inert={useFieldWait()}
       className={fieldRoot()}
       value={value === undefined ? undefined : [...value]}
       onChange={onChange}

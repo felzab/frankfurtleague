@@ -4,9 +4,8 @@ import { RadioGroup as AriaRadioGroup, Radio } from "react-aria-components/Radio
 
 import { textOf } from "@/core/copy";
 
-import { FieldLabel, MessageLine, useFieldLock } from "./FieldParts";
+import { FieldLabel, MessageLine, useFieldLock, useFieldWait } from "./FieldParts";
 import { choiceCard, fieldRoot, radioDot, radioList, toggleBox, toggleRow } from "./fieldStyles";
-import { useEarlyEdit } from "./useEarlyEdit";
 
 import type { Copy, Words } from "@/core/copy";
 import type { Choice } from "./FieldParts";
@@ -56,11 +55,10 @@ export function RadioGroup({
   name?: string;
   defaultValue?: string | null;
 } & ({ layout?: "list"; choices: readonly ListChoice[] } | { layout: "cards"; choices: readonly DescribedChoice[] })) {
-  const root = useEarlyEdit();
   const lock = useFieldLock(false, false, isRequired);
   return (
     <AriaRadioGroup
-      ref={root}
+      inert={useFieldWait()}
       className={fieldRoot()}
       aria-describedby={describedBy}
       name={name}

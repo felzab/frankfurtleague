@@ -840,29 +840,6 @@ const DESIGN_BANS = [
     PRODUCTION,
     { allow: ["src/kit/EditorPage.tsx"] },
   ),
-  // A field on a native control loses what a person did before hydration unless its root holds `useEarlyEdit`, so the
-  // file of a new one joins this list having done that (`src/kit/useEarlyEdit.ts`), and its field joins the hook's test.
-  importBan(
-    {
-      // The package's root is in the list too, since it exports every one of them.
-      regex: String.raw`^react-aria-components(?:\x2F(?:Autocomplete|Checkbox|CheckboxGroup|ColorArea|ColorField|ColorSlider|ColorThumb|ColorWheel|ComboBox|Input|NumberField|RadioGroup|SearchField|Slider|Switch|TextArea|TextField|TokenField))?$`,
-      message:
-        "A field on a native control holds `useEarlyEdit` on its root and a row of `src/kit/useEarlyEdit.test.tsx`, then joins this list.",
-    },
-    KIT,
-    {
-      allow: [
-        "src/kit/Checkbox.tsx",
-        "src/kit/ChoiceButtons.tsx",
-        "src/kit/CodeField.tsx",
-        "src/kit/ComboBox.tsx",
-        "src/kit/RadioGroup.tsx",
-        "src/kit/SearchField.tsx",
-        "src/kit/Switch.tsx",
-        "src/kit/TextField.tsx",
-      ],
-    },
-  ),
   ...[
     [String.raw`${packageUnder("react-aria", "react-aria-components")}|^@react-(?:aria|stately)\x2F`, "React Aria"],
     [packageUnder("lucide-react"), "The icon set"],

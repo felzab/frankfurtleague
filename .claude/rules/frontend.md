@@ -13,15 +13,13 @@ Each fails silently. The ratified decisions for this surface are in `docs/decisi
   table (`fl_frontend/src/core/mailedLink.ts :: MAILED_LINK_PAGES`), which moves the token into a
   cookie before the page renders. Turnstile's script hands the whole address to Cloudflare's frame,
   and a sign-in's return address travels through every page of the sign-in.
-- A kit field on a native `input` or `textarea` puts
-  `fl_frontend/src/kit/useEarlyEdit.ts :: useEarlyEdit`'s ref on its root and takes a row in
-  `fl_frontend/src/kit/useEarlyEdit.test.tsx`; without it, React's next render writes its state over
-  an edit made before the page hydrated, and `tsc`, the build and every field's own tests pass. The
-  lint holds this only for a file importing one of React Aria's field modules, so a field on a raw
-  `input` is held by this line alone. A control the hook cannot reach stands `readOnly` or `inert`
-  until the page's code runs, as `fl_frontend/src/kit/TextField.tsx :: ParagraphBox` and
-  `fl_frontend/src/kit/dateParts.tsx :: Segments` do. Pages call the kit: React Aria and a raw
-  control are banned outside it.
+- Every kit field's root takes `inert={useFieldWait()}`
+  (`fl_frontend/src/kit/FieldParts.tsx :: useFieldWait`) and a row in the server-render case of
+  `fl_frontend/src/kit/HeldForm.test.tsx`; without it, React's next render writes its state over
+  what a person typed or pressed before the page hydrated, and `tsc`, the lint, the build and every
+  field's own tests pass. The wait is `inert`, never `disabled`, which drops the field from the
+  posted form, nor `readOnly`, which leaves a caret and holds no box or radio. Pages call the kit:
+  React Aria and a raw control are banned outside it.
 - An act behind the passkey touch asks it from its final press alone, through the `touch` slot of
   `fl_frontend/src/kit/ConfirmDialog.tsx` or `fl_frontend/src/kit/dialogAct.ts`, a Konto box or the
   one-shot form (`fl_frontend/src/kit/usePasskeyTouch.ts`). A touch fired from an effect, or behind

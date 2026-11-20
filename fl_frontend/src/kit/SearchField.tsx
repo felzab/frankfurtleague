@@ -2,9 +2,9 @@
 
 import { SearchField as AriaSearchField, Button, Input } from "react-aria-components/SearchField";
 
+import { useFieldWait } from "./FieldParts";
 import { fieldFrame, searchClear, searchGlyph, searchInput } from "./fieldStyles";
 import { Icon } from "./Icon";
-import { useEarlyEdit } from "./useEarlyEdit";
 
 import type { Copy } from "@/core/copy";
 
@@ -25,10 +25,9 @@ export function SearchField({
   onChange: (text: string) => void;
   maxLength?: number;
 }) {
-  const root = useEarlyEdit();
   return (
     <AriaSearchField
-      ref={root}
+      inert={useFieldWait()}
       aria-label={label}
       value={value}
       onChange={onChange}
