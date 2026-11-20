@@ -36,11 +36,17 @@ export type CardProps = {
       /** How many items the card holds open. */
       count?: number;
       chip?: never;
+      /**
+       * The page listing the card's records in full, where they have no page each, such as a team's registrations: the
+       * title links it, its link stretched over the whole head, which ends in a row's chevron after the count.
+       */
+      href?: Route;
     }
   | {
       /** Where what the card stands for is, such as a season's state, at the head's end. */
       chip: ChipProps;
       count?: never;
+      href?: never;
     }
 );
 
@@ -49,14 +55,27 @@ export type CardProps = {
  * body folds behind its head is `CardFold`, a module of its own, so a page placing only plain cards ships none
  * of the fold's client code.
  */
-export function Card({ title, count, chip, body = "rows", children, line, help, fill = false }: CardProps) {
+export function Card({ title, count, chip, href, body = "rows", children, line, help, fill = false }: CardProps) {
   const s = card({ body });
-  const heading = <h2 className={s.title()}>{textOf(title)}</h2>;
+  const heading = (
+    <h2 className={s.title()}>
+      {href === undefined ? (
+        textOf(title)
+      ) : (
+        <Link
+          href={href}
+          placement="row"
+          label={title}
+        />
+      )}
+    </h2>
+  );
   return (
     // The body's `fr` row takes the spare height before the root's `content-start` packs anything; a card as tall as
     // its content has none, so `fill` changes nothing there.
     <section className={s.root({ class: fill ? "grid-rows-[auto_1fr]" : undefined })}>
-      <div className={s.head()}>
+      {/* A linked head is the box its link stretches over, and takes the hover layer a row that opens takes. */}
+      <div className={s.head({ class: href === undefined ? undefined : `relative ${cardHover()}` })}>
         {help === undefined ? (
           heading
         ) : (
@@ -83,7 +102,16 @@ export function Card({ title, count, chip, body = "rows", children, line, help, 
             <Chip {...chip} />
           </span>
         )}
-        {count !== undefined && <span className={s.count()}>{count}</span>}
+        {href === undefined ? (
+          count !== undefined && <span className={s.count()}>{count}</span>
+        ) : (
+          // The count and the chevron share the head's end column, so a head without a count takes no gap for it; the
+          // column stands as tall as the title's line, the chevron alone having no baseline to align by.
+          <span className="col-start-2 row-start-1 flex items-center gap-3 self-stretch">
+            {count !== undefined && <span className={s.count()}>{count}</span>}
+            <RowEnd />
+          </span>
+        )}
         {line !== undefined && <span className={s.line()}>{textOf(line)}</span>}
       </div>
       {children !== undefined && <div className={s.body({ class: fill ? "grid" : undefined })}>{children}</div>}
@@ -117,10 +145,14 @@ export function CardLink({ href, title, line }: CardLinkProps) {
 
 // A card's act row is the container its parts read (`actRow`): it spans its card, so its width is the
 // card's and every row of one card takes one form.
-const CARD_ROW_CLASSES = `@container relative ${stacked()} text-sm ${cardHover()}`;
+const CARD_ROW_CLASSES = `@container relative ${stacked()} text-sm`;
 
 export type CardActRowProps = {
-  href: Route;
+  /**
+   * The row's record; none where the record has no page of its own, as a registration's decision is taken on its
+   * team's list, which the card's title links: the row then opens nothing, and draws no chevron and no hover.
+   */
+  href?: Route;
   name: Words;
   chip?: ChipProps;
   line?: Words;
@@ -135,12 +167,12 @@ export type CardActRowProps = {
  * one, a phone's and each of two beside the rail.
  */
 export function CardActRow({ href, name, chip, line, acts }: CardActRowProps) {
-  const s = actRow({ opens: true });
+  const s = actRow({ opens: href !== undefined });
   const words = nameWithChips({ card: true });
   return (
     <div
       data-kit-row
-      className={CARD_ROW_CLASSES}>
+      className={href === undefined ? CARD_ROW_CLASSES : `${CARD_ROW_CLASSES} ${cardHover()}`}>
       <span className={s.frame()}>
         <span className={s.words()}>
           <span className={words.line()}>
@@ -148,11 +180,14 @@ export function CardActRow({ href, name, chip, line, acts }: CardActRowProps) {
               <CutText
                 text={textOf(name)}
                 className={words.name()}>
-                <Link
-                  href={href}
-                  placement="row"
-                  label={name}
-                />
+                {/* With no link the cut text draws the name's words itself. */}
+                {href === undefined ? undefined : (
+                  <Link
+                    href={href}
+                    placement="row"
+                    label={name}
+                  />
+                )}
               </CutText>
             </span>
             {chip !== undefined && (
@@ -164,9 +199,11 @@ export function CardActRow({ href, name, chip, line, acts }: CardActRowProps) {
           {line !== undefined && <span className={s.line()}>{textOf(line)}</span>}
         </span>
         {acts !== undefined && <div className={s.acts()}>{acts}</div>}
-        <span className={s.end()}>
-          <RowEnd />
-        </span>
+        {href !== undefined && (
+          <span className={s.end()}>
+            <RowEnd />
+          </span>
+        )}
       </span>
     </div>
   );

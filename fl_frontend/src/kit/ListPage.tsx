@@ -57,6 +57,11 @@ type CardsContent = {
   cards: ReadonlyArray<{
     id: string;
     title: Copy;
+    /**
+     * The page listing the card's records in full, where they have no page each, such as a team's registrations: the
+     * card's title links it once, and its rows open nothing.
+     */
+    href?: Route;
     /** Each row, with the words the list's search narrows it by where more than its name is searched. */
     rows: ReadonlyArray<CardActRowProps & { id: string; words?: string }>;
     /** `false` on a card holding a list rather than open work, such as a referee's games: a count says how much is open. */
@@ -246,6 +251,7 @@ async function ListBody({ list }: { list: ListContent }) {
               <ListCard
                 key={entry.id}
                 title={entry.title}
+                {...(entry.href === undefined ? {} : { href: entry.href })}
                 rows={entry.rows}
                 {...(entry.count === false ? { count: false } : {})}
                 {...(entry.empty === undefined ? {} : { empty: entry.empty })}

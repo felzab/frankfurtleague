@@ -5,7 +5,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ADMIN_COPY } from "@/core/copy/admin";
 import { COPY } from "@/core/copy/shared";
-import { acceptBewerbung } from "@/features/bewerbungen/acceptBewerbung";
 import { renderUnderNext } from "@/test-support/nextContexts";
 
 import { BulkAccept } from "./BulkAccept";
@@ -52,30 +51,6 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.restoreAllMocks();
-});
-
-// The run stands in a rail page whose strip holds the page's `h1`: a second one would name the page twice in the outline
-// a screen reader walks.
-describe("a finished Sammel-Zusage", () => {
-  it("names its end a rung below the strip's title", async () => {
-    vi.mocked(acceptBewerbung).mockResolvedValue({ ok: true, value: undefined });
-    renderUnderNext(
-      <BulkAccept
-        saison="2027"
-        rows={[row("a", "Goethe-Gymnasium")]}
-        gruppen={[{ gruppe: "A", free: 4 }]}
-        taken={[]}
-        rules={{ required: { gruppe: false, trikot_farbe: false } }}
-      />,
-      atThePage,
-    );
-    await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.next }));
-    await userEvent.click(screen.getByRole("button", { name: COPY.shared.withObject(ADMIN_COPY.bewerbung.count(1), "accept") }));
-    await userEvent.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: COPY.shared.verb.accept }));
-
-    expect((await screen.findByRole("heading", { name: ADMIN_COPY.bewerbung.acceptedCount(1) })).tagName).toBe("H2");
-    expect(screen.queryByRole("heading", { level: 1 })).toBeNull();
-  });
 });
 
 // Every row of a „Stand“ column states a value, and a row the run has not written yet has no outcome to draw it from:

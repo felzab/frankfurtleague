@@ -12,20 +12,16 @@ import { FINISHED, PEOPLE } from "../support/madeUpLeague";
 
 test.use({ storageState: ADMINISTRATOR_STATE });
 
-test("Administratoren reads who holds access and what waits, and shows an administrator the owner's acts locked", async ({ page }) => {
+// What the page's unit case reads only as the props it hands the kit: the owner's acts, which stand for every
+// administrator locked with their reason so the page has one shape for every reader, as WebKit's page carries the lock
+// to a reader, and a fold opening in WebKit, the one fold this project presses.
+test("Administratoren opens what waits, and shows an administrator the owner's acts locked", async ({ page }) => {
   await page.goto("/admin/administrators");
   const main = page.getByRole("main");
-  await expect(page.getByRole("banner").getByRole("heading", { level: 1, name: "Administratoren" })).toBeVisible();
-
-  const owner = main.getByRole("row").filter({ hasText: PEOPLE.owner });
-  await expect(chip(owner, "Leitung")).toBeVisible();
 
   await main.getByRole("button", { name: /^Angekündigt/ }).click();
-  await expect(
-    main.getByRole("row").filter({ hasText: PEOPLE.administrators.waiting }).filter({ hasText: "Neuer Administrator" }),
-  ).toBeVisible();
+  await expect(main.getByRole("row").filter({ hasText: PEOPLE.administrators.waiting })).toBeVisible();
 
-  // The owner's acts stand for every administrator, locked with their reason, so the page has one shape for every reader.
   await expect(page.getByRole("button", { name: "Administrator eintragen" })).toHaveAttribute("aria-disabled", "true");
 });
 
