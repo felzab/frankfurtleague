@@ -1,6 +1,6 @@
 import { COPY } from "@/core/copy/shared";
 
-import { cardHover, cardSurface, stacked } from "./cardStyles";
+import { cardHover, cardSurface, rowHeight, stacked } from "./cardStyles";
 import { Icon } from "./Icon";
 import { formColumn, RailPage } from "./RailFrame";
 import { RowEnd } from "./RowEnd";
@@ -12,7 +12,7 @@ import type { Route } from "next";
 import type { ReactNode } from "react";
 import type { IconName } from "./Icon";
 
-type AccountRoute = "account" | "accountSignIn" | "accountSecurity" | "accountAppearance" | "accountEntries";
+type AccountRoute = "account" | "accountSignIn" | "accountSecurity" | "accountEntries";
 
 export function AccountPage({ route, children }: { route: AccountRoute; children: ReactNode }) {
   return (
@@ -29,7 +29,8 @@ export type AccountEntry = { id: string; label: Copy; icon: IconName; href: Rout
 const list = tv({
   slots: {
     root: cardSurface({ class: "overflow-hidden" }),
-    row: `flex h-14 items-center gap-3 ${stacked()} px-4 text-sm font-medium text-fg ${cardHover()}`,
+    // One line, cut where it is long, so the row stands at the fixed height of a one-line row.
+    row: `flex ${rowHeight({ form: "fixed" })} items-center gap-3 ${stacked()} px-4 text-base font-medium text-fg lg:text-sm ${cardHover()}`,
     glyph: "text-fg-muted",
     words: "min-w-0 flex-1 truncate",
   },

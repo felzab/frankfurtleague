@@ -45,19 +45,28 @@ export async function generateMetadata(_: unknown, parent: ResolvingMetadata): P
  * the bound the code keeps.
  */
 export default function PrivacyNoticePage() {
-  const { firstLayer, retention, rights } = words;
+  const { firstLayer, administration, erasure, retention, rights } = words;
   const sections: ReadonlyArray<ProseSection> = [
     {
       heading: firstLayer.heading,
       blocks: [{ kind: "list", items: [...firstLayer.items.map((item) => [item]), firstLayer.contact(MAIL)] }],
     },
     { heading: words.basis.heading, blocks: [paragraph(words.basis.text)] },
-    { heading: words.website.heading, blocks: [paragraph(words.website.requests), paragraph(words.website.browser(MAILED_LINK_HOURS))] },
+    {
+      heading: words.website.heading,
+      blocks: [
+        paragraph(words.website.requests),
+        paragraph(words.website.browser(CODE_VALIDITY_MINUTES, MAILED_LINK_HOURS)),
+        paragraph(words.website.turnstile),
+      ],
+    },
     {
       heading: words.bewerbung.heading,
       blocks: [
         paragraph(words.bewerbung.form),
         paragraph(words.bewerbung.confirmation(CONFIRMATION_DEADLINE_DAYS, BEWERBUNG_MIN_AGE, SIGNATORY_MIN_AGE)),
+        paragraph(words.bewerbung.visibility),
+        paragraph(words.bewerbung.outcome),
       ],
     },
     { heading: words.kader.heading, blocks: [paragraph(words.kader.text(REGISTRIERUNG_MIN_AGE, CONFIRMATION_DEADLINE_DAYS))] },
@@ -69,16 +78,25 @@ export default function PrivacyNoticePage() {
     {
       heading: words.account.heading,
       blocks: [
-        paragraph(
-          words.account.signIn(
-            { minutes: CODE_VALIDITY_MINUTES },
-            { idleDays: PERSON_IDLE_DAYS, days: PERSON_WINDOW_DAYS },
-            { idleHours: ADMIN_IDLE_HOURS, hours: ADMIN_WINDOW_HOURS },
-            SESSION_EXPIRES_IN_DAYS,
-          ),
-        ),
-        paragraph(words.account.changes(ADDRESS_CHANGE_VALID_HOURS, ADDRESS_CHANGE_WAIT_DAYS, HOLDER_WAIT.administration, HOLDER_WAIT.owner)),
+        paragraph(words.account.signIn(CODE_VALIDITY_MINUTES)),
+        paragraph(words.account.sessions(PERSON_IDLE_DAYS, PERSON_WINDOW_DAYS, SESSION_EXPIRES_IN_DAYS)),
+        paragraph(words.account.changes(ADDRESS_CHANGE_VALID_HOURS, ADDRESS_CHANGE_WAIT_DAYS)),
+        paragraph(words.account.erasure),
         paragraph(words.account.ban),
+      ],
+    },
+    // Its own section, so the contents fold lists it: what holds only for administrators, the passkey among it.
+    {
+      heading: administration.heading,
+      blocks: [
+        paragraph(administration.signIn(ADMIN_IDLE_HOURS, ADMIN_WINDOW_HOURS)),
+        paragraph(administration.passkey.lead),
+        { kind: "list", items: administration.passkey.items.map((item) => [item]) },
+        paragraph(administration.passkey.never),
+        paragraph(administration.address(HOLDER_WAIT.administration, HOLDER_WAIT.owner)),
+        paragraph(administration.grants(HOLDER_WAIT.administration, HOLDER_WAIT.owner)),
+        paragraph(administration.undo),
+        paragraph(administration.erasure),
       ],
     },
     {
@@ -94,7 +112,8 @@ export default function PrivacyNoticePage() {
       blocks: [
         paragraph(words.published.record),
         paragraph(words.published.names),
-        paragraph(words.published.consented(MEDIA_MIN_AGE)),
+        paragraph(words.published.organisers),
+        paragraph(words.published.media(MEDIA_MIN_AGE)),
         paragraph(words.published.never),
       ],
     },
@@ -151,10 +170,16 @@ export default function PrivacyNoticePage() {
       ],
     },
     {
-      heading: words.erasure.heading,
+      heading: erasure.heading,
       blocks: [
-        paragraph(words.erasure.text(DELIVERY_DEADLINE_DAYS, MAILBOX_ANCHOR_RETENTION_HOURS)),
-        paragraph(words.erasure.log(ACTION_LOG_RETENTION_YEARS)),
+        paragraph(erasure.text),
+        paragraph(erasure.remainsLead),
+        {
+          kind: "list",
+          items: erasure.remains(DELIVERY_DEADLINE_DAYS, MAILBOX_ANCHOR_RETENTION_HOURS, OUTBOX_RETENTION_DAYS).map((item) => [item]),
+        },
+        paragraph(erasure.notices),
+        paragraph(erasure.log(ACTION_LOG_RETENTION_YEARS)),
       ],
     },
     {

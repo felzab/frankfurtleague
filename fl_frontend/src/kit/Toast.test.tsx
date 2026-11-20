@@ -45,7 +45,7 @@ describe("an act's answer as its toast", () => {
   });
 
   // The harm: a refusal or a partial outcome gone before its person read it, the toast being the one place it is said,
-  // such as a ban whose sign-ins run on.
+  // such as an erasure whose sign-in account stands.
   it("lets a done act's toast leave by itself and keeps a refusal and a partial outcome until each is closed", () => {
     render(<ToastRegion frame="rail" />);
     act(() => {

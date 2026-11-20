@@ -92,27 +92,21 @@ function useAct(act: AccountAct) {
 const box = tv({
   slots: {
     root: cardSurface({ class: "overflow-hidden" }),
-    words: "grid gap-1",
     description: "text-sm text-fg-muted",
-    inline: "flex flex-wrap items-center justify-between gap-4 p-4",
   },
 });
 
 /**
  * One box of a Konto page: its title and one sentence saying what the box holds, its content, and a footer holding the
  * status line and its one act. A box whose act asks a danger's question takes the danger edge and title an editor's
- * danger box takes. A box holding one control that acts at once, Darstellung's, has no footer; nor has a box holding
- * nothing this page acts on, an address change an administrator started, which the old address's stop link ends. A
- * refusal stands in the footer's line with the input kept, a field's message under its field, and is cleared once the
- * page is left; a done act leaves the line empty and says itself in a toast where its answer notes more than the box
- * shows or the act names its word (`done`), the line taking no row a phone's page would move by. An act asking a
- * question first answers a refusal in the question, which stays open with it, as every question does.
+ * danger box takes. A box holding nothing this page acts on, an address change an administrator started, which the old
+ * address's stop link ends, has no footer. A refusal stands in the footer's line with the input kept, a field's message
+ * under its field, and is cleared once the page is left; a done act leaves the line empty and says itself in a toast
+ * where its answer notes more than the box shows or the act names its word (`done`), the line taking no row a phone's
+ * page would move by. An act asking a question first answers a refusal in the question, which stays open with it, as
+ * every question does.
  */
-export function AccountBox(
-  props: { title: Words; description: Copy } & (
-    { act: AccountAct | undefined; children?: ReactNode; control?: never } | { control: ReactElement; act?: never; children?: never }
-  ),
-) {
+export function AccountBox(props: { title: Words; description: Copy; act: AccountAct | undefined; children?: ReactNode }) {
   const slots = box();
   const danger = props.act !== undefined && "confirm" in props.act.button && props.act.button.confirm.tone === "danger";
   const words = (
@@ -125,16 +119,6 @@ export function AccountBox(
     </>
   );
 
-  if (props.control !== undefined) {
-    return (
-      <section className={slots.root()}>
-        <div className={slots.inline()}>
-          <div className={slots.words()}>{words}</div>
-          {props.control}
-        </div>
-      </section>
-    );
-  }
   if (props.act === undefined) {
     const held = boxHead({ ruled: props.children !== undefined });
     return (

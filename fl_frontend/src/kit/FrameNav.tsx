@@ -1,9 +1,8 @@
 "use client";
 
-import { createContext, use, useContext, useEffect, useState, useSyncExternalStore } from "react";
+import { createContext, use, useContext, useEffect, useState } from "react";
 import { useParams, usePathname } from "next/navigation";
 
-import { useTheme } from "next-themes";
 import { Button as AriaButton } from "react-aria-components/Button";
 
 import { COPY } from "@/core/copy/shared";
@@ -13,26 +12,25 @@ import { signOut } from "@/shared/utils/signOut";
 
 import { ConfirmDialog } from "./ConfirmDialog";
 import { CutText } from "./CutText";
-import { GlyphChoices } from "./GlyphChoices";
 import { hoverLook } from "./hoverStyles";
 import { Icon } from "./Icon";
-import { useAsked } from "./LeaveGuard";
+import { useAsked, useAskToLeave } from "./LeaveGuard";
 import { menuEntry } from "./Link";
 import { Menu } from "./Menu";
 import { entryMark } from "./menuStyles";
-import { currentOf, placeOf } from "./navPlace";
+import { currentOf, declaredPlaceOf, placeOf } from "./navPlace";
 import { useRailCollapsed } from "./railContext";
 import { RailTooltip } from "./RailState";
 import { groupHeading, railFade, railGlyph } from "./railStyles";
 import { FreshPerPage, Sheet } from "./Sheet";
+import { ThemeChoice, ThemeRow } from "./ThemeChoice";
 import { appToast } from "./Toast";
 import { tv } from "./tv";
-import { NavigationLink, usePressed } from "./WholePage";
+import { NavigationLink, useLeftArea, usePressed } from "./WholePage";
 
 import type { Copy, RecordText } from "@/core/copy";
 import type { Route } from "next";
 import type { ReactElement, ReactNode } from "react";
-import type { GlyphChoice } from "./GlyphChoices";
 import type { IconName } from "./Icon";
 import type { MenuEntry, MenuLink } from "./Menu";
 
@@ -107,34 +105,43 @@ export type FrameSaisons = SaisonFrame | TeamFrame;
 
 type SaisonScopeValue = (SaisonFrame & { pages: readonly SaisonPage[] }) | (TeamFrame & { pages: readonly TeamPage[] });
 
-/** A frame's seasons, with the season the last address naming one named, which a page whose address names none works in. */
-const SaisonContext = createContext<(SaisonScopeValue & { chosen?: string }) | null>(null);
+/**
+ * A frame's seasons, with the season the last address naming one named, which a page whose address names none works in;
+ * none once the frame's root has been shown since.
+ */
+const SaisonContext = createContext<(SaisonScopeValue & { chosen: string | undefined }) | null>(null);
 
 /**
  * Hands the frame's seasons and its season pages to its menus, which a layout's server code cannot reach, and holds the
- * last season an address named for as long as the frame's layout stays mounted: React state alone, so a reload or a new
- * sign-in starts at the standard season, and nothing is stored.
+ * last season an address named for as long as the frame's layout stays mounted, until the frame's root is shown: React
+ * state alone, so a reload or a new sign-in starts at the standard season, and nothing is stored.
  */
 export function SaisonScope({ value, children }: { value: SaisonScopeValue; children: ReactNode }) {
   const [chosen, setChosen] = useState<string>();
   return (
     <SaisonContext value={{ ...value, chosen }}>
       {/* Reads the address, which no prerender knows: it renders with the page, at the page's request. */}
-      <SaisonMemory choose={setChosen} />
+      <SaisonMemory
+        root={rootOf(value)}
+        choose={setChosen}
+      />
       {children}
     </SaisonContext>
   );
 }
 
 /**
- * Records the season the address names once the page showing it is committed. The record is read only on a page whose
- * address names none, so the render after it changes nothing a person sees.
+ * Records the season the address names once the page showing it is committed, and forgets it at the frame's root, which
+ * works in the standard season: kept, the next page naming no season would turn back to the season shown before the
+ * root. The record is read only on a page whose address names none, so the render after it changes nothing a person sees.
  */
-function SaisonMemory({ choose }: { choose: (saison: string) => void }) {
+function SaisonMemory({ root, choose }: { root: Route | undefined; choose: (saison: string | undefined) => void }) {
   const { saison } = useParams();
+  const path = usePathname();
   useEffect(() => {
     if (typeof saison === "string") choose(saison);
-  }, [saison, choose]);
+    else if (path === root) choose(undefined);
+  }, [saison, path, root, choose]);
   return null;
 }
 
@@ -199,7 +206,7 @@ export function useFrameSaison(): FrameSaison | null {
 
 /**
  * The same page in season `to`: the path with its season swapped, so a team's page stays its team's, and the
- * Spielsuche the Spielsuche, its filters dropped with the query, since they name one season's teams and matchdays. A record's
+ * Spielsuche the Spielsuche, a filter dropped with the query, since it names one season's choices, as Teams' groups. A record's
  * page, an address naming a record past the season, has no counterpart there and lands on the list it lies under,
  * the season page the rail marks for it; a page whose address names no season lands on the season's first page.
  */
@@ -324,39 +331,6 @@ async function signOutAndLeave() {
   appToast("danger", COPY.shared.failure.unexpected);
 }
 
-const neverChanges = () => () => undefined;
-
-/** The themes as next-themes names them, each by its glyph, in the order the owner set: dark, light, system. */
-const THEMES: readonly GlyphChoice[] = [
-  { id: "dark", glyph: "dark", label: COPY.template.theme.dark },
-  { id: "light", glyph: "light", label: COPY.template.theme.light },
-  { id: "system", glyph: "system", label: COPY.template.theme.system },
-];
-
-/**
- * The theme as the account menu's foot and Konto's Darstellung set it, one control in both places: the three
- * glyphs, each named by its tooltip, acting at once.
- */
-export function ThemeChoice() {
-  const { theme, setTheme } = useTheme();
-  // The server cannot read the theme next-themes stores in the browser, so its markup marks none, and a hydrating render
-  // marking the stored one is a mismatch React does not repair: the page opened by its address showed none chosen. The
-  // hydrating render draws what the server drew, and the render after marks the stored theme, the glyphs unmoved.
-  const hydrated = useSyncExternalStore(
-    neverChanges,
-    () => true,
-    () => false,
-  );
-  return (
-    <GlyphChoices
-      label={COPY.page.accountAppearance}
-      choices={THEMES}
-      value={hydrated ? (theme ?? null) : null}
-      onChange={setTheme}
-    />
-  );
-}
-
 /**
  * The account menu, the same in every area: „Funktion wechseln“ in a group of its own for a person holding two or
  * more Funktionen, its submenu marking the one the page lies under; Konto and Abmelden; Impressum and Datenschutz; and at
@@ -377,9 +351,14 @@ function AccountMenu({
   beside?: boolean;
 }) {
   const here = placeAt(account, usePathname());
+  const ask = useAskToLeave();
   const roles = (account.roles ?? []).map((place) => ({ ...place, isCurrent: place.href === here?.href }));
   const switchRole: ReadonlyArray<ReadonlyArray<MenuEntry>> =
     roles.length < 2 ? [] : [[{ kind: "submenu", label: COPY.shared.switchRole, links: roles }]];
+  // Over unsaved changes the frame's question comes first, while the session still stands: a person who stays keeps
+  // changes a save can still send. Discarding drops them before the session ends, so the document leaves holding
+  // nothing and the browser asks no second time.
+  const signOutAsked = () => (ask === null ? void signOutAndLeave() : ask(() => void signOutAndLeave()));
   return (
     <Menu
       label={COPY.template.account}
@@ -390,7 +369,7 @@ function AccountMenu({
         ...switchRole,
         [
           { kind: "link", label: COPY.template.account, href: accountPage },
-          { kind: "action", label: COPY.shared.verb.signOut, onAction: () => void signOutAndLeave() },
+          { kind: "action", label: COPY.shared.verb.signOut, onAction: signOutAsked },
         ],
         [
           { kind: "link", label: ROUTES.legalNotice.title, href: ROUTES.legalNotice.path() },
@@ -619,7 +598,8 @@ export function MenuScope({ value, children }: { value: FrameMenu; children: Rea
 
 /**
  * The phone's bottom bar: its pages, „Mehr“ where the menu holds more, and the account as a place of its
- * own. „Mehr“ opens the rest of the menu as a sheet, grouped as the rail is, with the frame's extra links.
+ * own. „Mehr“ opens the rest of the menu as a sheet, grouped as the rail is, with the frame's extra links and, where
+ * nobody is signed in, the theme at its foot.
  */
 export function BarPlaces() {
   const menu = useContext(MenuContext);
@@ -711,6 +691,8 @@ function Places({ groups: given, bar, extra, account, prefetch }: FrameMenu) {
                   ))}
                 </div>
               )}
+              {/* Signed out, no account menu stands in the bar, so its foot's theme stands at the sheet's foot. */}
+              {account === undefined && <ThemeRow place="sheet" />}
             </div>
           </Sheet>
         </FreshPerPage>
@@ -799,21 +781,26 @@ export function LeaveQuestion() {
 }
 
 /**
- * An area's own way back once the read naming it has landed: „‹ Zurück“ to the address it answers, or `none`, the
- * logo, where it answers no address, the person having nowhere to go back to.
+ * Konto's own way back once the read naming it has landed: „‹ Zurück“ to the page of an area Konto was opened from,
+ * where a navigation since the document loaded left one, else to the address the read answers; or `none`, the logo,
+ * where the read answers no address, the person having nowhere to go back to.
  */
 export function ReadBack({ back, none }: { back: Promise<Route | null>; none: ReactNode }) {
   const href = use(back);
-  return href === null ? none : <BackControl href={href} />;
+  const left = useLeftArea();
+  return href === null ? none : <BackControl href={left ?? href} />;
 }
 
 /**
  * „‹ Zurück“ in an editor's band, to the list the rail marks for the editor: a record's page lies under its list,
  * so the way back is read from the address rather than declared by each editor, but for an editor whose route
- * declares the list it belongs to (`placeOf`).
+ * declares the page it belongs to (`declaredPlaceOf`), as a line-up declares its match editor, which no menu lists.
  */
 export function EditorBack() {
   const groups = useEntries(useContext(MenuContext)?.groups ?? []);
   const current = useCurrent(groups.flatMap((group) => group.entries));
-  return current === undefined ? null : <BackControl href={current.href} />;
+  const { saison } = useParams();
+  const declared = declaredPlaceOf(usePathname(), typeof saison === "string" ? saison : undefined);
+  const href = declared ?? current?.href;
+  return href === undefined ? null : <BackControl href={href} />;
 }

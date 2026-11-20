@@ -20,7 +20,7 @@ import {
 
 import type { AddressRules } from "@/kit/AddressFields";
 
-/** What a venue write asks of each field, read on the server so its schema never reaches the browser. */
+/** What a venue write asks of each field, read on the server. */
 export type SpielortRules = {
   required: Readonly<Record<"name" | "default_mietpreis", boolean>>;
   max: Readonly<Record<"name", number>>;

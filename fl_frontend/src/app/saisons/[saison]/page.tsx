@@ -6,7 +6,7 @@ import { SERVER_COPY } from "@/core/serverCopy";
 import { getSpielplan } from "@/features/saisons/queries";
 import { publicSaisonOf, resolvePublicSaisonParam } from "@/features/saisons/resolvers";
 import { matchRowOf } from "@/features/spiele/blocks";
-import { spieltagNamer } from "@/features/spieltage/utils";
+import { byKickOff, spieltagNamer } from "@/features/spieltage/utils";
 import { chosenTab } from "@/kit/filterValue";
 import { Link } from "@/kit/Link";
 import { ListPage } from "@/kit/ListPage";
@@ -39,9 +39,9 @@ async function SearchLink({ params }: Pick<Props, "params">) {
 }
 
 /**
- * The Spielplan: the season's matchdays as tabs, one at a time, each match a card, two a row from 42 rem of the list,
- * opening on the matchday the address names (`?tab=<phase>-<position>`, such as `gruppenphase-3`), else on the
- * one the backend names current.
+ * The Spielplan: the season's matchdays as tabs, one at a time, each match a card by kick-off, two a row from 42 rem
+ * of the list, opening on the matchday the address names (`?tab=<phase>-<position>`, such as `gruppenphase-3`), else
+ * on the one the backend names current.
  */
 export default function SpielplanPage({ params, searchParams }: Props) {
   return (
@@ -73,7 +73,7 @@ async function readSpieltage(params: Props["params"], searchParams: Props["searc
               label: nameOf(spieltag),
               panel: (
                 <SpielList
-                  matches={spieltag.spiele.map(matchRowOf)}
+                  matches={spieltag.spiele.toSorted(byKickOff).map(matchRowOf)}
                   layout="cards"
                 />
               ),

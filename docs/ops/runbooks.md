@@ -824,13 +824,15 @@ change, is refused (`ban_list_admin`) until the grant or the change is ended
 ([section 3](#3-granting-or-revoking-admin-access)). **The write mails the person itself where the
 address holds a sign-in account**, naming the reason you typed and the last season the ban covers,
 so there is nothing to send by hand; an address that never signed in is mailed nothing. Where the
-send fails, or the sign-in store could not say whether an account holds the address, the page says
-the notice did not go. **The same write ends every live sign-in of the address**, keeping its
-account and passkeys, which then stay only while a record holds the address
-([`../datenschutz.md`](../datenschutz.md#6-retention-is-bounded-where-a-bound-was-chosen)); where
-that fails the page says so too, and a session left standing lasts until it lapses, no request
-reading the list. **Every later sign-in of the address is refused as its session would be created**,
-by a code or a passkey alike. **Beyond the sign-in the ban stops one thing, the league's mail.** The
+sign-in store cannot say whether an account holds the address, the press fails with the site's one
+failure line before anything is written, and the ban is entered again once the store answers. **The
+same press ends every live sign-in of the address, after the write**, keeping its account and
+passkeys, which then stay only while a record holds the address
+([`../datenschutz.md`](../datenschutz.md#6-retention-is-bounded-where-a-bound-was-chosen)). Where
+that fails, the ban stands and the page shows the same failure line, naming no step; a session left
+standing lasts until it lapses, no request reading the list, unless the ban is entered again, which
+ends it. **Every later sign-in of the address is refused as its session would be created**, by a
+code or a passkey alike. **Beyond the sign-in the ban stops one thing, the league's mail.** The
 Postausgang's drain settles every mail to the address `barred` at its hand-out, the ban's own notice
 excepted, so no link reaches it. A form takes a barred address and stores it, and a link already
 mailed still opens and confirms, so a person reading the queue is still what keeps a barred address
@@ -842,7 +844,9 @@ fixtures are reassigned, which `schiedsrichter_still_assigned` holds to that ord
 season; a pupil's squad row is taken out; a contact seat is replaced or cleared on the team's
 season; a seat on an application is replaced on the application's page; and another address's
 pending change to it is discarded at `/admin/address-changes`. **An address the list already holds
-is refused**, on the address box. Entering a ban and lifting one each take the passkey touch.
+is refused**, in a sentence of the toast, the dialog having closed behind the passkey touch; that
+press first ends every live sign-in of the address, so it is how the sign-ins a failed sign-out left
+running are ended. Entering a ban and lifting one each take the passkey touch.
 
 **A ban lapses five full seasons after the one it was entered under, and the row is removed at the
 activation that runs past it.** The season it was entered in does not count, so a ban entered while

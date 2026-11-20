@@ -5,8 +5,10 @@ The source code in this repository is licensed under the Elastic License 2.0.
 See LICENSE for the full terms.
 
 The third-party packages the website and its server are built from keep their
-own licences. They are listed in fl_frontend/pnpm-lock.yaml, which holds what a
-visitor's browser receives, and in fl_backend/uv.lock.
+own licences. Most are listed in fl_frontend/pnpm-lock.yaml, which holds what a
+visitor's browser receives, and in fl_backend/uv.lock. The rest come with the
+published images: the base images and the system packages that
+fl_backend/Dockerfile and fl_frontend/Dockerfile name.
 
 --------------------------------------------------------------------------------
 NOT COVERED BY THAT LICENSE

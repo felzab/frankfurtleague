@@ -83,8 +83,8 @@ describe("a form's action through the one wrapper", () => {
 });
 
 describe("a form's status line", () => {
-  // The harm: an act that partly happened, such as a ban whose mail went unsent, read as a clean save or as a refusal
-  // to press again. `Dialog`, `AccountBox`, `OneShot`, `QuestionForm` and `SectionAct` each read their line here.
+  // The harm: an act that partly happened, such as an erasure whose sign-in account stands, read as a clean save or as a
+  // refusal to press again. `Dialog`, `AccountBox`, `OneShot`, `QuestionForm` and `SectionAct` each read their line here.
   it.each<[string, ActionAnswer, FormStatus]>([
     ["done", { ok: true, value: undefined }, { tone: "success", text: COPY.shared.saved }],
     [

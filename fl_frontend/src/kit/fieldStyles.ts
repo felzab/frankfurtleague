@@ -37,9 +37,6 @@ export const fieldRoot = tv({ base: "group flex w-full min-w-0 flex-col gap-1.5"
  */
 export const fieldStack = tv({ base: "grid w-full min-w-0 justify-items-start gap-4" });
 
-/** A form's boxes in its column, 24 px apart, as an editor's sections stand (`formColumn`). */
-export const boxStack = tv({ base: "grid gap-6" });
-
 export const fieldLabel = tv({ base: "self-start text-sm font-medium text-fg" });
 
 export const requiredMark = tv({ base: "text-danger" });

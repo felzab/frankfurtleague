@@ -172,10 +172,11 @@ type LineupProps = {
   startersMax: number;
   words: LineupWords;
   /**
-   * Why nothing here can change as things stand, such as a fixture with no date: every act closed, each button
-   * answering a press with this reason as the kit's locked acts do.
+   * How the acts stand while nothing here can change, which the editor's lock line says once: `locked` draws each act
+   * locked with no reason of its own, as a record closed for now; `out` draws none, as a finished record leaves its acts
+   * out. The ticks stand read-only either way, since they still say who started.
    */
-  locked?: Copy;
+  acts?: "locked" | "out";
   /** What the save refused of single pupils, by id: each on its row's own line, in the caller's hands when it goes. */
   refusals?: Readonly<Record<string, Copy>>;
 };
@@ -269,7 +270,7 @@ function FactHeads({ words }: { words: Pick<LineupWords, "name" | "nummer" | "po
  * reset and its save hold a line-up as they hold any field; an entry naming nobody stands outside it, read-only under
  * `words.anonymous`, its tick saying whether it started (`nameless`).
  */
-export function Lineup({ players, value, nameless, onChange, startersMax, words, locked, refusals = {} }: LineupProps) {
+export function Lineup({ players, value, nameless, onChange, startersMax, words, acts, refusals = {} }: LineupProps) {
   const id = useId();
   // The row whose tick was pressed with the starters complete; it says so while that still holds.
   const [pressed, setPressed] = useState<string | null>(null);
@@ -356,20 +357,22 @@ export function Lineup({ players, value, nameless, onChange, startersMax, words,
                           aria-labelledby={`${startsId} ${nameId}`}
                           aria-describedby={line === null ? undefined : lineId}
                           isSelected={starts}
-                          isDisabled={locked !== undefined || player.gone !== undefined}
+                          isDisabled={acts !== undefined || player.gone !== undefined}
                           columnFull={isOpenTick}
                           onChange={(isSelected) => tick(player, isSelected)}
                         />
                       </td>
                       <td className={s.end()}>
-                        <div className={s.acts()}>
-                          <Button
-                            icon="close"
-                            label={words.remove}
-                            locked={locked}
-                            onPress={() => change(without(value.picked, player.id), without(value.starters, player.id))}
-                          />
-                        </div>
+                        {acts !== "out" && (
+                          <div className={s.acts()}>
+                            <Button
+                              icon="close"
+                              label={words.remove}
+                              locked={acts === "locked" || undefined}
+                              onPress={() => change(without(value.picked, player.id), without(value.starters, player.id))}
+                            />
+                          </div>
+                        )}
                       </td>
                     </tr>
                   );
@@ -434,14 +437,17 @@ export function Lineup({ players, value, nameless, onChange, startersMax, words,
                     <NameCell player={player} />
                     <FactCells player={player} />
                     <td className={s.end()}>
-                      <div className={s.acts()}>
-                        <Button
-                          variant="secondary"
-                          label={words.pick}
-                          locked={locked ?? (player.nominee === true && nominees >= gap ? words.nomineeLocked : undefined)}
-                          onPress={() => change([...value.picked, player.id], value.starters)}
-                        />
-                      </div>
+                      {acts !== "out" && (
+                        <div className={s.acts()}>
+                          <Button
+                            variant="secondary"
+                            label={words.pick}
+                            // The line-up's own lock is said by the lock line; a nominee's is this row's alone.
+                            locked={acts === "locked" || (player.nominee === true && nominees >= gap ? words.nomineeLocked : undefined)}
+                            onPress={() => change([...value.picked, player.id], value.starters)}
+                          />
+                        </div>
+                      )}
                     </td>
                   </tr>
                 ))}

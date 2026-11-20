@@ -41,11 +41,13 @@ describe("a stacked row's line", () => {
   });
 
   // Below 20 rem the narrow column leaves too, and a line-up's row opens nothing, so its shirt number stood nowhere.
+  // Declared after a hidden column, its part still leads: last, it would stand hidden between 20 and 42 rem and
+  // leave the hidden column's „·“ trailing.
   it("holds a narrow column's value before the hidden columns'", () => {
     const line = nameCellOf({
       columns: [
-        { key: "nummer", label: COPY.kader.nummer, narrow: true, onLine: "labelled", width: "count" },
         { key: "position", label: COPY.kader.position, hideOnPhone: true, onLine: "value" },
+        { key: "nummer", label: COPY.kader.nummer, narrow: true, onLine: "labelled", width: "count" },
       ],
       rows: [{ id: "1", name: { record: "Pia B." }, cells: { nummer: { record: "19" }, position: { record: "Mittelfeld" } } }],
     });

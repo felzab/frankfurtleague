@@ -18,6 +18,7 @@ from app.api.schiedsrichter.schemas import (
     FLSchiedsrichterListResponse,
     FLSchiedsrichterMint,
     FLSchiedsrichterMintResponse,
+    FLSchiedsrichterReactivateResponse,
     FLSchiedsrichterSingleResponse,
 )
 from app.api.schiedsrichter.services import (
@@ -247,7 +248,7 @@ async def patch_schiedsrichter(
     answer, re_minted = await transact(db, correct_and_ask)
 
     if re_minted:
-        answer.confirmation = FLSchiedsrichterMint(deadline=confirmation_deadline_from(today=today), email=email)
+        answer.confirmation = FLSchiedsrichterMint(email=email)
 
     return answer
 
@@ -307,7 +308,6 @@ async def delete_schiedsrichter(
 
 @router.post(
     f"{by_id('schiedsrichter_id')}/reactivate",
-    status_code=status.HTTP_204_NO_CONTENT,
     summary="Bring a deactivated Schiedsrichter back",
 )
 async def reactivate_schiedsrichter(
@@ -317,13 +317,14 @@ async def reactivate_schiedsrichter(
     db: DBClient,
     today: GermanDay,
     germany_now: GermanyNow,
-) -> None:
-    """Bring a retired referee back into the picker and every default read.
+) -> FLSchiedsrichterReactivateResponse:
+    """Bring a retired referee back into the picker and every default read, answering where a fresh link goes.
 
-    One who has not answered is owed a fresh link, since a retired referee's save mails nothing.
+    One who has not answered is owed a fresh link, named in `confirmation`, since a retired referee's save mails nothing;
+    one who has answered, or is back already, is owed none.
     """
 
-    async def reactivate_and_ask(session: AsyncClientSession) -> None:
+    async def reactivate_and_ask(session: AsyncClientSession) -> str | None:
         stored = await pull_one_from_db(
             collection=schiedsrichter_collection,
             db_filter={"_id": schiedsrichter_id},
@@ -332,7 +333,7 @@ async def reactivate_schiedsrichter(
         )
         # A second press finds the referee back: nothing moves, so nothing is recorded.
         if stored.get("inactive_since") is None:
-            return
+            return None
 
         email = stored["kontakt"]["email"] if owes_reactivation_mint(stored=stored) else None
 
@@ -360,8 +361,14 @@ async def reactivate_schiedsrichter(
                 session=session,
             )
 
-    # One transaction, so a row never comes back without the link it was owed.
-    await transact(db, reactivate_and_ask)
+        return email
+
+    # One transaction, so a row never comes back without the link it was owed. The address answered is the one read
+    # in-session above, never one the page read before the press: a save moving it in between would otherwise name the
+    # previous mailbox.
+    minted_for = await transact(db, reactivate_and_ask)
+
+    return FLSchiedsrichterReactivateResponse(confirmation=None if minted_for is None else FLSchiedsrichterMint(email=minted_for))
 
 
 @router.post(
@@ -420,4 +427,4 @@ async def resend_confirmation(
     # request: a save moving it in between would otherwise send the link to the previous mailbox.
     minted_for = await transact(db, judge_and_mint)
 
-    return FLSchiedsrichterMintResponse(confirmation=FLSchiedsrichterMint(deadline=confirmation_deadline_from(today=today), email=minted_for))
+    return FLSchiedsrichterMintResponse(confirmation=FLSchiedsrichterMint(email=minted_for))

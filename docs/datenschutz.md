@@ -116,7 +116,9 @@ stand in [section 11](#11-open-and-owed-a-decision). Other documents link sectio
     (`fl_frontend/src/core/emailAddress.ts :: isDeliverableAddress`, read by
     `fl_frontend/src/kit/TextField.tsx :: judgeOf` and the sign-in form's schema);
   - the code sign-in's limits (`fl_frontend/src/core/signInGate.ts :: mayReceiveSignIn`, the
-    per-address counts under `fl_frontend/src/core/auth/signInRows.ts :: boundIdentifier`).
+    per-address counts under `fl_frontend/src/core/auth/signInRows.ts :: boundIdentifier`), and a
+    right code typed in a browser that did not ask for it, refused as `CODE_NOT_ASKED_HERE`
+    (`fl_frontend/src/core/auth/library.ts :: askedHere`).
 - **A mailbox past the forms' bound is mailed nothing, and nobody is refused.** Once a mailbox holds
   three unanswered links of the season
   (`fl_backend/app/shared/mailbox.py :: OPEN_LINKS_PER_MAILBOX`), its plus-tagged forms among them,
@@ -190,8 +192,9 @@ measures section 8's. "Administrators" are the holders of a grant to the adminis
     - the address of anyone who submits the sign-in form, held in `verification` before the send
       gate is consulted;
     - sessions with their factor, expiry and last use;
-    - passkeys with their public key, the reported authenticator model and any name the holder gives
-      one, never a private key (`fl_frontend/src/core/auth/library.ts` configures the store);
+    - an administrator's passkeys, no other account holding one, with their public key, the reported
+      authenticator model and any name the holder gives one, never a private key
+      (`fl_frontend/src/core/auth/library.ts` configures the store);
     - the per-address code counts, under a keyed hash;
     - an address change's two addresses, until it ends and its sign-in account has moved.
   - Recipients: the person; administrators, of a non-holder's running change, both addresses; the
@@ -239,7 +242,11 @@ measures section 8's. "Administrators" are the holders of a grant to the adminis
     - the application's log lines;
     - in the browser, the session cookie, a passkey ceremony's cookie, a mailed link's cookie
       holding its token for an hour (`fl_frontend/src/core/mailedLink.ts`), the theme in local
-      storage, Cloudflare's challenge clearance and Turnstile's frame.
+      storage, Cloudflare's challenge clearance and Turnstile's frame;
+    - in the browser too, the code sign-in's cookie, `__Host-auth.code_asked` over https. It holds a
+      signed token carrying a keyed digest of the typed address, is set on every ask for a code, a
+      member's and a stranger's alike, and lives as long as the code, `CODE_VALIDITY_SECONDS`
+      (`fl_frontend/src/core/auth/library.ts :: codeAskedCookie`).
   - Recipients: Hetzner and Cloudflare (section 7).
 - **Media and the organisers' names.**
   - Purpose and basis: showing the league; consent, from 18 for media.
@@ -256,8 +263,7 @@ measures section 8's. "Administrators" are the holders of a grant to the adminis
 - **A club's street address is public, and the application form and the acceptance screen say so**
   (`fl_backend/app/api/teams/schemas.py :: _TeamWritable.address`;
   `fl_frontend/src/app/(classic)/bewerbung/[saison]/BewerbungFields.tsx`,
-  `fl_frontend/src/app/admin/(list)/saisons/[saison]/bewerbungen/[bewerbung]/AcceptFields.tsx`).
-  **Datenschutzexperte consulted.**
+  `fl_frontend/src/features/bewerbungen/AcceptFields.tsx`). **Datenschutzexperte consulted.**
 - **A pupil's name is published only on their own consent, given alone from 16.** Every public read
   of a pupil decides by `fl_backend/app/shared/einwilligung.py :: NAME_IS_PUBLIC`. It asks that the
   record be present, its `scope` `kader_public` and its `confirmed_at` stamped. Every other row is a
@@ -339,8 +345,8 @@ measures section 8's. "Administrators" are the holders of a grant to the adminis
   - Resend's copies of every message, for its own period (section 7);
   - a message the person wrote to the league, deleted from the league's mailbox on request, for
     Google's own period after a deletion (section 7);
-  - the copy of it passed on to a board member's mailbox, deleted on request, a private provider's
-    backups beyond reach;
+  - the copy of it passed on to a member of the association's mailbox, deleted on request, a private
+    provider's backups beyond reach;
   - the access notices already delivered to other holders' private mailboxes, each naming the
     address it concerns, beyond reach as section 7 says;
   - the privacy lines, which name a record's id and a seat's confirmation day and no address or
@@ -374,7 +380,12 @@ measures section 8's. "Administrators" are the holders of a grant to the adminis
   - the row of the deletion notice, and of the notice to an address a change replaced, until the
     row's two-day deadline;
   - a registration link's entry, which names no subject, until the log's twelve months;
-  - a mailbox's hash in `mailbox_anchors`, for its hour (section 6).
+  - a mailbox's hash in `mailbox_anchors`, for its hour (section 6);
+  - after a deletion by a period, the league's own mails to the address, their facts until sent and
+    the rest 30 days after, as section 6 bounds a Postausgang row. Only an erasure on request runs
+    the mail step (`fl_backend/app/api/identity/crud.py :: erase_everything`, its
+    `:: erase_the_mails_in_session`), since a period's deletion takes one role of an address that
+    may still be owed mail under another.
 - **A retired row is never removed because of its age**: a confirmed referee who stopped, a club
   that left and a past season keep their rows. A person's row goes only by an erasure or by section
   6's clocks, a pupil's season rule and a referee's unconfirmed entry. **Datenschutzexperte
@@ -456,13 +467,13 @@ bound's conditions follow the table.
   (`fl_frontend/src/core/sessionLifetimes.ts :: PERSON_LIFETIME`, `:: ADMIN_LIFETIME`). Its row goes
   later, by the TTL index on `expiresAt`, 14 days after the session was last used
   (`:: SESSION_EXPIRES_IN_DAYS`).
-- **A sign-in code** lasts 10 minutes. Failed codes are counted for a day and requested codes for an
-  hour, under a keyed hash.
+- **A sign-in code** lasts 10 minutes, its row holding the address it was asked for in plain. Failed
+  codes are counted for a day and requested codes for an hour, under a keyed hash.
 - **A Postausgang row** holds no facts once sent or given up, and goes 30 days after that. A row
   carrying a secret goes when the secret lapses.
 - **Mail to the league** is deleted from the league's mailbox six months after it arrives, by a
   setting of the league's Workspace that no file in this repository holds. The copy passed on to a
-  board member's mailbox keeps that mailbox's own rule.
+  member of the association's mailbox keeps that mailbox's own rule.
 - **A mailbox's document** holds a hash, never the address, and goes an hour after the last press
   with room to mail it.
 - **The server's journal** holds every service's lines, each tagged with its container's name: the
@@ -501,7 +512,9 @@ bound's conditions follow the table.
   object. A lift mails nobody
   (`fl_backend/app/api/ban_list/admin_router.py :: delete_ban_list_entry`).
 - **One deletion notice tells its person once a confirmed account or application is deleted**,
-  whoever caused it, and never holds the deletion up (`fl_frontend/src/core/bewerbungEmail.ts`).
+  whoever caused it, save a person's own deletion of their account, which the page that made it
+  confirms (`fl_frontend/src/core/auth/accounts.ts :: deleteAccountFor` owes the notice for every
+  other). It never holds the deletion up (`fl_frontend/src/core/bewerbungEmail.ts`).
 
 ## 7. Processors and third parties
 
@@ -534,8 +547,8 @@ the host's, which rests on its signed agreement.
   - Where: the United States for stored data; the Data Privacy Framework and standard clauses.
 - **Google Cloud EMEA Limited, Dublin (Google Workspace for Nonprofits), the league's mailbox.**
   - What reaches it: every message to a league address, its attachments included. A member of the
-    board reads the mailbox, which passes each message on to a board member. The board also keeps
-    the association's own papers there, such as its minutes, and none of the site's data.
+    board reads the mailbox, which passes each message on to a member of the association. The board
+    also keeps the association's own papers there, such as its minutes, and none of the site's data.
   - Agreement: Google's Cloud Data Processing Addendum, accepted in the Workspace admin console on
     2026-11-11. Google names this entity for a Workspace customer in Europe outside France, Italy
     and Poland (<https://cloud.google.com/terms/google-entity>, last modified 2026-06-30, read
@@ -550,7 +563,8 @@ the host's, which rests on its signed agreement.
     2026-11-12).
 - **Private mailboxes.**
   - What reaches them: every access notice to a holder, at the address the grant holds. Every
-    message to a league address too, where the board member it is passed on to reads it in one.
+    message to a league address too, where the member of the association it is passed on to reads it
+    in one.
   - Agreement: **none**, and no safeguard for a transfer outside an adequacy decision: a gap
     accepted and disclosed (2026-10-25).
   - Where: not committed; Proton (Switzerland) and Gmail on 2026-10-25.

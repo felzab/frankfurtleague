@@ -254,9 +254,9 @@ export function refereeOf(spiel: Pick<FLSpielJoined, "schiedsrichter">): Words {
 }
 
 /**
- * The pop-up's four facts under its head, each led by its glyph, an absent one a dash: when and where the
- * match is played, and who referees it. The matchday stands in the head and the result in its score, so
- * neither is repeated here.
+ * The pop-up's four facts under its head, each led by its glyph, an absent one a dash: when the match is played, who
+ * referees it and where, in the order of the match page's tiles, whose last tile is the wide one a venue's name needs.
+ * The matchday stands in the head and the result in its score, so neither is repeated here.
  */
 export function popupFactsOf(spiel: FLSpielJoined): Fact[] {
   const { fact } = COPY.spielplan;
@@ -266,6 +266,7 @@ export function popupFactsOf(spiel: FLSpielJoined): Fact[] {
   return [
     { label: fact.date, glyph: "calendar", value: day === null ? noValue : { record: formatDateWithWeekdayAndYear(day) }, figures: true },
     { label: fact.time, glyph: "time", value: time === null ? noValue : { record: formatTime(time) }, figures: true },
+    { label: fact.schiedsrichter, glyph: "schiedsrichter", value: refereeOf(spiel) },
     spiel.spielort === null
       ? { label: fact.spielort, glyph: "spielorte", value: noValue }
       : {
@@ -273,7 +274,6 @@ export function popupFactsOf(spiel: FLSpielJoined): Fact[] {
           glyph: "spielorte",
           link: { href: buildMapsSearchUrl(spiel.spielort.maps_query), label: { record: spiel.spielort.name } },
         },
-    { label: fact.schiedsrichter, glyph: "schiedsrichter", value: refereeOf(spiel) },
   ];
 }
 

@@ -309,7 +309,7 @@ export function ListPage({
   list,
 }: {
   head: RailPageHead;
-  /** The filter block, its choices and their values read with the list, as the Spielsuche's clubs and matchdays are. */
+  /** The filter block, its choices and their values read with the list, as Teams' groups are. */
   filters?: Promise<ReadonlyArray<Filter>>;
   /**
    * A record created where its list shows: the dialog's title, its act, its fields and the action. Read with the list

@@ -10,6 +10,7 @@ import { Brand } from "./Brand";
 import { smallCaps } from "./cardStyles";
 import { HeaderLinks } from "./HeaderLinks";
 import { Link } from "./Link";
+import { ThemeRow } from "./ThemeChoice";
 import { ToastRegion } from "./Toast";
 import { NavigationBar, PageContent } from "./WholePage";
 
@@ -155,9 +156,13 @@ export function ClassicFrame({
               </div>
             </div>
           )}
-          <p className="text-xs text-fg-muted">
-            <Year />
-          </p>
+          {/* The classic frame holds no account menu, whose foot sets the theme, so it stands at the © line's end. */}
+          <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
+            <p className="text-xs text-fg-muted">
+              <Year />
+            </p>
+            <ThemeRow place="footer" />
+          </div>
         </div>
       </footer>
       <ToastRegion frame="classic" />

@@ -24,7 +24,7 @@ export type OpenParty = { id: string; name: Words };
  * „Zusage eintragen“ from a fixture's row: which of its parties still to answer agreed, one segment each, and how
  * the agreement reached the league, which the confirmation stores as the reason the write requires. A segment posts
  * no form value, so the choice is held here and joins the form as its row's id; the reason's box is drawn on the
- * server, so the write's schema never reaches the browser.
+ * server.
  */
 export function ZusageDialog({
   parties,

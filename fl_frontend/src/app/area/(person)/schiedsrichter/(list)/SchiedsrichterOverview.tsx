@@ -1,15 +1,10 @@
 import { cache } from "react";
 import { notFound } from "next/navigation";
 
-import { requires } from "@/core/action";
 import { textOf } from "@/core/copy";
 import { AREA_COPY } from "@/core/copy/area";
 import { COPY } from "@/core/copy/shared";
 import { dayOf, formatDate, timeOf } from "@/core/format";
-import {
-  SpielbestaetigungenPostSchiedsrichterAnswerBody,
-  spielbestaetigungenPostSchiedsrichterAnswerBodyReasonOneMax,
-} from "@/core/generated/zod/inputs";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { readAsRoleHolder } from "@/features/roles/resolvers";
@@ -17,7 +12,6 @@ import { getOwnSpiele } from "@/features/schiedsrichter/queries";
 import { eventChipOf, matchName } from "@/features/spiele/blocks";
 import { ListPage } from "@/kit/ListPage";
 import { AGREED_CHIP, DECLINED_CHIP, EXPIRED_CHIP, owedChip } from "@/kit/stateChips";
-import { TextField } from "@/kit/TextField";
 
 import { isOwnSaison } from "../../ownSaison";
 import { EinteilungActs } from "./[saison]/EinteilungActs";
@@ -70,21 +64,6 @@ function standingOf(spiel: FLSchiedsrichterSpiel): Standing {
   return {};
 }
 
-/** The reason's box of „Einteilung ablehnen“, drawn here so the write's schema stays on the server. */
-function ReasonField() {
-  return (
-    <TextField
-      label={COPY.shared.reason}
-      // The name `declineEinteilung` reads the reason by.
-      name="reason"
-      kind="paragraph"
-      isRequired={requires(SpielbestaetigungenPostSchiedsrichterAnswerBody.shape.reason, "")}
-      maxLength={spielbestaetigungenPostSchiedsrichterAnswerBodyReasonOneMax}
-      description={COPY.shared.noNames}
-    />
-  );
-}
-
 /**
  * What the typed text finds a game by, as the Spielsuche finds a match: both clubs, or that a side is still open; its
  * ground; its date as its row shows it and as a reader writes it.
@@ -113,9 +92,8 @@ function rowOf(spiel: FLSchiedsrichterSpiel, saison: string): CardActRowProps & 
           acts: (
             <EinteilungActs
               id={id}
-              spiel={name}>
-              <ReasonField />
-            </EinteilungActs>
+              spiel={name}
+            />
           ),
         }
       : {}),

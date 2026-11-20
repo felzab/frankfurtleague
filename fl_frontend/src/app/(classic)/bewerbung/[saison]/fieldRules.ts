@@ -26,10 +26,9 @@ const { address } = newSchool.shape;
 const person = shape.kontakte.shape.trainer.shape;
 
 /**
- * What the application's write asks of its boxes, read on the server so its schema never reaches the browser: whether a
- * box may stay empty, an untouched text box posting "" and a figure, a day or a choice no value, and the longest each
- * text may be. An address is required as written: the published rule holds its length alone, and the write's own rule
- * refuses an empty one.
+ * What the application's write asks of its boxes, read on the server: whether a box may stay empty, an untouched text
+ * box posting "" and a figure, a day or a choice no value, and the longest each text may be. An address is required as
+ * written: the published rule holds its length alone, and the write's own rule refuses an empty one.
  */
 export const BEWERBUNG_RULES = {
   required: {
