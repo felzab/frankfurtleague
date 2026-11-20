@@ -359,6 +359,36 @@ describe("the site's cache", () => {
   });
 });
 
+// The harm: a refusal of a field the form carries unseen, a record's id or a page's token, placed on a box nobody sees,
+// the status line pointing at fields none of which says anything.
+describe("a refused field's box", () => {
+  const { field } = COPY.shared;
+
+  /** A seat's address, sent beside the record's id the form carries unseen, which the backend refuses for `refusedAt`. */
+  const writeSeat = (refusedAt: string) =>
+    action({
+      lane: "admin",
+      name: "writeSeat",
+      input: z.object({ id: z.string().min(1), email: z.email() }),
+      ownWords: ["kontakt_email_taken"],
+      paths: { email: "email" },
+      run: async () => {
+        const refused: FLRefusedField = { in: "body", kind: "kontakt_email_taken", ctx: {}, path: [refusedAt] };
+        await sends("PUT", refusal("kontakt_email_taken", { fields: [refused] }));
+        return { ok: true, value: undefined };
+      },
+    });
+  const SEAT = { id: "6890a1b2c3d4e5f607190001", email: "lena@example.com" };
+
+  it("places the backend's refusal of a box the screen shows on that box", async () => {
+    expect(await writeSeat("email")(SEAT)).toStrictEqual({ ok: false, errorCode: "kontakt_email_taken", fieldErrors: { email: field.taken } });
+  });
+
+  it("answers a refusal of a field the form carries unseen on the status line, never on a box", async () => {
+    expect(await writeSeat("id")(SEAT)).toStrictEqual({ ok: false, errorCode: "kontakt_email_taken", reason: COPY.shared.failure.unexpected });
+  });
+});
+
 // The harm: a row's refusal shown on another row, on the list's one line where nobody finds the row, or nowhere.
 describe("a list of records", () => {
   const { field } = COPY.shared;
