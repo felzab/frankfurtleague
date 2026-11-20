@@ -473,11 +473,10 @@ class MadeUpLeague:
             unanswered("Elif Engin", "Weide-Gymnasium", 20, "elif.engin@example.com"),
             *self.booked_referees,
             # The journeys' own: each project's account acts, in their order (the person signed in on a second device, the
-            # one whose address changes, the one who deletes the account), then the desktop passkey journeys' and the
-            # access journeys' (the person banned, the one whose address the administrator's change starts on, the one
-            # erased, and the one whose change stands on the list).
+            # one whose address changes, the one who deletes the account), then the access journeys' (the person banned, the
+            # one whose address the administrator's change starts on, the one erased, and the one whose change stands on the
+            # list).
             *(person(project[role]) for project in PROJECTS for role in ("twoDevices", "mover", "leaver")),
-            *(person(entry) for entry in PEOPLE["passkeys"].values()),
             *(person(PEOPLE["access"][role]) for role in ("banned", "mover", "erased", "changing")),
         ]
 
