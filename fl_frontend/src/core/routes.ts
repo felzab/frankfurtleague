@@ -428,3 +428,17 @@ export const LEGAL_PAGES = ["legalNotice", "privacyNotice"] as const satisfies R
  * fragment is kept for the copies of `/#bewerbung` people hold, which reach the section by it.
  */
 export const JOIN_SECTION = "bewerbung";
+
+/**
+ * The query parameter a mailed link carries its token in: the name each page a mail opens reads, and the one the proxy's
+ * matcher spells as a literal, since a matcher takes no variable.
+ */
+export const TOKEN_PARAMETER = "token";
+
+/**
+ * The one spelling of a mailed link: `route`'s page on `origin`, the token in the query, never in the path the edge
+ * logs.
+ */
+export function mailedLinkTo(origin: string, route: { readonly path: () => `/${string}` }, token: string): string {
+  return `${origin}${route.path()}?${TOKEN_PARAMETER}=${encodeURIComponent(token)}`;
+}

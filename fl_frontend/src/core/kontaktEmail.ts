@@ -4,7 +4,7 @@ import { seatsText } from "./copy";
 import { COPY } from "./copy/shared";
 import { mailOrigin } from "./emailShell";
 import { dayOf, formatDateLong } from "./format";
-import { kontaktConfirmationLink } from "./kontaktLink";
+import { mailedLinkTo, ROUTES } from "./routes";
 import { SERVER_COPY } from "./serverCopy";
 
 import type { Mail } from "./emailShell";
@@ -26,7 +26,7 @@ export function buildKontaktConfirmationEmail(
 ): Mail {
   const site = mailOrigin(origin);
   const opening = PAGE.opening.seasonRow({ record: schule }, saison, { record: seatsText(seats) });
-  const href = kontaktConfirmationLink(site, token);
+  const href = mailedLinkTo(site, ROUTES.kontaktConfirmation, token);
   const shell = { kind: "firstContact", origin: site } as const;
 
   if (row === "open") {

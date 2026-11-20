@@ -4,7 +4,7 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
 import { frontend_config } from "./config";
-import { ROUTES } from "./routes";
+import { ROUTES, TOKEN_PARAMETER } from "./routes";
 import { HOUR_MS } from "./timeUnits";
 
 import type { NextRequest } from "next/server";
@@ -16,8 +16,6 @@ import type { NextRequest } from "next/server";
  * The proxy's `config` spells the same paths in its matcher, which takes literals alone.
  */
 export const MAILED_LINK_PAGES: readonly string[] = [ROUTES.accountErasure.path(), ROUTES.registrierung.path()];
-
-const TOKEN_PARAMETER = "token";
 
 /** One name for every page: each page's cookie is bound to that page's path, so no page reads another's token. */
 const MAILED_LINK_COOKIE = "mailed_link";

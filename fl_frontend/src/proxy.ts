@@ -130,7 +130,7 @@ export const config = {
       missing: [{ type: "header", key: "cookie", value: ".*\\.session_token=.*" }],
     },
     // `MAILED_LINK_PAGES`, on a request carrying a token alone, which an empty `token` is not: Next's `has` reads an
-    // empty query value as absent.
+    // empty query value as absent. The key is `TOKEN_PARAMETER` (`core/routes.ts`), spelled here as the matcher's literal.
     { source: "/(erasure|registrierung)", has: [{ type: "query", key: "token" }] },
     {
       source: "/signin/:path*",

@@ -5,8 +5,7 @@ import { seatsText } from "./copy";
 import { COPY } from "./copy/shared";
 import { mailOrigin } from "./emailShell";
 import { dayOf, formatDateLong } from "./format";
-import { kontaktConfirmationLink } from "./kontaktLink";
-import { ROUTES } from "./routes";
+import { mailedLinkTo, ROUTES } from "./routes";
 import { SERVER_COPY } from "./serverCopy";
 import { TRIKOT_FARBEN } from "./trikotFarben";
 
@@ -120,7 +119,7 @@ export function buildBewerbungConfirmationEmail(
         { label: WORDS.registeredAs, value: seatsText(seats) },
       ],
     },
-    button: { label: COPY.page.entryConfirmation, href: kontaktConfirmationLink(site, token) },
+    button: { label: COPY.page.entryConfirmation, href: mailedLinkTo(site, ROUTES.kontaktConfirmation, token) },
   };
 }
 
@@ -134,7 +133,7 @@ export function buildBewerbungReminderEmail({ saison_id, schule, deadline }: FLB
     paragraphs: [[WORDS.reminder.lead(schule), WORDS.confirmOrOppose], [deadlineSentence(deadline)]],
     // A fresh link, minted beside the first one rather than in place of it: a reminder that voided
     // the link somebody is still looking at would punish the reader it is chasing.
-    button: { label: COPY.page.entryConfirmation, href: kontaktConfirmationLink(site, token) },
+    button: { label: COPY.page.entryConfirmation, href: mailedLinkTo(site, ROUTES.kontaktConfirmation, token) },
   };
 }
 
@@ -165,7 +164,7 @@ export function buildBewerbungReceivedEmail(
         { label: WORDS.received.pending, value: seatsText(pending) },
       ],
     },
-    button: { label: COPY.page.entryConfirmation, href: kontaktConfirmationLink(site, token) },
+    button: { label: COPY.page.entryConfirmation, href: mailedLinkTo(site, ROUTES.kontaktConfirmation, token) },
   };
 }
 

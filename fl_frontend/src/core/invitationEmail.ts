@@ -1,7 +1,7 @@
 import "server-only";
 
 import { mailOrigin } from "./emailShell";
-import { ROUTES } from "./routes";
+import { mailedLinkTo, ROUTES } from "./routes";
 import { SERVER_COPY } from "./serverCopy";
 
 import type { Mail } from "./emailShell";
@@ -9,14 +9,6 @@ import type { FLInvitationData } from "./generated/client/types";
 import type { MailLink } from "./mailKinds";
 
 const WORDS = SERVER_COPY.mail.invitation;
-
-/**
- * The one place a team's registration link is spelled. `token` is its parameter name because the proxy's matcher
- * reads that name alone, swapping it for a cookie before the page renders.
- */
-export function invitationLink(origin: string, token: string): string {
-  return `${origin}${ROUTES.registrierung.path()}?token=${encodeURIComponent(token)}`;
-}
 
 /**
  * What one confirmed contact seat is sent: the team's link, standing alone in the highlighted box, since it is to be
@@ -30,7 +22,7 @@ export function buildInvitationEmail({ team, saison_id: saisonId }: FLInvitation
     subjectLine: WORDS.subject(team),
     origin: site,
     paragraphs: [[WORDS.passOn(saisonId, team)]],
-    block: { link: invitationLink(site, token) },
+    block: { link: mailedLinkTo(site, ROUTES.registrierung, token) },
     afterBlock: [
       // The containment the link rests on: it authorises a pending registration and nothing else, so a reader who
       // forwards it widely is told what that costs before they do it rather than afterwards.

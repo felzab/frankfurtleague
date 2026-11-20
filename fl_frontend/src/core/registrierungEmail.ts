@@ -4,7 +4,7 @@ import { CONFIRMATION_DEADLINE_DAYS } from "./bounds";
 import { COPY } from "./copy/shared";
 import { mailOrigin } from "./emailShell";
 import { dayOf, formatDateLong } from "./format";
-import { ROUTES } from "./routes";
+import { mailedLinkTo, ROUTES } from "./routes";
 import { SERVER_COPY } from "./serverCopy";
 
 import type { Mail, Paragraph } from "./emailShell";
@@ -12,16 +12,6 @@ import type { FLRegistrierungAbsageData, FLRegistrierungLinkData } from "./gener
 import type { MailLink, MailOrigin } from "./mailKinds";
 
 const WORDS = SERVER_COPY.mail.registrierung;
-
-/**
- * The one place a pupil's confirmation link is spelled, beside the builder that spends it rather than in the slice:
- * `core` may not import a feature.
- *
- * `token` is the parameter name because the confirmation page reads that name alone.
- */
-function spielerConfirmationLink(origin: string, token: string): string {
-  return `${origin}${ROUTES.registrierungConfirmation.path()}?token=${encodeURIComponent(token)}`;
-}
 
 /**
  * The link a submission mints, named for the deadline the sweep deletes on. It names no pupil: this address has proved
@@ -47,7 +37,7 @@ export function buildRegistrierungConfirmationEmail(
       [WORDS.confirmation.admission],
       [[WORDS.confirmation.deadline.before, { strong: formatDateLong(dayOf(deadline)) }, WORDS.confirmation.deadline.after]],
     ],
-    button: { label: COPY.page.registrierungConfirmation, href: spielerConfirmationLink(site, token) },
+    button: { label: COPY.page.registrierungConfirmation, href: mailedLinkTo(site, ROUTES.registrierungConfirmation, token) },
   };
 }
 

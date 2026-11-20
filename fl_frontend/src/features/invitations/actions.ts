@@ -8,7 +8,7 @@ import { ADMIN_COPY } from "@/core/copy/admin";
 import { COPY } from "@/core/copy/shared";
 import { teamsDeleteInvitation, teamsPostInvitation, teamsPostInvitationMail } from "@/core/generated/client/sdk";
 import { TeamsPostInvitationMailBody, TeamsPostInvitationParams } from "@/core/generated/zod/inputs";
-import { invitationLink } from "@/core/invitationEmail";
+import { mailedLinkTo, ROUTES } from "@/core/routes";
 
 const Key = z.object(TeamsPostInvitationParams.shape);
 
@@ -24,7 +24,7 @@ export const mintInvitation = action({
   ownWords: ["saison_past"],
   run: async ({ team_id, saison_id }) => {
     const { token } = await teamsPostInvitation(team_id, saison_id);
-    return { ok: true, value: { link: invitationLink(new URL(frontend_config.AUTH_URL).origin, token) } };
+    return { ok: true, value: { link: mailedLinkTo(new URL(frontend_config.AUTH_URL).origin, ROUTES.registrierung, token) } };
   },
 });
 

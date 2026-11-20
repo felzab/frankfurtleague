@@ -5,7 +5,7 @@ import { ACCOUNT_COPY } from "./copy/account";
 import { COPY } from "./copy/shared";
 import { mailOrigin } from "./emailShell";
 import { formatInstant } from "./format";
-import { ROUTES } from "./routes";
+import { mailedLinkTo, ROUTES } from "./routes";
 import { SERVER_COPY } from "./serverCopy";
 
 import type { Wait } from "./copy";
@@ -17,14 +17,6 @@ import type {
   FLAddressChangeNoticeData,
 } from "./generated/client/types";
 import type { MailLink, MailOrigin } from "./mailKinds";
-
-/**
- * The one spelling of the address page's link, the stop link's too, the page telling them apart by hash.
- * `token`, because the address page reads its link under that name alone.
- */
-function addressChangeLink(origin: string, token: string): string {
-  return `${origin}${ROUTES.addressChangeConfirmation.path()}?token=${encodeURIComponent(token)}`;
-}
 
 const WORDS = SERVER_COPY.addressChange;
 
@@ -41,7 +33,7 @@ export function buildAddressChangeEmail({ way, holder }: FLAddressChangeLinkData
   const site = mailOrigin(origin);
   // One wording for the mail's subject, its button and the title of the page the button opens.
   const subjectLine = COPY.shared.withObject(COPY.shared.emailAddress, "confirm");
-  const button = { label: subjectLine, href: addressChangeLink(site, token) };
+  const button = { label: subjectLine, href: mailedLinkTo(site, ROUTES.addressChangeConfirmation, token) };
 
   // The person's own change, the address on file having confirmed it first: the page's question, its title the button.
   if (way === "account") {
@@ -86,7 +78,7 @@ export function buildAddressChangeNoticeEmail({ way, holder }: FLAddressChangeNo
         ],
         LINK_VALID,
       ],
-      button: { label: COPY.shared.withObject(WORDS.change, "confirm"), href: addressChangeLink(site, stopToken) },
+      button: { label: COPY.shared.withObject(WORDS.change, "confirm"), href: mailedLinkTo(site, ROUTES.addressChangeConfirmation, stopToken) },
     };
   }
 
@@ -98,7 +90,7 @@ export function buildAddressChangeNoticeEmail({ way, holder }: FLAddressChangeNo
     origin: site,
     paragraphs: [[noticeLead, noticeWait(LOST_MAILBOX_WAIT), noticeStop]],
     // The stop: no link approves anything.
-    button: { label: ACCOUNT_COPY.address.stop, href: addressChangeLink(site, stopToken) },
+    button: { label: ACCOUNT_COPY.address.stop, href: mailedLinkTo(site, ROUTES.addressChangeConfirmation, stopToken) },
   };
 }
 
