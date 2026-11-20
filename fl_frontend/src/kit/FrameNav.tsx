@@ -197,7 +197,8 @@ export function useFrameSaison(): FrameSaison | null {
 }
 
 /**
- * The same page in season `to`: the address with its season swapped, so a team's page stays its team's. A record's
+ * The same page in season `to`: the path with its season swapped, so a team's page stays its team's, and the
+ * Spielsuche the Spielsuche, its filters dropped with the query, since they name one season's teams and matchdays. A record's
  * page, an address naming a record past the season, has no counterpart there and lands on the list it lies under,
  * the season page the rail marks for it; a page whose address names no season lands on the season's first page.
  */
@@ -219,7 +220,11 @@ export function counterpart({
   const at = typeof from === "string" ? segments.indexOf(from) : -1;
   if (typeof from !== "string" || at === -1) return home(to);
 
-  const records = Object.entries(params).flatMap(([name, value]) => (name === "saison" || value === undefined ? [] : [value].flat()));
+  // The root's `@modal` slot catches every address none of its pop-ups intercepts, so its `catchAll` holds the whole
+  // path, a page's own name among it, and names no record: counted, it sent the Spielsuche to the season's first page.
+  const records = Object.entries(params).flatMap(([name, value]) =>
+    name === "saison" || name === "catchAll" || value === undefined ? [] : [value].flat(),
+  );
   if (segments.slice(at + 1).some((segment) => records.includes(segment))) {
     const lists = pages.map((page) => ({ page, href: page(from) }));
     const list = lists.find(
