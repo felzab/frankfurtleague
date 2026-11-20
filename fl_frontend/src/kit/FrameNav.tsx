@@ -18,7 +18,7 @@ import { useAsked, useAskToLeave } from "./LeaveGuard";
 import { menuEntry } from "./Link";
 import { Menu } from "./Menu";
 import { entryMark } from "./menuStyles";
-import { currentOf, placeOf } from "./navPlace";
+import { currentOf, declaredPlaceOf, placeOf } from "./navPlace";
 import { useRailCollapsed } from "./railContext";
 import { RailTooltip } from "./RailState";
 import { groupHeading, railFade, railGlyph } from "./railStyles";
@@ -794,10 +794,13 @@ export function ReadBack({ back, none }: { back: Promise<Route | null>; none: Re
 /**
  * „‹ Zurück“ in an editor's band, to the list the rail marks for the editor: a record's page lies under its list,
  * so the way back is read from the address rather than declared by each editor, but for an editor whose route
- * declares the list it belongs to (`placeOf`).
+ * declares the page it belongs to (`declaredPlaceOf`), as a line-up declares its match editor, which no menu lists.
  */
 export function EditorBack() {
   const groups = useEntries(useContext(MenuContext)?.groups ?? []);
   const current = useCurrent(groups.flatMap((group) => group.entries));
-  return current === undefined ? null : <BackControl href={current.href} />;
+  const { saison } = useParams();
+  const declared = declaredPlaceOf(usePathname(), typeof saison === "string" ? saison : undefined);
+  const href = declared ?? current?.href;
+  return href === undefined ? null : <BackControl href={href} />;
 }

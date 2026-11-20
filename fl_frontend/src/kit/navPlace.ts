@@ -10,7 +10,7 @@ export function currentOf<Href extends string>(path: string, hrefs: ReadonlyArra
     .reduce<Href | null>((best, href) => (best === null || href.length > best.length ? href : best), null);
 }
 
-/** The rows declaring the entry their page belongs to, each a season's page. */
+/** The rows declaring the page their page belongs to, each a season's page. */
 const PLACED = Object.values(ROUTES).filter((row) => "place" in row);
 
 /**
@@ -29,19 +29,29 @@ function isPageOf(row: (typeof PLACED)[number], saison: string, path: string) {
 }
 
 /**
+ * The address of the page the path's route declares its page belongs to (`RouteEntry.place`), or `undefined` where it
+ * declares none. The place's address takes the path's dynamic segments in the pattern's order, as many as it names: a
+ * season's list the season alone, the league's list none, a match editor the season and the match.
+ * `saison` is the season the address names, if any.
+ */
+export function declaredPlaceOf(path: string, saison: string | undefined): string | undefined {
+  const row = saison === undefined ? undefined : PLACED.find((each) => isPageOf(each, saison, path));
+  if (row === undefined) return undefined;
+  const segments = path.split("/");
+  const values = row.place.pattern.split("/").flatMap((segment, index) => (segment.startsWith("[") ? [segments[index] ?? ""] : []));
+  return (ROUTES[row.place.entry].path as (...given: string[]) => string)(...values);
+}
+
+/**
  * The entry a page belongs to: the one its route declares (`RouteEntry.place`), where its address lies under another
  * entry's, as a season's editor lies under the season's Übersicht and belongs to the season list; else the entry its
- * address lies under. Read from the route table rather than declared by the page, since the frame drawing the menu
- * stands above every page and their layouts, and the table is known to the server and the client alike, so the
- * mark is right before the page hydrates. `saison` is the season the address names, if any.
+ * address lies under, as for a line-up, whose declared place, its match editor, is no entry of the menu. Read from the
+ * route table rather than declared by the page, since the frame drawing the menu stands above every page and their
+ * layouts, and the table is known to the server and the client alike, so the mark is right before the page hydrates.
+ * `saison` is the season the address names, if any.
  */
 export function placeOf<Href extends string>(path: string, saison: string | undefined, hrefs: ReadonlyArray<Href>) {
-  const row = saison === undefined ? undefined : PLACED.find((each) => isPageOf(each, saison, path));
-  if (row !== undefined && saison !== undefined) {
-    // A place that is a season's page takes the season, and one that is the league's ignores it.
-    const declared = (ROUTES[row.place.entry].path as (season: string) => string)(saison);
-    const own = hrefs.find((href) => href === declared);
-    if (own !== undefined) return own;
-  }
-  return currentOf(path, hrefs);
+  const declared = declaredPlaceOf(path, saison);
+  const own = declared === undefined ? undefined : hrefs.find((href) => href === declared);
+  return own ?? currentOf(path, hrefs);
 }

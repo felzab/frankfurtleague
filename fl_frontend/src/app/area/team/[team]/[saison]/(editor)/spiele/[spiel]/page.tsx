@@ -2,13 +2,14 @@ import { cache } from "react";
 import { notFound } from "next/navigation";
 
 import { COPY } from "@/core/copy/shared";
+import { ContractBreakError } from "@/core/errors";
 import { dayIn, dayOf, timeOf } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { AUFSTELLUNG_CHIP } from "@/features/aufstellungen/constants";
 import { LINEUP_WORDS, playersOf } from "@/features/aufstellungen/players";
 import { getAufstellungSelf } from "@/features/aufstellungen/queries";
 import { readAsSeatHolder, requireTeamSeats, teamMetadata } from "@/features/roles/resolvers";
-import { eventChipOf, matchdayOf, matchName, matchTitle } from "@/features/spiele/blocks";
+import { eventChipOf, matchdayOf, matchName } from "@/features/spiele/blocks";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { objectIdParamOf } from "@/shared/utils/routeParams";
 
@@ -35,23 +36,27 @@ async function lineupAt(params: Props["params"], team: string, saison: string): 
   return found === null || found.spiel.saison_id !== saison ? null : found;
 }
 
+/** The line-up's title, its tab's and its strip's: the club whose line-up it is, as the administration's twin reads. */
+function titleOf({ spiel, team_id }: FLAufstellungResponse): Copy {
+  const team = [spiel.team1, spiel.team2].find((side) => side?.team_id === team_id);
+  if (team === undefined || team === null) throw new ContractBreakError("A line-up's read named a club its fixture does not field.");
+  return ROUTES.teamAufstellung.title({ record: team.name });
+}
+
 export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
   return teamMetadata(
     params,
     address,
     (seat) => lineupAt(params, seat.team_id, seat.saison_id),
-    async ({ spiel }) =>
-      pageMetadata(parent, ROUTES.teamAufstellung, address(await params), {
-        title: matchName(spiel.team1?.name ?? null, spiel.team2?.name ?? null),
-      }),
+    async (found) => pageMetadata(parent, ROUTES.teamAufstellung, address(await params), { title: titleOf(found) }),
   );
 }
 
 /**
- * The line under the title: the matchday, as the Spiele list names it, and when the match is played; and where nothing
- * is stored before the lock, the day the line-up is due, or since when it is overdue, unless something befell the
- * match, which then needs no line-up from the club. Due and overdue refuse nothing: they are words alone. From the
- * lock, the closed editor's reason says the league alone changes it.
+ * The line under the title: the match, since the title names one club, the matchday, as the Spiele list names it, and
+ * when the match is played; and where nothing is stored before the lock, the day the line-up is due, or since when it is
+ * overdue, unless something befell the match, which then needs no line-up from the club. Due and overdue refuse
+ * nothing: they are words alone. From the lock, the closed editor's reason says the league alone changes it.
  */
 function leadOf({ spiel, marks }: FLAufstellungResponse): Copy {
   const when = COPY.spielplan.when(dayOf(spiel.date), timeOf(spiel.time));
@@ -59,7 +64,7 @@ function leadOf({ spiel, marks }: FLAufstellungResponse): Copy {
   const due =
     marks === null || marks.stored || marks.phase === "locked" || spiel.sonderereignis !== null ? null : dayIn(new Date(marks.due_at));
   const owed = due === null ? null : marks?.phase === "overdue" ? words.overdueSince(due) : words.dueBy(due);
-  return COPY.shared.line([matchdayOf(spiel, spiel), when, owed]);
+  return COPY.shared.line([matchName(spiel.team1?.name ?? null, spiel.team2?.name ?? null), matchdayOf(spiel, spiel), when, owed]);
 }
 
 /**
@@ -92,7 +97,7 @@ export default async function AufstellungPage({ params }: Props) {
   return (
     <TeamAufstellung
       team={seat.team_id}
-      title={matchTitle(found.spiel.team1?.name ?? null, found.spiel.team2?.name ?? null)}
+      title={titleOf(found)}
       {...(chip === undefined ? {} : { chip })}
       lead={leadOf(found)}
       aufstellung={{ id: found.spiel.spiel_id, version: found.version, spieler: found.spieler }}

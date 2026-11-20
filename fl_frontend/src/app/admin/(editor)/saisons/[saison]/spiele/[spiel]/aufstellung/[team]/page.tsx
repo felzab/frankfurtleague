@@ -8,7 +8,7 @@ import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { LINEUP_WORDS, playersOf } from "@/features/aufstellungen/players";
 import { getAufstellung } from "@/features/aufstellungen/queries";
-import { eventChipOf, matchdayOf, matchName, matchTitle } from "@/features/spiele/blocks";
+import { eventChipOf, matchdayOf, matchName } from "@/features/spiele/blocks";
 import { adminIdParamOf } from "@/shared/utils/adminRead";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
@@ -35,23 +35,28 @@ async function findAufstellung(params: Props["params"]): Promise<FLAufstellungRe
   return found === null || found.spiel.saison_id !== saison ? null : found;
 }
 
+/** The line-up's title, its tab's and its strip's: the club whose line-up it is, as the match editor's link to it reads. */
+function titleOf({ spiel, team_id }: FLAufstellungResponse): Copy {
+  const team = [spiel.team1, spiel.team2].find((side) => side?.team_id === team_id);
+  if (team === undefined || team === null) throw new ContractBreakError("A line-up's read named a club its fixture does not field.");
+  return ROUTES.adminAufstellung.title({ record: team.name });
+}
+
 export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
-  return metadataFor(findAufstellung(params), ({ spiel, team_id }) =>
-    pageMetadata(parent, ROUTES.adminAufstellung, ROUTES.adminAufstellung.path(spiel.saison_id, spiel.spiel_id, team_id), {
-      title: matchName(spiel.team1?.name ?? null, spiel.team2?.name ?? null),
+  return metadataFor(findAufstellung(params), (found) =>
+    pageMetadata(parent, ROUTES.adminAufstellung, ROUTES.adminAufstellung.path(found.spiel.saison_id, found.spiel.spiel_id, found.team_id), {
+      title: titleOf(found),
     }),
   );
 }
 
 /**
- * The line under the title: whose line-up it is, since the title names both clubs, the matchday as the Spiele list
- * names it, and when the match is played. No due day: the league enters a line-up whenever the match has its slot.
+ * The line under the title: the match, since the title names one club, the matchday as the Spiele list names it, and
+ * when the match is played. No due day: the league enters a line-up whenever the match has its slot.
  */
-function leadOf({ spiel, team_id }: FLAufstellungResponse): Copy {
-  const team = [spiel.team1, spiel.team2].find((side) => side?.team_id === team_id);
-  if (team === undefined || team === null) throw new ContractBreakError("A line-up's read named a club its fixture does not field.");
+function leadOf({ spiel }: FLAufstellungResponse): Copy {
   return COPY.shared.line([
-    COPY.aufstellung.ofTeam({ record: team.name }),
+    matchName(spiel.team1?.name ?? null, spiel.team2?.name ?? null),
     matchdayOf(spiel, spiel),
     COPY.spielplan.when(dayOf(spiel.date), timeOf(spiel.time)),
   ]);
@@ -74,7 +79,7 @@ export default async function AdminAufstellungPage({ params }: Props) {
   return (
     <AdminAufstellung
       team={found.team_id}
-      title={matchTitle(spiel.team1?.name ?? null, spiel.team2?.name ?? null)}
+      title={titleOf(found)}
       // What befell the match, after the title as every match block draws it.
       {...(spiel.sonderereignis === null
         ? {}
