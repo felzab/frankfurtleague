@@ -121,12 +121,10 @@ export type TableRow = {
       href?: never;
       onOpen?: never;
       /**
-       * What can be done to a record that opens no page of its own. A decision, such as „Zusagen“ and „Ablehnen“, is
-       * one or two kit buttons, each the trigger of its dialog, as a card's act row holds them: on one line under the
-       * row's words where the list is stacked, at the row's end where it is a table. Side acts (`SideActs`), in a list
-       * that says its rows carry them (`sideActs`), are their labelled buttons at the row's end where the list is a
-       * table, and one „⋯“ at its end, across its lines, where it is stacked. A row the reader can do nothing to takes
-       * none, and a table none of whose rows takes any draws no act column.
+       * What can be done to a record that opens no page of its own: its side acts (`SideActs`, or `RowAct`'s one),
+       * their labelled buttons at the row's end where the list is a table, and one „⋯“ at its end, across its lines,
+       * where it is stacked. A row the reader can do nothing to takes none, and a table none of whose rows takes any
+       * draws no act column.
        */
       acts?: ReactElement;
     }
@@ -162,15 +160,10 @@ export type TableProps = {
    * rest would stand nowhere a touch reaches.
    */
   stack?: boolean;
-  /**
-   * The rows' acts are side acts (`SideActs`, and `RowAct`'s one) rather than a decision's buttons, which the list
-   * reads to stand them for all its rows: the acts reach it as an element, which says nothing of what it holds.
-   */
-  sideActs?: true;
 };
 
-/** A table's heads, its columns and how its cells and acts set, which a page states once, beside the rows it reads. */
-export type TableHead = Pick<TableProps, "nameLabel" | "state" | "columns" | "stack" | "sideActs">;
+/** A table's heads, its columns and how its cells set, which a page states once, beside the rows it reads. */
+export type TableHead = Pick<TableProps, "nameLabel" | "state" | "columns" | "stack">;
 
 export type TableBody = Omit<TableProps, keyof TableHead>;
 
@@ -194,14 +187,13 @@ const PHONE_WRAPS_CLASSES = "@max-2xl:wrap-anywhere @max-2xl:whitespace-normal";
  * there and its rows subgrids, head and rows sharing one set of tracks (`stackedTracks`). The name cell gives way to
  * its parts, `contents`, and each part of the row takes a line of its own, in one order: the name's, its chips directly
  * after the name (`nameWithChips`), with the columns the phone keeps beside it, each in its own track
- * under its head; the muted line; a refusal; and a decision's acts on one line. The chevron spans the lines, centred on
- * the row, and so does the „⋯“ side acts fold into there. A line that holds nothing takes no height, and a head cell's
+ * under its head; the muted line; and a refusal. The chevron spans the lines, centred on the row, and so does the „⋯“
+ * side acts fold into there. A line that holds nothing takes no height, and a head cell's
  * words stand on a 40-px line, since a grid item's stand at its top where a table cell's stand in its middle.
  *
  * A row is 56 px at the least, 52 from `lg`, its hairline among them. Chips the name's line cannot hold stand 2 px under
  * it, and a name over its chips is 42, a plaque standing beside the two lines, so at 6 px of padding, 4 from `lg`, such
- * a row stands exactly as tall as one whose chips stand after its name. A list whose rows carry their acts under their
- * words pads its rows as a card's act row is (`actRow`).
+ * a row stands exactly as tall as one whose chips stand after its name.
  */
 const table = tv({
   slots: {
@@ -348,8 +340,12 @@ const table = tv({
         refusal: "@max-2xl:col-start-1 @max-2xl:-col-end-2 @max-2xl:row-start-3 @max-2xl:px-3 @max-2xl:pt-0.5",
         cell: "@max-2xl:row-start-1",
         end: "@max-2xl:-col-start-2 @max-2xl:row-span-4 @max-2xl:row-start-1 @max-2xl:flex @max-2xl:w-auto @max-2xl:items-center",
-        acts: "@max-2xl:col-start-1 @max-2xl:-col-end-1 @max-2xl:row-start-4 @max-2xl:w-auto @max-2xl:px-3",
-        actsLine: "@max-2xl:pt-2 @2xl:justify-end",
+        // The „⋯“ stands in the row's last track, across its lines, as a chevron does. Its button is taller than a
+        // name's line, and a cell spanning the lines would share that height out over them and stand a lone name above
+        // the button's centre; so the cell's size counts nothing (`contain-size`), its width stated, and the button
+        // stands centred on the row's lines, inside the row's least height.
+        acts: "@max-2xl:-col-start-2 @max-2xl:-col-end-1 @max-2xl:row-span-4 @max-2xl:row-start-1 @max-2xl:flex @max-2xl:w-11 @max-2xl:items-center @max-2xl:px-0 @max-2xl:pe-3 @max-2xl:contain-size pointer-coarse:@max-2xl:w-13",
+        actsLine: "@2xl:justify-end",
       },
     },
     // Where the chips on the name's line show: at every width on a table that names no status column, and on the
@@ -362,12 +358,6 @@ const table = tv({
     // the chevrons' and the acts', which name nothing.
     lone: {
       true: {},
-    },
-    // A list whose rows carry acts: a decision's on a line under a stacked row's words, and side acts in the one „⋯“
-    // they fold into at a stacked row's end (`SideActs`).
-    acts: {
-      under: {},
-      folded: {},
     },
     linked: {
       true: { row: cardHover() },
@@ -391,20 +381,6 @@ const table = tv({
     { shares: true, stacks: "list", cut: true, class: { cell: "@2xl:w-auto" } },
     { shares: true, stacks: "list", pair: true, class: { state: "@2xl:w-auto" } },
     { lone: true, stacks: "list", class: { head: "@max-2xl:hidden" } },
-    // A stacked row with its acts under its words is padded as a card's act row.
-    { acts: "under", stacks: "list", class: { row: "@max-2xl:py-3 lg:@max-2xl:py-3" } },
-    // The „⋯“ stands in the row's last track, across its lines, as a chevron does. Its button is taller than a name's
-    // line, and a cell spanning the lines would share that height out over them and stand a lone name above the
-    // button's centre; so the cell's size counts nothing (`contain-size`), its width stated, and the button stands
-    // centred on the row's lines, inside the row's least height.
-    {
-      acts: "folded",
-      stacks: "list",
-      class: {
-        acts: "@max-2xl:-col-start-2 @max-2xl:row-span-4 @max-2xl:row-start-1 @max-2xl:flex @max-2xl:w-11 @max-2xl:items-center @max-2xl:px-0 @max-2xl:pe-3 @max-2xl:contain-size pointer-coarse:@max-2xl:w-13",
-        actsLine: "@max-2xl:pt-0",
-      },
-    },
     // A prose or a stack table's stacked row stands its cells in one column and its chevron in a column of its own at
     // its end, spanning every cell's line so it is centred on the row's height (`phoneEndStyle`).
     { prose: true, chevrons: true, class: { row: PHONE_END_ROW_CLASSES, end: PHONE_END_CLASSES } },
@@ -732,20 +708,18 @@ function NameCell({
  *
  * The list's own width picks its rows' form, for every row and every list alike (`table`'s `stacks`): a table from
  * 42 rem, and below it stacked rows, the name and its chips with at most a narrow column beside them, then the muted
- * line and the acts, each on a line of its own. A `prose` and a `stack` table stack their own way at the same width,
+ * line on a line of its own, and the acts' „⋯“ at the row's end. A `prose` and a `stack` table stack their own way at the same width,
  * each cell under the name after its column's label. The table, its rows, its heads and its cells carry their table
  * roles in writing, since a stacked row's and a prose row's `display: grid` drops the semantics an engine infers from
  * the elements alone.
  */
-export function Table({ label, nameLabel, state, columns, rows, empty, bare = false, prose = false, stack = false, sideActs }: TableProps) {
+export function Table({ label, nameLabel, state, columns, rows, empty, bare = false, prose = false, stack = false }: TableProps) {
   // Any row's acts give the whole table its column, whose head names nothing, as the chevrons' does.
   const hasActs = rows.some((row) => row.acts !== undefined);
   const stacks = stacksOf({ prose, stack });
-  // Where a stacked row's acts stand: a decision's under its words, side acts' „⋯“ at its end.
-  const acts = !hasActs ? undefined : sideActs === true ? "folded" : "under";
   const pair = state?.delivery === true;
   const shares = pair || columns.some((column) => column.cut === true);
-  const parts = table({ stacks, acts, shares, pair });
+  const parts = table({ stacks, shares, pair });
   const leadsOn = (row: TableRow) => row.href !== undefined || row.onOpen !== undefined;
   const isLinked = rows.some(leadsOn);
   // Every row keeps the chevron's room on a phone where some row draws one there.
@@ -819,7 +793,7 @@ export function Table({ label, nameLabel, state, columns, rows, empty, bare = fa
                   key={row.id}
                   data-kit-row
                   role="row"
-                  className={table({ linked: leadsOn(row), muted: row.muted === true, acts, ...phoneEnd }).row()}>
+                  className={table({ linked: leadsOn(row), muted: row.muted === true, ...phoneEnd }).row()}>
                   <Stretched>
                     <NameCell
                       row={row}

@@ -108,7 +108,6 @@ const HEAD: TableHead = {
   nameLabel: COPY.shared.facts.before,
   state: { label: COPY.shared.facts.state, delivery: true },
   columns: [{ key: "after", label: COPY.shared.facts.after, hideOnPhone: true, onLine: "labelled", width: "line", cut: true }],
-  sideActs: true,
 };
 
 const START_RULES: StartRules = {

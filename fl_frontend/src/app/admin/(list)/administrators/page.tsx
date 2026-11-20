@@ -220,13 +220,12 @@ const HEAD = {
 
 const EMPTY = { kind: "none", plural: ROUTES.adminAdministrators.title, glyph: "administrators" } as const;
 
-/** A table of the page's cards, its rows named by their address, each carrying its one side act. */
+/** A table of the page's cards, its rows named by their address. */
 const tableOf = (label: Copy, head: Pick<TableProps, "columns" | "state" | "empty">, rows: readonly TableRow[]): TableProps => ({
   label,
   nameLabel: ADDRESS,
   ...head,
   rows,
-  sideActs: true,
 });
 
 /** „Aktiv“ open, and under it „Angekündigt“ folded with its count, which says „Nichts offen.“ while nothing waits. */

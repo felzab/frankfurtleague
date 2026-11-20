@@ -48,14 +48,13 @@ describe("a row's side acts folded", () => {
   });
 });
 
-/** Each row's side acts, as every page builds its rows: a table says its rows carry them, a seat list reads its rows. */
+/** Each row's side acts, as every page builds its rows. */
 const LISTS = {
   table: (rows: ReadonlyArray<ReadonlyArray<SideAct>>) => (
     <Table
       label={COPY.shared.addressChange.change}
       nameLabel={COPY.shared.facts.before}
       columns={[]}
-      sideActs
       rows={rows.map((acts, index) => ({
         id: String(index),
         name: { record: `person${String(index)}@example.org` },

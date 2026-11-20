@@ -34,7 +34,6 @@ const HEAD: TableHead = {
     { key: "until", label: ADMIN_COPY.banList.until, hideOnPhone: true, onLine: "labelled", width: "word" },
     { key: "enteredOn", label: ADMIN_COPY.facts.enteredOn, hideOnPhone: true, onLine: "labelled", width: "date" },
   ],
-  sideActs: true,
 };
 
 /** The address the page was drawn for; the list's own read turns a refused session away to the sign-in. */
