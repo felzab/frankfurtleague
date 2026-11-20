@@ -10,7 +10,7 @@ import type { Copy } from "@/core/copy";
 import type { ReactElement } from "react";
 
 /**
- * A short text in a 320-px pop-up under the control that opens it, on the page, which it neither dims nor blurs: a few
+ * A short text in a pop-up under the control that opens it, on the page, which it neither dims nor blurs: a few
  * declarative lines, each statement a line of its own. It opens from the ⓘ after a section's title, which `Section`
  * places from its `help` prop, so a section has one at most.
  */

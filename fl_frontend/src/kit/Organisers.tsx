@@ -3,7 +3,6 @@ import { tv } from "./tv";
 
 import type { Copy, RecordText } from "@/core/copy";
 
-/** One of the people running the league: their first name and what they do. */
 type Organiser = { name: RecordText; role: Copy };
 
 const row = tv({
@@ -17,7 +16,6 @@ const row = tv({
     box: "@container",
     root: `grid grid-cols-2 gap-x-4 gap-y-4 ${cardSurface()} p-4 @min-[44rem]:grid-cols-4 @min-[44rem]:gap-x-6 @min-[44rem]:p-6`,
     person: "flex min-w-0 items-center gap-2.5",
-    // The avatar, the first letter of the name in a 40-px circle, as the account row draws one.
     avatar: "flex size-10 shrink-0 items-center justify-center rounded-full bg-bg-muted font-numeric text-sm font-semibold",
     words: "grid min-w-0",
     name: "truncate text-sm font-semibold",
@@ -25,7 +23,7 @@ const row = tv({
   },
 });
 
-/** The people who run the league, in columns of one width, each beside a mark of their first letter: on the landing and on About. */
+/** The people who run the league, in columns of one width, each beside a mark of their first letter. */
 export function Organisers({ people }: { people: readonly Organiser[] }) {
   const slots = row();
   return (

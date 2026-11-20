@@ -260,8 +260,9 @@ export function TextField(props: TextFieldProps) {
  * A select its record holds fixed or its form closed (`Select`), drawn as the answer it shows. React Aria's select takes
  * no read-only state, its props omitting `isReadOnly`, and its closed trigger changes the value by the arrow keys and
  * by typing, so it stands as a read-only text field holding the chosen answer's words: in the trigger's own frame, in
- * every field's read-only look, its arrow a read-only signifier (`fieldSignifier`), reachable by the keys and heard as read-only as every other locked field is. It posts nothing, as a
- * disabled select does, and takes no edit before hydration, its input standing `readOnly` in the server's markup too.
+ * every field's read-only look, its arrow a read-only signifier (`fieldSignifier`), reachable by the keys and heard
+ * as read-only as every other locked field is. It posts nothing, as a disabled select does, and takes no edit before
+ * hydration, its input standing `readOnly` in the server's markup too.
  */
 export function ChosenField({
   label,

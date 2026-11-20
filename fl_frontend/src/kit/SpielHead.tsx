@@ -108,10 +108,9 @@ function Side({ side, score, part, struck }: { side: SpielHeadSide; score: Figur
 }
 
 /**
- * The match head over the pop-up's facts and over a match page's: the matchday, and under it the two sides as
- * a pairing with their plaques over their names and the score large between them, „n. E.“ under a
- * shoot-out's score, on a surface of its own, the band across the dialog's top or a box of the page. The one
- * block that names a match by its two sides.
+ * The match head over the pop-up's facts and over a match page's: the matchday over the pairing and its score, on a
+ * surface of its own, the band across the dialog's top or a box of the page. The one block that names a match by its
+ * two sides.
  */
 export function SpielHead({ eyebrow, team1, team2, result, absent, placement = "dialog" }: SpielHeadProps & { placement?: "dialog" | "page" }) {
   const score = figures(result);
@@ -163,7 +162,6 @@ export type SpielPopupContent = {
   sonderereignis: { title: Copy; text: Copy } | null;
 };
 
-/** The match pop-up's body, once the match is read. */
 async function PopupBody({ popup }: { popup: Promise<SpielPopupContent> }) {
   const { title, act, head: pairing, facts, sonderereignis } = await popup;
   return (

@@ -37,7 +37,6 @@ const facts = tv({
   slots: {
     list: "",
     row: "grid gap-0.5",
-    // The glyph, 16 px, on the label's own 16-px line, 6 px before it.
     term: "flex items-center gap-1.5 text-xs text-fg-muted",
     detail: "font-medium wrap-anywhere",
   },
@@ -72,10 +71,8 @@ const facts = tv({
 });
 
 /**
- * A record's data, read rather than edited: stacked pairs, each a 12-px muted label over its value, in a
- * hairline box with hairlines between the rows and two pairs a row where the box is wide, one hairline between the
- * columns, the rows' rules running the whole width and an odd last pair across both columns; or free of the box inside
- * a card or a pop-up. The one block that pairs a label with a value.
+ * A record's data, read rather than edited: stacked pairs, each a label over its value, in a hairline box, or free of
+ * the box inside a card or a pop-up. The one block that pairs a label with a value.
  */
 export function Facts({ facts: rows, look = "boxed" }: { facts: ReadonlyArray<Fact>; look?: "boxed" | "free" }) {
   const { list } = facts({ look });

@@ -31,12 +31,11 @@ type Sending = { run: () => Promise<ActionAnswer>; press?: never } & (
  */
 type AtOnce = { press: () => void; run?: never; variant?: never; confirm?: never };
 
-/** One act of a section's footer. */
 export type SectionActItem = {
   label: Copy;
   /** Closed while the section's inputs are incomplete, its fields showing what is missing, or while the press would reach nobody. */
   isDisabled?: boolean;
-  /** Why its write would refuse the record as it stands, which the page read, the button saying why (`Button`). */
+  /** Why its write would refuse the record as it stands, which the page read, the button saying why. */
   locked?: Copy;
 } & (Sending | AtOnce);
 

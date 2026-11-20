@@ -26,10 +26,10 @@ const tabs = tv({
  * UnderlineNav builds navigation tabs, the chosen one marked `aria-current="page"`, and under the row the
  * chosen tab's content, the page's own. Each link is the tab alone, `?tab=<id>`, which the browser and
  * Next's router alike resolve against the page's own address, so Back, a reload and a shared link keep the
- * view; the chosen tab is the one the server read from the
- * address (`chosenTab`), or from a tab's press the one the navigation goes to. Plain links, because React Aria's tabs replace their server-rendered links when
- * they hydrate and drop a link click whose press they did not see begin: a press held across hydration did
- * nothing (adobe/react-spectrum#8239). On a phone the row scrolls sideways, and where the browser drives
+ * view; the chosen tab is the one the server read from the address (`chosenTab`), or from a tab's press the one the
+ * navigation goes to. Plain links, because React Aria's tabs replace their server-rendered links when they hydrate
+ * and drop a link click whose press they did not see begin: a press held across hydration did nothing
+ * (adobe/react-spectrum#8239). On a phone the row scrolls sideways, and where the browser drives
  * animations from a scroll, the edge with more to read fades through the `kit-scroll-fade` keyframes in the
  * token file.
  */

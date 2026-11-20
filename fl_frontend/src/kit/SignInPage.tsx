@@ -15,7 +15,6 @@ import { tv } from "./tv";
 import type { Copy } from "@/core/copy";
 import type { ReactNode } from "react";
 
-/** A press the view offers: its words, the spinner while it runs, and what it does. */
 type Act = { label: Copy; onPress: () => void; isBusy?: boolean; isDisabled?: boolean };
 
 /** What every view says first: its heading, and the one line under its acts for what went wrong. */
@@ -25,7 +24,6 @@ type Head = {
   row: Copy | null;
 };
 
-/** The e-mail view: the address field, „Code senden“, the „oder“ divider, the passkey by its button alone. */
 type AddressView = Head & {
   view: "address";
   address: {
@@ -46,7 +44,6 @@ type AddressView = Head & {
   passkey: Act;
 };
 
-/** The code view: the address set semibold inside the sentence, the six boxes, and one press to use another address. */
 type CodeView = Head & {
   view: "code";
   /** The sentence's two parts around the address. */
@@ -86,7 +83,6 @@ const look = tv({
     // Every address a view names: inside its sentence, or on its own line under a passkey sentence.
     marked: "font-semibold break-all",
     acts: "grid gap-3",
-    // The address form's field, its bot check and its send in the form rule's rhythm (`FieldStack`, `FormFooter`).
     form: "text-left",
     divider: "flex items-center gap-3 text-xs text-fg-muted",
     rule: "h-px flex-1 bg-border",
@@ -94,10 +90,9 @@ const look = tv({
 });
 
 /**
- * The sign-in template: the heading, the sentences, the address and the code
- * boxes centred, every button full width in the 352-px column. Each view is one step of a sign-in; the page
- * holding its state passes the view it is on. A refusal stands in the one line under the acts, the address's
- * and the typed code's in their field's own line.
+ * The sign-in template: the heading, the sentences, the address and the code boxes centred, every button full width in
+ * the column. Each view is one step of a sign-in; the page holding its state passes the view it is on. A refusal
+ * stands in the one line under the acts, the address's and the typed code's in their field's own line.
  */
 export function SignInPage(props: SignInView) {
   const slots = look();
@@ -202,7 +197,6 @@ function AddressBody({ title, address, check, send: { onPress: send, ...button }
 
   return (
     <>
-      {/* The column's 16 px above the field. */}
       <ClassicTitle
         text={title}
         place="page"

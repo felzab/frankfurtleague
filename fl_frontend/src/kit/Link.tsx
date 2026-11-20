@@ -13,7 +13,6 @@ import type { Route } from "next";
 import type { ReactNode } from "react";
 import type { IconName } from "./Icon";
 
-/** A link's own mark, as running text shows it: the brand's colour and an underline, which thickens under the pointer. */
 const LINK_MARK_CLASSES = `text-brand underline ${hoverLook({ host: "link", answer: "line" })}`;
 
 const link = tv({
@@ -53,11 +52,7 @@ const link = tv({
   },
 });
 
-/**
- * A link the frames draw themselves, as tall as every control, 32 px under a mouse and 40 px under a finger,
- * coloured by the ground it stands on: the classic header's on the dark-green band, the title strip's legal
- * pages and a record's way to its own page, „Konto“ at a signed-out rail's foot.
- */
+/** A link the frames draw themselves, as tall as every control, coloured by the ground it stands on. */
 export const frameLink = tv({
   base: "flex h-8 items-center rounded-lg px-3 text-sm font-medium whitespace-nowrap transition-colors duration-(--motion-state) pointer-coarse:h-10",
   variants: {
@@ -79,10 +74,7 @@ export const frameLink = tv({
   },
 });
 
-/**
- * An entry of a list a frame opens, its glyph before its words where it has one: a menu's, 32 px on desktop,
- * and a sheet's, 40 px on a phone, as tall as every control.
- */
+/** An entry of a list a frame opens, a desktop menu's or a phone's sheet's, as tall as every control. */
 export const menuEntry = tv({
   base: "flex items-center gap-3 rounded-md px-3 font-medium text-fg",
   variants: {
@@ -141,7 +133,6 @@ type Footer = { placement: "footer" } & (Worded | { children: ReactNode; label?:
  */
 type Contents = { placement: "contents"; current: boolean } & Worded;
 
-/** A link a frame draws, as tall as every control, in the tone of the ground it stands on (`frameLink`). */
 type Frame = { placement: "frame"; tone: "band" | "bandMuted" | "strip" | "link" | "rail" } & Worded;
 
 type Card = {

@@ -63,7 +63,6 @@ export function Card({ title, count, chip, body = "rows", children, line }: Card
  */
 export type CardLinkProps = { href: Route; title: Words; line?: Words };
 
-/** One choice of the chooser: the whole card one link, its title and its line, the chevron at its right. */
 export function CardLink({ href, title, line }: CardLinkProps) {
   return (
     <section className={card().root()}>
@@ -86,7 +85,6 @@ export function CardLink({ href, title, line }: CardLinkProps) {
 // card's and every row of one card takes one form.
 const CARD_ROW_CLASSES = `@container relative ${stacked()} text-sm ${cardHover()}`;
 
-/** One record in a card's rows: where it opens, its name with its chip, its line where it has one, and its acts. */
 export type CardActRowProps = {
   href: Route;
   name: Words;
@@ -97,15 +95,10 @@ export type CardActRowProps = {
 };
 
 /**
- * One record in a card's rows whose open work is done where it shows: its name with its chip, a line saying what is
- * open where the name and the chip leave something to say, and its acts, one or two kit buttons: a decision, such as
- * „Zusagen“ and „Ablehnen“, or the row's one act, labelled at every width. The chip stands directly after the name on
- * its line (`nameWithChips`). The card's width picks where the acts stand, for every row of the card
- * alike: on a card from 32 rem beside the words, before the chevron; on a narrower one, a phone's and each of two beside
- * the rail, on one line under the words. The whole row opens the record through its name, as every card row does, and
- * ends in the chevron, with acts or none; under the pointer the row takes the one hover layer and an act's own stacks
- * on it. A name too long for its line is cut with „…“; the full name stays the link's accessible name and shows as its
- * title while it is cut.
+ * One record in a card's rows whose open work is done where it shows, its acts one or two kit buttons: a decision, such
+ * as „Zusagen“ and „Ablehnen“, or the row's one act, labelled at every width. The card's width picks where the acts
+ * stand, for every row of the card alike: beside the words on a wide card, and on one line under them on a narrower
+ * one, a phone's and each of two beside the rail.
  */
 export function CardActRow({ href, name, chip, line, acts }: CardActRowProps) {
   const s = actRow({ opens: true });

@@ -69,7 +69,6 @@ export type MailedState =
   | { state: "invalid"; next: StatusCardProps["next"] }
   | ({ state: "end" } & EndState);
 
-/** The page once its link is read. */
 async function MailedBody({ page }: { page: Promise<MailedState> }) {
   const props = await page;
   switch (props.state) {

@@ -33,7 +33,6 @@ import type { FormStatus } from "./useFormAction";
  */
 type Run = (formData: FormData) => Promise<ActionAnswer<unknown>>;
 
-/** The question an act asks before it runs; its button then carries the question's verb and record. */
 type Question = ConfirmWords;
 
 /** The one act a box's footer holds, beside its status line. */
@@ -47,7 +46,7 @@ export type AccountAct = {
   carry?: Readonly<Record<string, string>>;
   /** The toast once it is done, for an act that leaves nothing in the box to change. */
   done?: Copy;
-  /** Why the act cannot run on the box's present state, the button saying why (`Button`). */
+  /** Why the act cannot run on the box's present state, the button saying why. */
   locked?: Copy;
   /** The act saves the box's fields, which the line then says beside its button, „Gespeichert“. */
   saves?: true;
@@ -76,7 +75,6 @@ function lineOf(answer: ActionAnswer<unknown> | null, isBlocked: boolean, isPend
   return statusOf(answer, isBlocked, isPending);
 }
 
-/** An act through the kit's one form wrapper, behind the passkey touch where it asks one, its outcome as a line. */
 function useAct({ run, touch = false, done, saves, carry }: Pick<AccountAct, "run" | "touch" | "done" | "saves" | "carry">) {
   const touched = usePasskeyTouch(touch, carry?.holder);
   const { answer, submit, block, isBlocked, isPending } = useFormAction(
@@ -94,25 +92,18 @@ function useAct({ run, touch = false, done, saves, carry }: Pick<AccountAct, "ru
 const box = tv({
   slots: {
     root: cardSurface({ class: "overflow-hidden" }),
-    // The title and the sentence under it, in an inline box's row or a stacked box's head (`boxHead`).
     words: "grid gap-1",
     description: "text-sm text-fg-muted",
-    // The one box without a footer: its words at the start and its control at the end, in one row that wraps on a
-    // phone too narrow for both.
     inline: "flex flex-wrap items-center justify-between gap-4 p-4",
   },
 });
 
 /**
- * One box of a Konto page, every box the same shape: its 16-px title and one sentence under it saying what the box
- * holds, over a hairline across the box where content follows, as an editor's section heads its fields (`boxHead`),
- * its content, and a footer band holding the status line and its one act: the primary button for a save,
- * the outlined danger button for an act whose question is a danger's (`askingLook`), its box then taking the danger edge and title an editor's
- * danger box takes, the secondary button for every other. A box holding
- * one control that acts at once, Darstellung's, is the one exception: its title and sentence at the start and its
- * control at the end of one row, no footer; and a box holding nothing this page acts on, an address change an
- * administrator started, which the old address's stop link ends, shows its content and no footer. The outcome stands
- * in the footer's line: a refusal in red with the input kept, a field's message under its field; a done act leaves the
+ * One box of a Konto page: its title and one sentence saying what the box holds, its content, and a footer holding the
+ * status line and its one act. A box whose act asks a danger's question takes the danger edge and title an editor's
+ * danger box takes. A box holding one control that acts at once, Darstellung's, has no footer; nor has a box holding
+ * nothing this page acts on, an address change an administrator started, which the old address's stop link ends. A
+ * refusal stands in the footer's line with the input kept, a field's message under its field; a done act leaves the
  * line empty, the box showing what changed, and the line's answer is cleared once the page is left. An act asking a
  * question first answers a refusal in the question, which stays open with it, as every question does.
  */
@@ -122,7 +113,6 @@ export function AccountBox(
   ),
 ) {
   const slots = box();
-  // A box whose one act asks a danger's question, Anmeldung's deletion, is a danger box, as an editor's is.
   const danger = props.act !== undefined && "confirm" in props.act.button && props.act.button.confirm.tone === "danger";
   const words = (
     <>
@@ -198,7 +188,7 @@ function ActBox({ act, words, danger, children }: { act: AccountAct; words: Reac
   const label = "label" in act.button ? act.button.label : COPY.shared.withObject(act.button.confirm.subject, act.button.confirm.verb);
   const button = (
     <Button
-      // A locked act asking a question keeps the look its question's trigger takes (`Trigger`).
+      // A locked act asking a question keeps the look its question's trigger takes.
       variant={question === undefined ? (act.saves === true ? "primary" : "secondary") : askingLook(question.tone)}
       type={question === undefined ? "submit" : "button"}
       label={label}
@@ -243,7 +233,6 @@ function ActBox({ act, words, danger, children }: { act: AccountAct; words: Reac
   );
 }
 
-/** A sentence about a record of the box, in the two parts around the record's own words, which it sets semibold. */
 export function AccountSentence({ parts, record }: { parts: { before: Copy; after: Copy }; record: RecordText }) {
   return (
     <p className="text-sm text-fg">
@@ -257,7 +246,7 @@ type Rename = { title: Copy; run: (formData: FormData) => Promise<ActionAnswer>;
 
 /**
  * A row's removal: the question, then, from its button, the passkey touch and the act. `locked` keeps the button shut
- * where the page knows at render that the act would be refused, the button saying why (`Button`).
+ * where the page knows at render that the act would be refused, the button saying why.
  */
 type Remove = {
   subject: Copy;
@@ -274,7 +263,6 @@ type Remove = {
     }
 );
 
-/** One record of a box: its name, the line under it, and its acts as icon buttons at the row's end. */
 export type AccountRow = { id: string; name: RecordText; detail: Copy; rename?: Rename; remove: Remove };
 
 const rowLook = tv({
@@ -306,7 +294,6 @@ export function AccountRows({ rows: records }: { rows: ReadonlyArray<AccountRow>
   );
 }
 
-/** One row: its name over its line, and its icon buttons. */
 function Row({ record }: { record: AccountRow }) {
   const slots = rowLook();
   return (

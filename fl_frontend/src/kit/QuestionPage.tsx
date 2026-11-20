@@ -8,7 +8,6 @@ import type { TextFieldProps } from "./TextField";
 
 type Form<Input> = Omit<ComponentProps<typeof QuestionForm<Input>>, "holder" | "children">;
 
-/** The form once the address it is drawn for is read. */
 async function FormOnceRead<Input>({
   holder,
   fields,

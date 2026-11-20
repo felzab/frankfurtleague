@@ -104,7 +104,6 @@ type TeamFrame = {
 /** The seasons a frame's season button offers and its season pages take: the person's own, or those of each team they hold. */
 export type FrameSaisons = SaisonFrame | TeamFrame;
 
-/** A frame's seasons with the season pages its menu lists. */
 type SaisonScopeValue = (SaisonFrame & { pages: readonly SaisonPage[] }) | (TeamFrame & { pages: readonly TeamPage[] });
 
 /** A frame's seasons, with the season the last address naming one named, which a page whose address names none works in. */
@@ -446,7 +445,7 @@ const railRule = tv({
 });
 
 /**
- * The rail's entries in their groups, the current one in the brand colour on the muted fill, led by the seasons' read:
+ * The rail's entries in their groups, led by the seasons' read:
  * for a season the frame does not hold, to its standard, since the not-found page stands in the frame, and a menu
  * following an unknown season would lead every entry to another not-found page.
  */
@@ -500,7 +499,6 @@ export function RailEntries({ groups: given, prefetch }: { groups: ReadonlyArray
   );
 }
 
-/** A person's initials, for the round avatar standing in for them. */
 function initials(name: string) {
   const words = name.trim().split(/\s+/);
   return `${words[0]?.charAt(0) ?? ""}${words.length > 1 ? (words.at(-1)?.charAt(0) ?? "") : ""}`.toUpperCase();
@@ -527,8 +525,7 @@ export type AccountRead = Promise<Account | null>;
  * under where that place gives its own, else the area's, and the name alone where neither gives one. The whole row is
  * the one button opening the account menu, filled under the pointer as the season button over it is, so it carries no
  * „…“ of its own, which would read as a second, smaller target, and the name keeps that room. Collapsed, the avatar
- * alone stands centred, 8 px of the row's inset after the foot's 12, and the words fade, clipped by the row; the menu
- * then opens beside the row, at the rail's edge.
+ * alone stands centred and the words fade, clipped by the row; the menu then opens beside the row, at the rail's edge.
  */
 export function AccountRow({ account: read }: { account: AccountRead }) {
   const collapsed = useRailCollapsed();
@@ -705,7 +702,6 @@ function Places({ groups: given, bar, extra, account, prefetch }: FrameMenu) {
   );
 }
 
-/** The phone bar's account place: the avatar over „Konto“, opening the account menu. */
 function AccountPlace({ account: read }: { account: AccountRead }) {
   const account = use(read);
   if (account === null) return null;

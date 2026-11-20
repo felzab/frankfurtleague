@@ -46,8 +46,8 @@ type TableColumn = {
    * A value that may run longer than its column, such as a ban's Grund, an address or a club's name: as wide as its
    * longest value while the row has room, sharing what the row leaves free with the name, and cut with „…“ only once the
    * row is full, never narrower than the least `width` sets, whole in its tooltip while it is cut, which a touch never
-   * shows. So a `stack` table, whose rows open nothing that would show the rest, cuts no column. Every other column widens to its longest value, so only
-   * a value bounded to its column's width goes uncut.
+   * shows. So a `stack` table, whose rows open nothing that would show the rest, cuts no column. Every other column
+   * widens to its longest value, so only a value bounded to its column's width goes uncut.
    */
   cut?: true;
 } &
@@ -168,9 +168,7 @@ export type TableRow = {
 );
 
 export type TableProps = {
-  /** The table's name. */
   label: Copy;
-  /** The name column's head. */
   nameLabel: Copy;
   /** A leading rank column, its head; each row's place is its `place`. */
   rankLabel?: Copy;
@@ -227,10 +225,9 @@ export type TableHead = Pick<
   "nameLabel" | "rankLabel" | "state" | "columns" | "compact" | "chevronOnPhone" | "plaqueAlone" | "stack"
 >;
 
-/** A table's rows once read: everything but its head. */
 export type TableBody = Omit<TableProps, keyof TableHead>;
 
-/** A `prose` or a `stack` table's stacked row's two columns: its cells, then its chevron, 12 px apart. */
+/** A `prose` or a `stack` table's stacked row's two columns: its cells, then its chevron. */
 const PHONE_END_ROW_CLASSES = "@max-2xl:grid-cols-[minmax(0,1fr)_auto] @max-2xl:gap-x-3";
 
 /** That chevron's column, the row's second, centring the chevron on the lines it spans. */
@@ -256,8 +253,8 @@ const PHONE_WRAPS_CLASSES = "@max-2xl:wrap-anywhere @max-2xl:whitespace-normal";
  *
  * A row is 56 px at the least, 52 from `lg`, its hairline among them. Chips the name's line cannot hold stand 2 px under
  * it, and a name over its chips is 42, a plaque standing beside the two lines, so at 6 px of padding, 4 from `lg`, such
- * a row stands exactly as tall as one whose chips stand after its name. A list whose rows carry
- * their acts under their words pads its rows 12 px, as a card's act row is (`actRow`).
+ * a row stands exactly as tall as one whose chips stand after its name. A list whose rows carry their acts under their
+ * words pads its rows as a card's act row is (`actRow`).
  */
 const table = tv({
   slots: {
@@ -310,7 +307,6 @@ const table = tv({
       figure: { head: "text-center", cell: "text-center" },
       centre: { head: "w-11 text-center", cell: "w-11 text-center text-fg-muted" },
     },
-    // On a phone, 6-px padding, 12-px figures and heads at 10 px without their tracking, the rank 28 px wide.
     compact: {
       true: {
         head: "@max-2xl:px-1.5 @max-2xl:text-2xs @max-2xl:tracking-normal",
@@ -361,11 +357,10 @@ const table = tv({
     // „3-1-0“, a count with its mark's slots, a code three capitals, such as a Stufe or a club's shorthand, a word ten
     // letters, one of a set the contract or the catalogue fixes, such as a position („Mittelfeld“, 62 px measured), a
     // group („Gruppe M“), a kit colour or a count of seats („2 von 3“), a date ten characters, an instant 20, „bis“
-    // before its date and time, an excerpt 20, the start of a `cut` text in a row whose
-    // acts need the room a whole line would take, a phone number 20, a line of an address 35 where the box is 56 rem or
-    // wider and 20 below it, where a name beside a state, the line and a phone number would keep less than its least
-    // width. A date stands at the start in the body's face, never as `figures`, which would centre
-    // it and set it apart from every other date column.
+    // before its date and time, an excerpt 20, the start of a `cut` text in a row whose acts need the room a whole line
+    // would take, a phone number 20, a line of an address 35 where the box is 56 rem or wider and 20 below it, where a
+    // name beside a state, the line and a phone number would keep less than its least width. A date stands at the start
+    // in the body's face, never as `figures`, which would centre it and set it apart from every other date column.
     width: {
       count: { head: "min-w-12" },
       pair: { head: "min-w-16 @max-2xl:min-w-13" },
@@ -496,10 +491,7 @@ const table = tv({
 /** The hyphen between a record's counts, „3-1-0“, as its head „S-U-N“ joins their letters. */
 const RECORD_JOIN = "-";
 
-/**
- * A club's won, drawn and lost counts, „3-1-0“, each in its own colour, success, warning and danger, the hyphens
- * between them in the text's: a Tabelle row's phone column and a club's tile alike.
- */
+/** A club's won, drawn and lost counts, „3-1-0“, each in its own colour, the hyphens between them in the text's. */
 export function RecordFigures({ counts }: { counts: Counts }) {
   const [won, drawn, lost] = counts;
   return (
@@ -585,7 +577,6 @@ function phoneEndStyle(rankLabel: Copy | undefined, columns: ReadonlyArray<Table
  * not, and as much room at its start, so the figure stays centred under its head; the mark, a small red „+N“,
  * stands over the figure's top-right corner, three quarters of it right of the corner, over the slot and clear
  * of the digits, and its name tells a screen reader what no line explains.
- * A record is its three counts, `RecordFigures`.
  */
 function Cell({ cell, slot, cut }: { cell: TableCell | undefined; slot: boolean; cut: boolean }) {
   if (cell === undefined) return null;
@@ -677,7 +668,6 @@ const nameParts = tv({
   },
 });
 
-/** A row's chips, the state's and then the delivery's. */
 function Chips({ row }: { row: TableRow }) {
   return (
     <>
@@ -814,9 +804,9 @@ function NameCell({
 }
 
 /**
- * A list of records: rows 52 px high on desktop and 56 on a phone, lines between them, under a head of muted capitals.
- * A row opens its record, a chevron at its end saying so, or, where its record has no page of its own, carries its
- * acts. Few columns: the name with its plaque, the status column where the rows carry a state, then a few facts.
+ * A list of records. A row opens its record, a chevron at its end saying so, or, where its record has no page of its
+ * own, carries its acts. Few columns: the name with its plaque, the status column where the rows carry a state, then a
+ * few facts.
  *
  * The list's own width picks its rows' form, for every row and every list alike (`table`'s `stacks`): a table from
  * 42 rem, and below it stacked rows, the name and its chips with at most a narrow column beside them, then the muted

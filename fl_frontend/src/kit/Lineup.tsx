@@ -22,9 +22,8 @@ import type { RoleMarkProps } from "./RoleMark";
 /**
  * The block's look, which `Lineup` draws from: two cards, each a table of one row a pupil at every
  * width, its tick and its act in the row, a phone's included, where the kit's `Table` stacks a row's acts under its
- * words. The cards, the column heads and the hairlines are the shared recipes'; the cells set as `Table`'s do, 12-px
- * padding and rows 56 px high on a phone and 52 on desktop, so a line-up reads as every other list of the kit. Each
- * table's box is the container its rows read, at a list's width, 42 rem.
+ * words. The cards, the column heads and the hairlines are the shared recipes', and the cells set as `Table`'s do, so a
+ * line-up reads as every other list of the kit. Each table's box is the container its rows read, at a list's width.
  */
 const lineup = tv({
   slots: {
@@ -43,15 +42,14 @@ const lineup = tv({
     // least width and „Nachnominiert“ only one over the other: a name over its chip is 42 px, which 6 px of padding
     // keep inside the row's 56, so such a row stands as tall as one without a chip.
     name: "w-full px-3 py-2 @max-2xl:py-1.5",
-    // The name with its mark and the chip after it, as every row holds them (`nameWithChips`). The
-    // line's least width is the name's, 5 rem, so the facts beside it narrow the column to no less. No status column:
-    // a row's tick and act stand taller than its name's line, which a row of several lines cannot centre against them.
+    // The line's least width is the name's, 5 rem, so the facts beside it narrow the column to no less. No status
+    // column: a row's tick and act stand taller than its name's line, which a row of several lines cannot centre
+    // against them.
     nameLine: "min-w-20",
     // The row's own line under its name, inside the row's height while it is one line. It wraps rather than being cut,
     // since a touch reaches no tooltip, and a word breaks anywhere, so the line never widens the name's column.
     line: "block text-xs wrap-anywhere",
     cell: "px-3 whitespace-nowrap",
-    // The last cell, as narrow as the act it holds.
     end: "w-0 pe-3",
     acts: "flex items-center justify-end",
   },
@@ -223,7 +221,6 @@ function NameCell({ player, nameId, line = null, lineId }: { player: LineupPlaye
   );
 }
 
-/** The cells every row of either list holds after its name: the number, and in a box from 42 rem the position. */
 function FactCells({ player }: { player: LineupPlayer }) {
   return (
     <>

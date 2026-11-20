@@ -15,7 +15,6 @@ import type { Copy } from "@/core/copy";
 import type { Route } from "next";
 import type { Option } from "./OptionList";
 
-/** One filter: its address parameter, its label, its choices and the value the address holds now. */
 export type Filter = {
   /** The parameter in the page's address, so Back, a reload and a shared link keep the view. */
   name: string;
@@ -84,7 +83,6 @@ export function Filters({ filters }: { filters: ReadonlyArray<Filter> }) {
           <div className="grid gap-3 px-2 pt-2">
             <div className="flex items-center justify-between gap-3">
               <SectionTitle text={COPY.shared.filter} />
-              {/* „Fertig“ closes the sheet it stands in. */}
               <Button
                 variant="secondary"
                 label={COPY.shared.done}

@@ -13,13 +13,8 @@ import type { Route } from "next";
 import type { ReactNode } from "react";
 import type { IconName } from "./Icon";
 
-/** Konto's pages, by their routes: its list, and the four the list and the rail lead to. */
 type AccountRoute = "account" | "accountSignIn" | "accountSecurity" | "accountAppearance" | "accountEntries";
 
-/**
- * A Konto page: its title in the strip and its boxes one under another in the 760-px column, each an `AccountBox`, the
- * page arriving with its boxes read.
- */
 export function AccountPage({ route, children }: { route: AccountRoute; children: ReactNode }) {
   return (
     <RailPage
@@ -41,7 +36,6 @@ export function AccountEmpty({ plural, glyph }: { plural: Copy; glyph: IconName 
   );
 }
 
-/** One of Konto's pages as its list names it: the rail's entry, its glyph and its words. */
 export type AccountEntry = { id: string; label: Copy; icon: IconName; href: Route };
 
 const list = tv({
@@ -53,10 +47,7 @@ const list = tv({
   },
 });
 
-/**
- * Konto's pages as the phone opens on them: one box of rows, each the page's rail glyph, its name and the chevron,
- * the whole row the link, as a card's rows lead on.
- */
+/** Konto's pages as the phone opens on them, each row the link to its page. */
 export function AccountList({ entries }: { entries: ReadonlyArray<AccountEntry> }) {
   const slots = list();
   return (

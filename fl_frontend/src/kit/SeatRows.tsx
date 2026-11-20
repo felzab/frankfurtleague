@@ -10,7 +10,6 @@ import type { Copy, Words } from "@/core/copy";
 import type { ReactElement } from "react";
 import type { ChipProps } from "./Chip";
 
-/** One seat of a team or an application: who holds it, where they stand, and what the page may do about it. */
 export type SeatRow = {
   id: string;
   name: Words;
@@ -46,10 +45,9 @@ const seatRows = tv({
 });
 
 /**
- * A record's three seats in one box: a row a seat, its name with its chips over one muted line, the words a party's in
- * `AnswerRows`, and its acts. A seat's acts are side acts, up to two a row, and the list decides their form for all its
- * rows (`SideActs`): beside the words at the row's end at every width, their labelled buttons in a box of 42 rem or
- * more and one „⋯“ in a narrower one.
+ * A record's three seats in one box, a row a seat. A seat's acts are side acts, up to two a row, and the list decides
+ * their form for all its rows (`SideActs`): beside the words at the row's end at every width, their labelled buttons
+ * in a box of 42 rem or more and one „⋯“ in a narrower one.
  */
 export function SeatRows({
   label,

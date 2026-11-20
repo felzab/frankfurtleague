@@ -19,7 +19,6 @@ import type { ChipProps } from "./Chip";
 import type { Place } from "./Podium";
 import type { SpielRowProps } from "./SpielRow";
 
-/** A match as the season card lists it. */
 type Shown = SpielRowProps & { id: string };
 
 /** One side of the opening match: its club's Kürzel, or `null` while its slot is empty. */

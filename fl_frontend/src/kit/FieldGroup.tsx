@@ -8,8 +8,8 @@ import type { ReactNode } from "react";
 const fieldGroup = tv({
   slots: {
     // `min-w-0`: a fieldset is at least as wide as its content by default, which would push a row of fields past the
-    // dialog. 8 px more above it than between two fields, unless it opens the dialog's fields, as a box's subgroup sets
-    // itself off (`subgroup`), and 16 px from its hairline to its fields, a box's own inset.
+    // dialog. Set further off the field above it than two fields are, unless it opens the dialog's fields, as a box's
+    // subgroup sets itself off.
     root: "grid w-full min-w-0 gap-4 not-first:mt-2",
     // A legend is drawn outside its box's flow; floated, it is an ordinary child (Bootstrap's reboot), so the grid lays it
     // out. Stretched out through the dialog's padding, which the box declares, its hairline meets both of the dialog's
@@ -21,11 +21,10 @@ const fieldGroup = tv({
 
 /**
  * A few of a dialog's fields under one short name, the address's lines and then the record's terms, as
- * GitHub Primer's Subhead parts a form: the name, the section title an editor's box carries, then 8 px under
- * it a hairline running the dialog's full width out to both its edges, then the fields in their one rhythm
- * (`FieldStack`). A `fieldset` with its `legend`, the heading inside the legend as GOV.UK's fieldset takes it, so
- * a screen reader says the group's name with each field and lists it among the dialog's headings, a step under
- * its title.
+ * GitHub Primer's Subhead parts a form: the name, then a hairline running the dialog's full width out to both its
+ * edges, then the fields. A `fieldset` with its `legend`, the heading inside the legend as GOV.UK's fieldset takes it,
+ * so a screen reader says the group's name with each field and lists it among the dialog's headings, a step under its
+ * title.
  */
 export function FieldGroup({ name, children }: { name: Copy; children: ReactNode }) {
   const { root, head } = fieldGroup();

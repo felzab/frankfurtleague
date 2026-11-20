@@ -11,13 +11,12 @@ import { tv } from "./tv";
 
 import type { Copy } from "@/core/copy";
 
-/** One section a reading page's contents list names: its heading's words and the id its `section` carries. */
 type ContentsEntry = { id: string; title: Copy };
 
 const contents = tv({
   slots: {
-    // Beside the text from `lg`, in the reading grid's second column, sticking 32 px under the classic band while the
-    // text scrolls; a sticky grid item travels its grid area, which is the text's height.
+    // Beside the text from `lg`, sticking under the classic band while the text scrolls; a sticky grid item travels its
+    // grid area, which is the text's height.
     rail: "sticky top-[calc(var(--classic-header)+2rem)] hidden gap-3 self-start lg:col-start-2 lg:row-start-1 lg:grid",
     label: smallCaps(),
     // Over the text below `lg`: a native disclosure, which needs no script; its summary holds no heading, which a

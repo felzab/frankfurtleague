@@ -38,9 +38,8 @@ function Circle({ isSelected, isInvalid }: { isSelected: boolean; isInvalid: boo
 }
 
 /**
- * One required choice of two to four: the label above, one drawn circle per answer, its label right. Where
- * each answer needs describing, the answers are selectable cards: the circle, the title and any line under it in a
- * box, the chosen box edged in green.
+ * One required choice of two to four, one drawn circle per answer. Where each answer needs describing, the answers are
+ * selectable cards.
  */
 export function RadioGroup({
   label,

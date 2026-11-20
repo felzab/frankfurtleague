@@ -43,7 +43,7 @@ type ButtonProps =
       /** A glyph before the label, such as the filter's; the spinner takes its place while busy. */
       leadingIcon?: IconName;
       icon?: never;
-      /** The id of the words that describe the act, such as the notice a form's send rests on (`OneShotForm`). */
+      /** The id of the words that describe the act, such as the notice a form's send rests on. */
       "aria-describedby"?: string;
     })
   /**
@@ -128,11 +128,7 @@ function LockedReason({
   );
 }
 
-/**
- * The one control that acts: primary, secondary, danger, outlined danger, quiet, or an icon alone; disabled at half
- * opacity.
- * A labelled button may lead with a glyph.
- */
+/** The one control that acts. */
 export function Button(props: ButtonProps) {
   const { onPress, type = "button", isDisabled = false, isBusy = false, label, slot, locked, lockedEdge = "end" } = props;
   const reasonId = useId();

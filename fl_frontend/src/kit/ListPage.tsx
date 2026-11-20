@@ -45,7 +45,6 @@ type SpieltagTabs = {
  */
 type TableContent = { table: TableBody; more?: ListMore } | { drawn: ReactElement };
 
-/** The season's matches once read: the matchday tabs, or why there are none. */
 export type SpieltageContent = {
   /** The matchday tabs; `null` while the season has no matchday yet. */
   tabs: SpieltagTabs | null;
@@ -88,28 +87,24 @@ type CardsContent = {
   seats?: { title: Copy; rows: ReadonlyArray<Omit<SeatRow, "acts">> };
 };
 
-/** The K.-o.-Baum, or why there is none yet. */
 type TreeContent = {
   /** The tree's rounds and the third place; `null` before the draw. */
   tree: ComponentProps<typeof BracketTree> | null;
   empty: EmptyStateProps;
 };
 
-/** One club's matches, each under its matchday's head, and why there are none. */
 type SpielGroupsContent = { groups: ReadonlyArray<{ head: Copy; spiel: SpielRowProps & { id: string } }>; empty: EmptyStateProps };
 
-/** Matches the filters left, each with the words the search narrows them by, and why there are none. */
+/** Matches the filters left, each with the words the search narrows them by. */
 type SpieleContent = { matches: ReadonlyArray<{ row: SpielRowProps & { id: string }; words: string }>; empty: EmptyStateProps };
 
-/** Clubs the filters left as school tiles, each with the words the search narrows them by, and why there are none. */
+/** Clubs the filters left as school tiles, each with the words the search narrows them by. */
 type TilesContent = { tiles: ReadonlyArray<{ tile: SchoolTile; words: string }>; empty: EmptyStateProps };
 
-/** What the list shows, by its kind, and the content the kind is drawn from once it is read. */
 type ListContent =
   | {
       kind: "table";
       /** The search field's name, where the list holds about 20 rows or more. */ search?: ListSearch;
-      /** The table's head, over the rows the read brings. */
       head: TableHead;
       content: Promise<TableContent>;
     }
@@ -140,7 +135,6 @@ type ListContent =
     }
   | {
       kind: "spiele";
-      /** The search field's name. */
       search: ListSearch;
       content: Promise<SpieleContent>;
     }
@@ -150,7 +144,6 @@ type ListContent =
     }
   | {
       kind: "tiles";
-      /** The search field's name. */
       search: ListSearch;
       content: Promise<TilesContent>;
     };
@@ -189,14 +182,13 @@ function Spieltage({ label, selectedKey, tabs }: SpieltagTabs) {
   );
 }
 
-/** The filter block once its choices are read. */
 async function FiltersOnceRead({ filters }: { filters: Promise<ReadonlyArray<Filter>> }) {
   return <Filters filters={await filters} />;
 }
 
 /**
  * A record created where its list shows: the dialog's act, and why it cannot run on the list as it stands, which the
- * page read, the button saying why (`Button`).
+ * page read, the button saying why.
  */
 export type ListCreate = DialogAct & { locked?: Copy };
 
@@ -223,7 +215,6 @@ function ToolbarAct({ act: { locked, ...act }, side = false }: { act: ListCreate
   );
 }
 
-/** A toolbar act once what it makes is read. */
 async function ToolbarActOnceRead({ act, side }: { act: Promise<ListCreate>; side: boolean }) {
   return (
     <ToolbarAct
@@ -268,7 +259,6 @@ function ToolbarActs({ children }: { children: ReactNode }) {
  */
 export type ListLink = { label: Copy; href: Promise<Route | null> };
 
-/** That link once the list says whether it stands. */
 async function LinkOnceRead({ link }: { link: ListLink }) {
   const href = await link.href;
   return (
@@ -283,7 +273,6 @@ async function LinkOnceRead({ link }: { link: ListLink }) {
   );
 }
 
-/** The list once its content is read. */
 async function ListBody({ list }: { list: ListContent }) {
   switch (list.kind) {
     case "table": {
@@ -427,17 +416,8 @@ async function ListBody({ list }: { list: ListContent }) {
 /**
  * The list template: the page's title in the strip; one toolbar row holding the search field where the list
  * is long enough to need one, the filter block, its values in the address, and at the row's end the act
- * creating a record over the list, a second act before it where the list holds one; then the list. The list is a
- * table whose rows open their records or carry their acts, „Weitere 50 laden“ under it only while the server reports
- * more rows; or, for the season's matches, the matchday tabs, one matchday at a time, opening on the one the server
- * names; or folded cards of tables, as Administratoren sets what stands over what waits; or one card per group, its
- * head naming the group over its table, as the Tabelle stands its groups one under another; or open work
- * as cards of rows, two a row from 42 rem of their grid, as the Übersicht sets its kinds, a team's own under the team's head and
- * closing with a card of its seats, and a lone card, such as a referee's games, at the content's width; or the K.-o.-Baum; or matches the
- * filters left, which the search narrows, as the Spielsuche lists them; or one club's matches, each in its own box
- * under its matchday's head, as a team's Spiele lists them; or the
- * clubs the filters left as school tiles, which the search narrows, as Teams lists them. A list with nothing
- * in it shows its empty state in its place.
+ * creating a record over the list, a second act before it where the list holds one; then the list, drawn by its kind.
+ * A list with nothing in it shows its empty state in its place.
  *
  * The page arrives whole: every part it reads, the list and whatever its read decides around it, holds the page until
  * it is rendered, and the page is sent as one document.

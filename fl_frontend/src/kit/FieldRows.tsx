@@ -7,8 +7,7 @@ import type { ReactNode } from "react";
 
 /**
  * A group of a box's fields under its name, set as the kit's subhead in small capitals, such as a season's points over
- * the win, the draw and the loss: 8 px more above it than between two fields, unless it opens the box, and 8 px under
- * its name, so the name stands with the fields it names. A fieldset and its legend, the platform's own group with a
+ * the win, the draw and the loss. A fieldset and its legend, the platform's own group with a
  * name, which a screen reader says before each field's label.
  */
 const subgroup = tv({

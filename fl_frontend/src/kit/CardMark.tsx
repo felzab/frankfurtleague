@@ -3,8 +3,8 @@ import { tv } from "./tv";
 import type { FLCardColour } from "@/core/generated/client/types";
 
 const cardMark = tv({
-  // A card's own shape, 10 by 14 px, its corners the kit's smallest. The fills are the status hues, which keep their
-  // contrast on every ground in both themes; the destructive button's red is darker than a dark card allows.
+  // The fills are the status hues, which keep their contrast on every ground in both themes; the destructive button's
+  // red is darker than a dark card allows.
   base: "inline-block h-3.5 w-2.5 shrink-0 rounded-sm",
   variants: {
     colour: {
