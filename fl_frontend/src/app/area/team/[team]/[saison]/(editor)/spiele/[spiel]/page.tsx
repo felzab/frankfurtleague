@@ -115,8 +115,8 @@ export default async function AufstellungPage({ params }: Props) {
       aufstellung={{ id: found.spiel.spiel_id, version: found.version, spieler: found.spieler }}
       players={playersOf(found)}
       words={LINEUP_WORDS}
-      // The block's every act answers a press with why it is closed.
-      {...(closed === undefined ? {} : { locked: closed, closed })}
+      // The league still changes a locked line-up, so its acts stay drawn and locked, the lock line saying why.
+      {...(closed === undefined ? {} : { closed, acts: "locked" })}
     />
   );
 }

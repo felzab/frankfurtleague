@@ -102,8 +102,8 @@ export default async function AdminAufstellungPage({ params }: Props) {
       aufstellung={{ id: found.spiel.spiel_id, version: found.version, spieler: found.spieler }}
       players={playersOf(found)}
       words={LINEUP_WORDS}
-      // The block's every act answers a press with why it is closed.
-      {...(closed === undefined ? {} : { locked: closed, closed })}
+      // A finished season's line-up takes no write again, so its acts are left out, the lock line saying why.
+      {...(closed === undefined ? {} : { closed, acts: "out" })}
     />
   );
 }
