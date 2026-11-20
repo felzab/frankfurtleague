@@ -90,7 +90,7 @@ function entriesOf({ spieler, schiedsrichter, registrierungen, seats, bewerbunge
           {
             id: `spieler-${spieler.spieler_id}`,
             title: COPY.shared.kader,
-            description: WORDS.description.spieler,
+            description: WORDS.description.own,
             facts: [fact(COPY.shared.name, kaderName(spieler)), birthday(spieler.birth_date)],
             ...saved({ kind: "spieler" }, spieler.evidence_state, SPIELER_TEXT_VERSIONS),
             scope: spieler.einwilligung.scope,
@@ -102,7 +102,7 @@ function entriesOf({ spieler, schiedsrichter, registrierungen, seats, bewerbunge
   const referee = schiedsrichter.map((row): Entry => ({
     id: `schiedsrichter-${row.schiedsrichter_id}`,
     title: COPY.shared.schiedsrichter,
-    description: WORDS.description.schiedsrichter,
+    description: WORDS.description.own,
     facts: [
       fact(COPY.shared.name, row.name),
       birthday(row.birth_date),
@@ -120,7 +120,7 @@ function entriesOf({ spieler, schiedsrichter, registrierungen, seats, bewerbunge
   const registered = registrierungen.map((row): Entry => ({
     id: `registrierung-${row.registrierung_id}`,
     title: COPY.page.registrierung,
-    description: WORDS.description.registrierung,
+    description: WORDS.description.own,
     facts: [
       fact(COPY.shared.name, `${row.first_name} ${row.last_name}`),
       birthday(row.birth_date),

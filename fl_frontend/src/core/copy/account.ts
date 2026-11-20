@@ -4,8 +4,6 @@ import { formatDate, formatInstant, formatList, formatNumber } from "../format";
 import type { Copy, RecordText, Wait, Words } from "../copy";
 import type { FLKontaktSeat } from "../generated/client/types";
 
-// What a person's own record's box holds beyond its title, which names the record: a pupil's, a registration's, a referee's.
-const OWN_DETAILS = "Deine Angaben und was davon öffentlich ist.";
 const PASSKEY_WITHOUT_CODE = "Mit einem Passkey meldest du dich ohne Code an.";
 // The pending change's opening, before its new address.
 const NEW_ADDRESS = "Die neue Adresse ";
@@ -99,9 +97,8 @@ export const ACCOUNT_COPY = catalogue({
     plural: "Einträge",
     /** Each entry box's one sentence, by the kind of record it holds, adding to the title what the box holds. */
     description: {
-      spieler: OWN_DETAILS,
-      registrierung: OWN_DETAILS,
-      schiedsrichter: OWN_DETAILS,
+      /** A person's own record, which the title names: a pupil's, a registration's, a referee's. */
+      own: "Deine Angaben und was davon öffentlich ist.",
       /** A seat on a team's season and a seat in an application alike, by the seats held, in the seats' order. */
       seat: (seats: readonly FLKontaktSeat[]) => `Dein Eintrag als ${seatsText(seats)} und wie wir dich erreichen.`,
     },
