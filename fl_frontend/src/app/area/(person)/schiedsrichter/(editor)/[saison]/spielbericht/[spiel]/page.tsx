@@ -87,11 +87,6 @@ export async function generateMetadata({ params }: Props, parent: ResolvingMetad
   );
 }
 
-/** The report's form, on its one read, or the status card saying why the fixture takes no report from this referee. */
-export default async function SpielberichtPage({ params }: Props) {
-  return await readPage(params);
-}
-
 /** A pupil by number and name as the squad lists them; one no record holds is „anonym“, as every page names them. */
 function optionOf({ spieler_id: id, nummer, first_name: first, last_name: last }: FLSpielberichtSpieler): Option {
   const name = spielerName({ first_name: first, last_name: last });
@@ -130,7 +125,8 @@ function card(title: PageTitle, tone: "info" | "warn" | "danger", said: Copy, sa
   );
 }
 
-async function readPage(params: Props["params"]) {
+/** The report's form, on its one read, or the status card saying why the fixture takes no report from this referee. */
+export default async function SpielberichtPage({ params }: Props) {
   const { saison } = await params;
   const found = await findIn(params);
   if (found === null) notFound();

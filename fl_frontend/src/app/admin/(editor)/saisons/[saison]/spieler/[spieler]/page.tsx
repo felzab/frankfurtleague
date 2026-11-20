@@ -61,11 +61,6 @@ export async function generateMetadata({ params }: Props, parent: ResolvingMetad
   );
 }
 
-/** A player's editor in one season, on its one read and its one save over the person and their squad row. */
-export default async function SpielerEditorPage({ params }: Props) {
-  return await readEditor(params);
-}
-
 /** The Person box's fact: the address, a mail link to the person. */
 function personFacts({ person }: FLSpielerSaisonAdminResponse): Fact[] {
   return [{ label: COPY.shared.emailAddress, link: { href: `mailto:${person.email}` as Route, label: { record: person.email } } }];
@@ -91,7 +86,8 @@ function einwilligungFacts({ person: { einwilligung } }: FLSpielerSaisonAdminRes
   ];
 }
 
-async function readEditor(params: Props["params"]) {
+/** A player's editor in one season, on its one read and its one save over the person and their squad row. */
+export default async function SpielerEditorPage({ params }: Props) {
   const located = await findSpieler(params);
   if (located === null) notFound();
   const { id, saison, found } = located;

@@ -36,22 +36,12 @@ async function findSchiedsrichter(params: Props["params"]) {
   return id === null ? null : read(id);
 }
 
-async function readSchiedsrichter(params: Props["params"]) {
-  const found = await findSchiedsrichter(params);
-  if (found === null) notFound();
-  return found;
-}
-
 export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
   return metadataFor(findSchiedsrichter(params), ({ schiedsrichter }) =>
     pageMetadata(parent, ROUTES.adminSchiedsrichterRecord, ROUTES.adminSchiedsrichterRecord.path(schiedsrichter.id), {
       title: { record: schiedsrichter.name },
     }),
   );
-}
-
-export default async function SchiedsrichterEditorPage({ params }: Props) {
-  return await readEditor(params);
 }
 
 /**
@@ -100,8 +90,9 @@ function confirmationFacts(read: FLSchiedsrichterSingleResponse): Fact[] {
   ];
 }
 
-async function readEditor(params: Props["params"]) {
-  const found = await readSchiedsrichter(params);
+export default async function SchiedsrichterEditorPage({ params }: Props) {
+  const found = await findSchiedsrichter(params);
+  if (found === null) notFound();
   const referee = found.schiedsrichter;
   const { state } = referee;
   const retired = referee.inactive_since !== null;

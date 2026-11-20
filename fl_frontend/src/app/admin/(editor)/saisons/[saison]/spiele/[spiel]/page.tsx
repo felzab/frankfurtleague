@@ -85,12 +85,6 @@ async function findSpiel(params: Props["params"]): Promise<FLSpieleAdminSingleRe
   return view === null || view.spiel.saison_id !== saison ? null : view;
 }
 
-async function readSpiel(params: Props["params"]): Promise<FLSpieleAdminSingleResponse> {
-  const view = await findSpiel(params);
-  if (view === null) notFound();
-  return view;
-}
-
 /** A match is named by its two teams, as its own page is, and by its number while a side is still open. */
 const nameOf = (spiel: FLSpielJoinedAdmin) =>
   spiel.team1 === null || spiel.team2 === null
@@ -101,10 +95,6 @@ export async function generateMetadata({ params }: Props, parent: ResolvingMetad
   return metadataFor(findSpiel(params), ({ spiel }) =>
     pageMetadata(parent, ROUTES.adminSpiel, ROUTES.adminSpiel.path(spiel.saison_id, spiel.id), { title: nameOf(spiel) }),
   );
-}
-
-export default async function SpielEditorPage({ params }: Props) {
-  return await readEditor(params);
 }
 
 /** A pupil a goal names, by the names their record holds; a goal naming nobody, „anonym“. */
@@ -319,8 +309,9 @@ function teamsOf(view: FLSpieleAdminSingleResponse): Team[] | null {
   );
 }
 
-async function readEditor(params: Props["params"]) {
-  const view = await readSpiel(params);
+export default async function SpielEditorPage({ params }: Props) {
+  const view = await findSpiel(params);
+  if (view === null) notFound();
   const { spiel: saved } = view;
   // A finished season's matches take no write (`saison_past`), so the editor opens on one read-only.
   const closed = view.saison_status === "past";

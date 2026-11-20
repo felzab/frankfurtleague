@@ -41,14 +41,6 @@ const LINKS_HEAD: TableHead = {
   columns: [{ key: "sentOn", label: WORDS.sentOn, hideOnPhone: true, onLine: "labelled", width: "date" }],
 };
 
-/** The season the address names, or the not-found page. */
-async function readSaison(params: Props["params"]) {
-  const { saison } = await params;
-  const read = await getAdminSaison(saison);
-  if (read === null) notFound();
-  return read;
-}
-
 export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
   const { saison } = await params;
   return metadataFor(getAdminSaison(saison), (read) =>
@@ -109,16 +101,11 @@ function waitingOf(row: FLInvitationLinkRow): ChipProps | null {
 }
 
 export default async function SaisonSettingsPage({ params }: Props) {
-  return await readEditor(params);
-}
-
-async function readEditor(params: Props["params"]) {
+  const { saison: id } = await params;
   // The frame's own season list, which the switch's question names the season the site leaves from, beside the view read.
-  const [{ saison, teams, incoming_teams, shapes, spielplan, refusals, invitations }, { saisons }, session] = await Promise.all([
-    readSaison(params),
-    getAdminSaisons(),
-    getAdminSession(),
-  ]);
+  const [read, { saisons }, session] = await Promise.all([getAdminSaison(id), getAdminSaisons(), getAdminSession()]);
+  if (read === null) notFound();
+  const { saison, teams, incoming_teams, shapes, spielplan, refusals, invitations } = read;
   // The page's read turned a refused session away to the sign-in before this line; an acting administrator signs in
   // by passkey alone, so every act behind the touch asks it.
   const holder = session?.user.email ?? "";
