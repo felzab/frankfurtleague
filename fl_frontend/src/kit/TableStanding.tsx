@@ -82,8 +82,6 @@ export type TableStandingProps = {
 /** The standing's heads and columns, which a page states once, beside each group's rows. */
 export type TableStandingHead = Pick<TableStandingProps, "rankLabel" | "nameLabel" | "columns">;
 
-export type TableStandingBody = Omit<TableStandingProps, keyof TableStandingHead>;
-
 /**
  * The standing's look. Its rows are one line at every width: it holds more figures than a phone's width holds at a
  * list's padding, so on a phone every column keeps its place by compact cells, 6 px a side, and a club is its plaque
