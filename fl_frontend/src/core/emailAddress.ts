@@ -5,7 +5,6 @@ import type { FLKontaktEmailMaxLength } from "./generated/client/types";
  * import from `shared`.
  */
 
-/** The whole-address ceiling the backend publishes. */
 export const KONTAKT_EMAIL_MAX_LENGTH = 254 satisfies FLKontaktEmailMaxLength;
 
 /**
@@ -57,12 +56,11 @@ export function isOneBareMailbox(value: string): boolean {
 /** Whether the lower-cased host is a special-use name or under one, compared as the API compares its domain. */
 const isSpecialUseHost = (host: string): boolean => SPECIAL_USE_DOMAINS.some((name) => host === name || host.endsWith(`.${name}`));
 
-// The API's refusals that rest on a registry this rule cannot copy stay the API's: IDNA 2008's
-// reading of an `xn--` label and RFC 5890's reserved labels.
 /**
  * The API's address rule: ASCII throughout, the local part's alphabet, each host label letters, digits and hyphens, its
  * special-use names, and its lengths. An umlaut domain is refused rather than converted, so the stored form is the fold of
- * what was typed.
+ * what was typed. The API's refusals that rest on a registry this rule cannot copy stay the API's: IDNA 2008's reading
+ * of an `xn--` label and RFC 5890's reserved labels.
  */
 export function isDeliverableAddress(value: string): boolean {
   const at = value.lastIndexOf("@");

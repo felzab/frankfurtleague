@@ -2,8 +2,7 @@ import { readFileSync } from "node:fs";
 
 import { defineConfig } from "orval";
 
-// The gate's contract check names a scratch folder of its own here, so it generates beside the tree, never into it
-// (`scripts/gate/verify.sh :: contract_check`).
+// The gate's contract check names a scratch folder of its own here, so it generates beside the tree, never into it.
 const SCRATCH = process.env.CONTRACT_SCRATCH;
 const DOCUMENT_PATH = SCRATCH ? `${SCRATCH}/openapi.json` : "../fl_backend/openapi.json";
 const GENERATED = SCRATCH ? `${SCRATCH}/generated` : "src/core/generated";
@@ -12,8 +11,7 @@ const TRANSPORT_PATH = "@/core/transport";
 /** The transport exports sending one key: a call that may write, one that writes nothing, a dry run's, and an hourly pass's. */
 type Transports = { write: string; read?: string; dryRun?: string; pass?: string };
 
-// Each key tier's scheme in the document's `components.securitySchemes`, and the transports sending its key. A pass is
-// the system key's alone: no other caller waits out its minute.
+// A pass is the system key's alone: no other caller waits out its minute.
 const TRANSPORTS_BY_SCHEME: Readonly<Record<string, Transports>> = {
   BaseKey: { write: "baseKeyTransport", read: "baseKeyReadTransport" },
   SystemKey: { write: "systemKeyTransport", read: "systemKeyReadTransport", pass: "systemKeyPassTransport" },
@@ -21,7 +19,7 @@ const TRANSPORTS_BY_SCHEME: Readonly<Record<string, Transports>> = {
 };
 const UNKEYED: Transports = { write: "unkeyedTransport" };
 
-// The one query parameter `fl_frontend/src/core/transport.ts :: adminKeyDryRunTransport` reads a dry run off.
+// The one query parameter `adminKeyDryRunTransport` reads a dry run off.
 const DRY_RUN = "dry_run";
 
 type Security = readonly Readonly<Record<string, readonly string[]>>[];
@@ -33,9 +31,9 @@ const document = JSON.parse(readFileSync(DOCUMENT_PATH, "utf8")) as Document;
 /**
  * The transport an operation is sent through, read off the operation itself, so no call site chooses either: the key
  * its `security` names, and whether it writes, which the backend states where the method does not say it, as
- * `x-safe` on a POST that writes nothing and `x-safe-when` on a write whose dry run writes nothing
- * (`fl_backend/app/core/routing.py :: SAFE`), and whether it is an hourly pass, which `x-pass` states
- * (`fl_backend/app/core/middlewares.py :: PASS`). A scheme or a mark no transport here serves fails the generation.
+ * `x-safe` on a POST that writes nothing and `x-safe-when` on a write whose dry run writes nothing (the backend's
+ * `SAFE`), and whether it is an hourly pass, which `x-pass` states (the backend's `PASS`). A scheme or a mark no
+ * transport here serves fails the generation.
  */
 function transportOf(operation: Operation): string {
   const { operationId, security = document.security ?? [] } = operation;
@@ -92,7 +90,7 @@ export default defineConfig({
         header: false,
         operations,
         paramsSerializer: { path: TRANSPORT_PATH, name: "serializeQuery" },
-        // A call answers its success body; `fl_frontend/src/core/api.ts :: sendToBackend` throws on any other status.
+        // A call answers its success body; `sendToBackend` throws on any other status.
         fetch: { includeHttpResponseReturnType: false },
       },
     },

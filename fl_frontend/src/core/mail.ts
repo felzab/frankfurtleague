@@ -167,7 +167,6 @@ async function writeToSink(message: OutboundMail, traceId: string): Promise<void
   }
 }
 
-/** Resolves on the delay, or at once when the whole call's budget has already run out. */
 function pause(ms: number, signal: AbortSignal): Promise<void> {
   return new Promise((resolve) => {
     if (signal.aborted) {
@@ -335,7 +334,7 @@ async function deliver({ to, subject, html, text, sender, tags, idempotencyKey }
     // requirement down: a file there would leave a live sign-in code on the host's disk.
     if (frontend_config.APP_ENV !== "production") await writeToSink({ to, subject, html, text, sender, tags, idempotencyKey }, traceId);
 
-    // No line of its own: the row's `zurueckgehalten` is the record, and the filed copy carries the row's id among its tags.
+    // No line of its own: the row's `held` state is the record, and the filed copy carries the row's id among its tags.
     throw new MailHeldError();
   }
 

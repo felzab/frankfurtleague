@@ -75,19 +75,14 @@ const SESSION_UPDATE_AGE_SECONDS = 5 * 60;
 
 const CODE_VALIDITY_SECONDS = CODE_VALIDITY_MINUTES * 60;
 
-/** The one path that spends a code, which the browser's client posts. */
 const CODE_SIGN_IN_PATH = "/sign-in/email-otp";
 
 /** What the code check takes: the browser's client sends these two, and a name or an image is a hand-made request's. */
 const CODE_SIGN_IN_FIELDS: ReadonlySet<string> = new Set(["email", "otp"]);
 
-/** The one path that mails a code, called in process alone. */
 const CODE_SEND_PATH = "/email-otp/send-verification-otp";
 
-/**
- * The one path that mails a deletion link, called in process without a token; a press completes the link through
- * `/delete-user/callback`, also called in process.
- */
+/** Mails a deletion link where called without a token; a press completes the link through `/delete-user/callback`. */
 const DELETE_USER_PATH = "/delete-user";
 
 /** The library's `deleteUser` answer to a mailed link, which a capped request answers too. */
@@ -121,7 +116,6 @@ const SESSION_FACTOR_BY_PATH: ReadonlyMap<string, AuthFactor> = new Map([
   [CODE_SIGN_IN_PATH, CODE_FACTOR],
 ]);
 
-/** Named, because the library's failure line records an error's name and nothing else. */
 class SessionFromUnlistedPath extends Error {
   override name = "SessionFromUnlistedPath";
 }
@@ -155,13 +149,10 @@ function codeSignInAddress(body: unknown): string | null {
   return typeof email === "string" ? email : null;
 }
 
-/* The library mounts far more endpoints than a browser here calls, and an upgrade adds more, so the
-   surface is closed from two sides: the documented switch below, and the default-deny hook that also
-   covers what it cannot. */
-
-// What a browser of this league calls: the two passkey ceremonies' four paths, the code check and the
-// sign-out. The code's send and every guard run in process instead.
-
+// The library mounts far more endpoints than a browser here calls, and an upgrade adds more, so the
+// surface is closed from two sides: the documented switch below, and the default-deny hook that also
+// covers what it cannot. These are what a browser of this league calls: the two passkey ceremonies'
+// four paths, the code check and the sign-out; the code's send and every guard run in process instead.
 // The spellings come from the constants the stamp, the enrolment refusal, the assertion's ask and the code's
 // bounds compare, so a release that renamed one would 404 the real call rather than let it through unjudged.
 const BROWSER_PATHS: ReadonlySet<string> = new Set([
@@ -174,10 +165,9 @@ const BROWSER_PATHS: ReadonlySet<string> = new Set([
   "/sign-out",
 ]);
 
-// The library's own switch, which refuses before a route is matched or a body read.
-
-// It compares a path derived from the URL, so neither parameterised route can be named here at all
-// and the hook is what refuses those two.
+// The library's own switch, which refuses before a route is matched or a body read. It compares a
+// path derived from the URL, so neither parameterised route can be named here at all and the hook is
+// what refuses those two.
 const DISABLED_PATHS: readonly string[] = [
   "/account-info",
   "/change-email",
@@ -220,9 +210,7 @@ const DISABLED_PATHS: readonly string[] = [
 ];
 
 // Matched on the OPENING of the library's own message, because each of these ends in the value it
-// rejected.
-
-// The events are this repository's, so an upgrade that rewords one falls to the entry below
+// rejected. The events are this repository's, so an upgrade that rewords one falls to the entry below
 // rather than putting the reworded message on the stream.
 const LIBRARY_EVENTS: readonly (readonly [string, string])[] = [
   ["Invalid origin", "auth.origin_refused"],
@@ -280,7 +268,6 @@ const userOptions = {
   },
 } satisfies BetterAuthOptions["user"];
 
-/** Named, because the library's failure line records an error's name and nothing else. */
 class DeletionWithoutErasure extends Error {
   override name = "DeletionWithoutErasure";
 }
@@ -342,8 +329,6 @@ export function sessionCookieOf(requestHeaders: Headers): string | null {
   return getSessionCookie(new Headers({ cookie: ownCookies }), { cookiePrefix: cookieNaming(new URL(frontend_config.AUTH_URL)).cookiePrefix });
 }
 
-// Called by `build`, never at import: `next build` imports this module in every page-data worker
-// holding no environment, where neither the URL nor the client can be built.
 // `origin` gives both halves of the WebAuthn binding.
 const authOptions = (origin: URL, client: MongoClient) =>
   ({
@@ -358,14 +343,13 @@ const authOptions = (origin: URL, client: MongoClient) =>
     session: sessionOptions,
     user: userOptions,
 
-    // Left to its default, the library would store the caller's address on every session row; the switch
-    // below stores none, and nothing here would read one, the limiter that would being off.
-
     advanced: {
       // The session and its user in one `$lookup` rather than a second query: every guard reads the
       // session on every request, cookie caching being off above.
       database: { joins: true },
-      // The edge's own access line already carries the address, under its retention bound.
+      // Left to its default, the library would store the caller's address on every session row, which
+      // nothing here would read, the limiter that would being off. The edge's own access line already
+      // carries the address, under its retention bound.
       ipAddress: { disableIpTracking: true },
       // The library turns its origin check, and the CSRF checks riding on it, off wherever `NODE_ENV` is
       // `test` or `TEST` is set, so the check is pinned on whatever the environment says.
@@ -480,7 +464,8 @@ const authOptions = (origin: URL, client: MongoClient) =>
         const event = LIBRARY_EVENTS.find(([opening]) => message.startsWith(opening))?.[1] ?? LIBRARY_EVENT_UNKNOWN;
 
         // `args` is dropped whole: it carries the error object itself, which the logger writes with its
-        // message and stack.
+        // message and stack. The error's name is all the line keeps, so an error this league throws inside
+        // the library is a class naming itself.
         const raised = args.find((argument) => argument instanceof Error);
 
         // A second row for a credential the index holds: one authenticator enrolled twice at once without signing in, or
@@ -644,7 +629,6 @@ const authOptions = (origin: URL, client: MongoClient) =>
     plugins: [
       // `disableSignUp` stays off: every person's row is written at their first verification, so set
       // it the first correct code dies, and the gate below is the only barrier.
-
       // A code row for EVERY address typed, and the send below handed each one, so a verify reads alike
       // for a member and a stranger and the gate decides only the mail.
       emailOTP({
@@ -681,14 +665,9 @@ const authOptions = (origin: URL, client: MongoClient) =>
         },
       }),
 
-      // `rpName` is what the browser's own passkey prompt shows, and the plugin's default names the
-      // library rather than this league.
-
-      // `authenticatorSelection`'s user verification is the whole of that requirement: the plugin asks it
-      // in both ceremonies' options and refuses a response whose authenticator did not verify the user,
-      // before anything is written. Set to "preferred" and both halves relax together, which is what
-      // WebAuthn Level 3 §7.2 conditions the check on.
       passkey({
+        // What the browser's own passkey prompt shows, where the plugin's default names the library
+        // rather than this league.
         rpName: COPY.brand.name,
         // Named rather than left to the plugin's own derivation, which answers this same host off
         // `baseURL`: what an enrolled passkey is bound to for life outlives that option.
@@ -696,6 +675,10 @@ const authOptions = (origin: URL, client: MongoClient) =>
         // Unset, this is the caller's own `Origin` header -- a ceremony checked against the value its
         // own sender chose.
         origin: origin.origin,
+        // The user verification is the whole of that requirement: the plugin asks it in both ceremonies'
+        // options and refuses a response whose authenticator did not verify the user, before anything is
+        // written. Set to "preferred" and both halves relax together, which is what WebAuthn Level 3 §7.2
+        // conditions the check on.
         authenticatorSelection: { userVerification: "required", residentKey: "required" },
         // The callback runs before the plugin writes the passkey row, so a refusal here leaves the store
         // as it found it.
@@ -710,13 +693,12 @@ const authOptions = (origin: URL, client: MongoClient) =>
             // stand.
             const adapter = await getCurrentAdapter(ctx.context.adapter);
 
-            // Judged again here, the last point before the row is written, and reached by an `auth.api`
-            // call the hook lets through; off the hook's carried read, and nothing where it carried none.
-
             // `ctx.context.session` is put there by the plugin's own `freshSessionMiddleware`, which it
             // mounts only while `registration.requireSession` keeps its default: unset it and this arm
             // sees no factor at all and refuses every enrolment.
             const enrolling = ctx.context.session ?? null;
+            // Judged again here, the last point before the row is written, and reached by an `auth.api`
+            // call the hook lets through; off the hook's carried read, and nothing where it carried none.
             if (enrolling !== null) refuseBarred(carriedOrRefuse(ctx, enrolling.user.id));
             await refuseEnrolment(
               adapter,
@@ -745,12 +727,11 @@ const build = () => betterAuth(authOptions(new URL(frontend_config.AUTH_URL), si
 
 let built: ReturnType<typeof build> | undefined;
 
-// Built on first use rather than at import: `next build` loads this module in every page-data worker with the secret
-// undefined, and constructing the library starts a check that rejects there with nobody
-// awaiting it.
 /**
- * The library's instance, whose options and context both carry the session key: the library's own route
- * handler and the modules beside this one import it, and every other module calls a narrow function one of them exports.
+ * Built on first use rather than at import: `next build` loads this module in every page-data worker holding no
+ * environment, where neither the URL nor the client can be built and constructing the library starts a check that
+ * rejects with nobody awaiting it. Its options and context both carry the session key: the library's own route handler
+ * and the modules beside this one import it, and every other module calls a narrow function one of them exports.
  */
 export const auth = new Proxy({} as ReturnType<typeof build>, {
   // `Reflect.get` answers `any`: the proxy's own type, the instance's, is what every caller reads.

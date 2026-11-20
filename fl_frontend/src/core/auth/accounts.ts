@@ -57,9 +57,8 @@ export async function carryAccount(previous: string, next: string): Promise<Acco
   try {
     // The stamp rides the same write, so no session opened at the replaced address is served at the new one; the
     // library's revocations each end only the requesting session, which no caller here holds.
-    // Declared `Promise<User & T>`, yet `null` where no account holds the address or a hook refuses the write
-    // (better-auth's `updateWithHooks`, dist/db/with-hooks.mjs). Widened by `as`: an annotation would be narrowed
-    // straight back to the declared type by the assignment.
+    // Declared `Promise<User & T>`, yet `null` where no account holds the address or a hook refuses the write.
+    // Widened by `as`: an annotation would be narrowed straight back to the declared type by the assignment.
     const account = (await internalAdapter.updateUserByEmail(asSignInIdentifier(previous), {
       email: asSignInIdentifier(next),
       emailVerified: true,
