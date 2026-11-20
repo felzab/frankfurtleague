@@ -136,9 +136,8 @@ export async function sendToBackend<T>(endpoint: string, options: FetchOptions):
   // The session as the guard read it, set after the caller's own headers so none of them names
   // the actor. The backend believes these behind the admin key alone.
   if (actor) {
-    // Percent-encoded: a field value is a ByteString, which `Headers` refuses above U+00FF and sends as Latin-1 below it.
-    // The backend refuses any other spelling.
-    headers.set(ACTOR_HEADER, encodeURIComponent(actor.email));
+    // As written: every sign-in address passed the ASCII rule of `./emailAddress.ts`, and the backend refuses any other.
+    headers.set(ACTOR_HEADER, actor.email);
     headers.set(AUTH_TIME_HEADER, String(actor.authTime));
     headers.set(AUTH_FACTOR_HEADER, actor.factor);
   } else {
