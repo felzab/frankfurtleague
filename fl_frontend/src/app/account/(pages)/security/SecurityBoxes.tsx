@@ -2,12 +2,11 @@
 
 import { useRouter } from "next/navigation";
 
-import { loadAuthClient } from "@/core/auth/browserClient";
 import { ACCOUNT_COPY } from "@/core/copy/account";
 import { COPY } from "@/core/copy/shared";
 import { ROUTES } from "@/core/routes";
 import { signOutOthers } from "@/features/account/personActions";
-import { describeSetUpRefusal } from "@/features/auth/passkeyAnswers";
+import { clientRefusal, describeSetUpRefusal } from "@/features/auth/passkeyAnswers";
 import { removePasskeyAction, renamePasskeyAction } from "@/features/passkeys/actions";
 import { AccountBox, AccountRows } from "@/kit/AccountBox";
 import { TextField } from "@/kit/TextField";
@@ -52,9 +51,8 @@ export function SecurityBoxes({
 
   // The library's own registration, a request of the browser's past every server action: the page is read again.
   const runSetUp = async (): Promise<ActionAnswer> => {
-    const authClient = await loadAuthClient();
-    const { error } = await authClient.passkey.addPasskey();
-    if (error !== null) return { ok: false, reason: describeSetUpRefusal(error) };
+    const refusal = await clientRefusal((authClient) => authClient.passkey.addPasskey());
+    if (refusal !== null) return { ok: false, reason: describeSetUpRefusal(refusal) };
     router.refresh();
     return { ok: true, value: undefined };
   };

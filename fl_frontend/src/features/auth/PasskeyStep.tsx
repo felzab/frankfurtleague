@@ -3,14 +3,14 @@
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
-import { loadAuthClient, usePreloadedAuthClient } from "@/core/auth/browserClient";
+import { usePreloadedAuthClient } from "@/core/auth/browserClient";
 import { RETURN_PARAMETER, withReturnAddress } from "@/core/auth/returnAddress";
 import { PUBLIC_COPY } from "@/core/copy/public";
 import { COPY } from "@/core/copy/shared";
 import { SignInPage } from "@/kit/SignInPage";
 import { leaveDocumentFor } from "@/shared/utils/documentNavigation";
 
-import { describeCeremonyRefusal, refusalCode, refusalStatus, SESSION_NOT_FRESH } from "./passkeyAnswers";
+import { clientRefusal, describeCeremonyRefusal, refusalCode, SESSION_NOT_FRESH } from "./passkeyAnswers";
 
 import type { Copy } from "@/core/copy";
 
@@ -20,32 +20,27 @@ type Step = "enrol" | "assert";
 /** One set of words per step, so a heading and its control cannot drift apart. */
 const WORDS = { enrol: PUBLIC_COPY.signIn.passkey.setUp, assert: PUBLIC_COPY.signIn.passkey.signIn };
 
-/** What the reader is told, and whether the step this view was handed may have moved on. */
-type Held = { readonly sentence: Copy; readonly stale: boolean };
+/** What the reader is told, `null` for nothing, and whether the step this view was handed may have moved on. */
+type Held = { readonly sentence: Copy | null; readonly stale: boolean };
 
 async function ceremonyHeld(step: Step): Promise<Held | null> {
   const enrolling = step === "enrol";
 
-  try {
-    // The library's own client both ways: it holds the WebAuthn call beside the two endpoints that
-    // frame it, and a hand-rolled ceremony would own that pairing without owning the endpoints.
+  // The library's own client both ways: it holds the WebAuthn call beside the two endpoints that
+  // frame it, and a hand-rolled ceremony would own that pairing without owning the endpoints.
+  // `createSession`: setting the passkey up signs in with it, ending the code's session in the same step.
+  const refusal = await clientRefusal((authClient) =>
+    enrolling ? authClient.passkey.addPasskey({ createSession: true }) : authClient.signIn.passkey(),
+  );
+  if (refusal === null) return null;
 
-    // `createSession`: setting the passkey up signs in with it, ending the code's session in the same step.
-    const authClient = await loadAuthClient();
-    const { error } = enrolling ? await authClient.passkey.addPasskey({ createSession: true }) : await authClient.signIn.passkey();
-
-    if (error === null) return null;
-
-    // The guard's own refusal, which an enrolment another tab or device finished first earns too, and the library's
-    // for a session that aged past its `freshAge` while the card stood: the step this view was handed is then stale.
-    if (enrolling && (refusalStatus(error) === 404 || refusalCode(error) === SESSION_NOT_FRESH)) {
-      return { sentence: COPY.shared.failure.unexpected, stale: true };
-    }
-
-    return { sentence: describeCeremonyRefusal(error), stale: false };
-  } catch {
-    return { sentence: COPY.shared.failure.unexpected, stale: false };
+  // The guard's own refusal, which an enrolment another tab or device finished first earns too, and the library's
+  // for a session that aged past its `freshAge` while the card stood: the step this view was handed is then stale.
+  if (enrolling && (refusal.status === 404 || refusalCode(refusal) === SESSION_NOT_FRESH)) {
+    return { sentence: COPY.shared.failure.unexpected, stale: true };
   }
+
+  return { sentence: describeCeremonyRefusal(refusal), stale: false };
 }
 
 // No control here lists or removes a passkey: this page is reached by the mailed code alone, and a

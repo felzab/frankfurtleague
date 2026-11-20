@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 
-import { loadAuthClient, usePreloadedAuthClient } from "@/core/auth/browserClient";
+import { usePreloadedAuthClient } from "@/core/auth/browserClient";
 import { RETURN_PARAMETER, withReturnAddress } from "@/core/auth/returnAddress";
 import { PUBLIC_COPY } from "@/core/copy/public";
 import { COPY } from "@/core/copy/shared";
@@ -14,7 +14,7 @@ import { useFormAction } from "@/kit/useFormAction";
 import { leaveDocumentFor } from "@/shared/utils/documentNavigation";
 
 import { handleSignIn } from "./actions";
-import { CEREMONY_ABORTED, describeCeremonyRefusal, refusalCode } from "./passkeyAnswers";
+import { clientRefusal, describeCeremonyRefusal } from "./passkeyAnswers";
 import { codeRefusal } from "./signInAnswers";
 
 import type { ActionAnswer } from "@/core/action";
@@ -70,21 +70,15 @@ export function SignInFlow({ next, siteKey }: { next: string; siteKey: string })
       setChecking(true);
       setCodeError(null);
 
-      // A rejection, a network that failed, reaches no error boundary from here and would leave the boxes busy for good.
-      const error = await loadAuthClient()
-        .then((authClient) => authClient.signIn.emailOtp({ email: address, otp: code }))
-        .then(
-          (result) => result.error,
-          (failed: unknown) => failed,
-        );
+      const refusal = await clientRefusal((authClient) => authClient.signIn.emailOtp({ email: address, otp: code }));
 
       // A full document load and never a soft navigation: the session has just changed, so every payload the
       // router holds was rendered for somebody signed out. The view stays busy until the document goes.
-      if (error === null) return leaveDocumentFor(landing);
+      if (refusal === null) return leaveDocumentFor(landing);
 
       setChecking(false);
       setAttempt((count) => count + 1);
-      setCodeError(codeRefusal(error));
+      setCodeError(codeRefusal(refusal));
     };
 
     // The typed code's own refusal is a phrase under its boxes; every other answer is a sentence on the status line.
@@ -124,18 +118,11 @@ export function SignInFlow({ next, siteKey }: { next: string; siteKey: string })
     setPasskeyRunning(true);
     setPasskeyError(null);
 
-    // A rejection reaches no error boundary from here, and would leave the button busy for good.
-    const error = await loadAuthClient()
-      .then((authClient) => authClient.signIn.passkey())
-      .then(
-        (result) => result.error,
-        (failed: unknown) => failed,
-      );
-    if (error === null) return leaveDocumentFor(landing);
+    const refusal = await clientRefusal((authClient) => authClient.signIn.passkey());
+    if (refusal === null) return leaveDocumentFor(landing);
 
     setPasskeyRunning(false);
-    // Aborted by a ceremony started after it, which is no failure of the reader's.
-    if (refusalCode(error) !== CEREMONY_ABORTED) setPasskeyError(describeCeremonyRefusal(error));
+    setPasskeyError(describeCeremonyRefusal(refusal));
   };
 
   return (
