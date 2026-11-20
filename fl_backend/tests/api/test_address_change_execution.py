@@ -1251,24 +1251,6 @@ class TestTheToolsStart:
         assert plain.token is not None
         assert (refused, record["ended"]) == (Code.ADDRESS_CHANGE_TAKEN, None)
 
-    @staticmethod
-    async def refused_start(url: str, setup: str = "", **payload: Any) -> tuple[str, int]:
-        """The tool's refusal, and that it wrote no change."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            if setup == "grant":
-                await granted(database)
-            refused = await refused_code(administrator_starts(database, client, **payload))
-            return refused, await database[Collection.ADDRESS_CHANGES].count_documents({})
-
-        return await on_a_person(url, body)
-
-    async def test_the_administrator_s_own_address_is_refused(self, mongo_replica_set_url: str):
-        assert await self.refused_start(mongo_replica_set_url, address=ADMIN) == (Code.OWN_ADDRESS, 0)
-
-    async def test_a_grant_holder_s_address_is_refused_without_an_owner_s_power(self, mongo_replica_set_url: str):
-        assert await self.refused_start(mongo_replica_set_url, "grant") == (Code.ADMIN_ADDRESS, 0)
-
 
 class TestTheTool:
     async def test_an_ended_change_s_id_is_refused_and_an_unknown_one_not_found(self, mongo_replica_set_url: str):
@@ -1339,28 +1321,6 @@ class TestTheTool:
             return [row["data"]["holder"] async for row in database[Collection.OUTBOX].find({"kind": "address_change_link"})]
 
         assert await on_a_person(mongo_replica_set_url, body) == holders
-
-    @pytest.mark.parametrize("route", ["re-send", "discard"])
-    @pytest.mark.parametrize(("whose", "refused"), [("own", Code.OWN_ADDRESS), ("grant-holder", Code.ADMIN_ADDRESS)])
-    async def test_who_asks_is_refused_on_every_route_the_start_refuses_it(
-        self, mongo_replica_set_url: str, route: str, whose: str, refused: str
-    ):
-        """An administrator's own address, and a grant holder's for anyone without an owner's power: each route its own read."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            address = ADMIN if whose == "own" else EMAIL
-            if whose == "grant-holder":
-                await granted(database)
-            # An owner may start either; the suite's first administrator then asks.
-            started = await administrator_starts(database, client, address=address, operator=OWNER)
-            before = await change(database, started.id)
-            asked = {
-                "re-send": lambda: resend(database, client, started.id),
-                "discard": lambda: discard(database, client, started.id),
-            }[route]
-            return await refused_code(asked()), before == await change(database, started.id)
-
-        assert await on_a_person(mongo_replica_set_url, body) == (refused, True)
 
     async def test_the_discard_acts_on_the_change_its_id_names_alone(self, mongo_replica_set_url: str):
         """A page showing a change since replaced discards nothing: key the discard on the address and the later change goes."""

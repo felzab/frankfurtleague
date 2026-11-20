@@ -494,7 +494,7 @@ def find_foreign_address_change_refusal(*, addresses: Iterable[str], actor: str,
 def address_change_viewable_denied(identifier: str, *, actor: str, grants: Sequence[Mapping[str, Any]]) -> FLAddressChangeViewableDenied | None:
     """Why the address tool refuses this administrator this address's change, in the order it refuses; `None` where it opens it.
 
-    Their judgements, never their finders: a finder's code is published only on the operations `RULES` names.
+    Their judgements, never their finders: a list leaves out each row it would refuse rather than refusing the list.
     """
 
     if is_own_address(identifier=identifier, actor=actor):
