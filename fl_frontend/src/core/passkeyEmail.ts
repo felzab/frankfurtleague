@@ -1,7 +1,6 @@
 import "server-only";
 
 import { COPY } from "./copy/shared";
-import { mailOrigin } from "./emailShell";
 import { formatInstant } from "./format";
 import { ROUTES } from "./routes";
 import { SERVER_COPY } from "./serverCopy";
@@ -32,15 +31,13 @@ const ERASED: PasskeyEvent = {
 type Occasion = { instant: Date; origin: string };
 
 function build(event: PasskeyEvent, { instant, origin }: Occasion): Mail {
-  const site = mailOrigin(origin);
-
   return {
-    kind: "security",
+    audience: "security",
     subjectLine: event.subject,
-    origin: site,
+    origin,
     paragraphs: [event.paragraph(formatInstant(instant))],
     // The one place either event can be acted on.
-    button: { label: COPY.shared.end.toAccount, href: `${site}${ROUTES.accountSecurity.path()}` },
+    button: { label: COPY.shared.end.toAccount, href: `${origin}${ROUTES.accountSecurity.path()}` },
   };
 }
 

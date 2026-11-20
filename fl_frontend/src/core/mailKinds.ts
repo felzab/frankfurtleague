@@ -17,6 +17,7 @@ import {
   buildBewerbungZusageEmail,
   buildDeletionNoticeEmail,
 } from "./bewerbungEmail";
+import { mailOrigin } from "./emailShell";
 import { buildErasureEmail } from "./erasureEmail";
 import { ContractBreakError } from "./errors";
 import { buildGrantEmail } from "./grantEmail";
@@ -136,5 +137,6 @@ function secretOf(secret: string | null): string {
  * builder found takes exactly that kind's facts (TypeScript's correlated-union pattern, microsoft/TypeScript#47109).
  */
 export function mailFor<A extends OutboxKind>(kind: A, data: DataPerKind[A], handout: Handout): Mail | undefined {
-  return Object.hasOwn(MAIL_KINDS, kind) ? MAIL_KINDS[kind](data, handout) : undefined;
+  // The origin normalised once, here, so every builder spells its links on the normalised value.
+  return Object.hasOwn(MAIL_KINDS, kind) ? MAIL_KINDS[kind](data, { ...handout, origin: mailOrigin(handout.origin) }) : undefined;
 }

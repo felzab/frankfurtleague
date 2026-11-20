@@ -3,10 +3,8 @@ import "server-only";
 import { CONFIRMATION_DEADLINE_DAYS } from "./bounds";
 import { seatsText } from "./copy";
 import { COPY } from "./copy/shared";
-import { mailOrigin } from "./emailShell";
 import { dayOf, formatDateLong } from "./format";
-import { kontaktConfirmationLink } from "./kontaktLink";
-import { ROUTES } from "./routes";
+import { mailedLinkTo, ROUTES } from "./routes";
 import { SERVER_COPY } from "./serverCopy";
 import { TRIKOT_FARBEN } from "./trikotFarben";
 
@@ -39,22 +37,17 @@ const deadlineSentence = (deadline: string): Sentence => [
   WORDS.deadline.after,
 ];
 
-/** A fill named by its hex, in this shape alone: no supplier could match any other. */
-const FARBE_HEX = /^#[0-9a-f]{6}$/i;
-
 /** What an accepted application is told, each person naming the seats they were entered for. */
 export function buildBewerbungZusageEmail(
   { team, shorthand, saison_id, seats, gruppe, trikot_farbe }: FLBewerbungZusageData,
   { origin }: MailOrigin,
 ): Mail {
-  const site = mailOrigin(origin);
   const farbe = TRIKOT_FARBEN.find((entry) => entry.value === trikot_farbe);
-  const hex = farbe !== undefined && FARBE_HEX.test(farbe.hex) ? farbe.hex : null;
 
   return {
-    kind: "notice",
+    audience: "notice",
     subjectLine: WORDS.zusage.subject(saison_id),
-    origin: site,
+    origin,
     paragraphs: [[[{ strong: team }, WORDS.zusage.lead.after(saison_id)], WORDS.zusage.lead.welcome]],
     block: {
       title: COPY.shared.saisonName(saison_id),
@@ -66,23 +59,23 @@ export function buildBewerbungZusageEmail(
         // hex beside the name: the name alone leaves neighbours such as Grün and Smaragd for a supplier to guess between.
         {
           label: COPY.team.trikotFarbe,
-          value: farbe === undefined ? COPY.shared.notProvided : hex === null ? farbe.label : `${farbe.label} (${hex})`,
+          value: farbe === undefined ? COPY.shared.notProvided : `${farbe.label} (${farbe.hex})`,
         },
         // The one row that differs per reader: each person is told the seats they were entered for.
         { label: WORDS.registeredAs, value: seatsText(seats) },
       ],
     },
     afterBlock: [[farbe === undefined ? WORDS.zusage.fixedNoColour : WORDS.zusage.fixed], [WORDS.zusage.signIn]],
-    button: { label: COPY.shared.verb.signIn, href: `${site}${ROUTES.signIn.path()}` },
+    button: { label: COPY.shared.verb.signIn, href: `${origin}${ROUTES.signIn.path()}` },
   };
 }
 
 /** The decision and the reason it was given, unabridged and last: the one thing the mail exists to hand over. */
 export function buildBewerbungAbsageEmail({ team, saison_id, seats, reason }: FLBewerbungAbsageData, { origin }: MailOrigin): Mail {
   return {
-    kind: "notice",
+    audience: "notice",
     subjectLine: WORDS.absage.subject(saison_id),
-    origin: mailOrigin(origin),
+    origin,
     paragraphs: [
       [
         [WORDS.absage.lead.before, { strong: team }, WORDS.absage.lead.after(saison_id)],
@@ -106,12 +99,10 @@ export function buildBewerbungConfirmationEmail(
   { saison_id, schule, seats, deadline }: FLBewerbungLinkData,
   { origin, token }: MailLink,
 ): Mail {
-  const site = mailOrigin(origin);
-
   return {
-    kind: "firstContact",
+    audience: "firstContact",
     subjectLine: WORDS.link.subject(saison_id),
-    origin: site,
+    origin,
     paragraphs: [[WORDS.link.lead(schule), WORDS.confirmOrOppose], [deadlineSentence(deadline)]],
     block: {
       title: SERVER_COPY.kontaktConfirmation.ownEntry,
@@ -120,21 +111,19 @@ export function buildBewerbungConfirmationEmail(
         { label: WORDS.registeredAs, value: seatsText(seats) },
       ],
     },
-    button: { label: COPY.page.entryConfirmation, href: kontaktConfirmationLink(site, token) },
+    button: { label: COPY.page.entryConfirmation, href: mailedLinkTo(origin, ROUTES.kontaktConfirmation, token) },
   };
 }
 
 export function buildBewerbungReminderEmail({ saison_id, schule, deadline }: FLBewerbungLinkData, { origin, token }: MailLink): Mail {
-  const site = mailOrigin(origin);
-
   return {
-    kind: "firstContact",
+    audience: "firstContact",
     subjectLine: WORDS.reminder.subject(saison_id),
-    origin: site,
+    origin,
     paragraphs: [[WORDS.reminder.lead(schule), WORDS.confirmOrOppose], [deadlineSentence(deadline)]],
     // A fresh link, minted beside the first one rather than in place of it: a reminder that voided
     // the link somebody is still looking at would punish the reader it is chasing.
-    button: { label: COPY.page.entryConfirmation, href: kontaktConfirmationLink(site, token) },
+    button: { label: COPY.page.entryConfirmation, href: mailedLinkTo(origin, ROUTES.kontaktConfirmation, token) },
   };
 }
 
@@ -147,12 +136,10 @@ export function buildBewerbungReceivedEmail(
   { saison_id, seats, pending, deadline }: FLBewerbungReceivedData,
   { origin, token }: MailLink,
 ): Mail {
-  const site = mailOrigin(origin);
-
   return {
-    kind: "firstContact",
+    audience: "firstContact",
     subjectLine: WORDS.received.subject(saison_id),
-    origin: site,
+    origin,
     paragraphs: [
       [WORDS.received.lead(saison_id), WORDS.received.named(seats), WORDS.confirmOrOppose],
       [WORDS.received.others],
@@ -165,29 +152,27 @@ export function buildBewerbungReceivedEmail(
         { label: WORDS.received.pending, value: seatsText(pending) },
       ],
     },
-    button: { label: COPY.page.entryConfirmation, href: kontaktConfirmationLink(site, token) },
+    button: { label: COPY.page.entryConfirmation, href: mailedLinkTo(origin, ROUTES.kontaktConfirmation, token) },
   };
 }
 
 /** The one deletion notice, the application's arm where it names a season and the account's where it names none. */
 export function buildDeletionNoticeEmail({ saison_id }: FLDeletionNoticeData, { origin }: MailOrigin): Mail {
-  const site = mailOrigin(origin);
-
   if (saison_id === null) {
     return {
-      kind: "notice",
+      audience: "notice",
       subjectLine: SERVER_COPY.accountErasure.done,
-      origin: site,
+      origin,
       paragraphs: [[SERVER_COPY.mail.deletion.account]],
     };
   }
 
   return {
-    kind: "notice",
+    audience: "notice",
     subjectLine: WORDS.erasure.subject(saison_id),
-    origin: site,
+    origin,
     paragraphs: [[SERVER_COPY.mail.deletion.bewerbung.lead(saison_id), SERVER_COPY.mail.deletion.bewerbung.deleted], [WORDS.erasure.again]],
-    button: toBewerbung(site, saison_id),
+    button: toBewerbung(origin, saison_id),
   };
 }
 
@@ -199,9 +184,9 @@ export function buildBewerbungObjectionEmail({ saison_id, seats, declined, deadl
   const emptied = seatsText(declined);
 
   return {
-    kind: "notice",
+    audience: "notice",
     subjectLine: WORDS.objection.subject(saison_id),
-    origin: mailOrigin(origin),
+    origin,
     paragraphs: [
       [[WORDS.objection.lead.before, { strong: emptied }, WORDS.objection.lead.after], WORDS.objection.removed],
       [WORDS.objection.replace, [WORDS.objection.until.before, { strong: formatDateLong(dayOf(deadline)) }, WORDS.objection.until.after]],

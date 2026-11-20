@@ -26,7 +26,7 @@ import type { FLOutboxHandout, FLOutboxResultPayload, FLOutboxResultPayloadResul
 const MAIL_ENDPOINT = "https://api.resend.com/emails";
 
 // Two senders: sign-in codes and security notices from one address, everything else from the
-// other, the mail's kind choosing. Each address needs its sender alignment at the provider, and a
+// other, the mail's audience choosing. Each address needs its sender alignment at the provider, and a
 // mailbox in the league's Workspace so that a reply sent to it arrives. The privacy notice names both.
 export const SENDER_ADDRESSES: Readonly<Record<MailSender, string>> = {
   signIn: "anmeldung@frankfurtleague.de",
