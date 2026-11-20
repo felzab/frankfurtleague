@@ -3,7 +3,7 @@ import "server-only";
 import { drainSoon } from "./afterResponse";
 import { dispatchRequest, sentRequestOf } from "./apiDispatch";
 import { frontend_config, internalApiKeyAdmin, internalApiKeyBase, internalApiKeySystem } from "./config";
-import { APIBadStatusError, APINetworkError, mayHaveWritten, UnattributedAdminCallError } from "./errors";
+import { APIBadStatusError, APINetworkError, mayHaveWritten } from "./errors";
 import { Code } from "./generated/client/types";
 import { ownKeyOf } from "./ownKeyOf";
 import { boundCall, getRequestActor, getRequestTraceId, inBackground } from "./requestScope";
@@ -128,11 +128,8 @@ export async function sendToBackend<T>(endpoint: string, options: FetchOptions):
   headers.set(TRACEPARENT_HEADER, formatTraceparent(traceId));
   // Admin tier alone: a base or system call is the app acting as itself, and an actor on one would
   // attribute a machine read to a person. Omitted rather than sent empty, so an unattributed call
-  // reads as one everywhere it is inspected.
+  // reads as one everywhere it is inspected, and the backend refuses it as `missing_actor`.
   const actor = authType === "admin" ? getRequestActor() : undefined;
-  // Refused before it leaves: an admin-tier call opens under `runAdminRead` or an admin action's guard,
-  // which record the actor first.
-  if (authType === "admin" && !actor) throw new UnattributedAdminCallError(endpoint);
   // The session as the guard read it, set after the caller's own headers so none of them names
   // the actor. The backend believes these behind the admin key alone.
   if (actor) {

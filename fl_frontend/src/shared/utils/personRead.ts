@@ -8,7 +8,7 @@ import { runWithIncomingTrace } from "@/core/traceScope";
 export async function runPersonRead<T>(fn: () => Promise<T>): Promise<T> {
   return runWithIncomingTrace(async () => {
     // Inside the scope just opened, where the lookup records its actor on every call, memoised or not.
-    // With no person signed in it records none, and `sendToBackend` refuses the unattributed call unsent.
+    // With no person signed in it records none, and the backend refuses the call naming nobody.
     await getSubjectSession();
 
     return fn();

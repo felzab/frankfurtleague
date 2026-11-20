@@ -18,8 +18,6 @@ const DRY_RUN = "dry_run";
 
 function send<T>(tier: Tier, url: string, options: CallOptions | undefined, readOnly: boolean, pass = false): Promise<T> {
   // The generated URL spells the document's whole path, and `sendToBackend` prefixes its base path itself.
-  if (!url.startsWith(`${BASE_FETCH_PATH}/`)) throw new Error(`Not an endpoint under ${BASE_FETCH_PATH}: ${url}`);
-
   return sendToBackend<T>(url.slice(BASE_FETCH_PATH.length), {
     ...options,
     authType: tier,

@@ -33,19 +33,6 @@ export class RolledBackError extends Error {
 }
 
 /**
- * An admin-tier call made with no actor recorded, refused before it is sent as the backend would refuse
- * it on arrival. A programming error: the call opened outside `runAdminRead`, an admin action's
- * guard and a person read whose page checked the session first.
- */
-export class UnattributedAdminCallError extends Error {
-  override name = "UnattributedAdminCallError";
-
-  constructor(endpoint: string) {
-    super(`An admin-tier call to ${endpoint} names no actor.`);
-  }
-}
-
-/**
  * An admin-tier read whose grant the backend left unread: an outage, answered by the admin boundary's
  * retry, never a sign-in, which would meet the same unread grant.
  */
