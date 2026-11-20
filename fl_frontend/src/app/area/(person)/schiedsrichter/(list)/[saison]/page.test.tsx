@@ -25,7 +25,7 @@ serveBackend(({ method, path }) => {
 });
 // A referee, signed in by a typed code.
 signedInRequest({ email: "pia@example.org", records: { schiedsrichter: [{ schiedsrichter_id: "5f00000000000000000000ee" }] } });
-const { SchiedsrichterOverview } = await import("./page");
+const { SchiedsrichterOverview } = await import("../SchiedsrichterOverview");
 
 /** A booking still to answer, a fixture to come; each case moves what it is about. */
 const spiel = (overrides: Partial<FLSchiedsrichterSpiel>): FLSchiedsrichterSpiel => ({
