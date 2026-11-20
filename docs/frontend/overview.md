@@ -221,10 +221,10 @@ written.
 
 ## Authentication and authorization
 
-Better Auth, with a passkey sign-in and a six-digit code mailed as the fallback; the administration
-admits only a session a passkey signed in. **This is the one place the frontend touches MongoDB
-directly**: a separate `auth` database holding sessions and passkeys and no league data
-(`fl_frontend/src/core/authIndexes.ts :: MONGO_DB_NAME`, reached through
+Better Auth, with a six-digit code mailed to sign in and a passkey, which only an administrator sets
+up; the administration admits only a session a passkey signed in. **This is the one place the
+frontend touches MongoDB directly**: a separate `auth` database holding sessions and passkeys and no
+league data (`fl_frontend/src/core/authIndexes.ts :: MONGO_DB_NAME`, reached through
 `fl_frontend/src/core/db.ts :: signInStore`), because the library's adapter has no HTTP transport
 and sits on every authorization check. Application data goes through FastAPI without exception.
 

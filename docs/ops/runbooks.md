@@ -366,12 +366,13 @@ administration is shut while it is down. Each of these is easy to get wrong:
   case that turns up: the sign-in box takes no address outside ASCII, so that person needs a mailbox
   it will accept before a grant is worth writing. A domain already spelled in punycode (`xn--`) is
   taken as typed.
-- **A grant admits every passkey the address already holds.** A person enrols a first passkey with a
-  mailed code and every later one with a passkey sign-in of the last minute, or brings them along on
-  an address change the new mailbox confirmed while nothing named it, the same authority an
-  administrator's first passkey rests on, so one enrolled before the grant admits once the address
-  is granted, though only on a passkey sign-in made after the grant: a session older than the grant
-  administers nothing. Grant an address only where its mailbox is trusted as an administrator's.
+- **A grant admits every passkey the address already holds.** A person enrols none: the enrolment
+  refuses an address holding no grant. One a person holds from before that refusal, or from an
+  earlier grant, or brought along on an address change the new mailbox confirmed while nothing
+  named it, rests on the same authority an administrator's first passkey rests on, so it admits once
+  the address is granted, though only on a passkey sign-in made after the grant: a session older
+  than the grant administers nothing. Grant an address only where its mailbox is trusted as an
+  administrator's.
 - **The grant is the access; the person's own next sign-in enrols the passkey.** An address holding
   a grant and no passkey is answered the enrolment page and reaches no admin route until one stands,
   so there is nothing to prepare for them and nothing to hand over.
@@ -1591,8 +1592,8 @@ carry a keyed hash rather than the address, so no row can be picked out for one 
 
 A code typed in a browser that did not ask for it is refused as a wrong one and counted nowhere, the
 info line `auth.code_not_asked_here` naming its trace: a person who meets „Falsch oder nicht mehr
-gültig“ for a code they just received has typed it in another browser, or in one that keeps no
-cookies.
+gültig“ for a code they just received has typed it in another browser, in one that keeps no cookies,
+or in one that has asked since for another address.
 
 The five-an-hour mail cap keeps rows of the same shape under `sign-in-mail-`; they lift within the
 hour. Its refusal tells the person there were too many tries, as the lock does, so one who met that
