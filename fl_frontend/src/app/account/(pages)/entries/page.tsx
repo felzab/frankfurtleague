@@ -6,7 +6,8 @@ import { ROUTES } from "@/core/routes";
 import { requireAccountSession } from "@/features/account/account";
 import { getAccountEinwilligungen } from "@/features/account/queries";
 import { kaderName } from "@/features/spieler/constants";
-import { AccountEmpty, AccountPage } from "@/kit/AccountPage";
+import { AccountPage } from "@/kit/AccountPage";
+import { EmptyBox } from "@/kit/EmptyState";
 import { pageMetadata } from "@/shared/utils/metadata";
 
 import { EntriesBoxes } from "./EntriesBoxes";
@@ -155,7 +156,8 @@ async function EntriesContent() {
   const { subject } = await requireAccountSession(ROUTES.accountEntries.path());
   const entries = entriesOf(await getAccountEinwilligungen());
   return entries.length === 0 ? (
-    <AccountEmpty
+    <EmptyBox
+      kind="none"
       plural={WORDS.plural}
       glyph="entries"
     />

@@ -1,7 +1,6 @@
 import { COPY } from "@/core/copy/shared";
 
 import { cardHover, cardSurface, stacked } from "./cardStyles";
-import { EmptyBox } from "./EmptyState";
 import { Icon } from "./Icon";
 import { formColumn, RailPage } from "./RailFrame";
 import { RowEnd } from "./RowEnd";
@@ -22,17 +21,6 @@ export function AccountPage({ route, children }: { route: AccountRoute; children
       title={{ route }}>
       <div className={formColumn()}>{children}</div>
     </RailPage>
-  );
-}
-
-/** A Konto page holding none of the records its boxes would show: the blank slate in one box, the page's own mark over it. */
-export function AccountEmpty({ plural, glyph }: { plural: Copy; glyph: IconName }) {
-  return (
-    <EmptyBox
-      kind="none"
-      plural={plural}
-      glyph={glyph}
-    />
   );
 }
 
