@@ -45,7 +45,6 @@ export const DELETE_TOKEN_ROW_PREFIX = "delete-account-";
 // The server's code for an insert a unique index refused; the driver exports no name for it.
 export const DUPLICATE_KEY = 11000;
 
-/** Named, because the library's failure line records an error's name and nothing else. */
 export class RemovalOutsideTransaction extends Error {
   override name = "RemovalOutsideTransaction";
 }

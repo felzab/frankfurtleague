@@ -34,12 +34,12 @@ export async function passesPasskeyTouch(actor: RequestActor | undefined): Promi
   return (await adapter.count({ model: "passkey", where: [{ field: "userId", value: account.user.id }] })) === 0;
 }
 
-// React's `cache`: a page's boxes share one verdict, and no request another's. A server action runs
-// outside a render, where it memoises nothing, and asks it once in its lane.
 /**
  * The account's own guard, for Konto's pages and its acts' lane, over the served session: an address holding a grant
  * is admitted by the administrator's verdict alone, so a session its mailbox made changes nothing of that
- * administrator's sign-in, its passkeys and its other devices among it.
+ * administrator's sign-in, its passkeys and its other devices among it. React's `cache`, so a page's boxes share one
+ * verdict, and no request another's; a server action runs outside a render, where it memoises nothing, and asks it
+ * once in its lane.
  */
 export const getAccountSession = cache(async (): Promise<JudgedSession | null> => {
   const served = await readRequestSession();

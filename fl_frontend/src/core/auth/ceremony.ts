@@ -13,7 +13,6 @@ export function isDuplicateCredential(failed: unknown): boolean {
   return failed instanceof MongoServerError && failed.code === DUPLICATE_KEY && "credentialID" in (failed.keyPattern ?? {});
 }
 
-/** Named, because the library's failure line records an error's name and nothing else. */
 class CeremonyNamedNoCredential extends Error {
   override name = "CeremonyNamedNoCredential";
 }

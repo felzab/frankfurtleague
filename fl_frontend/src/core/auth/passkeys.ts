@@ -8,7 +8,6 @@ import { EVERY_ROW, RemovalOutsideTransaction } from "./signInRows";
 import type { Passkey } from "@better-auth/passkey";
 import type { DBTransactionAdapter } from "better-auth";
 
-/** Named, because the library's failure line records an error's name and nothing else. */
 class ClaimMatchedNoAccount extends Error {
   override name = "ClaimMatchedNoAccount";
 }
