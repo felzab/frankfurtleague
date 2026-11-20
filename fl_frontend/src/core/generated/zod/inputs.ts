@@ -1716,7 +1716,7 @@ export const SchiedsrichterPatchEinwilligungBody = zod
  * Bring a retired referee back into the picker and every default read, answering where a fresh link goes.
  *
  * One who has not answered is owed a fresh link, named in `confirmation`, since a retired referee's save mails nothing;
- * one who has answered, or is back already, is owed none.
+ * one who has answered, holds no address a link can go to, or is back already, is owed none.
  * @summary Bring a deactivated Schiedsrichter back
  */
 export const schiedsrichterReactivateSchiedsrichterPathSchiedsrichterIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
