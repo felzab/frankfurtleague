@@ -62,14 +62,13 @@ type CodeView = Head & {
   back: Press;
 };
 
-/** A passkey view: one sentence, the address, one primary press; the offer adds „Später“ as the quiet button. */
+/** A passkey view: one sentence, the address, one primary press. */
 type PasskeyView = Head & {
   view: "passkey";
   sentence: Copy;
   /** The account the passkey belongs to: data, not catalogue text. */
   address: string;
   go: Press;
-  later?: Press;
 };
 
 export type SignInView = AddressView | CodeView | PasskeyView;
@@ -141,7 +140,7 @@ function Body(props: SignInView) {
             onComplete={code.onComplete}
           />
           <div className={slots.acts()}>
-            {/* The step aside from the view's one act, quiet as „Später“ is. */}
+            {/* The step aside from the view's one act, quiet. */}
             <Button
               variant="quiet"
               {...back}
@@ -152,7 +151,7 @@ function Body(props: SignInView) {
     }
 
     case "passkey": {
-      const { go, later } = props;
+      const { go } = props;
       return (
         <>
           <div className={slots.head()}>
@@ -170,12 +169,6 @@ function Body(props: SignInView) {
               variant="primary"
               {...go}
             />
-            {later !== undefined && (
-              <Button
-                variant="quiet"
-                {...later}
-              />
-            )}
           </div>
         </>
       );

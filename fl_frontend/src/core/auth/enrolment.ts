@@ -21,16 +21,23 @@ export function refuseBarred(signIn: SignInRecords): void {
 }
 
 /**
- * The gate's answer for the caller, read in the registration's before hook and carried on the
- * endpoint's context into its transaction, whose checks then decide without a backend round trip holding it open;
- * and when the ceremony's options were issued, read there before the plugin spends the challenge, `null` where none
- * stood.
+ * An address holding no grant enrols nothing: a person's first passkey would outrank their mailbox for good, every act
+ * on the touch's list asking it, so whoever enrolled it first, an intruder too, keeps the account. A passkey a person
+ * already holds stays, theirs to remove.
+ */
+export function refuseWithoutGrant(signIn: SignInRecords): void {
+  if (signIn.admin_tier === null) throw APIError.fromStatus("NOT_FOUND");
+}
+
+/**
+ * The gate's answer for the caller, read in the registration's before hook and when that read was sent, carried on
+ * the endpoint's context into its transaction, where the mint of a set-up that signs in asks the gate of it rather
+ * than make a backend round trip holding the transaction open.
  */
 export type EnrolmentRead = {
   readonly userId: string;
   readonly signIn: SignInRecords;
   readonly sentAt: Date;
-  readonly challengeIssuedAt: Date | null;
 };
 
 /** The context key the carried read travels under; a string, the library merging no symbol key. */
@@ -41,13 +48,6 @@ export function carriedEnrolmentRead(ctx: object | undefined, userId: string): E
   if (typeof read !== "object" || read === null) return undefined;
 
   return Reflect.get(read, "userId") === userId ? (read as EnrolmentRead) : undefined;
-}
-
-/** The carried read, or the default-deny net's refusal where the hook carried none for this caller. */
-export function carriedOrRefuse(ctx: object, userId: string): SignInRecords {
-  const read = carriedEnrolmentRead(ctx, userId);
-  if (read === undefined) throw APIError.fromStatus("NOT_FOUND");
-  return read.signIn;
 }
 
 /**
@@ -76,7 +76,7 @@ export async function refuseEnrolment(
     limit: PASSKEY_LIMIT + 1,
   });
 
-  // The first passkey is added on a fresh sign-in by either factor, an administrator's mailed code among them; every
+  // An administrator's first passkey is added on a fresh sign-in by either factor, their mailed code among them; every
   // later one by the passkey touch alone, or a stolen mailbox would put its own authenticator beside the holder's.
   if (held.length > 0 && !isPasskeyTouch(caller, touchAt)) throw APIError.fromStatus("NOT_FOUND");
   if (held.length >= PASSKEY_LIMIT) throw APIError.fromStatus("NOT_FOUND");

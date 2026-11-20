@@ -35,15 +35,7 @@ async function readView(searchParams: Props["searchParams"]) {
     redirect(withReturnAddress(ROUTES.signInLanding.path(), typeof asked === "string" ? asked : null));
   }
 
-  // „Später“ goes past the landing rather than to it, which would offer the passkey again.
-  return step.step === "offer" ? (
-    <PasskeyStep
-      step="offer"
-      address={step.email}
-      next={ROUTES.signInLanding.path()}
-      later={ROUTES.area.path()}
-    />
-  ) : (
+  return (
     <PasskeyStep
       step={step.step}
       address={step.email}

@@ -7,7 +7,7 @@ import { expect } from "@playwright/test";
 import { box, comboOptions, labelOf, save, typeInto, valueOf } from "./support/controls";
 import { test } from "./support/journey";
 import { RUNNING } from "./support/madeUpLeague";
-import { declinePasskeyOffer, signInWithCode } from "./support/signIn";
+import { expectLandedAt, signInWithCode } from "./support/signIn";
 
 import type { Locator, Page } from "@playwright/test";
 
@@ -41,7 +41,7 @@ test("a referee answers the coming game, saves the played game's report, and rea
 }) => {
   await signInWithCode(page, address);
   // `/area/schiedsrichter` draws the Übersicht of the season the referee is booked in, at its own address.
-  await declinePasskeyOffer(page, "/area/schiedsrichter");
+  await expectLandedAt(page, "/area/schiedsrichter");
 
   // The coming game waits on the answer, given on its row, which then says it.
   const comingRow = gameRow(page, coming);

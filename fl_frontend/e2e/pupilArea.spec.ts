@@ -9,7 +9,7 @@ import { box, chip, choose, enteredDialog, typeInto, valueOf } from "./support/c
 import { test } from "./support/journey";
 import { RUNNING } from "./support/madeUpLeague";
 import { filedMessages, mailedLink } from "./support/mailSink";
-import { declinePasskeyOffer, signInWithCode } from "./support/signIn";
+import { expectLandedAt, signInWithCode } from "./support/signIn";
 
 /** Where a contact seat holding one team lands: its Übersicht of the season, under the team's id, which the seed mints. */
 const TEAM_OVERVIEW = new RegExp(`^/area/team/[0-9a-f]{24}/${RUNNING}$`);
@@ -74,7 +74,7 @@ test("a pupil registers through their team's link, confirms, is admitted, and fi
 
   // The team's contact finds the confirmed registration on the Übersicht, and its row opens the Registrierungen.
   await signInWithCode(team, admitter);
-  await declinePasskeyOffer(team, TEAM_OVERVIEW);
+  await expectLandedAt(team, TEAM_OVERVIEW);
   await team.getByRole("main").getByRole("link", { name, exact: true }).click();
   await expect(team).toHaveURL((url) => url.pathname.endsWith("/registrierungen"));
   const row = team.getByRole("main").getByRole("row").filter({ hasText: name });
@@ -87,7 +87,7 @@ test("a pupil registers through their team's link, confirms, is admitted, and fi
 
   // Admitted, the pupil signs in and lands on their own season: their club, number, position and Stufe.
   await signInWithCode(page, pupil.address);
-  await declinePasskeyOffer(page, "/area/spieler");
+  await expectLandedAt(page, "/area/spieler");
   await expect(valueOf(main, "Team").getByRole("link", { name: teamName, exact: true })).toBeVisible();
   await expect(valueOf(main, "Nummer")).toHaveText(pupil.nummer);
   await expect(valueOf(main, "Position")).toHaveText(pupil.position);

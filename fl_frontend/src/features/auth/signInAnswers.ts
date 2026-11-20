@@ -3,9 +3,10 @@ import { PUBLIC_COPY } from "@/core/copy/public";
 import { COPY } from "@/core/copy/shared";
 import { SIGN_IN_REFUSED } from "@/core/passkeyRefusal";
 
-import { refusalCode, refusalStatus } from "./passkeyAnswers";
+import { refusalCode } from "./passkeyAnswers";
 
 import type { Copy } from "@/core/copy";
+import type { ClientRefusal } from "./passkeyAnswers";
 
 const { refusal } = PUBLIC_COPY.signIn;
 
@@ -33,10 +34,10 @@ const TOO_MANY_REQUESTS = 429;
  * that did not answer the mint is an outage, the shared failure line, though it spent the code: retyping it meets the
  * code no longer valid.
  */
-export function codeRefusal(error: unknown): Copy {
-  const worded = CODE_REFUSALS.get(refusalCode(error) ?? "");
+export function codeRefusal(refusal: ClientRefusal): Copy {
+  const worded = CODE_REFUSALS.get(refusalCode(refusal) ?? "");
   if (worded !== undefined) return worded;
 
-  if (refusalStatus(error) === TOO_MANY_REQUESTS) return COPY.shared.failure.tooManyAttempts;
+  if (refusal.status === TOO_MANY_REQUESTS) return COPY.shared.failure.tooManyAttempts;
   return COPY.shared.failure.unexpected;
 }

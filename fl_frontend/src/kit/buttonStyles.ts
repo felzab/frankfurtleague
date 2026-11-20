@@ -20,8 +20,8 @@ export const buttonLook = tv({
       // part ending its record, a Konto box and a section's footer alike, the control edge with words in the danger
       // hue, as GitHub Primer draws a danger zone's button, the red fill kept for the press that destroys.
       dangerOutline: "border-border-control bg-transparent px-3.5 text-danger",
-      // The quiet act beside or beneath a primary one, such as the passkey offer's „Später“ and a mailed page's refusal
-      // (`OneShotForm`): words alone.
+      // The quiet act beside or beneath a primary one, such as the sign-in's „Andere E-Mail-Adresse verwenden“ and a
+      // mailed page's refusal (`OneShotForm`): words alone.
       quiet: "border-transparent bg-transparent px-3.5 text-fg-muted",
       icon: "w-8 border-transparent bg-transparent text-fg pointer-coarse:w-10",
     },

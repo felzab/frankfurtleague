@@ -438,7 +438,6 @@ describe("where the proxy sends a request for the passkey step", () => {
   });
 
   it("lets a session holding each kind of step through to the page the landing sends it to", async () => {
-    const person = await signIn("leserin@example.org");
     const administrator = await signIn(ADMIN_EMAIL);
     // Whatever an earlier case enrolled for the administrator, so the first look finds the enrolment owed.
     for (const held of store.passkey.filter((row) => row.userId === administrator.row.userId)) {
@@ -446,7 +445,6 @@ describe("where the proxy sends a request for the passkey step", () => {
     }
 
     for (const [kind, cookie, arrange] of [
-      ["offer", person.cookie, () => undefined],
       ["enrol", administrator.cookie, () => undefined],
       // A passkey held while the session is still the code's.
       ["assert", administrator.cookie, () => void madeByPasskey(store, { userId: administrator.row.userId })],

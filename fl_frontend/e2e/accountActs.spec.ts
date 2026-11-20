@@ -3,7 +3,7 @@
  * file asked first, then the new mailbox; then the deletion through its mailed link, opened signed out and carried
  * through the sign-in, its action leading to the page that needs no session. Before them „Alle anderen abmelden“ with a
  * second device, whose cookie no person would see still admitted. Konto's steps are named by the words Konto's pages
- * are built to. The passkeys run in a desktop journey of their own.
+ * are built to. A person is offered no passkey, so none of these acts asks the touch.
  *
  * Each journey signs in as a person of its own, the project's `twoDevices`, `mover` and `leaver`, whom no other journey
  * signs in as: each writes what another would read, the sessions it ends, the records it moves, the account it erases.
@@ -13,14 +13,14 @@ import { expect } from "@playwright/test";
 import { enteredQuestion, typeInto } from "./support/controls";
 import { test } from "./support/journey";
 import { filedMessages, mailedLink } from "./support/mailSink";
-import { declinePasskeyOffer, expectAccountPageOf, PERSON_LANDING, sessionCookies, signInWithCode, signInWithCodeHere } from "./support/signIn";
+import { expectAccountPageOf, expectLandedAt, PERSON_LANDING, sessionCookies, signInWithCode, signInWithCodeHere } from "./support/signIn";
 
 import type { Page } from "@playwright/test";
 
-/** A code-borne sign-in past the passkey offer, which this journey leaves for later. */
+/** A code-borne sign-in, landed. */
 async function signIn(page: Page, address: string): Promise<void> {
   await signInWithCode(page, address);
-  await declinePasskeyOffer(page, PERSON_LANDING);
+  await expectLandedAt(page, PERSON_LANDING);
 }
 
 test("„Alle anderen abmelden“ ends a second device's session and keeps this one", async ({ page, secondDevice, baseURL, twoDevices }) => {
@@ -87,7 +87,7 @@ test("a person changes their address: the address on file confirms first, then t
   await expect(page).toHaveURL((url) => url.pathname === "/signin");
   await signInWithCodeHere(page, newAddress);
   // The referee row moved with the address, so the new one lands where the old one did.
-  await declinePasskeyOffer(page, PERSON_LANDING);
+  await expectLandedAt(page, PERSON_LANDING);
   await expectAccountPageOf(page, newAddress);
 });
 
@@ -107,9 +107,8 @@ test("the person deletes their account from the mailed link, signed out when it 
   await page.getByRole("main").getByRole("link", { name: "Anmelden" }).click();
   await expect(page).toHaveURL((url) => url.pathname === "/signin" && url.searchParams.has("return"));
   await signInWithCodeHere(page, leaver);
-  // The passkey offer's „Später“ goes on to the address the link asked for, as the code's landing does.
-  await expect(page).toHaveURL((url) => url.pathname === "/signin/passkey" && url.searchParams.has("return"));
-  await declinePasskeyOffer(page, "/erasure");
+  // The code's landing goes on to the address the link asked for.
+  await expectLandedAt(page, "/erasure");
   // The token rides in the page's cookie, never in an address the sign-in or its bot check could read.
   await expect(page).toHaveURL((url) => url.search === "");
 
