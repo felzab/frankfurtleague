@@ -129,6 +129,23 @@ export const ROUTES = {
     title: COPY.page.registrierungConfirmation,
     crawl: "disallow",
   },
+  /**
+   * Where each confirmation's answer lands, a page needing no link: the answer forgets the link's cookie, so its action
+   * leads here rather than rendering the link's page again, which would read the forgotten link as no longer valid.
+   * Each is titled by the end it draws.
+   */
+  addressChangeDone: { path: () => "/confirm/address/done" as const, title: COPY.page.addressChangeConfirmation, crawl: "disallow" },
+  kontaktConfirmationDone: { path: () => "/confirm/kontakt/done" as const, title: COPY.page.entryConfirmation, crawl: "disallow" },
+  schiedsrichterConfirmationDone: {
+    path: () => "/confirm/schiedsrichter/done" as const,
+    title: COPY.page.entryConfirmation,
+    crawl: "disallow",
+  },
+  registrierungConfirmationDone: {
+    path: () => "/confirm/spieler/done" as const,
+    title: COPY.page.registrierungConfirmation,
+    crawl: "disallow",
+  },
   accountErasure: { path: () => "/erasure" as const, title: COPY.page.accountErasure, crawl: "disallow" },
   /**
    * Where a deletion lands, a page needing no session: the deletion ends the caller's own, so its action leads here

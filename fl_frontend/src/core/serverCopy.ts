@@ -1216,8 +1216,6 @@ export const SERVER_COPY = catalogue({
   kontaktConfirmation: {
     /** The person's own entry: the title of a closed row's page, which confirms nothing, and of a seat's own facts in an application's mail. */
     ownEntry: "Dein Eintrag",
-    /** The fact naming the seat's own last day, in a list's date form; a closed row holds none. */
-    confirmBy: "Bestätigen bis",
     opening: {
       /** A seat in an application, one text for all: it names no submitter, the form recording none. */
       named: (schule: Words, saison: string, seats: Words) =>
@@ -1231,10 +1229,8 @@ export const SERVER_COPY = catalogue({
     closedStored: "Wir speichern deinen Namen und deine Kontaktdaten längstens bis zum Ende der Saison danach.",
     /** At the birthdate's field, by the seat's floor: Art. 13 asks the purpose where the date is asked. */
     ageCheck,
-    /** The seat's own last day: an application goes whole when one of its seats lapses. */
+    /** The seat's own last day: an application goes whole when one of its seats lapses. A season row's is `entryConfirmation.deadline`. */
     applicationDeadline: (until: CalendarDay) => runsText(applicationDeadline(formatDateLong(until))),
-    /** The deadline of a seat on a team's season, which goes alone. */
-    seatDeadline: (until: CalendarDay) => runsText(entryDeadline(formatDateLong(until))),
     /** At the objection's control, read before the press, by the record the seat stands on. */
     objectionEffect: {
       application: "Widersprichst du, entfernen wir deine Angaben aus der Bewerbung.",
@@ -1253,23 +1249,25 @@ export const SERVER_COPY = catalogue({
   entryConfirmation: {
     confirmed: "Eintrag bestätigt",
     objected: COPY.shared.state.objected,
+    /** The deadline of an entry that goes alone, a seat on a team's season and a referee's, the page's last paragraph. */
+    deadline: (until: CalendarDay) => runsText(entryDeadline(formatDateLong(until))),
   },
 
   /**
-   * The fixed text of a referee's confirmation page, `ROUTES.schiedsrichterConfirmation`: who named the person and for
-   * what, what is stored and until when, the deadline, and what an objection does, the page's one sentence before its
-   * two acts. The age floor is the birthdate field's bound, read off the link's view; the Art. 21 objection with the
-   * league's address stands in the first-contact mail, and each consent's line names the privacy notice.
+   * The fixed text of a referee's confirmation page, `ROUTES.schiedsrichterConfirmation`, in the order of a contact's
+   * and a pupil's: who named the person and for what, what is stored and until when, what an objection does and the
+   * privacy notice's link, then the deadline (`entryConfirmation.deadline`). The age floor is the birthdate field's
+   * bound, read off the link's view; the Art. 21 objection with the league's address stands in the first-contact mail.
    */
   schiedsrichterConfirmation: {
     opening: REFEREE_OPENING,
+    stored: REFEREE_STORED,
     /** The deadline around its day: the mail sets the day semibold, the page writes it in the sentence's weight. */
     deadline: (day: string) => entryDeadline(day),
-    /** Both answers that end the entry, an unanswered deadline and an objection, each in a season row seat's sentence. */
-    question: (until: CalendarDay) =>
-      `${REFEREE_OPENING} ${REFEREE_STORED} ${runsText(entryDeadline(formatDateLong(until)))} ${OBJECTION_DELETES_ENTRY}`,
     /** What an objection does, the objection's question's sentence: it erases the entry at once, as a seat's empties the seat. */
     objectionEffect: OBJECTION_DELETES_ENTRY,
+    /** The last words of the page's first paragraph, around the privacy notice's title, which the page sets as its link. */
+    more,
   },
 
   /**

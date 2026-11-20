@@ -4,12 +4,12 @@ import { COPY } from "@/core/copy/shared";
 import { dayOf } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
+import { TO_HOME } from "@/kit/mailedLinkState";
 import { MailedPage } from "@/kit/MailedPage";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
 
 import { readLanding } from "../landing";
-import { TO_HOME } from "./[saison]/ends";
 import { formStateOf, readForm } from "./[saison]/form";
 
 import type { FLLandingResponse } from "@/core/generated/client/types";

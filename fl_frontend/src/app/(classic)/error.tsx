@@ -3,7 +3,7 @@
 import { usePathname } from "next/navigation";
 
 import { COPY } from "@/core/copy/shared";
-import { ROUTES } from "@/core/routes";
+import { TO_HOME } from "@/kit/mailedLinkState";
 import { ClassicStatusPage } from "@/kit/StatusCard";
 import { useReportClientCrash } from "@/shared/hooks/useReportClientCrash";
 
@@ -13,13 +13,12 @@ import { useReportClientCrash } from "@/shared/hooks/useReportClientCrash";
  */
 export default function ClassicError({ error }: { error: unknown }) {
   useReportClientCrash(error);
-  const home = ROUTES.home.path();
-  const atHome = usePathname() === home;
+  const atHome = usePathname() === TO_HOME.href;
   return (
     <ClassicStatusPage
       tone="danger"
       title={COPY.shared.failure.unexpected}
-      next={{ label: COPY.shared.end.toHome, href: home, fullPage: atHome }}
+      next={{ ...TO_HOME, fullPage: atHome }}
     />
   );
 }

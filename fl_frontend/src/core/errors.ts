@@ -78,6 +78,12 @@ export function asRefusal(error: unknown): APIBadStatusError | null {
   return error instanceof APIBadStatusError && error.statusCode >= 400 && error.statusCode < 500 ? error : null;
 }
 
+/** Whether the API refused the request, as `asRefusal` reads a refusal, with one of `codes`. */
+export function refusedAs(error: unknown, codes: ReadonlySet<Code>): boolean {
+  const code = asRefusal(error)?.serverErrorCode;
+  return code !== undefined && codes.has(code);
+}
+
 /**
  * Whether the API answered that the record a read names does not exist. By the code, never the status:
  * any other 404 is a route the framework did not serve (`no_route`) or the edge's own, a failure.

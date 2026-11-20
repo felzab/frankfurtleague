@@ -65,8 +65,9 @@ test("a person changes their address: the address on file confirms first, then t
   await expect(page.getByRole("main").getByText(newAddress, { exact: true })).toBeVisible();
   const afterTheFirst = await filedMessages();
   await page.getByRole("button", { name: "Bestätigen" }).click();
-  // The press's own end, by its exact title: the answer also renders the page again, and the link read again is in the
-  // opened-again state, titled with the day („Änderung bestätigt am …“) over the same way on.
+  // The press's own end, on the done page it leads to: the answer forgets the link, whose page would read as no longer
+  // valid, and the done page draws the end whatever a reload asks.
+  await expect(page).toHaveURL((url) => url.pathname === "/confirm/address/done");
   await expect(page.getByRole("main").getByRole("heading", { name: "Änderung bestätigt", exact: true })).toBeVisible();
   await expect(page.getByRole("main").getByRole("link", { name: "Zum Konto" })).toBeVisible();
 
@@ -76,6 +77,7 @@ test("a person changes their address: the address on file confirms first, then t
   await page.goto(newLink);
   await expect(page.getByRole("main").getByRole("heading", { name: "E-Mail-Adresse bestätigen" })).toBeVisible();
   await page.getByRole("button", { name: "Bestätigen" }).click();
+  await expect(page).toHaveURL((url) => url.pathname === "/confirm/address/done");
   await expect(page.getByRole("main").getByRole("heading", { name: "Adresse bestätigt", exact: true })).toBeVisible();
   // In the page's own end: the classic header holds a link to the sign-in of its own on a desktop.
   const signInHere = page.getByRole("main").getByRole("link", { name: "Anmelden" });

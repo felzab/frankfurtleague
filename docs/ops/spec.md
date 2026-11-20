@@ -256,25 +256,28 @@ zones bound a household or a school, never such a holder.
 `limit_conn conn 50` per network, which nginx counts from a request's header until its answer. A
 zone on every request would stall page loads, which fan out; behind a single connector, whose
 sockets no visitor controls, the ceiling is a backstop rather than a per-visitor control.
-`/_next/static/` takes none, the files every page load fetches at once
-(`scripts/checks/check_public_routes.py :: UNCEILINGED`).
+`/_next/static/` takes none: every page load fetches several of its files at once from each browser,
+which a ceiling counted in page loads would refuse before the pages themselves.
 
 **No location raises the action burst.** Next runs a server action by its header at any page's path,
 so a block declaring a higher burst would raise every action's per-network ceiling, the sign-in's
-among them; `scripts/checks/check_public_routes.py :: loosened` finds one. The registration's send
-stays bounded by its Turnstile check and the confirmation's by its single-use token.
+among them. The registration's send stays bounded by its Turnstile check and the confirmation's by
+its single-use token.
 
 **Every page a mailed or shared link opens is metered on every request and every method**, on
 `linkpage`: each request renders a page reading the database, or is the proxy's redirect into one
 (`fl_frontend/src/core/mailedLink.ts`). No page links to one, so a visit is one request or two,
-never a navigation's fan-out. **`/confirm/` is a prefix because every page under it is a link
-page**, so a page added there is metered the day it exists; a link page anywhere else needs an exact
-match, as `/registrierung` and `/erasure` have. **The burst of 440 is sized for the largest squad a
-season may set**, 50 (`fl_backend/app/shared/schemas/bounds.py :: KADER_SIZE_MAX`), behind one
-school's address in one break: each pupil opens the team's invite and their own link and sends each
-page's form, a retry each, 10N requests passing within two minutes at the zone's rate. That squad's
-4N sends on the action key pass at `location /`'s burst in about three minutes, a send past it
-refused and sent again. A season's bound moving past 50 moves this burst by hand.
+never a navigation's fan-out. **`/confirm/` is a prefix because every page under it is a link page**
+or the done page its answer leads to, so a page added there is metered the day it exists. A done
+page reads no record, and an answer's redirect to it is fetched by the frontend from its own
+address, so it adds no request at the edge to a squad's count. A link page anywhere else needs an
+exact match, as `/registrierung` and `/erasure` have. **The burst of 540 is sized for the largest
+squad a season may set**, 50 (`fl_backend/app/shared/schemas/bounds.py :: KADER_SIZE_MAX`), behind
+one school's address in one break: each pupil opens the team's invite and their own link, each
+through the proxy's redirect, and sends each page's form, a retry each, 12N requests passing within
+two minutes at the zone's rate. That squad's 4N sends on the action key pass at `location /`'s burst
+in about three minutes, a send past it refused and sent again. A season's bound moving past 50 moves
+this burst by hand.
 
 **A link page's location writes no error line at all** (`error_log /dev/null`). nginx writes every
 error line with the request line whole, the query and the referrer with it, and the open-source
@@ -305,8 +308,7 @@ which Next redirects back.
 `:: REASONS`, or a handler recorded unmetered at `:: UNMETERED`. No predicate selects the public
 handlers, since nothing a handler imports or exports says whether it answers a stranger. A handler
 under a dynamic segment is unmeterable unless a prefix covers it. Next's code-generated metadata
-routes are accounted for at `:: METADATA` and reach Next through `location /`. A location serving
-pages writes every meter line of the location it is carved out of.
+routes are accounted for at `:: METADATA` and reach Next through `location /`.
 
 **The body cap is nginx's default 1m wherever no location sets one**, which is Next's own bound on a
 server action's body (`serverActions.bodySizeLimit`, left at its default in
@@ -797,8 +799,8 @@ be true there, a check the owner makes in its list of monitors:
 | A visitor's `traceparent` never reaches an upstream                                                                                        | `scripts/checks/edge_test.sh`                                                                                                                                                          |
 | Each upstream is named through a variable and found through Docker's DNS, so a recreated container needs no reload                         | `scripts/checks/edge_test.sh`                                                                                                                                                          |
 | Each zone and the connection ceiling refuse past their figure with the edge's `429`                                                        | `scripts/checks/edge_test.sh`, which reads each figure off the configuration it judges                                                                                                 |
-| Every route handler, link page and metadata convention is metered or accounted for at the edge                                             | `scripts/checks/check_public_routes.py`, its rules driven red in `scripts/tests/test_check_public_routes.py`                                                                           |
-| A link page's location writes no error line and withholds the referrer                                                                     | `scripts/checks/check_public_routes.py :: unlogged_links` and `:: referring_links`; `scripts/checks/edge_test.sh`                                                                      |
+| Every route handler and metadata convention is metered or accounted for at the edge                                                        | `scripts/checks/check_public_routes.py`, its rules driven red in `scripts/tests/test_check_public_routes.py`                                                                           |
+| A link page's location writes no error line and withholds the referrer                                                                     | `scripts/checks/edge_test.sh`                                                                                                                                                          |
 | Every image this repository does not build is pinned by tag and digest                                                                     | `scripts/tests/test_image_pins.py`                                                                                                                                                     |
 | The frontend image's Node, the backend image's Python series and its uv are the ones the checkout and CI run                               | `scripts/tests/test_image_pins.py`                                                                                                                                                     |
 | Every gate scope has one CI job, and every job but `journeys`, `verify` and `publish` runs one scope                                       | `scripts/tests/test_gate_jobs.py`; the `verify` job holds every job to its `needs:`                                                                                                    |

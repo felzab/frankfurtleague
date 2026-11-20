@@ -1,7 +1,7 @@
 "use client";
 
 import { COPY } from "@/core/copy/shared";
-import { ROUTES } from "@/core/routes";
+import { TO_HOME } from "@/kit/mailedLinkState";
 import { StatusPage } from "@/kit/StatusPage";
 import { useReportClientCrash } from "@/shared/hooks/useReportClientCrash";
 
@@ -12,7 +12,7 @@ export default function SaisonsError({ error }: { error: unknown }) {
     <StatusPage
       scope="saison"
       title={COPY.shared.failure.unexpected}
-      card={{ tone: "danger", next: { label: COPY.shared.end.toHome, href: ROUTES.home.path() } }}
+      card={{ tone: "danger", next: TO_HOME }}
     />
   );
 }

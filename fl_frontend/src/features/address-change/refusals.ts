@@ -1,4 +1,4 @@
-import { asRefusal } from "@/core/errors";
+import { refusedAs } from "@/core/errors";
 
 import type { Code } from "@/core/generated/client/types";
 
@@ -9,10 +9,7 @@ import type { Code } from "@/core/generated/client/types";
  */
 const DEAD_LINK: ReadonlySet<Code> = new Set<Code>(["body_unreadable", "payload_refused", "link_invalid"]);
 
-export function readsAsDeadLink(error: unknown): boolean {
-  const code = asRefusal(error)?.serverErrorCode;
-  return code !== undefined && DEAD_LINK.has(code);
-}
+export const readsAsDeadLink = (error: unknown): boolean => refusedAs(error, DEAD_LINK);
 
 /**
  * Every refusal of an answer or a stop, one end for all, so the link's holder learns nothing about who holds an address:
@@ -30,7 +27,4 @@ const LINK_ENDED: ReadonlySet<Code> = new Set<Code>([
   "duplicate_key",
 ]);
 
-export function endsTheLink(error: unknown): boolean {
-  const code = asRefusal(error)?.serverErrorCode;
-  return code !== undefined && LINK_ENDED.has(code);
-}
+export const endsTheLink = (error: unknown): boolean => refusedAs(error, LINK_ENDED);

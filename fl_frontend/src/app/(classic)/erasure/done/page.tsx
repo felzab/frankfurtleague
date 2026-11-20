@@ -1,6 +1,6 @@
-import { COPY } from "@/core/copy/shared";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
+import { TO_HOME } from "@/kit/mailedLinkState";
 import { ClassicStatusPage } from "@/kit/StatusCard";
 import { pageMetadata } from "@/shared/utils/metadata";
 
@@ -20,7 +20,7 @@ export default function AccountErasedPage() {
     <ClassicStatusPage
       tone="success"
       title={SERVER_COPY.accountErasure.done}
-      next={{ label: COPY.shared.end.toHome, href: ROUTES.home.path() }}
+      next={TO_HOME}
       // What outlives the deletion is the notice's to list.
       quiet={{ label: ROUTES.privacyNotice.title, href: ROUTES.privacyNotice.path() }}
     />

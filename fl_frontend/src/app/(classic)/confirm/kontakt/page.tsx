@@ -7,35 +7,30 @@ import { SEAT_WORDINGS } from "@/core/consentWordings";
 import { seatsText } from "@/core/copy";
 import { COPY } from "@/core/copy/shared";
 import { bornAfter, bornBy } from "@/core/dayArithmetic";
-import { dayIn, dayOf, formatDate } from "@/core/format";
+import { dayIn, dayOf } from "@/core/format";
 import { bewerbungenGetConfirmationView } from "@/core/generated/client/sdk";
 import { BewerbungenPostConfirmationBody } from "@/core/generated/zod/inputs";
+import { mailedLinkToken } from "@/core/mailedLink";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { runWithIncomingTrace } from "@/core/traceScope";
-import { mailedMetadata } from "@/kit/mailedLinkState";
-import { MailedPage, TO_ACCOUNT } from "@/kit/MailedPage";
+import { mailedMetadata, TO_HOME } from "@/kit/mailedLinkState";
+import { MailedPage } from "@/kit/MailedPage";
 
 import { ConfirmationFields } from "../ConfirmationFields";
-import { linkViewOf } from "../linkView";
+import { END } from "../ends";
+import { alreadyDone, linkViewOf } from "../linkView";
 import { answerKontakt, objectKontakt } from "./answerKontakt";
-import { END, TO_HOME } from "./ends";
 
 import type { Copy } from "@/core/copy";
 import type { CalendarDay } from "@/core/format";
-import type {
-  FLBewerbungEinwilligungViewAnswered,
-  FLBewerbungEinwilligungViewSaisonPast,
-  FLBewerbungEinwilligungViewValid,
-} from "@/core/generated/client/types";
+import type { FLBewerbungEinwilligungViewSaisonPast, FLBewerbungEinwilligungViewValid } from "@/core/generated/client/types";
 import type { Fact } from "@/kit/Facts";
 import type { MailedState } from "@/kit/MailedPage";
 import type { Metadata, ResolvingMetadata } from "next";
 
-type Props = PageProps<"/confirm/kontakt">;
-
-export async function generateMetadata({ searchParams }: Pick<Props, "searchParams">, parent: ResolvingMetadata): Promise<Metadata> {
-  return mailedMetadata(parent, ROUTES.kontaktConfirmation, readState(searchParams));
+export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
+  return mailedMetadata(parent, ROUTES.kontaktConfirmation, readState());
 }
 
 const WORDS = SERVER_COPY.kontaktConfirmation;
@@ -51,21 +46,12 @@ const BIRTH_DATE_REQUIRED = requires(BewerbungenPostConfirmationBody.options[0].
  * objection alone; the done states; the link opened again, saying what the person did and on which day; and the link no
  * longer valid, an expired, mistyped or tampered link and a decided application's seat alike.
  */
-export default function KontaktConfirmationPage({ searchParams }: Props) {
-  return <MailedPage page={readState(searchParams)} />;
+export default function KontaktConfirmationPage() {
+  return <MailedPage page={readState()} />;
 }
 
 /** The link's own read; `null` for a token no seat holds or one the backend will not parse, a dead link either way. */
 const readView = cache(async (token: string) => runWithIncomingTrace(() => linkViewOf(bewerbungenGetConfirmationView({ token }))));
-
-/** The link opened again after its answer: what the person did and on which day, with the one place to go next. */
-function alreadyDone(view: FLBewerbungEinwilligungViewAnswered, kind: "confirmed" | "objected"): MailedState {
-  const day = dayOf(view.answered_at);
-  const { title } = END[kind];
-  return kind === "confirmed"
-    ? { state: "alreadyDone", title: COPY.shared.end.doneOn(title, day), next: TO_ACCOUNT }
-    : { state: "alreadyDone", title: COPY.shared.end.doneOn(title, day), next: TO_HOME, declined: true };
-}
 
 /** A view that still names its seat: the question's, and a closed row's objection. */
 type SeatView = FLBewerbungEinwilligungViewValid | FLBewerbungEinwilligungViewSaisonPast;
@@ -117,21 +103,13 @@ function question(view: FLBewerbungEinwilligungViewValid, token: string, until: 
   return {
     state: "question",
     title: COPY.page.entryConfirmation,
-    facts: [...standsFor(view), { label: WORDS.confirmBy, value: { record: formatDate(until) } }],
+    facts: standsFor(view),
     sentence: onSeasonRow
-      ? SERVER_COPY.paragraph(
-          WORDS.opening.seasonRow(schule, view.saison_id, seatsHeld(view)),
-          WORDS.stored,
-          WORDS.seatDeadline(until),
-          WORDS.objectionEffect.seasonRow,
-        )
-      : SERVER_COPY.paragraph(
-          WORDS.opening.named(schule, view.saison_id, seatsHeld(view)),
-          WORDS.stored,
-          WORDS.applicationDeadline(until),
-          WORDS.objectionEffect.application,
-        ),
+      ? SERVER_COPY.paragraph(WORDS.opening.seasonRow(schule, view.saison_id, seatsHeld(view)), WORDS.stored, WORDS.objectionEffect.seasonRow)
+      : SERVER_COPY.paragraph(WORDS.opening.named(schule, view.saison_id, seatsHeld(view)), WORDS.stored, WORDS.objectionEffect.application),
     more: WORDS.more,
+    // Last, as on every confirmation: the day the answer waits for.
+    sentenceAfter: onSeasonRow ? SERVER_COPY.entryConfirmation.deadline(until) : WORDS.applicationDeadline(until),
     run: answerKontakt,
     acts: {
       primary: COPY.page.entryConfirmation,
@@ -153,10 +131,9 @@ function question(view: FLBewerbungEinwilligungViewValid, token: string, until: 
   };
 }
 
-async function readState(searchParams: Props["searchParams"]): Promise<MailedState> {
-  const { token } = await searchParams;
-  // A missing or repeated parameter is no link at all.
-  if (typeof token !== "string" || token === "") return INVALID;
+async function readState(): Promise<MailedState> {
+  const token = await mailedLinkToken();
+  if (token === null) return INVALID;
 
   const view = await readView(token);
   if (view === null) return INVALID;
@@ -165,9 +142,9 @@ async function readState(searchParams: Props["searchParams"]): Promise<MailedSta
     case "expired":
       return INVALID;
     case "confirmed":
-      return alreadyDone(view, "confirmed");
+      return alreadyDone(view.answered_at, "confirmed", END.confirmed);
     case "declined":
-      return alreadyDone(view, "objected");
+      return alreadyDone(view.answered_at, "objected", END.objected);
     case "saison_past":
       return closedRow(view, token);
     case "valid":

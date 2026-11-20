@@ -4,7 +4,7 @@ import { ACCOUNT_COPY } from "@/core/copy/account";
 import { COPY } from "@/core/copy/shared";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { serveBackend } from "@/test-support/backend";
-import { doubleNextRequest } from "@/test-support/nextRequest";
+import { arriveWith, doubleNextRequest } from "@/test-support/nextRequest";
 
 import type { FLAddressChangeViewResponse } from "@/core/generated/client/types";
 import type { MailedState } from "@/kit/MailedPage";
@@ -33,9 +33,9 @@ const DAY = "2026-11-04";
 /** What the page shows for the view the backend serves, as the template is handed it. */
 async function stateFor(served: FLAddressChangeViewResponse["view"]): Promise<MailedState> {
   view = served;
-  const page = AddressChangeConfirmationPage({ params: Promise.resolve({}), searchParams: Promise.resolve({ token: "tok" }) }) as ReactElement<{
-    page: Promise<MailedState>;
-  }>;
+  // The link as the proxy left it: its token in the page's cookie.
+  arriveWith({ cookie: "mailed_link=tok" });
+  const page = AddressChangeConfirmationPage() as ReactElement<{ page: Promise<MailedState> }>;
   return page.props.page;
 }
 

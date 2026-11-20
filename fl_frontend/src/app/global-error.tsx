@@ -4,7 +4,7 @@
 import "./globals.css";
 
 import { COPY } from "@/core/copy/shared";
-import { ROUTES } from "@/core/routes";
+import { TO_HOME } from "@/kit/mailedLinkState";
 import { ClassicStatusPage } from "@/kit/StatusCard";
 import { useReportClientCrash } from "@/shared/hooks/useReportClientCrash";
 
@@ -28,7 +28,7 @@ export default function GlobalError({ error }: { error: unknown }) {
         <ClassicStatusPage
           tone="danger"
           title={COPY.shared.failure.unexpected}
-          next={{ label: COPY.shared.end.toHome, href: ROUTES.home.path(), fullPage: true }}
+          next={{ ...TO_HOME, fullPage: true }}
         />
       </body>
     </html>

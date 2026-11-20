@@ -6,7 +6,7 @@ import { z } from "zod";
 
 import { action, blankIsNull } from "@/core/action";
 import { COPY } from "@/core/copy/shared";
-import { APIBadStatusError } from "@/core/errors";
+import { refusedAs } from "@/core/errors";
 import { registrierungenPostRegistrierung } from "@/core/generated/client/sdk";
 import { RegistrierungenPostRegistrierungBody } from "@/core/generated/zod/inputs";
 import { IDEMPOTENCY_KEY_FIELD, IDEMPOTENCY_KEY_HEADER } from "@/core/idempotencyKey";
@@ -38,7 +38,7 @@ const Registration = z.object({
  */
 const MOVED: ReadonlySet<Code> = new Set<Code>(["document_not_found", "registrierung_closed", "kader_full", "registrierung_stufe_not_allowed"]);
 
-const moved = (error: unknown) => error instanceof APIBadStatusError && error.serverErrorCode !== undefined && MOVED.has(error.serverErrorCode);
+const moved = (error: unknown) => refusedAs(error, MOVED);
 
 /**
  * One pupil's registration through their team's link, sent with no session. The link is a team's, handed round a class,
