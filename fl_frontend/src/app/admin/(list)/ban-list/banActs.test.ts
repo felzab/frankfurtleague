@@ -1,6 +1,6 @@
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 
-import { ADMIN_COPY } from "@/core/copy/admin";
+import { COPY } from "@/core/copy/shared";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { ADMIN_EMAIL } from "@/test-support/authDoubles";
 import { refusal, serveBackend } from "@/test-support/backend";
@@ -10,7 +10,8 @@ import type { FLCreatedResponse, FLPostBanListEntryPayload } from "@/core/genera
 
 const ADDRESS = "max@example.org";
 const BAN = { email: ADDRESS, ban_reason: "Ein Grund", holder: ADMIN_EMAIL };
-const PARTIAL = ADMIN_COPY.banList.partial;
+/** The site's one failure line, which every failure after the write shows. */
+const FAILED = { ok: false, reason: COPY.shared.failure.unexpected };
 const MAX_ID = "64c000000000000000000005";
 
 /** The sessions of the banned address's account the store held as the backend took the ban, one entry per ban posted. */
@@ -86,32 +87,32 @@ describe("a ban", () => {
     expect(maxStamped()).toBe(true);
   });
 
-  it("owes no notice where no account stands, and that is no partial outcome", async () => {
+  it("owes no notice where no account stands, and stands done", async () => {
     expect(await enterBan(BAN)).toStrictEqual({ ok: true, value: undefined });
 
     expect(bansPosted()).toMatchObject([{ notify: false }]);
   });
 
-  // The sign-out follows a write that cannot be taken back, so the dialog must say it did not follow.
-  it("keeps its button for a second press and says what did not follow where the sign-out failed", async () => {
+  // The sign-out follows a write that cannot be taken back, so a failure there must not read as done.
+  it("answers the shared failure line over a ban that stands where the sign-out failed", async () => {
     maxSignedInOn(1);
     await storeFailsOnMax("update");
 
-    expect(await enterBan(BAN)).toStrictEqual({ ok: false, reason: PARTIAL.sessions, warn: true });
+    expect(await enterBan(BAN)).toStrictEqual(FAILED);
 
     expect(bansPosted()).toMatchObject([{ email: ADDRESS, notify: true }]);
     expect(sessionsOfMax()).toHaveLength(1);
   });
 
-  it("stands done and says so where the store did not say whether an account stands, which no press repairs", async () => {
+  // The harm: a ban written on a guess of whether an account stands would leave its holder untold of it, for good.
+  it("writes nothing where the store did not say whether an account stands", async () => {
     maxSignedInOn(1);
     await storeFailsOnMax("findOne");
 
-    expect(await enterBan(BAN)).toStrictEqual({ ok: true, value: undefined, note: PARTIAL.notice, warn: true });
+    expect(await enterBan(BAN)).toStrictEqual(FAILED);
 
-    // Nobody is told on a guess, and the sessions still end.
-    expect(bansPosted()).toMatchObject([{ notify: false }]);
-    expect(sessionsOfMax()).toStrictEqual([]);
+    expect(bansPosted()).toStrictEqual([]);
+    expect(sessionsOfMax()).toHaveLength(1);
   });
 
   // A POST whose answer was lost leaves the ban standing and the sign-out never run, and nothing but this press ends it.
@@ -132,23 +133,13 @@ describe("a ban", () => {
       expect(maxStamped()).toBe(true);
     });
 
-    // The harm: „Schon vergeben“ over a press that did what the warn line left open reads as nothing having happened.
-    it("says the sessions the first left running ended, and refuses nothing", async () => {
-      answeredBanned();
-      maxSignedInOn(2);
-
-      expect(await enterBan(BAN)).toStrictEqual({ ok: true, value: undefined, note: PARTIAL.ended });
-
-      expect(sessionsOfMax()).toStrictEqual([]);
-    });
-
     // The harm: a field error stands on the box until its value changes, so the browser holds back the press that still could.
-    it("says so where they did not end and they run, and leaves the address free to press again", async () => {
+    it("answers the shared failure line where they did not end and they run, and leaves the address free to press again", async () => {
       answeredBanned();
       maxSignedInOn(1);
       await storeFailsOnMax("update");
 
-      expect(await enterBan(BAN)).toStrictEqual({ ok: false, reason: PARTIAL.sessions, warn: true });
+      expect(await enterBan(BAN)).toStrictEqual(FAILED);
 
       expect(sessionsOfMax()).toHaveLength(1);
     });
