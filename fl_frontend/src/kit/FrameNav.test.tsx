@@ -113,6 +113,23 @@ describe("the entry marked as the current page", () => {
 
     expect(lit()).toEqual([page.title]);
   });
+
+  // On a phone a page the bar leaves to „Mehr“, such as the Widerrufe, was marked nowhere a person sees: the bar lit no
+  // place, and the sheet drew its entry as every other.
+  it("lights „Mehr“ and marks its sheet's entry as the rail marks one, on a page the bar leaves to the sheet", async () => {
+    await renderMenus(ROUTES.adminSpiele.path("2026"), { entries: [{ id: "2026", span: "" }], standard: "2026" });
+
+    const more = screen.getByRole("button", { name: COPY.template.more });
+    expect(more.className.split(" ")).toContain("text-brand");
+    expect(more.className.split(" ")).not.toContain("text-fg-muted");
+    await userEvent.click(more);
+    const sheet = await screen.findByRole("dialog", { name: COPY.template.more });
+    const marked = within(sheet).getByRole("link", { current: "page" });
+    expect(marked.textContent).toBe(ROUTES.adminSpiele.title);
+    // The rail's mark of the page a person is on, drawn on the entry that carries `data-selected`.
+    expect(marked.hasAttribute("data-selected")).toBe(true);
+    expect(marked.className.split(" ")).toEqual(expect.arrayContaining(["data-selected:bg-bg-muted", "data-selected:text-brand"]));
+  });
 });
 
 /** Where each link of the rail, the bar and its sheet leads. */

@@ -633,6 +633,8 @@ function Places({ groups: given, bar, extra, account, prefetch }: FrameMenu) {
   const rest = groups
     .map((group) => ({ ...group, entries: group.entries.filter((entry) => !bar.includes(entry.id)) }))
     .filter((group) => group.entries.length > 0);
+  // „Mehr“ is lit as the place of a page its sheet leads to, as a bar place is of its own, so the bar always marks one.
+  const inSheet = rest.some((group) => group.entries.some((entry) => entry === current));
 
   return (
     // At the column's foot, by its margin, whether a page stands above it or none does yet.
@@ -663,7 +665,7 @@ function Places({ groups: given, bar, extra, account, prefetch }: FrameMenu) {
             trigger={
               <AriaButton
                 data-kit-focus="inset"
-                className={barPlace({ current: false, host: "aria" })}>
+                className={barPlace({ current: inSheet, host: "aria" })}>
                 <Icon
                   glyph="more"
                   size={18}
@@ -683,8 +685,9 @@ function Places({ groups: given, bar, extra, account, prefetch }: FrameMenu) {
                       href={entry.href}
                       prefetch={prefetch}
                       aria-current={entry === current ? "page" : undefined}
+                      data-selected={entry === current || undefined}
                       data-kit-focus="inset"
-                      className={menuEntry({ size: "phone" })}>
+                      className={menuEntry({ size: "phone", current: entry === current })}>
                       <Icon
                         glyph={entry.icon}
                         size={18}

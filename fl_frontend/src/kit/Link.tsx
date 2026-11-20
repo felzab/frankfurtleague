@@ -2,6 +2,7 @@ import { textOf } from "@/core/copy";
 
 import { buttonLook } from "./buttonStyles";
 import { cardHover } from "./cardStyles";
+import { entryMark } from "./fieldStyles";
 import { hoverLook } from "./hoverStyles";
 import { Icon } from "./Icon";
 import { IconLink } from "./IconLink";
@@ -74,13 +75,20 @@ export const frameLink = tv({
   },
 });
 
-/** An entry of a list a frame opens, a desktop menu's or a phone's sheet's, as tall as every control. */
+/**
+ * An entry of a list a frame opens, a desktop menu's or a phone's sheet's, as tall as every control. A phone's sheet of
+ * the frame's pages marks the page the person is on as the rail marks it (`current`), the link carrying
+ * `data-selected`.
+ */
 export const menuEntry = tv({
   base: "flex items-center gap-3 rounded-md px-3 font-medium text-fg",
   variants: {
     size: {
       desktop: "h-8 text-sm",
       phone: "h-10 text-base",
+    },
+    current: {
+      true: entryMark({ mark: "place" }),
     },
   },
 });
