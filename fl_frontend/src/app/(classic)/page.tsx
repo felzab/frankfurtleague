@@ -6,23 +6,20 @@ import { COPY } from "@/core/copy/shared";
 import { dayOf, formatNumber } from "@/core/format";
 import { JOIN_SECTION, ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
-import { ORGANISERS, SPONSORS } from "@/features/meta/constants";
+import { SPONSORS } from "@/features/meta/constants";
 import { Doors } from "@/kit/Doors";
 import { EmptyBox } from "@/kit/EmptyState";
-import { InfoCards } from "@/kit/InfoCards";
 import { OrganizationJsonLd } from "@/kit/JsonLd";
 import { LandingPage } from "@/kit/LandingPage";
 import { LandingSection } from "@/kit/LandingSection";
-import { Organisers } from "@/kit/Organisers";
-import { Pillars } from "@/kit/Pillars";
 import { SaisonBlock } from "@/kit/SaisonBlock";
 import { StatTiles } from "@/kit/StatTiles";
 import { Steps } from "@/kit/Steps";
-import { StepsLine } from "@/kit/StepsLine";
 import { SchoolTiles, SponsorTiles } from "@/kit/TileGrid";
 import { pageMetadata } from "@/shared/utils/metadata";
 
 import { readLanding, stateOf } from "./landing";
+import { OrganisersSection, PillarsSection, SeasonSection } from "./LeagueSections";
 
 import type { FLBewerbungWindow, FLLandingResponse } from "@/core/generated/client/types";
 import type { LandingContent } from "@/kit/LandingPage";
@@ -177,17 +174,7 @@ async function SchoolsSection({ read }: { read: Promise<FLLandingResponse> }) {
 function sectionsOf(read: Promise<FLLandingResponse>): ReactNode {
   return (
     <>
-      <LandingSection
-        eyebrow={words.pillars.eyebrow}
-        title={words.pillars.title}>
-        <Pillars
-          items={[
-            { glyph: "pupils", ...words.about.who },
-            { glyph: "play", ...words.about.rules },
-            { glyph: "proceeds", ...words.about.purpose },
-          ]}
-        />
-      </LandingSection>
+      <PillarsSection />
       <LandingSection
         eyebrow={words.join.eyebrow}
         title={words.join.title}
@@ -202,26 +189,9 @@ function sectionsOf(read: Promise<FLLandingResponse>): ReactNode {
           band={bandOf(read)}
         />
       </LandingSection>
-      <LandingSection
-        eyebrow={words.season.eyebrow}
-        title={words.season.title}>
-        <StepsLine
-          items={[
-            { title: COPY.shared.phase.gruppenphase, text: words.season.gruppenphase },
-            { title: COPY.shared.kORunde, text: words.season.kORunde },
-            { title: SERVER_COPY.season.thirdPlace, text: words.season.platz3 },
-            { title: COPY.shared.phase.finale, text: words.season.finale },
-          ]}
-        />
-        <InfoCards items={[words.about.spielorte, words.about.admission, words.about.safety]} />
-      </LandingSection>
+      <SeasonSection />
       <FiguresSection read={read} />
-      <LandingSection
-        eyebrow={words.organisers.eyebrow}
-        title={words.organisers.title}
-        more={ABOUT}>
-        <Organisers people={ORGANISERS.map((person) => ({ name: { record: person.name }, role: words.organisers.role[person.role] }))} />
-      </LandingSection>
+      <OrganisersSection more={ABOUT} />
       <LandingSection
         eyebrow={words.sponsors.eyebrow}
         title={COPY.page.sponsors}
