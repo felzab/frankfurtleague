@@ -166,8 +166,8 @@ let drainAfter: Promise<void> | undefined;
  */
 export function drainOutbox(): Promise<void> {
   if (drainRunning !== undefined) {
-    // Started from this call's context, so it runs under this call's scope rather than the running drain's, whose
-    // deadline may be what that drain failed on.
+    // One drain for every call made while one runs, started from the first such call's context, so its lines carry that
+    // caller's trace rather than the running drain's.
     const after = () => {
       drainAfter = undefined;
       return drainOutbox();
