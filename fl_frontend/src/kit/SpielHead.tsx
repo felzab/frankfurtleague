@@ -170,10 +170,6 @@ async function PopupBody({ popup }: { popup: Promise<SpielPopupContent> }) {
       title={title}
       act={act}>
       <SpielHead {...pairing} />
-      <Facts
-        look="free"
-        facts={facts}
-      />
       {sonderereignis !== null && (
         <Callout
           tone="danger"
@@ -181,14 +177,18 @@ async function PopupBody({ popup }: { popup: Promise<SpielPopupContent> }) {
           text={sonderereignis.text}
         />
       )}
+      <Facts
+        look="free"
+        facts={facts}
+      />
     </RouteDialogBody>
   );
 }
 
 /**
- * The match pop-up: the matchday and the pairing on the band across its top, the facts under them, what befell
- * the match where something did, and the way to the match's page as the dialog's act. It opens with its match read,
- * the page it was pressed on standing until then.
+ * The match pop-up: the matchday and the pairing on the band across its top, under them what befell the match where
+ * something did, as the match's page sets it under its head, then the facts, and the way to the match's page as the
+ * dialog's act. It opens with its match read, the page it was pressed on standing until then.
  */
 export function SpielPopup({ popup }: { popup: Promise<SpielPopupContent> }) {
   return (

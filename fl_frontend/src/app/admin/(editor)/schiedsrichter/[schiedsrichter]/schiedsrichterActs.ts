@@ -3,6 +3,7 @@
 import { z } from "zod";
 
 import { action } from "@/core/action";
+import { ADMIN_COPY } from "@/core/copy/admin";
 import { COPY } from "@/core/copy/shared";
 import {
   schiedsrichterDeleteSchiedsrichter,
@@ -33,15 +34,17 @@ export const retireSchiedsrichter = action({
 
 /**
  * Brings a retired referee back into every match's choice. One who has not answered is asked again, a fresh link
- * mailed.
+ * mailed, which the answer says, naming the address it went to.
  */
 export const reactivateSchiedsrichter = action({
   lane: "admin",
   name: "reactivateSchiedsrichter",
   input: z.object({ id: SchiedsrichterReactivateSchiedsrichterParams.shape.schiedsrichter_id }),
   run: async ({ id }) => {
-    await schiedsrichterReactivateSchiedsrichter(id);
-    return { ok: true, value: undefined };
+    const { confirmation } = await schiedsrichterReactivateSchiedsrichter(id);
+    return confirmation === null
+      ? { ok: true, value: undefined }
+      : { ok: true, value: undefined, note: ADMIN_COPY.schiedsrichter.sentTo(confirmation.email) };
   },
 });
 

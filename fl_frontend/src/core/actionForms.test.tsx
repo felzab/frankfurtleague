@@ -83,7 +83,12 @@ describe("each form's posted names meet its lane's keys", () => {
     everyBoxTyped(names, typed);
     takes(["POST", "/schiedsrichter", { created_id: ID }]);
 
-    expect(await createSchiedsrichter(formOf(names, typed))).toStrictEqual({ ok: true, value: undefined });
+    // The note names the mailbox the link went to, in wording from a catalogue this core test may not import.
+    expect(await createSchiedsrichter(formOf(names, typed))).toStrictEqual({
+      ok: true,
+      value: undefined,
+      note: expect.stringContaining("erika@example.org") as unknown,
+    });
     expect(requestsSent()).toStrictEqual([
       [
         "POST /schiedsrichter",

@@ -58,9 +58,9 @@ export type Trigger<T extends Tone = Tone> = {
   /**
    * Why the act cannot run on the record as it stands, which the page read: the button, in the same look, answers a
    * press with the reason (`Button`'s `locked`), and stands outside the dialog's trigger, which would open the question
-   * behind the reason.
+   * behind the reason. `true` where the editor's lock line already says why.
    */
-  locked?: Copy;
+  locked?: Copy | true;
 } & (
   | { icon: IconName; leadingIcon?: never; isDisabled?: never; variant?: never }
   | ({ icon?: never; leadingIcon?: IconName; isDisabled?: boolean } & ([T] extends ["danger"]

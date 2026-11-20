@@ -25,6 +25,14 @@
   outline-color: var(--brand);
 }
 
+/* A read-only field, locked or closed, takes no edit, so its focus edge is the neutral control edge rather than the
+   brand's, which offers the text for typing. Not the hairline its frame rests in: the keys still reach the field, and
+   the hairline keeps less than 3:1 on the page, too faint to show where the focus stands. React Aria marks the
+   field's root `data-readonly`. */
+[data-kit-focus="field"]:is([data-readonly], [data-readonly] *) {
+  outline-color: var(--border-control);
+}
+
 [data-kit-focus="field"]:is([data-invalid], [data-invalid] *) {
   outline-color: var(--danger);
 }

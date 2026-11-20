@@ -10,7 +10,6 @@ import { Button } from "./Button";
 import { ClassicPage, mailedCard } from "./ClassicPage";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { FieldStack } from "./FieldStack";
-import { boxStack } from "./fieldStyles";
 import { FormFooter } from "./FormFooter";
 import { HeldForm } from "./HeldForm";
 import { ClassicStatusPage } from "./StatusCard";
@@ -253,7 +252,7 @@ export function OneShotForm({
         <HeldForm
           {...held}
           className="grid gap-6">
-          {children !== undefined && <div className={boxStack()}>{children}</div>}
+          {children !== undefined && <div className="grid gap-6">{children}</div>}
           {/* One item of the form's gap: a widget Cloudflare shows nothing in leaves no gap of its own. */}
           <div className="grid">
             {check.widget}

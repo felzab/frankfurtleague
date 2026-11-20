@@ -430,7 +430,8 @@ class TestTheReactivation:
         response, row = await on_a_league(mongo_replica_set_url, body, referees=[referee_document(**RETIRED)])
 
         assert row["inactive_since"] is None
-        assert response.to == EMAIL
+        # The answer names the mailbox the link went to, which the editor reports once the press is done.
+        assert (response.to, response.answer.confirmation.email) == (EMAIL, EMAIL)
         assert row[CONFIRMATION_FIELD]["token_hashes"] == [hash_token(str(response.token))]
         assert ERASE_AT_FIELD in row
 
@@ -446,7 +447,7 @@ class TestTheReactivation:
 
         first, response, row = await on_a_league(mongo_replica_set_url, body)
 
-        assert response.token is None
+        assert (response.token, response.answer.confirmation) == (None, None)
         assert row[CONFIRMATION_FIELD]["token_hashes"] == [hash_token(str(first.token))]
         assert row[ERASE_AT_FIELD] is None
 
