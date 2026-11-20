@@ -15,6 +15,10 @@ const nextConfig: NextConfig = {
   deploymentId: process.env.APP_VERSION || undefined,
   // Next names itself on every response by default, which tells a scanner which framework's flaws to try.
   poweredByHeader: false,
+  // Every `next/image` serves its file as it is, and `/_next/image` answers 404 rather than resizing for anyone who
+  // asks: the one picture it draws, a sponsor's logo, is an SVG, which the optimiser has nothing to do for. A raster
+  // picture drawn through `next/image` later is served at its file's full size until this key goes.
+  images: { unoptimized: true },
   async headers() {
     return [
       {

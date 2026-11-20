@@ -139,13 +139,11 @@ export function ClassicFrame({
                     <span
                       title={sponsor.name.record}
                       className="flex items-center gap-2 text-xs">
-                      {/* An SVG served as it is, which the image optimiser has nothing to do for. */}
                       <span className="relative block h-6 w-24">
                         <Image
                           src={sponsor.logo}
                           alt={sponsor.name.record}
                           fill
-                          unoptimized
                           sizes="6rem"
                           className="object-contain object-left grayscale"
                         />
