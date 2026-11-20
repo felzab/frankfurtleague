@@ -30,54 +30,7 @@ export type RouteEntry = {
 };
 
 /**
- * The English words an address may carry. An address follows the code's naming rule: a segment is German only where
- * it is the league's own word, a core entity or attribute of the glossary, and every word for what the website does
- * with one is English and stands here. This module's test holds every fixed segment of every row and every page to
- * this list or to a league word, so a new word is added here, in English, or the build fails.
- * @internal
- */
-export const ADDRESS_WORDS = [
-  "about",
-  "account",
-  "address",
-  "address-changes",
-  "admin",
-  "administrators",
-  "api",
-  "appearance",
-  "area",
-  "auth",
-  "ban-list",
-  "bulk",
-  "client-error",
-  "confirm",
-  "contact",
-  "continue",
-  "delivery",
-  "done",
-  "entries",
-  "erasure",
-  "erasures",
-  "log",
-  "mail",
-  "passkey",
-  // A Funktion's code word, as the glossary spells it in code.
-  "roles",
-  "search",
-  "security",
-  "settings",
-  "signin",
-  "sitemap",
-  "sponsors",
-  "withdrawals",
-  // The one exception, two German words naming no league thing: the Impressum is a duty under German law, and
-  // `/impressum` and `/datenschutz` are where a German visitor looks for it and for the privacy notice.
-  "impressum",
-  "datenschutz",
-] as const;
-
-/**
- * Every page whose name is settled. Each segment is a league word or one of `ADDRESS_WORDS`; a page under a season
+ * Every page whose name is settled. Each segment is a league word or an English word its test lists; a page under a season
  * carries the season in its address.
  * Signed-in pages, sign-in pages and pages a mail opens are never indexed, and a signed-in page or one
  * a mail opens, whose link carries a token, is never fetched.

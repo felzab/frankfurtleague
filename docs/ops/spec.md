@@ -549,8 +549,8 @@ running `./scripts/gate/verify.sh` with that scope's flag. Beside them:
 leaves unused is removed in that change. The default run (`fl_frontend/knip.json`) refuses a file,
 an export or a dependency nothing imports, a test included. The production run
 (`fl_frontend/knip.production.json`) drops the tests and refuses a file or an export no production
-code reads; a value a test compares on purpose carries `@internal`. Each file names, beside each
-ignore, the reader knip cannot see, and a configuration hint fails either step as a finding does.
+code reads. Each file names, beside each ignore, the reader knip cannot see, and a configuration
+hint fails either step as a finding does.
 
 **An editor formats earlier still**: `.vscode/settings.json` names the module, the configuration and
 the ignore file the gate itself reads. `.editorconfig` carries the same conventions to the files
