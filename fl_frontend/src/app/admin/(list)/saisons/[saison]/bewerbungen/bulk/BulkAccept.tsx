@@ -56,7 +56,8 @@ function formOf(row: FLBewerbungListRow, draft: Draft): FormData {
  * A row of the check page, its state in its „Stand“ column whatever the run did: entered, „Angenommen“; turned away for
  * its Kürzel, that chip; else the application's own standing, with why it was turned away where it was and its way back
  * to its card. An entered row opens nothing, so on a phone every row's line says the colour and the Kürzel its columns
- * would, a colour left open left out as the squad's line leaves an empty fact.
+ * would, and the group where the box leaves its column out too, a colour left open left out as the squad's line leaves
+ * an empty fact.
  */
 function checkRow(row: FLBewerbungListRow, run: Run, outcome: Outcome | undefined, open: (id: string) => void): TableRow {
   const draft = run.drafts[row.id];
@@ -67,7 +68,7 @@ function checkRow(row: FLBewerbungListRow, run: Run, outcome: Outcome | undefine
     farbe: colour ?? COPY.shared.notProvided,
     shorthand,
   };
-  const base = { id: row.id, name: { record: row.name }, phoneLine: COPY.shared.line([colour, shorthand]), cells };
+  const base = { id: row.id, name: { record: row.name }, cells };
   if (outcome?.kind === "accepted") return { ...base, chip: STANDING_CHIP.accepted };
   const refused = outcome?.kind === "refused" ? outcome : null;
   const line = refused?.taken === true ? undefined : (refused?.line ?? Object.values(refused?.fieldErrors ?? {})[0]);
@@ -198,9 +199,9 @@ export function BulkAccept({
         nameLabel: COPY.shared.facts.school,
         state: { label: COPY.shared.facts.state },
         columns: [
-          { key: "gruppe", label: COPY.team.gruppe, narrow: true, width: "word" },
-          { key: "farbe", label: COPY.team.trikotFarbe, hideOnPhone: true, width: "word" },
-          { key: "shorthand", label: COPY.team.shorthand, hideOnPhone: true, width: "code" },
+          { key: "gruppe", label: COPY.team.gruppe, narrow: true, onLine: "value", width: "word" },
+          { key: "farbe", label: COPY.team.trikotFarbe, hideOnPhone: true, onLine: "value", width: "word" },
+          { key: "shorthand", label: COPY.team.shorthand, hideOnPhone: true, onLine: "value", width: "code" },
         ],
         rows: shown.map((row) => checkRow(row, run, run.outcomes[row.id], go)),
         // A run with no applications ended above, so an empty table is one whose every card was skipped.

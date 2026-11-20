@@ -30,15 +30,15 @@ export async function generateMetadata({ params }: Props, parent: ResolvingMetad
 
 /**
  * The table's head: the shirt number beside the name on a phone where the box holds it, position and Stufe from 42 rem
- * of the table's box, which a phone row says in its line instead.
+ * of the table's box, which a phone row says in its line instead, the number too where the box leaves it out.
  */
 const HEAD: TableHead = {
   nameLabel: COPY.shared.name,
   state: { label: COPY.shared.facts.state },
   columns: [
-    { key: "nummer", label: SERVER_COPY.season.column.nummer, figures: true, narrow: true, width: "count" },
-    { key: "position", label: WORDS.position, hideOnPhone: true, width: "word" },
-    { key: "stufe", label: WORDS.stufe, hideOnPhone: true, width: "code" },
+    { key: "nummer", label: SERVER_COPY.season.column.nummer, figures: true, narrow: true, onLine: "labelled", width: "count" },
+    { key: "position", label: WORDS.position, hideOnPhone: true, onLine: "value", width: "word" },
+    { key: "stufe", label: WORDS.stufe, hideOnPhone: true, onLine: "value", width: "code" },
   ],
 };
 

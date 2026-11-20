@@ -14,7 +14,7 @@ import { RailPage } from "./RailFrame";
 import { SeatRows } from "./SeatRows";
 import { SpielGroup } from "./SpielGroup";
 import { spielColumns, spielSubgrid } from "./SpielRow";
-import { Table } from "./Table";
+import { TableStanding } from "./TableStanding";
 import { Tabs } from "./Tabs";
 import { TeamHead } from "./TeamHead";
 
@@ -30,6 +30,7 @@ import type { RailPageHead } from "./RailFrame";
 import type { SeatRow } from "./SeatRows";
 import type { SpielRowProps } from "./SpielRow";
 import type { TableBody, TableHead } from "./Table";
+import type { TableStandingBody, TableStandingHead } from "./TableStanding";
 import type { SchoolTile } from "./TileGrid";
 
 /** The matchday tabs, each with its matches, and the tab the server chose by `chosenTab`. */
@@ -52,9 +53,10 @@ export type SpieltageContent = {
   empty: EmptyStateProps;
 };
 
-/** One card per group under the page's one title, such as the Tabelle's: each group's name and count heading its table. */
+/** One card per group under the page's one title, the Tabelle's: each group's name and count heading its standing. */
 type GroupsContent = {
-  groups: ReadonlyArray<{ id: string; title: Copy; table: TableBody }>;
+  /** Each group's card, its help behind the ⓘ after its title where the standing draws marks it explains. */
+  groups: ReadonlyArray<{ id: string; title: Copy; help?: readonly [Copy, ...Copy[]]; table: TableStandingBody }>;
   /** Why there is no group to show, standing in the tables' place. */
   empty: EmptyStateProps;
 };
@@ -119,8 +121,8 @@ type ListContent =
     }
   | {
       kind: "groups";
-      /** Every group's table's head, one for all. */
-      head: TableHead;
+      /** Every group's standing's head, one for all. */
+      head: TableStandingHead;
       content: Promise<GroupsContent>;
     }
   | {
@@ -302,11 +304,11 @@ async function ListBody({ list }: { list: ListContent }) {
           <Card
             key={group.id}
             title={group.title}
+            {...(group.help === undefined ? {} : { help: group.help })}
             count={group.table.rows.length}>
-            <Table
+            <TableStanding
               {...list.head}
               {...group.table}
-              bare
             />
           </Card>
         ))

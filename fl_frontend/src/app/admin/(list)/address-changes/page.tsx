@@ -86,12 +86,7 @@ function rowOf(change: FLAddressChangeAdminOpen, holder: string): TableRow {
     chip: chipOf(change),
     ...(delivery === null ? {} : { delivery }),
     ...(until === undefined ? {} : { line: until }),
-    phoneLine: {
-      before: WORDS.newLine.before,
-      address: { record: change.email },
-      ...(until === undefined ? {} : { after: WORDS.newLine.after(until) }),
-    },
-    cells: { after: { record: change.email } },
+    cells: { after: { record: change.email, address: true } },
     sideActs: changeActKinds(resends).length,
     acts: (
       <ChangeActs
@@ -114,7 +109,7 @@ function rowOf(change: FLAddressChangeAdminOpen, holder: string): TableRow {
 const HEAD: TableHead = {
   nameLabel: COPY.shared.facts.before,
   state: { label: COPY.shared.facts.state, delivery: true },
-  columns: [{ key: "after", label: COPY.shared.facts.after, hideOnPhone: true, width: "line", cut: true }],
+  columns: [{ key: "after", label: COPY.shared.facts.after, hideOnPhone: true, onLine: "labelled", width: "line", cut: true }],
 };
 
 const START_RULES: StartRules = {
