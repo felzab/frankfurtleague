@@ -17,7 +17,6 @@
   "scripts": {
     "dev": "NODE_OPTIONS=--max-old-space-size=8192 SECRETS_DIR=../secrets next dev --turbo",
     "build": "next build",
-    "start": "next start",
     "lint": "pnpm typegen && pnpm lint:only",
     "lint:only": "eslint . --max-warnings 0 --concurrency auto",
     "knip": "knip --no-progress --treat-config-hints-as-errors",
@@ -49,9 +48,9 @@
     "react-aria-components": "^1.22.1",
     "react-dom": "^19.3.1",
     "server-only": "^0.0.1",
-    "svix": "^2.10.0",
+    "standardwebhooks": "^1.1.1",
     "tailwind-variants": "^3.3.1",
-    "zod": "~4.6.7"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@eslint/css": "^2.0.1",
