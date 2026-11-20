@@ -58,10 +58,12 @@ type BoundContext = {
 
 /**
  * Keyed under the library's own secret, never hashed plain: an address is guessable, so an unkeyed
- * digest is the address. Folded, so two spellings share one bound.
+ * digest is the address. Folded, so two spellings share one bound. The signed text names its purpose,
+ * since the session cookie's signature is the same key over the bare token, and a posted address may be
+ * any text: unprefixed, a counter's identifier could be the signature half of a cookie.
  */
 export async function boundIdentifier(prefix: string, email: string, secret: string): Promise<string> {
-  return `${prefix}${await makeSignature(asSignInIdentifier(email), secret)}`;
+  return `${prefix}${await makeSignature(`sign-in-bound:${asSignInIdentifier(email)}`, secret)}`;
 }
 
 /**
