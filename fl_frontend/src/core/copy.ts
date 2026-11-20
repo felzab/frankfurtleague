@@ -1622,8 +1622,6 @@ export const COPY = catalogue({
       startConsequence: (wait: Wait) => `Die neue Adresse gilt erst ${waitWords(wait).span}, nachdem sie bestätigt ist.`,
       /** A callout, the typed address matching a listed row. */
       replaces: "Eine laufende Änderung wird ersetzt.",
-      /** A withdrawal's and a discard's sentence. */
-      previousStays: "Die bisherige Adresse bleibt.",
     },
 
     /** The Protokoll: its one list, its filters and each row's words, composed from the stored action. */
