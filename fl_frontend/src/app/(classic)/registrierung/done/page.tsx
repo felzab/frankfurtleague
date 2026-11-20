@@ -14,8 +14,8 @@ export async function generateMetadata(_: unknown, parent: ResolvingMetadata): P
 
 /**
  * `/registrierung/done`, a registration's done state: the page the submit leads to once the pupil's registration is
- * stored and the link forgotten, reading nothing, so a reload and the tab both say what happened rather than the
- * forgotten link's card.
+ * stored and the link forgotten. It reads nothing and draws the submitted card, so a reload shows that card again
+ * rather than the forgotten link's.
  */
 export default function RegistrierungDonePage() {
   return (
