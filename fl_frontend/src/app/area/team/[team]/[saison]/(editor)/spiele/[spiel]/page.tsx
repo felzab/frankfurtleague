@@ -83,7 +83,8 @@ function chipOf({ spiel, marks }: FLAufstellungResponse): ChipProps | undefined 
  * A match's line-up as its club's seats enter it, on one read of the fixture, the squad and the stored line-up: the
  * editor until one hour before kick-off, and from then the same editor closed, as the administration opens a record it
  * may no longer change, since the league alone changes the line-up now. A match with no day or hour takes no line-up,
- * so the page says its date is open, as the referee's report page does, and leads to the team's Übersicht.
+ * so the page says as much of its slot as is set, its day or that its date is open, as the Spielplan words it, and
+ * leads to the team's Übersicht.
  */
 export default async function AufstellungPage({ params }: Props) {
   const [seat] = await requireTeamSeats(params, address);
@@ -98,7 +99,7 @@ export default async function AufstellungPage({ params }: Props) {
         title={title}
         card={{
           tone: "info",
-          title: COPY.spielplan.when(null, null),
+          title: COPY.spielplan.when(dayOf(found.spiel.date), timeOf(found.spiel.time)),
           next: { label: COPY.shared.end.toOverview, href: ROUTES.teamOverview.path(seat.team_id, seat.saison_id) },
         }}
       />
