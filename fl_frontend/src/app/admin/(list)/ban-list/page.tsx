@@ -1,4 +1,4 @@
-import { getAdminSession } from "@/core/auth/guards";
+import { getAdminHolder } from "@/core/auth/guards";
 import { BAN_DURATION_SAISONS } from "@/core/bounds";
 import { ADMIN_COPY } from "@/core/copy/admin";
 import { COPY } from "@/core/copy/shared";
@@ -35,11 +35,6 @@ const HEAD: TableHead = {
     { key: "enteredOn", label: ADMIN_COPY.facts.enteredOn, hideOnPhone: true, onLine: "labelled", width: "date" },
   ],
 };
-
-/** The address the page was drawn for; the list's own read turns a refused session away to the sign-in. */
-async function readHolder() {
-  return (await getAdminSession())?.user.email ?? "";
-}
 
 /**
  * One ban's row, opening nothing: its address, the Grund cut at its column, the last season it covers, the day it was
@@ -86,7 +81,7 @@ async function readBans(holder: Promise<string>) {
 
 /** The bans the league holds: searched over the address and the Grund on the page, a new one entered in the dialog over the list. */
 export default function BanListPage() {
-  const holder = readHolder();
+  const holder = getAdminHolder();
   const bans = readBans(holder);
   return (
     <ListPage

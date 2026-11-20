@@ -1,6 +1,6 @@
 import { requires } from "@/core/action";
 import { ADDRESS_CHANGE_WAIT_DAYS } from "@/core/addressChange";
-import { getAdminSession } from "@/core/auth/guards";
+import { getAdminHolder } from "@/core/auth/guards";
 import { ADMIN_COPY } from "@/core/copy/admin";
 import { COPY } from "@/core/copy/shared";
 import { formatInstantShort } from "@/core/format";
@@ -38,10 +38,8 @@ export async function generateMetadata(_: unknown, parent: ResolvingMetadata): P
 
 /** The running changes, and the address the page is drawn for: one read for the list and the toolbar's act alike. */
 async function readChanges() {
-  const [{ changes }, session] = await Promise.all([getAddressChanges(), getAdminSession()]);
-  // The page's read turned a refused session away to the sign-in before this line; an acting administrator signs in by
-  // passkey alone, so every act here asks the touch.
-  return { changes, holder: session?.user.email ?? "" };
+  const [{ changes }, holder] = await Promise.all([getAddressChanges(), getAdminHolder()]);
+  return { changes, holder };
 }
 
 const WAITS_ON_TONE: Readonly<Record<FLAddressChangeWaitsOn, ChipProps["tone"]>> = {

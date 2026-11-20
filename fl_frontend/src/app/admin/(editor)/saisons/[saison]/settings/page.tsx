@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 
-import { getAdminSession } from "@/core/auth/guards";
+import { getAdminHolder } from "@/core/auth/guards";
 import { ADMIN_COPY } from "@/core/copy/admin";
 import { COPY } from "@/core/copy/shared";
 import { dayOf, formatDate } from "@/core/format";
@@ -103,12 +103,9 @@ function waitingOf(row: FLInvitationLinkRow): ChipProps | null {
 export default async function SaisonSettingsPage({ params }: Props) {
   const { saison: id } = await params;
   // The frame's own season list, which the switch's question names the season the site leaves from, beside the view read.
-  const [read, { saisons }, session] = await Promise.all([getAdminSaison(id), getAdminSaisons(), getAdminSession()]);
+  const [read, { saisons }, holder] = await Promise.all([getAdminSaison(id), getAdminSaisons(), getAdminHolder()]);
   if (read === null) notFound();
   const { saison, teams, incoming_teams, shapes, spielplan, refusals, invitations } = read;
-  // The page's read turned a refused session away to the sign-in before this line; an acting administrator signs in
-  // by passkey alone, so every act behind the touch asks it.
-  const holder = session?.user.email ?? "";
   // The teams the registration links' press would mail now, by the press's own plan.
   const mailed = invitations.filter((row) => row.skipped === null);
 

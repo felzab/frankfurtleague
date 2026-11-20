@@ -1,5 +1,5 @@
 import { requires } from "@/core/action";
-import { getAdminSession } from "@/core/auth/guards";
+import { getAdminHolder } from "@/core/auth/guards";
 import { ADMIN_COPY } from "@/core/copy/admin";
 import { COPY } from "@/core/copy/shared";
 import { IdentityPostErasureBody, identityPostErasureBodyEmailMax, identityPostErasureBodyReasonMax } from "@/core/generated/zod/inputs";
@@ -31,7 +31,7 @@ export default function ErasuresPage() {
       tone="danger"
       read={readErasureCounts}
       run={eraseAddress}
-      holder={runAdminRead(async () => (await getAdminSession())?.user.email ?? "")}>
+      holder={runAdminRead(getAdminHolder)}>
       <TextField
         label={COPY.shared.emailAddress}
         name="email"
