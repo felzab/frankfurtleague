@@ -117,8 +117,8 @@ export function StatusCardBody({
 
 /**
  * A rail frame's card. A page with a name of its own keeps that name in the strip and its card carries the end's
- * title, as `/saisons` says that the league has no season yet; a boundary with no page of its own, the not-found and
- * the error page, has its title in the strip, and its card holds no second one.
+ * title, as the referee's Spielbericht for a match with no date says „Termin offen“; a boundary with no page of its
+ * own, the not-found and the error page, has its title in the strip, and its card holds no second one.
  */
 export type RailCard = Omit<StatusCardProps, "title"> & { title?: Copy };
 
