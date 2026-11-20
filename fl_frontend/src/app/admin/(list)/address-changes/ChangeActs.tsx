@@ -12,7 +12,6 @@ import { answering } from "@/kit/useFormAction";
 import { usePasskeyTouch } from "@/kit/usePasskeyTouch";
 
 import { resendChangeLink } from "./addressChangeActs";
-import { changeActKinds } from "./changeActKinds";
 
 import type { Fact } from "@/kit/Facts";
 import type { SideAct } from "@/kit/SideActs";
@@ -23,8 +22,8 @@ import type { SideAct } from "@/kit/SideActs";
  * line; and its ending, asked once, naming both addresses and whom it mails: „Zurückziehen“ in the wait, as Administratoren
  * says of the same record, and „Verwerfen“ before it, in the danger hue of every destroying act.
  *
- * Both are side acts of the row (`SideActs`), as `changeActKinds` lists them, in the form the list decides: their
- * labelled buttons in a wide box, and the entries of one „⋯“ in a narrow one. The fresh link runs from its entry's own
+ * Both are side acts of the row (`SideActs`), the fresh link first, in the form the list decides: their labelled
+ * buttons in a wide box, and the entries of one „⋯“ in a narrow one. The fresh link runs from its entry's own
  * press, which is the press the touch is asked from; the ending's question is held here and opened by its entry or its
  * button, and its own final press asks the touch.
  */
@@ -61,7 +60,7 @@ export function ChangeActs({
   const end: SideAct = { label: COPY.shared.verb[verb], tone: "danger", isBusy: isEnding, onPress: () => setAsking(true) };
 
   return (
-    <SideActs acts={changeActKinds(resends).map((kind) => ({ send, end })[kind])}>
+    <SideActs acts={resends ? [send, end] : [end]}>
       <ConfirmDialog
         verb={verb}
         subject={COPY.shared.addressChange.change}

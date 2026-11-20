@@ -14,7 +14,6 @@ import { EXPIRED_CHIP } from "@/kit/stateChips";
 import { pageMetadata } from "@/shared/utils/metadata";
 
 import { startLostMailboxChange } from "./addressChangeActs";
-import { changeActKinds } from "./changeActKinds";
 import { ChangeActs } from "./ChangeActs";
 import { StartFields } from "./StartFields";
 
@@ -87,7 +86,6 @@ function rowOf(change: FLAddressChangeAdminOpen, holder: string): TableRow {
     ...(delivery === null ? {} : { delivery }),
     ...(until === undefined ? {} : { line: until }),
     cells: { after: { record: change.email, address: true } },
-    sideActs: changeActKinds(resends).length,
     acts: (
       <ChangeActs
         id={change.id}
@@ -110,6 +108,7 @@ const HEAD: TableHead = {
   nameLabel: COPY.shared.facts.before,
   state: { label: COPY.shared.facts.state, delivery: true },
   columns: [{ key: "after", label: COPY.shared.facts.after, hideOnPhone: true, onLine: "labelled", width: "line", cut: true }],
+  sideActs: true,
 };
 
 const START_RULES: StartRules = {

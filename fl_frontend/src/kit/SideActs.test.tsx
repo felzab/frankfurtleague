@@ -48,18 +48,18 @@ describe("a row's side acts folded", () => {
   });
 });
 
-/** Each row's side acts, the row saying how many it carries, as every page builds its rows. */
+/** Each row's side acts, as every page builds its rows: a table says its rows carry them, a seat list reads its rows. */
 const LISTS = {
   table: (rows: ReadonlyArray<ReadonlyArray<SideAct>>) => (
     <Table
       label={COPY.shared.addressChange.change}
       nameLabel={COPY.shared.facts.before}
       columns={[]}
+      sideActs
       rows={rows.map((acts, index) => ({
         id: String(index),
         name: { record: `person${String(index)}@example.org` },
         cells: {},
-        sideActs: acts.length,
         acts: <SideActs acts={acts} />,
       }))}
       empty={{ kind: "none", plural: COPY.shared.addressChange.change }}
@@ -73,7 +73,6 @@ const LISTS = {
         name: { record: `Person ${String(index)}` },
         chips: [],
         line: { record: `person${String(index)}@example.org` },
-        sideActs: acts.length,
         acts: <SideActs acts={acts} />,
       }))}
     />

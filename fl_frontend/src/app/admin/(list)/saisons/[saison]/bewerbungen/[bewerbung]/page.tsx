@@ -9,7 +9,6 @@ import { getBewerbungById } from "@/features/bewerbungen/queries";
 import { seatsOf } from "@/features/bewerbungen/seats";
 import { STANDING_CHIP, standingOf, TEAM_DOUBLE } from "@/features/bewerbungen/standing";
 import { trikotFarbeLabel } from "@/features/teams/constants";
-import { seatActKinds } from "@/features/teams/seatActKinds";
 import { SeatActs } from "@/features/teams/SeatActs";
 import { Button } from "@/kit/Button";
 import { Link } from "@/kit/Link";
@@ -181,7 +180,6 @@ function seatRowsOf(bewerbung: FLBewerbung, finished: boolean): SeatRow[] {
     const link = state === "valid" || state === "expired" ? { send: sendSeatLink, seat: { bewerbung_id: bewerbung.id, seat } } : null;
     return {
       ...row,
-      sideActs: seatActKinds(link).length,
       acts: (
         <SeatActs
           seats={seats}

@@ -13,7 +13,6 @@ import { Link } from "./Link";
 import { RolleMark } from "./RolleMark";
 import { RowEnd } from "./RowEnd";
 import { RowPress } from "./RowPress";
-import { sideActsForm } from "./sideActsForm";
 import { TeamPlaque } from "./TeamPlaque";
 import { tv } from "./tv";
 
@@ -117,7 +116,6 @@ export type TableRow = {
        */
       onOpen?: () => void;
       acts?: never;
-      sideActs?: never;
     }
   | {
       href?: never;
@@ -125,18 +123,12 @@ export type TableRow = {
       /**
        * What can be done to a record that opens no page of its own. A decision, such as „Zusagen“ and „Ablehnen“, is
        * one or two kit buttons, each the trigger of its dialog, as a card's act row holds them: on one line under the
-       * row's words where the list is stacked, at the row's end where it is a table. Side acts (`SideActs`) are their
-       * labelled buttons at the row's end where the list is a table, and one „⋯“ at its end, across its lines, where
-       * it is stacked. A row the reader can do nothing to takes none, and a table none of whose rows takes any draws
-       * no act column.
+       * row's words where the list is stacked, at the row's end where it is a table. Side acts (`SideActs`), in a list
+       * that says its rows carry them (`sideActs`), are their labelled buttons at the row's end where the list is a
+       * table, and one „⋯“ at its end, across its lines, where it is stacked. A row the reader can do nothing to takes
+       * none, and a table none of whose rows takes any draws no act column.
        */
       acts?: ReactElement;
-      /**
-       * How many side acts `acts` draws (`SideActs`, and `RowAct`'s one), which the list reads to decide their form for
-       * all its rows: the acts reach it as an element, which says nothing of what it holds. Counted by the rule the
-       * acts' own module lists them by, such as `changeActKinds`, never a second condition beside it.
-       */
-      sideActs?: number;
     }
 );
 
@@ -170,10 +162,15 @@ export type TableProps = {
    * rest would stand nowhere a touch reaches.
    */
   stack?: boolean;
+  /**
+   * The rows' acts are side acts (`SideActs`, and `RowAct`'s one) rather than a decision's buttons, which the list
+   * reads to stand them for all its rows: the acts reach it as an element, which says nothing of what it holds.
+   */
+  sideActs?: true;
 };
 
-/** A table's heads, its columns and how its cells set, which a page states once, beside the rows it reads. */
-export type TableHead = Pick<TableProps, "nameLabel" | "state" | "columns" | "stack">;
+/** A table's heads, its columns and how its cells and acts set, which a page states once, beside the rows it reads. */
+export type TableHead = Pick<TableProps, "nameLabel" | "state" | "columns" | "stack" | "sideActs">;
 
 export type TableBody = Omit<TableProps, keyof TableHead>;
 
@@ -740,13 +737,12 @@ function NameCell({
  * roles in writing, since a stacked row's and a prose row's `display: grid` drops the semantics an engine infers from
  * the elements alone.
  */
-export function Table({ label, nameLabel, state, columns, rows, empty, bare = false, prose = false, stack = false }: TableProps) {
+export function Table({ label, nameLabel, state, columns, rows, empty, bare = false, prose = false, stack = false, sideActs }: TableProps) {
   // Any row's acts give the whole table its column, whose head names nothing, as the chevrons' does.
   const hasActs = rows.some((row) => row.acts !== undefined);
   const stacks = stacksOf({ prose, stack });
-  const sideActs = sideActsForm(rows);
   // Where a stacked row's acts stand: a decision's under its words, side acts' „⋯“ at its end.
-  const acts = !hasActs ? undefined : sideActs.carried ? "folded" : "under";
+  const acts = !hasActs ? undefined : sideActs === true ? "folded" : "under";
   const pair = state?.delivery === true;
   const shares = pair || columns.some((column) => column.cut === true);
   const parts = table({ stacks, acts, shares, pair });

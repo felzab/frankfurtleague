@@ -12,8 +12,6 @@ import { TextField } from "@/kit/TextField";
 import { toastAnswer } from "@/kit/Toast";
 import { answering } from "@/kit/useFormAction";
 
-import { seatActKinds } from "./seatActKinds";
-
 import type { ActionAnswer } from "@/core/action";
 import type { Copy } from "@/core/copy";
 import type { FLKontaktpersonAdmin, FLKontaktSeat } from "@/core/generated/client/types";
@@ -30,8 +28,7 @@ const ACT = { verb: "save" } as const;
  * bearbeiten“, whose dialog replaces the person, or fills a seat emptied, each box posting under the name both writes
  * read. An act inside an editor waits for an unsaved draft, since the write raises the count the draft's save sends.
  * Both are the row's side acts (`SideActs`), in the form the list decides: their labelled buttons in a wide box and the
- * entries of one „⋯“ in a narrow one, a locked one saying why either way. `seatActKinds` lists them from `link`, here
- * and for the row's `sideActs`.
+ * entries of one „⋯“ in a narrow one, a locked one saying why either way, the fresh link first.
  */
 export function SeatActs<Key>({
   seats,
@@ -80,7 +77,7 @@ export function SeatActs<Key>({
   };
 
   return (
-    <SideActs acts={seatActKinds(link).flatMap((kind) => (kind === "edit" ? [edit] : send === null ? [] : [send]))}>
+    <SideActs acts={send === null ? [edit] : [send, edit]}>
       {/* Held closed while the edit is locked: nothing opens it then. */}
       <Dialog
         title={EDIT}
