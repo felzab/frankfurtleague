@@ -1,9 +1,6 @@
 import type { Code, FLRefusedField } from "./generated/client/types";
 
-/**
- * Required on every API error rather than defaulted, since a failed write may have landed and a failed read changed
- * nothing.
- */
+/** A call as `mayHaveWritten` judges it: its method, and whether its operation's contract marks it read-only. */
 export type SentRequest = {
   method: string;
   /** A call changing nothing whatever its method says, as its operation's contract states. */
