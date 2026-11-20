@@ -187,6 +187,8 @@ export const ADMIN_COPY = catalogue({
     /** The replacement's two clubs: the one leaving the season, and the one taking over its row. */
     outgoing: "Ausscheidendes Team",
     incoming: "Nachrückendes Team",
+    /** Why the swap and the replacement cannot run yet: one of their two clubs is still to choose. */
+    bothTeamsLocked: "Erst mit beiden Teams",
     /** What the replacement does: the incoming club takes the outgoing one's group and every match of it. */
     replaceConsequence: (incoming: Words, outgoing: Words, gruppe: string) =>
       `${textOf(incoming)} übernimmt ${GRUPPE(gruppe)} und alle Spiele von ${textOf(outgoing)}.`,
@@ -210,6 +212,8 @@ export const ADMIN_COPY = catalogue({
     addressBarred: "Adresse auf der Sperrliste",
     /** The rows say the rest. */
     sentTo: (count: number) => (count === 1 ? "An 1\u00A0Team gesendet" : `An ${boundBy(formatNumber(count), "Teams")} gesendet`),
+    /** Why the send is locked: every team is passed over or already mailed, which its row says. */
+    dispatchLocked: "Kein Link zu senden",
     dispatchConsequence: (count: number) =>
       count === 1 ? "1\u00A0Team bekommt seinen Link per E-Mail." : `${boundBy(formatNumber(count), "Teams")} bekommen ihren Link per E-Mail.`,
 

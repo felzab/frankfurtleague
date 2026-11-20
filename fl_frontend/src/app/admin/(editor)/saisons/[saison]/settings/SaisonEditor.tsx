@@ -134,9 +134,8 @@ function Swap({
       acts={[
         {
           act: { verb: "swap", object: WORDS.gruppen },
-          isDisabled: first === null || second === null,
-          // Locked from the start, which the editor's lock line says.
-          locked: begun || undefined,
+          // Locked from the start, which the editor's lock line says; until both clubs are chosen, with the reason.
+          locked: begun || (first === null || second === null ? WORDS.bothTeamsLocked : undefined),
           run: async () => (first === null || second === null ? { ok: false } : swap({ saison_id: saison, team1_id: first, team2_id: second })),
         },
       ]}>
@@ -196,9 +195,8 @@ function Replacement({
       acts={[
         {
           act: { verb: "replace", object: TEAM },
-          isDisabled: consequence === undefined,
-          locked: begun || undefined,
-          // Asked only once both clubs are chosen, the button staying closed until then.
+          locked: begun || (consequence === undefined ? WORDS.bothTeamsLocked : undefined),
+          // Asked only once both clubs are chosen, the button locked with its reason until then.
           confirm: { verb: "replace", subject: TEAM, consequence: consequence ?? COPY.shared.noValue, tone: "primary" },
           run: async () =>
             out === null || into === null ? { ok: false } : replace({ saison_id: saison, team_id: out, incoming_team_id: into }),
@@ -583,7 +581,7 @@ export function SaisonEditor({
                 {
                   act: { verb: "send", object: WORDS.invitations },
                   // The press's own plan reaches nobody: every team is passed over or already mailed.
-                  isDisabled: links.mailed === 0,
+                  ...lockedBy(links.mailed === 0 ? WORDS.dispatchLocked : undefined),
                   confirm: {
                     verb: "send",
                     subject: WORDS.invitations,
