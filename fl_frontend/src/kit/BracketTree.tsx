@@ -1,6 +1,7 @@
 import { COPY } from "@/core/copy/shared";
 import { SERVER_COPY } from "@/core/serverCopy";
 
+import { BlockBox } from "./BlockBox";
 import { BracketCard } from "./BracketCard";
 import { TargetMark } from "./TargetMark";
 import { tv } from "./tv";
@@ -21,9 +22,8 @@ const key = (count: Width) => String(count) as `${Width}`;
 
 const tree = tv({
   slots: {
-    // The box whose width chooses the tree's form, a block's as every block's: the narrow form below 42 rem, as a list
-    // stacks there, and the wide one from it. Around the tree, since a container query styles what stands inside it.
-    box: "@container w-full",
+    // The block's box chooses the tree's form: the narrow form below 42 rem, as a list stacks there, and the wide one
+    // from it.
     root: "overflow-x-auto [--bracket-gap:2rem] [--bracket-third-bus:0.875rem] [--bracket-third-inset:1.5rem] @2xl:[--bracket-gap:3rem]",
     row: "grid",
     cell: "flex justify-center",
@@ -158,7 +158,7 @@ export function BracketTree({ rounds, third }: { rounds: readonly [BracketRound,
   );
   const style = tree();
   return (
-    <div className={style.box()}>
+    <BlockBox>
       <section
         aria-label={COPY.shared.kOBaum}
         className={style.root()}>
@@ -188,6 +188,6 @@ export function BracketTree({ rounds, third }: { rounds: readonly [BracketRound,
           </div>
         ))}
       </section>
-    </div>
+    </BlockBox>
   );
 }
