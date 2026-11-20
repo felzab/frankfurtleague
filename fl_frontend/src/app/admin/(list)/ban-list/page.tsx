@@ -91,7 +91,10 @@ export default function BanListPage() {
         act: { verb: "enter", object: COPY.shared.ban },
         run: enterBan,
         consequence: WORDS.consequence,
-        facts: [{ label: WORDS.duration, value: WORDS.durationSaisons(BAN_DURATION_SAISONS) }],
+        facts: [
+          { label: WORDS.duration, value: WORDS.durationSaisons(BAN_DURATION_SAISONS) },
+          { label: ADMIN_COPY.facts.mailTo, value: WORDS.mailTo },
+        ],
         touch: { holder: address },
         children: <BanFields />,
       }))}
