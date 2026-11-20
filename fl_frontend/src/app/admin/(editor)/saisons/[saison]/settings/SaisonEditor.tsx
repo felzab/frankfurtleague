@@ -84,28 +84,32 @@ const lockedBy = (reason: Copy | undefined) => (reason === undefined ? {} : { lo
 /** A club as a picker lists it, „Lessing · Gruppe A“. */
 const optionOf = (team: SaisonTeam): Option => ({ id: team.id, label: { record: `${team.name} · ${COPY.shared.season.gruppe(team.gruppe)}` } });
 
+/**
+ * What the swap and the replacement are handed of the season: whether it has begun, which locks both, and whether it
+ * has finished, which leaves their act out.
+ */
+type SeasonState = { begun: boolean; isClosed: boolean };
+
 /** The group swap: two clubs of different groups. */
-function Swap({ saison, teams, swap, locked }: { saison: string; teams: readonly SaisonTeam[]; swap: SaisonActs["swap"]; locked: boolean }) {
+function Swap({
+  saison,
+  teams,
+  swap,
+  begun,
+  isClosed,
+}: { saison: string; teams: readonly SaisonTeam[]; swap: SaisonActs["swap"] } & SeasonState) {
   const [first, setFirst] = useState<string | null>(null);
   const [second, setSecond] = useState<string | null>(null);
   const chosen = teams.find((team) => team.id === first);
   // A swap within one group exchanges nothing: the second club is one of another group.
   const partners = chosen === undefined ? teams : teams.filter((team) => team.gruppe !== chosen.gruppe);
-  return (
-    <SectionAct
-      inputs={[first, second]}
-      acts={[
-        {
-          act: { verb: "swap", object: WORDS.gruppen },
-          isDisabled: locked || first === null || second === null,
-          run: async () => (first === null || second === null ? { ok: false } : swap({ saison_id: saison, team1_id: first, team2_id: second })),
-        },
-      ]}>
+  const pickers = (
+    <>
       <ComboBox
         label={COPY.shared.teamPair.team1}
         options={teams.map(optionOf)}
         plural={COPY.page.teams}
-        isLocked={locked}
+        isLocked={begun}
         value={first}
         onChange={(id) => {
           setFirst(id);
@@ -116,10 +120,25 @@ function Swap({ saison, teams, swap, locked }: { saison: string; teams: readonly
         label={COPY.shared.teamPair.team2}
         options={partners.map(optionOf)}
         plural={COPY.page.teams}
-        isLocked={locked}
+        isLocked={begun}
         value={second}
         onChange={setSecond}
       />
+    </>
+  );
+  // A finished season's page leaves out the act it cannot run, its pickers standing read-only as the page's fields do.
+  if (isClosed) return pickers;
+  return (
+    <SectionAct
+      inputs={[first, second]}
+      acts={[
+        {
+          act: { verb: "swap", object: WORDS.gruppen },
+          isDisabled: begun || first === null || second === null,
+          run: async () => (first === null || second === null ? { ok: false } : swap({ saison_id: saison, team1_id: first, team2_id: second })),
+        },
+      ]}>
+      {pickers}
     </SectionAct>
   );
 }
@@ -130,14 +149,14 @@ function Replacement({
   teams,
   incoming,
   replace,
-  locked,
+  begun,
+  isClosed,
 }: {
   saison: string;
   teams: readonly SaisonTeam[];
   incoming: readonly { id: string; name: string }[];
   replace: SaisonActs["replace"];
-  locked: boolean;
-}) {
+} & SeasonState) {
   const [out, setOut] = useState<string | null>(null);
   const [into, setInto] = useState<string | null>(null);
   const leaving = teams.find((team) => team.id === out);
@@ -146,24 +165,13 @@ function Replacement({
     leaving === undefined || arriving === undefined
       ? undefined
       : WORDS.replaceConsequence({ record: arriving.name }, { record: leaving.name }, leaving.gruppe);
-  return (
-    <SectionAct
-      inputs={[out, into]}
-      acts={[
-        {
-          act: { verb: "replace", object: TEAM },
-          isDisabled: locked || consequence === undefined,
-          // Asked only once both clubs are chosen, the button staying closed until then.
-          confirm: { verb: "replace", subject: TEAM, consequence: consequence ?? COPY.shared.noValue, tone: "primary" },
-          run: async () =>
-            out === null || into === null ? { ok: false } : replace({ saison_id: saison, team_id: out, incoming_team_id: into }),
-        },
-      ]}>
+  const pickers = (
+    <>
       <ComboBox
         label={WORDS.outgoing}
         options={teams.map(optionOf)}
         plural={COPY.page.teams}
-        isLocked={locked}
+        isLocked={begun}
         value={out}
         onChange={setOut}
       />
@@ -171,18 +179,37 @@ function Replacement({
         label={WORDS.incoming}
         options={incoming.map((team) => ({ id: team.id, label: { record: team.name } }))}
         plural={COPY.page.teams}
-        isLocked={locked}
+        isLocked={begun}
         value={into}
         onChange={setInto}
         consequence={consequence}
       />
+    </>
+  );
+  // As the swap's: left out on a finished season's page.
+  if (isClosed) return pickers;
+  return (
+    <SectionAct
+      inputs={[out, into]}
+      acts={[
+        {
+          act: { verb: "replace", object: TEAM },
+          isDisabled: begun || consequence === undefined,
+          // Asked only once both clubs are chosen, the button staying closed until then.
+          confirm: { verb: "replace", subject: TEAM, consequence: consequence ?? COPY.shared.noValue, tone: "primary" },
+          run: async () =>
+            out === null || into === null ? { ok: false } : replace({ saison_id: saison, team_id: out, incoming_team_id: into }),
+        },
+      ]}>
+      {pickers}
     </SectionAct>
   );
 }
 
 /**
  * The season editor: its dates, its rules and its two windows, saved together from the editor's bar; then its draw,
- * its group swap, its replacement and its registration links, each an act of its own box; its irreversible acts, the
+ * its group swap, its replacement and its registration links, each an act of its own box, which a finished season's
+ * page leaves out, each box keeping what it shows; its irreversible acts, the
  * draw's regeneration and removal and the switch of the site onto it, in the danger rows behind the passkey touch, each
  * closed with its reason where its write would refuse it now.
  */
@@ -471,36 +498,40 @@ export function SaisonEditor({
         </>
       ),
     },
-    {
-      id: "spielplan",
-      title: SPIELPLAN,
-      fields:
-        facts.spielplan === null ? (
-          <SectionAct
-            acts={[
-              {
-                act: { verb: "create", object: SPIELPLAN },
-                variant: "primary",
-                isDisabled: isClosed,
-                locked: facts.locked.create,
-                run: () => acts.draw({ saison_id: saison }),
-              },
-            ]}
-          />
-        ) : (
-          <Facts
-            facts={[
-              { label: COPY.spielplan.spieltage, value: { record: formatNumber(facts.spielplan.spieltage) }, figures: true },
-              { label: COPY.page.spiele, value: { record: formatNumber(facts.spielplan.spiele) }, figures: true },
-              {
-                label: WORDS.drawnOn,
-                value: { record: formatDate(facts.spielplan.drawnOn) },
-                figures: true,
-              },
-            ]}
-          />
-        ),
-    },
+    // A finished season never drawn holds nothing its box could show, its one act left out.
+    ...(facts.spielplan === null && isClosed
+      ? []
+      : [
+          {
+            id: "spielplan",
+            title: SPIELPLAN,
+            fields:
+              facts.spielplan === null ? (
+                <SectionAct
+                  acts={[
+                    {
+                      act: { verb: "create", object: SPIELPLAN },
+                      variant: "primary",
+                      locked: facts.locked.create,
+                      run: () => acts.draw({ saison_id: saison }),
+                    },
+                  ]}
+                />
+              ) : (
+                <Facts
+                  facts={[
+                    { label: COPY.spielplan.spieltage, value: { record: formatNumber(facts.spielplan.spieltage) }, figures: true },
+                    { label: COPY.page.spiele, value: { record: formatNumber(facts.spielplan.spiele) }, figures: true },
+                    {
+                      label: WORDS.drawnOn,
+                      value: { record: formatDate(facts.spielplan.drawnOn) },
+                      figures: true,
+                    },
+                  ]}
+                />
+              ),
+          },
+        ]),
     {
       id: "gruppentausch",
       title: WORDS.gruppentausch,
@@ -509,7 +540,8 @@ export function SaisonEditor({
           saison={saison}
           teams={teams}
           swap={acts.swap}
-          locked={facts.begun || isClosed}
+          begun={facts.begun}
+          isClosed={isClosed}
         />
       ),
     },
@@ -522,7 +554,8 @@ export function SaisonEditor({
           teams={teams}
           incoming={incoming}
           replace={acts.replace}
-          locked={facts.begun || isClosed}
+          begun={facts.begun}
+          isClosed={isClosed}
         />
       ),
     },
@@ -541,23 +574,26 @@ export function SaisonEditor({
               bare
             />
           }>
-          <SectionAct
-            acts={[
-              {
-                act: { verb: "send", object: WORDS.invitations },
-                variant: "primary",
-                // The press's own plan reaches nobody: every team is passed over or already mailed.
-                isDisabled: isClosed || links.mailed === 0,
-                confirm: {
-                  verb: "send",
-                  subject: WORDS.invitations,
-                  consequence: WORDS.dispatchConsequence(links.mailed),
-                  tone: "primary",
+          {/* Left out on a finished season's page, the table standing alone as the box's facts. */}
+          {isClosed ? undefined : (
+            <SectionAct
+              acts={[
+                {
+                  act: { verb: "send", object: WORDS.invitations },
+                  variant: "primary",
+                  // The press's own plan reaches nobody: every team is passed over or already mailed.
+                  isDisabled: links.mailed === 0,
+                  confirm: {
+                    verb: "send",
+                    subject: WORDS.invitations,
+                    consequence: WORDS.dispatchConsequence(links.mailed),
+                    tone: "primary",
+                  },
+                  run: () => acts.sendLinks({ saison_id: saison }),
                 },
-                run: () => acts.sendLinks({ saison_id: saison }),
-              },
-            ]}
-          />
+              ]}
+            />
+          )}
         </Section>
       ),
     },
