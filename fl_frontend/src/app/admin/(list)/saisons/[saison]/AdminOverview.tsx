@@ -1,42 +1,26 @@
 import { notFound, redirect } from "next/navigation";
 
-import { requires } from "@/core/action";
 import { ADMIN_COPY } from "@/core/copy/admin";
 import { COPY } from "@/core/copy/shared";
-import { dayOf, formatList, timeOf } from "@/core/format";
-import {
-  SpielbestaetigungenEnterSpielbestaetigungBody,
-  spielbestaetigungenEnterSpielbestaetigungBodyReasonMax,
-  SpielbestaetigungenEnterSpielbestaetigungParams,
-} from "@/core/generated/zod/inputs";
+import { dayOf, timeOf } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { getSaisonOverview } from "@/features/saisons/queries";
+import { vorschlagActs, zusageAct } from "@/features/spielbestaetigungen/answerActs";
 import { ListPage } from "@/kit/ListPage";
 import { DECLINED_CHIP, EXPIRED_CHIP } from "@/kit/stateChips";
-import { TextField } from "@/kit/TextField";
 
 import { AppointmentDialog } from "./AppointmentDialog";
-import { VorschlagActs } from "./VorschlagActs";
-import { ZusageDialog } from "./ZusageDialog";
 
 import type { Copy, Words } from "@/core/copy";
-import type {
-  FLOverviewFault,
-  FLOverviewParty,
-  FLOverviewRow,
-  FLSpielJoinedAdmin,
-  FLSpielRecipientSchiedsrichter,
-  FLSpielRecipientTeam,
-} from "@/core/generated/client/types";
+import type { FLOverviewFault, FLOverviewParty, FLOverviewRow, FLSpielJoinedAdmin } from "@/core/generated/client/types";
+import type { OpenParty } from "@/features/spielbestaetigungen/ZusageDialog";
 import type { CardActRowProps } from "@/kit/Card";
 import type { ChipProps } from "@/kit/Chip";
 import type { ReactElement } from "react";
-import type { OpenParty } from "./ZusageDialog";
 
 const WORDS = SERVER_COPY.overview;
 const SPIEL = ADMIN_COPY.spiel;
-const FACTS = ADMIN_COPY.facts;
 
 /** A fixture by its two clubs, as the match editor names it, and by its number while a side is still open. */
 const nameOf = (spiel: FLSpielJoinedAdmin): Copy =>
@@ -48,16 +32,6 @@ const nameOf = (spiel: FLSpielJoinedAdmin): Copy =>
 function teamOf(spiel: FLSpielJoinedAdmin, teamId: string): Words | null {
   const side = [spiel.team1, spiel.team2].find((team) => team?.team_id === teamId);
   return side === undefined || side === null ? null : { record: side.name };
-}
-
-/**
- * The question's „Mail an“ fact: the parties the backend mails of the act, which it serves beside the row each by the
- * name its own record holds, in their names' order as the match editor's question lists them, none where the act mails
- * nobody, so the question names no mail that is never sent.
- */
-function mailTo(recipients: readonly (FLSpielRecipientTeam | FLSpielRecipientSchiedsrichter)[]) {
-  const names = recipients.map(({ name }) => name).toSorted((one, other) => one.localeCompare(other, "de"));
-  return names.length === 0 ? [] : [{ label: FACTS.mailTo, value: { record: formatList(names) } }];
 }
 
 const appointmentOf = (date: string | null, time: string | null) => ({ day: dayOf(date), time: timeOf(time) });
@@ -97,24 +71,6 @@ function dueLine(parties: readonly FLOverviewParty[]): Copy {
   return owing.asked_at === null ? SPIEL.notAsked : COPY.shared.answerBy(dayOf(owing.due_by));
 }
 
-/** Whether the Zusage's write asks for the party's row, which its segments choose. */
-const PARTY_REQUIRED = requires(SpielbestaetigungenEnterSpielbestaetigungParams.shape.spielbestaetigung_id, "");
-
-/** The box asking how a party's agreement reached the league, drawn here so the write's schema stays on the server. */
-function ReasonField() {
-  return (
-    <TextField
-      label={COPY.spielplan.answerNote}
-      // The name `enterZusage` reads the reason by.
-      name="reason"
-      // A paragraph: a reason a person writes, at four lines, its line breaks kept.
-      kind="paragraph"
-      isRequired={requires(SpielbestaetigungenEnterSpielbestaetigungBody.shape.reason, "")}
-      maxLength={spielbestaetigungenEnterSpielbestaetigungBodyReasonMax}
-    />
-  );
-}
-
 /**
  * What is open on a fixture's row, the chip of the trouble it is in where it is in some, and the act done there where
  * the row offers one.
@@ -132,48 +88,15 @@ function openOf(row: Exclude<FLOverviewRow, { kind: "bewerbung" }>): { chip?: Ch
           ? { line: dueLine(row.parties) }
           : { chip: EXPIRED_CHIP, line: COPY.shared.onDay(dayOf(lapsed)) };
       const [first, ...rest] = parties;
-      return first === undefined
-        ? shown
-        : {
-            ...shown,
-            acts: (
-              <ZusageDialog
-                parties={[first, ...rest]}
-                partyRequired={PARTY_REQUIRED}>
-                <ReasonField />
-              </ZusageDialog>
-            ),
-          };
+      return first === undefined ? shown : { ...shown, acts: zusageAct([first, ...rest]) };
     }
     case "vorschlag_open": {
       const team = teamOf(spiel, row.team_id);
       const proposed = appointmentOf(row.vorschlag.date, row.vorschlag.time);
-      const current = appointmentOf(spiel.date, spiel.time);
-      const [from, to] = [COPY.spielplan.when(current.day, current.time), COPY.spielplan.when(proposed.day, proposed.time)];
       return {
         chip: DECLINED_CHIP,
-        line: WORDS.proposal(to, team),
-        acts: (
-          <VorschlagActs
-            id={row.spielbestaetigung_id}
-            adopt={{
-              consequence: WORDS.adoptConsequence,
-              facts: [
-                { label: COPY.shared.facts.before, value: from },
-                { label: COPY.shared.facts.after, value: to },
-                ...mailTo(row.adoption_recipients),
-              ],
-            }}
-            discard={{
-              consequence: WORDS.discardConsequence,
-              facts: [
-                { label: COPY.spielplan.appointment, value: from },
-                { label: COPY.spielplan.vorschlag, value: to },
-                ...mailTo(row.discard_recipients),
-              ],
-            }}
-          />
-        ),
+        line: WORDS.proposal(COPY.spielplan.when(proposed.day, proposed.time), team),
+        acts: vorschlagActs(row.spielbestaetigung_id, spiel, row),
       };
     }
     case "spielbericht_open":

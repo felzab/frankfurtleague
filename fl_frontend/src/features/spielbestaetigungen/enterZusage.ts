@@ -7,10 +7,10 @@ import { spielbestaetigungenEnterSpielbestaetigung } from "@/core/generated/clie
 import { SpielbestaetigungenEnterSpielbestaetigungBody, SpielbestaetigungenEnterSpielbestaetigungParams } from "@/core/generated/zod/inputs";
 
 /**
- * Records, from the Übersicht's row, that a party agreed to its fixture's date elsewhere than signed in: the
- * row the party chose in the dialog, and the reason saying how it reached the league, which the confirmation stores.
- * A row a seat answered meanwhile, or one closed or left by its fixture since the page was read, is refused as the
- * stale page it is.
+ * Records, from a fixture's row on the Übersicht or a party's in the match editor, that a party agreed to its fixture's
+ * date elsewhere than signed in: the row the party chose in the dialog, and the reason saying how it reached the
+ * league, which the confirmation stores. A row a seat answered meanwhile, or one closed or left by its fixture since
+ * the page was read, is refused as the stale page it is.
  */
 export const enterZusage = action({
   lane: "admin",

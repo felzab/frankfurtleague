@@ -11,7 +11,7 @@ import {
 
 /**
  * Moves the fixture to the date and hour a club's open decline proposes, through the fixture's own save, from the
- * Übersicht's row once its question has named the move and its mails. The save's refusals arrive with no path, the
+ * proposal's row once its question has named the move and its mails. The save's refusals arrive with no path, the
  * adoption posting no body, so a code the save words by its path arrives under a twin per resource or side, each
  * worded as the save's sentence for that path.
  */
