@@ -12,7 +12,6 @@ export const getBewerbungenOfSaison = cache(async (saison: string): Promise<FLBe
   runAdminRead(() => orMissing(bewerbungenGetBewerbungenAdmin({ saison_id: saison }))),
 );
 
-/** `null` on a 404, which the page turns into `notFound()`; everything else throws. */
 export const getBewerbungById = cache(async (bewerbungId: string): Promise<FLBewerbungSingleResponse | null> =>
   runAdminRead(() => orMissing(bewerbungenGetBewerbung(bewerbungId))),
 );

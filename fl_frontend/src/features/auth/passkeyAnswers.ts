@@ -10,7 +10,6 @@ const WITHOUT_ENTRY = COPY.signIn.refusal.noRecord;
 export const refusalCode = (error: unknown): string | undefined =>
   typeof error === "object" && error !== null && "code" in error && typeof error.code === "string" ? error.code : undefined;
 
-/** The same, for the answer's HTTP status. */
 export const refusalStatus = (error: unknown): number | undefined =>
   typeof error === "object" && error !== null && "status" in error && typeof error.status === "number" ? error.status : undefined;
 

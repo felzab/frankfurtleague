@@ -6,8 +6,8 @@ import { isSignInLibraryAddress } from "@/core/signInLibraryAddress";
 /**
  * The address the send and the code step both take: one rule, so a code is never typed for an address the send
  * refused. It carries no message of its own, so the action builder words every refusal on the box through the German
- * map: a schema's own message is past the map, and answers the unexpected line. The browser's `type=email` takes addresses this refuses, a host with no dot among them, so this
- * answer is the one such an address meets.
+ * map: a schema's own message is past the map, and answers the unexpected line. The browser's `type=email` takes
+ * addresses this refuses, a host with no dot among them, so this answer is the one such an address meets.
  */
 export const SignInPayloadSchema = z.object({
   email: z
