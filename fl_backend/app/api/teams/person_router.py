@@ -150,7 +150,6 @@ async def patch_einwilligung(
             birth_dates=[person.get("birth_date") for person in held.values()],
             chosen=chosen,
             evidence_state=einwilligung_data.evidence_state.model_dump(),
-            text_versions=einwilligung_data.text_versions,
             may_give=may_give,
             today=today,
         )

@@ -3,22 +3,15 @@ from typing import Any, Final
 
 import pytest
 from bson import ObjectId
-from pydantic import BaseModel, TypeAdapter, ValidationError
+from pydantic import BaseModel, ValidationError
 
-from app.api.bewerbungen.schemas import FLBewerbungEinwilligungAnswerPayload
-from app.api.registrierungen.schemas import FLRegistrierungConfirmationPayload, FLRegistrierungEinwilligung
-from app.api.schiedsrichter.schemas import FLSchiedsrichterConfirmationPayload, FLSchiedsrichterRecord
+from app.api.registrierungen.schemas import FLRegistrierungEinwilligung
+from app.api.schiedsrichter.schemas import FLSchiedsrichterRecord
 from app.api.spieler.schemas import FLSpielerRecord
 from app.api.teams.schemas import FLKontaktKenntnisnahme
 from app.shared.einwilligung import is_confirmed
 from app.shared.einwilligung_evidence import CHOICES, EVIDENCE, FLEinwilligungChoice, compose_mail_withdrawal, compose_renewed
-from app.shared.schemas.einwilligung import (
-    FLEinwilligungTextVersion,
-    FLSchiedsrichterTextVersions,
-    FLSeatTextVersions,
-    FLSpielerTextVersions,
-    labels_of,
-)
+from app.shared.schemas.einwilligung import FLEinwilligungTextVersion, labels_of
 from tests.documents import (
     SCHIEDSRICHTER_TEXT_VERSIONS,
     SEAT_TEXT_VERSIONS,
@@ -150,57 +143,3 @@ class TestAnAdmissionCarriesAWithdrawalByMail:
             "internal",
             {"at": withdrawn_at, "via": "mail", "given_before": saved[EVIDENCE]["scope"]},
         )
-
-
-# Constructed past validation: every kind's records cite its current labels alone until a rewording adds one, so no
-# request can carry another yet.
-STALE: Final = "2026-10-replaced-1"
-
-
-def _replaced(kind: type[FLSeatTextVersions] | type[FLSpielerTextVersions] | type[FLSchiedsrichterTextVersions], choice: str) -> Any:
-    """`kind`'s labels with `choice`'s replaced, an instance a payload's field takes as it is: Pydantic revalidates none."""
-
-    labels = {**kind.current, choice: STALE}
-    return kind.model_construct(scope=labels["scope"], media=labels["media"])
-
-
-def _seat_answer(*, scope: str, media: bool, text_versions: Any) -> Any:
-    return TypeAdapter(FLBewerbungEinwilligungAnswerPayload).validate_python(
-        {
-            "answer": "given",
-            "token": "raw-trainer",
-            "birth_date": "1984-05-09",
-            "whatsapp": scope == "kontakt_data_whatsapp",
-            "media": media,
-            "text_versions": text_versions,
-        }
-    )
-
-
-def _confirmation(model: type[BaseModel]) -> Callable[..., Any]:
-    def validate(*, scope: str, media: bool, text_versions: Any) -> Any:
-        return model.model_validate(
-            {"token": "raw-link", "birth_date": "1984-05-09", "scope": scope, "media": media, "text_versions": text_versions}
-        )
-
-    return validate
-
-
-# Each payload carrying `text_versions`, beside its kind and the value granting each choice in its vocabulary.
-CONFIRMATIONS: Final[list[Any]] = [
-    pytest.param(_seat_answer, FLSeatTextVersions, "kontakt_data_whatsapp", id="a seat's answer"),
-    pytest.param(_confirmation(FLRegistrierungConfirmationPayload), FLSpielerTextVersions, "kader_public", id="a registration"),
-    pytest.param(_confirmation(FLSchiedsrichterConfirmationPayload), FLSchiedsrichterTextVersions, "kader_public", id="a referee"),
-]
-
-
-@pytest.mark.parametrize(("validate", "kind", "giving"), CONFIRMATIONS)
-class TestAConfirmationGrantsUnderItsCurrentWording:
-    """Each confirmation is a first answer, so every choice it grants moves and names the current label in its payload."""
-
-    @pytest.mark.parametrize("choice", CHOICES)
-    def test_a_grant_under_a_replaced_label_is_refused(self, validate: Callable[..., Any], kind: Any, giving: str, choice: str):
-        with pytest.raises(ValidationError) as refused:
-            validate(scope=giving, media=True, text_versions=_replaced(kind, choice))
-
-        assert [error["type"] for error in refused.value.errors()] == ["grant_wording_stale"]

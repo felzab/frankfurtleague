@@ -20,7 +20,7 @@ from app.shared.schemas.custom import (
     CustomVersion,
     FLUtcInstant,
 )
-from app.shared.schemas.einwilligung import FLSchiedsrichterTextVersions, cite_their_kind, refuse_a_stale_grant
+from app.shared.schemas.einwilligung import FLSchiedsrichterTextVersions, cite_their_kind
 from app.shared.schemas.kontakt import CustomKontaktName, CustomStoredAddress, FLKontakt, FLKontaktPayload
 from app.shared.schemas.literals import FLEinwilligungScope, FLSonderereignis
 from app.shared.schemas.responses import BasePayload, BaseReadModel
@@ -239,11 +239,6 @@ class FLSchiedsrichterConfirmationPayload(BasePayload):
     media: bool
     # The wordings the page showed beside the two choices.
     text_versions: FLSchiedsrichterTextVersions
-
-    @model_validator(mode="after")
-    def _grants_name_the_current_wording(self) -> Self:
-        refuse_a_stale_grant(self.text_versions, {"scope": self.scope, "media": self.media})
-        return self
 
 
 class FLSchiedsrichterSingleResponse(BaseReadModel):

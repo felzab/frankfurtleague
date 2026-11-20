@@ -69,7 +69,6 @@ export const Code = {
   saison_start_austritt_stored: "saison_start_austritt_stored",
   invitation_team_not_entered: "invitation_team_not_entered",
   choices_stale: "choices_stale",
-  grant_wording_stale: "grant_wording_stale",
   media_age: "media_age",
   giving_not_allowed: "giving_not_allowed",
   eligibility_disqualified: "eligibility_disqualified",
@@ -327,16 +326,16 @@ export interface FLEinwilligungStatePayload {
   scope: string | null;
 }
 
-export type FLCitedMediaTextVersion = "2026-11-media-1";
+export type FLMediaTextVersion = "2026-11-media-1";
 
-export type FLSpielerScopeTextVersion = "2026-11-name-kader-1";
+export type FLNameKaderTextVersion = "2026-11-name-kader-1";
 
 /**
  * A pupil's two wordings: the name on the squad and the media switch.
  */
 export interface FLSpielerTextVersions {
-  media: FLCitedMediaTextVersion;
-  scope: FLSpielerScopeTextVersion;
+  media: FLMediaTextVersion;
+  scope: FLNameKaderTextVersion;
 }
 
 /**
@@ -1513,14 +1512,14 @@ export interface FLBewerbungEinwilligungDeclined {
   token: string;
 }
 
-export type FLSeatScopeTextVersion = "2026-11-whatsapp-1";
+export type FLWhatsappTextVersion = "2026-11-whatsapp-1";
 
 /**
  * A contact seat's two wordings: the WhatsApp switch and the media switch.
  */
 export interface FLSeatTextVersions {
-  media: FLCitedMediaTextVersion;
-  scope: FLSeatScopeTextVersion;
+  media: FLMediaTextVersion;
+  scope: FLWhatsappTextVersion;
 }
 
 /**
@@ -1973,10 +1972,9 @@ export interface FLDeletionNoticeData {
 
 export type FLDeliveryDeadlineDays = 2;
 
-export type FLSchiedsrichterScopeTextVersion = "2026-11-name-spielplan-1";
+export type FLNameSpielplanTextVersion = "2026-11-name-spielplan-1";
 
-export type FLEinwilligungTextVersion =
-  FLSeatScopeTextVersion | FLSpielerScopeTextVersion | FLSchiedsrichterScopeTextVersion | FLCitedMediaTextVersion;
+export type FLEinwilligungTextVersion = FLWhatsappTextVersion | FLNameKaderTextVersion | FLNameSpielplanTextVersion | FLMediaTextVersion;
 
 /**
  * When a person set one consent choice, and under which wording.
@@ -2706,12 +2704,6 @@ export interface FLLandingResponse {
 export type FLMailboxAnchorRetentionHours = 1;
 
 export type FLMediaMinAgeYears = 18;
-
-export type FLMediaTextVersion = "2026-11-media-1";
-
-export type FLNameKaderTextVersion = "2026-11-name-kader-1";
-
-export type FLNameSpielplanTextVersion = "2026-11-name-spielplan-1";
 
 /**
  * The stored person a confirmed registration's address resolves to, named so the team can be asked whether it is the same one.
@@ -4106,8 +4098,8 @@ export interface FLSaisonsAdminListResponse {
  * A referee's two wordings: the name on the fixtures and the media switch.
  */
 export interface FLSchiedsrichterTextVersions {
-  media: FLCitedMediaTextVersion;
-  scope: FLSchiedsrichterScopeTextVersion;
+  media: FLMediaTextVersion;
+  scope: FLNameSpielplanTextVersion;
 }
 
 /**
@@ -4291,7 +4283,7 @@ export interface FLSchiedsrichterSweepResponse {
 }
 
 /**
- * A seat holder's own two choices for every seat they hold on one row, under any label their kind cites.
+ * A seat holder's own two choices for every seat they hold on one row.
  *
  * Both choices on every press: a page that sent one alone would leave the other judged by nothing.
  */
@@ -5547,8 +5539,6 @@ export interface FLVersionResponse {
   version: number;
 }
 
-export type FLWhatsappTextVersion = "2026-11-whatsapp-1";
-
 export const ProbeResponseValue = {
   status: "ok",
 } as const;
@@ -5567,7 +5557,6 @@ export const Rule = {
   elfmeterschiessen_without_winner: "elfmeterschiessen_without_winner",
   email_not_accepted: "email_not_accepted",
   good_spieler_exceed_kader: "good_spieler_exceed_kader",
-  grant_wording_stale: "grant_wording_stale",
   nichtantreten_with_elfmeterschiessen: "nichtantreten_with_elfmeterschiessen",
   nichtantreten_with_scorers: "nichtantreten_with_scorers",
   registrierung_window_reaches_saison_start: "registrierung_window_reaches_saison_start",

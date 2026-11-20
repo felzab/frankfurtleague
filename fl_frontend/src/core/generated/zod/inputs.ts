@@ -729,7 +729,7 @@ export const BewerbungenPatchEinwilligungBody = zod
       .describe("A contact seat's two wordings: the WhatsApp switch and the media switch."),
   })
   .describe(
-    "A seat holder's own two choices for every seat they hold on one row, under any label their kind cites.\n\nBoth choices on every press: a page that sent one alone would leave the other judged by nothing.",
+    "A seat holder's own two choices for every seat they hold on one row.\n\nBoth choices on every press: a page that sent one alone would leave the other judged by nothing.",
   );
 
 /**
@@ -2820,7 +2820,7 @@ export const TeamsPatchEinwilligungBody = zod
       .describe("A contact seat's two wordings: the WhatsApp switch and the media switch."),
   })
   .describe(
-    "A seat holder's own two choices for every seat they hold on one row, under any label their kind cites.\n\nBoth choices on every press: a page that sent one alone would leave the other judged by nothing.",
+    "A seat holder's own two choices for every seat they hold on one row.\n\nBoth choices on every press: a page that sent one alone would leave the other judged by nothing.",
   );
 
 /**
