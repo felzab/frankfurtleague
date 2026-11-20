@@ -103,7 +103,6 @@
           "saison_start_austritt_stored",
           "invitation_team_not_entered",
           "choices_stale",
-          "grant_wording_stale",
           "media_age",
           "giving_not_allowed",
           "eligibility_disqualified",
@@ -4276,10 +4275,6 @@
         ],
         "type": "string"
       },
-      "FLCitedMediaTextVersion": {
-        "const": "2026-11-media-1",
-        "type": "string"
-      },
       "FLConfirmation": {
         "description": "One person's confirmation bookkeeping as an administrator reads it.",
         "properties": {
@@ -4602,16 +4597,16 @@
       "FLEinwilligungTextVersion": {
         "anyOf": [
           {
-            "$ref": "#/components/schemas/FLSeatScopeTextVersion"
+            "$ref": "#/components/schemas/FLWhatsappTextVersion"
           },
           {
-            "$ref": "#/components/schemas/FLSpielerScopeTextVersion"
+            "$ref": "#/components/schemas/FLNameKaderTextVersion"
           },
           {
-            "$ref": "#/components/schemas/FLSchiedsrichterScopeTextVersion"
+            "$ref": "#/components/schemas/FLNameSpielplanTextVersion"
           },
           {
-            "$ref": "#/components/schemas/FLCitedMediaTextVersion"
+            "$ref": "#/components/schemas/FLMediaTextVersion"
           }
         ]
       },
@@ -10060,10 +10055,6 @@
         "title": "FLSchiedsrichterMintResponse",
         "type": "object"
       },
-      "FLSchiedsrichterScopeTextVersion": {
-        "const": "2026-11-name-spielplan-1",
-        "type": "string"
-      },
       "FLSchiedsrichterSingleResponse": {
         "properties": {
           "delivery": {
@@ -10299,10 +10290,10 @@
         "description": "A referee's two wordings: the name on the fixtures and the media switch.",
         "properties": {
           "media": {
-            "$ref": "#/components/schemas/FLCitedMediaTextVersion"
+            "$ref": "#/components/schemas/FLMediaTextVersion"
           },
           "scope": {
-            "$ref": "#/components/schemas/FLSchiedsrichterScopeTextVersion"
+            "$ref": "#/components/schemas/FLNameSpielplanTextVersion"
           }
         },
         "required": [
@@ -10325,7 +10316,7 @@
       },
       "FLSeatEinwilligungPayload": {
         "additionalProperties": false,
-        "description": "A seat holder's own two choices for every seat they hold on one row, under any label their kind cites.\n\nBoth choices on every press: a page that sent one alone would leave the other judged by nothing.",
+        "description": "A seat holder's own two choices for every seat they hold on one row.\n\nBoth choices on every press: a page that sent one alone would leave the other judged by nothing.",
         "properties": {
           "evidence_state": {
             "$ref": "#/components/schemas/FLEinwilligungStatePayload"
@@ -10350,19 +10341,15 @@
         "title": "FLSeatEinwilligungPayload",
         "type": "object"
       },
-      "FLSeatScopeTextVersion": {
-        "const": "2026-11-whatsapp-1",
-        "type": "string"
-      },
       "FLSeatTextVersions": {
         "additionalProperties": false,
         "description": "A contact seat's two wordings: the WhatsApp switch and the media switch.",
         "properties": {
           "media": {
-            "$ref": "#/components/schemas/FLCitedMediaTextVersion"
+            "$ref": "#/components/schemas/FLMediaTextVersion"
           },
           "scope": {
-            "$ref": "#/components/schemas/FLSeatScopeTextVersion"
+            "$ref": "#/components/schemas/FLWhatsappTextVersion"
           }
         },
         "required": [
@@ -13924,10 +13911,6 @@
         "title": "FLSpielerSaisonSelfSpiel",
         "type": "object"
       },
-      "FLSpielerScopeTextVersion": {
-        "const": "2026-11-name-kader-1",
-        "type": "string"
-      },
       "FLSpielerSelfKaderRow": {
         "description": "One squad row as its own pupil reads it, with the name the club played that season under.",
         "properties": {
@@ -14032,10 +14015,10 @@
         "description": "A pupil's two wordings: the name on the squad and the media switch.",
         "properties": {
           "media": {
-            "$ref": "#/components/schemas/FLCitedMediaTextVersion"
+            "$ref": "#/components/schemas/FLMediaTextVersion"
           },
           "scope": {
-            "$ref": "#/components/schemas/FLSpielerScopeTextVersion"
+            "$ref": "#/components/schemas/FLNameKaderTextVersion"
           }
         },
         "required": [
@@ -16272,7 +16255,6 @@
           "elfmeterschiessen_without_winner",
           "email_not_accepted",
           "good_spieler_exceed_kader",
-          "grant_wording_stale",
           "nichtantreten_with_elfmeterschiessen",
           "nichtantreten_with_scorers",
           "registrierung_window_reaches_saison_start",

@@ -244,8 +244,6 @@ const STALE: ReadonlySet<Code> = new Set<Code>([
   "choices_stale",
   // A grant offered on a record that since takes a withdrawal alone.
   "giving_not_allowed",
-  // A choice moved onto a grant under a label reworded since the page was served.
-  "grant_wording_stale",
   // An act on an administrator or on what waits, each of which Administratoren closes off its own read before it is
   // pressed: the owner role, the list or the change moved since the page was served.
   "grant_only_owner",
@@ -390,6 +388,13 @@ function fieldOf(path: readonly PropertyKey[]): Box | undefined {
   return key.length === 0 ? undefined : { key: key.join("."), declared: declared.join("."), rows };
 }
 
+/**
+ * The fields a page fills from the build that drew it, which no box shows: a consent press's labels, naming the words
+ * the page shows. The parse refusing one means a deploy moved those words since the page was drawn, so the press is
+ * answered as a stale page, and the page read again shows the words the labels now name.
+ */
+const BUILT_INTO_THE_PAGE: ReadonlySet<PropertyKey> = new Set(["text_versions"]);
+
 /** A declared box as the one a refusal lands on: each `*` takes the row the refused path names at its place. */
 function inRows(box: string, rows: readonly number[]): string | undefined {
   const left = [...rows];
@@ -400,7 +405,8 @@ function inRows(box: string, rows: readonly number[]): string | undefined {
 /**
  * The input parsed, or the answer placing each refusal on its box. Each box's line is the German error map's, asked
  * per parse: the map reads the raw issue's input and schema, which a finished parse's issues no longer carry. An
- * issue naming no box, or one a schema's own message words past the map, is the unexpected failure.
+ * issue on a field built into the page is the stale page (`BUILT_INTO_THE_PAGE`), and one naming no box, or one a
+ * schema's own message words past the map, the unexpected failure.
  */
 function parsed<Schema extends z.ZodType>(
   declared: Declared<Schema>,
@@ -428,6 +434,9 @@ function parsed<Schema extends z.ZodType>(
     },
   });
   if (result.success) return { input: result.data };
+  if (result.error.issues.some(({ path: [head] }) => head !== undefined && BUILT_INTO_THE_PAGE.has(head))) {
+    return { answer: { ok: false, reason: COPY.shared.failure.stale } };
+  }
 
   const unplaced = result.error.issues.some((issue) => {
     const field = fieldOf(issue.path);

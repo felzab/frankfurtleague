@@ -51,9 +51,7 @@ from app.shared.schemas.einwilligung import (
     FLAccountEinwilligungPayload,
     FLSchiedsrichterAccountEinwilligungPayload,
     FLWithdrawalChoice,
-    PressTextVersions,
     by_choice,
-    stale_grants,
 )
 from app.shared.schemas.literals import KONTAKT_SEATS
 
@@ -132,25 +130,6 @@ def withdrawal_line(
     )
 
 
-def find_grant_wording_refusal(
-    *, blocks: Sequence[Mapping[str, Any]], chosen: Mapping[FLEinwilligungChoice, Any], text_versions: PressTextVersions
-) -> APIError | None:
-    """`grant_wording_stale`: a choice this press moves onto a grant on any of `blocks` names a replaced label.
-
-    Only a choice that moves: the writers stamp no other, so an unchanged grant beside a withdrawal from a page loaded
-    before a rewording records nothing under the old words, and refusing it would keep the withdrawal from landing.
-    """
-
-    given: dict[FLEinwilligungChoice, Any] = {
-        choice: value for choice, value in chosen.items() if any(gives_anything(saved=block, chosen={choice: value}) for block in blocks)
-    }
-    stale = stale_grants(text_versions, given)
-    if not stale:
-        return None
-
-    return APIError(HTTPStatus.CONFLICT, Code.GRANT_WORDING_STALE, fields=tuple(("text_versions", choice) for choice in stale))
-
-
 def find_own_entry_refusal(*, held: bool) -> APIError | None:
     """`role_not_held` on a person's own record: the address holds no record this operation may read or change.
 
@@ -179,7 +158,7 @@ def find_evidence_state_refusal(*, expected: Mapping[str, Any], blocks: Sequence
 
 # Every consent press runs the one sequence below between finding its record and writing it, a refusal at any step
 # writing nothing. One sequence for every kind, so no two presses judge in two orders: the stale page first, then a
-# grant the record may not take, then a grant under a replaced label, then the media age.
+# grant the record may not take, then the media age.
 
 # Whether the record the press found may take a grant, asked only of a press granting something: the
 # read behind it is the Funktion lookup, and a withdrawal needs none.
@@ -216,7 +195,6 @@ async def press_einwilligung(
     birth_dates: Sequence[Any],
     chosen: Mapping[FLEinwilligungChoice, Any],
     evidence_state: Mapping[str, Any],
-    text_versions: PressTextVersions,
     may_give: MayGive,
     today: str,
 ) -> None:
@@ -231,7 +209,6 @@ async def press_einwilligung(
         evidence_state=evidence_state,
         may_give=may_give,
     )
-    refuse(find_grant_wording_refusal(blocks=blocks, chosen=chosen, text_versions=text_versions))
     media = is_given("media", chosen.get("media"))
     for block, birth_date in zip(blocks, birth_dates, strict=True):
         refuse(find_self_media_refusal(saved=block, media=media, birth_date=birth_date, today=today))
@@ -243,10 +220,7 @@ async def press_withdrawal(
     chosen: Mapping[FLEinwilligungChoice, Any],
     evidence_state: Mapping[str, Any],
 ) -> None:
-    """A press on a kind taking withdrawals alone: every grant refused before any rule only a grant meets, and nothing counted.
-
-    No label is judged: a withdrawal names any its kind cites.
-    """
+    """A press on a kind taking withdrawals alone: every grant refused before any rule only a grant meets, and nothing counted."""
 
     await _before_giving(
         blocks=blocks,
@@ -313,7 +287,6 @@ async def press_own_einwilligung(
                 birth_dates=[row.get("birth_date")],
                 chosen=chosen,
                 evidence_state=evidence_state,
-                text_versions=einwilligung_data.text_versions,
                 may_give=partial(grants.may_give, session),
                 today=grants.today,
             )
