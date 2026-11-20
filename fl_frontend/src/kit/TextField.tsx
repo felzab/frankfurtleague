@@ -2,6 +2,7 @@
 
 import { useId } from "react";
 
+import { Group } from "react-aria-components/Group";
 import { TextField as AriaTextField, Input, TextArea } from "react-aria-components/TextField";
 
 import { textOf } from "@/core/copy";
@@ -206,8 +207,11 @@ export function TextField(props: TextFieldProps) {
       {props.unit === undefined ? (
         field
       ) : (
-        // The frame is the group, as a date's or a combo box's is, and rings as a whole while its input is focused.
-        <div
+        // The frame is the group, as a date's or a combo box's is, and rings as a whole while its input is focused. React
+        // Aria's, so its hover covers the unit too; presentational, as the text field's own context sets it, since the
+        // figure and its unit are one control.
+        <Group
+          role="presentation"
           data-kit-focus="field"
           data-kit-short
           className={fieldFrame({ width: "short", inset: "full", class: unit.frame() })}>
@@ -223,7 +227,7 @@ export function TextField(props: TextFieldProps) {
             className={unit.unit()}>
             {props.unit}
           </span>
-        </div>
+        </Group>
       )}
       <MessageLine
         description={description}

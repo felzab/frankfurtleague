@@ -6,7 +6,6 @@ import { textOf } from "@/core/copy";
 
 import { FieldLabel, MessageLine, useFieldLock } from "./FieldParts";
 import { fieldFrame, fieldRoot } from "./fieldStyles";
-import { hoverLook } from "./hoverStyles";
 import { Icon } from "./Icon";
 import { OptionList } from "./OptionList";
 import { ChosenField } from "./TextField";
@@ -99,7 +98,7 @@ export function Select({
       )}
       <Button
         data-kit-focus="field"
-        className={fieldFrame({ ...frame, class: hoverLook({ host: "aria" }) })}>
+        className={fieldFrame(frame)}>
         <SelectValue className="truncate" />
         <Icon
           glyph="expand"

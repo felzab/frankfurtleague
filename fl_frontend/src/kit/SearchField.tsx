@@ -1,5 +1,6 @@
 "use client";
 
+import { Group } from "react-aria-components/Group";
 import { SearchField as AriaSearchField, Button, Input } from "react-aria-components/SearchField";
 
 import { textOf } from "@/core/copy";
@@ -35,7 +36,10 @@ export function SearchField({
       onChange={onChange}
       maxLength={maxLength}
       className="group">
-      <div
+      {/* React Aria's group for its hover over the whole frame, the magnifier included; presentational, since the field
+          is one control and a group would add an unnamed stop to a screen reader's walk. */}
+      <Group
+        role="presentation"
         data-kit-focus="field"
         className={fieldFrame({ width: "standard", inset: "none", layout: "group" })}>
         <span className={searchGlyph()}>
@@ -56,7 +60,7 @@ export function SearchField({
             size={16}
           />
         </Button>
-      </div>
+      </Group>
     </AriaSearchField>
   );
 }

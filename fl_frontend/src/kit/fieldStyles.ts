@@ -110,12 +110,13 @@ export const dangerConsequence = tv({ base: "text-xs wrap-anywhere text-fg-muted
  * its whole height by the touch rule at this file's head, the edge lying inside the frame's inset.
  *
  * Under the pointer the edge steps one shade towards the text, to the muted words' grey, as Material 3, Fluent 2 and
- * Polaris draw a field's hover. React Aria marks the hover `data-hovered` on its own input, group or button, which a
- * touch never sets: on the frame where the frame is that part, else on a part inside it. A disabled, refused or
- * read-only field keeps its edge, since none of them takes an edit, and a focused one draws its focus edge over it.
+ * Polaris draw a field's hover. Every frame taking an edit is one of React Aria's own parts, an input, a button or a group, which marks
+ * its hover `data-hovered` and which a touch never sets; a frame holding more than its input, a glyph, a unit or a
+ * button, is a group, so the pointer anywhere on it starts the one hover. A disabled, refused or read-only field keeps
+ * its edge, since none of them takes an edit, and a focused one draws its focus edge over it.
  */
 export const fieldFrame = tv({
-  base: "rounded-lg bg-transparent text-sm text-fg inset-ring inset-ring-border-control transition-[color,outline-color,box-shadow] duration-(--motion-state) group-data-invalid:inset-ring-danger group-data-readonly:cursor-default group-data-readonly:inset-ring-border not-group-data-disabled:not-group-data-invalid:not-group-data-readonly:has-data-hovered:inset-ring-fg-muted data-disabled:opacity-50 not-group-data-disabled:not-group-data-invalid:not-group-data-readonly:data-hovered:inset-ring-fg-muted data-invalid:inset-ring-danger pointer-coarse:text-base",
+  base: "rounded-lg bg-transparent text-sm text-fg inset-ring inset-ring-border-control transition-[color,outline-color,box-shadow] duration-(--motion-state) group-data-invalid:inset-ring-danger group-data-readonly:cursor-default group-data-readonly:inset-ring-border data-disabled:opacity-50 not-group-data-disabled:not-group-data-invalid:not-group-data-readonly:data-hovered:inset-ring-fg-muted data-invalid:inset-ring-danger pointer-coarse:text-base",
   variants: {
     // A field's width says what it holds, since a person reads the length of a field as the length of its answer:
     // three widths at one left edge, each with the same 12-px inset, so the values of a box start at one x whatever
