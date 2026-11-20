@@ -62,7 +62,8 @@ export async function generateMetadata({ params }: Props, parent: ResolvingMetad
 /**
  * A match's own page, on a direct load, a reload or „Zum Spiel“: its head, its five facts as tiles, the line-ups
  * folded side by side, and its goals and cards along the dotted line, each of the last two only where the match can
- * have it (`drawn`). Opened from a match card, the pop-up shows instead.
+ * have it (`drawn`), the goals and cards also wherever the read serves one. Opened from a match card, the pop-up shows
+ * instead.
  */
 export default function SpielPage({ params }: Props) {
   return (
@@ -104,7 +105,8 @@ async function readRecord(params: Props["params"]): Promise<ReadRecord> {
             },
           ]
         : []),
-      ...(drawn(spiel.sonderereignis, events.length > 0)
+      // Wherever the read serves an event too: a forfeit's adopted report may carry cards.
+      ...(drawn(spiel.sonderereignis, false) || events.length > 0
         ? [
             {
               title: words.toreAndCards,
@@ -121,8 +123,10 @@ async function readRecord(params: Props["params"]): Promise<ReadRecord> {
 
 /**
  * Whether the match can have what a section shows, by what befell it: a match called off or forfeited was never
- * played, so it holds no line-up and no goals; an abandoned one keeps what it reached; an annulled one may have been
- * played, so it keeps a section that `holds` something and leaves out an empty one.
+ * played, so it holds no line-up; an abandoned one keeps what it reached; an annulled one may have been played, so it
+ * keeps a section that `holds` something and leaves out an empty one. The goals and cards stand besides wherever the
+ * read serves one: a forfeit's adopted report may carry cards, while the read serves none on a match called off or
+ * annulled.
  */
 function drawn(sonderereignis: FLSonderereignis | null, holds: boolean): boolean {
   switch (sonderereignis) {
