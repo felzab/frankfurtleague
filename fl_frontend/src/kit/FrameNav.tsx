@@ -14,7 +14,7 @@ import { ConfirmDialog } from "./ConfirmDialog";
 import { CutText } from "./CutText";
 import { hoverLook } from "./hoverStyles";
 import { Icon } from "./Icon";
-import { useAsked } from "./LeaveGuard";
+import { useAsked, useAskToLeave } from "./LeaveGuard";
 import { menuEntry } from "./Link";
 import { Menu } from "./Menu";
 import { entryMark } from "./menuStyles";
@@ -351,9 +351,14 @@ function AccountMenu({
   beside?: boolean;
 }) {
   const here = placeAt(account, usePathname());
+  const ask = useAskToLeave();
   const roles = (account.roles ?? []).map((place) => ({ ...place, isCurrent: place.href === here?.href }));
   const switchRole: ReadonlyArray<ReadonlyArray<MenuEntry>> =
     roles.length < 2 ? [] : [[{ kind: "submenu", label: COPY.shared.switchRole, links: roles }]];
+  // Over unsaved changes the frame's question comes first, while the session still stands: a person who stays keeps
+  // changes a save can still send. Discarding drops them before the session ends, so the document leaves holding
+  // nothing and the browser asks no second time.
+  const signOutAsked = () => (ask === null ? void signOutAndLeave() : ask(() => void signOutAndLeave()));
   return (
     <Menu
       label={COPY.template.account}
@@ -364,7 +369,7 @@ function AccountMenu({
         ...switchRole,
         [
           { kind: "link", label: COPY.template.account, href: accountPage },
-          { kind: "action", label: COPY.shared.verb.signOut, onAction: () => void signOutAndLeave() },
+          { kind: "action", label: COPY.shared.verb.signOut, onAction: signOutAsked },
         ],
         [
           { kind: "link", label: ROUTES.legalNotice.title, href: ROUTES.legalNotice.path() },
