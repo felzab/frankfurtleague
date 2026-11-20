@@ -9,10 +9,10 @@ import { TextField } from "@/kit/TextField";
 import { useEditor } from "@/kit/useEditor";
 
 import type { ActionAnswer } from "@/core/action";
+import type { SpielortRules } from "@/features/spielorte/fieldRules";
 import type { DangerAct } from "@/kit/EditorPage";
 import type { PageTitle } from "@/kit/RailFrame";
 import type { EditorRecord, EditorSave } from "@/kit/useEditor";
-import type { SpielortRules } from "../../../spielortRules";
 import type { SpielortValues } from "./spielortValues";
 
 const WORDS = ADMIN_COPY.spielort;
@@ -96,13 +96,13 @@ export function SpielortEditor({
               />
               <TextField
                 label={WORDS.mietpreis}
-                name="mietpreis"
+                name="default_mietpreis"
                 holds={5}
                 kind="digits"
                 unit={COPY.shared.unit.euro}
-                isRequired={required.mietpreis}
-                value={draft.mietpreis}
-                onChange={(mietpreis) => set("mietpreis", mietpreis)}
+                isRequired={required.default_mietpreis}
+                value={draft.default_mietpreis}
+                onChange={(price) => set("default_mietpreis", price)}
               />
             </>
           ),

@@ -18,7 +18,7 @@ const CreateSpielortForm = z.object({
   postcode: address.postcode,
   district: address.district,
   city: address.city,
-  mietpreis: numberBox(shape.default_mietpreis),
+  default_mietpreis: numberBox(shape.default_mietpreis),
 });
 
 /**
@@ -35,10 +35,10 @@ export const createSpielort = action({
   examples: {
     postcode: COPY.shared.address.postcodeExample,
     house_number: COPY.shared.address.houseNumberExample,
-    mietpreis: ADMIN_COPY.spielort.mietpreisExample,
+    default_mietpreis: ADMIN_COPY.spielort.mietpreisExample,
   },
-  run: async ({ mietpreis, name, ...address }) => {
-    await spielortePostSpielort({ name, default_mietpreis: mietpreis, address });
+  run: async ({ default_mietpreis, name, ...address }) => {
+    await spielortePostSpielort({ name, default_mietpreis, address });
     return { ok: true, value: undefined };
   },
 });

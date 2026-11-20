@@ -28,25 +28,27 @@ const day = <Stored extends z.ZodType>(stored: Stored) => z.union([stored, z.nul
 const SaveSaison = z.object({
   id: SaisonsPatchSaisonParams.shape.saison_id,
   version: shape.version,
+  // Each box under the path the write names its field by, one key holding its dots, so a refusal of that path lands on
+  // its box by the builder's own rule; the two pauses are the screen's, the write holding each window's `open`.
   changes: z
     .object({
-      start: fromBox<string | null, typeof shape.start_date>(shape.start_date),
-      end: fromBox<string | null, typeof shape.end_date>(shape.end_date),
-      winPoints: numberBox(rules.win_points),
-      drawPoints: numberBox(rules.draw_points),
-      lossPoints: numberBox(rules.loss_points),
-      tiebreak: fromBox<string, typeof rules.tiebreak_order>(rules.tiebreak_order),
-      gruppen: numberBox(rules.number_of_gruppen),
-      teamsPerGruppe: numberBox(rules.teams_per_gruppe),
-      qualifiers: numberBox(rules.qualifiers_per_gruppe),
-      maxKader: numberBox(rules.max_kader_size),
-      stufen: fromBox<readonly string[], typeof rules.allowed_stufen>(rules.allowed_stufen),
-      forfeitWinner: numberBox(rules.forfeit_ergebnis.shape.sieger_tore),
-      forfeitLoser: numberBox(rules.forfeit_ergebnis.shape.verlierer_tore),
-      bewerbungStart: day(bewerbungShape.shape.start),
-      bewerbungEnd: day(bewerbungShape.shape.end),
+      start_date: fromBox<string | null, typeof shape.start_date>(shape.start_date),
+      end_date: fromBox<string | null, typeof shape.end_date>(shape.end_date),
+      "rules.win_points": numberBox(rules.win_points),
+      "rules.draw_points": numberBox(rules.draw_points),
+      "rules.loss_points": numberBox(rules.loss_points),
+      "rules.tiebreak_order": fromBox<string, typeof rules.tiebreak_order>(rules.tiebreak_order),
+      "rules.number_of_gruppen": numberBox(rules.number_of_gruppen),
+      "rules.teams_per_gruppe": numberBox(rules.teams_per_gruppe),
+      "rules.qualifiers_per_gruppe": numberBox(rules.qualifiers_per_gruppe),
+      "rules.max_kader_size": numberBox(rules.max_kader_size),
+      "rules.allowed_stufen": fromBox<readonly string[], typeof rules.allowed_stufen>(rules.allowed_stufen),
+      "rules.forfeit_ergebnis.sieger_tore": numberBox(rules.forfeit_ergebnis.shape.sieger_tore),
+      "rules.forfeit_ergebnis.verlierer_tore": numberBox(rules.forfeit_ergebnis.shape.verlierer_tore),
+      "bewerbung.start": day(bewerbungShape.shape.start),
+      "bewerbung.end": day(bewerbungShape.shape.end),
       bewerbungPaused: z.boolean(),
-      registrierungEnd: day(registrierungShape.shape.end),
+      "registrierung.end": day(registrierungShape.shape.end),
       registrierungPaused: z.boolean(),
     })
     .partial(),
@@ -64,33 +66,33 @@ const either = <T>(changed: T | undefined, stored: T): T => (changed === undefin
  */
 function payloadOf(saison: FLSaisonAdmin, changes: Changes): Omit<FLPatchSaisonPayload, "version"> | ActionAnswer<never> {
   const stored = saison.rules;
-  const bewerbungStart = either(changes.bewerbungStart, saison.bewerbung?.start ?? null);
-  const bewerbungEnd = either(changes.bewerbungEnd, saison.bewerbung?.end ?? null);
+  const bewerbungStart = either(changes["bewerbung.start"], saison.bewerbung?.start ?? null);
+  const bewerbungEnd = either(changes["bewerbung.end"], saison.bewerbung?.end ?? null);
   if (bewerbungStart === null && bewerbungEnd !== null)
-    return { ok: false, fieldErrors: { "changes.bewerbungStart": COPY.shared.field.required } };
+    return { ok: false, fieldErrors: { "changes.bewerbung.start": COPY.shared.field.required } };
   if (bewerbungStart !== null && bewerbungEnd === null)
-    return { ok: false, fieldErrors: { "changes.bewerbungEnd": COPY.shared.field.required } };
+    return { ok: false, fieldErrors: { "changes.bewerbung.end": COPY.shared.field.required } };
   // `open` is the form's own flag and the link's, which each box sets as its pause.
   const bewerbungPaused = either(changes.bewerbungPaused, saison.bewerbung?.open === false);
-  const registrierungEnd = either(changes.registrierungEnd, saison.registrierung?.end ?? null);
+  const registrierungEnd = either(changes["registrierung.end"], saison.registrierung?.end ?? null);
   const registrierungPaused = either(changes.registrierungPaused, saison.registrierung?.open === false);
 
   return {
-    start_date: either(changes.start, saison.start_date),
-    end_date: either(changes.end, saison.end_date),
+    start_date: either(changes.start_date, saison.start_date),
+    end_date: either(changes.end_date, saison.end_date),
     rules: {
-      win_points: either(changes.winPoints, stored.win_points),
-      draw_points: either(changes.drawPoints, stored.draw_points),
-      loss_points: either(changes.lossPoints, stored.loss_points),
-      tiebreak_order: either(changes.tiebreak, stored.tiebreak_order),
-      number_of_gruppen: either(changes.gruppen, stored.number_of_gruppen),
-      teams_per_gruppe: either(changes.teamsPerGruppe, stored.teams_per_gruppe),
-      qualifiers_per_gruppe: either(changes.qualifiers, stored.qualifiers_per_gruppe),
-      max_kader_size: either(changes.maxKader, stored.max_kader_size),
-      allowed_stufen: either(changes.stufen, stored.allowed_stufen),
+      win_points: either(changes["rules.win_points"], stored.win_points),
+      draw_points: either(changes["rules.draw_points"], stored.draw_points),
+      loss_points: either(changes["rules.loss_points"], stored.loss_points),
+      tiebreak_order: either(changes["rules.tiebreak_order"], stored.tiebreak_order),
+      number_of_gruppen: either(changes["rules.number_of_gruppen"], stored.number_of_gruppen),
+      teams_per_gruppe: either(changes["rules.teams_per_gruppe"], stored.teams_per_gruppe),
+      qualifiers_per_gruppe: either(changes["rules.qualifiers_per_gruppe"], stored.qualifiers_per_gruppe),
+      max_kader_size: either(changes["rules.max_kader_size"], stored.max_kader_size),
+      allowed_stufen: either(changes["rules.allowed_stufen"], stored.allowed_stufen),
       forfeit_ergebnis: {
-        sieger_tore: either(changes.forfeitWinner, stored.forfeit_ergebnis.sieger_tore),
-        verlierer_tore: either(changes.forfeitLoser, stored.forfeit_ergebnis.verlierer_tore),
+        sieger_tore: either(changes["rules.forfeit_ergebnis.sieger_tore"], stored.forfeit_ergebnis.sieger_tore),
+        verlierer_tore: either(changes["rules.forfeit_ergebnis.verlierer_tore"], stored.forfeit_ergebnis.verlierer_tore),
       },
     },
     bewerbung: bewerbungStart === null || bewerbungEnd === null ? null : { open: !bewerbungPaused, start: bewerbungStart, end: bewerbungEnd },
@@ -123,33 +125,16 @@ export const saveSaison = action({
     "rules_kader_below_use",
     "rules_bracket_impossible",
   ],
-  // The boxes a field pattern's phrase lands on, by the path the write names for each.
-  paths: {
-    start_date: "changes.start",
-    end_date: "changes.end",
-    "rules.win_points": "changes.winPoints",
-    "rules.draw_points": "changes.drawPoints",
-    "rules.loss_points": "changes.lossPoints",
-    "rules.number_of_gruppen": "changes.gruppen",
-    "rules.teams_per_gruppe": "changes.teamsPerGruppe",
-    "rules.qualifiers_per_gruppe": "changes.qualifiers",
-    "rules.max_kader_size": "changes.maxKader",
-    "rules.forfeit_ergebnis.sieger_tore": "changes.forfeitWinner",
-    "rules.forfeit_ergebnis.verlierer_tore": "changes.forfeitLoser",
-    "bewerbung.start": "changes.bewerbungStart",
-    "bewerbung.end": "changes.bewerbungEnd",
-    "registrierung.end": "changes.registrierungEnd",
-  },
   examples: {
-    "changes.winPoints": COPY.shared.field.exampleDigits,
-    "changes.drawPoints": COPY.shared.field.exampleDigits,
-    "changes.lossPoints": COPY.shared.field.exampleDigits,
-    "changes.gruppen": COPY.shared.field.exampleDigits,
-    "changes.teamsPerGruppe": COPY.shared.field.exampleDigits,
-    "changes.qualifiers": COPY.shared.field.exampleDigits,
-    "changes.maxKader": COPY.shared.field.exampleDigits,
-    "changes.forfeitWinner": COPY.shared.field.exampleDigits,
-    "changes.forfeitLoser": COPY.shared.field.exampleDigits,
+    "changes.rules.win_points": COPY.shared.field.exampleDigits,
+    "changes.rules.draw_points": COPY.shared.field.exampleDigits,
+    "changes.rules.loss_points": COPY.shared.field.exampleDigits,
+    "changes.rules.number_of_gruppen": COPY.shared.field.exampleDigits,
+    "changes.rules.teams_per_gruppe": COPY.shared.field.exampleDigits,
+    "changes.rules.qualifiers_per_gruppe": COPY.shared.field.exampleDigits,
+    "changes.rules.max_kader_size": COPY.shared.field.exampleDigits,
+    "changes.rules.forfeit_ergebnis.sieger_tore": COPY.shared.field.exampleDigits,
+    "changes.rules.forfeit_ergebnis.verlierer_tore": COPY.shared.field.exampleDigits,
   },
   run: async ({ id, version, changes }): Promise<ActionAnswer<number>> => {
     // Read for the fields the editor did not change, which the wholesale write sends as stored.

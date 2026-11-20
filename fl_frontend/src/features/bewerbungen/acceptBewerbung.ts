@@ -4,16 +4,10 @@ import { z } from "zod";
 
 import { action, blankIsNull, numberBox } from "@/core/action";
 import { COPY } from "@/core/copy/shared";
-import { bewerbungenAcceptBewerbung, bewerbungenDeclineBewerbung } from "@/core/generated/client/sdk";
-import {
-  BewerbungenAcceptBewerbungBody,
-  BewerbungenAcceptBewerbungParams,
-  BewerbungenDeclineBewerbungBody,
-  BewerbungenDeclineBewerbungParams,
-} from "@/core/generated/zod/inputs";
+import { bewerbungenAcceptBewerbung } from "@/core/generated/client/sdk";
+import { BewerbungenAcceptBewerbungBody, BewerbungenAcceptBewerbungParams } from "@/core/generated/zod/inputs";
 
 const accepted = BewerbungenAcceptBewerbungBody.shape;
-const declined = BewerbungenDeclineBewerbungBody.shape;
 
 /**
  * Accepts the application on the version its page read: enters the club into the season, creating it for a new school,
@@ -37,21 +31,6 @@ export const acceptBewerbung = action({
   examples: { shorthand: COPY.team.shorthandExample },
   run: async ({ id, ...body }) => {
     await bewerbungenAcceptBewerbung(id, body);
-    return { ok: true, value: undefined };
-  },
-});
-
-/** Declines the application on the version its page read, and owes every person the reason as it was typed. */
-export const declineBewerbung = action({
-  lane: "admin",
-  name: "declineBewerbung",
-  input: z.object({
-    id: BewerbungenDeclineBewerbungParams.shape.bewerbung_id,
-    reason: declined.reason,
-    version: numberBox(declined.version),
-  }),
-  run: async ({ id, ...body }) => {
-    await bewerbungenDeclineBewerbung(id, body);
     return { ok: true, value: undefined };
   },
 });

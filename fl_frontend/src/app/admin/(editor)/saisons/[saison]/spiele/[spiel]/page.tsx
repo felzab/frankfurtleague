@@ -13,17 +13,17 @@ import { AUFSTELLUNG_CHIP, STARTERS_MAX } from "@/features/aufstellungen/constan
 import { adminSpielChipOf, eventOf, previewOf, quelleWords } from "@/features/spiele/blocks";
 import { getAdminSpiel } from "@/features/spiele/queries";
 import { creditedSide, isNoShow } from "@/features/spiele/result";
+import { saveSpiel } from "@/features/spiele/saveSpiel";
+import { NO_SONDEREREIGNIS, NOBODY, takesNoResult, valuesOf } from "@/features/spiele/spielValues";
 import { spielerName } from "@/features/spieler/constants";
+import { createSpielort } from "@/features/spielorte/createSpielort";
+import { SPIELORT_RULES } from "@/features/spielorte/fieldRules";
 import { AGREED_CHIP, DECLINED_CHIP, EXPIRED_CHIP, owedChip } from "@/kit/stateChips";
 import { adminIdParamOf } from "@/shared/utils/adminRead";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
 
-import { createSpielort } from "../../../../../createSpielort";
-import { SPIELORT_RULES } from "../../../../../spielortRules";
-import { saveSpiel } from "./saveSpiel";
 import { SpielEditor } from "./SpielEditor";
-import { NO_SONDEREREIGNIS, NOBODY, takesNoResult, valuesOf } from "./spielValues";
 
 import type { Copy, Words } from "@/core/copy";
 import type {
@@ -33,13 +33,13 @@ import type {
   FLSpielJoinedAdmin,
   FLSpielTeamFieldJoined,
 } from "@/core/generated/client/types";
+import type { SpielValues } from "@/features/spiele/spielValues";
 import type { AnswerRow } from "@/kit/AnswerRows";
 import type { CardActRowProps } from "@/kit/Card";
 import type { Option } from "@/kit/OptionList";
 import type { TableHead, TableRow } from "@/kit/Table";
 import type { Metadata, ResolvingMetadata } from "next";
 import type { Adoption, Team } from "./SpielEditor";
-import type { SpielValues } from "./spielValues";
 
 type Props = PageProps<"/admin/saisons/[saison]/spiele/[spiel]">;
 

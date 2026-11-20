@@ -5,7 +5,7 @@ import { getAdminSaisons } from "@/features/saisons/queries";
 import { selectSaison } from "@/features/saisons/resolvers";
 import { pageMetadata } from "@/shared/utils/metadata";
 
-import { AdminOverview } from "./saisons/[saison]/page";
+import { AdminOverview } from "./saisons/[saison]/AdminOverview";
 
 import type { Metadata, ResolvingMetadata } from "next";
 

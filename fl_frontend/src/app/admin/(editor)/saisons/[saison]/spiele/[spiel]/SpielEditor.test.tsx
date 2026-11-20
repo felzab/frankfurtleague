@@ -5,16 +5,16 @@ import { describe, expect, it, vi } from "vitest";
 
 import { ADMIN_COPY } from "@/core/copy/admin";
 import { COPY } from "@/core/copy/shared";
+import { NO_SONDEREREIGNIS } from "@/features/spiele/spielValues";
+import { SPIELORT_RULES } from "@/features/spielorte/fieldRules";
 import { renderUnderNext } from "@/test-support/nextContexts";
 
-import { SPIELORT_RULES } from "../../../../../spielortRules";
 import { SpielEditor } from "./SpielEditor";
-import { NO_SONDEREREIGNIS } from "./spielValues";
 
 import type { ActionAnswer } from "@/core/action";
+import type { SpielValues } from "@/features/spiele/spielValues";
 import type { NextContexts } from "@/test-support/nextContexts";
 import type { Adoption } from "./SpielEditor";
-import type { SpielValues } from "./spielValues";
 
 const WORDS = ADMIN_COPY.spiel;
 const SPIEL_ID = "64b000000000000000000001";

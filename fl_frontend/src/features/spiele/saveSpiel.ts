@@ -189,8 +189,6 @@ export const saveSpiel = action({
   name: "saveSpiel",
   input: SaveSpiel,
   ownWords: OWN_WORDS,
-  // The boxes a field pattern's phrase lands on; every other refusal here is a sentence naming its field itself.
-  paths: { sonderereignis: "changes.sonderereignis" },
   examples: { "changes.mietpreis": ADMIN_COPY.spielort.mietpreisExample },
   run: async ({ id, version, adoptsBericht, changes, confirm }): Promise<ActionAnswer<number>> => {
     const payload = await sending(id, changes);
