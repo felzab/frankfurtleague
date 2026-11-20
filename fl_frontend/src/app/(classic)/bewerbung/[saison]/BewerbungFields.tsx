@@ -6,6 +6,7 @@ import { PUBLIC_COPY } from "@/core/copy/public";
 import { COPY } from "@/core/copy/shared";
 import { TRIKOT_FARBEN } from "@/core/trikotFarben";
 import { BEWERBUNG_MIN_AGE, SIGNATORY_MIN_AGE } from "@/features/bewerbungen/constants";
+import { KONTAKT_SEATS } from "@/features/teams/constants";
 import { AddressFields } from "@/kit/AddressFields";
 import { ComboBox } from "@/kit/ComboBox";
 import { ConsentLine } from "@/kit/ConsentLine";
@@ -16,7 +17,7 @@ import { Switch } from "@/kit/Switch";
 import { TextField } from "@/kit/TextField";
 import { useUnsavedChangesWarning } from "@/kit/useUnsavedChangesWarning";
 
-import { NO_SECOND_SEAT, SEATS } from "./application";
+import { NO_SECOND_SEAT } from "./application";
 
 import type { FLBewerbungSchuleOption, FLKontaktSeat, FLSchulform, FLTrikotFarbe } from "@/core/generated/client/types";
 import type { Option } from "@/kit/OptionList";
@@ -191,7 +192,7 @@ export function BewerbungFields({
         />
       </Section>
 
-      {SEATS.map((seat) => (
+      {KONTAKT_SEATS.map((seat) => (
         <Section
           key={seat}
           title={team.seatName[seat]}>

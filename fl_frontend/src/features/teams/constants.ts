@@ -1,8 +1,9 @@
 import { COPY } from "@/core/copy/shared";
+import { FLKontaktSeat } from "@/core/generated/client/types";
 import { ACTIVE_CHIP, RETIRED_CHIP } from "@/kit/stateChips";
 
 import type { Copy } from "@/core/copy";
-import type { FLAustrittType, FLKontaktSeat, FLTeamShorthandLength, FLTrainerAlso, FLTrikotFarbe } from "@/core/generated/client/types";
+import type { FLAustrittType, FLTeamShorthandLength, FLTrainerAlso, FLTrikotFarbe } from "@/core/generated/client/types";
 import type { ChipProps } from "@/kit/Chip";
 
 // Keyed by every route, so a route the contract adds fails to compile until the catalogue words it.
@@ -45,8 +46,8 @@ export function trikotFarbeLabel(farbe: FLTrikotFarbe): Copy {
   return COPY.team.trikotFarbeName[farbe];
 }
 
-/** In every surface's order, the Trainer first as the application form draws them. */
-export const KONTAKT_SEATS = ["trainer", "ansprechperson", "stellvertretung"] as const satisfies readonly FLKontaktSeat[];
+/** Every seat, in the contract's order, which is every surface's: the Trainer first. */
+export const KONTAKT_SEATS: readonly FLKontaktSeat[] = Object.values(FLKontaktSeat);
 
 /**
  * The seat a double-seated Trainer's row stands for, on an application and on a club alike: one person holds both and

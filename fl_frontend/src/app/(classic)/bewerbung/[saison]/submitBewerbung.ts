@@ -7,8 +7,9 @@ import { COPY } from "@/core/copy/shared";
 import { bewerbungenPostBewerbung } from "@/core/generated/client/sdk";
 import { BewerbungenPostBewerbungBody } from "@/core/generated/zod/inputs";
 import { IDEMPOTENCY_KEY_FIELD, IDEMPOTENCY_KEY_HEADER } from "@/core/idempotencyKey";
+import { KONTAKT_SEATS } from "@/features/teams/constants";
 
-import { applicationOf, SEATS } from "./application";
+import { applicationOf } from "./application";
 import { SUBMITTED } from "./ends";
 
 import type { Copy } from "@/core/copy";
@@ -19,7 +20,7 @@ const { houseNumberExample, postcodeExample } = COPY.shared.address;
 
 /** Every seat's box for `field`, by its dotted name. */
 const eachSeat = <Field extends keyof FLBewerbungKontaktpersonPayload>(field: Field) =>
-  SEATS.map((seat) => `kontakte.${seat}.${field}` as const);
+  KONTAKT_SEATS.map((seat) => `kontakte.${seat}.${field}` as const);
 
 /** The same example for every seat's box for `field`. */
 const exampleOfEachSeat = (field: keyof FLBewerbungKontaktpersonPayload, example: Copy) =>

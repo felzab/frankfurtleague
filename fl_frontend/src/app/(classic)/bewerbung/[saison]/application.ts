@@ -1,13 +1,9 @@
 import { IDEMPOTENCY_KEY_FIELD } from "@/core/idempotencyKey";
-import { KONTAKT_SEATS } from "@/features/teams/constants";
 
 import type { FLKontaktSeat } from "@/core/generated/client/types";
 
 /** „Keine weitere Rolle“, the select's first entry: the wire's `trainer_is_also: null`, which no option's id can be. */
 export const NO_SECOND_SEAT = "none";
-
-/** The boxes in the order the form shows them, the seats' one order. */
-export const SEATS = KONTAKT_SEATS;
 
 /** What the boxes post, each under its dotted name, a box not shown posting nothing. */
 type Posted = Readonly<Record<string, unknown>>;
