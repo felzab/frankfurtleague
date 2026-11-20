@@ -52,8 +52,8 @@ export type ListMore = {
 const SEARCH_PAUSE_MS = 300;
 
 /**
- * A page of the list, or why it is not there. A read writes nothing, so a throw leaves the page as it stands, where a
- * form's reads it again (`answering`): that new render would take the rows drawn
+ * A page of the list, or why it is not there. A read writes nothing, so a throw leaves the page as it stands, even one
+ * the frontend answered, after which a form's reads it again (`answering`): that new render would take the rows drawn
  * so far away.
  */
 async function pageOf({ carry, load }: ListMore, request: ListRequest): Promise<ActionAnswer<ListPageOfRows>> {
