@@ -261,9 +261,8 @@ before the next deploy, which would otherwise boot held.
 
 **The frontend reads `RESTORE_HOLD` once, as it boots**, so the line takes effect at the frontend's
 next start and not before: a deploy's, or the recreate step 6 runs. Without it, the frontend's first
-hourly pass runs a minute after its boot
-(`fl_frontend/src/instrumentationNode.ts :: FIRST_PASS_DELAY_MS`), on data no read-back has judged
-yet. While it holds:
+hourly pass runs a minute after its boot (`fl_frontend/src/scheduler.ts :: FIRST_PASS_DELAY_MS`), on
+data no read-back has judged yet. While it holds:
 
 - **No hourly pass runs**: no sweep, no pupils' deletion, no fixture confirmation and no handover.
   The frontend logs `scheduler.held` at its boot instead, so
@@ -940,15 +939,15 @@ held the name, so it is the one reaching back past a deploy.
 ## 9. Checking that the hourly passes have run
 
 **The heartbeat answers it.** After every hourly pass the scheduler
-(`fl_frontend/src/instrumentationNode.ts :: armScheduler`) pings Better Stack's heartbeat monitor,
-and pings it with `/fail` where a job threw, left owed deletions or erasures, or the drain gave a
-mail up, its output naming each: `account failed`, `erasure left 3`, `outbox gave up 2`. The monitor
-alerts on a failing ping and on a missing one, so an alert names the job whose lines to read in the
-frontend's log, and `scheduler.job_failed` names a job that threw. **A missing ping means no pass
-finished**: the frontend process holds the timer, so the container can be up while the timer inside
-it is not, and a `scheduler.pass_skipped` line in every hour says a pass is stuck. Recreating the
-frontend service arms a fresh timer, and the jobs select on dates, lapses and season statuses rather
-than on the hour that ran them, so the pass that follows does whatever the missed hours owed.
+(`fl_frontend/src/scheduler.ts :: armScheduler`) pings Better Stack's heartbeat monitor, and pings
+it with `/fail` where a job threw, left owed deletions or erasures, or the drain gave a mail up, its
+output naming each: `account failed`, `erasure left 3`, `outbox gave up 2`. The monitor alerts on a
+failing ping and on a missing one, so an alert names the job whose lines to read in the frontend's
+log, and `scheduler.job_failed` names a job that threw. **A missing ping means no pass finished**:
+the frontend process holds the timer, so the container can be up while the timer inside it is not,
+and a `scheduler.pass_skipped` line in every hour says a pass is stuck. Recreating the frontend
+service arms a fresh timer, and the jobs select on dates, lapses and season statuses rather than on
+the hour that ran them, so the pass that follows does whatever the missed hours owed.
 
 **The monitor is made by hand in Better Stack, and production's frontend refuses to boot without its
 address** (`fl_frontend/src/core/config.ts :: PRODUCTION_ONLY_REQUIRED`). So before the first deploy

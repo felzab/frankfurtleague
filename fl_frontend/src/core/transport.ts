@@ -41,7 +41,6 @@ export const systemKeyPassTransport = <T>(url: string, options?: CallOptions): P
 export const adminKeyTransport = <T>(url: string, options?: CallOptions): Promise<T> => send<T>("admin", url, options, false);
 export const adminKeyReadTransport = <T>(url: string, options?: CallOptions): Promise<T> => send<T>("admin", url, options, true);
 export const adminKeyDryRunTransport = <T>(url: string, options?: CallOptions): Promise<T> => send<T>("admin", url, options, isDryRun(url));
-export const unkeyedTransport = <T>(url: string, options?: CallOptions): Promise<T> => send<T>("none", url, options, false);
 
 type QueryValue = string | number | boolean;
 

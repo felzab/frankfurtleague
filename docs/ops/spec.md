@@ -107,9 +107,10 @@ which lets every user bind below 1024 (read 2026-09-27, on engine 29.8.0). With 
 container, none can read the traffic crossing `frankfurtleague-app` (§4).
 
 **The frontend container also runs the background jobs, from one scheduler.**
-`fl_frontend/src/instrumentationNode.ts :: registerOnNode` arms `:: armScheduler` under a production
-build, which runs one pass a minute after start and then hourly, in the process that serves the
-site. A pass runs each job in turn:
+`fl_frontend/src/instrumentationNode.ts :: registerOnNode` arms
+`fl_frontend/src/scheduler.ts :: armScheduler` under a production build, which runs one pass a
+minute after start and then hourly, in the process that serves the site. A pass runs each job in
+turn:
 
 - the retention sweep over the seasons
   (`fl_frontend/src/features/saisons/sweep.ts :: runSaisonSweep`);
@@ -549,8 +550,8 @@ running `./scripts/gate/verify.sh` with that scope's flag. Beside them:
 leaves unused is removed in that change. The default run (`fl_frontend/knip.json`) refuses a file,
 an export or a dependency nothing imports, a test included. The production run
 (`fl_frontend/knip.production.json`) drops the tests and refuses a file or an export no production
-code reads; a value a test compares on purpose carries `@internal`. Each file names, beside each
-ignore, the reader knip cannot see, and a configuration hint fails either step as a finding does.
+code reads. Each file names, beside each ignore, the reader knip cannot see, and a configuration
+hint fails either step as a finding does.
 
 **An editor formats earlier still**: `.vscode/settings.json` names the module, the configuration and
 the ignore file the gate itself reads. `.editorconfig` carries the same conventions to the files

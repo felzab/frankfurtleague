@@ -1,14 +1,14 @@
 import "server-only";
 
 import { drainSoon } from "./afterResponse";
-import { dispatchRequest, sentRequestOf } from "./apiDispatch";
 import { frontend_config, internalApiKeyAdmin, internalApiKeyBase, internalApiKeySystem } from "./config";
-import { APIBadStatusError, APINetworkError, mayHaveWritten } from "./errors";
+import { APIBadStatusError, APINetworkError, asRefusal, mayHaveWritten } from "./errors";
 import { Code } from "./generated/client/types";
 import { ownKeyOf } from "./ownKeyOf";
-import { boundCall, getRequestActor, getRequestTraceId, inBackground } from "./requestScope";
+import { boundCall, getRequestActor, getRequestTraceId, inBackground, recordWriteSent } from "./requestScope";
 import { formatTraceparent, mintTraceId, TRACEPARENT_HEADER } from "./trace";
 
+import type { SentRequest } from "./errors";
 import type { FLRefusedField } from "./generated/client/types";
 
 // No proxied path reaches a backend write, so the actor is always the one the session set.
@@ -46,7 +46,7 @@ function isPathAsSpelled(endpoint: string, builtPathname: string, basePathname: 
 
 export interface FetchOptions extends RequestInit {
   /** The key the call sends, which the operation's `security` names. */
-  authType: "base" | "system" | "admin" | "none";
+  authType: "base" | "system" | "admin";
   /**
    * A call changing nothing whatever its method says, such as a POST keeping a token out of the URL or
    * a dry run: its timeout is a read that failed, never a write of unknown outcome. Set by the operation's
@@ -63,8 +63,6 @@ const getFetchHeaders = (type: FetchOptions["authType"]): Record<string, string>
   };
 
   switch (type) {
-    case "none":
-      break;
     case "system":
       headers["Authorization"] = `Bearer ${internalApiKeySystem()}`;
       break;
@@ -110,6 +108,34 @@ const refusalOf = async ({ res, traceId }: { res: Response; traceId: string }) =
     traceId,
   });
 };
+
+/**
+ * A call as the write test reads it: `fetch`'s own default method, upper-cased so the safe-method test
+ * reads any spelling alike, since `fetch` sends `patch` exactly as typed.
+ */
+const sentRequestOf = (method: string | undefined, readOnly: boolean | undefined): SentRequest => ({
+  method: (method ?? "GET").toUpperCase(),
+  readOnly: readOnly === true,
+});
+
+/**
+ * Sends one call, a write recorded as standing before `send` runs, since one whose answer never comes may still have
+ * landed, and taken back where `send` throws the backend's refusal of it.
+ */
+async function dispatchRequest<T>(sent: SentRequest, send: () => Promise<T>): Promise<T> {
+  if (!mayHaveWritten(sent)) return send();
+
+  const withdraw = recordWriteSent();
+  try {
+    return await send();
+  } catch (error) {
+    // Taken back only where the answer says the write did not stand. The backend's promise: a 4xx refuses the
+    // request. A 5xx promises nothing, since the server may fail after a commit, and a write that may stand answers
+    // `unknown_outcome` with a 500; neither does an answer naming no code, an edge's own page or an unreadable body.
+    if (asRefusal(error)?.serverErrorCode !== undefined) withdraw();
+    throw error;
+  }
+}
 
 /**
  * One call to the backend, answering its success body as the type the caller names: typed, never parsed, as the

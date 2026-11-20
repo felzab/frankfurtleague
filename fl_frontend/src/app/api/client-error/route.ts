@@ -11,7 +11,7 @@ import type { NextRequest } from "next/server";
 // own line already, and the bot check's widget posts its failure with no stack, so the report is
 // these three fields and no fourth.
 const ClientErrorReportSchema = z.object({
-  message: z.string().min(1).max(500),
+  message: z.string().max(500),
   // Pathname only, so a caller cannot smuggle search text or tokens into the log.
   path: z
     .string()

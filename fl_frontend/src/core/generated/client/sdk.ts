@@ -8,7 +8,6 @@ import {
   systemKeyPassTransport,
   systemKeyReadTransport,
   systemKeyTransport,
-  unkeyedTransport,
 } from "@/core/transport";
 
 import type {
@@ -153,7 +152,6 @@ import type {
   FLTokenPayload,
   FLVersionResponse,
   IdentityPostWithdrawalParams,
-  ProbeResponse,
   SaisonsGetSweepSaisonsParams,
   SpieleGetSpieleSpielplanParams,
   SpielePatchSpielParams,
@@ -2858,41 +2856,6 @@ export const spieltagePatchSpieltag = async (
     method: "PATCH",
     headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(fLPatchSpieltagPayload),
-  });
-};
-
-export const getSystemCheckIsLiveUrl = () => {
-  return `/api/system/is_live`;
-};
-
-/**
- * Liveness: is this process serving requests?
- *
- * Unauthenticated, and it does not touch the database: it must not fail for reasons a restart
- * cannot fix.
- * @summary Liveness probe
- */
-export const systemCheckIsLive = async (options?: Parameters<typeof unkeyedTransport>[1]): Promise<ProbeResponse> => {
-  return unkeyedTransport<ProbeResponse>(getSystemCheckIsLiveUrl(), {
-    ...options,
-    method: "GET",
-  });
-};
-
-export const getSystemCheckIsReadyUrl = () => {
-  return `/api/system/is_ready`;
-};
-
-/**
- * Readiness: whether this process reaches its database, 503 where a ping does not return within the request's deadline.
- *
- * Unauthenticated, for a monitor outside.
- * @summary Readiness probe
- */
-export const systemCheckIsReady = async (options?: Parameters<typeof unkeyedTransport>[1]): Promise<ProbeResponse> => {
-  return unkeyedTransport<ProbeResponse>(getSystemCheckIsReadyUrl(), {
-    ...options,
-    method: "GET",
   });
 };
 

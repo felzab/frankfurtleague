@@ -2,7 +2,6 @@
 
 import { useEffect } from "react";
 
-import { asCaughtError } from "@/shared/utils/caughtError";
 import { postClientError } from "@/shared/utils/clientError";
 
 /**
@@ -15,10 +14,9 @@ export function useReportClientCrash(thrown: unknown): void {
   // `Error` built from a thrown non-Error during render is a new object on every render, and the
   // retry press re-renders the boundary.
   useEffect(() => {
-    const error = asCaughtError(thrown);
+    const error: Error & { digest?: string } = thrown instanceof Error ? thrown : new Error(String(thrown));
     if (error.digest) return;
 
-    // An empty message stands in as words of its own: the route refuses an empty one, and a refused report is lost.
-    postClientError(String(error.message || "Unknown client error"), typeof error.stack === "string" ? error.stack : undefined);
+    postClientError(error.message, typeof error.stack === "string" ? error.stack : undefined);
   }, [thrown]);
 }
