@@ -158,8 +158,9 @@ export function SpielerEditor({
               <TextField
                 label={COPY.kader.nummer}
                 name="nummer"
-                holds={2}
+                holds={5}
                 kind="digits"
+                maxLength={4}
                 isLocked={ended}
                 value={draft.nummer}
                 onChange={(nummer) => set("nummer", nummer)}
