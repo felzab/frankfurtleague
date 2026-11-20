@@ -1,4 +1,4 @@
-import { ADDRESS_CHANGE_VALID_HOURS, ADDRESS_CHANGE_WAIT_DAYS, HOLDER_WAIT } from "@/core/addressChange";
+import { ADDRESS_CHANGE_VALID_HOURS, ADDRESS_CHANGE_WAITING_PERIOD, HOLDER_WAIT } from "@/core/addressChange";
 import {
   ACTION_LOG_RETENTION_YEARS,
   ADDRESS_CHANGE_RETENTION_DAYS,
@@ -80,7 +80,7 @@ export default function PrivacyNoticePage() {
       blocks: [
         paragraph(words.account.signIn(CODE_VALIDITY_MINUTES)),
         paragraph(words.account.sessions(PERSON_IDLE_DAYS, PERSON_WINDOW_DAYS, SESSION_EXPIRES_IN_DAYS)),
-        paragraph(words.account.changes(ADDRESS_CHANGE_VALID_HOURS, ADDRESS_CHANGE_WAIT_DAYS)),
+        paragraph(words.account.changes(ADDRESS_CHANGE_VALID_HOURS, ADDRESS_CHANGE_WAITING_PERIOD.days)),
         paragraph(words.account.erasure),
         paragraph(words.account.ban),
       ],

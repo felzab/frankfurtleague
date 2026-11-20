@@ -1,13 +1,12 @@
 import "server-only";
 
-import { ADDRESS_CHANGE_VALID_HOURS, ADDRESS_CHANGE_WAIT_DAYS, HOLDER_WAIT } from "./addressChange";
+import { ADDRESS_CHANGE_VALID_HOURS, ADDRESS_CHANGE_WAITING_PERIOD, HOLDER_WAIT } from "./addressChange";
 import { ACCOUNT_COPY } from "./copy/account";
 import { COPY } from "./copy/shared";
 import { formatInstant } from "./format";
 import { mailedLinkTo, ROUTES } from "./routes";
 import { SERVER_COPY } from "./serverCopy";
 
-import type { Wait } from "./copy";
 import type { Mail, Paragraph } from "./emailShell";
 import type {
   FLAddressChangeDiscardedData,
@@ -21,8 +20,6 @@ const WORDS = SERVER_COPY.addressChange;
 
 /** Both mails of the person's own change state the link's lifetime, which the backend refuses past. */
 const LINK_VALID: Paragraph = [SERVER_COPY.mail.linkValidFor(ADDRESS_CHANGE_VALID_HOURS)];
-
-const LOST_MAILBOX_WAIT: Wait = { days: ADDRESS_CHANGE_WAIT_DAYS };
 
 /**
  * The link to the new address, asking only whether the mailbox is theirs. It names no record, the change moving every
@@ -51,7 +48,7 @@ export function buildAddressChangeEmail({ way, holder }: FLAddressChangeLinkData
     audience: "security",
     subjectLine,
     origin,
-    paragraphs: [[SERVER_COPY.mail.addressChange.administrator.lead, WORDS.new.waits(LOST_MAILBOX_WAIT)], LINK_VALID],
+    paragraphs: [[SERVER_COPY.mail.addressChange.administrator.lead, WORDS.new.waits(ADDRESS_CHANGE_WAITING_PERIOD)], LINK_VALID],
     button,
   };
 }
@@ -86,7 +83,7 @@ export function buildAddressChangeNoticeEmail({ way, holder }: FLAddressChangeNo
     // Telling of the change and asking nothing: a real holder refuses a pretext by the stop alone.
     subjectLine: noticeSubject,
     origin,
-    paragraphs: [[noticeLead, noticeWait(LOST_MAILBOX_WAIT), noticeStop]],
+    paragraphs: [[noticeLead, noticeWait(ADDRESS_CHANGE_WAITING_PERIOD), noticeStop]],
     // The stop: no link approves anything.
     button: { label: ACCOUNT_COPY.address.stop, href: mailedLinkTo(origin, ROUTES.addressChangeConfirmation, stopToken) },
   };
