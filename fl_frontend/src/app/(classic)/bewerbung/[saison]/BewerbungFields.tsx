@@ -165,7 +165,7 @@ export function BewerbungFields({
         {isListed && (
           <>
             {/* Drawn while the switch is on, so the switch never moves under the finger, but dimmed and empty: the new
-                school is the answer then, and a disabled box posts nothing. */}
+                school is the answer then, and the box posts an empty `team_id`, which `applicationOf` drops. */}
             <ComboBox
               label={COPY.shared.facts.school}
               description={bewerbung.schoolDescription}
