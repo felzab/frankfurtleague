@@ -5,7 +5,8 @@ import { act, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { COPY } from "@/core/copy";
+import { AREA_COPY } from "@/core/copy/area";
+import { COPY } from "@/core/copy/shared";
 import { formatPeriod } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { serveBackend } from "@/test-support/backend";
@@ -95,7 +96,7 @@ describe("a team's frame for a person holding two teams", () => {
 
     // Under the person's address: the Kürzel of the address's team and the seat held in the address's season.
     expect(screen.getByText(wholeText(PERSON.email)).nextElementSibling?.textContent).toBe(
-      COPY.area.team.accountLine({ record: "AHO" }, ["ansprechperson"]),
+      AREA_COPY.team.accountLine({ record: "AHO" }, ["ansprechperson"]),
     );
 
     const [button] = saisonButtons();

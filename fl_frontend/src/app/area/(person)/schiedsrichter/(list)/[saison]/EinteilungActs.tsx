@@ -1,4 +1,5 @@
-import { COPY } from "@/core/copy";
+import { AREA_COPY } from "@/core/copy/area";
+import { COPY } from "@/core/copy/shared";
 import { Dialog } from "@/kit/Dialog";
 import { PressAct } from "@/kit/PressAct";
 
@@ -7,7 +8,7 @@ import { agreeEinteilung, declineEinteilung } from "./answerEinteilung";
 import type { Words } from "@/core/copy";
 import type { ReactNode } from "react";
 
-const TITLE = COPY.shared.withObject(COPY.area.schiedsrichter.einteilung, "decline");
+const TITLE = COPY.shared.withObject(AREA_COPY.schiedsrichter.einteilung, "decline");
 
 /**
  * A booking still to answer, on its game's row: „Zusagen“ at once, its answer a toast as the row turns „Zugesagt“,

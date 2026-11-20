@@ -6,7 +6,8 @@ import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { COPY } from "@/core/copy";
+import { PUBLIC_COPY } from "@/core/copy/public";
+import { COPY } from "@/core/copy/shared";
 import { renderUnderNext } from "@/test-support/nextContexts";
 import { filesUnder } from "@/test-support/treeWalk";
 
@@ -185,16 +186,19 @@ const CONTAINERS: Readonly<Record<string, ReadonlyArray<readonly [string, () => 
         renderUnderNext(
           <SignInPage
             view="address"
-            title={COPY.signIn.title}
+            title={PUBLIC_COPY.signIn.title}
             row={null}
             address={{ label: COPY.shared.emailAddress, value: "", onChange: () => undefined }}
             check={null}
-            send={{ label: COPY.signIn.sendCode, onPress: () => undefined }}
-            or={COPY.signIn.or}
-            passkey={{ label: COPY.signIn.withPasskey, onPress: () => undefined }}
+            send={{ label: PUBLIC_COPY.signIn.sendCode, onPress: () => undefined }}
+            or={PUBLIC_COPY.signIn.or}
+            passkey={{ label: PUBLIC_COPY.signIn.withPasskey, onPress: () => undefined }}
           />,
         );
-        return [screen.getByRole("textbox", { name: COPY.shared.emailAddress }), screen.getByRole("button", { name: COPY.signIn.sendCode })];
+        return [
+          screen.getByRole("textbox", { name: COPY.shared.emailAddress }),
+          screen.getByRole("button", { name: PUBLIC_COPY.signIn.sendCode }),
+        ];
       },
     ],
   ],

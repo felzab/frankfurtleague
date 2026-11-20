@@ -5,7 +5,7 @@ import { Form } from "react-aria-components/Form";
 import { Input, TextField } from "react-aria-components/TextField";
 import { describe, expect, it } from "vitest";
 
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 
 import { Button } from "./Button";
 import { ComboBox } from "./ComboBox";

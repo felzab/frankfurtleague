@@ -1,4 +1,4 @@
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 
 import { FieldPair } from "./FieldPair";
 import { TextField } from "./TextField";

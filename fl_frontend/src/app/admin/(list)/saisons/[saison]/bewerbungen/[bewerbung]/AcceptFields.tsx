@@ -1,4 +1,5 @@
-import { COPY } from "@/core/copy";
+import { ADMIN_COPY } from "@/core/copy/admin";
+import { COPY } from "@/core/copy/shared";
 import { SHORTHAND_LENGTH } from "@/features/bewerbungen/constants";
 import { trikotFarbeLabel } from "@/features/teams/constants";
 import { trikotOptions } from "@/features/teams/options";
@@ -15,7 +16,7 @@ import type { Option } from "@/kit/OptionList";
 function gruppeOptions(gruppen: readonly FLBewerbungGruppeOffer[]): readonly Option[] {
   return gruppen.map(({ gruppe, free }) => {
     const label = COPY.shared.season.gruppe(gruppe);
-    return free > 0 ? { id: gruppe, label } : { id: gruppe, label, isDisabled: true, note: COPY.admin.team.gruppeFull };
+    return free > 0 ? { id: gruppe, label } : { id: gruppe, label, isDisabled: true, note: ADMIN_COPY.team.gruppeFull };
   });
 }
 
@@ -76,14 +77,14 @@ export function AcceptFields({
         isRequired={rules.required.trikot_farbe}
         options={trikotOptions(taken)}
         defaultValue={taken.includes(colour) ? "" : colour}
-        description={COPY.admin.bewerbung.wish(trikotFarbeLabel(wish))}
+        description={ADMIN_COPY.bewerbung.wish(trikotFarbeLabel(wish))}
       />
       {shorthand === null ? (
-        <FieldGroup name={COPY.admin.bewerbung.newSchool}>
+        <FieldGroup name={ADMIN_COPY.bewerbung.newSchool}>
           {fields}
           <Callout
             tone="info"
-            text={COPY.admin.bewerbung.addressPublic}
+            text={ADMIN_COPY.bewerbung.addressPublic}
           />
         </FieldGroup>
       ) : (

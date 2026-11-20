@@ -8,7 +8,7 @@ import {
   UNSTABLE_ToastQueue as ToastQueue,
 } from "react-aria-components/Toast";
 
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 
 import { Button } from "./Button";
 import { Icon } from "./Icon";

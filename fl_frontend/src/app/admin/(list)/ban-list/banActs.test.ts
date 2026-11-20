@@ -1,6 +1,6 @@
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 
-import { COPY } from "@/core/copy";
+import { ADMIN_COPY } from "@/core/copy/admin";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { ADMIN_EMAIL } from "@/test-support/authDoubles";
 import { refusal, serveBackend } from "@/test-support/backend";
@@ -10,7 +10,7 @@ import type { FLCreatedResponse, FLPostBanListEntryPayload } from "@/core/genera
 
 const ADDRESS = "max@example.org";
 const BAN = { email: ADDRESS, ban_reason: "Ein Grund", holder: ADMIN_EMAIL };
-const PARTIAL = COPY.admin.banList.partial;
+const PARTIAL = ADMIN_COPY.banList.partial;
 const MAX_ID = "64c000000000000000000005";
 
 /** The sessions of the banned address's account the store held as the backend took the ban, one entry per ban posted. */

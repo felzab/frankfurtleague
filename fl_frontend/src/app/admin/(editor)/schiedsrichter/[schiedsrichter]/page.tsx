@@ -1,7 +1,8 @@
 import { cache } from "react";
 import { notFound } from "next/navigation";
 
-import { COPY } from "@/core/copy";
+import { ADMIN_COPY } from "@/core/copy/admin";
+import { COPY } from "@/core/copy/shared";
 import { dayOf, formatDate } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { deliveryChip } from "@/features/bewerbungen/deliveryState";
@@ -25,7 +26,7 @@ import type { Metadata, ResolvingMetadata } from "next";
 
 type Props = PageProps<"/admin/schiedsrichter/[schiedsrichter]">;
 
-const WORDS = COPY.admin.schiedsrichter;
+const WORDS = ADMIN_COPY.schiedsrichter;
 
 const read = cache(getSchiedsrichterById);
 

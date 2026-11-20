@@ -1,6 +1,7 @@
 "use client";
 
-import { COPY } from "@/core/copy";
+import { ADMIN_COPY } from "@/core/copy/admin";
+import { COPY } from "@/core/copy/shared";
 import { AddressFields } from "@/kit/AddressFields";
 import { EditorPage } from "@/kit/EditorPage";
 import { ACTIVE_CHIP, RETIRED_CHIP } from "@/kit/stateChips";
@@ -14,7 +15,7 @@ import type { EditorRecord, EditorSave } from "@/kit/useEditor";
 import type { SpielortRules } from "../../../spielortRules";
 import type { SpielortValues } from "./spielortValues";
 
-const WORDS = COPY.admin.spielort;
+const WORDS = ADMIN_COPY.spielort;
 
 /** One act of the danger box: a server action taking the venue's id, which a server page passes on as it is. */
 type Act = (input: { id: string }) => Promise<ActionAnswer>;
@@ -74,7 +75,7 @@ export function SpielortEditor({
       title={title}
       chip={retired ? RETIRED_CHIP : ACTIVE_CHIP}
       editor={editor}
-      danger={{ title: COPY.admin.retirement, acts: [danger] }}
+      danger={{ title: ADMIN_COPY.retirement, acts: [danger] }}
       sections={[
         {
           id: "spielort",

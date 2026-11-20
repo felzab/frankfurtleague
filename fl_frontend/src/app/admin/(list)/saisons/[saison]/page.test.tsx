@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { COPY } from "@/core/copy";
+import { ADMIN_COPY } from "@/core/copy/admin";
+import { COPY } from "@/core/copy/shared";
 import { dayOf } from "@/core/format";
 import { serveBackend } from "@/test-support/backend";
 import { signedInRequest } from "@/test-support/session";
@@ -86,7 +87,7 @@ describe("the overview's row of a fixture owing answers", () => {
       reads: "due, a club never asked",
       kind: "spielbestaetigung_due" as const,
       parties: [party("team", null, false), party("schiedsrichter", null)],
-      line: COPY.admin.spiel.notAsked,
+      line: ADMIN_COPY.spiel.notAsked,
     },
     {
       reads: "overdue",

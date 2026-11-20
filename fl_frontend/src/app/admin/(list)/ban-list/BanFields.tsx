@@ -1,5 +1,5 @@
 import { requires } from "@/core/action";
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 import {
   BanListPostBanListEntryBody,
   banListPostBanListEntryBodyBanReasonMax,

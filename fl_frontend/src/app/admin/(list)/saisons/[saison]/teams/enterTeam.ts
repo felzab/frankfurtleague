@@ -3,7 +3,7 @@
 import { z } from "zod";
 
 import { action, blankIsNull } from "@/core/action";
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 import { teamsPostTeamEntry } from "@/core/generated/client/sdk";
 import { TeamsPostTeamEntryBody, TeamsPostTeamEntryParams } from "@/core/generated/zod/inputs";
 

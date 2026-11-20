@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { COPY } from "@/core/copy";
+import { ADMIN_COPY } from "@/core/copy/admin";
+import { COPY } from "@/core/copy/shared";
 import { serveBackend } from "@/test-support/backend";
 import { signedInRequest } from "@/test-support/session";
 
@@ -70,7 +71,7 @@ describe("the chips after a referee's name", () => {
   it("set the state's chip, then the mail's trouble", async () => {
     expect(await chipsFor(unanswered(barred))).toStrictEqual({
       chip: { tone: "warn", label: COPY.shared.state.unconfirmed },
-      flag: { tone: "danger", label: COPY.admin.saison.addressBarred },
+      flag: { tone: "danger", label: ADMIN_COPY.saison.addressBarred },
     });
   });
 

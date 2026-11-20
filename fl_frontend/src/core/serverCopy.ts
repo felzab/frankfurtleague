@@ -1,7 +1,10 @@
 import "server-only";
 
 import { KONTAKT_EMAIL, VEREIN_ADDRESS, VEREIN_NAME, VEREINSREGISTER, VORSTAND_JOINTLY } from "./brand";
-import { boundBy, catalogue, COPY, seatsText, textOf, waitWords } from "./copy";
+import { boundBy, catalogue, seatsText, textOf, waitWords } from "./copy";
+import { ACCOUNT_COPY } from "./copy/account";
+import { ADMIN_COPY } from "./copy/admin";
+import { COPY } from "./copy/shared";
 import { formatDate, formatDateLong, formatDayAndTime, formatInstant, formatList, formatNumber, formatOrdinal, formatSigned } from "./format";
 
 import type { Copy, Wait, Words } from "./copy";
@@ -106,9 +109,9 @@ type RetentionBounds = {
 const monthsOf = (years: number) => formatNumber(12 * years);
 
 /**
- * The catalogue's entries only the server reads, so no client bundle carries them: `COPY` is one object, and a
- * bundler keeps all of an object a client module imports. Branded as `COPY` is, so an entry passes wherever a `Copy`
- * is asked for.
+ * The catalogue's entries only the server reads, so no client bundle carries them: a bundler keeps all of an object a
+ * client module imports, so an audience's catalogue under `copy/` holds only what a client component reads. Branded as
+ * those are, so an entry passes wherever a `Copy` is asked for.
  */
 export const SERVER_COPY = catalogue({
   /**
@@ -167,7 +170,7 @@ export const SERVER_COPY = catalogue({
     /** The address on file typed again, on Konto's start and on the address tool's alike, so it names nobody's. */
     address_change_unchanged: "Diese Adresse ist schon hinterlegt.",
     /** An address change's start, for an address holding no record. */
-    address_change_nothing: COPY.admin.nothingAtAddress,
+    address_change_nothing: ADMIN_COPY.nothingAtAddress,
     /**
      * The new address another person stands at, a pupil, an entry or a grant, on the start's toast, whose dialog has
      * closed before the answer, and on the re-send, which holds no box.
@@ -207,12 +210,12 @@ export const SERVER_COPY = catalogue({
       typeof max === "number" ? `Nachnominierte füllen nur die Lücke ${boundBy("bis", formatNumber(max))}.` : undefined,
     aufstellung_spiel_undated: "Das Spiel hat noch keinen Termin.",
     // A season's rules and its activation, each a fact the person reads off the season editor itself.
-    rules_bracket_impossible: COPY.admin.saison.bracketImpossible,
-    spielplan_gruppen_off_rules: COPY.admin.saison.gruppenOffRules,
-    activate_target_undrawn: COPY.admin.saison.noDraw,
-    activate_saison_unfinished: COPY.admin.saison.unfinished,
-    activate_spieltage_undated: COPY.admin.saison.undated,
-    create_saison_future_stands: COPY.admin.saison.futureStands,
+    rules_bracket_impossible: ADMIN_COPY.saison.bracketImpossible,
+    spielplan_gruppen_off_rules: ADMIN_COPY.saison.gruppenOffRules,
+    activate_target_undrawn: ADMIN_COPY.saison.noDraw,
+    activate_saison_unfinished: ADMIN_COPY.saison.unfinished,
+    activate_spieltage_undated: ADMIN_COPY.saison.undated,
+    create_saison_future_stands: ADMIN_COPY.saison.futureStands,
     eligibility_disqualified: DISQUALIFIED,
     eligibility_disqualified_team1_as_stored: DISQUALIFIED.team1,
     eligibility_disqualified_team2_as_stored: DISQUALIFIED.team2,
@@ -225,7 +228,7 @@ export const SERVER_COPY = catalogue({
      * A fixture's save, the match editor's or „Übernehmen“'s, that would delete a later result it was not confirmed
      * to delete, one entered or changed since the question was asked among them: the match editor asks again.
      */
-    voided_results_stale: COPY.admin.overview.voidsLater,
+    voided_results_stale: ADMIN_COPY.overview.voidsLater,
     /** A matchday's dates: past its season's, short of one of its dated matches, or out of its phase's order of matchdays. */
     spieltag_outside_saison: "Dieser Zeitraum liegt außerhalb der Saison.",
     spieltag_span_below_spiele: "Ein Spiel liegt außerhalb dieses Zeitraums.",
@@ -523,7 +526,7 @@ export const SERVER_COPY = catalogue({
     erasureLink: {
       lead: "Du hast angefordert, dein Konto zu löschen.",
       /** The deletion box's own sentence, so the box and its mail word what goes, and what outlives it, alike. */
-      consequence: COPY.account.erasure.description,
+      consequence: ACCOUNT_COPY.erasure.description,
     },
 
     /**
@@ -682,7 +685,7 @@ export const SERVER_COPY = catalogue({
     passkeys: COPY.shared.passkeys,
     addressChanges: COPY.shared.erasureCount.addressChanges,
     grant: COPY.shared.erasureCount.grant,
-    done: COPY.account.erasure.done,
+    done: ACCOUNT_COPY.erasure.done,
   },
 
   /**
@@ -813,7 +816,7 @@ export const SERVER_COPY = catalogue({
   paragraph: (...sentences: Copy[]) => sentences.join(" "),
 
   /**
-   * The areas under `/area` as a server page alone words them, beside `COPY.area`: the forbidden page, the landing of
+   * The areas under `/area` as a server page alone words them, beside `AREA_COPY`: the forbidden page, the landing of
    * a person no entry admits to a page, a row's line, and the match report's page where no form stands.
    */
   area: {
@@ -1162,8 +1165,8 @@ export const SERVER_COPY = catalogue({
   },
 
   /**
-   * The registration form's page, `ROUTES.registrierung`, beside the form's own words (`COPY.registrierung`): what a
-   * pupil reads before typing, and a status card's title for each state where no form stands.
+   * The registration form's page, `ROUTES.registrierung`, beside the form's own words (`PUBLIC_COPY.registrierung`):
+   * what a pupil reads before typing, and a status card's title for each state where no form stands.
    */
   registrierung: {
     /** Shown to a nominee alone, whose squad entry stands outside the squad's cap. */

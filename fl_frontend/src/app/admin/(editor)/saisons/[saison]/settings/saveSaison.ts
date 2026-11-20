@@ -3,7 +3,7 @@
 import { z } from "zod";
 
 import { action, numberBox } from "@/core/action";
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 import { saisonsPatchSaison } from "@/core/generated/client/sdk";
 import { SaisonsPatchSaisonBody, SaisonsPatchSaisonParams } from "@/core/generated/zod/inputs";
 import { getAdminSaison } from "@/features/saisons/queries";

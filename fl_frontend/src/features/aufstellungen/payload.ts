@@ -1,4 +1,4 @@
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 import { APIBadStatusError } from "@/core/errors";
 import { byShirtNumber } from "@/features/spieler/constants";
 

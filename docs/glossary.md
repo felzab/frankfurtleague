@@ -298,7 +298,7 @@ is a stored field of its own.\
 `reason` and `date`: a team out of one season, never out of the league. Its absence is the null, and
 no boolean records the same fact.\
 **In code:** `fl_backend/app/api/teams/schemas.py :: FLAustritt`; its German is
-`fl_frontend/src/core/copy.ts :: COPY.shared.austritt`, read through
+`fl_frontend/src/core/copy/shared.ts :: COPY.shared.austritt`, read through
 `fl_frontend/src/features/teams/constants.ts :: austrittState` and `:: austrittChip`.\
 **See:** [`domain.md`](domain.md#the-competitions-own-rules).
 
@@ -362,7 +362,7 @@ screen is no key to look the club up by.\
 school's application, G8 and G9 being two values. Null means nobody recorded one, never a school of
 no kind.\
 **In code:** `fl_backend/app/shared/schemas/literals.py :: FLSchulform`; its German
-`fl_frontend/src/core/copy.ts :: COPY.team.schulformOption`.
+`fl_frontend/src/core/copy/shared.ts :: COPY.team.schulformOption`.
 
 ### `trikot_farbe` — the kit colour a club plays a season in
 
@@ -487,8 +487,8 @@ role in a separate list.\
 **Is:** „K.-o.-Runde“ is the screen word for a season's knockout stage, every round after the
 `gruppenphase`, and for its public page, whose address segment is `ko-runde`; „K.-o.-Baum“ is the
 tree its fixtures are drawn as.\
-**In code:** `fl_frontend/src/core/copy.ts :: COPY.shared.kORunde` and `:: COPY.shared.kOBaum`;
-`fl_frontend/src/core/routes.ts :: ROUTES.kORunde`.
+**In code:** `fl_frontend/src/core/copy/shared.ts :: COPY.shared.kORunde` and
+`:: COPY.shared.kOBaum`; `fl_frontend/src/core/routes.ts :: ROUTES.kORunde`.
 
 ---
 

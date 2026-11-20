@@ -9,7 +9,7 @@ import { z } from "zod";
 import { action, PAGE_HOLDER } from "@/core/action";
 import { deleteOwnAccount, DeletionOutcomeUnknown, requestAccountDeletion } from "@/core/auth/accounts";
 import { endOtherSessions } from "@/core/auth/accountSessions";
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 import { APIBadStatusError } from "@/core/errors";
 import {
   accountDeleteAddressChange,

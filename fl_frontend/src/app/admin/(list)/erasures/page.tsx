@@ -1,6 +1,7 @@
 import { requires } from "@/core/action";
 import { getAdminSession } from "@/core/auth/guards";
-import { COPY } from "@/core/copy";
+import { ADMIN_COPY } from "@/core/copy/admin";
+import { COPY } from "@/core/copy/shared";
 import { IdentityPostErasureBody, identityPostErasureBodyEmailMax, identityPostErasureBodyReasonMax } from "@/core/generated/zod/inputs";
 import { ROUTES } from "@/core/routes";
 import { QuestionPage } from "@/kit/QuestionPage";
@@ -39,7 +40,7 @@ export default function ErasuresPage() {
           maxLength: identityPostErasureBodyEmailMax,
         },
         {
-          label: COPY.admin.erasure.reference,
+          label: ADMIN_COPY.erasure.reference,
           name: "reason",
           kind: "text",
           description: COPY.shared.noNames,

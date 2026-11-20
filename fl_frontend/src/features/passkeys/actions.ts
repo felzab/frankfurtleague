@@ -10,7 +10,8 @@ import { action, PAGE_HOLDER } from "@/core/action";
 import { afterTheResponse } from "@/core/afterResponse";
 import { notifyPasskeyRemoved } from "@/core/auth/mails";
 import { passkeysOf, removePasskey, renamePasskey } from "@/core/auth/passkeys";
-import { COPY } from "@/core/copy";
+import { ACCOUNT_COPY } from "@/core/copy/account";
+import { COPY } from "@/core/copy/shared";
 import { RolledBackError } from "@/core/errors";
 import { logger } from "@/core/logging";
 
@@ -54,7 +55,7 @@ export const removePasskeyAction = action({
       logger.error("passkeys.removal_outcome_unknown", undefined, { name: failed instanceof Error ? failed.name : "unknown" });
       return { ok: false, reason: COPY.shared.failure.stale };
     }
-    if (removal === "last") return { ok: false, reason: COPY.account.passkeys.lastKept };
+    if (removal === "last") return { ok: false, reason: ACCOUNT_COPY.passkeys.lastKept };
     if (removal === "absent") return { ok: false, reason: COPY.shared.failure.stale };
 
     const { email } = served.user;

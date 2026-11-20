@@ -1,6 +1,7 @@
 "use client";
 
-import { COPY } from "@/core/copy";
+import { ADMIN_COPY } from "@/core/copy/admin";
+import { COPY } from "@/core/copy/shared";
 import { rolleOptions } from "@/features/spieler/options";
 import { DateField } from "@/kit/DateField";
 import { EditorPage } from "@/kit/EditorPage";
@@ -21,7 +22,7 @@ import type { PageTitle } from "@/kit/RailFrame";
 import type { EditorRecord, EditorSave } from "@/kit/useEditor";
 import type { SpielerValues } from "./spielerValues";
 
-const WORDS = COPY.admin.spieler;
+const WORDS = ADMIN_COPY.spieler;
 const OBJECT = COPY.shared.spieler;
 
 /** A danger box act: a server action taking the player's id and the season, which a server page passes on as it is. */
@@ -77,7 +78,7 @@ export function SpielerEditor({
   const { required, max } = rules;
   const press = (act: Act) => () => act({ id: record.id, saison });
   // The season's end before the act's own reason: no later change of the squad reopens a finished season's row.
-  const locked = ended ? COPY.admin.sinceEnd : danger.kind === "reactivate" ? danger.locked : undefined;
+  const locked = ended ? ADMIN_COPY.sinceEnd : danger.kind === "reactivate" ? danger.locked : undefined;
 
   const dangerAct: DangerAct =
     danger.kind === "reactivate"

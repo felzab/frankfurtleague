@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 
-import { COPY } from "@/core/copy";
+import { ADMIN_COPY } from "@/core/copy/admin";
+import { COPY } from "@/core/copy/shared";
 import { mailInvitation, mintInvitation, revokeInvitation } from "@/features/invitations/actions";
 import { Callout } from "@/kit/Callout";
 import { Facts } from "@/kit/Facts";
@@ -15,7 +16,7 @@ import type { Copy } from "@/core/copy";
 import type { Fact } from "@/kit/Facts";
 import type { SectionActItem } from "@/kit/SectionAct";
 
-const WORDS = COPY.admin.team;
+const WORDS = ADMIN_COPY.team;
 const LINK = COPY.shared.link;
 
 /** The box as the read leaves it: where the link stands, the live link's id, and why its acts are closed. */

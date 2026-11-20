@@ -1,10 +1,12 @@
-import { COPY } from "@/core/copy";
+import { ACCOUNT_COPY } from "@/core/copy/account";
+import { PUBLIC_COPY } from "@/core/copy/public";
+import { COPY } from "@/core/copy/shared";
 import { SIGN_IN_REFUSED } from "@/core/passkeyRefusal";
 
 import type { Copy } from "@/core/copy";
 
 /** An address holding no record of its own in the league, or a barred one, which a retry would not change. */
-const WITHOUT_ENTRY = COPY.signIn.refusal.noRecord;
+const WITHOUT_ENTRY = PUBLIC_COPY.signIn.refusal.noRecord;
 
 /** Read off the answer rather than off its type: the client declares no `code`, and the body has one. */
 export const refusalCode = (error: unknown): string | undefined =>
@@ -39,8 +41,8 @@ const PREVIOUSLY_REGISTERED = "ERROR_AUTHENTICATOR_PREVIOUSLY_REGISTERED";
 
 /** Every refusal of a further passkey's set-up a retry would meet again, by the plugin's own code. */
 const SET_UP_WORDED: ReadonlyMap<string, Copy> = new Map([
-  [SESSION_NOT_FRESH, COPY.account.passkeys.signInTooOld],
-  [PREVIOUSLY_REGISTERED, COPY.account.passkeys.alreadyOnDevice],
+  [SESSION_NOT_FRESH, ACCOUNT_COPY.passkeys.signInTooOld],
+  [PREVIOUSLY_REGISTERED, ACCOUNT_COPY.passkeys.alreadyOnDevice],
 ]);
 
 export function describeSetUpRefusal(error: unknown): Copy {

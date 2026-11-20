@@ -5,7 +5,7 @@ import { act, getDefaultNormalizer, screen, waitFor, within } from "@testing-lib
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 import { renderUnderNext } from "@/test-support/nextContexts";
 
 import { Button } from "./Button";

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 
 import { now } from "@/core/clock";
-import { COPY } from "@/core/copy";
+import { PUBLIC_COPY } from "@/core/copy/public";
 import { formatNumber } from "@/core/format";
 import { DAY_MS, HOUR_MS } from "@/core/timeUnits";
 
@@ -45,9 +45,9 @@ export function Countdown({ start, seed }: { start: string; seed: number }) {
 
   const { days, hours, minutes } = remaining(target, at);
   const units = [
-    [days, COPY.landing.saison.days],
-    [hours, COPY.landing.saison.hours],
-    [minutes, COPY.landing.saison.minutes],
+    [days, PUBLIC_COPY.landing.saison.days],
+    [hours, PUBLIC_COPY.landing.saison.hours],
+    [minutes, PUBLIC_COPY.landing.saison.minutes],
   ] as const;
   return (
     <div

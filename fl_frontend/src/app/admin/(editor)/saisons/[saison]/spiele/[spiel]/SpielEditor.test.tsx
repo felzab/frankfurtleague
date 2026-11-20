@@ -3,7 +3,8 @@ import { getDefaultNormalizer, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
-import { COPY } from "@/core/copy";
+import { ADMIN_COPY } from "@/core/copy/admin";
+import { COPY } from "@/core/copy/shared";
 import { renderUnderNext } from "@/test-support/nextContexts";
 
 import { SPIELORT_RULES } from "../../../../../spielortRules";
@@ -15,7 +16,7 @@ import type { NextContexts } from "@/test-support/nextContexts";
 import type { Adoption } from "./SpielEditor";
 import type { SpielValues } from "./spielValues";
 
-const WORDS = COPY.admin.spiel;
+const WORDS = ADMIN_COPY.spiel;
 const SPIEL_ID = "64b000000000000000000001";
 
 const AT_ADDRESS: NextContexts = { pathname: `/admin/saisons/2027/spiele/${SPIEL_ID}`, params: { saison: "2027", spiel: SPIEL_ID } };

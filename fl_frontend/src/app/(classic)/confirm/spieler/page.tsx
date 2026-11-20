@@ -4,7 +4,7 @@ import { requires } from "@/core/action";
 import { MEDIA_MIN_AGE } from "@/core/bounds";
 import { now } from "@/core/clock";
 import { SPIELER_WORDINGS } from "@/core/consentWordings";
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 import { bornAfter, bornBy } from "@/core/dayArithmetic";
 import { dayIn, dayOf, formatDate } from "@/core/format";
 import { registrierungenGetConfirmationView } from "@/core/generated/client/sdk";

@@ -14,7 +14,8 @@ import {
 } from "react-aria-components/Menu";
 import { Text } from "react-aria-components/Text";
 
-import { COPY, textOf } from "@/core/copy";
+import { textOf } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 
 import { entryMark, menuPopover } from "./fieldStyles";
 import { Icon } from "./Icon";

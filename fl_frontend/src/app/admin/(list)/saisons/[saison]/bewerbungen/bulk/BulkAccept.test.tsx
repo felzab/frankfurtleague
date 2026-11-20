@@ -3,7 +3,8 @@ import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { COPY } from "@/core/copy";
+import { ADMIN_COPY } from "@/core/copy/admin";
+import { COPY } from "@/core/copy/shared";
 import { renderUnderNext } from "@/test-support/nextContexts";
 
 import { acceptBewerbung } from "../[bewerbung]/decideBewerbung";
@@ -69,10 +70,10 @@ describe("a finished Sammel-Zusage", () => {
       atThePage,
     );
     await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.next }));
-    await userEvent.click(screen.getByRole("button", { name: COPY.shared.withObject(COPY.admin.bewerbung.count(1), "accept") }));
+    await userEvent.click(screen.getByRole("button", { name: COPY.shared.withObject(ADMIN_COPY.bewerbung.count(1), "accept") }));
     await userEvent.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: COPY.shared.verb.accept }));
 
-    expect((await screen.findByRole("heading", { name: COPY.admin.bewerbung.acceptedCount(1) })).tagName).toBe("H2");
+    expect((await screen.findByRole("heading", { name: ADMIN_COPY.bewerbung.acceptedCount(1) })).tagName).toBe("H2");
     expect(screen.queryByRole("heading", { level: 1 })).toBeNull();
   });
 });
@@ -89,7 +90,7 @@ describe("the check page's „Stand“ column", () => {
 
     const rowOf = (school: string) => screen.getByText(school).closest("tr") as HTMLElement;
     for (const school of ["Goethe-Gymnasium", "Schiller-Schule"]) {
-      expect(within(rowOf(school)).queryAllByText(COPY.admin.bewerbung.complete)).not.toHaveLength(0);
+      expect(within(rowOf(school)).queryAllByText(ADMIN_COPY.bewerbung.complete)).not.toHaveLength(0);
     }
   });
 });

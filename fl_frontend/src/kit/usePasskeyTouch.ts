@@ -2,7 +2,8 @@
 
 import { assertedAddress } from "@/core/auth/assertionAnswer";
 import { loadAuthClient, usePreloadedAuthClient } from "@/core/auth/browserClient";
-import { COPY } from "@/core/copy";
+import { PUBLIC_COPY } from "@/core/copy/public";
+import { COPY } from "@/core/copy/shared";
 import { asSignInIdentifier } from "@/core/emailAddress";
 
 import type { ActionAnswer } from "@/core/action";
@@ -36,7 +37,7 @@ export function usePasskeyTouch(held: boolean, holder: string | undefined) {
       const authClient = await loadAuthClient();
       const { data, error } = await authClient.signIn.passkey();
       // A cancelled prompt and a refused passkey alike: the act did not run, and the passkey did not answer for it.
-      if (error !== null) return COPY.signIn.refusal.unverified;
+      if (error !== null) return PUBLIC_COPY.signIn.refusal.unverified;
       if (holder === undefined) return null;
       // Off the league's own answer: the plugin's typed `data.user` is the body the server replaces.
       const signedIn = assertedAddress(data);

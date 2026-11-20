@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 
 import { eventOf, headOf, matchRowOf, outcomeFor, refereeOf } from "./blocks";
 

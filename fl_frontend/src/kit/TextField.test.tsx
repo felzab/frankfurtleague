@@ -4,7 +4,8 @@ import userEvent from "@testing-library/user-event";
 import { Form } from "react-aria-components/Form";
 import { describe, expect, it, vi } from "vitest";
 
-import { COPY } from "@/core/copy";
+import { AREA_COPY } from "@/core/copy/area";
+import { COPY } from "@/core/copy/shared";
 
 import { Button } from "./Button";
 import { FormClosed } from "./formClosed";
@@ -138,7 +139,7 @@ describe("a digits field", () => {
 describe("a minute field", () => {
   // The write's own pattern for a played minute, as a match report's page hands it on from the contract.
   const MINUTE = "^[0-9]{1,3}(\\+[0-9]{1,2})?$";
-  const EXAMPLE = COPY.area.schiedsrichter.spielbericht.minuteExample;
+  const EXAMPLE = AREA_COPY.schiedsrichter.spielbericht.minuteExample;
 
   const sending = async (typed: string) => {
     render(

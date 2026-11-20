@@ -1,7 +1,7 @@
 import { requires } from "@/core/action";
 import { PASSKEY_LIMIT } from "@/core/auth/enrolment";
 import { isFreshForEnrolment, PASSKEY_FACTOR } from "@/core/auth/sessionStamps";
-import { COPY } from "@/core/copy";
+import { ACCOUNT_COPY } from "@/core/copy/account";
 import { ROUTES } from "@/core/routes";
 import { requireAccountSession } from "@/features/account/account";
 import { devicesOf } from "@/features/account/security";
@@ -29,9 +29,9 @@ function setUpClosedOf(
   served: { readonly session: { readonly createdAt: Date | string; readonly authFactor?: unknown } },
   held: HeldPasskeys,
 ): Copy | undefined {
-  if (!held.canAdd) return COPY.account.passkeys.limit(PASSKEY_LIMIT);
+  if (!held.canAdd) return ACCOUNT_COPY.passkeys.limit(PASSKEY_LIMIT);
   if (held.rows.length > 0 || served.session.authFactor === PASSKEY_FACTOR) return undefined;
-  return isFreshForEnrolment(served.session) ? undefined : COPY.account.passkeys.signInTooOldLocked;
+  return isFreshForEnrolment(served.session) ? undefined : ACCOUNT_COPY.passkeys.signInTooOldLocked;
 }
 
 async function SecurityContent() {
@@ -43,8 +43,8 @@ async function SecurityContent() {
       passkeys={held.rows}
       setUpClosed={setUpClosedOf(served, held)}
       // An administrator's last passkey is their only way into the administration, which the removal refuses.
-      lastKept={served.isAdmin && held.rows.length === 1 ? COPY.account.passkeys.lastKeptLocked : undefined}
-      devices={COPY.account.devices.description(devices)}
+      lastKept={served.isAdmin && held.rows.length === 1 ? ACCOUNT_COPY.passkeys.lastKeptLocked : undefined}
+      devices={ACCOUNT_COPY.devices.description(devices)}
       name={{ required: requires(PasskeyNameSchema, ""), max: PASSKEY_NAME_MAX }}
     />
   );

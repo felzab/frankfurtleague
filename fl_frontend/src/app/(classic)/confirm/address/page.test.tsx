@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { COPY } from "@/core/copy";
+import { ACCOUNT_COPY } from "@/core/copy/account";
+import { COPY } from "@/core/copy/shared";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { serveBackend } from "@/test-support/backend";
 import { doubleNextRequest } from "@/test-support/nextRequest";
@@ -85,13 +86,13 @@ describe("the address on file's link", () => {
   it("stops an administrator's change before the new mailbox confirmed", async () => {
     const state = await stateFor({ ...stops, way: "waiting_period", state: "open" });
 
-    expect(state).toMatchObject({ state: "question", title: COPY.account.address.stop, acts: { primary: COPY.account.address.stop } });
+    expect(state).toMatchObject({ state: "question", title: ACCOUNT_COPY.address.stop, acts: { primary: ACCOUNT_COPY.address.stop } });
   });
 
   it("stops a holder's change while its wait runs, and says from when it holds", async () => {
     const state = await stateFor({ ...stops, state: "waiting_period", effective_from: "2026-11-05T10:00:00Z" });
 
-    expect(state).toMatchObject({ state: "question", title: COPY.account.address.stop });
+    expect(state).toMatchObject({ state: "question", title: ACCOUNT_COPY.address.stop });
     expect(state.state === "question" ? state.facts?.map(({ label }) => label) : []).toStrictEqual([
       WORDS.newAddress,
       COPY.shared.facts.effectiveFrom,

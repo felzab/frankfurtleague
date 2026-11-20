@@ -1,7 +1,7 @@
 import "server-only";
 
 import { KONTAKT_EMAIL } from "./brand";
-import { COPY } from "./copy";
+import { COPY } from "./copy/shared";
 import { mailOrigin, OBJECTION } from "./emailShell";
 import { SERVER_COPY } from "./serverCopy";
 

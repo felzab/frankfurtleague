@@ -1,6 +1,6 @@
 import { connection } from "next/server";
 
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 import { ROUTES, SAISONLESS_PAGES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { getSaisonFrame } from "@/features/saisons/queries";

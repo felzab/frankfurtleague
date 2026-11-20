@@ -1,4 +1,6 @@
-import { COPY } from "@/core/copy";
+import { ACCOUNT_COPY } from "@/core/copy/account";
+import { AREA_COPY } from "@/core/copy/area";
+import { COPY } from "@/core/copy/shared";
 import { rolesOf } from "@/core/roles";
 import { ROUTES } from "@/core/routes";
 
@@ -80,8 +82,8 @@ export function placeOf(target: RoleTarget): { href: Route; name: Words; seats?:
       return {
         href,
         name: { record: first.team_name },
-        seats: COPY.account.role.seats(COPY.shared.saisonNameBound(first.saison_id), held),
-        teamLine: COPY.area.team.accountLine({ record: first.team_shorthand }, held),
+        seats: ACCOUNT_COPY.role.seats(COPY.shared.saisonNameBound(first.saison_id), held),
+        teamLine: AREA_COPY.team.accountLine({ record: first.team_shorthand }, held),
       };
     }
     case "spieler":

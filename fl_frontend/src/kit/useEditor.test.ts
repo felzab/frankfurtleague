@@ -2,7 +2,7 @@
 import { act } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 import { renderHookUnderNext } from "@/test-support/nextContexts";
 
 import { useEditor } from "./useEditor";

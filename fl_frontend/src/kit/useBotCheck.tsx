@@ -5,7 +5,7 @@ import Script from "next/script";
 
 import { useTheme } from "next-themes";
 
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 import { CONFIRM_HUMAN } from "@/core/turnstileToken";
 import { postClientError } from "@/shared/utils/clientError";
 

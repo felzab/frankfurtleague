@@ -12,7 +12,7 @@ import {
   SCHIEDSRICHTER_MIN_AGE,
 } from "@/core/bounds";
 import { KONTAKT_EMAIL, KONTAKT_MAILTO } from "@/core/brand";
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 import { SENDER_ADDRESSES } from "@/core/mail";
 import { MAILED_LINK_HOURS } from "@/core/mailedLink";
 import { ROUTES } from "@/core/routes";

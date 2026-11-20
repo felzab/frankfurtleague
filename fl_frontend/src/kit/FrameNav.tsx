@@ -6,7 +6,7 @@ import { useParams, usePathname } from "next/navigation";
 import { useTheme } from "next-themes";
 import { Button as AriaButton } from "react-aria-components/Button";
 
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 import { ROLE_ROOTS, ROUTES } from "@/core/routes";
 import { leaveDocumentFor } from "@/shared/utils/documentNavigation";
 import { signOut } from "@/shared/utils/signOut";

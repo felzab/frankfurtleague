@@ -1,7 +1,7 @@
 # Frontend — copy standard
 
 **Purpose:** how every string a visitor reads on the site or in a mail is written. Read it before
-you write one; the strings themselves live in the catalogue, `fl_frontend/src/core/copy.ts :: COPY`.
+you write one; the strings themselves live in the catalogue, under `fl_frontend/src/core/copy/`.
 
 | Section                                                                   | Answers                                                                      |
 | ------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
@@ -31,17 +31,34 @@ you write one; the strings themselves live in the catalogue, `fl_frontend/src/co
 
 ## A string lives in the catalogue and nowhere else
 
-- **One typed catalogue in two modules, German only, keyed by who reads it**, with the frozen
-  consent wordings beside it and the association's fixed facts in `fl_frontend/src/core/brand.ts`.
-  Its `shared` section comes first and holds what several areas read. A record's words that several
-  areas read stand under the record's noun: a club's in `team`, a match's in `spielplan`, a squad
-  row's in `kader` and a line-up's in `aufstellung`. An area's own section holds only what that area
-  alone reads, and the administration's, `COPY.admin`, is read nowhere else: lint refuses a read of
-  it outside `fl_frontend/src/app/admin` and the feature modules only the administration imports
-  (`fl_frontend/eslint.config.mjs`). A string has one key; no test hunts duplicate text, so review
-  is what keeps a second „Gespeichert“ out. A string only the server reads, a mail, a refusal's
-  sentence or a page's description among them, lives in its second object,
-  `fl_frontend/src/core/serverCopy.ts :: SERVER_COPY`, so no client bundle carries it.
+- **One typed catalogue, German only, keyed by who reads it, with one module per audience**. The
+  frozen consent wordings stand beside it, and the association's fixed facts are in
+  `fl_frontend/src/core/brand.ts`. A bundler keeps the whole of an object that a client module
+  imports, so each audience's words are a constant of their own under `fl_frontend/src/core/copy/`,
+  and a page's bundle carries only the audiences its modules import. The five constants are:
+  - `shared.ts :: COPY`, which holds what several audiences read and which any module may import;
+  - `public.ts :: PUBLIC_COPY`, for the public forms, the sign-in and the landing;
+  - `account.ts :: ACCOUNT_COPY`, for Konto and the mailed pages that act on it;
+  - `area.ts :: AREA_COPY`, for the pages under `/area`;
+  - `admin.ts :: ADMIN_COPY`, for the administration.
+- **The shared constant keeps the name `COPY`** that the single catalogue had. Nearly every module
+  reads it, and keeping the name left their reads as they were, so the name is kept on purpose and
+  no rename is unfinished. No barrel joins the five modules. `fl_frontend/src/core/copy.ts` holds
+  what they share: the `Copy` brand, `catalogue`, the helpers, and the plain words that more than
+  one audience builds its entries from.
+- **`COPY`'s `shared` section comes first** and holds what several areas read. A record's words that
+  several areas read stand under the record's noun in `COPY`: a club's in `team`, a match's in
+  `spielplan`, a squad row's in `kader` and a line-up's in `aufstellung`. Each other audience's
+  constant holds only what that audience alone reads. A module imports `COPY` and the constants of
+  the audiences whose pages it serves.
+- **`ADMIN_COPY` is imported only by the administration.** Lint refuses an import of `copy/admin`
+  outside `fl_frontend/src/app/admin`, the feature modules that only the administration imports, and
+  `SERVER_COPY` (`fl_frontend/eslint.config.mjs`).
+- **A string has one key.** No test hunts duplicate text, so review is what keeps a second
+  „Gespeichert“ out.
+- **A string only the server reads stands in the server's own object**,
+  `fl_frontend/src/core/serverCopy.ts :: SERVER_COPY`, so that no client bundle carries it. A mail,
+  a refusal's sentence and a page's description are such strings.
 - **A group indexed by a union the backend serves names that union** in a `satisfies Record<…>` on
   its literal, so an entry for a member the backend no longer serves fails the type check.
 - **A component's text prop takes `fl_frontend/src/core/copy.ts :: Copy`, or a record's own data as

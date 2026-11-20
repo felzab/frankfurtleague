@@ -1,6 +1,7 @@
 "use client";
 
-import { COPY } from "@/core/copy";
+import { AREA_COPY } from "@/core/copy/area";
+import { COPY } from "@/core/copy/shared";
 import { Dialog } from "@/kit/Dialog";
 import { Facts } from "@/kit/Facts";
 import { RadioGroup } from "@/kit/RadioGroup";
@@ -13,7 +14,7 @@ import type { Copy } from "@/core/copy";
 import type { Fact } from "@/kit/Facts";
 import type { HeldOpen } from "@/kit/useOpenUntilHidden";
 
-const WORDS = COPY.area.team.registrierung;
+const WORDS = AREA_COPY.team.registrierung;
 
 /** The registration a dialog decides, at the team and season the page stands at, which every press claims its seat on. */
 export type Decided = { team_id: string; saison_id: string; registrierung_id: string };

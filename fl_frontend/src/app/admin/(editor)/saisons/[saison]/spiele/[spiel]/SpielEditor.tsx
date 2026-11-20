@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 
-import { COPY } from "@/core/copy";
+import { ADMIN_COPY } from "@/core/copy/admin";
+import { COPY } from "@/core/copy/shared";
 import { admitsShootOut, isNoShow, scoreOutcome } from "@/features/spiele/result";
 import { AdoptLine } from "@/kit/AdoptLine";
 import { AnswerRows } from "@/kit/AnswerRows";
@@ -40,8 +41,8 @@ import type { Route } from "next";
 import type { SpielortRules } from "../../../../../spielortRules";
 import type { Proposal, SpielValues } from "./spielValues";
 
-const WORDS = COPY.admin.spiel;
-const ORT = COPY.admin.spielort;
+const WORDS = ADMIN_COPY.spiel;
+const ORT = ADMIN_COPY.spielort;
 
 /** A club a knockout match's side may be given by hand, with its Kürzel; one the write would not field carries why. */
 export type Team = { id: string; name: string; shorthand: string; note?: Copy };

@@ -1,4 +1,4 @@
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 import { dayOf } from "@/core/format";
 import { deliveryChip } from "@/features/bewerbungen/deliveryState";
 import { KONTAKT_SEATS, seatBesideTrainer } from "@/features/teams/constants";

@@ -3,7 +3,8 @@
 import { z } from "zod";
 
 import { action, numberBox } from "@/core/action";
-import { COPY } from "@/core/copy";
+import { ADMIN_COPY } from "@/core/copy/admin";
+import { COPY } from "@/core/copy/shared";
 import { spielortePatchSpielort } from "@/core/generated/client/sdk";
 import { SpielortePatchSpielortBody, SpielortePatchSpielortParams } from "@/core/generated/zod/inputs";
 import { getSpielort } from "@/features/spielorte/queries";
@@ -46,7 +47,7 @@ export const saveSpielort = action({
   examples: {
     "changes.postcode": COPY.shared.address.postcodeExample,
     "changes.house_number": COPY.shared.address.houseNumberExample,
-    "changes.mietpreis": COPY.admin.spielort.mietpreisExample,
+    "changes.mietpreis": ADMIN_COPY.spielort.mietpreisExample,
   },
   run: async ({ id, version, changes }): Promise<ActionAnswer<number>> => {
     const stored = await getSpielort(id);

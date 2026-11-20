@@ -6,7 +6,8 @@ import { getAccountSession } from "@/core/auth/guards";
 import { passkeysOf } from "@/core/auth/passkeys";
 import { withReturnAddress } from "@/core/auth/returnAddress";
 import { readRequestSession } from "@/core/auth/session";
-import { COPY } from "@/core/copy";
+import { ACCOUNT_COPY } from "@/core/copy/account";
+import { COPY } from "@/core/copy/shared";
 import { formatNumber } from "@/core/format";
 import { mailedLinkToken } from "@/core/mailedLink";
 import { ROUTES } from "@/core/routes";
@@ -28,7 +29,7 @@ export async function generateMetadata(_: unknown, parent: ResolvingMetadata): P
 }
 
 const WORDS = SERVER_COPY.accountErasure;
-const ENTRIES = COPY.account.entries;
+const ENTRIES = ACCOUNT_COPY.entries;
 
 /**
  * `/erasure`, the deletion link's page: the list of what goes, and the act, for the signed-in person the link was

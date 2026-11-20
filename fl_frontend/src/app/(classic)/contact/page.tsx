@@ -1,5 +1,5 @@
 import { INSTAGRAM_HANDLE, INSTAGRAM_URL, KONTAKT_EMAIL, KONTAKT_MAILTO, THREADS_URL } from "@/core/brand";
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { ClassicPage, PageHead } from "@/kit/ClassicPage";

@@ -3,7 +3,8 @@
 import { z } from "zod";
 
 import { action, numberBox } from "@/core/action";
-import { COPY } from "@/core/copy";
+import { ADMIN_COPY } from "@/core/copy/admin";
+import { COPY } from "@/core/copy/shared";
 import { spielortePostSpielort } from "@/core/generated/client/sdk";
 import { SpielortePostSpielortBody } from "@/core/generated/zod/inputs";
 
@@ -34,7 +35,7 @@ export const createSpielort = action({
   examples: {
     postcode: COPY.shared.address.postcodeExample,
     house_number: COPY.shared.address.houseNumberExample,
-    mietpreis: COPY.admin.spielort.mietpreisExample,
+    mietpreis: ADMIN_COPY.spielort.mietpreisExample,
   },
   run: async ({ mietpreis, name, ...address }) => {
     await spielortePostSpielort({ name, default_mietpreis: mietpreis, address });

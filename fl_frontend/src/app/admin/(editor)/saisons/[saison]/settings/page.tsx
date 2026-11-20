@@ -1,7 +1,8 @@
 import { notFound } from "next/navigation";
 
 import { getAdminSession } from "@/core/auth/guards";
-import { COPY } from "@/core/copy";
+import { ADMIN_COPY } from "@/core/copy/admin";
+import { COPY } from "@/core/copy/shared";
 import { dayOf, formatDate } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
@@ -26,7 +27,7 @@ import type { Metadata, ResolvingMetadata } from "next";
 
 type Props = PageProps<"/admin/saisons/[saison]/settings">;
 
-const WORDS = COPY.admin.saison;
+const WORDS = ADMIN_COPY.saison;
 const TEAM = COPY.shared.facts.team;
 
 /**

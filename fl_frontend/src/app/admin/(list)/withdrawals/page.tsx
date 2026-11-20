@@ -1,6 +1,7 @@
 import { requires } from "@/core/action";
 import { getAdminSession } from "@/core/auth/guards";
-import { COPY } from "@/core/copy";
+import { ADMIN_COPY } from "@/core/copy/admin";
+import { COPY } from "@/core/copy/shared";
 import { IdentityPostWithdrawalBody, identityPostWithdrawalBodyEmailMax } from "@/core/generated/zod/inputs";
 import { ROUTES } from "@/core/routes";
 import { Checkbox } from "@/kit/Checkbox";
@@ -15,7 +16,7 @@ import type { Metadata, ResolvingMetadata } from "next";
 
 const { email } = IdentityPostWithdrawalBody.shape;
 
-const WORDS = COPY.admin.withdrawal;
+const WORDS = ADMIN_COPY.withdrawal;
 
 export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
   return pageMetadata(parent, ROUTES.adminWithdrawals, ROUTES.adminWithdrawals.path());

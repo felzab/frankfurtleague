@@ -2,7 +2,7 @@
 
 import { catchError } from "next/error";
 
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 import { useReportClientCrash } from "@/shared/hooks/useReportClientCrash";
 
 import { RailFrame } from "./RailFrame";

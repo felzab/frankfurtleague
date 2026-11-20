@@ -10,7 +10,7 @@ import {
   SPIELER_TEXT_VERSIONS,
   SPIELER_WORDINGS,
 } from "@/core/consentWordings";
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 import {
   saveBewerbungConsent,
   saveRegistrierungConsent,

@@ -1,4 +1,5 @@
-import { COPY } from "./copy";
+import { PUBLIC_COPY } from "./copy/public";
+import { COPY } from "./copy/shared";
 
 import type { Copy } from "./copy";
 
@@ -149,7 +150,7 @@ export const ROUTES = {
    */
   bewerbungRoot: { path: () => "/bewerbung" as const, title: COPY.page.bewerbung, crawl: "noindex" },
   /** Signing in, which every page signed out offers as „Konto“. */
-  signIn: { path: () => "/signin" as const, title: COPY.signIn.title, crawl: "noindex" },
+  signIn: { path: () => "/signin" as const, title: PUBLIC_COPY.signIn.title, crawl: "noindex" },
   /** The passkey step a sign-in reaches where its session is to set one up, use one or is offered one. */
   signInPasskey: { path: () => "/signin/passkey" as const, title: COPY.shared.passkey, crawl: "noindex" },
   /**

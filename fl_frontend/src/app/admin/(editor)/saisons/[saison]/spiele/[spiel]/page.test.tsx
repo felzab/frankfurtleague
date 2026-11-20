@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { COPY } from "@/core/copy";
+import { ADMIN_COPY } from "@/core/copy/admin";
+import { COPY } from "@/core/copy/shared";
 import { FLSonderereignis } from "@/core/generated/client/types";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { serveBackend } from "@/test-support/backend";
@@ -163,7 +164,7 @@ describe("the match editor's answers", () => {
     vorschlag: null,
     reason: null,
   };
-  const notAsked = { chip: { tone: "warn", label: COPY.template.open }, line: COPY.admin.spiel.notAsked };
+  const notAsked = { chip: { tone: "warn", label: COPY.template.open }, line: ADMIN_COPY.spiel.notAsked };
   const lapsed = { tone: "neutral", label: COPY.shared.state.expired };
   const missing = SERVER_COPY.overview.missing(COPY.spielplan.answer);
   const agreed = { tone: "success", label: COPY.shared.state.agreed };
@@ -197,7 +198,7 @@ describe("the match editor's answers", () => {
           answer: { ...agreement, kind: "declined", vorschlag: { date: "2026-11-21", time: "16:00:00" } },
         }),
       ],
-      shown: { chip: agreed, line: COPY.admin.actionLog.action["spielbestaetigung.vorschlag_discarded"] },
+      shown: { chip: agreed, line: ADMIN_COPY.actionLog.action["spielbestaetigung.vorschlag_discarded"] },
     },
     {
       // Newer than the agreement under it, which was about the slot the match has left.

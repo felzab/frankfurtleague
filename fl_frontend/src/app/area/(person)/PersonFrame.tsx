@@ -1,4 +1,4 @@
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 import { ROUTES } from "@/core/routes";
 import { readAccount } from "@/features/account/account";
 import { getOwnSaisons } from "@/features/roles/queries";

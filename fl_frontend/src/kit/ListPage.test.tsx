@@ -3,7 +3,7 @@ import { within } from "@testing-library/react";
 import { prerender } from "react-dom/static";
 import { describe, expect, it } from "vitest";
 
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 
 import { ListPage } from "./ListPage";
 

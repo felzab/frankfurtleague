@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 import { ROUTES } from "@/core/routes";
 import { getSpielPage } from "@/features/saisons/queries";
 import { Link } from "@/kit/Link";

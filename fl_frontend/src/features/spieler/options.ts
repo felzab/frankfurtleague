@@ -1,4 +1,4 @@
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 import { FLSpielerPosition, FLSpielerRolle } from "@/core/generated/client/types";
 
 import { orderStufen } from "./constants";

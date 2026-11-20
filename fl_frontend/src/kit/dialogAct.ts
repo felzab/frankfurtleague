@@ -1,4 +1,4 @@
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 
 import type { ActionAnswer } from "@/core/action";
 import type { Copy, Verb, Words } from "@/core/copy";

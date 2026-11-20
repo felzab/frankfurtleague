@@ -3,7 +3,8 @@
 import { useRouter } from "next/navigation";
 
 import { loadAuthClient } from "@/core/auth/browserClient";
-import { COPY } from "@/core/copy";
+import { ACCOUNT_COPY } from "@/core/copy/account";
+import { COPY } from "@/core/copy/shared";
 import { ROUTES } from "@/core/routes";
 import { signOutOthers } from "@/features/account/personActions";
 import { describeSetUpRefusal } from "@/features/auth/passkeyAnswers";
@@ -85,7 +86,7 @@ export function SecurityBoxes({
       // The removal's touch signs this device in by the passkey that answers it: the only one a person holds, so that
       // removal always ends this device, whatever session drew the page. Among several the page cannot know which
       // answers, and words the session it was drawn for.
-      consequence: passkey.thisDevice || passkeys.length === 1 ? COPY.account.passkeys.endsThisDevice : COPY.account.passkeys.endsDevices,
+      consequence: passkey.thisDevice || passkeys.length === 1 ? ACCOUNT_COPY.passkeys.endsThisDevice : ACCOUNT_COPY.passkeys.endsDevices,
       touch: { holder },
       locked: lastKept,
       run: async () => {
@@ -102,7 +103,7 @@ export function SecurityBoxes({
     <>
       <AccountBox
         title={COPY.shared.passkeys}
-        description={COPY.account.passkeys.description}
+        description={ACCOUNT_COPY.passkeys.description}
         act={{
           run: setUp,
           // The browser's own act posts no holder, so the touch before it answers for the page's address alone.
@@ -114,7 +115,7 @@ export function SecurityBoxes({
         {rows.length > 0 ? <AccountRows rows={rows} /> : undefined}
       </AccountBox>
       <AccountBox
-        title={COPY.account.devices.title}
+        title={ACCOUNT_COPY.devices.title}
         description={devices}
         act={{
           run: signOutOthers,
@@ -122,8 +123,8 @@ export function SecurityBoxes({
           button: {
             confirm: {
               verb: "signOut",
-              subject: COPY.account.devices.allOthers,
-              consequence: COPY.account.devices.consequence,
+              subject: ACCOUNT_COPY.devices.allOthers,
+              consequence: ACCOUNT_COPY.devices.consequence,
               tone: "primary",
             },
           },

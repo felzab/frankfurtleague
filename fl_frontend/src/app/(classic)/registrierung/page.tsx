@@ -3,7 +3,8 @@ import { cache } from "react";
 import { requires } from "@/core/action";
 import { KONTAKT_EMAIL, KONTAKT_MAILTO } from "@/core/brand";
 import { frontend_config } from "@/core/config";
-import { COPY } from "@/core/copy";
+import { PUBLIC_COPY } from "@/core/copy/public";
+import { COPY } from "@/core/copy/shared";
 import {
   RegistrierungenPostRegistrierungBody,
   registrierungenPostRegistrierungBodyEmailMax,
@@ -60,9 +61,9 @@ const RULES: RegistrierungRules = {
 const LINES: { objection: Line; notice: Line } = {
   objection: [WORDS.objection.before, { href: KONTAKT_MAILTO, label: KONTAKT_EMAIL }, WORDS.objection.after],
   notice: [
-    COPY.registrierung.notice.before,
+    PUBLIC_COPY.registrierung.notice.before,
     { href: ROUTES.privacyNotice.path(), label: COPY.page.privacyNotice },
-    COPY.registrierung.notice.after,
+    PUBLIC_COPY.registrierung.notice.after,
   ],
 };
 

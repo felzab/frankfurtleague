@@ -105,7 +105,7 @@ const {
   signOutOthers,
   withdrawAddressChange,
 } = await import("./personActions");
-const { COPY } = await import("@/core/copy");
+const { COPY } = await import("@/core/copy/shared");
 const { SERVER_COPY } = await import("@/core/serverCopy");
 const { auth } = await import("@/core/auth/library");
 

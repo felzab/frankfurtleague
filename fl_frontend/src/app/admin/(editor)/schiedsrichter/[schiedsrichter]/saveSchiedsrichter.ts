@@ -3,7 +3,8 @@
 import { z } from "zod";
 
 import { action, blankIsNull, numberBox } from "@/core/action";
-import { COPY } from "@/core/copy";
+import { ADMIN_COPY } from "@/core/copy/admin";
+import { COPY } from "@/core/copy/shared";
 import { schiedsrichterPatchSchiedsrichter } from "@/core/generated/client/sdk";
 import { SchiedsrichterPatchSchiedsrichterBody, SchiedsrichterPatchSchiedsrichterParams } from "@/core/generated/zod/inputs";
 import { getSchiedsrichterById } from "@/features/schiedsrichter/queries";
@@ -65,6 +66,6 @@ export const saveSchiedsrichter = action({
     const value = written.version;
     return written.confirmation === null
       ? { ok: true, value }
-      : { ok: true, value, note: COPY.admin.schiedsrichter.sentTo(written.confirmation.email) };
+      : { ok: true, value, note: ADMIN_COPY.schiedsrichter.sentTo(written.confirmation.email) };
   },
 });

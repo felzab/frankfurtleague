@@ -3,7 +3,7 @@ import "./globals.css";
 import { Anton, Inter, Raleway } from "next/font/google";
 
 import { SITE_URL } from "@/core/brand";
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { BrandSprite } from "@/kit/BrandSprite";
 import { RootProviders } from "@/kit/RootProviders";

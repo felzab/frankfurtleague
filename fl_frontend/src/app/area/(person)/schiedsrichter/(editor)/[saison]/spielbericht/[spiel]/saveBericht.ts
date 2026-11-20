@@ -3,7 +3,8 @@
 import { z } from "zod";
 
 import { action, blankIsNull, numberBox } from "@/core/action";
-import { COPY } from "@/core/copy";
+import { AREA_COPY } from "@/core/copy/area";
+import { COPY } from "@/core/copy/shared";
 import { spielberichtePutSpielberichtBericht } from "@/core/generated/client/sdk";
 import { SpielberichtePutSpielberichtBerichtBody, SpielberichtePutSpielberichtBerichtParams } from "@/core/generated/zod/inputs";
 import { getOwnSpielbericht } from "@/features/spielberichte/queries";
@@ -110,8 +111,8 @@ export const saveBericht = action({
   // The no-show's rule judges the whole block, so the backend names the block, which this form shows as the goals.
   paths: { bericht: "changes.scorers" },
   examples: {
-    "changes.scorers.*.minute": COPY.area.schiedsrichter.spielbericht.minuteExample,
-    "changes.cards.*.minute": COPY.area.schiedsrichter.spielbericht.minuteExample,
+    "changes.scorers.*.minute": AREA_COPY.schiedsrichter.spielbericht.minuteExample,
+    "changes.cards.*.minute": AREA_COPY.schiedsrichter.spielbericht.minuteExample,
   },
   run: async ({ id, version: read, changes }): Promise<ActionAnswer<number>> => {
     const stands = await getOwnSpielbericht(id);

@@ -3,7 +3,8 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
-import { COPY, seatsText } from "@/core/copy";
+import { seatsText } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 import { Dialog } from "@/kit/Dialog";
 import { useLocked } from "@/kit/draftUnsaved";
 import { SideActs } from "@/kit/SideActs";

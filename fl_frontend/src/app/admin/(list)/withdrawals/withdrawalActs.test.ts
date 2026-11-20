@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
-import { COPY } from "@/core/copy";
+import { ADMIN_COPY } from "@/core/copy/admin";
+import { COPY } from "@/core/copy/shared";
 import { serveBackend } from "@/test-support/backend";
 import { signedInRequest } from "@/test-support/session";
 
@@ -55,14 +56,14 @@ describe("the withdrawal's question", () => {
       ok: true,
       value: {
         question: {
-          subject: COPY.admin.withdrawal.object,
-          consequence: COPY.admin.withdrawal.consequence,
+          subject: ADMIN_COPY.withdrawal.object,
+          consequence: ADMIN_COPY.withdrawal.consequence,
           facts: [
-            { label: COPY.admin.withdrawal.choice.name, value: COPY.admin.withdrawal.ended([COPY.shared.spieler]) },
-            { label: COPY.admin.withdrawal.choice.whatsapp, value: COPY.admin.withdrawal.ended([COPY.admin.erasure.count.teamSeats]) },
+            { label: ADMIN_COPY.withdrawal.choice.name, value: ADMIN_COPY.withdrawal.ended([COPY.shared.spieler]) },
+            { label: ADMIN_COPY.withdrawal.choice.whatsapp, value: ADMIN_COPY.withdrawal.ended([ADMIN_COPY.erasure.count.teamSeats]) },
             {
-              label: COPY.admin.withdrawal.choice.media,
-              value: COPY.admin.withdrawal.ended([COPY.shared.spieler, COPY.admin.erasure.count.teamSeats]),
+              label: ADMIN_COPY.withdrawal.choice.media,
+              value: ADMIN_COPY.withdrawal.ended([COPY.shared.spieler, ADMIN_COPY.erasure.count.teamSeats]),
             },
           ],
         },
@@ -72,7 +73,7 @@ describe("the withdrawal's question", () => {
   });
 
   it("refuses a form with no box ticked before anything is read", async () => {
-    expect(await readWithdrawal(form())).toStrictEqual({ ok: false, reason: COPY.admin.withdrawal.noneChosen });
+    expect(await readWithdrawal(form())).toStrictEqual({ ok: false, reason: ADMIN_COPY.withdrawal.noneChosen });
 
     await backend.answered();
     expect(backend.sent).toStrictEqual([]);
@@ -80,7 +81,7 @@ describe("the withdrawal's question", () => {
 
   // The harm: a question over nothing, whose press then records nothing and says it entered a withdrawal.
   it("refuses an address on which nothing ticked is granted", async () => {
-    expect(await readWithdrawal(form("media"))).toStrictEqual({ ok: false, reason: COPY.admin.withdrawal.nothingGranted });
+    expect(await readWithdrawal(form("media"))).toStrictEqual({ ok: false, reason: ADMIN_COPY.withdrawal.nothingGranted });
   });
 });
 
@@ -94,7 +95,7 @@ describe("the withdrawal's entry", () => {
     expect(await enterWithdrawal({ email: SENDER, choices: ["name"] })).toStrictEqual({
       ok: true,
       value: undefined,
-      note: COPY.admin.withdrawal.entered,
+      note: ADMIN_COPY.withdrawal.entered,
     });
     expect(backend.sent.map(({ method, path, search, body }) => ({ method, path, search: search.toString(), body }))).toStrictEqual([
       { method: "POST", path: "/identity/withdrawal", search: "", body: { email: SENDER, choices: ["name"] } },

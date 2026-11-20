@@ -1,4 +1,4 @@
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 import { FLSpielerStufe } from "@/core/generated/client/types";
 
 import type { Words } from "@/core/copy";

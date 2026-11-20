@@ -2,7 +2,7 @@
 import { act, render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 
 import { Segmented, ToggleBoxes } from "./ChoiceButtons";
 import { HeldForm } from "./HeldForm";

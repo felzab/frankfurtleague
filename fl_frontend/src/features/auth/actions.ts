@@ -5,7 +5,7 @@ import { headers } from "next/headers";
 import { action } from "@/core/action";
 import { afterTheResponse } from "@/core/afterResponse";
 import { sendSignInCode } from "@/core/auth/library";
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 import { asSignInIdentifier } from "@/core/emailAddress";
 import { logger } from "@/core/logging";
 import { SignInPayloadSchema } from "@/features/auth/schemas";

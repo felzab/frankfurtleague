@@ -5,7 +5,8 @@ import { z } from "zod";
 import { action, PAGE_HOLDER } from "@/core/action";
 import { accountStandsAt } from "@/core/auth/accounts";
 import { endSessionsOfAddress, sessionsStandAt } from "@/core/auth/accountSessions";
-import { COPY } from "@/core/copy";
+import { ADMIN_COPY } from "@/core/copy/admin";
+import { COPY } from "@/core/copy/shared";
 import { APIBadStatusError } from "@/core/errors";
 import { banListDeleteBanListEntry, banListPostBanListEntry } from "@/core/generated/client/sdk";
 import { BanListDeleteBanListEntryParams, BanListPostBanListEntryBody } from "@/core/generated/zod/inputs";
@@ -15,7 +16,7 @@ import { SignInPayloadSchema } from "@/features/auth/schemas";
 
 import type { Copy } from "@/core/copy";
 
-const PARTIAL = COPY.admin.banList.partial;
+const PARTIAL = ADMIN_COPY.banList.partial;
 const CLOSED = SERVER_COPY.closedDialog;
 
 /**

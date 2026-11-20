@@ -1,4 +1,5 @@
-import { COPY } from "@/core/copy";
+import { PUBLIC_COPY } from "@/core/copy/public";
+import { COPY } from "@/core/copy/shared";
 import { positionOptions, stufeOptions } from "@/features/spieler/options";
 import { ConsentLine } from "@/kit/ConsentLine";
 import { Section } from "@/kit/Section";
@@ -8,7 +9,7 @@ import { TextField } from "@/kit/TextField";
 import type { ConsentLine as Line } from "@/core/consentWordings";
 import type { FLSpielerStufe } from "@/core/generated/client/types";
 
-const WORDS = COPY.registrierung;
+const WORDS = PUBLIC_COPY.registrierung;
 const KADER = COPY.kader;
 
 /** What the write asks of the three typed boxes, read on the server so its schema never reaches the browser. */

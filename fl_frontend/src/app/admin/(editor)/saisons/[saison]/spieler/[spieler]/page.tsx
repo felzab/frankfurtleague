@@ -3,7 +3,8 @@ import { notFound } from "next/navigation";
 
 import { requires } from "@/core/action";
 import { SPIELER_WORDINGS } from "@/core/consentWordings";
-import { COPY } from "@/core/copy";
+import { ADMIN_COPY } from "@/core/copy/admin";
+import { COPY } from "@/core/copy/shared";
 import { dayOf, formatDate } from "@/core/format";
 import {
   SpielerPatchSpielerSaisonBody,
@@ -30,7 +31,7 @@ import type { Metadata, ResolvingMetadata, Route } from "next";
 
 type Props = PageProps<"/admin/saisons/[saison]/spieler/[spieler]">;
 
-const WORDS = COPY.admin.spieler;
+const WORDS = ADMIN_COPY.spieler;
 const { shape } = SpielerPatchSpielerSaisonBody;
 
 /** What the save asks of each of the person's boxes, read off the write's schema. */

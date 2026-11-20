@@ -3,7 +3,8 @@ import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
-import { COPY } from "@/core/copy";
+import { ACCOUNT_COPY } from "@/core/copy/account";
+import { COPY } from "@/core/copy/shared";
 import { renderUnderNext } from "@/test-support/nextContexts";
 
 import { AccountBox, AccountRows } from "./AccountBox";
@@ -13,7 +14,7 @@ import type { ActionAnswer } from "@/core/action";
 const PASSKEY = COPY.shared.passkeys;
 const REFUSAL = COPY.shared.failure.stale;
 const NOTE = COPY.shared.toast.linkSent;
-const CONSEQUENCE = COPY.account.passkeys.endsDevices;
+const CONSEQUENCE = ACCOUNT_COPY.passkeys.endsDevices;
 
 /** The question's own act button, beside „Zurück“. */
 const confirmIn = (question: HTMLElement, verb: keyof typeof COPY.shared.verb) =>
@@ -30,7 +31,7 @@ describe("a Konto box's act behind a question", () => {
     renderUnderNext(
       <AccountBox
         title={PASSKEY}
-        description={COPY.account.passkeys.description}
+        description={ACCOUNT_COPY.passkeys.description}
         act={{ run, button: { confirm: { verb: "delete", subject: PASSKEY, consequence: CONSEQUENCE, tone: "danger" } } }}
       />,
     );
@@ -56,7 +57,7 @@ describe("a locked Konto box", () => {
     renderUnderNext(
       <AccountBox
         title={PASSKEY}
-        description={COPY.account.passkeys.description}
+        description={ACCOUNT_COPY.passkeys.description}
         act={{ run, button: { label: COPY.shared.withObject(PASSKEY, "setUp") }, locked: reason }}>
         <input
           aria-label={COPY.shared.name}
@@ -74,7 +75,7 @@ describe("a locked Konto box", () => {
     renderUnderNext(
       <AccountBox
         title={PASSKEY}
-        description={COPY.account.passkeys.description}
+        description={ACCOUNT_COPY.passkeys.description}
         act={{
           run: vi.fn(),
           button: { confirm: { verb: "delete", subject: PASSKEY, consequence: CONSEQUENCE, tone: "danger" } },

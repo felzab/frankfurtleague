@@ -1,4 +1,5 @@
-import { COPY } from "@/core/copy";
+import { ACCOUNT_COPY } from "@/core/copy/account";
+import { COPY } from "@/core/copy/shared";
 import { requestErasure, startAddressChange, withdrawAddressChange } from "@/features/account/personActions";
 import { AccountBox, AccountSentence } from "@/kit/AccountBox";
 import { Callout } from "@/kit/Callout";
@@ -48,7 +49,7 @@ export function SignInBoxes({
       {pending === null ? (
         <AccountBox
           title={COPY.shared.emailAddress}
-          description={COPY.account.address.description}
+          description={ACCOUNT_COPY.address.description}
           act={{
             run: startAddressChange,
             // The address the page is drawn for, which every act of the account posts.
@@ -68,7 +69,7 @@ export function SignInBoxes({
       ) : (
         <AccountBox
           title={COPY.shared.emailAddress}
-          description={COPY.account.address.description}
+          description={ACCOUNT_COPY.address.description}
           act={
             pending.own
               ? {
@@ -86,19 +87,19 @@ export function SignInBoxes({
           {pending.lapsed && (
             <Callout
               tone="warn"
-              text={COPY.account.address.lapsed}
+              text={ACCOUNT_COPY.address.lapsed}
             />
           )}
         </AccountBox>
       )}
       <AccountBox
         title={COPY.page.accountErasure}
-        description={COPY.account.erasure.description}
+        description={ACCOUNT_COPY.erasure.description}
         act={{
           run: requestErasure,
           carry: { holder: email },
           button: {
-            confirm: { verb: "delete", subject: COPY.template.account, consequence: COPY.account.erasure.consequence, tone: "danger" },
+            confirm: { verb: "delete", subject: COPY.template.account, consequence: ACCOUNT_COPY.erasure.consequence, tone: "danger" },
           },
           done: COPY.shared.toast.linkSent,
           locked: lastOwner,

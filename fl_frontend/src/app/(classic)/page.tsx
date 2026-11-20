@@ -2,7 +2,7 @@ import { connection } from "next/server";
 
 import { CONFIRMATION_DEADLINE_DAYS } from "@/core/bounds";
 import { INSTAGRAM_URL, KONTAKT_MAILTO, THREADS_URL } from "@/core/brand";
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 import { dayOf, formatNumber } from "@/core/format";
 import { JOIN_SECTION, ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";

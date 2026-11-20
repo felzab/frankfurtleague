@@ -1,6 +1,6 @@
 import { cacheLife, cacheTag } from "next/cache";
 
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 import { dayOf, timeOf } from "@/core/format";
 import { saisonsGetLanding } from "@/core/generated/client/sdk";
 import { SERVER_COPY } from "@/core/serverCopy";

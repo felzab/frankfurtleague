@@ -3,7 +3,8 @@
 import { z } from "zod";
 
 import { action } from "@/core/action";
-import { COPY } from "@/core/copy";
+import { ADMIN_COPY } from "@/core/copy/admin";
+import { COPY } from "@/core/copy/shared";
 import { identityPostWithdrawal } from "@/core/generated/client/sdk";
 import { IdentityPostWithdrawalBody } from "@/core/generated/zod/inputs";
 
@@ -11,7 +12,7 @@ import type { Copy } from "@/core/copy";
 import type { FLEinwilligungWithdrawalReport, FLWithdrawalChoice } from "@/core/generated/client/types";
 import type { Fact } from "@/kit/Facts";
 
-const WORDS = COPY.admin.withdrawal;
+const WORDS = ADMIN_COPY.withdrawal;
 
 /** The choices in the boxes' order, each box posting under the choice's own name. */
 const CHOICES = ["name", "whatsapp", "media"] as const satisfies readonly FLWithdrawalChoice[];
@@ -20,8 +21,8 @@ const CHOICES = ["name", "whatsapp", "media"] as const satisfies readonly FLWith
 const KINDS = [
   [COPY.shared.spieler, "spieler"],
   [COPY.shared.schiedsrichter, "schiedsrichter"],
-  [COPY.admin.erasure.count.teamSeats, "kontakt_seats"],
-  [COPY.admin.erasure.count.bewerbungSeats, "bewerbung_seats"],
+  [ADMIN_COPY.erasure.count.teamSeats, "kontakt_seats"],
+  [ADMIN_COPY.erasure.count.bewerbungSeats, "bewerbung_seats"],
   [COPY.page.registrierungen, "registrierungen"],
 ] as const satisfies ReadonlyArray<readonly [Copy, keyof FLEinwilligungWithdrawalReport]>;
 

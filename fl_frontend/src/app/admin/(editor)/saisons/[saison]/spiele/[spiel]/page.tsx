@@ -2,7 +2,8 @@ import { cache } from "react";
 import { notFound } from "next/navigation";
 
 import { requires } from "@/core/action";
-import { COPY } from "@/core/copy";
+import { ADMIN_COPY } from "@/core/copy/admin";
+import { COPY } from "@/core/copy/shared";
 import { dayOf, formatDate, timeOf } from "@/core/format";
 import { FLSonderereignis } from "@/core/generated/client/types";
 import { SpielePatchSpielBody, spielePatchSpielBodyNoteOneMax } from "@/core/generated/zod/inputs";
@@ -42,7 +43,7 @@ import type { SpielValues } from "./spielValues";
 
 type Props = PageProps<"/admin/saisons/[saison]/spiele/[spiel]">;
 
-const WORDS = COPY.admin.spiel;
+const WORDS = ADMIN_COPY.spiel;
 
 const SONDEREREIGNISSE: Readonly<Record<FLSonderereignis, Copy>> = {
   ausgefallen: COPY.spielplan.sonderereignis.ausgefallen,
@@ -220,7 +221,7 @@ function answerRow(id: string, name: Words, plaque: string | null, row: FLSpielb
   if (row.state === "agreed") {
     return answer.kind === "agreed"
       ? { ...shown, chip: AGREED_CHIP, line: day }
-      : { ...shown, chip: AGREED_CHIP, line: COPY.admin.actionLog.action["spielbestaetigung.vorschlag_discarded"], ...reason };
+      : { ...shown, chip: AGREED_CHIP, line: ADMIN_COPY.actionLog.action["spielbestaetigung.vorschlag_discarded"], ...reason };
   }
   const { vorschlag } = answer;
   const line =
@@ -322,7 +323,7 @@ async function readEditor(params: Props["params"]) {
     { id: NO_SONDEREREIGNIS, label: COPY.spielplan.sonderereignis.none },
     ...Object.values(FLSonderereignis).map((event): Option => {
       const label = SONDEREREIGNISSE[event];
-      if (!begun && !takesNoResult(event)) return { id: event, label, isDisabled: true, note: COPY.admin.untilStart };
+      if (!begun && !takesNoResult(event)) return { id: event, label, isDisabled: true, note: ADMIN_COPY.untilStart };
       return !bothSides && isNoShow(event) ? { id: event, label, isDisabled: true, note: WORDS.needsBothSides } : { id: event, label };
     }),
   ];

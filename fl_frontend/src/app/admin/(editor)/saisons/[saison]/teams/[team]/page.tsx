@@ -1,7 +1,8 @@
 import { notFound } from "next/navigation";
 
 import { now } from "@/core/clock";
-import { COPY } from "@/core/copy";
+import { ADMIN_COPY } from "@/core/copy/admin";
+import { COPY } from "@/core/copy/shared";
 import { dayIn, dayOf, formatDate } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
@@ -25,7 +26,7 @@ import type { TeamRow } from "./TeamEditor";
 
 type Props = PageProps<"/admin/saisons/[saison]/teams/[team]">;
 
-const WORDS = COPY.admin.team;
+const WORDS = ADMIN_COPY.team;
 
 /** The club the address names in its season, retired or not: `null` for a malformed id and for one no record holds. */
 async function find(params: Props["params"]) {
@@ -47,7 +48,7 @@ export default async function TeamEditorPage({ params }: Props) {
 function rowOf(read: FLTeamSaisonAdminResponse, membership: FLTeamMembership, link: FLTeamLinkState): TeamRow {
   const { saison, gruppen, gruppe_locked: drawn, taken_trikot_farben: taken } = read;
   const austritt = membership.austritt;
-  const departed = austritt === null ? undefined : COPY.admin.spiel.departed;
+  const departed = austritt === null ? undefined : ADMIN_COPY.spiel.departed;
   const stands = austritt === null ? null : COPY.shared.austritt[austritt.type];
   return {
     saisonTitle: COPY.shared.saisonName(saison.id),
@@ -79,7 +80,7 @@ function rowOf(read: FLTeamSaisonAdminResponse, membership: FLTeamMembership, li
             earliest: dayOf(saison.start_date),
             today: dayIn(now()),
             recipients: read.austritt_recipients,
-            ...(saison.begun ? {} : { locked: COPY.admin.untilStart }),
+            ...(saison.begun ? {} : { locked: ADMIN_COPY.untilStart }),
           },
   };
 }

@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 import { discardChange } from "@/features/address-change/actions";
 import { ConfirmDialog } from "@/kit/ConfirmDialog";
 import { SideActs } from "@/kit/SideActs";

@@ -1,6 +1,7 @@
 import { assert, describe, expect, it, vi } from "vitest";
 
-import { COPY } from "@/core/copy";
+import { ADMIN_COPY } from "@/core/copy/admin";
+import { COPY } from "@/core/copy/shared";
 import { serveBackend } from "@/test-support/backend";
 import { signedInRequest } from "@/test-support/session";
 
@@ -74,8 +75,8 @@ async function read(grants: readonly FLGrantRow[], changes: readonly FLAddressCh
     create: await props.create,
     cards: cards.map(({ title, count }) => ({ title, count })),
     active: tableOf(COPY.shared.state.active)?.rows ?? [],
-    waiting: tableOf(COPY.admin.administrators.pending)?.rows ?? [],
-    waitingEmpty: tableOf(COPY.admin.administrators.pending)?.empty,
+    waiting: tableOf(ADMIN_COPY.administrators.pending)?.rows ?? [],
+    waitingEmpty: tableOf(ADMIN_COPY.administrators.pending)?.empty,
   };
 }
 
@@ -109,7 +110,7 @@ describe("who holds access and what waits", () => {
 
     expect(cards).toStrictEqual([
       { title: COPY.shared.state.active, count: 2 },
-      { title: COPY.admin.administrators.pending, count: 0 },
+      { title: ADMIN_COPY.administrators.pending, count: 0 },
     ]);
     expect(waitingEmpty).toStrictEqual({ kind: "clear" });
   });
@@ -123,7 +124,7 @@ describe("the owner's acts", () => {
     await arriveAs({ email: "anna@example.org", admin: true });
     const { create, side, active, waiting } = await read([THE_OWNER, handover]);
 
-    const ownerOnly = COPY.admin.administrators.ownerOnly;
+    const ownerOnly = ADMIN_COPY.administrators.ownerOnly;
     expect([create.locked, side.locked]).toStrictEqual([ownerOnly, ownerOnly]);
     expect(actsOf([...active, ...waiting])).toStrictEqual([ownerOnly, ownerOnly, ownerOnly]);
     expect(addresses(waiting)).toStrictEqual(["anna@example.org"]);
@@ -152,7 +153,7 @@ describe("the owner's acts", () => {
     const { options } = (open.side.children as ReactElement<{ options: ReadonlyArray<{ id: string }> }>).props;
     expect(options.map(({ id }) => id)).toStrictEqual(["anna@example.org"]);
     expect(open.side.locked).toBeUndefined();
-    expect(locked.side.locked).toBe(COPY.admin.administrators.handoverRunning);
-    expect(alone.side.locked).toBe(COPY.admin.administrators.noAdministrator);
+    expect(locked.side.locked).toBe(ADMIN_COPY.administrators.handoverRunning);
+    expect(alone.side.locked).toBe(ADMIN_COPY.administrators.noAdministrator);
   });
 });

@@ -1,5 +1,6 @@
 import { MEDIA_MIN_AGE } from "@/core/bounds";
-import { COPY } from "@/core/copy";
+import { ACCOUNT_COPY } from "@/core/copy/account";
+import { COPY } from "@/core/copy/shared";
 import { dayOf, formatDate, formatEuro } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { requireAccountSession } from "@/features/account/account";
@@ -20,7 +21,7 @@ export async function generateMetadata(_: unknown, parent: ResolvingMetadata): P
   return pageMetadata(parent, ROUTES.accountEntries, ROUTES.accountEntries.path());
 }
 
-const { entries: WORDS } = COPY.account;
+const { entries: WORDS } = ACCOUNT_COPY;
 
 /** A fact of the record, a dash where it holds none. */
 const fact = (label: Copy, value: string | null): Fact => ({

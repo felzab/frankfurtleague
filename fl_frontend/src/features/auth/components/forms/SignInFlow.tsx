@@ -5,7 +5,8 @@ import { useSearchParams } from "next/navigation";
 
 import { loadAuthClient, usePreloadedAuthClient } from "@/core/auth/browserClient";
 import { RETURN_PARAMETER, withReturnAddress } from "@/core/auth/returnAddress";
-import { COPY } from "@/core/copy";
+import { PUBLIC_COPY } from "@/core/copy/public";
+import { COPY } from "@/core/copy/shared";
 import { TURNSTILE_FIELD } from "@/core/turnstileToken";
 import { SignInPage } from "@/kit/SignInPage";
 import { useBotCheck } from "@/kit/useBotCheck";
@@ -86,23 +87,23 @@ export function SignInFlow({ next, siteKey }: { next: string; siteKey: string })
     };
 
     // The typed code's own refusal is a phrase under its boxes; every other answer is a sentence on the status line.
-    const inField = codeError === COPY.signIn.refusal.codeWrong;
+    const inField = codeError === PUBLIC_COPY.signIn.refusal.codeWrong;
 
     return (
       <SignInPage
         view="code"
-        title={COPY.signIn.inbox}
-        sentence={COPY.signIn.codeOnItsWay}
+        title={PUBLIC_COPY.signIn.inbox}
+        sentence={PUBLIC_COPY.signIn.codeOnItsWay}
         address={address}
         code={{
-          label: COPY.signIn.code,
+          label: PUBLIC_COPY.signIn.code,
           error: inField ? codeError : null,
           attempt,
           isDisabled: checking,
           onComplete: (code) => void check(code),
         }}
         back={{
-          label: COPY.signIn.otherAddress,
+          label: PUBLIC_COPY.signIn.otherAddress,
           isDisabled: checking,
           onPress: () => {
             setCodeError(null);
@@ -139,11 +140,11 @@ export function SignInFlow({ next, siteKey }: { next: string; siteKey: string })
   return (
     <SignInPage
       view="address"
-      title={COPY.signIn.title}
+      title={PUBLIC_COPY.signIn.title}
       address={{ label: COPY.shared.emailAddress, value: email, onChange: setEmail, error: refused?.fieldErrors }}
       check={humanCheck.widget}
       send={{
-        label: COPY.signIn.sendCode,
+        label: PUBLIC_COPY.signIn.sendCode,
         isBusy: send.isPending,
         onPress: (address) => {
           // The busy button is not the whole guard: `Enter` in the field submits too, and a second send mid-flight
@@ -153,10 +154,10 @@ export function SignInFlow({ next, siteKey }: { next: string; siteKey: string })
           send.submit(address);
         },
       }}
-      or={COPY.signIn.or}
+      or={PUBLIC_COPY.signIn.or}
       // `isBusy` is the whole of the double-press guard: a second prompt aborts the first, which would then read
       // as a refusal of a press made while it ran.
-      passkey={{ label: COPY.signIn.withPasskey, isBusy: passkeyRunning, onPress: () => void withPasskey() }}
+      passkey={{ label: PUBLIC_COPY.signIn.withPasskey, isBusy: passkeyRunning, onPress: () => void withPasskey() }}
       row={passkeyError ?? sendError}
     />
   );

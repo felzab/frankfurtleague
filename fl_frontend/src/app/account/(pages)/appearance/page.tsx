@@ -1,4 +1,5 @@
-import { COPY } from "@/core/copy";
+import { ACCOUNT_COPY } from "@/core/copy/account";
+import { COPY } from "@/core/copy/shared";
 import { ROUTES } from "@/core/routes";
 import { requireAccountSession } from "@/features/account/account";
 import { AccountBox } from "@/kit/AccountBox";
@@ -18,7 +19,7 @@ async function AppearanceContent() {
   return (
     <AccountBox
       title={COPY.page.accountAppearance}
-      description={COPY.account.appearance.description}
+      description={ACCOUNT_COPY.appearance.description}
       control={<ThemeChoice />}
     />
   );

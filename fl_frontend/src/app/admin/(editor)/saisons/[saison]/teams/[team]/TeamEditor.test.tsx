@@ -3,7 +3,8 @@ import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
-import { COPY } from "@/core/copy";
+import { ADMIN_COPY } from "@/core/copy/admin";
+import { COPY } from "@/core/copy/shared";
 import { dayOf, formatList } from "@/core/format";
 import { AUSTRITT_RULES, SEAT_RULES, TEAM_DESCRIPTION_MAX, TEAM_SAVE_RULES } from "@/features/teams/fieldRules";
 import { renderUnderNext } from "@/test-support/nextContexts";
@@ -87,7 +88,7 @@ describe("the exit dialog's „E-Mail an“", () => {
     // The danger row's button carries the dialog's verb.
     await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.remove }));
     const dialog = await screen.findByRole("dialog");
-    const mailTo = () => within(dialog).getByText(COPY.admin.facts.mailTo).nextElementSibling?.textContent;
+    const mailTo = () => within(dialog).getByText(ADMIN_COPY.facts.mailTo).nextElementSibling?.textContent;
     expect(mailTo()).toBe(formatList(["Bieber", "Otto Gruber"]));
 
     // The day's segment first: typing 21 moves the exit past Bieber's match on the 20th.

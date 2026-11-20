@@ -3,7 +3,7 @@
 import { z } from "zod";
 
 import { action, PAGE_HOLDER } from "@/core/action";
-import { COPY } from "@/core/copy";
+import { ADMIN_COPY } from "@/core/copy/admin";
 import {
   saisonsActivateSaison,
   saisonsDeleteSpielplan,
@@ -120,6 +120,6 @@ export const sendInvitations = action({
   run: async ({ saison_id }) => {
     const { mailed } = await saisonsPostInvitationsMail(saison_id);
     // The teams the press owed a mail to, which the rows then show as sent.
-    return { ok: true, value: undefined, note: COPY.admin.saison.sentTo(mailed) };
+    return { ok: true, value: undefined, note: ADMIN_COPY.saison.sentTo(mailed) };
   },
 });

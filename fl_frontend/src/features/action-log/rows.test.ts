@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import { COPY } from "@/core/copy";
+import { ADMIN_COPY } from "@/core/copy/admin";
 import { SERVER_COPY } from "@/core/serverCopy";
 
 import { rowOf } from "./rows";
 
 import type { FLActionLogEntry } from "@/core/generated/client/types";
 
-const WORDS = COPY.admin.actionLog;
+const WORDS = ADMIN_COPY.actionLog;
 const { labelled } = SERVER_COPY.season;
 
 const entry = (overrides: Partial<FLActionLogEntry>): FLActionLogEntry => ({

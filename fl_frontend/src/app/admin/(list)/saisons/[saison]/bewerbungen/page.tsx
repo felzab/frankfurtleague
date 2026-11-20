@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 
-import { COPY } from "@/core/copy";
+import { ADMIN_COPY } from "@/core/copy/admin";
+import { COPY } from "@/core/copy/shared";
 import { dayOf, formatDate } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
@@ -22,7 +23,7 @@ import type { Metadata, ResolvingMetadata } from "next";
 
 type Props = PageProps<"/admin/saisons/[saison]/bewerbungen">;
 
-const WORDS = COPY.admin.bewerbung;
+const WORDS = ADMIN_COPY.bewerbung;
 const ALL = SERVER_COPY.season.filter.all;
 
 export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
@@ -36,7 +37,7 @@ const HEAD: TableHead = {
   state: { label: COPY.shared.facts.state },
   columns: [
     { key: "received", label: COPY.shared.facts.received, hideOnPhone: true, width: "date" },
-    { key: "seats", label: COPY.admin.spiel.confirmations, hideOnPhone: true, width: "word" },
+    { key: "seats", label: ADMIN_COPY.spiel.confirmations, hideOnPhone: true, width: "word" },
   ],
 };
 
@@ -67,7 +68,7 @@ function rowOf(row: FLBewerbungListRow, saison: string, past: boolean): TableRow
     chip: chipOf(row, past),
     cells: {
       received: { record: formatDate(dayOf(row.submitted_at)) },
-      seats: COPY.admin.seatsOf(row.seats_confirmed, SEATS),
+      seats: ADMIN_COPY.seatsOf(row.seats_confirmed, SEATS),
     },
   };
 }

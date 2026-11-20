@@ -6,7 +6,8 @@ import { createRoot, hydrateRoot } from "react-dom/client";
 import { renderToString } from "react-dom/server";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
-import { COPY } from "@/core/copy";
+import { PUBLIC_COPY } from "@/core/copy/public";
+import { COPY } from "@/core/copy/shared";
 import { underNext } from "@/test-support/nextContexts";
 
 import { AddressFields } from "./AddressFields";
@@ -685,18 +686,18 @@ describe("a press held across hydration over a field edited before it", () => {
       return (
         <SignInPage
           view="address"
-          title={COPY.signIn.title}
+          title={PUBLIC_COPY.signIn.title}
           row={null}
           address={{ label: WORD, value, onChange: setValue }}
           check={null}
           send={{
-            label: COPY.signIn.sendCode,
+            label: PUBLIC_COPY.signIn.sendCode,
             onPress: (address) => {
               if (!send.isPending) send.submit(address);
             },
           }}
-          or={COPY.signIn.or}
-          passkey={{ label: COPY.signIn.withPasskey, onPress: () => undefined }}
+          or={PUBLIC_COPY.signIn.or}
+          passkey={{ label: PUBLIC_COPY.signIn.withPasskey, onPress: () => undefined }}
         />
       );
     }
@@ -745,13 +746,13 @@ describe("a press held across hydration over a field edited before it", () => {
       return (
         <SignInPage
           view="address"
-          title={COPY.signIn.title}
+          title={PUBLIC_COPY.signIn.title}
           row={null}
           address={{ label: WORD, value, onChange: setValue }}
           check={null}
-          send={{ label: COPY.signIn.sendCode, onPress }}
-          or={COPY.signIn.or}
-          passkey={{ label: COPY.signIn.withPasskey, onPress: () => undefined }}
+          send={{ label: PUBLIC_COPY.signIn.sendCode, onPress }}
+          or={PUBLIC_COPY.signIn.or}
+          passkey={{ label: PUBLIC_COPY.signIn.withPasskey, onPress: () => undefined }}
         />
       );
     }

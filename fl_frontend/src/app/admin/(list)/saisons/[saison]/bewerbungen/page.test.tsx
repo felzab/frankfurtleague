@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 import { STANDING_CHIP } from "@/features/bewerbungen/standing";
 import { serveBackend } from "@/test-support/backend";
 import { signedInRequest } from "@/test-support/session";

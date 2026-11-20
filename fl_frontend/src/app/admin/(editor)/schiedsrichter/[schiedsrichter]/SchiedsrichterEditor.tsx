@@ -1,6 +1,7 @@
 "use client";
 
-import { COPY } from "@/core/copy";
+import { ADMIN_COPY } from "@/core/copy/admin";
+import { COPY } from "@/core/copy/shared";
 import { EditorPage } from "@/kit/EditorPage";
 import { Facts } from "@/kit/Facts";
 import { SectionAct } from "@/kit/SectionAct";
@@ -17,7 +18,7 @@ import type { PageTitle } from "@/kit/RailFrame";
 import type { EditorRecord, EditorSave } from "@/kit/useEditor";
 import type { SchiedsrichterValues } from "./schiedsrichterValues";
 
-const WORDS = COPY.admin.schiedsrichter;
+const WORDS = ADMIN_COPY.schiedsrichter;
 const FACTS = COPY.shared.facts;
 const OBJECT = COPY.shared.schiedsrichter;
 
@@ -99,7 +100,7 @@ export function SchiedsrichterEditor({
       flag={flag}
       editor={editor}
       locks={address === "fixed" ? ["confirmed"] : []}
-      danger={{ title: COPY.admin.retirement, acts: [dangerAct] }}
+      danger={{ title: ADMIN_COPY.retirement, acts: [dangerAct] }}
       sections={[
         {
           id: "schiedsrichter",

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
-import { COPY } from "@/core/copy";
+import { ADMIN_COPY } from "@/core/copy/admin";
+import { COPY } from "@/core/copy/shared";
 import { serveBackend } from "@/test-support/backend";
 import { signedInRequest } from "@/test-support/session";
 
@@ -158,7 +159,7 @@ describe("the match editor's save", () => {
 
     const answer = await saveSpiel(saving({ time: "18:00:00" }));
 
-    expect(answer).toEqual({ ok: true, value: 4, note: COPY.admin.spiel.alsoChanged([7, 12, 31]) });
+    expect(answer).toEqual({ ok: true, value: 4, note: ADMIN_COPY.spiel.alsoChanged([7, 12, 31]) });
   });
 
   it("sends no goals and no shoot-out with an event that leaves the match without a typed result", async () => {
@@ -225,7 +226,7 @@ describe("the match editor's question before it deletes a later result", () => {
   it("holds the save back with its question, naming the matches the write's own dry run would delete, and writes nothing", async () => {
     const question = await asked({ tore1: "3", tore2: "1" });
 
-    expect(question).toMatchObject({ subject: COPY.spielplan.ergebnis, consequence: COPY.admin.spiel.voids([31, 33]) });
+    expect(question).toMatchObject({ subject: COPY.spielplan.ergebnis, consequence: ADMIN_COPY.spiel.voids([31, 33]) });
     expect(question).not.toHaveProperty("facts");
     expect(calls.map(({ endpoint }) => endpoint)).toStrictEqual([DRY_RUN]);
     expect(state.sent).toEqual([]);
@@ -254,7 +255,7 @@ describe("the match editor's question before it deletes a later result", () => {
     const question = await asked({ team1: PICKED });
 
     expect(question.facts).toEqual([
-      { label: COPY.admin.facts.mailTo, value: { record: "Ernst-Reuter-Schule, Lena Brandt und Lessing-Gymnasium" } },
+      { label: ADMIN_COPY.facts.mailTo, value: { record: "Ernst-Reuter-Schule, Lena Brandt und Lessing-Gymnasium" } },
     ]);
 
     // The same parties served in another order are the same question.

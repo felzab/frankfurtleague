@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useState } from "react";
 
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 
 import { cardSurface, smallCaps } from "./cardStyles";
 import { Icon } from "./Icon";

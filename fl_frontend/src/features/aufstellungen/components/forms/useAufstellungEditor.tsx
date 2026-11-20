@@ -1,6 +1,6 @@
 "use client";
 
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 import { Lineup, lineupMoves, lineupStarters, lineupValue } from "@/kit/Lineup";
 import { useEditor } from "@/kit/useEditor";
 

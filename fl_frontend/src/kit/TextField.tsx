@@ -5,7 +5,8 @@ import { useId } from "react";
 import { TextField as AriaTextField, Input, TextArea } from "react-aria-components/TextField";
 import { useIsSSR } from "react-aria/SSRProvider";
 
-import { COPY, textOf } from "@/core/copy";
+import { textOf } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 import { isDeliverableAddress, KONTAKT_EMAIL_MAX_LENGTH } from "@/core/emailAddress";
 
 import { FieldLabel, MessageLine, useFieldLock } from "./FieldParts";

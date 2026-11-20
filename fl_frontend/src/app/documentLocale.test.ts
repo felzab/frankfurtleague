@@ -11,7 +11,7 @@ vi.mock("next/font/google", () => {
 });
 const { default: RootLayout } = await import("./layout");
 const { DateField } = await import("@/kit/DateField");
-const { COPY } = await import("@/core/copy");
+const { COPY } = await import("@/core/copy/shared");
 const { dayOf } = await import("@/core/format");
 const { underNext } = await import("@/test-support/nextContexts");
 

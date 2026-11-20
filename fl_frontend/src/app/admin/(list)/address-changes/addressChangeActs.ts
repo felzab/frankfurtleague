@@ -4,7 +4,7 @@ import { z } from "zod";
 
 import { action, PAGE_HOLDER } from "@/core/action";
 import { accountStandsAt } from "@/core/auth/accounts";
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 import { addressChangePostAddressChangeAdmin, addressChangeResendConfirmation } from "@/core/generated/client/sdk";
 import { AddressChangeResendConfirmationParams } from "@/core/generated/zod/inputs";
 import { SERVER_COPY } from "@/core/serverCopy";

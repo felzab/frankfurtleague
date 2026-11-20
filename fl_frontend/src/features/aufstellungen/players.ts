@@ -1,4 +1,4 @@
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { rolleMarkOf, shirtNumber, spielerName } from "@/features/spieler/constants";
 import { NOMINEE_CHIP } from "@/kit/stateChips";

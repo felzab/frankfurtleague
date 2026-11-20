@@ -257,12 +257,38 @@ const NEXT_PRIVATE_CONTEXTS = {
   message: "Mount Next's contexts through fl_frontend/src/test-support/nextContexts.ts rather than its private modules.",
 };
 
-/** `catalogue` brands a whole tree as `Copy`; only the server's own catalogue calls it besides `copy.ts` itself. */
+/**
+ * The catalogue files, which alone write a reader's words: `copy.ts`'s helpers and the words several audiences compose
+ * their entries of, one catalogue per audience, and the server's own.
+ */
+const CATALOGUE_FILES = [
+  "src/core/copy.ts",
+  "src/core/copy/shared.ts",
+  "src/core/copy/public.ts",
+  "src/core/copy/account.ts",
+  "src/core/copy/area.ts",
+  "src/core/copy/admin.ts",
+  "src/core/serverCopy.ts",
+];
+
+/** `catalogue` brands a whole tree as `Copy`; only the catalogue files call it. */
 const CATALOGUE_BRAND = {
   regex: moduleNamed("copy"),
   importNames: ["catalogue"],
   message:
-    "catalogue brands a whole tree as Copy: fl_frontend/src/core/serverCopy.ts, the server's own catalogue, calls it, and nothing else may. Take the entry from COPY or SERVER_COPY, or add one there.",
+    "catalogue brands a whole tree as Copy: the audience catalogues in fl_frontend/src/core/copy/ and the server's own, fl_frontend/src/core/serverCopy.ts, call it, and nothing else may. Take the entry from one of them, or add one there.",
+};
+
+/**
+ * The administration's catalogue: a visitor's page importing it would carry the administration's words into its
+ * bundle. The administration's routes import it, and so do the feature modules only they import. `serverCopy.ts` is
+ * spared: it ships in no bundle, and its refusal lines reading `ADMIN_COPY` are the administration's own, which only
+ * its screens show.
+ */
+const ADMIN_CATALOGUE = {
+  regex: moduleNamed(String.raw`copy\x2Fadmin`),
+  message:
+    "ADMIN_COPY is the administration's: outside fl_frontend/src/app/admin, read the shared COPY or the audience's own catalogue, and move a key there that more than the administration reads.",
 };
 
 /**
@@ -303,16 +329,27 @@ const IMPORT_BANS = [
   importBan(AUTH_INSTANCE, PRODUCTION, { allow: ["src/app/api/auth/[...all]/route.ts", "src/core/auth/**"] }),
   importBan(SIGN_IN_STORE, PRODUCTION, { allow: ["src/core/auth/library.ts", "src/core/authIndexes.ts"] }),
   importBan(OWN_ACCOUNT_DELETION, PRODUCTION, { allow: ["src/features/account/personActions.ts"] }),
-  importBan(CATALOGUE_BRAND, EVERY, { allow: ["src/core/serverCopy.ts"] }),
+  importBan(CATALOGUE_BRAND, EVERY, { allow: CATALOGUE_FILES }),
+  importBan(ADMIN_CATALOGUE, EVERY, {
+    allow: [
+      "src/app/admin/**",
+      "src/features/action-log/filters.ts",
+      "src/features/action-log/rows.ts",
+      "src/features/action-log/rows.test.ts",
+      "src/features/bewerbungen/deliveryState.ts",
+      "src/features/bewerbungen/seats.test.ts",
+      "src/features/bewerbungen/standing.ts",
+      "src/features/invitations/actions.ts",
+      "src/features/teams/options.ts",
+      "src/core/serverCopy.ts",
+    ],
+  }),
   importBan(NETWORK_BESIDE_FETCH, PRODUCTION),
 ];
 
 // ---------------------------------------------------------------------------------------------------
 // Syntax bans.
 // ---------------------------------------------------------------------------------------------------
-
-/** The two catalogue files, which alone write a reader's words. */
-const CATALOGUE_FILES = ["src/core/copy.ts", "src/core/serverCopy.ts"];
 
 /** The attributes whose value a reader hears or sees. */
 const SPOKEN_ATTRIBUTES =
@@ -1039,7 +1076,7 @@ const DESIGN_BANS = [
   syntaxBan(
     syntax(
       `Property[key.name=${WORDED_KEYS}]:not(CallExpression[callee.name="tv"] *) > :matches(${PROSE_LITERAL})`,
-      "Text a reader sees comes from the catalogue: a property named for words holds an entry of `COPY` or `SERVER_COPY`, or a record's own data as `{ record }`.",
+      "Text a reader sees comes from the catalogue: a property named for words holds an entry of an audience's catalogue or `SERVER_COPY`, or a record's own data as `{ record }`.",
     ),
     PRODUCTION,
     // The league's own constants, which name it and its organisers and sponsors as data (`features/meta/constants.ts`);
@@ -1052,35 +1089,10 @@ const DESIGN_BANS = [
   syntaxBan(
     syntax(
       'TSAsExpression > TSTypeReference.typeAnnotation[typeName.name="Copy"], TSTypeAssertion > TSTypeReference.typeAnnotation[typeName.name="Copy"]',
-      "Only the catalogue makes a `Copy`: take the entry from `COPY`, or add one there.",
+      "Only the catalogue makes a `Copy`: take the entry from the audience's catalogue, or add one there.",
     ),
     EVERY,
     { allow: ["src/core/copy.ts"] },
-  ),
-  // `COPY.admin` holds the administration's words, so a visitor's page reading one would carry the administration's
-  // section into its bundle once the catalogue splits by audience. The administration's routes read it, and so do the
-  // feature modules only they import. The catalogue files are spared: `serverCopy.ts` ships in no bundle, and its
-  // refusal lines reading `COPY.admin` are the administration's own, which only its screens show.
-  syntaxBan(
-    syntax(
-      'MemberExpression[object.name="COPY"][property.name="admin"], VariableDeclarator[init.name="COPY"] > ObjectPattern > Property[key.name="admin"]',
-      "`COPY.admin` is the administration's: outside fl_frontend/src/app/admin, read the area's own section or `COPY.shared`, and move a key there that more than the administration reads.",
-    ),
-    EVERY,
-    {
-      allow: [
-        "src/app/admin/**",
-        "src/features/action-log/filters.ts",
-        "src/features/action-log/rows.ts",
-        "src/features/action-log/rows.test.ts",
-        "src/features/bewerbungen/deliveryState.ts",
-        "src/features/bewerbungen/seats.test.ts",
-        "src/features/bewerbungen/standing.ts",
-        "src/features/invitations/actions.ts",
-        "src/features/teams/options.ts",
-        ...CATALOGUE_FILES,
-      ],
-    },
   ),
   syntaxBan(
     syntax(
@@ -1118,7 +1130,7 @@ const DESIGN_BANS = [
   ),
   // A field's message is `COPY.shared.field`'s patterns, and the server's phrases for a code, `SERVER_COPY.refusal`.
   ...[
-    ["field", "src/core/copy.ts"],
+    ["field", "src/core/copy/shared.ts"],
     ["refusal", "src/core/serverCopy.ts"],
   ].map(([key, file]) =>
     syntaxBan(

@@ -1,6 +1,6 @@
 import "server-only";
 
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 import { APIBadStatusError } from "@/core/errors";
 import { registrierungenPostInvitationView } from "@/core/generated/client/sdk";
 import { ROUTES } from "@/core/routes";

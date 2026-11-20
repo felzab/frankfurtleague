@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 
-import { COPY } from "@/core/copy";
+import { ADMIN_COPY } from "@/core/copy/admin";
+import { COPY } from "@/core/copy/shared";
 import { asSignInIdentifier } from "@/core/emailAddress";
 import { Callout } from "@/kit/Callout";
 import { TextField } from "@/kit/TextField";
@@ -37,7 +38,7 @@ export function StartFields({
       {running.includes(asSignInIdentifier(typed)) && (
         <Callout
           tone="warn"
-          text={COPY.admin.addressChange.replaces}
+          text={ADMIN_COPY.addressChange.replaces}
         />
       )}
       <TextField

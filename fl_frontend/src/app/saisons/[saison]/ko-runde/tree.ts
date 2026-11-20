@@ -1,6 +1,6 @@
 import "server-only";
 
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 import { SAISON_PHASE_OPTIONS } from "@/features/saisons/constants";
 import { matchRowOf, whenOf } from "@/features/spiele/blocks";
 

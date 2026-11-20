@@ -1,6 +1,6 @@
 import { assert, describe, it } from "vitest";
 
-import { COPY } from "./copy";
+import { COPY } from "./copy/shared";
 import { renderMail } from "./emailShell";
 import { SERVER_COPY } from "./serverCopy";
 

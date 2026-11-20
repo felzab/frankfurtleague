@@ -3,7 +3,7 @@
 import { z } from "zod";
 
 import { action } from "@/core/action";
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 import { spieltagePatchSpieltag } from "@/core/generated/client/sdk";
 import { SpieltagePatchSpieltagBody, SpieltagePatchSpieltagParams } from "@/core/generated/zod/inputs";
 import { getAdminSpieltag } from "@/features/spieltage/queries";

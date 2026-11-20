@@ -3,7 +3,8 @@ import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 
-import { COPY } from "@/core/copy";
+import { PUBLIC_COPY } from "@/core/copy/public";
+import { COPY } from "@/core/copy/shared";
 import { renderUnderNext } from "@/test-support/nextContexts";
 
 import { ConfirmDialog } from "./ConfirmDialog";
@@ -124,7 +125,7 @@ describe("a question behind the passkey touch", () => {
     await userEvent.click(trigger);
     await pressIn(await screen.findByRole("alertdialog", { name: QUESTION }), VERB);
 
-    expect(await toasted(COPY.signIn.refusal.unverified)).toBe("refused");
+    expect(await toasted(PUBLIC_COPY.signIn.refusal.unverified)).toBe("refused");
     // The toast queue commits outside the act's transition, so the toast stands a render before the trigger leaves busy.
     await waitFor(() => expect(isBusy(trigger)).toBe(false));
     expect([onConfirm.mock.calls.length, screen.queryByRole("alertdialog", { name: QUESTION }), isBusy(trigger)]).toStrictEqual([
@@ -153,7 +154,7 @@ describe("a dialog of inputs behind the passkey touch", () => {
     expect(passkey.prompt).not.toHaveBeenCalled();
 
     await pressIn(dialog, ENTER);
-    expect(await toasted(COPY.signIn.refusal.unverified)).toBe("refused");
+    expect(await toasted(PUBLIC_COPY.signIn.refusal.unverified)).toBe("refused");
     // As the question's: the toast stands a render before the trigger leaves busy.
     await waitFor(() => expect(isBusy(trigger)).toBe(false));
     expect([run.mock.calls.length, screen.queryByRole("dialog"), isBusy(trigger)]).toStrictEqual([0, null, false]);

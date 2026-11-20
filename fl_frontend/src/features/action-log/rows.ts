@@ -1,4 +1,4 @@
-import { COPY } from "@/core/copy";
+import { ADMIN_COPY } from "@/core/copy/admin";
 import { ERASED_ACTOR_MARKER } from "@/core/erasedActor";
 import { formatInstantShort } from "@/core/format";
 import { FLActorRole } from "@/core/generated/client/types";
@@ -11,7 +11,7 @@ import type { Words } from "@/core/copy";
 import type { FLAction, FLActionLogEntry } from "@/core/generated/client/types";
 import type { TableRow } from "@/kit/Table";
 
-const WORDS = COPY.admin.actionLog;
+const WORDS = ADMIN_COPY.actionLog;
 
 const isPass = (action: FLAction) => ownKeyOf(WORDS.passNoun, action);
 
@@ -23,7 +23,7 @@ function aboutOf({ action, label, count }: FLActionLogEntry): Words | null {
   if (isPass(action) && count !== null) return WORDS.passCount(WORDS.passNoun[action], count);
   if (action === "registrierung.admitted" && count !== null && count > 0) return WORDS.admittedOthers(count);
   if (label === null) return null;
-  return label === ERASED_ACTOR_MARKER ? COPY.admin.erasedActor : { record: label };
+  return label === ERASED_ACTOR_MARKER ? ADMIN_COPY.erasedActor : { record: label };
 }
 
 /** A contact person is named by role and team, and never by name. A fixture's answer may stand with no team. */

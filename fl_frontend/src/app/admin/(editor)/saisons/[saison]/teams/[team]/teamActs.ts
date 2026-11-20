@@ -3,7 +3,8 @@
 import { z } from "zod";
 
 import { action, blankIsNull, numberBox } from "@/core/action";
-import { COPY } from "@/core/copy";
+import { ADMIN_COPY } from "@/core/copy/admin";
+import { COPY } from "@/core/copy/shared";
 import {
   teamsDeleteTeam,
   teamsPutAustritt,
@@ -92,7 +93,7 @@ export const writeSeat = action({
   examples: SEAT_EXAMPLES,
   run: async ({ team_id, saison_id, seat, ...person }) => {
     const { email } = await teamsPutKontaktSeat(team_id, saison_id, seat, person);
-    return email === null ? { ok: true, value: undefined } : { ok: true, value: undefined, note: COPY.admin.schiedsrichter.sentTo(email) };
+    return email === null ? { ok: true, value: undefined } : { ok: true, value: undefined, note: ADMIN_COPY.schiedsrichter.sentTo(email) };
   },
 });
 

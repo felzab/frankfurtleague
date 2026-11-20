@@ -1,7 +1,8 @@
 import { cache } from "react";
 
 import { now } from "@/core/clock";
-import { COPY } from "@/core/copy";
+import { AREA_COPY } from "@/core/copy/area";
+import { COPY } from "@/core/copy/shared";
 import { dayIn, dayOf, timeOf } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
@@ -36,7 +37,7 @@ type Props = PageProps<"/area/team/[team]/[saison]">;
 type Row = CardActRowProps & { id: string };
 
 const WORDS = SERVER_COPY.overview;
-const TEAM = COPY.area.team;
+const TEAM = AREA_COPY.team;
 const line = COPY.shared.line;
 
 const TITLES = {

@@ -1,4 +1,4 @@
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 
 import type { Words } from "@/core/copy";
 import type { Pair } from "@/core/format";

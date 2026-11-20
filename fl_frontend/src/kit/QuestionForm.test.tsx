@@ -5,7 +5,8 @@ import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { COPY } from "@/core/copy";
+import { ACCOUNT_COPY } from "@/core/copy/account";
+import { COPY } from "@/core/copy/shared";
 import { renderUnderNext } from "@/test-support/nextContexts";
 
 import { QuestionForm } from "./QuestionForm";
@@ -20,7 +21,7 @@ type Input = { email: string };
 const ADDRESS = "max@example.org";
 const HOLDER = "pia@example.org";
 const VERB = COPY.shared.verb.delete;
-const SENTENCE = COPY.account.erasure.consequence;
+const SENTENCE = ACCOUNT_COPY.erasure.consequence;
 const READ: ActionAnswer<AskedInput<Input>> = {
   ok: true,
   value: { question: { subject: COPY.template.account, consequence: SENTENCE }, input: { email: ADDRESS } },

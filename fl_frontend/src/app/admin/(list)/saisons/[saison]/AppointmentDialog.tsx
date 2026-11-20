@@ -1,7 +1,8 @@
 "use client";
 
 import { saveSpiel } from "@/app/admin/(editor)/saisons/[saison]/spiele/[spiel]/saveSpiel";
-import { COPY } from "@/core/copy";
+import { ADMIN_COPY } from "@/core/copy/admin";
+import { COPY } from "@/core/copy/shared";
 import { DateField } from "@/kit/DateField";
 import { Dialog } from "@/kit/Dialog";
 import { FieldPair } from "@/kit/FieldPair";
@@ -50,7 +51,7 @@ export function AppointmentDialog({
     if (answer.ok) return { ok: true, value: undefined, ...(answer.note === undefined ? {} : { note: answer.note }) };
     // A save held back for its question deletes a later result, which only a stale bracket's resolution sets off from a
     // date alone: the match editor asks it, and this dialog says so rather than stand open with nothing written.
-    return answer.ask === undefined ? answer : { ok: false, reason: COPY.admin.overview.voidsLater };
+    return answer.ask === undefined ? answer : { ok: false, reason: ADMIN_COPY.overview.voidsLater };
   };
 
   return (

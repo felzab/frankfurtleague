@@ -2,7 +2,7 @@ import { cacheLife, cacheTag } from "next/cache";
 import Image from "next/image";
 
 import { now } from "@/core/clock";
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 import { SITE_CACHE_TAG } from "@/core/siteCache";
 
 import { Brand } from "./Brand";

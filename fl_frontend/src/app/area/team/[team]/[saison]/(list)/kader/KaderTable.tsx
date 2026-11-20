@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 import { byShirtNumber, kaderName, rolleMarkOf } from "@/features/spieler/constants";
 import { rowState } from "@/features/spieler/rowChip";
 import { ListTable } from "@/kit/ListTable";

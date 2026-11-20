@@ -6,7 +6,7 @@ import { act, renderHook } from "@testing-library/react";
 import { renderToString } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { underNext } from "@/test-support/nextContexts";
 import { thrownRedirect } from "@/test-support/thrownRedirect";

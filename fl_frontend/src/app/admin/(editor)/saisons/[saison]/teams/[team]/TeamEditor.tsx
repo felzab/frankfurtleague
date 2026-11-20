@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 
-import { COPY } from "@/core/copy";
+import { ADMIN_COPY } from "@/core/copy/admin";
+import { COPY } from "@/core/copy/shared";
 import { FLAustrittType } from "@/core/generated/client/types";
 import { SHORTHAND_LENGTH } from "@/features/bewerbungen/constants";
 import { seatActKinds } from "@/features/teams/components/forms/seatActKinds";
@@ -38,7 +39,7 @@ import type { InvitationView } from "./FormInvitationSection";
 import type { SeatTarget } from "./seats";
 import type { TeamValues } from "./teamValues";
 
-const WORDS = COPY.admin.team;
+const WORDS = ADMIN_COPY.team;
 const TEAM = COPY.shared.facts.team;
 
 /** The boxes of the club's row of the season, which a retired club holding none leaves out. */

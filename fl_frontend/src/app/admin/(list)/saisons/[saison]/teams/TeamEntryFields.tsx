@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 
-import { COPY } from "@/core/copy";
+import { ADMIN_COPY } from "@/core/copy/admin";
+import { COPY } from "@/core/copy/shared";
 import { SHORTHAND_LENGTH } from "@/features/bewerbungen/constants";
 import { schulformOptions } from "@/features/teams/options";
 import { AddressFields } from "@/kit/AddressFields";
@@ -15,7 +16,7 @@ import { NEW_TEAM } from "./newTeam";
 import type { TeamRules } from "@/features/teams/fieldRules";
 import type { Option } from "@/kit/OptionList";
 
-const WORDS = COPY.admin.team;
+const WORDS = ADMIN_COPY.team;
 
 /**
  * „Team eintragen“'s inputs: a club the league knows, or, as the select's last entry, a new school, whose own fields
@@ -48,12 +49,12 @@ export function TeamEntryFields({
         name="team"
         isRequired={teamRequired}
         description={WORDS.enterDescription}
-        options={[...teams, { id: NEW_TEAM, label: COPY.admin.bewerbung.newSchool }]}
+        options={[...teams, { id: NEW_TEAM, label: ADMIN_COPY.bewerbung.newSchool }]}
         value={team}
         onChange={setTeam}
       />
       {team === NEW_TEAM && (
-        <FieldGroup name={COPY.admin.bewerbung.newSchool}>
+        <FieldGroup name={ADMIN_COPY.bewerbung.newSchool}>
           <TextField
             label={COPY.shared.name}
             name="name"

@@ -1,4 +1,5 @@
-import { COPY } from "@/core/copy";
+import { ADMIN_COPY } from "@/core/copy/admin";
+import { COPY } from "@/core/copy/shared";
 import { CREATE_RULES } from "@/features/schiedsrichter/fieldRules";
 import { FieldGroup } from "@/kit/FieldGroup";
 import { TextField } from "@/kit/TextField";
@@ -38,7 +39,7 @@ export function SchiedsrichterFields() {
         unit={COPY.shared.unit.euro}
         isRequired={required.default_payment}
       />
-      <FieldGroup name={COPY.admin.schiedsrichter.kontaktData}>
+      <FieldGroup name={ADMIN_COPY.schiedsrichter.kontaktData}>
         <TextField
           label={COPY.shared.emailAddress}
           name="email"

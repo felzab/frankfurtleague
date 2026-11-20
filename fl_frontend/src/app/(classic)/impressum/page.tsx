@@ -1,5 +1,5 @@
 import { KONTAKT_EMAIL, KONTAKT_MAILTO, SOURCE_URL, VORSTAND } from "@/core/brand";
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { ClassicPage, PageHead } from "@/kit/ClassicPage";
