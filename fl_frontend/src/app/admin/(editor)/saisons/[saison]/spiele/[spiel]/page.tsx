@@ -17,12 +17,12 @@ import { saveSpiel } from "@/features/spiele/saveSpiel";
 import { NO_SONDEREREIGNIS, NOBODY, takesNoResult, valuesOf } from "@/features/spiele/spielValues";
 import { spielerName } from "@/features/spieler/constants";
 import { createSpielort } from "@/features/spielorte/createSpielort";
+import { SPIELORT_RULES } from "@/features/spielorte/fieldRules";
 import { AGREED_CHIP, DECLINED_CHIP, EXPIRED_CHIP, owedChip } from "@/kit/stateChips";
 import { adminIdParamOf } from "@/shared/utils/adminRead";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
 
-import { SPIELORT_RULES } from "../../../../../spielortRules";
 import { SpielEditor } from "./SpielEditor";
 
 import type { Copy, Words } from "@/core/copy";

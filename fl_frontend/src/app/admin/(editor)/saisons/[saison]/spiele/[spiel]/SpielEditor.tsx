@@ -28,6 +28,7 @@ import type { ActionAnswer } from "@/core/action";
 import type { Copy, LockReason, Words } from "@/core/copy";
 import type { FLSaisonPhase, FLSonderereignis } from "@/core/generated/client/types";
 import type { Proposal, SpielValues } from "@/features/spiele/spielValues";
+import type { SpielortRules } from "@/features/spielorte/fieldRules";
 import type { AnswerRow } from "@/kit/AnswerRows";
 import type { CardActRowProps } from "@/kit/Card";
 import type { ChipProps } from "@/kit/Chip";
@@ -38,7 +39,6 @@ import type { ScoreOutcome, ScoreSide } from "@/kit/ScoreRows";
 import type { TableHead, TableRow } from "@/kit/Table";
 import type { EditorRecord, EditorSave } from "@/kit/useEditor";
 import type { Route } from "next";
-import type { SpielortRules } from "../../../../../spielortRules";
 
 const WORDS = ADMIN_COPY.spiel;
 const ORT = ADMIN_COPY.spielort;

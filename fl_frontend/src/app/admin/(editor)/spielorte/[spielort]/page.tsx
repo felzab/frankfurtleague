@@ -2,12 +2,12 @@ import { cache } from "react";
 import { notFound } from "next/navigation";
 
 import { ROUTES } from "@/core/routes";
+import { SPIELORT_SAVE_RULES } from "@/features/spielorte/fieldRules";
 import { getSpielort } from "@/features/spielorte/queries";
 import { adminIdParamOf } from "@/shared/utils/adminRead";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
 
-import { SPIELORT_SAVE_RULES } from "../../../spielortRules";
 import { reactivateSpielort, retireSpielort } from "./retireSpielort";
 import { saveSpielort } from "./saveSpielort";
 import { SpielortEditor } from "./SpielortEditor";

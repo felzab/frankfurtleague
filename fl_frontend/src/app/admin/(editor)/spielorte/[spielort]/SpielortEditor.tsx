@@ -9,10 +9,10 @@ import { TextField } from "@/kit/TextField";
 import { useEditor } from "@/kit/useEditor";
 
 import type { ActionAnswer } from "@/core/action";
+import type { SpielortRules } from "@/features/spielorte/fieldRules";
 import type { DangerAct } from "@/kit/EditorPage";
 import type { PageTitle } from "@/kit/RailFrame";
 import type { EditorRecord, EditorSave } from "@/kit/useEditor";
-import type { SpielortRules } from "../../../spielortRules";
 import type { SpielortValues } from "./spielortValues";
 
 const WORDS = ADMIN_COPY.spielort;
