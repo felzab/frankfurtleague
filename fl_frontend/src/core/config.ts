@@ -183,7 +183,7 @@ const fromFiles = {
   // key. Never empty, the demand testing for absence alone.
   AUTH_RESEND_KEY: z.string().min(1).optional(),
 
-  // Stricter than `svix`, which verifies with the prefix or without it: refusing at boot beats a 400
+  // Stricter than `standardwebhooks`, which verifies with the prefix or without it: refusing at boot beats a 400
   // the provider retries for thirty-two hours before disabling the endpoint. Demanded of production
   // alone, the one deployment the provider sends its events to.
   RESEND_WEBHOOK_SECRET: z
