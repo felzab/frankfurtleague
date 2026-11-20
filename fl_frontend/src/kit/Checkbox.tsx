@@ -52,7 +52,7 @@ const tick = tv({
       "group/toggle flex size-8 cursor-pointer items-center justify-center data-disabled:cursor-default data-disabled:opacity-50 data-readonly:cursor-default pointer-coarse:size-10",
   },
   variants: {
-    // Dimmed as a locked act is, the pointing hand kept, since a press is answered with the reason.
+    // Dimmed as a locked act is, yet keeping the pointing hand a locked act drops, since its row answers a press with the reason.
     columnFull: { true: { target: "opacity-50" } },
   },
 });

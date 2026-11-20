@@ -25,7 +25,7 @@ export function TeamAufstellung({
   team: string;
   title: PageTitle;
   chip?: ChipProps;
-  /** The fixture as the line under the title states it: when it is played, and when the line-up is due. */
+  /** The fixture as the line under the title states it: its pairing, when it is played, and when the line-up is due. */
   lead: Copy;
   /** Why the line-up is closed read-only to the team: the lock one hour before kick-off, from when the league alone writes it. */
   closed?: Copy;

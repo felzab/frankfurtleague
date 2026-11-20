@@ -206,7 +206,7 @@ export function useFrameSaison(): FrameSaison | null {
 
 /**
  * The same page in season `to`: the path with its season swapped, so a team's page stays its team's, and the
- * Spielsuche the Spielsuche, its filters dropped with the query, since they name one season's teams and matchdays. A record's
+ * Spielsuche the Spielsuche, a filter dropped with the query, since it names one season's choices, as Teams' groups. A record's
  * page, an address naming a record past the season, has no counterpart there and lands on the list it lies under,
  * the season page the rail marks for it; a page whose address names no season lands on the season's first page.
  */
