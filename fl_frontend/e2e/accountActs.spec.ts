@@ -59,7 +59,7 @@ test("a person changes their address: the address on file confirms first, then t
   await expect(page.getByRole("main").getByRole("button", { name: "Änderung zurückziehen" })).toBeVisible();
 
   // The address on file's link asks it first, naming the address the change goes to.
-  const previousLink = await mailedLink(mover, "Änderung der E-Mail-Adresse", before);
+  const previousLink = await mailedLink(mover, "Änderung bestätigen", before);
   await page.goto(previousLink);
   await expect(page.getByRole("main").getByRole("heading", { name: "Änderung bestätigen" })).toBeVisible();
   await expect(page.getByRole("main").getByText(newAddress, { exact: true })).toBeVisible();

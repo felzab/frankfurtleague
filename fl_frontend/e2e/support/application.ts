@@ -90,7 +90,7 @@ export async function apply(page: Page, school: string, { isListed }: { isListed
   await typeInto(team.getByRole("textbox", { name: /^Davon im Verein/ }), "3");
 
   await page.getByRole("main").getByRole("button", { name: "Bewerbung abschicken" }).click();
-  await expect(page.getByRole("main").getByRole("heading", { name: "Bewerbung abgeschickt" })).toBeVisible();
+  await expect(page.getByRole("main").getByRole("heading", { name: "Jede Kontaktperson bestätigt per E-Mail" })).toBeVisible();
 }
 
 /** Answers a seat's mailed link with a birthdate, as far as the page's own end. */
