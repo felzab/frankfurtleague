@@ -97,7 +97,10 @@ A client component cannot reach the server's logger. Every error boundary theref
 to `POST /api/client-error` (`fl_frontend/src/app/api/client-error/route.ts`), which writes one
 `client.crash_reported` line; the bot-check widget reports a failure the same way. The route is
 public, so nginx rate-limits it and the route caps every field. A failure rendered on the server is
-logged as `system.request_crashed` with a digest instead.
+logged as `system.request_crashed` with a digest instead, once per request and digest, though Next
+captures one failure at several stages (`fl_frontend/src/core/instrumentation.ts`). The line names
+the stage that captured it first: `route_type`, `render_source` and, for a revalidation,
+`revalidate_reason`.
 
 ## In development
 
