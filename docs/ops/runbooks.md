@@ -1035,7 +1035,7 @@ An `account_not_moved` line at `WARN` needs no repair: reading `reason: "occupie
 held an account of its own, and the person signs in there anew.
 
 **The pupils' deletion runs on every pass**
-(`fl_frontend/src/features/saisons/sweep.ts :: runErasureSweep`). It stamps no day either: each pass
+(`fl_frontend/src/features/spieler/sweep.ts :: runErasureSweep`). It stamps no day either: each pass
 deletes the pupils the season-after rule makes due, each in a transaction of its own, and counts on
 the pass's line what it erased, the pupils it skipped as changed since its read and those it failed;
 a pass whose call threw fails the job, which `scheduler.job_failed` names as `erasure`.
@@ -1068,9 +1068,9 @@ hold, as [section 5](#5-when-somebody-asks-for-their-data-or-asks-us-to-change-i
 lost mailbox's.
 
 **Two promises rest on the retention sweep's pass**
-(`fl_frontend/src/features/bewerbungen/sweep.ts :: sweepAddressChange`): the privacy notice's word
-that a change whose step lapsed ends „innerhalb einer Stunde“, and the word, in the notice and in
-both mails the change sends (`fl_frontend/src/core/addressChangeEmail.ts`), that a change an
+(`fl_frontend/src/features/address-change/sweep.ts :: sweepAddressChange`): the privacy notice's
+word that a change whose step lapsed ends „innerhalb einer Stunde“, and the word, in the notice and
+in both mails the change sends (`fl_frontend/src/core/addressChangeEmail.ts`), that a change an
 administrator started takes effect its waiting time after its confirmation. While no pass runs
 neither is kept: a lapsed change keeps its new address, and a change past its waiting time stands
 until the next pass.
