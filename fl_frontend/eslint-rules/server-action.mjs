@@ -1,10 +1,10 @@
 /**
  * The one way to a server action and the few route handlers, read off syntax. A `"use server"` module exports
- * nothing but `action({...})` calls of the builder (`fl_frontend/src/core/action.ts`), whose type holds each lane's
- * declaration: the admin lane, the person lane with its claim, and the public lane behind the bot check or under one
- * of the exemptions it names. A function-level `"use server"` is an action no builder made, and a route handler stands
- * only in the files the options keep. Whatever the rule cannot read as one of these fails, so a new shape is refused
- * rather than waved through.
+ * nothing but `const` calls of the builder imported from `@/core/action`; what each call declares is the builder's
+ * type's to hold (`fl_frontend/src/core/action.ts :: action`): the admin lane, the person lane with its claim, and the
+ * public lane behind the bot check or under one of the exemptions it names. A function-level `"use server"` is an
+ * action no builder made, and a route handler stands only in the files the options keep. Whatever the rule cannot read
+ * as one of these fails, so a new shape is refused rather than waved through.
  */
 
 import path from "node:path";
@@ -28,8 +28,7 @@ const serverAction = {
       },
     ],
     messages: {
-      notBuilt: 'Every export of a "use server" module is `export const <name> = action({...})`, the builder from @/core/action.',
-      spread: "Spell the action's declaration out: the rule cannot read a spread or a computed key.",
+      notBuilt: 'Every export of a "use server" module is `export const <name> = action(...)`, the builder from @/core/action.',
       inline: 'A function-level "use server" is an action no builder made: export it from a "use server" module, built by `action`.',
       route: "A route handler stands only in the kept files. A browser's form posts through a server action built by `action`.",
     },
@@ -40,16 +39,6 @@ const serverAction = {
     // Relative to the project, as the options name the kept files.
     const filename = path.relative(ROOT, path.resolve(ROOT, context.filename)).replaceAll("\\", "/");
     let builder = null;
-
-    /**
-     * Judges one `action({...})` declaration by its shape alone: the lane, a person's claim and a public action's bot
-     * check or exemption are the builder's type's to hold.
-     */
-    function judge(declaration) {
-      const [spec, ...rest] = declaration.arguments;
-      if (spec?.type !== "ObjectExpression" || rest.length > 0) return context.report({ node: declaration, messageId: "notBuilt" });
-      if (spec.properties.some((entry) => entry.type !== "Property" || entry.computed)) context.report({ node: spec, messageId: "spread" });
-    }
 
     /** Whether `node` calls the builder as imported here. */
     const isBuilt = (node) => node?.type === "CallExpression" && node.callee.type === "Identifier" && node.callee.name === builder;
@@ -87,7 +76,6 @@ const serverAction = {
           }
           for (const declarator of declaration.declarations) {
             if (declarator.id.type !== "Identifier" || !isBuilt(declarator.init)) context.report({ node: declarator, messageId: "notBuilt" });
-            else judge(declarator.init);
           }
         }
       },

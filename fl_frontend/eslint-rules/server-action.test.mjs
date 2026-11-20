@@ -42,8 +42,6 @@ tester.run("fl/server-action", serverAction, {
     invalid(inModule('export let create = action({ lane: "admin", input, run });'), "notBuilt"),
     // The builder imported from anywhere else is no builder.
     invalid('"use server";\nimport { action } from "./action";\nexport const create = action({ lane: "admin", input, run });', "notBuilt"),
-    invalid(inModule("export const create = action(spec);"), "notBuilt"),
-    invalid(inModule("export const create = action({ ...spec });"), "spread"),
     invalid('export async function speichern() {\n  "use server";\n}', "inline", "src/app/page.tsx"),
     invalid('const speichern = async () => {\n  "use server";\n};', "inline", "src/app/page.tsx"),
     invalid("export async function POST() { return new Response(null); }", "route", "src/app/api/bewerbung/route.ts"),
