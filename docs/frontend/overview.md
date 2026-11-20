@@ -176,16 +176,16 @@ because the rail opens and closes under one viewport, so only the box says how m
 has. Lists, tables and bordered boxes, match rows, card grids and folds among them, stack below 42
 rem (`@2xl`) and spread from it. A list of records is a table from 42 rem, and below it each row
 stacks: the name with its chips, at most one `narrow` column beside them, one muted line under the
-name, then a decision's acts. A column the stacked row leaves out keeps its fact where
-[a recurring job's pattern](copy.md#a-recurring-job-takes-its-fixed-pattern) says. The Tabelle, a
-`stack` table and a `prose` table keep forms of their own (`fl_frontend/src/kit/Table.tsx`). A
-card's act row, `Facts` and `LinkRows` switch at 32 rem (`@lg`). The five match tiles stand in one
-row from 47.5 rem, the form column's width (`fl_frontend/src/kit/StatTiles.tsx`). The K.-o.-Baum
-draws its cards of plaques alone below 42 rem and with each side's name and the date line from it,
-by the tree's box, since a card's own width is the form's result
-(`fl_frontend/src/kit/BracketTree.tsx`). The organisers stand in four columns from 44 rem, where the
-widest entry fits whole (`fl_frontend/src/kit/Organisers.tsx`). Two kinds of part switch by the
-screen at `lg` instead:
+name, and its side acts folded into one „⋯“ at the row's end. A column the stacked row leaves out
+keeps its fact where [a recurring job's pattern](copy.md#a-recurring-job-takes-its-fixed-pattern)
+says. The Tabelle, a `stack` table and a `prose` table keep forms of their own
+(`fl_frontend/src/kit/Table.tsx`). A card's act row, `Facts` and `LinkRows` switch at 32 rem
+(`@lg`). The five match tiles stand in one row from 47.5 rem, the form column's width
+(`fl_frontend/src/kit/StatTiles.tsx`). The K.-o.-Baum draws its cards of plaques alone below 42 rem
+and with each side's name and the date line from it, by the tree's box, since a card's own width is
+the form's result (`fl_frontend/src/kit/BracketTree.tsx`). The organisers stand in four columns from
+44 rem, where the widest entry fits whole (`fl_frontend/src/kit/Organisers.tsx`). Two kinds of part
+switch by the screen at `lg` instead:
 
 - **A frame, and a classic page's own layout, which no block's box holds**: the frames' bands, rail
   and footer, a classic page's spacing, the landing's hero beside the season card, the gaps between
