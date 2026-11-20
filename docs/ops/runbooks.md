@@ -368,10 +368,10 @@ administration is shut while it is down. Each of these is easy to get wrong:
   taken as typed.
 - **A grant admits every passkey the address already holds.** A person enrols none: the enrolment
   refuses an address holding no grant. One a person holds from before that refusal, or from an
-  earlier grant, or brought along on an address change the new mailbox confirmed while nothing
-  named it, rests on the same authority an administrator's first passkey rests on, so it admits once
-  the address is granted, though only on a passkey sign-in made after the grant: a session older
-  than the grant administers nothing. Grant an address only where its mailbox is trusted as an
+  earlier grant, or brought along on an address change the new mailbox confirmed while nothing named
+  it, rests on the same authority an administrator's first passkey rests on, so it admits once the
+  address is granted, though only on a passkey sign-in made after the grant: a session older than
+  the grant administers nothing. Grant an address only where its mailbox is trusted as an
   administrator's.
 - **The grant is the access; the person's own next sign-in enrols the passkey.** An address holding
   a grant and no passkey is answered the enrolment page and reaches no admin route until one stands,
