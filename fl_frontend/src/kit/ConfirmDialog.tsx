@@ -124,7 +124,8 @@ type Confirming = {
   /**
    * Does the act. The dialog closes once it has run, unless the act answers with a refusal, such as a venue still
    * booked, or throws, as a lost answer does: the dialog then stays open with the refusal in its status line beside
-   * the acts, a throw worded and the page read again as every form's send is (`answering`).
+   * the acts, a throw worded as every form's send words it, the page read again only where the frontend answered
+   * (`answering`).
    */
   onConfirm: () => void | Promise<void> | Promise<ActionAnswer<unknown>>;
 };

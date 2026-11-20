@@ -673,8 +673,8 @@ const STALE_AFTER_FAILED_PRESS = 5;
 
 /**
  * The lane and its body, answering a backend refusal by its code, a guard's lookup included, and any other throw as
- * the unexpected failure, which never reaches the browser: its catch of a thrown action reads the page again as though
- * the press may have landed.
+ * the unexpected failure, so no throw of the server's reaches the browser, where one carrying Next's `digest` reads the
+ * page again as though the press may have landed.
  *
  * Where the body sent a backend write that may have landed, the site's one cache tag is cleared, whatever the body
  * came to: the write may stand behind a throw or a lost answer, and every cached read carries the tag, so no write
