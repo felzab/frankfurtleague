@@ -1,6 +1,6 @@
 import { PUBLIC_COPY } from "@/core/copy/public";
 import { COPY } from "@/core/copy/shared";
-import { positionOptions, stufeOptions } from "@/features/spieler/options";
+import { positionChoices, stufeChoices } from "@/features/spieler/options";
 import { ConsentLine } from "@/kit/ConsentLine";
 import { Section } from "@/kit/Section";
 import { Select } from "@/kit/Select";
@@ -77,14 +77,12 @@ export function RegistrierungFields({
         <Select
           label={KADER.position}
           name="position"
-          defaultValue=""
-          options={positionOptions()}
+          options={positionChoices()}
         />
         <Select
           label={KADER.stufe}
           name="stufe"
-          defaultValue=""
-          options={stufeOptions(stufen)}
+          options={stufeChoices(stufen)}
         />
       </Section>
     </>

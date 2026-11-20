@@ -6,7 +6,8 @@ import { dayOf, formatDate } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { getBewerbungenOfSaison } from "@/features/bewerbungen/queries";
-import { SEATS, STANDING_CHIP, standingOf, TEAM_DOUBLE } from "@/features/bewerbungen/standing";
+import { STANDING_CHIP, standingOf, TEAM_DOUBLE } from "@/features/bewerbungen/standing";
+import { KONTAKT_SEATS } from "@/features/teams/constants";
 import { filterValue } from "@/kit/filterValue";
 import { ListPage } from "@/kit/ListPage";
 import { NOT_SENT_CHIP, outOfPlayChip } from "@/kit/stateChips";
@@ -68,7 +69,7 @@ function rowOf(row: FLBewerbungListRow, saison: string, past: boolean): TableRow
     chip: chipOf(row, past),
     cells: {
       received: { record: formatDate(dayOf(row.submitted_at)) },
-      seats: ADMIN_COPY.seatsOf(row.seats_confirmed, SEATS),
+      seats: ADMIN_COPY.seatsOf(row.seats_confirmed, KONTAKT_SEATS.length),
     },
   };
 }

@@ -4,8 +4,9 @@ import { useId, useState } from "react";
 
 import { PUBLIC_COPY } from "@/core/copy/public";
 import { COPY } from "@/core/copy/shared";
-import { TRIKOT_FARBEN } from "@/core/trikotFarben";
+import { trikotFarbeOptions } from "@/core/trikotFarben";
 import { BEWERBUNG_MIN_AGE, SIGNATORY_MIN_AGE } from "@/features/bewerbungen/constants";
+import { KONTAKT_SEATS } from "@/features/teams/constants";
 import { AddressFields } from "@/kit/AddressFields";
 import { ComboBox } from "@/kit/ComboBox";
 import { ConsentLine } from "@/kit/ConsentLine";
@@ -16,7 +17,7 @@ import { Switch } from "@/kit/Switch";
 import { TextField } from "@/kit/TextField";
 import { useUnsavedChangesWarning } from "@/kit/useUnsavedChangesWarning";
 
-import { NO_SECOND_SEAT, SEATS } from "./application";
+import { NO_SECOND_SEAT } from "./application";
 
 import type { FLBewerbungSchuleOption, FLKontaktSeat, FLSchulform, FLTrikotFarbe } from "@/core/generated/client/types";
 import type { Option } from "@/kit/OptionList";
@@ -87,7 +88,7 @@ function SeatBoxes({ seat, floor, box, rules }: { seat: FLKontaktSeat; floor: nu
       <TextField
         {...path("first_name")}
         label={shared.firstName}
-        description={COPY.shared.mediaFrom(floor)}
+        description={bewerbung.seatFloor(floor)}
         kind="text"
         isRequired={required.firstName}
         maxLength={max.firstName}
@@ -133,6 +134,8 @@ export function BewerbungFields({
 }) {
   const [hasTyped, setHasTyped] = useState(false);
   const [switchedOn, setSwitchedOn] = useState(false);
+  // The picker's pick, held here because the picker shows none while the switch is on and gives it back once it is off.
+  const [picked, setPicked] = useState<string | null>(null);
   const [trainerAlso, setTrainerAlso] = useState<string>(NO_SECOND_SEAT);
   // Written as it is typed and read when a box comes back, so no render follows a keystroke.
   const [typed] = useState(() => new Map<string, string>());
@@ -161,12 +164,18 @@ export function BewerbungFields({
       <Section title={COPY.shared.facts.school}>
         {isListed && (
           <>
+            {/* Drawn while the switch is on, so the switch never moves under the finger, but dimmed and empty: the new
+                school is the answer then, and the box posts an empty `team_id`, which `applicationOf` drops. */}
             <ComboBox
               label={COPY.shared.facts.school}
               description={bewerbung.schoolDescription}
               name="team_id"
               isRequired={!isNewSchool}
+              isDisabled={switchedOn}
               options={schools}
+              plural={COPY.shared.schulen}
+              value={switchedOn ? null : picked}
+              onChange={setPicked}
             />
             <Switch
               label={bewerbung.schoolNotListed}
@@ -191,7 +200,7 @@ export function BewerbungFields({
         />
       </Section>
 
-      {SEATS.map((seat) => (
+      {KONTAKT_SEATS.map((seat) => (
         <Section
           key={seat}
           title={team.seatName[seat]}>
@@ -239,9 +248,7 @@ export function BewerbungFields({
           name="trikot.wunschfarbe"
           isRequired={required.wunschfarbe}
           onChange={() => setHasTyped(true)}
-          options={TRIKOT_FARBEN.map(({ value, label }) =>
-            taken.includes(value) ? { id: value, label: { record: label }, isDisabled: true } : { id: value, label: { record: label } },
-          )}
+          options={trikotFarbeOptions(taken)}
         />
         <TextField
           {...box("kader.expected_size")}

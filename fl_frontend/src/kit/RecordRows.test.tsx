@@ -96,6 +96,7 @@ function Goals({ errors, locked }: { errors?: Readonly<Record<string, Copy>>; lo
                 labelHidden
                 name={name}
                 options={KADER}
+                plural={COPY.shared.spieler}
                 value={row.spieler_id}
                 onChange={(spieler_id) => change({ spieler_id })}
               />

@@ -7,7 +7,6 @@ import { orMissing } from "@/core/errors";
 import { bewerbungenGetForm } from "@/core/generated/client/sdk";
 import { ROUTES } from "@/core/routes";
 import { runWithIncomingTrace } from "@/core/traceScope";
-import { SAISON_ID_LENGTH } from "@/features/saisons/constants";
 import { ConsentLine } from "@/kit/ConsentLine";
 
 import { BewerbungFields } from "./BewerbungFields";
@@ -28,10 +27,9 @@ const NOTICE_ID = "bewerbung-notice";
  * it once between them, and a stored copy would go on saying a window runs after it shut. A failed read reaches the
  * frame's error card.
  */
-export const readForm = cache(async (saison: string): Promise<FLBewerbungFormResponse | null> => {
-  if (saison.length !== SAISON_ID_LENGTH) return null;
-  return runWithIncomingTrace(() => orMissing(bewerbungenGetForm(saison)));
-});
+export const readForm = cache(async (saison: string): Promise<FLBewerbungFormResponse | null> =>
+  runWithIncomingTrace(() => orMissing(bewerbungenGetForm(saison))),
+);
 
 /** What a season's form page shows: the form while its window runs, else the card standing in its place. */
 export function formStateOf(saison: string, form: FLBewerbungFormResponse): MailedState {
