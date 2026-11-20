@@ -871,10 +871,11 @@ export const SERVER_COPY = catalogue({
       /** A key to the standing's marks, one short line each, as the owner asked: each mark, then what it says. */
       help: [
         `${COPY.shared.season.cancelledMark(1)} bei ${SPIELE_SHORT}: ${COPY.shared.season.cancelled(1)}`,
-        `${COPY.shared.austritt.disqualifikation.shorthand}: disqualifiziert`,
-        `${COPY.shared.austritt.rueckzug.shorthand}: zurückgezogen`,
-        `Grüner Rand: reicht derzeit für die ${COPY.shared.kORunde}`,
-        "Grauer Rand: geteilter Platz",
+        // Each meaning is the entry the mark's own words come from, so a rewording reaches the key too.
+        `${COPY.shared.austritt.disqualifikation.shorthand}: ${COPY.shared.austritt.disqualifikation.state}`,
+        `${COPY.shared.austritt.rueckzug.shorthand}: ${COPY.shared.austritt.rueckzug.state}`,
+        `Grüner Rand: ${COPY.shared.season.qualifies.settled}`,
+        `Grauer Rand: ${COPY.shared.season.qualifies.level}`,
       ],
     },
 
