@@ -55,7 +55,8 @@ export type SpieltageContent = {
 
 /** One card per group under the page's one title, the Tabelle's: each group's name and count heading its standing. */
 type GroupsContent = {
-  groups: ReadonlyArray<{ id: string; title: Copy; table: TableStandingBody }>;
+  /** Each group's card, its help behind the ⓘ after its title where the standing draws marks it explains. */
+  groups: ReadonlyArray<{ id: string; title: Copy; help?: readonly [Copy, ...Copy[]]; table: TableStandingBody }>;
   /** Why there is no group to show, standing in the tables' place. */
   empty: EmptyStateProps;
 };
@@ -303,6 +304,7 @@ async function ListBody({ list }: { list: ListContent }) {
           <Card
             key={group.id}
             title={group.title}
+            {...(group.help === undefined ? {} : { help: group.help })}
             count={group.table.rows.length}>
             <TableStanding
               {...list.head}

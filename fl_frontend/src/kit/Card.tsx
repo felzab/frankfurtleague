@@ -1,12 +1,15 @@
 import { textOf } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 
+import { Button } from "./Button";
 import { actRow, card, cardHover, nameWithChips, stacked } from "./cardStyles";
 import { Chip } from "./Chip";
 import { CutText } from "./CutText";
+import { HelpPopover } from "./HelpPopover";
 import { Link } from "./Link";
 import { RowEnd } from "./RowEnd";
 
-import type { Words } from "@/core/copy";
+import type { Copy, Words } from "@/core/copy";
 import type { Route } from "next";
 import type { ReactElement, ReactNode } from "react";
 import type { ChipProps } from "./Chip";
@@ -18,6 +21,11 @@ export type CardProps = {
   children?: ReactNode;
   /** The one line under the title: catalogue text such as a figure's meaning, or a record's own detail. */
   line?: Words;
+  /**
+   * The card's help behind the ⓘ after its title, as a section's (`Section`): a few short declarative lines, one
+   * statement each, such as what the marks of a group's standing mean.
+   */
+  help?: readonly [Copy, ...Copy[]];
 } & (
   | {
       /** How many items the card holds open. */
@@ -36,12 +44,31 @@ export type CardProps = {
  * body folds behind its head is `CardFold`, a module of its own, so a page placing only plain cards ships none
  * of the fold's client code.
  */
-export function Card({ title, count, chip, body = "rows", children, line }: CardProps) {
+export function Card({ title, count, chip, body = "rows", children, line, help }: CardProps) {
   const s = card({ body });
+  const heading = <h2 className={s.title()}>{textOf(title)}</h2>;
   return (
     <section className={s.root()}>
       <div className={s.head()}>
-        <h2 className={s.title()}>{textOf(title)}</h2>
+        {help === undefined ? (
+          heading
+        ) : (
+          // The ⓘ stands beside the heading, not in it, so the heading is named by its title alone, and reaches into the
+          // head's padding rather than raising the head, as a section's does.
+          <div className="flex items-center gap-2">
+            {heading}
+            <span className="-my-1 flex pointer-coarse:-my-2">
+              <HelpPopover
+                subject={title}
+                lines={help}>
+                <Button
+                  icon="info"
+                  label={COPY.shared.help}
+                />
+              </HelpPopover>
+            </span>
+          </div>
+        )}
         {/* At the head's end, where a count stands, in the card's every state: the one exception to a chip standing
             right after its name, ruled for the landing's season card, whose state is the card's, not its title's. */}
         {chip !== undefined && (

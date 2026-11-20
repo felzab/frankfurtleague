@@ -58,7 +58,7 @@ export type TableStandingRow = {
   /**
    * A place that qualifies, the 2-px bar at the row's left edge, in the rank cell: in the brand's green where the place
    * is the club's alone, `settled`, and in the control grey where level clubs share it, `level`, since until the tie
-   * resolves the bracket seeds none of them.
+   * resolves the bracket seeds none of them. A screen reader hears each tone in words after the place.
    */
   qualifies?: "settled" | "level";
   /** A club that no longer counts, such as a disqualified one: its text and its plaque muted. */
@@ -297,6 +297,9 @@ export function TableStanding({ label, rankLabel, nameLabel, columns, rows, empt
                       role="cell"
                       className={s.cell({ align: "rank", qualifies: row.qualifies })}>
                       {row.place === null ? COPY.shared.noValue : formatNumber(row.place)}
+                      {/* The edge is a colour alone, which a screen reader hears as these words; the space before them
+                          stands in the read text, never beside the centred place. */}
+                      {row.qualifies !== undefined && <span className="sr-only"> {COPY.shared.season.qualifies[row.qualifies]}</span>}
                     </td>
                     <NameCell row={row} />
                     {columns.map((column) => (

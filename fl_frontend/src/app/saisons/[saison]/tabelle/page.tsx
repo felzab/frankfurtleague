@@ -99,6 +99,8 @@ async function readGroups(params: Props["params"]) {
     groups: groups.map(([gruppe, rows]) => ({
       id: gruppe,
       title: SERVER_COPY.season.gruppe(gruppe),
+      // One ⓘ for each group's card, each explaining the marks its standing draws.
+      help: SERVER_COPY.season.tabelle.help,
       table: {
         label: SERVER_COPY.season.gruppe(gruppe),
         rows: rows.map((row) => rowOf(saison, row, tabelle.qualifiers_per_gruppe, rows)),
