@@ -42,8 +42,9 @@ beforeEach(() => {
 });
 
 describe("the withdrawal's question", () => {
-  it("sends every ticked box to the dry run as its choice, and asks over the kinds it ends", async () => {
-    held.report = { ...NOTHING, spieler: ["name", "media"], kontakt_seats: ["whatsapp"] };
+  // The harm: a row per kind lists choices with „und“, which „Fotos und Videos“ holds too, so the list reads ambiguously.
+  it("sends every ticked box to the dry run as its choice, and asks over each choice with the kinds it ends on", async () => {
+    held.report = { ...NOTHING, spieler: ["name", "media"], kontakt_seats: ["whatsapp", "media"] };
 
     const answer = await readWithdrawal(form("name", "whatsapp", "media"));
 
@@ -57,8 +58,12 @@ describe("the withdrawal's question", () => {
           subject: COPY.admin.withdrawal.object,
           consequence: COPY.admin.withdrawal.consequence,
           facts: [
-            { label: COPY.shared.spieler, value: COPY.admin.withdrawal.ended([COPY.admin.spieler.nameOnSite, COPY.admin.spieler.media]) },
-            { label: COPY.admin.erasure.count.teamSeats, value: COPY.admin.withdrawal.ended([COPY.admin.withdrawal.choice.whatsapp]) },
+            { label: COPY.admin.withdrawal.choice.name, value: COPY.admin.withdrawal.ended([COPY.shared.spieler]) },
+            { label: COPY.admin.withdrawal.choice.whatsapp, value: COPY.admin.withdrawal.ended([COPY.admin.erasure.count.teamSeats]) },
+            {
+              label: COPY.admin.withdrawal.choice.media,
+              value: COPY.admin.withdrawal.ended([COPY.shared.spieler, COPY.admin.erasure.count.teamSeats]),
+            },
           ],
         },
         input: { email: SENDER, choices: ["name", "whatsapp", "media"] },

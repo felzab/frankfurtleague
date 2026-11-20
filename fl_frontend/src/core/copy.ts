@@ -1602,8 +1602,8 @@ export const COPY = catalogue({
       object: "Widerruf",
       /** Each box, by the choice it withdraws. */
       choice: { name: NAME_ON_SITE, whatsapp: "WhatsApp", media: MEDIA } satisfies Record<FLWithdrawalChoice, string>,
-      /** A fact's value: the choices the entry ends on one kind of record. */
-      ended: (choices: readonly Copy[]) => formatList(choices),
+      /** A fact's value: the kinds of record the entry ends one choice on. */
+      ended: (kinds: readonly Copy[]) => formatList(kinds),
       /** What no press of the administration undoes: no administrative write grants a consent. */
       consequence: "Nur die Person kann wieder einwilligen.",
       noneChosen: "Kein Widerruf gewählt.",
