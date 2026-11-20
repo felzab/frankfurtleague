@@ -3,9 +3,6 @@ import { isNoShow } from "@/features/spiele/result";
 import type { CalendarDay, TimeOfDay } from "@/core/format";
 import type { FLSpielJoinedAdmin } from "@/core/generated/client/types";
 
-/** The Sonderereignis select's first entry, which saves as no event. */
-export const NO_SONDEREREIGNIS = "none";
-
 /**
  * The referee field's entry for a booking naming nobody, which a played match keeps with its fee once its referee was
  * erased: a combo box's choice is a string, and the write takes this one as a null referee.
@@ -15,7 +12,8 @@ export const NOBODY = "nobody";
 /**
  * What the match editor's fields hold: a knockout match's two clubs, picked by hand; the Ansetzung's day, time, venue
  * and its price, referee and their fee; whether a result is entered, its goals and a shoot-out's; the Sonderereignis'
- * choice; the note. A figure is the text typed, read as one by the save.
+ * choice, `""` for „Keines“, which the save reads as no event; the note. A figure is the text typed, read as one by the
+ * save.
  */
 export type SpielValues = {
   team1: string | null;
@@ -75,7 +73,7 @@ export function valuesOf(spiel: FLSpielJoinedAdmin): SpielValues {
     tore2: hasResult ? figure(spiel.team2?.tore) : "",
     shootOut1: figure(spiel.elfmeterschiessen?.team1),
     shootOut2: figure(spiel.elfmeterschiessen?.team2),
-    sonderereignis: spiel.sonderereignis ?? NO_SONDEREREIGNIS,
+    sonderereignis: spiel.sonderereignis ?? "",
     note: spiel.note ?? "",
   };
 }

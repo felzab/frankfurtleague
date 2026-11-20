@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { counted, NO_SONDEREREIGNIS, valuesOf } from "./berichtValues";
+import { counted, valuesOf } from "./berichtValues";
 
 import type { FLSonderereignis, FLSpielberichtSchiedsrichterResponse } from "@/core/generated/client/types";
 
@@ -59,6 +59,7 @@ describe("a first report on a match the league gave an event", () => {
   });
 
   it.each(["ausgefallen", "annulliert"] as const)("opens at no event on a match %s, which the report cannot state", (sonderereignis) => {
-    expect(valuesOf(unreported(sonderereignis)).sonderereignis).toBe(NO_SONDEREREIGNIS);
+    // „Keines“, the select's empty entry.
+    expect(valuesOf(unreported(sonderereignis)).sonderereignis).toBe("");
   });
 });

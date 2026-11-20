@@ -17,8 +17,6 @@ import { Switch } from "@/kit/Switch";
 import { TextField } from "@/kit/TextField";
 import { useUnsavedChangesWarning } from "@/kit/useUnsavedChangesWarning";
 
-import { NO_SECOND_SEAT } from "./application";
-
 import type { FLBewerbungSchuleOption, FLKontaktSeat, FLSchulform, FLTrikotFarbe } from "@/core/generated/client/types";
 import type { Option } from "@/kit/OptionList";
 import type { BewerbungRules } from "./fieldRules";
@@ -136,7 +134,8 @@ export function BewerbungFields({
   const [switchedOn, setSwitchedOn] = useState(false);
   // The picker's pick, held here because the picker shows none while the switch is on and gives it back once it is off.
   const [picked, setPicked] = useState<string | null>(null);
-  const [trainerAlso, setTrainerAlso] = useState<string>(NO_SECOND_SEAT);
+  // `""` for „Keine weitere Rolle“, the select's first entry.
+  const [trainerAlso, setTrainerAlso] = useState("");
   // Written as it is typed and read when a box comes back, so no render follows a keystroke.
   const [typed] = useState(() => new Map<string, string>());
   const coveredLine = useId();
@@ -212,7 +211,7 @@ export function BewerbungFields({
           ) : (
             <SeatBoxes
               seat={seat}
-              floor={seat === "trainer" && trainerAlso === NO_SECOND_SEAT ? BEWERBUNG_MIN_AGE : SIGNATORY_MIN_AGE}
+              floor={seat === "trainer" && trainerAlso === "" ? BEWERBUNG_MIN_AGE : SIGNATORY_MIN_AGE}
               box={box}
               rules={rules}
             />
@@ -223,9 +222,9 @@ export function BewerbungFields({
               description={team.trainerAlso.description}
               name="kontakte.trainer_is_also"
               value={trainerAlso}
-              onChange={(value) => setTrainerAlso(value ?? NO_SECOND_SEAT)}
+              onChange={(value) => setTrainerAlso(value ?? "")}
               options={[
-                { id: NO_SECOND_SEAT, label: team.trainerAlso.none },
+                { id: "", label: team.trainerAlso.none },
                 { id: "ansprechperson", label: team.seatName.ansprechperson },
                 { id: "stellvertretung", label: team.seatName.stellvertretung },
               ]}

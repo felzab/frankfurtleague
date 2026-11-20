@@ -5,8 +5,6 @@ import { COPY } from "@/core/copy/shared";
 import { refusal, serveBackend } from "@/test-support/backend";
 import { signedInRequest } from "@/test-support/session";
 
-import { NO_SONDEREREIGNIS } from "./spielValues";
-
 import type { FLPatchSpielDataPayload, FLPatchSpielDataResponse, FLSpielJoinedAdmin } from "@/core/generated/client/types";
 
 const SPIEL_ID = "64b000000000000000000001";
@@ -185,7 +183,8 @@ describe("the match editor's save", () => {
       sonderereignis: "nichtantreten_team2",
     } satisfies FLSpielJoinedAdmin;
 
-    await saveSpiel(saving({ sonderereignis: NO_SONDEREREIGNIS }));
+    // „Keines“, the select's empty entry, which the save reads as no event.
+    await saveSpiel(saving({ sonderereignis: "" }));
 
     expect(state.sent).toMatchObject([{ sonderereignis: null, team1: { tore: null }, team2: { tore: null } }]);
   });

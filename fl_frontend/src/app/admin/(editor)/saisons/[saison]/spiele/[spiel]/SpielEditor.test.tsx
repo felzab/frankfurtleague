@@ -5,7 +5,6 @@ import { describe, expect, it, vi } from "vitest";
 
 import { ADMIN_COPY } from "@/core/copy/admin";
 import { COPY } from "@/core/copy/shared";
-import { NO_SONDEREREIGNIS } from "@/features/spiele/spielValues";
 import { SPIELORT_RULES } from "@/features/spielorte/fieldRules";
 import { renderUnderNext } from "@/test-support/nextContexts";
 
@@ -36,7 +35,7 @@ const STORED: SpielValues = {
   tore2: "0",
   shootOut1: "",
   shootOut2: "",
-  sonderereignis: NO_SONDEREREIGNIS,
+  sonderereignis: "",
   note: "",
 };
 
@@ -44,15 +43,22 @@ const STORED: SpielValues = {
 const ADOPTION: Adoption = {
   version: 2,
   text: WORDS.fromReport(COPY.spielplan.score({ team1: 1, team2: 0 }, null)),
-  values: { sonderereignis: NO_SONDEREREIGNIS, hasResult: true, tore1: "1", tore2: "0", shootOut1: "", shootOut2: "" },
+  values: { sonderereignis: "", hasResult: true, tore1: "1", tore2: "0", shootOut1: "", shootOut2: "" },
 };
 
-function Editor({ save }: { save: Parameters<typeof SpielEditor>[0]["save"] }) {
+/** The Sonderereignis select's entries: „Keines“ first, which the save reads as no event, then two events. */
+const SONDEREREIGNISSE = [
+  { id: "", label: COPY.spielplan.sonderereignis.none },
+  { id: "abgebrochen", label: COPY.spielplan.sonderereignis.abgebrochen },
+  { id: "ausgefallen", label: COPY.spielplan.sonderereignis.ausgefallen },
+];
+
+function Editor({ save, values = STORED }: { save: Parameters<typeof SpielEditor>[0]["save"]; values?: SpielValues }) {
   return (
     <SpielEditor
       title={{ record: "Ahorn vs. Eiche" }}
       preview={ADOPTION.text}
-      record={{ id: SPIEL_ID, version: 3, values: STORED }}
+      record={{ id: SPIEL_ID, version: 3, values }}
       save={save}
       phase="gruppenphase"
       begun
@@ -64,7 +70,7 @@ function Editor({ save }: { save: Parameters<typeof SpielEditor>[0]["save"] }) {
       teams={null}
       spielorte={[]}
       schiedsrichter={[]}
-      sonderereignisse={[{ id: NO_SONDEREREIGNIS, label: COPY.spielplan.sonderereignis.none }]}
+      sonderereignisse={SONDEREREIGNISSE}
       noteMax={500}
       required={{ mietpreis: true, payment: true }}
       report={{ head: { nameLabel: COPY.shared.spieler, stack: true, columns: [] }, rows: [] }}
@@ -91,5 +97,32 @@ describe("a report whose proposal the fields already hold", () => {
     await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.save }));
     // No field of the match changed: the press is the whole save.
     await waitFor(() => expect(save).toHaveBeenCalledWith({ id: SPIEL_ID, version: 3, changes: {}, adoptsBericht: 2 }));
+  });
+});
+
+// The harm: an event set on a match by mistake that the editor cannot take back, „Keines“ picked and nothing changing.
+describe("the Sonderereignis select", () => {
+  it("takes „Keines“ back as chosen after an event, posting and saving it as the empty entry", async () => {
+    const save = vi.fn(async (): Promise<ActionAnswer<number>> => ({ ok: true, value: 4 }));
+    renderUnderNext(
+      <Editor
+        save={save}
+        values={{ ...STORED, sonderereignis: "abgebrochen" }}
+      />,
+      AT_ADDRESS,
+    );
+    const { label, none, ausgefallen } = COPY.spielplan.sonderereignis;
+    const trigger = () => screen.getByRole("button", { name: new RegExp(label) });
+
+    await userEvent.click(trigger());
+    await userEvent.click(screen.getByRole("option", { name: ausgefallen }));
+    await userEvent.click(trigger());
+    await userEvent.click(screen.getByRole("option", { name: none }));
+
+    expect(trigger().textContent).toContain(none);
+    expect(document.querySelector<HTMLSelectElement>('select[name="sonderereignis"]')?.value).toBe("");
+    await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.save }));
+    // The save reads the empty entry as no event (`blankIsNull`), as its own case holds.
+    await waitFor(() => expect(save).toHaveBeenCalledWith({ id: SPIEL_ID, version: 3, changes: { sonderereignis: "" }, adoptsBericht: null }));
   });
 });

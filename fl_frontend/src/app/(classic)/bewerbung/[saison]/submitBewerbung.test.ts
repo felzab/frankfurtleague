@@ -7,7 +7,6 @@ import { serveBackend, serveHost } from "@/test-support/backend";
 import { doubleNextRequest } from "@/test-support/nextRequest";
 import { posted } from "@/test-support/posted";
 
-import { NO_SECOND_SEAT } from "./application";
 import { SUBMITTED } from "./ends";
 
 import type { FLCreatedResponse } from "@/core/generated/client/types";
@@ -57,7 +56,8 @@ const BOXES: Readonly<Record<string, string>> = {
   [TURNSTILE_FIELD]: TOKEN,
   team_id: TEAM,
   stufengroesse: "90",
-  "kontakte.trainer_is_also": NO_SECOND_SEAT,
+  // „Keine weitere Rolle“, the select's empty entry.
+  "kontakte.trainer_is_also": "",
   ...seat("trainer", "Tina", "069 90009010"),
   ...seat("ansprechperson", "Anna", "069 90009020"),
   ...seat("stellvertretung", "Stefan", "069 90009030"),

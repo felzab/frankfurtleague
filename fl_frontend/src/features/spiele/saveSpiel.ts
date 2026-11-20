@@ -2,7 +2,7 @@
 
 import { z } from "zod";
 
-import { action, numberBox } from "@/core/action";
+import { action, blankIsNull, numberBox } from "@/core/action";
 import { ADMIN_COPY } from "@/core/copy/admin";
 import { COPY } from "@/core/copy/shared";
 import { APIBadStatusError } from "@/core/errors";
@@ -12,7 +12,7 @@ import { SpielePatchSpielBody, SpielePatchSpielParams } from "@/core/generated/z
 import { getAdminSpiel } from "@/features/spiele/queries";
 import { admitsShootOut, isNoShow } from "@/features/spiele/result";
 
-import { NO_SONDEREREIGNIS, NOBODY, takesNoResult, valuesOf } from "./spielValues";
+import { NOBODY, takesNoResult, valuesOf } from "./spielValues";
 
 import type { ActionAnswer, SaveQuestion } from "@/core/action";
 import type { Copy } from "@/core/copy";
@@ -55,7 +55,7 @@ const SaveSpiel = z.object({
       tore2: figure(z.int().min(0)),
       shootOut1: figure(shootOutShape.shape.team1),
       shootOut2: figure(shootOutShape.shape.team2),
-      sonderereignis: z.preprocess((value) => (value === NO_SONDEREREIGNIS ? null : value), shape.sonderereignis),
+      sonderereignis: blankIsNull(shape.sonderereignis),
       note: shape.note,
     })
     .partial(),

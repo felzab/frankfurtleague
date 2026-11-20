@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { adoptsBerichtOf, NO_SONDEREREIGNIS } from "./spielValues";
+import { adoptsBerichtOf } from "./spielValues";
 
 import type { Proposal, SpielValues } from "./spielValues";
 
@@ -18,12 +18,12 @@ const STORED: SpielValues = {
   tore2: "",
   shootOut1: "",
   shootOut2: "",
-  sonderereignis: NO_SONDEREREIGNIS,
+  sonderereignis: "",
   note: "",
 };
 
 /** The referee's report proposing 3:1, at its second version. */
-const PROPOSAL: Proposal = { version: 2, values: { sonderereignis: NO_SONDEREREIGNIS, hasResult: true, tore1: "3", tore2: "1" } };
+const PROPOSAL: Proposal = { version: 2, values: { sonderereignis: "", hasResult: true, tore1: "3", tore2: "1" } };
 
 const ADOPTED = { ...STORED, hasResult: true, tore1: "3", tore2: "1" };
 
