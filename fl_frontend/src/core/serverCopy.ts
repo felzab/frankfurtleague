@@ -6,7 +6,18 @@ import { formatDate, formatDateLong, formatDayAndTime, formatInstant, formatList
 
 import type { Copy, Wait, Words } from "./copy";
 import type { CalendarDay, TimeOfDay } from "./format";
-import type { Code, FLBookingResource, FLKontaktSeat, FLOverviewCardName, FLRefusedField, Rule } from "./generated/client/types";
+import type {
+  Code,
+  FLBookingResource,
+  FLCardColour,
+  FLGrantDataChange,
+  FLGrantDataStage,
+  FLKontaktSeat,
+  FLOverviewCardName,
+  FLRefusedField,
+  FLSpielberichtOpenState,
+  Rule,
+} from "./generated/client/types";
 import type { ROUTES } from "./routes";
 
 /** The route keys of the pages a search engine may list. */
@@ -276,7 +287,7 @@ export const SERVER_COPY = catalogue({
       proposed: "Spielbericht nicht übernommen",
       differing: "Spielbericht weicht vom Ergebnis ab",
       sides_changed: "Spielbericht nennt andere Teams",
-    },
+    } satisfies Record<FLSpielberichtOpenState, string>,
     /** A club's proposed date and hour, as a match row writes them; a club the fixture no longer fields is not named. */
     proposal: (when: Copy, team: Words | null) => (team === null ? `Schlägt ${when} vor` : `${textOf(team)} schlägt ${when} vor`),
     /** An application, by how many of its contact seats have confirmed their entry. */
@@ -586,7 +597,7 @@ export const SERVER_COPY = catalogue({
         revoked: "Zugang zur Verwaltung beendet",
         withdrawn: "Angekündigte Änderung zurückgezogen",
         completed: "Angekündigte Änderung gilt jetzt",
-      },
+      } satisfies Record<FLGrantDataChange | Exclude<FLGrantDataStage, "started">, string>,
       lead: {
         granted: (address: string) => `${address} bekommt Zugang zur Verwaltung.`,
         handover: (address: string) => `Die ${ownerTier} der Verwaltung geht ${boundBy("an", address)}.`,
@@ -920,7 +931,7 @@ export const SERVER_COPY = catalogue({
       officialToreAndCards: "offiziellen Tore und Karten",
       tor: COPY.spielplan.goal,
       eigentor: "Eigentor",
-      card: { gelb: "Gelbe Karte", gelb_rot: "Gelb-Rote Karte", rot: "Rote Karte" },
+      card: { gelb: "Gelbe Karte", gelb_rot: "Gelb-Rote Karte", rot: "Rote Karte" } satisfies Record<FLCardColour, string>,
       /** A checkpoint's title: what happened, and to whom. */
       event: (what: Copy, who: Words) => `${what} · ${textOf(who)}`,
     },

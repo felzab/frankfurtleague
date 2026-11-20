@@ -17,6 +17,7 @@ import type {
   FLAction,
   FLActionLogPageSize,
   FLAddressChangeWaitsOn,
+  FLAustrittType,
   FLCardColour,
   FLKontaktSeat,
   FLSaisonPhase,
@@ -24,6 +25,7 @@ import type {
   FLSonderereignis,
   FLSpielerRolle,
   FLSpielerStufe,
+  FLSpielSide,
   FLTrikotFarbe,
   FLWithdrawalChoice,
 } from "./generated/client/types";
@@ -496,7 +498,7 @@ export const COPY = catalogue({
     austritt: {
       disqualifikation: { label: "Disqualifikation", state: "Disqualifiziert", shorthand: "DQ" },
       rueckzug: { label: "Rückzug", state: "Zurückgezogen", shorthand: "RZ" },
-    },
+    } satisfies Record<FLAustrittType, { label: string; state: string; shorthand: string }>,
     /** The head of a club's exit note, „Disqualifiziert seit 14.03.2026“: its route's `state` and the day it took effect. */
     austrittSince: (state: Copy, day: CalendarDay) => `${state} ${boundBy("seit", formatDate(day))}`,
     startelf: "Startelf",
@@ -529,7 +531,7 @@ export const COPY = catalogue({
       effectiveFrom: EFFECTIVE_FROM,
     },
     /** Two clubs named by their place in a pair: a fixture's two sides, and the group swap's two clubs. */
-    teamPair: { team1: "Team 1", team2: "Team 2" },
+    teamPair: { team1: "Team 1", team2: "Team 2" } satisfies Record<FLSpielSide, string>,
     /** The record's name, the object of „Bewerbung abschicken“, „Bewerbung annehmen“ and „Bewerbung ablehnen“. */
     bewerbung: "Bewerbung",
     /** The object of „Sperre eintragen“ and „Sperre entfernen“, and the block's title in the ban's mail. */
