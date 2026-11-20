@@ -88,7 +88,7 @@ function SeatBoxes({ seat, floor, box, rules }: { seat: FLKontaktSeat; floor: nu
       <TextField
         {...path("first_name")}
         label={shared.firstName}
-        description={COPY.shared.mediaFrom(floor)}
+        description={bewerbung.seatFloor(floor)}
         kind="text"
         isRequired={required.firstName}
         maxLength={max.firstName}
