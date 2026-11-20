@@ -241,7 +241,10 @@ both.
 
 - **Subject, preview, heading, paragraphs, facts, one button, one note**, nothing else. The heading
   repeats the subject and the hidden preview is the first sentence, so neither is written twice.
-- **The greeting is „Hallo,“** on every mail.
+- **The greeting is „Hallo,“** on every mail, and the paragraph after it begins small (Duden, D
+  132): the catalogue writes each opening as the sentence it is, and
+  `fl_frontend/src/core/emailShell.ts` lower-cases its first letter unless the mail's `opensOnNoun`
+  says it opens on a noun, a record's value run never being re-cased.
 - **A „not you?“ line only on a sign-in, security or first-contact mail**; the objection line only
   on a first contact, in its one wording.
 - **Replies go to the contact address**, so no mail says that nobody reads them.
