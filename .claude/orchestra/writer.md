@@ -88,12 +88,14 @@ question's options as pictures, holds you to these rules.
   your scratch folder, the coordinator publishes it as an Artifact page, and you publish nothing
   yourself. Draw no outline or box over a picture, since it hides the edge being judged. Every
   option is one the owner could pick with pride: before you build the board, look with the Read tool
-  at each question's recommended option in its phone frame at 360 px. The coordinator records those
-  frames in its drive and saves them as image files in the folder your brief names; where the brief
-  names none or a frame is missing, message the coordinator rather than build without the look.
-  Redraw an option where it is cramped, overflowing, clipped mid-line or invisible, and name in your
-  report each file you looked at and what it showed. That look is the check of those pictures, and
-  the coordinator does not judge them a second time.
+  at each question's options in their phone frames at 360 px. The coordinator records those frames
+  in its drive and saves them as image files in the folder your brief names; an option that exists
+  only as your drawing has no frame yet, so once you have drawn it, message the coordinator, who
+  captures your drawing at 360 px into the same folder. Where the brief names no folder or a frame
+  is missing, message the coordinator rather than build without the look. Redraw an option where it
+  is cramped, overflowing, clipped mid-line or invisible, and name in your report each file you
+  looked at and what it showed. That look is the check of those pictures, and the coordinator does
+  not judge them a second time.
 
 ## The contract
 
@@ -122,9 +124,10 @@ into your scratch folder and commit it with `git commit -F <file>`: the shell to
   database your brief names, as `mongosh "mongodb://127.0.0.1:<port>/?directConnection=true"`.
   Without `directConnection=true` the client follows the replica set's container-internal member
   address and reaches nothing. Never use `docker exec`, which the project's settings refuse; where
-  your brief names no database and port, message the coordinator.
-- No check runs against an environment's database, which reaches real data, unless your brief names
-  that exact command.
+  your brief names no database and port, or the command fails, message the coordinator with the
+  command and its error.
+- No check runs against a deployed environment's database, which reaches real data, unless your
+  brief names that exact command.
 - Never run `./scripts/ops/local.sh`: its ports 3000 and 27017 are fixed, and the machine holds one
   stack.
 - Never run `pnpm run format` or any formatter over a folder, which rewrites files other agents own.
