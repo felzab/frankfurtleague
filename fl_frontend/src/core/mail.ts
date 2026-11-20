@@ -2,6 +2,7 @@ import "server-only";
 
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { setTimeout as pause } from "node:timers/promises";
 
 import { symmetricDecrypt } from "better-auth/crypto";
 
@@ -54,8 +55,6 @@ const MAIL_RETRY_DELAY_MS = 400;
 // offers to commit -- with a sign-in code, a bearer credential, inside it.
 const MAIL_SINK_DIR = ".tmp-mail";
 
-const SINK_SLUG_MAX = 40;
-
 interface OutboundMail {
   to: string;
   subject: string;
@@ -66,7 +65,7 @@ interface OutboundMail {
    * Rides the send and comes back on every delivery event about it, which is what routes one back to
    * the row it was sent from. Each name and value must be ASCII letters, digits, `_` or `-`.
    */
-  tags: Record<string, string>;
+  tags: Readonly<Record<typeof OUTBOX_TAG, string>>;
   /**
    * Collapses a repeat of the same send inside the provider's 24-hour window, answering the original
    * id rather than sending again. A key reused with a different body is refused rather than ignored.
@@ -79,21 +78,12 @@ function errnoCode(error: unknown): string | undefined {
   return typeof error === "object" && error !== null && "code" in error && typeof error.code === "string" ? error.code : undefined;
 }
 
-/** Sorts by name into the order the messages were written, and Windows takes no colon in a file name. */
-function sinkFileStem(subject: string, at: Date): string {
-  const stamp = at.toISOString().replaceAll(":", "-");
-  // Folded rather than dropped, so a German subject reaches the stem whole rather than broken at the
-  // letter: `ß` is the one NFKD leaves standing, and the separator run below would eat it.
-  const slug = subject
-    .normalize("NFKD")
-    .replace(/\p{Diacritic}/gu, "")
-    .toLowerCase()
-    .replaceAll("ß", "ss")
-    .replace(/[^a-z0-9]+/g, "-")
-    .slice(0, SINK_SLUG_MAX)
-    .replace(/^-+|-+$/g, "");
-
-  return slug === "" ? stamp : `${stamp}-${slug}`;
+/**
+ * The moment first, so the names sort into the order the messages were written, and Windows takes no colon in a file
+ * name; then the Postausgang row the message was sent from.
+ */
+function sinkFileStem(rowId: string, at: Date): string {
+  return `${at.toISOString().replaceAll(":", "-")}-${rowId}`;
 }
 
 /** A comment terminator and nothing else: the rest of the text part has to survive byte for byte. */
@@ -125,13 +115,13 @@ function sinkDocument({ to, subject, html, text, sender, tags }: OutboundMail, t
  */
 async function writeToSink(message: OutboundMail, traceId: string): Promise<void> {
   const directory = path.join(process.cwd(), MAIL_SINK_DIR);
-  const stem = sinkFileStem(message.subject, now());
+  const stem = sinkFileStem(message.tags[OUTBOX_TAG], now());
 
   try {
     await mkdir(directory, { recursive: true });
 
-    // `wx`, so a message never overwrites another's file: the drain sends one at a time, a backend round trip apart, so
-    // two sharing a millisecond's name is a fault to see rather than a message to lose.
+    // `wx`, so a message never overwrites another's file: a name holds its row and its millisecond, so a clash is a
+    // fault to see rather than a message to lose.
     await writeFile(path.join(directory, `${stem}.html`), sinkDocument(message, traceId), { encoding: "utf8", flag: "wx" });
   } catch (error) {
     // The errno token, never the thrown message, which carries the path: the line says which failure
@@ -141,21 +131,6 @@ async function writeToSink(message: OutboundMail, traceId: string): Promise<void
       trace_id: traceId,
     });
   }
-}
-
-function pause(ms: number, signal: AbortSignal): Promise<void> {
-  return new Promise((resolve) => {
-    if (signal.aborted) {
-      resolve();
-      return;
-    }
-
-    const handle = setTimeout(resolve, ms);
-    signal.addEventListener("abort", () => {
-      clearTimeout(handle);
-      resolve();
-    });
-  });
 }
 
 /** What drains settled: the backend's counts, summed over every report they made. */
@@ -390,7 +365,12 @@ async function deliver(
       // An aborted budget ends it too: the timeout that cut the attempt leaves nothing to retry in.
       if (!repeatable || attemptNumber >= MAIL_ATTEMPTS || signal.aborted) giveUp(error);
 
-      await pause(MAIL_RETRY_DELAY_MS, signal);
+      try {
+        await pause(MAIL_RETRY_DELAY_MS, undefined, { signal });
+      } catch {
+        // The budget ending cuts the wait short, which Node's timer answers with an `AbortError`, its one rejection
+        // here: the check below ends the send.
+      }
 
       // The budget ran out mid-wait. Attempting anyway would draw a request the aborted signal
       // kills, reporting the provider's own refusal as this application's timeout.
