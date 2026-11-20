@@ -132,7 +132,7 @@ describe("each form's posted names meet its lane's keys", () => {
     const names = namesIn(
       <CreateFields
         next={{ start: null, end: null }}
-        required={{ start: true, end: true }}
+        rules={{ required: { start: true, end: true } }}
       />,
     );
     const typed = { start_date: "2027-03-06", end_date: "2027-07-03" };
@@ -276,7 +276,7 @@ describe("each form's posted names meet its lane's keys", () => {
     ["a listed school's", [{ id: "team", name: "Schule" }]],
   ])("carries every box of %s application into its body", async (_, schulen) => {
     const { applicationOf } = await import("@/app/(classic)/bewerbung/[saison]/application");
-    const { BEWERBUNG_RULES } = await import("@/app/(classic)/bewerbung/[saison]/bewerbungRules");
+    const { BEWERBUNG_RULES } = await import("@/app/(classic)/bewerbung/[saison]/fieldRules");
     const { BewerbungFields } = await import("@/app/(classic)/bewerbung/[saison]/BewerbungFields");
     const names = namesIn(
       <BewerbungFields

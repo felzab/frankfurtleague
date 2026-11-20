@@ -7,13 +7,14 @@ import { DateField } from "@/kit/DateField";
 import { FieldRows } from "@/kit/FieldRows";
 
 import type { CalendarDay } from "@/core/format";
+import type { SaisonCreateRules } from "@/features/saisons/fieldRules";
 import type { NextSaison } from "@/features/saisons/nextSaison";
-import type { SaisonCreateRequired } from "@/features/saisons/required";
 
 const WORDS = ADMIN_COPY.saison;
 
 /** The create dialog's boxes, starting from the days the newest season suggests. */
-export function CreateFields({ next, required }: { next: NextSaison; required: SaisonCreateRequired }) {
+export function CreateFields({ next, rules }: { next: NextSaison; rules: SaisonCreateRules }) {
+  const { required } = rules;
   // The boxes post themselves with the dialog's form: the start is held only as the floor the end's calendar offers.
   const [start, setStart] = useState<CalendarDay | null>(next.start);
   return (

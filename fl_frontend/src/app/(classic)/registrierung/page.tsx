@@ -50,7 +50,7 @@ const { shape } = RegistrierungenPostRegistrierungBody;
  */
 const RULES: RegistrierungRules = {
   required: { firstName: requires(shape.first_name, ""), lastName: requires(shape.last_name, ""), email: true },
-  maxLength: {
+  max: {
     firstName: registrierungenPostRegistrierungBodyFirstNameMax,
     lastName: registrierungenPostRegistrierungBodyLastNameMax,
     email: registrierungenPostRegistrierungBodyEmailMax,

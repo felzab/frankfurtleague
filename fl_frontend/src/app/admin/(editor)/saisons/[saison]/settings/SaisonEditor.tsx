@@ -25,7 +25,7 @@ import type { ActionAnswer } from "@/core/action";
 import type { Copy, LockReason } from "@/core/copy";
 import type { CalendarDay } from "@/core/format";
 import type { FLSpielplanShape } from "@/core/generated/client/types";
-import type { SaisonRequired } from "@/features/saisons/required";
+import type { SaisonSaveRules } from "@/features/saisons/fieldRules";
 import type { ChipProps } from "@/kit/Chip";
 import type { DangerAct, EditorPart } from "@/kit/EditorPage";
 import type { Option } from "@/kit/OptionList";
@@ -188,7 +188,7 @@ export function SaisonEditor({
   chip,
   record,
   save,
-  required,
+  rules,
   facts,
   shapes,
   teams,
@@ -203,8 +203,8 @@ export function SaisonEditor({
   chip: ChipProps;
   record: EditorRecord<SaisonValues>;
   save: (change: EditorSave<SaisonValues>) => Promise<ActionAnswer<number>>;
-  /** Which boxes the season write requires, read from its schema on the server. */
-  required: SaisonRequired;
+  /** What the season write asks of its boxes, read from its schema on the server. */
+  rules: SaisonSaveRules;
   facts: SaisonFacts;
   /** Every shape the draw admits beside the season's other rules, which the qualifiers are offered from. */
   shapes: readonly FLSpielplanShape[];
@@ -219,6 +219,7 @@ export function SaisonEditor({
 }) {
   const editor = useEditor(record, save);
   const { draft, set } = editor;
+  const { required } = rules;
   const isClosed = closed !== undefined;
   const drawn = facts.spielplan !== null;
 

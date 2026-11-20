@@ -9,7 +9,7 @@ import { Callout } from "@/kit/Callout";
 import { TextField } from "@/kit/TextField";
 
 /** What the start's write asks of its boxes, read on the server, where the schema stays. */
-export type StartRules = { required: Readonly<Record<"address" | "email", boolean>>; addressMax: number };
+export type StartRules = { required: Readonly<Record<"address" | "email", boolean>>; max: Readonly<Record<"address" | "email", number>> };
 
 /**
  * The start's boxes: the address on file, its warning as soon as the typed address has a change on the list, since the
@@ -24,7 +24,7 @@ export function StartFields({
   rules: StartRules;
 }) {
   const [typed, setTyped] = useState("");
-  const { required, addressMax } = rules;
+  const { required, max } = rules;
   return (
     <>
       <TextField
@@ -32,7 +32,7 @@ export function StartFields({
         name="address"
         kind="email"
         isRequired={required.address}
-        maxLength={addressMax}
+        maxLength={max.address}
         onChange={setTyped}
       />
       {running.includes(asSignInIdentifier(typed)) && (
@@ -46,7 +46,7 @@ export function StartFields({
         name="email"
         kind="email"
         isRequired={required.email}
-        maxLength={addressMax}
+        maxLength={max.email}
       />
     </>
   );

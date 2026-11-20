@@ -67,7 +67,7 @@ export const TEAM_ENTRY_RULES: TeamRules = {
   },
   address: {
     required: addressRequiredOf(ENTERED),
-    maxLength: {
+    max: {
       street: teamsPostTeamEntryBodyTeamTwoTeamAddressStreetMax,
       house_number: teamsPostTeamEntryBodyTeamTwoTeamAddressHouseNumberMax,
       district: teamsPostTeamEntryBodyTeamTwoTeamAddressDistrictMax,
@@ -87,7 +87,7 @@ export const TEAM_SAVE_RULES: TeamRules = {
   },
   address: {
     required: addressRequiredOf(TeamsPatchTeamSaisonBody.shape),
-    maxLength: {
+    max: {
       street: teamsPatchTeamSaisonBodyAddressStreetMax,
       house_number: teamsPatchTeamSaisonBodyAddressHouseNumberMax,
       district: teamsPatchTeamSaisonBodyAddressDistrictMax,
@@ -125,7 +125,7 @@ export const AUSTRITT_RULES = {
     reason: requires(TeamsPutAustrittBody.shape.reason, ""),
     date: requires(TeamsPutAustrittBody.shape.date, null),
   },
-  reasonMax: teamsPutAustrittBodyReasonMax,
+  max: { reason: teamsPutAustrittBodyReasonMax },
 };
 
 export type AustrittRules = typeof AUSTRITT_RULES;

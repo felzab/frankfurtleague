@@ -53,7 +53,7 @@ export const BEWERBUNG_RULES = {
     goodSpieler: requires(shape.kader.shape.good_spieler, null),
     wunschgegner: requires(shape.wunschgegner, null),
   },
-  maxLength: {
+  max: {
     firstName: bewerbungenPostBewerbungBodyKontakteTrainerFirstNameMax,
     lastName: bewerbungenPostBewerbungBodyKontakteTrainerLastNameMax,
     email: bewerbungenPostBewerbungBodyKontakteTrainerEmailMax,

@@ -10,8 +10,8 @@ import { DAY_MS } from "@/core/timeUnits";
 import { discardChange } from "@/features/address-change/actions";
 import { getAddressChanges } from "@/features/address-change/queries";
 import { addAdministrator, removeAdministrator, startHandover, stopHandover } from "@/features/grants/actions";
+import { GRANT_RULES } from "@/features/grants/fieldRules";
 import { getGrants } from "@/features/grants/queries";
-import { GRANT_RULES } from "@/features/grants/schemas";
 import { actLabel } from "@/kit/dialogAct";
 import { ListPage } from "@/kit/ListPage";
 import { ReadFolds } from "@/kit/ReadFolds";
@@ -271,7 +271,7 @@ function addOf({ reader, readerIsOwner }: Access): ListCreate {
         name="email"
         kind="email"
         isRequired={GRANT_RULES.required.email}
-        maxLength={GRANT_RULES.emailMax}
+        maxLength={GRANT_RULES.max.email}
         description={COPY.shared.field.format(COPY.shared.field.exampleAddress)}
       />
     ),

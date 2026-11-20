@@ -20,7 +20,7 @@ import { NO_SECOND_SEAT, SEATS } from "./application";
 
 import type { FLBewerbungSchuleOption, FLKontaktSeat, FLSchulform, FLTrikotFarbe } from "@/core/generated/client/types";
 import type { Option } from "@/kit/OptionList";
-import type { BewerbungRules } from "./bewerbungRules";
+import type { BewerbungRules } from "./fieldRules";
 
 const { team, shared } = COPY;
 const { bewerbung } = PUBLIC_COPY;
@@ -32,7 +32,7 @@ type Box = (name: string) => { name: string; defaultValue?: string; onChange: (v
 
 /** The new school's own fields, revealed by the switch: what an acceptance would create the club from. */
 function NewSchool({ box, rules }: { box: Box; rules: BewerbungRules }) {
-  const { maxLength, required } = rules;
+  const { max, required } = rules;
   const schulform = box("schule.schulform");
   return (
     <>
@@ -42,14 +42,14 @@ function NewSchool({ box, rules }: { box: Box; rules: BewerbungRules }) {
         description={bewerbung.teamNameDescription}
         kind="text"
         isRequired={required.teamName}
-        maxLength={maxLength.teamName}
+        maxLength={max.teamName}
       />
       <TextField
         {...box("schule.full_name")}
         label={team.fullName}
         kind="text"
         isRequired={required.fullName}
-        maxLength={maxLength.fullName}
+        maxLength={max.fullName}
       />
       <Select
         label={team.schulform}
@@ -72,7 +72,7 @@ function NewSchool({ box, rules }: { box: Box; rules: BewerbungRules }) {
         kind="url"
         example={shared.field.exampleUrl}
         isRequired={required.website}
-        maxLength={maxLength.website}
+        maxLength={max.website}
       />
     </>
   );
@@ -80,7 +80,7 @@ function NewSchool({ box, rules }: { box: Box; rules: BewerbungRules }) {
 
 /** One person's four boxes; the seat's age floor stands under the first, as what a reader meets before naming anybody. */
 function SeatBoxes({ seat, floor, box, rules }: { seat: FLKontaktSeat; floor: number; box: Box; rules: BewerbungRules }) {
-  const { maxLength, required } = rules;
+  const { max, required } = rules;
   const path = (name: string) => box(`kontakte.${seat}.${name}`);
   return (
     <>
@@ -90,14 +90,14 @@ function SeatBoxes({ seat, floor, box, rules }: { seat: FLKontaktSeat; floor: nu
         description={COPY.shared.mediaFrom(floor)}
         kind="text"
         isRequired={required.firstName}
-        maxLength={maxLength.firstName}
+        maxLength={max.firstName}
       />
       <TextField
         {...path("last_name")}
         label={shared.lastName}
         kind="text"
         isRequired={required.lastName}
-        maxLength={maxLength.lastName}
+        maxLength={max.lastName}
       />
       <TextField
         {...path("email")}
@@ -105,7 +105,7 @@ function SeatBoxes({ seat, floor, box, rules }: { seat: FLKontaktSeat; floor: nu
         description={bewerbung.ownAddress}
         kind="email"
         isRequired={required.email}
-        maxLength={maxLength.email}
+        maxLength={max.email}
       />
       <TextField
         {...path("phone")}
@@ -154,7 +154,7 @@ export function BewerbungFields({
   const isListed = schulen.length > 0;
   const isNewSchool = switchedOn || !isListed;
   const schools: Option[] = schulen.map(({ id, name }) => ({ id, label: { record: name } }));
-  const { maxLength, required } = rules;
+  const { max, required } = rules;
 
   return (
     <>
@@ -232,7 +232,7 @@ export function BewerbungFields({
           description={bewerbung.trikotSetDescription}
           kind="text"
           isRequired={required.trikotSet}
-          maxLength={maxLength.trikotSet}
+          maxLength={max.trikotSet}
         />
         <Select
           label={team.wunschfarbe}
@@ -264,7 +264,7 @@ export function BewerbungFields({
           name="wunschgegner"
           isRequired={required.wunschgegner}
           options={schools}
-          free={{ arrow: COPY.shared.showSuggestions, maxLength: maxLength.wunschgegner }}
+          free={{ arrow: COPY.shared.showSuggestions, maxLength: max.wunschgegner }}
         />
       </Section>
     </>

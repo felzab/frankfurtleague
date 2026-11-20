@@ -11,8 +11,8 @@ import { SAISON_ID_LENGTH } from "@/features/saisons/constants";
 import { ConsentLine } from "@/kit/ConsentLine";
 
 import { BewerbungFields } from "./BewerbungFields";
-import { BEWERBUNG_RULES } from "./bewerbungRules";
 import { endOf } from "./ends";
+import { BEWERBUNG_RULES } from "./fieldRules";
 import { submitBewerbung } from "./submitBewerbung";
 
 import type { FLBewerbungFormResponse } from "@/core/generated/client/types";

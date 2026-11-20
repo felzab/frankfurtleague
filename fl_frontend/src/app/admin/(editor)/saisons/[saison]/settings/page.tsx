@@ -6,8 +6,8 @@ import { COPY } from "@/core/copy/shared";
 import { dayOf, formatDate } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
+import { SAISON_SAVE_RULES } from "@/features/saisons/fieldRules";
 import { getAdminSaison, getAdminSaisons } from "@/features/saisons/queries";
-import { SAISON_REQUIRED } from "@/features/saisons/required";
 import { saisonChipOf } from "@/features/saisons/saisonState";
 import { adminTeamChip } from "@/features/teams/constants";
 import { NOT_SENT_CHIP, outOfPlayChip, SENT_CHIP } from "@/kit/stateChips";
@@ -132,7 +132,7 @@ async function readEditor(params: Props["params"]) {
       chip={saisonChipOf(saison)}
       record={{ id: saison.id, version: saison.version, values: valuesOf(saison) }}
       save={saveSaison}
-      required={SAISON_REQUIRED}
+      rules={SAISON_SAVE_RULES}
       facts={{
         begun: saison.begun,
         takenPlace: saison.taken_place,

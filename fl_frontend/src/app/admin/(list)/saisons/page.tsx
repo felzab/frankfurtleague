@@ -3,9 +3,9 @@ import { COPY } from "@/core/copy/shared";
 import { dayOf, formatDate, formatNumber } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { createSaison } from "@/features/saisons/createSaison";
+import { SAISON_CREATE_RULES } from "@/features/saisons/fieldRules";
 import { nextSaisonOf } from "@/features/saisons/nextSaison";
 import { getAdminSaisons } from "@/features/saisons/queries";
-import { CREATE_REQUIRED } from "@/features/saisons/required";
 import { saisonChipOf } from "@/features/saisons/saisonState";
 import { ListPage } from "@/kit/ListPage";
 import { pageMetadata } from "@/shared/utils/metadata";
@@ -76,7 +76,7 @@ async function readCreate(read: ReturnType<typeof getAdminSaisons>): Promise<Lis
     children: (
       <CreateFields
         next={nextSaisonOf(saisons.at(-1))}
-        required={CREATE_REQUIRED}
+        rules={SAISON_CREATE_RULES}
       />
     ),
     ...(refusals.create === null ? {} : { locked: lockedOf(refusals.create) }),
