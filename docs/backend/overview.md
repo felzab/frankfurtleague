@@ -69,8 +69,9 @@ next:
 - A create answers `FLCreatedResponse`, the minted id the caller opens the new record by.
 - An editor's save answers `FLVersionResponse`, the version its next save sends.
 - A dry run or a pass answers the report its caller shows or counts.
-- An operation taking `dry_run` answers that report on its write too, read or not, since one
-  operation declares one answer model: the fixture save
+- The one exception: an operation taking `dry_run` answers that report on its write too, where its
+  caller may discard it, since each route here declares one status and one return model and the dry
+  run's caller reads the report: the fixture save
   (`fl_backend/app/api/spiele/admin_router.py :: patch_spiel`) and the withdrawal
   (`fl_backend/app/api/identity/admin_router.py :: post_withdrawal`).
 
