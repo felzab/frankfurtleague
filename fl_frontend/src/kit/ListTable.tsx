@@ -21,7 +21,7 @@ import type { ActionAnswer } from "@/core/action";
 import type { Copy, Words } from "@/core/copy";
 import type { ReactNode } from "react";
 import type { CardActRowProps } from "./Card";
-import type { EmptyStateProps } from "./EmptyState";
+import type { Clear, EmptyStateProps } from "./EmptyState";
 import type { SpielRowProps } from "./SpielRow";
 import type { TableProps, TableRow } from "./Table";
 import type { SchoolTile } from "./TileGrid";
@@ -90,6 +90,34 @@ function searched<Item>(items: ReadonlyArray<Item>, query: string, wordsOf: (ite
 
 const rowWords = (row: { name: Words; words?: string }) => row.words ?? textOf(row.name);
 
+/** The sentence a list's box draws once a search finds none of its rows (`EmptyState`). */
+const noneFound = (empty: EmptyStateProps | Clear) =>
+  empty.kind === "clear" ? COPY.shared.empty.nothingOpen : COPY.shared.empty.search(empty.searchPlural ?? empty.plural);
+
+/**
+ * What a screen reader hears of a search over a list: how many of its rows the typed text leaves, or the sentence its
+ * box draws for none, once the typing rests, never on each keystroke. It stands beside the list from the first render,
+ * empty, since a region drawn together with its first words is not reliably heard, and the list's box is what a search
+ * that empties it replaces. `count` is `null` where the rows shown answer no search that is done: the server's still
+ * answering, or a page of them with more to come, which counts not all the search found.
+ */
+function SearchStatus({ count, empty }: { count: number | null; empty: EmptyStateProps | Clear }) {
+  const { query } = use(ListQuery);
+  const sentence = query.trim() === "" || count === null ? null : count === 0 ? noneFound(empty) : COPY.shared.searchCount(count);
+  const [said, setSaid] = useState<Copy | null>(null);
+  useEffect(() => {
+    const pause = setTimeout(() => setSaid(sentence), SEARCH_PAUSE_MS);
+    return () => clearTimeout(pause);
+  }, [query, sentence]);
+  return (
+    <p
+      role="status"
+      className="sr-only">
+      {said}
+    </p>
+  );
+}
+
 /**
  * The list template's matches, each with the words a visitor may search it by, searched by the text its scope
  * holds; a search that empties the list says so.
@@ -103,13 +131,22 @@ export function ListMatches({
 }) {
   const { query } = use(ListQuery);
   const { isSearching, shown } = searched(matches, query, (match) => match.words);
-  if (shown.length === 0) return <EmptyBox {...(isSearching ? { ...empty, kind: "search" } : empty)} />;
   return (
-    <SpielList
-      // The search lists a whole season: more cards in view than a matchday's, none of them likelier than another.
-      matches={shown.map((match) => ({ ...match.row, prefetch: false }))}
-      layout="cards"
-    />
+    <>
+      {shown.length === 0 ? (
+        <EmptyBox {...(isSearching ? { ...empty, kind: "search" } : empty)} />
+      ) : (
+        <SpielList
+          // The search lists a whole season: more cards in view than a matchday's, none of them likelier than another.
+          matches={shown.map((match) => ({ ...match.row, prefetch: false }))}
+          layout="cards"
+        />
+      )}
+      <SearchStatus
+        count={shown.length}
+        empty={empty}
+      />
+    </>
   );
 }
 
@@ -120,8 +157,19 @@ export function ListMatches({
 export function ListTiles({ tiles, empty }: { tiles: ReadonlyArray<{ tile: SchoolTile; words: string }>; empty: EmptyStateProps }) {
   const { query } = use(ListQuery);
   const { isSearching, shown } = searched(tiles, query, (tile) => tile.words);
-  if (shown.length === 0) return <EmptyBox {...(isSearching ? { ...empty, kind: "search" } : empty)} />;
-  return <SchoolTiles schools={shown.map((tile) => tile.tile)} />;
+  return (
+    <>
+      {shown.length === 0 ? (
+        <EmptyBox {...(isSearching ? { ...empty, kind: "search" } : empty)} />
+      ) : (
+        <SchoolTiles schools={shown.map((tile) => tile.tile)} />
+      )}
+      <SearchStatus
+        count={shown.length}
+        empty={empty}
+      />
+    </>
+  );
 }
 
 /**
@@ -148,24 +196,33 @@ export function ListCard({
 }) {
   const { query } = use(ListQuery);
   const { isSearching, shown } = searched(rows, query, rowWords);
-  if (shown.length === 0 && empty !== undefined) return <EmptyBox {...(isSearching ? { ...empty, kind: "search" } : empty)} />;
   return (
-    <Card
-      title={title}
-      {...(count === false ? {} : { count: rows.length })}>
-      {shown.length === 0 ? (
-        <EmptyState kind="clear" />
+    <>
+      {shown.length === 0 && empty !== undefined ? (
+        <EmptyBox {...(isSearching ? { ...empty, kind: "search" } : empty)} />
       ) : (
-        <CappedRows
-          rows={shown.map(({ id, words: _words, ...row }) => (
-            <CardActRow
-              key={id}
-              {...row}
+        <Card
+          title={title}
+          {...(count === false ? {} : { count: rows.length })}>
+          {shown.length === 0 ? (
+            <EmptyState kind="clear" />
+          ) : (
+            <CappedRows
+              rows={shown.map(({ id, words: _words, ...row }) => (
+                <CardActRow
+                  key={id}
+                  {...row}
+                />
+              ))}
             />
-          ))}
-        />
+          )}
+        </Card>
       )}
-    </Card>
+      <SearchStatus
+        count={shown.length}
+        empty={empty ?? { kind: "clear" }}
+      />
+    </>
   );
 }
 
@@ -269,6 +326,9 @@ export function ListTable({ table, more }: { table: TableProps; more?: ListMore 
   // A list past one read's cap holds what the server's search answered.
   const rows = more === undefined ? searched(current.rows, query, rowWords).shown : current.rows;
   const failure = current.failure?.query === query ? current.failure.line : null;
+  // The server's rows count the search once they answer the text typed, all of them and with no failure: a failure is
+  // said on the list's own status line, and a page with more after it counts not all the search found.
+  const isAnswered = more === undefined || (current.query === query && current.cursor === null && failure === null);
 
   return (
     <>
@@ -278,6 +338,10 @@ export function ListTable({ table, more }: { table: TableProps; more?: ListMore 
         // A search that emptied the list says so, in the list's own plural; a list of what waits names none, and no
         // search narrows it.
         empty={isSearching && table.empty.kind !== "clear" ? { ...table.empty, kind: "search" } : table.empty}
+      />
+      <SearchStatus
+        count={isAnswered ? rows.length : null}
+        empty={table.empty}
       />
       {more !== undefined && (
         <div className="flex items-center gap-3">
