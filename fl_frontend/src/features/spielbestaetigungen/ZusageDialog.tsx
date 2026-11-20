@@ -6,6 +6,7 @@ import { ADMIN_COPY } from "@/core/copy/admin";
 import { COPY } from "@/core/copy/shared";
 import { Segmented } from "@/kit/ChoiceButtons";
 import { Dialog } from "@/kit/Dialog";
+import { useLocked } from "@/kit/draftUnsaved";
 
 import { enterZusage } from "./enterZusage";
 
@@ -37,6 +38,8 @@ export function ZusageDialog({
   /** The reason's box, posting under the name `enterZusage` reads it by. */
   children: ReactNode;
 }) {
+  // Locked inside an editor whose draft holds unsaved changes, as every act there is.
+  const locked = useLocked(undefined);
   const [picked, choose] = useState(parties[0].id);
   // The dialog outlives a fresh read of its row, which drops a party once its answer is entered: a pick no longer
   // among the parties falls back to the first still to answer, never posting an answered row.
@@ -52,7 +55,7 @@ export function ZusageDialog({
       title={TITLE}
       act={ACT}
       run={enter}
-      trigger={{ label: TITLE }}>
+      trigger={{ label: TITLE, ...(locked === undefined ? {} : { locked }) }}>
       <Segmented
         label={WORDS.zusageFrom}
         choices={parties.map((party) => ({ id: party.id, label: party.name }))}
