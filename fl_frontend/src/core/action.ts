@@ -137,7 +137,7 @@ type Declared<Schema extends z.ZodType> = {
 };
 
 /** A box's sentences for a screen that shows no box with its answer, by the cause of its refusal (`Declared`'s `boxless`). */
-type BoxSentences = { readonly [Cause in "value" | "required" | WordedRule]?: Copy };
+type BoxSentences = { readonly [Cause in "value" | "required" | WordedRule | WordedCode]?: Copy };
 
 /** `boxless` as the builder reads it, by any box's declared path and any cause, as a refused path names them. */
 type SentenceTable = Readonly<Record<string, Readonly<Record<string, Copy | undefined>> | undefined>>;
