@@ -57,12 +57,12 @@ failed save shows whether it landed. A public form whose answer failed expires t
 `revalidateTag` and an `expire` of a few seconds, which renders nothing again: the form keeps its
 typed values and its replay key, so a second press repeats the first rather than writing again.
 `{ expire: 0 }` would render the page again as `updateTag` does. The builder reads the count
-`fl_frontend/src/core/apiDispatch.ts :: dispatchRequest` keeps: each write is counted before it is
-sent, since a write whose answer is lost may have landed, and taken back once its answer is a 4xx
-carrying a code, the backend's refusal of it. A 5xx keeps the count, since the server may fail after
-its commit, and a write that may stand answers one, `unknown_outcome` with a 500. An action whose
-body sent no such write carries only its answer and renders no page again; one that changes state
-outside the cache, the sign-in store's, calls `refresh()` itself. A write behind the response clears
+`fl_frontend/src/core/api.ts :: dispatchRequest` keeps: each write is counted before it is sent,
+since a write whose answer is lost may have landed, and taken back once its answer is a 4xx carrying
+a code, the backend's refusal of it. A 5xx keeps the count, since the server may fail after its
+commit, and a write that may stand answers one, `unknown_outcome` with a 500. An action whose body
+sent no such write carries only its answer and renders no page again; one that changes state outside
+the cache, the sign-in store's, calls `refresh()` itself. A write behind the response clears
 nothing, so no league write moves there. The league's reads keep Next's `minutes` lifetime. **The
 administration's reads are not cached**: each runs through
 `fl_frontend/src/shared/utils/adminRead.ts :: runAdminRead`, which judges the session first.
