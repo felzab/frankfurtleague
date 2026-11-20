@@ -529,7 +529,8 @@ const authOptions = (origin: URL, client: MongoClient) =>
           if (Object.keys(body).some((field) => !CODE_SIGN_IN_FIELDS.has(field))) throw APIError.fromStatus("BAD_REQUEST");
         }
         // Over HTTP, ahead of the count: a code is checked only in the browser that asked for its address, so a
-        // stranger's guesses spend no address's day. In process there is no browser, every caller being this
+        // stranger's guesses spend an address's day only after asking for its code, which mails the person. In
+        // process there is no browser, every caller being this
         // repository's own code, as the deny above reads it.
         if (ctx.path === CODE_SIGN_IN_PATH && ctx.request !== undefined && !(await askedHere(ctx, codeSignInAddress(body)))) {
           logger.info("auth.code_not_asked_here", { trace_id: signInTrace(ctx) });
