@@ -1057,6 +1057,31 @@ const DESIGN_BANS = [
     EVERY,
     { allow: ["src/core/copy.ts"] },
   ),
+  // `COPY.admin` holds the administration's words, so a visitor's page reading one would carry the administration's
+  // section into its bundle once the catalogue splits by audience. The administration's routes read it, and so do the
+  // feature modules only they import. The catalogue files are spared: `serverCopy.ts` ships in no bundle, and its
+  // refusal lines reading `COPY.admin` are the administration's own, which only its screens show.
+  syntaxBan(
+    syntax(
+      'MemberExpression[object.name="COPY"][property.name="admin"], VariableDeclarator[init.name="COPY"] > ObjectPattern > Property[key.name="admin"]',
+      "`COPY.admin` is the administration's: outside fl_frontend/src/app/admin, read the area's own section or `COPY.shared`, and move a key there that more than the administration reads.",
+    ),
+    EVERY,
+    {
+      allow: [
+        "src/app/admin/**",
+        "src/features/action-log/filters.ts",
+        "src/features/action-log/rows.ts",
+        "src/features/action-log/rows.test.ts",
+        "src/features/bewerbungen/deliveryState.ts",
+        "src/features/bewerbungen/seats.test.ts",
+        "src/features/bewerbungen/standing.ts",
+        "src/features/invitations/actions.ts",
+        "src/features/teams/options.ts",
+        ...CATALOGUE_FILES,
+      ],
+    },
+  ),
   syntaxBan(
     syntax(
       [
@@ -1172,9 +1197,12 @@ const escapeRegExp = (part) => part.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const globPattern = (glob) => new RegExp(`^${glob.split("/**").map(escapeRegExp).join("(?:/.*)?")}$`);
 const covers = (entry, path) => (isGlob(entry) ? globPattern(entry).test(path) : entry === path);
 
-/** Each engine rule's setting for one zone, or one file of it when `path` is given; `under` names a directory glob's block. */
-function rulesFor(zone, path, under) {
-  const spares = (allow) => (path !== undefined ? allow.some((entry) => covers(entry, path)) : under !== undefined && allow.includes(under));
+/**
+ * Each engine rule's setting for one zone, or one file of it when `path` is given; `under` names the directory globs a
+ * directory block's files all lie under.
+ */
+function rulesFor(zone, path, under = []) {
+  const spares = (allow) => (path !== undefined ? allow.some((entry) => covers(entry, path)) : allow.some((entry) => under.includes(entry)));
   const reaching = BANS.filter(({ reach, only, allow }) => reach(zone) && (only === undefined || only.includes(path)) && !spares(allow));
   return Object.fromEntries(
     Object.entries(RULES).map(([rule, setting]) => {
@@ -1217,6 +1245,20 @@ if (GONE.length > 0) {
   throw new Error(`eslint.config.mjs names what no longer exists: ${GONE.join(", ")}. Point each ban at the file's new path.`);
 }
 
+/**
+ * Each set of two or more directories some file lies under at once, the fewest first. eslint reads a rule's options
+ * from the last block matching a file, so a file under two directories takes a block of its own sparing what either
+ * spares; otherwise the later directory's block would hold it to the earlier one's bans.
+ */
+const OVERLAPS = [
+  ...new Map(
+    globSync("src/**/*.{ts,tsx}", { cwd: HERE })
+      .map((path) => NAMED_DIRECTORIES.filter((glob) => covers(glob, path.replaceAll("\\", "/"))))
+      .filter((globs) => globs.length > 1)
+      .map((globs) => [globs.join(" "), globs]),
+  ).values(),
+].sort((one, other) => one.length - other.length);
+
 const fileBlocks = () => {
   const groups = new Map();
   for (const path of NAMED_FILES) {
@@ -1237,13 +1279,14 @@ const BAN_BLOCKS = [
     ignores,
     rules: rulesFor(zone),
   })),
-  // A directory's files, zone by zone: a nested `files` array asks a file to match every pattern in it.
-  ...NAMED_DIRECTORIES.flatMap((glob) =>
+  // A directory's files, zone by zone, then the files under several at once: a nested `files` array asks a file to
+  // match every pattern in it.
+  ...[...NAMED_DIRECTORIES.map((glob) => [glob]), ...OVERLAPS].flatMap((globs) =>
     ZONES.map(({ files, ignores, ...zone }) => ({
-      name: `bans/under/${glob}/${zoneName(zone)}`,
-      files: files.map((pattern) => [pattern, literally(glob).replaceAll("[*][*]", "**")]),
+      name: `bans/under/${globs.join("+")}/${zoneName(zone)}`,
+      files: files.map((pattern) => [pattern, ...globs.map((glob) => literally(glob).replaceAll("[*][*]", "**"))]),
       ignores,
-      rules: rulesFor(zone, undefined, glob),
+      rules: rulesFor(zone, undefined, globs),
     })),
   ),
   // Last, so a named file's own block is the one eslint reads its options from.
