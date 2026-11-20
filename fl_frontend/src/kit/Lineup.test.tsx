@@ -57,14 +57,14 @@ function Held({
   players,
   start = lineupValue([], []),
   seen,
-  locked,
+  acts,
   refusals,
   nameless = [],
 }: {
   players: LineupPlayer[];
   start?: LineupValue;
   seen?: (value: LineupValue) => void;
-  locked?: Copy;
+  acts?: "locked" | "out";
   refusals?: Record<string, Copy>;
   nameless?: ReadonlyArray<NamelessEntry>;
 }) {
@@ -80,7 +80,7 @@ function Held({
       }}
       startersMax={MAX}
       words={WORDS}
-      locked={locked}
+      acts={acts}
       refusals={refusals}
     />
   );
@@ -152,21 +152,20 @@ describe("a line-up", () => {
 
 describe("a line-up's states", () => {
   // The harm: a press on a closed screen changing the draft, which the save then refuses with the bar's line alone.
-  it("closes every act with the reason while it is locked", async () => {
+  it("closes every act while it is locked", async () => {
     const seen = vi.fn();
     renderUnderNext(
       <Held
         players={kader(3)}
         start={lineupValue([idOf(1)], [])}
         seen={seen}
-        locked={COPY.aufstellung.needsSlot}
+        acts="locked"
       />,
       AT_ADDRESS,
     );
 
     expect(tickOf(1).disabled).toBe(true);
     await userEvent.click(crossOf(1));
-    expect((await screen.findByRole("tooltip")).textContent).toBe(COPY.aufstellung.needsSlot);
     await pick(2);
     expect(seen).not.toHaveBeenCalled();
   });

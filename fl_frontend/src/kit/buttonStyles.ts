@@ -30,10 +30,11 @@ export const buttonLook = tv({
       aria: "",
       link: "",
     },
-    // A locked act (`Button`'s `locked`) dims as a disabled one does and takes no layer, keeping the pointing hand, since
-    // a press opens its reason. Read from the recipe rather than `aria-disabled:`, which React Aria sets on a busy button too.
+    // A locked act (`Button`'s `locked`) dims as a disabled one does, takes no layer and shows the arrow, as a read-only
+    // field does, since a press runs nothing; its reason still opens on the hover, the focus and a press. Read from the
+    // recipe rather than `aria-disabled:`, which React Aria sets on a busy button too.
     locked: {
-      true: "opacity-50",
+      true: "cursor-default opacity-50",
       false: "",
     },
   },
