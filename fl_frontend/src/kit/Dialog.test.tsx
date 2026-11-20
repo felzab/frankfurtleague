@@ -249,13 +249,27 @@ describe("the kit's dialog", () => {
     const back = screen.getByRole<HTMLButtonElement>("button", { name: COPY.shared.back });
 
     await userEvent.keyboard("{Escape}");
-    await userEvent.click(document.body);
     await userEvent.click(back);
     expect(screen.getByRole("dialog")).toBeTruthy();
 
     await act(async () => answer.resolve({ ok: false, reason: COPY.shared.failure.stale }));
     await screen.findByText(COPY.shared.failure.stale);
+    // Escape reaches it again, and asks about the input still typed.
     await userEvent.keyboard("{Escape}");
+    await screen.findByRole("alertdialog");
+  });
+
+  // The harm: a stray Escape drops what was typed into a dialog, such as a seat's details, with no way to get it back.
+  it("asks before Escape drops its typed input, and closes once the person discards it", async () => {
+    renderUnderNext(<CreateDialog create={async () => DONE} />);
+    await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.create }));
+    await userEvent.type(screen.getByRole("textbox", { name: INPUT }), "Sportpark Nord");
+
+    await userEvent.keyboard("{Escape}");
+    const question = await screen.findByRole("alertdialog");
+    within(question).getByText(COPY.template.changesLost(1), { normalizer: getDefaultNormalizer({ collapseWhitespace: false }) });
+
+    await userEvent.click(within(question).getByRole("button", { name: COPY.shared.verb.discard }));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   });
 
