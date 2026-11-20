@@ -8,6 +8,12 @@ const { dayOf, formatDayAndTime, timeOf } = await import("./format");
 
 const WORDS = SERVER_COPY.mail.spiel;
 
+type Slot = { team1: string; team2: string; date: string; time: string };
+
+/** A fixture's pairing and moment in the words the builder sets them in, so a case compares with the entry itself. */
+const paarung = ({ team1, team2 }: Slot) => COPY.page.spiel({ record: team1 }, { record: team2 });
+const moment = ({ date, time }: Slot) => ({ strong: formatDayAndTime(dayOf(date), timeOf(time)) });
+
 /** The origin the local stack serves from, which `docker-compose.local.yml` sets `AUTH_URL` to. */
 const ORIGIN = "http://localhost:3000";
 
@@ -38,7 +44,6 @@ describe("the notice of a move", () => {
   const left = { team1: "Ernst-Reuter-Schule", team2: "Goethe-Gymnasium", date: "2026-11-20", time: "14:30:00" };
   const next = { ...left, date: "2026-11-27", spielort: "Halle Nord" };
   const recipients = ["team", "schiedsrichter"] as const;
-  const moved = (mail: ReturnType<typeof mailFor>) => JSON.stringify(mail).includes("ist verlegt");
 
   it.each(recipients)("tells a staying %s of the move, promising nothing, where the fixture holds no new slot", (recipient) => {
     const mail = mailFor(
@@ -47,8 +52,9 @@ describe("the notice of a move", () => {
       { token: null, secret: null, origin: ORIGIN },
     );
 
-    expect(moved(mail)).toBe(true);
-    expect(JSON.stringify(mail)).not.toMatch(/neue (Anfrage|Einteilung)/);
+    expect(mail?.subjectLine).toBe(WORDS.movedFromSubject(dayOf(left.date)));
+    expect(mail?.paragraphs).toStrictEqual([[WORDS.moved(paarung(left))]]);
+    expect(mail?.afterBlock).toBeUndefined();
   });
 
   it("tells a club taken off the fixture that its request no longer holds", () => {
@@ -58,7 +64,8 @@ describe("the notice of a move", () => {
       { token: null, secret: null, origin: ORIGIN },
     );
 
-    expect(JSON.stringify(mail)).toContain("gilt nicht mehr");
+    expect(mail?.subjectLine).toBe(WORDS.voidSubject(dayOf(left.date)));
+    expect(mail?.paragraphs).toStrictEqual([[[WORDS.void.before(paarung(left)), moment(left), WORDS.void.after]]]);
   });
 
   it("names the ground the fixture moved to, in the block a request names it in", () => {
@@ -72,7 +79,8 @@ describe("the notice of a move", () => {
     const facts = block !== undefined && "facts" in block ? block.facts : [];
 
     expect(facts).toContainEqual({ label: COPY.spielplan.fact.spielort, value: "Halle Nord" });
-    expect(JSON.stringify(mail)).not.toMatch(/neue (Anfrage|Einteilung)/);
+    expect(mail?.paragraphs).toStrictEqual([[WORDS.moved(paarung(sameHour))]]);
+    expect(mail?.afterBlock).toBeUndefined();
   });
 
   /* A replacement or a bracket correction changes the sides and keeps the slot: worded as moved, the reader looks for a
@@ -80,30 +88,40 @@ describe("the notice of a move", () => {
   it("words a new pairing at its slot as no move, in a request, an Einteilung and a notice", () => {
     const replaced = { ...left, team1: "Carl-Schurz-Schule", spielort: "Halle Nord" };
     const origin = { token: null, secret: null, origin: ORIGIN };
+    const day = dayOf(replaced.date);
+    // Each mail under the subject its kind gives a fixture nothing moved.
     const mails = [
-      mailFor(
-        "spiel_request",
-        {
-          kind: "spiel_request",
-          team: "Goethe-Gymnasium",
-          team_id: "6890a1b2c3d4e5f607000001",
-          saison_id: "2026",
-          ansetzung: replaced,
-          deadline: "2026-11-13",
-          moved_from: left,
-        },
-        origin,
-      ),
-      mailFor("spiel_einteilung", { kind: "spiel_einteilung", ansetzung: replaced, moved_from: left }, origin),
-      mailFor("spiel_moved", { kind: "spiel_moved", recipient: "team", appointment: left, moved_to: replaced, stays: true }, origin),
+      {
+        subject: WORDS.requestSubject(day),
+        mail: mailFor(
+          "spiel_request",
+          {
+            kind: "spiel_request",
+            team: "Goethe-Gymnasium",
+            team_id: "6890a1b2c3d4e5f607000001",
+            saison_id: "2026",
+            ansetzung: replaced,
+            deadline: "2026-11-13",
+            moved_from: left,
+          },
+          origin,
+        ),
+      },
+      {
+        subject: WORDS.bookedSubject(day),
+        mail: mailFor("spiel_einteilung", { kind: "spiel_einteilung", ansetzung: replaced, moved_from: left }, origin),
+      },
+      {
+        subject: WORDS.keptSubject(day),
+        mail: mailFor("spiel_moved", { kind: "spiel_moved", recipient: "team", appointment: left, moved_to: replaced, stays: true }, origin),
+      },
     ];
 
-    for (const mail of mails) {
+    for (const { subject, mail } of mails) {
       const block = mail?.block;
       const labels = block !== undefined && "facts" in block ? block.facts.map((fact) => fact.label) : [];
 
-      // The word in a move's subject and in its sentence alike, each time after a space.
-      expect(JSON.stringify(mail)).not.toContain(" verlegt");
+      expect(mail?.subjectLine).toBe(subject);
       // The slot named once, and beside it the pairing that held it: a „Neu“ row would repeat the moment left.
       expect(labels).toStrictEqual([
         COPY.spielplan.fact.date,
@@ -113,7 +131,7 @@ describe("the notice of a move", () => {
       ]);
       expect(JSON.stringify(mail)).toContain(left.team1);
       // The lead opens on the change the mail exists for, the new pairing at the slot it keeps.
-      expect(mail?.paragraphs[0]?.[0]).toBe(`Am selben Termin spielt jetzt ${replaced.team1} vs. ${replaced.team2}.`);
+      expect(mail?.paragraphs[0]?.[0]).toBe(WORDS.newPairing(paarung(replaced)));
     }
   });
 
@@ -126,7 +144,8 @@ describe("the notice of a move", () => {
       { token: null, secret: null, origin: ORIGIN },
     );
 
-    expect(JSON.stringify(mail)).toContain(" verlegt");
+    expect(mail?.subjectLine).toBe(WORDS.movedSubject(dayOf(replaced.date)));
+    expect(mail?.paragraphs).toStrictEqual([[WORDS.moved(paarung(replaced))]]);
   });
 });
 
@@ -136,8 +155,8 @@ describe("the notice of a move", () => {
 describe("the notice of a match that will not be played", () => {
   const appointment = { team1: "Ernst-Reuter-Schule", team2: "Goethe-Gymnasium", date: "2026-11-20", time: "14:30:00" };
   const day = dayOf(appointment.date);
-  const spiel = COPY.page.spiel({ record: appointment.team1 }, { record: appointment.team2 });
-  const when = { strong: formatDayAndTime(day, timeOf(appointment.time)) };
+  const spiel = paarung(appointment);
+  const when = moment(appointment);
   const { cancelled } = WORDS;
   // A no-show counts for the side that turned up, in the match page's own sentence.
   const { consequence } = COPY.spielplan.sonderereignis;

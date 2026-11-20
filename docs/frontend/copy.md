@@ -240,6 +240,8 @@ both.
 - **A „not you?“ line only on a sign-in, security or first-contact mail**; the objection line only
   on a first contact, in its one wording.
 - **Replies go to the contact address**, so no mail says that nobody reads them.
+- **A mail states no later act the code does not perform**, since its reader waits for it and passes
+  it on.
 
 ## Legal text keeps its own rules
 

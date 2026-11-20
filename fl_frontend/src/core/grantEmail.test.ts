@@ -49,21 +49,14 @@ describe("a grant notice", () => {
     expect(text).toContain(WORDS.lead.withdrawn.address(ADDRESS, WORDS.unnamedNewAddress));
   });
 
-  /* The completed change's lead takes the builder's stand-ins for an erased side, a subject's and a dative's, so its
-     sentence has to read with either one in either place. */
+  /* The completed change's lead takes the builder's stand-ins for an erased side, a subject's and a dative's, so each
+     stand-in has to stand in its own place. */
+  const NEXT = "nora.neu@zweitschule.example.org";
   it.each([
-    {
-      previous: ADDRESS,
-      next: "nora.neu@zweitschule.example.org",
-      lead: "nora.neu@beispielschule.example.org ist jetzt zu nora.neu@zweitschule.example.org gewechselt.",
-    },
-    {
-      previous: null,
-      next: "nora.neu@zweitschule.example.org",
-      lead: "Eine nicht genannte Adresse ist jetzt zu nora.neu@zweitschule.example.org gewechselt.",
-    },
-    { previous: ADDRESS, next: null, lead: "nora.neu@beispielschule.example.org ist jetzt zu einer nicht genannten Adresse gewechselt." },
-    { previous: null, next: null, lead: "Eine nicht genannte Adresse ist jetzt zu einer nicht genannten Adresse gewechselt." },
+    { previous: ADDRESS, next: NEXT, lead: WORDS.lead.completed.address(ADDRESS, NEXT) },
+    { previous: null, next: NEXT, lead: WORDS.lead.completed.address(WORDS.unnamedAddress, NEXT) },
+    { previous: ADDRESS, next: null, lead: WORDS.lead.completed.address(ADDRESS, WORDS.unnamedNewAddress) },
+    { previous: null, next: null, lead: WORDS.lead.completed.address(WORDS.unnamedAddress, WORDS.unnamedNewAddress) },
   ])("reads the completed address change as a sentence from $previous to $next", ({ previous, next, lead }) => {
     expect(rendered({ change: "address", stage: "completed", address: previous, new_address: next })).toContain(lead);
   });
