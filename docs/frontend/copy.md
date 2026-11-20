@@ -157,10 +157,10 @@ Each pattern is an entry of `COPY.shared`; what the entry cannot say is when it 
 - **A saved record** shows `saved` on its editor's save bar, beside the save button, never as a
   toast. The save bar is the one place a done act stays on a line, since its line is a fixed row
   that moves nothing as it speaks.
-- **A toast** answers every other done act: a closed question, a closed dialog with fields, a Konto
-  box, a page that is one question, and an act that leaves nothing on the page to change. Its title
-  is the act's note, else its verb's past participle from `toast.done` or another of `toast`'s
-  titles, in the warn tone where the act partly happened
+- **A toast** answers every other done act: a closed question, a closed dialog with fields, a
+  section's act in an editor, a Konto box, a page that is one question, and an act that leaves
+  nothing on the page to change. Its title is the act's note, else its verb's past participle from
+  `toast.done` or another of `toast`'s titles, in the warn tone where the act partly happened
   (`fl_frontend/src/kit/Toast.tsx :: toastAnswer`). A done act's toast leaves by itself, while a
   refusal or a partial outcome stands until it is closed.
 - **A refusal** keeps its line beside what it names: the question's, the dialog's, the box's or the

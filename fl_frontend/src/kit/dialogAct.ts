@@ -36,7 +36,7 @@ export type DialogDanger = {
 export type DoneVerb = keyof typeof COPY.shared.toast.done;
 
 /** The verb, with its object where the verb alone does not say what it acts on („Spielort anlegen“). */
-type ActWords<V extends Verb> = { verb: V; object?: Copy };
+export type ActWords<V extends Verb> = { verb: V; object?: Copy };
 
 /** A dialog's act, whatever opens it: its title, its verb, the action doing it and its inputs. */
 export type DialogAct<T extends Tone = Tone> = {

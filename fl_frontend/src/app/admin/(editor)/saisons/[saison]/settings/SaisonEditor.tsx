@@ -96,7 +96,7 @@ function Swap({ saison, teams, swap, locked }: { saison: string; teams: readonly
       inputs={[first, second]}
       acts={[
         {
-          label: COPY.shared.withObject(WORDS.gruppen, "swap"),
+          act: { verb: "swap", object: WORDS.gruppen },
           isDisabled: locked || first === null || second === null,
           run: async () => (first === null || second === null ? { ok: false } : swap({ saison_id: saison, team1_id: first, team2_id: second })),
         },
@@ -149,7 +149,7 @@ function Replacement({
       inputs={[out, into]}
       acts={[
         {
-          label: COPY.shared.withObject(TEAM, "replace"),
+          act: { verb: "replace", object: TEAM },
           isDisabled: locked || consequence === undefined,
           // Asked only once both clubs are chosen, the button staying closed until then.
           confirm: { verb: "replace", subject: TEAM, consequence: consequence ?? COPY.shared.noValue, tone: "primary" },
@@ -475,7 +475,7 @@ export function SaisonEditor({
           <SectionAct
             acts={[
               {
-                label: COPY.shared.withObject(SPIELPLAN, "create"),
+                act: { verb: "create", object: SPIELPLAN },
                 variant: "primary",
                 isDisabled: isClosed,
                 locked: facts.locked.create,
@@ -540,7 +540,7 @@ export function SaisonEditor({
           <SectionAct
             acts={[
               {
-                label: COPY.shared.withObject(WORDS.invitations, "send"),
+                act: { verb: "send", object: WORDS.invitations },
                 variant: "primary",
                 // The press's own plan reaches nobody: every team is passed over or already mailed.
                 isDisabled: isClosed || links.mailed === 0,
