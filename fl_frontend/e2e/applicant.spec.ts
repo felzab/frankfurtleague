@@ -18,7 +18,7 @@ test("a new school applies, every seat confirms, and the administration accepts 
   // The landing's way in while the window is open.
   await page.goto("/");
   await page.getByRole("main").getByRole("link", { name: "Zur Bewerbung" }).first().click();
-  await expect(page).toHaveURL((url) => url.pathname === `/bewerbung/${PLANNED}`);
+  await expect(page).toHaveURL((url) => url.pathname === "/bewerbung");
   await apply(page, school, { isListed: false });
 
   // Each person's own link: the Ansprechperson's in the mail saying the application came in.

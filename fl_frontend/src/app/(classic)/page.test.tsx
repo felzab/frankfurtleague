@@ -45,7 +45,7 @@ const paragraphs = (html: string): string[] =>
 describe("the landing's ways to apply", () => {
   it("lead to the form from the hero, the steps' band, the season card and the school's door while a window is open", async () => {
     const html = await rendered({ saison_id: "2028", end: "2028-01-31" });
-    expect(hrefs(html).filter((href) => href === "/bewerbung/2028")).toHaveLength(4);
+    expect(hrefs(html).filter((href) => href === "/bewerbung")).toHaveLength(4);
   });
 });
 

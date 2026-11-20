@@ -69,7 +69,7 @@ function asideOf(saison: LandingSaison | null, window: FLBewerbungWindow | null)
     ) : (
       <SaisonBlock
         title={COPY.shared.saisonName(window.saison_id)}
-        state={{ kind: "window", until: dayOf(window.end), apply: ROUTES.bewerbung.path(window.saison_id) }}
+        state={{ kind: "window", until: dayOf(window.end), apply: ROUTES.bewerbungRoot.path() }}
       />
     );
   }
@@ -87,7 +87,7 @@ async function heroOf(read: Promise<FLLandingResponse>): Promise<LandingContent>
     // The season's own Spielplan, the address the header's season entry takes, so the press lands in one hop;
     // `/saisons` only while the league has no season, where it shows the card saying so rather than redirecting.
     primary: { label: COPY.page.spielplan, href: saison === null ? ROUTES.saisons.path() : ROUTES.spielplan.path(saison.id) },
-    secondary: window === null ? ABOUT : { label: words.toBewerbung, href: ROUTES.bewerbung.path(window.saison_id) },
+    secondary: window === null ? ABOUT : { label: words.toBewerbung, href: ROUTES.bewerbungRoot.path() },
     aside: asideOf(saison, window),
   };
 }
@@ -102,7 +102,7 @@ async function bandOf(read: Promise<FLLandingResponse>): ComponentProps<typeof S
     return {
       open: true,
       sentence: words.saison.windowUntil(dayOf(window.end)),
-      act: { label: words.toBewerbung, href: ROUTES.bewerbung.path(window.saison_id) },
+      act: { label: words.toBewerbung, href: ROUTES.bewerbungRoot.path() },
     };
   }
   if (opensOn !== null) return { open: false, sentence: FORM_END.opensOn(dayOf(opensOn)), act: ABOUT };
@@ -143,7 +143,7 @@ async function DoorsSection({ read }: { read: Promise<FLLandingResponse> }) {
               title: words.doors.school.title,
               // The date stands on the join band and the season card, each fact once: the door says only that the window is open.
               text: words.join.opened,
-              act: { label: words.toBewerbung, href: ROUTES.bewerbung.path(window.saison_id) },
+              act: { label: words.toBewerbung, href: ROUTES.bewerbungRoot.path() },
             }
       }
     />
