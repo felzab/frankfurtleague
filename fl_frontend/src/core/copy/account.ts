@@ -70,7 +70,7 @@ export const ACCOUNT_COPY = catalogue({
   },
   appearance: {
     /** The theme's three choices in the order its control shows them, the third in `COPY.template.theme`'s words. */
-    description: "Dunkel, hell oder wie dein Gerät.",
+    description: "Dunkel, hell oder System.",
   },
   /**
    * „Funktion wechseln“'s entries: a team by its name, with this line under it naming the season and the seats held

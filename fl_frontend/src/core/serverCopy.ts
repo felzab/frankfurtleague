@@ -876,9 +876,13 @@ export const SERVER_COPY = catalogue({
      * „derzeit“, and the grey edge of a shared place is no qualifier.
      */
     tabelle: {
+      /** A key to the standing's marks, one short line each, as the owner asked: each mark, then what it says. */
       help: [
-        `${COPY.shared.season.cancelledMark(1)} bei ${SPIELE_SHORT} heißt ${COPY.shared.season.cancelled(1)}, ${COPY.shared.austritt.disqualifikation.shorthand} disqualifiziert und ${COPY.shared.austritt.rueckzug.shorthand} zurückgezogen.`,
-        `Ein grüner Rand markiert einen Platz, der derzeit für die ${COPY.shared.kORunde} reicht, ein grauer einen geteilten Platz.`,
+        `${COPY.shared.season.cancelledMark(1)} bei ${SPIELE_SHORT}: ${COPY.shared.season.cancelled(1)}`,
+        `${COPY.shared.austritt.disqualifikation.shorthand}: disqualifiziert`,
+        `${COPY.shared.austritt.rueckzug.shorthand}: zurückgezogen`,
+        `Grüner Rand: reicht derzeit für die ${COPY.shared.kORunde}`,
+        "Grauer Rand: geteilter Platz",
       ],
     },
 

@@ -1,7 +1,6 @@
 import {
   ACCOUNT_ERASED,
   ADDRESS_CHANGES,
-  AFTER,
   BEWERBUNGEN,
   boundBy,
   catalogue,
@@ -346,8 +345,6 @@ export const ADMIN_COPY = catalogue({
     object: "Administrator",
     pending: "Angekündigt",
     since: SINCE,
-    /** A grant's row line on a phone, whose box leaves the „Seit“ column out: „Seit 12.11.2026“. */
-    sinceOn: (moment: string) => boundBy(SINCE, formatDate(new Date(moment))),
     pendingKind: { addition: "Neuer Administrator", handover: `Übergabe der ${OWNER_TIER}` },
     /** A waiting row's one muted line: what waits, a new address where one does, and its date. */
     pendingLine: (kind: Copy, address: string | null, moment: string) =>
@@ -373,12 +370,6 @@ export const ADMIN_COPY = catalogue({
     consequence: "Die Adresse kann sich nicht mehr anmelden und bekommt keine E-Mails.",
     duration: "Dauer",
     until: VALID_UNTIL,
-    /**
-     * A ban's line on a phone, whose box leaves its three columns out, in their order: the Grund, which says what it is,
-     * then each date after its column's label, „Beleidigungen · Gültig bis Saison 2027 · Eingetragen am 12.11.2026“.
-     */
-    phoneLine: (reason: Words, until: Copy, day: CalendarDay) =>
-      lineOf([textOf(reason), boundBy(VALID_UNTIL, until), boundBy(ENTERED_ON, formatDate(day))]),
     durationSaisons: (count: number) => (count === 1 ? "1\u00A0Saison" : boundBy(formatNumber(count), "Saisons")),
     /** The toast once the ban stands, by what did not follow it. */
     partial: {
@@ -427,11 +418,6 @@ export const ADMIN_COPY = catalogue({
     /** A row's muted line, the moment its step ends: while a link is open, and in the wait. */
     until: (moment: string) => boundBy("bis", formatInstantShort(moment)),
     from: (moment: string) => boundBy("ab", formatInstantShort(moment)),
-    /**
-     * A stacked row's muted line, standing for the „Neu“ column a phone leaves out: „Neu: <address> · bis 12.11.,
-     * 15:12“, the new address between the two parts, the moment after it where the step has one (`until`, `from`).
-     */
-    newLine: { before: `${AFTER}: `, after: (until: string) => ` · ${until}` },
     startConsequence: (wait: Wait) => `Die neue Adresse gilt erst ${waitWords(wait).span}, nachdem sie bestätigt ist.`,
     /** The typed address matching a listed row. */
     replaces: "Eine laufende Änderung wird ersetzt.",
