@@ -2,7 +2,7 @@
 
 import { z } from "zod";
 
-import { action } from "@/core/action";
+import { action, ticked } from "@/core/action";
 import { SEAT_TEXT_VERSIONS } from "@/core/consentWordings";
 import { bewerbungenPostConfirmation } from "@/core/generated/client/sdk";
 import { BewerbungenPostConfirmationBody } from "@/core/generated/zod/inputs";
@@ -14,9 +14,6 @@ import type { Code } from "@/core/generated/client/types";
 import type { EndState } from "@/kit/MailedPage";
 
 const [given, declined] = BewerbungenPostConfirmationBody.options;
-
-/** A ticked box posts „on“, an unticked or unoffered one nothing. */
-const ticked = z.preprocess((value) => value === "on", z.boolean());
 
 /**
  * What the two acts post, the one-shot form's `act` naming the one pressed: the main act the answer's fields, the

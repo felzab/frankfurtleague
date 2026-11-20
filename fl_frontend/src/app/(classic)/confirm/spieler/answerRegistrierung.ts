@@ -2,7 +2,7 @@
 
 import { z } from "zod";
 
-import { action } from "@/core/action";
+import { action, ticked } from "@/core/action";
 import { SPIELER_TEXT_VERSIONS } from "@/core/consentWordings";
 import { registrierungenPostConfirmation } from "@/core/generated/client/sdk";
 import { RegistrierungenPostConfirmationBody } from "@/core/generated/zod/inputs";
@@ -15,12 +15,12 @@ import type { EndState } from "@/kit/MailedPage";
 
 const { shape } = RegistrierungenPostConfirmationBody;
 
-/** What the one act posts, under the payload's own names. A ticked box posts „on“, an unticked or unoffered one nothing. */
+/** What the one act posts, under the payload's own names. */
 const Answer = z.object({
   token: shape.token,
   birth_date: shape.birth_date,
   scope: shape.scope,
-  media: z.preprocess((value) => value === "on", z.boolean()),
+  media: ticked,
 });
 
 /** The refusals that say the link holds no more since the page opened: answered, lapsed or mistyped. */

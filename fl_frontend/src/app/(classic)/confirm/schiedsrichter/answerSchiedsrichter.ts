@@ -2,7 +2,7 @@
 
 import { z } from "zod";
 
-import { action } from "@/core/action";
+import { action, ticked } from "@/core/action";
 import { SCHIEDSRICHTER_TEXT_VERSIONS } from "@/core/consentWordings";
 import { schiedsrichterPostConfirmation, schiedsrichterPostDecline } from "@/core/generated/client/sdk";
 import { SchiedsrichterPostConfirmationBody } from "@/core/generated/zod/inputs";
@@ -17,8 +17,7 @@ const { shape } = SchiedsrichterPostConfirmationBody;
 
 /**
  * What the two acts post, the one-shot form's `act` naming the one pressed: the main act the answer's fields, the
- * objection the token alone, whatever the fields hold, as an objection hands nothing over. A ticked box posts „on“,
- * an unticked or unoffered one nothing.
+ * objection the token alone, whatever the fields hold, as an objection hands nothing over.
  */
 const Answer = z.discriminatedUnion("act", [
   z.object({
@@ -26,7 +25,7 @@ const Answer = z.discriminatedUnion("act", [
     token: shape.token,
     birth_date: shape.birth_date,
     scope: shape.scope,
-    media: z.preprocess((value) => value === "on", z.boolean()),
+    media: ticked,
   }),
   z.object({ act: z.literal("secondary"), token: shape.token }),
 ]);

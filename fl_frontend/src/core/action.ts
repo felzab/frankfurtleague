@@ -160,6 +160,9 @@ export const numberBox = <Figure extends z.ZodType>(rule: Figure) =>
 /** A text box whose emptiness is no value, held to its rule: an empty box `null`, anything else as typed. */
 export const blankIsNull = <Text extends z.ZodType>(rule: Text) => z.preprocess((value) => (value === "" ? null : value), rule);
 
+/** A checkbox read as yes or no: a ticked box posts „on“, an unticked or unoffered one nothing. */
+export const ticked = z.preprocess((value) => value === "on", z.boolean());
+
 /** Declarable only over an input carrying `PAGE_HOLDER`, so no such act is posted without it. */
 type Held<Schema extends z.ZodType> = z.output<Schema> extends { readonly holder: string } ? unknown : never;
 
