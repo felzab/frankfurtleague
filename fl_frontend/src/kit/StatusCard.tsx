@@ -46,11 +46,12 @@ const statusCard = tv({
     railTitle: "font-heading tracking-display uppercase",
   },
   variants: {
+    // The glyph in its hue on the chip's opaque tint, a pair the contrast rule measures.
     tone: {
-      success: { mark: "bg-success/12 text-success" },
-      info: { mark: "bg-info/12 text-info" },
-      warn: { mark: "bg-warn/12 text-warn" },
-      danger: { mark: "bg-danger/12 text-danger" },
+      success: { mark: "bg-success-tint text-success" },
+      info: { mark: "bg-info-tint text-info" },
+      warn: { mark: "bg-warn-tint text-warn" },
+      danger: { mark: "bg-danger-tint text-danger" },
     },
     // At the strip title's size for the same scope.
     scope: {

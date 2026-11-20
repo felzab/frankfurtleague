@@ -9,11 +9,13 @@ const box = tv({
     heading: "text-base font-semibold",
   },
   variants: {
+    // The chip's opaque tint, so the box paints the same on the page, a card or a dialog, and its title and its
+    // sentence are pairs the contrast rule measures.
     tone: {
-      success: { root: "bg-success/12", heading: "text-success" },
-      info: { root: "bg-info/12", heading: "text-info" },
-      warn: { root: "bg-warn/12", heading: "text-warn" },
-      danger: { root: "bg-danger/12", heading: "text-danger" },
+      success: { root: "bg-success-tint", heading: "text-success" },
+      info: { root: "bg-info-tint", heading: "text-info" },
+      warn: { root: "bg-warn-tint", heading: "text-warn" },
+      danger: { root: "bg-danger-tint", heading: "text-danger" },
     },
     // A box inside running text says its sentence at the text's own size, as GOV.UK's inset text and Primer's flash do;
     // beside fields and rows it keeps the smaller size of the words around it.
