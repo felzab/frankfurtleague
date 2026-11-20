@@ -6,7 +6,7 @@ import { captureLog } from "@/test-support/stdoutCapture";
 
 import type { FLOutboxHandout } from "@/core/generated/client/types";
 
-/* Every pass here runs the five real jobs and the real drain, the backend and the hosts they reach answered on the
+/* Every pass here runs the seven real jobs and the real drain, the backend and the hosts they reach answered on the
    network: what a job did is what the backend saw it ask. */
 
 /** A request as a line of what a pass sent: its method and its path. */
@@ -46,7 +46,7 @@ let handouts: unknown[] = [];
 
 /** What every job meets on an idle day: nothing to act on, each answered as the contract shapes it. */
 const IDLE: Readonly<Record<Call, Answer>> = {
-  // Both season jobs' listing, the applications' unfiltered and the confirmations' of the running seasons.
+  // Both season jobs' listing, the seasons' unfiltered and the confirmations' of the running seasons.
   "GET /saisons/sweep": () => ({ saison_ids: [] }),
   "POST /address_change/sweep": () => ({ removed: 0, effective: 0, discarded: 0, failed: 0 }),
   "GET /address_change/sweep/moves": () => ({ moves: [] }),
@@ -157,17 +157,9 @@ const sentNow = (): string[] => backend.sent.map(({ method, path }) => `${method
 
 /** What each job counts on an idle day, as the pass line names it. */
 const IDLE_COUNTS = {
-  bewerbungen: {
-    bewerbung_failed: 0,
-    registrierung_failed: 0,
-    saison_failed: 0,
-    address_change_removed: 0,
-    address_change_effective: 0,
-    address_change_discarded: 0,
-    address_change_failed: 0,
-    schiedsrichter_erased: 0,
-    schiedsrichter_failed: 0,
-  },
+  saisons: { bewerbung_failed: 0, registrierung_failed: 0, saison_failed: 0 },
+  "address-change": { address_change_removed: 0, address_change_effective: 0, address_change_discarded: 0, address_change_failed: 0 },
+  schiedsrichter: { schiedsrichter_erased: 0, schiedsrichter_failed: 0 },
   account: { unreferenced: 0, deleted: 0, already_deleted: 0, failed: 0 },
   erasure: { completed_saison_id: null, spieler: 0, saison_spieler: 0, registrierungen: 0, skipped: 0, failed: 0 },
   spielbestaetigungen: { closed: 0, asked: 0, reminded: 0, mails: 0, failed: 0 },
@@ -255,14 +247,14 @@ describe("the one scheduler", () => {
     expect(schedulerLines().map(({ message }) => message)).toStrictEqual(["scheduler.held"]);
   });
 
-  /* A job that threw is a job that stopped, and the ones behind it still owe what they owe. The applications' job, the
-     first, throws where its address half's call is refused. */
+  /* A job that threw is a job that stopped, and the ones behind it still owe what they owe. The address changes' job
+     throws where its call is refused. */
   it("runs every job behind one that threw, and names it on a line", async () => {
     answers.set("POST /address_change/sweep", () => refusal(undefined, { status: 503 }));
 
     const [seen] = await bootAndStep([MINUTE_MS]);
 
-    expect(seen).toStrictEqual(EVERY_JOB.filter((call) => call !== "GET /address_change/sweep/moves" && call !== "POST /schiedsrichter/sweep"));
+    expect(seen).toStrictEqual(EVERY_JOB.filter((call) => call !== "GET /address_change/sweep/moves"));
     // The job's name and the error's alone, and no error on the line: a failure on any job's path can carry an address.
     expect(
       log
@@ -270,7 +262,7 @@ describe("the one scheduler", () => {
         .filter(({ level }) => level === "ERROR")
         .map(({ message, fields, error }) => ({ message, fields, error })),
     ).toStrictEqual([
-      { message: "scheduler.job_failed", fields: { job: "bewerbungen", name: "APIBadStatusError", status: 503 }, error: undefined },
+      { message: "scheduler.job_failed", fields: { job: "address-change", name: "APIBadStatusError", status: 503 }, error: undefined },
     ]);
   });
 
@@ -279,7 +271,7 @@ describe("the one scheduler", () => {
     let release = () => {};
     let arrived = () => {};
     const held = new Promise<void>((resolve) => (arrived = resolve));
-    // The applications' listing alone, which asks every status: the confirmations' asks the running seasons.
+    // The seasons' job's listing alone, which asks every status: the confirmations' asks the running seasons.
     answers.set("GET /saisons/sweep", async ({ search }) => {
       if (search.has("status")) return { saison_ids: [] };
       arrived();
@@ -361,6 +353,7 @@ describe("the heartbeat after each pass", () => {
     await bootAndStep([MINUTE_MS]);
 
     answers.set("POST /address_change/sweep", () => refusal(undefined, { status: 503 }));
+    answers.set("POST /schiedsrichter/sweep", () => ({ erased: 0, failed: 1 }));
     answers.set("POST /identity/erasure/sweep", () => erasure(4, { failed: 3 }));
     // Given up by a write's drain inside the hour, never the pass's own: the pass reports every drain's.
     handouts = [{ ...NOTHING_HANDED_OUT, abandoned: 2 }];
@@ -370,7 +363,7 @@ describe("the heartbeat after each pass", () => {
 
     expect(pinged.map(({ method, url, body }) => ({ url: url.href, method, body }))).toStrictEqual([
       { url: HEARTBEAT, method: "GET", body: undefined },
-      { url: `${HEARTBEAT}/fail`, method: "POST", body: "bewerbungen failed\nerasure left 3\noutbox gave up 2" },
+      { url: `${HEARTBEAT}/fail`, method: "POST", body: "address-change failed\nschiedsrichter left 1\nerasure left 3\noutbox gave up 2" },
     ]);
   });
 
