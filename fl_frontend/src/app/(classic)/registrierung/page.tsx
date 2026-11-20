@@ -65,7 +65,7 @@ const LINES: { objection: Line; notice: Line } = {
 
 /**
  * `/registrierung`, the page a team's registration link opens, which the proxy hands its token in this page's cookie
- * (`MAILED_LINK_PAGES`), since the form loads Turnstile: the form, in one box, sent once through the one-shot submit, its
+ * (`MAILED_LINK_PAGES`): the form, in one box, sent once through the one-shot submit, its
  * outcome replacing it. Where no form stands, the page is its status card: the window shut or the season over, the club
  * out of the season, the squad full, and the link no longer valid. The link is the team's, opened by every pupil, so it
  * has no state of having been answered.

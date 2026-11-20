@@ -8,11 +8,9 @@ paths:
 
 Each fails silently. The ratified decisions for this surface are in `docs/decisions.md`.
 
-- A page whose address holds a token never forwards it into another address and never loads a
-  third-party script with it in the address: one that must do either joins the proxy's mailed-link
-  table (`fl_frontend/src/core/mailedLink.ts :: MAILED_LINK_PAGES`), which moves the token into a
-  cookie before the page renders. Turnstile's script hands the whole address to Cloudflare's frame,
-  and a sign-in's return address travels through every page of the sign-in.
+- Every page a mailed link opens is in the proxy's mailed-link table
+  (`fl_frontend/src/core/mailedLink.ts :: MAILED_LINK_PAGES`). A new such page is made under
+  `/confirm/`, where nginx's prefix already meters it, and joins the table.
 - Every kit field's root takes `inert={useFieldWait()}`
   (`fl_frontend/src/kit/FieldParts.tsx :: useFieldWait`) and a row in the server-render case of
   `fl_frontend/src/kit/HeldForm.test.tsx`; without it, React's next render writes its state over

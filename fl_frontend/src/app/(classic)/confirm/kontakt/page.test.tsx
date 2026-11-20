@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { COPY } from "@/core/copy/shared";
 import { TO_ACCOUNT } from "@/kit/MailedPage";
 import { serveBackend } from "@/test-support/backend";
-import { doubleNextRequest } from "@/test-support/nextRequest";
+import { arriveWith, doubleNextRequest } from "@/test-support/nextRequest";
 
 import type { FLBewerbungEinwilligungViewAnswered, FLBewerbungEinwilligungViewSaisonPast } from "@/core/generated/client/types";
 import type { MailedState } from "@/kit/MailedPage";
@@ -34,12 +34,9 @@ const DAY = "2026-11-04";
 /** What the page shows for the view the backend serves, as the template is handed it. */
 async function stateFor(served: View): Promise<MailedState> {
   view = served;
-  const page = KontaktConfirmationPage({
-    params: Promise.resolve({}),
-    searchParams: Promise.resolve({ token: "tok" }),
-  }) as ReactElement<{
-    page: Promise<MailedState>;
-  }>;
+  // The link as the proxy left it: its token in the page's cookie.
+  arriveWith({ cookie: "mailed_link=tok" });
+  const page = KontaktConfirmationPage() as ReactElement<{ page: Promise<MailedState> }>;
   return page.props.page;
 }
 

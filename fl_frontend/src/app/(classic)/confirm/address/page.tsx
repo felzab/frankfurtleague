@@ -5,6 +5,7 @@ import { ACCOUNT_COPY } from "@/core/copy/account";
 import { COPY } from "@/core/copy/shared";
 import { dayOf, formatInstantShort } from "@/core/format";
 import { addressChangeGetAddressChangeView } from "@/core/generated/client/sdk";
+import { mailedLinkToken } from "@/core/mailedLink";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { runWithIncomingTrace } from "@/core/traceScope";
@@ -28,10 +29,8 @@ import type { MailedState } from "@/kit/MailedPage";
 import type { Metadata, ResolvingMetadata } from "next";
 import type { Side } from "./ends";
 
-type Props = PageProps<"/confirm/address">;
-
-export async function generateMetadata({ searchParams }: Pick<Props, "searchParams">, parent: ResolvingMetadata): Promise<Metadata> {
-  return mailedMetadata(parent, ROUTES.addressChangeConfirmation, readState(searchParams));
+export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
+  return mailedMetadata(parent, ROUTES.addressChangeConfirmation, readState());
 }
 
 const WORDS = SERVER_COPY.addressChange;
@@ -56,14 +55,13 @@ const accountAtTheNewAddress = cache(async (token: string) => accountAtNewAddres
  * new mailbox; the administration's asks the new mailbox alone, the address on file holding a stop, as a holder's does
  * while its wait runs.
  */
-export default function AddressChangeConfirmationPage({ searchParams }: Props) {
-  return <MailedPage page={readState(searchParams)} />;
+export default function AddressChangeConfirmationPage() {
+  return <MailedPage page={readState()} />;
 }
 
-async function readState(searchParams: Props["searchParams"]): Promise<MailedState> {
-  const { token } = await searchParams;
-  // A missing or repeated parameter is no link at all.
-  if (typeof token !== "string" || token === "") return INVALID;
+async function readState(): Promise<MailedState> {
+  const token = await mailedLinkToken();
+  if (token === null) return INVALID;
 
   const read = await readChange(token);
   if (read === null) return INVALID;

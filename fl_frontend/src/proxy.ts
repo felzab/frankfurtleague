@@ -131,7 +131,10 @@ export const config = {
     },
     // `MAILED_LINK_PAGES`, on a request carrying a token alone, which an empty `token` is not: Next's `has` reads an
     // empty query value as absent. The key is `TOKEN_PARAMETER` (`core/routes.ts`), spelled here as the matcher's literal.
-    { source: "/(erasure|registrierung)", has: [{ type: "query", key: "token" }] },
+    {
+      source: "/(erasure|registrierung|confirm/address|confirm/kontakt|confirm/schiedsrichter|confirm/spieler)",
+      has: [{ type: "query", key: "token" }],
+    },
     {
       source: "/signin/:path*",
       missing: [
