@@ -18,7 +18,7 @@ from pymongo import AsyncMongoClient
 from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.identity.admin_router import get_erasure_view, post_erasure
+from app.api.identity.admin_router import get_erasure_view
 from app.api.identity.schemas import FLErasureAddressPayload, FLErasurePayload
 from app.core.codes import Code
 from app.core.collections import Collection
@@ -189,16 +189,6 @@ def counted_by_the_handler(email: str) -> Awaitable[Any]:
     )
 
 
-def erased_by_the_handler_alone(email: str) -> Awaitable[Any]:
-    return post_erasure(
-        erasure_data=FLErasurePayload.model_validate(erasure_of(email)),
-        collections=NO_HANDLE,
-        db=NO_HANDLE,
-        operator=OPERATOR,
-        germany_now=NOW,
-    )
-
-
 class TestTheirOwnAddress:
     """`own_address`: an administrator's own address goes through their account page, or through another administrator.
 
@@ -206,10 +196,9 @@ class TestTheirOwnAddress:
     headers are not exercised here.
     """
 
-    @pytest.mark.parametrize("handler", [counted_by_the_handler, erased_by_the_handler_alone], ids=["the counts", "the erasure"])
-    async def test_it_is_refused_in_other_capitals_and_between_spaces_before_anything_is_read(self, handler: Callable[[str], Awaitable[Any]]):
+    async def test_it_is_refused_in_other_capitals_and_between_spaces_before_anything_is_read(self):
         with pytest.raises(APIError) as refused:
-            await handler(f"  {OPERATOR.upper()} ")
+            await counted_by_the_handler(f"  {OPERATOR.upper()} ")
 
         assert (refused.value.status_code, refused.value.error_code) == (403, Code.OWN_ADDRESS)
 

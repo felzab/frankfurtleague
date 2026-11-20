@@ -38,8 +38,9 @@ from app.api.address_change.services import (
 )
 from app.api.grants.crud import read_grants
 from app.api.grants.guard import ADMIN_TIER
+from app.api.identity.crud import refuse_an_address_off_limits
 from app.api.identity.lookup import SubjectLookup
-from app.api.identity.services import address_change_viewable_denied, find_admin_address_refusal, find_own_address_refusal
+from app.api.identity.services import address_change_viewable_denied
 from app.api.outbox.schemas import FLOutboxStatus
 from app.api.spieler.crud import another_pupil_holds
 from app.core.crud import aggregate_many_from_db, patch_one_in_db, refuse
@@ -69,14 +70,6 @@ router = APIRouter(
     prefix="/address_change",
     dependencies=ADMIN_TIER,
 )
-
-
-async def _refuse_the_address(identifier: str, *, actor: str, grants_collection: ReadCollection, session: AsyncClientSession) -> None:
-    """The tool's refusals about who asks: the administrator's own address (`own_address`), a holder's but for the owner (`admin_address`)."""
-
-    refuse(find_own_address_refusal(identifier=identifier, actor=actor))
-    grants = await read_grants(grants_collection=grants_collection, session=session)
-    refuse(find_admin_address_refusal(identifier=identifier, actor=actor, grants=grants))
 
 
 async def _pull_the_change(
@@ -172,7 +165,7 @@ async def post_address_change_admin(
     way: FLAddressChangeWay = "waiting_period"
 
     async def judge_and_start_the_change(session: AsyncClientSession) -> None:
-        await _refuse_the_address(identifier, actor=operator, grants_collection=grants_collection, session=session)
+        await refuse_an_address_off_limits(identifier, actor=operator, grants_collection=grants_collection, session=session)
         refuse(find_unchanged_refusal(address=identifier, folded=sign_in_identifier(email)))
 
         holdings = await read_the_holdings(identifier, records=records, grants_collection=grants_collection, session=session)
@@ -262,7 +255,7 @@ async def resend_confirmation(
         # The change the id names alone, so a page showing a change since replaced re-sends nothing.
         record = await _pull_the_change(address_changes_collection, address_change_id, session=session)
         identifier = str(record["address"])
-        await _refuse_the_address(identifier, actor=operator, grants_collection=grants_collection, session=session)
+        await refuse_an_address_off_limits(identifier, actor=operator, grants_collection=grants_collection, session=session)
         email = str(record["email"])
         holdings = await read_the_holdings(identifier, records=records, grants_collection=grants_collection, session=session)
         taken = holdings.spieler is not None and await another_pupil_holds(
@@ -324,7 +317,7 @@ async def delete_address_change(
     async def discard_the_change(session: AsyncClientSession) -> None:
         # The change the id names alone, so a page showing a change since replaced discards nothing.
         record = await _pull_the_change(address_changes_collection, address_change_id, session=session)
-        await _refuse_the_address(str(record["address"]), actor=operator, grants_collection=grants_collection, session=session)
+        await refuse_an_address_off_limits(str(record["address"]), actor=operator, grants_collection=grants_collection, session=session)
         await end_the_change_in_session(
             address_changes_collection=address_changes_collection,
             db_filter={"_id": address_change_id},

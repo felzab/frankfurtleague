@@ -5,9 +5,8 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.account.services import AddressRecords, preview_withdrawal_at_address, withdraw_at_address
 from app.api.address_change.crud import others_naming
-from app.api.grants.crud import read_grants
 from app.api.grants.guard import ADMIN_TIER
-from app.api.identity.crud import erase_everything, resolve_subject
+from app.api.identity.crud import erase_everything, refuse_an_address_off_limits, resolve_subject
 from app.api.identity.lookup import ErasureHandles
 from app.api.identity.schemas import (
     FLEinwilligungWithdrawalPayload,
@@ -20,9 +19,7 @@ from app.api.identity.services import (
     address_change_viewable_denied,
     build_booked_spiele_pipeline,
     compose_erasure_view,
-    find_admin_address_refusal,
     find_foreign_address_change_refusal,
-    find_own_address_refusal,
 )
 from app.api.spiele.schemas import is_played
 from app.core.crud import aggregate_many_from_db, refuse
@@ -83,12 +80,9 @@ async def get_erasure_view(
     """
 
     identifier = sign_in_identifier(view_data.email)
-    refuse(find_own_address_refusal(identifier=identifier, actor=operator))
-
     # Every read in the request's snapshot session, so the counts are of one moment; never a transaction,
     # a read writing nothing having no conflict to retry for.
-    grants = await read_grants(grants_collection=grants_collection, session=session)
-    refuse(find_admin_address_refusal(identifier=identifier, actor=operator, grants=grants))
+    grants = await refuse_an_address_off_limits(identifier, actor=operator, grants_collection=grants_collection, session=session)
 
     subject = await resolve_subject(
         identifier,
@@ -150,15 +144,14 @@ async def post_erasure(
     """
 
     identifier = sign_in_identifier(erasure_data.email)
-    # Before the transaction: who asks is known from the token alone.
-    refuse(find_own_address_refusal(identifier=identifier, actor=operator))
-
     journal = Journal()
 
     @journal.attempted
     async def erase_the_address(session: AsyncClientSession) -> None:
-        grants = await read_grants(grants_collection=collections.grants_collection, session=session)
-        refuse(find_admin_address_refusal(identifier=identifier, actor=operator, grants=grants))
+        # Inside the attempt, so a grant landing before its retry is judged by that retry.
+        grants = await refuse_an_address_off_limits(
+            identifier, actor=operator, grants_collection=collections.grants_collection, session=session
+        )
 
         subject = await resolve_subject(
             identifier,
@@ -201,7 +194,10 @@ async def post_withdrawal(
     bewerbungen_collection: BewerbungenCollection,
     registrierungen_collection: RegistrierungenCollection,
     teams_collection: TeamsReadCollection,
+    grants_collection: GrantsReadCollection,
     db: DBClient,
+    session: SnapshotSession,
+    operator: ActorEmail,
     germany_now: GermanyNow,
     dry_run: Annotated[bool, Query(description="Report what this entry would end, and write nothing")] = False,
 ) -> FLEinwilligungWithdrawalReport:
@@ -212,6 +208,9 @@ async def post_withdrawal(
     """
 
     identifier = sign_in_identifier(withdrawal_data.email)
+    # Refused as the erasure is, its `dry_run` too. In the snapshot and not the entry's transaction: the entry writes no
+    # row a grant's addition writes, and ends no grant, so judging inside it would close no race.
+    await refuse_an_address_off_limits(identifier, actor=operator, grants_collection=grants_collection, session=session)
     records = AddressRecords(
         spieler=spieler_collection,
         schiedsrichter=schiedsrichter_collection,
@@ -222,9 +221,6 @@ async def post_withdrawal(
     )
 
     if dry_run:
-        # Opened here as `get_snapshot_session` opens one, as the fixture save's dry run opens its own: a declared
-        # session would be started for every entry.
-        async with db.start_session(snapshot=True) as session:
-            return await preview_withdrawal_at_address(identifier, choices=withdrawal_data.choices, records=records, session=session)
+        return await preview_withdrawal_at_address(identifier, choices=withdrawal_data.choices, records=records, session=session)
 
     return await withdraw_at_address(identifier, choices=withdrawal_data.choices, records=records, db=db, now=germany_now)
