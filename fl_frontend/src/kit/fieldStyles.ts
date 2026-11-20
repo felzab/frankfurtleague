@@ -68,7 +68,7 @@ export const messageLine = tv({
     tone: {
       description: "text-fg-muted",
       consequence: "text-warn",
-      error: "text-danger",
+      danger: "text-danger",
     },
   },
   defaultVariants: { width: "field" },
@@ -89,22 +89,19 @@ export const statusLine = tv({
     },
     tone: {
       changes: "text-fg",
-      // A danger row's second line at rest, its act's consequence in the small muted face.
-      resting: "text-xs text-fg-muted",
-      saved: "text-success",
+      success: "text-success",
       // An act that partly happened: neither of the two beside it.
       warn: "text-warn",
-      error: "text-danger",
+      danger: "text-danger",
     },
   },
 });
 
 /**
- * A select's trigger holding a count, as wide as a text field holding the same count (`holds`) with its arrow: the
- * count and one more, the 12-px start inset, the 8-px gap, the 16-px arrow and the 8-px end inset, with 2 px to spare
- * as a text field keeps them.
+ * A danger row's second line, under its name: what its act does, in the small muted face. A word wraps anywhere, as on
+ * the status line, since the line can name a record's own words, an address among them.
  */
-const triggerHolds = { 2: "w-[calc(3ch+2.875rem)]" } as const;
+export const dangerConsequence = tv({ base: "text-xs wrap-anywhere text-fg-muted" });
 
 /**
  * The edge a value is typed into: 32 px with a mouse, 40 px and 16-px text on a touch screen, transparent inside
@@ -113,12 +110,13 @@ const triggerHolds = { 2: "w-[calc(3ch+2.875rem)]" } as const;
  * its whole height by the touch rule at this file's head, the edge lying inside the frame's inset.
  *
  * Under the pointer the edge steps one shade towards the text, to the muted words' grey, as Material 3, Fluent 2 and
- * Polaris draw a field's hover. React Aria marks the hover `data-hovered` on its own input, group or button, which a
- * touch never sets: on the frame where the frame is that part, else on a part inside it. A disabled, refused or
- * read-only field keeps its edge, since none of them takes an edit, and a focused one draws its focus edge over it.
+ * Polaris draw a field's hover. Every frame taking an edit is one of React Aria's own parts, an input, a button or a group, which marks
+ * its hover `data-hovered` and which a touch never sets; a frame holding more than its input, a glyph, a unit or a
+ * button, is a group, so the pointer anywhere on it starts the one hover. A disabled, refused or read-only field keeps
+ * its edge, since none of them takes an edit, and a focused one draws its focus edge over it.
  */
 export const fieldFrame = tv({
-  base: "rounded-lg bg-transparent text-sm text-fg inset-ring inset-ring-border-control transition-[color,outline-color,box-shadow] duration-(--motion-state) group-data-invalid:inset-ring-danger group-data-readonly:cursor-default group-data-readonly:inset-ring-border not-group-data-disabled:not-group-data-invalid:not-group-data-readonly:has-data-hovered:inset-ring-fg-muted data-disabled:opacity-50 not-group-data-disabled:not-group-data-invalid:not-group-data-readonly:data-hovered:inset-ring-fg-muted data-invalid:inset-ring-danger pointer-coarse:text-base",
+  base: "rounded-lg bg-transparent text-sm text-fg inset-ring inset-ring-border-control transition-[color,outline-color,box-shadow] duration-(--motion-state) group-data-invalid:inset-ring-danger group-data-readonly:cursor-default group-data-readonly:inset-ring-border data-disabled:opacity-50 not-group-data-disabled:not-group-data-invalid:not-group-data-readonly:data-hovered:inset-ring-fg-muted data-invalid:inset-ring-danger pointer-coarse:text-base",
   variants: {
     // A field's width says what it holds, since a person reads the length of a field as the length of its answer:
     // three widths at one left edge, each with the same 12-px inset, so the values of a box start at one x whatever
@@ -165,8 +163,10 @@ export const fieldFrame = tv({
       true: "font-numeric",
     },
   },
-  // A select's trigger holds its arrow beside the count, so its short width is the text field's and the arrow's room.
-  compoundVariants: [{ layout: "trigger", holds: 2, class: triggerHolds[2] }],
+  // A select's trigger holding a count is as wide as a text field holding the same count with its arrow: the count and
+  // one more, the 12-px start inset, the 8-px gap, the 16-px arrow and the 8-px end inset, with 2 px to spare as a text
+  // field keeps them.
+  compoundVariants: [{ layout: "trigger", holds: 2, class: "w-[calc(3ch+2.875rem)]" }],
 });
 
 /**
@@ -177,7 +177,7 @@ export const fieldFrame = tv({
  */
 export const fieldUnit = tv({
   slots: {
-    frame: "flex w-fit items-center gap-1.5 group-data-disabled:opacity-50",
+    frame: "flex w-fit items-center gap-1.5",
     value: "h-full min-w-0 bg-transparent font-numeric group-data-readonly:cursor-default",
     unit: "shrink-0 text-fg",
   },
@@ -316,16 +316,10 @@ export const toggleLine = tv({ base: "col-start-2 grid empty:hidden" });
 /**
  * A radio group's answers, one under another at every width: plain answers, or, where each answer is described,
  * cards. Answers stand side by side only where there are two and both are short, and a card's title may carry a
- * person's name; a dialog's box, at most 512 px, never reaches the 42 rem a row of cards would need.
+ * person's name; a dialog's box, at most 512 px, never reaches the 42 rem a row of cards would need. A column of flex
+ * items rather than a grid, whose track an answer holding one long unbroken word widens to that word, past its column.
  */
-export const radioList = tv({
-  variants: {
-    layout: {
-      list: "flex flex-col gap-2",
-      cards: "grid gap-2",
-    },
-  },
-});
+export const radioList = tv({ base: "flex flex-col gap-2" });
 
 /**
  * A described answer drawn as a card: its circle, then its title over its line, 10 px apart as a box and its
@@ -407,12 +401,7 @@ export const menuPopover = tv({
  * row or the box beneath it where the hairline is lost on it.
  */
 export const popoverSurface = tv({
-  base: "max-w-panel rounded-lg border border-border-control bg-bg-overlay p-3 text-sm text-fg shadow-menu transition-opacity duration-(--motion-in) data-entering:opacity-0 data-exiting:opacity-0 data-exiting:duration-(--motion-out)",
-  variants: {
-    width: {
-      help: "w-popover",
-    },
-  },
+  base: "w-popover max-w-panel rounded-lg border border-border-control bg-bg-overlay p-3 text-sm text-fg shadow-menu transition-opacity duration-(--motion-in) data-entering:opacity-0 data-exiting:opacity-0 data-exiting:duration-(--motion-out)",
 });
 
 /** One entry of that menu: a fill when the pointer or the arrow keys reach it. */

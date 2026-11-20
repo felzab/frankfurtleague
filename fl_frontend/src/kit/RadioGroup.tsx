@@ -55,7 +55,7 @@ export function RadioGroup({
   name?: string;
   defaultValue?: string | null;
 } & ({ layout?: "list"; choices: readonly ListChoice[] } | { layout: "cards"; choices: readonly DescribedChoice[] })) {
-  const lock = useFieldLock(false, false, isRequired);
+  const lock = useFieldLock(false, isRequired);
   return (
     <AriaRadioGroup
       inert={useFieldWait()}
@@ -64,13 +64,12 @@ export function RadioGroup({
       name={name}
       defaultValue={defaultValue}
       isRequired={lock.isRequired}
-      isDisabled={lock.isDisabled}
       isReadOnly={lock.isReadOnly}>
       <FieldLabel
         label={label}
         isRequired={lock.isRequired}
       />
-      <div className={radioList({ layout: answers.layout ?? "list" })}>
+      <div className={radioList()}>
         {answers.layout === "cards"
           ? answers.choices.map((choice) => {
               const card = choiceCard();

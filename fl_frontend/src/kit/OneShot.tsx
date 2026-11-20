@@ -155,7 +155,7 @@ export function OneShotForm({
   if (answer?.ok === true) return null;
 
   const refused = answer;
-  const status: FormStatus = checkRefusal !== null ? { tone: "error", text: checkRefusal } : statusOf(refused, isBlocked, isPending);
+  const status: FormStatus = checkRefusal !== null ? { tone: "danger", text: checkRefusal } : statusOf(refused, isBlocked, isPending);
   const isBusy = isPending || isChecking;
 
   /** The token Cloudflare minted joins the form's data, or the press ends on the check's own sentence. */

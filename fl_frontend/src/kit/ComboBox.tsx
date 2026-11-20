@@ -13,7 +13,7 @@ import { fieldButton, fieldFrame, fieldRoot, groupInput } from "./fieldStyles";
 import { Icon } from "./Icon";
 import { OptionList } from "./OptionList";
 
-import type { Copy } from "@/core/copy";
+import type { Copy, Words } from "@/core/copy";
 import type { Option } from "./OptionList";
 
 /**
@@ -48,7 +48,7 @@ export function ComboBox({
   value,
   onChange,
 }: {
-  label: Copy;
+  label: Words;
   /** Whether the label names the field to a screen reader alone, the place around it naming it on the screen. */
   labelHidden?: boolean;
   description?: Copy;
@@ -71,12 +71,12 @@ export function ComboBox({
   const [chosen, setChosen] = useState<string | null>(null);
   const chosenLabel = options.find((option) => option.id === (value === undefined ? chosen : value))?.label;
   const shown = chosenLabel === undefined ? "" : textOf(chosenLabel);
-  const lock = useFieldLock(isDisabled, isLocked, isRequired);
+  const lock = useFieldLock(isLocked, isRequired);
   return (
     <AriaComboBox
       inert={useFieldWait()}
       className={fieldRoot()}
-      aria-label={labelHidden ? label : undefined}
+      aria-label={labelHidden ? textOf(label) : undefined}
       name={name}
       // The form receives the chosen record's id, not the text typed to find it, unless the text is the answer.
       formValue="key"
@@ -89,7 +89,7 @@ export function ComboBox({
       }}
       onInputChange={setText}
       isRequired={lock.isRequired}
-      isDisabled={lock.isDisabled}
+      isDisabled={isDisabled}
       isReadOnly={lock.isReadOnly}>
       {!labelHidden && (
         <FieldLabel

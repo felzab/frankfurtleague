@@ -16,13 +16,12 @@ import type { CheckboxFieldProps } from "react-aria-components/Checkbox";
  * The field either box stands in, React Aria's, waiting for the page's code (`useFieldWait`), and read-only in a closed
  * form (`useFieldLock`).
  */
-function BoxField({ isDisabled, ...field }: Omit<CheckboxFieldProps, "isDisabled" | "isReadOnly"> & { isDisabled: boolean }) {
-  const lock = useFieldLock(isDisabled, false);
+function BoxField(field: Omit<CheckboxFieldProps, "isReadOnly">) {
+  const lock = useFieldLock(false);
   return (
     <CheckboxField
       inert={useFieldWait()}
       {...field}
-      isDisabled={lock.isDisabled}
       isReadOnly={lock.isReadOnly}
     />
   );

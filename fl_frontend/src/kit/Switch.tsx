@@ -2,10 +2,12 @@
 
 import { SwitchButton, SwitchField } from "react-aria-components/Switch";
 
+import { textOf } from "@/core/copy";
+
 import { LockMark, MessageLine, useFieldLock, useFieldWait } from "./FieldParts";
 import { switchThumb, switchTrack, toggleField, toggleLine, toggleRow } from "./fieldStyles";
 
-import type { Copy } from "@/core/copy";
+import type { Copy, Words } from "@/core/copy";
 
 /**
  * A yes or no that takes effect at once, or reveals an optional part of a saved form beneath it. Its
@@ -21,7 +23,7 @@ export function Switch({
   isSelected,
   onChange,
 }: {
-  label: Copy;
+  label: Words;
   description?: Copy;
   isDisabled?: boolean;
   isLocked?: boolean;
@@ -29,7 +31,7 @@ export function Switch({
   isSelected?: boolean;
   onChange?: (isSelected: boolean) => void;
 }) {
-  const lock = useFieldLock(isDisabled, isLocked);
+  const lock = useFieldLock(isLocked);
   return (
     <SwitchField
       inert={useFieldWait()}
@@ -37,7 +39,7 @@ export function Switch({
       name={name}
       isSelected={isSelected}
       onChange={onChange}
-      isDisabled={lock.isDisabled}
+      isDisabled={isDisabled}
       isReadOnly={lock.isReadOnly}>
       <SwitchButton className={toggleRow({ in: "field" })}>
         {({ isSelected: selected }) => (
@@ -50,7 +52,7 @@ export function Switch({
             </span>
             {/* One grid item, so the lock mark follows the label in its column rather than wrapping under the track. */}
             <span>
-              {label}
+              {textOf(label)}
               {lock.isMarked && <LockMark />}
             </span>
           </>

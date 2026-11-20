@@ -89,7 +89,7 @@ const recordRows = tv({
     // The add control in the box's padding, under the hairline that parts it from the last row, and the list's own
     // refusal under it while there is one, as a field's message stands under its field.
     foot: `grid justify-items-start gap-1.5 p-4 ${stacked()}`,
-    line: messageLine({ tone: "error" }),
+    line: messageLine({ tone: "danger" }),
   },
   variants: {
     // The main field shares its line with what stands beside it, or takes the line whole.

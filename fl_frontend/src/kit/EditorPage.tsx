@@ -11,7 +11,7 @@ import { Dialog } from "./Dialog";
 import { actLabel } from "./dialogAct";
 import { DraftUnsaved, useLocked } from "./draftUnsaved";
 import { EditorBar } from "./EditorBar";
-import { statusLine } from "./fieldStyles";
+import { dangerConsequence } from "./fieldStyles";
 import { FormClosed } from "./formClosed";
 import { HeldForm } from "./HeldForm";
 import { formColumn, RailPage } from "./RailFrame";
@@ -79,7 +79,7 @@ function DangerRow({ act }: { act: DangerAct }) {
     <div className={dangerRow()}>
       <div className="grid min-w-0 flex-1 text-sm">
         <span className="font-semibold">{act.name}</span>
-        <p className={statusLine({ placement: "column", tone: "resting" })}>{act.consequence}</p>
+        <p className={dangerConsequence()}>{act.consequence}</p>
       </div>
       {/* Its button says the verb alone, „Löschen“, so the row's name says what it acts on, as a list row's does. */}
       {locked !== undefined ? (

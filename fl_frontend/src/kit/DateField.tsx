@@ -20,7 +20,7 @@ import { FieldLabel, MessageLine, useFieldLock } from "./FieldParts";
 import { calendarCell, calendarHead, fieldButton, fieldFrame, fieldRoot, menuPopover, monthArrow } from "./fieldStyles";
 import { Icon } from "./Icon";
 
-import type { Copy } from "@/core/copy";
+import type { Copy, Words } from "@/core/copy";
 import type { CalendarDay } from "@/core/format";
 import type { CalendarDate } from "@internationalized/date";
 
@@ -91,7 +91,7 @@ export function DateField({
   minValue,
   maxValue,
 }: {
-  label: Copy;
+  label: Words;
   description?: Copy;
   consequence?: Copy;
   isRequired?: boolean;
@@ -107,7 +107,7 @@ export function DateField({
   /** The latest day the field takes: the calendar offers none after it, and a later one reads „Spätestens …“. */
   maxValue?: CalendarDay;
 }) {
-  const lock = useFieldLock(isDisabled, isLocked, isRequired);
+  const lock = useFieldLock(isLocked, isRequired);
   return (
     <DatePicker<CalendarDate>
       className={fieldRoot()}
@@ -120,7 +120,7 @@ export function DateField({
       // The day and the month keep their leading zero, „03.04.2027“, as the site prints a date.
       shouldForceLeadingZeros
       isRequired={lock.isRequired}
-      isDisabled={lock.isDisabled}
+      isDisabled={isDisabled}
       isReadOnly={lock.isReadOnly}>
       <FieldLabel
         label={label}

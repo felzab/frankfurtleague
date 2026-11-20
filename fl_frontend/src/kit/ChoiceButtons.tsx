@@ -11,12 +11,12 @@ import { CutText } from "./CutText";
 import { FieldLabel, MessageLine, useFieldLock, useFieldWait } from "./FieldParts";
 import { choiceButton, choiceField, choiceGroup, fieldRoot, messageLine } from "./fieldStyles";
 
-import type { Copy } from "@/core/copy";
+import type { Copy, Words } from "@/core/copy";
 import type { ReactNode } from "react";
 import type { Choice } from "./FieldParts";
 
 type Shared = {
-  label: Copy;
+  label: Words;
   choices: readonly Choice[];
   /** The write takes no record without an answer here: the asterisk after the label, and the group heard as required. */
   isRequired?: boolean;
@@ -38,7 +38,7 @@ function GroupMessage({ errorMessage }: { errorMessage: Copy | undefined }) {
     <Text
       slot="errorMessage"
       data-kit-message
-      className={messageLine({ tone: "error" })}>
+      className={messageLine({ tone: "danger" })}>
       {errorMessage}
     </Text>
   );
@@ -72,19 +72,18 @@ export function Segmented({
   onChange?: (id: string) => void;
   labelHidden?: boolean;
 }) {
-  const lock = useFieldLock(false, false, isRequired);
+  const lock = useFieldLock(false, isRequired);
   return (
     <RadioGroup
       inert={useFieldWait()}
       className={fieldRoot()}
-      aria-label={labelHidden ? label : undefined}
+      aria-label={labelHidden ? textOf(label) : undefined}
       orientation="horizontal"
       value={value}
       onChange={onChange}
       isRequired={lock.isRequired}
       // Only while refused: a stated `false` would hide the browser's own check, which React Aria then never shows.
       isInvalid={errorMessage === undefined ? undefined : true}
-      isDisabled={lock.isDisabled}
       isReadOnly={lock.isReadOnly}>
       {!labelHidden && (
         <FieldLabel
@@ -134,7 +133,7 @@ export function ToggleBoxes({
   value?: readonly string[];
   onChange?: (ids: string[]) => void;
 }) {
-  const lock = useFieldLock(false, false, isRequired);
+  const lock = useFieldLock(false, isRequired);
   return (
     <CheckboxGroup
       inert={useFieldWait()}
@@ -144,7 +143,6 @@ export function ToggleBoxes({
       isRequired={lock.isRequired}
       // Only while refused, as `Segmented`'s.
       isInvalid={errorMessage === undefined ? undefined : true}
-      isDisabled={lock.isDisabled}
       isReadOnly={lock.isReadOnly}>
       <FieldLabel
         label={label}

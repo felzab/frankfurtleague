@@ -5,12 +5,13 @@ import { useEffect, useRef, useState } from "react";
 import { FieldError } from "react-aria-components/FieldError";
 import { Input, TextField } from "react-aria-components/TextField";
 
+import { textOf } from "@/core/copy";
 import { SIGN_IN_CODE_LENGTH } from "@/core/signInCode";
 
 import { useFieldWait } from "./FieldParts";
 import { codeBox, codeInput, codeRow, fieldRoot, messageLine } from "./fieldStyles";
 
-import type { Copy } from "@/core/copy";
+import type { Copy, Words } from "@/core/copy";
 import type { SyntheticEvent } from "react";
 
 // The boxes are fixed in number and never reorder, so each keeps its position as its key.
@@ -41,7 +42,7 @@ export function CodeField({
   onComplete,
 }: {
   /** Names the field for assistive technology; the sentence above it shows the address. */
-  label: Copy;
+  label: Words;
   name: string;
   /** The refusal of the code, in the message line under the boxes: one or two sentences. */
   error?: Copy;
@@ -72,7 +73,7 @@ export function CodeField({
     <TextField
       inert={useFieldWait()}
       className={fieldRoot()}
-      aria-label={label}
+      aria-label={textOf(label)}
       name={name}
       value={code}
       onChange={change}
@@ -101,7 +102,7 @@ export function CodeField({
           className={codeInput()}
         />
       </div>
-      <FieldError className={messageLine({ tone: "error" })}>{error}</FieldError>
+      <FieldError className={messageLine({ tone: "danger" })}>{error}</FieldError>
     </TextField>
   );
 }

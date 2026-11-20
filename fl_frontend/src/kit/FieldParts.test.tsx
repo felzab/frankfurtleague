@@ -130,7 +130,7 @@ describe("a form's status line", () => {
 
     rerender(
       <StatusLine
-        status={{ tone: "saved", text: COPY.shared.saved }}
+        status={{ tone: "success", text: COPY.shared.saved }}
         placement="row"
       />,
     );

@@ -81,13 +81,13 @@ describe("a form's status line", () => {
   // The harm: an act that partly happened, such as a ban whose mail went unsent, read as a clean save or as a refusal
   // to press again. `Dialog`, `AccountBox`, `OneShot`, `QuestionForm` and `SectionAct` each read their line here.
   it.each<[string, ActionAnswer, FormStatus]>([
-    ["done", { ok: true, value: undefined }, { tone: "saved", text: COPY.shared.saved }],
+    ["done", { ok: true, value: undefined }, { tone: "success", text: COPY.shared.saved }],
     [
       "partly done",
       { ok: true, value: undefined, note: COPY.shared.addressChange.previousStays, warn: true },
       { tone: "warn", text: COPY.shared.addressChange.previousStays },
     ],
-    ["refused", { ok: false, reason: COPY.shared.failure.stale }, { tone: "error", text: COPY.shared.failure.stale }],
+    ["refused", { ok: false, reason: COPY.shared.failure.stale }, { tone: "danger", text: COPY.shared.failure.stale }],
     ["partly refused", { ok: false, reason: COPY.shared.failure.stale, warn: true }, { tone: "warn", text: COPY.shared.failure.stale }],
   ])("reads a %s act in its own tone", (_case, answer, line) => {
     expect(statusOf(answer, false, false)).toStrictEqual(line);
@@ -97,7 +97,7 @@ describe("a form's status line", () => {
   it("says a reason no box says, beside the boxes that say theirs", () => {
     const postcode = COPY.shared.field.required;
     const reason = SERVER_COPY.ruleLine.elfmeterschiessen_without_winner;
-    expect(statusOf({ ok: false, fieldErrors: { postcode }, reason }, false, false)).toStrictEqual({ tone: "error", text: reason });
+    expect(statusOf({ ok: false, fieldErrors: { postcode }, reason }, false, false)).toStrictEqual({ tone: "danger", text: reason });
   });
 });
 

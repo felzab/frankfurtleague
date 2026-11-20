@@ -355,7 +355,7 @@ export function ListTable({ table, more }: { table: TableProps; more?: ListMore 
           )}
           {/* Standing with no button too: a search over the last page fails as any read does. */}
           <StatusLine
-            status={failure === null ? null : { tone: "error", text: failure }}
+            status={failure === null ? null : { tone: "danger", text: failure }}
             placement="row"
           />
         </div>

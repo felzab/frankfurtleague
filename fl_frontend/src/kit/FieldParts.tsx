@@ -92,18 +92,13 @@ export function RequiredMark({ isRequired }: { isRequired: boolean }) {
  * says why. A closed form makes every field read-only and marks none, since its one reason covers them all and a mark
  * on each would single out nothing. Read-only rather than disabled, since the value is the record's own: React Aria's
  * `isReadOnly` keeps the field in the keys' order and its value readable, where a disabled field is passed over.
- * `isDisabled` stays the field's own, for a value unavailable until something else is given, which no lock lifts.
- * Neither a lock nor a closed form asks for a value (`asksForValue`), so `isRequired` is what the field hands React
- * Aria and its label.
+ * A field hands React Aria its own `isDisabled`, for a value unavailable until something else is given, which no lock
+ * lifts. Neither a lock nor a closed form asks for a value (`asksForValue`), so `isRequired` is what the field hands
+ * React Aria and its label.
  */
-export function useFieldLock(
-  isDisabled: boolean,
-  isLocked: boolean,
-  isRequired = false,
-): { isDisabled: boolean; isReadOnly: boolean; isMarked: boolean; isRequired: boolean } {
+export function useFieldLock(isLocked: boolean, isRequired = false): { isReadOnly: boolean; isMarked: boolean; isRequired: boolean } {
   const isClosed = useContext(FormClosed);
   return {
-    isDisabled,
     isReadOnly: isClosed || isLocked,
     isMarked: isLocked && !isClosed,
     isRequired: asksForValue(isRequired, isClosed, isLocked),
@@ -192,7 +187,7 @@ export function MessageLine({
     return (
       <FieldError
         data-kit-message
-        className={messageLine({ tone: "error" })}>
+        className={messageLine({ tone: "danger" })}>
         {(result) => fieldMessage(result, constraints)}
       </FieldError>
     );

@@ -101,7 +101,7 @@ export function SignInPage(props: SignInView) {
       <div className={slots.column()}>
         <Body {...props} />
         <StatusLine
-          status={props.row === null ? null : { tone: "error", text: props.row }}
+          status={props.row === null ? null : { tone: "danger", text: props.row }}
           placement="column"
         />
       </div>
