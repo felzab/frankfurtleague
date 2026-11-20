@@ -4,7 +4,7 @@ import { ROUTES } from "@/core/routes";
 
 import { Brand } from "./Brand";
 import { Chip } from "./Chip";
-import { AccountRow, BackControl, BarPlaces, EditorBack, MenuScope, RailEntries, ReadBack, SaisonScope } from "./FrameNav";
+import { AccountRow, BackControl, BarPlaces, EditorBack, LeaveQuestion, MenuScope, RailEntries, ReadBack, SaisonScope } from "./FrameNav";
 import { Icon } from "./Icon";
 import { LeaveGuardProvider } from "./LeaveGuard";
 import { frameLink, Link } from "./Link";
@@ -158,6 +158,7 @@ export function RailFrame({
           {/* Inside the rail's state, whose collapsed width its edge follows. */}
           <ToastRegion frame="rail" />
         </RailRoot>
+        <LeaveQuestion />
       </LeaveGuardProvider>
     </MenuScope>
   );

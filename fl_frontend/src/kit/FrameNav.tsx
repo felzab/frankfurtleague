@@ -17,7 +17,7 @@ import { entryMark } from "./fieldStyles";
 import { GlyphChoices } from "./GlyphChoices";
 import { hoverLook } from "./hoverStyles";
 import { Icon } from "./Icon";
-import { useLeaveGuard } from "./LeaveGuard";
+import { useAsked } from "./LeaveGuard";
 import { menuEntry } from "./Link";
 import { Menu } from "./Menu";
 import { currentOf, placeOf } from "./navPlace";
@@ -26,7 +26,7 @@ import { groupHeading, railFade, railGlyph } from "./railStyles";
 import { FreshPerPage, Sheet } from "./Sheet";
 import { appToast } from "./Toast";
 import { tv } from "./tv";
-import { NavigationLink, useNavigate, usePressed } from "./WholePage";
+import { NavigationLink, usePressed } from "./WholePage";
 
 import type { Copy, RecordText } from "@/core/copy";
 import type { Route } from "next";
@@ -745,59 +745,58 @@ function AccountPlace({ account: read }: { account: AccountRead }) {
 // On the dark-green band, as tall as a touch target; the chevron stands where the logo's edge would.
 // The way back reads a step bolder than the band's links, being the band's one act there, and answers the pointer as they do.
 const back = tv({
-  base: "-ms-2 flex h-10 items-center gap-1 rounded-lg ps-1 pe-3 text-sm font-semibold text-on-brand",
-  variants: {
-    host: {
-      link: hoverLook({ host: "link", answer: "underline" }),
-      aria: hoverLook({ host: "aria", answer: "underline" }),
-    },
-  },
+  base: `-ms-2 flex h-10 items-center gap-1 rounded-lg ps-1 pe-3 text-sm font-semibold text-on-brand ${hoverLook({ host: "link", answer: "underline" })}`,
 });
 
 /**
- * „‹ Zurück“ in the band where the logo stands: in Konto, and on a phone in an editor. While an editor holds
- * unsaved changes it asks first, and going back drops them.
+ * „‹ Zurück“ in the band where the logo stands: in Konto, and on a phone in an editor, whose unsaved changes it asks
+ * about first, as every link out of the editor does (`NavigationLink`).
  */
 export function BackControl({ href }: { href: Route }) {
-  const guard = useLeaveGuard();
-  const navigate = useNavigate();
-  const content = (
-    <>
+  return (
+    <NavigationLink
+      href={href}
+      data-kit-focus="ring"
+      className={back()}>
       <Icon
         glyph="back"
         size={18}
       />
       {COPY.shared.back}
-    </>
+    </NavigationLink>
   );
+}
 
-  if (guard === null) {
-    return (
-      <NavigationLink
-        href={href}
-        data-kit-focus="ring"
-        className={back({ host: "link" })}>
-        {content}
-      </NavigationLink>
-    );
-  }
-  return (
+/**
+ * The one question every way out of an editor holding unsaved changes asks, drawn once by the frame: discarding drops
+ * the changes and takes the way out, „Zurück“ stays on the page with them.
+ */
+export function LeaveQuestion() {
+  const asked = useAsked();
+  const open = {
+    isOpen: asked?.isOpen ?? false,
+    onOpenChange: (isOpen: boolean) => {
+      if (!isOpen) asked?.close();
+    },
+  };
+  const onConfirm = () => {
+    asked?.guard.discard();
+    asked?.leave();
+  };
+  // Mounted closed from the first render, as a held question is, with its words from the first way out that asks.
+  return asked === null ? (
+    <ConfirmDialog
+      open={open}
+      onConfirm={onConfirm}
+    />
+  ) : (
     <ConfirmDialog
       verb="discard"
       subject={COPY.template.changes}
-      consequence={COPY.template.changesLost(guard.count)}
+      consequence={COPY.template.changesLost(asked.guard.count)}
       tone="danger"
-      onConfirm={() => {
-        guard.discard();
-        navigate(href);
-      }}
-      control={
-        <AriaButton
-          data-kit-focus="ring"
-          className={back({ host: "aria" })}>
-          {content}
-        </AriaButton>
-      }
+      open={open}
+      onConfirm={onConfirm}
     />
   );
 }
