@@ -13,8 +13,8 @@ import { adminIdParamOf } from "@/shared/utils/adminRead";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
 
-import { reactivateSchiedsrichter, retireSchiedsrichter, sendSchiedsrichterLink } from "./retireSchiedsrichter";
 import { saveSchiedsrichter } from "./saveSchiedsrichter";
+import { reactivateSchiedsrichter, retireSchiedsrichter, sendSchiedsrichterLink } from "./schiedsrichterActs";
 import { SchiedsrichterEditor } from "./SchiedsrichterEditor";
 import { valuesOf } from "./schiedsrichterValues";
 

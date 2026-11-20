@@ -8,8 +8,8 @@ import { adminIdParamOf } from "@/shared/utils/adminRead";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
 
-import { reactivateSpielort, retireSpielort } from "./retireSpielort";
 import { saveSpielort } from "./saveSpielort";
+import { reactivateSpielort, retireSpielort } from "./spielortActs";
 import { SpielortEditor } from "./SpielortEditor";
 import { valuesOf } from "./spielortValues";
 
