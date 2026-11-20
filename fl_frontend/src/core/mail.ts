@@ -74,30 +74,6 @@ interface OutboundMail {
   idempotencyKey: string;
 }
 
-/**
- * Raised where the deployment does not mail. Not a `MailSendError` and not among the shared errors: nothing
- * here reached a provider, so there is no status to carry and no retry decision to read off one.
- */
-class MailHeldError extends Error {
-  constructor() {
-    super("This deployment does not send mail.");
-
-    this.name = "MailHeldError";
-  }
-}
-
-/**
- * Raised where the recipient is not one bare mailbox. Beside `MailHeldError` rather than among the shared errors,
- * since nothing here reached a provider either; it carries no address.
- */
-class MailRecipientError extends Error {
-  constructor() {
-    super("The recipient is not one bare mailbox.");
-
-    this.name = "MailRecipientError";
-  }
-}
-
 /** The errno token where a failure carries one — `EEXIST`, `EACCES` — and nothing else. */
 function errnoCode(error: unknown): string | undefined {
   return typeof error === "object" && error !== null && "code" in error && typeof error.code === "string" ? error.code : undefined;
@@ -182,17 +158,6 @@ function pause(ms: number, signal: AbortSignal): Promise<void> {
   });
 }
 
-/**
- * The row's address as the provider is handed it, byte for byte as stored, which every address rule keeps ASCII: one
- * bare mailbox. The ban was judged at the hand-out, on that spelling.
- */
-function recipientOf(to: string): string {
-  // Any spelling around a mailbox, which the provider would still reach the mailbox inside.
-  if (!isOneBareMailbox(to)) throw new MailRecipientError();
-
-  return to;
-}
-
 /** What drains settled: the backend's counts, summed over every report they made. */
 type DrainCount = Record<keyof FLOutboxResultResponse, number>;
 
@@ -264,9 +229,14 @@ async function drain(): Promise<void> {
 /**
  * One handed-out mail, rendered from its row and sent under the hand-out's own idempotency key: the provider collapses a
  * repeat of this send, and a later hand-out mints a fresh link under a key of its own
- * (https://resend.com/docs/dashboard/emails/idempotency-keys). The ban was judged at the hand-out.
+ * (https://resend.com/docs/dashboard/emails/idempotency-keys). Where this deployment holds mail, it is filed instead.
  */
 async function sendHandedOut(mail: FLOutboxHandout): Promise<Omit<FLOutboxResultPayload, "lease">> {
+  // The provider is handed the row's address byte for byte, and the ban was judged at the hand-out on that spelling:
+  // a name or any other spelling around a mailbox, which the provider would still reach the mailbox inside, is given
+  // up rather than sent.
+  if (!isOneBareMailbox(mail.to)) return { id: mail.id, result: "abandon", delivery_reason: null };
+
   // Opened here alone, sealed under the same key where the mail was owed, and held by this scope alone: never on a
   // line, never in an error.
   let secret: string | null = null;
@@ -285,13 +255,29 @@ async function sendHandedOut(mail: FLOutboxHandout): Promise<Omit<FLOutboxResult
     return { id: mail.id, result: "retry", delivery_reason: null };
   }
 
+  const outbound: OutboundMail = {
+    to: mail.to,
+    ...renderMail(message),
+    tags: { [OUTBOX_TAG]: mail.id },
+    idempotencyKey: `outbox/${mail.id}/${String(mail.attempt)}`,
+  };
+  const traceId = getRequestTraceId() ?? mintTraceId();
+
+  // Both halves fail closed: the deployment says it is not the one that mails, and outside
+  // `production` no key is demanded to authorise one. A local stack's database is a production
+  // dump, so its addresses are real people.
+  const apiKey = authResendKey();
+  if (frontend_config.APP_ENV !== "production" || apiKey === undefined) {
+    // Never on production, which reaches this arm only where `SKIP_ENV_VALIDATION` stood the key's
+    // requirement down: a file there would leave a live sign-in code on the host's disk.
+    if (frontend_config.APP_ENV !== "production") await writeToSink(outbound, traceId);
+
+    // No line of its own: the row's `held` state is the record, and the filed copy carries the row's id among its tags.
+    return { id: mail.id, result: "held", delivery_reason: null };
+  }
+
   try {
-    await deliver({
-      to: recipientOf(mail.to),
-      ...renderMail(message),
-      tags: { [OUTBOX_TAG]: mail.id },
-      idempotencyKey: `outbox/${mail.id}/${String(mail.attempt)}`,
-    });
+    await deliver(outbound, apiKey, traceId);
     return { id: mail.id, result: "sent", delivery_reason: null };
   } catch (error) {
     // The row is the send's one record: the provider's own name for a refusal goes onto it, and no line.
@@ -307,9 +293,7 @@ async function sendHandedOut(mail: FLOutboxHandout): Promise<Omit<FLOutboxResult
  * A failed send's outcome. A refusal the provider names temporary, its quota among them, and a send that broke off are
  * tried again and never count toward giving up; any other refusal is one every send would meet.
  */
-function resultOf(error: unknown): Exclude<FLOutboxResultPayloadResult, "sent"> {
-  if (error instanceof MailHeldError) return "held";
-  if (error instanceof MailRecipientError) return "abandon";
+function resultOf(error: unknown): Exclude<FLOutboxResultPayloadResult, "sent" | "held"> {
   if (error instanceof MailSendError) return error.isTransient ? "retry" : "abandon";
   if (error instanceof APINetworkError) return "retry";
 
@@ -322,22 +306,11 @@ function resultOf(error: unknown): Exclude<FLOutboxResultPayloadResult, "sent"> 
  * provider's message**, which names the recipient -- `MailSendError` takes the stable `name` field
  * instead.
  */
-async function deliver({ to, subject, html, text, sender, tags, idempotencyKey }: OutboundMail): Promise<void> {
-  const traceId = getRequestTraceId() ?? mintTraceId();
-
-  // Both halves fail closed: the deployment says it is not the one that mails, and outside
-  // `production` no key is demanded to authorise one. A local stack's database is a production
-  // dump, so its addresses are real people.
-  const apiKey = authResendKey();
-  if (frontend_config.APP_ENV !== "production" || apiKey === undefined) {
-    // Never on production, which reaches this arm only where `SKIP_ENV_VALIDATION` stood the key's
-    // requirement down: a file there would leave a live sign-in code on the host's disk.
-    if (frontend_config.APP_ENV !== "production") await writeToSink({ to, subject, html, text, sender, tags, idempotencyKey }, traceId);
-
-    // No line of its own: the row's `held` state is the record, and the filed copy carries the row's id among its tags.
-    throw new MailHeldError();
-  }
-
+async function deliver(
+  { to, subject, html, text, sender, tags, idempotencyKey }: OutboundMail,
+  apiKey: string,
+  traceId: string,
+): Promise<void> {
   const signal = boundCall(MAIL_TIMEOUT_MS);
 
   const failNetwork = (error: unknown) =>

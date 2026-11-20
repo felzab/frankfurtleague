@@ -183,6 +183,17 @@ describe("one drain of the Postausgang", () => {
     expect(reports()).toStrictEqual([{ id: handed(1).id, result, delivery_reason: reason }]);
   });
 
+  /* The provider reaches the mailbox inside a spelled address, whose ban the hand-out judged on the whole spelling: sent,
+     the mail would reach a barred person. */
+  it("gives up a row addressed to anything but one bare mailbox, and reaches no provider", async () => {
+    claims = [{ mails: [{ ...handed(1), to: "Name <pia@example.org>" }], abandoned: 0 }];
+
+    await drainOutbox();
+
+    expect(sends()).toStrictEqual([]);
+    expect(reports()).toStrictEqual([{ id: handed(1).id, result: "abandon", delivery_reason: null }]);
+  });
+
   it("reports a deployment that sends nothing as held, and reaches no provider", async () => {
     apiKey = undefined;
     claims = [{ mails: [handed(1)], abandoned: 0 }];
