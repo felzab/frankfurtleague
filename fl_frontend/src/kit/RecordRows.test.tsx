@@ -43,6 +43,7 @@ function Goals({ errors, locked }: { errors?: Readonly<Record<string, Copy>>; lo
   return (
     <HeldForm
       validationErrors={errors}
+      isBusy={false}
       onSend={() => undefined}>
       <RecordRows
         label={COPY.shared.tore}

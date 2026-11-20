@@ -193,7 +193,9 @@ const replayed = () => act(() => new Promise((resolve) => setTimeout(resolve, 0)
 function Held({ send }: { send: (email: FormDataEntryValue | null) => void }) {
   const [email, setEmail] = useState(ADDRESS);
   return (
-    <HeldForm onSend={(formData) => send(formData.get("email"))}>
+    <HeldForm
+      isBusy={false}
+      onSend={(formData) => send(formData.get("email"))}>
       <TextField
         label={WORD}
         name="email"
@@ -347,6 +349,7 @@ describe("a press held across hydration", () => {
     const page = (
       <HeldForm
         onInvalid={refused}
+        isBusy={false}
         onSend={send}>
         {control}
       </HeldForm>

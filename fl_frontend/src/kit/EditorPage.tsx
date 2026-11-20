@@ -185,12 +185,10 @@ export function EditorPage<Values extends Record<string, EditorValue>>({
         validationErrors={editor.fieldErrors}
         // The browser judges each field's own rules first; a field it keeps back points the status line at it.
         onInvalid={() => editor.block()}
-        // The bar's busy button is not the whole guard: Enter in a lone field submits a form with no submit button too,
-        // and a second save mid-flight would go on the version the first stores past, its refusal standing over a save
-        // that went through.
-        onSend={() => {
-          if (!editor.isPending) editor.submit();
-        }}
+        // A second save mid-flight would go on the version the first stores past, its refusal standing over a save that
+        // went through.
+        isBusy={editor.isPending}
+        onSend={() => editor.submit()}
         className={formColumn()}>
         {/* The lines under the title, the Vorschau and the lock, one step apart as a box's title and its line are. */}
         <div className={editorHead()}>

@@ -176,11 +176,9 @@ function ActBox({ act, words, danger, children }: { act: AccountAct; words: Reac
         ref={form}
         validationErrors={answer !== null && !answer.ok ? answer.fieldErrors : undefined}
         onInvalid={block}
-        onSend={(formData) => {
-          // A locked act's button is a plain one, but Enter in a lone field submits a form with no submit button.
-          if (isBusy || locked !== undefined) return;
-          send(formData);
-        }}>
+        // A locked act's button is a plain one, but Enter in a lone field submits a form with no submit button.
+        isBusy={isBusy || locked !== undefined}
+        onSend={send}>
         <div className={held.head()}>{words}</div>
         {children !== undefined && (
           <div className={held.content()}>

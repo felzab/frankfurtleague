@@ -97,10 +97,8 @@ export function QuestionForm<Input>({
       <HeldForm
         validationErrors={refused?.fieldErrors}
         onInvalid={block}
-        onSend={(formData) => {
-          if (isPending || isActing) return;
-          submit(formData);
-        }}
+        isBusy={isPending || isActing}
+        onSend={submit}
         className={BOX_CLASSES}>
         <div className={CONTENT_CLASSES}>
           <FieldStack key={emptied}>{children}</FieldStack>

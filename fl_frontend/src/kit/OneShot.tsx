@@ -241,8 +241,8 @@ export function OneShotForm({
     ref: form,
     validationErrors: refused?.fieldErrors,
     onInvalid: block,
+    isBusy,
     onSend: (formData: FormData) => {
-      if (isBusy) return;
       // The refusal alone is the form's main act, and asks before it posts as one.
       if (acts.primary === undefined) ask(formData, "primary");
       else send(formData, "primary");
