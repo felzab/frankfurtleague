@@ -5,6 +5,7 @@ import { z } from "zod";
 import { action, numberBox } from "@/core/action";
 import { ADMIN_COPY } from "@/core/copy/admin";
 import { COPY } from "@/core/copy/shared";
+import { APIBadStatusError } from "@/core/errors";
 import { formatList } from "@/core/format";
 import { spielePatchSpiel } from "@/core/generated/client/sdk";
 import { SpielePatchSpielBody, SpielePatchSpielParams } from "@/core/generated/zod/inputs";
@@ -15,7 +16,12 @@ import { NO_SONDEREREIGNIS, NOBODY, takesNoResult, valuesOf } from "./spielValue
 
 import type { ActionAnswer, SaveQuestion } from "@/core/action";
 import type { Copy } from "@/core/copy";
-import type { FLPatchSpielDataPayload, FLPatchSpielDataResponse, FLSpielJoinedAdmin } from "@/core/generated/client/types";
+import type {
+  FLPatchSpielDataPayload,
+  FLPatchSpielDataResponse,
+  FLSpielJoinedAdmin,
+  FLSpielVoidedErgebnis,
+} from "@/core/generated/client/types";
 
 const { shape } = SpielePatchSpielBody;
 const [spielortShape] = shape.spielort.options;
@@ -140,7 +146,7 @@ const OWN_WORDS = [
   "saison_past",
   // A result before the season's start, whose fields the editor locks until then: a page read before the start moved later.
   "ergebnis_before_saison_start",
-  // A later result entered or changed between the question and the confirmed write, which refuses to delete it unasked.
+  // A refused deletion whose dry run then finds no result to delete, the result it refused gone since.
   "voided_results_stale",
 ] as const;
 
@@ -172,17 +178,23 @@ function questionOf(report: FLPatchSpielDataResponse): SaveQuestion | null {
   };
 }
 
+/** Whether the write refused to delete a later result it was not named, a bare code naming none of them. */
+const refusedToDelete = (failed: unknown): failed is APIBadStatusError =>
+  failed instanceof APIBadStatusError && failed.serverErrorCode === "voided_results_stale";
+
 /**
  * Saves the match editor's changes, answering the fixture's new version, which the editor takes as its own. The
  * version sent is the one the editor was read at: where the fixture has changed since, the write refuses the save as
  * stale (`version_stale`) rather than writing over it. A result carried over from the report stamps it adopted.
  *
- * Every save first asks the write's own dry run what it would delete, on the server, so no ordering of presses and no
- * failed or unfinished check on the page lets a deletion through unasked: a save deleting a later match's result is
- * held back with its question unless it carries the token of a question naming exactly those results. The write then
- * names them, and refuses in its own transaction where it would delete others, a result entered after the dry run
- * among them, so the write is the gate and the dry run only words its question. A dry run the write refuses is that
- * refusal, answered as the write's would be.
+ * A first press sends the write naming no result to delete, so a save deleting none lands at once. The write refuses in
+ * its own transaction to delete a later match's result it was not named, on the server, so no ordering of presses and
+ * no failed or unfinished check on the page lets a deletion through unasked; its refusal names none, so only then is
+ * the write's own dry run asked, to word the question. A press confirming a question asks the dry run afresh and
+ * writes only while the question's token still names exactly what it finds, naming those results to the write; a
+ * write refused even so, by a result entered after that dry run, asks again from one more. So the write is the gate
+ * and the dry run only words its question. A dry run the write refuses is that refusal, answered as the write's would
+ * be, as is a refused write whose dry run then finds nothing to delete.
  */
 export const saveSpiel = action({
   lane: "admin",
@@ -195,13 +207,30 @@ export const saveSpiel = action({
     if ("ok" in payload) return payload;
     const sent = { ...payload, version };
 
-    const report = await spielePatchSpiel(id, sent, { dry_run: true });
-    const question = questionOf(report);
-    if (question !== null && question.confirm !== confirm) return { ok: false, ask: question };
+    // A confirmed press is judged against a fresh dry run, the token covering the mails as well, which the write's
+    // refusal does not judge: written with the results the token names, a party added since would be mailed unasked.
+    let voided: FLSpielVoidedErgebnis[] = [];
+    if (confirm !== undefined) {
+      const report = await spielePatchSpiel(id, sent, { dry_run: true });
+      const question = questionOf(report);
+      if (question !== null && question.confirm !== confirm) return { ok: false, ask: question };
+      voided = report.voided_ergebnisse;
+    }
 
-    // The write deletes only the results confirmed, refusing where its own transaction finds others to delete.
-    const confirmed = { ...sent, voided_ergebnisse: report.voided_ergebnisse };
-    const written = await spielePatchSpiel(id, confirmed, adoptsBericht === null ? undefined : { adopts_bericht: adoptsBericht });
+    let written: FLPatchSpielDataResponse;
+    try {
+      // The write deletes only the results named, refusing where its own transaction finds others to delete.
+      written = await spielePatchSpiel(
+        id,
+        { ...sent, voided_ergebnisse: voided },
+        adoptsBericht === null ? undefined : { adopts_bericht: adoptsBericht },
+      );
+    } catch (failed) {
+      if (!refusedToDelete(failed)) throw failed;
+      const question = questionOf(await spielePatchSpiel(id, sent, { dry_run: true }));
+      if (question === null) throw failed;
+      return { ok: false, ask: question };
+    }
 
     // The other fixtures the write changed: a later round's occupant or result, or a side it released on the same
     // Spieltag. The match's own page says what changed there.

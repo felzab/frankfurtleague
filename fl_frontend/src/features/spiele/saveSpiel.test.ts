@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import { ADMIN_COPY } from "@/core/copy/admin";
 import { COPY } from "@/core/copy/shared";
-import { serveBackend } from "@/test-support/backend";
+import { refusal, serveBackend } from "@/test-support/backend";
 import { signedInRequest } from "@/test-support/session";
 
 import { NO_SONDEREREIGNIS } from "./spielValues";
@@ -50,7 +50,7 @@ const SENT_AS_STORED = {
   sonderereignis: null,
   note: "Flutlicht",
   version: 3,
-  // The later results the save deletes, as its dry run answered: none here.
+  // The later results the save deletes: none here.
   voided_ergebnisse: [],
 } satisfies FLPatchSpielDataPayload;
 
@@ -67,7 +67,7 @@ const VOIDED_NONE = { voided_ergebnis: null, voided_elfmeterschiessen: null, voi
 
 /**
  * The fixture the save reads before its write, every payload it writes, what the write answers, and what the write's
- * dry run, asked first, reports.
+ * dry run reports, which names the results the write would delete.
  */
 const state = {
   read: null as unknown,
@@ -80,13 +80,17 @@ const state = {
 const calls: { endpoint: string; method: string }[] = [];
 
 // The backend answers the editor's read with the fixture, the dry run with its report and the write with its answer,
-// so the save runs through the real guard, read, generated call and dispatch, which counts the write.
+// so the save runs through the real guard, read, generated call and dispatch, which counts the write. A write naming
+// other results to delete than those its dry run reports is refused, as the backend refuses it, and writes nothing.
 serveBackend(({ method, path, search, body }) => {
   if (method === "GET" && path === `/spiele/${SPIEL_ID}`) return { spiel: state.read };
   if (method !== "PATCH" || path !== `/spiele/${SPIEL_ID}`) return undefined;
 
   calls.push({ endpoint: search.size > 0 ? `${path}?${search.toString()}` : path, method });
-  if (search.get("dry_run") === "true") return state.dryRun;
+  const report = state.dryRun as FLPatchSpielDataResponse;
+  if (search.get("dry_run") === "true") return report;
+  const named = (body as FLPatchSpielDataPayload).voided_ergebnisse ?? [];
+  if (JSON.stringify(named) !== JSON.stringify(report.voided_ergebnisse)) return refusal("voided_results_stale");
   state.sent.push(body);
   return state.answer;
 });
@@ -118,11 +122,8 @@ describe("the match editor's save", () => {
     const answer = await saveSpiel(saving({ time: "18:00:00" }));
 
     expect(answer).toEqual({ ok: true, value: 4 });
-    // The dry run first, deleting nothing here, then the write itself, and no report stamped.
-    expect(calls.map(({ endpoint, method }) => ({ endpoint, method }))).toStrictEqual([
-      { endpoint: DRY_RUN, method: "PATCH" },
-      { endpoint: `/spiele/${SPIEL_ID}`, method: "PATCH" },
-    ]);
+    // The write alone, deleting nothing here, so no dry run is asked, and no report stamped.
+    expect(calls.map(({ endpoint, method }) => ({ endpoint, method }))).toStrictEqual([{ endpoint: `/spiele/${SPIEL_ID}`, method: "PATCH" }]);
     expect(state.sent).toEqual([{ ...SENT_AS_STORED, time: "18:00:00" }]);
   });
 
@@ -131,7 +132,7 @@ describe("the match editor's save", () => {
     const answer = await saveSpiel({ ...saving({}), adoptsBericht: 2 });
 
     expect(answer).toEqual({ ok: true, value: 4 });
-    expect(calls.map(({ endpoint }) => endpoint)).toStrictEqual([DRY_RUN, `/spiele/${SPIEL_ID}?adopts_bericht=2`]);
+    expect(calls.map(({ endpoint }) => endpoint)).toStrictEqual([`/spiele/${SPIEL_ID}?adopts_bericht=2`]);
     expect(state.sent).toEqual([SENT_AS_STORED]);
   });
 
@@ -228,7 +229,8 @@ describe("the match editor's question before it deletes a later result", () => {
 
     expect(question).toMatchObject({ subject: COPY.spielplan.ergebnis, consequence: ADMIN_COPY.spiel.voids([31, 33]) });
     expect(question).not.toHaveProperty("facts");
-    expect(calls.map(({ endpoint }) => endpoint)).toStrictEqual([DRY_RUN]);
+    // The write, refused for the results it would delete unasked, and then the dry run that words the question.
+    expect(calls.map(({ endpoint }) => endpoint)).toStrictEqual([`/spiele/${SPIEL_ID}`, DRY_RUN]);
     expect(state.sent).toEqual([]);
   });
 
@@ -238,7 +240,7 @@ describe("the match editor's question before it deletes a later result", () => {
     const answer = await saveSpiel({ ...saving({ tore1: "3", tore2: "1" }), confirm });
 
     expect(answer).toMatchObject({ ok: true, value: 4 });
-    expect(calls.map(({ endpoint }) => endpoint)).toStrictEqual([DRY_RUN, DRY_RUN, `/spiele/${SPIEL_ID}`]);
+    expect(calls.map(({ endpoint }) => endpoint)).toStrictEqual([`/spiele/${SPIEL_ID}`, DRY_RUN, DRY_RUN, `/spiele/${SPIEL_ID}`]);
     // The write is the gate: it deletes these and refuses where its own transaction would delete others.
     expect(state.sent).toMatchObject([{ voided_ergebnisse: [VOIDED_31, VOIDED_33] }]);
   });
