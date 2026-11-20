@@ -16,7 +16,6 @@ from app.core.security import (
     PASSKEY_FACTOR,
     FLAuthFactor,
     SessionActor,
-    actor_header_value,
 )
 
 Lane = Literal["admin", "person"]
@@ -32,8 +31,7 @@ def factor_of(lane: Lane) -> FLAuthFactor:
 
 
 def session_headers(email: str, *, auth_time: int, factor: FLAuthFactor) -> dict[str, str]:
-    # Encoded as the frontend sends it, so an address beyond ASCII reaches the binder as one would in production.
-    return {ACTOR_HEADER: actor_header_value(email), AUTH_TIME_HEADER: str(auth_time), AUTH_FACTOR_HEADER: factor}
+    return {ACTOR_HEADER: email, AUTH_TIME_HEADER: str(auth_time), AUTH_FACTOR_HEADER: factor}
 
 
 def actor_headers(
