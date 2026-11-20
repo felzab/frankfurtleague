@@ -2,9 +2,8 @@
 
 import { SwitchButton, SwitchField } from "react-aria-components/Switch";
 
-import { LockMark, MessageLine, useFieldLock } from "./FieldParts";
+import { LockMark, MessageLine, useFieldLock, useFieldWait } from "./FieldParts";
 import { switchThumb, switchTrack, toggleField, toggleLine, toggleRow } from "./fieldStyles";
-import { useEarlyEdit } from "./useEarlyEdit";
 
 import type { Copy } from "@/core/copy";
 
@@ -30,11 +29,10 @@ export function Switch({
   isSelected?: boolean;
   onChange?: (isSelected: boolean) => void;
 }) {
-  const root = useEarlyEdit();
   const lock = useFieldLock(isDisabled, isLocked);
   return (
     <SwitchField
-      ref={root}
+      inert={useFieldWait()}
       className={toggleField()}
       name={name}
       isSelected={isSelected}

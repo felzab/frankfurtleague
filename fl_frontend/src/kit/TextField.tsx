@@ -3,16 +3,14 @@
 import { useId } from "react";
 
 import { TextField as AriaTextField, Input, TextArea } from "react-aria-components/TextField";
-import { useIsSSR } from "react-aria/SSRProvider";
 
 import { textOf } from "@/core/copy";
 import { COPY } from "@/core/copy/shared";
 import { isDeliverableAddress, KONTAKT_EMAIL_MAX_LENGTH } from "@/core/emailAddress";
 
-import { FieldLabel, MessageLine, useFieldLock } from "./FieldParts";
+import { FieldLabel, MessageLine, useFieldLock, useFieldWait } from "./FieldParts";
 import { fieldFrame, fieldRoot, fieldSignifier, fieldUnit, groupInput } from "./fieldStyles";
 import { Icon } from "./Icon";
-import { useEarlyEdit } from "./useEarlyEdit";
 
 import type { Copy, Words } from "@/core/copy";
 import type { Constraints } from "./FieldParts";
@@ -133,27 +131,6 @@ function judgeOf(kind: TextFieldProps["kind"], isRequired: boolean) {
 }
 
 /**
- * A paragraph's control. While hydrating, React writes a stored text back over a `textarea` before any effect can read
- * what a person typed there, so `useEarlyEdit` has nothing to raise and a press would save nothing under
- * „Gespeichert“. So a stored paragraph takes no edit until the page's code runs: `readOnly` paints as the live field
- * does and keeps its Tab stop and the caret a click leaves, where `inert` takes both. An empty one keeps its replay,
- * since React writes nothing there.
- */
-function ParagraphBox({ isStored, className }: { isStored: boolean; className: string }) {
-  // Upstream: goes with `useEarlyEdit`, since React's own replay writes nothing over a `textarea` it hydrates.
-  const isWaiting = useIsSSR();
-  return (
-    <TextArea
-      data-kit-focus="field"
-      rows={4}
-      // Unset rather than false once the code runs, so a locked or closed field's read-only state from its field stands.
-      readOnly={(isWaiting && isStored) || undefined}
-      className={className}
-    />
-  );
-}
-
-/**
  * Type text or a number: the label above, an asterisk after it on a required field, the field at the width of
  * what it holds, then its message line where it has something to say. An error first shows once the value is
  * committed or the form submitted, never while typing.
@@ -182,8 +159,9 @@ export function TextField(props: TextFieldProps) {
   const frame = fieldFrame({ width, holds: props.holds, inset: "full", figures: kind === "digits" || kind === "minute" });
   const field =
     width === "full" ? (
-      <ParagraphBox
-        isStored={Boolean(props.value ?? props.defaultValue)}
+      <TextArea
+        data-kit-focus="field"
+        rows={4}
         className={frame}
       />
     ) : (
@@ -196,12 +174,11 @@ export function TextField(props: TextFieldProps) {
     );
   const unit = fieldUnit({ holds: props.holds });
   const unitId = useId();
-  const root = useEarlyEdit();
   const lock = useFieldLock(isDisabled, isLocked, isRequired);
 
   return (
     <AriaTextField
-      ref={root}
+      inert={useFieldWait()}
       className={fieldRoot()}
       aria-label={labelHidden ? textOf(label) : undefined}
       name={props.name}

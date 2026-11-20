@@ -5,7 +5,6 @@ import { AREA_COPY } from "@/core/copy/area";
 import { COPY } from "@/core/copy/shared";
 import { dayOf, formatDate } from "@/core/format";
 import { ROUTES } from "@/core/routes";
-import { SERVER_COPY } from "@/core/serverCopy";
 import { getOpenRegistrierungen } from "@/features/registrierungen/queries";
 import { readAsSeatHolder, requireTeamSeats, teamMetadata } from "@/features/roles/resolvers";
 import { kaderName } from "@/features/spieler/constants";
@@ -68,7 +67,7 @@ function rowOf(row: FLOpenRegistrierung, at: Omit<Decided, "registrierung_id">):
       name,
       ...(line === undefined ? {} : { notes: line }),
       facts: [
-        { label: SERVER_COPY.season.column.nummer, value: row.nummer === null ? COPY.shared.noValue : { record: row.nummer }, figures: true },
+        { label: COPY.kader.nummer, value: row.nummer === null ? COPY.shared.noValue : { record: row.nummer }, figures: true },
         { label: COPY.kader.position, value: row.position === null ? COPY.shared.noValue : { record: row.position } },
         { label: COPY.kader.stufe, value: row.stufe === null ? COPY.shared.noValue : COPY.kader.stufeName[row.stufe] },
         { label: COPY.shared.facts.received, value: received, figures: true },

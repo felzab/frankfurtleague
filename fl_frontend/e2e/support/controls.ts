@@ -8,8 +8,8 @@ import type { Locator, Page } from "@playwright/test";
 /**
  * Types into a box, tapped first as a person reaches it: once the page's code runs, React hydrates what a press lands
  * on during the press itself (https://github.com/reactwg/react-18/discussions/37), so a press after it finds its
- * handler. Before that, text in the box is the browser's until the box replays it on hydrating, and React replays a
- * press held with it.
+ * handler. Before that, every kit field stands `inert`, which Playwright's click and fill wait out as they wait for
+ * any control to be actionable.
  */
 export async function typeInto(box: Locator, value: string): Promise<void> {
   await box.click();

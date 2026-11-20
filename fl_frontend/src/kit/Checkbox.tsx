@@ -4,25 +4,23 @@ import { CheckboxButton, CheckboxField } from "react-aria-components/Checkbox";
 
 import { textOf } from "@/core/copy";
 
-import { MessageLine, useFieldLock } from "./FieldParts";
+import { MessageLine, useFieldLock, useFieldWait } from "./FieldParts";
 import { toggleBox, toggleField, toggleLine, toggleRow } from "./fieldStyles";
 import { Icon } from "./Icon";
 import { tv } from "./tv";
-import { useEarlyEdit } from "./useEarlyEdit";
 
 import type { Copy, Words } from "@/core/copy";
 import type { CheckboxFieldProps } from "react-aria-components/Checkbox";
 
 /**
- * The field either box stands in, React Aria's, holding on its root what a person did to the box before the page
- * hydrated (`useEarlyEdit`), and read-only in a closed form (`useFieldLock`).
+ * The field either box stands in, React Aria's, waiting for the page's code (`useFieldWait`), and read-only in a closed
+ * form (`useFieldLock`).
  */
 function BoxField({ isDisabled, ...field }: Omit<CheckboxFieldProps, "isDisabled" | "isReadOnly"> & { isDisabled: boolean }) {
-  const root = useEarlyEdit();
   const lock = useFieldLock(isDisabled, false);
   return (
     <CheckboxField
-      ref={root}
+      inert={useFieldWait()}
       {...field}
       isDisabled={lock.isDisabled}
       isReadOnly={lock.isReadOnly}
