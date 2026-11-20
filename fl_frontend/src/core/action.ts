@@ -1,6 +1,6 @@
 import "server-only";
 
-import { updateTag } from "next/cache";
+import { revalidateTag, updateTag } from "next/cache";
 import { unstable_rethrow } from "next/navigation";
 
 import { z } from "zod";
@@ -618,18 +618,18 @@ async function guarded<Schema extends z.ZodType, Value>(lane: Lane<Schema, Value
     case "admin": {
       const judged = await judgeAdminRequest();
       if ("refused" in judged) return { ok: false, reason: TURNED_AWAY[judged.refused] };
-      return admitted(lane, raw, (input) => body(lane, () => lane.run(input, undefined)));
+      return admitted(lane, raw, (input) => lane.run(input, undefined));
     }
     case "person": {
       const subject = await getSubjectSession();
       if (subject === null) return turnedAwayPerson(lane.name, "no_session");
       switch (lane.claim) {
         case "record":
-          return admitted(lane, raw, (input) => body(lane, () => lane.run(input, { subject })));
+          return admitted(lane, raw, (input) => lane.run(input, { subject }));
         case "account": {
           const served = await getAccountSession();
           if (served === null) return turnedAwayPerson(lane.name, "no_session");
-          return admitted(lane, raw, (input) => body(lane, () => lane.run(input, { subject, served })));
+          return admitted(lane, raw, (input) => lane.run(input, { subject, served }));
         }
         case "seat":
           return admitted(lane, raw, (input) => {
@@ -637,7 +637,7 @@ async function guarded<Schema extends z.ZodType, Value>(lane: Lane<Schema, Value
             const { team_id: team, saison_id: saison } = (input ?? {}) as Partial<SeatClaim>;
             const seats = typeof team === "string" && typeof saison === "string" ? seatsAt(rolesOf(subject).roles, team, saison) : [];
             if (seats.length === 0) return Promise.resolve(turnedAwayPerson(lane.name, "no_seat"));
-            return body(lane, () => lane.run(input, { subject, seats }));
+            return lane.run(input, { subject, seats });
           });
       }
     }
@@ -649,35 +649,8 @@ async function guarded<Schema extends z.ZodType, Value>(lane: Lane<Schema, Value
         if (refusal !== null) return { ok: false, reason: refusal };
       }
       const read = parsed(lane, raw);
-      return "answer" in read ? read.answer : body(lane, () => lane.run(read.input, undefined));
+      return "answer" in read ? read.answer : lane.run(read.input, undefined);
     }
-  }
-}
-
-/**
- * The body and its call to the backend, answering the backend's refusal by its code and anything else as the
- * unexpected failure. A body that sent a backend write which may have landed clears the site's one cache tag, which
- * also renders the page again, whatever the body came to: the write may stand behind a throw or a lost answer, and
- * every cached read carries the tag, so no write has to know which it moves. A body whose writes were each refused, or
- * that sent none, carries only its answer and renders nothing again: a refused editor keeps what was typed into it. A
- * body changing state outside the cache, the sign-in store's, calls Next's `refresh()` itself.
- */
-async function body<Schema extends z.ZodType, Value>(
-  lane: Lane<Schema, Value>,
-  run: () => Promise<ActionAnswer<Value>>,
-): Promise<ActionAnswer<Value>> {
-  try {
-    return await run();
-  } catch (error) {
-    // Next's redirect and not-found are how a body leads on, never a failure.
-    unstable_rethrow(error);
-    if (error instanceof APIBadStatusError && error.serverErrorCode !== undefined) {
-      return refused(lane, error.serverErrorCode, error.refusedFields);
-    }
-    logFailure(lane.name, error);
-    return UNEXPECTED;
-  } finally {
-    if (requestWriteMayStand()) updateTag(SITE_CACHE_TAG);
   }
 }
 
@@ -695,16 +668,46 @@ export function action<Schema extends z.ZodType, Value = undefined>(
 }
 
 /**
- * The lane, its guards' own failures answered as the unexpected failure, as the body answers its own: a guard whose
- * lookup the backend could not answer has written nothing, while the browser's catch of a thrown action reads the page
- * again as though the press may have landed.
+ * How long a public form's failed press lets a cached read stand stale while it is read again, in seconds: past this,
+ * a read waits for the fresh one. Above 0, since `{ expire: 0 }` renders the page again in the same response, as
+ * `updateTag` does.
+ */
+const STALE_AFTER_FAILED_PRESS = 5;
+
+/**
+ * The lane and its body, answering a backend refusal by its code, a guard's lookup included, and any other throw as
+ * the unexpected failure, which never reaches the browser: its catch of a thrown action reads the page again as though
+ * the press may have landed.
+ *
+ * Where the body sent a backend write that may have landed, the site's one cache tag is cleared, whatever the body
+ * came to: the write may stand behind a throw or a lost answer, and every cached read carries the tag, so no write
+ * has to know which it moves. A clean answer, and every answer of an editor or an administrator, clears it with
+ * `updateTag`, which renders the page again in the same response, so a failed save shows whether it landed. A public
+ * form's failed press expires the tag without that render: the form keeps its typed values and its replay key, so a
+ * second press repeats the first rather than writing again. An answer whose writes were each refused, or that sent
+ * none, carries only its answer and renders nothing again: a refused editor keeps what was typed into it. A body
+ * changing state outside the cache, the sign-in store's, calls Next's `refresh()` itself.
  */
 async function answered<Schema extends z.ZodType, Value>(lane: Lane<Schema, Value>, raw: unknown): Promise<ActionAnswer<Value>> {
+  // Set once the answer is a failure; a redirect or a not-found leaves it unset, being how a body leads on.
+  let failed = false;
   try {
-    return await guarded(lane, raw);
+    const answer = await guarded(lane, raw);
+    failed = !answer.ok;
+    return answer;
   } catch (error) {
+    // Next's redirect and not-found pass through.
     unstable_rethrow(error);
+    failed = true;
+    if (error instanceof APIBadStatusError && error.serverErrorCode !== undefined) {
+      return refused(lane, error.serverErrorCode, error.refusedFields);
+    }
     logFailure(lane.name, error);
     return UNEXPECTED;
+  } finally {
+    if (requestWriteMayStand()) {
+      if (lane.lane === "public" && failed) revalidateTag(SITE_CACHE_TAG, { expire: STALE_AFTER_FAILED_PRESS });
+      else updateTag(SITE_CACHE_TAG);
+    }
   }
 }
