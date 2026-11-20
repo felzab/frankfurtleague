@@ -8,7 +8,8 @@ import { readAsSeatHolder, requireTeamSeats, teamMetadata } from "@/features/rol
 import { headedMatchOf } from "@/features/spiele/blocks";
 import { getTeamSpiele } from "@/features/spiele/queries";
 import { EmptyBox } from "@/kit/EmptyState";
-import { ListPage, SpielCards } from "@/kit/ListPage";
+import { ListPage } from "@/kit/ListPage";
+import { SpielCards } from "@/kit/SpielCards";
 import { EXPIRED_CHIP, owedChip } from "@/kit/stateChips";
 import { pageMetadata } from "@/shared/utils/metadata";
 

@@ -1,7 +1,6 @@
 import { Button } from "./Button";
 import { Card } from "./Card";
 import { CardGrid } from "./CardGrid";
-import { cardSurface } from "./cardStyles";
 import { Dialog } from "./Dialog";
 import { actLabel } from "./dialogAct";
 import { EmptyBox } from "./EmptyState";
@@ -10,8 +9,6 @@ import { Link } from "./Link";
 import { ListCard, ListMatches, ListQueryScope, ListSearchField, ListTable, ListTiles } from "./ListTable";
 import { RailPage } from "./RailFrame";
 import { SeatRows } from "./SeatRows";
-import { SpielGroup } from "./SpielGroup";
-import { spielColumns, spielSubgrid } from "./SpielRow";
 import { Tabs } from "./Tabs";
 import { TeamHead } from "./TeamHead";
 
@@ -126,37 +123,6 @@ type ListContent =
  */
 function Cards({ boxes, children }: { boxes: number; children: ReactNode }) {
   return boxes === 1 ? children : <CardGrid>{children}</CardGrid>;
-}
-
-/** A group's own box, handing the list's columns on to its match; a container would stop them (`SpielCards`). */
-const SPIEL_CARD_CLASSES = cardSurface({ class: `overflow-hidden ${spielSubgrid()}` });
-
-/**
- * A club's matches one under another at every width, each in its own box under its matchday's head, as the list
- * template's drawn content. The list holds the matches' columns (`spielColumns`), so every group's score and sides stand
- * at one x down the list, as a table's rows do, and it is the container whose width picks the rows' form: the one line
- * where the content is wide enough, the card a phone shows below it. The boxes cannot be the containers: a container
- * establishes an independent formatting context, and a grid that does is no subgrid, so the box would drop the columns
- * it hands on.
- */
-export function SpielCards({ groups }: { groups: ReadonlyArray<{ head: Copy; spiel: SpielRowProps & { id: string } }> }) {
-  return (
-    <div className={spielColumns({ class: "@container gap-y-3" })}>
-      {groups.map((group) => (
-        <div
-          key={group.spiel.id}
-          className={SPIEL_CARD_CLASSES}>
-          {/* Each matchday's head stands directly under the page's title, with no section between. */}
-          <SpielGroup
-            head={group.head}
-            spiele={[group.spiel]}
-            columns="outer"
-            level={2}
-          />
-        </div>
-      ))}
-    </div>
-  );
 }
 
 /** The tab row, and under it the chosen matchday's matches alone: the other matchdays' matches never reach the page. */
