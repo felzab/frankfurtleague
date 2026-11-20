@@ -174,7 +174,7 @@ async function aSecondAccountsPasskey(): Promise<void> {
 }
 
 /* The passkeys are read by the holder's id alone, never through the library's session-scoped list:
-   that id is the one thing keeping another account's names, last use and count off these reads. */
+   that id is the one thing keeping another account's names, set-up days and count off these reads. */
 describe("the holder's passkeys, with another account's beside them in the store", () => {
   it("lists the holder's passkey alone on the account page", async () => {
     // After the holder's sign-in, which takes the passkey it makes to the first account row it finds.

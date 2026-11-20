@@ -17,7 +17,7 @@ it("leaves an absent value out", () => {
 const SPIEL_ID = "6890a1b2c3d4e5f607510001";
 const SPIEL = {} as Parameters<typeof sdk.spielePatchSpiel>[1];
 
-/** An administrator the request acts for, which an admin-tier call must name before it leaves. */
+/** An administrator the request acts for, which the backend refuses an admin-tier call without. */
 const ACTOR = { email: "vorstand@example.org", lane: "admin", authTime: 0, factor: "passkey" } as const;
 
 /* What the contract states of a call reaches the write test through the transport the generator picked, and nothing
