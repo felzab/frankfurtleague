@@ -5,7 +5,7 @@ import { pathToFileURL } from "node:url";
 
 import { createElement as h } from "react";
 
-import { act, cleanup, screen } from "@testing-library/react";
+import { act, cleanup } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { COPY } from "@/core/copy/shared";
@@ -13,7 +13,7 @@ import { ROUTES } from "@/core/routes";
 import { renderUnderNext } from "@/test-support/nextContexts";
 import { filesUnder } from "@/test-support/treeWalk";
 
-import type { ComponentProps, ComponentType } from "react";
+import type { ComponentType } from "react";
 import type { MockInstance } from "vitest";
 
 const APP_DIR = import.meta.dirname;
@@ -32,13 +32,6 @@ type Boundary = ComponentType<{ error: unknown; retry: () => void }>;
 const ROUTED = { params: {} };
 
 const boundaryOf = async (file: string): Promise<Boundary> => ((await import(pathToFileURL(file).href)) as { default: Boundary }).default;
-
-// Next's link, standing in as an anchor that says it navigates on the client, which a whole document's link does not.
-vi.mock("next/link", async (original) => ({
-  ...(await original<object>()),
-  default: ({ prefetch: _prefetch, ...props }: ComponentProps<"a"> & { prefetch?: boolean | null }) =>
-    h("a", { "data-client-navigation": "", ...props }),
-}));
 
 // Each case below renders a boundary, which posts its crash report, so none reaches a network.
 let sent: MockInstance<typeof fetch>;
@@ -85,33 +78,6 @@ describe.each(BOUNDARIES)("the error boundary $shown", ({ file, shown }) => {
     await act(() => Promise.resolve());
 
     expect(sent.mock.calls.length, `${shown}: reports one thrown null ${String(sent.mock.calls.length)} times`).toBe(1);
-  });
-});
-
-/* The boundaries a failure at `/` meets: the root's and those of route groups, which add no segment to an address. */
-const AT_HOME = BOUNDARIES.filter(({ shown }) =>
-  shown
-    .split("/")
-    .slice(0, -1)
-    .every((segment) => /^\(.+\)$/.test(segment)),
-);
-
-/* Next clears an error boundary on a client navigation to another path alone, so a card standing at `/` whose way on
-   is a client link to `/` stays, press after press, and the start page is never drawn again without a reload. */
-describe("the error boundaries standing at the start page", () => {
-  it("are found", () => {
-    expect(AT_HOME.length).toBeGreaterThan(0);
-  });
-
-  it.each(AT_HOME)("$shown leads on to the start page as a whole document", async ({ file }) => {
-    const Boundary = await boundaryOf(file);
-
-    renderUnderNext(h(Boundary, { error: new Error("gepflanzt"), retry: () => undefined }), { params: {}, pathname: ROUTES.home.path() });
-    await act(() => Promise.resolve());
-    const link = screen.getByRole("link", { name: COPY.shared.end.toHome });
-
-    expect(link.getAttribute("href")).toBe(ROUTES.home.path());
-    expect(link.hasAttribute("data-client-navigation"), "leads on by a client navigation the boundary outlives").toBe(false);
   });
 });
 

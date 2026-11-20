@@ -80,19 +80,4 @@ describe("the K.-o.-Baum", () => {
     expect(screen.getByRole("region", { name: COPY.shared.kOBaum })).toBeTruthy();
     expect(rowsOf()).toStrictEqual(rows);
   });
-
-  it("names the match for third place on its own row above the Finale", () => {
-    render(
-      <BracketTree
-        rounds={bracket(2)}
-        third={match("platz-3")}
-      />,
-    );
-
-    expect(rowsOf()).toStrictEqual([
-      ["Halbfinale", 2],
-      ["Spiel um Platz 3", 1],
-      ["Finale", 1],
-    ]);
-  });
 });

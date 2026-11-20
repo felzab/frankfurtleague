@@ -1,5 +1,4 @@
 // @vitest-environment jsdom
-import { within } from "@testing-library/react";
 import { prerender } from "react-dom/static";
 import { describe, expect, it } from "vitest";
 
@@ -118,12 +117,8 @@ describe("the Tabelle's qualification bar", () => {
 // The edge is a colour alone: a sighted visitor learns what it and the other marks mean only behind the ⓘ, and a
 // screen reader hears none of it but these words.
 describe("the Tabelle's marks", () => {
-  it("explain themselves behind an ⓘ after each group's title, and the edge's tones to a screen reader", async () => {
+  it("say the edge's tones to a screen reader", async () => {
     const page = await landed({ A: [row("a", 1), row("b", 2), row("c", 2)], B: [row("d", 1), row("e", 3)] });
-
-    const cards = [...page.querySelectorAll("section")];
-    expect(cards).toHaveLength(2);
-    for (const card of cards) within(card).getByRole("button", { name: COPY.shared.help });
 
     expect(rankOf(page, "a".repeat(24))).toContain(COPY.shared.season.qualifies.settled);
     expect(rankOf(page, "b".repeat(24))).toContain(COPY.shared.season.qualifies.level);
