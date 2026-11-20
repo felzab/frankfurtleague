@@ -18,6 +18,7 @@ import {
   saisonName,
   saisonNameBound,
   SCHIEDSRICHTER,
+  searchLabel,
   seatsText,
   SPIELER,
   spieltagName,
@@ -66,8 +67,6 @@ const OBJECTED = "Widersprochen";
 const DEREGISTERED = "Ausgetragen";
 const ADMITTED = "Aufgenommen";
 const FILTER = "Filter";
-// A list's search label from its plural: `shared.search` gives it the other catalogues, and the squad's stands here.
-const search = (plural: string) => `${plural} suchen`;
 
 /**
  * The words every audience reads: the kit's, the shared section's, the route titles' and the records' noun sections. It
@@ -250,7 +249,7 @@ export const COPY = catalogue({
       skipped: (plural: Copy) => `Alle ${plural} übersprungen.`,
     },
     /** A list's search box, by the list's plural. */
-    search: (plural: Copy) => search(plural),
+    search: (plural: Copy) => searchLabel(plural),
     /**
      * What a screen reader hears once a searched list's typed text settles: „Treffer“ is one noun for any list's rows
      * in the singular and the plural, and a search finding none says `empty.search`.
@@ -582,7 +581,7 @@ export const COPY = catalogue({
 
   /** A squad row's fields, one word each wherever a person meets them. */
   kader: {
-    search: search(SPIELER),
+    search: searchLabel(SPIELER),
     nummer: "Nummer",
     position: "Position",
     stufe: "Stufe",

@@ -144,6 +144,8 @@ export const LOCK = {
 /** Why some of an editor's fields stand locked, which its lock line says once however many it holds. */
 export type LockReason = keyof typeof LOCK;
 
+/** A list's search label from its plural, for an entry whose plural the catalogue holds as a plain word. */
+export const searchLabel = (plural: string) => `${plural} suchen`;
 export const saisonName = (id: string) => `Saison ${id}`;
 // The same name with a no-break space, for a phrase binding a word to it.
 export const saisonNameBound = (id: string) => boundBy("Saison", id);

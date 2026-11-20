@@ -15,6 +15,7 @@ import {
   REGISTRIERUNGEN,
   saisonNameBound,
   SCHIEDSRICHTER,
+  searchLabel,
   SPIELER,
   textOf,
   waitWords,
@@ -42,8 +43,7 @@ const WITHDRAWAL_ENTERED = "Widerruf eingetragen";
 const NAME_ON_SITE = "Name auf der Website";
 const MEDIA = "Fotos und Videos";
 const SENT_ON = "Gesendet am";
-// The plurals of the administration's own lists that no other catalogue holds, branded ahead of the entries searching them.
-const PLURAL = catalogue({ bans: BANS, logEntries: "Einträge" });
+const LOG_ENTRIES = "Einträge";
 
 /** The administration's own words, which no page outside it reads. */
 export const ADMIN_COPY = catalogue({
@@ -367,8 +367,8 @@ export const ADMIN_COPY = catalogue({
   },
 
   banList: {
-    plural: PLURAL.bans,
-    search: COPY.shared.search(PLURAL.bans),
+    plural: BANS,
+    search: searchLabel(BANS),
     /** After the ban's own notice, which `mailTo` names: the ban bars the hand-out of every later mail. */
     consequence: "Die Adresse kann sich nicht mehr anmelden und bekommt danach keine E-Mails.",
     /** „E-Mail an“'s value: the notice goes only where an account stands, which the press reads once the address is typed. */
@@ -431,8 +431,8 @@ export const ADMIN_COPY = catalogue({
   /** Composed from the stored action. */
   actionLog: {
     /** The log's rows, apart from Konto's entries of the same word. */
-    plural: PLURAL.logEntries,
-    search: COPY.shared.search(PLURAL.logEntries),
+    plural: LOG_ENTRIES,
+    search: searchLabel(LOG_ENTRIES),
     what: "Was",
     who: "Wer",
     when: "Wann",
