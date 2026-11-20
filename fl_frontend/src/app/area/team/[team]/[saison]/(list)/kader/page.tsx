@@ -37,8 +37,8 @@ const HEAD: TableHead = {
   state: { label: COPY.shared.facts.state },
   columns: [
     { key: "nummer", label: SERVER_COPY.season.column.nummer, figures: true, narrow: true, width: "count" },
-    { key: "position", label: WORDS.position, hideOnPhone: true, width: "word" },
-    { key: "stufe", label: WORDS.stufe, hideOnPhone: true, width: "code" },
+    { key: "position", label: WORDS.position, hideOnPhone: true, onLine: "value", width: "word" },
+    { key: "stufe", label: WORDS.stufe, hideOnPhone: true, onLine: "value", width: "code" },
   ],
 };
 

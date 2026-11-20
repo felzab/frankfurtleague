@@ -67,7 +67,7 @@ function checkRow(row: FLBewerbungListRow, run: Run, outcome: Outcome | undefine
     farbe: colour ?? COPY.shared.notProvided,
     shorthand,
   };
-  const base = { id: row.id, name: { record: row.name }, phoneLine: COPY.shared.line([colour, shorthand]), cells };
+  const base = { id: row.id, name: { record: row.name }, cells };
   if (outcome?.kind === "accepted") return { ...base, chip: STANDING_CHIP.accepted };
   const refused = outcome?.kind === "refused" ? outcome : null;
   const line = refused?.taken === true ? undefined : (refused?.line ?? Object.values(refused?.fieldErrors ?? {})[0]);
@@ -199,8 +199,8 @@ export function BulkAccept({
         state: { label: COPY.shared.facts.state },
         columns: [
           { key: "gruppe", label: COPY.team.gruppe, narrow: true, width: "word" },
-          { key: "farbe", label: COPY.team.trikotFarbe, hideOnPhone: true, width: "word" },
-          { key: "shorthand", label: COPY.team.shorthand, hideOnPhone: true, width: "code" },
+          { key: "farbe", label: COPY.team.trikotFarbe, hideOnPhone: true, onLine: "value", width: "word" },
+          { key: "shorthand", label: COPY.team.shorthand, hideOnPhone: true, onLine: "value", width: "code" },
         ],
         rows: shown.map((row) => checkRow(row, run, run.outcomes[row.id], go)),
         // A run with no applications ended above, so an empty table is one whose every card was skipped.

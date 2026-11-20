@@ -158,12 +158,11 @@ function tableOf(label: Copy, spieler: readonly FLAufstellungEntryPublic[]): Tab
     nameLabel: column.name,
     columns: [
       { key: "nummer", label: column.nummer, figures: true, narrow: true, width: "count" },
-      { key: "position", label: column.position, hideOnPhone: true, width: "word" },
+      { key: "position", label: column.position, hideOnPhone: true, onLine: "value", width: "word" },
     ],
     rows: spieler.map((entry, index) => ({
       id: String(index),
       ...rowNameOf(entry),
-      ...(entry.position === null ? {} : { phoneLine: { record: entry.position } }),
       cells: {
         ...(entry.nummer === null ? {} : { nummer: { record: entry.nummer } }),
         ...(entry.position === null ? {} : { position: { record: entry.position } }),

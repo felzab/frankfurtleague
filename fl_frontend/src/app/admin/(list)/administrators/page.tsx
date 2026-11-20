@@ -98,7 +98,6 @@ function activeRow(grant: FLGrantRow, { reader, readerIsOwner }: Pick<Access, "r
     id: grant.id,
     name: { record: grant.address, address: true },
     chip: { tone: "success", label: isOwner ? COPY.shared.owner : COPY.shared.administration },
-    phoneLine: WORDS.sinceOn(grant.effective_from),
     cells: { since: dayOf(grant.effective_from) },
     sideActs: 1,
     acts: (
@@ -218,7 +217,7 @@ function waitingRows({ reader, readerIsOwner, additions, handover, changes }: Ac
 /** The columns of the list of who holds access: on a phone a row's line stands for the „Seit“ column. */
 const HEAD = {
   state: { label: COPY.shared.facts.state },
-  columns: [{ key: "since", label: WORDS.since, hideOnPhone: true, width: "date" }],
+  columns: [{ key: "since", label: WORDS.since, hideOnPhone: true, onLine: "labelled", width: "date" }],
 } as const satisfies Pick<TableProps, "columns" | "state">;
 
 const EMPTY = { kind: "none", plural: ROUTES.adminAdministrators.title, glyph: "administrators" } as const;

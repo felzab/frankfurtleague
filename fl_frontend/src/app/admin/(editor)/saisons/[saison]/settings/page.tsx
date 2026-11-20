@@ -38,7 +38,7 @@ const LINKS_HEAD: TableHead = {
   nameLabel: TEAM,
   state: { label: COPY.shared.facts.state },
   // Secondary, as every list's day column: on a phone the row keeps its name and its chip.
-  columns: [{ key: "sentOn", label: WORDS.sentOn, hideOnPhone: true, width: "date" }],
+  columns: [{ key: "sentOn", label: WORDS.sentOn, hideOnPhone: true, onLine: "labelled", width: "date" }],
 };
 
 /** The season the address names, or the not-found page. */
@@ -162,7 +162,6 @@ async function readEditor(params: Props["params"]) {
               teams.find((team) => team.team_id === row.team_id),
               saison.status,
             ),
-            ...(sent === null ? {} : { phoneLine: WORDS.linkSentOn(sent) }),
             cells: sent === null ? {} : { sentOn: { record: formatDate(sent) } },
           };
         }),

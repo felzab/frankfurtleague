@@ -1,6 +1,7 @@
 import { Fragment } from "react";
 
-import { textOf } from "@/core/copy";
+import { boundBy, LINE_SEPARATOR, lineOf, textOf } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 import { formatNumber } from "@/core/format";
 
 import { AddressWords, addressWords, isAddress } from "./AddressWords";
@@ -17,7 +18,7 @@ import { sideActsForm } from "./sideActsForm";
 import { TeamPlaque } from "./TeamPlaque";
 import { tv } from "./tv";
 
-import type { Copy, RecordText, Words } from "@/core/copy";
+import type { Copy, Words } from "@/core/copy";
 import type { Route } from "next";
 import type { ReactElement } from "react";
 import type { AddressText } from "./AddressWords";
@@ -47,35 +48,34 @@ type TableColumn = {
    * widens to its longest value, so only a value bounded to its column's width goes uncut.
    */
   cut?: true;
-} &
+} & (
+  | { hideOnPhone?: false; narrow?: never; onLine?: never }
   /**
    * A secondary column, such as the day an administrator's access began: left out on a phone, a box narrower than
    * 42 rem on any screen, whose row keeps its name, its chips after it and at most a narrow column. Every secondary
    * column leaves at that one width, so the room it frees is the name's and its chips' wherever the row stacks. What
-   * it holds stands somewhere a phone still reaches: a page or a dialog the row itself opens, or else the row's
-   * `phoneLine`, after the column's label where the value alone would not say what it is.
+   * it holds stands somewhere a phone still reaches: a page or a dialog the row itself opens, or else the row's line
+   * (`onLine`).
    */
-  (
-    | { hideOnPhone?: boolean; narrow?: never }
-    /**
-     * The fact short enough to stand beside a name on a phone, left out of a box narrower than 20 rem. A list marks at
-     * most one column so and leaves its others out. At most a date's width, which leaves the name 184 px at 360 px; a
-     * wider column, a team's name or a phone number, leaves it too little.
-     */
-    | { narrow: true; hideOnPhone?: never; width?: "count" | "code" | "word" | "date" }
-  );
+  | { hideOnPhone: true; narrow?: never; onLine?: LineForm }
+  /**
+   * The fact short enough to stand beside a name on a phone, left out of a box narrower than 20 rem. A list marks at
+   * most one column so and leaves its others out. At most a date's width, which leaves the name 184 px at 360 px; a
+   * wider column, a team's name or a phone number, leaves it too little.
+   */
+  | { narrow: true; hideOnPhone?: never; width?: "count" | "code" | "word" | "date"; onLine?: never }
+);
+
+/**
+ * How a column a box leaves out stands on a stacked row's muted line, the table composing the line from such cells in
+ * their order, joined by „·“, the row's own `line` last: its value alone, where the value says what it is, such as a
+ * position, or after its label where it does not, „Gültig bis Saison 2027“. A column stating neither holds a
+ * fact the row's own page or dialog shows. A cell holding nothing, or the words for nothing, stands on no line.
+ */
+type LineForm = "value" | "labelled";
 
 /** A club's won, drawn and lost counts. */
 export type Counts = readonly [won: number, drawn: number, lost: number];
-
-/**
- * A muted line holding an address amid the catalogue's words, „Neu: <address> · bis 12.11., 15:12“: the address
- * between `before` and `after`, which an address never cut breaks after its „@“ (`AddressWords`), where a plain line
- * would break it anywhere.
- */
-type AddressLine = { before: Copy; address: RecordText; after?: Copy };
-
-const isAddressLine = (line: Words | AddressLine) => typeof line !== "string" && "address" in line;
 
 export type TableRow = {
   id: string;
@@ -96,18 +96,18 @@ export type TableRow = {
   delivery?: ChipProps;
   /** Why the row's record was turned away, on a line of its own under the name, in the danger colour. */
   refusal?: Copy;
-  /** The row's values, by column key; a missing value leaves its cell empty. */
-  cells: Readonly<Record<string, Words>>;
+  /**
+   * The row's values, by column key; a missing value leaves its cell empty. An address is marked (`AddressText`), so
+   * the row's line breaks it after its „@“ as every address breaks.
+   */
+  cells: Readonly<Record<string, Words | AddressText>>;
   /** A row that no longer counts, such as a disqualified team's: its text and its plaque muted. */
   muted?: boolean;
-  /** The muted line under the name, cut as a name is: what the row's record is, or when it takes effect. */
-  line?: Words;
   /**
-   * The line on a phone, a box narrower than 42 rem, alone, standing for columns a phone leaves out, such as a player's
-   * position and Stufe, which from 42 rem the columns say; in `line`'s place there where the row has both. One holding
-   * an address amid the catalogue's words, such as a change's new address, breaks it after its „@“ (`AddressLine`).
+   * The muted line under the name, cut as a name is: what the row's record is, or when it takes effect. A stacked row's
+   * line holds the columns its box leaves out before it (`onLine`).
    */
-  phoneLine?: Words | AddressLine;
+  line?: Words;
 } & (
   | {
       href?: Route;
@@ -515,6 +515,55 @@ function Cell({ cell, cut }: { cell: Words | undefined; cut: boolean }) {
   return textOf(cell);
 }
 
+/** A part of a stacked row's line standing for a column its box leaves out (`onLine`). */
+type LinePart = { key: string; words: Words | AddressText; label?: Copy };
+
+/** The words a cell holds where it holds nothing, which state no fact on a line. */
+const NOTHING: ReadonlySet<string> = new Set([COPY.shared.noValue, COPY.shared.notProvided, ""]);
+
+/** The parts of a row's line, each column's that states its form (`onLine`) and holds a value. */
+function linePartsOf(columns: ReadonlyArray<TableColumn>, row: TableRow): LinePart[] {
+  return columns.flatMap((column) => {
+    const words = row.cells[column.key];
+    if (column.onLine === undefined || words === undefined || NOTHING.has(textOf(words))) return [];
+    return [{ key: column.key, words, ...(column.onLine === "labelled" ? { label: column.label } : {}) }];
+  });
+}
+
+const partText = (part: LinePart) => (part.label === undefined ? textOf(part.words) : boundBy(part.label, textOf(part.words)));
+
+/**
+ * The muted line under the name: the parts standing for the columns the box leaves out, each shown where its column is
+ * not, then the row's own `line`, at every width. A line of parts alone takes no room where the box shows every column.
+ * An address among the parts breaks after its „@“ (`AddressWords`), where a plain line would break it anywhere.
+ */
+function RowLine({ parts, line, className }: { parts: readonly LinePart[]; line: Words | undefined; className: string }) {
+  const own = line === undefined ? null : textOf(line);
+  return (
+    <CutText
+      text={own ?? lineOf(parts.map(partText))}
+      className={className}>
+      {parts.map((part, index) => (
+        <span
+          key={part.key}
+          className="@2xl:hidden">
+          {isAddress(part.words) ? (
+            <>
+              {/* The label bound to the address's start, which breaks after its „@“ alone. */}
+              {part.label === undefined ? null : boundBy(part.label, "")}
+              <AddressWords address={textOf(part.words)} />
+            </>
+          ) : (
+            partText(part)
+          )}
+          {index < parts.length - 1 || own !== null ? LINE_SEPARATOR : null}
+        </span>
+      ))}
+      {own}
+    </CutText>
+  );
+}
+
 /**
  * A row's name line: a club's plaque, then the name with its mark and the chips after it, as every row holds them
  * (`nameWithChips`). Its least width is the name's, 5 rem, with a plaque its 40 px and their gap
@@ -585,12 +634,14 @@ function NameCell({
   stacks,
   chipsOnLine,
   shares,
+  lineParts,
 }: {
   row: TableRow;
   prose: boolean;
   stack: boolean;
   stacks: Stacks;
   chipsOnLine: ChipsOnLine;
+  lineParts: readonly LinePart[];
   /** Whether the list holds a column that gives way, which shares the row's free room with the name (`table`'s `shares`). */
   shares: boolean;
 }) {
@@ -648,30 +699,13 @@ function NameCell({
           )}
         </span>
       </span>
-      {row.line !== undefined && (
-        // A phone's line takes its place below 42 rem.
-        <span className={s.line({ class: row.phoneLine === undefined ? "" : "@max-2xl:hidden" })}>
-          <CutText
-            text={textOf(row.line)}
+      {(row.line !== undefined || lineParts.length > 0) && (
+        <span className={s.line({ class: row.line === undefined ? "@2xl:hidden" : "" })}>
+          <RowLine
+            parts={lineParts}
+            line={row.line}
             className={s.lineWords()}
           />
-        </span>
-      )}
-      {row.phoneLine !== undefined && (
-        <span className={s.line({ class: "@2xl:hidden" })}>
-          {isAddressLine(row.phoneLine) ? (
-            // Shown only where the row is stacked, which wraps its lines, so it is never cut.
-            <span className={addressWords()}>
-              {row.phoneLine.before}
-              <AddressWords address={row.phoneLine.address.record} />
-              {row.phoneLine.after}
-            </span>
-          ) : (
-            <CutText
-              text={textOf(row.phoneLine)}
-              className={s.lineWords()}
-            />
-          )}
         </span>
       )}
       {row.refusal !== undefined && (
@@ -789,6 +823,7 @@ export function Table({ label, nameLabel, state, columns, rows, empty, bare = fa
                       stack={stack}
                       stacks={stacks}
                       chipsOnLine={chipsOnLineOf(state, stacks)}
+                      lineParts={linePartsOf(columns, row)}
                       shares={shares}
                     />
                     {state !== undefined && (

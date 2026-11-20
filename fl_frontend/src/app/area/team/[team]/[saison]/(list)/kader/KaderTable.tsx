@@ -21,16 +21,12 @@ function rowsOf(kader: readonly FLKaderRow[], open: (row: FLKaderRow) => void): 
   return kader.toSorted(byShirtNumber).map((row) => {
     const isLive = row.inactive_since === null;
     const mark = rolleMarkOf(row.rolle);
-    const facts = [row.position === null ? null : { record: row.position }, row.stufe === null ? null : COPY.kader.stufeName[row.stufe]].filter(
-      (fact) => fact !== null,
-    );
     return {
       id: row.spieler_id,
       name: { record: kaderName(row) },
       // A role an ausgetragen row held is no longer the squad's: the write frees it for another live row.
       ...(isLive && mark !== undefined ? { mark } : {}),
       chip: rowState(row),
-      ...(facts.length === 0 ? {} : { phoneLine: COPY.shared.line(facts) }),
       muted: !isLive,
       ...(isLive ? { onOpen: () => open(row) } : {}),
       cells: {

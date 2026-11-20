@@ -30,9 +30,9 @@ export async function generateMetadata(_: unknown, parent: ResolvingMetadata): P
 const HEAD: TableHead = {
   nameLabel: COPY.shared.emailAddress,
   columns: [
-    { key: "reason", label: COPY.shared.reason, hideOnPhone: true, width: "excerpt", cut: true },
-    { key: "until", label: ADMIN_COPY.banList.until, hideOnPhone: true, width: "date" },
-    { key: "enteredOn", label: ADMIN_COPY.facts.enteredOn, hideOnPhone: true, width: "date" },
+    { key: "reason", label: COPY.shared.reason, hideOnPhone: true, onLine: "value", width: "excerpt", cut: true },
+    { key: "until", label: ADMIN_COPY.banList.until, hideOnPhone: true, onLine: "labelled", width: "date" },
+    { key: "enteredOn", label: ADMIN_COPY.facts.enteredOn, hideOnPhone: true, onLine: "labelled", width: "date" },
   ],
 };
 
@@ -51,7 +51,6 @@ const rowOf = (ban: FLBanListRow, holder: string): TableRow => {
     id: ban.id,
     name: { record: ban.address, address: true },
     words: `${ban.address} ${ban.ban_reason}`,
-    phoneLine: WORDS.phoneLine({ record: ban.ban_reason }, until, dayOf(ban.created_at)),
     cells: {
       reason: { record: ban.ban_reason },
       until,

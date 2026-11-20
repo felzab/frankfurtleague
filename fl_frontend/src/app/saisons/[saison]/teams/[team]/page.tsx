@@ -75,8 +75,7 @@ function personOf(spieler: FLSpielerPublic): Pick<TableRow, "name" | "mark"> {
  * A pupil's number and position, each left out while the record holds none; the position also on the row's line, which
  * a phone shows in the column's place, since the row opens nothing.
  */
-const numberAndPositionOf = ({ nummer, position }: Pick<FLSpielerPublic, "nummer" | "position">): Pick<TableRow, "cells" | "phoneLine"> => ({
-  ...(position === null ? {} : { phoneLine: { record: position } }),
+const numberAndPositionOf = ({ nummer, position }: Pick<FLSpielerPublic, "nummer" | "position">): Pick<TableRow, "cells"> => ({
   cells: {
     ...(nummer === null ? {} : { nummer: { record: nummer } }),
     ...(position === null ? {} : { position: { record: position } }),
@@ -170,7 +169,7 @@ async function readRecord(params: Props["params"]): Promise<ReadRecord> {
                     nameLabel: column.name,
                     columns: [
                       { key: "nummer", label: column.nummer, figures: true, narrow: true, width: "count" },
-                      { key: "position", label: column.position, hideOnPhone: true, width: "word" },
+                      { key: "position", label: column.position, hideOnPhone: true, onLine: "value", width: "word" },
                     ],
                     rows: kader.map((spieler, index) => ({
                       id: String(index),
