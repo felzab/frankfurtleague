@@ -40,7 +40,7 @@ serveBackend(({ method, path }) => (method === "GET" && path === "/saisons/2027/
 // An administrator's session, made by passkey, which the read's guard admits.
 signedInRequest();
 
-const { AdminOverview } = await import("./page");
+const { AdminOverview } = await import("./AdminOverview");
 
 /** The rows of the due card the page draws over `parties` owing their answers on one fixture. */
 async function dueRowOver(kind: "spielbestaetigung_due" | "spielbestaetigung_overdue", parties: FLOverviewParty[]) {

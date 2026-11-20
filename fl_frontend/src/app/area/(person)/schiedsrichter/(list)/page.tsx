@@ -2,7 +2,7 @@ import { ROUTES } from "@/core/routes";
 import { pageMetadata } from "@/shared/utils/metadata";
 
 import { standardSaison } from "../../ownSaison";
-import { SchiedsrichterOverview } from "./[saison]/page";
+import { SchiedsrichterOverview } from "./SchiedsrichterOverview";
 
 import type { Metadata, ResolvingMetadata } from "next";
 
