@@ -881,8 +881,8 @@ export const SERVER_COPY = catalogue({
       ],
     },
 
-    /** The Spielsuche's three filters and Teams' one, each opening on every match or club. */
-    filter: { phase: "Phase", team: TEAM, spieltag: COPY.spielplan.fact.spieltag, gruppe: COPY.team.gruppe, all: "Alle" },
+    /** Teams' group filter, and „Alle“ (all), the choice every filter opens on. */
+    filter: { gruppe: COPY.team.gruppe, all: "Alle" },
 
     team: {
       platz: PLATZ,
