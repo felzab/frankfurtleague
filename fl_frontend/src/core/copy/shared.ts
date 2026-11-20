@@ -57,6 +57,7 @@ const KADER = "Kader";
 const ENTRY = "Eintrag";
 const startelfCount = (count: number, max: number) => `Startelf ${formatNumber(count)} ${boundBy("von", formatNumber(max))}`;
 const DELETED = "Gelöscht";
+const FILTER = "Filter";
 
 /**
  * The words every audience reads: the kit's, the shared section's, the route titles' and the records' noun sections. It
@@ -212,6 +213,11 @@ export const COPY = catalogue({
       /** A run's list a person left every row out of: the records stand, where `none` would say there are none yet. */
       skipped: (plural: Copy) => `Alle ${plural} übersprungen.`,
     },
+    /**
+     * What a screen reader hears once a searched list's typed text settles: „Treffer“ is one noun for any list's rows
+     * in the singular and the plural, and a search finding none says `empty.search`.
+     */
+    searchCount: (count: number) => `${boundBy(formatNumber(count), "Treffer")} für diese Suche.`,
 
     /** „Passkey löschen?“: a confirmation asks with the verb its button carries. */
     question: (object: Copy, verb: Verb) => `${object} ${infinitive(verb)}?`,
@@ -310,12 +316,20 @@ export const COPY = catalogue({
       cancelled: (count: number) => (count === 1 ? "1\u00A0Spiel nicht gewertet" : `${boundBy(formatNumber(count), "Spiele")} nicht gewertet`),
       /** The mark itself, drawn red on the corner of a club's figure and hidden from a screen reader, which hears `cancelled`. */
       cancelledMark: (count: number) => `+${formatNumber(count)}`,
+      /**
+       * A screen reader's words for the bar at a qualifying row's edge, by its tone, which the eye reads from its
+       * colour: a place the row holds alone reaches the K.-o.-Runde only as the table stands now, and the bracket
+       * seeds no club of a shared one.
+       */
+      qualifies: { settled: `Reicht derzeit für die ${K_O_RUNDE}`, level: "Geteilter Platz" },
     },
 
     help: "Hilfe",
     /** A combo box's button opening its list, whether or not the box takes free text. */
     showSuggestions: "Vorschläge anzeigen",
-    filter: "Filter",
+    filter: FILTER,
+    /** The phone's filter button once filters are chosen; with none chosen it reads `filter`. */
+    filterCount: (count: number) => `${FILTER} (${formatNumber(count)})`,
     done: "Fertig",
     saison: "Saison",
     /** A season by its id, which is its year and so takes no thousands separator. */

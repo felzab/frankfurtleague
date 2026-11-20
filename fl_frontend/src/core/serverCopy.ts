@@ -32,6 +32,7 @@ const ownerTier = COPY.shared.owner;
 const PLATZ = "Platz";
 const TEAM = "Team";
 const DIFFERENZ = "Diff.";
+const SPIELE_SHORT = "Sp.";
 const SPIELBETRIEB = "Spielbetrieb";
 const gruppeName = COPY.shared.season.gruppe;
 const placeName = (platz: number) => `${formatOrdinal(platz)} ${PLATZ}`;
@@ -855,7 +856,7 @@ export const SERVER_COPY = catalogue({
     column: {
       platz: PLATZ,
       team: TEAM,
-      spiele: "Sp.",
+      spiele: SPIELE_SHORT,
       siege: "S",
       unentschieden: "U",
       niederlagen: "N",
@@ -867,6 +868,18 @@ export const SERVER_COPY = catalogue({
       name: COPY.shared.name,
       nummer: "Nr.",
       position: COPY.kader.position,
+    },
+
+    /**
+     * The ⓘ after each group's title on the Tabelle, naming the marks its rows draw by the entries that draw them. The
+     * green edge marks a place the club holds alone within the qualifier count as the table stands now, so it says
+     * „derzeit“, and the grey edge of a shared place is no qualifier.
+     */
+    tabelle: {
+      help: [
+        `${COPY.shared.season.cancelledMark(1)} bei ${SPIELE_SHORT} heißt ${COPY.shared.season.cancelled(1)}, ${COPY.shared.austritt.disqualifikation.shorthand} disqualifiziert und ${COPY.shared.austritt.rueckzug.shorthand} zurückgezogen.`,
+        `Ein grüner Rand markiert einen Platz, der derzeit für die ${COPY.shared.kORunde} reicht, ein grauer einen geteilten Platz.`,
+      ],
     },
 
     /** The Spielsuche's three filters and Teams' one, each opening on every match or club. */
