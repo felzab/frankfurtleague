@@ -326,7 +326,7 @@ export const SERVER_COPY = catalogue({
     /** The mail's last line, by its kind: what a reader the mail was not meant for does. */
     notYou: {
       signIn: "Du hast keinen Code angefordert? Dann ignoriere diese E-Mail.",
-      security: "Warst du das nicht? Dann antworte sofort auf diese E-Mail.",
+      security: "Stimmt das nicht? Dann antworte sofort auf diese E-Mail.",
       firstContact: "Du weißt nichts davon? Dann antworte auf diese E-Mail, und wir löschen deine Angaben.",
     },
 
@@ -349,8 +349,8 @@ export const SERVER_COPY = catalogue({
       firstAnswerCounts: "Es gilt die erste Antwort aus deinem Team.",
 
       /** A move, by the day the fixture moved to, or by the day it left where it holds no new one yet. */
-      movedSubject: (day: CalendarDay) => `Spiel verlegt auf den ${formatDateLong(day)}`,
-      movedFromSubject: (day: CalendarDay) => `Spiel am ${formatDateLong(day)} verlegt`,
+      movedSubject: (day: CalendarDay) => `Verlegt: Spiel auf den ${formatDateLong(day)}`,
+      movedFromSubject: (day: CalendarDay) => `Verlegt: Spiel am ${formatDateLong(day)}`,
       moved: (spiel: Words) => `${textOf(spiel)} ist verlegt.`,
       /** A new pairing at the slot the fixture keeps, by the new pairing: the change a club or a referee is told of. */
       newPairing: (spiel: Words) => `Am selben Termin spielt jetzt ${textOf(spiel)}.`,
@@ -451,10 +451,12 @@ export const SERVER_COPY = catalogue({
       link: {
         subject: (saison: string) => `Eintrag für die ${COPY.shared.saisonName(saison)} bestätigen`,
         lead: (schule: string) => `Die Bewerbung ${boundBy("von", schule)} nennt dich als Kontaktperson.`,
+        named: "Eine Bewerbung nennt dich als Kontaktperson.",
       },
       reminder: {
         subject: (saison: string) => `Erinnerung: Eintrag für die ${COPY.shared.saisonName(saison)} bestätigen`,
         lead: (schule: string) => `Deine Antwort zur Bewerbung ${boundBy("von", schule)} fehlt noch.`,
+        missing: "Deine Antwort zur Bewerbung fehlt noch.",
       },
       zusage: {
         subject: (saison: string) => `Zusage für die ${COPY.shared.saisonName(saison)}`,
@@ -581,8 +583,14 @@ export const SERVER_COPY = catalogue({
         address: "Neue Adresse in der Verwaltung",
         revoked: "Zugang zur Verwaltung beendet",
         withdrawn: "Angekündigte Änderung zurückgezogen",
-        completed: "Angekündigte Änderung gilt jetzt",
-      } satisfies Record<FLGrantDataChange | Exclude<FLGrantDataStage, "started">, string>,
+        /** An addition holds from its start and a removal names its own, so only these two complete what they announced. */
+        completed: {
+          handover: `Übergabe der ${ownerTier} gilt jetzt`,
+          address: "Neue Adresse in der Verwaltung gilt jetzt",
+        },
+      } satisfies Record<FLGrantDataChange | Exclude<FLGrantDataStage, "started" | "completed">, string> & {
+        completed: Record<Exclude<FLGrantDataChange, "granted" | "revoked">, string>;
+      },
       lead: {
         granted: (address: string) => `${address} bekommt Zugang zur Verwaltung.`,
         handover: (address: string) => `Die ${ownerTier} der Verwaltung geht ${boundBy("an", address)}.`,
@@ -744,7 +752,7 @@ export const SERVER_COPY = catalogue({
         text: "Dein Team bekommt einen Link, über den sich dein Jahrgang registriert. Die Kontaktpersonen nehmen die Spieler in den Kader auf.",
       },
       /** The band while no season not yet ended holds a window; a window that stands reads `bewerbung.end`, as the form's page does. */
-      closed: "Das Bewerbungsfenster ist gerade geschlossen. Versuche es nächste Saison.",
+      closed: "Das Bewerbungsfenster ist gerade geschlossen.",
       /** The school's door while a window is open, where the band and the season card carry its date. */
       opened: "Das Bewerbungsfenster ist offen.",
     },
@@ -1177,7 +1185,7 @@ export const SERVER_COPY = catalogue({
       over: "Die Saison ist vorbei",
       none: "Keine Bewerbung für diese Saison",
       /** The outcome replacing the form, a replayed press alike. */
-      submitted: "Bewerbung abgeschickt",
+      submitted: "Jede Kontaktperson bestätigt per E-Mail",
     },
   },
 
