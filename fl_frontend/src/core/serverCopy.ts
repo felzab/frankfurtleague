@@ -1272,9 +1272,12 @@ export const SERVER_COPY = catalogue({
     /** The person's own entry: the title of a closed row's page, which confirms nothing, and of a seat's own facts in an application's mail. */
     ownEntry: "Dein Eintrag",
     opening: {
-      /** A seat in an application, one text for all: it names no submitter, the form recording none. */
-      named: (schule: Words, saison: string, seats: Words) =>
-        `Du bist in der Bewerbung von ${textOf(schule)} für die ${COPY.shared.saisonNameBound(saison)} als ${textOf(seats)} genannt.`,
+      /**
+       * A seat in an application, one text for all: it names no submitter, the form recording none, and no school, which
+       * anyone sending the form types, as the application's mails name none.
+       */
+      named: (saison: string, seats: Words) =>
+        `Du bist in der Bewerbung für die ${COPY.shared.saisonNameBound(saison)} als ${textOf(seats)} genannt.`,
       /** Seated by the league on a team's season, with no application. */
       seasonRow: (team: Words, saison: string, seats: Words) =>
         `Die Liga hat dich für ${textOf(team)} in der ${COPY.shared.saisonNameBound(saison)} als ${textOf(seats)} eingetragen.`,
