@@ -177,7 +177,7 @@ export const fieldFrame = tv({
  */
 export const fieldUnit = tv({
   slots: {
-    frame: "flex w-fit items-center gap-1.5 group-data-disabled:opacity-50",
+    frame: "flex w-fit items-center gap-1.5",
     value: "h-full min-w-0 bg-transparent font-numeric group-data-readonly:cursor-default",
     unit: "shrink-0 text-fg",
   },
