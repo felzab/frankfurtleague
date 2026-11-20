@@ -1,7 +1,6 @@
 import "server-only";
 
 import { COPY } from "./copy/shared";
-import { mailOrigin } from "./emailShell";
 import { mailedLinkTo, ROUTES } from "./routes";
 import { SERVER_COPY } from "./serverCopy";
 
@@ -16,15 +15,12 @@ const WORDS = SERVER_COPY.mail.erasureLink;
 
 // The link opens on any browser: a signed-out one is led through the sign-in and back to it.
 export function buildErasureEmail({ origin, token }: { origin: string; token: string }): Mail {
-  // Normalised before the link is spelled, so a configured trailing slash reaches neither version.
-  const site = mailOrigin(origin);
-
   return {
     kind: "security",
     subjectLine: COPY.page.accountErasure,
-    origin: site,
+    origin,
     paragraphs: [[WORDS.lead], [[{ strong: WORDS.consequence }]], [SERVER_COPY.mail.linkValidFor(ERASURE_LINK_VALID_HOURS)]],
     // From the token alone, never the sign-in library's own `url`, which deletes on a GET.
-    button: { label: COPY.page.accountErasure, href: mailedLinkTo(site, ROUTES.accountErasure, token) },
+    button: { label: COPY.page.accountErasure, href: mailedLinkTo(origin, ROUTES.accountErasure, token) },
   };
 }

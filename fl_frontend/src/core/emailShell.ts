@@ -53,7 +53,7 @@ export interface Mail {
   readonly kind: MailKind;
   /** The subject, topic first, which the heading repeats. */
   readonly subjectLine: Copy;
-  /** Already through `mailOrigin`: the footer's links and the logo stand on it. */
+  /** Already through `mailOrigin`, which `mailFor` applies before any builder runs: the footer's links and the logo stand on it. */
   readonly origin: string;
   readonly paragraphs: readonly [Paragraph, ...Paragraph[]];
   /**

@@ -2,7 +2,6 @@ import "server-only";
 
 import { seatsText } from "./copy";
 import { COPY } from "./copy/shared";
-import { mailOrigin } from "./emailShell";
 import { dayOf, formatDateLong } from "./format";
 import { mailedLinkTo, ROUTES } from "./routes";
 import { SERVER_COPY } from "./serverCopy";
@@ -24,10 +23,9 @@ export function buildKontaktConfirmationEmail(
   { seats, schule, saison_id: saison, deadline, row }: FLKontaktLinkData,
   { origin, token }: MailLink,
 ): Mail {
-  const site = mailOrigin(origin);
   const opening = PAGE.opening.seasonRow({ record: schule }, saison, { record: seatsText(seats) });
-  const href = mailedLinkTo(site, ROUTES.kontaktConfirmation, token);
-  const shell = { kind: "firstContact", origin: site } as const;
+  const href = mailedLinkTo(origin, ROUTES.kontaktConfirmation, token);
+  const shell = { kind: "firstContact", origin } as const;
 
   if (row === "open") {
     return {

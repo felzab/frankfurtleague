@@ -1,7 +1,6 @@
 import "server-only";
 
 import { COPY } from "./copy/shared";
-import { mailOrigin } from "./emailShell";
 import { dayOf, formatDateLong } from "./format";
 import { mailedLinkTo, ROUTES } from "./routes";
 import { SERVER_COPY } from "./serverCopy";
@@ -19,19 +18,17 @@ const PAGE = SERVER_COPY.schiedsrichterConfirmation;
  * taken apart here.
  */
 export function buildSchiedsrichterConfirmationEmail({ deadline }: FLSchiedsrichterConfirmationData, { origin, token }: MailLink): Mail {
-  const site = mailOrigin(origin);
-
   return {
     // A first contact, so the shell closes on the „not you“ line and the objection.
     kind: "firstContact",
     subjectLine: COPY.page.entryConfirmation,
-    origin: site,
+    origin,
     // Both answers named before the press, in the sentence a contact seat's mail asks them in; then the deadline, its
     // day semibold, between the page's two parts around it.
     paragraphs: [
       [PAGE.opening, SERVER_COPY.mail.bewerbung.confirmOrOppose],
       [[PAGE.deadline.before, { strong: formatDateLong(dayOf(deadline)) }, PAGE.deadline.after]],
     ],
-    button: { label: COPY.page.entryConfirmation, href: mailedLinkTo(site, ROUTES.schiedsrichterConfirmation, token) },
+    button: { label: COPY.page.entryConfirmation, href: mailedLinkTo(origin, ROUTES.schiedsrichterConfirmation, token) },
   };
 }

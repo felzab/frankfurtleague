@@ -1,6 +1,5 @@
 import "server-only";
 
-import { mailOrigin } from "./emailShell";
 import { ROUTES } from "./routes";
 import { SERVER_COPY } from "./serverCopy";
 
@@ -43,8 +42,7 @@ function leadOf({ change, stage, address, new_address }: FLGrantData): Copy {
  * An addition's start is a first contact, the address having come from the owner and perhaps been mistyped, so it
  * carries the Art. 21 line and its „Nicht du?“.
  */
-export function buildGrantEmail(data: FLGrantData, { origin: rawOrigin }: MailOrigin): Mail {
-  const origin = mailOrigin(rawOrigin);
+export function buildGrantEmail(data: FLGrantData, { origin }: MailOrigin): Mail {
   const { effective_from: effectiveFrom } = data;
   const takesEffect: Paragraph[] = effectiveFrom === null ? [] : [[WORDS.effectiveFrom(effectiveFrom)]];
 

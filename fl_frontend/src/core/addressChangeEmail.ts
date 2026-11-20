@@ -3,7 +3,6 @@ import "server-only";
 import { ADDRESS_CHANGE_VALID_HOURS, ADDRESS_CHANGE_WAIT_DAYS, HOLDER_WAIT } from "./addressChange";
 import { ACCOUNT_COPY } from "./copy/account";
 import { COPY } from "./copy/shared";
-import { mailOrigin } from "./emailShell";
 import { formatInstant } from "./format";
 import { mailedLinkTo, ROUTES } from "./routes";
 import { SERVER_COPY } from "./serverCopy";
@@ -30,17 +29,16 @@ const LOST_MAILBOX_WAIT: Wait = { days: ADDRESS_CHANGE_WAIT_DAYS };
  * one.
  */
 export function buildAddressChangeEmail({ way, holder }: FLAddressChangeLinkData, { origin, token }: MailLink): Mail {
-  const site = mailOrigin(origin);
   // One wording for the mail's subject, its button and the title of the page the button opens.
   const subjectLine = COPY.shared.withObject(COPY.shared.emailAddress, "confirm");
-  const button = { label: subjectLine, href: mailedLinkTo(site, ROUTES.addressChangeConfirmation, token) };
+  const button = { label: subjectLine, href: mailedLinkTo(origin, ROUTES.addressChangeConfirmation, token) };
 
   // The person's own change, the address on file having confirmed it first: the page's question, its title the button.
   if (way === "account") {
     return {
       kind: "security",
       subjectLine,
-      origin: site,
+      origin,
       paragraphs: [
         holder === null ? [WORDS.new.question] : [WORDS.new.question, ACCOUNT_COPY.address.holderWait(HOLDER_WAIT[holder])],
         LINK_VALID,
@@ -52,7 +50,7 @@ export function buildAddressChangeEmail({ way, holder }: FLAddressChangeLinkData
   return {
     kind: "security",
     subjectLine,
-    origin: site,
+    origin,
     paragraphs: [[SERVER_COPY.mail.addressChange.administrator.lead, WORDS.new.waits(LOST_MAILBOX_WAIT)], LINK_VALID],
     button,
   };
@@ -63,14 +61,12 @@ export function buildAddressChangeEmail({ way, holder }: FLAddressChangeLinkData
  * somebody else's mistake or a pretext, and a mail travels further than the page it links.
  */
 export function buildAddressChangeNoticeEmail({ way, holder }: FLAddressChangeNoticeData, { origin, token: stopToken }: MailLink): Mail {
-  const site = mailOrigin(origin);
-
   // The person's own change asks the address on file first: its link confirms or declines the change.
   if (way === "account") {
     return {
       kind: "security",
       subjectLine: COPY.page.addressChangeConfirmation,
-      origin: site,
+      origin,
       paragraphs: [
         [
           WORDS.previous.question,
@@ -78,7 +74,10 @@ export function buildAddressChangeNoticeEmail({ way, holder }: FLAddressChangeNo
         ],
         LINK_VALID,
       ],
-      button: { label: COPY.shared.withObject(WORDS.change, "confirm"), href: mailedLinkTo(site, ROUTES.addressChangeConfirmation, stopToken) },
+      button: {
+        label: COPY.shared.withObject(WORDS.change, "confirm"),
+        href: mailedLinkTo(origin, ROUTES.addressChangeConfirmation, stopToken),
+      },
     };
   }
 
@@ -87,10 +86,10 @@ export function buildAddressChangeNoticeEmail({ way, holder }: FLAddressChangeNo
     kind: "security",
     // Telling of the change and asking nothing: a real holder refuses a pretext by the stop alone.
     subjectLine: noticeSubject,
-    origin: site,
+    origin,
     paragraphs: [[noticeLead, noticeWait(LOST_MAILBOX_WAIT), noticeStop]],
     // The stop: no link approves anything.
-    button: { label: ACCOUNT_COPY.address.stop, href: mailedLinkTo(site, ROUTES.addressChangeConfirmation, stopToken) },
+    button: { label: ACCOUNT_COPY.address.stop, href: mailedLinkTo(origin, ROUTES.addressChangeConfirmation, stopToken) },
   };
 }
 
@@ -103,7 +102,7 @@ export function buildAddressChangeEffectiveEmail({ instant }: FLAddressChangeEff
   return {
     kind: "security",
     subjectLine: subject,
-    origin: mailOrigin(origin),
+    origin,
     // Never says the old address stops signing in: a seat not yet confirmed stays behind and still signs in there.
     paragraphs: [[[lead.before, { strong: formatInstant(instant) }, lead.after]]],
   };
@@ -118,7 +117,7 @@ export function buildAddressChangeDiscardedEmail(_data: FLAddressChangeDiscarded
   return {
     kind: "security",
     subjectLine: subject,
-    origin: mailOrigin(origin),
+    origin,
     paragraphs: [[lead]],
   };
 }

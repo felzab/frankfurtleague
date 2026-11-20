@@ -2,7 +2,7 @@ import "server-only";
 
 import { KONTAKT_EMAIL } from "./brand";
 import { COPY } from "./copy/shared";
-import { mailOrigin, OBJECTION } from "./emailShell";
+import { OBJECTION } from "./emailShell";
 import { SERVER_COPY } from "./serverCopy";
 
 import type { Mail } from "./emailShell";
@@ -15,7 +15,7 @@ export function buildBanEmail({ ban_reason, barred_until_saison_id }: FLBanData,
   return {
     kind: "notice",
     subjectLine: WORDS.subject,
-    origin: mailOrigin(origin),
+    origin,
     paragraphs: [[WORDS.lead, WORDS.effect, WORDS.ends(barred_until_saison_id)]],
     block: { title: COPY.shared.ban, facts: [{ label: COPY.shared.reason, value: ban_reason }] },
     afterBlock: [

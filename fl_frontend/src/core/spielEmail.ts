@@ -1,7 +1,6 @@
 import "server-only";
 
 import { COPY } from "./copy/shared";
-import { mailOrigin } from "./emailShell";
 import { dayOf, formatDateLong, formatDayAndTime, formatInstant, formatTime, timeOf } from "./format";
 import { ROUTES } from "./routes";
 import { SERVER_COPY } from "./serverCopy";
@@ -86,7 +85,6 @@ export function buildSpielRequestEmail(
   { kind, team, team_id: teamId, saison_id: saison, ansetzung, deadline, moved_from: movedFrom }: FLSpielRequestData,
   { origin }: MailOrigin,
 ): Mail {
-  const site = mailOrigin(origin);
   const day = dayOf(ansetzung.date);
   const ask = WORDS.confirmAsk({ record: team });
   // A reminder carries no move: the move's own request is the one mail telling of it. A new pairing at its slot is asked
@@ -101,11 +99,11 @@ export function buildSpielRequestEmail(
   return {
     kind: "notice",
     subjectLine,
-    origin: site,
+    origin,
     paragraphs: [lead],
     block: ansetzungBlock(ansetzung, movedFrom),
     afterBlock: [answerParagraph(deadline)],
-    button: { label: COPY.shared.end.toOverview, href: `${site}${ROUTES.teamOverview.path(teamId, saison)}` },
+    button: { label: COPY.shared.end.toOverview, href: `${origin}${ROUTES.teamOverview.path(teamId, saison)}` },
   };
 }
 
@@ -114,7 +112,6 @@ export function buildSpielRequestEmail(
  * mail telling them of the move. No token: the referee answers on their own panel, signed in.
  */
 export function buildSpielEinteilungEmail({ ansetzung, moved_from: movedFrom }: FLSpielEinteilungData, { origin }: MailOrigin): Mail {
-  const site = mailOrigin(origin);
   const spiel = paarung(ansetzung);
   // A new pairing at its slot books the referee under a first Einteilung's subject, its lead naming the new pairing and
   // its block the pairing left.
@@ -124,11 +121,11 @@ export function buildSpielEinteilungEmail({ ansetzung, moved_from: movedFrom }: 
   return {
     kind: "notice",
     subjectLine: moved ? WORDS.movedSubject(dayOf(ansetzung.date)) : WORDS.bookedSubject(dayOf(ansetzung.date)),
-    origin: site,
+    origin,
     paragraphs: [[lead]],
     block: ansetzungBlock(ansetzung, movedFrom),
     afterBlock: [[WORDS.sayYesOrNo]],
-    button: { label: COPY.shared.end.toOverview, href: `${site}${SCHIEDSRICHTER_PANEL_PATH}` },
+    button: { label: COPY.shared.end.toOverview, href: `${origin}${SCHIEDSRICHTER_PANEL_PATH}` },
   };
 }
 
@@ -137,7 +134,7 @@ function unbookedEmail(appointment: FLSpielMailAppointment, origin: string): Mai
   return {
     kind: "notice",
     subjectLine: WORDS.unbookedSubject(dayOf(appointment.date)),
-    origin: mailOrigin(origin),
+    origin,
     paragraphs: [[around(WORDS.unbooked.before(paarung(appointment)), moment(appointment), WORDS.unbooked.after)]],
   };
 }
@@ -147,7 +144,7 @@ function noticeEmail(subjectLine: Copy, origin: string, paragraph: Paragraph, bl
   return {
     kind: "notice",
     subjectLine,
-    origin: mailOrigin(origin),
+    origin,
     paragraphs: [paragraph],
     ...(block ? { block } : {}),
   };
@@ -249,17 +246,16 @@ export function buildAufstellungReminderEmail(
   { team, team_id: teamId, saison_id: saison, ansetzung, due_at: dueAt }: FLAufstellungReminderData,
   { origin }: MailOrigin,
 ): Mail {
-  const site = mailOrigin(origin);
   const words = SERVER_COPY.mail.aufstellung;
 
   return {
     kind: "notice",
     subjectLine: words.reminderSubject(dayOf(ansetzung.date)),
-    origin: site,
+    origin,
     paragraphs: [[words.missing({ record: team })]],
     block: ansetzungBlock(ansetzung, null),
     afterBlock: [[around(words.dueUntil.before, formatInstant(dueAt), words.dueUntil.after)]],
-    button: { label: COPY.shared.end.toOverview, href: `${site}${ROUTES.teamOverview.path(teamId, saison)}` },
+    button: { label: COPY.shared.end.toOverview, href: `${origin}${ROUTES.teamOverview.path(teamId, saison)}` },
   };
 }
 

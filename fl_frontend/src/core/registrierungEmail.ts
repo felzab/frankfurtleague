@@ -2,7 +2,6 @@ import "server-only";
 
 import { CONFIRMATION_DEADLINE_DAYS } from "./bounds";
 import { COPY } from "./copy/shared";
-import { mailOrigin } from "./emailShell";
 import { dayOf, formatDateLong } from "./format";
 import { mailedLinkTo, ROUTES } from "./routes";
 import { SERVER_COPY } from "./serverCopy";
@@ -22,22 +21,18 @@ export function buildRegistrierungConfirmationEmail(
   { team, saison_id: saisonId, deadline }: FLRegistrierungLinkData,
   { origin, token }: MailLink,
 ): Mail {
-  // Through `mailOrigin` once, and the link minted on what it answered: a raw `AUTH_URL` with a
-  // trailing slash would otherwise put `//confirm/spieler` in every registering pupil's mail.
-  const site = mailOrigin(origin);
-
   return {
     kind: "firstContact",
     // The team is in the subject because a pupil registering for two of them gets two of these, and
     // the season alone does not tell one from the other in an inbox.
     subjectLine: WORDS.confirmation.subject(team),
-    origin: site,
+    origin,
     paragraphs: [
       [SERVER_COPY.registrierungConfirmation.opening({ record: team }, saisonId)],
       [WORDS.confirmation.admission],
       [[WORDS.confirmation.deadline.before, { strong: formatDateLong(dayOf(deadline)) }, WORDS.confirmation.deadline.after]],
     ],
-    button: { label: COPY.page.registrierungConfirmation, href: mailedLinkTo(site, ROUTES.registrierungConfirmation, token) },
+    button: { label: COPY.page.registrierungConfirmation, href: mailedLinkTo(origin, ROUTES.registrierungConfirmation, token) },
   };
 }
 
@@ -58,18 +53,16 @@ const DECLINE_NEXT_STEPS: Readonly<Record<NonNullable<FLRegistrierungAbsageData[
  * mailbox learns that an address is taken and never by whom.
  */
 export function buildRegistrierungAbsageEmail({ team, saison_id: saisonId, reason }: FLRegistrierungAbsageData, { origin }: MailOrigin): Mail {
-  const site = mailOrigin(origin);
-
   return {
     kind: "notice",
     subjectLine: WORDS.absage.subject(team),
-    origin: site,
+    origin,
     paragraphs: [
       [[{ strong: team }, WORDS.absage.lead.after(saisonId)]],
       DECLINE_NEXT_STEPS[reason ?? "none"],
       [WORDS.absage.deletion(CONFIRMATION_DEADLINE_DAYS)],
     ],
     // The league's landing: no record is left to press on.
-    button: { label: COPY.shared.end.toHome, href: site },
+    button: { label: COPY.shared.end.toHome, href: origin },
   };
 }
