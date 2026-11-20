@@ -40,8 +40,8 @@ async function readState(): Promise<MailedState> {
   // The season's own read judges its window, so a window the cached landing still names as running reads as it stands.
   const form = window === null ? null : await readForm(window.saison_id);
   if (window !== null && form !== null) return formStateOf(window.saison_id, form);
-  // An upcoming window's card in the season's address's and the landing's band's words; a closed one's in the season's
-  // address's, which open the band's sentence: a card's title holds no second sentence to send a school to next season.
+  // An upcoming window's card in the season's address's and the landing's band's words, a closed one's in the season's
+  // address's.
   return { state: "end", tone: "info", title: opensOn === null ? WORDS.closed : WORDS.opensOn(dayOf(opensOn)), next: TO_HOME };
 }
 

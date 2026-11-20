@@ -104,7 +104,7 @@ export function buildBewerbungConfirmationEmail({ saison_id, seats, deadline }: 
     block: {
       title: SERVER_COPY.kontaktConfirmation.ownEntry,
       facts: [
-        { label: COPY.shared.saison, value: saison_id },
+        { label: COPY.shared.saison, value: COPY.shared.saisonName(saison_id) },
         { label: WORDS.registeredAs, value: seatsText(seats) },
       ],
     },
@@ -145,7 +145,7 @@ export function buildBewerbungReceivedEmail(
     block: {
       title: WORDS.status,
       facts: [
-        { label: COPY.shared.saison, value: saison_id },
+        { label: COPY.shared.saison, value: COPY.shared.saisonName(saison_id) },
         { label: WORDS.received.pending, value: seatsText(pending) },
       ],
     },
@@ -191,7 +191,7 @@ export function buildBewerbungObjectionEmail({ saison_id, seats, declined, deadl
     block: {
       title: WORDS.status,
       facts: [
-        { label: COPY.shared.saison, value: saison_id },
+        { label: COPY.shared.saison, value: COPY.shared.saisonName(saison_id) },
         { label: WORDS.registeredAs, value: seatsText(seats) },
         { label: WORDS.objection.from, value: emptied },
       ],

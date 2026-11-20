@@ -58,8 +58,7 @@ const DECIDED: FLLandingResponse["saison"] = {
   teams: [],
 };
 
-// The closed band sends a school to next season, which a window about to open or standing paused makes false where only
-// the form's page says so: the landing's primary call to apply would turn a school away for a two-week pause.
+// A window about to open or standing paused reads on the band as the form's page reads it, so the two say one thing.
 describe("the landing's band while no window is open", () => {
   it("names the day the next one opens", async () => {
     expect(paragraphs(await rendered(null, "2028-01-01", { held: true, saison: DECIDED }))).toContain(
@@ -71,7 +70,7 @@ describe("the landing's band while no window is open", () => {
     expect(paragraphs(await rendered(null, null, { held: true, saison: DECIDED }))).toContain(SERVER_COPY.bewerbung.end.closed);
   });
 
-  it("sends a school to next season only where no season not ended holds one", async () => {
+  it("reads its own sentence where no season not ended holds one", async () => {
     expect(paragraphs(await rendered(null, null, { held: false, saison: DECIDED }))).toContain(SERVER_COPY.landing.join.closed);
   });
 });

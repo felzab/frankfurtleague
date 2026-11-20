@@ -93,8 +93,8 @@ async function heroOf(read: Promise<FLLandingResponse>): Promise<LandingContent>
 }
 
 /**
- * The band under the steps, with the application window's state, an upcoming or a closed one in the words of the form's
- * page; it sends a school to next season only where no season not yet ended holds a window, so never during a pause.
+ * The band under the steps, with the application window's state, an upcoming or a paused one in the words of the form's
+ * page, and its own sentence where no season not yet ended holds a window.
  */
 async function bandOf(read: Promise<FLLandingResponse>): ComponentProps<typeof Steps>["band"] {
   const { bewerbung_window: window, bewerbung_opens_on: opensOn, bewerbung_window_held: held } = await read;
