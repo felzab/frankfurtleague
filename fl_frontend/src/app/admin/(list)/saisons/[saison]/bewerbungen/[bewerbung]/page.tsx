@@ -170,7 +170,7 @@ function actsOf(read: FLBewerbungSingleResponse, standing: Standing) {
  * finished, and the seat can take them. A finished season's application takes no seat write and mails no link.
  */
 function seatRowsOf(bewerbung: FLBewerbung, finished: boolean, holder: string): SeatRow[] {
-  return seatsOf(bewerbung).map(({ seat, seats, person, state, chips, day }) => {
+  return seatsOf(bewerbung, finished).map(({ seat, seats, person, state, chips, day }) => {
     const row = { id: seat, ...seatRow(seats, person, day), chips };
     if (bewerbung.status !== "submitted" || finished || state === "erased") return row;
     const link = state === "valid" || state === "expired" ? { send: sendBewerbungSeatLink, seat: { bewerbung_id: bewerbung.id, seat } } : null;
