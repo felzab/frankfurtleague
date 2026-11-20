@@ -67,7 +67,7 @@ export function DeclineDialog({
         </FieldPair>
       </FieldGroup>
       <TextField
-        label={COPY.spielplan.answerNote}
+        label={COPY.shared.reason}
         name="reason"
         // A paragraph, at four lines, its line breaks kept, as the administration's reasons are.
         kind="paragraph"

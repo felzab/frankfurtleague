@@ -84,7 +84,7 @@ function standingOf(spiel: FLSchiedsrichterSpiel): Standing {
 function ReasonField() {
   return (
     <TextField
-      label={COPY.spielplan.answerNote}
+      label={COPY.shared.reason}
       // The name `declineEinteilung` reads the reason by.
       name="reason"
       kind="paragraph"

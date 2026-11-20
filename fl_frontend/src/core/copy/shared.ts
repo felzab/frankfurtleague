@@ -549,6 +549,7 @@ export const COPY = catalogue({
     appointment: "Termin",
     vorschlag: "Vorschlag",
     proposed: (when: Copy) => `Vorschlag ${when}`,
+    /** The administrator's note on a Zusage they enter for a party, how it reached the league; a decline's is `shared.reason`. */
     answerNote: "Begründung",
     enteredByLeague: "Von der Verwaltung eingetragen",
   },
