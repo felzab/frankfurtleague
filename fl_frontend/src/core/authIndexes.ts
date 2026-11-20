@@ -51,8 +51,8 @@ let running: Promise<void> = Promise.resolve();
 let rebuildArmed = false;
 
 /**
- * One collection's builds in order and the collections side by side: MongoDB documents nothing about
- * two builds racing on one collection. Never rejects, so the boot's unawaited call leaves no rejection
+ * Every build one after another, after any run still in flight: MongoDB documents nothing about two
+ * builds racing on one collection. Never rejects, so the boot's unawaited call leaves no rejection
  * unhandled.
  */
 export function buildAuthIndexes(): Promise<void> {
@@ -62,24 +62,19 @@ export function buildAuthIndexes(): Promise<void> {
 
 async function buildOnce(): Promise<void> {
   const database = signInStore().db(MONGO_DB_NAME);
-  const lanes = Map.groupBy(AUTH_INDEXES, (index) => index.collection);
 
-  await Promise.all(
-    [...lanes].map(async ([collection, indexes]) => {
-      for (const { key, options } of indexes) {
-        try {
-          // Under the client's socket bound like every call: a build outlasting it is logged unbuilt and asked for again
-          // on the next writable heartbeat.
-          await database.collection(collection).createIndex(key, options, undefined);
-        } catch (failed) {
-          logUnbuilt(options.name, failed);
-          // No server code is a store that did not answer, or answered slower than the client waits, which judged no
-          // index; a server code is the store's verdict, which asking again only repeats.
-          if (!(failed instanceof MongoServerError)) rebuildOnRecovery();
-        }
-      }
-    }),
-  );
+  for (const { collection, key, options } of AUTH_INDEXES) {
+    try {
+      // Under the client's socket bound like every call: a build outlasting it is logged unbuilt and asked for again on
+      // the next writable heartbeat.
+      await database.collection(collection).createIndex(key, options, undefined);
+    } catch (failed) {
+      logUnbuilt(options.name, failed);
+      // No server code is a store that did not answer, or answered slower than the client waits, which judged no index;
+      // a server code is the store's verdict, which asking again only repeats.
+      if (!(failed instanceof MongoServerError)) rebuildOnRecovery();
+    }
+  }
 }
 
 /**
