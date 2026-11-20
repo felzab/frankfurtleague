@@ -361,9 +361,9 @@ describe("the site's cache", () => {
     expect(answered).toMatchObject({ ok: false, reason: COPY.shared.failure.unexpected });
     expect(cacheCalls.map(({ name, args: [tag] }) => `${name} ${String(tag)}`)).toStrictEqual(["revalidateTag site"]);
     // `{ expire: 0 }`, or no profile, renders the page again in the same response, as `updateTag` does.
-    const profile = cacheCalls[0]?.args[1];
-    expect(profile).toStrictEqual({ expire: expect.any(Number) });
-    expect((profile as { expire: number }).expire).toBeGreaterThan(0);
+    const profile = cacheCalls[0]?.args[1] as { readonly expire?: unknown } | undefined;
+    expect(Object.keys(profile ?? {})).toStrictEqual(["expire"]);
+    expect(profile?.expire).toBeGreaterThan(0);
   });
 
   it("is cleared where one write landed before another was refused", async () => {
