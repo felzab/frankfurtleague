@@ -1,9 +1,9 @@
 """
-API · every administrator operation acting on a mailbox refuses the administrator's own address and a grant holder's
+API · each administrator operation of `ACTS_ON_AN_ADDRESS` refuses the administrator's own address and a grant holder's
 
 `own_address` refuses the address the administrator acts as, and `admin_address` an address holding a grant to anyone
-without an owner's power, each through `app/api/identity/crud.py :: refuse_an_address_off_limits`. Each operation is
-one row of `ACTS_ON_AN_ADDRESS`, asked by an administrator holding no owner's power.
+without an owner's power, each through `app/api/identity/crud.py :: refuse_an_address_off_limits`. Each row is asked by
+an administrator holding no owner's power.
 """
 
 import logging

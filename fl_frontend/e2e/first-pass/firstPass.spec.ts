@@ -17,7 +17,7 @@ test.use({ storageState: ADMINISTRATOR_STATE });
 
 /**
  * The scheduler's own delay from the frontend's boot to its first pass, spelled again here under the scheduler's name
- * for it: its module is the server's boot hook, which a journey does not load.
+ * for it: its module is server code, which a journey does not load.
  */
 const FIRST_PASS_DELAY_MS = 60 * 1000;
 
