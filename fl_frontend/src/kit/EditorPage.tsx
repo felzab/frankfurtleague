@@ -4,8 +4,6 @@ import { Fragment, useRef } from "react";
 
 import { COPY } from "@/core/copy/shared";
 
-import { Button } from "./Button";
-import { askingLook } from "./buttonStyles";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { Dialog } from "./Dialog";
 import { actLabel } from "./dialogAct";
@@ -82,21 +80,15 @@ function DangerRow({ act }: { act: DangerAct }) {
         <p className={dangerConsequence()}>{act.consequence}</p>
       </div>
       {/* Its button says the verb alone, „Löschen“, so the row's name says what it acts on, as a list row's does. */}
-      {locked !== undefined ? (
-        <Button
-          variant={askingLook(act.dialog === undefined ? act.confirm.tone : act.dialog.tone)}
-          label={label}
-          locked={locked}
-        />
-      ) : act.dialog === undefined ? (
+      {act.dialog === undefined ? (
         <ConfirmDialog
           {...act.confirm}
-          trigger={{ label }}
+          trigger={{ label, locked }}
         />
       ) : (
         <Dialog
           {...act.dialog}
-          trigger={{ label }}
+          trigger={{ label, locked }}
         />
       )}
     </div>

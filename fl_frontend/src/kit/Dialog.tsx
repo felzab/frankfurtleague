@@ -375,9 +375,16 @@ export function Dialog<T extends Tone = "primary">(props: DialogAct<T> & Opening
       send={send}
     />
   );
-  return trigger === undefined ? (
-    overlay
-  ) : (
+  if (trigger === undefined) return overlay;
+  // A locked act's button stands alone: inside the trigger, its press would open the dialog behind the reason.
+  if (trigger.locked !== undefined)
+    return (
+      <TriggerButton
+        trigger={trigger}
+        tone={form.tone ?? "primary"}
+      />
+    );
+  return (
     <DialogTrigger
       isOpen={isOpen}
       onOpenChange={setOpen}>

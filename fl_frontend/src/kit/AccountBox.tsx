@@ -5,7 +5,6 @@ import { useRef } from "react";
 import { COPY } from "@/core/copy/shared";
 
 import { Button } from "./Button";
-import { askingLook } from "./buttonStyles";
 import { cardSurface, rowHeight, stacked } from "./cardStyles";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { CutText } from "./CutText";
@@ -171,19 +170,6 @@ function ActBox({ act, words, danger, children }: { act: AccountAct; words: Reac
   // box's toast, as the box's own press does.
   const confirmed = () => run(new FormData(form.current ?? undefined));
 
-  const question = "confirm" in act.button ? act.button.confirm : undefined;
-  const label = "label" in act.button ? act.button.label : COPY.shared.withObject(act.button.confirm.subject, act.button.confirm.verb);
-  const button = (
-    <Button
-      // A locked act asking a question keeps the look its question's trigger takes.
-      variant={"label" in act.button ? (act.button.variant ?? "secondary") : askingLook(act.button.confirm.tone)}
-      type={question === undefined ? "submit" : "button"}
-      label={label}
-      isBusy={isBusy}
-      locked={locked}
-    />
-  );
-
   return (
     <section className={slots.root(danger ? { class: dangerEdge() } : {})}>
       <HeldForm
@@ -204,14 +190,20 @@ function ActBox({ act, words, danger, children }: { act: AccountAct; words: Reac
         <FormFooter
           place="strip"
           status={status}>
-          {question === undefined || locked !== undefined ? (
-            button
+          {"label" in act.button ? (
+            <Button
+              variant={act.button.variant ?? "secondary"}
+              type="submit"
+              label={act.button.label}
+              isBusy={isBusy}
+              locked={locked}
+            />
           ) : (
             <ConfirmDialog
-              {...question}
+              {...act.button.confirm}
               onConfirm={confirmed}
               doneShown
-              trigger={{ label, isBusy }}
+              trigger={{ label: COPY.shared.withObject(act.button.confirm.subject, act.button.confirm.verb), isBusy, locked }}
             />
           )}
         </FormFooter>
@@ -312,14 +304,7 @@ function RenameAct({ rename }: { rename: Rename }) {
 }
 
 function RemoveAct({ remove }: { remove: Remove }) {
-  const face = { icon: "erasures", label: COPY.shared.verb[remove.verb] } as const;
-  if (remove.locked !== undefined)
-    return (
-      <Button
-        {...face}
-        locked={remove.locked}
-      />
-    );
+  const face = { icon: "erasures", label: COPY.shared.verb[remove.verb], locked: remove.locked } as const;
   return (
     <ConfirmDialog
       verb={remove.verb}

@@ -50,11 +50,17 @@ export type Tone = "danger" | "primary";
  * The button opening a question or a dialog, which the question or the dialog draws (`TriggerButton`), so its look
  * follows the act's tone and no caller chooses it for a destroying act: an act whose tone is `danger` takes the outlined
  * danger look (`askingLook`) and takes no `variant`; any other takes the look `variant` names, secondary unless it is
- * the page's main act. A trigger is never locked: a locked act's button stands instead of it (`Button`'s `locked`).
+ * the page's main act.
  */
 export type Trigger<T extends Tone = Tone> = {
   label: Copy;
   isBusy?: boolean;
+  /**
+   * Why the act cannot run on the record as it stands, which the page read: the button, in the same look, answers a
+   * press with the reason (`Button`'s `locked`), and stands outside the dialog's trigger, which would open the question
+   * behind the reason.
+   */
+  locked?: Copy;
 } & (
   | { icon: IconName; leadingIcon?: never; isDisabled?: never; variant?: never }
   | ({ icon?: never; leadingIcon?: IconName; isDisabled?: boolean } & ([T] extends ["danger"]
@@ -63,12 +69,13 @@ export type Trigger<T extends Tone = Tone> = {
 );
 
 export function TriggerButton({ trigger, tone }: { trigger: Trigger; tone: Tone }) {
-  const { label, isBusy } = trigger;
+  const { label, isBusy, locked } = trigger;
   return trigger.icon !== undefined ? (
     <Button
       icon={trigger.icon}
       label={label}
       isBusy={isBusy}
+      locked={locked}
     />
   ) : (
     <Button
@@ -77,6 +84,7 @@ export function TriggerButton({ trigger, tone }: { trigger: Trigger; tone: Tone 
       leadingIcon={trigger.leadingIcon}
       isDisabled={trigger.isDisabled}
       isBusy={isBusy}
+      locked={locked}
     />
   );
 }
@@ -251,6 +259,14 @@ export function ConfirmDialog<T extends Tone>(props: ConfirmDialogProps<T> | Una
     </DialogOverlay>
   );
   if (trigger === undefined) return overlay;
+  // A locked act's button stands alone: inside the trigger, its press would open the question behind the reason.
+  if (trigger.locked !== undefined && words !== null)
+    return (
+      <TriggerButton
+        trigger={trigger}
+        tone={words.tone}
+      />
+    );
   return (
     <DialogTrigger
       isOpen={isOpen}

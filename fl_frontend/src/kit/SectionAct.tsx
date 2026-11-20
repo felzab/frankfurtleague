@@ -5,7 +5,6 @@ import { useState } from "react";
 import { COPY } from "@/core/copy/shared";
 
 import { Button } from "./Button";
-import { askingLook } from "./buttonStyles";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { actLabel } from "./dialogAct";
 import { useLocked } from "./draftUnsaved";
@@ -73,16 +72,15 @@ function ActButton({ item, isBusy, onPress }: { item: SectionActItem; isBusy: bo
     );
   const { confirm } = item;
   const label = actLabel(item.act);
-  if (confirm === undefined || reason !== undefined)
+  if (confirm === undefined)
     return (
       <Button
-        // A locked act that destroys keeps the one outlined danger look its question's trigger takes everywhere.
-        variant={confirm?.tone === "danger" ? askingLook(confirm.tone) : (item.variant ?? "secondary")}
+        variant={item.variant ?? "secondary"}
         label={label}
-        isBusy={confirm === undefined && isBusy}
+        isBusy={isBusy}
         isDisabled={item.isDisabled ?? false}
         locked={reason}
-        onPress={confirm === undefined ? onPress : undefined}
+        onPress={onPress}
       />
     );
   return (
@@ -92,7 +90,7 @@ function ActButton({ item, isBusy, onPress }: { item: SectionActItem; isBusy: bo
         onPress();
         return item.run();
       }}
-      trigger={{ label, variant: item.variant, isDisabled: item.isDisabled ?? false }}
+      trigger={{ label, variant: item.variant, isDisabled: item.isDisabled ?? false, locked: reason }}
     />
   );
 }
