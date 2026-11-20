@@ -27,8 +27,8 @@ export const AREA_COPY = catalogue({
     registrierung: {
       search: COPY.shared.search(COPY.page.registrierungen),
       /**
-       * The page's one standing line above the list, filled or empty, around the league's address, which the page sets
-       * as its link: only the league mints and mails a team's link.
+       * The empty list's muted line, around the league's address, which the page sets as its link: only the league mints
+       * and mails a team's link.
        */
       linkFromLeague: (league: TextLink<Words>) => ["Den Registrierungslink schickt die Liga, erreichbar unter ", league, "."] as const,
       /** The registration's address is a stored person's. */
