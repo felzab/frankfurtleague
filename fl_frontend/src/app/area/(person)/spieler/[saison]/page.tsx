@@ -25,9 +25,9 @@ type Props = PageProps<"/area/spieler/[saison]">;
 const WORDS = COPY.admin.spieler;
 
 /**
- * The pupil's own season, read once for the tab's title and the page alike: `null` for a season none of their records
- * stands in, which the frame's own read judges at no request of its own, and for one whose read holds no squad row of
- * theirs. A person holding no pupil's Funktion is sent on before anything is read.
+ * The pupil's own season: `null` for a season none of their records stands in, which the frame's own read judges at no
+ * request of its own, and for one whose read holds no squad row of theirs. A person holding no pupil's Funktion is sent
+ * on before anything is read.
  */
 const saisonOf = cache(async (saison: string) => {
   if (!(await isOwnSaison("spieler", saison))) return null;

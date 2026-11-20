@@ -25,10 +25,9 @@ type Props = PageProps<"/area/team/[team]/[saison]/registrierungen">;
 
 const WORDS = COPY.area.team.registrierung;
 
-/** The page's own address, which a session sent to sign in comes back to. */
 const address = ({ team, saison }: { team: string; saison: string }) => ROUTES.teamRegistrierungen.path(team, saison);
 
-/** The page's one read, memoised for the render on its two ids, which `cache` compares by identity, so the tab's title and the page share it. */
+/** Keyed on the seat's two ids rather than the seat, since `cache` compares its arguments by identity. */
 const registrierungenRead = cache(getOpenRegistrierungen);
 const registrierungenOf = (seat: TeamSeat) => registrierungenRead(seat.team_id, seat.saison_id);
 
@@ -96,7 +95,7 @@ const EMPTY = {
   line: { ...WORDS.linkFromLeague, link: { href: KONTAKT_MAILTO as Route, label: { record: KONTAKT_EMAIL } } },
 } as const;
 
-/** The page's one read, after the seat it is drawn for, handed to its template running, as the Kader hands its own. */
+/** The page's one read, after the seat it is drawn for, handed to its template running. */
 async function readRegistrierungen(params: Props["params"]) {
   const [seat] = await requireTeamSeats(params, address);
   const { team_id, saison_id, registrierungen } = await readAsSeatHolder(() => registrierungenOf(seat));

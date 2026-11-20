@@ -225,7 +225,8 @@ async function readRecord(params: Props["params"]): Promise<ReadRecord> {
 
 /**
  * One application: what the decision reads, its two verbs under those facts, its seats until its acceptance moves them to
- * its team, each edited in its dialog, and a new school's own details. Nothing here waits on a save bar: each act writes on its own press.
+ * its team, each edited in its dialog, and a new school's own details. Nothing here waits on a save bar: each act
+ * writes on its own press.
  */
 export default function BewerbungPage({ params }: Props) {
   return (

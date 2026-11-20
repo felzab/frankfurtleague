@@ -9,10 +9,8 @@ import type { EndState } from "@/kit/MailedPage";
 
 const WORDS = SERVER_COPY.entryConfirmation;
 
-/** The start page, the next step after an objection and after a link that no longer holds. */
 export const TO_HOME = { label: COPY.shared.end.toHome, href: ROUTES.home.path() };
 
-/** A link that holds no more, as the page opens on it and as a press ends on it: one message for every cause. */
 export const LINK_INVALID: EndState = linkInvalid(TO_HOME);
 
 /**

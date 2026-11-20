@@ -26,7 +26,6 @@ const REQUIRED = {
   end: requires(SpieltagePatchSpieltagBody.shape.end, null),
 };
 
-/** One read of the matchday by its id, its editor's one view read, for the tab's title and the page alike. */
 const read = cache(getAdminSpieltag);
 
 /**
@@ -56,7 +55,6 @@ export async function generateMetadata({ params }: Props, parent: ResolvingMetad
   );
 }
 
-/** A matchday's editor, on its one read by id and its write on the version it was read at. */
 export default async function SpieltagEditorPage({ params }: Props) {
   return await readEditor(params);
 }

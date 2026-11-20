@@ -28,7 +28,6 @@ import type { MailedState } from "@/kit/MailedPage";
 import type { Metadata, ResolvingMetadata } from "next";
 import type { RegistrierungRules } from "./RegistrierungFields";
 
-/** A row no crawler fetches, titled by the link's state. */
 export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
   return mailedMetadata(parent, ROUTES.registrierung, readState());
 }
@@ -70,15 +69,14 @@ const LINES: { objection: Line; notice: Line } = {
 /**
  * `/registrierung`, the page a team's registration link opens, which the proxy hands its token in this page's cookie
  * (`MAILED_LINK_PAGES`), since the form loads Turnstile: the form, in one box, sent once through the one-shot submit, its
- * outcome replacing it. Where no form stands, the page is its status card: the
- * window shut or the season over, the club out of the season, the squad full, and the link no longer valid. The link is
- * the team's, opened by every pupil, so it has no state of having been answered.
+ * outcome replacing it. Where no form stands, the page is its status card: the window shut or the season over, the club
+ * out of the season, the squad full, and the link no longer valid. The link is the team's, opened by every pupil, so it
+ * has no state of having been answered.
  */
 export default function RegistrierungPage() {
   return <MailedPage page={readState()} />;
 }
 
-// `cache` memoizes per render pass, for the tab's title and the page.
 const readState = cache(async (): Promise<MailedState> => {
   const token = await mailedLinkToken();
   if (token === null) return INVALID;

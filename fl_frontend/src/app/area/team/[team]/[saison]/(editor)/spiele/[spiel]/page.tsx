@@ -21,10 +21,8 @@ import type { Metadata, ResolvingMetadata } from "next";
 
 type Props = PageProps<"/area/team/[team]/[saison]/spiele/[spiel]">;
 
-/** The page's own address, which a session sent to sign in comes back to. */
 const address = ({ team, saison, spiel }: { team: string; saison: string; spiel: string }) => ROUTES.teamAufstellung.path(team, saison, spiel);
 
-/** One read of the line-up for the tab's title and the page alike. */
 const read = cache(getAufstellungSelf);
 
 /**

@@ -32,7 +32,6 @@ import type { Metadata, ResolvingMetadata } from "next";
 
 const words = SERVER_COPY.legal.privacyNotice;
 
-/** The league's address as a link inside a sentence. */
 const MAIL: ProseText[number] = { href: KONTAKT_MAILTO, label: { record: KONTAKT_EMAIL } };
 
 const paragraph = (...text: ProseText): ProseBlock => ({ kind: "paragraph", text });

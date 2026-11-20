@@ -17,7 +17,6 @@ import type { Metadata, ResolvingMetadata } from "next";
 
 type Props = PageProps<"/admin/spielorte/[spielort]">;
 
-/** One read of the venue by its id for the tab's title and the page alike, shared within the request. */
 const read = cache(getSpielort);
 
 /** The venue the address names, retired or not: `null` for a malformed id and for one no venue holds. */
@@ -38,7 +37,6 @@ export async function generateMetadata({ params }: Props, parent: ResolvingMetad
   );
 }
 
-/** A venue's editor, on its one read by id and its write on the version it was read at. */
 export default async function SpielortEditorPage({ params }: Props) {
   return await readEditor(params);
 }

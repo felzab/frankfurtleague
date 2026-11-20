@@ -21,7 +21,7 @@ type Props = PageProps<"/admin/saisons/[saison]/spieler">;
 
 const WORDS = COPY.admin.spieler;
 
-/** The season's squad rows, `null` for a season the league does not hold: one read for the tab's title and the page alike. */
+/** The season's squad rows, `null` for a season the league does not hold. */
 const read = cache(getSpielerAdmin);
 
 export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {

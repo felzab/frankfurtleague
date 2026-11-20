@@ -10,7 +10,6 @@ import type { EndState } from "@/kit/MailedPage";
 
 const WORDS = SERVER_COPY.bewerbung.end;
 
-/** The start page, every end's one way on. */
 export const TO_HOME = { label: COPY.shared.end.toHome, href: ROUTES.home.path() };
 
 /** The outcome replacing the form, a replayed press alike. */

@@ -24,9 +24,9 @@ import type { SideAct } from "@/kit/SideActs";
  * says of the same record, and „Verwerfen“ before it, in the danger hue of every destroying act.
  *
  * Both are side acts of the row (`SideActs`), as `changeActKinds` lists them, in the form the list decides: their
- * labelled buttons in a wide box, and the entries of one „⋯“ in a narrow one. The fresh link runs from its entry's own press, which is the press the
- * touch is asked from; the ending's question is held here and opened by its entry or its button, and its own final
- * press asks the touch.
+ * labelled buttons in a wide box, and the entries of one „⋯“ in a narrow one. The fresh link runs from its entry's own
+ * press, which is the press the touch is asked from; the ending's question is held here and opened by its entry or its
+ * button, and its own final press asks the touch.
  */
 export function ChangeActs({
   id,

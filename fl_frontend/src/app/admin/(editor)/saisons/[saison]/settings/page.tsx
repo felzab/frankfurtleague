@@ -107,7 +107,6 @@ function waitingOf(row: FLInvitationLinkRow): ChipProps | null {
   return row.sent_at === null ? NOT_SENT_CHIP : null;
 }
 
-/** The season editor, on the season's one admin read. */
 export default async function SaisonSettingsPage({ params }: Props) {
   return await readEditor(params);
 }

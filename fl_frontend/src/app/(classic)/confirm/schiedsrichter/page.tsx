@@ -26,7 +26,6 @@ import type { Metadata, ResolvingMetadata } from "next";
 
 type Props = PageProps<"/confirm/schiedsrichter">;
 
-/** A row no crawler fetches: the URL carries the link's token. */
 export async function generateMetadata({ searchParams }: Pick<Props, "searchParams">, parent: ResolvingMetadata): Promise<Metadata> {
   return mailedMetadata(parent, ROUTES.schiedsrichterConfirmation, readState(searchParams));
 }
@@ -51,7 +50,6 @@ export default function SchiedsrichterConfirmationPage({ searchParams }: Props) 
 }
 
 /** The link's own read; `null` for a token no referee holds or one the backend will not parse, a dead link either way. */
-// `cache` memoizes per render pass, for the tab's title and the page.
 const readView = cache(async (token: string) => runWithIncomingTrace(() => linkViewOf(schiedsrichterGetConfirmationView({ token }))));
 
 /** The link opened again after its consent: on which day, with the account as the one place to go next. */

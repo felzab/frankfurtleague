@@ -20,7 +20,6 @@ const declined = BewerbungenDeclineBewerbungBody.shape;
  * and owes every person the acceptance, in one write. A code another club holds and a colour another row of the season
  * holds are refused on their boxes; a club the season already holds or the league retired on the status line; anything
  * else that moved since as the stale page it is.
- * The dialog sends one, and the Sammel-Zusage one per card.
  */
 export const acceptBewerbung = action({
   lane: "admin",

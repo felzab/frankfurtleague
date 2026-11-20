@@ -26,7 +26,6 @@ import type { Metadata, ResolvingMetadata } from "next";
 
 type Props = PageProps<"/confirm/spieler">;
 
-/** A row no crawler fetches: the URL carries the link's token. */
 export async function generateMetadata({ searchParams }: Pick<Props, "searchParams">, parent: ResolvingMetadata): Promise<Metadata> {
   return mailedMetadata(parent, ROUTES.registrierungConfirmation, readState(searchParams));
 }
@@ -51,7 +50,6 @@ export default function RegistrierungConfirmationPage({ searchParams }: Props) {
 }
 
 /** The link's own read; `null` for a token no registration holds or one the backend will not parse, a dead link either way. */
-// `cache` memoizes per render pass, for the tab's title and the page.
 const readView = cache(async (token: string) => runWithIncomingTrace(() => linkViewOf(registrierungenGetConfirmationView({ token }))));
 
 /** The question: for which team, school and season the pupil registered, until when, and the answer's fields. */

@@ -39,7 +39,6 @@ export async function generateMetadata({ params }: Props, parent: ResolvingMetad
   );
 }
 
-/** The team editor, on the club's one view read in the season its address names. */
 export default async function TeamEditorPage({ params }: Props) {
   return await readEditor(params);
 }

@@ -29,7 +29,6 @@ import type { Side } from "./ends";
 
 type Props = PageProps<"/confirm/address">;
 
-/** A row no crawler fetches: the URL carries the link's token. */
 export async function generateMetadata({ searchParams }: Pick<Props, "searchParams">, parent: ResolvingMetadata): Promise<Metadata> {
   return mailedMetadata(parent, ROUTES.addressChangeConfirmation, readState(searchParams));
 }
@@ -39,7 +38,6 @@ const WORDS = SERVER_COPY.addressChange;
 const INVALID: MailedState = { state: "invalid", next: TO_ACCOUNT };
 
 /** The link's read, `null` for a dead link. A failed read is no state of the link's: it reaches the frame's error boundary. */
-// `cache` memoizes per render pass, for the tab's title and the page.
 const readChange = cache(async (token: string) =>
   runWithIncomingTrace(() =>
     addressChangeGetAddressChangeView({ token }).catch((error: unknown) => {
@@ -49,7 +47,6 @@ const readChange = cache(async (token: string) =>
   ),
 );
 
-/** Whether an account stands at the new address, asked of the sign-in store once per render pass, as `readChange`. */
 const accountAtTheNewAddress = cache(async (token: string) => accountAtNewAddress({ token }));
 
 /**
@@ -112,7 +109,6 @@ function previousState(view: FLAddressChangeViewPrevious, token: string): Mailed
   return view.state === "open" && released !== null ? doneOnEnd("previous", "confirmed", released, view.way) : INVALID;
 }
 
-/** The new mailbox's link. */
 async function newState(view: FLAddressChangeViewNew, token: string): Promise<MailedState> {
   if (view.state === "confirmed") {
     const confirmed = dayOf(view.confirmed_on);

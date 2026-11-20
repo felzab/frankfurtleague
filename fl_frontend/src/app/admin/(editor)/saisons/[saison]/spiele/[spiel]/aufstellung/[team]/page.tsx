@@ -21,7 +21,6 @@ import type { Metadata, ResolvingMetadata } from "next";
 
 type Props = PageProps<"/admin/saisons/[saison]/spiele/[spiel]/aufstellung/[team]">;
 
-/** One read of the line-up for the tab's title and the page alike. */
 const read = cache(getAufstellung);
 
 /**

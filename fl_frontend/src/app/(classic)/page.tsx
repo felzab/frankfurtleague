@@ -84,7 +84,6 @@ function asideOf(saison: LandingSaison | null, window: FLBewerbungWindow | null)
   );
 }
 
-/** The hero's two ways on and the season's card. */
 async function heroOf(read: Promise<FLLandingResponse>): Promise<LandingContent> {
   const { saison, bewerbung_window: window } = await read;
   return {

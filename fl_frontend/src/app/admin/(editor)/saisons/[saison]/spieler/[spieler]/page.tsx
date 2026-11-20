@@ -43,7 +43,6 @@ const RULES = {
   max: { first_name: spielerPatchSpielerSaisonBodyFirstNameMax, last_name: spielerPatchSpielerSaisonBodyLastNameOneMax },
 };
 
-/** One read of the player for the tab's title and the page alike. */
 const read = cache(getSpielerSaison);
 
 /** The squad row the address names: `null` for a malformed id, and for a person out of that season's squad. */
