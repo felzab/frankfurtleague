@@ -49,11 +49,13 @@ export function AcceptFields({
   const fields = (
     <TextField
       label={COPY.team.shorthand}
-      name="shorthand"
+      // A listed club's code is its record's own, shown read-only and posted by no name: the acceptance takes none for a
+      // known club, which keeps the one it holds.
+      name={shorthand === null ? "shorthand" : undefined}
       holds={5}
       kind="text"
       isRequired={shorthand === null}
-      isDisabled={shorthand !== null}
+      isLocked={shorthand !== null}
       minLength={SHORTHAND_LENGTH}
       maxLength={SHORTHAND_LENGTH}
       description={shorthand === null ? COPY.team.shorthandDescription(SHORTHAND_LENGTH) : COPY.team.shorthandFixed}
