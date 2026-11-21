@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import { filesUnder } from "@/test-support/treeWalk";
 
+import { MAILED_LINK_PAGES } from "./mailedLink";
 import { ROUTES } from "./routes";
 
 import type { DataPerKind } from "./mailKinds";
@@ -171,12 +172,14 @@ describe("a mailed link's token", () => {
   });
 
   // A mailed link opens a page by its ROUTES row, whose row decides what robots.txt refuses and what the page names as
-  // its own address; a link to an address no page answers is a dead mail.
+  // its own address; a link to an address no page answers is a dead mail. The page reads its token from the cookie the
+  // proxy sets for the mailed-link table's pages alone, so a page missing from the table reads every link as spent.
   it.each(KINDS)("opens a page of its own ROUTES row, in a %s mail", (kind) => {
     for (const link of tokenLinksOf(kind)) {
       const { pathname } = new URL(link);
       expect(FIXED_ROUTES.has(pathname), `${pathname} is no ROUTES row`).toBe(true);
       expect(PAGES.has(pathname), `no page answers at ${pathname}`).toBe(true);
+      expect(MAILED_LINK_PAGES.includes(pathname), `${pathname} is not in the mailed-link table`).toBe(true);
     }
   });
 
