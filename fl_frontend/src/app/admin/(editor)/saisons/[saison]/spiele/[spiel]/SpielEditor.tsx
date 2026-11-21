@@ -131,6 +131,8 @@ export function SpielEditor({
   /** The match's public page, where the public may read its season: the strip's way there. */
   spielPage?: Route;
 }) {
+  // A finished season's match takes no more goals or answers, so its empty lists say none was recorded, not „Noch keine“.
+  const emptyKind = closed === undefined ? "none" : "unrecorded";
   // „Übernehmen“ pressed is one of the draft's changes, so it counts, holds the way back and goes with a discard like any
   // field, even where the fields already hold the proposal; the save stamps the report with it.
   const editor = useEditor<Draft>(
@@ -459,7 +461,7 @@ export function SpielEditor({
                   label={COPY.spielplan.spielbericht}
                   {...report.head}
                   rows={report.rows}
-                  empty={{ kind: "none", plural: COPY.shared.tore }}
+                  empty={{ kind: emptyKind, plural: COPY.shared.tore }}
                   bare
                   stack
                 />
@@ -474,7 +476,7 @@ export function SpielEditor({
             <AnswerRows
               label={WORDS.confirmations}
               rows={answers}
-              empty={{ kind: "none", plural: WORDS.confirmations }}
+              empty={{ kind: emptyKind, plural: WORDS.confirmations }}
             />
           ),
         },

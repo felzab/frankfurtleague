@@ -168,26 +168,30 @@ type Slot = { date: string | null; time: string | null };
 const ANSWER_MISSING = SERVER_COPY.overview.missing(COPY.spielplan.answer);
 
 /**
+ * Whether a party's newest row has asked it nothing about the match as it stands: none at all, one about a slot the
+ * match has left that holds no answer, one about a call-off since undone, or one in time that nobody could be mailed on.
+ */
+const notAsked = (row: FLSpielbestaetigungEditorRow | undefined): boolean =>
+  row === undefined ||
+  (row.state === "invalid" && row.answer === null) ||
+  row.state === "cancelled" ||
+  (row.state === "valid" && row.asked_at === null);
+
+/**
  * One party's answer as a row, by the state its newest row reads as: its name, its chip, and under them the answer's
- * day, the day it is due by, or that the party has not been asked; a declining club's proposed date after its day, and
- * its reason in its own words. An answer that lapsed unanswered, which the party can no longer give, says so and the day
- * it lapsed on, as every other page under that chip does; one an exit or a decision ended before its answer was due
- * lapsed on no day, and its line says the answer is missing. A discarded proposal reads as the agreement the fixture
- * counts. An answer about a slot the match has left is drawn as given beside that slot, which it alone is about; one
- * whose fixture changed its ground, a side or its referee at the slot the match still holds is drawn as given, since
- * „Bisher“ beside the match's own slot would name a move that never happened. A row about a slot the match has left
- * that holds no answer, or about a call-off since undone, asks nothing about the match as it stands, and a row in time
- * that nobody could be mailed on has asked nothing yet: the party reads as not asked. `slot` is the match's own.
+ * day, the day it is due by, or that the party has not been asked (`notAsked`); a declining club's proposed date after
+ * its day, and its reason in its own words. An answer that lapsed unanswered, which the party can no longer give, says
+ * so and the day it lapsed on, as every other page under that chip does; one an exit or a decision ended before its
+ * answer was due lapsed on no day, and its line says the answer is missing. A discarded proposal reads as the agreement
+ * the fixture counts. An answer about a slot the match has left is drawn as given beside that slot, which it alone is
+ * about; one whose fixture changed its ground, a side or its referee at the slot the match still holds is drawn as
+ * given, since „Bisher“ beside the match's own slot would name a move that never happened. `slot` is the match's own.
  */
 function answerRow(id: string, name: Words, plaque: string | null, row: FLSpielbestaetigungEditorRow | undefined, slot: Slot): AnswerRow {
   const shown = { id, name, ...(plaque === null ? {} : { plaque: { record: plaque } }) };
   // Both wait in the warn hue: a party never asked on the league, one asked on its answer, in the word its own list says.
-  if (
-    row === undefined ||
-    (row.state === "invalid" && row.answer === null) ||
-    row.state === "cancelled" ||
-    (row.state === "valid" && row.asked_at === null)
-  ) {
+  // `notAsked` holds the missing row too, but only the test here narrows the type for the branches below.
+  if (row === undefined || notAsked(row)) {
     return { ...shown, chip: { tone: "warn", label: COPY.template.open }, line: WORDS.notAsked };
   }
   if (row.state === "expired") {
@@ -237,12 +241,14 @@ function actsOf(row: FLSpielbestaetigungEditorRow | undefined, name: Words, slot
  * Each party's answer about the fixture as it stands, by the party's newest row, a closed one too, which still holds
  * the answer or that it lapsed: both clubs, then the referee where a booking names one. An event ends every question
  * still owed about the match, so on a match carrying one only a party that agreed or declined shows, its answer being
- * what it said of the match before the event. A finished season's match offers no act, its writes refused.
+ * what it said of the match before the event. A finished season's match offers no act, its writes refused, and asks
+ * nobody any more, so a party it never asked shows no row; one that answered or let its answer lapse stays, as a record.
  */
 function answerRows(view: FLSpieleAdminSingleResponse, closed: boolean): AnswerRow[] {
   const { spiel, spielbestaetigungen: rows } = view;
   const party = (id: string, name: Words, plaque: string | null, row: FLSpielbestaetigungEditorRow | undefined) => {
     if (spiel.sonderereignis !== null && row?.state !== "agreed" && row?.state !== "declined") return [];
+    if (closed && notAsked(row)) return [];
     const acts = closed ? undefined : actsOf(row, name, spiel);
     return [{ ...answerRow(id, name, plaque, row, spiel), ...(acts === undefined ? {} : { acts }) }];
   };
@@ -275,13 +281,14 @@ function answerRows(view: FLSpieleAdminSingleResponse, closed: boolean): AnswerR
  * „Fehlt“ where none is stored, with the club's own pages' „Überfällig“ from its due mark on, past the club's lock
  * too. A side the draw has not settled has no club to name one, and a match with no day or hour owes none, so neither
  * shows a row. A match carrying any event owes none either, as the club's own pages read it, yet the league still enters
- * its line-ups: each row stays with what is stored, and nothing on it says one is owed.
+ * its line-ups: each row stays with what is stored, and nothing on it says one is owed. A finished season's match owes
+ * none either, its writes refused: each row says only what is stored.
  */
-function aufstellungRows(view: FLSpieleAdminSingleResponse): Array<CardActRowProps & { id: string }> {
+function aufstellungRows(view: FLSpieleAdminSingleResponse, closed: boolean): Array<CardActRowProps & { id: string }> {
   const { spiel, aufstellungen, aufstellung_marks: marks } = view;
   if (spiel.date === null || spiel.time === null) return [];
-  // The served marks read the clock alone and never the event, so the page judges the event itself.
-  const owed = spiel.sonderereignis === null;
+  // The served marks read the clock alone and never the event or the season, so the page judges both itself.
+  const owed = spiel.sonderereignis === null && !closed;
   const words = COPY.aufstellung;
   return (["team1", "team2"] as const).flatMap((side) => {
     const team = spiel[side];
@@ -381,7 +388,7 @@ export default async function SpielEditorPage({ params }: Props) {
       report={{ head: REPORT_HEAD, rows: view.spielbericht === null ? [] : berichtRows(saved, view.spielbericht) }}
       adoption={adoptionOf(saved, view.spielbericht)}
       answers={answerRows(view, closed)}
-      aufstellungen={aufstellungRows(view)}
+      aufstellungen={aufstellungRows(view, closed)}
       createSpielort={createSpielort}
       spielortRules={SPIELORT_RULES}
       {...(closed ? { closed: SERVER_COPY.refusalLine.saison_past } : {})}

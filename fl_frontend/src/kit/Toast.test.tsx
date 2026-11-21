@@ -90,4 +90,17 @@ describe("an act's answer as its toast", () => {
     expect(screen.getByText(note)).toBeTruthy();
     expect(screen.queryByText(done)).toBeNull();
   });
+
+  // The harm: a decline answered from an admission's dialog standing over the list until it is closed, where the same
+  // decline from its own row leaves by itself.
+  it("says the done word of the act an answer did, and lets it leave by itself as that act's own does", () => {
+    const declined = COPY.shared.toast.done.decline;
+    render(<ToastRegion frame="rail" />);
+    act(() => toastAnswer({ ok: true, value: undefined, done: declined }, COPY.shared.toast.done.set));
+    expect(screen.getByText(declined)).toBeTruthy();
+
+    act(() => vi.runAllTimers());
+
+    expect(screen.queryByText(declined)).toBeNull();
+  });
 });

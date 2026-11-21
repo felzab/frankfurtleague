@@ -43,8 +43,9 @@ async function admitted({ decided, admission }: RegistrierungEntry, formData: Fo
   if (admission.kind === "locked") return { ok: false, reason: admission.reason };
   if (admission.kind === "asks" && formData.get("answer") === OTHER) {
     const declined = await declineRegistrierung({ ...decided, reason: "other_person" });
-    // The dialog's act is „Aufnehmen“, whose done word would name the act this answer did not do.
-    return declined.ok ? { ...declined, note: COPY.shared.toast.done.decline } : declined;
+    // The dialog's act is „Aufnehmen“, whose done word would name the act this answer did not do: the decline's own
+    // word stands in, and closes itself as the „Ablehnen“ row's does.
+    return declined.ok ? { ...declined, done: COPY.shared.toast.done.decline } : declined;
   }
   return admitRegistrierung({ ...decided, spieler_id: admission.spieler_id });
 }

@@ -1,7 +1,7 @@
 "use client";
 
-import { createContext, use, useEffect, useEffectEvent, useRef, useState, useTransition } from "react";
-import { unstable_rethrow } from "next/navigation";
+import { createContext, use, useEffect, useRef, useState, useTransition } from "react";
+import { unstable_isUnrecognizedActionError, unstable_rethrow, usePathname, useSearchParams } from "next/navigation";
 
 import { textOf } from "@/core/copy";
 import { COPY } from "@/core/copy/shared";
@@ -16,6 +16,7 @@ import { SearchField } from "./SearchField";
 import { SpielList } from "./SpielRow";
 import { Table } from "./Table";
 import { SchoolTiles } from "./TileGrid";
+import { useNavigate } from "./WholePage";
 
 import type { ActionAnswer } from "@/core/action";
 import type { Copy, Words } from "@/core/copy";
@@ -34,12 +35,14 @@ export type ListPageOfRows = { rows: ReadonlyArray<TableRow>; cursor: string | n
 type ListRequest = { query: string; cursor: string | null; [carried: string]: string | null };
 
 /**
- * How a list past one read's cap reaches its other rows: the server reads the next 50 after a cursor, the
- * search text, where one is typed, narrowing them on the server over the whole list.
+ * How a list past one read's cap reaches its other rows: the server reads the next 50 after a cursor, inside the search
+ * the page read from its address.
  */
 export type ListMore = {
   /** Where the next page starts after the rows the page was served with; `null` where none follows. */
   cursor: string | null;
+  /** The search the served rows answer, as the page read it from its address, empty for none: a later page stays inside it. */
+  query: string;
   /** The page's filter values, sent beside every `load`'s request under these names, so a read stays inside them. */
   carry?: Readonly<Record<string, string>>;
   /** A server action, so it answers what the builder does (`action`). */
@@ -47,8 +50,9 @@ export type ListMore = {
 };
 
 /**
- * How long typing rests before the server search goes out. Next sends one client's actions one at a time, so a word sent
- * per keystroke queues its reads over the whole list; 300 ms is the pause Next's own search tutorial waits.
+ * How long typing rests before a search is said to a screen reader, or enters the address of a list searched on the
+ * server: a page read per keystroke would read the whole list for every letter. 300 ms is the pause Next's own search
+ * tutorial waits.
  */
 const SEARCH_PAUSE_MS = 300;
 
@@ -63,7 +67,11 @@ async function pageOf({ carry, load }: ListMore, request: ListRequest): Promise<
   } catch (thrown) {
     // A redirect or a not-found is how the action leads on; React hands it to Next's boundary.
     unstable_rethrow(thrown);
-    return { ok: false, reason: isEdgeRefusal(thrown) ? COPY.shared.failure.tooManyAttempts : COPY.shared.failure.unexpected };
+    if (isEdgeRefusal(thrown)) return { ok: false, reason: COPY.shared.failure.tooManyAttempts };
+    // An action Next does not recognise means a newer build serves the page: the stale line, as a form words it, with
+    // nothing read again, which would take the rows drawn so far away.
+    if (unstable_isUnrecognizedActionError(thrown)) return { ok: false, reason: COPY.shared.failure.stale };
+    return { ok: false, reason: COPY.shared.failure.unexpected };
   }
 }
 
@@ -75,6 +83,12 @@ export type ListSearch = {
   label: Copy;
   /** The bound the server's search publishes, past which the read refuses the text. */
   maxLength?: number;
+  /**
+   * The address parameter a list searched on the server reads its search from, and the text the page read there: the
+   * typed text replaces it once typing pauses, as a filter's choice replaces its own, so a reload and a shared link
+   * keep the search.
+   */
+  address?: { name: string; value: string };
 };
 
 /**
@@ -211,106 +225,143 @@ export function ListCard({
 /** What is typed into a list's search field, shared by the field in the toolbar and the list under it. */
 const ListQuery = createContext<{ query: string; setQuery: (query: string) => void }>({ query: "", setQuery: () => undefined });
 
-/** A list's search text, held around its toolbar and its list. */
-export function ListQueryScope({ children }: { children: ReactNode }) {
-  const [query, setQuery] = useState("");
+/**
+ * A list's search text, held around its toolbar and its list, starting from `initial`, the search a list searched on
+ * the server read from its address.
+ */
+export function ListQueryScope({ children, initial = "" }: { children: ReactNode; initial?: string }) {
+  const [query, setQuery] = useState(initial);
+  const [read, setRead] = useState(initial);
+  // A page read with another search, by Back or a shared link, shows it in the field; the page answering the text
+  // typed leaves the field as typed, its outer spaces included.
+  if (initial !== read) {
+    setRead(initial);
+    if (initial !== query.trim()) setQuery(initial);
+  }
   return <ListQuery value={{ query, setQuery }}>{children}</ListQuery>;
 }
 
-export function ListSearchField({ label, maxLength }: ListSearch) {
-  const { query, setQuery } = use(ListQuery);
+function SearchBox({ label, maxLength, onChange }: Omit<ListSearch, "address"> & { onChange: (query: string) => void }) {
+  const { query } = use(ListQuery);
   return (
     <div className="w-full lg:max-w-96 lg:flex-1">
       <SearchField
         label={label}
         value={query}
-        onChange={setQuery}
+        onChange={onChange}
         maxLength={maxLength}
       />
     </div>
   );
 }
 
+/**
+ * A search field whose typed text replaces the address's parameter once typing pauses, every other parameter kept, as
+ * Next's search tutorial debounces its field ("Adding Search and Pagination"): the page reads its rows anew, and the
+ * navigation's bar shows the wait. Only typing navigates, so a page read with another search never sends one back.
+ */
+function AddressSearchField({ address: { name, value }, ...field }: ListSearch & { address: { name: string; value: string } }) {
+  const { setQuery } = use(ListQuery);
+  const navigate = useNavigate();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const pause = useRef<ReturnType<typeof setTimeout>>(undefined);
+  useEffect(() => () => clearTimeout(pause.current), []);
+  const replace = (wanted: string) => {
+    const next = new URLSearchParams(searchParams);
+    if (wanted === "") next.delete(name);
+    else next.set(name, wanted);
+    const search = next.toString();
+    navigate((search === "" ? pathname : `${pathname}?${search}`) as Route, { replace: true, scroll: false });
+  };
+  return (
+    <SearchBox
+      {...field}
+      onChange={(typed) => {
+        setQuery(typed);
+        clearTimeout(pause.current);
+        const wanted = typed.trim();
+        if (wanted !== value) pause.current = setTimeout(() => replace(wanted), SEARCH_PAUSE_MS);
+      }}
+    />
+  );
+}
+
+/** The search field over a list; one searched on the server carries its text in the address (`ListSearch.address`). */
+export function ListSearchField({ address, ...field }: ListSearch) {
+  const { setQuery } = use(ListQuery);
+  // Apart, so a list searched where it is held reads no search parameters and its page can stay static.
+  return address === undefined ? (
+    <SearchBox
+      {...field}
+      onChange={setQuery}
+    />
+  ) : (
+    <AddressSearchField
+      {...field}
+      address={address}
+    />
+  );
+}
+
 type Shown = {
   /** The rows the page was served with, so a new render of the page starts the list afresh. */
   served: ReadonlyArray<TableRow>;
-  /** The search the shown rows answer, empty for the rows the page was served with. */
-  query: string;
   rows: ReadonlyArray<TableRow>;
   cursor: string | null;
-  /** The line a read that failed left, and the text in the field when it did: another text is another question. */
-  failure: { query: string; line: Copy } | null;
+  /** The line a next page's read that failed left. */
+  failure: Copy | null;
 };
 
 /**
  * The list template's table, searched by the text its scope holds, and its paging. A list read whole is
- * searched where it is held, over every row; a list past one read's cap shows „Weitere 50 laden“ only while
- * the server reports more rows, and its search runs on the server over the whole list once typing pauses,
- * paged the same way, each inside the page's filters. A filter's change is a new render of the page, so it
- * starts from the first page. A read that fails says so on the list's status line and takes no row away.
- * What is typed never enters the address.
+ * searched where it is held, over every row; a list past one read's cap is searched by its page, which reads
+ * the search from its address as it reads its filters (`ListSearch.address`), and shows „Weitere 50 laden“
+ * only while the server reports more rows, each page inside the search and the filters. A search's or a
+ * filter's change is a new render of the page, so it starts from the first page, and the button stands busy
+ * for its own read alone. A read that fails says so on the list's status line and takes no row away.
  */
 export function ListTable({ table, more }: { table: TableProps; more?: ListMore }) {
   const { query } = use(ListQuery);
-  const isSearching = query.trim() !== "";
-  const fresh = (): Shown => ({ served: table.rows, query: "", rows: table.rows, cursor: more?.cursor ?? null, failure: null });
+  // A list past one read's cap is searched by what its rows answer, which the text typed reaches once the page reads it.
+  const isSearching = (more === undefined ? query : more.query).trim() !== "";
+  const fresh = (): Shown => ({ served: table.rows, rows: table.rows, cursor: more?.cursor ?? null, failure: null });
   const [shown, setShown] = useState<Shown>(fresh);
   const [isLoading, startLoading] = useTransition();
-  // Only the answer to the latest request is shown, however the answers arrive.
-  const latest = useRef(0);
 
   let current = shown;
-  // A new render of the page, or a search emptied, shows the rows the page was served with.
-  if (shown.served !== table.rows || (!isSearching && shown.query !== "")) {
+  // A new render of the page shows the rows it was served with.
+  if (shown.served !== table.rows) {
     current = fresh();
     setShown(current);
   }
 
-  const read = (request: ListRequest, take: (state: Shown, page: ListPageOfRows) => Shown) => {
+  const loadMore = () => {
     if (more === undefined) return;
-    latest.current += 1;
-    const asked = latest.current;
-    // Emptied first, as `statusOf` has it: the last refusal is none to the read still running.
+    const request = { query: more.query, cursor: current.cursor };
+    // Emptied first, as `statusOf` has it: the last refusal is none to the read now running.
     setShown((state) => ({ ...state, failure: null }));
     startLoading(async () => {
       const answer = await pageOf(more, request);
-      if (asked !== latest.current) return;
       startLoading(() =>
         setShown((state) =>
-          answer.ok ? take(state, answer.value) : { ...state, failure: { query, line: answer.reason ?? COPY.shared.failure.unexpected } },
+          // A page read since started the list afresh, and this answer belongs to the rows it replaced.
+          state.served !== table.rows
+            ? state
+            : answer.ok
+              ? { ...state, rows: [...state.rows, ...answer.value.rows], cursor: answer.value.cursor }
+              : { ...state, failure: answer.reason ?? COPY.shared.failure.unexpected },
         ),
       );
     });
   };
 
-  const search = useEffectEvent(() => {
-    read({ query, cursor: null }, (state, page) => ({ ...state, query, rows: page.rows, cursor: page.cursor }));
-  });
-
-  // The field stands outside this table, so the table follows the text the field holds rather than its keystrokes. A
-  // list past one read's cap asks the server for it, once.
-  useEffect(() => {
-    latest.current += 1;
-    if (more === undefined || query.trim() === "") return;
-    const pause = setTimeout(() => search(), SEARCH_PAUSE_MS);
-    return () => clearTimeout(pause);
-  }, [query, more, table.rows]);
-
-  const loadMore = () => {
-    // The search the rows answer: text still in its pause has not replaced them yet.
-    read({ query: current.query, cursor: current.cursor }, (state, page) => ({
-      ...state,
-      rows: [...state.rows, ...page.rows],
-      cursor: page.cursor,
-    }));
-  };
-
   // A list past one read's cap holds what the server's search answered.
   const rows = more === undefined ? searched(current.rows, query, rowWords).shown : current.rows;
-  const failure = current.failure?.query === query ? current.failure.line : null;
+  const failure = current.failure;
   // The server's rows count the search once they answer the text typed, all of them and with no failure: a failure is
   // said on the list's own status line, and a page with more after it counts not all the search found.
-  const isAnswered = more === undefined || (current.query === query && current.cursor === null && failure === null);
+  const isAnswered = more === undefined || (more.query === query.trim() && current.cursor === null && failure === null);
 
   return (
     <>

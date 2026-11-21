@@ -48,14 +48,16 @@ export function appToast(tone: AnswerTone, title: Copy, stands = tone !== "succe
 
 /**
  * An act's answer as its toast, worded and toned as a form's status line words the same answer (`answerLine`). `done`
- * is the act's own done word, never its answer's note: a note other than that word stands until it is closed.
+ * is the act's own done word, never its answer's note, and a done answer naming the act it did instead brings that
+ * act's word (`ActionAnswer`'s `done`): a note other than the act's word stands until it is closed.
  */
 export function toastAnswer(answer: ActionAnswer<unknown>, done: Copy) {
   // A passkey sheet the person closed raises no toast: the act never ran, and nothing failed.
   if (!answer.ok && answer.closed === true) return;
   const line = answerLine(answer, done);
+  const word = answer.ok ? (answer.done ?? done) : done;
   // A done act's text other than its own word is its note.
-  appToast(line.tone, line.text, line.tone !== "success" || line.text !== done);
+  appToast(line.tone, line.text, line.tone !== "success" || line.text !== word);
 }
 
 const region = tv({

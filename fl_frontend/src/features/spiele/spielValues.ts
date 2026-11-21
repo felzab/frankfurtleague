@@ -1,4 +1,4 @@
-import { isNoShow } from "@/features/spiele/result";
+import { isNoShow } from "./result";
 
 import type { CalendarDay, TimeOfDay } from "@/core/format";
 import type { FLSpielJoinedAdmin } from "@/core/generated/client/types";

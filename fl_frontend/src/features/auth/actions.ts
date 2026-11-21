@@ -8,7 +8,8 @@ import { codeAskedCookie, codeMailCapped, sendSignInCode } from "@/core/auth/lib
 import { COPY } from "@/core/copy/shared";
 import { asSignInIdentifier } from "@/core/emailAddress";
 import { logger } from "@/core/logging";
-import { SignInPayloadSchema } from "@/features/auth/schemas";
+
+import { SignInPayloadSchema } from "./schemas";
 
 /**
  * Mails a sign-in code, answering every address alike, member or stranger: the address the send was addressed to, or

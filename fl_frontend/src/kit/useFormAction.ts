@@ -47,10 +47,10 @@ export type AnswerTone = "success" | "warn" | "danger";
  * An act's answer as the line saying it: `done` or the note a done answer brings, else the refusal's reason, each in
  * the warn tone where the act partly happened. The one rule from an answer to its tone and words, so a form's status
  * line, a question's line and a toast never word one answer two ways. `done` is a form's „Gespeichert“ unless the act
- * names its own word.
+ * names its own word, and a done answer naming the act it did instead (`done`) brings that word.
  */
 export function answerLine(answer: ActionAnswer<unknown>, done: Copy = COPY.shared.saved): { tone: AnswerTone; text: Copy } {
-  if (answer.ok) return { tone: answer.warn === true ? "warn" : "success", text: answer.note ?? done };
+  if (answer.ok) return { tone: answer.warn === true ? "warn" : "success", text: answer.note ?? answer.done ?? done };
   return { tone: answer.warn === true ? "warn" : "danger", text: answer.reason ?? COPY.shared.failure.unexpected };
 }
 

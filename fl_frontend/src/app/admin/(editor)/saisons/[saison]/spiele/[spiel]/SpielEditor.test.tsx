@@ -53,7 +53,15 @@ const SONDEREREIGNISSE = [
   { id: "ausgefallen", label: COPY.spielplan.sonderereignis.ausgefallen },
 ];
 
-function Editor({ save, values = STORED }: { save: Parameters<typeof SpielEditor>[0]["save"]; values?: SpielValues }) {
+function Editor({
+  save,
+  values = STORED,
+  closed,
+}: {
+  save: Parameters<typeof SpielEditor>[0]["save"];
+  values?: SpielValues;
+  closed?: Parameters<typeof SpielEditor>[0]["closed"];
+}) {
   return (
     <SpielEditor
       title={{ record: "Ahorn vs. Eiche" }}
@@ -79,6 +87,7 @@ function Editor({ save, values = STORED }: { save: Parameters<typeof SpielEditor
       aufstellungen={[]}
       createSpielort={async (): Promise<ActionAnswer> => ({ ok: true, value: undefined })}
       spielortRules={SPIELORT_RULES}
+      {...(closed === undefined ? {} : { closed })}
     />
   );
 }
@@ -97,6 +106,28 @@ describe("a report whose proposal the fields already hold", () => {
     await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.save }));
     // No field of the match changed: the press is the whole save.
     await waitFor(() => expect(save).toHaveBeenCalledWith({ id: SPIEL_ID, version: 3, changes: {}, adoptsBericht: 2 }));
+  });
+});
+
+// The harm: a finished season's match promising with „Noch keine …“ goals and answers that can no longer come.
+describe("the editor's empty lists", () => {
+  const save = async (): Promise<ActionAnswer<number>> => ({ ok: true, value: 4 });
+
+  it("say none is to come on a finished season's match, and none yet on an open one", () => {
+    const { unmount } = renderUnderNext(
+      <Editor
+        save={save}
+        closed={COPY.shared.saison}
+      />,
+      AT_ADDRESS,
+    );
+    expect(screen.getByText(COPY.shared.empty.unrecorded(COPY.shared.tore))).toBeTruthy();
+    expect(screen.getByText(COPY.shared.empty.unrecorded(WORDS.confirmations))).toBeTruthy();
+    unmount();
+
+    renderUnderNext(<Editor save={save} />, AT_ADDRESS);
+    expect(screen.getByText(COPY.shared.empty.none(COPY.shared.tore))).toBeTruthy();
+    expect(screen.getByText(COPY.shared.empty.none(WORDS.confirmations))).toBeTruthy();
   });
 });
 

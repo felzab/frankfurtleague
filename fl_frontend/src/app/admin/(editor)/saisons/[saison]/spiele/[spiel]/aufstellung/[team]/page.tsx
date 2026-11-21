@@ -102,7 +102,8 @@ export default async function AdminAufstellungPage({ params }: Props) {
       lead={leadOf(found)}
       aufstellung={{ id: found.spiel.spiel_id, version: found.version, spieler: found.spieler }}
       players={playersOf(found)}
-      words={LINEUP_WORDS}
+      // A finished season's line-up takes no more players, so an empty one says none was recorded, not „Noch keine“.
+      words={closed === undefined ? LINEUP_WORDS : { ...LINEUP_WORDS, none: { ...LINEUP_WORDS.none, kind: "unrecorded" } }}
       // A finished season's line-up takes no write again, so its acts are left out, the lock line saying why.
       {...(closed === undefined ? {} : { closed, acts: "out" })}
     />

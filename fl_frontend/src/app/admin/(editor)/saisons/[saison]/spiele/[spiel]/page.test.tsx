@@ -130,6 +130,17 @@ describe("the match editor's links to the line-ups", () => {
       ]);
     }
   });
+
+  // The harm: a finished season's match, whose writes are all refused, drawn with „Überfällig“ beside „Fehlt“, so the
+  // league reads as owed a line-up nobody can enter any more.
+  it("says only what is stored on a finished season's match", async () => {
+    const editor = await editorOver({ ...VIEW, saison_status: "past" });
+
+    expect(editor.props.aufstellungen.map(({ chip, line }) => ({ chip, line }))).toStrictEqual([
+      { chip: undefined, line: COPY.aufstellung.counts(14, 11, 11) },
+      { chip: undefined, line: undefined },
+    ]);
+  });
 });
 
 describe("the match editor before its season's start", () => {
@@ -275,6 +286,15 @@ describe("the match editor's answers", () => {
         sonderereignis,
       ).toStrictEqual(["team2", "schiedsrichter"]);
     }
+  });
+
+  // The harm: a party a finished season's match never asked drawn as „Offen · Noch nicht angefragt“, a request that
+  // can no longer come; or an answer given or lapsed dropped with it, so the league loses the match's record.
+  it("keeps only the answers given or lapsed on a finished season's match", async () => {
+    const rows = [row("expired", { lapsed_on: "2026-11-10" }), row("cancelled", { party: { kind: "team", team_id: TEAM2 } })];
+    const editor = await editorOver({ ...VIEW, saison_status: "past", spielbestaetigungen: rows });
+
+    expect(editor.props.answers.map(({ id }) => id)).toStrictEqual(["team1"]);
   });
 
   /** The first club's decline proposing 21 November, still standing, and the second club's row, lapsed unanswered. */

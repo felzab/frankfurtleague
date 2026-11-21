@@ -6,9 +6,10 @@ import { dayOf, formatPeriod } from "@/core/format";
 import { schiedsrichterGetSelfSaisons, spielerGetSelfSaisons } from "@/core/generated/client/sdk";
 import { rolesOf } from "@/core/roles";
 import { getSubjectSession } from "@/core/subject";
-import { isRoleGone } from "@/features/roles/resolvers";
 import { getSaisonFrame } from "@/features/saisons/queries";
 import { runPersonRead } from "@/shared/utils/personRead";
+
+import { isRoleGone } from "./resolvers";
 
 import type { Role } from "@/core/roles";
 import type { Saisons } from "@/kit/FrameNav";
