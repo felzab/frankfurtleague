@@ -32,9 +32,9 @@ type AccountSweepCount = {
 
 /**
  * One pass over every sign-in account, deleting those no record references, then the passkeys of every address holding
- * no grant whose account no address change still owes to carry. The scheduler runs one pass at a time. A store that lists no account rejects, for the heartbeat to name;
- * the pass resolves to what it did, `open` the accounts and passkey holders it could not judge or delete, and `error`
- * a passkey listing that failed after the accounts' step.
+ * no grant whose account no address change still owes to carry. The scheduler runs one pass at a time. A store that
+ * lists no account rejects, for the heartbeat to name; the pass resolves to what it did, `open` the accounts and
+ * passkey holders it could not judge or delete, and `error` a passkey listing that failed after the accounts' step.
  */
 export async function runAccountSweep(): Promise<{ count: AccountSweepCount; open: number; error?: unknown }> {
   const accounts = await listAccounts();
