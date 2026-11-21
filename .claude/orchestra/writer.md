@@ -95,10 +95,11 @@ question's options as pictures, holds you to these rules.
   none; the coordinator publishes it, and you publish nothing yourself. Draw no outline or box over
   a picture, since it hides the edge being judged. Every option is one the owner could pick with
   pride: before you hand the board over, look with the Read tool at each option's frames, which the
-  coordinator captures with the tool in its drive and saves as image files in the folder your brief
-  names. Where the brief names no folder or a frame is missing, message the coordinator rather than
-  build without the look. Redraw an option where it is cramped, overflowing, clipped mid-line or
-  invisible, and name in your report each file you looked at and what it showed. That look is the
+  coordinator captures with the review-board tool against the running site and saves as image files
+  in the folder your brief names. Where the brief names no folder or a frame is missing, an option
+  that exists only in your board's input among them, message the coordinator rather than hand the
+  board over without the look. Redraw an option where it is cramped, overflowing, clipped mid-line
+  or invisible, and name in your report each file you looked at and what it showed. That look is the
   check of those pictures, and the coordinator does not judge them a second time.
 
 ## The contract
