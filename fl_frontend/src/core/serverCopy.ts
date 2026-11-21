@@ -1004,7 +1004,7 @@ export const SERVER_COPY = catalogue({
           items: [
             "seinen öffentlichen Schlüssel mit Kennung und Zähler,",
             "den Anbieter, bei dem er liegt,",
-            "ob er gesichert ist,",
+            "ob er gesichert werden kann und ob er es ist,",
             "wie dein Gerät ihn erreicht,",
             "wann er eingerichtet wurde,",
             "seinen Namen.",
