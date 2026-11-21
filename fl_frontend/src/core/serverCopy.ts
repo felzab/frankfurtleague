@@ -821,7 +821,8 @@ export const SERVER_COPY = catalogue({
 
   /**
    * The areas under `/area` as a server page alone words them, beside `AREA_COPY`: the forbidden page, the landing of
-   * a person no entry admits to a page, a row's line, and the match report's page where no form stands.
+   * a person no entry admits to a page, a row's line, and the match report's and the line-up's pages where no form
+   * stands.
    */
   area: {
     forbidden: "Kein Zugang",
@@ -840,6 +841,13 @@ export const SERVER_COPY = catalogue({
       unbooked: "Nicht mehr eingeteilt",
       /** A finished season's fixture whose report was never written, which its form takes no more of. */
       unreported: "Kein Spielbericht eingetragen",
+    },
+    aufstellung: {
+      /**
+       * A dated match holding no hour, which takes no line-up until its kick-off is set: its day as the match's row
+       * names it (`COPY.spielplan.when`), and that the hour is still to settle, as „Termin offen“ says of a date.
+       */
+      timeOpen: (day: Copy) => `${day} · Uhrzeit offen`,
     },
   },
 

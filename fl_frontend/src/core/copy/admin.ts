@@ -26,7 +26,7 @@ import { COPY } from "./shared";
 
 import type { Copy, Wait, Words } from "../copy";
 import type { CalendarDay } from "../format";
-import type { FLAction, FLAddressChangeWaitsOn, FLWithdrawalChoice } from "../generated/client/types";
+import type { Code, FLAction, FLAddressChangeWaitsOn, FLWithdrawalChoice } from "../generated/client/types";
 
 const RETIREMENT = "Stilllegung";
 const CONFIRMATIONS = "Bestätigungen";
@@ -52,6 +52,8 @@ const SENT_ON = "Gesendet am";
 // A person's confirmation's day, as a player's fact labels it and a referee's Bestätigung states it.
 const CONFIRMED_ON = "Bestätigt am";
 const LOG_ENTRIES = "Einträge";
+// The planning window's one lock over the draw's regeneration and its removal, by whether the season is still planned.
+const PLANNING_WINDOW_SHUT = (planned: boolean) => (planned ? "Spiele sind schon bearbeitet" : "Gesperrt seit der Umstellung");
 
 /** The administration's own words, which no page outside it reads. */
 export const ADMIN_COPY = catalogue({
@@ -122,6 +124,12 @@ export const ADMIN_COPY = catalogue({
    */
   retireConsequence: (subject: Copy, what: Copy) => `${subject} steht für neue ${what} nicht mehr zur Auswahl.`,
   reactivateConsequence: (subject: Copy) => `${subject} steht wieder zur Auswahl.`,
+
+  /**
+   * What waits on two clubs while one is still open, in the form the season editor's other waits take: the swap and
+   * the replacement until both their clubs are chosen, and a match's no-show until both its sides are known.
+   */
+  bothTeamsLocked: "Erst mit beiden Teams",
 
   schiedsrichter: {
     search: COPY.shared.search(COPY.page.adminSchiedsrichter),
@@ -247,6 +255,25 @@ export const ADMIN_COPY = catalogue({
     futureStands: "Eine Saison ist schon geplant.",
     /** The same, as the create's tooltip. */
     futureStandsLocked: "Eine Saison ist schon geplant",
+
+    /**
+     * Why a season's act is locked, as its tooltip says it, by the refusal its write would answer, which the read serves:
+     * the activation's three waits, the draw's and its regeneration's or removal's, and the list's create. The planning
+     * window's two codes by whether the season is still planned, a match of it holding something entered since the draw,
+     * or went live.
+     */
+    locks: {
+      activate_target_undrawn: "Erst mit Spielplan",
+      activate_spieltage_undated: "Noch Spieltage ohne Datum",
+      activate_saison_unfinished: "Erst mit allen Ergebnissen",
+      spielplan_berichte_submitted: "Spielberichte liegen vor",
+      spielplan_gruppen_off_rules: "Gruppen weichen von Regeln ab",
+      spielplan_replace_outside_its_window: PLANNING_WINDOW_SHUT,
+      spielplan_undraw_outside_its_window: PLANNING_WINDOW_SHUT,
+      create_saison_future_stands: "Eine Saison ist schon geplant",
+    } satisfies Partial<Record<Code, string | ((planned: boolean) => string)>>,
+    /** A season's act locked by a refusal `locks` holds no phrase for, which only a page older than the API meets. */
+    lockedOtherwise: "Zurzeit gesperrt",
   },
 
   spiel: {
@@ -340,8 +367,8 @@ export const ADMIN_COPY = catalogue({
     dangerBox: (austritt: boolean, retirement: boolean) =>
       austritt && retirement ? `Austritt und ${RETIREMENT}` : austritt ? "Austritt" : RETIREMENT,
     austrittAct: "Austritt eintragen",
-    /** What the exit does, as `austrittLine` says it under the date. */
-    austrittRowLine: "Offene Anfragen enden, Aufstellungen trägt die Liga ein.",
+    /** What the exit row is for; what the exit ends, `austrittLine` says under the dialog's date. */
+    austrittRowLine: "Das Team scheidet aus der Saison aus.",
     austrittReasonDescription: "Steht ohne Namen auf der Website",
     /**
      * Under the exit's date: the write calls no fixture off, so the line says only what it ends, the club's requests,
