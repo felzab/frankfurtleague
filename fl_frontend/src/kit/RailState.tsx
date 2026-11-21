@@ -84,15 +84,18 @@ export function RailToggle() {
 
 /**
  * A rail link's name at its end while the rail is collapsed and its words are clipped; a plain link becomes
- * the tooltip's trigger through React Aria's `Focusable`, as its guide has for an element of its own.
+ * the tooltip's trigger through React Aria's `Focusable`, as its guide has for an element of its own. Only
+ * where the rail stands: a window folded and then narrowed keeps the collapsed state, while the phone's band
+ * shows its „‹ Zurück“ whole.
  */
 export function RailTooltip({ label, children }: { label: Copy; children: ComponentProps<typeof Focusable>["children"] }) {
   const rail = useRail();
+  const isDesktop = useDesktop();
   return (
     <Tooltip
       label={label}
       placement="end"
-      isDisabled={rail?.collapsed !== true}>
+      isDisabled={!isDesktop || rail?.collapsed !== true}>
       <Focusable>{children}</Focusable>
     </Tooltip>
   );
