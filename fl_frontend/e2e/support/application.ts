@@ -24,7 +24,7 @@ type Person = { firstName: string; lastName: string; address: string; phone: str
 /** A mail's subject, by its season. */
 export const SUBJECT = {
   received: `Bewerbung für die Saison ${PLANNED} eingegangen`,
-  seat: `Eintrag für die Saison ${PLANNED} bestätigen`,
+  seat: `Eintrag bestätigen: Saison ${PLANNED}`,
   accepted: `Zusage für die Saison ${PLANNED}`,
   declined: `Absage für die Saison ${PLANNED}`,
   objected: `Widerspruch zum Eintrag: Saison ${PLANNED}`,
