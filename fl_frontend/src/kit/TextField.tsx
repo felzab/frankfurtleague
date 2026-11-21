@@ -93,8 +93,9 @@ export type TextFieldProps = Shared & (Short | Standard | Paragraph);
 /**
  * What each kind sets on the input: its type, the keyboard a phone opens, what the browser offers to fill.
  * A text, digits or address field is filled only where its `autofill` names what it asks for. A phone number and a
- * website are filled with nothing: every one the site asks for is somebody else's, a seat holder's, a referee's or a
- * school's, and the browser would offer the person's own.
+ * website take `off`, which asks the browser for none of the person's own values and none of its past entries: every
+ * one the site asks for is somebody else's, a seat holder's, a referee's or a school's. `off` is a hint, which a
+ * browser's address profile may still pass over and offer the person's own number.
  */
 const KINDS = {
   text: { type: "text", inputMode: undefined, autoComplete: undefined, pattern: undefined },
