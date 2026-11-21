@@ -1,4 +1,4 @@
-import { ADDRESS_ATTEMPTS_EXHAUSTED, CODE_NOT_ASKED_HERE, SIGN_IN_REFUSED } from "@/core/auth/refusalCodes";
+import { ADDRESS_ATTEMPTS_EXHAUSTED, CODE_NOT_ASKED_HERE, isRateRefusal, SIGN_IN_REFUSED } from "@/core/auth/refusalCodes";
 import { PUBLIC_COPY } from "@/core/copy/public";
 import { COPY } from "@/core/copy/shared";
 
@@ -25,9 +25,6 @@ const CODE_REFUSALS: ReadonlyMap<string, Copy> = new Map([
   [SIGN_IN_REFUSED, refusal.noRecord],
 ]);
 
-/** The edge's own rate refusal, which checked nothing and carries none of the library's codes. */
-const TOO_MANY_REQUESTS = 429;
-
 /**
  * What the code check's refusal tells the reader: its code's sentence, else what its status alone can say. A backend
  * that did not answer the mint is an outage, the shared failure line, though it spent the code: retyping it meets the
@@ -37,6 +34,6 @@ export function codeRefusal(refusal: ClientRefusal): Copy {
   const worded = CODE_REFUSALS.get(refusalCode(refusal) ?? "");
   if (worded !== undefined) return worded;
 
-  if (refusal.status === TOO_MANY_REQUESTS) return COPY.shared.failure.tooManyAttempts;
+  if (isRateRefusal(refusal)) return COPY.shared.failure.tooManyAttempts;
   return COPY.shared.failure.unexpected;
 }

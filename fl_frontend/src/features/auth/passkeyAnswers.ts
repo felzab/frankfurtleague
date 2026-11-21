@@ -1,5 +1,5 @@
 import { loadAuthClient } from "@/core/auth/browserClient";
-import { isClosedCeremony, SIGN_IN_REFUSED } from "@/core/auth/refusalCodes";
+import { isClosedCeremony, isRateRefusal, SIGN_IN_REFUSED } from "@/core/auth/refusalCodes";
 import { ACCOUNT_COPY } from "@/core/copy/account";
 import { PUBLIC_COPY } from "@/core/copy/public";
 import { COPY } from "@/core/copy/shared";
@@ -35,11 +35,13 @@ export const refusalCode = (refusal: ClientRefusal): string | undefined => (type
 
 /**
  * A ceremony's refusal on the status line, or `null` for a cancelled one, which the reader, or the browser on their
- * behalf, ended. The refusal a retry would meet again, an address holding no record of its own in the league or a
- * barred one, is worded; every other, a backend that did not answer among them, is the shared failure line.
+ * behalf, ended. The refusals a retry would meet again, an address holding no record of its own in the league or a
+ * barred one, and the edge's limit on requests, are worded; every other, a backend that did not answer among them, is
+ * the shared failure line.
  */
 export function describeCeremonyRefusal(refusal: ClientRefusal): Copy | null {
   if (isClosedCeremony(refusal)) return null;
+  if (isRateRefusal(refusal)) return COPY.shared.failure.tooManyAttempts;
   return refusalCode(refusal) === SIGN_IN_REFUSED ? PUBLIC_COPY.signIn.refusal.noRecord : COPY.shared.failure.unexpected;
 }
 
@@ -62,5 +64,6 @@ const SET_UP_WORDED: ReadonlyMap<string, Copy> = new Map([
 /** A set-up's refusal on the box's line, or `null` for a cancelled one, as a sign-in's ceremony is answered. */
 export function describeSetUpRefusal(refusal: ClientRefusal): Copy | null {
   if (isClosedCeremony(refusal)) return null;
+  if (isRateRefusal(refusal)) return COPY.shared.failure.tooManyAttempts;
   return SET_UP_WORDED.get(refusalCode(refusal) ?? "") ?? COPY.shared.failure.unexpected;
 }

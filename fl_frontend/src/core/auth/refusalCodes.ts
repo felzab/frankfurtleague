@@ -1,7 +1,7 @@
 /**
- * The sign-in's refusal codes: those its server modules raise and its browser modules word, and the passkey ceremony's
- * for a sheet the reader closed. This module imports nothing, so a browser module may read it without the library's
- * instance or the store.
+ * The sign-in's refusal codes: those its server modules raise and its browser modules word, the passkey ceremony's
+ * for a sheet the reader closed, and the edge's status for its limit on requests. This module imports nothing, so a
+ * browser module may read it without the library's instance or the store.
  */
 
 /** The code check's refusal of an address that has spent its tries, whatever code the request carried. */
@@ -33,4 +33,15 @@ const PASSED_THROUGH = "ERROR_PASSTHROUGH_SEE_CAUSE_PROPERTY";
 export function isClosedCeremony(refusal: object): boolean {
   const code = "code" in refusal ? refusal.code : undefined;
   return code === CEREMONY_ABORTED || code === PASSED_THROUGH;
+}
+
+/** The edge's own rate refusal, whose plain-text body carries none of the library's codes. */
+const TOO_MANY_REQUESTS = 429;
+
+/**
+ * Whether an auth client's refusal is the edge's limit on requests, which checked nothing: to the reader a limit on
+ * tries like any other. Read by its status alone, which the client keeps on a body it cannot parse.
+ */
+export function isRateRefusal(refusal: object): boolean {
+  return "status" in refusal && refusal.status === TOO_MANY_REQUESTS;
 }

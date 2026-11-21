@@ -2,7 +2,7 @@
 
 import { assertedAddress } from "@/core/auth/assertionAnswer";
 import { loadAuthClient, usePreloadedAuthClient } from "@/core/auth/browserClient";
-import { isClosedCeremony } from "@/core/auth/refusalCodes";
+import { isClosedCeremony, isRateRefusal } from "@/core/auth/refusalCodes";
 import { COPY } from "@/core/copy/shared";
 import { asSignInIdentifier } from "@/core/emailAddress";
 
@@ -42,9 +42,13 @@ export function usePasskeyTouch(asked: boolean, holder: string | undefined) {
     try {
       const authClient = await loadAuthClient();
       const { data, error } = await authClient.signIn.passkey();
-      // The act did not run either way: a closed sheet says nothing, as the sign-in's does, and any other refusal is the
-      // sentence the server's half answers an act its passkey did not answer for.
-      if (error !== null) return isClosedCeremony(error) ? CLOSED : refusedWith(COPY.shared.touchMissing);
+      // The act did not run either way: a closed sheet says nothing, as the sign-in's does, the edge's limit on
+      // requests is a limit on tries, and any other refusal is the sentence the server's half answers an act its
+      // passkey did not answer for.
+      if (error !== null) {
+        if (isClosedCeremony(error)) return CLOSED;
+        return refusedWith(isRateRefusal(error) ? COPY.shared.failure.tooManyAttempts : COPY.shared.touchMissing);
+      }
       if (holder === undefined) return null;
       // Off the league's own answer: the plugin's typed `data.user` is the body the server replaces.
       const signedIn = assertedAddress(data);
