@@ -38,7 +38,7 @@ def entry(spiel_nr: int, date: str | None, time: str | None = None, *, reportabl
     }
     owed = owes_a_bericht(reportable=reportable, submitted_at=served["submitted_at"], sonderereignis=served["sonderereignis"])
 
-    return FLSchiedsrichterSpiel.model_validate({**served, "bericht_owed": owed})
+    return FLSchiedsrichterSpiel.model_validate({**served, "reportable": reportable, "bericht_owed": owed})
 
 
 def served(spiele: list[FLSchiedsrichterSpiel]) -> list[int]:
@@ -88,22 +88,29 @@ RESULT = {"ergebnis": "2:1", "team1_tore": 2, "team2_tore": 1}
 
 
 @pytest.mark.parametrize(
-    ("austritt", "record", "refereed"),
+    ("austritt", "record", "refereed", "owed"),
     [
-        pytest.param(None, RESULT, True, id="a match played"),
-        pytest.param(None, {"sonderereignis": "abgebrochen"}, True, id="a match abandoned"),
-        pytest.param(KICK_OFF, {}, False, id="a club out by its day"),
+        pytest.param(None, RESULT, True, True, id="a match played"),
+        pytest.param(None, {"sonderereignis": "abgebrochen"}, True, True, id="a match abandoned"),
+        # It used neither the ground nor the referee, so its report stays open to write and nobody owes it.
+        pytest.param(None, {"sonderereignis": "nichtantreten_team1", "ergebnis": "0:3"}, True, False, id="a no-show"),
+        pytest.param(KICK_OFF, {}, False, False, id="a club out by its day"),
         # The walkover a fixture against a departed club is reported with: read through the decision, which answers
         # the event first, the referee the pass told „Du pfeifst … nicht mehr“ would be handed the booking back.
-        pytest.param(KICK_OFF, {"sonderereignis": "nichtantreten_team1", "ergebnis": "0:3"}, False, id="a club out by its day reported absent"),
+        pytest.param(
+            KICK_OFF, {"sonderereignis": "nichtantreten_team1", "ergebnis": "0:3"}, False, False, id="a club out by its day reported absent"
+        ),
         # An exit dated back over a match already played: its referee officiated and was told nothing.
-        pytest.param(KICK_OFF, RESULT, True, id="a match played before an exit dated back over it"),
+        pytest.param(KICK_OFF, RESULT, True, True, id="a match played before an exit dated back over it"),
     ],
 )
-def test_a_past_fixture_is_refereed_and_owes_its_report_unless_a_team_left_by_its_day_and_it_was_never_played(
-    austritt: str | None, record: dict[str, Any], refereed: bool
+def test_a_past_fixture_is_refereed_and_reportable_and_owes_its_report_unless_a_team_left_by_its_day_and_it_was_never_played(
+    austritt: str | None, record: dict[str, Any], refereed: bool, owed: bool
 ):
-    """Each kicked off with no report sent, in a running season: refereed, the report is owed; not, the list shows no booking."""
+    """Each kicked off with no report sent, in a running season: refereed, its report takes a write, owed unless a side did not turn up.
+
+    Not refereed, the list shows no booking.
+    """
 
     team1_tore, team2_tore = record.get("team1_tore"), record.get("team2_tore")
     joined = {
@@ -122,4 +129,4 @@ def test_a_past_fixture_is_refereed_and_owes_its_report_unless_a_team_left_by_it
 
     served = compose_self_spiel(joined, now=datetime(2027, 5, 21, 12, tzinfo=UTC))
 
-    assert (served.officiates, served.past, served.bericht_owed) == (refereed, True, refereed)
+    assert (served.officiates, served.past, served.reportable, served.bericht_owed) == (refereed, True, refereed, owed)

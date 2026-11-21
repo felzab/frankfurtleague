@@ -10144,6 +10144,10 @@
             ],
             "title": "Reason"
           },
+          "reportable": {
+            "title": "Reportable",
+            "type": "boolean"
+          },
           "sonderereignis": {
             "anyOf": [
               {
@@ -10262,6 +10266,7 @@
           "officiates",
           "past",
           "submitted_at",
+          "reportable",
           "bericht_owed"
         ],
         "title": "FLSchiedsrichterSpiel",

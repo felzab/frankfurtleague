@@ -519,6 +519,7 @@ def compose_self_spiel(spiel: Mapping[str, Any], *, now: datetime) -> FLSchiedsr
         officiates=officiates,
         past=is_played(date=spiel.get("date"), time=spiel.get("time"), now=now),
         submitted_at=submitted_at,
+        reportable=reportable,
         bericht_owed=owes_a_bericht(reportable=reportable, submitted_at=submitted_at, sonderereignis=spiel.get("sonderereignis")),
     )
 

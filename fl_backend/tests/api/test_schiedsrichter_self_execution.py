@@ -196,14 +196,15 @@ class TestTheSeasonsFixtures:
         answer = await answered(mongo_replica_set_url, own_spiele())
 
         assert [
-            (entry.spiel_id, entry.state, entry.submitted_at is not None, entry.bericht_owed, entry.sonderereignis) for entry in answer.spiele
+            (entry.spiel_id, entry.state, entry.submitted_at is not None, entry.reportable, entry.bericht_owed, entry.sonderereignis)
+            for entry in answer.spiele
         ] == [
-            (REPORT_OWED, "agreed", False, True, None),
-            (TO_ANSWER, "valid", False, False, None),
-            (CALLED_OFF, "cancelled", False, False, "annulliert"),
-            (TO_COME, "agreed", False, False, None),
-            (STRUCK_OUT, None, False, False, "ausgefallen"),
-            (REPORTED, None, True, False, None),
+            (REPORT_OWED, "agreed", False, True, True, None),
+            (TO_ANSWER, "valid", False, False, False, None),
+            (CALLED_OFF, "cancelled", False, False, False, "annulliert"),
+            (TO_COME, "agreed", False, False, False, None),
+            (STRUCK_OUT, None, False, False, False, "ausgefallen"),
+            (REPORTED, None, True, True, False, None),
         ]
         # A booking answers its newest row as it stands: not the row closed when it moved, and not Ute's.
         [to_answer] = [entry for entry in answer.spiele if entry.spiel_id == TO_ANSWER]
@@ -219,10 +220,10 @@ class TestTheSeasonsFixtures:
         [to_come] = [entry for entry in answer.spiele if entry.spiel_id == TO_COME]
         assert (to_come.entered, to_come.reason) == (True, None)
 
-    async def test_once_the_season_has_ended_no_report_is_owed(self, mongo_replica_set_url: str):
+    async def test_once_the_season_has_ended_no_report_is_written_or_owed(self, mongo_replica_set_url: str):
         answer = await answered(mongo_replica_set_url, own_spiele(), saison_status="past")
 
-        assert [entry.spiel_id for entry in answer.spiele if entry.bericht_owed] == []
+        assert [entry.spiel_id for entry in answer.spiele if entry.reportable or entry.bericht_owed] == []
         assert answer.spiele[0].spiel_id == TO_ANSWER
 
     async def test_an_address_holding_no_live_confirmed_record_is_refused(self, mongo_replica_set_url: str):

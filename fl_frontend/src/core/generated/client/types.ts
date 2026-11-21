@@ -4261,6 +4261,7 @@ export interface FLSchiedsrichterSpiel {
   officiates: boolean;
   past: boolean;
   reason: string | null;
+  reportable: boolean;
   sonderereignis: FLSonderereignis | null;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   spiel_id: string;

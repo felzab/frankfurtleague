@@ -294,6 +294,9 @@ class FLSchiedsrichterSpiel(BaseReadModel):
     past: bool
     # When its report was first sent, whoever wrote it; null where none stands.
     submitted_at: FLUtcInstant | None
+    # Whether the referee writes its report now, as the Spielbericht read's `reportable` judges the same fixture: booked to
+    # them still, played, neither called off nor struck out, its season running. A no-show's included, which nobody owes.
+    reportable: bool
     # Whether the referee owes its report now, which puts the fixture among the open work.
     bericht_owed: bool
 

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { COPY } from "@/core/copy/shared";
+import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { serveBackend } from "@/test-support/backend";
 import { signedInRequest } from "@/test-support/session";
@@ -43,11 +44,12 @@ const spiel = (overrides: Partial<FLSchiedsrichterSpiel>): FLSchiedsrichterSpiel
   officiates: true,
   past: false,
   submitted_at: null,
+  reportable: false,
   bericht_owed: false,
   ...overrides,
 });
 
-type Row = { chip?: ChipProps; acts?: ReactElement<{ id: string }> };
+type Row = { href?: string; chip?: ChipProps; acts?: ReactElement<{ id: string }> };
 
 /** The rows the page draws for these games. */
 async function rowsOf(...spiele: readonly FLSchiedsrichterSpiel[]): Promise<readonly Row[]> {
@@ -139,5 +141,33 @@ describe("a game owing its report", () => {
 
     const missing = { tone: "warn", label: SERVER_COPY.overview.missing(COPY.spielplan.spielbericht) };
     expect(rows.map(({ chip }) => chip)).toStrictEqual([missing, missing]);
+  });
+});
+
+/* A no-show's report stays open to write and nobody owes it, so a row opening the report only where one is owed leaves
+   its referee no way to the form; a finished season's stored report is the referee's one way to read what they sent. */
+describe("a game's row", () => {
+  it("opens the match report where the referee writes it now or reads a stored one, and nothing else", async () => {
+    const sent = { submitted_at: "2027-05-20T19:00:00Z" };
+    const rows = await rowsOf(
+      spiel({ spiel_id: "5f0000000000000000000001", past: true, reportable: true, bericht_owed: true }),
+      spiel({ spiel_id: "5f0000000000000000000002", past: true, reportable: true, sonderereignis: "nichtantreten_team1" }),
+      // A finished season's: its read serves no game as reportable.
+      spiel({ spiel_id: "5f0000000000000000000003", past: true, ...sent }),
+      spiel({ spiel_id: "5f0000000000000000000004" }),
+      spiel({ spiel_id: "5f0000000000000000000005", past: true, sonderereignis: "ausgefallen" }),
+      // The report's page refuses a game a club's exit took the referee off, a stored report included.
+      spiel({ spiel_id: "5f0000000000000000000006", past: true, officiates: false, ...sent }),
+    );
+
+    const report = (id: string) => ROUTES.schiedsrichterSpielbericht.path("2027", id);
+    expect(rows.map(({ href }) => href)).toStrictEqual([
+      report("5f0000000000000000000001"),
+      report("5f0000000000000000000002"),
+      report("5f0000000000000000000003"),
+      undefined,
+      undefined,
+      undefined,
+    ]);
   });
 });

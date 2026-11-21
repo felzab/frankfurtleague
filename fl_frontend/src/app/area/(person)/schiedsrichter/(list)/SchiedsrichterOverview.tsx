@@ -74,7 +74,15 @@ function wordsOf(spiel: FLSchiedsrichterSpiel, name: Copy, when: Copy): string {
     .join(" ");
 }
 
-/** One game's row: it opens the game's match report, and a booking still to answer carries the two answers. */
+/**
+ * Whether the row opens the game's match report: where the referee writes it now, or where a stored one stands to
+ * read. Every other row opens nothing, since the report's page would only say what its chip says: a game to come, one
+ * called off or struck out, one never reported in a finished season, and one a club's exit took them off, whose
+ * report the page refuses them even where one is stored.
+ */
+const opensBericht = (spiel: FLSchiedsrichterSpiel) => spiel.reportable || (spiel.officiates && spiel.submitted_at !== null);
+
+/** One game's row: it opens the game's match report where one is written or read, and a booking still to answer carries the two answers. */
 function rowOf(spiel: FLSchiedsrichterSpiel, saison: string): CardActRowProps & { id: string; words: string } {
   const { chip, adds, open } = standingOf(spiel);
   const name = matchName(spiel.team1_name, spiel.team2_name);
@@ -82,7 +90,7 @@ function rowOf(spiel: FLSchiedsrichterSpiel, saison: string): CardActRowProps & 
   const id = spiel.spielbestaetigung_id;
   return {
     id: spiel.spiel_id,
-    href: ROUTES.schiedsrichterSpielbericht.path(saison, spiel.spiel_id),
+    ...(opensBericht(spiel) ? { href: ROUTES.schiedsrichterSpielbericht.path(saison, spiel.spiel_id) } : {}),
     name,
     words: wordsOf(spiel, name, when),
     ...(chip === undefined ? {} : { chip }),
@@ -125,8 +133,8 @@ async function readSpiele(of: Promise<string | null>) {
 
 /**
  * A referee's Übersicht of one season: one box „Spiele“, searched on the page, a row a game in the order the read gives,
- * open work first, then the games to come, then the finished. A booking is answered on its row, and every row opens its
- * game's match report. Drawn for the season the address names, and at `/area/schiedsrichter` for the season the frame
+ * open work first, then the games to come, then the finished. A booking is answered on its row, and a row opens its
+ * game's match report where one is written or read. Drawn for the season the address names, and at `/area/schiedsrichter` for the season the frame
  * takes by standard.
  */
 export function SchiedsrichterOverview({ saison }: { saison: Promise<string | null> }) {
