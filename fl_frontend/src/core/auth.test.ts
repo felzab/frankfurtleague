@@ -851,16 +851,6 @@ describe("a passkey session whose passkey is gone", () => {
     assert.ok(!holdsSession(row), "the landing left a session standing that no guard will serve");
   });
 
-  it("serves a person's account guard no such session", async () => {
-    const { cookie, row } = await signIn(PERSON_EMAIL);
-    madeByPasskey(store, row);
-    store.passkey.length = 0;
-    arriveAs(cookie);
-
-    expect(await getAccountSession()).toBe(null);
-    expect((await getSignInLanding()).destination).toBe("/signin");
-  });
-
   /* Another account's row under the same credential id is none of the session's own. */
   it("reads the row by the session's own account", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
@@ -957,16 +947,23 @@ function steppedUp(row: SessionRow): void {
 /* A signed-in page's challenge names its account, and the plugin verifies the credential and never
    whose it is: another account's passkey would sign that account in and end the page's session. */
 describe("whose passkey may answer a signed-in page's challenge", () => {
-  it("refuses another account's passkey, minting nothing and ending nothing", async () => {
-    const other = await signIn(PERSON_EMAIL);
-    store.passkey.push({ ...aPasskeyFor(other.row.userId), credentialID: CREDENTIAL_ID, publicKey: COSE_KEY.toString("base64") });
-    const { cookie } = await signIn(ADMIN_EMAIL);
-    const before = [...store.session];
+  it("refuses another administrator's passkey, minting nothing and ending nothing", async () => {
+    // A second administrator's, since an administrator alone holds a passkey.
+    const OTHER_ADMIN_EMAIL = "kasse@example.org";
+    BACKENDS.set(OTHER_ADMIN_EMAIL, A_GRANT);
+    try {
+      const other = await signIn(OTHER_ADMIN_EMAIL);
+      store.passkey.push({ ...aPasskeyFor(other.row.userId), credentialID: CREDENTIAL_ID, publicKey: COSE_KEY.toString("base64") });
+      const { cookie } = await signIn(ADMIN_EMAIL);
+      const before = [...store.session];
 
-    const refused = await assertPasskey(cookie, true);
+      const refused = await assertPasskey(cookie, true);
 
-    expect(refused.status).toBe(401);
-    expect(store.session, "another account's passkey minted a session or ended the page's").toStrictEqual(before);
+      expect(refused.status).toBe(401);
+      expect(store.session, "another account's passkey minted a session or ended the page's").toStrictEqual(before);
+    } finally {
+      BACKENDS.delete(OTHER_ADMIN_EMAIL);
+    }
   });
 });
 
@@ -2453,8 +2450,8 @@ function mailedToken(email: string): string {
 }
 
 /**
- * Everything the store holds of one signed-in address, its pending rows among them: a session, a passkey,
- * a live code, a failed guess's count, three mails' counts and two deletion tokens, the second outstanding.
+ * Everything the store holds of one person signed in by code, their pending rows among them: a session, a live
+ * code, a failed guess's count, three mails' counts and two deletion tokens, the second outstanding.
  */
 async function seedAccount(email: string): Promise<{ cookie: string; userId: string; pending: string[]; token: string }> {
   const { cookie, row } = await signIn(email);
@@ -2469,8 +2466,6 @@ async function seedAccount(email: string): Promise<{ cookie: string; userId: str
   } finally {
     BACKENDS.delete(email);
   }
-  store.passkey.push({ ...aPasskeyFor(row.userId), id: `passkey-of-${row.userId}`, credentialID: `credential-of-${row.userId}` });
-
   const headers = new Headers({ ...ORIGIN, cookie });
   await requestAccountDeletion(headers);
   const token = mailedToken(email);
@@ -2486,7 +2481,6 @@ async function seedAccount(email: string): Promise<{ cookie: string; userId: str
 const heldOf = ({ userId, pending }: { userId: string; pending: readonly string[] }) => ({
   user: store.user.filter((user) => user.id === userId).length,
   sessions: store.session.filter((session) => session.userId === userId).length,
-  passkeys: store.passkey.filter((passkey) => passkey.userId === userId).length,
   pending: store.verification.filter((held) => pending.includes(held.identifier)).length,
 });
 
@@ -2531,7 +2525,7 @@ describe("a person's own account deletion", () => {
   /* Asked and refused: a case passing where the hook never ran -- no session, another account's token --
      would leave the same rows standing. */
   /* The library spends the link before the erasure runs, so the press says so rather than offering the link again. */
-  it("leaves the account and its passkeys standing where the backend refuses the erasure, having asked it, its link spent", async () => {
+  it("leaves the account and its sessions standing where the backend refuses the erasure, having asked it, its link spent", async () => {
     const person = await seedAccount("verweigert-loeschung@example.org");
     erasureAnswer = ERASURE_REFUSED;
     const erasuresBefore = erasuresAsked();
@@ -2544,11 +2538,11 @@ describe("a person's own account deletion", () => {
 
     expect(erasuresAsked() - erasuresBefore, "the backend was never asked, so the refusal proves nothing").toBe(1);
     const held = heldOf(person);
-    expect([held.user, held.sessions, held.passkeys]).toStrictEqual([1, 1, 1]);
+    expect([held.user, held.sessions]).toStrictEqual([1, 1]);
   });
 
   /* A call the backend never answered may have erased the records or not: the account stays, for a reload to show. */
-  it("leaves the account and its passkeys standing where the erasure fails, its outcome one the press cannot name", async () => {
+  it("leaves the account and its sessions standing where the erasure fails, its outcome one the press cannot name", async () => {
     const person = await seedAccount("gescheitert-loeschung@example.org");
     erasureAnswer = () => Promise.reject(new TypeError("fetch failed"));
     const erasuresBefore = erasuresAsked();
@@ -2559,7 +2553,7 @@ describe("a person's own account deletion", () => {
 
     expect(erasuresAsked() - erasuresBefore, "the backend was never asked, so the failure proves nothing").toBe(1);
     const held = heldOf(person);
-    expect([held.user, held.sessions, held.passkeys]).toStrictEqual([1, 1, 1]);
+    expect([held.user, held.sessions]).toStrictEqual([1, 1]);
   });
 
   /* The library's `deleteUser` reads an empty token as a request for a new link, which it mints and mails: a press
@@ -2618,7 +2612,7 @@ describe("a person's own account deletion", () => {
 
     expect(erasuresAsked(), "another person's records were erased").toBe(erasuresBefore);
     const held = heldOf(person);
-    expect([held.user, held.sessions, held.passkeys]).toStrictEqual([1, 1, 1]);
+    expect([held.user, held.sessions]).toStrictEqual([1, 1]);
   });
 
   /* Each press mints a token row and mails the session's own mailbox, so a link counts on the code's rows: one

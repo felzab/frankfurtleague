@@ -31,7 +31,7 @@ let requestHeaders: Headers | undefined;
 /** The landing reads the request off this, where the proxy is handed its own `NextRequest`. */
 const HEADERS_DOUBLE = { headers: () => Promise.resolve(requestHeaders) };
 
-/** An address holding no grant, whose session the verdict is what refuses. */
+/** An address holding no grant, signed in by code: the verdict is what refuses its session the administration. */
 const REMOVED_EMAIL = "ehemalig@example.org";
 
 // Every address this file signs in is seated: the gate at session creation is not its subject.
@@ -72,7 +72,6 @@ arriveAs(null);
 const signIn = (email: string) => sessionByCode(auth, store, email);
 
 const removed = await signIn(REMOVED_EMAIL);
-madeByPasskey(store, removed.row);
 
 const ADMIN_URL = "http://localhost:3000/admin/spielorte";
 
@@ -150,7 +149,7 @@ describe("where the proxy sends a mailed link's first request", () => {
 describe("where the proxy sends a request for the administrator's subtree carrying a session cookie", () => {
   /* Optimistic, as Next and the library document a proxy's check: the cookie alone, and no backend read.
      The grant is the admin guard's, which refuses a session holding none on the same request. */
-  it("lets a passkey session through whatever its grant, and leaves the grant to the admin guard", async ({ onTestFinished }) => {
+  it("lets a session through whatever its grant, and leaves the grant to the admin guard", async ({ onTestFinished }) => {
     const fetched = vi.spyOn(globalThis, "fetch").mockImplementation(() => Promise.reject(new TypeError("fetch failed")));
     onTestFinished(() => void fetched.mockRestore());
 
@@ -414,7 +413,7 @@ describe("where the proxy sends a request for the passkey step", () => {
      landing loads. */
   it("sends a session holding no step on to the landing before the page renders, the return address carried where the allowlist holds it", async () => {
     const landing = ROUTES.signInLanding.path();
-    // Made by a passkey, so no card is left to show it.
+    // Holding no grant, so no passkey step is owed.
     arriveAs(removed.cookie);
     assert.equal(await getPasskeyStep(), null, "the session holds a step, so the case proves nothing");
 

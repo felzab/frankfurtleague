@@ -565,7 +565,11 @@ describe("a session only read, against a real database", () => {
   });
 });
 
-/** One signed-in address with every row the store keeps of it: a session, a passkey, a live code, a failed guess, three mails' counts and a deletion token. */
+/**
+ * One signed-in address with every row the store keeps of it: a session, a live code, a failed guess, three mails'
+ * counts, a deletion token, and a passkey, which only an administrator's account holds and every deletion of an
+ * account takes with it.
+ */
 async function seedAccount(email: string): Promise<{ cookie: string; userId: string; pending: string[]; token: string }> {
   gateAnswer = { seats: [SEAT], barred: false, account: true };
   const cookie = await signIn(email);

@@ -42,10 +42,12 @@ def actor_headers(
     return session_headers(email, auth_time=int(time.time()) - signed_in_before_s, factor=factor or factor_of(lane))
 
 
-def verified_actor(email: str, *, signed_in_before_s: int = SESSION_AGE_S, factor: FLAuthFactor = PASSKEY_FACTOR) -> SessionActor:
-    """An administrator's session as the binder reads it, for a handler called without a request."""
+def verified_actor(
+    email: str, *, lane: Lane = "admin", signed_in_before_s: int = SESSION_AGE_S, factor: FLAuthFactor | None = None
+) -> SessionActor:
+    """A session as the binder reads it, for a handler called without a request, by `lane`'s factor unless `factor` names another."""
 
-    return SessionActor(email=email, auth_time=int(time.time()) - signed_in_before_s, factor=factor)
+    return SessionActor(email=email, auth_time=int(time.time()) - signed_in_before_s, factor=factor or factor_of(lane))
 
 
 class StampedHeaders(Mapping[str, str]):
