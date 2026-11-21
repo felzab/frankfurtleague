@@ -231,12 +231,12 @@ async def pull_slot_holders(
     if not claims:
         return []
 
-    # A cursor rather than `pull_many_from_db`: the list cap would truncate a busy ground's bookings in silence.
-    holders = await spiele_collection.find(
-        build_slot_holder_filter(claims),
-        {"saison_id": 1, "spiel_nr": 1, "date": 1, "time": 1, "spielort": 1, "schiedsrichter": 1},
+    holders = await pull_whole_from_db(
+        collection=spiele_collection,
+        db_filter=build_slot_holder_filter(claims),
+        projection={"saison_id": 1, "spiel_nr": 1, "date": 1, "time": 1, "spielort": 1, "schiedsrichter": 1},
         session=session,
-    ).to_list(length=None)
+    )
 
     # Validated, not read as raw dicts: the clash rule splits each holder's `time`.
     return FLSpielSlotHolderListAdapter.validate_python(holders)
@@ -285,7 +285,6 @@ async def pull_saison_membership(
     rows = await pull_whole_from_db(
         collection=saison_teams_collection,
         db_filter={"saison_id": saison_id},
-        what=f"season {saison_id}'s clubs",
         projection=MEMBERSHIP_FIELDS,
         session=session,
     )
@@ -469,9 +468,7 @@ async def advance_bracket_winners(
 
     # Whole: a dropped fixture reads as a dangling source, and the bracket written back would be resolved from a
     # season with a hole in it.
-    spiele_raw = await pull_whole_from_db(
-        collection=spiele_collection, db_filter={"saison_id": saison_id}, what=f"season {saison_id}'s fixtures", session=session
-    )
+    spiele_raw = await pull_whole_from_db(collection=spiele_collection, db_filter={"saison_id": saison_id}, session=session)
 
     spiele = FLSpielListAdapter.validate_python(spiele_raw)
 
@@ -675,9 +672,7 @@ async def _judge_spiel_save(
 
     # Whole: a dropped fixture leaves `find_wiring_refusal` reporting a live `spiel_nr` as no such match, and
     # `judge_spieltag_occupancy` blind to a release it owes.
-    season_raw = await pull_whole_from_db(
-        collection=collections.spiele, db_filter={"saison_id": saison_id}, what=f"season {saison_id}'s fixtures", session=session
-    )
+    season_raw = await pull_whole_from_db(collection=collections.spiele, db_filter={"saison_id": saison_id}, session=session)
 
     season = FLSpielListAdapter.validate_python(season_raw)
     stored = stored_in_slice(spiel_id, season)
@@ -775,7 +770,6 @@ async def preview_spiel_save(
     rows = await pull_whole_from_db(
         collection=spielbestaetigungen_collection,
         db_filter={"spiel_id": spiel_id, **build_holding_filter()},
-        what=f"fixture {spiel_id}'s held confirmations",
         projection=CLOSE_FIELDS,
         session=session,
     )
@@ -794,7 +788,6 @@ async def preview_spiel_save(
         await pull_whole_from_db(
             collection=collections.saison_teams,
             db_filter={"saison_id": judged.saison_id, "team_id": {"$in": told_teams}},
-            what=f"fixture {spiel_id}'s told clubs",
             projection=["team_id", "kontakte"],
             session=session,
         )

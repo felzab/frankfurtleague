@@ -257,7 +257,7 @@ async def write_the_team(
     # Read through the session, so a season closed by a concurrent write cannot leave the junction rewritten and its
     # fixtures not, or the reverse.
     open_saisons = await pull_whole_from_db(
-        collection=saisons_collection, db_filter={"status": {"$ne": "past"}}, what="the seasons not past", projection=["_id"], session=session
+        collection=saisons_collection, db_filter={"status": {"$ne": "past"}}, projection=["_id"], session=session
     )
     open_saison_ids = [row["_id"] for row in open_saisons]
     # A read alone joins no write set, and the rollover writes no club row, so without this a season closed under the
@@ -289,7 +289,6 @@ async def pull_tabelle(
         pull_whole_from_db(
             collection=spiele_collection,
             db_filter={"saison_id": saison_id, "saison_phase": "gruppenphase"},
-            what=f"season {saison_id}'s group fixtures",
         ),
     )
     spiele = FLSpielListAdapter.validate_python(spiele_raw)
@@ -320,7 +319,6 @@ async def pull_saison_team_names(*, saison_teams_collection: ReadCollection, sai
     rows = await pull_whole_from_db(
         collection=saison_teams_collection,
         db_filter={"saison_id": saison_id},
-        what=f"season {saison_id}'s clubs",
         projection=["team_id", "name"],
     )
 

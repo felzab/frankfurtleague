@@ -165,9 +165,7 @@ async def _league_counts(
 
     # By the rule every base-tier season read narrows on, so a planned season's clubs and fixtures count once it is read.
     # Whole: a season past the page would drop its clubs and matches from the figures in silence.
-    public = await pull_whole_from_db(
-        collection=saisons_collection, db_filter=base_tier_status_term(), what="the public seasons", projection=["status"]
-    )
+    public = await pull_whole_from_db(collection=saisons_collection, db_filter=base_tier_status_term(), projection=["status"])
     in_a_public_saison = {"saison_id": {"$in": [row["_id"] for row in public]}}
     counted_raw, schulen_raw = await concurrently(
         # The matches the Tabelle counts, every phase's: one group, so the goals and the matches stand on one basis.
@@ -338,7 +336,7 @@ async def _spielplan_of(
     db_filter = {"saison_id": saison_id, **phase_term}
     saison, spieltage_raw, spiele_raw = await concurrently(
         resolve_public_saison(saisons_collection=saisons_collection, saison_id=saison_id),
-        pull_whole_from_db(collection=spieltage_collection, db_filter=db_filter, what=f"season {saison_id}'s matchdays"),
+        pull_whole_from_db(collection=spieltage_collection, db_filter=db_filter),
         aggregate_many_from_db(collection=spiele_collection, pipeline=build_spiele_pipeline(db_filter=db_filter)),
     )
 

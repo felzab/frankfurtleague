@@ -183,7 +183,7 @@ async def get_saisons_admin(
     """
 
     # Oldest first: a season's id is its starting year.
-    saisons_raw = await pull_whole_from_db(collection=saisons_collection, db_filter={}, what="the seasons", sort_by=[("_id", 1)])
+    saisons_raw = await pull_whole_from_db(collection=saisons_collection, db_filter={}, sort_by=[("_id", 1)])
 
     saison_ids = [str(raw["_id"]) for raw in saisons_raw]
     finale_by_saison, teams_by_saison, spiele_by_saison = await concurrently(
@@ -243,7 +243,6 @@ async def get_saison_admin(
         pull_whole_from_db(
             collection=saison_teams_collection,
             db_filter={"saison_id": saison_id},
-            what=f"season {saison_id}'s clubs",
             projection=["team_id", "name", "shorthand", "gruppe", "austritt"],
             sort_by=[("name", 1)],
             collation=GERMAN_COLLATION,
@@ -252,7 +251,6 @@ async def get_saison_admin(
         pull_whole_from_db(
             collection=teams_collection,
             db_filter={"inactive_since": None},
-            what="the league's clubs",
             projection=["name", "shorthand"],
             sort_by=[("name", 1)],
             collation=GERMAN_COLLATION,
@@ -462,7 +460,9 @@ async def patch_saison(
         # stored, which a start moved later must not leave on a season reading as unstarted.
         occupancy: dict[Any, int] = {}
         austritt_stored = False
-        async for row in saison_teams_collection.find({"saison_id": saison_id}, {"gruppe": 1, "austritt": 1}, session=session):
+        for row in await pull_whole_from_db(
+            collection=saison_teams_collection, db_filter={"saison_id": saison_id}, projection={"gruppe": 1, "austritt": 1}, session=session
+        ):
             gruppe = row.get("gruppe")
             if gruppe is not None:
                 occupancy[gruppe] = occupancy.get(gruppe, 0) + 1
@@ -490,8 +490,11 @@ async def patch_saison(
         # would be reported as falling outside the season.
         spieltag_spans = [
             (str(row["start"]), str(row["end"]))
-            async for row in spieltage_collection.find(
-                {"saison_id": saison_id, "start": {"$ne": None}, "end": {"$ne": None}}, {"start": 1, "end": 1}, session=session
+            for row in await pull_whole_from_db(
+                collection=spieltage_collection,
+                db_filter={"saison_id": saison_id, "start": {"$ne": None}, "end": {"$ne": None}},
+                projection={"start": 1, "end": 1},
+                session=session,
             )
         ]
 
@@ -592,7 +595,6 @@ async def _judge_the_activation(
     outgoing = await pull_whole_from_db(
         collection=saisons_collection,
         db_filter={"status": "active", "_id": {"$ne": saison_id}},
-        what="the active seasons",
         projection={"_id": 1},
         session=session,
     )
@@ -636,7 +638,6 @@ async def _pull_recorded_fact_rows(
     return await pull_whole_from_db(
         collection=spiele_collection,
         db_filter={"saison_id": saison_id},
-        what=f"season {saison_id}'s fixtures",
         projection=[*RECORDED_FACT_FIELDS, *TAKEN_PLACE_FIELDS],
         session=session,
     )
@@ -764,7 +765,6 @@ async def swap_gruppen(
         rows = await pull_whole_from_db(
             collection=saison_teams_collection,
             db_filter={"saison_id": saison_id, "team_id": {"$in": both_ids}},
-            what=f"season {saison_id}'s two swapped clubs",
             projection=["team_id", "gruppe"],
             session=session,
         )
@@ -796,7 +796,6 @@ async def swap_gruppen(
                 "saison_phase": "gruppenphase",
                 "$or": [{"team1.team_id": {"$in": both_ids}}, {"team2.team_id": {"$in": both_ids}}],
             },
-            what=f"season {saison_id}'s group fixtures of the two swapped clubs",
             projection=["team1.team_id", "team2.team_id"],
             session=session,
         )
@@ -866,7 +865,6 @@ async def post_spielplan(
         entered_rows = await pull_whole_from_db(
             collection=saison_teams_collection,
             db_filter={"saison_id": saison_id},
-            what=f"season {saison_id}'s clubs",
             # `name` and `shorthand` off the junction: that is the name the season is played under,
             # and `teams` may since have been renamed.
             projection=["team_id", "gruppe", "name", "shorthand"],
@@ -1043,7 +1041,6 @@ async def _entered_teams(*, saison_teams_collection: ReadCollection, saison_id: 
     return await pull_whole_from_db(
         collection=saison_teams_collection,
         db_filter={"saison_id": saison_id},
-        what=f"season {saison_id}'s clubs",
         projection=["team_id", "name", "kontakte", "austritt"],
         sort_by=[("name", 1)],
         collation=GERMAN_COLLATION,

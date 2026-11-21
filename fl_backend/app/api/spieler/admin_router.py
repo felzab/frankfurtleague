@@ -129,7 +129,6 @@ async def get_spieler_saison(
         pull_whole_from_db(
             collection=saison_spieler_collection,
             db_filter=build_held_rollen_filter(saison_id=saison_id, team_id=team_id, excluding_spieler_id=spieler_id),
-            what=f"team {team_id}'s held roles in season {saison_id}",
             projection=["rolle"],
         ),
         # `find_one`: a club a replacement took out of the season holds no row, and this page still opens.

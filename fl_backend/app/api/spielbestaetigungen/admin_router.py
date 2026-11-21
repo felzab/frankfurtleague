@@ -163,7 +163,6 @@ async def discard_spielbestaetigung(
         junctions = await pull_whole_from_db(
             collection=saison_teams_collection,
             db_filter={"saison_id": row["saison_id"], "team_id": {"$in": [row["ansetzung"]["team1_id"], row["ansetzung"]["team2_id"]]}},
-            what=f"fixture {row['spiel_id']}'s two clubs",
             # With what the notice reads too: the seats are the mailboxes told, and the name the one stated.
             projection={**JUDGED_JUNCTION_FIELDS, "_id": 1, "name": 1, "kontakte": 1},
             session=session,

@@ -280,7 +280,6 @@ async def get_teams_admin(
         pull_whole_from_db(
             collection=saison_teams_collection,
             db_filter={"saison_id": filters.saison_id},
-            what=f"season {filters.saison_id}'s clubs",
             projection=["team_id", "name", "shorthand", "gruppe", "trikot_farbe", "austritt.type"],
             sort_by=[("name", 1)],
             collation=GERMAN_COLLATION,
@@ -288,7 +287,6 @@ async def get_teams_admin(
         pull_whole_from_db(
             collection=teams_collection,
             db_filter={},
-            what="the league's clubs",
             projection=["name", "shorthand", "inactive_since"],
             sort_by=[("name", 1)],
             collation=GERMAN_COLLATION,
@@ -349,13 +347,10 @@ async def get_team_saison_admin(
         pull_whole_from_db(
             collection=saison_teams_collection,
             db_filter={"saison_id": saison_id},
-            what=f"season {saison_id}'s clubs",
             # The seats, exits and names too, which judge and name whom an exit would mail.
             projection=["team_id", "gruppe", "trikot_farbe", "name", "kontakte", "austritt"],
         ),
-        pull_whole_from_db(
-            collection=saisons_collection, db_filter={"_id": {"$in": held_saison_ids}}, what=f"team {team_id}'s seasons", projection=["status"]
-        ),
+        pull_whole_from_db(collection=saisons_collection, db_filter={"_id": {"$in": held_saison_ids}}, projection=["status"]),
         spiele_collection.count_documents(build_team_spiele_filter(saison_id=saison_id, team_id=team_id)),
         # A list read where the answer is one row: a team legitimately holds no live invitation, and
         # `pull_one_from_db` would make that absence a 404.
@@ -481,7 +476,6 @@ async def delete_team(
         junction_rows = await pull_whole_from_db(
             collection=saison_teams_collection,
             db_filter={"team_id": team_id},
-            what=f"team {team_id}'s season rows",
             projection=["saison_id"],
             session=session,
         )
@@ -489,7 +483,6 @@ async def delete_team(
         saison_rows = await pull_whole_from_db(
             collection=saisons_collection,
             db_filter={"_id": {"$in": saison_ids}},
-            what=f"team {team_id}'s seasons",
             projection=["status"],
             session=session,
         )
@@ -812,7 +805,6 @@ async def replace_saison_team(
         incoming_rows = await pull_whole_from_db(
             collection=saison_teams_collection,
             db_filter={"saison_id": saison_id, "team_id": replacement_data.incoming_team_id},
-            what=f"the incoming club's rows in season {saison_id}",
             projection=["_id"],
             session=session,
         )
@@ -830,7 +822,6 @@ async def replace_saison_team(
         spiele = await pull_whole_from_db(
             collection=spiele_collection,
             db_filter={"saison_id": saison_id, "$or": [{"team1.team_id": team_id}, {"team2.team_id": team_id}]},
-            what=f"team {team_id}'s fixtures in season {saison_id}",
             projection=["team1.team_id", "team2.team_id"],
             session=session,
         )

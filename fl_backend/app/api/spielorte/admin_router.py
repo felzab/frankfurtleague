@@ -46,7 +46,6 @@ async def get_spielorte(spielorte_collection: SpielorteReadCollection) -> FLSpie
     spielorte_raw = await pull_whole_from_db(
         collection=spielorte_collection,
         db_filter={},
-        what="the venues",
         sort_by=[("name", 1)],
         collation=GERMAN_COLLATION,
     )
@@ -158,7 +157,6 @@ async def delete_spielort(
         booked = await pull_whole_from_db(
             collection=spiele_collection,
             db_filter={"spielort.spielort_id": spielort_id, **unplayed_filter()},
-            what=f"venue {spielort_id}'s unplayed fixtures",
             projection={"spiel_nr": 1},
             session=session,
         )

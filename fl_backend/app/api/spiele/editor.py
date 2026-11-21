@@ -217,7 +217,6 @@ async def _junctions_of(
     return await pull_whole_from_db(
         collection=saison_teams_collection,
         db_filter={"saison_id": saison_id, "team_id": {"$in": list(team_ids)}},
-        what=f"season {saison_id}'s clubs the confirmations name",
         projection=JUDGED_JUNCTION_FIELDS,
     )
 
@@ -258,7 +257,6 @@ async def _proposals_of(
         pull_whole_from_db(
             collection=saison_teams_collection,
             db_filter={"saison_id": saison_id, "team_id": {"$in": team_ids}},
-            what=f"fixture {spiel_id}'s clubs' seats",
             projection=["team_id", "kontakte"],
         ),
     )
@@ -318,11 +316,10 @@ async def _teams_of(
 
     # Whole, as the save reads its season and its clubs.
     season_raw, rows = await concurrently(
-        pull_whole_from_db(collection=spiele_collection, db_filter={"saison_id": spiel.saison_id}, what=f"season {spiel.saison_id}'s fixtures"),
+        pull_whole_from_db(collection=spiele_collection, db_filter={"saison_id": spiel.saison_id}),
         pull_whole_from_db(
             collection=saison_teams_collection,
             db_filter={"saison_id": spiel.saison_id},
-            what=f"season {spiel.saison_id}'s clubs",
             sort_by=[("name", 1)],
             projection=[*MEMBERSHIP_FIELDS, "shorthand"],
             collation=GERMAN_COLLATION,
@@ -371,7 +368,6 @@ async def _spielbericht_of(
         else await pull_whole_from_db(
             collection=spieler_collection,
             db_filter={"_id": {"$in": scorers}},
-            what="the pupils a report's goals name",
             projection=["first_name", "last_name"],
         )
     )
@@ -406,7 +402,6 @@ async def _aufstellungen_of(
     stored_raw = await pull_whole_from_db(
         collection=aufstellungen_collection,
         db_filter={"spiel_id": spiel.id, "team_id": {"$in": list(fielded.values())}},
-        what=f"fixture {spiel.id}'s line-ups",
         projection=["team_id", "spieler.starts"],
     )
     stored_by_team: dict[Any, Mapping[str, Any]] = {row["team_id"]: row for row in stored_raw}

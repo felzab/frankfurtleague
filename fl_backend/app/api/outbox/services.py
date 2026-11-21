@@ -24,7 +24,7 @@ from app.api.outbox.schemas import (
     FLOutboxRowState,
     FLOutboxTeam,
 )
-from app.core.crud import patch_many_in_db, post_many_to_db
+from app.core.crud import patch_many_in_db, post_many_to_db, pull_whole_from_db
 from app.shared.folding import sign_in_identifier
 
 # The rows one claim hands out.
@@ -131,8 +131,8 @@ async def enqueue_mails(
 
     # A first run committed before this snapshot is found; one committed after it makes the insert a write conflict the
     # caller's `transact` retries, which then finds it.
-    stored = await outbox_collection.find({"key": {"$in": [mail.key for mail in mails]}}, {"key": 1, "_id": 0}, session=session).to_list(
-        length=None
+    stored = await pull_whole_from_db(
+        collection=outbox_collection, db_filter={"key": {"$in": [mail.key for mail in mails]}}, projection={"key": 1, "_id": 0}, session=session
     )
     owed = {row["key"] for row in stored}
     new = [mail for mail in mails if mail.key not in owed]

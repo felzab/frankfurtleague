@@ -87,7 +87,6 @@ async def get_schiedsrichter(
     schiedsrichter_raw = await pull_whole_from_db(
         collection=schiedsrichter_collection,
         db_filter={},
-        what="the referees",
         projection=dict(ADMIN_ROW_FIELDS),
         sort_by=[("name", 1)],
         collation=GERMAN_COLLATION,
@@ -282,7 +281,6 @@ async def delete_schiedsrichter(
         assigned = await pull_whole_from_db(
             collection=spiele_collection,
             db_filter=build_unplayed_assignment_filter(schiedsrichter_id),
-            what=f"referee {schiedsrichter_id}'s unplayed fixtures",
             projection={"spiel_nr": 1},
             session=session,
         )

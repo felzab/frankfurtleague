@@ -24,7 +24,6 @@ async def read_ban_list(*, ban_list_collection: ReadCollection) -> list[Mapping[
     return await pull_whole_from_db(
         collection=ban_list_collection,
         db_filter={},
-        what="the ban list",
         sort_by=[("created_at", DESCENDING), ("_id", DESCENDING)],
         projection=dict(SERVED_FIELDS),
     )
