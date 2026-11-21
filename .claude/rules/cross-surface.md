@@ -17,9 +17,11 @@ Each fails silently. The ratified decisions for the seams are in `docs/decisions
   the docstrings of `fl_frontend/src/core/serverCopy.ts :: SERVER_COPY`'s `refusal`, `refusalLine`
   and `ruleLine` place them. A refusal the catalogue does not word reads the stale-page line on
   every screen (`fl_frontend/src/core/action.ts :: refused`), naming no reason, and on a save sends
-  the person to read the page again and meet the same refusal; a code that refuses nothing the
-  request asked joins `fl_frontend/src/core/action.ts :: NOT_A_REFUSAL` instead, which reads the
-  shared failure line.
+  the person to read the page again and meet the same refusal. A code for a credential the request
+  lacked, a route or a method the API does not serve, the store or the server failing, or a write
+  whose outcome is unknown refuses nothing the request asked, so it joins
+  `fl_frontend/src/core/action.ts :: NOT_A_REFUSAL` instead, which reads the shared failure line. A
+  code saying the request's end already holds is a refusal, worded in the catalogue.
 - A bound the backend moves without naming it in the rule's context or the refusal's bounds
   (`fl_backend/app/core/exceptions.py :: APIError`) leaves a frontend line stale in silence.
 - `fl_backend/openapi.json` lists every code once and names none per endpoint, so which codes an
