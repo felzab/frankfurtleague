@@ -89,8 +89,6 @@ export const ADMIN_COPY = catalogue({
    * the match editor's line says the same lock above them.
    */
   untilStart: `Gesperrt ${LOCK.untilStart}`,
-  /** Why a finished season's player editor offers no removal or return of the squad row, in the lock line's own words. */
-  sinceEnd: `Gesperrt ${LOCK.sinceEnd}`,
   /** „2 von 3“, a figure under its column's or its fact's name, where `SERVER_COPY.overview.seatsConfirmed` is a whole line. */
   seatsOf: (confirmed: number, seats: number) => `${formatNumber(confirmed)} von ${formatNumber(seats)}`,
   /** A seat's or a link's chip where its last mail met trouble. */
@@ -314,7 +312,7 @@ export const ADMIN_COPY = catalogue({
     /** The state filter's default, the season's clubs, where its option „Stillgelegt“ reads past them to every retired club. */
     ofSaison: "Alle Teams der Saison",
     gruppeFull: "Voll",
-    /** „Team eintragen“'s reason while locked, and „Annehmen“'s in a running season: either enters a club. */
+    /** „Team eintragen“'s reason while locked, and „Annehmen“'s in a running or finished season: either enters a club. */
     onlyPlanned: "Nur in einer geplanten Saison",
     enterDescription: "Ein bekanntes Team oder eine neue Schule",
     inSaison: (saison: string) => `In der ${saisonNameBound(saison)}`,
