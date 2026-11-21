@@ -440,14 +440,16 @@ export const SERVER_COPY = catalogue({
         others: "Die anderen Kontaktpersonen bestätigen selbst. Sag ihnen Bescheid.",
         pending: "Noch offen",
       },
-      /** A seat's link mail, and the fresh link „Sitz bearbeiten“ mails: each seat holds its own days, so it says one day alone. */
+      /**
+       * A seat's link mail, and the fresh link „Sitz bearbeiten“ mails: each seat holds its own days, so it says one day
+       * alone. It opens on its page's opening, `kontaktConfirmation.opening.named`, as every confirmation mail does.
+       */
       link: {
-        subject: (saison: string) => `Eintrag für die ${COPY.shared.saisonName(saison)} bestätigen`,
-        named: "Eine Bewerbung nennt dich als Kontaktperson.",
+        subject: (saison: string) => `${COPY.page.entryConfirmation}: ${COPY.shared.saisonName(saison)}`,
       },
       reminder: {
-        subject: (saison: string) => `Erinnerung: Eintrag für die ${COPY.shared.saisonName(saison)} bestätigen`,
-        missing: "Deine Antwort zur Bewerbung fehlt noch.",
+        subject: (saison: string) => `Erinnerung: Eintrag für die ${COPY.shared.saisonName(saison)}`,
+        missing: "Deine Antwort fehlt noch.",
       },
       zusage: {
         subject: (saison: string) => `Zusage für die ${COPY.shared.saisonName(saison)}`,
@@ -486,7 +488,7 @@ export const SERVER_COPY = catalogue({
 
     /** A seat on a team's season: its sentences are the confirmation page's, `kontaktConfirmation`. */
     kontakt: {
-      subject: (team: string) => `Eintrag bestätigen: ${team}`,
+      subject: (team: string) => `${COPY.page.entryConfirmation}: ${team}`,
       /** A closed row's subject and button, which have nothing to confirm. */
       closedSubject: (team: string) => `Dein Eintrag für ${team}`,
       toEntry: "Zum Eintrag",
@@ -1280,7 +1282,7 @@ export const SERVER_COPY = catalogue({
    * `CONSENT_WORDINGS`'; nobody accepts the notice, which informs and asks no consent.
    */
   kontaktConfirmation: {
-    /** The person's own entry: the title of a closed row's page, which confirms nothing, and of a seat's own facts in an application's mail. */
+    /** The person's own entry: the title of a closed row's page, which confirms nothing. */
     ownEntry: "Dein Eintrag",
     opening: {
       /**

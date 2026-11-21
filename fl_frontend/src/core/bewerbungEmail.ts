@@ -84,30 +84,27 @@ export function buildBewerbungAbsageEmail({ team, saison_id, seats, reason }: FL
   };
 }
 
+/** The confirmation page's own opening, naming the season and every seat the reader holds in the application. */
+const openingOf = (saison: string, seats: FLBewerbungLinkData["seats"]) =>
+  SERVER_COPY.kontaktConfirmation.opening.named(saison, { record: seatsText(seats) });
+
 /** What one person is asked to confirm: every seat they hold, answered through the one link. */
 export function buildBewerbungConfirmationEmail({ saison_id, seats, deadline }: FLBewerbungLinkData, { origin, token }: MailLink): Mail {
   return {
     audience: "firstContact",
     subjectLine: WORDS.link.subject(saison_id),
     origin,
-    paragraphs: [[WORDS.link.named, WORDS.confirmOrOppose], [deadlineSentence(deadline)]],
-    block: {
-      title: SERVER_COPY.kontaktConfirmation.ownEntry,
-      facts: [
-        { label: COPY.shared.saison, value: COPY.shared.saisonName(saison_id) },
-        { label: WORDS.registeredAs, value: seatsText(seats) },
-      ],
-    },
+    paragraphs: [[openingOf(saison_id, seats), WORDS.confirmOrOppose], [deadlineSentence(deadline)]],
     button: { label: COPY.page.entryConfirmation, href: mailedLinkTo(origin, ROUTES.kontaktConfirmation, token) },
   };
 }
 
-export function buildBewerbungReminderEmail({ saison_id, deadline }: FLBewerbungLinkData, { origin, token }: MailLink): Mail {
+export function buildBewerbungReminderEmail({ saison_id, seats, deadline }: FLBewerbungLinkData, { origin, token }: MailLink): Mail {
   return {
     audience: "firstContact",
     subjectLine: WORDS.reminder.subject(saison_id),
     origin,
-    paragraphs: [[WORDS.reminder.missing, WORDS.confirmOrOppose], [deadlineSentence(deadline)]],
+    paragraphs: [[openingOf(saison_id, seats), WORDS.reminder.missing, WORDS.confirmOrOppose], [deadlineSentence(deadline)]],
     // A fresh link, minted beside the first one rather than in place of it: a reminder that voided
     // the link somebody is still looking at would punish the reader it is chasing.
     button: { label: COPY.page.entryConfirmation, href: mailedLinkTo(origin, ROUTES.kontaktConfirmation, token) },
