@@ -5221,12 +5221,6 @@ export interface FLTabelleRow {
   statistik: FLTeamStatistik;
 }
 
-/**
- * Every group the season offers in standing order, the clubs that have played no match last.
- *
- * Each club that has played and stood in the season on the day its group was decided is numbered as a `Platz` is, and
- * clubs the chain leaves level share one.
- */
 export type FLTabelle = Partial<Record<FLGruppenNames, FLTabelleRow[]>>;
 
 /**

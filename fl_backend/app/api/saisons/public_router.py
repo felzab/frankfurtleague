@@ -488,7 +488,7 @@ async def get_team(
         teams_collection=teams_collection, spiele_collection=spiele_collection, saison_id=saison.id, rules=saison.rules
     )
 
-    standing = next((row for rows in tabelle.root.values() for row in rows if row.id == team_id), None)
+    standing = next((row for rows in tabelle.values() for row in rows if row.id == team_id), None)
 
     return FLTeamPageResponse.model_validate(
         {
@@ -539,7 +539,7 @@ async def get_spiel(
             teams_collection=teams_collection, spiele_collection=spiele_collection, saison_id=saison.id, rules=saison.rules
         )
         placed: dict[Any, FLSpielSideStanding] = {
-            row.id: FLSpielSideStanding(gruppe=gruppe, platz=row.platz) for gruppe, rows in tabelle.root.items() for row in rows
+            row.id: FLSpielSideStanding(gruppe=gruppe, platz=row.platz) for gruppe, rows in tabelle.items() for row in rows
         }
         standings = FLSpielSideStandings(**{side: placed.get(team_id_of(spiel_raw, side)) for side in SIDES})
 

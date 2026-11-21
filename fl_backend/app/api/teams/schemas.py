@@ -5,7 +5,6 @@ from pydantic import (
     AfterValidator,
     BaseModel,
     Field,
-    RootModel,
     StringConstraints,
     TypeAdapter,
 )
@@ -322,12 +321,10 @@ class FLTabelleRow(FLGruppenTeam):
     platz: int | None = Field(gt=0)
 
 
-class FLTabelle(RootModel[Mapping[FLGruppenNames, list[FLTabelleRow]]]):
-    """Every group the season offers in standing order, the clubs that have played no match last.
-
-    Each club that has played and stood in the season on the day its group was decided is numbered as a `Platz` is, and
-    clubs the chain leaves level share one.
-    """
+# Every group the season offers in standing order, the clubs that have played no match last. Each club that has played
+# and stood in the season on the day its group was decided is numbered as a `Platz` is, and clubs the chain leaves level
+# share one.
+type FLTabelle = Mapping[FLGruppenNames, list[FLTabelleRow]]
 
 
 class FLTabelleResponse(BaseReadModel):

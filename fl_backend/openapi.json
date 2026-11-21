@@ -14892,11 +14892,9 @@
           },
           "type": "array"
         },
-        "description": "Every group the season offers in standing order, the clubs that have played no match last.\n\nEach club that has played and stood in the season on the day its group was decided is numbered as a `Platz` is, and\nclubs the chain leaves level share one.",
         "propertyNames": {
           "$ref": "#/components/schemas/FLGruppenNames"
         },
-        "title": "FLTabelle",
         "type": "object"
       },
       "FLTabelleResponse": {
