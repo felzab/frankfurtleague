@@ -44,11 +44,8 @@ export type AccountAct = {
    * action's reference alone.
    */
   carry?: Readonly<Record<string, string>>;
-  /**
-   * The toast's title once it is done, where its answer brings no note: none for an act whose box shows what it
-   * changed, such as a passkey set up, which then raises a toast only for a note.
-   */
-  done?: Copy;
+  /** The toast's title once it is done, where its answer brings no note. */
+  done: Copy;
   /** Why the act cannot run on the box's present state, the button saying why. */
   locked?: Copy;
 } & (
@@ -76,21 +73,18 @@ function carried({ run, carry }: Pick<AccountAct, "run" | "carry">): Run {
   };
 }
 
-/**
- * The act the box's own press runs, a done one saying itself in a toast: the note its answer brings, or the act's
- * `done`, and nothing where neither stands, the box's own content saying what changed.
- */
+/** The act the box's own press runs, a done one saying itself in a toast: the note its answer brings, or the act's `done`. */
 function runOf(act: Pick<AccountAct, "run" | "carry" | "done">): Run {
   const run = carried(act);
   return async (formData) => {
     const answered = await run(formData);
-    const title = answered.ok ? (answered.note ?? act.done) : undefined;
-    if (title !== undefined) toastAnswer(answered, title);
+    // A refusal stands in the box's line.
+    if (answered.ok) toastAnswer(answered, act.done);
     return answered;
   };
 }
 
-/** The box's own press, its line a refusal's alone: a done act says itself in its toast, if anywhere. */
+/** The box's own press, its line a refusal's alone: a done act says itself in its toast. */
 function useAct(act: AccountAct) {
   const touched = usePasskeyTouch(act.touch === true, act.carry?.holder);
   const { answer, submit, block, isBlocked, isPending } = useFormAction(touched(runOf(act)), { resetOnLeave: true });
@@ -110,9 +104,8 @@ const box = tv({
  * status line and its one act. A box whose act asks a danger's question takes the danger edge and title an editor's
  * danger box takes. A box holding nothing this page acts on, an address change an administrator started, which the old
  * address's stop link ends, has no footer. A refusal stands in the footer's line with the input kept, a field's message
- * under its field, and is cleared once the page is left; a done act leaves the line empty and says itself in a toast
- * where its answer notes more than the box shows or the act names its word (`done`), the line taking no row a phone's
- * page would move by. An act asking a question first answers a refusal in the question, which stays open with it, as
+ * under its field, and is cleared once the page is left; a done act leaves the line empty and says itself in a toast,
+ * its answer's note or the act's word (`done`), the line taking no row a phone's page would move by. An act asking a question first answers a refusal in the question, which stays open with it, as
  * every question does.
  */
 export function AccountBox(props: { title: Words; description: Copy; act: AccountAct | undefined; children?: ReactNode }) {

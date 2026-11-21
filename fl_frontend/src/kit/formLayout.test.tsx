@@ -93,7 +93,7 @@ const CONTAINERS: Readonly<Record<string, ReadonlyArray<readonly [string, () => 
           <AccountBox
             title={COPY.shared.help}
             description={COPY.shared.help}
-            act={{ run: noAnswer, button: { label: COPY.shared.verb.save } }}>
+            act={{ run: noAnswer, button: { label: COPY.shared.verb.save }, done: COPY.shared.toast.done.save }}>
             {twoFields()}
           </AccountBox>,
         ),

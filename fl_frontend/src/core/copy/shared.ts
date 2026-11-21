@@ -221,6 +221,7 @@ export const COPY = catalogue({
         accept: "Angenommen",
         set: "Gesetzt",
         rename: "Umbenannt",
+        setUp: "Eingerichtet",
         signOut: "Abgemeldet",
         oppose: OBJECTED,
       } satisfies Partial<Record<Verb, string>>,
