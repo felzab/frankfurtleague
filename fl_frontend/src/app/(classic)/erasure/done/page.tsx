@@ -4,7 +4,8 @@ import { TO_HOME } from "@/kit/mailedLinkState";
 import { ClassicStatusPage } from "@/kit/StatusCard";
 import { pageMetadata } from "@/shared/utils/metadata";
 
-export const metadata = pageMetadata(ROUTES.accountErased);
+// Titled by the card it draws, so the tab names the end the page shows rather than the act that led there.
+export const metadata = pageMetadata(ROUTES.accountErased, { title: SERVER_COPY.accountErasure.done });
 
 /**
  * `/erasure/done`, the deletion's done state: the page the deletion's action leads to once the account and its
