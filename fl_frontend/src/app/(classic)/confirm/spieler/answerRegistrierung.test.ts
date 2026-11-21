@@ -20,8 +20,17 @@ const TOKEN = "not-a-real-token";
 /** Where a press led, Next's redirect thrown past the action naming the done page. */
 const ledTo = async (press: Promise<unknown>) => (await thrownRedirect(press)).address;
 
+/** The confirmation's press, with the labels the page carries beside its boxes. */
 const confirmation = (media?: "on") =>
-  posted({ act: "primary", token: TOKEN, birth_date: "2008-03-14", scope: "internal", ...(media === undefined ? {} : { media }) });
+  posted({
+    act: "primary",
+    token: TOKEN,
+    birth_date: "2008-03-14",
+    scope: "internal",
+    "text_versions.scope": SPIELER_TEXT_VERSIONS.scope,
+    "text_versions.media": SPIELER_TEXT_VERSIONS.media,
+    ...(media === undefined ? {} : { media }),
+  });
 
 describe("the pupil's answer", () => {
   // The harm: an answer the page refuses before it is sent, or a ticked media consent stored as refused, or an unticked

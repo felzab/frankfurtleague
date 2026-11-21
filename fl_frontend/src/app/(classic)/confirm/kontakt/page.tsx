@@ -3,7 +3,7 @@ import { cache } from "react";
 import { requires } from "@/core/action";
 import { MEDIA_MIN_AGE } from "@/core/bounds";
 import { now } from "@/core/clock";
-import { SEAT_WORDINGS } from "@/core/consentWordings";
+import { SEAT_TEXT_VERSIONS, SEAT_WORDINGS } from "@/core/consentWordings";
 import { seatsText } from "@/core/copy";
 import { COPY } from "@/core/copy/shared";
 import { bornAfter, bornBy } from "@/core/dayArithmetic";
@@ -116,7 +116,8 @@ function question(view: FLBewerbungEinwilligungViewValid, token: string, until: 
       primary: COPY.page.entryConfirmation,
       refusal: objection(onSeasonRow ? WORDS.objectionEffect.seasonRow : WORDS.objectionEffect.application),
     },
-    carry: { token },
+    // The labels of the wordings the page draws, so a press after a rewording is refused rather than stamped.
+    carry: { token, "text_versions.scope": SEAT_TEXT_VERSIONS.scope, "text_versions.media": SEAT_TEXT_VERSIONS.media },
     children: (
       <ConfirmationFields
         consent={{ name: "whatsapp", wording: SEAT_WORDINGS.scope }}

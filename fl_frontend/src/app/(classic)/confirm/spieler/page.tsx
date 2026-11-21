@@ -3,7 +3,7 @@ import { cache } from "react";
 import { requires } from "@/core/action";
 import { MEDIA_MIN_AGE } from "@/core/bounds";
 import { now } from "@/core/clock";
-import { SPIELER_WORDINGS } from "@/core/consentWordings";
+import { SPIELER_TEXT_VERSIONS, SPIELER_WORDINGS } from "@/core/consentWordings";
 import { COPY } from "@/core/copy/shared";
 import { bornAfter, bornBy } from "@/core/dayArithmetic";
 import { dayIn, dayOf } from "@/core/format";
@@ -69,7 +69,8 @@ function question(view: FLRegistrierungConfirmationViewValid, token: string): Ma
     sentenceAfter: WORDS.deadline(until),
     run: answerRegistrierung,
     acts: { primary: COPY.page.registrierungConfirmation },
-    carry: { token },
+    // The labels of the wordings the page draws, so a press after a rewording is refused rather than stamped.
+    carry: { token, "text_versions.scope": SPIELER_TEXT_VERSIONS.scope, "text_versions.media": SPIELER_TEXT_VERSIONS.media },
     children: (
       <ConfirmationFields
         consent={{ name: "scope", wording: SPIELER_WORDINGS.scope, isRequired: REQUIRED.scope }}

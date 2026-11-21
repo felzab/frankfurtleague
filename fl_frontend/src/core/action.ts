@@ -324,6 +324,17 @@ function fieldOf(path: readonly PropertyKey[]): Box | undefined {
  */
 const BUILT_INTO_THE_PAGE: ReadonlySet<PropertyKey> = new Set(["text_versions"]);
 
+/**
+ * A posted form with the labels its page drew with, which it carries unseen under `text_versions.scope` and
+ * `text_versions.media`, nested as a consent's write names them: a label missing or no longer current then fails the
+ * parse on `text_versions`, which answers as a stale page before anything is sent.
+ */
+export const withPostedLabels = (raw: unknown): unknown => {
+  if (typeof raw !== "object" || raw === null) return raw;
+  const form = raw as Readonly<Record<string, unknown>>;
+  return { ...form, text_versions: { scope: form["text_versions.scope"], media: form["text_versions.media"] } };
+};
+
 /** A declared box as the one a refusal lands on: each `*` takes the row the refused path names at its place. */
 function inRows(box: string, rows: readonly number[]): string | undefined {
   const left = [...rows];

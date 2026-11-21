@@ -4,8 +4,7 @@ import { redirect } from "next/navigation";
 
 import { z } from "zod";
 
-import { action, ticked } from "@/core/action";
-import { SEAT_TEXT_VERSIONS } from "@/core/consentWordings";
+import { action, ticked, withPostedLabels } from "@/core/action";
 import { refusedAs } from "@/core/errors";
 import { bewerbungenPostConfirmation } from "@/core/generated/client/sdk";
 import { BewerbungenPostConfirmationBody } from "@/core/generated/zod/inputs";
@@ -21,19 +20,24 @@ import type { EntryAnswer } from "../ends";
 const [given, declined] = BewerbungenPostConfirmationBody.options;
 
 /**
- * What the two acts post, the one-shot form's `act` naming the one pressed: the main act the answer's fields, the
- * objection the token alone, whatever the fields hold, as an objection hands nothing over.
+ * What the two acts post, the one-shot form's `act` naming the one pressed: the main act the answer's fields and the
+ * labels of the wordings the page showed, the objection the token alone, whatever the fields hold, as an objection
+ * hands nothing over.
  */
-const Answer = z.discriminatedUnion("act", [
-  z.object({
-    act: z.literal("primary"),
-    token: given.shape.token,
-    birth_date: given.shape.birth_date,
-    whatsapp: ticked,
-    media: ticked,
-  }),
-  z.object({ act: z.literal("secondary"), token: declined.shape.token }),
-]);
+const Answer = z.preprocess(
+  withPostedLabels,
+  z.discriminatedUnion("act", [
+    z.object({
+      act: z.literal("primary"),
+      token: given.shape.token,
+      birth_date: given.shape.birth_date,
+      whatsapp: ticked,
+      media: ticked,
+      text_versions: given.shape.text_versions,
+    }),
+    z.object({ act: z.literal("secondary"), token: declined.shape.token }),
+  ]),
+);
 
 /** The refusals that say the link holds no more since the page opened: lapsed or mistyped. */
 const SPENT: ReadonlySet<Code> = new Set<Code>(["link_invalid", "link_expired"]);
@@ -56,7 +60,7 @@ async function ended(answer: Parameters<typeof bewerbungenPostConfirmation>[0], 
 
 /**
  * A contact person's answer through their link: the main act confirms the seat with the birthdate and the two consents,
- * under the wordings the page showed; the refusal objects, emptying the seat.
+ * under the labels of the wordings the page showed, which it posts; the refusal objects, emptying the seat.
  */
 export const answerKontakt = action({
   lane: "public",
@@ -68,8 +72,8 @@ export const answerKontakt = action({
   boxes: ["birth_date"],
   run: async (answer) => {
     if (answer.act === "secondary") return ended({ answer: "declined", token: answer.token }, "objected");
-    const { token, birth_date: birthDate, whatsapp, media } = answer;
-    return ended({ answer: "given", token, birth_date: birthDate, whatsapp, media, text_versions: SEAT_TEXT_VERSIONS }, "confirmed");
+    const { token, birth_date: birthDate, whatsapp, media, text_versions } = answer;
+    return ended({ answer: "given", token, birth_date: birthDate, whatsapp, media, text_versions }, "confirmed");
   },
 });
 
