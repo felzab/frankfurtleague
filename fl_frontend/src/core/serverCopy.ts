@@ -1,11 +1,11 @@
 import "server-only";
 
 import { KONTAKT_EMAIL, VEREIN_ADDRESS, VEREIN_NAME, VEREINSREGISTER, VORSTAND_JOINTLY } from "./brand";
-import { boundBy, catalogue, runsText, seatsText, textOf, waitWords } from "./copy";
+import { boundBy, catalogue, runsText, seatsText, spieleNamed, textOf, waitWords } from "./copy";
 import { ACCOUNT_COPY } from "./copy/account";
 import { ADMIN_COPY } from "./copy/admin";
 import { COPY } from "./copy/shared";
-import { formatDate, formatDateLong, formatDayAndTime, formatInstant, formatList, formatNumber, formatOrdinal, formatSigned } from "./format";
+import { formatDate, formatDateLong, formatDayAndTime, formatInstant, formatNumber, formatOrdinal, formatSigned } from "./format";
 
 import type { Copy, TextLink, Wait, Words } from "./copy";
 import type { CalendarDay, TimeOfDay } from "./format";
@@ -36,7 +36,6 @@ const SPIELE_SHORT = "Sp.";
 const SPIELBETRIEB = "Spielbetrieb";
 const gruppeName = COPY.shared.season.gruppe;
 const placeName = (platz: number) => `${formatOrdinal(platz)} ${PLATZ}`;
-const spieleNamed = (nrs: readonly number[]) => `Spiel ${formatList(nrs.map(formatNumber))}`;
 
 // A fixture's ground or referee booked at its time elsewhere, and a side out of the season: the save keys each by the
 // path it names, the adoption, which names none, by a code of its own per resource and side.

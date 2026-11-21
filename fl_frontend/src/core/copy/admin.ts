@@ -17,6 +17,7 @@ import {
   saisonNameBound,
   SCHIEDSRICHTER,
   searchLabel,
+  spieleNamed,
   SPIELER,
   textOf,
   waitWords,
@@ -245,13 +246,13 @@ export const ADMIN_COPY = catalogue({
 
   spiel: {
     /** The editor of a match whose two teams are not both known yet, named by its number. */
-    number: (nr: number) => `Spiel ${formatNumber(nr)}`,
+    number: (nr: number) => spieleNamed([nr]),
     ansetzung: "Ansetzung",
     note: "Notiz",
     nichtantretenTeam1: "Nichtantreten Team 1",
     nichtantretenTeam2: "Nichtantreten Team 2",
     /** Where the write moved other matches too, by their numbers. */
-    alsoChanged: (spiele: readonly number[]) => `Auch Spiel ${formatList(spiele.map(formatNumber))} geändert`,
+    alsoChanged: (spiele: readonly number[]) => `Auch ${spieleNamed(spiele)} geändert`,
 
     begegnung: "Begegnung",
     /** Until a matchday is dated, what is still to settle. */
@@ -271,8 +272,8 @@ export const ADMIN_COPY = catalogue({
     /** A save voiding later matches' results, which it asks before. */
     voids: (spiele: readonly number[]) =>
       spiele.length === 1
-        ? `Das Ergebnis von Spiel ${formatNumber(spiele[0] ?? 0)} wird gelöscht.`
-        : `Die Ergebnisse von Spiel ${formatList(spiele.map(formatNumber))} werden gelöscht.`,
+        ? `Das Ergebnis von ${spieleNamed(spiele)} wird gelöscht.`
+        : `Die Ergebnisse von ${spieleNamed(spiele)} werden gelöscht.`,
   },
 
   bewerbung: {
