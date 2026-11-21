@@ -34,7 +34,9 @@ export type Fact = {
 const facts = tv({
   slots: {
     list: "",
-    row: "grid gap-0.5",
+    // `content-start`: a pair beside one whose value wraps is stretched to its height, and would spread its label and
+    // value apart down the cell, so the two lines stay together at its top, level with the neighbour's.
+    row: "grid content-start gap-0.5",
     term: "flex items-center gap-1.5 text-xs text-fg-muted",
     detail: "font-medium wrap-anywhere",
   },
