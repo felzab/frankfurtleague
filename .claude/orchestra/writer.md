@@ -81,23 +81,23 @@ question's options as pictures, holds you to these rules.
   pointer cursor on every interactive element, one option state set in every menu and list box,
   sections and columns on one grid, and dates in one shape. A rule the owner settles on one page
   goes into the kit and every page.
-- **A review board.** Write it in English, its questions, option names, explanations and controls
-  included, and show the site's German copy as it stands, since the owner works in English and
-  judges the copy as a visitor reads it. Draw it in the dark theme alone, adding a light frame only
-  where the question is about the light theme and says so. It is reviewed on a phone, so it fits 375
-  px with no horizontal scroll, its controls work by touch at 44 px or more with nothing behind
-  hover, and it is reached by a URL, which a localhost page is not: you write it as one HTML file in
-  your scratch folder, the coordinator publishes it as an Artifact page, and you publish nothing
+- **A review board.** A board is only for a design decision the owner must see as pictures; a small
+  question goes to the coordinator as one picture. Write it in English, its questions, option names,
+  explanations and controls included, and show the site's German copy as it stands, since the owner
+  works in English and judges the copy as a visitor reads it. Draw it in the dark theme alone,
+  adding a light frame only where the question is about the light theme and says so. It is reviewed
+  on a phone, so it fits 375 px with no horizontal scroll, its controls work by touch at 44 px or
+  more with nothing behind hover, and it is reached by a URL, which a localhost page is not: you
+  build it with the review-board tool your brief names, never as a page written by hand, and message
+  the coordinator where the brief names none; the coordinator publishes it, and you publish nothing
   yourself. Draw no outline or box over a picture, since it hides the edge being judged. Every
-  option is one the owner could pick with pride: before you build the board, look with the Read tool
-  at each question's options in their phone frames at 360 px. The coordinator records those frames
-  in its drive and saves them as image files in the folder your brief names; an option that exists
-  only as your drawing has no frame yet, so once you have drawn it, message the coordinator, who
-  captures your drawing at 360 px into the same folder. Where the brief names no folder or a frame
-  is missing, message the coordinator rather than build without the look. Redraw an option where it
-  is cramped, overflowing, clipped mid-line or invisible, and name in your report each file you
-  looked at and what it showed. That look is the check of those pictures, and the coordinator does
-  not judge them a second time.
+  option is one the owner could pick with pride: before you hand the board over, look with the Read
+  tool at each option's frames, which the coordinator captures with the tool in its drive and saves
+  as image files in the folder your brief names. Where the brief names no folder or a frame is
+  missing, message the coordinator rather than build without the look. Redraw an option where it is
+  cramped, overflowing, clipped mid-line or invisible, and name in your report each file you looked
+  at and what it showed. That look is the check of those pictures, and the coordinator does not
+  judge them a second time.
 
 ## The contract
 
