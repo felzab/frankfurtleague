@@ -193,6 +193,7 @@ describe("a pass meeting a failure", () => {
       error: lost,
     });
   });
+
   it("deletes the rest past one throwing delete, logging that one by the error's name alone", async () => {
     const accounts = ["a@schule.example.org", "b@schule.example.org", "c@schule.example.org"];
     await seed(accounts);
