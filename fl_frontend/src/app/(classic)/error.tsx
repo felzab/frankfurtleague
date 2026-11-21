@@ -11,7 +11,7 @@ export default function ClassicError({ error, retry }: { error: unknown; retry: 
     <ClassicStatusPage
       tone="danger"
       title={COPY.shared.failure.unexpected}
-      next={{ label: COPY.shared.verb.retry, retry }}
+      next={{ retry }}
     />
   );
 }

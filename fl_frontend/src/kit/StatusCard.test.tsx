@@ -47,7 +47,6 @@ describe("an error card's retry", () => {
         <StatusCardBody
           tone="danger"
           next={{
-            label: COPY.shared.verb.retry,
             retry: () =>
               startTransition(() => {
                 startTransition(() => setState(refreshed.promise));

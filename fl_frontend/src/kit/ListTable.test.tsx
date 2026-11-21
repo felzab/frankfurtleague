@@ -49,6 +49,20 @@ describe("a list's search", () => {
     expect(screen.queryByText("Goethe-Halle")).toBe(null);
   });
 
+  // The harm: a name typed without its accent, „jose“ for „José“, finds nothing, and reads as if no such row stood,
+  // where the same text in a combo box finds it.
+  it("keeps the rows whose name holds what is typed, its accents aside", async () => {
+    const rows: TableProps["rows"] = [...TABLE.rows, { id: "3", name: { record: "Halle José Martí" }, cells: {} }];
+    render(
+      <Searched>
+        <ListTable table={{ ...TABLE, rows }} />
+      </Searched>,
+    );
+    await userEvent.type(screen.getByRole("searchbox"), "jose");
+    expect(screen.getByText("Halle José Martí")).toBeTruthy();
+    expect(screen.queryByText("Goethe-Halle")).toBe(null);
+  });
+
   // The harm: a paste past the read's bound answers the shared failure line, which says nothing of the paste.
   it("stops the box at the bound the page passes", async () => {
     render(

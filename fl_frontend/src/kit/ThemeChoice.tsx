@@ -1,8 +1,7 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
-
 import { useTheme } from "next-themes";
+import { useIsSSR } from "react-aria/SSRProvider";
 
 import { COPY } from "@/core/copy/shared";
 
@@ -10,8 +9,6 @@ import { GlyphChoices } from "./GlyphChoices";
 import { tv } from "./tv";
 
 import type { GlyphChoice } from "./GlyphChoices";
-
-const neverChanges = () => () => undefined;
 
 /** The themes as next-themes names them, each by its glyph, in the order the owner set: dark, light, system. */
 const THEMES: readonly GlyphChoice[] = [
@@ -29,16 +26,12 @@ export function ThemeChoice() {
   // The server cannot read the theme next-themes stores in the browser, so its markup marks none, and a hydrating render
   // marking the stored one is a mismatch React does not repair: the page opened by its address showed none chosen. The
   // hydrating render draws what the server drew, and the render after marks the stored theme, the glyphs unmoved.
-  const hydrated = useSyncExternalStore(
-    neverChanges,
-    () => true,
-    () => false,
-  );
+  const isSSR = useIsSSR();
   return (
     <GlyphChoices
       label={COPY.page.accountAppearance}
       choices={THEMES}
-      value={hydrated ? (theme ?? null) : null}
+      value={isSSR ? null : (theme ?? null)}
       onChange={setTheme}
     />
   );

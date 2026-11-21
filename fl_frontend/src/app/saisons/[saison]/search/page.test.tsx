@@ -1,6 +1,11 @@
-import { describe, expect, it } from "vitest";
+// @vitest-environment jsdom
+import { screen } from "@testing-library/react";
+import { describe, expect, it, onTestFinished } from "vitest";
 
+import { ROUTES } from "@/core/routes";
+import { ListMatches, ListQueryScope } from "@/kit/ListTable";
 import { serveBackend } from "@/test-support/backend";
+import { renderUnderNext } from "@/test-support/nextContexts";
 import { doubleNextRequest } from "@/test-support/nextRequest";
 
 import type { FLSaisonFrameResponse, FLSpielJoined, FLSpielplanResponse } from "@/core/generated/client/types";
@@ -72,26 +77,31 @@ doubleNextRequest();
 
 const { default: SpielSearchPage } = await import("./page");
 
-/** The ids of the matches whose words hold `typed`, as the list's search field narrows them, case aside. */
+/** The pages of the matches the list's own search leaves for `typed`, each card leading to its match's page. */
 async function found(typed: string) {
   const page = SpielSearchPage({ params: Promise.resolve({ saison: "2027" }), searchParams: Promise.resolve({}) }) as ReactElement<
     ComponentProps<typeof ListPage>
   >;
   const { list } = page.props;
   if (list.kind !== "spiele") throw new Error("the Spielsuche lists matches");
-  const { matches } = await list.content;
-  return matches.filter(({ words }) => words.toLowerCase().includes(typed.toLowerCase())).map(({ row }) => row.id);
+  const { unmount } = renderUnderNext(
+    <ListQueryScope initial={typed}>
+      <ListMatches {...await list.content} />
+    </ListQueryScope>,
+  );
+  onTestFinished(unmount);
+  return screen.getAllByRole("link").map((card) => card.getAttribute("href"));
 }
 
-const id = (nr: number) => String(nr).repeat(24);
+const pageOf = (nr: number) => ROUTES.spiel.path("2027", String(nr).repeat(24));
 
 // Words that miss a match's phase, matchday or club hide it from a visitor typing them, with nothing failing.
 describe("the Spielsuche's words", () => {
   it.each([
-    ["the phase", "Gruppenphase", [id(1), id(2)]],
-    ["a club standing on either side", GOETHE.name, [id(1), id(3)]],
-    ["the matchday's name as the Spielplan's tab names it", "2. Spieltag", [id(2)]],
-  ])("find a match by %s", async (_by, typed, ids) => {
-    expect(await found(typed)).toStrictEqual(ids);
+    ["the phase", "Gruppenphase", [pageOf(1), pageOf(2)]],
+    ["a club standing on either side", GOETHE.name, [pageOf(1), pageOf(3)]],
+    ["the matchday's name as the Spielplan's tab names it", "2. Spieltag", [pageOf(2)]],
+  ])("find a match by %s", async (_by, typed, pages) => {
+    expect(await found(typed)).toStrictEqual(pages);
   });
 });

@@ -1,7 +1,7 @@
 import { requestOf } from "./core/errors";
 import { logger } from "./core/logging";
 import { runInBackground } from "./core/requestScope";
-import { HOUR_MS, MINUTE_MS } from "./core/timeUnits";
+import { HOUR_MS, MINUTE_MS, SECOND_MS } from "./core/timeUnits";
 import { mintTraceId } from "./core/trace";
 
 /**
@@ -143,7 +143,7 @@ async function runPass({ jobs, drain, takeDrainCounts }: Awaited<ReturnType<type
 }
 
 /** Long enough for the monitor's answer, short enough that a hung one never reaches the next pass. */
-const HEARTBEAT_TIMEOUT_MS = 10 * 1000;
+const HEARTBEAT_TIMEOUT_MS = 10 * SECOND_MS;
 
 /**
  * The pass reported to Better Stack's heartbeat, `/fail` with the jobs it names where it left anything owed

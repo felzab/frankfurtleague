@@ -20,7 +20,7 @@ export default function ErrorBoundary({ error, retry }: { error: unknown; retry:
     <ClassicStatusPage
       tone="danger"
       title={COPY.shared.failure.unexpected}
-      next={{ label: COPY.shared.verb.retry, retry }}
+      next={{ retry }}
       quiet={atHome ? undefined : TO_HOME}
     />
   );

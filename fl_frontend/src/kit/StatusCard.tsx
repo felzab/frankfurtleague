@@ -30,8 +30,11 @@ const GLYPH: Readonly<Record<StatusTone, IconName>> = { success: "done", info: "
  */
 export type WayOn = { label: Copy; href: Route };
 
-/** An error card's act: the `retry` Next hands its boundary, which draws the failed part again in place. */
-type Retry = { label: Copy; retry: () => void };
+/**
+ * An error card's act: the `retry` Next hands its boundary, which draws the failed part again in place. Its label is
+ * the same on every card, so the button holds it.
+ */
+type Retry = { retry: () => void };
 
 /**
  * One end state: its hue, its title, and its one way on, or an error card's retry; beneath it, where the end points to
@@ -96,10 +99,7 @@ export function StatusCardBody({
       </span>
       {title}
       {"retry" in next ? (
-        <RetryButton
-          label={next.label}
-          retry={next.retry}
-        />
+        <RetryButton retry={next.retry} />
       ) : (
         <Link
           href={next.href}
