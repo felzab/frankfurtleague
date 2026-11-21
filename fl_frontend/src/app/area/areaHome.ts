@@ -4,7 +4,7 @@ import { ROUTES } from "@/core/routes";
 import type { WayOn } from "@/kit/StatusCard";
 
 /**
- * Where every status card of a team's and a person's frame leads on: the person's own Übersicht, which lists each of
+ * Where the not-found cards of a team's and a person's frame lead on: the person's own Übersicht, which lists each of
  * their places or sends a person holding one straight on to it. Never a page of the frame the card stands in, whose
  * address the card may be refusing.
  */
