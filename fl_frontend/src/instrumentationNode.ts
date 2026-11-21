@@ -26,8 +26,8 @@ export async function registerOnNode() {
   // The one line per start that says which build runs: the log driver records no image version of its own.
   logger.info("system.started", { version: frontend_config.APP_VERSION ?? null });
 
-  // `next dev` never sets NODE_ENV to production, and a developer's machine holds a real transport
-  // and the league's real people. The hold arms nothing, and says so: the heartbeat then misses its pings.
+  // A production build alone arms the passes: a test run boots under `test`, and a pass armed there would send its
+  // requests into cases that name none. The hold arms nothing, and says so: the heartbeat then misses its pings.
   if (process.env.NODE_ENV === "production" && frontend_config.RESTORE_HOLD === "on") logger.warn("scheduler.held");
   else if (process.env.NODE_ENV === "production") armScheduler(await loadJobs(), heartbeatUrl());
 
