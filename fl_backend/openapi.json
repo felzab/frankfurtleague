@@ -2862,7 +2862,6 @@
             "$ref": "#/components/schemas/FLBewerbungTrikot"
           },
           "version": {
-            "default": 0,
             "title": "Version",
             "type": "integer"
           },
@@ -8856,7 +8855,6 @@
             "type": "boolean"
           },
           "version": {
-            "default": 0,
             "title": "Version",
             "type": "integer"
           }
@@ -8965,7 +8963,6 @@
             "$ref": "#/components/schemas/FLSaisonStatus"
           },
           "version": {
-            "default": 0,
             "title": "Version",
             "type": "integer"
           }
@@ -14225,7 +14222,6 @@
             "type": "string"
           },
           "version": {
-            "default": 0,
             "title": "Version",
             "type": "integer"
           }
@@ -14465,7 +14461,6 @@
             "title": "Start"
           },
           "version": {
-            "default": 0,
             "title": "Version",
             "type": "integer"
           }
@@ -14537,7 +14532,6 @@
             "title": "Start"
           },
           "version": {
-            "default": 0,
             "title": "Version",
             "type": "integer"
           }
@@ -14607,7 +14601,6 @@
             "title": "Start"
           },
           "version": {
-            "default": 0,
             "title": "Version",
             "type": "integer"
           }
@@ -15923,7 +15916,6 @@
             "type": "string"
           },
           "version": {
-            "default": 0,
             "title": "Version",
             "type": "integer"
           },

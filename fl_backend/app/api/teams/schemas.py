@@ -206,7 +206,7 @@ class FLSaisonTeamRecord(Anchored):
     confirmations: FLSaisonTeamConfirmationsRecord | None = None
     name: str
     shorthand: str
-    version: int = 0
+    version: int
 
 
 class FLSaisonTeamConfirmationView(FLSaisonTeamConfirmation, BaseReadModel):
@@ -296,7 +296,7 @@ class FLTeamRecord(_TeamWritable, BaseReadModel, Anchored):
 
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
     inactive_since: CustomOptionalDateString
-    version: int = 0
+    version: int
 
 
 class FLGruppenTeam(BaseModel):

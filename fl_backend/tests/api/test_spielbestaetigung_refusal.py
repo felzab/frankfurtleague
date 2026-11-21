@@ -73,6 +73,7 @@ def spiel(**overrides: Any) -> dict[str, Any]:
         "elfmeterschiessen": None,
         "sonderereignis": None,
         "note": "Flutlicht",
+        "version": 0,
         **overrides,
     }
 

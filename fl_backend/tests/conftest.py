@@ -222,6 +222,7 @@ def spiel(
             "sonderereignis": None,
             "saison_phase": "gruppenphase",
             "saison_id": "2026",
+            "version": 0,
         }
     )
 

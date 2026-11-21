@@ -209,7 +209,7 @@ class _SaisonStored(_SaisonWritable):
 
     status: FLSaisonStatus
 
-    version: int = 0
+    version: int
 
 
 class FLSaison(_SaisonStored, BaseReadModel):

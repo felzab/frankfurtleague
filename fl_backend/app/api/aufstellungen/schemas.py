@@ -44,7 +44,7 @@ class FLAufstellung(Anchored):
     team_id: CustomObjectId
     # In the order the save sent them; an emptied line-up is an empty list, never a removed document.
     spieler: list[FLAufstellungEntry]
-    version: int = 0
+    version: int
 
 
 # --- The write: one payload for a seat's save and an administrator's.

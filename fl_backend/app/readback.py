@@ -33,9 +33,8 @@ from app.api.spieler.schemas import FLSaisonSpielerRow, FLSpielerRecord
 from app.api.spielorte.schemas import FLSpielort
 from app.api.spieltage.schemas import FLSpieltagRecord
 from app.api.teams.schemas import FLSaisonTeamRecord, FLTeamRecord
-from app.core.collections import EDITED_COLLECTIONS, Collection
+from app.core.collections import Collection
 from app.core.config import EnvironmentValidationError, get_config  # noqa: TID251
-from app.core.crud import VERSION_FIELD
 from app.core.db import new_client
 
 # The exit contract the scripts read: 0 clean, 1 a document to correct, 2 could not judge, 3 crashed.
@@ -85,14 +84,12 @@ async def read_back(client: AsyncMongoClient, database_name: str) -> int:
     for collection, model in RECORD_MODELS.items():
         async for document in client[database_name][collection].find({}):
             read += 1
-            # Checked here rather than by the model, whose `version` defaults to 0 for the runtime reads: a
-            # document without one is served as 0, and every save of it is then refused as stale.
-            locations = [VERSION_FIELD] if collection in EDITED_COLLECTIONS and VERSION_FIELD not in document else []
+            locations: list[str] = []
             try:
                 model.model_validate(document, extra="forbid")
             except ValidationError as error:
                 # A rule across fields raises with no location; it names the record as a whole rather than a blank.
-                locations += [
+                locations = [
                     ".".join(str(step) for step in detail["loc"]) or "(the record as a whole)"
                     for detail in error.errors(include_input=False, include_context=False, include_url=False)
                 ]
