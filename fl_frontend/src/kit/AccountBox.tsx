@@ -94,7 +94,7 @@ function runOf(act: Pick<AccountAct, "run" | "carry" | "done">): Run {
 function useAct(act: AccountAct) {
   const touched = usePasskeyTouch(act.touch === true, act.carry?.holder);
   const { answer, submit, block, isBlocked, isPending } = useFormAction(touched(runOf(act)), { resetOnLeave: true });
-  const status = answer?.ok === true ? null : statusOf(answer, isBlocked, isPending);
+  const status = statusOf(answer, isBlocked, isPending);
   return { send: submit, block, status, answer, isBusy: isPending };
 }
 

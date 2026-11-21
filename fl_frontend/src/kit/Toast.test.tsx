@@ -34,6 +34,12 @@ describe("the toast region", () => {
 describe("an act's answer as its toast", () => {
   it.each([
     ["done", { ok: true, value: undefined }, COPY.shared.state.agreed, "text-success"],
+    [
+      "partly done",
+      { ok: true, value: undefined, note: COPY.shared.addressChange.previousStays, warn: true },
+      COPY.shared.addressChange.previousStays,
+      "text-warn",
+    ],
     ["refused", { ok: false, reason: COPY.shared.failure.stale }, COPY.shared.failure.stale, "text-danger"],
   ] as const)("says %s in its own tone", (_case, answer, title, hue) => {
     render(<ToastRegion frame="rail" />);

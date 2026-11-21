@@ -132,7 +132,7 @@ export function SectionAct({
   );
   // The inputs of the last press, whose refusal the line shows only while they still hold, and the act pressed.
   const [pressed, setPressed] = useState({ on: inputs, at: 0 });
-  const status = answer?.ok === true || !sameInputs(inputs, pressed.on) ? null : statusOf(answer, false, isPending);
+  const status = sameInputs(inputs, pressed.on) ? statusOf(answer, false, isPending) : null;
 
   return (
     <>

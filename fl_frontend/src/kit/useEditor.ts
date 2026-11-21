@@ -5,7 +5,7 @@ import { startTransition, useMemo, useState } from "react";
 import { COPY } from "@/core/copy/shared";
 
 import { useHoldLeave } from "./LeaveGuard";
-import { statusOf, useFormAction } from "./useFormAction";
+import { answerLine, statusOf, useFormAction } from "./useFormAction";
 import { useUnsavedChangesWarning } from "./useUnsavedChangesWarning";
 
 import type { ActionAnswer, SaveQuestion } from "@/core/action";
@@ -206,8 +206,10 @@ export function useEditor<Values extends Record<string, EditorValue>, Version ex
   const [declined, setDeclined] = useState<ActionAnswer | null>(null);
   const { answer } = form;
   const refused = answer !== null && !answer.ok && current.editCount === current.sentEditCount ? answer : null;
-  // A refusal stands only over the draft it was sent with; the count of unsaved fields stands over a done save.
-  const answered = statusOf(answer?.ok === true ? answer : refused, current.blockedEditCount === current.editCount, form.isPending);
+  const blocked = current.blockedEditCount === current.editCount;
+  // A refusal stands only over the draft it was sent with; the count of unsaved fields stands over a done save. The save
+  // bar is the one line a done act says itself on: what else the save moved, or „Gespeichert“.
+  const answered = answer?.ok === true && !blocked && !form.isPending ? answerLine(answer) : statusOf(refused, blocked, form.isPending);
   const status: FormStatus =
     answered?.tone !== "danger" && count > 0 ? { tone: "changes", text: COPY.template.changesPending(count) } : answered;
   // One object while the refusal stands: React Aria shows a box's server message afresh whenever the object changes.
