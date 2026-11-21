@@ -15,9 +15,11 @@ Each fails silently. The ratified decisions for the seams are in `docs/decisions
 - A backend refusal and its German are two sites: `fl_backend/app/core/codes.py :: Code` spells the
   code and a rule's `PydanticCustomError` its kind and bounds, and the catalogue words them where
   the docstrings of `fl_frontend/src/core/serverCopy.ts :: SERVER_COPY`'s `refusal`, `refusalLine`
-  and `ruleLine` place them. A code or a rule the catalogue does not word reads the stale-page line
-  on every screen (`fl_frontend/src/core/action.ts :: refused`), naming no reason, and on a save
-  sends the admin to read the page again and meet the same refusal.
+  and `ruleLine` place them. A refusal the catalogue does not word reads the stale-page line on
+  every screen (`fl_frontend/src/core/action.ts :: refused`), naming no reason, and on a save sends
+  the person to read the page again and meet the same refusal; a code that refuses nothing the
+  request asked joins `fl_frontend/src/core/action.ts :: NOT_A_REFUSAL` instead, which reads the
+  shared failure line.
 - A bound the backend moves without naming it in the rule's context or the refusal's bounds
   (`fl_backend/app/core/exceptions.py :: APIError`) leaves a frontend line stale in silence.
 - `fl_backend/openapi.json` lists every code once and names none per endpoint, so which codes an
