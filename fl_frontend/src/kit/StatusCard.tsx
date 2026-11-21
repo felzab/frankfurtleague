@@ -21,8 +21,11 @@ type StatusTone = Exclude<ChipProps["tone"], "neutral">;
 
 const GLYPH: Readonly<Record<StatusTone, IconName>> = { success: "done", info: "info", warn: "warning", danger: "error" };
 
-/** A way on from an end: its label and its address, each per page in the catalogue. */
-type WayOn = { label: Copy; href: Route };
+/**
+ * A way on from an end: its label and its address, each per page in the catalogue. The only way on an end that a server
+ * words may carry, since a retry is a function, which React cannot send from the server.
+ */
+export type WayOn = { label: Copy; href: Route };
 
 /** An error card's act: the `retry` Next hands its boundary, which draws the failed part again in place. */
 type Retry = { label: Copy; retry: () => void };

@@ -2,7 +2,7 @@ import { COPY } from "@/core/copy/shared";
 import { ROUTES } from "@/core/routes";
 
 import type { AccountEntry } from "@/kit/AccountPage";
-import type { StatusCardProps } from "@/kit/StatusCard";
+import type { WayOn } from "@/kit/StatusCard";
 
 /** Konto's three pages, the rail's entries and the phone's list alike, each by its rail glyph. */
 export const ACCOUNT_ENTRIES: readonly AccountEntry[] = [
@@ -12,4 +12,4 @@ export const ACCOUNT_ENTRIES: readonly AccountEntry[] = [
 ];
 
 /** Where a failed or a missing Konto page leads on, and its phone band leads back: the list of the three. */
-export const ACCOUNT_HOME = { label: COPY.shared.end.toAccount, href: ROUTES.account.path() } as const satisfies StatusCardProps["next"];
+export const ACCOUNT_HOME = { label: COPY.shared.end.toAccount, href: ROUTES.account.path() } as const satisfies WayOn;
