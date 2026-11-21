@@ -1,8 +1,7 @@
 "use client";
 
 import { RailColumn } from "@/kit/RailFrame";
-
-import { AreaError } from "../../AreaError";
+import { RailError } from "@/kit/RailFrameBoundary";
 
 /**
  * A failed page of a referee's in the rail frame: this boundary stands inside the frame's layout and replaces the
@@ -11,9 +10,10 @@ import { AreaError } from "../../AreaError";
 export default function SchiedsrichterError({ error, retry }: { error: unknown; retry: () => void }) {
   return (
     <RailColumn>
-      <AreaError
+      <RailError
         error={error}
         retry={retry}
+        scope="area"
       />
     </RailColumn>
   );
