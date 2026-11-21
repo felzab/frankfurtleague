@@ -2,8 +2,9 @@ import "server-only";
 
 import { deleteAccountFor, listAccounts } from "@/core/auth/accounts";
 import { deletePasskeysAt, passkeyHolders } from "@/core/auth/passkeys";
+import { asSignInIdentifier } from "@/core/emailAddress";
 import { requestOf } from "@/core/errors";
-import { identityGetReferences } from "@/core/generated/client/sdk";
+import { addressChangeGetAddressChangeMoves, identityGetReferences } from "@/core/generated/client/sdk";
 import { identityGetReferencesBodyIdentifiersMax } from "@/core/generated/zod/inputs";
 import { logger } from "@/core/logging";
 import { lookUpSignIn } from "@/core/signInGate";
@@ -22,13 +23,16 @@ type AccountSweepCount = {
   failed: number;
   /** The addresses holding no grant whose passkeys, and the sessions they made, the pass deleted. */
   passkeys_deleted: number;
-  /** The addresses holding a passkey whose grant the pass could not read, or whose passkeys it could not delete. */
+  /**
+   * The addresses holding a passkey whose grant the pass could not read, whose passkeys it could not delete, or which
+   * it could not judge for want of the owed carries' list.
+   */
   passkeys_failed: number;
 };
 
 /**
  * One pass over every sign-in account, deleting those no record references, then the passkeys of every address holding
- * no grant. The scheduler runs one pass at a time. A store that lists no account rejects, for the heartbeat to name;
+ * no grant whose account no address change still owes to carry. The scheduler runs one pass at a time. A store that lists no account rejects, for the heartbeat to name;
  * the pass resolves to what it did, `open` the accounts and passkey holders it could not judge or delete, and `error`
  * a passkey listing that failed after the accounts' step.
  */
@@ -66,28 +70,57 @@ export async function runAccountSweep(): Promise<{ count: AccountSweepCount; ope
     // The accounts' counts stand: the scheduler records them beside the failure.
     return { count, open: count.failed, error };
   }
+  const ungranted: string[] = [];
   for (const address of holders) {
-    await deletePasskeysWithoutGrant(address, count);
+    if (await holdsNoGrant(address, count)) ungranted.push(address);
   }
+  if (ungranted.length > 0) await deletePasskeysWithoutGrant(ungranted, count);
 
   return { count, open: count.failed + count.passkeys_failed };
 }
 
-/**
- * The passkeys of an address holding no grant, whatever left them there: a removal whose deletion failed, a grant
- * removed by hand, or a carry that failed between its two writes.
- */
-async function deletePasskeysWithoutGrant(address: string, count: AccountSweepCount): Promise<void> {
+/** Whether the grant read answers none at `address`; a read that fails answers `false`, counted and logged. */
+async function holdsNoGrant(address: string, count: AccountSweepCount): Promise<boolean> {
   try {
     // Kept on a read that fails: an unread grant says nothing about the address.
     const { admin_tier: grant } = await lookUpSignIn(address);
-    if (grant !== null) return;
-
-    await deletePasskeysAt(address);
-    count.passkeys_deleted += 1;
+    return grant === null;
   } catch (error) {
     count.passkeys_failed += 1;
     logAccountFailure("account.passkeys_failed", error);
+    return false;
+  }
+}
+
+/**
+ * The passkeys of each address holding no grant, whatever left them there: a removal whose deletion failed, a grant
+ * removed by hand, or a carry that failed between its two writes. An address whose account a carry still owes to
+ * leave keeps them: the effect moved its grant to the new address first, and the passkeys go there with the account.
+ */
+async function deletePasskeysWithoutGrant(ungranted: readonly string[], count: AccountSweepCount): Promise<void> {
+  let owed: ReadonlySet<string>;
+  try {
+    // After the grant reads: the effect moves the grant and owes the carry in one transaction, so a carry owed since
+    // a grant read answered none is listed here. The first page alone: it holds over a thousand, and a carry is owed
+    // for seconds as a rule.
+    const { moves } = await addressChangeGetAddressChangeMoves();
+    owed = new Set(moves.map(({ old }) => asSignInIdentifier(old)));
+  } catch (error) {
+    // Kept, every one: an unread list says nothing about which address a carry has yet to leave.
+    count.passkeys_failed += ungranted.length;
+    logAccountFailure("account.passkeys_failed", error, ungranted.length);
+    return;
+  }
+
+  for (const address of ungranted) {
+    if (owed.has(address)) continue;
+    try {
+      await deletePasskeysAt(address);
+      count.passkeys_deleted += 1;
+    } catch (error) {
+      count.passkeys_failed += 1;
+      logAccountFailure("account.passkeys_failed", error);
+    }
   }
 }
 
