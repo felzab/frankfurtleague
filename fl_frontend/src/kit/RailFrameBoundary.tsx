@@ -37,7 +37,7 @@ export function RailError({ error, retry, scope }: { error: unknown; retry: () =
     <StatusPage
       scope={scope}
       title={COPY.shared.failure.unexpected}
-      card={{ tone: "danger", next: { label: COPY.shared.verb.retry, retry } }}
+      card={{ tone: "danger", next: { retry } }}
     />
   );
 }
