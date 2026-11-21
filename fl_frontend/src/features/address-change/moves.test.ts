@@ -142,20 +142,4 @@ describe("the owed carries", () => {
     expect(store.session).toStrictEqual([]);
     expect(backend.sent.filter(({ method }) => method === "POST").map(({ body }) => body)).toStrictEqual([{ ids: [move(1).id] }]);
   });
-
-  /* The harm: a carry made before the grant is read would move a removed administrator's passkeys across with the
-     account and then reject, its retry finding nothing to carry. */
-  it("moves nothing where the new address's grant cannot be read, and reports nothing carried", async () => {
-    accountsOf([move(1)]);
-    store.passkey.push({ id: `64e${move(1).id.slice(3)}`, userId: `64c${move(1).id.slice(3)}`, credentialID: "credential-kept" });
-    answerTheLookup(() => null);
-    pages = [[move(1)]];
-
-    await expect(runAddressChangeMoves()).rejects.toThrow();
-
-    expect(store.user.map(({ email }) => email)).toStrictEqual([move(1).old]);
-    expect(store.passkey.length).toBe(1);
-    expect(store.session.length, "the carry ended the account's sessions").toBe(1);
-    expect(backend.sent.filter(({ method }) => method === "POST")).toStrictEqual([]);
-  });
 });

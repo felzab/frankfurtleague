@@ -4,6 +4,7 @@ import { headers } from "next/headers";
 import { connection } from "next/server";
 
 import { asSignInIdentifier } from "../emailAddress";
+import { ROUTES } from "../routes";
 import { subjectOrNull } from "./gateReads";
 import { isAdminSession, isAdminWithinWindow } from "./guards";
 import { auth } from "./library";
@@ -26,8 +27,11 @@ export async function getSignInLanding(): Promise<Landing> {
   return landingOf(await headers());
 }
 
-/** The landing's verdict, and the person it read where the backend answered. */
-type Landing = { readonly destination: SignInDestination; readonly subject: SubjectSession | null };
+/**
+ * The landing's verdict, the person it read where the backend answered, and the page a sign-in it sends afresh returns
+ * to where the request named none.
+ */
+type Landing = { readonly destination: SignInDestination; readonly subject: SubjectSession | null; readonly returnsTo?: string };
 
 /**
  * Every guard that refuses a session sends it to the sign-in or here, and the proxy sends every session asking for
@@ -52,9 +56,11 @@ async function landingOf(requestHeaders: Headers): Promise<Landing> {
 
   // A granted address's session past the administrator's figures, which the person lane alone would still serve,
   // ends here too, as the owner ruled: the administrator signs in afresh rather than holding a session that opens
-  // neither the administration nor the landing.
+  // neither the administration nor the landing. It returns to the administration, whose sign-in alone offers the
+  // passkey: the admin guard sends here naming no page, and could name none without sending a person holding no grant,
+  // whose landing honours the page asked, back and forth between the guard and here.
   const destination = await destinationOf(served, records);
-  if (destination === "/signin") return ended(served);
+  if (destination === "/signin") return { ...(await ended(served)), returnsTo: ROUTES.admin.path() };
 
   // As the person guard builds it, off this one lookup.
   return { destination, subject: { email: asSignInIdentifier(served.user.email), isAdmin: isAdminSession(served, records), records } };

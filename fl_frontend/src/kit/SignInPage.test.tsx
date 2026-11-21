@@ -41,9 +41,12 @@ describe("the sign-in template", () => {
   });
 
   /* The harm: a sign-in opened anywhere but the administration offers a person a passkey they cannot hold, under an
-     „oder“ that leads nowhere. */
-  it("draws neither the passkey's button nor the „oder“ line where the page hands no passkey", () => {
-    render(
+     „oder“ that leads nowhere, or draws the „oder“ line's two hairlines under the form with nothing after them. */
+  it.each([
+    ["nor the „oder“", {}],
+    ["though it hands the „oder“", { or: WORDS.or }],
+  ])("draws nothing between the form and its status line where the page hands no passkey, %s", (_, hand) => {
+    const { container } = render(
       <SignInPage
         view="address"
         title={COPY.page.signIn}
@@ -51,10 +54,12 @@ describe("the sign-in template", () => {
         address={{ label: COPY.shared.emailAddress, value: "", onChange: () => undefined }}
         check={null}
         send={{ label: WORDS.sendCode, onPress: () => undefined }}
+        {...hand}
       />,
     );
 
     expect(screen.getAllByRole("button").map((button) => button.textContent)).toStrictEqual([WORDS.sendCode]);
-    expect(screen.queryByText(WORDS.or)).toBe(null);
+    // The divider is decoration, hidden from every query by role or by text, so it is read by its place.
+    expect(container.querySelector("form")?.nextElementSibling, "a line stands under the form").toBe(screen.getByRole("status"));
   });
 });

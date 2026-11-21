@@ -5,7 +5,7 @@ import { networkFailure, refusal, serveBackend } from "@/test-support/backend";
 import { captureLog } from "@/test-support/stdoutCapture";
 import { NO_RECORDS } from "@/test-support/subjectFixtures";
 
-import type { FLReferencesPayload, FLReferencesResponse } from "@/core/generated/client/types";
+import type { FLAddressChangeMovesResponse, FLReferencesPayload, FLReferencesResponse } from "@/core/generated/client/types";
 import type { LookupFixture } from "@/test-support/subjectFixtures";
 import type { MemoryDB } from "better-auth/adapters/memory";
 
@@ -28,8 +28,13 @@ const ADAPTER = {
 /** Which of `identifiers` the backend answers unreferenced, handed the batch alone or an address re-asked alone. */
 let references: (identifiers: readonly string[]) => readonly string[] | Response = () => [];
 
-// The references read alone: any other request, a drain's among them, fails the case.
+/** The carries the address changes still owe, as the backend lists them: none, unless a case names some. */
+let carries: FLAddressChangeMovesResponse["moves"] | Response = [];
+
+// The references read and the owed carries' list alone: any other request, a drain's among them, fails the case.
 const backend = serveBackend(({ method, path, body }) => {
+  if (method === "GET" && path === "/address_change/sweep/moves")
+    return carries instanceof Response ? carries : ({ moves: carries } satisfies FLAddressChangeMovesResponse);
   if (method !== "POST" || path !== "/identity/references") return undefined;
   const answer = references((body as FLReferencesPayload).identifiers);
   return answer instanceof Response ? answer : ({ unreferenced: [...answer] } satisfies FLReferencesResponse);
@@ -92,6 +97,7 @@ beforeEach(() => {
   for (const rows of Object.values(store)) rows.length = 0;
   failing = undefined;
   references = () => [];
+  carries = [];
   grants = () => ({ ...NO_RECORDS, account: true });
 });
 
@@ -173,6 +179,20 @@ describe("a pass meeting a failure", () => {
     expect(log.lines()).toStrictEqual([]);
   });
 
+  /* A pass answering clean while the passkey listing fails every hour would leave every stray passkey signing in, named
+     to nobody: the failure is the pass's `error`, which the heartbeat names. */
+  it("answers a passkey listing that fails as the pass's error, the accounts' counts and what they left open beside it", async () => {
+    await seed(["a@schule.example.org"]);
+    references = () => networkFailure();
+    const lost = new TypeError("no connection");
+    failing = (operation, { model }) => (operation === "findMany" && model === "passkey" ? lost : undefined);
+
+    expect(await runAccountSweep()).toStrictEqual({
+      count: { unreferenced: 0, deleted: 0, already_deleted: 0, failed: 1, passkeys_deleted: 0, passkeys_failed: 0 },
+      open: 1,
+      error: lost,
+    });
+  });
   it("deletes the rest past one throwing delete, logging that one by the error's name alone", async () => {
     const accounts = ["a@schule.example.org", "b@schule.example.org", "c@schule.example.org"];
     await seed(accounts);
@@ -308,6 +328,34 @@ describe("the passkeys a pass deletes", () => {
     expect(heldBy().passkeys).toStrictEqual(["ungelesen@schule.example.org"]);
     expect(errorFields()).toStrictEqual([{ message: "account.passkeys_failed", fields: { name: "APINetworkError" } }]);
     for (const { raw } of log.lines()) assert.ok(!raw.includes("@") && !raw.includes("[address]"), `a line carries an address: ${raw}`);
+  });
+
+  /* The effect moves the grant to the new address before the frontend carries the account there: until the carry, an
+     administrator's passkeys stand at the old address, which reads no grant, and are theirs. */
+  it("keeps the passkeys of an address whose account an address change still owes to carry, and deletes the rest", async () => {
+    await seed(["alt@schule.example.org", "ehemalig@schule.example.org"]);
+    await holdsPasskey("alt@schule.example.org");
+    await holdsPasskey("ehemalig@schule.example.org");
+    carries = [{ id: "6890a1b2c3d4e5f607260001", old: "alt@schule.example.org", new: "neu@schule.example.org" }];
+    grants = (address) => (address === "neu@schule.example.org" ? { ...GRANTED, account: true } : { ...NO_RECORDS, account: true });
+
+    const { count, open } = await runAccountSweep();
+
+    expect([count.passkeys_deleted, count.passkeys_failed, open]).toStrictEqual([1, 0, 0]);
+    expect(heldBy().passkeys).toStrictEqual(["alt@schule.example.org"]);
+  });
+
+  /* An owed carry's list that never came says nothing of whose passkeys stand at an address the carry has yet to leave. */
+  it("deletes no passkey where the owed carries cannot be listed, and leaves each open on one line naming no address", async () => {
+    await seed(["ehemalig@schule.example.org"]);
+    await holdsPasskey("ehemalig@schule.example.org");
+    carries = networkFailure();
+
+    const { count, open } = await runAccountSweep();
+
+    expect([count.passkeys_deleted, count.passkeys_failed, open]).toStrictEqual([0, 1, 1]);
+    expect(heldBy().passkeys).toStrictEqual(["ehemalig@schule.example.org"]);
+    expect(errorFields()).toStrictEqual([{ message: "account.passkeys_failed", fields: { name: "APINetworkError", count: 1 } }]);
   });
 });
 
