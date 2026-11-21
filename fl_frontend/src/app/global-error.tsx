@@ -3,6 +3,8 @@
 // The root layout's stylesheet, which this page needs of its own: it stands in place of that layout.
 import "./globals.css";
 
+import { usePathname } from "next/navigation";
+
 import { SITE_LOCALE } from "@/core/brand";
 import { COPY } from "@/core/copy/shared";
 import { TO_HOME } from "@/kit/mailedLinkState";
@@ -17,10 +19,12 @@ const TAB_TITLE = `${COPY.shared.failure.unexpected} | ${COPY.brand.name}`;
  * writes its own document and draws the root boundary's card on the page's ground. Nothing the root layout holds
  * reaches it, neither the theme script nor the fonts nor the providers, so it shows in the stylesheet's light theme and
  * the system's face whatever the visitor chose. Its act is the root boundary's: a retry in place, with the way to the
- * start page beneath it. Next reads no `metadata` from this file, so the tab's title is React's `<title>`.
+ * start page beneath it but on the start page itself. Next draws it inside the router's providers, so the pathname
+ * reads here as it does there. Next reads no `metadata` from this file, so the tab's title is React's `<title>`.
  */
 export default function GlobalError({ error, retry }: { error: unknown; retry: () => void }) {
   useReportClientCrash(error);
+  const atHome = usePathname() === TO_HOME.href;
   return (
     <html lang={SITE_LOCALE}>
       {/* The root layout's body, so the card stands where the root boundary's does. */}
@@ -30,7 +34,7 @@ export default function GlobalError({ error, retry }: { error: unknown; retry: (
           tone="danger"
           title={COPY.shared.failure.unexpected}
           next={{ label: COPY.shared.verb.retry, retry }}
-          quiet={TO_HOME}
+          quiet={atHome ? undefined : TO_HOME}
         />
       </body>
     </html>
