@@ -4,6 +4,7 @@ import { z } from "zod";
 import { answerTheLookup, GRANTED } from "@/test-support/authDoubles";
 import { networkFailure, refusal, serveBackend, serveHost } from "@/test-support/backend";
 import { cacheCalls } from "@/test-support/nextRequest";
+import { posted } from "@/test-support/posted";
 import { signedInRequest } from "@/test-support/session";
 import { captureLog } from "@/test-support/stdoutCapture";
 
@@ -277,11 +278,9 @@ describe("the public lane", () => {
         ? { success: false, "error-codes": ["invalid-input-response"] }
         : undefined,
     );
-    const posted = new FormData();
-    posted.set("email", "no-address");
-    posted.set("cf-turnstile-response", "token");
+    const form = posted({ email: "no-address", "cf-turnstile-response": "token" });
 
-    expect(await send(posted)).toStrictEqual({ ok: false, reason: COPY.shared.botCheck });
+    expect(await send(form)).toStrictEqual({ ok: false, reason: COPY.shared.botCheck });
     expect(judged.map(({ body }) => (body as { response?: unknown }).response)).toStrictEqual(["token"]);
     expect(ran).toStrictEqual([]);
   });

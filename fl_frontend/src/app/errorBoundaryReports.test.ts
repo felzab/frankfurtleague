@@ -7,14 +7,14 @@ import { createElement as h } from "react";
 
 import { act, cleanup, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
+import { afterEach, describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { COPY } from "@/core/copy/shared";
+import { serveBackend, serveHost } from "@/test-support/backend";
 import { renderUnderNext } from "@/test-support/nextContexts";
 import { filesUnder } from "@/test-support/treeWalk";
 
 import type { ComponentType } from "react";
-import type { MockInstance } from "vitest";
 
 const APP_DIR = import.meta.dirname;
 
@@ -33,16 +33,16 @@ const ROUTED = { params: {} };
 
 const boundaryOf = async (file: string): Promise<Boundary> => ((await import(pathToFileURL(file).href)) as { default: Boundary }).default;
 
-// Each case below renders a boundary, which posts its crash report, so none reaches a network.
-let sent: MockInstance<typeof fetch>;
+// Each case below renders a boundary, which posts its crash report to the page's own host, answered at any path: the
+// cases read the path it was posted to.
+const sent = serveHost("http://localhost", () => new Response(null, { status: 204 }));
+const { answered } = serveBackend();
 
-beforeEach(() => {
-  sent = vi.spyOn(globalThis, "fetch").mockImplementation(() => Promise.resolve(new Response(null, { status: 204 })));
-});
+/** Every crash report the case's boundary posted, by the path it was posted to and its method. */
+const reportsSent = () => sent.map(({ url, method }) => ({ address: url.pathname, method }));
 
 afterEach(() => {
   cleanup();
-  sent.mockRestore();
 });
 
 /* One block per boundary, so a boundary broken beside another is named in its own right. */
@@ -53,10 +53,10 @@ describe.each(BOUNDARIES)("the error boundary $shown", ({ file, shown }) => {
     const Boundary = await boundaryOf(file);
 
     renderUnderNext(h(Boundary, { error: new Error("gepflanzt"), retry: () => undefined }), ROUTED);
-    // `render` has already flushed the effect sending the report; the turn after its answer charges a
+    // `render` has already flushed the effect sending the report; waiting for its answer charges a
     // second report sent meanwhile to this boundary's count, never to the next one's.
-    await act(() => Promise.resolve());
-    const reports = sent.mock.calls.map(([input, init]) => ({ address: String(input), method: init?.method }));
+    await act(answered);
+    const reports = reportsSent();
 
     expect(reports.length, `sends ${String(reports.length)} reports of one crash`).toBe(1);
     expect(reports[0]?.method, "asks for its report rather than sending it").toBe("POST");
@@ -75,9 +75,9 @@ describe.each(BOUNDARIES)("the error boundary $shown", ({ file, shown }) => {
 
     const { rerender } = renderUnderNext(h(Boundary, { error: null, retry: () => undefined }), ROUTED);
     rerender(h(Boundary, { error: null, retry: () => undefined }));
-    await act(() => Promise.resolve());
+    await act(answered);
 
-    expect(sent.mock.calls.length, `${shown}: reports one thrown null ${String(sent.mock.calls.length)} times`).toBe(1);
+    expect(sent.length, `${shown}: reports one thrown null ${String(sent.length)} times`).toBe(1);
   });
 
   /* A boundary that leaves the `retry` Next hands it unread draws a card whose one press does nothing, and nobody
@@ -110,7 +110,8 @@ describe("the rail frame's own boundary", () => {
     await act(async () => {
       renderUnderNext(h(RailFrameBoundary, { groups: [], bar: ["overview"] }, h(FailingRead)), ROUTED);
     });
-    const reports = sent.mock.calls.map(([input, init]) => ({ address: String(input), method: init?.method }));
+    await act(answered);
+    const reports = reportsSent();
 
     expect(reports).toHaveLength(1);
     expect(reports[0]?.method).toBe("POST");

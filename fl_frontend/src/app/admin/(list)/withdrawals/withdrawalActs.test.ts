@@ -4,6 +4,7 @@ import { ADMIN_COPY } from "@/core/copy/admin";
 import { COPY } from "@/core/copy/shared";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { refusal, serveBackend } from "@/test-support/backend";
+import { posted } from "@/test-support/posted";
 import { signedInRequest } from "@/test-support/session";
 
 import type { Code, FLEinwilligungWithdrawalReport } from "@/core/generated/client/types";
@@ -34,10 +35,7 @@ const { enterWithdrawal, readWithdrawal } = await import("./withdrawalActs");
 
 /** The form as the page posts it: the address, and each ticked box under its own name with the value a box posts. */
 function form(...ticked: readonly string[]): FormData {
-  const posted = new FormData();
-  posted.set("email", SENDER);
-  for (const name of ticked) posted.set(name, "on");
-  return posted;
+  return posted({ email: SENDER, ...Object.fromEntries(ticked.map((name) => [name, "on"])) });
 }
 
 beforeEach(() => {

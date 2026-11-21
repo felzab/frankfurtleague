@@ -352,6 +352,10 @@ describe("the heartbeat after each pass", () => {
     answers.set("POST /address_change/sweep", () => refusal(undefined, { status: 503 }));
     answers.set("POST /schiedsrichter/sweep", () => ({ erased: 0, failed: 1 }));
     answers.set("POST /identity/erasure/sweep", () => erasure(4, { failed: 3 }));
+    // One running season whose confirmations' pass fails: the job runs to its end and answers the failure as its
+    // `error`, which no rejection carries to the scheduler.
+    answers.set("GET /saisons/sweep", ({ search }) => ({ saison_ids: search.get("status") === "active" ? ["2627"] : [] }));
+    answers.set("POST /spielbestaetigungen/saisons/2627/sweep", () => networkFailure());
     // Given up by a write's drain inside the hour, never the pass's own: the pass reports every drain's.
     handouts = [{ ...NOTHING_HANDED_OUT, abandoned: 2 }];
     await drainOutbox();
@@ -360,7 +364,11 @@ describe("the heartbeat after each pass", () => {
 
     expect(pinged.map(({ method, url, body }) => ({ url: url.href, method, body }))).toStrictEqual([
       { url: HEARTBEAT, method: "GET", body: undefined },
-      { url: `${HEARTBEAT}/fail`, method: "POST", body: "address-change failed\nschiedsrichter left 1\nerasure left 3\noutbox gave up 2" },
+      {
+        url: `${HEARTBEAT}/fail`,
+        method: "POST",
+        body: "address-change failed\nschiedsrichter left 1\nerasure left 3\nspielbestaetigungen failed\noutbox gave up 2",
+      },
     ]);
   });
 
