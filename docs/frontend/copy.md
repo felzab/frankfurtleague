@@ -162,8 +162,8 @@ Each pattern is an entry of `COPY.shared`; what the entry cannot say is when it 
   section's act in an editor, a Konto box, a page that is one question, and an act that leaves
   nothing on the page to change. Its title is the act's note, else its verb's past participle from
   `toast.done` or another of `toast`'s titles, in the warn tone where the act partly happened
-  (`fl_frontend/src/kit/Toast.tsx :: toastAnswer`). A done act's toast leaves by itself, while a
-  refusal or a partial outcome stands until it is closed.
+  (`fl_frontend/src/kit/Toast.tsx :: toastAnswer`). A done act's toast leaves by itself unless it
+  brings a note; a note, a refusal or a partial outcome stands until it is closed.
 - **A refusal** keeps its line beside what it names: the question's, the dialog's, the box's or the
   section's. It stands in a toast only where no line is left, for an act behind the passkey touch
   whose question or dialog has closed before it answers. No field stands beside a toast, so an act
