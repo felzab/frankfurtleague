@@ -361,17 +361,18 @@ export const switchTrack = tv({
 });
 
 /**
- * The switch's thumb: the control edge's grey on the off track, the page's ground on the brand fill once on,
- * sliding to the track's end when on.
+ * The switch's thumb: the muted ink on the off track, the page's ground on the brand fill once on, sliding to the
+ * track's end when on.
  */
 export const switchThumb = tv({
   base: "size-4 rounded-full transition-[transform,background-color] duration-(--motion-state)",
   variants: {
     selected: {
       true: "translate-x-4 bg-bg",
-      // Off, the thumb takes the control edge's grey, which shows on the muted track in both themes; the
-      // page's ground would sit at 1.3:1 on it.
-      false: "translate-x-0 bg-border-control",
+      // Off, the thumb is the mark that says so, which WCAG holds to 3:1 against the muted track: the muted ink, which
+      // the contrast lint already holds to that track as text. The control edge's grey stood under 3:1 there in both
+      // themes, and the page's ground at 1.3:1.
+      false: "translate-x-0 bg-fg-muted",
     },
   },
 });

@@ -21,7 +21,6 @@ import type { ActionAnswer } from "@/core/action";
 import type { Copy, Verb } from "@/core/copy";
 import type { ReactElement, ReactNode } from "react";
 import type { StatusCardProps, WayOn } from "./StatusCard";
-import type { FormStatus } from "./useFormAction";
 
 /** The end a one-shot form reaches: the status page that replaces it, as the server words it, so its way on is a link. */
 export type EndState = Omit<StatusCardProps, "next"> & { next: WayOn };
@@ -73,18 +72,18 @@ export function OneShotEnd({ children }: { children: ReactNode }) {
 /**
  * The one-shot submit: a page whose form is sent once and whose outcome replaces it. A question asking at most a few
  * fields stands in one card, its acts in the strip across its foot (`mailedCard`); a form of boxes stands in the classic
- * frame's form column under its title, its acts under the boxes. Done, the server's end state takes the page's place as the status template; refused, the
- * form stays with its input, each field's message under its field and the reason in the footer's line. The acts
- * stand in the form's footer (`FormFooter`), the main act at its right end and, before it, the refusal of what the link
- * offers, an objection or a decline, which sends without asking the fields, needing none of them. The refusal stands in
- * the quiet look beside the main act, and in the main act's own where it is the page's one act: the page is itself the
- * question the person opened the link to answer, so a mailed page's acts take the main act's fill and the quiet look,
- * never the outlined one, whether or not they destroy. It asks before it sends, the kit's question in the danger tone,
- * whose own press is the red one; the form holds that question's open state, since its button
- * is the form's own rather than a question's trigger, which draws the outlined look alone. The end stands in
- * `OneShotEnd`, which the form stands inside, and outlives a visit elsewhere and the page's own re-render: what was done stays done. A form anybody
- * may send carries the bot check above its acts, Cloudflare's widget showing only when Cloudflare asks, as wide as the
- * column.
+ * frame's form column under its title, its acts under the boxes. Done, the server's end state takes the page's place
+ * as the status template; refused, the form stays with its input, each field's message under its field and the reason
+ * in the footer's line. The acts stand in the form's footer (`FormFooter`), the main act at its right end and, before
+ * it, the refusal of what the link offers, an objection or a decline, which sends without asking the fields, needing
+ * none of them. The refusal stands in the quiet look beside the main act, and in the main act's own where it is the
+ * page's one act: the page is itself the question the person opened the link to answer, so a mailed page's acts take
+ * the main act's fill and the quiet look, never the outlined one, whether or not they destroy. It asks before it
+ * sends, the kit's question in the danger tone, whose own press is the red one; the form holds that question's open
+ * state, since its button is the form's own rather than a question's trigger, which draws the outlined look alone. The
+ * end stands in `OneShotEnd`, which the form stands inside, and outlives a visit elsewhere and the page's own
+ * re-render: what was done stays done. A form anybody may send carries the bot check above its acts, Cloudflare's
+ * widget showing only when Cloudflare asks, as wide as the column.
  */
 export function OneShotForm({
   head,
@@ -129,8 +128,16 @@ export function OneShotForm({
 }) {
   const answered = useContext(AnsweredEnd);
   const touched = usePasskeyTouch(touch, carry.holder);
+  const check = useBotCheck({ siteKey: botCheck?.siteKey ?? null, size: "flexible" });
   const { answer, submit, block, isBlocked, isPending } = useFormAction(
     async (formData: FormData) => {
+      // Inside the action, so the wait for Cloudflare's token shows as the press running, and the check's own sentence
+      // answers as any refusal does.
+      if (botCheck !== undefined) {
+        const request = await check.takeToken();
+        if ("sentence" in request) return { ok: false, reason: request.sentence };
+        formData.set(TURNSTILE_FIELD, request.token);
+      }
       // The refusal posts without the touch: an objection hands nothing over.
       const reached = await (formData.get(ACT_FIELD) === "primary" ? touched(run) : run)(formData);
       // Handed up before the answer settles here: the same response may already have replaced this form.
@@ -139,38 +146,19 @@ export function OneShotForm({
     },
     { resetOnLeave: false },
   );
-  const check = useBotCheck({ siteKey: botCheck?.siteKey ?? null, size: "flexible" });
   // What the last press posted and the key it carried, read again by every press however often the page reads again.
   const lastSent = useRef<{ posted: string; key: string } | null>(null);
   const form = useRef<HTMLFormElement>(null);
   const [pressed, setPressed] = useState<ActKind>("primary");
-  const [isChecking, setChecking] = useState(false);
   // The refusal's question, and the press it waits on: the form's fields as the press left them, and the act it posts as.
   const [asked, setAsked] = useState<{ formData: FormData; act: ActKind } | null>(null);
   const [isAsking, setAsking] = useState(false);
-  // The check's own refusal: the action never ran, so no answer of its says it.
-  const [checkRefusal, setCheckRefusal] = useState<Copy | null>(null);
 
   // The end stands in `OneShotEnd`, in this form's place.
   if (answer?.ok === true) return null;
 
   const refused = answer;
-  const status: FormStatus = checkRefusal !== null ? { tone: "danger", text: checkRefusal } : statusOf(refused, isBlocked, isPending);
-  const isBusy = isPending || isChecking;
-
-  /** The token Cloudflare minted joins the form's data, or the press ends on the check's own sentence. */
-  const checked = async (formData: FormData) => {
-    setCheckRefusal(null);
-    setChecking(true);
-    const request = await check.takeToken();
-    setChecking(false);
-    if ("sentence" in request) {
-      setCheckRefusal(request.sentence);
-      return;
-    }
-    formData.set(TURNSTILE_FIELD, request.token);
-    submit(formData);
-  };
+  const status = statusOf(refused, isBlocked, isPending);
 
   /**
    * The key for what this press posts: the last press's where both post the same, a new one where any field changed. The
@@ -193,8 +181,7 @@ export function OneShotForm({
     for (const [name, value] of Object.entries(carry)) formData.set(name, value);
     formData.set(ACT_FIELD, act);
     if (replays) formData.set(IDEMPOTENCY_KEY_FIELD, replayKeyFor(formData));
-    if (botCheck === undefined) submit(formData);
-    else void checked(formData);
+    submit(formData);
   };
 
   const footer = (
@@ -207,9 +194,9 @@ export function OneShotForm({
           variant="quiet"
           label={COPY.shared.verb[acts.refusal.verb]}
           aria-describedby={describedBy}
-          isBusy={isBusy && pressed === "secondary"}
+          isBusy={isPending && pressed === "secondary"}
           onPress={() => {
-            if (form.current !== null && !isBusy) ask(new FormData(form.current), "secondary");
+            if (form.current !== null && !isPending) ask(new FormData(form.current), "secondary");
           }}
         />
       )}
@@ -218,7 +205,7 @@ export function OneShotForm({
         type="submit"
         label={acts.primary ?? COPY.shared.verb[acts.refusal.verb]}
         aria-describedby={describedBy}
-        isBusy={isBusy && pressed === "primary"}
+        isBusy={isPending && pressed === "primary"}
       />
     </FormFooter>
   );
@@ -229,7 +216,7 @@ export function OneShotForm({
       question={{ verb: acts.refusal.verb, subject: acts.refusal.subject, consequence: acts.refusal.consequence, tone: "danger" }}
       open={{ isOpen: isAsking, onOpenChange: setAsking }}
       onConfirm={() => {
-        if (asked !== null && !isBusy) send(asked.formData, asked.act);
+        if (asked !== null && !isPending) send(asked.formData, asked.act);
         // Handed to the form's own send, which answers on the form: the question raises no toast, so its verb needs no
         // done word.
         return undefined;
@@ -240,7 +227,7 @@ export function OneShotForm({
     ref: form,
     validationErrors: refused?.fieldErrors,
     onInvalid: block,
-    isBusy,
+    isBusy: isPending,
     onSend: (formData: FormData) => {
       // The refusal alone is the form's main act, and asks before it posts as one.
       if (acts.primary === undefined) ask(formData, "primary");

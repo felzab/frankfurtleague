@@ -6,6 +6,7 @@ import { Button } from "./Button";
 import { smallCaps, stacked } from "./cardStyles";
 import { EmptyState } from "./EmptyState";
 import { messageLine, toggleBox, toggleField, toggleRow } from "./fieldStyles";
+import { FocusOnLeave } from "./FocusOnLeave";
 import { FormClosed } from "./formClosed";
 import { tv } from "./tv";
 
@@ -168,11 +169,14 @@ function RecordRow<Row extends EditorRow>({
       {cells.below !== undefined && <div className={slots.below()}>{control(cells.below)}</div>}
       {removal !== undefined && (
         <div className={slots.remove()}>
-          <Button
-            icon="close"
-            label={removal.label}
-            onPress={removal.act}
-          />
+          {/* The press drops this row, so its button leaves with the focus. */}
+          <FocusOnLeave>
+            <Button
+              icon="close"
+              label={removal.label}
+              onPress={removal.act}
+            />
+          </FocusOnLeave>
         </div>
       )}
     </div>

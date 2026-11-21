@@ -1,14 +1,12 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 
 import { COPY } from "@/core/copy/shared";
 import { discardChange } from "@/features/address-change/actions";
 import { ConfirmDialog } from "@/kit/ConfirmDialog";
+import { usePressAct } from "@/kit/PressAct";
 import { SideActs } from "@/kit/SideActs";
-import { toastAnswer } from "@/kit/Toast";
-import { answering } from "@/kit/useFormAction";
 import { usePasskeyTouch } from "@/kit/usePasskeyTouch";
 
 import { resendChangeLink } from "./addressChangeActs";
@@ -41,9 +39,8 @@ export function ChangeActs({
   /** The address the page was drawn for, which the touch and each act post. */
   holder: string;
 }) {
-  const router = useRouter();
   const touched = usePasskeyTouch(true, holder);
-  const [isSending, startSending] = useTransition();
+  const resend = usePressAct(COPY.shared.toast.linkSent);
   const [isAsking, setAsking] = useState(false);
   // The ending runs after its question closed, so its button or the row's „⋯“ shows it running.
   const ending = useTransition();
@@ -51,11 +48,8 @@ export function ChangeActs({
 
   const send: SideAct = {
     label: COPY.shared.withObject(COPY.shared.link, "send"),
-    isBusy: isSending,
-    onPress: () =>
-      startSending(async () => {
-        toastAnswer(await answering(touched(resendChangeLink), router.refresh)({ address_change_id: id, holder }), COPY.shared.toast.linkSent);
-      }),
+    isBusy: resend.isBusy,
+    onPress: () => resend.press(() => touched(resendChangeLink)({ address_change_id: id, holder })),
   };
   const end: SideAct = { label: COPY.shared.verb[verb], tone: "danger", isBusy: isEnding, onPress: () => setAsking(true) };
 

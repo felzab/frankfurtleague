@@ -10,13 +10,19 @@ const REACHABLE = "a[href], button, input, select, textarea, [tabindex]";
 /** A section's own title, which takes the focus once nothing the keys reach is left in it. */
 const HEADING = "h1, h2, h3, h4, h5, h6";
 
+/** An open dialog or question, which a control's press can move the focus into while the control stands. */
+const OVERLAY = '[role="dialog"], [role="alertdialog"]';
+
 /**
- * Where the focus goes once `left` has left the page: the controls of its section after it, then those before it,
+ * Where the focus goes once `left` has left the page: the controls of its scope after it, then those before it,
  * nearest first, as React Stately's grid moves the focus off a deleted row to the nearest row at or after it, else
- * before it (`useGridState`), then the section's title. Read before `left` leaves, while it still stands among them.
+ * before it (`useGridState`), then the scope's title. The scope is its section, else the page's `main`, where a list's
+ * table stands in no section: its next row's controls follow `left` there as they would in the table alone, and once
+ * the last row leaves, the table giving way to its empty state, the controls around the table still take the focus.
+ * Read before `left` leaves, while it still stands among them.
  */
 function placesAfter(left: HTMLElement) {
-  const section = left.closest("section");
+  const section = left.closest("section") ?? left.closest("main");
   if (section === null) return null;
   const reachable = [...section.querySelectorAll<HTMLElement>(REACHABLE)].filter((place) => place.tabIndex >= 0 && !left.contains(place));
   const after = reachable.filter((place) => left.compareDocumentPosition(place) & Node.DOCUMENT_POSITION_FOLLOWING);
@@ -54,8 +60,8 @@ function handOn(left: HTMLElement, places: NonNullable<ReturnType<typeof placesA
  * opener of a dialog whose save drops it: should it leave while it, or the dialog it opened, holds the focus, the
  * focus goes to the nearest control of its section still standing (`handOn`), where it would otherwise fall to the
  * page's body and the next Tab would start from the top (WCAG 2.4.3). React's focus events reach it from a dialog's
- * portal too, so it holds the focus while its dialog does. Drawn as no box of its own (`contents`), so the acts lay out
- * as before.
+ * portal too, so it holds the focus while its dialog does, and a move into a dialog drawn elsewhere, which its press
+ * opened by an open state, keeps it held. Drawn as no box of its own (`contents`), so the acts lay out as before.
  */
 export function FocusOnLeave({ children }: { children: ReactNode }) {
   const box = useRef<HTMLSpanElement>(null);
@@ -77,8 +83,11 @@ export function FocusOnLeave({ children }: { children: ReactNode }) {
       onFocus={() => {
         holds.current = true;
       }}
-      onBlur={() => {
-        holds.current = false;
+      onBlur={(event) => {
+        // A dialog drawn outside this tree, such as a table's one dialog its rows open, takes the focus with no React
+        // event reaching here, and an act there can drop the row while it holds the focus.
+        const into = event.relatedTarget;
+        holds.current = into instanceof Element && into.closest(OVERLAY) !== null;
       }}>
       {children}
     </span>

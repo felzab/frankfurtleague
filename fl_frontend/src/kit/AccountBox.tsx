@@ -105,8 +105,8 @@ const box = tv({
  * danger box takes. A box holding nothing this page acts on, an address change an administrator started, which the old
  * address's stop link ends, has no footer. A refusal stands in the footer's line with the input kept, a field's message
  * under its field, and is cleared once the page is left; a done act leaves the line empty and says itself in a toast,
- * its answer's note or the act's word (`done`), the line taking no row a phone's page would move by. An act asking a question first answers a refusal in the question, which stays open with it, as
- * every question does.
+ * its answer's note or the act's word (`done`), the line taking no row a phone's page would move by. An act asking a
+ * question first answers a refusal in the question, which stays open with it, as every question does.
  */
 export function AccountBox(props: { title: Words; description: Copy; act: AccountAct | undefined; children?: ReactNode }) {
   const slots = box();

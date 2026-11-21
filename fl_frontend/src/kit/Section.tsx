@@ -92,8 +92,8 @@ export function Section({
   danger?: ReactNode;
   /**
    * A list whose own hairlines reach the box's edges, such as a list of records (`RecordRows`): it fills the box's
-   * width under the rule and brings its own insets, where `children` stand in the box's padding, under the list where a
-   * section holds both, such as a table over the strip of its acts (`SectionAct`).
+   * width under the rule and brings its own insets, where `children` stand in the box's padding, under the list and a
+   * rule of its own where a section holds both, such as a table over the strip of its acts (`SectionAct`).
    */
   list?: ReactNode;
   children?: ReactNode;
@@ -123,7 +123,7 @@ export function Section({
           )}
         </div>
       </div>
-      {list !== undefined && <div className="grid">{list}</div>}
+      {list !== undefined && <div className={children === undefined ? "grid" : "grid border-b border-border"}>{list}</div>}
       {children !== undefined && (
         <div className={slots.content()}>
           <FieldStack>{children}</FieldStack>

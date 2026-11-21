@@ -41,11 +41,10 @@ type Sending = {
 type AtOnce = { label: Copy; press: () => void; act?: never; done?: never; run?: never; confirm?: never };
 
 export type SectionActItem = {
-  /** Closed while the section's inputs are incomplete, its fields showing what is missing, or while the press would reach nobody. */
-  isDisabled?: boolean;
   /**
-   * Why its write would refuse the record as it stands, which the page read, the button saying why; `true` where the
-   * editor's lock line already says it, the button locked with no reason of its own.
+   * Why its write would refuse the record as it stands, which the page read, or why the press cannot run yet, such as
+   * inputs still incomplete or nobody it would reach: the button saying why, reachable rather than mute; `true` where
+   * the editor's lock line already says it, the button locked with no reason of its own.
    */
   locked?: Copy | true;
 } & (Sending | AtOnce);
@@ -69,7 +68,6 @@ function ActButton({ item, isBusy, onPress }: { item: SectionActItem; isBusy: bo
       <Button
         variant="secondary"
         label={item.label}
-        isDisabled={item.isDisabled ?? false}
         locked={lock}
         onPress={item.press}
       />
@@ -82,7 +80,6 @@ function ActButton({ item, isBusy, onPress }: { item: SectionActItem; isBusy: bo
         variant="secondary"
         label={label}
         isBusy={isBusy}
-        isDisabled={item.isDisabled ?? false}
         locked={lock}
         onPress={onPress}
       />
@@ -95,7 +92,7 @@ function ActButton({ item, isBusy, onPress }: { item: SectionActItem; isBusy: bo
         onPress();
         return item.run();
       }}
-      trigger={{ label, isDisabled: item.isDisabled ?? false, locked: lock }}
+      trigger={{ label, locked: lock }}
     />
   );
 }
@@ -103,13 +100,14 @@ function ActButton({ item, isBusy, onPress }: { item: SectionActItem; isBusy: bo
 /**
  * The acts standing in an editor's section beside the fields they read, as a Konto box holds its one act (`AccountBox`):
  * its inputs, then the section's footer strip (`FormFooter`), which closes the box, its acts at the right end and the
- * status line a refusal of its last press stands in at the left. It stands last in its section. It stands inside an
+ * status line a refusal of its last press stands in at the left. It stands last in its section; with no inputs, and
+ * nothing else in the box's padding, the strip stands first there and meets the rule above it. It stands inside an
  * editor's own form, whose fields and save are another record's, so each act sends what its inputs hold as one typed
- * object through `run`, never as a form. A done act says itself in a toast, its answer's note, else its own `done` or its
- * verb's done word, so the line adds no row a phone's page would move by; an act asking a question first answers a refusal in the
- * question's own line, and its done act in the question's toast. A refusal speaks of the inputs it was pressed on: it
- * goes once one of `inputs` changes, and once the page is left. Inside an editor whose draft holds unsaved changes
- * every act is closed as a locked one is (`useLocked`).
+ * object through `run`, never as a form. A done act says itself in a toast, its answer's note, else its own `done` or
+ * its verb's done word, so the line adds no row a phone's page would move by; an act asking a question first answers
+ * a refusal in the question's own line, and its done act in the question's toast. A refusal speaks of the inputs it
+ * was pressed on: it goes once one of `inputs` changes, and once the page is left. Inside an editor whose draft holds
+ * unsaved changes every act is closed as a locked one is (`useLocked`).
  */
 export function SectionAct({
   children,

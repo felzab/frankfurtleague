@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { useState } from "react";
 
-import { screen, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
@@ -147,6 +147,34 @@ describe("a line-up", () => {
       starters: ids(1, 2, 4, 6, 7, 8, 9, 10, 11, 12),
     });
     expect(namesIn(WORDS.rest)).toStrictEqual([nameOf(5), nameOf(13)]);
+  });
+});
+
+// The harm: a keyboard user's every press moves its row to the other card, the focus falls to the page's body, and the
+// next Tab starts from the top of the page, eleven times over for one line-up.
+describe("a line-up built by the keys", () => {
+  it.each([
+    [
+      "„Aufstellen“",
+      lineupValue([], []),
+      () => within(rowOf(1)).getByRole("button", { name: WORDS.pick }),
+      () => within(rowOf(2)).getByRole("button", { name: WORDS.pick }),
+    ],
+    ["the cross", lineupValue([idOf(1), idOf(2)], []), () => crossOf(1), () => tickOf(2)],
+  ] as const)("hands the focus on in the same card after %s", async (_press, start, pressed, next) => {
+    renderUnderNext(
+      <Held
+        players={kader(3)}
+        start={start}
+      />,
+      AT_ADDRESS,
+    );
+    const following = next();
+    act(() => pressed().focus());
+
+    await userEvent.keyboard("{Enter}");
+
+    await waitFor(() => expect(document.activeElement).toBe(following));
   });
 });
 

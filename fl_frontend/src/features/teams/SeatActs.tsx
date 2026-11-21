@@ -1,16 +1,14 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 
 import { seatsText } from "@/core/copy";
 import { COPY } from "@/core/copy/shared";
 import { Dialog } from "@/kit/Dialog";
 import { useLocked } from "@/kit/draftUnsaved";
+import { usePressAct } from "@/kit/PressAct";
 import { SideActs } from "@/kit/SideActs";
 import { TextField } from "@/kit/TextField";
-import { toastAnswer } from "@/kit/Toast";
-import { answering } from "@/kit/useFormAction";
 
 import type { ActionAnswer } from "@/core/action";
 import type { Copy } from "@/core/copy";
@@ -57,10 +55,9 @@ export function SeatActs<Key>({
   /** The boxes this record's seat holds beside the person's. */
   children?: ReactNode;
 }) {
-  const router = useRouter();
   const unsaved = useLocked(undefined);
   const sendLocked = useLocked(link?.locked);
-  const [isSending, startSending] = useTransition();
+  const sending = usePressAct(COPY.shared.toast.linkSent);
   const [isEditing, setEditing] = useState(false);
   // The seat's write runs after its dialog closed, so the edit's button or the row's „⋯“ shows it running.
   const writing = useTransition();
@@ -71,12 +68,9 @@ export function SeatActs<Key>({
       ? null
       : {
           label: SEND,
-          isBusy: isSending,
+          isBusy: sending.isBusy,
           ...(sendLocked === undefined ? {} : { locked: sendLocked }),
-          onPress: () =>
-            startSending(async () => {
-              toastAnswer(await answering(link.send, router.refresh)(link.seat), COPY.shared.toast.linkSent);
-            }),
+          onPress: () => sending.press(() => link.send(link.seat)),
         };
   const edit: SideAct = {
     label: EDIT,

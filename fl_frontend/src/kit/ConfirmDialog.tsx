@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import { Dialog as AriaDialog, DialogTrigger, Heading } from "react-aria-components/Dialog";
+import { Text } from "react-aria-components/Text";
 
 import { COPY } from "@/core/copy/shared";
 
@@ -143,10 +144,13 @@ type Confirming = {
 /**
  * Who words a done act's toast where its answer brings no note, so no act that toasts asks under a verb the catalogue
  * has no done word for: its verb (`DoneVerb`); the holder, in its own word (`done`), as a Konto box says its act; or
- * nobody, for an act answering nothing, which hands its running to the control that asked.
+ * nobody, for an act answering nothing, which hands its running to the control that asked. That last takes no touch:
+ * a refused touch answers after the question closed, and only a toast is left to say it.
  */
 type DoneWord =
-  { question: { verb: DoneVerb } | null; done?: never } | { done: Copy } | { onConfirm: () => undefined | Promise<undefined>; done?: never };
+  | { question: { verb: DoneVerb } | null; done?: never }
+  | { done: Copy }
+  | { onConfirm: () => undefined | Promise<undefined>; done?: never; touch?: never };
 
 /** The done words by verb, read where the props' type has already tied a toasting act to a verb holding one. */
 const DONE_WORDS: Readonly<Partial<Record<Verb, Copy>>> = COPY.shared.toast.done;
@@ -168,13 +172,14 @@ type ConfirmDialogProps<T extends Tone> = Confirming & DoneWord & Touch & Openin
 
 /**
  * The question before an act that cannot be undone: the act and its record, one short sentence of consequence over
- * the facts it rests on, as the „Spiel verlegt“ mail sets a move's slots as rows, „Zurück“ and the act's verb, the status line beside them as every form's stands beside its acts. It has no close
- * mark; Escape and „Zurück“ are the way out, both closed while the act runs, whose answer is the question's to show.
- * A refusal stands until the next press or until the dialog closes; the line is empty while the act runs, the last
- * refusal being none to the press still running. A refusal marked `warn` is an act that partly happened: its line reads in the warn
- * tone, and its button stays, since a second press finishes what the first left. A done act closes the question, which
- * leaves nothing in it to read, and says itself in a toast: the answer's note, else the holder's own word (`done`),
- * else its verb's done word (`COPY.shared.toast.done`).
+ * the facts it rests on, as the „Spiel verlegt“ mail sets a move's slots as rows, „Zurück“ and the act's verb, the
+ * status line beside them as every form's stands beside its acts. It has no close mark; Escape and „Zurück“ are the
+ * way out, both closed while the act runs, whose answer is the question's to show. A refusal stands until the next
+ * press or until the dialog closes; the line is empty while the act runs, the last refusal being none to the press
+ * still running. A refusal marked `warn` is an act that partly happened: its line reads in the warn tone, and its
+ * button stays, since a second press finishes what the first left. A done act closes the question, which leaves
+ * nothing in it to read, and says itself in a toast: the answer's note, else the holder's own word (`done`), else its
+ * verb's done word (`COPY.shared.toast.done`).
  *
  * An act behind the passkey touch is asked as an identity check is, with no modal standing (`Touch`): React Aria's modal
  * makes the rest of the page inert, and a password manager draws its prompt in the page. The final press closes the
@@ -247,7 +252,13 @@ export function ConfirmDialog<T extends Tone>(props: ConfirmDialogProps<T>) {
           className="text-base font-semibold">
           {COPY.shared.question(words.subject, words.verb)}
         </Heading>
-        <p className="text-sm text-fg-muted">{words.consequence}</p>
+        {/* The description slot, which the alert dialog names as its `aria-describedby`, so it is read with the title. */}
+        <Text
+          slot="description"
+          elementType="p"
+          className="text-sm text-fg-muted">
+          {words.consequence}
+        </Text>
         {words.facts !== undefined && words.facts.length > 0 && <Facts facts={words.facts} />}
         <FormFooter status={refusal}>
           <Button

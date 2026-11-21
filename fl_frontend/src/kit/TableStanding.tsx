@@ -1,6 +1,6 @@
 import { textOf } from "@/core/copy";
 import { COPY } from "@/core/copy/shared";
-import { formatNumber } from "@/core/format";
+import { formatOrdinal } from "@/core/format";
 
 import { cardHover, columnHead, nameWithChips, rowHeight, stacked } from "./cardStyles";
 import { Chip } from "./Chip";
@@ -294,7 +294,7 @@ export function TableStanding({ label, rankLabel, nameLabel, columns, rows, empt
                     <td
                       role="cell"
                       className={s.cell({ align: "rank", qualifies: row.qualifies })}>
-                      {row.place === null ? COPY.shared.noValue : formatNumber(row.place)}
+                      {row.place === null ? COPY.shared.noValue : formatOrdinal(row.place)}
                       {/* The edge is a colour alone, which a screen reader hears as these words; the space before them
                           stands in the read text, never beside the centred place. */}
                       {row.qualifies !== undefined && <span className="sr-only"> {COPY.shared.season.qualifies[row.qualifies]}</span>}

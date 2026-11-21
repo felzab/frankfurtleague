@@ -30,7 +30,7 @@ describe("the season's card once decided", () => {
       within(podium)
         .getAllByRole("listitem")
         .map((place) => place.textContent),
-    ).toStrictEqual(["LIELiebig1", "ELIElisabethen2", "ERSErnst-Reuter3"]);
+    ).toStrictEqual(["LIELiebig1.", "ELIElisabethen2.", "ERSErnst-Reuter3."]);
     expect(screen.getByText(SERVER_COPY.landing.saison.place(4)).parentElement?.textContent).toBe(
       `${SERVER_COPY.landing.saison.place(4)}CMSCarlo-Mierendorff`,
     );

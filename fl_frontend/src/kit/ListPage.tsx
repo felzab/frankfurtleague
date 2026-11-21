@@ -1,4 +1,3 @@
-import { Button } from "./Button";
 import { Card } from "./Card";
 import { CardGrid } from "./CardGrid";
 import { Dialog } from "./Dialog";
@@ -138,29 +137,25 @@ async function FiltersOnceRead({ filters }: { filters: Promise<ReadonlyArray<Fil
 
 /**
  * A record created where its list shows: the dialog's act, and why it cannot run on the list as it stands, which the
- * page read, the button saying why.
+ * page read, the button saying why. The lock is the trigger's, never the dialog's own send, which `DialogAct`'s
+ * `locked` would be.
  */
-export type ListCreate = DialogAct & { locked?: Copy };
+export type ListCreate = Omit<DialogAct, "locked"> & { locked?: Copy };
 
 /**
  * An act at the toolbar row's end, its button opening the dialog over the list: the create act, or as `side` the second
  * act before it, a secondary button.
  */
 function ToolbarAct({ act: { locked, ...act }, side = false }: { act: ListCreate; side?: boolean }) {
-  const face = {
-    variant: side ? "secondary" : "primary",
-    ...(side ? {} : { leadingIcon: "create" as const }),
-    label: actLabel(act.act),
-  } as const;
-  return locked === undefined ? (
+  return (
     <Dialog
       {...act}
-      trigger={face}
-    />
-  ) : (
-    <Button
-      {...face}
-      locked={locked}
+      trigger={{
+        variant: side ? "secondary" : "primary",
+        ...(side ? {} : { leadingIcon: "create" }),
+        label: actLabel(act.act),
+        ...(locked === undefined ? {} : { locked }),
+      }}
     />
   );
 }

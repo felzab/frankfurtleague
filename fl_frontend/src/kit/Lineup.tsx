@@ -11,6 +11,7 @@ import { Tick } from "./Checkbox";
 import { Chip } from "./Chip";
 import { CutText } from "./CutText";
 import { EmptyState } from "./EmptyState";
+import { FocusOnLeave } from "./FocusOnLeave";
 import { RolleMark } from "./RolleMark";
 import { tv } from "./tv";
 
@@ -365,12 +366,15 @@ export function Lineup({ players, value, nameless, onChange, startersMax, words,
                       <td className={s.end()}>
                         {acts !== "out" && (
                           <div className={s.acts()}>
-                            <Button
-                              icon="close"
-                              label={words.remove}
-                              locked={acts === "locked" || undefined}
-                              onPress={() => change(without(value.picked, player.id), without(value.starters, player.id))}
-                            />
+                            {/* The press moves its row to the other card, a new row there, so this one leaves with the focus. */}
+                            <FocusOnLeave>
+                              <Button
+                                icon="close"
+                                label={words.remove}
+                                locked={acts === "locked" || undefined}
+                                onPress={() => change(without(value.picked, player.id), without(value.starters, player.id))}
+                              />
+                            </FocusOnLeave>
                           </div>
                         )}
                       </td>
@@ -439,13 +443,16 @@ export function Lineup({ players, value, nameless, onChange, startersMax, words,
                     <td className={s.end()}>
                       {acts !== "out" && (
                         <div className={s.acts()}>
-                          <Button
-                            variant="secondary"
-                            label={words.pick}
-                            // The line-up's own lock is said by the lock line; a nominee's is this row's alone.
-                            locked={acts === "locked" || (player.nominee === true && nominees >= gap ? words.nomineeLocked : undefined)}
-                            onPress={() => change([...value.picked, player.id], value.starters)}
-                          />
+                          {/* The press moves its row to the other card, a new row there, so this one leaves with the focus. */}
+                          <FocusOnLeave>
+                            <Button
+                              variant="secondary"
+                              label={words.pick}
+                              // The line-up's own lock is said by the lock line; a nominee's is this row's alone.
+                              locked={acts === "locked" || (player.nominee === true && nominees >= gap ? words.nomineeLocked : undefined)}
+                              onPress={() => change([...value.picked, player.id], value.starters)}
+                            />
+                          </FocusOnLeave>
                         </div>
                       )}
                     </td>

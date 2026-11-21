@@ -4,6 +4,7 @@ import { COPY } from "@/core/copy/shared";
 
 import { Button } from "./Button";
 import { askingLook } from "./buttonStyles";
+import { FocusOnLeave } from "./FocusOnLeave";
 import { Menu } from "./Menu";
 
 import type { Copy } from "@/core/copy";
@@ -75,7 +76,8 @@ export function SideActs({ acts, children }: { acts: ReadonlyArray<SideAct>; chi
     />
   );
   return (
-    <>
+    // An act can end the row it stands on, while its button, its „⋯“ or the question it opened holds the focus.
+    <FocusOnLeave>
       <span className={WIDE_CLASSES}>
         {acts.map((act) => (
           <Button
@@ -90,6 +92,6 @@ export function SideActs({ acts, children }: { acts: ReadonlyArray<SideAct>; chi
       </span>
       <span className={NARROW_CLASSES}>{menu}</span>
       {children}
-    </>
+    </FocusOnLeave>
   );
 }
