@@ -72,18 +72,18 @@ export function OneShotEnd({ children }: { children: ReactNode }) {
 /**
  * The one-shot submit: a page whose form is sent once and whose outcome replaces it. A question asking at most a few
  * fields stands in one card, its acts in the strip across its foot (`mailedCard`); a form of boxes stands in the classic
- * frame's form column under its title, its acts under the boxes. Done, the server's end state takes the page's place as the status template; refused, the
- * form stays with its input, each field's message under its field and the reason in the footer's line. The acts
- * stand in the form's footer (`FormFooter`), the main act at its right end and, before it, the refusal of what the link
- * offers, an objection or a decline, which sends without asking the fields, needing none of them. The refusal stands in
- * the quiet look beside the main act, and in the main act's own where it is the page's one act: the page is itself the
- * question the person opened the link to answer, so a mailed page's acts take the main act's fill and the quiet look,
- * never the outlined one, whether or not they destroy. It asks before it sends, the kit's question in the danger tone,
- * whose own press is the red one; the form holds that question's open state, since its button
- * is the form's own rather than a question's trigger, which draws the outlined look alone. The end stands in
- * `OneShotEnd`, which the form stands inside, and outlives a visit elsewhere and the page's own re-render: what was done stays done. A form anybody
- * may send carries the bot check above its acts, Cloudflare's widget showing only when Cloudflare asks, as wide as the
- * column.
+ * frame's form column under its title, its acts under the boxes. Done, the server's end state takes the page's place
+ * as the status template; refused, the form stays with its input, each field's message under its field and the reason
+ * in the footer's line. The acts stand in the form's footer (`FormFooter`), the main act at its right end and, before
+ * it, the refusal of what the link offers, an objection or a decline, which sends without asking the fields, needing
+ * none of them. The refusal stands in the quiet look beside the main act, and in the main act's own where it is the
+ * page's one act: the page is itself the question the person opened the link to answer, so a mailed page's acts take
+ * the main act's fill and the quiet look, never the outlined one, whether or not they destroy. It asks before it
+ * sends, the kit's question in the danger tone, whose own press is the red one; the form holds that question's open
+ * state, since its button is the form's own rather than a question's trigger, which draws the outlined look alone. The
+ * end stands in `OneShotEnd`, which the form stands inside, and outlives a visit elsewhere and the page's own
+ * re-render: what was done stays done. A form anybody may send carries the bot check above its acts, Cloudflare's
+ * widget showing only when Cloudflare asks, as wide as the column.
  */
 export function OneShotForm({
   head,

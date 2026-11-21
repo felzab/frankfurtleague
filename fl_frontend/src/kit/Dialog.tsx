@@ -74,9 +74,10 @@ export function RouteDialogBody({
 
 /**
  * A page shown over the page it was opened from, through Next's intercepting route in a parallel slot: centred, the
- * closing button in its corner, over its `RouteDialogBody`. It stands open while its route does; the closing button, Escape or a press outside it goes Back, which closes it and
- * leaves the page beneath as it was. Always open: Next keeps a departed route in a hidden `Activity`, which hides the
- * overlay's portal with it and runs its effects' cleanup, the scroll lock's included.
+ * closing button in its corner, over its `RouteDialogBody`. It stands open while its route does; the closing button,
+ * Escape or a press outside it goes Back, which closes it and leaves the page beneath as it was. Always open: Next
+ * keeps a departed route in a hidden `Activity`, which hides the overlay's portal with it and runs its effects'
+ * cleanup, the scroll lock's included.
  */
 export function RouteDialog({ children }: { children: ReactNode }) {
   const router = useRouter();
@@ -330,8 +331,9 @@ type Opening<T extends Tone> =
  * An act behind the passkey touch is asked as an identity check is, with no modal standing (`DialogAct`'s `touch`):
  * React Aria's modal makes the rest of the page inert, and a password manager draws its prompt in the page. Its press
  * closes the dialog for good, then asks the touch and runs the act, its answer a toast, the trigger busy until it
- * lands, or the press of the holder of the open state, which hands its own transition for it (`HeldAct`). Its answer has no field left to stand on, so its act words every refusal as a sentence naming what was
- * refused, such as an address already banned, and the inputs are typed anew at the next opening.
+ * lands, or the press of the holder of the open state, which hands its own transition for it (`HeldAct`). Its answer
+ * has no field left to stand on, so its act words every refusal as a sentence naming what was refused, such as an
+ * address already banned, and the inputs are typed anew at the next opening.
  */
 export function Dialog<T extends Tone = "primary">(props: DialogAct<T> & Opening<T>) {
   const { act, trigger, open, touch, transition, ...form } = props;

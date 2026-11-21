@@ -172,13 +172,14 @@ type ConfirmDialogProps<T extends Tone> = Confirming & DoneWord & Touch & Openin
 
 /**
  * The question before an act that cannot be undone: the act and its record, one short sentence of consequence over
- * the facts it rests on, as the „Spiel verlegt“ mail sets a move's slots as rows, „Zurück“ and the act's verb, the status line beside them as every form's stands beside its acts. It has no close
- * mark; Escape and „Zurück“ are the way out, both closed while the act runs, whose answer is the question's to show.
- * A refusal stands until the next press or until the dialog closes; the line is empty while the act runs, the last
- * refusal being none to the press still running. A refusal marked `warn` is an act that partly happened: its line reads in the warn
- * tone, and its button stays, since a second press finishes what the first left. A done act closes the question, which
- * leaves nothing in it to read, and says itself in a toast: the answer's note, else the holder's own word (`done`),
- * else its verb's done word (`COPY.shared.toast.done`).
+ * the facts it rests on, as the „Spiel verlegt“ mail sets a move's slots as rows, „Zurück“ and the act's verb, the
+ * status line beside them as every form's stands beside its acts. It has no close mark; Escape and „Zurück“ are the
+ * way out, both closed while the act runs, whose answer is the question's to show. A refusal stands until the next
+ * press or until the dialog closes; the line is empty while the act runs, the last refusal being none to the press
+ * still running. A refusal marked `warn` is an act that partly happened: its line reads in the warn tone, and its
+ * button stays, since a second press finishes what the first left. A done act closes the question, which leaves
+ * nothing in it to read, and says itself in a toast: the answer's note, else the holder's own word (`done`), else its
+ * verb's done word (`COPY.shared.toast.done`).
  *
  * An act behind the passkey touch is asked as an identity check is, with no modal standing (`Touch`): React Aria's modal
  * makes the rest of the page inert, and a password manager draws its prompt in the page. The final press closes the
