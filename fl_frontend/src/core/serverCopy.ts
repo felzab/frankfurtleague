@@ -239,7 +239,7 @@ export const SERVER_COPY = catalogue({
 
   /**
    * The refusals of a dialog closed behind the passkey touch, whose toast says them where no box stands to carry a
-   * field's phrase: each names what was refused, by its box's label, as its lane's `boxless` declares it.
+   * field's phrase: each names what was refused as its box asks for it, as its lane's `boxless` declares it.
    */
   closedDialog: {
     /** A ban of an address the ban list already holds. */
