@@ -21,11 +21,11 @@ import type { ActionAnswer } from "@/core/action";
 import type { Copy } from "@/core/copy";
 import type { ReactElement, ReactNode } from "react";
 import type { DoneVerb } from "./dialogAct";
-import type { StatusCardProps } from "./StatusCard";
+import type { StatusCardProps, WayOn } from "./StatusCard";
 import type { FormStatus } from "./useFormAction";
 
-/** The end a one-shot form reaches: the status page that replaces it, as the server words it. */
-export type EndState = StatusCardProps;
+/** The end a one-shot form reaches: the status page that replaces it, as the server words it, so its way on is a link. */
+export type EndState = Omit<StatusCardProps, "next"> & { next: WayOn };
 
 /** Which of the form's acts was pressed: the main one, or the refusal before it. */
 type ActKind = "primary" | "secondary";

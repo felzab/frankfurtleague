@@ -61,3 +61,25 @@ describe("where a team's seat stands", () => {
     expect(seat?.chips.map(({ label }) => label)).toStrictEqual([COPY.shared.state.unconfirmed, ADMIN_COPY.delivery.abandoned]);
   });
 });
+
+/* The answers decide whom the administrator may add to the team's WhatsApp group, and nothing on screen tells a
+   declined answer shown as given from a true one. */
+describe("a seat's consent answers", () => {
+  const factsOf = (ansprechperson: FLKontaktpersonAdmin) =>
+    seatsOf({ kontakte: { ...NOBODY, ansprechperson }, confirmations: null }).find((seat) => seat.id === "ansprechperson")?.facts;
+  const CONSENT = ADMIN_COPY.einwilligung;
+
+  it("reads a confirmed person's WhatsApp and photographs answers", () => {
+    const anna = person("Anna", "2026-10-02");
+    const given: FLKontaktpersonAdmin = { ...anna, einwilligung: { ...anna.einwilligung, scope: "kontakt_data_whatsapp", media: true } };
+
+    expect(factsOf(given)).toStrictEqual([
+      { label: CONSENT.whatsapp, value: CONSENT.yes },
+      { label: CONSENT.media, value: CONSENT.yes },
+    ]);
+  });
+
+  it("reads no answer before the person confirms", () => {
+    expect(factsOf(person("Anna"))).toStrictEqual([]);
+  });
+});

@@ -12,7 +12,7 @@ import type { Copy, TextLink } from "@/core/copy";
 import type { ReactNode } from "react";
 import type { Fact } from "./Facts";
 import type { EndState, OneShotActs, OneShotRun } from "./OneShot";
-import type { StatusCardProps } from "./StatusCard";
+import type { WayOn } from "./StatusCard";
 
 // The end a mailed page's answer reaches, handed on from the one-shot submit, which no page imports but this template.
 export type { EndState } from "./OneShot";
@@ -21,7 +21,7 @@ export type { EndState } from "./OneShot";
  * The way on from a mailed page to Konto's Anmeldung, where a change is started again and the deletion asked for:
  * every mailed end leading to Konto takes it.
  */
-export const TO_ACCOUNT = { label: COPY.shared.end.toAccount, href: ROUTES.accountSignIn.path() } as const satisfies StatusCardProps["next"];
+export const TO_ACCOUNT = { label: COPY.shared.end.toAccount, href: ROUTES.accountSignIn.path() } as const satisfies WayOn;
 
 /**
  * What a mailed page shows once its link is read, in one of four states, or an end of its own:
@@ -65,8 +65,8 @@ export type MailedState =
       /** The answer's fields, the kit's, each with its `name`. */
       children?: ReactNode;
     }
-  | { state: "alreadyDone"; title: Copy; next: StatusCardProps["next"]; declined?: boolean }
-  | { state: "invalid"; next: StatusCardProps["next"] }
+  | { state: "alreadyDone"; title: Copy; next: WayOn; declined?: boolean }
+  | { state: "invalid"; next: WayOn }
   | ({ state: "end" } & EndState);
 
 type PrivacyMore = (link: TextLink) => readonly [Copy, TextLink, Copy];

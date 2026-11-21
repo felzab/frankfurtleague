@@ -18,7 +18,7 @@ import type { Route } from "next";
 import type { ReactElement } from "react";
 import type { Fact } from "./Facts";
 import type { Figures, SpielRowProps, SpielSide } from "./SpielRow";
-import type { StatusCardProps } from "./StatusCard";
+import type { StatusCardProps, WayOn } from "./StatusCard";
 
 /**
  * A side as the head names it: the club's name a link to its page once the club is known, and under it a
@@ -202,7 +202,7 @@ export function SpielPopup({ popup }: { popup: Promise<SpielPopupContent> }) {
  * The match pop-up whose match is not there, as a match deleted after its Spielplan was read: the status card in the
  * dialog, its title naming the dialog in a status card's title look, so a missing match opens where a found one does.
  */
-export function SpielPopupEnd({ tone, title, next }: Omit<StatusCardProps, "quiet">) {
+export function SpielPopupEnd({ tone, title, next }: Omit<StatusCardProps, "quiet" | "next"> & { next: WayOn }) {
   return (
     <RouteDialog>
       <StatusCardBody

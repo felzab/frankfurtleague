@@ -1,11 +1,10 @@
 "use client";
 
 import { COPY } from "@/core/copy/shared";
+import { ROUTES } from "@/core/routes";
 import { RailColumn } from "@/kit/RailFrame";
 import { StatusPage } from "@/kit/StatusPage";
 import { useReportClientCrash } from "@/shared/hooks/useReportClientCrash";
-
-import { ACCOUNT_HOME } from "./entries";
 
 /**
  * A failed Konto page in the rail frame: this boundary stands inside the frame's layout and replaces the route group's
@@ -15,7 +14,7 @@ import { ACCOUNT_HOME } from "./entries";
 export default function AccountError({ error, retry }: { error: unknown; retry: () => void }) {
   useReportClientCrash(error);
   return (
-    <RailColumn back={ACCOUNT_HOME.href}>
+    <RailColumn back={ROUTES.account.path()}>
       <StatusPage
         scope="area"
         title={COPY.shared.failure.unexpected}
