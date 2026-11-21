@@ -8,6 +8,7 @@ import type { ThrownRedirect } from "@/test-support/thrownRedirect";
 
 import "next/dist/server/node-environment-baseline.js";
 
+import { MINUTE_MS } from "@/core/timeUnits";
 import {
   ADMIN_EMAIL,
   configDouble,
@@ -262,7 +263,6 @@ describe("where the proxy sends a request for an area's page", () => {
 
 const EXPIRES_IN_MS = auth.options.session.expiresIn * 1000;
 const UPDATE_AGE_MS = auth.options.session.updateAge * 1000;
-const MINUTE_MS = 60 * 1000;
 
 const PERSON_URL = "http://localhost:3000/account";
 

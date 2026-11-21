@@ -5,7 +5,6 @@ import { z } from "zod";
 import { action } from "@/core/action";
 import { frontend_config } from "@/core/config";
 import { ADMIN_COPY } from "@/core/copy/admin";
-import { COPY } from "@/core/copy/shared";
 import { teamsDeleteInvitation, teamsPostInvitation, teamsPostInvitationMail } from "@/core/generated/client/sdk";
 import { TeamsPostInvitationMailBody, TeamsPostInvitationParams } from "@/core/generated/zod/inputs";
 import { mailedLinkTo, ROUTES } from "@/core/routes";
@@ -38,9 +37,7 @@ export const mailInvitation = action({
   input: Key.extend(TeamsPostInvitationMailBody.shape),
   run: async ({ team_id, saison_id, invitation_id }) => {
     const { mailed } = await teamsPostInvitationMail(team_id, saison_id, { invitation_id });
-    return mailed === 0
-      ? { ok: false, reason: ADMIN_COPY.saison.noConfirmedAddress }
-      : { ok: true, value: undefined, note: COPY.shared.toast.linkSent };
+    return mailed === 0 ? { ok: false, reason: ADMIN_COPY.saison.noConfirmedAddress } : { ok: true, value: undefined };
   },
 });
 

@@ -27,6 +27,7 @@ import { assertionFor, COSE_KEY, CREDENTIAL_ID, CREDENTIAL_RAW_ID, registrationF
 import { assertionAnswer } from "./auth/assertionAnswer";
 import { PASSKEY_TOUCH_SECONDS } from "./sessionLifetimes";
 import { CODE_ATTEMPTS, CODE_VALIDITY_MINUTES } from "./signInCode";
+import { DAY_MS, HOUR_MS, MINUTE_MS } from "./timeUnits";
 
 import type { MemoryStore, SessionRow } from "@/test-support/authDoubles";
 import type { LoggedLine } from "@/test-support/stdoutCapture";
@@ -256,9 +257,6 @@ const { proxy } = await import("../proxy");
 const { NextRequest } = await import("next/server");
 
 const handler = toNextJsHandler(auth);
-const MINUTE_MS = 60 * 1000;
-const HOUR_MS = 60 * MINUTE_MS;
-const DAY_MS = 24 * HOUR_MS;
 /** The library's `freshAge`, which a first passkey's enrolment is held to: written out, so a moved option fails the cases. */
 const FRESH_SIGN_IN_MS = 5 * MINUTE_MS;
 const PASSKEY_TOUCH_MS = PASSKEY_TOUCH_SECONDS * 1000;
@@ -754,7 +752,7 @@ describe("a passkey session made before its grant", () => {
   }
 
   it("administers on no lane, and is told to sign in", async () => {
-    await aPasskeySessionGranted(60 * 1000);
+    await aPasskeySessionGranted(MINUTE_MS);
 
     expect(await getAdminSession()).toBe(null);
     expect(await judgeAdminRequest()).toStrictEqual({ refused: "signIn" });
@@ -867,7 +865,7 @@ describe("the fresh sign-in a first passkey is added on", () => {
      `freshAge`: a mailbox read later adds none. */
   it("refuses a code session's registration options a minute past `freshAge`, where the page stops offering the step", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
-    ageRow(row, { created: FRESH_SIGN_IN_MS + 60_000 });
+    ageRow(row, { created: FRESH_SIGN_IN_MS + MINUTE_MS });
 
     const refused = await overHttp("/passkey/generate-register-options", { cookie });
     expect(refused.status).toBe(403);
@@ -1216,7 +1214,7 @@ describe("which sessions may enrol a passkey, and how many rows they may leave",
 
     const offered = await auth.api.generatePasskeyRegistrationOptions({ headers, returnHeaders: true });
     const challenge = (offered.response as { challenge: string }).challenge;
-    ageRow(row, { created: FRESH_SIGN_IN_MS + 60_000 });
+    ageRow(row, { created: FRESH_SIGN_IN_MS + MINUTE_MS });
 
     await expect(() =>
       auth.api.verifyPasskeyRegistration({
@@ -1860,7 +1858,7 @@ describe("what the code costs an address holding nothing", () => {
     await auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) });
     const mailed = codeRowOf(ADMIN_EMAIL);
     assert.ok(mailed !== undefined);
-    const lapsing = new Date(Date.now() + 60_000);
+    const lapsing = new Date(Date.now() + MINUTE_MS);
     mailed.expiresAt = lapsing;
 
     await auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) });

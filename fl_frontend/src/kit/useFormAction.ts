@@ -63,15 +63,13 @@ export type FormStatus = { tone: "changes" | AnswerTone; text: Copy } | null;
 /**
  * The status line of a send. One the browser kept back for a field's own rule points at the fields, as does
  * a server refusal its fields carry, since the fields say what; a refusal with a reason no box says says that
- * reason, the boxes saying theirs beside it, and any other the shared failure line; a done one says what else
- * the write moved, or „Gespeichert“.
- * Nothing for no answer, for a save held back for the question its answer asks, nor while a send is on its way: the
- * last answer is none to the press still running.
+ * reason, the boxes saying theirs beside it, and any other the shared failure line.
+ * Nothing for no answer, for a done one, which its toast or an editor's save bar says, for a save held back for the
+ * question its answer asks, nor while a send is on its way: the last answer is none to the press still running.
  */
 export function statusOf(answer: ActionAnswer<unknown> | null, isBlocked: boolean, isPending: boolean): FormStatus {
   if (isBlocked) return { tone: "danger", text: COPY.template.checkFields };
-  if (answer === null || isPending) return null;
-  if (answer.ok) return answerLine(answer);
+  if (answer === null || answer.ok || isPending) return null;
   // A save held back for its question: the question says what, and nothing failed.
   if (answer.ask !== undefined) return null;
   // A passkey sheet the person closed: the act never ran, and nothing failed.

@@ -87,8 +87,8 @@ export function QuestionForm<Input>({
     { resetOnLeave: true },
   );
   const refused = answer !== null && !answer.ok ? answer : null;
-  // A read that opened the question says nothing here: the question is its answer.
-  const status = answer?.ok === true ? null : statusOf(answer, isBlocked, isPending);
+  // A read that opened the question says nothing here, being done: the question is its answer.
+  const status = statusOf(answer, isBlocked, isPending);
   const open = { isOpen: isAsking, onOpenChange: setAsking };
   const touched = touch ? { touch: { holder } } : {};
 

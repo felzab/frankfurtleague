@@ -1,7 +1,7 @@
 import { requestOf } from "./core/errors";
 import { logger } from "./core/logging";
 import { runInBackground } from "./core/requestScope";
-import { HOUR_MS } from "./core/timeUnits";
+import { HOUR_MS, MINUTE_MS } from "./core/timeUnits";
 import { mintTraceId } from "./core/trace";
 
 /**
@@ -61,7 +61,7 @@ const PASS_INTERVAL_MS = HOUR_MS;
  * A minute after start rather than at once: a deploy recreates this container before the backend answers. The interval
  * alone would skip a container recreated daily.
  */
-const FIRST_PASS_DELAY_MS = 60 * 1000;
+const FIRST_PASS_DELAY_MS = MINUTE_MS;
 
 /**
  * The one scheduler, for the life of this process: production runs one frontend container, so one process holds the

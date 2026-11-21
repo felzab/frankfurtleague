@@ -62,6 +62,9 @@ export function SeatActs<Key>({
   const sendLocked = useLocked(link?.locked);
   const [isSending, startSending] = useTransition();
   const [isEditing, setEditing] = useState(false);
+  // The seat's write runs after its dialog closed, so the edit's button or the row's „⋯“ shows it running.
+  const writing = useTransition();
+  const [isWriting] = writing;
 
   const send: SideAct | null =
     link === null
@@ -77,6 +80,7 @@ export function SeatActs<Key>({
         };
   const edit: SideAct = {
     label: EDIT,
+    isBusy: isWriting,
     ...(unsaved === undefined ? {} : { locked: unsaved }),
     onPress: () => setEditing(true),
   };
@@ -91,7 +95,8 @@ export function SeatActs<Key>({
         run={write}
         carry={carry}
         touch={{ holder }}
-        open={{ isOpen: isEditing, onOpenChange: setEditing }}>
+        open={{ isOpen: isEditing, onOpenChange: setEditing }}
+        transition={writing}>
         <TextField
           label={COPY.shared.firstName}
           name="first_name"

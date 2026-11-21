@@ -187,7 +187,15 @@ export function SchiedsrichterEditor({
                     {confirmation.length > 0 && <Facts facts={confirmation} />}
                     {/* An act of its box, as the season editor's are: its toast says the link went, the line under it why not. */}
                     {sendLink !== undefined && (
-                      <SectionAct acts={[{ act: { verb: "send", object: COPY.shared.link }, run: () => sendLink({ id: record.id }) }]} />
+                      <SectionAct
+                        acts={[
+                          {
+                            act: { verb: "send", object: COPY.shared.link },
+                            done: COPY.shared.toast.linkSent,
+                            run: () => sendLink({ id: record.id }),
+                          },
+                        ]}
+                      />
                     )}
                   </>
                 ),

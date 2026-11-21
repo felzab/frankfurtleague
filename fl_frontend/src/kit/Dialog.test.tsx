@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { Activity, useState } from "react";
+import { Activity, useState, useTransition } from "react";
 
 import { act, getDefaultNormalizer, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -26,6 +26,13 @@ type Spielort = { name: string };
 const NAME = COPY.page.adminSpielorte;
 const INPUT = COPY.page.spiele;
 const DONE: ActionAnswer = { ok: true, value: undefined };
+const HOLDER = "anna@example.com";
+
+// The browser's passkey prompt, which a touched act asks before it runs, answered at once for the holder.
+vi.mock("@/core/auth/browserClient", () => ({
+  loadAuthClient: async () => ({ signIn: { passkey: async () => ({ data: { status: true, email: HOLDER }, error: null }) } }),
+  usePreloadedAuthClient: () => undefined,
+}));
 
 function CreateDialog({ create, locked }: { create: (formData: FormData) => Promise<ActionAnswer>; locked?: Copy }) {
   return (
@@ -303,6 +310,55 @@ describe("the kit's dialog", () => {
     await leaveAndReturnWithOpen(Page);
 
     expect(screen.queryByRole("dialog")).toBeNull();
+  });
+});
+
+/** A row's side act opening a touched dialog through its open state, busy on the transition it hands the dialog. */
+function SideActDialog({ write }: { write: (formData: FormData) => Promise<ActionAnswer> }) {
+  const [isOpen, setOpen] = useState(false);
+  const writing = useTransition();
+  return (
+    <>
+      <Button
+        variant="secondary"
+        label={COPY.shared.verb.edit}
+        isBusy={writing[0]}
+        onPress={() => setOpen(true)}
+      />
+      <Dialog
+        title={NAME}
+        act={{ verb: "save" }}
+        run={write}
+        touch={{ holder: HOLDER }}
+        open={{ isOpen, onOpenChange: setOpen }}
+        transition={writing}>
+        <TextField
+          label={INPUT}
+          name="created"
+          kind="text"
+        />
+      </Dialog>
+    </>
+  );
+}
+
+// The harm: a touched write opened from a side act, such as a seat's, runs for the length of a passkey prompt and a
+// request after its dialog closed, nothing on the row showing it, and a second press starts it again.
+describe("a touched dialog opened by a control holding its open state", () => {
+  it("runs its act in the control's transition, the control busy until the act answers", async () => {
+    const answer = Promise.withResolvers<ActionAnswer>();
+    onTestFinished(() => answer.resolve(DONE));
+    const write = vi.fn((_formData: FormData) => answer.promise);
+    renderUnderNext(<SideActDialog write={write} />);
+    const edit = screen.getByRole("button", { name: COPY.shared.verb.edit });
+
+    await userEvent.click(edit);
+    await userEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: COPY.shared.verb.save }));
+    await waitFor(() => expect(write).toHaveBeenCalledOnce());
+    expect([screen.queryByRole("dialog"), edit.hasAttribute("data-pending")]).toStrictEqual([null, true]);
+
+    await act(async () => answer.resolve(DONE));
+    await waitFor(() => expect(edit.hasAttribute("data-pending")).toBe(false));
   });
 });
 

@@ -111,7 +111,6 @@ export const ADMIN_COPY = catalogue({
   },
   /** The place of an address the log's erasure step replaced. */
   erasedActor: "Gelöschte Person",
-  nothingAtAddress: "Unter dieser Adresse steht nichts.",
   mailTo: {
     holders: "Alle Administratoren",
     holdersAndPerson: "Alle Administratoren und die Person",

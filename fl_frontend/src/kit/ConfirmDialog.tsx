@@ -18,7 +18,7 @@ import { useOpenUntilHidden } from "./useOpenUntilHidden";
 import { usePasskeyTouch } from "./usePasskeyTouch";
 
 import type { ActionAnswer } from "@/core/action";
-import type { Copy } from "@/core/copy";
+import type { Copy, Verb } from "@/core/copy";
 import type { DoneVerb } from "./dialogAct";
 import type { Fact } from "./Facts";
 import type { IconName } from "./Icon";
@@ -28,9 +28,10 @@ import type { HeldOpen } from "./useOpenUntilHidden";
 /** What an act answering nothing reads as: handed to the control that asked, which answers it where it stands. */
 const HANDED: ActionAnswer<unknown> = { ok: true, value: undefined };
 
-export type ConfirmWords = {
-  /** The act, which names the question and the button that does it, and words its toast once done. */
-  verb: DoneVerb;
+/** A question's words; `V` narrows its verb to those a toast can word as done (`DoneVerb`) where its holder needs it. */
+export type ConfirmWords<V extends Verb = Verb> = {
+  /** The act, which names the question and the button that does it. */
+  verb: V;
   /** The record the act touches: „Passkey“ asks „Passkey löschen?“. */
   subject: Copy;
   /** One sentence built from the data: what the act does and to how much. */
@@ -116,12 +117,13 @@ type Opening<T extends Tone> =
       trigger?: never;
     } & HeldAct);
 
-/** What a holder of the open state may also hold: the act's running, lifted up to it. */
-type HeldAct = {
+/** What a holder of a question's or a dialog's open state may also hold: the act's running, lifted up to it. */
+export type HeldAct = {
   /**
-   * The holder's transition, which the act runs in instead of the question's own, so the holder shows the act running
-   * where its press stands and refuses a second press while it does: a touched act runs after its question closed, and
-   * a held question draws no trigger to show it on.
+   * The holder's transition, which the act runs in instead of the question's or the dialog's own, so the holder shows
+   * the act running where its press stands and refuses a second press while it does: a touched act runs after its
+   * question or dialog closed, and a held one draws no trigger to show it on. A dialog's act sent from its open form
+   * shows its running on the form's own button instead.
    */
   transition?: ActTransition;
 };
@@ -135,9 +137,18 @@ type Confirming = {
    * which answers it on its own line, so the question closes and says nothing.
    */
   onConfirm: () => void | Promise<void> | Promise<ActionAnswer<unknown>>;
-  /** The holder says a done act itself, in words of its own, so the question's toast carries a refusal alone. */
-  doneShown?: true;
 };
+
+/**
+ * Who words a done act's toast where its answer brings no note, so no act that toasts asks under a verb the catalogue
+ * has no done word for: its verb (`DoneVerb`); the holder, in its own word (`done`), as a Konto box says its act; or
+ * nobody, for an act answering nothing, which hands its running to the control that asked.
+ */
+type DoneWord =
+  { question: { verb: DoneVerb } | null; done?: never } | { done: Copy } | { onConfirm: () => undefined | Promise<undefined>; done?: never };
+
+/** The done words by verb, read where the props' type has already tied a toasting act to a verb holding one. */
+const DONE_WORDS: Readonly<Partial<Record<Verb, Copy>>> = COPY.shared.toast.done;
 
 /** The address the page was drawn for, the one account a passkey touch may answer for (`usePasskeyTouch`). */
 type Holder = { holder: string };
@@ -150,9 +161,9 @@ type Holder = { holder: string };
 type Touch = { touch?: Holder };
 
 /** A question as the part asking it is handed it, before that part opens it its own way: its words and its act. */
-export type ConfirmQuestion = ConfirmWords & Confirming & Touch;
+export type ConfirmQuestion = ConfirmWords<DoneVerb> & Confirming & Touch;
 
-type ConfirmDialogProps<T extends Tone> = Confirming & Touch & Opening<T>;
+type ConfirmDialogProps<T extends Tone> = Confirming & DoneWord & Touch & Opening<T>;
 
 /**
  * The question before an act that cannot be undone: the act and its record, one short sentence of consequence over
@@ -161,8 +172,8 @@ type ConfirmDialogProps<T extends Tone> = Confirming & Touch & Opening<T>;
  * A refusal stands until the next press or until the dialog closes; the line is empty while the act runs, the last
  * refusal being none to the press still running. A refusal marked `warn` is an act that partly happened: its line reads in the warn
  * tone, and its button stays, since a second press finishes what the first left. A done act closes the question, which
- * leaves nothing in it to read, and says itself in a toast: the answer's note, or its verb's done word
- * (`COPY.shared.toast.done`).
+ * leaves nothing in it to read, and says itself in a toast: the answer's note, else the holder's own word (`done`),
+ * else its verb's done word (`COPY.shared.toast.done`).
  *
  * An act behind the passkey touch is asked as an identity check is, with no modal standing (`Touch`): React Aria's modal
  * makes the rest of the page inert, and a password manager draws its prompt in the page. The final press closes the
@@ -190,19 +201,19 @@ export function ConfirmDialog<T extends Tone>(props: ConfirmDialogProps<T>) {
     router.refresh,
   );
 
-  const confirm = (verb: DoneVerb) => {
-    const done = COPY.shared.toast.done[verb];
-    // A done act the holder says itself, or was handed, raises no toast of the question's.
-    const toasts = (answer: ActionAnswer<unknown>) => answer !== HANDED && (!answer.ok || props.doneShown !== true);
+  const confirm = (verb: Verb) => {
+    const done = props.done ?? DONE_WORDS[verb];
+    // An act handed to the control that asked raises no toast of the question's: that control answers it. Only such an
+    // act asks under a verb with no done word (`DoneWord`).
+    const toast = (answer: ActionAnswer<unknown>) => {
+      if (answer !== HANDED && done !== undefined) toastAnswer(answer, done);
+    };
     if (touch !== undefined) {
       // Closed in the press, outside its transition, whose updates wait for the whole act: the close is a press's update,
       // which React commits with its effects, React Aria's lifting of the modal's `inert` among them, in a microtask queued
       // ahead of the touch's first `await`, so before the browser asks and within the press Safari asks of it.
       setOpen(false);
-      startAct(async () => {
-        const answered = await act(undefined);
-        if (toasts(answered)) toastAnswer(answered, done);
-      });
+      startAct(async () => toast(await act(undefined)));
       return;
     }
     startAct(async () => {
@@ -215,7 +226,7 @@ export function ConfirmDialog<T extends Tone>(props: ConfirmDialogProps<T>) {
         else if (answer.closed !== true) setRefusal(answerLine(answer));
       });
       // A refusal stands in the question's own line.
-      if (answer.ok && toasts(answer)) toastAnswer(answer, done);
+      if (answer.ok) toast(answer);
     });
   };
 

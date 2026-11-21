@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
+import { HOUR_MS } from "@/core/timeUnits";
 import { serveBackend } from "@/test-support/backend";
 import { captureLog } from "@/test-support/stdoutCapture";
 
@@ -9,8 +10,6 @@ const backend = serveBackend();
 const log = captureLog();
 
 const { register } = await import("./instrumentation");
-
-const HOUR_MS = 60 * 60 * 1000;
 
 beforeEach(() => void vi.useFakeTimers({ toFake: ["setInterval", "setTimeout"] }));
 afterEach(() => {

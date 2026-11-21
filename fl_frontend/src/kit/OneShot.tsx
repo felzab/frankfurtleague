@@ -18,9 +18,8 @@ import { statusOf, useFormAction } from "./useFormAction";
 import { usePasskeyTouch } from "./usePasskeyTouch";
 
 import type { ActionAnswer } from "@/core/action";
-import type { Copy } from "@/core/copy";
+import type { Copy, Verb } from "@/core/copy";
 import type { ReactElement, ReactNode } from "react";
-import type { DoneVerb } from "./dialogAct";
 import type { StatusCardProps, WayOn } from "./StatusCard";
 import type { FormStatus } from "./useFormAction";
 
@@ -34,7 +33,7 @@ type ActKind = "primary" | "secondary";
  * The refusal of what the link offers, an objection or a decline, by the question it asks before it sends: its verb,
  * which names its button, the record it ends, and one sentence of what it does.
  */
-type Refusal = { verb: DoneVerb; subject: Copy; consequence: Copy };
+type Refusal = { verb: Verb; subject: Copy; consequence: Copy };
 
 /**
  * A one-shot form's acts: the main act and, where the link's offer can be refused, the refusal beside it; or the
@@ -230,6 +229,9 @@ export function OneShotForm({
       open={{ isOpen: isAsking, onOpenChange: setAsking }}
       onConfirm={() => {
         if (asked !== null && !isBusy) send(asked.formData, asked.act);
+        // Handed to the form's own send, which answers on the form: the question raises no toast, so its verb needs no
+        // done word.
+        return undefined;
       }}
     />
   );
