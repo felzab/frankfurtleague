@@ -45,7 +45,6 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 function rowOf(read: FLTeamSaisonAdminResponse, membership: FLTeamMembership, link: FLTeamLinkState): TeamRow {
   const { saison, gruppen, gruppe_locked: drawn, taken_trikot_farben: taken } = read;
   const austritt = membership.austritt;
-  const departed = austritt === null ? undefined : ADMIN_COPY.spiel.departed;
   const stands = austritt === null ? null : COPY.shared.austritt[austritt.type];
   return {
     saisonTitle: COPY.shared.saisonName(saison.id),
@@ -64,12 +63,9 @@ function rowOf(read: FLTeamSaisonAdminResponse, membership: FLTeamMembership, li
           ],
     version: membership.version,
     seats: seatsOf(membership),
-    invitation: {
-      facts: linkFactsOf(link, saison),
-      live: link.invitation?.id ?? null,
-      ...(departed === undefined ? {} : { locked: departed }),
-    },
-    ...(departed === undefined ? {} : { sendLocked: departed }),
+    invitation: { facts: linkFactsOf(link, saison), live: link.invitation?.id ?? null },
+    // An exit is never lifted, so its link acts are left out, the lock line naming the exit once.
+    ...(austritt === null ? {} : { departed: true }),
     exit:
       austritt !== null
         ? null

@@ -12,20 +12,17 @@ import { appToast } from "@/kit/Toast";
 import { copyTextToClipboard } from "@/shared/utils/clipboard";
 
 import type { ActionAnswer } from "@/core/action";
-import type { Copy } from "@/core/copy";
 import type { Fact } from "@/kit/Facts";
 import type { SectionActItem } from "@/kit/SectionAct";
 
 const WORDS = ADMIN_COPY.team;
 const LINK = COPY.shared.link;
 
-/** The box as the read leaves it: where the link stands, the live link's id, and why its acts are closed. */
+/** The box as the read leaves it: where the link stands, and the live link's id. */
 export type InvitationView = {
   facts: readonly Fact[];
   /** The live link's id, `null` for a team holding none. */
   live: string | null;
-  /** Why no act runs: the club left the season. */
-  locked?: Copy;
 };
 
 const TAKEN_BACK = { verb: "withdraw", subject: LINK, consequence: WORDS.linkVoidConsequence, tone: "danger" } as const;
@@ -39,7 +36,7 @@ const REPLACED = { verb: "replace", subject: LINK, consequence: WORDS.linkVoidCo
 export function FormInvitationSection({ team, saison, view }: { team: string; saison: string; view: InvitationView }) {
   const [fresh, setFresh] = useState<string | null>(null);
   const key = { team_id: team, saison_id: saison };
-  const { facts, live, locked } = view;
+  const { facts, live } = view;
 
   const mint = async (): Promise<ActionAnswer> => {
     const answer = await mintInvitation(key);
@@ -69,7 +66,7 @@ export function FormInvitationSection({ team, saison, view }: { team: string; sa
         </>
       )}
       {live === null ? (
-        <SectionAct acts={[...copying, { act: { verb: "create", object: LINK }, locked, run: mint }]} />
+        <SectionAct acts={[...copying, { act: { verb: "create", object: LINK }, run: mint }]} />
       ) : (
         // The live link's three acts share the box's one footer and its one line, after the minted link's copy.
         <SectionAct
@@ -78,13 +75,11 @@ export function FormInvitationSection({ team, saison, view }: { team: string; sa
             {
               act: { verb: "send", object: LINK },
               done: COPY.shared.toast.linkSent,
-              locked,
               run: () => mailInvitation({ ...key, invitation_id: live }),
             },
-            { act: { verb: "replace", object: LINK }, locked, confirm: REPLACED, run: mint },
+            { act: { verb: "replace", object: LINK }, confirm: REPLACED, run: mint },
             {
               act: { verb: "withdraw", object: LINK },
-              locked,
               confirm: TAKEN_BACK,
               run: async () => {
                 const answer = await revokeInvitation(key);

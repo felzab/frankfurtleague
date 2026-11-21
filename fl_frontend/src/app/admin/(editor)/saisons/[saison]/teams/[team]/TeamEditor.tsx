@@ -59,8 +59,8 @@ export type TeamRow = {
   version: number;
   seats: ReadonlyArray<Omit<SeatRow, "acts"> & { target: SeatTarget }>;
   invitation: InvitationView;
-  /** Why a seat's link goes nowhere: the club left. */
-  sendLocked?: Copy;
+  /** The club left the season, which no write undoes: its link acts are left out, as a closed page's are. */
+  departed?: true;
   /** The exit's act, which a club already out of the season no longer offers, with whom an exit would mail by day. */
   exit: { earliest: CalendarDay; today: CalendarDay; locked?: Copy; recipients: readonly FLAustrittRecipients[] } | null;
 };
@@ -130,6 +130,7 @@ export function TeamEditor({
   const [route, setRoute] = useState<string>(FLAustrittType.rueckzug);
   const renamed = draft.name !== record.values.name || draft.shorthand !== record.values.shorthand;
   const isClosed = closed !== undefined;
+  const departed = row?.departed === true;
 
   const teamBox: EditorSection = {
     id: "team",
@@ -245,13 +246,9 @@ export function TeamEditor({
                 rows={row.seats.map(({ target, ...seat }) => {
                   // A finished season's seats are its record, and a closed page acts on nothing but its danger box.
                   if (isClosed) return seat;
-                  const link = target.asks
-                    ? {
-                        send: sendSeatLink,
-                        seat: { team_id: team, saison_id: saison, seat: target.seat },
-                        ...(row.sendLocked === undefined ? {} : { locked: row.sendLocked }),
-                      }
-                    : null;
+                  // A club that left takes no link again, since an exit is never lifted, so its seats offer none.
+                  const link =
+                    target.asks && !departed ? { send: sendSeatLink, seat: { team_id: team, saison_id: saison, seat: target.seat } } : null;
                   return {
                     ...seat,
                     acts: (
@@ -286,15 +283,17 @@ export function TeamEditor({
           {
             id: "registrierungLink",
             title: WORDS.registrierungLink,
-            fields: isClosed ? (
-              <Facts facts={row.invitation.facts} />
-            ) : (
-              <FormInvitationSection
-                team={team}
-                saison={saison}
-                view={row.invitation}
-              />
-            ),
+            // A closed page's link and a departed club's stand as facts: neither takes an act again.
+            fields:
+              isClosed || departed ? (
+                <Facts facts={row.invitation.facts} />
+              ) : (
+                <FormInvitationSection
+                  team={team}
+                  saison={saison}
+                  view={row.invitation}
+                />
+              ),
           },
         ];
 
