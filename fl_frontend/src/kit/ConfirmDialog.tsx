@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import { Dialog as AriaDialog, DialogTrigger, Heading } from "react-aria-components/Dialog";
+import { Text } from "react-aria-components/Text";
 
 import { COPY } from "@/core/copy/shared";
 
@@ -247,7 +248,13 @@ export function ConfirmDialog<T extends Tone>(props: ConfirmDialogProps<T>) {
           className="text-base font-semibold">
           {COPY.shared.question(words.subject, words.verb)}
         </Heading>
-        <p className="text-sm text-fg-muted">{words.consequence}</p>
+        {/* The description slot, which the alert dialog names as its `aria-describedby`, so it is read with the title. */}
+        <Text
+          slot="description"
+          elementType="p"
+          className="text-sm text-fg-muted">
+          {words.consequence}
+        </Text>
         {words.facts !== undefined && words.facts.length > 0 && <Facts facts={words.facts} />}
         <FormFooter status={refusal}>
           <Button
