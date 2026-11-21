@@ -166,6 +166,10 @@ press.
   navigates only once the person discards them. A press with a modifier key never reaches
   `onNavigate`, so a new tab is never asked; the browser's own back is not asked either, and the
   draft it leaves stays only while Next keeps the page.
+- Which forms ask before typed input is dropped follows the form. An editor's draft asks on each of
+  its frame's ways out and on a reload or a closed tab (`useUnsavedChangesWarning`). An open dialog
+  asks on its own ways out, Escape and „Zurück“, and not on unload. A long public form, the
+  Bewerbung, asks the browser on unload alone. A short form asks nothing.
 
 ## Styling and copy
 
