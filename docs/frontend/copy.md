@@ -183,9 +183,12 @@ Each pattern is an entry of `COPY.shared`; what the entry cannot say is when it 
   noun, and a list of open work with nothing waiting, such as an Übersicht card, says
   `empty.nothingOpen`, naming no plural.
 - **A confirmation** asks `question` with the verb, says one short sentence of consequence, carries
-  that verb on its button and `back` as the way back; never „Ja“. What the sentence rests on stands
-  under it as facts rows, never inside it: a move's old and new slot, the season a switch leaves and
-  takes, the counts an act removes, and whom the act mails.
+  that verb on its button and `back` as the way back; never „Ja“. `back` stays where a way back
+  opened the question, as the discard question an editor's or a dialog's „Zurück“ raises over
+  unsaved changes: there „Zurück“ keeps the person where they are, beside „Verwerfen“, so a
+  question's way back is one word on every screen. What the sentence rests on stands under it as
+  facts rows, never inside it: a move's old and new slot, the season a switch leaves and takes, the
+  counts an act removes, and whom the act mails.
 - **A status card** is a mark, a title and its way on, with no sentence: a not-found, an error, a
   state with nothing to show yet, and every end of a page a mail opens. An error card's way on is
   `verb.retry`, which draws the failed page again in place; where no frame stands around the card,
