@@ -26,7 +26,6 @@ export const acceptBewerbung = action({
     shorthand: z.preprocess((value) => value ?? "", blankIsNull(accepted.shorthand)),
     version: numberBox(accepted.version),
   }),
-  ownWords: ["duplicate_key", "trikot_farbe_taken", "bewerbung_picked_team_already_entered", "team_retired"],
   boxes: ["shorthand", "trikot_farbe"],
   examples: { shorthand: COPY.team.shorthandExample },
   run: async ({ id, ...body }) => {

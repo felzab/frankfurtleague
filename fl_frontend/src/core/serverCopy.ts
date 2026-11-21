@@ -115,11 +115,10 @@ const monthsOf = (years: number) => formatNumber(12 * years);
  */
 export const SERVER_COPY = catalogue({
   /**
-   * A refusal's phrase under the field it is about, by the backend's code, for a code a person causes knowingly from
-   * a screen: one of `COPY.shared.field`'s patterns, and nothing else. A code whose phrase names a bound its refusal
-   * carries is worded from it by `ruleMessage` instead, and a code no pattern
-   * words takes `refusalLine`'s sentence; every other code answers one of the shared failure lines
-   * `COPY.shared.failure` holds.
+   * A refusal's phrase under the field it is about, by the backend's code, on every screen showing that field's box:
+   * one of `COPY.shared.field`'s patterns, and nothing else. A code whose phrase names a bound its refusal carries is
+   * worded from it by `ruleMessage` instead, and a code no pattern words takes `refusalLine`'s sentence; every other
+   * code answers one of the shared failure lines `COPY.shared.failure` holds.
    */
   refusal: {
     duplicate_key: COPY.shared.field.taken,
@@ -134,11 +133,11 @@ export const SERVER_COPY = catalogue({
   } satisfies Partial<Record<Code, string>>,
 
   /**
-   * A refusal's sentence on the status line, by the backend's code, for a code a person causes knowingly from a
-   * screen that no field pattern words: the write as a whole, or a field the sentence names itself. Where one code
-   * is about one of several fields, its sentence is keyed by the first name of the path the backend names, so it
-   * says which; a path it holds no sentence for is not this screen's to word. A sentence naming the bounds its
-   * refusal carries is a function of them, answering `undefined` where one it names is missing.
+   * A refusal's sentence on the status line, by the backend's code, on every screen whose write answers it, for a code
+   * no field pattern words: the write as a whole, or a field the sentence names itself. Where one code is about one of
+   * several fields, its sentence is keyed by the first name of the path the backend names, so it says which; a path it
+   * holds no sentence for reads the stale-page line. A sentence naming the bounds its refusal carries is a function of
+   * them, answering `undefined` where one it names is missing.
    */
   refusalLine: {
     saison_past: "Diese Saison ist abgeschlossen.",

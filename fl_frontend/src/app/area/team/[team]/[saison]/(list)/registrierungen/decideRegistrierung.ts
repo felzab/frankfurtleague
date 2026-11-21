@@ -20,7 +20,6 @@ export const admitRegistrierung = action({
   claim: "record",
   name: "admitRegistrierung",
   input: z.object({ ...RegistrierungenAdmitParams.shape, ...RegistrierungenAdmitBody.shape }),
-  ownWords: ["kader_full", "registrierung_already_in_kader", "registrierung_stufe_not_allowed"],
   run: async ({ registrierung_id, spieler_id }) => {
     await registrierungenAdmit(registrierung_id, { spieler_id });
     return { ok: true, value: undefined };

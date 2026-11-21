@@ -25,7 +25,6 @@ export const retireSchiedsrichter = action({
   lane: "admin",
   name: "retireSchiedsrichter",
   input: z.object({ id: SchiedsrichterDeleteSchiedsrichterParams.shape.schiedsrichter_id }),
-  ownWords: ["schiedsrichter_still_assigned"],
   run: async ({ id }) => {
     await schiedsrichterDeleteSchiedsrichter(id);
     return { ok: true, value: undefined };

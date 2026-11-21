@@ -10,7 +10,6 @@ import { action, PAGE_HOLDER, ticked } from "@/core/action";
 import { deleteOwnAccount, DeletionOutcomeUnknown, requestAccountDeletion } from "@/core/auth/accounts";
 import { endOtherSessions } from "@/core/auth/accountSessions";
 import { COPY } from "@/core/copy/shared";
-import { APIBadStatusError } from "@/core/errors";
 import {
   accountDeleteAddressChange,
   accountPostAddressChange,
@@ -98,7 +97,6 @@ export const startAddressChange = action({
   name: "startAddressChange",
   input: z.object({ email: SignInAddressSchema, ...PAGE_HOLDER }),
   examples: { email: COPY.shared.field.exampleAddress },
-  ownWords: ["address_change_unchanged", "address_change_started_recently"],
   run: async ({ email }) => {
     await accountPostAddressChange({ email });
     return { ok: true, value: undefined };
@@ -151,22 +149,6 @@ export const signOutOthers = action({
 // an act of the account, which only Konto's page reaches, so an administrator's mailbox changes none of them.
 
 /**
- * A save whose media choice the backend refused as given below its floor, answered as a stale page: the page offers
- * the switch from the served age alone, so only a birthdate or a day that moved since it was served reaches this, and
- * the page read again shows the switch closed under its own phrase, which has no subject on the status line. It is
- * answered here rather than in the builder's stale set, since a form taking a birthdate meets the code knowingly.
- */
-async function savedUnlessAgedOut(save: () => Promise<unknown>): Promise<ActionAnswer> {
-  try {
-    await save();
-  } catch (failed) {
-    if (!(failed instanceof APIBadStatusError) || failed.serverErrorCode !== "media_age") throw failed;
-    return { ok: false, errorCode: "media_age", reason: COPY.shared.failure.stale };
-  }
-  return { ok: true, value: undefined };
-}
-
-/**
  * A box's fields as its kind's write spells them: the evidence and the labels the page carries under dotted names, an
  * evidence the record holds none of posting nothing.
  */
@@ -215,6 +197,9 @@ const choicesOf = <Press extends { scope: unknown; media: boolean; evidence_stat
  * One box's save, by its kind's write. The kind, the ids, the evidence and the labels are carried by the page unseen
  * and trusted no further than the write checks them again: the backend judges the record the session's own and the
  * evidence current, and a label other than its choice's current one answers as a stale page before anything is sent.
+ * A media choice refused as given below its floor is a stale page too, as the builder answers every code the catalogue
+ * does not word: the page offers the switch from the served age alone, so only a birthdate or a day that moved since
+ * it was served reaches it, and the page read again shows the switch closed under its own phrase.
  */
 export const saveConsent = action({
   lane: "person",
@@ -224,21 +209,25 @@ export const saveConsent = action({
   run: async (press) => {
     switch (press.kind) {
       case "spieler":
-        return savedUnlessAgedOut(() => spielerPatchEinwilligung(choicesOf(press)));
+        await spielerPatchEinwilligung(choicesOf(press));
+        break;
       // One address may hold several referee rows.
       case "schiedsrichter":
-        return savedUnlessAgedOut(() => schiedsrichterPatchEinwilligung(press.schiedsrichter_id, choicesOf(press)));
+        await schiedsrichterPatchEinwilligung(press.schiedsrichter_id, choicesOf(press));
+        break;
       // A seat holder's own two choices for every seat they hold on one team's season, a past season's to withdraw.
       case "seat":
-        return savedUnlessAgedOut(() => teamsPatchEinwilligung(press.team_id, press.saison_id, choicesOf(press)));
+        await teamsPatchEinwilligung(press.team_id, press.saison_id, choicesOf(press));
+        break;
       // A pupil's withdrawal on their pending registration, whose grant waits on the team's admission.
       case "registrierung":
         await registrierungenPatchEinwilligung(press.registrierung_id, choicesOf(press));
-        return { ok: true, value: undefined };
+        break;
       // A seat holder's withdrawal on a pending application, whose grant is its confirmation page's alone.
       case "bewerbung":
         await bewerbungenPatchEinwilligung(press.bewerbung_id, choicesOf(press));
-        return { ok: true, value: undefined };
+        break;
     }
+    return { ok: true, value: undefined };
   },
 });

@@ -35,7 +35,6 @@ export const declineSpielbestaetigung = action({
   claim: "record",
   name: "declineSpielbestaetigung",
   input: z.object({ id: ROW, date: vorschlag.date, time: vorschlag.time, reason: blankIsNull(answer.reason) }),
-  ownWords: ["ansetzung_vorschlag_unchanged", "spiel_outside_spieltag", "spiel_double_booked", "eligibility_disqualified"],
   run: async ({ id, date, time, reason }) => {
     await spielbestaetigungenPostTeamAnswer(id, { answer: "declined", reason, vorschlag: { date, time } });
     return { ok: true, value: undefined };

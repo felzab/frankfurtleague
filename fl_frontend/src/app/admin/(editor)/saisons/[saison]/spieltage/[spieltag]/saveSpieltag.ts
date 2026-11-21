@@ -30,14 +30,6 @@ export const saveSpieltag = action({
   lane: "admin",
   name: "saveSpieltag",
   input: SaveSpieltag,
-  ownWords: [
-    "spieltag_ends_before_start",
-    "spieltag_outside_saison",
-    "spieltag_span_below_spiele",
-    "spieltag_start_out_of_order",
-    // The editor opened before its season finished: the write refuses a finished season's matchday whole.
-    "saison_past",
-  ],
   // The span's own rule names the end it refuses, as the box's own check does before the send.
   paths: { end: "changes.end" },
   run: async ({ id, version, changes }): Promise<ActionAnswer<number>> => {

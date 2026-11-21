@@ -128,26 +128,6 @@ function payloadOf(saved: FLSpielJoinedAdmin, changes: Changes): Omit<FLPatchSpi
   };
 }
 
-/**
- * The codes the match write answers that this editor words, each a person causes knowingly from it; a team's
- * refusal is the stale-page line, the editor offering only the clubs the write takes, but for the bracket fielding a
- * club twice, which a hand-picked side causes on a current page and a resend meets again.
- */
-const OWN_WORDS = [
-  "spieltag_occupied_by_the_resolution",
-  "spiel_outside_spieltag",
-  "state_ergebnis_on_a_non_event",
-  "state_nichtantreten_without_two_sides",
-  "booking_unknown_resource",
-  "spiel_double_booked",
-  "eligibility_disqualified",
-  "elfmeterschiessen_without_winner",
-  // The editor stays open on a finished season, whose fixtures the write refuses whole.
-  "saison_past",
-  // A result before the season's start, whose fields the editor locks until then: a page read before the start moved later.
-  "ergebnis_before_saison_start",
-] as const;
-
 /** The other fixtures a write moved or would move, each once, in their numbers' order. */
 const numbersOf = (numbers: readonly number[]) => [...new Set(numbers)].toSorted((first, second) => first - second);
 
@@ -199,7 +179,6 @@ export const saveSpiel = action({
   lane: "admin",
   name: "saveSpiel",
   input: SaveSpiel,
-  ownWords: OWN_WORDS,
   examples: { "changes.mietpreis": ADMIN_COPY.spielort.mietpreisExample },
   run: async ({ id, version, adoptsBericht, changes, confirm }): Promise<ActionAnswer<number>> => {
     const payload = await sending(id, changes);

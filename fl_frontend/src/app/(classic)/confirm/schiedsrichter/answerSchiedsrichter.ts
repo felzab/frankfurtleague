@@ -53,7 +53,6 @@ export const answerSchiedsrichter = action({
   exempt: "mailedLink",
   // The age the write judges on its own day, which the box's range bounds before the send by the page's day: on its
   // box, from the range the refusal carries.
-  ownWords: ["confirmation_age"],
   boxes: ["birth_date"],
   run: async (answer): Promise<{ ok: true; value: EndState }> => {
     try {

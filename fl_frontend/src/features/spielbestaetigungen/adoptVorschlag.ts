@@ -19,17 +19,6 @@ export const adoptVorschlag = action({
   lane: "admin",
   name: "adoptVorschlag",
   input: z.object({ id: SpielbestaetigungenAdoptSpielbestaetigungParams.shape.spielbestaetigung_id }),
-  ownWords: [
-    "ansetzung_vorschlag_past_as_stored",
-    "spiel_outside_spieltag",
-    "spiel_double_booked_spielort_as_stored",
-    "spiel_double_booked_schiedsrichter_as_stored",
-    "eligibility_disqualified_team1_as_stored",
-    "eligibility_disqualified_team2_as_stored",
-    "saison_past",
-    // The season's bracket stale, its resolution would delete a later result, which the match editor asks about first.
-    "voided_results_stale",
-  ],
   run: async ({ id }) => {
     await spielbestaetigungenAdoptSpielbestaetigung(id);
     return { ok: true, value: undefined };

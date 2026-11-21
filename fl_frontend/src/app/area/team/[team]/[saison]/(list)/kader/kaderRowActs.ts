@@ -26,7 +26,6 @@ export const saveKaderRow = action({
     rolle: blankIsNull(shape.rolle),
     version: numberBox(shape.version),
   }),
-  ownWords: ["kader_rolle_taken"],
   boxes: ["rolle"],
   examples: { nummer: COPY.shared.field.exampleDigits },
   run: async ({ team_id, saison_id, spieler_id, ...row }) => {

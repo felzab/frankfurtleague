@@ -15,7 +15,6 @@ export const retireSpielort = action({
   lane: "admin",
   name: "retireSpielort",
   input: z.object({ id: SpielorteDeleteSpielortParams.shape.spielort_id }),
-  ownWords: ["spielort_still_booked"],
   run: async ({ id }) => {
     await spielorteDeleteSpielort(id);
     return { ok: true, value: undefined };

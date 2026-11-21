@@ -28,14 +28,6 @@ export const startLostMailboxChange = action({
     email: SignInAddressSchema,
     ...PAGE_HOLDER,
   }),
-  ownWords: [
-    "own_address",
-    "admin_address",
-    "address_change_nothing",
-    "address_change_taken",
-    "address_change_unchanged",
-    "email_not_accepted",
-  ],
   examples: { address: COPY.shared.field.exampleAddress, email: COPY.shared.field.exampleAddress },
   // The dialog has closed before any answer, which its toast says: every refusal is a sentence, never a box's phrase.
   boxless: {
@@ -60,7 +52,6 @@ export const resendChangeLink = action({
   passkey: true,
   name: "resendChangeLink",
   input: AddressChangeResendConfirmationParams.extend(PAGE_HOLDER),
-  ownWords: ["own_address", "admin_address", "address_change_taken"],
   run: async ({ address_change_id }) => {
     if (await accountAtNewAddress({ address_change_id })) {
       return { ok: false, errorCode: "address_change_taken", reason: SERVER_COPY.refusalLine.address_change_taken };

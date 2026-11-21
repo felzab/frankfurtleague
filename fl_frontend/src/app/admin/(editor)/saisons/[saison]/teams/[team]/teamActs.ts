@@ -59,7 +59,6 @@ export const recordAustritt = action({
   lane: "admin",
   name: "recordAustritt",
   input: TeamsPutAustrittBody.extend(TeamsPutAustrittParams.shape),
-  ownWords: ["austritt_before_saison_start", "saison_past"],
   boxes: ["date"],
   run: async ({ team_id, saison_id, ...austritt }) => {
     await teamsPutAustritt(team_id, saison_id, austritt);
@@ -87,7 +86,6 @@ export const writeSeat = action({
     version: numberBox(TeamsPutKontaktSeatBody.shape.version),
     ...PAGE_HOLDER,
   }),
-  ownWords: ["kontakt_email_taken", "kontakt_phone_taken", "email_not_accepted"],
   boxless: {
     first_name: { required: CLOSED.firstNameMissing, value: CLOSED.format.firstName },
     last_name: { required: CLOSED.lastNameMissing, value: CLOSED.format.lastName },
