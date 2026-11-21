@@ -52,7 +52,7 @@ const HOLDER_ALONE = z.object(PAGE_HOLDER);
  * having cleared the site's tag on its way out. A link the library refuses, spent, lapsed or another account's, ends as
  * the link no longer valid, with nothing erased; so does one the library spent on a press the backend's erasure then
  * refused, which leads to Konto, where a fresh link is asked for. A press failing past the spent link with its outcome
- * unknown reads the stale-page line: a reload shows whether the account stands.
+ * unknown is a fault inside the system, the shared failure line, and a press again is safe, the link being spent.
  */
 export const eraseAccount = action({
   lane: "person",
@@ -73,7 +73,7 @@ export const eraseAccount = action({
     } catch (failed) {
       if (!(failed instanceof DeletionOutcomeUnknown)) throw failed;
       logger.error("account.deletion_outcome_unknown", undefined, { name: failed.cause instanceof Error ? failed.cause.name : "unknown" });
-      return { ok: false, reason: COPY.shared.failure.stale };
+      return { ok: false, reason: COPY.shared.failure.unexpected };
     }
     if (outcome !== "deleted") {
       return { ok: true, value: linkInvalid(TO_ACCOUNT) };
