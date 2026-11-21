@@ -189,7 +189,10 @@ export const SERVER_COPY = catalogue({
     grant_exists: ADDRESS_OF_ADMINISTRATION,
     /** A club the form or the acceptance picked that already stands in the season. */
     bewerbung_picked_team_already_entered: "Diese Schule spielt in dieser Saison schon mit.",
-    /** An application's club retired since the acceptance opened. */
+    /**
+     * A club retired since the page offering its entry was read: an application's acceptance, a club entered into the
+     * season, or the incoming club of a replacement.
+     */
     team_retired: "Das Team ist stillgelegt.",
     /** A reactivated squad row past the season's cap, and an admission into a squad that filled meanwhile. */
     kader_full: "Der Kader ist voll.",
