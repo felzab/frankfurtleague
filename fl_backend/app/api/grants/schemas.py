@@ -50,6 +50,12 @@ class FLGrantsListResponse(BaseReadModel):
     grants: list[FLGrantRow]
 
 
+class FLGrantRemovedResponse(BaseReadModel):
+    """The address a removal or a withdrawal took the grant from, as the sign-in folds it."""
+
+    address: str
+
+
 class FLPostGrantPayload(BasePayload):
     # No tier on the payload: a grant is made as `administration`, and `owner` is reached only by a handover.
     email: CustomEmail

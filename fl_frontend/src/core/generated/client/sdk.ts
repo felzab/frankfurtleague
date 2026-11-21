@@ -57,6 +57,7 @@ import type {
   FLErasureViewResponse,
   FLGenerateSpielplanPayload,
   FLGrantHandoverPassResponse,
+  FLGrantRemovedResponse,
   FLGrantsListResponse,
   FLInvitationMailPayload,
   FLInvitationMailResponse,
@@ -1001,8 +1002,11 @@ export const getGrantsDeleteGrantUrl = (grantId: string) => {
  * Only the owner removes one, the owner's own row leaving only by a handover; every holder in effect and the address named are told.
  * @summary Remove an administrator, or withdraw a waiting addition
  */
-export const grantsDeleteGrant = async (grantId: string, options?: Parameters<typeof adminKeyTransport>[1]): Promise<void> => {
-  return adminKeyTransport<void>(getGrantsDeleteGrantUrl(grantId), {
+export const grantsDeleteGrant = async (
+  grantId: string,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLGrantRemovedResponse> => {
+  return adminKeyTransport<FLGrantRemovedResponse>(getGrantsDeleteGrantUrl(grantId), {
     ...options,
     method: "DELETE",
   });

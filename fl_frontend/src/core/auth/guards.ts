@@ -8,7 +8,6 @@ import { judgedOncePerRequest, setRequestActor } from "../requestScope";
 import { ADMIN_LIFETIME } from "../sessionLifetimes";
 import { lookUpSubject } from "../signInGate";
 import { subjectOrNull } from "./gateReads";
-import { auth } from "./library";
 import { readRequestSession } from "./session";
 import { CODE_FACTOR, isPasskeyTouch, isWithinPersonLifetime, PASSKEY_FACTOR, withinLifetime } from "./sessionStamps";
 
@@ -17,21 +16,17 @@ import type { ActorLane, RequestActor } from "../requestScope";
 import type { ServedSession } from "./session";
 
 /**
- * Whether the request's actor may make an act the passkey touch guards: a person holding a passkey on a session the
- * touch made within its window alone, and a person holding none as they stand. The browser asks the touch on every final
- * press, so a second act inside one window is a request no page sends. `false` where no guard recorded an actor.
+ * Whether the request's actor may make an act the passkey touch guards: an actor of an address holding a grant on a
+ * session the touch made within its window alone, and one of an address holding none as they stand. `granted` is the
+ * grant this request read for the actor's address, and the touch's whole strength for an administrator's Konto act
+ * rests on it: the account's guard reads it on every request and throws on an unread one rather than answering none.
+ * The browser asks the touch on every final press, so a second act inside one window is a request no page sends.
+ * `false` where no guard recorded an actor.
  */
-export async function passesPasskeyTouch(actor: RequestActor | undefined): Promise<boolean> {
+export function passesPasskeyTouch(actor: RequestActor | undefined, granted: boolean): boolean {
   if (actor === undefined) return false;
-  if (isPasskeyTouch({ createdAt: new Date(actor.authTime * 1000), authFactor: actor.factor })) return true;
-  // Every guard serves a passkey's session only while its passkey is held, so one past the touch is a holder's.
-  if (actor.factor === PASSKEY_FACTOR) return false;
-
-  const { adapter, internalAdapter } = await auth.$context;
-  const account = await internalAdapter.findUserByEmail(actor.email);
-  // No account at the actor's address is no session to judge, so nothing passes.
-  if (account === null) return false;
-  return (await adapter.count({ model: "passkey", where: [{ field: "userId", value: account.user.id }] })) === 0;
+  if (!granted) return true;
+  return isPasskeyTouch({ createdAt: new Date(actor.authTime * 1000), authFactor: actor.factor });
 }
 
 /**

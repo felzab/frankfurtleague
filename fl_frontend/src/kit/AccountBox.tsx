@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useState, useTransition } from "react";
 
 import { COPY } from "@/core/copy/shared";
 
@@ -14,6 +14,7 @@ import { FieldStack } from "./FieldStack";
 import { FormFooter } from "./FormFooter";
 import { HeldForm } from "./HeldForm";
 import { boxHead, dangerEdge, SectionTitle } from "./Section";
+import { SideActs } from "./SideActs";
 import { toastAnswer } from "./Toast";
 import { tv } from "./tv";
 import { statusOf, useFormAction } from "./useFormAction";
@@ -24,6 +25,7 @@ import type { Copy, RecordText, Words } from "@/core/copy";
 import type { ReactElement, ReactNode } from "react";
 import type { ConfirmWords } from "./ConfirmDialog";
 import type { DoneVerb } from "./dialogAct";
+import type { SideAct } from "./SideActs";
 
 /**
  * What a box's act does: a server action, or the browser's own act such as a passkey's set-up, the box's fields
@@ -53,7 +55,7 @@ export type AccountAct = {
   | {
       /** `variant` is `primary` for the box's save of its own fields, its main act. */
       button: { label: Copy; variant?: "primary" | "secondary" };
-      /** The button's press asks the passkey touch ahead of `run`, for a person holding a passkey (`usePasskeyTouch`). */
+      /** The button's press asks the passkey touch ahead of `run`, for an administrator (`usePasskeyTouch`). */
       touch?: boolean;
     }
   | {
@@ -227,10 +229,12 @@ export type AccountRow = { id: string; name: RecordText; detail: Copy; rename?: 
 
 const rowLook = tv({
   slots: {
-    list: "grid w-full",
+    // The container the rows' side acts read, so every row of the list takes one form.
+    list: "@container grid w-full",
     row: `flex ${rowHeight()} items-center gap-3 ${stacked()} py-2`,
     words: "grid min-w-0 flex-1 text-sm",
-    name: "truncate font-semibold",
+    // In the medium weight, as every card row's name.
+    name: "truncate font-medium",
     // The grey line wraps, as every row's grey line does: cut, it would hide the end of a row's detail on a phone.
     detail: "text-xs text-pretty text-fg-muted",
   },
@@ -254,8 +258,29 @@ export function AccountRows({ rows: records }: { rows: ReadonlyArray<AccountRow>
   );
 }
 
+/**
+ * One record and its side acts (`SideActs`), the rename before the removal, in the form the list decides: their
+ * labelled buttons, the removal's in the outlined danger look, or the row's „⋯“. Each opens its dialog or its question
+ * on the open state its press sets, and the removal asks the touch from its question's final press.
+ */
 function Row({ record }: { record: AccountRow }) {
   const slots = rowLook();
+  const { rename, remove } = record;
+  const [isRenaming, setRenaming] = useState(false);
+  const [isAsking, setAsking] = useState(false);
+  // A touched removal runs after its question closed, so its button or its „⋯“ shows it running.
+  const removing = useTransition();
+  const [isRemoving] = removing;
+  const acts: SideAct[] = [
+    ...(rename === undefined ? [] : [{ label: COPY.shared.verb.rename, onPress: () => setRenaming(true) }]),
+    {
+      label: COPY.shared.verb[remove.verb],
+      tone: "danger",
+      isBusy: isRemoving,
+      ...(remove.locked === undefined ? {} : { locked: remove.locked }),
+      onPress: () => setAsking(true),
+    },
+  ];
   return (
     <div
       data-kit-row
@@ -267,32 +292,24 @@ function Row({ record }: { record: AccountRow }) {
         />
         <span className={slots.detail()}>{record.detail}</span>
       </div>
-      {record.rename !== undefined && <RenameAct rename={record.rename} />}
-      <RemoveAct remove={record.remove} />
+      <SideActs acts={acts}>
+        {rename !== undefined && (
+          <Dialog
+            title={rename.title}
+            act={{ verb: "rename" }}
+            run={rename.run}
+            open={{ isOpen: isRenaming, onOpenChange: setRenaming }}>
+            {rename.field}
+          </Dialog>
+        )}
+        <ConfirmDialog
+          question={{ verb: remove.verb, subject: remove.subject, consequence: remove.consequence, tone: "danger" }}
+          {...(remove.touch === undefined ? {} : { touch: remove.touch })}
+          onConfirm={remove.run}
+          open={{ isOpen: isAsking, onOpenChange: setAsking }}
+          transition={removing}
+        />
+      </SideActs>
     </div>
-  );
-}
-
-function RenameAct({ rename }: { rename: Rename }) {
-  return (
-    <Dialog
-      title={rename.title}
-      act={{ verb: "rename" }}
-      run={rename.run}
-      trigger={{ icon: "rename", label: COPY.shared.verb.rename }}>
-      {rename.field}
-    </Dialog>
-  );
-}
-
-function RemoveAct({ remove }: { remove: Remove }) {
-  const face = { icon: "erasures", label: COPY.shared.verb[remove.verb], locked: remove.locked } as const;
-  return (
-    <ConfirmDialog
-      question={{ verb: remove.verb, subject: remove.subject, consequence: remove.consequence, tone: "danger" }}
-      {...(remove.touch === undefined ? {} : { touch: remove.touch })}
-      onConfirm={remove.run}
-      trigger={face}
-    />
   );
 }

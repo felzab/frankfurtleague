@@ -330,7 +330,8 @@ administration is shut while it is down. Each of these is easy to get wrong:
   and a handover at the first hourly pass `:: OWNER_WAIT_DAYS` days after it. Every holder in effect
   and the person named are mailed when a wait starts or stops, when a handover completes and at any
   removal; an addition's wait ends with no mail, no pass running then. Only the `owner` stops a
-  wait, on the same page: the mail tells the others to reach the owner.
+  wait, on the same page: the mail tells the others to reach the owner. A removal, and a waiting
+  addition's withdrawal, deletes the address's passkeys and the sessions they made.
 - **Exactly one `owner` stands**, by `uniq_grant_owner`. A handover names a current administrator,
   never a row still waiting, and one at a time; the pass demotes then promotes in one transaction.
   The owner stays the owner until then. The new owner signs in once more before acting: a session
@@ -347,8 +348,12 @@ administration is shut while it is down. Each of these is easy to get wrong:
   waiting, or a thief's handover stays armed; it then demotes any other `owner` row, which
   `uniq_grant_owner` otherwise refuses, and writes a new row rather than repointing the old one,
   whose sign-in account stays at the old address. Removing the row by its folded address removes the
-  grant. A hand write mails nobody, which is why it serves these two cases alone. The statement
-  itself is kept off this public repository.
+  grant; then delete that address's account's rows in the `passkey` collection of the `auth`
+  database, and its rows in `session` whose `authFactor` is `passkey`, the passkeys first. The same
+  deletion follows a `grants.passkeys_not_deleted` line, which names no address: the Protokoll's
+  `grant.removed` or `grant.addition_withdrawn` at that moment does. A hand write mails nobody,
+  which is why it serves these two cases alone. The statement itself is kept off this public
+  repository.
 - **Write only into a database a boot of the release carrying `grants` has reached.** That boot
   creates the unique indexes; a write before it creates the collection without them, and a duplicate
   in it then fails the next boot's index build (`db.indexes_failed`). Until the write lands no
@@ -359,20 +364,18 @@ administration is shut while it is down. Each of these is easy to get wrong:
 - **A banned address is added by nobody, and a holder is banned by nobody, a waiting row included**:
   lift the ban, or withdraw or remove the grant, first. A grant written by hand onto a banned
   address is refused by nothing and admits nobody, the sign-in refusing it.
-- **The session row is not the grant.** It stays in the `auth` database after a revocation and
-  authorizes nothing, so deleting it by hand is tidying rather than revocation.
+- **The session row is not the grant.** A revocation leaves the sessions a mailed code made in the
+  `auth` database, a person's now, and they authorize nothing in the administration, so deleting
+  them by hand is tidying rather than revocation.
 - **A grant to an address the sign-in library will not take admits nobody**: that person is mailed
   no code. The grant page refuses such an address; a hand write refuses nothing. An umlaut is the
   case that turns up: the sign-in box takes no address outside ASCII, so that person needs a mailbox
   it will accept before a grant is worth writing. A domain already spelled in punycode (`xn--`) is
   taken as typed.
-- **A grant admits every passkey the address already holds.** A person enrols none: the enrolment
-  refuses an address holding no grant. One a person holds from before that refusal, or from an
-  earlier grant, or brought along on an address change the new mailbox confirmed while nothing named
-  it, rests on the same authority an administrator's first passkey rests on, so it admits once the
-  address is granted, though only on a passkey sign-in made after the grant: a session older than
-  the grant administers nothing. Grant an address only where its mailbox is trusted as an
-  administrator's.
+- **A grant admits every passkey the address already holds**, though only on a passkey sign-in made
+  after the grant: a session older than the grant administers nothing. Such a passkey rests on the
+  same authority an administrator's first passkey rests on, the mailbox. Grant an address only where
+  its mailbox is trusted as an administrator's.
 - **The grant is the access; the person's own next sign-in enrols the passkey.** An address holding
   a grant and no passkey is answered the enrolment page and reaches no admin route until one stands,
   so there is nothing to prepare for them and nothing to hand over.
@@ -601,8 +604,8 @@ registration and grant the address holds, so one sign-in stays whole.
 
 - **The person can still sign in.** Point them to Konto's „Anmeldung“ page, `/account/signin`, and
   its box „E-Mail-Adresse“. They type the new address under „Neue E-Mail-Adresse“ and press „Link
-  senden“, a person holding a passkey touching it first, confirm the change by the link mailed to
-  the address on file, and then by the link that confirmation mails the new address, each within
+  senden“, an administrator touching a passkey first, confirm the change by the link mailed to the
+  address on file, and then by the link that confirmation mails the new address, each within
   `fl_backend/app/shared/schemas/bounds.py :: ADDRESS_CHANGE_VALID_HOURS` hours; declining at either
   link ends it. Never start a change for a person who can sign in: a request arriving by mail proves
   nothing about who sent it.
@@ -826,8 +829,8 @@ address holds a sign-in account**, naming the reason you typed and the last seas
 so there is nothing to send by hand; an address that never signed in is mailed nothing. Where the
 sign-in store cannot say whether an account holds the address, the press fails with the site's one
 failure line before anything is written, and the ban is entered again once the store answers. **The
-same press ends every live sign-in of the address, after the write**, keeping its account and
-passkeys, which then stay only while a record holds the address
+same press ends every live sign-in of the address, after the write**, keeping its account, which
+then stays only while a record holds the address
 ([`../datenschutz.md`](../datenschutz.md#6-retention-is-bounded-where-a-bound-was-chosen)). Where
 that fails, the ban stands and the page shows the same failure line, naming no step; a session left
 standing lasts until it lapses, no request reading the list, unless the ban is entered again, which
@@ -1585,8 +1588,7 @@ the code's ten minutes, so a stranger can bring the lock on only by asking for t
 address, which mails them a code and spends one of their hour's five each time. The rows counting it
 carry a keyed hash rather than the address, so no row can be picked out for one person:
 
-- **A person holding a passkey needs nothing**: a passkey sign-in never meets the lock, and clears
-  it.
+- **An administrator needs nothing**: a passkey sign-in never meets the lock, and clears it.
 - **Otherwise it lifts by itself**, each failure's row expiring a day after it was written, removed
   by the `verification` index in §14.
 - **To lift it sooner, lift every address's at once**: in the Atlas console, delete from the `auth`

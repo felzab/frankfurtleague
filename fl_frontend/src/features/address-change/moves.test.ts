@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import { memoryAdapterDouble, memoryStore, registerAuthDoubles } from "@/test-support/authDoubles";
+import { answerTheLookup, GRANTED, memoryAdapterDouble, memoryStore, registerAuthDoubles } from "@/test-support/authDoubles";
 import { serveBackend } from "@/test-support/backend";
+import { NO_RECORDS } from "@/test-support/subjectFixtures";
 
 import type { FLAddressChangeMovesResponse } from "@/core/generated/client/types";
 
@@ -19,6 +20,8 @@ const backend = serveBackend(({ method, path }) => {
 const STORE = "__flMovesStore";
 registerAuthDoubles({ specifiers: { "@better-auth/mongo-adapter": memoryAdapterDouble(STORE) } });
 const store = memoryStore(STORE);
+// Every carry reads the new address's grant first: none, unless a case names one.
+answerTheLookup(() => ({ ...NO_RECORDS, account: true }));
 
 const { runAddressChangeMoves } = await import("./moves");
 
@@ -68,5 +71,20 @@ describe("the owed carries", () => {
       ["POST /address_change/sweep/moves/done", { ids: [move(3).id] }],
       ["GET /address_change/sweep/moves", undefined],
     ]);
+  });
+
+  /* The harm: a grant removed while a failed carry waited deleted no passkey, the account standing at the old address
+     then, and the carry brings a removed administrator's passkeys across, where they still sign in. */
+  it("brings no passkey across to an address holding no grant, and keeps an administrator's", async () => {
+    const moves = [move(1), move(2)];
+    accountsOf(moves);
+    for (const { id } of moves) store.passkey.push({ id: `64e${id.slice(3)}`, userId: `64c${id.slice(3)}`, credentialID: `credential-${id}` });
+    // The first move's new address holds the grant the change moved; the second's none, its grant removed meanwhile.
+    answerTheLookup((email) => (email === move(1).new ? { ...GRANTED, account: true } : { ...NO_RECORDS, account: true }));
+    pages = [moves];
+
+    await runAddressChangeMoves();
+
+    expect(store.passkey.map(({ userId }) => store.user.find(({ id }) => id === userId)?.email)).toStrictEqual([move(1).new]);
   });
 });

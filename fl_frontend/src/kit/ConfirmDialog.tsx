@@ -143,8 +143,8 @@ type Confirming = {
 type Holder = { holder: string };
 
 /**
- * The passkey touch the act's button asks ahead of `onConfirm`, for an act on its fixed list a person holding a passkey
- * presses. The press closes the question for good before the browser asks, and the act answers in a toast, its refusal
+ * The passkey touch the act's button asks ahead of `onConfirm`, for an act on its fixed list an administrator presses.
+ * The press closes the question for good before the browser asks, and the act answers in a toast, its refusal
  * as well as its done answer, the question's opening button standing again.
  */
 type Touch = { touch?: Holder };

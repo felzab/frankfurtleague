@@ -280,9 +280,8 @@ describe("who the seam answers for", () => {
      reaches such an address being the send gate's question, and the library's own verification mints
      the session over it. */
   it("answers an address holding no grant, unmarked, with the records it names", async () => {
-    const { cookie, row } = await signIn(PERSON_EMAIL);
-    // Made by a passkey, as a person's may be: a code-borne session is unmarked whatever the grant says.
-    madeByPasskey(store, row);
+    // By a mailed code, as every person's session is: no other account holds a passkey.
+    const { cookie } = await signIn(PERSON_EMAIL);
     arriveAs(cookie);
 
     const { answer, actor } = await guardInScope();

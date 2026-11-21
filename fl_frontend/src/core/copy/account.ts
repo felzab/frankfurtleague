@@ -52,8 +52,7 @@ export const ACCOUNT_COPY = catalogue({
     dates: (created: Date) => `Eingerichtet am ${formatDate(created)}`,
     /**
      * The deletion's consequence, which the question words before the passkey touch: the devices the passkey signed
-     * in, and this one where the page's session was made by it or it is the person's only passkey, which the touch
-     * then has to be.
+     * in, and this one where the page's session was made by it. An administrator's only passkey has no deletion.
      */
     endsDevices: "Geräte, die damit angemeldet sind, werden abgemeldet.",
     endsThisDevice: "Auch dieses Gerät wird abgemeldet.",
@@ -65,8 +64,6 @@ export const ACCOUNT_COPY = catalogue({
     limit: (count: number) => `Höchstens ${boundBy(formatNumber(count), "Passkeys")}`,
     /** A first passkey set up past the sign-in library's `freshAge`. */
     signInTooOld: "Deine Anmeldung liegt zu lange zurück.",
-    /** The same, as the set-up's tooltip. */
-    signInTooOldLocked: "Erst nach neuer Anmeldung",
     /** A further passkey set up on an authenticator holding one of the person's already. */
     alreadyOnDevice: "Auf diesem Gerät hast du schon einen Passkey.",
   },
@@ -97,8 +94,10 @@ export const ACCOUNT_COPY = catalogue({
     description: {
       /** A person's own record, which the title names: a pupil's, a registration's, a referee's. */
       own: "Deine Angaben und was davon öffentlich ist",
-      /** A seat on a team's season and a seat in an application alike, its seats named by a fact (`seatsHeld`). */
+      /** A seat on a team's season, its seats named by a fact (`seatsHeld`). */
       seat: "Deine Angaben im Team",
+      /** A seat in an application, which stands for no team yet, its seats named the same way. */
+      bewerbung: "Deine Angaben in der Bewerbung",
     },
     teamSeason,
     /** A seat entry's fact naming the seats the person holds, in the seats' order, under `COPY.team.seat`. */

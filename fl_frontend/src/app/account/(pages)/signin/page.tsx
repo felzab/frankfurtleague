@@ -1,5 +1,4 @@
 import { requires } from "@/core/action";
-import { passkeysOf } from "@/core/auth/passkeys";
 import { ACCOUNT_COPY } from "@/core/copy/account";
 import { COPY } from "@/core/copy/shared";
 import { ROUTES } from "@/core/routes";
@@ -38,12 +37,12 @@ function pendingOf(open: FLAccountAddressChangeOpen): Pending {
 
 async function SignInContent() {
   const { subject, served } = await requireAccountSession(ROUTES.accountSignIn.path());
-  const [change, held] = await Promise.all([getAccountAddressChange(), passkeysOf(served.user.id).then((rows) => rows.length > 0)]);
+  const change = await getAccountAddressChange();
   return (
     <SignInBoxes
       email={subject.email}
       pending={change.open === null ? null : pendingOf(change.open)}
-      held={held}
+      touch={served.isAdmin}
       lastOwner={subject.records.admin_tier === "owner" ? COPY.shared.afterHandover : undefined}
       addressRequired={requires(SignInPayloadSchema.shape.email, "")}
     />

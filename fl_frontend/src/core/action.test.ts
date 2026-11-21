@@ -189,11 +189,11 @@ describe("the passkey touch a lane declares", () => {
   };
   const declared = { name: "passkeyAendern", input: Venue.extend(PAGE_HOLDER), passkey: true } as const;
   const touched = (lane: "admin" | "person") =>
-    lane === "admin" ? action({ ...declared, lane, run }) : action({ ...declared, lane, claim: "record", run });
+    lane === "admin" ? action({ ...declared, lane, run }) : action({ ...declared, lane, claim: "account", run });
 
   /* The touch on a page whose own session ended signs in whichever account's passkey answers: the act would run as it. */
   it.each(["admin", "person"] as const)("refuses the %s lane's act a touch signed another account in for, running nothing", async (lane) => {
-    // The administrator by passkey just now, and a person holding no passkey, each of whom the touch passes.
+    // The administrator by passkey just now, and a person at an address holding no grant, each of whom the touch passes.
     if (lane === "person") await arriveAs({ email: PERSON });
 
     expect(await touched(lane)({ name: "Nord", postcode: "60438", holder: "jemand-anderes@example.org" })).toStrictEqual({
@@ -201,6 +201,27 @@ describe("the passkey touch a lane declares", () => {
       reason: COPY.shared.failure.signInExpired,
     });
     expect(ran).toStrictEqual([]);
+  });
+
+  /* The harm: a grant read as none would let a mailbox's code session erase an administrator's account, or move its
+     address, with no touch, and nothing would show it. */
+  it("runs nothing where the account's guard reads no grant, answering the shared failure line", async () => {
+    // The administrator's address signed in by its mailed code alone, which the person guard serves.
+    await arriveAs({ email: PERSON });
+    // The person guard's read answers the address's grant; the account guard's, the next, fails on the network.
+    let reads = 0;
+    answerTheLookup((email) => {
+      if (email !== PERSON) return undefined;
+      reads += 1;
+      return reads === 1 ? { ...GRANTED, account: true } : null;
+    });
+
+    expect(await touched("person")({ name: "Nord", postcode: "60438", holder: PERSON })).toStrictEqual({
+      ok: false,
+      reason: COPY.shared.failure.unexpected,
+    });
+    expect(ran).toStrictEqual([]);
+    expect(reads, "the account's guard read no grant of its own").toBe(2);
   });
 });
 

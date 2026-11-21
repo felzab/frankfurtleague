@@ -1,9 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ROUTES } from "@/core/routes";
+import { answerTheLookup } from "@/test-support/authDoubles";
 import { serveBackend } from "@/test-support/backend";
 import { writtenCookies } from "@/test-support/nextRequest";
 import { signedInRequest } from "@/test-support/session";
+import { NO_RECORDS } from "@/test-support/subjectFixtures";
 import { thrownRedirect } from "@/test-support/thrownRedirect";
 
 import { LINK_INVALID } from "./ends";
@@ -71,6 +73,8 @@ describe("the effect's account carry", () => {
   it("is made before the press answers", async () => {
     await arriveAs({ email: PREVIOUS });
     await arriveAs(null);
+    // The carry reads the new address's grant before it moves the account: none, a person's change.
+    answerTheLookup((email) => (email === NEW ? { ...NO_RECORDS, account: true } : undefined));
     held.owed = [MOVE];
     let release: () => void = () => undefined;
     held.movesRead = new Promise((resolve) => (release = resolve));

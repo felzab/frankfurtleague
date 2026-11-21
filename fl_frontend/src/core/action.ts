@@ -179,9 +179,11 @@ export const ticked = z.preprocess((value) => value === "on", z.boolean());
 type Held<Schema extends z.ZodType> = z.output<Schema> extends { readonly holder: string } ? unknown : never;
 
 /**
- * The passkey touch, which an act on its fixed list declares: the browser asks it on every final press, and the act runs
- * only on a session a passkey sign-in made within `PASSKEY_TOUCH_SECONDS`, for a person holding a passkey, and only
- * for the address its page was drawn for; a person holding none passes.
+ * The passkey touch, which an act on its fixed list declares, on the administration's lane or the account's claim: the
+ * browser asks it on every final press, and the act runs only on a session a passkey sign-in made within
+ * `PASSKEY_TOUCH_SECONDS`, for an administrator, and only for the address its page was drawn for; an address holding no
+ * grant passes. On the account's claim the touch's whole strength rests on `served.isAdmin` being the grant read on
+ * this request, which the account's guard throws on rather than answer unread as none.
  */
 type Touched<Schema extends z.ZodType> = { readonly passkey?: never } | ({ readonly passkey: true } & Held<Schema>);
 
@@ -199,13 +201,18 @@ type AdminLane<Schema extends z.ZodType, Value> = Declared<Schema> &
  * administrator's account, their consents among it. An act of the account runs only for the address its page was drawn
  * for.
  */
-type PersonLane<Schema extends z.ZodType, Value> = Declared<Schema> &
-  Touched<Schema> & { readonly lane: "person" } & (
-    | { readonly claim: "record"; readonly run: Run<Schema, { readonly subject: SubjectSession }, Value> }
+type PersonLane<Schema extends z.ZodType, Value> = Declared<Schema> & { readonly lane: "person" } & (
+    | {
+        readonly claim: "record";
+        // A record's claim judges no grant, which the touch rests on.
+        readonly passkey?: never;
+        readonly run: Run<Schema, { readonly subject: SubjectSession }, Value>;
+      }
     | ({
         readonly claim: "account";
         readonly run: Run<Schema, { readonly subject: SubjectSession; readonly served: JudgedSession }, Value>;
-      } & Held<Schema>)
+      } & Touched<Schema> &
+        Held<Schema>)
   );
 
 /**
@@ -656,16 +663,18 @@ function anotherHolder(input: unknown): ActionAnswer<never> | undefined {
 }
 
 /**
- * Past a lane's guard: the touch it declares, judged on the actor the guard recorded, the parse, the holder a touched
- * act's or an account act's input names, then `run` on the input, in that order.
+ * Past a lane's guard: the touch it declares, judged on the actor the guard recorded and on `granted`, the grant the
+ * guard read for that address, the parse, the holder a touched act's or an account act's input names, then `run` on the
+ * input, in that order.
  */
 async function admitted<Schema extends z.ZodType, Value>(
   lane: Lane<Schema, Value>,
   raw: unknown,
+  granted: boolean,
   run: (input: z.output<Schema>) => Promise<ActionAnswer<Value>>,
 ): Promise<ActionAnswer<Value>> {
   const touched = "passkey" in lane && lane.passkey === true;
-  if (touched && !(await passesPasskeyTouch(getRequestActor()))) return { ok: false, reason: COPY.shared.touchMissing };
+  if (touched && !passesPasskeyTouch(getRequestActor(), granted)) return { ok: false, reason: COPY.shared.touchMissing };
   const read = parsed(lane, raw);
   if ("answer" in read) return read.answer;
   const held = touched || (lane.lane === "person" && lane.claim === "account");
@@ -681,18 +690,19 @@ async function guarded<Schema extends z.ZodType, Value>(lane: Lane<Schema, Value
     case "admin": {
       const judged = await judgeAdminRequest();
       if ("refused" in judged) return { ok: false, reason: TURNED_AWAY[judged.refused] };
-      return admitted(lane, raw, (input) => lane.run(input, undefined));
+      return admitted(lane, raw, true, (input) => lane.run(input, undefined));
     }
     case "person": {
       const subject = await getSubjectSession();
       if (subject === null) return turnedAwayPerson(lane.name);
       switch (lane.claim) {
         case "record":
-          return admitted(lane, raw, (input) => lane.run(input, { subject }));
+          // No touch to judge: a record's claim declares none.
+          return admitted(lane, raw, false, (input) => lane.run(input, { subject }));
         case "account": {
           const served = await getAccountSession();
           if (served === null) return turnedAwayPerson(lane.name);
-          return admitted(lane, raw, (input) => lane.run(input, { subject, served }));
+          return admitted(lane, raw, served.isAdmin, (input) => lane.run(input, { subject, served }));
         }
       }
     }

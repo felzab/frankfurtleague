@@ -314,7 +314,7 @@ describe("a passkey setup that signs in, against a real database", () => {
 });
 
 describe("what a ban ends, against a real database", () => {
-  it("deletes every session of the account at the folded address, and keeps the account and its passkeys", async () => {
+  it("deletes every session of the account at the folded address, and keeps the account", async () => {
     const { adapter } = await auth.$context;
     const person = await adapter.create<Record<string, unknown>, { id: string }>({
       model: "user",
@@ -333,19 +333,6 @@ describe("what a ban ends, against a real database", () => {
       authFactor: "code",
     });
     for (const userId of [person.id, person.id, other.id]) await adapter.create({ model: "session", data: session(userId) });
-    await adapter.create({
-      model: "passkey",
-      data: {
-        userId: person.id,
-        credentialID: "kept",
-        publicKey: "k",
-        counter: 0,
-        deviceType: "singleDevice",
-        backedUp: false,
-        transports: "",
-        createdAt: new Date(),
-      },
-    });
 
     await endSessionsOfAddress("Leser@XN--BCHER-KVA.example");
 
@@ -354,7 +341,6 @@ describe("what a ban ends, against a real database", () => {
       "a session of the barred account survived, or another account's was ended",
     ).toStrictEqual([other.id]);
     expect((await authDb().collection("user").find({}).toArray()).length).toBe(2);
-    expect((await passkeyRows()).length).toBe(1);
   });
 });
 

@@ -30,7 +30,7 @@ function dateOf(stamp: unknown): Date | null {
 }
 
 /**
- * The person's passkeys, oldest first, so a row keeps its place when another is added or renamed. Compared with the
+ * The administrator's passkeys, oldest first, so a row keeps its place when another is added or renamed. Compared with the
  * session's credential on the server, so the credential id the session recorded never reaches the page.
  */
 export async function heldPasskeysOf(served: {

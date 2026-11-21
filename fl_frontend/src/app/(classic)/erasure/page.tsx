@@ -60,10 +60,13 @@ const readState = cache(async (): Promise<MailedState> => {
 
   // Uncaught: without the list the page cannot say what goes, so a failed read reaches the error boundary.
   const [view, served, account] = await Promise.all([getErasureView(), readRequestSession(), getAccountSession()]);
-  const passkeys = served === null ? 0 : (await passkeysOf(served.user.id)).length;
+  // By the grant the address holds, never `subject.isAdmin`, which needs a passkey's session and would drop the touch
+  // from an administrator's code session. Counted for a granted address alone, as no other account holds a passkey.
+  const granted = subject.records.admin_tier !== null;
+  const passkeys = granted && served !== null ? (await passkeysOf(served.user.id)).length : 0;
 
-  // The act is the account's guard's to admit, which refuses an administrator's session a mailed code made. A passkey
-  // holder's touch, which the page's press asks, makes the session it admits; an administrator holding none signs in
+  // The act is the account's guard's to admit, which refuses an administrator's session a mailed code made. The
+  // administrator's touch, which the page's press asks, makes the session it admits; one holding no passkey signs in
   // afresh by the landing, which owes the passkey step, and returns to the link, so no question is asked that its press
   // would refuse.
   if (account === null && passkeys === 0) redirect(withReturnAddress(ROUTES.signInLanding.path(), link));
@@ -76,8 +79,8 @@ const readState = cache(async (): Promise<MailedState> => {
     run: eraseAccount,
     acts: { primary: COPY.page.accountErasure },
     carry: { token, holder: subject.email },
-    // Every person holding a passkey touches it at the press, an administrator always among them.
-    touch: passkeys > 0,
+    // An administrator touches a passkey at the press, on a passkey's session or a mailed code's alike.
+    touch: granted,
   };
 });
 

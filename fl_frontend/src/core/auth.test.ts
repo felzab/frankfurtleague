@@ -887,34 +887,27 @@ describe("the fresh sign-in a first passkey is added on", () => {
 });
 
 /* The touch an act on its list declares, judged on the actor a guard recorded: how old the sign-in is, by which
-   factor, and whether the account holds a passkey at all. */
+   factor, and whether the address holds a grant. */
 describe("the passkey touch an act declares", () => {
   const actorOf = (factor: "code" | "passkey", ageMs: number) => ({
-    email: PERSON_EMAIL,
+    email: ADMIN_EMAIL,
     lane: "person" as const,
     authTime: Math.floor((Date.now() - ageMs) / 1000),
     factor,
   });
 
-  it("admits a passkey sign-in inside the touch, and refuses one past it", async () => {
-    const { row } = await signIn(PERSON_EMAIL);
-    store.passkey.push(aPasskeyFor(row.userId));
-
-    expect(await passesPasskeyTouch(actorOf("passkey", PASSKEY_TOUCH_MS - 10_000)), "a fresh touch was refused").toBe(true);
-    expect(await passesPasskeyTouch(actorOf("passkey", PASSKEY_TOUCH_MS + 10_000)), "a touch past its figure passed").toBe(false);
+  it("admits a passkey sign-in inside the touch, and refuses one past it", () => {
+    expect(passesPasskeyTouch(actorOf("passkey", PASSKEY_TOUCH_MS - 10_000), true), "a fresh touch was refused").toBe(true);
+    expect(passesPasskeyTouch(actorOf("passkey", PASSKEY_TOUCH_MS + 10_000), true), "a touch past its figure passed").toBe(false);
   });
 
-  it("refuses a code session of a person holding a passkey, however fresh, and passes one holding none", async () => {
-    const { row } = await signIn(PERSON_EMAIL);
-
-    expect(await passesPasskeyTouch(actorOf("code", 0)), "a person holding no passkey was refused").toBe(true);
-
-    store.passkey.push(aPasskeyFor(row.userId));
-    expect(await passesPasskeyTouch(actorOf("code", 0)), "a holder's code session passed the touch").toBe(false);
+  it("passes a code session of an address holding no grant, and refuses one of an address holding one", () => {
+    expect(passesPasskeyTouch(actorOf("code", 0), false), "an address holding no grant was refused").toBe(true);
+    expect(passesPasskeyTouch(actorOf("code", 0), true), "a granted address's code session passed the touch").toBe(false);
   });
 
-  it("passes nobody where no guard recorded an actor", async () => {
-    expect(await passesPasskeyTouch(undefined)).toBe(false);
+  it("passes nobody where no guard recorded an actor", () => {
+    expect(passesPasskeyTouch(undefined, false)).toBe(false);
   });
 });
 
@@ -1277,19 +1270,17 @@ describe("which sessions may enrol a passkey, and how many rows they may leave",
     expect(store.passkey.length).toBe(PASSKEY_LIMIT);
   });
 
-  /* `excludeCredentials` is a hint the BROWSER honours: a caller posting the same credential twice
-     leaves two rows nothing in the dialog tells apart, and removing the wrong one removes neither. */
-  it("refuses a credential the account has already enrolled, leaving the row it has", async () => {
+  /* The harm: refusing every further passkey leaves an administrator unable to replace a lost one while holding
+     another, recovery falling to the database console, and every other case here asserts a refusal. */
+  it("enrols a further passkey on a fresh touch, holding both", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
-
     expect((await enrolPasskey(cookie)).status).toBe(200);
-    expect(store.passkey.length).toBe(1);
 
     steppedUp(row);
-    const again = await enrolPasskey(cookie);
+    const further = await enrolPasskey(cookie, {}, true, SECOND_RAW_ID);
 
-    expect(again.status).toBe(404);
-    expect(store.passkey.length, "the same authenticator enrolled twice").toBe(1);
+    expect(further.status, await further.clone().text()).toBe(200);
+    expect(store.passkey.filter(({ userId }) => userId === row.userId).length).toBe(2);
   });
 
   /* The two arms of the management surface, which the classification above places apart: the browser
@@ -1694,10 +1685,9 @@ describe("which session a new sign-in replaces", () => {
 });
 
 describe("what a ban ends in the sign-in store", () => {
-  it("ends every session of the account the barred address folds to, and keeps the account and its passkeys", async () => {
+  it("ends every session of the account the barred address folds to, and keeps the account", async () => {
     const first = await signIn(PERSON_EMAIL);
     const second = await signIn(PERSON_EMAIL);
-    store.passkey.push(aPasskeyFor(first.row.userId));
     const bystander = await signIn("unbeteiligt@example.org");
 
     // Whether an account holds the address is what the ban's notice is sent on.
@@ -1709,7 +1699,6 @@ describe("what a ban ends in the sign-in store", () => {
       store.user.some((user) => user.id === first.row.userId),
       "the ban deleted the account itself",
     );
-    expect(store.passkey.length, "the ban deleted the account's passkey").toBe(1);
 
     arriveAs(first.cookie);
     expect((await getSignInLanding()).destination).toBe("/signin");

@@ -596,9 +596,6 @@ const authOptions = (origin: URL, client: MongoClient) =>
         refuseWithoutGrant(signIn);
 
         const verifying = ctx.path === PASSKEY_REGISTRATION_PATH;
-        // The verify call's posted id, which `registration.afterVerification` holds to the attested credential, so an
-        // authenticator the account already holds is refused here.
-        const posted = verifying ? declaredCredentialId(ctx) : undefined;
         // The options request is judged now; the verify call as of its ceremony's options, read here before the plugin
         // spends the challenge, or now where none stands.
         await refuseEnrolment(
@@ -606,7 +603,6 @@ const authOptions = (origin: URL, client: MongoClient) =>
           caller.user.id,
           stampsOf(caller.session),
           verifying ? ((await challengeIssuedAt(ctx)) ?? undefined) : undefined,
-          typeof posted === "string" ? posted : undefined,
         );
 
         // Carried on the endpoint's context into the registration's transaction, where the mint asks the gate again
@@ -712,8 +708,7 @@ const authOptions = (origin: URL, client: MongoClient) =>
         registration: {
           afterVerification: async ({ ctx, verification }) => {
             // The verifier holds the posted `id` to `rawId` and neither to the attested credential, so
-            // a session this enrolment mints would otherwise name whichever passkey its caller chose,
-            // and the hook's refusal of a credential the account holds would judge the wrong one.
+            // a session this enrolment mints would otherwise name whichever passkey its caller chose.
             if (declaredCredentialId(ctx) !== verification.registrationInfo?.credential.id) throw APIError.fromStatus("BAD_REQUEST");
           },
         },
