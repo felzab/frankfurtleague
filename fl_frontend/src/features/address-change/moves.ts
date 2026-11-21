@@ -20,7 +20,7 @@ export async function runAddressChangeMoves(): Promise<void> {
     if (moves.length === 0) return;
 
     for (const { old: oldAddress, new: newAddress } of moves) {
-      // Read before the carry, so an unread grant rejects with nothing moved rather than keep the passkeys.
+      // Read before the carry, so a grant that cannot be read rejects the run with nothing of this move made.
       const { admin_tier: grant } = await lookUpSignIn(asSignInIdentifier(newAddress));
       const carry = await carryAccount(oldAddress, newAddress);
       // The new address holding its own account, opened since every press refused one there: it signs in to that one.
