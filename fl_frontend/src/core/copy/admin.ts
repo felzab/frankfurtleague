@@ -389,8 +389,6 @@ export const ADMIN_COPY = catalogue({
       addition: "Die Adresse bekommt keinen Zugang.",
       handover: `Die ${OWNER_TIER} bleibt bei dir.`,
     },
-    /** The toast's note, the address's passkeys undeleted or unknown: the grant is gone, so no press repeats the deletion. */
-    partial: "Der Zugang ist entfernt, die Passkeys vielleicht nicht.",
   },
 
   banList: {
