@@ -25,7 +25,9 @@ export type JourneyOptions = {
   /** A referee's address the account acts delete. */
   leaver: string;
   /** The schools the applicant's journeys apply as, one per way an application ends. `declined` is a club the form lists. */
-  applicants: { accepted: string; declined: string; objected: string };
+  applicants: { accepted: string; declined: string };
+  /** The school the seat journey applies as, whose Stellvertretung objects: desktop's alone, as that journey is. */
+  objected: string;
   /** The club the Austritt takes out of the running season, and the fixture its one opponent with a contact is told of. */
   departing: { team: string; fixture: string };
   /**
@@ -134,7 +136,8 @@ export const test = base.extend<JourneyFixtures & JourneyOptions>({
   twoDevices: ["", { option: true }],
   mover: ["", { option: true }],
   leaver: ["", { option: true }],
-  applicants: [{ accepted: "", declined: "", objected: "" }, { option: true }],
+  applicants: [{ accepted: "", declined: "" }, { option: true }],
+  objected: ["", { option: true }],
   departing: [{ team: "", fixture: "" }, { option: true }],
   entered: [{ team: "", colour: "" }, { option: true }],
   kaderPupil: ["", { option: true }],

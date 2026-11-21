@@ -18,9 +18,8 @@ const ADMINISTRATOR = PEOPLE.administrators.seat;
 test("a seat objects, „Sitz bearbeiten“ seats another person behind the touch, and the fresh link confirms them", async ({
   page,
   secondDevice: desk,
-  applicants,
+  objected: school,
 }) => {
-  const school = applicants.objected;
   const before = await filedMessages();
 
   await page.goto(`/bewerbung/${PLANNED}`);
