@@ -3,6 +3,8 @@
 import { createContext, use, useEffect, useRef, useState, useTransition } from "react";
 import { unstable_isUnrecognizedActionError, unstable_rethrow, usePathname, useSearchParams } from "next/navigation";
 
+import { useFilter } from "react-aria/useFilter";
+
 import { textOf } from "@/core/copy";
 import { COPY } from "@/core/copy/shared";
 
@@ -92,14 +94,23 @@ export type ListSearch = {
 };
 
 /**
- * What a search over a list read whole leaves: the items whose words hold what is typed, upper and lower case alike, and
- * every item while nothing is.
+ * Whether words hold what is typed, case and accents aside, by React Aria's collator in the page's locale, as a combo
+ * box filters its options: „jose“ finds „José“ and „celik“ finds „Çelik“. German search rules keep an umlaut a letter of
+ * its own, so „grun“ finds no „Grün“. A list searched on the server matches as the server does.
  */
-function searched<Item>(items: ReadonlyArray<Item>, query: string, wordsOf: (item: Item) => string) {
-  const wanted = query.trim().toLowerCase();
+const useWordsHold = () => useFilter({ sensitivity: "base" }).contains;
+
+/** What a search over a list read whole leaves: the items whose words hold what is typed, and every item while nothing is. */
+function searched<Item>(
+  items: ReadonlyArray<Item>,
+  query: string,
+  wordsOf: (item: Item) => string,
+  hold: (words: string, typed: string) => boolean,
+) {
+  const wanted = query.trim();
   return {
     isSearching: wanted !== "",
-    shown: wanted === "" ? items : items.filter((item) => wordsOf(item).toLowerCase().includes(wanted)),
+    shown: wanted === "" ? items : items.filter((item) => hold(wordsOf(item), wanted)),
   };
 }
 
@@ -145,7 +156,8 @@ export function ListMatches({
   empty: EmptyStateProps;
 }) {
   const { query } = use(ListQuery);
-  const { isSearching, shown } = searched(matches, query, (match) => match.words);
+  const hold = useWordsHold();
+  const { isSearching, shown } = searched(matches, query, (match) => match.words, hold);
   return (
     <>
       {shown.length === 0 ? (
@@ -171,7 +183,8 @@ export function ListMatches({
  */
 export function ListTiles({ tiles, empty }: { tiles: ReadonlyArray<{ tile: SchoolTile; words: string }>; empty: EmptyStateProps }) {
   const { query } = use(ListQuery);
-  const { isSearching, shown } = searched(tiles, query, (tile) => tile.words);
+  const hold = useWordsHold();
+  const { isSearching, shown } = searched(tiles, query, (tile) => tile.words, hold);
   return (
     <>
       {shown.length === 0 ? (
@@ -323,6 +336,7 @@ type Shown = {
  */
 export function ListTable({ table, more }: { table: TableProps; more?: ListMore }) {
   const { query } = use(ListQuery);
+  const hold = useWordsHold();
   // A list past one read's cap is searched by what its rows answer, which the text typed reaches once the page reads it.
   const isSearching = (more === undefined ? query : more.query).trim() !== "";
   const fresh = (): Shown => ({ served: table.rows, rows: table.rows, cursor: more?.cursor ?? null, failure: null });
@@ -357,7 +371,7 @@ export function ListTable({ table, more }: { table: TableProps; more?: ListMore 
   };
 
   // A list past one read's cap holds what the server's search answered.
-  const rows = more === undefined ? searched(current.rows, query, rowWords).shown : current.rows;
+  const rows = more === undefined ? searched(current.rows, query, rowWords, hold).shown : current.rows;
   const failure = current.failure;
   // The server's rows count the search once they answer the text typed, all of them and with no failure: a failure is
   // said on the list's own status line, and a page with more after it counts not all the search found.
