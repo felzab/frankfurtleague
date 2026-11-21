@@ -49,7 +49,6 @@ export const saveTeam = action({
   lane: "admin",
   name: "saveTeam",
   input: SaveTeam,
-  paths: { shorthand: "changes.shorthand", trikot_farbe: "changes.trikot_farbe" },
   examples: {
     "changes.shorthand": COPY.team.shorthandExample,
     "changes.postcode": COPY.shared.address.postcodeExample,

@@ -30,8 +30,6 @@ export const saveSpieltag = action({
   lane: "admin",
   name: "saveSpieltag",
   input: SaveSpieltag,
-  // The span's own rule names the end it refuses, as the box's own check does before the send.
-  paths: { end: "changes.end" },
   run: async ({ id, version, changes }): Promise<ActionAnswer<number>> => {
     const stored = await getAdminSpieltag(id);
     if (stored === null) return { ok: false, reason: COPY.shared.failure.stale };
