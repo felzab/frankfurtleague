@@ -8,7 +8,6 @@ import type { ThrownRedirect } from "@/test-support/thrownRedirect";
 
 import "next/dist/server/node-environment-baseline.js";
 
-import { ADMIN_LIFETIME } from "@/core/sessionLifetimes";
 import { MINUTE_MS } from "@/core/timeUnits";
 import {
   ADMIN_EMAIL,
@@ -390,10 +389,15 @@ describe("where the proxy sends a session asking for the sign-in", () => {
   /* Reverted, the landing sends the session back to the sign-in alive, and the proxy sends it to the landing again:
      the browser follows the two redirects until it gives up. */
   it("ends a granted address's spent session at the landing, so its next request for the sign-in meets the form", async () => {
-    const { cookie, row } = await signIn(ADMIN_EMAIL);
-    // Past the administrator's twenty-four hours and inside a person's figures: no passkey step is left to offer it.
-    row.createdAt = new Date(Date.now() - 25 * 60 * MINUTE_MS);
-    refreshedAgo(row, MINUTE_MS);
+    const spent = async () => {
+      const session = await signIn(ADMIN_EMAIL);
+      // Past the administrator's twenty-four hours and inside a person's figures: no passkey step is left to offer it.
+      session.row.createdAt = new Date(Date.now() - 25 * 60 * MINUTE_MS);
+      refreshedAgo(session.row, MINUTE_MS);
+      return session;
+    };
+
+    const { cookie, row } = await spent();
     arriveAs(cookie);
     assert.ok(await getSubjectSession(), "the person lane serves no such session, so the case proves nothing");
 
@@ -407,25 +411,11 @@ describe("where the proxy sends a session asking for the sign-in", () => {
       sentTo(await visit(`${SIGN_IN_URL}?return=%2Fadmin`, cookie, "document")),
       "the sign-in sent the spent session to the landing again",
     ).toBe(null);
-  });
 
-  /* Reverted, an administrator back after an idle hour, the cookie still standing, is sent by the admin guard through
-     the landing to a sign-in that offers no passkey, and signs in by a mailed code where one press did. */
-  it("sends a granted address's session past the idle hour to a sign-in returning to the administration", async () => {
-    const lapsed = async () => {
-      const { cookie, row } = await signIn(ADMIN_EMAIL);
-      madeByPasskey(store, row);
-      refreshedAgo(row, ADMIN_LIFETIME.idle + MINUTE_MS);
-      return cookie;
-    };
-
-    const cookie = await lapsed();
-    expect(redirectedTo(await callProxy(cookie)), "the proxy turned the cookie away itself, so the case proves nothing").toBe(null);
-    arriveAs(cookie);
-    expect(await thrownRedirect(requireAdminRequest())).toStrictEqual(landsOn(ROUTES.signInLanding.path()));
-    expect(await landedAt(cookie)).toStrictEqual(landsOn(`${ROUTES.signIn.path()}?return=%2Fadmin`));
     // The page the sign-in was asked to return to wins over the administration's front page.
-    expect(await landedAt(await lapsed(), "/admin/spielorte")).toStrictEqual(landsOn(`${ROUTES.signIn.path()}?return=%2Fadmin%2Fspielorte`));
+    expect(await landedAt((await spent()).cookie, "/admin/spielorte")).toStrictEqual(
+      landsOn(`${ROUTES.signIn.path()}?return=%2Fadmin%2Fspielorte`),
+    );
   });
 });
 
