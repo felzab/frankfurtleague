@@ -178,6 +178,21 @@ describe("a pass meeting a failure", () => {
     expect(backend.served, "the pass owed a mail").toStrictEqual([]);
     expect(log.lines()).toStrictEqual([]);
   });
+
+  /* A pass answering clean while the passkey listing fails every hour would leave every stray passkey signing in, named
+     to nobody: the failure is the pass's `error`, which the heartbeat names. */
+  it("answers a passkey listing that fails as the pass's error, the accounts' counts and what they left open beside it", async () => {
+    await seed(["a@schule.example.org"]);
+    references = () => networkFailure();
+    const lost = new TypeError("no connection");
+    failing = (operation, { model }) => (operation === "findMany" && model === "passkey" ? lost : undefined);
+
+    expect(await runAccountSweep()).toStrictEqual({
+      count: { unreferenced: 0, deleted: 0, already_deleted: 0, failed: 1, passkeys_deleted: 0, passkeys_failed: 0 },
+      open: 1,
+      error: lost,
+    });
+  });
   it("deletes the rest past one throwing delete, logging that one by the error's name alone", async () => {
     const accounts = ["a@schule.example.org", "b@schule.example.org", "c@schule.example.org"];
     await seed(accounts);
