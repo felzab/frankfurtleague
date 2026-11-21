@@ -111,8 +111,8 @@ function schoolFacts({ team_name, full_name, schulform, address, website_url }: 
  * acceptance enters its club, which the write does in a planned season alone.
  */
 function lockedReason(status: FLBewerbungSingleResponse["saison"]["status"], standing: Standing): Copy | undefined {
-  if (status === "past") return COPY.template.closed;
-  if (status === "active") return ADMIN_COPY.team.onlyPlanned;
+  // A running season and a finished one alike, as „Team eintragen“ is locked on the Teams page.
+  if (status !== "future") return ADMIN_COPY.team.onlyPlanned;
   return standing === "complete" ? undefined : COPY.shared.afterConfirmation;
 }
 
