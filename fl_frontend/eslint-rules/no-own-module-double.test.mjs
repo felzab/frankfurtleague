@@ -28,7 +28,7 @@ tester.run("fl/no-own-module-double", noOwnModuleDouble, {
     valid('vi.mock("next/navigation", () => ({}));'),
     valid('vi.doMock("@/core/config.ts", () => ({}));'),
     valid('vi.mock("./db", () => ({}));'),
-    valid('vi.mock("@/features/grants/actions", () => ({}));'),
+    valid('vi.mock("@/features/auth/actions", () => ({}));'),
     // A file that is no script, whose import Next's loader makes.
     valid('vi.mock("./share-image.png", () => ({ default: {} }));', "src/app/rootMetadata.test.ts"),
     // The helper's maps: an edge by its `core` key, a library by its specifier.
