@@ -19,8 +19,8 @@ const INTERNAL_API_KEY = z
 const DEFAULT_SECRETS_DIR = "/run/secrets";
 
 /**
- * One file name serves the host, the container and development, so the database login carries this service's
- * prefix: the backend holds another.
+ * One file name serves the host and the container, so the database login carries this service's prefix: the backend
+ * holds another.
  */
 const SECRET_FILES = {
   MONGODB_URI: "frontend_mongodb_uri",
@@ -157,7 +157,7 @@ const environment = {
     return protocol === "https:" || hostname === "localhost" || hostname === "127.0.0.1";
   }, "AUTH_URL must use https:// unless it points at localhost"),
 
-  // Unset under `next dev`, and empty, so read as unset, in a build handed no version.
+  // Empty, so read as unset, in a build handed no version.
   APP_VERSION: z.string().min(1).optional(),
 
   // On while the stored data is changed by hand, in a restore or a migration: no pass is armed and no write's drain
@@ -179,8 +179,8 @@ const fromFiles = {
   // behind a deploy nothing turned red.
   AUTH_SECRET: z.string().min(32),
   // Optional here and demanded below under `production` alone: what keeps a send off another
-  // deployment is `APP_ENV`, never this being absent, a development machine possibly holding a real
-  // key. Never empty, the demand testing for absence alone.
+  // deployment is `APP_ENV`, never this being absent. Never empty, the demand testing for absence
+  // alone.
   AUTH_RESEND_KEY: z.string().min(1).optional(),
 
   // Stricter than `standardwebhooks`, which verifies with the prefix or without it: refusing at boot beats a 400

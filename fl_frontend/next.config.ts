@@ -35,14 +35,6 @@ const nextConfig: NextConfig = {
       },
     ];
   },
-  // Development-only: Next reads `logging.fetches` and `logging.incomingRequests` in the dev server
-  // alone, which is why the production frontend writes no per-request line — that record is nginx's
-  // access log.
-  logging: {
-    fetches: {
-      fullUrl: false, // Prevents giant URLs in the terminal
-    },
-  },
   turbopack: {
     rules: {
       // The plugin's `LocalesPlugin.d.ts` types `locales` as `readonly string[]`, which Next's
@@ -54,10 +46,10 @@ const nextConfig: NextConfig = {
     // Off because the router otherwise re-requests one link's payload without end on every page
     // with record rows (vercel/next.js#100055), until a Next release carries the fix.
     optimisticRouting: false,
-    // Off, or every `next dev` and `next build` checks for advisories and reminds of an upgrade: in a
-    // terminal the command's output waits behind the reminder's prompt for up to ten seconds, and run
-    // by a coding agent, the gate's build included, the command stops with instructions for that
-    // agent and passes when retried.
+    // Off, or every `next build` checks for advisories and reminds of an upgrade: in a terminal the
+    // build's output waits behind the reminder's prompt for up to ten seconds, and run by a coding
+    // agent, the gate's build included, the build stops with instructions for that agent and passes
+    // when retried.
     agentUpgrade: false,
   },
   output: "standalone",
@@ -79,10 +71,6 @@ const nextConfig: NextConfig = {
   partialPrefetching: true,
   // No `reactCompiler`: measured at 6.5 to 11.7 KB gzipped per page for memoization this app needs in
   // two admin views, both hand-written.
-
-  // Off, or `next dev` run by an agent writes its own block into an `AGENTS.md` here, which an agent
-  // then loads as instructions nobody reviewed.
-  agentRules: false,
 };
 
 export default nextConfig;

@@ -18,11 +18,10 @@ afterEach(() => {
   vi.unstubAllEnvs();
 });
 
-/* `next dev` reaches whatever backend and transport the developer's own environment names: the league's real people.
-   The boot arms the scheduler under a production build's `NODE_ENV` alone. Each case states the value it boots under,
-   `next dev`'s and the suite's own, rather than taking whichever the project running it sets. */
-it.each(["development", "test"])("arms nothing under the NODE_ENV %s", async (nodeEnv) => {
-  vi.stubEnv("NODE_ENV", nodeEnv);
+/* The boot arms the scheduler under a production build's `NODE_ENV` alone, so a test that boots the frontend sends no
+   pass. The case states the suite's own value rather than taking whichever the project running it sets. */
+it("arms nothing under the NODE_ENV test", async () => {
+  vi.stubEnv("NODE_ENV", "test");
   await register();
   vi.advanceTimersByTime(3 * HOUR_MS);
   await backend.answered();

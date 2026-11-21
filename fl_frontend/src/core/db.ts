@@ -44,16 +44,7 @@ let client: MongoClient | undefined;
  * the unit tier import this module holding no URI, and the driver connects on first use either way.
  */
 export function signInStore(): MongoClient {
-  if (client !== undefined) return client;
-
-  // The development branch caches the client on `global`, or hot reloads exhaust the pool.
-  if (process.env.NODE_ENV === "development") {
-    const globalWithMongo = global as typeof globalThis & { _mongoClient?: MongoClient };
-    globalWithMongo._mongoClient ??= new MongoClient(mongodbUri(), options);
-    client = globalWithMongo._mongoClient;
-  } else {
-    client = new MongoClient(mongodbUri(), options);
-  }
+  client ??= new MongoClient(mongodbUri(), options);
   return client;
 }
 
