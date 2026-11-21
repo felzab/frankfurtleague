@@ -117,12 +117,13 @@ type Opening<T extends Tone> =
       trigger?: never;
     } & HeldAct);
 
-/** What a holder of the open state may also hold: the act's running, lifted up to it. */
-type HeldAct = {
+/** What a holder of a question's or a dialog's open state may also hold: the act's running, lifted up to it. */
+export type HeldAct = {
   /**
-   * The holder's transition, which the act runs in instead of the question's own, so the holder shows the act running
-   * where its press stands and refuses a second press while it does: a touched act runs after its question closed, and
-   * a held question draws no trigger to show it on.
+   * The holder's transition, which the act runs in instead of the question's or the dialog's own, so the holder shows
+   * the act running where its press stands and refuses a second press while it does: a touched act runs after its
+   * question or dialog closed, and a held one draws no trigger to show it on. A dialog's act sent from its open form
+   * shows its running on the form's own button instead.
    */
   transition?: ActTransition;
 };

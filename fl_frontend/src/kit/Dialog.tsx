@@ -25,7 +25,7 @@ import { usePasskeyTouch } from "./usePasskeyTouch";
 
 import type { Copy } from "@/core/copy";
 import type { ReactElement, ReactNode } from "react";
-import type { Tone, Trigger } from "./ConfirmDialog";
+import type { HeldAct, Tone, Trigger } from "./ConfirmDialog";
 import type { DialogAct, DialogDanger } from "./dialogAct";
 import type { HeldOpen } from "./useOpenUntilHidden";
 
@@ -309,12 +309,13 @@ type Opening<T extends Tone> =
   | {
       trigger: Trigger<T>;
       open?: never;
+      transition?: never;
     }
-  | {
+  | ({
       /** The open state, held by the control that opens the dialog, such as a combo box's create entry. */
       open: HeldOpen;
       trigger?: never;
-    };
+    } & HeldAct);
 
 /**
  * One act done where its record shows, in a centred dialog: its title, its few inputs, „Zurück“ and its
@@ -326,14 +327,15 @@ type Opening<T extends Tone> =
  * An act behind the passkey touch is asked as an identity check is, with no modal standing (`DialogAct`'s `touch`):
  * React Aria's modal makes the rest of the page inert, and a password manager draws its prompt in the page. Its press
  * closes the dialog for good, then asks the touch and runs the act, its answer a toast, the trigger busy until it
- * lands. Its answer has no field left to stand on, so its act words every refusal as a sentence naming what was
+ * lands, or the press of the holder of the open state, which hands its own transition for it (`HeldAct`). Its answer has no field left to stand on, so its act words every refusal as a sentence naming what was
  * refused, such as an address already banned, and the inputs are typed anew at the next opening.
  */
 export function Dialog<T extends Tone = "primary">(props: DialogAct<T> & Opening<T>) {
-  const { act, trigger, open, touch, ...form } = props;
+  const { act, trigger, open, touch, transition, ...form } = props;
   const router = useRouter();
   const [isOpen, setOpen] = useOpenUntilHidden(open);
-  const [isRunning, startRun] = useTransition();
+  const ownRun = useTransition();
+  const [isRunning, startRun] = transition ?? ownRun;
   const touched = usePasskeyTouch(touch !== undefined, touch?.holder);
   const done = COPY.shared.toast.done[act.verb];
   const sent = answering(touched(form.run), router.refresh);
