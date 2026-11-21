@@ -9,9 +9,9 @@ import { APIBadStatusError } from "@/core/errors";
 import { formatList } from "@/core/format";
 import { spielePatchSpiel } from "@/core/generated/client/sdk";
 import { SpielePatchSpielBody, SpielePatchSpielParams } from "@/core/generated/zod/inputs";
-import { getAdminSpiel } from "@/features/spiele/queries";
-import { admitsShootOut, isNoShow } from "@/features/spiele/result";
 
+import { getAdminSpiel } from "./queries";
+import { admitsShootOut, isNoShow } from "./result";
 import { NOBODY, takesNoResult, valuesOf } from "./spielValues";
 
 import type { ActionAnswer, SaveQuestion } from "@/core/action";
