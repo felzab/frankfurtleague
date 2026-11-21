@@ -227,9 +227,10 @@ write.\
 
 ### `Einsatz` — a fixture a referee is booked onto, as their own Übersicht lists it
 
-**Is:** one row of the box „Spiele“ on a referee's Übersicht of one season: a fixture booked to
-them, with the newest `Spielbestätigung` row asking them about it. A fixture is one row, replaced
-rather than added to when the request is renewed.\
+**Is:** one game on a referee's Übersicht of one season, under its matchday's head, and a second
+time in the card „Termine“ while its booking is still to answer: a fixture booked to them, with the
+newest `Spielbestätigung` row asking them about it. A fixture is one row, replaced rather than added
+to when the request is renewed.\
 **In code:** `fl_backend/app/api/schiedsrichter/schemas.py :: FLSchiedsrichterSpiel`, served by
 `fl_backend/app/api/schiedsrichter/person_router.py :: get_self_spiele`.
 
