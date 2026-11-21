@@ -1122,6 +1122,7 @@ const DESIGN_BANS = [
             String.raw`\bund mehr\b`,
             String.raw`\bz\.\s?B\.`,
             String.raw`Mannschaft`,
+            String.raw`\b[Uu]ngültig`,
             String.raw`\b[Nn]och\s?(?:einmal|ein Mal|mal)\b|\b[Nn]ochmal`,
             String.raw`[a-zäöüß,]\s(?:Sie|Ihre?[mnrs]?|Du|Dein\w*|Dir|Dich)\b`,
           ].join("|"),
@@ -1130,7 +1131,7 @@ const DESIGN_BANS = [
         // that is the en dash and nothing else is a glyph standing for a value, as the empty value's mark, and no prose.
         ":matches(Literal[value=/[–—]/]:not([value=/^–$/]), TemplateElement[value.raw=/[–—]/], JSXText[value=/[–—]/])",
       ].join(", "),
-      "The catalogue writes none of these: three periods, „!“, a dash inside text, „Bitte“, „erfolgreich“, „leider“, „wirklich“, „und mehr“, „z. B.“, „Mannschaft“, „noch einmal“, „Sie“ or a capitalised „Du“ inside a sentence.",
+      "The catalogue writes none of these: three periods, „!“, a dash inside text, „Bitte“, „erfolgreich“, „leider“, „wirklich“, „und mehr“, „z. B.“, „Mannschaft“, „ungültig“, „noch einmal“, „Sie“ or a capitalised „Du“ inside a sentence.",
     ),
     EVERY,
     { only: CATALOGUE_FILES },
