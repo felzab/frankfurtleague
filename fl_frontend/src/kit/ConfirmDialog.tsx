@@ -144,10 +144,13 @@ type Confirming = {
 /**
  * Who words a done act's toast where its answer brings no note, so no act that toasts asks under a verb the catalogue
  * has no done word for: its verb (`DoneVerb`); the holder, in its own word (`done`), as a Konto box says its act; or
- * nobody, for an act answering nothing, which hands its running to the control that asked.
+ * nobody, for an act answering nothing, which hands its running to the control that asked. That last takes no touch:
+ * a refused touch answers after the question closed, and only a toast is left to say it.
  */
 type DoneWord =
-  { question: { verb: DoneVerb } | null; done?: never } | { done: Copy } | { onConfirm: () => undefined | Promise<undefined>; done?: never };
+  | { question: { verb: DoneVerb } | null; done?: never }
+  | { done: Copy }
+  | { onConfirm: () => undefined | Promise<undefined>; done?: never; touch?: never };
 
 /** The done words by verb, read where the props' type has already tied a toasting act to a verb holding one. */
 const DONE_WORDS: Readonly<Partial<Record<Verb, Copy>>> = COPY.shared.toast.done;
