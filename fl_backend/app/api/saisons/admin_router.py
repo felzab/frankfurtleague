@@ -599,9 +599,10 @@ async def _judge_the_activation(
     outgoing_ids = [row["_id"] for row in outgoing]
 
     # None where nothing but the target holds `active` -- a fresh league, or a re-activation. One match owing a result is
-    # the whole question, so the count stops at the first.
+    # the whole question, so the lookup stops at the first.
     outgoing_unplayed = bool(outgoing_ids) and (
-        await spiele_collection.count_documents({"saison_id": {"$in": outgoing_ids}, **unplayed_filter()}, limit=1, session=session) > 0
+        await spiele_collection.find_one({"saison_id": {"$in": outgoing_ids}, **unplayed_filter()}, projection={"_id": 1}, session=session)
+        is not None
     )
 
     # One call, so which of the two refusals an admin is shown stays the service's decision.

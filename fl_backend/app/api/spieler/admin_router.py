@@ -313,8 +313,10 @@ async def reactivate_saison_spieler(
         # The stored club, no payload naming one: a replacement hands a junction row to another club and
         # retires this one's squad, so the club this row returns to may stand outside that season by now.
         team_in_saison = (
-            await saison_teams_collection.count_documents({"saison_id": saison_id, "team_id": stored_raw["team_id"]}, limit=1, session=session)
-        ) > 0
+            await saison_teams_collection.find_one(
+                {"saison_id": saison_id, "team_id": stored_raw["team_id"]}, projection={"_id": 1}, session=session
+            )
+        ) is not None
         # Asked before the cap: a full squad is not a fact worth reporting
         # about a club the season does not hold.
         if not team_in_saison:

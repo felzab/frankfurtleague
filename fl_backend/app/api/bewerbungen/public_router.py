@@ -234,10 +234,10 @@ async def post_bewerbung(
             team_raw = await teams_collection.find_one({"_id": bewerbung_data.team_id}, {"inactive_since": 1}, session=session)
             refuse(find_picked_team_refusal(team_raw=team_raw))
 
-            entered = await saison_teams_collection.count_documents(
-                {"saison_id": bewerbung_data.saison_id, "team_id": bewerbung_data.team_id}, limit=1, session=session
+            entered = await saison_teams_collection.find_one(
+                {"saison_id": bewerbung_data.saison_id, "team_id": bewerbung_data.team_id}, projection={"_id": 1}, session=session
             )
-            refuse(find_already_entered_refusal(entered=entered > 0))
+            refuse(find_already_entered_refusal(entered=entered is not None))
 
         confirmation_deadline = confirmation_deadline_from(today=today)
         stored_kontakte = compose_kontakte(kontakte=bewerbung_data.kontakte.model_dump(mode="json"), today=today)
