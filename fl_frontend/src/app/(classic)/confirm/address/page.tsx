@@ -63,10 +63,9 @@ async function readState(): Promise<MailedState> {
   const token = await mailedLinkToken();
   if (token === null) return INVALID;
 
-  const read = await readChange(token);
-  if (read === null) return INVALID;
+  const view = await readChange(token);
+  if (view === null) return INVALID;
 
-  const { view } = read;
   if (view.state === "ended") return endedState(view);
   return view.side === "previous" ? previousState(view, token) : newState(view, token);
 }

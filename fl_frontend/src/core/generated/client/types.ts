@@ -922,16 +922,6 @@ export interface FLAddressChangeViewPrevious {
   way: FLAddressChangeWay;
 }
 
-/**
- * What one address link opens: never a name or the id.
- *
- * The new address only where its holder judges by it: the new mailbox's `valid` link, and the address on file's link while
- * the change stands, masked on `waiting_period`.
- */
-export interface FLAddressChangeViewResponse {
-  view: FLAddressChangeViewNew | FLAddressChangeViewPrevious | FLAddressChangeViewEnded;
-}
-
 export type FLAddressChangeWaitingPeriodDays = 7;
 
 export interface FLAddressPayload {

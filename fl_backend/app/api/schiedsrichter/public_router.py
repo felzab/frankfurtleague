@@ -4,10 +4,7 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from app.api.schiedsrichter.crud import erase_referee_in_session
 from app.api.schiedsrichter.schemas import (
     FLSchiedsrichterConfirmationPayload,
-    FLSchiedsrichterConfirmationViewConfirmed,
-    FLSchiedsrichterConfirmationViewExpired,
     FLSchiedsrichterConfirmationViewResponse,
-    FLSchiedsrichterConfirmationViewValid,
 )
 from app.api.schiedsrichter.services import (
     CONFIRMATION_FIELD,
@@ -53,7 +50,6 @@ router = APIRouter(
 
 @router.post(
     "/view",
-    response_model=FLSchiedsrichterConfirmationViewResponse,
     summary="What one Schiedsrichter confirmation link opens",
     openapi_extra=SAFE,
 )
@@ -61,7 +57,7 @@ async def get_confirmation_view(
     view_data: FLTokenPayload,
     schiedsrichter_collection: SchiedsrichterReadCollection,
     today: GermanDay,
-) -> FLSchiedsrichterConfirmationViewValid | FLSchiedsrichterConfirmationViewConfirmed | FLSchiedsrichterConfirmationViewExpired:
+) -> FLSchiedsrichterConfirmationViewResponse:
     """What this token opens: the link's state, a standing link's deadline and age bounds, and a confirmed one's day.
 
     A confirmed or an expired link is served in that state rather than refused, so a reopened link shows what became of it;

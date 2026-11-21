@@ -6,21 +6,21 @@ import { SERVER_COPY } from "@/core/serverCopy";
 import { serveBackend } from "@/test-support/backend";
 import { arriveWith, doubleNextRequest } from "@/test-support/nextRequest";
 
-import type { FLAddressChangeViewResponse } from "@/core/generated/client/types";
+import type { FLAddressChangeViewEnded, FLAddressChangeViewNew, FLAddressChangeViewPrevious } from "@/core/generated/client/types";
 import type { MailedState } from "@/kit/MailedPage";
 import type { ReactElement } from "react";
 
+type View = FLAddressChangeViewNew | FLAddressChangeViewPrevious | FLAddressChangeViewEnded;
+
 /** The view the backend serves for the link's token, which `stateFor` sets. */
-let view: FLAddressChangeViewResponse["view"] | undefined;
+let view: View | undefined;
 
 /** Whether a request's body names the link's token, which the page posts rather than spells in an address. */
 const carriesToken = (body: unknown) => typeof body === "object" && body !== null && "token" in body && body.token === "tok";
 
 // The link's one read, for its own token alone: any other request goes unanswered, which fails the case.
 serveBackend(({ method, path, body }) =>
-  method === "POST" && path === "/address_change/confirmation/view" && carriesToken(body) && view !== undefined
-    ? ({ view } satisfies FLAddressChangeViewResponse)
-    : undefined,
+  method === "POST" && path === "/address_change/confirmation/view" && carriesToken(body) && view !== undefined ? view : undefined,
 );
 // The read runs under the trace the edge sent, read off `next/headers`, which answers only inside Next's request.
 doubleNextRequest();
@@ -31,7 +31,7 @@ const WORDS = SERVER_COPY.addressChange;
 const DAY = "2026-11-04";
 
 /** What the page shows for the view the backend serves, as the template is handed it. */
-async function stateFor(served: FLAddressChangeViewResponse["view"]): Promise<MailedState> {
+async function stateFor(served: View): Promise<MailedState> {
   view = served;
   // The link as the proxy left it: its token in the page's cookie.
   arriveWith({ cookie: "mailed_link=tok" });

@@ -30,7 +30,9 @@ import type {
   FLAddressChangeMovesDonePayload,
   FLAddressChangeMovesResponse,
   FLAddressChangeSweepResponse,
-  FLAddressChangeViewResponse,
+  FLAddressChangeViewEnded,
+  FLAddressChangeViewNew,
+  FLAddressChangeViewPrevious,
   FLAufstellungPayload,
   FLAufstellungResponse,
   FLAustrittPayload,
@@ -413,13 +415,16 @@ export const getAddressChangeGetAddressChangeViewUrl = () => {
 export const addressChangeGetAddressChangeView = async (
   fLTokenPayload: FLTokenPayload,
   options?: Parameters<typeof baseKeyReadTransport>[1],
-): Promise<FLAddressChangeViewResponse> => {
-  return baseKeyReadTransport<FLAddressChangeViewResponse>(getAddressChangeGetAddressChangeViewUrl(), {
-    ...options,
-    method: "POST",
-    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
-    body: JSON.stringify(fLTokenPayload),
-  });
+): Promise<FLAddressChangeViewNew | FLAddressChangeViewPrevious | FLAddressChangeViewEnded> => {
+  return baseKeyReadTransport<FLAddressChangeViewNew | FLAddressChangeViewPrevious | FLAddressChangeViewEnded>(
+    getAddressChangeGetAddressChangeViewUrl(),
+    {
+      ...options,
+      method: "POST",
+      headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
+      body: JSON.stringify(fLTokenPayload),
+    },
+  );
 };
 
 export const getAddressChangeSweepAddressChangeUrl = () => {

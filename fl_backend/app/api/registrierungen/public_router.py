@@ -322,7 +322,6 @@ async def post_registrierung(
 # the submission is.
 @router.post(
     "/confirmation/view",
-    response_model=FLRegistrierungConfirmationViewResponse,
     summary="What one registration confirmation link opens",
     openapi_extra=SAFE,
 )
@@ -332,7 +331,7 @@ async def get_confirmation_view(
     teams_collection: TeamsReadCollection,
     saison_teams_collection: SaisonTeamsReadCollection,
     today: GermanDay,
-) -> FLRegistrierungConfirmationViewValid | FLRegistrierungConfirmationViewConfirmed | FLRegistrierungConfirmationViewExpired:
+) -> FLRegistrierungConfirmationViewResponse:
     """What the registration this confirmation link opens shows, and nothing of the pupil but the day they answered.
 
     A confirmed or expired link is served in that state, and a link whose club has left the season reads expired.

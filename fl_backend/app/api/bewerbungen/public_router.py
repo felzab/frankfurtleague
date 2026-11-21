@@ -358,7 +358,6 @@ async def _saison_view(
 # A POST that reads, so the token travels in the body.
 @router.post(
     "/confirmation/view",
-    response_model=FLBewerbungEinwilligungViewResponse,
     summary="What one confirmation link opens",
     openapi_extra=SAFE,
 )
@@ -369,12 +368,7 @@ async def get_confirmation_view(
     saisons_collection: SaisonsReadCollection,
     teams_collection: TeamsReadCollection,
     today: GermanDay,
-) -> (
-    FLBewerbungEinwilligungViewValid
-    | FLBewerbungEinwilligungViewSaisonPast
-    | FLBewerbungEinwilligungViewAnswered
-    | FLBewerbungEinwilligungViewExpired
-):
+) -> FLBewerbungEinwilligungViewResponse:
     """What the confirmation page renders for the seat this token opens, and nothing of the person.
 
     A confirmed, declined or expired link is served in that state; only a token no seat holds is refused.
