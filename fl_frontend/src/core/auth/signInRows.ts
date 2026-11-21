@@ -119,7 +119,7 @@ export async function settleCodeAttempt(context: BoundContext, own: string | und
 
 /**
  * Ten failures in a row lock an address's code, and a sign-in by any factor ends the row:
- * a passkey is the way the lock's own sentence points to.
+ * a passkey sign-in clears it, an administrator's way past the lock (runbooks.md §17).
  */
 export async function clearCodeFailures(context: BoundContext, userId: string): Promise<void> {
   const account = await context.internalAdapter.findUserById(userId);

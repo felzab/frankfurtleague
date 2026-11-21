@@ -37,7 +37,7 @@ const lockedReasonOf = (page: HTMLElement, label: string): string | null | undef
 };
 
 // The harm: a wrong condition takes an administrator's set-up or their last passkey's lock away, or shows a person a
-// box for passkeys they cannot hold, and no journey opens the page.
+// box for passkeys they cannot hold, and no journey looks for the passkey box.
 describe("Sicherheit", () => {
   it("draws an administrator's passkey, its set-up, and its removal locked as the last one", async () => {
     const page = await drawn();
