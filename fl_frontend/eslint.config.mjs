@@ -543,10 +543,7 @@ const SOURCE_BANS = [
   ),
   syntaxBan(
     // The target in any spelling, an attribute's, a spread object's or a `window.open` argument's.
-    syntax(
-      inLiteral("^_blank$"),
-      "A link opening a new tab is the kit's `Link`, which opens every other site's address in one: a target spelled here tells a screen reader nothing.",
-    ),
+    syntax(inLiteral("^_blank$"), "A link opening a new tab is the kit's `Link`, which decides it from the address."),
     SOURCE,
     { allow: ["src/kit/Link.tsx"] },
   ),
