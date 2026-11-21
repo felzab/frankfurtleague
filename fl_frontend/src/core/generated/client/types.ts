@@ -4726,7 +4726,19 @@ export const FLSpielbestaetigungEditorRowState = {
 } as const;
 
 /**
- * A confirmation row as the match editor reads it, and the state it stands in, a closed row's included.
+ * A club's decline proposing another date and hour, neither adopted nor discarded, and whom each act on it mails.
+ *
+ * Each recipient by the name its own record holds, as the Übersicht names them: `adoption_recipients` those the
+ * confirmation pass tells of the move, `discard_recipients` the club the discard tells the date stands.
+ */
+export interface FLSpielbestaetigungEditorVorschlag {
+  adoption_recipients: (FLSpielRecipientTeam | FLSpielRecipientSchiedsrichter)[];
+  discard_recipients: (FLSpielRecipientTeam | FLSpielRecipientSchiedsrichter)[];
+  vorschlag: FLSpielbestaetigungAppointment;
+}
+
+/**
+ * A confirmation row as the match editor reads it, the state it stands in, a closed row's included, and the league's acts it takes.
  *
  * Never `vorschlag`, which only a club's own page tells: an open row reads `valid` while its party may still answer.
  */
@@ -4736,9 +4748,13 @@ export interface FLSpielbestaetigungEditorRow {
   asked_at: string | null;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   due_by: string;
+  enterable: boolean;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  id: string;
   lapsed_on: string | null;
   party: FLSpielbestaetigungPartyTeam | FLSpielbestaetigungPartySchiedsrichter;
   state: FLSpielbestaetigungEditorRowState;
+  vorschlag_open: FLSpielbestaetigungEditorVorschlag | null;
 }
 
 /**

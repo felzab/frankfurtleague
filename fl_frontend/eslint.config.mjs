@@ -344,6 +344,8 @@ const IMPORT_BANS = [
       "src/features/invitations/actions.ts",
       "src/features/spiele/saveSpiel.test.ts",
       "src/features/spiele/saveSpiel.ts",
+      "src/features/spielbestaetigungen/answerActs.tsx",
+      "src/features/spielbestaetigungen/ZusageDialog.tsx",
       "src/features/spielorte/createSpielort.ts",
       "src/features/spielorte/SpielortFields.tsx",
       "src/features/teams/options.ts",

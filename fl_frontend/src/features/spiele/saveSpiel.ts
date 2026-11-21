@@ -146,8 +146,6 @@ const OWN_WORDS = [
   "saison_past",
   // A result before the season's start, whose fields the editor locks until then: a page read before the start moved later.
   "ergebnis_before_saison_start",
-  // A refused deletion whose dry run then finds no result to delete, the result it refused gone since.
-  "voided_results_stale",
 ] as const;
 
 /** The other fixtures a write moved or would move, each once, in their numbers' order. */
@@ -191,10 +189,11 @@ const refusedToDelete = (failed: unknown): failed is APIBadStatusError =>
  * its own transaction to delete a later match's result it was not named, on the server, so no ordering of presses and
  * no failed or unfinished check on the page lets a deletion through unasked; its refusal names none, so only then is
  * the write's own dry run asked, to word the question. A press confirming a question asks the dry run afresh and
- * writes only while the question's token still names exactly what it finds, naming those results to the write; a
- * write refused even so, by a result entered after that dry run, asks again from one more. So the write is the gate
- * and the dry run only words its question. A dry run the write refuses is that refusal, answered as the write's would
- * be, as is a refused write whose dry run then finds nothing to delete.
+ * writes only while the question's token still names exactly what it finds, or while it finds nothing to delete,
+ * naming those results to the write; a write refused even so, by a result entered after that dry run, asks again from
+ * one more. So the write is the gate and the dry run only words its question. A dry run the write refuses is that
+ * refusal, answered as the write's would be. A refused write whose dry run then finds nothing to delete answers the
+ * stale-page line, the result it refused gone since.
  */
 export const saveSpiel = action({
   lane: "admin",
@@ -228,8 +227,8 @@ export const saveSpiel = action({
     } catch (failed) {
       if (!refusedToDelete(failed)) throw failed;
       const question = questionOf(await spielePatchSpiel(id, sent, { dry_run: true }));
-      if (question === null) throw failed;
-      return { ok: false, ask: question };
+      // The result the write refused to delete gone since, a race between two writes: a second press saves.
+      return question === null ? { ok: false, reason: COPY.shared.failure.stale } : { ok: false, ask: question };
     }
 
     // The other fixtures the write changed: a later round's occupant or result, or a side it released on the same

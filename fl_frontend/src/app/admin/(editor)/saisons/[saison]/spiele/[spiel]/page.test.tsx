@@ -1,10 +1,15 @@
+// @vitest-environment jsdom
+import { screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { ADMIN_COPY } from "@/core/copy/admin";
 import { COPY } from "@/core/copy/shared";
 import { FLSonderereignis } from "@/core/generated/client/types";
 import { SERVER_COPY } from "@/core/serverCopy";
+import { AnswerRows } from "@/kit/AnswerRows";
+import { DraftUnsaved } from "@/kit/draftUnsaved";
 import { serveBackend } from "@/test-support/backend";
+import { renderUnderNext } from "@/test-support/nextContexts";
 import { signedInRequest } from "@/test-support/session";
 
 import type { FLSpielbestaetigungEditorRow, FLSpieleAdminSingleResponse } from "@/core/generated/client/types";
@@ -148,6 +153,7 @@ describe("the match editor's answers", () => {
     state: FLSpielbestaetigungEditorRow["state"],
     fields: Partial<FLSpielbestaetigungEditorRow> = {},
   ): FLSpielbestaetigungEditorRow => ({
+    id: "64b000000000000000000010",
     party: { kind: "team", team_id: TEAM1 },
     ansetzung,
     due_by: "2026-11-10",
@@ -155,6 +161,8 @@ describe("the match editor's answers", () => {
     asked_at: "2026-11-03",
     answer: null,
     state,
+    enterable: false,
+    vorschlag_open: null,
     ...fields,
   });
   const agreement = {
@@ -267,5 +275,60 @@ describe("the match editor's answers", () => {
         sonderereignis,
       ).toStrictEqual(["team2", "schiedsrichter"]);
     }
+  });
+
+  /** The first club's decline proposing 21 November, still standing, and the second club's row, lapsed unanswered. */
+  const vorschlag = { date: "2026-11-21", time: "16:00:00" };
+  const actRows = [
+    row("declined", {
+      id: "64b000000000000000000011",
+      answer: { ...agreement, kind: "declined", vorschlag },
+      vorschlag_open: {
+        vorschlag,
+        adoption_recipients: [{ kind: "team", team_id: TEAM1, name: "Ahorn" }],
+        discard_recipients: [{ kind: "team", team_id: TEAM1, name: "Ahorn" }],
+      },
+    }),
+    row("expired", { id: "64b000000000000000000012", party: { kind: "team", team_id: TEAM2 }, lapsed_on: "2026-11-10", enterable: true }),
+  ];
+
+  /** The editor's answer rows over those rows, drawn by the kit's answer list as the editor draws them, its draft `unsaved` or not. */
+  const drawnActs = async (unsaved = false) => {
+    const editor = await editorOver({ ...VIEW, spielbestaetigungen: actRows });
+    renderUnderNext(
+      // The editor's own lock, which it provides while its draft holds a change.
+      <DraftUnsaved value={unsaved ? COPY.template.draftUnsaved : undefined}>
+        <AnswerRows
+          label={ADMIN_COPY.spiel.confirmations}
+          rows={editor.props.answers}
+          empty={{ kind: "none", plural: ADMIN_COPY.spiel.confirmations }}
+        />
+      </DraftUnsaved>,
+    );
+    return { editor, buttons: screen.getAllByRole("button") };
+  };
+
+  // The harm: an act offered on the Übersicht's row and missing here goes unseen, so the league, opening the match from
+  // its list, cannot enter a club's Zusage or decide its proposal; or one offered on a finished season, which the backend
+  // refuses only once pressed.
+  it("offers a club's proposal „Übernehmen“ and „Verwerfen“ and a lapsed party „Zusage eintragen“, and a finished season's match neither", async () => {
+    const { editor, buttons } = await drawnActs();
+
+    const zusage = COPY.shared.withObject(ADMIN_COPY.overview.zusage, "enter");
+    expect(buttons.map((button) => button.textContent)).toStrictEqual([COPY.shared.verb.adopt, COPY.shared.verb.discard, zusage]);
+    // Each act writes the row it stands on.
+    const [proposed, lapsed] = editor.props.answers.map(({ acts }) => acts?.props as { id?: string; parties?: { id: string }[] });
+    expect([proposed?.id, lapsed?.parties?.map(({ id }) => id)]).toStrictEqual(["64b000000000000000000011", ["64b000000000000000000012"]]);
+
+    const closed = await editorOver({ ...VIEW, saison_status: "past", spielbestaetigungen: actRows });
+    expect(closed.props.answers.map(({ acts }) => acts)).toStrictEqual([undefined, undefined]);
+  });
+
+  // The harm: „Übernehmen“ pressed over unsaved changes moves the match, and the draft's save is then turned away as
+  // stale, as every act in an editor would leave it.
+  it("locks each act while the editor's draft holds unsaved changes", async () => {
+    const { buttons } = await drawnActs(true);
+
+    expect(buttons.map((button) => button.getAttribute("aria-disabled"))).toStrictEqual(["true", "true", "true"]);
   });
 });

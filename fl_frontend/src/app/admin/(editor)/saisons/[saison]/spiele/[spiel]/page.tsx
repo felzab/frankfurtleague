@@ -10,6 +10,7 @@ import { SpielePatchSpielBody, spielePatchSpielBodyNoteOneMax } from "@/core/gen
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { AUFSTELLUNG_CHIP, STARTERS_MAX } from "@/features/aufstellungen/constants";
+import { vorschlagActs, zusageAct } from "@/features/spielbestaetigungen/answerActs";
 import { adminSpielChipOf, eventOf, previewOf, quelleWords } from "@/features/spiele/blocks";
 import { getAdminSpiel } from "@/features/spiele/queries";
 import { byMinute, creditedSide, isNoShow } from "@/features/spiele/result";
@@ -39,6 +40,7 @@ import type { CardActRowProps } from "@/kit/Card";
 import type { Option } from "@/kit/OptionList";
 import type { TableHead, TableRow } from "@/kit/Table";
 import type { Metadata, ResolvingMetadata } from "next";
+import type { ReactElement } from "react";
 import type { Adoption, Team } from "./SpielEditor";
 
 type Props = PageProps<"/admin/saisons/[saison]/spiele/[spiel]">;
@@ -159,6 +161,9 @@ function adoptionOf(spiel: FLSpielJoinedAdmin, bericht: FLSpielEditorBericht | n
   return { version: bericht.version, text: WORDS.fromReport(COPY.spielplan.score({ team1: tore1, team2: tore2 }, elfmeterschiessen)), values };
 }
 
+/** The day and hour the match stands at. */
+type Slot = { date: string | null; time: string | null };
+
 /** An answer the party has not given: the chip of one still owed, and the line of one that lapsed on no day. */
 const ANSWER_MISSING = SERVER_COPY.overview.missing(COPY.spielplan.answer);
 
@@ -174,13 +179,7 @@ const ANSWER_MISSING = SERVER_COPY.overview.missing(COPY.spielplan.answer);
  * that holds no answer, or about a call-off since undone, asks nothing about the match as it stands, and a row in time
  * that nobody could be mailed on has asked nothing yet: the party reads as not asked. `slot` is the match's own.
  */
-function answerRow(
-  id: string,
-  name: Words,
-  plaque: string | null,
-  row: FLSpielbestaetigungEditorRow | undefined,
-  slot: { date: string | null; time: string | null },
-): AnswerRow {
+function answerRow(id: string, name: Words, plaque: string | null, row: FLSpielbestaetigungEditorRow | undefined, slot: Slot): AnswerRow {
   const shown = { id, name, ...(plaque === null ? {} : { plaque: { record: plaque } }) };
   // Both wait in the warn hue: a party never asked on the league, one asked on its answer, in the word its own list says.
   if (
@@ -224,15 +223,28 @@ function answerRow(
 }
 
 /**
+ * The league's acts on a party's newest row, as the Übersicht offers them: „Übernehmen“ and „Verwerfen“ on a club's
+ * standing proposal, and „Zusage eintragen“ where the write takes the party's agreement, a lapsed row's included.
+ */
+function actsOf(row: FLSpielbestaetigungEditorRow | undefined, name: Words, slot: Slot): ReactElement | undefined {
+  if (row === undefined) return undefined;
+  if (row.vorschlag_open !== null) return vorschlagActs(row.id, slot, row.vorschlag_open);
+  return row.enterable ? zusageAct([{ id: row.id, name }]) : undefined;
+}
+
+/**
  * Each party's answer about the fixture as it stands, by the party's newest row, a closed one too, which still holds
  * the answer or that it lapsed: both clubs, then the referee where a booking names one. An event ends every question
  * still owed about the match, so on a match carrying one only a party that agreed or declined shows, its answer being
- * what it said of the match before the event.
+ * what it said of the match before the event. A finished season's match offers no act, its writes refused.
  */
-function answerRows(view: FLSpieleAdminSingleResponse): AnswerRow[] {
+function answerRows(view: FLSpieleAdminSingleResponse, closed: boolean): AnswerRow[] {
   const { spiel, spielbestaetigungen: rows } = view;
-  const party = (id: string, name: Words, plaque: string | null, row: FLSpielbestaetigungEditorRow | undefined) =>
-    spiel.sonderereignis === null || row?.state === "agreed" || row?.state === "declined" ? [answerRow(id, name, plaque, row, spiel)] : [];
+  const party = (id: string, name: Words, plaque: string | null, row: FLSpielbestaetigungEditorRow | undefined) => {
+    if (spiel.sonderereignis !== null && row?.state !== "agreed" && row?.state !== "declined") return [];
+    const acts = closed ? undefined : actsOf(row, name, spiel);
+    return [{ ...answerRow(id, name, plaque, row, spiel), ...(acts === undefined ? {} : { acts }) }];
+  };
   // The rows are served newest first, so a party's first row is its newest.
   const teamRows = (side: "team1" | "team2", team: FLSpielTeamFieldJoined | null) =>
     team === null
@@ -367,7 +379,7 @@ export default async function SpielEditorPage({ params }: Props) {
       required={REQUIRED}
       report={{ head: REPORT_HEAD, rows: view.spielbericht === null ? [] : berichtRows(saved, view.spielbericht) }}
       adoption={adoptionOf(saved, view.spielbericht)}
-      answers={answerRows(view)}
+      answers={answerRows(view, closed)}
       aufstellungen={aufstellungRows(view)}
       createSpielort={createSpielort}
       spielortRules={SPIELORT_RULES}
