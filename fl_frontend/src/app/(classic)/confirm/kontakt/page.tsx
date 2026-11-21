@@ -14,12 +14,11 @@ import { mailedLinkToken } from "@/core/mailedLink";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { runWithIncomingTrace } from "@/core/traceScope";
-import { TO_HOME } from "@/kit/mailedLinkState";
 import { mailedMetadata } from "@/kit/mailedMetadata";
 import { MailedPage } from "@/kit/MailedPage";
 
 import { ConfirmationFields } from "../ConfirmationFields";
-import { END } from "../ends";
+import { END, LINK_INVALID } from "../ends";
 import { alreadyDone, linkViewOf } from "../linkView";
 import { answerKontakt, objectKontakt } from "./answerKontakt";
 
@@ -36,7 +35,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
 const WORDS = SERVER_COPY.kontaktConfirmation;
 
-const INVALID: MailedState = { state: "invalid", next: TO_HOME };
+const INVALID: MailedState = { state: "end", ...LINK_INVALID };
 
 /** Whether the confirmation's write asks the date, which posts nothing while unanswered. */
 const BIRTH_DATE_REQUIRED = requires(BewerbungenPostConfirmationBody.options[0].shape.birth_date, null);

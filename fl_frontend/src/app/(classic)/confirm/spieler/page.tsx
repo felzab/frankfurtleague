@@ -13,12 +13,11 @@ import { mailedLinkToken } from "@/core/mailedLink";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { runWithIncomingTrace } from "@/core/traceScope";
-import { TO_HOME } from "@/kit/mailedLinkState";
 import { mailedMetadata } from "@/kit/mailedMetadata";
 import { MailedPage } from "@/kit/MailedPage";
 
 import { ConfirmationFields } from "../ConfirmationFields";
-import { REGISTRIERUNG_CONFIRMED } from "../ends";
+import { LINK_INVALID, REGISTRIERUNG_CONFIRMED } from "../ends";
 import { alreadyDone, linkViewOf } from "../linkView";
 import { answerRegistrierung } from "./answerRegistrierung";
 
@@ -32,7 +31,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
 const WORDS = SERVER_COPY.registrierungConfirmation;
 
-const INVALID: MailedState = { state: "invalid", next: TO_HOME };
+const INVALID: MailedState = { state: "end", ...LINK_INVALID };
 
 const { shape } = RegistrierungenPostConfirmationBody;
 
