@@ -826,10 +826,10 @@ change, is refused (`ban_list_admin`) until the grant or the change is ended
 ([section 3](#3-granting-or-revoking-admin-access)). **The write mails the person itself where the
 address holds a sign-in account**, naming the reason you typed and the last season the ban covers,
 so there is nothing to send by hand; an address that never signed in is mailed nothing. Where the
-sign-in store cannot say whether an account holds the address, the press fails with the site's one
-failure line before anything is written, and the ban is entered again once the store answers. **The
-same press ends every live sign-in of the address, after the write**, keeping its account, which
-then stays only while a record holds the address
+sign-in store cannot say whether an account holds the address, the press fails with
+`failure.unexpected`, „Etwas ist schiefgelaufen“, before anything is written, and the ban is entered
+again once the store answers. **The same press ends every live sign-in of the address, after the
+write**, keeping its account, which then stays only while a record holds the address
 ([`../datenschutz.md`](../datenschutz.md#6-retention-is-bounded-where-a-bound-was-chosen)). Where
 that fails, the ban stands and the page shows the same failure line, naming no step; a session left
 standing lasts until it lapses, no request reading the list, unless the ban is entered again, which
