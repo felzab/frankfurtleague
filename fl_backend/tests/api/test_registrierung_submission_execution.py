@@ -493,7 +493,7 @@ class TestWhatASubmissionIsRefused:
                 await database[Collection.REGISTRIERUNGEN].count_documents({}),
             )
 
-        assert await on_a_league(mongo_replica_set_url, body) == (Code.DOCUMENT_NOT_FOUND, 0)
+        assert await on_a_league(mongo_replica_set_url, body) == (Code.LINK_INVALID, 0)
 
     async def test_a_shut_window_is_refused_and_stores_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str, int]:
@@ -535,7 +535,7 @@ class TestWhatASubmissionIsRefused:
             await leave(database)
             return await refused_code(register(database, client)), await database[Collection.REGISTRIERUNGEN].count_documents({})
 
-        assert await on_a_league(mongo_replica_set_url, body, registrierung={**OPEN_WINDOW, "open": False}) == (Code.DOCUMENT_NOT_FOUND, 0)
+        assert await on_a_league(mongo_replica_set_url, body, registrierung={**OPEN_WINDOW, "open": False}) == (Code.LINK_INVALID, 0)
 
     async def test_a_nominee_is_taken_by_a_full_kader(self, mongo_replica_set_url: str):
         """Past the window's `end` the cap holds nobody, and the row counts neither way until a team admits it."""
@@ -607,7 +607,7 @@ class TestWhatTheInvitesOwnReadAnswers:
             await leave(database)
             return await refused_code(view(database))
 
-        assert await on_a_league(mongo_replica_set_url, run) == Code.DOCUMENT_NOT_FOUND
+        assert await on_a_league(mongo_replica_set_url, run) == Code.LINK_INVALID
 
     async def test_a_team_the_season_does_not_hold_is_a_state_the_page_can_word(self, mongo_replica_set_url: str):
         """The second club's link opens: the read answers rather than refusing, and says the team is not entered.
