@@ -101,28 +101,14 @@ def link_expired() -> APIError:
     return APIError(HTTPStatus.GONE, Code.LINK_EXPIRED)
 
 
-# A write's twin of each code it shares with a payload write: by the code alone, or, where one code covers several
-# fields, by the first name of the path it judged, as the catalogue keys a sentence by that name, since the twin names
-# no path for the catalogue to read.
-type Twins = Mapping[Code, Code | Mapping[str, Code]]
+def as_judged_on_stored_state(refusal: APIError | None) -> APIError | None:
+    """`refusal` as a write judging stored values it carries no body for answers it: its code and status alone.
 
-
-def as_judged_on_stored_state(refusal: APIError | None, *, twins: Twins) -> APIError | None:
-    """`refusal` as a write judging stored values it carries no body for answers it.
-
-    Under its twin, a 409, where `twins` names one for a code a payload write shares, else its code and status alone:
-    never on a field, whose path would name a box of a body the request has not got.
+    Never on a field, whose path would name a box of a body the request has not got.
     """
 
     if refusal is None:
         return None
-
-    twin = twins.get(refusal.error_code)
-    if isinstance(twin, Mapping):
-        head = refusal.fields[0][0] if refusal.fields else None
-        twin = twin.get(head) if isinstance(head, str) else None
-    if twin is not None:
-        return APIError(HTTPStatus.CONFLICT, twin)
 
     return APIError(HTTPStatus(refusal.status_code), refusal.error_code)
 

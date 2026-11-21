@@ -1,25 +1,21 @@
 "use client";
 
-import { COPY } from "@/core/copy";
+import { ROUTES } from "@/core/routes";
 import { RailColumn } from "@/kit/RailFrame";
-import { StatusPage } from "@/kit/StatusPage";
-import { useReportClientCrash } from "@/shared/hooks/useReportClientCrash";
-
-import { ACCOUNT_HOME } from "./entries";
+import { RailError } from "@/kit/RailFrameBoundary";
 
 /**
  * A failed Konto page in the rail frame: this boundary stands inside the frame's layout and replaces the route group's
- * column with the page, so it draws the phone's band itself. Its way on is the list of Konto's pages, which reads
+ * column with the page, so it draws the phone's band itself, leading back to the list of Konto's pages, which reads
  * nothing but the session.
  */
-export default function AccountError({ error }: { error: unknown }) {
-  useReportClientCrash(error);
+export default function AccountError({ error, retry }: { error: unknown; retry: () => void }) {
   return (
-    <RailColumn back={ACCOUNT_HOME.href}>
-      <StatusPage
+    <RailColumn back={ROUTES.account.path()}>
+      <RailError
+        error={error}
+        retry={retry}
         scope="area"
-        title={COPY.shared.failure.unexpected}
-        card={{ tone: "danger", next: ACCOUNT_HOME }}
       />
     </RailColumn>
   );

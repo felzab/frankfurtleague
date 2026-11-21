@@ -12,9 +12,9 @@ import type { AddressText } from "./AddressWords";
 import type { IconName } from "./Icon";
 
 /**
- * One fact: its label, and its value as a record's data, a link to it on the site, or a link to it on
- * another site, such as a venue on a map. A value the record does not hold is `COPY.shared.noValue`, the row
- * staying, so a record's block keeps one shape.
+ * One fact: its label, and its value as a record's data or a link to it, on the site or on another one, such as a
+ * venue on a map. A value the record does not hold is `COPY.shared.noValue`, the row staying, so a record's block
+ * keeps one shape.
  */
 export type Fact = {
   label: Copy;
@@ -26,18 +26,17 @@ export type Fact = {
       value: Words | AddressText;
       /** Figures, set in Inter with columns that line up. */ figures?: boolean;
       link?: never;
-      elsewhere?: never;
     }
-  | { link: { href: Route; label: Words }; value?: never; figures?: never; elsewhere?: never }
-  /** Another site's address, which `Link` opens in a new tab, leaving the site's page in place. */
-  | { elsewhere: { href: `https://${string}`; label: Words }; value?: never; figures?: never; link?: never }
+  /** A page of the site or another site's address; `Link` opens another site's in a new tab, leaving the site's page in place. */
+  | { link: { href: Route | `https://${string}`; label: Words }; value?: never; figures?: never }
 );
 
 const facts = tv({
   slots: {
     list: "",
-    row: "grid gap-0.5",
-    // The glyph, 16 px, on the label's own 16-px line, 6 px before it.
+    // `content-start`: a pair beside one whose value wraps is stretched to its height, and would spread its label and
+    // value apart down the cell, so the two lines stay together at its top, level with the neighbour's.
+    row: "grid content-start gap-0.5",
     term: "flex items-center gap-1.5 text-xs text-fg-muted",
     detail: "font-medium wrap-anywhere",
   },
@@ -72,10 +71,8 @@ const facts = tv({
 });
 
 /**
- * A record's data, read rather than edited: stacked pairs, each a 12-px muted label over its value, in a
- * hairline box with hairlines between the rows and two pairs a row where the box is wide, one hairline between the
- * columns, the rows' rules running the whole width and an odd last pair across both columns; or free of the box inside
- * a card or a pop-up. The one block that pairs a label with a value.
+ * A record's data, read rather than edited: stacked pairs, each a label over its value, in a hairline box, or free of
+ * the box inside a card or a pop-up. The one block that pairs a label with a value.
  */
 export function Facts({ facts: rows, look = "boxed" }: { facts: ReadonlyArray<Fact>; look?: "boxed" | "free" }) {
   const { list } = facts({ look });
@@ -89,7 +86,6 @@ export function Facts({ facts: rows, look = "boxed" }: { facts: ReadonlyArray<Fa
         {rows.map((fact) => {
           const address = fact.value !== undefined && isAddress(fact.value);
           const { row, term, detail } = facts({ look, figures: fact.figures === true, address });
-          const to = fact.link ?? fact.elsewhere;
           const nth = above.get(fact.label) ?? 0;
           above.set(fact.label, nth + 1);
           return (
@@ -113,13 +109,11 @@ export function Facts({ facts: rows, look = "boxed" }: { facts: ReadonlyArray<Fa
                     textOf(fact.value)
                   )
                 ) : (
-                  to !== undefined && (
-                    <Link
-                      href={to.href}
-                      placement="standalone"
-                      label={to.label}
-                    />
-                  )
+                  <Link
+                    href={fact.link.href}
+                    placement="standalone"
+                    label={fact.link.label}
+                  />
                 )}
               </dd>
             </div>

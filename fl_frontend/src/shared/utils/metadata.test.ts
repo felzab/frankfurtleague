@@ -1,36 +1,46 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { ROUTES } from "@/core/routes";
+import { SERVER_COPY } from "@/core/serverCopy";
 
 import { pageMetadata } from "./metadata";
 
-import type { ResolvedMetadata, ResolvingMetadata } from "next";
-
-/** The share image the root layout declares, as Next hands it to a page through `parent`, its alt aside. */
-const SHARE_IMAGE = { url: "https://frankfurtleague.de/_next/static/media/share-image.0a1b2c3d.png", width: 1200, height: 630 };
-
-// Only `openGraph` is read off the parent, so the rest of its resolved shape is left out.
-const parent: ResolvingMetadata = Promise.resolve({ openGraph: { images: [SHARE_IMAGE] } } as unknown as ResolvedMetadata);
+// Next's static import, `StaticImageData`, which Vite's asset import is not: the build names the file by its bytes' hash.
+const SHARE_IMAGE = vi.hoisted(() => ({ src: "/_next/static/media/share-image.0a1b2c3d.png", width: 1200, height: 630 }));
+vi.mock("@/app/share-image.png", () => ({ default: SHARE_IMAGE }));
 
 describe("a page's own preview", () => {
-  // Next replaces the parent's whole `openGraph` once a page declares one, so an image left behind there
-  // reaches no page and every shared link previews as a bare address, with nothing failing.
-  it("keeps the image the root layout set", async () => {
-    const { openGraph } = await pageMetadata(parent, ROUTES.about, ROUTES.about.path());
-    expect(openGraph).toMatchObject({ url: "/about", images: [SHARE_IMAGE] });
+  // Next replaces the parent's whole `openGraph` once a page declares one, so an image left out here reaches no page
+  // and every shared link previews as a bare address, with nothing failing.
+  it("carries the share image", () => {
+    const { openGraph } = pageMetadata(ROUTES.about);
+    expect(openGraph).toMatchObject({
+      url: "/about",
+      images: [{ url: SHARE_IMAGE.src, width: SHARE_IMAGE.width, height: SHARE_IMAGE.height }],
+    });
   });
 });
 
 describe("a page's canonical", () => {
-  it("names the address of a page search engines list", async () => {
-    const { alternates, robots } = await pageMetadata(parent, ROUTES.about, ROUTES.about.path());
+  it("names the address of a page search engines list", () => {
+    const { alternates, robots } = pageMetadata(ROUTES.about);
     expect(alternates).toEqual({ canonical: "/about" });
     expect(robots).toBeUndefined();
   });
 
+  // A row with segments takes its address and its words from the page, a branch no fixed row reaches: broken, a season
+  // page search engines list names `/saisons/undefined/tabelle` or loses its description.
+  it("names a season page's own address, with its description", () => {
+    const description = SERVER_COPY.description.tabelle("2027");
+    const metadata = pageMetadata(ROUTES.tabelle, ROUTES.tabelle.path("2027"), { description });
+    expect(metadata.alternates).toEqual({ canonical: "/saisons/2027/tabelle" });
+    expect(metadata.openGraph).toMatchObject({ url: "/saisons/2027/tabelle" });
+    expect(metadata.description).toBe(description);
+  });
+
   // A canonical names the address to list; on a page kept out of the index it says the opposite of its noindex.
-  it("is left off a page kept out of the index", async () => {
-    const { alternates, robots } = await pageMetadata(parent, ROUTES.signIn, ROUTES.signIn.path());
+  it("is left off a page kept out of the index", () => {
+    const { alternates, robots } = pageMetadata(ROUTES.signIn);
     expect(alternates).toBeUndefined();
     expect(robots).toEqual({ index: false, follow: false });
   });

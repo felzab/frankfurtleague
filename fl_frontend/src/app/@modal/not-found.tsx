@@ -1,6 +1,5 @@
-import { COPY } from "@/core/copy";
-import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
+import { TO_HOME } from "@/kit/mailedLinkState";
 import { SpielPopupEnd } from "@/kit/SpielHead";
 
 /**
@@ -14,10 +13,9 @@ import { SpielPopupEnd } from "@/kit/SpielHead";
 export default function NoPopupFound() {
   return (
     <SpielPopupEnd
-      beneath={ROUTES.saisons.path()}
       tone="info"
       title={SERVER_COPY.notFound}
-      next={{ label: COPY.shared.end.toHome, href: ROUTES.home.path() }}
+      next={TO_HOME}
     />
   );
 }

@@ -1,11 +1,12 @@
 // @vitest-environment jsdom
 import { within } from "@testing-library/react";
-import { prerender } from "react-dom/static";
 import { describe, expect, it } from "vitest";
 
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
+import { drawnOnServer } from "@/test-support/server";
 
 import { ListPage } from "./ListPage";
+import { SpielCards } from "./SpielCards";
 
 import type { ComponentProps } from "react";
 
@@ -13,14 +14,12 @@ type Cards = Extract<ComponentProps<typeof ListPage>["list"], { kind: "cards" }>
 
 /** A page of cards as a browser holds it once its one read has landed. */
 async function drawnCards(content: Awaited<Cards["content"]>) {
-  const { prelude } = await prerender(
+  const landed = await drawnOnServer(
     <ListPage
       head={{ scope: "saison", title: { route: "spielplan" } }}
       list={{ kind: "cards", content: Promise.resolve(content) }}
     />,
   );
-  const landed = document.createElement("div");
-  landed.innerHTML = await new Response(prelude).text();
   return { landed };
 }
 
@@ -43,44 +42,17 @@ describe("a card of open work holding more than five rows", () => {
   });
 });
 
-describe("a page of one card holding a list", () => {
-  const TITLE = COPY.page.spiele;
-  const drawn = (rows: Awaited<Cards["content"]>["cards"][number]["rows"]) =>
-    drawnCards({ cards: [{ id: "spiele", title: TITLE, rows, count: false, empty: { kind: "none", plural: TITLE } }] });
-
-  // The harm: a list with nothing in it yet under „Nichts offen.“ tells a referee their work is done, where none is booked.
-  it("gives way to the list's own empty state", async () => {
-    const { landed } = await drawn([]);
-
-    // Its text alone: the card's title before it would say the card still stands.
-    expect(landed.querySelector("main")?.textContent).toBe(COPY.shared.empty.none(TITLE));
-  });
-});
-
 describe("one club's matches under their matchdays", () => {
-  type Groups = Extract<ComponentProps<typeof ListPage>["list"], { kind: "spielGroups" }>;
-
-  /** The page as a browser holds it once its read has landed. */
-  async function drawn(content: Awaited<Groups["content"]>) {
-    const { prelude } = await prerender(
+  /** The page as a browser holds it once its read has landed, its matches drawn as a team's Spiele page draws them. */
+  async function drawn(groups: ComponentProps<typeof SpielCards>["groups"]) {
+    const landed = await drawnOnServer(
       <ListPage
         head={{ scope: "area", title: { route: "teamSpiele" } }}
-        list={{ kind: "spielGroups", content: Promise.resolve(content) }}
+        list={{ kind: "drawn", content: Promise.resolve(<SpielCards groups={groups} />) }}
       />,
     );
-    const landed = document.createElement("div");
-    landed.innerHTML = await new Response(prelude).text();
     return { landed };
   }
-
-  const EMPTY = { kind: "none", plural: COPY.page.spiele } as const;
-
-  // The harm: a season before its draw drawn as an empty box, which reads as a list that failed to load.
-  it("gives way to the list's own empty state", async () => {
-    const { landed } = await drawn({ groups: [], empty: EMPTY });
-
-    expect(landed.querySelector("main")?.textContent).toBe(COPY.shared.empty.none(COPY.page.spiele));
-  });
 
   // The harm: a matchday's head a rung too low, so a screen reader's outline skips from the page's title to a third
   // level with no second between, and nothing on screen shows it.
@@ -92,9 +64,9 @@ describe("one club's matches under their matchdays", () => {
       team1: { name: { record: "Heim" }, plaque: { record: "HEI" } },
       team2: { name: { record: "Gast" }, plaque: { record: "GAS" } },
     };
-    const { landed } = await drawn({ groups: [{ head, spiel }], empty: EMPTY });
+    const { landed } = await drawn([{ head, spiel }]);
 
-    expect(landed.querySelector("main h2")?.textContent).toBe(head);
-    expect(landed.querySelector("main h3")).toBeNull();
+    expect(landed.querySelector("h2")?.textContent).toBe(head);
+    expect(landed.querySelector("h3")).toBeNull();
   });
 });

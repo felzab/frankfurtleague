@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 import { dayOf, formatErgebnis, formatNumber, formatOrdinal } from "@/core/format";
 import { buildMapsSearchUrl } from "@/core/maps";
 import { ROUTES } from "@/core/routes";
@@ -8,7 +8,7 @@ import { SERVER_COPY } from "@/core/serverCopy";
 import { getTeamPage } from "@/features/saisons/queries";
 import { publicSaisonOf } from "@/features/saisons/resolvers";
 import { headedMatchOf, outcomeFor } from "@/features/spiele/blocks";
-import { roleMarkOf, spielerName } from "@/features/spieler/constants";
+import { publicPupilHead, publicPupilRow } from "@/features/spieler/constants";
 import { austrittChip, austrittState } from "@/features/teams/constants";
 import { ReadFolds } from "@/kit/ReadFolds";
 import { ReadPage } from "@/kit/ReadPage";
@@ -17,11 +17,10 @@ import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
 import { objectIdParamOf } from "@/shared/utils/routeParams";
 
-import type { FLSpielerPublic, FLTeamPageResponse } from "@/core/generated/client/types";
+import type { FLTeamPageResponse } from "@/core/generated/client/types";
 import type { ReadRecord } from "@/kit/ReadPage";
 import type { StatTile } from "@/kit/StatTiles";
-import type { TableRow } from "@/kit/Table";
-import type { Metadata, ResolvingMetadata } from "next";
+import type { Metadata } from "next";
 
 type Props = PageProps<"/saisons/[saison]/teams/[team]">;
 
@@ -38,10 +37,10 @@ async function readPage(params: Props["params"]): Promise<FLTeamPageResponse> {
   return page;
 }
 
-export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { saison } = await params;
   return metadataFor(findPage(params), ({ team }) =>
-    pageMetadata(parent, ROUTES.team, ROUTES.team.path(saison, team.id), {
+    pageMetadata(ROUTES.team, ROUTES.team.path(saison, team.id), {
       title: { record: team.name },
       description: SERVER_COPY.description.team(team.name, saison),
     }),
@@ -61,31 +60,9 @@ export default function TeamPage({ params }: Props) {
   );
 }
 
-/**
- * A pupil of the squad as the public read names them: a name the consent publishes, with the captain's or the
- * Co-Kapitän's mark after it; else „anonym“, never with a mark, which would say who the nameless pupil is.
- */
-function personOf(spieler: FLSpielerPublic): Pick<TableRow, "name" | "mark"> {
-  const name = spielerName(spieler);
-  const mark = spieler.first_name === null ? undefined : roleMarkOf(spieler.rolle);
-  return mark === undefined ? { name } : { name, mark };
-}
-
-/**
- * A pupil's number and position, each left out while the record holds none; the position also on the row's line, which
- * a phone shows in the column's place, since the row opens nothing.
- */
-const numberAndPositionOf = ({ nummer, position }: Pick<FLSpielerPublic, "nummer" | "position">): Pick<TableRow, "cells" | "phoneLine"> => ({
-  ...(position === null ? {} : { phoneLine: { record: position } }),
-  cells: {
-    ...(nummer === null ? {} : { nummer: { record: nummer } }),
-    ...(position === null ? {} : { position: { record: position } }),
-  },
-});
-
 /** The club's standing at a glance: its place in its group, its points, its matches played and its goals. */
 function tilesOf({ team, standing }: FLTeamPageResponse): readonly [StatTile, StatTile, StatTile, StatTile] {
-  const words = SERVER_COPY.season.club;
+  const words = SERVER_COPY.season.team;
   const group = SERVER_COPY.season.gruppe(team.gruppe);
   if (standing === null)
     return [
@@ -115,16 +92,12 @@ async function readRecord(params: Props["params"]): Promise<ReadRecord> {
   const page = await readPage(params);
   const { team, spiele, kader } = page;
   const { column } = SERVER_COPY.season;
-  const { spielort } = COPY.admin;
-  const address = spielort.addressLine(
-    spielort.streetWithHouseNumber(team.address.street, team.address.house_number),
-    team.address.postcode,
-    team.address.city,
-  );
+  const { addressLine, streetWithHouseNumber } = COPY.shared.address;
+  const address = addressLine(streetWithHouseNumber(team.address.street, team.address.house_number), team.address.postcode, team.address.city);
   return {
     title: { record: team.name },
     ...(team.austritt === null ? {} : { chip: austrittChip(team.austritt.type) }),
-    club: {
+    team: {
       head: (
         <TeamProfileHead
           plaque={{ record: team.shorthand }}
@@ -150,14 +123,17 @@ async function readRecord(params: Props["params"]): Promise<ReadRecord> {
         title: COPY.page.spiele,
         kind: "timeline",
         label: COPY.page.spiele,
-        items: spiele.map((spiel, index) => ({
-          id: spiel.id,
-          point: { record: formatNumber(index + 1) },
-          counts: true,
-          outcome: outcomeFor(spiel, team.id),
-          title: headedMatchOf(spiel).head,
-          spiel: headedMatchOf(spiel).spiel,
-        })),
+        items: spiele.map((spiel, index) => {
+          const headed = headedMatchOf(spiel);
+          return {
+            id: spiel.id,
+            point: { record: formatNumber(index + 1) },
+            counts: true,
+            outcome: outcomeFor(spiel, team.id),
+            title: headed.head,
+            spiel: headed.spiel,
+          };
+        }),
         empty: { kind: "none", plural: COPY.page.spiele, glyph: "spielplan" },
       },
       {
@@ -171,16 +147,8 @@ async function readRecord(params: Props["params"]): Promise<ReadRecord> {
                 tables: [
                   {
                     label: COPY.page.teamKader,
-                    nameLabel: column.name,
-                    columns: [
-                      { key: "nummer", label: column.nummer, figures: true, narrow: true, width: "count" },
-                      { key: "position", label: column.position, hideOnPhone: true, width: "word" },
-                    ],
-                    rows: kader.map((spieler, index) => ({
-                      id: String(index),
-                      ...personOf(spieler),
-                      ...numberAndPositionOf(spieler),
-                    })),
+                    ...publicPupilHead(column),
+                    rows: kader.map((spieler, index) => ({ id: String(index), ...publicPupilRow(spieler) })),
                     empty: { kind: "none", plural: COPY.page.teamKader, one: true, glyph: "teams" },
                   },
                 ],

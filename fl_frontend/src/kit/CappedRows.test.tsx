@@ -3,7 +3,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 
 import { CappedRows } from "./CappedRows";
 

@@ -1,7 +1,6 @@
 import { once } from "node:events";
 
 import { isAPIError } from "better-auth/api";
-import { MongoError } from "mongodb";
 import { assert, describe, expect, it } from "vitest";
 
 import { ADMIN_EMAIL, configDouble, cookieHeader, ORIGIN, overriding, registerAuthDoubles, signInByCode } from "@/test-support/authDoubles";
@@ -110,32 +109,6 @@ describe("the sign-in store's client bounds every operation it sends", () => {
 
     assert.ok(isAPIError(outcome) && outcome.status === "INTERNAL_SERVER_ERROR", `the hung read settled with ${String(outcome)}`);
   });
-
-  /* A code's sign-in runs the adapter's own transaction to consume its row. Three stages: the
-     commit's socket, the checkout of the commit the driver sends again, and the checkout of the
-     adapter's abort after it (`@better-auth/mongo-adapter :: abortTransactionCommand`). */
-  it("ends the adapter's own transaction within three stages' bounds when the store never answers its commit", async () => {
-    const otp = await auth.api.createVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" } });
-    log.clear();
-
-    const outcome = await relay.hangFrom("commitTransaction", () =>
-      endedWithin(STAGE_BOUND * 3, "the hung commit", () =>
-        auth.api.signInEmailOTP({ body: { email: ADMIN_EMAIL, otp }, headers: new Headers(ORIGIN), returnHeaders: true }),
-      ),
-    );
-    // The commit never reached the server, whose transaction would otherwise hold the sign-in's
-    // collections until its own lifetime ran out, a minute any later case writing them would wait.
-    // Inside the container: the client's strict Stable API refuses the command.
-    const killed = await mongod.exec(["mongosh", "--quiet", "--eval", "db.adminCommand({ killAllSessions: [] }).ok"]);
-    expect(killed.output.trim(), `the hung commit's transaction was left standing: ${killed.output}`).toBe("1");
-
-    assert.ok(relay.triggered, "the sign-in sent no commit, so nothing here was hung");
-    assert.ok(outcome instanceof MongoError, `the hung commit settled with ${String(outcome)}`);
-    // The abort the hang swallowed too: the one line saying the server may hold the transaction, the
-    // commit's own failure being its caller's to log. Which stage's bound ended the abort is the
-    // driver's race between two equal timers, so the line's error name is left unread.
-    expect(errorLines().map(({ event }) => event)).toStrictEqual(["auth.transaction_left_open"]);
-  });
 });
 
 describe("the sign-in store's indexes recover with the store", () => {
@@ -143,7 +116,7 @@ describe("the sign-in store's indexes recover with the store", () => {
      that recovery with no `open`: only a new topology emits one. */
   it("builds an index again once a store that stopped answering after the first open answers again", async ({ task }) => {
     const sessions = client.db(MONGO_DB_NAME).collection("session");
-    await sessions.dropIndex("session_userId_idx");
+    await sessions.dropIndex("expiresAt_1");
     let opens = 0;
     const counted = () => {
       opens += 1;
@@ -155,10 +128,10 @@ describe("the sign-in store's indexes recover with the store", () => {
       // A severed store fails each index of a collection on its own server selection, under its own bound.
       await relay.sever(() => buildAuthIndexes());
       assert.ok(
-        errorLines().some((line) => line.event === "auth.index_unbuilt" && line.index === "session_userId_idx"),
+        errorLines().some((line) => line.event === "auth.index_unbuilt" && line.index === "expiresAt_1"),
         `the run met no outage: ${JSON.stringify(errorLines())}`,
       );
-      const indexed = async () => (await sessions.indexes()).some(({ name }) => name === "session_userId_idx");
+      const indexed = async () => (await sessions.indexes()).some(({ name }) => name === "expiresAt_1");
 
       // Production asks again on every writable heartbeat until a build succeeds, so the case waits for the index, within
       // its own time limit, rather than for a count of attempts.

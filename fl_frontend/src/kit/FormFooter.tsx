@@ -30,10 +30,12 @@ const formFooter = tv({
       row: { acts: "max-lg:flex-col-reverse" },
       // A box's strip, Konto's: under a hairline across the box, on the band a card's head stands on.
       strip: { root: `border-t border-border ${headGround()} px-4 py-3`, acts: "max-lg:flex-col-reverse" },
-      // The strip ending a section of an editor, standing last among its fields: out through the box's 16-px inset to
-      // its edges and its bottom, its corners the box's. Its acts are equal, so they keep their reading order.
+      // The strip ending a section of an editor, standing last among its fields: out through the box's inset to its
+      // edges and its bottom, its corners the box's. Standing first, with no field above it, it rises through the top
+      // inset too, to the rule above it, which then stands in for its own. Its acts are equal, so they keep their
+      // reading order.
       section: {
-        root: `-mx-4 -mb-4 justify-self-stretch rounded-b-lg border-t border-border ${headGround()} px-4 py-3`,
+        root: `-mx-4 -mb-4 justify-self-stretch rounded-b-lg border-t border-border first:-mt-4 first:border-t-0 ${headGround()} px-4 py-3`,
         acts: "max-lg:flex-col",
       },
       // The sign-in's narrow centred column: across the column at every width, its one act filling it, as every button

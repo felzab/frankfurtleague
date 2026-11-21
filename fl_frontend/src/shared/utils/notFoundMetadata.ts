@@ -21,10 +21,10 @@ export const NOT_FOUND_METADATA: Metadata = {
 /**
  * A page's metadata off the read of the record its address names: `metadataOf` the record where the read finds one,
  * `NOT_FOUND_METADATA` where it finds none, so every missing record's tab carries the not-found title. `found` answers
- * `null` for a miss and never throws `notFound()`: a throw from `generateMetadata` leaves the tab the layout's title,
- * since Next honours a not-found boundary's `metadata` on the root file alone. The page's body throws the
- * `notFound()` off the same read, which renders the boundary. A failed read stays out of the index with nothing else
- * said: it knows neither the record nor its absence, and the page's body meets the failure and reports it.
+ * `null` for a miss and never throws `notFound()`: a throw from `generateMetadata` leaves the tab the layout's title on
+ * a hard load and after a client navigation, a nested not-found boundary's `metadata` naming none. The page's body
+ * throws the `notFound()` off the same read, which renders the boundary. A failed read stays out of the index with
+ * nothing else said: it knows neither the record nor its absence, and the page's body meets the failure and reports it.
  */
 export async function metadataFor<Found>(
   found: Promise<Found | null>,

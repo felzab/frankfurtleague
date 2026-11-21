@@ -94,11 +94,14 @@ export function signedInRequest(visitor: Visitor = ADMINISTRATOR): {
   };
 
   // After `doubleNextRequest`'s own, which empties the request first, and on an empty store, so no row of an earlier
-  // case answers this one.
+  // case answers this one. Bounded as the unit project bounds a case, past Vitest's ten seconds for a hook: the first
+  // arrival pays the sign-in library's cold import, which a whole run on a loaded machine stretches past ten, and the
+  // import cannot move ahead of this hook: it has to load after the doubles above, and a file calls this function
+  // without awaiting anything.
   beforeEach(async () => {
     for (const rows of Object.values(store)) rows.length = 0;
     await arriveAs(visitor);
-  });
+  }, 30_000);
 
   return { arriveAs, store, outbox };
 }

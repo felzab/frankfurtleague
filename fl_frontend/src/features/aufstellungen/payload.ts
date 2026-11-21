@@ -1,4 +1,4 @@
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 import { APIBadStatusError } from "@/core/errors";
 import { byShirtNumber } from "@/features/spieler/constants";
 
@@ -41,7 +41,7 @@ export function refusedRows(error: unknown, sent: readonly FLAufstellungEntry[])
   if (!(error instanceof APIBadStatusError) || error.serverErrorCode !== "spieler_not_in_kader") return undefined;
   const rows = error.refusedFields.flatMap(({ path: [list, index] }) => {
     const entry = list === "spieler" && typeof index === "number" ? sent[index] : undefined;
-    return entry?.spieler_id == null ? [] : [[`changes.${REFUSED_ROW}${entry.spieler_id}`, COPY.admin.spieler.deregistered] as const];
+    return entry?.spieler_id == null ? [] : [[`changes.${REFUSED_ROW}${entry.spieler_id}`, COPY.kader.deregistered] as const];
   });
   return rows.length === 0 ? undefined : { ok: false, errorCode: "spieler_not_in_kader", fieldErrors: Object.fromEntries(rows) };
 }

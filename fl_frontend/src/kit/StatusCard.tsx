@@ -2,6 +2,7 @@ import { cardSurface } from "./cardStyles";
 import { ClassicPage, ClassicTitle } from "./ClassicPage";
 import { Icon } from "./Icon";
 import { Link } from "./Link";
+import { RetryButton } from "./RetryButton";
 import { tv } from "./tv";
 
 import type { Copy } from "@/core/copy";
@@ -15,23 +16,34 @@ import type { RailPageHead } from "./RailFrame";
 // module never reaches the rail frame, and the root error and not-found boundaries, which every route loads, and a
 // client run that ends inside a rail page import it.
 
-/** What the end says at a glance, in the hues a chip names: done, a fact, a link or a page that is no more, a failure. */
+/**
+ * What the end says at a glance, in the hues a chip names: done, a fact, a link or a page that is no more, a failure
+ * or the person's own decline.
+ */
 type StatusTone = Exclude<ChipProps["tone"], "neutral">;
 
-/** Each hue's glyph in the card's mark. */
 const GLYPH: Readonly<Record<StatusTone, IconName>> = { success: "done", info: "info", warn: "warning", danger: "error" };
 
-/** A way on from an end: its label and its address, each per page in the catalogue. */
-type WayOn = { label: Copy; href: Route };
+/**
+ * A way on from an end: its label and its address, each per page in the catalogue. The only way on an end that a server
+ * words may carry, since a retry is a function, which React cannot send from the server.
+ */
+export type WayOn = { label: Copy; href: Route };
 
 /**
- * One end state: its hue, its title, and its one way on; beneath it, where the end points to a page that says more,
- * a quieter second way on, as the deletion's done page leads to the privacy notice.
+ * An error card's act: the `retry` Next hands its boundary, which draws the failed part again in place. Its label is
+ * the same on every card, so the button holds it.
+ */
+type Retry = { retry: () => void };
+
+/**
+ * One end state: its hue, its title, and its one way on, or an error card's retry; beneath it, where the end points to
+ * a page that says more, a quieter second way on, as the deletion's done page leads to the privacy notice.
  */
 export type StatusCardProps = {
   tone: StatusTone;
   title: Copy;
-  next: WayOn;
+  next: WayOn | Retry;
   quiet?: WayOn;
 };
 
@@ -43,14 +55,14 @@ const statusCard = tv({
     railTitle: "font-heading tracking-display uppercase",
   },
   variants: {
-    // The mark's tint is 12 % of its hue over the card.
+    // The glyph in its hue on the chip's opaque tint, a pair the contrast rule measures.
     tone: {
-      success: { mark: "bg-success/12 text-success" },
-      info: { mark: "bg-info/12 text-info" },
-      warn: { mark: "bg-warn/12 text-warn" },
-      danger: { mark: "bg-danger/12 text-danger" },
+      success: { mark: "bg-success-tint text-success" },
+      info: { mark: "bg-info-tint text-info" },
+      warn: { mark: "bg-warn-tint text-warn" },
+      danger: { mark: "bg-danger-tint text-danger" },
     },
-    // A public season page's title at 24 px, a signed-in page's at 20 px, as the strip's.
+    // At the strip title's size for the same scope.
     scope: {
       saison: { railTitle: "text-2xl" },
       area: { railTitle: "text-xl" },
@@ -86,12 +98,16 @@ export function StatusCardBody({
         />
       </span>
       {title}
-      <Link
-        href={next.href}
-        placement="button"
-        look="primary"
-        label={next.label}
-      />
+      {"retry" in next ? (
+        <RetryButton retry={next.retry} />
+      ) : (
+        <Link
+          href={next.href}
+          placement="button"
+          look="primary"
+          label={next.label}
+        />
+      )}
       {quiet !== undefined && (
         <Link
           href={quiet.href}
@@ -106,8 +122,8 @@ export function StatusCardBody({
 
 /**
  * A rail frame's card. A page with a name of its own keeps that name in the strip and its card carries the end's
- * title, as `/saisons` says that the league has no season yet; a boundary with no page of its own, the not-found and
- * the error page, has its title in the strip, and its card holds no second one.
+ * title, as the referee's Spielbericht for a match with no date says „Termin offen“; a boundary with no page of its
+ * own, the not-found and the error page, has its title in the strip, and its card holds no second one.
  */
 export type RailCard = Omit<StatusCardProps, "title"> & { title?: Copy };
 

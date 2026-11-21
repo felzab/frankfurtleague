@@ -2,10 +2,10 @@
 
 import { startTransition, useMemo, useState } from "react";
 
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 
 import { useHoldLeave } from "./LeaveGuard";
-import { statusOf, useFormAction } from "./useFormAction";
+import { answerLine, statusOf, useFormAction } from "./useFormAction";
 import { useUnsavedChangesWarning } from "./useUnsavedChangesWarning";
 
 import type { ActionAnswer, SaveQuestion } from "@/core/action";
@@ -132,6 +132,9 @@ function lessSent<Values extends Record<string, EditorValue>>(edits: Partial<Val
  * where nothing unsaved rests on the read before it; a draft made on a read someone else has since changed
  * keeps its version, so its save is refused as stale rather than overwriting.
  *
+ * A save with nothing changed sends nothing and answers „Gespeichert“, the save staying pressable: the stored record
+ * already holds what the fields show. A record not stored yet is the exception, its first save creating it.
+ *
  * A save the server holds back for a question (`ActionAnswer.ask`), such as the later results a new score deletes,
  * stands as `question` over the draft it was asked for, and goes with the next edit: confirmed, the same changes go
  * again carrying its token, which the server judges against what the save would now set off; declined, nothing is
@@ -179,6 +182,8 @@ export function useEditor<Values extends Record<string, EditorValue>, Version ex
 
   const form = useFormAction(
     async (sent: EditorSave<Values, Version>): Promise<ActionAnswer> => {
+      // Sent, a save of nothing would raise the record's `version` and log a change that changed nothing.
+      if (sent.version !== null && Object.keys(sent.changes).length === 0) return { ok: true, value: undefined };
       const answer = await save(sent);
       if (!answer.ok) return answer;
       const settled = { from: sent.version, stored: answer.value, changes: sent.changes };
@@ -201,10 +206,12 @@ export function useEditor<Values extends Record<string, EditorValue>, Version ex
   const [declined, setDeclined] = useState<ActionAnswer | null>(null);
   const { answer } = form;
   const refused = answer !== null && !answer.ok && current.editCount === current.sentEditCount ? answer : null;
-  // A refusal stands only over the draft it was sent with; the count of unsaved fields stands over a done save.
-  const answered = statusOf(answer?.ok === true ? answer : refused, current.blockedEditCount === current.editCount, form.isPending);
+  const blocked = current.blockedEditCount === current.editCount;
+  // A refusal stands only over the draft it was sent with; the count of unsaved fields stands over a done save. The save
+  // bar is the one line a done act says itself on: what else the save moved, or „Gespeichert“.
+  const answered = answer?.ok === true && !blocked && !form.isPending ? answerLine(answer) : statusOf(refused, blocked, form.isPending);
   const status: FormStatus =
-    answered?.tone !== "error" && count > 0 ? { tone: "changes", text: COPY.template.changesPending(count) } : answered;
+    answered?.tone !== "danger" && count > 0 ? { tone: "changes", text: COPY.template.changesPending(count) } : answered;
   // One object while the refusal stands: React Aria shows a box's server message afresh whenever the object changes.
   const refusedFields = refused?.fieldErrors;
   const fieldErrors = useMemo(() => (refusedFields === undefined ? undefined : byBox(refusedFields)), [refusedFields]);

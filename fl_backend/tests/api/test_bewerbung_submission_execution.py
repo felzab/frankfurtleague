@@ -268,7 +268,6 @@ class TestWhatTheCreateOwes:
                 "data": {
                     "kind": "bewerbung_confirmation",
                     "saison_id": SAISON_ID,
-                    "schule": EXISTING_NAME,
                     "seats": ["stellvertretung"],
                     "deadline": deadline,
                 },
@@ -279,7 +278,6 @@ class TestWhatTheCreateOwes:
                 "data": {
                     "kind": "bewerbung_confirmation",
                     "saison_id": SAISON_ID,
-                    "schule": EXISTING_NAME,
                     "seats": ["trainer"],
                     "deadline": deadline,
                 },

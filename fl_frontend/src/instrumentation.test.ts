@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
+import { HOUR_MS } from "@/core/timeUnits";
 import { serveBackend } from "@/test-support/backend";
 import { captureLog } from "@/test-support/stdoutCapture";
 
@@ -10,19 +11,16 @@ const log = captureLog();
 
 const { register } = await import("./instrumentation");
 
-const HOUR_MS = 60 * 60 * 1000;
-
 beforeEach(() => void vi.useFakeTimers({ toFake: ["setInterval", "setTimeout"] }));
 afterEach(() => {
   vi.useRealTimers();
   vi.unstubAllEnvs();
 });
 
-/* `next dev` reaches whatever backend and transport the developer's own environment names: the league's real people.
-   The boot arms the scheduler under a production build's `NODE_ENV` alone. Each case states the value it boots under,
-   `next dev`'s and the suite's own, rather than taking whichever the project running it sets. */
-it.each(["development", "test"])("arms nothing under the NODE_ENV %s", async (nodeEnv) => {
-  vi.stubEnv("NODE_ENV", nodeEnv);
+/* The boot arms the scheduler under a production build's `NODE_ENV` alone, so a test that boots the frontend sends no
+   pass. The case states the suite's own value rather than taking whichever the project running it sets. */
+it("arms nothing under the NODE_ENV test", async () => {
+  vi.stubEnv("NODE_ENV", "test");
   await register();
   vi.advanceTimersByTime(3 * HOUR_MS);
   await backend.answered();

@@ -3,14 +3,15 @@
 import { z } from "zod";
 
 import { action, blankIsNull, numberBox } from "@/core/action";
-import { COPY } from "@/core/copy";
+import { AREA_COPY } from "@/core/copy/area";
+import { COPY } from "@/core/copy/shared";
 import { spielberichtePutSpielberichtBericht } from "@/core/generated/client/sdk";
 import { SpielberichtePutSpielberichtBerichtBody, SpielberichtePutSpielberichtBerichtParams } from "@/core/generated/zod/inputs";
 import { getOwnSpielbericht } from "@/features/spielberichte/queries";
 import { admitsShootOut } from "@/features/spiele/result";
 
 import { Cards, Goals } from "./berichtRules";
-import { counted, NO_SONDEREREIGNIS, UNKNOWN_PLAYER, valuesOf } from "./berichtValues";
+import { counted, UNKNOWN_PLAYER, valuesOf } from "./berichtValues";
 
 import type { ActionAnswer } from "@/core/action";
 import type { Copy } from "@/core/copy";
@@ -20,14 +21,13 @@ const { bericht, version } = SpielberichtePutSpielberichtBerichtBody.shape;
 const { ergebnis_vorschlag: vorschlag, remarks } = bericht.shape;
 const [shootOutShape] = vorschlag.shape.elfmeterschiessen.options;
 
-/** What the report's form sends, each box held to the write's own published rule for it. */
 const SaveBericht = z.object({
   id: SpielberichtePutSpielberichtBerichtParams.shape.spiel_id,
   // The report's version as the form read it, `null` where it read none.
   version,
   changes: z
     .object({
-      sonderereignis: z.preprocess((value) => (value === NO_SONDEREREIGNIS ? null : value), vorschlag.shape.sonderereignis),
+      sonderereignis: blankIsNull(vorschlag.shape.sonderereignis),
       shootOut1: numberBox(z.union([shootOutShape.shape.team1, z.null()])),
       shootOut2: numberBox(z.union([shootOutShape.shape.team2, z.null()])),
       scorers: Goals,
@@ -105,14 +105,11 @@ export const saveBericht = action({
   claim: "record",
   name: "saveBericht",
   input: SaveBericht,
-  // The season's end, met by a form read before it; goals entered beside a no-show, which the list's line words; and a
-  // shoot-out typed level, which the form offers and the write refuses.
-  ownWords: ["saison_past", "nichtantreten_with_scorers", "elfmeterschiessen_without_winner"],
   // The no-show's rule judges the whole block, so the backend names the block, which this form shows as the goals.
   paths: { bericht: "changes.scorers" },
   examples: {
-    "changes.scorers.*.minute": COPY.area.schiedsrichter.spielbericht.minuteExample,
-    "changes.cards.*.minute": COPY.area.schiedsrichter.spielbericht.minuteExample,
+    "changes.scorers.*.minute": AREA_COPY.schiedsrichter.spielbericht.minuteExample,
+    "changes.cards.*.minute": AREA_COPY.schiedsrichter.spielbericht.minuteExample,
   },
   run: async ({ id, version: read, changes }): Promise<ActionAnswer<number>> => {
     const stands = await getOwnSpielbericht(id);

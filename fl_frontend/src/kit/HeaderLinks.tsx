@@ -1,23 +1,21 @@
 "use client";
 
-import { Fragment } from "react";
 import { usePathname } from "next/navigation";
 
 import { Button as AriaButton } from "react-aria-components/Button";
 
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 
 import { hoverLook } from "./hoverStyles";
 import { Icon } from "./Icon";
 import { frameLink, menuEntry } from "./Link";
 import { currentOf } from "./navPlace";
-import { Sheet } from "./Sheet";
+import { FreshPerPage, Sheet } from "./Sheet";
 import { NavigationLink, usePressed } from "./WholePage";
 
 import type { Copy } from "@/core/copy";
 import type { Route } from "next";
 
-/** A link of the classic header: catalogue words and an address the layout gives. */
 export type HeaderLink = { label: Copy; href: Route };
 
 type HeaderLinksProps = {
@@ -27,12 +25,12 @@ type HeaderLinksProps = {
 
 /**
  * The classic header's links and „Konto“, the way to the sign-in, on the band: in a row from 1024 px, and on a phone behind
- * one button opening them as a sheet. The page's link is marked, or from its press the link a navigation goes to, and
- * the sheet goes with the page it led from, since the layout outlives the page.
+ * one button opening them as a sheet. The page's link is marked, „Konto“ on the sign-in's pages among them, or from its
+ * press the link a navigation goes to, and the sheet goes with the page it led from, since the layout outlives the page.
  */
 export function HeaderLinks({ links, signIn }: HeaderLinksProps) {
   const path = usePathname();
-  const hrefs = links.map((link) => link.href);
+  const hrefs = [...links.map((link) => link.href), signIn];
   const pressed = usePressed(hrefs);
   const current = pressed ?? currentOf(path, hrefs);
   return (
@@ -53,12 +51,13 @@ export function HeaderLinks({ links, signIn }: HeaderLinksProps) {
       </nav>
       <NavigationLink
         href={signIn}
+        aria-current={signIn === current ? "page" : undefined}
         data-kit-focus="ring"
-        className={frameLink({ tone: "band", class: "ms-auto hidden lg:flex" })}>
+        className={frameLink({ tone: signIn === current ? "band" : "bandMuted", class: "ms-auto hidden lg:flex" })}>
         {COPY.template.account}
       </NavigationLink>
       <div className="ms-auto lg:hidden">
-        <Fragment key={path}>
+        <FreshPerPage>
           <Sheet
             label={COPY.template.menu}
             trigger={
@@ -85,7 +84,7 @@ export function HeaderLinks({ links, signIn }: HeaderLinksProps) {
               ))}
             </div>
           </Sheet>
-        </Fragment>
+        </FreshPerPage>
       </div>
     </>
   );

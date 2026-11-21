@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 
-import { MongoServerError } from "mongodb";
+import { MongoServerError, ObjectId } from "mongodb";
 import { assert, beforeEach, describe, expect, it } from "vitest";
 
 import {
@@ -134,12 +134,16 @@ let deletingAccounts: () => Promise<unknown> = async () => undefined;
 /** What runs as a user row is deleted, by the library or by a deletion's transaction. */
 let deletingUser: () => Promise<unknown> = async () => undefined;
 
+/** What the request a guard reads carries; a case sets it and `beforeEach` resets it. */
+let requestHeaders: Headers | undefined;
+
 const { sent } = registerAuthDoubles({
   // The admin key the person lane's erasure is sent under, beside the store's address.
   core: {
     config: configDouble({}, { mongodbUri: () => MONGO_URL, internalApiKeyAdmin: () => "fabricated-admin-not-a-credential" }),
     db: DB_DOUBLE,
   },
+  specifiers: { "next/headers": { headers: () => Promise.resolve(requestHeaders) } },
 });
 
 /** What the sign-in gate's backend read answers every address; a case sets it and `beforeEach` resets it. */
@@ -151,6 +155,9 @@ const ERASURE_PATH = "/api/identity/self/erasure";
 /** How many erasures the backend has been asked for. */
 let erasuresAsked = 0;
 
+/** A second administrator, for the account a credential the first holds is enrolled on again. */
+const SECOND_ADMIN_EMAIL = "zweite-verwaltung@example.org";
+
 // The backend alone: a request to any other host fails its case.
 serveBackend(({ path: endpoint, body }) => {
   // Under the base path the client sends it on, as the cases spell every path they compare.
@@ -160,9 +167,9 @@ serveBackend(({ path: endpoint, body }) => {
     return new Response(null, { status: 204 });
   }
 
-  // The grant is what makes `ADMIN_EMAIL` an administrator's; every other address holds none.
+  // The grant is what makes `ADMIN_EMAIL` and `SECOND_ADMIN_EMAIL` administrators'; every other address holds none.
   const { email } = (body ?? {}) as { email?: string };
-  const granted = email === ADMIN_EMAIL;
+  const granted = email === ADMIN_EMAIL || email === SECOND_ADMIN_EMAIL;
   return answerAt(path, {
     ...NO_RECORDS,
     admin_tier: granted ? "administration" : null,
@@ -188,9 +195,10 @@ const counting = new Barrier();
 
 // Imported here rather than at the top: `vi.doMock` reaches only the modules imported after it.
 const { toNextJsHandler } = await import("better-auth/next-js");
-const { auth } = await import("./auth/library");
+const { auth, codeMailCapped } = await import("./auth/library");
 const { carryAccount, deleteAccountFor, deleteOwnAccount, requestAccountDeletion } = await import("./auth/accounts");
-const { endSessionsOfAddress } = await import("./auth/accountSessions");
+const { endOtherSessions, endSessionsOfAddress } = await import("./auth/accountSessions");
+const { getAccountSession } = await import("./auth/guards");
 const authIndexes = await import("./authIndexes");
 const { MONGO_DB_NAME } = authIndexes;
 
@@ -202,6 +210,7 @@ signInIndexesForTheFile(authIndexes, mongod);
 
 beforeEach(async () => {
   gateAnswer = { seats: [], barred: false, account: false };
+  requestHeaders = undefined;
   barrier.disarm();
   counting.disarm();
   atCommit = async () => undefined;
@@ -260,9 +269,9 @@ const AUTHENTICATOR_A = Buffer.from("fl-auth-db-authenticator-a");
 /* The session a setup mints is written inside the transaction the plugin opens around a registration
    that signs in, so a setup the database refuses signs nobody in and nobody out. */
 describe("a passkey setup that signs in, against a real database", () => {
-  /* One authenticator twice: the loser's insert conflicts inside its transaction, and the run the
-     adapter retries meets the winner's row in the enrolment guard, whose refusal is a 404 and no line. */
-  it("mints one session for the winner of two setups at once, and refuses the loser, leaving it signed in by code", async () => {
+  /* One authenticator twice: both pass the hook, the loser's insert conflicts inside its transaction, and the run the
+     adapter retries meets the winner's row in the unique index on the credential, a duplicate no retry clears. */
+  it("mints one session for the winner of two setups at once, and refuses the loser on the index, leaving it signed in by code", async () => {
     const a = await offer(await signIn(ADMIN_EMAIL));
     const b = await offer(await signIn(ADMIN_EMAIL));
     const mailedBefore = sent.length;
@@ -275,8 +284,8 @@ describe("a passkey setup that signs in, against a real database", () => {
     barrier.disarm();
     assert.ok(await barrier.filled, "the setups were not both held at their first write, so no race was run");
 
-    expect(responses.map((response) => response.status).sort()).toStrictEqual([200, 404]);
-    expect([eventsAt("WARNING"), eventsAt("ERROR")]).toStrictEqual([[], []]);
+    expect(responses.map((response) => response.status).sort()).toStrictEqual([200, 500]);
+    expect([eventsAt("WARNING"), eventsAt("ERROR")]).toStrictEqual([["auth.passkey_enrolment_conflict"], []]);
     expect(sent.length - mailedBefore).toBe(1);
     const factors = (await sessionRows()).map(({ authFactor }) => authFactor).sort();
     expect(factors, "the refused setup minted a session or ended its caller's").toStrictEqual(["code", "passkey"]);
@@ -287,13 +296,12 @@ describe("a passkey setup that signs in, against a real database", () => {
   it("refuses a setup naming a credential another account holds as the plugin's failure, on the conflict's warning", async () => {
     const administrator = await offer(await signIn(ADMIN_EMAIL));
     expect((await verify(administrator, AUTHENTICATOR_A)).status, "the administrator holds no passkey, so nothing is named twice").toBe(200);
-    gateAnswer = { seats: [SEAT], barred: false, account: true };
-    const person = await offer(await signIn("zweites-konto@example.org"));
+    const other = await offer(await signIn(SECOND_ADMIN_EMAIL));
     // The administrator's own enrolment above is not the conflict read below.
     const warnedFrom = log.lines().length;
     const mailedBefore = sent.length;
 
-    const refused = await verify(person, AUTHENTICATOR_A, { createSession: true });
+    const refused = await verify(other, AUTHENTICATOR_A, { createSession: true });
 
     expect({
       status: refused.status,
@@ -306,7 +314,7 @@ describe("a passkey setup that signs in, against a real database", () => {
 });
 
 describe("what a ban ends, against a real database", () => {
-  it("deletes every session of the account at the folded address, and keeps the account and its passkeys", async () => {
+  it("deletes every session of the account at the folded address, and keeps the account", async () => {
     const { adapter } = await auth.$context;
     const person = await adapter.create<Record<string, unknown>, { id: string }>({
       model: "user",
@@ -325,19 +333,6 @@ describe("what a ban ends, against a real database", () => {
       authFactor: "code",
     });
     for (const userId of [person.id, person.id, other.id]) await adapter.create({ model: "session", data: session(userId) });
-    await adapter.create({
-      model: "passkey",
-      data: {
-        userId: person.id,
-        credentialID: "kept",
-        publicKey: "k",
-        counter: 0,
-        deviceType: "singleDevice",
-        backedUp: false,
-        transports: "",
-        createdAt: new Date(),
-      },
-    });
 
     await endSessionsOfAddress("Leser@XN--BCHER-KVA.example");
 
@@ -346,7 +341,33 @@ describe("what a ban ends, against a real database", () => {
       "a session of the barred account survived, or another account's was ended",
     ).toStrictEqual([other.id]);
     expect((await authDb().collection("user").find({}).toArray()).length).toBe(2);
-    expect((await passkeyRows()).length).toBe(1);
+  });
+});
+
+describe("ending every other session, against a real database", () => {
+  /** A person rather than an administrator, whose sessions by a mailed code the account page serves. */
+  const PERSON = "person@example.org";
+
+  /* Every other suite stands in for `endOtherSessions`: the adapter's conversion of both ids is met here alone. */
+  it("ends every other session and keeps its own", async () => {
+    gateAnswer = { seats: [SEAT], barred: false, account: true };
+    const kept = await signIn(PERSON);
+    requestHeaders = new Headers({ ...ORIGIN, cookie: kept });
+    await signIn(PERSON);
+    await signIn(PERSON);
+    const served = await getAccountSession();
+    assert.ok(served, "the account page refused the session");
+    const sessions = authDb().collection("session");
+    const owned = { userId: new ObjectId(served.user.id) };
+    expect(await sessions.countDocuments(owned), "fewer than three sessions stood, so the ending proves nothing").toBe(3);
+
+    await endOtherSessions(served.user.id, served.session.id);
+
+    const standing = await sessions.find(owned).toArray();
+    expect(
+      standing.map(({ _id }) => String(_id)),
+      "another device's session stood past the ending, or the kept one went",
+    ).toStrictEqual([served.session.id]);
   });
 });
 
@@ -446,6 +467,74 @@ describe("an address change carrying the account, against a real database", () =
   });
 });
 
+/* The Mongo adapter turns the holders' `in` on `id` and the deletion's `userId` into ObjectId queries of its own, which
+   the memory store never shows: a query matching nothing would leave every stray passkey signing in, the sweep's count
+   saying it found none. */
+describe("the account sweep's passkey step, against a real database", () => {
+  /** An account at `email`, holding a passkey where `passkey` is set, signed in by it and by a code. */
+  async function accountAt(email: string, passkey: boolean): Promise<void> {
+    const { adapter } = await auth.$context;
+    const account = await adapter.create<Record<string, unknown>, { id: string }>({
+      model: "user",
+      data: { email, emailVerified: true, name: "", createdAt: new Date(), updatedAt: new Date() },
+    });
+    if (passkey) {
+      await adapter.create({
+        model: "passkey",
+        data: {
+          userId: account.id,
+          credentialID: `credential-${email}`,
+          publicKey: "k",
+          counter: 0,
+          deviceType: "singleDevice",
+          backedUp: false,
+          transports: "",
+          createdAt: new Date(),
+        },
+      });
+    }
+    for (const authFactor of ["passkey", "code"]) {
+      await adapter.create({
+        model: "session",
+        data: {
+          userId: account.id,
+          token: randomUUID(),
+          expiresAt: new Date(Date.now() + 60_000),
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          authFactor,
+        },
+      });
+    }
+  }
+
+  it("lists each passkey holder's address, and deletes one's passkeys and passkey sessions alone", async () => {
+    const { deletePasskeysAt, passkeyHolders } = await import("./auth/passkeys");
+    await accountAt("ehemalig-db@example.org", true);
+    await accountAt("verwaltung-db@example.org", true);
+    await accountAt("ohne-passkey-db@example.org", false);
+
+    expect((await passkeyHolders()).sort()).toStrictEqual(["ehemalig-db@example.org", "verwaltung-db@example.org"]);
+
+    await deletePasskeysAt("ehemalig-db@example.org");
+
+    expect(await passkeyHolders()).toStrictEqual(["verwaltung-db@example.org"]);
+    const addressOf = new Map((await authDb().collection("user").find({}).toArray()).map(({ _id, email }) => [String(_id), String(email)]));
+    expect(
+      (await sessionRows()).map(({ userId, authFactor }) => [addressOf.get(String(userId)), authFactor]).sort(),
+      "the deletion missed a passkey session, or took a code session or another account's",
+    ).toStrictEqual(
+      [
+        ["ehemalig-db@example.org", "code"],
+        ["verwaltung-db@example.org", "passkey"],
+        ["verwaltung-db@example.org", "code"],
+        ["ohne-passkey-db@example.org", "passkey"],
+        ["ohne-passkey-db@example.org", "code"],
+      ].sort(),
+    );
+  });
+});
+
 describe("an address's failures, against a real database", () => {
   async function failureRows(): Promise<Record<string, unknown>[]> {
     return authDb()
@@ -474,28 +563,6 @@ describe("an address's failures, against a real database", () => {
     const reached = answers.filter((answer) => answer !== "ADDRESS_ATTEMPTS_EXHAUSTED").length;
     assert.ok(reached <= 10, `${String(reached)} of 15 concurrent attempts reached the code`);
     assert.ok((await failureRows()).length <= 10);
-  });
-});
-
-/* The set-up that signs in mints inside the registration's transaction, so the gate refusing that mint
-   takes the passkey row back with it; the enrolment refuses a barred
-   person before any mint. */
-describe("a set-up the gate refuses, against a real database", () => {
-  it("writes no passkey for a person holding nothing by the set-up, and leaves them signed in by code", async () => {
-    const email = "ohne-sitz-spaeter@example.org";
-
-    gateAnswer = { seats: [SEAT], barred: false, account: true };
-    const cookie = cookieHeader(await signInByCode(auth, email));
-    expect((await sessionRows()).length, "the seated person was not signed in, so the case below proves nothing").toBe(1);
-
-    const offered = await offer(cookie);
-    gateAnswer = { seats: [], barred: false, account: false };
-    const refused = await verify(offered, AUTHENTICATOR_A, { createSession: true });
-
-    expect(refused.status, await refused.clone().text()).toBe(403);
-    expect(((await refused.clone().json()) as { code?: string }).code).toBe("SIGN_IN_REFUSED");
-    expect(await passkeyRows(), "the refused set-up left its passkey behind").toStrictEqual([]);
-    expect((await sessionRows()).map(({ authFactor }) => authFactor)).toStrictEqual(["code"]);
   });
 });
 
@@ -566,7 +633,11 @@ describe("a session only read, against a real database", () => {
   });
 });
 
-/** One signed-in address with every row the store keeps of it: a session, a passkey, a live code, a failed guess, three mails' counts and a deletion token. */
+/**
+ * One signed-in address with every row the store keeps of it: a session, a live code, a failed guess, three mails'
+ * counts, a deletion token, and a passkey, which only an administrator's account holds and every deletion of an
+ * account takes with it.
+ */
 async function seedAccount(email: string): Promise<{ cookie: string; userId: string; pending: string[]; token: string }> {
   gateAnswer = { seats: [SEAT], barred: false, account: true };
   const cookie = await signIn(email);
@@ -575,6 +646,8 @@ async function seedAccount(email: string): Promise<{ cookie: string; userId: str
   const before = new Set((await authDb().collection("verification").find({}).toArray()).map((row) => String(row._id)));
 
   const headers = new Headers(ORIGIN);
+  // Counted, then sent, as the sign-in action asks for a code.
+  expect(await codeMailCapped(email)).toBe(false);
   await auth.api.sendVerificationOTP({ body: { email, type: "sign-in" }, headers });
   const otp = lastMailedCode(sent, email);
   assert.ok(otp !== null, "the send mailed no code");
@@ -609,7 +682,6 @@ async function seedAccount(email: string): Promise<{ cookie: string; userId: str
 /** What the store still holds of a seeded account, by kind. */
 async function heldOf({ userId, pending }: { userId: string; pending: readonly string[] }) {
   const of = async (name: string, filter: object) => (await authDb().collection(name).find(filter).toArray()).length;
-  const { ObjectId } = await import("mongodb");
   return {
     user: await of("user", { _id: new ObjectId(userId) }),
     sessions: await of("session", { userId: new ObjectId(userId) }),
@@ -622,18 +694,15 @@ async function heldOf({ userId, pending }: { userId: string; pending: readonly s
    never shows: a row they miss stands here and nowhere else. */
 describe("an account deleted, against a real database", () => {
   it("leaves nothing of the address once its own link completes, and nothing of anybody else's goes", async () => {
-    const { runWithRequestScope } = await import("./requestScope");
+    const { runWithRequestScope, setRequestActor } = await import("./requestScope");
     const bystander = await seedAccount("unbeteiligt-db@example.org");
     const person = await seedAccount("loeschende-db@example.org");
     const erasuresBefore = erasuresAsked;
 
-    const answer = await runWithRequestScope(
-      {
-        traceId: `${"0".repeat(31)}4`,
-        actor: { email: "loeschende-db@example.org", lane: "person", authTime: 0, factor: "code" },
-      },
-      () => deleteOwnAccount(person.token, new Headers({ ...ORIGIN, cookie: person.cookie })),
-    );
+    const answer = await runWithRequestScope({ traceId: `${"0".repeat(31)}4` }, () => {
+      setRequestActor({ email: "loeschende-db@example.org", lane: "person", authTime: 0, factor: "code" });
+      return deleteOwnAccount(person.token, new Headers({ ...ORIGIN, cookie: person.cookie }));
+    });
 
     expect([answer, erasuresAsked - erasuresBefore]).toStrictEqual(["deleted", 1]);
     expect(await heldOf(person)).toStrictEqual({ user: 0, sessions: 0, passkeys: 0, pending: 0 });
@@ -643,18 +712,15 @@ describe("an account deleted, against a real database", () => {
   /* Both deletion paths find an account by its user row, so the helper goes first: a failure at that row
      leaves it for them to find, and no passkey past their reach. */
   it("leaves the user row alone where the library's delete of it fails, its passkeys and pending rows gone", async () => {
-    const { runWithRequestScope } = await import("./requestScope");
+    const { runWithRequestScope, setRequestActor } = await import("./requestScope");
     const person = await seedAccount("nutzerzeile-db@example.org");
     deletingUser = () => Promise.reject(new Error("planted: the user row's delete fails"));
 
     await expect(
-      runWithRequestScope(
-        {
-          traceId: `${"0".repeat(31)}5`,
-          actor: { email: "nutzerzeile-db@example.org", lane: "person", authTime: 0, factor: "code" },
-        },
-        () => deleteOwnAccount(person.token, new Headers({ ...ORIGIN, cookie: person.cookie })),
-      ),
+      runWithRequestScope({ traceId: `${"0".repeat(31)}5` }, () => {
+        setRequestActor({ email: "nutzerzeile-db@example.org", lane: "person", authTime: 0, factor: "code" });
+        return deleteOwnAccount(person.token, new Headers({ ...ORIGIN, cookie: person.cookie }));
+      }),
       // Past the library's spend of the link, so of an outcome the press cannot name, the planted failure its cause.
     ).rejects.toSatisfy(
       (thrown: Error) =>

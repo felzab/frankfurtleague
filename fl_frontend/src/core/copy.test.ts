@@ -1,6 +1,6 @@
 import { describe, it } from "vitest";
 
-import { COPY } from "./copy";
+import { COPY } from "./copy/shared";
 
 import type { Copy } from "./copy";
 

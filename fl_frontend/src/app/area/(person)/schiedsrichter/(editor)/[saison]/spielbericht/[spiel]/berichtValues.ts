@@ -4,9 +4,6 @@ import { creditedSide } from "@/features/spiele/result";
 import type { FLCardColour, FLSpielberichtSchiedsrichterResponse, FLSpielSide } from "@/core/generated/client/types";
 import type { EditorSave } from "@/kit/useEditor";
 
-/** The Sonderereignis' first entry, nothing beyond the match being played: a select's choice is a string. */
-export const NO_SONDEREREIGNIS = "none";
-
 /**
  * The player list's first entry on a goal and a card, a player nobody can name, which the write takes as a null player;
  * a row's `null` is a player not yet chosen, which the form refuses.
@@ -19,7 +16,10 @@ export type Goal = { side: FLSpielSide | null; spieler_id: string | null; minute
 /** One card as its row holds it, its side, player and colour `null` until chosen. */
 export type Card = { side: FLSpielSide | null; spieler_id: string | null; minute: string; colour: FLCardColour | null };
 
-/** The report's fields as its form holds them. The goals' counts are no field: the write counts them from the goals. */
+/**
+ * The report's fields as its form holds them, the Sonderereignis `""` for „Keines“, nothing beyond the match being
+ * played. The goals' counts are no field: the write counts them from the goals.
+ */
 export type BerichtValues = {
   sonderereignis: string;
   shootOut1: string;
@@ -44,14 +44,14 @@ const STATED_EVENTS: ReadonlyArray<string> = Object.values(FLSpielberichtVorschl
 export function valuesOf({ bericht, kader, sides_changed: changed, spiel }: Read): BerichtValues {
   if (bericht === null) {
     const held = spiel.sonderereignis;
-    const sonderereignis = held !== null && STATED_EVENTS.includes(held) ? held : NO_SONDEREREIGNIS;
+    const sonderereignis = held !== null && STATED_EVENTS.includes(held) ? held : "";
     return { sonderereignis, shootOut1: "", shootOut2: "", scorers: [], cards: [], remarks: "" };
   }
   const departed = (side: FLSpielSide, spielerId: string) =>
     changed.includes(side) && !kader[side].some((spieler) => spieler.spieler_id === spielerId);
   const { sonderereignis, elfmeterschiessen } = bericht.ergebnis_vorschlag;
   return {
-    sonderereignis: sonderereignis ?? NO_SONDEREREIGNIS,
+    sonderereignis: sonderereignis ?? "",
     shootOut1: elfmeterschiessen === null ? "" : String(elfmeterschiessen.team1),
     shootOut2: elfmeterschiessen === null ? "" : String(elfmeterschiessen.team2),
     scorers: bericht.scorers.map(({ side, spieler_id: spielerId, minute, eigentor }) => ({

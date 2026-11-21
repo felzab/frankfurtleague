@@ -5,7 +5,7 @@ import { act, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 import { ROUTES } from "@/core/routes";
 import { renderUnderNext } from "@/test-support/nextContexts";
 
@@ -189,7 +189,7 @@ const TEAM_GROUPS: RailGroup[] = [
     entries: [
       { id: "overview", label: ROUTES.teamOverview.title, team: "teamOverview", icon: "overview" },
       { id: "spiele", label: ROUTES.teamSpiele.title, team: "teamSpiele", icon: "spielplan" },
-      { id: "kader", label: ROUTES.teamKader.title, team: "teamKader", icon: "spieler" },
+      { id: "kader", label: ROUTES.teamKader.title, team: "teamKader", icon: "teams" },
       { id: "registrierungen", label: ROUTES.teamRegistrierungen.title, team: "teamRegistrierungen", icon: "registrierungen" },
     ],
   },

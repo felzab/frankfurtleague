@@ -22,7 +22,6 @@ export const Code = {
   address_change_nothing: "address_change_nothing",
   ansetzung_unanswerable: "ansetzung_unanswerable",
   ansetzung_vorschlag_past: "ansetzung_vorschlag_past",
-  ansetzung_vorschlag_past_as_stored: "ansetzung_vorschlag_past_as_stored",
   ansetzung_vorschlag_unchanged: "ansetzung_vorschlag_unchanged",
   ansetzung_not_actionable: "ansetzung_not_actionable",
   ansetzung_foreign_row: "ansetzung_foreign_row",
@@ -57,8 +56,6 @@ export const Code = {
   booking_unknown_resource: "booking_unknown_resource",
   booking_unconfirmed_schiedsrichter: "booking_unconfirmed_schiedsrichter",
   spiel_double_booked: "spiel_double_booked",
-  spiel_double_booked_spielort_as_stored: "spiel_double_booked_spielort_as_stored",
-  spiel_double_booked_schiedsrichter_as_stored: "spiel_double_booked_schiedsrichter_as_stored",
   spiel_outside_spieltag: "spiel_outside_spieltag",
   spieltag_outside_saison: "spieltag_outside_saison",
   spieltag_span_below_spiele: "spieltag_span_below_spiele",
@@ -69,12 +66,9 @@ export const Code = {
   saison_start_austritt_stored: "saison_start_austritt_stored",
   invitation_team_not_entered: "invitation_team_not_entered",
   choices_stale: "choices_stale",
-  grant_wording_stale: "grant_wording_stale",
   media_age: "media_age",
   giving_not_allowed: "giving_not_allowed",
   eligibility_disqualified: "eligibility_disqualified",
-  eligibility_disqualified_team1_as_stored: "eligibility_disqualified_team1_as_stored",
-  eligibility_disqualified_team2_as_stored: "eligibility_disqualified_team2_as_stored",
   eligibility_team_not_in_saison: "eligibility_team_not_in_saison",
   entry_saison_not_future: "entry_saison_not_future",
   entry_gruppe_not_offered: "entry_gruppe_not_offered",
@@ -301,7 +295,6 @@ export interface FLAccountBewerbungSeatEinwilligung {
   /** @minItems 1 */
   persons: FLAccountSeatPerson[];
   saison_id: string;
-  schule: string;
   scope: FLKontaktKenntnisnahmeScope;
   /** @minItems 1 */
   seats: FLKontaktSeat[];
@@ -327,16 +320,16 @@ export interface FLEinwilligungStatePayload {
   scope: string | null;
 }
 
-export type FLCitedMediaTextVersion = "2026-11-media-1";
+export type FLMediaTextVersion = "2026-11-media-1";
 
-export type FLSpielerScopeTextVersion = "2026-11-name-kader-1";
+export type FLNameKaderTextVersion = "2026-11-name-kader-1";
 
 /**
  * A pupil's two wordings: the name on the squad and the media switch.
  */
 export interface FLSpielerTextVersions {
-  media: FLCitedMediaTextVersion;
-  scope: FLSpielerScopeTextVersion;
+  media: FLMediaTextVersion;
+  scope: FLNameKaderTextVersion;
 }
 
 /**
@@ -924,16 +917,6 @@ export interface FLAddressChangeViewPrevious {
   way: FLAddressChangeWay;
 }
 
-/**
- * What one address link opens: never a name or the id.
- *
- * The new address only where its holder judges by it: the new mailbox's `valid` link, and the address on file's link while
- * the change stands, masked on `waiting_period`.
- */
-export interface FLAddressChangeViewResponse {
-  view: FLAddressChangeViewNew | FLAddressChangeViewPrevious | FLAddressChangeViewEnded;
-}
-
 export type FLAddressChangeWaitingPeriodDays = 7;
 
 export interface FLAddressPayload {
@@ -1513,14 +1496,14 @@ export interface FLBewerbungEinwilligungDeclined {
   token: string;
 }
 
-export type FLSeatScopeTextVersion = "2026-11-whatsapp-1";
+export type FLWhatsappTextVersion = "2026-11-whatsapp-1";
 
 /**
  * A contact seat's two wordings: the WhatsApp switch and the media switch.
  */
 export interface FLSeatTextVersions {
-  media: FLCitedMediaTextVersion;
-  scope: FLSeatScopeTextVersion;
+  media: FLMediaTextVersion;
+  scope: FLWhatsappTextVersion;
 }
 
 /**
@@ -1768,7 +1751,6 @@ export interface FLBewerbungLinkData {
   deadline: string;
   kind: FLBewerbungLinkDataKind;
   saison_id: string;
-  schule: string;
   /** @minItems 1 */
   seats: FLKontaktSeat[];
 }
@@ -1973,10 +1955,9 @@ export interface FLDeletionNoticeData {
 
 export type FLDeliveryDeadlineDays = 2;
 
-export type FLSchiedsrichterScopeTextVersion = "2026-11-name-spielplan-1";
+export type FLNameSpielplanTextVersion = "2026-11-name-spielplan-1";
 
-export type FLEinwilligungTextVersion =
-  FLSeatScopeTextVersion | FLSpielerScopeTextVersion | FLSchiedsrichterScopeTextVersion | FLCitedMediaTextVersion;
+export type FLEinwilligungTextVersion = FLWhatsappTextVersion | FLNameKaderTextVersion | FLNameSpielplanTextVersion | FLMediaTextVersion;
 
 /**
  * When a person set one consent choice, and under which wording.
@@ -2030,20 +2011,37 @@ export interface FLEinwilligung {
   scope: FLEinwilligungScope;
 }
 
-export type FLEinwilligungWithdrawalPayloadChoicesItem =
-  (typeof FLEinwilligungWithdrawalPayloadChoicesItem)[keyof typeof FLEinwilligungWithdrawalPayloadChoicesItem];
+export type FLWithdrawalChoice = (typeof FLWithdrawalChoice)[keyof typeof FLWithdrawalChoice];
 
-export const FLEinwilligungWithdrawalPayloadChoicesItem = {
-  scope: "scope",
+export const FLWithdrawalChoice = {
+  name: "name",
+  whatsapp: "whatsapp",
   media: "media",
 } as const;
 
 /**
- * The choices a person asked by mail to withdraw, which an administrator enters: it withholds and never grants.
+ * The address a mail came from and what it withdraws, which an administrator enters: it withholds and never grants.
  */
 export interface FLEinwilligungWithdrawalPayload {
   /** @minItems 1 */
-  choices: FLEinwilligungWithdrawalPayloadChoicesItem[];
+  choices: FLWithdrawalChoice[];
+  /**
+   * Its domain, after the last `@`, in ASCII alone, an international one in punycode; else `email_not_accepted`.
+   * @maxLength 254
+   * @pattern @
+   */
+  email: string;
+}
+
+/**
+ * Per kind of record at the address, the choices the entry ends there, empty where it ends none; never a record itself.
+ */
+export interface FLEinwilligungWithdrawalReport {
+  bewerbung_seats: FLWithdrawalChoice[];
+  kontakt_seats: FLWithdrawalChoice[];
+  registrierungen: FLWithdrawalChoice[];
+  schiedsrichter: FLWithdrawalChoice[];
+  spieler: FLWithdrawalChoice[];
 }
 
 /**
@@ -2223,6 +2221,13 @@ export interface FLGrantData {
 export interface FLGrantHandoverPassResponse {
   /** @minimum 0 */
   handed_over: number;
+}
+
+/**
+ * The address a removal or a withdrawal took the grant from, as the sign-in folds it.
+ */
+export interface FLGrantRemovedResponse {
+  address: string;
 }
 
 /**
@@ -2681,7 +2686,6 @@ export interface FLLandingRunning {
 export interface FLLandingResponse {
   bewerbung_opens_on: string | null;
   bewerbung_window: FLBewerbungWindow | null;
-  bewerbung_window_held: boolean;
   counts: FLLandingCounts;
   saison: FLLandingBeforeStart | FLLandingRunning | FLLandingDecided | null;
 }
@@ -2689,12 +2693,6 @@ export interface FLLandingResponse {
 export type FLMailboxAnchorRetentionHours = 1;
 
 export type FLMediaMinAgeYears = 18;
-
-export type FLMediaTextVersion = "2026-11-media-1";
-
-export type FLNameKaderTextVersion = "2026-11-name-kader-1";
-
-export type FLNameSpielplanTextVersion = "2026-11-name-spielplan-1";
 
 /**
  * The stored person a confirmed registration's address resolves to, named so the team can be asked whether it is the same one.
@@ -3483,8 +3481,6 @@ export interface FLPatchSchiedsrichterPayload {
  * The confirmation link a write owed the referee, which the Postausgang mints and mails: never the link itself.
  */
 export interface FLSchiedsrichterMint {
-  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
-  deadline: string;
   /** @minLength 1 */
   email: string;
 }
@@ -3757,6 +3753,15 @@ export interface FLPostSchiedsrichterPayload {
   schule: string | null;
 }
 
+/**
+ * The created referee and the link the create owed them, which every create owes.
+ */
+export interface FLPostSchiedsrichterResponse {
+  confirmation: FLSchiedsrichterMint;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  created_id: string;
+}
+
 export interface FLPostSpielortPayload {
   address: FLAddressPayload;
   /** @minimum 0 */
@@ -4026,8 +4031,6 @@ export interface FLSaisonFrameResponse {
   saisons: FLSaisonFrameEntry[];
 }
 
-export type FLSaisonIdLength = 4;
-
 export interface FLSaisonOverviewResponse {
   cards: FLOverviewCard[];
 }
@@ -4089,8 +4092,8 @@ export interface FLSaisonsAdminListResponse {
  * A referee's two wordings: the name on the fixtures and the media switch.
  */
 export interface FLSchiedsrichterTextVersions {
-  media: FLCitedMediaTextVersion;
-  scope: FLSchiedsrichterScopeTextVersion;
+  media: FLMediaTextVersion;
+  scope: FLNameSpielplanTextVersion;
 }
 
 /**
@@ -4212,11 +4215,8 @@ export interface FLSchiedsrichterListResponse {
 
 export type FLSchiedsrichterMinAgeYears = 16;
 
-/**
- * The re-send's answer. Never null: where no link may be minted a refusal answers instead.
- */
-export interface FLSchiedsrichterMintResponse {
-  confirmation: FLSchiedsrichterMint;
+export interface FLSchiedsrichterReactivateResponse {
+  confirmation: FLSchiedsrichterMint | null;
 }
 
 export interface FLSchiedsrichterSingleResponse {
@@ -4236,29 +4236,53 @@ export const FLSchiedsrichterSpielState = {
 } as const;
 
 /**
- * One fixture booked to the signed-in referee, as their one list shows it: the booking they were asked about and the report they owe.
+ * One fixture booked to the signed-in referee, as their one list shows it.
+ *
+ * The fixture as the public reads serve it, with its matchday, as a club's own list serves its matches; and the booking
+ * they were asked about and the report they owe.
  */
 export interface FLSchiedsrichterSpiel {
+  ansetzung_confirmed: boolean | null;
   bericht_owed: boolean;
+  /** @minimum 1 */
+  count_spieltage_in_phase: number;
   date: string | null;
-  entered: boolean;
+  elfmeterschiessen: FLSpielElfmeterschiessen | null;
+  ergebnis: string | null;
+  for_third_place: boolean;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  id: string;
+  note: string | null;
   officiates: boolean;
   past: boolean;
-  reason: string | null;
+  reportable: boolean;
+  /**
+   * @minLength 4
+   * @maxLength 4
+   */
+  saison_id: string;
+  saison_phase: FLSaisonPhase;
+  schiedsrichter: FLSpielSchiedsrichterFieldPublic | null;
   sonderereignis: FLSonderereignis | null;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  spiel_id: string;
+  /** @exclusiveMinimum 0 */
+  spiel_nr: number;
   spielbestaetigung_id: string | null;
   spielort: FLSpielortFieldPublic | null;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  spieltag_id: string;
+  /** @minimum 1 */
+  spieltag_position: number;
   state: FLSchiedsrichterSpielState;
   submitted_at: string | null;
-  team1_name: string | null;
-  team2_name: string | null;
+  team1: FLSpielTeamFieldJoined | null;
+  team1_quelle: FLSpielQuelle | null;
+  team2: FLSpielTeamFieldJoined | null;
+  team2_quelle: FLSpielQuelle | null;
   time: string | null;
 }
 
 /**
- * A referee's fixtures of one season, open work first.
+ * A referee's fixtures of one season, in the order the draw numbered them.
  */
 export interface FLSchiedsrichterSpieleResponse {
   saison_id: string;
@@ -4274,7 +4298,7 @@ export interface FLSchiedsrichterSweepResponse {
 }
 
 /**
- * A seat holder's own two choices for every seat they hold on one row, under any label their kind cites.
+ * A seat holder's own two choices for every seat they hold on one row.
  *
  * Both choices on every press: a page that sent one alone would leave the other judged by nothing.
  */
@@ -4717,7 +4741,19 @@ export const FLSpielbestaetigungEditorRowState = {
 } as const;
 
 /**
- * A confirmation row as the match editor reads it, and the state it stands in, a closed row's included.
+ * A club's decline proposing another date and hour, neither adopted nor discarded, and whom each act on it mails.
+ *
+ * Each recipient by the name its own record holds, as the Übersicht names them: `adoption_recipients` those the
+ * confirmation pass tells of the move, `discard_recipients` the club the discard tells the date stands.
+ */
+export interface FLSpielbestaetigungEditorVorschlag {
+  adoption_recipients: (FLSpielRecipientTeam | FLSpielRecipientSchiedsrichter)[];
+  discard_recipients: (FLSpielRecipientTeam | FLSpielRecipientSchiedsrichter)[];
+  vorschlag: FLSpielbestaetigungAppointment;
+}
+
+/**
+ * A confirmation row as the match editor reads it, the state it stands in, a closed row's included, and the league's acts it takes.
  *
  * Never `vorschlag`, which only a club's own page tells: an open row reads `valid` while its party may still answer.
  */
@@ -4727,9 +4763,13 @@ export interface FLSpielbestaetigungEditorRow {
   asked_at: string | null;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   due_by: string;
+  enterable: boolean;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  id: string;
   lapsed_on: string | null;
   party: FLSpielbestaetigungPartyTeam | FLSpielbestaetigungPartySchiedsrichter;
   state: FLSpielbestaetigungEditorRowState;
+  vorschlag_open: FLSpielbestaetigungEditorVorschlag | null;
 }
 
 /**
@@ -5166,12 +5206,6 @@ export interface FLTabelleRow {
   statistik: FLTeamStatistik;
 }
 
-/**
- * Every group the season offers in standing order, the clubs that have played no match last.
- *
- * Each club that has played and stood in the season on the day its group was decided is numbered as a `Platz` is, and
- * clubs the chain leaves level share one.
- */
 export type FLTabelle = Partial<Record<FLGruppenNames, FLTabelleRow[]>>;
 
 /**
@@ -5530,8 +5564,6 @@ export interface FLVersionResponse {
   version: number;
 }
 
-export type FLWhatsappTextVersion = "2026-11-whatsapp-1";
-
 export const ProbeResponseValue = {
   status: "ok",
 } as const;
@@ -5550,7 +5582,6 @@ export const Rule = {
   elfmeterschiessen_without_winner: "elfmeterschiessen_without_winner",
   email_not_accepted: "email_not_accepted",
   good_spieler_exceed_kader: "good_spieler_exceed_kader",
-  grant_wording_stale: "grant_wording_stale",
   nichtantreten_with_elfmeterschiessen: "nichtantreten_with_elfmeterschiessen",
   nichtantreten_with_scorers: "nichtantreten_with_scorers",
   registrierung_window_reaches_saison_start: "registrierung_window_reaches_saison_start",
@@ -5569,6 +5600,11 @@ export type FailureResponse = FLFailureBody;
 
 export type BewerbungenGetBewerbungenAdminParams = {
   saison_id: string;
+};
+
+export type IdentityPostWithdrawalParams = {
+  /** Report what this entry would end, and write nothing */
+  dry_run?: boolean;
 };
 
 export type SaisonsGetSweepSaisonsParams = {

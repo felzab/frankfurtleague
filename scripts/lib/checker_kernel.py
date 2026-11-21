@@ -7,7 +7,6 @@ the input · 3 or more the environment is broken, spelled as a literal by no che
 
 from __future__ import annotations
 
-import io
 import sys
 import traceback
 from collections.abc import Callable, Iterable
@@ -28,12 +27,6 @@ EXIT_INTERRUPTED: Final = 130
 
 # What reading a file in this repository can raise, so no checker spells its own pair.
 UNREADABLE: Final = (OSError, UnicodeDecodeError)
-
-# A codepage must never decide whether a finding prints: on a Windows cp1252 handle a finding quoting
-# a character outside it cannot report at all.
-for _stream in (sys.stdout, sys.stderr):
-    if isinstance(_stream, io.TextIOWrapper):
-        _stream.reconfigure(encoding="utf-8", errors="replace")
 
 
 @dataclass(frozen=True)

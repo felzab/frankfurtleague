@@ -12,12 +12,12 @@ import CircleX from "lucide-react/icons/circle-x";
 import ClipboardList from "lucide-react/icons/clipboard-list";
 import Clock from "lucide-react/icons/clock";
 import Ellipsis from "lucide-react/icons/ellipsis";
+import EyeOff from "lucide-react/icons/eye-off";
 import FileText from "lucide-react/icons/file-text";
 import Goal from "lucide-react/icons/goal";
 import GraduationCap from "lucide-react/icons/graduation-cap";
 import HandCoins from "lucide-react/icons/hand-coins";
 import Info from "lucide-react/icons/info";
-import KeyRound from "lucide-react/icons/key-round";
 import LayoutDashboard from "lucide-react/icons/layout-dashboard";
 import ListFilter from "lucide-react/icons/list-filter";
 import ListOrdered from "lucide-react/icons/list-ordered";
@@ -36,7 +36,6 @@ import ScrollText from "lucide-react/icons/scroll-text";
 import Search from "lucide-react/icons/search";
 import Shield from "lucide-react/icons/shield";
 import Sun from "lucide-react/icons/sun";
-import SunMoon from "lucide-react/icons/sun-moon";
 import Trash from "lucide-react/icons/trash-2";
 import TriangleAlert from "lucide-react/icons/triangle-alert";
 import Trophy from "lucide-react/icons/trophy";
@@ -122,7 +121,9 @@ const GLYPHS = {
   back: ChevronLeft,
   // A record renamed in its row, as a passkey is.
   rename: Pencil,
-  // A field its record holds fixed, beside its label (`FieldLabel`); the editor's lock line says why.
+  // A field its record holds fixed, beside its label (`FieldLabel`); the editor's lock line says why. Konto's
+  // „Sicherheit“ too, the sign-in's devices and an administrator's passkeys: the administration's shield names the
+  // administrators, whose rail every administrator sees beside Konto's.
   locked: Lock,
 
   overview: LayoutDashboard,
@@ -142,13 +143,13 @@ const GLYPHS = {
   administrators: Shield,
   banList: Ban,
   erasures: Trash,
+  // A consent withdrawn by mail, drawn as what it mostly withholds: a name or a photo no longer shown.
+  withdrawals: EyeOff,
   // An e-mail address: the administration's address changes, and the league's own on the question door and Kontakt.
   email: Mail,
   log: ScrollText,
-  // Konto's pages beside Anmeldung's `signin`: the passkeys as a key, the theme as the sun and the moon, and
-  // the person's own entries as a list on a clipboard.
-  key: KeyRound,
-  appearance: SunMoon,
+  // Konto's pages beside Anmeldung's `signin` and Sicherheit's `locked`: the person's own entries as a list on a
+  // clipboard.
   entries: ClipboardList,
 
   // The landing's: its three pillars, who plays (the Abi year), how it is played and what the takings pay

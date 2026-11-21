@@ -5,6 +5,7 @@ from pydantic import AfterValidator, BaseModel, BeforeValidator, Field, StringCo
 from app.shared.folding import refuse_a_domain_beyond_ascii, trimmed
 from app.shared.schemas.bounds import KONTAKT_EMAIL_MAX_LENGTH
 from app.shared.schemas.custom import SINGLE_LINE_PATTERN, CustomDateString, CustomObjectId, FLUtcInstant
+from app.shared.schemas.einwilligung import FLWithdrawalChoice
 from app.shared.schemas.kontakt import CustomEmail
 
 # The wire's spelling of the three seats, imported rather than restated: a second closed set here
@@ -248,6 +249,28 @@ class FLErasureViewResponse(BaseReadModel):
     # The address's own live change, and each other address's naming it that this administrator may see.
     address_change: int = Field(ge=0)
     grants: int = Field(ge=0)
+
+
+# --- The administrator's entry of a withdrawal asked for by mail.
+
+
+# The erasure's address, as both answer a mailed request for every record the address holds.
+class FLEinwilligungWithdrawalPayload(FLErasureAddressPayload):
+    """The address a mail came from and what it withdraws, which an administrator enters: it withholds and never grants."""
+
+    choices: Annotated[set[FLWithdrawalChoice], Field(min_length=1)]
+
+
+class FLEinwilligungWithdrawalReport(BaseReadModel):
+    """Per kind of record at the address, the choices the entry ends there, empty where it ends none; never a record itself."""
+
+    # By kind and never by record, so the confirmation names no person, as the erasure's counts name none.
+
+    spieler: list[FLWithdrawalChoice]
+    schiedsrichter: list[FLWithdrawalChoice]
+    kontakt_seats: list[FLWithdrawalChoice]
+    bewerbung_seats: list[FLWithdrawalChoice]
+    registrierungen: list[FLWithdrawalChoice]
 
 
 class FLErasureSweepResponse(BaseReadModel):

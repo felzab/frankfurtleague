@@ -3,7 +3,7 @@
 import { z } from "zod";
 
 import { action, blankIsNull, numberBox } from "@/core/action";
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 import { spielerDeleteKaderRow, spielerPatchKaderRow } from "@/core/generated/client/sdk";
 import { SpielerDeleteKaderRowParams, SpielerPatchKaderRowBody, SpielerPatchKaderRowParams } from "@/core/generated/zod/inputs";
 
@@ -16,7 +16,7 @@ const { shape } = SpielerPatchKaderRowBody;
  */
 export const saveKaderRow = action({
   lane: "person",
-  claim: "seat",
+  claim: "record",
   name: "saveKaderRow",
   input: z.object({
     ...SpielerPatchKaderRowParams.shape,
@@ -26,8 +26,7 @@ export const saveKaderRow = action({
     rolle: blankIsNull(shape.rolle),
     version: numberBox(shape.version),
   }),
-  ownWords: ["kader_rolle_taken"],
-  paths: { rolle: "rolle" },
+  boxes: ["rolle"],
   examples: { nummer: COPY.shared.field.exampleDigits },
   run: async ({ team_id, saison_id, spieler_id, ...row }) => {
     await spielerPatchKaderRow(team_id, saison_id, spieler_id, row);
@@ -41,7 +40,7 @@ export const saveKaderRow = action({
  */
 export const deregisterKaderRow = action({
   lane: "person",
-  claim: "seat",
+  claim: "record",
   name: "deregisterKaderRow",
   input: z.object(SpielerDeleteKaderRowParams.shape),
   run: async ({ team_id, saison_id, spieler_id }) => {

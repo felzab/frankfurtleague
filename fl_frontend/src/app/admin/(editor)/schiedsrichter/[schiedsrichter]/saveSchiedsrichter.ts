@@ -3,7 +3,8 @@
 import { z } from "zod";
 
 import { action, blankIsNull, numberBox } from "@/core/action";
-import { COPY } from "@/core/copy";
+import { ADMIN_COPY } from "@/core/copy/admin";
+import { COPY } from "@/core/copy/shared";
 import { schiedsrichterPatchSchiedsrichter } from "@/core/generated/client/sdk";
 import { SchiedsrichterPatchSchiedsrichterBody, SchiedsrichterPatchSchiedsrichterParams } from "@/core/generated/zod/inputs";
 import { getSchiedsrichterById } from "@/features/schiedsrichter/queries";
@@ -44,9 +45,9 @@ export const saveSchiedsrichter = action({
   lane: "admin",
   name: "saveSchiedsrichter",
   input: SaveSchiedsrichter,
-  ownWords: ["duplicate_key", "email_not_accepted"],
-  paths: { name: "changes.name", "kontakt.email": "changes.email" },
-  examples: { "changes.name": COPY.shared.field.exampleName, "changes.phone": COPY.admin.schiedsrichter.phoneExample },
+  // The write nests the address under its contact, where the editor's box is the address alone.
+  paths: { "kontakt.email": "changes.email" },
+  examples: { "changes.name": COPY.shared.field.exampleName, "changes.phone": COPY.shared.field.examplePhone },
   run: async ({ id, version, changes }): Promise<ActionAnswer<number>> => {
     const read = await getSchiedsrichterById(id);
     if (read === null) return { ok: false, reason: COPY.shared.failure.stale };
@@ -65,6 +66,6 @@ export const saveSchiedsrichter = action({
     const value = written.version;
     return written.confirmation === null
       ? { ok: true, value }
-      : { ok: true, value, note: COPY.admin.schiedsrichter.sentTo(written.confirmation.email) };
+      : { ok: true, value, note: ADMIN_COPY.schiedsrichter.sentTo(written.confirmation.email) };
   },
 });

@@ -3,13 +3,10 @@
 import { useEffect, useState } from "react";
 
 import { now } from "@/core/clock";
-import { COPY } from "@/core/copy";
+import { PUBLIC_COPY } from "@/core/copy/public";
 import { formatNumber } from "@/core/format";
-import { DAY_MS, HOUR_MS } from "@/core/timeUnits";
+import { DAY_MS, HOUR_MS, MINUTE_MS } from "@/core/timeUnits";
 
-const MINUTE_MS = 60 * 1000;
-
-/** What is left until `start` at `at`, both in milliseconds: whole days, hours and minutes, none below zero. */
 function remaining(start: number, at: number) {
   const left = Math.max(0, start - at);
   return {
@@ -46,20 +43,18 @@ export function Countdown({ start, seed }: { start: string; seed: number }) {
 
   const { days, hours, minutes } = remaining(target, at);
   const units = [
-    [days, COPY.landing.saison.days],
-    [hours, COPY.landing.saison.hours],
-    [minutes, COPY.landing.saison.minutes],
+    [days, PUBLIC_COPY.landing.saison.days],
+    [hours, PUBLIC_COPY.landing.saison.hours],
+    [minutes, PUBLIC_COPY.landing.saison.minutes],
   ] as const;
   return (
     <div
       role="timer"
       className="grid grid-cols-3 gap-2">
       {units.map(([figure, unit]) => (
-        // Each unit on the page's own ground, sunk into the raised card that holds the countdown.
         <span
           key={unit}
           className="grid justify-items-center gap-0.5 rounded-lg bg-bg px-2 py-3">
-          {/* The figures' size, 32 px in Anton. */}
           <span className="font-heading text-3xl tracking-display">{formatNumber(figure)}</span>
           <span className="text-xs text-fg-muted">{unit}</span>
         </span>

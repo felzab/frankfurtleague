@@ -74,13 +74,8 @@ def test_a_request_without_the_admin_key_sets_no_actor():
         pytest.param({AUTH_TIME_HEADER: "-60"}, id="a signed sign-in time"),
         pytest.param({AUTH_FACTOR_HEADER: "sms"}, id="a factor no session is made by"),
         pytest.param({ACTOR_HEADER: ""}, id="no address"),
-        # Decoded leniently, `%41` would read as `A` and name another mailbox.
-        pytest.param({ACTOR_HEADER: ACTOR}, id="an address sent unencoded"),
-        pytest.param({ACTOR_HEADER: "admin%4example.com"}, id="a truncated escape"),
-        pytest.param({ACTOR_HEADER: "k%c3%a4the%40example.com"}, id="a lower-case escape"),
-        pytest.param({ACTOR_HEADER: "k%E4the%40example.com"}, id="an escape decoding to no UTF-8"),
-        # Bytes, as a client sending the address raw puts them on the wire; Starlette reads them as Latin-1.
-        pytest.param({ACTOR_HEADER: "käthe%40example.com".encode("latin-1")}, id="a byte past ASCII"),
+        # Bytes, as a fetch puts an address below U+0100 on the wire; Starlette reads them back as Latin-1.
+        pytest.param({ACTOR_HEADER: "käthe@example.com".encode("latin-1")}, id="an address past ASCII"),
     ],
 )
 def test_a_request_naming_no_session_is_refused_before_the_grant_read(headers: Mapping[str, str | bytes]):
@@ -101,7 +96,7 @@ class TestTheAdministratorsSession:
         ],
     )
     def test_a_session_the_admin_tier_does_not_take_is_refused_before_the_grant_read(self, headers: Mapping[str, str]):
-        """A person's session sent to an admin route meets this, whatever the grants hold."""
+        """A person's session by code, or an administrator's passkey session past its window, meets this, whatever the grants hold."""
 
         response = client().delete(WRITE_PATH, headers=headers)
 

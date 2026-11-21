@@ -2,30 +2,25 @@ import { textOf } from "@/core/copy";
 
 import { PartyHead } from "./AnswerRows";
 import { actRow, cardSurface, stacked } from "./cardStyles";
-import { SideActsScope } from "./SideActs";
-import { sideActsForm } from "./sideActsForm";
+import { Facts } from "./Facts";
 import { tv } from "./tv";
 
 import type { Copy, Words } from "@/core/copy";
 import type { ReactElement } from "react";
 import type { ChipProps } from "./Chip";
+import type { Fact } from "./Facts";
 
-/** One seat of a team or an application: who holds it, where they stand, and what the page may do about it. */
 export type SeatRow = {
   id: string;
   name: Words;
   /** The seat's state, and beside it, where the last mail met trouble, the delivery's. */
   chips: ReadonlyArray<ChipProps>;
-  /** The muted line: the seats held, the address and where the answer stands (`COPY.admin.seatLine`). */
+  /** The muted line: the seats held, the address and where the answer stands (`COPY.team.seatLine`). */
   line: Words;
+  /** What the seat's person answered, under the line, once they have: each choice's label over its answer. */
+  facts?: ReadonlyArray<Fact>;
   /** The row's side acts, the page's own, drawn by `SideActs` in the form the list decides. */
   acts?: ReactElement;
-  /**
-   * How many side acts `acts` draws, which the list reads to decide their form for all its rows: the acts reach it as an
-   * element, which says nothing of what it holds. Counted by the rule the acts' own module lists them by
-   * (`seatActKinds`), never a second condition beside it.
-   */
-  sideActs?: number;
   /** A seat nobody holds: its name muted. */
   muted?: boolean;
 };
@@ -46,10 +41,9 @@ const seatRows = tv({
 });
 
 /**
- * A record's three seats in one box: a row a seat, its name with its chips over one muted line, the words a party's in
- * `AnswerRows`, and its acts. A seat's acts are side acts, up to two a row, and the list decides their form for all its
- * rows (`SideActs`): beside the words at the row's end at every width, their labelled buttons in a box of 42 rem or
- * more and one „⋯“ in a narrower one.
+ * A record's three seats in one box, a row a seat. A seat's acts are side acts, up to two a row, and the list decides
+ * their form for all its rows (`SideActs`): beside the words at the row's end at every width, their labelled buttons
+ * in a box of 42 rem or more and one „⋯“ in a narrower one.
  */
 export function SeatRows({
   label,
@@ -62,9 +56,8 @@ export function SeatRows({
   bare?: boolean;
 }) {
   const s = seatRows({ bare });
-  const sideActs = sideActsForm(rows);
   // Side acts stand beside the words at every width, where a „⋯“ under them would take a line of its own.
-  const row = actRow({ opens: false, sideActs: sideActs.carried });
+  const row = actRow({ opens: false, sideActs: rows.some((seat) => seat.acts !== undefined) });
   return (
     <ul
       aria-label={label}
@@ -81,12 +74,17 @@ export function SeatRows({
                 muted={seat.muted === true}
               />
               <span className={row.line()}>{textOf(seat.line)}</span>
+              {seat.facts !== undefined && seat.facts.length > 0 && (
+                // Free of a box, since the row is the list's box; a step apart from the line it follows.
+                <div className="mt-1.5">
+                  <Facts
+                    facts={seat.facts}
+                    look="free"
+                  />
+                </div>
+              )}
             </span>
-            {seat.acts !== undefined && (
-              <div className={row.acts()}>
-                <SideActsScope folds={sideActs.foldsEverywhere}>{seat.acts}</SideActsScope>
-              </div>
-            )}
+            {seat.acts !== undefined && <div className={row.acts()}>{seat.acts}</div>}
           </span>
         </li>
       ))}

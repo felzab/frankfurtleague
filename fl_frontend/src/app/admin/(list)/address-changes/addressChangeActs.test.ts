@@ -32,7 +32,7 @@ function accountAt(email: string): void {
 const requestsSent = () => backend.sent.map(({ method, path }) => `${method} ${path}`);
 
 // The sign-in store is this server's and the backend cannot read it: a change confirmed onto such an address leaves the
-// person's passkeys behind on the old account, and nothing fails.
+// administrator's passkeys behind on the old account, and nothing fails.
 describe("a start, an account standing at the new address", () => {
   // The harm: the start's dialog has closed before its answer, so a box's phrase would reach its toast as the pointer at
   // fields nobody sees.

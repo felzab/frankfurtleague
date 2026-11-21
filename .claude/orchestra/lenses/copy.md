@@ -5,7 +5,8 @@
 the shared entry rather than a second one, or a sentence that should not exist, only a reader holds.
 
 **Read first.** `docs/frontend/copy.md` whole and the glossary, `docs/glossary.md`. Then the change
-to the catalogue, `fl_frontend/src/core/copy.ts`, `fl_frontend/src/core/serverCopy.ts` and
+to the catalogue, `fl_frontend/src/core/copy.ts` and its audience files under
+`fl_frontend/src/core/copy/`, `fl_frontend/src/core/serverCopy.ts` and
 `fl_frontend/src/core/consentWordings.ts`, and each component, action or mail using an entry the
 change adds or alters.
 
@@ -14,7 +15,9 @@ change adds or alters.
 1. Each new or changed sentence: would a reader do something wrong without it? Where not, it goes.
 2. Does a message under a field take one of `COPY.shared.field`'s patterns, filled with the rule's
    bounds, and does a status line or callout say what is so, never why or how to repair it?
-3. Does a new entry repeat what `shared` or another area already says? No test hunts duplicate text.
+3. Does a new entry repeat a string the catalogue already holds under another key: any section of
+   `COPY`, its own or another audience's constant, `SERVER_COPY` or `copy.ts`'s plain words? No test
+   hunts duplicate text.
 4. Is each string within its kind's ceiling, in the voice and punctuation the standard sets?
 5. Does each date, time, number, score and season's name go through the formatting module or the
    catalogue's season entries, and the current time through the clock module?
@@ -31,6 +34,7 @@ taste the standard does not rule on, which the owner flags on the screen it sits
 **Silent.** Yes: a string off the standard renders and passes every check, and a mail or a rare
 state may never reach the owner's screen.
 
-**Applies.** paths `fl_frontend/src/**` except `**/*.test.*`, `fl_frontend/src/test-support/**`, `fl_frontend/src/core/generated/**`.
+**Applies.** paths `fl_frontend/src/**` except `**/*.test.*`, `fl_frontend/src/test-support/**`,
+`fl_frontend/src/core/generated/**`.
 
 **Run by.** auditor.

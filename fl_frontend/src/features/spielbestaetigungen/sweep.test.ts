@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import { APINetworkError } from "@/core/errors";
 import { networkFailure, serveBackend } from "@/test-support/backend";
+import { captureLog } from "@/test-support/stdoutCapture";
 
 /** The running seasons alone: a confirmation serves no purpose once its season is over. */
 const LIST = "/saisons/sweep";
@@ -28,6 +29,8 @@ const backend = serveBackend(({ method, path, search }) => {
   const saisonId = method === "POST" ? SEASON_PASS.exec(path)?.[1] : undefined;
   return saisonId === undefined ? undefined : passAnswer(saisonId);
 });
+/** Every line the real logger writes, read off standard output. */
+const log = captureLog();
 
 const { runSpielSweep } = await import("./sweep");
 
@@ -48,6 +51,7 @@ describe("the fixture confirmation job", () => {
     expect(await runSpielSweep()).toStrictEqual({
       count: { closed: 2, asked: 3, reminded: 1, mails: 9, failed: 1 },
       open: 0,
+      error: undefined,
     });
     expect(sent()).toStrictEqual([
       `GET ${LIST}`,
@@ -56,11 +60,22 @@ describe("the fixture confirmation job", () => {
     ]);
   });
 
-  /* The scheduler reports a pass ending on a failure to the heartbeat, which a job answering with a line alone keeps from it. */
-  it("rejects where a season's pass fails, sweeping no season after it", async () => {
+  /* One season's outage skips no later season's confirmations, and the scheduler reports the failure to the heartbeat,
+     which a job answering with a line alone keeps from it. */
+  it("sweeps every season past one whose pass fails, and answers the failure", async () => {
     passAnswer = (saisonId) => (saisonId === "2627" ? networkFailure() : pass());
 
-    await expect(runSpielSweep()).rejects.toThrow(APINetworkError);
-    expect(sent()).toStrictEqual([`GET ${LIST}`, "POST /spielbestaetigungen/saisons/2627/sweep"]);
+    const { error } = await runSpielSweep();
+
+    expect(error).toBeInstanceOf(AggregateError);
+    expect((error as AggregateError).errors).toStrictEqual([expect.any(APINetworkError)]);
+    expect(sent()).toStrictEqual([
+      `GET ${LIST}`,
+      "POST /spielbestaetigungen/saisons/2627/sweep",
+      "POST /spielbestaetigungen/saisons/2728/sweep",
+    ]);
+    expect(log.lines().map(({ message, fields: { saison_id } }) => ({ message, saison_id }))).toStrictEqual([
+      { message: "spielbestaetigung.sweep_failed", saison_id: "2627" },
+    ]);
   });
 });

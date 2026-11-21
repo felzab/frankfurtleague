@@ -14,13 +14,14 @@ import type { NextRequest } from "next/server";
  */
 export async function GET(request: NextRequest): Promise<never> {
   const asked = allowedReturnAddress(request.nextUrl.searchParams.get(RETURN_PARAMETER));
-  const { destination, subject } = await getSignInLanding();
+  const { destination, subject, returnsTo } = await getSignInLanding();
   const area = ROUTES.area.path();
 
   // `/area`'s own landing rule over the person the landing read, so the sign-in lands where `/area` would send it
   // without a second redirect; a backend that did not answer is `/area`'s to say, which asks it again.
   const landing = destination === area ? (asked ?? (subject === null ? area : landingTargetOf(placesOf(subject)))) : null;
 
-  // Outside any `try`, as Next documents for a Route Handler: `redirect` throws to lead on.
-  redirect(landing ?? withReturnAddress(destination, asked));
+  // Outside any `try`, as Next documents for a Route Handler: `redirect` throws to lead on. The page the request asked
+  // for over the landing's own, each through the allowlist.
+  redirect(landing ?? withReturnAddress(destination, asked ?? returnsTo));
 }

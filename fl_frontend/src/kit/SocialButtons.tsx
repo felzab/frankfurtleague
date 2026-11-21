@@ -1,4 +1,4 @@
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 
 import { Link } from "./Link";
 
@@ -6,9 +6,8 @@ import type { Copy } from "@/core/copy";
 import type { Route } from "next";
 
 /**
- * The league's three ways to write to it, on one line, all three the control's height: the e-mail button led
- * by the mail glyph, then Instagram and Threads as glyphs alone, each named by its tooltip and opening in a new tab, as `Link`
- * opens every other site.
+ * The league's three ways to write to it, on one line: the e-mail button, then Instagram and Threads as glyphs alone,
+ * each named by its tooltip.
  */
 export function SocialButtons({
   email,

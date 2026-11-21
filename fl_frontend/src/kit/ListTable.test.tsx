@@ -1,11 +1,15 @@
 // @vitest-environment jsdom
+import { UnrecognizedActionError } from "next/dist/client/components/unrecognized-action-error";
+
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
+import { renderUnderNext } from "@/test-support/nextContexts";
 
-import { ListCard, ListMatches, ListQueryScope, ListSearchField, ListTable, ListTiles } from "./ListTable";
+import { Filters } from "./Filters";
+import { ListMatches, ListQueryScope, ListSearchField, ListTable, ListTiles } from "./ListTable";
 
 import type { ActionAnswer } from "@/core/action";
 import type { ReactNode } from "react";
@@ -42,6 +46,20 @@ describe("a list's search", () => {
     );
     await userEvent.type(screen.getByRole("searchbox"), "OST");
     expect(screen.getByText("Sportpark Ost")).toBeTruthy();
+    expect(screen.queryByText("Goethe-Halle")).toBe(null);
+  });
+
+  // The harm: a name typed without its accent, „jose“ for „José“, finds nothing, and reads as if no such row stood,
+  // where the same text in a combo box finds it.
+  it("keeps the rows whose name holds what is typed, its accents aside", async () => {
+    const rows: TableProps["rows"] = [...TABLE.rows, { id: "3", name: { record: "Halle José Martí" }, cells: {} }];
+    render(
+      <Searched>
+        <ListTable table={{ ...TABLE, rows }} />
+      </Searched>,
+    );
+    await userEvent.type(screen.getByRole("searchbox"), "jose");
+    expect(screen.getByText("Halle José Martí")).toBeTruthy();
     expect(screen.queryByText("Goethe-Halle")).toBe(null);
   });
 
@@ -128,7 +146,7 @@ describe("a list past one read's cap", () => {
       <Searched>
         <ListTable
           table={TABLE}
-          more={{ cursor: "2", carry: { by: "kontakt" }, load }}
+          more={{ cursor: "2", query: "", carry: { by: "kontakt" }, load }}
         />
       </Searched>,
     );
@@ -142,7 +160,7 @@ describe("a list past one read's cap", () => {
       <Searched>
         <ListTable
           table={{ ...TABLE, rows: [row("9", "Erste Seite")] }}
-          more={{ cursor: "9", carry: { by: "system" }, load }}
+          more={{ cursor: "9", query: "", carry: { by: "system" }, load }}
         />
       </Searched>,
     );
@@ -153,47 +171,127 @@ describe("a list past one read's cap", () => {
     expect(load).toHaveBeenLastCalledWith({ by: "system", query: "", cursor: "9" });
   });
 
-  it.each<[string, Answer]>([
-    ["refused", () => Promise.resolve({ ok: false, reason: COPY.shared.failure.unexpected })],
-    ["lost", () => Promise.reject(new TypeError("Failed to fetch"))],
-  ])("keeps the rows drawn and says so on its status line where a page is %s", async (_, answer) => {
+  // A page a newer build serves reads the stale line, as a form's press does: the unexpected one would call it a fault.
+  it.each<[string, Answer, string]>([
+    ["refused", () => Promise.resolve({ ok: false, reason: COPY.shared.failure.unexpected }), COPY.shared.failure.unexpected],
+    ["lost", () => Promise.reject(new TypeError("Failed to fetch")), COPY.shared.failure.unexpected],
+    [
+      "asked of an action a newer build no longer serves",
+      () => Promise.reject(new UnrecognizedActionError('Server Action "0" was not found on the server.')),
+      COPY.shared.failure.stale,
+    ],
+  ])("keeps the rows drawn and says so on its status line where a page is %s", async (_, answer, line) => {
     render(
       <Searched>
         <ListTable
           table={TABLE}
-          more={{ cursor: "2", load: loading(answer) }}
+          more={{ cursor: "2", query: "", load: loading(answer) }}
         />
       </Searched>,
     );
 
     await userEvent.click(screen.getByRole("button", { name: COPY.shared.loadMore }));
 
-    expect(await screen.findByText(COPY.shared.failure.unexpected)).toBeTruthy();
+    expect(await screen.findByText(line)).toBeTruthy();
     expect(screen.getByText("Sportpark Ost")).toBeTruthy();
     expect(screen.getByRole("button", { name: COPY.shared.loadMore })).toBeTruthy();
   });
 
-  // Next runs one client's actions one at a time, so a read per keystroke queues over the whole list.
-  it("sends one load for a burst of typing, once the typing pauses", async () => {
-    // Faked so the burst's gaps never depend on how busy the machine is.
-    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
-    const load = loading(answered("Sportpark Ost"));
+  // A next page read past the search would run on with rows the search left out.
+  it("reads its next page inside the search its page read from the address", async () => {
+    const load = loading(answered("Zweite Seite"));
     render(
       <Searched>
         <ListTable
           table={TABLE}
-          more={{ cursor: null, load }}
+          more={{ cursor: "2", query: "Ost", load }}
         />
       </Searched>,
     );
 
-    for (const value of ["O", "OS", "OST"]) fireEvent.change(screen.getByRole("searchbox"), { target: { value } });
-    expect(load).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByRole("button", { name: COPY.shared.loadMore }));
+    expect(load).toHaveBeenLastCalledWith({ query: "Ost", cursor: "2" });
+  });
+});
+
+describe("a list searched in its address", () => {
+  const ADDRESS = { name: "q", value: "" };
+  // Next's router, inert but for the replace each case records.
+  const ROUTER = {
+    back: () => undefined,
+    forward: () => undefined,
+    refresh: () => undefined,
+    push: () => undefined,
+    prefetch: () => undefined,
+    bfcacheId: "",
+  };
+
+  /** The field over a list searched on the server, under Next's router at `/admin/log?by=…`, its replaces recorded. */
+  function drawn(initial = "") {
+    const replace = vi.fn<(href: string, options?: { scroll?: boolean }) => void>();
+    renderUnderNext(
+      <ListQueryScope initial={initial}>
+        <ListSearchField
+          label={COPY.shared.saison}
+          address={{ ...ADDRESS, value: initial }}
+        />
+      </ListQueryScope>,
+      { router: { ...ROUTER, replace }, pathname: "/admin/log", search: "by=abc" },
+    );
+    return replace;
+  }
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  // A page read per keystroke reads the whole log for every letter, and a search left out of the address is lost on
+  // a reload and a shared link.
+  it("replaces the address once for a burst of typing, its other parameters kept", async () => {
+    // Faked so the burst's gaps never depend on how busy the machine is.
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    const replace = drawn();
+
+    for (const value of ["O", "OS", "OST "]) fireEvent.change(screen.getByRole("searchbox"), { target: { value } });
+    expect(replace).not.toHaveBeenCalled();
 
     await act(async () => vi.runOnlyPendingTimers());
 
-    expect(load).toHaveBeenCalledTimes(1);
-    expect(load).toHaveBeenCalledWith({ query: "OST", cursor: null });
+    expect(replace).toHaveBeenCalledTimes(1);
+    expect(replace).toHaveBeenCalledWith("/admin/log?by=abc&q=OST", { scroll: false });
+  });
+
+  // A field opening empty over a searched list reads as no search, and its next keystroke would drop the search.
+  it("opens on the search the address holds and takes it out when emptied", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    const replace = drawn("Birke");
+    expect(screen.getByRole<HTMLInputElement>("searchbox").value).toBe("Birke");
+
+    fireEvent.change(screen.getByRole("searchbox"), { target: { value: "" } });
+    await act(async () => vi.runOnlyPendingTimers());
+
+    expect(replace).toHaveBeenCalledWith("/admin/log?by=abc", { scroll: false });
+  });
+
+  // A filter's choice dropping the search would show the list unsearched under a field still holding the text.
+  it("keeps its search when a filter's choice replaces the address", async () => {
+    const replace = vi.fn<(href: string, options?: { scroll?: boolean }) => void>();
+    const filter = {
+      name: "type",
+      label: COPY.shared.saison,
+      all: COPY.shared.help,
+      options: [{ id: "ban", label: COPY.shared.kader }],
+      value: null,
+    };
+    renderUnderNext(<Filters filters={[filter]} />, { router: { ...ROUTER, replace }, pathname: "/admin/log", search: "q=Birke" });
+
+    // The desktop's row of selects comes first; the phone's sheet holds the same ones.
+    const [select] = screen.getAllByRole("button", { name: new RegExp(COPY.shared.saison) });
+    if (select === undefined) throw new Error("no select drawn");
+    await userEvent.click(select);
+    await userEvent.click(await screen.findByRole("option", { name: COPY.shared.kader }));
+
+    expect(replace).toHaveBeenCalledWith("/admin/log?q=Birke&type=ban", { scroll: false });
   });
 });
 
@@ -264,35 +362,5 @@ describe("Teams' tiles", () => {
 
     await userEvent.type(screen.getByRole("searchbox"), "x");
     expect(screen.getByText(COPY.shared.empty.search(COPY.page.teams))).toBeTruthy();
-  });
-});
-
-describe("a card holding a list", () => {
-  // A referee booked to a season's twenty games finds one by its clubs or its ground, as the administration's long lists
-  // are searched; a search that empties the card says so, never that nothing is booked, and says it as every searched
-  // list of the site does: the sentence alone in the list's box, the card's head gone as a table's head goes.
-  it("finds a row by its name or its words, and says so in the list's words where none holds them", async () => {
-    render(
-      <Searched>
-        <ListCard
-          title={COPY.page.spiele}
-          count={false}
-          rows={[
-            { id: "1", href: "/", name: { record: "Ahorn vs. Eiche" }, words: "Ahorn vs. Eiche Riedberg" },
-            { id: "2", href: "/", name: { record: "Linde vs. Esche" } },
-          ]}
-          empty={{ kind: "none", plural: COPY.page.spiele }}
-        />
-      </Searched>,
-    );
-
-    await userEvent.type(screen.getByRole("searchbox"), "riedberg");
-    expect(screen.getByRole("link", { name: "Ahorn vs. Eiche" })).toBeTruthy();
-    expect(screen.queryByRole("link", { name: "Linde vs. Esche" })).toBe(null);
-    expect(screen.getByRole("heading", { name: COPY.page.spiele })).toBeTruthy();
-
-    await userEvent.type(screen.getByRole("searchbox"), "x");
-    expect(screen.getByText(COPY.shared.empty.search(COPY.page.spiele))).toBeTruthy();
-    expect(screen.queryByRole("heading", { name: COPY.page.spiele })).toBe(null);
   });
 });

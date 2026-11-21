@@ -843,7 +843,6 @@ class TestAPendingApplicationsSeats:
         assert response.json()["bewerbungen"] == [
             {
                 "bewerbung_id": str(PENDING_OID),
-                "schule": PENDING_SCHULE,
                 "saison_id": ACTIVE_SAISON,
                 "seats": ["trainer", "ansprechperson"],
                 "persons": [

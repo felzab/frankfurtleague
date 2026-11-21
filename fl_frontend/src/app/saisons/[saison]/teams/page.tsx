@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { getSaisonTeams } from "@/features/saisons/queries";
@@ -12,13 +12,13 @@ import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
 
 import type { Filter } from "@/kit/Filters";
-import type { Metadata, ResolvingMetadata } from "next";
+import type { Metadata } from "next";
 
 type Props = PageProps<"/saisons/[saison]/teams">;
 
-export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return metadataFor(publicSaisonOf(params), (saison) =>
-    pageMetadata(parent, ROUTES.teams, ROUTES.teams.path(saison), { description: SERVER_COPY.description.teams(saison) }),
+    pageMetadata(ROUTES.teams, ROUTES.teams.path(saison), { description: SERVER_COPY.description.teams(saison) }),
   );
 }
 
@@ -45,7 +45,7 @@ async function readSeason(params: Props["params"], searchParams: Props["searchPa
 /**
  * Teams: the season's clubs in one alphabetical list of tiles, each naming its group under its name and opening
  * the club's page, narrowed by group, the value in the address, and by the text typed into its search field, which
- * stays on the page, as the Spielsuche narrows its matches.
+ * stays on the page.
  */
 export default function TeamsPage({ params, searchParams }: Props) {
   const season = readSeason(params, searchParams);
@@ -55,7 +55,7 @@ export default function TeamsPage({ params, searchParams }: Props) {
       filters={season.then(({ filter }) => [filter])}
       list={{
         kind: "tiles",
-        search: { label: COPY.page.teams },
+        search: { label: COPY.shared.search(COPY.page.teams) },
         content: season.then(({ saison, teams, filter }) => ({
           tiles: teams
             .filter((team) => filter.value === null || team.gruppe === filter.value)

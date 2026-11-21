@@ -7,7 +7,6 @@ from fastapi import APIRouter, Query, status
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
-from app.api.account.services import held_by_the_seat, withdraw_by_mail
 from app.api.bewerbungen.schemas import (
     FLAcceptBewerbungPayload,
     FLBewerbung,
@@ -98,8 +97,7 @@ from app.core.routing import by_id
 from app.core.transactions import transact
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from app.shared.schemas.custom import CustomObjectId
-from app.shared.schemas.einwilligung import WITHHELD_ON_A_SEAT, FLEinwilligungWithdrawalPayload
-from app.shared.schemas.literals import KONTAKT_SEATS, FLKontaktSeat
+from app.shared.schemas.literals import FLKontaktSeat
 
 # Admin-guarded, not base: an application carries three people's names, addresses, telephone numbers and dates of
 # birth, and says which schools asked and were turned down. The public router shares this prefix at base tier and
@@ -298,8 +296,10 @@ async def accept_bewerbung(
             picked_team = team_raw["_id"]
             # Two applications may name one club, so the first's acceptance reaches the second here: on the status
             # line by this code, ahead of the junction's unique index, which answers only a race.
-            entered = await saison_teams_collection.count_documents({"saison_id": saison_id, "team_id": picked_team}, limit=1, session=session)
-            refuse(find_already_entered_refusal(entered=entered > 0))
+            entered = await saison_teams_collection.find_one(
+                {"saison_id": saison_id, "team_id": picked_team}, projection={"_id": 1}, session=session
+            )
+            refuse(find_already_entered_refusal(entered=entered is not None))
             name, shorthand = str(team_raw["name"]), str(team_raw["shorthand"])
         else:
             # Judged where the picked club's standing is judged, and for that reason: a school whose own details make no
@@ -486,7 +486,6 @@ async def resend_kontakt_confirmation(
     bewerbung_id: CustomObjectId,
     seat: str,
     bewerbungen_collection: BewerbungenCollection,
-    teams_collection: TeamsCollection,
     saisons_collection: SaisonsCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
@@ -533,7 +532,7 @@ async def resend_kontakt_confirmation(
         bewerbung_raw = await pull_one_from_db(
             collection=bewerbungen_collection,
             db_filter=db_filter,
-            projection=["status", "kontakte", "confirmations", "saison_id", "schule", "team_id"],
+            projection=["status", "kontakte", "confirmations", "saison_id"],
             session=session,
         )
         seats = seats_judged_on(bewerbung_raw)
@@ -564,7 +563,6 @@ async def resend_kontakt_confirmation(
                     kontakte=bewerbung_raw["kontakte"],
                     seats=seats,
                     saison_id=str(bewerbung_raw["saison_id"]),
-                    schule=await pull_schule_name(bewerbung_raw=bewerbung_raw, teams_collection=teams_collection, session=session),
                     deadline=confirmation_deadline,
                     key=outbox_key(bewerbung_id, "resend", seats[0], nonce),
                 )
@@ -666,7 +664,6 @@ async def post_kontakt_seat(
                     kontakte=after["kontakte"],
                     seats=seats,
                     saison_id=str(bewerbung_raw["saison_id"]),
-                    schule=schule,
                     deadline=confirmation_deadline,
                     key=outbox_key(bewerbung_id, "seat", seats[0], nonce),
                 )
@@ -679,56 +676,3 @@ async def post_kontakt_seat(
     # One transaction: this write moves a person as well as a credential, so a decision landing mid-request must leave
     # neither half standing.
     return await transact(db, seat_and_mint)
-
-
-@router.post(
-    f"{by_id('bewerbung_id')}/kontakte/{{seat}}/einwilligung/withdrawal",
-    status_code=status.HTTP_204_NO_CONTENT,
-    summary="Enter a withdrawal of a contact seat's consent that its person asked for by mail",
-)
-async def withdraw_kontakt_einwilligung(
-    bewerbung_id: CustomObjectId,
-    seat: str,
-    withdrawal_data: FLEinwilligungWithdrawalPayload,
-    bewerbungen_collection: BewerbungenCollection,
-    teams_collection: TeamsCollection,
-    db: DBClient,
-    germany_now: GermanyNow,
-) -> None:
-    """Withdraw the named choices, WhatsApp and media, on every confirmed seat of this application its person holds, as their own press does.
-
-    A decided application takes it too; an accepted one holds no seat, its people being its season row's. A choice
-    already withheld stays as it is, so a second mail or a seat its person never confirmed writes nothing, and nothing
-    is ever granted.
-    """
-
-    # A 404 rather than a 422, as a malformed path id answers: the segment names no seat any application has.
-    pressed = seat_named(seat)
-    if pressed is None:
-        raise DocumentNotFoundError()
-
-    async def record(row: Mapping[str, Any], session: AsyncClientSession) -> None:
-        schule = await pull_schule_name(bewerbung_raw=row, teams_collection=teams_collection, session=session)
-        await record_act(
-            collection=bewerbungen_collection,
-            action="bewerbung.seat_einwilligung_withdrawn",
-            record_id=bewerbung_id,
-            label=schule,
-            session=session,
-        )
-
-    await withdraw_by_mail(
-        kind=Collection.BEWERBUNGEN,
-        collection=bewerbungen_collection,
-        db_filter={"_id": bewerbung_id},
-        projection={
-            "team_id": 1,
-            "schule": 1,
-            **{f"kontakte.{seat}.{field}": 1 for seat in KONTAKT_SEATS for field in ("email", "einwilligung")},
-        },
-        held_of=lambda row: held_by_the_seat(row, pressed),
-        withheld={choice: WITHHELD_ON_A_SEAT[choice] for choice in withdrawal_data.choices},
-        act=record,
-        db=db,
-        now=germany_now,
-    )

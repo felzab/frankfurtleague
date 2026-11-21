@@ -4,18 +4,17 @@ import path from "node:path";
 import { beforeEach, expect, it, vi } from "vitest";
 import { z } from "zod";
 
+import { refusal, serveBackend } from "@/test-support/backend";
+
 /** How many drains the client asked for behind the response. */
 let drains = 0;
 
 /** The status the backend answers every call with, which a case sets. */
 let status = 200;
 
-vi.doMock("@/core/config", () => ({
-  frontend_config: { API_URL: "http://backend.invalid" },
-  internalApiKeyBase: () => "base-key-double",
-  internalApiKeySystem: () => "system-key-double",
-  internalApiKeyAdmin: () => "admin-key-double",
-}));
+// Every call answered at the case's status with a refusal's coded body: each case holds the client's own reading of
+// it, whichever endpoint it calls.
+const backend = serveBackend(() => refusal("duplicate_key", { status }));
 // Next's `after`, recording rather than running what the client schedules behind the response: the real
 // `src/core/afterResponse.ts :: drainSoon` schedules each drain through it, and nothing else here does.
 vi.doMock("next/server", async (importOriginal) => ({
@@ -28,6 +27,7 @@ vi.doMock("next/server", async (importOriginal) => ({
 const { FETCH_TIMEOUT_MS, PASS_FETCH_TIMEOUT_MS, sendToBackend } = await import("./api");
 const { requestWriteMayStand, runInBackground, runWithRequestScope } = await import("./requestScope");
 const { systemKeyPassTransport, systemKeyTransport } = await import("./transport");
+const { saisonsGetTabelle } = await import("./generated/client/sdk");
 
 /** The pass's bound as the backend's deadline counts it; the backend's own tests hold the deadline's half. */
 const PASS_BOUNDS = z
@@ -39,7 +39,6 @@ const PASS_BOUNDS = z
 beforeEach(() => {
   drains = 0;
   status = 200;
-  vi.spyOn(globalThis, "fetch").mockImplementation(async () => Response.json({ error_code: "duplicate_key" }, { status }));
 });
 
 /* A pass sent under the other calls' bound is aborted at 15 s while the backend takes its rows for a minute, its writes
@@ -57,10 +56,16 @@ it("bounds a pass's call by the pass's bound and every other call by its own", a
 /* `new URL` resolves `..` before any check runs, so an id spelling it would aim an authenticated call at another
    resource with nothing failing. */
 it("refuses an endpoint the URL parser rewrote, sending nothing", async () => {
-  const sent = vi.mocked(globalThis.fetch).mock.calls.length;
-
   await expect(sendToBackend("/bewerbungen/../teams", { authType: "base" })).rejects.toThrow("does not address");
-  expect(vi.mocked(globalThis.fetch).mock.calls.length).toBe(sent);
+  expect(backend.sent).toStrictEqual([]);
+});
+
+/* `isPathAsSpelled` cannot see an id carrying a plain `/`: it survives parsing untouched and reads as a nested endpoint,
+   so the generated path builder percent-encodes every parameter before the client sees it. */
+it("keeps an id carrying a slash one path segment, by the generator's `urlEncodeParameters`", async () => {
+  await saisonsGetTabelle("2027/teams");
+
+  expect(backend.sent.map(({ path }) => path)).toStrictEqual(["/saisons/2027%2Fteams/tabelle"]);
 });
 
 /* Every mail a write owes is written in that write's own transaction, so a write that asks for no drain leaves its mail

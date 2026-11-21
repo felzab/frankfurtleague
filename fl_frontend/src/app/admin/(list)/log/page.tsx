@@ -1,4 +1,4 @@
-import { COPY } from "@/core/copy";
+import { ADMIN_COPY } from "@/core/copy/admin";
 import { actionLogGetActionLogBodyQOneMax } from "@/core/generated/zod/inputs";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
@@ -12,35 +12,45 @@ import { pageMetadata } from "@/shared/utils/metadata";
 
 import type { Filter } from "@/kit/Filters";
 import type { TableHead } from "@/kit/Table";
-import type { Metadata, ResolvingMetadata } from "next";
 
 type Props = PageProps<"/admin/log">;
 
-const WORDS = COPY.admin.actionLog;
+const WORDS = ADMIN_COPY.actionLog;
 
-export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
-  return pageMetadata(parent, ROUTES.adminActionLog, ROUTES.adminActionLog.path());
+export const metadata = pageMetadata(ROUTES.adminActionLog);
+
+/** The address parameter the search stands in, beside the filters'. */
+const SEARCH = "q";
+
+/**
+ * The search the address names, trimmed, the first where it is repeated; none for one past the bound the read takes,
+ * which only a hand-typed address holds, as a filter's hand-typed value narrows nothing.
+ */
+function searchOf(named: string | string[] | undefined): string {
+  const value = (Array.isArray(named) ? named[0] : named)?.trim() ?? "";
+  return value.length > actionLogGetActionLogBodyQOneMax ? "" : value;
 }
 
-/** The first page inside the address's filters, and those filters as the toolbar and every later read take them. */
-async function readLog(searchParams: Props["searchParams"]) {
-  const named = await searchParams;
+/** The first page inside the address's search and filters, and the filters as the toolbar and every later read take them. */
+async function readLog(named: Awaited<Props["searchParams"]>, q: string) {
   const type = filterValue(named.type, TYPE_OPTIONS);
   const time = filterValue(named.time, PERIOD_OPTIONS);
+  // The read's own spelling: no search is `null`, never the empty text.
+  const searched = { q: q === "" ? null : q };
   // Beside the options where the address names no „Wer“: a chosen one waits on them, as the address holds only the
   // option's digest and the options alone turn it back into the `by` the log is read by.
   const [{ by_options: held }, unfiltered] = await Promise.all([
     getActionLogByOptions(),
-    named.by === undefined ? getActionLog(logParams({ type, time })) : null,
+    named.by === undefined ? getActionLog({ ...logParams({ type, time }), ...searched }) : null,
   ]);
   const options = byOptions(held);
   const who = filterValue(named.by, options);
   const by = byOf(held, who);
-  const page = unfiltered ?? (await getActionLog(logParams({ by, type, time })));
+  const page = unfiltered ?? (await getActionLog({ ...logParams({ by, type, time }), ...searched }));
   const filters: readonly Filter[] = [
     { name: "by", label: WORDS.who, all: SERVER_COPY.season.filter.all, options, value: who },
-    { name: "type", label: COPY.admin.team.austrittType, all: SERVER_COPY.season.filter.all, options: TYPE_OPTIONS, value: type },
-    { name: "time", label: COPY.admin.saison.period, all: SERVER_COPY.season.filter.all, options: PERIOD_OPTIONS, value: time },
+    { name: "type", label: ADMIN_COPY.team.austrittType, all: SERVER_COPY.season.filter.all, options: TYPE_OPTIONS, value: type },
+    { name: "time", label: ADMIN_COPY.saison.period, all: SERVER_COPY.season.filter.all, options: PERIOD_OPTIONS, value: time },
   ];
   return { filters, page, by };
 }
@@ -57,17 +67,20 @@ const HEAD: TableHead = {
 
 /**
  * The Protokoll: the newest 50 acts, the next 50 read on request, searched on the server over the stored words and
- * narrowed by who, type and time, whose values stand in the address, so a filter's change reads the list anew.
+ * narrowed by who, type and time, the search and the filters standing in the address, so a reload and a shared link
+ * keep them and each change reads the list anew.
  */
-export default function ActionLogPage({ searchParams }: Props) {
-  const log = readLog(searchParams);
+export default async function ActionLogPage({ searchParams }: Props) {
+  const named = await searchParams;
+  const q = searchOf(named[SEARCH]);
+  const log = readLog(named, q);
   return (
     <ListPage
       head={{ scope: "area", title: { route: "adminActionLog" } }}
       filters={log.then(({ filters }) => filters)}
       list={{
         kind: "table",
-        search: { label: WORDS.search, maxLength: actionLogGetActionLogBodyQOneMax },
+        search: { label: WORDS.search, maxLength: actionLogGetActionLogBodyQOneMax, address: { name: SEARCH, value: q } },
         head: HEAD,
         content: log.then(({ filters, page, by }) => {
           const chosen = filters.flatMap(({ name, value }) => (value === null ? [] : [[name, value] as const]));
@@ -75,10 +88,15 @@ export default function ActionLogPage({ searchParams }: Props) {
             table: {
               label: ROUTES.adminActionLog.title,
               rows: page.action_log.map(rowOf),
-              empty: { kind: chosen.length === 0 ? "none" : "filter", plural: COPY.account.entries.plural, glyph: "log" } as const,
+              empty: { kind: chosen.length === 0 ? "none" : "filter", plural: WORDS.plural, glyph: "log" } as const,
             },
             // The next page's read posts what the actor's option stands for, in a body no log keeps.
-            more: { cursor: page.cursor, carry: { ...Object.fromEntries(chosen), ...(by === null ? {} : { by }) }, load: loadActionLog },
+            more: {
+              cursor: page.cursor,
+              query: q,
+              carry: { ...Object.fromEntries(chosen), ...(by === null ? {} : { by }) },
+              load: loadActionLog,
+            },
           };
         }),
       }}

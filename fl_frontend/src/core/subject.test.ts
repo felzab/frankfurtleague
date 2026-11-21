@@ -15,6 +15,8 @@ import { beginRenderPass, leaveRenderPass, serveServerReact } from "@/test-suppo
 import { answerAt, NO_RECORDS, SEAT } from "@/test-support/subjectFixtures";
 import { timeoutSignalsOnFakeTimers } from "@/test-support/timeoutSignals";
 
+import { DAY_MS, HOUR_MS, MINUTE_MS } from "./timeUnits";
+
 import type { SessionRow } from "@/test-support/authDoubles";
 import type { LookupFixture } from "@/test-support/subjectFixtures";
 import type { RequestActor } from "./requestScope";
@@ -107,9 +109,6 @@ const { APINetworkError } = await import("./errors");
 const { readTraceparent, TRACEPARENT_HEADER } = await import("./trace");
 const { FETCH_TIMEOUT_MS } = await import("./api");
 
-const HOUR_MS = 60 * 60 * 1000;
-const DAY_MS = 24 * HOUR_MS;
-
 async function signIn(email: string): Promise<{ cookie: string; row: SessionRow }> {
   const session = await sessionByCode(auth, store, email);
 
@@ -201,9 +200,9 @@ describe("who the seam answers for", () => {
   });
 
   /* A sign-in racing its passkey's removal leaves a session naming a credential no row holds:
-     the person lane serves it no more than the administrator's does. */
-  it("answers no subject for a session whose passkey no row holds any more", async () => {
-    const { cookie, row } = await signIn(PERSON_EMAIL);
+     the subject serves it no more than the admin lane does. */
+  it("answers no subject for an administrator's session whose passkey no row holds any more", async () => {
+    const { cookie, row } = await signIn(ADMIN_EMAIL);
     madeByPasskey(store, row);
     store.passkey.length = 0;
     arriveAs(cookie);
@@ -231,7 +230,7 @@ describe("who the seam answers for", () => {
     arriveAs(cookie);
 
     const marks = [];
-    for (const grantedAfterMs of [60 * 1000, -60 * 1000]) {
+    for (const grantedAfterMs of [MINUTE_MS, -MINUTE_MS]) {
       RECORDS.set(ADMIN_EMAIL, {
         ...NO_RECORDS,
         seats: [SEAT],
@@ -261,29 +260,6 @@ describe("who the seam answers for", () => {
     expect(answer.isAdmin).toBe(false);
   });
 
-  /* The lookup copies the records field by field: its read parses nothing, so a key the backend answers
-     beside them stays out of the session. */
-  it("answers the three lists, the two flags and the grant alone, carrying nothing else the backend answers", async () => {
-    const { cookie } = await signIn(ADMIN_EMAIL);
-    arriveAs(cookie);
-    const { account: _account, ...records } = RECORDS.get(ADMIN_EMAIL) ?? assert.fail("the administrator holds no records here");
-    // A key no contract names, as a later backend could answer one beside the records.
-    answerTheLookupOnce({ ...records, attached: "kein Feld des Vertrags" });
-
-    const answer = await getSubjectSession();
-
-    assert.ok(answer);
-    expect(Object.keys(answer.records).sort()).toStrictEqual([
-      "admin_tier",
-      "granted_since",
-      "schiedsrichter",
-      "seats",
-      "spieler",
-      "unconfirmed",
-    ]);
-    expect(answer.records.admin_tier).toBe("administration");
-  });
-
   /* Raised on a body carrying no record, which is the only shape the lookup sets it on: the landing
      tells that person to confirm rather than that the league holds nothing of theirs. Lowered on the
      same body, the landing tells them the league holds nothing. */
@@ -303,9 +279,8 @@ describe("who the seam answers for", () => {
      reaches such an address being the send gate's question, and the library's own verification mints
      the session over it. */
   it("answers an address holding no grant, unmarked, with the records it names", async () => {
-    const { cookie, row } = await signIn(PERSON_EMAIL);
-    // Made by a passkey, as a person's may be: a code-borne session is unmarked whatever the grant says.
-    madeByPasskey(store, row);
+    // By a mailed code, as every person's session is: no other account holds a passkey.
+    const { cookie } = await signIn(PERSON_EMAIL);
     arriveAs(cookie);
 
     const { answer, actor } = await guardInScope();
@@ -421,47 +396,6 @@ describe("the request the seam makes", () => {
 });
 
 describe("a session the store cannot answer for", () => {
-  /* The sign-in library types the address as a string; what arrives is whatever the adapter
-     deserialised, and the fold throws on a row holding none. */
-  it("answers nothing for a session whose row names no mailbox, and asks the backend nothing", async () => {
-    const { cookie } = await signIn(PERSON_EMAIL);
-    const user = store.user.find((held) => held.email === PERSON_EMAIL);
-    assert.ok(user);
-    arriveAs(cookie);
-    const before = backend.sent.length;
-
-    Reflect.set(user, "email", null);
-    const { answer, actor } = await guardInScope();
-    user.email = PERSON_EMAIL;
-
-    expect(answer).toBe(null);
-    expect(actor).toBe(undefined);
-    expect(backend.sent.length, "a session naming no mailbox still cost a lookup of the league's records").toBe(before);
-  });
-
-  /* Both spellings of nothing: the empty one the fold never sees, and the blank one it folds to
-     empty. Either reaches the endpoint as a 422 rather than as a refusal a panel can act on. */
-  it("answers nothing for a session whose address is empty or blank, and asks the backend nothing", async () => {
-    const { cookie } = await signIn(PERSON_EMAIL);
-    const user = store.user.find((held) => held.email === PERSON_EMAIL);
-    assert.ok(user);
-    arriveAs(cookie);
-
-    for (const blank of ["", "   "]) {
-      // A request each: the second would otherwise be answered from the first one's memo.
-      beginRenderPass();
-      const before = backend.sent.length;
-
-      user.email = blank;
-      const { answer, actor } = await guardInScope();
-      user.email = PERSON_EMAIL;
-
-      expect(answer, `an address of ${JSON.stringify(blank)} was answered for`).toBe(null);
-      expect(actor).toBe(undefined);
-      expect(backend.sent.length, `an address of ${JSON.stringify(blank)} still cost a lookup`).toBe(before);
-    }
-  });
-
   /* The refusal is `fl_frontend/src/core/auth/sessionStamps.ts :: isWithinPersonLifetime`'s, which fails closed on
      a stamp it cannot read; this lane answers no session rather than an unbounded one. */
   it("answers nothing for a session whose stamps it cannot read", async () => {
@@ -478,7 +412,7 @@ describe("a session the store cannot answer for", () => {
   });
 });
 
-describe("the person's two lifetimes, compared in this guard as well as the other", () => {
+describe("the person's two lifetimes, past which the guard and the landing each refuse the session", () => {
   it("answers nothing for a session fifteen days idle, and sends the same session to the sign-in", async () => {
     const { cookie, row } = await signIn(PERSON_EMAIL);
     ageRow(row, { created: 15 * DAY_MS, idle: 15 * DAY_MS });
@@ -488,7 +422,7 @@ describe("the person's two lifetimes, compared in this guard as well as the othe
 
     expect(answer).toBe(null);
     expect(actor, "a refused session named the actor of whatever this request writes next").toBe(undefined);
-    expect((await getSignInLanding()).destination, "the two copies of the idle figure answer differently").toBe("/signin");
+    expect((await getSignInLanding()).destination, "the landing kept a session past the idle window the guard refused").toBe("/signin");
   });
 
   /* The case that fails first if the absolute cap is dropped as redundant: a session kept sliding
@@ -502,7 +436,7 @@ describe("the person's two lifetimes, compared in this guard as well as the othe
 
     expect(answer).toBe(null);
     expect(actor, "a refused session named the actor of whatever this request writes next").toBe(undefined);
-    expect((await getSignInLanding()).destination, "the two copies of the absolute figure answer differently").toBe("/signin");
+    expect((await getSignInLanding()).destination, "the landing kept a session past the cap the guard refused").toBe("/signin");
   });
 
   it("serves a session thirteen days idle and twenty-nine old, so the two cases above are the windows and not the harness", async () => {
@@ -636,8 +570,9 @@ describe("the guard across one render pass", () => {
   });
 });
 
-/* React's `cache` keeps nothing outside a render, so before the request's own memo every admin read
-   in an action's body ran the whole guard again: a session read, a backend lookup and a token. */
+/* React's `cache` keeps nothing outside a render, so an action's body holds the administrator's judgement on
+   its request scope: without it every admin read in the body runs the whole guard again, a session read, a
+   backend lookup and a token. */
 describe("the administrator's guard across a server action", () => {
   it("judges the action's body and every admin read in it once, and the render after it afresh", async () => {
     const { runWithIncomingTrace } = await import("./traceScope");

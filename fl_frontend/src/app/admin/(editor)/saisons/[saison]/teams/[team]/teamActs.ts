@@ -2,8 +2,8 @@
 
 import { z } from "zod";
 
-import { action, blankIsNull, numberBox } from "@/core/action";
-import { COPY } from "@/core/copy";
+import { action, blankIsNull, numberBox, PAGE_HOLDER } from "@/core/action";
+import { ADMIN_COPY } from "@/core/copy/admin";
 import {
   teamsDeleteTeam,
   teamsPutAustritt,
@@ -20,12 +20,9 @@ import {
   TeamsReactivateTeamParams,
   TeamsResendKontaktConfirmationParams,
 } from "@/core/generated/zod/inputs";
+import { SERVER_COPY } from "@/core/serverCopy";
 
-const SEAT_EXAMPLES = {
-  first_name: COPY.shared.field.exampleFirstName,
-  last_name: COPY.shared.field.exampleLastName,
-  phone: COPY.admin.schiedsrichter.phoneExample,
-};
+const CLOSED = SERVER_COPY.closedDialog;
 
 /**
  * Takes the club out of the league from its editor's danger box: it stays on the seasons it played and no new season
@@ -62,8 +59,7 @@ export const recordAustritt = action({
   lane: "admin",
   name: "recordAustritt",
   input: TeamsPutAustrittBody.extend(TeamsPutAustrittParams.shape),
-  ownWords: ["austritt_before_saison_start", "saison_past"],
-  paths: { date: "date" },
+  boxes: ["date"],
   run: async ({ team_id, saison_id, ...austritt }) => {
     await teamsPutAustritt(team_id, saison_id, austritt);
     return { ok: true, value: undefined };
@@ -71,12 +67,14 @@ export const recordAustritt = action({
 });
 
 /**
- * „Sitz bearbeiten“: writes the person one seat holds on the row's version the dialog read, by the seat's state, and
- * where the seat takes another person mails them a fresh link, the line naming where it went, the dialog then standing
- * open on it. The Trainer's box says which other seat they hold.
+ * „Sitz bearbeiten“, behind the passkey touch: writes the person one seat holds on the row's version the dialog read,
+ * by the seat's state, and where the seat takes another person mails them a fresh link, the toast naming where it went.
+ * The Trainer's box says which other seat they hold. The dialog has closed before any answer, so every refusal is a
+ * sentence naming its box (`boxless`).
  */
 export const writeSeat = action({
   lane: "admin",
+  passkey: true,
   name: "writeSeat",
   input: z.object({
     ...TeamsPutKontaktSeatParams.shape,
@@ -86,13 +84,18 @@ export const writeSeat = action({
     phone: TeamsPutKontaktSeatBody.shape.phone,
     trainer_is_also: blankIsNull(TeamsPutKontaktSeatBody.shape.trainer_is_also),
     version: numberBox(TeamsPutKontaktSeatBody.shape.version),
+    ...PAGE_HOLDER,
   }),
-  ownWords: ["kontakt_email_taken", "kontakt_phone_taken", "email_not_accepted"],
-  paths: { email: "email", phone: "phone" },
-  examples: SEAT_EXAMPLES,
-  run: async ({ team_id, saison_id, seat, ...person }) => {
+  boxless: {
+    first_name: { required: CLOSED.firstNameMissing, value: CLOSED.format.firstName },
+    last_name: { required: CLOSED.lastNameMissing, value: CLOSED.format.lastName },
+    email: { value: CLOSED.format.address, email_not_accepted: CLOSED.format.address, kontakt_email_taken: CLOSED.taken.address },
+    phone: { value: CLOSED.format.phone, kontakt_phone_taken: CLOSED.taken.phone },
+  },
+  // The holder is the touch's to judge, and no field of the seat's body.
+  run: async ({ team_id, saison_id, seat, holder: _holder, ...person }) => {
     const { email } = await teamsPutKontaktSeat(team_id, saison_id, seat, person);
-    return email === null ? { ok: true, value: undefined } : { ok: true, value: undefined, note: COPY.admin.schiedsrichter.sentTo(email) };
+    return email === null ? { ok: true, value: undefined } : { ok: true, value: undefined, note: ADMIN_COPY.schiedsrichter.sentTo(email) };
   },
 });
 

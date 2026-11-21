@@ -17,10 +17,11 @@ import { Heading } from "react-aria-components/Heading";
 
 import { Segments } from "./dateParts";
 import { FieldLabel, MessageLine, useFieldLock } from "./FieldParts";
-import { calendarCell, calendarHead, fieldButton, fieldFrame, fieldRoot, menuPopover, monthArrow } from "./fieldStyles";
+import { calendarCell, calendarHead, fieldButton, fieldFrame, fieldRoot, monthArrow } from "./fieldStyles";
 import { Icon } from "./Icon";
+import { menuPopover } from "./menuStyles";
 
-import type { Copy } from "@/core/copy";
+import type { Copy, Words } from "@/core/copy";
 import type { CalendarDay } from "@/core/format";
 import type { CalendarDate } from "@internationalized/date";
 
@@ -31,7 +32,6 @@ const toDay = (date: CalendarDate | null): CalendarDay | null =>
 const fromDay = (day: CalendarDay | null | undefined): CalendarDate | null | undefined =>
   day === null || day === undefined ? day : parseDate(day);
 
-/** The month a date's calendar button opens, under the field. */
 function MonthCalendar() {
   return (
     <Calendar
@@ -75,9 +75,8 @@ function MonthCalendar() {
 }
 
 /**
- * Enter a date: segmented in German order, with the calendar button beside it, the field as wide as a date's figures
- * and its button. The value is the stored `YYYY-MM-DD` day, so no page handles a date library's objects; a form
- * receives the same string.
+ * Enter a date: segmented in German order, with the calendar button beside it. The value is the stored `YYYY-MM-DD`
+ * day, so no page handles a date library's objects; a form receives the same string.
  */
 export function DateField({
   label,
@@ -93,7 +92,7 @@ export function DateField({
   minValue,
   maxValue,
 }: {
-  label: Copy;
+  label: Words;
   description?: Copy;
   consequence?: Copy;
   isRequired?: boolean;
@@ -109,7 +108,7 @@ export function DateField({
   /** The latest day the field takes: the calendar offers none after it, and a later one reads „Spätestens …“. */
   maxValue?: CalendarDay;
 }) {
-  const lock = useFieldLock(isDisabled, isLocked, isRequired);
+  const lock = useFieldLock(isLocked, isRequired);
   return (
     <DatePicker<CalendarDate>
       className={fieldRoot()}
@@ -122,7 +121,7 @@ export function DateField({
       // The day and the month keep their leading zero, „03.04.2027“, as the site prints a date.
       shouldForceLeadingZeros
       isRequired={lock.isRequired}
-      isDisabled={lock.isDisabled}
+      isDisabled={isDisabled}
       isReadOnly={lock.isReadOnly}>
       <FieldLabel
         label={label}

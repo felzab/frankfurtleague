@@ -2,20 +2,21 @@
 
 import { useState } from "react";
 
-import { COPY } from "@/core/copy";
-import { SHORTHAND_LENGTH } from "@/features/bewerbungen/constants";
+import { ADMIN_COPY } from "@/core/copy/admin";
+import { COPY } from "@/core/copy/shared";
+import { SHORTHAND_LENGTH } from "@/features/teams/constants";
 import { schulformOptions } from "@/features/teams/options";
 import { AddressFields } from "@/kit/AddressFields";
 import { FieldGroup } from "@/kit/FieldGroup";
 import { Select } from "@/kit/Select";
 import { TextField } from "@/kit/TextField";
 
-import { NEW_CLUB } from "./newClub";
+import { NEW_TEAM } from "./newTeam";
 
 import type { TeamRules } from "@/features/teams/fieldRules";
 import type { Option } from "@/kit/OptionList";
 
-const WORDS = COPY.admin.team;
+const WORDS = ADMIN_COPY.team;
 
 /**
  * „Team eintragen“'s inputs: a club the league knows, or, as the select's last entry, a new school, whose own fields
@@ -24,36 +25,36 @@ const WORDS = COPY.admin.team;
  */
 export function TeamEntryFields({
   saison,
-  clubs,
+  teams,
   gruppen,
   colours,
   rules,
-  clubRequired,
+  teamRequired,
 }: {
   saison: string;
   /** Every club still in the league holding no row of the season. */
-  clubs: readonly Option[];
+  teams: readonly Option[];
   gruppen: readonly Option[];
   colours: readonly Option[];
   rules: TeamRules;
-  clubRequired: boolean;
+  teamRequired: boolean;
 }) {
   // A league knowing no other club has one way to enter a team.
-  const [club, setClub] = useState<string | null>(clubs.length === 0 ? NEW_CLUB : null);
+  const [team, setTeam] = useState<string | null>(teams.length === 0 ? NEW_TEAM : null);
   const { required, max, address } = rules;
   return (
     <>
       <Select
         label={COPY.shared.facts.team}
-        name="club"
-        isRequired={clubRequired}
+        name="team"
+        isRequired={teamRequired}
         description={WORDS.enterDescription}
-        options={[...clubs, { id: NEW_CLUB, label: COPY.admin.bewerbung.newSchool }]}
-        value={club}
-        onChange={setClub}
+        options={[...teams, { id: NEW_TEAM, label: ADMIN_COPY.bewerbung.newSchool }]}
+        value={team}
+        onChange={setTeam}
       />
-      {club === NEW_CLUB && (
-        <FieldGroup name={COPY.admin.bewerbung.newSchool}>
+      {team === NEW_TEAM && (
+        <FieldGroup name={ADMIN_COPY.bewerbung.newSchool}>
           <TextField
             label={COPY.shared.name}
             name="name"
@@ -84,7 +85,7 @@ export function TeamEntryFields({
             options={schulformOptions()}
             defaultValue=""
           />
-          <FieldGroup name={COPY.admin.spielort.address}>
+          <FieldGroup name={COPY.shared.address.title}>
             <AddressFields rules={address} />
           </FieldGroup>
           <TextField

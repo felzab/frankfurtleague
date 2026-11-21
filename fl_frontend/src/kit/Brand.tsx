@@ -1,4 +1,4 @@
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 import { ROUTES } from "@/core/routes";
 
 import { FLLogo } from "./FLLogo";
@@ -17,11 +17,13 @@ const brand = tv({
     ground: {
       // The dark-green band at the top of every frame: the mark in the accent green, the only place it goes.
       // The wordmark gives way to the mark alone where the band runs short, as at 200 % text, and in the
-      // rail collapsed to its glyphs, where the mark takes a 24-px box so the rail head's 24-px inset
-      // centres it in the 72-px rail; `lg:`, since the same band heads a phone's frame. On a touch screen the link is
-      // the kit's 40-px control at least, its content centred in it.
+      // rail collapsed to its glyphs, where the mark takes a 24-px box, which under a mouse is the whole link, so the
+      // rail head's 24-px inset centres it in the 72-px rail; `lg:`, since the same band heads a phone's frame. On a
+      // touch screen the link is the kit's 40-px control at least, its content centred in it, so in the collapsed rail
+      // it stands 8 px into the inset, the box and the mark in it centred. The head keeps its inset for an area's way
+      // back, whose words are wider than the collapsed rail.
       band: {
-        root: "justify-center pointer-coarse:h-10 pointer-coarse:min-w-10",
+        root: "justify-center pointer-coarse:h-10 pointer-coarse:min-w-10 lg:group-data-collapsed:pointer-coarse:-ms-2",
         mark: "text-brand-accent lg:group-data-collapsed:w-6",
         wordmark: "text-on-brand lg:group-data-collapsed:hidden @max-[22rem]:hidden",
       },

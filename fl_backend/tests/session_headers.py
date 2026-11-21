@@ -16,7 +16,6 @@ from app.core.security import (
     PASSKEY_FACTOR,
     FLAuthFactor,
     SessionActor,
-    actor_header_value,
 )
 
 Lane = Literal["admin", "person"]
@@ -32,8 +31,7 @@ def factor_of(lane: Lane) -> FLAuthFactor:
 
 
 def session_headers(email: str, *, auth_time: int, factor: FLAuthFactor) -> dict[str, str]:
-    # Encoded as the frontend sends it, so an address beyond ASCII reaches the binder as one would in production.
-    return {ACTOR_HEADER: actor_header_value(email), AUTH_TIME_HEADER: str(auth_time), AUTH_FACTOR_HEADER: factor}
+    return {ACTOR_HEADER: email, AUTH_TIME_HEADER: str(auth_time), AUTH_FACTOR_HEADER: factor}
 
 
 def actor_headers(
@@ -44,10 +42,12 @@ def actor_headers(
     return session_headers(email, auth_time=int(time.time()) - signed_in_before_s, factor=factor or factor_of(lane))
 
 
-def verified_actor(email: str, *, signed_in_before_s: int = SESSION_AGE_S, factor: FLAuthFactor = PASSKEY_FACTOR) -> SessionActor:
-    """An administrator's session as the binder reads it, for a handler called without a request."""
+def verified_actor(
+    email: str, *, lane: Lane = "admin", signed_in_before_s: int = SESSION_AGE_S, factor: FLAuthFactor | None = None
+) -> SessionActor:
+    """A session as the binder reads it, for a handler called without a request, by `lane`'s factor unless `factor` names another."""
 
-    return SessionActor(email=email, auth_time=int(time.time()) - signed_in_before_s, factor=factor)
+    return SessionActor(email=email, auth_time=int(time.time()) - signed_in_before_s, factor=factor or factor_of(lane))
 
 
 class StampedHeaders(Mapping[str, str]):

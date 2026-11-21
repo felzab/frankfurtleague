@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { IDEMPOTENCY_KEY_HEADER } from "@/core/idempotencyKey";
+import { IDEMPOTENCY_KEY_FIELD, IDEMPOTENCY_KEY_HEADER } from "@/core/idempotencyKey";
 import { ROUTES } from "@/core/routes";
 import { TURNSTILE_FIELD } from "@/core/turnstileToken";
 import { serveBackend, serveHost } from "@/test-support/backend";
@@ -28,9 +28,8 @@ const backend = serveBackend(({ method, path }) =>
 );
 doubleNextRequest();
 
-// Both after the doubles: the page's module reads the link's view through the generated client too.
+// After the doubles: the action reads the link's view through the generated client.
 const { submitRegistrierung } = await import("./submitRegistrierung");
-const { REPLAY_FIELD } = await import("./invitation");
 
 const KEY = "3f2b8c1e-7a4d-4e6f-9b1a-2c3d4e5f6a7b";
 const TOKEN = "not-a-real-token";
@@ -39,7 +38,7 @@ const TOKEN = "not-a-real-token";
 const BOXES: Readonly<Record<string, string>> = {
   act: "primary",
   token: TOKEN,
-  [REPLAY_FIELD]: KEY,
+  [IDEMPOTENCY_KEY_FIELD]: KEY,
   [TURNSTILE_FIELD]: BOT_CHECK_TOKEN,
   first_name: "Mia",
   last_name: "Sommer",

@@ -3,7 +3,7 @@
 import { z } from "zod";
 
 import { action, blankIsNull } from "@/core/action";
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 import { spielerPatchSpielerSaison } from "@/core/generated/client/sdk";
 import { SpielerPatchSpielerSaisonBody, SpielerPatchSpielerSaisonParams } from "@/core/generated/zod/inputs";
 import { getSpielerSaison } from "@/features/spieler/queries";
@@ -46,8 +46,6 @@ export const saveSpieler = action({
   lane: "admin",
   name: "saveSpieler",
   input: SaveSpieler,
-  ownWords: ["kader_rolle_taken"],
-  paths: { rolle: "changes.rolle" },
   examples: {
     "changes.first_name": COPY.shared.field.exampleFirstName,
     "changes.last_name": COPY.shared.field.exampleLastName,

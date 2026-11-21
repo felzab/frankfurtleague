@@ -1,5 +1,5 @@
 import { requires } from "@/core/action";
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 import {
   BanListPostBanListEntryBody,
   banListPostBanListEntryBodyBanReasonMax,
@@ -10,23 +10,23 @@ import { TextField } from "@/kit/TextField";
 
 /**
  * The ban dialog's inputs: the address and the Grund, which a mail hands to the address, so it holds no names. Drawn on
- * the server, so the schema never reaches the browser.
+ * the server.
  */
 export function BanFields() {
   return (
     <>
       <TextField
-        label={COPY.signIn.address}
+        label={COPY.shared.emailAddress}
         name="email"
         kind="email"
         isRequired={requires(SignInPayloadSchema.shape.email, "")}
         maxLength={banListPostBanListEntryBodyEmailMax}
       />
       <TextField
-        label={COPY.admin.spiel.reason}
+        label={COPY.shared.reason}
         name="ban_reason"
         kind="text"
-        description={COPY.admin.noNames}
+        description={COPY.shared.noNames}
         isRequired={requires(BanListPostBanListEntryBody.shape.ban_reason, "")}
         maxLength={banListPostBanListEntryBodyBanReasonMax}
       />

@@ -1,20 +1,20 @@
 import { connection } from "next/server";
 
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 import { dayOf } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
+import { TO_HOME } from "@/kit/mailedLinkState";
 import { MailedPage } from "@/kit/MailedPage";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
 
 import { readLanding } from "../landing";
-import { TO_HOME } from "./[saison]/ends";
 import { formStateOf, readForm } from "./[saison]/form";
 
 import type { FLLandingResponse } from "@/core/generated/client/types";
 import type { MailedState } from "@/kit/MailedPage";
-import type { Metadata, ResolvingMetadata } from "next";
+import type { Metadata } from "next";
 
 const WORDS = SERVER_COPY.bewerbung.end;
 
@@ -27,11 +27,11 @@ async function readOnRequest(): Promise<FLLandingResponse> {
   return readLanding();
 }
 
-export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
+export async function generateMetadata(): Promise<Metadata> {
   const row = ROUTES.bewerbungRoot;
   // The seasoned address's title while a season's form stands here, the footer's word while none does.
   return metadataFor(readOnRequest(), ({ bewerbung_window: window }) =>
-    pageMetadata(parent, row, row.path(), { title: window === null ? COPY.template.bewerbung : row.title(window.saison_id) }),
+    pageMetadata(row, { title: window === null ? COPY.template.bewerbung : row.title(window.saison_id) }),
   );
 }
 
@@ -40,8 +40,8 @@ async function readState(): Promise<MailedState> {
   // The season's own read judges its window, so a window the cached landing still names as running reads as it stands.
   const form = window === null ? null : await readForm(window.saison_id);
   if (window !== null && form !== null) return formStateOf(window.saison_id, form);
-  // An upcoming window's card in the season's address's and the landing's band's words; a closed one's in the season's
-  // address's, which open the band's sentence: a card's title holds no second sentence to send a school to next season.
+  // An upcoming window's card in the season's address's and the landing's band's words, a closed one's in the season's
+  // address's.
   return { state: "end", tone: "info", title: opensOn === null ? WORDS.closed : WORDS.opensOn(dayOf(opensOn)), next: TO_HOME };
 }
 

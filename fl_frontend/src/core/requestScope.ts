@@ -2,6 +2,7 @@ import { AsyncLocalStorage } from "node:async_hooks";
 
 import { cache } from "react";
 
+import type { AdminJudgement } from "./auth/guards";
 import type { AuthFactor } from "./auth/sessionStamps";
 
 // Under nginx's default `proxy_read_timeout` of 60 s by the proxy's session reads before this scope
@@ -13,7 +14,7 @@ export const REQUEST_DEADLINE_MS = 30000;
  * As long as a request's own, counted from when `runBehindTheResponse` starts: its work is a request's half
  * moved behind the answer, sending the same calls. A stopping container waits out both.
  */
-export const AFTER_RESPONSE_DEADLINE_MS = 30000;
+const AFTER_RESPONSE_DEADLINE_MS = REQUEST_DEADLINE_MS;
 
 /** Which guard recorded the actor: the administrator's, or a person's. */
 export type ActorLane = "admin" | "person";
@@ -34,8 +35,8 @@ interface RequestScope {
   // action builder clears the site's cache tag by it, where an action declaring its writes would repeat what each call
   // already says.
   standing: { writes: number };
-  // `oncePerRequest`'s reads, by the function each wraps.
-  memo: Map<() => Promise<unknown>, Promise<unknown>>;
+  // The administrator's guard's judgement of this request, once it has judged.
+  adminJudgement?: Promise<AdminJudgement>;
   // Set on a background pass's scope, the scheduler's and the Postausgang's drain: its writes are drained by the pass
   // itself, never behind a response it has not got.
   background: boolean;
@@ -48,7 +49,7 @@ const storage = new AsyncLocalStorage<RequestScope>();
 // its request.
 const scopeOfThisRender = cache((): { scope?: RequestScope } => ({}));
 
-export function runWithRequestScope<T>(scope: Pick<RequestScope, "traceId" | "actor">, fn: () => Promise<T>): Promise<T> {
+export function runWithRequestScope<T>(scope: Pick<RequestScope, "traceId">, fn: () => Promise<T>): Promise<T> {
   // One request, one scope: a slice's read opens one inside the action awaiting it, and a scope of its
   // own there would restart the deadline and drop the actor the guard recorded.
   if (storage.getStore() !== undefined) return fn();
@@ -58,7 +59,6 @@ export function runWithRequestScope<T>(scope: Pick<RequestScope, "traceId" | "ac
     ...scope,
     deadlineAt: performance.now() + REQUEST_DEADLINE_MS,
     standing: { writes: 0 },
-    memo: new Map(),
     background: false,
   };
 
@@ -66,21 +66,16 @@ export function runWithRequestScope<T>(scope: Pick<RequestScope, "traceId" | "ac
 }
 
 /**
- * `fn` read once per request scope, and afresh outside one: React's `cache` keeps nothing in a server
- * action or a route handler. The render after an action opens a scope of its own, so it reads again.
+ * The administrator's guard's judgement, `judge` run once per request scope and afresh outside one: React's `cache`
+ * keeps nothing in a server action or a route handler. The render after an action opens a scope of its own, so it
+ * judges again.
  */
-export function oncePerRequest<T>(fn: () => Promise<T>): () => Promise<T> {
-  return () => {
-    const store = storage.getStore();
-    if (store === undefined) return fn();
+export function judgedOncePerRequest(judge: () => Promise<AdminJudgement>): Promise<AdminJudgement> {
+  const store = storage.getStore();
+  if (store === undefined) return judge();
 
-    const held = store.memo.get(fn) as Promise<T> | undefined;
-    if (held !== undefined) return held;
-
-    const read = fn();
-    store.memo.set(fn, read);
-    return read;
-  };
+  store.adminJudgement ??= judge();
+  return store.adminJudgement;
 }
 
 /**
@@ -92,7 +87,6 @@ export function runBehindTheResponse(traceId: string, work: () => Promise<void>)
     traceId,
     deadlineAt: performance.now() + AFTER_RESPONSE_DEADLINE_MS,
     standing: { writes: 0 },
-    memo: new Map(),
     background: false,
   };
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -116,7 +110,6 @@ export function runInBackground<T>(traceId: string, pass: () => Promise<T>): Pro
     traceId,
     deadlineAt: Infinity,
     standing: { writes: 0 },
-    memo: new Map(),
     background: true,
   };
 
@@ -128,7 +121,7 @@ export function inBackground(): boolean {
 }
 
 /** What is left of the request's deadline: unbounded outside a scope, where a cache fill and a timer's pass run. */
-export function requestTimeLeft(): number {
+function requestTimeLeft(): number {
   const store = storage.getStore();
 
   return store === undefined ? Infinity : store.deadlineAt - performance.now();

@@ -31,7 +31,6 @@ import {
 
 import type { AddressRules } from "@/kit/AddressFields";
 
-/** Read on the server so its schema never reaches the browser. */
 export type TeamRules = {
   required: Readonly<Record<"name" | "shorthand" | "full_name", boolean>>;
   /** The season's row, which an editor of a retired club never sends. */
@@ -68,7 +67,7 @@ export const TEAM_ENTRY_RULES: TeamRules = {
   },
   address: {
     required: addressRequiredOf(ENTERED),
-    maxLength: {
+    max: {
       street: teamsPostTeamEntryBodyTeamTwoTeamAddressStreetMax,
       house_number: teamsPostTeamEntryBodyTeamTwoTeamAddressHouseNumberMax,
       district: teamsPostTeamEntryBodyTeamTwoTeamAddressDistrictMax,
@@ -88,7 +87,7 @@ export const TEAM_SAVE_RULES: TeamRules = {
   },
   address: {
     required: addressRequiredOf(TeamsPatchTeamSaisonBody.shape),
-    maxLength: {
+    max: {
       street: teamsPatchTeamSaisonBodyAddressStreetMax,
       house_number: teamsPatchTeamSaisonBodyAddressHouseNumberMax,
       district: teamsPatchTeamSaisonBodyAddressDistrictMax,
@@ -99,7 +98,7 @@ export const TEAM_SAVE_RULES: TeamRules = {
 };
 
 /** Whether the entry asks for a club, its select posting an id or the new school's entry. */
-export const TEAM_CLUB_REQUIRED = requires(TeamsPostTeamEntryBody.shape.team.options[0].shape.team_id, "");
+export const TEAM_ENTRY_TEAM_REQUIRED = requires(TeamsPostTeamEntryBody.shape.team.options[0].shape.team_id, "");
 
 /** The description's bound, the one box only the editor shows. */
 export const TEAM_DESCRIPTION_MAX = teamsPatchTeamSaisonBodyDescriptionMax;
@@ -126,7 +125,7 @@ export const AUSTRITT_RULES = {
     reason: requires(TeamsPutAustrittBody.shape.reason, ""),
     date: requires(TeamsPutAustrittBody.shape.date, null),
   },
-  reasonMax: teamsPutAustrittBodyReasonMax,
+  max: { reason: teamsPutAustrittBodyReasonMax },
 };
 
 export type AustrittRules = typeof AUSTRITT_RULES;

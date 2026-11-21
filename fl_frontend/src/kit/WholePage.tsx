@@ -1,14 +1,15 @@
 "use client";
 
-// Imports nothing of the kit's but `tv`, which imports no kit module: every kit module drawing a link takes
-// `NavigationLink` from here, and a kit module this one imported could close a cycle through one of them, whose module
-// would then be read before it is defined.
+// Imports nothing of the kit's but `tv` and `LeaveGuard`, which import no kit module: every kit module drawing a link
+// takes `NavigationLink` from here, and a kit module this one imported could close a cycle through one of them, whose
+// module would then be read before it is defined.
 import { createContext, startTransition, useContext, useEffect, useOptimistic, useState } from "react";
 import NextLink from "next/link";
 import { useRouter } from "next/navigation";
 
 import { ROUTES } from "@/core/routes";
 
+import { useAskToLeave } from "./LeaveGuard";
 import { tv } from "./tv";
 
 import type { ComponentProps, ReactNode } from "react";
@@ -28,7 +29,17 @@ type Navigation = {
   /** Whether the pending navigation has lasted `SHOWN_AFTER`, from when the sign shows until the commit. */
   shown: boolean;
   navigate: (href: string, options?: NavigateOptions) => void;
+  /**
+   * The last page of an area, the administration's or a Funktion's, a client navigation left, its query kept: where
+   * Konto, which every area's account menu opens, leads back to. React state alone, gone after a reload.
+   */
+  leftArea: string | null;
 };
+
+/** The areas Konto is opened from, by the address each lies under. */
+const AREAS = [ROUTES.admin.path(), ROUTES.area.path()];
+
+const inArea = (path: string) => AREAS.some((area) => path === area || path.startsWith(`${area}/`));
 
 /**
  * How long a navigation is pending before its sign shows: the fast ones, most of them, end sooner and show nothing, as
@@ -38,6 +49,13 @@ const SHOWN_AFTER = 200;
 
 const NavigationContext = createContext<Navigation | null>(null);
 
+/** A navigation to `href` from the page it is pressed on, its address resolved as the browser resolves a link's. */
+function pendingTo(href: string): Pending {
+  const from = new URL(window.location.href);
+  const url = new URL(href, from);
+  return { href: `${url.pathname}${url.search}${url.hash}`, path: url.pathname, search: url.search, from };
+}
+
 /**
  * The pages under it, with no boundary above them. A page opened by address is one document, which the server sends
  * once it has rendered the whole page. The browser paints it whole once its body is parsed where it honours the root
@@ -46,29 +64,31 @@ const NavigationContext = createContext<Navigation | null>(null);
  * draws the segment's not-found or error page once the page's code runs. A client navigation keeps the page it leaves
  * until the new one is complete: Next's router makes it a transition, and a transition never hides content already
  * shown. The layout placing it exports `instant = false`, which lifts Next's check that a route's prerendered shell is
- * not empty for every route; Next's development check still flags a navigation between two pages below it that blocks.
+ * not empty for every route.
  *
  * It also holds the one fact every navigating control feeds, the address a navigation is on its way to: set inside the
  * navigation's own transition as optimistic state, so React drops it in the very render that commits the new page, as
- * Next's own link status is held.
+ * Next's own link status is held. Beside it stands the last page of an area a navigation left, which Konto's way back
+ * reads, since the server rendering Konto knows only where the person's landing leads.
  */
 export function WholePages({ children }: { children: ReactNode }) {
   const router = useRouter();
   const [pending, setPending] = useOptimistic<Pending | null>(null);
+  const [leftArea, setLeftArea] = useState<string | null>(null);
   const shown = useShownAfterDelay(pending !== null);
   const navigate = (href: string, { replace = false, scroll = true }: NavigateOptions = {}) => {
-    const from = new URL(window.location.href);
-    const url = new URL(href, from);
-    const next = { href: `${url.pathname}${url.search}${url.hash}`, path: url.pathname, search: url.search, from };
+    const next = pendingTo(href);
     // A second press of the address already on its way asks nothing new of the server.
     if (next.href === pending?.href) return;
     startTransition(() => {
       setPending(next);
+      // Set in the navigation's transition, so it commits with the page the navigation goes to.
+      if (inArea(next.from.pathname)) setLeftArea(`${next.from.pathname}${next.from.search}`);
       if (replace) router.replace(href, { scroll });
       else router.push(href, { scroll });
     });
   };
-  return <NavigationContext value={{ pending, shown, navigate }}>{children}</NavigationContext>;
+  return <NavigationContext value={{ pending, shown, navigate, leftArea }}>{children}</NavigationContext>;
 }
 
 /**
@@ -100,6 +120,11 @@ export function usePressed<Href extends string>(hrefs: ReadonlyArray<Href>): Hre
     const { pathname, search } = new URL(href, pending.from);
     return pathname === pending.path && (search === "" || search === pending.search);
   });
+}
+
+/** The last page of an area a client navigation left (`leftArea`): `null` before one has, and outside `WholePages`. */
+export function useLeftArea(): string | null {
+  return useContext(NavigationContext)?.leftArea ?? null;
 }
 
 /** Whether the pending navigation stays on the page's own path, as a filter or a tab does. */
@@ -209,6 +234,10 @@ function isSignIn(href: string) {
  * Next calls for a same-site press only, cancels the link's own dispatch and makes the same one there. A press with a
  * modifier key, another site's address and a download stay the browser's. Outside `WholePages` it navigates as Next's
  * link does. It prefetches as it is told, but never the sign-in (`isSignIn`).
+ *
+ * Under `WholePages`, while an editor holds unsaved changes, a press leaving its page asks the frame's question first
+ * and goes only once the person discards them, as Next blocks a navigation for unsaved changes; one staying on the page,
+ * a tab's or the match pop-up's, keeps the draft and asks nothing (`leavesPage`).
  */
 export function NavigationLink({
   href,
@@ -218,6 +247,7 @@ export function NavigationLink({
   ...props
 }: Omit<ComponentProps<typeof NextLink>, "href" | "onNavigate"> & { href: string }) {
   const navigation = useContext(NavigationContext);
+  const ask = useAskToLeave();
   return (
     <NextLink
       {...props}
@@ -230,7 +260,9 @@ export function NavigationLink({
           ? undefined
           : (event) => {
               event.preventDefault();
-              navigation.navigate(href, { replace, scroll });
+              const leave = () => navigation.navigate(href, { replace, scroll });
+              if (ask !== null && leavesPage(pendingTo(href))) ask(leave);
+              else leave();
             }
       }
     />

@@ -150,7 +150,6 @@ async def patch_einwilligung(
             birth_dates=[person.get("birth_date") for person in held.values()],
             chosen=chosen,
             evidence_state=einwilligung_data.evidence_state.model_dump(),
-            text_versions=einwilligung_data.text_versions,
             may_give=may_give,
             today=today,
         )
@@ -306,7 +305,6 @@ async def _pull_team_spiele(
     junctions = await pull_whole_from_db(
         collection=saison_teams_collection,
         db_filter={"saison_id": saison_id, "team_id": {"$in": sorted(team_ids, key=str)}},
-        what=f"season {saison_id}'s clubs facing team {team_id}",
         projection=JUDGED_JUNCTION_FIELDS,
         session=session,
     )

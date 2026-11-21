@@ -1,7 +1,9 @@
 import { notFound } from "next/navigation";
 
+import { getAdminHolder } from "@/core/auth/guards";
 import { now } from "@/core/clock";
-import { COPY } from "@/core/copy";
+import { ADMIN_COPY } from "@/core/copy/admin";
+import { COPY } from "@/core/copy/shared";
 import { dayIn, dayOf, formatDate } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
@@ -20,12 +22,12 @@ import { TeamEditor } from "./TeamEditor";
 import { valuesOf } from "./teamValues";
 
 import type { FLTeamLinkState, FLTeamMembership, FLTeamSaisonAdminResponse } from "@/core/generated/client/types";
-import type { Metadata, ResolvingMetadata } from "next";
+import type { Metadata } from "next";
 import type { TeamRow } from "./TeamEditor";
 
 type Props = PageProps<"/admin/saisons/[saison]/teams/[team]">;
 
-const WORDS = COPY.admin.team;
+const WORDS = ADMIN_COPY.team;
 
 /** The club the address names in its season, retired or not: `null` for a malformed id and for one no record holds. */
 async function find(params: Props["params"]) {
@@ -33,22 +35,16 @@ async function find(params: Props["params"]) {
   return id === null ? null : getTeamSaisonAdmin(id, saison);
 }
 
-export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return metadataFor(find(params), ({ team, saison }) =>
-    pageMetadata(parent, ROUTES.adminTeam, ROUTES.adminTeam.path(saison.id, team.id), { title: { record: team.full_name } }),
+    pageMetadata(ROUTES.adminTeam, ROUTES.adminTeam.path(saison.id, team.id), { title: { record: team.full_name } }),
   );
-}
-
-/** The team editor, on the club's one view read in the season its address names. */
-export default async function TeamEditorPage({ params }: Props) {
-  return await readEditor(params);
 }
 
 /** The boxes of the club's row of the season, each lock read off what its write would refuse. */
 function rowOf(read: FLTeamSaisonAdminResponse, membership: FLTeamMembership, link: FLTeamLinkState): TeamRow {
   const { saison, gruppen, gruppe_locked: drawn, taken_trikot_farben: taken } = read;
   const austritt = membership.austritt;
-  const departed = austritt === null ? undefined : COPY.admin.spiel.departed;
   const stands = austritt === null ? null : COPY.shared.austritt[austritt.type];
   return {
     saisonTitle: COPY.shared.saisonName(saison.id),
@@ -63,16 +59,13 @@ function rowOf(read: FLTeamSaisonAdminResponse, membership: FLTeamMembership, li
         : [
             { label: WORDS.austrittType, value: stands.label },
             { label: WORDS.austrittFrom, value: { record: formatDate(dayOf(austritt.date)) }, figures: true },
-            { label: COPY.admin.spiel.reason, value: { record: austritt.reason } },
+            { label: COPY.shared.reason, value: { record: austritt.reason } },
           ],
     version: membership.version,
     seats: seatsOf(membership),
-    invitation: {
-      facts: linkFactsOf(link, saison),
-      live: link.invitation?.id ?? null,
-      ...(departed === undefined ? {} : { locked: departed }),
-    },
-    ...(departed === undefined ? {} : { sendLocked: departed }),
+    invitation: { facts: linkFactsOf(link, saison), live: link.invitation?.id ?? null },
+    // An exit is never lifted, so its link acts are left out, the lock line naming the exit once.
+    ...(austritt === null ? {} : { departed: true }),
     exit:
       austritt !== null
         ? null
@@ -80,13 +73,13 @@ function rowOf(read: FLTeamSaisonAdminResponse, membership: FLTeamMembership, li
             earliest: dayOf(saison.start_date),
             today: dayIn(now()),
             recipients: read.austritt_recipients,
-            ...(saison.begun ? {} : { locked: COPY.admin.untilStart }),
+            ...(saison.begun ? {} : { locked: ADMIN_COPY.untilStart }),
           },
   };
 }
 
-async function readEditor(params: Props["params"]) {
-  const read = await find(params);
+export default async function TeamEditorPage({ params }: Props) {
+  const [read, holder] = await Promise.all([find(params), getAdminHolder()]);
   if (read === null) notFound();
 
   const { team, saison, membership, link, retire_blocked_by: blocked } = read;
@@ -108,6 +101,7 @@ async function readEditor(params: Props["params"]) {
       rules={TEAM_SAVE_RULES}
       descriptionMax={TEAM_DESCRIPTION_MAX}
       seatRules={SEAT_RULES}
+      holder={holder}
       austrittRules={AUSTRITT_RULES}
       retirement={retired ? { kind: "reactivate" } : { kind: "retire", ...(blocked === null ? {} : { locked: WORDS.retireLocked }) }}
       row={row}

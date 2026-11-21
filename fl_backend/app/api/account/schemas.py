@@ -85,8 +85,6 @@ class FLAccountBewerbungSeatEinwilligung(BaseModel):
     """
 
     bewerbung_id: CustomObjectId
-    # The school as the application names it, or the picked club's own name today.
-    schule: str
     saison_id: str
     seats: list[FLKontaktSeat] = Field(min_length=1)
     persons: list[FLAccountSeatPerson] = Field(min_length=1)

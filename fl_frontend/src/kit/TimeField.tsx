@@ -7,7 +7,7 @@ import { Segments } from "./dateParts";
 import { FieldLabel, MessageLine, useFieldLock } from "./FieldParts";
 import { fieldRoot } from "./fieldStyles";
 
-import type { Copy } from "@/core/copy";
+import type { Words } from "@/core/copy";
 import type { TimeOfDay } from "@/core/format";
 import type { Time } from "@internationalized/date";
 
@@ -27,14 +27,14 @@ export function TimeField({
   defaultValue,
   onChange,
 }: {
-  label: Copy;
+  label: Words;
   isRequired?: boolean;
   name?: string;
   value?: TimeOfDay | null;
   defaultValue?: TimeOfDay | null;
   onChange?: (time: TimeOfDay | null) => void;
 }) {
-  const lock = useFieldLock(false, false, isRequired);
+  const lock = useFieldLock(false, isRequired);
   return (
     <AriaTimeField<Time>
       className={fieldRoot()}
@@ -45,7 +45,6 @@ export function TimeField({
       hourCycle={24}
       shouldForceLeadingZeros
       isRequired={lock.isRequired}
-      isDisabled={lock.isDisabled}
       isReadOnly={lock.isReadOnly}>
       <FieldLabel
         label={label}

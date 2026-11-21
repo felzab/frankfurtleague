@@ -1,11 +1,11 @@
 // @vitest-environment jsdom
 import { useState } from "react";
 
-import { screen, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 import { renderUnderNext } from "@/test-support/nextContexts";
 
 import { Lineup, lineupValue } from "./Lineup";
@@ -21,13 +21,13 @@ const WORDS: LineupWords = {
   picked: COPY.shared.spieler,
   rest: COPY.shared.kader,
   name: COPY.shared.name,
-  nummer: COPY.admin.spieler.nummer,
-  position: COPY.admin.spieler.position,
+  nummer: COPY.kader.nummer,
+  position: COPY.kader.position,
   starts: COPY.shared.startelf,
   pick: COPY.shared.verb.create,
   remove: COPY.shared.verb.remove,
   none: { kind: "none", plural: COPY.shared.spieler },
-  noSquad: { kind: "none", plural: COPY.shared.kader, one: true },
+  noKader: { kind: "none", plural: COPY.shared.kader, one: true },
   startersFull: COPY.shared.field.max(MAX),
   nomineeLocked: COPY.template.draftUnsaved,
   anonymous: COPY.shared.anonymous,
@@ -39,7 +39,7 @@ const nameOf = (nummer: number) => `Spieler ${String(nummer)}`;
  * `count` regular pupils numbered from 1. An id sorts the other way round than its number, so the lists' order is
  * the numbers' and never the ids' or the order of naming.
  */
-const squad = (count: number): LineupPlayer[] =>
+const kader = (count: number): LineupPlayer[] =>
   Array.from({ length: count }, (_, index) => ({ id: `p${String(99 - index)}`, name: { record: nameOf(index + 1) }, nummer: index + 1 }));
 
 const idOf = (nummer: number) => `p${String(100 - nummer)}`;
@@ -49,7 +49,7 @@ const nominee = (nummer: number): LineupPlayer => ({
   name: { record: nameOf(nummer) },
   nummer,
   nominee: true,
-  chip: { tone: "info", label: COPY.admin.spieler.nominee },
+  chip: { tone: "info", label: COPY.shared.state.nominee },
 });
 
 /** The block over a value held as its page's editor holds it, `seen` taking each value it raises. */
@@ -57,14 +57,14 @@ function Held({
   players,
   start = lineupValue([], []),
   seen,
-  locked,
+  acts,
   refusals,
   nameless = [],
 }: {
   players: LineupPlayer[];
   start?: LineupValue;
   seen?: (value: LineupValue) => void;
-  locked?: Copy;
+  acts?: "locked" | "out";
   refusals?: Record<string, Copy>;
   nameless?: ReadonlyArray<NamelessEntry>;
 }) {
@@ -80,7 +80,7 @@ function Held({
       }}
       startersMax={MAX}
       words={WORDS}
-      locked={locked}
+      acts={acts}
       refusals={refusals}
     />
   );
@@ -110,7 +110,7 @@ describe("a line-up", () => {
     const seen = vi.fn();
     renderUnderNext(
       <Held
-        players={squad(13)}
+        players={kader(13)}
         seen={seen}
       />,
       AT_ADDRESS,
@@ -150,33 +150,60 @@ describe("a line-up", () => {
   });
 });
 
+// The harm: a keyboard user's every press moves its row to the other card, the focus falls to the page's body, and the
+// next Tab starts from the top of the page, eleven times over for one line-up.
+describe("a line-up built by the keys", () => {
+  it.each([
+    [
+      "„Aufstellen“",
+      lineupValue([], []),
+      () => within(rowOf(1)).getByRole("button", { name: WORDS.pick }),
+      () => within(rowOf(2)).getByRole("button", { name: WORDS.pick }),
+    ],
+    ["the cross", lineupValue([idOf(1), idOf(2)], []), () => crossOf(1), () => tickOf(2)],
+  ] as const)("hands the focus on in the same card after %s", async (_press, start, pressed, next) => {
+    renderUnderNext(
+      <Held
+        players={kader(3)}
+        start={start}
+      />,
+      AT_ADDRESS,
+    );
+    const following = next();
+    act(() => pressed().focus());
+
+    await userEvent.keyboard("{Enter}");
+
+    await waitFor(() => expect(document.activeElement).toBe(following));
+  });
+});
+
 describe("a line-up's states", () => {
   // The harm: a press on a closed screen changing the draft, which the save then refuses with the bar's line alone.
-  it("closes every act with the reason while it is locked", async () => {
+  it("closes every act while it is locked", async () => {
     const seen = vi.fn();
     renderUnderNext(
       <Held
-        players={squad(3)}
+        players={kader(3)}
         start={lineupValue([idOf(1)], [])}
         seen={seen}
-        locked={COPY.admin.spiel.departed}
+        acts="locked"
       />,
       AT_ADDRESS,
     );
 
     expect(tickOf(1).disabled).toBe(true);
     await userEvent.click(crossOf(1));
-    expect((await screen.findByRole("tooltip")).textContent).toBe(COPY.admin.spiel.departed);
     await pick(2);
     expect(seen).not.toHaveBeenCalled();
   });
 
   // The harm: a pupil the squad lost offered again once taken out, or a refused entry with no row saying which.
   it("says a refused pupil's reason and a departed pupil's state on their own rows, and offers a departed one no more", async () => {
-    const gone: LineupPlayer = { id: "g1", name: { record: nameOf(40) }, nummer: 40, gone: COPY.admin.spiel.departed };
+    const gone: LineupPlayer = { id: "g1", name: { record: nameOf(40) }, nummer: 40, gone: COPY.kader.deregistered };
     renderUnderNext(
       <Held
-        players={[...squad(2), gone]}
+        players={[...kader(2), gone]}
         start={lineupValue([idOf(1), "g1"], [])}
         refusals={{ [idOf(1)]: COPY.shared.failure.stale }}
       />,
@@ -184,7 +211,7 @@ describe("a line-up's states", () => {
     );
 
     expect(within(rowOf(1)).getByText(COPY.shared.failure.stale)).toBeTruthy();
-    expect(within(rowOf(40)).getByText(COPY.admin.spiel.departed)).toBeTruthy();
+    expect(within(rowOf(40)).getByText(COPY.kader.deregistered)).toBeTruthy();
     expect(tickOf(40).disabled).toBe(true);
 
     await userEvent.click(crossOf(40));
@@ -199,7 +226,7 @@ describe("a line-up keeping entries naming nobody", () => {
     const seen = vi.fn();
     renderUnderNext(
       <Held
-        players={[...squad(11), nominee(20)]}
+        players={[...kader(11), nominee(20)]}
         start={lineupValue(ids(1, 2, 3, 4, 5, 6, 7, 8, 9, 10), ids(1, 2, 3, 4, 5, 6, 7, 8, 9, 10))}
         nameless={[{ starts: true }]}
         seen={seen}

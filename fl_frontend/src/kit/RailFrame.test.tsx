@@ -3,7 +3,8 @@ import { act, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
+import { serveHost } from "@/test-support/backend";
 import { renderUnderNext } from "@/test-support/nextContexts";
 
 import { RailFrame } from "./RailFrame";
@@ -33,20 +34,21 @@ vi.mock("next/link", async (original) => ({
 const leave = vi.hoisted(() => ({ leaveDocumentFor: vi.fn() }));
 vi.mock("@/shared/utils/documentNavigation", () => ({ leaveDocumentFor: leave.leaveDocumentFor }));
 
-/** The sign-in library's sign-out endpoint, answering `status`, and every request the page sent. */
-function signOutAnswers(status: number) {
-  const sent: Array<{ url: string; method: string | undefined }> = [];
-  vi.stubGlobal("fetch", async (url: string, init?: RequestInit) => {
-    sent.push({ url, method: init?.method });
-    return new Response(null, { status });
-  });
-  return sent;
+/**
+ * The sign-in library's sign-out endpoint on the page's own host, answering `status` for the rest of the case, and
+ * what reads every request the page sent there by its method and path; a request to any other endpoint fails the case.
+ */
+function signOutAnswers(status: number): () => ReadonlyArray<{ method: string; path: string }> {
+  const taken = serveHost("http://localhost", ({ method, url }) =>
+    method === "POST" && url.pathname === "/api/auth/sign-out" ? new Response(null, { status }) : undefined,
+  );
+  return () => taken.map(({ method, url }) => ({ method, path: url.pathname }));
 }
 
-const SIGN_OUT = { url: "/api/auth/sign-out", method: "POST" };
+const SIGN_OUT = { method: "POST", path: "/api/auth/sign-out" };
 
 // An administrator: the grant stores no name.
-const ACCOUNT: Account = { role: COPY.admin.role, address: { record: "verwaltung@example.com" } };
+const ACCOUNT: Account = { role: COPY.shared.administration, address: { record: "verwaltung@example.com" } };
 
 /** The frame of a one-page area around a page, its account read as given. */
 async function renderFrame(account: Promise<Account | null>) {
@@ -65,7 +67,7 @@ async function renderFrame(account: Promise<Account | null>) {
 
 /** Opens the account menu from the rail's row, which holds the role. */
 async function openMenu() {
-  const row = screen.getByText(COPY.admin.role).closest("button");
+  const row = screen.getByText(COPY.shared.administration).closest("button");
   if (row === null) throw new Error("the account row is no button");
   await userEvent.click(row);
 }
@@ -79,7 +81,6 @@ beforeEach(() => {
 // The toast queue is the module's own, so a toast outlives its case: each is closed while the frame's region stands.
 afterEach(() => {
   for (const close of screen.queryAllByRole("button", { name: COPY.shared.close })) act(() => close.click());
-  vi.unstubAllGlobals();
 });
 
 // A frame's prefetch dropped between the frame and its menus makes every press of the season pages wait on the server,
@@ -127,7 +128,7 @@ describe("the account menu", () => {
 
     await vi.waitFor(() => expect(leave.leaveDocumentFor).toHaveBeenCalledWith("/"));
     // No toast at all, in any words: the person leaves, and nothing is said on the page they leave.
-    expect([sent, screen.queryAllByRole("alertdialog")]).toStrictEqual([[SIGN_OUT], []]);
+    expect([sent(), screen.queryAllByRole("alertdialog")]).toStrictEqual([[SIGN_OUT], []]);
   });
 
   it("keeps the person in place with the one failure line where the sign-out fails", async () => {
@@ -137,8 +138,8 @@ describe("the account menu", () => {
 
     await userEvent.click(screen.getByRole("menuitem", { name: COPY.shared.verb.signOut }));
 
-    const toast = await screen.findByRole("alertdialog", { name: COPY.shared.toast.failure });
+    const toast = await screen.findByRole("alertdialog", { name: COPY.shared.failure.unexpected });
     expect(toast.querySelector(".text-danger")).toBeTruthy();
-    expect([sent, leave.leaveDocumentFor.mock.calls]).toStrictEqual([[SIGN_OUT], []]);
+    expect([sent(), leave.leaveDocumentFor.mock.calls]).toStrictEqual([[SIGN_OUT], []]);
   });
 });

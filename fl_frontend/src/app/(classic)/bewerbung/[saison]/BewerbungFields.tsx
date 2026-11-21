@@ -2,26 +2,27 @@
 
 import { useId, useState } from "react";
 
-import { COPY } from "@/core/copy";
-import { TRIKOT_FARBEN } from "@/core/trikotFarben";
+import { PUBLIC_COPY } from "@/core/copy/public";
+import { COPY } from "@/core/copy/shared";
+import { trikotFarbeOptions } from "@/core/trikotFarben";
 import { BEWERBUNG_MIN_AGE, SIGNATORY_MIN_AGE } from "@/features/bewerbungen/constants";
+import { KONTAKT_SEATS } from "@/features/teams/constants";
 import { AddressFields } from "@/kit/AddressFields";
 import { ComboBox } from "@/kit/ComboBox";
 import { ConsentLine } from "@/kit/ConsentLine";
-import { FieldSubgroup } from "@/kit/FieldRows";
+import { FieldGroup } from "@/kit/FieldGroup";
 import { Section } from "@/kit/Section";
 import { Select } from "@/kit/Select";
 import { Switch } from "@/kit/Switch";
 import { TextField } from "@/kit/TextField";
 import { useUnsavedChangesWarning } from "@/kit/useUnsavedChangesWarning";
 
-import { NO_SECOND_SEAT, SEATS } from "./application";
-
 import type { FLBewerbungSchuleOption, FLKontaktSeat, FLSchulform, FLTrikotFarbe } from "@/core/generated/client/types";
 import type { Option } from "@/kit/OptionList";
-import type { BewerbungRules } from "./bewerbungRules";
+import type { BewerbungRules } from "./fieldRules";
 
-const { bewerbung, team, shared } = COPY;
+const { team, shared } = COPY;
+const { bewerbung } = PUBLIC_COPY;
 
 const SCHULFORMEN = Object.keys(team.schulformOption) as FLSchulform[];
 
@@ -30,24 +31,24 @@ type Box = (name: string) => { name: string; defaultValue?: string; onChange: (v
 
 /** The new school's own fields, revealed by the switch: what an acceptance would create the club from. */
 function NewSchool({ box, rules }: { box: Box; rules: BewerbungRules }) {
-  const { maxLength, required } = rules;
+  const { max, required } = rules;
   const schulform = box("schule.schulform");
   return (
     <>
       <TextField
         {...box("schule.team_name")}
-        label={bewerbung.teamName}
+        label={team.teamName}
         description={bewerbung.teamNameDescription}
         kind="text"
         isRequired={required.teamName}
-        maxLength={maxLength.teamName}
+        maxLength={max.teamName}
       />
       <TextField
         {...box("schule.full_name")}
         label={team.fullName}
         kind="text"
         isRequired={required.fullName}
-        maxLength={maxLength.fullName}
+        maxLength={max.fullName}
       />
       <Select
         label={team.schulform}
@@ -57,20 +58,20 @@ function NewSchool({ box, rules }: { box: Box; rules: BewerbungRules }) {
         isRequired={required.schulform}
         options={SCHULFORMEN.map((id) => ({ id, label: team.schulformOption[id] }))}
       />
-      <FieldSubgroup name={COPY.admin.spielort.address}>
+      <FieldGroup name={COPY.shared.address.title}>
         <AddressFields
           rules={rules}
           box={(field) => box(`schule.address.${field}`)}
           streetDescription={bewerbung.addressPublic}
         />
-      </FieldSubgroup>
+      </FieldGroup>
       <TextField
         {...box("schule.website_url")}
         label={team.website}
         kind="url"
         example={shared.field.exampleUrl}
         isRequired={required.website}
-        maxLength={maxLength.website}
+        maxLength={max.website}
       />
     </>
   );
@@ -78,32 +79,32 @@ function NewSchool({ box, rules }: { box: Box; rules: BewerbungRules }) {
 
 /** One person's four boxes; the seat's age floor stands under the first, as what a reader meets before naming anybody. */
 function SeatBoxes({ seat, floor, box, rules }: { seat: FLKontaktSeat; floor: number; box: Box; rules: BewerbungRules }) {
-  const { maxLength, required } = rules;
+  const { max, required } = rules;
   const path = (name: string) => box(`kontakte.${seat}.${name}`);
   return (
     <>
       <TextField
         {...path("first_name")}
         label={shared.firstName}
-        description={COPY.account.entries.mediaFrom(floor)}
+        description={bewerbung.seatFloor(floor)}
         kind="text"
         isRequired={required.firstName}
-        maxLength={maxLength.firstName}
+        maxLength={max.firstName}
       />
       <TextField
         {...path("last_name")}
         label={shared.lastName}
         kind="text"
         isRequired={required.lastName}
-        maxLength={maxLength.lastName}
+        maxLength={max.lastName}
       />
       <TextField
         {...path("email")}
-        label={COPY.signIn.address}
+        label={COPY.shared.emailAddress}
         description={bewerbung.ownAddress}
         kind="email"
         isRequired={required.email}
-        maxLength={maxLength.email}
+        maxLength={max.email}
       />
       <TextField
         {...path("phone")}
@@ -117,8 +118,8 @@ function SeatBoxes({ seat, floor, box, rules }: { seat: FLKontaktSeat; floor: nu
 
 /**
  * The application's five boxes: the school, one per seat with the Trainer first, the team. A box posts under its
- * dotted name, which `applicationOf` reads. A colour a club of the season wears stands listed, muted and closed. A person holding two seats clears the higher floor, which the
- * Trainer's box says once the second seat is chosen.
+ * dotted name. A colour a club of the season wears stands listed, muted and closed. A person holding two seats clears
+ * the higher floor, which the Trainer's box says once the second seat is chosen.
  */
 export function BewerbungFields({
   schulen,
@@ -131,7 +132,10 @@ export function BewerbungFields({
 }) {
   const [hasTyped, setHasTyped] = useState(false);
   const [switchedOn, setSwitchedOn] = useState(false);
-  const [trainerAlso, setTrainerAlso] = useState<string>(NO_SECOND_SEAT);
+  // The picker's pick, held here because the picker shows none while the switch is on and gives it back once it is off.
+  const [picked, setPicked] = useState<string | null>(null);
+  // `""` for „Keine weitere Rolle“, the select's first entry.
+  const [trainerAlso, setTrainerAlso] = useState("");
   // Written as it is typed and read when a box comes back, so no render follows a keystroke.
   const [typed] = useState(() => new Map<string, string>());
   const coveredLine = useId();
@@ -152,19 +156,25 @@ export function BewerbungFields({
   const isListed = schulen.length > 0;
   const isNewSchool = switchedOn || !isListed;
   const schools: Option[] = schulen.map(({ id, name }) => ({ id, label: { record: name } }));
-  const { maxLength, required } = rules;
+  const { max, required } = rules;
 
   return (
     <>
       <Section title={COPY.shared.facts.school}>
         {isListed && (
           <>
+            {/* Drawn while the switch is on, so the switch never moves under the finger, but dimmed and empty: the new
+                school is the answer then, and the box posts an empty `team_id`, which `applicationOf` drops. */}
             <ComboBox
               label={COPY.shared.facts.school}
               description={bewerbung.schoolDescription}
               name="team_id"
               isRequired={!isNewSchool}
+              isDisabled={switchedOn}
               options={schools}
+              plural={COPY.shared.schulen}
+              value={switchedOn ? null : picked}
+              onChange={setPicked}
             />
             <Switch
               label={bewerbung.schoolNotListed}
@@ -189,7 +199,7 @@ export function BewerbungFields({
         />
       </Section>
 
-      {SEATS.map((seat) => (
+      {KONTAKT_SEATS.map((seat) => (
         <Section
           key={seat}
           title={team.seatName[seat]}>
@@ -201,7 +211,7 @@ export function BewerbungFields({
           ) : (
             <SeatBoxes
               seat={seat}
-              floor={seat === "trainer" && trainerAlso === NO_SECOND_SEAT ? BEWERBUNG_MIN_AGE : SIGNATORY_MIN_AGE}
+              floor={seat === "trainer" && trainerAlso === "" ? BEWERBUNG_MIN_AGE : SIGNATORY_MIN_AGE}
               box={box}
               rules={rules}
             />
@@ -212,9 +222,9 @@ export function BewerbungFields({
               description={team.trainerAlso.description}
               name="kontakte.trainer_is_also"
               value={trainerAlso}
-              onChange={(value) => setTrainerAlso(value ?? NO_SECOND_SEAT)}
+              onChange={(value) => setTrainerAlso(value ?? "")}
               options={[
-                { id: NO_SECOND_SEAT, label: team.trainerAlso.none },
+                { id: "", label: team.trainerAlso.none },
                 { id: "ansprechperson", label: team.seatName.ansprechperson },
                 { id: "stellvertretung", label: team.seatName.stellvertretung },
               ]}
@@ -230,16 +240,14 @@ export function BewerbungFields({
           description={bewerbung.trikotSetDescription}
           kind="text"
           isRequired={required.trikotSet}
-          maxLength={maxLength.trikotSet}
+          maxLength={max.trikotSet}
         />
         <Select
           label={team.wunschfarbe}
           name="trikot.wunschfarbe"
           isRequired={required.wunschfarbe}
           onChange={() => setHasTyped(true)}
-          options={TRIKOT_FARBEN.map(({ value, label }) =>
-            taken.includes(value) ? { id: value, label: { record: label }, isDisabled: true } : { id: value, label: { record: label } },
-          )}
+          options={trikotFarbeOptions(taken)}
         />
         <TextField
           {...box("kader.expected_size")}
@@ -262,7 +270,7 @@ export function BewerbungFields({
           name="wunschgegner"
           isRequired={required.wunschgegner}
           options={schools}
-          free={{ arrow: bewerbung.suggestions, maxLength: maxLength.wunschgegner }}
+          free={{ maxLength: max.wunschgegner }}
         />
       </Section>
     </>

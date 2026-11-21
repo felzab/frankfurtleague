@@ -7,7 +7,7 @@ import { expect } from "@playwright/test";
 import { box, enteredDialog, labelOf, save, saveBar, toast } from "./support/controls";
 import { test } from "./support/journey";
 import { RUNNING } from "./support/madeUpLeague";
-import { declinePasskeyOffer, signInWithCode } from "./support/signIn";
+import { expectLandedAt, signInWithCode } from "./support/signIn";
 
 import type { Locator, Page } from "@playwright/test";
 
@@ -19,7 +19,7 @@ const NAMED = 13;
 const STARTING = 11;
 
 /** The page's title, which every rail page writes in its strip, and on a phone at the top of its content. */
-const titleOf = (page: Page, name: string): Locator => page.getByRole("banner").getByRole("heading", { level: 1, name, exact: true });
+const titleOf = (page: Page, name: string): Locator => page.getByRole("main").getByRole("heading", { level: 1, name, exact: true });
 
 /**
  * One of the team's pages through the frame's menu: the rail on a desktop; on a phone the bar under the page, or the
@@ -39,10 +39,10 @@ async function openPage(page: Page, name: string): Promise<void> {
   await expect(titleOf(page, name)).toBeVisible();
 }
 
-test("a contact answers the date, admits the pupil and enters the line-up", async ({ page, contact: { address, fixture, pupil } }) => {
+test("a contact answers the date, admits the pupil and enters the line-up", async ({ page, contact: { address, team, fixture, pupil } }) => {
   await signInWithCode(page, address);
   // The seat is the person's one place, so the sign-in lands on its Übersicht.
-  await declinePasskeyOffer(page, TEAM_LANDING);
+  await expectLandedAt(page, TEAM_LANDING);
   await expect(titleOf(page, "Übersicht")).toBeVisible();
 
   // The open work: the date to answer, the line-up it owes, and the registration waiting on the team.
@@ -50,7 +50,8 @@ test("a contact answers the date, admits the pupil and enters the line-up", asyn
   const fixtureLink = page.getByRole("link", { name: fixture, exact: true });
   await expect(spielbestaetigungen.getByRole("link", { name: fixture, exact: true })).toBeVisible();
   await expect(box(page, "Aufstellungen").getByRole("link", { name: fixture, exact: true })).toBeVisible();
-  await expect(box(page, "Registrierungen").getByRole("link", { name: pupil, exact: true })).toBeVisible();
+  // The card names the pupil, and its title is the one link to the list.
+  await expect(box(page, "Registrierungen").getByText(pupil, { exact: true })).toBeVisible();
 
   // „Zusagen“ acts at once: its toast, and the answered date leaves the box. A card row carries no role, so the row is
   // the kit's marked one holding the fixture's link.
@@ -78,7 +79,8 @@ test("a contact answers the date, admits the pupil and enters the line-up", asyn
   const match = page.getByRole("main").getByRole("link", { name: new RegExp(fixture.replace(" vs. ", ".*")) });
   await expect(match).toContainText("Aufstellung fehlt");
   await match.click();
-  await expect(titleOf(page, fixture)).toBeVisible();
+  // The line-up is the club's own, so its title names the club, not the pairing.
+  await expect(titleOf(page, `Aufstellung ${team}`)).toBeVisible();
 
   const main = page.getByRole("main");
   const lineUp = main.getByRole("table", { name: "Aufstellung" });

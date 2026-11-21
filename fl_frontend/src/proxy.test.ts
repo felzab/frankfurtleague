@@ -1,13 +1,15 @@
 // First, as Next's server loads it: its request stores take this global at their own load, and the
 // adapter `visit` runs needs real ones.
-import { assert, describe, expect, it, vi } from "vitest";
+import { assert, describe, expect, it } from "vitest";
 
+import { serveBackend } from "@/test-support/backend";
 import { thrownRedirect } from "@/test-support/thrownRedirect";
 
 import type { ThrownRedirect } from "@/test-support/thrownRedirect";
 
 import "next/dist/server/node-environment-baseline.js";
 
+import { MINUTE_MS } from "@/core/timeUnits";
 import {
   ADMIN_EMAIL,
   configDouble,
@@ -31,7 +33,7 @@ let requestHeaders: Headers | undefined;
 /** The landing reads the request off this, where the proxy is handed its own `NextRequest`. */
 const HEADERS_DOUBLE = { headers: () => Promise.resolve(requestHeaders) };
 
-/** An address holding no grant, whose session the verdict is what refuses. */
+/** An address holding no grant, signed in by code: the verdict is what refuses its session the administration. */
 const REMOVED_EMAIL = "ehemalig@example.org";
 
 // Every address this file signs in is seated: the gate at session creation is not its subject.
@@ -47,6 +49,8 @@ registerAuthDoubles({
 });
 
 const store = memoryStore(STORE);
+// Answering nothing of its own: the sign-in helpers' lookups are its `served`, any other request its `sent`.
+const backend = serveBackend();
 
 // Imported here rather than at the top: `vi.doMock` reaches only the modules imported after it.
 const { NextRequest } = await import("next/server");
@@ -72,7 +76,6 @@ arriveAs(null);
 const signIn = (email: string) => sessionByCode(auth, store, email);
 
 const removed = await signIn(REMOVED_EMAIL);
-madeByPasskey(store, removed.row);
 
 const ADMIN_URL = "http://localhost:3000/admin/spielorte";
 
@@ -150,12 +153,10 @@ describe("where the proxy sends a mailed link's first request", () => {
 describe("where the proxy sends a request for the administrator's subtree carrying a session cookie", () => {
   /* Optimistic, as Next and the library document a proxy's check: the cookie alone, and no backend read.
      The grant is the admin guard's, which refuses a session holding none on the same request. */
-  it("lets a passkey session through whatever its grant, and leaves the grant to the admin guard", async ({ onTestFinished }) => {
-    const fetched = vi.spyOn(globalThis, "fetch").mockImplementation(() => Promise.reject(new TypeError("fetch failed")));
-    onTestFinished(() => void fetched.mockRestore());
-
+  it("lets a session through whatever its grant, and leaves the grant to the admin guard", async () => {
     expect(redirectedTo(await callProxy(removed.cookie))).toBe(null);
-    expect(fetched.mock.calls.length, "the proxy asked the backend about a grant").toBe(0);
+    await backend.answered();
+    expect([...backend.sent, ...backend.served], "the proxy asked the backend about a grant").toStrictEqual([]);
 
     arriveAs(removed.cookie);
     expect(await getAdminSession(), "the guard admitted a session holding no grant").toBe(null);
@@ -263,7 +264,6 @@ describe("where the proxy sends a request for an area's page", () => {
 
 const EXPIRES_IN_MS = auth.options.session.expiresIn * 1000;
 const UPDATE_AGE_MS = auth.options.session.updateAge * 1000;
-const MINUTE_MS = 60 * 1000;
 
 const PERSON_URL = "http://localhost:3000/account";
 
@@ -390,20 +390,33 @@ describe("where the proxy sends a session asking for the sign-in", () => {
   /* Reverted, the landing sends the session back to the sign-in alive, and the proxy sends it to the landing again:
      the browser follows the two redirects until it gives up. */
   it("ends a granted address's spent session at the landing, so its next request for the sign-in meets the form", async () => {
-    const { cookie, row } = await signIn(ADMIN_EMAIL);
-    // Past the administrator's twenty-four hours and inside a person's figures: no passkey step is left to offer it.
-    row.createdAt = new Date(Date.now() - 25 * 60 * MINUTE_MS);
-    refreshedAgo(row, MINUTE_MS);
+    const spent = async () => {
+      const session = await signIn(ADMIN_EMAIL);
+      // Past the administrator's twenty-four hours and inside a person's figures: no passkey step is left to offer it.
+      session.row.createdAt = new Date(Date.now() - 25 * 60 * MINUTE_MS);
+      refreshedAgo(session.row, MINUTE_MS);
+      return session;
+    };
+
+    const { cookie, row } = await spent();
     arriveAs(cookie);
     assert.ok(await getSubjectSession(), "the person lane serves no such session, so the case proves nothing");
 
     expect(sentTo(await visit(SIGN_IN_URL, cookie, "document"))).toBe(ROUTES.signInLanding.path());
-    expect(await landedAt(cookie)).toStrictEqual(landsOn(ROUTES.signIn.path()));
+    expect(await landedAt(cookie)).toStrictEqual(landsOn(`${ROUTES.signIn.path()}?return=%2Fadmin`));
     expect(
       store.session.some(({ token }) => token === row.token),
       "the landing left the spent session standing",
     ).toBe(false);
-    expect(sentTo(await visit(SIGN_IN_URL, cookie, "document")), "the sign-in sent the spent session to the landing again").toBe(null);
+    expect(
+      sentTo(await visit(`${SIGN_IN_URL}?return=%2Fadmin`, cookie, "document")),
+      "the sign-in sent the spent session to the landing again",
+    ).toBe(null);
+
+    // The page the sign-in was asked to return to wins over the administration's front page.
+    expect(await landedAt((await spent()).cookie, "/admin/spielorte")).toStrictEqual(
+      landsOn(`${ROUTES.signIn.path()}?return=%2Fadmin%2Fspielorte`),
+    );
   });
 });
 
@@ -414,7 +427,7 @@ describe("where the proxy sends a request for the passkey step", () => {
      landing loads. */
   it("sends a session holding no step on to the landing before the page renders, the return address carried where the allowlist holds it", async () => {
     const landing = ROUTES.signInLanding.path();
-    // Made by a passkey, so no card is left to show it.
+    // Holding no grant, so no passkey step is owed.
     arriveAs(removed.cookie);
     assert.equal(await getPasskeyStep(), null, "the session holds a step, so the case proves nothing");
 
@@ -438,7 +451,6 @@ describe("where the proxy sends a request for the passkey step", () => {
   });
 
   it("lets a session holding each kind of step through to the page the landing sends it to", async () => {
-    const person = await signIn("leserin@example.org");
     const administrator = await signIn(ADMIN_EMAIL);
     // Whatever an earlier case enrolled for the administrator, so the first look finds the enrolment owed.
     for (const held of store.passkey.filter((row) => row.userId === administrator.row.userId)) {
@@ -446,7 +458,6 @@ describe("where the proxy sends a request for the passkey step", () => {
     }
 
     for (const [kind, cookie, arrange] of [
-      ["offer", person.cookie, () => undefined],
       ["enrol", administrator.cookie, () => undefined],
       // A passkey held while the session is still the code's.
       ["assert", administrator.cookie, () => void madeByPasskey(store, { userId: administrator.row.userId })],

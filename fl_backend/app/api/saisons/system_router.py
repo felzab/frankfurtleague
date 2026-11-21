@@ -51,7 +51,7 @@ async def get_sweep_saisons(saisons_collection: SaisonsReadCollection, status: F
 
 
 @router.post(
-    "/{saison_id}/retention",
+    "/{saison_id}/sweep",
     summary="Run one season's retention clocks over its season rows, fixture answers and match reports",
     openapi_extra=PASS,
 )

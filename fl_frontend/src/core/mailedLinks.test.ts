@@ -4,9 +4,10 @@ import { describe, expect, it } from "vitest";
 
 import { filesUnder } from "@/test-support/treeWalk";
 
+import { MAILED_LINK_PAGES } from "./mailedLink";
 import { ROUTES } from "./routes";
 
-import type { FLOutboxHandout } from "./generated/client/types";
+import type { DataPerKind } from "./mailKinds";
 
 const { mailFor } = await import("./mailKinds");
 
@@ -17,11 +18,8 @@ const ORIGIN = "http://localhost:3000";
 /** Made up, and spelled so no other part of a mail can hold it by chance. */
 const TOKEN = "example-mailed-link-token";
 
-type OutboxData = FLOutboxHandout["data"];
-type OutboxKind = OutboxData["kind"];
-
-/** The member whose `kind` admits `A`, as `core/mailKinds.ts` reads the union. */
-type Member<D, A> = D extends { kind: infer K } ? (A extends K ? D : never) : never;
+type OutboxKind = keyof DataPerKind;
+type OutboxData = DataPerKind[OutboxKind];
 
 const ANSETZUNG = { date: "2026-10-24", time: "16:00:00", team1: "Ahorn", team2: "Kastanie", spielort: "Sportpark Riedberg" };
 const APPOINTMENT = { date: "2026-10-24", time: "16:00:00", team1: "Ahorn", team2: "Kastanie" };
@@ -31,13 +29,20 @@ const APPOINTMENT = { date: "2026-10-24", time: "16:00:00", team1: "Ahorn", team
  * fails the type check here until it takes a row: the table is held to the contract rather than to how a builder
  * happens to spell its link.
  */
-const FACTS: { [A in OutboxKind]: Member<OutboxData, A> } = {
+const FACTS: DataPerKind = {
   sign_in_code: { kind: "sign_in_code" },
   passkey_added: { kind: "passkey_added", instant: "2026-10-17T10:00:00Z" },
   passkey_erased: { kind: "passkey_erased", instant: "2026-10-17T10:00:00Z" },
   account_erasure: { kind: "account_erasure" },
   ban: { kind: "ban", ban_reason: "Fake", barred_until_saison_id: "2728" },
-  grant: { kind: "grant", change: "granted", stage: "completed", address: null, new_address: null, effective_from: null },
+  grant: {
+    kind: "grant",
+    change: "handover",
+    stage: "completed",
+    address: "nora.neu@beispielschule.example.org",
+    new_address: null,
+    effective_from: null,
+  },
   address_change_link: { kind: "address_change_link", way: "account", holder: null },
   address_change_notice: { kind: "address_change_notice", way: "account", holder: null },
   address_change_effective: { kind: "address_change_effective", instant: "2026-10-17T10:00:00Z" },
@@ -90,9 +95,8 @@ const FACTS: { [A in OutboxKind]: Member<OutboxData, A> } = {
     deadline: "2026-10-17",
     seats: ["trainer"],
     saison_id: "2627",
-    schule: "Lessing-Kolleg",
   },
-  bewerbung_reminder: { kind: "bewerbung_reminder", deadline: "2026-10-17", seats: ["trainer"], saison_id: "2627", schule: "Lessing-Kolleg" },
+  bewerbung_reminder: { kind: "bewerbung_reminder", deadline: "2026-10-17", seats: ["trainer"], saison_id: "2627" },
   bewerbung_zusage: {
     kind: "bewerbung_zusage",
     gruppe: "A",
@@ -133,7 +137,7 @@ function tokenLinksIn(value: unknown): string[] {
 
 /** Each kind's links carrying its credential, built through the drain's own `mailFor` with a made-up token and secret. */
 function tokenLinksOf(kind: OutboxKind): string[] {
-  const mail = mailFor(kind, FACTS[kind] as never, { token: TOKEN, secret: TOKEN, origin: ORIGIN });
+  const mail = mailFor(kind, FACTS[kind] as never, { token: TOKEN, secret: TOKEN, origin: ORIGIN, to: "kontakt@schule.example.org" });
   if (mail === undefined) throw new Error(`the kind ${kind} has no builder`);
   return tokenLinksIn(mail);
 }
@@ -168,12 +172,14 @@ describe("a mailed link's token", () => {
   });
 
   // A mailed link opens a page by its ROUTES row, whose row decides what robots.txt refuses and what the page names as
-  // its own address; a link to an address no page answers is a dead mail.
+  // its own address; a link to an address no page answers is a dead mail. The page reads its token from the cookie the
+  // proxy sets for the mailed-link table's pages alone, so a page missing from the table reads every link as spent.
   it.each(KINDS)("opens a page of its own ROUTES row, in a %s mail", (kind) => {
     for (const link of tokenLinksOf(kind)) {
       const { pathname } = new URL(link);
       expect(FIXED_ROUTES.has(pathname), `${pathname} is no ROUTES row`).toBe(true);
       expect(PAGES.has(pathname), `no page answers at ${pathname}`).toBe(true);
+      expect(MAILED_LINK_PAGES.includes(pathname), `${pathname} is not in the mailed-link table`).toBe(true);
     }
   });
 
@@ -190,7 +196,7 @@ describe("a mail's subject", () => {
   // A mail program shows and searches a subject as typed, and the journeys find a mail by its subject's start: a
   // no-break space from the catalogue's `boundBy` fails both with every page still reading the same.
   it.each([...KINDS.map((kind) => FACTS[kind]), MOVED_TO])("joins its words with plain spaces, in a $kind mail", (data) => {
-    const mail = mailFor(data.kind, data as never, { token: TOKEN, secret: TOKEN, origin: ORIGIN });
+    const mail = mailFor(data.kind, data as never, { token: TOKEN, secret: TOKEN, origin: ORIGIN, to: "kontakt@schule.example.org" });
     if (mail === undefined) throw new Error(`the kind ${data.kind} has no builder`);
     expect(mail.subjectLine).not.toContain("\u00A0");
   });

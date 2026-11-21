@@ -1,11 +1,13 @@
 import { notFound } from "next/navigation";
 
-import { COPY } from "@/core/copy";
+import { ADMIN_COPY } from "@/core/copy/admin";
+import { COPY } from "@/core/copy/shared";
 import { dayOf, formatDate } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { getBewerbungenOfSaison } from "@/features/bewerbungen/queries";
-import { SEATS, STANDING_CHIP, standingOf, TEAM_DOUBLE } from "@/features/bewerbungen/standing";
+import { STANDING_CHIP, standingOf, TEAM_DOUBLE } from "@/features/bewerbungen/standing";
+import { KONTAKT_SEATS } from "@/features/teams/constants";
 import { filterValue } from "@/kit/filterValue";
 import { ListPage } from "@/kit/ListPage";
 import { NOT_SENT_CHIP, outOfPlayChip } from "@/kit/stateChips";
@@ -18,25 +20,25 @@ import type { Standing } from "@/features/bewerbungen/standing";
 import type { ChipProps } from "@/kit/Chip";
 import type { Filter } from "@/kit/Filters";
 import type { TableHead, TableRow } from "@/kit/Table";
-import type { Metadata, ResolvingMetadata } from "next";
+import type { Metadata } from "next";
 
 type Props = PageProps<"/admin/saisons/[saison]/bewerbungen">;
 
-const WORDS = COPY.admin.bewerbung;
+const WORDS = ADMIN_COPY.bewerbung;
 const ALL = SERVER_COPY.season.filter.all;
 
-export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { saison } = await params;
-  return metadataFor(getBewerbungenOfSaison(saison), () => pageMetadata(parent, ROUTES.adminBewerbungen, ROUTES.adminBewerbungen.path(saison)));
+  return metadataFor(getBewerbungenOfSaison(saison), () => pageMetadata(ROUTES.adminBewerbungen, ROUTES.adminBewerbungen.path(saison)));
 }
 
 /** The table's head: a phone keeps the name and its chip. */
 const HEAD: TableHead = {
   nameLabel: COPY.shared.facts.school,
-  state: { label: COPY.admin.schiedsrichter.state },
+  state: { label: COPY.shared.facts.state },
   columns: [
-    { key: "received", label: WORDS.received, hideOnPhone: true, width: "date" },
-    { key: "seats", label: COPY.admin.spiel.confirmations, hideOnPhone: true, width: "word" },
+    { key: "received", label: COPY.shared.facts.received, hideOnPhone: true, width: "date" },
+    { key: "seats", label: ADMIN_COPY.spiel.confirmations, hideOnPhone: true, width: "word" },
   ],
 };
 
@@ -67,7 +69,7 @@ function rowOf(row: FLBewerbungListRow, saison: string, past: boolean): TableRow
     chip: chipOf(row, past),
     cells: {
       received: { record: formatDate(dayOf(row.submitted_at)) },
-      seats: COPY.admin.seatsOf(row.seats_confirmed, SEATS),
+      seats: ADMIN_COPY.seatsOf(row.seats_confirmed, KONTAKT_SEATS.length),
     },
   };
 }
@@ -84,8 +86,8 @@ async function readList(params: Props["params"], searchParams: Props["searchPara
   const state = filterValue(addressed.state, STATE_OPTIONS);
   const origin = filterValue(addressed.origin, ORIGIN_OPTIONS);
   const filters: Filter[] = [
-    { name: "state", label: COPY.admin.schiedsrichter.state, all: ALL, options: STATE_OPTIONS, value: state },
     { name: "origin", label: WORDS.origin, all: ALL, options: ORIGIN_OPTIONS, value: origin },
+    { name: "state", label: COPY.shared.facts.state, all: ALL, options: STATE_OPTIONS, value: state },
   ];
   const rows = read.bewerbungen.filter(
     (row) => (state === null || standingOf(row) === state) && (origin === null || row.new_school === (origin === "new")),

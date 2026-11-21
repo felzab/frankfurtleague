@@ -1,7 +1,9 @@
-import { COPY } from "@/core/copy";
+import { ADMIN_COPY } from "@/core/copy/admin";
+import { COPY } from "@/core/copy/shared";
 import { dayOf } from "@/core/format";
 import { deliveryChip } from "@/features/bewerbungen/deliveryState";
 import { KONTAKT_SEATS, seatBesideTrainer } from "@/features/teams/constants";
+import { seatRow } from "@/features/teams/seatRow";
 import { CONFIRMED_CHIP, ERASED_CHIP, EXPIRED_CHIP, OBJECTED_CHIP, UNCONFIRMED_CHIP } from "@/kit/stateChips";
 
 import type { Copy } from "@/core/copy";
@@ -13,9 +15,10 @@ import type {
   FLTrainerAlso,
 } from "@/core/generated/client/types";
 import type { ChipProps } from "@/kit/Chip";
+import type { Fact } from "@/kit/Facts";
 import type { SeatRow } from "@/kit/SeatRows";
 
-const DAYS = COPY.admin.schiedsrichter;
+const CONSENT = ADMIN_COPY.einwilligung;
 
 /** What a seat's acts read: which seat, whether it waits on an answer, and the person the dialog starts from. */
 export type SeatTarget = {
@@ -37,17 +40,27 @@ function standingOf(
 ): { chip: ChipProps | null; day: Copy | null; asks: boolean } {
   if (person === null) {
     if (link?.declined_at != null) {
-      return { chip: OBJECTED_CHIP, day: DAYS.objectedOn(dayOf(link.declined_at)), asks: false };
+      return { chip: OBJECTED_CHIP, day: COPY.shared.onDay(dayOf(link.declined_at)), asks: false };
     }
     // A row whose block stands holds an empty seat only by its person's erasure; a row with no block never held one.
     return { chip: entered ? ERASED_CHIP : null, day: null, asks: false };
   }
   const confirmed = person.einwilligung.confirmed_at;
-  if (confirmed !== null) return { chip: CONFIRMED_CHIP, day: DAYS.confirmedOn(dayOf(confirmed)), asks: false };
+  if (confirmed !== null) return { chip: CONFIRMED_CHIP, day: COPY.shared.onDay(dayOf(confirmed)), asks: false };
   if (link === null) return { chip: UNCONFIRMED_CHIP, day: null, asks: true };
   return link.expired
-    ? { chip: EXPIRED_CHIP, day: DAYS.expiredOn(dayOf(link.deadline)), asks: true }
-    : { chip: UNCONFIRMED_CHIP, day: COPY.admin.spiel.answerBy(dayOf(link.deadline)), asks: true };
+    ? { chip: EXPIRED_CHIP, day: COPY.shared.onDay(dayOf(link.deadline)), asks: true }
+    : { chip: UNCONFIRMED_CHIP, day: COPY.shared.answerBy(dayOf(link.deadline)), asks: true };
+}
+
+/** A confirmed person's two answers, WhatsApp's and the photographs', each as yes or no; none before they confirm. */
+function answersOf(person: FLKontaktpersonAdmin | null): Fact[] {
+  if (person === null || person.einwilligung.confirmed_at === null) return [];
+  const { scope, media } = person.einwilligung;
+  return [
+    { label: CONSENT.whatsapp, value: scope === "kontakt_data_whatsapp" ? CONSENT.yes : CONSENT.no },
+    { label: CONSENT.media, value: media ? CONSENT.yes : CONSENT.no },
+  ];
 }
 
 /** One seat's row, and what its acts read: one row per person, the Trainer's carrying a second seat they hold. */
@@ -64,10 +77,9 @@ export function seatsOf({
     const delivery = deliveryChip(link?.delivery ?? null);
     return {
       id: seat,
-      name: person === null ? COPY.admin.seatEmpty : { record: `${person.first_name} ${person.last_name}` },
+      ...seatRow(seats, person, day),
       chips: [...(chip === null ? [] : [chip]), ...(delivery === null ? [] : [delivery])],
-      line: COPY.admin.seatLine(seats, person?.email ?? null, day),
-      muted: person === null,
+      facts: answersOf(person),
       target: {
         seat,
         seats,

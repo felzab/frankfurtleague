@@ -37,7 +37,7 @@ described in the map. No document outside `.claude/` addresses an agent.
   reads is copy, not a name.
 - **A page's or a mailed link's address** follows the rule segment by segment, save `/impressum` and
   `/datenschutz`, the words German law and a visitor look for
-  (`fl_frontend/src/core/routes.ts :: ADDRESS_WORDS`, which `routes.test.ts` holds each address to).
+  (`fl_frontend/src/core/routes.test.ts :: ADDRESS_WORDS`, to which that test holds each address).
 - **A stored or served name** follows it too: `saison_phase`, but `first_name`, never `vorname`. A
   stored name is renamed by a migration file the owner runs with `mongosh --file` in an outage,
   after the old release stops and before the new one boots, and the file drops an index naming it,

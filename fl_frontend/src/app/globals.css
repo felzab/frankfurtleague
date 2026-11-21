@@ -69,30 +69,11 @@
   line-gap-override: 0%;
 }
 
-/* On a frame's `main`: no element inside the page's content takes part in scroll anchoring, so the
-   browser never picks one there as the anchor it keeps in place while the layout changes, and only the
-   frame outside `main` holds anchors. */
+/* On the box of a page's content, the classic page's `main` and the rail page's box under its title: no
+   element inside the page's content takes part in scroll anchoring, so the browser never picks one there as
+   the anchor it keeps in place while the layout changes, and only the frame outside that box holds anchors. */
 @utility overflow-anchor-none {
   overflow-anchor: none;
-}
-
-/* An over-long placeholder ends in an ellipsis, declared once because the
-   population is every field in the app. Both arms are needed: `text-overflow`
-   does not inherit, and only Blink and Gecko forward it to the pseudo-element. */
-/* `input` and not `textarea`: a textarea's placeholder wraps, and `text-overflow` acts only on
-   inline overflow. */
-input[placeholder],
-input[placeholder]::placeholder {
-  text-overflow: ellipsis;
-}
-
-/* `:placeholder-shown` is what keeps the fade off a value somebody typed. On `::placeholder` and
-   never the input: a mask on the element paints its border and fill too, eating the right of
-   both while a field is focused and empty. */
-input:focus:placeholder-shown::placeholder {
-  /* A UA may treat `text-overflow: ellipsis` as `clip` while a field is focused (CSS
-     Overflow 3 §5.1), hard-cutting an over-long placeholder. */
-  mask-image: linear-gradient(to right, #000 85%, transparent);
 }
 
 /* iOS Safari zooms the page into any focused control under 16px. The cure is the
@@ -100,7 +81,7 @@ input:focus:placeholder-shown::placeholder {
    disable pinch zoom for everyone. In the base layer, so a control's own size utility, the kit's
    16 px on a touch screen among them, outranks it. */
 @layer base {
-  @media (hover: none) and (pointer: coarse) {
+  @media (pointer: coarse) {
     input,
     select,
     textarea {

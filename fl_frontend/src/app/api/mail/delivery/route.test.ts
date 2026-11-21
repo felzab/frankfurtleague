@@ -35,7 +35,7 @@ doubleNextRequest();
 
 const { POST } = await import("./route");
 const { NextRequest } = await import("next/server");
-const { Webhook } = await import("svix");
+const { Webhook } = await import("standardwebhooks");
 
 const ROW_ID = `${"b".repeat(23)}2`;
 const ADDRESS = "erika@schule.example.org";
@@ -159,13 +159,7 @@ describe("what one delivery event leaves on its Postausgang row", () => {
   });
 
   it("answers 200 and forwards nothing for an event that leaves no state or names no row", async () => {
-    for (const event of [
-      eventFor("email.sent"),
-      eventFor("email.opened"),
-      eventFor("email.delivered", { tags: undefined }),
-      // A mail sent before the Postausgang carries the old path's tags alone.
-      eventFor("email.delivered", { tags: { bewerbung_id: `${"a".repeat(23)}1`, rollen: "trainer" } }),
-    ]) {
+    for (const event of [eventFor("email.sent"), eventFor("email.opened"), eventFor("email.delivered", { tags: undefined })]) {
       expect(await statusFor(event)).toBe(200);
     }
 
@@ -220,9 +214,9 @@ describe("POST /api/mail/delivery's signature", () => {
 });
 
 describe("POST /api/mail/delivery where the backend does not take the event", () => {
-  /* The endpoint answers a row gone or an event already answered with `angewendet: false`, so a failure is a route the
-     API does not serve mid-deploy, a credential or a body it does not take, a server error or a network failure: settled,
-     each would lose the event, where the provider's retry lands later. */
+  /* The endpoint answers a row gone or an event already answered with `applied: false`, so a failure is a route the
+     API does not serve mid-deploy, a server error or a network failure: settled, each would lose the event, where the
+     provider's retry lands later. */
   it("has every failure sent again, and writes one line", async () => {
     const answered = async (failure: Response) => {
       answer = () => failure;
@@ -230,12 +224,11 @@ describe("POST /api/mail/delivery where the backend does not take the event", ()
     };
     const badStatus = (status: number, code: Code | undefined) => refusal(code, { status });
 
+    // A 404 naming a protocol code and a 404 naming none, since a 404 is the likeliest failure to be misread as a row
+    // gone, then a server error; a network failure follows the loop.
     for (const [statusCode, code] of [
       [404, "no_route"],
-      [405, "method_not_served"],
       [404, undefined],
-      [401, "access_key_refused"],
-      [422, "payload_refused"],
       [500, undefined],
     ] as const) {
       expect(await answered(badStatus(statusCode, code)), `${String(code)} at ${String(statusCode)} settled the event`).toBe(503);

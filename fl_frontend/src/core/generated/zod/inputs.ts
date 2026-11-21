@@ -729,7 +729,7 @@ export const BewerbungenPatchEinwilligungBody = zod
       .describe("A contact seat's two wordings: the WhatsApp switch and the media switch."),
   })
   .describe(
-    "A seat holder's own two choices for every seat they hold on one row, under any label their kind cites.\n\nBoth choices on every press: a page that sent one alone would leave the other judged by nothing.",
+    "A seat holder's own two choices for every seat they hold on one row.\n\nBoth choices on every press: a page that sent one alone would leave the other judged by nothing.",
   );
 
 /**
@@ -780,27 +780,6 @@ export const BewerbungenResendKontaktConfirmationParams = zod.object({
   bewerbung_id: zod.string().regex(bewerbungenResendKontaktConfirmationPathBewerbungIdRegExp),
   seat: zod.string(),
 });
-
-/**
- * Withdraw the named choices, WhatsApp and media, on every confirmed seat of this application its person holds, as their own press does.
- *
- * A decided application takes it too; an accepted one holds no seat, its people being its season row's. A choice
- * already withheld stays as it is, so a second mail or a seat its person never confirmed writes nothing, and nothing
- * is ever granted.
- * @summary Enter a withdrawal of a contact seat's consent that its person asked for by mail
- */
-export const bewerbungenWithdrawKontaktEinwilligungPathBewerbungIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
-
-export const BewerbungenWithdrawKontaktEinwilligungParams = zod.object({
-  bewerbung_id: zod.string().regex(bewerbungenWithdrawKontaktEinwilligungPathBewerbungIdRegExp),
-  seat: zod.string(),
-});
-
-export const BewerbungenWithdrawKontaktEinwilligungBody = zod
-  .object({
-    choices: zod.array(zod.enum(["scope", "media"])).min(1),
-  })
-  .describe("The choices a person asked by mail to withdraw, which an administrator enters: it withholds and never grants.");
 
 /**
  * Add an address as `administration`, holding once its wait has passed; only the owner adds one, and no request grants `owner`.
@@ -934,6 +913,34 @@ export const IdentityGetSubjectBody = zod
   .describe("Which mailbox is asking, folded to the one spelling the join, the header and the log agree on.");
 
 /**
+ * Withhold each named choice on every record the address holds that grants it, answering per kind what it ended.
+ *
+ * A choice already withheld is left out of the answer and written nothing, nothing is ever granted, and a `dry_run`
+ * writes nothing and answers the same report.
+ * @summary Enter a withdrawal of the consents an address holds, on that person's request by mail
+ */
+export const identityPostWithdrawalQueryDryRunDefault = false;
+
+export const IdentityPostWithdrawalQueryParams = zod.object({
+  dry_run: zod.boolean().default(identityPostWithdrawalQueryDryRunDefault).describe("Report what this entry would end, and write nothing"),
+});
+
+export const identityPostWithdrawalBodyEmailMax = 254;
+
+export const identityPostWithdrawalBodyEmailRegExp = new RegExp("@");
+
+export const IdentityPostWithdrawalBody = zod
+  .object({
+    choices: zod.array(zod.enum(["name", "whatsapp", "media"])).min(1),
+    email: zod
+      .string()
+      .max(identityPostWithdrawalBodyEmailMax)
+      .regex(identityPostWithdrawalBodyEmailRegExp)
+      .describe("Its domain, after the last `@`, in ASCII alone, an international one in punycode; else `email_not_accepted`."),
+  })
+  .describe("The address a mail came from and what it withdraws, which an administrator enters: it withholds and never grants.");
+
+/**
  * Record what the mail provider reported about one message on its mail's row, where the row's state may follow into it.
  *
  * A redelivered or out-of-order event changes nothing.
@@ -958,7 +965,7 @@ export const OutboxPostEventBody = zod
  *
  * `held` reports a deployment that sends no mail, `abandon` a refusal every send would meet (any 4xx but a 429), and
  * `retry` a 429, a 5xx or a send that never reached the provider, which hands the mail back unless it is a sign-in
- * mail or past its deadline.
+ * code, a deletion link or past its deadline.
  * @summary Settle one mail a claim handed out
  */
 export const outboxPostResultBodyDeliveryReasonOneMax = 128;
@@ -1030,6 +1037,8 @@ export const registrierungenPostRegistrierungBodyFirstNameRegExp = new RegExp("^
 export const registrierungenPostRegistrierungBodyLastNameMax = 80;
 
 export const registrierungenPostRegistrierungBodyLastNameRegExp = new RegExp("^\\p{L}[\\p{L}\\-' ]*$", "u");
+export const registrierungenPostRegistrierungBodyNummerOneMax = 4;
+
 export const registrierungenPostRegistrierungBodyNummerOneRegExp = new RegExp("^[0-9]{1,4}$");
 export const registrierungenPostRegistrierungBodyTokenMax = 128;
 
@@ -1048,7 +1057,10 @@ export const RegistrierungenPostRegistrierungBody = zod
       .min(1)
       .max(registrierungenPostRegistrierungBodyLastNameMax)
       .regex(registrierungenPostRegistrierungBodyLastNameRegExp),
-    nummer: zod.union([zod.string().regex(registrierungenPostRegistrierungBodyNummerOneRegExp), zod.null()]),
+    nummer: zod.union([
+      zod.string().max(registrierungenPostRegistrierungBodyNummerOneMax).regex(registrierungenPostRegistrierungBodyNummerOneRegExp),
+      zod.null(),
+    ]),
     position: zod.union([zod.enum(["Tor", "Abwehr", "Mittelfeld", "Angriff"]), zod.null()]),
     stufe: zod.union([zod.enum(["E1", "E2", "Q1", "Q2", "Q3", "Q4"]), zod.null()]),
     token: zod.string().min(1).max(registrierungenPostRegistrierungBodyTokenMax).regex(registrierungenPostRegistrierungBodyTokenRegExp),
@@ -1208,25 +1220,6 @@ export const RegistrierungenPatchEinwilligungBody = zod
       .describe("A pupil's two wordings: the name on the squad and the media switch."),
   })
   .describe("A pupil's or a registration's own two choices on their record.");
-
-/**
- * Withdraw the named choices of the consent a pupil gave on a registration, which an admission would carry onto them.
- *
- * A decided registration takes it too. A choice already withheld stays as it is, so a second mail or a registration
- * its pupil never confirmed writes nothing, and nothing is ever granted.
- * @summary Enter a withdrawal of a registration's consent that its pupil asked for by mail
- */
-export const registrierungenWithdrawRegistrierungEinwilligungPathRegistrierungIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
-
-export const RegistrierungenWithdrawRegistrierungEinwilligungParams = zod.object({
-  registrierung_id: zod.string().regex(registrierungenWithdrawRegistrierungEinwilligungPathRegistrierungIdRegExp),
-});
-
-export const RegistrierungenWithdrawRegistrierungEinwilligungBody = zod
-  .object({
-    choices: zod.array(zod.enum(["scope", "media"])).min(1),
-  })
-  .describe("The choices a person asked by mail to withdraw, which an administrator enters: it withholds and never grants.");
 
 /**
  * Create the next season, always `future`, from its two days, answering the id it minted.
@@ -1416,18 +1409,6 @@ export const SaisonsGetSaisonOverviewParams = zod.object({
 });
 
 /**
- * Clear one season's contact blocks once a later season has ended, and each seat past its own day unconfirmed before.
- *
- * Once a later season has ended, the season's fixture answers and match reports keep the league's record alone. A row
- * that cannot be written is passed over, counted in `failed`, and met again by the next pass, as is a clock written in
- * one go whose write fails; what each clock cleared is recorded in the action log.
- * @summary Run one season's retention clocks over its season rows, fixture answers and match reports
- */
-export const SaisonsSweepSaisonRetentionParams = zod.object({
-  saison_id: zod.string(),
-});
-
-/**
  * One match as its page and its pop-up show it, each side of a group match with its group and `platz`; 404 outside a readable season.
  *
  * Each side's line-up from the moment its club stores one, the scorers and cards only while the report is adopted
@@ -1483,6 +1464,18 @@ export const SaisonsPostSpielplanBody = zod
   );
 
 /**
+ * Clear one season's contact blocks once a later season has ended, and each seat past its own day unconfirmed before.
+ *
+ * Once a later season has ended, the season's fixture answers and match reports keep the league's record alone. A row
+ * that cannot be written is passed over, counted in `failed`, and met again by the next pass, as is a clock written in
+ * one go whose write fails; what each clock cleared is recorded in the action log.
+ * @summary Run one season's retention clocks over its season rows, fixture answers and match reports
+ */
+export const SaisonsSweepSaisonRetentionParams = zod.object({
+  saison_id: zod.string(),
+});
+
+/**
  * Each group's standing over the group phase with its goals counted on every read, and how many of each group advance.
  *
  * A club that left the season keeps its row; it holds no `platz` where it left before its group was decided, and
@@ -1518,7 +1511,7 @@ export const SaisonsGetTeamParams = zod.object({
 });
 
 /**
- * Create a referee and owe them their confirmation link.
+ * Create a referee and owe them their confirmation link, answering the address it goes to.
  *
  * Entering a referee is the invitation, with no second press deciding whether they are asked, since a referee nobody
  * asked is a name nobody consented to publish.
@@ -1608,7 +1601,7 @@ export const SchiedsrichterGetConfirmationViewBody = zod
   .describe("The token of the link a person opened, in the body: a token in a URL reaches the edge's access line.");
 
 /**
- * Every fixture of this season booked to one of the signed-in address's live, confirmed referee records, open work first.
+ * Every fixture of this season booked to the signed-in address's live, confirmed referee records, in the order the draw numbered them.
  *
  * Nobody's address is served, and no reason an administrator entered.
  * @summary A signed-in referee's fixtures of one season, one row a fixture
@@ -1683,7 +1676,7 @@ export const SchiedsrichterPatchSchiedsrichterBody = zod.object({
 });
 
 /**
- * Owe this referee a fresh confirmation link, which the Postausgang mints and mails, and answer where it goes.
+ * Owe this referee a fresh confirmation link, which the Postausgang mints and mails, to the address they hold.
  *
  * The previous link stops working at once and the deadline restarts from today; a referee who has already answered is
  * refused, since the new link could never be spent.
@@ -1725,28 +1718,10 @@ export const SchiedsrichterPatchEinwilligungBody = zod
   .describe("A referee's own two choices on their record.");
 
 /**
- * Withdraw the named choices of a referee's consent, the name on the fixtures leaving the public pages and the media consent ending.
+ * Bring a retired referee back into the picker and every default read, answering where a fresh link goes.
  *
- * A choice already withheld stays as it is, so a second mail or a record its person never confirmed writes nothing,
- * and nothing is ever granted.
- * @summary Enter a withdrawal of a Schiedsrichter's consent that they asked for by mail
- */
-export const schiedsrichterWithdrawSchiedsrichterEinwilligungPathSchiedsrichterIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
-
-export const SchiedsrichterWithdrawSchiedsrichterEinwilligungParams = zod.object({
-  schiedsrichter_id: zod.string().regex(schiedsrichterWithdrawSchiedsrichterEinwilligungPathSchiedsrichterIdRegExp),
-});
-
-export const SchiedsrichterWithdrawSchiedsrichterEinwilligungBody = zod
-  .object({
-    choices: zod.array(zod.enum(["scope", "media"])).min(1),
-  })
-  .describe("The choices a person asked by mail to withdraw, which an administrator enters: it withholds and never grants.");
-
-/**
- * Bring a retired referee back into the picker and every default read.
- *
- * One who has not answered is owed a fresh link, since a retired referee's save mails nothing.
+ * One who has not answered is owed a fresh link, named in `confirmation`, since a retired referee's save mails nothing;
+ * one who has answered, holds no address a link can go to, or is back already, is owed none.
  * @summary Bring a deactivated Schiedsrichter back
  */
 export const schiedsrichterReactivateSchiedsrichterPathSchiedsrichterIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -2255,25 +2230,6 @@ export const SpielerGetKaderParams = zod.object({
 });
 
 /**
- * Withdraw the named choices of a pupil's consent, the name on the squad leaving the public pages and the media consent ending.
- *
- * A choice already withheld stays as it is, so a second mail writes nothing, and nothing is ever granted. The caller
- * drops its cached squad lists after a success, since the scope decides whether a name is served.
- * @summary Enter a withdrawal of a Spieler's consent that they asked for by mail
- */
-export const spielerWithdrawSpielerEinwilligungPathSpielerIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
-
-export const SpielerWithdrawSpielerEinwilligungParams = zod.object({
-  spieler_id: zod.string().regex(spielerWithdrawSpielerEinwilligungPathSpielerIdRegExp),
-});
-
-export const SpielerWithdrawSpielerEinwilligungBody = zod
-  .object({
-    choices: zod.array(zod.enum(["scope", "media"])).min(1),
-  })
-  .describe("The choices a person asked by mail to withdraw, which an administrator enters: it withholds and never grants.");
-
-/**
  * Take a player out of a season's squad, the row staying, marked by `inactive_since`.
  *
  * The row records that this player wore this number in this squad, which stays true after they leave. A finished
@@ -2320,6 +2276,8 @@ export const spielerPatchSpielerSaisonBodyFirstNameRegExp = new RegExp("^\\p{L}[
 export const spielerPatchSpielerSaisonBodyLastNameOneMax = 80;
 
 export const spielerPatchSpielerSaisonBodyLastNameOneRegExp = new RegExp("^\\p{L}[\\p{L}\\-' ]*$", "u");
+export const spielerPatchSpielerSaisonBodyNummerOneMax = 4;
+
 export const spielerPatchSpielerSaisonBodyNummerOneRegExp = new RegExp("^[0-9]{1,4}$");
 export const spielerPatchSpielerSaisonBodyVersionMin = 0;
 
@@ -2331,7 +2289,10 @@ export const SpielerPatchSpielerSaisonBody = zod
       zod.string().min(1).max(spielerPatchSpielerSaisonBodyLastNameOneMax).regex(spielerPatchSpielerSaisonBodyLastNameOneRegExp),
       zod.null(),
     ]),
-    nummer: zod.union([zod.string().regex(spielerPatchSpielerSaisonBodyNummerOneRegExp), zod.null()]),
+    nummer: zod.union([
+      zod.string().max(spielerPatchSpielerSaisonBodyNummerOneMax).regex(spielerPatchSpielerSaisonBodyNummerOneRegExp),
+      zod.null(),
+    ]),
     position: zod.union([zod.enum(["Tor", "Abwehr", "Mittelfeld", "Angriff"]), zod.null()]),
     rolle: zod.union([zod.enum(["kapitaen", "co_kapitaen"]), zod.null()]),
     stufe: zod.union([zod.enum(["E1", "E2", "Q1", "Q2", "Q3", "Q4"]), zod.null()]),
@@ -2384,12 +2345,14 @@ export const SpielerPatchKaderRowParams = zod.object({
   spieler_id: zod.string().regex(spielerPatchKaderRowPathSpielerIdRegExp),
 });
 
+export const spielerPatchKaderRowBodyNummerOneMax = 4;
+
 export const spielerPatchKaderRowBodyNummerOneRegExp = new RegExp("^[0-9]{1,4}$");
 export const spielerPatchKaderRowBodyVersionMin = 0;
 
 export const SpielerPatchKaderRowBody = zod
   .object({
-    nummer: zod.union([zod.string().regex(spielerPatchKaderRowBodyNummerOneRegExp), zod.null()]),
+    nummer: zod.union([zod.string().max(spielerPatchKaderRowBodyNummerOneMax).regex(spielerPatchKaderRowBodyNummerOneRegExp), zod.null()]),
     position: zod.union([zod.enum(["Tor", "Abwehr", "Mittelfeld", "Angriff"]), zod.null()]),
     rolle: zod.union([zod.enum(["kapitaen", "co_kapitaen"]), zod.null()]),
     stufe: zod.union([zod.enum(["E1", "E2", "Q1", "Q2", "Q3", "Q4"]), zod.null()]),
@@ -2870,7 +2833,7 @@ export const TeamsPatchEinwilligungBody = zod
       .describe("A contact seat's two wordings: the WhatsApp switch and the media switch."),
   })
   .describe(
-    "A seat holder's own two choices for every seat they hold on one row, under any label their kind cites.\n\nBoth choices on every press: a page that sent one alone would leave the other judged by nothing.",
+    "A seat holder's own two choices for every seat they hold on one row.\n\nBoth choices on every press: a page that sent one alone would leave the other judged by nothing.",
   );
 
 /**
@@ -2972,27 +2935,6 @@ export const TeamsResendKontaktConfirmationParams = zod.object({
   saison_id: zod.string(),
   seat: zod.string(),
 });
-
-/**
- * Withdraw the named choices, WhatsApp and media, on every confirmed seat of this row its person holds, as their own press does.
- *
- * A finished season's row and a withdrawn team's take it too. A choice already withheld stays as it is, so a second mail
- * or a seat its person never confirmed writes nothing, and nothing is ever granted.
- * @summary Enter a withdrawal of a contact seat's consent that its person asked for by mail
- */
-export const teamsWithdrawKontaktEinwilligungPathTeamIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
-
-export const TeamsWithdrawKontaktEinwilligungParams = zod.object({
-  team_id: zod.string().regex(teamsWithdrawKontaktEinwilligungPathTeamIdRegExp),
-  saison_id: zod.string(),
-  seat: zod.string(),
-});
-
-export const TeamsWithdrawKontaktEinwilligungBody = zod
-  .object({
-    choices: zod.array(zod.enum(["scope", "media"])).min(1),
-  })
-  .describe("The choices a person asked by mail to withdraw, which an administrator enters: it withholds and never grants.");
 
 /**
  * Everything a team's Übersicht shows in one read, for a person holding any contact seat on the team in this season.

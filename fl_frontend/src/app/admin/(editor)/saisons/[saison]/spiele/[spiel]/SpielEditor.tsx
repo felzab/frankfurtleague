@@ -2,8 +2,11 @@
 
 import { useState } from "react";
 
-import { COPY } from "@/core/copy";
+import { ADMIN_COPY } from "@/core/copy/admin";
+import { COPY } from "@/core/copy/shared";
 import { admitsShootOut, isNoShow, scoreOutcome } from "@/features/spiele/result";
+import { adoptsBerichtOf, takesNoResult } from "@/features/spiele/spielValues";
+import { SpielortFields } from "@/features/spielorte/SpielortFields";
 import { AdoptLine } from "@/kit/AdoptLine";
 import { AnswerRows } from "@/kit/AnswerRows";
 import { CardActRow } from "@/kit/Card";
@@ -21,12 +24,11 @@ import { TextField } from "@/kit/TextField";
 import { TimeField } from "@/kit/TimeField";
 import { useEditor } from "@/kit/useEditor";
 
-import { SpielortFields } from "../../../../../SpielortFields";
-import { adoptsBerichtOf, NO_SONDEREREIGNIS, takesNoResult } from "./spielValues";
-
 import type { ActionAnswer } from "@/core/action";
 import type { Copy, LockReason, Words } from "@/core/copy";
 import type { FLSaisonPhase, FLSonderereignis } from "@/core/generated/client/types";
+import type { Proposal, SpielValues } from "@/features/spiele/spielValues";
+import type { SpielortRules } from "@/features/spielorte/fieldRules";
 import type { AnswerRow } from "@/kit/AnswerRows";
 import type { CardActRowProps } from "@/kit/Card";
 import type { ChipProps } from "@/kit/Chip";
@@ -37,14 +39,12 @@ import type { ScoreOutcome, ScoreSide } from "@/kit/ScoreRows";
 import type { TableHead, TableRow } from "@/kit/Table";
 import type { EditorRecord, EditorSave } from "@/kit/useEditor";
 import type { Route } from "next";
-import type { SpielortRules } from "../../../../../spielortRules";
-import type { Proposal, SpielValues } from "./spielValues";
 
-const WORDS = COPY.admin.spiel;
-const ORT = COPY.admin.spielort;
+const WORDS = ADMIN_COPY.spiel;
+const ORT = ADMIN_COPY.spielort;
 
 /** A club a knockout match's side may be given by hand, with its Kürzel; one the write would not field carries why. */
-export type Club = { id: string; name: string; shorthand: string; note?: Copy };
+export type Team = { id: string; name: string; shorthand: string; note?: Copy };
 
 /** The referee's proposal with the line saying it, „Laut Spielbericht 3:1“, beside „Übernehmen“. */
 export type Adoption = Proposal & { text: Copy };
@@ -79,7 +79,7 @@ export function SpielEditor({
   begun,
   sides,
   quellen,
-  clubs,
+  teams,
   spielorte,
   schiedsrichter,
   sonderereignisse,
@@ -109,7 +109,7 @@ export function SpielEditor({
   /** Where each side comes from in the bracket, in full, `null` where it follows nothing. */
   quellen: { team1: Copy | null; team2: Copy | null };
   /** A knockout match's clubs to pick its sides from; `null` on a group match, whose sides the draw sets. */
-  clubs: readonly Club[] | null;
+  teams: readonly Team[] | null;
   spielorte: readonly Booking[];
   schiedsrichter: readonly Booking[];
   /** „Keines“ first, then each event, an event this fixture cannot take disabled with its reason. */
@@ -131,6 +131,8 @@ export function SpielEditor({
   /** The match's public page, where the public may read its season: the strip's way there. */
   spielPage?: Route;
 }) {
+  // A finished season's match takes no more goals or answers, so its empty lists say none was recorded, not „Noch keine“.
+  const emptyKind = closed === undefined ? "none" : "unrecorded";
   // „Übernehmen“ pressed is one of the draft's changes, so it counts, holds the way back and goes with a discard like any
   // field, even where the fields already hold the proposal; the save stamps the report with it.
   const editor = useEditor<Draft>(
@@ -149,18 +151,20 @@ export function SpielEditor({
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState("");
 
-  const clubOf = (id: string | null) => (id === null ? undefined : clubs?.find((each) => each.id === id));
+  const teamOf = (id: string | null) => (id === null ? undefined : teams?.find((each) => each.id === id));
   // Each side's field named by its club, as it now stands in the draft, a club picked by hand with the plaque the
   // picker's list carries for it, and by its place while the side is open.
   const sideOf = (side: "team1" | "team2"): ScoreSide => {
     if (draft[side] === record.values[side] && sides[side] !== null) return sides[side];
-    const club = clubOf(draft[side]);
-    return club === undefined ? { name: WORDS[side], plaque: null } : { name: { record: club.name }, plaque: { record: club.shorthand } };
+    const team = teamOf(draft[side]);
+    return team === undefined
+      ? { name: COPY.shared.teamPair[side], plaque: null }
+      : { name: { record: team.name }, plaque: { record: team.shorthand } };
   };
   const scoreSides: readonly [ScoreSide, ScoreSide] = [sideOf("team1"), sideOf("team2")];
   const sideNames: readonly [Words, Words] = [scoreSides[0].name, scoreSides[1].name];
   const bothSides = draft.team1 !== null && draft.team2 !== null;
-  const sonderereignis = draft.sonderereignis === NO_SONDEREREIGNIS ? null : (draft.sonderereignis as FLSonderereignis);
+  const sonderereignis = draft.sonderereignis === "" ? null : (draft.sonderereignis as FLSonderereignis);
   // A result is entered on a match that was played, an abandoned one included; a no-show's is composed, and a match
   // called off or struck out carries none.
   const resultShown = !isNoShow(sonderereignis) && !takesNoResult(sonderereignis);
@@ -172,7 +176,7 @@ export function SpielEditor({
   const shootOutTyped = draft.shootOut1 !== "" || draft.shootOut2 !== "";
   const storedScore =
     record.values.hasResult && record.values.tore1 !== "" && record.values.tore2 !== ""
-      ? WORDS.score(
+      ? COPY.spielplan.score(
           { team1: Number(record.values.tore1), team2: Number(record.values.tore2) },
           record.values.shootOut1 === "" || record.values.shootOut2 === ""
             ? null
@@ -194,13 +198,13 @@ export function SpielEditor({
   /** A side's club picker: the clubs of the season, the other side's own and any the write would not field disabled. */
   const sidePicker = (side: "team1" | "team2", other: string | null) => (
     <Select
-      label={WORDS[side]}
+      label={COPY.shared.teamPair[side]}
       name={side}
-      options={(clubs ?? []).map((club): Option => {
-        if (club.note !== undefined) return { id: club.id, label: { record: club.name }, isDisabled: true, note: club.note };
-        return club.id === other
-          ? { id: club.id, label: { record: club.name }, isDisabled: true, note: WORDS.onSpieltag }
-          : { id: club.id, label: { record: club.name } };
+      options={(teams ?? []).map((team): Option => {
+        if (team.note !== undefined) return { id: team.id, label: { record: team.name }, isDisabled: true, note: team.note };
+        return team.id === other
+          ? { id: team.id, label: { record: team.name }, isDisabled: true, note: WORDS.onSpieltag }
+          : { id: team.id, label: { record: team.name } };
       })}
       value={draft[side]}
       onChange={(id) => set(side, id)}
@@ -210,7 +214,7 @@ export function SpielEditor({
 
   // First on a knockout match, the clubs being what the rest of the match is about; a group match has none to pick.
   const begegnung: EditorSection | null =
-    clubs === null
+    teams === null
       ? null
       : {
           id: "begegnung",
@@ -231,7 +235,7 @@ export function SpielEditor({
             id: "aufstellungen",
             block: (
               <Section
-                title={COPY.area.team.aufstellung.plural}
+                title={COPY.aufstellung.plural}
                 list={aufstellungen.map(({ id, ...row }) => (
                   <CardActRow
                     key={id}
@@ -263,13 +267,13 @@ export function SpielEditor({
               {/* A day and its time are one value, sharing their row at every width. */}
               <FieldPair>
                 <DateField
-                  label={WORDS.date}
+                  label={COPY.spielplan.fact.date}
                   name="date"
                   value={draft.date}
                   onChange={(date) => set("date", date)}
                 />
                 <TimeField
-                  label={WORDS.time}
+                  label={COPY.spielplan.fact.time}
                   name="time"
                   value={draft.time}
                   onChange={(time) => set("time", time)}
@@ -287,7 +291,7 @@ export function SpielEditor({
                   if (chosen !== undefined) set("mietpreis", String(chosen.price));
                 }}
                 create={{
-                  label: ORT.createEntry,
+                  label: COPY.shared.withObject(ORT.object, "create"),
                   onCreate: (typed) => {
                     setNewName(typed);
                     setCreating(true);
@@ -312,6 +316,7 @@ export function SpielEditor({
                 label={COPY.shared.schiedsrichter}
                 name="schiedsrichter"
                 options={schiedsrichter.map((person) => person.option)}
+                plural={COPY.shared.schiedsrichter}
                 value={draft.schiedsrichter}
                 onChange={(id) => {
                   set("schiedsrichter", id);
@@ -322,7 +327,7 @@ export function SpielEditor({
               />
               {draft.schiedsrichter !== null && (
                 <TextField
-                  label={COPY.admin.payment}
+                  label={COPY.shared.payment}
                   name="payment"
                   holds={5}
                   kind="digits"
@@ -335,7 +340,7 @@ export function SpielEditor({
               <Dialog
                 title={COPY.shared.withObject(ORT.object, "create")}
                 act={{ verb: "create", object: ORT.object }}
-                action={createSpielort}
+                run={createSpielort}
                 open={{ isOpen: creating, onOpenChange: setCreating }}>
                 <SpielortFields
                   rules={spielortRules}
@@ -347,13 +352,13 @@ export function SpielEditor({
         },
         {
           id: "ergebnis",
-          title: WORDS.ergebnis,
+          title: COPY.spielplan.ergebnis,
           fields: (
             <>
               {/* Revealing the result states the fact: on once a result is stored, and only once both sides stand. A
                   Sonderereignis composing the result, or leaving the match without one, closes it with that reason. */}
               <Switch
-                label={COPY.shared.withObject(WORDS.ergebnis, "enter")}
+                label={COPY.shared.withObject(COPY.spielplan.ergebnis, "enter")}
                 name="hasResult"
                 isSelected={resultShown && draft.hasResult}
                 isDisabled={!bothSides || !resultShown}
@@ -362,10 +367,10 @@ export function SpielEditor({
                 {...(resultLocked
                   ? {}
                   : !resultShown
-                    ? { description: WORDS.byEvent }
+                    ? { description: COPY.spielplan.byEvent }
                     : bothSides
                       ? {}
-                      : { description: WORDS.needsBothSides })}
+                      : { description: ADMIN_COPY.bothTeamsLocked })}
               />
               {scored && (
                 <ScoreRows
@@ -382,8 +387,8 @@ export function SpielEditor({
                   shootOut={
                     shootOut
                       ? {
-                          label: WORDS.elfmeterschiessen,
-                          head: WORDS.afterElfmeterschiessen,
+                          label: COPY.spielplan.elfmeterschiessen,
+                          head: COPY.shared.afterElfmeterschiessen,
                           names: ["shootOut1", "shootOut2"],
                           values: [draft.shootOut1, draft.shootOut2],
                           onChange: (side, value) => set(side === 0 ? "shootOut1" : "shootOut2", value),
@@ -393,7 +398,7 @@ export function SpielEditor({
                       : null
                   }
                   outcome={outcomeOf([draft.tore1, draft.tore2], shootOut ? [draft.shootOut1, draft.shootOut2] : null)}
-                  {...(shootOut && !shootOutTyped ? { consequence: WORDS.shootOutMissing } : {})}
+                  {...(shootOut && !shootOutTyped ? { consequence: COPY.spielplan.shootOutMissing } : {})}
                 />
               )}
               {/* Offered until pressed, where the fields already hold the proposal too: only the press adopts it. */}
@@ -429,14 +434,15 @@ export function SpielEditor({
         // What happened beyond the play, which decides whether the Ergebnis box takes a result at all.
         {
           id: "sonderereignis",
-          title: WORDS.sonderereignis,
+          title: COPY.spielplan.sonderereignis.label,
           fields: (
             <Select
-              label={WORDS.sonderereignis}
+              label={COPY.spielplan.sonderereignis.label}
               labelHidden
               name="sonderereignis"
               options={sonderereignisse}
               value={draft.sonderereignis}
+              // „Keines“ is the entry `""`, a chosen key: only `null`, no entry at all, is dropped.
               onChange={(id) => {
                 if (id !== null) set("sonderereignis", id);
               }}
@@ -449,13 +455,13 @@ export function SpielEditor({
           // Its own section, the table edge to edge in its box, so the table's width is the box's, which picks its form.
           block: (
             <Section
-              title={WORDS.spielbericht}
+              title={COPY.spielplan.spielbericht}
               list={
                 <Table
-                  label={WORDS.spielbericht}
+                  label={COPY.spielplan.spielbericht}
                   {...report.head}
                   rows={report.rows}
-                  empty={{ kind: "none", plural: COPY.shared.tore }}
+                  empty={{ kind: emptyKind, plural: COPY.shared.tore }}
                   bare
                   stack
                 />
@@ -470,7 +476,7 @@ export function SpielEditor({
             <AnswerRows
               label={WORDS.confirmations}
               rows={answers}
-              empty={{ kind: "none", plural: WORDS.confirmations }}
+              empty={{ kind: emptyKind, plural: WORDS.confirmations }}
             />
           ),
         },

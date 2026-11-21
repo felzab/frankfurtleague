@@ -2,22 +2,23 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { COPY } from "@/core/copy";
+import { PUBLIC_COPY } from "@/core/copy/public";
+import { COPY } from "@/core/copy/shared";
 
 import { SignInPage } from "./SignInPage";
 
 import type { Copy } from "@/core/copy";
 
-const WORDS = COPY.signIn;
+const WORDS = PUBLIC_COPY.signIn;
 
 describe("the sign-in template", () => {
   it("moves the focus to the address field on each of the server's refusals, so a screen reader reads it", () => {
     const addressView = (error: Readonly<Record<string, Copy>> | undefined) => (
       <SignInPage
         view="address"
-        title={WORDS.title}
+        title={COPY.page.signIn}
         row={null}
-        address={{ label: WORDS.address, value: "", onChange: () => undefined, error }}
+        address={{ label: COPY.shared.emailAddress, value: "", onChange: () => undefined, error }}
         check={null}
         send={{ label: WORDS.sendCode, onPress: () => undefined }}
         or={WORDS.or}
@@ -26,7 +27,7 @@ describe("the sign-in template", () => {
     );
     const refusal = COPY.shared.field.format(COPY.shared.field.exampleAddress);
     const { rerender } = render(addressView(undefined));
-    const field = screen.getByRole("textbox", { name: WORDS.address });
+    const field = screen.getByRole("textbox", { name: COPY.shared.emailAddress });
     const send = screen.getByRole("button", { name: WORDS.sendCode });
     expect(document.activeElement).not.toBe(field);
 
@@ -37,5 +38,25 @@ describe("the sign-in template", () => {
     send.focus();
     rerender(addressView({ email: refusal }));
     expect(document.activeElement).toBe(field);
+  });
+
+  /* The harm: a sign-in opened anywhere but the administration offers a person a passkey they cannot hold, under an
+     „oder“ that leads nowhere, or draws the „oder“ line's two hairlines under the form with nothing after them. */
+  it("draws nothing between the form and its status line where the page hands no passkey, though it hands the „oder“", () => {
+    const { container } = render(
+      <SignInPage
+        view="address"
+        title={COPY.page.signIn}
+        row={null}
+        address={{ label: COPY.shared.emailAddress, value: "", onChange: () => undefined }}
+        check={null}
+        send={{ label: WORDS.sendCode, onPress: () => undefined }}
+        or={WORDS.or}
+      />,
+    );
+
+    expect(screen.getAllByRole("button").map((button) => button.textContent)).toStrictEqual([WORDS.sendCode]);
+    // The divider has no role, and drawn without its word it has no text, so it is read by its place.
+    expect(container.querySelector("form")?.nextElementSibling, "a line stands under the form").toBe(screen.getByRole("status"));
   });
 });

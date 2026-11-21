@@ -1,14 +1,15 @@
 import "server-only";
 
 import { now } from "../clock";
+import { asSignInIdentifier } from "../emailAddress";
 import { RolledBackError } from "../errors";
 import { auth } from "./library";
+import { PASSKEY_FACTOR } from "./sessionStamps";
 import { EVERY_ROW, RemovalOutsideTransaction } from "./signInRows";
 
 import type { Passkey } from "@better-auth/passkey";
 import type { DBTransactionAdapter } from "better-auth";
 
-/** Named, because the library's failure line records an error's name and nothing else. */
 class ClaimMatchedNoAccount extends Error {
   override name = "ClaimMatchedNoAccount";
 }
@@ -41,13 +42,54 @@ export async function passkeysOf(userId: string): Promise<Passkey[]> {
   return adapter.findMany<Passkey>({ model: "passkey", where: [{ field: "userId", value: userId }], limit: EVERY_ROW });
 }
 
+/**
+ * The folded address of every account holding a passkey, for the account sweep to judge each by its grant: a handful,
+ * since only an administrator enrols one.
+ */
+export async function passkeyHolders(): Promise<string[]> {
+  const { adapter } = await auth.$context;
+  const passkeys = await adapter.findMany<{ userId: string }>({ model: "passkey", limit: EVERY_ROW });
+  const userIds = [...new Set(passkeys.map(({ userId }) => userId))];
+  // No passkey stands, so there is no holder to read.
+  if (userIds.length === 0) return [];
+
+  const holders = await adapter.findMany<{ email: string }>({
+    model: "user",
+    where: [{ field: "id", operator: "in", value: userIds }],
+    limit: EVERY_ROW,
+  });
+  return holders.map(({ email }) => asSignInIdentifier(email));
+}
+
+/**
+ * Deletes the passkeys of the account signing in at `address`, then the sessions they made, once the address's grant
+ * has ended: a passkey is an administrator's factor alone. An address with no account holds neither. Its code sessions
+ * stay, a person's now, which the grant's end has already taken the administration from.
+ */
+export async function deletePasskeysAt(address: string): Promise<void> {
+  const { adapter, internalAdapter } = await auth.$context;
+  const account = await internalAdapter.findUserByEmail(asSignInIdentifier(address));
+  if (account === null) return;
+
+  // The passkeys first, and no transaction: a passkey session whose row is gone is served by no guard, while a passkey
+  // whose sessions went first still signs in.
+  await adapter.deleteMany({ model: "passkey", where: [{ field: "userId", value: account.user.id }] });
+  await adapter.deleteMany({
+    model: "session",
+    where: [
+      { field: "userId", value: account.user.id },
+      { field: "authFactor", value: PASSKEY_FACTOR },
+    ],
+  });
+}
+
 type PasskeyRemoval = "removed" | "last" | "absent";
 
 /**
  * One transaction around the count, the claim, the delete and the sign-out: two removals started
  * from two rows would otherwise each see a second row and leave none.
  */
-export async function removePasskey(holder: { readonly id: string; readonly isAdmin: boolean }, id: string): Promise<PasskeyRemoval> {
+export async function removePasskey(holder: { readonly id: string }, id: string): Promise<PasskeyRemoval> {
   // Set once the callback has returned. A throw before that aborted a transaction that never
   // committed, so nothing was written; one after it came from the commit, whose outcome may be unknown. Typed
   // `boolean`, since TypeScript's narrowing does not follow the callback's writes.
@@ -90,10 +132,8 @@ export async function removePasskey(holder: { readonly id: string; readonly isAd
       ],
     });
     if (removed === null) return "absent";
-    // By the grant the account page's guard read, which throws on an unread one before any removal:
-    // an administrator's last passkey is their only way into the administration, while a person
-    // holding none signs in by code again.
-    if (holder.isAdmin && (await held.count({ model: "passkey", where: [{ field: "userId", value: holder.id }] })) <= 1) return "last";
+    // An administrator's last passkey is their only way into the administration, and only an administrator holds one.
+    if ((await held.count({ model: "passkey", where: [{ field: "userId", value: holder.id }] })) <= 1) return "last";
 
     await claimAccount(held, holder.id);
     await held.delete({ model: "passkey", where: [{ field: "id", value: id }] });

@@ -1,9 +1,13 @@
 import { requires } from "@/core/action";
-import { ADDRESS_CHANGE_WAIT_DAYS } from "@/core/addressChange";
-import { getAdminSession } from "@/core/auth/guards";
-import { COPY } from "@/core/copy";
+import { ADDRESS_CHANGE_WAITING_PERIOD } from "@/core/addressChange";
+import { getAdminHolder } from "@/core/auth/guards";
+import { ADMIN_COPY } from "@/core/copy/admin";
+import { COPY } from "@/core/copy/shared";
 import { formatInstantShort } from "@/core/format";
-import { addressChangePostAddressChangeAdminBodyAddressMax } from "@/core/generated/zod/inputs";
+import {
+  addressChangePostAddressChangeAdminBodyAddressMax,
+  addressChangePostAddressChangeAdminBodyEmailMax,
+} from "@/core/generated/zod/inputs";
 import { ROUTES } from "@/core/routes";
 import { getAddressChanges } from "@/features/address-change/queries";
 import { SignInAddressSchema, SignInPayloadSchema } from "@/features/auth/schemas";
@@ -13,7 +17,6 @@ import { EXPIRED_CHIP } from "@/kit/stateChips";
 import { pageMetadata } from "@/shared/utils/metadata";
 
 import { startLostMailboxChange } from "./addressChangeActs";
-import { changeActKinds } from "./changeActKinds";
 import { ChangeActs } from "./ChangeActs";
 import { StartFields } from "./StartFields";
 
@@ -22,23 +25,18 @@ import type { ChipProps } from "@/kit/Chip";
 import type { Fact } from "@/kit/Facts";
 import type { ListCreate } from "@/kit/ListPage";
 import type { TableHead, TableRow } from "@/kit/Table";
-import type { Metadata, ResolvingMetadata } from "next";
 import type { StartRules } from "./StartFields";
 
-const WORDS = COPY.admin.addressChange;
+const WORDS = ADMIN_COPY.addressChange;
 
-const START = COPY.shared.withObject(COPY.account.address.change, "enter");
+const START = COPY.shared.withObject(COPY.shared.addressChange.change, "enter");
 
-export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
-  return pageMetadata(parent, ROUTES.adminAddressChanges, ROUTES.adminAddressChanges.path());
-}
+export const metadata = pageMetadata(ROUTES.adminAddressChanges);
 
 /** The running changes, and the address the page is drawn for: one read for the list and the toolbar's act alike. */
 async function readChanges() {
-  const [{ changes }, session] = await Promise.all([getAddressChanges(), getAdminSession()]);
-  // The page's read turned a refused session away to the sign-in before this line; an acting administrator signs in by
-  // passkey alone, so every act here asks the touch.
-  return { changes, holder: session?.user.email ?? "" };
+  const [{ changes }, holder] = await Promise.all([getAddressChanges(), getAdminHolder()]);
+  return { changes, holder };
 }
 
 const WAITS_ON_TONE: Readonly<Record<FLAddressChangeWaitsOn, ChipProps["tone"]>> = {
@@ -57,14 +55,17 @@ function untilOf({ effective_from, valid_until, waits_on }: FLAddressChangeAdmin
   return valid_until === null ? undefined : WORDS.until(valid_until);
 }
 
-/** The ending's facts: a holder's change in its wait has told every holder, who hear of its end; nothing else is mailed. */
+/**
+ * The ending's facts: a holder's change in its wait has told every holder, who hear of its end; nothing else is mailed,
+ * and the question then names no mail, as every question mailing nobody leaves the row out.
+ */
 function endFactsOf({ address, email, effective_from, holder, waits_on }: FLAddressChangeAdminOpen): ReadonlyArray<Fact> {
   const toldHolders = holder !== null && waits_on === "waiting_period";
   return [
-    { label: COPY.admin.facts.before, value: { record: address, address: true } },
-    { label: COPY.admin.facts.after, value: { record: email, address: true } },
-    ...(effective_from === null ? [] : [{ label: COPY.admin.facts.effectiveFrom, value: { record: formatInstantShort(effective_from) } }]),
-    { label: COPY.admin.facts.mailTo, value: toldHolders ? COPY.admin.mailTo.holders : COPY.admin.seatEmpty },
+    { label: COPY.shared.facts.before, value: { record: address, address: true } },
+    { label: COPY.shared.facts.after, value: { record: email, address: true } },
+    ...(effective_from === null ? [] : [{ label: COPY.shared.facts.effectiveFrom, value: { record: formatInstantShort(effective_from) } }]),
+    ...(toldHolders ? [{ label: ADMIN_COPY.facts.mailTo, value: ADMIN_COPY.mailTo.holders }] : []),
   ];
 }
 
@@ -85,13 +86,7 @@ function rowOf(change: FLAddressChangeAdminOpen, holder: string): TableRow {
     chip: chipOf(change),
     ...(delivery === null ? {} : { delivery }),
     ...(until === undefined ? {} : { line: until }),
-    phoneLine: {
-      before: WORDS.newLine.before,
-      address: { record: change.email },
-      ...(until === undefined ? {} : { after: WORDS.newLine.after(until) }),
-    },
-    cells: { after: { record: change.email } },
-    sideActs: changeActKinds(resends).length,
+    cells: { after: { record: change.email, address: true } },
     acts: (
       <ChangeActs
         id={change.id}
@@ -111,9 +106,9 @@ function rowOf(change: FLAddressChangeAdminOpen, holder: string): TableRow {
  * step ends in the table, where it has one, and the new address before it on a stacked row.
  */
 const HEAD: TableHead = {
-  nameLabel: COPY.admin.facts.before,
-  state: { label: COPY.admin.schiedsrichter.state, delivery: true },
-  columns: [{ key: "after", label: COPY.admin.facts.after, hideOnPhone: true, width: "line", cut: true }],
+  nameLabel: COPY.shared.facts.before,
+  state: { label: COPY.shared.facts.state, delivery: true },
+  columns: [{ key: "after", label: COPY.shared.facts.after, hideOnPhone: true, onLine: "labelled", width: "line", cut: true }],
 };
 
 const START_RULES: StartRules = {
@@ -121,7 +116,7 @@ const START_RULES: StartRules = {
     address: requires(SignInPayloadSchema.shape.email, ""),
     email: requires(SignInAddressSchema, ""),
   },
-  addressMax: addressChangePostAddressChangeAdminBodyAddressMax,
+  max: { address: addressChangePostAddressChangeAdminBodyAddressMax, email: addressChangePostAddressChangeAdminBodyEmailMax },
 };
 
 /**
@@ -135,10 +130,10 @@ export default function AddressChangesPage() {
       head={{ scope: "area", title: { route: "adminAddressChanges" } }}
       create={read.then(({ changes, holder }): ListCreate => ({
         title: START,
-        act: { verb: "enter", object: COPY.account.address.change },
-        action: startLostMailboxChange,
-        consequence: WORDS.startConsequence({ days: ADDRESS_CHANGE_WAIT_DAYS }),
-        facts: [{ label: COPY.admin.facts.mailTo, value: COPY.admin.mailTo.bothAddresses }],
+        act: { verb: "enter", object: COPY.shared.addressChange.change },
+        run: startLostMailboxChange,
+        consequence: WORDS.startConsequence(ADDRESS_CHANGE_WAITING_PERIOD),
+        facts: [{ label: ADMIN_COPY.facts.mailTo, value: ADMIN_COPY.mailTo.bothAddresses }],
         touch: { holder },
         children: (
           <StartFields

@@ -15,10 +15,13 @@ import type { RoleTarget } from "@/features/roles/utils";
 import type { Account } from "@/kit/FrameNav";
 import type { Route } from "next";
 
-/** A team's entry carries the account row's second line on every page of its season, which a team's frame cannot name itself. */
+/**
+ * A team's entry carries its seasons, each with the account row's second line on every page of that season, which a
+ * team's frame cannot name itself.
+ */
 function entryOf(target: RoleTarget): NonNullable<Account["roles"]>[number] {
-  const { href, name, seats, teamLine } = placeOf(target);
-  return { href, label: name, ...(seats === undefined ? {} : { detail: seats }), ...(teamLine === undefined ? {} : { role: teamLine }) };
+  const { href, name, seats, parts } = placeOf(target);
+  return { href, label: name, ...(seats === undefined ? {} : { detail: seats }), ...(parts === undefined ? {} : { parts }) };
 }
 
 /**
@@ -36,9 +39,9 @@ export async function readAccount(role?: Copy): Promise<Account | null> {
 }
 
 /**
- * Where Konto's „‹ Zurück“ leads: where the person's landing would send them, so the way back takes no second
- * redirect, or `null` for a person holding no Funktion, whom the landing sends to Konto, so a way back there would
- * lead straight back here.
+ * Where Konto's „‹ Zurück“ leads when no area's page it was opened from is known, as after a reload: where the
+ * person's landing would send them, so the way back takes no second redirect. `null` for a person holding no Funktion,
+ * whom the landing sends to Konto, so a way back there would lead straight back here.
  */
 export async function readAreaBack(): Promise<Route | null> {
   const subject = await getSubjectSession();

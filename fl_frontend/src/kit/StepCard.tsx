@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 
 import { Button } from "./Button";
 import { Card } from "./Card";
@@ -55,10 +55,12 @@ export function StepCard({
         className={body()}
         validationErrors={fieldErrors}
         onInvalid={() => setBlocked(true)}
+        // „Weiter“ hands the inputs over and sends nothing, so nothing is ever on its way.
+        isBusy={false}
         onSend={onNext}>
         <Facts facts={facts} />
         <FieldStack>{children}</FieldStack>
-        <FormFooter status={isBlocked ? { tone: "error", text: COPY.template.checkFields } : null}>
+        <FormFooter status={isBlocked ? { tone: "danger", text: COPY.template.checkFields } : null}>
           <Button
             variant="quiet"
             label={COPY.shared.verb.skip}
@@ -84,7 +86,7 @@ export function CheckStep({ table, refused, act }: { table: TableProps; refused:
   return (
     <>
       <Table {...table} />
-      <FormFooter status={refused ? { tone: "error", text: COPY.template.checkFields } : null}>{act}</FormFooter>
+      <FormFooter status={refused ? { tone: "danger", text: COPY.template.checkFields } : null}>{act}</FormFooter>
     </>
   );
 }

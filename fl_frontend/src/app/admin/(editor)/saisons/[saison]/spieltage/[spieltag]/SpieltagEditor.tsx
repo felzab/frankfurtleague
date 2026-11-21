@@ -1,6 +1,6 @@
 "use client";
 
-import { COPY } from "@/core/copy";
+import { ADMIN_COPY } from "@/core/copy/admin";
 import { DateField } from "@/kit/DateField";
 import { EditorPage } from "@/kit/EditorPage";
 import { FieldRows } from "@/kit/FieldRows";
@@ -12,7 +12,7 @@ import type { PageTitle } from "@/kit/RailFrame";
 import type { EditorRecord, EditorSave } from "@/kit/useEditor";
 import type { SpieltagValues } from "./spieltagValues";
 
-const WORDS = COPY.admin.saison;
+const WORDS = ADMIN_COPY.saison;
 
 /**
  * The matchday editor: its first and last day, one value in one box as a season's span is, saved from the editor's

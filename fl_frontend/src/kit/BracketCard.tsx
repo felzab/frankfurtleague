@@ -1,4 +1,5 @@
 import { textOf } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 
 import { cardSurface } from "./cardStyles";
 import { Chip } from "./Chip";
@@ -19,7 +20,7 @@ import type { Figures, SpielRowProps, SpielSide } from "./SpielRow";
 const card = tv({
   extend: sideMarks,
   slots: {
-    // 6 px between the plaque and the figure on the narrow card, so a two-digit figure fits the card inside its padding.
+    // Narrower between the plaque and the figure on the narrow card, so a two-digit figure fits inside its padding.
     line: "flex min-h-6 min-w-0 items-center justify-between gap-1.5 @2xl:gap-2",
     side: "flex min-w-0 items-center gap-2",
     // The narrow card draws the plaque alone, the name still the link's words for a screen reader.
@@ -34,6 +35,7 @@ const card = tv({
     // A chip's height whether a chip stands on it or not, so every card of the tree stays one size.
     whenLine: "flex h-5 items-center justify-between gap-2",
     date: "min-w-0 truncate",
+    end: "flex shrink-0 items-center gap-2 whitespace-nowrap",
   },
 });
 
@@ -54,8 +56,6 @@ function Line({ side, score, part, muted = false, absent }: LineProps) {
           muted={muted}
           struck={struck}
         />
-        {/* The wide card sets the name, or a side's source, beside the plaque, cut with „…“ and whole in its title while
-            it is cut. */}
         <CutText
           text={name}
           className={style.name()}
@@ -67,12 +67,12 @@ function Line({ side, score, part, muted = false, absent }: LineProps) {
 }
 
 /**
- * A knockout match in the bracket, the whole card a link to it, or opening nothing where it has no `href`. Every card is the same size: one figure
- * per side, a shoot-out's goals added, with no mark for it, both figures bold; on the wide card the date under a
- * hairline. Something befell the match as a match row draws it (`SpielRow`): both sides muted, the side that did not
- * turn up struck, and on the wide card the event's chip at the date line's end, the date cut with „…“ beside a long
- * one; the narrow card, of plaques alone, has no room for a chip, so its plaques carry the muting and the strike, and
- * its date line, chip included, is heard by a screen reader alone.
+ * A knockout match in the bracket, the whole card a link to it, or opening nothing where it has no `href`. Every card
+ * is the same size, one figure per side with a shoot-out's goals added and „n. E.“ at the date line's end. A match
+ * something befell draws as a match row does (`SpielRow`): both sides muted, the side that did not turn up struck, and
+ * on the wide card the event's chip at the date line's end. The narrow card, of plaques alone, has no room for a chip,
+ * so its plaques carry the muting and the strike, and its date line, chip and „n. E.“ included, is heard by a screen
+ * reader alone.
  */
 export function BracketCard({
   href,
@@ -87,13 +87,13 @@ export function BracketCard({
 }: {
   /** The card's fragment, so a link elsewhere, such as a club's line in a match head, opens the tree at it. */
   anchor?: string;
-  /** The match's page; absent where it has none to open yet, as a match row's (`SpielRow`), the card then opening nothing. */
   href?: Route;
   when: Copy;
   team1: SpielSide;
   team2: SpielSide;
 } & Pick<SpielRowProps, "result" | "chip" | "muted" | "absent">) {
   const score = figures(result);
+  const shootOut = score?.shootOut === true ? COPY.shared.afterElfmeterschiessen : null;
   const style = card();
   const event = { muted, absent };
   const body = (
@@ -113,7 +113,13 @@ export function BracketCard({
       <span className={style.when()}>
         <span className={style.whenLine()}>
           <span className={style.date()}>{when}</span>
-          {chip !== undefined && <Chip {...chip} />}
+          {/* „n. E.“ last, as on a match row's card, nearest the figures it qualifies. */}
+          {(chip !== undefined || shootOut !== null) && (
+            <span className={style.end()}>
+              {chip !== undefined && <Chip {...chip} />}
+              {shootOut}
+            </span>
+          )}
         </span>
       </span>
     </span>

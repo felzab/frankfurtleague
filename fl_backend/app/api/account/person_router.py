@@ -92,7 +92,7 @@ async def get_einwilligungen(
 
     # From the rows read above, which the subject's own selections choose: a second read would answer the same.
     subject = roles_from(identifier, seat_rows=seat_rows, referee_rows=referees, pupil_rows=pupils)
-    teams = {team["_id"]: team for row in (*bewerbung_rows, *registrierung_rows) for team in row["teams"]}
+    teams = {team["_id"]: team for row in registrierung_rows for team in row["teams"]}
 
     pupil = next((row for row in pupils if is_own_spieler(row)), None)
 
@@ -105,7 +105,7 @@ async def get_einwilligungen(
                 if is_own_schiedsrichter(row, identifier)
             ],
             "seats": compose_seats_self(seat_rows, identifier, seats_with_panel=subject.seats, today=today),
-            "bewerbungen": compose_bewerbung_seats_self(bewerbung_rows, identifier, teams=teams),
+            "bewerbungen": compose_bewerbung_seats_self(bewerbung_rows, identifier),
             "registrierungen": compose_registrierungen_self(registrierung_rows, identifier, teams=teams),
         }
     )

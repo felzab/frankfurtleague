@@ -12,21 +12,21 @@ test.use({ storageState: ADMINISTRATOR_STATE });
 
 test("a known club enters the planned season, and its editor's one save reaches both its records", async ({
   page,
-  entered: { club, colour },
+  entered: { team, colour },
 }) => {
-  const website = `https://${club.toLowerCase()}.example.com/`;
+  const website = `https://${team.toLowerCase()}.example.com/`;
 
   await page.goto(`/admin/saisons/${PLANNED}/teams`);
   await page.getByRole("button", { name: "Team eintragen" }).click();
   const dialog = await enteredDialog(page, "Team eintragen");
-  await choose(page, dialog, /^Team$/, club);
+  await choose(page, dialog, /^Team$/, team);
   await choose(page, dialog, /^Gruppe/, /^Gruppe C/);
   await dialog.getByRole("button", { name: "Eintragen" }).click();
   await expect(dialog).toBeHidden();
 
   // The club's own field and its season row's, in one press of the bar.
-  await page.getByRole("main").getByRole("link", { name: club }).click();
-  await expect(page.getByRole("banner").getByRole("heading", { level: 1, name: club })).toBeVisible();
+  await page.getByRole("main").getByRole("link", { name: team }).click();
+  await expect(page.getByRole("main").getByRole("heading", { level: 1, name: team })).toBeVisible();
   const main = page.getByRole("main");
   await typeInto(main.getByRole("textbox", { name: /^Website/ }), website);
   await choose(page, main, /Trikotfarbe/, colour);
@@ -39,10 +39,10 @@ test("a known club enters the planned season, and its editor's one save reaches 
   await expect(main.getByRole("button", { name: /Trikotfarbe/ })).toContainText(colour);
 });
 
-test("a pupil's squad row saves from its editor", async ({ page, squadded }) => {
+test("a pupil's squad row saves from its editor", async ({ page, kaderPupil }) => {
   await page.goto(`/admin/saisons/${RUNNING}/spieler`);
-  await page.getByRole("main").getByRole("link", { name: squadded }).click();
-  await expect(page.getByRole("banner").getByRole("heading", { level: 1, name: squadded })).toBeVisible();
+  await page.getByRole("main").getByRole("link", { name: kaderPupil }).click();
+  await expect(page.getByRole("main").getByRole("heading", { level: 1, name: kaderPupil })).toBeVisible();
 
   const number = page.getByRole("main").getByRole("textbox", { name: /^Nummer/ });
   await typeInto(number, "23");

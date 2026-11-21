@@ -3,7 +3,8 @@ import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
-import { COPY } from "@/core/copy";
+import { ADMIN_COPY } from "@/core/copy/admin";
+import { COPY } from "@/core/copy/shared";
 import { dayOf, formatList } from "@/core/format";
 import { AUSTRITT_RULES, SEAT_RULES, TEAM_DESCRIPTION_MAX, TEAM_SAVE_RULES } from "@/features/teams/fieldRules";
 import { renderUnderNext } from "@/test-support/nextContexts";
@@ -21,7 +22,7 @@ vi.mock("./teamActs", () => ({
   sendSeatLink: vi.fn(),
   writeSeat: vi.fn(),
 }));
-vi.mock("@/features/invitations/actions", () => ({ mailInvitation: vi.fn(), mintInvitation: vi.fn(), revokeInvitation: vi.fn() }));
+vi.mock("./invitationActs", () => ({ mailInvitation: vi.fn(), mintInvitation: vi.fn(), revokeInvitation: vi.fn() }));
 const AT_ADDRESS: NextContexts = {
   pathname: "/admin/saisons/2027/teams/64b000000000000000000001",
   params: { saison: "2027", team: "64b000000000000000000001" },
@@ -77,6 +78,7 @@ describe("the exit dialog's „E-Mail an“", () => {
         rules={TEAM_SAVE_RULES}
         descriptionMax={TEAM_DESCRIPTION_MAX}
         seatRules={SEAT_RULES}
+        holder="admin@example.org"
         austrittRules={AUSTRITT_RULES}
         retirement={{ kind: "retire" }}
         row={ROW}
@@ -85,9 +87,9 @@ describe("the exit dialog's „E-Mail an“", () => {
     );
 
     // The danger row's button carries the dialog's verb.
-    await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.remove }));
+    await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.enter }));
     const dialog = await screen.findByRole("dialog");
-    const mailTo = () => within(dialog).getByText(COPY.admin.facts.mailTo).nextElementSibling?.textContent;
+    const mailTo = () => within(dialog).getByText(ADMIN_COPY.facts.mailTo).nextElementSibling?.textContent;
     expect(mailTo()).toBe(formatList(["Bieber", "Otto Gruber"]));
 
     // The day's segment first: typing 21 moves the exit past Bieber's match on the 20th.

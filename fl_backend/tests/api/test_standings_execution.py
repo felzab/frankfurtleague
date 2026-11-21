@@ -224,7 +224,7 @@ class TestTheTabelleRead:
             teams_collection=seeded[Collection.TEAMS], spiele_collection=seeded[Collection.SPIELE], saison_id=SAISON_ID, rules=RULES
         )
 
-        rows = {row.name: row.statistik for gruppe in tabelle.root.values() for row in gruppe}
+        rows = {row.name: row.statistik for gruppe in tabelle.values() for row in gruppe}
         # Frida played only a knockout fixture, called off, so every figure of hers is zero.
         assert rows == {NAMES[team_id]: GRUPPENPHASE.get(team_id, FLTeamStatistik()) for team_id in NAMES if team_id != EXTERN}
 

@@ -4,6 +4,12 @@ Copyright (c) 2026 Felix Zabudkin
 The source code in this repository is licensed under the Elastic License 2.0.
 See LICENSE for the full terms.
 
+The third-party packages the website and its server are built from keep their
+own licences. Most are listed in fl_frontend/pnpm-lock.yaml, which holds what a
+visitor's browser receives, and in fl_backend/uv.lock. The rest come with the
+published images: the base images and the system packages that
+fl_backend/Dockerfile and fl_frontend/Dockerfile name.
+
 --------------------------------------------------------------------------------
 NOT COVERED BY THAT LICENSE
 --------------------------------------------------------------------------------
@@ -39,7 +45,7 @@ Software stays with the holder named above.
      fl_frontend/public/mail/logo.png
      fl_frontend/src/kit/FLLogo.tsx
 
-   The GitHub, Instagram and Threads logos in fl_frontend/public/icons/footer/
+   The Instagram and Threads logos in fl_frontend/public/icons/footer/
    and the sponsors' logos in fl_frontend/public/icons/sponsors/ are the marks
    of their owners, not of the association, and they are not part of "the
    Software" either.

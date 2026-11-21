@@ -1,10 +1,9 @@
 import "server-only";
 
 import { CONFIRMATION_DEADLINE_DAYS } from "./bounds";
-import { COPY } from "./copy";
-import { mailOrigin } from "./emailShell";
+import { COPY } from "./copy/shared";
 import { dayOf, formatDateLong } from "./format";
-import { ROUTES } from "./routes";
+import { mailedLinkTo, ROUTES } from "./routes";
 import { SERVER_COPY } from "./serverCopy";
 
 import type { Mail, Paragraph } from "./emailShell";
@@ -12,16 +11,6 @@ import type { FLRegistrierungAbsageData, FLRegistrierungLinkData } from "./gener
 import type { MailLink, MailOrigin } from "./mailKinds";
 
 const WORDS = SERVER_COPY.mail.registrierung;
-
-/**
- * The one place a pupil's confirmation link is spelled, beside the builder that spends it rather than in the slice:
- * `core` may not import a feature.
- *
- * `token` is the parameter name because the confirmation page reads that name alone.
- */
-function spielerConfirmationLink(origin: string, token: string): string {
-  return `${origin}${ROUTES.registrierungConfirmation.path()}?token=${encodeURIComponent(token)}`;
-}
 
 /**
  * The link a submission mints, named for the deadline the sweep deletes on. It names no pupil: this address has proved
@@ -32,22 +21,18 @@ export function buildRegistrierungConfirmationEmail(
   { team, saison_id: saisonId, deadline }: FLRegistrierungLinkData,
   { origin, token }: MailLink,
 ): Mail {
-  // Through `mailOrigin` once, and the link minted on what it answered: a raw `AUTH_URL` with a
-  // trailing slash would otherwise put `//confirm/spieler` in every registering pupil's mail.
-  const site = mailOrigin(origin);
-
   return {
-    kind: "firstContact",
+    audience: "firstContact",
     // The team is in the subject because a pupil registering for two of them gets two of these, and
     // the season alone does not tell one from the other in an inbox.
     subjectLine: WORDS.confirmation.subject(team),
-    origin: site,
+    origin,
     paragraphs: [
       [SERVER_COPY.registrierungConfirmation.opening({ record: team }, saisonId)],
       [WORDS.confirmation.admission],
-      [[WORDS.confirmation.deadline.before, { strong: formatDateLong(dayOf(deadline)) }, WORDS.confirmation.deadline.after]],
+      [WORDS.confirmation.deadline(formatDateLong(dayOf(deadline)))],
     ],
-    button: { label: COPY.page.registrierungConfirmation, href: spielerConfirmationLink(site, token) },
+    button: { label: COPY.page.registrierungConfirmation, href: mailedLinkTo(origin, ROUTES.registrierungConfirmation, token) },
   };
 }
 
@@ -68,18 +53,16 @@ const DECLINE_NEXT_STEPS: Readonly<Record<NonNullable<FLRegistrierungAbsageData[
  * mailbox learns that an address is taken and never by whom.
  */
 export function buildRegistrierungAbsageEmail({ team, saison_id: saisonId, reason }: FLRegistrierungAbsageData, { origin }: MailOrigin): Mail {
-  const site = mailOrigin(origin);
-
   return {
-    kind: "notice",
+    audience: "notice",
     subjectLine: WORDS.absage.subject(team),
-    origin: site,
+    origin,
     paragraphs: [
-      [[{ strong: team }, WORDS.absage.lead.after(saisonId)]],
+      [WORDS.absage.lead(team, saisonId)],
       DECLINE_NEXT_STEPS[reason ?? "none"],
       [WORDS.absage.deletion(CONFIRMATION_DEADLINE_DAYS)],
     ],
     // The league's landing: no record is left to press on.
-    button: { label: COPY.shared.end.toHome, href: site },
+    button: { label: COPY.shared.end.toHome, href: origin },
   };
 }

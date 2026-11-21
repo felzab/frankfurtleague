@@ -1,8 +1,7 @@
 import "server-only";
 
-import { COPY } from "./copy";
-import { mailOrigin } from "./emailShell";
-import { ROUTES } from "./routes";
+import { COPY } from "./copy/shared";
+import { mailedLinkTo, ROUTES } from "./routes";
 import { SERVER_COPY } from "./serverCopy";
 
 import type { Mail } from "./emailShell";
@@ -14,24 +13,14 @@ export const ERASURE_LINK_VALID_HOURS = 24;
 
 const WORDS = SERVER_COPY.mail.erasureLink;
 
-/**
- * The one place the deletion link is spelled, from the token alone and never the library's own `url`,
- * which deletes on a GET. `token` is the name the proxy's matcher swaps for a cookie.
- */
-function erasureLink(origin: string, token: string): string {
-  return `${origin}${ROUTES.accountErasure.path()}?token=${encodeURIComponent(token)}`;
-}
-
 // The link opens on any browser: a signed-out one is led through the sign-in and back to it.
 export function buildErasureEmail({ origin, token }: { origin: string; token: string }): Mail {
-  // Normalised before the link is spelled, so a configured trailing slash reaches neither version.
-  const site = mailOrigin(origin);
-
   return {
-    kind: "security",
+    audience: "security",
     subjectLine: COPY.page.accountErasure,
-    origin: site,
+    origin,
     paragraphs: [[WORDS.lead], [[{ strong: WORDS.consequence }]], [SERVER_COPY.mail.linkValidFor(ERASURE_LINK_VALID_HOURS)]],
-    button: { label: COPY.page.accountErasure, href: erasureLink(site, token) },
+    // From the token alone, never the sign-in library's own `url`, which deletes on a GET.
+    button: { label: COPY.page.accountErasure, href: mailedLinkTo(origin, ROUTES.accountErasure, token) },
   };
 }

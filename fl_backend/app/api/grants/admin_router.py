@@ -15,7 +15,7 @@ from app.api.grants.crud import (
     stop_the_handover_in_session,
 )
 from app.api.grants.guard import ADMIN_TIER
-from app.api.grants.schemas import FLGrantRow, FLGrantsListResponse, FLPostGrantPayload
+from app.api.grants.schemas import FLGrantRemovedResponse, FLGrantRow, FLGrantsListResponse, FLPostGrantPayload
 from app.api.grants.services import (
     find_barred_refusal,
     find_exists_refusal,
@@ -110,7 +110,7 @@ async def post_grant(
     return await transact(db, judge_and_grant)
 
 
-@router.delete(by_id("grant_id"), status_code=status.HTTP_204_NO_CONTENT, summary="Remove an administrator, or withdraw a waiting addition")
+@router.delete(by_id("grant_id"), summary="Remove an administrator, or withdraw a waiting addition")
 async def delete_grant(
     grant_id: CustomObjectId,
     grants_collection: GrantsCollection,
@@ -119,13 +119,13 @@ async def delete_grant(
     operator: ActorEmail,
     signed_in: Annotated[SessionActor, Depends(verify_admin_actor)],
     germany_now: GermanyNow,
-) -> None:
+) -> FLGrantRemovedResponse:
     """Remove a grant for good, its address losing access on its next request, or withdraw an addition still waiting.
 
     Only the owner removes one, the owner's own row leaving only by a handover; every holder in effect and the address named are told.
     """
 
-    async def judge_and_revoke(session: AsyncClientSession) -> None:
+    async def judge_and_revoke(session: AsyncClientSession) -> FLGrantRemovedResponse:
         grants = await pull_the_list_to_judge(grants_collection=grants_collection, session=session)
         # Judged before anything about the target is answered.
         refuse(find_only_owner_refusal(actor=operator, auth_time=signed_in.auth_time, grants=grants))
@@ -133,7 +133,7 @@ async def delete_grant(
         grant = next((row for row in grants if row["_id"] == grant_id), None)
         if grant is None:
             # Resolved from the list already read rather than a second query, so a miss is a 404 before
-            # anything is removed: `delete_many_from_db` taking no row would answer 204.
+            # anything is removed: `delete_many_from_db` taking no row would answer as a removal.
             raise DocumentNotFoundError()
 
         refuse(find_owner_row_refusal(grant=grant))
@@ -146,7 +146,9 @@ async def delete_grant(
             session=session,
         )
 
-    await transact(db, judge_and_revoke)
+        return FLGrantRemovedResponse(address=str(grant["address"]))
+
+    return await transact(db, judge_and_revoke)
 
 
 @router.post(f"{by_id('grant_id')}/handover", status_code=status.HTTP_204_NO_CONTENT, summary="Hand the owner role over to an administrator")

@@ -1,6 +1,7 @@
 "use client";
 
-import { COPY } from "@/core/copy";
+import { AREA_COPY } from "@/core/copy/area";
+import { COPY } from "@/core/copy/shared";
 import { FLCardColour } from "@/core/generated/client/types";
 import { admitsShootOut, isNoShow, scoreOutcome } from "@/features/spiele/result";
 import { CardMark } from "@/kit/CardMark";
@@ -15,7 +16,7 @@ import { Select } from "@/kit/Select";
 import { TextField } from "@/kit/TextField";
 import { useEditor } from "@/kit/useEditor";
 
-import { counted, NO_SONDEREREIGNIS, UNKNOWN_PLAYER, wholeOnFirstSave } from "./berichtValues";
+import { counted, UNKNOWN_PLAYER, wholeOnFirstSave } from "./berichtValues";
 
 import type { ActionAnswer } from "@/core/action";
 import type { Copy, RecordText, Words } from "@/core/copy";
@@ -32,8 +33,8 @@ import type { BerichtValues, Card, Goal } from "./berichtValues";
 /** The cells of the fields a goal's row and a card's hold alike. */
 type Cells = RowCells<Pick<Goal, "side" | "spieler_id" | "minute">>;
 
-const WORDS = COPY.area.schiedsrichter.spielbericht;
-const SPIEL = COPY.admin.spiel;
+const WORDS = AREA_COPY.schiedsrichter.spielbericht;
+const SPIEL = COPY.spielplan;
 const MINUTE_UNIT = COPY.shared.unit.minute;
 
 /**
@@ -64,7 +65,7 @@ export function BerichtEditor({
   save,
   phase,
   sides,
-  squads,
+  kader,
   minute,
   required,
   eigentor,
@@ -82,7 +83,7 @@ export function BerichtEditor({
   phase: FLSaisonPhase;
   sides: Readonly<Record<FLSpielSide, Side>>;
   /** Each side's pupils to pick from, its squad's and any a stored row names beside them, each by number and name. */
-  squads: Readonly<Record<FLSpielSide, readonly Option[]>>;
+  kader: Readonly<Record<FLSpielSide, readonly Option[]>>;
   minute: MinuteRule;
   /** Whether a row's minute, its side, each list's player and a card's colour are required, read from the write's rules on the server. */
   required: { minute: boolean; goalPlayer: boolean; cardPlayer: boolean; side: boolean; cardColour: boolean };
@@ -97,7 +98,7 @@ export function BerichtEditor({
   const editor = useEditor(record, (sent) => save(wholeOnFirstSave(record.values, sent)));
   const { draft, set } = editor;
 
-  const sonderereignis = draft.sonderereignis === NO_SONDEREREIGNIS ? null : (draft.sonderereignis as FLSonderereignis);
+  const sonderereignis = draft.sonderereignis === "" ? null : (draft.sonderereignis as FLSonderereignis);
   const noShow = isNoShow(sonderereignis);
   const goals = counted(draft.scorers);
   const shootOut = !noShow && admitsShootOut(phase, { tore: goals.team1 }, { tore: goals.team2 }, sonderereignis);
@@ -116,13 +117,12 @@ export function BerichtEditor({
     return plaque === null ? { id, label: name } : { id, label: plaque, spoken: name };
   });
   const sonderereignisse: Option[] = [
-    { id: NO_SONDEREREIGNIS, label: SPIEL.none },
+    { id: "", label: SPIEL.sonderereignis.none },
     { id: "nichtantreten_team1", label: COPY.spielplan.sonderereignis.nichtantreten(sides.team1.name) },
     { id: "nichtantreten_team2", label: COPY.spielplan.sonderereignis.nichtantreten(sides.team2.name) },
-    { id: "abgebrochen", label: SPIEL.abgebrochen },
+    { id: "abgebrochen", label: SPIEL.sonderereignis.abgebrochen },
   ];
 
-  // The cells a goal's row and a card's share, each over the fields the two rows hold alike.
   /** A row's side: choosing another club empties its player, who plays for the club left. */
   const sideCell: Cells["lead"] = {
     field: "side",
@@ -168,14 +168,15 @@ export function BerichtEditor({
         labelHidden
         name={name}
         isRequired={isRequired}
-        options={row.side === null ? [] : [UNKNOWN, ...squads[row.side]]}
+        options={row.side === null ? [] : [UNKNOWN, ...kader[row.side]]}
+        plural={COPY.shared.spieler}
         value={row.spieler_id}
         onChange={(spielerId) => change({ spieler_id: spielerId })}
       />
     ),
   });
 
-  const goalNoun = WORDS.goal;
+  const goalNoun = SPIEL.goal;
   const cardNoun = WORDS.card;
 
   return (
@@ -201,7 +202,7 @@ export function BerichtEditor({
                     shootOut
                       ? {
                           label: SPIEL.elfmeterschiessen,
-                          head: SPIEL.afterElfmeterschiessen,
+                          head: COPY.shared.afterElfmeterschiessen,
                           names: ["shootOut1", "shootOut2"],
                           values: [draft.shootOut1, draft.shootOut2],
                           onChange: (side, value) => set(side === 0 ? "shootOut1" : "shootOut2", value),
@@ -215,12 +216,13 @@ export function BerichtEditor({
               )}
               {!noShow && <SectionRule />}
               <Select
-                label={SPIEL.sonderereignis}
+                label={SPIEL.sonderereignis.label}
                 name="sonderereignis"
                 options={sonderereignisse}
                 value={draft.sonderereignis}
                 // A no-show's result is the league's award, which no goal decides.
                 {...(noShow ? { description: SPIEL.byEvent } : {})}
+                // „Keines“ is the entry `""`, a chosen key: only `null`, no entry at all, is dropped.
                 onChange={(id) => {
                   if (id !== null) set("sonderereignis", id);
                 }}
@@ -320,7 +322,8 @@ export function BerichtEditor({
               labelHidden
               name="remarks"
               kind="paragraph"
-              description={COPY.admin.noNames}
+              // How to write the remarks, which a finished season's form takes none of.
+              {...(closed === undefined ? { description: COPY.shared.noNames } : {})}
               maxLength={remarksMax}
               value={draft.remarks}
               onChange={(remarks) => set("remarks", remarks)}

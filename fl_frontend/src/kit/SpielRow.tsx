@@ -1,4 +1,5 @@
-import { COPY, textOf } from "@/core/copy";
+import { textOf } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 import { ERGEBNIS_SEPARATOR } from "@/core/format";
 
 import { BlockBox } from "./BlockBox";
@@ -65,15 +66,14 @@ export const spielColumns = tv({ base: `${SPIEL_COLUMNS_CLASSES} grid grid-cols-
  * so its width alone picks its row's form: a box of a pair is at most (80 rem − 12 px) / 2, 634 px, and a lone box is
  * narrower than 42 rem, so every box takes the two-line card.
  */
-export const spielPairs = tv({
+const spielPairs = tv({
   slots: {
     list: "grid gap-3 @2xl:grid-cols-2",
     box: cardSurface({ class: `@container overflow-hidden ${spielColumns()}` }),
   },
 });
 
-/** The list of `spielPairs`' boxes, in the box its columns read. */
-export function SpielPairList({ children }: { children: ReactNode }) {
+function SpielPairList({ children }: { children: ReactNode }) {
   return (
     <BlockBox>
       <div className={spielPairs().list()}>{children}</div>
@@ -184,7 +184,6 @@ function Side({ side, score, part, mirrored, muted, absent }: SideProps) {
   return (
     <span className={style.side()}>
       {mirrored !== true && plaque}
-      {/* Cut with „…“ where the side's column is too narrow, the whole name in its `title` while it is cut. */}
       <CutText
         text={name}
         className={style.name()}
@@ -214,10 +213,9 @@ const scoreCell = tv({
 const whenWords = tv({ base: "min-w-0 font-numeric text-fg-muted", variants: { cut: { true: "max-w-full truncate" } } });
 
 /**
- * A match in a list, the whole row a link to it, or opening nothing where it has no `href`. In a wide list one line, 56 px: when with the row's chip beside
- * it, the first side, the score with „n. E.“ centred under it, the second side, the chevron. In a
- * narrow one a card of two lines under the date line, whose right end holds the chip and „n. E.“, each side with
- * its goals at the right, and no chevron; every row the same height with or without a shoot-out or a chip.
+ * A match in a list, the whole row a link to it, or opening nothing where it has no `href`: one line in a wide list,
+ * and in a narrow one a card of two lines under the date line, every row the same height with or without a shoot-out
+ * or a chip.
  */
 function SpielRow({ href, when, team1, team2, result, chip, muted, absent, prefetch }: SpielRowProps) {
   const score = figures(result);
@@ -338,11 +336,10 @@ function rowsBox(bare: boolean, columns: "own" | "outer") {
 }
 
 /**
- * Matches one under another in one box with the card corners and the hairline, the rows parted by lines:
- * a matchday's matches, the matches a read page lists, or the landing's last and next in its season card.
- * The box's own width picks the rows' form, not the screen's: from 42 rem (`@container` on the box, or on the list of
- * groups holding its columns, Tailwind's `@2xl`) the one-line row, which a rail page's content holds at the rail's 1024-px breakpoint, 704 px wide,
- * and below it the two-line card a phone shows and the landing's narrower card holds on any screen.
+ * Matches one under another in one box, the rows parted by lines. The box's own width picks the rows' form, not the
+ * screen's: from 42 rem (`@container` on the box, or on the list of groups holding its columns, Tailwind's `@2xl`) the
+ * one-line row, which a rail page's content holds at the rail's 1024-px breakpoint, 704 px wide, and below it the
+ * two-line card a phone shows and the landing's narrower card holds on any screen.
  *
  * `cards` sets each match in a box of its own instead, one under another in a list narrower than 42 rem and two a row
  * from it, as the Spielplan shows a matchday (`spielPairs`), every box taking the two-line card.

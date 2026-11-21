@@ -1,6 +1,7 @@
 import "server-only";
 
 import { BASE_FETCH_PATH, sendToBackend } from "./api";
+import { DRY_RUN } from "./dryRun";
 
 import type { FetchOptions } from "./api";
 
@@ -13,13 +14,8 @@ type CallOptions = Omit<FetchOptions, "authType" | "readOnly" | "pass">;
 
 type Tier = FetchOptions["authType"];
 
-/** The query parameter whose `true` makes a dry run of a write, which the backend's `x-safe-when` names. */
-const DRY_RUN = "dry_run";
-
 function send<T>(tier: Tier, url: string, options: CallOptions | undefined, readOnly: boolean, pass = false): Promise<T> {
   // The generated URL spells the document's whole path, and `sendToBackend` prefixes its base path itself.
-  if (!url.startsWith(`${BASE_FETCH_PATH}/`)) throw new Error(`Not an endpoint under ${BASE_FETCH_PATH}: ${url}`);
-
   return sendToBackend<T>(url.slice(BASE_FETCH_PATH.length), {
     ...options,
     authType: tier,
@@ -43,7 +39,6 @@ export const systemKeyPassTransport = <T>(url: string, options?: CallOptions): P
 export const adminKeyTransport = <T>(url: string, options?: CallOptions): Promise<T> => send<T>("admin", url, options, false);
 export const adminKeyReadTransport = <T>(url: string, options?: CallOptions): Promise<T> => send<T>("admin", url, options, true);
 export const adminKeyDryRunTransport = <T>(url: string, options?: CallOptions): Promise<T> => send<T>("admin", url, options, isDryRun(url));
-export const unkeyedTransport = <T>(url: string, options?: CallOptions): Promise<T> => send<T>("none", url, options, false);
 
 type QueryValue = string | number | boolean;
 

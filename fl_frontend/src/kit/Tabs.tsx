@@ -1,7 +1,9 @@
 "use client";
 
+import { useEffect, useRef } from "react";
+
+import { TAB_PARAM } from "./filterValue";
 import { hoverLook } from "./hoverStyles";
-import { TAB_PARAM } from "./tabChoice";
 import { tv } from "./tv";
 import { NavigationLink, usePressed } from "./WholePage";
 
@@ -26,10 +28,10 @@ const tabs = tv({
  * UnderlineNav builds navigation tabs, the chosen one marked `aria-current="page"`, and under the row the
  * chosen tab's content, the page's own. Each link is the tab alone, `?tab=<id>`, which the browser and
  * Next's router alike resolve against the page's own address, so Back, a reload and a shared link keep the
- * view; the chosen tab is the one the server read from the
- * address (`chosenTab`), or from a tab's press the one the navigation goes to. Plain links, because React Aria's tabs replace their server-rendered links when
- * they hydrate and drop a link click whose press they did not see begin: a press held across hydration did
- * nothing (adobe/react-spectrum#8239). On a phone the row scrolls sideways, and where the browser drives
+ * view; the chosen tab is the one the server read from the address (`chosenTab`), or from a tab's press the one the
+ * navigation goes to. Plain links, because React Aria's tabs replace their server-rendered links when they hydrate
+ * and drop a link click whose press they did not see begin: a press held across hydration did nothing
+ * (adobe/react-spectrum#8239). On a phone the row scrolls sideways, and where the browser drives
  * animations from a scroll, the edge with more to read fades through the `kit-scroll-fade` keyframes in the
  * token file.
  */
@@ -51,15 +53,33 @@ export function Tabs({
   const hrefOf = (id: string) => `?${new URLSearchParams({ [TAB_PARAM]: id }).toString()}`;
   const pressed = usePressed(entries.map((entry) => hrefOf(entry.id)));
   const chosen = entries.find((entry) => hrefOf(entry.id) === pressed)?.id ?? selectedKey;
+  const scroller = useRef<HTMLUListElement>(null);
+  // On a phone the chosen tab, a season's late matchday, can stand past the row's end: the row alone scrolls it in, by
+  // as little as clears the edges' fade, the scroller's `scroll-padding`. `scrollIntoView` would scroll the page as
+  // well wherever the row stands out of view, as on a reload scrolled down. At once, never animated.
+  useEffect(() => {
+    const list = scroller.current;
+    const shown = list?.querySelector('[aria-current="page"]');
+    if (list === null || shown === null || shown === undefined) return;
+    const box = list.getBoundingClientRect();
+    const style = getComputedStyle(list);
+    // `auto`, the property's initial value, is no padding.
+    const start = box.left + (Number.parseFloat(style.scrollPaddingLeft) || 0);
+    const end = box.right - (Number.parseFloat(style.scrollPaddingRight) || 0);
+    const { left, right } = shown.getBoundingClientRect();
+    const by = left < start ? left - start : right > end ? right - end : 0;
+    if (by !== 0) list.scrollTo({ left: list.scrollLeft + by });
+  }, [chosen]);
   return (
     <div className="grid gap-4">
       <nav
         aria-label={label}
         className="min-w-0">
         <ul
+          ref={scroller}
           className={row({
             class:
-              "[scrollbar-width:none] overflow-x-auto supports-[animation-timeline:scroll()]:[mask-image:linear-gradient(to_right,transparent,#000_var(--kit-fade-start),#000_calc(100%-var(--kit-fade-end)),transparent)] supports-[animation-timeline:scroll()]:[animation-fill-mode:both] supports-[animation-timeline:scroll()]:[animation-name:kit-scroll-fade] supports-[animation-timeline:scroll()]:[animation-timeline:scroll(self_inline)] supports-[animation-timeline:scroll()]:[animation-timing-function:linear]",
+              "scroll-px-8 [scrollbar-width:none] overflow-x-auto supports-[animation-timeline:scroll()]:[mask-image:linear-gradient(to_right,transparent,#000_var(--kit-fade-start),#000_calc(100%-var(--kit-fade-end)),transparent)] supports-[animation-timeline:scroll()]:[animation-fill-mode:both] supports-[animation-timeline:scroll()]:[animation-name:kit-scroll-fade] supports-[animation-timeline:scroll()]:[animation-timeline:scroll(self_inline)] supports-[animation-timeline:scroll()]:[animation-timing-function:linear]",
           })}>
           {entries.map((entry) => (
             <li

@@ -104,7 +104,7 @@ class FLAddressChangeAddressResponse(BaseReadModel):
     email: str | None
 
 
-class FLAddressChangeViewNew(BaseModel):
+class FLAddressChangeViewNew(BaseReadModel):
     """What the new mailbox's link opens while the change stands."""
 
     side: Literal["new"]
@@ -118,7 +118,7 @@ class FLAddressChangeViewNew(BaseModel):
     confirmed_on: CustomDateString | None
 
 
-class FLAddressChangeViewPrevious(BaseModel):
+class FLAddressChangeViewPrevious(BaseReadModel):
     """What the address on file's link opens: the step the change waits on, never whether the new mailbox could confirm it."""
 
     side: Literal["previous"]
@@ -132,7 +132,7 @@ class FLAddressChangeViewPrevious(BaseModel):
     released_on: CustomDateString | None
 
 
-class FLAddressChangeViewEnded(BaseModel):
+class FLAddressChangeViewEnded(BaseReadModel):
     """What either link opens once its change ended, for as long as its record is kept."""
 
     side: Literal["new", "previous"]
@@ -148,14 +148,12 @@ class FLAddressChangeViewEnded(BaseModel):
     confirmed_on: CustomDateString | None
 
 
-class FLAddressChangeViewResponse(BaseReadModel):
-    """What one address link opens: never a name or the id.
-
-    The new address only where its holder judges by it: the new mailbox's `valid` link, and the address on file's link while
-    the change stands, masked on `waiting_period`.
-    """
-
-    view: Annotated[FLAddressChangeViewNew | FLAddressChangeViewPrevious | FLAddressChangeViewEnded, Field(discriminator="state")]
+# What one address link opens, one member per side and state, as the other link pages answer: never a name or the id.
+# The new address only where its holder judges by it: the new mailbox's `valid` link, and the address on file's link
+# while the change stands, masked on `waiting_period`.
+FLAddressChangeViewResponse = Annotated[
+    FLAddressChangeViewNew | FLAddressChangeViewPrevious | FLAddressChangeViewEnded, Field(discriminator="state")
+]
 
 
 class FLAddressChangeAnswerPayload(BasePayload):

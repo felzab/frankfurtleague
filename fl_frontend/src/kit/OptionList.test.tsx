@@ -5,18 +5,19 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 
 import { ComboBox } from "./ComboBox";
 
-const SPIELORT = COPY.admin.spielort;
+const SPIELORT = COPY.spielplan.fact.spielort;
+const CREATE = COPY.shared.withObject(SPIELORT, "create");
 
 /** A venue field as the match editor holds it: its value held by the page, its text by the field. */
 function SpielortField({ onCreate, onChange }: { onCreate: (typed: string) => void; onChange: (id: string | null) => void }) {
   const [value, setValue] = useState<string | null>("ost");
   return (
     <ComboBox
-      label={SPIELORT.object}
+      label={SPIELORT}
       options={[
         { id: "ost", label: { record: "Sportplatz Ost" } },
         { id: "west", label: { record: "Sportplatz West" } },
@@ -27,7 +28,7 @@ function SpielortField({ onCreate, onChange }: { onCreate: (typed: string) => vo
         setValue(id);
         onChange(id);
       }}
-      create={{ label: SPIELORT.createEntry, onCreate }}
+      create={{ label: CREATE, onCreate }}
     />
   );
 }
@@ -46,7 +47,7 @@ describe("a combo box's create entry", () => {
     const input = screen.getByRole("combobox");
     await userEvent.clear(input);
     await userEvent.type(input, "Sportpark Süd");
-    await userEvent.click(screen.getByRole("option", { name: SPIELORT.createEntry }));
+    await userEvent.click(screen.getByRole("option", { name: CREATE }));
     expect(onCreate).toHaveBeenCalledWith("Sportpark Süd");
     expect(onChange).not.toHaveBeenCalledWith(expect.anything());
   });

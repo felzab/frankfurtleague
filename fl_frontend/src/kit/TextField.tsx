@@ -2,16 +2,16 @@
 
 import { useId } from "react";
 
+import { Group } from "react-aria-components/Group";
 import { TextField as AriaTextField, Input, TextArea } from "react-aria-components/TextField";
-import { useIsSSR } from "react-aria/SSRProvider";
 
-import { COPY, textOf } from "@/core/copy";
+import { textOf } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 import { isDeliverableAddress, KONTAKT_EMAIL_MAX_LENGTH } from "@/core/emailAddress";
 
-import { FieldLabel, MessageLine, useFieldLock } from "./FieldParts";
+import { FieldLabel, MessageLine, useFieldLock, useFieldWait } from "./FieldParts";
 import { fieldFrame, fieldRoot, fieldSignifier, fieldUnit, groupInput } from "./fieldStyles";
 import { Icon } from "./Icon";
-import { useEarlyEdit } from "./useEarlyEdit";
 
 import type { Copy, Words } from "@/core/copy";
 import type { Constraints } from "./FieldParts";
@@ -76,8 +76,8 @@ type Kind =
  */
 
 /**
- * A value of a known length, as wide as it is: `holds` counts its characters, 2 for a score, a shirt number or a
- * count, 5 for a minute, a price, a postcode or a house number. `unit` stands after the value inside the field, as
+ * A value of a known length, as wide as it is: `holds` counts its characters, 2 for a score or a count, 5 for a
+ * shirt number, a minute, a price, a postcode or a house number. `unit` stands after the value inside the field, as
  * „€“ after a price.
  */
 type Short = { holds: 2 | 5; unit?: Copy } & Kind;
@@ -92,7 +92,10 @@ export type TextFieldProps = Shared & (Short | Standard | Paragraph);
 
 /**
  * What each kind sets on the input: its type, the keyboard a phone opens, what the browser offers to fill.
- * A text, digits or address field is filled only where its `autofill` names what it asks for.
+ * A text, digits or address field is filled only where its `autofill` names what it asks for. A phone number and a
+ * website take `off`, which asks the browser for none of the person's own values and none of its past entries: every
+ * one the site asks for is somebody else's, a seat holder's, a referee's or a school's. `off` is a hint, which a
+ * browser's address profile may still pass over and offer the person's own number.
  */
 const KINDS = {
   text: { type: "text", inputMode: undefined, autoComplete: undefined, pattern: undefined },
@@ -104,8 +107,8 @@ const KINDS = {
   // under it, so a keyboard whose pad lacks the plus still types one. The pattern is the caller's.
   minute: { type: "text", inputMode: "tel", autoComplete: undefined, pattern: undefined },
   email: { type: "email", inputMode: undefined, autoComplete: "off", pattern: undefined },
-  tel: { type: "tel", inputMode: undefined, autoComplete: "tel", pattern: undefined },
-  url: { type: "url", inputMode: undefined, autoComplete: "url", pattern: undefined },
+  tel: { type: "tel", inputMode: undefined, autoComplete: "off", pattern: undefined },
+  url: { type: "url", inputMode: undefined, autoComplete: "off", pattern: undefined },
 } as const;
 
 /** The example a malformed value is shown, by kind; a URL names its own. */
@@ -129,27 +132,6 @@ function judgeOf(kind: TextFieldProps["kind"], isRequired: boolean) {
     }
     return null;
   };
-}
-
-/**
- * A paragraph's control. While hydrating, React writes a stored text back over a `textarea` before any effect can read
- * what a person typed there, so `useEarlyEdit` has nothing to raise and a press would save nothing under
- * „Gespeichert“. So a stored paragraph takes no edit until the page's code runs: `readOnly` paints as the live field
- * does and keeps its Tab stop and the caret a click leaves, where `inert` takes both. An empty one keeps its replay,
- * since React writes nothing there.
- */
-function ParagraphBox({ isStored, className }: { isStored: boolean; className: string }) {
-  // Upstream: goes with `useEarlyEdit`, since React's own replay writes nothing over a `textarea` it hydrates.
-  const isWaiting = useIsSSR();
-  return (
-    <TextArea
-      data-kit-focus="field"
-      rows={4}
-      // Unset rather than false once the code runs, so a locked or closed field's read-only state from its field stands.
-      readOnly={(isWaiting && isStored) || undefined}
-      className={className}
-    />
-  );
 }
 
 /**
@@ -181,8 +163,9 @@ export function TextField(props: TextFieldProps) {
   const frame = fieldFrame({ width, holds: props.holds, inset: "full", figures: kind === "digits" || kind === "minute" });
   const field =
     width === "full" ? (
-      <ParagraphBox
-        isStored={Boolean(props.value ?? props.defaultValue)}
+      <TextArea
+        data-kit-focus="field"
+        rows={4}
         className={frame}
       />
     ) : (
@@ -195,12 +178,11 @@ export function TextField(props: TextFieldProps) {
     );
   const unit = fieldUnit({ holds: props.holds });
   const unitId = useId();
-  const root = useEarlyEdit();
-  const lock = useFieldLock(isDisabled, isLocked, isRequired);
+  const lock = useFieldLock(isLocked, isRequired);
 
   return (
     <AriaTextField
-      ref={root}
+      inert={useFieldWait()}
       className={fieldRoot()}
       aria-label={labelHidden ? textOf(label) : undefined}
       name={props.name}
@@ -209,7 +191,7 @@ export function TextField(props: TextFieldProps) {
       onChange={props.onChange}
       isRequired={lock.isRequired}
       validate={judgeOf(kind, lock.isRequired)}
-      isDisabled={lock.isDisabled}
+      isDisabled={isDisabled}
       isReadOnly={lock.isReadOnly}
       maxLength={maxLength}
       minLength={minLength}
@@ -228,8 +210,11 @@ export function TextField(props: TextFieldProps) {
       {props.unit === undefined ? (
         field
       ) : (
-        // The frame is the group, as a date's or a combo box's is, and rings as a whole while its input is focused.
-        <div
+        // The frame is the group, as a date's or a combo box's is, and rings as a whole while its input is focused. React
+        // Aria's, so its hover covers the unit too; presentational, as the text field's own context sets it, since the
+        // figure and its unit are one control.
+        <Group
+          role="presentation"
           data-kit-focus="field"
           data-kit-short
           className={fieldFrame({ width: "short", inset: "full", class: unit.frame() })}>
@@ -245,7 +230,7 @@ export function TextField(props: TextFieldProps) {
             className={unit.unit()}>
             {props.unit}
           </span>
-        </div>
+        </Group>
       )}
       <MessageLine
         description={description}
@@ -260,8 +245,9 @@ export function TextField(props: TextFieldProps) {
  * A select its record holds fixed or its form closed (`Select`), drawn as the answer it shows. React Aria's select takes
  * no read-only state, its props omitting `isReadOnly`, and its closed trigger changes the value by the arrow keys and
  * by typing, so it stands as a read-only text field holding the chosen answer's words: in the trigger's own frame, in
- * every field's read-only look, its arrow a read-only signifier (`fieldSignifier`), reachable by the keys and heard as read-only as every other locked field is. It posts nothing, as a
- * disabled select does, and takes no edit before hydration, its input standing `readOnly` in the server's markup too.
+ * every field's read-only look, its arrow a read-only signifier (`fieldSignifier`), reachable by the keys and heard
+ * as read-only as every other locked field is. It posts nothing, as a disabled select does, and takes no edit before
+ * hydration, its input standing `readOnly` in the server's markup too.
  */
 export function ChosenField({
   label,
@@ -298,7 +284,11 @@ export function ChosenField({
           isLocked={isMarked}
         />
       )}
-      <div
+      {/* React Aria's group, as the unit frame is, so the frame carries `data-focus-visible` while the keys hold its
+          input: a read-only field rings by that mark alone (`app/focus.css`). Presentational, as the text field's own
+          context sets it, since the answer and its arrow are one control. */}
+      <Group
+        role="presentation"
         data-kit-focus="field"
         className={frame}>
         <Input
@@ -311,7 +301,7 @@ export function ChosenField({
             size={16}
           />
         </span>
-      </div>
+      </Group>
       <MessageLine
         description={description}
         consequence={consequence}

@@ -9,6 +9,7 @@
     "successor": "admin.nachfolge@example.com",
     "moving": "admin.umzug@example.com",
     "banning": "admin.sperre@example.com",
+    "seat": "admin.sitz@example.com",
     "access": "admin.zugang@example.com"
   },
   "projects": {
@@ -18,17 +19,17 @@
       "mover": { "first_name": "Clara", "last_name": "Kranz", "address": "clara.kranz@example.com" },
       "leaver": { "first_name": "Hanna", "last_name": "Hahn", "address": "hanna.hahn@example.com" },
       "applicants": { "declined": "Ahorn" },
-      "departing": { "club": "Linde", "fixture": "Birke vs. Linde" },
-      "entered": { "club": "Kastanie" },
-      "squadded": "Jonas",
+      "departing": { "team": "Linde", "fixture": "Birke vs. Linde" },
+      "entered": { "team": "Kastanie" },
+      "kaderPupil": "Jonas",
       "contact": {
-        "club": "Ahorn",
+        "team": "Ahorn",
         "fixture": "Ahorn vs. Eiche",
         "trainer": { "first_name": "Achim", "last_name": "Aust", "address": "achim.aust@example.com" },
         "pupil": { "first_name": "Hedda", "last_name": "Holm" }
       },
       "registering": {
-        "club": "Kastanie",
+        "team": "Kastanie",
         "token": "made-up-kastanie-invitation",
         "admitter": { "first_name": "Katja", "last_name": "Kraus", "address": "katja.kraus@example.com" }
       },
@@ -44,17 +45,17 @@
       "mover": { "first_name": "Dora", "last_name": "Dahl", "address": "dora.dahl@example.com" },
       "leaver": { "first_name": "Ingo", "last_name": "Imhof", "address": "ingo.imhof@example.com" },
       "applicants": { "declined": "Birke" },
-      "departing": { "club": "Esche", "fixture": "Esche vs. Birke" },
-      "entered": { "club": "Weide" },
-      "squadded": "Lena",
+      "departing": { "team": "Esche", "fixture": "Esche vs. Birke" },
+      "entered": { "team": "Weide" },
+      "kaderPupil": "Lena",
       "contact": {
-        "club": "Ulme",
+        "team": "Ulme",
         "fixture": "Ulme vs. Kastanie",
         "trainer": { "first_name": "Uta", "last_name": "Uhlig", "address": "uta.uhlig@example.com" },
         "pupil": { "first_name": "Juna", "last_name": "Jost" }
       },
       "registering": {
-        "club": "Eiche",
+        "team": "Eiche",
         "token": "made-up-eiche-invitation",
         "admitter": { "first_name": "Edgar", "last_name": "Eckert", "address": "edgar.eckert@example.com" }
       },
@@ -64,10 +65,6 @@
         "coming": "Ulme vs. Kastanie"
       }
     }
-  },
-  "passkeys": {
-    "remover": { "first_name": "Emil", "last_name": "Ernst", "address": "emil.ernst@example.com" },
-    "holder": { "first_name": "Jana", "last_name": "Jansen", "address": "jana.jansen@example.com" }
   },
   "access": {
     "banned": { "first_name": "Paula", "last_name": "Paul", "address": "paula.paul@example.com" },

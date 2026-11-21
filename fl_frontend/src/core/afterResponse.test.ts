@@ -8,8 +8,8 @@ import { serveBackend, serveHost } from "@/test-support/backend";
 import type { FLOutboxHandout } from "./generated/client/types";
 
 /**
- * The restore's hold, which a case sets, under the production deployment holding the provider's key: only that one
- * sends, and any other files its mail on disk.
+ * The hold a restore or a change to a stored shape sets, off unless a case sets it, under the production deployment
+ * holding the provider's key: only that one sends, and any other files its mail on disk.
  */
 const CONFIG = configDouble({ APP_ENV: "production", RESTORE_HOLD: "off" }, { authResendKey: () => "re_fabricated-not-a-credential" });
 const settings = CONFIG.frontend_config as { RESTORE_HOLD: string };
@@ -72,9 +72,9 @@ beforeEach(() => {
   vi.spyOn(performance, "now").mockImplementation(() => clock);
 });
 
-/* Under a restore's hold a write's mail would otherwise leave before the restore's steps are done: to somebody not yet
-   erased again, or a second time for a mail the lost window sent. */
-it("schedules no drain under a restore's hold, and one without it", () => {
+/* Under the hold a write's mail would otherwise leave before the work it holds for is done: after a restore, to
+   somebody not yet erased again, or a second time for a mail the lost window sent. */
+it("schedules no drain under the hold, and one without it", () => {
   settings.RESTORE_HOLD = "on";
   drainSoon();
   expect(scheduled.length, "a held drain was scheduled").toBe(0);

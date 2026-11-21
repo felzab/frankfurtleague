@@ -20,14 +20,21 @@ its invalidation live here rather than in the backend.
 | `src/test-support/`      | What the unit and database tests share and production never imports: doubles, fixtures, the test setup and the sweeps' tree walk                                                                            |
 | `e2e/`                   | The Playwright journeys against the end-to-end stack, both browser projects' at its top and one project's under `desktop/`, `phone/` or `first-pass/`; and `support/`, the fixtures and helpers they import |
 
-**Routes are thin**: a page fetches, then hands off. A page's own write sits beside its route, in
-one module per act or per record's acts (`saveSpiel.ts` beside the match editor, `kaderRowActs.ts`
-beside a team's Kader). Every administration and person read lives in a slice's `queries.ts`, even
-where one route alone calls it. A slice holds only the modules it needs: `queries.ts` for reads,
-`mutations.ts` for a write that shapes its arguments before the generated client sends them (a write
-passing them through calls the generated client itself), `actions.ts` or an act's own module for its
-server actions (`features/saisons/createSaison.ts`), `personActions.ts` for those a signed-in
-person's own pages call, `schemas.ts` for its Zod schemas.
+**Routes are thin**: a page fetches, then hands off. A write with a single page sits beside that
+page's route, in one module per act or per record's acts (`saveSpieler.ts` beside its editor,
+`kaderRowActs.ts` beside a team's Kader). A write with callers in more than one route folder lives
+in its slice, since no route folder is its home, and the boxes its form posts move with it
+(`features/spielorte/SpielortFields.tsx` beside `createSpielort.ts`). Every administration and
+person read lives in a slice's `queries.ts`, even where one route alone calls it. A slice holds only
+the modules it needs: `queries.ts` for reads, `mutations.ts` for a write that shapes its arguments
+before the generated client sends them (a write passing them through calls the generated client
+itself), `actions.ts` or an act's own module for its server actions (`features/spiele/saveSpiel.ts`,
+which the match editor and a season Übersicht's appointment dialog call), `personActions.ts` for
+those a signed-in person's own pages call, `schemas.ts` for its Zod schemas, and `fieldRules.ts` for
+what a write asks of its form's boxes. A rules module reads them off the write's generated schema:
+`required`, whether each box may stay empty, and `max`, the longest each text may be where the write
+bounds one. It opens with `import "server-only"`, so no schema reaches a client bundle. A route's
+own form may keep its rules module beside the route under the same name.
 
 **Imports run one way.** `src/core/` imports neither `src/shared/` nor `src/features/`,
 `src/shared/` does not import `src/features/`, and `src/kit/` imports neither `src/features/` nor
@@ -41,19 +48,24 @@ module some `src/core/` module imports belongs in `src/core/`, and one importing
 
 **Reads are cached with `"use cache"`, and a write is a server action.** Every server action is
 built by `fl_frontend/src/core/action.ts :: action`, which runs its lane's guard (the
-administrator's, a person's seat or record, or the bot check), strips and parses the input against
-the generated schema, and answers the kit's `ActionAnswer`, the backend's refusal code with it; the
-lint rule `fl/server-action` (`fl_frontend/eslint-rules/server-action.mjs`) refuses an action built
-any other way. Every cached scope carries one tag,
+administrator's, a person's record or account, or the bot check), strips and parses the input
+against the generated schema, and answers the kit's `ActionAnswer`, the backend's refusal code with
+it; the lint rule `fl/server-action` (`fl_frontend/eslint-rules/server-action.mjs`) refuses an
+action built any other way. Every cached scope carries one tag,
 `fl_frontend/src/core/siteCache.ts :: SITE_CACHE_TAG`, so no write names the reads it moves. The
 builder clears it at the end of an action exactly when the action's body sent a backend write that
-may have landed, on every lane. It reads the count
-`fl_frontend/src/core/apiDispatch.ts :: dispatchRequest` keeps: each write is counted before it is
-sent, since a write whose answer is lost may have landed, and taken back once its answer is a 4xx
-carrying a code, the backend's refusal of it. A 5xx keeps the count, since the server may fail after
-its commit, and a write that may stand answers one, `unknown_outcome` with a 500. An action whose
-body sent no such write carries only its answer and renders no page again; one that changes state
-outside the cache, the sign-in store's, calls `refresh()` itself. A write behind the response clears
+may have landed, on every lane. A clean answer, and every answer on a person's lane or the
+administrator's, clears it with `updateTag`, which renders the page again in the same response, so a
+failed save shows whether it landed. A public form whose answer failed expires the tag with
+`revalidateTag` and an `expire` of a few seconds, which renders nothing again: the form keeps its
+typed values and its replay key, so a second press repeats the first rather than writing again.
+`{ expire: 0 }` would render the page again as `updateTag` does. The builder reads the count
+`fl_frontend/src/core/api.ts :: dispatchRequest` keeps: each write is counted before it is sent,
+since a write whose answer is lost may have landed, and taken back once its answer is a 4xx carrying
+a code, the backend's refusal of it. A 5xx keeps the count, since the server may fail after its
+commit, and a write that may stand answers one, `unknown_outcome` with a 500. An action whose body
+sent no such write carries only its answer and renders no page again; one that changes state outside
+the cache, the sign-in store's, calls `refresh()` itself. A write behind the response clears
 nothing, so no league write moves there. The league's reads keep Next's `minutes` lifetime. **The
 administration's reads are not cached**: each runs through
 `fl_frontend/src/shared/utils/adminRead.ts :: runAdminRead`, which judges the session first.
@@ -121,16 +133,18 @@ commit until it ends.
   an address no route matches, is in the device's own colour scheme: the head carries the root
   layout's `color-scheme` meta. On a light device, a visitor who chose the dark theme sees a white
   ground first.
-- A bare error document prerendered at build time carries no such meta, since Next builds that shell
-  without the page's viewport, so its ground is white on every device. Two stand in the build: the
-  area's catch-all at `/area/<anything>`, which answers 404, and Next's global error document.
+- The one error document the build prerenders is Next's own error page (`_global-error.html`, which
+  the build also writes as `pages/500.html`): its words are Next's English, and it draws its ground
+  in the device's colour scheme by its own styles.
+- A failure above every boundary, the root layout's own included, draws
+  `fl_frontend/src/app/global-error.tsx` in place of the root layout: the root boundary's card in
+  German, in the stylesheet's light theme and the system's face, since the theme script and the
+  fonts live in the layout it replaces.
 - A client navigation keeps the page it leaves until the next one is complete, since Next's router
   makes it a transition and a transition never hides content it has revealed. The page fade runs
   once, between two finished pages.
 - The root layout (`fl_frontend/src/app/layout.tsx`) exports `instant = false`, which lifts the
-  build's check that a route's prerendered shell holds something, for every route. It leaves the
-  development server's check of a navigation between two pages below the root as Next sets it by
-  default: `next dev` still checks such a navigation and warns.
+  build's check that a route's prerendered shell holds something, for every route.
 
 **One fact says a navigation is under way**: the address it goes to, which
 `fl_frontend/src/kit/WholePage.tsx :: WholePages`, placed around every route by the root layout,
@@ -147,6 +161,15 @@ press.
   `PageContent`, is `inert`; the frame stays pressable, and a navigation staying on the path leaves
   the page live.
 - `NavigationLink` never prefetches the sign-in, which the proxy's matcher skips on a prefetch.
+- While an editor holds unsaved changes (`fl_frontend/src/kit/LeaveGuard.tsx :: useHoldLeave`), a
+  press of a `NavigationLink` leaving its page asks the rail frame's one discard question first, and
+  navigates only once the person discards them. A press with a modifier key never reaches
+  `onNavigate`, so a new tab is never asked; the browser's own back is not asked either, and the
+  draft it leaves stays only while Next keeps the page.
+- Which forms ask before typed input is dropped follows the form. An editor's draft asks on each of
+  its frame's ways out and on a reload or a closed tab (`useUnsavedChangesWarning`). An open dialog
+  asks on its own ways out, Escape and „Zurück“, and not on unload. A long public form, the
+  Bewerbung, asks the browser on unload alone. A short form asks nothing.
 
 ## Styling and copy
 
@@ -166,16 +189,16 @@ because the rail opens and closes under one viewport, so only the box says how m
 has. Lists, tables and bordered boxes, match rows, card grids and folds among them, stack below 42
 rem (`@2xl`) and spread from it. A list of records is a table from 42 rem, and below it each row
 stacks: the name with its chips, at most one `narrow` column beside them, one muted line under the
-name, then a decision's acts. A column the stacked row leaves out keeps its fact where
-[a recurring job's pattern](copy.md#a-recurring-job-takes-its-fixed-pattern) says. The Tabelle, a
-`stack` table and a `prose` table keep forms of their own (`fl_frontend/src/kit/Table.tsx`). A
-card's act row, `Facts` and `LinkRows` switch at 32 rem (`@lg`). The five match tiles stand in one
-row from 47.5 rem, the form column's width (`fl_frontend/src/kit/StatTiles.tsx`). The K.-o.-Baum
-draws its cards of plaques alone below 42 rem and with each side's name and the date line from it,
-by the tree's box, since a card's own width is the form's result
-(`fl_frontend/src/kit/BracketTree.tsx`). The organisers stand in four columns from 44 rem, where the
-widest entry fits whole (`fl_frontend/src/kit/Organisers.tsx`). Two kinds of part switch by the
-screen at `lg` instead:
+name, and its side acts folded into one „⋯“ at the row's end. A column the stacked row leaves out
+keeps its fact where [a recurring job's pattern](copy.md#a-recurring-job-takes-its-fixed-pattern)
+says. The Tabelle, a `stack` table and a `prose` table keep forms of their own
+(`fl_frontend/src/kit/Table.tsx`). A card's act row, `Facts` and `LinkRows` switch at 32 rem
+(`@lg`). The five match tiles stand in one row from 47.5 rem, the form column's width
+(`fl_frontend/src/kit/StatTiles.tsx`). The K.-o.-Baum draws its cards of plaques alone below 42 rem
+and with each side's name and the date line from it, by the tree's box, since a card's own width is
+the form's result (`fl_frontend/src/kit/BracketTree.tsx`). The organisers stand in four columns from
+44 rem, where the widest entry fits whole (`fl_frontend/src/kit/Organisers.tsx`). Two kinds of part
+switch by the screen at `lg` instead:
 
 - **A frame, and a classic page's own layout, which no block's box holds**: the frames' bands, rail
   and footer, a classic page's spacing, the landing's hero beside the season card, the gaps between
@@ -184,8 +207,8 @@ screen at `lg` instead:
   `fl_frontend/src/kit/Prose.tsx`). Every block inside a landing section reads its own box, as on a
   rail page.
 - **A part that answers a phone's touch rather than the room**: a form footer's acts stacking across
-  the width, the filters folding into a sheet, a read page's acts, and a row's taller touch height.
-  The screen tells the device, and a box does not.
+  the width, the filters folding into a sheet, and a read page's acts. The screen tells the device,
+  and a box does not.
 
 A new block takes the box's rule unless it is one of these.
 
@@ -193,7 +216,9 @@ A new block takes the box's rule unless it is one of these.
 (`pointer-coarse:h-10`, as in `fl_frontend/src/kit/Tabs.tsx`). That is less than Apple's 44 pt and
 Android's 48 dp, since the league's visitors are mostly young and a larger control reads as bulky. A
 link the kit draws as a control (`fl_frontend/src/kit/Link.tsx :: frameLink`, a menu's entries) is
-40 px like one; a small text link, such as the footer's, keeps the height of its text.
+40 px like one; a small text link, such as the footer's, keeps the height of its text. A list row
+answers the pointer the same way, 52 px tall with a mouse and 56 on a touch screen
+(`fl_frontend/src/kit/cardStyles.ts :: rowHeight`), and a school's tile 44 and 48.
 
 **Every string a visitor reads comes from the catalogue**, and the kit's text props refuse one typed
 into a page: [`copy.md`](copy.md) says where each string, date and number comes from and how it is
@@ -201,37 +226,40 @@ written.
 
 ## Authentication and authorization
 
-Better Auth, with a passkey sign-in and a six-digit code mailed as the fallback; the administration
-admits only a session a passkey signed in. **This is the one place the frontend touches MongoDB
-directly**: a separate `auth` database holding sessions and passkeys and no league data
-(`fl_frontend/src/core/authIndexes.ts :: MONGO_DB_NAME`, reached through
+Better Auth, with a six-digit code mailed to sign in and a passkey, which only an administrator sets
+up; the administration admits only a session a passkey signed in. **This is the one place the
+frontend touches MongoDB directly**: a separate `auth` database holding sessions and passkeys and no
+league data (`fl_frontend/src/core/authIndexes.ts :: MONGO_DB_NAME`, reached through
 `fl_frontend/src/core/db.ts :: signInStore`), because the library's adapter has no HTTP transport
 and sits on every authorization check. Application data goes through FastAPI without exception.
 
 **Administration is a stored grant, read on every request.** A row of `grants` (`Berechtigung`)
-makes an address an administrator; the frontend reads it through
-`fl_frontend/src/core/grant.ts :: grantOf`, and the backend checks it again on every administration
-request. A backend that cannot answer admits nobody, and a revoked grant admits nothing from the
-next request on. Every admin server action opens on
+makes an address an administrator; the frontend reads it in the subject lookup
+(`fl_frontend/src/core/signInGate.ts :: lookUpSubject`), and the backend checks it again on every
+administration request. A backend that cannot answer admits nobody, and a revoked grant admits
+nothing from the next request on. Every admin server action opens on
 `fl_frontend/src/core/auth/guards.ts :: judgeAdminRequest`, through the builder's admin lane.
 
-**Route protection is layered.** `src/proxy.ts` turns away a request to `/area`, `/admin` or
+**Route protection is layered.** `src/proxy.ts` turns away a page request to `/area`, `/admin` or
 `/account` carrying no session cookie before any read, as Next's and Better Auth's guidance has a
-proxy check. It sends a page load of `/signin` whose cookie names a stored session on to the
-sign-in's landing, which decides where that session goes. It sends a page load of `/signin/passkey`
-on to the landing too where the request holds no passkey step, asking
-`fl_frontend/src/core/auth/landing.ts :: getRequestPasskeyStep`, the page's own judgement, so the
-page never paints its frame only to redirect. Both carry the return address through the allowlist
-and judge nothing further. The session, its sign-in factor and the grant are judged where the data
-is read: no layout turns a session away, because Next renders a page whatever its layout decides.
+proxy check. A server action posted there meets its own lane's guard instead, which answers on the
+form that the sign-in has ended, so the person keeps what they typed. The proxy sends a page load of
+`/signin` whose cookie names a stored session on to the sign-in's landing, which decides where that
+session goes. It sends a page load of `/signin/passkey` on to the landing too where the request
+holds no passkey step, asking `fl_frontend/src/core/auth/landing.ts :: getRequestPasskeyStep`, the
+page's own judgement, so the page never paints its frame only to redirect. Both carry the return
+address through the allowlist and judge nothing further. The session, its sign-in factor and the
+grant are judged where the data is read: no layout turns a session away, because Next renders a page
+whatever its layout decides.
 
-**A person's sign-in is managed on Konto, `/account` and its four pages**, whichever area they hold:
-every frame's account menu links it, and an act on the passkey touch's fixed list, a passkey's
+**A person's sign-in is managed on Konto, `/account` and its three pages**, whichever area they
+hold: every frame's account menu links it, and an act on the passkey touch's fixed list, a passkey's
 removal and the address change's start among them, runs only on a passkey sign-in made seconds
-before, for a person holding a passkey (`fl_frontend/src/core/action.ts`, a lane's `passkey`). The
-touch is always such an act's last step: the person presses the act, answers any dialog, presses the
-final button, and that press asks the touch and then runs the act
-(`fl_frontend/src/kit/usePasskeyTouch.ts`), so nothing typed runs against the minute a touch lasts.
+before, for an administrator (`fl_frontend/src/core/action.ts`, a lane's `passkey`); an address
+holding no grant passes it. The touch is always such an act's last step: the administrator presses
+the act, answers any dialog, presses the final button, and that press asks the touch and then runs
+the act (`fl_frontend/src/kit/usePasskeyTouch.ts`), so nothing typed runs against the minute a touch
+lasts.
 
 ## Configuration and tests
 

@@ -1,14 +1,9 @@
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 
 import type { Words } from "@/core/copy";
 import type { Pair } from "@/core/format";
 import type { FLSaisonPhase, FLSonderereignis, FLSpielSide } from "@/core/generated/client/types";
 import type { ScoreOutcome } from "@/kit/ScoreRows";
-
-/**
- * One place for the rules a match's result is read by, so the administrator's preview and the referee's never read a
- * match apart.
- */
 
 /**
  * Whether a Sonderereignis, or a select's choice of one, is one of the two no-shows, whose goals the league composes from
@@ -18,6 +13,18 @@ export const isNoShow = (sonderereignis: string | null) => sonderereignis === "n
 
 export const creditedSide = ({ side, eigentor }: { side: FLSpielSide; eigentor: boolean }): FLSpielSide =>
   eigentor ? (side === "team1" ? "team2" : "team1") : side;
+
+/** A minute as the report writes it, „45+2“, as its minute and its added time, a minute without added time `+0`. */
+const minuteOf = (minute: string): [number, number] => {
+  const [base = "0", added = "0"] = minute.split("+");
+  return [Number(base), Number(added)];
+};
+
+/** Orders two of a report's minutes in the order they were played: „45+2“ after „45“ and before „46“. */
+export const byMinute = (one: string, other: string): number => {
+  const [a, b] = [minuteOf(one), minuteOf(other)];
+  return a[0] - b[0] || a[1] - b[1];
+};
 
 /** A side as the rule reads it: its goals alone, `null` while none are entered. */
 type Side = { readonly tore: number | null } | null;
@@ -40,7 +47,7 @@ export function admitsShootOut(saisonPhase: FLSaisonPhase, team1: Side, team2: S
 }
 
 export function scoreOutcome(goals: Pair, added: Pair | null, names: readonly [Words, Words]): ScoreOutcome {
-  const words = COPY.admin.spiel;
+  const words = COPY.spielplan;
   const score = words.score(goals, added);
   const [one, other] = [goals.team1 + (added?.team1 ?? 0), goals.team2 + (added?.team2 ?? 0)];
   if (one === other) return { text: words.drawn(score), tone: "draw" };

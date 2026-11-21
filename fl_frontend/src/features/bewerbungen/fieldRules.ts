@@ -26,7 +26,6 @@ export const DECLINE_RULES = {
   max: bewerbungenDeclineBewerbungBodyReasonMax,
 } as const;
 
-/** Read on the server so its schema never reaches the browser. */
 export const SEAT_RULES = {
   required: {
     first_name: requires(seat.first_name, ""),

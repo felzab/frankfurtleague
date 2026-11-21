@@ -29,9 +29,8 @@ services:
       # Overrides whatever `fl_frontend/.env` holds, because inside the compose network the backend is
       # not on localhost -- it is reachable by service name.
       - API_URL=http://backend:8000
-      # The stack's own declaration, overriding whatever `fl_frontend/.env` holds, which `pnpm dev`
-      # reads as well and may declare otherwise. Nothing else stops this stack mailing the league's
-      # real contact people.
+      # Replaces production's value, which the base file writes for every stack. With it, and with no
+      # provider key among the secrets below, every mail lands in the sink.
       - APP_ENV=local
       # http:// and localhost specifically: the frontend's settings refuse a non-loopback http URL,
       # because the sign-in library derives the session cookie's Secure prefix from this protocol.

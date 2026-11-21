@@ -80,7 +80,7 @@ PASSES = {
     ("POST", "/api/bewerbungen/saisons/{saison_id}/sweep"),
     ("POST", "/api/identity/erasure/sweep"),
     ("POST", "/api/registrierungen/saisons/{saison_id}/sweep"),
-    ("POST", "/api/saisons/{saison_id}/retention"),
+    ("POST", "/api/saisons/{saison_id}/sweep"),
     ("POST", "/api/schiedsrichter/sweep"),
     ("POST", "/api/spielbestaetigungen/saisons/{saison_id}/sweep"),
 }

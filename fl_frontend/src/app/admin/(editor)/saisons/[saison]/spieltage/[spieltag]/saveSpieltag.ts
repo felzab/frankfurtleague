@@ -3,7 +3,7 @@
 import { z } from "zod";
 
 import { action } from "@/core/action";
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 import { spieltagePatchSpieltag } from "@/core/generated/client/sdk";
 import { SpieltagePatchSpieltagBody, SpieltagePatchSpieltagParams } from "@/core/generated/zod/inputs";
 import { getAdminSpieltag } from "@/features/spieltage/queries";
@@ -14,7 +14,6 @@ import type { ActionAnswer } from "@/core/action";
 
 const { shape } = SpieltagePatchSpieltagBody;
 
-/** What the editor's two boxes send, each held to the matchday write's own published rule for it. */
 const SaveSpieltag = z.object({
   id: SpieltagePatchSpieltagParams.shape.spieltag_id,
   version: shape.version,
@@ -31,16 +30,6 @@ export const saveSpieltag = action({
   lane: "admin",
   name: "saveSpieltag",
   input: SaveSpieltag,
-  ownWords: [
-    "spieltag_ends_before_start",
-    "spieltag_outside_saison",
-    "spieltag_span_below_spiele",
-    "spieltag_start_out_of_order",
-    // The editor opened before its season finished: the write refuses a finished season's matchday whole.
-    "saison_past",
-  ],
-  // The span's own rule names the end it refuses, as the box's own check does before the send.
-  paths: { end: "changes.end" },
   run: async ({ id, version, changes }): Promise<ActionAnswer<number>> => {
     const stored = await getAdminSpieltag(id);
     if (stored === null) return { ok: false, reason: COPY.shared.failure.stale };

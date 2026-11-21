@@ -1,10 +1,8 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { configDouble } from "@/test-support/authDoubles";
-import { networkFailure, serveBackend, serveHost } from "@/test-support/backend";
+import { networkFailure, refusal, serveBackend, serveHost } from "@/test-support/backend";
 import { TEST_SECRETS } from "@/test-support/testEnvironment.mts";
-
-import { runWithRequestScope } from "./requestScope";
 
 import type { FLOutboxHandout, FLOutboxResultPayload } from "./generated/client/types";
 
@@ -13,8 +11,8 @@ type Step = { kind: "send"; url: string; headers: Headers; body: Record<string, 
 
 const steps: Step[] = [];
 
-/** The claims the backend hands out in turn, the last empty one standing for every call after it. */
-let claims: { mails: FLOutboxHandout[]; abandoned: number }[] = [];
+/** The claims the backend hands out in turn, or a failure in one's place, an empty claim standing for every call after them. */
+let claims: ({ mails: FLOutboxHandout[]; abandoned: number } | Response)[] = [];
 
 /** How the provider answers each send. */
 let provider: () => unknown = () => ({ id: "re-1" });
@@ -28,6 +26,7 @@ const COUNTED = { sent: "sent", retry: "repeated", abandon: "abandoned", held: "
 serveBackend(({ method, path, body }) => {
   if (method === "POST" && path === "/outbox/handout") {
     const claim = claims.shift() ?? { mails: [], abandoned: 0 };
+    if (claim instanceof Response) return claim;
     return { lease: claim.mails.length > 0 ? "claim-1" : null, mails: claim.mails, abandoned: claim.abandoned };
   }
   if (method === "POST" && path === "/outbox/result") {
@@ -112,25 +111,18 @@ describe("one drain of the Postausgang", () => {
     expect(takeDrainCounts()).toStrictEqual({ sent: 0, repeated: 0, abandoned: 0, held: 0, ignored: 0 });
   });
 
-  /* A call made while a drain runs waits on it. Served by that drain, or by one more under its caller's spent deadline,
-     the call's mail, a sign-in code tried once among them, would wait for the hourly pass and lapse. */
-  it("serves a call made during a drain that fails, under the call's own deadline", async () => {
-    claims = [{ mails: [handed(1)], abandoned: 0 }];
-    let clock = 0;
-    const reading = vi.spyOn(performance, "now").mockImplementation(() => clock);
-    try {
-      // The first scope opens at 0 and reads its first call past its 30 seconds; the second opens then, with all of its own.
-      const failing = runWithRequestScope({ traceId: "trace-spent" }, async () => {
-        clock = 31000;
-        return drainOutbox();
-      });
-      const waiting = runWithRequestScope({ traceId: "trace-waiting" }, drainOutbox);
+  /* A call made while a drain runs waits on the drain queued after it, however the running one settles. Handed the
+     running drain's failure instead, the call's mail, a sign-in code tried once among them, would wait for the hourly
+     pass and lapse. */
+  it("serves a call made during a drain that fails by the drain after it", async () => {
+    claims = [refusal(undefined, { status: 503 }), { mails: [handed(1)], abandoned: 0 }];
 
-      await expect(failing).rejects.toThrow("deadline");
-      await expect(waiting).resolves.toBeUndefined();
-    } finally {
-      reading.mockRestore();
-    }
+    // The second call is made while the first drain still waits on its hand-out.
+    const failing = drainOutbox();
+    const waiting = drainOutbox();
+
+    await expect(failing).rejects.toMatchObject({ statusCode: 503 });
+    await expect(waiting).resolves.toBeUndefined();
     expect(reports()).toStrictEqual([{ id: handed(1).id, result: "sent", delivery_reason: null }]);
   });
 
@@ -167,19 +159,40 @@ describe("one drain of the Postausgang", () => {
      send can repair would be retried until its deadline. The provider's name for a refusal is the row's one record of
      why, no line beside it; a name the endpoint would refuse is dropped rather than failing the report. */
   it.each([
-    ["a rate limit", () => Response.json({ name: "rate_limit_exceeded" }, { status: 429 }), "retry", "rate_limit_exceeded"],
-    ["the daily quota", () => Response.json({ name: "daily_quota_exceeded" }, { status: 429 }), "retry", "daily_quota_exceeded"],
-    ["an outage", () => new Response(null, { status: 503 }), "retry", null],
-    ["a broken connection", () => networkFailure(), "retry", null],
-    ["a refusal of the message itself", () => Response.json({ name: "validation_error" }, { status: 422 }), "abandon", "validation_error"],
-    ["a refusal named past the endpoint's bound", () => Response.json({ name: "x".repeat(200) }, { status: 422 }), "abandon", null],
-  ] as const)("reports %s as %s", async (_name, answer, result, reason) => {
+    ["a rate limit", "retry", () => Response.json({ name: "rate_limit_exceeded" }, { status: 429 }), "rate_limit_exceeded"],
+    ["the daily quota", "retry", () => Response.json({ name: "daily_quota_exceeded" }, { status: 429 }), "daily_quota_exceeded"],
+    ["an outage", "retry", () => new Response(null, { status: 503 }), null],
+    ["a named outage", "retry", () => Response.json({ name: "dns_lookup_failed" }, { status: 503 }), "dns_lookup_failed"],
+    ["a broken connection", "retry", () => networkFailure(), null],
+    ["a refusal of the message itself", "abandon", () => Response.json({ name: "validation_error" }, { status: 422 }), "validation_error"],
+    ["a refusal named past the endpoint's bound", "abandon", () => Response.json({ name: "x".repeat(200) }, { status: 422 }), null],
+  ] as const)("reports %s as %s", async (_name, result, answer, reason) => {
+    // The pauses between attempts on the case's clock, which the case runs out: `fakeNodeBuiltins` reaches the drain's
+    // `node:timers/promises` import, which a fake of the global alone leaves on the wall clock. The send's own bound is
+    // an `AbortSignal.timeout`, which stays on the wall clock and so never fires here.
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"], fakeNodeBuiltins: true });
+    onTestFinished(() => {
+      vi.useRealTimers();
+    });
     claims = [{ mails: [handed(1)], abandoned: 0 }];
     provider = answer;
 
-    await drainOutbox();
+    const drained = drainOutbox();
+    await vi.runAllTimersAsync();
+    await drained;
 
     expect(reports()).toStrictEqual([{ id: handed(1).id, result, delivery_reason: reason }]);
+  });
+
+  /* The provider reaches the mailbox inside a spelled address, whose ban the hand-out judged on the whole spelling: sent,
+     the mail would reach a barred person. */
+  it("gives up a row addressed to anything but one bare mailbox, and reaches no provider", async () => {
+    claims = [{ mails: [{ ...handed(1), to: "Name <pia@example.org>" }], abandoned: 0 }];
+
+    await drainOutbox();
+
+    expect(sends()).toStrictEqual([]);
+    expect(reports()).toStrictEqual([{ id: handed(1).id, result: "abandon", delivery_reason: null }]);
   });
 
   it("reports a deployment that sends nothing as held, and reaches no provider", async () => {

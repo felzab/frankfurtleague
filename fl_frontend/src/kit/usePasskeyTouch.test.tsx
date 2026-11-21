@@ -3,7 +3,7 @@ import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 import { renderUnderNext } from "@/test-support/nextContexts";
 
 import { ConfirmDialog } from "./ConfirmDialog";
@@ -17,7 +17,10 @@ import type { ReactElement } from "react";
 
 const HOLDER = "anna@example.com";
 const SIGNED_IN = { data: { status: true, email: HOLDER }, error: null };
-const CANCELLED = { data: null, error: { message: "cancelled" } };
+// A refusal carrying no code of a closed sheet: an authenticator or the server turned the touch down.
+const REFUSED = { data: null, error: { message: "refused" } };
+// The edge's limit on the sign-in's requests, as the client answers its plain-text body: the status alone.
+const RATE_REFUSED = { data: null, error: { status: 429, statusText: "Too Many Requests" } };
 const DONE: ActionAnswer = { ok: true, value: undefined };
 
 const passkey = vi.hoisted(() => ({ prompt: vi.fn() }));
@@ -45,26 +48,23 @@ const renderWithToasts = (drawn: ReactElement) =>
   );
 
 const VERB = COPY.shared.verb.delete;
-const SUBJECT = COPY.account.passkeys.title;
+const SUBJECT = COPY.shared.passkeys;
 const ENTER = COPY.shared.verb.enter;
 
 const question = (onConfirm: () => Promise<ActionAnswer>, touch?: { holder: string }) => (
   <ConfirmDialog
-    verb="delete"
-    subject={SUBJECT}
-    consequence={COPY.shared.failure.stale}
-    tone="danger"
+    question={{ verb: "delete", subject: SUBJECT, consequence: COPY.shared.failure.stale, tone: "danger" }}
     onConfirm={onConfirm}
     trigger={{ label: VERB }}
     {...(touch === undefined ? {} : { touch })}
   />
 );
 
-const inputs = (action: (formData: FormData) => Promise<ActionAnswer>) => (
+const inputs = (run: (formData: FormData) => Promise<ActionAnswer>) => (
   <Dialog
     title={COPY.shared.help}
     act={{ verb: "enter" }}
-    action={action}
+    run={run}
     touch={{ holder: HOLDER }}
     trigger={{ label: VERB }}>
     <TextField
@@ -116,7 +116,7 @@ describe("a question behind the passkey touch", () => {
   });
 
   it("toasts a refused touch, the act not run, its trigger standing for a new question that asks again", async () => {
-    passkey.prompt.mockResolvedValueOnce(CANCELLED).mockResolvedValueOnce(SIGNED_IN);
+    passkey.prompt.mockResolvedValueOnce(REFUSED).mockResolvedValueOnce(SIGNED_IN);
     const onConfirm = vi.fn(async () => DONE);
     renderWithToasts(question(onConfirm, { holder: HOLDER }));
 
@@ -124,7 +124,7 @@ describe("a question behind the passkey touch", () => {
     await userEvent.click(trigger);
     await pressIn(await screen.findByRole("alertdialog", { name: QUESTION }), VERB);
 
-    expect(await toasted(COPY.signIn.refusal.unverified)).toBe("refused");
+    expect(await toasted(COPY.shared.touchMissing)).toBe("refused");
     // The toast queue commits outside the act's transition, so the toast stands a render before the trigger leaves busy.
     await waitFor(() => expect(isBusy(trigger)).toBe(false));
     expect([onConfirm.mock.calls.length, screen.queryByRole("alertdialog", { name: QUESTION }), isBusy(trigger)]).toStrictEqual([
@@ -138,13 +138,25 @@ describe("a question behind the passkey touch", () => {
     await waitFor(() => expect(onConfirm).toHaveBeenCalledTimes(1));
     expect(passkey.prompt).toHaveBeenCalledTimes(2);
   });
+
+  it("toasts the edge's limit on the touch as too many tries, the act not run", async () => {
+    passkey.prompt.mockResolvedValueOnce(RATE_REFUSED);
+    const onConfirm = vi.fn(async () => DONE);
+    renderWithToasts(question(onConfirm, { holder: HOLDER }));
+
+    await userEvent.click(screen.getByRole("button", { name: VERB }));
+    await pressIn(await screen.findByRole("alertdialog", { name: QUESTION }), VERB);
+
+    expect(await toasted(COPY.shared.failure.tooManyAttempts)).toBe("refused");
+    expect(onConfirm).not.toHaveBeenCalled();
+  });
 });
 
 describe("a dialog of inputs behind the passkey touch", () => {
   it("toasts a refused touch, the act not run, and posts what the next opening's press sends with the holder", async () => {
-    passkey.prompt.mockResolvedValueOnce(CANCELLED).mockResolvedValueOnce(SIGNED_IN);
-    const action = vi.fn(async (_: FormData) => DONE);
-    renderWithToasts(inputs(action));
+    passkey.prompt.mockResolvedValueOnce(REFUSED).mockResolvedValueOnce(SIGNED_IN);
+    const run = vi.fn(async (_: FormData) => DONE);
+    renderWithToasts(inputs(run));
 
     const trigger = screen.getByRole("button", { name: VERB });
     await userEvent.click(trigger);
@@ -153,17 +165,17 @@ describe("a dialog of inputs behind the passkey touch", () => {
     expect(passkey.prompt).not.toHaveBeenCalled();
 
     await pressIn(dialog, ENTER);
-    expect(await toasted(COPY.signIn.refusal.unverified)).toBe("refused");
+    expect(await toasted(COPY.shared.touchMissing)).toBe("refused");
     // As the question's: the toast stands a render before the trigger leaves busy.
     await waitFor(() => expect(isBusy(trigger)).toBe(false));
-    expect([action.mock.calls.length, screen.queryByRole("dialog"), isBusy(trigger)]).toStrictEqual([0, null, false]);
+    expect([run.mock.calls.length, screen.queryByRole("dialog"), isBusy(trigger)]).toStrictEqual([0, null, false]);
 
     await userEvent.click(trigger);
     const again = await screen.findByRole("dialog");
     await userEvent.type(within(again).getByRole("textbox"), "Berta");
     await pressIn(again, ENTER);
-    await waitFor(() => expect(action).toHaveBeenCalledTimes(1));
-    const posted = action.mock.calls[0]?.[0];
+    await waitFor(() => expect(run).toHaveBeenCalledTimes(1));
+    const posted = run.mock.calls[0]?.[0];
     expect([posted?.get("name"), posted?.get("holder")]).toStrictEqual(["Berta", HOLDER]);
     expect(await toasted(COPY.shared.toast.done.enter)).toBe("done");
   });

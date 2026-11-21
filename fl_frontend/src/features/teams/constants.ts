@@ -1,8 +1,9 @@
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
+import { FLKontaktSeat } from "@/core/generated/client/types";
 import { ACTIVE_CHIP, RETIRED_CHIP } from "@/kit/stateChips";
 
 import type { Copy } from "@/core/copy";
-import type { FLAustrittType, FLKontaktSeat, FLTrainerAlso, FLTrikotFarbe } from "@/core/generated/client/types";
+import type { FLAustrittType, FLTeamShorthandLength, FLTrainerAlso, FLTrikotFarbe } from "@/core/generated/client/types";
 import type { ChipProps } from "@/kit/Chip";
 
 // Keyed by every route, so a route the contract adds fails to compile until the catalogue words it.
@@ -26,21 +27,27 @@ export function austrittChip(type: FLAustrittType): ChipProps {
 }
 
 /**
- * The chip after a club's name in the administration, the list's „Stand“ column's and the editor's head alike:
- * „Stillgelegt“ once it left the league, else how it left the season, red as the public chip draws it, and in the full
- * word, which the list and the editor have room for; „Aktiv“ while it plays on.
+ * The chip after a club's name in the administration: „Stillgelegt“ once it left the league, else how it left the
+ * season, red as the public chip draws it, and in the full word, which the list and the editor have room for; „Aktiv“
+ * while it plays on.
  */
 export function adminTeamChip(retiredSince: string | null, exit: FLAustrittType | null): ChipProps {
   if (retiredSince !== null) return RETIRED_CHIP;
   return exit === null ? ACTIVE_CHIP : { tone: "danger", label: austrittState(exit) };
 }
 
+/**
+ * A client control cannot import the generated module that holds the pattern, so a control's `maxLength` and the check
+ * of a complete code read the length from here.
+ */
+export const SHORTHAND_LENGTH = 3 satisfies FLTeamShorthandLength;
+
 export function trikotFarbeLabel(farbe: FLTrikotFarbe): Copy {
   return COPY.team.trikotFarbeName[farbe];
 }
 
-/** In every surface's order, the Trainer first as the application form draws them. */
-export const KONTAKT_SEATS = ["trainer", "ansprechperson", "stellvertretung"] as const satisfies readonly FLKontaktSeat[];
+/** Every seat, in the contract's order, which is every surface's: the Trainer first. */
+export const KONTAKT_SEATS: readonly FLKontaktSeat[] = Object.values(FLKontaktSeat);
 
 /**
  * The seat a double-seated Trainer's row stands for, on an application and on a club alike: one person holds both and

@@ -2,7 +2,7 @@
 import { act, render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 
 import { Segmented, ToggleBoxes } from "./ChoiceButtons";
 import { HeldForm } from "./HeldForm";
@@ -39,7 +39,13 @@ describe("a required short choice", () => {
       />,
     ],
   ] as const)("keeps a send that finds it empty, marking it invalid under the required line: %s", (_kind, role, field) => {
-    const { container } = render(<HeldForm onSend={() => undefined}>{field}</HeldForm>);
+    const { container } = render(
+      <HeldForm
+        isBusy={false}
+        onSend={() => undefined}>
+        {field}
+      </HeldForm>,
+    );
     const group = screen.getByRole(role, { name: LABEL });
     const answers = within(group).getAllByRole(role === "radiogroup" ? "radio" : "checkbox");
 

@@ -1,22 +1,22 @@
 "use client";
 
-import { Checkbox, CheckboxGroup } from "react-aria-components/CheckboxGroup";
-import { Radio, RadioGroup } from "react-aria-components/RadioGroup";
+import { CheckboxButton, CheckboxField } from "react-aria-components/Checkbox";
+import { CheckboxGroup } from "react-aria-components/CheckboxGroup";
+import { RadioButton, RadioField, RadioGroup } from "react-aria-components/RadioGroup";
 import { Text } from "react-aria-components/Text";
 
 import { textOf } from "@/core/copy";
 
 import { CutText } from "./CutText";
-import { FieldLabel, MessageLine, useFieldLock } from "./FieldParts";
-import { choiceButton, choiceGroup, fieldRoot, messageLine } from "./fieldStyles";
-import { useEarlyEdit } from "./useEarlyEdit";
+import { FieldLabel, MessageLine, useFieldLock, useFieldWait } from "./FieldParts";
+import { choiceButton, choiceField, choiceGroup, fieldRoot, messageLine } from "./fieldStyles";
 
-import type { Copy } from "@/core/copy";
+import type { Copy, Words } from "@/core/copy";
 import type { ReactNode } from "react";
 import type { Choice } from "./FieldParts";
 
 type Shared = {
-  label: Copy;
+  label: Words;
   choices: readonly Choice[];
   /** The write takes no record without an answer here: the asterisk after the label, and the group heard as required. */
   isRequired?: boolean;
@@ -38,7 +38,7 @@ function GroupMessage({ errorMessage }: { errorMessage: Copy | undefined }) {
     <Text
       slot="errorMessage"
       data-kit-message
-      className={messageLine({ tone: "error" })}>
+      className={messageLine({ tone: "danger" })}>
       {errorMessage}
     </Text>
   );
@@ -51,8 +51,7 @@ function GroupMessage({ errorMessage }: { errorMessage: Copy | undefined }) {
 type MarkedChoice = Choice & { mark?: ReactNode };
 
 /**
- * One short single choice of two to four answers, such as a goal's side: the answers as segments of one frame, the
- * chosen one raised, the label above and the message line below, or the label naming the group to a screen reader
+ * One short single choice of two to four answers, such as a goal's side, its label naming the group to a screen reader
  * alone (`labelHidden`) where the place around it names it on the screen. React Aria's `RadioGroup`, the segments its
  * radios, so the group is heard as required and as invalid, the browser's own check refuses it left empty at the send,
  * and an arrow key moves the answer as a radio group's does. `null` chooses none while the answer is not yet given, as
@@ -73,20 +72,18 @@ export function Segmented({
   onChange?: (id: string) => void;
   labelHidden?: boolean;
 }) {
-  const root = useEarlyEdit();
-  const lock = useFieldLock(false, false, isRequired);
+  const lock = useFieldLock(false, isRequired);
   return (
     <RadioGroup
-      ref={root}
+      inert={useFieldWait()}
       className={fieldRoot()}
-      aria-label={labelHidden ? label : undefined}
+      aria-label={labelHidden ? textOf(label) : undefined}
       orientation="horizontal"
       value={value}
       onChange={onChange}
       isRequired={lock.isRequired}
       // Only while refused: a stated `false` would hide the browser's own check, which React Aria then never shows.
       isInvalid={errorMessage === undefined ? undefined : true}
-      isDisabled={lock.isDisabled}
       isReadOnly={lock.isReadOnly}>
       {!labelHidden && (
         <FieldLabel
@@ -96,21 +93,23 @@ export function Segmented({
       )}
       <div className={choiceGroup({ kind: "segmented" })}>
         {choices.map((choice) => (
-          <Radio
+          <RadioField
             key={choice.id}
             value={choice.id}
             aria-label={choice.spoken === undefined ? undefined : textOf(choice.spoken)}
-            data-kit-focus="ring"
-            className={choiceButton({ kind: "segmented" })}>
-            {/* 6 px apart, the mark centred on the word's line; the words cut where the frame is held narrower. */}
-            <span className="inline-flex min-w-0 items-center gap-1.5">
-              {choice.mark}
-              <CutText
-                text={textOf(choice.label)}
-                className="min-w-0 truncate"
-              />
-            </span>
-          </Radio>
+            className={choiceField()}>
+            <RadioButton
+              data-kit-focus="ring"
+              className={choiceButton({ kind: "segmented" })}>
+              <span className="inline-flex min-w-0 items-center gap-1.5">
+                {choice.mark}
+                <CutText
+                  text={textOf(choice.label)}
+                  className="min-w-0 truncate"
+                />
+              </span>
+            </RadioButton>
+          </RadioField>
         ))}
       </div>
       <GroupMessage errorMessage={errorMessage} />
@@ -119,8 +118,8 @@ export function Segmented({
 }
 
 /**
- * A small multi-select of short words, such as a season's allowed Stufen: the label above, one box per answer,
- * each chosen box edged and tinted in the link green. React Aria's `CheckboxGroup`, the boxes its checkboxes, so the
+ * A small multi-select of short words, such as a season's allowed Stufen, one box per answer. React Aria's
+ * `CheckboxGroup`, the boxes its checkboxes, so the
  * group is heard as required and as invalid, and the browser's own check refuses it left with none chosen at the send.
  */
 export function ToggleBoxes({
@@ -134,18 +133,16 @@ export function ToggleBoxes({
   value?: readonly string[];
   onChange?: (ids: string[]) => void;
 }) {
-  const root = useEarlyEdit();
-  const lock = useFieldLock(false, false, isRequired);
+  const lock = useFieldLock(false, isRequired);
   return (
     <CheckboxGroup
-      ref={root}
+      inert={useFieldWait()}
       className={fieldRoot()}
       value={value === undefined ? undefined : [...value]}
       onChange={onChange}
       isRequired={lock.isRequired}
       // Only while refused, as `Segmented`'s.
       isInvalid={errorMessage === undefined ? undefined : true}
-      isDisabled={lock.isDisabled}
       isReadOnly={lock.isReadOnly}>
       <FieldLabel
         label={label}
@@ -153,13 +150,16 @@ export function ToggleBoxes({
       />
       <div className={choiceGroup({ kind: "boxes" })}>
         {choices.map((choice) => (
-          <Checkbox
+          <CheckboxField
             key={choice.id}
             value={choice.id}
-            data-kit-focus="ring"
-            className={choiceButton({ kind: "boxes" })}>
-            {textOf(choice.label)}
-          </Checkbox>
+            className={choiceField()}>
+            <CheckboxButton
+              data-kit-focus="ring"
+              className={choiceButton({ kind: "boxes" })}>
+              {textOf(choice.label)}
+            </CheckboxButton>
+          </CheckboxField>
         ))}
       </div>
       <GroupMessage errorMessage={errorMessage} />

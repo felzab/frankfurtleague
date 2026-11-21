@@ -1,35 +1,36 @@
 import { cache } from "react";
 import { notFound } from "next/navigation";
 
-import { COPY } from "@/core/copy";
+import { ADMIN_COPY } from "@/core/copy/admin";
+import { COPY } from "@/core/copy/shared";
 import { dayOf } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { adminSpielChipOf, matchRowOf } from "@/features/spiele/blocks";
 import { getAdminSpielplan } from "@/features/spiele/queries";
 import { spieltagNamer } from "@/features/spieltage/utils";
+import { chosenTab } from "@/kit/filterValue";
 import { Link } from "@/kit/Link";
 import { ListPage } from "@/kit/ListPage";
 import { SpielList } from "@/kit/SpielRow";
 import { SpieltagHead } from "@/kit/SpieltagHead";
-import { chosenTab } from "@/kit/tabChoice";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
 
 import type { FLSpielJoinedAdmin } from "@/core/generated/client/types";
 import type { SpieltageContent } from "@/kit/ListPage";
 import type { SpielRowProps } from "@/kit/SpielRow";
-import type { Metadata, ResolvingMetadata } from "next";
+import type { Metadata } from "next";
 
 type Props = PageProps<"/admin/saisons/[saison]/spiele">;
 
-const WORDS = COPY.admin.spiel;
+const WORDS = ADMIN_COPY.spiel;
 
-/** The season's fixtures by matchday, `null` for a season the league does not hold: one read for the tab's title and the page alike. */
+/** The season's fixtures by matchday, `null` for a season the league does not hold. */
 const read = cache(getAdminSpielplan);
 
-export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { saison } = await params;
-  return metadataFor(read(saison), () => pageMetadata(parent, ROUTES.adminSpiele, ROUTES.adminSpiele.path(saison)));
+  return metadataFor(read(saison), () => pageMetadata(ROUTES.adminSpiele, ROUTES.adminSpiele.path(saison)));
 }
 
 /**

@@ -1,13 +1,12 @@
 import { SITE_URL } from "@/core/brand";
-import { ROUTES } from "@/core/routes";
+import { addressOf, ROUTES } from "@/core/routes";
 
 import type { RouteEntry } from "@/core/routes";
 import type { MetadataRoute } from "next";
 
 /** The first segment of a row's address, which every address the row builds shares. */
 function firstSegment(row: RouteEntry): string {
-  const path = row.path as (...segments: string[]) => string;
-  return `/${path(...Array.from({ length: path.length }, () => "_")).split("/")[1] ?? ""}`;
+  return `/${addressOf(row, "_").split("/")[1] ?? ""}`;
 }
 
 export default function robots(): MetadataRoute.Robots {

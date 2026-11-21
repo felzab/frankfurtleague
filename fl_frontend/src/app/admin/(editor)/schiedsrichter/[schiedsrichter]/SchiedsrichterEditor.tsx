@@ -1,6 +1,7 @@
 "use client";
 
-import { COPY } from "@/core/copy";
+import { ADMIN_COPY } from "@/core/copy/admin";
+import { COPY } from "@/core/copy/shared";
 import { EditorPage } from "@/kit/EditorPage";
 import { Facts } from "@/kit/Facts";
 import { SectionAct } from "@/kit/SectionAct";
@@ -17,7 +18,8 @@ import type { PageTitle } from "@/kit/RailFrame";
 import type { EditorRecord, EditorSave } from "@/kit/useEditor";
 import type { SchiedsrichterValues } from "./schiedsrichterValues";
 
-const WORDS = COPY.admin.schiedsrichter;
+const WORDS = ADMIN_COPY.schiedsrichter;
+const RETIRE_CONSEQUENCE = ADMIN_COPY.retireConsequence(WORDS.withArticle, COPY.page.spiele);
 const FACTS = COPY.shared.facts;
 const OBJECT = COPY.shared.schiedsrichter;
 
@@ -82,11 +84,11 @@ export function SchiedsrichterEditor({
         }
       : {
           name: COPY.shared.withObject(OBJECT, "retire"),
-          consequence: WORDS.retireConsequence,
+          consequence: RETIRE_CONSEQUENCE,
           confirm: {
             verb: "retire",
             subject: OBJECT,
-            consequence: WORDS.retireConsequence,
+            consequence: RETIRE_CONSEQUENCE,
             tone: "danger",
             onConfirm: () => danger.act({ id: record.id }),
           },
@@ -99,7 +101,7 @@ export function SchiedsrichterEditor({
       flag={flag}
       editor={editor}
       locks={address === "fixed" ? ["confirmed"] : []}
-      danger={{ title: COPY.admin.retirement, acts: [dangerAct] }}
+      danger={{ title: ADMIN_COPY.retirement, acts: [dangerAct] }}
       sections={[
         {
           id: "schiedsrichter",
@@ -126,7 +128,7 @@ export function SchiedsrichterEditor({
               />
               {/* The fee is the person's own, as their name is, so it stands in their box. */}
               <TextField
-                label={COPY.admin.payment}
+                label={COPY.shared.payment}
                 name="default_payment"
                 holds={5}
                 kind="digits"
@@ -145,7 +147,7 @@ export function SchiedsrichterEditor({
             <>
               {address === "fixed" ? (
                 <TextField
-                  label={COPY.signIn.address}
+                  label={COPY.shared.emailAddress}
                   name="email"
                   kind="email"
                   isLocked
@@ -153,7 +155,7 @@ export function SchiedsrichterEditor({
                 />
               ) : (
                 <TextField
-                  label={COPY.signIn.address}
+                  label={COPY.shared.emailAddress}
                   name="email"
                   kind="email"
                   isRequired={required.email}
@@ -183,10 +185,16 @@ export function SchiedsrichterEditor({
                 fields: (
                   <>
                     {confirmation.length > 0 && <Facts facts={confirmation} />}
-                    {/* An act of its box, as the season editor's are: the line under it says where the link went, or why not. */}
+                    {/* An act of its box, as the season editor's are: its toast says the link went, the line under it why not. */}
                     {sendLink !== undefined && (
                       <SectionAct
-                        acts={[{ label: COPY.shared.withObject(COPY.account.address.link, "send"), run: () => sendLink({ id: record.id }) }]}
+                        acts={[
+                          {
+                            act: { verb: "send", object: COPY.shared.link },
+                            done: COPY.shared.toast.linkSent,
+                            run: () => sendLink({ id: record.id }),
+                          },
+                        ]}
                       />
                     )}
                   </>

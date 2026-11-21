@@ -4,9 +4,8 @@ import { Facts } from "./Facts";
 import { formColumn, RailPage } from "./RailFrame";
 import { SeatRows } from "./SeatRows";
 import { SectionTitle } from "./Section";
-import { SpielGroup } from "./SpielGroup";
+import { SpielCards } from "./SpielCards";
 import { SpielHead } from "./SpielHead";
-import { SpielPairList, spielPairs } from "./SpielRow";
 import { StatTiles } from "./StatTiles";
 import { Timeline } from "./Timeline";
 import { tv } from "./tv";
@@ -28,10 +27,7 @@ type GroupContent =
   | { kind: "tiles"; tiles: ComponentProps<typeof StatTiles> }
   /** Things in their order along the dotted line, or why there are none yet. */
   | { kind: "timeline"; label: Copy; items: readonly Checkpoint[]; empty: EmptyStateProps }
-  /**
-   * Matches each in a card of its own under its head, such as a club's matches under their matchdays, one under
-   * another in a list narrower than 42 rem and two a row from it; or why there are none yet.
-   */
+  /** Matches each in a card of its own under its head, such as a club's matches under their matchdays. */
   | { kind: "spiele"; spiele: ReadonlyArray<{ head: Copy; spiel: SpielRowProps & { id: string } }>; empty: EmptyStateProps }
   /** A record's seats, each its person and the page's acts on them. */
   | { kind: "seats"; label: Copy; rows: ReadonlyArray<SeatRow> }
@@ -42,12 +38,11 @@ type GroupContent =
   | { kind: "folds"; folds: ReactElement };
 
 /**
- * One group of a read page, under its 16-px title; a group whose content names itself, its tiles or its folded
- * card's head, may stand without one.
+ * One group of a read page, under its title; a group whose content names itself, its tiles or its folded card's head,
+ * may stand without one.
  */
 type ReadGroup = { title?: Copy } & GroupContent;
 
-/** A record as its read page shows it, once it is read. */
 export type ReadRecord = {
   /** The record names the page. */
   title: PageTitle;
@@ -63,7 +58,7 @@ export type ReadRecord = {
    * A club's head over the groups, `TeamProfileHead`, which the club's page places as `folds` holds `ReadFolds`; and, where
    * the club has left the season, its route and day over the reason as it was stored.
    */
-  club?: { head: ReactElement; austritt: { title: Copy; text: RecordText } | null };
+  team?: { head: ReactElement; austritt: { title: Copy; text: RecordText } | null };
   /** The first group goes without a title where it is the page's only one: the page's own title names it. */
   groups: readonly [ReadGroup, ...ReadGroup[]];
   /** The decision's acts, the kit's buttons and the dialogs they open, under the first group. */
@@ -76,26 +71,19 @@ export type ReadContent = Omit<ReadRecord, "title">;
 /** Who names the page: the record, or the page itself before the read, such as a person's own Übersicht. */
 type Named = { title?: never; record: Promise<ReadRecord> } | { title: PageTitle; record: Promise<ReadContent> };
 
-/** The page's title and what it reads, once read. */
 async function titled(named: Named): Promise<{ title: PageTitle; read: ReadContent }> {
   if (named.title !== undefined) return { title: named.title, read: await named.record };
   const read = await named.record;
   return { title: read.title, read };
 }
 
-/** The decision's acts under the first group: one under another on a phone, in a row from `lg`. */
 const readActs = tv({ base: "grid gap-3 lg:flex lg:flex-wrap lg:items-center" });
 
-/**
- * The box the page's blocks stand in one under another: the editor's column, or the content's whole width, where a
- * page such as a person's own Übersicht sets its tiles four in a row and its matches two in a row, each from 42 rem.
- */
 const column = tv({
   variants: { width: { form: formColumn(), content: "grid w-full gap-6" } },
   defaultVariants: { width: "form" },
 });
 
-/** Where a read page's blocks stand: in the editor's column, as a record's page, or across the content. */
 type ReadWidth = "form" | "content";
 
 function GroupBody({ group }: { group: GroupContent }) {
@@ -114,23 +102,14 @@ function GroupBody({ group }: { group: GroupContent }) {
         />
       );
     case "spiele":
-      // As `SpielList`'s cards: one under another in a list narrower than 42 rem, two a row from it.
       return group.spiele.length === 0 ? (
         <EmptyBox {...group.empty} />
       ) : (
-        <SpielPairList>
-          {group.spiele.map(({ head, spiel }) => (
-            <div
-              key={spiel.id}
-              className={spielPairs().box()}>
-              <SpielGroup
-                head={head}
-                spiele={[spiel]}
-                columns="outer"
-              />
-            </div>
-          ))}
-        </SpielPairList>
+        // Each matchday's head stands under the group's own title, a rung below it.
+        <SpielCards
+          groups={group.spiele}
+          level={3}
+        />
       );
     case "seats":
       return (
@@ -144,10 +123,9 @@ function GroupBody({ group }: { group: GroupContent }) {
   }
 }
 
-/** The page once its record is read. */
 async function ReadBody({ scope, width, named }: { scope: "saison" | "area"; width: ReadWidth | undefined; named: Named }) {
   const { title, read } = await titled(named);
-  const { chip, flag, spiel, club, groups, acts } = read;
+  const { chip, flag, spiel, team, groups, acts } = read;
   const [first, ...rest] = groups;
   return (
     <RailPage
@@ -171,14 +149,14 @@ async function ReadBody({ scope, width, named }: { scope: "saison" | "area"; wid
             )}
           </div>
         )}
-        {club !== undefined && (
+        {team !== undefined && (
           <div className="grid gap-3">
-            {club.head}
-            {club.austritt !== null && (
+            {team.head}
+            {team.austritt !== null && (
               <Callout
                 tone="danger"
-                title={club.austritt.title}
-                text={club.austritt.text}
+                title={team.austritt.title}
+                text={team.austritt.text}
               />
             )}
           </div>
@@ -202,16 +180,15 @@ async function ReadBody({ scope, width, named }: { scope: "saison" | "area"; wid
 }
 
 /**
- * The read page: a record shown without editing, its groups one under another in the editor's column,
- * at most 760 px centred in the content (`formColumn`), no save bar; a match's page heads them with the head
+ * The read page: a record shown without editing, its groups one under another in the editor's column, no save bar; a
+ * match's page heads them with the head
  * its pop-up shows and what befell the match, a club's page with the club's head and its exit from the season
  * where it left one. The first group holds the facts its decision reads, and
  * the decision's acts stand directly under it; the next groups follow the reader's next question. The two parts holding client code, the folded cards
  * and the club's head, are modules of their own the page places, so the template imports neither.
  *
  * The record names the page; a page whose title no read decides, such as a person's own Übersicht, hands it as
- * `title`. `width: "content"` sets the blocks across the content, where the tiles stand four in a row and the matches
- * two, rather than in the column.
+ * `title`. `width: "content"` sets the blocks across the content rather than in the column.
  */
 export function ReadPage({ scope, width, ...named }: { scope: "saison" | "area"; width?: ReadWidth } & Named) {
   return (

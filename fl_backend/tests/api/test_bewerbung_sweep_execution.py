@@ -187,7 +187,6 @@ async def sweep(
         saison_id=saison_id,
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
         saisons_collection=database[Collection.SAISONS],
-        teams_collection=database[Collection.TEAMS],
         outbox_collection=database[Collection.OUTBOX],
         db=client,
         today=today,
@@ -302,7 +301,7 @@ def reminder_mail(to: str, seats: list[str]) -> dict[str, Any]:
     return {
         "key": f"{Collection.BEWERBUNGEN}/{REMIND_OID}/reminder/{seats[0]}/{TODAY}",
         "to": to,
-        "data": {"kind": "bewerbung_reminder", "saison_id": SAISON_ID, "schule": SCHOOL_NAME, "seats": seats, "deadline": "2026-04-12"},
+        "data": {"kind": "bewerbung_reminder", "saison_id": SAISON_ID, "seats": seats, "deadline": "2026-04-12"},
     }
 
 
@@ -484,7 +483,6 @@ class TestTheFourteenDayClock:
                 saison_id=SAISON_ID,
                 bewerbungen_collection=cast(Any, applications),
                 saisons_collection=database[Collection.SAISONS],
-                teams_collection=database[Collection.TEAMS],
                 outbox_collection=database[Collection.OUTBOX],
                 db=client,
                 today=TODAY,

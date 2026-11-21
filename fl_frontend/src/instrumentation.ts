@@ -1,4 +1,4 @@
-import type { onRequestError as logRequestErrorImpl } from "./core/instrumentation";
+import type { onRequestError as logRequestErrorImpl } from "./instrumentationNode";
 
 /**
  * Guarded wrapper, not a re-export: a static re-export drags the logger's `process.stdout` write
@@ -8,7 +8,7 @@ import type { onRequestError as logRequestErrorImpl } from "./core/instrumentati
 export async function onRequestError(...args: Parameters<typeof logRequestErrorImpl>) {
   if (process.env.NEXT_RUNTIME === "edge") return;
 
-  const { onRequestError: logRequestError } = await import("./core/instrumentation");
+  const { onRequestError: logRequestError } = await import("./instrumentationNode");
   return logRequestError(...args);
 }
 

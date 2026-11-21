@@ -231,7 +231,7 @@ def call(handler: Callable[..., Awaitable[Any]], database: AsyncDatabase, client
     """The handler with every collection it names taken off `database` by its parameter's spelling, and the rest defaulted.
 
     An administrator's call acts as the suite's first administrator, signed in a minute ago, unless the case names another;
-    a person's as the suite's person, by passkey a minute ago.
+    a person's as the suite's person, by code a minute ago.
     """
 
     supplied: dict[str, Any] = {}
@@ -260,7 +260,7 @@ def call(handler: Callable[..., Awaitable[Any]], database: AsyncDatabase, client
             supplied[name] = EMAIL
         elif name == "actor":
             # An administrator's handler names its operator beside its actor, and a person's names none.
-            supplied[name] = verified_actor(given.get("operator", ADMIN) if "operator" in parameters else EMAIL)
+            supplied[name] = verified_actor(given.get("operator", ADMIN)) if "operator" in parameters else verified_actor(EMAIL, lane="person")
 
     async def as_its_route_binds_it() -> Any:
         # A person's handler names no operator, and its route binds no administrator.

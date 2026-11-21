@@ -16,8 +16,9 @@ function subscribe(onChange: () => void) {
 
 /**
  * Whether the rail stands, the question `lg:` asks in a class, for the parts that act on it in script: a
- * menu's popover or sheet, and the rail's shortcut. The server answers desktop until the browser's own answer
- * replaces it, which neither shows: a menu renders its list only once opened, and a shortcut needs a key.
+ * menu's popover or sheet, the rail's shortcut and a collapsed rail's tooltip. The server answers desktop until the
+ * browser's own answer replaces it, which none shows: a menu renders its list only once opened, a shortcut needs a
+ * key, and a tooltip opens only on a hover or a focus, over a rail every page load draws expanded.
  */
 export function useDesktop() {
   return useSyncExternalStore(

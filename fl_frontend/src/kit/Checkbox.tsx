@@ -4,27 +4,24 @@ import { CheckboxButton, CheckboxField } from "react-aria-components/Checkbox";
 
 import { textOf } from "@/core/copy";
 
-import { MessageLine, useFieldLock } from "./FieldParts";
+import { MessageLine, useFieldLock, useFieldWait } from "./FieldParts";
 import { toggleBox, toggleField, toggleLine, toggleRow } from "./fieldStyles";
 import { Icon } from "./Icon";
 import { tv } from "./tv";
-import { useEarlyEdit } from "./useEarlyEdit";
 
 import type { Copy, Words } from "@/core/copy";
 import type { CheckboxFieldProps } from "react-aria-components/Checkbox";
 
 /**
- * The field either box stands in, React Aria's, holding on its root what a person did to the box before the page
- * hydrated (`useEarlyEdit`), and read-only in a closed form (`useFieldLock`).
+ * The field either box stands in, React Aria's, waiting for the page's code (`useFieldWait`), and read-only in a closed
+ * form (`useFieldLock`).
  */
-function BoxField({ isDisabled, ...field }: Omit<CheckboxFieldProps, "isDisabled" | "isReadOnly"> & { isDisabled: boolean }) {
-  const root = useEarlyEdit();
-  const lock = useFieldLock(isDisabled, false);
+function BoxField(field: Omit<CheckboxFieldProps, "isReadOnly">) {
+  const lock = useFieldLock(false);
   return (
     <CheckboxField
-      ref={root}
+      inert={useFieldWait()}
       {...field}
-      isDisabled={lock.isDisabled}
       isReadOnly={lock.isReadOnly}
     />
   );
@@ -55,8 +52,8 @@ const tick = tv({
       "group/toggle flex size-8 cursor-pointer items-center justify-center data-disabled:cursor-default data-disabled:opacity-50 data-readonly:cursor-default pointer-coarse:size-10",
   },
   variants: {
-    // Dimmed as a locked act is, the pointing hand kept, since a press is answered with the reason.
-    locked: { true: { target: "opacity-50" } },
+    // Dimmed as a locked act is, yet keeping the pointing hand a locked act drops, since its row answers a press with the reason.
+    columnFull: { true: { target: "opacity-50" } },
   },
 });
 
@@ -68,7 +65,7 @@ const tick = tv({
 export function Tick({
   isSelected,
   isDisabled = false,
-  locked = false,
+  columnFull = false,
   onChange,
   ...named
 }: {
@@ -81,10 +78,10 @@ export function Tick({
    * No further box of its column may be taken as things stand, such as a twelfth starter: dimmed and still pressed,
    * the press asking its owner, who keeps the box empty and says why on the line `aria-describedby` names.
    */
-  locked?: boolean;
+  columnFull?: boolean;
   onChange: (isSelected: boolean) => void;
 }) {
-  const look = tick({ locked });
+  const look = tick({ columnFull });
   return (
     <BoxField
       className={look.root()}
@@ -106,10 +103,7 @@ export function Tick({
   );
 }
 
-/**
- * A saved yes or no, such as a consent: the drawn box, its label to the right, and its description's line under the
- * label where it has one.
- */
+/** A saved yes or no, such as a consent. */
 export function Checkbox({
   label,
   description,

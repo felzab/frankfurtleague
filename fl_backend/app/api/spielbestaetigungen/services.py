@@ -47,7 +47,7 @@ from app.core import clock
 from app.core.clock import days_after
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.exceptions import APIError, Twins
+from app.core.exceptions import APIError
 from app.shared.schemas.bounds import (
     SPIEL_CONFIRMATION_DEADLINE_DAYS,
     SPIEL_REMINDER_DAYS,
@@ -441,19 +441,19 @@ def find_vorschlag_unchanged_refusal(*, vorschlag: FLSpielbestaetigungAppointmen
     return APIError(HTTPStatus.UNPROCESSABLE_CONTENT, Code.ANSETZUNG_VORSCHLAG_UNCHANGED, fields=(("vorschlag", "date"), ("vorschlag", "time")))
 
 
-# What the adoption answers under a 409 twin: each judges the stored proposal or the stored fixture, which a payload
-# write judges as its body. A code the catalogue words by its path gets a twin per path, the adoption naming none.
-ADOPTION_TWINS: Twins = {
-    Code.ANSETZUNG_VORSCHLAG_PAST: Code.ANSETZUNG_VORSCHLAG_PAST_AS_STORED,
-    Code.SPIEL_DOUBLE_BOOKED: {
-        "spielort": Code.SPIEL_DOUBLE_BOOKED_SPIELORT_AS_STORED,
-        "schiedsrichter": Code.SPIEL_DOUBLE_BOOKED_SCHIEDSRICHTER_AS_STORED,
-    },
-    Code.ELIGIBILITY_DISQUALIFIED: {
-        "team1": Code.ELIGIBILITY_DISQUALIFIED_TEAM1_AS_STORED,
-        "team2": Code.ELIGIBILITY_DISQUALIFIED_TEAM2_AS_STORED,
-    },
-}
+def as_judged_on_the_stored_proposal(refusal: APIError | None) -> APIError | None:
+    """`refusal` as the adoption answers it, its code, path and bounds kept: the catalogue words each on the status line.
+
+    A 409 where the judge answered 422: the adoption carries no body, and what was refused is the stored proposal or the
+    stored fixture, which moved since the page offering the press was read.
+    """
+
+    if refusal is None:
+        return None
+
+    status = HTTPStatus.CONFLICT if refusal.status_code == HTTPStatus.UNPROCESSABLE_CONTENT else HTTPStatus(refusal.status_code)
+
+    return APIError(status, refusal.error_code, fields=refusal.fields, bounds=refusal.bounds)
 
 
 def judged_as_a_proposal(refusal: APIError | None) -> APIError | None:

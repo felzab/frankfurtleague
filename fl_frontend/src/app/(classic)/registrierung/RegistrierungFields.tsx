@@ -1,5 +1,6 @@
-import { COPY } from "@/core/copy";
-import { positionOptions, stufeOptions } from "@/features/spieler/options";
+import { PUBLIC_COPY } from "@/core/copy/public";
+import { COPY } from "@/core/copy/shared";
+import { positionChoices, stufeChoices } from "@/features/spieler/options";
 import { ConsentLine } from "@/kit/ConsentLine";
 import { Section } from "@/kit/Section";
 import { Select } from "@/kit/Select";
@@ -8,13 +9,13 @@ import { TextField } from "@/kit/TextField";
 import type { ConsentLine as Line } from "@/core/consentWordings";
 import type { FLSpielerStufe } from "@/core/generated/client/types";
 
-const WORDS = COPY.registrierung;
-const SQUAD = COPY.admin.spieler;
+const WORDS = PUBLIC_COPY.registrierung;
+const KADER = COPY.kader;
 
-/** What the write asks of the three typed boxes, read on the server so its schema never reaches the browser. */
+/** What the write asks of the typed boxes. */
 export type RegistrierungRules = {
   required: { firstName: boolean; lastName: boolean; email: boolean };
-  maxLength: { firstName: number; lastName: number; email: number };
+  max: { firstName: number; lastName: number; email: number; nummer: number };
 };
 
 /**
@@ -36,7 +37,7 @@ export function RegistrierungFields({
    */
   objection: Line;
 }) {
-  const { required, maxLength } = rules;
+  const { required, max } = rules;
 
   return (
     <>
@@ -48,7 +49,7 @@ export function RegistrierungFields({
           kind="text"
           autofill="given-name"
           isRequired={required.firstName}
-          maxLength={maxLength.firstName}
+          maxLength={max.firstName}
         />
         <TextField
           label={COPY.shared.lastName}
@@ -56,34 +57,33 @@ export function RegistrierungFields({
           kind="text"
           autofill="family-name"
           isRequired={required.lastName}
-          maxLength={maxLength.lastName}
+          maxLength={max.lastName}
         />
         <TextField
-          label={COPY.signIn.address}
+          label={COPY.shared.emailAddress}
           name="email"
           description={WORDS.ownAddress}
           kind="email"
           autofill="email"
           isRequired={required.email}
-          maxLength={maxLength.email}
+          maxLength={max.email}
         />
         <TextField
           label={WORDS.nummer}
           name="nummer"
-          holds={2}
+          holds={5}
           kind="digits"
+          maxLength={max.nummer}
         />
         <Select
-          label={SQUAD.position}
+          label={KADER.position}
           name="position"
-          defaultValue=""
-          options={positionOptions()}
+          options={positionChoices()}
         />
         <Select
-          label={SQUAD.stufe}
+          label={KADER.stufe}
           name="stufe"
-          defaultValue=""
-          options={stufeOptions(stufen)}
+          options={stufeChoices(stufen)}
         />
       </Section>
     </>

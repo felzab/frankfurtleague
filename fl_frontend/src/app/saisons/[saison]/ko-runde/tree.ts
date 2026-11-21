@@ -1,6 +1,7 @@
 import "server-only";
 
-import { PHASE_LABELS, SAISON_PHASE_OPTIONS } from "@/features/saisons/constants";
+import { COPY } from "@/core/copy/shared";
+import { SAISON_PHASE_OPTIONS } from "@/features/saisons/constants";
 import { matchRowOf, whenOf } from "@/features/spiele/blocks";
 
 import type { FLSpielJoined, FLSpielplanSpieltag, FLSpielQuelle } from "@/core/generated/client/types";
@@ -53,7 +54,7 @@ export function treeOf(spieltage: readonly FLSpielplanSpieltag[]): { rounds: [Br
   const rounds = ordered.reverse();
   const [first, ...rest] = phases.map(({ phase }, index) => ({
     id: phase,
-    label: PHASE_LABELS[phase],
+    label: COPY.shared.phase[phase],
     matches: (rounds[index] ?? []).map(cardOf),
   }));
   if (first === undefined) return null;

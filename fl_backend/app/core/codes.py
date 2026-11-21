@@ -53,8 +53,6 @@ class Code(StrEnum):
     # One code, since a page tells the reader alike that the question moved on, and the row as it stands says why.
     ANSETZUNG_UNANSWERABLE = auto()
     ANSETZUNG_VORSCHLAG_PAST = auto()
-    # The adoption's twin: it judges the stored proposal, the request carrying no body, so a day gone by is a 409.
-    ANSETZUNG_VORSCHLAG_PAST_AS_STORED = auto()
     # A decline proposing the slot the fixture already holds: adopted, it would save nothing and leave the proposal open.
     ANSETZUNG_VORSCHLAG_UNCHANGED = auto()
     # An administrator's settle, discard or adoption of a row that no longer takes it, one code for the three as for a
@@ -106,9 +104,6 @@ class Code(StrEnum):
     BOOKING_UNCONFIRMED_SCHIEDSRICHTER = auto()
 
     SPIEL_DOUBLE_BOOKED = auto()
-    # The adoption's twins, one per resource: it judges the fixture's stored ground and referee, so no path names which.
-    SPIEL_DOUBLE_BOOKED_SPIELORT_AS_STORED = auto()
-    SPIEL_DOUBLE_BOOKED_SCHIEDSRICHTER_AS_STORED = auto()
     SPIEL_OUTSIDE_SPIELTAG = auto()
     SPIELTAG_OUTSIDE_SAISON = auto()
     # `spiel_outside_spieltag`'s mirror: shrinking the span is the other way to break the same containment.
@@ -130,9 +125,6 @@ class Code(StrEnum):
     # A consent press whose page was served choices that have moved since, on any of the account page's records: one
     # code, so the page maps one refusal however many writes share it.
     CHOICES_STALE = auto()
-    # An account press moving a choice onto a grant under a label its current wording replaced: the page was loaded
-    # before a rewording. The confirmations refuse the same reason as a rule of their payload under the same spelling.
-    GRANT_WORDING_STALE = auto()
     # One code for every write taking a person's media consent, the account presses and the three
     # confirmations alike, so each page maps one refusal.
     MEDIA_AGE = auto()
@@ -140,9 +132,6 @@ class Code(StrEnum):
     # the record was found and naming the cause hides nothing.
     GIVING_NOT_ALLOWED = auto()
     ELIGIBILITY_DISQUALIFIED = auto()
-    # The adoption's twins, one per side: it judges the fixture's stored sides, so no path names which.
-    ELIGIBILITY_DISQUALIFIED_TEAM1_AS_STORED = auto()
-    ELIGIBILITY_DISQUALIFIED_TEAM2_AS_STORED = auto()
     ELIGIBILITY_TEAM_NOT_IN_SAISON = auto()
     ENTRY_SAISON_NOT_FUTURE = auto()
     ENTRY_GRUPPE_NOT_OFFERED = auto()
@@ -283,7 +272,6 @@ type Rule = Literal[
     "elfmeterschiessen_without_winner",
     "email_not_accepted",
     "good_spieler_exceed_kader",
-    "grant_wording_stale",
     "nichtantreten_with_elfmeterschiessen",
     "nichtantreten_with_scorers",
     "registrierung_window_reaches_saison_start",

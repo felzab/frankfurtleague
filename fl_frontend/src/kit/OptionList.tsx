@@ -7,17 +7,21 @@ import { Separator } from "react-aria-components/Separator";
 
 import { textOf } from "@/core/copy";
 
-import { entryMark, menuItem, menuPopover, messageLine } from "./fieldStyles";
+import { menuItem, messageLine } from "./fieldStyles";
 import { Icon } from "./Icon";
+import { entryMark, menuPopover } from "./menuStyles";
 
 import type { Copy, Words } from "@/core/copy";
 
 /**
  * One choice of a select or a combo box. Its label is the catalogue's word, or a record's data such as a team's
  * name; a choice that cannot be made stays in the list, disabled, with a short note why where one says more than the
- * muted entry does.
+ * muted entry does. A choice that is a colour, such as a shirt's, shows its `swatch` before its label, the label kept
+ * so the colour never carries the meaning alone.
  */
-export type Option = { id: string; label: Words } & ({ isDisabled?: false; note?: never } | { isDisabled: true; note?: Copy });
+export type Option = { id: string; label: Words; swatch?: `#${string}` } & (
+  { isDisabled?: false; note?: never } | { isDisabled: true; note?: Copy }
+);
 
 /**
  * An entry that acts rather than chooses, such as a combo box's „Spielort anlegen“, which creates the record
@@ -28,16 +32,28 @@ export type ActEntry = { label: Copy; typed: string; onAction: () => void };
 
 /**
  * The menu of choices under a select or a combo box, the chosen one marked as every list marks it: as wide as its
- * field. A combo box filters the options as it is typed into; an act entry stands last, under the hairline a menu
- * draws between its groups, which is not drawn over the entry standing alone.
+ * longest choice and never narrower than its field, a choice too long for the screen cut short. A combo box filters the
+ * options as it is typed into, and `empty` is the muted row standing where its text matches none; an act entry stands
+ * last, under the hairline a menu draws between its groups, which is not drawn over the entry standing alone.
  */
-export function OptionList({ options, act }: { options: readonly Option[]; act?: ActEntry }) {
+export function OptionList({ options, empty, act }: { options: readonly Option[]; empty?: Copy; act?: ActEntry }) {
   return (
     <Popover
       data-kit-focus
       offset={4}
-      className={menuPopover({ fit: "field" })}>
-      <ListBox data-kit-focus>
+      className={menuPopover({ fit: "content" })}>
+      <ListBox
+        data-kit-focus
+        // React Aria's own empty row, outside the collection, so no press or key can choose it and it posts nothing.
+        renderEmptyState={
+          empty === undefined
+            ? undefined
+            : () => (
+                <span className="flex min-h-8 items-center px-3 text-sm text-fg-muted pointer-coarse:min-h-10 pointer-coarse:text-base">
+                  {empty}
+                </span>
+              )
+        }>
         <Collection items={options}>
           {(option) => (
             <ListBoxItem
@@ -48,9 +64,20 @@ export function OptionList({ options, act }: { options: readonly Option[]; act?:
               className={`${menuItem()} ${entryMark({ mark: "chosen" })}`}>
               {({ isSelected }) => (
                 <>
-                  <span className="flex min-w-0 flex-col">
-                    <span className="truncate">{textOf(option.label)}</span>
-                    {option.note !== undefined && <span className={messageLine({ tone: "description", width: "words" })}>{option.note}</span>}
+                  <span className="flex min-w-0 items-center gap-2">
+                    {option.swatch !== undefined && (
+                      <span
+                        aria-hidden
+                        // The colour is the record's data, one of many, so it is painted inline rather than named as a
+                        // class; the ring gives a white swatch its edge on the light ground and a black one on the dark.
+                        className="size-4 shrink-0 rounded-full inset-ring inset-ring-border-control"
+                        style={{ backgroundColor: option.swatch }}
+                      />
+                    )}
+                    <span className="flex min-w-0 flex-col">
+                      <span className="truncate">{textOf(option.label)}</span>
+                      {option.note !== undefined && <span className={messageLine({ tone: "description", width: "words" })}>{option.note}</span>}
+                    </span>
                   </span>
                   {isSelected && (
                     <Icon

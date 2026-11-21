@@ -6,7 +6,7 @@ import pytest
 from bson import ObjectId
 
 from app.api.bewerbungen.admin_router import get_bewerbung, get_bewerbungen_admin
-from app.api.bewerbungen.services import saison_state_of, with_delivery
+from app.api.bewerbungen.services import saison_state_of, schule_name, with_delivery
 from app.api.outbox.schemas import FLOutboxStatus
 from app.core.collections import Collection
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
@@ -259,6 +259,15 @@ class TestEachSeatServesWhereItStands:
         }
 
         assert saison_state_of(row=row, seat="trainer", today="2026-04-10", saison_status="active") == "confirmed"
+
+
+class TestTheSchoolEachReadNames:
+    """The page, the list row and the action log's label name an application's school by one rule."""
+
+    def test_the_school_is_the_submitted_name_or_the_picked_teams(self):
+        assert schule_name(bewerbung_raw={"schule": {"team_name": "Zorbanax"}, "team_id": None}, team_names={}) == "Zorbanax"
+        assert schule_name(bewerbung_raw={"schule": None, "team_id": "club-1"}, team_names={"club-1": "Adler"}) == "Adler"
+        assert schule_name(bewerbung_raw={"schule": None, "team_id": "club-9"}, team_names={}) == ""
 
 
 class TestEachSeatReadsItsLastMail:

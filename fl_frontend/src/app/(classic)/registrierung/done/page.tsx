@@ -1,22 +1,16 @@
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
+import { TO_HOME } from "@/kit/mailedLinkState";
 import { ClassicStatusPage } from "@/kit/StatusCard";
 import { pageMetadata } from "@/shared/utils/metadata";
 
-import { TO_HOME } from "../invitation";
-
-import type { Metadata, ResolvingMetadata } from "next";
-
-/** A row no crawler fetches, as the registration link's page beside it. */
-export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
-  const row = ROUTES.registrierungDone;
-  return pageMetadata(parent, row, row.path());
-}
+// Titled by the card it draws, so the tab names the end the page shows rather than the form that led there.
+export const metadata = pageMetadata(ROUTES.registrierungDone, { title: SERVER_COPY.registrierung.end.submitted });
 
 /**
  * `/registrierung/done`, a registration's done state: the page the submit leads to once the pupil's registration is
- * stored and the link forgotten, reading nothing, so a reload and the tab both say what happened rather than the
- * forgotten link's card.
+ * stored and the link forgotten. It reads nothing and draws the submitted card, so a reload shows that card again
+ * rather than the forgotten link's.
  */
 export default function RegistrierungDonePage() {
   return (

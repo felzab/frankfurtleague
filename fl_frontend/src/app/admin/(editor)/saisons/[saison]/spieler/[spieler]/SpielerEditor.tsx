@@ -1,6 +1,7 @@
 "use client";
 
-import { COPY } from "@/core/copy";
+import { ADMIN_COPY } from "@/core/copy/admin";
+import { COPY } from "@/core/copy/shared";
 import { rolleOptions } from "@/features/spieler/options";
 import { DateField } from "@/kit/DateField";
 import { EditorPage } from "@/kit/EditorPage";
@@ -21,7 +22,7 @@ import type { PageTitle } from "@/kit/RailFrame";
 import type { EditorRecord, EditorSave } from "@/kit/useEditor";
 import type { SpielerValues } from "./spielerValues";
 
-const WORDS = COPY.admin.spieler;
+const WORDS = ADMIN_COPY.spieler;
 const OBJECT = COPY.shared.spieler;
 
 /** A danger box act: a server action taking the player's id and the season, which a server page passes on as it is. */
@@ -31,8 +32,8 @@ type Act = (input: { id: string; saison: string }) => Promise<ActionAnswer>;
  * The Spieler editor: the person's own facts and their squad row, saved together from the editor's bar; what the person
  * agreed to, which only they change; and the danger box taking the row out of the squad, or bringing an ausgetragen
  * one back. The team stands as a fact, since no player moves between teams, and so does the address, which only an
- * address change moves. Once the season has finished, its squad row and the danger box's act stand locked, as the save
- * refuses them, and the person's own facts stay open.
+ * address change moves. Once the season has finished, its squad row stands locked and the danger box is left out, as
+ * the writes refuse both, the lock line saying why, and the person's own facts stay open.
  */
 export function SpielerEditor({
   title,
@@ -63,7 +64,10 @@ export function SpielerEditor({
   kader: readonly Fact[];
   einwilligung: readonly Fact[];
   /** What the save asks of each box, read on the server. */
-  rules: { required: { first_name: boolean; last_name: boolean; birth_date: boolean }; max: { first_name: number; last_name: number } };
+  rules: {
+    required: { first_name: boolean; last_name: boolean; birth_date: boolean };
+    max: { first_name: number; last_name: number; nummer: number };
+  };
   /** The position's and the level's choices, each opening on the empty box. */
   positions: readonly Option[];
   stufen: readonly Option[];
@@ -76,17 +80,17 @@ export function SpielerEditor({
   const { draft, set } = editor;
   const { required, max } = rules;
   const press = (act: Act) => () => act({ id: record.id, saison });
-  // The season's end before the act's own reason: no later change of the squad reopens a finished season's row.
-  const locked = ended ? COPY.admin.sinceEnd : danger.kind === "reactivate" ? danger.locked : undefined;
+  const locked = danger.kind === "reactivate" ? danger.locked : undefined;
 
   const dangerAct: DangerAct =
     danger.kind === "reactivate"
       ? {
-          name: COPY.shared.withObject(WORDS.kaderEntry, "reactivate"),
+          // The player, as the deregistration's question names them, so the return asks of the one it took out.
+          name: COPY.shared.withObject(OBJECT, "reactivate"),
           consequence: WORDS.reactivateConsequence,
           confirm: {
             verb: "reactivate",
-            subject: WORDS.kaderEntry,
+            subject: OBJECT,
             consequence: WORDS.reactivateConsequence,
             tone: "primary",
             onConfirm: press(danger.act),
@@ -94,13 +98,13 @@ export function SpielerEditor({
           ...(locked === undefined ? {} : { locked }),
         }
       : {
-          name: COPY.shared.withObject(WORDS.fromKader, "deregister"),
-          consequence: WORDS.deregisterConsequence,
+          name: COPY.shared.withObject(COPY.kader.fromKader, "deregister"),
+          consequence: COPY.kader.deregisterConsequence,
           ...(locked === undefined ? {} : { locked }),
           confirm: {
             verb: "deregister",
             subject: OBJECT,
-            consequence: WORDS.deregisterConsequence,
+            consequence: COPY.kader.deregisterConsequence,
             tone: "danger",
             onConfirm: press(danger.act),
           },
@@ -112,7 +116,8 @@ export function SpielerEditor({
       chip={chip}
       editor={editor}
       locks={ended ? ["sinceEnd"] : []}
-      danger={{ title: WORDS.kaderEntry, acts: [dangerAct] }}
+      // A finished season's row takes neither act again, so the box is left out rather than drawn locked.
+      danger={ended ? undefined : { title: WORDS.kaderEntry, acts: [dangerAct] }}
       sections={[
         {
           id: "person",
@@ -155,16 +160,17 @@ export function SpielerEditor({
             <>
               <Facts facts={kader} />
               <TextField
-                label={WORDS.nummer}
+                label={COPY.kader.nummer}
                 name="nummer"
-                holds={2}
+                holds={5}
                 kind="digits"
+                maxLength={max.nummer}
                 isLocked={ended}
                 value={draft.nummer}
                 onChange={(nummer) => set("nummer", nummer)}
               />
               <Select
-                label={WORDS.position}
+                label={COPY.kader.position}
                 name="position"
                 isLocked={ended}
                 options={positions}
@@ -172,7 +178,7 @@ export function SpielerEditor({
                 onChange={(position) => set("position", position ?? "")}
               />
               <Select
-                label={WORDS.stufe}
+                label={COPY.kader.stufe}
                 name="stufe"
                 isLocked={ended}
                 options={stufen}
@@ -180,7 +186,7 @@ export function SpielerEditor({
                 onChange={(stufe) => set("stufe", stufe ?? "")}
               />
               <Select
-                label={WORDS.rolle}
+                label={COPY.kader.rolle}
                 name="rolle"
                 isLocked={ended}
                 options={rolleOptions(takenRollen)}

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { COPY } from "@/core/copy";
+import { ADMIN_COPY } from "@/core/copy/admin";
+import { COPY } from "@/core/copy/shared";
 
 import { seatsOf } from "./seats";
 
@@ -34,10 +35,10 @@ function bewerbung(overrides: Partial<Pick<FLBewerbung, "status" | "kontakte" | 
   } as FLBewerbung;
 }
 
-const seat = (read: FLBewerbung, slot: string) => seatsOf(read).find((view) => view.seat === slot);
+const seat = (read: FLBewerbung, wanted: string) => seatsOf(read, false).find((view) => view.seat === wanted);
 
 describe("where a seat stands", () => {
-  /* A Widerspruch and an erasure leave one empty slot, and only the first takes a new person: read as one, an
+  /* A Widerspruch and an erasure leave one empty seat, and only the first takes a new person: read as one, an
      administrator is offered a write the backend refuses, or none where it would take one. */
   it("parts a seat its person objected to from one an erasure emptied", () => {
     const read = bewerbung({
@@ -60,7 +61,7 @@ describe("where a seat stands", () => {
   it("says a seat the submission never mailed was not sent", () => {
     const read = bewerbung({ confirmations: { trainer: entry({ sent_at: null }), ansprechperson: entry(), stellvertretung: entry() } });
 
-    expect(seat(read, "trainer")?.chips).toContainEqual({ tone: "warn", label: COPY.admin.saison.linkNotSent });
+    expect(seat(read, "trainer")?.chips).toContainEqual({ tone: "warn", label: COPY.shared.state.linkNotSent });
     expect(seat(read, "ansprechperson")?.chips).toHaveLength(1);
   });
 
@@ -74,8 +75,8 @@ describe("where a seat stands", () => {
     });
 
     expect(seat(read, "trainer")?.chips.map(({ label }) => label)).toStrictEqual([
-      COPY.admin.schiedsrichter.unconfirmed,
-      COPY.admin.delivery.abandoned,
+      COPY.shared.state.unconfirmed,
+      ADMIN_COPY.delivery.abandoned,
     ]);
   });
 });
@@ -90,7 +91,7 @@ describe("one person on two seats", () => {
       trainer_is_also: "ansprechperson",
     } as const;
 
-    const rows = seatsOf(bewerbung({ kontakte }));
+    const rows = seatsOf(bewerbung({ kontakte }), false);
 
     expect(rows.map((row) => row.seat)).toStrictEqual(["trainer", "stellvertretung"]);
     expect(rows[0]?.seats).toStrictEqual(["trainer", "ansprechperson"]);

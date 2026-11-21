@@ -1,19 +1,19 @@
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 
 import { FieldPair } from "./FieldPair";
 import { TextField } from "./TextField";
 
 import type { Copy } from "@/core/copy";
 
-const WORDS = COPY.admin.spielort;
+const WORDS = COPY.shared.address;
 
 /** An address's boxes, by the names they post under. */
 type AddressField = "street" | "house_number" | "postcode" | "district" | "city";
 
-/** What a write asks of an address, read off its schema on the server, so the schema never reaches the browser. */
+/** What a write asks of an address, read off its schema on the server. */
 export type AddressRules = {
   required: Readonly<Record<AddressField, boolean>>;
-  maxLength: Readonly<Record<Exclude<AddressField, "postcode">, number>>;
+  max: Readonly<Record<Exclude<AddressField, "postcode">, number>>;
   /** The postcode's one length, which its box holds before the send as well. */
   postcodeLength: number;
 };
@@ -36,7 +36,7 @@ export function AddressFields({
   box?: (field: AddressField) => { name: string; defaultValue?: string; onChange: (value: string) => void };
   streetDescription?: Copy;
 }) {
-  const { required, maxLength, postcodeLength } = rules;
+  const { required, max, postcodeLength } = rules;
   const bound = (field: AddressField) => {
     if (draft !== undefined) return { name: field, value: draft.values[field], onChange: (value: string) => draft.set(field, value) };
     const held: { name: string; defaultValue?: string; onChange?: (value: string) => void } = box?.(field) ?? { name: field };
@@ -50,7 +50,7 @@ export function AddressFields({
           description={streetDescription}
           kind="text"
           isRequired={required.street}
-          maxLength={maxLength.street}
+          maxLength={max.street}
           {...bound("street")}
         />
         <TextField
@@ -58,7 +58,7 @@ export function AddressFields({
           holds={5}
           kind="text"
           isRequired={required.house_number}
-          maxLength={maxLength.house_number}
+          maxLength={max.house_number}
           {...bound("house_number")}
         />
       </FieldPair>
@@ -76,7 +76,7 @@ export function AddressFields({
           label={WORDS.city}
           kind="text"
           isRequired={required.city}
-          maxLength={maxLength.city}
+          maxLength={max.city}
           {...bound("city")}
         />
       </FieldPair>
@@ -84,7 +84,7 @@ export function AddressFields({
         label={WORDS.district}
         kind="text"
         isRequired={required.district}
-        maxLength={maxLength.district}
+        maxLength={max.district}
         {...bound("district")}
       />
     </>

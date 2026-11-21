@@ -14,8 +14,8 @@ import type { FLOutboxSignInPayload, FLPasskeyDataKind } from "../generated/clie
 /**
  * Owes one mail of the sign-in library through the Postausgang, which the write drains at once. A secret -- the code, the
  * deletion token -- leaves sealed under this frontend's own secret by the library's own cipher, so no backend row holds
- * it readable; the drain opens it. The backend tries each of the library's own kinds once, a failed
- * send's repair being the library's, a fresh code or link; the deletion notice, which nothing repairs, it tries again.
+ * it readable; the drain opens it. The backend tries a code and a deletion link once, a failed send's repair being
+ * the library's, a fresh code or link; every notice, which nothing repairs, it tries again until its deadline.
  */
 export async function oweSignInMail(
   to: string,
@@ -45,13 +45,9 @@ export async function notifyPasskey(kind: FLPasskeyDataKind, email: string): Pro
   }
 }
 
-export async function notifyPasskeyRemoved(email: string): Promise<void> {
-  await notifyPasskey("passkey_erased", email);
-}
-
 /**
- * Tells a person their account went. Owed after the deletion and never holding it up: a failed notice leaves the
- * deletion standing, whichever of the two roots owed it.
+ * Tells a person their account went, for a deletion they did not press themselves, which nothing else would tell
+ * them of. Owed after the deletion and never holding it up: a failed notice leaves the deletion standing.
  */
 export async function notifyAccountDeleted(email: string): Promise<void> {
   try {

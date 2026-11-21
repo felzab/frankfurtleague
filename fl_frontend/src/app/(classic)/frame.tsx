@@ -1,5 +1,5 @@
 import { INSTAGRAM_URL, THREADS_URL } from "@/core/brand";
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 import { LEGAL_PAGES, LIGA_PAGES, ROUTES, SAISONLESS_PAGES } from "@/core/routes";
 import { SPONSORS } from "@/features/meta/constants";
 import { ClassicFrame } from "@/kit/ClassicFrame";
@@ -8,8 +8,8 @@ import type { HeaderLink } from "@/kit/HeaderLinks";
 import type { ReactNode } from "react";
 
 /** The header's two pages of the league's own. */
-const ABOUT = { label: COPY.page.about, href: ROUTES.about.path() };
-const CONTACT = { label: COPY.page.contact, href: ROUTES.contact.path() };
+const ABOUT = { label: ROUTES.about.title, href: ROUTES.about.path() };
+const CONTACT = { label: ROUTES.contact.title, href: ROUTES.contact.path() };
 
 /** The footer's „Saison“ group, at the addresses that read the season on arrival. */
 const SAISON_LINKS: ReadonlyArray<HeaderLink> = SAISONLESS_PAGES.map(({ route, page }) => ({
@@ -24,7 +24,6 @@ export const LIGA_LINKS: ReadonlyArray<HeaderLink> = [
   { label: COPY.template.account, href: ROUTES.signIn.path() },
 ];
 
-/** The legal pages, in the sitemap page's group and, with the sitemap page itself, in the footer's. */
 export const LEGAL_LINKS: ReadonlyArray<HeaderLink> = LEGAL_PAGES.map((page) => ({ label: ROUTES[page].title, href: ROUTES[page].path() }));
 
 /**
@@ -33,7 +32,6 @@ export const LEGAL_LINKS: ReadonlyArray<HeaderLink> = LEGAL_PAGES.map((page) => 
  */
 const SAISON = { label: COPY.shared.saison, href: ROUTES.saisons.path() };
 
-/** The classic public frame around a page, as its layout places it. */
 export function Classic({ children }: { children: ReactNode }) {
   return (
     <ClassicFrame

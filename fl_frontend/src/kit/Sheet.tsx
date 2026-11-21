@@ -1,5 +1,8 @@
 "use client";
 
+import { Fragment } from "react";
+import { usePathname } from "next/navigation";
+
 import { DialogTrigger } from "react-aria-components/Dialog";
 import { Sheet as AriaSheet, SheetBackdrop, SheetContent, SheetOverlay } from "react-aria-components/Sheet";
 
@@ -51,10 +54,9 @@ export function SheetFrame({
 }
 
 /**
- * More on a phone: a sheet from the bottom, the page dimmed and blurred behind it. „Mehr“ and the
- * account menu open as sheets, and so does the phone's filter block. `DialogTrigger`, which marks its trigger pressed
- * while what it opened stands, as a menu's trigger is: React Aria's `SheetTrigger` is that component with the mark
- * taken off.
+ * More on a phone: a sheet from the bottom, the page dimmed and blurred behind it. `DialogTrigger`, which marks its
+ * trigger pressed while what it opened stands, as a menu's trigger is: React Aria's `SheetTrigger` is that component
+ * with the mark taken off.
  */
 export function Sheet({ label, trigger, children }: { label: Copy; trigger: ReactElement; children: ReactNode }) {
   const [isOpen, setOpen] = useOpenUntilHidden();
@@ -66,4 +68,12 @@ export function Sheet({ label, trigger, children }: { label: Copy; trigger: Reac
       <SheetFrame label={label}>{children}</SheetFrame>
     </DialogTrigger>
   );
+}
+
+/**
+ * Its children afresh on every page: a sheet the layout keeps would otherwise stay open after one of its links
+ * led on, since a layout outlives the page it surrounds.
+ */
+export function FreshPerPage({ children }: { children: ReactNode }) {
+  return <Fragment key={usePathname()}>{children}</Fragment>;
 }

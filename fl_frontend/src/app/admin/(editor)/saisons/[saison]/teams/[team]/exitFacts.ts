@@ -1,4 +1,4 @@
-import { COPY } from "@/core/copy";
+import { ADMIN_COPY } from "@/core/copy/admin";
 import { formatList } from "@/core/format";
 
 import type { CalendarDay } from "@/core/format";
@@ -22,5 +22,5 @@ export function exitFactsOf(entries: readonly FLAustrittRecipients[], day: Calen
   }
 
   const names = [...named.values()].toSorted((one, other) => one.localeCompare(other, "de"));
-  return names.length === 0 ? [] : [{ label: COPY.admin.facts.mailTo, value: { record: formatList(names) } }];
+  return names.length === 0 ? [] : [{ label: ADMIN_COPY.facts.mailTo, value: { record: formatList(names) } }];
 }

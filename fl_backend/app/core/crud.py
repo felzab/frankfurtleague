@@ -27,7 +27,6 @@ from app.core.codes import Code
 from app.core.collections import EDITED_COLLECTIONS
 from app.core.exceptions import APIError, DocumentNotFoundError, link_invalid
 from app.core.readonly import ReadCollection
-from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 
 # Keyword-only throughout, so no call site can bind `db_filter` to `update` by position, and
 # `db_filter` is the one name a filter has here and at every caller.
@@ -101,32 +100,23 @@ async def pull_whole_from_db(
     *,
     collection: ReadCollection,
     db_filter: Mapping[str, Any],
-    # What the read is, for the error alone: "season 2025's fixtures".
-    what: str,
     sort_by: Sequence[tuple[str, int]] | None = None,
     projection: Mapping[str, Any] | list[str] | None = None,
     collation: Mapping[str, Any] | None = None,
     session: AsyncClientSession | None = None,
 ) -> list[Mapping[str, Any]]:
-    """Every document `db_filter` matches, for a judgement that must see them all, or a `ValueError`.
+    """Every document `db_filter` matches, for a judgement that must see them all: the cursor read to its end.
 
-    Read one over the cap, so a set past it is detected rather than judged on the page that fits: a dropped fixture or
-    row would read as one that is not there, and a rule judged without it answers wrongly in silence.
+    Unbounded, as `aggregate_many_from_db` is: a cap would drop a fixture or a row in silence, and a rule judged without
+    it answers wrongly.
     """
 
-    documents = await pull_many_from_db(
-        collection=collection,
-        db_filter=db_filter,
-        limit=LIST_LIMIT_DEFAULT + 1,
-        sort_by=sort_by,
-        projection=projection,
-        collation=collation,
-        session=session,
-    )
-    if len(documents) > LIST_LIMIT_DEFAULT:
-        raise ValueError(f"{what} number more than {LIST_LIMIT_DEFAULT}, which is more than one read can judge whole")
+    cursor = collection.find(filter=db_filter, projection=projection or {}, collation=collation, session=session)
 
-    return documents
+    if sort_by is not None:
+        cursor = cursor.sort(sort_by)
+
+    return await cursor.to_list(length=None)
 
 
 # Every document of an `EDITED_COLLECTIONS` member carries this count: 0 when created, and raised by every update

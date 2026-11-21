@@ -2,12 +2,19 @@ import math
 from collections import Counter
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
 from http import HTTPStatus
 from typing import Any, Final, Literal
 
 from app.api.saisons.schemas import FLSaisonRules
-from app.api.spielbestaetigungen.services import ANSETZUNG_QUELLEN, build_closable_filter, party_key
+from app.api.spielbestaetigungen.schemas import FLSpielbestaetigungAppointment
+from app.api.spielbestaetigungen.services import (
+    ANSETZUNG_QUELLEN,
+    build_closable_filter,
+    parties_mailed,
+    parties_told_of_the_change,
+    party_key,
+)
 from app.api.spiele.schemas import (
     PHASE_RANK,
     SONDEREREIGNIS_KEEPING_ITS_SLOT,
@@ -49,6 +56,7 @@ from app.api.spiele.schemas import (
 )
 from app.api.teams.services import offered_gruppen
 from app.api.teams.standings import DecidedStanding, in_the_season_when_decided
+from app.core.clock import days_after
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError, FieldPath
@@ -1209,7 +1217,7 @@ def _minutes_of(day: str, time: str) -> int:
 def days_a_clash_can_reach(day: str) -> list[str]:
     """Every day a fixture dated `day` can clash into, this one included -- the days a booking read has to fetch."""
 
-    return [str(date.fromisoformat(day) + timedelta(days=offset)) for offset in range(-CLASH_REACH_DAYS, CLASH_REACH_DAYS + 1)]
+    return [days_after(day=day, days=offset) for offset in range(-CLASH_REACH_DAYS, CLASH_REACH_DAYS + 1)]
 
 
 def find_spiel_date_refusal(*, date: str | None, spieltag_start: str | None, spieltag_end: str | None) -> APIError | None:
@@ -1869,3 +1877,32 @@ def recipients_named(parties: Sequence[Mapping[str, Any]], *, names: Mapping[tup
         raise ValueError(f"no record names the parties {unnamed}")
 
     return FLSpielRecipientListAdapter.validate_python([{**party, "name": names[party_key(party)]} for party in parties])
+
+
+def vorschlag_recipients(
+    *,
+    party: Mapping[str, Any],
+    vorschlag: FLSpielbestaetigungAppointment,
+    held: Iterable[Mapping[str, Any]],
+    spiel: Mapping[str, Any],
+    austritte: Mapping[Any, str],
+    kontakte: Mapping[Any, Any],
+    names: Mapping[tuple[str, Any], str | None],
+    now: datetime,
+) -> tuple[list[FLSpielRecipient], list[FLSpielRecipient]]:
+    """Whom each act on a club's standing proposal mails, each by the name its own record holds: the adoption's, then the discard's.
+
+    `party` is the proposing club and `held` every row of its fixture holding its party's question, as the pass's close
+    reads them. The adoption mails those the pass tells of the move to `vorschlag`, the discard the proposing club, each
+    reached only as `parties_mailed` judges, so every page naming them names the parties the backend mails.
+    """
+
+    adopted = {**spiel, "date": vorschlag.date, "time": vorschlag.time}
+    told = parties_told_of_the_change(
+        rows=held, stored=spiel, changed=adopted, stored_austritte=austritte, changed_austritte=austritte, now=now
+    )
+
+    return (
+        recipients_named(parties_mailed(told, kontakte=kontakte), names=names),
+        recipients_named(parties_mailed([party], kontakte=kontakte), names=names),
+    )

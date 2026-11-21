@@ -1,4 +1,4 @@
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 import { dayOf, formatDateWithWeekdayAndYear, formatTime, timeOf } from "@/core/format";
 import { buildMapsSearchUrl } from "@/core/maps";
 import { ROUTES } from "@/core/routes";
@@ -26,13 +26,16 @@ import type { SpielRowProps, SpielSide } from "@/kit/SpielRow";
 import type { Outcome } from "@/kit/Timeline";
 import type { Route } from "next";
 
-/** A match's two sides, each a club or, while the draw has not settled it, where it comes from: the public read's and the admin read's alike. */
+/**
+ * A match's two sides, each a club or, while the draw has not settled it, where it comes from. This and the two picks
+ * below take the public read's match and the admin read's alike.
+ */
 type Sides = Pick<FLSpielJoined, "team1" | "team2" | "team1_quelle" | "team2_quelle">;
 
-/** What a match's result is read from: the public read's and the admin read's alike. */
+/** What a match's result is read from. */
 type Played = Pick<FLSpielJoined, "ergebnis" | "elfmeterschiessen" | "team1" | "team2">;
 
-/** What a match's row is built from: the public read's and the admin read's alike. */
+/** What a match's row is built from. */
 type Listed = Sides & Played & Pick<FLSpielJoined, "id" | "saison_id" | "for_third_place" | "date" | "time" | "sonderereignis">;
 
 /** A match's matchday as the page reads serve it beside the match: its `position`, and its phase's count of matchdays. */
@@ -110,7 +113,6 @@ export function sidesOf(spiel: Sides): { team1: SpielSide; team2: SpielSide } {
   return { team1: sideOf(spiel.team1, spiel.team1_quelle), team2: sideOf(spiel.team2, spiel.team2_quelle) };
 }
 
-/** A match's two sides by their names alone, as an event's words name a side. */
 type Names = { team1: Words; team2: Words };
 
 function namesOf(spiel: Sides): Names {
@@ -118,7 +120,6 @@ function namesOf(spiel: Sides): Names {
   return { team1: team1.name, team2: team2.name };
 }
 
-/** The result as the kit's rows and heads take it, and nothing until one is entered. */
 function resultOf(spiel: Played): Pick<SpielRowProps, "result"> {
   const tore = toreOf(spiel);
   if (tore === null) return {};
@@ -134,8 +135,8 @@ export const whenOf = (spiel: Pick<FLSpielJoined, "date" | "time">): Copy => COP
 export function previewOf(spiel: Sides & Played & Pick<FLSpielJoined, "date" | "time" | "sonderereignis">): Copy {
   const { team1, team2 } = sidesOf(spiel);
   const tore = toreOf(spiel);
-  const result = tore === null ? (eventOf(spiel)?.title ?? COPY.admin.spiel.noResult) : COPY.admin.spiel.score(tore, spiel.elfmeterschiessen);
-  return COPY.admin.spiel.preview(COPY.page.spiel(team1.name, team2.name), whenOf(spiel), result);
+  const result = tore === null ? (eventOf(spiel)?.title ?? COPY.spielplan.noResult) : COPY.spielplan.score(tore, spiel.elfmeterschiessen);
+  return COPY.spielplan.preview(COPY.page.spiel(team1.name, team2.name), whenOf(spiel), result);
 }
 
 /**
@@ -149,7 +150,6 @@ function eventChip(sonderereignis: FLSonderereignis, names: Names): ChipProps {
     : { tone: "danger", label };
 }
 
-/** `eventChip` where a read serves each side's club by its name alone, „Noch offen“ for a side not yet settled. */
 export const eventChipOf = (sonderereignis: FLSonderereignis, team1: string | null, team2: string | null): ChipProps =>
   eventChip(sonderereignis, { team1: sideName(team1), team2: sideName(team2) });
 
@@ -163,15 +163,14 @@ function befellOf(spiel: Sides & Pick<FLSpielJoined, "sonderereignis">): Pick<Sp
 }
 
 /**
- * A match's state as the league's „Spiele“ list and its editor's head show it: what befell it, as every list shows it,
- * else „Vorläufig“ while its clubs, asked about its date, have not both confirmed it.
+ * A match's state in the administration: what befell it, as every list shows it, else „Vorläufig“ while its clubs,
+ * asked about its date, have not both confirmed it.
  */
 export function adminSpielChipOf(spiel: Sides & Pick<FLSpielJoined, "sonderereignis" | "ansetzung_confirmed">): ChipProps | undefined {
   if (spiel.sonderereignis !== null) return eventChip(spiel.sonderereignis, namesOf(spiel));
-  return spiel.ansetzung_confirmed === false ? { tone: "warn", label: COPY.admin.spiel.provisional } : undefined;
+  return spiel.ansetzung_confirmed === false ? { tone: "warn", label: COPY.spielplan.provisional } : undefined;
 }
 
-/** A match's row with `when` as its date line, the whole of it a link to the match. */
 function rowOf(spiel: Listed, when: Copy, linked = true): SpielRowProps & { id: string } {
   return {
     id: spiel.id,
@@ -208,7 +207,10 @@ export function headedMatchOf(
   return { head: matchdayOf(spiel, spiel), spiel: rowOf(spiel, whenOf(spiel), linked) };
 }
 
-/** Where a group side stands, a link to its row of the Tabelle; a knockout side's round, a link to the match's card in the tree. */
+/**
+ * Where a group side stands, a link to its row of the Tabelle; a knockout side's round, a link to the match's card in
+ * the tree.
+ */
 function standingOf(spiel: FLSpielJoined, team: FLSpielTeamFieldJoined | null, standing: FLSpielSideStanding | null, round: Copy) {
   if (team === null) return undefined;
   if (spiel.saison_phase !== "gruppenphase") return { text: round, href: `${ROUTES.kORunde.path(spiel.saison_id)}#${spiel.id}` as Route };
@@ -252,9 +254,9 @@ export function refereeOf(spiel: Pick<FLSpielJoined, "schiedsrichter">): Words {
 }
 
 /**
- * The pop-up's four facts under its head, each led by its glyph, an absent one a dash: when and where the
- * match is played, and who referees it. The matchday stands in the head and the result in its score, so
- * neither is repeated here.
+ * The pop-up's four facts under its head, each led by its glyph, an absent one a dash: when the match is played, who
+ * referees it and where, in the order of the match page's tiles, whose last tile is the wide one a venue's name needs.
+ * The matchday stands in the head and the result in its score, so neither is repeated here.
  */
 export function popupFactsOf(spiel: FLSpielJoined): Fact[] {
   const { fact } = COPY.spielplan;
@@ -264,14 +266,14 @@ export function popupFactsOf(spiel: FLSpielJoined): Fact[] {
   return [
     { label: fact.date, glyph: "calendar", value: day === null ? noValue : { record: formatDateWithWeekdayAndYear(day) }, figures: true },
     { label: fact.time, glyph: "time", value: time === null ? noValue : { record: formatTime(time) }, figures: true },
+    { label: fact.schiedsrichter, glyph: "schiedsrichter", value: refereeOf(spiel) },
     spiel.spielort === null
       ? { label: fact.spielort, glyph: "spielorte", value: noValue }
       : {
           label: fact.spielort,
           glyph: "spielorte",
-          elsewhere: { href: buildMapsSearchUrl(spiel.spielort.maps_query), label: { record: spiel.spielort.name } },
+          link: { href: buildMapsSearchUrl(spiel.spielort.maps_query), label: { record: spiel.spielort.name } },
         },
-    { label: fact.schiedsrichter, glyph: "schiedsrichter", value: refereeOf(spiel) },
   ];
 }
 

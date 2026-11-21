@@ -28,12 +28,12 @@ for that tier**:
 - `admin_router.py`: the administration
 - `system_router.py`: the frontend process's own calls, such as a retention pass
 
-Two files are named otherwise: `saisons/overview_router.py`, an administrator's router of its own
-for a season's overview, and `system/router.py`, the unguarded probes' (under Authorization). A
+One file is named otherwise: `system/router.py`, the unguarded probes' (under Authorization). A
 person's file serving two Funktionen holds one `APIRouter` per Funktion
 (`spieler/person_router.py`). `app/main.py` mounts them all under `/api`, so a router's own prefix
-names only its slice's segment. Each is mounted under its slice's tag, which with the handler's name
-makes the operation's id in `openapi.json`.
+opens with its slice's segment and never `/api`, and holds what all its routes share
+(`/identity/self`). Each is mounted under its slice's tag, which with the handler's name makes the
+operation's id in `openapi.json`.
 
 ## Addresses
 
@@ -69,6 +69,11 @@ next:
 - A create answers `FLCreatedResponse`, the minted id the caller opens the new record by.
 - An editor's save answers `FLVersionResponse`, the version its next save sends.
 - A dry run or a pass answers the report its caller shows or counts.
+- The one exception: an operation taking `dry_run` answers that report on its write too, where its
+  caller may discard it, since each route here declares one status and one return model and the dry
+  run's caller reads the report: the fixture save
+  (`fl_backend/app/api/spiele/admin_router.py :: patch_spiel`) and the withdrawal
+  (`fl_backend/app/api/identity/admin_router.py :: post_withdrawal`).
 
 The shared models are in `fl_backend/app/shared/schemas/responses.py`.
 
@@ -92,13 +97,13 @@ an operation's `security` in `openapi.json` names the tier it takes.
 
 The actor travels as three headers on an admin-key call, `X-FL-Actor`, `X-FL-Auth-Time` and
 `X-FL-Auth-Factor`: the address, when its session was made, and by which factor
-(`fl_backend/app/core/security.py :: get_session_actor`). The address travels as UTF-8,
-percent-encoded as `encodeURIComponent` spells it, since a header value is ASCII; any other spelling
-is refused as naming nobody. The admin key and the private network are what make them believed.
-**`system/router.py` holds the two routes with no guard**: `/system/is_live`, the container
-healthcheck and the public uptime probe, and `/system/is_ready`, which answers 503 where the
-database does not answer a ping, for a monitor outside. A probe that needs a secret fails for the
-wrong reasons.
+(`fl_backend/app/core/security.py :: get_session_actor`). The address travels as written, since
+every sign-in address is ASCII, as RFC 9110 §5.5 asks of a header value; an empty one or one past
+ASCII is refused as naming nobody. The admin key and the private network are what make them
+believed. **`system/router.py` holds the two routes with no guard**: `/system/is_live`, the
+container healthcheck and the public uptime probe, and `/system/is_ready`, which answers 503 where
+the database does not answer a ping, for a monitor outside. A probe that needs a secret fails for
+the wrong reasons.
 
 ## Data access
 

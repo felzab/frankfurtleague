@@ -1,12 +1,12 @@
 "use client";
 
-import { useAufstellungEditor } from "@/features/aufstellungen/components/forms/useAufstellungEditor";
+import { useAufstellungEditor } from "@/features/aufstellungen/useAufstellungEditor";
 import { EditorPage } from "@/kit/EditorPage";
 
 import { saveAufstellung } from "./saveAufstellung";
 
 import type { Copy } from "@/core/copy";
-import type { AufstellungEditing } from "@/features/aufstellungen/components/forms/useAufstellungEditor";
+import type { AufstellungEditing } from "@/features/aufstellungen/useAufstellungEditor";
 import type { ChipProps } from "@/kit/Chip";
 import type { PageTitle } from "@/kit/RailFrame";
 
@@ -25,7 +25,7 @@ export function AdminAufstellung({
   team: string;
   title: PageTitle;
   chip?: ChipProps;
-  /** The line-up as the line under the title states it: whose it is, its matchday and when the match is played. */
+  /** The line-up as the line under the title states it: its match, its matchday and when the match is played. */
   lead: Copy;
   /** Why the line-up is closed read-only: its season has finished, and the write refuses every change to it. */
   closed?: Copy;

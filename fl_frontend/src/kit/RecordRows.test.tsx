@@ -1,11 +1,12 @@
 // @vitest-environment jsdom
 import { useState } from "react";
 
-import { act, render, screen, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 
-import { COPY } from "@/core/copy";
+import { AREA_COPY } from "@/core/copy/area";
+import { COPY } from "@/core/copy/shared";
 
 import { Segmented } from "./ChoiceButtons";
 import { ComboBox } from "./ComboBox";
@@ -18,7 +19,7 @@ import type { Copy } from "@/core/copy";
 type Goal = { side: string | null; spieler_id: string | null; minute: string };
 
 const TEAM = COPY.shared.facts.team;
-const MINUTE = COPY.admin.spiel.minute;
+const MINUTE = COPY.spielplan.minute;
 const REQUIRED = COPY.shared.field.required;
 const REMOVE = COPY.shared.verb.remove;
 const ADD = COPY.shared.verb.create;
@@ -26,7 +27,7 @@ const SIDES = [
   { id: "team1", label: { record: "AHO" } },
   { id: "team2", label: { record: "KAS" } },
 ];
-const SQUAD = [{ id: "s9", label: { record: "9 · Mia Ahornberg" } }];
+const KADER = [{ id: "s9", label: { record: "9 · Mia Ahornberg" } }];
 const GOALS: ReadonlyArray<Goal> = [
   { side: "team1", spieler_id: "s9", minute: "12" },
   { side: "team2", spieler_id: null, minute: "27" },
@@ -34,7 +35,7 @@ const GOALS: ReadonlyArray<Goal> = [
 ];
 
 /** The label over a row by its number, as a page counts its rows. */
-const rowLabel = (number: number) => COPY.admin.spiel.number(number);
+const rowLabel = (number: number) => AREA_COPY.schiedsrichter.spielbericht.numbered(COPY.spielplan.goal, number);
 
 /** The list in a form serving `errors`, as an editor's page holds it: the draft in state, the refusals by box. */
 function Goals({ errors, locked }: { errors?: Readonly<Record<string, Copy>>; locked?: Copy }) {
@@ -42,6 +43,7 @@ function Goals({ errors, locked }: { errors?: Readonly<Record<string, Copy>>; lo
   return (
     <HeldForm
       validationErrors={errors}
+      isBusy={false}
       onSend={() => undefined}>
       <RecordRows
         label={COPY.shared.tore}
@@ -93,7 +95,8 @@ function Goals({ errors, locked }: { errors?: Readonly<Record<string, Copy>>; lo
                 label={label}
                 labelHidden
                 name={name}
-                options={SQUAD}
+                options={KADER}
+                plural={COPY.shared.spieler}
                 value={row.spieler_id}
                 onChange={(spieler_id) => change({ spieler_id })}
               />
@@ -123,6 +126,25 @@ describe("a refused row", () => {
     expect(within(third).queryByText(REQUIRED)).toBeNull();
     expect(marked(second)).toBe("true");
     expect(marked(first)).toBeNull();
+  });
+});
+
+// The harm: a keyboard user's removal drops the row with the focus, which falls to the page's body, and the next Tab
+// starts from the top of the page.
+describe("a row removed by the keys", () => {
+  it("hands the focus to the next row's first control", async () => {
+    // In its editor's box, as a page holds it.
+    render(
+      <section>
+        <Goals />
+      </section>,
+    );
+    const next = rowAt(1);
+    act(() => within(rowAt(0)).getByRole("button", { name: REMOVE }).focus());
+
+    await userEvent.keyboard("{Enter}");
+
+    await waitFor(() => expect(next.contains(document.activeElement)).toBe(true));
   });
 });
 

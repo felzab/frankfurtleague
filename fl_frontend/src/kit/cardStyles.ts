@@ -23,13 +23,32 @@ export const headGround = tv({ base: "bg-bg-card-head" });
 export const stacked = tv({ base: "border-t border-border first:border-t-0" });
 
 /**
+ * A list row's height, its hairline among it: 52 px at the least with a mouse, 56 on a touch screen, which takes a
+ * finger's size by the pointer as every kit control does (`buttonStyles`). Every list row reads it, so the rows of one
+ * list stand as tall as another's: `least` for a row that grows with its lines, `fixed` for a row of one line at
+ * every width, and a kit table's row its two forms by its box's width (`Table`'s `stacks`), `table` from 42 rem, where
+ * a table row takes no least height, and `stacked` below it, where the row is a grid that grows with its lines.
+ */
+export const rowHeight = tv({
+  variants: {
+    form: {
+      least: "min-h-13 pointer-coarse:min-h-14",
+      fixed: "h-13 pointer-coarse:h-14",
+      table: "@2xl:h-13 pointer-coarse:@2xl:h-14",
+      stacked: "@max-2xl:min-h-13 pointer-coarse:@max-2xl:min-h-14",
+    },
+  },
+  defaultVariants: { form: "least" },
+});
+
+/**
  * The kit's label rung: small muted capitals, set apart by their tracking. Every label on the rung wears it, so one
  * ruling on the rung reaches each of them from here.
  */
 export const smallCaps = tv({ base: "text-xs font-medium tracking-caps text-fg-muted uppercase" });
 
 /**
- * The column head's look: the label rung, 40 px tall, over a hairline, on the card's own fill. A table's
+ * The column head's look: the label rung over a hairline, on the card's own fill. A table's
  * head row reads it, and so does every subhead parting the groups inside one card, such as a line-up's starters
  * and bench or the season card's last and next match, through `GroupHead`: a card's head is the one band it
  * carries, so a group inside it is headed as a column is and never by a second band.
@@ -61,10 +80,10 @@ export const columnHead = tv({
  * least (`Table`'s `line` width without its padding): beside chips that leave it less, it would break over three
  * lines.
  *
- * The chips stand side by side, 8 px apart, and move as one: they part only on a line of their own too narrow for both.
- * The name's words stand in a track that may shrink to nothing, so they count nothing towards the least width of what
- * holds the line, which a table cell reads (`nameLine`). A plaque stands before the line, never in it: it
- * is taller than a line of words, and beside the line it stands centred on the name over its chips, where in the line
+ * The chips stand side by side and move as one: they part only on a line of their own too narrow for both. The name's
+ * words stand in a track that may shrink to nothing, so they count nothing towards the least width of what holds the
+ * line, which a table cell reads (`nameLine`). A plaque stands before the line, never in it: it is taller than a line
+ * of words, and beside the line it stands centred on the name over its chips, where in the line
  * it would raise the name's line under them. A list from 42 rem is a table and holds its chips in a column of their own
  * instead (`table`).
  */
@@ -95,7 +114,7 @@ export const nameWithChips = tv({
  * A card's row that carries acts, a record's and a seat's: the card's own width decides where they stand (`@container`
  * on the row or its list), the same for every row of that card, never a row's content and never the screen, since the
  * rail and a card grid resize the box under one viewport. From 32 rem the acts stand beside the words, at the row's
- * end, and on one line under the words in a narrower box, 8 px under them, so the words, the grey line among them, keep
+ * end, and on one line under the words in a narrower box, so the words, the grey line among them, keep
  * the row's whole width there. The chevron of a row that opens a record is the row's last column in both, centred on
  * the row's height.
  *
@@ -105,7 +124,7 @@ export const nameWithChips = tv({
 export const actRow = tv({
   slots: {
     // No column gap: a row without acts leaves their column empty, and a gap beside it would take 12 px off its words.
-    frame: "grid min-h-14 items-center px-4 py-3 lg:min-h-13",
+    frame: `grid ${rowHeight()} items-center px-4 py-3`,
     words: "col-start-1 grid min-w-0 gap-0.5",
     // Positioned above a row's stretched link, so a press on an act does the act rather than open the record.
     acts: "relative z-10 col-start-1 row-start-2 mt-2 flex items-center gap-2 @lg:col-start-2 @lg:row-start-1 @lg:ms-3 @lg:mt-0",

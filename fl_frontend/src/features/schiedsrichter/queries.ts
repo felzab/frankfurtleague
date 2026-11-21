@@ -16,11 +16,7 @@ export async function getSchiedsrichter(): Promise<FLSchiedsrichterListResponse>
 
 /** Whatever state the referee is in; an erased one has no row to answer with. */
 export async function getSchiedsrichterById(schiedsrichterId: string): Promise<FLSchiedsrichterSingleResponse | null> {
-  return runAdminRead(() =>
-    // `null` for "no such referee", which the editor page turns into `notFound()`. Every other
-    // status still throws.
-    orMissing(schiedsrichterGetSchiedsrichterById(schiedsrichterId)),
-  );
+  return runAdminRead(() => orMissing(schiedsrichterGetSchiedsrichterById(schiedsrichterId)));
 }
 
 /** Open work first. */

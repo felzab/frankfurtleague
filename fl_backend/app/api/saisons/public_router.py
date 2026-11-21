@@ -165,9 +165,7 @@ async def _league_counts(
 
     # By the rule every base-tier season read narrows on, so a planned season's clubs and fixtures count once it is read.
     # Whole: a season past the page would drop its clubs and matches from the figures in silence.
-    public = await pull_whole_from_db(
-        collection=saisons_collection, db_filter=base_tier_status_term(), what="the public seasons", projection=["status"]
-    )
+    public = await pull_whole_from_db(collection=saisons_collection, db_filter=base_tier_status_term(), projection=["status"])
     in_a_public_saison = {"saison_id": {"$in": [row["_id"] for row in public]}}
     counted_raw, schulen_raw = await concurrently(
         # The matches the Tabelle counts, every phase's: one group, so the goals and the matches stand on one basis.
@@ -313,7 +311,6 @@ async def get_landing(
         if windows.open is None
         else FLBewerbungWindow(saison_id=str(windows.open["_id"]), end=windows.open["bewerbung"]["end"]),
         bewerbung_opens_on=windows.opens_on,
-        bewerbung_window_held=windows.held,
         counts=counts,
     )
 
@@ -339,7 +336,7 @@ async def _spielplan_of(
     db_filter = {"saison_id": saison_id, **phase_term}
     saison, spieltage_raw, spiele_raw = await concurrently(
         resolve_public_saison(saisons_collection=saisons_collection, saison_id=saison_id),
-        pull_whole_from_db(collection=spieltage_collection, db_filter=db_filter, what=f"season {saison_id}'s matchdays"),
+        pull_whole_from_db(collection=spieltage_collection, db_filter=db_filter),
         aggregate_many_from_db(collection=spiele_collection, pipeline=build_spiele_pipeline(db_filter=db_filter)),
     )
 
@@ -489,7 +486,7 @@ async def get_team(
         teams_collection=teams_collection, spiele_collection=spiele_collection, saison_id=saison.id, rules=saison.rules
     )
 
-    standing = next((row for rows in tabelle.root.values() for row in rows if row.id == team_id), None)
+    standing = next((row for rows in tabelle.values() for row in rows if row.id == team_id), None)
 
     return FLTeamPageResponse.model_validate(
         {
@@ -540,7 +537,7 @@ async def get_spiel(
             teams_collection=teams_collection, spiele_collection=spiele_collection, saison_id=saison.id, rules=saison.rules
         )
         placed: dict[Any, FLSpielSideStanding] = {
-            row.id: FLSpielSideStanding(gruppe=gruppe, platz=row.platz) for gruppe, rows in tabelle.root.items() for row in rows
+            row.id: FLSpielSideStanding(gruppe=gruppe, platz=row.platz) for gruppe, rows in tabelle.items() for row in rows
         }
         standings = FLSpielSideStandings(**{side: placed.get(team_id_of(spiel_raw, side)) for side in SIDES})
 

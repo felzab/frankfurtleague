@@ -16,8 +16,11 @@ Each fails silently. The ratified decisions for this surface are in `docs/decisi
   [the runbook's order](../../docs/ops/runbooks.md#2-before-deploying-a-change-to-a-stored-shape-or-an-index).
   Nothing in the database refuses a document of another shape, and only `python -m app.readback`
   after the run names one. Each file names its database by `db = db.getSiblingDB("<name>")`, guards
-  each `dropIndex`, which throws on an unknown name, writes integers as `Int32()`, `print`s its
-  report and is proven on a copy of production's snapshot.
+  each `dropIndex`, which throws on an unknown name, writes integers as `Int32()` and ids as
+  `ObjectId()`, is safe to run twice and `print`s its own report, which holds counts and never
+  names, since `mongosh --file` prints nothing for a bare last expression. No file asks the owner to
+  compare figures by eye or to remember a value. Each is proven on a throwaway database of
+  production's version and shape, then on a copy of production's snapshot.
 - Declare a newly added stored field required in its record model, with no default, and hand the
   owner the migration file that writes it into every stored document of its collection. A default
   spared a migration hides a missing key the runtime then misreads, and the read-back passes a

@@ -35,11 +35,10 @@ const grid = tv({
   },
   variants: {
     kind: {
-      // A school's tile, 48 px on a phone and 44 from `lg`, the plaque before the name, which breaks
-      // at its own hyphens rather than being cut.
-      school: { content: "flex min-h-12 items-center gap-2 px-2.5 py-1 lg:min-h-11" },
+      // A school's tile, the plaque before the name, which breaks at its own hyphens rather than being cut.
+      school: { content: "flex min-h-11 items-center gap-2 px-2.5 py-1 pointer-coarse:min-h-12" },
       // The logo over the short name; the logo on a white plate in both themes, so it keeps its own colours
-      // on the dark one. The plate's height, 64 px.
+      // on the dark one.
       sponsor: { content: "grid content-start gap-2 p-2 text-center" },
     },
   },
@@ -83,8 +82,7 @@ export function SchoolTiles({ schools }: { schools: readonly SchoolTile[] }) {
 
 /**
  * The sponsors, each an equal tile: its logo over its short name, the whole tile a link to its site, marked
- * `sponsored`, with no glyph saying it leaves the site. On the landing under the organisers and on the
- * sponsors' page.
+ * `sponsored`, with no glyph saying it leaves the site.
  */
 export function SponsorTiles({ sponsors }: { sponsors: readonly Sponsor[] }) {
   const slots = grid({ kind: "sponsor" });
@@ -103,12 +101,10 @@ export function SponsorTiles({ sponsors }: { sponsors: readonly Sponsor[] }) {
                 title={sponsor.name.record}
                 className={slots.content()}>
                 <span className="relative block h-16 rounded-md bg-bg-logo">
-                  {/* An SVG served as it is, which the image optimiser has nothing to do for, fitted into the plate. */}
                   <Image
                     src={sponsor.logo}
                     alt={sponsor.name.record}
                     fill
-                    unoptimized
                     sizes="12rem"
                     className="object-contain p-2"
                   />

@@ -4,12 +4,11 @@ from datetime import datetime
 from http import HTTPStatus
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Query, status
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
-from app.api.account.services import held_by_the_seat, withdraw_by_mail
 from app.api.aufstellungen.crud import remove_the_seasons_aufstellungen
 from app.api.bewerbungen.services import assigned_trikot_farben, seat_named
 from app.api.grants.guard import ADMIN_TIER
@@ -134,8 +133,6 @@ from app.core.recording import record_act
 from app.core.routing import by_id
 from app.core.transactions import transact
 from app.shared.schemas.custom import CustomObjectId
-from app.shared.schemas.einwilligung import WITHHELD_ON_A_SEAT, FLEinwilligungWithdrawalPayload
-from app.shared.schemas.literals import KONTAKT_SEATS
 from app.shared.schemas.responses import FLVersionResponse
 from app.shared.tokens import mint_token
 
@@ -269,7 +266,7 @@ async def get_teams_admin(
     teams_collection: TeamsReadCollection,
     saison_teams_collection: SaisonTeamsReadCollection,
     saisons_collection: SaisonsReadCollection,
-    filters: Annotated[FLTeamsAdminFilterParams, Depends()],
+    filters: Annotated[FLTeamsAdminFilterParams, Query()],
 ) -> FLTeamsAdminListResponse:
     """One season's clubs, a `future` season's included, each with its state, and what entering another offers.
 
@@ -283,7 +280,6 @@ async def get_teams_admin(
         pull_whole_from_db(
             collection=saison_teams_collection,
             db_filter={"saison_id": filters.saison_id},
-            what=f"season {filters.saison_id}'s clubs",
             projection=["team_id", "name", "shorthand", "gruppe", "trikot_farbe", "austritt.type"],
             sort_by=[("name", 1)],
             collation=GERMAN_COLLATION,
@@ -291,7 +287,6 @@ async def get_teams_admin(
         pull_whole_from_db(
             collection=teams_collection,
             db_filter={},
-            what="the league's clubs",
             projection=["name", "shorthand", "inactive_since"],
             sort_by=[("name", 1)],
             collation=GERMAN_COLLATION,
@@ -352,13 +347,10 @@ async def get_team_saison_admin(
         pull_whole_from_db(
             collection=saison_teams_collection,
             db_filter={"saison_id": saison_id},
-            what=f"season {saison_id}'s clubs",
             # The seats, exits and names too, which judge and name whom an exit would mail.
             projection=["team_id", "gruppe", "trikot_farbe", "name", "kontakte", "austritt"],
         ),
-        pull_whole_from_db(
-            collection=saisons_collection, db_filter={"_id": {"$in": held_saison_ids}}, what=f"team {team_id}'s seasons", projection=["status"]
-        ),
+        pull_whole_from_db(collection=saisons_collection, db_filter={"_id": {"$in": held_saison_ids}}, projection=["status"]),
         spiele_collection.count_documents(build_team_spiele_filter(saison_id=saison_id, team_id=team_id)),
         # A list read where the answer is one row: a team legitimately holds no live invitation, and
         # `pull_one_from_db` would make that absence a 404.
@@ -484,7 +476,6 @@ async def delete_team(
         junction_rows = await pull_whole_from_db(
             collection=saison_teams_collection,
             db_filter={"team_id": team_id},
-            what=f"team {team_id}'s season rows",
             projection=["saison_id"],
             session=session,
         )
@@ -492,7 +483,6 @@ async def delete_team(
         saison_rows = await pull_whole_from_db(
             collection=saisons_collection,
             db_filter={"_id": {"$in": saison_ids}},
-            what=f"team {team_id}'s seasons",
             projection=["status"],
             session=session,
         )
@@ -815,7 +805,6 @@ async def replace_saison_team(
         incoming_rows = await pull_whole_from_db(
             collection=saison_teams_collection,
             db_filter={"saison_id": saison_id, "team_id": replacement_data.incoming_team_id},
-            what=f"the incoming club's rows in season {saison_id}",
             projection=["_id"],
             session=session,
         )
@@ -833,7 +822,6 @@ async def replace_saison_team(
         spiele = await pull_whole_from_db(
             collection=spiele_collection,
             db_filter={"saison_id": saison_id, "$or": [{"team1.team_id": team_id}, {"team2.team_id": team_id}]},
-            what=f"team {team_id}'s fixtures in season {saison_id}",
             projection=["team1.team_id", "team2.team_id"],
             session=session,
         )
@@ -1137,50 +1125,3 @@ async def post_invitation_mail(
         return FLInvitationMailResponse(mailed=len(recipients))
 
     return await transact(db, owe_the_link)
-
-
-@router.post(
-    f"{by_id('team_id')}/saisons/{{saison_id}}/kontakte/{{seat}}/einwilligung/withdrawal",
-    status_code=status.HTTP_204_NO_CONTENT,
-    summary="Enter a withdrawal of a contact seat's consent that its person asked for by mail",
-)
-async def withdraw_kontakt_einwilligung(
-    team_id: CustomObjectId,
-    saison_id: str,
-    seat: str,
-    withdrawal_data: FLEinwilligungWithdrawalPayload,
-    saison_teams_collection: SaisonTeamsCollection,
-    db: DBClient,
-    germany_now: GermanyNow,
-) -> None:
-    """Withdraw the named choices, WhatsApp and media, on every confirmed seat of this row its person holds, as their own press does.
-
-    A finished season's row and a withdrawn team's take it too. A choice already withheld stays as it is, so a second mail
-    or a seat its person never confirmed writes nothing, and nothing is ever granted.
-    """
-
-    # A 404 rather than a 422, as a malformed path id answers: the segment names no seat any row has.
-    pressed = seat_named(seat)
-    if pressed is None:
-        raise DocumentNotFoundError()
-
-    async def record(row: Mapping[str, Any], session: AsyncClientSession) -> None:
-        await record_act(
-            collection=saison_teams_collection,
-            action="team.seat_einwilligung_withdrawn",
-            record_id=team_id,
-            label=str(row["name"]),
-            session=session,
-        )
-
-    await withdraw_by_mail(
-        kind=Collection.SAISON_TEAMS,
-        collection=saison_teams_collection,
-        db_filter={"team_id": team_id, "saison_id": saison_id},
-        projection={"name": 1, **{f"kontakte.{seat}.{field}": 1 for seat in KONTAKT_SEATS for field in ("email", "einwilligung")}},
-        held_of=lambda row: held_by_the_seat(row, pressed),
-        withheld={choice: WITHHELD_ON_A_SEAT[choice] for choice in withdrawal_data.choices},
-        act=record,
-        db=db,
-        now=germany_now,
-    )

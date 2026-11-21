@@ -166,7 +166,7 @@ async def correct(database: AsyncDatabase, client: AsyncMongoClient, *, email: s
 async def resend(
     database: AsyncDatabase, client: AsyncMongoClient, *, schiedsrichter_id: ObjectId = SCHIEDSRICHTER_OID, today: str = TODAY
 ) -> Mailed:
-    answer = await resend_confirmation(
+    await resend_confirmation(
         schiedsrichter_id=schiedsrichter_id,
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
         outbox_collection=database[Collection.OUTBOX],
@@ -175,7 +175,7 @@ async def resend(
         germany_now=MAIL_NOW,
     )
 
-    return await mailed(database, client, answer)
+    return await mailed(database, client, None)
 
 
 async def read_view(database: AsyncDatabase, token: str | None, *, today: str = TODAY) -> Any:
@@ -256,6 +256,16 @@ class TestTheCreateIsTheInvitation:
         assert row[ERASE_AT_FIELD].replace(tzinfo=UTC) == erase_at_from(deadline=confirmation_deadline_from(today=TODAY))
         # Stored null, as a registration's: absent, the read and record models requiring the keys refuse the row.
         assert (row[EINWILLIGUNG_FIELD], row["birth_date"]) == (None, None)
+
+    async def test_the_answer_names_the_mailbox_as_stored_not_as_typed(self, mongo_replica_set_url: str):
+        """The dialog's note names this address, so a capital typed into it reads as the mailbox the editor later shows."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            return await create(database, client, email=" Collina@Example.COM ")
+
+        response = await on_a_league(mongo_replica_set_url, body, referees=[])
+
+        assert (response.to, response.answer.confirmation.email) == (EMAIL, EMAIL)
 
 
 class TestANameAnotherRefereeHolds:
@@ -430,7 +440,8 @@ class TestTheReactivation:
         response, row = await on_a_league(mongo_replica_set_url, body, referees=[referee_document(**RETIRED)])
 
         assert row["inactive_since"] is None
-        assert response.to == EMAIL
+        # The answer names the mailbox the link went to, which the editor reports once the press is done.
+        assert (response.to, response.answer.confirmation.email) == (EMAIL, EMAIL)
         assert row[CONFIRMATION_FIELD]["token_hashes"] == [hash_token(str(response.token))]
         assert ERASE_AT_FIELD in row
 
@@ -446,7 +457,7 @@ class TestTheReactivation:
 
         first, response, row = await on_a_league(mongo_replica_set_url, body)
 
-        assert response.token is None
+        assert (response.token, response.answer.confirmation) == (None, None)
         assert row[CONFIRMATION_FIELD]["token_hashes"] == [hash_token(str(first.token))]
         assert row[ERASE_AT_FIELD] is None
 

@@ -12,9 +12,8 @@ import type { ModalOverlayProps } from "react-aria-components/Modal";
  */
 
 /**
- * The dim behind a dialog: a 10 % black scrim and a 4-px blur, fading in and out on the overlay tokens. It
- * covers the whole page, as tall as React Aria's `ModalOverlay` measures the page (`--page-height`), and
- * the centring wrapper inside it stands in the visible part.
+ * The dim behind a dialog. It covers the whole page, as tall as React Aria's `ModalOverlay` measures the page
+ * (`--page-height`), and the centring wrapper inside it stands in the visible part.
  */
 const dim = tv({
   base: "absolute top-0 left-0 z-50 h-(--page-height) w-full bg-scrim backdrop-blur-scrim transition-opacity duration-(--motion-in) data-entering:opacity-0 data-exiting:opacity-0 data-exiting:duration-(--motion-out)",
@@ -25,7 +24,7 @@ const dim = tv({
  * the visible window less the 1-rem margin its centring wrapper keeps, and scrolls inside past that, so a
  * long form's act stays in reach: `--visual-viewport-height` is the height React Aria's `ModalOverlay`
  * writes for its modal to cap itself by. Its padding is declared once, as a variable, so a part running out to
- * the box's edges (a field group's line, the pop-up's band) takes back the same measure, as Radix Themes'
+ * the box's edges (a danger part's hairlines, the pop-up's band) takes back the same measure, as Radix Themes'
  * `Inset` reads its card's.
  */
 const dialogBox = tv({

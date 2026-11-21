@@ -5,6 +5,7 @@ import { cardHover } from "./cardStyles";
 import { hoverLook } from "./hoverStyles";
 import { Icon } from "./Icon";
 import { IconLink } from "./IconLink";
+import { entryMark } from "./menuStyles";
 import { tv } from "./tv";
 import { NavigationLink } from "./WholePage";
 
@@ -13,7 +14,6 @@ import type { Route } from "next";
 import type { ReactNode } from "react";
 import type { IconName } from "./Icon";
 
-/** A link's own mark, as running text shows it: the brand's colour and an underline, which thickens under the pointer. */
 const LINK_MARK_CLASSES = `text-brand underline ${hoverLook({ host: "link", answer: "line" })}`;
 
 const link = tv({
@@ -39,7 +39,7 @@ const link = tv({
       footer: `rounded-md text-sm leading-6 text-fg-muted transition-colors duration-(--motion-state) ${hoverLook({ host: "link", answer: "fullUnderline" })}`,
       // Drawn by `buttonLook` in the look the link names.
       button: "",
-      // Drawn by `frameLink` in the tone the link names.
+      // Drawn by `frameLink` in its `link` tone.
       frame: "",
       // An entry of a reading page's contents list, on the list's 2-px track: muted until the pointer is over it, and
       // the section the reader is in marked by the track's brand stretch and its words in full.
@@ -53,18 +53,14 @@ const link = tv({
   },
 });
 
-/**
- * A link the frames draw themselves, as tall as every control, 32 px under a mouse and 40 px under a finger,
- * coloured by the ground it stands on: the classic header's on the dark-green band, the title strip's legal
- * pages and a record's way to its own page, „Konto“ at a signed-out rail's foot.
- */
+/** A link the frames draw themselves, as tall as every control, coloured by the ground it stands on. */
 export const frameLink = tv({
   base: "flex h-8 items-center rounded-lg px-3 text-sm font-medium whitespace-nowrap transition-colors duration-(--motion-state) pointer-coarse:h-10",
   variants: {
     // Under the pointer a link of words takes an underline and its full colour, the one in full white already too, so
     // every link of the band and the strip answers the pointer; the rail's foot is an entry, filled as the rail's are.
     tone: {
-      // On the band: the page the visitor is on, and „Konto“, in full white.
+      // On the band: the page the visitor is on, in full white.
       band: `text-on-brand ${hoverLook({ host: "link", answer: "underline" })}`,
       // On the band, every other page: the white dimmed until the pointer is over it.
       bandMuted: `text-on-brand/75 ${hoverLook({ host: "link", answer: "bandUnderline" })}`,
@@ -80,11 +76,11 @@ export const frameLink = tv({
 });
 
 /**
- * An entry of a list a frame opens, its glyph before its words where it has one: a menu's, 32 px on desktop,
- * and a sheet's, 40 px on a phone, as tall as every control.
+ * An entry of a list a frame opens, a desktop menu's or a phone's sheet's, as tall as every control. A phone's sheet of
+ * the frame's pages marks the page the person is on as the rail marks it, the link carrying `aria-current="page"`.
  */
 export const menuEntry = tv({
-  base: "flex items-center gap-3 rounded-md px-3 font-medium text-fg",
+  base: `flex items-center gap-3 rounded-md px-3 font-medium text-fg ${entryMark({ mark: "place" })}`,
   variants: {
     size: {
       desktop: "h-8 text-sm",
@@ -141,8 +137,11 @@ type Footer = { placement: "footer" } & (Worded | { children: ReactNode; label?:
  */
 type Contents = { placement: "contents"; current: boolean } & Worded;
 
-/** A link a frame draws, as tall as every control, in the tone of the ground it stands on (`frameLink`). */
-type Frame = { placement: "frame"; tone: "band" | "bandMuted" | "strip" | "link" | "rail" } & Worded;
+/**
+ * The title strip's way to a record's own page, in `frameLink`'s `link` tone: a whole document where `fullPage` asks
+ * it, which the frames' own links, drawn with Next's client navigation, cannot be.
+ */
+type Frame = { placement: "frame" } & Worded;
 
 type Card = {
   placement: "card";
@@ -211,7 +210,7 @@ export function Link<T extends string>(
       button !== undefined
         ? buttonLook({ look: button.look, host: "link" })
         : props.placement === "frame"
-          ? frameLink({ tone: props.tone })
+          ? frameLink({ tone: "link" })
           : link({ placement: props.placement, subgrid: props.placement === "card" && props.subgrid === true }),
     "aria-current": props.placement === "contents" && props.current ? ("location" as const) : undefined,
     ...tab,

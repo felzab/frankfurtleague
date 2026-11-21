@@ -4,24 +4,45 @@ import userEvent from "@testing-library/user-event";
 import { Form } from "react-aria-components/Form";
 import { describe, expect, it, vi } from "vitest";
 
-import { COPY } from "@/core/copy";
+import { AREA_COPY } from "@/core/copy/area";
+import { COPY } from "@/core/copy/shared";
 
 import { Button } from "./Button";
 import { FormClosed } from "./formClosed";
+import { Select } from "./Select";
 import { TextField } from "./TextField";
 
 import type { ReactElement } from "react";
 
+// The harm: the address the field holds is somebody else's, and no check reads what the browser offers: an erased
+// person's address stays in the administrator's browser, and the person's own, one click away, lands in a seat with
+// nobody seeing.
 describe("an address field's autofill", () => {
-  // The harm: the address of a person being erased stays in the administrator's browser, and no check reads that.
-  it("offers nothing unless the field names the person's own", () => {
+  it("asks for none of the person's own addresses or past entries", () => {
     render(
       <TextField
-        label={COPY.signIn.address}
+        label={COPY.shared.emailAddress}
         kind="email"
       />,
     );
     expect(screen.getByRole("textbox").getAttribute("autocomplete")).toBe("off");
+  });
+});
+
+// The harm: a keyboard user cannot see where the focus stands on a locked select, which a pointer user never meets.
+describe("a locked select", () => {
+  it("rings its frame once Tab reaches it", async () => {
+    render(
+      <Select
+        label={COPY.shared.emailAddress}
+        options={[{ id: "a", label: { record: "Gruppe A" } }]}
+        isLocked
+        value="a"
+      />,
+    );
+    await userEvent.tab();
+    // A read-only field rings only by its frame's `data-focus-visible` (`app/focus.css`).
+    expect(screen.getByRole("textbox").closest("[data-kit-focus='field']")?.hasAttribute("data-focus-visible")).toBe(true);
   });
 });
 
@@ -86,7 +107,7 @@ describe("what the browser takes and the server refuses", () => {
   it("refuses an address outside the API's rule on the press, a host with no dot", async () => {
     const sent = await pressing(
       <TextField
-        label={COPY.signIn.address}
+        label={COPY.shared.emailAddress}
         name="email"
         kind="email"
       />,
@@ -138,13 +159,13 @@ describe("a digits field", () => {
 describe("a minute field", () => {
   // The write's own pattern for a played minute, as a match report's page hands it on from the contract.
   const MINUTE = "^[0-9]{1,3}(\\+[0-9]{1,2})?$";
-  const EXAMPLE = COPY.area.schiedsrichter.spielbericht.minuteExample;
+  const EXAMPLE = AREA_COPY.schiedsrichter.spielbericht.minuteExample;
 
   const sending = async (typed: string) => {
     render(
       <Form onSubmit={(event) => event.preventDefault()}>
         <TextField
-          label={COPY.admin.spiel.minute}
+          label={COPY.spielplan.minute}
           name="minute"
           kind="minute"
           holds={5}

@@ -8,24 +8,23 @@ import {
   UNSTABLE_ToastQueue as ToastQueue,
 } from "react-aria-components/Toast";
 
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 
 import { Button } from "./Button";
 import { Icon } from "./Icon";
-import { useRailCollapsed } from "./RailState";
+import { useRailCollapsed } from "./railContext";
 import { tv } from "./tv";
+import { answerLine } from "./useFormAction";
 
 import type { ActionAnswer } from "@/core/action";
 import type { Copy } from "@/core/copy";
+import type { AnswerTone } from "./useFormAction";
 
 // React Aria exports its toast under `UNSTABLE_` names alone: the API may change in a minor release.
-type ToastContentData = { tone: Tone; title: Copy };
-
-/** Done, partly done (an answer's `warn`), or not done. */
-type Tone = "success" | "warn" | "danger";
+type ToastContentData = { tone: AnswerTone; title: Copy };
 
 /** Each tone's hue, as a status card marks the same outcome. */
-const TONE_CLASSES: Readonly<Record<Tone, string>> = { success: "text-success", warn: "text-warn", danger: "text-danger" };
+const TONE_CLASSES: Readonly<Record<AnswerTone, string>> = { success: "text-success", warn: "text-warn", danger: "text-danger" };
 
 /** Each tone's glyph, a status card's. */
 const GLYPH = { success: "done", warn: "warning", danger: "error" } as const;
@@ -37,21 +36,28 @@ const TIMEOUT_MS = 5000;
 
 /**
  * Reports an outcome that has no place on the page: a title alone, from the catalogue's toast titles.
- * The one way to raise a toast. A done act's toast closes itself; a refusal or a partial outcome stands until it is
- * closed, since the page says it nowhere else (React Aria's Toast closes by itself only what is not critical or may be
- * found elsewhere).
+ * The one way to raise a toast. A done act's word closes itself; with `stands`, the toast stays until it is closed,
+ * since the page says it nowhere else: a refusal, a partial outcome, and a done act's note, which says what else the act
+ * did, such as the other fixtures a date's save moved. React Aria's rule: "Only auto-dismiss toasts when the
+ * information is not critical, or may be found elsewhere" (https://react-aria.adobe.com/Toast). A title alone brings no
+ * note, so by default only a done one closes itself.
  */
-export function appToast(tone: Tone, title: Copy) {
-  queue.add({ tone, title }, tone === "success" ? { timeout: TIMEOUT_MS } : undefined);
+export function appToast(tone: AnswerTone, title: Copy, stands = tone !== "success") {
+  queue.add({ tone, title }, stands ? undefined : { timeout: TIMEOUT_MS });
 }
 
 /**
- * An act's answer as its toast: `done` where it was done, or the line the answer brings, its note or its reason, in
- * the warn tone where it partly happened (`ActionAnswer`'s `warn`), as a form's status line reads the same answer.
+ * An act's answer as its toast, worded and toned as a form's status line words the same answer (`answerLine`). `done`
+ * is the act's own done word, never its answer's note, and a done answer naming the act it did instead brings that
+ * act's word (`ActionAnswer`'s `done`): a note other than the act's word stands until it is closed.
  */
 export function toastAnswer(answer: ActionAnswer<unknown>, done: Copy) {
-  if (answer.ok) appToast(answer.warn === true ? "warn" : "success", answer.note ?? done);
-  else appToast(answer.warn === true ? "warn" : "danger", answer.reason ?? COPY.shared.toast.failure);
+  // A passkey sheet the person closed raises no toast: the act never ran, and nothing failed.
+  if (!answer.ok && answer.closed === true) return;
+  const line = answerLine(answer, done);
+  const word = answer.ok ? (answer.done ?? done) : done;
+  // A done act's text other than its own word is its note.
+  appToast(line.tone, line.text, line.tone !== "success" || line.text !== word);
 }
 
 const region = tv({

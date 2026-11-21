@@ -21,11 +21,10 @@ type StepsBand = { open: boolean; sentence: Copy; act: { label: Copy; href: Rout
 const steps = tv({
   slots: {
     // Four columns from 42 rem of the list's own width, parted by hairlines; one under another below it, the number
-    // beside each. Across, the steps share three rows, the numbers', the titles' and the texts', each step a subgrid of them, as the stat
-    // tiles share theirs, so a title running to two lines moves every step's text down alike.
+    // beside each. Across, the steps share three rows, the numbers', the titles' and the texts', each step a subgrid
+    // of them, as the stat tiles share theirs, so a title running to two lines moves every step's text down alike.
     list: "grid @2xl:grid-cols-4 @2xl:grid-rows-[auto_auto_1fr] @2xl:gap-4",
     step: `grid grid-cols-[2.5rem_minmax(0,1fr)] content-start gap-x-4 gap-y-2 ${stacked()} py-4 @2xl:row-span-3 @2xl:grid-cols-1 @2xl:grid-rows-subgrid @2xl:border-t-0 @2xl:border-l @2xl:px-6 @2xl:py-0 @2xl:first:border-l-0 @2xl:first:pl-0`,
-    // The number's box, 40 px in the band's green.
     number:
       "row-span-2 flex size-10 items-center justify-center rounded-lg bg-brand-solid font-numeric text-base font-semibold text-on-brand @2xl:row-span-1",
     // Beside the number down the list, centred on it; across, at the top of the titles' row, under the number. A German
@@ -38,7 +37,6 @@ const steps = tv({
   },
 });
 
-/** The band once the read has landed. */
 async function Band({ band }: { band: Promise<StepsBand> }) {
   const slots = steps();
   const { open, sentence, act } = await band;

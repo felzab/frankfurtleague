@@ -1,13 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { COPY } from "@/core/copy";
-import { IDEMPOTENCY_KEY_HEADER } from "@/core/idempotencyKey";
+import { COPY } from "@/core/copy/shared";
+import { IDEMPOTENCY_KEY_FIELD, IDEMPOTENCY_KEY_HEADER } from "@/core/idempotencyKey";
 import { TURNSTILE_FIELD } from "@/core/turnstileToken";
 import { serveBackend, serveHost } from "@/test-support/backend";
 import { doubleNextRequest } from "@/test-support/nextRequest";
 import { posted } from "@/test-support/posted";
 
-import { NO_SECOND_SEAT, REPLAY_FIELD } from "./application";
 import { SUBMITTED } from "./ends";
 
 import type { FLCreatedResponse } from "@/core/generated/client/types";
@@ -40,7 +39,7 @@ doubleNextRequest();
 const { submitBewerbung } = await import("./submitBewerbung");
 
 const KEY = "3f2b8c1e-7a4d-4e6f-9b1a-2c3d4e5f6a7b";
-const CLUB = "6890a1b2c3d4e5f607190002";
+const TEAM = "6890a1b2c3d4e5f607190002";
 
 const seat = (name: string, first: string, phone: string) => ({
   [`kontakte.${name}.first_name`]: first,
@@ -53,11 +52,12 @@ const seat = (name: string, first: string, phone: string) => ({
 const BOXES: Readonly<Record<string, string>> = {
   act: "primary",
   saison_id: "2027",
-  [REPLAY_FIELD]: KEY,
+  [IDEMPOTENCY_KEY_FIELD]: KEY,
   [TURNSTILE_FIELD]: TOKEN,
-  team_id: CLUB,
+  team_id: TEAM,
   stufengroesse: "90",
-  "kontakte.trainer_is_also": NO_SECOND_SEAT,
+  // „Keine weitere Rolle“, the select's empty entry.
+  "kontakte.trainer_is_also": "",
   ...seat("trainer", "Tina", "069 90009010"),
   ...seat("ansprechperson", "Anna", "069 90009020"),
   ...seat("stellvertretung", "Stefan", "069 90009030"),

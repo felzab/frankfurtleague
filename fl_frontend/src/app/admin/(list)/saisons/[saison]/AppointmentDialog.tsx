@@ -1,7 +1,8 @@
 "use client";
 
-import { saveSpiel } from "@/app/admin/(editor)/saisons/[saison]/spiele/[spiel]/saveSpiel";
-import { COPY } from "@/core/copy";
+import { ADMIN_COPY } from "@/core/copy/admin";
+import { COPY } from "@/core/copy/shared";
+import { saveSpiel } from "@/features/spiele/saveSpiel";
 import { DateField } from "@/kit/DateField";
 import { Dialog } from "@/kit/Dialog";
 import { FieldPair } from "@/kit/FieldPair";
@@ -10,7 +11,7 @@ import { TimeField } from "@/kit/TimeField";
 import type { ActionAnswer } from "@/core/action";
 import type { CalendarDay, TimeOfDay } from "@/core/format";
 
-const ACT = { verb: "set", object: COPY.admin.overview.appointment } as const;
+const ACT = { verb: "set", object: COPY.spielplan.appointment } as const;
 const TITLE = COPY.shared.withObject(ACT.object, ACT.verb);
 
 // Each box posts under the path the match editor's save places its refusal on.
@@ -46,27 +47,27 @@ export function AppointmentDialog({
       adoptsBericht: null,
       changes: { date: posted(form, DATE), time: posted(form, TIME) },
     });
-    // The note names the other fixtures the save moved, which the dialog stays open to say.
+    // The note names the other fixtures the save moved, which the dialog's toast says as it closes.
     if (answer.ok) return { ok: true, value: undefined, ...(answer.note === undefined ? {} : { note: answer.note }) };
     // A save held back for its question deletes a later result, which only a stale bracket's resolution sets off from a
     // date alone: the match editor asks it, and this dialog says so rather than stand open with nothing written.
-    return answer.ask === undefined ? answer : { ok: false, reason: COPY.admin.overview.voidsLater };
+    return answer.ask === undefined ? answer : { ok: false, reason: ADMIN_COPY.overview.voidsLater };
   };
 
   return (
     <Dialog
       title={TITLE}
       act={ACT}
-      action={save}
+      run={save}
       trigger={{ label: TITLE }}>
       <FieldPair>
         <DateField
-          label={COPY.admin.spiel.date}
+          label={COPY.spielplan.fact.date}
           name={DATE}
           defaultValue={date}
         />
         <TimeField
-          label={COPY.admin.spiel.time}
+          label={COPY.spielplan.fact.time}
           name={TIME}
           defaultValue={time}
         />

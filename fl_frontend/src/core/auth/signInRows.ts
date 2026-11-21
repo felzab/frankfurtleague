@@ -6,9 +6,9 @@ import { makeSignature } from "better-auth/crypto";
 import { now } from "../clock";
 import { asSignInIdentifier } from "../emailAddress";
 import { logger } from "../logging";
-import { SIGN_IN_REFUSED } from "../passkeyRefusal";
 import { CODE_MAIL_LIMIT, CODE_MAIL_WINDOW_HOURS } from "../signInCode";
 import { HOUR_MS } from "../timeUnits";
+import { SIGN_IN_REFUSED } from "./refusalCodes";
 
 import type { AuthContext, DBTransactionAdapter } from "better-auth";
 import type { APIError } from "better-auth/api";
@@ -45,19 +45,25 @@ export const DELETE_TOKEN_ROW_PREFIX = "delete-account-";
 // The server's code for an insert a unique index refused; the driver exports no name for it.
 export const DUPLICATE_KEY = 11000;
 
-/** Named, because the library's failure line records an error's name and nothing else. */
 export class RemovalOutsideTransaction extends Error {
   override name = "RemovalOutsideTransaction";
 }
 
-type BoundContext = Pick<AuthContext, "adapter" | "internalAdapter" | "secret">;
+/** What the bounds call on the store, narrowed to those calls so the instance's own context, typed by this league's options, fits. */
+type BoundContext = {
+  readonly adapter: Pick<DBTransactionAdapter, "count" | "delete" | "deleteMany">;
+  readonly internalAdapter: Pick<AuthContext["internalAdapter"], "createVerificationValue" | "findUserById">;
+  readonly secret: string;
+};
 
 /**
  * Keyed under the library's own secret, never hashed plain: an address is guessable, so an unkeyed
- * digest is the address. Folded, so two spellings share one bound.
+ * digest is the address. Folded, so two spellings share one bound. The signed text names its purpose,
+ * since the session cookie's signature is the same key over the bare token, and a posted address may be
+ * any text: unprefixed, a counter's identifier could be the signature half of a cookie.
  */
 export async function boundIdentifier(prefix: string, email: string, secret: string): Promise<string> {
-  return `${prefix}${await makeSignature(asSignInIdentifier(email), secret)}`;
+  return `${prefix}${await makeSignature(`sign-in-bound:${asSignInIdentifier(email)}`, secret)}`;
 }
 
 /**
@@ -113,7 +119,7 @@ export async function settleCodeAttempt(context: BoundContext, own: string | und
 
 /**
  * Ten failures in a row lock an address's code, and a sign-in by any factor ends the row:
- * a passkey is the way the lock's own sentence points to.
+ * a passkey sign-in clears it, an administrator's way past the lock (runbooks.md §17).
  */
 export async function clearCodeFailures(context: BoundContext, userId: string): Promise<void> {
   const account = await context.internalAdapter.findUserById(userId);

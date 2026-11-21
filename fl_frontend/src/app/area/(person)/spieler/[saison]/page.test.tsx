@@ -1,10 +1,11 @@
 // @vitest-environment jsdom
-import { prerender } from "react-dom/static";
 import { describe, expect, it } from "vitest";
 
-import { COPY } from "@/core/copy";
+import { AREA_COPY } from "@/core/copy/area";
+import { COPY } from "@/core/copy/shared";
 import { serveBackend } from "@/test-support/backend";
 import { underNext } from "@/test-support/nextContexts";
+import { drawnOnServer } from "@/test-support/server";
 import { signedInRequest } from "@/test-support/session";
 
 import type { FLSpielerSaisonSelfResponse, FLSpielerSaisonSelfSpiel } from "@/core/generated/client/types";
@@ -69,7 +70,7 @@ async function landed(inactive_since: string | null, spiel: FLSpielerSaisonSelfS
     },
     spiele: [spiel],
   };
-  const { prelude } = await prerender(
+  const page = await drawnOnServer(
     underNext(
       <SpielerOverviewPage
         params={Promise.resolve({ saison: "2027" })}
@@ -77,25 +78,20 @@ async function landed(inactive_since: string | null, spiel: FLSpielerSaisonSelfS
       />,
       { pathname: "/area/spieler/2027" },
     ),
-    {
-      progressiveChunkSize: Number.MAX_SAFE_INTEGER,
-    },
   );
-  const page = document.createElement("div");
-  page.innerHTML = await new Response(prelude).text();
-  return page.querySelector("main")?.textContent ?? "";
+  return page.textContent;
 }
 
 describe("a pupil's own season", () => {
   // The read still names a deregistered pupil in their club's stored line-ups; the page shows them in none.
   it("shows a deregistered pupil their exit after the club and no place in a line-up", async () => {
     const page = await landed("2027-03-01");
-    expect(page).toContain(COPY.admin.spieler.deregistered);
-    expect(page).not.toContain(COPY.area.spieler.lineupPlace.starts);
+    expect(page).toContain(COPY.kader.deregistered);
+    expect(page).not.toContain(AREA_COPY.spieler.lineupPlace.starts);
 
     // The same page for a pupil in the squad: one reading every pupil as deregistered passes the half above.
-    const inSquad = await landed(null);
-    expect(inSquad).not.toContain(COPY.admin.spieler.deregistered);
-    expect(inSquad).toContain(COPY.area.spieler.lineupPlace.starts);
+    const inKader = await landed(null);
+    expect(inKader).not.toContain(COPY.kader.deregistered);
+    expect(inKader).toContain(AREA_COPY.spieler.lineupPlace.starts);
   });
 });

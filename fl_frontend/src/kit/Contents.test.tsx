@@ -2,7 +2,7 @@
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 
 import { ReadingPage } from "./Prose";
 
@@ -60,7 +60,6 @@ describe("a reading page's contents list", () => {
     render(
       <ReadingPage
         title={words.a}
-        lead={[]}
         sections={SECTIONS}
       />,
     );
@@ -83,7 +82,6 @@ describe("a reading page's contents list", () => {
     render(
       <ReadingPage
         title={words.a}
-        lead={[]}
         sections={SECTIONS}
       />,
     );
@@ -100,7 +98,6 @@ describe("a reading page's contents list", () => {
     render(
       <ReadingPage
         title={words.a}
-        lead={[]}
         sections={SECTIONS}
       />,
     );

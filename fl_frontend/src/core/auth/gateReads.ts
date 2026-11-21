@@ -3,11 +3,9 @@ import "server-only";
 import { APIError } from "better-auth/api";
 
 import { asSignInIdentifier } from "../emailAddress";
-import { grantOf } from "../grant";
 import { logger } from "../logging";
 import { lookUpSignIn, lookUpSubject } from "../signInGate";
 
-import type { Grant } from "../grant";
 import type { SignInRecords } from "../signInGate";
 import type { SubjectSession } from "../subject";
 
@@ -35,16 +33,6 @@ export async function enrolmentSignIn(email: string): Promise<SignInRecords> {
 export async function subjectOrNull(email: string): Promise<SubjectSession["records"] | null> {
   try {
     return await lookUpSubject(asSignInIdentifier(email));
-  } catch (failed) {
-    logUnreadGrant(failed);
-    return null;
-  }
-}
-
-/** The grant and when it took effect, where an unread one admits nobody: `null` where the backend could not say. */
-export async function grantOrNull(email: string): Promise<Grant | null> {
-  try {
-    return await grantOf(email);
   } catch (failed) {
     logUnreadGrant(failed);
     return null;

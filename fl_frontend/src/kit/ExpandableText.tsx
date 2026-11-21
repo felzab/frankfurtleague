@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "react-aria-components/Button";
 import { usePress } from "react-aria/usePress";
 
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 
 import { hoverLook } from "./hoverStyles";
 import { tv } from "./tv";
@@ -32,8 +32,8 @@ const text = tv({
 });
 
 /**
- * A record's own long text on a card, such as a club's description: three lines, and „Mehr“ in the brand colour,
- * underlined, at the end of the third line, where the text runs on. A press on „Mehr“ opens the rest; once open,
+ * A record's own long text on a card, such as a club's description: three lines, and „Mehr“ at the end of the third
+ * line, where the text runs on. A press on „Mehr“ opens the rest; once open,
  * the word reads „Weniger“ after the text's last word, and a press on it or anywhere on the text folds it again;
  * the button keeps its `aria-expanded`, so a keyboard and a reader fold it there.
  * Whether the text runs past three lines is measured in the browser, so a short text shows no „Mehr“; before the

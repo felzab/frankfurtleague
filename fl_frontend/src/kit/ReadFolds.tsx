@@ -21,11 +21,9 @@ export type FoldedCard = {
   tables: readonly [TableProps] | ReadonlyArray<{ head: Copy; table: TableProps }>;
 };
 
-/** Two cards to a row from 42 rem of the box they stand in, where there are several. */
-const SPLIT_FOLDS_CLASSES = "grid content-start items-start gap-3 @2xl:grid-cols-2";
+const SPLIT_FOLDS_CLASSES = "grid content-start items-start gap-6 @2xl:grid-cols-2";
 const folds = (count: number) => (count > 1 ? SPLIT_FOLDS_CLASSES : "grid");
 
-/** The folds' grid, in the box its columns read. */
 function FoldsBox({ count, children }: { count: number; children: ReactNode }) {
   return (
     <BlockBox>
@@ -34,13 +32,11 @@ function FoldsBox({ count, children }: { count: number; children: ReactNode }) {
   );
 }
 
-/** One card under another at every width, as the list template sets its cards. */
 const COLUMN_CLASSES = "grid gap-6";
 
 /**
- * Tables each folded behind its card's head, two side by side from 42 rem of their box, such as a match's line-ups:
- * the content of `ReadPage`'s `folds` group; or, with `column`, one under another, as the list template's `folds` kind
- * holds Administratoren's cards. It is a module of its own, which only the pages folding a card import, so a page
+ * Tables each folded behind its card's head, two side by side from 42 rem of their box, or, with `column`, one under
+ * another. It is a module of its own, which only the pages folding a card import, so a page
  * folding nothing ships none of the fold's client code. Each card keeps its own height beside its neighbour, so one opening
  * leaves the other folded to its head rather than stretched to the row.
  */

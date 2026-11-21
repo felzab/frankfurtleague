@@ -141,12 +141,12 @@ async def refuse_a_taken_rolle(
     )
 
     taken = (
-        await saison_spieler_collection.count_documents(
+        await saison_spieler_collection.find_one(
             build_live_rolle_filter(saison_id=saison_id, team_id=team_id, rolle=rolle, excluding_spieler_id=spieler_id),
-            limit=1,
+            projection={"_id": 1},
             session=session,
         )
-    ) > 0
+    ) is not None
 
     refuse(find_kader_rolle_refusal(rolle=rolle, taken=taken))
 

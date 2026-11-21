@@ -11,7 +11,10 @@ import { filedMessages, mailedCode } from "./mailSink";
 
 import type { BrowserContext, Locator, Page } from "@playwright/test";
 
-/** The step a send that mailed a code, or would have, shows in the address step's place, by its heading. */
+/**
+ * The step every send under its address's hourly cap shows in the address step's place, a code mailed or the gate
+ * refusing one, by its heading.
+ */
 const codeStep = (page: Page): Locator => page.getByRole("main").getByRole("heading", { name: "Prüfe dein Postfach" });
 
 /** Asks for a code on `/signin`, as far as the step a send that mailed one shows. */
@@ -33,7 +36,9 @@ export async function signInWithCodeHere(page: Page, address: string): Promise<v
 
 /** Presses „Code senden“ for `address` on the sign-in page the browser stands on. */
 async function sendFromHere(page: Page, address: string): Promise<void> {
-  await typeInto(page.getByLabel("E-Mail-Adresse"), address);
+  // The text box by its role: a label match takes any element whose name holds the words, such as a status card's
+  // „E-Mail-Adresse bestätigen“ still in the document from the page before.
+  await typeInto(page.getByRole("textbox", { name: /^E-Mail-Adresse/ }), address);
   await page.getByRole("button", { name: "Code senden" }).click();
 }
 
@@ -56,14 +61,12 @@ export const PERSON_LANDING = "/area/schiedsrichter";
 export const ADMINISTRATION_LANDING = "/admin";
 
 /**
- * Passes over the passkey offer by „Später“ and waits until the browser has landed at `landing`, the pathname the
- * landing's rule sends this person to, or a pattern of it where the pathname holds a record's id the seed mints anew on
- * every run, as a team's Übersicht does. The press's navigation may pass through `/area` on its way there, and an
- * address asked for before it arrives aborts one of the two, so a journey goes on from here alone.
+ * Waits until a person's code sign-in has landed at `landing`, the pathname the landing's rule sends this person to, or
+ * a pattern of it where the pathname holds a record's id the seed mints anew on every run, as a team's Übersicht does.
+ * The sign-in's navigation may pass through `/area` on its way there, and an address asked for before it arrives
+ * aborts one of the two, so a journey goes on from here alone.
  */
-export async function declinePasskeyOffer(page: Page, landing: string | RegExp): Promise<void> {
-  await expect(page).toHaveURL((url) => url.pathname === "/signin/passkey");
-  await page.getByRole("button", { name: "Später" }).click();
+export async function expectLandedAt(page: Page, landing: string | RegExp): Promise<void> {
   await expect(page).toHaveURL((url) => (typeof landing === "string" ? url.pathname === landing : landing.test(url.pathname)));
 }
 
@@ -104,22 +107,8 @@ export async function enrolPasskey(page: Page, context: BrowserContext): Promise
   // Installed only now, on the page whose ceremony it answers, and the page loaded again under it.
   await context.credentials.install();
   await page.reload();
-  await page.getByRole("button", { name: "Jetzt einrichten" }).click();
+  await page.getByRole("button", { name: "Passkey einrichten" }).click();
   // Where every administrator lands, which a session short of the passkey would leave for the passkey step. Waited for
   // to the end of its in-stream redirect, so the journey's next address interrupts nothing.
   await expect(page).toHaveURL((url) => url.pathname === ADMINISTRATION_LANDING);
-}
-
-/**
- * A person's passkey, set up on Sicherheit under the code's fresh session: they hold none yet, so nothing is touched.
- * Returns each row's „Löschen“, in `main`: the confirmation's own „Löschen“ stands outside it, in the dialog, and the open
- * dialog hides the rows from the accessibility tree, so a count settles only once the dialog has closed.
- */
-export async function setUpPasskey(page: Page, context: BrowserContext): Promise<Locator> {
-  await context.credentials.install();
-  await page.goto("/account/security");
-  const rows = page.getByRole("main").getByRole("button", { name: "Löschen" });
-  await page.getByRole("button", { name: "Passkey einrichten" }).click();
-  await expect(rows).toHaveCount(1);
-  return rows;
 }

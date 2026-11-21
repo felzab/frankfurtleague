@@ -212,11 +212,7 @@ closed.
 - **A season runs a prefix of a closed group set**, whose members are [`glossary.md`](glossary.md)'s
   `Gruppe` entry. The count and the size are the season's
   (`fl_backend/app/api/saisons/schemas.py :: NumberOfGroups`, `:: TeamsPerGroup`), and each is
-  bounded as one field. The two bounds are set so that the widest season they admit, every group
-  full at its ceiling and the bracket at its cap, plays inside one page of a season-scoped read
-  (`fl_backend/app/shared/schemas/bounds.py :: LIST_LIMIT_DEFAULT`), which
-  `fl_backend/tests/api/test_schedule.py` holds. Past that page those reads would truncate, and the
-  refusals computed from them could not be trusted.
+  bounded as one field.
 - **Every group plays one round robin, and the groups play in step.** Round _k_ of every group is
   matchday _k_, which is what keeps a club from standing twice on one matchday and makes every group
   finish together. An odd-sized group leaves one club on a bye each round rather than shortening the

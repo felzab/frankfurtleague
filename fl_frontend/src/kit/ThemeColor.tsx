@@ -1,12 +1,9 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
-
 import { useTheme } from "next-themes";
+import { useIsSSR } from "react-aria/SSRProvider";
 
 import { THEME_COLOR } from "@/core/themeColor";
-
-const neverChanges = () => () => undefined;
 
 /**
  * The browser bar in the theme the visitor chose: one `<meta name="theme-color">` per system scheme, which
@@ -19,12 +16,8 @@ const neverChanges = () => () => undefined;
  */
 export function ThemeColor() {
   const { theme } = useTheme();
-  const hydrated = useSyncExternalStore(
-    neverChanges,
-    () => true,
-    () => false,
-  );
-  const chosen = hydrated && (theme === "light" || theme === "dark") ? theme : undefined;
+  const isSSR = useIsSSR();
+  const chosen = !isSSR && (theme === "light" || theme === "dark") ? theme : undefined;
   return (["light", "dark"] as const).map((scheme) => (
     <meta
       key={scheme}

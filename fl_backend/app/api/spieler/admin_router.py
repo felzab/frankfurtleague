@@ -1,12 +1,10 @@
-from collections.abc import Mapping
 from http import HTTPStatus
-from typing import Any, Final
+from typing import Final
 
 from fastapi import APIRouter, status
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
-from app.api.account.services import held_by_the_record, withdraw_by_mail
 from app.api.grants.guard import ADMIN_TIER
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.saisons.services import find_saison_past_refusal
@@ -31,7 +29,6 @@ from app.api.spieler.services import (
 )
 from app.api.teams.crud import pull_saison_team_names
 from app.core.codes import Code
-from app.core.collections import Collection
 from app.core.concurrency import concurrently
 from app.core.crud import (
     GERMAN_COLLATION,
@@ -48,7 +45,6 @@ from app.core.crud import (
 from app.core.dependencies import (
     DBClient,
     GermanDay,
-    GermanyNow,
     SaisonsCollection,
     SaisonSpielerCollection,
     SaisonSpielerReadCollection,
@@ -63,7 +59,6 @@ from app.core.recording import record_act
 from app.core.routing import by_id
 from app.core.transactions import transact
 from app.shared.schemas.custom import CustomObjectId
-from app.shared.schemas.einwilligung import WITHHELD_BY_A_PERSON, FLEinwilligungWithdrawalPayload
 from app.shared.schemas.responses import FLVersionResponse
 
 router = APIRouter(
@@ -134,7 +129,6 @@ async def get_spieler_saison(
         pull_whole_from_db(
             collection=saison_spieler_collection,
             db_filter=build_held_rollen_filter(saison_id=saison_id, team_id=team_id, excluding_spieler_id=spieler_id),
-            what=f"team {team_id}'s held roles in season {saison_id}",
             projection=["rolle"],
         ),
         # `find_one`: a club a replacement took out of the season holds no row, and this page still opens.
@@ -318,8 +312,10 @@ async def reactivate_saison_spieler(
         # The stored club, no payload naming one: a replacement hands a junction row to another club and
         # retires this one's squad, so the club this row returns to may stand outside that season by now.
         team_in_saison = (
-            await saison_teams_collection.count_documents({"saison_id": saison_id, "team_id": stored_raw["team_id"]}, limit=1, session=session)
-        ) > 0
+            await saison_teams_collection.find_one(
+                {"saison_id": saison_id, "team_id": stored_raw["team_id"]}, projection={"_id": 1}, session=session
+            )
+        ) is not None
         # Asked before the cap: a full squad is not a fact worth reporting
         # about a club the season does not hold.
         if not team_in_saison:
@@ -358,37 +354,3 @@ async def reactivate_saison_spieler(
             )
 
     await transact(db, bring_the_player_back)
-
-
-@router.post(
-    f"{by_id('spieler_id')}/einwilligung/withdrawal",
-    status_code=status.HTTP_204_NO_CONTENT,
-    summary="Enter a withdrawal of a Spieler's consent that they asked for by mail",
-)
-async def withdraw_spieler_einwilligung(
-    spieler_id: CustomObjectId,
-    withdrawal_data: FLEinwilligungWithdrawalPayload,
-    spieler_collection: SpielerCollection,
-    db: DBClient,
-    germany_now: GermanyNow,
-) -> None:
-    """Withdraw the named choices of a pupil's consent, the name on the squad leaving the public pages and the media consent ending.
-
-    A choice already withheld stays as it is, so a second mail writes nothing, and nothing is ever granted. The caller
-    drops its cached squad lists after a success, since the scope decides whether a name is served.
-    """
-
-    async def record(row: Mapping[str, Any], session: AsyncClientSession) -> None:
-        await record_act(collection=spieler_collection, action="spieler.einwilligung_withdrawn", record_id=row["_id"], session=session)
-
-    await withdraw_by_mail(
-        kind=Collection.SPIELER,
-        collection=spieler_collection,
-        db_filter={"_id": spieler_id},
-        projection={"einwilligung": 1},
-        held_of=held_by_the_record,
-        withheld={choice: WITHHELD_BY_A_PERSON[choice] for choice in withdrawal_data.choices},
-        act=record,
-        db=db,
-        now=germany_now,
-    )

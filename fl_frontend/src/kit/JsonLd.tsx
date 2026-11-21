@@ -1,5 +1,5 @@
 import { INSTAGRAM_URL, KONTAKT_EMAIL, SITE_URL, THREADS_URL, VEREIN_ADDRESS, VEREIN_LEGAL_NAME } from "@/core/brand";
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 
 /**
  * The league as schema.org describes it, for search engines, on the landing: `SportsOrganization`, the

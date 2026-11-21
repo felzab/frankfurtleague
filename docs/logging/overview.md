@@ -17,7 +17,7 @@ on the others by searching for that id.
 | Backend  | One access line per request, a line per server failure, and every library's lines in the same envelope    | `fl_backend/app/core/middlewares.py :: TraceContextMiddleware`, `fl_backend/app/core/logging.py` |
 
 Both application services write one JSON document per line wherever they run: a production build,
-the local stack, `next dev`, a terminal and a test run alike.
+the local stack and a test run alike.
 
 ## Following one request
 
@@ -97,13 +97,9 @@ A client component cannot reach the server's logger. Every error boundary theref
 to `POST /api/client-error` (`fl_frontend/src/app/api/client-error/route.ts`), which writes one
 `client.crash_reported` line; the bot-check widget reports a failure the same way. The route is
 public, so nginx rate-limits it and the route caps every field. A failure rendered on the server is
-logged as `system.request_crashed` with a digest instead.
-
-## In development
-
-`next dev` and a backend run in a terminal write the same JSON document as production, so a line
-read in development is the line a production search finds. With no nginx in front, whichever service
-receives the request mints the trace.
+logged as `system.request_crashed` with a digest instead. Next captures one failure at several
+stages (`fl_frontend/src/instrumentationNode.ts :: onRequestError`), and each capture's line names
+its stage: `route_type`, `render_source` and, for a revalidation, `revalidate_reason`.
 
 ## Read next
 

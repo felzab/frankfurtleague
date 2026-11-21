@@ -1,11 +1,23 @@
 import { describe, expect, it } from "vitest";
 
 const { mailFor } = await import("./mailKinds");
+const { renderMail } = await import("./emailShell");
 const { ROUTES } = await import("./routes");
-const { COPY } = await import("./copy");
+const { COPY } = await import("./copy/shared");
+const { SERVER_COPY } = await import("./serverCopy");
+const { dayOf, formatDayAndTime, timeOf } = await import("./format");
+
+const WORDS = SERVER_COPY.mail.spiel;
+
+type Slot = { team1: string; team2: string; date: string; time: string };
+
+/** A fixture's pairing and moment in the words the builder sets them in, so a case compares with the entry itself. */
+const paarung = ({ team1, team2 }: Slot) => COPY.page.spiel({ record: team1 }, { record: team2 });
+const moment = ({ date, time }: Slot) => ({ strong: formatDayAndTime(dayOf(date), timeOf(time)) });
 
 /** The origin the local stack serves from, which `docker-compose.local.yml` sets `AUTH_URL` to. */
 const ORIGIN = "http://localhost:3000";
+const TO = "kontakt@schule.example.org";
 
 describe("the fixture request", () => {
   /* The request carries no link: the club answers on its own Übersicht, signed in. Built from a token the hand-out no
@@ -21,7 +33,7 @@ describe("the fixture request", () => {
       moved_from: null,
     } as const;
 
-    const mail = mailFor("spiel_request", data, { token: null, secret: null, origin: `${ORIGIN}/` });
+    const mail = mailFor("spiel_request", data, { token: null, secret: null, origin: `${ORIGIN}/`, to: TO });
 
     expect(mail?.button?.href).toBe(`${ORIGIN}${ROUTES.teamOverview.path(data.team_id, data.saison_id)}`);
   });
@@ -34,27 +46,28 @@ describe("the notice of a move", () => {
   const left = { team1: "Ernst-Reuter-Schule", team2: "Goethe-Gymnasium", date: "2026-11-20", time: "14:30:00" };
   const next = { ...left, date: "2026-11-27", spielort: "Halle Nord" };
   const recipients = ["team", "schiedsrichter"] as const;
-  const moved = (mail: ReturnType<typeof mailFor>) => JSON.stringify(mail).includes("ist verlegt");
 
   it.each(recipients)("tells a staying %s of the move, promising nothing, where the fixture holds no new slot", (recipient) => {
     const mail = mailFor(
       "spiel_moved",
       { kind: "spiel_moved", recipient, appointment: left, moved_to: null, stays: true },
-      { token: null, secret: null, origin: ORIGIN },
+      { token: null, secret: null, origin: ORIGIN, to: TO },
     );
 
-    expect(moved(mail)).toBe(true);
-    expect(JSON.stringify(mail)).not.toMatch(/neue (Anfrage|Einteilung)/);
+    expect(mail?.subjectLine).toBe(WORDS.movedFromSubject(dayOf(left.date)));
+    expect(mail?.paragraphs).toStrictEqual([[WORDS.moved(paarung(left))]]);
+    expect(mail?.afterBlock).toBeUndefined();
   });
 
   it("tells a club taken off the fixture that its request no longer holds", () => {
     const mail = mailFor(
       "spiel_moved",
       { kind: "spiel_moved", recipient: "team", appointment: left, moved_to: null, stays: false },
-      { token: null, secret: null, origin: ORIGIN },
+      { token: null, secret: null, origin: ORIGIN, to: TO },
     );
 
-    expect(JSON.stringify(mail)).toContain("gilt nicht mehr");
+    expect(mail?.subjectLine).toBe(WORDS.voidSubject(dayOf(left.date)));
+    expect(mail?.paragraphs).toStrictEqual([[WORDS.void(paarung(left), moment(left).strong)]]);
   });
 
   it("names the ground the fixture moved to, in the block a request names it in", () => {
@@ -62,50 +75,79 @@ describe("the notice of a move", () => {
     const mail = mailFor(
       "spiel_moved",
       { kind: "spiel_moved", recipient: "team", appointment: left, moved_to: sameHour, stays: true },
-      { token: null, secret: null, origin: ORIGIN },
+      { token: null, secret: null, origin: ORIGIN, to: TO },
     );
     const block = mail?.block;
     const facts = block !== undefined && "facts" in block ? block.facts : [];
 
     expect(facts).toContainEqual({ label: COPY.spielplan.fact.spielort, value: "Halle Nord" });
-    expect(JSON.stringify(mail)).not.toMatch(/neue (Anfrage|Einteilung)/);
+    expect(mail?.paragraphs).toStrictEqual([[WORDS.moved(paarung(sameHour))]]);
+    expect(mail?.afterBlock).toBeUndefined();
   });
 
   /* A replacement or a bracket correction changes the sides and keeps the slot: worded as moved, the reader looks for a
      new day that does not exist. */
   it("words a new pairing at its slot as no move, in a request, an Einteilung and a notice", () => {
     const replaced = { ...left, team1: "Carl-Schurz-Schule", spielort: "Halle Nord" };
-    const origin = { token: null, secret: null, origin: ORIGIN };
+    const origin = { token: null, secret: null, origin: ORIGIN, to: TO };
+    const day = dayOf(replaced.date);
+    // Each mail under the subject its kind gives a fixture nothing moved.
     const mails = [
-      mailFor(
-        "spiel_request",
-        {
-          kind: "spiel_request",
-          team: "Goethe-Gymnasium",
-          team_id: "6890a1b2c3d4e5f607000001",
-          saison_id: "2026",
-          ansetzung: replaced,
-          deadline: "2026-11-13",
-          moved_from: left,
-        },
-        origin,
-      ),
-      mailFor("spiel_einteilung", { kind: "spiel_einteilung", ansetzung: replaced, moved_from: left }, origin),
-      mailFor("spiel_moved", { kind: "spiel_moved", recipient: "team", appointment: left, moved_to: replaced, stays: true }, origin),
+      {
+        subject: WORDS.requestSubject(day),
+        mail: mailFor(
+          "spiel_request",
+          {
+            kind: "spiel_request",
+            team: "Goethe-Gymnasium",
+            team_id: "6890a1b2c3d4e5f607000001",
+            saison_id: "2026",
+            ansetzung: replaced,
+            deadline: "2026-11-13",
+            moved_from: left,
+          },
+          origin,
+        ),
+      },
+      {
+        subject: WORDS.bookedSubject(day),
+        mail: mailFor("spiel_einteilung", { kind: "spiel_einteilung", ansetzung: replaced, moved_from: left }, origin),
+      },
+      {
+        subject: WORDS.keptSubject(day),
+        mail: mailFor("spiel_moved", { kind: "spiel_moved", recipient: "team", appointment: left, moved_to: replaced, stays: true }, origin),
+      },
     ];
 
-    for (const mail of mails) {
+    for (const { subject, mail } of mails) {
       const block = mail?.block;
       const labels = block !== undefined && "facts" in block ? block.facts.map((fact) => fact.label) : [];
 
-      // The word in a move's subject and in its sentence alike, each time after a space.
-      expect(JSON.stringify(mail)).not.toContain(" verlegt");
+      expect(mail?.subjectLine).toBe(subject);
       // The slot named once, and beside it the pairing that held it: a „Neu“ row would repeat the moment left.
-      expect(labels).toStrictEqual([COPY.spielplan.fact.date, COPY.spielplan.fact.time, COPY.admin.facts.before, COPY.spielplan.fact.spielort]);
+      expect(labels).toStrictEqual([
+        COPY.spielplan.fact.date,
+        COPY.spielplan.fact.time,
+        COPY.shared.facts.before,
+        COPY.spielplan.fact.spielort,
+      ]);
       expect(JSON.stringify(mail)).toContain(left.team1);
       // The lead opens on the change the mail exists for, the new pairing at the slot it keeps.
-      expect(mail?.paragraphs[0]?.[0]).toBe(`Am selben Termin spielt jetzt ${replaced.team1} vs. ${replaced.team2}.`);
+      expect(mail?.paragraphs[0]?.[0]).toBe(WORDS.newPairing(paarung(replaced)));
     }
+  });
+
+  /* The shell lowers a mail's first letter after „Hallo,“ unless the mail opens on a noun: a lead opening on the pairing
+     loses that mark, and the first club's name would reach the reader lower-cased. */
+  it("renders a moved fixture's lead with the pairing as the catalogue writes it, capital first", () => {
+    const mail = mailFor(
+      "spiel_moved",
+      { kind: "spiel_moved", recipient: "team", appointment: left, moved_to: next, stays: true },
+      { token: null, secret: null, origin: ORIGIN, to: TO },
+    );
+    if (mail === undefined) throw new Error("the move built no mail");
+
+    expect(renderMail(mail).text.split("\n")).toContain(WORDS.moved(paarung(next)));
   });
 
   // An hour moved on the same day is a move, whatever the sides did.
@@ -114,10 +156,11 @@ describe("the notice of a move", () => {
     const mail = mailFor(
       "spiel_moved",
       { kind: "spiel_moved", recipient: "team", appointment: left, moved_to: replaced, stays: true },
-      { token: null, secret: null, origin: ORIGIN },
+      { token: null, secret: null, origin: ORIGIN, to: TO },
     );
 
-    expect(JSON.stringify(mail)).toContain(" verlegt");
+    expect(mail?.subjectLine).toBe(WORDS.movedSubject(dayOf(replaced.date)));
+    expect(mail?.paragraphs).toStrictEqual([[WORDS.moved(paarung(replaced))]]);
   });
 });
 
@@ -126,37 +169,54 @@ describe("the notice of a move", () => {
    asked about by nobody. */
 describe("the notice of a match that will not be played", () => {
   const appointment = { team1: "Ernst-Reuter-Schule", team2: "Goethe-Gymnasium", date: "2026-11-20", time: "14:30:00" };
-  // What the event means for the result, in the match page's own sentence: a no-show counts for the side that turned up.
+  const day = dayOf(appointment.date);
+  const spiel = paarung(appointment);
+  const when = moment(appointment);
+  const { cancelled } = WORDS;
+  // A no-show counts for the side that turned up, in the match page's own sentence.
   const { consequence } = COPY.spielplan.sonderereignis;
   const events = [
-    { sonderereignis: "ausgefallen", subject: "Ausgefallen: Spiel am 20. November 2026", counted: consequence.notScored },
-    { sonderereignis: "annulliert", subject: "Annulliert: Spiel am 20. November 2026", counted: consequence.notScored },
+    {
+      sonderereignis: "ausgefallen",
+      subject: cancelled.ausgefallen.subject(day),
+      paragraph: [cancelled.ausgefallen.lead(spiel, when.strong)],
+    },
+    {
+      sonderereignis: "annulliert",
+      subject: cancelled.annulliert.subject(day),
+      paragraph: [cancelled.annulliert.lead(spiel, when.strong)],
+    },
     {
       sonderereignis: "nichtantreten_team1",
-      subject: "Nicht angetreten: Spiel am 20. November 2026",
-      counted: consequence.nichtantreten({ record: appointment.team2 }),
+      subject: cancelled.nichtantreten.subject(day),
+      paragraph: [
+        cancelled.nichtantreten.lead({ record: appointment.team1 }, when.strong),
+        consequence.nichtantreten({ record: appointment.team2 }),
+      ],
     },
     {
       sonderereignis: "nichtantreten_team2",
-      subject: "Nicht angetreten: Spiel am 20. November 2026",
-      counted: consequence.nichtantreten({ record: appointment.team1 }),
+      subject: cancelled.nichtantreten.subject(day),
+      paragraph: [
+        cancelled.nichtantreten.lead({ record: appointment.team2 }, when.strong),
+        consequence.nichtantreten({ record: appointment.team1 }),
+      ],
     },
   ] as const;
 
   it.each(events)(
-    "names $sonderereignis in its subject, counts the match as the match page does, and promises no request",
-    ({ sonderereignis, subject, counted }) => {
+    "names $sonderereignis in its subject and its one paragraph, and promises no request",
+    ({ sonderereignis, subject, paragraph }) => {
       for (const recipient of ["team", "schiedsrichter"] as const) {
         const mail = mailFor(
           "spiel_cancelled",
           { kind: "spiel_cancelled", recipient, appointment, sonderereignis },
-          { token: null, secret: null, origin: ORIGIN },
+          { token: null, secret: null, origin: ORIGIN, to: TO },
         );
-        const text = JSON.stringify(mail);
 
         expect(mail?.subjectLine).toBe(subject);
-        expect(text.includes(counted)).toBe(true);
-        expect(text).not.toMatch(/neue (Anfrage|Einteilung)/);
+        expect(mail?.paragraphs).toStrictEqual([paragraph]);
+        expect(mail?.afterBlock).toBeUndefined();
       }
     },
   );
@@ -179,7 +239,7 @@ describe("the notice of a club's exit", () => {
           { ...sides, date: null, time: null },
         ],
       },
-      { token: null, secret: null, origin: ORIGIN },
+      { token: null, secret: null, origin: ORIGIN, to: TO },
     );
     const block = mail?.block;
     const labels = block !== undefined && "facts" in block ? block.facts.map((fact) => fact.label) : [];

@@ -1,8 +1,8 @@
 """
 API · a referee's own list of one season's fixtures, and the seasons it offers, against the shipped indexes
 
-One row a fixture booked to the address's records, each judged by the newest row asking that booking and by its report;
-open work first.
+One row a fixture booked to the address's records, each judged by the newest row asking that booking and by its report,
+in the order the draw numbered them.
 """
 
 from datetime import datetime
@@ -120,6 +120,7 @@ async def seed(database: AsyncDatabase, *, saison_status: str) -> None:
         ]
     )
     await database[Collection.SPIELORTE].insert_one(documents.spielort_document(SPIELORT, "Halle Ost"))
+    await database[Collection.SPIELTAGE].insert_one(documents.spieltag_document(SPIELTAG, SAISON_ID, 1))
     consent = documents.own_einwilligung_document(text_versions=documents.SCHIEDSRICHTER_TEXT_VERSIONS, confirmed_at="2027-04-01")
     await database[Collection.SCHIEDSRICHTER].insert_many(
         [
@@ -127,7 +128,8 @@ async def seed(database: AsyncDatabase, *, saison_status: str) -> None:
             for referee_id, email, name in ((OTTO_ID, OTTO, "Otto Gruber"), (UTE_ID, UTE, "Ute Lang"), (KARL_ID, KARL, "Karl Ebert"))
         ]
     )
-    await database[Collection.SPIELE].insert_many(SPIELE)
+    # Stored against the draw's order, so a read answering in the order it finds them does not pass for one sorting.
+    await database[Collection.SPIELE].insert_many(SPIELE[::-1])
     # The booking Otto was first asked about moved since: only the fresh request is his to answer. Ute's row of his
     # fixture is not his at all.
     moved = {**row(TO_ANSWER)["ansetzung"], "date": "2027-05-19"}
@@ -190,40 +192,32 @@ async def refused(url: str, call: Any) -> str:
 
 
 class TestTheSeasonsFixtures:
-    async def test_open_work_comes_first_then_the_days_to_come_then_the_days_gone_by(self, mongo_replica_set_url: str):
-        """The report owed and the booking to answer ahead; Ute's fixture and last season's are not on the list."""
+    async def test_every_fixture_booked_to_them_in_the_order_the_draw_numbered_them(self, mongo_replica_set_url: str):
+        """As a club's own list serves its matches; Ute's fixture and last season's are not on the list."""
 
         answer = await answered(mongo_replica_set_url, own_spiele())
 
         assert [
-            (entry.spiel_id, entry.state, entry.submitted_at is not None, entry.bericht_owed, entry.sonderereignis) for entry in answer.spiele
+            (entry.id, entry.state, entry.submitted_at is not None, entry.reportable, entry.bericht_owed, entry.sonderereignis)
+            for entry in answer.spiele
         ] == [
-            (REPORT_OWED, "agreed", False, True, None),
-            (TO_ANSWER, "valid", False, False, None),
-            (CALLED_OFF, "cancelled", False, False, "annulliert"),
-            (TO_COME, "agreed", False, False, None),
-            (STRUCK_OUT, None, False, False, "ausgefallen"),
-            (REPORTED, None, True, False, None),
+            (TO_ANSWER, "valid", False, False, False, None),
+            (REPORT_OWED, "agreed", False, True, True, None),
+            (REPORTED, None, True, True, False, None),
+            (TO_COME, "agreed", False, False, False, None),
+            (CALLED_OFF, "cancelled", False, False, False, "annulliert"),
+            (STRUCK_OUT, None, False, False, False, "ausgefallen"),
         ]
         # A booking answers its newest row as it stands: not the row closed when it moved, and not Ute's.
-        [to_answer] = [entry for entry in answer.spiele if entry.spiel_id == TO_ANSWER]
-        assert (to_answer.spielbestaetigung_id, to_answer.date, to_answer.team1_name, to_answer.team2_name, to_answer.past) == (
-            ObjectId("6890a1b2c3d4e5f607e50051"),
-            "2027-05-20",
-            "Adler",
-            "Biber",
-            False,
-        )
+        [to_answer] = [entry for entry in answer.spiele if entry.id == TO_ANSWER]
+        assert (to_answer.spielbestaetigung_id, to_answer.date, to_answer.past) == (ObjectId("6890a1b2c3d4e5f607e50051"), "2027-05-20", False)
+        assert (to_answer.team1 and to_answer.team1.name, to_answer.team2 and to_answer.team2.name) == ("Adler", "Biber")
         assert to_answer.spielort is not None and to_answer.spielort.name == "Halle Ost"
-        # The league's answer is marked, and its reason is not theirs to read.
-        [to_come] = [entry for entry in answer.spiele if entry.spiel_id == TO_COME]
-        assert (to_come.entered, to_come.reason) == (True, None)
 
-    async def test_once_the_season_has_ended_no_report_is_owed(self, mongo_replica_set_url: str):
+    async def test_once_the_season_has_ended_no_report_is_written_or_owed(self, mongo_replica_set_url: str):
         answer = await answered(mongo_replica_set_url, own_spiele(), saison_status="past")
 
-        assert [entry.spiel_id for entry in answer.spiele if entry.bericht_owed] == []
-        assert answer.spiele[0].spiel_id == TO_ANSWER
+        assert [entry.id for entry in answer.spiele if entry.reportable or entry.bericht_owed] == []
 
     async def test_an_address_holding_no_live_confirmed_record_is_refused(self, mongo_replica_set_url: str):
         assert await refused(mongo_replica_set_url, own_spiele("niemand@example.com")) == Code.ROLE_NOT_HELD
@@ -231,7 +225,7 @@ class TestTheSeasonsFixtures:
     async def test_each_entry_reads_its_teams_rows_of_its_season_its_own_decline_its_day_and_an_open_slot(self, mongo_replica_set_url: str):
         """A request whose away or home club has left the season has ended; Adler's exit from the season before ends none.
 
-        His own decline shows its reason, a fixture today is not past, an open away slot is named by nobody, and every entry
+        His own decline reads declined, a fixture today is not past, an open away slot is named by nobody, and every entry
         carries its time.
         """
 
@@ -267,7 +261,7 @@ class TestTheSeasonsFixtures:
             )
             return await own_spiele()(database, client)
 
-        by_id = {entry.spiel_id: entry for entry in (await answered(mongo_replica_set_url, body)).spiele}
+        by_id = {entry.id: entry for entry in (await answered(mongo_replica_set_url, body)).spiele}
 
         assert {spiel_id: by_id[spiel_id].state for spiel_id in (LEFT_AWAY, LEFT_HOME, TO_ANSWER)} == {
             LEFT_AWAY: "expired",
@@ -280,9 +274,10 @@ class TestTheSeasonsFixtures:
             LEFT_HOME: False,
             TO_ANSWER: True,
         }
-        assert (by_id[DECLINED_HERE].state, by_id[DECLINED_HERE].reason) == ("declined", OWN_DECLINE["reason"])
+        assert by_id[DECLINED_HERE].state == "declined"
         assert (by_id[TODAYS].past, by_id[REPORTED].past) == (False, True)
-        assert (by_id[OPEN_SLOT].team1_name, by_id[OPEN_SLOT].team2_name) == ("Adler", None)
+        open_slot = by_id[OPEN_SLOT]
+        assert (open_slot.team1 and open_slot.team1.name, open_slot.team2) == ("Adler", None)
         assert {entry.time for entry in by_id.values()} == {"18:30:00"}
 
     async def test_a_closed_row_reads_by_the_reason_it_was_closed_for(self, mongo_replica_set_url: str):
@@ -301,7 +296,7 @@ class TestTheSeasonsFixtures:
             )
             return await own_spiele()(database, client)
 
-        [entry] = [entry for entry in (await answered(mongo_replica_set_url, body)).spiele if entry.spiel_id == MOVED_BACK]
+        [entry] = [entry for entry in (await answered(mongo_replica_set_url, body)).spiele if entry.id == MOVED_BACK]
 
         assert entry.state == "invalid"
 

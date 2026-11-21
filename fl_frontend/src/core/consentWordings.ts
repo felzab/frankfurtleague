@@ -4,13 +4,9 @@ import type { Route } from "next";
 import type {
   FLEinwilligungScope,
   FLEinwilligungTextVersion,
-  FLMediaTextVersion,
-  FLNameKaderTextVersion,
-  FLNameSpielplanTextVersion,
   FLSchiedsrichterTextVersions,
   FLSeatTextVersions,
   FLSpielerTextVersions,
-  FLWhatsappTextVersion,
 } from "./generated/client/types";
 
 /** The line under a control: its words, a link among them where it points to a page. */
@@ -36,6 +32,12 @@ const PRIVACY_NOTICE = ROUTES.privacyNotice.path();
  *
  * Outside `COPY` and `SERVER_COPY`, whose entries the copy standard rewords freely. A label's month is the month its
  * words go live, which the deploy first serving them sets.
+ *
+ * A rewording adds the new label here beside the old and moves the choice's current `Literal` on the backend onto it,
+ * which a press then names alone. A kind's press fields also name every label its stored records may cite, so the
+ * same change splits the two: the old label joins `FLEinwilligungTextVersion`, and `cite_their_kind` reads each kind's
+ * labels from a set naming the old beside the current rather than off the press fields, or every read of a record
+ * stamped under the old words is refused.
  */
 export const CONSENT_WORDINGS = {
   "2026-11-whatsapp-1": {
@@ -82,22 +84,16 @@ export const CONSENT_WORDINGS = {
   // under a label it refuses, fails the type check.
 } as const satisfies Readonly<Record<FLEinwilligungTextVersion, SwitchWording | ScopeWording>>;
 
-// The labels each kind of record's press names, one per choice: each choice's current wording, the one label a grant
-// may name, though the request schema admits every label its kind's records cite so a withdrawal from an older page
-// still reaches. Checked against the backend's current labels, so a rewording that moves one fails here rather than
-// refusing every grant from the page.
-export const SEAT_TEXT_VERSIONS = { scope: "2026-11-whatsapp-1", media: "2026-11-media-1" } as const satisfies FLSeatTextVersions & {
-  readonly scope: FLWhatsappTextVersion;
-  readonly media: FLMediaTextVersion;
-};
-export const SPIELER_TEXT_VERSIONS = { scope: "2026-11-name-kader-1", media: "2026-11-media-1" } as const satisfies FLSpielerTextVersions & {
-  readonly scope: FLNameKaderTextVersion;
-  readonly media: FLMediaTextVersion;
-};
+// The labels each kind of record's press names, one per choice: each choice's current wording, the one label the
+// request schema admits, a withdrawal's included, so a press from a page drawn before a rewording is refused once and
+// answered as a stale page. Checked against the backend's request schemas, so a rewording that moves a label there and
+// leaves it here fails the type check rather than refusing every press from the page.
+export const SEAT_TEXT_VERSIONS = { scope: "2026-11-whatsapp-1", media: "2026-11-media-1" } as const satisfies FLSeatTextVersions;
+export const SPIELER_TEXT_VERSIONS = { scope: "2026-11-name-kader-1", media: "2026-11-media-1" } as const satisfies FLSpielerTextVersions;
 export const SCHIEDSRICHTER_TEXT_VERSIONS = {
   scope: "2026-11-name-spielplan-1",
   media: "2026-11-media-1",
-} as const satisfies FLSchiedsrichterTextVersions & { readonly scope: FLNameSpielplanTextVersion; readonly media: FLMediaTextVersion };
+} as const satisfies FLSchiedsrichterTextVersions;
 
 /** The words a kind's page shows beside its two choices, read off its labels so a page shows what its press stamps. */
 export const SEAT_WORDINGS = { scope: CONSENT_WORDINGS[SEAT_TEXT_VERSIONS.scope], media: CONSENT_WORDINGS[SEAT_TEXT_VERSIONS.media] };

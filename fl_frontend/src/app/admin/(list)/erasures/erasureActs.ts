@@ -4,7 +4,8 @@ import { z } from "zod";
 
 import { action, PAGE_HOLDER } from "@/core/action";
 import { accountHoldingsAt, deleteAccountFor } from "@/core/auth/accounts";
-import { COPY } from "@/core/copy";
+import { ADMIN_COPY } from "@/core/copy/admin";
+import { COPY } from "@/core/copy/shared";
 import { formatNumber } from "@/core/format";
 import { identityGetErasureView, identityPostErasure } from "@/core/generated/client/sdk";
 import { IdentityPostErasureBody } from "@/core/generated/zod/inputs";
@@ -14,7 +15,7 @@ import type { Copy } from "@/core/copy";
 import type { FLErasureViewResponse } from "@/core/generated/client/types";
 import type { Fact } from "@/kit/Facts";
 
-const WORDS = COPY.admin.erasure;
+const WORDS = ADMIN_COPY.erasure;
 
 /** What the confirmation counts: the league's records, then the account's, which the sign-in store holds. */
 type ErasureCounts = FLErasureViewResponse & { account: number; passkeys: number };
@@ -22,15 +23,15 @@ type ErasureCounts = FLErasureViewResponse & { account: number; passkeys: number
 /** The rows the confirmation can show, in the order it shows them. */
 const COUNTS = [
   [COPY.template.account, "account"],
-  [COPY.account.passkeys.title, "passkeys"],
+  [COPY.shared.passkeys, "passkeys"],
   [COPY.shared.spieler, "spieler"],
   [COPY.shared.schiedsrichter, "schiedsrichter"],
   [WORDS.count.teamSeats, "kontakt_seats"],
   [WORDS.count.bewerbungSeats, "bewerbung_seats"],
   [COPY.page.registrierungen, "registrierungen"],
   [WORDS.count.spiele, "spiele"],
-  [WORDS.count.addressChanges, "address_change"],
-  [WORDS.count.grant, "grants"],
+  [COPY.shared.erasureCount.addressChanges, "address_change"],
+  [COPY.shared.erasureCount.grant, "grants"],
 ] as const satisfies ReadonlyArray<readonly [Copy, keyof ErasureCounts]>;
 
 /** Only what is there. */
@@ -51,14 +52,13 @@ export const readErasureCounts = action({
   lane: "admin",
   name: "readErasureCounts",
   input: IdentityPostErasureBody,
-  ownWords: ["own_address", "admin_address", "email_not_accepted"],
-  paths: { email: "email" },
+  boxes: ["email"],
   examples: { email: COPY.shared.field.exampleAddress },
   run: async ({ email, reason }) => {
     const view = await identityGetErasureView({ email });
     // After the view, whose refusal leaves the sign-in store unread.
     const facts = factsOf({ ...view, ...(await accountHoldingsAt(email)) });
-    const consequence = facts.length === 0 ? COPY.admin.nothingAtAddress : WORDS.consequence;
+    const consequence = facts.length === 0 ? COPY.shared.nothingAtAddress : WORDS.consequence;
     return { ok: true, value: { question: { subject: WORDS.object, consequence, facts }, input: { email, reason } } };
   },
 });
@@ -86,12 +86,11 @@ export const eraseAddress = action({
   name: "eraseAddress",
   passkey: true,
   input: z.object({ ...IdentityPostErasureBody.shape, ...PAGE_HOLDER }),
-  ownWords: ["own_address", "admin_address", "foreign_address_change", "email_not_accepted"],
-  paths: { email: "email" },
+  boxes: ["email"],
   examples: { email: COPY.shared.field.exampleAddress },
   run: async ({ email, reason }) => {
     await identityPostErasure({ email, reason });
-    if (await accountCleared(email)) return { ok: true, value: undefined, note: COPY.admin.erased };
+    if (await accountCleared(email)) return { ok: true, value: undefined };
     return { ok: false, reason: WORDS.partial, warn: true };
   },
 });

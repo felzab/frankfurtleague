@@ -1,37 +1,9 @@
-import { smallCaps } from "./cardStyles";
+import { FieldGroup } from "./FieldGroup";
 import { FieldStack } from "./FieldStack";
 import { tv } from "./tv";
 
 import type { Copy } from "@/core/copy";
 import type { ReactNode } from "react";
-
-/**
- * A group of a box's fields under its name, set as the kit's subhead in small capitals, such as a season's points over
- * the win, the draw and the loss: 8 px more above it than between two fields, unless it opens the box, and 8 px under
- * its name, so the name stands with the fields it names. A fieldset and its legend, the platform's own group with a
- * name, which a screen reader says before each field's label.
- */
-const subgroup = tv({
-  slots: {
-    root: "grid w-full min-w-0 not-first:mt-2",
-    name: smallCaps({ class: "mb-2" }),
-  },
-});
-
-/**
- * A few of a box's fields under their name, each field at its own width, as a school's address stands inside the
- * application's first box, and `FieldRows`' rows under theirs, in the fields' one rhythm. A dialog parts its fields with
- * `FieldGroup` instead, whose hairline runs to the dialog's edges, which a box inside a page does not have.
- */
-export function FieldSubgroup({ name, children }: { name: Copy; children: ReactNode }) {
-  const group = subgroup();
-  return (
-    <fieldset className={group.root()}>
-      <legend className={group.name()}>{name}</legend>
-      <FieldStack>{children}</FieldStack>
-    </fieldset>
-  );
-}
 
 const fieldRows = tv({
   slots: {
@@ -47,7 +19,7 @@ const fieldRows = tv({
 /**
  * Values of one kind, or a span's two ends, as rows: each row its label at the far left and its field at the far right,
  * at every width, so no label wraps and a phone's narrow box holds them as a wide one does. `label` names the group over
- * its rows as a subgroup (`subgroup`). A lone field keeps its label above it, and two fields of two kinds stand as a
+ * its rows as a `FieldGroup`. A lone field keeps its label above it, and two fields of two kinds stand as a
  * `FieldPair`.
  */
 export function FieldRows({ label, children }: { label?: Copy; children: readonly [ReactNode, ReactNode, ...ReactNode[]] }) {
@@ -60,5 +32,5 @@ export function FieldRows({ label, children }: { label?: Copy; children: readonl
       {child}
     </div>
   ));
-  return label === undefined ? <FieldStack>{rows}</FieldStack> : <FieldSubgroup name={label}>{rows}</FieldSubgroup>;
+  return label === undefined ? <FieldStack>{rows}</FieldStack> : <FieldGroup name={label}>{rows}</FieldGroup>;
 }

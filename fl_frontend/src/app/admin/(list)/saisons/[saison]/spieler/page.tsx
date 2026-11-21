@@ -1,7 +1,7 @@
 import { cache } from "react";
 import { notFound } from "next/navigation";
 
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { kaderName } from "@/features/spieler/constants";
@@ -15,25 +15,23 @@ import { metadataFor } from "@/shared/utils/notFoundMetadata";
 import type { FLSpielerAdminRow } from "@/core/generated/client/types";
 import type { Filter } from "@/kit/Filters";
 import type { TableHead, TableRow } from "@/kit/Table";
-import type { Metadata, ResolvingMetadata } from "next";
+import type { Metadata } from "next";
 
 type Props = PageProps<"/admin/saisons/[saison]/spieler">;
 
-const WORDS = COPY.admin.spieler;
-
-/** The season's squad rows, `null` for a season the league does not hold: one read for the tab's title and the page alike. */
+/** The season's squad rows, `null` for a season the league does not hold. */
 const read = cache(getSpielerAdmin);
 
-export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { saison } = await params;
-  return metadataFor(read(saison), () => pageMetadata(parent, ROUTES.adminSpieler, ROUTES.adminSpieler.path(saison)));
+  return metadataFor(read(saison), () => pageMetadata(ROUTES.adminSpieler, ROUTES.adminSpieler.path(saison)));
 }
 
 /** What the state filter offers, each by whether a row answers it. */
 const STATES = {
-  active: { label: COPY.admin.team.active, holds: (row: FLSpielerAdminRow) => row.inactive_since === null },
-  nominee: { label: WORDS.nominee, holds: (row: FLSpielerAdminRow) => row.inactive_since === null && row.is_nachnominiert },
-  deregistered: { label: WORDS.deregistered, holds: (row: FLSpielerAdminRow) => row.inactive_since !== null },
+  active: { label: COPY.shared.state.active, holds: (row: FLSpielerAdminRow) => row.inactive_since === null },
+  nominee: { label: COPY.shared.state.nominee, holds: (row: FLSpielerAdminRow) => row.inactive_since === null && row.is_nachnominiert },
+  deregistered: { label: COPY.kader.deregistered, holds: (row: FLSpielerAdminRow) => row.inactive_since !== null },
 };
 
 type State = keyof typeof STATES;
@@ -51,7 +49,7 @@ function rowOf(saison: string, row: FLSpielerAdminRow): TableRow {
     cells: {
       team: row.team_name === null ? COPY.shared.noValue : { record: row.team_name },
       nummer: row.nummer === null ? COPY.shared.noValue : { record: row.nummer },
-      stufe: row.stufe === null ? COPY.shared.noValue : COPY.admin.saison.stufe[row.stufe],
+      stufe: row.stufe === null ? COPY.shared.noValue : { record: row.stufe },
     },
   };
 }
@@ -72,7 +70,7 @@ function filtersOf(rows: readonly FLSpielerAdminRow[], team: string | string[] |
     },
     {
       name: "state",
-      label: COPY.admin.schiedsrichter.state,
+      label: COPY.shared.facts.state,
       all: SERVER_COPY.season.filter.all,
       options: STATE_OPTIONS,
       value: state,
@@ -94,11 +92,11 @@ async function readSeason(params: Props["params"], searchParams: Props["searchPa
 
 const HEAD: TableHead = {
   nameLabel: COPY.shared.name,
-  state: { label: COPY.admin.schiedsrichter.state },
+  state: { label: COPY.shared.facts.state },
   columns: [
     { key: "team", label: COPY.shared.facts.team, hideOnPhone: true, width: "phone", cut: true },
     { key: "nummer", label: SERVER_COPY.season.column.nummer, figures: true, narrow: true, width: "count" },
-    { key: "stufe", label: WORDS.stufe, hideOnPhone: true, width: "code" },
+    { key: "stufe", label: COPY.kader.stufe, hideOnPhone: true, width: "code" },
   ],
 };
 
@@ -115,7 +113,7 @@ export default function SpielerPage({ params, searchParams }: Props) {
       filters={season.then(({ filters }) => filters)}
       list={{
         kind: "table",
-        search: { label: WORDS.search },
+        search: { label: COPY.kader.search },
         head: HEAD,
         content: season.then(({ saison, filters, shown }) => ({
           table: {

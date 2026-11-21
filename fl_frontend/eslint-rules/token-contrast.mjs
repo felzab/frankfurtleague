@@ -28,8 +28,10 @@ export const PAIRS = [
   ["border-control", "bg-overlay", EDGE, "a control's edge"],
   ["on-brand", "brand-solid", EDGE, "the focus ring on the band"],
   // A chip's word on its own tint, which is opaque (a six-digit hex, as every measured token is), so no ground
-  // beneath the chip enters the pair.
+  // beneath the chip enters the pair; a callout's title and a status card's glyph are the same pair.
   ...["success", "info", "warn", "danger", "fg-muted"].map((hue) => [hue, `${hue}-tint`, TEXT, "a chip's word on its tint"]),
+  // A callout's sentence, in the text colour on its tone's tint.
+  ...["success", "info", "warn", "danger"].map((hue) => ["fg", `${hue}-tint`, TEXT, "a callout's sentence on its tint"]),
 ];
 
 const HEX = /^#([0-9a-f]{6})$/i;

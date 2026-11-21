@@ -7,11 +7,7 @@ import type { FLSpieleAdminSingleResponse, FLSpieleSpielplanAdminResponse, FLTea
 
 /** Admin-tier: it round-trips the rent and the referee's Honorar, two figures a base-tier read withholds. */
 export async function getAdminSpiel(spielId: string): Promise<FLSpieleAdminSingleResponse | null> {
-  return runAdminRead(() =>
-    // `null` for "no such fixture", which the editor page turns into `notFound()`. Every other
-    // status still throws.
-    orMissing(spieleGetSpielAdmin(spielId)),
-  );
+  return runAdminRead(() => orMissing(spieleGetSpielAdmin(spielId)));
 }
 
 /** A planned season's included; `null` for a season id naming no season, which the page answers as not found. */

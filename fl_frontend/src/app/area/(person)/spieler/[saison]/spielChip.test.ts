@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { COPY } from "@/core/copy";
+import { AREA_COPY } from "@/core/copy/area";
+import { COPY } from "@/core/copy/shared";
 
 import { spielChipOf } from "./spielChip";
 
@@ -14,14 +15,14 @@ describe("the chip on a pupil's match card", () => {
   });
 
   it.each([
-    [true, COPY.area.spieler.lineupPlace.starts],
-    [false, COPY.area.spieler.lineupPlace.bench],
+    [true, AREA_COPY.spieler.lineupPlace.starts],
+    [false, AREA_COPY.spieler.lineupPlace.bench],
   ])("names the pupil's place where the line-up names them (starts %s), over an unconfirmed date", (starts, label) => {
     expect(spielChipOf({ ...CONFIRMED, starts, ansetzung_confirmed: false }, false)?.label).toBe(label);
   });
 
   it("says „Vorläufig“ for an unconfirmed date the line-up leaves the pupil out of", () => {
-    expect(spielChipOf({ ...CONFIRMED, ansetzung_confirmed: false }, false)?.label).toBe(COPY.admin.spiel.provisional);
+    expect(spielChipOf({ ...CONFIRMED, ansetzung_confirmed: false }, false)?.label).toBe(COPY.spielplan.provisional);
     expect(spielChipOf(CONFIRMED, false)).toBe(undefined);
   });
 });

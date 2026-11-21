@@ -1,12 +1,13 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 
 import { Focusable } from "react-aria-components/Focusable";
 
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 
 import { Button } from "./Button";
+import { RailContext, useRail } from "./railContext";
 import { RAIL_ID } from "./railStyles";
 import { Tooltip } from "./Tooltip";
 import { tv } from "./tv";
@@ -14,22 +15,6 @@ import { useDesktop } from "./useDesktop";
 
 import type { Copy } from "@/core/copy";
 import type { ComponentProps, ReactNode } from "react";
-
-const RailContext = createContext<{ collapsed: boolean; toggle: () => void } | null>(null);
-
-/**
- * Whether the rail stands collapsed to its glyphs, and the toggle flipping it: read by the strip's toggle
- * and by a rail link's tooltip, which opens only while the link's words are clipped. `null` outside a rail
- * frame.
- */
-function useRail() {
-  return useContext(RailContext);
-}
-
-/** Whether the rail stands collapsed, for a rail part whose menu then opens beside the rail; `false` outside a rail frame. */
-export function useRailCollapsed() {
-  return useRail()?.collapsed === true;
-}
 
 /**
  * The rail's width, from the measures `tokens.css` declares on the root, switched to its collapsed width by
@@ -99,15 +84,18 @@ export function RailToggle() {
 
 /**
  * A rail link's name at its end while the rail is collapsed and its words are clipped; a plain link becomes
- * the tooltip's trigger through React Aria's `Focusable`, as its guide has for an element of its own.
+ * the tooltip's trigger through React Aria's `Focusable`, as its guide has for an element of its own. Only
+ * where the rail stands: a window folded and then narrowed keeps the collapsed state, while the phone's band
+ * shows its „‹ Zurück“ whole.
  */
 export function RailTooltip({ label, children }: { label: Copy; children: ComponentProps<typeof Focusable>["children"] }) {
   const rail = useRail();
+  const isDesktop = useDesktop();
   return (
     <Tooltip
       label={label}
       placement="end"
-      isDisabled={rail?.collapsed !== true}>
+      isDisabled={!isDesktop || rail?.collapsed !== true}>
       <Focusable>{children}</Focusable>
     </Tooltip>
   );

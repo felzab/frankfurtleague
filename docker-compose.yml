@@ -223,8 +223,7 @@ services:
       - nginx
 
 # Each a file the host provides, never a variable: `docker inspect` prints an environment and never a
-# mount's contents. One name on the host, at `/run/secrets/` and in development, so the two database
-# logins take two.
+# mount's contents. One name on the host and at `/run/secrets/`, so the two database logins take two.
 secrets:
   tunnel_token:
     file: ./secrets/tunnel_token

@@ -2,9 +2,9 @@
 #
 # SCRIPTS · run the real production image on your own machine, behind the real nginx.
 #
-# `next dev` runs the app from source, so it exercises neither the standalone build, the startup
-# environment gate, nginx nor the security headers — and so cannot see `instrumentation.ts` being
-# dropped from the image, nor a module-scope `AUTH_URL` read failing in the builder stage.
+# Built as production's images are, so it exercises the standalone build, the startup environment gate,
+# nginx and the security headers — and so sees `instrumentation.ts` dropped from the image, or a
+# module-scope `AUTH_URL` read failing in the builder stage, which no test run of the source can.
 #
 #   ./scripts/ops/local.sh               build changed layers, start, wait for health
 #   ./scripts/ops/local.sh --fresh       ALSO delete the volumes, and with them Next's build cache and the

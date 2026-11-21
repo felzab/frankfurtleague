@@ -4,11 +4,11 @@ import { z } from "zod";
 import { answerTheLookup, GRANTED } from "@/test-support/authDoubles";
 import { networkFailure, refusal, serveBackend, serveHost } from "@/test-support/backend";
 import { cacheCalls } from "@/test-support/nextRequest";
+import { posted } from "@/test-support/posted";
 import { signedInRequest } from "@/test-support/session";
 import { captureLog } from "@/test-support/stdoutCapture";
-import { seat } from "@/test-support/subjectFixtures";
 
-import { COPY } from "./copy";
+import { COPY } from "./copy/shared";
 import { SERVER_COPY } from "./serverCopy";
 
 import type { FLRefusedField } from "./generated/client/types";
@@ -45,7 +45,7 @@ const log = captureLog();
 const { action, numberBox, PAGE_HOLDER } = await import("./action");
 const { afterTheResponse } = await import("./afterResponse");
 const { sendToBackend } = await import("./api");
-const { AFTER_RESPONSE_DEADLINE_MS, getRequestActor, requestTimeLeft } = await import("./requestScope");
+const { boundCall, getRequestActor, REQUEST_DEADLINE_MS } = await import("./requestScope");
 
 /** A person granted nothing, whom a case arrives as for the person lane. */
 const PERSON = "spielerin@example.org";
@@ -93,15 +93,12 @@ describe("the admin lane", () => {
     signIn: () => arriveAs(null),
     // A person's code session at an address holding no grant.
     noGrant: () => arriveAs({ email: PERSON }),
-    // The file's administrator, signed in by passkey, whose grant the backend now answers gone.
-    grantGone: () => answerTheLookup(() => ({ ...GRANTED, admin_tier: null, granted_since: null, account: true })),
     unread: () => answerTheLookup(() => null),
   } as const;
 
   it.each([
     ["signIn", COPY.shared.failure.signInExpired],
     ["noGrant", COPY.shared.failure.accessGone],
-    ["grantGone", COPY.shared.failure.accessGone],
     ["unread", COPY.shared.failure.unexpected],
   ] as const)("turns a caller the guard refuses as %s away in its shared line, before anything else", async (refused, reason) => {
     await ARRIVALS[refused]();
@@ -143,16 +140,14 @@ describe("the admin lane", () => {
   });
 });
 
-const Seat = z.object({ team_id: z.string().min(1), saison_id: z.string().min(1) });
-
 describe("the person lane", () => {
   const register = action({
     lane: "person",
-    claim: "seat",
+    claim: "record",
     name: "melden",
-    input: Seat,
-    run: async (_input, { seats }) => {
-      ran.push(`body ${String(seats.length)}`);
+    input: z.object({ team_id: z.string().min(1), saison_id: z.string().min(1) }),
+    run: async () => {
+      ran.push("body");
       return { ok: true, value: undefined };
     },
   });
@@ -170,24 +165,21 @@ describe("the person lane", () => {
     ]);
   });
 
-  it.each([
-    ["in another season", { team_id: "t1", saison_id: "2026" }],
-    ["at another team in the same season", { team_id: "t2", saison_id: "2027" }],
-  ])("refuses a seat the person holds %s, naming nothing of the address", async (_where, held) => {
-    await arriveAs({ email: PERSON, records: { seats: [seat(held)] } });
-    // The arrival's own sign-in line is not the refusal's.
+  // The harm: the grant gone between the guard's read and the backend's answered as a crash, which says nothing of why.
+  it("words the guard's own lookup the backend refused by its code, logging no failure", async () => {
+    await arriveAs({ email: PERSON });
+    // The guard's lookup of the person's records, past the sign-in's, reaches the case's own answer.
+    answerTheLookup(() => undefined);
+    backend.answerWith(({ method, path }) => (method === "POST" && path === "/identity/subject" ? refusal("actor_not_admin") : undefined));
     log.clear();
 
-    expect(await register({ team_id: "t1", saison_id: "2027" })).toStrictEqual({ ok: false, reason: COPY.shared.failure.stale });
+    expect(await register({ team_id: "t1", saison_id: "2027" })).toStrictEqual({
+      ok: false,
+      errorCode: "actor_not_admin",
+      reason: COPY.shared.failure.accessGone,
+    });
     expect(ran).toStrictEqual([]);
-    const lines = log.lines();
-    expect(lines.map(({ level, message, fields }) => [level, message, fields])).toStrictEqual([
-      ["INFO", "roles.refused", { operation: "melden", reason: "no_seat" }],
-    ]);
-    for (const { error, raw } of lines) {
-      expect(error, "an error reached the line").toBe(undefined);
-      assert.ok(!carriesAnAddress(raw), `the address reached the line: ${raw}`);
-    }
+    expect(log.lines().filter(({ message }) => message === "action.failed")).toStrictEqual([]);
   });
 });
 
@@ -198,11 +190,11 @@ describe("the passkey touch a lane declares", () => {
   };
   const declared = { name: "passkeyAendern", input: Venue.extend(PAGE_HOLDER), passkey: true } as const;
   const touched = (lane: "admin" | "person") =>
-    lane === "admin" ? action({ ...declared, lane, run }) : action({ ...declared, lane, claim: "record", run });
+    lane === "admin" ? action({ ...declared, lane, run }) : action({ ...declared, lane, claim: "account", run });
 
   /* The touch on a page whose own session ended signs in whichever account's passkey answers: the act would run as it. */
   it.each(["admin", "person"] as const)("refuses the %s lane's act a touch signed another account in for, running nothing", async (lane) => {
-    // The administrator by passkey just now, and a person holding no passkey, each of whom the touch passes.
+    // The administrator by passkey just now, and a person at an address holding no grant, each of whom the touch passes.
     if (lane === "person") await arriveAs({ email: PERSON });
 
     expect(await touched(lane)({ name: "Nord", postcode: "60438", holder: "jemand-anderes@example.org" })).toStrictEqual({
@@ -210,6 +202,27 @@ describe("the passkey touch a lane declares", () => {
       reason: COPY.shared.failure.signInExpired,
     });
     expect(ran).toStrictEqual([]);
+  });
+
+  /* The harm: a grant read as none would let a mailbox's code session erase an administrator's account, or move its
+     address, with no touch, and nothing would show it. */
+  it("runs nothing where the account's guard reads no grant, answering the shared failure line", async () => {
+    // The administrator's address signed in by its mailed code alone, which the person guard serves.
+    await arriveAs({ email: PERSON });
+    // The person guard's read answers the address's grant; the account guard's, the next, fails on the network.
+    let reads = 0;
+    answerTheLookup((email) => {
+      if (email !== PERSON) return undefined;
+      reads += 1;
+      return reads === 1 ? { ...GRANTED, account: true } : null;
+    });
+
+    expect(await touched("person")({ name: "Nord", postcode: "60438", holder: PERSON })).toStrictEqual({
+      ok: false,
+      reason: COPY.shared.failure.unexpected,
+    });
+    expect(ran).toStrictEqual([]);
+    expect(reads, "the account's guard read no grant of its own").toBe(2);
   });
 });
 
@@ -265,11 +278,9 @@ describe("the public lane", () => {
         ? { success: false, "error-codes": ["invalid-input-response"] }
         : undefined,
     );
-    const posted = new FormData();
-    posted.set("email", "no-address");
-    posted.set("cf-turnstile-response", "token");
+    const form = posted({ email: "no-address", "cf-turnstile-response": "token" });
 
-    expect(await send(posted)).toStrictEqual({ ok: false, reason: COPY.shared.botCheck });
+    expect(await send(form)).toStrictEqual({ ok: false, reason: COPY.shared.botCheck });
     expect(judged.map(({ body }) => (body as { response?: unknown }).response)).toStrictEqual(["token"]);
     expect(ran).toStrictEqual([]);
   });
@@ -288,13 +299,24 @@ function onLane(lane: "admin" | "person" | "public", work: () => Promise<unknown
     case "person":
       return action({ ...declared, lane, claim: "record", run });
     case "public":
-      return action({ ...declared, lane, exempt: "a case's own action", run });
+      return action({ ...declared, lane, exempt: "mailedLink", run });
   }
 }
 
-/** What the action did to the site's cache, in order. */
+/** What the action did to the site's cache, in order, an expiry with the profile it was handed. */
 const cacheSteps = () =>
-  cacheCalls.flatMap(({ name, args }) => (name === "updateTag" ? [`updateTag ${String(args[0])}`] : name === "refresh" ? [name] : []));
+  cacheCalls.flatMap(({ name, args }) => {
+    switch (name) {
+      case "updateTag":
+        return [`updateTag ${String(args[0])}`];
+      case "revalidateTag":
+        return [`revalidateTag ${String(args[0])} ${JSON.stringify(args[1])}`];
+      case "refresh":
+        return [name];
+      default:
+        return [];
+    }
+  });
 
 describe("the site's cache", () => {
   it.each(["admin", "person", "public"] as const)("is cleared on the %s lane once the body sent a write", async (lane) => {
@@ -322,6 +344,22 @@ describe("the site's cache", () => {
     expect(cacheSteps()).toStrictEqual(["updateTag site"]);
   });
 
+  /* The harm: the same response's render replaces a visitor's form with the error card, its typed answers and its replay
+     key lost, so a second press after an outage makes a second write. */
+  it.each([
+    ["whose answer never came", networkFailure()],
+    ["the backend answered as one that may stand", refusal("unknown_outcome", { status: 500 })],
+  ])("is expired without a render on the public lane for a write %s", async (_answer, answer) => {
+    const answered = await onLane("public", () => sends("POST", answer))({ name: "Nord" });
+
+    expect(answered).toMatchObject({ ok: false, reason: COPY.shared.failure.unexpected });
+    expect(cacheCalls.map(({ name, args: [tag] }) => `${name} ${String(tag)}`)).toStrictEqual(["revalidateTag site"]);
+    // `{ expire: 0 }`, or no profile, renders the page again in the same response, as `updateTag` does.
+    const profile = cacheCalls[0]?.args[1] as { readonly expire?: unknown } | undefined;
+    expect(Object.keys(profile ?? {})).toStrictEqual(["expire"]);
+    expect(profile?.expire).toBeGreaterThan(0);
+  });
+
   it("is cleared where one write landed before another was refused", async () => {
     await onLane("admin", async () => {
       await sends("POST");
@@ -336,12 +374,16 @@ describe("the site's cache", () => {
   // rather than what the action's 30 seconds have left.
   it("stands when the body's write runs behind the response, in a scope of its own", async () => {
     const clock = vi.spyOn(performance, "now").mockReturnValue(0);
-    const seen: { actor: unknown; left: number }[] = [];
+    const bounds = vi.spyOn(AbortSignal, "timeout");
+    const seen: { actor: unknown; bound: unknown }[] = [];
     try {
       // Under the actor the administrator's guard recorded for the action.
       const answer = await onLane("admin", async () => {
         afterTheResponse(async () => {
-          seen.push({ actor: getRequestActor(), left: requestTimeLeft() });
+          // A bound past the deadline's length, so the call is cut to what the work's deadline has left: the action's
+          // 10 seconds where it inherited them, its own 30, or the bound itself where no scope encloses it.
+          boundCall(REQUEST_DEADLINE_MS + 1);
+          seen.push({ actor: getRequestActor(), bound: bounds.mock.calls.at(-1)?.[0] });
           await sends("POST");
         });
       })({ name: "Nord" });
@@ -351,11 +393,65 @@ describe("the site's cache", () => {
       for (const task of behind.splice(0)) await task();
     } finally {
       clock.mockRestore();
+      bounds.mockRestore();
     }
 
     expect(sent()).toStrictEqual([`POST ${PROBE}`]);
     expect(cacheSteps()).toStrictEqual([]);
-    expect(seen).toStrictEqual([{ actor: undefined, left: AFTER_RESPONSE_DEADLINE_MS }]);
+    expect(seen).toStrictEqual([{ actor: undefined, bound: REQUEST_DEADLINE_MS }]);
+  });
+});
+
+// The harm: the backend's refusal of a box the screen shows answered away from that box, where nobody finds what to fix.
+describe("a refused field's box", () => {
+  const { field } = COPY.shared;
+
+  /** A seat's address, sent beside the record's id the form carries unseen, which the backend refuses for `refusedAt`. */
+  const writeSeat = (refusedAt: string) =>
+    action({
+      lane: "admin",
+      name: "writeSeat",
+      input: z.object({ id: z.string().min(1), email: z.email() }),
+      boxes: ["email"],
+      run: async () => {
+        const refused: FLRefusedField = { in: "body", kind: "kontakt_email_taken", ctx: {}, path: [refusedAt] };
+        await sends("PUT", refusal("kontakt_email_taken", { fields: [refused] }));
+        return { ok: true, value: undefined };
+      },
+    });
+  const SEAT = { id: "6890a1b2c3d4e5f607190001", email: "lena@example.com" };
+
+  it("places the backend's refusal of a box the screen shows on that box", async () => {
+    expect(await writeSeat("email")(SEAT)).toStrictEqual({ ok: false, errorCode: "kontakt_email_taken", fieldErrors: { email: field.taken } });
+  });
+});
+
+/* The harm: a refusal the catalogue words answered as a failure naming no reason on a screen that did not expect it,
+   or a refusal of the request answered as an outage, which sends the person to retry what the API refuses again. */
+describe("a refusal's line", () => {
+  const { stale, unexpected } = COPY.shared.failure;
+
+  /** A write showing no box, which the backend refuses with `answer`. */
+  const save = (answer: Response) =>
+    action({
+      lane: "admin",
+      name: "save",
+      input: z.object({ id: z.string().min(1) }),
+      run: async () => {
+        await sends("PUT", answer);
+        return { ok: true, value: undefined };
+      },
+    });
+
+  it.each([
+    ["a code the catalogue holds a sentence for", "saison_past", SERVER_COPY.refusalLine.saison_past],
+    ["a code no catalogue entry words", "retire_blocked", stale],
+    ["a code whose field phrase names no box here", "duplicate_key", stale],
+    ["a code whose sentence is the field's, naming none", "booking_unknown_resource", stale],
+    ["a code refusing nothing the request asked", "session_refused", unexpected],
+    ["the store's failure", "database_failed", unexpected],
+  ] as const)("answers %s in its line on any screen", async (_case, code, reason) => {
+    expect(await save(refusal(code))({ id: "6890a1b2c3d4e5f607190001" })).toStrictEqual({ ok: false, errorCode: code, reason });
   });
 });
 
@@ -365,17 +461,19 @@ describe("a list of records", () => {
   const Report = z.object({ changes: z.object({ scorers: z.array(z.object({ minute: z.string().regex(/^\d{1,3}$/) })).max(3) }) });
   const scorers = (...minutes: string[]) => ({ changes: { scorers: minutes.map((minute) => ({ minute })) } });
 
-  /** A save of the report's rows, which the backend refuses for the third row's minute. */
-  const save = (paths: { [path: string]: "changes.scorers" | "changes.scorers.*.minute" }) =>
+  /** A save of the report's rows, which the backend refuses for the third row's minute, by the path `refusedAt` gives. */
+  const save = (
+    paths: { [path: string]: "changes.scorers" | "changes.scorers.*.minute" },
+    refusedAt: readonly string[] = ["bericht", "scorers"],
+  ) =>
     action({
       lane: "admin",
       name: "saveBericht",
       input: Report,
-      ownWords: ["nichtantreten_with_scorers"],
       paths,
       examples: { "changes.scorers.*.minute": field.exampleDigits },
       run: async () => {
-        const refused: FLRefusedField = { in: "body", kind: "nichtantreten_with_scorers", ctx: {}, path: ["bericht", "scorers", 2, "minute"] };
+        const refused: FLRefusedField = { in: "body", kind: "nichtantreten_with_scorers", ctx: {}, path: [...refusedAt, 2, "minute"] };
         await sends("PUT", refusal("payload_refused", { fields: [refused] }));
         return { ok: true, value: undefined };
       },
@@ -398,7 +496,16 @@ describe("a list of records", () => {
     expect(await save({ "bericht.scorers.*.minute": "changes.scorers.*.minute" })(scorers("12", "45", "90"))).toStrictEqual({
       ok: false,
       errorCode: "payload_refused",
-      fieldErrors: { "changes.scorers.2.minute": field.without(COPY.admin.spiel.scorers) },
+      fieldErrors: { "changes.scorers.2.minute": field.without(COPY.spielplan.scorers) },
+    });
+  });
+
+  // The harm: an editor's box added without a `paths` entry answers the backend's refusal of it with the shared line.
+  it("places the backend's refusal of a path the editor's changes hold on that box, no path declared", async () => {
+    expect(await save({}, ["scorers"])(scorers("12", "45", "90"))).toStrictEqual({
+      ok: false,
+      errorCode: "payload_refused",
+      fieldErrors: { "changes.scorers.2.minute": field.without(COPY.spielplan.scorers) },
     });
   });
 
@@ -429,8 +536,6 @@ describe("a screen showing no box with its answer", () => {
       lane: "admin",
       name: "enterBan",
       input: Ban,
-      ownWords: ["email_not_accepted"],
-      paths: { email: "email", ban_reason: "ban_reason" },
       boxless: {
         // The rule's sentence apart from the box's own, so the answer shows which of the two was read.
         email: { value: format.address, email_not_accepted: format.next },

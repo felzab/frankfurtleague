@@ -8,8 +8,8 @@ import type { Locator, Page } from "@playwright/test";
 /**
  * Types into a box, tapped first as a person reaches it: once the page's code runs, React hydrates what a press lands
  * on during the press itself (https://github.com/reactwg/react-18/discussions/37), so a press after it finds its
- * handler. Before that, text in the box is the browser's until the box replays it on hydrating, and React replays a
- * press held with it.
+ * handler. Before that, every kit field stands `inert`, which Playwright's click and fill wait out as they wait for
+ * any control to be actionable.
  */
 export async function typeInto(box: Locator, value: string): Promise<void> {
   await box.click();
@@ -100,9 +100,9 @@ export async function choose(page: Page, scope: Locator, label: RegExp, option: 
 
 /**
  * Presses a row's act by its name, as a person finds it: the row's own button where the row shows one, else the row's
- * „Mehr“ and then the menu's entry of that name. A row's acts have these two homes by their list, at every width: a
- * decision and a list's one side act are buttons, and the side acts of a list whose rows carry two or more stand in
- * each row's one „⋯“. It fails where the row shows neither.
+ * „Mehr“ and then the menu's entry of that name. A row's acts have these two homes: a decision's are buttons at every
+ * width, and side acts are buttons where the list's box is 42 rem wide or more and each row's one „⋯“ where it is
+ * narrower. It fails where the row shows neither.
  */
 export async function pressRowAct(row: Locator, name: string): Promise<void> {
   const button = row.getByRole("button", { name, exact: true });
