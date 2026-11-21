@@ -237,16 +237,16 @@ measures section 8's. "Administrators" are the holders of a grant to the adminis
   - Data:
     - each request's access line: the visitor's address, the time, the method, the path without its
       query, the status, the durations, the size and the browser identifier
-      (`nginx/shared/http.conf :: fl_json`). A mailed link carries its token in the query, so no
-      token reaches the line, which `scripts/checks/edge_test.sh` holds;
-    - nginx's error lines. A refusal writes none, and neither does any request to a page a mailed
-      link opens, so no token reaches one. Every other line, an upstream failure's among them,
-      repeats the request line whole, its query and referrer with it
+      (`nginx/shared/http.conf :: fl_json`). A mailed or shared link carries its token in the query,
+      so no token reaches the line, which `scripts/checks/edge_test.sh` holds;
+    - nginx's error lines. A refusal writes none, and neither does any request to a page a mailed or
+      shared link opens, so no token reaches one. Every other line, an upstream failure's among
+      them, repeats the request line whole, its query and referrer with it
       ([`ops/spec.md`](ops/spec.md#13-nginx-routing));
     - the application's log lines;
-    - in the browser, the session cookie, a passkey ceremony's cookie, a mailed link's cookie
-      holding its token for an hour (`fl_frontend/src/core/mailedLink.ts`), the theme in local
-      storage, Cloudflare's challenge clearance and Turnstile's frame;
+    - in the browser, the session cookie, a passkey ceremony's cookie, a mailed or shared link's
+      cookie holding its token for an hour (`fl_frontend/src/core/mailedLink.ts`), the theme in
+      local storage, Cloudflare's challenge clearance and Turnstile's frame;
     - in the browser too, the code sign-in's cookie, `__Host-auth.code_asked` over https. It holds a
       signed token carrying a keyed digest of the typed address, is set on every ask for a code, a
       member's and a stranger's alike, and lives as long as the code, `CODE_VALIDITY_SECONDS`
