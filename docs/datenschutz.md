@@ -732,8 +732,9 @@ the notice and the procedures in [`ops/runbooks.md`](ops/runbooks.md) stand as t
 22. **An adult contact person's birthdate**: whether the one age check carries storing the date
     until the end of the following season, or a note of the check is enough (Art. 5(1)(c), (e)).
 23. **The source under Art. 14(2)(f)**: the form stores nobody as having sent it, the page saying
-    „in der Bewerbung von {Schule}“ and the notice „von der Person, die die Bewerbung einreicht“.
-    Whether that is enough, recital 61's general information being for various sources.
+    „Du bist in der Bewerbung für die Saison {Saison} als {Sitze} genannt“ and naming no school, and
+    the notice „von der Person, die die Bewerbung einreicht“. Whether that is enough, recital 61's
+    general information being for various sources.
 24. **A Trainer of 16 or 17**: a contact person may be 16, can give the WhatsApp consent and decides
     admissions to a squad, seeing other minors' names to do so. Whether the answers on pupils and on
     the two 18 seats carry that too.
