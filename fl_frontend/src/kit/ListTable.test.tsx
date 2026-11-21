@@ -1,4 +1,6 @@
 // @vitest-environment jsdom
+import { UnrecognizedActionError } from "next/dist/client/components/unrecognized-action-error";
+
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -155,10 +157,16 @@ describe("a list past one read's cap", () => {
     expect(load).toHaveBeenLastCalledWith({ by: "system", query: "", cursor: "9" });
   });
 
-  it.each<[string, Answer]>([
-    ["refused", () => Promise.resolve({ ok: false, reason: COPY.shared.failure.unexpected })],
-    ["lost", () => Promise.reject(new TypeError("Failed to fetch"))],
-  ])("keeps the rows drawn and says so on its status line where a page is %s", async (_, answer) => {
+  // A page a newer build serves reads the stale line, as a form's press does: the unexpected one would call it a fault.
+  it.each<[string, Answer, string]>([
+    ["refused", () => Promise.resolve({ ok: false, reason: COPY.shared.failure.unexpected }), COPY.shared.failure.unexpected],
+    ["lost", () => Promise.reject(new TypeError("Failed to fetch")), COPY.shared.failure.unexpected],
+    [
+      "asked of an action a newer build no longer serves",
+      () => Promise.reject(new UnrecognizedActionError('Server Action "0" was not found on the server.')),
+      COPY.shared.failure.stale,
+    ],
+  ])("keeps the rows drawn and says so on its status line where a page is %s", async (_, answer, line) => {
     render(
       <Searched>
         <ListTable
@@ -170,7 +178,7 @@ describe("a list past one read's cap", () => {
 
     await userEvent.click(screen.getByRole("button", { name: COPY.shared.loadMore }));
 
-    expect(await screen.findByText(COPY.shared.failure.unexpected)).toBeTruthy();
+    expect(await screen.findByText(line)).toBeTruthy();
     expect(screen.getByText("Sportpark Ost")).toBeTruthy();
     expect(screen.getByRole("button", { name: COPY.shared.loadMore })).toBeTruthy();
   });

@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, use, useEffect, useRef, useState, useTransition } from "react";
-import { unstable_rethrow, usePathname, useSearchParams } from "next/navigation";
+import { unstable_isUnrecognizedActionError, unstable_rethrow, usePathname, useSearchParams } from "next/navigation";
 
 import { textOf } from "@/core/copy";
 import { COPY } from "@/core/copy/shared";
@@ -67,7 +67,11 @@ async function pageOf({ carry, load }: ListMore, request: ListRequest): Promise<
   } catch (thrown) {
     // A redirect or a not-found is how the action leads on; React hands it to Next's boundary.
     unstable_rethrow(thrown);
-    return { ok: false, reason: isEdgeRefusal(thrown) ? COPY.shared.failure.tooManyAttempts : COPY.shared.failure.unexpected };
+    if (isEdgeRefusal(thrown)) return { ok: false, reason: COPY.shared.failure.tooManyAttempts };
+    // An action Next does not recognise means a newer build serves the page: the stale line, as a form words it, with
+    // nothing read again, which would take the rows drawn so far away.
+    if (unstable_isUnrecognizedActionError(thrown)) return { ok: false, reason: COPY.shared.failure.stale };
+    return { ok: false, reason: COPY.shared.failure.unexpected };
   }
 }
 
