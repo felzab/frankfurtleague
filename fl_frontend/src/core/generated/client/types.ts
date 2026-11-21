@@ -3768,6 +3768,15 @@ export interface FLPostSchiedsrichterPayload {
   schule: string | null;
 }
 
+/**
+ * The created referee and the link the create owed them, which every create owes.
+ */
+export interface FLPostSchiedsrichterResponse {
+  confirmation: FLSchiedsrichterMint;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  created_id: string;
+}
+
 export interface FLPostSpielortPayload {
   address: FLAddressPayload;
   /** @minimum 0 */
@@ -4220,13 +4229,6 @@ export interface FLSchiedsrichterListResponse {
 }
 
 export type FLSchiedsrichterMinAgeYears = 16;
-
-/**
- * The re-send's answer. Never null: where no link may be minted a refusal answers instead.
- */
-export interface FLSchiedsrichterMintResponse {
-  confirmation: FLSchiedsrichterMint;
-}
 
 export interface FLSchiedsrichterReactivateResponse {
   confirmation: FLSchiedsrichterMint | null;

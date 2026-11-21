@@ -1511,7 +1511,7 @@ export const SaisonsGetTeamParams = zod.object({
 });
 
 /**
- * Create a referee and owe them their confirmation link.
+ * Create a referee and owe them their confirmation link, answering the address it goes to.
  *
  * Entering a referee is the invitation, with no second press deciding whether they are asked, since a referee nobody
  * asked is a name nobody consented to publish.
@@ -1676,7 +1676,7 @@ export const SchiedsrichterPatchSchiedsrichterBody = zod.object({
 });
 
 /**
- * Owe this referee a fresh confirmation link, which the Postausgang mints and mails, and answer where it goes.
+ * Owe this referee a fresh confirmation link, which the Postausgang mints and mails, to the address they hold.
  *
  * The previous link stops working at once and the deadline restarts from today; a referee who has already answered is
  * refused, since the new link could never be spent.

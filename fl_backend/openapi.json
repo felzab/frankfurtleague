@@ -8241,6 +8241,25 @@
         "title": "FLPostSchiedsrichterPayload",
         "type": "object"
       },
+      "FLPostSchiedsrichterResponse": {
+        "description": "The created referee and the link the create owed them, which every create owes.",
+        "properties": {
+          "confirmation": {
+            "$ref": "#/components/schemas/FLSchiedsrichterMint"
+          },
+          "created_id": {
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Created Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "created_id",
+          "confirmation"
+        ],
+        "title": "FLPostSchiedsrichterResponse",
+        "type": "object"
+      },
       "FLPostSpielortPayload": {
         "additionalProperties": false,
         "properties": {
@@ -10032,19 +10051,6 @@
           "email"
         ],
         "title": "FLSchiedsrichterMint",
-        "type": "object"
-      },
-      "FLSchiedsrichterMintResponse": {
-        "description": "The re-send's answer. Never null: where no link may be minted a refusal answers instead.",
-        "properties": {
-          "confirmation": {
-            "$ref": "#/components/schemas/FLSchiedsrichterMint"
-          }
-        },
-        "required": [
-          "confirmation"
-        ],
-        "title": "FLSchiedsrichterMintResponse",
         "type": "object"
       },
       "FLSchiedsrichterReactivateResponse": {
@@ -19967,7 +19973,7 @@
         ]
       },
       "post": {
-        "description": "Create a referee and owe them their confirmation link.\n\nEntering a referee is the invitation, with no second press deciding whether they are asked, since a referee nobody\nasked is a name nobody consented to publish.",
+        "description": "Create a referee and owe them their confirmation link, answering the address it goes to.\n\nEntering a referee is the invitation, with no second press deciding whether they are asked, since a referee nobody\nasked is a name nobody consented to publish.",
         "operationId": "schiedsrichter_post_schiedsrichter",
         "requestBody": {
           "content": {
@@ -19984,7 +19990,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FLCreatedResponse"
+                  "$ref": "#/components/schemas/FLPostSchiedsrichterResponse"
                 }
               }
             },
@@ -20370,7 +20376,7 @@
     },
     "/api/schiedsrichter/{schiedsrichter_id}/confirmation/resend": {
       "post": {
-        "description": "Owe this referee a fresh confirmation link, which the Postausgang mints and mails, and answer where it goes.\n\nThe previous link stops working at once and the deadline restarts from today; a referee who has already answered is\nrefused, since the new link could never be spent.",
+        "description": "Owe this referee a fresh confirmation link, which the Postausgang mints and mails, to the address they hold.\n\nThe previous link stops working at once and the deadline restarts from today; a referee who has already answered is\nrefused, since the new link could never be spent.",
         "operationId": "schiedsrichter_resend_confirmation",
         "parameters": [
           {
@@ -20385,14 +20391,7 @@
           }
         ],
         "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLSchiedsrichterMintResponse"
-                }
-              }
-            },
+          "204": {
             "description": "Successful Response"
           },
           "default": {

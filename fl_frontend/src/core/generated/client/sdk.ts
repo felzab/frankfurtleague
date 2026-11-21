@@ -94,6 +94,7 @@ import type {
   FLPostSaisonPayload,
   FLPostSaisonResponse,
   FLPostSchiedsrichterPayload,
+  FLPostSchiedsrichterResponse,
   FLPostSpielortPayload,
   FLPostTeamEntryPayload,
   FLReferencesPayload,
@@ -118,7 +119,6 @@ import type {
   FLSchiedsrichterConfirmationViewExpired,
   FLSchiedsrichterConfirmationViewValid,
   FLSchiedsrichterListResponse,
-  FLSchiedsrichterMintResponse,
   FLSchiedsrichterReactivateResponse,
   FLSchiedsrichterSingleResponse,
   FLSchiedsrichterSpieleResponse,
@@ -1947,7 +1947,7 @@ export const getSchiedsrichterPostSchiedsrichterUrl = () => {
 };
 
 /**
- * Create a referee and owe them their confirmation link.
+ * Create a referee and owe them their confirmation link, answering the address it goes to.
  *
  * Entering a referee is the invitation, with no second press deciding whether they are asked, since a referee nobody
  * asked is a name nobody consented to publish.
@@ -1956,8 +1956,8 @@ export const getSchiedsrichterPostSchiedsrichterUrl = () => {
 export const schiedsrichterPostSchiedsrichter = async (
   fLPostSchiedsrichterPayload: FLPostSchiedsrichterPayload,
   options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLCreatedResponse> => {
-  return adminKeyTransport<FLCreatedResponse>(getSchiedsrichterPostSchiedsrichterUrl(), {
+): Promise<FLPostSchiedsrichterResponse> => {
+  return adminKeyTransport<FLPostSchiedsrichterResponse>(getSchiedsrichterPostSchiedsrichterUrl(), {
     ...options,
     method: "POST",
     headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
@@ -2159,7 +2159,7 @@ export const getSchiedsrichterResendConfirmationUrl = (schiedsrichterId: string)
 };
 
 /**
- * Owe this referee a fresh confirmation link, which the Postausgang mints and mails, and answer where it goes.
+ * Owe this referee a fresh confirmation link, which the Postausgang mints and mails, to the address they hold.
  *
  * The previous link stops working at once and the deadline restarts from today; a referee who has already answered is
  * refused, since the new link could never be spent.
@@ -2168,8 +2168,8 @@ export const getSchiedsrichterResendConfirmationUrl = (schiedsrichterId: string)
 export const schiedsrichterResendConfirmation = async (
   schiedsrichterId: string,
   options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLSchiedsrichterMintResponse> => {
-  return adminKeyTransport<FLSchiedsrichterMintResponse>(getSchiedsrichterResendConfirmationUrl(schiedsrichterId), {
+): Promise<void> => {
+  return adminKeyTransport<void>(getSchiedsrichterResendConfirmationUrl(schiedsrichterId), {
     ...options,
     method: "POST",
   });

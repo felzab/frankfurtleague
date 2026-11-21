@@ -22,7 +22,7 @@ from app.shared.schemas.custom import (
 from app.shared.schemas.einwilligung import FLSchiedsrichterTextVersions, cite_their_kind
 from app.shared.schemas.kontakt import CustomKontaktName, CustomStoredAddress, FLKontakt, FLKontaktPayload
 from app.shared.schemas.literals import FLEinwilligungScope
-from app.shared.schemas.responses import BasePayload, BaseReadModel
+from app.shared.schemas.responses import BasePayload, BaseReadModel, FLCreatedResponse
 
 
 class _SchiedsrichterWritable(BaseModel):
@@ -193,8 +193,8 @@ class FLSchiedsrichterReactivateResponse(BaseReadModel):
     confirmation: FLSchiedsrichterMint | None
 
 
-class FLSchiedsrichterMintResponse(BaseReadModel):
-    """The re-send's answer. Never null: where no link may be minted a refusal answers instead."""
+class FLPostSchiedsrichterResponse(FLCreatedResponse):
+    """The created referee and the link the create owed them, which every create owes."""
 
     confirmation: FLSchiedsrichterMint
 

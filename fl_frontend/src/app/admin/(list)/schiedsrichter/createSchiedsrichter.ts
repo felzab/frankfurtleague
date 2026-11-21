@@ -37,8 +37,8 @@ export const createSchiedsrichter = action({
   paths: { "kontakt.email": "email" },
   examples: { name: COPY.shared.field.exampleName, phone: COPY.shared.field.examplePhone },
   run: async ({ name, email, phone, schule, default_payment }) => {
-    await schiedsrichterPostSchiedsrichter({ name, kontakt: { email, phone }, schule, default_payment });
-    // The mailbox posted is the one the create's own transaction writes and owes the link to, named as it was typed.
-    return { ok: true, value: undefined, note: ADMIN_COPY.schiedsrichter.sentTo(email) };
+    const { confirmation } = await schiedsrichterPostSchiedsrichter({ name, kontakt: { email, phone }, schule, default_payment });
+    // The mailbox as the backend stores and mails it, so the note spells it as the editor later shows it.
+    return { ok: true, value: undefined, note: ADMIN_COPY.schiedsrichter.sentTo(confirmation.email) };
   },
 });
