@@ -1,10 +1,11 @@
-import { renderToReadableStream } from "react-dom/server";
+// @vitest-environment jsdom
 import { describe, expect, it } from "vitest";
 
 import { dayOf } from "@/core/format";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { serveBackend } from "@/test-support/backend";
 import { doubleNextRequest } from "@/test-support/nextRequest";
+import { drawnOnServer } from "@/test-support/server";
 
 import type { FLLandingResponse } from "@/core/generated/client/types";
 
@@ -24,24 +25,20 @@ const { default: HomePage } = await import("./page");
 /** The landing's whole server render for the window given: the document a browser shows before hydrating. */
 async function rendered(window: FLLandingResponse["bewerbung_window"], opensOn: FLLandingResponse["bewerbung_opens_on"] = null) {
   landing = { saison: null, bewerbung_window: window, bewerbung_opens_on: opensOn, counts: COUNTS };
-  const stream = await renderToReadableStream(<HomePage />);
-  await stream.allReady;
-  return new Response(stream).text();
+  return drawnOnServer(<HomePage />);
 }
 
 /** Every address the render links, by its `href`. */
-const hrefs = (html: string): string[] =>
-  [...html.matchAll(/<a[^>]*href="([^"]+)"/g)].flatMap(([, href]) => (href === undefined ? [] : [href]));
+const hrefs = (page: HTMLElement): (string | null)[] => [...page.querySelectorAll("a[href]")].map((link) => link.getAttribute("href"));
 
 /** Every paragraph's words. */
-const paragraphs = (html: string): string[] =>
-  [...html.matchAll(/<p[^>]*>([^<]*)<\/p>/g)].flatMap(([, words]) => (words === undefined ? [] : [words]));
+const paragraphs = (page: HTMLElement): (string | null)[] => [...page.querySelectorAll("p")].map((paragraph) => paragraph.textContent);
 
 // A door to the application form hidden while a window is open loses applications in silence.
 describe("the landing's ways to apply", () => {
   it("lead to the form from the hero, the steps' band, the season card and the school's door while a window is open", async () => {
-    const html = await rendered({ saison_id: "2028", end: "2028-01-31" });
-    expect(hrefs(html).filter((href) => href === "/bewerbung")).toHaveLength(4);
+    const page = await rendered({ saison_id: "2028", end: "2028-01-31" });
+    expect(hrefs(page).filter((href) => href === "/bewerbung")).toHaveLength(4);
   });
 });
 
