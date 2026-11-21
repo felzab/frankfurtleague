@@ -33,7 +33,7 @@ import type { ReactElement, ReactNode } from "react";
 /**
  * A link in a menu; `isCurrent` marks the one in force as every list marks its chosen entry, in a list that has
  * one. Its words are catalogue text, or a record's own name such as a season's, with a second line under them
- * where one name alone does not say which, as a team's season and seats under its name.
+ * saying more of what the entry leads to, as the seats a person holds on a team under the team's name.
  */
 export type MenuLink = {
   href: Route;
@@ -205,7 +205,7 @@ function useCurrent(links: ReadonlyArray<MenuLink>) {
 
 /**
  * A link, marked as chosen where its section selects it: its words in the link green, its check at the end. Its text
- * value, which typeahead matches, carries the detail too: two entries can share a label, a team's name in two seasons.
+ * value, which typeahead matches, carries the detail too: two entries can share a label, as two teams of one name do.
  */
 function LinkItem({ link, size }: { link: MenuLink; size: Size }) {
   const detail = link.detail === undefined ? undefined : textOf(link.detail);
