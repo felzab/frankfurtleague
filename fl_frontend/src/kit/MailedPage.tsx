@@ -1,7 +1,7 @@
 import { COPY } from "@/core/copy/shared";
 import { ROUTES } from "@/core/routes";
 
-import { ClassicTitle } from "./ClassicPage";
+import { ClassicTitle, PageHead } from "./ClassicPage";
 import { Facts } from "./Facts";
 import { Link } from "./Link";
 import { linkInvalid } from "./mailedLinkState";
@@ -124,11 +124,8 @@ async function MailedBody({ page }: { page: Promise<MailedState> }) {
           describedBy={props.describedBy}
           head={
             <>
-              {/* A form of boxes holds its title on the page; a question holds it in its card. */}
-              <ClassicTitle
-                text={props.title}
-                place={props.boxes === true ? "page" : "card"}
-              />
+              {/* A form of boxes heads the page as every classic page does; a question holds its title in its card. */}
+              {props.boxes === true ? <PageHead title={props.title} /> : <ClassicTitle text={props.title} />}
               {props.facts !== undefined && props.facts.length > 0 && (
                 <Facts
                   facts={props.facts}
