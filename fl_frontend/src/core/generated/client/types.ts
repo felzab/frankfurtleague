@@ -300,7 +300,6 @@ export interface FLAccountBewerbungSeatEinwilligung {
   /** @minItems 1 */
   persons: FLAccountSeatPerson[];
   saison_id: string;
-  schule: string;
   scope: FLKontaktKenntnisnahmeScope;
   /** @minItems 1 */
   seats: FLKontaktSeat[];

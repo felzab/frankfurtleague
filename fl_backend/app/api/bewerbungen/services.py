@@ -733,7 +733,7 @@ def compose_confirmation_update(
 def saison_schule(row: Mapping[str, Any]) -> str:
     """What the season row's confirmation page fills `{schule}` with: the name the club carries that season.
 
-    An application's page and the account page fill it with `schule_name`.
+    An application's page fills it with `schule_name`.
     """
 
     return str(row.get("name") or "")
