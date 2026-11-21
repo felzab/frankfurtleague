@@ -71,7 +71,6 @@ from app.shared.schemas.bounds import (
     FLKontaktEmailMaxLength,
     FLTeamShorthandLength,
 )
-from app.shared.schemas.einwilligung import CURRENT_TEXT_VERSIONS
 from app.shared.schemas.responses import FLFailureBody
 
 # Every router under its slice's tag, the first segment of each path it serves, so an operation's id
@@ -149,7 +148,6 @@ def with_failure_responses(document: Mapping[str, Any]) -> dict[str, Any]:
 # rules' kinds, which the catalogue's rule phrases are keyed by. No model names `Rule`: a refused field's `kind` is one
 # of Pydantic's own error types as often.
 MIRRORED_CONSTANTS: Final = (
-    *CURRENT_TEXT_VERSIONS,
     *ADDRESS_CHANGE_BOUNDS,
     *GRANT_BOUNDS,
     *CONSENT_BOUNDS,

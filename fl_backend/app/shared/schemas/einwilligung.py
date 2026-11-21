@@ -17,11 +17,6 @@ type FLMediaTextVersion = Literal["2026-11-media-1"]
 type FLNameKaderTextVersion = Literal["2026-11-name-kader-1"]
 type FLNameSpielplanTextVersion = Literal["2026-11-name-spielplan-1"]
 
-# Published as schemas of their own by `with_mirrored_constants`, however often a model names one: the frontend's label
-# constants are checked against them through the press models, so a rewording that moves one here and leaves the page's
-# label behind fails the frontend's type check rather than refusing every press.
-CURRENT_TEXT_VERSIONS: Final = (FLWhatsappTextVersion, FLMediaTextVersion, FLNameKaderTextVersion, FLNameSpielplanTextVersion)
-
 # Every label any record cites: the frontend's `CONSENT_WORDINGS` keys their words by it, checked against it through the
 # published contract.
 type FLEinwilligungTextVersion = FLWhatsappTextVersion | FLNameKaderTextVersion | FLNameSpielplanTextVersion | FLMediaTextVersion
