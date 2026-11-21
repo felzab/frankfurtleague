@@ -32,8 +32,9 @@ Two files are named otherwise: `saisons/overview_router.py`, an administrator's 
 for a season's overview, and `system/router.py`, the unguarded probes' (under Authorization). A
 person's file serving two Funktionen holds one `APIRouter` per Funktion
 (`spieler/person_router.py`). `app/main.py` mounts them all under `/api`, so a router's own prefix
-names only its slice's segment. Each is mounted under its slice's tag, which with the handler's name
-makes the operation's id in `openapi.json`.
+opens with its slice's segment and never `/api`, and holds what all its routes share
+(`/identity/self`). Each is mounted under its slice's tag, which with the handler's name makes the
+operation's id in `openapi.json`.
 
 ## Addresses
 
