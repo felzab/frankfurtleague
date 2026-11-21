@@ -260,7 +260,9 @@ both, and the kit sets the date's letters in capitals
   `fl_frontend/src/core/emailShell.ts` lower-cases its first letter unless the mail's `opensOnNoun`
   says it opens on a noun, a record's value run never being re-cased.
 - **A „not you?“ line only on a sign-in, security or first-contact mail**; the objection line only
-  on a first contact, in its one wording.
+  on a first contact, in its one wording. The ban's notice is a first communication without the
+  first-contact „not you?“, which would promise a deletion a ban does not make, so its builder sets
+  the objection as its own last paragraph.
 - **Replies go to the contact address**, so no mail says that nobody reads them.
 - **A mail states no later act the code does not perform**, since its reader waits for it and passes
   it on.
