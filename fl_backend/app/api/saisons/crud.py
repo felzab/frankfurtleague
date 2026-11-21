@@ -89,7 +89,6 @@ async def pull_landing_windows(*, saisons_collection: ReadCollection, today: str
     candidates = await pull_whole_from_db(
         collection=saisons_collection,
         db_filter=SAISON_NOT_ENDED_FILTER,
-        what="the seasons not yet ended",
         sort_by=[("_id", -1)],
         projection=["bewerbung", "status"],
     )

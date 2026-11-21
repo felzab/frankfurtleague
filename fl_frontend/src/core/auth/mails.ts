@@ -14,8 +14,8 @@ import type { FLOutboxSignInPayload, FLPasskeyDataKind } from "../generated/clie
 /**
  * Owes one mail of the sign-in library through the Postausgang, which the write drains at once. A secret -- the code, the
  * deletion token -- leaves sealed under this frontend's own secret by the library's own cipher, so no backend row holds
- * it readable; the drain opens it. The backend tries each of the library's own kinds once, a failed
- * send's repair being the library's, a fresh code or link; the deletion notice, which nothing repairs, it tries again.
+ * it readable; the drain opens it. The backend tries a code and a deletion link once, a failed send's repair being
+ * the library's, a fresh code or link; every notice, which nothing repairs, it tries again until its deadline.
  */
 export async function oweSignInMail(
   to: string,

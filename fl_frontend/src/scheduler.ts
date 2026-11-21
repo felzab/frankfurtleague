@@ -39,7 +39,7 @@ export async function loadJobs(): Promise<{
   return {
     jobs: [
       { name: "saisons", run: saisons.runSaisonSweep },
-      { name: "address-change", run: addressChange.sweepAddressChange },
+      { name: "address-change", run: addressChange.runAddressChangeSweep },
       { name: "schiedsrichter", run: schiedsrichter.runSchiedsrichterSweep },
       { name: "account", run: account.runAccountSweep },
       { name: "erasure", run: erasure.runErasureSweep },

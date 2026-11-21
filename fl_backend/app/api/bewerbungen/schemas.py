@@ -124,7 +124,7 @@ class FLBewerbung(BaseReadModel):
 
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
     # What a decision or a seat write sends back, so one over an application another write moved since is refused as stale.
-    version: int = 0
+    version: int
     saison_id: str
     submitted_at: CustomDateString
     status: FLBewerbungStatus

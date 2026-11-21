@@ -33,10 +33,16 @@ const Registration = z.object({
 });
 
 /**
- * The refusals saying what the link opens has moved since the page was read: revoked or its club gone, the window shut,
- * the club out of the season, the squad full, the Stufen narrowed.
+ * The refusals saying what the link opens has moved since the page was read: revoked or its club departed, the
+ * season's or the club's record gone, the window shut, the club out of the season, the squad full, the Stufen narrowed.
  */
-const MOVED: ReadonlySet<Code> = new Set<Code>(["document_not_found", "registrierung_closed", "kader_full", "registrierung_stufe_not_allowed"]);
+const MOVED: ReadonlySet<Code> = new Set<Code>([
+  "link_invalid",
+  "document_not_found",
+  "registrierung_closed",
+  "kader_full",
+  "registrierung_stufe_not_allowed",
+]);
 
 const moved = (error: unknown) => refusedAs(error, MOVED);
 

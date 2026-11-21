@@ -34,7 +34,8 @@ def verify_api_key(select_key: KeySelector, *, scheme_name: str) -> Callable:
     """
 
     # A scheme per tier, so each operation's published `security` names the key it takes.
-    # `auto_error=False` so a missing header answers `access_key_refused`, where FastAPI's own 403 carries no code.
+    # `auto_error=False`: FastAPI's own refusal of a missing header is a 401 `HTTPException`, a status the routing
+    # handler words no code for and answers as a crash, so this guard answers `access_key_refused` itself.
     scheme = HTTPBearer(scheme_name=scheme_name, auto_error=False)
 
     def dependency(

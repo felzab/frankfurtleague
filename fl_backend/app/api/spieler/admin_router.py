@@ -129,7 +129,6 @@ async def get_spieler_saison(
         pull_whole_from_db(
             collection=saison_spieler_collection,
             db_filter=build_held_rollen_filter(saison_id=saison_id, team_id=team_id, excluding_spieler_id=spieler_id),
-            what=f"team {team_id}'s held roles in season {saison_id}",
             projection=["rolle"],
         ),
         # `find_one`: a club a replacement took out of the season holds no row, and this page still opens.
@@ -313,8 +312,10 @@ async def reactivate_saison_spieler(
         # The stored club, no payload naming one: a replacement hands a junction row to another club and
         # retires this one's squad, so the club this row returns to may stand outside that season by now.
         team_in_saison = (
-            await saison_teams_collection.count_documents({"saison_id": saison_id, "team_id": stored_raw["team_id"]}, limit=1, session=session)
-        ) > 0
+            await saison_teams_collection.find_one(
+                {"saison_id": saison_id, "team_id": stored_raw["team_id"]}, projection={"_id": 1}, session=session
+            )
+        ) is not None
         # Asked before the cap: a full squad is not a fact worth reporting
         # about a club the season does not hold.
         if not team_in_saison:

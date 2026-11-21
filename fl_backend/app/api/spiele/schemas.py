@@ -648,8 +648,7 @@ class FLSpiel(FLSpielCommon, Anchored):
 
     spielort: FLSpielortFieldRecord | None
     schiedsrichter: FLSpielSchiedsrichterFieldRecord | None
-    # 0 until a write raises it, as the create stamps it: a fixture composed before its insert, such as a draw's, has none yet.
-    version: int = 0
+    version: int
 
 
 def _withheld_unless_agreed(block: Any) -> Any:

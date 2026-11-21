@@ -9,16 +9,13 @@ from app.shared.schemas.literals import FLEinwilligungScope, FLKontaktKenntnisna
 from app.shared.schemas.responses import BasePayload, BaseReadModel
 
 # The label of each consent's current wording, the one every press names, a withdrawal's included: a page loaded before
-# a deploy moved a label is refused once, and its person reloads to read the new words.
+# a deploy moved a label is refused once, and its person reloads to read the new words. The press fields below are also
+# the labels a stored record may cite, so a rewording that moved a label here alone would refuse every read of a record
+# citing the old one: the old label stays in `FLEinwilligungTextVersion`, and `cite_their_kind` reads a set holding both.
 type FLWhatsappTextVersion = Literal["2026-11-whatsapp-1"]
 type FLMediaTextVersion = Literal["2026-11-media-1"]
 type FLNameKaderTextVersion = Literal["2026-11-name-kader-1"]
 type FLNameSpielplanTextVersion = Literal["2026-11-name-spielplan-1"]
-
-# Published as schemas of their own by `with_mirrored_constants`, however often a model names one: the frontend's label
-# constants are checked against them through the press models, so a rewording that moves one here and leaves the page's
-# label behind fails the frontend's type check rather than refusing every press.
-CURRENT_TEXT_VERSIONS: Final = (FLWhatsappTextVersion, FLMediaTextVersion, FLNameKaderTextVersion, FLNameSpielplanTextVersion)
 
 # Every label any record cites: the frontend's `CONSENT_WORDINGS` keys their words by it, checked against it through the
 # published contract.

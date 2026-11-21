@@ -31,7 +31,6 @@ from app.api.registrierungen.person_router import spieler_router as registrierun
 from app.api.registrierungen.public_router import router as registrierungen_public_router
 from app.api.registrierungen.system_router import router as registrierungen_system_router
 from app.api.saisons.admin_router import router as saisons_admin_router
-from app.api.saisons.overview_router import router as saisons_overview_router
 from app.api.saisons.public_router import router as saisons_public_router
 from app.api.saisons.system_router import router as saisons_system_router
 from app.api.schiedsrichter.admin_router import router as schiedsrichter_admin_router
@@ -71,7 +70,6 @@ from app.shared.schemas.bounds import (
     FLKontaktEmailMaxLength,
     FLTeamShorthandLength,
 )
-from app.shared.schemas.einwilligung import CURRENT_TEXT_VERSIONS
 from app.shared.schemas.responses import FLFailureBody
 
 # Every router under its slice's tag, the first segment of each path it serves, so an operation's id
@@ -94,7 +92,7 @@ ROUTERS: Mapping[str, tuple[APIRouter, ...]] = {
     ),
     # The public and system routers first: the administration's `/{saison_id}` would take their `/frame`, `/landing` and
     # `/sweep` as season ids.
-    "saisons": (saisons_public_router, saisons_system_router, saisons_admin_router, saisons_overview_router),
+    "saisons": (saisons_public_router, saisons_system_router, saisons_admin_router),
     "schiedsrichter": (schiedsrichter_admin_router, schiedsrichter_public_router, schiedsrichter_person_router, schiedsrichter_system_router),
     "ban_list": (ban_list_admin_router,),
     "spielberichte": (spielberichte_person_router,),
@@ -149,7 +147,6 @@ def with_failure_responses(document: Mapping[str, Any]) -> dict[str, Any]:
 # rules' kinds, which the catalogue's rule phrases are keyed by. No model names `Rule`: a refused field's `kind` is one
 # of Pydantic's own error types as often.
 MIRRORED_CONSTANTS: Final = (
-    *CURRENT_TEXT_VERSIONS,
     *ADDRESS_CHANGE_BOUNDS,
     *GRANT_BOUNDS,
     *CONSENT_BOUNDS,

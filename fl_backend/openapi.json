@@ -56,7 +56,6 @@
           "address_change_nothing",
           "ansetzung_unanswerable",
           "ansetzung_vorschlag_past",
-          "ansetzung_vorschlag_past_as_stored",
           "ansetzung_vorschlag_unchanged",
           "ansetzung_not_actionable",
           "ansetzung_foreign_row",
@@ -91,8 +90,6 @@
           "booking_unknown_resource",
           "booking_unconfirmed_schiedsrichter",
           "spiel_double_booked",
-          "spiel_double_booked_spielort_as_stored",
-          "spiel_double_booked_schiedsrichter_as_stored",
           "spiel_outside_spieltag",
           "spieltag_outside_saison",
           "spieltag_span_below_spiele",
@@ -106,8 +103,6 @@
           "media_age",
           "giving_not_allowed",
           "eligibility_disqualified",
-          "eligibility_disqualified_team1_as_stored",
-          "eligibility_disqualified_team2_as_stored",
           "eligibility_team_not_in_saison",
           "entry_saison_not_future",
           "entry_gruppe_not_offered",
@@ -1967,44 +1962,6 @@
         "title": "FLAddressChangeViewPrevious",
         "type": "object"
       },
-      "FLAddressChangeViewResponse": {
-        "description": "What one address link opens: never a name or the id.\n\nThe new address only where its holder judges by it: the new mailbox's `valid` link, and the address on file's link while\nthe change stands, masked on `waiting_period`.",
-        "properties": {
-          "view": {
-            "discriminator": {
-              "mapping": {
-                "confirmed": "#/components/schemas/FLAddressChangeViewNew",
-                "ended": "#/components/schemas/FLAddressChangeViewEnded",
-                "expired": "#/components/schemas/FLAddressChangeViewNew",
-                "not_confirmable": "#/components/schemas/FLAddressChangeViewNew",
-                "open": "#/components/schemas/FLAddressChangeViewPrevious",
-                "release_expired": "#/components/schemas/FLAddressChangeViewPrevious",
-                "release_open": "#/components/schemas/FLAddressChangeViewPrevious",
-                "valid": "#/components/schemas/FLAddressChangeViewNew",
-                "waiting_period": "#/components/schemas/FLAddressChangeViewPrevious"
-              },
-              "propertyName": "state"
-            },
-            "oneOf": [
-              {
-                "$ref": "#/components/schemas/FLAddressChangeViewNew"
-              },
-              {
-                "$ref": "#/components/schemas/FLAddressChangeViewPrevious"
-              },
-              {
-                "$ref": "#/components/schemas/FLAddressChangeViewEnded"
-              }
-            ],
-            "title": "View"
-          }
-        },
-        "required": [
-          "view"
-        ],
-        "title": "FLAddressChangeViewResponse",
-        "type": "object"
-      },
       "FLAddressChangeWaitingPeriodDays": {
         "const": 7,
         "type": "integer"
@@ -2905,7 +2862,6 @@
             "$ref": "#/components/schemas/FLBewerbungTrikot"
           },
           "version": {
-            "default": 0,
             "title": "Version",
             "type": "integer"
           },
@@ -8241,6 +8197,25 @@
         "title": "FLPostSchiedsrichterPayload",
         "type": "object"
       },
+      "FLPostSchiedsrichterResponse": {
+        "description": "The created referee and the link the create owed them, which every create owes.",
+        "properties": {
+          "confirmation": {
+            "$ref": "#/components/schemas/FLSchiedsrichterMint"
+          },
+          "created_id": {
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Created Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "created_id",
+          "confirmation"
+        ],
+        "title": "FLPostSchiedsrichterResponse",
+        "type": "object"
+      },
       "FLPostSpielortPayload": {
         "additionalProperties": false,
         "properties": {
@@ -8880,7 +8855,6 @@
             "type": "boolean"
           },
           "version": {
-            "default": 0,
             "title": "Version",
             "type": "integer"
           }
@@ -8989,7 +8963,6 @@
             "$ref": "#/components/schemas/FLSaisonStatus"
           },
           "version": {
-            "default": 0,
             "title": "Version",
             "type": "integer"
           }
@@ -10032,19 +10005,6 @@
           "email"
         ],
         "title": "FLSchiedsrichterMint",
-        "type": "object"
-      },
-      "FLSchiedsrichterMintResponse": {
-        "description": "The re-send's answer. Never null: where no link may be minted a refusal answers instead.",
-        "properties": {
-          "confirmation": {
-            "$ref": "#/components/schemas/FLSchiedsrichterMint"
-          }
-        },
-        "required": [
-          "confirmation"
-        ],
-        "title": "FLSchiedsrichterMintResponse",
         "type": "object"
       },
       "FLSchiedsrichterReactivateResponse": {
@@ -14262,7 +14222,6 @@
             "type": "string"
           },
           "version": {
-            "default": 0,
             "title": "Version",
             "type": "integer"
           }
@@ -14502,7 +14461,6 @@
             "title": "Start"
           },
           "version": {
-            "default": 0,
             "title": "Version",
             "type": "integer"
           }
@@ -14574,7 +14532,6 @@
             "title": "Start"
           },
           "version": {
-            "default": 0,
             "title": "Version",
             "type": "integer"
           }
@@ -14644,7 +14601,6 @@
             "title": "Start"
           },
           "version": {
-            "default": 0,
             "title": "Version",
             "type": "integer"
           }
@@ -14886,11 +14842,9 @@
           },
           "type": "array"
         },
-        "description": "Every group the season offers in standing order, the clubs that have played no match last.\n\nEach club that has played and stood in the season on the day its group was decided is numbered as a `Platz` is, and\nclubs the chain leaves level share one.",
         "propertyNames": {
           "$ref": "#/components/schemas/FLGruppenNames"
         },
-        "title": "FLTabelle",
         "type": "object"
       },
       "FLTabelleResponse": {
@@ -15962,7 +15916,6 @@
             "type": "string"
           },
           "version": {
-            "default": 0,
             "title": "Version",
             "type": "integer"
           },
@@ -16873,7 +16826,32 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FLAddressChangeViewResponse"
+                  "discriminator": {
+                    "mapping": {
+                      "confirmed": "#/components/schemas/FLAddressChangeViewNew",
+                      "ended": "#/components/schemas/FLAddressChangeViewEnded",
+                      "expired": "#/components/schemas/FLAddressChangeViewNew",
+                      "not_confirmable": "#/components/schemas/FLAddressChangeViewNew",
+                      "open": "#/components/schemas/FLAddressChangeViewPrevious",
+                      "release_expired": "#/components/schemas/FLAddressChangeViewPrevious",
+                      "release_open": "#/components/schemas/FLAddressChangeViewPrevious",
+                      "valid": "#/components/schemas/FLAddressChangeViewNew",
+                      "waiting_period": "#/components/schemas/FLAddressChangeViewPrevious"
+                    },
+                    "propertyName": "state"
+                  },
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/FLAddressChangeViewNew"
+                    },
+                    {
+                      "$ref": "#/components/schemas/FLAddressChangeViewPrevious"
+                    },
+                    {
+                      "$ref": "#/components/schemas/FLAddressChangeViewEnded"
+                    }
+                  ],
+                  "title": "Response Address Change Get Address Change View"
                 }
               }
             },
@@ -18613,7 +18591,7 @@
     },
     "/api/outbox/result": {
       "post": {
-        "description": "Settle the named mail by its send's outcome where the named claim still holds it, counting a mail it does not hold in `ignored`.\n\n`held` reports a deployment that sends no mail, `abandon` a refusal every send would meet (any 4xx but a 429), and\n`retry` a 429, a 5xx or a send that never reached the provider, which hands the mail back unless it is a sign-in\nmail or past its deadline.",
+        "description": "Settle the named mail by its send's outcome where the named claim still holds it, counting a mail it does not hold in `ignored`.\n\n`held` reports a deployment that sends no mail, `abandon` a refusal every send would meet (any 4xx but a 429), and\n`retry` a 429, a 5xx or a send that never reached the provider, which hands the mail back unless it is a sign-in\ncode, a deletion link or past its deadline.",
         "operationId": "outbox_post_result",
         "requestBody": {
           "content": {
@@ -19588,49 +19566,6 @@
         ]
       }
     },
-    "/api/saisons/{saison_id}/retention": {
-      "post": {
-        "description": "Clear one season's contact blocks once a later season has ended, and each seat past its own day unconfirmed before.\n\nOnce a later season has ended, the season's fixture answers and match reports keep the league's record alone. A row\nthat cannot be written is passed over, counted in `failed`, and met again by the next pass, as is a clock written in\none go whose write fails; what each clock cleared is recorded in the action log.",
-        "operationId": "saisons_sweep_saison_retention",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "saison_id",
-            "required": true,
-            "schema": {
-              "title": "Saison Id",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLSaisonRetentionResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "default": {
-            "$ref": "#/components/responses/Failure",
-            "description": "A refusal or a fault, its status naming which"
-          }
-        },
-        "security": [
-          {
-            "SystemKey": []
-          }
-        ],
-        "summary": "Run one season's retention clocks over its season rows, fixture answers and match reports",
-        "tags": [
-          "saisons"
-        ],
-        "x-pass": true
-      }
-    },
     "/api/saisons/{saison_id}/spiele/{spiel_id}": {
       "get": {
         "description": "One match as its page and its pop-up show it, each side of a group match with its group and `platz`; 404 outside a readable season.\n\nEach side's line-up from the moment its club stores one, the scorers and cards only while the report is adopted\nand unchanged since, every pupil through the public mask.",
@@ -19800,6 +19735,49 @@
         ]
       }
     },
+    "/api/saisons/{saison_id}/sweep": {
+      "post": {
+        "description": "Clear one season's contact blocks once a later season has ended, and each seat past its own day unconfirmed before.\n\nOnce a later season has ended, the season's fixture answers and match reports keep the league's record alone. A row\nthat cannot be written is passed over, counted in `failed`, and met again by the next pass, as is a clock written in\none go whose write fails; what each clock cleared is recorded in the action log.",
+        "operationId": "saisons_sweep_saison_retention",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "saison_id",
+            "required": true,
+            "schema": {
+              "title": "Saison Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSaisonRetentionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "default": {
+            "$ref": "#/components/responses/Failure",
+            "description": "A refusal or a fault, its status naming which"
+          }
+        },
+        "security": [
+          {
+            "SystemKey": []
+          }
+        ],
+        "summary": "Run one season's retention clocks over its season rows, fixture answers and match reports",
+        "tags": [
+          "saisons"
+        ],
+        "x-pass": true
+      }
+    },
     "/api/saisons/{saison_id}/tabelle": {
       "get": {
         "description": "Each group's standing over the group phase with its goals counted on every read, and how many of each group advance.\n\nA club that left the season keeps its row; it holds no `platz` where it left before its group was decided, and\nneither does a club that has played no match, listed after every club that has; 404 for a season this tier may not\nread.",
@@ -19967,7 +19945,7 @@
         ]
       },
       "post": {
-        "description": "Create a referee and owe them their confirmation link.\n\nEntering a referee is the invitation, with no second press deciding whether they are asked, since a referee nobody\nasked is a name nobody consented to publish.",
+        "description": "Create a referee and owe them their confirmation link, answering the address it goes to.\n\nEntering a referee is the invitation, with no second press deciding whether they are asked, since a referee nobody\nasked is a name nobody consented to publish.",
         "operationId": "schiedsrichter_post_schiedsrichter",
         "requestBody": {
           "content": {
@@ -19984,7 +19962,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FLCreatedResponse"
+                  "$ref": "#/components/schemas/FLPostSchiedsrichterResponse"
                 }
               }
             },
@@ -20370,7 +20348,7 @@
     },
     "/api/schiedsrichter/{schiedsrichter_id}/confirmation/resend": {
       "post": {
-        "description": "Owe this referee a fresh confirmation link, which the Postausgang mints and mails, and answer where it goes.\n\nThe previous link stops working at once and the deadline restarts from today; a referee who has already answered is\nrefused, since the new link could never be spent.",
+        "description": "Owe this referee a fresh confirmation link, which the Postausgang mints and mails, to the address they hold.\n\nThe previous link stops working at once and the deadline restarts from today; a referee who has already answered is\nrefused, since the new link could never be spent.",
         "operationId": "schiedsrichter_resend_confirmation",
         "parameters": [
           {
@@ -20385,14 +20363,7 @@
           }
         ],
         "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLSchiedsrichterMintResponse"
-                }
-              }
-            },
+          "204": {
             "description": "Successful Response"
           },
           "default": {

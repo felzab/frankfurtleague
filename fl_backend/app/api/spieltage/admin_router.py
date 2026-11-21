@@ -15,7 +15,7 @@ from app.api.spieltage.schemas import (
     FLSpieltagRecord,
 )
 from app.api.spieltage.services import find_spieltag_order_refusal, find_spieltag_span_refusal
-from app.core.crud import anchor_in_db, patch_one_in_db, pull_one_from_db, refuse
+from app.core.crud import anchor_in_db, patch_one_in_db, pull_one_from_db, pull_whole_from_db, refuse
 from app.core.dependencies import (
     DBClient,
     SaisonsCollection,
@@ -142,7 +142,12 @@ async def patch_spieltag(
         # Undated fixtures are filtered out rather than passed as nulls: one constrains nothing.
         spiel_dates = [
             row["date"]
-            async for row in spiele_collection.find({"spieltag_id": spieltag_id, "date": {"$ne": None}}, {"date": 1}, session=session)
+            for row in await pull_whole_from_db(
+                collection=spiele_collection,
+                db_filter={"spieltag_id": spieltag_id, "date": {"$ne": None}},
+                projection={"date": 1},
+                session=session,
+            )
         ]
         refuse(
             find_spieltag_span_refusal(

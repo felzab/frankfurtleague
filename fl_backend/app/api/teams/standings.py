@@ -247,7 +247,7 @@ def build_tabelle(teams: Iterable[FLTeam], spiele: Iterable[FLSpielCommon], rule
         # Stable, so the clubs that have played keep their standing order, and so do those that have not.
         tabelle[name] = sorted(placed, key=lambda row: not row.statistik.count_played_spiele)
 
-    return FLTabelle(tabelle)
+    return tabelle
 
 
 def _spiele_by_gruppe(

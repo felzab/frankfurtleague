@@ -14,8 +14,8 @@ from bson import ObjectId
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
+from app.api.saisons.admin_router import get_saison_overview
 from app.api.saisons.overview import FLOverviewSpielberichtRow
-from app.api.saisons.overview_router import get_saison_overview
 from app.api.spielberichte.crud import count_submitted_berichte, empty_pupil_entries_in_session
 from app.api.spielberichte.person_router import get_spielbericht_bericht, put_spielbericht_bericht
 from app.api.spielberichte.schemas import FLSpielberichtBericht, FLSpielberichtPayload

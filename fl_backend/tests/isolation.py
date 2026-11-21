@@ -111,9 +111,9 @@ class SeasonsRunningARivalAfterTheSessionRead(InterleavedCollection):
 class RowsThenTheRival:
     """A `find` cursor reaching the rival's point once its rows have arrived; `sort` and `limit` chain as the driver's do."""
 
-    def __init__(self, cursor: Any, arrived: Callable[[], Awaitable[None]]) -> None:
+    def __init__(self, cursor: Any, reached: Callable[[], Awaitable[None]]) -> None:
         self._cursor = cursor
-        self._arrived = arrived
+        self._reached = reached
 
     def sort(self, *args: Any, **kwargs: Any) -> RowsThenTheRival:
         self._cursor = self._cursor.sort(*args, **kwargs)
@@ -125,9 +125,18 @@ class RowsThenTheRival:
 
     async def to_list(self, *args: Any, **kwargs: Any) -> list[Any]:
         rows = await self._cursor.to_list(*args, **kwargs)
-        await self._arrived()
+        await self._reached()
 
         return rows
+
+
+class TheRivalThenRows(RowsThenTheRival):
+    """A `find` cursor reaching the rival's point as its read runs, before any of its rows arrives."""
+
+    async def to_list(self, *args: Any, **kwargs: Any) -> list[Any]:
+        await self._reached()
+
+        return await self._cursor.to_list(*args, **kwargs)
 
 
 class GrantsRunningARivalAfterTheFirstRead(InterleavedCollection):

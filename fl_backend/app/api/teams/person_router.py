@@ -305,7 +305,6 @@ async def _pull_team_spiele(
     junctions = await pull_whole_from_db(
         collection=saison_teams_collection,
         db_filter={"saison_id": saison_id, "team_id": {"$in": sorted(team_ids, key=str)}},
-        what=f"season {saison_id}'s clubs facing team {team_id}",
         projection=JUDGED_JUNCTION_FIELDS,
         session=session,
     )

@@ -108,7 +108,7 @@ class FLSpielerRecord(_SpielerPerson, Anchored):
     # read-back names. Required: every erasure finds a person by address, so a person holding none
     # would be out of every erasure's reach.
     email: CustomStoredAddress
-    version: int = 0
+    version: int
 
     @model_validator(mode="after")
     def _cites_a_pupils_wordings(self) -> Self:
@@ -135,7 +135,7 @@ class FLSaisonSpielerRow(Anchored):
     nummer: str | None
     # The day this squad row was retired, which is not the day the person left the league.
     inactive_since: CustomOptionalDateString
-    version: int = 0
+    version: int
 
 
 class FLSpielerAdminRow(BaseReadModel):

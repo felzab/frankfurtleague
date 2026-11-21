@@ -27,7 +27,7 @@ function seasons(saisonIds: string[], { passedOver = {}, fails = [] }: { passedO
     ...saisonIds.flatMap((saisonId): [string, () => unknown][] => [
       [`POST /bewerbungen/saisons/${saisonId}/sweep`, () => bewerbungPass(passedOver[`/bewerbungen/saisons/${saisonId}/sweep`])],
       [`POST /registrierungen/saisons/${saisonId}/sweep`, () => registrierungPass(passedOver[`/registrierungen/saisons/${saisonId}/sweep`])],
-      [`POST /saisons/${saisonId}/retention`, () => saisonPass(passedOver[`/saisons/${saisonId}/retention`])],
+      [`POST /saisons/${saisonId}/sweep`, () => saisonPass(passedOver[`/saisons/${saisonId}/sweep`])],
     ]),
   ]);
   for (const failing of fails) answers.set(failing, networkFailure);
@@ -62,8 +62,8 @@ describe("one pass of the seasons' job", () => {
         "/bewerbungen/saisons/2526/sweep": 1,
         "/bewerbungen/saisons/2627/sweep": 6,
         "/registrierungen/saisons/2627/sweep": 8,
-        "/saisons/2526/retention": 3,
-        "/saisons/2627/retention": 1,
+        "/saisons/2526/sweep": 3,
+        "/saisons/2627/sweep": 1,
       },
     });
 
@@ -99,10 +99,10 @@ describe("a half that fails", () => {
       LISTING,
       "POST /bewerbungen/saisons/2526/sweep",
       "POST /registrierungen/saisons/2526/sweep",
-      "POST /saisons/2526/retention",
+      "POST /saisons/2526/sweep",
       "POST /bewerbungen/saisons/2627/sweep",
       "POST /registrierungen/saisons/2627/sweep",
-      "POST /saisons/2627/retention",
+      "POST /saisons/2627/sweep",
     ]);
     const failures = log
       .lines()

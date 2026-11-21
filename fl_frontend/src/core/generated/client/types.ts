@@ -22,7 +22,6 @@ export const Code = {
   address_change_nothing: "address_change_nothing",
   ansetzung_unanswerable: "ansetzung_unanswerable",
   ansetzung_vorschlag_past: "ansetzung_vorschlag_past",
-  ansetzung_vorschlag_past_as_stored: "ansetzung_vorschlag_past_as_stored",
   ansetzung_vorschlag_unchanged: "ansetzung_vorschlag_unchanged",
   ansetzung_not_actionable: "ansetzung_not_actionable",
   ansetzung_foreign_row: "ansetzung_foreign_row",
@@ -57,8 +56,6 @@ export const Code = {
   booking_unknown_resource: "booking_unknown_resource",
   booking_unconfirmed_schiedsrichter: "booking_unconfirmed_schiedsrichter",
   spiel_double_booked: "spiel_double_booked",
-  spiel_double_booked_spielort_as_stored: "spiel_double_booked_spielort_as_stored",
-  spiel_double_booked_schiedsrichter_as_stored: "spiel_double_booked_schiedsrichter_as_stored",
   spiel_outside_spieltag: "spiel_outside_spieltag",
   spieltag_outside_saison: "spieltag_outside_saison",
   spieltag_span_below_spiele: "spieltag_span_below_spiele",
@@ -72,8 +69,6 @@ export const Code = {
   media_age: "media_age",
   giving_not_allowed: "giving_not_allowed",
   eligibility_disqualified: "eligibility_disqualified",
-  eligibility_disqualified_team1_as_stored: "eligibility_disqualified_team1_as_stored",
-  eligibility_disqualified_team2_as_stored: "eligibility_disqualified_team2_as_stored",
   eligibility_team_not_in_saison: "eligibility_team_not_in_saison",
   entry_saison_not_future: "entry_saison_not_future",
   entry_gruppe_not_offered: "entry_gruppe_not_offered",
@@ -920,16 +915,6 @@ export interface FLAddressChangeViewPrevious {
   side: "previous";
   state: FLAddressChangeViewPreviousState;
   way: FLAddressChangeWay;
-}
-
-/**
- * What one address link opens: never a name or the id.
- *
- * The new address only where its holder judges by it: the new mailbox's `valid` link, and the address on file's link while
- * the change stands, masked on `waiting_period`.
- */
-export interface FLAddressChangeViewResponse {
-  view: FLAddressChangeViewNew | FLAddressChangeViewPrevious | FLAddressChangeViewEnded;
 }
 
 export type FLAddressChangeWaitingPeriodDays = 7;
@@ -3768,6 +3753,15 @@ export interface FLPostSchiedsrichterPayload {
   schule: string | null;
 }
 
+/**
+ * The created referee and the link the create owed them, which every create owes.
+ */
+export interface FLPostSchiedsrichterResponse {
+  confirmation: FLSchiedsrichterMint;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  created_id: string;
+}
+
 export interface FLPostSpielortPayload {
   address: FLAddressPayload;
   /** @minimum 0 */
@@ -4220,13 +4214,6 @@ export interface FLSchiedsrichterListResponse {
 }
 
 export type FLSchiedsrichterMinAgeYears = 16;
-
-/**
- * The re-send's answer. Never null: where no link may be minted a refusal answers instead.
- */
-export interface FLSchiedsrichterMintResponse {
-  confirmation: FLSchiedsrichterMint;
-}
 
 export interface FLSchiedsrichterReactivateResponse {
   confirmation: FLSchiedsrichterMint | null;
@@ -5219,12 +5206,6 @@ export interface FLTabelleRow {
   statistik: FLTeamStatistik;
 }
 
-/**
- * Every group the season offers in standing order, the clubs that have played no match last.
- *
- * Each club that has played and stood in the season on the day its group was decided is numbered as a `Platz` is, and
- * clubs the chain leaves level share one.
- */
 export type FLTabelle = Partial<Record<FLGruppenNames, FLTabelleRow[]>>;
 
 /**

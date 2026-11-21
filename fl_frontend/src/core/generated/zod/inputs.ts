@@ -965,7 +965,7 @@ export const OutboxPostEventBody = zod
  *
  * `held` reports a deployment that sends no mail, `abandon` a refusal every send would meet (any 4xx but a 429), and
  * `retry` a 429, a 5xx or a send that never reached the provider, which hands the mail back unless it is a sign-in
- * mail or past its deadline.
+ * code, a deletion link or past its deadline.
  * @summary Settle one mail a claim handed out
  */
 export const outboxPostResultBodyDeliveryReasonOneMax = 128;
@@ -1409,18 +1409,6 @@ export const SaisonsGetSaisonOverviewParams = zod.object({
 });
 
 /**
- * Clear one season's contact blocks once a later season has ended, and each seat past its own day unconfirmed before.
- *
- * Once a later season has ended, the season's fixture answers and match reports keep the league's record alone. A row
- * that cannot be written is passed over, counted in `failed`, and met again by the next pass, as is a clock written in
- * one go whose write fails; what each clock cleared is recorded in the action log.
- * @summary Run one season's retention clocks over its season rows, fixture answers and match reports
- */
-export const SaisonsSweepSaisonRetentionParams = zod.object({
-  saison_id: zod.string(),
-});
-
-/**
  * One match as its page and its pop-up show it, each side of a group match with its group and `platz`; 404 outside a readable season.
  *
  * Each side's line-up from the moment its club stores one, the scorers and cards only while the report is adopted
@@ -1476,6 +1464,18 @@ export const SaisonsPostSpielplanBody = zod
   );
 
 /**
+ * Clear one season's contact blocks once a later season has ended, and each seat past its own day unconfirmed before.
+ *
+ * Once a later season has ended, the season's fixture answers and match reports keep the league's record alone. A row
+ * that cannot be written is passed over, counted in `failed`, and met again by the next pass, as is a clock written in
+ * one go whose write fails; what each clock cleared is recorded in the action log.
+ * @summary Run one season's retention clocks over its season rows, fixture answers and match reports
+ */
+export const SaisonsSweepSaisonRetentionParams = zod.object({
+  saison_id: zod.string(),
+});
+
+/**
  * Each group's standing over the group phase with its goals counted on every read, and how many of each group advance.
  *
  * A club that left the season keeps its row; it holds no `platz` where it left before its group was decided, and
@@ -1511,7 +1511,7 @@ export const SaisonsGetTeamParams = zod.object({
 });
 
 /**
- * Create a referee and owe them their confirmation link.
+ * Create a referee and owe them their confirmation link, answering the address it goes to.
  *
  * Entering a referee is the invitation, with no second press deciding whether they are asked, since a referee nobody
  * asked is a name nobody consented to publish.
@@ -1676,7 +1676,7 @@ export const SchiedsrichterPatchSchiedsrichterBody = zod.object({
 });
 
 /**
- * Owe this referee a fresh confirmation link, which the Postausgang mints and mails, and answer where it goes.
+ * Owe this referee a fresh confirmation link, which the Postausgang mints and mails, to the address they hold.
  *
  * The previous link stops working at once and the deadline restarts from today; a referee who has already answered is
  * refused, since the new link could never be spent.

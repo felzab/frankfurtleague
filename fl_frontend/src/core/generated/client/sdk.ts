@@ -30,7 +30,9 @@ import type {
   FLAddressChangeMovesDonePayload,
   FLAddressChangeMovesResponse,
   FLAddressChangeSweepResponse,
-  FLAddressChangeViewResponse,
+  FLAddressChangeViewEnded,
+  FLAddressChangeViewNew,
+  FLAddressChangeViewPrevious,
   FLAufstellungPayload,
   FLAufstellungResponse,
   FLAustrittPayload,
@@ -94,6 +96,7 @@ import type {
   FLPostSaisonPayload,
   FLPostSaisonResponse,
   FLPostSchiedsrichterPayload,
+  FLPostSchiedsrichterResponse,
   FLPostSpielortPayload,
   FLPostTeamEntryPayload,
   FLReferencesPayload,
@@ -118,7 +121,6 @@ import type {
   FLSchiedsrichterConfirmationViewExpired,
   FLSchiedsrichterConfirmationViewValid,
   FLSchiedsrichterListResponse,
-  FLSchiedsrichterMintResponse,
   FLSchiedsrichterReactivateResponse,
   FLSchiedsrichterSingleResponse,
   FLSchiedsrichterSpieleResponse,
@@ -413,13 +415,16 @@ export const getAddressChangeGetAddressChangeViewUrl = () => {
 export const addressChangeGetAddressChangeView = async (
   fLTokenPayload: FLTokenPayload,
   options?: Parameters<typeof baseKeyReadTransport>[1],
-): Promise<FLAddressChangeViewResponse> => {
-  return baseKeyReadTransport<FLAddressChangeViewResponse>(getAddressChangeGetAddressChangeViewUrl(), {
-    ...options,
-    method: "POST",
-    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
-    body: JSON.stringify(fLTokenPayload),
-  });
+): Promise<FLAddressChangeViewNew | FLAddressChangeViewPrevious | FLAddressChangeViewEnded> => {
+  return baseKeyReadTransport<FLAddressChangeViewNew | FLAddressChangeViewPrevious | FLAddressChangeViewEnded>(
+    getAddressChangeGetAddressChangeViewUrl(),
+    {
+      ...options,
+      method: "POST",
+      headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
+      body: JSON.stringify(fLTokenPayload),
+    },
+  );
 };
 
 export const getAddressChangeSweepAddressChangeUrl = () => {
@@ -1283,7 +1288,7 @@ export const getOutboxPostResultUrl = () => {
  *
  * `held` reports a deployment that sends no mail, `abandon` a refusal every send would meet (any 4xx but a 429), and
  * `retry` a 429, a 5xx or a send that never reached the provider, which hands the mail back unless it is a sign-in
- * mail or past its deadline.
+ * code, a deletion link or past its deadline.
  * @summary Settle one mail a claim handed out
  */
 export const outboxPostResult = async (
@@ -1764,28 +1769,6 @@ export const saisonsGetSaisonOverview = async (
   });
 };
 
-export const getSaisonsSweepSaisonRetentionUrl = (saisonId: string) => {
-  return `/api/saisons/${encodeURIComponent(String(saisonId))}/retention`;
-};
-
-/**
- * Clear one season's contact blocks once a later season has ended, and each seat past its own day unconfirmed before.
- *
- * Once a later season has ended, the season's fixture answers and match reports keep the league's record alone. A row
- * that cannot be written is passed over, counted in `failed`, and met again by the next pass, as is a clock written in
- * one go whose write fails; what each clock cleared is recorded in the action log.
- * @summary Run one season's retention clocks over its season rows, fixture answers and match reports
- */
-export const saisonsSweepSaisonRetention = async (
-  saisonId: string,
-  options?: Parameters<typeof systemKeyPassTransport>[1],
-): Promise<FLSaisonRetentionResponse> => {
-  return systemKeyPassTransport<FLSaisonRetentionResponse>(getSaisonsSweepSaisonRetentionUrl(saisonId), {
-    ...options,
-    method: "POST",
-  });
-};
-
 export const getSaisonsGetSpielUrl = (saisonId: string, spielId: string) => {
   return `/api/saisons/${encodeURIComponent(String(saisonId))}/spiele/${encodeURIComponent(String(spielId))}`;
 };
@@ -1863,6 +1846,28 @@ export const saisonsPostSpielplan = async (
     method: "POST",
     headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(fLGenerateSpielplanPayload),
+  });
+};
+
+export const getSaisonsSweepSaisonRetentionUrl = (saisonId: string) => {
+  return `/api/saisons/${encodeURIComponent(String(saisonId))}/sweep`;
+};
+
+/**
+ * Clear one season's contact blocks once a later season has ended, and each seat past its own day unconfirmed before.
+ *
+ * Once a later season has ended, the season's fixture answers and match reports keep the league's record alone. A row
+ * that cannot be written is passed over, counted in `failed`, and met again by the next pass, as is a clock written in
+ * one go whose write fails; what each clock cleared is recorded in the action log.
+ * @summary Run one season's retention clocks over its season rows, fixture answers and match reports
+ */
+export const saisonsSweepSaisonRetention = async (
+  saisonId: string,
+  options?: Parameters<typeof systemKeyPassTransport>[1],
+): Promise<FLSaisonRetentionResponse> => {
+  return systemKeyPassTransport<FLSaisonRetentionResponse>(getSaisonsSweepSaisonRetentionUrl(saisonId), {
+    ...options,
+    method: "POST",
   });
 };
 
@@ -1947,7 +1952,7 @@ export const getSchiedsrichterPostSchiedsrichterUrl = () => {
 };
 
 /**
- * Create a referee and owe them their confirmation link.
+ * Create a referee and owe them their confirmation link, answering the address it goes to.
  *
  * Entering a referee is the invitation, with no second press deciding whether they are asked, since a referee nobody
  * asked is a name nobody consented to publish.
@@ -1956,8 +1961,8 @@ export const getSchiedsrichterPostSchiedsrichterUrl = () => {
 export const schiedsrichterPostSchiedsrichter = async (
   fLPostSchiedsrichterPayload: FLPostSchiedsrichterPayload,
   options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLCreatedResponse> => {
-  return adminKeyTransport<FLCreatedResponse>(getSchiedsrichterPostSchiedsrichterUrl(), {
+): Promise<FLPostSchiedsrichterResponse> => {
+  return adminKeyTransport<FLPostSchiedsrichterResponse>(getSchiedsrichterPostSchiedsrichterUrl(), {
     ...options,
     method: "POST",
     headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
@@ -2159,7 +2164,7 @@ export const getSchiedsrichterResendConfirmationUrl = (schiedsrichterId: string)
 };
 
 /**
- * Owe this referee a fresh confirmation link, which the Postausgang mints and mails, and answer where it goes.
+ * Owe this referee a fresh confirmation link, which the Postausgang mints and mails, to the address they hold.
  *
  * The previous link stops working at once and the deadline restarts from today; a referee who has already answered is
  * refused, since the new link could never be spent.
@@ -2168,8 +2173,8 @@ export const getSchiedsrichterResendConfirmationUrl = (schiedsrichterId: string)
 export const schiedsrichterResendConfirmation = async (
   schiedsrichterId: string,
   options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLSchiedsrichterMintResponse> => {
-  return adminKeyTransport<FLSchiedsrichterMintResponse>(getSchiedsrichterResendConfirmationUrl(schiedsrichterId), {
+): Promise<void> => {
+  return adminKeyTransport<void>(getSchiedsrichterResendConfirmationUrl(schiedsrichterId), {
     ...options,
     method: "POST",
   });

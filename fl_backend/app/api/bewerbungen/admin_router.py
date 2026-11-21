@@ -296,8 +296,10 @@ async def accept_bewerbung(
             picked_team = team_raw["_id"]
             # Two applications may name one club, so the first's acceptance reaches the second here: on the status
             # line by this code, ahead of the junction's unique index, which answers only a race.
-            entered = await saison_teams_collection.count_documents({"saison_id": saison_id, "team_id": picked_team}, limit=1, session=session)
-            refuse(find_already_entered_refusal(entered=entered > 0))
+            entered = await saison_teams_collection.find_one(
+                {"saison_id": saison_id, "team_id": picked_team}, projection={"_id": 1}, session=session
+            )
+            refuse(find_already_entered_refusal(entered=entered is not None))
             name, shorthand = str(team_raw["name"]), str(team_raw["shorthand"])
         else:
             # Judged where the picked club's standing is judged, and for that reason: a school whose own details make no

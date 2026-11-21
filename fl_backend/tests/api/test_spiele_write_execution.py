@@ -37,7 +37,7 @@ from app.core.transactions import transaction_session
 from tests import documents
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database
 from tests.erasure import erased
-from tests.isolation import InterleavedCollection, outcome_of, refused_code
+from tests.isolation import InterleavedCollection, RowsThenTheRival, outcome_of, refused_code
 from tests.spiel_saves import (
     ALPHA,
     BETA,
@@ -654,42 +654,11 @@ class TestTheEligibilityRefusalIsReachedThroughTheRoute:
 BEFORE_THE_GROUP_DAY = datetime(2026, 3, 5, 12, tzinfo=clock.GERMANY)
 
 
-class ConfirmationsThenARival:
+class ConfirmationsThenARival(InterleavedCollection):
     """The confirmation rows, a rival committing once just after their first read: before whatever the caller reads next."""
 
-    def __init__(self, collection: Any, rival: Callable[[], Awaitable[Any]]) -> None:
-        self._collection = collection
-        self._rival: Callable[[], Awaitable[Any]] | None = rival
-
-    def __getattr__(self, name: str) -> Any:
-        return getattr(self._collection, name)
-
-    def find(self, *args: Any, **kwargs: Any) -> Any:
-        return _RivalAfterCursor(self._collection.find(*args, **kwargs), self)
-
-    async def run_the_rival(self) -> None:
-        if self._rival is not None:
-            rival, self._rival = self._rival, None
-            await rival()
-
-
-class _RivalAfterCursor:
-    def __init__(self, cursor: Any, rows: ConfirmationsThenARival) -> None:
-        self._cursor = cursor
-        self._rows = rows
-
-    def sort(self, *args: Any, **kwargs: Any) -> _RivalAfterCursor:
-        self._cursor = self._cursor.sort(*args, **kwargs)
-        return self
-
-    def limit(self, *args: Any, **kwargs: Any) -> _RivalAfterCursor:
-        self._cursor = self._cursor.limit(*args, **kwargs)
-        return self
-
-    async def to_list(self, *args: Any, **kwargs: Any) -> Any:
-        answered = await self._cursor.to_list(*args, **kwargs)
-        await self._rows.run_the_rival()
-        return answered
+    def find(self, *args: Any, **kwargs: Any) -> RowsThenTheRival:
+        return RowsThenTheRival(self._collection.find(*args, **kwargs), self.run_the_rival)
 
 
 class TestTheDryRunNamesWhomThePassWouldMail:

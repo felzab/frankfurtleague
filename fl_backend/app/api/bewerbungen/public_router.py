@@ -234,10 +234,10 @@ async def post_bewerbung(
             team_raw = await teams_collection.find_one({"_id": bewerbung_data.team_id}, {"inactive_since": 1}, session=session)
             refuse(find_picked_team_refusal(team_raw=team_raw))
 
-            entered = await saison_teams_collection.count_documents(
-                {"saison_id": bewerbung_data.saison_id, "team_id": bewerbung_data.team_id}, limit=1, session=session
+            entered = await saison_teams_collection.find_one(
+                {"saison_id": bewerbung_data.saison_id, "team_id": bewerbung_data.team_id}, projection={"_id": 1}, session=session
             )
-            refuse(find_already_entered_refusal(entered=entered > 0))
+            refuse(find_already_entered_refusal(entered=entered is not None))
 
         confirmation_deadline = confirmation_deadline_from(today=today)
         stored_kontakte = compose_kontakte(kontakte=bewerbung_data.kontakte.model_dump(mode="json"), today=today)
@@ -358,7 +358,6 @@ async def _saison_view(
 # A POST that reads, so the token travels in the body.
 @router.post(
     "/confirmation/view",
-    response_model=FLBewerbungEinwilligungViewResponse,
     summary="What one confirmation link opens",
     openapi_extra=SAFE,
 )
@@ -369,12 +368,7 @@ async def get_confirmation_view(
     saisons_collection: SaisonsReadCollection,
     teams_collection: TeamsReadCollection,
     today: GermanDay,
-) -> (
-    FLBewerbungEinwilligungViewValid
-    | FLBewerbungEinwilligungViewSaisonPast
-    | FLBewerbungEinwilligungViewAnswered
-    | FLBewerbungEinwilligungViewExpired
-):
+) -> FLBewerbungEinwilligungViewResponse:
     """What the confirmation page renders for the seat this token opens, and nothing of the person.
 
     A confirmed, declined or expired link is served in that state; only a token no seat holds is refused.

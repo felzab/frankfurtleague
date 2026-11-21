@@ -12,12 +12,12 @@ from app.api.schiedsrichter.schemas import (
     FLPatchSchiedsrichterPayload,
     FLPatchSchiedsrichterResponse,
     FLPostSchiedsrichterPayload,
+    FLPostSchiedsrichterResponse,
     FLSchiedsrichter,
     FLSchiedsrichterAdmin,
     FLSchiedsrichterAdminRow,
     FLSchiedsrichterListResponse,
     FLSchiedsrichterMint,
-    FLSchiedsrichterMintResponse,
     FLSchiedsrichterReactivateResponse,
     FLSchiedsrichterSingleResponse,
 )
@@ -65,7 +65,6 @@ from app.core.recording import record_act
 from app.core.routing import by_id
 from app.core.transactions import transact
 from app.shared.schemas.custom import CustomObjectId
-from app.shared.schemas.responses import FLCreatedResponse
 
 # Admin-guarded, not base: a referee is a pupil, so their contact details and school are admin-tier, as is the fee,
 # which is money.
@@ -88,7 +87,6 @@ async def get_schiedsrichter(
     schiedsrichter_raw = await pull_whole_from_db(
         collection=schiedsrichter_collection,
         db_filter={},
-        what="the referees",
         projection=dict(ADMIN_ROW_FIELDS),
         sort_by=[("name", 1)],
         collation=GERMAN_COLLATION,
@@ -137,8 +135,8 @@ async def post_schiedsrichter(
     db: DBClient,
     today: GermanDay,
     germany_now: GermanyNow,
-) -> FLCreatedResponse:
-    """Create a referee and owe them their confirmation link.
+) -> FLPostSchiedsrichterResponse:
+    """Create a referee and owe them their confirmation link, answering the address it goes to.
 
     Entering a referee is the invitation, with no second press deciding whether they are asked, since a referee nobody
     asked is a name nobody consented to publish.
@@ -177,7 +175,7 @@ async def post_schiedsrichter(
     # owed that an administrator was then told had been refused.
     post_operation = await transact(db, judge_and_create)
 
-    return FLCreatedResponse(created_id=post_operation.inserted_id)
+    return FLPostSchiedsrichterResponse(created_id=post_operation.inserted_id, confirmation=FLSchiedsrichterMint(email=email))
 
 
 @router.patch(
@@ -283,7 +281,6 @@ async def delete_schiedsrichter(
         assigned = await pull_whole_from_db(
             collection=spiele_collection,
             db_filter=build_unplayed_assignment_filter(schiedsrichter_id),
-            what=f"referee {schiedsrichter_id}'s unplayed fixtures",
             projection={"spiel_nr": 1},
             session=session,
         )
@@ -373,6 +370,7 @@ async def reactivate_schiedsrichter(
 
 @router.post(
     f"{by_id('schiedsrichter_id')}/confirmation/resend",
+    status_code=status.HTTP_204_NO_CONTENT,
     summary="Send a Schiedsrichter a fresh confirmation link",
 )
 async def resend_confirmation(
@@ -382,14 +380,14 @@ async def resend_confirmation(
     db: DBClient,
     today: GermanDay,
     germany_now: GermanyNow,
-) -> FLSchiedsrichterMintResponse:
-    """Owe this referee a fresh confirmation link, which the Postausgang mints and mails, and answer where it goes.
+) -> None:
+    """Owe this referee a fresh confirmation link, which the Postausgang mints and mails, to the address they hold.
 
     The previous link stops working at once and the deadline restarts from today; a referee who has already answered is
     refused, since the new link could never be spent.
     """
 
-    async def judge_and_mint(session: AsyncClientSession) -> str:
+    async def judge_and_mint(session: AsyncClientSession) -> None:
         stored = await pull_one_from_db(
             collection=schiedsrichter_collection,
             db_filter={"_id": schiedsrichter_id},
@@ -411,6 +409,8 @@ async def resend_confirmation(
             expected_version=None,
             return_document=ReturnDocument.AFTER,
         )
+        # The address read in-session above, never one the caller read before this request: a save moving it in between
+        # would otherwise send the link to the previous mailbox.
         await owe_the_confirmation(
             outbox_collection=outbox_collection,
             schiedsrichter_id=updated["_id"],
@@ -421,10 +421,4 @@ async def resend_confirmation(
             session=session,
         )
 
-        return str(email)
-
-    # The address answered is the one read in-session above, never one the caller read before this
-    # request: a save moving it in between would otherwise send the link to the previous mailbox.
-    minted_for = await transact(db, judge_and_mint)
-
-    return FLSchiedsrichterMintResponse(confirmation=FLSchiedsrichterMint(email=minted_for))
+    await transact(db, judge_and_mint)

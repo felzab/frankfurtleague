@@ -28,9 +28,7 @@ from app.shared.schemas.literals import FLAdminTier
 async def read_grants(*, grants_collection: ReadCollection, session: AsyncClientSession | None = None) -> list[Mapping[str, Any]]:
     """Every grant as stored, by address, a waiting row among them: the judgements read the whole list."""
 
-    return await pull_whole_from_db(
-        collection=grants_collection, db_filter={}, what="the grants", sort_by=[("address", ASCENDING)], session=session
-    )
+    return await pull_whole_from_db(collection=grants_collection, db_filter={}, sort_by=[("address", ASCENDING)], session=session)
 
 
 async def pull_the_list_to_judge(

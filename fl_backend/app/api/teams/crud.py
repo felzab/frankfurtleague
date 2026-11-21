@@ -66,13 +66,13 @@ async def refuse_a_taken_colour(
     if trikot_farbe is None:
         return
 
-    # A count is a read, so two writes naming one colour pass unless they meet in one write set: every caller anchors the
-    # season in this transaction, before the count or after it.
+    # A lookup is a read, so two writes naming one colour pass unless they meet in one write set: every caller anchors the
+    # season in this transaction, before the lookup or after it.
     other_rows = {} if own_id is None else {"_id": {"$ne": own_id}}
-    held = await saison_teams_collection.count_documents(
-        {"saison_id": saison_id, "trikot_farbe": trikot_farbe, **other_rows}, limit=1, session=session
+    held = await saison_teams_collection.find_one(
+        {"saison_id": saison_id, "trikot_farbe": trikot_farbe, **other_rows}, projection={"_id": 1}, session=session
     )
-    if held > 0:
+    if held is not None:
         raise APIError(HTTPStatus.CONFLICT, Code.TRIKOT_FARBE_TAKEN, fields=(("trikot_farbe",),))
 
 
@@ -170,8 +170,8 @@ async def enter_a_team(
 
     # A club a dialog offered and an acceptance entered since: by this code, ahead of the junction's unique index, which
     # answers only a race.
-    entered = await saison_teams_collection.count_documents({"saison_id": saison_id, "team_id": team_id}, limit=1, session=session)
-    refuse(find_already_entered_refusal(entered=entered > 0))
+    entered = await saison_teams_collection.find_one({"saison_id": saison_id, "team_id": team_id}, projection={"_id": 1}, session=session)
+    refuse(find_already_entered_refusal(entered=entered is not None))
 
     refuse(find_entry_saison_refusal(saison_status=str(saison_raw["status"])))
     await refuse_a_full_gruppe(
@@ -257,7 +257,7 @@ async def write_the_team(
     # Read through the session, so a season closed by a concurrent write cannot leave the junction rewritten and its
     # fixtures not, or the reverse.
     open_saisons = await pull_whole_from_db(
-        collection=saisons_collection, db_filter={"status": {"$ne": "past"}}, what="the seasons not past", projection=["_id"], session=session
+        collection=saisons_collection, db_filter={"status": {"$ne": "past"}}, projection=["_id"], session=session
     )
     open_saison_ids = [row["_id"] for row in open_saisons]
     # A read alone joins no write set, and the rollover writes no club row, so without this a season closed under the
@@ -289,7 +289,6 @@ async def pull_tabelle(
         pull_whole_from_db(
             collection=spiele_collection,
             db_filter={"saison_id": saison_id, "saison_phase": "gruppenphase"},
-            what=f"season {saison_id}'s group fixtures",
         ),
     )
     spiele = FLSpielListAdapter.validate_python(spiele_raw)
@@ -320,7 +319,6 @@ async def pull_saison_team_names(*, saison_teams_collection: ReadCollection, sai
     rows = await pull_whole_from_db(
         collection=saison_teams_collection,
         db_filter={"saison_id": saison_id},
-        what=f"season {saison_id}'s clubs",
         projection=["team_id", "name"],
     )
 

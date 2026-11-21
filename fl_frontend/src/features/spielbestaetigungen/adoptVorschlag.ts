@@ -11,9 +11,8 @@ import {
 
 /**
  * Moves the fixture to the date and hour a club's open decline proposes, through the fixture's own save, from the
- * proposal's row once its question has named the move and its mails. The save's refusals arrive with no path, the
- * adoption posting no body, so a code the save words by its path arrives under a twin per resource or side, each
- * worded as the save's sentence for that path.
+ * proposal's row once its question has named the move and its mails. The save's refusals arrive with the paths of the
+ * body the adoption does not post, so each reads the status line's sentence that path picks, as on the match editor.
  */
 export const adoptVorschlag = action({
   lane: "admin",

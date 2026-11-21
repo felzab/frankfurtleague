@@ -181,7 +181,6 @@ async def _pull_people(
     people = await pull_whole_from_db(
         collection=spieler_collection,
         db_filter={"_id": {"$in": rest}},
-        what="the pupils a stored line-up names off the squad",
         projection=["first_name", "last_name"],
         session=session,
     )

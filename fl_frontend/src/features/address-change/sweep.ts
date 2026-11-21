@@ -9,7 +9,7 @@ import { runAddressChangeMoves } from "./moves";
  * owed. A timer holds no session, and a lapsed change or a due one is the clock's. A failure rejects, for the heartbeat
  * to name; the pass resolves to what it did, `open` the changes it could not end.
  */
-export async function sweepAddressChange() {
+export async function runAddressChangeSweep() {
   const answer = await addressChangeSweepAddressChange();
 
   // An effect of this pass, or one whose press lost its answer, owes its account's carry.
