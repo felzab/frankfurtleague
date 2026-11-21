@@ -4,7 +4,7 @@ from datetime import datetime
 from http import HTTPStatus
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Query, status
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
@@ -266,7 +266,7 @@ async def get_teams_admin(
     teams_collection: TeamsReadCollection,
     saison_teams_collection: SaisonTeamsReadCollection,
     saisons_collection: SaisonsReadCollection,
-    filters: Annotated[FLTeamsAdminFilterParams, Depends()],
+    filters: Annotated[FLTeamsAdminFilterParams, Query()],
 ) -> FLTeamsAdminListResponse:
     """One season's clubs, a `future` season's included, each with its state, and what entering another offers.
 
