@@ -193,8 +193,8 @@ measures section 8's. "Administrators" are the holders of a grant to the adminis
       gate is consulted;
     - sessions with their factor, expiry and last use;
     - an administrator's passkeys, no other account holding one, with their public key, the reported
-      authenticator model and any name the holder gives one, never a private key
-      (`fl_frontend/src/core/auth/library.ts` configures the store);
+      authenticator model, when each was set up and any name the holder gives one, never a private
+      key (`fl_frontend/src/core/auth/library.ts` configures the store); they go with the grant;
     - the per-address code counts, under a keyed hash;
     - an address change's two addresses, until it ends and its sign-in account has moved.
   - Recipients: the person; administrators, of a non-holder's running change, both addresses; the
@@ -416,7 +416,8 @@ bound's conditions follow the table.
 | A ban                                        | Five full seasons after its own        | `fl_backend/app/shared/schemas/bounds.py :: BAN_DURATION_SAISONS`                                                                                          |
 | A grant                                      | Its removal or an erasure              | `fl_backend/app/api/grants/admin_router.py :: delete_grant`                                                                                                |
 | An address change                            | 30 days after its end                  | `fl_backend/app/shared/schemas/bounds.py :: ADDRESS_CHANGE_VALID_HOURS`, `:: ADDRESS_CHANGE_RETENTION_DAYS`                                                |
-| A sign-in account and its passkeys           | An hour after no record holds it       | `fl_frontend/src/features/account/sweep.ts :: runAccountSweep`                                                                                             |
+| A sign-in account                            | An hour after no record holds it       | `fl_frontend/src/features/account/sweep.ts :: runAccountSweep`                                                                                             |
+| An administrator's passkeys                  | The grant's removal or an erasure      | `fl_frontend/src/core/auth/passkeys.ts :: deletePasskeysAt`, `fl_frontend/src/core/auth/accounts.ts :: deleteAccountFor`                                   |
 | A session                                    | 14 days after its last use             | `fl_frontend/src/core/sessionLifetimes.ts :: SESSION_EXPIRES_IN_DAYS`, [`ops/runbooks.md`](ops/runbooks.md#14-the-auth-databases-indexes)                  |
 | A sign-in code; the code counts              | 10 minutes; a day or an hour           | `fl_frontend/src/core/signInCode.ts :: CODE_VALIDITY_MINUTES`, [`ops/runbooks.md`](ops/runbooks.md#14-the-auth-databases-indexes)                          |
 | A Postausgang row                            | 30 days after it is sent or given up   | `fl_backend/app/api/outbox/services.py :: RETENTION`, `:: row_of`                                                                                          |
@@ -460,8 +461,10 @@ bound's conditions follow the table.
   the confirming press or by the next hourly pass
   (`fl_backend/app/api/address_change/system_router.py :: post_address_change_moves_done`). It then
   keeps no address, and goes 30 days after its end.
-- **A sign-in account and its passkeys** go within the hour of no league record or grant holding the
-  address; a ban holding it does not count.
+- **A sign-in account** goes within the hour of no league record or grant holding the address; a ban
+  holding it does not count.
+- **An administrator's passkeys** go with the grant: its removal, or a waiting addition's
+  withdrawal, deletes them and the sessions they made, and an erasure takes them with the account.
 - **A session** serves a person's own pages until 14 days unused, 30 at most, and the administration
   until 1 hour unused, 24 at most, each judged on every read
   (`fl_frontend/src/core/sessionLifetimes.ts :: PERSON_LIFETIME`, `:: ADMIN_LIFETIME`). Its row goes
@@ -711,10 +714,9 @@ the notice and the procedures in [`ops/runbooks.md`](ops/runbooks.md) stand as t
       telephone number or a form must stand beside it;
     - whether the interviews the media consent foresees are journalistic-editorial content needing a
       responsible person under § 18(2) MStV;
-    - which basis the notice, the page's description and the lead the page opens with should cite,
-      each citing § 5 DDG where this record cites § 18(1) MStV first
-      (`fl_frontend/src/core/serverCopy.ts :: SERVER_COPY`'s `description.legalNotice`, the page's
-      description and its lead alike).
+    - which basis the notice and the page's description should cite, each citing § 5 DDG where this
+      record cites § 18(1) MStV first (`fl_frontend/src/core/serverCopy.ts :: SERVER_COPY`'s
+      `description.legalNotice`, the page's description).
 20. **The objection line's place**: whether a footer of 12 px under the Impressum and privacy links
     in each first-contact mail, and not on the confirmation page, is „presented clearly and
     separately from any other information“ under Art. 21(4).

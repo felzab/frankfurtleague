@@ -1007,6 +1007,7 @@ export const SERVER_COPY = catalogue({
             "den Anbieter, bei dem er liegt,",
             "ob er gesichert ist,",
             "wie dein Gerät ihn erreicht,",
+            "wann er eingerichtet wurde,",
             "seinen Namen.",
           ],
           never: "Seinen privaten Schlüssel speichern wir nie.",
@@ -1122,10 +1123,10 @@ export const SERVER_COPY = catalogue({
           // The tier by the words its chips show.
           {
             name: "Zugang zur Verwaltung",
-            content: `Adresse, ${ownerTier} oder Verwaltung, Beginn`,
+            content: `Adresse, ${ownerTier} oder Verwaltung, Beginn, Passkeys`,
             period: "bis er endet",
           },
-          { name: "Konto", content: "Adresse, Passkeys", period: "solange ein Eintrag besteht" },
+          { name: "Konto", content: "Adresse", period: "solange ein Eintrag besteht" },
           // The sign-in stores the plain address of anyone typed into the form, up to the mail cap.
           {
             name: "Anmeldung",
