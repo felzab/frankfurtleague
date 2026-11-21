@@ -731,26 +731,41 @@ function AccountPlace({ account: read }: { account: AccountRead }) {
 
 // On the dark-green band, as tall as a touch target; the chevron stands where the logo's edge would.
 // The way back reads a step bolder than the band's links, being the band's one act there, and answers the pointer as they do.
+// In the collapsed rail it takes an entry's place, as `railEntry` and `railGlyph` set one: its box reaches the rail's
+// 12-px inset on both sides, the chevron's 24-px box after 12 px centring it in the 72-px rail, the words fade as
+// `railFade` fades an entry's, clipped by the box, and the pointer lays the hover layer, the words' underline being
+// gone. Each from `lg:`, where the rail stands, rather than by `railFade` and `railGlyph` themselves: the phone's band
+// stands under the same root, which keeps the collapsed mark when a window folded on desktop narrows.
 const back = tv({
-  base: `-ms-2 flex h-10 items-center gap-1 rounded-lg ps-1 pe-3 text-sm font-semibold text-on-brand ${hoverLook({ host: "link", answer: "underline" })}`,
+  slots: {
+    root: `-ms-2 flex h-10 min-w-0 items-center gap-1 overflow-hidden rounded-lg ps-1 pe-3 text-sm font-semibold whitespace-nowrap text-on-brand lg:group-data-collapsed:-ms-3 lg:group-data-collapsed:-me-3 lg:group-data-collapsed:ps-3 lg:group-data-collapsed:hover:bg-layer lg:group-data-collapsed:active:bg-layer ${hoverLook({ host: "link", answer: "underline" })}`,
+    glyph: "flex shrink-0 justify-center lg:group-data-collapsed:w-6",
+    words: "transition-opacity duration-(--motion-in) lg:group-data-collapsed:opacity-0",
+  },
 });
 
 /**
  * „‹ Zurück“ in the band where the logo stands: in Konto, and on a phone in an editor, whose unsaved changes it asks
- * about first, as every link out of the editor does (`NavigationLink`).
+ * about first, as every link out of the editor does (`NavigationLink`). In the collapsed rail the chevron stands alone
+ * and the tooltip names it, as it names an entry.
  */
 export function BackControl({ href }: { href: Route }) {
+  const { root, glyph, words } = back();
   return (
-    <NavigationLink
-      href={href}
-      data-kit-focus="ring"
-      className={back()}>
-      <Icon
-        glyph="back"
-        size={18}
-      />
-      {COPY.shared.back}
-    </NavigationLink>
+    <RailTooltip label={COPY.shared.back}>
+      <NavigationLink
+        href={href}
+        data-kit-focus="ring"
+        className={root()}>
+        <span className={glyph()}>
+          <Icon
+            glyph="back"
+            size={18}
+          />
+        </span>
+        <span className={words()}>{COPY.shared.back}</span>
+      </NavigationLink>
+    </RailTooltip>
   );
 }
 
