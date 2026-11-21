@@ -1,6 +1,7 @@
 import { cache } from "react";
 
 import { COPY } from "@/core/copy/shared";
+import { spielerPatchKaderRowBodyNummerOneMax } from "@/core/generated/zod/inputs";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { readAsSeatHolder, requireTeamSeats, teamMetadata } from "@/features/roles/resolvers";
@@ -53,6 +54,7 @@ async function read(params: Props["params"]) {
         read={kader}
         team={seat.team_id}
         saison={seat.saison_id}
+        nummerMax={spielerPatchKaderRowBodyNummerOneMax}
       />
     ),
   };

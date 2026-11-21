@@ -744,8 +744,6 @@ export const SERVER_COPY = catalogue({
         title: "Spieler registrieren",
         text: "Dein Team bekommt einen Link, über den sich dein Jahrgang registriert. Die Kontaktpersonen nehmen die Spieler in den Kader auf.",
       },
-      /** The band while no season not yet ended holds a window; a window that stands reads `bewerbung.end`, as the form's page does. */
-      closed: "Das Bewerbungsfenster ist gerade geschlossen.",
       /** The school's door while a window is open, where the band and the season card carry its date. */
       opened: "Das Bewerbungsfenster ist offen.",
     },

@@ -9,11 +9,8 @@ import { RailPage } from "@/kit/RailFrame";
 import { pageMetadata } from "@/shared/utils/metadata";
 
 import type { CardLinkProps } from "@/kit/Card";
-import type { Metadata, ResolvingMetadata } from "next";
 
-export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
-  return pageMetadata(parent, ROUTES.areaRoles, ROUTES.areaRoles.path());
-}
+export const metadata = pageMetadata(ROUTES.areaRoles);
 
 /**
  * Every place the person holds, each a card's link: a team by its name over the seats held on it in any season, the

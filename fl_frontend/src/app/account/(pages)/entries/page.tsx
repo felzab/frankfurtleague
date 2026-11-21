@@ -16,12 +16,9 @@ import { EntriesBoxes } from "./EntriesBoxes";
 import type { Copy } from "@/core/copy";
 import type { FLAccountEinwilligungenResponse, FLAccountSeatPerson, FLEinwilligungState, FLKontaktSeat } from "@/core/generated/client/types";
 import type { Fact } from "@/kit/Facts";
-import type { Metadata, ResolvingMetadata } from "next";
 import type { Entry } from "./EntriesBoxes";
 
-export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
-  return pageMetadata(parent, ROUTES.accountEntries, ROUTES.accountEntries.path());
-}
+export const metadata = pageMetadata(ROUTES.accountEntries);
 
 const { entries: WORDS } = ACCOUNT_COPY;
 

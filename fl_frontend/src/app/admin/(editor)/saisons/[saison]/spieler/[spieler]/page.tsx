@@ -10,6 +10,7 @@ import {
   SpielerPatchSpielerSaisonBody,
   spielerPatchSpielerSaisonBodyFirstNameMax,
   spielerPatchSpielerSaisonBodyLastNameOneMax,
+  spielerPatchSpielerSaisonBodyNummerOneMax,
 } from "@/core/generated/zod/inputs";
 import { ROUTES } from "@/core/routes";
 import { kaderName } from "@/features/spieler/constants";
@@ -42,7 +43,11 @@ const RULES = {
     last_name: requires(shape.last_name, null),
     birth_date: requires(shape.birth_date, null),
   },
-  max: { first_name: spielerPatchSpielerSaisonBodyFirstNameMax, last_name: spielerPatchSpielerSaisonBodyLastNameOneMax },
+  max: {
+    first_name: spielerPatchSpielerSaisonBodyFirstNameMax,
+    last_name: spielerPatchSpielerSaisonBodyLastNameOneMax,
+    nummer: spielerPatchSpielerSaisonBodyNummerOneMax,
+  },
 };
 
 const read = cache(getSpielerSaison);

@@ -10,6 +10,7 @@ import {
   registrierungenPostRegistrierungBodyEmailMax,
   registrierungenPostRegistrierungBodyFirstNameMax,
   registrierungenPostRegistrierungBodyLastNameMax,
+  registrierungenPostRegistrierungBodyNummerOneMax,
 } from "@/core/generated/zod/inputs";
 import { mailedLinkToken } from "@/core/mailedLink";
 import { ROUTES } from "@/core/routes";
@@ -55,6 +56,7 @@ const RULES: RegistrierungRules = {
     firstName: registrierungenPostRegistrierungBodyFirstNameMax,
     lastName: registrierungenPostRegistrierungBodyLastNameMax,
     email: registrierungenPostRegistrierungBodyEmailMax,
+    nummer: registrierungenPostRegistrierungBodyNummerOneMax,
   },
 };
 

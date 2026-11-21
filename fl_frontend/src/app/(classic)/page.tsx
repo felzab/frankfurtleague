@@ -23,7 +23,6 @@ import { OrganisersSection, PillarsSection, SeasonSection } from "./LeagueSectio
 
 import type { FLBewerbungWindow, FLLandingResponse } from "@/core/generated/client/types";
 import type { LandingContent } from "@/kit/LandingPage";
-import type { Metadata, ResolvingMetadata } from "next";
 import type { ComponentProps, ReactElement, ReactNode } from "react";
 import type { LandingSaison } from "./landing";
 
@@ -32,9 +31,7 @@ const words = SERVER_COPY.landing;
 /** The form's page's words for a window that takes no application today, which the band says too. */
 const FORM_END = SERVER_COPY.bewerbung.end;
 
-export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
-  return pageMetadata(parent, ROUTES.home, ROUTES.home.path(), { description: SERVER_COPY.description.home });
-}
+export const metadata = pageMetadata(ROUTES.home, { description: SERVER_COPY.description.home });
 
 /** The way to the league's own page, which stands where applying would while no window is open. */
 const ABOUT = { label: COPY.page.about, href: ROUTES.about.path() };
