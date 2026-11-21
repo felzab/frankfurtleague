@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { useState } from "react";
 
-import { act, render, screen, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 
@@ -126,6 +126,25 @@ describe("a refused row", () => {
     expect(within(third).queryByText(REQUIRED)).toBeNull();
     expect(marked(second)).toBe("true");
     expect(marked(first)).toBeNull();
+  });
+});
+
+// The harm: a keyboard user's removal drops the row with the focus, which falls to the page's body, and the next Tab
+// starts from the top of the page.
+describe("a row removed by the keys", () => {
+  it("hands the focus to the next row's first control", async () => {
+    // In its editor's box, as a page holds it.
+    render(
+      <section>
+        <Goals />
+      </section>,
+    );
+    const next = rowAt(1);
+    act(() => within(rowAt(0)).getByRole("button", { name: REMOVE }).focus());
+
+    await userEvent.keyboard("{Enter}");
+
+    await waitFor(() => expect(next.contains(document.activeElement)).toBe(true));
   });
 });
 
