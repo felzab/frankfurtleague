@@ -238,8 +238,10 @@ measures section 8's. "Administrators" are the holders of a grant to the adminis
       query, the status, the durations, the size and the browser identifier
       (`nginx/shared/http.conf :: fl_json`). A mailed link carries its token in the query, so no
       token reaches the line, which `scripts/checks/edge_test.sh` holds;
-    - nginx's error lines. A refusal writes none. An upstream failure's line repeats the request
-      line whole, its query and referrer with it ([`ops/spec.md`](ops/spec.md#13-nginx-routing));
+    - nginx's error lines. A refusal writes none, and neither does any request to a page a mailed
+      link opens, so no token reaches one. Every other line, an upstream failure's among them,
+      repeats the request line whole, its query and referrer with it
+      ([`ops/spec.md`](ops/spec.md#13-nginx-routing));
     - the application's log lines;
     - in the browser, the session cookie, a passkey ceremony's cookie, a mailed link's cookie
       holding its token for an hour (`fl_frontend/src/core/mailedLink.ts`), the theme in local
