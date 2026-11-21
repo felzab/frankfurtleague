@@ -354,17 +354,17 @@ describe("each form's posted names meet its lane's keys", () => {
     });
 
     // The rename writes the sign-in store alone, so the row it names is what the case reads.
+    // An administrator's, the one account holding a passkey: the file's visitor unless a case names another.
     it("loses no key of a passkey's rename", async () => {
       const { renamePasskeyAction } = await import("@/features/passkeys/actions");
       const posted = spelledIn("app/account/(pages)/security/SecurityBoxes.tsx");
-      await arriveAs({ email: "pia@example.org" });
-      const account = store.user.find(({ email }) => email === "pia@example.org");
-      assert(account !== undefined, "the person's arrival wrote no account");
+      const account = store.user.find(({ email }) => email === ADMIN_EMAIL);
+      assert(account !== undefined, "the administrator's arrival wrote no account");
       store.passkey.push({
         id: "pk-1",
         name: "Laptop",
         userId: account.id,
-        credentialID: "credential-of-pia",
+        credentialID: "credential-of-the-laptop",
         publicKey: "fabricated-public-key",
         counter: 0,
         deviceType: "singleDevice",
@@ -373,11 +373,11 @@ describe("each form's posted names meet its lane's keys", () => {
         createdAt: new Date(),
       });
 
-      const answer = await renamePasskeyAction(formOf(posted, { id: "pk-1", name: "Telefon", holder: "pia@example.org" }));
+      const answer = await renamePasskeyAction(formOf(posted, { id: "pk-1", name: "Telefon", holder: ADMIN_EMAIL }));
 
       expect(answer).toStrictEqual({ ok: true, value: undefined });
-      const own = store.passkey.filter(({ userId }) => userId === account.id);
-      expect(own.map(({ id, name }) => [id, name])).toStrictEqual([["pk-1", "Telefon"]]);
+      const renamed = store.passkey.filter(({ id }) => id === "pk-1");
+      expect(renamed.map(({ userId, name }) => [userId, name])).toStrictEqual([[account.id, "Telefon"]]);
     });
 
     it("loses no key of a team's exit", async () => {
