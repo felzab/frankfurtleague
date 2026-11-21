@@ -136,7 +136,7 @@ function tokenLinksIn(value: unknown): string[] {
 
 /** Each kind's links carrying its credential, built through the drain's own `mailFor` with a made-up token and secret. */
 function tokenLinksOf(kind: OutboxKind): string[] {
-  const mail = mailFor(kind, FACTS[kind] as never, { token: TOKEN, secret: TOKEN, origin: ORIGIN });
+  const mail = mailFor(kind, FACTS[kind] as never, { token: TOKEN, secret: TOKEN, origin: ORIGIN, to: "kontakt@schule.example.org" });
   if (mail === undefined) throw new Error(`the kind ${kind} has no builder`);
   return tokenLinksIn(mail);
 }
@@ -193,7 +193,7 @@ describe("a mail's subject", () => {
   // A mail program shows and searches a subject as typed, and the journeys find a mail by its subject's start: a
   // no-break space from the catalogue's `boundBy` fails both with every page still reading the same.
   it.each([...KINDS.map((kind) => FACTS[kind]), MOVED_TO])("joins its words with plain spaces, in a $kind mail", (data) => {
-    const mail = mailFor(data.kind, data as never, { token: TOKEN, secret: TOKEN, origin: ORIGIN });
+    const mail = mailFor(data.kind, data as never, { token: TOKEN, secret: TOKEN, origin: ORIGIN, to: "kontakt@schule.example.org" });
     if (mail === undefined) throw new Error(`the kind ${data.kind} has no builder`);
     expect(mail.subjectLine).not.toContain("\u00A0");
   });

@@ -1,11 +1,11 @@
 import "server-only";
 
 import { KONTAKT_EMAIL, VEREIN_ADDRESS, VEREIN_NAME, VEREINSREGISTER, VORSTAND_JOINTLY } from "./brand";
-import { boundBy, catalogue, runsText, seatsText, textOf, waitWords } from "./copy";
+import { boundBy, catalogue, runsText, seatsText, spieleNamed, textOf, waitWords } from "./copy";
 import { ACCOUNT_COPY } from "./copy/account";
 import { ADMIN_COPY } from "./copy/admin";
 import { COPY } from "./copy/shared";
-import { formatDate, formatDateLong, formatDayAndTime, formatInstant, formatList, formatNumber, formatOrdinal, formatSigned } from "./format";
+import { formatDate, formatDateLong, formatDayAndTime, formatInstant, formatNumber, formatOrdinal, formatSigned } from "./format";
 
 import type { Copy, TextLink, Wait, Words } from "./copy";
 import type { CalendarDay, TimeOfDay } from "./format";
@@ -36,7 +36,6 @@ const SPIELE_SHORT = "Sp.";
 const SPIELBETRIEB = "Spielbetrieb";
 const gruppeName = COPY.shared.season.gruppe;
 const placeName = (platz: number) => `${formatOrdinal(platz)} ${PLATZ}`;
-const spieleNamed = (nrs: readonly number[]) => `Spiel ${formatList(nrs.map(formatNumber))}`;
 
 // A fixture's ground or referee booked at its time elsewhere, and a side out of the season: the save keys each by the
 // path it names, the adoption, which names none, by a code of its own per resource and side.
@@ -48,7 +47,7 @@ const DISQUALIFIED = {
   team1: `${team1} ist aus der Saison ausgeschieden.`,
   team2: `${team2} ist aus der Saison ausgeschieden.`,
 };
-// An address the ban list holds, whichever write would mail it a link.
+// An address the ban list holds, whichever act reached for it: a write that would mail it a link, or a second ban.
 const ADDRESS_BARRED = "Diese E-Mail-Adresse steht auf der Sperrliste.";
 // An address the administration holds, whichever act reached for it: an addition, a ban, an erasure or an address change.
 const ADDRESS_OF_ADMINISTRATION = "Diese Adresse gehört zur Verwaltung.";
@@ -242,7 +241,7 @@ export const SERVER_COPY = catalogue({
    */
   closedDialog: {
     /** A ban of an address the ban list already holds. */
-    banned: "Diese Adresse ist schon gesperrt.",
+    banned: ADDRESS_BARRED,
     format: {
       address: `Die E-Mail-Adresse hat nicht das Format ${COPY.shared.field.exampleAddress}.`,
       previous: `Die bisherige E-Mail-Adresse hat nicht das Format ${COPY.shared.field.exampleAddress}.`,
@@ -441,14 +440,16 @@ export const SERVER_COPY = catalogue({
         others: "Die anderen Kontaktpersonen bestätigen selbst. Sag ihnen Bescheid.",
         pending: "Noch offen",
       },
-      /** A seat's link mail, and the fresh link „Sitz bearbeiten“ mails: each seat holds its own days, so it says one day alone. */
+      /**
+       * A seat's link mail, and the fresh link „Sitz bearbeiten“ mails: each seat holds its own days, so it says one day
+       * alone. It opens on its page's opening, `kontaktConfirmation.opening.named`, as every confirmation mail does.
+       */
       link: {
-        subject: (saison: string) => `Eintrag für die ${COPY.shared.saisonName(saison)} bestätigen`,
-        named: "Eine Bewerbung nennt dich als Kontaktperson.",
+        subject: (saison: string) => `${COPY.page.entryConfirmation}: ${COPY.shared.saisonName(saison)}`,
       },
       reminder: {
-        subject: (saison: string) => `Erinnerung: Eintrag für die ${COPY.shared.saisonName(saison)} bestätigen`,
-        missing: "Deine Antwort zur Bewerbung fehlt noch.",
+        subject: (saison: string) => `Erinnerung: Eintrag für die ${COPY.shared.saisonName(saison)}`,
+        missing: "Deine Antwort fehlt noch.",
       },
       zusage: {
         subject: (saison: string) => `Zusage für die ${COPY.shared.saisonName(saison)}`,
@@ -487,7 +488,7 @@ export const SERVER_COPY = catalogue({
 
     /** A seat on a team's season: its sentences are the confirmation page's, `kontaktConfirmation`. */
     kontakt: {
-      subject: (team: string) => `Eintrag bestätigen: ${team}`,
+      subject: (team: string) => `${COPY.page.entryConfirmation}: ${team}`,
       /** A closed row's subject and button, which have nothing to confirm. */
       closedSubject: (team: string) => `Dein Eintrag für ${team}`,
       toEntry: "Zum Eintrag",
@@ -609,7 +610,8 @@ export const SERVER_COPY = catalogue({
 
     /** The one notice of a deletion: an account's, or an application's that did not come about, to each seat that confirmed. */
     deletion: {
-      account: `Dein Konto und deine Angaben sind gelöscht, bis auf das, was unter „${COPY.page.privacyNotice}“ steht.`,
+      /** The deletion box's own sentence, as its link's mail reads it: the subject already says the account is gone. */
+      account: ACCOUNT_COPY.erasure.description,
       bewerbung: {
         // True of a lapse and of an application undecided at its season's end alike.
         lead: (saison: string) => `Die Bewerbung für die ${COPY.shared.saisonNameBound(saison)} kam nicht zustande.`,
@@ -948,7 +950,7 @@ export const SERVER_COPY = catalogue({
         // sets and exports no name for. The code's cookie lives as long as the code it was asked for. The mailed link's
         // hour is typed as its one figure, the singular „Stunde“ being the sentence's.
         browser: (codeMinutes: number, mailedLinkHours: 1) =>
-          `In deinem Browser legt die Website nur ab, was ihr Betrieb braucht. Meldest du dich an, legt sie ein Sitzungs-Cookie ab. Für die Anmeldung mit einem Passkey legt sie ein Cookie ab, das 5\u00A0Minuten gilt. Forderst du einen Code zur Anmeldung an, legt sie ein Cookie ab, das den Code an diesen Browser bindet; es gilt ${boundBy(formatNumber(codeMinutes), "Minuten")}. Öffnest du einen Link aus einer E-Mail, hält ein Cookie ihn ${boundBy(formatNumber(mailedLinkHours), "Stunde")} lang, bis du ihn benutzt. Im lokalen Speicher legt sie die Darstellung ab, hell oder dunkel, die du wählst.`,
+          `In deinem Browser legt die Website nur ab, was ihr Betrieb braucht. Meldest du dich an, legt sie ein Sitzungs-Cookie ab. Für die Anmeldung mit einem Passkey legt sie ein Cookie ab, das 5\u00A0Minuten gilt. Forderst du einen Code zur Anmeldung an, legt sie ein Cookie ab, das den Code an diesen Browser bindet; es gilt ${boundBy(formatNumber(codeMinutes), "Minuten")}. Öffnest du einen Link aus einer E-Mail oder den Registrierungslink deines Teams, hält ein Cookie ihn ${boundBy(formatNumber(mailedLinkHours), "Stunde")} lang, bis du ihn benutzt. Im lokalen Speicher legt sie die Darstellung ab, die du wählst.`,
         turnstile:
           "Auf der Anmeldeseite, im Bewerbungsformular und im Registrierungsformular prüft Cloudflare Turnstile, ob ein Mensch das Formular abschickt. Dafür fragt Turnstile Merkmale deines Browsers und deiner Verbindung ab. Cloudflare nutzt sie auch in eigener Verantwortung, um seine Erkennung automatisierter Zugriffe zu verbessern. Was die Website in deinem Browser ablegt und was Turnstile abfragt, ist nach §\u00A025 Abs.\u00A02 Nr.\u00A02 TDDDG ohne Einwilligung zulässig.",
       },
@@ -1002,7 +1004,7 @@ export const SERVER_COPY = catalogue({
           items: [
             "seinen öffentlichen Schlüssel mit Kennung und Zähler,",
             "den Anbieter, bei dem er liegt,",
-            "ob er gesichert ist,",
+            "ob er gesichert werden kann und ob er es ist,",
             "wie dein Gerät ihn erreicht,",
             "wann er eingerichtet wurde,",
             "seinen Namen.",
@@ -1013,7 +1015,7 @@ export const SERVER_COPY = catalogue({
           `Änderst du mit Zugang zur Verwaltung deine Adresse, gilt die neue erst ${waitWords(administratorWait).span}, nachdem du beide bestätigt hast. Für die ${ownerTier} und für die Person, an die sie gerade übergeben wird, gilt sie erst ${waitWords(ownerWait).after}. Bis dahin gilt die bisherige Adresse.`,
         grants: (administratorWait: Wait, ownerWait: Wait) =>
           `Ein neuer Zugang gilt erst ${waitWords(administratorWait).after}. Die Übergabe der ${ownerTier} gilt erst ${waitWords(ownerWait).after}. Von jedem dieser Schritte erfahren alle mit Zugang und die genannte Person sofort.`,
-        undo: `Bis dahin kann die ${ownerTier} jeden dieser Schritte zurücknehmen. Eine neue Adresse kannst auch du selbst zurücknehmen, im Konto oder über den Link an deine bisherige Adresse.`,
+        undo: `Bis dahin kann die ${ownerTier} jeden dieser Schritte zurückziehen. Eine neue Adresse kannst auch du selbst zurückziehen, im Konto oder über den Link an deine bisherige Adresse.`,
         erasure: `Mit der ${ownerTier} kannst du dein Konto erst nach ihrer Übergabe löschen, weil die Liga immer eine ${ownerTier} braucht. Deine Rechte unter „Deine Rechte“ bleiben davon unberührt.`,
       },
       mail: {
@@ -1032,7 +1034,7 @@ export const SERVER_COPY = catalogue({
         names:
           "Stehst du im Kader, zeigen wir deinen Vornamen und den Anfangsbuchstaben deines Nachnamens: im Kader, in Aufstellungen und bei Toren und Karten. Pfeifst du, zeigen wir an deinen Spielen den ersten Teil deines Namens und den Anfangsbuchstaben des nächsten. Hast du nur einen Namen, zeigen wir ihn ganz. Beides zeigen wir nur mit deiner Einwilligung, sonst steht dort nur „anonym“. Trikotnummer und Position zeigen wir nur neben deinem Namen. Hast du im Kader die Rolle „Kapitän“ oder „Co-Kapitän“, zeigen wir sie dort und in Aufstellungen neben deinem Namen, nie neben „anonym“.",
         // The names stand in the public source code too, whose earlier versions keep a removed one.
-        organisers: `Ebenfalls nur mit Einwilligung zeigen wir die Vornamen der Personen, die die Liga organisieren. Sie stehen auf der Startseite, unter „${COPY.page.about}“ und im öffentlichen Quellcode der Website. Nimmt jemand von ihnen seine Einwilligung zurück, entfernen wir den Namen von der Website und aus dem aktuellen Quellcode. Frühere Versionen des Quellcodes behalten ihn.`,
+        organisers: `Ebenfalls nur mit Einwilligung zeigen wir die Vornamen der Personen, die die Liga organisieren. Sie stehen auf der Startseite, unter „${COPY.page.about}“ und im öffentlichen Quellcode der Website. Widerruft jemand von ihnen, entfernen wir den Namen von der Website und aus dem aktuellen Quellcode. Frühere Versionen des Quellcodes behalten ihn.`,
         media: (mediaAge: number) =>
           `Ab ${boundBy(formatNumber(mediaAge), "Jahren")} zeigen wir, ebenfalls nur mit deiner Einwilligung, Fotos, Videos und Interviews, auf denen du zu erkennen bist, hier und auf dem Instagram-Kanal der Liga. Widerrufst du, entfernen wir Fotos, Videos und Interviews von dir von der Website und vom Instagram-Kanal der Liga.`,
         // The Stufe is a squad row's; no referee record holds one.
@@ -1280,7 +1282,7 @@ export const SERVER_COPY = catalogue({
    * `CONSENT_WORDINGS`'; nobody accepts the notice, which informs and asks no consent.
    */
   kontaktConfirmation: {
-    /** The person's own entry: the title of a closed row's page, which confirms nothing, and of a seat's own facts in an application's mail. */
+    /** The person's own entry: the title of a closed row's page, which confirms nothing. */
     ownEntry: "Dein Eintrag",
     opening: {
       /**

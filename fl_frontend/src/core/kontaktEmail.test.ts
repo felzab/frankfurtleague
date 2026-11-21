@@ -16,7 +16,12 @@ const data = (row: FLKontaktRow = "open", seats: FLKontaktLinkData["seats"] = ["
   ({ kind: "kontakt_confirmation", saison_id: "2627", schule: "Lessing-Kolleg", seats, deadline: "2026-10-17", row }) as const;
 
 const rendered = (facts: ReturnType<typeof data>) => {
-  const mail = mailFor("kontakt_confirmation", facts, { token: "example-one", secret: null, origin: ORIGIN });
+  const mail = mailFor("kontakt_confirmation", facts, {
+    token: "example-one",
+    secret: null,
+    origin: ORIGIN,
+    to: "kontakt@lessing-kolleg.example.org",
+  });
   if (mail === undefined) throw new Error("the kind has no builder");
 
   return { mail, text: renderMail(mail).text };

@@ -64,6 +64,8 @@ interface Handout {
   readonly secret: string | null;
   /** The serving origin, never `SITE_URL`: a stack that is not production mails no production link. */
   readonly origin: string;
+  /** The row's recipient, spelled as the backend owed it. */
+  readonly to: string;
 }
 
 type MailBuilder<A extends OutboxKind> = (data: DataPerKind[A], handout: Handout) => Mail;
@@ -71,6 +73,11 @@ type MailBuilder<A extends OutboxKind> = (data: DataPerKind[A], handout: Handout
 /** What a league mail carrying no link is built with beside its facts. */
 export interface MailOrigin {
   readonly origin: string;
+}
+
+/** What a league mail is built with where one notice's copies differ by whom each reaches. */
+export interface MailRecipient extends MailOrigin {
+  readonly to: string;
 }
 
 /** What a league mail carrying a link is built with: the hand-out's raw token, a bearer credential never taken apart. */

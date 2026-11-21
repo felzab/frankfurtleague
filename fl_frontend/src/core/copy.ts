@@ -151,6 +151,8 @@ export const saisonName = (id: string) => `Saison ${id}`;
 // The same name with a no-break space, for a phrase binding a word to it.
 export const saisonNameBound = (id: string) => boundBy("Saison", id);
 export const spieltagName = (position: number) => `${formatOrdinal(position)} Spieltag`;
+// One match or several by their numbers, under the one noun: „Spiel 3“, „Spiel 3 und 4“.
+export const spieleNamed = (nrs: readonly number[]) => `Spiel ${formatList(nrs.map(formatNumber))}`;
 export const OWNER_TIER = "Leitung";
 // The glossary's screen word for an address's access to the administration, a grant.
 export const GRANT = "Zugang";

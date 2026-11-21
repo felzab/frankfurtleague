@@ -223,7 +223,7 @@ async function sendHandedOut(mail: FLOutboxHandout): Promise<Omit<FLOutboxResult
     logger.error("outbox.secret_unreadable", undefined, { kind: mail.data.kind, name: error instanceof Error ? error.name : undefined });
     return { id: mail.id, result: "abandon", delivery_reason: null };
   }
-  const message = mailFor(mail.data.kind, mail.data, { token: mail.token, secret, origin: frontend_config.AUTH_URL });
+  const message = mailFor(mail.data.kind, mail.data, { token: mail.token, secret, origin: frontend_config.AUTH_URL, to: mail.to });
   if (message === undefined) {
     // Handed back rather than given up: the row waits until its deadline for a deployment that builds its kind.
     logger.error("outbox.kind_without_template", undefined, { kind: mail.data.kind });
