@@ -6,7 +6,7 @@ import { useParams, usePathname } from "next/navigation";
 import { Button as AriaButton } from "react-aria-components/Button";
 
 import { COPY } from "@/core/copy/shared";
-import { ROLE_ROOTS, ROUTES } from "@/core/routes";
+import { LEGAL_PAGES, ROLE_ROOTS, ROUTES } from "@/core/routes";
 import { leaveDocumentFor } from "@/shared/utils/documentNavigation";
 import { signOut } from "@/shared/utils/signOut";
 
@@ -375,10 +375,7 @@ function AccountMenu({
           { kind: "link", label: COPY.template.account, href: accountPage },
           { kind: "action", label: COPY.shared.verb.signOut, onAction: signOutAsked },
         ],
-        [
-          { kind: "link", label: ROUTES.legalNotice.title, href: ROUTES.legalNotice.path() },
-          { kind: "link", label: ROUTES.privacyNotice.title, href: ROUTES.privacyNotice.path() },
-        ],
+        LEGAL_PAGES.map((page) => ({ kind: "link", label: ROUTES[page].title, href: ROUTES[page].path() })),
       ]}
       foot={{ label: COPY.page.accountAppearance, control: <ThemeChoice /> }}
       trigger={trigger}

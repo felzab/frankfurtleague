@@ -1,6 +1,6 @@
 import { textOf } from "@/core/copy";
 import { COPY } from "@/core/copy/shared";
-import { ROUTES } from "@/core/routes";
+import { LEGAL_PAGES, ROUTES } from "@/core/routes";
 
 import { Brand } from "./Brand";
 import { Chip } from "./Chip";
@@ -91,13 +91,12 @@ export function RailFrame({
   children: ReactNode;
 }) {
   const account = foot.kind === "account" ? foot.account : undefined;
-  // Signed out, the phone reaches „Konto“, the way to the sign-in, and the two legal pages through „Mehr“ (the strip carries them on desktop).
+  // Signed out, the phone reaches „Konto“, the way to the sign-in, and the legal pages through „Mehr“ (the strip carries them on desktop).
   const extra =
     foot.kind === "signIn"
       ? [
           { label: COPY.template.account, href: foot.href },
-          { label: COPY.page.legalNotice, href: ROUTES.legalNotice.path() },
-          { label: COPY.page.privacyNotice, href: ROUTES.privacyNotice.path() },
+          ...LEGAL_PAGES.map((page) => ({ label: ROUTES[page].title, href: ROUTES[page].path() })),
         ]
       : [];
   const entries = groups.flatMap((group) => group.entries);
@@ -340,13 +339,13 @@ export function RailPage({
           <nav
             aria-label={COPY.template.navigation}
             className="ms-auto hidden gap-1 lg:flex">
-            {[ROUTES.legalNotice, ROUTES.privacyNotice].map((page) => (
+            {LEGAL_PAGES.map((page) => (
               <NavigationLink
-                key={page.path()}
-                href={page.path()}
+                key={page}
+                href={ROUTES[page].path()}
                 data-kit-focus="ring"
                 className={frameLink({ tone: "strip" })}>
-                {page.title}
+                {ROUTES[page].title}
               </NavigationLink>
             ))}
           </nav>
