@@ -22,11 +22,11 @@ const RECORD_PAGES = filesUnder(ADMIN_DIR, (name) => name === "page.tsx", 10).fl
   return names.some((name) => name !== "saison") ? [{ file, params: Object.fromEntries(names.map((name) => [name, "nope"])) }] : [];
 });
 
-type Page = { generateMetadata: (props: unknown, parent: unknown) => Promise<unknown> };
+type Page = { generateMetadata: (props: unknown) => Promise<unknown> };
 
 const metadataOf = async ({ file, params }: (typeof RECORD_PAGES)[number]) => {
   const { generateMetadata } = (await import(/* @vite-ignore */ file)) as Page;
-  return generateMetadata({ params: Promise.resolve(params), searchParams: Promise.resolve({}) }, Promise.resolve({}));
+  return generateMetadata({ params: Promise.resolve(params), searchParams: Promise.resolve({}) });
 };
 
 describe("an admin page's malformed record id", () => {
