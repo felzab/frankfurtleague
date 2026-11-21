@@ -15,6 +15,8 @@ import { beginRenderPass, leaveRenderPass, serveServerReact } from "@/test-suppo
 import { answerAt, NO_RECORDS, SEAT } from "@/test-support/subjectFixtures";
 import { timeoutSignalsOnFakeTimers } from "@/test-support/timeoutSignals";
 
+import { DAY_MS, HOUR_MS, MINUTE_MS } from "./timeUnits";
+
 import type { SessionRow } from "@/test-support/authDoubles";
 import type { LookupFixture } from "@/test-support/subjectFixtures";
 import type { RequestActor } from "./requestScope";
@@ -106,9 +108,6 @@ const { getRequestActor, requestWriteMayStand, runWithRequestScope } = await imp
 const { APINetworkError } = await import("./errors");
 const { readTraceparent, TRACEPARENT_HEADER } = await import("./trace");
 const { FETCH_TIMEOUT_MS } = await import("./api");
-
-const HOUR_MS = 60 * 60 * 1000;
-const DAY_MS = 24 * HOUR_MS;
 
 async function signIn(email: string): Promise<{ cookie: string; row: SessionRow }> {
   const session = await sessionByCode(auth, store, email);
@@ -231,7 +230,7 @@ describe("who the seam answers for", () => {
     arriveAs(cookie);
 
     const marks = [];
-    for (const grantedAfterMs of [60 * 1000, -60 * 1000]) {
+    for (const grantedAfterMs of [MINUTE_MS, -MINUTE_MS]) {
       RECORDS.set(ADMIN_EMAIL, {
         ...NO_RECORDS,
         seats: [SEAT],
