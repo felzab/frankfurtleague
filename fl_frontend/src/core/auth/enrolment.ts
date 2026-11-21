@@ -63,25 +63,15 @@ export async function refuseEnrolment(
   userId: string,
   caller: SessionStamps | null,
   touchAt: Date | undefined,
-  credentialID?: string,
 ): Promise<void> {
   // Every refusal below is the default-deny net's own answer, so an enrolment the page never offers
   // names no surface either.
   if (caller === null) throw APIError.fromStatus("NOT_FOUND");
 
-  const held = await adapter.findMany<{ credentialID?: string }>({
-    model: "passkey",
-    where: [{ field: "userId", value: userId }],
-    limit: PASSKEY_LIMIT + 1,
-  });
+  const held = await adapter.count({ model: "passkey", where: [{ field: "userId", value: userId }] });
 
   // An administrator's first passkey is added on a fresh sign-in by either factor, their mailed code among them; every
   // later one by the passkey touch alone, or a stolen mailbox would put its own authenticator beside the holder's.
-  if (held.length > 0 && !isPasskeyTouch(caller, touchAt)) throw APIError.fromStatus("NOT_FOUND");
-  if (held.length >= PASSKEY_LIMIT) throw APIError.fromStatus("NOT_FOUND");
-
-  // The plugin takes the rows already held for an `excludeCredentials` hint, which the browser
-  // honours and no server checks: the same authenticator enrolled twice leaves the administrator two
-  // rows nothing on the page tells apart.
-  if (credentialID !== undefined && held.some((row) => row.credentialID === credentialID)) throw APIError.fromStatus("NOT_FOUND");
+  if (held > 0 && !isPasskeyTouch(caller, touchAt)) throw APIError.fromStatus("NOT_FOUND");
+  if (held >= PASSKEY_LIMIT) throw APIError.fromStatus("NOT_FOUND");
 }

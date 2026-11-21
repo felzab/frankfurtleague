@@ -1270,19 +1270,17 @@ describe("which sessions may enrol a passkey, and how many rows they may leave",
     expect(store.passkey.length).toBe(PASSKEY_LIMIT);
   });
 
-  /* `excludeCredentials` is a hint the BROWSER honours: a caller posting the same credential twice
-     leaves two rows nothing in the dialog tells apart, and removing the wrong one removes neither. */
-  it("refuses a credential the account has already enrolled, leaving the row it has", async () => {
+  /* The harm: refusing every further passkey leaves an administrator unable to replace a lost one while holding
+     another, recovery falling to the database console, and every other case here asserts a refusal. */
+  it("enrols a further passkey on a fresh touch, holding both", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
-
     expect((await enrolPasskey(cookie)).status).toBe(200);
-    expect(store.passkey.length).toBe(1);
 
     steppedUp(row);
-    const again = await enrolPasskey(cookie);
+    const further = await enrolPasskey(cookie, {}, true, SECOND_RAW_ID);
 
-    expect(again.status).toBe(404);
-    expect(store.passkey.length, "the same authenticator enrolled twice").toBe(1);
+    expect(further.status, await further.clone().text()).toBe(200);
+    expect(store.passkey.filter(({ userId }) => userId === row.userId).length).toBe(2);
   });
 
   /* The two arms of the management surface, which the classification above places apart: the browser
