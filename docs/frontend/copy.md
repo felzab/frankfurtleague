@@ -50,8 +50,8 @@ you write one; the strings themselves live in the catalogue, under `fl_frontend/
   constant holds only what that audience alone reads. A module imports `COPY` and the constants of
   the audiences whose pages it serves.
 - **`ADMIN_COPY` is imported only by the administration.** Lint refuses an import of `copy/admin`
-  outside `fl_frontend/src/app/admin`, the feature modules that only the administration imports, and
-  `SERVER_COPY` (`fl_frontend/eslint.config.mjs`).
+  outside `fl_frontend/src/app/admin`, the modules the ban's allow list names, and `SERVER_COPY`
+  (`fl_frontend/eslint.config.mjs :: importBan(ADMIN_CATALOGUE, …)`).
 - **A string has one key.** No test hunts duplicate text, so review is what keeps a second
   „Gespeichert“ out.
 - **A string only the server reads stands in the server's own object**,
@@ -170,21 +170,25 @@ Each pattern is an entry of `COPY.shared`; what the entry cannot say is when it 
   phrase or `template.checkFields`: its lane declares a sentence per box and cause (`boxless` in
   `fl_frontend/src/core/action.ts`).
 - **A busy button** keeps its label and shows a spinner named `loading`; no „Speichert …“.
-- **An empty list** says `empty.search`, `empty.filter`, `empty.none` or `empty.skipped` with its
-  own plural; `empty.filter` only where the list keeps a filter, `empty.skipped` only where a person
-  left every row out of a run. A list that is one record named by a masculine or neuter noun, a
-  team's „Kader“, says `empty.noneOne` with that noun, and a list of open work with nothing waiting,
-  such as an Übersicht card, says `empty.nothingOpen`, naming no plural.
+- **An empty list** says `empty.search`, `empty.filter`, `empty.none`, `empty.skipped` or
+  `empty.unrecorded` with its own plural; `empty.filter` only where the list keeps a filter,
+  `empty.skipped` only where a person left every row out of a run, `empty.unrecorded` only where a
+  closed record's list holds none and none is to come, such as a finished season's. A list that is
+  one record named by a masculine or neuter noun, a team's „Kader“, says `empty.noneOne` with that
+  noun, and a list of open work with nothing waiting, such as an Übersicht card, says
+  `empty.nothingOpen`, naming no plural.
 - **A confirmation** asks `question` with the verb, says one short sentence of consequence, carries
   that verb on its button and `back` as the way back; never „Ja“. What the sentence rests on stands
   under it as facts rows, never inside it: a move's old and new slot, the season a switch leaves and
   takes, the counts an act removes, and whom the act mails.
 - **A status card** is a mark, a title and its way on, with no sentence: a not-found, an error, a
-  state with nothing to show yet such as `end.noSaison`, and every end of a page a mail opens. In a
-  rail frame the title stands once. A page with a name of its own keeps that name in the strip, and
-  its card carries the end's title, as `/saisons` says that the league has no season yet. A boundary
-  with no page of its own, the not-found and the error page, has its title in the strip, and its
-  card holds no second one.
+  state with nothing to show yet, and every end of a page a mail opens. An error card's way on is
+  `verb.retry`, which draws the failed page again in place; where no frame stands around the card,
+  `end.toHome` stands beneath it as the quieter way. In a rail frame the title stands once. A page
+  with a name of its own keeps that name in the strip, and its card carries the end's title, as the
+  referee's Spielbericht for a match with no date says „Termin offen“. A boundary with no page of
+  its own, the not-found and the error page, has its title in the strip, and its card holds no
+  second one.
 - **A page a mail opens** ends in a status card: done, already done titled with what the person did
   and the day (`end.doneOn`), or `template.linkInvalid`, one title for an expired, mistyped or
   tampered link alike. Each ends in one button to the logical next step: `verb.signIn` after a

@@ -4,7 +4,6 @@ import { dayOf, formatPeriod } from "@/core/format";
 import { ROUTES, SAISON_PAGES } from "@/core/routes";
 import { getSaisonFrame } from "@/features/saisons/queries";
 import { GuardedRailFrame } from "@/kit/GuardedRailFrame";
-import { TO_HOME } from "@/kit/mailedLinkState";
 
 import type { Saisons } from "@/kit/FrameNav";
 import type { ReactNode } from "react";
@@ -39,7 +38,6 @@ export default function SaisonsLayout({ children }: { children: ReactNode }) {
       bar={SAISON_PAGES}
       saison={{ saisons: readSeasons(), home: "spielplan" }}
       foot={{ kind: "signIn", href: ROUTES.signIn.path() }}
-      next={TO_HOME}
       // Four pages, each read from caches every visitor shares, so a press lands on the page whole.
       prefetch>
       {children}

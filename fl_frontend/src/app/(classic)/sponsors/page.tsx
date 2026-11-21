@@ -23,10 +23,7 @@ export default function SponsorsPage() {
   const words = SERVER_COPY.landing;
   return (
     <ClassicPage width="form">
-      <PageHead
-        title={COPY.page.sponsors}
-        lead={[SERVER_COPY.description.sponsors]}
-      />
+      <PageHead title={COPY.page.sponsors} />
       <SponsorTiles sponsors={SPONSORS} />
       <Door
         title={words.doors.support}

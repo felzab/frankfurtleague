@@ -8,8 +8,6 @@ import { getAdminSaisons } from "@/features/saisons/queries";
 import { selectSaison } from "@/features/saisons/resolvers";
 import { GuardedRailFrame } from "@/kit/GuardedRailFrame";
 
-import { ADMIN_HOME } from "./adminHome";
-
 import type { RailGroup, Saisons } from "@/kit/FrameNav";
 import type { ReactNode } from "react";
 
@@ -94,7 +92,6 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
         kind: "account",
         account: session.then((served) => (served === null ? null : readAccount(COPY.shared.administration))),
       }}
-      next={ADMIN_HOME}
       columnInLayouts>
       {children}
     </GuardedRailFrame>

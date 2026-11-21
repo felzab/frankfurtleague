@@ -43,10 +43,7 @@ async function readGroups(): Promise<ReadonlyArray<ProseSection>> {
 export default function SitemapPage() {
   return (
     <ClassicPage width="form">
-      <PageHead
-        title={COPY.page.sitemap}
-        lead={[SERVER_COPY.description.sitemap]}
-      />
+      <PageHead title={COPY.page.sitemap} />
       <ProseOnceRead sections={readGroups()} />
     </ClassicPage>
   );

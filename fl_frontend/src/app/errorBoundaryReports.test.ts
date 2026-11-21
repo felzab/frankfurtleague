@@ -5,11 +5,11 @@ import { pathToFileURL } from "node:url";
 
 import { createElement as h } from "react";
 
-import { act, cleanup } from "@testing-library/react";
+import { act, cleanup, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { COPY } from "@/core/copy/shared";
-import { ROUTES } from "@/core/routes";
 import { renderUnderNext } from "@/test-support/nextContexts";
 import { filesUnder } from "@/test-support/treeWalk";
 
@@ -79,6 +79,18 @@ describe.each(BOUNDARIES)("the error boundary $shown", ({ file, shown }) => {
 
     expect(sent.mock.calls.length, `${shown}: reports one thrown null ${String(sent.mock.calls.length)} times`).toBe(1);
   });
+
+  /* A boundary that leaves the `retry` Next hands it unread draws a card whose one press does nothing, and nobody
+     presses it before a page fails in earnest. */
+  it("retries through the `retry` Next hands it", async () => {
+    const Boundary = await boundaryOf(file);
+    const retry = vi.fn<() => void>();
+
+    renderUnderNext(h(Boundary, { error: new Error("gepflanzt"), retry }), ROUTED);
+    await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.retry }));
+
+    expect(retry, `${shown}: the card's press reaches Next's retry`).toHaveBeenCalledOnce();
+  });
 });
 
 /** A frame read failing as it is drawn, as a rejected seasons or account read meets `use`. */
@@ -94,15 +106,50 @@ describe("the rail frame's own boundary", () => {
     const quiet = vi.spyOn(console, "error").mockImplementation(() => undefined);
     onTestFinished(() => quiet.mockRestore());
 
-    const next = { label: COPY.shared.end.toOverview, href: ROUTES.admin.path() };
     // The frame drawn again commits once its account read settles, so the render waits for it.
     await act(async () => {
-      renderUnderNext(h(RailFrameBoundary, { groups: [], bar: ["overview"], next }, h(FailingRead)), ROUTED);
+      renderUnderNext(h(RailFrameBoundary, { groups: [], bar: ["overview"] }, h(FailingRead)), ROUTED);
     });
     const reports = sent.mock.calls.map(([input, init]) => ({ address: String(input), method: init?.method }));
 
     expect(reports).toHaveLength(1);
     expect(reports[0]?.method).toBe("POST");
     expect(existsSync(path.join(APP_DIR, ...(reports[0]?.address ?? "").split("/"), "route.ts"))).toBe(true);
+  });
+
+  /* `catchError` hands its `retry` beside the error rather than among the props, so a fallback reading the props
+     alone draws a card whose press does nothing. */
+  it("draws the frame again once a retry's fresh read answers", async () => {
+    const { RailFrameBoundary } = await import("@/kit/RailFrameBoundary");
+    const quiet = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    onTestFinished(() => quiet.mockRestore());
+
+    // The read fails until the router's refresh, which Next's retry asks before it draws the children again.
+    let answered = false;
+    const refresh = vi.fn(() => {
+      answered = true;
+    });
+    function ReadOnceRefreshed() {
+      if (!answered) throw new Error("gepflanzt");
+      return h("p", null, "gelesen");
+    }
+    const router = {
+      back: () => undefined,
+      forward: () => undefined,
+      refresh,
+      push: () => undefined,
+      replace: () => undefined,
+      prefetch: () => undefined,
+      bfcacheId: "",
+    };
+
+    await act(async () => {
+      renderUnderNext(h(RailFrameBoundary, { groups: [], bar: ["overview"] }, h(ReadOnceRefreshed)), { ...ROUTED, router });
+    });
+    await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.retry }));
+
+    expect(refresh).toHaveBeenCalledOnce();
+    expect(screen.getByText("gelesen")).toBeDefined();
+    expect(screen.queryByRole("button", { name: COPY.shared.verb.retry })).toBeNull();
   });
 });

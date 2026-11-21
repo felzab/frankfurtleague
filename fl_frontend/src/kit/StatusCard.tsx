@@ -1,3 +1,4 @@
+import { Button } from "./Button";
 import { cardSurface } from "./cardStyles";
 import { ClassicPage, ClassicTitle } from "./ClassicPage";
 import { Icon } from "./Icon";
@@ -20,21 +21,20 @@ type StatusTone = Exclude<ChipProps["tone"], "neutral">;
 
 const GLYPH: Readonly<Record<StatusTone, IconName>> = { success: "done", info: "info", warn: "warning", danger: "error" };
 
-/**
- * A way on from an end: its label and its address, each per page in the catalogue. `fullPage` loads it as a whole
- * document, for an error card leading to the address it stands at: Next clears an error boundary on a client
- * navigation to another path alone, so a client one would leave the card standing.
- */
-type WayOn = { label: Copy; href: Route; fullPage?: boolean };
+/** A way on from an end: its label and its address, each per page in the catalogue. */
+type WayOn = { label: Copy; href: Route };
+
+/** An error card's act: the `retry` Next hands its boundary, which draws the failed part again in place. */
+type Retry = { label: Copy; retry: () => void };
 
 /**
- * One end state: its hue, its title, and its one way on; beneath it, where the end points to a page that says more,
- * a quieter second way on, as the deletion's done page leads to the privacy notice.
+ * One end state: its hue, its title, and its one way on, or an error card's retry; beneath it, where the end points to
+ * a page that says more, a quieter second way on, as the deletion's done page leads to the privacy notice.
  */
 export type StatusCardProps = {
   tone: StatusTone;
   title: Copy;
-  next: WayOn;
+  next: WayOn | Retry;
   quiet?: WayOn;
 };
 
@@ -89,13 +89,20 @@ export function StatusCardBody({
         />
       </span>
       {title}
-      <Link
-        href={next.href}
-        placement="button"
-        look="primary"
-        label={next.label}
-        fullPage={next.fullPage}
-      />
+      {"retry" in next ? (
+        <Button
+          variant="primary"
+          label={next.label}
+          onPress={next.retry}
+        />
+      ) : (
+        <Link
+          href={next.href}
+          placement="button"
+          look="primary"
+          label={next.label}
+        />
+      )}
       {quiet !== undefined && (
         <Link
           href={quiet.href}
@@ -110,8 +117,8 @@ export function StatusCardBody({
 
 /**
  * A rail frame's card. A page with a name of its own keeps that name in the strip and its card carries the end's
- * title, as `/saisons` says that the league has no season yet; a boundary with no page of its own, the not-found and
- * the error page, has its title in the strip, and its card holds no second one.
+ * title, as the referee's Spielbericht for a match with no date says „Termin offen“; a boundary with no page of its
+ * own, the not-found and the error page, has its title in the strip, and its card holds no second one.
  */
 export type RailCard = Omit<StatusCardProps, "title"> & { title?: Copy };
 

@@ -85,7 +85,8 @@ async function heroOf(read: Promise<FLLandingResponse>): Promise<LandingContent>
   const { saison, bewerbung_window: window } = await read;
   return {
     // The season's own Spielplan, the address the header's season entry takes, so the press lands in one hop;
-    // `/saisons` only while the league has no season, where it shows the card saying so rather than redirecting.
+    // `/saisons` only while the landing names no season: its route handler redirects to the season the site is on, or
+    // to this start page while there is none.
     primary: { label: COPY.page.spielplan, href: saison === null ? ROUTES.saisons.path() : ROUTES.spielplan.path(saison.id) },
     secondary: window === null ? ABOUT : { label: words.toBewerbung, href: ROUTES.bewerbungRoot.path() },
     aside: asideOf(saison, window),

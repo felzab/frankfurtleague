@@ -4,8 +4,6 @@ import { readAccount } from "@/features/account/account";
 import { getOwnSaisons } from "@/features/roles/queries";
 import { GuardedRailFrame } from "@/kit/GuardedRailFrame";
 
-import { AREA_HOME } from "../areaHome";
-
 import type { Copy } from "@/core/copy";
 import type { FrameSaisons, RailGroup } from "@/kit/FrameNav";
 import type { ReactNode } from "react";
@@ -68,7 +66,6 @@ export function PersonFrame({ place, children }: { place: keyof typeof FRAMES; c
       bar={BAR}
       saison={place === "landing" ? undefined : { saisons: getOwnSaisons(place), ...FRAMES[place].saison }}
       foot={{ kind: "account", account: readAccount(frame.role) }}
-      next={AREA_HOME}
       columnInLayouts={frame.columnInLayouts}>
       {children}
     </GuardedRailFrame>

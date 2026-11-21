@@ -10,8 +10,9 @@ import type { StatusCardProps } from "./StatusCard";
 
 /*
  * What a mailed page's link reads as, for the modules that word it without drawing the page: its tab's title, the
- * end a link no longer valid reaches, and the way to the start page every status card offers. Apart from `MailedPage`,
- * whose one-shot form brings the client's stack to every route importing it, error boundaries among them.
+ * end a link no longer valid reaches, and the start page's way that the ends and the not-found cards offer, and the
+ * frameless error cards beneath their retry. Apart from `MailedPage`, whose one-shot form brings the client's stack to
+ * every route importing it, error boundaries among them.
  */
 
 export const TO_HOME = { label: COPY.shared.end.toHome, href: ROUTES.home.path() } as const satisfies StatusCardProps["next"];
