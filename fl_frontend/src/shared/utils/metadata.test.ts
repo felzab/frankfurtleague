@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { ROUTES } from "@/core/routes";
+import { SERVER_COPY } from "@/core/serverCopy";
 
 import { pageMetadata } from "./metadata";
 
@@ -25,6 +26,16 @@ describe("a page's canonical", () => {
     const { alternates, robots } = pageMetadata(ROUTES.about);
     expect(alternates).toEqual({ canonical: "/about" });
     expect(robots).toBeUndefined();
+  });
+
+  // A row with segments takes its address and its words from the page, a branch no fixed row reaches: broken, a season
+  // page search engines list names `/saisons/undefined/tabelle` or loses its description.
+  it("names a season page's own address, with its description", () => {
+    const description = SERVER_COPY.description.tabelle("2027");
+    const metadata = pageMetadata(ROUTES.tabelle, ROUTES.tabelle.path("2027"), { description });
+    expect(metadata.alternates).toEqual({ canonical: "/saisons/2027/tabelle" });
+    expect(metadata.openGraph).toMatchObject({ url: "/saisons/2027/tabelle" });
+    expect(metadata.description).toBe(description);
   });
 
   // A canonical names the address to list; on a page kept out of the index it says the opposite of its noindex.
