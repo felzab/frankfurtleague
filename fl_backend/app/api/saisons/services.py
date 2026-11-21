@@ -1,5 +1,5 @@
 from collections.abc import Mapping, Sequence
-from datetime import date, timedelta
+from datetime import date
 from http import HTTPStatus
 from typing import Any
 
@@ -9,6 +9,7 @@ from app.api.spiele.schemas import FLSpielJoinedInternal, FLSpielTeamFieldJoined
 from app.api.spiele.services import podium_of
 from app.api.teams.schemas import MAX_NUMBER_OF_GROUPS
 from app.api.teams.services import offered_gruppen
+from app.core.clock import days_after
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError
@@ -363,7 +364,7 @@ def find_saison_span_refusal(
             HTTPStatus.UNPROCESSABLE_CONTENT,
             Code.SAISON_SPAN_BELOW_SPIELPLAN,
             fields=(("end_date",),),
-            bounds={"earliest": (date.fromisoformat(start_date) + timedelta(days=required_days - 1)).isoformat()},
+            bounds={"earliest": days_after(day=start_date, days=required_days - 1)},
         )
 
     # `start` and `end` are the span the dated matchdays need, named on each side the season falls short of.

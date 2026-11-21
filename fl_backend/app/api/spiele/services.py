@@ -2,7 +2,7 @@ import math
 from collections import Counter
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
 from http import HTTPStatus
 from typing import Any, Final, Literal
 
@@ -56,6 +56,7 @@ from app.api.spiele.schemas import (
 )
 from app.api.teams.services import offered_gruppen
 from app.api.teams.standings import DecidedStanding, in_the_season_when_decided
+from app.core.clock import days_after
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError, FieldPath
@@ -1216,7 +1217,7 @@ def _minutes_of(day: str, time: str) -> int:
 def days_a_clash_can_reach(day: str) -> list[str]:
     """Every day a fixture dated `day` can clash into, this one included -- the days a booking read has to fetch."""
 
-    return [str(date.fromisoformat(day) + timedelta(days=offset)) for offset in range(-CLASH_REACH_DAYS, CLASH_REACH_DAYS + 1)]
+    return [days_after(day=day, days=offset) for offset in range(-CLASH_REACH_DAYS, CLASH_REACH_DAYS + 1)]
 
 
 def find_spiel_date_refusal(*, date: str | None, spieltag_start: str | None, spieltag_end: str | None) -> APIError | None:

@@ -1,5 +1,5 @@
 from collections.abc import Mapping
-from datetime import date, datetime, time, timedelta
+from datetime import date, datetime, time
 from typing import Annotated, Final, Literal, LiteralString, get_args
 
 from pydantic import (
@@ -189,7 +189,7 @@ class _SaisonPayload(_SaisonSpanPayload, _SaisonWritable):
 
         start_date = info.data.get("start_date")
         if registrierung is not None and start_date is not None and registrierung.end >= start_date:
-            latest = (date.fromisoformat(start_date) - timedelta(days=1)).isoformat()
+            latest = clock.days_after(day=start_date, days=-1)
             raise _refused_at_the_end(
                 registrierung,
                 "registrierung_window_reaches_saison_start",

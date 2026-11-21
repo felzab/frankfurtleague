@@ -29,7 +29,7 @@ def _at_kickoff_time(date: str, time: str, *, days_back: int) -> datetime:
     the day before a Sunday 16:00 kick-off is Saturday 16:00, on the night summer time ends too.
     """
 
-    wall_day = (datetime.fromisoformat(date) - timedelta(days=days_back)).date().isoformat()
+    wall_day = clock.days_after(day=date, days=-days_back)
 
     return clock.german_instant(wall_day, time)
 
