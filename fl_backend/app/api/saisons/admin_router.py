@@ -906,15 +906,10 @@ async def post_spielplan(
 
         # `stored=None` is the create's reading, and the one this wants: every rule judging the numbers alone fires on
         # the stored rules, which a save judged only against the rules it replaced, and every rule judging a standing
-        # fixture is skipped, each of those weighing a draw about to cease to exist. On the status line alone, with no
-        # twin: the draw's body has no rules box for a field to name. The span is not judged again: every create and
-        # every save judge it whole against the rules they store.
-        refuse(
-            as_judged_on_stored_state(
-                find_rules_refusal(stored=None, proposed=rules, occupancy_by_gruppe=occupancy),
-                twins={},
-            )
-        )
+        # fixture is skipped, each of those weighing a draw about to cease to exist. On the status line alone: the draw's
+        # body has no rules box for a field to name. The span is not judged again: every create and every save judge it
+        # whole against the rules they store.
+        refuse(as_judged_on_stored_state(find_rules_refusal(stored=None, proposed=rules, occupancy_by_gruppe=occupancy)))
 
         # `find_wiring_refusal`, `judge_spieltag_occupancy`, `find_clash_refusal` and
         # `find_eligibility_refusal` are all unasked: each judges one payload against a stored season,

@@ -7,6 +7,7 @@ date is judged, and nothing of the fixture.
 
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from datetime import date, datetime, time
+from http import HTTPStatus
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -616,20 +617,26 @@ class TestTheAdoption:
         assert await on_a_spiel(mongo_replica_set_url, body) == (Code.ANSETZUNG_NOT_ACTIONABLE, (DATE, TIME))
 
     @pytest.mark.parametrize(
-        ("since", "today", "code"),
+        ("since", "today", "code", "fields"),
         [
             # The proposed day passing between the club's press and the administrator's.
-            pytest.param(None, "2126-05-16", Code.ANSETZUNG_VORSCHLAG_PAST_AS_STORED, id="the-proposed-day-gone-by"),
-            # The save's own refusal of the proposed day, which names a box of a body this request has not got.
-            pytest.param(narrow_the_matchday, TODAY, Code.SPIEL_OUTSIDE_SPIELTAG, id="the-save-refusing-the-day"),
+            pytest.param(None, "2126-05-16", Code.ANSETZUNG_VORSCHLAG_PAST, (("vorschlag", "date"),), id="the-proposed-day-gone-by"),
+            # The save's own refusal of the proposed day.
+            pytest.param(narrow_the_matchday, TODAY, Code.SPIEL_OUTSIDE_SPIELTAG, (("date",),), id="the-save-refusing-the-day"),
         ],
     )
-    async def test_a_refused_adoption_names_no_box_and_leaves_the_spiel_where_it_stands(
-        self, mongo_replica_set_url: str, since: Callable[[AsyncDatabase], Awaitable[None]] | None, today: str, code: Code
+    async def test_a_refused_adoption_keeps_the_path_its_judge_named_and_leaves_the_spiel_where_it_stands(
+        self,
+        mongo_replica_set_url: str,
+        since: Callable[[AsyncDatabase], Awaitable[None]] | None,
+        today: str,
+        code: Code,
+        fields: tuple[tuple[str, ...], ...],
     ):
         """Moved anyway, the fixture lands on a day gone by or outside its matchday.
 
-        Refused naming a box, the press has none to mark.
+        The path picks the status line's sentence where a code's sentence is keyed by it, and the 409 says the stored
+        proposal moved since the page was read, the adoption posting no body a 422 could judge.
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -645,7 +652,7 @@ class TestTheAdoption:
 
         refusal, slot = await on_a_spiel(mongo_replica_set_url, body)
 
-        assert (refusal.error_code, refusal.fields, refusal.bounds) == (code, (), {})
+        assert (refusal.status_code, refusal.error_code, refusal.fields) == (HTTPStatus.CONFLICT, code, fields)
         assert slot == (DATE, TIME)
 
 

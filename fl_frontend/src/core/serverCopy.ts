@@ -154,8 +154,6 @@ export const SERVER_COPY = catalogue({
       schiedsrichter: "Die eingeteilte Person ist stillgelegt.",
     },
     spiel_double_booked: DOUBLE_BOOKED,
-    spiel_double_booked_spielort_as_stored: DOUBLE_BOOKED.spielort,
-    spiel_double_booked_schiedsrichter_as_stored: DOUBLE_BOOKED.schiedsrichter,
     /** The owner's own deletion, on `/erasure` and in Konto: the handover frees the account first. */
     owner_erasure: `Mit der ${ownerTier} lässt sich das Konto nicht löschen.`,
     /** An administrator's own address, which only Konto changes or deletes. */
@@ -200,8 +198,8 @@ export const SERVER_COPY = catalogue({
     registrierung_already_in_kader: "Die Person steht schon in einem Kader.",
     /** An admission whose registered Stufe the season stopped offering after the pupil registered. */
     registrierung_stufe_not_allowed: "Diese Stufe ist in dieser Saison nicht zugelassen.",
-    /** A club's stored proposed day that has gone by, which „Übernehmen“ would move the fixture into. */
-    ansetzung_vorschlag_past_as_stored: "Der vorgeschlagene Tag ist vorbei.",
+    /** A proposed day that has gone by: on the club's decline, and on „Übernehmen“, which would move the fixture into it. */
+    ansetzung_vorschlag_past: "Der vorgeschlagene Tag ist vorbei.",
     /** A club's decline proposing the day and hour the fixture holds. */
     ansetzung_vorschlag_unchanged: "Das ist der angesetzte Termin.",
     /** A line-up's save by a seat once the lock has passed, one naming more nominees than the eleven lack, and one for a fixture holding no day or hour. */
@@ -213,8 +211,6 @@ export const SERVER_COPY = catalogue({
     // tooltip instead, so a press on a page read before the lock reads the stale-page line.
     rules_bracket_impossible: ADMIN_COPY.saison.bracketImpossible,
     eligibility_disqualified: DISQUALIFIED,
-    eligibility_disqualified_team1_as_stored: DISQUALIFIED.team1,
-    eligibility_disqualified_team2_as_stored: DISQUALIFIED.team2,
     /**
      * A save after which the bracket would field one club in two matches of one matchday, a club picked by hand
      * standing where the bracket's own wiring leads it too: the same save answers the same, the page being current.

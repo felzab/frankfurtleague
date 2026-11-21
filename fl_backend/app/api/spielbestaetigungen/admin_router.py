@@ -17,8 +17,8 @@ from app.api.spielbestaetigungen.schemas import (
     FLSpielbestaetigungEnterPayload,
 )
 from app.api.spielbestaetigungen.services import (
-    ADOPTION_TWINS,
     AnsetzungState,
+    as_judged_on_the_stored_proposal,
     build_answerable_filter,
     build_discardable_filter,
     compose_closing_update,
@@ -52,7 +52,7 @@ from app.core.dependencies import (
     SpieltageCollection,
     TeamsCollection,
 )
-from app.core.exceptions import APIError, DocumentNotFoundError, as_judged_on_stored_state
+from app.core.exceptions import APIError, DocumentNotFoundError
 from app.core.recording import record_act
 from app.core.routing import by_id
 from app.core.transactions import transact
@@ -264,7 +264,7 @@ async def adopt_spielbestaetigung(
             raise DocumentNotFoundError()
         refuse(find_proposal_refusal(spielbestaetigung_raw=row, ansetzung_state=state, now=germany_now))
         vorschlag = FLSpielbestaetigungAppointment.model_validate(row["answer"]["vorschlag"])
-        refuse(as_judged_on_stored_state(find_vorschlag_past_refusal(vorschlag=vorschlag, today=today), twins=ADOPTION_TWINS))
+        refuse(as_judged_on_the_stored_proposal(find_vorschlag_past_refusal(vorschlag=vorschlag, today=today)))
 
         # A discard of the same proposal anchors the fixture this save writes, so the two conflict and the retry refuses
         # the later one: a club is never told both that its date was taken and that the date stands.
@@ -279,8 +279,8 @@ async def adopt_spielbestaetigung(
                 session=session,
             )
         except APIError as refused:
-            # As the draw answers the season write's refusals it shares: the paths the save names are its body's, and
-            # this request carries none.
-            refuse(as_judged_on_stored_state(refused, twins=ADOPTION_TWINS))
+            # The paths the save names are its body's, which this request does not carry: kept, they pick the status
+            # line's sentence, as the save's own page words them, and mark no box.
+            refuse(as_judged_on_the_stored_proposal(refused))
 
     await transact(db, adopt_the_proposal)
