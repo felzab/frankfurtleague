@@ -75,14 +75,6 @@ export const ACCOUNT_COPY = catalogue({
     consequence: "Nur dieses Gerät bleibt angemeldet.",
   },
   /**
-   * „Funktion wechseln“'s entries and the chooser's cards: a team by its name, with this line under it naming the seats
-   * held there in the seats' order, each once whatever seasons it is held in, the team being one place across them; a
-   * pupil's and a referee's by `shared`'s nouns, the administration's by its role.
-   */
-  role: {
-    seats: (seats: readonly FLKontaktSeat[]) => seatsText(seats),
-  },
-  /**
    * Each record an address holds, as Deine Einträge boxes it: titled by what the record is, a team's seats by the
    * team's name, the rest by `shared`'s noun or the page's, and described by what the box holds beyond its title.
    */
@@ -101,7 +93,11 @@ export const ACCOUNT_COPY = catalogue({
       bewerbung: "Deine Angaben in der Bewerbung",
     },
     teamSeason,
-    /** A seat entry's fact naming the seats the person holds, in the seats' order, under `COPY.team.seat`. */
+    /**
+     * The seats a person holds on a team, in the seats' order: a seat entry's fact under `COPY.team.seat`, and the line
+     * under the team's name on the chooser's card and in the account menu's „Funktion wechseln“, there each seat once
+     * whatever seasons it is held in, the team being one place across them.
+     */
     seatsHeld: (seats: readonly FLKontaktSeat[]) => seatsText(seats),
     /** A seat entry's fact where its seats store the person typed two ways, by the seats holding this one: „Telefon als Ansprechperson“. */
     seatFact: (label: Copy, seats: readonly FLKontaktSeat[]) => `${label} als ${seatsText(seats)}`,
