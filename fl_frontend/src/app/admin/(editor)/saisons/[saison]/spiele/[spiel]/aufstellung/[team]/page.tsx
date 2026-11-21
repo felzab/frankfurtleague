@@ -66,8 +66,8 @@ function leadOf({ spiel }: FLAufstellungResponse): Copy {
 /**
  * One club's line-up for a match as the league enters it, on one read of the fixture, the squad and the stored line-up:
  * the editor, open before the team's lock and after it alike, since the clock locks nothing for the league. A match with
- * no day or hour takes no line-up, so the page says as much of its slot as is set, its day or that its date is open, as
- * the Spielplan words it, and leads to the match editor, where the slot is set. A finished season's line-ups take no
+ * no day or hour takes no line-up, so the page says that its date is open, or its day and that its hour is, as the
+ * club's own line-up page words it, and leads to the match editor, where the slot is set. A finished season's line-ups take no
  * write (`saison_past`), so the editor opens on one read-only, as the match editor does, whatever became of the match's
  * slot since.
  */
@@ -79,13 +79,15 @@ export default async function AdminAufstellungPage({ params }: Props) {
   const title = titleOf(found);
   const closed = found.saison_status === "past" ? SERVER_COPY.refusalLine.saison_past : undefined;
   if (closed === undefined && found.marks === null) {
+    const day = dayOf(spiel.date);
     return (
       <StatusPage
         scope="area"
         title={title}
         card={{
           tone: "info",
-          title: COPY.spielplan.when(dayOf(spiel.date), timeOf(spiel.time)),
+          // A match without marks has no kick-off: undated, its date is open; dated, its hour is, as the club's page says.
+          title: day === null ? COPY.spielplan.when(null, null) : SERVER_COPY.season.spiel.timeOpen(COPY.spielplan.when(day, null)),
           next: { label: COPY.shared.toSpiel, href: ROUTES.adminSpiel.path(spiel.saison_id, spiel.spiel_id) },
         }}
       />

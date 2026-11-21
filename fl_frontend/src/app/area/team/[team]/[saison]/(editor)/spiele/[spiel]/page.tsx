@@ -102,7 +102,7 @@ export default async function AufstellungPage({ params }: Props) {
         card={{
           tone: "info",
           // A match without marks has no kick-off: undated, its date is open; dated, its hour is.
-          title: day === null ? COPY.spielplan.when(null, null) : SERVER_COPY.area.aufstellung.timeOpen(COPY.spielplan.when(day, null)),
+          title: day === null ? COPY.spielplan.when(null, null) : SERVER_COPY.season.spiel.timeOpen(COPY.spielplan.when(day, null)),
           next: { label: COPY.shared.end.toOverview, href: ROUTES.teamOverview.path(seat.team_id, seat.saison_id) },
         }}
       />
