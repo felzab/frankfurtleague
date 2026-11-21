@@ -1,11 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ROUTES } from "@/core/routes";
-import { answerTheLookup } from "@/test-support/authDoubles";
 import { serveBackend } from "@/test-support/backend";
 import { writtenCookies } from "@/test-support/nextRequest";
 import { signedInRequest } from "@/test-support/session";
-import { NO_RECORDS } from "@/test-support/subjectFixtures";
 import { thrownRedirect } from "@/test-support/thrownRedirect";
 
 import { LINK_INVALID } from "./ends";
@@ -28,6 +26,7 @@ const backend = serveBackend(async ({ method, path, body }) => {
   const { token, answer } = (body ?? {}) as { token?: string; answer?: string };
   if (method === "POST" && path === "/address_change/address" && token === TOKEN) return { email: NEW };
   if (method === "POST" && path === "/address_change/confirmation" && token === TOKEN && answer === "confirmed") return EFFECTIVE;
+  if (method === "POST" && path === "/address_change/confirmation/stop" && token === TOKEN) return new Response(null, { status: 204 });
   if (method === "GET" && path === "/address_change/sweep/moves") {
     await held.movesRead;
     return { moves: held.owed } satisfies FLAddressChangeMovesResponse;
@@ -43,7 +42,7 @@ const backend = serveBackend(async ({ method, path, body }) => {
 // sign-in, which `arriveAs` makes.
 const { arriveAs, store } = signedInRequest(null);
 
-const { answerAddressChange } = await import("./answers");
+const { answerAddressChange, stopAddressChange } = await import("./answers");
 
 const requests = () => backend.sent.map(({ method, path }) => `${method} ${path}`);
 
@@ -73,8 +72,6 @@ describe("the effect's account carry", () => {
   it("is made before the press answers", async () => {
     await arriveAs({ email: PREVIOUS });
     await arriveAs(null);
-    // The carry reads the new address's grant before it moves the account: none, a person's change.
-    answerTheLookup((email) => (email === NEW ? { ...NO_RECORDS, account: true } : undefined));
     held.owed = [MOVE];
     let release: () => void = () => undefined;
     held.movesRead = new Promise((resolve) => (release = resolve));
@@ -99,5 +96,16 @@ describe("the effect's account carry", () => {
     // Carried by the time the press answered: the account signs in at the new address, the carry reported done.
     expect(store.user.map(({ email }) => email)).toStrictEqual([NEW]);
     expect(backend.sent.find(({ path }) => path === "/address_change/sweep/moves/done")?.body).toStrictEqual({ ids: [MOVE.id] });
+  });
+});
+
+// The privacy notice keeps a mailed link's cookie until the link is used, and the stop uses it as an answer does.
+describe("the address on file's stop", () => {
+  it("forgets the link on the page's own path before it leads to the stopped end", async () => {
+    expect((await thrownRedirect(stopAddressChange({ token: TOKEN }))).address).toBe(`${ROUTES.addressChangeDone.path()}?end=stopped`);
+    const forgotten = writtenCookies().filter(({ name }) => name === "mailed_link");
+    expect(forgotten.map(({ value, path }) => ({ value, path }))).toStrictEqual([
+      { value: undefined, path: ROUTES.addressChangeConfirmation.path() },
+    ]);
   });
 });

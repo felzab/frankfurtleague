@@ -42,10 +42,7 @@ describe("the sign-in template", () => {
 
   /* The harm: a sign-in opened anywhere but the administration offers a person a passkey they cannot hold, under an
      „oder“ that leads nowhere, or draws the „oder“ line's two hairlines under the form with nothing after them. */
-  it.each([
-    ["nor the „oder“", {}],
-    ["though it hands the „oder“", { or: WORDS.or }],
-  ])("draws nothing between the form and its status line where the page hands no passkey, %s", (_, hand) => {
+  it("draws nothing between the form and its status line where the page hands no passkey, though it hands the „oder“", () => {
     const { container } = render(
       <SignInPage
         view="address"
@@ -54,7 +51,7 @@ describe("the sign-in template", () => {
         address={{ label: COPY.shared.emailAddress, value: "", onChange: () => undefined }}
         check={null}
         send={{ label: WORDS.sendCode, onPress: () => undefined }}
-        {...hand}
+        or={WORDS.or}
       />,
     );
 

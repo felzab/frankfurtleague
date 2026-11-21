@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
 import { within } from "@testing-library/react";
-import { prerender } from "react-dom/static";
 import { describe, expect, it } from "vitest";
 
 import { COPY } from "@/core/copy/shared";
+import { drawnOnServer } from "@/test-support/server";
 
 import { ListPage } from "./ListPage";
 import { SpielCards } from "./SpielCards";
@@ -14,14 +14,12 @@ type Cards = Extract<ComponentProps<typeof ListPage>["list"], { kind: "cards" }>
 
 /** A page of cards as a browser holds it once its one read has landed. */
 async function drawnCards(content: Awaited<Cards["content"]>) {
-  const { prelude } = await prerender(
+  const landed = await drawnOnServer(
     <ListPage
       head={{ scope: "saison", title: { route: "spielplan" } }}
       list={{ kind: "cards", content: Promise.resolve(content) }}
     />,
   );
-  const landed = document.createElement("div");
-  landed.innerHTML = await new Response(prelude).text();
   return { landed };
 }
 
@@ -47,14 +45,12 @@ describe("a card of open work holding more than five rows", () => {
 describe("one club's matches under their matchdays", () => {
   /** The page as a browser holds it once its read has landed, its matches drawn as a team's Spiele page draws them. */
   async function drawn(groups: ComponentProps<typeof SpielCards>["groups"]) {
-    const { prelude } = await prerender(
+    const landed = await drawnOnServer(
       <ListPage
         head={{ scope: "area", title: { route: "teamSpiele" } }}
         list={{ kind: "drawn", content: Promise.resolve(<SpielCards groups={groups} />) }}
       />,
     );
-    const landed = document.createElement("div");
-    landed.innerHTML = await new Response(prelude).text();
     return { landed };
   }
 

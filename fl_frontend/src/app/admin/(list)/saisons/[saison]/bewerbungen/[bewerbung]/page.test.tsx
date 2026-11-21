@@ -1,13 +1,13 @@
 // @vitest-environment jsdom
 import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { renderToReadableStream } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
 import { ADMIN_COPY } from "@/core/copy/admin";
 import { COPY } from "@/core/copy/shared";
 import { serveBackend } from "@/test-support/backend";
 import { renderUnderNext, underNext } from "@/test-support/nextContexts";
+import { drawnOnServer } from "@/test-support/server";
 import { signedInRequest } from "@/test-support/session";
 
 import type { FLBewerbung, FLBewerbungConfirmation, FLKontaktpersonAdmin } from "@/core/generated/client/types";
@@ -89,10 +89,7 @@ async function seatRows(read: unknown = readOf({ duplicate: false })): Promise<r
 /** The words of the page's strip, as the server sends it once the record is read. */
 async function stripOf(read: unknown): Promise<string | null | undefined> {
   state.read = read;
-  const stream = await renderToReadableStream(underNext(<BewerbungPage {...PARAMS} />));
-  await stream.allReady;
-  const page = document.createElement("div");
-  page.innerHTML = await new Response(stream).text();
+  const page = await drawnOnServer(underNext(<BewerbungPage {...PARAMS} />));
   return page.querySelector("header")?.textContent;
 }
 

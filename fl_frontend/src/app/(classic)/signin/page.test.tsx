@@ -1,18 +1,18 @@
 // @vitest-environment jsdom
-import { prerender } from "react-dom/static";
 import { describe, expect, it } from "vitest";
 
 import { RETURN_PARAMETER } from "@/core/auth/returnAddress";
 import { PUBLIC_COPY } from "@/core/copy/public";
 import { underNext } from "@/test-support/nextContexts";
+import { drawnOnServer } from "@/test-support/server";
 
 import SignInPage from "./page";
 
 const WORDS = PUBLIC_COPY.signIn;
 
 /** The page as a visitor opening `/signin` with `search` gets it, drawn on the server. */
-async function drawn(search: Record<string, string>): Promise<HTMLElement> {
-  const { prelude } = await prerender(
+const drawn = (search: Record<string, string>): Promise<HTMLElement> =>
+  drawnOnServer(
     underNext(
       <SignInPage
         params={Promise.resolve({})}
@@ -23,12 +23,7 @@ async function drawn(search: Record<string, string>): Promise<HTMLElement> {
         search: new URLSearchParams(search),
       },
     ),
-    { progressiveChunkSize: Number.MAX_SAFE_INTEGER },
   );
-  const page = document.createElement("div");
-  page.innerHTML = await new Response(prelude).text();
-  return page;
-}
 
 /** Each button's words, and whether the „oder“ line between the two sign-ins stands. */
 const actsOf = (page: HTMLElement) => ({

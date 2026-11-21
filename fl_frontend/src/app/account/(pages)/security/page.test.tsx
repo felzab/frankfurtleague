@@ -1,11 +1,11 @@
 // @vitest-environment jsdom
-import { prerender } from "react-dom/static";
 import { describe, expect, it } from "vitest";
 
 import { ACCOUNT_COPY } from "@/core/copy/account";
 import { COPY } from "@/core/copy/shared";
 import { serveBackend } from "@/test-support/backend";
 import { underNext } from "@/test-support/nextContexts";
+import { drawnOnServer } from "@/test-support/server";
 import { signedInRequest } from "@/test-support/session";
 
 // The page reads the sign-in store alone, past the guards' own lookups: any backend request fails the case.
@@ -16,14 +16,7 @@ const { arriveAs } = signedInRequest();
 const { default: AccountSecurityPage } = await import("./page");
 
 /** The page as the visitor signed in gets it, drawn on the server. */
-async function drawn(): Promise<HTMLElement> {
-  const { prelude } = await prerender(underNext(<AccountSecurityPage />, { pathname: "/account/security" }), {
-    progressiveChunkSize: Number.MAX_SAFE_INTEGER,
-  });
-  const page = document.createElement("div");
-  page.innerHTML = await new Response(prelude).text();
-  return page;
-}
+const drawn = (): Promise<HTMLElement> => drawnOnServer(underNext(<AccountSecurityPage />, { pathname: "/account/security" }));
 
 /** Each box's title, in the order the page draws them. */
 const titlesOf = (page: HTMLElement) => [...page.querySelectorAll("section h2")].map((title) => title.textContent);

@@ -1,11 +1,11 @@
 // @vitest-environment jsdom
-import { prerender } from "react-dom/static";
 import { describe, expect, it } from "vitest";
 
 import { AREA_COPY } from "@/core/copy/area";
 import { COPY } from "@/core/copy/shared";
 import { serveBackend } from "@/test-support/backend";
 import { underNext } from "@/test-support/nextContexts";
+import { drawnOnServer } from "@/test-support/server";
 import { signedInRequest } from "@/test-support/session";
 
 import type { FLSpielerSaisonSelfResponse, FLSpielerSaisonSelfSpiel } from "@/core/generated/client/types";
@@ -70,7 +70,7 @@ async function landed(inactive_since: string | null, spiel: FLSpielerSaisonSelfS
     },
     spiele: [spiel],
   };
-  const { prelude } = await prerender(
+  const page = await drawnOnServer(
     underNext(
       <SpielerOverviewPage
         params={Promise.resolve({ saison: "2027" })}
@@ -78,12 +78,7 @@ async function landed(inactive_since: string | null, spiel: FLSpielerSaisonSelfS
       />,
       { pathname: "/area/spieler/2027" },
     ),
-    {
-      progressiveChunkSize: Number.MAX_SAFE_INTEGER,
-    },
   );
-  const page = document.createElement("div");
-  page.innerHTML = await new Response(prelude).text();
   return page.textContent;
 }
 

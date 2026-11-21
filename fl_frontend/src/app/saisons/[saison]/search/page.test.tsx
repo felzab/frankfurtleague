@@ -22,6 +22,7 @@ const team = (id: string, name: string) => ({
 const GOETHE = team("a", "Goethe");
 const HELMHOLTZ = team("b", "Helmholtz");
 const LESSING = team("c", "Lessing");
+const KLEIST = team("d", "Kleist");
 
 /** One match `nr` of the matchday `spieltag` between two clubs. */
 const spiel = (
@@ -52,13 +53,24 @@ const spiel = (
   team2_quelle: null,
 });
 
-/** Two group matchdays and the final: Goethe plays on the first and in the final, Helmholtz on all three. */
+/**
+ * Two group matchdays and the final's: Goethe plays on the first and in the final, Helmholtz on all three. The final's
+ * matchday is served by fixture number, against its kick-offs: its first match has no date yet, its second has one.
+ */
 const SPIELPLAN = {
   current_spieltag_id: null,
   spieltage: [
     { id: "g1", saison_phase: "gruppenphase", position: 1, spiele: [spiel(1, "g1", "gruppenphase", GOETHE, HELMHOLTZ)] },
     { id: "g2", saison_phase: "gruppenphase", position: 2, spiele: [spiel(2, "g2", "gruppenphase", LESSING, HELMHOLTZ)] },
-    { id: "f1", saison_phase: "finale", position: 1, spiele: [spiel(3, "f1", "finale", HELMHOLTZ, GOETHE)] },
+    {
+      id: "f1",
+      saison_phase: "finale",
+      position: 1,
+      spiele: [
+        spiel(3, "f1", "finale", HELMHOLTZ, GOETHE),
+        { ...spiel(4, "f1", "finale", LESSING, KLEIST), date: "2027-06-01", time: "10:00" },
+      ],
+    },
   ].map((spieltag) => ({ ...spieltag, saison_id: "2027", start: null, end: null, version: 1 })),
 } as FLSpielplanResponse;
 
@@ -103,5 +115,13 @@ describe("the Spielsuche's words", () => {
     ["the matchday's name as the Spielplan's tab names it", "2. Spieltag", [pageOf(2)]],
   ])("find a match by %s", async (_by, typed, pages) => {
     expect(await found(typed)).toStrictEqual(pages);
+  });
+});
+
+// The harm: a matchday played over two days lists a Sunday match above a Saturday one, which only a split matchday
+// whose fixture numbers run against its kick-offs shows, and the made-up league holds none.
+describe("the Spielsuche's list", () => {
+  it("runs each matchday's matches by kick-off, not in the order they are served", async () => {
+    expect(await found("")).toStrictEqual([pageOf(1), pageOf(2), pageOf(4), pageOf(3)]);
   });
 });

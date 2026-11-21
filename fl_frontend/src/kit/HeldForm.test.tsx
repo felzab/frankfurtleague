@@ -299,12 +299,7 @@ describe("a press held across hydration", () => {
           row={null}
           address={{ label: WORD, value, onChange: setValue }}
           check={null}
-          send={{
-            label: PUBLIC_COPY.signIn.sendCode,
-            onPress: (address) => {
-              if (!send.isPending) send.submit(address);
-            },
-          }}
+          send={{ label: PUBLIC_COPY.signIn.sendCode, isBusy: send.isPending, onPress: send.submit }}
           or={PUBLIC_COPY.signIn.or}
           passkey={{ label: PUBLIC_COPY.signIn.withPasskey, onPress: () => undefined }}
         />

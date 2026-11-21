@@ -1,11 +1,11 @@
 // @vitest-environment jsdom
-import { prerender } from "react-dom/static";
 import { describe, expect, it } from "vitest";
 
 import { COPY } from "@/core/copy/shared";
 import { serveBackend } from "@/test-support/backend";
 import { underNext } from "@/test-support/nextContexts";
 import { doubleNextRequest } from "@/test-support/nextRequest";
+import { drawnOnServer } from "@/test-support/server";
 
 import type { FLSaisonFrameResponse, FLTabelleResponse, FLTabelleRow } from "@/core/generated/client/types";
 import type { TableStandingRow } from "@/kit/TableStanding";
@@ -54,7 +54,7 @@ const { default: TabellePage } = await import("./page");
 /** The page as it lands for `gruppen`, two qualifying in each group. */
 async function landed(gruppen: FLTabelleResponse["gruppen"]) {
   tabelle = { gruppen, qualifiers_per_gruppe: 2 };
-  const { prelude } = await prerender(
+  return drawnOnServer(
     underNext(
       <TabellePage
         params={Promise.resolve({ saison: "2027" })}
@@ -62,11 +62,7 @@ async function landed(gruppen: FLTabelleResponse["gruppen"]) {
       />,
       { pathname: "/saisons/2027/tabelle" },
     ),
-    { progressiveChunkSize: Number.MAX_SAFE_INTEGER },
   );
-  const page = document.createElement("div");
-  page.innerHTML = await new Response(prelude).text();
-  return page;
 }
 
 /** The rank cell of a club's row, found by its fragment, the club's id. */

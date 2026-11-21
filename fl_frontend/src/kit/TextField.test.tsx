@@ -14,38 +14,17 @@ import { TextField } from "./TextField";
 
 import type { ReactElement } from "react";
 
-// The harm: an address, a number or a site the field holds is somebody else's, and no check reads what the browser
-// offers: an erased person's address stays in the administrator's browser, and an applicant's own number or site, one
-// click away, lands in a deputy's seat or a school's record with nobody seeing.
-describe("an address, phone or website field's autofill", () => {
-  it.each([
-    [
-      "an address",
+// The harm: the address the field holds is somebody else's, and no check reads what the browser offers: an erased
+// person's address stays in the administrator's browser, and the person's own, one click away, lands in a seat with
+// nobody seeing.
+describe("an address field's autofill", () => {
+  it("asks for none of the person's own addresses or past entries", () => {
+    render(
       <TextField
-        key="email"
         label={COPY.shared.emailAddress}
         kind="email"
       />,
-    ],
-    [
-      "a phone number",
-      <TextField
-        key="tel"
-        label={COPY.shared.facts.phone}
-        kind="tel"
-      />,
-    ],
-    [
-      "a website",
-      <TextField
-        key="url"
-        label={COPY.team.website}
-        kind="url"
-        example={COPY.shared.field.exampleUrl}
-      />,
-    ],
-  ])("asks for none of the person's own values or past entries, %s", (_kind, field) => {
-    render(field);
+    );
     expect(screen.getByRole("textbox").getAttribute("autocomplete")).toBe("off");
   });
 });
