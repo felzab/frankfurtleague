@@ -310,7 +310,8 @@ export function ListPage({
 
   return (
     <RailPage {...head}>
-      <ListQueryScope>
+      {/* A list searched on the server opens on the search its address holds. */}
+      <ListQueryScope initial={search?.address?.value}>
         {/* One toolbar row: the search at a reading width, the filters beside it, the create act at the row's
             end; on a phone the search keeps the width and the buttons share the next line. */}
         {hasToolbar && (
