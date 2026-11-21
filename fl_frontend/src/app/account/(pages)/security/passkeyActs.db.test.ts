@@ -188,7 +188,7 @@ let signingOut: () => Promise<unknown> = async () => undefined;
 const { auth } = await import("@/core/auth/library");
 const authIndexes = await import("@/core/authIndexes");
 const { MONGO_DB_NAME } = authIndexes;
-const { removePasskeyAction } = await import("./actions");
+const { removePasskeyAction } = await import("./passkeyActs");
 
 const realClient = productionClient as MongoClient;
 closing(() => realClient.close());

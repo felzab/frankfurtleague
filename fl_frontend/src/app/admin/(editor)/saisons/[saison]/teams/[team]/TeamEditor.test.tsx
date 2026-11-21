@@ -22,7 +22,7 @@ vi.mock("./teamActs", () => ({
   sendSeatLink: vi.fn(),
   writeSeat: vi.fn(),
 }));
-vi.mock("@/features/invitations/actions", () => ({ mailInvitation: vi.fn(), mintInvitation: vi.fn(), revokeInvitation: vi.fn() }));
+vi.mock("./invitationActs", () => ({ mailInvitation: vi.fn(), mintInvitation: vi.fn(), revokeInvitation: vi.fn() }));
 const AT_ADDRESS: NextContexts = {
   pathname: "/admin/saisons/2027/teams/64b000000000000000000001",
   params: { saison: "2027", team: "64b000000000000000000001" },

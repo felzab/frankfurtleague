@@ -38,7 +38,7 @@ const { arriveAs, store } = signedInRequest();
 /** Every line the real logger writes, read off standard output. */
 const log = captureLog();
 
-const { addAdministrator, removeAdministrator, startHandover } = await import("./actions");
+const { addAdministrator, removeAdministrator, startHandover } = await import("./grantActs");
 
 // The harm: both dialogs close before the passkey touch, so their answer is a toast, where a box's phrase or the line
 // pointing at the fields names nothing in sight.

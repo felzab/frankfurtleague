@@ -14,8 +14,7 @@ import { ACCOUNT_COPY } from "@/core/copy/account";
 import { COPY } from "@/core/copy/shared";
 import { RolledBackError } from "@/core/errors";
 import { logger } from "@/core/logging";
-
-import { PasskeyNameSchema } from "./schemas";
+import { PasskeyNameSchema } from "@/features/passkeys/schemas";
 
 /* `disabledPaths` closes the plugin's management endpoints to HTTP alone, so these actions, each calling in process,
    are the whole of the surface. */

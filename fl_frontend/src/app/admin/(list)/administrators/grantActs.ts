@@ -9,8 +9,7 @@ import { grantsDeleteGrant, grantsDeleteHandover, grantsPostGrant, grantsPostHan
 import { logger } from "@/core/logging";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { SignInAddressSchema } from "@/features/auth/schemas";
-
-import { GRANT_ID } from "./schemas";
+import { GRANT_ID } from "@/features/grants/schemas";
 
 const ADDRESS_FORMAT = SERVER_COPY.closedDialog.format.address;
 
