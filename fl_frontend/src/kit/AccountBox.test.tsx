@@ -42,7 +42,11 @@ describe("a Konto box's act behind a question", () => {
         <AccountBox
           title={PASSKEY}
           description={ACCOUNT_COPY.passkeys.description}
-          act={{ run, button: { confirm: { verb: "delete", subject: PASSKEY, consequence: CONSEQUENCE, tone: "danger" } } }}
+          act={{
+            run,
+            button: { confirm: { verb: "delete", subject: PASSKEY, consequence: CONSEQUENCE, tone: "danger" } },
+            done: COPY.shared.toast.done.delete,
+          }}
         />
         <ToastRegion frame="rail" />
       </>,
@@ -72,7 +76,7 @@ describe("a locked Konto box", () => {
       <AccountBox
         title={PASSKEY}
         description={ACCOUNT_COPY.passkeys.description}
-        act={{ run, button: { label: COPY.shared.withObject(PASSKEY, "setUp") }, locked: reason }}>
+        act={{ run, button: { label: COPY.shared.withObject(PASSKEY, "setUp") }, done: COPY.shared.toast.done.setUp, locked: reason }}>
         <input
           aria-label={COPY.shared.name}
           name="name"
@@ -93,6 +97,7 @@ describe("a locked Konto box", () => {
         act={{
           run: vi.fn(),
           button: { confirm: { verb: "delete", subject: PASSKEY, consequence: CONSEQUENCE, tone: "danger" } },
+          done: COPY.shared.toast.done.delete,
           locked: reason,
         }}
       />,

@@ -4,7 +4,6 @@ import { z } from "zod";
 
 import { action } from "@/core/action";
 import { ADMIN_COPY } from "@/core/copy/admin";
-import { COPY } from "@/core/copy/shared";
 import {
   schiedsrichterDeleteSchiedsrichter,
   schiedsrichterReactivateSchiedsrichter,
@@ -58,6 +57,6 @@ export const sendSchiedsrichterLink = action({
   input: z.object({ id: SchiedsrichterResendConfirmationParams.shape.schiedsrichter_id }),
   run: async ({ id }) => {
     await schiedsrichterResendConfirmation(id);
-    return { ok: true, value: undefined, note: COPY.shared.toast.linkSent };
+    return { ok: true, value: undefined };
   },
 });

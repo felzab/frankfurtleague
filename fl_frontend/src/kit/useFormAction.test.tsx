@@ -83,18 +83,13 @@ describe("a form's action through the one wrapper", () => {
 });
 
 describe("a form's status line", () => {
-  // The harm: an act that partly happened, such as an erasure whose sign-in account stands, read as a clean save or as a
-  // refusal to press again. `Dialog`, `AccountBox`, `OneShot`, `QuestionForm` and `SectionAct` each read their line here.
+  // The harm: an act that partly happened, such as an erasure whose sign-in account stands, read as a refusal to press
+  // again; and a done act said on a form's line beside its toast, or on a form whose press only asked its question.
   it.each<[string, ActionAnswer, FormStatus]>([
-    ["done", { ok: true, value: undefined }, { tone: "success", text: COPY.shared.saved }],
-    [
-      "partly done",
-      { ok: true, value: undefined, note: COPY.shared.addressChange.previousStays, warn: true },
-      { tone: "warn", text: COPY.shared.addressChange.previousStays },
-    ],
+    ["done", { ok: true, value: undefined, note: COPY.shared.addressChange.previousStays, warn: true }, null],
     ["refused", { ok: false, reason: COPY.shared.failure.stale }, { tone: "danger", text: COPY.shared.failure.stale }],
     ["partly refused", { ok: false, reason: COPY.shared.failure.stale, warn: true }, { tone: "warn", text: COPY.shared.failure.stale }],
-  ])("reads a %s act in its own tone", (_case, answer, line) => {
+  ])("gives a %s act its line in its own tone, or none", (_case, answer, line) => {
     expect(statusOf(answer, false, false)).toStrictEqual(line);
   });
 

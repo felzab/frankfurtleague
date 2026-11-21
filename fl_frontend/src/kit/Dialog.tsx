@@ -23,14 +23,11 @@ import { answering, statusOf, useFormAction } from "./useFormAction";
 import { useOpenUntilHidden } from "./useOpenUntilHidden";
 import { usePasskeyTouch } from "./usePasskeyTouch";
 
-import type { ActionAnswer } from "@/core/action";
 import type { Copy } from "@/core/copy";
 import type { ReactElement, ReactNode } from "react";
-import type { Tone, Trigger } from "./ConfirmDialog";
+import type { HeldAct, Tone, Trigger } from "./ConfirmDialog";
 import type { DialogAct, DialogDanger } from "./dialogAct";
 import type { HeldOpen } from "./useOpenUntilHidden";
-
-const DONE: ActionAnswer<unknown> = { ok: true, value: undefined };
 
 /**
  * A route dialog's title, in the dialog's title slot, which names the dialog; `className` is its look. A server template
@@ -138,7 +135,7 @@ const dialogDangerPart = tv({
  * refusal and stays open with it; a done act closes it and, through `onDone`, the dialog.
  */
 function DangerRow({ danger, isClosed, onDone }: { danger: DialogDanger; isClosed: boolean; onDone: () => void }) {
-  const { onConfirm, doneShown, ...question } = danger.confirm;
+  const { onConfirm, ...question } = danger.confirm;
   return (
     <div className={dialogDangerPart()}>
       <div className="grid min-w-0 flex-1 text-sm">
@@ -148,10 +145,8 @@ function DangerRow({ danger, isClosed, onDone }: { danger: DialogDanger; isClose
       {/* Its button says the verb alone, as an editor's danger row's does, so the part's name says what it acts on. */}
       <ConfirmDialog
         question={question}
-        {...(doneShown === undefined ? {} : { doneShown })}
         onConfirm={async () => {
-          // An act answering nothing is done, as the question reads it.
-          const answered = (await onConfirm()) ?? DONE;
+          const answered = await onConfirm();
           // An update after the `await` commits outside the question's transition unless it opens one of its own.
           if (answered.ok) startTransition(onDone);
           return answered;
@@ -314,12 +309,13 @@ type Opening<T extends Tone> =
   | {
       trigger: Trigger<T>;
       open?: never;
+      transition?: never;
     }
-  | {
+  | ({
       /** The open state, held by the control that opens the dialog, such as a combo box's create entry. */
       open: HeldOpen;
       trigger?: never;
-    };
+    } & HeldAct);
 
 /**
  * One act done where its record shows, in a centred dialog: its title, its few inputs, „Zurück“ and its
@@ -331,14 +327,15 @@ type Opening<T extends Tone> =
  * An act behind the passkey touch is asked as an identity check is, with no modal standing (`DialogAct`'s `touch`):
  * React Aria's modal makes the rest of the page inert, and a password manager draws its prompt in the page. Its press
  * closes the dialog for good, then asks the touch and runs the act, its answer a toast, the trigger busy until it
- * lands. Its answer has no field left to stand on, so its act words every refusal as a sentence naming what was
+ * lands, or the press of the holder of the open state, which hands its own transition for it (`HeldAct`). Its answer has no field left to stand on, so its act words every refusal as a sentence naming what was
  * refused, such as an address already banned, and the inputs are typed anew at the next opening.
  */
 export function Dialog<T extends Tone = "primary">(props: DialogAct<T> & Opening<T>) {
-  const { act, trigger, open, touch, ...form } = props;
+  const { act, trigger, open, touch, transition, ...form } = props;
   const router = useRouter();
   const [isOpen, setOpen] = useOpenUntilHidden(open);
-  const [isRunning, startRun] = useTransition();
+  const ownRun = useTransition();
+  const [isRunning, startRun] = transition ?? ownRun;
   const touched = usePasskeyTouch(touch !== undefined, touch?.holder);
   const done = COPY.shared.toast.done[act.verb];
   const sent = answering(touched(form.run), router.refresh);

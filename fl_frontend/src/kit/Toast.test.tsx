@@ -34,6 +34,12 @@ describe("the toast region", () => {
 describe("an act's answer as its toast", () => {
   it.each([
     ["done", { ok: true, value: undefined }, COPY.shared.state.agreed, "text-success"],
+    [
+      "partly done",
+      { ok: true, value: undefined, note: COPY.shared.addressChange.previousStays, warn: true },
+      COPY.shared.addressChange.previousStays,
+      "text-warn",
+    ],
     ["refused", { ok: false, reason: COPY.shared.failure.stale }, COPY.shared.failure.stale, "text-danger"],
   ] as const)("says %s in its own tone", (_case, answer, title, hue) => {
     render(<ToastRegion frame="rail" />);
@@ -67,5 +73,21 @@ describe("an act's answer as its toast", () => {
     expect(screen.queryByText(COPY.shared.failure.stale)).toBeNull();
     expect(screen.queryByText(COPY.shared.failure.tooManyAttempts)).toBeNull();
     expect(screen.queryByText(COPY.shared.addressChange.previousStays)).toBeNull();
+  });
+
+  // The harm: a save's note that it moved other fixtures gone after the timeout, nothing else on the page saying it.
+  it("keeps a done act's note until it is closed, and lets its done word alone leave by itself", () => {
+    const done = COPY.shared.toast.done.set;
+    const note = COPY.aufstellung.lockedLine;
+    render(<ToastRegion frame="rail" />);
+    act(() => {
+      toastAnswer({ ok: true, value: undefined, note }, done);
+      toastAnswer({ ok: true, value: undefined }, done);
+    });
+
+    act(() => vi.runAllTimers());
+
+    expect(screen.getByText(note)).toBeTruthy();
+    expect(screen.queryByText(done)).toBeNull();
   });
 });

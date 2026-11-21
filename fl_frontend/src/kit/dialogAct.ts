@@ -26,7 +26,11 @@ export type DialogDanger = {
    * It asks no passkey touch: the question closes before the prompt, but the dialog's own modal under it would stand
    * and make the prompt inert.
    */
-  confirm: ConfirmQuestion & { touch?: never };
+  confirm: Omit<ConfirmQuestion, "onConfirm" | "touch"> & {
+    /** Does the act, answering whether it was done, which closes the dialog under the question. */
+    onConfirm: () => Promise<ActionAnswer<unknown>>;
+    touch?: never;
+  };
 };
 
 /**

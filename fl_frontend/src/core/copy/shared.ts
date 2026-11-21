@@ -63,9 +63,7 @@ const SAVED = "Gespeichert";
 const RETIRED = "Stillgelegt";
 const SENT = "Gesendet";
 const DECLINED = "Abgelehnt";
-const OBJECTED = "Widersprochen";
 const DEREGISTERED = "Ausgetragen";
-const ADMITTED = "Aufgenommen";
 const FILTER = "Filter";
 
 /**
@@ -113,7 +111,10 @@ export const COPY = catalogue({
       taken: "Schon vergeben",
     },
 
-    /** The three lines every refusal no person causes knowingly from the screen falls back to. */
+    /**
+     * The lines a refusal the catalogue does not word reads, and every failure that is no refusal
+     * (`core/action.ts :: refused`).
+     */
     failure: {
       unexpected: "Etwas ist schiefgelaufen",
       stale: "Die Seite ist nicht mehr aktuell.",
@@ -136,7 +137,7 @@ export const COPY = catalogue({
       active: "Aktiv",
       confirmed: "Bestätigt",
       unconfirmed: "Unbestätigt",
-      objected: OBJECTED,
+      objected: "Widersprochen",
       erased: DELETED,
       expired: "Abgelaufen",
       agreed: "Zugesagt",
@@ -162,6 +163,8 @@ export const COPY = catalogue({
     payment: "Honorar",
 
     emailAddress: "E-Mail-Adresse",
+    /** An address holding no record, on an erasure's question and an address change's start, Konto's and the administration's. */
+    nothingAtAddress: "Unter dieser Adresse steht nichts.",
     link: "Link",
     addressChange: {
       /** The pending change's noun, „Änderung zurückziehen“, the glossary's screen word. */
@@ -193,7 +196,6 @@ export const COPY = catalogue({
       copied: "Kopiert",
       linkSent: "Link gesendet",
       othersSignedOut: "Alle anderen abgemeldet",
-      admitted: ADMITTED,
       /**
        * A done act, by its verb, where its answer brings no note of its own: a closed question's or dialog's, a section
        * act's, a box's. A handover only starts its wait, as its row under „Angekündigt“ says.
@@ -215,14 +217,13 @@ export const COPY = catalogue({
         adopt: "Übernommen",
         save: SAVED,
         retire: RETIRED,
-        admit: ADMITTED,
+        admit: "Aufgenommen",
         send: SENT,
         decline: DECLINED,
         accept: "Angenommen",
         set: "Gesetzt",
         rename: "Umbenannt",
-        signOut: "Abgemeldet",
-        oppose: OBJECTED,
+        setUp: "Eingerichtet",
       } satisfies Partial<Record<Verb, string>>,
     },
 

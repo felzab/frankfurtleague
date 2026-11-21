@@ -54,6 +54,7 @@ export function SignInBoxes({
             // The address the page is drawn for, which every act of the account posts.
             carry: { holder: email },
             button: { label: COPY.shared.withObject(COPY.shared.link, "send") },
+            done: COPY.shared.toast.linkSent,
             touch,
           }}>
           {address}
@@ -75,6 +76,7 @@ export function SignInBoxes({
                   run: withdrawAddressChange,
                   carry: { holder: email },
                   button: { label: COPY.shared.withObject(COPY.shared.addressChange.change, "withdraw") },
+                  done: COPY.shared.toast.done.withdraw,
                 }
               : undefined
           }>

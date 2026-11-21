@@ -36,20 +36,26 @@ const TIMEOUT_MS = 5000;
 
 /**
  * Reports an outcome that has no place on the page: a title alone, from the catalogue's toast titles.
- * The one way to raise a toast. A done act's toast closes itself; a refusal or a partial outcome stands until it is
- * closed, since the page says it nowhere else (React Aria's Toast closes by itself only what is not critical or may be
- * found elsewhere).
+ * The one way to raise a toast. A done act's word closes itself; with `stands`, the toast stays until it is closed,
+ * since the page says it nowhere else: a refusal, a partial outcome, and a done act's note, which says what else the act
+ * did, such as the other fixtures a date's save moved. React Aria's rule: "Only auto-dismiss toasts when the
+ * information is not critical, or may be found elsewhere" (https://react-aria.adobe.com/Toast). A title alone brings no
+ * note, so by default only a done one closes itself.
  */
-export function appToast(tone: AnswerTone, title: Copy) {
-  queue.add({ tone, title }, tone === "success" ? { timeout: TIMEOUT_MS } : undefined);
+export function appToast(tone: AnswerTone, title: Copy, stands = tone !== "success") {
+  queue.add({ tone, title }, stands ? undefined : { timeout: TIMEOUT_MS });
 }
 
-/** An act's answer as its toast, worded and toned as a form's status line words the same answer (`answerLine`). */
+/**
+ * An act's answer as its toast, worded and toned as a form's status line words the same answer (`answerLine`). `done`
+ * is the act's own done word, never its answer's note: a note other than that word stands until it is closed.
+ */
 export function toastAnswer(answer: ActionAnswer<unknown>, done: Copy) {
   // A passkey sheet the person closed raises no toast: the act never ran, and nothing failed.
   if (!answer.ok && answer.closed === true) return;
   const line = answerLine(answer, done);
-  appToast(line.tone, line.text);
+  // A done act's text other than its own word is its note.
+  appToast(line.tone, line.text, line.tone !== "success" || line.text !== done);
 }
 
 const region = tv({

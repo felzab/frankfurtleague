@@ -58,7 +58,7 @@ export const readErasureCounts = action({
     const view = await identityGetErasureView({ email });
     // After the view, whose refusal leaves the sign-in store unread.
     const facts = factsOf({ ...view, ...(await accountHoldingsAt(email)) });
-    const consequence = facts.length === 0 ? ADMIN_COPY.nothingAtAddress : WORDS.consequence;
+    const consequence = facts.length === 0 ? COPY.shared.nothingAtAddress : WORDS.consequence;
     return { ok: true, value: { question: { subject: WORDS.object, consequence, facts }, input: { email, reason } } };
   },
 });

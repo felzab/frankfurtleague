@@ -169,7 +169,7 @@ export const SERVER_COPY = catalogue({
     /** The address on file typed again, on Konto's start and on the address tool's alike, so it names nobody's. */
     address_change_unchanged: "Diese Adresse ist schon hinterlegt.",
     /** An address change's start, for an address holding no record. */
-    address_change_nothing: ADMIN_COPY.nothingAtAddress,
+    address_change_nothing: COPY.shared.nothingAtAddress,
     /**
      * The new address another person stands at, a pupil, an entry or a grant, on the start's toast, whose dialog has
      * closed before the answer, and on the re-send, which holds no box.
@@ -189,7 +189,10 @@ export const SERVER_COPY = catalogue({
     grant_exists: ADDRESS_OF_ADMINISTRATION,
     /** A club the form or the acceptance picked that already stands in the season. */
     bewerbung_picked_team_already_entered: "Diese Schule spielt in dieser Saison schon mit.",
-    /** An application's club retired since the acceptance opened. */
+    /**
+     * A club retired since the page offering its entry was read: an application's acceptance, a club entered into the
+     * season, or the incoming club of a replacement.
+     */
     team_retired: "Das Team ist stillgelegt.",
     /** A reactivated squad row past the season's cap, and an admission into a squad that filled meanwhile. */
     kader_full: "Der Kader ist voll.",
