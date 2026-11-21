@@ -1409,18 +1409,6 @@ export const SaisonsGetSaisonOverviewParams = zod.object({
 });
 
 /**
- * Clear one season's contact blocks once a later season has ended, and each seat past its own day unconfirmed before.
- *
- * Once a later season has ended, the season's fixture answers and match reports keep the league's record alone. A row
- * that cannot be written is passed over, counted in `failed`, and met again by the next pass, as is a clock written in
- * one go whose write fails; what each clock cleared is recorded in the action log.
- * @summary Run one season's retention clocks over its season rows, fixture answers and match reports
- */
-export const SaisonsSweepSaisonRetentionParams = zod.object({
-  saison_id: zod.string(),
-});
-
-/**
  * One match as its page and its pop-up show it, each side of a group match with its group and `platz`; 404 outside a readable season.
  *
  * Each side's line-up from the moment its club stores one, the scorers and cards only while the report is adopted
@@ -1474,6 +1462,18 @@ export const SaisonsPostSpielplanBody = zod
   .describe(
     "Whether this draw may replace what the season already holds; the draw runs on the season's stored rules.\n\nAn absent body is a first draw: nothing is destroyed by omission.",
   );
+
+/**
+ * Clear one season's contact blocks once a later season has ended, and each seat past its own day unconfirmed before.
+ *
+ * Once a later season has ended, the season's fixture answers and match reports keep the league's record alone. A row
+ * that cannot be written is passed over, counted in `failed`, and met again by the next pass, as is a clock written in
+ * one go whose write fails; what each clock cleared is recorded in the action log.
+ * @summary Run one season's retention clocks over its season rows, fixture answers and match reports
+ */
+export const SaisonsSweepSaisonRetentionParams = zod.object({
+  saison_id: zod.string(),
+});
 
 /**
  * Each group's standing over the group phase with its goals counted on every read, and how many of each group advance.

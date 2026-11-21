@@ -1769,28 +1769,6 @@ export const saisonsGetSaisonOverview = async (
   });
 };
 
-export const getSaisonsSweepSaisonRetentionUrl = (saisonId: string) => {
-  return `/api/saisons/${encodeURIComponent(String(saisonId))}/retention`;
-};
-
-/**
- * Clear one season's contact blocks once a later season has ended, and each seat past its own day unconfirmed before.
- *
- * Once a later season has ended, the season's fixture answers and match reports keep the league's record alone. A row
- * that cannot be written is passed over, counted in `failed`, and met again by the next pass, as is a clock written in
- * one go whose write fails; what each clock cleared is recorded in the action log.
- * @summary Run one season's retention clocks over its season rows, fixture answers and match reports
- */
-export const saisonsSweepSaisonRetention = async (
-  saisonId: string,
-  options?: Parameters<typeof systemKeyPassTransport>[1],
-): Promise<FLSaisonRetentionResponse> => {
-  return systemKeyPassTransport<FLSaisonRetentionResponse>(getSaisonsSweepSaisonRetentionUrl(saisonId), {
-    ...options,
-    method: "POST",
-  });
-};
-
 export const getSaisonsGetSpielUrl = (saisonId: string, spielId: string) => {
   return `/api/saisons/${encodeURIComponent(String(saisonId))}/spiele/${encodeURIComponent(String(spielId))}`;
 };
@@ -1868,6 +1846,28 @@ export const saisonsPostSpielplan = async (
     method: "POST",
     headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(fLGenerateSpielplanPayload),
+  });
+};
+
+export const getSaisonsSweepSaisonRetentionUrl = (saisonId: string) => {
+  return `/api/saisons/${encodeURIComponent(String(saisonId))}/sweep`;
+};
+
+/**
+ * Clear one season's contact blocks once a later season has ended, and each seat past its own day unconfirmed before.
+ *
+ * Once a later season has ended, the season's fixture answers and match reports keep the league's record alone. A row
+ * that cannot be written is passed over, counted in `failed`, and met again by the next pass, as is a clock written in
+ * one go whose write fails; what each clock cleared is recorded in the action log.
+ * @summary Run one season's retention clocks over its season rows, fixture answers and match reports
+ */
+export const saisonsSweepSaisonRetention = async (
+  saisonId: string,
+  options?: Parameters<typeof systemKeyPassTransport>[1],
+): Promise<FLSaisonRetentionResponse> => {
+  return systemKeyPassTransport<FLSaisonRetentionResponse>(getSaisonsSweepSaisonRetentionUrl(saisonId), {
+    ...options,
+    method: "POST",
   });
 };
 

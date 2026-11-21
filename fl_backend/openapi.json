@@ -19579,49 +19579,6 @@
         ]
       }
     },
-    "/api/saisons/{saison_id}/retention": {
-      "post": {
-        "description": "Clear one season's contact blocks once a later season has ended, and each seat past its own day unconfirmed before.\n\nOnce a later season has ended, the season's fixture answers and match reports keep the league's record alone. A row\nthat cannot be written is passed over, counted in `failed`, and met again by the next pass, as is a clock written in\none go whose write fails; what each clock cleared is recorded in the action log.",
-        "operationId": "saisons_sweep_saison_retention",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "saison_id",
-            "required": true,
-            "schema": {
-              "title": "Saison Id",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLSaisonRetentionResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "default": {
-            "$ref": "#/components/responses/Failure",
-            "description": "A refusal or a fault, its status naming which"
-          }
-        },
-        "security": [
-          {
-            "SystemKey": []
-          }
-        ],
-        "summary": "Run one season's retention clocks over its season rows, fixture answers and match reports",
-        "tags": [
-          "saisons"
-        ],
-        "x-pass": true
-      }
-    },
     "/api/saisons/{saison_id}/spiele/{spiel_id}": {
       "get": {
         "description": "One match as its page and its pop-up show it, each side of a group match with its group and `platz`; 404 outside a readable season.\n\nEach side's line-up from the moment its club stores one, the scorers and cards only while the report is adopted\nand unchanged since, every pupil through the public mask.",
@@ -19789,6 +19746,49 @@
         "tags": [
           "saisons"
         ]
+      }
+    },
+    "/api/saisons/{saison_id}/sweep": {
+      "post": {
+        "description": "Clear one season's contact blocks once a later season has ended, and each seat past its own day unconfirmed before.\n\nOnce a later season has ended, the season's fixture answers and match reports keep the league's record alone. A row\nthat cannot be written is passed over, counted in `failed`, and met again by the next pass, as is a clock written in\none go whose write fails; what each clock cleared is recorded in the action log.",
+        "operationId": "saisons_sweep_saison_retention",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "saison_id",
+            "required": true,
+            "schema": {
+              "title": "Saison Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSaisonRetentionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "default": {
+            "$ref": "#/components/responses/Failure",
+            "description": "A refusal or a fault, its status naming which"
+          }
+        },
+        "security": [
+          {
+            "SystemKey": []
+          }
+        ],
+        "summary": "Run one season's retention clocks over its season rows, fixture answers and match reports",
+        "tags": [
+          "saisons"
+        ],
+        "x-pass": true
       }
     },
     "/api/saisons/{saison_id}/tabelle": {
