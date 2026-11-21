@@ -39,4 +39,22 @@ describe("the sign-in template", () => {
     rerender(addressView({ email: refusal }));
     expect(document.activeElement).toBe(field);
   });
+
+  /* The harm: a sign-in opened anywhere but the administration offers a person a passkey they cannot hold, under an
+     „oder“ that leads nowhere. */
+  it("draws neither the passkey's button nor the „oder“ line where the page hands no passkey", () => {
+    render(
+      <SignInPage
+        view="address"
+        title={COPY.page.signIn}
+        row={null}
+        address={{ label: COPY.shared.emailAddress, value: "", onChange: () => undefined }}
+        check={null}
+        send={{ label: WORDS.sendCode, onPress: () => undefined }}
+      />,
+    );
+
+    expect(screen.getAllByRole("button").map((button) => button.textContent)).toStrictEqual([WORDS.sendCode]);
+    expect(screen.queryByText(WORDS.or)).toBe(null);
+  });
 });

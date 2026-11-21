@@ -40,8 +40,10 @@ type AddressView = Head & {
   check: ReactNode;
   /** The send, handed the address the press left in the field. */
   send: Omit<Press, "onPress"> & { onPress: (address: string) => void };
-  or: Copy;
-  passkey: Press;
+  /** The line between the two sign-ins, drawn only with the passkey's. */
+  or?: Copy;
+  /** The passkey's sign-in under the code's, where the page offers one. */
+  passkey?: Press;
 };
 
 type CodeView = Head & {
@@ -225,20 +227,24 @@ function AddressBody({ title, address, check, send: { onPress: send, ...button }
           </FormFooter>
         </FieldStack>
       </HeldForm>
-      {/* Decoration: the passkey's button carries its own name. */}
-      <div
-        aria-hidden
-        className={slots.divider()}>
-        <span className={slots.rule()} />
-        {or}
-        <span className={slots.rule()} />
-      </div>
-      <div className={slots.acts()}>
-        <Button
-          variant="secondary"
-          {...passkey}
-        />
-      </div>
+      {passkey !== undefined && (
+        <>
+          {/* Decoration: the passkey's button carries its own name. */}
+          <div
+            aria-hidden
+            className={slots.divider()}>
+            <span className={slots.rule()} />
+            {or}
+            <span className={slots.rule()} />
+          </div>
+          <div className={slots.acts()}>
+            <Button
+              variant="secondary"
+              {...passkey}
+            />
+          </div>
+        </>
+      )}
     </>
   );
 }
