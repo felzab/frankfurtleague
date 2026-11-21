@@ -44,7 +44,7 @@ export function CodeField({
   /** Names the field for assistive technology; the sentence above it shows the address. */
   label: Words;
   name: string;
-  /** The refusal of the code, in the message line under the boxes: one or two sentences. */
+  /** The refusal of the code, a field phrase, in the message line under the boxes. */
   error?: Copy;
   isDisabled?: boolean;
   /** Called with the six digits once the last one is in. */
