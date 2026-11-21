@@ -30,7 +30,8 @@ const titlesOf = (page: HTMLElement) => [...page.querySelectorAll("main section 
 
 /** The reason a locked button names for its press, which the button's description points to. */
 const lockedReasonOf = (page: HTMLElement, label: string): string | null | undefined => {
-  const button = [...page.querySelectorAll("button")].find((candidate) => candidate.getAttribute("aria-label") === label);
+  // By its words: the row's side act is its labelled button, the „⋯“ drawing its entries only once opened.
+  const button = [...page.querySelectorAll("button")].find((candidate) => candidate.textContent === label);
   const reason = button?.getAttribute("aria-describedby");
   return reason === null || reason === undefined ? undefined : page.querySelector(`[id="${reason}"]`)?.textContent;
 };
