@@ -158,8 +158,8 @@ function entriesOf({ spieler, schiedsrichter, registrierungen, seats, bewerbunge
     // An application stands for no team yet: titled as its page is, by the season it applies for.
     title: COPY.page.bewerbung(bewerbung.saison_id),
     description: WORDS.description.bewerbung,
-    // No school: the read serves a new school's name as the form's sender typed it beside this person's address, in the
-    // one string it serves a listed club's by, and no page or mail repeats that text. The title names the season.
+    // No school: the read serves none, as a new school's name would be the form's sender's text. The title names the
+    // season.
     facts: seatFacts(bewerbung.persons, null, bewerbung.seats),
     ...saved({ kind: "bewerbung", bewerbung_id: bewerbung.bewerbung_id }, bewerbung.evidence_state, SEAT_TEXT_VERSIONS),
     scope: bewerbung.scope,

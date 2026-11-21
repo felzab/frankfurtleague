@@ -22,12 +22,8 @@ doubleNextRequest();
 const { default: HomePage } = await import("./page");
 
 /** The landing's whole server render for the window given: the document a browser shows before hydrating. */
-async function rendered(
-  window: FLLandingResponse["bewerbung_window"],
-  opensOn: FLLandingResponse["bewerbung_opens_on"] = null,
-  { saison = null }: { saison?: FLLandingResponse["saison"] } = {},
-) {
-  landing = { saison, bewerbung_window: window, bewerbung_opens_on: opensOn, counts: COUNTS };
+async function rendered(window: FLLandingResponse["bewerbung_window"], opensOn: FLLandingResponse["bewerbung_opens_on"] = null) {
+  landing = { saison: null, bewerbung_window: window, bewerbung_opens_on: opensOn, counts: COUNTS };
   const stream = await renderToReadableStream(<HomePage />);
   await stream.allReady;
   return new Response(stream).text();
@@ -49,24 +45,13 @@ describe("the landing's ways to apply", () => {
   });
 });
 
-/** A season all four of whose places are in, the state in which next season's window is most likely to stand. */
-const DECIDED: FLLandingResponse["saison"] = {
-  id: "2027",
-  state: "decided",
-  starts_at: "2027-03-01T10:00:00+01:00",
-  podium: [null, null, null, null],
-  teams: [],
-};
-
 // A window about to open or closed reads on the band as the form's page reads it, so the two say one thing.
 describe("the landing's band while no window is open", () => {
   it("names the day the next one opens", async () => {
-    expect(paragraphs(await rendered(null, "2028-01-01", { saison: DECIDED }))).toContain(
-      SERVER_COPY.bewerbung.end.opensOn(dayOf("2028-01-01")),
-    );
+    expect(paragraphs(await rendered(null, "2028-01-01"))).toContain(SERVER_COPY.bewerbung.end.opensOn(dayOf("2028-01-01")));
   });
 
-  it("reads the form's closed sentence beside a decided season", async () => {
-    expect(paragraphs(await rendered(null, null, { saison: DECIDED }))).toContain(SERVER_COPY.bewerbung.end.closed);
+  it("reads the form's closed sentence", async () => {
+    expect(paragraphs(await rendered(null, null))).toContain(SERVER_COPY.bewerbung.end.closed);
   });
 });
