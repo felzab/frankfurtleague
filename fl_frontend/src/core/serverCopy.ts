@@ -1013,7 +1013,7 @@ export const SERVER_COPY = catalogue({
           `Änderst du mit Zugang zur Verwaltung deine Adresse, gilt die neue erst ${waitWords(administratorWait).span}, nachdem du beide bestätigt hast. Für die ${ownerTier} und für die Person, an die sie gerade übergeben wird, gilt sie erst ${waitWords(ownerWait).after}. Bis dahin gilt die bisherige Adresse.`,
         grants: (administratorWait: Wait, ownerWait: Wait) =>
           `Ein neuer Zugang gilt erst ${waitWords(administratorWait).after}. Die Übergabe der ${ownerTier} gilt erst ${waitWords(ownerWait).after}. Von jedem dieser Schritte erfahren alle mit Zugang und die genannte Person sofort.`,
-        undo: `Bis dahin kann die ${ownerTier} jeden dieser Schritte zurücknehmen. Eine neue Adresse kannst auch du selbst zurücknehmen, im Konto oder über den Link an deine bisherige Adresse.`,
+        undo: `Bis dahin kann die ${ownerTier} jeden dieser Schritte zurückziehen. Eine neue Adresse kannst auch du selbst zurückziehen, im Konto oder über den Link an deine bisherige Adresse.`,
         erasure: `Mit der ${ownerTier} kannst du dein Konto erst nach ihrer Übergabe löschen, weil die Liga immer eine ${ownerTier} braucht. Deine Rechte unter „Deine Rechte“ bleiben davon unberührt.`,
       },
       mail: {
@@ -1032,7 +1032,7 @@ export const SERVER_COPY = catalogue({
         names:
           "Stehst du im Kader, zeigen wir deinen Vornamen und den Anfangsbuchstaben deines Nachnamens: im Kader, in Aufstellungen und bei Toren und Karten. Pfeifst du, zeigen wir an deinen Spielen den ersten Teil deines Namens und den Anfangsbuchstaben des nächsten. Hast du nur einen Namen, zeigen wir ihn ganz. Beides zeigen wir nur mit deiner Einwilligung, sonst steht dort nur „anonym“. Trikotnummer und Position zeigen wir nur neben deinem Namen. Hast du im Kader die Rolle „Kapitän“ oder „Co-Kapitän“, zeigen wir sie dort und in Aufstellungen neben deinem Namen, nie neben „anonym“.",
         // The names stand in the public source code too, whose earlier versions keep a removed one.
-        organisers: `Ebenfalls nur mit Einwilligung zeigen wir die Vornamen der Personen, die die Liga organisieren. Sie stehen auf der Startseite, unter „${COPY.page.about}“ und im öffentlichen Quellcode der Website. Nimmt jemand von ihnen seine Einwilligung zurück, entfernen wir den Namen von der Website und aus dem aktuellen Quellcode. Frühere Versionen des Quellcodes behalten ihn.`,
+        organisers: `Ebenfalls nur mit Einwilligung zeigen wir die Vornamen der Personen, die die Liga organisieren. Sie stehen auf der Startseite, unter „${COPY.page.about}“ und im öffentlichen Quellcode der Website. Widerruft jemand von ihnen, entfernen wir den Namen von der Website und aus dem aktuellen Quellcode. Frühere Versionen des Quellcodes behalten ihn.`,
         media: (mediaAge: number) =>
           `Ab ${boundBy(formatNumber(mediaAge), "Jahren")} zeigen wir, ebenfalls nur mit deiner Einwilligung, Fotos, Videos und Interviews, auf denen du zu erkennen bist, hier und auf dem Instagram-Kanal der Liga. Widerrufst du, entfernen wir Fotos, Videos und Interviews von dir von der Website und vom Instagram-Kanal der Liga.`,
         // The Stufe is a squad row's; no referee record holds one.
