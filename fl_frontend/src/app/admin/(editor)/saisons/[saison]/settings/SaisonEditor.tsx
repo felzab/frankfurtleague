@@ -78,7 +78,7 @@ export type SaisonActs = {
   sendLinks: (input: { saison_id: string }) => Promise<ActionAnswer>;
 };
 
-/** A danger row's closing, where its read names a reason. */
+/** An act's closing, where its read names a reason. */
 const lockedBy = (reason: Copy | undefined) => (reason === undefined ? {} : { locked: reason });
 
 /** A club as a picker lists it, „Lessing · Gruppe A“. */
