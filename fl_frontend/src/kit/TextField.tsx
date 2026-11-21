@@ -92,7 +92,9 @@ export type TextFieldProps = Shared & (Short | Standard | Paragraph);
 
 /**
  * What each kind sets on the input: its type, the keyboard a phone opens, what the browser offers to fill.
- * A text, digits or address field is filled only where its `autofill` names what it asks for.
+ * A text, digits or address field is filled only where its `autofill` names what it asks for. A phone number and a
+ * website are filled with nothing: every one the site asks for is somebody else's, a seat holder's, a referee's or a
+ * school's, and the browser would offer the person's own.
  */
 const KINDS = {
   text: { type: "text", inputMode: undefined, autoComplete: undefined, pattern: undefined },
@@ -104,8 +106,8 @@ const KINDS = {
   // under it, so a keyboard whose pad lacks the plus still types one. The pattern is the caller's.
   minute: { type: "text", inputMode: "tel", autoComplete: undefined, pattern: undefined },
   email: { type: "email", inputMode: undefined, autoComplete: "off", pattern: undefined },
-  tel: { type: "tel", inputMode: undefined, autoComplete: "tel", pattern: undefined },
-  url: { type: "url", inputMode: undefined, autoComplete: "url", pattern: undefined },
+  tel: { type: "tel", inputMode: undefined, autoComplete: "off", pattern: undefined },
+  url: { type: "url", inputMode: undefined, autoComplete: "off", pattern: undefined },
 } as const;
 
 /** The example a malformed value is shown, by kind; a URL names its own. */

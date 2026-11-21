@@ -27,6 +27,27 @@ describe("an address field's autofill", () => {
   });
 });
 
+// The harm: the browser offers the applicant's own number for a deputy's seat, or their own site for a school's, and
+// one click stores it with nobody seeing.
+describe("a phone or website field's autofill", () => {
+  it("offers nothing, every one being somebody else's", () => {
+    render(
+      <>
+        <TextField
+          label={COPY.shared.facts.phone}
+          kind="tel"
+        />
+        <TextField
+          label={COPY.team.website}
+          kind="url"
+          example={COPY.shared.field.exampleUrl}
+        />
+      </>,
+    );
+    expect(screen.getAllByRole("textbox").map((box) => box.getAttribute("autocomplete"))).toStrictEqual(["off", "off"]);
+  });
+});
+
 // The harm: a keyboard user cannot see where the focus stands on a locked select, which a pointer user never meets.
 describe("a locked select", () => {
   it("rings its frame once Tab reaches it", async () => {
