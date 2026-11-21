@@ -35,11 +35,13 @@ import type { SubjectSession } from "./subject";
  * where the backend refused. A refusal the catalogue words brings its reason, every other refusal of the request the
  * stale-page line, an ended session the sign-in line, an outage or a fault the shared failure line; a refusal for its
  * fields alone may leave the line to the form. `warn` marks an act that partly happened, its note or its reason
- * read in the warn tone: neither a clean save nor a refusal that left everything as it stood. `closed` marks an act
- * whose passkey sheet the person, or the browser on their behalf, closed: it never ran, and nothing is said of it.
+ * read in the warn tone: neither a clean save nor a refusal that left everything as it stood. `done` is the done word
+ * of the act the answer did where that is not the one its press names, such as a decline answered from an admission's
+ * dialog, and stands in for the press's own. `closed` marks an act whose passkey sheet the person, or the browser on
+ * their behalf, closed: it never ran, and nothing is said of it.
  */
 export type ActionAnswer<Value = undefined> =
-  | { ok: true; value: Value; note?: Copy; warn?: true }
+  | { ok: true; value: Value; note?: Copy; done?: Copy; warn?: true }
   | {
       ok: false;
       fieldErrors?: Readonly<Record<string, Copy>>;
