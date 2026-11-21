@@ -48,7 +48,6 @@ export const AREA_COPY = catalogue({
   },
 
   schiedsrichter: {
-    search: COPY.shared.search(COPY.page.spiele),
     /** A game the referee is booked onto, as their Übersicht lists it: the glossary's `Einsatz`, not the mail telling them. */
     einsatz: "Einsatz",
     /** A game's chip on the referee's list once their report is stored, apart from the action log's entry of the same words. */

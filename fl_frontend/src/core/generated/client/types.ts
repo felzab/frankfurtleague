@@ -4252,30 +4252,53 @@ export const FLSchiedsrichterSpielState = {
 } as const;
 
 /**
- * One fixture booked to the signed-in referee, as their one list shows it: the booking they were asked about and the report they owe.
+ * One fixture booked to the signed-in referee, as their one list shows it.
+ *
+ * The fixture as the public reads serve it, with its matchday, as a club's own list serves its matches; and the booking
+ * they were asked about and the report they owe.
  */
 export interface FLSchiedsrichterSpiel {
+  ansetzung_confirmed: boolean | null;
   bericht_owed: boolean;
+  /** @minimum 1 */
+  count_spieltage_in_phase: number;
   date: string | null;
-  entered: boolean;
+  elfmeterschiessen: FLSpielElfmeterschiessen | null;
+  ergebnis: string | null;
+  for_third_place: boolean;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  id: string;
+  note: string | null;
   officiates: boolean;
   past: boolean;
-  reason: string | null;
   reportable: boolean;
+  /**
+   * @minLength 4
+   * @maxLength 4
+   */
+  saison_id: string;
+  saison_phase: FLSaisonPhase;
+  schiedsrichter: FLSpielSchiedsrichterFieldPublic | null;
   sonderereignis: FLSonderereignis | null;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  spiel_id: string;
+  /** @exclusiveMinimum 0 */
+  spiel_nr: number;
   spielbestaetigung_id: string | null;
   spielort: FLSpielortFieldPublic | null;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  spieltag_id: string;
+  /** @minimum 1 */
+  spieltag_position: number;
   state: FLSchiedsrichterSpielState;
   submitted_at: string | null;
-  team1_name: string | null;
-  team2_name: string | null;
+  team1: FLSpielTeamFieldJoined | null;
+  team1_quelle: FLSpielQuelle | null;
+  team2: FLSpielTeamFieldJoined | null;
+  team2_quelle: FLSpielQuelle | null;
   time: string | null;
 }
 
 /**
- * A referee's fixtures of one season, open work first.
+ * A referee's fixtures of one season, in the order the draw numbered them.
  */
 export interface FLSchiedsrichterSpieleResponse {
   saison_id: string;

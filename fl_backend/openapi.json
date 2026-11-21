@@ -10102,11 +10102,27 @@
         "type": "object"
       },
       "FLSchiedsrichterSpiel": {
-        "description": "One fixture booked to the signed-in referee, as their one list shows it: the booking they were asked about and the report they owe.",
+        "description": "One fixture booked to the signed-in referee, as their one list shows it.\n\nThe fixture as the public reads serve it, with its matchday, as a club's own list serves its matches; and the booking\nthey were asked about and the report they owe.",
         "properties": {
+          "ansetzung_confirmed": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ansetzung Confirmed"
+          },
           "bericht_owed": {
             "title": "Bericht Owed",
             "type": "boolean"
+          },
+          "count_spieltage_in_phase": {
+            "minimum": 1.0,
+            "title": "Count Spieltage In Phase",
+            "type": "integer"
           },
           "date": {
             "anyOf": [
@@ -10120,9 +10136,47 @@
             ],
             "title": "Date"
           },
-          "entered": {
-            "title": "Entered",
+          "elfmeterschiessen": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielElfmeterschiessen"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "ergebnis": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]+:[0-9]+$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ergebnis"
+          },
+          "for_third_place": {
+            "title": "For Third Place",
             "type": "boolean"
+          },
+          "id": {
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
           },
           "officiates": {
             "title": "Officiates",
@@ -10132,21 +10186,28 @@
             "title": "Past",
             "type": "boolean"
           },
-          "reason": {
+          "reportable": {
+            "title": "Reportable",
+            "type": "boolean"
+          },
+          "saison_id": {
+            "maxLength": 4,
+            "minLength": 4,
+            "title": "Saison Id",
+            "type": "string"
+          },
+          "saison_phase": {
+            "$ref": "#/components/schemas/FLSaisonPhase"
+          },
+          "schiedsrichter": {
             "anyOf": [
               {
-                "minLength": 1,
-                "type": "string"
+                "$ref": "#/components/schemas/FLSpielSchiedsrichterFieldPublic"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Reason"
-          },
-          "reportable": {
-            "title": "Reportable",
-            "type": "boolean"
+            ]
           },
           "sonderereignis": {
             "anyOf": [
@@ -10158,10 +10219,10 @@
               }
             ]
           },
-          "spiel_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Spiel Id",
-            "type": "string"
+          "spiel_nr": {
+            "exclusiveMinimum": 0.0,
+            "title": "Spiel Nr",
+            "type": "integer"
           },
           "spielbestaetigung_id": {
             "anyOf": [
@@ -10184,6 +10245,16 @@
                 "type": "null"
               }
             ]
+          },
+          "spieltag_id": {
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Spieltag Id",
+            "type": "string"
+          },
+          "spieltag_position": {
+            "minimum": 1.0,
+            "title": "Spieltag Position",
+            "type": "integer"
           },
           "state": {
             "anyOf": [
@@ -10216,27 +10287,45 @@
             ],
             "title": "Submitted At"
           },
-          "team1_name": {
+          "team1": {
             "anyOf": [
               {
-                "type": "string"
+                "$ref": "#/components/schemas/FLSpielTeamFieldJoined"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Team1 Name"
+            ]
           },
-          "team2_name": {
+          "team1_quelle": {
             "anyOf": [
               {
-                "type": "string"
+                "$ref": "#/components/schemas/FLSpielQuelle"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Team2 Name"
+            ]
+          },
+          "team2": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielTeamFieldJoined"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "team2_quelle": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielQuelle"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "time": {
             "anyOf": [
@@ -10252,17 +10341,29 @@
           }
         },
         "required": [
-          "spiel_id",
-          "team1_name",
-          "team2_name",
+          "id",
+          "team1",
+          "team2",
+          "team1_quelle",
+          "team2_quelle",
           "date",
           "time",
           "spielort",
+          "schiedsrichter",
+          "ergebnis",
+          "elfmeterschiessen",
+          "spieltag_id",
+          "spiel_nr",
           "sonderereignis",
+          "saison_phase",
+          "saison_id",
+          "note",
+          "ansetzung_confirmed",
+          "for_third_place",
+          "spieltag_position",
+          "count_spieltage_in_phase",
           "spielbestaetigung_id",
           "state",
-          "reason",
-          "entered",
           "officiates",
           "past",
           "submitted_at",
@@ -10273,7 +10374,7 @@
         "type": "object"
       },
       "FLSchiedsrichterSpieleResponse": {
-        "description": "A referee's fixtures of one season, open work first.",
+        "description": "A referee's fixtures of one season, in the order the draw numbered them.",
         "properties": {
           "saison_id": {
             "title": "Saison Id",
@@ -20079,7 +20180,7 @@
     },
     "/api/schiedsrichter/self/saisons/{saison_id}/spiele": {
       "get": {
-        "description": "Every fixture of this season booked to one of the signed-in address's live, confirmed referee records, open work first.\n\nNobody's address is served, and no reason an administrator entered.",
+        "description": "Every fixture of this season booked to the signed-in address's live, confirmed referee records, in the order the draw numbered them.\n\nNobody's address is served, and no reason an administrator entered.",
         "operationId": "schiedsrichter_get_self_spiele",
         "parameters": [
           {

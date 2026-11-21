@@ -4,8 +4,8 @@ from typing import Annotated, Final, Literal, Self
 from pydantic import BaseModel, Field, model_validator
 
 from app.api.outbox.schemas import FLOutboxStatus
+from app.api.saisons.schemas import FLTeamPageSpiel
 from app.api.spielbestaetigungen.schemas import FLSpielbestaetigungSchiedsrichterState
-from app.api.spiele.schemas import FLSpielortFieldPublic
 from app.api.spieler.schemas import FLEinwilligung
 from app.core.crud import Anchored
 from app.shared.schemas.bounds import TEAM_FULL_NAME_MAX_LENGTH
@@ -16,13 +16,12 @@ from app.shared.schemas.custom import (
     CustomObjectId,
     CustomOptionalDateString,
     CustomOptionalString,
-    CustomTimeString,
     CustomVersion,
     FLUtcInstant,
 )
 from app.shared.schemas.einwilligung import FLSchiedsrichterTextVersions, cite_their_kind
 from app.shared.schemas.kontakt import CustomKontaktName, CustomStoredAddress, FLKontakt, FLKontaktPayload
-from app.shared.schemas.literals import FLEinwilligungScope, FLSonderereignis
+from app.shared.schemas.literals import FLEinwilligungScope
 from app.shared.schemas.responses import BasePayload, BaseReadModel
 
 
@@ -265,44 +264,35 @@ class FLSchiedsrichterSelfPerson(BaseReadModel):
     birth_date: CustomOptionalDateString = None
 
 
-class FLSchiedsrichterSpiel(BaseReadModel):
-    """One fixture booked to the signed-in referee, as their one list shows it: the booking they were asked about and the report they owe."""
+class FLSchiedsrichterSpiel(FLTeamPageSpiel):
+    """One fixture booked to the signed-in referee, as their one list shows it.
 
-    spiel_id: CustomObjectId
-    team1_name: str | None
-    team2_name: str | None
-    # Null on a fixture holding no day or no hour yet.
-    date: CustomOptionalDateString
-    time: CustomTimeString | None
-    spielort: FLSpielortFieldPublic | None
-    # What befell the fixture, which the list words by the event's own word, as every match block does.
-    sonderereignis: FLSonderereignis | None
+    The fixture as the public reads serve it, with its matchday, as a club's own list serves its matches; and the booking
+    they were asked about and the report they owe.
+    """
+
     # The newest row asking them to confirm the fixture, which an answer names
     # (`POST /spielbestaetigungen/{spielbestaetigung_id}/answer`); null where none asks them.
     spielbestaetigung_id: CustomObjectId | None
     # Null exactly where `spielbestaetigung_id` is.
     state: FLSpielbestaetigungSchiedsrichterState | None
-    # Their own decline's reason, null on every other row.
-    reason: CustomNonEmptyString | None
-    # Whether the league recorded the answer for them, so the list never shows it as their own.
-    entered: bool
     # Whether they still referee it: false once a club's exit ends it unplayed, as the pass's notice told them; nothing is then
     # answered or reported.
     officiates: bool
     # Whether the fixture has been played: from its kick-off, or from its day where it holds no time. Judged here, by the
-    # rule that closes the booking, so a page agrees with the order the read answered.
+    # rule that closes the booking, so a page offers no answer the booking no longer takes.
     past: bool
     # When its report was first sent, whoever wrote it; null where none stands.
     submitted_at: FLUtcInstant | None
     # Whether the referee writes its report now, as the Spielbericht read's `reportable` judges the same fixture: booked to
     # them still, played, neither called off nor struck out, its season running. A no-show's included, which nobody owes.
     reportable: bool
-    # Whether the referee owes its report now, which puts the fixture among the open work.
+    # Whether the referee owes its report now, which the list marks as work open on the fixture.
     bericht_owed: bool
 
 
 class FLSchiedsrichterSpieleResponse(BaseReadModel):
-    """A referee's fixtures of one season, open work first."""
+    """A referee's fixtures of one season, in the order the draw numbered them."""
 
     saison_id: str
     spiele: list[FLSchiedsrichterSpiel]
