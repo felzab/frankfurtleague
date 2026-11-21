@@ -41,11 +41,10 @@ type Sending = {
 type AtOnce = { label: Copy; press: () => void; act?: never; done?: never; run?: never; confirm?: never };
 
 export type SectionActItem = {
-  /** Closed while the section's inputs are incomplete, its fields showing what is missing, or while the press would reach nobody. */
-  isDisabled?: boolean;
   /**
-   * Why its write would refuse the record as it stands, which the page read, the button saying why; `true` where the
-   * editor's lock line already says it, the button locked with no reason of its own.
+   * Why its write would refuse the record as it stands, which the page read, or why the press cannot run yet, such as
+   * inputs still incomplete or nobody it would reach: the button saying why, reachable rather than mute; `true` where
+   * the editor's lock line already says it, the button locked with no reason of its own.
    */
   locked?: Copy | true;
 } & (Sending | AtOnce);
@@ -69,7 +68,6 @@ function ActButton({ item, isBusy, onPress }: { item: SectionActItem; isBusy: bo
       <Button
         variant="secondary"
         label={item.label}
-        isDisabled={item.isDisabled ?? false}
         locked={lock}
         onPress={item.press}
       />
@@ -82,7 +80,6 @@ function ActButton({ item, isBusy, onPress }: { item: SectionActItem; isBusy: bo
         variant="secondary"
         label={label}
         isBusy={isBusy}
-        isDisabled={item.isDisabled ?? false}
         locked={lock}
         onPress={onPress}
       />
@@ -95,7 +92,7 @@ function ActButton({ item, isBusy, onPress }: { item: SectionActItem; isBusy: bo
         onPress();
         return item.run();
       }}
-      trigger={{ label, isDisabled: item.isDisabled ?? false, locked: lock }}
+      trigger={{ label, locked: lock }}
     />
   );
 }
