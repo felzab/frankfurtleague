@@ -1,0 +1,52 @@
+// @vitest-environment jsdom
+import { prerender } from "react-dom/static";
+import { describe, expect, it } from "vitest";
+
+import { RETURN_PARAMETER } from "@/core/auth/returnAddress";
+import { PUBLIC_COPY } from "@/core/copy/public";
+import { underNext } from "@/test-support/nextContexts";
+
+import SignInPage from "./page";
+
+const WORDS = PUBLIC_COPY.signIn;
+
+/** The page as a visitor opening `/signin` with `search` gets it, drawn on the server. */
+async function drawn(search: Record<string, string>): Promise<HTMLElement> {
+  const { prelude } = await prerender(
+    underNext(
+      <SignInPage
+        params={Promise.resolve({})}
+        searchParams={Promise.resolve(search)}
+      />,
+      {
+        pathname: "/signin",
+        search: new URLSearchParams(search),
+      },
+    ),
+    { progressiveChunkSize: Number.MAX_SAFE_INTEGER },
+  );
+  const page = document.createElement("div");
+  page.innerHTML = await new Response(prelude).text();
+  return page;
+}
+
+/** Each button's words, and whether the „oder“ line between the two sign-ins stands. */
+const actsOf = (page: HTMLElement) => ({
+  buttons: [...page.querySelectorAll("button")].map((button) => button.textContent),
+  or: [...page.querySelectorAll("div")].some((line) => line.textContent === WORDS.or),
+});
+
+// The harm: only an administrator holds a passkey, so a wrong condition offers every person a button they cannot use,
+// under an „oder“ leading nowhere, and no journey opens the sign-in as a person looking for it.
+describe("the sign-in page", () => {
+  it.each([
+    ["no return address", {}],
+    ["a return address outside the administration", { [RETURN_PARAMETER]: "/area" }],
+  ])("offers the code alone for %s", async (_, search) => {
+    expect(actsOf(await drawn(search))).toStrictEqual({ buttons: [WORDS.sendCode], or: false });
+  });
+
+  it("offers the passkey beside the code for a return to the administration", async () => {
+    expect(actsOf(await drawn({ [RETURN_PARAMETER]: "/admin" }))).toStrictEqual({ buttons: [WORDS.sendCode, WORDS.withPasskey], or: true });
+  });
+});
