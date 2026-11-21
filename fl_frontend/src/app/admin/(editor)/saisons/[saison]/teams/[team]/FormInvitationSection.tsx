@@ -4,12 +4,13 @@ import { useState } from "react";
 
 import { ADMIN_COPY } from "@/core/copy/admin";
 import { COPY } from "@/core/copy/shared";
-import { mailInvitation, mintInvitation, revokeInvitation } from "@/features/invitations/actions";
 import { Callout } from "@/kit/Callout";
 import { Facts } from "@/kit/Facts";
 import { SectionAct } from "@/kit/SectionAct";
 import { appToast } from "@/kit/Toast";
 import { copyTextToClipboard } from "@/shared/utils/clipboard";
+
+import { mailInvitation, mintInvitation, revokeInvitation } from "./invitationActs";
 
 import type { ActionAnswer } from "@/core/action";
 import type { Fact } from "@/kit/Facts";

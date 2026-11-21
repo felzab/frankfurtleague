@@ -1,6 +1,5 @@
 import { describe, expect, it, onTestFinished } from "vitest";
 
-import { ADMIN_COPY } from "@/core/copy/admin";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { ADMIN_EMAIL } from "@/test-support/authDoubles";
 import { refusal, serveBackend } from "@/test-support/backend";
@@ -38,7 +37,7 @@ const { arriveAs, store } = signedInRequest();
 /** Every line the real logger writes, read off standard output. */
 const log = captureLog();
 
-const { addAdministrator, removeAdministrator, startHandover } = await import("./actions");
+const { addAdministrator, removeAdministrator, startHandover } = await import("./grantActs");
 
 // The harm: both dialogs close before the passkey touch, so their answer is a toast, where a box's phrase or the line
 // pointing at the fields names nothing in sight.
@@ -130,18 +129,13 @@ describe("a grant's removal", () => {
     expect(rowsOf("session")).toStrictEqual(sessions);
   });
 
-  it("answers done in part where the passkeys may stand, logging no address", async () => {
+  it("answers done where the passkeys may stand, logging the failure and no address", async () => {
     await aGrantHolderSignedInBoth();
     log.clear();
     failThePasskeysTable();
 
-    // Done, so the dialog closes: the grant is gone, and a second press would meet no row.
-    expect(await removeAdministrator({ id: REMOVED_ID, holder: HOLDER })).toStrictEqual({
-      ok: true,
-      value: undefined,
-      note: ADMIN_COPY.administrators.partial,
-      warn: true,
-    });
+    // Done, so the dialog closes: the grant is gone, a second press would meet no row, and the sweep takes the passkeys.
+    expect(await removeAdministrator({ id: REMOVED_ID, holder: HOLDER })).toStrictEqual({ ok: true, value: undefined });
 
     const errors = log.lines().filter(({ level }) => level === "ERROR");
     expect(errors.map(({ message, fields }) => ({ message, fields }))).toStrictEqual([

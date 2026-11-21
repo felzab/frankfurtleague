@@ -4,13 +4,11 @@ import { z } from "zod";
 
 import { action, PAGE_HOLDER } from "@/core/action";
 import { deletePasskeysAt } from "@/core/auth/passkeys";
-import { ADMIN_COPY } from "@/core/copy/admin";
 import { grantsDeleteGrant, grantsDeleteHandover, grantsPostGrant, grantsPostHandover } from "@/core/generated/client/sdk";
 import { logger } from "@/core/logging";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { SignInAddressSchema } from "@/features/auth/schemas";
-
-import { GRANT_ID } from "./schemas";
+import { GRANT_ID } from "@/features/grants/schemas";
 
 const ADDRESS_FORMAT = SERVER_COPY.closedDialog.format.address;
 
@@ -34,22 +32,10 @@ export const addAdministrator = action({
   },
 });
 
-/** Whether the address's passkeys and the sessions they made are known gone, or were never there. */
-async function passkeysCleared(address: string): Promise<boolean> {
-  try {
-    await deletePasskeysAt(address);
-    return true;
-  } catch (failed) {
-    // The name alone: a failure in the sign-in store routinely carries the address.
-    logger.error("grants.passkeys_not_deleted", undefined, { name: failed instanceof Error ? failed.name : "unknown" });
-    return false;
-  }
-}
-
 /**
  * Removes an administrator at once, or withdraws an addition still waiting, by the same press, then deletes the
- * address's passkeys and the sessions they made. Passkeys left standing answer as done in part: the grant is gone, so
- * a second press meets no row.
+ * address's passkeys and the sessions they made. A failed deletion is logged and still answers done: the grant is
+ * gone, so a second press meets no row, and the hourly account sweep deletes the passkeys of an address holding none.
  */
 export const removeAdministrator = action({
   lane: "admin",
@@ -58,8 +44,13 @@ export const removeAdministrator = action({
   input: OfGrant,
   run: async ({ id }) => {
     const { address } = await grantsDeleteGrant(id);
-    if (await passkeysCleared(address)) return { ok: true, value: undefined };
-    return { ok: true, value: undefined, note: ADMIN_COPY.administrators.partial, warn: true };
+    try {
+      await deletePasskeysAt(address);
+    } catch (failed) {
+      // The name alone: a failure in the sign-in store routinely carries the address.
+      logger.error("grants.passkeys_not_deleted", undefined, { name: failed instanceof Error ? failed.name : "unknown" });
+    }
+    return { ok: true, value: undefined };
   },
 });
 

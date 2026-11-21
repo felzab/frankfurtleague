@@ -7,10 +7,11 @@ import { COPY } from "@/core/copy/shared";
 import { ROUTES } from "@/core/routes";
 import { signOutOthers } from "@/features/account/personActions";
 import { clientRefusal, describeSetUpRefusal } from "@/features/auth/passkeyAnswers";
-import { removePasskeyAction, renamePasskeyAction } from "@/features/passkeys/actions";
 import { AccountBox, AccountRows } from "@/kit/AccountBox";
 import { TextField } from "@/kit/TextField";
 import { leaveDocumentFor } from "@/shared/utils/documentNavigation";
+
+import { removePasskeyAction, renamePasskeyAction } from "./passkeyActs";
 
 import type { ActionAnswer } from "@/core/action";
 import type { Copy } from "@/core/copy";

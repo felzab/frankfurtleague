@@ -341,9 +341,6 @@ const IMPORT_BANS = [
       "src/features/bewerbungen/deliveryState.ts",
       "src/features/bewerbungen/seats.test.ts",
       "src/features/bewerbungen/standing.ts",
-      "src/features/grants/actions.test.ts",
-      "src/features/grants/actions.ts",
-      "src/features/invitations/actions.ts",
       "src/features/spiele/saveSpiel.test.ts",
       "src/features/spiele/saveSpiel.ts",
       "src/features/spielbestaetigungen/answerActs.tsx",
@@ -356,6 +353,22 @@ const IMPORT_BANS = [
   }),
   importBan(NETWORK_BESIDE_FETCH, PRODUCTION),
 ];
+
+/**
+ * Each whole-module import ban again for `import()` in production code, which `no-restricted-imports` never reads: it
+ * judges import and export declarations alone, and the server's entry points load modules that way. A test is left to
+ * its declarations, since it loads each module by `import()` once its doubles stand. A ban naming `importNames` stays
+ * the declarations' alone, since a dynamic import's names are read off its result, in spellings no selector holds. The
+ * selector's regex matches as the rule's own does, ignoring case.
+ */
+const DYNAMIC_IMPORT_BANS = IMPORT_BANS.filter(({ entry }) => entry.importNames === undefined).map(
+  ({ entry: { regex, message }, reach, ...rest }) => ({
+    ...rest,
+    rule: "no-restricted-syntax",
+    entry: syntax(`ImportExpression > Literal.source[value=/${regex.replaceAll("/", String.raw`\x2F`)}/iu]`, message),
+    reach: (zone) => PRODUCTION(zone) && reach(zone),
+  }),
+);
 
 // ---------------------------------------------------------------------------------------------------
 // Syntax bans.
@@ -1217,7 +1230,7 @@ const DESIGN_BANS = [
 // The blocks.
 // ---------------------------------------------------------------------------------------------------
 
-const BANS = [...IMPORT_BANS, ...SOURCE_BANS, ...PROPERTY_BANS, ...DESIGN_BANS];
+const BANS = [...IMPORT_BANS, ...DYNAMIC_IMPORT_BANS, ...SOURCE_BANS, ...PROPERTY_BANS, ...DESIGN_BANS];
 
 /** An entry naming files: a path, or a directory glob whose `**` stands for any folders. */
 const isGlob = (entry) => entry.includes("**");

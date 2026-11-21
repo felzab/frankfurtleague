@@ -355,7 +355,7 @@ describe("each form's posted names meet its lane's keys", () => {
     // The rename writes the sign-in store alone, so the row it names is what the case reads.
     // An administrator's, the one account holding a passkey: the file's visitor unless a case names another.
     it("loses no key of a passkey's rename", async () => {
-      const { renamePasskeyAction } = await import("@/features/passkeys/actions");
+      const { renamePasskeyAction } = await import("@/app/account/(pages)/security/passkeyActs");
       const spelled = spelledIn("app/account/(pages)/security/SecurityBoxes.tsx");
       const account = store.user.find(({ email }) => email === ADMIN_EMAIL);
       assert(account !== undefined, "the administrator's arrival wrote no account");

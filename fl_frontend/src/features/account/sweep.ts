@@ -94,8 +94,9 @@ async function holdsNoGrant(address: string, count: AccountSweepCount): Promise<
 
 /**
  * The passkeys of each address holding no grant, whatever left them there: a removal whose deletion failed, a grant
- * removed by hand, or a carry that failed between its two writes. An address whose account a carry still owes to
- * leave keeps them: the effect moved its grant to the new address first, and the passkeys go there with the account.
+ * removed by hand, or a carry that brought an account to an address whose grant was removed meanwhile, since the carry
+ * deletes none. An address whose account a carry still owes to leave keeps them: the effect moved its grant to the new
+ * address first, and the passkeys go there with the account.
  */
 async function deletePasskeysWithoutGrant(ungranted: readonly string[], count: AccountSweepCount): Promise<void> {
   let owed: ReadonlySet<string>;

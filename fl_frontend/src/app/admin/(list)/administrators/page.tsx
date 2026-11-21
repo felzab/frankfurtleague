@@ -9,7 +9,6 @@ import { ROUTES } from "@/core/routes";
 import { DAY_MS } from "@/core/timeUnits";
 import { discardChange } from "@/features/address-change/actions";
 import { getAddressChanges } from "@/features/address-change/queries";
-import { addAdministrator, removeAdministrator, startHandover, stopHandover } from "@/features/grants/actions";
 import { GRANT_RULES } from "@/features/grants/fieldRules";
 import { getGrants } from "@/features/grants/queries";
 import { actLabel } from "@/kit/dialogAct";
@@ -19,6 +18,8 @@ import { RowAct } from "@/kit/RowAct";
 import { Select } from "@/kit/Select";
 import { TextField } from "@/kit/TextField";
 import { pageMetadata } from "@/shared/utils/metadata";
+
+import { addAdministrator, removeAdministrator, startHandover, stopHandover } from "./grantActs";
 
 import type { ActionAnswer } from "@/core/action";
 import type { Copy } from "@/core/copy";

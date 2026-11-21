@@ -30,7 +30,7 @@ serveBackend(({ method, path }) => {
 const { arriveAs, store } = signedInRequest({ email: OWNER, admin: true });
 
 // Server functions, which the page hands its dialogs and a client reaches over the network: no case presses one.
-vi.mock("@/features/grants/actions", () => ({
+vi.mock("./grantActs", () => ({
   addAdministrator: () => undefined,
   removeAdministrator: () => undefined,
   startHandover: () => undefined,
