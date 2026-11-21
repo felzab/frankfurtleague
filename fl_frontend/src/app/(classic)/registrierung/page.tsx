@@ -17,7 +17,8 @@ import { SERVER_COPY } from "@/core/serverCopy";
 import { runWithIncomingTrace } from "@/core/traceScope";
 import { orderStufen } from "@/features/spieler/constants";
 import { ConsentLine } from "@/kit/ConsentLine";
-import { mailedMetadata, TO_HOME } from "@/kit/mailedLinkState";
+import { TO_HOME } from "@/kit/mailedLinkState";
+import { mailedMetadata } from "@/kit/mailedMetadata";
 import { MailedPage } from "@/kit/MailedPage";
 
 import { endOf, readInvitation } from "./invitation";
@@ -26,11 +27,11 @@ import { submitRegistrierung } from "./submitRegistrierung";
 
 import type { ConsentLine as Line } from "@/core/consentWordings";
 import type { MailedState } from "@/kit/MailedPage";
-import type { Metadata, ResolvingMetadata } from "next";
+import type { Metadata } from "next";
 import type { RegistrierungRules } from "./RegistrierungFields";
 
-export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
-  return mailedMetadata(parent, ROUTES.registrierung, readState());
+export async function generateMetadata(): Promise<Metadata> {
+  return mailedMetadata(ROUTES.registrierung, readState());
 }
 
 const WORDS = SERVER_COPY.registrierung;

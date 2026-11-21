@@ -25,16 +25,13 @@ import type { ChipProps } from "@/kit/Chip";
 import type { Fact } from "@/kit/Facts";
 import type { ListCreate } from "@/kit/ListPage";
 import type { TableHead, TableRow } from "@/kit/Table";
-import type { Metadata, ResolvingMetadata } from "next";
 import type { StartRules } from "./StartFields";
 
 const WORDS = ADMIN_COPY.addressChange;
 
 const START = COPY.shared.withObject(COPY.shared.addressChange.change, "enter");
 
-export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
-  return pageMetadata(parent, ROUTES.adminAddressChanges, ROUTES.adminAddressChanges.path());
-}
+export const metadata = pageMetadata(ROUTES.adminAddressChanges);
 
 /** The running changes, and the address the page is drawn for: one read for the list and the toolbar's act alike. */
 async function readChanges() {

@@ -4,13 +4,12 @@ import { pageMetadata } from "@/shared/utils/metadata";
 
 import { endOfDone } from "../ends";
 
-import type { Metadata, ResolvingMetadata } from "next";
+import type { Metadata } from "next";
 
 type Props = PageProps<"/confirm/address/done">;
 
-export async function generateMetadata({ searchParams }: Pick<Props, "searchParams">, parent: ResolvingMetadata): Promise<Metadata> {
-  const row = ROUTES.addressChangeDone;
-  return pageMetadata(parent, row, row.path(), { title: (await endOfDone(searchParams)).title });
+export async function generateMetadata({ searchParams }: Pick<Props, "searchParams">): Promise<Metadata> {
+  return pageMetadata(ROUTES.addressChangeDone, { title: (await endOfDone(searchParams)).title });
 }
 
 /**

@@ -5,8 +5,9 @@ import { NOT_FOUND_METADATA } from "@/shared/utils/notFoundMetadata";
 
 import type { Metadata } from "next";
 
-// Honoured on this root file alone, which answers an unmatched URL: Next reads no `metadata` off a
-// nested boundary, and a React `<title>` in one outlives a client navigation away from the 404.
+// Honoured on this root file alone, which answers an unmatched URL: a nested boundary's `metadata` names no tab after a
+// page's `generateMetadata` throws, on a hard load or a client navigation, and a React `<title>` in one outlives a
+// client navigation away from the 404.
 export const metadata: Metadata = NOT_FOUND_METADATA;
 
 /**

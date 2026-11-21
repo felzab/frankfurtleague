@@ -30,7 +30,7 @@ import type {
 } from "@/core/generated/client/types";
 import type { TeamSeat } from "@/features/roles/resolvers";
 import type { CardActRowProps } from "@/kit/Card";
-import type { Metadata, ResolvingMetadata } from "next";
+import type { Metadata } from "next";
 
 type Props = PageProps<"/area/team/[team]/[saison]">;
 
@@ -53,8 +53,8 @@ const address = ({ team, saison }: { team: string; saison: string }) => ROUTES.t
 const overviewRead = cache(getTeamOverview);
 const overviewOf = (seat: TeamSeat) => overviewRead(seat.team_id, seat.saison_id);
 
-export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
-  return teamMetadata(params, address, overviewOf, async () => pageMetadata(parent, ROUTES.teamOverview, address(await params)));
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  return teamMetadata(params, address, overviewOf, async () => pageMetadata(ROUTES.teamOverview, address(await params)));
 }
 
 const whenOf = ({ date, time }: FLSpielbestaetigungAppointment): Copy => COPY.spielplan.when(dayOf(date), timeOf(time));

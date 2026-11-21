@@ -39,7 +39,7 @@ import type { AnswerRow } from "@/kit/AnswerRows";
 import type { CardActRowProps } from "@/kit/Card";
 import type { Option } from "@/kit/OptionList";
 import type { TableHead, TableRow } from "@/kit/Table";
-import type { Metadata, ResolvingMetadata } from "next";
+import type { Metadata } from "next";
 import type { ReactElement } from "react";
 import type { Adoption, Team } from "./SpielEditor";
 
@@ -93,9 +93,9 @@ const nameOf = (spiel: FLSpielJoinedAdmin) =>
     ? WORDS.number(spiel.spiel_nr)
     : ROUTES.adminSpiel.title({ record: spiel.team1.name }, { record: spiel.team2.name });
 
-export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return metadataFor(findSpiel(params), ({ spiel }) =>
-    pageMetadata(parent, ROUTES.adminSpiel, ROUTES.adminSpiel.path(spiel.saison_id, spiel.id), { title: nameOf(spiel) }),
+    pageMetadata(ROUTES.adminSpiel, ROUTES.adminSpiel.path(spiel.saison_id, spiel.id), { title: nameOf(spiel) }),
   );
 }
 

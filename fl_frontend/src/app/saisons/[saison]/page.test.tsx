@@ -6,7 +6,6 @@ import { serveBackend } from "@/test-support/backend";
 import { doubleNextRequest } from "@/test-support/nextRequest";
 
 import type { FLSaisonFrameResponse } from "@/core/generated/client/types";
-import type { ResolvingMetadata } from "next";
 
 /** The seasons the public may read: 2027 alone. */
 const FRAME = {
@@ -27,9 +26,7 @@ describe("a season the public cannot read", () => {
     const params = Promise.resolve({ saison });
 
     // Titled as not found rather than thrown: a throw from the metadata leaves the tab the layout's title.
-    await expect(
-      generateMetadata({ params, searchParams: Promise.resolve({}) }, Promise.resolve({}) as unknown as ResolvingMetadata),
-    ).resolves.toBe(NOT_FOUND_METADATA);
+    await expect(generateMetadata({ params, searchParams: Promise.resolve({}) })).resolves.toBe(NOT_FOUND_METADATA);
     // The page has no boundary of its own, so its not-found ends the render before any read.
     await expect(
       renderToReadableStream(

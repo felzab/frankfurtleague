@@ -16,7 +16,7 @@ import { pageMetadata } from "@/shared/utils/metadata";
 import type { FLTeamPanelSpiel } from "@/core/generated/client/types";
 import type { TeamSeat } from "@/features/roles/resolvers";
 import type { ChipProps } from "@/kit/Chip";
-import type { Metadata, ResolvingMetadata } from "next";
+import type { Metadata } from "next";
 
 type Props = PageProps<"/area/team/[team]/[saison]/spiele">;
 
@@ -26,8 +26,8 @@ const address = ({ team, saison }: { team: string; saison: string }) => ROUTES.t
 const spieleRead = cache(getTeamSpiele);
 const spieleOf = (seat: TeamSeat) => spieleRead(seat.team_id, seat.saison_id);
 
-export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
-  return teamMetadata(params, address, spieleOf, async () => pageMetadata(parent, ROUTES.teamSpiele, address(await params)));
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  return teamMetadata(params, address, spieleOf, async () => pageMetadata(ROUTES.teamSpiele, address(await params)));
 }
 
 /** The states of a date the league asked the club about that still wait on the club's own answer. */

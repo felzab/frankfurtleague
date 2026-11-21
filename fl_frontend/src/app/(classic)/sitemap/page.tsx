@@ -11,11 +11,8 @@ import { pageMetadata } from "@/shared/utils/metadata";
 import { LEGAL_LINKS, LIGA_LINKS } from "../frame";
 
 import type { ProseSection } from "@/kit/Prose";
-import type { Metadata, ResolvingMetadata } from "next";
 
-export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
-  return pageMetadata(parent, ROUTES.sitemap, ROUTES.sitemap.path(), { description: SERVER_COPY.description.sitemap });
-}
+export const metadata = pageMetadata(ROUTES.sitemap, { description: SERVER_COPY.description.sitemap });
 
 /** The footer's groups, which stand under the seasons. */
 const FRAME_GROUPS: ReadonlyArray<ProseSection> = [

@@ -15,17 +15,17 @@ import { SERVER_COPY } from "@/core/serverCopy";
 import { getSubjectSession } from "@/core/subject";
 import { eraseAccount } from "@/features/account/personActions";
 import { getErasureView } from "@/features/account/queries";
-import { mailedMetadata } from "@/kit/mailedLinkState";
+import { mailedMetadata } from "@/kit/mailedMetadata";
 import { MailedPage, TO_ACCOUNT } from "@/kit/MailedPage";
 
 import type { Copy, Words } from "@/core/copy";
 import type { FLAccountErasureViewResponse } from "@/core/generated/client/types";
 import type { Fact } from "@/kit/Facts";
 import type { MailedState } from "@/kit/MailedPage";
-import type { Metadata, ResolvingMetadata } from "next";
+import type { Metadata } from "next";
 
-export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
-  return mailedMetadata(parent, ROUTES.accountErasure, readState());
+export async function generateMetadata(): Promise<Metadata> {
+  return mailedMetadata(ROUTES.accountErasure, readState());
 }
 
 const WORDS = SERVER_COPY.accountErasure;

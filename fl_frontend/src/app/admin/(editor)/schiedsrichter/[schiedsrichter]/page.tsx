@@ -23,7 +23,7 @@ import type { Copy } from "@/core/copy";
 import type { FLSchiedsrichterSingleResponse } from "@/core/generated/client/types";
 import type { ChipProps } from "@/kit/Chip";
 import type { Fact } from "@/kit/Facts";
-import type { Metadata, ResolvingMetadata } from "next";
+import type { Metadata } from "next";
 
 type Props = PageProps<"/admin/schiedsrichter/[schiedsrichter]">;
 
@@ -38,9 +38,9 @@ async function findSchiedsrichter(params: Props["params"]) {
   return id === null ? null : read(id);
 }
 
-export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return metadataFor(findSchiedsrichter(params), ({ schiedsrichter }) =>
-    pageMetadata(parent, ROUTES.adminSchiedsrichterRecord, ROUTES.adminSchiedsrichterRecord.path(schiedsrichter.id), {
+    pageMetadata(ROUTES.adminSchiedsrichterRecord, ROUTES.adminSchiedsrichterRecord.path(schiedsrichter.id), {
       title: { record: schiedsrichter.name },
     }),
   );

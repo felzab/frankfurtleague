@@ -14,15 +14,11 @@ import { pageMetadata } from "@/shared/utils/metadata";
 import { enterWithdrawal, readWithdrawal } from "./withdrawalActs";
 import { WITHDRAWAL_CHOICES } from "./withdrawalChoices";
 
-import type { Metadata, ResolvingMetadata } from "next";
-
 const { email } = IdentityPostWithdrawalBody.shape;
 
 const WORDS = ADMIN_COPY.withdrawal;
 
-export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
-  return pageMetadata(parent, ROUTES.adminWithdrawals, ROUTES.adminWithdrawals.path());
-}
+export const metadata = pageMetadata(ROUTES.adminWithdrawals);
 
 /**
  * The entry of a withdrawal a person asked for by mail, for the address the mail came from. Each choice is a box of its

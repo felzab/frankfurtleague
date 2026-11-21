@@ -11,12 +11,9 @@ import { pageMetadata } from "@/shared/utils/metadata";
 import { SignInBoxes } from "./SignInBoxes";
 
 import type { FLAccountAddressChangeOpen } from "@/core/generated/client/types";
-import type { Metadata, ResolvingMetadata } from "next";
 import type { Pending } from "./SignInBoxes";
 
-export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
-  return pageMetadata(parent, ROUTES.accountSignIn, ROUTES.accountSignIn.path());
-}
+export const metadata = pageMetadata(ROUTES.accountSignIn);
 
 /** The change pending on the address, worded on the server, where its deadline is written in the league's time zone. */
 function pendingOf(open: FLAccountAddressChangeOpen): Pending {

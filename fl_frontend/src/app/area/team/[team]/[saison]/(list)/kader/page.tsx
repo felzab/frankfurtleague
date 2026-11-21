@@ -12,7 +12,7 @@ import { KaderTable } from "./KaderTable";
 
 import type { TeamSeat } from "@/features/roles/resolvers";
 import type { TableHead } from "@/kit/Table";
-import type { Metadata, ResolvingMetadata } from "next";
+import type { Metadata } from "next";
 
 type Props = PageProps<"/area/team/[team]/[saison]/kader">;
 
@@ -24,8 +24,8 @@ const address = ({ team, saison }: { team: string; saison: string }) => ROUTES.t
 const kaderRead = cache(getKader);
 const kaderOf = (seat: TeamSeat) => kaderRead(seat.team_id, seat.saison_id);
 
-export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
-  return teamMetadata(params, address, kaderOf, async () => pageMetadata(parent, ROUTES.teamKader, address(await params)));
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  return teamMetadata(params, address, kaderOf, async () => pageMetadata(ROUTES.teamKader, address(await params)));
 }
 
 /**

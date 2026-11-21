@@ -29,7 +29,7 @@ import type { Standing } from "@/features/bewerbungen/standing";
 import type { Fact } from "@/kit/Facts";
 import type { ReadRecord } from "@/kit/ReadPage";
 import type { SeatRow } from "@/kit/SeatRows";
-import type { Metadata, ResolvingMetadata } from "next";
+import type { Metadata } from "next";
 
 type Props = PageProps<"/admin/saisons/[saison]/bewerbungen/[bewerbung]">;
 
@@ -49,9 +49,9 @@ async function findBewerbung(params: Props["params"]) {
   return read !== null && read.bewerbung.saison_id === saison ? read : null;
 }
 
-export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return metadataFor(findBewerbung(params), ({ bewerbung }) =>
-    pageMetadata(parent, ROUTES.adminBewerbung, ROUTES.adminBewerbung.path(bewerbung.saison_id, bewerbung.id), {
+    pageMetadata(ROUTES.adminBewerbung, ROUTES.adminBewerbung.path(bewerbung.saison_id, bewerbung.id), {
       title: COPY.page.bewerbung(bewerbung.saison_id),
     }),
   );

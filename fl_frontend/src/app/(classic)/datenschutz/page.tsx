@@ -26,7 +26,6 @@ import { Table } from "@/kit/Table";
 import { pageMetadata } from "@/shared/utils/metadata";
 
 import type { ProseBlock, ProseSection, ProseText } from "@/kit/Prose";
-import type { Metadata, ResolvingMetadata } from "next";
 
 const words = SERVER_COPY.legal.privacyNotice;
 
@@ -34,9 +33,7 @@ const MAIL = { href: KONTAKT_MAILTO, label: { record: KONTAKT_EMAIL } } as const
 
 const paragraph = (...text: ProseText): ProseBlock => ({ kind: "paragraph", text });
 
-export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
-  return pageMetadata(parent, ROUTES.privacyNotice, ROUTES.privacyNotice.path(), { description: SERVER_COPY.description.privacyNotice });
-}
+export const metadata = pageMetadata(ROUTES.privacyNotice, { description: SERVER_COPY.description.privacyNotice });
 
 /**
  * The privacy notice: under its head, which names the day its words took effect, its first layer as a plain list, then

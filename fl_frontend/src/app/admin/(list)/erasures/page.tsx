@@ -11,13 +11,9 @@ import { pageMetadata } from "@/shared/utils/metadata";
 
 import { eraseAddress, readErasureCounts } from "./erasureActs";
 
-import type { Metadata, ResolvingMetadata } from "next";
-
 const { email, reason } = IdentityPostErasureBody.shape;
 
-export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
-  return pageMetadata(parent, ROUTES.adminErasures, ROUTES.adminErasures.path());
-}
+export const metadata = pageMetadata(ROUTES.adminErasures);
 
 /**
  * The erasure of an address on its person's request. No league read stands on this page, so the session's own judgement

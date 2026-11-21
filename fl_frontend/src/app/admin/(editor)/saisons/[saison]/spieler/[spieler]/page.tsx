@@ -27,7 +27,7 @@ import { valuesOf } from "./spielerValues";
 
 import type { FLSpielerSaisonAdminResponse } from "@/core/generated/client/types";
 import type { Fact } from "@/kit/Facts";
-import type { Metadata, ResolvingMetadata, Route } from "next";
+import type { Metadata, Route } from "next";
 
 type Props = PageProps<"/admin/saisons/[saison]/spieler/[spieler]">;
 
@@ -56,9 +56,9 @@ async function findSpieler(params: Props["params"]) {
   return found === null ? null : { id, saison, found };
 }
 
-export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return metadataFor(findSpieler(params), ({ id, saison, found }) =>
-    pageMetadata(parent, ROUTES.adminSpielerRecord, ROUTES.adminSpielerRecord.path(saison, id), { title: { record: kaderName(found.person) } }),
+    pageMetadata(ROUTES.adminSpielerRecord, ROUTES.adminSpielerRecord.path(saison, id), { title: { record: kaderName(found.person) } }),
   );
 }
 

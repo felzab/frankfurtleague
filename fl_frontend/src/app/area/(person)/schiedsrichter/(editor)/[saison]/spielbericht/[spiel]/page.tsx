@@ -31,7 +31,7 @@ import type { Copy } from "@/core/copy";
 import type { FLSpielberichtSchiedsrichterResponse, FLSpielberichtSpieler, FLSpielSide } from "@/core/generated/client/types";
 import type { Option } from "@/kit/OptionList";
 import type { PageTitle } from "@/kit/RailFrame";
-import type { Metadata, ResolvingMetadata } from "next";
+import type { Metadata } from "next";
 
 type Props = PageProps<"/area/schiedsrichter/[saison]/spielbericht/[spiel]">;
 
@@ -79,9 +79,9 @@ const findIn = async (params: Props["params"]) => {
 const titleOf = ({ spiel }: FLSpielberichtSchiedsrichterResponse): PageTitle =>
   matchTitle(spiel.team1?.name ?? null, spiel.team2?.name ?? null);
 
-export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return metadataFor(findIn(params), async (found) =>
-    pageMetadata(parent, ROUTES.schiedsrichterSpielbericht, address(await params), {
+    pageMetadata(ROUTES.schiedsrichterSpielbericht, address(await params), {
       title: found === "unbooked" ? COPY.spielplan.spielbericht : matchName(found.spiel.team1?.name ?? null, found.spiel.team2?.name ?? null),
     }),
   );

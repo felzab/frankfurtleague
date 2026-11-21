@@ -19,7 +19,7 @@ import { metadataFor } from "@/shared/utils/notFoundMetadata";
 import type { FLSpielJoinedAdmin } from "@/core/generated/client/types";
 import type { SpieltageContent } from "@/kit/ListPage";
 import type { SpielRowProps } from "@/kit/SpielRow";
-import type { Metadata, ResolvingMetadata } from "next";
+import type { Metadata } from "next";
 
 type Props = PageProps<"/admin/saisons/[saison]/spiele">;
 
@@ -28,9 +28,9 @@ const WORDS = ADMIN_COPY.spiel;
 /** The season's fixtures by matchday, `null` for a season the league does not hold. */
 const read = cache(getAdminSpielplan);
 
-export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { saison } = await params;
-  return metadataFor(read(saison), () => pageMetadata(parent, ROUTES.adminSpiele, ROUTES.adminSpiele.path(saison)));
+  return metadataFor(read(saison), () => pageMetadata(ROUTES.adminSpiele, ROUTES.adminSpiele.path(saison)));
 }
 
 /**

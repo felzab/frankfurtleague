@@ -6,14 +6,10 @@ import { ClassicPage, PageHead } from "@/kit/ClassicPage";
 import { LinkRows } from "@/kit/LinkRows";
 import { pageMetadata } from "@/shared/utils/metadata";
 
-import type { Metadata, ResolvingMetadata } from "next";
-
 /** The league's profile on Threads, which carries the same name as on Instagram. */
 const THREADS_HANDLE = INSTAGRAM_HANDLE;
 
-export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
-  return pageMetadata(parent, ROUTES.contact, ROUTES.contact.path(), { description: SERVER_COPY.description.contact });
-}
+export const metadata = pageMetadata(ROUTES.contact, { description: SERVER_COPY.description.contact });
 
 /** Kontakt: three rows, each a link, the address cut with „…“ where a phone is too narrow for it. */
 export default function KontaktPage() {

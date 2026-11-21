@@ -4,13 +4,13 @@ import { metadataFor } from "@/shared/utils/notFoundMetadata";
 
 import { saisonOf, SpielerOverview } from "../SpielerOverview";
 
-import type { Metadata, ResolvingMetadata } from "next";
+import type { Metadata } from "next";
 
 type Props = PageProps<"/area/spieler/[saison]">;
 
-export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { saison } = await params;
-  return metadataFor(saisonOf(saison), () => pageMetadata(parent, ROUTES.spielerOverview, ROUTES.spielerOverview.path(saison)));
+  return metadataFor(saisonOf(saison), () => pageMetadata(ROUTES.spielerOverview, ROUTES.spielerOverview.path(saison)));
 }
 
 export default function SpielerOverviewPage({ params }: Props) {

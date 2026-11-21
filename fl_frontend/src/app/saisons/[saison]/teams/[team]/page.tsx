@@ -20,7 +20,7 @@ import { objectIdParamOf } from "@/shared/utils/routeParams";
 import type { FLTeamPageResponse } from "@/core/generated/client/types";
 import type { ReadRecord } from "@/kit/ReadPage";
 import type { StatTile } from "@/kit/StatTiles";
-import type { Metadata, ResolvingMetadata } from "next";
+import type { Metadata } from "next";
 
 type Props = PageProps<"/saisons/[saison]/teams/[team]">;
 
@@ -37,10 +37,10 @@ async function readPage(params: Props["params"]): Promise<FLTeamPageResponse> {
   return page;
 }
 
-export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { saison } = await params;
   return metadataFor(findPage(params), ({ team }) =>
-    pageMetadata(parent, ROUTES.team, ROUTES.team.path(saison, team.id), {
+    pageMetadata(ROUTES.team, ROUTES.team.path(saison, team.id), {
       title: { record: team.name },
       description: SERVER_COPY.description.team(team.name, saison),
     }),

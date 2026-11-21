@@ -11,11 +11,8 @@ import { ACCOUNT_ENTRIES } from "../entries";
 
 import type { Copy } from "@/core/copy";
 import type { SubjectSession } from "@/core/subject";
-import type { Metadata, ResolvingMetadata } from "next";
 
-export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
-  return pageMetadata(parent, ROUTES.account, ROUTES.account.path());
-}
+export const metadata = pageMetadata(ROUTES.account);
 
 const { noRole } = SERVER_COPY.area;
 

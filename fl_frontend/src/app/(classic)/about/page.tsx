@@ -7,11 +7,7 @@ import { pageMetadata } from "@/shared/utils/metadata";
 
 import { OrganisersSection, PillarsSection, SeasonSection } from "../LeagueSections";
 
-import type { Metadata, ResolvingMetadata } from "next";
-
-export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
-  return pageMetadata(parent, ROUTES.about, ROUTES.about.path(), { description: SERVER_COPY.description.about });
-}
+export const metadata = pageMetadata(ROUTES.about, { description: SERVER_COPY.description.about });
 
 /**
  * About: the league's two paragraphs as the head's lead, then three of the landing's own sections in its words, what the

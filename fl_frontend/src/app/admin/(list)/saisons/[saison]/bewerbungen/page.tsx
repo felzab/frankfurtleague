@@ -20,16 +20,16 @@ import type { Standing } from "@/features/bewerbungen/standing";
 import type { ChipProps } from "@/kit/Chip";
 import type { Filter } from "@/kit/Filters";
 import type { TableHead, TableRow } from "@/kit/Table";
-import type { Metadata, ResolvingMetadata } from "next";
+import type { Metadata } from "next";
 
 type Props = PageProps<"/admin/saisons/[saison]/bewerbungen">;
 
 const WORDS = ADMIN_COPY.bewerbung;
 const ALL = SERVER_COPY.season.filter.all;
 
-export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { saison } = await params;
-  return metadataFor(getBewerbungenOfSaison(saison), () => pageMetadata(parent, ROUTES.adminBewerbungen, ROUTES.adminBewerbungen.path(saison)));
+  return metadataFor(getBewerbungenOfSaison(saison), () => pageMetadata(ROUTES.adminBewerbungen, ROUTES.adminBewerbungen.path(saison)));
 }
 
 /** The table's head: a phone keeps the name and its chip. */

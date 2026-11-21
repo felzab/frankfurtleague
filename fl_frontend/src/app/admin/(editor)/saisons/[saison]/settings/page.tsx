@@ -24,7 +24,7 @@ import type { Copy } from "@/core/copy";
 import type { Code, FLInvitationLinkRow, FLSaisonAdminTeam, FLSaisonStatus } from "@/core/generated/client/types";
 import type { ChipProps } from "@/kit/Chip";
 import type { TableHead, TableRow } from "@/kit/Table";
-import type { Metadata, ResolvingMetadata } from "next";
+import type { Metadata } from "next";
 
 type Props = PageProps<"/admin/saisons/[saison]/settings">;
 
@@ -42,10 +42,10 @@ const LINKS_HEAD: TableHead = {
   columns: [{ key: "sentOn", label: WORDS.sentOn, hideOnPhone: true, onLine: "labelled", width: "date" }],
 };
 
-export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { saison } = await params;
   return metadataFor(getAdminSaison(saison), (read) =>
-    pageMetadata(parent, ROUTES.adminSaison, ROUTES.adminSaison.path(read.saison.id), { title: COPY.shared.saisonName(read.saison.id) }),
+    pageMetadata(ROUTES.adminSaison, ROUTES.adminSaison.path(read.saison.id), { title: COPY.shared.saisonName(read.saison.id) }),
   );
 }
 

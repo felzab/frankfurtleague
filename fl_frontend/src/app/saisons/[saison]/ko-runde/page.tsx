@@ -13,13 +13,13 @@ import { metadataFor } from "@/shared/utils/notFoundMetadata";
 
 import { treeOf } from "./tree";
 
-import type { Metadata, ResolvingMetadata } from "next";
+import type { Metadata } from "next";
 
 type Props = PageProps<"/saisons/[saison]/ko-runde">;
 
-export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return metadataFor(publicSaisonOf(params), (saison) =>
-    pageMetadata(parent, ROUTES.kORunde, ROUTES.kORunde.path(saison), { description: SERVER_COPY.description.kORunde(saison) }),
+    pageMetadata(ROUTES.kORunde, ROUTES.kORunde.path(saison), { description: SERVER_COPY.description.kORunde(saison) }),
   );
 }
 

@@ -13,7 +13,8 @@ import { mailedLinkToken } from "@/core/mailedLink";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { runWithIncomingTrace } from "@/core/traceScope";
-import { mailedMetadata, TO_HOME } from "@/kit/mailedLinkState";
+import { TO_HOME } from "@/kit/mailedLinkState";
+import { mailedMetadata } from "@/kit/mailedMetadata";
 import { MailedPage } from "@/kit/MailedPage";
 
 import { ConfirmationFields } from "../ConfirmationFields";
@@ -23,10 +24,10 @@ import { answerRegistrierung } from "./answerRegistrierung";
 
 import type { FLRegistrierungConfirmationViewValid } from "@/core/generated/client/types";
 import type { MailedState } from "@/kit/MailedPage";
-import type { Metadata, ResolvingMetadata } from "next";
+import type { Metadata } from "next";
 
-export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
-  return mailedMetadata(parent, ROUTES.registrierungConfirmation, readState());
+export async function generateMetadata(): Promise<Metadata> {
+  return mailedMetadata(ROUTES.registrierungConfirmation, readState());
 }
 
 const WORDS = SERVER_COPY.registrierungConfirmation;

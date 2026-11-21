@@ -9,11 +9,7 @@ import { Link } from "@/kit/Link";
 import { SponsorTiles } from "@/kit/TileGrid";
 import { pageMetadata } from "@/shared/utils/metadata";
 
-import type { Metadata, ResolvingMetadata } from "next";
-
-export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
-  return pageMetadata(parent, ROUTES.sponsors, ROUTES.sponsors.path(), { description: SERVER_COPY.description.sponsors });
-}
+export const metadata = pageMetadata(ROUTES.sponsors, { description: SERVER_COPY.description.sponsors });
 
 /**
  * The sponsors page: each sponsor an equal tile, its logo over its short name, linking to its

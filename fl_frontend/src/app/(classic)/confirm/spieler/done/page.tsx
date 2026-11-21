@@ -4,12 +4,7 @@ import { pageMetadata } from "@/shared/utils/metadata";
 
 import { REGISTRIERUNG_CONFIRMED } from "../../ends";
 
-import type { Metadata, ResolvingMetadata } from "next";
-
-export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
-  const row = ROUTES.registrierungConfirmationDone;
-  return pageMetadata(parent, row, row.path(), { title: REGISTRIERUNG_CONFIRMED.title });
-}
+export const metadata = pageMetadata(ROUTES.registrierungConfirmationDone, { title: REGISTRIERUNG_CONFIRMED.title });
 
 /**
  * `/confirm/spieler/done`, a pupil's confirmation's done state: the page the answer leads to once it is stored and the

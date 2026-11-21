@@ -11,14 +11,11 @@ import { SchiedsrichterFields } from "./SchiedsrichterFields";
 
 import type { FLSchiedsrichterAdminRow } from "@/core/generated/client/types";
 import type { TableHead, TableRow } from "@/kit/Table";
-import type { Metadata, ResolvingMetadata } from "next";
 
 const WORDS = ADMIN_COPY.schiedsrichter;
 const OBJECT = COPY.shared.schiedsrichter;
 
-export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
-  return pageMetadata(parent, ROUTES.adminSchiedsrichter, ROUTES.adminSchiedsrichter.path());
-}
+export const metadata = pageMetadata(ROUTES.adminSchiedsrichter);
 
 /** One referee's row, opening their editor: the name with where the entry stands, „Bestätigt“ once confirmed, the address and the phone. */
 function rowOf(referee: FLSchiedsrichterAdminRow): TableRow {
