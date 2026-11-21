@@ -29,7 +29,7 @@ type Sending = {
    * The question it asks before it runs; its button then carries the question's verb and tone. An act that destroys
    * takes the outlined danger look its question's trigger takes everywhere (`Trigger`).
    */
-  confirm?: ConfirmWords;
+  confirm?: ConfirmWords<DoneVerb>;
 };
 
 /**

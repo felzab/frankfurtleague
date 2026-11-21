@@ -63,9 +63,7 @@ const SAVED = "Gespeichert";
 const RETIRED = "Stillgelegt";
 const SENT = "Gesendet";
 const DECLINED = "Abgelehnt";
-const OBJECTED = "Widersprochen";
 const DEREGISTERED = "Ausgetragen";
-const ADMITTED = "Aufgenommen";
 const FILTER = "Filter";
 
 /**
@@ -136,7 +134,7 @@ export const COPY = catalogue({
       active: "Aktiv",
       confirmed: "Bestätigt",
       unconfirmed: "Unbestätigt",
-      objected: OBJECTED,
+      objected: "Widersprochen",
       erased: DELETED,
       expired: "Abgelaufen",
       agreed: "Zugesagt",
@@ -193,7 +191,6 @@ export const COPY = catalogue({
       copied: "Kopiert",
       linkSent: "Link gesendet",
       othersSignedOut: "Alle anderen abgemeldet",
-      admitted: ADMITTED,
       /**
        * A done act, by its verb, where its answer brings no note of its own: a closed question's or dialog's, a section
        * act's, a box's. A handover only starts its wait, as its row under „Angekündigt“ says.
@@ -215,15 +212,13 @@ export const COPY = catalogue({
         adopt: "Übernommen",
         save: SAVED,
         retire: RETIRED,
-        admit: ADMITTED,
+        admit: "Aufgenommen",
         send: SENT,
         decline: DECLINED,
         accept: "Angenommen",
         set: "Gesetzt",
         rename: "Umbenannt",
         setUp: "Eingerichtet",
-        signOut: "Abgemeldet",
-        oppose: OBJECTED,
       } satisfies Partial<Record<Verb, string>>,
     },
 
