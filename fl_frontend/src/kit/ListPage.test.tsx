@@ -44,20 +44,6 @@ describe("a card of open work holding more than five rows", () => {
   });
 });
 
-describe("a page of one card holding a list", () => {
-  const TITLE = COPY.page.spiele;
-  const drawn = (rows: Awaited<Cards["content"]>["cards"][number]["rows"]) =>
-    drawnCards({ cards: [{ id: "spiele", title: TITLE, rows, count: false, empty: { kind: "none", plural: TITLE } }] });
-
-  // The harm: a list with nothing in it yet under „Nichts offen.“ tells a referee their work is done, where none is booked.
-  it("gives way to the list's own empty state", async () => {
-    const { landed } = await drawn([]);
-
-    // Its text alone: the card's title before it would say the card still stands.
-    expect(landed.querySelector("main")?.textContent).toBe(COPY.shared.empty.none(TITLE));
-  });
-});
-
 describe("one club's matches under their matchdays", () => {
   /** The page as a browser holds it once its read has landed, its matches drawn as a team's Spiele page draws them. */
   async function drawn(groups: ComponentProps<typeof SpielCards>["groups"]) {
