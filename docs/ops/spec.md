@@ -524,7 +524,7 @@ and frontend scopes alone, of which the scripts scope needs Docker for shellchec
 | `--backend`        | `uv lock --check` alone and first, then `ruff`, `pyright`, `pytest` (default tier) and `deptry` over `app/`                                                                                                     | the backend venv, and for the lockfile check a uv inside `fl_backend/pyproject.toml`'s `required-version` range; any other refuses at start-up |
 | `--format`         | Prettier in check mode over the whole repository, then markdownlint over every Markdown file, then no conflict marker, whitespace error or invisible character in any tracked file                              | pnpm install                                                                                                                                   |
 | `--frontend-units` | the unit tests `fl_frontend/package.json`'s `test` script finds under `fl_frontend/`                                                                                                                            | pnpm install                                                                                                                                   |
-| `--frontend`       | the frozen lockfile, peer and dedupe checks, `next typegen`, tsc, eslint, both knip runs and `next build`                                                                                                       | pnpm install                                                                                                                                   |
+| `--frontend`       | the frozen lockfile, peer and dedupe checks, `next typegen`, tsc, eslint and both knip runs                                                                                                                     | pnpm install                                                                                                                                   |
 | `--ops`            | zizmor audits `.github/`; the three stacks parse; `check_compose_model.py` judges their models; `check_public_routes.py` accounts for every route; `edge_test.sh` starts both edges and drives them             | Docker with its Compose plugin, refused at start-up without it, and the backend virtualenv with its dev group                                  |
 | `--db`             | the contract and its client generated into an ignored scratch folder and compared with the committed ones, `pytest -m db` over the backend and `pnpm run test:db` over `*.db.test.ts`, the three side by side   | venv + pnpm install + Docker                                                                                                                   |
 | `--images`         | both images baked from `docker-bake.hcl`, CI's own definition, then what a build does not prove: `instrumentation.js` present, neither image running as uid 0, neither holding a file its dockerignore excludes | Docker                                                                                                                                         |
@@ -558,12 +558,12 @@ Prettier never opens, and stays clear of every setting `.prettierrc.json` decide
 
 **Every untracked file a run leaves is gitignored where it lands**, the caches of `tsc` and Prettier
 among them. eslint runs uncached: its typed rules read other files' types, which its per-file cache
-never keys on. **Outside CI the two Next commands install as well as write**: handed a missing
-`typescript` or `@types/*` package, `next typegen` and `next build` add it to `node_modules` rather
-than failing, where a runner takes the refusing branch, keyed off Next's own `isCI`.
+never keys on. **Outside CI `next typegen` installs as well as writes**: handed a missing
+`typescript` or `@types/*` package, it adds it to `node_modules` rather than failing, where a runner
+takes the refusing branch, keyed off Next's own `isCI`.
 
-**One tracked file a gate run writes is not a formatter's doing**: `next typegen` and `next build`
-each rewrite `fl_frontend/tsconfig.json` where a `compilerOptions` key is absent (Next's
+**One tracked file a gate run writes is not a formatter's doing**: `next typegen` rewrites
+`fl_frontend/tsconfig.json` where a `compilerOptions` key is absent (Next's
 `writeConfigurationDefaults`), so the frontend job diffs that one path after the scope and fails on
 it.
 
@@ -600,8 +600,9 @@ merged over that pair, held to where it publishes, since it sets its own setting
 environment on purpose. A model it cannot read is a refusal rather than a verdict (§1.7).
 
 **The images scope exists because code that compiles can still fail to build inside the image**, or
-be left out of the standalone output. **Both test tiers run**: the `db`-marked tests need a real
-`mongod`, so they are a scope of their own.
+be left out of the standalone output. Its frontend image runs the gate's one `next build`, which the
+frontend scope does not repeat, so `--quick` and a run without Docker build no Next. **Both test
+tiers run**: the `db`-marked tests need a real `mongod`, so they are a scope of their own.
 
 ### 1.7 Script conventions
 
