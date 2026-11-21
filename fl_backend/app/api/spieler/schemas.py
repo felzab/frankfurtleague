@@ -14,9 +14,12 @@ from app.shared.schemas.literals import (
 )
 from app.shared.schemas.responses import BasePayload, BaseReadModel
 
+# Published beside the pattern as `max_length`, from which the generated inputs carry the bound the shirt fields type
+# up to; a pattern alone publishes none.
+KADER_NUMMER_MAX_LENGTH = 4
 # `[0-9]`, never `\d`: Python's `\d` matches Unicode decimal digits where the frontend mirror's
 # does not, and the two ends must accept and refuse the same shirt.
-KADER_NUMMER_PATTERN = r"^[0-9]{1,4}$"
+KADER_NUMMER_PATTERN = rf"^[0-9]{{1,{KADER_NUMMER_MAX_LENGTH}}}$"
 
 # Slugs rather than the German `position` and `stufe` store: a role also has a label and a badge
 # Kuerzel, and a stored German word would be a third spelling for those two to drift from.
@@ -233,7 +236,7 @@ class _KaderRowFields(BasePayload):
 
     # Tightened on the write side alone: a read model refusing a stored number would answer 500 for
     # the whole list over one row.
-    nummer: str | None = Field(pattern=KADER_NUMMER_PATTERN)
+    nummer: str | None = Field(pattern=KADER_NUMMER_PATTERN, max_length=KADER_NUMMER_MAX_LENGTH)
     position: FLSpielerPosition | None
     stufe: FLSpielerStufe | None
     rolle: FLSpielerRolle | None

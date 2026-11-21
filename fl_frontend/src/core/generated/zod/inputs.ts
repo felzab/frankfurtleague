@@ -1037,6 +1037,8 @@ export const registrierungenPostRegistrierungBodyFirstNameRegExp = new RegExp("^
 export const registrierungenPostRegistrierungBodyLastNameMax = 80;
 
 export const registrierungenPostRegistrierungBodyLastNameRegExp = new RegExp("^\\p{L}[\\p{L}\\-' ]*$", "u");
+export const registrierungenPostRegistrierungBodyNummerOneMax = 4;
+
 export const registrierungenPostRegistrierungBodyNummerOneRegExp = new RegExp("^[0-9]{1,4}$");
 export const registrierungenPostRegistrierungBodyTokenMax = 128;
 
@@ -1055,7 +1057,10 @@ export const RegistrierungenPostRegistrierungBody = zod
       .min(1)
       .max(registrierungenPostRegistrierungBodyLastNameMax)
       .regex(registrierungenPostRegistrierungBodyLastNameRegExp),
-    nummer: zod.union([zod.string().regex(registrierungenPostRegistrierungBodyNummerOneRegExp), zod.null()]),
+    nummer: zod.union([
+      zod.string().max(registrierungenPostRegistrierungBodyNummerOneMax).regex(registrierungenPostRegistrierungBodyNummerOneRegExp),
+      zod.null(),
+    ]),
     position: zod.union([zod.enum(["Tor", "Abwehr", "Mittelfeld", "Angriff"]), zod.null()]),
     stufe: zod.union([zod.enum(["E1", "E2", "Q1", "Q2", "Q3", "Q4"]), zod.null()]),
     token: zod.string().min(1).max(registrierungenPostRegistrierungBodyTokenMax).regex(registrierungenPostRegistrierungBodyTokenRegExp),
@@ -2271,6 +2276,8 @@ export const spielerPatchSpielerSaisonBodyFirstNameRegExp = new RegExp("^\\p{L}[
 export const spielerPatchSpielerSaisonBodyLastNameOneMax = 80;
 
 export const spielerPatchSpielerSaisonBodyLastNameOneRegExp = new RegExp("^\\p{L}[\\p{L}\\-' ]*$", "u");
+export const spielerPatchSpielerSaisonBodyNummerOneMax = 4;
+
 export const spielerPatchSpielerSaisonBodyNummerOneRegExp = new RegExp("^[0-9]{1,4}$");
 export const spielerPatchSpielerSaisonBodyVersionMin = 0;
 
@@ -2282,7 +2289,10 @@ export const SpielerPatchSpielerSaisonBody = zod
       zod.string().min(1).max(spielerPatchSpielerSaisonBodyLastNameOneMax).regex(spielerPatchSpielerSaisonBodyLastNameOneRegExp),
       zod.null(),
     ]),
-    nummer: zod.union([zod.string().regex(spielerPatchSpielerSaisonBodyNummerOneRegExp), zod.null()]),
+    nummer: zod.union([
+      zod.string().max(spielerPatchSpielerSaisonBodyNummerOneMax).regex(spielerPatchSpielerSaisonBodyNummerOneRegExp),
+      zod.null(),
+    ]),
     position: zod.union([zod.enum(["Tor", "Abwehr", "Mittelfeld", "Angriff"]), zod.null()]),
     rolle: zod.union([zod.enum(["kapitaen", "co_kapitaen"]), zod.null()]),
     stufe: zod.union([zod.enum(["E1", "E2", "Q1", "Q2", "Q3", "Q4"]), zod.null()]),
@@ -2335,12 +2345,14 @@ export const SpielerPatchKaderRowParams = zod.object({
   spieler_id: zod.string().regex(spielerPatchKaderRowPathSpielerIdRegExp),
 });
 
+export const spielerPatchKaderRowBodyNummerOneMax = 4;
+
 export const spielerPatchKaderRowBodyNummerOneRegExp = new RegExp("^[0-9]{1,4}$");
 export const spielerPatchKaderRowBodyVersionMin = 0;
 
 export const SpielerPatchKaderRowBody = zod
   .object({
-    nummer: zod.union([zod.string().regex(spielerPatchKaderRowBodyNummerOneRegExp), zod.null()]),
+    nummer: zod.union([zod.string().max(spielerPatchKaderRowBodyNummerOneMax).regex(spielerPatchKaderRowBodyNummerOneRegExp), zod.null()]),
     position: zod.union([zod.enum(["Tor", "Abwehr", "Mittelfeld", "Angriff"]), zod.null()]),
     rolle: zod.union([zod.enum(["kapitaen", "co_kapitaen"]), zod.null()]),
     stufe: zod.union([zod.enum(["E1", "E2", "Q1", "Q2", "Q3", "Q4"]), zod.null()]),

@@ -7332,6 +7332,7 @@
           "nummer": {
             "anyOf": [
               {
+                "maxLength": 4,
                 "pattern": "^[0-9]{1,4}$",
                 "type": "string"
               },
@@ -7770,6 +7771,7 @@
           "nummer": {
             "anyOf": [
               {
+                "maxLength": 4,
                 "pattern": "^[0-9]{1,4}$",
                 "type": "string"
               },
@@ -8120,6 +8122,7 @@
           "nummer": {
             "anyOf": [
               {
+                "maxLength": 4,
                 "pattern": "^[0-9]{1,4}$",
                 "type": "string"
               },
