@@ -128,7 +128,7 @@ describe("the erasure's question", () => {
   });
 
   it("says an address holds nothing only where the league and the sign-in store both do", async () => {
-    expect(await asked()).toMatchObject({ consequence: ADMIN_COPY.nothingAtAddress, facts: [] });
+    expect(await asked()).toMatchObject({ consequence: COPY.shared.nothingAtAddress, facts: [] });
   });
 });
 

@@ -169,7 +169,7 @@ export const SERVER_COPY = catalogue({
     /** The address on file typed again, on Konto's start and on the address tool's alike, so it names nobody's. */
     address_change_unchanged: "Diese Adresse ist schon hinterlegt.",
     /** An address change's start, for an address holding no record. */
-    address_change_nothing: ADMIN_COPY.nothingAtAddress,
+    address_change_nothing: COPY.shared.nothingAtAddress,
     /**
      * The new address another person stands at, a pupil, an entry or a grant, on the start's toast, whose dialog has
      * closed before the answer, and on the re-send, which holds no box.

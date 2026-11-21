@@ -163,6 +163,8 @@ export const COPY = catalogue({
     payment: "Honorar",
 
     emailAddress: "E-Mail-Adresse",
+    /** An address holding no record, on an erasure's question and an address change's start, Konto's and the administration's. */
+    nothingAtAddress: "Unter dieser Adresse steht nichts.",
     link: "Link",
     addressChange: {
       /** The pending change's noun, „Änderung zurückziehen“, the glossary's screen word. */
