@@ -257,6 +257,8 @@ function ActDialog({
               event.preventDefault();
               // React's submit event bubbles through the portal to the outer form, whose save would run too.
               event.stopPropagation();
+              // A busy submit button stands as a plain button, so Enter in a lone field submits the form all the same.
+              if (isPending) return;
               const formData = new FormData(event.currentTarget);
               for (const [name, value] of Object.entries(carry)) formData.set(name, value);
               if (send === null) submit(formData);
