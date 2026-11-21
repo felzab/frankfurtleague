@@ -10,8 +10,11 @@ import type { EndState } from "@/kit/MailedPage";
 
 const WORDS = SERVER_COPY.registrierung.end;
 
-/** A token no live invite holds, and one the backend will not parse: a dead link either way. */
-const DEAD: ReadonlySet<Code> = new Set<Code>(["document_not_found", "payload_refused"]);
+/**
+ * A token no live invite holds or whose club left the season, one whose season or club record is gone, and one the
+ * backend will not parse: a dead link each way.
+ */
+const DEAD: ReadonlySet<Code> = new Set<Code>(["link_invalid", "document_not_found", "payload_refused"]);
 
 /**
  * What the team's link opens, or `null` for a link that opens no live invite, a club that left the season or a token the

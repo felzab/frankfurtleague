@@ -92,7 +92,7 @@ describe("each form's posted names meet its lane's keys", () => {
       default_payment: "25",
     };
     everyBoxTyped(names, typed);
-    takes(["POST", "/schiedsrichter", { created_id: ID }]);
+    takes(["POST", "/schiedsrichter", { created_id: ID, confirmation: { email: "erika@example.org" } }]);
 
     // The note names the mailbox the link went to, in wording from a catalogue this core test may not import.
     expect(await createSchiedsrichter(formOf(names, typed))).toStrictEqual({
