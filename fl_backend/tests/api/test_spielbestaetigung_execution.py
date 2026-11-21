@@ -15,8 +15,8 @@ from bson import ObjectId
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
+from app.api.saisons.admin_router import get_saison_overview
 from app.api.saisons.overview import FLOverviewSpielbestaetigungRow, FLOverviewVorschlagRow
-from app.api.saisons.overview_router import get_saison_overview
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.spielbestaetigungen.admin_router import (
     adopt_spielbestaetigung,
