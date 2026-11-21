@@ -90,7 +90,7 @@ export const eraseAddress = action({
   examples: { email: COPY.shared.field.exampleAddress },
   run: async ({ email, reason }) => {
     await identityPostErasure({ email, reason });
-    if (await accountCleared(email)) return { ok: true, value: undefined, note: COPY.shared.state.erased };
+    if (await accountCleared(email)) return { ok: true, value: undefined };
     return { ok: false, reason: WORDS.partial, warn: true };
   },
 });
