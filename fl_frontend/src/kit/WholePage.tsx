@@ -64,7 +64,7 @@ function pendingTo(href: string): Pending {
  * draws the segment's not-found or error page once the page's code runs. A client navigation keeps the page it leaves
  * until the new one is complete: Next's router makes it a transition, and a transition never hides content already
  * shown. The layout placing it exports `instant = false`, which lifts Next's check that a route's prerendered shell is
- * not empty for every route; Next's development check still flags a navigation between two pages below it that blocks.
+ * not empty for every route.
  *
  * It also holds the one fact every navigating control feeds, the address a navigation is on its way to: set inside the
  * navigation's own transition as optimistic state, so React drops it in the very render that commits the new page, as
