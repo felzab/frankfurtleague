@@ -1,10 +1,12 @@
 import optimizeLocales from "@react-aria/optimize-locales-plugin";
 
+import { SITE_LOCALE } from "./src/core/brand";
+
 import type { NextConfig } from "next";
 
 // Every locale an `I18nProvider` sets belongs here: React Aria's strings for any other are emptied
 // from the server bundle and the client's alike.
-const localeOptimization = optimizeLocales.turbopack({ locales: ["de-DE"] });
+const localeOptimization = optimizeLocales.turbopack({ locales: [SITE_LOCALE] });
 
 const nextConfig: NextConfig = {
   // `compress` stays at its default, on: Cloudflare passes an origin's `Content-Encoding` through to
