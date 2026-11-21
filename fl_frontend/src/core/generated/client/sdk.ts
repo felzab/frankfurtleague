@@ -2055,7 +2055,7 @@ export const getSchiedsrichterGetSelfSpieleUrl = (saisonId: string) => {
 };
 
 /**
- * Every fixture of this season booked to one of the signed-in address's live, confirmed referee records, open work first.
+ * Every fixture of this season booked to the signed-in address's live, confirmed referee records, in the order the draw numbered them.
  *
  * Nobody's address is served, and no reason an administrator entered.
  * @summary A signed-in referee's fixtures of one season, one row a fixture

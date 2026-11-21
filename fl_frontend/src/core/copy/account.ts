@@ -75,11 +75,12 @@ export const ACCOUNT_COPY = catalogue({
     consequence: "Nur dieses Gerät bleibt angemeldet.",
   },
   /**
-   * „Funktion wechseln“'s entries: a team by its name, with this line under it naming the season and the seats held
-   * there in the seats' order; a pupil's and a referee's by `shared`'s nouns, the administration's by its role.
+   * „Funktion wechseln“'s entries and the chooser's cards: a team by its name, with this line under it naming the seats
+   * held there in the seats' order, each once whatever seasons it is held in, the team being one place across them; a
+   * pupil's and a referee's by `shared`'s nouns, the administration's by its role.
    */
   role: {
-    seats: (saison: Copy, seats: readonly FLKontaktSeat[]) => `${saison} · ${seatsText(seats)}`,
+    seats: (seats: readonly FLKontaktSeat[]) => seatsText(seats),
   },
   /**
    * Each record an address holds, as Deine Einträge boxes it: titled by what the record is, a team's seats by the

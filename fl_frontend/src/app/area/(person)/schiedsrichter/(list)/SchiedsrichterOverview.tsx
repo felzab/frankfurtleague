@@ -1,28 +1,28 @@
 import { cache } from "react";
 import { notFound } from "next/navigation";
 
-import { textOf } from "@/core/copy";
 import { AREA_COPY } from "@/core/copy/area";
 import { COPY } from "@/core/copy/shared";
-import { dayOf, formatDate, timeOf } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { readAsRoleHolder } from "@/features/roles/resolvers";
+import { isPublicSaison } from "@/features/saisons/resolvers";
 import { getOwnSpiele } from "@/features/schiedsrichter/queries";
-import { eventChipOf, matchName } from "@/features/spiele/blocks";
+import { headedMatchOf, matchName, whenOf } from "@/features/spiele/blocks";
+import { EmptyBox } from "@/kit/EmptyState";
 import { ListPage } from "@/kit/ListPage";
+import { ListCard } from "@/kit/ListTable";
+import { SpielCards } from "@/kit/SpielCards";
 import { AGREED_CHIP, DECLINED_CHIP, EXPIRED_CHIP, owedChip } from "@/kit/stateChips";
 
 import { isOwnSaison } from "../../ownSaison";
 import { EinteilungActs } from "./[saison]/EinteilungActs";
 
-import type { Copy, Words } from "@/core/copy";
 import type { FLSchiedsrichterSpiel } from "@/core/generated/client/types";
 import type { CardActRowProps } from "@/kit/Card";
 import type { ChipProps } from "@/kit/Chip";
-
-const SPIEL = COPY.spielplan;
-const TITLE = COPY.page.spiele;
+import type { SpielRowProps } from "@/kit/SpielRow";
+import type { Route } from "next";
 
 /**
  * The signed-in referee's games of the address's season, `null` for a season none of their bookings stands in. A
@@ -33,111 +33,131 @@ export const spieleOf = cache(async (saison: string) => {
   return readAsRoleHolder("schiedsrichter", () => getOwnSpiele(saison));
 });
 
-/** What a row says of where the game stands for the referee: its chip, and what its line adds after the slot and ground. */
-type Standing = { chip?: ChipProps; adds?: Words; open?: true };
+/** A booking still to answer before its kick-off, which the „Termine“ card carries the two answers for. */
+const isOpen = (spiel: FLSchiedsrichterSpiel) => spiel.state === "valid" && !spiel.past;
 
 /**
- * The row's standing, the first that holds: a report owed, as the read sorts the game among the open work, whatever
- * else the row holds, an event or a booking the league made again past a decline or a call-off; what befell the game,
- * in the event's own word, as every list of matches shows it; a booking a club's exit ended, as the pass's notice told
- * the referee; a booking a call-off ended since reinstated carries none; the referee's own decline ends the booking; a
- * booking still to answer before its kick-off carries the two answers; then the report stored; then an agreement, the
- * league's marked as entered for them; then a booking that lapsed unanswered. A booking the league is to ask again,
- * or never asked, carries no chip.
+ * The row's chip, the first that holds: a report owed, whatever else the row holds, an event or a booking the league
+ * made again past a decline or a call-off; what befell the game, in the event's own word, as every list of matches
+ * shows it (`befell`); a booking a club's exit ended, as the pass's notice told the referee; a booking a call-off ended
+ * since reinstated carries none; the referee's own decline ends the booking; a booking still to answer before its
+ * kick-off; then the report stored; then an agreement; then a booking that lapsed unanswered. A booking the league is
+ * to ask again, or never asked, carries no chip.
  */
-function standingOf(spiel: FLSchiedsrichterSpiel): Standing {
-  if (spiel.bericht_owed) return { chip: owedChip(SERVER_COPY.overview.missing(SPIEL.spielbericht)) };
-  if (spiel.sonderereignis !== null) return { chip: eventChipOf(spiel.sonderereignis, spiel.team1_name, spiel.team2_name) };
-  if (!spiel.officiates) return { chip: { tone: "neutral", label: SERVER_COPY.area.schiedsrichter.unbooked } };
-  if (spiel.state === "cancelled") return {};
-  if (spiel.state === "declined") {
-    return { chip: DECLINED_CHIP, ...(spiel.reason === null ? {} : { adds: { record: spiel.reason } }) };
-  }
-  if (spiel.state === "valid" && !spiel.past) {
-    return { chip: owedChip(SERVER_COPY.overview.missing(COPY.spielplan.answer)), open: true };
-  }
-  if (spiel.submitted_at !== null) return { chip: { tone: "success", label: AREA_COPY.schiedsrichter.reported } };
-  if (spiel.state === "agreed") {
-    return { chip: AGREED_CHIP, ...(spiel.entered ? { adds: SPIEL.enteredByLeague } : {}) };
-  }
-  if (spiel.state === "expired") return { chip: EXPIRED_CHIP };
-  return {};
+function chipOf(spiel: FLSchiedsrichterSpiel, befell: ChipProps | undefined): ChipProps | undefined {
+  if (spiel.bericht_owed) return owedChip(SERVER_COPY.overview.missing(COPY.spielplan.spielbericht));
+  if (befell !== undefined) return befell;
+  if (!spiel.officiates) return { tone: "neutral", label: SERVER_COPY.area.schiedsrichter.unbooked };
+  if (spiel.state === "cancelled") return undefined;
+  if (spiel.state === "declined") return DECLINED_CHIP;
+  if (isOpen(spiel)) return owedChip(SERVER_COPY.overview.missing(COPY.spielplan.answer));
+  if (spiel.submitted_at !== null) return { tone: "success", label: AREA_COPY.schiedsrichter.reported };
+  if (spiel.state === "agreed") return AGREED_CHIP;
+  if (spiel.state === "expired") return EXPIRED_CHIP;
+  return undefined;
 }
 
 /**
- * What the typed text finds a game by, as the Spielsuche finds a match: both clubs, or that a side is still open; its
- * ground; its date as its row shows it and as a reader writes it.
+ * Whether the row opens the game's match report: where the referee writes it now, or where a stored one stands to
+ * read. A club's exit that took the referee off a game leaves its report refused them, a stored one included.
  */
-function wordsOf(spiel: FLSchiedsrichterSpiel, name: Copy, when: Copy): string {
-  return [textOf(name), spiel.spielort?.name, textOf(when), spiel.date === null ? null : formatDate(dayOf(spiel.date))]
-    .filter((word) => word != null)
-    .join(" ");
+const opensBericht = (spiel: FLSchiedsrichterSpiel) => spiel.reportable || (spiel.officiates && spiel.submitted_at !== null);
+
+/**
+ * Where a game's row leads: its match report where one is written or read; else the match's pop-up, as a pupil's
+ * matches open theirs, holding its day, its time and its ground with the way there, which a list's row does not show;
+ * nothing where the season is not yet public, whose match pages answer not found (`headedMatchOf`'s `linked`).
+ */
+function hrefOf(spiel: FLSchiedsrichterSpiel, saison: string, row: Pick<SpielRowProps, "href">): Route | undefined {
+  return opensBericht(spiel) ? ROUTES.schiedsrichterSpielbericht.path(saison, spiel.id) : row.href;
 }
 
-/** One game's row: it opens the game's match report, and a booking still to answer carries the two answers. */
-function rowOf(spiel: FLSchiedsrichterSpiel, saison: string): CardActRowProps & { id: string; words: string } {
-  const { chip, adds, open } = standingOf(spiel);
-  const name = matchName(spiel.team1_name, spiel.team2_name);
-  const when = COPY.spielplan.when(dayOf(spiel.date), timeOf(spiel.time));
-  const id = spiel.spielbestaetigung_id;
+/**
+ * One game under its matchday's head, its chip and its way on in place of the match row's own, which `chipOf` and
+ * `hrefOf` hand back where they replace nothing: the event's chip and the pop-up's address.
+ */
+function headedOf(spiel: FLSchiedsrichterSpiel, saison: string, isPublic: boolean) {
+  const { head, spiel: row } = headedMatchOf(spiel, isPublic);
+  const chip = chipOf(spiel, row.chip);
+  const href = hrefOf(spiel, saison, row);
+  return { head, spiel: { ...row, ...(chip === undefined ? {} : { chip }), ...(href === undefined ? {} : { href }) } };
+}
+
+/**
+ * A booking still to answer, as the team's Übersicht words a date it is asked about: the game by its two sides, its
+ * day and ground, and the two answers; leading where its game's row leads.
+ */
+function openRowOf(spiel: FLSchiedsrichterSpiel & { spielbestaetigung_id: string }, saison: string, isPublic: boolean) {
+  const name = matchName(spiel.team1?.name ?? null, spiel.team2?.name ?? null);
+  const href = hrefOf(spiel, saison, headedMatchOf(spiel, isPublic).spiel);
   return {
-    id: spiel.spiel_id,
-    href: ROUTES.schiedsrichterSpielbericht.path(saison, spiel.spiel_id),
+    id: spiel.spielbestaetigung_id,
     name,
-    words: wordsOf(spiel, name, when),
-    ...(chip === undefined ? {} : { chip }),
-    line: COPY.shared.line([when, spiel.spielort === null ? null : { record: spiel.spielort.name }, adds ?? null]),
-    ...(open === true && id !== null
-      ? {
-          acts: (
-            <EinteilungActs
-              id={id}
-              spiel={name}
-            />
-          ),
-        }
-      : {}),
-  };
+    ...(href === undefined ? {} : { href }),
+    line: COPY.shared.line([whenOf(spiel), spiel.spielort === null ? null : { record: spiel.spielort.name }]),
+    acts: (
+      <EinteilungActs
+        id={spiel.spielbestaetigung_id}
+        spiel={name}
+      />
+    ),
+  } satisfies CardActRowProps & { id: string };
 }
+
+const hasRow = (spiel: FLSchiedsrichterSpiel): spiel is FLSchiedsrichterSpiel & { spielbestaetigung_id: string } =>
+  spiel.spielbestaetigung_id !== null;
 
 /** The referee's games of the season, read once: not-found for a season none of their bookings stands in. */
-async function rowsIn(saison: string) {
-  const read = await spieleOf(saison);
+async function gamesIn(saison: string | null) {
+  if (saison === null) return { open: [], spiele: [] };
+  const [read, isPublic] = await Promise.all([spieleOf(saison), isPublicSaison(saison)]);
   if (read === null) notFound();
-  return read.spiele.map((spiel) => rowOf(spiel, saison));
-}
-
-/** The page's one card, with no game in it while the referee stands in no season, booked to none yet. */
-async function readSpiele(of: Promise<string | null>) {
-  const saison = await of;
   return {
-    cards: [
-      {
-        id: "spiele",
-        title: TITLE,
-        rows: saison === null ? [] : await rowsIn(saison),
-        count: false as const,
-        empty: { kind: "none" as const, plural: TITLE, glyph: "spielplan" as const },
-      },
-    ],
+    open: read.spiele
+      .filter(isOpen)
+      .filter(hasRow)
+      .map((spiel) => openRowOf(spiel, saison, isPublic)),
+    spiele: read.spiele.map((spiel) => headedOf(spiel, saison, isPublic)),
   };
 }
 
 /**
- * A referee's Übersicht of one season: one box „Spiele“, searched on the page, a row a game in the order the read gives,
- * open work first, then the games to come, then the finished. A booking is answered on its row, and every row opens its
- * game's match report. Drawn for the season the address names, and at `/area/schiedsrichter` for the season the frame
- * takes by standard.
+ * The bookings still to answer in one card above, titled as the team's Übersicht titles the dates it is asked about,
+ * saying so where none is open; then every game under its matchday's head, as a club's „Spiele“ draws its matches
+ * under the page's title. A referee standing in no season holds no game yet.
+ */
+async function readSpiele(of: Promise<string | null>) {
+  const { open, spiele } = await gamesIn(await of);
+  return (
+    <>
+      <ListCard
+        title={SERVER_COPY.overview.card.dates}
+        rows={open}
+      />
+      {spiele.length === 0 ? (
+        <EmptyBox
+          kind="none"
+          plural={COPY.page.spiele}
+          glyph="spielplan"
+        />
+      ) : (
+        <SpielCards groups={spiele} />
+      )}
+    </>
+  );
+}
+
+/**
+ * A referee's Übersicht of one season: the bookings to answer in their card, then the season's games in the order the
+ * draw numbered them, each under its matchday. A game opens its match report where one is written or read, else its
+ * match's pop-up. Drawn for the season the address names, and at `/area/schiedsrichter` for the season the frame takes
+ * by standard.
  */
 export function SchiedsrichterOverview({ saison }: { saison: Promise<string | null> }) {
   return (
     <ListPage
       head={{ scope: "area", title: { route: "schiedsrichterOverview" } }}
-      list={{
-        kind: "cards",
-        search: { label: AREA_COPY.schiedsrichter.search },
-        content: readSpiele(saison),
-      }}
+      list={{ kind: "drawn", content: readSpiele(saison) }}
     />
   );
 }

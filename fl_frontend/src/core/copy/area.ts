@@ -27,8 +27,8 @@ export const AREA_COPY = catalogue({
     registrierung: {
       search: COPY.shared.search(COPY.page.registrierungen),
       /**
-       * The empty list's muted line, around the league's address, which the page sets as its link: only the league mints
-       * and mails a team's link.
+       * The muted line under an empty list of those the link brings, the registrations and the Kader, around the
+       * league's address, which the page sets as its link: only the league mints and mails a team's link.
        */
       linkFromLeague: (league: TextLink<Words>) => ["Den Registrierungslink schickt die Liga, erreichbar unter ", league, "."] as const,
       /** The registration's address is a stored person's. */
@@ -48,7 +48,6 @@ export const AREA_COPY = catalogue({
   },
 
   schiedsrichter: {
-    search: COPY.shared.search(COPY.page.spiele),
     /** A game the referee is booked onto, as their Übersicht lists it: the glossary's `Einsatz`, not the mail telling them. */
     einsatz: "Einsatz",
     /** A game's chip on the referee's list once their report is stored, apart from the action log's entry of the same words. */
