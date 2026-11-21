@@ -11,7 +11,9 @@ import type { Copy } from "./copy";
 /**
  * Whom a mail reaches and in what standing, which decides its sender, its „Nicht du?“ line and its Art. 21 line, so no
  * caller can pair them apart: a person signing in, the holder told of a change to what signs in, an address somebody
- * else typed hearing from the league first, or anyone else.
+ * else typed hearing from the league first, or anyone else. The ban's notice is the one first communication outside
+ * `firstContact`, whose „Nicht du?“ would promise a deletion a ban does not make: its builder sets the Art. 21 line as
+ * its own last paragraph.
  */
 type MailAudience = "signIn" | "security" | "firstContact" | "notice";
 
