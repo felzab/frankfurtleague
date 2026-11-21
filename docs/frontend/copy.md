@@ -120,9 +120,9 @@ wraps and takes a second line, which moves what stands below it.
 | Section info tip (ⓘ)    | 2 sentences, or a key of short lines; about 200 characters | one per section, after its title, only where a named question needs it; a key, „Mark: meaning“                      |
 | Field error             | one phrase, 80 characters                                  | a fixed pattern                                                                                                     |
 | Form refusal            | 1 short sentence, the status line's two lines on a phone   | a plain fact about the whole form, or about a field no pattern words, naming that field                             |
-| Failure line            | 1 short sentence, the status line's two lines on a phone   | what happened, never the repair; a failure no reason names, the one line `failure.unexpected`                       |
+| Failure line            | 1 short sentence, the status line's two lines on a phone   | what happened, never the repair; an unworded refusal reads `failure.stale`, an outage `failure.unexpected`          |
 | Empty state             | 1 sentence, and a muted line where a list has nothing yet  | which narrowing emptied it                                                                                          |
-| Toast                   | a title of 1 to 3 words, or 1 short sentence; no body      | done, a past participle or the act's note; refused, its own sentence or `failure.unexpected`                        |
+| Toast                   | a title of 1 to 3 words, or 1 short sentence; no body      | done, a past participle or the act's note; refused, its own sentence or its `failure` line                          |
 | Page or section intro   | none                                                       | a page's title is its explanation                                                                                   |
 | List-truncation banner  | none                                                       | the load-more control instead                                                                                       |
 | Page title              | the page's catalogue title                                 | followed by the one suffix „\| Frankfurt League“; a match is „{Team 1} vs. {Team 2}“                                |

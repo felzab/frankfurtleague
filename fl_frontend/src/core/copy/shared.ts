@@ -111,7 +111,10 @@ export const COPY = catalogue({
       taken: "Schon vergeben",
     },
 
-    /** The three lines every refusal no person causes knowingly from the screen falls back to. */
+    /**
+     * The lines a refusal the catalogue does not word reads, and every failure that is no refusal
+     * (`core/action.ts :: refused`).
+     */
     failure: {
       unexpected: "Etwas ist schiefgelaufen",
       stale: "Die Seite ist nicht mehr aktuell.",
