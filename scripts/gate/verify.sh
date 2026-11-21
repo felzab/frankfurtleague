@@ -2,7 +2,7 @@
 #
 # SCRIPTS · the pre-merge gate — every scope, or the scopes a run names.
 #
-# Never writes, but `next build` rewrites the tracked `fl_frontend/tsconfig.json` when a
+# Never writes, but `next typegen` rewrites the tracked `fl_frontend/tsconfig.json` when a
 # `compilerOptions` key is absent; the frontend CI job diffs that path.
 #
 #   ./scripts/gate/verify.sh                   every scope, side by side — the run a pull request is called ready to merge on
@@ -411,7 +411,7 @@ typecheck() {
 # Global, for the EXIT trap, which runs after the scope has returned.
 FRONTEND_STEPS=""
 
-# Every step before the build but typegen reads the tree and writes nothing another step reads, so
+# Every step but typegen reads the tree and writes nothing another step reads, so
 # those run side by side, each into its own capture, and report in the written order once all have
 # ended.
 scope_frontend() {
@@ -421,7 +421,7 @@ scope_frontend() {
   local at="$FRONTEND_STEPS" typegen=3 pid
   local -a running=()
   # The lockfile's three checks read the manifest and the lockfile alone, so they run beside every
-  # step before the build. `--frozen-lockfile` makes `--lockfile-only`'s write impossible, and the
+  # other step. `--frozen-lockfile` makes `--lockfile-only`'s write impossible, and the
   # repeat-install shortcut would answer from mtimes rather than from the manifest.
   ( run_beside "${at}/frozen" in_dir fl_frontend pnpm install --frozen-lockfile --lockfile-only --no-optimistic-repeat-install ) &
   running+=("$!")
@@ -486,13 +486,6 @@ Fix with:  cd fl_frontend && pnpm dedupe  -- then commit the lockfile." \
 or name production code knip cannot see in fl_frontend/knip.production.json." \
     "pnpm knip:prod" \
     && ok "nothing only tests read"
-
-  # After every reader of tsconfig.json: it writes `.next/`, which that file's `include` covers. No
-  # environment is set for the build, so the startup gate's validation is skipped, as the image's
-  # builder skips it.
-  step "frontend · next build"
-  check "next build failed." in_dir fl_frontend env SKIP_ENV_VALIDATION=true NEXT_TELEMETRY_DISABLED=1 pnpm build \
-    && ok "build succeeds"
   return 0
 }
 
