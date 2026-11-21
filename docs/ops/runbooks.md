@@ -1473,10 +1473,18 @@ cookie comes back. With an expiry-after of zero seconds the stored value is the 
 
 **An index dropped by hand after a boot is reported by nothing until the next one.**
 
-**A Better Auth release that declares an index of its own on a key the list covers throws on every
-write to that collection**, its adapter building the library's name where the list's already stands.
-The frontend's sign-in db suites build the list for each file, so such an upgrade fails them before
-it ships; the repair is the list's entry taking the library's name.
+**A Better Auth release that declares an index of its own on a key the list covers, under another
+name, shows in one of two ways**, and either way the repair is the list's entry taking the library's
+name:
+
+- **A field index**, which the adapter builds without making any operation wait on it, fails no
+  write. Where the list's index stands first at the same options, the adapter builds nothing and
+  logs nothing. At other options it is one line from the library's adapter on the console, outside
+  the envelope, and is not tried again until a restart. Where the list's build comes second, it is
+  the list's code-85 line above.
+- **A table index**, which the adapter builds inside each create and update, throws on every create
+  and update of that collection. The frontend's sign-in db suites build the list for each file, so
+  such an upgrade fails them before it ships.
 
 ## 15. When a sign-in code does not arrive
 
