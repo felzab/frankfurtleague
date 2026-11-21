@@ -155,9 +155,9 @@ Each pattern is an entry of `COPY.shared`; what the entry cannot say is when it 
   answers an ended sign-in, and `tooManyAttempts` every limit on tries, whatever it counts.
   `unexpected` answers an outage, a fault inside the system, a bot check that did not run, and a
   request the API does not serve, such as one missing its credential.
-- **A saved record** shows `saved` on its editor's save bar, beside the save button, never as a
-  toast. The save bar is the one place a done act stays on a line, since its line is a fixed row
-  that moves nothing as it speaks.
+- **An editor's save** shows `saved` on its save bar, beside the save button, never as a toast. The
+  save bar is the one place a done act stays on a line, since its line is a fixed row that moves
+  nothing as it speaks.
 - **A toast** answers every other done act: a closed question, a closed dialog with fields, a
   section's act in an editor, a Konto box, a page that is one question, and an act that leaves
   nothing on the page to change. Its title is the act's note, else its verb's past participle from
