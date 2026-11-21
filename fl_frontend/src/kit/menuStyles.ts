@@ -26,13 +26,15 @@ export const menuPopover = tv({
  * place among them: its words in the link green and its check at the end, which the list draws, with no fill, so
  * the entry under the pointer or the keys, chosen or not, takes the one hover layer alone. The rail's current page is
  * a place of the frame rather than a list's choice, and keeps its own mark: the muted fill with the words in the link
- * green.
+ * green, drawn from the link's `aria-current`, so the page a screen reader hears marked is the one drawn marked.
  */
 export const entryMark = tv({
   variants: {
     mark: {
       chosen: "data-selected:text-brand",
-      place: "data-selected:bg-bg-muted data-selected:text-brand",
+      // Tailwind writes an `aria-*` variant after `hover:` and `active:`, so the mark's words keep their green under
+      // the pointer over an entry's own hover words.
+      place: "aria-[current=page]:bg-bg-muted aria-[current=page]:text-brand",
     },
   },
 });

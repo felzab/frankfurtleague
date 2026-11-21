@@ -76,9 +76,8 @@ export function HeaderLinks({ links, signIn }: HeaderLinksProps) {
                   key={link.href}
                   href={link.href}
                   aria-current={link.href === current ? "page" : undefined}
-                  data-selected={link.href === current || undefined}
                   data-kit-focus="inset"
-                  className={menuEntry({ size: "phone", current: link.href === current })}>
+                  className={menuEntry({ size: "phone" })}>
                   {link.label}
                 </NavigationLink>
               ))}
