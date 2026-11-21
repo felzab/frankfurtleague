@@ -9,6 +9,7 @@ import { COPY } from "@/core/copy/shared";
 import { renderUnderNext } from "@/test-support/nextContexts";
 
 import { Button } from "./Button";
+import { Card, CardActRow } from "./Card";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { Dialog, RouteDialog, RouteDialogBody } from "./Dialog";
 import { EditorPage } from "./EditorPage";
@@ -432,6 +433,70 @@ describe("a dialog's danger row", () => {
 
     await within(question).findByText(reason);
     expect(screen.getByRole("dialog", { hidden: true })).toBeTruthy();
+  });
+});
+
+/**
+ * A card of two open dates, each row's act opening a dialog (`kind: "dialog"`) or a question whose done act drops the
+ * row from the card, as a save's fresh read drops an answered date.
+ */
+function DatesCard({ kind }: { kind: "dialog" | "question" }) {
+  const [rows, setRows] = useState(["Esche", "Birke"]);
+  const answer = (row: string) => async () => {
+    setRows((shown) => shown.filter((other) => other !== row));
+    return DONE;
+  };
+  return (
+    <Card title={NAME}>
+      {rows.map((row) => (
+        <CardActRow
+          key={row}
+          name={{ record: row }}
+          acts={
+            kind === "dialog" ? (
+              <Dialog
+                title={NAME}
+                act={{ verb: "create", object: NAME }}
+                run={answer(row)}
+                trigger={{ label: COPY.shared.verb.create }}>
+                <TextField
+                  label={INPUT}
+                  name="created"
+                  kind="text"
+                />
+              </Dialog>
+            ) : (
+              <ConfirmDialog
+                question={{ verb: "adopt", subject: NAME, consequence: COPY.kader.deregisterConsequence, tone: "primary" }}
+                trigger={{ label: COPY.shared.verb.create }}
+                onConfirm={answer(row)}
+              />
+            )
+          }
+        />
+      ))}
+    </Card>
+  );
+}
+
+// The harm: a keyboard user whose save drops the row that opened the dialog loses the focus to the page's body, and the
+// next Tab starts from the top of the page.
+describe("a dialog whose done act drops the row it was opened from", () => {
+  it.each([
+    ["a dialog", "dialog", COPY.shared.withObject(NAME, "create")],
+    ["a question", "question", COPY.shared.verb.adopt],
+  ] as const)("hands the focus to the next row's act, %s", async (_shown, kind, press) => {
+    renderUnderNext(<DatesCard kind={kind} />);
+    const [first, next] = screen.getAllByRole("button", { name: COPY.shared.verb.create });
+    await userEvent.tab();
+    expect(document.activeElement).toBe(first);
+    await userEvent.keyboard("{Enter}");
+    const opened = await screen.findByRole(kind === "dialog" ? "dialog" : "alertdialog");
+
+    await userEvent.click(within(opened).getByRole("button", { name: press }));
+
+    await waitFor(() => expect(screen.getAllByRole("button", { name: COPY.shared.verb.create })).toHaveLength(1));
+    await waitFor(() => expect(document.activeElement).toBe(next));
   });
 });
 

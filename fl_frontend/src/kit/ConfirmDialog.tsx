@@ -11,6 +11,7 @@ import { Button } from "./Button";
 import { askingLook } from "./buttonStyles";
 import { DialogOverlay } from "./DialogOverlay";
 import { Facts } from "./Facts";
+import { FocusOnLeave } from "./FocusOnLeave";
 import { FormFooter } from "./FormFooter";
 import { toastAnswer } from "./Toast";
 import { answering, answerLine } from "./useFormAction";
@@ -275,17 +276,20 @@ export function ConfirmDialog<T extends Tone>(props: ConfirmDialogProps<T>) {
       />
     );
   return (
-    <DialogTrigger
-      isOpen={isOpen}
-      onOpenChange={setOpen}>
-      {words !== null && (
-        <TriggerButton
-          // A touched act runs after its question closed, so its trigger is where it shows busy.
-          trigger={touch !== undefined && isBusy ? { ...trigger, isBusy } : trigger}
-          tone={words.tone}
-        />
-      )}
-      {overlay}
-    </DialogTrigger>
+    // A done act can drop the row its trigger stands on, which leaves React Aria no trigger to give the focus back to.
+    <FocusOnLeave>
+      <DialogTrigger
+        isOpen={isOpen}
+        onOpenChange={setOpen}>
+        {words !== null && (
+          <TriggerButton
+            // A touched act runs after its question closed, so its trigger is where it shows busy.
+            trigger={touch !== undefined && isBusy ? { ...trigger, isBusy } : trigger}
+            tone={words.tone}
+          />
+        )}
+        {overlay}
+      </DialogTrigger>
+    </FocusOnLeave>
   );
 }

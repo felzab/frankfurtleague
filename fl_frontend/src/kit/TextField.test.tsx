@@ -9,6 +9,7 @@ import { COPY } from "@/core/copy/shared";
 
 import { Button } from "./Button";
 import { FormClosed } from "./formClosed";
+import { Select } from "./Select";
 import { TextField } from "./TextField";
 
 import type { ReactElement } from "react";
@@ -23,6 +24,44 @@ describe("an address field's autofill", () => {
       />,
     );
     expect(screen.getByRole("textbox").getAttribute("autocomplete")).toBe("off");
+  });
+});
+
+// The harm: the browser offers the applicant's own number for a deputy's seat, or their own site for a school's, and
+// one click stores it with nobody seeing.
+describe("a phone or website field's autofill", () => {
+  it("offers nothing, every one being somebody else's", () => {
+    render(
+      <>
+        <TextField
+          label={COPY.shared.facts.phone}
+          kind="tel"
+        />
+        <TextField
+          label={COPY.team.website}
+          kind="url"
+          example={COPY.shared.field.exampleUrl}
+        />
+      </>,
+    );
+    expect(screen.getAllByRole("textbox").map((box) => box.getAttribute("autocomplete"))).toStrictEqual(["off", "off"]);
+  });
+});
+
+// The harm: a keyboard user cannot see where the focus stands on a locked select, which a pointer user never meets.
+describe("a locked select", () => {
+  it("rings its frame once Tab reaches it", async () => {
+    render(
+      <Select
+        label={COPY.shared.emailAddress}
+        options={[{ id: "a", label: { record: "Gruppe A" } }]}
+        isLocked
+        value="a"
+      />,
+    );
+    await userEvent.tab();
+    // A read-only field rings only by its frame's `data-focus-visible` (`app/focus.css`).
+    expect(screen.getByRole("textbox").closest("[data-kit-focus='field']")?.hasAttribute("data-focus-visible")).toBe(true);
   });
 });
 

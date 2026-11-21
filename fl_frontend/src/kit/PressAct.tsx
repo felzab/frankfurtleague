@@ -4,6 +4,7 @@ import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import { Button } from "./Button";
+import { FocusOnLeave } from "./FocusOnLeave";
 import { toastAnswer } from "./Toast";
 import { answering } from "./useFormAction";
 
@@ -32,15 +33,18 @@ export function PressAct<Payload, Value>({
   const router = useRouter();
   const [isRunning, startRunning] = useTransition();
   return (
-    <Button
-      variant="primary"
-      label={label}
-      isBusy={isRunning}
-      onPress={() =>
-        startRunning(async () => {
-          toastAnswer(await answering(run, router.refresh)(payload), done);
-        })
-      }
-    />
+    // The answer can drop the act's row, the focus with it (`FocusOnLeave`).
+    <FocusOnLeave>
+      <Button
+        variant="primary"
+        label={label}
+        isBusy={isRunning}
+        onPress={() =>
+          startRunning(async () => {
+            toastAnswer(await answering(run, router.refresh)(payload), done);
+          })
+        }
+      />
+    </FocusOnLeave>
   );
 }
