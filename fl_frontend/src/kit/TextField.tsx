@@ -281,7 +281,11 @@ export function ChosenField({
           isLocked={isMarked}
         />
       )}
-      <div
+      {/* React Aria's group, as the unit frame is, so the frame carries `data-focus-visible` while the keys hold its
+          input: a read-only field rings by that mark alone (`app/focus.css`). Presentational, as the text field's own
+          context sets it, since the answer and its arrow are one control. */}
+      <Group
+        role="presentation"
         data-kit-focus="field"
         className={frame}>
         <Input
@@ -294,7 +298,7 @@ export function ChosenField({
             size={16}
           />
         </span>
-      </div>
+      </Group>
       <MessageLine
         description={description}
         consequence={consequence}

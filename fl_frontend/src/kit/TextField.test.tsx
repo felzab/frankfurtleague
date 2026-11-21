@@ -9,6 +9,7 @@ import { COPY } from "@/core/copy/shared";
 
 import { Button } from "./Button";
 import { FormClosed } from "./formClosed";
+import { Select } from "./Select";
 import { TextField } from "./TextField";
 
 import type { ReactElement } from "react";
@@ -23,6 +24,23 @@ describe("an address field's autofill", () => {
       />,
     );
     expect(screen.getByRole("textbox").getAttribute("autocomplete")).toBe("off");
+  });
+});
+
+// The harm: a keyboard user cannot see where the focus stands on a locked select, which a pointer user never meets.
+describe("a locked select", () => {
+  it("rings its frame once Tab reaches it", async () => {
+    render(
+      <Select
+        label={COPY.shared.emailAddress}
+        options={[{ id: "a", label: { record: "Gruppe A" } }]}
+        isLocked
+        value="a"
+      />,
+    );
+    await userEvent.tab();
+    // A read-only field rings only by its frame's `data-focus-visible` (`app/focus.css`).
+    expect(screen.getByRole("textbox").closest("[data-kit-focus='field']")?.hasAttribute("data-focus-visible")).toBe(true);
   });
 });
 
