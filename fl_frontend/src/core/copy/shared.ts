@@ -125,7 +125,7 @@ export const COPY = catalogue({
     },
     /**
      * An act the passkey touch guards that its passkey did not answer for: refused in the browser's prompt, or sent
-     * without a passkey sign-in of the last minute by a person holding one.
+     * without a passkey sign-in of the last minute by an administrator.
      */
     touchMissing: "Die Freigabe mit deinem Passkey fehlt.",
 

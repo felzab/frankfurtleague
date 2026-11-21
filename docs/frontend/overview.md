@@ -253,10 +253,11 @@ whatever its layout decides.
 **A person's sign-in is managed on Konto, `/account` and its three pages**, whichever area they
 hold: every frame's account menu links it, and an act on the passkey touch's fixed list, a passkey's
 removal and the address change's start among them, runs only on a passkey sign-in made seconds
-before, for a person holding a passkey (`fl_frontend/src/core/action.ts`, a lane's `passkey`). The
-touch is always such an act's last step: the person presses the act, answers any dialog, presses the
-final button, and that press asks the touch and then runs the act
-(`fl_frontend/src/kit/usePasskeyTouch.ts`), so nothing typed runs against the minute a touch lasts.
+before, for an administrator (`fl_frontend/src/core/action.ts`, a lane's `passkey`); an address
+holding no grant passes it. The touch is always such an act's last step: the administrator presses
+the act, answers any dialog, presses the final button, and that press asks the touch and then runs
+the act (`fl_frontend/src/kit/usePasskeyTouch.ts`), so nothing typed runs against the minute a touch
+lasts.
 
 ## Configuration and tests
 

@@ -33,6 +33,6 @@ export const PERSON_LIFETIME: Lifetime = { idle: PERSON_IDLE_DAYS * DAY_MS, abso
 // one: an absolute figure here would keep a person's idle row alive past its own window.
 export const SESSION_EXPIRES_IN_DAYS = Math.max(ADMIN_LIFETIME.idle, PERSON_LIFETIME.idle) / DAY_MS;
 
-// How recent a passkey sign-in the passkey touch is: an act the touch guards asks one this recent of every person
-// holding a passkey, every time.
+// How recent a passkey sign-in the passkey touch is: an act the touch guards asks one this recent of every
+// administrator, every time.
 export const PASSKEY_TOUCH_SECONDS = 60;
