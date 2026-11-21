@@ -614,7 +614,7 @@ confirms it by a link.\
 
 ### `Fassung` · `wording` — one frozen consent wording a person was shown, under its label
 
-**Is:** the words of one consent under the label each choice's evidence stamps as `text_version`, A
+**Is:** the words of one consent under the label each choice's evidence stamps as `text_version`. A
 label's words never change: new words are a new label.\
 **In code:** `fl_frontend/src/core/consentWordings.ts :: CONSENT_WORDINGS`;
 `fl_backend/app/shared/schemas/einwilligung.py :: FLEinwilligungTextVersion`.
