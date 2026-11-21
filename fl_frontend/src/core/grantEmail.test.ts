@@ -22,14 +22,16 @@ const facts = (fields: Partial<FLGrantData>): FLGrantData => ({
   ...fields,
 });
 
-const built = (fields: Partial<FLGrantData>) => {
-  const mail = mailFor("grant", facts(fields), { token: null, secret: null, origin: "http://localhost:3000" });
+const HOLDER = "henrik.halter@beispielschule.example.org";
+
+const built = (fields: Partial<FLGrantData>, to = ADDRESS) => {
+  const mail = mailFor("grant", facts(fields), { token: null, secret: null, origin: "http://localhost:3000", to });
   if (mail === undefined) throw new Error("the kind has no builder");
 
   return mail;
 };
 
-const rendered = (fields: Partial<FLGrantData>) => renderMail(built(fields)).text;
+const rendered = (fields: Partial<FLGrantData>, to = ADDRESS) => renderMail(built(fields, to)).text;
 
 /* The lead as the line under „Hallo,“ shows it, its first letter small (Duden, D 132): a no-op on a stored address,
    which the backend keeps folded to lower case. */
@@ -52,13 +54,16 @@ describe("a grant notice", () => {
     expect(built({ change, stage }).subjectLine).toBe(subject);
   });
 
-  /* The address came from the owner and may be mistyped, so this may be a stranger's first word from the league. */
-  it("carries the Art. 21 line and its „Nicht du?“ on an addition's start and on nothing later", () => {
+  /* The address came from the owner and may be mistyped, so this may be a stranger's first word from the league. A
+     holder in office gets the same start, where the line's „reply and we delete your data“ is false. */
+  it("carries the Art. 21 line and its „Nicht du?“ on the named address's copy of an addition's start alone", () => {
     const [objection] = SERVER_COPY.mail.objection(KONTAKT_EMAIL);
     const notYou = SERVER_COPY.mail.notYou.firstContact;
 
     expect(rendered({ effective_from: FROM })).toContain(objection);
     expect(rendered({ effective_from: FROM })).toContain(notYou);
+    expect(rendered({ effective_from: FROM }, HOLDER)).not.toContain(objection);
+    expect(rendered({ effective_from: FROM }, HOLDER)).not.toContain(notYou);
     expect(rendered({ stage: "withdrawn" })).not.toContain(objection);
     expect(rendered({ change: "handover", effective_from: FROM })).not.toContain(notYou);
   });

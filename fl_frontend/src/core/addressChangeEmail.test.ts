@@ -7,7 +7,7 @@ const { mailFor } = await import("./mailKinds");
 const { renderMail } = await import("./emailShell");
 const { SERVER_COPY } = await import("./serverCopy");
 
-const LINK = { token: "example-one", secret: null, origin: "http://localhost:3000" };
+const LINK = { token: "example-one", secret: null, origin: "http://localhost:3000", to: "kontakt@schule.example.org" };
 
 const text = (mail: ReturnType<typeof mailFor>) => {
   if (mail === undefined) throw new Error("the kind has no builder");

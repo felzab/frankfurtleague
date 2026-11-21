@@ -17,6 +17,7 @@ const moment = ({ date, time }: Slot) => ({ strong: formatDayAndTime(dayOf(date)
 
 /** The origin the local stack serves from, which `docker-compose.local.yml` sets `AUTH_URL` to. */
 const ORIGIN = "http://localhost:3000";
+const TO = "kontakt@schule.example.org";
 
 describe("the fixture request", () => {
   /* The request carries no link: the club answers on its own Übersicht, signed in. Built from a token the hand-out no
@@ -32,7 +33,7 @@ describe("the fixture request", () => {
       moved_from: null,
     } as const;
 
-    const mail = mailFor("spiel_request", data, { token: null, secret: null, origin: `${ORIGIN}/` });
+    const mail = mailFor("spiel_request", data, { token: null, secret: null, origin: `${ORIGIN}/`, to: TO });
 
     expect(mail?.button?.href).toBe(`${ORIGIN}${ROUTES.teamOverview.path(data.team_id, data.saison_id)}`);
   });
@@ -50,7 +51,7 @@ describe("the notice of a move", () => {
     const mail = mailFor(
       "spiel_moved",
       { kind: "spiel_moved", recipient, appointment: left, moved_to: null, stays: true },
-      { token: null, secret: null, origin: ORIGIN },
+      { token: null, secret: null, origin: ORIGIN, to: TO },
     );
 
     expect(mail?.subjectLine).toBe(WORDS.movedFromSubject(dayOf(left.date)));
@@ -62,7 +63,7 @@ describe("the notice of a move", () => {
     const mail = mailFor(
       "spiel_moved",
       { kind: "spiel_moved", recipient: "team", appointment: left, moved_to: null, stays: false },
-      { token: null, secret: null, origin: ORIGIN },
+      { token: null, secret: null, origin: ORIGIN, to: TO },
     );
 
     expect(mail?.subjectLine).toBe(WORDS.voidSubject(dayOf(left.date)));
@@ -74,7 +75,7 @@ describe("the notice of a move", () => {
     const mail = mailFor(
       "spiel_moved",
       { kind: "spiel_moved", recipient: "team", appointment: left, moved_to: sameHour, stays: true },
-      { token: null, secret: null, origin: ORIGIN },
+      { token: null, secret: null, origin: ORIGIN, to: TO },
     );
     const block = mail?.block;
     const facts = block !== undefined && "facts" in block ? block.facts : [];
@@ -88,7 +89,7 @@ describe("the notice of a move", () => {
      new day that does not exist. */
   it("words a new pairing at its slot as no move, in a request, an Einteilung and a notice", () => {
     const replaced = { ...left, team1: "Carl-Schurz-Schule", spielort: "Halle Nord" };
-    const origin = { token: null, secret: null, origin: ORIGIN };
+    const origin = { token: null, secret: null, origin: ORIGIN, to: TO };
     const day = dayOf(replaced.date);
     // Each mail under the subject its kind gives a fixture nothing moved.
     const mails = [
@@ -142,7 +143,7 @@ describe("the notice of a move", () => {
     const mail = mailFor(
       "spiel_moved",
       { kind: "spiel_moved", recipient: "team", appointment: left, moved_to: next, stays: true },
-      { token: null, secret: null, origin: ORIGIN },
+      { token: null, secret: null, origin: ORIGIN, to: TO },
     );
     if (mail === undefined) throw new Error("the move built no mail");
 
@@ -155,7 +156,7 @@ describe("the notice of a move", () => {
     const mail = mailFor(
       "spiel_moved",
       { kind: "spiel_moved", recipient: "team", appointment: left, moved_to: replaced, stays: true },
-      { token: null, secret: null, origin: ORIGIN },
+      { token: null, secret: null, origin: ORIGIN, to: TO },
     );
 
     expect(mail?.subjectLine).toBe(WORDS.movedSubject(dayOf(replaced.date)));
@@ -210,7 +211,7 @@ describe("the notice of a match that will not be played", () => {
         const mail = mailFor(
           "spiel_cancelled",
           { kind: "spiel_cancelled", recipient, appointment, sonderereignis },
-          { token: null, secret: null, origin: ORIGIN },
+          { token: null, secret: null, origin: ORIGIN, to: TO },
         );
 
         expect(mail?.subjectLine).toBe(subject);
@@ -238,7 +239,7 @@ describe("the notice of a club's exit", () => {
           { ...sides, date: null, time: null },
         ],
       },
-      { token: null, secret: null, origin: ORIGIN },
+      { token: null, secret: null, origin: ORIGIN, to: TO },
     );
     const block = mail?.block;
     const labels = block !== undefined && "facts" in block ? block.facts.map((fact) => fact.label) : [];
