@@ -77,7 +77,7 @@ const readState = cache(async (): Promise<MailedState> => {
     facts: factsOf(subject.email, passkeys, view),
     sentence: WORDS.question,
     run: eraseAccount,
-    acts: { primary: COPY.page.accountErasure },
+    acts: { primary: COPY.page.accountErasure, destroys: true },
     carry: { token, holder: subject.email },
     // An administrator touches a passkey at the press, on a passkey's session or a mailed code's alike.
     touch: granted,

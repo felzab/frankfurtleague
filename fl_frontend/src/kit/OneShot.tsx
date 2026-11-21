@@ -37,9 +37,10 @@ type Refusal = { verb: Verb; subject: Copy; consequence: Copy };
 
 /**
  * A one-shot form's acts: the main act and, where the link's offer can be refused, the refusal beside it; or the
- * refusal alone, where the page offers nothing else.
+ * refusal alone, where the page offers nothing else. `destroys` marks a main act whose press destroys what the page
+ * lists, which takes the danger fill: the page is its question, so no dialog asks again.
  */
-export type OneShotActs = { primary: Copy; refusal?: Refusal } | { primary?: never; refusal: Refusal };
+export type OneShotActs = { primary: Copy; destroys?: true; refusal?: Refusal } | { primary?: never; destroys?: never; refusal: Refusal };
 
 /** The field the pressed act posts under, beside the form's own, which the page's action reads by this name. */
 const ACT_FIELD = "act";
@@ -213,7 +214,7 @@ export function OneShotForm({
         />
       )}
       <Button
-        variant="primary"
+        variant={acts.destroys === true ? "danger" : "primary"}
         type="submit"
         label={acts.primary ?? COPY.shared.verb[acts.refusal.verb]}
         aria-describedby={describedBy}
