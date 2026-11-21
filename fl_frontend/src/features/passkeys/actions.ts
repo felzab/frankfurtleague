@@ -50,10 +50,11 @@ export const removePasskeyAction = action({
     } catch (failed) {
       // A rollback removed nothing, so the shared failure line stands and a press again is safe.
       if (failed instanceof RolledBackError) throw failed;
-      // Any other failure may be the commit's, landed or not: a reload shows which. Nothing renders again, since the
+      // Any other failure may be the commit's, landed or not: a fault inside the system, the shared failure line too,
+      // and a press again is safe, a passkey already removed answering as absent. Nothing renders again, since the
       // removal may have ended the session this page would render under.
       logger.error("passkeys.removal_outcome_unknown", undefined, { name: failed instanceof Error ? failed.name : "unknown" });
-      return { ok: false, reason: COPY.shared.failure.stale };
+      return { ok: false, reason: COPY.shared.failure.unexpected };
     }
     if (removal === "last") return { ok: false, reason: ACCOUNT_COPY.passkeys.lastKept };
     if (removal === "absent") return { ok: false, reason: COPY.shared.failure.stale };

@@ -45,7 +45,9 @@ async function landingOf(requestHeaders: Headers): Promise<Landing> {
   const read = await readLibrarySession(requestHeaders, false);
   if (read === null) return { destination: "/signin", subject: null };
 
-  // Past a person's figures no lane serves it; its passkey gone, none ever will.
+  // Past a person's figures no lane serves it; its passkey gone, none ever will. Ended before any grant is read, it
+  // returns to no page, as a cookie naming no row does above: an administrator signs in by a mailed code, which leads
+  // on to the passkey step all the same, rather than every such end costing a read of the backend.
   const served = await servedSessionOf(read);
   if (served === null || !isWithinPersonLifetime(read.session)) return ended(read);
 
@@ -57,8 +59,7 @@ async function landingOf(requestHeaders: Headers): Promise<Landing> {
   // A granted address's session past the administrator's figures, which the person lane alone would still serve,
   // ends here too, as the owner ruled: the administrator signs in afresh rather than holding a session that opens
   // neither the administration nor the landing. It returns to the administration, whose sign-in alone offers the
-  // passkey: the admin guard sends here naming no page, and could name none without sending a person holding no grant,
-  // whose landing honours the page asked, back and forth between the guard and here.
+  // passkey, whichever guard sent it here naming no page.
   const destination = await destinationOf(served, records);
   if (destination === "/signin") return { ...(await ended(served)), returnsTo: ROUTES.admin.path() };
 

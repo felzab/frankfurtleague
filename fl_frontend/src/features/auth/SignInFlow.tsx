@@ -136,9 +136,6 @@ export function SignInFlow({ next, siteKey, offersPasskey }: { next: string; sit
         label: PUBLIC_COPY.signIn.sendCode,
         isBusy: send.isPending,
         onPress: (address) => {
-          // The busy button is not the whole guard: `Enter` in the field submits too, and a second send mid-flight
-          // would mail a second code.
-          if (send.isPending) return;
           setPasskeyError(null);
           send.submit(address);
         },

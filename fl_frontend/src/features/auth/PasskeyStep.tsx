@@ -37,7 +37,7 @@ async function ceremonyHeld(step: Step): Promise<Held | null> {
   // The guard's own refusal, which an enrolment another tab or device finished first earns too, and the library's
   // for a session that aged past its `freshAge` while the card stood: the step this view was handed is then stale.
   if (enrolling && (refusal.status === 404 || refusalCode(refusal) === SESSION_NOT_FRESH)) {
-    return { sentence: COPY.shared.failure.unexpected, stale: true };
+    return { sentence: COPY.shared.failure.stale, stale: true };
   }
 
   return { sentence: describeCeremonyRefusal(refusal), stale: false };

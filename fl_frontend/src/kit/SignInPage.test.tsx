@@ -59,7 +59,7 @@ describe("the sign-in template", () => {
     );
 
     expect(screen.getAllByRole("button").map((button) => button.textContent)).toStrictEqual([WORDS.sendCode]);
-    // The divider is decoration, hidden from every query by role or by text, so it is read by its place.
+    // The divider has no role, and drawn without its word it has no text, so it is read by its place.
     expect(container.querySelector("form")?.nextElementSibling, "a line stands under the form").toBe(screen.getByRole("status"));
   });
 });
