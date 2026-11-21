@@ -41,13 +41,6 @@ export const submitBewerbung = action({
   botCheck: true,
   name: "submitBewerbung",
   input: Application,
-  ownWords: [
-    "bewerbung_picked_team_already_entered",
-    "bewerbung_kontakt_repeated",
-    "good_spieler_exceed_kader",
-    "email_not_accepted",
-    "url_not_accepted",
-  ],
   boxes: [...eachSeat("email"), ...eachSeat("phone"), "schule.website_url"],
   // The squad's rule refuses its group as a whole, and its phrase stands under the count it bounds.
   paths: { kader: "kader.good_spieler" },

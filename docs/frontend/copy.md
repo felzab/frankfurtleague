@@ -143,17 +143,18 @@ Each pattern is an entry of `COPY.shared`; what the entry cannot say is when it 
 - **A field message** is one of `field`'s patterns, whether the form's own check or the backend's
   rule refused the value, filled with the bounds the rule names („Höchstens 11“ under the Startelf's
   box). The address example is `field.exampleAddress`, a reserved domain, never a school's address.
-- **A refusal a person can cause knowingly from the screen** that one of `field`'s patterns words
-  shows on its field's box, and the status line says `COPY.template.checkFields`. Every other such
-  refusal, about the whole form or a field no pattern words, takes the status line: one short
-  sentence that fits its two lines on a phone, naming its field where it has one. A field phrase
-  never stands on the status line, since it has no subject there. Every other refusal takes a
-  `failure` line: `stale` for a stale page, a concurrent change or a choice the screen had closed
-  when it was read, `signInExpired` for an ended sign-in, `tooManyAttempts` for every limit on tries
-  whatever it counts, `unexpected` for an outage, a fault inside the system, a bot check that did
-  not run and anything else. A refusal the screen closes off before the press, a race between two
-  writes and a precondition only the system knows are never explained, since the reader cannot act
-  on the detail.
+- **A refusal is worded wherever the catalogue has words for it**, on every screen that can place
+  them. One that a pattern of `field` words shows on its field's box, and the status line says
+  `COPY.template.checkFields`. One about the whole form, or about a field no pattern words, takes
+  the status line: one short sentence that fits its two lines on a phone, naming its field where it
+  has one. A field phrase never stands on the status line, since it has no subject there, so a
+  phrase whose field the screen shows no box for counts as unworded. A catalogue sentence states the
+  fact and never why it holds or how to repair it.
+- **Every other refusal takes a `failure` line.** `stale` answers every refusal of the request the
+  catalogue does not word, since the page read again shows the record as it stands. `signInExpired`
+  answers an ended sign-in, and `tooManyAttempts` every limit on tries, whatever it counts.
+  `unexpected` answers an outage, a fault inside the system, a bot check that did not run, and a
+  request the API does not serve, such as one missing its credential.
 - **A saved record** shows `saved` on its editor's save bar, beside the save button, never as a
   toast. The save bar is the one place a done act stays on a line, since its line is a fixed row
   that moves nothing as it speaks.

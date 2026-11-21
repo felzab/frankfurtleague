@@ -35,7 +35,6 @@ export const reactivateSpieler = action({
     id: SpielerReactivateSaisonSpielerParams.shape.spieler_id,
     saison: SpielerReactivateSaisonSpielerParams.shape.saison_id,
   }),
-  ownWords: ["kader_full"],
   run: async ({ id, saison }) => {
     await spielerReactivateSaisonSpieler(id, saison);
     return { ok: true, value: undefined };

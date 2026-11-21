@@ -30,7 +30,6 @@ export const createSpielort = action({
   lane: "admin",
   name: "createSpielort",
   input: CreateSpielortForm,
-  ownWords: ["duplicate_key"],
   boxes: ["name"],
   examples: {
     postcode: COPY.shared.address.postcodeExample,

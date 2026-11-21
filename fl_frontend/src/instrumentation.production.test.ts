@@ -237,8 +237,8 @@ describe("the one scheduler", () => {
     expect(seen).toStrictEqual([[], EVERY_JOB, EVERY_JOB, [...EVERY_JOB, ...EVERY_JOB]]);
   });
 
-  /* A restore's steps are done on the admin pages against the restored state, which a pass would act on first: the
-     pupils' deletion, mail to people not yet erased again. */
+  /* The hold stands while a restore or a change to a stored shape is under way, whose state a pass would act on first:
+     after a restore, the pupils' deletion and mail to people not yet erased again. */
   it("arms nothing under the hold, and says so", async () => {
     settings["RESTORE_HOLD"] = "on";
 

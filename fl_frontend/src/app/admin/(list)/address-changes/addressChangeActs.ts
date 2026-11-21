@@ -4,7 +4,6 @@ import { z } from "zod";
 
 import { action, PAGE_HOLDER } from "@/core/action";
 import { accountStandsAt } from "@/core/auth/accounts";
-import { COPY } from "@/core/copy/shared";
 import { addressChangePostAddressChangeAdmin, addressChangeResendConfirmation } from "@/core/generated/client/sdk";
 import { AddressChangeResendConfirmationParams } from "@/core/generated/zod/inputs";
 import { SERVER_COPY } from "@/core/serverCopy";
@@ -28,15 +27,6 @@ export const startLostMailboxChange = action({
     email: SignInAddressSchema,
     ...PAGE_HOLDER,
   }),
-  ownWords: [
-    "own_address",
-    "admin_address",
-    "address_change_nothing",
-    "address_change_taken",
-    "address_change_unchanged",
-    "email_not_accepted",
-  ],
-  examples: { address: COPY.shared.field.exampleAddress, email: COPY.shared.field.exampleAddress },
   // The dialog has closed before any answer, which its toast says: every refusal is a sentence, never a box's phrase.
   boxless: {
     address: { value: FORMAT.previous, email_not_accepted: FORMAT.previous },
@@ -60,7 +50,6 @@ export const resendChangeLink = action({
   passkey: true,
   name: "resendChangeLink",
   input: AddressChangeResendConfirmationParams.extend(PAGE_HOLDER),
-  ownWords: ["own_address", "admin_address", "address_change_taken"],
   run: async ({ address_change_id }) => {
     if (await accountAtNewAddress({ address_change_id })) {
       return { ok: false, errorCode: "address_change_taken", reason: SERVER_COPY.refusalLine.address_change_taken };

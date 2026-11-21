@@ -21,9 +21,6 @@ export const createSaison = action({
   lane: "admin",
   name: "createSaison",
   input: CreateSaisonForm,
-  // A planned season standing, met where another administrator created it after the page was read, the list's act
-  // closing on it otherwise; it is the loser's code of two creates at once too.
-  ownWords: ["saison_ends_before_start", "saison_span_below_spielplan", "rules_bracket_impossible", "create_saison_future_stands"],
   boxes: ["start_date", "end_date"],
   run: async (form) => {
     await saisonsPostSaison(form);

@@ -21,7 +21,6 @@ export const mintInvitation = action({
   lane: "admin",
   name: "mintInvitation",
   input: Key,
-  ownWords: ["saison_past"],
   run: async ({ team_id, saison_id }) => {
     const { token } = await teamsPostInvitation(team_id, saison_id);
     return { ok: true, value: { link: mailedLinkTo(new URL(frontend_config.AUTH_URL).origin, ROUTES.registrierung, token) } };
@@ -37,7 +36,6 @@ export const mailInvitation = action({
   lane: "admin",
   name: "mailInvitation",
   input: Key.extend(TeamsPostInvitationMailBody.shape),
-  ownWords: ["saison_past"],
   run: async ({ team_id, saison_id, invitation_id }) => {
     const { mailed } = await teamsPostInvitationMail(team_id, saison_id, { invitation_id });
     return mailed === 0

@@ -46,8 +46,6 @@ export const saveSpieler = action({
   lane: "admin",
   name: "saveSpieler",
   input: SaveSpieler,
-  ownWords: ["kader_rolle_taken"],
-  paths: { rolle: "changes.rolle" },
   examples: {
     "changes.first_name": COPY.shared.field.exampleFirstName,
     "changes.last_name": COPY.shared.field.exampleLastName,

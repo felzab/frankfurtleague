@@ -66,6 +66,17 @@ function everyBoxTyped(names: readonly string[], typed: Readonly<Record<string, 
   assert(untyped.length === 0, `the case types nothing into ${untyped.join(", ")}: give each a value`);
 }
 
+/** What a confirmation page carries beside its boxes: `kit/OneShot.tsx`'s act and token, and the page's labels. */
+const CARRIED = ["act", "token", "text_versions.scope", "text_versions.media"] as const;
+
+/** The carried values of a confirmation's main act, under the labels `versions` names. */
+const carriedBy = (versions: { readonly scope: string; readonly media: string }) => ({
+  act: "primary",
+  token: "link-token",
+  "text_versions.scope": versions.scope,
+  "text_versions.media": versions.media,
+});
+
 const ID = "64b000000000000000000002";
 const TEAM = "64a000000000000000000001";
 
@@ -235,7 +246,9 @@ describe("each form's posted names meet its lane's keys", () => {
     takes(["POST", "/schiedsrichter/confirmation", new Response(null, { status: 204 })]);
 
     // Done, the press leads on to the done page, which Next's redirect thrown past the action names.
-    await thrownRedirect(answerSchiedsrichter(formOf([...names, "media", "act", "token"], { ...typed, act: "primary", token: "link-token" })));
+    await thrownRedirect(
+      answerSchiedsrichter(formOf([...names, "media", ...CARRIED], { ...typed, ...carriedBy(SCHIEDSRICHTER_TEXT_VERSIONS) })),
+    );
 
     expect(requestsSent()).toStrictEqual([
       [
@@ -266,7 +279,7 @@ describe("each form's posted names meet its lane's keys", () => {
     takes(["POST", "/bewerbungen/confirmation", new Response(null, { status: 204 })]);
 
     // Done, the press leads on to the done page, which Next's redirect thrown past the action names.
-    await thrownRedirect(answerKontakt(formOf([...names, "media", "act", "token"], { ...typed, act: "primary", token: "link-token" })));
+    await thrownRedirect(answerKontakt(formOf([...names, "media", ...CARRIED], { ...typed, ...carriedBy(SEAT_TEXT_VERSIONS) })));
 
     expect(requestsSent()).toStrictEqual([
       [
@@ -274,6 +287,24 @@ describe("each form's posted names meet its lane's keys", () => {
         { answer: "given", token: "link-token", birth_date: "1985-09-12", whatsapp: true, media: true, text_versions: SEAT_TEXT_VERSIONS },
       ],
     ]);
+  });
+
+  /* The harm: a confirmation pressed on a page drawn before a rewording's deploy recorded under the labels of words the
+     person never saw, the record being the consent's only trace. */
+  it("sends nothing for a confirmation posting a label no longer current, answering it as a stale page", async () => {
+    const { answerKontakt } = await import("@/app/(classic)/confirm/kontakt/answerKontakt");
+    const { SEAT_TEXT_VERSIONS } = await import("@/core/consentWordings");
+    const { COPY } = await import("@/core/copy/shared");
+    const typed = { birth_date: "1985-09-12", whatsapp: "on", media: "on" };
+    await arriveAs(null);
+    takes(["POST", "/bewerbungen/confirmation", new Response(null, { status: 204 })]);
+
+    // The media label a page drawn under an earlier wording carries.
+    const replaced = { ...carriedBy(SEAT_TEXT_VERSIONS), "text_versions.media": "2025-01-media-0" };
+    const answer = await answerKontakt(formOf([...Object.keys(typed), ...CARRIED], { ...typed, ...replaced }));
+
+    expect(answer).toStrictEqual({ ok: false, reason: COPY.shared.failure.stale });
+    expect(requestsSent()).toStrictEqual([]);
   });
 
   // The application's boxes post dotted names `applicationOf` reads by string, its own parse seeing a nested body, and an
@@ -386,7 +417,7 @@ describe("each form's posted names meet its lane's keys", () => {
     });
 
     it("loses no key of an application's „Sitz bearbeiten“", async () => {
-      const { writeBewerbungSeat } = await import("@/app/admin/(list)/saisons/[saison]/bewerbungen/[bewerbung]/writeSeat");
+      const { writeBewerbungSeat } = await import("@/app/admin/(list)/saisons/[saison]/bewerbungen/[bewerbung]/seatActs");
       const posted = seatPosted("features/teams/SeatActs.tsx", "app/admin/(list)/saisons/[saison]/bewerbungen/[bewerbung]/page.tsx");
       takes(["POST", `/bewerbungen/${ID}/kontakte/trainer`, { email: "jana@example.org" }]);
 

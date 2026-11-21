@@ -4,8 +4,7 @@ import { redirect } from "next/navigation";
 
 import { z } from "zod";
 
-import { action, ticked } from "@/core/action";
-import { SCHIEDSRICHTER_TEXT_VERSIONS } from "@/core/consentWordings";
+import { action, ticked, withPostedLabels } from "@/core/action";
 import { refusedAs } from "@/core/errors";
 import { schiedsrichterPostConfirmation, schiedsrichterPostDecline } from "@/core/generated/client/sdk";
 import { SchiedsrichterPostConfirmationBody } from "@/core/generated/zod/inputs";
@@ -20,19 +19,24 @@ import type { EndState } from "@/kit/MailedPage";
 const { shape } = SchiedsrichterPostConfirmationBody;
 
 /**
- * What the two acts post, the one-shot form's `act` naming the one pressed: the main act the answer's fields, the
- * objection the token alone, whatever the fields hold, as an objection hands nothing over.
+ * What the two acts post, the one-shot form's `act` naming the one pressed: the main act the answer's fields and the
+ * labels of the wordings the page showed, the objection the token alone, whatever the fields hold, as an objection
+ * hands nothing over.
  */
-const Answer = z.discriminatedUnion("act", [
-  z.object({
-    act: z.literal("primary"),
-    token: shape.token,
-    birth_date: shape.birth_date,
-    scope: shape.scope,
-    media: ticked,
-  }),
-  z.object({ act: z.literal("secondary"), token: shape.token }),
-]);
+const Answer = z.preprocess(
+  withPostedLabels,
+  z.discriminatedUnion("act", [
+    z.object({
+      act: z.literal("primary"),
+      token: shape.token,
+      birth_date: shape.birth_date,
+      scope: shape.scope,
+      media: ticked,
+      text_versions: shape.text_versions,
+    }),
+    z.object({ act: z.literal("secondary"), token: shape.token }),
+  ]),
+);
 
 /** The refusals that say the link holds no more since the page opened: answered, lapsed or mistyped. */
 const SPENT: ReadonlySet<Code> = new Set<Code>(["link_invalid", "link_expired", "confirmation_exists"]);
@@ -53,15 +57,14 @@ export const answerSchiedsrichter = action({
   exempt: "mailedLink",
   // The age the write judges on its own day, which the box's range bounds before the send by the page's day: on its
   // box, from the range the refusal carries.
-  ownWords: ["confirmation_age"],
   boxes: ["birth_date"],
   run: async (answer): Promise<{ ok: true; value: EndState }> => {
     try {
       if (answer.act === "secondary") {
         await schiedsrichterPostDecline({ token: answer.token });
       } else {
-        const { token, birth_date: birthDate, scope, media } = answer;
-        await schiedsrichterPostConfirmation({ token, birth_date: birthDate, scope, media, text_versions: SCHIEDSRICHTER_TEXT_VERSIONS });
+        const { token, birth_date: birthDate, scope, media, text_versions } = answer;
+        await schiedsrichterPostConfirmation({ token, birth_date: birthDate, scope, media, text_versions });
       }
     } catch (error) {
       if (!refusedAs(error, SPENT)) throw error;

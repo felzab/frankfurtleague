@@ -52,7 +52,6 @@ export const readErasureCounts = action({
   lane: "admin",
   name: "readErasureCounts",
   input: IdentityPostErasureBody,
-  ownWords: ["own_address", "admin_address", "email_not_accepted"],
   boxes: ["email"],
   examples: { email: COPY.shared.field.exampleAddress },
   run: async ({ email, reason }) => {
@@ -87,12 +86,11 @@ export const eraseAddress = action({
   name: "eraseAddress",
   passkey: true,
   input: z.object({ ...IdentityPostErasureBody.shape, ...PAGE_HOLDER }),
-  ownWords: ["own_address", "admin_address", "foreign_address_change", "email_not_accepted"],
   boxes: ["email"],
   examples: { email: COPY.shared.field.exampleAddress },
   run: async ({ email, reason }) => {
     await identityPostErasure({ email, reason });
-    if (await accountCleared(email)) return { ok: true, value: undefined, note: COPY.shared.state.erased };
+    if (await accountCleared(email)) return { ok: true, value: undefined };
     return { ok: false, reason: WORDS.partial, warn: true };
   },
 });

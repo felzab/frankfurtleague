@@ -115,11 +115,10 @@ const monthsOf = (years: number) => formatNumber(12 * years);
  */
 export const SERVER_COPY = catalogue({
   /**
-   * A refusal's phrase under the field it is about, by the backend's code, for a code a person causes knowingly from
-   * a screen: one of `COPY.shared.field`'s patterns, and nothing else. A code whose phrase names a bound its refusal
-   * carries is worded from it by `ruleMessage` instead, and a code no pattern
-   * words takes `refusalLine`'s sentence; every other code answers one of the shared failure lines
-   * `COPY.shared.failure` holds.
+   * A refusal's phrase under the field it is about, by the backend's code, on every screen showing that field's box:
+   * one of `COPY.shared.field`'s patterns, and nothing else. A code whose phrase names a bound its refusal carries is
+   * worded from it by `ruleMessage` instead, and a code no pattern words takes `refusalLine`'s sentence; every other
+   * code answers one of the shared failure lines `COPY.shared.failure` holds.
    */
   refusal: {
     duplicate_key: COPY.shared.field.taken,
@@ -134,11 +133,11 @@ export const SERVER_COPY = catalogue({
   } satisfies Partial<Record<Code, string>>,
 
   /**
-   * A refusal's sentence on the status line, by the backend's code, for a code a person causes knowingly from a
-   * screen that no field pattern words: the write as a whole, or a field the sentence names itself. Where one code
-   * is about one of several fields, its sentence is keyed by the first name of the path the backend names, so it
-   * says which; a path it holds no sentence for is not this screen's to word. A sentence naming the bounds its
-   * refusal carries is a function of them, answering `undefined` where one it names is missing.
+   * A refusal's sentence on the status line, by the backend's code, on every screen whose write answers it, for a code
+   * no field pattern words: the write as a whole, or a field the sentence names itself. Where one code is about one of
+   * several fields, its sentence is keyed by the first name of the path the backend names, so it says which; a path it
+   * holds no sentence for reads the stale-page line. A sentence naming the bounds its refusal carries is a function of
+   * them, answering `undefined` where one it names is missing.
    */
   refusalLine: {
     saison_past: "Diese Saison ist abgeschlossen.",
@@ -207,13 +206,9 @@ export const SERVER_COPY = catalogue({
     aufstellung_nominee_without_shortage: ({ max }: FLRefusedField["ctx"]) =>
       typeof max === "number" ? `Nachnominierte füllen nur die Lücke bis ${formatNumber(max)}.` : undefined,
     aufstellung_spiel_undated: "Das Spiel hat noch keinen Termin.",
-    // A season's rules and its activation, each a fact the person reads off the season editor itself.
+    // A season's rules, a fact the person reads off the season editor itself. An act the read locks says its lock as its
+    // tooltip instead, so a press on a page read before the lock reads the stale-page line.
     rules_bracket_impossible: ADMIN_COPY.saison.bracketImpossible,
-    spielplan_gruppen_off_rules: ADMIN_COPY.saison.gruppenOffRules,
-    activate_target_undrawn: ADMIN_COPY.saison.noDraw,
-    activate_saison_unfinished: ADMIN_COPY.saison.unfinished,
-    activate_spieltage_undated: ADMIN_COPY.saison.undated,
-    create_saison_future_stands: ADMIN_COPY.saison.futureStands,
     eligibility_disqualified: DISQUALIFIED,
     eligibility_disqualified_team1_as_stored: DISQUALIFIED.team1,
     eligibility_disqualified_team2_as_stored: DISQUALIFIED.team2,
@@ -244,7 +239,7 @@ export const SERVER_COPY = catalogue({
 
   /**
    * The refusals of a dialog closed behind the passkey touch, whose toast says them where no box stands to carry a
-   * field's phrase: each names what was refused, by its box's label, as its lane's `boxless` declares it.
+   * field's phrase: each names what was refused as its box asks for it, as its lane's `boxless` declares it.
    */
   closedDialog: {
     /** A ban of an address the ban list already holds. */
@@ -821,7 +816,8 @@ export const SERVER_COPY = catalogue({
 
   /**
    * The areas under `/area` as a server page alone words them, beside `AREA_COPY`: the forbidden page, the landing of
-   * a person no entry admits to a page, a row's line, and the match report's page where no form stands.
+   * a person no entry admits to a page, a row's line, and the match report's and the line-up's pages where no form
+   * stands.
    */
   area: {
     forbidden: "Kein Zugang",
@@ -840,6 +836,13 @@ export const SERVER_COPY = catalogue({
       unbooked: "Nicht mehr eingeteilt",
       /** A finished season's fixture whose report was never written, which its form takes no more of. */
       unreported: "Kein Spielbericht eingetragen",
+    },
+    aufstellung: {
+      /**
+       * A dated match holding no hour, which takes no line-up until its kick-off is set: its day as the match's row
+       * names it (`COPY.spielplan.when`), and that the hour is still to settle, as „Termin offen“ says of a date.
+       */
+      timeOpen: (day: Copy) => `${day} · Uhrzeit offen`,
     },
   },
 

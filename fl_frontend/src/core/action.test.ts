@@ -413,7 +413,6 @@ describe("a refused field's box", () => {
       lane: "admin",
       name: "writeSeat",
       input: z.object({ id: z.string().min(1), email: z.email() }),
-      ownWords: ["kontakt_email_taken"],
       boxes: ["email"],
       run: async () => {
         const refused: FLRefusedField = { in: "body", kind: "kontakt_email_taken", ctx: {}, path: [refusedAt] };
@@ -425,6 +424,35 @@ describe("a refused field's box", () => {
 
   it("places the backend's refusal of a box the screen shows on that box", async () => {
     expect(await writeSeat("email")(SEAT)).toStrictEqual({ ok: false, errorCode: "kontakt_email_taken", fieldErrors: { email: field.taken } });
+  });
+});
+
+/* The harm: a refusal the catalogue words answered as a failure naming no reason on a screen that did not expect it,
+   or a refusal of the request answered as an outage, which sends the person to retry what the API refuses again. */
+describe("a refusal's line", () => {
+  const { stale, unexpected } = COPY.shared.failure;
+
+  /** A write showing no box, which the backend refuses with `answer`. */
+  const save = (answer: Response) =>
+    action({
+      lane: "admin",
+      name: "save",
+      input: z.object({ id: z.string().min(1) }),
+      run: async () => {
+        await sends("PUT", answer);
+        return { ok: true, value: undefined };
+      },
+    });
+
+  it.each([
+    ["a code the catalogue holds a sentence for", "saison_past", SERVER_COPY.refusalLine.saison_past],
+    ["a code no catalogue entry words", "retire_blocked", stale],
+    ["a code whose field phrase names no box here", "duplicate_key", stale],
+    ["a code whose sentence is the field's, naming none", "booking_unknown_resource", stale],
+    ["a code refusing nothing the request asked", "session_refused", unexpected],
+    ["the store's failure", "database_failed", unexpected],
+  ] as const)("answers %s in its line on any screen", async (_case, code, reason) => {
+    expect(await save(refusal(code))({ id: "6890a1b2c3d4e5f607190001" })).toStrictEqual({ ok: false, errorCode: code, reason });
   });
 });
 
@@ -443,7 +471,6 @@ describe("a list of records", () => {
       lane: "admin",
       name: "saveBericht",
       input: Report,
-      ownWords: ["nichtantreten_with_scorers"],
       paths,
       examples: { "changes.scorers.*.minute": field.exampleDigits },
       run: async () => {
@@ -510,7 +537,6 @@ describe("a screen showing no box with its answer", () => {
       lane: "admin",
       name: "enterBan",
       input: Ban,
-      ownWords: ["email_not_accepted"],
       boxless: {
         // The rule's sentence apart from the box's own, so the answer shows which of the two was read.
         email: { value: format.address, email_not_accepted: format.next },

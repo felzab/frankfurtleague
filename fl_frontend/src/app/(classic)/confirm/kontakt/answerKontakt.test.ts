@@ -25,7 +25,14 @@ const ledTo = async (press: Promise<unknown>) => (await thrownRedirect(press)).a
 describe("a contact person's answer", () => {
   // The harm: a ticked consent stored as refused, or an unticked one as given, nothing on the page saying so.
   it("confirms with the consents the boxes' ticks post, under the wordings the page showed", async () => {
-    const answer = { act: "primary", token: TOKEN, birth_date: "2000-01-01" };
+    // The labels the page carries beside its boxes.
+    const answer = {
+      act: "primary",
+      token: TOKEN,
+      birth_date: "2000-01-01",
+      "text_versions.scope": SEAT_TEXT_VERSIONS.scope,
+      "text_versions.media": SEAT_TEXT_VERSIONS.media,
+    };
 
     expect(await ledTo(answerKontakt(posted({ ...answer, whatsapp: "on" })))).toBe(DONE);
     expect(await ledTo(answerKontakt(posted({ ...answer, media: "on" })))).toBe(DONE);

@@ -660,8 +660,9 @@ the notice and the procedures in [`ops/runbooks.md`](ops/runbooks.md) stand as t
    consent to one's image under the KUG changes the notice's promise that a withdrawal takes what is
    published down from this site and the league's Instagram account.
 5. **A withdrawal from a page loaded before a wording changed is refused**, as a grant on Konto's
-   „Deine Einträge“ is, with the line that the page is out of date, until the page is loaded again:
-   whether that keeps Art. 7(3)'s "as easy to withdraw as to give".
+   „Deine Einträge“ and a confirmation through a mailed link are, with the line that the page is out
+   of date, until the page is loaded again: whether that keeps Art. 7(3)'s "as easy to withdraw as
+   to give".
 6. **One act per choice as the proof**: whether the latest act and the grant a withdrawal ended
    prove a consent. The log holds no act from before 2026-10-28 08:25 (Europe/Berlin), and a contact
    seat's early WhatsApp grant carries evidence a hand paste copied from its confirmation's log row.

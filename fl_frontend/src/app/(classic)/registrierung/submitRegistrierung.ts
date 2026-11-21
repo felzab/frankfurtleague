@@ -55,7 +55,6 @@ export const submitRegistrierung = action({
   botCheck: true,
   name: "submitRegistrierung",
   input: Registration,
-  ownWords: ["email_not_accepted"],
   boxes: ["email"],
   examples: { first_name: exampleFirstName, last_name: exampleLastName, nummer: exampleDigits },
   run: async ({ [IDEMPOTENCY_KEY_FIELD]: key, ...registration }) => {

@@ -5,7 +5,6 @@ import { z } from "zod";
 import { action, PAGE_HOLDER } from "@/core/action";
 import { accountStandsAt } from "@/core/auth/accounts";
 import { endSessionsOfAddress } from "@/core/auth/accountSessions";
-import { COPY } from "@/core/copy/shared";
 import { APIBadStatusError } from "@/core/errors";
 import { banListDeleteBanListEntry, banListPostBanListEntry } from "@/core/generated/client/sdk";
 import { BanListDeleteBanListEntryParams, BanListPostBanListEntryBody } from "@/core/generated/zod/inputs";
@@ -41,8 +40,6 @@ export const enterBan = action({
   passkey: true,
   name: "enterBan",
   input: BanForm,
-  ownWords: ["ban_list_admin", "ban_list_no_saison", "email_not_accepted"],
-  examples: { email: COPY.shared.field.exampleAddress },
   boxless: {
     email: { value: CLOSED.format.address, email_not_accepted: CLOSED.format.address },
     ban_reason: { required: CLOSED.reasonMissing },

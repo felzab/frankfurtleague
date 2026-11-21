@@ -4,8 +4,7 @@ import { redirect } from "next/navigation";
 
 import { z } from "zod";
 
-import { action, ticked } from "@/core/action";
-import { SPIELER_TEXT_VERSIONS } from "@/core/consentWordings";
+import { action, ticked, withPostedLabels } from "@/core/action";
 import { refusedAs } from "@/core/errors";
 import { registrierungenPostConfirmation } from "@/core/generated/client/sdk";
 import { RegistrierungenPostConfirmationBody } from "@/core/generated/zod/inputs";
@@ -19,13 +18,17 @@ import type { EndState } from "@/kit/MailedPage";
 
 const { shape } = RegistrierungenPostConfirmationBody;
 
-/** What the one act posts, under the payload's own names. */
-const Answer = z.object({
-  token: shape.token,
-  birth_date: shape.birth_date,
-  scope: shape.scope,
-  media: ticked,
-});
+/** What the one act posts, under the payload's own names, and the labels of the wordings the page showed. */
+const Answer = z.preprocess(
+  withPostedLabels,
+  z.object({
+    token: shape.token,
+    birth_date: shape.birth_date,
+    scope: shape.scope,
+    media: ticked,
+    text_versions: shape.text_versions,
+  }),
+);
 
 /** The refusals that say the link holds no more since the page opened: answered, lapsed or mistyped. */
 const SPENT: ReadonlySet<Code> = new Set<Code>(["link_invalid", "link_expired", "confirmation_exists"]);
@@ -46,11 +49,10 @@ export const answerRegistrierung = action({
   exempt: "mailedLink",
   // The age the write judges on its own day, which the box's range bounds before the send by the page's day: on its
   // box, from the range the refusal carries.
-  ownWords: ["confirmation_age"],
   boxes: ["birth_date"],
-  run: async ({ token, birth_date: birthDate, scope, media }): Promise<{ ok: true; value: EndState }> => {
+  run: async ({ token, birth_date: birthDate, scope, media, text_versions }): Promise<{ ok: true; value: EndState }> => {
     try {
-      await registrierungenPostConfirmation({ token, birth_date: birthDate, scope, media, text_versions: SPIELER_TEXT_VERSIONS });
+      await registrierungenPostConfirmation({ token, birth_date: birthDate, scope, media, text_versions });
     } catch (error) {
       if (!refusedAs(error, SPENT)) throw error;
       return { ok: true, value: LINK_INVALID };

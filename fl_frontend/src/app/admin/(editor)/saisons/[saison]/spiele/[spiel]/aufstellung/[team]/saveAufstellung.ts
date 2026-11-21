@@ -32,14 +32,6 @@ export const saveAufstellung = action({
   lane: "admin",
   name: "saveAdminAufstellung",
   input: SaveAufstellung,
-  ownWords: [
-    // The fixture lost its day or hour since the page was read, or a nominee stands beside eleven others, which the
-    // block marks on the nominee's row and leaves the person to take out.
-    "aufstellung_spiel_undated",
-    "aufstellung_nominee_without_shortage",
-    // The season finished since the page was read, whose line-ups the write refuses whole.
-    "saison_past",
-  ],
   run: async ({ team_id, id, version, changes }): Promise<ActionAnswer<number>> => {
     const stored = await getAufstellung(id, team_id);
     if (stored === null) return { ok: false, reason: COPY.shared.failure.stale };

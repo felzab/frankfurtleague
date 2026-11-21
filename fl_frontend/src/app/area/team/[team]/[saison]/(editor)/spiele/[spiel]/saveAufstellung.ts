@@ -35,13 +35,6 @@ export const saveAufstellung = action({
   claim: "record",
   name: "saveAufstellung",
   input: SaveAufstellung,
-  ownWords: [
-    // The page was open before the lock, the fixture lost its day or hour, or a nominee stands beside eleven others,
-    // which the block marks on the nominee's row and leaves the person to take out.
-    "aufstellung_locked",
-    "aufstellung_spiel_undated",
-    "aufstellung_nominee_without_shortage",
-  ],
   run: async ({ team_id, id, version, changes }): Promise<ActionAnswer<number>> => {
     const stored = await getAufstellungSelf(id, team_id);
     if (stored === null) return { ok: false, reason: COPY.shared.failure.stale };

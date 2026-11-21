@@ -26,7 +26,7 @@ import { COPY } from "./shared";
 
 import type { Copy, Wait, Words } from "../copy";
 import type { CalendarDay } from "../format";
-import type { FLAction, FLAddressChangeWaitsOn, FLWithdrawalChoice } from "../generated/client/types";
+import type { Code, FLAction, FLAddressChangeWaitsOn, FLWithdrawalChoice } from "../generated/client/types";
 
 const RETIREMENT = "Stilllegung";
 const CONFIRMATIONS = "Bestätigungen";
@@ -52,6 +52,8 @@ const SENT_ON = "Gesendet am";
 // A person's confirmation's day, as a player's fact labels it and a referee's Bestätigung states it.
 const CONFIRMED_ON = "Bestätigt am";
 const LOG_ENTRIES = "Einträge";
+// The planning window's one lock over the draw's regeneration and its removal, by whether the season is still planned.
+const PLANNING_WINDOW_SHUT = (planned: boolean) => (planned ? "Spiele sind schon bearbeitet" : "Gesperrt seit der Umstellung");
 
 /** The administration's own words, which no page outside it reads. */
 export const ADMIN_COPY = catalogue({
@@ -123,6 +125,12 @@ export const ADMIN_COPY = catalogue({
   retireConsequence: (subject: Copy, what: Copy) => `${subject} steht für neue ${what} nicht mehr zur Auswahl.`,
   reactivateConsequence: (subject: Copy) => `${subject} steht wieder zur Auswahl.`,
 
+  /**
+   * What waits on two clubs while one is still open, in the form the season editor's other waits take: the swap and
+   * the replacement until both their clubs are chosen, and a match's no-show until both its sides are known.
+   */
+  bothTeamsLocked: "Erst mit beiden Teams",
+
   schiedsrichter: {
     search: COPY.shared.search(COPY.page.adminSchiedsrichter),
     withArticle: "Die Person",
@@ -163,8 +171,6 @@ export const ADMIN_COPY = catalogue({
     dangerBox: (draw: boolean, activation: boolean) =>
       draw && activation ? "Neuanlage, Löschung und Umstellung" : draw ? "Neuanlage und Löschung" : "Umstellung",
 
-    /** What the Wertung's fields leave unsaid: how a no-show counts. */
-    scoringHelp: ["Ein Nichtantreten zählt als Spiel mit den eingetragenen Toren."],
     punkte: "Punkte",
     winPoints: "Sieg",
     drawPoints: "Unentschieden",
@@ -187,35 +193,15 @@ export const ADMIN_COPY = catalogue({
     bewerbungPaused: "Bewerbung pausiert",
 
     drawnOn: "Angelegt",
-    noDraw: "Noch kein Spielplan.",
-    /** The same, as the activation's tooltip. */
-    noDrawLocked: "Erst mit Spielplan",
-    /**
-     * Why the draw cannot run: a group holds more or fewer teams than the rules give each, or a club stands in a
-     * group the rules do not run. One repair reaches all three, entering the clubs as the rules say.
-     */
-    gruppenOffRules: "Die Gruppen passen nicht zu den Regeln.",
-    /** The same, as the draw's tooltip. */
-    gruppenOffRulesLocked: "Gruppen weichen von Regeln ab",
     recreateConsequence: "Alle Spieltage und Spiele werden gelöscht und neu angelegt.",
     deleteConsequence: "Alle Spieltage und Spiele werden gelöscht.",
 
     /** The replacement's two clubs: the one leaving the season, and the one taking over its row. */
     outgoing: "Ausscheidendes Team",
     incoming: "Nachrückendes Team",
-    /** Why the swap and the replacement cannot run yet: one of their two clubs is still to choose. */
-    bothTeamsLocked: "Erst mit beiden Teams",
     /** What the replacement does: the incoming club takes the outgoing one's group and every match of it. */
     replaceConsequence: (incoming: Words, outgoing: Words, gruppe: string) =>
       `${textOf(incoming)} übernimmt ${GRUPPE(gruppe)} und alle Spiele von ${textOf(outgoing)}.`,
-
-    /**
-     * Why the draw cannot be redrawn or removed now: reports stand, the season went live, or a match holds something
-     * entered since the draw beyond its date.
-     */
-    reportsHold: "Spielberichte liegen vor",
-    lockedSinceActivation: "Gesperrt seit der Umstellung",
-    entriesHold: "Spiele sind schon bearbeitet",
 
     /**
      * Each team's registration link as its row states it, by what the press would do with it; a sent one's day also on
@@ -237,16 +223,27 @@ export const ADMIN_COPY = catalogue({
     onto: (saison: string) => `Auf ${saisonNameBound(saison)}`,
     activateConsequence: (saison: string) => `Die Website zeigt ab sofort die ${saisonNameBound(saison)}.`,
     activateQuestion: "Die Website wechselt die Saison.",
-    /** Why the activation cannot run yet: the season the site shows owes results, or this one's matchdays owe dates. */
-    unfinished: "Die bisherige Saison hat noch Spiele ohne Ergebnis.",
-    undated: "Diese Saison hat noch Spieltage ohne Datum.",
-    /** The same two, as the activation's tooltip. */
-    unfinishedLocked: "Erst mit allen Ergebnissen",
-    undatedLocked: "Noch Spieltage ohne Datum",
-    /** Why the list's create cannot run: a planned season stands, and a league plans one season at a time. */
-    futureStands: "Eine Saison ist schon geplant.",
-    /** The same, as the create's tooltip. */
-    futureStandsLocked: "Eine Saison ist schon geplant",
+
+    /**
+     * Why a season's act is locked, as its tooltip says it, by the refusal its write would answer, which the read serves:
+     * the activation while the season holds no draw or an undated matchday, or the season the site shows owes results;
+     * the draw while a group holds more or fewer clubs than the rules give it, or a club stands in a group the rules do
+     * not run; its regeneration or removal once reports stand, or once the planning window shuts, by whether the
+     * season is still planned, a match of it holding something entered since the draw beyond its date, or went live;
+     * and the list's create while a planned season stands, a league planning one season at a time.
+     */
+    locks: {
+      activate_target_undrawn: "Erst mit Spielplan",
+      activate_spieltage_undated: "Noch Spieltage ohne Datum",
+      activate_saison_unfinished: "Erst mit allen Ergebnissen",
+      spielplan_berichte_submitted: "Spielberichte liegen vor",
+      spielplan_gruppen_off_rules: "Gruppen weichen von Regeln ab",
+      spielplan_replace_outside_its_window: PLANNING_WINDOW_SHUT,
+      spielplan_undraw_outside_its_window: PLANNING_WINDOW_SHUT,
+      create_saison_future_stands: "Eine Saison ist schon geplant",
+    } satisfies Partial<Record<Code, string | ((planned: boolean) => string)>>,
+    /** A season's act locked by a refusal `locks` holds no phrase for, which only a page older than the API meets. */
+    lockedOtherwise: "Zurzeit gesperrt",
   },
 
   spiel: {
@@ -256,8 +253,6 @@ export const ADMIN_COPY = catalogue({
     note: "Notiz",
     nichtantretenTeam1: "Nichtantreten Team 1",
     nichtantretenTeam2: "Nichtantreten Team 2",
-    /** Why a no-show cannot be picked while a side is open. */
-    needsBothSides: "Nur mit beiden Teams",
     /** Where the write moved other matches too, by their numbers. */
     alsoChanged: (spiele: readonly number[]) => `Auch Spiel ${formatList(spiele.map(formatNumber))} geändert`,
 
@@ -340,8 +335,8 @@ export const ADMIN_COPY = catalogue({
     dangerBox: (austritt: boolean, retirement: boolean) =>
       austritt && retirement ? `Austritt und ${RETIREMENT}` : austritt ? "Austritt" : RETIREMENT,
     austrittAct: "Austritt eintragen",
-    /** What the exit does, as `austrittLine` says it under the date. */
-    austrittRowLine: "Offene Anfragen enden, Aufstellungen trägt die Liga ein.",
+    /** What the exit row is for; what the exit ends, `austrittLine` says under the dialog's date. */
+    austrittRowLine: "Das Team scheidet aus der Saison aus.",
     austrittReasonDescription: "Steht ohne Namen auf der Website",
     /**
      * Under the exit's date: the write calls no fixture off, so the line says only what it ends, the club's requests,

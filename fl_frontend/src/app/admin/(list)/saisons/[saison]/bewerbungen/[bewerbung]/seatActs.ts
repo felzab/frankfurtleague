@@ -37,7 +37,6 @@ export const writeBewerbungSeat = action({
     version: numberBox(shape.version),
     ...PAGE_HOLDER,
   }),
-  ownWords: ["kontakt_email_taken", "kontakt_phone_taken", "email_not_accepted", "saison_past"],
   boxless: {
     first_name: { required: CLOSED.firstNameMissing, value: CLOSED.format.firstName },
     last_name: { required: CLOSED.lastNameMissing, value: CLOSED.format.lastName },
@@ -59,7 +58,6 @@ export const sendBewerbungSeatLink = action({
   lane: "admin",
   name: "sendBewerbungSeatLink",
   input: BewerbungenResendKontaktConfirmationParams,
-  ownWords: ["saison_past"],
   run: async ({ bewerbung_id: id, seat }) => {
     await bewerbungenResendKontaktConfirmation(id, seat);
     return { ok: true, value: undefined };

@@ -25,8 +25,17 @@ const DONE = ROUTES.schiedsrichterConfirmationDone.path();
 /** Where a press led, Next's redirect thrown past the action naming the done page. */
 const ledTo = async (press: Promise<unknown>) => (await thrownRedirect(press)).address;
 
+/** The confirmation's press, with the labels the page carries beside its boxes. */
 const confirmation = (media?: "on") =>
-  posted({ act: "primary", token: TOKEN, birth_date: "2000-01-01", scope: "internal", ...(media === undefined ? {} : { media }) });
+  posted({
+    act: "primary",
+    token: TOKEN,
+    birth_date: "2000-01-01",
+    scope: "internal",
+    "text_versions.scope": SCHIEDSRICHTER_TEXT_VERSIONS.scope,
+    "text_versions.media": SCHIEDSRICHTER_TEXT_VERSIONS.media,
+    ...(media === undefined ? {} : { media }),
+  });
 
 describe("the referee's answer", () => {
   // The harm: a ticked media consent stored as refused, or an unticked one as given, nothing on the page saying so.

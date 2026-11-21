@@ -5,7 +5,6 @@ import { z } from "zod";
 import { action, PAGE_HOLDER } from "@/core/action";
 import { deletePasskeysAt } from "@/core/auth/passkeys";
 import { ADMIN_COPY } from "@/core/copy/admin";
-import { COPY } from "@/core/copy/shared";
 import { grantsDeleteGrant, grantsDeleteHandover, grantsPostGrant, grantsPostHandover } from "@/core/generated/client/sdk";
 import { logger } from "@/core/logging";
 import { SERVER_COPY } from "@/core/serverCopy";
@@ -27,8 +26,6 @@ export const addAdministrator = action({
   name: "addAdministrator",
   passkey: true,
   input: NewGrant,
-  ownWords: ["grant_exists", "grant_barred", "email_not_accepted"],
-  examples: { email: COPY.shared.field.exampleAddress },
   // The dialog has closed before any answer, which its toast says: every refusal is a sentence, never a box's phrase.
   boxless: { email: { value: ADDRESS_FORMAT, email_not_accepted: ADDRESS_FORMAT } },
   run: async ({ email }) => {
@@ -72,7 +69,6 @@ export const startHandover = action({
   name: "startHandover",
   passkey: true,
   input: HandoverChoice,
-  ownWords: ["grant_barred"],
   // Its one choice is the page's own list, so nothing a person picks is refused on it, and its dialog has closed.
   boxless: {},
   run: async ({ grant_id }) => {

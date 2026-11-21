@@ -12,7 +12,6 @@ export const discardChange = action({
   passkey: true,
   name: "discardChange",
   input: z.object({ id: AddressChangeDeleteAddressChangeParams.shape.address_change_id, ...PAGE_HOLDER }),
-  ownWords: ["own_address", "admin_address"],
   run: async ({ id }) => {
     await addressChangeDeleteAddressChange(id);
     return { ok: true, value: undefined };

@@ -136,7 +136,7 @@ describe("the erasure's two stores", () => {
   it("deletes the account after the records, and says so", async () => {
     await accountAtTheErasedAddress();
 
-    expect(await press()).toStrictEqual({ ok: true, value: undefined, note: COPY.shared.state.erased });
+    expect(await press()).toStrictEqual({ ok: true, value: undefined });
     expect(backend.sent.map(({ method, path }) => `${method} ${path}`)).toStrictEqual(["POST /identity/erasure"]);
     // The account stood while the records went, and is gone once the press answers.
     expect(held.accountAtTheErasure).toBe(true);

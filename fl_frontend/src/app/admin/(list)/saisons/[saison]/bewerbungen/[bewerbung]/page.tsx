@@ -21,7 +21,7 @@ import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
 
 import { AcceptDialog, DeclineDialog } from "./DecisionDialogs";
-import { sendBewerbungSeatLink, writeBewerbungSeat } from "./writeSeat";
+import { sendBewerbungSeatLink, writeBewerbungSeat } from "./seatActs";
 
 import type { Copy, Words } from "@/core/copy";
 import type { FLBewerbung, FLBewerbungSchule, FLBewerbungSingleResponse } from "@/core/generated/client/types";

@@ -42,7 +42,6 @@ export const saveSpielort = action({
   lane: "admin",
   name: "saveSpielort",
   input: SaveSpielort,
-  ownWords: ["duplicate_key"],
   examples: {
     "changes.postcode": COPY.shared.address.postcodeExample,
     "changes.house_number": COPY.shared.address.houseNumberExample,

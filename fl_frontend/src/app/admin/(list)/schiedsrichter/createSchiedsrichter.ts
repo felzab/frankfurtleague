@@ -33,7 +33,6 @@ export const createSchiedsrichter = action({
   lane: "admin",
   name: "createSchiedsrichter",
   input: SchiedsrichterForm,
-  ownWords: ["duplicate_key", "email_not_accepted"],
   boxes: ["name"],
   paths: { "kontakt.email": "email" },
   examples: { name: COPY.shared.field.exampleName, phone: COPY.shared.field.examplePhone },
