@@ -1283,7 +1283,7 @@ export const getOutboxPostResultUrl = () => {
  *
  * `held` reports a deployment that sends no mail, `abandon` a refusal every send would meet (any 4xx but a 429), and
  * `retry` a 429, a 5xx or a send that never reached the provider, which hands the mail back unless it is a sign-in
- * mail or past its deadline.
+ * code, a deletion link or past its deadline.
  * @summary Settle one mail a claim handed out
  */
 export const outboxPostResult = async (

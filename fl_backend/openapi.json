@@ -18613,7 +18613,7 @@
     },
     "/api/outbox/result": {
       "post": {
-        "description": "Settle the named mail by its send's outcome where the named claim still holds it, counting a mail it does not hold in `ignored`.\n\n`held` reports a deployment that sends no mail, `abandon` a refusal every send would meet (any 4xx but a 429), and\n`retry` a 429, a 5xx or a send that never reached the provider, which hands the mail back unless it is a sign-in\nmail or past its deadline.",
+        "description": "Settle the named mail by its send's outcome where the named claim still holds it, counting a mail it does not hold in `ignored`.\n\n`held` reports a deployment that sends no mail, `abandon` a refusal every send would meet (any 4xx but a 429), and\n`retry` a 429, a 5xx or a send that never reached the provider, which hands the mail back unless it is a sign-in\ncode, a deletion link or past its deadline.",
         "operationId": "outbox_post_result",
         "requestBody": {
           "content": {

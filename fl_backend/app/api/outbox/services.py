@@ -53,8 +53,12 @@ type FLOutboxRetentionDays = Literal[30]
 RETENTION_DAYS: Final[FLOutboxRetentionDays] = 30
 RETENTION: Final = timedelta(days=RETENTION_DAYS)
 
-# The sign-in library's kinds, each tried once: its own repair of a failed code is a fresh one.
+# The sign-in library's kinds, each tied to the sign-in it was asked from.
 SIGN_IN_KINDS: Final[frozenset[FLOutboxKind]] = frozenset({"sign_in_code", "passkey_added", "passkey_erased", "account_erasure"})
+
+# The kinds tried once: a failed code or deletion link is repaired by asking for a fresh one. A passkey notice is not
+# among them, since its holder never learns one was owed, so nothing would ask again.
+TRIED_ONCE_KINDS: Final[frozenset[FLOutboxKind]] = frozenset({"sign_in_code", "account_erasure"})
 
 # The kinds an erasure leaves in place: the deletion link, which asks for that erasure, and whatever tells the person of it.
 ERASURE_SPARED_KINDS: Final[frozenset[FLOutboxKind]] = frozenset({"account_erasure", "deletion_notice"})
