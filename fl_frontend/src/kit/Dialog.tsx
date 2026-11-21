@@ -23,14 +23,11 @@ import { answering, statusOf, useFormAction } from "./useFormAction";
 import { useOpenUntilHidden } from "./useOpenUntilHidden";
 import { usePasskeyTouch } from "./usePasskeyTouch";
 
-import type { ActionAnswer } from "@/core/action";
 import type { Copy } from "@/core/copy";
 import type { ReactElement, ReactNode } from "react";
 import type { Tone, Trigger } from "./ConfirmDialog";
 import type { DialogAct, DialogDanger } from "./dialogAct";
 import type { HeldOpen } from "./useOpenUntilHidden";
-
-const DONE: ActionAnswer<unknown> = { ok: true, value: undefined };
 
 /**
  * A route dialog's title, in the dialog's title slot, which names the dialog; `className` is its look. A server template
@@ -149,8 +146,7 @@ function DangerRow({ danger, isClosed, onDone }: { danger: DialogDanger; isClose
       <ConfirmDialog
         question={question}
         onConfirm={async () => {
-          // An act answering nothing is done, as the question reads it.
-          const answered = (await onConfirm()) ?? DONE;
+          const answered = await onConfirm();
           // An update after the `await` commits outside the question's transition unless it opens one of its own.
           if (answered.ok) startTransition(onDone);
           return answered;
