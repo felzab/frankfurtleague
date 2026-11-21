@@ -114,7 +114,7 @@ turn:
 
 - the retention sweep over the seasons
   (`fl_frontend/src/features/saisons/sweep.ts :: runSaisonSweep`);
-- the address changes (`fl_frontend/src/features/address-change/sweep.ts :: sweepAddressChange`);
+- the address changes (`fl_frontend/src/features/address-change/sweep.ts :: runAddressChangeSweep`);
 - the referee entries' lapse
   (`fl_frontend/src/features/schiedsrichter/sweep.ts :: runSchiedsrichterSweep`);
 - the account sweep, which also deletes the passkeys of every address holding no grant, save one

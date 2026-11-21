@@ -1077,7 +1077,7 @@ hold, as [section 5](#5-when-somebody-asks-for-their-data-or-asks-us-to-change-i
 lost mailbox's.
 
 **Two promises rest on the address changes' pass**
-(`fl_frontend/src/features/address-change/sweep.ts :: sweepAddressChange`): the privacy notice's
+(`fl_frontend/src/features/address-change/sweep.ts :: runAddressChangeSweep`): the privacy notice's
 word that a change whose step lapsed ends „innerhalb einer Stunde“, and the word, in the notice and
 in both mails the change sends (`fl_frontend/src/core/addressChangeEmail.ts`), that a change an
 administrator started takes effect its waiting time after its confirmation. While no pass runs
