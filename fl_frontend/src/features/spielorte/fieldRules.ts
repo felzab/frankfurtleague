@@ -46,8 +46,7 @@ const addressRequiredOf = ({ shape }: Body): AddressRules["required"] => {
   };
 };
 
-/** The create's rules. */
-export const SPIELORT_RULES: SpielortRules = {
+export const SPIELORT_CREATE_RULES: SpielortRules = {
   required: requiredOf(SpielortePostSpielortBody),
   max: { name: spielortePostSpielortBodyNameMax },
   address: {

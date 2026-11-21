@@ -18,7 +18,7 @@ import { saveSpiel } from "@/features/spiele/saveSpiel";
 import { NOBODY, takesNoResult, valuesOf } from "@/features/spiele/spielValues";
 import { spielerName } from "@/features/spieler/constants";
 import { createSpielort } from "@/features/spielorte/createSpielort";
-import { SPIELORT_RULES } from "@/features/spielorte/fieldRules";
+import { SPIELORT_CREATE_RULES } from "@/features/spielorte/fieldRules";
 import { AGREED_CHIP, DECLINED_CHIP, EXPIRED_CHIP, owedChip } from "@/kit/stateChips";
 import { adminIdParamOf } from "@/shared/utils/adminRead";
 import { pageMetadata } from "@/shared/utils/metadata";
@@ -390,7 +390,7 @@ export default async function SpielEditorPage({ params }: Props) {
       answers={answerRows(view, closed)}
       aufstellungen={aufstellungRows(view, closed)}
       createSpielort={createSpielort}
-      spielortRules={SPIELORT_RULES}
+      spielortRules={SPIELORT_CREATE_RULES}
       {...(closed ? { closed: SERVER_COPY.refusalLine.saison_past } : {})}
       // A planned season's match page answers not found to the public, so the strip offers none.
       {...(view.saison_status === "future" ? {} : { spielPage: ROUTES.spiel.path(saved.saison_id, saved.id) })}

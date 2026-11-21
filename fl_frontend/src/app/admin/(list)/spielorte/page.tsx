@@ -3,7 +3,7 @@ import { COPY } from "@/core/copy/shared";
 import { formatEuro } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { createSpielort } from "@/features/spielorte/createSpielort";
-import { SPIELORT_RULES } from "@/features/spielorte/fieldRules";
+import { SPIELORT_CREATE_RULES } from "@/features/spielorte/fieldRules";
 import { getSpielorte } from "@/features/spielorte/queries";
 import { SpielortFields } from "@/features/spielorte/SpielortFields";
 import { ListPage } from "@/kit/ListPage";
@@ -38,7 +38,7 @@ export default function SpielortePage() {
         title: COPY.shared.withObject(WORDS.object, "create"),
         act: { verb: "create", object: WORDS.object },
         run: createSpielort,
-        children: <SpielortFields rules={SPIELORT_RULES} />,
+        children: <SpielortFields rules={SPIELORT_CREATE_RULES} />,
       }}
       list={{ kind: "table", search: { label: WORDS.search }, head: HEAD, content: readSpielorte() }}
     />

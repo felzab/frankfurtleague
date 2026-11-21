@@ -116,8 +116,8 @@ describe("each form's posted names meet its lane's keys", () => {
   it("loses no box of the venue create dialog", async () => {
     const { createSpielort } = await import("@/features/spielorte/createSpielort");
     const { SpielortFields } = await import("@/features/spielorte/SpielortFields");
-    const { SPIELORT_RULES } = await import("@/features/spielorte/fieldRules");
-    const names = namesIn(<SpielortFields rules={SPIELORT_RULES} />);
+    const { SPIELORT_CREATE_RULES } = await import("@/features/spielorte/fieldRules");
+    const names = namesIn(<SpielortFields rules={SPIELORT_CREATE_RULES} />);
     const typed = {
       name: "Sporthalle Nord",
       street: "Hauptstraße",

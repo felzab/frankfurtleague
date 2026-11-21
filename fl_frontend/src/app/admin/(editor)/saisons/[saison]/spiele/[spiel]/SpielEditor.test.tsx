@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { ADMIN_COPY } from "@/core/copy/admin";
 import { COPY } from "@/core/copy/shared";
-import { SPIELORT_RULES } from "@/features/spielorte/fieldRules";
+import { SPIELORT_CREATE_RULES } from "@/features/spielorte/fieldRules";
 import { renderUnderNext } from "@/test-support/nextContexts";
 
 import { SpielEditor } from "./SpielEditor";
@@ -86,7 +86,7 @@ function Editor({
       answers={[]}
       aufstellungen={[]}
       createSpielort={async (): Promise<ActionAnswer> => ({ ok: true, value: undefined })}
-      spielortRules={SPIELORT_RULES}
+      spielortRules={SPIELORT_CREATE_RULES}
       {...(closed === undefined ? {} : { closed })}
     />
   );
