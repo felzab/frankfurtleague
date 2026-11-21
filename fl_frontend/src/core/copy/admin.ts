@@ -195,16 +195,6 @@ export const ADMIN_COPY = catalogue({
     bewerbungPaused: "Bewerbung pausiert",
 
     drawnOn: "Angelegt",
-    noDraw: "Noch kein Spielplan.",
-    /** The same, as the activation's tooltip. */
-    noDrawLocked: "Erst mit Spielplan",
-    /**
-     * Why the draw cannot run: a group holds more or fewer teams than the rules give each, or a club stands in a
-     * group the rules do not run. One repair reaches all three, entering the clubs as the rules say.
-     */
-    gruppenOffRules: "Die Gruppen passen nicht zu den Regeln.",
-    /** The same, as the draw's tooltip. */
-    gruppenOffRulesLocked: "Gruppen weichen von Regeln ab",
     recreateConsequence: "Alle Spieltage und Spiele werden gelöscht und neu angelegt.",
     deleteConsequence: "Alle Spieltage und Spiele werden gelöscht.",
 
@@ -216,14 +206,6 @@ export const ADMIN_COPY = catalogue({
     /** What the replacement does: the incoming club takes the outgoing one's group and every match of it. */
     replaceConsequence: (incoming: Words, outgoing: Words, gruppe: string) =>
       `${textOf(incoming)} übernimmt ${GRUPPE(gruppe)} und alle Spiele von ${textOf(outgoing)}.`,
-
-    /**
-     * Why the draw cannot be redrawn or removed now: reports stand, the season went live, or a match holds something
-     * entered since the draw beyond its date.
-     */
-    reportsHold: "Spielberichte liegen vor",
-    lockedSinceActivation: "Gesperrt seit der Umstellung",
-    entriesHold: "Spiele sind schon bearbeitet",
 
     /**
      * Each team's registration link as its row states it, by what the press would do with it; a sent one's day also on
@@ -245,22 +227,14 @@ export const ADMIN_COPY = catalogue({
     onto: (saison: string) => `Auf ${saisonNameBound(saison)}`,
     activateConsequence: (saison: string) => `Die Website zeigt ab sofort die ${saisonNameBound(saison)}.`,
     activateQuestion: "Die Website wechselt die Saison.",
-    /** Why the activation cannot run yet: the season the site shows owes results, or this one's matchdays owe dates. */
-    unfinished: "Die bisherige Saison hat noch Spiele ohne Ergebnis.",
-    undated: "Diese Saison hat noch Spieltage ohne Datum.",
-    /** The same two, as the activation's tooltip. */
-    unfinishedLocked: "Erst mit allen Ergebnissen",
-    undatedLocked: "Noch Spieltage ohne Datum",
-    /** Why the list's create cannot run: a planned season stands, and a league plans one season at a time. */
-    futureStands: "Eine Saison ist schon geplant.",
-    /** The same, as the create's tooltip. */
-    futureStandsLocked: "Eine Saison ist schon geplant",
 
     /**
      * Why a season's act is locked, as its tooltip says it, by the refusal its write would answer, which the read serves:
-     * the activation's three waits, the draw's and its regeneration's or removal's, and the list's create. The planning
-     * window's two codes by whether the season is still planned, a match of it holding something entered since the draw,
-     * or went live.
+     * the activation while the season holds no draw or an undated matchday, or the season the site shows owes results;
+     * the draw while a group holds more or fewer clubs than the rules give it, or a club stands in a group the rules do
+     * not run; its regeneration or removal once reports stand, or once the planning window shuts, by whether the
+     * season is still planned, a match of it holding something entered since the draw beyond its date, or went live;
+     * and the list's create while a planned season stands, a league planning one season at a time.
      */
     locks: {
       activate_target_undrawn: "Erst mit Spielplan",

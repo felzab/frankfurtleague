@@ -1,6 +1,7 @@
 import { ADMIN_COPY } from "@/core/copy/admin";
 import { COPY } from "@/core/copy/shared";
 import { dayOf, formatDate, formatNumber } from "@/core/format";
+import { ownKeyOf } from "@/core/ownKeyOf";
 import { ROUTES } from "@/core/routes";
 import { SAISON_CREATE_RULES } from "@/features/saisons/fieldRules";
 import { nextSaisonOf } from "@/features/saisons/nextSaison";
@@ -54,11 +55,13 @@ export default function SaisonsPage() {
 }
 
 /**
- * Why the create cannot run now, by the refusal the read serves for it: never a rule of the page's own. A code no line
- * here words means a page older than the API, which the stale line says.
+ * Why the create cannot run now, by the refusal the read serves for it: never a rule of the page's own. A code the
+ * table holds no phrase for means a page older than the API, and so does a planning window's, which locks a draw.
  */
 function lockedOf(code: Code): Copy {
-  return code === "create_saison_future_stands" ? WORDS.futureStandsLocked : COPY.shared.failure.stale;
+  if (!ownKeyOf(WORDS.locks, code)) return WORDS.lockedOtherwise;
+  const lock = WORDS.locks[code];
+  return typeof lock === "function" ? WORDS.lockedOtherwise : lock;
 }
 
 /**

@@ -4,6 +4,7 @@ import { getAdminHolder } from "@/core/auth/guards";
 import { ADMIN_COPY } from "@/core/copy/admin";
 import { COPY } from "@/core/copy/shared";
 import { dayOf, formatDate } from "@/core/format";
+import { ownKeyOf } from "@/core/ownKeyOf";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { SAISON_SAVE_RULES } from "@/features/saisons/fieldRules";
@@ -50,29 +51,14 @@ export async function generateMetadata({ params }: Props, parent: ResolvingMetad
 
 /**
  * Why a danger act cannot run now, by the refusal its write would answer, which the read serves: never a rule of the
- * page's own. A code no line here words means a page older than the API, which the stale line says.
+ * page's own. The planning window's codes say which way it closed by the season's status, a planned season's matches
+ * holding an entry or the season gone live. A code the table holds no phrase for means a page older than the API.
  */
 function lockedOf(code: Code | null, status: FLSaisonStatus): Copy | undefined {
-  switch (code) {
-    case null:
-      return undefined;
-    case "activate_target_undrawn":
-      return WORDS.noDrawLocked;
-    case "activate_spieltage_undated":
-      return WORDS.undatedLocked;
-    case "activate_saison_unfinished":
-      return WORDS.unfinishedLocked;
-    case "spielplan_berichte_submitted":
-      return WORDS.reportsHold;
-    case "spielplan_gruppen_off_rules":
-      return WORDS.gruppenOffRulesLocked;
-    // One code for both ways the planning window closes: the season went live, or a match of it holds an entry.
-    case "spielplan_replace_outside_its_window":
-    case "spielplan_undraw_outside_its_window":
-      return status === "future" ? WORDS.entriesHold : WORDS.lockedSinceActivation;
-    default:
-      return COPY.shared.failure.stale;
-  }
+  if (code === null) return undefined;
+  if (!ownKeyOf(WORDS.locks, code)) return WORDS.lockedOtherwise;
+  const lock = WORDS.locks[code];
+  return typeof lock === "function" ? lock(status === "future") : lock;
 }
 
 /**

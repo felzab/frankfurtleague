@@ -206,13 +206,9 @@ export const SERVER_COPY = catalogue({
     aufstellung_nominee_without_shortage: ({ max }: FLRefusedField["ctx"]) =>
       typeof max === "number" ? `Nachnominierte füllen nur die Lücke bis ${formatNumber(max)}.` : undefined,
     aufstellung_spiel_undated: "Das Spiel hat noch keinen Termin.",
-    // A season's rules and its activation, each a fact the person reads off the season editor itself.
+    // A season's rules, a fact the person reads off the season editor itself. An act the read locks says its lock as its
+    // tooltip instead, so a press on a page read before the lock reads the stale-page line.
     rules_bracket_impossible: ADMIN_COPY.saison.bracketImpossible,
-    spielplan_gruppen_off_rules: ADMIN_COPY.saison.gruppenOffRules,
-    activate_target_undrawn: ADMIN_COPY.saison.noDraw,
-    activate_saison_unfinished: ADMIN_COPY.saison.unfinished,
-    activate_spieltage_undated: ADMIN_COPY.saison.undated,
-    create_saison_future_stands: ADMIN_COPY.saison.futureStands,
     eligibility_disqualified: DISQUALIFIED,
     eligibility_disqualified_team1_as_stored: DISQUALIFIED.team1,
     eligibility_disqualified_team2_as_stored: DISQUALIFIED.team2,
