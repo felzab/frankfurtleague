@@ -20,8 +20,8 @@ const refusedWith = (reason: Copy): ActionAnswer<never> => ({ ok: false, reason 
  * the touch, whose session the action's lane admits for `PASSKEY_TOUCH_SECONDS` alone (the lane's `passkey` slot), and
  * the prompt comes from the press itself, the user activation Safari asks of WebAuthn, which an effect has not.
  *
- * Mounted with the page rather than with a dialog, so the client's chunk is here before the press. `held` is whether the
- * page is an administrator's, which the page read; a person is asked nothing, as the lane admits them. It
+ * Mounted with the page rather than with a dialog, so the client's chunk is here before the press. `asked` is whether
+ * the page is an administrator's, which the page read; a person is asked nothing, as the lane admits them. It
  * answers the wrapper an act's own press runs: the wrapped act answers as the act does, or, where the passkey did not
  * answer, with the refusal, the act never having run, which the caller shows as any refusal: a box or a one-shot form
  * on its line, with what the person typed, and a dialog in its toast, its inputs typed anew; a sheet the person closed
@@ -35,8 +35,8 @@ const refusedWith = (reason: Copy): ActionAnswer<never> => ({ ok: false, reason 
  * identity check is asked with no modal standing: a React Aria modal makes every element outside it inert, a password
  * manager's prompt drawn while it stands included, which then takes no press and no Escape.
  */
-export function usePasskeyTouch(held: boolean, holder: string | undefined) {
-  usePreloadedAuthClient(held);
+export function usePasskeyTouch(asked: boolean, holder: string | undefined) {
+  usePreloadedAuthClient(asked);
 
   const touch = async (): Promise<ActionAnswer<never> | null> => {
     try {
@@ -57,7 +57,7 @@ export function usePasskeyTouch(held: boolean, holder: string | undefined) {
   };
 
   return <Payload, Value>(act: (payload: Payload) => Promise<ActionAnswer<Value>>) => {
-    if (!held) return act;
+    if (!asked) return act;
     return async (payload: Payload): Promise<ActionAnswer<Value>> => (await touch()) ?? act(payload);
   };
 }
