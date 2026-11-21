@@ -484,7 +484,6 @@ async def resend_kontakt_confirmation(
     bewerbung_id: CustomObjectId,
     seat: str,
     bewerbungen_collection: BewerbungenCollection,
-    teams_collection: TeamsCollection,
     saisons_collection: SaisonsCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
@@ -531,7 +530,7 @@ async def resend_kontakt_confirmation(
         bewerbung_raw = await pull_one_from_db(
             collection=bewerbungen_collection,
             db_filter=db_filter,
-            projection=["status", "kontakte", "confirmations", "saison_id", "schule", "team_id"],
+            projection=["status", "kontakte", "confirmations", "saison_id"],
             session=session,
         )
         seats = seats_judged_on(bewerbung_raw)
@@ -562,7 +561,6 @@ async def resend_kontakt_confirmation(
                     kontakte=bewerbung_raw["kontakte"],
                     seats=seats,
                     saison_id=str(bewerbung_raw["saison_id"]),
-                    schule=await pull_schule_name(bewerbung_raw=bewerbung_raw, teams_collection=teams_collection, session=session),
                     deadline=confirmation_deadline,
                     key=outbox_key(bewerbung_id, "resend", seats[0], nonce),
                 )
@@ -664,7 +662,6 @@ async def post_kontakt_seat(
                     kontakte=after["kontakte"],
                     seats=seats,
                     saison_id=str(bewerbung_raw["saison_id"]),
-                    schule=schule,
                     deadline=confirmation_deadline,
                     key=outbox_key(bewerbung_id, "seat", seats[0], nonce),
                 )

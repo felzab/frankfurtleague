@@ -733,7 +733,7 @@ def compose_confirmation_update(
 def saison_schule(row: Mapping[str, Any]) -> str:
     """What the season row's confirmation page fills `{schule}` with: the name the club carries that season.
 
-    An application's page, its mails and the account page fill it with `schule_name`.
+    An application's page fills it with `schule_name`.
     """
 
     return str(row.get("name") or "")
@@ -1264,7 +1264,6 @@ def owed_link(
     kontakte: Mapping[str, Any],
     seats: Sequence[FLKontaktSeat],
     saison_id: str,
-    schule: str,
     deadline: str,
     key: str,
     kind: Literal["bewerbung_confirmation", "bewerbung_reminder"] = "bewerbung_confirmation",
@@ -1274,14 +1273,14 @@ def owed_link(
     return OwedMail(
         key=key,
         to=str(kontakte[seats[0]]["email"]),
-        data=FLBewerbungLinkData(kind=kind, saison_id=saison_id, schule=schule, seats=list(seats), deadline=deadline),
+        data=FLBewerbungLinkData(kind=kind, saison_id=saison_id, seats=list(seats), deadline=deadline),
         reference=bewerbung_reference(bewerbung_id, seats),
         link=bewerbung_link(seats, replaced=kind != "bewerbung_reminder"),
     )
 
 
 def owed_at_submission(
-    *, bewerbung_id: Any, kontakte: Mapping[str, Any], saison_id: str, schule: str, deadline: str, unmailed: Container[str]
+    *, bewerbung_id: Any, kontakte: Mapping[str, Any], saison_id: str, deadline: str, unmailed: Container[str]
 ) -> list[OwedMail]:
     """Every person's first mail: the Ansprechperson the receipt naming who is still to answer, each other person their link.
 
@@ -1297,7 +1296,6 @@ def owed_at_submission(
                     kontakte=kontakte,
                     seats=seats,
                     saison_id=saison_id,
-                    schule=schule,
                     deadline=deadline,
                     key=outbox_key(bewerbung_id, "confirmation", seats[0]),
                 )

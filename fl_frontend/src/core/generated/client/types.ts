@@ -300,7 +300,6 @@ export interface FLAccountBewerbungSeatEinwilligung {
   /** @minItems 1 */
   persons: FLAccountSeatPerson[];
   saison_id: string;
-  schule: string;
   scope: FLKontaktKenntnisnahmeScope;
   /** @minItems 1 */
   seats: FLKontaktSeat[];
@@ -1767,7 +1766,6 @@ export interface FLBewerbungLinkData {
   deadline: string;
   kind: FLBewerbungLinkDataKind;
   saison_id: string;
-  schule: string;
   /** @minItems 1 */
   seats: FLKontaktSeat[];
 }
@@ -2703,7 +2701,6 @@ export interface FLLandingRunning {
 export interface FLLandingResponse {
   bewerbung_opens_on: string | null;
   bewerbung_window: FLBewerbungWindow | null;
-  bewerbung_window_held: boolean;
   counts: FLLandingCounts;
   saison: FLLandingBeforeStart | FLLandingRunning | FLLandingDecided | null;
 }

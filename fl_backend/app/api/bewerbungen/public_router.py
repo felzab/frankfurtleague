@@ -60,7 +60,6 @@ from app.api.bewerbungen.services import (
     saison_link_pair,
     saison_schule,
     saison_state_of,
-    schule_name,
     seat_deadline_of,
     seat_holding,
     seat_opens_nobody,
@@ -230,9 +229,9 @@ async def post_bewerbung(
 
         # A picked club alone: a new school has nothing stored to judge. `find_one`, not `pull_one_from_db`: a club the
         # picker never offered is refused with `bewerbung_picked_team_unusable` rather than answering the 404 a miss would raise.
-        schule, team_raw = bewerbung_data.schule, None
+        schule = bewerbung_data.schule
         if schule is None:
-            team_raw = await teams_collection.find_one({"_id": bewerbung_data.team_id}, {"inactive_since": 1, "name": 1}, session=session)
+            team_raw = await teams_collection.find_one({"_id": bewerbung_data.team_id}, {"inactive_since": 1}, session=session)
             refuse(find_picked_team_refusal(team_raw=team_raw))
 
             entered = await saison_teams_collection.count_documents(
@@ -289,11 +288,6 @@ async def post_bewerbung(
                 bewerbung_id=created.inserted_id,
                 kontakte=stored_kontakte,
                 saison_id=bewerbung_data.saison_id,
-                # The school as the mails name it: proposed, or the picked club as the league holds it, never as the
-                # body spells it.
-                schule=schule_name(
-                    bewerbung_raw=document, team_names={} if team_raw is None else {team_raw["_id"]: str(team_raw.get("name") or "")}
-                ),
                 deadline=confirmation_deadline,
                 unmailed=unmailed,
             ),

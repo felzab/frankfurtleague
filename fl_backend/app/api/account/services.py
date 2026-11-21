@@ -18,7 +18,7 @@ from pymongo import AsyncMongoClient
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
-from app.api.bewerbungen.services import build_own_bewerbung_filter, pull_schule_name, schule_name
+from app.api.bewerbungen.services import build_own_bewerbung_filter, pull_schule_name
 from app.api.identity.schemas import FLEinwilligungWithdrawalReport, FLSubjectSeat
 from app.api.identity.services import holds_a_seat, is_own_registrierung, own_seats
 from app.api.kontakte.services import rows_seating
@@ -544,7 +544,7 @@ async def _record(withdrawal: _Withdrawal, *, collection: AsyncCollection, teams
 
 
 def context_teams_lookup(local_field: str) -> Mapping[str, Any]:
-    """The clubs a record's `local_field` names, read today as `teams`: the name a registration's and an application's entry shows."""
+    """The clubs a record's `local_field` names, read today as `teams`: the name a registration's entry shows."""
 
     return {
         "$lookup": {
@@ -741,33 +741,25 @@ def build_self_bewerbung_pipeline(identifier: str) -> list[Mapping[str, Any]]:
         {
             "$project": {
                 "saison_id": 1,
-                "team_id": 1,
-                "schule.team_name": 1,
                 **{f"kontakte.{seat}.{field}": 1 for seat in KONTAKT_SEATS for field in ("email", "einwilligung", *_SEAT_PERSON_FIELDS)},
             }
         },
         {"$sort": {"saison_id": -1, "_id": 1}},
-        context_teams_lookup("team_id"),
     ]
 
 
-def compose_bewerbung_seats_self(
-    rows: Sequence[Mapping[str, Any]], identifier: str, *, teams: Mapping[Any, Mapping[str, Any]]
-) -> list[dict[str, Any]]:
+def compose_bewerbung_seats_self(rows: Sequence[Mapping[str, Any]], identifier: str) -> list[dict[str, Any]]:
     """One entry per pending application on which this address holds a confirmed seat, as `compose_seats_self` answers a row."""
 
-    team_names = {team_id: str(team.get("name") or "") for team_id, team in teams.items()}
     entries = []
     for row in rows:
         seats = own_seats(row, identifier)
         if not seats:
             continue
         held = [row["kontakte"][seat] for seat in seats]
-        schule = schule_name(bewerbung_raw=row, team_names=team_names)
         entries.append(
             {
                 "bewerbung_id": row["_id"],
-                "schule": schule,
                 "saison_id": row["saison_id"],
                 "seats": seats,
                 "persons": _seat_persons(row, seats),

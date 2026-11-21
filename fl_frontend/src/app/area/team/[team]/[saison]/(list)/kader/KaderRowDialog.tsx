@@ -26,6 +26,7 @@ export function KaderRowDialog({
   saison,
   allowedStufen,
   takenRollen,
+  nummerMax,
   open,
 }: {
   row: FLKaderRow;
@@ -34,6 +35,8 @@ export function KaderRowDialog({
   allowedStufen: readonly FLSpielerStufe[];
   /** Each role another live row of the squad holds, the row's own not among them. */
   takenRollen: readonly FLSpielerRolle[];
+  /** The longest shirt number the save takes, read off its schema on the server. */
+  nummerMax: number;
   open: HeldOpen;
 }) {
   const name = kaderName(row);
@@ -63,7 +66,7 @@ export function KaderRowDialog({
         name="nummer"
         holds={5}
         kind="digits"
-        maxLength={4}
+        maxLength={nummerMax}
         defaultValue={row.nummer ?? ""}
       />
       <Select

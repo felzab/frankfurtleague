@@ -45,6 +45,7 @@ function drawn() {
         read={{ allowed_stufen: ["Q1", "Q2"], kader: KADER }}
         team={TEAM}
         saison={SAISON}
+        nummerMax={4}
       />
     </ListQueryScope>,
   );

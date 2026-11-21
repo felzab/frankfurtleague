@@ -93,12 +93,9 @@ async function heroOf(read: Promise<FLLandingResponse>): Promise<LandingContent>
   };
 }
 
-/**
- * The band under the steps, with the application window's state, an upcoming or a paused one in the words of the form's
- * page, and its own sentence where no season not yet ended holds a window.
- */
+/** The band under the steps: the application window's state, in the form's page's words wherever none is open today. */
 async function bandOf(read: Promise<FLLandingResponse>): ComponentProps<typeof Steps>["band"] {
-  const { bewerbung_window: window, bewerbung_opens_on: opensOn, bewerbung_window_held: held } = await read;
+  const { bewerbung_window: window, bewerbung_opens_on: opensOn } = await read;
   if (window !== null) {
     return {
       open: true,
@@ -107,7 +104,7 @@ async function bandOf(read: Promise<FLLandingResponse>): ComponentProps<typeof S
     };
   }
   if (opensOn !== null) return { open: false, sentence: FORM_END.opensOn(dayOf(opensOn)), act: ABOUT };
-  return { open: false, sentence: held ? FORM_END.closed : words.join.closed, act: ABOUT };
+  return { open: false, sentence: FORM_END.closed, act: ABOUT };
 }
 
 /** The league's figures, once a season is read by the public. */

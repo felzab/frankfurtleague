@@ -2,7 +2,7 @@ from typing import Annotated, Literal
 
 from pydantic import AfterValidator, BaseModel, Field
 
-from app.api.spieler.schemas import KADER_NUMMER_PATTERN, FLEinwilligung
+from app.api.spieler.schemas import KADER_NUMMER_MAX_LENGTH, KADER_NUMMER_PATTERN, FLEinwilligung
 from app.shared.schemas.confirmation import CustomToken, FLConfirmation
 from app.shared.schemas.custom import (
     CustomDateString,
@@ -122,7 +122,7 @@ class FLPostRegistrierungPayload(BasePayload):
     # pupil's and not a default nobody chose.
     position: FLSpielerPosition | None
     # Tightened on the write side alone.
-    nummer: str | None = Field(pattern=KADER_NUMMER_PATTERN)
+    nummer: str | None = Field(pattern=KADER_NUMMER_PATTERN, max_length=KADER_NUMMER_MAX_LENGTH)
     stufe: FLSpielerStufe | None
 
 

@@ -64,7 +64,10 @@ export function SpielerEditor({
   kader: readonly Fact[];
   einwilligung: readonly Fact[];
   /** What the save asks of each box, read on the server. */
-  rules: { required: { first_name: boolean; last_name: boolean; birth_date: boolean }; max: { first_name: number; last_name: number } };
+  rules: {
+    required: { first_name: boolean; last_name: boolean; birth_date: boolean };
+    max: { first_name: number; last_name: number; nummer: number };
+  };
   /** The position's and the level's choices, each opening on the empty box. */
   positions: readonly Option[];
   stufen: readonly Option[];
@@ -161,7 +164,7 @@ export function SpielerEditor({
                 name="nummer"
                 holds={5}
                 kind="digits"
-                maxLength={4}
+                maxLength={max.nummer}
                 isLocked={ended}
                 value={draft.nummer}
                 onChange={(nummer) => set("nummer", nummer)}

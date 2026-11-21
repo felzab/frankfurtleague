@@ -59,7 +59,20 @@ const EMPTY = {
  * One dialog for every row, mounted closed while the squad holds a live row, so a press opens it by its state as a held
  * dialog asks; it keeps the row last pressed, which it shows while it closes.
  */
-export function KaderTable({ head, read, team, saison }: { head: TableHead; read: FLKaderResponse; team: string; saison: string }) {
+export function KaderTable({
+  head,
+  read,
+  team,
+  saison,
+  nummerMax,
+}: {
+  head: TableHead;
+  read: FLKaderResponse;
+  team: string;
+  saison: string;
+  /** The longest shirt number the row's save takes, read off its schema on the server. */
+  nummerMax: number;
+}) {
   const [chosen, setChosen] = useState<string | null>(null);
   const [isOpen, setOpen] = useState(false);
   const live = read.kader.filter((row) => row.inactive_since === null);
@@ -87,6 +100,7 @@ export function KaderTable({ head, read, team, saison }: { head: TableHead; read
           saison={saison}
           allowedStufen={read.allowed_stufen}
           takenRollen={live.flatMap((other) => (other.spieler_id === row.spieler_id || other.rolle === null ? [] : [other.rolle]))}
+          nummerMax={nummerMax}
           open={{ isOpen, onOpenChange: setOpen }}
         />
       )}

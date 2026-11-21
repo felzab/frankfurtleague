@@ -350,10 +350,6 @@
             "title": "Saison Id",
             "type": "string"
           },
-          "schule": {
-            "title": "Schule",
-            "type": "string"
-          },
           "scope": {
             "$ref": "#/components/schemas/FLKontaktKenntnisnahmeScope"
           },
@@ -368,7 +364,6 @@
         },
         "required": [
           "bewerbung_id",
-          "schule",
           "saison_id",
           "seats",
           "persons",
@@ -3712,10 +3707,6 @@
             "title": "Saison Id",
             "type": "string"
           },
-          "schule": {
-            "title": "Schule",
-            "type": "string"
-          },
           "seats": {
             "items": {
               "$ref": "#/components/schemas/FLKontaktSeat"
@@ -3728,7 +3719,6 @@
         "required": [
           "kind",
           "saison_id",
-          "schule",
           "seats",
           "deadline"
         ],
@@ -6021,10 +6011,6 @@
               }
             ]
           },
-          "bewerbung_window_held": {
-            "title": "Bewerbung Window Held",
-            "type": "boolean"
-          },
           "counts": {
             "$ref": "#/components/schemas/FLLandingCounts"
           },
@@ -6062,7 +6048,6 @@
           "saison",
           "bewerbung_window",
           "bewerbung_opens_on",
-          "bewerbung_window_held",
           "counts"
         ],
         "title": "FLLandingResponse",
@@ -7342,6 +7327,7 @@
           "nummer": {
             "anyOf": [
               {
+                "maxLength": 4,
                 "pattern": "^[0-9]{1,4}$",
                 "type": "string"
               },
@@ -7780,6 +7766,7 @@
           "nummer": {
             "anyOf": [
               {
+                "maxLength": 4,
                 "pattern": "^[0-9]{1,4}$",
                 "type": "string"
               },
@@ -8130,6 +8117,7 @@
           "nummer": {
             "anyOf": [
               {
+                "maxLength": 4,
                 "pattern": "^[0-9]{1,4}$",
                 "type": "string"
               },

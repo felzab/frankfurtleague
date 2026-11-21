@@ -12,10 +12,10 @@ import type { FLSpielerStufe } from "@/core/generated/client/types";
 const WORDS = PUBLIC_COPY.registrierung;
 const KADER = COPY.kader;
 
-/** What the write asks of the three typed boxes. */
+/** What the write asks of the typed boxes. */
 export type RegistrierungRules = {
   required: { firstName: boolean; lastName: boolean; email: boolean };
-  max: { firstName: number; lastName: number; email: number };
+  max: { firstName: number; lastName: number; email: number; nummer: number };
 };
 
 /**
@@ -73,7 +73,7 @@ export function RegistrierungFields({
           name="nummer"
           holds={5}
           kind="digits"
-          maxLength={4}
+          maxLength={max.nummer}
         />
         <Select
           label={KADER.position}
