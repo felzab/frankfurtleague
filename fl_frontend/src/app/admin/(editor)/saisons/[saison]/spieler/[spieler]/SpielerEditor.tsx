@@ -32,8 +32,8 @@ type Act = (input: { id: string; saison: string }) => Promise<ActionAnswer>;
  * The Spieler editor: the person's own facts and their squad row, saved together from the editor's bar; what the person
  * agreed to, which only they change; and the danger box taking the row out of the squad, or bringing an ausgetragen
  * one back. The team stands as a fact, since no player moves between teams, and so does the address, which only an
- * address change moves. Once the season has finished, its squad row and the danger box's act stand locked, as the save
- * refuses them, and the person's own facts stay open.
+ * address change moves. Once the season has finished, its squad row stands locked and the danger box is left out, as
+ * the writes refuse both, the lock line saying why, and the person's own facts stay open.
  */
 export function SpielerEditor({
   title,
@@ -80,8 +80,7 @@ export function SpielerEditor({
   const { draft, set } = editor;
   const { required, max } = rules;
   const press = (act: Act) => () => act({ id: record.id, saison });
-  // The season's end before the act's own reason: no later change of the squad reopens a finished season's row.
-  const locked = ended ? ADMIN_COPY.sinceEnd : danger.kind === "reactivate" ? danger.locked : undefined;
+  const locked = danger.kind === "reactivate" ? danger.locked : undefined;
 
   const dangerAct: DangerAct =
     danger.kind === "reactivate"
@@ -117,7 +116,8 @@ export function SpielerEditor({
       chip={chip}
       editor={editor}
       locks={ended ? ["sinceEnd"] : []}
-      danger={{ title: WORDS.kaderEntry, acts: [dangerAct] }}
+      // A finished season's row takes neither act again, so the box is left out rather than drawn locked.
+      danger={ended ? undefined : { title: WORDS.kaderEntry, acts: [dangerAct] }}
       sections={[
         {
           id: "person",
