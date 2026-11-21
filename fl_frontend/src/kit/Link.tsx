@@ -60,7 +60,7 @@ export const frameLink = tv({
     // Under the pointer a link of words takes an underline and its full colour, the one in full white already too, so
     // every link of the band and the strip answers the pointer; the rail's foot is an entry, filled as the rail's are.
     tone: {
-      // On the band: the page the visitor is on, and „Konto“, in full white.
+      // On the band: the page the visitor is on, in full white.
       band: `text-on-brand ${hoverLook({ host: "link", answer: "underline" })}`,
       // On the band, every other page: the white dimmed until the pointer is over it.
       bandMuted: `text-on-brand/75 ${hoverLook({ host: "link", answer: "bandUnderline" })}`,
