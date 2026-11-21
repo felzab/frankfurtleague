@@ -135,9 +135,10 @@ type Confirming = {
    * which answers it on its own line, so the question closes and says nothing.
    */
   onConfirm: () => void | Promise<void> | Promise<ActionAnswer<unknown>>;
-  /** The holder says a done act itself, in words of its own, so the question's toast carries a refusal alone. */
-  doneShown?: true;
 };
+
+/** The done act's toast where its answer brings no note: the holder's own word, in place of its verb's done word. */
+type OwnWord = { done?: Copy };
 
 /** The address the page was drawn for, the one account a passkey touch may answer for (`usePasskeyTouch`). */
 type Holder = { holder: string };
@@ -152,7 +153,7 @@ type Touch = { touch?: Holder };
 /** A question as the part asking it is handed it, before that part opens it its own way: its words and its act. */
 export type ConfirmQuestion = ConfirmWords & Confirming & Touch;
 
-type ConfirmDialogProps<T extends Tone> = Confirming & Touch & Opening<T>;
+type ConfirmDialogProps<T extends Tone> = Confirming & OwnWord & Touch & Opening<T>;
 
 /**
  * The question before an act that cannot be undone: the act and its record, one short sentence of consequence over
@@ -161,8 +162,8 @@ type ConfirmDialogProps<T extends Tone> = Confirming & Touch & Opening<T>;
  * A refusal stands until the next press or until the dialog closes; the line is empty while the act runs, the last
  * refusal being none to the press still running. A refusal marked `warn` is an act that partly happened: its line reads in the warn
  * tone, and its button stays, since a second press finishes what the first left. A done act closes the question, which
- * leaves nothing in it to read, and says itself in a toast: the answer's note, or its verb's done word
- * (`COPY.shared.toast.done`).
+ * leaves nothing in it to read, and says itself in a toast: the answer's note, else the holder's own word (`done`),
+ * else its verb's done word (`COPY.shared.toast.done`).
  *
  * An act behind the passkey touch is asked as an identity check is, with no modal standing (`Touch`): React Aria's modal
  * makes the rest of the page inert, and a password manager draws its prompt in the page. The final press closes the
@@ -191,9 +192,9 @@ export function ConfirmDialog<T extends Tone>(props: ConfirmDialogProps<T>) {
   );
 
   const confirm = (verb: DoneVerb) => {
-    const done = COPY.shared.toast.done[verb];
-    // A done act the holder says itself, or was handed, raises no toast of the question's.
-    const toasts = (answer: ActionAnswer<unknown>) => answer !== HANDED && (!answer.ok || props.doneShown !== true);
+    const done = props.done ?? COPY.shared.toast.done[verb];
+    // An act handed to the control that asked raises no toast of the question's: that control answers it.
+    const toasts = (answer: ActionAnswer<unknown>) => answer !== HANDED;
     if (touch !== undefined) {
       // Closed in the press, outside its transition, whose updates wait for the whole act: the close is a press's update,
       // which React commits with its effects, React Aria's lifting of the modal's `inert` among them, in a microtask queued

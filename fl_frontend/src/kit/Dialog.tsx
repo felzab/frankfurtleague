@@ -138,7 +138,7 @@ const dialogDangerPart = tv({
  * refusal and stays open with it; a done act closes it and, through `onDone`, the dialog.
  */
 function DangerRow({ danger, isClosed, onDone }: { danger: DialogDanger; isClosed: boolean; onDone: () => void }) {
-  const { onConfirm, doneShown, ...question } = danger.confirm;
+  const { onConfirm, ...question } = danger.confirm;
   return (
     <div className={dialogDangerPart()}>
       <div className="grid min-w-0 flex-1 text-sm">
@@ -148,7 +148,6 @@ function DangerRow({ danger, isClosed, onDone }: { danger: DialogDanger; isClose
       {/* Its button says the verb alone, as an editor's danger row's does, so the part's name says what it acts on. */}
       <ConfirmDialog
         question={question}
-        {...(doneShown === undefined ? {} : { doneShown })}
         onConfirm={async () => {
           // An act answering nothing is done, as the question reads it.
           const answered = (await onConfirm()) ?? DONE;

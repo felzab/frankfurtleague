@@ -68,15 +68,23 @@ export type AccountAct = {
     }
 );
 
-/**
- * The act on the box's fields and what it carries, a done one saying itself in a toast: the note its answer brings, or
- * the act's `done`, and nothing where neither stands, the box's own content saying what changed.
- */
-function runOf({ run, carry, done }: Pick<AccountAct, "run" | "carry" | "done">): Run {
+/** The act on the box's fields and what it carries. */
+function carried({ run, carry }: Pick<AccountAct, "run" | "carry">): Run {
   return async (formData) => {
     for (const [name, value] of Object.entries(carry ?? {})) formData.set(name, value);
+    return run(formData);
+  };
+}
+
+/**
+ * The act the box's own press runs, a done one saying itself in a toast: the note its answer brings, or the act's
+ * `done`, and nothing where neither stands, the box's own content saying what changed.
+ */
+function runOf(act: Pick<AccountAct, "run" | "carry" | "done">): Run {
+  const run = carried(act);
+  return async (formData) => {
     const answered = await run(formData);
-    const title = answered.ok ? (answered.note ?? done) : undefined;
+    const title = answered.ok ? (answered.note ?? act.done) : undefined;
     if (title !== undefined) toastAnswer(answered, title);
     return answered;
   };
@@ -85,10 +93,9 @@ function runOf({ run, carry, done }: Pick<AccountAct, "run" | "carry" | "done">)
 /** The box's own press, its line a refusal's alone: a done act says itself in its toast, if anywhere. */
 function useAct(act: AccountAct) {
   const touched = usePasskeyTouch(act.touch === true, act.carry?.holder);
-  const run = runOf(act);
-  const { answer, submit, block, isBlocked, isPending } = useFormAction(touched(run), { resetOnLeave: true });
+  const { answer, submit, block, isBlocked, isPending } = useFormAction(touched(runOf(act)), { resetOnLeave: true });
   const status = answer?.ok === true ? null : statusOf(answer, isBlocked, isPending);
-  return { run, send: submit, block, status, answer, isBusy: isPending };
+  return { send: submit, block, status, answer, isBusy: isPending };
 }
 
 const box = tv({
@@ -148,13 +155,13 @@ function ActBox({ act, words, danger, children }: { act: AccountAct; words: Reac
   const slots = box();
   // The footer's own hairline parts a box with nothing under its head from the footer.
   const held = boxHead({ ruled: children !== undefined });
-  const { run, send, block, status, answer, isBusy } = useAct(act);
+  const { send, block, status, answer, isBusy } = useAct(act);
   const form = useRef<HTMLFormElement>(null);
   const locked = useLocked(act.locked);
 
-  // A question's act runs inside the question, which shows its refusal and words a throw; done, it says itself in the
-  // box's toast, as the box's own press does.
-  const confirmed = () => run(new FormData(form.current ?? undefined));
+  // A question's act runs inside the question, which shows its refusal, words a throw and raises the one toast of a
+  // done act: its note, else the box's word.
+  const confirmed = () => carried(act)(new FormData(form.current ?? undefined));
 
   return (
     <section className={slots.root(danger ? { class: dangerEdge() } : {})}>
@@ -186,7 +193,7 @@ function ActBox({ act, words, danger, children }: { act: AccountAct; words: Reac
             <ConfirmDialog
               question={act.button.confirm}
               onConfirm={confirmed}
-              doneShown
+              done={act.done}
               trigger={{ label: COPY.shared.withObject(act.button.confirm.subject, act.button.confirm.verb), isBusy, locked }}
             />
           )}
