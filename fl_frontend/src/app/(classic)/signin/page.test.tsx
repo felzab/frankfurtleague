@@ -42,6 +42,8 @@ describe("the sign-in page", () => {
   it.each([
     ["no return address", {}],
     ["a return address outside the administration", { [RETURN_PARAMETER]: "/area" }],
+    // Under the administration's prefix, yet a page no sign-in returns to: the allowlist decides, not the prefix.
+    ["a return address the allowlist refuses", { [RETURN_PARAMETER]: "/admin/x.y" }],
   ])("offers the code alone for %s", async (_, search) => {
     expect(actsOf(await drawn(search))).toStrictEqual({ buttons: [WORDS.sendCode], or: false });
   });
