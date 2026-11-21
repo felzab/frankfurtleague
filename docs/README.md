@@ -38,7 +38,6 @@ What is still open on the product, the toolchain and the documentation is a
 repository depends on it: deleting it leaves every check, CI job and build passing. Outside it, only
 these name it:
 
-- `fl_frontend/next.config.ts`'s `agentRules` setting
 - the `.claude/` entries of `.prettierignore`
 - the worktree pattern in `fl_frontend/package.json`'s `format` and `format:check` scripts
 - the root `README.md`'s tree line and its section "Who builds it"
