@@ -36,6 +36,6 @@ describe("a standing's rank column", () => {
       .getAllByRole("row")
       .slice(1)
       .map((row) => row.firstElementChild?.textContent);
-    expect(ranks).toStrictEqual(["1", "1", "3", "–"]);
+    expect(ranks).toStrictEqual(["1.", "1.", "3.", "–"]);
   });
 });

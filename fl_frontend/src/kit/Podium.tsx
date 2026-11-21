@@ -1,6 +1,6 @@
 import { textOf } from "@/core/copy";
 import { COPY } from "@/core/copy/shared";
-import { formatNumber } from "@/core/format";
+import { formatOrdinal } from "@/core/format";
 import { SERVER_COPY } from "@/core/serverCopy";
 
 import { TeamPlaque } from "./TeamPlaque";
@@ -96,7 +96,7 @@ export function Podium({ places }: { places: readonly [Place, Place, Place, Plac
               <span
                 aria-hidden
                 className={look.step()}>
-                {formatNumber(platz)}
+                {formatOrdinal(platz)}
               </span>
             </li>
           );
