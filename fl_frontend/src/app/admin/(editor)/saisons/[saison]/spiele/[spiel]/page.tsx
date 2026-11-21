@@ -223,8 +223,9 @@ function answerRow(id: string, name: Words, plaque: string | null, row: FLSpielb
 }
 
 /**
- * The league's acts on a party's newest row, as the Übersicht offers them: „Übernehmen“ and „Verwerfen“ on a club's
- * standing proposal, and „Zusage eintragen“ where the write takes the party's agreement, a lapsed row's included.
+ * The league's acts on a party's newest row, the Übersicht's own, offered wherever the write takes them, while the
+ * Übersicht lists an owed answer only once it is due that day or overdue: „Übernehmen“ and „Verwerfen“ on a club's
+ * standing proposal, and „Zusage eintragen“ on every row whose party's agreement the write takes, in time or lapsed.
  */
 function actsOf(row: FLSpielbestaetigungEditorRow | undefined, name: Words, slot: Slot): ReactElement | undefined {
   if (row === undefined) return undefined;
