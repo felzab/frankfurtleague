@@ -299,24 +299,28 @@ export type Account = {
   address: RecordText;
   /**
    * Every Funktion the person holds, by the page each opens on; two or more open „Funktion wechseln“, one being no
-   * choice to offer. The menu marks the one the page lies under, so a reader of the person marks none. A place's own
-   * `role` is the row's second line on every page under it, as a team's short code and the seats held there: the
+   * choice to offer. The menu marks the one the page lies under, so a reader of the person marks none. A place of
+   * several parts, as a team held in two seasons, lies under each part's address instead, and each part's `line` is
+   * the row's second line on every page under it, as the team's short code and the seats held in that season: the
    * area's line cannot name the team, which the address alone knows.
    */
-  roles?: ReadonlyArray<Omit<MenuLink, "isCurrent"> & { role?: Copy }>;
+  roles?: ReadonlyArray<Omit<MenuLink, "isCurrent"> & { parts?: ReadonlyArray<{ href: Route; line: Copy }> }>;
 };
 
 /**
- * The place of the person's the page at `path` lies under, read from the address: a team's layout stands above the
- * team and the season of its address, so it names neither.
+ * The place of the person's the page at `path` lies under, and the part of it, read from the address: a team's layout
+ * stands above the team and the season of its address, so it names neither.
  */
 function placeAt(account: Account, path: string) {
-  const places = account.roles ?? [];
+  const parts = (account.roles ?? []).flatMap((place) => {
+    const own: ReadonlyArray<{ href: Route; line?: Copy }> = place.parts ?? [{ href: place.href }];
+    return own.map((part) => ({ place, ...part }));
+  });
   const href = currentOf(
     path,
-    places.map((place) => place.href),
+    parts.map((part) => part.href),
   );
-  return places.find((place) => place.href === href);
+  return parts.find((part) => part.href === href);
 }
 
 /**
@@ -352,7 +356,7 @@ function AccountMenu({
 }) {
   const here = placeAt(account, usePathname());
   const ask = useAskToLeave();
-  const roles = (account.roles ?? []).map((place) => ({ ...place, isCurrent: place.href === here?.href }));
+  const roles = (account.roles ?? []).map((place) => ({ ...place, isCurrent: place.href === here?.place.href }));
   const switchRole: ReadonlyArray<ReadonlyArray<MenuEntry>> =
     roles.length < 2 ? [] : [[{ kind: "submenu", label: COPY.shared.switchRole, links: roles }]];
   // Over unsaved changes the frame's question comes first, while the session still stands: a person who stays keeps
@@ -527,7 +531,7 @@ export function AccountRow({ account: read }: { account: AccountRead }) {
   const account = use(read);
   if (account === null) return null;
   const { record: name } = account.name ?? account.address;
-  const role = placeAt(account, path)?.role ?? account.role;
+  const role = placeAt(account, path)?.line ?? account.role;
   return (
     <AccountMenu
       account={account}

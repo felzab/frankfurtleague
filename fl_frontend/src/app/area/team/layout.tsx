@@ -3,6 +3,7 @@ import { rolesOf } from "@/core/roles";
 import { ROUTES } from "@/core/routes";
 import { getSubjectSession } from "@/core/subject";
 import { readAccount } from "@/features/account/account";
+import { standardSaisonOf } from "@/features/roles/utils";
 import { GuardedRailFrame } from "@/kit/GuardedRailFrame";
 
 import type { TeamSeat } from "@/features/roles/resolvers";
@@ -50,14 +51,14 @@ async function readTeams(): Teams {
     const newerFirst = (one: TeamSeat, other: TeamSeat) => other.saison_id.localeCompare(one.saison_id);
     // One seat a season: a person holding two seats on one row holds one season there.
     const seasons = [...new Map(held.map((seat) => [seat.saison_id, seat])).values()].sort(newerFirst);
-    const newest = held.reduce((best, seat) => (newerFirst(best, seat) > 0 ? seat : best));
     return {
       team,
       entries: seasons.map((seat) => ({
         id: seat.saison_id,
         span: formatPeriod(dayOf(seat.saison_start_date), dayOf(seat.saison_end_date)),
       })),
-      standard: (held.find((seat) => seat.saison_status === "active") ?? newest).saison_id,
+      // The season the person's place of the team opens on, so the landing and the button agree.
+      standard: standardSaisonOf(held),
     };
   });
 }
