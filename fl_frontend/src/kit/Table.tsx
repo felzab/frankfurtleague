@@ -8,6 +8,7 @@ import { cardHover, cardSurface, columnHead, nameWithChips, rowHeight, stacked }
 import { Chip } from "./Chip";
 import { CutRow, CutText } from "./CutText";
 import { EmptyState } from "./EmptyState";
+import { FocusOnLeave } from "./FocusOnLeave";
 import { Link } from "./Link";
 import { RolleMark } from "./RolleMark";
 import { RowEnd } from "./RowEnd";
@@ -614,7 +615,15 @@ function NameCell({
   const name = textOf(row.name);
   const address = isAddress(row.name);
   const words = address ? <AddressWords address={name} /> : name;
-  const opens = row.onOpen === undefined ? words : <RowPress onPress={row.onOpen}>{words}</RowPress>;
+  const opens =
+    row.onOpen === undefined ? (
+      words
+    ) : (
+      // The step its press opens can end the row, or the press it offers, while the step holds the focus.
+      <FocusOnLeave>
+        <RowPress onPress={row.onOpen}>{words}</RowPress>
+      </FocusOnLeave>
+    );
   const shape = prose ? "wraps" : plaque === undefined ? "name" : "plaque";
   const held = nameWithChips({ address, led: true });
   const parts = nameParts({ wraps: prose, cut: !prose && !stack && !address });

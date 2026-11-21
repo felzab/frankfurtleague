@@ -13,6 +13,8 @@ import { Card, CardActRow } from "./Card";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { Dialog, RouteDialog, RouteDialogBody } from "./Dialog";
 import { EditorPage } from "./EditorPage";
+import { RowAct } from "./RowAct";
+import { Table } from "./Table";
 import { TextField } from "./TextField";
 import { ToastRegion } from "./Toast";
 import { useEditor } from "./useEditor";
@@ -127,6 +129,15 @@ describe("the kit's confirmation", () => {
     await userEvent.keyboard("{Escape}");
     await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
   });
+
+  // The harm: a screen reader opening the question hears its title and not what the act does.
+  it("is described by its consequence", async () => {
+    renderUnderNext(<RetireQuestion onConfirm={async () => DONE} />);
+    await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.retire }));
+
+    const described = screen.getByRole("alertdialog").getAttribute("aria-describedby");
+    expect(described === null ? null : document.getElementById(described)?.textContent).toBe(COPY.kader.deregisterConsequence);
+  });
 });
 
 /** A retirement's question, opened by its own button. */
@@ -212,6 +223,26 @@ describe("a dialog's locked act", () => {
 });
 
 describe("the kit's dialog", () => {
+  // The harm: Enter pressed again in the dialog's one field while its act runs sends the act a second time, a busy
+  // submit button standing as a plain button.
+  it("sends its act once while it runs, however often Enter is pressed in its one field", async () => {
+    const reason = COPY.shared.failure.stale;
+    const answer = Promise.withResolvers<ActionAnswer>();
+    onTestFinished(() => answer.resolve(DONE));
+    const create = vi.fn((_formData: FormData) => answer.promise);
+    renderUnderNext(<CreateDialog create={create} />);
+    await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.create }));
+    await userEvent.type(screen.getByRole("textbox", { name: INPUT }), "Sportpark Nord{Enter}");
+    await waitFor(() => expect(create).toHaveBeenCalledOnce());
+
+    await userEvent.keyboard("{Enter}");
+    // Refused, so the dialog stands, as a second send would have found it.
+    await act(async () => answer.resolve({ ok: false, reason }));
+
+    await within(screen.getByRole("dialog")).findByText(reason);
+    expect(create).toHaveBeenCalledOnce();
+  });
+
   it("opened inside an editor's section, runs its own act and never the editor's save", async () => {
     const save = vi.fn(async (): Promise<ActionAnswer<number>> => ({ ok: true, value: 2 }));
     const create = vi.fn(async (_formData: FormData): Promise<ActionAnswer> => DONE);
@@ -496,6 +527,114 @@ describe("a dialog whose done act drops the row it was opened from", () => {
     await userEvent.click(within(opened).getByRole("button", { name: press }));
 
     await waitFor(() => expect(screen.getAllByRole("button", { name: COPY.shared.verb.create })).toHaveLength(1));
+    await waitFor(() => expect(document.activeElement).toBe(next));
+  });
+});
+
+const [ESCHE, BIRKE] = ["Esche", "Birke"] as const;
+const ROWS: readonly string[] = [ESCHE, BIRKE];
+
+/**
+ * A list's rows in a plain table on the page, inside no section, as the ban list's stand: each ended by its row's side
+ * act, whose question asks the touch from its final press.
+ */
+function EndedRows() {
+  const [rows, setRows] = useState(ROWS);
+  return (
+    <main>
+      <table>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={row}>
+              <td>{row}</td>
+              <td>
+                <RowAct
+                  verb="remove"
+                  subject={NAME}
+                  consequence={COPY.kader.deregisterConsequence}
+                  facts={[]}
+                  id={row}
+                  holder={HOLDER}
+                  run={async () => {
+                    setRows((shown) => shown.filter((other) => other !== row));
+                    return DONE;
+                  }}
+                />
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </main>
+  );
+}
+
+/** A table's rows opening one dialog drawn beside the table, as the Kader's do, whose done act drops the row it was opened for. */
+function OpenedRows() {
+  const [rows, setRows] = useState(ROWS);
+  const [chosen, setChosen] = useState<string | null>(null);
+  const [isOpen, setOpen] = useState(false);
+  return (
+    <main>
+      <Table
+        label={NAME}
+        nameLabel={COPY.shared.name}
+        empty={{ kind: "none", plural: COPY.shared.startelf }}
+        columns={[]}
+        rows={rows.map((row) => ({
+          id: row,
+          name: { record: row },
+          cells: {},
+          onOpen: () => {
+            setChosen(row);
+            setOpen(true);
+          },
+        }))}
+      />
+      <Dialog
+        title={NAME}
+        act={{ verb: "create", object: NAME }}
+        run={async () => {
+          setRows((shown) => shown.filter((other) => other !== chosen));
+          return DONE;
+        }}
+        open={{ isOpen, onOpenChange: setOpen }}>
+        <TextField
+          label={INPUT}
+          name="created"
+          kind="text"
+        />
+      </Dialog>
+    </main>
+  );
+}
+
+// The harm: a keyboard user who ends a row's record, or decides the row its press opened, loses the focus to the page's
+// body, and the next Tab starts from the top of the page.
+describe("a table's row ended by the act it offers", () => {
+  it("hands the focus to the next row's act, from a side act's question", async () => {
+    renderUnderNext(<EndedRows />);
+    const [first, next] = screen.getAllByRole("button", { name: COPY.shared.verb.remove });
+    await userEvent.tab();
+    expect(document.activeElement).toBe(first);
+    await userEvent.keyboard("{Enter}");
+
+    await userEvent.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: COPY.shared.verb.remove }));
+
+    await waitFor(() => expect(screen.queryByText(ESCHE)).toBeNull());
+    await waitFor(() => expect(document.activeElement).toBe(next));
+  });
+
+  it("hands the focus to the next row's press, from the dialog drawn beside the table", async () => {
+    renderUnderNext(<OpenedRows />);
+    const next = screen.getByRole("button", { name: BIRKE });
+    await userEvent.tab();
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: ESCHE }));
+    await userEvent.keyboard("{Enter}");
+
+    await userEvent.click(within(await screen.findByRole("dialog")).getByRole("button", { name: COPY.shared.withObject(NAME, "create") }));
+
+    await waitFor(() => expect(screen.queryByRole("button", { name: ESCHE })).toBeNull());
     await waitFor(() => expect(document.activeElement).toBe(next));
   });
 });
