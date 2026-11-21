@@ -8,8 +8,8 @@ import { Select } from "@/kit/Select";
 import { TextField } from "@/kit/TextField";
 
 import type { FLBewerbungGruppeOffer, FLTrikotFarbe } from "@/core/generated/client/types";
-import type { AcceptRules } from "@/features/bewerbungen/fieldRules";
 import type { Option } from "@/kit/OptionList";
+import type { AcceptRules } from "./fieldRules";
 
 /** The groups an acceptance may name, a full one standing closed with its note. */
 function gruppeOptions(gruppen: readonly FLBewerbungGruppeOffer[]): readonly Option[] {

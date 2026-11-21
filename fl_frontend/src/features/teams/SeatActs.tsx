@@ -11,11 +11,10 @@ import { SideActs } from "@/kit/SideActs";
 import { TextField } from "@/kit/TextField";
 
 import type { ActionAnswer } from "@/core/action";
-import type { Copy } from "@/core/copy";
 import type { FLKontaktpersonAdmin, FLKontaktSeat } from "@/core/generated/client/types";
-import type { SeatRules } from "@/features/teams/fieldRules";
 import type { SideAct } from "@/kit/SideActs";
 import type { ReactNode } from "react";
+import type { SeatRules } from "./fieldRules";
 
 const EDIT = COPY.shared.withObject(COPY.team.seat, "edit");
 const SEND = COPY.shared.withObject(COPY.shared.link, "send");
@@ -50,13 +49,12 @@ export function SeatActs<Key>({
   carry: Readonly<Record<string, string>>;
   /** The address the page was drawn for, which the touch and the seat's write post. */
   holder: string;
-  /** The fresh link's press, `null` while the seat waits on nobody; `locked` says why no link goes. */
-  link: { send: (key: Key) => Promise<ActionAnswer>; seat: Key; locked?: Copy } | null;
+  /** The fresh link's press, `null` while the seat waits on nobody. */
+  link: { send: (key: Key) => Promise<ActionAnswer>; seat: Key } | null;
   /** The boxes this record's seat holds beside the person's. */
   children?: ReactNode;
 }) {
   const unsaved = useLocked(undefined);
-  const sendLocked = useLocked(link?.locked);
   const sending = usePressAct(COPY.shared.toast.linkSent);
   const [isEditing, setEditing] = useState(false);
   // The seat's write runs after its dialog closed, so the edit's button or the row's „⋯“ shows it running.
@@ -69,7 +67,7 @@ export function SeatActs<Key>({
       : {
           label: SEND,
           isBusy: sending.isBusy,
-          ...(sendLocked === undefined ? {} : { locked: sendLocked }),
+          ...(unsaved === undefined ? {} : { locked: unsaved }),
           onPress: () => sending.press(() => link.send(link.seat)),
         };
   const edit: SideAct = {
