@@ -4,7 +4,9 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy/shared";
+import { renderUnderNext } from "@/test-support/nextContexts";
 
+import { Filters } from "./Filters";
 import { ListMatches, ListQueryScope, ListSearchField, ListTable, ListTiles } from "./ListTable";
 
 import type { ActionAnswer } from "@/core/action";
@@ -128,7 +130,7 @@ describe("a list past one read's cap", () => {
       <Searched>
         <ListTable
           table={TABLE}
-          more={{ cursor: "2", carry: { by: "kontakt" }, load }}
+          more={{ cursor: "2", query: "", carry: { by: "kontakt" }, load }}
         />
       </Searched>,
     );
@@ -142,7 +144,7 @@ describe("a list past one read's cap", () => {
       <Searched>
         <ListTable
           table={{ ...TABLE, rows: [row("9", "Erste Seite")] }}
-          more={{ cursor: "9", carry: { by: "system" }, load }}
+          more={{ cursor: "9", query: "", carry: { by: "system" }, load }}
         />
       </Searched>,
     );
@@ -161,7 +163,7 @@ describe("a list past one read's cap", () => {
       <Searched>
         <ListTable
           table={TABLE}
-          more={{ cursor: "2", load: loading(answer) }}
+          more={{ cursor: "2", query: "", load: loading(answer) }}
         />
       </Searched>,
     );
@@ -173,27 +175,101 @@ describe("a list past one read's cap", () => {
     expect(screen.getByRole("button", { name: COPY.shared.loadMore })).toBeTruthy();
   });
 
-  // Next runs one client's actions one at a time, so a read per keystroke queues over the whole list.
-  it("sends one load for a burst of typing, once the typing pauses", async () => {
-    // Faked so the burst's gaps never depend on how busy the machine is.
-    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
-    const load = loading(answered("Sportpark Ost"));
+  // A next page read past the search would run on with rows the search left out.
+  it("reads its next page inside the search its page read from the address", async () => {
+    const load = loading(answered("Zweite Seite"));
     render(
       <Searched>
         <ListTable
           table={TABLE}
-          more={{ cursor: null, load }}
+          more={{ cursor: "2", query: "Ost", load }}
         />
       </Searched>,
     );
 
-    for (const value of ["O", "OS", "OST"]) fireEvent.change(screen.getByRole("searchbox"), { target: { value } });
-    expect(load).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByRole("button", { name: COPY.shared.loadMore }));
+    expect(load).toHaveBeenLastCalledWith({ query: "Ost", cursor: "2" });
+  });
+});
+
+describe("a list searched in its address", () => {
+  const ADDRESS = { name: "q", value: "" };
+  // Next's router, inert but for the replace each case records.
+  const ROUTER = {
+    back: () => undefined,
+    forward: () => undefined,
+    refresh: () => undefined,
+    push: () => undefined,
+    prefetch: () => undefined,
+    bfcacheId: "",
+  };
+
+  /** The field over a list searched on the server, under Next's router at `/admin/log?by=…`, its replaces recorded. */
+  function drawn(initial = "") {
+    const replace = vi.fn<(href: string, options?: { scroll?: boolean }) => void>();
+    renderUnderNext(
+      <ListQueryScope initial={initial}>
+        <ListSearchField
+          label={COPY.shared.saison}
+          address={{ ...ADDRESS, value: initial }}
+        />
+      </ListQueryScope>,
+      { router: { ...ROUTER, replace }, pathname: "/admin/log", search: "by=abc" },
+    );
+    return replace;
+  }
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  // A page read per keystroke reads the whole log for every letter, and a search left out of the address is lost on
+  // a reload and a shared link.
+  it("replaces the address once for a burst of typing, its other parameters kept", async () => {
+    // Faked so the burst's gaps never depend on how busy the machine is.
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    const replace = drawn();
+
+    for (const value of ["O", "OS", "OST "]) fireEvent.change(screen.getByRole("searchbox"), { target: { value } });
+    expect(replace).not.toHaveBeenCalled();
 
     await act(async () => vi.runOnlyPendingTimers());
 
-    expect(load).toHaveBeenCalledTimes(1);
-    expect(load).toHaveBeenCalledWith({ query: "OST", cursor: null });
+    expect(replace).toHaveBeenCalledTimes(1);
+    expect(replace).toHaveBeenCalledWith("/admin/log?by=abc&q=OST", { scroll: false });
+  });
+
+  // A field opening empty over a searched list reads as no search, and its next keystroke would drop the search.
+  it("opens on the search the address holds and takes it out when emptied", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    const replace = drawn("Birke");
+    expect(screen.getByRole<HTMLInputElement>("searchbox").value).toBe("Birke");
+
+    fireEvent.change(screen.getByRole("searchbox"), { target: { value: "" } });
+    await act(async () => vi.runOnlyPendingTimers());
+
+    expect(replace).toHaveBeenCalledWith("/admin/log?by=abc", { scroll: false });
+  });
+
+  // A filter's choice dropping the search would show the list unsearched under a field still holding the text.
+  it("keeps its search when a filter's choice replaces the address", async () => {
+    const replace = vi.fn<(href: string, options?: { scroll?: boolean }) => void>();
+    const filter = {
+      name: "type",
+      label: COPY.shared.saison,
+      all: COPY.shared.help,
+      options: [{ id: "ban", label: COPY.shared.kader }],
+      value: null,
+    };
+    renderUnderNext(<Filters filters={[filter]} />, { router: { ...ROUTER, replace }, pathname: "/admin/log", search: "q=Birke" });
+
+    // The desktop's row of selects comes first; the phone's sheet holds the same ones.
+    const [select] = screen.getAllByRole("button", { name: new RegExp(COPY.shared.saison) });
+    if (select === undefined) throw new Error("no select drawn");
+    await userEvent.click(select);
+    await userEvent.click(await screen.findByRole("option", { name: COPY.shared.kader }));
+
+    expect(replace).toHaveBeenCalledWith("/admin/log?q=Birke&type=ban", { scroll: false });
   });
 });
 

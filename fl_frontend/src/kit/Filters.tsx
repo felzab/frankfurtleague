@@ -1,6 +1,6 @@
 "use client";
 
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 
 import { COPY } from "@/core/copy/shared";
 
@@ -29,12 +29,16 @@ export type Filter = {
 // The all-choice's id: choosing it removes the filter's parameter.
 const ALL = "";
 
-/** The address with one filter changed, every other filter kept as the page read it. */
-function addressWith(pathname: string, filters: ReadonlyArray<Filter>, name: string, value: string | null) {
-  const query = new URLSearchParams();
+/**
+ * The address with one filter changed, every other filter kept as the page read it, and every parameter no filter
+ * names, such as a search held in the address, kept as the address holds it.
+ */
+function addressWith(pathname: string, held: URLSearchParams, filters: ReadonlyArray<Filter>, name: string, value: string | null) {
+  const query = new URLSearchParams(held);
   for (const filter of filters) {
     const next = filter.name === name ? value : filter.value;
     if (next !== null && next !== ALL) query.set(filter.name, next);
+    else query.delete(filter.name);
   }
   const search = query.toString();
   return (search === "" ? pathname : `${pathname}?${search}`) as Route;
@@ -52,6 +56,7 @@ function useChosen(filters: ReadonlyArray<Filter>): ReadonlyArray<string | null>
 function FilterSelects({ filters }: { filters: ReadonlyArray<Filter> }) {
   const navigate = useNavigate();
   const pathname = usePathname();
+  const held = useSearchParams();
   const chosen = useChosen(filters);
   return filters.map((filter, index) => (
     <div
@@ -61,7 +66,7 @@ function FilterSelects({ filters }: { filters: ReadonlyArray<Filter> }) {
         label={filter.label}
         options={[{ id: ALL, label: filter.all }, ...filter.options]}
         value={chosen[index] ?? ALL}
-        onChange={(value) => navigate(addressWith(pathname, filters, filter.name, value), { replace: true, scroll: false })}
+        onChange={(value) => navigate(addressWith(pathname, held, filters, filter.name, value), { replace: true, scroll: false })}
       />
     </div>
   ));
@@ -71,7 +76,7 @@ function FilterSelects({ filters }: { filters: ReadonlyArray<Filter> }) {
  * Narrowing a list: selects in a row above it on desktop, and on a phone a „Filter“ button opening a
  * sheet of the same selects, the button leading with the filter glyph and naming how many filters are
  * chosen, since the phone shows no select's value outside the sheet. Each choice replaces the page's
- * address, which the page reads its list from; typed search text never enters it.
+ * address, which the page reads its list from, keeping a search the address holds.
  */
 export function Filters({ filters }: { filters: ReadonlyArray<Filter> }) {
   const count = useChosen(filters).filter((value) => value !== null).length;
