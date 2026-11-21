@@ -3712,10 +3712,6 @@
             "title": "Saison Id",
             "type": "string"
           },
-          "schule": {
-            "title": "Schule",
-            "type": "string"
-          },
           "seats": {
             "items": {
               "$ref": "#/components/schemas/FLKontaktSeat"
@@ -3728,7 +3724,6 @@
         "required": [
           "kind",
           "saison_id",
-          "schule",
           "seats",
           "deadline"
         ],

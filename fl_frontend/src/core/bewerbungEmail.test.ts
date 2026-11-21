@@ -21,7 +21,6 @@ const ZUSAGE: FLBewerbungZusageData = {
 const LINK: FLBewerbungLinkData = {
   kind: "bewerbung_confirmation",
   saison_id: "2627",
-  schule: "Ernst-Reuter-Schule",
   seats: ["trainer"],
   deadline: "2026-09-18",
 };

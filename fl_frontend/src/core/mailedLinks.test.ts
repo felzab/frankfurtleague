@@ -94,9 +94,8 @@ const FACTS: DataPerKind = {
     deadline: "2026-10-17",
     seats: ["trainer"],
     saison_id: "2627",
-    schule: "Lessing-Kolleg",
   },
-  bewerbung_reminder: { kind: "bewerbung_reminder", deadline: "2026-10-17", seats: ["trainer"], saison_id: "2627", schule: "Lessing-Kolleg" },
+  bewerbung_reminder: { kind: "bewerbung_reminder", deadline: "2026-10-17", seats: ["trainer"], saison_id: "2627" },
   bewerbung_zusage: {
     kind: "bewerbung_zusage",
     gruppe: "A",

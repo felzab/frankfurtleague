@@ -1767,7 +1767,6 @@ export interface FLBewerbungLinkData {
   deadline: string;
   kind: FLBewerbungLinkDataKind;
   saison_id: string;
-  schule: string;
   /** @minItems 1 */
   seats: FLKontaktSeat[];
 }
