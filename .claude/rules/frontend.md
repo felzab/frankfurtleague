@@ -8,9 +8,10 @@ paths:
 
 Each fails silently. The ratified decisions for this surface are in `docs/decisions.md`.
 
-- Every page a mailed link opens is in the proxy's mailed-link table
-  (`fl_frontend/src/core/mailedLink.ts :: MAILED_LINK_PAGES`). A new such page is made under
-  `/confirm/`, where nginx's prefix already meters it, and joins the table.
+- Every page whose address carries a token is in the proxy's mailed-link table
+  (`fl_frontend/src/core/mailedLink.ts :: MAILED_LINK_PAGES`), which moves the token into a cookie
+  before the page renders, so no history entry, referrer or third-party script receives it. A new
+  such page is made under `/confirm/`, where nginx's prefix already meters it, and joins the table.
 - Every kit field a person types into or toggles takes `inert={useFieldWait()}` at its root
   (`fl_frontend/src/kit/FieldParts.tsx :: useFieldWait`) and a row in the server-render case of
   `fl_frontend/src/kit/HeldForm.test.tsx`; without it, React's next render writes its state over
