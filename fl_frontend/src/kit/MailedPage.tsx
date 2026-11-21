@@ -50,7 +50,7 @@ export type MailedState =
       acts: OneShotActs;
       /** What the form posts unseen beside its fields: the link's token. */
       carry: Readonly<Record<string, string>>;
-      /** The main act's press asks the passkey touch ahead of its action, for a person holding a passkey. */
+      /** The main act's press asks the passkey touch ahead of its action, for an administrator. */
       touch?: boolean;
       /** The bot check's public key, on a page no link's token admits. */
       botCheck?: { siteKey: string };

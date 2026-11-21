@@ -70,7 +70,7 @@ type PasskeyRemoval = "removed" | "last" | "absent";
  * One transaction around the count, the claim, the delete and the sign-out: two removals started
  * from two rows would otherwise each see a second row and leave none.
  */
-export async function removePasskey(holder: { readonly id: string; readonly isAdmin: boolean }, id: string): Promise<PasskeyRemoval> {
+export async function removePasskey(holder: { readonly id: string }, id: string): Promise<PasskeyRemoval> {
   // Set once the callback has returned. A throw before that aborted a transaction that never
   // committed, so nothing was written; one after it came from the commit, whose outcome may be unknown. Typed
   // `boolean`, since TypeScript's narrowing does not follow the callback's writes.
@@ -113,10 +113,8 @@ export async function removePasskey(holder: { readonly id: string; readonly isAd
       ],
     });
     if (removed === null) return "absent";
-    // By the grant the account page's guard read, which throws on an unread one before any removal:
-    // an administrator's last passkey is their only way into the administration, while a person
-    // holding none signs in by code again.
-    if (holder.isAdmin && (await held.count({ model: "passkey", where: [{ field: "userId", value: holder.id }] })) <= 1) return "last";
+    // An administrator's last passkey is their only way into the administration, and only an administrator holds one.
+    if ((await held.count({ model: "passkey", where: [{ field: "userId", value: holder.id }] })) <= 1) return "last";
 
     await claimAccount(held, holder.id);
     await held.delete({ model: "passkey", where: [{ field: "id", value: id }] });

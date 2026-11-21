@@ -22,8 +22,7 @@ export function refuseBarred(signIn: SignInRecords): void {
 
 /**
  * An address holding no grant enrols nothing: a person's first passkey would outrank their mailbox for good, every act
- * on the touch's list asking it, so whoever enrolled it first, an intruder too, keeps the account. A passkey a person
- * already holds stays, theirs to remove.
+ * on the touch's list asking it, so whoever enrolled it first, an intruder too, keeps the account.
  */
 export function refuseWithoutGrant(signIn: SignInRecords): void {
   if (signIn.admin_tier === null) throw APIError.fromStatus("NOT_FOUND");

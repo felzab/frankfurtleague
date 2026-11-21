@@ -52,8 +52,7 @@ export const ACCOUNT_COPY = catalogue({
     dates: (created: Date) => `Eingerichtet am ${formatDate(created)}`,
     /**
      * The deletion's consequence, which the question words before the passkey touch: the devices the passkey signed
-     * in, and this one where the page's session was made by it or it is the person's only passkey, which the touch
-     * then has to be.
+     * in, and this one where the page's session was made by it. An administrator's only passkey has no deletion.
      */
     endsDevices: "Geräte, die damit angemeldet sind, werden abgemeldet.",
     endsThisDevice: "Auch dieses Gerät wird abgemeldet.",
@@ -65,8 +64,6 @@ export const ACCOUNT_COPY = catalogue({
     limit: (count: number) => `Höchstens ${boundBy(formatNumber(count), "Passkeys")}`,
     /** A first passkey set up past the sign-in library's `freshAge`. */
     signInTooOld: "Deine Anmeldung liegt zu lange zurück.",
-    /** The same, as the set-up's tooltip. */
-    signInTooOldLocked: "Erst nach neuer Anmeldung",
     /** A further passkey set up on an authenticator holding one of the person's already. */
     alreadyOnDevice: "Auf diesem Gerät hast du schon einen Passkey.",
   },

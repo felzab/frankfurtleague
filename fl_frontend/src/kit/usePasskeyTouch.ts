@@ -21,7 +21,7 @@ const refusedWith = (reason: Copy): ActionAnswer<never> => ({ ok: false, reason 
  * the prompt comes from the press itself, the user activation Safari asks of WebAuthn, which an effect has not.
  *
  * Mounted with the page rather than with a dialog, so the client's chunk is here before the press. `held` is whether the
- * person holds a passkey, which the page read; a person holding none is asked nothing, as the lane admits them. It
+ * page is an administrator's, which the page read; a person is asked nothing, as the lane admits them. It
  * answers the wrapper an act's own press runs: the wrapped act answers as the act does, or, where the passkey did not
  * answer, with the refusal, the act never having run, which the caller shows as any refusal: a box or a one-shot form
  * on its line, with what the person typed, and a dialog in its toast, its inputs typed anew; a sheet the person closed

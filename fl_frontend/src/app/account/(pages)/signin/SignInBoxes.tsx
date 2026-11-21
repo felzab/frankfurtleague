@@ -19,14 +19,14 @@ export type Pending = {
 
 /**
  * Anmeldung's two boxes: the address the person signs in with, its change started, or pending and withdrawn; and
- * „Konto löschen“, the press mailing the link the deletion waits on. `held` says the person holds a passkey, whose
- * touch the start's press asks; `lastOwner` closes the deletion for the league's last owner. Drawn on the server: each
+ * „Konto löschen“, the press mailing the link the deletion waits on. `touch` says the page is an administrator's, whose
+ * passkey touch the start's press asks; `lastOwner` closes the deletion for the league's last owner. Drawn on the server: each
  * box's act is a server action's reference, which a Client Component takes as a prop, and nothing here is a closure.
  */
 export function SignInBoxes({
   email,
   pending,
-  held,
+  touch,
   lastOwner,
   addressRequired,
 }: {
@@ -34,7 +34,7 @@ export function SignInBoxes({
   /** Whether the start's write refuses the new address empty, read off its schema on the server. */
   addressRequired: boolean;
   pending: Pending | null;
-  held: boolean;
+  touch: boolean;
   lastOwner: Copy | undefined;
 }) {
   const address = (
@@ -54,7 +54,7 @@ export function SignInBoxes({
             // The address the page is drawn for, which every act of the account posts.
             carry: { holder: email },
             button: { label: COPY.shared.withObject(COPY.shared.link, "send") },
-            touch: held,
+            touch,
           }}>
           {address}
           <TextField

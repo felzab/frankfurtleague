@@ -1687,10 +1687,9 @@ describe("which session a new sign-in replaces", () => {
 });
 
 describe("what a ban ends in the sign-in store", () => {
-  it("ends every session of the account the barred address folds to, and keeps the account and its passkeys", async () => {
+  it("ends every session of the account the barred address folds to, and keeps the account", async () => {
     const first = await signIn(PERSON_EMAIL);
     const second = await signIn(PERSON_EMAIL);
-    store.passkey.push(aPasskeyFor(first.row.userId));
     const bystander = await signIn("unbeteiligt@example.org");
 
     // Whether an account holds the address is what the ban's notice is sent on.
@@ -1702,7 +1701,6 @@ describe("what a ban ends in the sign-in store", () => {
       store.user.some((user) => user.id === first.row.userId),
       "the ban deleted the account itself",
     );
-    expect(store.passkey.length, "the ban deleted the account's passkey").toBe(1);
 
     arriveAs(first.cookie);
     expect((await getSignInLanding()).destination).toBe("/signin");

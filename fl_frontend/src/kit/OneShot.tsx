@@ -106,7 +106,7 @@ export function OneShotForm({
   /** What the form posts beside its fields, unseen: the token the page's link carries. */
   carry?: Readonly<Record<string, string>>;
   /**
-   * The main act's press asks the passkey touch ahead of `run`, for a person holding a passkey (`usePasskeyTouch`).
+   * The main act's press asks the passkey touch ahead of `run`, for an administrator (`usePasskeyTouch`).
    * Such a form is a signed-in person's and takes no bot check, whose wait would lose the press the prompt needs.
    */
   touch?: boolean;

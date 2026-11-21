@@ -19,35 +19,36 @@ import type { AccountRow } from "@/kit/AccountBox";
 
 const PASSKEY = COPY.shared.passkey;
 
+/** An administrator's passkey box, as the page reads it. */
+export type Passkeys = {
+  readonly rows: readonly PasskeyRow[];
+  /** Why no further passkey may be set up, or `undefined` where one may. */
+  readonly setUpClosed: Copy | undefined;
+  /** Why the one passkey may not be removed, or `undefined` where every row's removal is open. */
+  readonly lastKept: Copy | undefined;
+};
+
 /**
- * Sicherheit's two boxes: the passkeys, each a row with its rename and its removal, an administrator's set-up in the
- * footer, the box standing only where it holds a row or the set-up; and the devices, with „Alle anderen abmelden“.
- * `held` says the person holds a passkey, whose set-up and removal then ask the passkey touch from their final press;
- * `setUp.closed` closes the set-up where the page knows it would be refused, and `lastKept` the removal of the one
- * passkey an administrator must keep.
+ * Sicherheit's boxes: an administrator's passkeys, each a row with its rename and its removal, the set-up in the
+ * footer, each asking the passkey touch from its final press; and the devices, with „Alle anderen abmelden“, which are
+ * all a person's page draws.
  */
 export function SecurityBoxes({
   holder,
   passkeys,
-  setUp,
-  lastKept,
   devices,
   name,
 }: {
   /** The address the page is drawn for, which every act of the account posts and every touch answers for. */
   holder: string;
-  passkeys: readonly PasskeyRow[];
-  /** An administrator's set-up, and why no further passkey may be set up, `undefined` where one may; `undefined` for a person. */
-  setUp: { closed: Copy | undefined } | undefined;
-  /** Why the one passkey may not be removed, or `undefined` where every row's removal is open. */
-  lastKept: Copy | undefined;
+  /** The passkey box, `undefined` for a person, who holds none. */
+  passkeys: Passkeys | undefined;
   /** Geräte's sentence, the count of devices signed in. */
   devices: Copy;
   /** What the rename's write asks of the name, read off its schema on the server. */
   name: { required: boolean; max: number };
 }) {
   const router = useRouter();
-  const held = passkeys.length > 0;
 
   // The library's own registration, a request of the browser's past every server action: the page is read again.
   const runSetUp = async (): Promise<ActionAnswer> => {
@@ -61,7 +62,7 @@ export function SecurityBoxes({
     return { ok: true, value: undefined };
   };
 
-  const rows: AccountRow[] = passkeys.map((passkey) => ({
+  const rows: AccountRow[] = (passkeys?.rows ?? []).map((passkey) => ({
     id: passkey.id,
     name: { record: passkey.name },
     detail: passkey.dates,
@@ -86,12 +87,11 @@ export function SecurityBoxes({
     remove: {
       verb: "delete",
       subject: PASSKEY,
-      // The removal's touch signs this device in by the passkey that answers it: the only one a person holds, so that
-      // removal always ends this device, whatever session drew the page. Among several the page cannot know which
-      // answers, and words the session it was drawn for.
-      consequence: passkey.thisDevice || passkeys.length === 1 ? ACCOUNT_COPY.passkeys.endsThisDevice : ACCOUNT_COPY.passkeys.endsDevices,
+      // The removal's touch signs this device in by the passkey that answers it, which the page cannot know among the
+      // several a removal is open on, so it words the session it was drawn for.
+      consequence: passkey.thisDevice ? ACCOUNT_COPY.passkeys.endsThisDevice : ACCOUNT_COPY.passkeys.endsDevices,
       touch: { holder },
-      locked: lastKept,
+      locked: passkeys?.lastKept,
       run: async () => {
         const answer = await removePasskeyAction({ id: passkey.id, holder });
         // The removal ended the session this page runs in, so the page renders nothing again: it leaves as a new
@@ -104,24 +104,19 @@ export function SecurityBoxes({
 
   return (
     <>
-      {/* A person holding none has nothing here to act on, and no way to add one. */}
-      {(setUp !== undefined || held) && (
+      {passkeys !== undefined && (
         <AccountBox
           title={COPY.shared.passkeys}
           description={ACCOUNT_COPY.passkeys.description}
-          act={
-            setUp === undefined
-              ? undefined
-              : {
-                  run: runSetUp,
-                  // The browser's own act posts no holder, so the touch before it answers for the page's address alone.
-                  carry: { holder },
-                  button: { label: COPY.shared.withObject(PASSKEY, "setUp") },
-                  touch: held,
-                  locked: setUp.closed,
-                }
-          }>
-          {held ? <AccountRows rows={rows} /> : undefined}
+          act={{
+            run: runSetUp,
+            // The browser's own act posts no holder, so the touch before it answers for the page's address alone.
+            carry: { holder },
+            button: { label: COPY.shared.withObject(PASSKEY, "setUp") },
+            touch: true,
+            locked: passkeys.setUpClosed,
+          }}>
+          <AccountRows rows={rows} />
         </AccountBox>
       )}
       <AccountBox

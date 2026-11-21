@@ -86,7 +86,7 @@ export const eraseAccount = action({
 });
 
 /**
- * The final press asks a passkey holder's touch, the one check guarding it, since the backend judges no fresh sign-in.
+ * The final press asks an administrator's touch, the one check guarding it, since the backend judges no fresh sign-in.
  * The address typed is one the person will sign in at, so it is held to that schema before it is mailed. An account
  * standing at the new address is not refused here: the start answers alike whatever the new address holds, so it tells
  * nobody which addresses hold an account, and the new mailbox's own press refuses it.

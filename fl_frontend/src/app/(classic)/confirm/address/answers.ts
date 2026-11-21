@@ -83,7 +83,7 @@ export const stopAddressChange = action({
 /**
  * The account carry the effect owed in its own transaction, awaited before the done end, which invites the sign-in at
  * the new address: a sign-in there while the carry is still owed opens a fresh account, which the carry then finds
- * standing, leaving the person's passkeys on the old one. Next's `after` is for work no answer waits on, and this
+ * standing, leaving an administrator's passkeys on the old one. Next's `after` is for work no answer waits on, and this
  * answer's next page does. A failure is logged and left to the hourly pass, the effect having committed. No address
  * reaches this action.
  */

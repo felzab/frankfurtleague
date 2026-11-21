@@ -53,7 +53,7 @@ export type AccountAct = {
   | {
       /** `variant` is `primary` for the box's save of its own fields, its main act. */
       button: { label: Copy; variant?: "primary" | "secondary" };
-      /** The button's press asks the passkey touch ahead of `run`, for a person holding a passkey (`usePasskeyTouch`). */
+      /** The button's press asks the passkey touch ahead of `run`, for an administrator (`usePasskeyTouch`). */
       touch?: boolean;
     }
   | {

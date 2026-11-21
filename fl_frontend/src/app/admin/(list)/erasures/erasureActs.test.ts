@@ -48,8 +48,8 @@ const { eraseAddress, readErasureCounts } = await import("./erasureActs");
 const accounts = () => store.user.map(({ email }) => email);
 
 /**
- * An account at the erased address holding `passkeys` passkeys, made by that person's own sign-in, the administrator
- * then arriving again by passkey.
+ * An account at the erased address, made by that person's own sign-in, holding `passkeys` passkeys, as an
+ * administrator's alone does, the administrator then arriving again by passkey.
  */
 async function accountAtTheErasedAddress(passkeys = 0): Promise<void> {
   await arriveAs({ email: ERASED });
@@ -104,13 +104,25 @@ beforeEach(() => {
 describe("the erasure's question", () => {
   // The harm: „Unter dieser Adresse steht nichts.“ over an account the act then deletes.
   it("counts an address holding its account alone, each row above zero and no other", async () => {
+    await accountAtTheErasedAddress();
+
+    expect(await asked()).toMatchObject({
+      consequence: ADMIN_COPY.erasure.consequence,
+      facts: [{ label: COPY.template.account, value: { record: "1" } }],
+    });
+  });
+
+  // An administrator's address, which the owner alone erases, is the one whose account holds passkeys.
+  it("counts an administrator's passkeys beside the account and the grant", async () => {
     await accountAtTheErasedAddress(2);
+    held.view = { ...NO_RECORDS, grants: 1 };
 
     expect(await asked()).toMatchObject({
       consequence: ADMIN_COPY.erasure.consequence,
       facts: [
         { label: COPY.template.account, value: { record: "1" } },
         { label: COPY.shared.passkeys, value: { record: "2" } },
+        { label: COPY.shared.erasureCount.grant, value: { record: "1" } },
       ],
     });
   });

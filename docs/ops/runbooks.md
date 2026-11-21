@@ -604,8 +604,8 @@ registration and grant the address holds, so one sign-in stays whole.
 
 - **The person can still sign in.** Point them to Konto's „Anmeldung“ page, `/account/signin`, and
   its box „E-Mail-Adresse“. They type the new address under „Neue E-Mail-Adresse“ and press „Link
-  senden“, a person holding a passkey touching it first, confirm the change by the link mailed to
-  the address on file, and then by the link that confirmation mails the new address, each within
+  senden“, an administrator touching a passkey first, confirm the change by the link mailed to the
+  address on file, and then by the link that confirmation mails the new address, each within
   `fl_backend/app/shared/schemas/bounds.py :: ADDRESS_CHANGE_VALID_HOURS` hours; declining at either
   link ends it. Never start a change for a person who can sign in: a request arriving by mail proves
   nothing about who sent it.
@@ -829,8 +829,8 @@ address holds a sign-in account**, naming the reason you typed and the last seas
 so there is nothing to send by hand; an address that never signed in is mailed nothing. Where the
 sign-in store cannot say whether an account holds the address, the press fails with the site's one
 failure line before anything is written, and the ban is entered again once the store answers. **The
-same press ends every live sign-in of the address, after the write**, keeping its account and
-passkeys, which then stay only while a record holds the address
+same press ends every live sign-in of the address, after the write**, keeping its account, which
+then stays only while a record holds the address
 ([`../datenschutz.md`](../datenschutz.md#6-retention-is-bounded-where-a-bound-was-chosen)). Where
 that fails, the ban stands and the page shows the same failure line, naming no step; a session left
 standing lasts until it lapses, no request reading the list, unless the ban is entered again, which
@@ -1588,8 +1588,7 @@ the code's ten minutes, so a stranger can bring the lock on only by asking for t
 address, which mails them a code and spends one of their hour's five each time. The rows counting it
 carry a keyed hash rather than the address, so no row can be picked out for one person:
 
-- **A person holding a passkey needs nothing**: a passkey sign-in never meets the lock, and clears
-  it.
+- **An administrator needs nothing**: a passkey sign-in never meets the lock, and clears it.
 - **Otherwise it lifts by itself**, each failure's row expiring a day after it was written, removed
   by the `verification` index in §14.
 - **To lift it sooner, lift every address's at once**: in the Atlas console, delete from the `auth`
