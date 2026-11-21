@@ -192,10 +192,11 @@ measures section 8's. "Administrators" are the holders of a grant to the adminis
     - the address of anyone who submits the sign-in form, held in `verification` before the send
       gate is consulted;
     - sessions with their factor, expiry and last use;
-    - an administrator's passkeys, no other account holding one, with their public key, the reported
-      authenticator model, when each was set up and any name the holder gives one, never a private
-      key (`fl_frontend/src/core/auth/library.ts` configures the store); they go with the grant, and
-      within the hour of the address holding none;
+    - an administrator's passkeys, no other account holding one, with their public key, credential
+      id and counter, the reported authenticator model, whether it can be backed up and whether it
+      is, the transports the device reports, when each was set up and any name the holder gives one,
+      never a private key (`fl_frontend/src/core/auth/library.ts` configures the store); they go
+      with the grant, and within the hour of the address holding none;
     - the per-address code counts, under a keyed hash;
     - an address change's two addresses, until it ends and its sign-in account has moved.
   - Recipients: the person; administrators, of a non-holder's running change, both addresses; the
