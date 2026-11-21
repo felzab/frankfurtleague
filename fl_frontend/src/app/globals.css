@@ -76,25 +76,6 @@
   overflow-anchor: none;
 }
 
-/* An over-long placeholder ends in an ellipsis, declared once because the
-   population is every field in the app. Both arms are needed: `text-overflow`
-   does not inherit, and only Blink and Gecko forward it to the pseudo-element. */
-/* `input` and not `textarea`: a textarea's placeholder wraps, and `text-overflow` acts only on
-   inline overflow. */
-input[placeholder],
-input[placeholder]::placeholder {
-  text-overflow: ellipsis;
-}
-
-/* `:placeholder-shown` is what keeps the fade off a value somebody typed. On `::placeholder` and
-   never the input: a mask on the element paints its border and fill too, eating the right of
-   both while a field is focused and empty. */
-input:focus:placeholder-shown::placeholder {
-  /* A UA may treat `text-overflow: ellipsis` as `clip` while a field is focused (CSS
-     Overflow 3 §5.1), hard-cutting an over-long placeholder. */
-  mask-image: linear-gradient(to right, #000 85%, transparent);
-}
-
 /* iOS Safari zooms the page into any focused control under 16px. The cure is the
    control's font-size, never `maximum-scale` in the viewport tag, which would
    disable pinch zoom for everyone. In the base layer, so a control's own size utility, the kit's
