@@ -11,13 +11,14 @@ Each fails silently. The ratified decisions for this surface are in `docs/decisi
 - Every page a mailed link opens is in the proxy's mailed-link table
   (`fl_frontend/src/core/mailedLink.ts :: MAILED_LINK_PAGES`). A new such page is made under
   `/confirm/`, where nginx's prefix already meters it, and joins the table.
-- Every kit field's root takes `inert={useFieldWait()}`
+- Every kit field a person types into or toggles takes `inert={useFieldWait()}` at its root
   (`fl_frontend/src/kit/FieldParts.tsx :: useFieldWait`) and a row in the server-render case of
   `fl_frontend/src/kit/HeldForm.test.tsx`; without it, React's next render writes its state over
   what a person typed or pressed before the page hydrated, and `tsc`, the lint, the build and every
-  field's own tests pass. The wait is `inert`, never `disabled`, which drops the field from the
-  posted form, nor `readOnly`, which leaves a caret and holds no box or radio. Pages call the kit:
-  React Aria and a raw control are banned outside it.
+  field's own tests pass. A select's trigger opens nothing before hydration and a read-only field
+  takes no input, so neither has a state to lose and neither waits. The wait is `inert`, never
+  `disabled`, which drops the field from the posted form, nor `readOnly`, which leaves a caret and
+  holds no box or radio. Pages call the kit: React Aria and a raw control are banned outside it.
 - An act behind the passkey touch asks it from its final press alone, through the `touch` slot of
   `fl_frontend/src/kit/ConfirmDialog.tsx` or `fl_frontend/src/kit/dialogAct.ts`, a Konto box or the
   one-shot form (`fl_frontend/src/kit/usePasskeyTouch.ts`). A touch fired from an effect, or behind

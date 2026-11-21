@@ -1122,11 +1122,16 @@ again.
 **The same job then deletes the passkeys of every address holding no grant**, and the sessions they
 made, whatever left them there: a removal whose deletion failed (`grants.passkeys_not_deleted`), a
 grant removed by hand, or an address change's carry that failed part-way. `passkeys_deleted` on the
-pass's line counts the addresses it cleared. One whose grant the backend did not answer keeps its
-passkeys, as an unjudged account keeps its row: it counts in `passkeys_failed`, files
-`account.passkeys_failed` naming the error and no address, reaches the heartbeat as
-`account left <n>`, and the next pass asks again. A passkey list that failed fails the job after its
-accounts' counts, which `scheduler.job_failed` names as `account`.
+pass's line counts the addresses it cleared. An address whose account an address change still owes
+to carry keeps its passkeys and counts nowhere: the change moved its grant to the new address first,
+and the carry takes the passkeys there with the account. One whose grant the backend did not answer,
+or whose passkeys failed to delete, keeps them, as an unjudged account keeps its row: it counts in
+`passkeys_failed`, files `account.passkeys_failed` naming the error and no address, reaches the
+heartbeat as `account left <n>`, and the next pass asks again. A pass that cannot read the owed
+carries (`GET /api/address_change/sweep/moves`) keeps every holder it found ungranted, all of them
+counted in `passkeys_failed` on one `account.passkeys_failed` line carrying `count`. A passkey list
+that failed fails the job after its accounts' counts, which `scheduler.job_failed` names as
+`account`.
 
 **An `account.references_failed` line carrying `no_owner` means the backend reads no live `owner`
 grant**, so it refuses every batch and the sweep deletes nothing, every pass alike. Such a pass

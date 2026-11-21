@@ -27,7 +27,8 @@ you write one; the strings themselves live in the catalogue, under `fl_frontend/
 4. **Everything else stands on the status line or in a callout** as one short declarative catalogue
    sentence saying what is so, never why it is so or how to repair it.
 5. **The sign-in follows the same rules**: its code boxes show a pattern-form phrase, and every
-   other refusal stands on its status line.
+   other refusal stands on its status line. Its address view alone says no `template.checkFields`,
+   [as the refusal pattern says](#a-recurring-job-takes-its-fixed-pattern).
 
 ## A string lives in the catalogue and nowhere else
 
@@ -114,7 +115,8 @@ wraps and takes a second line, which moves what stands below it.
 | Page or section heading | 4 words                                                    | a noun phrase, or the one act a page exists for („Anmelden“), no full stop; a sentence is a status or a consequence |
 | Field label             | 3 words                                                    | a noun, no colon                                                                                                    |
 | Button                  | 3 words                                                    | a verb from the catalogue's closed set, with an object where needed („Team anlegen“)                                |
-| Field description       | 1 sentence, 90 characters                                  | says what the thing is; none where the label suffices; no field has a placeholder                                   |
+| Field description       | 1 sentence, 90 characters                                  | says what the thing is, or which other value closes it; none where the label suffices; no field has a placeholder   |
+| Option note             | one phrase                                                 | why a disabled choice cannot be made, only where it says more than the muted entry does                             |
 | Box description         | 1 sentence, one visible line at 360 px, 41 characters      | says what a Konto box holds, under its title                                                                        |
 | Tooltip                 | 5 words                                                    | names an icon-only control, or says why a locked act cannot run                                                     |
 | Section info tip (ⓘ)    | 2 sentences, or a key of short lines; about 200 characters | one per section, after its title, only where a named question needs it; a key, „Mark: meaning“                      |
@@ -145,11 +147,13 @@ Each pattern is an entry of `COPY.shared`; what the entry cannot say is when it 
   box). The address example is `field.exampleAddress`, a reserved domain, never a school's address.
 - **A refusal is worded wherever the catalogue has words for it**, on every screen that can place
   them. One that a pattern of `field` words shows on its field's box, and the status line says
-  `COPY.template.checkFields`. One about the whole form, or about a field no pattern words, takes
-  the status line: one short sentence that fits its two lines on a phone, naming its field where it
-  has one. A field phrase never stands on the status line, since it has no subject there, so a
-  phrase whose field the screen shows no box for counts as unworded. A catalogue sentence states the
-  fact and never why it holds or how to repair it.
+  `COPY.template.checkFields`, save on the sign-in's address view: a page of one field, whose box
+  takes the focus on a refusal so that a screen reader reads it with its phrase, and whose status
+  line stays empty, since it would only point at the box already in focus. One about the whole form,
+  or about a field no pattern words, takes the status line: one short sentence that fits its two
+  lines on a phone, naming its field where it has one. A field phrase never stands on the status
+  line, since it has no subject there, so a phrase whose field the screen shows no box for counts as
+  unworded. A catalogue sentence states the fact and never why it holds or how to repair it.
 - **Every other refusal takes a `failure` line.** `stale` answers every refusal of the request the
   catalogue does not word, since the page read again shows the record as it stands. `signInExpired`
   answers an ended sign-in, and `tooManyAttempts` every limit on tries, whatever it counts.

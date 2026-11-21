@@ -229,8 +229,8 @@ write.\
 
 **Is:** one game on a referee's Übersicht of one season, under its matchday's head, and a second
 time in the card „Termine“ while its booking is still to answer: a fixture booked to them, with the
-newest `Spielbestätigung` row asking them about it. A fixture is one row, replaced rather than added
-to when the request is renewed.\
+newest `Spielbestätigung` row asking them about it. A fixture is one entry of the list, its newest
+request replacing rather than adding to the one before.\
 **In code:** `fl_backend/app/api/schiedsrichter/schemas.py :: FLSchiedsrichterSpiel`, served by
 `fl_backend/app/api/schiedsrichter/person_router.py :: get_self_spiele`.
 
@@ -614,7 +614,7 @@ confirms it by a link.\
 
 ### `Fassung` · `wording` — one frozen consent wording a person was shown, under its label
 
-**Is:** the words of one consent under the label each choice's evidence stamps as `text_version`, A
+**Is:** the words of one consent under the label each choice's evidence stamps as `text_version`. A
 label's words never change: new words are a new label.\
 **In code:** `fl_frontend/src/core/consentWordings.ts :: CONSENT_WORDINGS`;
 `fl_backend/app/shared/schemas/einwilligung.py :: FLEinwilligungTextVersion`.

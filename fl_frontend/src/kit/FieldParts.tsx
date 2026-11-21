@@ -106,13 +106,14 @@ export function useFieldLock(isLocked: boolean, isRequired = false): { isReadOnl
 }
 
 /**
- * Whether a field still waits for the page's code, which every field's root takes as its `inert`. Until the page
- * hydrates, a server-drawn field would take a person's typing or press with no code to hear it: React leaves what the
- * browser shows while hydrating, and its next render writes the field's own state over it, and a digit typed into a
- * date's segment fails hydration outright. So the field takes neither focus nor input until then, painting as the live
- * one does and posting its value with its form. `disabled` would drop it from what the form posts, and `readOnly`
- * leaves a caret on some browsers and holds no box or radio. A press of the form's send in that time is `HeldForm`'s.
- * React Aria answers true on the server and through hydration alone, so a field first drawn in the browser never waits.
+ * Whether a field still waits for the page's code, which every field a person types into or toggles takes at its root
+ * as its `inert`. Until the page hydrates, a server-drawn field would take a person's typing or press with no code to
+ * hear it: React leaves what the browser shows while hydrating, and its next render writes the field's own state over
+ * it, and a digit typed into a date's segment fails hydration outright. So the field takes neither focus nor input
+ * until then, painting as the live one does and posting its value with its form. `disabled` would drop it from what
+ * the form posts, and `readOnly` leaves a caret on some browsers and holds no box or radio. A press of the form's send
+ * in that time is `HeldForm`'s. React Aria answers true on the server and through hydration alone, so a field first
+ * drawn in the browser never waits.
  */
 export function useFieldWait(): boolean {
   return useIsSSR();
