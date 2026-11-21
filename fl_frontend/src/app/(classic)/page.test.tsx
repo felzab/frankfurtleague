@@ -25,9 +25,9 @@ const { default: HomePage } = await import("./page");
 async function rendered(
   window: FLLandingResponse["bewerbung_window"],
   opensOn: FLLandingResponse["bewerbung_opens_on"] = null,
-  { held = false, saison = null }: { held?: boolean; saison?: FLLandingResponse["saison"] } = {},
+  { saison = null }: { saison?: FLLandingResponse["saison"] } = {},
 ) {
-  landing = { saison, bewerbung_window: window, bewerbung_opens_on: opensOn, bewerbung_window_held: held, counts: COUNTS };
+  landing = { saison, bewerbung_window: window, bewerbung_opens_on: opensOn, counts: COUNTS };
   const stream = await renderToReadableStream(<HomePage />);
   await stream.allReady;
   return new Response(stream).text();
@@ -58,19 +58,15 @@ const DECIDED: FLLandingResponse["saison"] = {
   teams: [],
 };
 
-// A window about to open or standing paused reads on the band as the form's page reads it, so the two say one thing.
+// A window about to open or closed reads on the band as the form's page reads it, so the two say one thing.
 describe("the landing's band while no window is open", () => {
   it("names the day the next one opens", async () => {
-    expect(paragraphs(await rendered(null, "2028-01-01", { held: true, saison: DECIDED }))).toContain(
+    expect(paragraphs(await rendered(null, "2028-01-01", { saison: DECIDED }))).toContain(
       SERVER_COPY.bewerbung.end.opensOn(dayOf("2028-01-01")),
     );
   });
 
-  it("reads as the form's page while a season not ended holds a window, next year's paused one beside a decided season", async () => {
-    expect(paragraphs(await rendered(null, null, { held: true, saison: DECIDED }))).toContain(SERVER_COPY.bewerbung.end.closed);
-  });
-
-  it("reads its own sentence where no season not ended holds one", async () => {
-    expect(paragraphs(await rendered(null, null, { held: false, saison: DECIDED }))).toContain(SERVER_COPY.landing.join.closed);
+  it("reads the form's closed sentence beside a decided season", async () => {
+    expect(paragraphs(await rendered(null, null, { saison: DECIDED }))).toContain(SERVER_COPY.bewerbung.end.closed);
   });
 });

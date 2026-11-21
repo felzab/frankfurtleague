@@ -2703,7 +2703,6 @@ export interface FLLandingRunning {
 export interface FLLandingResponse {
   bewerbung_opens_on: string | null;
   bewerbung_window: FLBewerbungWindow | null;
-  bewerbung_window_held: boolean;
   counts: FLLandingCounts;
   saison: FLLandingBeforeStart | FLLandingRunning | FLLandingDecided | null;
 }

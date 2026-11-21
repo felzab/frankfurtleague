@@ -313,7 +313,6 @@ async def get_landing(
         if windows.open is None
         else FLBewerbungWindow(saison_id=str(windows.open["_id"]), end=windows.open["bewerbung"]["end"]),
         bewerbung_opens_on=windows.opens_on,
-        bewerbung_window_held=windows.held,
         counts=counts,
     )
 

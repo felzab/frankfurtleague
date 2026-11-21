@@ -6021,10 +6021,6 @@
               }
             ]
           },
-          "bewerbung_window_held": {
-            "title": "Bewerbung Window Held",
-            "type": "boolean"
-          },
           "counts": {
             "$ref": "#/components/schemas/FLLandingCounts"
           },
@@ -6062,7 +6058,6 @@
           "saison",
           "bewerbung_window",
           "bewerbung_opens_on",
-          "bewerbung_window_held",
           "counts"
         ],
         "title": "FLLandingResponse",
