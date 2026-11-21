@@ -48,7 +48,7 @@ const DISQUALIFIED = {
   team1: `${team1} ist aus der Saison ausgeschieden.`,
   team2: `${team2} ist aus der Saison ausgeschieden.`,
 };
-// An address the ban list holds, whichever write would mail it a link.
+// An address the ban list holds, whichever act reached for it: a write that would mail it a link, or a second ban.
 const ADDRESS_BARRED = "Diese E-Mail-Adresse steht auf der Sperrliste.";
 // An address the administration holds, whichever act reached for it: an addition, a ban, an erasure or an address change.
 const ADDRESS_OF_ADMINISTRATION = "Diese Adresse gehört zur Verwaltung.";
@@ -242,7 +242,7 @@ export const SERVER_COPY = catalogue({
    */
   closedDialog: {
     /** A ban of an address the ban list already holds. */
-    banned: "Diese Adresse ist schon gesperrt.",
+    banned: ADDRESS_BARRED,
     format: {
       address: `Die E-Mail-Adresse hat nicht das Format ${COPY.shared.field.exampleAddress}.`,
       previous: `Die bisherige E-Mail-Adresse hat nicht das Format ${COPY.shared.field.exampleAddress}.`,
