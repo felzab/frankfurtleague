@@ -17,9 +17,14 @@ const passkeyActs = await import("@/features/passkeys/actions");
 const grantActs = await import("@/features/grants/actions");
 const addressChangeActs = await import("@/app/admin/(list)/address-changes/addressChangeActs");
 const changeActs = await import("@/features/address-change/actions");
+const teamActs = await import("@/app/admin/(editor)/saisons/[saison]/teams/[team]/teamActs");
+const bewerbungSeatActs = await import("@/app/admin/(list)/saisons/[saison]/bewerbungen/[bewerbung]/seatActs");
 
 const GRANT = "64b000000000000000000002";
 const ADDRESS_CHANGE = "64b000000000000000000002";
+const TEAM = "64a000000000000000000001";
+const BEWERBUNG = "64b000000000000000000002";
+const SEAT_PERSON = { first_name: "Jana", last_name: "Schmidt", email: "jana@example.org", phone: "069 90009765", version: "3" };
 
 /** How long ago the administrator's passkey sign-in was: past the touch, well inside the administrator's window. */
 const SIGNED_IN_MS_AGO = 2 * 60 * 1000;
@@ -65,6 +70,14 @@ const TOUCHED: ReadonlyArray<readonly [string, () => Promise<unknown>]> = [
   ],
   ["a change's fresh link", () => addressChangeActs.resendChangeLink({ address_change_id: ADDRESS_CHANGE, holder: ADMIN_EMAIL })],
   ["a change's discard", () => changeActs.discardChange({ id: ADDRESS_CHANGE, holder: ADMIN_EMAIL })],
+  [
+    "a club's seat",
+    () => teamActs.writeSeat({ team_id: TEAM, saison_id: "2027", seat: "trainer", ...SEAT_PERSON, trainer_is_also: "", holder: ADMIN_EMAIL }),
+  ],
+  [
+    "an application's seat",
+    () => bewerbungSeatActs.writeBewerbungSeat({ id: BEWERBUNG, seat: "trainer", ...SEAT_PERSON, holder: ADMIN_EMAIL }),
+  ],
 ];
 
 describe("the acts behind the passkey touch", () => {
