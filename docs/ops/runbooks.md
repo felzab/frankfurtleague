@@ -348,12 +348,10 @@ administration is shut while it is down. Each of these is easy to get wrong:
   waiting, or a thief's handover stays armed; it then demotes any other `owner` row, which
   `uniq_grant_owner` otherwise refuses, and writes a new row rather than repointing the old one,
   whose sign-in account stays at the old address. Removing the row by its folded address removes the
-  grant; then delete that address's account's rows in the `passkey` collection of the `auth`
-  database, and its rows in `session` whose `authFactor` is `passkey`, the passkeys first. The same
-  deletion follows a `grants.passkeys_not_deleted` line, which names no address: the Protokoll's
-  `grant.removed` or `grant.addition_withdrawn` at that moment does. A hand write mails nobody,
-  which is why it serves these two cases alone. The statement itself is kept off this public
-  repository.
+  grant, and the account sweep's next hourly pass deletes that address's passkeys and the sessions
+  they made ([section 9](#9-checking-that-the-hourly-passes-have-run)), as it does after a
+  `grants.passkeys_not_deleted` line: nothing is deleted by hand. A hand write mails nobody, which
+  is why it serves these two cases alone. The statement itself is kept off this public repository.
 - **Write only into a database a boot of the release carrying `grants` has reached.** That boot
   creates the unique indexes; a write before it creates the collection without them, and a duplicate
   in it then fails the next boot's index build (`db.indexes_failed`). Until the write lands no
@@ -1119,6 +1117,15 @@ failure left for the next pass, never naming an address. A pass whose sign-in st
 listed rejects, which `scheduler.job_failed` names as `account` and the heartbeat as
 `account failed`. Every other failure inside a pass is a line of its own, and the next pass asks
 again.
+
+**The same job then deletes the passkeys of every address holding no grant**, and the sessions they
+made, whatever left them there: a removal whose deletion failed (`grants.passkeys_not_deleted`), a
+grant removed by hand, or an address change's carry that failed part-way. `passkeys_deleted` on the
+pass's line counts the addresses it cleared. One whose grant the backend did not answer keeps its
+passkeys, as an unjudged account keeps its row: it counts in `passkeys_failed`, files
+`account.passkeys_failed` naming the error and no address, reaches the heartbeat as
+`account left <n>`, and the next pass asks again. A passkey list that failed fails the job after its
+accounts' counts, which `scheduler.job_failed` names as `account`.
 
 **An `account.references_failed` line carrying `no_owner` means the backend reads no live `owner`
 grant**, so it refuses every batch and the sweep deletes nothing, every pass alike. Such a pass

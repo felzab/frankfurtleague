@@ -1,10 +1,12 @@
 import { assert, beforeEach, describe, expect, it } from "vitest";
 
-import { faultingAdapter, insertOrderedAdapter, memoryStore, registerAuthDoubles } from "@/test-support/authDoubles";
+import { answerTheLookup, faultingAdapter, GRANTED, insertOrderedAdapter, memoryStore, registerAuthDoubles } from "@/test-support/authDoubles";
 import { networkFailure, refusal, serveBackend } from "@/test-support/backend";
 import { captureLog } from "@/test-support/stdoutCapture";
+import { NO_RECORDS } from "@/test-support/subjectFixtures";
 
 import type { FLReferencesPayload, FLReferencesResponse } from "@/core/generated/client/types";
+import type { LookupFixture } from "@/test-support/subjectFixtures";
 import type { MemoryDB } from "better-auth/adapters/memory";
 
 /** The sign-in store under the real library: its own in-memory one, emptied before every case. */
@@ -34,6 +36,10 @@ const backend = serveBackend(({ method, path, body }) => {
 });
 const { owed } = registerAuthDoubles({ specifiers: { "@better-auth/mongo-adapter": ADAPTER } });
 const log = captureLog();
+
+/** Each passkey holder's grant as the sign-in read answers it, `null` for a read that fails: none, unless a case names one. */
+let grants: (address: string) => LookupFixture | null = () => ({ ...NO_RECORDS, account: true });
+answerTheLookup((address) => grants(address));
 
 const { auth } = await import("@/core/auth/library");
 const { REFERENCES_ADDRESSES_MAX, runAccountSweep } = await import("./sweep");
@@ -86,6 +92,7 @@ beforeEach(() => {
   for (const rows of Object.values(store)) rows.length = 0;
   failing = undefined;
   references = () => [];
+  grants = () => ({ ...NO_RECORDS, account: true });
 });
 
 describe("which accounts a pass deletes", () => {
@@ -233,6 +240,77 @@ describe("a pass meeting a failure", () => {
   });
 });
 
+/** A passkey for the account at `address`, signed in on two devices: one by that passkey, one by a mailed code. */
+async function holdsPasskey(address: string): Promise<void> {
+  const { adapter } = await auth.$context;
+  const account = store.user.find(({ email }) => email === address);
+  assert.ok(account !== undefined, `no account stands at ${address}`);
+  await adapter.create({
+    model: "passkey",
+    data: { userId: account.id, credentialID: `credential-of-${address}`, publicKey: "k", counter: 0 },
+  });
+  const expiresAt = new Date(Date.now() + 3_600_000);
+  for (const authFactor of ["passkey", "code"]) {
+    await adapter.create({
+      model: "session",
+      data: { userId: account.id, token: `${authFactor}-${address}`, expiresAt, createdAt: new Date(), updatedAt: new Date(), authFactor },
+    });
+  }
+}
+
+/** Each passkey, and each session, by the address of the account holding it. */
+const heldBy = () => {
+  const addressOf = (userId: unknown) => store.user.find(({ id }) => id === userId)?.email;
+  return {
+    passkeys: store.passkey.map(({ userId }) => addressOf(userId)),
+    sessions: store.session.map((row) => [addressOf(row.userId), Reflect.get(row, "authFactor")]),
+  };
+};
+
+/* The harm: a passkey left at an address holding no grant -- a removal whose deletion failed, a grant removed by hand,
+   a carry that failed between its two writes -- signs a person in as an administrator's factor, and no page lists it. */
+describe("the passkeys a pass deletes", () => {
+  it("deletes the passkeys of an address holding no grant and the sessions they made, its code session kept", async () => {
+    await seed(["ehemalig@schule.example.org"]);
+    await holdsPasskey("ehemalig@schule.example.org");
+
+    expect((await runAccountSweep()).count.passkeys_deleted).toBe(1);
+
+    expect(heldBy()).toStrictEqual({ passkeys: [], sessions: [["ehemalig@schule.example.org", "code"]] });
+  });
+
+  it("keeps the passkeys of an address holding a grant", async () => {
+    await seed(["vorstand@schule.example.org"]);
+    await holdsPasskey("vorstand@schule.example.org");
+    grants = () => ({ ...GRANTED, account: true });
+
+    expect((await runAccountSweep()).count.passkeys_deleted).toBe(0);
+
+    expect(heldBy()).toStrictEqual({
+      passkeys: ["vorstand@schule.example.org"],
+      sessions: [
+        ["vorstand@schule.example.org", "passkey"],
+        ["vorstand@schule.example.org", "code"],
+      ],
+    });
+  });
+
+  /* An answer that never came says nothing of the grant, so the passkeys stay and the heartbeat names the address left. */
+  it("deletes nothing of an address whose grant it cannot read, and leaves it open on one line naming no address", async () => {
+    await seed(["ungelesen@schule.example.org", "ehemalig@schule.example.org"]);
+    await holdsPasskey("ungelesen@schule.example.org");
+    await holdsPasskey("ehemalig@schule.example.org");
+    grants = (address) => (address === "ungelesen@schule.example.org" ? null : { ...NO_RECORDS, account: true });
+
+    const { count, open } = await runAccountSweep();
+
+    expect([count.passkeys_deleted, count.passkeys_failed, open]).toStrictEqual([1, 1, 1]);
+    expect(heldBy().passkeys).toStrictEqual(["ungelesen@schule.example.org"]);
+    expect(errorFields()).toStrictEqual([{ message: "account.passkeys_failed", fields: { name: "APINetworkError" } }]);
+    for (const { raw } of log.lines()) assert.ok(!raw.includes("@") && !raw.includes("[address]"), `a line carries an address: ${raw}`);
+  });
+});
+
 describe("what a completed pass answers", () => {
   /* Nothing is stored, so these counts on the scheduler's pass line are the whole record of what the sweep did, and
      the failed ones what the heartbeat names as left. */
@@ -255,7 +333,7 @@ describe("what a completed pass answers", () => {
     failing = readFailingAt("fehler@schule.example.org");
 
     expect(await runAccountSweep()).toStrictEqual({
-      count: { unreferenced: 4, deleted: 1, already_deleted: 1, failed: 1 },
+      count: { unreferenced: 4, deleted: 1, already_deleted: 1, failed: 1, passkeys_deleted: 0, passkeys_failed: 0 },
       open: 1,
     });
     // The one account deleted is told it went; the one already gone, and the one that failed, are owed nothing.
