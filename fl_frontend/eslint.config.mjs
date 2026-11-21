@@ -341,6 +341,8 @@ const IMPORT_BANS = [
       "src/features/bewerbungen/deliveryState.ts",
       "src/features/bewerbungen/seats.test.ts",
       "src/features/bewerbungen/standing.ts",
+      "src/features/grants/actions.test.ts",
+      "src/features/grants/actions.ts",
       "src/features/invitations/actions.ts",
       "src/features/spiele/saveSpiel.test.ts",
       "src/features/spiele/saveSpiel.ts",
