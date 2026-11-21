@@ -10,7 +10,7 @@ import type { FLCreatedResponse, FLPostBanListEntryPayload } from "@/core/genera
 
 const ADDRESS = "max@example.org";
 const BAN = { email: ADDRESS, ban_reason: "Ein Grund", holder: ADMIN_EMAIL };
-/** The site's one failure line, which every failure after the write shows. */
+/** The shared failure line, „Etwas ist schiefgelaufen“, which every failure after the write shows. */
 const FAILED = { ok: false, reason: COPY.shared.failure.unexpected };
 const MAX_ID = "64c000000000000000000005";
 
