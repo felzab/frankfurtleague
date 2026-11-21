@@ -11,6 +11,8 @@ import { SERVER_COPY } from "@/core/serverCopy";
 import { linkInvalid, TO_HOME } from "@/kit/mailedLinkState";
 import { TO_ACCOUNT } from "@/kit/MailedPage";
 
+import { TO_SIGN_IN } from "../ends";
+
 import type { CalendarDay } from "@/core/format";
 import type { FLAddressChangeWay } from "@/core/generated/client/types";
 import type { EndState } from "@/kit/MailedPage";
@@ -40,7 +42,7 @@ const wayOn = (way: FLAddressChangeWay) => (way === "account" ? TO_ACCOUNT : TO_
  */
 const ENDS = {
   previous: { tone: "success", title: DONE.previous, next: TO_ACCOUNT },
-  new: { tone: "success", title: DONE.new, next: { label: COPY.shared.verb.signIn, href: ROUTES.signIn.path() } },
+  new: { tone: "success", title: DONE.new, next: TO_SIGN_IN },
   declined: { tone: "danger", title: WORDS.declined, next: TO_HOME },
   stopped: { tone: "danger", title: WORDS.previous.stopped, next: TO_HOME },
 } as const satisfies Readonly<Record<string, EndState>>;

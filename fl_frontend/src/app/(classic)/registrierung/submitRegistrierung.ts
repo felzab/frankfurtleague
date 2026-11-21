@@ -13,7 +13,8 @@ import { IDEMPOTENCY_KEY_FIELD, IDEMPOTENCY_KEY_HEADER } from "@/core/idempotenc
 import { forgetMailedLink } from "@/core/mailedLink";
 import { ROUTES } from "@/core/routes";
 
-import { endOf, LINK_INVALID, readInvitation } from "./invitation";
+import { LINK_INVALID } from "../confirm/ends";
+import { endOf, readInvitation } from "./invitation";
 
 import type { Code } from "@/core/generated/client/types";
 

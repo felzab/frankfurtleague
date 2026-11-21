@@ -3,14 +3,12 @@ import "server-only";
 import { refusedAs } from "@/core/errors";
 import { registrierungenPostInvitationView } from "@/core/generated/client/sdk";
 import { SERVER_COPY } from "@/core/serverCopy";
-import { linkInvalid, TO_HOME } from "@/kit/mailedLinkState";
+import { TO_HOME } from "@/kit/mailedLinkState";
 
 import type { Code, FLInvitationViewResponse } from "@/core/generated/client/types";
 import type { EndState } from "@/kit/MailedPage";
 
 const WORDS = SERVER_COPY.registrierung.end;
-
-export const LINK_INVALID: EndState = linkInvalid(TO_HOME);
 
 /** A token no live invite holds, and one the backend will not parse: a dead link either way. */
 const DEAD: ReadonlySet<Code> = new Set<Code>(["document_not_found", "payload_refused"]);

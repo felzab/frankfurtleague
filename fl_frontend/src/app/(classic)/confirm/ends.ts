@@ -15,7 +15,8 @@ const WORDS = SERVER_COPY.entryConfirmation;
 
 export const LINK_INVALID: EndState = linkInvalid(TO_HOME);
 
-const TO_SIGN_IN = { label: COPY.shared.verb.signIn, href: ROUTES.signIn.path() };
+/** The way on to signing in, which a confirmed entry and a confirmed new address both lead to. */
+export const TO_SIGN_IN = { label: COPY.shared.verb.signIn, href: ROUTES.signIn.path() };
 
 /**
  * The end an entry's answer reaches, a contact's seat and a referee's entry alike, its title saying all there is: a

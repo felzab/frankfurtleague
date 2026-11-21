@@ -21,7 +21,8 @@ import { ConsentLine } from "@/kit/ConsentLine";
 import { mailedMetadata } from "@/kit/mailedMetadata";
 import { MailedPage } from "@/kit/MailedPage";
 
-import { endOf, LINK_INVALID, readInvitation } from "./invitation";
+import { LINK_INVALID } from "../confirm/ends";
+import { endOf, readInvitation } from "./invitation";
 import { RegistrierungFields } from "./RegistrierungFields";
 import { submitRegistrierung } from "./submitRegistrierung";
 
