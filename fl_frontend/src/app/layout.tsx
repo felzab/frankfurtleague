@@ -77,8 +77,7 @@ export const metadata: Metadata = {
 /**
  * No page has a boundary above it, so a route's prerendered shell is empty, which the build would otherwise refuse. The
  * root is the highest `instant` config of every route, and the shell's check obeys the highest one, so `false` here
- * lifts it for each route; it is the lowest place that covers them all. It does not lift the development server's
- * check of a navigation between two pages below it, which `next dev` runs at Next's default level and which warns.
+ * lifts it for each route; it is the lowest place that covers them all.
  */
 export const instant = false;
 

@@ -125,12 +125,11 @@ turn:
 
 Then the Postausgang's drain (`fl_frontend/src/core/mail.ts :: drainOutbox`) sends what they owed; a
 write that owes a mail drains at once besides. **No switch holds one job back**: every job runs
-wherever a production build runs, the local stack included, and `next dev` arms nothing.
-**`RESTORE_HOLD=on` in `fl_frontend/.env` holds them all**, while the data is not yet what the jobs
-may act on: after a migration until its read-back, and during a restore
-([`runbooks.md`](runbooks.md) §2, §13). Read once at the boot, it arms no pass and makes a write's
-drain send nothing (`fl_frontend/src/core/afterResponse.ts :: drainSoon`), the mail waiting in the
-Postausgang.
+wherever a production build runs, the local stack included. **`RESTORE_HOLD=on` in
+`fl_frontend/.env` holds them all**, while the data is not yet what the jobs may act on: after a
+migration until its read-back, and during a restore ([`runbooks.md`](runbooks.md) §2, §13). Read
+once at the boot, it arms no pass and makes a write's drain send nothing
+(`fl_frontend/src/core/afterResponse.ts :: drainSoon`), the mail waiting in the Postausgang.
 
 Production declares no replicas, so one process arms one timer, and an hour finding the previous
 pass still running is skipped with one line. Every job selects on dates, lapses or season statuses
@@ -164,9 +163,9 @@ flight.
 
 **Every credential the stack holds is a Compose file secret, and none is an environment variable**:
 `docker inspect` prints a container's environment, and never the contents of a mount. Each file has
-one name on the host, at `/run/secrets/` and in development, so the two database logins are two
-files. Who holds which is `scripts/checks/check_compose_model.py :: SECRET_HOLDERS`. **`./secrets/`
-is `.gitignore`d**, which keeps the credentials uncommittable from a checkout that has to hold them.
+one name on the host and at `/run/secrets/`, so the two database logins are two files. Who holds
+which is `scripts/checks/check_compose_model.py :: SECRET_HOLDERS`. **`./secrets/` is
+`.gitignore`d**, which keeps the credentials uncommittable from a checkout that has to hold them.
 
 **Compose mounts a file secret as a bind mount and ignores its `uid`, `gid` and `mode`**, so the
 host file's own owner and mode are what the container sees (Docker's Compose file reference,
@@ -421,24 +420,20 @@ form post.
 `scripts/README.md` lists the scripts; each script's own header carries its usage and prints it with
 `--help`.
 
-| Environment | What it is                                             | Database                                                                       | Entry point                                                                                                   |
-| ----------- | ------------------------------------------------------ | ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------- |
-| **dev**     | source with hot reload, no Docker                      | the one the URI files under `secrets/` name ([`runbooks.md`](runbooks.md) §16) | `pnpm dev` in `fl_frontend/` · `SECRETS_DIR=../secrets uv run uvicorn app.asgi:app --reload` in `fl_backend/` |
-| **local**   | the production images built from your tree, with nginx | its own, inside the stack (`docker-compose.local.yml :: mongo`)                | `./scripts/ops/local.sh`                                                                                      |
-| **e2e**     | the local stack again, for the Playwright journeys     | its own, with the made-up seed, new on every start (`docker-compose.e2e.yml`)  | `./scripts/ops/local.sh --e2e`                                                                                |
-| **prod**    | published images on the server, never built there      | the managed cluster                                                            | `./scripts/ops/deploy.sh`                                                                                     |
+| Environment | What it is                                             | Database                                                                      | Entry point                    |
+| ----------- | ------------------------------------------------------ | ----------------------------------------------------------------------------- | ------------------------------ |
+| **local**   | the production images built from your tree, with nginx | its own, inside the stack (`docker-compose.local.yml :: mongo`)               | `./scripts/ops/local.sh`       |
+| **e2e**     | the local stack again, for the Playwright journeys     | its own, with the made-up seed, new on every start (`docker-compose.e2e.yml`) | `./scripts/ops/local.sh --e2e` |
+| **prod**    | published images on the server, never built there      | the managed cluster                                                           | `./scripts/ops/deploy.sh`      |
 
 **local is the only place a packaging problem is visible before a deploy**: a missing standalone
-file, a failing startup gate, a header nginx does not set. dev exercises none of that machinery, and
-prod only pulls. `local.sh` refuses to start anywhere but Windows, and `deploy.sh` anywhere but
-Linux.
+file, a failing startup gate, a header nginx does not set. prod only pulls the images. `local.sh`
+refuses to start anywhere but Windows, and `deploy.sh` anywhere but Linux.
 
 **Each application service reads its own package's `.env` and no other**, and every credential is a
 file under `secrets/` (§1.2). **On the server, the `.env` beside the compose file holds the deploy's
 pin alone** ([`runbooks.md`](runbooks.md) §1). Compose reads it for every command, and refuses to
-parse `docker-compose.yml` without a `TAG`. **The frontend's `dev` script sets `SECRETS_DIR`
-itself**, to the checkout's `secrets/`, because `fl_frontend/.env` also reaches the frontend
-container, where a path written there would turn the frontend away from the secret's mount.
+parse `docker-compose.yml` without a `TAG`.
 
 **The local stack is `docker-compose.local.yml` merged over `docker-compose.yml`**, so only what the
 override writes differs, and each difference is argued at its key. It builds both images from the
@@ -836,7 +831,6 @@ be true there, a check the owner makes in its list of monitors:
 | A deploy fails: nginx's running master refused the configuration `nginx -t` passed                       | A change nginx takes only at a start, such as a zone keyed anew under its old name                                                            | `docker compose restart nginx`                                                                                         |
 | `failed to connect to the docker API at npipe:...`                                                       | Docker Desktop is not running                                                                                                                 | Start it and wait for it to settle                                                                                     |
 | The publish job in `.github/workflows/verify.yml` fails at the push with `denied` or `permission_denied` | The package does not grant this repository's workflows write access                                                                           | Package settings → Manage Actions access → add this repository with the Write role, then re-run the job                |
-| `EBUSY`, or `.next` locked during a build                                                                | A `pnpm dev` is still running, or the folder is open in an editor                                                                             | Stop the dev server                                                                                                    |
 | `./scripts/ops/local.sh` reports `mongo` unhealthy                                                       | The local database has not elected itself primary, so no transaction opens                                                                    | Read the lines the script prints under `mongo`'s step                                                                  |
 | A db-tier run reports a wall of failures naming unique indexes                                           | A second `pytest -m db` ran beside it on the same machine                                                                                     | Re-run with nothing else on the tier                                                                                   |
 | Container unhealthy, health log empty, `FailingStreak: 0`                                                | The app died before the first probe, usually on a malformed `.env` value                                                                      | `docker compose logs <service>`                                                                                        |

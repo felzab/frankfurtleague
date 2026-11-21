@@ -144,9 +144,7 @@ commit until it ends.
   makes it a transition and a transition never hides content it has revealed. The page fade runs
   once, between two finished pages.
 - The root layout (`fl_frontend/src/app/layout.tsx`) exports `instant = false`, which lifts the
-  build's check that a route's prerendered shell holds something, for every route. It leaves the
-  development server's check of a navigation between two pages below the root as Next sets it by
-  default: `next dev` still checks such a navigation and warns.
+  build's check that a route's prerendered shell holds something, for every route.
 
 **One fact says a navigation is under way**: the address it goes to, which
 `fl_frontend/src/kit/WholePage.tsx :: WholePages`, placed around every route by the root layout,

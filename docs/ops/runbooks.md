@@ -1499,30 +1499,29 @@ nothing while the backend does not answer.
 
 ## 16. The secret files
 
-**Every credential is a file under `secrets/`, beside the compose file**, under one name on the
-host, at `/run/secrets/` in its container and in development ([`spec.md`](spec.md) §1.2). Which
-service reads which, and each file's owner and mode on the server, is that section's table. **A file
-holds its value and nothing else**: no `NAME=`, no quotes, no comment. Both readers drop a trailing
-newline and surrounding blanks, and everything else in the file is part of the value.
+**Every credential is a file under `secrets/`, beside the compose file**, under one name on the host
+and at `/run/secrets/` in its container ([`spec.md`](spec.md) §1.2). Which service reads which, and
+each file's owner and mode on the server, is that section's table. **A file holds its value and
+nothing else**: no `NAME=`, no quotes, no comment. Both readers drop a trailing newline and
+surrounding blanks, and everything else in the file is part of the value.
 
 **Each machine has its own.** The internal keys and the sign-in secret authenticate one machine's
 processes to each other, so a development machine generates fresh ones and never copies
-production's. **A development machine holds no production login at all**: its two database URI files
-name the local stack's database through the port that stack publishes on loopback. The local stack
-itself hands its services an inline config naming its own database.
+production's. **A development machine holds no production login at all**: the local stack hands its
+services an inline config naming its own database, so the machine holds no database URI file.
 
-On a development machine, in Git Bash at the checkout root, this writes every file both dev servers
-and the local stack read, each readable by its writer alone, and prints nothing:
+On a development machine, in Git Bash at the checkout root, this writes every file the local stack
+reads, each readable by its writer alone, and prints nothing:
 
 ```bash
-(umask 077 && mkdir -p secrets && for name in internal_api_key_base internal_api_key_system internal_api_key_admin auth_secret; do openssl rand -hex 32 | tr -d '\r\n' > "secrets/$name"; done && printf 'mongodb://localhost:27017/?directConnection=true' | tee secrets/frontend_mongodb_uri > secrets/backend_mongodb_uri)
+(umask 077 && mkdir -p secrets && for name in internal_api_key_base internal_api_key_system internal_api_key_admin auth_secret; do openssl rand -hex 32 | tr -d '\r\n' > "secrets/$name"; done)
 ```
 
 `openssl rand -hex 32` is the 64 characters every key's floor or length demands. Neither of the
 provider's keys is written: nothing outside production sends mail, and the provider sends its
 delivery events to production alone. Nor is `turnstile_secret_key`: outside production the bot check
-verifies with Cloudflare's published passing secret, so a development machine's `fl_frontend/.env`
-carries the site key that secret passes, `TURNSTILE_SITE_KEY=1x00000000000000000000AA`
+verifies with Cloudflare's published passing secret, so the local stack hands the frontend the site
+key that secret passes, `TURNSTILE_SITE_KEY=1x00000000000000000000AA`
 ([Cloudflare's testing page](https://developers.cloudflare.com/turnstile/troubleshooting/testing/),
 read 2026-10-04). **Production holds the widget's own pair**, the site key in `fl_frontend/.env` and
 the secret in `secrets/turnstile_secret_key`, both from the Cloudflare dashboard's Turnstile widget,
