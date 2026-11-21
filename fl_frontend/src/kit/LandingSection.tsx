@@ -1,6 +1,7 @@
 import { useId } from "react";
 
 import { smallCaps } from "./cardStyles";
+import { classicTitle } from "./ClassicPage";
 import { Link } from "./Link";
 import { tv } from "./tv";
 
@@ -13,7 +14,8 @@ const section = tv({
     root: "kit-section-target grid min-w-0 gap-6",
     head: "grid max-w-measure justify-items-start gap-2",
     eyebrow: smallCaps(),
-    title: "font-heading text-2xl tracking-display uppercase",
+    // A classic page's title at a card's rung, one step under the page's.
+    title: classicTitle({ place: "card" }),
   },
 });
 
