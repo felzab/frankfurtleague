@@ -14,7 +14,8 @@ import type { ActionAnswer } from "@/core/action";
 
 const PASSKEY = COPY.shared.passkeys;
 const REFUSAL = COPY.shared.failure.stale;
-const NOTE = COPY.shared.toast.linkSent;
+/** The box's own done word, which is not its verb's. */
+const OWN_WORD = COPY.shared.toast.linkSent;
 const CONSEQUENCE = ACCOUNT_COPY.passkeys.endsDevices;
 /** The question's name: a toast is an alert dialog too. */
 const QUESTION = COPY.shared.question(PASSKEY, "delete");
@@ -29,14 +30,15 @@ afterEach(() => {
 });
 
 // A Konto box's act asking first answers in its question as every question does: a refusal closing the question would
-// leave the reason shown nowhere, and a done act's note, once the question has gone, belongs in the box's one toast,
-// the question raising none of its own beside it.
+// leave the reason shown nowhere, and a done act, once the question has gone, says itself in the box's one toast, in
+// the box's own word rather than its verb's: „Konto löschen“ has only sent a link when it is done, and „Gelöscht“
+// would tell the person the account is gone, the mailed link left unopened.
 describe("a Konto box's act behind a question", () => {
-  it("keeps the question open with a refusal, and once done says the act's note in one toast", async () => {
+  it("keeps the question open with a refusal, and once done says the box's own word in one toast", async () => {
     const run = vi
       .fn<() => Promise<ActionAnswer<unknown>>>()
       .mockResolvedValueOnce({ ok: false, reason: REFUSAL })
-      .mockResolvedValueOnce({ ok: true, value: undefined, note: NOTE });
+      .mockResolvedValueOnce({ ok: true, value: undefined });
     renderUnderNext(
       <>
         <AccountBox
@@ -45,7 +47,7 @@ describe("a Konto box's act behind a question", () => {
           act={{
             run,
             button: { confirm: { verb: "delete", subject: PASSKEY, consequence: CONSEQUENCE, tone: "danger" } },
-            done: COPY.shared.toast.done.delete,
+            done: OWN_WORD,
           }}
         />
         <ToastRegion frame="rail" />
@@ -58,10 +60,10 @@ describe("a Konto box's act behind a question", () => {
     await within(question).findByText(REFUSAL);
 
     await userEvent.click(confirmIn(question, "delete"));
-    await screen.findByRole("alertdialog", { name: NOTE });
+    await screen.findByRole("alertdialog", { name: OWN_WORD });
     await waitFor(() => expect(screen.queryByRole("alertdialog", { name: QUESTION })).toBeNull());
     expect(run).toHaveBeenCalledTimes(2);
-    // The note's toast alone: the box's line says nothing, nor does the question's verb raise a toast of its own.
+    // The box's word alone: the box's line says nothing, nor does the question's verb raise a toast of its own.
     expect([screen.getAllByRole("alertdialog").length, screen.getByRole("status").textContent]).toStrictEqual([1, ""]);
   });
 });
