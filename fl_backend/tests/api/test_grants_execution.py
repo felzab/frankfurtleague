@@ -740,8 +740,9 @@ class TestTheMountedRouteReadsTheGrants:
 
                 async def removing(address: str, auth_time: int) -> tuple[int, str | None]:
                     response = await http.delete(f"/api/grants/{BERND_ID}", headers=signed_in_at(address, auth_time))
-                    # A removal answers no body; a refusal names its code.
-                    return response.status_code, response.json().get("error_code") if response.content else None
+                    answer = response.json()
+                    # A removal answers the address it took the grant from; a refusal names its code.
+                    return response.status_code, answer.get("error_code", answer.get("address"))
 
                 waiting = await removing(ANNA, older)
                 await pass_at(database, client, datetime.now(UTC))
@@ -755,20 +756,20 @@ class TestTheMountedRouteReadsTheGrants:
             (403, Code.GRANT_ONLY_OWNER),
             (401, Code.SESSION_REFUSED),
             (403, Code.GRANT_ONLY_OWNER),
-            (204, None),
+            (200, BERND),
         ]
 
     async def test_a_removed_administrator_is_refused_on_the_very_next_request(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[int]:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[list[int], Any]:
             async with app_client(mongo_replica_set_url, app=app_under_test(DATABASE_NAME)) as http:
                 headers = StampedHeaders(BERND, ADMIN_KEY)
                 before = await http.get("/api/grants", headers=headers)
                 removed = await http.delete(f"/api/grants/{BERND_ID}", headers=StampedHeaders(OWNER, ADMIN_KEY))
                 after = await http.get("/api/grants", headers=headers)
 
-            return [before.status_code, removed.status_code, after.status_code]
+            return [before.status_code, removed.status_code, after.status_code], removed.json()
 
-        assert await on_a_league(mongo_replica_set_url, body) == [200, 204, 403]
+        assert await on_a_league(mongo_replica_set_url, body) == ([200, 200, 403], {"address": BERND})
 
     async def test_an_addition_over_http_is_attributed_to_the_token_s_administrator_everywhere(self, mongo_replica_set_url: str):
         """The only grant case reaching `get_actor_email`: a mixed-case identity is stored folded in the log."""

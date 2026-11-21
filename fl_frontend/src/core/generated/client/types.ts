@@ -2241,6 +2241,13 @@ export interface FLGrantHandoverPassResponse {
 }
 
 /**
+ * The address a removal or a withdrawal took the grant from, as the sign-in folds it.
+ */
+export interface FLGrantRemovedResponse {
+  address: string;
+}
+
+/**
  * One grant as the list serves it.
  */
 export interface FLGrantRow {
