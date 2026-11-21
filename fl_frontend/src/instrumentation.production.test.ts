@@ -160,7 +160,7 @@ const IDLE_COUNTS = {
   saisons: { bewerbung_failed: 0, registrierung_failed: 0, saison_failed: 0 },
   "address-change": { address_change_removed: 0, address_change_effective: 0, address_change_discarded: 0, address_change_failed: 0 },
   schiedsrichter: { schiedsrichter_erased: 0, schiedsrichter_failed: 0 },
-  account: { unreferenced: 0, deleted: 0, already_deleted: 0, failed: 0 },
+  account: { unreferenced: 0, deleted: 0, already_deleted: 0, failed: 0, passkeys_deleted: 0, passkeys_failed: 0 },
   erasure: { completed_saison_id: null, spieler: 0, saison_spieler: 0, registrierungen: 0, skipped: 0, failed: 0 },
   spielbestaetigungen: { closed: 0, asked: 0, reminded: 0, mails: 0, failed: 0 },
   grants: { handed_over: 0 },

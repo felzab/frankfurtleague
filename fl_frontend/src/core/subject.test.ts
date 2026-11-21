@@ -201,9 +201,9 @@ describe("who the seam answers for", () => {
   });
 
   /* A sign-in racing its passkey's removal leaves a session naming a credential no row holds:
-     the person lane serves it no more than the administrator's does. */
-  it("answers no subject for a session whose passkey no row holds any more", async () => {
-    const { cookie, row } = await signIn(PERSON_EMAIL);
+     the subject serves it no more than the admin lane does. */
+  it("answers no subject for an administrator's session whose passkey no row holds any more", async () => {
+    const { cookie, row } = await signIn(ADMIN_EMAIL);
     madeByPasskey(store, row);
     store.passkey.length = 0;
     arriveAs(cookie);

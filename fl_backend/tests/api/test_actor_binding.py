@@ -96,7 +96,7 @@ class TestTheAdministratorsSession:
         ],
     )
     def test_a_session_the_admin_tier_does_not_take_is_refused_before_the_grant_read(self, headers: Mapping[str, str]):
-        """A person's session sent to an admin route meets this, whatever the grants hold."""
+        """A person's session by code, or an administrator's passkey session past its window, meets this, whatever the grants hold."""
 
         response = client().delete(WRITE_PATH, headers=headers)
 

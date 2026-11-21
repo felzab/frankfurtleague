@@ -1,10 +1,12 @@
 import "server-only";
 
 import { deleteAccountFor, listAccounts } from "@/core/auth/accounts";
+import { deletePasskeysAt, passkeyHolders } from "@/core/auth/passkeys";
 import { requestOf } from "@/core/errors";
 import { identityGetReferences } from "@/core/generated/client/sdk";
 import { identityGetReferencesBodyIdentifiersMax } from "@/core/generated/zod/inputs";
 import { logger } from "@/core/logging";
+import { lookUpSignIn } from "@/core/signInGate";
 
 /**
  * The most addresses one references read judges, as the contract publishes it: a larger batch is refused whole, every
@@ -18,16 +20,21 @@ type AccountSweepCount = {
   deleted: number;
   already_deleted: number;
   failed: number;
+  /** The addresses holding no grant whose passkeys, and the sessions they made, the pass deleted. */
+  passkeys_deleted: number;
+  /** The addresses holding a passkey whose grant the pass could not read, or whose passkeys it could not delete. */
+  passkeys_failed: number;
 };
 
 /**
- * One pass over every sign-in account, deleting those no record references. The scheduler runs one pass at a time. A
- * store that lists nothing rejects, for the heartbeat to name; the pass resolves to what it did, `open` the accounts it
- * could not judge or delete.
+ * One pass over every sign-in account, deleting those no record references, then the passkeys of every address holding
+ * no grant. The scheduler runs one pass at a time. A store that lists no account rejects, for the heartbeat to name;
+ * the pass resolves to what it did, `open` the accounts and passkey holders it could not judge or delete, and `error`
+ * a passkey listing that failed after the accounts' step.
  */
-export async function runAccountSweep(): Promise<{ count: AccountSweepCount; open: number }> {
+export async function runAccountSweep(): Promise<{ count: AccountSweepCount; open: number; error?: unknown }> {
   const accounts = await listAccounts();
-  const count: AccountSweepCount = { unreferenced: 0, deleted: 0, already_deleted: 0, failed: 0 };
+  const count: AccountSweepCount = { unreferenced: 0, deleted: 0, already_deleted: 0, failed: 0, passkeys_deleted: 0, passkeys_failed: 0 };
 
   // Batch by batch, each within the read's ceiling: a larger one, or an empty one, is refused whole,
   // every pass alike, and the sweep would then delete nothing ever after.
@@ -52,7 +59,36 @@ export async function runAccountSweep(): Promise<{ count: AccountSweepCount; ope
     }
   }
 
-  return { count, open: count.failed };
+  let holders: readonly string[];
+  try {
+    holders = await passkeyHolders();
+  } catch (error) {
+    // The accounts' counts stand: the scheduler records them beside the failure.
+    return { count, open: count.failed, error };
+  }
+  for (const address of holders) {
+    await deletePasskeysWithoutGrant(address, count);
+  }
+
+  return { count, open: count.failed + count.passkeys_failed };
+}
+
+/**
+ * The passkeys of an address holding no grant, whatever left them there: a removal whose deletion failed, a grant
+ * removed by hand, or a carry that failed between its two writes.
+ */
+async function deletePasskeysWithoutGrant(address: string, count: AccountSweepCount): Promise<void> {
+  try {
+    // Kept on a read that fails: an unread grant says nothing about the address.
+    const { admin_tier: grant } = await lookUpSignIn(address);
+    if (grant !== null) return;
+
+    await deletePasskeysAt(address);
+    count.passkeys_deleted += 1;
+  } catch (error) {
+    count.passkeys_failed += 1;
+    logAccountFailure("account.passkeys_failed", error);
+  }
 }
 
 async function deleteUnreferencedAccount(address: string, count: AccountSweepCount): Promise<void> {
@@ -71,7 +107,11 @@ async function deleteUnreferencedAccount(address: string, count: AccountSweepCou
 }
 
 /** The step and the error's name, never the address: a failure on this path routinely carries it. */
-function logAccountFailure(event: "account.references_failed" | "account.delete_failed", error: unknown, batchSize?: number): void {
+function logAccountFailure(
+  event: "account.references_failed" | "account.delete_failed" | "account.passkeys_failed",
+  error: unknown,
+  batchSize?: number,
+): void {
   logger.error(event, undefined, {
     name: error instanceof Error ? error.name : undefined,
     ...requestOf(error),

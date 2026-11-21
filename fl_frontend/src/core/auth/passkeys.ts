@@ -43,6 +43,25 @@ export async function passkeysOf(userId: string): Promise<Passkey[]> {
 }
 
 /**
+ * The folded address of every account holding a passkey, for the account sweep to judge each by its grant: a handful,
+ * since only an administrator enrols one.
+ */
+export async function passkeyHolders(): Promise<string[]> {
+  const { adapter } = await auth.$context;
+  const passkeys = await adapter.findMany<{ userId: string }>({ model: "passkey", limit: EVERY_ROW });
+  const userIds = [...new Set(passkeys.map(({ userId }) => userId))];
+  // No passkey stands, so there is no holder to read.
+  if (userIds.length === 0) return [];
+
+  const holders = await adapter.findMany<{ email: string }>({
+    model: "user",
+    where: [{ field: "id", operator: "in", value: userIds }],
+    limit: EVERY_ROW,
+  });
+  return holders.map(({ email }) => asSignInIdentifier(email));
+}
+
+/**
  * Deletes the passkeys of the account signing in at `address`, then the sessions they made, once the address's grant
  * has ended: a passkey is an administrator's factor alone. An address with no account holds neither. Its code sessions
  * stay, a person's now, which the grant's end has already taken the administration from.

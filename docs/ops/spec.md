@@ -117,7 +117,8 @@ turn:
 - the address changes (`fl_frontend/src/features/address-change/sweep.ts :: sweepAddressChange`);
 - the referee entries' lapse
   (`fl_frontend/src/features/schiedsrichter/sweep.ts :: runSchiedsrichterSweep`);
-- the account sweep (`fl_frontend/src/features/account/sweep.ts :: runAccountSweep`);
+- the account sweep, which also deletes the passkeys of every address holding no grant
+  (`fl_frontend/src/features/account/sweep.ts :: runAccountSweep`);
 - the pupils' deletion (`fl_frontend/src/features/spieler/sweep.ts :: runErasureSweep`);
 - the fixture confirmations
   (`fl_frontend/src/features/spielbestaetigungen/sweep.ts :: runSpielSweep`);

@@ -22,9 +22,10 @@ import type { Copy } from "@/core/copy";
 
 /**
  * `next` is the landing every finished sign-in leaves for; `siteKey` the bot check's public key, which the page reads
- * at request time.
+ * at request time; `offersPasskey` whether the passkey's sign-in stands beside the code's, which only an
+ * administrator holds.
  */
-export function SignInFlow({ next, siteKey }: { next: string; siteKey: string }) {
+export function SignInFlow({ next, siteKey, offersPasskey }: { next: string; siteKey: string; offersPasskey: boolean }) {
   const [email, setEmail] = useState("");
   // The address a mailed link asked for, carried to the landing only where the allowlist holds it.
   const landing = withReturnAddress(next, useSearchParams().get(RETURN_PARAMETER));
@@ -142,10 +143,14 @@ export function SignInFlow({ next, siteKey }: { next: string; siteKey: string })
           send.submit(address);
         },
       }}
-      or={PUBLIC_COPY.signIn.or}
-      // `isBusy` is the whole of the double-press guard: a second prompt aborts the first, which would then read
-      // as a refusal of a press made while it ran.
-      passkey={{ label: PUBLIC_COPY.signIn.withPasskey, isBusy: passkeyRunning, onPress: () => void withPasskey() }}
+      {...(offersPasskey
+        ? {
+            or: PUBLIC_COPY.signIn.or,
+            // `isBusy` is the whole of the double-press guard: a second prompt aborts the first, which would then
+            // read as a refusal of a press made while it ran.
+            passkey: { label: PUBLIC_COPY.signIn.withPasskey, isBusy: passkeyRunning, onPress: () => void withPasskey() },
+          }
+        : {})}
       row={passkeyError ?? sendError}
     />
   );

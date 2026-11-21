@@ -467,6 +467,74 @@ describe("an address change carrying the account, against a real database", () =
   });
 });
 
+/* The Mongo adapter turns the holders' `in` on `id` and the deletion's `userId` into ObjectId queries of its own, which
+   the memory store never shows: a query matching nothing would leave every stray passkey signing in, the sweep's count
+   saying it found none. */
+describe("the account sweep's passkey step, against a real database", () => {
+  /** An account at `email`, holding a passkey where `passkey` is set, signed in by it and by a code. */
+  async function accountAt(email: string, passkey: boolean): Promise<void> {
+    const { adapter } = await auth.$context;
+    const account = await adapter.create<Record<string, unknown>, { id: string }>({
+      model: "user",
+      data: { email, emailVerified: true, name: "", createdAt: new Date(), updatedAt: new Date() },
+    });
+    if (passkey) {
+      await adapter.create({
+        model: "passkey",
+        data: {
+          userId: account.id,
+          credentialID: `credential-${email}`,
+          publicKey: "k",
+          counter: 0,
+          deviceType: "singleDevice",
+          backedUp: false,
+          transports: "",
+          createdAt: new Date(),
+        },
+      });
+    }
+    for (const authFactor of ["passkey", "code"]) {
+      await adapter.create({
+        model: "session",
+        data: {
+          userId: account.id,
+          token: randomUUID(),
+          expiresAt: new Date(Date.now() + 60_000),
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          authFactor,
+        },
+      });
+    }
+  }
+
+  it("lists each passkey holder's address, and deletes one's passkeys and passkey sessions alone", async () => {
+    const { deletePasskeysAt, passkeyHolders } = await import("./auth/passkeys");
+    await accountAt("ehemalig-db@example.org", true);
+    await accountAt("verwaltung-db@example.org", true);
+    await accountAt("ohne-passkey-db@example.org", false);
+
+    expect((await passkeyHolders()).sort()).toStrictEqual(["ehemalig-db@example.org", "verwaltung-db@example.org"]);
+
+    await deletePasskeysAt("ehemalig-db@example.org");
+
+    expect(await passkeyHolders()).toStrictEqual(["verwaltung-db@example.org"]);
+    const addressOf = new Map((await authDb().collection("user").find({}).toArray()).map(({ _id, email }) => [String(_id), String(email)]));
+    expect(
+      (await sessionRows()).map(({ userId, authFactor }) => [addressOf.get(String(userId)), authFactor]).sort(),
+      "the deletion missed a passkey session, or took a code session or another account's",
+    ).toStrictEqual(
+      [
+        ["ehemalig-db@example.org", "code"],
+        ["verwaltung-db@example.org", "passkey"],
+        ["verwaltung-db@example.org", "code"],
+        ["ohne-passkey-db@example.org", "passkey"],
+        ["ohne-passkey-db@example.org", "code"],
+      ].sort(),
+    );
+  });
+});
+
 describe("an address's failures, against a real database", () => {
   async function failureRows(): Promise<Record<string, unknown>[]> {
     return authDb()
@@ -565,7 +633,11 @@ describe("a session only read, against a real database", () => {
   });
 });
 
-/** One signed-in address with every row the store keeps of it: a session, a passkey, a live code, a failed guess, three mails' counts and a deletion token. */
+/**
+ * One signed-in address with every row the store keeps of it: a session, a live code, a failed guess, three mails'
+ * counts, a deletion token, and a passkey, which only an administrator's account holds and every deletion of an
+ * account takes with it.
+ */
 async function seedAccount(email: string): Promise<{ cookie: string; userId: string; pending: string[]; token: string }> {
   gateAnswer = { seats: [SEAT], barred: false, account: true };
   const cookie = await signIn(email);

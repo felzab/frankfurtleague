@@ -268,8 +268,9 @@ data no read-back has judged yet. While it holds:
   The frontend logs `scheduler.held` at its boot instead, so
   `docker compose logs frontend | grep scheduler.held` printing that line is the hold taking.
 - **No mail leaves, a sign-in code included.** Every mail a write owes waits in the Postausgang for
-  the first drain after the hold (`fl_frontend/src/core/afterResponse.ts :: drainSoon`). Sign in by
-  passkey meanwhile.
+  the first drain after the hold (`fl_frontend/src/core/afterResponse.ts :: drainSoon`). An
+  administrator signs in by passkey meanwhile, opening `/admin`: the sign-in it leads to offers the
+  passkey, which a sign-in opened anywhere else does not.
 - **The heartbeat alerts**, no pass pinging it (§9). That alert is expected until the hold lifts.
 - **Nothing else stops**: the site serves, and every write a page or a form makes is stored.
 
@@ -348,12 +349,10 @@ administration is shut while it is down. Each of these is easy to get wrong:
   waiting, or a thief's handover stays armed; it then demotes any other `owner` row, which
   `uniq_grant_owner` otherwise refuses, and writes a new row rather than repointing the old one,
   whose sign-in account stays at the old address. Removing the row by its folded address removes the
-  grant; then delete that address's account's rows in the `passkey` collection of the `auth`
-  database, and its rows in `session` whose `authFactor` is `passkey`, the passkeys first. The same
-  deletion follows a `grants.passkeys_not_deleted` line, which names no address: the Protokoll's
-  `grant.removed` or `grant.addition_withdrawn` at that moment does. A hand write mails nobody,
-  which is why it serves these two cases alone. The statement itself is kept off this public
-  repository.
+  grant, and the account sweep's next hourly pass deletes that address's passkeys and the sessions
+  they made ([section 9](#9-checking-that-the-hourly-passes-have-run)), as it does after a
+  `grants.passkeys_not_deleted` line: nothing is deleted by hand. A hand write mails nobody, which
+  is why it serves these two cases alone. The statement itself is kept off this public repository.
 - **Write only into a database a boot of the release carrying `grants` has reached.** That boot
   creates the unique indexes; a write before it creates the collection without them, and a duplicate
   in it then fails the next boot's index build (`db.indexes_failed`). Until the write lands no
@@ -1120,6 +1119,15 @@ listed rejects, which `scheduler.job_failed` names as `account` and the heartbea
 `account failed`. Every other failure inside a pass is a line of its own, and the next pass asks
 again.
 
+**The same job then deletes the passkeys of every address holding no grant**, and the sessions they
+made, whatever left them there: a removal whose deletion failed (`grants.passkeys_not_deleted`), a
+grant removed by hand, or an address change's carry that failed part-way. `passkeys_deleted` on the
+pass's line counts the addresses it cleared. One whose grant the backend did not answer keeps its
+passkeys, as an unjudged account keeps its row: it counts in `passkeys_failed`, files
+`account.passkeys_failed` naming the error and no address, reaches the heartbeat as
+`account left <n>`, and the next pass asks again. A passkey list that failed fails the job after its
+accounts' counts, which `scheduler.job_failed` names as `account`.
+
 **An `account.references_failed` line carrying `no_owner` means the backend reads no live `owner`
 grant**, so it refuses every batch and the sweep deletes nothing, every pass alike. Such a pass
 still counts, its `failed` every account the store listed, so a pass's line alone does not say the
@@ -1240,7 +1248,8 @@ on the admin pages, so the frontend serves throughout, and what the hold stops i
 - **The drain** would send what the snapshot held unsent.
 
 The heartbeat alerts until step 11, and no sign-in code is mailed meanwhile: sign in by passkey,
-which every administrator holds and which the owner's steps ask for anyway.
+which every administrator holds and which the owner's steps ask for anyway, opening `/admin`, whose
+sign-in alone offers it.
 
 **The action log cannot be the list, because the restore rolls it back too; the backend's
 `journal.act` lines are.** Everything written between the snapshot and the restore is gone, the
@@ -1587,7 +1596,8 @@ the code's ten minutes, so a stranger can bring the lock on only by asking for t
 address, which mails them a code and spends one of their hour's five each time. The rows counting it
 carry a keyed hash rather than the address, so no row can be picked out for one person:
 
-- **An administrator needs nothing**: a passkey sign-in never meets the lock, and clears it.
+- **An administrator needs nothing**: a passkey sign-in, offered on the sign-in `/admin` leads to,
+  never meets the lock, and clears it.
 - **Otherwise it lifts by itself**, each failure's row expiring a day after it was written, removed
   by the `verification` index in §14.
 - **To lift it sooner, lift every address's at once**: in the Atlas console, delete from the `auth`
