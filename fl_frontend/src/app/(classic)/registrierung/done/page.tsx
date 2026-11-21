@@ -4,12 +4,7 @@ import { TO_HOME } from "@/kit/mailedLinkState";
 import { ClassicStatusPage } from "@/kit/StatusCard";
 import { pageMetadata } from "@/shared/utils/metadata";
 
-import type { Metadata, ResolvingMetadata } from "next";
-
-export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
-  const row = ROUTES.registrierungDone;
-  return pageMetadata(parent, row, row.path());
-}
+export const metadata = pageMetadata(ROUTES.registrierungDone);
 
 /**
  * `/registrierung/done`, a registration's done state: the page the submit leads to once the pupil's registration is

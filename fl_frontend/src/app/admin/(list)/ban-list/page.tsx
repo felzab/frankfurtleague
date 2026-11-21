@@ -14,14 +14,11 @@ import { BanFields } from "./BanFields";
 
 import type { FLBanListRow } from "@/core/generated/client/types";
 import type { TableHead, TableRow } from "@/kit/Table";
-import type { Metadata, ResolvingMetadata } from "next";
 
 const WORDS = ADMIN_COPY.banList;
 const ENTER = COPY.shared.withObject(COPY.shared.ban, "enter");
 
-export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
-  return pageMetadata(parent, ROUTES.adminBanList, ROUTES.adminBanList.path());
-}
+export const metadata = pageMetadata(ROUTES.adminBanList);
 
 /**
  * The table's head. Every column is secondary, and a row opens nothing, so on a phone the row's line says what the

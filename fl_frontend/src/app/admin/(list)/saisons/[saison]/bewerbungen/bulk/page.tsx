@@ -10,15 +10,13 @@ import { metadataFor } from "@/shared/utils/notFoundMetadata";
 
 import { BulkAccept } from "./BulkAccept";
 
-import type { Metadata, ResolvingMetadata } from "next";
+import type { Metadata } from "next";
 
 type Props = PageProps<"/admin/saisons/[saison]/bewerbungen/bulk">;
 
-export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { saison } = await params;
-  return metadataFor(getBewerbungenOfSaison(saison), () =>
-    pageMetadata(parent, ROUTES.adminBewerbungenBulk, ROUTES.adminBewerbungenBulk.path(saison)),
-  );
+  return metadataFor(getBewerbungenOfSaison(saison), () => pageMetadata(ROUTES.adminBewerbungenBulk, ROUTES.adminBewerbungenBulk.path(saison)));
 }
 
 /** The season's complete, undecided applications, oldest first, as they came in, with the groups and colours an acceptance may name. */

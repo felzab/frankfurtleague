@@ -13,7 +13,7 @@ import { reactivateSpielort, retireSpielort } from "./spielortActs";
 import { SpielortEditor } from "./SpielortEditor";
 import { valuesOf } from "./spielortValues";
 
-import type { Metadata, ResolvingMetadata } from "next";
+import type { Metadata } from "next";
 
 type Props = PageProps<"/admin/spielorte/[spielort]">;
 
@@ -25,9 +25,9 @@ async function findSpielort(params: Props["params"]) {
   return id === null ? null : read(id);
 }
 
-export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return metadataFor(findSpielort(params), (spielort) =>
-    pageMetadata(parent, ROUTES.adminSpielort, ROUTES.adminSpielort.path(spielort.id), { title: { record: spielort.name } }),
+    pageMetadata(ROUTES.adminSpielort, ROUTES.adminSpielort.path(spielort.id), { title: { record: spielort.name } }),
   );
 }
 

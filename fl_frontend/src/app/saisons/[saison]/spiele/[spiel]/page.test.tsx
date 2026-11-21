@@ -7,7 +7,6 @@ import { doubleNextRequest } from "@/test-support/nextRequest";
 
 import type { FLSaisonFrameResponse, FLSpielPageResponse } from "@/core/generated/client/types";
 import type { ReadRecord } from "@/kit/ReadPage";
-import type { ResolvingMetadata } from "next";
 import type { ReactElement } from "react";
 
 /** The seasons the public may read: 2027 alone. */
@@ -59,10 +58,7 @@ describe("the match page's server render", () => {
   // The backend answers a malformed id as a route it does not know, which the read takes for a failure: the page
   // would show the error page, and every such address would key a cache entry of its own.
   it("answers a malformed match id as not-found before any read", async () => {
-    const metadata = generateMetadata(
-      { params: Promise.resolve({ saison: "2027", spiel: "not-an-id" }), searchParams: Promise.resolve({}) },
-      Promise.resolve({}) as unknown as ResolvingMetadata,
-    );
+    const metadata = generateMetadata({ params: Promise.resolve({ saison: "2027", spiel: "not-an-id" }), searchParams: Promise.resolve({}) });
 
     // Titled as not found rather than thrown: a throw from the metadata leaves the tab the layout's title.
     await expect(metadata).resolves.toBe(NOT_FOUND_METADATA);

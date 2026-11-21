@@ -32,7 +32,7 @@ import type { ReadRecord } from "@/kit/ReadPage";
 import type { StatTile } from "@/kit/StatTiles";
 import type { TableProps } from "@/kit/Table";
 import type { Checkpoint } from "@/kit/Timeline";
-import type { Metadata, ResolvingMetadata } from "next";
+import type { Metadata } from "next";
 
 type Props = PageProps<"/saisons/[saison]/spiele/[spiel]">;
 
@@ -49,10 +49,10 @@ async function readPage(params: Props["params"]): Promise<FLSpielPageResponse> {
   return page;
 }
 
-export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return metadataFor(findPage(params), ({ spiel }) => {
     const { team1, team2 } = sidesOf(spiel);
-    return pageMetadata(parent, ROUTES.spiel, ROUTES.spiel.path(spiel.saison_id, spiel.id), {
+    return pageMetadata(ROUTES.spiel, ROUTES.spiel.path(spiel.saison_id, spiel.id), {
       title: ROUTES.spiel.title(team1.name, team2.name),
       description: SERVER_COPY.description.spiel(team1.name, team2.name, spiel.saison_id),
     });

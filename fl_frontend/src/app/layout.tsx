@@ -4,14 +4,12 @@ import { Anton, Inter, Raleway } from "next/font/google";
 
 import { SITE_LOCALE, SITE_URL } from "@/core/brand";
 import { COPY } from "@/core/copy/shared";
-import { SERVER_COPY } from "@/core/serverCopy";
 import { BrandSprite } from "@/kit/BrandSprite";
 import { RootProviders } from "@/kit/RootProviders";
 import { ThemeColor } from "@/kit/ThemeColor";
 import { WholePages } from "@/kit/WholePage";
 import { SITE_OPEN_GRAPH } from "@/shared/utils/metadata";
-
-import shareImage from "./share-image.png";
+import { SHARE_IMAGE } from "@/shared/utils/shareImage";
 
 import type { Metadata, Viewport } from "next";
 
@@ -61,13 +59,8 @@ export const metadata: Metadata = {
     // Next requires it beside a template; a page naming no title of its own shows the league's name alone.
     default: COPY.brand.name,
   },
-  // The share image as a static import: its address under `/_next/static/media/` carries a hash of the file's own
-  // bytes, so a redrawn image is a new URL a preview fetches anew. A generated `opengraph-image` route's hash is its
-  // source's, and the static file convention takes its alt from a `.txt` outside the catalogue.
-  openGraph: {
-    ...SITE_OPEN_GRAPH,
-    images: [{ url: shareImage.src, width: shareImage.width, height: shareImage.height, alt: SERVER_COPY.shareImage.alt }],
-  },
+  // For a page declaring no `openGraph` of its own; `pageMetadata` spreads the same image into each page's.
+  openGraph: { ...SITE_OPEN_GRAPH, ...SHARE_IMAGE },
   // Without this X falls back to a small square thumbnail; the rest is inherited.
   twitter: {
     card: "summary_large_image",

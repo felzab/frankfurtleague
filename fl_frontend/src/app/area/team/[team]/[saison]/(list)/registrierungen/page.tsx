@@ -17,7 +17,7 @@ import { RegistrierungTable } from "./RegistrierungTable";
 import type { FLOpenRegistrierung } from "@/core/generated/client/types";
 import type { TeamSeat } from "@/features/roles/resolvers";
 import type { TableHead } from "@/kit/Table";
-import type { Metadata, ResolvingMetadata, Route } from "next";
+import type { Metadata, Route } from "next";
 import type { Admission } from "./RegistrierungDialog";
 import type { RegistrierungRow } from "./RegistrierungTable";
 
@@ -31,8 +31,8 @@ const address = ({ team, saison }: { team: string; saison: string }) => ROUTES.t
 const registrierungenRead = cache(getOpenRegistrierungen);
 const registrierungenOf = (seat: TeamSeat) => registrierungenRead(seat.team_id, seat.saison_id);
 
-export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
-  return teamMetadata(params, address, registrierungenOf, async () => pageMetadata(parent, ROUTES.teamRegistrierungen, address(await params)));
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  return teamMetadata(params, address, registrierungenOf, async () => pageMetadata(ROUTES.teamRegistrierungen, address(await params)));
 }
 
 /**

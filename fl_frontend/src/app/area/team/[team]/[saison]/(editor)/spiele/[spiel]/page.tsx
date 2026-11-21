@@ -20,7 +20,7 @@ import { TeamAufstellung } from "./TeamAufstellung";
 import type { Copy } from "@/core/copy";
 import type { FLAufstellungResponse } from "@/core/generated/client/types";
 import type { ChipProps } from "@/kit/Chip";
-import type { Metadata, ResolvingMetadata } from "next";
+import type { Metadata } from "next";
 
 type Props = PageProps<"/area/team/[team]/[saison]/spiele/[spiel]">;
 
@@ -45,12 +45,12 @@ function titleOf({ spiel, team_id }: FLAufstellungResponse): Copy {
   return ROUTES.teamAufstellung.title({ record: team.name });
 }
 
-export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return teamMetadata(
     params,
     address,
     (seat) => lineupAt(params, seat.team_id, seat.saison_id),
-    async (found) => pageMetadata(parent, ROUTES.teamAufstellung, address(await params), { title: titleOf(found) }),
+    async (found) => pageMetadata(ROUTES.teamAufstellung, address(await params), { title: titleOf(found) }),
   );
 }
 

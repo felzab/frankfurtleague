@@ -11,7 +11,7 @@ import { SERVER_COPY } from "@/core/serverCopy";
 import { runWithIncomingTrace } from "@/core/traceScope";
 import { accountAtNewAddress } from "@/features/address-change/account";
 import { readsAsDeadLink } from "@/features/address-change/refusals";
-import { mailedMetadata } from "@/kit/mailedLinkState";
+import { mailedMetadata } from "@/kit/mailedMetadata";
 import { MailedPage, TO_ACCOUNT } from "@/kit/MailedPage";
 
 import { answerAddressChange, stopAddressChange } from "./answers";
@@ -26,11 +26,11 @@ import type {
 } from "@/core/generated/client/types";
 import type { Fact } from "@/kit/Facts";
 import type { MailedState } from "@/kit/MailedPage";
-import type { Metadata, ResolvingMetadata } from "next";
+import type { Metadata } from "next";
 import type { Side } from "./ends";
 
-export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
-  return mailedMetadata(parent, ROUTES.addressChangeConfirmation, readState());
+export async function generateMetadata(): Promise<Metadata> {
+  return mailedMetadata(ROUTES.addressChangeConfirmation, readState());
 }
 
 const WORDS = SERVER_COPY.addressChange;

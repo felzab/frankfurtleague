@@ -6,14 +6,10 @@ import { ROUTES } from "@/core/routes";
 import { PasskeyStep } from "@/features/auth/PasskeyStep";
 import { pageMetadata } from "@/shared/utils/metadata";
 
-import type { Metadata, ResolvingMetadata } from "next";
-
 type Props = PageProps<"/signin/passkey">;
 
 /** No description, as `/signin` carries none. */
-export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
-  return pageMetadata(parent, ROUTES.signInPasskey, ROUTES.signInPasskey.path());
-}
+export const metadata = pageMetadata(ROUTES.signInPasskey);
 
 // Never under `/admin`: the session that must reach this page is the one the admin guard is
 // refusing, so a page behind that guard is a page nobody can open.

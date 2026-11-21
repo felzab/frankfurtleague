@@ -14,12 +14,12 @@ import { metadataFor } from "@/shared/utils/notFoundMetadata";
 
 import type { Copy } from "@/core/copy";
 import type { FLSpielJoined } from "@/core/generated/client/types";
-import type { Metadata, ResolvingMetadata } from "next";
+import type { Metadata } from "next";
 
 type Props = PageProps<"/saisons/[saison]/search">;
 
-export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
-  return metadataFor(publicSaisonOf(params), (saison) => pageMetadata(parent, ROUTES.spielSearch, ROUTES.spielSearch.path(saison)));
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  return metadataFor(publicSaisonOf(params), (saison) => pageMetadata(ROUTES.spielSearch, ROUTES.spielSearch.path(saison)));
 }
 
 /** The season's matches, each matchday's by kick-off, each with its matchday's name as the Spielplan's tab names it. */

@@ -26,7 +26,6 @@ import type { FLAddressChangeAdminOpen, FLGrantRow } from "@/core/generated/clie
 import type { Fact } from "@/kit/Facts";
 import type { ListCreate } from "@/kit/ListPage";
 import type { TableProps, TableRow } from "@/kit/Table";
-import type { Metadata, ResolvingMetadata } from "next";
 
 const WORDS = ADMIN_COPY.administrators;
 const FACTS = ADMIN_COPY.facts;
@@ -38,9 +37,7 @@ const HAND_OVER = { verb: "handOver", object: COPY.shared.owner } as const;
 const ADD_FACE = { title: actLabel(ADD), act: ADD, run: addAdministrator } as const;
 const HAND_OVER_FACE = { title: actLabel(HAND_OVER), act: HAND_OVER, run: startHandover } as const;
 
-export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
-  return pageMetadata(parent, ROUTES.adminAdministrators, ROUTES.adminAdministrators.path());
-}
+export const metadata = pageMetadata(ROUTES.adminAdministrators);
 
 /** A holder's address change in its wait, its date read. */
 type WaitingChange = FLAddressChangeAdminOpen & { effective_from: string };

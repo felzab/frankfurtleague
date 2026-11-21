@@ -12,15 +12,12 @@ import { pageMetadata } from "@/shared/utils/metadata";
 
 import type { Filter } from "@/kit/Filters";
 import type { TableHead } from "@/kit/Table";
-import type { Metadata, ResolvingMetadata } from "next";
 
 type Props = PageProps<"/admin/log">;
 
 const WORDS = ADMIN_COPY.actionLog;
 
-export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
-  return pageMetadata(parent, ROUTES.adminActionLog, ROUTES.adminActionLog.path());
-}
+export const metadata = pageMetadata(ROUTES.adminActionLog);
 
 /** The first page inside the address's filters, and those filters as the toolbar and every later read take them. */
 async function readLog(searchParams: Props["searchParams"]) {

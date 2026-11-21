@@ -16,13 +16,13 @@ import { metadataFor } from "@/shared/utils/notFoundMetadata";
 
 import type { FLTabelleRow } from "@/core/generated/client/types";
 import type { TableStandingHead, TableStandingProps, TableStandingRow } from "@/kit/TableStanding";
-import type { Metadata, ResolvingMetadata } from "next";
+import type { Metadata } from "next";
 
 type Props = PageProps<"/saisons/[saison]/tabelle">;
 
-export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return metadataFor(publicSaisonOf(params), (saison) =>
-    pageMetadata(parent, ROUTES.tabelle, ROUTES.tabelle.path(saison), { description: SERVER_COPY.description.tabelle(saison) }),
+    pageMetadata(ROUTES.tabelle, ROUTES.tabelle.path(saison), { description: SERVER_COPY.description.tabelle(saison) }),
   );
 }
 

@@ -12,13 +12,10 @@ import { pageMetadata } from "@/shared/utils/metadata";
 
 import type { FLSpielort } from "@/core/generated/client/types";
 import type { TableHead, TableRow } from "@/kit/Table";
-import type { Metadata, ResolvingMetadata } from "next";
 
 const WORDS = ADMIN_COPY.spielort;
 
-export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
-  return pageMetadata(parent, ROUTES.adminSpielorte, ROUTES.adminSpielorte.path());
-}
+export const metadata = pageMetadata(ROUTES.adminSpielorte);
 
 /** One venue's row, opening its editor: its name, „Aktiv“, or „Stillgelegt“ and muted once retired, its street and its price. */
 const rowOf = (spielort: FLSpielort): TableRow => ({

@@ -6,13 +6,9 @@ import { ClassicPage, PageHead } from "@/kit/ClassicPage";
 import { Prose } from "@/kit/Prose";
 import { pageMetadata } from "@/shared/utils/metadata";
 
-import type { Metadata, ResolvingMetadata } from "next";
-
 const words = SERVER_COPY.legal.legalNotice;
 
-export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
-  return pageMetadata(parent, ROUTES.legalNotice, ROUTES.legalNotice.path(), { description: SERVER_COPY.description.legalNotice });
-}
+export const metadata = pageMetadata(ROUTES.legalNotice, { description: SERVER_COPY.description.legalNotice });
 
 /**
  * The Impressum under § 5 DDG: who provides the site, who represents it, how to reach it, its register entry and its

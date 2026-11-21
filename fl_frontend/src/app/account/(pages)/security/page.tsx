@@ -12,12 +12,9 @@ import { pageMetadata } from "@/shared/utils/metadata";
 import { SecurityBoxes } from "./SecurityBoxes";
 
 import type { HeldPasskeys } from "@/features/passkeys/held";
-import type { Metadata, ResolvingMetadata } from "next";
 import type { Passkeys } from "./SecurityBoxes";
 
-export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
-  return pageMetadata(parent, ROUTES.accountSecurity, ROUTES.accountSecurity.path());
-}
+export const metadata = pageMetadata(ROUTES.accountSecurity);
 
 /** An administrator's passkey box: the rows, the set-up closed at the cap, and the last row's removal locked. */
 const passkeyBoxOf = (held: HeldPasskeys): Passkeys => ({

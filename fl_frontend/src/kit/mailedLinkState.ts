@@ -1,18 +1,14 @@
 import { COPY } from "@/core/copy/shared";
 import { ROUTES } from "@/core/routes";
-import { pageMetadata } from "@/shared/utils/metadata";
 
-import type { Copy } from "@/core/copy";
-import type { RouteEntry } from "@/core/routes";
-import type { Metadata, ResolvingMetadata } from "next";
-import type { EndState, MailedState } from "./MailedPage";
+import type { EndState } from "./MailedPage";
 import type { WayOn } from "./StatusCard";
 
 /*
- * What a mailed page's link reads as, for the modules that word it without drawing the page: its tab's title, the
- * end a link no longer valid reaches, and the start page's way that the ends and the not-found cards offer, and the
- * frameless error cards beneath their retry. Apart from `MailedPage`, whose one-shot form brings the client's stack to
- * every route importing it, error boundaries among them.
+ * What a mailed page's link reads as, for the modules that word it without drawing the page: the end a link no longer
+ * valid reaches, and the start page's way that the ends and the not-found cards offer, and the frameless error cards
+ * beneath their retry. Apart from `MailedPage`, whose one-shot form brings the client's stack to every route importing
+ * it, error boundaries among them; apart from `mailedMetadata`, whose share image brings the server catalogue.
  */
 
 export const TO_HOME = { label: COPY.shared.end.toHome, href: ROUTES.home.path() } as const satisfies WayOn;
@@ -23,28 +19,4 @@ export const TO_HOME = { label: COPY.shared.end.toHome, href: ROUTES.home.path()
  */
 export function linkInvalid(next: WayOn): EndState {
   return { tone: "warn", title: COPY.template.linkInvalid, next };
-}
-
-/** A mailed page's tab title, its state's own heading, so the tab never asks a question the page has closed. */
-function mailedTitle(state: MailedState): Copy {
-  switch (state.state) {
-    case "invalid":
-      return COPY.template.linkInvalid;
-    case "question":
-    case "alreadyDone":
-    case "end":
-      return state.title;
-  }
-}
-
-/**
- * A mailed page's metadata, titled by its state. `state` is the same read as the page's, which the page memoizes with
- * React's `cache`, since a link's state decides its heading.
- */
-export async function mailedMetadata(
-  parent: ResolvingMetadata,
-  row: RouteEntry & { readonly path: () => `/${string}` },
-  state: Promise<MailedState>,
-): Promise<Metadata> {
-  return pageMetadata(parent, row, row.path(), { title: mailedTitle(await state) });
 }

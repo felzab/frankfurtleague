@@ -12,13 +12,13 @@ import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
 
 import type { Filter } from "@/kit/Filters";
-import type { Metadata, ResolvingMetadata } from "next";
+import type { Metadata } from "next";
 
 type Props = PageProps<"/saisons/[saison]/teams">;
 
-export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return metadataFor(publicSaisonOf(params), (saison) =>
-    pageMetadata(parent, ROUTES.teams, ROUTES.teams.path(saison), { description: SERVER_COPY.description.teams(saison) }),
+    pageMetadata(ROUTES.teams, ROUTES.teams.path(saison), { description: SERVER_COPY.description.teams(saison) }),
   );
 }
 

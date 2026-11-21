@@ -18,7 +18,7 @@ import { AdminAufstellung } from "./AdminAufstellung";
 
 import type { Copy } from "@/core/copy";
 import type { FLAufstellungResponse } from "@/core/generated/client/types";
-import type { Metadata, ResolvingMetadata } from "next";
+import type { Metadata } from "next";
 
 type Props = PageProps<"/admin/saisons/[saison]/spiele/[spiel]/aufstellung/[team]">;
 
@@ -43,9 +43,9 @@ function titleOf({ spiel, team_id }: FLAufstellungResponse): Copy {
   return ROUTES.adminAufstellung.title({ record: team.name });
 }
 
-export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return metadataFor(findAufstellung(params), (found) =>
-    pageMetadata(parent, ROUTES.adminAufstellung, ROUTES.adminAufstellung.path(found.spiel.saison_id, found.spiel.spiel_id, found.team_id), {
+    pageMetadata(ROUTES.adminAufstellung, ROUTES.adminAufstellung.path(found.spiel.saison_id, found.spiel.spiel_id, found.team_id), {
       title: titleOf(found),
     }),
   );

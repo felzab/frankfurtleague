@@ -22,7 +22,7 @@ import { TeamEditor } from "./TeamEditor";
 import { valuesOf } from "./teamValues";
 
 import type { FLTeamLinkState, FLTeamMembership, FLTeamSaisonAdminResponse } from "@/core/generated/client/types";
-import type { Metadata, ResolvingMetadata } from "next";
+import type { Metadata } from "next";
 import type { TeamRow } from "./TeamEditor";
 
 type Props = PageProps<"/admin/saisons/[saison]/teams/[team]">;
@@ -35,9 +35,9 @@ async function find(params: Props["params"]) {
   return id === null ? null : getTeamSaisonAdmin(id, saison);
 }
 
-export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return metadataFor(find(params), ({ team, saison }) =>
-    pageMetadata(parent, ROUTES.adminTeam, ROUTES.adminTeam.path(saison.id, team.id), { title: { record: team.full_name } }),
+    pageMetadata(ROUTES.adminTeam, ROUTES.adminTeam.path(saison.id, team.id), { title: { record: team.full_name } }),
   );
 }
 

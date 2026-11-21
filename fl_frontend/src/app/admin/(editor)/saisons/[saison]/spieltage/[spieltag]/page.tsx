@@ -16,7 +16,7 @@ import { SpieltagEditor } from "./SpieltagEditor";
 import { valuesOf } from "./spieltagValues";
 
 import type { FLSpieltagAdmin, FLSpieltagAdminResponse } from "@/core/generated/client/types";
-import type { Metadata, ResolvingMetadata } from "next";
+import type { Metadata } from "next";
 
 type Props = PageProps<"/admin/saisons/[saison]/spieltage/[spieltag]">;
 
@@ -43,9 +43,9 @@ async function findSpieltag(params: Props["params"]): Promise<FLSpieltagAdminRes
 const nameOf = (spieltag: FLSpieltagAdmin) =>
   spieltagLabel({ phase: spieltag.saison_phase, ordinal: spieltag.position, countInPhase: spieltag.count_spieltage_in_phase });
 
-export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return metadataFor(findSpieltag(params), ({ spieltag }) =>
-    pageMetadata(parent, ROUTES.adminSpieltag, ROUTES.adminSpieltag.path(spieltag.saison_id, spieltag.id), { title: nameOf(spieltag) }),
+    pageMetadata(ROUTES.adminSpieltag, ROUTES.adminSpieltag.path(spieltag.saison_id, spieltag.id), { title: nameOf(spieltag) }),
   );
 }
 

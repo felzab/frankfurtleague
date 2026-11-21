@@ -6,14 +6,10 @@ import { ROUTES } from "@/core/routes";
 import { SignInFlow } from "@/features/auth/SignInFlow";
 import { pageMetadata } from "@/shared/utils/metadata";
 
-import type { Metadata, ResolvingMetadata } from "next";
-
 type Props = PageProps<"/signin">;
 
 /** No description: a sign-in page carries none. */
-export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
-  return pageMetadata(parent, ROUTES.signIn, ROUTES.signIn.path());
-}
+export const metadata = pageMetadata(ROUTES.signIn);
 
 /**
  * The sign-in form, for a visitor holding no session: the proxy sends one holding a session on to the landing before

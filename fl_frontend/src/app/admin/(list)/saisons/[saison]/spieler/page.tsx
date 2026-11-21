@@ -15,16 +15,16 @@ import { metadataFor } from "@/shared/utils/notFoundMetadata";
 import type { FLSpielerAdminRow } from "@/core/generated/client/types";
 import type { Filter } from "@/kit/Filters";
 import type { TableHead, TableRow } from "@/kit/Table";
-import type { Metadata, ResolvingMetadata } from "next";
+import type { Metadata } from "next";
 
 type Props = PageProps<"/admin/saisons/[saison]/spieler">;
 
 /** The season's squad rows, `null` for a season the league does not hold. */
 const read = cache(getSpielerAdmin);
 
-export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { saison } = await params;
-  return metadataFor(read(saison), () => pageMetadata(parent, ROUTES.adminSpieler, ROUTES.adminSpieler.path(saison)));
+  return metadataFor(read(saison), () => pageMetadata(ROUTES.adminSpieler, ROUTES.adminSpieler.path(saison)));
 }
 
 /** What the state filter offers, each by whether a row answers it. */

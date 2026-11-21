@@ -8,14 +8,14 @@ import { metadataFor } from "@/shared/utils/notFoundMetadata";
 import { formStateOf, readForm } from "./form";
 
 import type { MailedState } from "@/kit/MailedPage";
-import type { Metadata, ResolvingMetadata } from "next";
+import type { Metadata } from "next";
 
 type Props = PageProps<"/bewerbung/[saison]">;
 
-export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { saison } = await params;
   const row = ROUTES.bewerbung;
-  return metadataFor(readForm(saison), () => pageMetadata(parent, row, row.path(saison), { title: row.title(saison) }));
+  return metadataFor(readForm(saison), () => pageMetadata(row, row.path(saison), { title: row.title(saison) }));
 }
 
 async function readState(params: Props["params"]): Promise<MailedState> {

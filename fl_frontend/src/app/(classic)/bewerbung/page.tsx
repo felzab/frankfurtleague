@@ -14,7 +14,7 @@ import { formStateOf, readForm } from "./[saison]/form";
 
 import type { FLLandingResponse } from "@/core/generated/client/types";
 import type { MailedState } from "@/kit/MailedPage";
-import type { Metadata, ResolvingMetadata } from "next";
+import type { Metadata } from "next";
 
 const WORDS = SERVER_COPY.bewerbung.end;
 
@@ -27,11 +27,11 @@ async function readOnRequest(): Promise<FLLandingResponse> {
   return readLanding();
 }
 
-export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
+export async function generateMetadata(): Promise<Metadata> {
   const row = ROUTES.bewerbungRoot;
   // The seasoned address's title while a season's form stands here, the footer's word while none does.
   return metadataFor(readOnRequest(), ({ bewerbung_window: window }) =>
-    pageMetadata(parent, row, row.path(), { title: window === null ? COPY.template.bewerbung : row.title(window.saison_id) }),
+    pageMetadata(row, { title: window === null ? COPY.template.bewerbung : row.title(window.saison_id) }),
   );
 }
 

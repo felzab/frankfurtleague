@@ -21,7 +21,7 @@ import type { FLTeamsAdminListResponse, FLTeamsAdminRow } from "@/core/generated
 import type { Filter } from "@/kit/Filters";
 import type { ListCreate } from "@/kit/ListPage";
 import type { TableHead, TableRow } from "@/kit/Table";
-import type { Metadata, ResolvingMetadata } from "next";
+import type { Metadata } from "next";
 
 type Props = PageProps<"/admin/saisons/[saison]/teams">;
 
@@ -49,9 +49,9 @@ async function readOrNotFound(props: Pick<Props, "params" | "searchParams">): Pr
   return found;
 }
 
-export async function generateMetadata({ params, searchParams }: Props, parent: ResolvingMetadata): Promise<Metadata> {
+export async function generateMetadata({ params, searchParams }: Props): Promise<Metadata> {
   const { saison } = await params;
-  return metadataFor(read({ params, searchParams }), () => pageMetadata(parent, ROUTES.adminTeams, ROUTES.adminTeams.path(saison)));
+  return metadataFor(read({ params, searchParams }), () => pageMetadata(ROUTES.adminTeams, ROUTES.adminTeams.path(saison)));
 }
 
 /**

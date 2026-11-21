@@ -4,12 +4,7 @@ import { TO_HOME } from "@/kit/mailedLinkState";
 import { ClassicStatusPage } from "@/kit/StatusCard";
 import { pageMetadata } from "@/shared/utils/metadata";
 
-import type { Metadata, ResolvingMetadata } from "next";
-
-export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
-  const row = ROUTES.accountErased;
-  return pageMetadata(parent, row, row.path());
-}
+export const metadata = pageMetadata(ROUTES.accountErased);
 
 /**
  * `/erasure/done`, the deletion's done state: the page the deletion's action leads to once the account and its
