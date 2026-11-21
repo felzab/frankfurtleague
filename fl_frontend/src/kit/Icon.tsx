@@ -18,7 +18,6 @@ import Goal from "lucide-react/icons/goal";
 import GraduationCap from "lucide-react/icons/graduation-cap";
 import HandCoins from "lucide-react/icons/hand-coins";
 import Info from "lucide-react/icons/info";
-import KeyRound from "lucide-react/icons/key-round";
 import LayoutDashboard from "lucide-react/icons/layout-dashboard";
 import ListFilter from "lucide-react/icons/list-filter";
 import ListOrdered from "lucide-react/icons/list-ordered";
@@ -122,7 +121,9 @@ const GLYPHS = {
   back: ChevronLeft,
   // A record renamed in its row, as a passkey is.
   rename: Pencil,
-  // A field its record holds fixed, beside its label (`FieldLabel`); the editor's lock line says why.
+  // A field its record holds fixed, beside its label (`FieldLabel`); the editor's lock line says why. Konto's
+  // „Sicherheit“ too, the sign-in's devices and an administrator's passkeys: the administration's shield names the
+  // administrators, whose rail every administrator sees beside Konto's.
   locked: Lock,
 
   overview: LayoutDashboard,
@@ -147,9 +148,8 @@ const GLYPHS = {
   // An e-mail address: the administration's address changes, and the league's own on the question door and Kontakt.
   email: Mail,
   log: ScrollText,
-  // Konto's pages beside Anmeldung's `signin`: the passkeys as a key, and the person's own entries as a list on a
+  // Konto's pages beside Anmeldung's `signin` and Sicherheit's `locked`: the person's own entries as a list on a
   // clipboard.
-  key: KeyRound,
   entries: ClipboardList,
 
   // The landing's: its three pillars, who plays (the Abi year), how it is played and what the takings pay

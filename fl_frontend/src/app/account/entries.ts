@@ -5,6 +5,6 @@ import type { AccountEntry } from "@/kit/AccountPage";
 /** Konto's three pages, the rail's entries and the phone's list alike, each by its rail glyph. */
 export const ACCOUNT_ENTRIES: readonly AccountEntry[] = [
   { id: "signin", label: ROUTES.accountSignIn.title, href: ROUTES.accountSignIn.path(), icon: "signin" },
-  { id: "security", label: ROUTES.accountSecurity.title, href: ROUTES.accountSecurity.path(), icon: "key" },
+  { id: "security", label: ROUTES.accountSecurity.title, href: ROUTES.accountSecurity.path(), icon: "locked" },
   { id: "entries", label: ROUTES.accountEntries.title, href: ROUTES.accountEntries.path(), icon: "entries" },
 ];
