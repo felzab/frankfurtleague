@@ -199,8 +199,6 @@ export const ADMIN_COPY = catalogue({
     /** The replacement's two clubs: the one leaving the season, and the one taking over its row. */
     outgoing: "Ausscheidendes Team",
     incoming: "Nachrückendes Team",
-    /** Why the swap and the replacement cannot run yet: one of their two clubs is still to choose. */
-    bothTeamsLocked: "Erst mit beiden Teams",
     /** What the replacement does: the incoming club takes the outgoing one's group and every match of it. */
     replaceConsequence: (incoming: Words, outgoing: Words, gruppe: string) =>
       `${textOf(incoming)} übernimmt ${GRUPPE(gruppe)} und alle Spiele von ${textOf(outgoing)}.`,
@@ -255,8 +253,6 @@ export const ADMIN_COPY = catalogue({
     note: "Notiz",
     nichtantretenTeam1: "Nichtantreten Team 1",
     nichtantretenTeam2: "Nichtantreten Team 2",
-    /** Why a no-show cannot be picked while a side is open. */
-    needsBothSides: "Nur mit beiden Teams",
     /** Where the write moved other matches too, by their numbers. */
     alsoChanged: (spiele: readonly number[]) => `Auch Spiel ${formatList(spiele.map(formatNumber))} geändert`,
 

@@ -104,7 +104,7 @@ function Swap({ saison, teams, swap, begun }: { saison: string; teams: readonly 
         {
           act: { verb: "swap", object: WORDS.gruppen },
           // Locked from the start, which the editor's lock line says; until both clubs are chosen, with the reason.
-          locked: begun || (first === null || second === null ? WORDS.bothTeamsLocked : undefined),
+          locked: begun || (first === null || second === null ? ADMIN_COPY.bothTeamsLocked : undefined),
           run: async () => (first === null || second === null ? { ok: false } : swap({ saison_id: saison, team1_id: first, team2_id: second })),
         },
       ]}>
@@ -158,7 +158,7 @@ function Replacement({
       acts={[
         {
           act: { verb: "replace", object: TEAM },
-          locked: begun || (consequence === undefined ? WORDS.bothTeamsLocked : undefined),
+          locked: begun || (consequence === undefined ? ADMIN_COPY.bothTeamsLocked : undefined),
           // Asked only once both clubs are chosen, the button locked with its reason until then.
           confirm: { verb: "replace", subject: TEAM, consequence: consequence ?? COPY.shared.noValue, tone: "primary" },
           run: async () =>

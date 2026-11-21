@@ -329,7 +329,7 @@ export default async function SpielEditorPage({ params }: Props) {
     ...Object.values(FLSonderereignis).map((event): Option => {
       const label = SONDEREREIGNISSE[event];
       if (!begun && !takesNoResult(event)) return { id: event, label, isDisabled: true, note: ADMIN_COPY.untilStart };
-      return !bothSides && isNoShow(event) ? { id: event, label, isDisabled: true, note: WORDS.needsBothSides } : { id: event, label };
+      return !bothSides && isNoShow(event) ? { id: event, label, isDisabled: true, note: ADMIN_COPY.bothTeamsLocked } : { id: event, label };
     }),
   ];
 

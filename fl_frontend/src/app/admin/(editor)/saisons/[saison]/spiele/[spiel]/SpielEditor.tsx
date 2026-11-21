@@ -368,7 +368,7 @@ export function SpielEditor({
                     ? { description: COPY.spielplan.byEvent }
                     : bothSides
                       ? {}
-                      : { description: WORDS.needsBothSides })}
+                      : { description: ADMIN_COPY.bothTeamsLocked })}
               />
               {scored && (
                 <ScoreRows
