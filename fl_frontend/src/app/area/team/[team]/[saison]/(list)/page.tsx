@@ -3,12 +3,12 @@ import { cache } from "react";
 import { now } from "@/core/clock";
 import { AREA_COPY } from "@/core/copy/area";
 import { COPY } from "@/core/copy/shared";
-import { dayIn, dayOf, timeOf } from "@/core/format";
+import { dayIn, dayOf } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { AUFSTELLUNG_CHIP } from "@/features/aufstellungen/constants";
 import { readAsSeatHolder, requireTeamSeats, teamMetadata } from "@/features/roles/resolvers";
-import { matchName } from "@/features/spiele/blocks";
+import { matchName, whenOf } from "@/features/spiele/blocks";
 import { getTeamOverview } from "@/features/teams/queries";
 import { ListPage } from "@/kit/ListPage";
 import { PressAct } from "@/kit/PressAct";
@@ -18,10 +18,9 @@ import { pageMetadata } from "@/shared/utils/metadata";
 import { agreeSpielbestaetigung } from "./answerSpielbestaetigung";
 import { DeclineDialog } from "./DeclineDialog";
 
-import type { Copy, Words } from "@/core/copy";
+import type { Words } from "@/core/copy";
 import type { CalendarDay } from "@/core/format";
 import type {
-  FLSpielbestaetigungAppointment,
   FLSpielbestaetigungViewAnsetzung,
   FLTeamPanelAufstellung,
   FLTeamPanelRegistrierung,
@@ -56,8 +55,6 @@ const overviewOf = (seat: TeamSeat) => overviewRead(seat.team_id, seat.saison_id
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return teamMetadata(params, address, overviewOf, async () => pageMetadata(ROUTES.teamOverview, address(await params)));
 }
-
-const whenOf = ({ date, time }: FLSpielbestaetigungAppointment): Copy => COPY.spielplan.when(dayOf(date), timeOf(time));
 
 const venueOf = (ansetzung: FLSpielbestaetigungViewAnsetzung): Words | null =>
   ansetzung.spielort === null ? null : { record: ansetzung.spielort.name };
