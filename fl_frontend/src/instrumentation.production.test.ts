@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { HOUR_MS, MINUTE_MS, SECOND_MS } from "@/core/timeUnits";
 import { memoryAdapterDouble, memoryStore, overriding, registerAuthDoubles } from "@/test-support/authDoubles";
 import { networkFailure, refusal, serveBackend, serveHost } from "@/test-support/backend";
 import { captureLog } from "@/test-support/stdoutCapture";
@@ -134,10 +135,6 @@ const schedulerLines = () =>
     .lines()
     .filter(({ message }) => message.startsWith("scheduler."))
     .map(({ level, message, fields }) => ({ level, message, fields }));
-
-const SECOND_MS = 1000;
-const MINUTE_MS = 60 * SECOND_MS;
-const HOUR_MS = 60 * MINUTE_MS;
 
 /** Every request one idle pass sends: each job's in the order they run, then the drain's claim. */
 const EVERY_JOB: readonly Call[] = [

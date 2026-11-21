@@ -5,9 +5,7 @@ import { useEffect, useState } from "react";
 import { now } from "@/core/clock";
 import { PUBLIC_COPY } from "@/core/copy/public";
 import { formatNumber } from "@/core/format";
-import { DAY_MS, HOUR_MS } from "@/core/timeUnits";
-
-const MINUTE_MS = 60 * 1000;
+import { DAY_MS, HOUR_MS, MINUTE_MS } from "@/core/timeUnits";
 
 function remaining(start: number, at: number) {
   const left = Math.max(0, start - at);
