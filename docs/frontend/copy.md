@@ -114,7 +114,8 @@ wraps and takes a second line, which moves what stands below it.
 | Page or section heading | 4 words                                                    | a noun phrase, or the one act a page exists for („Anmelden“), no full stop; a sentence is a status or a consequence |
 | Field label             | 3 words                                                    | a noun, no colon                                                                                                    |
 | Button                  | 3 words                                                    | a verb from the catalogue's closed set, with an object where needed („Team anlegen“)                                |
-| Field description       | 1 sentence, 90 characters                                  | says what the thing is; none where the label suffices; no field has a placeholder                                   |
+| Field description       | 1 sentence, 90 characters                                  | says what the thing is, or which other value closes it; none where the label suffices; no field has a placeholder   |
+| Option note             | one phrase                                                 | why a disabled choice cannot be made, only where it says more than the muted entry does                             |
 | Box description         | 1 sentence, one visible line at 360 px, 41 characters      | says what a Konto box holds, under its title                                                                        |
 | Tooltip                 | 5 words                                                    | names an icon-only control, or says why a locked act cannot run                                                     |
 | Section info tip (ⓘ)    | 2 sentences, or a key of short lines; about 200 characters | one per section, after its title, only where a named question needs it; a key, „Mark: meaning“                      |
