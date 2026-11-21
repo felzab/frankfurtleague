@@ -16,6 +16,7 @@ import { DialogOverlay } from "./DialogOverlay";
 import { Facts } from "./Facts";
 import { FieldStack } from "./FieldStack";
 import { dangerConsequence } from "./fieldStyles";
+import { FocusOnLeave } from "./FocusOnLeave";
 import { FormFooter } from "./FormFooter";
 import { toastAnswer } from "./Toast";
 import { tv } from "./tv";
@@ -380,15 +381,18 @@ export function Dialog<T extends Tone = "primary">(props: DialogAct<T> & Opening
       />
     );
   return (
-    <DialogTrigger
-      isOpen={isOpen}
-      onOpenChange={setOpen}>
-      <TriggerButton
-        // A touched act runs after its dialog closed, so its trigger is where it shows busy.
-        trigger={isRunning ? { ...trigger, isBusy: true } : trigger}
-        tone={form.tone ?? "primary"}
-      />
-      {overlay}
-    </DialogTrigger>
+    // A done act can drop the row its trigger stands on, which leaves React Aria no trigger to give the focus back to.
+    <FocusOnLeave>
+      <DialogTrigger
+        isOpen={isOpen}
+        onOpenChange={setOpen}>
+        <TriggerButton
+          // A touched act runs after its dialog closed, so its trigger is where it shows busy.
+          trigger={isRunning ? { ...trigger, isBusy: true } : trigger}
+          tone={form.tone ?? "primary"}
+        />
+        {overlay}
+      </DialogTrigger>
+    </FocusOnLeave>
   );
 }
