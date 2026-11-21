@@ -16,7 +16,10 @@ import type { RailPageHead } from "./RailFrame";
 // module never reaches the rail frame, and the root error and not-found boundaries, which every route loads, and a
 // client run that ends inside a rail page import it.
 
-/** What the end says at a glance, in the hues a chip names: done, a fact, a link or a page that is no more, a failure. */
+/**
+ * What the end says at a glance, in the hues a chip names: done, a fact, a link or a page that is no more, a failure
+ * or the person's own decline.
+ */
 type StatusTone = Exclude<ChipProps["tone"], "neutral">;
 
 const GLYPH: Readonly<Record<StatusTone, IconName>> = { success: "done", info: "info", warn: "warning", danger: "error" };
