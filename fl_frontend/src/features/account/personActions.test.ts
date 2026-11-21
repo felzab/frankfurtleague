@@ -14,6 +14,7 @@ import {
 } from "@/test-support/authDoubles";
 import { serveBackend } from "@/test-support/backend";
 import { cacheCalls, NEXT_CACHE_DOUBLE } from "@/test-support/nextRequest";
+import { posted } from "@/test-support/posted";
 import { answerAt, NO_RECORDS, SEAT } from "@/test-support/subjectFixtures";
 import { thrownRedirect } from "@/test-support/thrownRedirect";
 
@@ -156,9 +157,7 @@ const BOXES: readonly Readonly<Record<string, string>>[] = [
 
 /** A box's form as its press posts it, with the address its page was drawn for. */
 function postedBy(box: Readonly<Record<string, string>>, holder: string): FormData {
-  const posted = new FormData();
-  for (const [name, value] of Object.entries({ ...box, holder })) posted.set(name, value);
-  return posted;
+  return posted({ ...box, holder });
 }
 
 /** Whether the library still holds the link's token, unspent. */

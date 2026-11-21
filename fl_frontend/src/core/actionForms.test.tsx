@@ -7,6 +7,7 @@ import { assert, describe, expect, it } from "vitest";
 
 import { ADMIN_EMAIL } from "@/test-support/authDoubles";
 import { serveBackend } from "@/test-support/backend";
+import { posted } from "@/test-support/posted";
 import { signedInRequest } from "@/test-support/session";
 import { thrownRedirect } from "@/test-support/thrownRedirect";
 
@@ -53,11 +54,9 @@ const spelledIn = (...files: readonly string[]): Set<string> => {
  * What a person typed, by the name of each box it stands in, posted under every name the form posts: a value whose
  * name the form posts nowhere is not sent, as a browser sends it under no name.
  */
-function formOf(posted: Iterable<string>, typed: Readonly<Record<string, string>>): FormData {
-  const names = new Set(posted);
-  const form = new FormData();
-  for (const [name, value] of Object.entries(typed)) if (names.has(name)) form.append(name, value);
-  return form;
+function formOf(names: Iterable<string>, typed: Readonly<Record<string, string>>): FormData {
+  const named = new Set(names);
+  return posted(Object.fromEntries(Object.entries(typed).filter(([name]) => named.has(name))));
 }
 
 /** Fails where the form renders a box the case types nothing into: a box no case fills is a box no case holds. */
@@ -334,20 +333,20 @@ describe("each form's posted names meet its lane's keys", () => {
   describe("a form its sources spell", () => {
     it("loses no key of a Zusage's dialog", async () => {
       const { enterZusage } = await import("@/features/spielbestaetigungen/enterZusage");
-      const posted = spelledIn("features/spielbestaetigungen/answerActs.tsx", "features/spielbestaetigungen/ZusageDialog.tsx");
+      const spelled = spelledIn("features/spielbestaetigungen/answerActs.tsx", "features/spielbestaetigungen/ZusageDialog.tsx");
       takes(["POST", `/spielbestaetigungen/${ID}/enter`, { version: 2 }]);
 
-      expect(await enterZusage(formOf(posted, { id: ID, reason: "Telefonisch zugesagt" }))).toStrictEqual({ ok: true, value: undefined });
+      expect(await enterZusage(formOf(spelled, { id: ID, reason: "Telefonisch zugesagt" }))).toStrictEqual({ ok: true, value: undefined });
       expect(requestsSent()).toStrictEqual([[`POST /spielbestaetigungen/${ID}/enter`, { reason: "Telefonisch zugesagt" }]]);
     });
 
     it("loses no key of the address change's box", async () => {
       const { startAddressChange } = await import("@/features/account/personActions");
-      const posted = spelledIn("app/account/(pages)/signin/SignInBoxes.tsx");
+      const spelled = spelledIn("app/account/(pages)/signin/SignInBoxes.tsx");
       await arriveAs({ email: "pia@example.org" });
       takes(["POST", "/account/address_change", new Response(null, { status: 204 })]);
 
-      const answer = await startAddressChange(formOf(posted, { email: "pia.neu@example.org", holder: "pia@example.org" }));
+      const answer = await startAddressChange(formOf(spelled, { email: "pia.neu@example.org", holder: "pia@example.org" }));
 
       expect(answer).toStrictEqual({ ok: true, value: undefined });
       expect(requestsSent()).toStrictEqual([["POST /account/address_change", { email: "pia.neu@example.org" }]]);
@@ -357,7 +356,7 @@ describe("each form's posted names meet its lane's keys", () => {
     // An administrator's, the one account holding a passkey: the file's visitor unless a case names another.
     it("loses no key of a passkey's rename", async () => {
       const { renamePasskeyAction } = await import("@/features/passkeys/actions");
-      const posted = spelledIn("app/account/(pages)/security/SecurityBoxes.tsx");
+      const spelled = spelledIn("app/account/(pages)/security/SecurityBoxes.tsx");
       const account = store.user.find(({ email }) => email === ADMIN_EMAIL);
       assert(account !== undefined, "the administrator's arrival wrote no account");
       store.passkey.push({
@@ -373,7 +372,7 @@ describe("each form's posted names meet its lane's keys", () => {
         createdAt: new Date(),
       });
 
-      const answer = await renamePasskeyAction(formOf(posted, { id: "pk-1", name: "Telefon", holder: ADMIN_EMAIL }));
+      const answer = await renamePasskeyAction(formOf(spelled, { id: "pk-1", name: "Telefon", holder: ADMIN_EMAIL }));
 
       expect(answer).toStrictEqual({ ok: true, value: undefined });
       const renamed = store.passkey.filter(({ id }) => id === "pk-1");
@@ -382,11 +381,11 @@ describe("each form's posted names meet its lane's keys", () => {
 
     it("loses no key of a team's exit", async () => {
       const { recordAustritt } = await import("@/app/admin/(editor)/saisons/[saison]/teams/[team]/teamActs");
-      const posted = spelledIn("app/admin/(editor)/saisons/[saison]/teams/[team]/TeamEditor.tsx");
+      const spelled = spelledIn("app/admin/(editor)/saisons/[saison]/teams/[team]/TeamEditor.tsx");
       takes(["PUT", `/teams/${TEAM}/saisons/2027/austritt`, {}]);
 
       const typed = { team_id: TEAM, saison_id: "2027", date: "2027-04-01", reason: "Nicht angetreten", type: "rueckzug" };
-      expect(await recordAustritt(formOf(posted, typed))).toStrictEqual({ ok: true, value: undefined });
+      expect(await recordAustritt(formOf(spelled, typed))).toStrictEqual({ ok: true, value: undefined });
       expect(requestsSent()).toStrictEqual([
         [`PUT /teams/${TEAM}/saisons/2027/austritt`, { date: "2027-04-01", reason: "Nicht angetreten", type: "rueckzug" }],
       ]);
@@ -398,7 +397,7 @@ describe("each form's posted names meet its lane's keys", () => {
 
     it("loses no key of „Sitz bearbeiten“", async () => {
       const { writeSeat } = await import("@/app/admin/(editor)/saisons/[saison]/teams/[team]/teamActs");
-      const posted = seatPosted("features/teams/SeatActs.tsx", "app/admin/(editor)/saisons/[saison]/teams/[team]/TeamEditor.tsx");
+      const spelled = seatPosted("features/teams/SeatActs.tsx", "app/admin/(editor)/saisons/[saison]/teams/[team]/TeamEditor.tsx");
       takes(["PUT", `/teams/${TEAM}/saisons/2027/kontakte/trainer`, { email: null }]);
 
       const typed = {
@@ -410,7 +409,7 @@ describe("each form's posted names meet its lane's keys", () => {
         version: "3",
         holder: ADMIN_EMAIL,
       };
-      expect(await writeSeat(formOf(posted, typed))).toStrictEqual({ ok: true, value: undefined });
+      expect(await writeSeat(formOf(spelled, typed))).toStrictEqual({ ok: true, value: undefined });
       expect(requestsSent()).toStrictEqual([
         [`PUT /teams/${TEAM}/saisons/2027/kontakte/trainer`, { ...SEAT_PERSON, trainer_is_also: "ansprechperson", version: 3 }],
       ]);
@@ -418,11 +417,11 @@ describe("each form's posted names meet its lane's keys", () => {
 
     it("loses no key of an application's „Sitz bearbeiten“", async () => {
       const { writeBewerbungSeat } = await import("@/app/admin/(list)/saisons/[saison]/bewerbungen/[bewerbung]/seatActs");
-      const posted = seatPosted("features/teams/SeatActs.tsx", "app/admin/(list)/saisons/[saison]/bewerbungen/[bewerbung]/page.tsx");
+      const spelled = seatPosted("features/teams/SeatActs.tsx", "app/admin/(list)/saisons/[saison]/bewerbungen/[bewerbung]/page.tsx");
       takes(["POST", `/bewerbungen/${ID}/kontakte/trainer`, { email: "jana@example.org" }]);
 
       const typed = { id: ID, seat: "trainer", ...SEAT_PERSON, version: "3", holder: ADMIN_EMAIL };
-      expect(await writeBewerbungSeat(formOf(posted, typed))).toMatchObject({ ok: true });
+      expect(await writeBewerbungSeat(formOf(spelled, typed))).toMatchObject({ ok: true });
       expect(requestsSent()).toStrictEqual([[`POST /bewerbungen/${ID}/kontakte/trainer`, { ...SEAT_PERSON, version: 3 }]]);
     });
   });

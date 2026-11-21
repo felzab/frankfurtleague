@@ -5,6 +5,7 @@ import { TURNSTILE_FIELD } from "@/core/turnstileToken";
 import { ADMIN_EMAIL, memoryAdapterDouble, memoryStore, ORIGIN, overriding, registerAuthDoubles } from "@/test-support/authDoubles";
 import { serveBackend, serveHost } from "@/test-support/backend";
 import { arriveWith, NEXT_HEADERS_DOUBLE, writtenCookies } from "@/test-support/nextRequest";
+import { posted } from "@/test-support/posted";
 import { answerAt, NO_RECORDS } from "@/test-support/subjectFixtures";
 
 import type { ActionAnswer } from "@/core/action";
@@ -102,9 +103,7 @@ interface Attempt {
 }
 
 async function signInWith(email: string): Promise<Attempt> {
-  const submitted = new FormData();
-  submitted.set("email", email);
-  submitted.set(TURNSTILE_FIELD, BOT_CHECK_TOKEN);
+  const submitted = posted({ email, [TURNSTILE_FIELD]: BOT_CHECK_TOKEN });
 
   const mailedBefore = sent.length;
   const rowsBefore = new Set(store.verification);
