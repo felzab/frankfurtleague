@@ -15,7 +15,10 @@ export async function generateMetadata(_: unknown, parent: ResolvingMetadata): P
   return pageMetadata(parent, ROUTES.areaRoles, ROUTES.areaRoles.path());
 }
 
-/** Every place the person holds, each a card's link: a team by its name over its season and seats, the rest by their area. */
+/**
+ * Every place the person holds, each a card's link: a team by its name over the seats held on it in any season, the
+ * rest by their area.
+ */
 async function readChoices(): Promise<ReadonlyArray<CardLinkProps>> {
   const subject = await requireSubjectSession(ROUTES.areaRoles.path());
   if (owesSignInStep(subject)) redirect(ROUTES.signInLanding.path());

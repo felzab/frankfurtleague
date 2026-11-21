@@ -174,60 +174,37 @@ export function ListTiles({ tiles, empty }: { tiles: ReadonlyArray<{ tile: Schoo
 }
 
 /**
- * Each card of the list template, its rows searched by the text its scope holds, as `ListMatches` searches the matches:
- * a row's name, or the `words` it states where more of it is searched; on a page with no search nothing is typed, so
- * every row stands. It shows the first five of the rows the search leaves and the rest a press away (`CappedRows`).
- * A card holding a list, such as a
- * referee's games, gives its place to the list's box once a search empties it, as its list with nothing in it yet does
- * and as a table's box keeps the sentence alone when a search empties its rows, so a search finding nothing reads alike
- * on every page. A card of open work stays and says nothing is open, in what was searched as without a search.
+ * A card of open work on the list template: its title and the count of its rows, the first five of them and the rest a
+ * press away (`CappedRows`), and with none „Nichts offen.“
  */
 export function ListCard({
   title,
   href,
-  count,
   rows,
-  empty,
 }: {
   title: Copy;
   /** The page listing the card's records in full, which its title links. */
   href?: Route;
-  /** `false` on a card holding a list rather than open work: a count says how much is open. */
-  count?: false;
-  rows: ReadonlyArray<CardActRowProps & { id: string; words?: string }>;
-  /** The card's list's own empty state, as the list template states it for a card holding a list. */
-  empty?: EmptyStateProps;
+  rows: ReadonlyArray<CardActRowProps & { id: string }>;
 }) {
-  const { query } = use(ListQuery);
-  const { isSearching, shown } = searched(rows, query, rowWords);
   return (
-    <>
-      {shown.length === 0 && empty !== undefined ? (
-        <EmptyBox {...(isSearching ? { ...empty, kind: "search" } : empty)} />
+    <Card
+      title={title}
+      {...(href === undefined ? {} : { href })}
+      count={rows.length}>
+      {rows.length === 0 ? (
+        <EmptyState kind="clear" />
       ) : (
-        <Card
-          title={title}
-          {...(href === undefined ? {} : { href })}
-          {...(count === false ? {} : { count: rows.length })}>
-          {shown.length === 0 ? (
-            <EmptyState kind="clear" />
-          ) : (
-            <CappedRows
-              rows={shown.map(({ id, words: _words, ...row }) => (
-                <CardActRow
-                  key={id}
-                  {...row}
-                />
-              ))}
+        <CappedRows
+          rows={rows.map(({ id, ...row }) => (
+            <CardActRow
+              key={id}
+              {...row}
             />
-          )}
-        </Card>
+          ))}
+        />
       )}
-      <SearchStatus
-        count={shown.length}
-        empty={empty ?? { kind: "clear" }}
-      />
-    </>
+    </Card>
   );
 }
 

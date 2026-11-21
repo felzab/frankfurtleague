@@ -63,7 +63,7 @@ describe("a contact's place on a team held in two seasons", () => {
       {
         href: ROUTES.teamOverview.path(TEAM.team_id, TEAM.saison_id),
         name: { record: TEAM.team_name },
-        seats: ACCOUNT_COPY.role.seats(["ansprechperson", "trainer"]),
+        seats: ACCOUNT_COPY.entries.seatsHeld(["ansprechperson", "trainer"]),
         parts: [
           {
             href: ROUTES.teamOverview.path(TEAM.team_id, NEXT_SEASON.saison_id),

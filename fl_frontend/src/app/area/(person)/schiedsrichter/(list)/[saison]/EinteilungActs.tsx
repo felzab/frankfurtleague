@@ -16,9 +16,9 @@ import type { Words } from "@/core/copy";
 const TITLE = COPY.shared.withObject(AREA_COPY.schiedsrichter.einsatz, "decline");
 
 /**
- * A booking still to answer, on its game's row: „Zusagen“ at once, its answer a toast as the row turns „Zugesagt“,
- * and „Ablehnen“ in the dialog asking for the reason, the game named under its title. Neither takes the passkey
- * touch. Both name the row's own confirmation, which is all either posts of the row.
+ * A booking still to answer, on its row in the card „Termine“: „Zusagen“ at once, its answer a toast as the row
+ * leaves the card, and „Ablehnen“ in the dialog asking for the reason, the game named under its title. Neither takes
+ * the passkey touch. Both name the row's own confirmation, which is all either posts of the row.
  */
 export function EinteilungActs({
   id,

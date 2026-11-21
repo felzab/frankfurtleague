@@ -121,8 +121,6 @@ OWN_ROW_FIELDS: Mapping[str, int] = {
     "party": 1,
     "ansetzung": 1,
     "answer.kind": 1,
-    "answer.by.kind": 1,
-    "answer.reason": 1,
     "closed": 1,
 }
 

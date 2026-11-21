@@ -48,8 +48,8 @@ export type SpieltageContent = {
 
 /**
  * Open work, one card per kind in its order of reading, such as the administrator's Übersicht: each card's title and
- * count over its records, the first five of a longer card's rows and the rest a press away (`CappedRows`), five of what
- * the search leaves on a page a search narrows, every card drawn every day, one with nothing waiting saying so.
+ * count over its records, the first five of a longer card's rows and the rest a press away (`CappedRows`), every card
+ * drawn every day, one with nothing waiting saying so.
  */
 type CardsContent = {
   /** The team whose own Übersicht this is, heading the cards: its plaque and its full name (`TeamHead`). */
@@ -62,15 +62,7 @@ type CardsContent = {
      * card's title links it once, and its rows open nothing.
      */
     href?: Route;
-    /** Each row, with the words the list's search narrows it by where more than its name is searched. */
-    rows: ReadonlyArray<CardActRowProps & { id: string; words?: string }>;
-    /** `false` on a card holding a list rather than open work, such as a referee's games: a count says how much is open. */
-    count?: false;
-    /**
-     * Such a list's own empty state, which stands in the card's place while the list holds nothing or a search finds
-     * nothing in it; a card of open work stays and says „Nichts offen.“
-     */
-    empty?: EmptyStateProps;
+    rows: ReadonlyArray<CardActRowProps & { id: string }>;
   }>;
   /**
    * Who holds the seats of the record the work belongs to, such as a team's on its own Übersicht: the last card, which
@@ -107,8 +99,6 @@ type ListContent =
     }
   | {
       kind: "cards";
-      /** The search field's name, where a card's list can reach about 20 rows, as a table's takes it. */
-      search?: ListSearch;
       content: Promise<CardsContent>;
     }
   | {
@@ -246,15 +236,11 @@ async function ListBody({ list }: { list: ListContent }) {
           {team !== undefined && <TeamHead {...team} />}
           <Cards boxes={cards.length + (seats === undefined ? 0 : 1)}>
             {cards.map((entry) => (
-              // Drawn where the search is held, since which rows it caps depends on the text typed; with no search
-              // nothing is typed, and it shows every row.
               <ListCard
                 key={entry.id}
                 title={entry.title}
                 {...(entry.href === undefined ? {} : { href: entry.href })}
                 rows={entry.rows}
-                {...(entry.count === false ? { count: false } : {})}
-                {...(entry.empty === undefined ? {} : { empty: entry.empty })}
               />
             ))}
             {seats !== undefined && (
@@ -324,7 +310,7 @@ export function ListPage({
   link?: ListLink;
   list: ListContent;
 }) {
-  const search = list.kind === "table" || list.kind === "spiele" || list.kind === "tiles" || list.kind === "cards" ? list.search : undefined;
+  const search = list.kind === "table" || list.kind === "spiele" || list.kind === "tiles" ? list.search : undefined;
   const hasToolbar = search !== undefined || filters !== undefined || create !== undefined || side !== undefined || link !== undefined;
 
   return (
