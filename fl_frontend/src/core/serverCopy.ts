@@ -609,7 +609,8 @@ export const SERVER_COPY = catalogue({
 
     /** The one notice of a deletion: an account's, or an application's that did not come about, to each seat that confirmed. */
     deletion: {
-      account: `Dein Konto und deine Angaben sind gelöscht, bis auf das, was unter „${COPY.page.privacyNotice}“ steht.`,
+      /** The deletion box's own sentence, as its link's mail reads it: the subject already says the account is gone. */
+      account: ACCOUNT_COPY.erasure.description,
       bewerbung: {
         // True of a lapse and of an application undecided at its season's end alike.
         lead: (saison: string) => `Die Bewerbung für die ${COPY.shared.saisonNameBound(saison)} kam nicht zustande.`,
