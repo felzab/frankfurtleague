@@ -26,7 +26,7 @@ test("a known club enters the planned season, and its editor's one save reaches 
 
   // The club's own field and its season row's, in one press of the bar.
   await page.getByRole("main").getByRole("link", { name: team }).click();
-  await expect(page.getByRole("banner").getByRole("heading", { level: 1, name: team })).toBeVisible();
+  await expect(page.getByRole("main").getByRole("heading", { level: 1, name: team })).toBeVisible();
   const main = page.getByRole("main");
   await typeInto(main.getByRole("textbox", { name: /^Website/ }), website);
   await choose(page, main, /Trikotfarbe/, colour);
@@ -42,7 +42,7 @@ test("a known club enters the planned season, and its editor's one save reaches 
 test("a pupil's squad row saves from its editor", async ({ page, kaderPupil }) => {
   await page.goto(`/admin/saisons/${RUNNING}/spieler`);
   await page.getByRole("main").getByRole("link", { name: kaderPupil }).click();
-  await expect(page.getByRole("banner").getByRole("heading", { level: 1, name: kaderPupil })).toBeVisible();
+  await expect(page.getByRole("main").getByRole("heading", { level: 1, name: kaderPupil })).toBeVisible();
 
   const number = page.getByRole("main").getByRole("textbox", { name: /^Nummer/ });
   await typeInto(number, "23");

@@ -18,11 +18,10 @@ import { SERVER_COPY } from "@/core/serverCopy";
 import { runWithIncomingTrace } from "@/core/traceScope";
 import { orderStufen } from "@/features/spieler/constants";
 import { ConsentLine } from "@/kit/ConsentLine";
-import { TO_HOME } from "@/kit/mailedLinkState";
 import { mailedMetadata } from "@/kit/mailedMetadata";
 import { MailedPage } from "@/kit/MailedPage";
 
-import { endOf, readInvitation } from "./invitation";
+import { endOf, LINK_INVALID, readInvitation } from "./invitation";
 import { RegistrierungFields } from "./RegistrierungFields";
 import { submitRegistrierung } from "./submitRegistrierung";
 
@@ -39,7 +38,7 @@ const WORDS = SERVER_COPY.registrierung;
 
 const SUBMIT = COPY.shared.withObject(COPY.page.registrierung, "submit");
 
-const INVALID: MailedState = { state: "invalid", next: TO_HOME };
+const INVALID: MailedState = { state: "end", ...LINK_INVALID };
 
 /** The notice's id, which describes the send: the page holds one form. */
 const NOTICE_ID = "registrierung-notice";

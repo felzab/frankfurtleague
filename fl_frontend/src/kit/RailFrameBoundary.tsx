@@ -27,8 +27,11 @@ type FailedFrame = {
   signIn?: Route;
 };
 
-/** The error card in the rail form, as an area's `error.tsx` draws it, its title in the strip, its retry. */
-function RailError({ error, retry, scope }: { error: unknown; retry: () => void; scope: RailPageHead["scope"] }) {
+/**
+ * The error card in the rail form, its title in the strip, its retry: the one card of every rail frame's failure, this
+ * boundary's and each area's `error.tsx`, which adds only the phone's band and bar where its layouts place them.
+ */
+export function RailError({ error, retry, scope }: { error: unknown; retry: () => void; scope: RailPageHead["scope"] }) {
   useReportClientCrash(error);
   return (
     <StatusPage

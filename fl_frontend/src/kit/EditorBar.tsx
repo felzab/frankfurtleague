@@ -85,8 +85,8 @@ export function EditorBar({
   };
   const look = editorBarLook();
   return (
-    // A landmark of its own, named by its act: the bar stands after `main`, and content outside every landmark is
-    // passed over by a screen reader moving between them.
+    // A landmark of its own, named by its act, at the foot of `main`: a screen reader moving between landmarks reaches
+    // the save without passing through the page's content.
     <div
       role="region"
       aria-label={COPY.shared.verb.save}

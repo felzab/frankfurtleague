@@ -1,6 +1,6 @@
 import { textOf } from "@/core/copy";
 import { COPY } from "@/core/copy/shared";
-import { ROUTES } from "@/core/routes";
+import { LEGAL_PAGES, ROUTES } from "@/core/routes";
 
 import { Brand } from "./Brand";
 import { Chip } from "./Chip";
@@ -62,8 +62,8 @@ type Bar = readonly [string] | readonly [string, string] | readonly [string, str
  * bar standing in that place. Each page is then drawn right by the server, which knows the group from the
  * route; a page declaring it on the client would draw the bar until it hydrates, and hydrate it wrongly.
  *
- * Each page's template writes its title and its content through `RailPage`, so this frame and that one write
- * the page's `h1` and `main`, and nothing else does.
+ * Each page's template writes its title and its content through `RailPage`, inside the `main` that `RailColumn`
+ * draws, so this frame and the classic one write the page's `h1` and `main`, and nothing else does.
  */
 export function RailFrame({
   groups,
@@ -91,13 +91,12 @@ export function RailFrame({
   children: ReactNode;
 }) {
   const account = foot.kind === "account" ? foot.account : undefined;
-  // Signed out, the phone reaches „Konto“, the way to the sign-in, and the two legal pages through „Mehr“ (the strip carries them on desktop).
+  // Signed out, the phone reaches „Konto“, the way to the sign-in, and the legal pages through „Mehr“ (the strip carries them on desktop).
   const extra =
     foot.kind === "signIn"
       ? [
           { label: COPY.template.account, href: foot.href },
-          { label: COPY.page.legalNotice, href: ROUTES.legalNotice.path() },
-          { label: COPY.page.privacyNotice, href: ROUTES.privacyNotice.path() },
+          ...LEGAL_PAGES.map((page) => ({ label: ROUTES[page].title, href: ROUTES[page].path() })),
         ]
       : [];
   const entries = groups.flatMap((group) => group.entries);
@@ -182,7 +181,7 @@ export function RailFrame({
  * logo's place; an area's own `back` does the same for every page of the area, and no bottom bar follows. A page
  * with a bar of its own, an editor's save, stands it in the bottom bar's place, so the bottom bar gives way to it
  * there alone: a status card or a read page at an editor's address keeps the bottom bar, as the same address's
- * not-found card does.
+ * not-found card does. At every width the page stands in the `main` the column draws, its title at its head.
  */
 export function RailColumn({ editor = false, back, children }: { editor?: boolean; back?: Back; children: ReactNode }) {
   return (
@@ -198,7 +197,9 @@ export function RailColumn({ editor = false, back, children }: { editor?: boolea
         )}
         <SaisonButton placement="band" />
       </header>
-      {children}
+      {/* The page's one `main`, its title and its content, here in the column a navigation keeps mounted rather than in
+          `RailPage`, so a screen reader moving to it lands on the title. */}
+      <main className="flex min-w-0 flex-1 flex-col">{children}</main>
       {back === undefined && (
         <div className="contents group-has-[[data-kit-page-bar]]/column:hidden">
           <BarPlaces />
@@ -226,7 +227,7 @@ function titleOf(title: PageTitle): string {
 const strip = tv({
   slots: {
     // From `lg` laid over the frame's strip, as tall and as sticky, with no ground of its own: the rail's toggle first,
-    // inside the page's banner landmark, which a screen reader moving between landmarks reaches, and the title 16 px
+    // at the head of the page's `main`, which a screen reader moving between landmarks reaches, and the title 16 px
     // past the toggle's box, which a finger's 40-px box moves on by its own width (`RailToggle`). Its hairline's width
     // stays in the box, unpainted, so the title is centred as the strip's other parts are. Below `lg`, where a long
     // title wraps, every part after the title stands centred on the title's first line rather than on all its lines:
@@ -275,7 +276,7 @@ export const formColumn = tv({ base: "mx-auto grid w-full max-w-form gap-6" });
  * A rail page's title and content. On desktop the title stands after the rail's toggle in the 48-px strip the frame
  * draws, which runs the full width beside the rail with its hairline continuing the rail head's edge, on a public
  * season page with „Impressum“ and „Datenschutz“ at its end; on a phone the title heads the content under the band.
- * The page's templates place it; `main` holds their content.
+ * The page's templates place it, inside the `main` its column draws (`RailColumn`).
  */
 export function RailPage({
   scope,
@@ -313,7 +314,7 @@ export function RailPage({
     <>
       {/* Beside the page's fade, never in it, as the bar under it is: the fade writes a name of its own over the name of
           whatever stands at its top, so each stands apart, one picture across a page's change
-          (`tokens.css`). */}
+          (`tokens.css`). Inside `main`, as the classic page's head is, so it is no banner beside the band. */}
       <header className={head()}>
         <RailToggle />
         <h1 className={heading({ class: first() })}>{titleOf(title)}</h1>
@@ -340,13 +341,13 @@ export function RailPage({
           <nav
             aria-label={COPY.template.navigation}
             className="ms-auto hidden gap-1 lg:flex">
-            {[ROUTES.legalNotice, ROUTES.privacyNotice].map((page) => (
+            {LEGAL_PAGES.map((page) => (
               <NavigationLink
-                key={page.path()}
-                href={page.path()}
+                key={page}
+                href={ROUTES[page].path()}
                 data-kit-focus="ring"
                 className={frameLink({ tone: "strip" })}>
-                {page.title}
+                {ROUTES[page].title}
               </NavigationLink>
             ))}
           </nav>
@@ -355,11 +356,11 @@ export function RailPage({
       <PageFade>
         {/* The content in one column, centred beside the rail on a wide screen, the gutter outside it; the editor's
             bar spans the whole width under it. */}
-        <main className="flex w-full min-w-0 flex-1 flex-col px-4 pt-4 pb-8 overflow-anchor-none lg:px-8 lg:pt-8 lg:pb-12">
+        <div className="flex w-full min-w-0 flex-1 flex-col px-4 pt-4 pb-8 overflow-anchor-none lg:px-8 lg:pt-8 lg:pb-12">
           <PageContent>
             <div className="mx-auto flex w-full max-w-content min-w-0 flex-1 flex-col gap-6">{children}</div>
           </PageContent>
-        </main>
+        </div>
       </PageFade>
       {/* Marked, so the column leaves out the bottom bar whose place the page's own bar takes (`RailColumn`). */}
       {bar !== undefined && (

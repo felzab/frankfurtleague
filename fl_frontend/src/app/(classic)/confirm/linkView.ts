@@ -28,6 +28,6 @@ export function linkViewOf<View>(read: Promise<View>): Promise<View | null> {
 export function alreadyDone(answeredAt: string, kind: "confirmed" | "objected", end: EndState): MailedState {
   const title = COPY.shared.end.doneOn(end.title, dayOf(answeredAt));
   return kind === "confirmed"
-    ? { state: "alreadyDone", title, next: TO_ACCOUNT }
-    : { state: "alreadyDone", title, next: TO_HOME, declined: true };
+    ? { state: "end", tone: "info", title, next: TO_ACCOUNT }
+    : { state: "end", tone: "danger", title, next: TO_HOME };
 }

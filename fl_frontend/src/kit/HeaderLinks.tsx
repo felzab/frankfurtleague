@@ -25,12 +25,12 @@ type HeaderLinksProps = {
 
 /**
  * The classic header's links and „Konto“, the way to the sign-in, on the band: in a row from 1024 px, and on a phone behind
- * one button opening them as a sheet. The page's link is marked, or from its press the link a navigation goes to, and
- * the sheet goes with the page it led from, since the layout outlives the page.
+ * one button opening them as a sheet. The page's link is marked, „Konto“ on the sign-in's pages among them, or from its
+ * press the link a navigation goes to, and the sheet goes with the page it led from, since the layout outlives the page.
  */
 export function HeaderLinks({ links, signIn }: HeaderLinksProps) {
   const path = usePathname();
-  const hrefs = links.map((link) => link.href);
+  const hrefs = [...links.map((link) => link.href), signIn];
   const pressed = usePressed(hrefs);
   const current = pressed ?? currentOf(path, hrefs);
   return (
@@ -51,8 +51,9 @@ export function HeaderLinks({ links, signIn }: HeaderLinksProps) {
       </nav>
       <NavigationLink
         href={signIn}
+        aria-current={signIn === current ? "page" : undefined}
         data-kit-focus="ring"
-        className={frameLink({ tone: "band", class: "ms-auto hidden lg:flex" })}>
+        className={frameLink({ tone: signIn === current ? "band" : "bandMuted", class: "ms-auto hidden lg:flex" })}>
         {COPY.template.account}
       </NavigationLink>
       <div className="ms-auto lg:hidden">
@@ -76,9 +77,8 @@ export function HeaderLinks({ links, signIn }: HeaderLinksProps) {
                   key={link.href}
                   href={link.href}
                   aria-current={link.href === current ? "page" : undefined}
-                  data-selected={link.href === current || undefined}
                   data-kit-focus="inset"
-                  className={menuEntry({ size: "phone", current: link.href === current })}>
+                  className={menuEntry({ size: "phone" })}>
                   {link.label}
                 </NavigationLink>
               ))}

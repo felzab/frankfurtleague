@@ -84,7 +84,7 @@ async function landed(inactive_since: string | null, spiel: FLSpielerSaisonSelfS
   );
   const page = document.createElement("div");
   page.innerHTML = await new Response(prelude).text();
-  return page.querySelector("main")?.textContent ?? "";
+  return page.textContent;
 }
 
 describe("a pupil's own season", () => {

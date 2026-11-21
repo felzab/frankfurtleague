@@ -26,7 +26,7 @@ async function drawn(): Promise<HTMLElement> {
 }
 
 /** Each box's title, in the order the page draws them. */
-const titlesOf = (page: HTMLElement) => [...page.querySelectorAll("main section h2")].map((title) => title.textContent);
+const titlesOf = (page: HTMLElement) => [...page.querySelectorAll("section h2")].map((title) => title.textContent);
 
 /** The reason a locked button names for its press, which the button's description points to. */
 const lockedReasonOf = (page: HTMLElement, label: string): string | null | undefined => {

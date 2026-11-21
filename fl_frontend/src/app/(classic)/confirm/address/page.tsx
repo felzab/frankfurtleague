@@ -12,10 +12,10 @@ import { runWithIncomingTrace } from "@/core/traceScope";
 import { accountAtNewAddress } from "@/features/address-change/account";
 import { readsAsDeadLink } from "@/features/address-change/refusals";
 import { mailedMetadata } from "@/kit/mailedMetadata";
-import { MailedPage, TO_ACCOUNT } from "@/kit/MailedPage";
+import { MailedPage } from "@/kit/MailedPage";
 
 import { answerAddressChange, stopAddressChange } from "./answers";
-import { confirmedAgain, doneOnEnd, stoppedOn } from "./ends";
+import { confirmedAgain, doneOnEnd, LINK_INVALID, stoppedOn } from "./ends";
 
 import type { Copy } from "@/core/copy";
 import type {
@@ -35,7 +35,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
 const WORDS = SERVER_COPY.addressChange;
 
-const INVALID: MailedState = { state: "invalid", next: TO_ACCOUNT };
+const INVALID: MailedState = { state: "end", ...LINK_INVALID };
 
 /** The link's read, `null` for a dead link. A failed read is no state of the link's: it reaches the frame's error boundary. */
 const readChange = cache(async (token: string) =>

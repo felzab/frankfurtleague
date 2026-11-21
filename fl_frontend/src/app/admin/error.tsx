@@ -1,9 +1,7 @@
 "use client";
 
-import { COPY } from "@/core/copy/shared";
 import { RailColumn } from "@/kit/RailFrame";
-import { StatusPage } from "@/kit/StatusPage";
-import { useReportClientCrash } from "@/shared/hooks/useReportClientCrash";
+import { RailError } from "@/kit/RailFrameBoundary";
 
 /**
  * A failed page of the administration, an unread grant among its failures, in the rail frame: this boundary stands
@@ -11,13 +9,12 @@ import { useReportClientCrash } from "@/shared/hooks/useReportClientCrash";
  * and bar itself.
  */
 export default function AdminError({ error, retry }: { error: unknown; retry: () => void }) {
-  useReportClientCrash(error);
   return (
     <RailColumn>
-      <StatusPage
+      <RailError
+        error={error}
+        retry={retry}
         scope="area"
-        title={COPY.shared.failure.unexpected}
-        card={{ tone: "danger", next: { label: COPY.shared.verb.retry, retry } }}
       />
     </RailColumn>
   );

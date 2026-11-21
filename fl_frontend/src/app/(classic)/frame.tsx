@@ -8,8 +8,8 @@ import type { HeaderLink } from "@/kit/HeaderLinks";
 import type { ReactNode } from "react";
 
 /** The header's two pages of the league's own. */
-const ABOUT = { label: COPY.page.about, href: ROUTES.about.path() };
-const CONTACT = { label: COPY.page.contact, href: ROUTES.contact.path() };
+const ABOUT = { label: ROUTES.about.title, href: ROUTES.about.path() };
+const CONTACT = { label: ROUTES.contact.title, href: ROUTES.contact.path() };
 
 /** The footer's „Saison“ group, at the addresses that read the season on arrival. */
 const SAISON_LINKS: ReadonlyArray<HeaderLink> = SAISONLESS_PAGES.map(({ route, page }) => ({

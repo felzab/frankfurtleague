@@ -1,10 +1,9 @@
 import { COPY } from "@/core/copy/shared";
 import { ROUTES } from "@/core/routes";
 
-import { ClassicTitle } from "./ClassicPage";
+import { ClassicTitle, PageHead } from "./ClassicPage";
 import { Facts } from "./Facts";
 import { Link } from "./Link";
-import { linkInvalid } from "./mailedLinkState";
 import { OneShotEnd, OneShotForm } from "./OneShot";
 import { ClassicStatusPage } from "./StatusCard";
 
@@ -24,16 +23,16 @@ export type { EndState } from "./OneShot";
 export const TO_ACCOUNT = { label: COPY.shared.end.toAccount, href: ROUTES.accountSignIn.path() } as const satisfies WayOn;
 
 /**
- * What a mailed page shows once its link is read, in one of four states, or an end of its own:
+ * What a mailed page shows once its link is read, the question or an end:
  *
  * - `question`: the question, opening on its act: a title, the facts the answer rests on, one sentence, the
  *   fields where the answer needs any, and the acts, sent once with the token the page carries, the main one
  *   behind the passkey touch where the act takes it; the answer replaces the page by the status template (the
  *   done state, worded by the server), or leads to a done page of its own where it forgets the link;
- * - `alreadyDone`: the link opened again, its title saying what the person did and when, with the one place to
- *   change it where there is one, on the danger tint where what they did was to decline;
- * - `invalid`: an expired, mistyped or tampered link alike, with the one sensible way on and no resend;
- * - `end`: an end the page names itself before any answer, as a deletion link opened signed out.
+ * - `end`: an end the page names before any answer, drawn by the status template: the link opened again, its title
+ *   saying what the person did and when, with the one place to change it where there is one, on the danger tint
+ *   where what they did was to decline; a link no longer valid (`linkInvalid`), with the one sensible way on and no
+ *   resend; or an end of the page's own, as a deletion link opened signed out.
  */
 export type MailedState =
   | {
@@ -65,8 +64,6 @@ export type MailedState =
       /** The answer's fields, the kit's, each with its `name`. */
       children?: ReactNode;
     }
-  | { state: "alreadyDone"; title: Copy; next: WayOn; declined?: boolean }
-  | { state: "invalid"; next: WayOn }
   | ({ state: "end" } & EndState);
 
 type PrivacyMore = (link: TextLink) => readonly [Copy, TextLink, Copy];
@@ -91,16 +88,6 @@ function More({ more }: { more: PrivacyMore }) {
 async function MailedBody({ page }: { page: Promise<MailedState> }) {
   const props = await page;
   switch (props.state) {
-    case "invalid":
-      return <ClassicStatusPage {...linkInvalid(props.next)} />;
-    case "alreadyDone":
-      return (
-        <ClassicStatusPage
-          tone={props.declined === true ? "danger" : "info"}
-          title={props.title}
-          next={props.next}
-        />
-      );
     case "end":
       return (
         <ClassicStatusPage
@@ -124,11 +111,8 @@ async function MailedBody({ page }: { page: Promise<MailedState> }) {
           describedBy={props.describedBy}
           head={
             <>
-              {/* A form of boxes holds its title on the page; a question holds it in its card. */}
-              <ClassicTitle
-                text={props.title}
-                place={props.boxes === true ? "page" : "card"}
-              />
+              {/* A form of boxes heads the page as every classic page does; a question holds its title in its card. */}
+              {props.boxes === true ? <PageHead title={props.title} /> : <ClassicTitle text={props.title} />}
               {props.facts !== undefined && props.facts.length > 0 && (
                 <Facts
                   facts={props.facts}

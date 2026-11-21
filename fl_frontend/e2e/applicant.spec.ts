@@ -12,6 +12,11 @@ import { test } from "./support/journey";
 import { PLANNED } from "./support/madeUpLeague";
 import { filedMessages, mailedLink, mailedMessage } from "./support/mailSink";
 
+import type { Page } from "@playwright/test";
+
+/** The page's title strip, where the record's status chip stands beside its name, rather than the same word anywhere on the page. */
+const strip = (page: Page) => page.getByRole("main").locator("header", { has: page.getByRole("heading", { level: 1 }) });
+
 test("a new school applies, every seat confirms, and the administration accepts it", async ({ page, administration, applicants }) => {
   const school = applicants.accepted;
   const before = await filedMessages();
@@ -29,7 +34,7 @@ test("a new school applies, every seat confirms, and the administration accepts 
 
   // The application stands complete, and the acceptance sets what the form never asked: a new school's Kürzel.
   await openApplication(administration, school);
-  await expect(administration.getByRole("banner").getByText("Vollständig", { exact: true })).toBeVisible();
+  await expect(strip(administration).getByText("Vollständig", { exact: true })).toBeVisible();
   const decided = await filedMessages();
   await administration.getByRole("main").getByRole("button", { name: "Annehmen", exact: true }).click();
   const dialog = await enteredDialog(administration, "Bewerbung annehmen");
@@ -39,13 +44,13 @@ test("a new school applies, every seat confirms, and the administration accepts 
   await typeInto(dialog.getByRole("textbox", { name: /^Kürzel/ }), school.slice(0, 3).toUpperCase());
   await dialog.getByRole("button", { name: "Annehmen", exact: true }).click();
   await expect(dialog).toBeHidden();
-  await expect(administration.getByRole("banner").getByText("Angenommen", { exact: true })).toBeVisible();
+  await expect(strip(administration).getByText("Angenommen", { exact: true })).toBeVisible();
 
   // Every seat is told, and the school now is a team of the season, whose editor the application leads to.
   for (const seat of SEATS) await mailedMessage(personOf(school, seat).address, SUBJECT.accepted, decided);
   await administration.getByRole("main").getByRole("link", { name: "Zum Team" }).click();
   await expect(administration).toHaveURL((url) => url.pathname.startsWith(`/admin/saisons/${PLANNED}/teams/`));
-  await expect(administration.getByRole("banner").getByRole("heading", { level: 1, name: school })).toBeVisible();
+  await expect(administration.getByRole("main").getByRole("heading", { level: 1, name: school })).toBeVisible();
 });
 
 test("a listed school is rejected, and every seat reads the reason", async ({ page, administration, applicants }) => {
@@ -63,7 +68,7 @@ test("a listed school is rejected, and every seat reads the reason", async ({ pa
   await typeInto(dialog.getByRole("textbox", { name: /^Grund/ }), reason);
   await dialog.getByRole("button", { name: "Ablehnen", exact: true }).click();
   await expect(dialog).toBeHidden();
-  await expect(administration.getByRole("banner").getByText("Abgelehnt", { exact: true })).toBeVisible();
+  await expect(strip(administration).getByText("Abgelehnt", { exact: true })).toBeVisible();
 
   for (const seat of SEATS) {
     const mail = await mailedMessage(personOf(school, seat).address, SUBJECT.declined, decided);

@@ -114,5 +114,5 @@ export async function confirmSeat(page: Page, link: string): Promise<void> {
 export async function openApplication(page: Page, school: string): Promise<void> {
   await page.goto(`/admin/saisons/${PLANNED}/bewerbungen`);
   await page.getByRole("main").getByRole("link", { name: school, exact: true }).click();
-  await expect(page.getByRole("banner").getByRole("heading", { level: 1, name: school })).toBeVisible();
+  await expect(page.getByRole("main").getByRole("heading", { level: 1, name: school })).toBeVisible();
 }

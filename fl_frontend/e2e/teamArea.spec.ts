@@ -19,7 +19,7 @@ const NAMED = 13;
 const STARTING = 11;
 
 /** The page's title, which every rail page writes in its strip, and on a phone at the top of its content. */
-const titleOf = (page: Page, name: string): Locator => page.getByRole("banner").getByRole("heading", { level: 1, name, exact: true });
+const titleOf = (page: Page, name: string): Locator => page.getByRole("main").getByRole("heading", { level: 1, name, exact: true });
 
 /**
  * One of the team's pages through the frame's menu: the rail on a desktop; on a phone the bar under the page, or the

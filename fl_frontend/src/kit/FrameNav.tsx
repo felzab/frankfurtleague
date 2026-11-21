@@ -6,7 +6,7 @@ import { useParams, usePathname } from "next/navigation";
 import { Button as AriaButton } from "react-aria-components/Button";
 
 import { COPY } from "@/core/copy/shared";
-import { ROLE_ROOTS, ROUTES } from "@/core/routes";
+import { LEGAL_PAGES, ROLE_ROOTS, ROUTES } from "@/core/routes";
 import { leaveDocumentFor } from "@/shared/utils/documentNavigation";
 import { signOut } from "@/shared/utils/signOut";
 
@@ -375,10 +375,7 @@ function AccountMenu({
           { kind: "link", label: COPY.template.account, href: accountPage },
           { kind: "action", label: COPY.shared.verb.signOut, onAction: signOutAsked },
         ],
-        [
-          { kind: "link", label: ROUTES.legalNotice.title, href: ROUTES.legalNotice.path() },
-          { kind: "link", label: ROUTES.privacyNotice.title, href: ROUTES.privacyNotice.path() },
-        ],
+        LEGAL_PAGES.map((page) => ({ kind: "link", label: ROUTES[page].title, href: ROUTES[page].path() })),
       ]}
       foot={{ label: COPY.page.accountAppearance, control: <ThemeChoice /> }}
       trigger={trigger}
@@ -415,17 +412,11 @@ function useMarked<Entry extends { href: Route; own: boolean; home: boolean }>(e
   return pressed === undefined ? current : own.find((entry) => entry.href === pressed);
 }
 
-// The current entry carries the rail's own mark of the page it is on (`entryMark`'s `place`), the link carrying
-// `data-selected`; a menu's chosen entry is marked otherwise, by its check.
-// Collapsed, the entry clips its words past its glyph's box (`railGlyph`).
+// The current entry carries the rail's own mark of the page it is on (`entryMark`'s `place`), drawn from its
+// `aria-current`, its muted words and their hover giving way to it; a menu's chosen entry is marked otherwise, by its
+// check. Collapsed, the entry clips its words past its glyph's box (`railGlyph`).
 const railEntry = tv({
-  base: `flex h-8 items-center gap-3 overflow-hidden rounded-lg px-3 text-sm font-medium whitespace-nowrap transition-colors duration-(--motion-state) pointer-coarse:h-10 ${hoverLook({ host: "link" })}`,
-  variants: {
-    current: {
-      true: entryMark({ mark: "place" }),
-      false: `text-fg-muted ${hoverLook({ host: "link", answer: "words" })}`,
-    },
-  },
+  base: `flex h-8 items-center gap-3 overflow-hidden rounded-lg px-3 text-sm font-medium whitespace-nowrap text-fg-muted transition-colors duration-(--motion-state) pointer-coarse:h-10 ${hoverLook({ host: "link", answer: "full" })} ${entryMark({ mark: "place" })}`,
 });
 
 // A group's heading fades as the rail collapses and its 24-px line folds away, so the entries below slide
@@ -477,9 +468,8 @@ export function RailEntries({ groups: given, prefetch }: { groups: ReadonlyArray
                   href={entry.href}
                   prefetch={prefetch}
                   aria-current={entry === current ? "page" : undefined}
-                  data-selected={entry === current || undefined}
                   data-kit-focus="inset"
-                  className={railEntry({ current: entry === current })}>
+                  className={railEntry()}>
                   <span className={railGlyph()}>
                     <Icon
                       glyph={entry.icon}
@@ -670,9 +660,8 @@ function Places({ groups: given, bar, extra, account, prefetch }: FrameMenu) {
                       href={entry.href}
                       prefetch={prefetch}
                       aria-current={entry === current ? "page" : undefined}
-                      data-selected={entry === current || undefined}
                       data-kit-focus="inset"
-                      className={menuEntry({ size: "phone", current: entry === current })}>
+                      className={menuEntry({ size: "phone" })}>
                       <Icon
                         glyph={entry.icon}
                         size={18}

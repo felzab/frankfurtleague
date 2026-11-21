@@ -47,7 +47,8 @@ async function stateFor(served: View): Promise<MailedState> {
 describe("a contact's link, opened again", () => {
   it("says the seat was confirmed, and when, leading to the account", async () => {
     expect(await stateFor({ state: "confirmed", answered_at: DAY })).toMatchObject({
-      state: "alreadyDone",
+      state: "end",
+      tone: "info",
       title: COPY.shared.end.doneOn(END.confirmed.title, DAY),
       next: TO_ACCOUNT,
     });
@@ -55,10 +56,10 @@ describe("a contact's link, opened again", () => {
 
   it("says the seat was objected to, and when, on the declined tint, leading home", async () => {
     expect(await stateFor({ state: "declined", answered_at: DAY })).toMatchObject({
-      state: "alreadyDone",
+      state: "end",
+      tone: "danger",
       title: COPY.shared.end.doneOn(END.objected.title, DAY),
       next: TO_HOME,
-      declined: true,
     });
   });
 });

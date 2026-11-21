@@ -15,6 +15,7 @@ import { SERVER_COPY } from "@/core/serverCopy";
 import { getSubjectSession } from "@/core/subject";
 import { eraseAccount } from "@/features/account/personActions";
 import { getErasureView } from "@/features/account/queries";
+import { linkInvalid } from "@/kit/mailedLinkState";
 import { mailedMetadata } from "@/kit/mailedMetadata";
 import { MailedPage, TO_ACCOUNT } from "@/kit/MailedPage";
 
@@ -44,7 +45,7 @@ export default function AccountErasurePage() {
 const readState = cache(async (): Promise<MailedState> => {
   const token = await mailedLinkToken();
   // Judged before the session: a spent, lapsed or unknown link is a dead end a sign-in cannot repair.
-  if (token === null || !(await erasureLinkStands(token))) return { state: "invalid", next: TO_ACCOUNT };
+  if (token === null || !(await erasureLinkStands(token))) return { state: "end", ...linkInvalid(TO_ACCOUNT) };
 
   // A signed-out browser signs in and returns to this page, whose cookie holds the token past the sign-in.
   const link = ROUTES.accountErasure.path();

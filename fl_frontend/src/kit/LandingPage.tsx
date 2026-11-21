@@ -1,4 +1,4 @@
-import { ClassicPage } from "./ClassicPage";
+import { ClassicPage, classicTitle } from "./ClassicPage";
 import { Link } from "./Link";
 import { tv } from "./tv";
 
@@ -27,7 +27,8 @@ const hero = tv({
     // text, and the words fill it with the lead at its top and the
     // acts at its foot, so the lead stays under the title and the acts' foot meets the card's.
     root: "grid items-start gap-x-12 lg:grid-cols-[minmax(0,1fr)_25rem] lg:grid-rows-[auto_1fr]",
-    title: "pb-6 font-heading text-3xl tracking-display uppercase lg:col-start-1 lg:row-start-1",
+    // A classic page's title at the page's rung.
+    title: classicTitle({ place: "page", class: "pb-6 lg:col-start-1 lg:row-start-1" }),
     words: "grid content-start gap-6 pb-8 lg:col-start-1 lg:row-start-2 lg:content-between lg:self-stretch lg:pb-0",
     lead: "grid gap-3 text-base text-fg-muted",
     acts: "flex flex-wrap gap-3",

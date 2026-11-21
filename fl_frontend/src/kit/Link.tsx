@@ -60,7 +60,7 @@ export const frameLink = tv({
     // Under the pointer a link of words takes an underline and its full colour, the one in full white already too, so
     // every link of the band and the strip answers the pointer; the rail's foot is an entry, filled as the rail's are.
     tone: {
-      // On the band: the page the visitor is on, and „Konto“, in full white.
+      // On the band: the page the visitor is on, in full white.
       band: `text-on-brand ${hoverLook({ host: "link", answer: "underline" })}`,
       // On the band, every other page: the white dimmed until the pointer is over it.
       bandMuted: `text-on-brand/75 ${hoverLook({ host: "link", answer: "bandUnderline" })}`,
@@ -77,18 +77,14 @@ export const frameLink = tv({
 
 /**
  * An entry of a list a frame opens, a desktop menu's or a phone's sheet's, as tall as every control. A phone's sheet of
- * the frame's pages marks the page the person is on as the rail marks it (`current`), the link carrying
- * `data-selected`.
+ * the frame's pages marks the page the person is on as the rail marks it, the link carrying `aria-current="page"`.
  */
 export const menuEntry = tv({
-  base: "flex items-center gap-3 rounded-md px-3 font-medium text-fg",
+  base: `flex items-center gap-3 rounded-md px-3 font-medium text-fg ${entryMark({ mark: "place" })}`,
   variants: {
     size: {
       desktop: "h-8 text-sm",
       phone: "h-10 text-base",
-    },
-    current: {
-      true: entryMark({ mark: "place" }),
     },
   },
 });
