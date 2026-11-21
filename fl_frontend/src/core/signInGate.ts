@@ -16,8 +16,8 @@ const PAYLOAD_REFUSED = "payload_refused";
 
 /**
  * One folded mailbox's records and grant, every reader but the sign-in gate and the hourly pass taking them through
- * this one call: the gate, a passkey enrolment's included, reads `lookUpSignIn`, as do the address change's carry and
- * the account sweep, because the pass serves no request. Throws on every backend failure. The guards and the switcher
+ * this one call: the gate, a passkey enrolment's included, reads `lookUpSignIn`, as does the account sweep, because the
+ * pass serves no request. Throws on every backend failure. The guards and the switcher
  * of one render share one read, and outside a render nothing is kept.
  */
 export const lookUpSubject = cache((email: string): Promise<SubjectSession["records"]> =>
@@ -36,8 +36,8 @@ export type SignInRecords = FLSignInResponse;
 /**
  * The gate's answer for one folded mailbox. Throws on every backend failure, which `mayReceiveSignIn` closes on. Its
  * own read rather than the subject's: only a sign-in, and the hourly pass, pay for the two collections `account` reads
- * beyond the subject's three. The pass's address change carry and account sweep read it for the grant alone, because
- * the pass serves no request and `lookUpSubject`'s wrapper reads one.
+ * beyond the subject's three. The pass's account sweep reads it for the grant alone, because the pass serves no request
+ * and `lookUpSubject`'s wrapper reads one.
  */
 export const lookUpSignIn = cache(
   // In the body: a URL carrying an address reaches the edge's access line.
