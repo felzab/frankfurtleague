@@ -1,8 +1,8 @@
-import { Button } from "./Button";
 import { cardSurface } from "./cardStyles";
 import { ClassicPage, ClassicTitle } from "./ClassicPage";
 import { Icon } from "./Icon";
 import { Link } from "./Link";
+import { RetryButton } from "./RetryButton";
 import { tv } from "./tv";
 
 import type { Copy } from "@/core/copy";
@@ -93,10 +93,9 @@ export function StatusCardBody({
       </span>
       {title}
       {"retry" in next ? (
-        <Button
-          variant="primary"
+        <RetryButton
           label={next.label}
-          onPress={next.retry}
+          retry={next.retry}
         />
       ) : (
         <Link
