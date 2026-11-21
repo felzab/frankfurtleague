@@ -109,34 +109,34 @@ it, in as few words as say it.
 A message is written short enough for the narrowest place it appears: one longer than its field
 wraps and takes a second line, which moves what stands below it.
 
-| Kind                    | Ceiling                                                    | Shape                                                                                                               |
-| ----------------------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| Navigation label        | 1 to 2 words                                               | a noun                                                                                                              |
-| Page or section heading | 4 words                                                    | a noun phrase, or the one act a page exists for („Anmelden“), no full stop; a sentence is a status or a consequence |
-| Field label             | 3 words                                                    | a noun, no colon                                                                                                    |
-| Button                  | 3 words                                                    | a verb from the catalogue's closed set, with an object where needed („Team anlegen“)                                |
-| Field description       | 1 sentence, 90 characters                                  | says what the thing is, or which other value closes it; none where the label suffices; no field has a placeholder   |
-| Option note             | one phrase                                                 | why a disabled choice cannot be made, only where it says more than the muted entry does                             |
-| Box description         | 1 sentence, one visible line at 360 px, 41 characters      | says what a Konto box holds, under its title                                                                        |
-| Tooltip                 | 5 words                                                    | names an icon-only control, or says why a locked act cannot run                                                     |
-| Section info tip (ⓘ)    | 2 sentences, or a key of short lines; about 200 characters | one per section, after its title, only where a named question needs it; a key, „Mark: meaning“                      |
-| Field error             | one phrase, 80 characters                                  | a fixed pattern                                                                                                     |
-| Form refusal            | 1 short sentence, the status line's two lines on a phone   | a plain fact about the whole form, or about a field no pattern words, naming that field                             |
-| Failure line            | 1 short sentence, the status line's two lines on a phone   | what happened, never the repair; an unworded refusal reads `failure.stale`, an outage `failure.unexpected`          |
-| Empty state             | 1 sentence, and a muted line where a list has nothing yet  | which narrowing emptied it                                                                                          |
-| Toast                   | a title of 1 to 3 words, or 1 short sentence; no body      | done, a past participle or the act's note; refused, its own sentence or its `failure` line                          |
-| Page or section intro   | none                                                       | a page's title is its explanation                                                                                   |
-| List-truncation banner  | none                                                       | the load-more control instead                                                                                       |
-| Page title              | the page's catalogue title                                 | followed by the one suffix „\| Frankfurt League“; a match is „{Team 1} vs. {Team 2}“                                |
-| Callout                 | a title plus at most 1 sentence                            | a state or a consequence                                                                                            |
-| Team description        | three lines                                                | „Mehr“ inside the text at the third line's end, no „…“ before it, opening the rest                                  |
-| Mail subject            | 50 characters                                              | what it is about first, no league name                                                                              |
-| Mail body               | about 90 words                                             | more only where the law requires it on a first contact                                                              |
+| Kind                    | Ceiling                                                         | Shape                                                                                                               |
+| ----------------------- | --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| Navigation label        | 1 to 2 words                                                    | a noun                                                                                                              |
+| Page or section heading | 4 words                                                         | a noun phrase, or the one act a page exists for („Anmelden“), no full stop; a sentence is a status or a consequence |
+| Field label             | 3 words                                                         | a noun, no colon                                                                                                    |
+| Button                  | 3 words                                                         | a verb from the catalogue's closed set, with an object where needed („Team anlegen“)                                |
+| Field description       | 1 sentence, 90 characters                                       | says what the thing is, or which other value closes it; none where the label suffices; no field has a placeholder   |
+| Option note             | one phrase                                                      | why a disabled choice cannot be made, only where it says more than the muted entry does                             |
+| Box description         | 1 sentence or phrase, one visible line at 360 px, 41 characters | says what a Konto box holds, under its title; on „Deine Einträge“ a noun phrase adding to the title, no full stop   |
+| Tooltip                 | 5 words                                                         | names an icon-only control, or says why a locked act cannot run                                                     |
+| Section info tip (ⓘ)    | 2 sentences, or a key of short lines; about 200 characters      | one per section, after its title, only where a named question needs it; a key, „Mark: meaning“                      |
+| Field error             | one phrase, 80 characters                                       | a fixed pattern                                                                                                     |
+| Form refusal            | 1 short sentence, the status line's two lines on a phone        | a plain fact about the whole form, or about a field no pattern words, naming that field                             |
+| Failure line            | 1 short sentence, the status line's two lines on a phone        | what happened, never the repair; an unworded refusal reads `failure.stale`, an outage `failure.unexpected`          |
+| Empty state             | 1 sentence, and a muted line where a list has nothing yet       | which narrowing emptied it                                                                                          |
+| Toast                   | a title of 1 to 3 words, or 1 short sentence; no body           | done, a past participle or the act's note; refused, its own sentence or its `failure` line                          |
+| Page or section intro   | none                                                            | a page's title is its explanation                                                                                   |
+| List-truncation banner  | none                                                            | the load-more control instead                                                                                       |
+| Page title              | the page's catalogue title                                      | followed by the one suffix „\| Frankfurt League“; a match is „{Team 1} vs. {Team 2}“                                |
+| Callout                 | a title plus at most 1 sentence                                 | a state or a consequence                                                                                            |
+| Team description        | three lines                                                     | „Mehr“ inside the text at the third line's end, no „…“ before it, opening the rest                                  |
+| Mail subject            | 50 characters                                                   | what it is about first, no league name                                                                              |
+| Mail body               | about 90 words                                                  | more only where the law requires it on a first contact                                                              |
 
 Help text is a field description, a box description, one ⓘ per section or a callout, and text the
-reader needs is never hidden behind an ⓘ. A Konto box is the one section carrying a sentence under
-its title, since Konto's boxes are one shape whatever each holds. Nothing else explains: no ⓘ on a
-page title or a side panel, no menu hints, no intros, no placeholders, no truncation banners.
+reader needs is never hidden behind an ⓘ. A Konto box is the one section carrying a line under its
+title, since Konto's boxes are one shape whatever each holds. Nothing else explains: no ⓘ on a page
+title or a side panel, no menu hints, no intros, no placeholders, no truncation banners.
 
 ## A recurring job takes its fixed pattern
 
@@ -183,9 +183,12 @@ Each pattern is an entry of `COPY.shared`; what the entry cannot say is when it 
   noun, and a list of open work with nothing waiting, such as an Übersicht card, says
   `empty.nothingOpen`, naming no plural.
 - **A confirmation** asks `question` with the verb, says one short sentence of consequence, carries
-  that verb on its button and `back` as the way back; never „Ja“. What the sentence rests on stands
-  under it as facts rows, never inside it: a move's old and new slot, the season a switch leaves and
-  takes, the counts an act removes, and whom the act mails.
+  that verb on its button and `back` as the way back; never „Ja“. `back` stays where a way back
+  opened the question, as the discard question an editor's or a dialog's „Zurück“ raises over
+  unsaved changes: there „Zurück“ keeps the person where they are, beside „Verwerfen“, so a
+  question's way back is one word on every screen. What the sentence rests on stands under it as
+  facts rows, never inside it: a move's old and new slot, the season a switch leaves and takes, the
+  counts an act removes, and whom the act mails.
 - **A status card** is a mark, a title and its way on, with no sentence: a not-found, an error, a
   state with nothing to show yet, and every end of a page a mail opens. An error card's way on is
   `verb.retry`, which draws the failed page again in place; where no frame stands around the card,

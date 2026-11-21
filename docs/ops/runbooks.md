@@ -826,10 +826,10 @@ change, is refused (`ban_list_admin`) until the grant or the change is ended
 ([section 3](#3-granting-or-revoking-admin-access)). **The write mails the person itself where the
 address holds a sign-in account**, naming the reason you typed and the last season the ban covers,
 so there is nothing to send by hand; an address that never signed in is mailed nothing. Where the
-sign-in store cannot say whether an account holds the address, the press fails with the site's one
-failure line before anything is written, and the ban is entered again once the store answers. **The
-same press ends every live sign-in of the address, after the write**, keeping its account, which
-then stays only while a record holds the address
+sign-in store cannot say whether an account holds the address, the press fails with
+`failure.unexpected`, „Etwas ist schiefgelaufen“, before anything is written, and the ban is entered
+again once the store answers. **The same press ends every live sign-in of the address, after the
+write**, keeping its account, which then stays only while a record holds the address
 ([`../datenschutz.md`](../datenschutz.md#6-retention-is-bounded-where-a-bound-was-chosen)). Where
 that fails, the ban stands and the page shows the same failure line, naming no step; a session left
 standing lasts until it lapses, no request reading the list, unless the ban is entered again, which
@@ -1432,10 +1432,10 @@ since="$(docker inspect -f '{{.State.StartedAt}}' "$(docker compose ps -q fronte
 docker compose logs --since "$since" frontend | grep auth.index_unbuilt
 ```
 
-**Read it once about 75 seconds have passed since that start.** Each build waits at most nine
-seconds, the client's selection, checkout and socket bounds of three seconds each
-(`fl_frontend/src/core/db.ts`), and the list's eight are built one after another, so the boot's last
-line comes within about 72 seconds.
+**Read it once nine seconds for each entry of the list have passed since that start, under a minute
+for today's list.** Each build waits at most the client's selection, checkout and socket bounds of
+three seconds each (`fl_frontend/src/core/db.ts`), and the entries are built one after another, so
+the boot's last line comes within that.
 
 | The line's `code` | What stands                                                                 | What to do                                                                                                                                                               |
 | ----------------- | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -1473,10 +1473,18 @@ cookie comes back. With an expiry-after of zero seconds the stored value is the 
 
 **An index dropped by hand after a boot is reported by nothing until the next one.**
 
-**A Better Auth release that declares an index of its own on a key the list covers throws on every
-write to that collection**, its adapter building the library's name where the list's already stands.
-The frontend's sign-in db suites build the list for each file, so such an upgrade fails them before
-it ships; the repair is the list's entry taking the library's name.
+**A Better Auth release that declares an index of its own on a key the list covers, under another
+name, shows in one of two ways**, and either way the repair is the list's entry taking the library's
+name:
+
+- **A field index**, which the adapter builds without making any operation wait on it, fails no
+  write. Where the list's index stands first at the same options, the adapter builds nothing and
+  logs nothing. At other options it is one line from the library's adapter on the console, outside
+  the envelope, and is not tried again until a restart. Where the list's build comes second, it is
+  the list's code-85 line above.
+- **A table index**, which the adapter builds inside each create and update, throws on every create
+  and update of that collection. The frontend's sign-in db suites build the list for each file, so
+  such an upgrade fails them before it ships.
 
 ## 15. When a sign-in code does not arrive
 
