@@ -39,7 +39,7 @@ from tests import documents
 from tests.database import a_clean_database
 from tests.documents import kontaktperson_document
 from tests.erasure import erased
-from tests.isolation import COMMITTED, InterleavedCollection, Rival, outcome_of
+from tests.isolation import COMMITTED, InterleavedCollection, Rival, RowsThenTheRival, outcome_of
 from tests.payloads import spiel_patch_body
 from tests.records import record_collections
 from tests.spielbestaetigung_corpus import (
@@ -885,28 +885,6 @@ class TestARowClosesOnceItsDayHasPassed:
         assert (after.new_ansetzungen, after.schiedsrichter_new_ansetzungen, after.requests, after.einteilungen) == ([], [], [], [])
 
 
-class _ThenTheRival:
-    """A cursor running the rival once its rows have arrived; `sort` and `limit` chain as the driver's do."""
-
-    def __init__(self, cursor: Any, rival: Callable[[], Awaitable[None]]) -> None:
-        self._cursor = cursor
-        self._rival = rival
-
-    def sort(self, *args: Any, **kwargs: Any) -> _ThenTheRival:
-        self._cursor = self._cursor.sort(*args, **kwargs)
-        return self
-
-    def limit(self, *args: Any, **kwargs: Any) -> _ThenTheRival:
-        self._cursor = self._cursor.limit(*args, **kwargs)
-        return self
-
-    async def to_list(self, *args: Any, **kwargs: Any) -> list[Any]:
-        rows = await self._cursor.to_list(*args, **kwargs)
-        await self._rival()
-
-        return rows
-
-
 class ThenTheRivalAfterTheFirstSessionRead(InterleavedCollection):
     """A collection running the rival once the pass's first in-transaction read of it has answered."""
 
@@ -915,7 +893,7 @@ class ThenTheRivalAfterTheFirstSessionRead(InterleavedCollection):
         if kwargs.get("session") is None:
             return cursor
 
-        return _ThenTheRival(cursor, self.run_the_rival)
+        return RowsThenTheRival(cursor, self.run_the_rival)
 
 
 # Fourteen days out, so the deadline falls a week before the fixture and the reminder inside it.
