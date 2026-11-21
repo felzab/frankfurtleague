@@ -75,7 +75,12 @@ export function FormInvitationSection({ team, saison, view }: { team: string; sa
         <SectionAct
           acts={[
             ...copying,
-            { act: { verb: "send", object: LINK }, locked, run: () => mailInvitation({ ...key, invitation_id: live }) },
+            {
+              act: { verb: "send", object: LINK },
+              done: COPY.shared.toast.linkSent,
+              locked,
+              run: () => mailInvitation({ ...key, invitation_id: live }),
+            },
             { act: { verb: "replace", object: LINK }, locked, confirm: REPLACED, run: mint },
             {
               act: { verb: "withdraw", object: LINK },
