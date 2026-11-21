@@ -1,7 +1,8 @@
 // First, as Next's server loads it: its request stores take this global at their own load, and the
 // adapter `visit` runs needs real ones.
-import { assert, describe, expect, it, vi } from "vitest";
+import { assert, describe, expect, it } from "vitest";
 
+import { serveBackend } from "@/test-support/backend";
 import { thrownRedirect } from "@/test-support/thrownRedirect";
 
 import type { ThrownRedirect } from "@/test-support/thrownRedirect";
@@ -48,6 +49,8 @@ registerAuthDoubles({
 });
 
 const store = memoryStore(STORE);
+// Answering nothing of its own: the sign-in helpers' lookups are its `served`, any other request its `sent`.
+const backend = serveBackend();
 
 // Imported here rather than at the top: `vi.doMock` reaches only the modules imported after it.
 const { NextRequest } = await import("next/server");
@@ -150,12 +153,10 @@ describe("where the proxy sends a mailed link's first request", () => {
 describe("where the proxy sends a request for the administrator's subtree carrying a session cookie", () => {
   /* Optimistic, as Next and the library document a proxy's check: the cookie alone, and no backend read.
      The grant is the admin guard's, which refuses a session holding none on the same request. */
-  it("lets a session through whatever its grant, and leaves the grant to the admin guard", async ({ onTestFinished }) => {
-    const fetched = vi.spyOn(globalThis, "fetch").mockImplementation(() => Promise.reject(new TypeError("fetch failed")));
-    onTestFinished(() => void fetched.mockRestore());
-
+  it("lets a session through whatever its grant, and leaves the grant to the admin guard", async () => {
     expect(redirectedTo(await callProxy(removed.cookie))).toBe(null);
-    expect(fetched.mock.calls.length, "the proxy asked the backend about a grant").toBe(0);
+    await backend.answered();
+    expect([...backend.sent, ...backend.served], "the proxy asked the backend about a grant").toStrictEqual([]);
 
     arriveAs(removed.cookie);
     expect(await getAdminSession(), "the guard admitted a session holding no grant").toBe(null);

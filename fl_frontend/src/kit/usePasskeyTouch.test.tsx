@@ -19,6 +19,8 @@ const HOLDER = "anna@example.com";
 const SIGNED_IN = { data: { status: true, email: HOLDER }, error: null };
 // A refusal carrying no code of a closed sheet: an authenticator or the server turned the touch down.
 const REFUSED = { data: null, error: { message: "refused" } };
+// The edge's limit on the sign-in's requests, as the client answers its plain-text body: the status alone.
+const RATE_REFUSED = { data: null, error: { status: 429, statusText: "Too Many Requests" } };
 const DONE: ActionAnswer = { ok: true, value: undefined };
 
 const passkey = vi.hoisted(() => ({ prompt: vi.fn() }));
@@ -135,6 +137,18 @@ describe("a question behind the passkey touch", () => {
     await pressIn(await screen.findByRole("alertdialog", { name: QUESTION }), VERB);
     await waitFor(() => expect(onConfirm).toHaveBeenCalledTimes(1));
     expect(passkey.prompt).toHaveBeenCalledTimes(2);
+  });
+
+  it("toasts the edge's limit on the touch as too many tries, the act not run", async () => {
+    passkey.prompt.mockResolvedValueOnce(RATE_REFUSED);
+    const onConfirm = vi.fn(async () => DONE);
+    renderWithToasts(question(onConfirm, { holder: HOLDER }));
+
+    await userEvent.click(screen.getByRole("button", { name: VERB }));
+    await pressIn(await screen.findByRole("alertdialog", { name: QUESTION }), VERB);
+
+    expect(await toasted(COPY.shared.failure.tooManyAttempts)).toBe("refused");
+    expect(onConfirm).not.toHaveBeenCalled();
   });
 });
 
