@@ -69,9 +69,9 @@
   line-gap-override: 0%;
 }
 
-/* On a frame's `main`: no element inside the page's content takes part in scroll anchoring, so the
-   browser never picks one there as the anchor it keeps in place while the layout changes, and only the
-   frame outside `main` holds anchors. */
+/* On the box of a page's content, the classic page's `main` and the rail page's box under its title: no
+   element inside the page's content takes part in scroll anchoring, so the browser never picks one there as
+   the anchor it keeps in place while the layout changes, and only the frame outside that box holds anchors. */
 @utility overflow-anchor-none {
   overflow-anchor: none;
 }

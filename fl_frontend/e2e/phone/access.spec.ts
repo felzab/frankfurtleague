@@ -27,7 +27,7 @@ test("Administratoren opens what waits, and shows an administrator the owner's a
 
 test("Adressänderungen reads a person's running change, and a holder's for the owner alone", async ({ page }) => {
   await page.goto("/admin/address-changes");
-  await expect(page.getByRole("banner").getByRole("heading", { level: 1, name: "Adressänderungen" })).toBeVisible();
+  await expect(page.getByRole("main").getByRole("heading", { level: 1, name: "Adressänderungen" })).toBeVisible();
   const rows = page.getByRole("main").getByRole("row");
   await expect(chip(rows.filter({ hasText: PEOPLE.access.changing.address }), "Neue offen")).toBeVisible();
   await expect(rows.filter({ hasText: PEOPLE.administrators.moving })).toHaveCount(0);

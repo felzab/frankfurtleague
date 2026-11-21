@@ -27,7 +27,7 @@ const page = tv({
 
 /**
  * A page inside the classic frame: its content in the plain column, filling the first screen. The classic
- * frame's layout places the header and the footer around it; a template places this, which with `RailPage`
+ * frame's layout places the header and the footer around it; a template places this, which with `RailColumn`
  * writes every page's `main`.
  */
 export function ClassicPage({ width, children }: { width: "form" | "mailed" | "card" | "signin" | "frame"; children: ReactNode }) {

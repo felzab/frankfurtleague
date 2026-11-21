@@ -17,7 +17,7 @@ const OPPONENT = PEOPLE.austritt.opponent.address;
 test("a club leaves the season, and its opponent is told at once", async ({ page, departing: { team, fixture } }) => {
   await page.goto(`/admin/saisons/${RUNNING}/teams`);
   await page.getByRole("main").getByRole("link", { name: team }).click();
-  await expect(page.getByRole("banner").getByRole("heading", { level: 1, name: team })).toBeVisible();
+  await expect(page.getByRole("main").getByRole("heading", { level: 1, name: team })).toBeVisible();
 
   // The dialog opens on a withdrawal from today: the reason is what it cannot know.
   const before = await filedMessages();
@@ -28,7 +28,9 @@ test("a club leaves the season, and its opponent is told at once", async ({ page
   await expect(dialog).toBeHidden();
 
   // The club reads as gone, and no act on the page could bring it back.
-  await expect(page.getByRole("banner").getByText("Zurückgezogen", { exact: true })).toBeVisible();
+  // The status chip in the title strip, beside the record's name, rather than the same word anywhere on the page.
+  const strip = page.getByRole("main").locator("header", { has: page.getByRole("heading", { level: 1 }) });
+  await expect(strip.getByText("Zurückgezogen", { exact: true })).toBeVisible();
   await expect(page.getByRole("main").getByRole("button", { name: "Eintragen", exact: true })).toHaveCount(0);
 
   // The opponent's notice names the fixture still open between the two.

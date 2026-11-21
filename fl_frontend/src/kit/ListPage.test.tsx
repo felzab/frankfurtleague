@@ -70,7 +70,7 @@ describe("one club's matches under their matchdays", () => {
     };
     const { landed } = await drawn([{ head, spiel }]);
 
-    expect(landed.querySelector("main h2")?.textContent).toBe(head);
-    expect(landed.querySelector("main h3")).toBeNull();
+    expect(landed.querySelector("h2")?.textContent).toBe(head);
+    expect(landed.querySelector("h3")).toBeNull();
   });
 });
