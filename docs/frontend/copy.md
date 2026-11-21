@@ -155,9 +155,9 @@ Each pattern is an entry of `COPY.shared`; what the entry cannot say is when it 
   answers an ended sign-in, and `tooManyAttempts` every limit on tries, whatever it counts.
   `unexpected` answers an outage, a fault inside the system, a bot check that did not run, and a
   request the API does not serve, such as one missing its credential.
-- **An editor's save** shows `saved` on its save bar, beside the save button, never as a toast. The
-  save bar is the one place a done act stays on a line, since its line is a fixed row that moves
-  nothing as it speaks.
+- **An editor's save** shows its note, else `saved`, on its save bar, beside the save button, never
+  as a toast. The save bar is the one place a done act stays on a line, since its line is a fixed
+  row that moves nothing as it speaks.
 - **A toast** answers every other done act: a closed question, a closed dialog with fields, a
   section's act in an editor, a Konto box, a page that is one question, and an act that leaves
   nothing on the page to change. Its title is the act's note, else its verb's past participle from
@@ -219,13 +219,15 @@ its year; a mail's subject, a tab's title and words a person matches as typed ke
 A moment in a list's form, „07.11.2026, 18:04“, is one fact the same way: `formatInstantShort` binds
 its date to its time. Two rules no function states:
 
-- **A range is the only place a dash appears**, and the locale writes it, dropping what both ends
-  share.
+- **A dash appears in three places**: a range's, which the locale writes, dropping what both ends
+  share; a value not there yet, `noValue`; and between a pairing's two sides where no score stands,
+  `versus`.
 - **After a shoot-out** a score is each side's goals and shoot-out goals added, with
   `afterElfmeterschiessen` beside it.
 
-A date field shows „tt.mm.jjjj“ and a time field „––:––“ while empty; the field's locale writes
-both.
+A date field shows „TT.MM.JJJJ“ and a time field „––:––“ while empty: the field's locale writes
+both, and the kit sets the date's letters in capitals
+(`fl_frontend/src/kit/fieldStyles.ts :: dateSegment`).
 
 ## Punctuation is German and sparse
 
