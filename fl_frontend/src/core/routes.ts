@@ -356,16 +356,20 @@ export const ROUTES = {
     title: COPY.page.adminBewerbungen,
     crawl: "disallow",
   },
+  // The bulk acceptance and each application belong to the list, which a phone's band leads back to, as a club's
+  // editor does.
   adminBewerbungenBulk: {
     path: (saison: string) => `/admin/saisons/${saison}/bewerbungen/bulk` as const,
     title: COPY.page.adminBewerbungenBulk,
     crawl: "disallow",
+    place: { entry: "adminBewerbungen", pattern: "/admin/saisons/[saison]/bewerbungen/bulk" },
   },
   /** One application, named by its school. */
   adminBewerbung: {
     path: (saison: string, bewerbung: string) => `/admin/saisons/${saison}/bewerbungen/${bewerbung}` as const,
     title: null,
     crawl: "disallow",
+    place: { entry: "adminBewerbungen", pattern: "/admin/saisons/[saison]/bewerbungen/[bewerbung]" },
   },
 
   adminTeams: {

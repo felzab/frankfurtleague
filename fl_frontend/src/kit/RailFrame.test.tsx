@@ -199,6 +199,16 @@ describe("the phone's band as the server draws it", () => {
     ]);
   });
 
+  // A route row without its `place` shows a phone the logo on these two pages, where every other page under its list
+  // leads back to it, and no look at one page alone shows the difference.
+  it("holds „‹ Zurück“ to the list at an application's address and at the bulk acceptance", async () => {
+    const list = { name: COPY.shared.back, href: "/admin/saisons/2028/bewerbungen" };
+    expect([
+      await bandOnServer("/admin/saisons/2028/bewerbungen/bw-1", { saison: "2028", bewerbung: "bw-1" }),
+      await bandOnServer("/admin/saisons/2028/bewerbungen/bulk", { saison: "2028" }),
+    ]).toStrictEqual([[list], [list]]);
+  });
+
   it("holds the logo at a list's address", async () => {
     expect(await bandOnServer("/admin/spielorte", {})).toStrictEqual([{ name: COPY.brand.name, href: "/" }]);
   });
