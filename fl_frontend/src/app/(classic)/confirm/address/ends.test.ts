@@ -14,16 +14,17 @@ const queryOf = (address: string) => Promise.resolve(Object.fromEntries(new URL(
 
 const WAYS: FLAddressChangeWay[] = ["account", "waiting_period"];
 
-/** Every done address an answer or the stop leads to, with the title its end reads. */
+/**
+ * Every done address an answer or the stop leads to, with the title its end reads. Only a change that waits carries its
+ * way in the address, so only that row is drawn for each.
+ */
 const ADDRESSES = [
-  ...WAYS.flatMap((way) => [
-    { address: doneAt("previous", "confirmed", null, way), title: WORDS.previous.confirmed },
-    { address: doneAt("previous", "declined", null, way), title: WORDS.declined },
-    { address: doneAt("new", "confirmed", null, way), title: WORDS.new.confirmed },
-    { address: doneAt("new", "declined", null, way), title: WORDS.declined },
-    // Late in the evening in UTC, the next morning in Frankfurt: the day the address names is the league's.
-    { address: doneAt("new", "confirmed", "2027-03-01T23:30:00Z", way), title: WORDS.new.confirmedFrom("2027-03-02") },
-  ]),
+  { address: doneAt("previous", "confirmed", null, "account"), title: WORDS.previous.confirmed },
+  { address: doneAt("previous", "declined", null, "account"), title: WORDS.declined },
+  { address: doneAt("new", "confirmed", null, "account"), title: WORDS.new.confirmed },
+  { address: doneAt("new", "declined", null, "account"), title: WORDS.declined },
+  // Late in the evening in UTC, the next morning in Frankfurt: the day the address names is the league's.
+  ...WAYS.map((way) => ({ address: doneAt("new", "confirmed", "2027-03-01T23:30:00Z", way), title: WORDS.new.confirmedFrom("2027-03-02") })),
   { address: STOPPED_AT, title: WORDS.previous.stopped },
 ];
 
