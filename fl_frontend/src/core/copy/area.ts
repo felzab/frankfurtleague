@@ -1,4 +1,4 @@
-import { catalogue, seatsText, textOf } from "../copy";
+import { catalogue, lineOf, seatsText, textOf } from "../copy";
 import { formatNumber } from "../format";
 import { COPY } from "./shared";
 
@@ -15,7 +15,7 @@ export const AREA_COPY = catalogue({
   },
 
   team: {
-    accountLine: (shorthand: Words, seats: readonly FLKontaktSeat[]) => `${textOf(shorthand)} · ${seatsText(seats)}`,
+    accountLine: (shorthand: Words, seats: readonly FLKontaktSeat[]) => lineOf([textOf(shorthand), seatsText(seats)]),
     /**
      * What the league decides: the decline dialog's one sentence, a proposal moving nothing until the league saves a
      * date; and the last part of an expired date's line on the Übersicht, which takes no answer past its deadline. A

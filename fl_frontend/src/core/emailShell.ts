@@ -1,7 +1,7 @@
 import "server-only";
 
 import { BRAND_SOLID, KONTAKT_EMAIL, SITE_LOCALE, VEREIN_ADDRESS, VEREIN_NAME } from "./brand";
-import { LINE_SEPARATOR } from "./copy";
+import { LINE_SEPARATOR, lineOf } from "./copy";
 import { COPY } from "./copy/shared";
 import { ROUTES } from "./routes";
 import { SERVER_COPY } from "./serverCopy";
@@ -289,7 +289,7 @@ function legalLinks(origin: string): readonly { readonly label: string; readonly
   ];
 }
 
-const VEREIN_ROW = `${VEREIN_NAME} · ${VEREIN_ADDRESS}`;
+const VEREIN_ROW = lineOf([VEREIN_NAME, VEREIN_ADDRESS]);
 
 function renderHtml(mail: Mail, subjectLine: string): string {
   const content: Block[] = [

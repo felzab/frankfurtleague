@@ -457,7 +457,7 @@ export const ADMIN_COPY = catalogue({
     time: {
       days: (count: number) => `Letzte ${boundBy(formatNumber(count), "Tage")}`,
     },
-    actor: { contact: (team: Words) => `Kontaktperson · ${textOf(team)}`, contactNoTeam: "Kontaktperson" },
+    actor: { contact: (team: Words) => lineOf(["Kontaktperson", textOf(team)]), contactNoTeam: "Kontaktperson" },
     /** A pass's label: one form, so a count of 1 needs no singular. */
     passCount: (noun: Copy, count: number) => `${noun}: ${formatNumber(count)}`,
     /** An admission's label: the address's other pending registrations it deleted, in `passCount`'s one form. */

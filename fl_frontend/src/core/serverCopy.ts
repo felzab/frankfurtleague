@@ -1,7 +1,7 @@
 import "server-only";
 
 import { KONTAKT_EMAIL, VEREIN_ADDRESS, VEREIN_NAME, VEREINSREGISTER, VORSTAND_JOINTLY } from "./brand";
-import { boundBy, catalogue, runsText, seatsText, spieleNamed, textOf, waitWords } from "./copy";
+import { boundBy, catalogue, lineOf, runsText, seatsText, spieleNamed, textOf, waitWords } from "./copy";
 import { ACCOUNT_COPY } from "./copy/account";
 import { ADMIN_COPY } from "./copy/admin";
 import { COPY } from "./copy/shared";
@@ -303,7 +303,7 @@ export const SERVER_COPY = catalogue({
       tie_unresolved: (gruppe: string, platz: number) => `Gleichstand um den ${placeName(platz)} der ${gruppeName(gruppe)}`,
       wiring: `${COPY.shared.kOBaum} fehlerhaft`,
       /** The club, and its exit as the club's exit note heads it. */
-      departed_occupant: (team: Words, austritt: Copy) => `${textOf(team)} · ${austritt}`,
+      departed_occupant: (team: Words, austritt: Copy) => lineOf([textOf(team), austritt]),
       fielded_twice: (team: Words) => `${textOf(team)} zweimal an diesem Spieltag`,
       /** By the booking's object, „Spielort“ or „Schiedsrichter“. */
       retired_booking: (booking: Copy) => `${booking} stillgelegt`,
@@ -843,12 +843,12 @@ export const SERVER_COPY = catalogue({
   season: {
     gruppe: gruppeName,
     thirdPlace: "Spiel um Platz 3",
-    labelled: (label: Words, when: Words) => `${textOf(label)} · ${textOf(when)}`,
+    labelled: (label: Words, when: Words) => lineOf([textOf(label), textOf(when)]),
     /**
      * Where a club stands, under its name in a match head, linking to its row on the Tabelle; a club that has
      * played no match holds no place yet, and the line names its group alone.
      */
-    standing: (platz: number | null, gruppe: string) => (platz === null ? gruppeName(gruppe) : `${placeName(platz)} · ${gruppeName(gruppe)}`),
+    standing: (platz: number | null, gruppe: string) => lineOf([platz === null ? null : placeName(platz), gruppeName(gruppe)]),
 
     /** The Tabelle's and the club page's column heads: the short forms on every width. */
     column: {
@@ -908,13 +908,13 @@ export const SERVER_COPY = catalogue({
       tor: COPY.spielplan.goal,
       eigentor: "Eigentor",
       card: { gelb: "Gelbe Karte", gelb_rot: "Gelb-Rote Karte", rot: "Rote Karte" } satisfies Record<FLCardColour, string>,
-      event: (what: Copy, who: Words) => `${what} · ${textOf(who)}`,
+      event: (what: Copy, who: Words) => lineOf([what, textOf(who)]),
       /**
        * A dated match holding no hour, which takes no line-up until its kick-off is set, as both line-up pages title it:
        * its day as the match's row names it (`COPY.spielplan.when`), and that the hour is still to settle, as „Termin
        * offen“ says of a date.
        */
-      timeOpen: (day: Copy) => `${day} · Uhrzeit offen`,
+      timeOpen: (day: Copy) => lineOf([day, "Uhrzeit offen"]),
     },
   },
 

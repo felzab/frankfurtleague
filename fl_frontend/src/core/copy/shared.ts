@@ -504,7 +504,7 @@ export const COPY = catalogue({
     spieltage: "Spieltage",
     /** Until a match is dated, what is still to settle. */
     when: (day: CalendarDay | null, time: TimeOfDay | null) =>
-      day === null ? DATE_OPEN : time === null ? formatDateWithWeekday(day) : `${formatDateWithWeekday(day)} · ${formatTime(time)}`,
+      day === null ? DATE_OPEN : time === null ? formatDateWithWeekday(day) : lineOf([formatDateWithWeekday(day), formatTime(time)]),
 
     /** A side the draw has not settled: its source short in the dashed plaque, and in full as its name. */
     quelle: {
@@ -570,7 +570,7 @@ export const COPY = catalogue({
     wins: (team: Words, score: Copy) => `${textOf(team)} gewinnt ${score}`,
     drawn: (score: Copy) => `Unentschieden ${score}`,
     noResult: "Noch kein Ergebnis",
-    preview: (pairing: Copy, when: Copy, result: Copy) => `${pairing} · ${when} · ${result}`,
+    preview: (pairing: Copy, when: Copy, result: Copy) => lineOf([pairing, when, result]),
 
     answer: "Antwort",
     appointment: "Termin",
@@ -601,7 +601,7 @@ export const COPY = catalogue({
     /** Where no line-up stands, under a name that already says what is missing. */
     missing: "Fehlt",
     startelfCount,
-    counts: (picked: number, starting: number, max: number) => `${formatNumber(picked)} aufgestellt · ${startelfCount(starting, max)}`,
+    counts: (picked: number, starting: number, max: number) => lineOf([`${formatNumber(picked)} aufgestellt`, startelfCount(starting, max)]),
     rest: "Nicht aufgestellt",
     /**
      * Why „Aufstellen“ is locked on a nominee's row once the line-up names `max` of the squad's own players, a nominee
