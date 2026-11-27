@@ -394,6 +394,11 @@ administration is shut while it is down. Each of these is easy to get wrong:
   older desktop with no biometric and no PIN is the case that turns up. Give them a FIDO2 key with
   resident-key and user-verification support, or a second device they can enrol from; there is no
   password and no code to fall back to.
+- **An act behind the passkey touch needs Safari 17.4 or later on a Mac, and iOS or iPadOS 17.4 or
+  later on an iPhone or iPad**, where every browser runs Safari's engine; older versions are not
+  supported. On one, an administrator may still sign in by passkey, but may lose the touch's prompt,
+  above all after the check an act sends before it, and the press then seems to do nothing. The
+  repair is an update, or another device.
 - **A removal is not a recovery route, and no control offers one to a session a mailed code alone
   made**: such a session could otherwise swap the administrator's passkey for a stolen mailbox's,
   which is the attack the passkey sign-in exists against, the administration admitting only a
@@ -1473,17 +1478,16 @@ cookie comes back. With an expiry-after of zero seconds the stored value is the 
 **An index dropped by hand after a boot is reported by nothing until the next one.**
 
 **A Better Auth release that declares an index of its own on a key the list covers, under another
-name, shows in one of two ways**, and either way the repair is the list's entry taking the library's
-name:
+name, shows in one of two ways**:
 
 - **A field index**, which the adapter builds without making any operation wait on it, fails no
-  write. Where the list's index stands first at the same options, the adapter builds nothing and
-  logs nothing. At other options it is one line from the library's adapter on the console, outside
-  the envelope, and is not tried again until a restart. Where the list's build comes second, it is
-  the list's code-85 line above.
+  write and logs nothing: at a `unique`, `sparse` or partial filter of its own it stands beside the
+  list's, and at the same options or any other difference the adapter takes the list's as its own.
+  Where the list's build comes second, it is the list's code-85 line above.
 - **A table index**, which the adapter builds inside each create and update, throws on every create
-  and update of that collection. The frontend's sign-in db suites build the list for each file, so
-  such an upgrade fails them before it ships.
+  and update of that collection, and the repair is the list's entry taking the library's name. The
+  frontend's sign-in db suites build the list for each file, so such an upgrade fails them before it
+  ships.
 
 ## 15. When a sign-in code does not arrive
 

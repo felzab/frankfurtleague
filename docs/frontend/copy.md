@@ -117,7 +117,7 @@ wraps and takes a second line, which moves what stands below it.
 | Button                  | 3 words                                                         | a verb from the catalogue's closed set, with an object where needed („Team anlegen“)                                |
 | Field description       | 1 sentence, 90 characters                                       | says what the thing is, or which other value closes it; none where the label suffices; no field has a placeholder   |
 | Option note             | one phrase                                                      | why a disabled choice cannot be made, only where it says more than the muted entry does                             |
-| Box description         | 1 sentence or phrase, one visible line at 360 px, 41 characters | says what a Konto box holds, under its title; on „Deine Einträge“ a noun phrase adding to the title, no full stop   |
+| Box description         | 1 sentence or phrase, one visible line at 360 px, 42 characters | says what a Konto box holds, under its title; on „Deine Einträge“ a noun phrase adding to the title, no full stop   |
 | Tooltip                 | 5 words                                                         | names an icon-only control, or says why a locked act cannot run                                                     |
 | Section info tip (ⓘ)    | 2 sentences, or a key of short lines; about 200 characters      | one per section, after its title, only where a named question needs it; a key, „Mark: meaning“                      |
 | Field error             | one phrase, 80 characters                                       | a fixed pattern                                                                                                     |
@@ -169,9 +169,12 @@ Each pattern is an entry of `COPY.shared`; what the entry cannot say is when it 
   (`fl_frontend/src/kit/Toast.tsx :: toastAnswer`). A done act's toast leaves by itself unless it
   brings a note; a note, a refusal or a partial outcome stands until it is closed.
 - **A refusal** keeps its line beside what it names: the question's, the dialog's, the box's or the
-  section's, never a toast, since only a done act closes its question or its dialog. An act behind
-  the passkey touch keeps its dialog, which stands aside for the browser's prompt alone and stands
-  again for the answer, so a field's refusal takes its box's phrase there as anywhere.
+  section's, never a toast, since only a done act closes its question or its dialog. An act holding
+  no line of its own answers a refusal or a failure in a toast that stands until it is closed: one
+  done at once on a press (`fl_frontend/src/kit/PressAct.tsx :: usePressAct`), the address change's
+  touched „Link senden“ among them, a frame's sign-out and the copy of a team's registration link. A
+  dialog behind the passkey touch stands aside for the browser's prompt alone and stands again for
+  the answer, so a field's refusal takes its box's phrase there as anywhere.
 - **A busy button** keeps its label and shows a spinner named `loading`; no „Speichert …“.
 - **An empty list** says `empty.search`, `empty.filter`, `empty.none`, `empty.skipped` or
   `empty.unrecorded` with its own plural; `empty.filter` only where the list keeps a filter,

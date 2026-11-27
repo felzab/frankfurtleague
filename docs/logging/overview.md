@@ -19,6 +19,12 @@ on the others by searching for that id.
 Both application services write one JSON document per line wherever they run: a production build,
 the local stack and a test run alike.
 
+**One of Next's lines is expected in production**: every server action that redirects prints
+`failed to get redirect response` with a `TypeError: fetch failed` stack. Next fetches the
+redirect's target from the request's own protocol on its own listener, which is `https` behind the
+edge (`nginx/prod/prod.conf`) and plain HTTP in the container, so the fetch fails and the browser
+asks for the page itself. The local and end-to-end edges forward `http`, so neither prints it.
+
 ## Following one request
 
 **The trace is W3C `traceparent`, minted at the edge.** nginx takes its own `$request_id` as the

@@ -32,9 +32,11 @@ itself), `actions.ts` or an act's own module for its server actions (`features/s
 which the match editor and a season Übersicht's appointment dialog call), `personActions.ts` for
 those a signed-in person's own pages call, `schemas.ts` for its Zod schemas, and `fieldRules.ts` for
 what a write asks of its form's boxes. A rules module reads them off the write's generated schema:
-`required`, whether each box may stay empty, and `max`, the longest each text may be where the write
-bounds one. It opens with `import "server-only"`, so no schema reaches a client bundle. A route's
-own form may keep its rules module beside the route under the same name.
+`required`, whether each box may stay empty, `max`, the longest each text may be where the write
+bounds one, and `pattern`, the source of each pattern the write holds a box's text to, which the box
+judges once its value is committed (`fl_frontend/src/kit/TextField.tsx`). It opens with
+`import "server-only"`, so no schema reaches a client bundle. A route's own form declares its rules
+in its `page.tsx`, or in a rules module beside the route under the same name where they outgrow it.
 
 **Imports run one way.** `src/core/` imports neither `src/shared/` nor `src/features/`,
 `src/shared/` does not import `src/features/`, and `src/kit/` imports neither `src/features/` nor
@@ -186,7 +188,11 @@ part stands right before the page hydrates.
 
 Tailwind v4, configured in CSS: `src/app/globals.css` and the design tokens in `src/app/tokens.css`.
 `browserslist` in `fl_frontend/package.json` is Tailwind's own support matrix, since the stylesheet
-uses `oklch()`, `color-mix()` and `@property`; it does not govern Next's own polyfills.
+uses `oklch()`, `color-mix()` and `@property`; it does not govern Next's own polyfills. An act
+behind the passkey touch sets a floor of its own, Safari 17.4 and iOS and iPadOS 17.4, and older
+versions are not supported for it. Those are the first WebKit releases whose WebAuthn asks for no
+user activation (WebKit 271656@main), and an older one may lose a touch's prompt once a dry run's
+round trip has spent the press's activation (`fl_frontend/src/kit/usePasskeyTouch.ts`).
 
 **Consistency breaks a tie between two designs**: one value, declared once as a token in
 `src/app/tokens.css` and used everywhere, wins over a value that looks better in one place alone,
@@ -268,9 +274,11 @@ hold: every frame's account menu links it, and an act on the passkey touch's fix
 removal and the address change's start among them, runs only on a passkey sign-in made seconds
 before, for an administrator (`fl_frontend/src/core/action.ts`, a lane's `passkey`); an address
 holding no grant passes it. The touch is always such an act's last step: the administrator presses
-the act, answers any dialog, presses the final button, and that press asks the touch and then runs
-the act (`fl_frontend/src/kit/usePasskeyTouch.ts`), so nothing typed runs against the minute a touch
-lasts.
+the act, answers any dialog, presses the final button, and that press runs the act's dry run where
+its lane declares one, asks the touch once the dry run passed, and then runs the act
+(`fl_frontend/src/kit/usePasskeyTouch.ts`). A lane whose typed input the server judges declares one
+(`fl_frontend/src/core/action.ts`, a lane's `dryRun`), so a refusal of that input stands on its
+field before any touch is asked, and nothing typed runs against the minute a touch lasts.
 
 ## Configuration and tests
 

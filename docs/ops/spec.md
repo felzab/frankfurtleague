@@ -270,17 +270,16 @@ its single-use token.
 (`fl_frontend/src/core/mailedLink.ts`). No page links to one, so a visit is one request or two,
 never a navigation's fan-out. **`/confirm/` is a prefix because every page under it is a link page**
 or the done page its answer leads to, so a page added there is metered the day it exists. A done
-page reads no record, but it costs one request at the edge: Next fetches an action's redirect from
-the request's own protocol on its own listener, which is `https` behind this edge and plain HTTP in
-the container, so the fetch fails and the browser asks for the page itself. A link page anywhere
-else needs an exact match, as `/registrierung` and `/erasure` have. **The burst of 640 is sized for
-the largest squad a season may set**, 50
-(`fl_backend/app/shared/schemas/bounds.py :: KADER_SIZE_MAX`), behind one school's address in one
-break: each pupil opens the team's invite and their own link, each through the proxy's redirect,
-sends each page's form and opens the answer's done page, a retry each, 14N requests passing within
-two minutes at the zone's rate. That squad's 4N sends on the action key pass at `location /`'s burst
-in about three minutes, a send past it refused and sent again. A season's bound moving past 50 moves
-this burst by hand.
+page reads no record, but it costs one request at the edge: Next's own fetch of an action's redirect
+fails behind this edge, so the browser asks for the page itself
+([the line it prints](../logging/overview.md#how-it-is-organised)), until Next fetches over its own
+listener's protocol ([#293](https://github.com/felzab/frankfurtleague/issues/293)). A link page
+anywhere else needs an exact match, as `/registrierung` and `/erasure` have. **The burst is sized
+for the largest squad a season may set**, 50
+(`fl_backend/app/shared/schemas/bounds.py :: KADER_SIZE_MAX`), every pupil behind one school's
+address in one break, and the action zone stays unraised; `nginx/shared/site.conf`'s
+`location /confirm/` derives both figures and what the burst falls back to once the done page costs
+nothing. A season's bound moving past 50 moves this burst by hand.
 
 **A link page's location writes no error line at all** (`error_log /dev/null`). nginx writes every
 error line with the request line whole, the query and the referrer with it, and the open-source
