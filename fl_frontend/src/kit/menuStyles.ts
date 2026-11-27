@@ -24,13 +24,17 @@ export const menuPopover = tv({
 /**
  * How a chosen entry is marked. In every list, a select's, a combo box's and a menu's, a navigating menu's current
  * place among them: its words in the link green and its check at the end, which the list draws, with no fill, so
- * the entry under the pointer or the keys, chosen or not, takes the one hover layer alone. The page a person is on, in
- * a list of the frame's pages, is a place rather than a list's choice, and takes the mark of the place (`placeMark`).
+ * the entry under the pointer or the keys, chosen or not, takes the one hover layer alone. The rail's current page is
+ * a place of the frame rather than a list's choice, and keeps its own mark: the muted fill with the words in the link
+ * green, drawn from the link's `aria-current`, so the page a screen reader hears marked is the one drawn marked.
  */
 export const entryMark = tv({
   variants: {
     mark: {
       chosen: "data-selected:text-brand",
+      // Tailwind writes an `aria-*` variant after `hover:` and `active:`, so the mark's words keep their green under
+      // the pointer over an entry's own hover words.
+      place: "aria-[current=page]:bg-bg-muted aria-[current=page]:text-brand",
     },
   },
 });

@@ -1,8 +1,8 @@
 "use client";
 
-// Imports nothing of the kit's but `tv`, `LeaveGuard` and `placeStyles`, which import no kit module but `tv`: every kit
-// module drawing a link takes `NavigationLink` from here, and a kit module this one imported could close a cycle through
-// one of them, whose module would then be read before it is defined.
+// Imports nothing of the kit's but `tv` and `LeaveGuard`, which import no kit module: every kit module drawing a link
+// takes `NavigationLink` from here, and a kit module this one imported could close a cycle through one of them, whose
+// module would then be read before it is defined.
 import { createContext, startTransition, useContext, useEffect, useOptimistic, useState } from "react";
 import NextLink from "next/link";
 import { useRouter } from "next/navigation";
@@ -10,11 +10,9 @@ import { useRouter } from "next/navigation";
 import { ROUTES } from "@/core/routes";
 
 import { useAskToLeave } from "./LeaveGuard";
-import { PLACE_CURRENT, placeMark } from "./placeStyles";
 import { tv } from "./tv";
 
 import type { ComponentProps, ReactNode } from "react";
-import type { PlaceList } from "./placeStyles";
 
 /**
  * A client navigation under way: where it goes, its address as the browser resolves it with that address's path and
@@ -240,31 +238,19 @@ function isSignIn(href: string) {
  * Under `WholePages`, while an editor holds unsaved changes, a press leaving its page asks the frame's question first
  * and goes only once the person discards them, as Next blocks a navigation for unsaved changes; one staying on the page,
  * a tab's or the match pop-up's, keeps the draft and asks nothing (`leavesPage`).
- *
- * A link of a list marking the place a person is on takes `place`: its list, which draws the list's mark
- * (`placeMark`), and whether it is the current one, which sets its `aria-current` (`PLACE_CURRENT`), so the mark a
- * screen reader hears and the one drawn come from one prop. It takes no `aria-current` of its own, which would mark a
- * place no mark draws.
  */
 export function NavigationLink({
   href,
   replace,
   scroll,
   prefetch,
-  place,
-  className,
   ...props
-}: Omit<ComponentProps<typeof NextLink>, "href" | "onNavigate" | "aria-current"> & {
-  href: string;
-  place?: { list: PlaceList; current: boolean };
-}) {
+}: Omit<ComponentProps<typeof NextLink>, "href" | "onNavigate"> & { href: string }) {
   const navigation = useContext(NavigationContext);
   const ask = useAskToLeave();
   return (
     <NextLink
       {...props}
-      aria-current={place?.current === true ? PLACE_CURRENT[place.list] : undefined}
-      className={place === undefined ? className : `${className ?? ""} ${placeMark({ list: place.list })}`}
       href={href}
       replace={replace}
       scroll={scroll}

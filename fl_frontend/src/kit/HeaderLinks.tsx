@@ -42,18 +42,18 @@ export function HeaderLinks({ links, signIn }: HeaderLinksProps) {
           <NavigationLink
             key={link.href}
             href={link.href}
-            place={{ list: "band", current: link.href === current }}
+            aria-current={link.href === current ? "page" : undefined}
             data-kit-focus="ring"
-            className={frameLink({ tone: "band" })}>
+            className={frameLink({ tone: link.href === current ? "band" : "bandMuted" })}>
             {link.label}
           </NavigationLink>
         ))}
       </nav>
       <NavigationLink
         href={signIn}
-        place={{ list: "band", current: signIn === current }}
+        aria-current={signIn === current ? "page" : undefined}
         data-kit-focus="ring"
-        className={frameLink({ tone: "band", class: "ms-auto hidden lg:flex" })}>
+        className={frameLink({ tone: signIn === current ? "band" : "bandMuted", class: "ms-auto hidden lg:flex" })}>
         {COPY.template.account}
       </NavigationLink>
       <div className="ms-auto lg:hidden">
@@ -76,7 +76,7 @@ export function HeaderLinks({ links, signIn }: HeaderLinksProps) {
                 <NavigationLink
                   key={link.href}
                   href={link.href}
-                  place={{ list: "menu", current: link.href === current }}
+                  aria-current={link.href === current ? "page" : undefined}
                   data-kit-focus="inset"
                   className={menuEntry({ size: "phone" })}>
                   {link.label}

@@ -563,28 +563,6 @@ const SOURCE_BANS = [
     ),
     SOURCE,
   ),
-  // The place a person is on is marked once, by the kit's recipe: an `aria-current` set by hand marks a place no mark
-  // draws, and a class keyed on it draws a second mark. A selector reading the attribute marks nothing and stays free.
-  syntaxBan(
-    syntax(
-      [
-        'JSXAttribute[name.name="aria-current"]',
-        'Property[key.value="aria-current"]',
-        'CallExpression[callee.property.name="setAttribute"][arguments.0.value="aria-current"]',
-      ].join(", "),
-      "A link marks the place a person is on through `NavigationLink`'s `place` prop in fl_frontend/src/kit/WholePage.tsx, which sets its `aria-current` and draws `placeMark`'s mark from one value; a control no attribute marks takes `placeMark` by its `current` state.",
-    ),
-    EVERY,
-    { allow: ["src/kit/WholePage.tsx"] },
-  ),
-  syntaxBan(
-    syntax(
-      inLiteral(String.raw`aria-\[current|aria-current:`),
-      "The mark of the place a person is on is `placeMark`'s, in fl_frontend/src/kit/placeStyles.ts, which `NavigationLink`'s `place` prop draws: a class keyed on `aria-current` draws a second mark.",
-    ),
-    EVERY,
-    { allow: ["src/kit/placeStyles.ts"] },
-  ),
   syntaxBan(
     // The target in any spelling, an attribute's, a spread object's or a `window.open` argument's.
     syntax(inLiteral("^_blank$"), "A link opening a new tab is the kit's `Link`, which decides it from the address."),
