@@ -112,8 +112,11 @@ async def post_confirmation(
         # to ask for another.
         refuse(find_already_answered_refusal(einwilligung=raw.get(EINWILLIGUNG_FIELD)))
         refuse(find_expired_token_refusal(deadline=raw[CONFIRMATION_FIELD]["deadline"], today=today))
-        refuse_faults(find_age_refusal(birth_date=answer_data.birth_date, today=today, minimum_age=SCHIEDSRICHTER_MIN_AGE_YEARS))
-        refuse_faults(find_self_media_refusal(saved=None, media=answer_data.media, birth_date=answer_data.birth_date, today=today))
+        age = find_age_refusal(birth_date=answer_data.birth_date, today=today, minimum_age=SCHIEDSRICHTER_MIN_AGE_YEARS)
+        # The media switch is judged on the birthdate, which means nothing once refused.
+        refuse_faults(
+            age, None if age else find_self_media_refusal(saved=None, media=answer_data.media, birth_date=answer_data.birth_date, today=today)
+        )
 
         # The person's own press, judged on the read above, on fields the referee editor never saves: an editor's save
         # read before it still lands. No fixture is written: the scope has one home, which the fixture list joins at read
