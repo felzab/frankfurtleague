@@ -62,7 +62,7 @@ test("the rail's four season pages and the sponsors page each stand under their 
     ["Teams", `/saisons/${RUNNING}/teams`],
     ["Spielplan", `/saisons/${RUNNING}`],
   ] as const) {
-    await page.getByRole("navigation", { name: "Navigation" }).getByRole("link", { name: label, exact: true }).click();
+    await page.getByRole("navigation", { name: "Hauptmenü" }).getByRole("link", { name: label, exact: true }).click();
     await expect(page).toHaveURL((url) => url.pathname === address);
     await expect(page.getByRole("main").getByRole("heading", { level: 1, name: label })).toBeVisible();
   }

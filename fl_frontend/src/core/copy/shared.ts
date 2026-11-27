@@ -621,7 +621,8 @@ export const COPY = catalogue({
     more: "Mehr",
     less: "Weniger",
     showAll: "Alle anzeigen",
-    navigation: "Navigation",
+    /** The menu's landmark name, which a screen reader says after the role, so it never repeats „Navigation“. */
+    navigation: "Hauptmenü",
     /** The account's place, one word signed in and out alike. */
     account: "Konto",
     menu: "Menü",
