@@ -48,7 +48,8 @@ function formOf(row: FLBewerbungListRow, draft: Draft): FormData {
   form.set("version", String(row.version));
   form.set("gruppe", draft.gruppe);
   form.set("trikot_farbe", draft.trikot_farbe);
-  form.set("shorthand", row.shorthand === null ? draft.shorthand : "");
+  // A known club's code is its record's own, posted by no name, as the dialog's closed box posts none.
+  if (row.shorthand === null) form.set("shorthand", draft.shorthand);
   return form;
 }
 

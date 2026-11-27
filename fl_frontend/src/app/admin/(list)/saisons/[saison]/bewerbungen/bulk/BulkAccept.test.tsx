@@ -72,8 +72,9 @@ describe("the check page's „Stand“ column", () => {
 });
 
 // The harm: a card reopened from its refused row without the fault on its box, so nothing says which box to change.
+// And the acceptance refuses a Kürzel box posted empty, so a run posting one for every known club would enter none.
 describe("a card reopened for its refusal", () => {
-  it("stands with the fault on its box", async () => {
+  it("stands with the fault on its box, the run having posted no Kürzel for a known club", async () => {
     vi.mocked(acceptBewerbung)
       .mockResolvedValueOnce({ ok: false, fieldErrors: { trikot_farbe: COPY.shared.field.taken } })
       .mockResolvedValueOnce({ ok: true, value: undefined });
@@ -85,6 +86,7 @@ describe("a card reopened for its refusal", () => {
     await userEvent.click(screen.getByRole("button", { name: COPY.shared.withObject(ADMIN_COPY.bewerbung.count(2), "accept") }));
     await userEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: COPY.shared.verb.accept }));
     await waitFor(() => expect(acceptBewerbung).toHaveBeenCalledTimes(2));
+    expect(vi.mocked(acceptBewerbung).mock.calls.map(([form]) => (form as FormData).has("shorthand"))).toStrictEqual([false, false]);
 
     await userEvent.click(await screen.findByRole("button", { name: "Goethe-Gymnasium" }));
     rerender(run());

@@ -22,8 +22,9 @@ export const acceptBewerbung = action({
     id: BewerbungenAcceptBewerbungParams.shape.bewerbung_id,
     gruppe: accepted.gruppe,
     trikot_farbe: blankIsNull(accepted.trikot_farbe),
-    // A known club's closed box posts nothing, and an open one left empty the same: no code to set.
-    shorthand: z.preprocess((value) => value ?? "", blankIsNull(accepted.shorthand)),
+    // A known club's closed box posts nothing, no code to set; an open one, a new school's, is judged as a code, so its
+    // derived rule requires it.
+    shorthand: accepted.shorthand.options[0].optional().transform((code) => code ?? null),
     version: numberBox(accepted.version),
   }),
   boxes: ["shorthand", "trikot_farbe"],
