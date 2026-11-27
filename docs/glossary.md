@@ -524,9 +524,10 @@ tree its fixtures are drawn as.\
 ### `Aktion` · `action_log_entry` — one recorded act
 
 **Is:** a row of `action_log`, one act of the league's: when it happened (`at`), who acted (`by`, an
-administrator's folded address or a role word), the closed `action`, the record's id, a `label` of
-league data, a pass's `count` and the request's `trace_id`. It holds no person's name and no address
-but an administrator's and a grant act's grantee's.\
+administrator's folded address or a role word), the closed `action`, the record's id, the season's
+id (`saison_id`) and the fixture's number (`spiel_nr`) the act was about, a `label` of other league
+data, a pass's `count` and the request's `trace_id`. It holds no person's name and no address but an
+administrator's and a grant act's grantee's.\
 **In code:** `fl_backend/app/core/recording.py :: record_act` and `:: FLAction`;
 `fl_backend/app/api/action_log/schemas.py :: FLActionLogEntry`.\
 **See:** [`domain.md`](domain.md#what-is-held-true-together).

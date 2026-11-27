@@ -418,7 +418,7 @@ async def post_saison(
             },
             session=session,
         )
-        await record_act(collection=saisons_collection, action="saison.created", label=state.saison_id, session=session)
+        await record_act(collection=saisons_collection, action="saison.created", saison_id=state.saison_id, session=session)
 
         return created
 
@@ -558,7 +558,7 @@ async def patch_saison(
             session=session,
             return_document=ReturnDocument.AFTER,
         )
-        await record_act(collection=saisons_collection, action="saison.changed", label=saison_id, session=session)
+        await record_act(collection=saisons_collection, action="saison.changed", saison_id=saison_id, session=session)
 
         # A result is a write to `spiele` alone, so a moved start writes the fixtures it was judged on:
         # a result landing under the judgement conflicts, and the retry refuses on it. A squad entry
@@ -710,7 +710,7 @@ async def activate_saison(
         if outgoing_ids:
             await anchor_in_db(collection=spiele_collection, db_filter={"saison_id": {"$in": outgoing_ids}}, session=session)
 
-        await record_act(collection=saisons_collection, action="saison.activated", label=saison_id, session=session)
+        await record_act(collection=saisons_collection, action="saison.activated", saison_id=saison_id, session=session)
 
         # `$lt` and not `$lte`: the season named on a row is the last one the ban covers, so the row
         # lapses on the activation of the season after it.
@@ -724,7 +724,7 @@ async def activate_saison(
                 collection=ban_list_collection,
                 action="retention.bans",
                 by=ACT_BY_SYSTEM,
-                label=saison_id,
+                saison_id=saison_id,
                 count=lapsed.deleted_count,
                 session=session,
             )
@@ -821,7 +821,7 @@ async def swap_gruppen(
                 expected_version=None,
                 return_document=ReturnDocument.BEFORE,
             )
-        await record_act(collection=saisons_collection, action="saison.gruppen_swapped", label=saison_id, session=session)
+        await record_act(collection=saisons_collection, action="saison.gruppen_swapped", saison_id=saison_id, session=session)
 
     # `transact`, not a bare `start_transaction`: two admins on one season can write-conflict,
     # and a retry judges these rows as the rival left them.
@@ -957,7 +957,7 @@ async def post_spielplan(
         await record_act(
             collection=saisons_collection,
             action="saison.spielplan_recreated" if spielplan_data.replace else "saison.spielplan_created",
-            label=saison_id,
+            saison_id=saison_id,
             session=session,
         )
 
@@ -1024,7 +1024,7 @@ async def delete_spielplan(
             expected_version=None,
             return_document=ReturnDocument.BEFORE,
         )
-        await record_act(collection=saisons_collection, action="saison.spielplan_deleted", label=saison_id, session=session)
+        await record_act(collection=saisons_collection, action="saison.spielplan_deleted", saison_id=saison_id, session=session)
 
     # `transact`, not a bare `start_transaction`, and a retry is safe because the undraw
     # removes a set by filter rather than by any id it read.
@@ -1168,7 +1168,7 @@ async def _mail_one_team(
             now=now,
         )
         if records_the_press:
-            await record_act(collection=invitations_collection, action="saison.invitations_dispatched", label=saison_id, session=session)
+            await record_act(collection=invitations_collection, action="saison.invitations_dispatched", saison_id=saison_id, session=session)
 
         return "mailed"
 

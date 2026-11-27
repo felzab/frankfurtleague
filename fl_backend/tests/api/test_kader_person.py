@@ -354,7 +354,7 @@ class TestAnEdit:
     async def test_the_four_fields_are_written_and_the_rest_of_the_row_stays(self, mongo_replica_set_url: str):
         async def run(database: AsyncDatabase, _: AsyncMongoClient) -> tuple[Response, Any, Any, Any, Response]:
             response = await send(mongo_replica_set_url, "PATCH", row_url(SHARES_THE_SEVEN), ANSPRECH, {**PAYLOAD, "nummer": "07"})
-            seasons = await database[Collection.ACTION_LOG].distinct("label", {"action": "spieler.changed"})
+            seasons = await database[Collection.ACTION_LOG].distinct("saison_id", {"action": "spieler.changed"})
 
             return (
                 response,

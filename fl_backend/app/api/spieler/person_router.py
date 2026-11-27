@@ -93,7 +93,7 @@ async def _record_the_seats_act(
         by=ACT_BY_KONTAKT,
         team=str(junction["name"]),
         record_id=spieler_id,
-        label=saison_id,
+        saison_id=saison_id,
         session=session,
     )
 

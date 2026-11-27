@@ -587,6 +587,8 @@ export interface FLActionLogEntry {
   /** @pattern ^[0-9a-fA-F]{24}$ */
   id: string;
   label: string | null;
+  saison_id: string | null;
+  spiel_nr: number | null;
   team: string | null;
 }
 

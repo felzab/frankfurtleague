@@ -214,10 +214,10 @@ measures section 8's. "Administrators" are the holders of a grant to the adminis
   - Purpose and basis: who did what, and repeating what a restore would undo; Art. 6(1)(f).
   - Data:
     - in a log row, each act's who: an administrator by address, anyone else by role and team, or
-      the system's mark. Beside it the record's id, a label of league data, a pass's count, a grant
-      act's grantee by address and an erasure's typed reference. The row also holds the `trace_id`
-      joining it to the edge's line for that request, stored and never served
-      (`fl_backend/app/core/recording.py :: record_act`);
+      the system's mark. Beside it the record's id, the season and the fixture's number it was
+      about, a label of other league data, a pass's count, a grant act's grantee by address and an
+      erasure's typed reference. The row also holds the `trace_id` joining it to the edge's line for
+      that request, stored and never served (`fl_backend/app/core/recording.py :: record_act`);
     - in a privacy line, its act, the random id joining an act's lines, the request's `trace_id` and
       record ids. An erasure's line adds its seats, a confirmed one with that seat's confirmation
       day, and each other field it took the person off, by row id and field name. A withdrawal's

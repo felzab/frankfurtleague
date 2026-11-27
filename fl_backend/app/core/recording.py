@@ -148,7 +148,11 @@ async def record_act(
     # The team's name at the act, beside `by=ACT_BY_KONTAKT`, so a search needs no join.
     team: str | None = None,
     record_id: ObjectId | None = None,
-    # League data. A grant act's holds the grantee's folded address, an erasure's its typed reference.
+    # The season and the fixture the act was about, as data, so the Protokoll words them as every other screen does.
+    saison_id: str | None = None,
+    spiel_nr: int | None = None,
+    # League data that is no season or fixture. A grant act's holds the grantee's folded address, an erasure's its typed
+    # reference.
     label: str | None = None,
     # How many records a page of a pass took, or the other records an act took with its own.
     count: int | None = None,
@@ -167,6 +171,8 @@ async def record_act(
             "team": team,
             "action": action,
             "record_id": record_id,
+            "saison_id": saison_id,
+            "spiel_nr": spiel_nr,
             "label": label,
             "count": count,
             # The one join to the edge line when an account is misused: stored, never served.

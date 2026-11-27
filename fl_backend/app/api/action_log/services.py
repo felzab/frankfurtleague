@@ -30,9 +30,9 @@ def build_action_log_query(filters: FLActionLogFilterPayload) -> dict[str, Any]:
         query["action"] = {"$in": _actions_of(filters.type)}
     if filters.from_day is not None:
         query["at"] = {"$gte": _german_midnight(filters.from_day)}
-    # A blank search is none: an empty pattern would keep only the rows holding a team or a label.
+    # A blank search is none: an empty pattern would keep only the rows holding a team, a season or a label.
     if filters.q is not None and filters.q.strip():
         pattern = {"$regex": literal_pattern(filters.q.strip()), "$options": "i"}
-        query["$or"] = [{"team": pattern}, {"label": pattern}]
+        query["$or"] = [{"team": pattern}, {"saison_id": pattern}, {"label": pattern}]
 
     return query

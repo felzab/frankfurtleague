@@ -210,7 +210,7 @@ class TestTheSeasonsOwnEnd:
         erasures, left = await on_a_league(mongo_replica_set_url, body, status="past")
 
         # The decline clock's one write, then the season's end's: its five undecided rows, confirmed or not.
-        assert [(label, count) for _, label, count, _ in erasures] == [(SAISON_ID, 2), (SAISON_ID, 5)]
+        assert [(saison, count) for _, saison, count, _ in erasures] == [(SAISON_ID, 2), (SAISON_ID, 5)]
         # The other season's row and the two declined ones the decline clock leaves: the season's end takes no decided
         # row, and every removal here names this season.
         assert left == [OTHER_SEASON_OID, DECIDED_INSIDE_OID, DECIDED_UNDATED_OID]
@@ -260,7 +260,7 @@ class TestTheSystemTierOverTheWire:
         status, rows = await through_the_app(mongo_replica_set_url, f"/registrierungen/saisons/{SAISON_ID}/sweep", auth=SYSTEM_AUTH)
 
         assert status == 200
-        assert [(row["by"], row["label"], row["count"]) for row in rows] == [("system", SAISON_ID, 1)]
+        assert [(row["by"], row["saison_id"], row["count"]) for row in rows] == [("system", SAISON_ID, 1)]
 
     @pytest.mark.parametrize("auth", [BASE_AUTH, ADMIN_AUTH], ids=("base", "admin"))
     async def test_neither_other_key_reaches_it(self, mongo_replica_set_url: str, auth: Mapping[str, str]):

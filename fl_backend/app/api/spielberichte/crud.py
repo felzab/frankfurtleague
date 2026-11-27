@@ -224,7 +224,7 @@ async def strip_the_seasons_reports(
             collection=spielberichte_collection,
             action="retention.spielberichte",
             by=ACT_BY_SYSTEM,
-            label=saison_id,
+            saison_id=saison_id,
             count=stripped.modified_count,
             session=session,
         )

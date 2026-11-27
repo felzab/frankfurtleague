@@ -59,7 +59,7 @@ async def sweep_registrierungen(
                 collection=registrierungen_collection,
                 action="retention.registrierungen",
                 by=ACT_BY_SYSTEM,
-                label=saison_id,
+                saison_id=saison_id,
                 count=result.deleted_count,
                 session=session,
             )

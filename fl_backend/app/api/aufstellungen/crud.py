@@ -45,8 +45,8 @@ async def write_aufstellung(
     # on an administrator's route, whose request bound them.
     by: str | None,
     team: str | None,
-    # How the Protokoll names the fixture.
-    label: str,
+    # The fixture's number, which the Protokoll names it by beside `saison_id`.
+    spiel_nr: int,
     # The save's own transaction, in which its caller judged the fixture, the squad and the lock.
     session: AsyncClientSession,
 ) -> Mapping[str, Any]:
@@ -85,7 +85,8 @@ async def write_aufstellung(
         by=by,
         team=team,
         record_id=written["_id"],
-        label=label,
+        saison_id=saison_id,
+        spiel_nr=spiel_nr,
         session=session,
     )
 

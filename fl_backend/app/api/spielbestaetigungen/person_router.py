@@ -153,7 +153,7 @@ async def post_schiedsrichter_answer(
             action="spielbestaetigung.answered",
             by=ACT_BY_SCHIEDSRICHTER,
             record_id=spielbestaetigung_id,
-            label=str(row["saison_id"]),
+            saison_id=str(row["saison_id"]),
             session=session,
         )
 
@@ -294,7 +294,7 @@ async def post_team_answer(
                 (str(junction["name"]) for junction in ansetzung_state.junctions if junction["team_id"] == row["party"]["team_id"]), None
             ),
             record_id=spielbestaetigung_id,
-            label=str(row["saison_id"]),
+            saison_id=str(row["saison_id"]),
             session=session,
         )
 

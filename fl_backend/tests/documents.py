@@ -644,6 +644,8 @@ def action_log_document(action: str, *, by: str, at: datetime, **fields: Any) ->
             "team": None,
             "action": action,
             "record_id": None,
+            "saison_id": None,
+            "spiel_nr": None,
             "label": None,
             "count": None,
             "trace_id": "made-up",

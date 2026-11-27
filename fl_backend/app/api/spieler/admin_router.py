@@ -223,7 +223,9 @@ async def patch_spieler_saison(
                 session=session,
                 return_document=ReturnDocument.AFTER,
             )
-        await record_act(collection=saison_spieler_collection, action="spieler.changed", record_id=spieler_id, label=saison_id, session=session)
+        await record_act(
+            collection=saison_spieler_collection, action="spieler.changed", record_id=spieler_id, saison_id=saison_id, session=session
+        )
 
         return FLVersionResponse(version=composite_version(person_raw, row_raw))
 
@@ -268,7 +270,7 @@ async def delete_saison_spieler(
         )
         if deregistered is not None:
             await record_act(
-                collection=saison_spieler_collection, action="spieler.deregistered", record_id=spieler_id, label=saison_id, session=session
+                collection=saison_spieler_collection, action="spieler.deregistered", record_id=spieler_id, saison_id=saison_id, session=session
             )
 
     await transact(db, take_the_player_out)
@@ -350,7 +352,7 @@ async def reactivate_saison_spieler(
         )
         if revived is not None:
             await record_act(
-                collection=saison_spieler_collection, action="spieler.reactivated", record_id=spieler_id, label=saison_id, session=session
+                collection=saison_spieler_collection, action="spieler.reactivated", record_id=spieler_id, saison_id=saison_id, session=session
             )
 
     await transact(db, bring_the_player_back)

@@ -154,7 +154,7 @@ async def strip_the_seasons_confirmations(
             collection=spielbestaetigungen_collection,
             action="retention.spielbestaetigungen",
             by=ACT_BY_SYSTEM,
-            label=saison_id,
+            saison_id=saison_id,
             count=stripped,
             session=session,
         )

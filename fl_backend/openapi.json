@@ -1119,6 +1119,29 @@
             ],
             "title": "Label"
           },
+          "saison_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Saison Id"
+          },
+          "spiel_nr": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spiel Nr"
+          },
           "team": {
             "anyOf": [
               {
@@ -1137,6 +1160,8 @@
           "by",
           "team",
           "action",
+          "saison_id",
+          "spiel_nr",
           "label",
           "count"
         ],

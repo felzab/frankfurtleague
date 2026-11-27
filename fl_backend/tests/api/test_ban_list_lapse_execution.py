@@ -173,6 +173,6 @@ class TestTheSweepAtAnActivation:
 
             rows = database[Collection.ACTION_LOG].find({"action": "retention.bans"})
 
-            return [(row["by"], row["label"], row["count"], row["record_id"]) async for row in rows]
+            return [(row["by"], row["saison_id"], row["count"], row["record_id"]) async for row in rows]
 
         assert await on_a_league(mongo_replica_set_url, [saison_document(ENTERED_UNDER, "active")], body) == recorded
