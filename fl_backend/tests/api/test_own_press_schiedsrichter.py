@@ -94,7 +94,6 @@ async def pressed_then_saved(url: str, press: Press) -> dict[str, Any]:
                     }
                 ),
                 schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
-                ban_list_collection=database[Collection.BAN_LIST],
                 outbox_collection=database[Collection.OUTBOX],
                 db=client,
                 today=TODAY,

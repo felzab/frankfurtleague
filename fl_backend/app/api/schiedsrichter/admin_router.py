@@ -5,7 +5,6 @@ from fastapi import APIRouter, Response, status
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
-from app.api.ban_list.crud import find_address_barred_refusal
 from app.api.grants.guard import ADMIN_TIER
 from app.api.outbox.crud import state_of
 from app.api.outbox.schemas import FLOutboxReference
@@ -40,7 +39,6 @@ from app.api.schiedsrichter.services import (
     find_referee_retire_refusal,
     find_retired_refusal,
     owes_reactivation_mint,
-    save_moves_the_link,
 )
 from app.core.collections import Collection
 from app.core.crud import (
@@ -57,7 +55,6 @@ from app.core.crud import (
     set_inactive_since,
 )
 from app.core.dependencies import (
-    BanListReadCollection,
     DBClient,
     GermanDay,
     GermanyNow,
@@ -141,7 +138,6 @@ async def get_schiedsrichter_by_id(
 async def post_schiedsrichter(
     schiedsrichter_data: FLPostSchiedsrichterPayload,
     schiedsrichter_collection: SchiedsrichterCollection,
-    ban_list_collection: BanListReadCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
     session: SnapshotSession,
@@ -163,13 +159,7 @@ async def post_schiedsrichter(
         taken = await is_held_elsewhere(
             collection=schiedsrichter_collection, key="name", value=schiedsrichter_data.name, own_id=None, session=session
         )
-        refuse_faults(
-            find_referee_name_refusal(taken=taken),
-            # The create owes the address its link, which the drain never hands to a banned one.
-            await find_address_barred_refusal(
-                ban_list_collection=ban_list_collection, address=email, path=("kontakt", "email"), session=session
-            ),
-        )
+        refuse_faults(find_referee_name_refusal(taken=taken))
 
     if dry_run:
         await judge(session)
@@ -217,7 +207,6 @@ async def patch_schiedsrichter(
     schiedsrichter_id: CustomObjectId,
     schiedsrichter_data: FLPatchSchiedsrichterPayload,
     schiedsrichter_collection: SchiedsrichterCollection,
-    ban_list_collection: BanListReadCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
     session: SnapshotSession,
@@ -251,15 +240,7 @@ async def patch_schiedsrichter(
         taken = await is_held_elsewhere(
             collection=schiedsrichter_collection, key="name", value=schiedsrichter_data.name, own_id=schiedsrichter_id, session=session
         )
-        refuse_faults(
-            find_referee_name_refusal(taken=taken),
-            # Only an address the save moves the link to: a stored one banned since must not lock the other fields.
-            await find_address_barred_refusal(
-                ban_list_collection=ban_list_collection, address=email, path=("kontakt", "email"), session=session
-            )
-            if save_moves_the_link(stored=stored, payload_email=email)
-            else None,
-        )
+        refuse_faults(find_referee_name_refusal(taken=taken))
         return stored
 
     if dry_run:
