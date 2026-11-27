@@ -120,7 +120,14 @@ class APIError(Exception):
         self.error_code = code
         self.headers = headers
         self.subject = subject
-        self.faults: tuple[FieldFault, ...] = ()
+
+    # A property with no setter, so pyright refuses an assignment to it, on a gate or in a subclass's own `__init__`:
+    # a fault written onto a gate would reach the body as a box's entry outside `refuse_faults`.
+    @property
+    def faults(self) -> tuple[FieldFault, ...]:
+        """The box faults this refusal names: none, on a gate."""
+
+        return ()
 
 
 class FieldRefusal(APIError):
@@ -133,7 +140,13 @@ class FieldRefusal(APIError):
     def __init__(self, faults: tuple[FieldFault, ...]):
         first, *_ = faults
         super().__init__(refusal_status(faults), first.code)
-        self.faults = faults
+        self._faults = faults
+
+    @property
+    def faults(self) -> tuple[FieldFault, ...]:
+        """Every fault the collecting call found, in the order it asked them."""
+
+        return self._faults
 
 
 class DocumentNotFoundError(APIError):
