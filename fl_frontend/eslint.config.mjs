@@ -359,20 +359,29 @@ const IMPORT_BANS = [
  * reads: it judges import and export declarations alone, and the server's entry points load modules that way. They are
  * the layer boundaries, the administration's catalogue, Node's network clients and Next's private contexts, each
  * broken by loading the module at all, which an `import()` does as surely as a declaration. The bans of `DESIGN_BANS`
- * are left to their declarations: they place components on a page, and production code reaches a component by a
- * declaration alone. A test is left to its declarations, since it loads each module by `import()` once its doubles
- * stand. A ban naming `importNames` stays the declarations' alone, the secret readers' among them, since a dynamic
- * import's names are read off its result, in spellings no selector holds. The selector's regex matches as the rule's
- * own does, ignoring case.
+ * are left to their declarations, since they place components on a page by the names a declaration imports, save one:
+ * React Aria's packages are refused to `import()` outright, since a component read off a loaded module, its `Form` and
+ * its form's validation context among them, passes every ban naming it, and production code never loads them that way.
+ * A test is left to its declarations, since it loads each module by `import()` once its doubles stand. A ban naming
+ * `importNames` stays the declarations' alone, the secret readers' among them, since a dynamic import's names are read
+ * off its result, in spellings no selector holds. The selector's regex matches as the rule's own does, ignoring case.
  */
-const DYNAMIC_IMPORT_BANS = IMPORT_BANS.filter(({ entry }) => entry.importNames === undefined).map(
-  ({ entry: { regex, message }, reach, ...rest }) => ({
+const DYNAMIC_IMPORT_BANS = [
+  ...IMPORT_BANS.filter(({ entry }) => entry.importNames === undefined).map(({ entry: { regex, message }, reach, ...rest }) => ({
     ...rest,
     rule: "no-restricted-syntax",
     entry: syntax(`ImportExpression > Literal.source[value=/${regex.replaceAll("/", String.raw`\x2F`)}/iu]`, message),
     reach: (zone) => PRODUCTION(zone) && reach(zone),
-  }),
-);
+  })),
+  ban(
+    "no-restricted-syntax",
+    syntax(
+      `ImportExpression > Literal.source[value=/${packageUnder("react-aria", "react-aria-components")}/iu]`,
+      "React Aria is imported by a declaration, which every ban naming one of its components reads.",
+    ),
+    PRODUCTION,
+  ),
+];
 
 // ---------------------------------------------------------------------------------------------------
 // Syntax bans.
