@@ -171,6 +171,8 @@ export const SERVER_COPY = catalogue({
     team_retired: "Das Team ist stillgelegt.",
     /** A reactivated squad row past the season's cap, and an admission into a squad that filled meanwhile. */
     kader_full: "Der Kader ist voll.",
+    /** A squad row's return whose role another live row took since the page offered it: the press shows no role box. */
+    kader_rolle_taken: "Die Rolle ist schon vergeben.",
     /** An admission of a pupil a squad of the season holds already. */
     registrierung_already_in_kader: "Die Person steht schon in einem Kader.",
     /** An admission whose registered Stufe the season stopped offering after the pupil registered. */
