@@ -41,8 +41,9 @@ const link = tv({
       // Drawn by `frameLink` in its `link` tone.
       frame: "",
       // An entry of a reading page's contents list, on the list's 2-px track: muted until the pointer is over it, and
-      // the section the reader is in marked by the contents list's mark of the place (`placeMark`).
-      contents: `block border-s-2 border-border py-1.5 ps-4 text-sm text-fg-muted transition-colors duration-(--motion-state) ${hoverLook({ host: "link", answer: "words" })}`,
+      // the section the reader is in marked by the contents list's mark of the place (`placeMark`). The track takes the
+      // muted fill rather than the hairline, so the mark's green keeps 3:1 beside it.
+      contents: `block border-s-2 border-bg-muted py-1.5 ps-4 text-sm text-fg-muted transition-colors duration-(--motion-state) ${hoverLook({ host: "link", answer: "words" })}`,
     },
     // A card standing as a row of a list's columns (`SpielList`): a grid of those columns rather than a block.
     subgrid: {

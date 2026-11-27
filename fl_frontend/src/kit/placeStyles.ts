@@ -19,7 +19,12 @@ export const PLACE_CURRENT = {
   contents: "location",
 } as const satisfies Record<PlaceList, "page" | "location">;
 
-// Each list's mark, drawn from the link's `aria-current`, which `NavigationLink` sets from the same `place` prop, so the
+// Every list draws one mark: the current entry's words in their ground's full colour, and a line in the link green, the
+// accent on the band, along the edge facing the way the list runs. A change of colour alone counts as a cue only at 3:1
+// (WCAG 2.2, Understanding 1.4.1 and 1.4.11), which a fill on these grounds meets only once it is dark enough to need
+// white words, so the line carries the cue and a menu's fill only frames it. It is a border on `::after`, drawn on the current entry alone, which forced colours keep.
+//
+// Each mark is drawn from the link's `aria-current`, which `NavigationLink` sets from the same `place` prop, so the
 // place a screen reader hears marked is the one drawn marked. Tailwind writes an `aria-*` variant after the plain
 // classes and after `hover:` and `active:`, so the mark's words keep their colour over an entry's own and its hover's.
 const mark = tv({
@@ -67,10 +72,13 @@ const mark = tv({
       class:
         "aria-[current=page]:relative aria-[current=page]:text-on-brand aria-[current=page]:after:absolute aria-[current=page]:after:inset-x-0 aria-[current=page]:after:bottom-0 aria-[current=page]:after:border-b-2 aria-[current=page]:after:border-brand-accent",
     },
+    // An entry of a reading page's contents list: its words in full, and at its start a 2-px line in the link green
+    // over the list's track. The line keeps 4.5:1 on the track and on the page in both themes.
     {
       list: "contents",
       current: "attribute",
-      class: "aria-[current=location]:border-brand aria-[current=location]:font-medium aria-[current=location]:text-fg",
+      class:
+        "aria-[current=location]:relative aria-[current=location]:text-fg aria-[current=location]:after:absolute aria-[current=location]:after:inset-y-0 aria-[current=location]:after:-start-0.5 aria-[current=location]:after:border-s-2 aria-[current=location]:after:border-brand",
     },
   ],
 });
