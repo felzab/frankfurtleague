@@ -18,6 +18,7 @@ import { statusOf, useFormAction } from "./useFormAction";
 import { usePasskeyTouch } from "./usePasskeyTouch";
 
 import type { ActionAnswer } from "@/core/action";
+import type { BoxRules } from "@/core/boxRules";
 import type { Copy, Verb } from "@/core/copy";
 import type { ReactElement, ReactNode } from "react";
 import type { StatusCardProps, WayOn } from "./StatusCard";
@@ -96,11 +97,14 @@ export function OneShotForm({
   boxes = false,
   note,
   describedBy,
+  rules,
   children,
 }: {
   /** What stands above the fields: the page's title and what the person answers. */
   head: ReactElement;
   run: OneShotRun;
+  /** What the browser's pass holds the fields to: the main act's lane's rules, read on the server (`boxRulesOf`). */
+  rules: BoxRules;
   acts: OneShotActs;
   /** What the form posts beside its fields, unseen: the token the page's link carries. */
   carry?: Readonly<Record<string, string>>;
@@ -228,6 +232,7 @@ export function OneShotForm({
   const held = {
     ref: form,
     fieldErrors: refused?.fieldErrors,
+    rules,
     onBlock: block,
     isBusy: isPending,
     onSend: (formData: FormData) => {

@@ -1,7 +1,6 @@
-import { blankIsNull, requires } from "@/core/action";
+import { boxRulesOf } from "@/core/action";
 import { AREA_COPY } from "@/core/copy/area";
 import { COPY } from "@/core/copy/shared";
-import { SpielbestaetigungenPostTeamAnswerBody, spielbestaetigungenPostTeamAnswerBodyReasonOneMax } from "@/core/generated/zod/inputs";
 import { DateField } from "@/kit/DateField";
 import { Dialog } from "@/kit/Dialog";
 import { FieldGroup } from "@/kit/FieldGroup";
@@ -13,16 +12,6 @@ import { declineSpielbestaetigung } from "./answerSpielbestaetigung";
 
 import type { Words } from "@/core/copy";
 import type { CalendarDay } from "@/core/format";
-
-const answer = SpielbestaetigungenPostTeamAnswerBody.shape;
-const vorschlag = answer.vorschlag.options[0].shape;
-
-// Read off the write's schema on the server.
-const REQUIRED = {
-  date: requires(vorschlag.date, ""),
-  time: requires(vorschlag.time, ""),
-  reason: requires(blankIsNull(answer.reason), ""),
-};
 
 /**
  * „Ablehnen“ on a date's row: the dialog asking for the day and hour the team proposes instead and, where it gives
@@ -48,6 +37,7 @@ export function DeclineDialog({
       tone="danger"
       lead={spiel}
       run={declineSpielbestaetigung}
+      rules={boxRulesOf(declineSpielbestaetigung)}
       carry={{ id }}
       consequence={AREA_COPY.team.declineConsequence}
       trigger={{ label: COPY.shared.verb.decline }}>
@@ -56,13 +46,11 @@ export function DeclineDialog({
           <DateField
             label={COPY.spielplan.fact.date}
             name="date"
-            isRequired={REQUIRED.date}
             minValue={today}
           />
           <TimeField
             label={COPY.spielplan.fact.time}
             name="time"
-            isRequired={REQUIRED.time}
           />
         </FieldPair>
       </FieldGroup>
@@ -71,8 +59,6 @@ export function DeclineDialog({
         name="reason"
         // A paragraph, at four lines, its line breaks kept, as the administration's reasons are.
         kind="paragraph"
-        isRequired={REQUIRED.reason}
-        maxLength={spielbestaetigungenPostTeamAnswerBodyReasonOneMax}
         description={COPY.shared.noNames}
       />
     </Dialog>

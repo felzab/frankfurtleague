@@ -1,3 +1,4 @@
+import { boxRulesOf } from "@/core/action";
 import { ADMIN_COPY } from "@/core/copy/admin";
 import { COPY } from "@/core/copy/shared";
 import { acceptBewerbung } from "@/features/bewerbungen/acceptBewerbung";
@@ -24,6 +25,7 @@ export function AcceptDialog({ id, version, children }: Decided & { children: Re
       title={COPY.shared.withObject(OBJECT, "accept")}
       act={{ verb: "accept" }}
       run={acceptBewerbung}
+      rules={boxRulesOf(acceptBewerbung)}
       carry={{ id, version: String(version) }}
       trigger={{ label: COPY.shared.verb.accept, variant: "primary" }}>
       {children}
@@ -33,7 +35,7 @@ export function AcceptDialog({ id, version, children }: Decided & { children: Re
 }
 
 /** „Ablehnen“ beside it: the reason, which the mail hands over as typed, and whom it mails. */
-export function DeclineDialog({ id, version, required, max }: Decided & { required: boolean; max: number }) {
+export function DeclineDialog({ id, version }: Decided) {
   return (
     <Dialog
       title={COPY.shared.withObject(OBJECT, "decline")}
@@ -41,14 +43,13 @@ export function DeclineDialog({ id, version, required, max }: Decided & { requir
       // A refusal is the dialog's destroying act: the red fill every destroying press takes.
       tone="danger"
       run={declineBewerbung}
+      rules={boxRulesOf(declineBewerbung)}
       carry={{ id, version: String(version) }}
       trigger={{ label: COPY.shared.verb.decline }}>
       <TextField
         label={COPY.shared.reason}
         name="reason"
         kind="paragraph"
-        isRequired={required}
-        maxLength={max}
         description={COPY.shared.noNames}
       />
       <Facts facts={[{ label: ADMIN_COPY.facts.mailTo, value: ADMIN_COPY.bewerbung.mailedSeats }]} />

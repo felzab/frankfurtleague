@@ -35,6 +35,8 @@ export const declineSpielbestaetigung = action({
   claim: "record",
   name: "declineSpielbestaetigung",
   input: z.object({ id: ROW, date: vorschlag.date, time: vorschlag.time, reason: blankIsNull(answer.reason) }),
+  // The write nests the proposed day and hour under its proposal, where the dialog's boxes hold each alone.
+  paths: { "vorschlag.date": "date", "vorschlag.time": "time" },
   run: async ({ id, date, time, reason }) => {
     await spielbestaetigungenPostTeamAnswer(id, { answer: "declined", reason, vorschlag: { date, time } });
     return { ok: true, value: undefined };

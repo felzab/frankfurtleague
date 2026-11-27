@@ -9,7 +9,6 @@ import { answerLine, statusOf, useFormAction } from "./useFormAction";
 import { useUnsavedChangesWarning } from "./useUnsavedChangesWarning";
 
 import type { ActionAnswer, SaveQuestion } from "@/core/action";
-import type { Copy } from "@/core/copy";
 import type { FormStatus } from "./useFormAction";
 
 /** One record of a list an editor's field holds, such as a goal of a Spielbericht: each of its fields one value. */
@@ -54,11 +53,11 @@ export type EditorSave<Values extends Record<string, EditorValue>, Version exten
 const CHANGES = "changes.";
 
 /**
- * The server's messages by the box each belongs to. The action keys a message by its field's whole path in what the
- * save sends, so a box's message arrives under `changes.<name>`.
+ * The server's messages, or the save's box rules, by the box each belongs to. The action keys each by its field's whole
+ * path in what the save sends, so a box's arrives under `changes.<name>`.
  */
-const byBox = (fieldErrors: Readonly<Record<string, Copy>>): Readonly<Record<string, Copy>> =>
-  Object.fromEntries(Object.entries(fieldErrors).map(([path, text]) => [path.startsWith(CHANGES) ? path.slice(CHANGES.length) : path, text]));
+export const byBox = <Value>(byPath: Readonly<Record<string, Value>>): Readonly<Record<string, Value>> =>
+  Object.fromEntries(Object.entries(byPath).map(([path, value]) => [path.startsWith(CHANGES) ? path.slice(CHANGES.length) : path, value]));
 
 /** A record is the same by its fields' values: an edit builds the record anew, so a value typed back is another object. */
 function sameItem(a: string | EditorRow, b: string | EditorRow | undefined) {

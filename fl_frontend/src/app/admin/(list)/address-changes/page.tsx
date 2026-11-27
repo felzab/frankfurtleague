@@ -1,16 +1,11 @@
-import { requires } from "@/core/action";
+import { boxRulesOf } from "@/core/action";
 import { ADDRESS_CHANGE_WAITING_PERIOD } from "@/core/addressChange";
 import { getAdminHolder } from "@/core/auth/guards";
 import { ADMIN_COPY } from "@/core/copy/admin";
 import { COPY } from "@/core/copy/shared";
 import { formatInstantShort } from "@/core/format";
-import {
-  addressChangePostAddressChangeAdminBodyAddressMax,
-  addressChangePostAddressChangeAdminBodyEmailMax,
-} from "@/core/generated/zod/inputs";
 import { ROUTES } from "@/core/routes";
 import { getAddressChanges } from "@/features/address-change/queries";
-import { SignInAddressSchema, SignInPayloadSchema } from "@/features/auth/schemas";
 import { deliveryChip } from "@/features/bewerbungen/deliveryState";
 import { ListPage } from "@/kit/ListPage";
 import { EXPIRED_CHIP } from "@/kit/stateChips";
@@ -25,7 +20,6 @@ import type { ChipProps } from "@/kit/Chip";
 import type { Fact } from "@/kit/Facts";
 import type { ListCreate } from "@/kit/ListPage";
 import type { TableHead, TableRow } from "@/kit/Table";
-import type { StartRules } from "./StartFields";
 
 const WORDS = ADMIN_COPY.addressChange;
 
@@ -111,14 +105,6 @@ const HEAD: TableHead = {
   columns: [{ key: "after", label: COPY.shared.facts.after, hideOnPhone: true, onLine: "labelled", width: "line", cut: true }],
 };
 
-const START_RULES: StartRules = {
-  required: {
-    address: requires(SignInPayloadSchema.shape.email, ""),
-    email: requires(SignInAddressSchema, ""),
-  },
-  max: { address: addressChangePostAddressChangeAdminBodyAddressMax, email: addressChangePostAddressChangeAdminBodyEmailMax },
-};
-
 /**
  * Adressänderungen: the running changes, a lost-mailbox change started over the list. A holder's change stands here for
  * the owner alone, as the server answers it; an administrator's own never does.
@@ -132,15 +118,11 @@ export default function AddressChangesPage() {
         title: START,
         act: { verb: "enter", object: COPY.shared.addressChange.change },
         run: startLostMailboxChange,
+        rules: boxRulesOf(startLostMailboxChange),
         consequence: WORDS.startConsequence(ADDRESS_CHANGE_WAITING_PERIOD),
         facts: [{ label: ADMIN_COPY.facts.mailTo, value: ADMIN_COPY.mailTo.bothAddresses }],
         touch: { holder },
-        children: (
-          <StartFields
-            running={changes.map(({ address }) => address)}
-            rules={START_RULES}
-          />
-        ),
+        children: <StartFields running={changes.map(({ address }) => address)} />,
       }))}
       list={{
         kind: "table",

@@ -34,6 +34,7 @@ function SpielortEditor({
   const editor = useEditor({ id: "ort-1", version: stored.version, values: { name: stored.name } }, save);
   return (
     <EditorPage
+      rules={{ "changes.name": { required: true } }}
       title={{ record: "Riedberg" }}
       editor={editor}
       sections={[
@@ -45,7 +46,6 @@ function SpielortEditor({
               label={NAME}
               name="name"
               kind="text"
-              isRequired
               value={editor.draft.name}
               onChange={(name) => editor.set("name", name)}
             />
@@ -104,6 +104,7 @@ function ActingEditor({ act }: { act: () => Promise<ActionAnswer> }) {
   const editor = useEditor({ id: "ort-1", version: 1, values: { name: "Riedberg" } }, saved);
   return (
     <EditorPage
+      rules={{}}
       title={{ record: "Riedberg" }}
       editor={editor}
       sections={[

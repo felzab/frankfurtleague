@@ -1,12 +1,11 @@
 import { cache } from "react";
 import { notFound } from "next/navigation";
 
-import { requires } from "@/core/action";
+import { boxRulesOf } from "@/core/action";
 import { ADMIN_COPY } from "@/core/copy/admin";
 import { COPY } from "@/core/copy/shared";
 import { dayOf, formatDate, timeOf } from "@/core/format";
 import { FLSonderereignis } from "@/core/generated/client/types";
-import { SpielePatchSpielBody, spielePatchSpielBodyNoteOneMax } from "@/core/generated/zod/inputs";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { AUFSTELLUNG_CHIP, STARTERS_MAX } from "@/features/aufstellungen/constants";
@@ -18,7 +17,6 @@ import { saveSpiel } from "@/features/spiele/saveSpiel";
 import { NOBODY, takesNoResult, valuesOf } from "@/features/spiele/spielValues";
 import { spielerName } from "@/features/spieler/constants";
 import { createSpielort } from "@/features/spielorte/createSpielort";
-import { SPIELORT_CREATE_RULES } from "@/features/spielorte/fieldRules";
 import { AGREED_CHIP, DECLINED_CHIP, EXPIRED_CHIP, owedChip } from "@/kit/stateChips";
 import { adminIdParamOf } from "@/shared/utils/adminRead";
 import { pageMetadata } from "@/shared/utils/metadata";
@@ -53,14 +51,6 @@ const SONDEREREIGNISSE: Readonly<Record<FLSonderereignis, Copy>> = {
   nichtantreten_team2: WORDS.nichtantretenTeam2,
   abgebrochen: COPY.spielplan.sonderereignis.abgebrochen,
   annulliert: COPY.spielplan.sonderereignis.annulliert,
-};
-
-const { spielort, schiedsrichter } = SpielePatchSpielBody.shape;
-
-/** Whether a booking's money is required beside it, read off the write's schema. */
-const REQUIRED = {
-  mietpreis: requires(spielort.options[0].shape.mietpreis, null),
-  payment: requires(schiedsrichter.options[0].shape.payment, null),
 };
 
 /** The report's table, whose cells `berichtRows` fills: the editor draws its rows under it. */
@@ -383,14 +373,13 @@ export default async function SpielEditorPage({ params }: Props) {
         })),
       ]}
       sonderereignisse={sonderereignisse}
-      noteMax={spielePatchSpielBodyNoteOneMax}
-      required={REQUIRED}
+      rules={boxRulesOf(saveSpiel)}
       report={{ head: REPORT_HEAD, rows: view.spielbericht === null ? [] : berichtRows(saved, view.spielbericht) }}
       adoption={adoptionOf(saved, view.spielbericht)}
       answers={answerRows(view, closed)}
       aufstellungen={aufstellungRows(view, closed)}
       createSpielort={createSpielort}
-      spielortRules={SPIELORT_CREATE_RULES}
+      spielortRules={boxRulesOf(createSpielort)}
       {...(closed ? { closed: SERVER_COPY.refusalLine.saison_past } : {})}
       // A planned season's match page answers not found to the public, so the strip offers none.
       {...(view.saison_status === "future" ? {} : { spielPage: ROUTES.spiel.path(saved.saison_id, saved.id) })}

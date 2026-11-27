@@ -1,17 +1,12 @@
 import "server-only";
 
-import { requires } from "@/core/action";
+import { boxRulesOf } from "@/core/action";
 import { ADMIN_COPY } from "@/core/copy/admin";
 import { COPY } from "@/core/copy/shared";
 import { dayOf, formatList, timeOf } from "@/core/format";
-import {
-  SpielbestaetigungenEnterSpielbestaetigungBody,
-  spielbestaetigungenEnterSpielbestaetigungBodyReasonMax,
-  SpielbestaetigungenEnterSpielbestaetigungParams,
-} from "@/core/generated/zod/inputs";
 import { SERVER_COPY } from "@/core/serverCopy";
-import { TextField } from "@/kit/TextField";
 
+import { enterZusage } from "./enterZusage";
 import { VorschlagActs } from "./VorschlagActs";
 import { ZusageDialog } from "./ZusageDialog";
 
@@ -39,24 +34,6 @@ function mailTo(recipients: Recipients) {
   return names.length === 0 ? [] : [{ label: ADMIN_COPY.facts.mailTo, value: { record: formatList(names) } }];
 }
 
-/** Whether the Zusage's write asks for the party's row, which its segments choose. */
-const PARTY_REQUIRED = requires(SpielbestaetigungenEnterSpielbestaetigungParams.shape.spielbestaetigung_id, "");
-
-/** The box asking how a party's agreement reached the league, drawn here so the write's schema stays on the server. */
-function ReasonField() {
-  return (
-    <TextField
-      label={COPY.spielplan.answerNote}
-      // The name `enterZusage` reads the reason by.
-      name="reason"
-      // A paragraph: a reason a person writes, at four lines, its line breaks kept.
-      kind="paragraph"
-      isRequired={requires(SpielbestaetigungenEnterSpielbestaetigungBody.shape.reason, "")}
-      maxLength={spielbestaetigungenEnterSpielbestaetigungBodyReasonMax}
-    />
-  );
-}
-
 /**
  * „Zusage eintragen“ for the parties still to answer, from the Übersicht's row of their fixture and from each party's
  * row in the match editor alike, so both pages ask the same.
@@ -65,9 +42,8 @@ export function zusageAct(parties: readonly [OpenParty, ...OpenParty[]]) {
   return (
     <ZusageDialog
       parties={parties}
-      partyRequired={PARTY_REQUIRED}>
-      <ReasonField />
-    </ZusageDialog>
+      rules={boxRulesOf(enterZusage)}
+    />
   );
 }
 

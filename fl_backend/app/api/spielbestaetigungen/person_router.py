@@ -31,7 +31,6 @@ from app.api.spielbestaetigungen.services import (
     find_vorschlag_past_refusal,
     find_vorschlag_unchanged_refusal,
     foreign_row_refusal,
-    judged_as_a_proposal,
     proposal_payload,
     unanswerable_refusal,
 )
@@ -49,7 +48,7 @@ from app.core.dependencies import (
     SpieleCollection,
     SpieltageReadCollection,
 )
-from app.core.exceptions import DocumentNotFoundError
+from app.core.exceptions import DocumentNotFoundError, as_judged_on_stored_state
 from app.core.recording import ACT_BY_KONTAKT, ACT_BY_SCHIEDSRICHTER, record_act
 from app.core.routing import by_id
 from app.core.security import PERSON_TIER, PersonIdentifier
@@ -248,18 +247,18 @@ async def post_team_answer(
             membership = await pull_saison_membership(
                 saison_teams_collection=saison_teams_collection, saison_id=stored.saison_id, session=session
             )
-            refuse(judged_as_a_proposal(find_eligibility_refusal(stored.id, proposed, [stored], membership)))
+            refuse(as_judged_on_stored_state(find_eligibility_refusal(stored.id, proposed, [stored], membership)))
 
             span = await pull_spieltag_span(spieltage_collection=spieltage_collection, spieltag_id=stored.spieltag_id, session=session)
             if span is not None:
-                refuse(judged_as_a_proposal(find_spiel_date_refusal(date=proposed.date, spieltag_start=span.start, spieltag_end=span.end)))
+                refuse(as_judged_on_stored_state(find_spiel_date_refusal(date=proposed.date, spieltag_start=span.start, spieltag_end=span.end)))
 
             # Last, as in the save: it validates every season's fixtures, and a hand-edited one raises, answering 500 for a
             # proposal an earlier rule refuses. Only claims the stored fixture did not make.
             booked = await pull_booked_slots(
                 spiele_collection=spiele_collection, spiel_id=stored.id, claims=find_claims_made(stored, proposed), session=session
             )
-            refuse(judged_as_a_proposal(find_clash_refusal(date=proposed.date, time=proposed.time, booked=booked)))
+            refuse(as_judged_on_stored_state(find_clash_refusal(date=proposed.date, time=proposed.time, booked=booked)))
 
         try:
             await patch_one_in_db(

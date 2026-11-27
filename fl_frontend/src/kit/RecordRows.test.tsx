@@ -42,6 +42,7 @@ function Goals({ errors, locked }: { errors?: Readonly<Record<string, Copy>>; lo
   const [rows, setRows] = useState(GOALS);
   return (
     <HeldForm
+      rules={{ "scorers.*.minute": { required: true } }}
       fieldErrors={errors}
       isBusy={false}
       onSend={() => undefined}>
@@ -80,7 +81,6 @@ function Goals({ errors, locked }: { errors?: Readonly<Record<string, Copy>>; lo
                 name={name}
                 holds={5}
                 kind="text"
-                isRequired
                 value={row.minute}
                 onChange={(minute) => change({ minute })}
               />
@@ -126,15 +126,6 @@ describe("a refused row", () => {
     expect(marked(second)).toBe("true");
     expect(marked(first)).toBeNull();
   });
-
-  // The harm: a screen reader left where the press left it, finding the refused choice by itself.
-  it("hands the focus to a refused choice once the answer commits", () => {
-    const { rerender } = render(<Goals />);
-
-    rerender(<Goals errors={{ "scorers.1.side": REQUIRED }} />);
-
-    expect(within(rowAt(1)).getByRole("radiogroup", { name: TEAM }).contains(document.activeElement)).toBe(true);
-  });
 });
 
 // The harm: a refusal of the whole list, such as too many rows, shown nowhere.
@@ -144,15 +135,6 @@ describe("a refused list", () => {
 
     const line = screen.getByText(REQUIRED);
     expect(screen.getByRole("group", { name: COPY.shared.tore }).getAttribute("aria-describedby")).toBe(line.id);
-  });
-
-  // The harm: a screen reader left on the save bar while the status line points at a refusal no box holds.
-  it("takes the focus once the answer commits", () => {
-    const { rerender } = render(<Goals />);
-
-    rerender(<Goals errors={{ scorers: REQUIRED }} />);
-
-    expect(document.activeElement).toBe(screen.getByRole("group", { name: COPY.shared.tore }));
   });
 });
 

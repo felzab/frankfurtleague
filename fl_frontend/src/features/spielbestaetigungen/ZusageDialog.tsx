@@ -7,11 +7,12 @@ import { COPY } from "@/core/copy/shared";
 import { Segmented } from "@/kit/ChoiceButtons";
 import { Dialog } from "@/kit/Dialog";
 import { useLocked } from "@/kit/draftUnsaved";
+import { TextField } from "@/kit/TextField";
 
 import { enterZusage } from "./enterZusage";
 
+import type { BoxRules } from "@/core/boxRules";
 import type { Words } from "@/core/copy";
-import type { ReactNode } from "react";
 
 const WORDS = ADMIN_COPY.overview;
 const ACT = { verb: "enter", object: WORDS.zusage } as const;
@@ -23,18 +24,15 @@ export type OpenParty = { id: string; name: Words };
 /**
  * „Zusage eintragen“ from a fixture's row, or from one party's: which party still to answer agreed, one segment each,
  * and how the agreement reached the league, which the confirmation stores as the reason the write requires. The choice
- * posts its party's row as `id`, the box a refusal of the party stands on; the reason's box is drawn on the server.
+ * posts its party's row as `id`, the box a refusal of the party stands on.
  */
 export function ZusageDialog({
   parties,
-  partyRequired,
-  children,
+  rules,
 }: {
   parties: readonly [OpenParty, ...OpenParty[]];
-  /** Whether the write asks for the party's row, read off its schema on the server. */
-  partyRequired: boolean;
-  /** The reason's box, posting under the name `enterZusage` reads it by. */
-  children: ReactNode;
+  /** What the Zusage's lane asks of its boxes, read on the server. */
+  rules: BoxRules;
 }) {
   // Locked inside an editor whose draft holds unsaved changes, as every act there is.
   const locked = useLocked(undefined);
@@ -48,16 +46,22 @@ export function ZusageDialog({
       title={TITLE}
       act={ACT}
       run={enterZusage}
+      rules={rules}
       trigger={{ label: TITLE, ...(locked === undefined ? {} : { locked }) }}>
       <Segmented
         label={WORDS.zusageFrom}
         name="id"
         choices={parties.map((party) => ({ id: party.id, label: party.name }))}
-        isRequired={partyRequired}
         value={chosen}
         onChange={choose}
       />
-      {children}
+      <TextField
+        label={COPY.spielplan.answerNote}
+        // The name `enterZusage` reads the reason by.
+        name="reason"
+        // A paragraph: a reason a person writes, at four lines, its line breaks kept.
+        kind="paragraph"
+      />
     </Dialog>
   );
 }

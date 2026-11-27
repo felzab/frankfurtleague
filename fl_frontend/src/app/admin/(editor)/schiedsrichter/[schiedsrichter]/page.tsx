@@ -1,6 +1,7 @@
 import { cache } from "react";
 import { notFound } from "next/navigation";
 
+import { boxRulesOf } from "@/core/action";
 import { getAdminHolder } from "@/core/auth/guards";
 import { SCHIEDSRICHTER_WORDINGS } from "@/core/consentWordings";
 import { ADMIN_COPY } from "@/core/copy/admin";
@@ -9,7 +10,6 @@ import { dayOf, formatDate } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { deliveryChip } from "@/features/bewerbungen/deliveryState";
 import { refereeChip } from "@/features/schiedsrichter/confirmationState";
-import { SAVE_RULES } from "@/features/schiedsrichter/fieldRules";
 import { getSchiedsrichterById } from "@/features/schiedsrichter/queries";
 import { adminIdParamOf } from "@/shared/utils/adminRead";
 import { pageMetadata } from "@/shared/utils/metadata";
@@ -121,7 +121,7 @@ export default async function SchiedsrichterEditorPage({ params }: Props) {
       record={{ id: referee.id, version: referee.version, values: valuesOf(referee) }}
       save={saveSchiedsrichter}
       holder={holder}
-      rules={SAVE_RULES}
+      rules={boxRulesOf(saveSchiedsrichter)}
       address={state === "confirmed" ? "fixed" : "asks"}
       confirmation={confirmationFacts(found)}
       {...(asking ? { sendLink: sendSchiedsrichterLink } : {})}

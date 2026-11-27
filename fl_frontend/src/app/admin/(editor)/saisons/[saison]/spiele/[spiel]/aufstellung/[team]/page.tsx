@@ -1,6 +1,7 @@
 import { cache } from "react";
 import { notFound } from "next/navigation";
 
+import { boxRulesOf } from "@/core/action";
 import { COPY } from "@/core/copy/shared";
 import { ContractBreakError } from "@/core/errors";
 import { dayOf, timeOf } from "@/core/format";
@@ -15,6 +16,7 @@ import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
 
 import { AdminAufstellung } from "./AdminAufstellung";
+import { saveAufstellung } from "./saveAufstellung";
 
 import type { Copy } from "@/core/copy";
 import type { FLAufstellungResponse } from "@/core/generated/client/types";
@@ -95,6 +97,7 @@ export default async function AdminAufstellungPage({ params }: Props) {
   }
   return (
     <AdminAufstellung
+      rules={boxRulesOf(saveAufstellung)}
       team={found.team_id}
       title={title}
       // What befell the match, after the title as every match block draws it.

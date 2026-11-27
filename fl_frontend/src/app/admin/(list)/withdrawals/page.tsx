@@ -1,8 +1,7 @@
-import { requires } from "@/core/action";
+import { boxRulesOf } from "@/core/action";
 import { getAdminHolder } from "@/core/auth/guards";
 import { ADMIN_COPY } from "@/core/copy/admin";
 import { COPY } from "@/core/copy/shared";
-import { IdentityPostWithdrawalBody, identityPostWithdrawalBodyEmailMax } from "@/core/generated/zod/inputs";
 import { ROUTES } from "@/core/routes";
 import { Checkbox } from "@/kit/Checkbox";
 import { FieldGroup } from "@/kit/FieldGroup";
@@ -13,8 +12,6 @@ import { pageMetadata } from "@/shared/utils/metadata";
 
 import { enterWithdrawal, readWithdrawal } from "./withdrawalActs";
 import { WITHDRAWAL_CHOICES } from "./withdrawalChoices";
-
-const { email } = IdentityPostWithdrawalBody.shape;
 
 const WORDS = ADMIN_COPY.withdrawal;
 
@@ -32,14 +29,13 @@ export default function WithdrawalsPage() {
       verb="enter"
       tone="primary"
       read={readWithdrawal}
+      rules={boxRulesOf(readWithdrawal)}
       run={enterWithdrawal}
       holder={runAdminRead(getAdminHolder)}>
       <TextField
         label={COPY.shared.emailAddress}
         name="email"
         kind="email"
-        isRequired={requires(email, "")}
-        maxLength={identityPostWithdrawalBodyEmailMax}
       />
       <FieldGroup name={WORDS.object}>
         {WITHDRAWAL_CHOICES.map((choice) => (

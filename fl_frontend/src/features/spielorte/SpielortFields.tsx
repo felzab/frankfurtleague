@@ -4,8 +4,6 @@ import { AddressFields } from "@/kit/AddressFields";
 import { FieldGroup } from "@/kit/FieldGroup";
 import { TextField } from "@/kit/TextField";
 
-import type { SpielortRules } from "./fieldRules";
-
 const WORDS = ADMIN_COPY.spielort;
 
 /**
@@ -14,14 +12,11 @@ const WORDS = ADMIN_COPY.spielort;
  * posts under its own name, which `createSpielort` reads.
  */
 export function SpielortFields({
-  rules,
   name,
 }: {
-  rules: SpielortRules;
   /** The name typed into the match editor's venue field before its create entry was chosen. */
   name?: string;
 }) {
-  const { required, max, address } = rules;
   return (
     <>
       <TextField
@@ -29,8 +24,6 @@ export function SpielortFields({
         name="name"
         kind="text"
         defaultValue={name}
-        isRequired={required.name}
-        maxLength={max.name}
       />
       <TextField
         label={WORDS.mietpreis}
@@ -38,10 +31,9 @@ export function SpielortFields({
         holds={5}
         kind="digits"
         unit={COPY.shared.unit.euro}
-        isRequired={required.default_mietpreis}
       />
       <FieldGroup name={COPY.shared.address.title}>
-        <AddressFields rules={address} />
+        <AddressFields />
       </FieldGroup>
     </>
   );

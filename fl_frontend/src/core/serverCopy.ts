@@ -171,6 +171,8 @@ export const SERVER_COPY = catalogue({
     team_retired: "Das Team ist stillgelegt.",
     /** A reactivated squad row past the season's cap, and an admission into a squad that filled meanwhile. */
     kader_full: "Der Kader ist voll.",
+    /** A squad row's return whose role another live row took since the page offered it: the press shows no role box. */
+    kader_rolle_taken: "Die Rolle ist schon vergeben.",
     /** An admission of a pupil a squad of the season holds already. */
     registrierung_already_in_kader: "Die Person steht schon in einem Kader.",
     /** An admission whose registered Stufe the season stopped offering after the pupil registered. */
@@ -198,10 +200,6 @@ export const SERVER_COPY = catalogue({
      * to delete, one entered or changed since the question was asked among them: the match editor asks again.
      */
     voided_results_stale: ADMIN_COPY.overview.voidsLater,
-    /** A matchday's dates: past its season's, short of one of its dated matches, or out of its phase's order of matchdays. */
-    spieltag_outside_saison: "Dieser Zeitraum liegt außerhalb der Saison.",
-    spieltag_span_below_spiele: "Ein Spiel liegt außerhalb dieses Zeitraums.",
-    spieltag_start_out_of_order: "Der Beginn passt nicht in die Reihenfolge der Spieltage.",
   } satisfies Partial<Record<Code, string | Readonly<Record<string, string>> | ((context: FLRefusedField["ctx"]) => string | undefined)>>,
 
   /**
@@ -212,16 +210,6 @@ export const SERVER_COPY = catalogue({
   ruleLine: {
     elfmeterschiessen_without_winner: "Das Elfmeterschießen hat keinen Sieger.",
   } satisfies Partial<Record<Rule, string>>,
-
-  /**
-   * The administration's own phrases a field fault reuses for the state they already word, which the core's patterns
-   * read here, the one core module the administration's catalogue is imported into: a no-show picked before both
-   * sides are known, and a club out of the season.
-   */
-  fieldPhrase: {
-    bothTeams: ADMIN_COPY.bothTeamsLocked,
-    departed: ADMIN_COPY.spiel.departed,
-  },
 
   /**
    * What an act's server action answers on its own, beside the refusals the catalogue words by their code: a refusal

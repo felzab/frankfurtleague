@@ -1,7 +1,8 @@
 import { notFound } from "next/navigation";
 
+import { boxRulesOf } from "@/core/action";
 import { ROUTES } from "@/core/routes";
-import { ACCEPT_RULES } from "@/features/bewerbungen/fieldRules";
+import { acceptBewerbung } from "@/features/bewerbungen/acceptBewerbung";
 import { getBewerbungenOfSaison } from "@/features/bewerbungen/queries";
 import { standingOf } from "@/features/bewerbungen/standing";
 import { StepsPage } from "@/kit/StepsPage";
@@ -30,7 +31,7 @@ async function readRun(params: Props["params"]) {
       rows={read.bewerbungen.filter((row) => standingOf(row) === "complete").toReversed()}
       gruppen={read.saison.gruppen}
       taken={read.saison.taken}
-      rules={ACCEPT_RULES}
+      rules={boxRulesOf(acceptBewerbung)}
     />
   );
 }

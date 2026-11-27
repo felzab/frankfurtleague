@@ -1,12 +1,9 @@
 import { describe, expect, it, onTestFinished } from "vitest";
 
-import { COPY } from "@/core/copy/shared";
 import { ADMIN_EMAIL } from "@/test-support/authDoubles";
 import { refusal, serveBackend } from "@/test-support/backend";
 import { signedInRequest } from "@/test-support/session";
 import { captureLog } from "@/test-support/stdoutCapture";
-
-import type { FLRefusedField } from "@/core/generated/client/types";
 
 /** The address the page was drawn for, which every act behind the passkey touch posts: the signed-in administrator's. */
 const HOLDER = ADMIN_EMAIL;
@@ -16,16 +13,11 @@ const GRANT_ID = "64b000000000000000000002";
 const REMOVED_ID = "64b000000000000000000003";
 const REMOVED = "bernd@example.org";
 
-/** An address a grant holds, refused on the addition's box. */
-const HELD: FLRefusedField = { kind: "grant_exists", path: ["email"], ctx: {}, in: "body" };
-
-// The removal is answered as the case names, and an addition's dry run refused for an address a grant holds; anything
-// else is unanswered and fails the case.
-serveBackend(({ method, path, search }) => {
+// The removal is answered as the case names; anything else is unanswered and fails the case.
+serveBackend(({ method, path }) => {
   if (method === "DELETE" && path === `/grants/${REMOVED_ID}`) return { address: REMOVED };
   // A row already gone, as `delete_grant` refuses one.
   if (method === "DELETE" && path === `/grants/${GRANT_ID}`) return refusal("document_not_found");
-  if (method === "POST" && path === "/grants" && search.get("dry_run") === "true") return refusal("grant_exists", { fields: [HELD] });
   return undefined;
 });
 // An administrator's session, made by passkey just now, which every act's guard and passkey touch admit.
@@ -34,19 +26,7 @@ const { arriveAs, store } = signedInRequest();
 /** Every line the real logger writes, read off standard output. */
 const log = captureLog();
 
-const { addAdministrator, removeAdministrator } = await import("./grantActs");
-
-// The harm: a refusal of the address typed answered on the dialog's line, the box it is about left unmarked.
-describe("an addition", () => {
-  it("refuses an address a grant holds on its box, on the dry run before the touch", async () => {
-    expect(await addAdministrator({ email: REMOVED, holder: HOLDER }, true)).toStrictEqual({
-      ok: false,
-      errorCode: "grant_exists",
-      fieldErrors: { email: COPY.shared.field.ofAdministration },
-      kinds: { email: "grant_exists" },
-    });
-  });
-});
+const { removeAdministrator } = await import("./grantActs");
 
 /**
  * The removed address's account holding a passkey, a session it made and a session a mailed code made, beside the

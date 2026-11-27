@@ -10,35 +10,22 @@ const WORDS = COPY.shared.address;
 /** An address's boxes, by the names they post under. */
 type AddressField = "street" | "house_number" | "postcode" | "district" | "city";
 
-/** What a write asks of an address, read off its schema on the server. */
-export type AddressRules = {
-  required: Readonly<Record<AddressField, boolean>>;
-  max: Readonly<Record<Exclude<AddressField, "postcode">, number>>;
-  /** The postcode's one length, which its box holds before the send as well. */
-  postcodeLength: number;
-  /** The house number's pattern, as a source (`TextField`'s `pattern`). */
-  pattern: { house_number: string };
-};
-
 /**
  * An address's lines, in a create dialog and an editor's box alike, on a venue and a club: the street and its number,
  * the postcode and its town, each pair one line of the address, sharing a row at every width, the postcode before its
- * town as a German address writes it, and the district. Each box posts under its own name; an editor's draft holds
- * the values through `draft`, a form holding its typed text itself names each box and keeps its text through `box`, and
- * without a draft a new address starts in the league's town.
+ * town as a German address writes it, and the district. Each box posts under its own name, which its form holds to its
+ * lane's rules; an editor's draft holds the values through `draft`, a form holding its typed text itself names each box
+ * and keeps its text through `box`, and without a draft a new address starts in the league's town.
  */
 export function AddressFields({
-  rules,
   draft,
   box,
   streetDescription,
 }: {
-  rules: AddressRules;
   draft?: { values: Readonly<Record<AddressField, string>>; set: (field: AddressField, value: string) => void };
   box?: (field: AddressField) => { name: string; defaultValue?: string; onChange: (value: string) => void };
   streetDescription?: Copy;
 }) {
-  const { required, max, postcodeLength, pattern } = rules;
   const bound = (field: AddressField) => {
     if (draft !== undefined) return { name: field, value: draft.values[field], onChange: (value: string) => draft.set(field, value) };
     const held: { name: string; defaultValue?: string; onChange?: (value: string) => void } = box?.(field) ?? { name: field };
@@ -51,18 +38,12 @@ export function AddressFields({
           label={WORDS.street}
           description={streetDescription}
           kind="text"
-          isRequired={required.street}
-          maxLength={max.street}
           {...bound("street")}
         />
         <TextField
           label={WORDS.houseNumber}
           holds={5}
           kind="text"
-          example={WORDS.houseNumberExample}
-          pattern={pattern.house_number}
-          isRequired={required.house_number}
-          maxLength={max.house_number}
           {...bound("house_number")}
         />
       </FieldPair>
@@ -71,24 +52,17 @@ export function AddressFields({
           label={WORDS.postcode}
           holds={5}
           kind="digits"
-          isRequired={required.postcode}
-          maxLength={postcodeLength}
-          minLength={postcodeLength}
           {...bound("postcode")}
         />
         <TextField
           label={WORDS.city}
           kind="text"
-          isRequired={required.city}
-          maxLength={max.city}
           {...bound("city")}
         />
       </FieldPair>
       <TextField
         label={WORDS.district}
         kind="text"
-        isRequired={required.district}
-        maxLength={max.district}
         {...bound("district")}
       />
     </>

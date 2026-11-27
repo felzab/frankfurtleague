@@ -4,7 +4,6 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy/shared";
-import { spielberichtePutSpielberichtBerichtBodyBerichtScorersItemMinuteRegExp } from "@/core/generated/zod/inputs";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { renderUnderNext } from "@/test-support/nextContexts";
 
@@ -42,10 +41,8 @@ describe("a first report opened at the league's no-show", () => {
           team2: { name: { record: "Weide" }, plaque: { record: "WEI" } },
         }}
         kader={{ team1: [], team2: [] }}
-        minute={{ pattern: spielberichtePutSpielberichtBerichtBodyBerichtScorersItemMinuteRegExp.source }}
-        required={{ minute: true, goalPlayer: true, cardPlayer: true, side: true, cardColour: true }}
+        rules={{}}
         eigentor={SERVER_COPY.season.spiel.eigentor}
-        remarksMax={500}
       />,
       AT_ADDRESS,
     );

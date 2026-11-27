@@ -9,6 +9,7 @@ import { TextField } from "@/kit/TextField";
 
 import { deregisterKaderRow, saveKaderRow } from "./kaderRowActs";
 
+import type { BoxRules } from "@/core/boxRules";
 import type { FLKaderRow, FLSpielerRolle, FLSpielerStufe } from "@/core/generated/client/types";
 import type { HeldOpen } from "@/kit/useOpenUntilHidden";
 
@@ -26,7 +27,7 @@ export function KaderRowDialog({
   saison,
   allowedStufen,
   takenRollen,
-  nummerMax,
+  rules,
   open,
 }: {
   row: FLKaderRow;
@@ -35,8 +36,8 @@ export function KaderRowDialog({
   allowedStufen: readonly FLSpielerStufe[];
   /** Each role another live row of the squad holds, the row's own not among them. */
   takenRollen: readonly FLSpielerRolle[];
-  /** The longest shirt number the save takes, read off its schema on the server. */
-  nummerMax: number;
+  /** What the row's save asks of its boxes, read on the server. */
+  rules: BoxRules;
   open: HeldOpen;
 }) {
   const name = kaderName(row);
@@ -47,6 +48,7 @@ export function KaderRowDialog({
       title={{ record: name }}
       act={{ verb: "save" }}
       run={saveKaderRow}
+      rules={rules}
       carry={{ ...where, version: String(row.version) }}
       open={open}
       danger={{
@@ -66,7 +68,6 @@ export function KaderRowDialog({
         name="nummer"
         holds={5}
         kind="digits"
-        maxLength={nummerMax}
         defaultValue={row.nummer ?? ""}
       />
       <Select

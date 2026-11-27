@@ -18,7 +18,7 @@ describe("the sign-in template", () => {
         view="address"
         title={COPY.page.signIn}
         row={null}
-        address={{ label: COPY.shared.emailAddress, value: "", onChange: () => undefined, error }}
+        address={{ label: COPY.shared.emailAddress, value: "", onChange: () => undefined, error, rules: {} }}
         check={null}
         send={{ label: WORDS.sendCode, onPress: () => undefined }}
         or={WORDS.or}

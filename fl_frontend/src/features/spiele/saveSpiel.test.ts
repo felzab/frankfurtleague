@@ -201,15 +201,50 @@ describe("the match editor's save", () => {
   });
 
   it("asks for each booking's money and each side's goals the save needs, writing nothing", async () => {
-    const answer = await saveSpiel(saving({ mietpreis: "", payment: "", tore2: "" }));
+    const answer = await saveSpiel(saving({ mietpreis: "", payment: "", tore1: "", tore2: "" }));
 
     const required = COPY.shared.field.required;
     expect(answer).toStrictEqual({
       ok: false,
-      fieldErrors: { "changes.mietpreis": required, "changes.payment": required, "changes.tore2": required },
-      kinds: { "changes.mietpreis": "required", "changes.payment": "required", "changes.tore2": "required" },
+      fieldErrors: { "changes.mietpreis": required, "changes.payment": required, "changes.tore1": required, "changes.tore2": required },
+      kinds: { "changes.mietpreis": "required", "changes.payment": "required", "changes.tore1": "required", "changes.tore2": "required" },
     });
     expect(state.sent).toEqual([]);
+  });
+
+  // The harm: a knockout's level match saved with one shoot-out figure, which the write cannot carry half of: the
+  // save would send no shoot-out and drop the typed figure, leaving the match undecided with nothing said.
+  it("asks for the shoot-out's other figure once one is typed, writing nothing", async () => {
+    const answer = await saveSpiel(saving({ shootOut2: "" }));
+
+    expect(answer).toStrictEqual({
+      ok: false,
+      fieldErrors: { "changes.shootOut2": COPY.shared.field.required },
+      kinds: { "changes.shootOut2": "required" },
+    });
+    expect(state.sent).toEqual([]);
+  });
+
+  // The harm: a double booking, a retired venue, an unconfirmed referee or a departed club marks no box, its phrase
+  // shown nowhere, since the write names each by the path its payload nests the resource under.
+  it("stands each fault the write names on the box of the resource it nests, by the write's own paths", async () => {
+    const body = { ctx: {}, in: "body" } as const;
+    state.answer = refusal("spiel_double_booked", {
+      status: 409,
+      fields: [
+        { ...body, kind: "spiel_double_booked", path: ["spielort", "spielort_id"] },
+        { ...body, kind: "eligibility_disqualified", path: ["team1", "team_id"] },
+      ],
+    });
+
+    const answer = await saveSpiel(saving({ spielort: PICKED }));
+
+    expect(answer).toStrictEqual({
+      ok: false,
+      errorCode: "spiel_double_booked",
+      fieldErrors: { "changes.spielort": COPY.shared.field.taken, "changes.team1": ADMIN_COPY.spiel.departed },
+      kinds: { "changes.spielort": "spiel_double_booked", "changes.team1": "eligibility_disqualified" },
+    });
   });
 });
 

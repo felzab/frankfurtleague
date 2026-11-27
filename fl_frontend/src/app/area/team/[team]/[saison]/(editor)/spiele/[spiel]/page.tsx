@@ -1,6 +1,7 @@
 import { cache } from "react";
 import { notFound } from "next/navigation";
 
+import { boxRulesOf } from "@/core/action";
 import { COPY } from "@/core/copy/shared";
 import { ContractBreakError } from "@/core/errors";
 import { dayIn, dayOf, timeOf } from "@/core/format";
@@ -15,6 +16,7 @@ import { StatusPage } from "@/kit/StatusPage";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { objectIdParamOf } from "@/shared/utils/routeParams";
 
+import { saveAufstellung } from "./saveAufstellung";
 import { TeamAufstellung } from "./TeamAufstellung";
 
 import type { Copy } from "@/core/copy";
@@ -112,6 +114,7 @@ export default async function AufstellungPage({ params }: Props) {
   const chip = chipOf(found);
   return (
     <TeamAufstellung
+      rules={boxRulesOf(saveAufstellung)}
       team={seat.team_id}
       title={title}
       {...(chip === undefined ? {} : { chip })}

@@ -1,12 +1,12 @@
 import { notFound } from "next/navigation";
 
+import { boxRulesOf } from "@/core/action";
 import { ADMIN_COPY } from "@/core/copy/admin";
 import { COPY } from "@/core/copy/shared";
 import { FLGruppenNames, FLTeamListState } from "@/core/generated/client/types";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { adminTeamChip, trikotFarbeLabel } from "@/features/teams/constants";
-import { TEAM_ENTRY_RULES, TEAM_ENTRY_TEAM_REQUIRED } from "@/features/teams/fieldRules";
 import { gruppeOptions, trikotOptions } from "@/features/teams/options";
 import { getTeamsAdmin } from "@/features/teams/queries";
 import { filterValue } from "@/kit/filterValue";
@@ -135,6 +135,7 @@ async function readCreate(list: Promise<FLTeamsAdminListResponse>, params: Props
     title: COPY.shared.withObject(TEAM, ACT.verb),
     act: ACT,
     run: enterTeam,
+    rules: boxRulesOf(enterTeam),
     carry: { saison_id: saison },
     children: (
       <TeamEntryFields
@@ -142,8 +143,6 @@ async function readCreate(list: Promise<FLTeamsAdminListResponse>, params: Props
         teams={entry.teams.map((team) => ({ id: team.id, label: { record: team.name } }))}
         gruppen={gruppeOptions(entry.gruppen, null)}
         colours={trikotOptions(entry.taken)}
-        rules={TEAM_ENTRY_RULES}
-        teamRequired={TEAM_ENTRY_TEAM_REQUIRED}
       />
     ),
     ...(entry.closed ? { locked: WORDS.onlyPlanned } : {}),

@@ -1,9 +1,9 @@
+import { boxRulesOf } from "@/core/action";
 import { ADMIN_COPY } from "@/core/copy/admin";
 import { COPY } from "@/core/copy/shared";
 import { dayOf, formatDate, formatNumber } from "@/core/format";
 import { ownKeyOf } from "@/core/ownKeyOf";
 import { ROUTES } from "@/core/routes";
-import { SAISON_CREATE_RULES } from "@/features/saisons/fieldRules";
 import { nextSaisonOf } from "@/features/saisons/nextSaison";
 import { getAdminSaisons } from "@/features/saisons/queries";
 import { saisonChipOf } from "@/features/saisons/saisonState";
@@ -72,13 +72,9 @@ async function readCreate(read: ReturnType<typeof getAdminSaisons>): Promise<Lis
     title: COPY.shared.withObject(name, "create"),
     act: { verb: "create", object: name },
     run: createSaison,
+    rules: boxRulesOf(createSaison),
     // Read oldest first, the order `getAdminSaisons` asks for.
-    children: (
-      <CreateFields
-        next={nextSaisonOf(saisons.at(-1))}
-        rules={SAISON_CREATE_RULES}
-      />
-    ),
+    children: <CreateFields next={nextSaisonOf(saisons.at(-1))} />,
     ...(refusals.create === null ? {} : { locked: lockedOf(refusals.create) }),
   };
 }

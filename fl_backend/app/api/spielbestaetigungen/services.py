@@ -47,7 +47,7 @@ from app.core import clock
 from app.core.clock import days_after
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.exceptions import APIError, FieldCheck, FieldFault, Subject, faults_of, refusal_status
+from app.core.exceptions import APIError, FieldCheck, FieldFault, Subject, faults_of
 from app.shared.schemas.bounds import (
     SPIEL_CONFIRMATION_DEADLINE_DAYS,
     SPIEL_REMINDER_DAYS,
@@ -464,7 +464,7 @@ def as_judged_on_the_stored_proposal(refusal: APIError | FieldCheck) -> APIError
     if faults:
         first = faults[0]
         subject = Subject(path=first.path, location="body", bounds=first.bounds)
-        return APIError(_on_the_stored_proposal(refusal_status(faults)), first.code, subject=subject)
+        return APIError(_on_the_stored_proposal(first.status), first.code, subject=subject)
 
     if not isinstance(refusal, APIError):
         return None
@@ -474,14 +474,6 @@ def as_judged_on_the_stored_proposal(refusal: APIError | FieldCheck) -> APIError
 
 def _on_the_stored_proposal(status: HTTPStatus) -> HTTPStatus:
     return HTTPStatus.CONFLICT if status == HTTPStatus.UNPROCESSABLE_CONTENT else status
-
-
-def judged_as_a_proposal(check: FieldCheck) -> APIError | None:
-    """A refusal of the proposal, naming no field: the paths its faults name are a body this request does not carry."""
-
-    faults = faults_of((check,))
-
-    return APIError(refusal_status(faults), faults[0].code) if faults else None
 
 
 def proposal_payload(stored: FLSpiel, vorschlag: FLSpielbestaetigungAppointment) -> FLPatchSpielDataPayload:

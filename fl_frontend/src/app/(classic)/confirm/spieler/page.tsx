@@ -1,6 +1,6 @@
 import { cache } from "react";
 
-import { requires } from "@/core/action";
+import { boxRulesOf } from "@/core/action";
 import { MEDIA_MIN_AGE } from "@/core/bounds";
 import { now } from "@/core/clock";
 import { SPIELER_TEXT_VERSIONS, SPIELER_WORDINGS } from "@/core/consentWordings";
@@ -8,7 +8,6 @@ import { COPY } from "@/core/copy/shared";
 import { bornAfter, bornBy } from "@/core/dayArithmetic";
 import { dayIn, dayOf } from "@/core/format";
 import { registrierungenGetConfirmationView } from "@/core/generated/client/sdk";
-import { RegistrierungenPostConfirmationBody } from "@/core/generated/zod/inputs";
 import { mailedLinkToken } from "@/core/mailedLink";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
@@ -32,11 +31,6 @@ export async function generateMetadata(): Promise<Metadata> {
 const WORDS = SERVER_COPY.registrierungConfirmation;
 
 const INVALID: MailedState = { state: "end", ...LINK_INVALID };
-
-const { shape } = RegistrierungenPostConfirmationBody;
-
-/** What the confirmation's write asks of the two answers, a day and a choice that post nothing while unanswered. */
-const REQUIRED = { birth_date: requires(shape.birth_date, null), scope: requires(shape.scope, null) };
 
 /**
  * `/confirm/spieler`, the link a pupil's registration mails them, on the mailed-page template: the question, with
@@ -68,19 +62,19 @@ function question(view: FLRegistrierungConfirmationViewValid, token: string): Ma
     more: WORDS.more,
     sentenceAfter: WORDS.deadline(until),
     run: answerRegistrierung,
+    rules: boxRulesOf(answerRegistrierung),
     acts: { primary: COPY.page.registrierungConfirmation },
     // The labels of the wordings the page draws, so a press after a rewording is refused rather than stamped.
     carry: { token, "text_versions.scope": SPIELER_TEXT_VERSIONS.scope, "text_versions.media": SPIELER_TEXT_VERSIONS.media },
     children: (
       <ConfirmationFields
-        consent={{ name: "scope", wording: SPIELER_WORDINGS.scope, isRequired: REQUIRED.scope }}
+        consent={{ name: "scope", wording: SPIELER_WORDINGS.scope }}
         media={SPIELER_WORDINGS.media}
         ageCheck={WORDS.ageCheck(view.minimum_age)}
         // The range the write judges, as the link's view serves it.
         earliestBirth={bornAfter(today, view.maximum_age)}
         latestBirth={bornBy(today, view.minimum_age)}
         mediaLatestBirth={bornBy(today, MEDIA_MIN_AGE)}
-        isBirthDateRequired={REQUIRED.birth_date}
       />
     ),
   };

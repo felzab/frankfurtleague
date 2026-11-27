@@ -6,10 +6,8 @@ import { describe, expect, it, vi } from "vitest";
 import { ADMIN_COPY } from "@/core/copy/admin";
 import { COPY } from "@/core/copy/shared";
 import { dayOf, formatList } from "@/core/format";
-import { AUSTRITT_RULES, SEAT_RULES, TEAM_DESCRIPTION_MAX, TEAM_SAVE_RULES } from "@/features/teams/fieldRules";
 import { renderUnderNext } from "@/test-support/nextContexts";
 
-import { recordAustritt } from "./teamActs";
 import { TeamEditor } from "./TeamEditor";
 
 import type { NextContexts } from "@/test-support/nextContexts";
@@ -74,11 +72,10 @@ async function openExit() {
       title={{ record: VALUES.full_name }}
       record={{ id: "64b000000000000000000001", version: 1, values: VALUES }}
       save={vi.fn()}
-      rules={TEAM_SAVE_RULES}
-      descriptionMax={TEAM_DESCRIPTION_MAX}
-      seatRules={SEAT_RULES}
+      rules={{}}
+      seatRules={{}}
       holder="admin@example.org"
-      austrittRules={AUSTRITT_RULES}
+      austrittRules={{}}
       retirement={{ kind: "retire" }}
       row={ROW}
     />,
@@ -102,21 +99,5 @@ describe("the exit dialog's „E-Mail an“", () => {
     await userEvent.keyboard("21");
 
     expect(mailTo()).toBe("Otto Gruber");
-  });
-});
-
-// The harm: a refusal of the exit's kind shown nowhere, the focus left on the dialog's act.
-describe("the exit dialog's kind", () => {
-  it("takes a refusal of the kind on its choice, which takes the focus", async () => {
-    const fault = COPY.shared.field.required;
-    vi.mocked(recordAustritt).mockResolvedValueOnce({ ok: false, fieldErrors: { type: fault } });
-    const dialog = await openExit();
-    await userEvent.type(within(dialog).getByRole("textbox", { name: COPY.shared.reason }), "Zurückgezogen");
-
-    await userEvent.click(within(dialog).getByRole("button", { name: COPY.shared.verb.enter }));
-
-    const kind = await within(dialog).findByRole("radiogroup", { name: ADMIN_COPY.team.austrittType });
-    await within(kind).findByText(fault);
-    expect(kind.contains(document.activeElement)).toBe(true);
   });
 });

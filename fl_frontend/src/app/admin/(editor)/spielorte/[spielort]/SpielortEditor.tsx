@@ -9,7 +9,7 @@ import { TextField } from "@/kit/TextField";
 import { useEditor } from "@/kit/useEditor";
 
 import type { ActionAnswer } from "@/core/action";
-import type { SpielortRules } from "@/features/spielorte/fieldRules";
+import type { BoxRules } from "@/core/boxRules";
 import type { DangerAct } from "@/kit/EditorPage";
 import type { PageTitle } from "@/kit/RailFrame";
 import type { EditorRecord, EditorSave } from "@/kit/useEditor";
@@ -38,15 +38,14 @@ export function SpielortEditor({
   title: PageTitle;
   record: EditorRecord<SpielortValues>;
   save: (change: EditorSave<SpielortValues>) => Promise<ActionAnswer<number>>;
-  /** What the write asks of each field, read on the server. */
-  rules: SpielortRules;
+  /** What the save's lane asks of its boxes, read on the server. */
+  rules: BoxRules;
   retired: boolean;
   retire: Act;
   reactivate: Act;
 }) {
   const editor = useEditor(record, save);
   const { draft, set } = editor;
-  const { required, max } = rules;
 
   const danger: DangerAct = retired
     ? {
@@ -77,6 +76,7 @@ export function SpielortEditor({
       title={title}
       chip={retired ? RETIRED_CHIP : ACTIVE_CHIP}
       editor={editor}
+      rules={rules}
       danger={{ title: ADMIN_COPY.retirement, acts: [danger] }}
       sections={[
         {
@@ -89,8 +89,6 @@ export function SpielortEditor({
                 label={COPY.shared.name}
                 name="name"
                 kind="text"
-                isRequired={required.name}
-                maxLength={max.name}
                 value={draft.name}
                 onChange={(name) => set("name", name)}
               />
@@ -100,7 +98,6 @@ export function SpielortEditor({
                 holds={5}
                 kind="digits"
                 unit={COPY.shared.unit.euro}
-                isRequired={required.default_mietpreis}
                 value={draft.default_mietpreis}
                 onChange={(price) => set("default_mietpreis", price)}
               />
@@ -110,12 +107,7 @@ export function SpielortEditor({
         {
           id: "adresse",
           title: COPY.shared.address.title,
-          fields: (
-            <AddressFields
-              rules={rules.address}
-              draft={{ values: draft, set }}
-            />
-          ),
+          fields: <AddressFields draft={{ values: draft, set }} />,
         },
       ]}
     />

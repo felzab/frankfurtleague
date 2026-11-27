@@ -6,6 +6,7 @@ import { Callout } from "@/kit/Callout";
 import { Facts } from "@/kit/Facts";
 import { TextField } from "@/kit/TextField";
 
+import type { BoxRules } from "@/core/boxRules";
 import type { Copy, RecordText } from "@/core/copy";
 
 /** A change pending on the address, as the server words it: its sentence's runs, around its new address. */
@@ -28,11 +29,11 @@ export function SignInBoxes({
   pending,
   touch,
   lastOwner,
-  addressRequired,
+  addressRules,
 }: {
   email: string;
-  /** Whether the start's write refuses the new address empty, read off its schema on the server. */
-  addressRequired: boolean;
+  /** What the change's start asks of the new address, read on the server. */
+  addressRules: BoxRules;
   pending: Pending | null;
   touch: boolean;
   lastOwner: Copy | undefined;
@@ -52,6 +53,7 @@ export function SignInBoxes({
           act={{
             run: startAddressChange,
             dryRun: true,
+            rules: addressRules,
             // The address the page is drawn for, which every act of the account posts.
             carry: { holder: email },
             button: { label: COPY.shared.withObject(COPY.shared.link, "send") },
@@ -64,7 +66,6 @@ export function SignInBoxes({
             name="email"
             kind="email"
             autofill="email"
-            isRequired={addressRequired}
           />
         </AccountBox>
       ) : (

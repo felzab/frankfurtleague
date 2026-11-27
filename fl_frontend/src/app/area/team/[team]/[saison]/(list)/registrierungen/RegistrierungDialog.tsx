@@ -65,6 +65,8 @@ export function RegistrierungDialog({ entry, open }: { entry: RegistrierungEntry
       {...(notes === undefined ? {} : { lead: notes })}
       act={{ verb: "admit" }}
       run={(formData) => admitted(entry, formData)}
+      // Its one box, the same-person answer, is the dialog's own, which no lane reads: it always holds a choice.
+      rules={{}}
       {...(admission.kind === "locked" ? { locked: admission.reason } : {})}
       open={open}
       danger={{

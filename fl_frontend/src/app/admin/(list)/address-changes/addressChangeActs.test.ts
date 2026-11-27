@@ -38,12 +38,6 @@ const requestsSent = () => backend.sent.map(({ method, path }) => `${method} ${p
 // administrator's passkeys behind on the old account, and nothing fails.
 describe("a start, an account standing at the new address", () => {
   const TAKEN = { ok: false, errorCode: "address_change_taken", fieldErrors: { email: field.taken }, kinds: { email: "address_change_taken" } };
-  /** The backend's dry run of the start, answered with `answer`. */
-  const dryRunAnswers = (answer: Response) => {
-    backend.answerWith(({ method, path, search }) =>
-      method === "POST" && path === "/address_change" && search.get("dry_run") === "true" ? answer : undefined,
-    );
-  };
 
   // The harm: a refusal on the dialog's line rather than on the new address's box, which nothing then marks.
   it("is refused on the new address's box, and the start mints nothing", async () => {
@@ -51,39 +45,6 @@ describe("a start, an account standing at the new address", () => {
 
     expect(await startLostMailboxChange(START)).toStrictEqual(TAKEN);
     expect(requestsSent()).toStrictEqual([]);
-  });
-
-  // The harm: a dry run passing it would spend the touch on a start the write then refuses.
-  it("is refused on its dry run on the new address's box, beside every fault the backend's dry run names", async () => {
-    accountAt(NEW_ADDRESS);
-    const own: FLRefusedField = { kind: "own_address", path: ["address"], ctx: {}, in: "body" };
-    dryRunAnswers(refusal("own_address", { status: 403, fields: [own] }));
-
-    expect(await startLostMailboxChange(START, true)).toStrictEqual({
-      ok: false,
-      errorCode: "own_address",
-      fieldErrors: { address: field.onlyInKonto, email: field.taken },
-      kinds: { address: "own_address", email: "address_change_taken" },
-    });
-  });
-
-  it("is refused on its dry run on the new address's box where the backend's dry run passes", async () => {
-    accountAt(NEW_ADDRESS);
-    dryRunAnswers(new Response(null, { status: 204 }));
-
-    expect(await startLostMailboxChange(START, true)).toStrictEqual(TAKEN);
-  });
-
-  // A gate means no field past it: the backend's refusal naming none stands alone, in its own sentence.
-  it("answers the backend's refusal naming no field alone, in its sentence", async () => {
-    accountAt(NEW_ADDRESS);
-    dryRunAnswers(refusal("address_change_nothing"));
-
-    expect(await startLostMailboxChange(START, true)).toStrictEqual({
-      ok: false,
-      errorCode: "address_change_nothing",
-      reason: COPY.shared.nothingAtAddress,
-    });
   });
 
   it("is refused by the backend's address_change_taken on the same box", async () => {

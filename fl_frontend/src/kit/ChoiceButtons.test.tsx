@@ -26,7 +26,6 @@ describe("a required short choice", () => {
         key="segmented"
         label={LABEL}
         name="choice"
-        isRequired
         value={null}
         choices={CHOICES}
       />,
@@ -38,7 +37,6 @@ describe("a required short choice", () => {
         key="boxes"
         label={LABEL}
         name="choice"
-        isRequired
         value={[]}
         choices={CHOICES}
       />,
@@ -47,6 +45,7 @@ describe("a required short choice", () => {
     const { container } = render(
       <HeldForm
         fieldErrors={undefined}
+        rules={{ choice: { required: true } }}
         isBusy={false}
         onSend={() => undefined}>
         {field}
@@ -96,6 +95,7 @@ function Answered({ field, fieldErrors }: { field: () => ReactElement; fieldErro
   return (
     <HeldForm
       fieldErrors={fieldErrors}
+      rules={{}}
       isBusy={false}
       onSend={() => undefined}>
       {field()}

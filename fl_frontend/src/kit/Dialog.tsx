@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, startTransition, useContext, useLayoutEffect, useRef, useState } from "react";
+import { startTransition, useLayoutEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { Dialog as AriaDialog, DialogTrigger, Heading } from "react-aria-components/Dialog";
@@ -161,42 +161,6 @@ function DangerRow({ danger, isClosed, onDone }: { danger: DialogDanger; isClose
   );
 }
 
-/** The controls a dialog's leaving hands the focus to, in order: the first standing one that takes it. */
-type ReturnTargets = () => ReadonlyArray<HTMLElement | null | undefined>;
-
-/**
- * Where the focus goes once a dialog the provider holds leaves, however it leaves: the control that opened it, as its
- * holder names it, such as a row's „⋯“ for a dialog its menu's entry opened. The holder states it rather than leaving
- * it to React Aria's restore, which misses a touched dialog: its `FocusScope` keeps the element focused at its first
- * render, a menu's entry already gone, and the step aside's `Activity` writes that back on showing again (react-aria
- * 3.53.1, `dist/private/focus/FocusScope.mjs`, lines 442 and 523), so after a touch every way out, Escape and
- * „Zurück“ included, would leave the focus on the page's body.
- */
-export const DialogReturn = createContext<ReturnTargets | null>(null);
-
-/**
- * Hands the focus to the holder's control once the dialog leaves: in the frame after React Aria's own restore, which
- * runs first, as its scope stands outside this one. A step aside leaves too, and React Aria's own cleanup then restores
- * to the same control, so the dialog standing again takes the focus back as it would without this.
- */
-function ReturnOnLeave() {
-  const targets = useContext(DialogReturn);
-  useLayoutEffect(
-    () => () => {
-      if (targets === null) return;
-      requestAnimationFrame(() => {
-        for (const control of targets()) {
-          if (control === null || control === undefined || !control.isConnected) continue;
-          control.focus();
-          if (control.ownerDocument.activeElement === control) return;
-        }
-      });
-    },
-    [targets],
-  );
-  return null;
-}
-
 /** How many of a form's fields hold other values than they did in `opened`, the form as it opened. */
 function changedSince(opened: FormData | null, form: HTMLFormElement | null) {
   if (opened === null || form === null) return 0;
@@ -231,8 +195,9 @@ function ActDialog({
   tone = "primary",
   locked,
   danger,
+  rules,
   children,
-}: Pick<DialogAct, "title" | "carry" | "lead" | "consequence" | "facts" | "tone" | "locked" | "danger" | "children"> & {
+}: Pick<DialogAct, "title" | "carry" | "lead" | "consequence" | "facts" | "tone" | "locked" | "danger" | "rules" | "children"> & {
   label: Copy;
   /** The done act's toast where its answer brings no note: its verb's done word. */
   done: Copy;
@@ -288,7 +253,6 @@ function ActDialog({
       isOpen={opened.isOpen}
       onOpenChange={(isOpen) => (isOpen ? opened.onOpenChange(true) : leave())}>
       <AriaDialog data-kit-focus>
-        <ReturnOnLeave />
         {/* A dialog opened from inside another form, such as an editor's section, is a form of its own: React Aria's
             `Form` would otherwise take the outer form's props from its context, the outer submit handler among them. */}
         <FormContext value={null}>
@@ -298,6 +262,7 @@ function ActDialog({
             ref={form}
             className="grid gap-6"
             fieldErrors={refused?.fieldErrors}
+            rules={rules}
             onBlock={block}
             isBusy={isPending}
             onSend={(formData) => {

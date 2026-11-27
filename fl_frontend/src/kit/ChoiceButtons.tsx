@@ -9,6 +9,7 @@ import { textOf } from "@/core/copy";
 import { CutText } from "./CutText";
 import { FieldLabel, MessageLine, useFieldLock, useFieldWait } from "./FieldParts";
 import { choiceButton, choiceField, choiceGroup, fieldRoot } from "./fieldStyles";
+import { useBoxRule } from "./HeldForm";
 
 import type { Words } from "@/core/copy";
 import type { ReactNode } from "react";
@@ -18,7 +19,6 @@ type Shared = {
   label: Words;
   choices: readonly Choice[];
   /** The write takes no record without an answer here: the asterisk after the label, and the group heard as required. */
-  isRequired?: boolean;
   /**
    * The box the group posts under, by which the form's served refusal stands on it (`HeldForm`) as on any field: its
    * line shows it, its frame's edge marks it, and the form's report focuses it. Required, so no choice leaves the
@@ -46,7 +46,6 @@ export function Segmented({
   labelHidden = false,
   name,
   choices,
-  isRequired = false,
   value,
   onChange,
 }: Omit<Shared, "choices"> & {
@@ -55,7 +54,7 @@ export function Segmented({
   onChange?: (id: string) => void;
   labelHidden?: boolean;
 }) {
-  const lock = useFieldLock(false, isRequired);
+  const lock = useFieldLock(false, useBoxRule(name).required);
   return (
     <RadioGroup
       inert={useFieldWait()}
@@ -108,14 +107,13 @@ export function ToggleBoxes({
   label,
   name,
   choices,
-  isRequired = false,
   value,
   onChange,
 }: Shared & {
   value?: readonly string[];
   onChange?: (ids: string[]) => void;
 }) {
-  const lock = useFieldLock(false, isRequired);
+  const lock = useFieldLock(false, useBoxRule(name).required);
   return (
     <CheckboxGroup
       inert={useFieldWait()}

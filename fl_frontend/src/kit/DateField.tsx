@@ -18,6 +18,7 @@ import { Heading } from "react-aria-components/Heading";
 import { Segments } from "./dateParts";
 import { FieldLabel, MessageLine, useFieldLock } from "./FieldParts";
 import { calendarCell, calendarHead, fieldButton, fieldFrame, fieldRoot, monthArrow } from "./fieldStyles";
+import { useBoxRule } from "./HeldForm";
 import { Icon } from "./Icon";
 import { menuPopover } from "./menuStyles";
 
@@ -82,7 +83,6 @@ export function DateField({
   label,
   description,
   consequence,
-  isRequired = false,
   isDisabled = false,
   isLocked = false,
   name,
@@ -95,7 +95,6 @@ export function DateField({
   label: Words;
   description?: Copy;
   consequence?: Copy;
-  isRequired?: boolean;
   isDisabled?: boolean;
   /** Held fixed by its record: read-only, its label marked with the lock (`useFieldLock`). */
   isLocked?: boolean;
@@ -108,7 +107,7 @@ export function DateField({
   /** The latest day the field takes: the calendar offers none after it, and a later one reads „Spätestens …“. */
   maxValue?: CalendarDay;
 }) {
-  const lock = useFieldLock(isLocked, isRequired);
+  const lock = useFieldLock(isLocked, useBoxRule(name).required);
   return (
     <DatePicker<CalendarDate>
       className={fieldRoot()}

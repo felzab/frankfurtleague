@@ -6,7 +6,10 @@ import { EditorPage } from "@/kit/EditorPage";
 import { FieldRows } from "@/kit/FieldRows";
 import { useEditor } from "@/kit/useEditor";
 
+import { requiredOf } from "./spieltagValues";
+
 import type { ActionAnswer } from "@/core/action";
+import type { BoxRules } from "@/core/boxRules";
 import type { Copy } from "@/core/copy";
 import type { PageTitle } from "@/kit/RailFrame";
 import type { EditorRecord, EditorSave } from "@/kit/useEditor";
@@ -22,14 +25,14 @@ export function SpieltagEditor({
   title,
   record,
   save,
-  required,
+  rules,
   closed,
 }: {
   title: PageTitle;
   record: EditorRecord<SpieltagValues>;
   save: (change: EditorSave<SpieltagValues>) => Promise<ActionAnswer<number>>;
-  /** Whether the write takes the matchday without each date, read off its schema on the server. */
-  required: { start: boolean; end: boolean };
+  /** What the save's lane asks of its boxes, read on the server. */
+  rules: BoxRules;
   /** Why the matchday is closed read-only: its season has finished, and the write refuses every change to it. */
   closed?: Copy;
 }) {
@@ -40,6 +43,9 @@ export function SpieltagEditor({
     <EditorPage
       title={title}
       editor={editor}
+      rules={rules}
+      // The write takes both dates.
+      requiredOf={requiredOf}
       closed={closed}
       sections={[
         {
@@ -50,14 +56,12 @@ export function SpieltagEditor({
               <DateField
                 label={WORDS.start}
                 name="start"
-                isRequired={required.start}
                 value={draft.start}
                 onChange={(start) => set("start", start)}
               />
               <DateField
                 label={WORDS.end}
                 name="end"
-                isRequired={required.end}
                 value={draft.end}
                 onChange={(end) => set("end", end)}
                 // A span ending before it begins is refused here, before the write sees it.

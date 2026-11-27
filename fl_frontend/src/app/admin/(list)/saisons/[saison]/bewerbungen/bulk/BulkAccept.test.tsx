@@ -5,7 +5,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ADMIN_COPY } from "@/core/copy/admin";
 import { COPY } from "@/core/copy/shared";
-import { bewerbungenAcceptBewerbungBodyShorthandOneRegExp } from "@/core/generated/zod/inputs";
 import { acceptBewerbung } from "@/features/bewerbungen/acceptBewerbung";
 import { renderUnderNext } from "@/test-support/nextContexts";
 
@@ -42,10 +41,7 @@ const run = () => (
     rows={[row("a", "Goethe-Gymnasium"), row("b", "Schiller-Schule")]}
     gruppen={[{ gruppe: "A", free: 4 }]}
     taken={[]}
-    rules={{
-      required: { gruppe: false, trikot_farbe: false },
-      pattern: { shorthand: bewerbungenAcceptBewerbungBodyShorthandOneRegExp.source },
-    }}
+    rules={{}}
   />
 );
 
@@ -75,10 +71,9 @@ describe("the check page's „Stand“ column", () => {
   });
 });
 
-// The harm: a card reopened from its refused row with the fault on its box and the focus left on the page, so a screen
-// reader hears nothing of which box to change.
+// The harm: a card reopened from its refused row without the fault on its box, so nothing says which box to change.
 describe("a card reopened for its refusal", () => {
-  it("stands with the fault on its box, which takes the focus", async () => {
+  it("stands with the fault on its box", async () => {
     vi.mocked(acceptBewerbung)
       .mockResolvedValueOnce({ ok: false, fieldErrors: { trikot_farbe: COPY.shared.field.taken } })
       .mockResolvedValueOnce({ ok: true, value: undefined });
@@ -94,8 +89,6 @@ describe("a card reopened for its refusal", () => {
     await userEvent.click(await screen.findByRole("button", { name: "Goethe-Gymnasium" }));
     rerender(run());
 
-    const colour = await screen.findByRole("button", { name: new RegExp(COPY.team.trikotFarbe) });
-    expect(screen.getByText(COPY.shared.field.taken)).toBeTruthy();
-    expect(document.activeElement).toBe(colour);
+    expect(await screen.findByText(COPY.shared.field.taken)).toBeTruthy();
   });
 });

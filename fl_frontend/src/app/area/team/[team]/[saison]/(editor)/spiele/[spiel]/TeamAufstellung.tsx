@@ -5,6 +5,7 @@ import { EditorPage } from "@/kit/EditorPage";
 
 import { saveAufstellung } from "./saveAufstellung";
 
+import type { BoxRules } from "@/core/boxRules";
 import type { Copy } from "@/core/copy";
 import type { AufstellungEditing } from "@/features/aufstellungen/useAufstellungEditor";
 import type { ChipProps } from "@/kit/Chip";
@@ -16,6 +17,7 @@ import type { PageTitle } from "@/kit/RailFrame";
  */
 export function TeamAufstellung({
   team,
+  rules,
   title,
   chip,
   lead,
@@ -23,6 +25,8 @@ export function TeamAufstellung({
   ...editing
 }: Omit<AufstellungEditing, "save"> & {
   team: string;
+  /** What the save's lane asks of its boxes, read on the server. */
+  rules: BoxRules;
   title: PageTitle;
   chip?: ChipProps;
   /** The fixture as the line under the title states it: its pairing, when it is played, and when the line-up is due. */
@@ -40,6 +44,7 @@ export function TeamAufstellung({
       chip={chip}
       lead={lead}
       editor={editor}
+      rules={rules}
       barText={barText}
       closed={closed}
       sections={[{ id: "aufstellung", block }]}

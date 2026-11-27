@@ -1,10 +1,6 @@
-import { requires } from "@/core/action";
+import { boxRulesOf } from "@/core/action";
 import { AREA_COPY } from "@/core/copy/area";
 import { COPY } from "@/core/copy/shared";
-import {
-  SpielbestaetigungenPostSchiedsrichterAnswerBody,
-  spielbestaetigungenPostSchiedsrichterAnswerBodyReasonOneMax,
-} from "@/core/generated/zod/inputs";
 import { Dialog } from "@/kit/Dialog";
 import { PressAct } from "@/kit/PressAct";
 import { TextField } from "@/kit/TextField";
@@ -42,6 +38,7 @@ export function EinteilungActs({
         tone="danger"
         lead={spiel}
         run={declineEinteilung}
+        rules={boxRulesOf(declineEinteilung)}
         carry={{ id }}
         trigger={{ label: COPY.shared.verb.decline }}>
         <TextField
@@ -49,8 +46,6 @@ export function EinteilungActs({
           // The name `declineEinteilung` reads the reason by.
           name="reason"
           kind="paragraph"
-          isRequired={requires(SpielbestaetigungenPostSchiedsrichterAnswerBody.shape.reason, "")}
-          maxLength={spielbestaetigungenPostSchiedsrichterAnswerBodyReasonOneMax}
           description={COPY.shared.noNames}
         />
       </Dialog>

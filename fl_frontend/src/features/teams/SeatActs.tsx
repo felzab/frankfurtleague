@@ -10,10 +10,10 @@ import { SideActs } from "@/kit/SideActs";
 import { TextField } from "@/kit/TextField";
 
 import type { ActionAnswer, DryRunAction } from "@/core/action";
+import type { BoxRules } from "@/core/boxRules";
 import type { FLKontaktpersonAdmin, FLKontaktSeat } from "@/core/generated/client/types";
 import type { SideAct } from "@/kit/SideActs";
 import type { ReactNode } from "react";
-import type { SeatRules } from "./fieldRules";
 
 const EDIT = COPY.shared.withObject(COPY.team.seat, "edit");
 const SEND = COPY.shared.withObject(COPY.shared.link, "send");
@@ -31,7 +31,7 @@ const ACT = { verb: "save" } as const;
 export function SeatActs<Key>({
   seats,
   person,
-  rules: { required, max, pattern },
+  rules,
   write,
   carry,
   holder,
@@ -42,7 +42,8 @@ export function SeatActs<Key>({
   seats: readonly FLKontaktSeat[];
   /** `null` on an emptied seat. */
   person: Pick<FLKontaktpersonAdmin, "first_name" | "last_name" | "email" | "phone"> | null;
-  rules: SeatRules;
+  /** What the browser's pass holds the boxes to: the write's lane's rules, read on the server (`boxRulesOf`). */
+  rules: BoxRules;
   /** The seat's write, whose dry run its dialog's press sends before the touch. */
   write: DryRunAction<FormData>;
   /** What the dialog posts beside its boxes: the seat and the version the page read. */
@@ -81,6 +82,7 @@ export function SeatActs<Key>({
         lead={COPY.team.seatsHeld(seats)}
         act={ACT}
         run={write}
+        rules={rules}
         carry={carry}
         touch={{ holder }}
         open={{ isOpen: isEditing, onOpenChange: setEditing }}>
@@ -88,36 +90,24 @@ export function SeatActs<Key>({
           label={COPY.shared.firstName}
           name="first_name"
           kind="text"
-          pattern={pattern.first_name}
-          example={COPY.shared.field.exampleFirstName}
-          isRequired={required.first_name}
-          maxLength={max.first_name}
           defaultValue={person?.first_name}
         />
         <TextField
           label={COPY.shared.lastName}
           name="last_name"
           kind="text"
-          pattern={pattern.last_name}
-          example={COPY.shared.field.exampleLastName}
-          isRequired={required.last_name}
-          maxLength={max.last_name}
           defaultValue={person?.last_name}
         />
         <TextField
           label={COPY.shared.emailAddress}
           name="email"
           kind="email"
-          isRequired={required.email}
-          maxLength={max.email}
           defaultValue={person?.email}
         />
         <TextField
           label={COPY.shared.facts.phone}
           name="phone"
           kind="tel"
-          pattern={pattern.phone}
-          isRequired={required.phone}
           defaultValue={person?.phone}
         />
         {children}
