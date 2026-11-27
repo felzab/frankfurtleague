@@ -41,8 +41,8 @@ const link = tv({
       // Drawn by `frameLink` in its `link` tone.
       frame: "",
       // An entry of a reading page's contents list, on the list's 2-px track: muted until the pointer is over it, and
-      // the section the reader is in marked by the track's brand stretch and its words in full.
-      contents: `block border-s-2 border-border py-1.5 ps-4 text-sm text-fg-muted transition-colors duration-(--motion-state) aria-[current=location]:border-brand aria-[current=location]:font-medium aria-[current=location]:text-fg ${hoverLook({ host: "link", answer: "words" })}`,
+      // the section the reader is in marked by the contents list's mark of the place (`placeMark`).
+      contents: `block border-s-2 border-border py-1.5 ps-4 text-sm text-fg-muted transition-colors duration-(--motion-state) ${hoverLook({ host: "link", answer: "words" })}`,
     },
     // A card standing as a row of a list's columns (`SpielList`): a grid of those columns rather than a block.
     subgrid: {
@@ -131,9 +131,10 @@ type Footer = { placement: "footer" } & (Worded | { children: ReactNode; label?:
 
 /**
  * An entry of a reading page's contents list. `current` marks the section the reader is in as `aria-current="location"`,
- * WAI-ARIA's value for the current place in a set of links such as a table of contents.
+ * WAI-ARIA's value for the current place in a set of links such as a table of contents. Its section is on the page
+ * the reader is on, so it never loads a whole document.
  */
-type Contents = { placement: "contents"; current: boolean } & Worded;
+type Contents = { placement: "contents"; current: boolean; fullPage?: never } & Worded;
 
 /**
  * The title strip's way to a record's own page, in `frameLink`'s `link` tone: a whole document where `fullPage` asks
@@ -210,7 +211,6 @@ export function Link<T extends string>(
         : props.placement === "frame"
           ? frameLink({ tone: "link" })
           : link({ placement: props.placement, subgrid: props.placement === "card" && props.subgrid === true }),
-    "aria-current": props.placement === "contents" && props.current ? ("location" as const) : undefined,
     ...tab,
   };
   const words = (
@@ -229,7 +229,8 @@ export function Link<T extends string>(
   ) : (
     <NavigationLink
       {...anchor}
-      prefetch={prefetch}>
+      prefetch={prefetch}
+      place={props.placement === "contents" ? { list: "contents", current: props.current } : undefined}>
       {words}
     </NavigationLink>
   );
