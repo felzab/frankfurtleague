@@ -4,7 +4,7 @@ from datetime import datetime
 from http import HTTPStatus
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Query, status
+from fastapi import APIRouter, Query, Response, status
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
@@ -130,7 +130,7 @@ from app.core.dependencies import (
 from app.core.exceptions import APIError, DocumentNotFoundError
 from app.core.readonly import ReadCollection
 from app.core.recording import record_act
-from app.core.routing import by_id
+from app.core.routing import DRY_RUN_PASSED, SAFE_WHEN, DryRun, by_id, dry_run_passed
 from app.core.transactions import transact
 from app.shared.schemas.custom import CustomObjectId
 from app.shared.schemas.responses import FLVersionResponse
@@ -691,6 +691,9 @@ async def put_austritt(
 @router.put(
     f"{by_id('team_id')}/saisons/{{saison_id}}/kontakte/{{seat}}",
     summary="Write the person one contact seat holds",
+    response_model=FLKontaktSeatResponse,
+    openapi_extra=SAFE_WHEN,
+    responses=DRY_RUN_PASSED,
 )
 async def put_kontakt_seat(
     team_id: CustomObjectId,
@@ -703,11 +706,13 @@ async def put_kontakt_seat(
     db: DBClient,
     today: GermanDay,
     germany_now: GermanyNow,
-) -> FLKontaktSeatResponse:
+    dry_run: DryRun = False,
+) -> FLKontaktSeatResponse | Response:
     """Write the person one seat holds on the row's `version`, a newly seated person owed a fresh link whose address `email` names.
 
     The same person, address and name folded, keeps the seat's record and link, and where the Trainer holds a second seat
-    a write on either seat writes both under one link.
+    a write on either seat writes both under one link. A `dry_run` is refused as the write would be, and answers 204 and
+    writes nothing where it would land.
     """
 
     # A 404 rather than a 422, as a malformed path id answers: the segment names no seat any row has.
@@ -720,15 +725,29 @@ async def put_kontakt_seat(
     # Outside the callback, so a retried transaction owes this save's mail once and a second save its own.
     nonce = secrets.token_hex(8)
 
-    async def seat_the_person(session: AsyncClientSession) -> FLKontaktSeatResponse:
+    async def judge(session: AsyncClientSession) -> tuple[Mapping[str, Any], dict[str, Any]]:
+        # Every refusal of the write, in its transaction or the dry run's snapshot alike: the row and the block it stores.
         stored = await pull_one_from_db(
             collection=saison_teams_collection,
             db_filter={"team_id": team_id, "saison_id": saison_id},
-            projection=KONTAKT_WRITE_FIELDS,
+            projection=[*KONTAKT_WRITE_FIELDS, VERSION_FIELD],
             session=session,
         )
         kontakte, seats = compose_seat_block(stored=stored.get("kontakte"), seat=pressed, sent=sent, today=today)
         refuse(find_kontakt_taken_refusal(kontakte=kontakte, seats=seats))
+        # Read as well as filtered on: a dry run patches nothing for the version to refuse, and the patch's filter still
+        # refuses a write racing past this read.
+        refuse(find_stale_save_refusal(stored, version=seat_data.version))
+        return stored, kontakte
+
+    if dry_run:
+        # Opened here as `get_snapshot_session` opens one, not declared: the dry run alone reads outside a transaction.
+        async with db.start_session(snapshot=True) as session:
+            await judge(session)
+        return dry_run_passed()
+
+    async def seat_the_person(session: AsyncClientSession) -> FLKontaktSeatResponse:
+        stored, kontakte = await judge(session)
 
         confirmations = await write_the_contact_block(
             stored=stored,

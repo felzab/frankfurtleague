@@ -8,9 +8,17 @@ import { COPY } from "@/core/copy/shared";
 import { renderUnderNext } from "@/test-support/nextContexts";
 
 import { AccountBox, AccountRows } from "./AccountBox";
+import { TextField } from "./TextField";
 import { ToastRegion } from "./Toast";
 
-import type { ActionAnswer } from "@/core/action";
+import type { ActionAnswer, DryRunAction } from "@/core/action";
+
+const passkey = vi.hoisted(() => ({ prompt: vi.fn() }));
+
+vi.mock("@/core/auth/browserClient", () => ({
+  loadAuthClient: async () => ({ signIn: { passkey: passkey.prompt } }),
+  usePreloadedAuthClient: () => undefined,
+}));
 
 const PASSKEY = COPY.shared.passkeys;
 const REFUSAL = COPY.shared.failure.stale;
@@ -68,6 +76,61 @@ describe("a Konto box's act behind a question", () => {
   });
 });
 
+// The harm: an administrator's address change refused after the touch, which then has to be given again for the
+// corrected address, where the dry run would have shown the refusal on the box first.
+describe("a Konto box's act behind the passkey touch, its dry run declared", () => {
+  it("shows its dry run's refusal on the box asking no touch, and once it passes asks the touch, then runs the act", async () => {
+    const HOLDER = "anna@example.com";
+    const order: string[] = [];
+    const run = async (_formData: FormData, dryRun?: boolean): Promise<ActionAnswer<unknown>> => {
+      order.push(dryRun === true ? "dry run" : "act");
+      // The first dry run refuses the address on its box; the next passes.
+      return order.length === 1 ? { ok: false, fieldErrors: { email: COPY.shared.field.taken } } : { ok: true, value: undefined };
+    };
+    passkey.prompt.mockImplementationOnce(async () => {
+      order.push("touch");
+      return { data: { status: true, email: HOLDER }, error: null };
+    });
+    renderUnderNext(
+      <>
+        <AccountBox
+          title={COPY.shared.emailAddress}
+          description={ACCOUNT_COPY.address.description}
+          act={{
+            // The mark is the type's alone, which only the action builder gives a server action.
+            run: run as DryRunAction<FormData>,
+            dryRun: true,
+            carry: { holder: HOLDER },
+            button: { label: COPY.shared.withObject(COPY.shared.link, "send") },
+            done: OWN_WORD,
+            touch: true,
+          }}>
+          <TextField
+            label={COPY.shared.addressChange.new}
+            name="email"
+            kind="email"
+          />
+        </AccountBox>
+        <ToastRegion frame="rail" />
+      </>,
+    );
+    const send = screen.getByRole("button", { name: COPY.shared.withObject(COPY.shared.link, "send") });
+
+    await userEvent.type(screen.getByRole("textbox"), "anna.neu@example.com");
+    await userEvent.click(send);
+    expect(await screen.findByText(COPY.shared.field.taken)).toBeTruthy();
+    expect([order, screen.getByRole<HTMLInputElement>("textbox").value]).toStrictEqual([["dry run"], "anna.neu@example.com"]);
+
+    // The refusal holds the box until the person corrects it.
+    await waitFor(() => expect(send.hasAttribute("data-pending")).toBe(false));
+    await userEvent.clear(screen.getByRole("textbox"));
+    await userEvent.type(screen.getByRole("textbox"), "anna.zwei@example.com");
+    await userEvent.click(send);
+    await screen.findByRole("alertdialog", { name: OWN_WORD });
+    expect(order).toStrictEqual(["dry run", "dry run", "touch", "act"]);
+  });
+});
+
 describe("a locked Konto box", () => {
   const reason = COPY.template.draftUnsaved;
 
@@ -97,7 +160,7 @@ describe("a locked Konto box", () => {
         title={PASSKEY}
         description={ACCOUNT_COPY.passkeys.description}
         act={{
-          run: vi.fn(),
+          run: vi.fn<() => Promise<ActionAnswer<unknown>>>(),
           button: { confirm: { verb: "delete", subject: PASSKEY, consequence: CONSEQUENCE, tone: "danger" } },
           done: COPY.shared.toast.done.delete,
           locked: reason,

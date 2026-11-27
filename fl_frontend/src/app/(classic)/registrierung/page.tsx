@@ -9,7 +9,9 @@ import {
   RegistrierungenPostRegistrierungBody,
   registrierungenPostRegistrierungBodyEmailMax,
   registrierungenPostRegistrierungBodyFirstNameMax,
+  registrierungenPostRegistrierungBodyFirstNameRegExp,
   registrierungenPostRegistrierungBodyLastNameMax,
+  registrierungenPostRegistrierungBodyLastNameRegExp,
   registrierungenPostRegistrierungBodyNummerOneMax,
 } from "@/core/generated/zod/inputs";
 import { mailedLinkToken } from "@/core/mailedLink";
@@ -57,6 +59,10 @@ const RULES: RegistrierungRules = {
     lastName: registrierungenPostRegistrierungBodyLastNameMax,
     email: registrierungenPostRegistrierungBodyEmailMax,
     nummer: registrierungenPostRegistrierungBodyNummerOneMax,
+  },
+  pattern: {
+    firstName: registrierungenPostRegistrierungBodyFirstNameRegExp.source,
+    lastName: registrierungenPostRegistrierungBodyLastNameRegExp.source,
   },
 };
 

@@ -67,6 +67,7 @@ export function SpielerEditor({
   rules: {
     required: { first_name: boolean; last_name: boolean; birth_date: boolean };
     max: { first_name: number; last_name: number; nummer: number };
+    pattern: { first_name: string; last_name: string };
   };
   /** The position's and the level's choices, each opening on the empty box. */
   positions: readonly Option[];
@@ -78,7 +79,7 @@ export function SpielerEditor({
 }) {
   const editor = useEditor(record, (change) => save({ ...change, saison }));
   const { draft, set } = editor;
-  const { required, max } = rules;
+  const { required, max, pattern } = rules;
   const press = (act: Act) => () => act({ id: record.id, saison });
   const locked = danger.kind === "reactivate" ? danger.locked : undefined;
 
@@ -128,6 +129,8 @@ export function SpielerEditor({
                 label={COPY.shared.firstName}
                 name="first_name"
                 kind="text"
+                pattern={pattern.first_name}
+                example={COPY.shared.field.exampleFirstName}
                 isRequired={required.first_name}
                 maxLength={max.first_name}
                 value={draft.first_name}
@@ -137,6 +140,8 @@ export function SpielerEditor({
                 label={COPY.shared.lastName}
                 name="last_name"
                 kind="text"
+                pattern={pattern.last_name}
+                example={COPY.shared.field.exampleLastName}
                 isRequired={required.last_name}
                 maxLength={max.last_name}
                 value={draft.last_name}

@@ -12,7 +12,7 @@ import { APIBadStatusError, loggedByBackend, requestOf } from "./errors";
 import { logger } from "./logging";
 import { ownKeyOf } from "./ownKeyOf";
 import { logRefused } from "./refused";
-import { getRequestActor, requestWriteMayStand } from "./requestScope";
+import { getRequestActor, markDryRun, requestWriteMayStand } from "./requestScope";
 import { isPatternedCode, isWordedRule, ruleMessage } from "./ruleMessage";
 import { SERVER_COPY } from "./serverCopy";
 import { SITE_CACHE_TAG } from "./siteCache";
@@ -25,7 +25,6 @@ import { fieldMessage } from "./zodGerman";
 import type { AdminRefusal, JudgedSession } from "./auth/guards";
 import type { Words as CatalogueWords, Copy } from "./copy";
 import type { Code, FLRefusedField } from "./generated/client/types";
-import type { WordedRule } from "./ruleMessage";
 import type { SubjectSession } from "./subject";
 
 /**
@@ -95,9 +94,9 @@ type Field<T, Above extends string = ""> = T extends readonly unknown[]
 /**
  * What every lane declares: its name for the failure line, its input's schema, and where its refusals are placed. The
  * catalogue words a refusal, never the screen: a code's or a rule's field phrase lands on the box its refused path
- * stands for here (`boxes`, `paths`, `boxless`), and a code's sentence on the status line. A phrase whose path stands for
- * no box here, a sentence whose entry holds none for the path, and a refused payload breaking a rule the catalogue
- * does not word answer as every code the catalogue does not word does (`refused`).
+ * stands for here (`boxes`, `paths`), and a code's sentence on the status line. A phrase whose path stands for no box
+ * here, a sentence whose entry holds none for the path, and a refused payload breaking a rule the catalogue does not
+ * word answer as every code the catalogue does not word does (`refused`).
  */
 type Declared<Schema extends z.ZodType> = {
   readonly name: string;
@@ -110,8 +109,7 @@ type Declared<Schema extends z.ZodType> = {
    * itself: each field of its `changes` is a box, and a refused path naming one lands on `changes.<path>` undeclared
    * here. A field the form carries unseen, a record's id, a page's token, its version or the replay key, is none: a
    * phrase has no subject but its box, so a refusal only a phrase words, about a field this screen does not show, is not
-   * its own, and a row's refusal never falls back to its list's box. A screen showing no box with its answer declares
-   * its boxes by `boxless` instead.
+   * its own, and a row's refusal never falls back to its list's box.
    */
   readonly boxes?: readonly Field<z.output<Schema>>[];
   /**
@@ -123,22 +121,7 @@ type Declared<Schema extends z.ZodType> = {
   readonly paths?: { readonly [path: string]: Field<z.output<Schema>> };
   /** The example a box's „Format: …“ message names, by the box; a row's field names it for every row. */
   readonly examples?: { readonly [F in Field<z.output<Schema>>]?: Copy };
-  /**
-   * A screen whose answer stands where none of its boxes does, a dialog closed behind the passkey touch, whose answer a
-   * toast says: a box's phrase has no subject there, so each refusal of a box is the sentence declared for it here, by
-   * its cause, on the status line. A box's own rule refused in the parse is its `value`, or its `required` where it
-   * held nothing once stripped; a rule or a code the backend refused it by is that rule's kind or that code. A refusal
-   * of a box with no sentence for its cause, or of a field with no entry here, answers as a refusal the catalogue does
-   * not word.
-   */
-  readonly boxless?: { readonly [F in Field<z.output<Schema>>]?: BoxSentences };
 };
-
-/** A box's sentences for a screen that shows no box with its answer, by the cause of its refusal (`Declared`'s `boxless`). */
-type BoxSentences = { readonly [Cause in "value" | "required" | WordedRule]?: Copy };
-
-/** `boxless` as the builder reads it, by any box's declared path and any cause, as a refused path names them. */
-type SentenceTable = Readonly<Record<string, Readonly<Record<string, Copy | undefined>> | undefined>>;
 
 type Run<Schema extends z.ZodType, Context, Value> = (input: z.output<Schema>, context: Context) => Promise<ActionAnswer<Value>>;
 
@@ -183,14 +166,33 @@ type Held<Schema extends z.ZodType> = z.output<Schema> extends { readonly holder
  * grant passes. On the account's claim the touch's whole strength rests on `served.isAdmin` being the grant read on
  * this request, which the account's guard throws on rather than answer unread as none.
  */
-type Touched<Schema extends z.ZodType> = { readonly passkey?: never } | ({ readonly passkey: true } & Held<Schema>);
+type Touched<Schema extends z.ZodType> =
+  | { readonly passkey?: never; readonly dryRun?: never }
+  | ({
+      readonly passkey: true;
+      /**
+       * A touched write's dry run, which a lane over a backend `dry_run` judged by the write's own code path declares:
+       * the kit sends the act once as its dry run before it asks the touch, so a refusal stands on its field with the
+       * input kept, and asks the touch only once the dry run passed. The body hands its context's `dryRun` to the
+       * backend call and skips every effect of its own on it, since a declared dry run passes no touch; the guard, the
+       * parse and the holder are judged on it as on the write. A lane declaring none is told `false` on every call, its
+       * touch judged on each.
+       */
+      readonly dryRun?: true;
+    } & Held<Schema>);
+
+/** What the body of a lane that may declare a dry run is told beside its context: whether this call is the dry run. */
+type DryRunContext = { readonly dryRun: boolean };
 
 /** An administrator's write: the administrator's guard admits the caller before anything else runs. */
 type AdminLane<Schema extends z.ZodType, Value> = Declared<Schema> &
   Touched<Schema> & {
     readonly lane: "admin";
-    readonly run: Run<Schema, undefined, Value>;
+    readonly run: Run<Schema, DryRunContext, Value>;
   };
+
+/** What the account's guard hands an act of the account: the person, and the session it judged. */
+type AccountContext = { readonly subject: SubjectSession; readonly served: JudgedSession };
 
 /**
  * A person's write, by the claim it makes: a record of the person's own, a seat's write on its club among them, which
@@ -208,7 +210,7 @@ type PersonLane<Schema extends z.ZodType, Value> = Declared<Schema> & { readonly
       }
     | ({
         readonly claim: "account";
-        readonly run: Run<Schema, { readonly subject: SubjectSession; readonly served: JudgedSession }, Value>;
+        readonly run: Run<Schema, AccountContext & DryRunContext, Value>;
       } & Touched<Schema> &
         Held<Schema>)
   );
@@ -353,10 +355,7 @@ function parsed<Schema extends z.ZodType>(
   raw: unknown,
 ): { input: z.output<Schema> } | { answer: ActionAnswer<never> } {
   const examples: Readonly<Record<string, Copy | undefined>> = declared.examples ?? {};
-  const boxless: SentenceTable | undefined = declared.boxless;
   const fieldErrors: Record<string, Copy> = {};
-  // Each box's sentence where the screen shows no box, by its first issue's cause; `undefined` where it declares none.
-  const sentences: Record<string, Copy | undefined> = {};
   const result = declared.input.safeParse(stripped(posted(raw)), {
     error: (issue) => {
       const path = issue.path ?? [];
@@ -364,12 +363,7 @@ function parsed<Schema extends z.ZodType>(
       const example = field === undefined ? undefined : examples[field.declared];
       const line = fieldMessage(issue, example === undefined ? {} : { [path.map(String).join(".")]: example });
       // The first issue on a box is the one it shows.
-      if (field !== undefined && fieldErrors[field.key] === undefined) {
-        fieldErrors[field.key] = line;
-        const said = boxless?.[field.declared];
-        // The German map asks for a value of every check meeting an empty box, so its line is the parse's own verdict.
-        sentences[field.key] = (line === COPY.shared.field.required ? said?.required : undefined) ?? said?.value;
-      }
+      if (field !== undefined) fieldErrors[field.key] ??= line;
       return line;
     },
   });
@@ -382,19 +376,11 @@ function parsed<Schema extends z.ZodType>(
     const field = fieldOf(issue.path);
     return field === undefined || fieldErrors[field.key] === undefined;
   });
-  if (unplaced) return { answer: UNEXPECTED };
-  if (boxless === undefined) return { answer: { ok: false, fieldErrors } };
-  // The first box's sentence stands, as the status line shows one; a box worded by none is not this screen's to say.
-  const said = Object.keys(fieldErrors).map((key) => sentences[key]);
-  const [first] = said;
-  return { answer: first !== undefined && said.every((sentence) => sentence !== undefined) ? { ok: false, reason: first } : UNEXPECTED };
+  return { answer: unplaced ? UNEXPECTED : { ok: false, fieldErrors } };
 }
 
-/**
- * One refused field in the catalogue's words: a field pattern's phrase for its box, or a sentence of its own, and the
- * rule's kind or the code it was refused by.
- */
-type Words = { readonly path: FLRefusedField["path"]; readonly kind: string } & ({ readonly field: Copy } | { readonly line: Copy });
+/** One refused field in the catalogue's words: a field pattern's phrase for its box, or a sentence of its own. */
+type Words = { readonly path: FLRefusedField["path"] } & ({ readonly field: Copy } | { readonly line: Copy });
 
 /** The object an editor's input holds its boxes in, each under its name. */
 const CHANGES = "changes";
@@ -433,29 +419,24 @@ function holds(schema: z.core.$ZodType, path: string): boolean {
 
 /**
  * The box a refused path stands for, both as `fieldOf` declares them: the box `paths` renames it to, else the path's own
- * box where the screen shows it, as `boxes` declares, or as `boxless` does on a screen showing no box with its answer,
- * else the editor's box of that name, where the input's `changes` holds one. `undefined` for a field the screen shows
- * no box for, such as one its form carries unseen.
+ * box where the screen shows it, as `boxes` declares, else the editor's box of that name, where the input's `changes`
+ * holds one. `undefined` for a field the screen shows no box for, such as one its form carries unseen.
  */
 function boxFor<Schema extends z.ZodType>(declared: Declared<Schema>, path: string): string | undefined {
   const renamed: string | undefined = declared.paths?.[path];
   if (renamed !== undefined) return renamed;
-  const shown = declared.boxless === undefined ? (declared.boxes?.some((box) => box === path) ?? false) : Object.hasOwn(declared.boxless, path);
-  if (shown) return path;
+  if (declared.boxes?.some((box) => box === path) ?? false) return path;
   const change = `${CHANGES}.${path}`;
   return holds(declared.input, change) ? change : undefined;
 }
 
 /**
  * Each refusal where this screen shows it: a phrase on the box its path stands for (`boxFor`), a sentence on the
- * status line, or, on a screen showing no box with its answer, the sentence `boxless` declares for the box by the kind
- * it was refused by. The first a box meets is the one it shows, and the first sentence the one the line shows.
- * `undefined` where a phrase's path has no box here, or no sentence where no box stands, so no field phrase reaches the
- * status line without its field.
+ * status line. The first a box meets is the one it shows, and the first sentence the one the line shows. `undefined`
+ * where a phrase's path has no box here, so no field phrase reaches the status line without its field.
  */
 function placed<Schema extends z.ZodType>(declared: Declared<Schema>, code: Code, refusals: readonly Words[]): ActionAnswer<never> | undefined {
   if (refusals.length === 0) return undefined;
-  const boxless: SentenceTable | undefined = declared.boxless;
   const fieldErrors: Record<string, Copy> = {};
   let reason: Copy | undefined;
   for (const refusal of refusals) {
@@ -466,13 +447,7 @@ function placed<Schema extends z.ZodType>(declared: Declared<Schema>, code: Code
     const field = fieldOf(refusal.path);
     const shown = field === undefined ? undefined : boxFor(declared, field.declared);
     const box = field === undefined || shown === undefined ? undefined : inRows(shown, field.rows);
-    if (box === undefined || shown === undefined) return undefined;
-    if (boxless !== undefined) {
-      const sentence = boxless[shown]?.[refusal.kind];
-      if (sentence === undefined) return undefined;
-      reason ??= sentence;
-      continue;
-    }
+    if (box === undefined) return undefined;
     fieldErrors[box] ??= refusal.field;
   }
   return {
@@ -521,7 +496,7 @@ function worded<Schema extends z.ZodType>(
     return placed(
       declared,
       code,
-      fields.map((refused) => ({ path: refused.path, kind: refused.kind, ...ruleMessage(refused) })),
+      fields.map((refused) => ({ path: refused.path, ...ruleMessage(refused) })),
     );
   }
   if (isLined(code)) {
@@ -534,7 +509,7 @@ function worded<Schema extends z.ZodType>(
   return placed(
     declared,
     code,
-    fields.map(({ path, ctx }) => ({ path, kind: code, ...ruleMessage({ kind: code, ctx, path }) })),
+    fields.map(({ path, ctx }) => ({ path, ...ruleMessage({ kind: code, ctx, path }) })),
   );
 }
 
@@ -579,17 +554,18 @@ function anotherHolder(input: unknown): ActionAnswer<never> | undefined {
 
 /**
  * Past a lane's guard: the touch it declares, judged on the actor the guard recorded and on `granted`, the grant the
- * guard read for that address, the parse, the holder a touched act's or an account act's input names, then `run` on the
- * input, in that order.
+ * guard read for that address, unless `dryRun` says this call is the dry run the lane declares, which writes nothing;
+ * then the parse, the holder a touched act's or an account act's input names, then `run` on the input, in that order.
  */
 async function admitted<Schema extends z.ZodType, Value>(
   lane: Lane<Schema, Value>,
   raw: unknown,
   granted: boolean,
+  dryRun: boolean,
   run: (input: z.output<Schema>) => Promise<ActionAnswer<Value>>,
 ): Promise<ActionAnswer<Value>> {
   const touched = "passkey" in lane && lane.passkey === true;
-  if (touched && !passesPasskeyTouch(getRequestActor(), granted)) return { ok: false, reason: COPY.shared.touchMissing };
+  if (touched && !dryRun && !passesPasskeyTouch(getRequestActor(), granted)) return { ok: false, reason: COPY.shared.touchMissing };
   const read = parsed(lane, raw);
   if ("answer" in read) return read.answer;
   const held = touched || (lane.lane === "person" && lane.claim === "account");
@@ -598,14 +574,18 @@ async function admitted<Schema extends z.ZodType, Value>(
 
 /**
  * The lane's guard, the touch it declares, the parse and the body, in that order: no part of the input is read before
- * the guard admits.
+ * the guard admits. `asked` is the caller's second argument, a dry run only where it is `true` and the lane declares
+ * one, so no other call skips a touch.
  */
-async function guarded<Schema extends z.ZodType, Value>(lane: Lane<Schema, Value>, raw: unknown): Promise<ActionAnswer<Value>> {
+async function guarded<Schema extends z.ZodType, Value>(lane: Lane<Schema, Value>, raw: unknown, asked: unknown): Promise<ActionAnswer<Value>> {
+  // `in` first: a public lane declares no touch, so its type names no `dryRun`.
+  const dryRun = asked === true && "dryRun" in lane && lane.dryRun === true;
+  if (dryRun) markDryRun();
   switch (lane.lane) {
     case "admin": {
       const judged = await judgeAdminRequest();
       if ("refused" in judged) return { ok: false, reason: TURNED_AWAY[judged.refused] };
-      return admitted(lane, raw, true, (input) => lane.run(input, undefined));
+      return admitted(lane, raw, true, dryRun, (input) => lane.run(input, { dryRun }));
     }
     case "person": {
       const subject = await getSubjectSession();
@@ -613,11 +593,11 @@ async function guarded<Schema extends z.ZodType, Value>(lane: Lane<Schema, Value
       switch (lane.claim) {
         case "record":
           // No touch to judge: a record's claim declares none.
-          return admitted(lane, raw, false, (input) => lane.run(input, { subject }));
+          return admitted(lane, raw, false, false, (input) => lane.run(input, { subject }));
         case "account": {
           const served = await getAccountSession();
           if (served === null) return turnedAwayPerson(lane.name);
-          return admitted(lane, raw, served.isAdmin, (input) => lane.run(input, { subject, served }));
+          return admitted(lane, raw, served.isAdmin, dryRun, (input) => lane.run(input, { subject, served, dryRun }));
         }
       }
     }
@@ -634,17 +614,34 @@ async function guarded<Schema extends z.ZodType, Value>(lane: Lane<Schema, Value
   }
 }
 
+declare const DRY_RUN_FIRST: unique symbol;
+
+/**
+ * An action whose lane declares `dryRun: true`, which the kit's touch sends first with `dryRun` true and runs only once
+ * that call passed. Its mark is the type's alone, so a touched dialog's slot can demand it.
+ */
+export type DryRunAction<Raw, Value = undefined> = ((raw: Raw, dryRun?: boolean) => Promise<ActionAnswer<Value>>) & {
+  readonly [DRY_RUN_FIRST]: true;
+};
+
 /**
  * The one way to build a server action: every export of a `"use server"` module is one of these, which the lint
  * rule `fl/server-action` holds. The action runs under the edge's trace, behind its lane's guard, on its input
  * stripped and parsed against its schema, and answers the kit's `ActionAnswer`: done, a field's message, the
- * backend's refusal with its code, or the one unexpected failure.
+ * backend's refusal with its code, or the one unexpected failure. A lane declaring a dry run builds a `DryRunAction`.
  */
 export function action<Schema extends z.ZodType, Value = undefined>(
+  lane: Lane<Schema, Value> & { readonly dryRun: true },
+): DryRunAction<z.input<Schema> | FormData, Value>;
+export function action<Schema extends z.ZodType, Value = undefined>(
   lane: Lane<Schema, Value>,
-): (raw: z.input<Schema> | FormData) => Promise<ActionAnswer<Value>> {
-  // An async function, as Next defines a server action, though its check at runtime sees only a function.
-  return async (raw) => runWithIncomingTrace(() => answered(lane, raw));
+): (raw: z.input<Schema> | FormData) => Promise<ActionAnswer<Value>>;
+export function action<Schema extends z.ZodType, Value>(
+  lane: Lane<Schema, Value>,
+): (raw: never, dryRun?: boolean) => Promise<ActionAnswer<Value>> {
+  // An async function, as Next defines a server action, though its check at runtime sees only a function. The second
+  // argument crosses from the browser, so it is judged as untrusted (`guarded`).
+  return async (raw: unknown, dryRun?: unknown) => runWithIncomingTrace(() => answered(lane, raw, dryRun));
 }
 
 /**
@@ -668,11 +665,15 @@ const STALE_AFTER_FAILED_PRESS = 5;
  * none, carries only its answer and renders nothing again: a refused editor keeps what was typed into it. A body
  * changing state outside the cache, the sign-in store's, calls Next's `refresh()` itself.
  */
-async function answered<Schema extends z.ZodType, Value>(lane: Lane<Schema, Value>, raw: unknown): Promise<ActionAnswer<Value>> {
+async function answered<Schema extends z.ZodType, Value>(
+  lane: Lane<Schema, Value>,
+  raw: unknown,
+  dryRun: unknown,
+): Promise<ActionAnswer<Value>> {
   // Set once the answer is a failure; a redirect or a not-found leaves it unset, being how a body leads on.
   let failed = false;
   try {
-    const answer = await guarded(lane, raw);
+    const answer = await guarded(lane, raw, dryRun);
     failed = !answer.ok;
     return answer;
   } catch (error) {

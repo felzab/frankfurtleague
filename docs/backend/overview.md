@@ -68,12 +68,16 @@ next:
 
 - A create answers `FLCreatedResponse`, the minted id the caller opens the new record by.
 - An editor's save answers `FLVersionResponse`, the version its next save sends.
-- A dry run or a pass answers the report its caller shows or counts.
-- The one exception: an operation taking `dry_run` answers that report on its write too, where its
-  caller may discard it, since each route here declares one status and one return model and the dry
-  run's caller reads the report: the fixture save
+- A dry run or a pass answers the report its caller shows or counts, and a dry run whose caller
+  reads only whether the write would be refused answers 204.
+- An operation whose dry run answers a report answers it on its write too, where its caller may
+  discard it, since its caller reads the report: the fixture save
   (`fl_backend/app/api/spiele/admin_router.py :: patch_spiel`) and the withdrawal
   (`fl_backend/app/api/identity/admin_router.py :: post_withdrawal`).
+- A write behind the passkey touch is sent dry before the touch, so its refusal stands on a field
+  while the input does, and its dry run answers 204 beside the write's own answer
+  (`fl_backend/app/core/routing.py :: DRY_RUN_PASSED`): a create has no id to answer before it
+  writes, and the caller sends the write on a pass.
 
 The shared models are in `fl_backend/app/shared/schemas/responses.py`.
 

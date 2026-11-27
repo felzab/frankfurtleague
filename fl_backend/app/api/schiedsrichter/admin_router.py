@@ -1,6 +1,7 @@
+from collections.abc import Mapping
 from typing import Any
 
-from fastapi import APIRouter, status
+from fastapi import APIRouter, Response, status
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
@@ -43,6 +44,7 @@ from app.core.collections import Collection
 from app.core.crud import (
     GERMAN_COLLATION,
     VERSION_FIELD,
+    find_stale_save_refusal,
     insert_live,
     is_held_elsewhere,
     patch_one_in_db,
@@ -62,7 +64,7 @@ from app.core.dependencies import (
     SpieleCollection,
 )
 from app.core.recording import record_act
-from app.core.routing import by_id
+from app.core.routing import DRY_RUN_PASSED, SAFE_WHEN, DryRun, by_id, dry_run_passed
 from app.core.transactions import transact
 from app.shared.schemas.custom import CustomObjectId
 
@@ -127,6 +129,9 @@ async def get_schiedsrichter_by_id(
     "",
     status_code=201,
     summary="Create a Schiedsrichter",
+    response_model=FLPostSchiedsrichterResponse,
+    openapi_extra=SAFE_WHEN,
+    responses=DRY_RUN_PASSED,
 )
 async def post_schiedsrichter(
     schiedsrichter_data: FLPostSchiedsrichterPayload,
@@ -135,20 +140,32 @@ async def post_schiedsrichter(
     db: DBClient,
     today: GermanDay,
     germany_now: GermanyNow,
-) -> FLPostSchiedsrichterResponse:
+    dry_run: DryRun = False,
+) -> FLPostSchiedsrichterResponse | Response:
     """Create a referee and owe them their confirmation link, answering the address it goes to.
 
     Entering a referee is the invitation, with no second press deciding whether they are asked, since a referee nobody
-    asked is a name nobody consented to publish.
+    asked is a name nobody consented to publish. A `dry_run` is refused as the create would be, and answers 204 and
+    writes nothing where it would land.
     """
 
     email = schiedsrichter_data.kontakt.email
 
-    async def judge_and_create(session: AsyncClientSession) -> Any:
+    async def judge(session: AsyncClientSession) -> None:
+        # Every refusal of the create, in its transaction or the dry run's snapshot alike.
         taken = await is_held_elsewhere(
             collection=schiedsrichter_collection, key="name", value=schiedsrichter_data.name, own_id=None, session=session
         )
         refuse(find_referee_name_refusal(taken=taken))
+
+    if dry_run:
+        # Opened here as `get_snapshot_session` opens one, not declared: the dry run alone reads outside a transaction.
+        async with db.start_session(snapshot=True) as session:
+            await judge(session)
+        return dry_run_passed()
+
+    async def judge_and_create(session: AsyncClientSession) -> Any:
+        await judge(session)
 
         created = await insert_live(
             collection=schiedsrichter_collection,
@@ -181,6 +198,9 @@ async def post_schiedsrichter(
 @router.patch(
     by_id("schiedsrichter_id"),
     summary="Update a Schiedsrichter",
+    response_model=FLPatchSchiedsrichterResponse,
+    openapi_extra=SAFE_WHEN,
+    responses=DRY_RUN_PASSED,
 )
 async def patch_schiedsrichter(
     schiedsrichter_id: CustomObjectId,
@@ -190,23 +210,24 @@ async def patch_schiedsrichter(
     db: DBClient,
     today: GermanDay,
     germany_now: GermanyNow,
-) -> FLPatchSchiedsrichterResponse:
+    dry_run: DryRun = False,
+) -> FLPatchSchiedsrichterResponse | Response:
     """Update a referee on the `version` the editor was served, answering the version stored.
 
     A corrected address on an unconfirmed referee retires their link and owes a fresh one, named in `confirmation`, and a
-    confirmed referee's address moves only through an address change.
+    confirmed referee's address moves only through an address change. A `dry_run` is refused as the update would be, and
+    answers 204 and writes nothing where it would land.
     """
 
     payload = schiedsrichter_data.model_dump(mode="json", exclude={"version"})
     email = schiedsrichter_data.kontakt.email
 
-    async def correct_and_ask(session: AsyncClientSession) -> tuple[FLPatchSchiedsrichterResponse, bool]:
-        # A fixture names the referee by id and reads the name at its own read, so nothing else is written; each
-        # fixture keeps the `payment` agreed for it.
+    async def judge(session: AsyncClientSession) -> Mapping[str, Any]:
+        # Every refusal of the update, in its transaction or the dry run's snapshot alike.
         stored = await pull_one_from_db(
             collection=schiedsrichter_collection,
             db_filter={"_id": schiedsrichter_id},
-            projection={"kontakt.email": 1, EINWILLIGUNG_FIELD: 1, "inactive_since": 1},
+            projection={"kontakt.email": 1, EINWILLIGUNG_FIELD: 1, "inactive_since": 1, VERSION_FIELD: 1},
             session=session,
         )
         taken = await is_held_elsewhere(
@@ -214,6 +235,21 @@ async def patch_schiedsrichter(
         )
         refuse(find_referee_name_refusal(taken=taken))
         refuse(find_confirmed_address_refusal(stored=stored, payload_email=email))
+        # Read as well as filtered on: a dry run patches nothing for the version to refuse, and the patch's filter still
+        # refuses a write racing past this read.
+        refuse(find_stale_save_refusal(stored, version=schiedsrichter_data.version))
+        return stored
+
+    if dry_run:
+        # Opened here as `get_snapshot_session` opens one, not declared: the dry run alone reads outside a transaction.
+        async with db.start_session(snapshot=True) as session:
+            await judge(session)
+        return dry_run_passed()
+
+    async def correct_and_ask(session: AsyncClientSession) -> tuple[FLPatchSchiedsrichterResponse, bool]:
+        # A fixture names the referee by id and reads the name at its own read, so nothing else is written; each
+        # fixture keeps the `payment` agreed for it.
+        stored = await judge(session)
         update, minted = compose_correction_update(stored=stored, payload=payload, payload_email=email, today=today)
 
         updated_document_raw = await patch_one_in_db(

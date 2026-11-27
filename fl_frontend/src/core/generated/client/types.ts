@@ -5601,8 +5601,38 @@ export const Rule = {
  */
 export type FailureResponse = FLFailureBody;
 
+export type AccountPostAddressChangeParams = {
+  /** Judge this write as it would be judged, and write nothing */
+  dry_run?: boolean;
+};
+
+export type AddressChangePostAddressChangeAdminParams = {
+  /** Judge this write as it would be judged, and write nothing */
+  dry_run?: boolean;
+};
+
+export type BanListPostBanListEntryParams = {
+  /** Judge this write as it would be judged, and write nothing */
+  dry_run?: boolean;
+};
+
 export type BewerbungenGetBewerbungenAdminParams = {
   saison_id: string;
+};
+
+export type BewerbungenPostKontaktSeatParams = {
+  /** Judge this write as it would be judged, and write nothing */
+  dry_run?: boolean;
+};
+
+export type GrantsPostGrantParams = {
+  /** Judge this write as it would be judged, and write nothing */
+  dry_run?: boolean;
+};
+
+export type GrantsPostHandoverParams = {
+  /** Judge this write as it would be judged, and write nothing */
+  dry_run?: boolean;
 };
 
 export type IdentityPostWithdrawalParams = {
@@ -5612,6 +5642,16 @@ export type IdentityPostWithdrawalParams = {
 
 export type SaisonsGetSweepSaisonsParams = {
   status?: FLSaisonStatus | null;
+};
+
+export type SchiedsrichterPostSchiedsrichterParams = {
+  /** Judge this write as it would be judged, and write nothing */
+  dry_run?: boolean;
+};
+
+export type SchiedsrichterPatchSchiedsrichterParams = {
+  /** Judge this write as it would be judged, and write nothing */
+  dry_run?: boolean;
 };
 
 export type SpieleGetSpieleSpielplanParams = {
@@ -5634,4 +5674,9 @@ export type TeamsGetTeamsAdminParams = {
   saison_id: string;
   gruppe?: FLGruppenNames | null;
   state?: FLTeamListState | null;
+};
+
+export type TeamsPutKontaktSeatParams = {
+  /** Judge this write as it would be judged, and write nothing */
+  dry_run?: boolean;
 };

@@ -138,9 +138,9 @@ async function FiltersOnceRead({ filters }: { filters: Promise<ReadonlyArray<Fil
 /**
  * A record created where its list shows: the dialog's act, and why it cannot run on the list as it stands, which the
  * page read, the button saying why. The lock is the trigger's, never the dialog's own send, which `DialogAct`'s
- * `locked` would be.
+ * `locked` would be. Omitted from each of `DialogAct`'s two shapes, so a touched act still demands its dry run.
  */
-export type ListCreate = Omit<DialogAct, "locked"> & { locked?: Copy };
+export type ListCreate = DialogAct extends infer Act ? (Act extends DialogAct ? Omit<Act, "locked"> & { locked?: Copy } : never) : never;
 
 /**
  * An act at the toolbar row's end, its button opening the dialog over the list: the create act, or as `side` the second

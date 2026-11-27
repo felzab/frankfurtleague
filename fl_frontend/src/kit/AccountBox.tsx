@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useRef, useState } from "react";
 
 import { COPY } from "@/core/copy/shared";
 
@@ -20,7 +20,7 @@ import { tv } from "./tv";
 import { statusOf, useFormAction } from "./useFormAction";
 import { usePasskeyTouch } from "./usePasskeyTouch";
 
-import type { ActionAnswer } from "@/core/action";
+import type { ActionAnswer, DryRunAction } from "@/core/action";
 import type { Copy, RecordText, Words } from "@/core/copy";
 import type { ReactElement, ReactNode } from "react";
 import type { ConfirmWords } from "./ConfirmDialog";
@@ -29,15 +29,24 @@ import type { SideAct } from "./SideActs";
 
 /**
  * What a box's act does: a server action, or the browser's own act such as a passkey's set-up, the box's fields
- * posted by their `name`s.
+ * posted by their `name`s, and `dryRun` true for the dry run of an act declaring one.
  */
-type Run = (formData: FormData) => Promise<ActionAnswer<unknown>>;
+type Run = (formData: FormData, dryRun?: boolean) => Promise<ActionAnswer<unknown>>;
 
 type Question = ConfirmWords;
 
 /** The one act a box's footer holds, beside its status line. */
-export type AccountAct = {
-  run: Run;
+export type AccountAct = (
+  | { run: Run; dryRun?: never }
+  | {
+      /**
+       * An act whose lane declares its dry run, over fields the server judges: a touched press sends it first, so a
+       * refusal stands on its field before the touch (`usePasskeyTouch`).
+       */
+      run: DryRunAction<FormData, unknown>;
+      dryRun: true;
+    }
+) & {
   /**
    * What the act posts beside the box's fields, unseen: the address the page was drawn for, `holder`, which its touch
    * answers for too. A field rather than a closure around `run`, so a box drawn on the server hands its act a server
@@ -49,37 +58,40 @@ export type AccountAct = {
   /** Why the act cannot run on the box's present state, the button saying why. */
   locked?: Copy;
 } & (
-  | {
-      /** `variant` is `primary` for the box's save of its own fields, its main act. */
-      button: { label: Copy; variant?: "primary" | "secondary" };
-      /** The button's press asks the passkey touch ahead of `run`, for an administrator (`usePasskeyTouch`). */
-      touch?: boolean;
-    }
-  | {
-      /**
-       * The question it asks first, which answers a refusal in its own line as every question does. It takes no touch:
-       * no act on the touch's list stands behind a box's question.
-       */
-      button: { confirm: Question };
-      touch?: never;
-    }
-);
+    | {
+        /** `variant` is `primary` for the box's save of its own fields, its main act. */
+        button: { label: Copy; variant?: "primary" | "secondary" };
+        /** The button's press asks the passkey touch ahead of `run`, for an administrator (`usePasskeyTouch`). */
+        touch?: boolean;
+      }
+    | {
+        /**
+         * The question it asks first, which answers a refusal in its own line as every question does. It takes no touch:
+         * no act on the touch's list stands behind a box's question.
+         */
+        button: { confirm: Question };
+        touch?: never;
+      }
+  );
 
 /** The act on the box's fields and what it carries. */
 function carried({ run, carry }: Pick<AccountAct, "run" | "carry">): Run {
-  return async (formData) => {
+  return async (formData, dryRun) => {
     for (const [name, value] of Object.entries(carry ?? {})) formData.set(name, value);
-    return run(formData);
+    return dryRun === true ? run(formData, dryRun) : run(formData);
   };
 }
 
-/** The act the box's own press runs, a done one saying itself in a toast: the note its answer brings, or the act's `done`. */
+/**
+ * The act the box's own press runs, a done one saying itself in a toast: the note its answer brings, or the act's
+ * `done`. A passing dry run says nothing, as the act has yet to run.
+ */
 function runOf(act: Pick<AccountAct, "run" | "carry" | "done">): Run {
   const run = carried(act);
-  return async (formData) => {
-    const answered = await run(formData);
+  return async (formData, dryRun) => {
+    const answered = await run(formData, dryRun);
     // A refusal stands in the box's line.
-    if (answered.ok) toastAnswer(answered, act.done);
+    if (answered.ok && dryRun !== true) toastAnswer(answered, act.done);
     return answered;
   };
 }
@@ -87,7 +99,10 @@ function runOf(act: Pick<AccountAct, "run" | "carry" | "done">): Run {
 /** The box's own press, its line a refusal's alone: a done act says itself in its toast. */
 function useAct(act: AccountAct) {
   const touched = usePasskeyTouch(act.touch === true, act.carry?.holder);
-  const { answer, submit, block, isBlocked, isPending } = useFormAction(touched(runOf(act)), { resetOnLeave: true });
+  const { answer, submit, block, isBlocked, isPending } = useFormAction(
+    touched(runOf(act), act.dryRun === true ? { dryRunFirst: true } : undefined),
+    { resetOnLeave: true },
+  );
   const status = statusOf(answer, isBlocked, isPending);
   return { send: submit, block, status, answer, isBusy: isPending };
 }
@@ -240,10 +255,7 @@ const rowLook = tv({
   },
 });
 
-/**
- * A box's records as rows, each with its own acts: a done act says itself in a toast, and a refusal stands in the act's
- * own dialog, or, for an act behind the passkey touch, in its toast too.
- */
+/** A box's records as rows, each with its own acts: a done act says itself in a toast, and a refusal stands in the act's own dialog. */
 export function AccountRows({ rows: records }: { rows: ReadonlyArray<AccountRow> }) {
   const slots = rowLook();
   return (
@@ -268,15 +280,11 @@ function Row({ record }: { record: AccountRow }) {
   const { rename, remove } = record;
   const [isRenaming, setRenaming] = useState(false);
   const [isAsking, setAsking] = useState(false);
-  // A touched removal runs after its question closed, so its button or its „⋯“ shows it running.
-  const removing = useTransition();
-  const [isRemoving] = removing;
   const acts: SideAct[] = [
     ...(rename === undefined ? [] : [{ label: COPY.shared.verb.rename, onPress: () => setRenaming(true) }]),
     {
       label: COPY.shared.verb[remove.verb],
       tone: "danger",
-      isBusy: isRemoving,
       ...(remove.locked === undefined ? {} : { locked: remove.locked }),
       onPress: () => setAsking(true),
     },
@@ -307,7 +315,6 @@ function Row({ record }: { record: AccountRow }) {
           {...(remove.touch === undefined ? {} : { touch: remove.touch })}
           onConfirm={remove.run}
           open={{ isOpen: isAsking, onOpenChange: setAsking }}
-          transition={removing}
         />
       </SideActs>
     </div>

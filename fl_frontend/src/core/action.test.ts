@@ -1,7 +1,7 @@
 import { assert, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
-import { answerTheLookup, GRANTED } from "@/test-support/authDoubles";
+import { ADMIN_EMAIL, answerTheLookup, GRANTED } from "@/test-support/authDoubles";
 import { networkFailure, refusal, serveBackend, serveHost } from "@/test-support/backend";
 import { cacheCalls } from "@/test-support/nextRequest";
 import { posted } from "@/test-support/posted";
@@ -37,7 +37,7 @@ const planned: { method: string; answer: unknown }[] = [];
 
 // The body's own calls and nothing else: a request the action sends anywhere else, or by another method, fails its case.
 const backend = serveBackend(({ method, path }) => (path === PROBE && planned[0]?.method === method ? planned.shift()?.answer : undefined));
-const { arriveAs } = signedInRequest();
+const { arriveAs, store } = signedInRequest();
 /** Every line the real logger writes, read off standard output. */
 const log = captureLog();
 
@@ -530,52 +530,76 @@ describe("a list of records", () => {
   });
 });
 
-// The harm: a dialog closed behind the passkey touch answers in a toast, where a box's phrase has no box in sight and the
-// line pointing at the fields points at nothing.
-describe("a screen showing no box with its answer", () => {
-  const { format, reasonMissing } = SERVER_COPY.closedDialog;
-  const Ban = z.object({
-    email: z.string().refine((value) => value.includes("@")),
-    ban_reason: z
-      .string()
-      .min(1)
-      .regex(/^[^|]*$/),
+// The harm: a dry run passes no touch, so a call taken for one where its lane declares none, or a body sending its write
+// on one, would write behind no touch, which neither the type check nor any page shows.
+describe("a dry run a lane declares", () => {
+  const VENUE = { name: "Nord", postcode: "60438", holder: ADMIN_EMAIL };
+  const Input = Venue.extend(PAGE_HOLDER);
+  const judged = action({
+    lane: "admin",
+    name: "anlegen",
+    input: Input,
+    passkey: true,
+    dryRun: true,
+    run: async (_input, { dryRun }) => {
+      ran.push(`body ${String(dryRun)}`);
+      return { ok: true, value: undefined };
+    },
+  });
+  /** A lane declaring its dry run whose body sends its write on it as well. */
+  const writingOnItsDryRun = action({
+    lane: "admin",
+    name: "anlegen",
+    input: Input,
+    passkey: true,
+    dryRun: true,
+    run: async () => {
+      await sends("POST");
+      return { ok: true, value: undefined };
+    },
+  });
+  const undeclared = action({
+    lane: "admin",
+    name: "anlegen",
+    input: Input,
+    passkey: true,
+    run: async () => {
+      ran.push("body");
+      return { ok: true, value: undefined };
+    },
   });
 
-  /** A ban whose backend refuses what `refused` names, or takes it. */
-  const ban = (refused?: FLRefusedField) =>
-    action({
-      lane: "admin",
-      name: "enterBan",
-      input: Ban,
-      boxless: {
-        // The rule's sentence apart from the box's own, so the answer shows which of the two was read.
-        email: { value: format.address, email_not_accepted: format.next },
-        ban_reason: { required: reasonMissing },
-      },
-      run: async () => {
-        await sends("POST", refused === undefined ? undefined : refusal("payload_refused", { fields: [refused] }));
-        return { ok: true, value: undefined };
-      },
-    });
+  /** The administrator's passkey sign-in of two minutes ago, which the guard admits and the touch does not. */
+  const withoutAFreshTouch = () => {
+    const [row] = store.session;
+    if (row === undefined) throw new Error("the administrator's arrival wrote no session");
+    row.createdAt = new Date(Date.now() - 2 * 60 * 1000);
+  };
 
-  it("answers a box its own rule refused in the box's sentence, by whether it held anything once stripped", async () => {
-    expect(await ban()({ email: "max", ban_reason: "Ein Grund" })).toStrictEqual({ ok: false, reason: format.address });
-    expect(await ban()({ email: "max@example.org", ban_reason: "   " })).toStrictEqual({ ok: false, reason: reasonMissing });
+  it("passes the dry run past the touch, telling the body, and judges the touch on the write", async () => {
+    withoutAFreshTouch();
+
+    expect(await judged(VENUE, true)).toStrictEqual({ ok: true, value: undefined });
+    expect(await judged(VENUE)).toStrictEqual({ ok: false, reason: COPY.shared.touchMissing });
+    expect(ran).toStrictEqual(["body true"]);
   });
 
-  it("answers a box the backend's rule refused in the sentence declared for that rule", async () => {
-    const refused: FLRefusedField = { in: "body", kind: "email_not_accepted", ctx: {}, path: ["email"] };
+  it("judges the touch on a lane declaring none, and on a second argument other than `true`", async () => {
+    withoutAFreshTouch();
 
-    expect(await ban(refused)({ email: "max@example.org", ban_reason: "Ein Grund" })).toStrictEqual({
-      ok: false,
-      errorCode: "payload_refused",
-      reason: format.next,
-    });
+    // As the browser may send it: a server action's arguments are whatever the request carries.
+    expect(await Reflect.apply(undeclared, undefined, [VENUE, true])).toStrictEqual({ ok: false, reason: COPY.shared.touchMissing });
+    expect(await judged(VENUE, "true" as never)).toStrictEqual({ ok: false, reason: COPY.shared.touchMissing });
+    expect(ran).toStrictEqual([]);
   });
 
-  it("answers a refusal of a box it declares no sentence for as one it does not word, never with the box's phrase", async () => {
-    expect(await ban()({ email: "max@example.org", ban_reason: "a|b" })).toStrictEqual({ ok: false, reason: COPY.shared.failure.unexpected });
+  it("refuses a write its body sends on the dry run before it leaves, answering the shared failure line", async () => {
+    withoutAFreshTouch();
+    log.clear();
+
+    expect(await writingOnItsDryRun(VENUE, true)).toStrictEqual({ ok: false, reason: COPY.shared.failure.unexpected });
+    expect(sent()).toStrictEqual([]);
+    expect(log.lines().map(({ message }) => message)).toContain("action.failed");
   });
 });
 

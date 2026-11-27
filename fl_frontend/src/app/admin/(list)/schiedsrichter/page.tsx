@@ -1,3 +1,4 @@
+import { getAdminHolder } from "@/core/auth/guards";
 import { ADMIN_COPY } from "@/core/copy/admin";
 import { COPY } from "@/core/copy/shared";
 import { ROUTES } from "@/core/routes";
@@ -32,17 +33,21 @@ function rowOf(referee: FLSchiedsrichterAdminRow): TableRow {
   };
 }
 
-/** The league's referees: searched on the page, a new one entered, and so asked, in the dialog over the list. */
+/**
+ * The league's referees: searched on the page, a new one entered, and so asked, in the dialog over the list, behind the
+ * passkey touch, since the entry hands the referee's area to the address it stores, as the editor's save does.
+ */
 export default function SchiedsrichterPage() {
   return (
     <ListPage
       head={{ scope: "area", title: { route: "adminSchiedsrichter" } }}
-      create={{
+      create={getAdminHolder().then((holder) => ({
         title: COPY.shared.withObject(OBJECT, "create"),
         act: { verb: "create", object: OBJECT },
         run: createSchiedsrichter,
+        touch: { holder },
         children: <SchiedsrichterFields />,
-      }}
+      }))}
       list={{ kind: "table", search: { label: WORDS.search }, head: HEAD, content: readSchiedsrichter() }}
     />
   );

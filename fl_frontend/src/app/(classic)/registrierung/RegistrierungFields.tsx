@@ -16,6 +16,8 @@ const KADER = COPY.kader;
 export type RegistrierungRules = {
   required: { firstName: boolean; lastName: boolean; email: boolean };
   max: { firstName: number; lastName: number; email: number; nummer: number };
+  /** Each a source, the one form of a pattern a server page can hand a client field (`kit/TextField.tsx :: judgeOf`). */
+  pattern: { firstName: string; lastName: string };
 };
 
 /**
@@ -37,7 +39,7 @@ export function RegistrierungFields({
    */
   objection: Line;
 }) {
-  const { required, max } = rules;
+  const { required, max, pattern } = rules;
 
   return (
     <>
@@ -48,6 +50,8 @@ export function RegistrierungFields({
           name="first_name"
           kind="text"
           autofill="given-name"
+          pattern={pattern.firstName}
+          example={COPY.shared.field.exampleFirstName}
           isRequired={required.firstName}
           maxLength={max.firstName}
         />
@@ -56,6 +60,8 @@ export function RegistrierungFields({
           name="last_name"
           kind="text"
           autofill="family-name"
+          pattern={pattern.lastName}
+          example={COPY.shared.field.exampleLastName}
           isRequired={required.lastName}
           maxLength={max.lastName}
         />

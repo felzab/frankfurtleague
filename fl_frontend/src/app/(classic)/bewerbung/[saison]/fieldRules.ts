@@ -5,7 +5,10 @@ import {
   BewerbungenPostBewerbungBody,
   bewerbungenPostBewerbungBodyKontakteTrainerEmailMax,
   bewerbungenPostBewerbungBodyKontakteTrainerFirstNameMax,
+  bewerbungenPostBewerbungBodyKontakteTrainerFirstNameRegExp,
   bewerbungenPostBewerbungBodyKontakteTrainerLastNameMax,
+  bewerbungenPostBewerbungBodyKontakteTrainerLastNameRegExp,
+  bewerbungenPostBewerbungBodyKontakteTrainerPhoneRegExp,
   bewerbungenPostBewerbungBodySchuleOneAddressCityMax,
   bewerbungenPostBewerbungBodySchuleOneAddressDistrictMax,
   bewerbungenPostBewerbungBodySchuleOneAddressHouseNumberMax,
@@ -67,6 +70,12 @@ export const BEWERBUNG_RULES = {
     wunschgegner: bewerbungenPostBewerbungBodyWunschgegnerOneMax,
   },
   postcodeLength: bewerbungenPostBewerbungBodySchuleOneAddressPostcodeMax,
+  // Each a source, the one form of a pattern a server page can hand a client field (`kit/TextField.tsx :: judgeOf`).
+  pattern: {
+    firstName: bewerbungenPostBewerbungBodyKontakteTrainerFirstNameRegExp.source,
+    lastName: bewerbungenPostBewerbungBodyKontakteTrainerLastNameRegExp.source,
+    phone: bewerbungenPostBewerbungBodyKontakteTrainerPhoneRegExp.source,
+  },
 } as const;
 
 export type BewerbungRules = typeof BEWERBUNG_RULES;

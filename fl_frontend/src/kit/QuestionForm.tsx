@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition, useState, useTransition } from "react";
+import { startTransition, useState } from "react";
 
 import { COPY } from "@/core/copy/shared";
 
@@ -38,9 +38,8 @@ export type AskedInput<Input> = {
  * A form that is a page's one act: its fields in a box, the act and its status line under them, no title but the page's.
  * The press sends the fields to `read`, whose answer is the question, worded from what it read, so the act is confirmed
  * over what it will reach: a question standing on data the form holds until the press. `read`'s refusal stands in the
- * form's line, no question asked. The question's final press closes it, asks the touch and calls `run`, the form's
- * press busy until it answers, a refusal in a toast (`ConfirmDialog`); an act off the touch's list runs inside the
- * question instead, a refusal standing in the question's line. A done act empties the boxes and names itself in the
+ * form's line, no question asked. The question's final press asks the touch, for an act on its list, and calls `run`,
+ * a refusal standing in the question's line (`ConfirmDialog`). A done act empties the boxes and names itself in the
  * question's toast, its answer's `note`.
  */
 export function QuestionForm<Input>({
@@ -67,9 +66,6 @@ export function QuestionForm<Input>({
 }) {
   const [asked, setAsked] = useState<AskedInput<Input> | null>(null);
   const [isAsking, setAsking] = useState(false);
-  // The act runs after its question closed, so the form's press shows it running and sends nothing while it does.
-  const acting = useTransition();
-  const [isActing] = acting;
   // Raised to draw the boxes anew, as `HeldForm` refuses a form's reset.
   const [emptied, setEmptied] = useState(0);
 
@@ -97,7 +93,7 @@ export function QuestionForm<Input>({
       <HeldForm
         validationErrors={refused?.fieldErrors}
         onInvalid={block}
-        isBusy={isPending || isActing}
+        isBusy={isPending}
         onSend={submit}
         className={BOX_CLASSES}>
         <div className={CONTENT_CLASSES}>
@@ -111,7 +107,7 @@ export function QuestionForm<Input>({
             variant={tone === "danger" ? askingLook(tone) : tone}
             type="submit"
             label={COPY.shared.verb[verb]}
-            isBusy={isPending || isActing}
+            isBusy={isPending}
           />
         </FormFooter>
       </HeldForm>
@@ -130,8 +126,6 @@ export function QuestionForm<Input>({
               }
         }
         open={open}
-        transition={acting}
-        // Without the touch the question shows a refusal itself and closes on a done act.
         {...touched}
         onConfirm={
           // Unasked, the question shows no button to press.

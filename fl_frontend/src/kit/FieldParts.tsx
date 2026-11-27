@@ -51,10 +51,8 @@ function fieldMessage({ validationDetails, validationErrors }: ValidationResult,
   if (validationDetails.tooShort && constraints.minLength !== undefined) return field.minChars(constraints.minLength);
   if (validationDetails.rangeUnderflow && constraints.earliest !== undefined) return field.earliest(constraints.earliest);
   if (validationDetails.rangeOverflow && constraints.latest !== undefined) return field.latest(constraints.latest);
-  if (
-    (validationDetails.typeMismatch || validationDetails.patternMismatch || validationDetails.badInput) &&
-    constraints.example !== undefined
-  ) {
+  // No kit field sets the `pattern` attribute, so no `patternMismatch` arises: a pattern is the field's `validate`.
+  if ((validationDetails.typeMismatch || validationDetails.badInput) && constraints.example !== undefined) {
     return field.format(constraints.example);
   }
   return validationDetails.customError ? validationErrors[0] : COPY.shared.failure.unexpected;

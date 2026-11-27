@@ -1,6 +1,6 @@
 import { COPY } from "@/core/copy/shared";
 
-import type { ActionAnswer } from "@/core/action";
+import type { ActionAnswer, DryRunAction } from "@/core/action";
 import type { Copy, Verb, Words } from "@/core/copy";
 import type { ReactNode } from "react";
 import type { ConfirmQuestion, Tone } from "./ConfirmDialog";
@@ -23,7 +23,7 @@ export type DialogDanger = {
   /**
    * The question its button opens, over the dialog; the button carries the question's verb and tone. The question
    * shows its act's refusal and stays open with it, as every question does, and a done act closes it and the dialog.
-   * It asks no passkey touch: the question closes before the prompt, but the dialog's own modal under it would stand
+   * It asks no passkey touch: the question steps aside for the prompt, but the dialog's own modal under it would stand
    * and make the prompt inert.
    */
   confirm: Omit<ConfirmQuestion, "onConfirm" | "touch"> & {
@@ -35,21 +35,29 @@ export type DialogDanger = {
 
 /**
  * A verb an act answering in a toast may carry: one the catalogue words the act's toast for, as done
- * (`COPY.shared.toast.done`), since the act's question or dialog has closed when it answers.
+ * (`COPY.shared.toast.done`), since a done act closes its question or dialog, which leaves only the toast to say it.
  */
 export type DoneVerb = keyof typeof COPY.shared.toast.done;
 
 /** The verb, with its object where the verb alone does not say what it acts on („Spielort anlegen“). */
 export type ActWords<V extends Verb> = { verb: V; object?: Copy };
 
+/**
+ * The server action doing a dialog's act, reading the form's fields by their `name`s, and the passkey touch it asks,
+ * for an act on the touch's fixed list an administrator presses: the address the page was drawn for, which the form
+ * posts as `holder` (`usePasskeyTouch`). A touched act's `run` is one whose lane declares its dry run, which the press
+ * sends first with the dialog standing, each refusal on its field or its line; only a passing dry run steps the dialog
+ * aside for the browser's prompt, and it stands again with its input for the act's answer.
+ */
+type DialogRun =
+  { run: (formData: FormData) => Promise<ActionAnswer>; touch?: never } | { run: DryRunAction<FormData>; touch: { holder: string } };
+
 /** A dialog's act, whatever opens it: its title, its verb, the action doing it and its inputs. */
-export type DialogAct<T extends Tone = Tone> = {
+export type DialogAct<T extends Tone = Tone> = DialogRun & {
   /** What the dialog is about: the act in the catalogue's words, or the record a small record's dialog edits, by its name. */
   title: Words;
   /** The act, whose verb names the dialog's button and words its toast once done. */
   act: ActWords<DoneVerb>;
-  /** The server action doing the act, reading the form's fields by their `name`s. */
-  run: (formData: FormData) => Promise<ActionAnswer>;
   /** The act's inputs: the kit's fields. */
   children: ReactNode;
   /** The record the act is about, posted beside the inputs under these names, as a mailed form carries its key. */
@@ -72,14 +80,6 @@ export type DialogAct<T extends Tone = Tone> = {
    * act is a function, which cannot cross from the server.
    */
   danger?: DialogDanger;
-  /**
-   * The passkey touch the act's button asks ahead of `run`, for an act on its fixed list an administrator presses: the
-   * address the page was drawn for, which the form posts as `holder` (`usePasskeyTouch`). The press closes
-   * the dialog for good before the browser asks, and the act answers in a toast, a refusal in a sentence of its own,
-   * since no field stands to carry a field's phrase, the dialog's opening button standing again for a new try with the
-   * inputs typed anew.
-   */
-  touch?: { holder: string };
 };
 
 /** The act's label, on the dialog's own button and on a trigger naming the same act. */

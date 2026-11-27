@@ -51,6 +51,7 @@ export function SignInBoxes({
           description={ACCOUNT_COPY.address.description}
           act={{
             run: startAddressChange,
+            dryRun: true,
             // The address the page is drawn for, which every act of the account posts.
             carry: { holder: email },
             button: { label: COPY.shared.withObject(COPY.shared.link, "send") },

@@ -307,8 +307,8 @@ def find_taken_refusal(*, taken: bool) -> APIError | None:
 
     Another pupil signs in on it (one address is one pupil, `uniq_spieler_email`), an entry names it, or, judged at the
     press alone, it holds a grant (one address holds one grant). One code for all three, so a link's holder learns no
-    more than that, and on no field: the start's dialog has closed before its answer, and the re-send and the press hold
-    no box. Never judged at the person's own start, which would tell its holder which addresses hold records.
+    more than that, and on no field: the re-send and the press hold no box, so the start's dialog says it in the same
+    sentence. Never judged at the person's own start, which would tell its holder which addresses hold records.
     """
 
     if not taken:

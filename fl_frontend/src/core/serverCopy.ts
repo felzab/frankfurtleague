@@ -150,8 +150,8 @@ export const SERVER_COPY = catalogue({
     /** An address change's start, for an address holding no record. */
     address_change_nothing: COPY.shared.nothingAtAddress,
     /**
-     * The new address another person stands at, a pupil, an entry or a grant, on the start's toast, whose dialog has
-     * closed before the answer, and on the re-send, which holds no box.
+     * The new address another person stands at, a pupil, an entry or a grant, in one sentence on the start's dialog and
+     * on the re-send, which holds no box.
      */
     address_change_taken: "Die neue Adresse ist schon vergeben.",
     /** A person's own start pressed again too soon after the last mail its change owed: the edge's own rate refusal. */
@@ -164,7 +164,7 @@ export const SERVER_COPY = catalogue({
       Array.isArray(spiel_nrs) && spiel_nrs.length > 0 ? `Die Person ist noch für ${spieleNamed(spiel_nrs)} eingeteilt.` : undefined,
     /** An addition or a handover naming an address the ban list holds. */
     grant_barred: ADDRESS_BARRED,
-    /** An addition naming an address a grant holds, in effect or waiting, which its dialog's toast says. */
+    /** An addition naming an address a grant holds, in effect or waiting, on its dialog's line. */
     grant_exists: ADDRESS_OF_ADMINISTRATION,
     /** A club the form or the acceptance picked that already stands in the season. */
     bewerbung_picked_team_already_entered: "Diese Schule spielt in dieser Saison schon mit.",
@@ -220,37 +220,12 @@ export const SERVER_COPY = catalogue({
   } satisfies Partial<Record<Rule, string>>,
 
   /**
-   * The refusals of a dialog closed behind the passkey touch, whose toast says them where no box stands to carry a
-   * field's phrase: each names what was refused as its box asks for it, as its lane's `boxless` declares it.
-   */
-  closedDialog: {
-    /** A ban of an address the ban list already holds. */
-    banned: ADDRESS_BARRED,
-    format: {
-      address: `Die E-Mail-Adresse hat nicht das Format ${COPY.shared.field.exampleAddress}.`,
-      previous: `Die bisherige E-Mail-Adresse hat nicht das Format ${COPY.shared.field.exampleAddress}.`,
-      next: `Die neue E-Mail-Adresse hat nicht das Format ${COPY.shared.field.exampleAddress}.`,
-      phone: `Die Telefonnummer hat nicht das Format ${COPY.shared.field.examplePhone}.`,
-      firstName: `Der Vorname hat nicht das Format ${COPY.shared.field.exampleFirstName}.`,
-      lastName: `Der Nachname hat nicht das Format ${COPY.shared.field.exampleLastName}.`,
-    },
-    /** A seat's address or number, which another person of the same record holds. */
-    taken: {
-      address: "Die E-Mail-Adresse ist schon vergeben.",
-      phone: "Die Telefonnummer ist schon vergeben.",
-    },
-    /** A ban's Grund, left holding nothing but spaces. */
-    reasonMissing: "Der Grund fehlt.",
-    /** A seat's names, each left holding nothing but spaces. */
-    firstNameMissing: "Der Vorname fehlt.",
-    lastNameMissing: "Der Nachname fehlt.",
-  },
-
-  /**
    * What an act's server action answers on its own, beside the refusals the catalogue words by their code: a refusal
    * of its own check, or a note on an act done in part, by the act's record.
    */
   actAnswer: {
+    /** A ban of an address the ban list already holds, which the backend refuses with no field. */
+    banned: ADDRESS_BARRED,
     /** An administrator's last passkey, their only way into the administration. */
     lastPasskeyKept: "Der letzte Passkey lässt sich nicht löschen.",
     /** The erasure's note, the account undeleted or unknown: the form keeps the address, so its „Löschen“ retries. */

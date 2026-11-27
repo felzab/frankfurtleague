@@ -45,7 +45,8 @@ test("a seat objects, „Sitz bearbeiten“ seats another person behind the touc
   const replacement = { firstName: "Noah", lastName: "Neumann", address: `neu.${school.toLowerCase()}@example.com`, phone: "069 90009004" };
   await fillSeat(dialog, replacement);
   await dialog.getByRole("button", { name: "Speichern" }).click();
-  // The dialog closes on the press, before the touch; the write owes the person a link, which the toast names.
+  // The press sends the dry run, steps the dialog aside for the touch and closes it once the write is done; the write
+  // owes the person a link, which the toast names.
   await expect(dialog).toBeHidden();
   await expect(toast(desk, replacement.address)).toBeVisible();
   expect(await assertionsSigned(desk.context()), "the seat was written with no touch of its own").toBe(touches + 1);

@@ -16517,8 +16517,22 @@
         ]
       },
       "post": {
-        "description": "Start a change of the address the person signs in on: the address on file is mailed a link, and its confirmation mails the new one.\n\nEverything the address holds moves once the new address confirms, after a wait where it holds a grant; declining\neither link ends the change, and a live change of the address is replaced.",
+        "description": "Start a change of the address the person signs in on: the address on file is mailed a link, and its confirmation mails the new one.\n\nEverything the address holds moves once the new address confirms, after a wait where it holds a grant; declining\neither link ends the change, and a live change of the address is replaced. A `dry_run` is refused as the start would\nbe, and writes nothing where it would land.",
         "operationId": "account_post_address_change",
+        "parameters": [
+          {
+            "description": "Judge this write as it would be judged, and write nothing",
+            "in": "query",
+            "name": "dry_run",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Judge this write as it would be judged, and write nothing",
+              "title": "Dry Run",
+              "type": "boolean"
+            }
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -16546,7 +16560,8 @@
         "summary": "Start a change of the signed-in person's address",
         "tags": [
           "account"
-        ]
+        ],
+        "x-safe-when": "dry_run"
       }
     },
     "/api/account/einwilligungen": {
@@ -16684,8 +16699,22 @@
         ]
       },
       "post": {
-        "description": "Start a change of the typed address for a person who says they cannot sign in.\n\nThe new mailbox is mailed a link and the address on file a stop link, and nothing moves until a waiting period after\nthe new mailbox confirms, the old address working until then.",
+        "description": "Start a change of the typed address for a person who says they cannot sign in.\n\nThe new mailbox is mailed a link and the address on file a stop link, and nothing moves until a waiting period after\nthe new mailbox confirms, the old address working until then. A `dry_run` is refused as the start would be, and\nwrites nothing.",
         "operationId": "address_change_post_address_change_admin",
+        "parameters": [
+          {
+            "description": "Judge this write as it would be judged, and write nothing",
+            "in": "query",
+            "name": "dry_run",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Judge this write as it would be judged, and write nothing",
+              "title": "Dry Run",
+              "type": "boolean"
+            }
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -16713,7 +16742,8 @@
         "summary": "Start an address change for a person who says they cannot sign in",
         "tags": [
           "address_change"
-        ]
+        ],
+        "x-safe-when": "dry_run"
       }
     },
     "/api/address_change/address": {
@@ -17328,8 +17358,22 @@
         ]
       },
       "post": {
-        "description": "Ban an address: it cannot sign in, and no mail leaves for it but the ban's own notice, sent where `notify` is set.\n\nThe ban runs a fixed number of seasons past the running one, and it and its reason outlive the person's erasure.",
+        "description": "Ban an address: it cannot sign in, and no mail leaves for it but the ban's own notice, sent where `notify` is set.\n\nThe ban runs a fixed number of seasons past the running one, and it and its reason outlive the person's erasure. A\n`dry_run` is refused as the ban would be, and answers 204 and writes nothing where it would land.",
         "operationId": "ban_list_post_ban_list_entry",
+        "parameters": [
+          {
+            "description": "Judge this write as it would be judged, and write nothing",
+            "in": "query",
+            "name": "dry_run",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Judge this write as it would be judged, and write nothing",
+              "title": "Dry Run",
+              "type": "boolean"
+            }
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -17351,6 +17395,9 @@
             },
             "description": "Successful Response"
           },
+          "204": {
+            "description": "The `dry_run` found nothing the write would refuse"
+          },
           "default": {
             "$ref": "#/components/responses/Failure",
             "description": "A refusal or a fault, its status naming which"
@@ -17364,7 +17411,8 @@
         "summary": "Ban an email address",
         "tags": [
           "ban_list"
-        ]
+        ],
+        "x-safe-when": "dry_run"
       }
     },
     "/api/ban_list/{ban_list_entry_id}": {
@@ -17879,7 +17927,7 @@
     },
     "/api/bewerbungen/{bewerbung_id}/kontakte/{seat}": {
       "post": {
-        "description": "Write a person into one seat, whatever its state, and mail them a fresh link; an acceptance waits on their answer.\n\nWhere one person holds two seats both are written, the last holder's link opens nothing afterwards, and the seat's\ndeadline starts again from today. A finished season's application takes no write, as it takes no fresh link.",
+        "description": "Write a person into one seat, whatever its state, and mail them a fresh link; an acceptance waits on their answer.\n\nWhere one person holds two seats both are written, the last holder's link opens nothing afterwards, and the seat's\ndeadline starts again from today. A finished season's application takes no write, as it takes no fresh link. A\n`dry_run` is refused as the write would be, and answers 204 and writes nothing where it would land.",
         "operationId": "bewerbungen_post_kontakt_seat",
         "parameters": [
           {
@@ -17899,6 +17947,18 @@
             "schema": {
               "title": "Seat",
               "type": "string"
+            }
+          },
+          {
+            "description": "Judge this write as it would be judged, and write nothing",
+            "in": "query",
+            "name": "dry_run",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Judge this write as it would be judged, and write nothing",
+              "title": "Dry Run",
+              "type": "boolean"
             }
           }
         ],
@@ -17923,6 +17983,9 @@
             },
             "description": "Successful Response"
           },
+          "204": {
+            "description": "The `dry_run` found nothing the write would refuse"
+          },
           "default": {
             "$ref": "#/components/responses/Failure",
             "description": "A refusal or a fault, its status naming which"
@@ -17936,7 +17999,8 @@
         "summary": "Write the person one contact seat holds and mail them a fresh link",
         "tags": [
           "bewerbungen"
-        ]
+        ],
+        "x-safe-when": "dry_run"
       }
     },
     "/api/bewerbungen/{bewerbung_id}/kontakte/{seat}/confirmation/resend": {
@@ -18015,8 +18079,22 @@
         ]
       },
       "post": {
-        "description": "Add an address as `administration`, holding once its wait has passed; only the owner adds one, and no request grants `owner`.\n\nEvery holder in effect and the address named are told, with the date it holds from.",
+        "description": "Add an address as `administration`, holding once its wait has passed; only the owner adds one, and no request grants `owner`.\n\nEvery holder in effect and the address named are told, with the date it holds from. A `dry_run` is refused as the\naddition would be, and answers 204 and writes nothing where it would land.",
         "operationId": "grants_post_grant",
+        "parameters": [
+          {
+            "description": "Judge this write as it would be judged, and write nothing",
+            "in": "query",
+            "name": "dry_run",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Judge this write as it would be judged, and write nothing",
+              "title": "Dry Run",
+              "type": "boolean"
+            }
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -18038,6 +18116,9 @@
             },
             "description": "Successful Response"
           },
+          "204": {
+            "description": "The `dry_run` found nothing the write would refuse"
+          },
           "default": {
             "$ref": "#/components/responses/Failure",
             "description": "A refusal or a fault, its status naming which"
@@ -18051,7 +18132,8 @@
         "summary": "Add an administrator",
         "tags": [
           "grants"
-        ]
+        ],
+        "x-safe-when": "dry_run"
       }
     },
     "/api/grants/handover": {
@@ -18164,7 +18246,7 @@
         ]
       },
       "post": {
-        "description": "Start handing the owner role to an administrator in effect, completing once its wait has passed; the owner stays the owner until then.\n\nOnly the owner starts one, and every holder in effect is told the date it completes on.",
+        "description": "Start handing the owner role to an administrator in effect, completing once its wait has passed; the owner stays the owner until then.\n\nOnly the owner starts one, and every holder in effect is told the date it completes on. A `dry_run` is refused as\nthe handover would be, and writes nothing.",
         "operationId": "grants_post_handover",
         "parameters": [
           {
@@ -18175,6 +18257,18 @@
               "pattern": "^[0-9a-fA-F]{24}$",
               "title": "Grant Id",
               "type": "string"
+            }
+          },
+          {
+            "description": "Judge this write as it would be judged, and write nothing",
+            "in": "query",
+            "name": "dry_run",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Judge this write as it would be judged, and write nothing",
+              "title": "Dry Run",
+              "type": "boolean"
             }
           }
         ],
@@ -18195,7 +18289,8 @@
         "summary": "Hand the owner role over to an administrator",
         "tags": [
           "grants"
-        ]
+        ],
+        "x-safe-when": "dry_run"
       }
     },
     "/api/identity/erasure": {
@@ -19971,8 +20066,22 @@
         ]
       },
       "post": {
-        "description": "Create a referee and owe them their confirmation link, answering the address it goes to.\n\nEntering a referee is the invitation, with no second press deciding whether they are asked, since a referee nobody\nasked is a name nobody consented to publish.",
+        "description": "Create a referee and owe them their confirmation link, answering the address it goes to.\n\nEntering a referee is the invitation, with no second press deciding whether they are asked, since a referee nobody\nasked is a name nobody consented to publish. A `dry_run` is refused as the create would be, and answers 204 and\nwrites nothing where it would land.",
         "operationId": "schiedsrichter_post_schiedsrichter",
+        "parameters": [
+          {
+            "description": "Judge this write as it would be judged, and write nothing",
+            "in": "query",
+            "name": "dry_run",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Judge this write as it would be judged, and write nothing",
+              "title": "Dry Run",
+              "type": "boolean"
+            }
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -19994,6 +20103,9 @@
             },
             "description": "Successful Response"
           },
+          "204": {
+            "description": "The `dry_run` found nothing the write would refuse"
+          },
           "default": {
             "$ref": "#/components/responses/Failure",
             "description": "A refusal or a fault, its status naming which"
@@ -20007,7 +20119,8 @@
         "summary": "Create a Schiedsrichter",
         "tags": [
           "schiedsrichter"
-        ]
+        ],
+        "x-safe-when": "dry_run"
       }
     },
     "/api/schiedsrichter/confirmation": {
@@ -20321,7 +20434,7 @@
         ]
       },
       "patch": {
-        "description": "Update a referee on the `version` the editor was served, answering the version stored.\n\nA corrected address on an unconfirmed referee retires their link and owes a fresh one, named in `confirmation`, and a\nconfirmed referee's address moves only through an address change.",
+        "description": "Update a referee on the `version` the editor was served, answering the version stored.\n\nA corrected address on an unconfirmed referee retires their link and owes a fresh one, named in `confirmation`, and a\nconfirmed referee's address moves only through an address change. A `dry_run` is refused as the update would be, and\nanswers 204 and writes nothing where it would land.",
         "operationId": "schiedsrichter_patch_schiedsrichter",
         "parameters": [
           {
@@ -20332,6 +20445,18 @@
               "pattern": "^[0-9a-fA-F]{24}$",
               "title": "Schiedsrichter Id",
               "type": "string"
+            }
+          },
+          {
+            "description": "Judge this write as it would be judged, and write nothing",
+            "in": "query",
+            "name": "dry_run",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Judge this write as it would be judged, and write nothing",
+              "title": "Dry Run",
+              "type": "boolean"
             }
           }
         ],
@@ -20356,6 +20481,9 @@
             },
             "description": "Successful Response"
           },
+          "204": {
+            "description": "The `dry_run` found nothing the write would refuse"
+          },
           "default": {
             "$ref": "#/components/responses/Failure",
             "description": "A refusal or a fault, its status naming which"
@@ -20369,7 +20497,8 @@
         "summary": "Update a Schiedsrichter",
         "tags": [
           "schiedsrichter"
-        ]
+        ],
+        "x-safe-when": "dry_run"
       }
     },
     "/api/schiedsrichter/{schiedsrichter_id}/confirmation/resend": {
@@ -22485,7 +22614,7 @@
     },
     "/api/teams/{team_id}/saisons/{saison_id}/kontakte/{seat}": {
       "put": {
-        "description": "Write the person one seat holds on the row's `version`, a newly seated person owed a fresh link whose address `email` names.\n\nThe same person, address and name folded, keeps the seat's record and link, and where the Trainer holds a second seat\na write on either seat writes both under one link.",
+        "description": "Write the person one seat holds on the row's `version`, a newly seated person owed a fresh link whose address `email` names.\n\nThe same person, address and name folded, keeps the seat's record and link, and where the Trainer holds a second seat\na write on either seat writes both under one link. A `dry_run` is refused as the write would be, and answers 204 and\nwrites nothing where it would land.",
         "operationId": "teams_put_kontakt_seat",
         "parameters": [
           {
@@ -22515,6 +22644,18 @@
               "title": "Seat",
               "type": "string"
             }
+          },
+          {
+            "description": "Judge this write as it would be judged, and write nothing",
+            "in": "query",
+            "name": "dry_run",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Judge this write as it would be judged, and write nothing",
+              "title": "Dry Run",
+              "type": "boolean"
+            }
           }
         ],
         "requestBody": {
@@ -22538,6 +22679,9 @@
             },
             "description": "Successful Response"
           },
+          "204": {
+            "description": "The `dry_run` found nothing the write would refuse"
+          },
           "default": {
             "$ref": "#/components/responses/Failure",
             "description": "A refusal or a fault, its status naming which"
@@ -22551,7 +22695,8 @@
         "summary": "Write the person one contact seat holds",
         "tags": [
           "teams"
-        ]
+        ],
+        "x-safe-when": "dry_run"
       }
     },
     "/api/teams/{team_id}/saisons/{saison_id}/kontakte/{seat}/confirmation/resend": {

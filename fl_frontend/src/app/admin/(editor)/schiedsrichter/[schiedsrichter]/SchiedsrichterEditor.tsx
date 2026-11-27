@@ -57,8 +57,8 @@ export function SchiedsrichterEditor({
   /** What the last confirmation mail met, after the state's chip where one stands. */
   flag?: ChipProps;
   record: EditorRecord<SchiedsrichterValues>;
-  /** The save, behind the passkey touch, which posts the page's holder beside the changes. */
-  save: (change: EditorSave<SchiedsrichterValues> & { holder: string }) => Promise<ActionAnswer<number>>;
+  /** The save, behind its dry run and the passkey touch, which posts the page's holder beside the changes. */
+  save: (change: EditorSave<SchiedsrichterValues> & { holder: string }, dryRun?: boolean) => Promise<ActionAnswer<number>>;
   /** What the save asks of each box, read on the server. */
   rules: SchiedsrichterRules;
   address: Address;
@@ -72,14 +72,14 @@ export function SchiedsrichterEditor({
   holder: string;
 }) {
   const touched = usePasskeyTouch(true, holder);
-  // The save bar's press is the save's final one, so the touch is asked inside it, and not for a save of nothing,
-  // which the editor answers without calling the save.
+  // The save bar's press is the save's final one, so its dry run and then the touch are asked inside it, and not for a
+  // save of nothing, which the editor answers without calling the save.
   const editor = useEditor(
     record,
-    touched((change: EditorSave<SchiedsrichterValues>) => save({ ...change, holder })),
+    touched((change: EditorSave<SchiedsrichterValues>, dryRun?: boolean) => save({ ...change, holder }, dryRun), { dryRunFirst: true }),
   );
   const { draft, set } = editor;
-  const { required, max } = rules;
+  const { required, max, pattern } = rules;
 
   const dangerAct: DangerAct =
     danger.kind === "reactivate"
@@ -124,6 +124,8 @@ export function SchiedsrichterEditor({
                 label={COPY.shared.name}
                 name="name"
                 kind="text"
+                pattern={pattern.name}
+                example={COPY.shared.field.exampleName}
                 isRequired={required.name}
                 maxLength={max.name}
                 value={draft.name}
@@ -180,6 +182,7 @@ export function SchiedsrichterEditor({
                 label={FACTS.phone}
                 name="phone"
                 kind="tel"
+                pattern={pattern.phone}
                 isRequired={required.phone}
                 value={draft.phone}
                 onChange={(phone) => set("phone", phone)}

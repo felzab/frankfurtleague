@@ -79,7 +79,7 @@ function NewSchool({ box, rules }: { box: Box; rules: BewerbungRules }) {
 
 /** One person's four boxes; the seat's age floor stands under the first, as what a reader meets before naming anybody. */
 function SeatBoxes({ seat, floor, box, rules }: { seat: FLKontaktSeat; floor: number; box: Box; rules: BewerbungRules }) {
-  const { max, required } = rules;
+  const { max, required, pattern } = rules;
   const path = (name: string) => box(`kontakte.${seat}.${name}`);
   return (
     <>
@@ -88,6 +88,8 @@ function SeatBoxes({ seat, floor, box, rules }: { seat: FLKontaktSeat; floor: nu
         label={shared.firstName}
         description={bewerbung.seatFloor(floor)}
         kind="text"
+        pattern={pattern.firstName}
+        example={shared.field.exampleFirstName}
         isRequired={required.firstName}
         maxLength={max.firstName}
       />
@@ -95,6 +97,8 @@ function SeatBoxes({ seat, floor, box, rules }: { seat: FLKontaktSeat; floor: nu
         {...path("last_name")}
         label={shared.lastName}
         kind="text"
+        pattern={pattern.lastName}
+        example={shared.field.exampleLastName}
         isRequired={required.lastName}
         maxLength={max.lastName}
       />
@@ -110,6 +114,7 @@ function SeatBoxes({ seat, floor, box, rules }: { seat: FLKontaktSeat; floor: nu
         {...path("phone")}
         label={COPY.shared.facts.phone}
         kind="tel"
+        pattern={pattern.phone}
         isRequired={required.phone}
       />
     </>

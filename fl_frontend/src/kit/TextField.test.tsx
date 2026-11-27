@@ -130,6 +130,67 @@ describe("what the browser takes and the server refuses", () => {
     expect(screen.getByText(COPY.shared.field.required)).toBeTruthy();
     expect(sent).not.toHaveBeenCalled();
   });
+
+  // The write's own patterns, as a seat's rules hand them on from the contract. HTML compiles a `pattern` attribute under
+  // the `v` flag, where the phone's is a SyntaxError a browser drops in silence, and the name's `\p{L}` needs `u`.
+  const PHONE = "^([+]?[ 0-9\\-().]{2,19}[0-9])$";
+  const NAME = "^\\p{L}[\\p{L}\\-' ]*$";
+
+  it.each([
+    [
+      "a phone number",
+      <TextField
+        key="phone"
+        label={COPY.shared.facts.phone}
+        name="phone"
+        kind="tel"
+        pattern={PHONE}
+      />,
+      "069 9000x",
+      COPY.shared.field.examplePhone,
+    ],
+    [
+      "a first name",
+      <TextField
+        key="name"
+        label={COPY.shared.firstName}
+        name="first_name"
+        kind="text"
+        pattern={NAME}
+        example={COPY.shared.field.exampleFirstName}
+      />,
+      "Anna1",
+      COPY.shared.field.exampleFirstName,
+    ],
+  ])("refuses %s off the write's pattern on the press, naming its example", async (_, field, typed, example) => {
+    const sent = await pressing(field, typed);
+    expect(screen.getByText(COPY.shared.field.format(example))).toBeTruthy();
+    expect(sent).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["a phone number with a plus, brackets and a hyphen", "tel", PHONE, "+49 (69) 9000-9123"],
+    ["a name with an umlaut, a hyphen and spaces around it", "text", NAME, " Jörg-Peter "],
+  ] as const)("sends %s the write takes", async (_, kind, pattern, typed) => {
+    const sent = await pressing(
+      kind === "tel" ? (
+        <TextField
+          label={COPY.shared.facts.phone}
+          kind="tel"
+          pattern={pattern}
+        />
+      ) : (
+        <TextField
+          label={COPY.shared.firstName}
+          kind="text"
+          pattern={pattern}
+          example={COPY.shared.field.exampleFirstName}
+        />
+      ),
+      typed,
+    );
+    expect(sent).toHaveBeenCalledOnce();
+  });
 });
 
 describe("a digits field", () => {
@@ -149,7 +210,6 @@ describe("a digits field", () => {
         />
       </Form>,
     );
-    expect(screen.getByRole("textbox").getAttribute("pattern")).toBe("[0-9]*");
     await userEvent.type(screen.getByRole("textbox"), "6a");
     await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.save }));
     expect(screen.getByText(COPY.shared.field.format(COPY.shared.field.exampleDigits))).toBeTruthy();

@@ -9,7 +9,9 @@ import { dayOf, formatDate } from "@/core/format";
 import {
   SpielerPatchSpielerSaisonBody,
   spielerPatchSpielerSaisonBodyFirstNameMax,
+  spielerPatchSpielerSaisonBodyFirstNameRegExp,
   spielerPatchSpielerSaisonBodyLastNameOneMax,
+  spielerPatchSpielerSaisonBodyLastNameOneRegExp,
   spielerPatchSpielerSaisonBodyNummerOneMax,
 } from "@/core/generated/zod/inputs";
 import { ROUTES } from "@/core/routes";
@@ -47,6 +49,11 @@ const RULES = {
     first_name: spielerPatchSpielerSaisonBodyFirstNameMax,
     last_name: spielerPatchSpielerSaisonBodyLastNameOneMax,
     nummer: spielerPatchSpielerSaisonBodyNummerOneMax,
+  },
+  // Each a source, the one form of a pattern a server page can hand a client field (`kit/TextField.tsx :: judgeOf`).
+  pattern: {
+    first_name: spielerPatchSpielerSaisonBodyFirstNameRegExp.source,
+    last_name: spielerPatchSpielerSaisonBodyLastNameOneRegExp.source,
   },
 };
 

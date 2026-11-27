@@ -10,32 +10,27 @@ import { SERVER_COPY } from "@/core/serverCopy";
 import { accountAtNewAddress } from "@/features/address-change/account";
 import { SignInAddressSchema, SignInPayloadSchema } from "@/features/auth/schemas";
 
-const FORMAT = SERVER_COPY.closedDialog.format;
-
 /**
  * A change started for a person who says they cannot sign in: the address on file, and the new one, held as an address
  * the person will sign in at. An account standing at the new address is refused before the mint, which writes: the
- * backend cannot see the sign-in store. The address's running change ends replaced, which the dialog says as the
- * address is typed.
+ * backend cannot see the sign-in store, and its dry run asks the same. The address's running change ends replaced,
+ * which the dialog says as the address is typed.
  */
 export const startLostMailboxChange = action({
   lane: "admin",
   passkey: true,
+  dryRun: true,
   name: "startLostMailboxChange",
   input: z.object({
     address: SignInPayloadSchema.shape.email,
     email: SignInAddressSchema,
     ...PAGE_HOLDER,
   }),
-  // The dialog has closed before any answer, which its toast says: every refusal is a sentence, never a box's phrase.
-  boxless: {
-    address: { value: FORMAT.previous, email_not_accepted: FORMAT.previous },
-    email: { value: FORMAT.next, email_not_accepted: FORMAT.next },
-  },
-  run: async ({ address, email }) => {
+  boxes: ["address", "email"],
+  run: async ({ address, email }, { dryRun }) => {
     if (await accountStandsAt(email))
       return { ok: false, errorCode: "address_change_taken", reason: SERVER_COPY.refusalLine.address_change_taken };
-    await addressChangePostAddressChangeAdmin({ address, email });
+    await addressChangePostAddressChangeAdmin({ address, email }, { dry_run: dryRun });
     return { ok: true, value: undefined };
   },
 });

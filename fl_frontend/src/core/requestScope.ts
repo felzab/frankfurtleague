@@ -40,6 +40,8 @@ interface RequestScope {
   // Set on a background pass's scope, the scheduler's and the Postausgang's drain: its writes are drained by the pass
   // itself, never behind a response it has not got.
   background: boolean;
+  // Set on an action's dry run, which passed no touch, so no write may leave it (`recordWriteSent`).
+  dryRun?: true;
 }
 
 const storage = new AsyncLocalStorage<RequestScope>();
@@ -148,16 +150,26 @@ export function boundCall(ownBoundMs: number): AbortSignal {
  * have landed. Answers the withdrawal, which takes that one write back and no other. Every write the generated client
  * sends is recorded. A write through the sign-in store's own client is not: it moves nothing a cached read serves, so
  * recorded it would clear the site's cache tag for nothing, and an action changing that store calls Next's `refresh()`
- * itself. A no-op outside a scope.
+ * itself. A no-op outside a scope. On a dry run's request it throws before the write is sent (`markDryRun`).
  */
 export function recordWriteSent(): () => void {
   const store = storage.getStore();
   if (store === undefined) return () => undefined;
+  if (store.dryRun === true) throw new Error("An action's dry run sent a backend write.");
 
   store.standing.writes += 1;
   return () => {
     store.standing.writes -= 1;
   };
+}
+
+/**
+ * Marks this request as an action's dry run, which passed no touch: a body that ignores its `dryRun` then fails before
+ * its backend write leaves, rather than writing untouched. A no-op outside a scope, where no action runs.
+ */
+export function markDryRun(): void {
+  const store = storage.getStore();
+  if (store !== undefined) store.dryRun = true;
 }
 
 /** Whether a write this request sent may stand: sent, and not refused by its own answer. `false` outside a scope. */

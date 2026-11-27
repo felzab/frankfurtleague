@@ -183,7 +183,7 @@ async def write_seat(
 ) -> FLKontaktSeatResponse:
     """`PUT .../kontakte/{seat}`, the one route writing a seat: the person the dialog sends, on the row's `version` it read."""
 
-    return await put_kontakt_seat(
+    written = await put_kontakt_seat(
         team_id=TEAM_OID,
         saison_id=SAISON_ID,
         seat=seat,
@@ -195,6 +195,9 @@ async def write_seat(
         today=TODAY,
         germany_now=MAIL_NOW,
     )
+    # Only a dry run answers the bare 204, and this call asks none.
+    assert isinstance(written, FLKontaktSeatResponse)
+    return written
 
 
 async def erase_the_seats_person(database: AsyncDatabase) -> None:
