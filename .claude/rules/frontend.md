@@ -24,10 +24,14 @@ Each fails silently. The ratified decisions for this surface are in `docs/decisi
   `disabled`, which drops the field from the posted form, nor `readOnly`, which leaves a caret and
   holds no box or radio. Pages call the kit: React Aria and a raw control are banned outside it.
 - An act behind the passkey touch asks it from its final press alone, through the `touch` slot of
-  `fl_frontend/src/kit/ConfirmDialog.tsx` or `fl_frontend/src/kit/dialogAct.ts`, a Konto box or the
-  one-shot form (`fl_frontend/src/kit/usePasskeyTouch.ts`). A touch fired from an effect, or behind
-  anything slower than the sign-in client's own request, has lost the press Safari asks of WebAuthn:
-  `tsc` and every unit test pass, and the passkey journeys run in Chromium alone.
+  `fl_frontend/src/kit/ConfirmDialog.tsx` or `fl_frontend/src/kit/dialogAct.ts`, a Konto box, the
+  one-shot form, or an editor's save wrapped in `usePasskeyTouch` itself, as the referee editor's is
+  (`fl_frontend/src/kit/usePasskeyTouch.ts`), so every input is typed before the touch's minute
+  starts. A form dialog's press sends its act's dry run before the prompt, so the touch is asked
+  only of an input the server has judged. WebKit dropped WebAuthn's user-gesture requirement in
+  Safari 17.4 (iOS 17.4, macOS 14.4); an older Safari loses that prompt, which the owner accepts for
+  the administration. A touch fired from an effect is asked before anything was pressed: `tsc` and
+  every unit test pass, and the passkey journeys run in Chromium alone.
 - A journey presses a control inside an overlay through the overlay a helper of
   `fl_frontend/e2e/support/controls.ts` answered, never by the control's own role off the page, a
   button's or a text box's, which the lint's ban on looking up an overlay's role passes. Found that
