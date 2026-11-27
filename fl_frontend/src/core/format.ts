@@ -55,12 +55,6 @@ const ISO_DAY = new Intl.DateTimeFormat("en-CA", { timeZone: TIME_ZONE, year: "n
 /** The league's calendar day an instant falls on, as a stored `YYYY-MM-DD` day: the day the backend judges an age on. */
 export const dayIn = (instant: Date): CalendarDay => ISO_DAY.format(instant) as CalendarDay;
 
-/**
- * The league's year an instant falls in, as a number: the year `formatYear` writes, where the runtime's own
- * `getFullYear` names the year before for the first hour of January on a server in UTC.
- */
-export const yearIn = (instant: Date): number => Number(YEAR.formatToParts(instant).find((part) => part.type === "year")?.value);
-
 function asInstant(day: CalendarDay | Date): Date {
   if (day instanceof Date) return day;
   const [year = 0, month = 1, dayOfMonth = 1] = day.split("-").map(Number);

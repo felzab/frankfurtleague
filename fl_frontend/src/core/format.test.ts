@@ -8,7 +8,6 @@ import {
   formatInstant,
   formatInstantShort,
   formatTime,
-  yearIn,
 } from "./format";
 
 describe("formatDate", () => {
@@ -22,13 +21,6 @@ describe("formatDateWithWeekdayAndYear", () => {
   // Late on New Year's Eve UTC it is already the new year in Berlin: its weekday and its year both.
   it("reads an instant on the league's clock, the year included", () => {
     expect(formatDateWithWeekdayAndYear(new Date("2026-12-31T23:30:00Z"))).toBe("Fr., 01.01.2027");
-  });
-});
-
-describe("yearIn", () => {
-  // The © line's year: late on New Year's Eve UTC it is already the new year in Berlin.
-  it("reads an instant on the league's clock", () => {
-    expect(yearIn(new Date("2026-12-31T23:30:00Z"))).toBe(2027);
   });
 });
 
