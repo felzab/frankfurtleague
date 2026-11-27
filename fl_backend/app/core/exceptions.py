@@ -83,9 +83,11 @@ def rule_refusal(rule: Rule, message: LiteralString, bounds: Mapping[str, Bound]
 class APIError(Exception):
     """A gate's refusal: its status, the code naming its reason and at most the one field it stands at, all a failure body carries.
 
-    A gate stops the write before any box means anything: not found, not allowed, a stale version, a closed season, a
-    record a by-id write may not take. `headers` carry what the status asks for beside the body, a 401's challenge.
-    `subject` is the field the gate's sentence reads, written as one `fields` entry under the gate's own code.
+    A gate stops the write ahead of the boxes it makes meaningless: not found, not allowed, a closed season, a record a
+    by-id write may not take. One judging a value the boxes pass comes after them, as a stale version does where a save
+    reads none up front and its write's own filter refuses it. `headers` carry what the status asks for beside the
+    body, a 401's challenge. `subject` is the field the gate's sentence reads, written as one `fields` entry under the
+    gate's own code.
 
     A gate check returns one unraised, or `None`, so its caller orders several through `app.core.crud.refuse` and a page
     can be served the code a press would meet before anyone presses. A box's faults never ride on a gate: they are

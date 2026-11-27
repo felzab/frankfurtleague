@@ -449,7 +449,7 @@ def find_vorschlag_unchanged_refusal(*, vorschlag: FLSpielbestaetigungAppointmen
 
 
 def as_judged_on_the_stored_proposal(refusal: APIError | FieldCheck) -> APIError | None:
-    """`refusal` as the adoption answers it, a gate keeping its first fault's code, path and bounds as its subject.
+    """`refusal` as the adoption and a club's proposal answer it, a gate keeping its first fault's code, path and bounds as its subject.
 
     The catalogue words it on the status line by them, the path picking the sentence as the save's own page would and
     marking no box, and a screen shows one sentence, the first. A 409 where the judge answered 422: the adoption carries no
