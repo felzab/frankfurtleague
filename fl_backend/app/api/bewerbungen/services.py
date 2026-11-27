@@ -459,7 +459,13 @@ def seat_is_answered(*, kontakte: Mapping[str, Any] | None, confirmations: Mappi
 
 
 def find_already_answered_refusal(*, kontakte: Mapping[str, Any] | None, confirmations: Mapping[str, Any] | None, seat: str) -> APIError | None:
-    """Why this seat takes no second answer, or `None`. The single use: the stamps are what spend a link, never a nulled hash."""
+    """Why this seat takes no second answer, or `None`. The single use: the stamps are what spend a link, never a nulled hash.
+
+    A seat erased at its person's request is refused as erased, which only a re-send meets: the erasure took its link.
+    """
+
+    if _entry_of(confirmations, seat) is None:
+        return APIError(HTTPStatus.CONFLICT, Code.BEWERBUNG_SEAT_ERASED)
 
     if seat_is_answered(kontakte=kontakte, confirmations=confirmations, seat=seat):
         return APIError(HTTPStatus.CONFLICT, Code.BEWERBUNG_SEAT_ALREADY_ANSWERED)
@@ -927,7 +933,7 @@ def find_seat_write_refusal(*, confirmations: Mapping[str, Any] | None, seats: S
 
     for seat in seats:
         if _entry_of(confirmations, seat) is None:
-            return APIError(HTTPStatus.CONFLICT, Code.BEWERBUNG_SEAT_ALREADY_ANSWERED)
+            return APIError(HTTPStatus.CONFLICT, Code.BEWERBUNG_SEAT_ERASED)
 
     return None
 

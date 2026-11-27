@@ -91,7 +91,11 @@ class Code(StrEnum):
     BEWERBUNG_SUBMISSION_SUBJECT_UNRESOLVED = auto()
     BEWERBUNG_PICKED_TEAM_UNUSABLE = auto()
     BEWERBUNG_PICKED_TEAM_ALREADY_ENTERED = auto()
+    # A seat whose person has confirmed or objected, on their link's second answer and on a re-send of the seat's link.
     BEWERBUNG_SEAT_ALREADY_ANSWERED = auto()
+    # A seat erased at its person's request, on an administrator's write into it and a re-send of its link: its own code
+    # beside `bewerbung_seat_already_answered`, since nobody answered and no write reopens the seat.
+    BEWERBUNG_SEAT_ERASED = auto()
     CONFIRMATION_AGE = auto()
     BEWERBUNG_KONTAKTE_UNCONFIRMED = auto()
     BEWERBUNG_KONTAKT_REPEATED = auto()

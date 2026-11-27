@@ -1223,7 +1223,7 @@ class TestCorrectingOneContactAddress:
 
         code, before, after = await on_a_league(mongo_replica_set_url, body)
 
-        assert code == Code.BEWERBUNG_SEAT_ALREADY_ANSWERED
+        assert code == Code.BEWERBUNG_SEAT_ERASED
         assert after == before
 
 
@@ -1514,7 +1514,7 @@ class TestSeatingAnotherPersonInAnEmptiedSeat:
         code, emptied, after = await on_a_league(mongo_replica_set_url, body)
 
         assert emptied["confirmations"]["stellvertretung"] is None, "the erasure left bookkeeping the refusal would read as a Widerspruch"
-        assert code == Code.BEWERBUNG_SEAT_ALREADY_ANSWERED
+        assert code == Code.BEWERBUNG_SEAT_ERASED
         assert after == emptied
 
     async def test_a_decided_application_takes_no_reseat(self, mongo_replica_set_url: str):
