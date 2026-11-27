@@ -14,8 +14,8 @@ test("an administrator sets up a passkey after the mailed code, and signs in aga
   // The session goes and the authenticator stays, as a person signing in again on the same device holds it.
   await context.clearCookies();
 
-  // The passkey by its button alone, which the sign-in draws only when opened from the administration: the press asks
-  // the browser for one, and the authenticator answers.
+  // The passkey by its button alone, on the sign-in an administrator opening the administration is sent to: the press
+  // asks the browser for one, and the authenticator answers.
   await page.goto(ADMINISTRATION_LANDING);
   await expect(page).toHaveURL((url) => url.pathname === "/signin" && url.searchParams.get("return") === ADMINISTRATION_LANDING);
   await page.getByRole("button", { name: "Mit Passkey anmelden" }).click();

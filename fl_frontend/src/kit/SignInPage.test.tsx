@@ -39,24 +39,4 @@ describe("the sign-in template", () => {
     rerender(addressView({ email: refusal }));
     expect(document.activeElement).toBe(field);
   });
-
-  /* The harm: a sign-in opened anywhere but the administration offers a person a passkey they cannot hold, under an
-     „oder“ that leads nowhere, or draws the „oder“ line's two hairlines under the form with nothing after them. */
-  it("draws nothing between the form and its status line where the page hands no passkey, though it hands the „oder“", () => {
-    const { container } = render(
-      <SignInPage
-        view="address"
-        title={COPY.page.signIn}
-        row={null}
-        address={{ label: COPY.shared.emailAddress, value: "", onChange: () => undefined }}
-        check={null}
-        send={{ label: WORDS.sendCode, onPress: () => undefined }}
-        or={WORDS.or}
-      />,
-    );
-
-    expect(screen.getAllByRole("button").map((button) => button.textContent)).toStrictEqual([WORDS.sendCode]);
-    // The divider has no role, and drawn without its word it has no text, so it is read by its place.
-    expect(container.querySelector("form")?.nextElementSibling, "a line stands under the form").toBe(screen.getByRole("status"));
-  });
 });
