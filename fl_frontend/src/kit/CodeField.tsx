@@ -8,6 +8,7 @@ import { Input, TextField } from "react-aria-components/TextField";
 import { textOf } from "@/core/copy";
 import { SIGN_IN_CODE_LENGTH } from "@/core/signInCode";
 
+import { Spinner } from "./Button";
 import { useFieldWait } from "./FieldParts";
 import { codeBox, codeInput, codeRow, fieldRoot, messageLine } from "./fieldStyles";
 
@@ -38,7 +39,7 @@ export function CodeField({
   label,
   name,
   error,
-  isDisabled = false,
+  isBusy = false,
   onComplete,
 }: {
   /** Names the field for assistive technology; the sentence above it shows the address. */
@@ -46,7 +47,11 @@ export function CodeField({
   name: string;
   /** The refusal of the code, a field phrase, in the message line under the boxes. */
   error?: Copy;
-  isDisabled?: boolean;
+  /**
+   * The code is being checked: the boxes take no input, and the busy button's spinner stands in the message line, where
+   * a refusal's phrase lands next, so the wait shows the sign every other act's does.
+   */
+  isBusy?: boolean;
   /** Called with the six digits once the last one is in. */
   onComplete?: (code: string) => void;
 }) {
@@ -77,7 +82,7 @@ export function CodeField({
       name={name}
       value={code}
       onChange={change}
-      isDisabled={isDisabled}
+      isDisabled={isBusy}
       isInvalid={error !== undefined}
       inputMode="numeric"
       autoComplete="one-time-code">
@@ -102,7 +107,13 @@ export function CodeField({
           className={codeInput()}
         />
       </div>
-      <FieldError className={messageLine({ tone: "danger" })}>{error}</FieldError>
+      {isBusy ? (
+        <div className="flex justify-center text-fg-muted">
+          <Spinner />
+        </div>
+      ) : (
+        <FieldError className={messageLine({ tone: "danger" })}>{error}</FieldError>
+      )}
     </TextField>
   );
 }

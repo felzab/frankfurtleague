@@ -36,7 +36,7 @@ export const groupHeading = tv({ base: "text-xs font-medium text-fg-muted" });
  */
 export const editorBarLook = tv({
   slots: {
-    bar: "sticky bottom-0 z-10 flex h-14 items-center border-t border-border bg-bg px-4 [view-transition-name:bar] lg:h-(--rail-foot) lg:px-8",
+    bar: "sticky bottom-0 z-10 flex h-(--rail-bar) items-center border-t border-border bg-bg px-4 [view-transition-name:bar] lg:h-(--rail-foot) lg:px-8",
     row: "mx-auto flex w-full max-w-form items-center justify-end gap-4 lg:text-end",
   },
 });

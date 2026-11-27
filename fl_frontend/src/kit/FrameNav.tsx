@@ -1,12 +1,12 @@
 "use client";
 
 import { createContext, use, useContext, useEffect, useState } from "react";
-import { useParams, usePathname } from "next/navigation";
+import { useParams, usePathname, useSelectedLayoutSegments } from "next/navigation";
 
 import { Button as AriaButton } from "react-aria-components/Button";
 
 import { COPY } from "@/core/copy/shared";
-import { isEditorAddress, LEGAL_PAGES, ROLE_ROOTS, ROUTES } from "@/core/routes";
+import { LEGAL_PAGES, ROLE_ROOTS, ROUTES } from "@/core/routes";
 import { leaveDocumentFor } from "@/shared/utils/documentNavigation";
 import { signOut } from "@/shared/utils/signOut";
 
@@ -547,12 +547,14 @@ export function AccountRow({ account: read }: { account: AccountRead }) {
   );
 }
 
-// The current place keeps its green under the pointer, and every other turns its words full colour.
+// The current place takes the rail's mark, the muted fill with its words in green, so it differs from the others by more
+// than hue; it keeps its green under the pointer, and every other place turns its words full colour. Drawn from the
+// variant rather than `aria-current`, which „Mehr“, a button, never carries.
 const barPlace = tv({
   base: "flex h-full min-w-0 flex-col items-center justify-center gap-1 text-xs font-medium transition-colors duration-(--motion-state)",
   variants: {
     current: {
-      true: "text-brand",
+      true: "bg-bg-muted text-brand",
       false: "text-fg-muted",
     },
     host: {
@@ -611,7 +613,7 @@ function Places({ groups: given, bar, extra, account, prefetch }: FrameMenu) {
     // At the column's foot, by its margin, whether a page stands above it or none does yet.
     <nav
       aria-label={COPY.template.navigation}
-      className="sticky bottom-0 z-20 mt-auto grid h-14 auto-cols-fr grid-flow-col border-t border-border bg-bg [view-transition-name:bar] lg:hidden">
+      className="sticky bottom-0 z-20 mt-auto grid h-(--rail-bar) auto-cols-fr grid-flow-col border-t border-border bg-bg [view-transition-name:bar] lg:hidden">
       {placed.map((entry) => (
         <NavigationLink
           key={entry.id}
@@ -798,16 +800,18 @@ export function ReadBack({ back, none }: { back: Promise<Route | null>; none: Re
 /**
  * What stands at the start of the phone's band: „‹ Zurück“ to the page the address's route belongs to, else `start`,
  * the frame's own. That page is the one the route declares (`declaredPlaceOf`), as a line-up declares its match
- * editor, which no menu lists, and Konto's pages their list; else, for an editor (`isEditorAddress`), the list the
- * rail marks for it, a record's page lying under its list. Read from the address, which the server renders the page
- * with, so the band stands right before the page hydrates, whatever layout the page lies in.
+ * editor, which no menu lists, and Konto's pages their list; else, for an editor, the list the rail marks for it, a
+ * record's page lying under its list. An editor is a page in an `(editor)` folder under the frame's layout, a route
+ * group Next's segments name. Read from the address and those segments, which the server renders the page with, so the
+ * band stands right before the page hydrates.
  */
 export function BandStart({ start }: { start: ReactNode }) {
   const groups = useEntries(useContext(MenuContext)?.groups ?? []);
   const current = useCurrent(groups.flatMap((group) => group.entries));
   const { saison } = useParams();
   const path = usePathname();
+  const isEditor = useSelectedLayoutSegments().includes("(editor)");
   const declared = declaredPlaceOf(path, typeof saison === "string" ? saison : undefined);
-  const href = declared ?? (isEditorAddress(path) ? current?.href : undefined);
+  const href = declared ?? (isEditor ? current?.href : undefined);
   return href === undefined ? start : <BackControl href={href} />;
 }

@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 import { PUBLIC_COPY } from "@/core/copy/public";
+import { COPY } from "@/core/copy/shared";
 
 import { CodeField } from "./CodeField";
 
@@ -62,6 +63,25 @@ describe("the code field", () => {
     await userEvent.click(screen.getByRole("textbox", { name: code }));
     await userEvent.paste("123 456");
     expect(done).toHaveBeenCalledExactlyOnceWith("123456");
+  });
+
+  // The harm: between the sixth digit and the landing the view only dims its boxes, the one wait on the site that shows
+  // no sign, which no look at the finished page catches.
+  it("shows the busy sign under its closed boxes while the code is checked, and none otherwise", () => {
+    const field = (isBusy: boolean) => (
+      <CodeField
+        label={code}
+        name="code"
+        isBusy={isBusy}
+      />
+    );
+    const { rerender } = render(field(true));
+    expect(screen.queryByRole("progressbar", { name: COPY.shared.loading })).not.toBeNull();
+    expect(screen.getByRole("textbox", { name: code })).toHaveProperty("disabled", true);
+
+    rerender(field(false));
+    expect(screen.queryByRole("progressbar")).toBeNull();
+    expect(screen.getByRole("textbox", { name: code })).toHaveProperty("disabled", false);
   });
 
   it("calls back once the sixth digit is in, and not before", async () => {

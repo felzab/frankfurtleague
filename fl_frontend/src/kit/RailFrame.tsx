@@ -142,7 +142,11 @@ export function RailFrame({
             </div>
           </aside>
 
-          <div className="flex min-h-dvh min-w-0 flex-col">
+          {/* Marked, so the root's scroll padding clears the band, the strip and the bars: the browser scrolls the focus and
+              a fragment's place between them. */}
+          <div
+            data-kit-frame="rail"
+            className="flex min-h-dvh min-w-0 flex-col">
             <NavigationBar placement="rail" />
             {/* The strip's ground and its hairline, drawn here, in the layout a navigation keeps mounted, rather than
                 by each page: they stand on every frame of a page's change, and only the header
@@ -171,11 +175,11 @@ export function RailFrame({
 
 /**
  * A rail frame's column below 1024 px around its page, the band above it and the bottom bar under it. The band of a
- * page whose route belongs to another page, an editor's or one of Konto's, holds „‹ Zurück“ to it in the logo's place
- * (`BandStart`); an area's own `back` does the same for every page of the area, and no bottom bar follows. A page
- * with a bar of its own, an editor's save, stands it in the bottom bar's place, so the bottom bar gives way to it
- * there alone: a status card or a read page at an editor's address keeps the bottom bar, as the same address's
- * not-found card does. At every width the page stands in the `main` the column draws, its title at its head.
+ * page whose route belongs to another page, an editor's, an application's or one of Konto's, holds „‹ Zurück“ to it
+ * in the logo's place (`BandStart`); an area's own `back` does the same for every page of the area, and no bottom bar
+ * follows. A page with a bar of its own, an editor's save, stands it in the bottom bar's place, so the bottom bar
+ * gives way to it there alone: a status card or a read page at an editor's address keeps the bottom bar, as the same
+ * address's not-found card does. At every width the page stands in the `main` the column draws, its title at its head.
  */
 function RailColumn({ back, children }: { back?: Back; children: ReactNode }) {
   return (

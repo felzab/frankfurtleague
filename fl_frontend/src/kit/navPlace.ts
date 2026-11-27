@@ -10,7 +10,7 @@ export function currentOf<Href extends string>(path: string, hrefs: ReadonlyArra
     .reduce<Href | null>((best, href) => (best === null || href.length > best.length ? href : best), null);
 }
 
-/** The rows declaring the page their page belongs to: a season's pages, and Konto's. */
+/** The rows declaring the page their page belongs to: a season's editors, its applications' pages, and Konto's. */
 const PLACED = Object.values(ROUTES).filter((row) => "place" in row);
 
 /**

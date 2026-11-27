@@ -355,11 +355,15 @@ const IMPORT_BANS = [
 ];
 
 /**
- * Each whole-module import ban again for `import()` in production code, which `no-restricted-imports` never reads: it
- * judges import and export declarations alone, and the server's entry points load modules that way. A test is left to
- * its declarations, since it loads each module by `import()` once its doubles stand. A ban naming `importNames` stays
- * the declarations' alone, since a dynamic import's names are read off its result, in spellings no selector holds. The
- * selector's regex matches as the rule's own does, ignoring case.
+ * The whole-module bans of `IMPORT_BANS` again for `import()` in production code, which `no-restricted-imports` never
+ * reads: it judges import and export declarations alone, and the server's entry points load modules that way. They are
+ * the layer boundaries, the administration's catalogue, Node's network clients and Next's private contexts, each
+ * broken by loading the module at all, which an `import()` does as surely as a declaration. The bans of `DESIGN_BANS`
+ * are left to their declarations: they place components on a page, and production code reaches a component by a
+ * declaration alone. A test is left to its declarations, since it loads each module by `import()` once its doubles
+ * stand. A ban naming `importNames` stays the declarations' alone, the secret readers' among them, since a dynamic
+ * import's names are read off its result, in spellings no selector holds. The selector's regex matches as the rule's
+ * own does, ignoring case.
  */
 const DYNAMIC_IMPORT_BANS = IMPORT_BANS.filter(({ entry }) => entry.importNames === undefined).map(
   ({ entry: { regex, message }, reach, ...rest }) => ({
@@ -819,13 +823,12 @@ const DESIGN_BANS = [
     },
     OUTSIDE_KIT,
   ),
-  // An editor stands in its route's folder, where the route table's sweep finds it and holds its route marked `editor`,
-  // the mark the phone's band reads its way back from.
+  // An editor stands under an `(editor)` folder, the route group the phone's band reads its way back from.
   ...[
     [
       "EditorPage",
-      ["src/app/**"],
-      "An editor is a route's own page: place it in its route's folder and mark the route `editor` in `core/routes.ts`.",
+      ["src/app/**/(editor)/**"],
+      "An editor is a route's own page under an `(editor)` folder, whose band leads back to its list: place its route there.",
     ],
     ["EditorBar", ["src/kit/EditorPage.tsx"], "A record's one save is the editor template's `EditorBar`: place the page in `EditorPage`."],
     ["OneShot", ["src/kit/MailedPage.tsx"], "The one-shot submit is the mailed-page template's: place the page in `MailedPage`."],

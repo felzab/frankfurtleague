@@ -22,16 +22,16 @@ const SECTIONS: ReadonlyArray<ProseSection> = [
   { heading: words.b, blocks: [{ kind: "paragraph", text: [COPY.shared.help] }] },
 ];
 
-/** The band's height, which each section's scroll margin carries. */
+/** The band's height, which the root's scroll padding carries. */
 const BAND = 56;
 
 const lists = () => screen.getAllByRole("navigation", { name: COPY.template.contents });
 
 /** The page laid out as a browser would: the sections' tops under the screen's top, and whether it stands at its end. */
 function scrolled(tops: readonly number[], end: boolean) {
+  document.documentElement.style.scrollPaddingTop = `${String(BAND)}px`;
   const sections = [...document.querySelectorAll("section")];
   for (const [index, section] of sections.entries()) {
-    section.style.scrollMarginTop = `${String(BAND)}px`;
     section.getBoundingClientRect = () => ({ top: tops[index] ?? 0 }) as DOMRect;
   }
   vi.stubGlobal("innerHeight", 800);

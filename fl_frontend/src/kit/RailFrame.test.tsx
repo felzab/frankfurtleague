@@ -169,8 +169,11 @@ describe("the account menu", () => {
   });
 });
 
-/** The phone's band of the Spielorte's frame as the server sends it at `pathname`, by the name and address of each link. */
-async function bandOnServer(pathname: string, params: Record<string, string>) {
+/**
+ * The phone's band of the Spielorte's frame as the server sends it at `pathname`, by the name and address of each link:
+ * `segments` are those below the frame's layout, as Next hands them, route groups among them.
+ */
+async function bandOnServer(pathname: string, params: Record<string, string>, segments: readonly string[]) {
   const page = await drawnOnServer(
     underNext(
       <RailFrame
@@ -179,7 +182,7 @@ async function bandOnServer(pathname: string, params: Record<string, string>) {
         foot={{ kind: "account", account: Promise.resolve(ACCOUNT) }}>
         <p>Seite</p>
       </RailFrame>,
-      { pathname, params },
+      { pathname, params, segments },
     ),
   );
   // The band is the column's one header outside the page's `main`: the rail's head is no header.
@@ -190,16 +193,33 @@ async function bandOnServer(pathname: string, params: Record<string, string>) {
   }));
 }
 
-// The frame's layout stays mounted across a navigation, so the band reads the address on the client; a band chosen
-// only after hydration would show a phone the logo over an editor until then, which no unit render of a page sees.
+// The frame's layout stays mounted across a navigation, so the band reads the address and the segments on the client;
+// a band chosen only after hydration would show a phone the logo over an editor until then, which no unit render of a
+// page sees.
 describe("the phone's band as the server draws it", () => {
-  it("holds „‹ Zurück“ to the list in the logo's place at an editor's address", async () => {
-    expect(await bandOnServer("/admin/spielorte/sp-1", { spielort: "sp-1" })).toStrictEqual([
+  it("holds „‹ Zurück“ to the list in the logo's place on a page under an `(editor)` folder", async () => {
+    expect(await bandOnServer("/admin/spielorte/sp-1", { spielort: "sp-1" }, ["(editor)", "spielorte", "sp-1"])).toStrictEqual([
       { name: COPY.shared.back, href: "/admin/spielorte" },
     ]);
   });
 
+  // A route row without its `place` shows a phone the logo on these two pages, where every other page under its list
+  // leads back to it, and no look at one page alone shows the difference.
+  it("holds „‹ Zurück“ to the list at an application's address and at the bulk acceptance", async () => {
+    const list = { name: COPY.shared.back, href: "/admin/saisons/2028/bewerbungen" };
+    expect([
+      await bandOnServer("/admin/saisons/2028/bewerbungen/bw-1", { saison: "2028", bewerbung: "bw-1" }, [
+        "(list)",
+        "saisons",
+        "2028",
+        "bewerbungen",
+        "bw-1",
+      ]),
+      await bandOnServer("/admin/saisons/2028/bewerbungen/bulk", { saison: "2028" }, ["(list)", "saisons", "2028", "bewerbungen", "bulk"]),
+    ]).toStrictEqual([[list], [list]]);
+  });
+
   it("holds the logo at a list's address", async () => {
-    expect(await bandOnServer("/admin/spielorte", {})).toStrictEqual([{ name: COPY.brand.name, href: "/" }]);
+    expect(await bandOnServer("/admin/spielorte", {}, ["(list)", "spielorte"])).toStrictEqual([{ name: COPY.brand.name, href: "/" }]);
   });
 });

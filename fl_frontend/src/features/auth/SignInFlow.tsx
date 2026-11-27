@@ -94,7 +94,7 @@ export function SignInFlow({ next, siteKey }: { next: string; siteKey: string })
           label: PUBLIC_COPY.signIn.code,
           error: inField ? codeError : null,
           attempt,
-          isDisabled: checking,
+          isBusy: checking,
           onComplete: (code) => void check(code),
         }}
         back={{

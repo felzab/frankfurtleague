@@ -56,7 +56,8 @@ type CodeView = Head & {
     error: Copy | null;
     /** Counts the code's refusals: each one empties the boxes for the next code. */
     attempt: number;
-    isDisabled: boolean;
+    /** The code is being checked, until the landing's document replaces the view or a refusal returns it. */
+    isBusy: boolean;
     onComplete: (code: string) => void;
   };
   back: Press;
@@ -139,7 +140,7 @@ function Body(props: SignInView) {
             name="code"
             // The typed code's refusal stands under the boxes it refuses, in the field's own line.
             error={code.error ?? undefined}
-            isDisabled={code.isDisabled}
+            isBusy={code.isBusy}
             onComplete={code.onComplete}
           />
           <div className={slots.acts()}>

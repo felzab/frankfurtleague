@@ -11,7 +11,7 @@ import type { ReactNode } from "react";
 
 const section = tv({
   slots: {
-    root: "kit-section-target grid min-w-0 gap-6",
+    root: "grid min-w-0 gap-6",
     head: "grid max-w-measure justify-items-start gap-2",
     eyebrow: smallCaps(),
     // A classic page's title at a card's rung, one step under the page's.

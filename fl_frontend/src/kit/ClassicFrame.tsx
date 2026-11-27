@@ -3,6 +3,7 @@ import Image from "next/image";
 
 import { now } from "@/core/clock";
 import { COPY } from "@/core/copy/shared";
+import { yearIn } from "@/core/format";
 import { LEGAL_PAGES, ROUTES } from "@/core/routes";
 import { SITE_CACHE_TAG } from "@/core/siteCache";
 
@@ -25,7 +26,7 @@ async function Year() {
   "use cache";
   cacheTag(SITE_CACHE_TAG);
   cacheLife("days");
-  return COPY.template.copyright(now().getFullYear(), COPY.brand.name);
+  return COPY.template.copyright(yearIn(now()), COPY.brand.name);
 }
 
 // The legal pages, opened rarely: a prefetch would load each one's shell on every page the footer stands on, so their
@@ -75,7 +76,10 @@ export function ClassicFrame({
   children: ReactNode;
 }) {
   return (
-    <div className="flex min-h-dvh flex-col">
+    // Marked, so the root's scroll padding clears the band: the browser scrolls the focus and a fragment's place below it.
+    <div
+      data-kit-frame="classic"
+      className="flex min-h-dvh flex-col">
       {/* A picture of its own in a page's cross-fade, so the page scrolled under it is not drawn over it (`tokens.css`). */}
       <header className="sticky top-0 z-20 shrink-0 bg-brand-solid px-4 text-on-brand [--focus-ring:var(--on-brand)] [view-transition-name:band] lg:px-8">
         <div className="@container mx-auto flex h-(--classic-header) w-full max-w-classic items-center gap-2 lg:gap-8">
