@@ -26,22 +26,6 @@ ALLOWED: dict[tuple[str, str, str], str] = {
         "The link's press judges the address the stored change names, which no box on its page holds; holds while the "
         "press in `address_change/public_router.py` is its one caller."
     ),
-    ("api/address_change/services.py", "find_taken_refusal", "address_change_taken"): (
-        "Asked by the administrator's start, whose new address is typed into a box, and by the re-send, which reads it "
-        "off the stored change; holds until the start asks it as a fault on its box."
-    ),
-    ("api/address_change/services.py", "find_unchanged_refusal", "address_change_unchanged"): (
-        "Both starts, the administrator's and the person's own in Konto, judge an address typed into a box; holds until "
-        "they ask it as a fault on that box."
-    ),
-    ("api/identity/services.py", "find_admin_address_refusal", "admin_address"): (
-        "`refuse_an_address_off_limits` asks it of every address an administrator's identity or address-change route acts "
-        "on, typed into a box or named by a stored record; holds until each typed one is asked as a fault on its box."
-    ),
-    ("api/identity/services.py", "find_own_address_refusal", "own_address"): (
-        "`refuse_an_address_off_limits` asks it of every address an administrator's identity or address-change route acts "
-        "on, typed into a box or named by a stored record; holds until each typed one is asked as a fault on its box."
-    ),
     ("api/spielberichte/services.py", "find_not_in_kader_refusal", "spieler_not_in_kader"): (
         "The referee's form picks pupils from the squads it is served, so it takes this as a page gone stale whose "
         "reload serves the squads as they stand; holds while that form offers no pupil outside them."
@@ -65,6 +49,12 @@ ALLOWED: dict[tuple[str, str, str], str] = {
         "caller is a site of its own."
     ),
     # The callers of the three above, each handing them a check of values no box of its request holds.
+    ("api/address_change/admin_router.py", "_refuse_an_address_off_limits", "a call of as_judged_on_stored_state"): (
+        "The re-send and the discard act on a change by its id: the address on file is judged on the stored change."
+    ),
+    ("api/address_change/admin_router.py", "resend_confirmation.judge_and_remint_the_change", "a call of as_judged_on_stored_state"): (
+        "The re-send sends no address: the new one is judged on the stored change."
+    ),
     ("api/grants/admin_router.py", "post_handover.judge", "a call of as_judged_on_stored_state"): (
         "The handover sends no address: the ban is judged on the stored grant's."
     ),

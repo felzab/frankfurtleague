@@ -46,7 +46,7 @@ from app.api.identity.crud import roles_from
 from app.api.identity.lookup import SubjectLookup
 from app.api.identity.services import is_own_schiedsrichter, is_own_spieler, may_grant_on_schiedsrichter
 from app.core.concurrency import concurrently
-from app.core.crud import aggregate_many_from_db, refuse
+from app.core.crud import aggregate_many_from_db, refuse, refuse_faults
 from app.core.dependencies import (
     AddressChangeCollection,
     AddressChangeReadCollection,
@@ -176,7 +176,7 @@ async def post_address_change(
         holdings = await read_the_holdings(identifier, records=records, grants_collection=grants_collection, session=session)
         refuse(find_nothing_refusal(empty=holdings.empty))
         # What the new address holds, another pupil or a grant, is never judged, so the start answers alike whatever it holds.
-        refuse(find_unchanged_refusal(address=identifier, folded=sign_in_identifier(email)))
+        refuse_faults(find_unchanged_refusal(address=identifier, folded=sign_in_identifier(email)))
         return holdings
 
     if dry_run:

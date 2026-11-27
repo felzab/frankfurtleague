@@ -181,9 +181,13 @@ class TestThePersonsStart:
 
     async def test_the_address_signed_in_on_is_refused_in_any_spelling(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            return await refused_code(start(database, client, email=TYPED.upper()))
+            with pytest.raises(APIError) as refused:
+                await start(database, client, email=TYPED.upper())
 
-        assert await on_a_person(mongo_replica_set_url, body) == Code.ADDRESS_CHANGE_UNCHANGED
+            return [(fault.code, fault.path) for fault in refused.value.faults]
+
+        # On the box Konto typed it into, which a refusal naming none leaves unmarked.
+        assert await on_a_person(mongo_replica_set_url, body) == [(Code.ADDRESS_CHANGE_UNCHANGED, ("email",))]
 
     async def test_a_person_holding_contact_seats_alone_may_start(self, mongo_replica_set_url: str):
         """Their confirmed seats on a season row and on applications are theirs to move, as every account's are."""
@@ -1250,6 +1254,34 @@ class TestTheToolsStart:
 
         assert plain.token is not None
         assert (refused, record["ended"]) == (Code.ADDRESS_CHANGE_TAKEN, None)
+
+    async def test_every_fault_of_its_two_boxes_is_named_in_one_answer(self, mongo_replica_set_url: str):
+        """A holder's address on file and a taken new one: asked one after the other, the second waits for a later press."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await granted(database, EMAIL)
+            await granted(database, FOREIGN_EMAIL)
+            with pytest.raises(APIError) as refused:
+                await administrator_starts(database, client, email=FOREIGN_EMAIL)
+
+            return refused.value.status_code, [(fault.code, fault.path) for fault in refused.value.faults]
+
+        # 403, as either fault alone would answer where it is who asks.
+        assert await on_a_person(mongo_replica_set_url, body) == (
+            403,
+            [(Code.ADMIN_ADDRESS, ("address",)), (Code.ADDRESS_CHANGE_TAKEN, ("email",))],
+        )
+
+    async def test_the_address_on_file_typed_again_is_unchanged_and_never_taken(self, mongo_replica_set_url: str):
+        """The address on file is always its own holder's: judged taken too, the box would carry two phrases for one slip."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            with pytest.raises(APIError) as refused:
+                await administrator_starts(database, client, email=EMAIL)
+
+            return [(fault.code, fault.path) for fault in refused.value.faults]
+
+        assert await on_a_person(mongo_replica_set_url, body) == [(Code.ADDRESS_CHANGE_UNCHANGED, ("email",))]
 
 
 class TestTheTool:
