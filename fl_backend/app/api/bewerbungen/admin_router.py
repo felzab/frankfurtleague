@@ -62,8 +62,14 @@ from app.api.outbox.schemas import FLBewerbungAbsageData, FLBewerbungZusageData,
 from app.api.outbox.services import OwedMail, enqueue_mails
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.saisons.services import find_saison_past_refusal
-from app.api.teams.crud import pull_a_team_to_enter, pull_team_names_and_codes, refuse_a_full_gruppe, refuse_a_taken_colour
-from app.api.teams.services import find_entry_saison_refusal, find_shorthand_refusal, find_team_entry_refusal, offered_gruppen
+from app.api.teams.crud import (
+    find_taken_colour_refusal,
+    find_taken_shorthand_refusal,
+    pull_a_team_to_enter,
+    pull_team_names_and_codes,
+    refuse_a_full_gruppe,
+)
+from app.api.teams.services import find_entry_saison_refusal, find_team_entry_refusal, offered_gruppen
 from app.core.collections import Collection
 from app.core.concurrency import concurrently
 from app.core.crud import (
@@ -71,7 +77,6 @@ from app.core.crud import (
     aggregate_many_from_db,
     find_stale_save_refusal,
     insert_live,
-    is_held_elsewhere,
     patch_one_in_db,
     post_one_to_db,
     pull_many_from_db,
@@ -277,7 +282,8 @@ async def accept_bewerbung(
         # In-session, so the block copied into `saison_teams` below carries every person's own date and stamp, a
         # confirmation landing mid-request among them.
         refuse(find_unconfirmed_kontakte_refusal(kontakte=bewerbung_raw.get("kontakte")))
-        refuse_faults(find_acceptance_code_refusal(new_school=schule is not None, shorthand=acceptance_data.shorthand))
+        # Asked with the colour and the taken code below, in one answer; read first, as the school's parse waits on it.
+        code = find_acceptance_code_refusal(new_school=schule is not None, shorthand=acceptance_data.shorthand)
 
         saison_id = str(bewerbung_raw["saison_id"])
         # In-session, as the season's own patch reads it: `activate_saison` moves `status` in a
@@ -290,6 +296,8 @@ async def accept_bewerbung(
         # so the write at the end reads one variable, not two.
         picked_team: Any = None
         new_team: dict[str, Any] | None = None
+        # Left empty only where a missing code is refused before the write reads them.
+        name, shorthand = "", ""
 
         # Read before the count, as `enter_a_team` reads it: a club's standing in the league is
         # not repaired by picking another group, so nobody is handed a capacity figure first. A
@@ -307,10 +315,11 @@ async def accept_bewerbung(
             )
             refuse(find_already_entered_refusal(entered=entered is not None))
             name, shorthand = str(team_raw["name"]), str(team_raw["shorthand"])
-        else:
+        elif code is None:
             # Judged where the picked club's standing is judged, and for that reason: a school whose own details make no
             # club is not repaired by picking another group. Parsed before it is stored, so this path and `POST /teams`
-            # put one document in `teams` for one school.
+            # put one document in `teams` for one school. Behind the code's check: a school parsed under no code would
+            # read as the school's fault for the box's slip.
             new_team = parse_new_team(composed_team=compose_new_team(schule=schule, shorthand=acceptance_data.shorthand))
             # Read off the document the write stores rather than the school a second time, so no
             # field is composed twice and differently.
@@ -330,20 +339,23 @@ async def accept_bewerbung(
             rules=FLSaisonRules.model_validate(saison_raw["rules"]),
             session=session,
         )
-        await refuse_a_taken_colour(
-            saison_teams_collection=saison_teams_collection,
-            saison_id=saison_id,
-            trikot_farbe=acceptance_data.trikot_farbe,
-            own_id=None,
-            session=session,
+        refuse_faults(
+            code,
+            await find_taken_colour_refusal(
+                saison_teams_collection=saison_teams_collection,
+                saison_id=saison_id,
+                trikot_farbe=acceptance_data.trikot_farbe,
+                own_id=None,
+                session=session,
+            ),
+            # A new school's code alone, which a missing code leaves unparsed.
+            None
+            if new_team is None
+            else await find_taken_shorthand_refusal(teams_collection=teams_collection, shorthand=shorthand, own_id=None, session=session),
         )
 
-        # On the box a person typed it in, before the write meets `uniq_shorthand`, which answers only a race.
-        if new_team is not None:
-            taken = await is_held_elsewhere(collection=teams_collection, key="shorthand", value=shorthand, own_id=None, session=session)
-            refuse_faults(find_shorthand_refusal(taken=taken))
-
-        # Every refusal is behind us, so the writes follow with nothing left to judge.
+        # Every refusal is behind us, so the writes follow with nothing left to judge: a new school's code missing was
+        # refused above, so `new_team` holds its club.
         if new_team is None:
             team_id = picked_team
         else:

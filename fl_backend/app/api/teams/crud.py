@@ -47,7 +47,7 @@ from app.shared.schemas.custom import CustomObjectId
 from app.shared.schemas.literals import FLGruppenNames, FLTrikotFarbe
 
 
-async def refuse_a_taken_colour(
+async def find_taken_colour_refusal(
     *,
     saison_teams_collection: AsyncCollection,
     saison_id: str,
@@ -57,15 +57,15 @@ async def refuse_a_taken_colour(
     # Required: the count must read inside the caller's transaction, whose season anchor closes the race, so forgetting
     # the session has to be a TypeError at the call.
     session: AsyncClientSession,
-) -> None:
-    """Refuse `trikot_farbe_taken`: another row of the season holds this colour, a club that left it among them.
+) -> FieldFault | None:
+    """`trikot_farbe_taken` on the colour: another row of the season holds it, a club that left it among them.
 
     A row that left keeps its colour for the rest of the season, its kit being on the fixtures it played; a replacement
     alone frees it. No colour is free for any number of rows. Reached from two packages, as the capacity rule is.
     """
 
     if trikot_farbe is None:
-        return
+        return None
 
     # A lookup is a read, so two writes naming one colour pass unless they meet in one write set: every caller anchors the
     # season in this transaction, before the lookup or after it.
@@ -73,8 +73,23 @@ async def refuse_a_taken_colour(
     held = await saison_teams_collection.find_one(
         {"saison_id": saison_id, "trikot_farbe": trikot_farbe, **other_rows}, projection={"_id": 1}, session=session
     )
-    if held is not None:
-        refuse_faults(FieldFault(path=("trikot_farbe",), code=Code.TRIKOT_FARBE_TAKEN, status=HTTPStatus.CONFLICT))
+    if held is None:
+        return None
+
+    return FieldFault(path=("trikot_farbe",), code=Code.TRIKOT_FARBE_TAKEN, status=HTTPStatus.CONFLICT)
+
+
+async def find_taken_shorthand_refusal(
+    *, teams_collection: AsyncCollection, shorthand: str, own_id: Any, session: AsyncClientSession
+) -> FieldFault | None:
+    """`duplicate_key` on the shorthand another club holds, a retired one included; `own_id` the club the write saves.
+
+    Read ahead of `uniq_shorthand`, which answers only a race, so the code is refused on the box a person typed it in.
+    """
+
+    taken = await is_held_elsewhere(collection=teams_collection, key="shorthand", value=shorthand, own_id=own_id, session=session)
+
+    return find_shorthand_refusal(taken=taken)
 
 
 async def refuse_a_full_gruppe(
@@ -139,10 +154,7 @@ async def pull_a_team_to_enter(
 
 
 async def found_a_team(*, teams_collection: AsyncCollection, team: Mapping[str, Any], session: AsyncClientSession) -> Any:
-    """Write a new club, its `shorthand` judged against every other, a retired one included; its id."""
-
-    taken = await is_held_elsewhere(collection=teams_collection, key="shorthand", value=team["shorthand"], own_id=None, session=session)
-    refuse_faults(find_shorthand_refusal(taken=taken))
+    """Write a new club, its `shorthand` judged by the caller (`find_taken_shorthand_refusal`); its id."""
 
     return (await insert_live(collection=teams_collection, document=dict(team), session=session)).inserted_id
 
@@ -152,27 +164,38 @@ async def enter_a_team(
     teams_collection: AsyncCollection,
     saison_teams_collection: AsyncCollection,
     saisons_collection: AsyncCollection,
+    # The club the league holds, or `None` where `new_team` is the club to found.
     team_id: Any,
+    new_team: Mapping[str, Any] | None,
     saison_id: str,
     gruppe: FLGruppenNames,
     trikot_farbe: FLTrikotFarbe | None,
     session: AsyncClientSession,
-) -> str:
-    """Judge this club's entry into the season and write its row, in the caller's transaction, answering the club's name."""
+) -> tuple[Any, str]:
+    """Judge this club's entry into the season and write its row, founding the club first where it is new; its id and name.
 
-    # The one read of the club, and it earns its place twice over: an id naming nothing 404s here rather than inserting
-    # a row pointing at no club, and the season's own copy of the name and shorthand is seeded from it.
-    team_raw = await pull_a_team_to_enter(teams_collection=teams_collection, team_id=team_id, session=session)
+    In the caller's transaction, so a refused entry leaves no new club behind it.
+    """
+
     saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, session=session)
 
-    # Before the count: the club's standing in the league cannot be repaired by picking another group, so nobody should
-    # be handed a capacity figure to act on first.
-    refuse(find_team_entry_refusal(inactive_since=team_raw.get("inactive_since")))
+    if new_team is None:
+        # The one read of the club, and it earns its place twice over: an id naming nothing 404s here rather than
+        # inserting a row pointing at no club, and the season's own copy of the name and shorthand is seeded from it.
+        team_raw = await pull_a_team_to_enter(teams_collection=teams_collection, team_id=team_id, session=session)
 
-    # A club a dialog offered and an acceptance entered since: by this code, ahead of the junction's unique index, which
-    # answers only a race.
-    entered = await saison_teams_collection.find_one({"saison_id": saison_id, "team_id": team_id}, projection={"_id": 1}, session=session)
-    refuse(find_already_entered_refusal(entered=entered is not None))
+        # Before the count: the club's standing in the league cannot be repaired by picking another group, so nobody
+        # should be handed a capacity figure to act on first.
+        refuse(find_team_entry_refusal(inactive_since=team_raw.get("inactive_since")))
+
+        # A club a dialog offered and an acceptance entered since: by this code, ahead of the junction's unique index,
+        # which answers only a race.
+        entered = await saison_teams_collection.find_one({"saison_id": saison_id, "team_id": team_id}, projection={"_id": 1}, session=session)
+        refuse(find_already_entered_refusal(entered=entered is not None))
+        name, shorthand = str(team_raw["name"]), str(team_raw["shorthand"])
+    else:
+        # A club being founded has neither left the league nor been entered.
+        name, shorthand = str(new_team["name"]), str(new_team["shorthand"])
 
     refuse(find_entry_saison_refusal(saison_status=str(saison_raw["status"])))
     await refuse_a_full_gruppe(
@@ -185,20 +208,23 @@ async def enter_a_team(
         rules=FLSaisonRules.model_validate(saison_raw["rules"]),
         session=session,
     )
-    await refuse_a_taken_colour(
-        saison_teams_collection=saison_teams_collection,
-        saison_id=saison_id,
-        trikot_farbe=trikot_farbe,
-        own_id=None,
-        session=session,
+    refuse_faults(
+        await find_taken_colour_refusal(
+            saison_teams_collection=saison_teams_collection, saison_id=saison_id, trikot_farbe=trikot_farbe, own_id=None, session=session
+        ),
+        None
+        if new_team is None
+        else await find_taken_shorthand_refusal(teams_collection=teams_collection, shorthand=shorthand, own_id=None, session=session),
     )
 
+    if new_team is not None:
+        team_id = await found_a_team(teams_collection=teams_collection, team=new_team, session=session)
     document = compose_saison_team(
-        saison_id=saison_id, team_id=team_id, gruppe=gruppe, trikot_farbe=trikot_farbe, name=team_raw["name"], shorthand=team_raw["shorthand"]
+        saison_id=saison_id, team_id=team_id, gruppe=gruppe, trikot_farbe=trikot_farbe, name=name, shorthand=shorthand
     )
     await post_one_to_db(collection=saison_teams_collection, document=document, session=session)
 
-    return str(team_raw["name"])
+    return team_id, name
 
 
 async def refuse_a_gruppe_move(
@@ -241,14 +267,13 @@ async def write_the_team(
 ) -> Mapping[str, Any]:
     """Write a club and rewrite the name and shorthand its unfinished seasons' rows carry; the stored club.
 
-    The caller judged its version, on reads this transaction's writes conflict with.
+    The caller judged its version, on reads this transaction's writes conflict with, and its shorthand
+    (`find_taken_shorthand_refusal`).
 
     Every fixture reads its sides' names from their season rows, so a rename reaches the fixtures of each season it
     rewrites; a `past` season keeps the name it was played under.
     """
 
-    taken = await is_held_elsewhere(collection=teams_collection, key="shorthand", value=team["shorthand"], own_id=team_id, session=session)
-    refuse_faults(find_shorthand_refusal(taken=taken))
     stored = await patch_one_in_db(
         collection=teams_collection,
         db_filter={"_id": team_id},

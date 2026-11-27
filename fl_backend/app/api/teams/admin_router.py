@@ -39,10 +39,10 @@ from app.api.saisons.services import find_saison_past_refusal, has_started
 from app.api.spielbestaetigungen.crud import owe_the_austritt_notices_in_session, pull_austritt_recipients
 from app.api.teams.crud import (
     enter_a_team,
-    found_a_team,
+    find_taken_colour_refusal,
+    find_taken_shorthand_refusal,
     pull_a_team_to_enter,
     refuse_a_gruppe_move,
-    refuse_a_taken_colour,
     write_the_team,
 )
 from app.api.teams.panel import FLAustrittRecipients, FLTeamSaisonAdminResponse
@@ -435,16 +435,12 @@ async def post_team_entry(
 
     async def found_and_enter(session: AsyncClientSession) -> None:
         picked = entry_data.team
-        team_id = (
-            picked.team_id
-            if picked.kind == "known"
-            else await found_a_team(teams_collection=teams_collection, team=picked.team.model_dump(mode="json"), session=session)
-        )
-        name = await enter_a_team(
+        team_id, name = await enter_a_team(
             teams_collection=teams_collection,
             saison_teams_collection=saison_teams_collection,
             saisons_collection=saisons_collection,
-            team_id=team_id,
+            team_id=picked.team_id if picked.kind == "known" else None,
+            new_team=None if picked.kind == "known" else picked.team.model_dump(mode="json"),
             saison_id=saison_id,
             gruppe=entry_data.gruppe,
             trikot_farbe=entry_data.trikot_farbe,
@@ -576,16 +572,22 @@ async def patch_team_saison(
                 session=session,
             )
 
-        # Judged only where the save moves it: a colour a row already stores beside another's must not lock the club's
-        # other fields.
-        if team_data.trikot_farbe != row_raw.get("trikot_farbe"):
-            await refuse_a_taken_colour(
+        refuse_faults(
+            # Judged only where the save moves it: a colour a row already stores beside another's must not lock the
+            # club's other fields.
+            await find_taken_colour_refusal(
                 saison_teams_collection=saison_teams_collection,
                 saison_id=saison_id,
                 trikot_farbe=team_data.trikot_farbe,
                 own_id=row_raw["_id"],
                 session=session,
             )
+            if team_data.trikot_farbe != row_raw.get("trikot_farbe")
+            else None,
+            await find_taken_shorthand_refusal(
+                teams_collection=teams_collection, shorthand=team_data.shorthand, own_id=team_id, session=session
+            ),
+        )
 
         stored_team = await write_the_team(
             teams_collection=teams_collection,
