@@ -440,7 +440,7 @@ def literal_pattern(value: str) -> str:
 
 
 def refuse(refusal: APIError | None) -> None:
-    """One gate, never varargs: a gate stops the write before any box means anything.
+    """One gate, never varargs: a gate stops the write ahead of the boxes it makes meaningless.
 
     Varargs would run every check even after one has refused, and several call sites document the
     order theirs are asked in. A box's fault is no gate, and goes through `refuse_faults`.

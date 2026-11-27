@@ -53,8 +53,8 @@ def faults_of(checks: Iterable[FieldCheck]) -> tuple[FieldFault, ...]:
 class Subject:
     """The one field a gate's refusal stands at, beside its code: the record a by-id write names, or a stored body's field.
 
-    Never a box's fault: a gate stops the write before any box means anything, so its caller picks the gate's sentence
-    by the path and the bounds, and marks no box.
+    Never a box's fault: a gate is no box's rule, so its caller picks the gate's sentence by the path and the bounds, and
+    marks no box.
     """
 
     path: FieldPath
