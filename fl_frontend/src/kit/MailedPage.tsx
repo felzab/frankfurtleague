@@ -37,16 +37,19 @@ export const TO_ACCOUNT = { label: COPY.shared.end.toAccount, href: ROUTES.accou
  * A press refused with a code naming an end, the record's or the link's, reaches an `end` state, never the stale-page
  * line: where an answer stands, the first one forgot the link in that browser, so the page read again there would show
  * the link no longer valid rather than the end. A code saying the link is spent or lapsed is about the link, so
- * whatever stands behind it the press reaches the link no longer valid. A code saying the end the press asked already
- * holds reaches that end, as the contact person's answer
- * (`fl_frontend/src/app/(classic)/confirm/kontakt/answerKontakt.ts :: ended`) reaches the done page of the answer
- * pressed on `bewerbung_seat_already_answered`. The end asked is the answer's kind, never the choices it carried: a
- * done page names the kind alone, so it stays true whichever press's choices stand, and the account's entries page
- * shows those. A code saying another end stands reaches the link opened again naming that end, read off the link's
- * view where the code names neither and worded by the catalogue's `doneOn`, as
- * `fl_frontend/src/app/(classic)/confirm/linkView.ts :: alreadyDone` composes it, or the link no longer valid where
- * that view holds no end. The address change's answer reaches the link no longer valid on every refusal, so its link
- * tells its holder nothing of who holds an address.
+ * whatever stands behind it the press reaches the link no longer valid. A code saying that some end stands, without
+ * naming which, is classed by the link's view, read after the refusal: as the end the press asked where the view shows
+ * it, as another end where the view shows another, and as the link no longer valid where it shows none. A code saying
+ * the end the press asked already holds reaches that end's done page, which names the answer's kind; a confirmation's
+ * adds that the earlier choices stand (`SERVER_COPY.entryConfirmation.choicesKept`), since the record keeps the first
+ * press's choices rather than this one's, so the page stays true whichever press's choices are stored, as the contact
+ * person's, the referee's and the pupil's answers reach it. A code saying another end stands reaches the link opened
+ * again naming that end, read off the link's view where the code names neither and worded by the catalogue's `doneOn`,
+ * as `fl_frontend/src/app/(classic)/confirm/linkView.ts :: alreadyDone` composes it. The contact person's answer
+ * (`fl_frontend/src/app/(classic)/confirm/kontakt/answerKontakt.ts :: ended`) meets all three on
+ * `bewerbung_seat_already_answered`: the done page where the view shows the answer pressed, the link opened again where
+ * it shows the other, and the link no longer valid where it shows none. The address change's answer reaches the link no
+ * longer valid on every refusal, so its link tells its holder nothing of who holds an address.
  *
  * A press reaching its own act's end, or the link opened again, forgets the link in that browser (`forgetMailedLink`),
  * as the privacy notice says of a link once used. One reaching the link no longer valid, or any other end, leaves the
