@@ -184,7 +184,7 @@ function ActDialog({
   title,
   label,
   done,
-  send,
+  run,
   isAside,
   opened,
   carry = {},
@@ -201,14 +201,14 @@ function ActDialog({
   done: Copy;
   opened: HeldOpen;
   /** The act's `run`, behind its dry run and the passkey touch for an act on the touch's list (`usePasskeyTouch`). */
-  send: (formData: FormData) => Promise<ActionAnswer>;
+  run: (formData: FormData) => Promise<ActionAnswer>;
   /** The dialog stands aside while the passkey prompt does (`DialogOverlay`). */
   isAside: boolean;
 }) {
   const close = () => opened.onOpenChange(false);
   const { answer, submit, block, isBlocked, isPending } = useFormAction(
     async (formData: FormData) => {
-      const answered = await send(formData);
+      const answered = await run(formData);
       if (answered.ok) {
         // A form's action runs in a transition, and an update after its `await` commits outside it.
         startTransition(close);
@@ -348,7 +348,7 @@ export function Dialog<T extends Tone = "primary">(props: DialogAct<T> & Opening
   const [isAside, setAside] = useState(false);
   const touched = usePasskeyTouch(touch !== undefined, touch?.holder, setAside);
   // The touch's slot takes its act's dry run alone (`DialogAct`), so every touched dialog judges its input first.
-  const send = touch === undefined ? run : touched(run, { dryRunFirst: true });
+  const judgedRun = touch === undefined ? run : touched(run, { dryRunFirst: true });
   const done = COPY.shared.toast.done[act.verb];
   const label = actLabel(act);
   // Counted while rendering, as React's guide adjusts state to a changed prop: the count keys `ActDialog`.
@@ -367,7 +367,7 @@ export function Dialog<T extends Tone = "primary">(props: DialogAct<T> & Opening
       label={label}
       done={done}
       opened={{ isOpen, onOpenChange: setOpen }}
-      send={send}
+      run={judgedRun}
       isAside={isAside}
     />
   );
