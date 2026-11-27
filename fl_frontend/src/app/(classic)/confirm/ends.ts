@@ -58,7 +58,7 @@ const DONE_ENDS = {
 /** What an entry's done page reads: an end other than a confirmation's, whose address carries nothing. */
 const EntryDone = z.strictObject({ end: z.enum(["objected", "kept"]).optional() });
 
-/** The done page an entry's end leads to, `done` being the contact's or the referee's. */
+/** The done page an entry's end leads to, `done` being the contact's, the referee's or the pupil's. */
 export const entryDoneAt = (done: string, end: DoneEnd): string => (end === "confirmed" ? done : `${done}?end=${end}`);
 
 /** The end an entry's done page draws, or Next's not-found page for any query no answer leads to. */
@@ -66,4 +66,21 @@ export async function entryEndOf(query: DoneQuery): Promise<EndState> {
   const read = EntryDone.safeParse(await query);
   if (!read.success) notFound();
   return DONE_ENDS[read.data.end ?? "confirmed"];
+}
+
+/** The ends a pupil's answer reaches: a pupil's link takes no objection. */
+export type RegistrierungEnd = Exclude<DoneEnd, "objected">;
+
+const REGISTRIERUNG_ENDS = {
+  confirmed: REGISTRIERUNG_CONFIRMED,
+  kept: { ...REGISTRIERUNG_CONFIRMED, sentence: WORDS.choicesKept },
+} as const satisfies Readonly<Record<RegistrierungEnd, EndState>>;
+
+const RegistrierungDone = z.strictObject({ end: z.literal("kept").optional() });
+
+/** The end a pupil's done page draws, or Next's not-found page for any query no answer leads to. */
+export async function registrierungEndOf(query: DoneQuery): Promise<EndState> {
+  const read = RegistrierungDone.safeParse(await query);
+  if (!read.success) notFound();
+  return REGISTRIERUNG_ENDS[read.data.end ?? "confirmed"];
 }

@@ -204,8 +204,8 @@ Each pattern is an entry of `COPY.shared`; what the entry cannot say is when it 
   confirmed seat or address change, `end.toAccount` where Konto is the one place to change what was
   done and for an address change's or a deletion's link that no longer holds, `end.toHome` after
   anything else. The deletion's done page adds the privacy notice beneath it as a quieter link. A
-  contact's or a referee's confirmation pressed again on one already standing adds one line under
-  the title, saying that the earlier choices stand and Konto changes them
+  contact's, a referee's or a pupil's confirmation pressed again on one already standing adds one
+  line under the title, saying that the earlier choices stand and Konto changes them
   (`entryConfirmation.choicesKept`), since the choices this press carried are dropped.
 - **A column a narrow box leaves out** holds no fact the row shows nowhere else: where the row
   itself opens no page or dialog holding it, the row's phone line carries it, after its column's

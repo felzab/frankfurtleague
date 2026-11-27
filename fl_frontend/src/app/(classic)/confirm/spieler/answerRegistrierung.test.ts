@@ -51,12 +51,12 @@ describe("the pupil's answer", () => {
   });
 
   // The harm: a pupil whose confirmation another tab saved reads a dead link, and doubts that the answer counted.
-  it("reaches the done page where another tab confirmed since the page opened", async () => {
+  it("reaches the done page where another tab confirmed since the page opened, saying the earlier choices stand", async () => {
     backend.answerWith(({ method, path }) =>
       method === "POST" && path === "/registrierungen/confirmation" ? refusal("confirmation_exists") : undefined,
     );
 
-    expect(await ledTo(answerRegistrierung(confirmation()))).toBe(ROUTES.registrierungConfirmationDone.path());
+    expect(await ledTo(answerRegistrierung(confirmation()))).toBe(`${ROUTES.registrierungConfirmationDone.path()}?end=kept`);
     expect(forgottenLinks()).toStrictEqual([{ value: undefined, path: ROUTES.registrierungConfirmation.path() }]);
   });
 });
