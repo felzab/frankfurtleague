@@ -34,7 +34,8 @@ export function applicationOf(raw: unknown): unknown {
   return {
     [IDEMPOTENCY_KEY_FIELD]: posted[IDEMPOTENCY_KEY_FIELD],
     saison_id: posted.saison_id,
-    team_id: isNewSchool ? null : orNull(posted.team_id),
+    // Absent for a new school, which the lane sends as no club; a pick left empty is no value, which it refuses.
+    team_id: isNewSchool ? undefined : orNull(posted.team_id),
     schule: isNewSchool
       ? {
           team_name: posted["schule.team_name"],

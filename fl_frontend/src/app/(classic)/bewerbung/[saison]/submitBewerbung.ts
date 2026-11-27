@@ -26,7 +26,15 @@ const eachSeat = <Field extends keyof FLBewerbungKontaktpersonPayload>(field: Fi
 const exampleOfEachSeat = (field: keyof FLBewerbungKontaktpersonPayload, example: Copy) =>
   Object.fromEntries(eachSeat(field).map((box) => [box, example]));
 
-const Application = z.preprocess(applicationOf, BewerbungenPostBewerbungBody.extend({ [IDEMPOTENCY_KEY_FIELD]: z.uuid() }));
+const Application = z.preprocess(
+  applicationOf,
+  BewerbungenPostBewerbungBody.extend({
+    // A club picked, or none sent beside a new school: judged as absent rather than empty, so its box is required
+    // wherever the picker posts, which it does only while it is the answer.
+    team_id: BewerbungenPostBewerbungBody.shape.team_id.options[0].optional().transform((id) => id ?? null),
+    [IDEMPOTENCY_KEY_FIELD]: z.uuid(),
+  }),
+);
 
 /**
  * One school's application, sent by a visitor with no session. Public by necessity, so the bot check answers before

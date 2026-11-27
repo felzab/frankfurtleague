@@ -19,16 +19,10 @@ Each fails silently. The ratified decisions for this surface are in `docs/decisi
   at its root (`fl_frontend/src/kit/FieldParts.tsx :: useFieldWait`) and a row in
   `fl_frontend/src/kit/HeldForm.test.tsx :: FIELDS`; without it, React's next render writes its
   state over what a person typed or pressed before the page hydrated, and `tsc`, the build and every
-  field's own tests pass. The lint refuses a raw control anywhere in the kit, and a kit file
-  importing React Aria's root or a native-control module `fl_frontend/eslint.config.mjs` lists until
-  the file joins that ban's allow-list; joining it silences the ban whether or not the root waits,
-  so the `FIELDS` row is the one check of the wait, and a field on any other module that ban never
-  sees. A date or time field's segments are `fl_frontend/src/kit/dateParts.tsx :: Segments`' alone,
-  by a second ban in the same file, and already wait, so a date or time kind sets no `inert` of its
-  own and takes its `FIELDS` row as every field does. A select's trigger opens nothing before
-  hydration and a read-only field takes no input, so neither has a state to lose and neither waits.
-  The wait is `inert`, never `disabled`, which drops the field from the posted form, nor `readOnly`,
-  which leaves a caret and holds no box or radio.
+  field's own tests pass. A select's trigger opens nothing before hydration and a read-only field
+  takes no input, so neither has a state to lose and neither waits. The wait is `inert`, never
+  `disabled`, which drops the field from the posted form, nor `readOnly`, which leaves a caret and
+  holds no box or radio.
 - An act behind the passkey touch asks it from its final press alone, through the `touch` slot of
   `fl_frontend/src/kit/ConfirmDialog.tsx` or `fl_frontend/src/kit/dialogAct.ts`, a Konto box, the
   one-shot form, or a press wrapped in the hook itself, as
@@ -57,17 +51,12 @@ Each fails silently. The ratified decisions for this surface are in `docs/decisi
   none, as its refusal has no field to stand on and no input to keep: a question, the erasure page's
   one-shot form, Konto's passkey set-up and the re-send of an address change.
 - WebKit dropped WebAuthn's user-gesture requirement in Safari 17.4, on whichever macOS runs it, and
-  in iOS and iPadOS 17.4, where every browser runs WebKit (271656@main). Apple's developer forums,
-  thread 747036, name macOS 14.4, the Sonoma release that ships Safari 17.4, and the Safari 17.4
-  release notes list that one release for Sonoma, Ventura and Monterey. Below Safari 17.4, and below
-  iOS and iPadOS 17.4, WebKit may lose any touched prompt, above all one a dry run puts a request
-  before, though it may allow the first prompt after each page load; the loss reads as a closed
-  passkey sheet, which says nothing. The owner does not support those versions for any touched act,
-  on Konto and the public erasure page as in the administration. A lost prompt in Safari 17.4 or
-  later on any macOS, or on iOS or iPadOS 17.4 or later, is a bug to reproduce, not an unsupported
-  browser; first rule out the rate limit the same thread names, which backs off prompts asked close
-  together. `tsc` and every unit test pass either way, and the passkey journeys run in Chromium
-  alone.
+  in iOS and iPadOS 17.4, where every browser runs WebKit (271656@main). Below Safari 17.4, and
+  below iOS and iPadOS 17.4, WebKit may lose any touched prompt, above all one a dry run puts a
+  request before, though it may allow the first prompt after each page load; the loss reads as a
+  closed passkey sheet, which says nothing. The owner does not support those versions for any
+  touched act, on Konto and the public erasure page as in the administration. `tsc` and every unit
+  test pass either way, and the passkey journeys run in Chromium alone.
 - A journey presses a control inside an overlay through the overlay a helper of
   `fl_frontend/e2e/support/controls.ts` answered, never by the control's own role off the page, a
   button's or a text box's, which the lint's ban on looking up an overlay's role passes. Found that

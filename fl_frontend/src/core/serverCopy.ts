@@ -37,8 +37,8 @@ const SPIELBETRIEB = "Spielbetrieb";
 const gruppeName = COPY.shared.season.gruppe;
 const placeName = (platz: number) => `${formatOrdinal(platz)} ${PLATZ}`;
 
-// A fixture's ground or referee booked at its time elsewhere, and a side out of the season: the save keys each by the
-// path it names, the adoption, which names none, by a code of its own per resource and side.
+// A fixture's ground or referee booked at its time elsewhere, and a side out of the season, keyed by the path the save,
+// the adoption of a proposed date and a club's proposal name.
 const DOUBLE_BOOKED = {
   spielort: "Der Spielort ist zu dieser Zeit schon belegt.",
   schiedsrichter: "Die eingeteilte Person pfeift zu dieser Zeit schon.",
