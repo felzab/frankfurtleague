@@ -1,6 +1,6 @@
 "use client";
 
-import { useLayoutEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef } from "react";
 
 import type { ReactNode } from "react";
 
@@ -66,11 +66,14 @@ function handOn(left: HTMLElement, places: NonNullable<ReturnType<typeof placesA
  * title takes the focus as it arrives. The pressed button leaves with what the end replaces, so the focus would fall to
  * the page's body, or go to whatever control still stands (`FocusOnLeave`), and neither says the outcome (WCAG 2.4.3).
  * It takes the focus as it mounts, ahead of the frame in which a leaving act or dialog looks for a place, and both leave
- * a focus standing off the page's body where it is. Drawn as no box of its own (`contents`).
+ * a focus standing off the page's body where it is. A passive effect, not a layout one: a modal closing in the same
+ * commit, such as the question whose press reached the end, lifts the `inert` it laid on the page only in its own
+ * passive effect's cleanup (`useModalOverlay`), which React runs before any passive effect a mount brings, and an inert
+ * title takes no focus. Drawn as no box of its own (`contents`).
  */
 export function FocusOnArrival({ children }: { children: ReactNode }) {
   const box = useRef<HTMLDivElement>(null);
-  useLayoutEffect(() => {
+  useEffect(() => {
     const title = box.current?.querySelector<HTMLElement>(HEADING);
     if (title !== null && title !== undefined) focusTitle(title);
   }, []);
