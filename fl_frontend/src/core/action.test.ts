@@ -467,6 +467,18 @@ describe("a refusal naming several faults", () => {
     });
   });
 
+  // The harm: a fixture dated past its matchday's end reading the matchday's sentence on the line, its date box unmarked.
+  it("words a date past its matchday's end by the last day it may take", async () => {
+    const faults = [at("spiel_outside_spieltag", ["date"], { latest: "2027-03-08" })];
+
+    expect(await save(["date"], "spiel_outside_spieltag", faults)(SENT)).toStrictEqual({
+      ok: false,
+      errorCode: "spiel_outside_spieltag",
+      fieldErrors: { date: field.latest(dayOf("2027-03-08")) },
+      kinds: { date: "spiel_outside_spieltag" },
+    });
+  });
+
   it("says a fault on a box the screen does not show in its sentence, the faults it shows staying on their boxes", async () => {
     const faults = [at("spiel_double_booked", ["spielort"]), at("spiel_outside_spieltag", ["date"], { earliest: "2027-03-01" })];
 
