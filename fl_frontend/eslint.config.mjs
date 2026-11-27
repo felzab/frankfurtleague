@@ -823,13 +823,12 @@ const DESIGN_BANS = [
     },
     OUTSIDE_KIT,
   ),
-  // An editor stands in its route's folder, where the route table's sweep finds it and holds its route marked `editor`,
-  // the mark the phone's band reads its way back from.
+  // An editor stands under an `(editor)` folder, the route group the phone's band reads its way back from.
   ...[
     [
       "EditorPage",
-      ["src/app/**"],
-      "An editor is a route's own page: place it in its route's folder and mark the route `editor` in `core/routes.ts`.",
+      ["src/app/**/(editor)/**"],
+      "An editor is a route's own page under an `(editor)` folder, whose band leads back to its list: place its route there.",
     ],
     ["EditorBar", ["src/kit/EditorPage.tsx"], "A record's one save is the editor template's `EditorBar`: place the page in `EditorPage`."],
     ["OneShot", ["src/kit/MailedPage.tsx"], "The one-shot submit is the mailed-page template's: place the page in `MailedPage`."],
