@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 
-import { seatsText } from "@/core/copy";
 import { COPY } from "@/core/copy/shared";
 import { Dialog } from "@/kit/Dialog";
 import { useLocked } from "@/kit/draftUnsaved";
@@ -79,7 +78,7 @@ export function SeatActs<Key>({
       {/* Held closed while the edit is locked: nothing opens it then. */}
       <Dialog
         title={EDIT}
-        lead={{ record: seatsText(seats) }}
+        lead={COPY.team.seatsHeld(seats)}
         act={ACT}
         run={write}
         carry={carry}

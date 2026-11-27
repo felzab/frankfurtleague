@@ -86,7 +86,7 @@ export function buildBewerbungAbsageEmail({ team, saison_id, seats, reason }: FL
 
 /** The confirmation page's own opening, naming the season and every seat the reader holds in the application. */
 const openingOf = (saison: string, seats: FLBewerbungLinkData["seats"]) =>
-  SERVER_COPY.kontaktConfirmation.opening.named(saison, { record: seatsText(seats) });
+  SERVER_COPY.kontaktConfirmation.opening.named(saison, COPY.team.seatsHeld(seats));
 
 /** What one person is asked to confirm: every seat they hold, answered through the one link. */
 export function buildBewerbungConfirmationEmail({ saison_id, seats, deadline }: FLBewerbungLinkData, { origin, token }: MailLink): Mail {
