@@ -76,9 +76,9 @@ describe("the referee's press on an entry confirmed since the page opened", () =
       return path === "/schiedsrichter/confirmation/view" ? { state: "confirmed", answered_at: "2026-11-20" } : undefined;
     });
 
-  it("reaches the done page after a confirmation", async () => {
+  it("reaches the done page after a confirmation, saying the earlier choices stand", async () => {
     confirmedAlready();
-    expect(await ledTo(answerSchiedsrichter(confirmation()))).toBe(DONE);
+    expect(await ledTo(answerSchiedsrichter(confirmation()))).toBe(`${DONE}?end=kept`);
 
     expect(backend.sent.map(({ path }) => path)).toStrictEqual(["/schiedsrichter/confirmation"]);
     expect(forgottenLinks()).toStrictEqual([{ value: undefined, path: ROUTES.schiedsrichterConfirmation.path() }]);

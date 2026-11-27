@@ -76,9 +76,9 @@ describe("a contact person's answer", () => {
 
 // The harm: a person whose answer another tab saved reads a stale page or a dead link, and doubts that the answer counted.
 describe("a contact person's press on a seat answered since the page opened", () => {
-  it("reaches the done page where the answer pressed is the one standing", async () => {
+  it("reaches the done page where the answer pressed is the one standing, a confirmation's saying its earlier choices stand", async () => {
     answeredAs("confirmed");
-    expect(await ledTo(answerKontakt(posted(CONFIRMATION)))).toBe(DONE);
+    expect(await ledTo(answerKontakt(posted(CONFIRMATION)))).toBe(`${DONE}?end=kept`);
     answeredAs("declined");
     expect(await ledTo(objectKontakt(posted({ token: TOKEN })))).toBe(`${DONE}?end=objected`);
 

@@ -44,15 +44,26 @@ export type EntryAnswer = keyof typeof END;
 /** A done page's query, as Next hands it to the page. */
 export type DoneQuery = Promise<Readonly<Record<string, string | string[] | undefined>>>;
 
-/** What an entry's done page reads: an objection's end, where a confirmation's address carries nothing. */
-const EntryDone = z.strictObject({ end: z.literal("objected").optional() });
+/**
+ * The end an entry's done page draws: an answer's, or `kept`, a confirmation that met one already standing, since
+ * another tab or device confirmed first. The earlier press's choices stand there, so its card says so.
+ */
+export type DoneEnd = EntryAnswer | "kept";
 
-/** The done page an entry's answer leads to, `done` being the contact's or the referee's. */
-export const entryDoneAt = (done: string, kind: EntryAnswer): string => (kind === "objected" ? `${done}?end=objected` : done);
+const DONE_ENDS = {
+  ...END,
+  kept: { ...END.confirmed, sentence: WORDS.choicesKept },
+} as const satisfies Readonly<Record<DoneEnd, EndState>>;
+
+/** What an entry's done page reads: an end other than a confirmation's, whose address carries nothing. */
+const EntryDone = z.strictObject({ end: z.enum(["objected", "kept"]).optional() });
+
+/** The done page an entry's end leads to, `done` being the contact's or the referee's. */
+export const entryDoneAt = (done: string, end: DoneEnd): string => (end === "confirmed" ? done : `${done}?end=${end}`);
 
 /** The end an entry's done page draws, or Next's not-found page for any query no answer leads to. */
 export async function entryEndOf(query: DoneQuery): Promise<EndState> {
   const read = EntryDone.safeParse(await query);
   if (!read.success) notFound();
-  return read.data.end === "objected" ? END.objected : END.confirmed;
+  return DONE_ENDS[read.data.end ?? "confirmed"];
 }
