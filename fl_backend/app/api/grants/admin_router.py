@@ -35,7 +35,7 @@ from app.core.dependencies import (
     OutboxCollection,
     SnapshotSession,
 )
-from app.core.exceptions import DocumentNotFoundError
+from app.core.exceptions import DocumentNotFoundError, as_judged_on_stored_state
 from app.core.routing import DRY_RUN_PASSED, SAFE_WHEN, DryRun, by_id, dry_run_passed
 from app.core.security import ActorEmail, SessionActor, verify_admin_actor
 from app.core.transactions import transact
@@ -94,8 +94,8 @@ async def post_grant(
     async def judge(grants: Sequence[Mapping[str, Any]], session: AsyncClientSession) -> None:
         # Every refusal of the addition, in the write's transaction or the dry run's snapshot alike.
         refuse(find_only_owner_refusal(actor=operator, auth_time=signed_in.auth_time, grants=grants))
-        refuse_faults(find_exists_refusal(address=address, grants=grants))
-        refuse(find_barred_refusal(barred=await address_is_barred(ban_list_collection=ban_list_collection, address=address, session=session)))
+        barred = await address_is_barred(ban_list_collection=ban_list_collection, address=address, session=session)
+        refuse_faults(find_exists_refusal(address=address, grants=grants), find_barred_refusal(barred=barred))
 
     if dry_run:
         await judge(await read_grants(grants_collection=grants_collection, session=session), session)
@@ -205,11 +205,9 @@ async def post_handover(
 
         refuse(find_owner_row_refusal(grant=grant))
         refuse(find_handover_refusal(grant=grant, grants=grants, now=germany_now))
-        refuse(
-            find_barred_refusal(
-                barred=await address_is_barred(ban_list_collection=ban_list_collection, address=str(grant["address"]), session=session)
-            )
-        )
+        barred = await address_is_barred(ban_list_collection=ban_list_collection, address=str(grant["address"]), session=session)
+        # A gate: the handover sends no address, so the stored grant's names no box.
+        refuse(as_judged_on_stored_state(find_barred_refusal(barred=barred)))
         return grant
 
     if dry_run:

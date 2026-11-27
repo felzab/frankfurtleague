@@ -73,16 +73,17 @@ def find_only_owner_refusal(*, actor: str, auth_time: int, grants: Sequence[Mapp
     return None
 
 
-def find_barred_refusal(*, barred: bool) -> APIError | None:
-    """`grant_barred`: the address is on the ban list, which another administrator decided.
+def find_barred_refusal(*, barred: bool) -> FieldFault | None:
+    """`grant_barred` on the typed address: it is on the ban list, which another administrator decided.
 
-    The target's state, so 409: lifting the ban is what changes it.
+    The target's state, so 409: lifting the ban is what changes it. A handover asks it of the stored grant's address,
+    which no box holds, through `as_judged_on_stored_state`.
     """
 
     if not barred:
         return None
 
-    return APIError(HTTPStatus.CONFLICT, Code.GRANT_BARRED)
+    return FieldFault(path=("email",), code=Code.GRANT_BARRED, status=HTTPStatus.CONFLICT)
 
 
 def find_owner_row_refusal(*, grant: Mapping[str, Any]) -> APIError | None:

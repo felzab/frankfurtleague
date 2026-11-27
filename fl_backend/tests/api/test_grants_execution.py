@@ -316,11 +316,31 @@ class TestAnAddition:
 
         refused, held = await on_a_league(mongo_replica_set_url, body, grants=[WAITING])
 
-        # Named on no box, the refusal reaches a shared failure line that sends the owner to a retry refused alike.
+        # On the box the address was typed into: a refusal naming none would read the stale-page line, sending the owner
+        # to a retry refused alike.
         assert (refused.error_code, tuple(fault.path for fault in refused.faults), held) == (
             Code.GRANT_EXISTS,
             (("email",),),
             sorted([*EVERY_HOLDER, NORA]),
+        )
+
+    async def test_an_address_held_and_banned_is_refused_for_both_in_one_answer(self, mongo_replica_set_url: str):
+        """Each refusal of the ban and the grant keeps the other state out, so only rows stored before either holds both.
+
+        Asked one after the other, the second fault waits for a press the first already told the owner to make.
+        """
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[int, list[tuple[str, tuple[str | int, ...]]]]:
+            await database[Collection.BAN_LIST].insert_one(ban_document(NORA, until="2999"))
+
+            with pytest.raises(APIError) as refused:
+                await add(database, client)
+
+            return refused.value.status_code, [(fault.code, fault.path) for fault in refused.value.faults]
+
+        assert await on_a_league(mongo_replica_set_url, body, grants=[WAITING]) == (
+            409,
+            [(Code.GRANT_EXISTS, ("email",)), (Code.GRANT_BARRED, ("email",))],
         )
 
     async def test_a_live_change_at_the_address_ends(self, mongo_replica_set_url: str):
