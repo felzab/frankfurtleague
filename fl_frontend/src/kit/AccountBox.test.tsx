@@ -97,7 +97,7 @@ describe("a locked Konto box", () => {
         title={PASSKEY}
         description={ACCOUNT_COPY.passkeys.description}
         act={{
-          run: vi.fn(),
+          run: vi.fn<() => Promise<ActionAnswer<unknown>>>(),
           button: { confirm: { verb: "delete", subject: PASSKEY, consequence: CONSEQUENCE, tone: "danger" } },
           done: COPY.shared.toast.done.delete,
           locked: reason,

@@ -131,26 +131,27 @@ describe("a form asking its question over what the press read", () => {
     });
   });
 
-  // The harm: a refused erasure's address gone, so the repeat that reaches the account left standing is typed anew.
-  it("toasts an act's refusal, its boxes kept, and the form's press runs the act again", async () => {
+  // The harm: a refused erasure's address gone, so the repeat that reaches the account left standing is typed anew; or
+  // its refusal said away from the question, whose press then has to be asked for again.
+  it("shows a touched act's refusal on its question's line, its boxes kept, and the question's press runs the act again", async () => {
     acts.run.mockResolvedValue({ ok: false, reason: COPY.shared.failure.stale });
     await press();
 
-    await userEvent.click(within(await screen.findByRole("alertdialog", { name: QUESTION })).getByRole("button", { name: VERB }));
-    const toast = await screen.findByRole("alertdialog", { name: COPY.shared.failure.stale });
-    expect(toast.querySelector(".text-danger")).toBeTruthy();
-    expect([screen.queryByRole("alertdialog", { name: QUESTION }), box().value]).toStrictEqual([null, ADDRESS]);
+    const question = await screen.findByRole("alertdialog", { name: QUESTION });
+    await userEvent.click(within(question).getByRole("button", { name: VERB }));
+    expect(await within(question).findByText(COPY.shared.failure.stale)).toBeTruthy();
+    // Read under the question's modal, which hides the form from the accessibility tree while it stands.
+    expect(screen.getByRole<HTMLInputElement>("textbox", { hidden: true }).value).toBe(ADDRESS);
 
-    // The toast stands as the act answers, ahead of the render ending the press's busy state, which a loaded machine
-    // slices across tasks; React Aria takes no press on a busy button, so the next press waits for the one a person sees.
-    const again = screen.getByRole("button", { name: VERB });
+    // React Aria takes no press on a busy button, so the next press waits for the one a person sees.
+    const again = within(question).getByRole("button", { name: VERB });
     await waitFor(() => {
       expect(again.hasAttribute("data-pending")).toBe(false);
     });
     await userEvent.click(again);
-    await userEvent.click(within(await screen.findByRole("alertdialog", { name: QUESTION })).getByRole("button", { name: VERB }));
     await waitFor(() => {
       expect(acts.run).toHaveBeenCalledTimes(2);
     });
+    expect(acts.touch).toHaveBeenCalledTimes(2);
   });
 });

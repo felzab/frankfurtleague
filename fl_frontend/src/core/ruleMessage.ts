@@ -94,12 +94,6 @@ const PATTERNED = {
   austritt_before_saison_start: notBefore,
 } satisfies Partial<Record<Rule | Code, (context: Context, path: Path) => Copy | undefined>>;
 
-/**
- * Every rule a refused payload can name that the catalogue words, by a pattern or by `SERVER_COPY.ruleLine`'s sentence,
- * and every code a pattern words.
- */
-export type WordedRule = keyof typeof PATTERNED | keyof typeof SERVER_COPY.ruleLine;
-
 const isPatterned = (kind: string) => ownKeyOf(PATTERNED, kind);
 const isLined = (kind: string) => ownKeyOf(SERVER_COPY.ruleLine, kind);
 
