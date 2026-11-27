@@ -255,7 +255,9 @@ async def test_a_seats_first_save_creates_the_line_up_the_screen_then_reads(mong
         assert (answer.version, [(entry.spieler_id, entry.starts) for entry in answer.spieler]) == (0, [(LINA, True), (OLE, False)])
         assert stored is not None
         assert await acts_of(database) == [("aufstellung.saved", ACT_BY_KONTAKT, "Alpha", stored["_id"])]
-        assert [(row["saison_id"], row["spiel_nr"], row["label"]) async for row in database[Collection.ACTION_LOG].find()] == [("2026", 1, None)]
+        assert [(row["saison_id"], row["spiel_nr"], row["label"]) async for row in database[Collection.ACTION_LOG].find()] == [
+            ("2026", 1, None)
+        ]
 
     await on_a_season(mongo_replica_set_url, body)
 
