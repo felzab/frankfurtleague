@@ -2,7 +2,7 @@
 
 import { z } from "zod";
 
-import { action, blankIsNull, numberBox } from "@/core/action";
+import { action, blankIsNull, fault, numberBox } from "@/core/action";
 import { ADMIN_COPY } from "@/core/copy/admin";
 import { COPY } from "@/core/copy/shared";
 import { refusedAs } from "@/core/errors";
@@ -12,10 +12,9 @@ import { SpielePatchSpielBody, SpielePatchSpielParams } from "@/core/generated/z
 
 import { getAdminSpiel } from "./queries";
 import { admitsShootOut, isNoShow } from "./result";
-import { NOBODY, takesNoResult, valuesOf } from "./spielValues";
+import { NOBODY, requiredOf, takesNoResult, valuesOf } from "./spielValues";
 
-import type { ActionAnswer, SaveQuestion } from "@/core/action";
-import type { Copy } from "@/core/copy";
+import type { LaneAnswer, SaveQuestion } from "@/core/action";
 import type {
   Code,
   FLPatchSpielDataPayload,
@@ -74,7 +73,7 @@ const storedFigure = (text: string) => (text === "" ? null : Number(text));
  * source, so the bracket's resolution leaves it there; a side left alone keeps its club and its source. Goals stand
  * only where a result is entered and the event leaves the match one; a no-show's are the award the write composes.
  */
-function payloadOf(saved: FLSpielJoinedAdmin, changes: Changes): Omit<FLPatchSpielDataPayload, "version"> | ActionAnswer<never> {
+function payloadOf(saved: FLSpielJoinedAdmin, changes: Changes): Omit<FLPatchSpielDataPayload, "version"> | LaneAnswer<never> {
   const stored = valuesOf(saved);
 
   const spielort = changes.spielort === undefined ? stored.spielort : changes.spielort;
@@ -88,28 +87,20 @@ function payloadOf(saved: FLSpielJoinedAdmin, changes: Changes): Omit<FLPatchSpi
   const shootOut1 = changes.shootOut1 === undefined ? storedFigure(stored.shootOut1) : changes.shootOut1;
   const shootOut2 = changes.shootOut2 === undefined ? storedFigure(stored.shootOut2) : changes.shootOut2;
 
-  const fieldErrors: Record<string, Copy> = {};
-  const required = COPY.shared.field.required;
-  // A booking's price and fee are required while it is made.
-  if (spielort !== null && mietpreis === null) fieldErrors["changes.mietpreis"] = required;
-  if (schiedsrichter !== null && payment === null) fieldErrors["changes.payment"] = required;
-  // An entered result names both sides' goals, as a shoot-out does once either of its figures is typed.
-  const scored = hasResult && !isNoShow(sonderereignis) && !takesNoResult(sonderereignis);
-  if (scored && tore1 === null) fieldErrors["changes.tore1"] = required;
-  if (scored && tore2 === null) fieldErrors["changes.tore2"] = required;
-  const sideOf = (side: "team1" | "team2", tore: number | null) => {
+  const pickedOf = (side: "team1" | "team2") => {
     const picked = changes[side];
-    const team = picked === undefined ? (saved[side]?.team_id ?? null) : picked;
-    return team === null ? null : { team_id: team, tore: scored ? tore : null };
+    return picked === undefined ? (saved[side]?.team_id ?? null) : picked;
   };
-  const team1 = sideOf("team1", tore1);
-  const team2 = sideOf("team2", tore2);
-  // Judged only where the fixture takes a shoot-out: one typed before the goals moved off level is dropped, as the write drops it.
+  const merged = { team1: pickedOf("team1"), team2: pickedOf("team2"), spielort, mietpreis, schiedsrichter, payment, hasResult };
+  const required = requiredOf({ ...merged, tore1, tore2, shootOut1, shootOut2, sonderereignis }, saved.saison_phase);
+  if (required.length > 0) return { ok: false, faults: required.map((box) => fault(`changes.${box}`, "required")) };
+
+  const scored = hasResult && !isNoShow(sonderereignis) && !takesNoResult(sonderereignis);
+  const sideOf = (team: string | null, tore: number | null) => (team === null ? null : { team_id: team, tore: scored ? tore : null });
+  const team1 = sideOf(merged.team1, tore1);
+  const team2 = sideOf(merged.team2, tore2);
+  // A shoot-out typed before the goals moved off level is dropped, as the write drops it.
   const takesShootOut = admitsShootOut(saved.saison_phase, team1, team2, sonderereignis);
-  const shootOutTyped = takesShootOut && (shootOut1 !== null || shootOut2 !== null);
-  if (shootOutTyped && shootOut1 === null) fieldErrors["changes.shootOut1"] = required;
-  if (shootOutTyped && shootOut2 === null) fieldErrors["changes.shootOut2"] = required;
-  if (Object.keys(fieldErrors).length > 0) return { ok: false, fieldErrors };
   const shootOut = !takesShootOut || shootOut1 === null || shootOut2 === null ? null : { team1: shootOut1, team2: shootOut2 };
 
   return {
@@ -133,7 +124,7 @@ function payloadOf(saved: FLSpielJoinedAdmin, changes: Changes): Omit<FLPatchSpi
 const numbersOf = (numbers: readonly number[]) => [...new Set(numbers)].toSorted((first, second) => first - second);
 
 /** The fixture as stored, read for the fields the editor does not show, which the wholesale write sends as stored. */
-async function sending(id: string, changes: Changes): Promise<ActionAnswer<never> | Omit<FLPatchSpielDataPayload, "version">> {
+async function sending(id: string, changes: Changes): Promise<LaneAnswer<never> | Omit<FLPatchSpielDataPayload, "version">> {
   const read = await getAdminSpiel(id);
   return read === null ? { ok: false, reason: COPY.shared.failure.stale } : payloadOf(read.spiel, changes);
 }
@@ -182,7 +173,7 @@ export const saveSpiel = action({
   name: "saveSpiel",
   input: SaveSpiel,
   examples: { "changes.mietpreis": ADMIN_COPY.spielort.mietpreisExample },
-  run: async ({ id, version, adoptsBericht, changes, confirm }): Promise<ActionAnswer<number>> => {
+  run: async ({ id, version, adoptsBericht, changes, confirm }): Promise<LaneAnswer<number>> => {
     const payload = await sending(id, changes);
     if ("ok" in payload) return payload;
     const sent = { ...payload, version };

@@ -2,13 +2,15 @@
 
 import { z } from "zod";
 
-import { action, numberBox } from "@/core/action";
+import { action, fault, numberBox } from "@/core/action";
 import { COPY } from "@/core/copy/shared";
 import { saisonsPatchSaison } from "@/core/generated/client/sdk";
 import { SaisonsPatchSaisonBody, SaisonsPatchSaisonParams } from "@/core/generated/zod/inputs";
 import { getAdminSaison } from "@/features/saisons/queries";
 
-import type { ActionAnswer } from "@/core/action";
+import { requiredOf } from "./saisonValues";
+
+import type { LaneAnswer } from "@/core/action";
 import type { FLPatchSaisonPayload, FLSaisonAdmin } from "@/core/generated/client/types";
 
 const { shape } = SaisonsPatchSaisonBody;
@@ -64,14 +66,12 @@ const either = <T>(changed: T | undefined, stored: T): T => (changed === undefin
  * editor left alone is sent as it is stored. A window with neither day is none, and one with a single day lacks the
  * other.
  */
-function payloadOf(saison: FLSaisonAdmin, changes: Changes): Omit<FLPatchSaisonPayload, "version"> | ActionAnswer<never> {
+function payloadOf(saison: FLSaisonAdmin, changes: Changes): Omit<FLPatchSaisonPayload, "version"> | LaneAnswer<never> {
   const stored = saison.rules;
   const bewerbungStart = either(changes["bewerbung.start"], saison.bewerbung?.start ?? null);
   const bewerbungEnd = either(changes["bewerbung.end"], saison.bewerbung?.end ?? null);
-  if (bewerbungStart === null && bewerbungEnd !== null)
-    return { ok: false, fieldErrors: { "changes.bewerbung.start": COPY.shared.field.required } };
-  if (bewerbungStart !== null && bewerbungEnd === null)
-    return { ok: false, fieldErrors: { "changes.bewerbung.end": COPY.shared.field.required } };
+  const required = requiredOf({ "bewerbung.start": bewerbungStart, "bewerbung.end": bewerbungEnd });
+  if (required.length > 0) return { ok: false, faults: required.map((box) => fault(`changes.${box}`, "required")) };
   // `open` is the form's own flag and the link's, which each box sets as its pause.
   const bewerbungPaused = either(changes.bewerbungPaused, saison.bewerbung?.open === false);
   const registrierungEnd = either(changes["registrierung.end"], saison.registrierung?.end ?? null);
@@ -120,7 +120,7 @@ export const saveSaison = action({
     "changes.rules.forfeit_ergebnis.sieger_tore": COPY.shared.field.exampleDigits,
     "changes.rules.forfeit_ergebnis.verlierer_tore": COPY.shared.field.exampleDigits,
   },
-  run: async ({ id, version, changes }): Promise<ActionAnswer<number>> => {
+  run: async ({ id, version, changes }): Promise<LaneAnswer<number>> => {
     // Read for the fields the editor did not change, which the wholesale write sends as stored.
     const read = await getAdminSaison(id);
     if (read === null) return { ok: false, reason: COPY.shared.failure.stale };

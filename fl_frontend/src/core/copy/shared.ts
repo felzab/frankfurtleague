@@ -111,6 +111,13 @@ export const COPY = catalogue({
       earliest: (day: CalendarDay) => `Frühestens ${formatDate(day)}`,
       latest: (day: CalendarDay) => `Spätestens ${formatDate(day)}`,
       taken: "Schon vergeben",
+      // An address's state a write refuses it for, on every box an address is typed into: the ban list holds it, a
+      // grant of the administration holds it, it is the one on file already, or it is the administrator's own, which
+      // Konto alone changes.
+      barred: "Auf der Sperrliste",
+      ofAdministration: "Gehört zur Verwaltung",
+      onFile: "Schon hinterlegt",
+      onlyInKonto: "Nur im Konto",
     },
 
     /**

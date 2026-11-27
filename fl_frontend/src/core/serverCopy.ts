@@ -47,9 +47,9 @@ const DISQUALIFIED = {
   team1: `${team1} ist aus der Saison ausgeschieden.`,
   team2: `${team2} ist aus der Saison ausgeschieden.`,
 };
-// An address the ban list holds, whichever act reached for it: a write that would mail it a link, or a second ban.
+// An address the ban list holds, named by a handover, which holds no box for it.
 const ADDRESS_BARRED = "Diese E-Mail-Adresse steht auf der Sperrliste.";
-// An address the administration holds, whichever act reached for it: an addition, a ban, an erasure or an address change.
+// An address the administration holds, named by a path rather than typed: an erasure's or an address change's.
 const ADDRESS_OF_ADMINISTRATION = "Diese Adresse gehört zur Verwaltung.";
 const ADDRESS_CONFIRMED = "Adresse bestätigt";
 
@@ -114,11 +114,13 @@ const monthsOf = (years: number) => formatNumber(12 * years);
  */
 export const SERVER_COPY = catalogue({
   /**
-   * A refusal's sentence on the status line, by the backend's code, on every screen whose write answers it, for a code
-   * no field pattern words: the write as a whole, or a field the sentence names itself. Where one code is about one of
-   * several fields, its sentence is keyed by the first name of the path the backend names, so it says which; a path it
-   * holds no sentence for reads the stale-page line. A sentence naming the bounds its refusal carries is a function of
-   * them, answering `undefined` where one it names is missing.
+   * A refusal's sentence on the status line, by the backend's code, on every screen whose write answers it: a gate,
+   * which names no box, or a field's fault on a screen showing no box for that field, such as the adoption of a
+   * proposed date, which moves a fixture from a row. A fault on a box the screen shows takes its field phrase, so a
+   * code raised only on boxes every screen shows holds no sentence. Where one code is about one of several fields, its
+   * sentence is keyed by the first name of the path the backend names, so it says which; a path it holds no sentence
+   * for reads the stale-page line. A sentence naming the bounds its refusal carries is a function of them, answering
+   * `undefined` where one it names is missing.
    */
   refusalLine: {
     saison_past: "Diese Saison ist abgeschlossen.",
@@ -139,20 +141,14 @@ export const SERVER_COPY = catalogue({
     owner_erasure: `Mit der ${ownerTier} lässt sich das Konto nicht löschen.`,
     /** An administrator's own address, which only Konto changes or deletes. */
     own_address: "Für deine eigene Adresse geht das nur im Konto.",
-    /** A holder's address, one sentence on a ban, an erasure and an address change alike. */
+    /** A holder's address, one sentence on an erasure and an address change alike, where a path names the address. */
     admin_address: ADDRESS_OF_ADMINISTRATION,
-    ban_list_admin: ADDRESS_OF_ADMINISTRATION,
     foreign_address_change: ADDRESS_OF_ADMINISTRATION,
     /** A ban's last season counts from the running one. */
     ban_list_no_saison: "Es läuft keine Saison.",
-    /** The address on file typed again, on Konto's start and on the address tool's alike, so it names nobody's. */
-    address_change_unchanged: "Diese Adresse ist schon hinterlegt.",
     /** An address change's start, for an address holding no record. */
     address_change_nothing: COPY.shared.nothingAtAddress,
-    /**
-     * The new address another person stands at, a pupil, an entry or a grant, in one sentence on the start's dialog and
-     * on the re-send, which holds no box.
-     */
+    /** The new address another person stands at, a pupil, an entry or a grant, on the re-send, which holds no box. */
     address_change_taken: "Die neue Adresse ist schon vergeben.",
     /** A person's own start pressed again too soon after the last mail its change owed: the edge's own rate refusal. */
     address_change_started_recently: COPY.shared.failure.tooManyAttempts,
@@ -162,10 +158,8 @@ export const SERVER_COPY = catalogue({
     /** A referee retired while matches still to come name them, by the matches' numbers. */
     schiedsrichter_still_assigned: ({ spiel_nrs }: FLRefusedField["ctx"]) =>
       Array.isArray(spiel_nrs) && spiel_nrs.length > 0 ? `Die Person ist noch für ${spieleNamed(spiel_nrs)} eingeteilt.` : undefined,
-    /** An addition or a handover naming an address the ban list holds. */
+    /** A handover naming an address the ban list holds. */
     grant_barred: ADDRESS_BARRED,
-    /** An addition naming an address a grant holds, in effect or waiting, on its dialog's line. */
-    grant_exists: ADDRESS_OF_ADMINISTRATION,
     /** A club the form or the acceptance picked that already stands in the season. */
     bewerbung_picked_team_already_entered: "Diese Schule spielt in dieser Saison schon mit.",
     /** A seat write or a fresh link for a seat erased at its person's request, which its row marks „Gelöscht“. */
@@ -213,19 +207,27 @@ export const SERVER_COPY = catalogue({
   /**
    * A rule's sentence on the status line, by the kind the backend refuses a payload with (`fields[].kind`), for a
    * rule a person can break that no field pattern words: placed as `refusalLine` places a code. Every rule a pattern
-   * words is worded by `ruleMessage`.
+   * words is worded by its field pattern.
    */
   ruleLine: {
     elfmeterschiessen_without_winner: "Das Elfmeterschießen hat keinen Sieger.",
   } satisfies Partial<Record<Rule, string>>,
 
   /**
+   * The administration's own phrases a field fault reuses for the state they already word, which the core's patterns
+   * read here, the one core module the administration's catalogue is imported into: a no-show picked before both
+   * sides are known, and a club out of the season.
+   */
+  fieldPhrase: {
+    bothTeams: ADMIN_COPY.bothTeamsLocked,
+    departed: ADMIN_COPY.spiel.departed,
+  },
+
+  /**
    * What an act's server action answers on its own, beside the refusals the catalogue words by their code: a refusal
    * of its own check, or a note on an act done in part, by the act's record.
    */
   actAnswer: {
-    /** A ban of an address the ban list already holds, which the backend refuses with no field. */
-    banned: ADDRESS_BARRED,
     /** An administrator's last passkey, their only way into the administration. */
     lastPasskeyKept: "Der letzte Passkey lässt sich nicht löschen.",
     /** The erasure's note, the account undeleted or unknown: the form keeps the address, so its „Löschen“ retries. */

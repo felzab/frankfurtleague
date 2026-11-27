@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import { gruppenFor, openRows, takenFor } from "./run";
+import { COPY } from "@/core/copy/shared";
+
+import { gruppenFor, openRows, outcomeOf, takenFor } from "./run";
 
 import type { FLBewerbungListRow } from "@/core/generated/client/types";
 import type { Draft, Run } from "./run";
@@ -40,6 +42,29 @@ describe("the groups a card offers", () => {
     const skipped = run({ drafts: { a: draft("A") }, skipped: new Set(["a"]) });
 
     expect(gruppenFor(GRUPPEN, ROWS, skipped, "b")[0]?.free).toBe(1);
+  });
+});
+
+// The harm: a row refused for its colour and its Kürzel together reads without its Kürzel chip, the colour's fault
+// coming first, and the administrator never learns the code is taken.
+describe("a refused row's Kürzel chip", () => {
+  const { field } = COPY.shared;
+
+  it("is read off the Kürzel's own fault, whichever fault the refusal names first", () => {
+    const outcome = outcomeOf({
+      ok: false,
+      errorCode: "trikot_farbe_taken",
+      fieldErrors: { trikot_farbe: field.taken, shorthand: field.taken },
+      kinds: { trikot_farbe: "trikot_farbe_taken", shorthand: "duplicate_key" },
+    });
+
+    expect(outcome).toMatchObject({ kind: "refused", taken: true });
+  });
+
+  it("stands for no other fault of the Kürzel's box", () => {
+    expect(outcomeOf({ ok: false, fieldErrors: { shorthand: field.required }, kinds: { shorthand: "payload_refused" } })).toMatchObject({
+      taken: false,
+    });
   });
 });
 

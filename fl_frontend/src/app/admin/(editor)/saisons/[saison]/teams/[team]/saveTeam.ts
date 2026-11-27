@@ -10,7 +10,7 @@ import { getTeamSaisonAdmin } from "@/features/teams/queries";
 
 import { valuesOf } from "./teamValues";
 
-import type { ActionAnswer } from "@/core/action";
+import type { LaneAnswer } from "@/core/action";
 
 const { shape } = TeamsPatchTeamSaisonBody;
 const address = shape.address.shape;
@@ -54,7 +54,7 @@ export const saveTeam = action({
     "changes.postcode": COPY.shared.address.postcodeExample,
     "changes.house_number": COPY.shared.address.houseNumberExample,
   },
-  run: async ({ id, saison_id, version, changes }): Promise<ActionAnswer<number>> => {
+  run: async ({ id, saison_id, version, changes }): Promise<LaneAnswer<number>> => {
     const read = await getTeamSaisonAdmin(id, saison_id);
     if (read?.membership == null) return { ok: false, reason: COPY.shared.failure.stale };
 

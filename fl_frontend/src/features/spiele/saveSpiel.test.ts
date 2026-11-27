@@ -204,9 +204,10 @@ describe("the match editor's save", () => {
     const answer = await saveSpiel(saving({ mietpreis: "", payment: "", tore2: "" }));
 
     const required = COPY.shared.field.required;
-    expect(answer).toEqual({
+    expect(answer).toStrictEqual({
       ok: false,
       fieldErrors: { "changes.mietpreis": required, "changes.payment": required, "changes.tore2": required },
+      kinds: { "changes.mietpreis": "required", "changes.payment": "required", "changes.tore2": "required" },
     });
     expect(state.sent).toEqual([]);
   });

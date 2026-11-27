@@ -1,7 +1,13 @@
 import { FLSpielberichtVorschlagSonderereignis } from "@/core/generated/client/types";
-import { creditedSide } from "@/features/spiele/result";
+import { admitsShootOut, creditedSide } from "@/features/spiele/result";
 
-import type { FLCardColour, FLSpielberichtSchiedsrichterResponse, FLSpielSide } from "@/core/generated/client/types";
+import type {
+  FLCardColour,
+  FLSaisonPhase,
+  FLSonderereignis,
+  FLSpielberichtSchiedsrichterResponse,
+  FLSpielSide,
+} from "@/core/generated/client/types";
 import type { EditorSave } from "@/kit/useEditor";
 
 /**
@@ -89,4 +95,32 @@ export function counted(scorers: ReadonlyArray<{ side: FLSpielSide | null; eigen
     if (side !== null) score[creditedSide({ side, eigentor })] += 1;
   }
   return score;
+}
+
+/** A shoot-out's figure as a box holds it, the text typed, or as the save reads it, a number; empty as `""` or `null`. */
+type Figure = string | number | null;
+
+/** The report's values `requiredOf` judges, a figure as typed or as read, no event as `null` or `""`. */
+export type RequiredValues = {
+  readonly scorers: ReadonlyArray<{ side: FLSpielSide | null; eigentor: boolean }>;
+  readonly shootOut1: Figure;
+  readonly shootOut2: Figure;
+  readonly sonderereignis: FLSonderereignis | "" | null;
+};
+
+const isBlank = (value: Figure) => value === null || value === "";
+
+/**
+ * The boxes a save needs filled that are empty, by the editor's field names, judged on the report's values with the
+ * editor's changes over them, and the phase of the match's season: once either of a shoot-out's figures is typed where
+ * the fixture takes one, a knockout match whose counted goals are level and no no-show decided, both are required. The
+ * editor's draft holds the same values, so the browser's pass asks the same.
+ */
+export function requiredOf(values: RequiredValues, saisonPhase: FLSaisonPhase): readonly ("shootOut1" | "shootOut2")[] {
+  const score = counted(values.scorers);
+  const event = values.sonderereignis === "" ? null : values.sonderereignis;
+  if (!admitsShootOut(saisonPhase, { tore: score.team1 }, { tore: score.team2 }, event)) return [];
+  const [one, two] = [isBlank(values.shootOut1), isBlank(values.shootOut2)];
+  if (one === two) return [];
+  return one ? ["shootOut1"] : ["shootOut2"];
 }

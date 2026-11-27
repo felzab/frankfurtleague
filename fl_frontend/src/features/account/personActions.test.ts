@@ -12,7 +12,7 @@ import {
   registerAuthDoubles,
   sessionByCode,
 } from "@/test-support/authDoubles";
-import { serveBackend } from "@/test-support/backend";
+import { refusal, serveBackend } from "@/test-support/backend";
 import { cacheCalls, NEXT_CACHE_DOUBLE } from "@/test-support/nextRequest";
 import { posted } from "@/test-support/posted";
 import { answerAt, NO_RECORDS, SEAT } from "@/test-support/subjectFixtures";
@@ -70,6 +70,8 @@ const ERASURE_PATH = "/api/identity/self/erasure";
 /** The person's own address change, and the method of every request sent to it. */
 const ADDRESS_CHANGE_PATH = "/api/account/address_change";
 const addressChanges: string[] = [];
+/** The backend's refusal of the person's start, where a case sets one. */
+let startRefused: Response | undefined;
 
 /** Every consent save that reached the backend, by its path, with the body it sent. */
 const consentWrites: { path: string; body: unknown }[] = [];
@@ -87,7 +89,7 @@ serveBackend(({ method, path: endpoint, headers, body }) => {
   }
   if (path === ADDRESS_CHANGE_PATH) {
     addressChanges.push(method);
-    return { id: "a1", valid_until: "2026-11-05T12:00:00Z", email: "neu@example.org" };
+    return startRefused ?? { id: "a1", valid_until: "2026-11-05T12:00:00Z", email: "neu@example.org" };
   }
 
   const { email } = (body ?? {}) as { email?: string };
@@ -96,7 +98,7 @@ serveBackend(({ method, path: endpoint, headers, body }) => {
 });
 
 // Imported here rather than at the top: `vi.doMock` reaches only the modules imported after it.
-const { eraseAccount, requestErasure, saveConsent, signOutOthers, withdrawAddressChange } = await import("./personActions");
+const { eraseAccount, requestErasure, saveConsent, signOutOthers, startAddressChange, withdrawAddressChange } = await import("./personActions");
 const { COPY } = await import("@/core/copy/shared");
 const { SERVER_COPY } = await import("@/core/serverCopy");
 const { auth } = await import("@/core/auth/library");
@@ -108,6 +110,7 @@ beforeEach(() => {
   deletedCookies.length = 0;
   erasures.length = 0;
   addressChanges.length = 0;
+  startRefused = undefined;
   consentWrites.length = 0;
   HELD.clear();
 });
@@ -238,6 +241,23 @@ describe("a person's own account deletion through the mailed link's page", () =>
 // Each a loss nobody would see: an administrator's other devices ended from a session a mailbox made, a device left
 // signed in past a list's page.
 describe("the account's acts, behind the account's guard", () => {
+  // The harm: a refusal of the address typed answered on the box's line, the box it is about left unmarked.
+  it("refuses the start of a change to the address on file on the address's box", async () => {
+    const email = "eigene-adresse@example.org";
+    const { cookie } = await sessionByCode(auth, store, email);
+    arriveAs(cookie);
+    startRefused = refusal("address_change_unchanged", {
+      fields: [{ kind: "address_change_unchanged", path: ["email"], ctx: {}, in: "body" }],
+    });
+
+    expect(await startAddressChange({ email, holder: email })).toStrictEqual({
+      ok: false,
+      errorCode: "address_change_unchanged",
+      fieldErrors: { email: COPY.shared.field.onFile },
+      kinds: { email: "address_change_unchanged" },
+    });
+  });
+
   /* The person guard admits an address holding a grant on its mailed code alone, reporting it no administrator: the
      account's acts are the administrator's lane's to admit. */
   it("refuses an administrator's session made by a mailed code alone every untouched act of the account", async () => {

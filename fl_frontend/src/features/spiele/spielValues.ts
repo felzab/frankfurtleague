@@ -1,7 +1,7 @@
-import { isNoShow } from "./result";
+import { admitsShootOut, isNoShow } from "./result";
 
 import type { CalendarDay, TimeOfDay } from "@/core/format";
-import type { FLSpielJoinedAdmin } from "@/core/generated/client/types";
+import type { FLSaisonPhase, FLSonderereignis, FLSpielJoinedAdmin } from "@/core/generated/client/types";
 
 /**
  * The referee field's entry for a booking naming nobody, which a played match keeps with its fee once its referee was
@@ -35,6 +35,40 @@ export type SpielValues = {
 
 /** An event after which the match carries no result at all, which the write refuses goals beside. */
 export const takesNoResult = (sonderereignis: string | null) => sonderereignis === "ausgefallen" || sonderereignis === "annulliert";
+
+/** A figure as a box holds it, the text typed, or as the save reads it, a number; empty as `""` or `null`. */
+type Figure = string | number | null;
+
+/** The match's values `requiredOf` judges, a figure as typed or as read, no event as `null` or `""`. */
+export type RequiredValues = Pick<SpielValues, "team1" | "team2" | "spielort" | "schiedsrichter" | "hasResult"> & {
+  readonly [Box in "mietpreis" | "payment" | "tore1" | "tore2" | "shootOut1" | "shootOut2"]: Figure;
+} & { readonly sonderereignis: FLSonderereignis | "" | null };
+
+const isBlank = (value: Figure) => value === null || value === "";
+
+/**
+ * The boxes a save needs filled that are empty, by the editor's field names, judged on the fixture's values with the
+ * editor's changes over them, and the phase of its season: a booking's price and fee while it is made, an entered
+ * result's two goals, and a shoot-out's two figures once either is typed where the fixture takes one. The editor's
+ * draft holds the same values, so the browser's pass asks the same.
+ */
+export function requiredOf(values: RequiredValues, saisonPhase: FLSaisonPhase): readonly (keyof RequiredValues)[] {
+  const event = values.sonderereignis === "" ? null : values.sonderereignis;
+  const scored = values.hasResult && !isNoShow(event) && !takesNoResult(event);
+  const sideOf = (team: string | null, tore: Figure) => (team === null ? null : { tore: scored && !isBlank(tore) ? Number(tore) : null });
+  // One typed before the goals moved off level is dropped, as the write drops it, so it is judged only where it stands.
+  const takesShootOut = admitsShootOut(saisonPhase, sideOf(values.team1, values.tore1), sideOf(values.team2, values.tore2), event);
+  const shootOutTyped = takesShootOut && (!isBlank(values.shootOut1) || !isBlank(values.shootOut2));
+  const needed: readonly [keyof RequiredValues, boolean][] = [
+    ["mietpreis", values.spielort !== null && isBlank(values.mietpreis)],
+    ["payment", values.schiedsrichter !== null && isBlank(values.payment)],
+    ["tore1", scored && isBlank(values.tore1)],
+    ["tore2", scored && isBlank(values.tore2)],
+    ["shootOut1", shootOutTyped && isBlank(values.shootOut1)],
+    ["shootOut2", shootOutTyped && isBlank(values.shootOut2)],
+  ];
+  return needed.flatMap(([box, empty]) => (empty ? [box] : []));
+}
 
 /** The referee's proposal as „Übernehmen“ carries it into the result's fields, and the report's version it stamps. */
 export type Proposal = { version: number; values: Partial<SpielValues> };

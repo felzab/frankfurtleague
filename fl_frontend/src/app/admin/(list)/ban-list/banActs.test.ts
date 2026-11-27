@@ -1,12 +1,11 @@
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { COPY } from "@/core/copy/shared";
-import { SERVER_COPY } from "@/core/serverCopy";
 import { ADMIN_EMAIL } from "@/test-support/authDoubles";
 import { refusal, serveBackend } from "@/test-support/backend";
 import { signedInRequest } from "@/test-support/session";
 
-import type { FLCreatedResponse, FLPostBanListEntryPayload } from "@/core/generated/client/types";
+import type { FLCreatedResponse, FLPostBanListEntryPayload, FLRefusedField } from "@/core/generated/client/types";
 
 const ADDRESS = "max@example.org";
 const BAN = { email: ADDRESS, ban_reason: "Ein Grund", holder: ADMIN_EMAIL };
@@ -123,16 +122,24 @@ describe("a ban", () => {
   // A POST whose answer was lost leaves the ban standing and the sign-out never run, and nothing but this press ends it.
   describe("a second ban", () => {
     const answeredBanned = () => {
-      backend.answerWith(({ method, path }) => (method === "POST" && path === "/ban_list" ? refusal("duplicate_key") : undefined));
+      const listed: FLRefusedField = { kind: "address_barred", path: ["email"], ctx: {}, in: "body" };
+      backend.answerWith(({ method, path }) =>
+        method === "POST" && path === "/ban_list" ? refusal("address_barred", { fields: [listed] }) : undefined,
+      );
+    };
+    const ON_ITS_BOX = {
+      ok: false,
+      errorCode: "address_barred",
+      fieldErrors: { email: COPY.shared.field.barred },
+      kinds: { email: "address_barred" },
     };
 
-    // The harm: the backend refuses it with no field, which unworded reads the stale-page line, and the page read again
-    // offers the same ban.
-    it("is refused in a sentence of its own where nothing was left to end", async () => {
+    // The harm: a refusal answered on the dialog's line rather than on the address's box, which nothing then marks.
+    it("is refused on the address's box where nothing was left to end", async () => {
       answeredBanned();
       maxSignedInOn(0);
 
-      expect(await enterBan(BAN)).toStrictEqual({ ok: false, errorCode: "duplicate_key", reason: SERVER_COPY.actAnswer.banned });
+      expect(await enterBan(BAN)).toStrictEqual(ON_ITS_BOX);
 
       // The ending still ran, stamping the account.
       expect(maxStamped()).toBe(true);
@@ -144,7 +151,7 @@ describe("a ban", () => {
       answeredBanned();
       maxSignedInOn(1);
 
-      expect(await enterBan(BAN, true)).toStrictEqual({ ok: false, errorCode: "duplicate_key", reason: SERVER_COPY.actAnswer.banned });
+      expect(await enterBan(BAN, true)).toStrictEqual(ON_ITS_BOX);
 
       expect(sessionsOfMax()).toStrictEqual([]);
       expect(maxStamped()).toBe(true);
@@ -176,10 +183,13 @@ describe("a ban", () => {
 
   // A write the backend refused stands nowhere, so there is nothing for a sign-out to follow.
   it("ends no session where the backend refuses the ban", async () => {
-    backend.answerWith(({ method, path }) => (method === "POST" && path === "/ban_list" ? refusal("ban_list_admin") : undefined));
+    const held: FLRefusedField = { kind: "ban_list_admin", path: ["email"], ctx: {}, in: "body" };
+    backend.answerWith(({ method, path }) =>
+      method === "POST" && path === "/ban_list" ? refusal("ban_list_admin", { fields: [held] }) : undefined,
+    );
     maxSignedInOn(1);
 
-    expect(await enterBan(BAN)).toMatchObject({ ok: false, reason: SERVER_COPY.refusalLine.ban_list_admin });
+    expect(await enterBan(BAN)).toMatchObject({ ok: false, fieldErrors: { email: COPY.shared.field.ofAdministration } });
 
     expect(sessionsOfMax()).toHaveLength(1);
     expect(maxStamped()).toBe(false);
