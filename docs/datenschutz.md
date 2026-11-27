@@ -383,6 +383,9 @@ measures section 8's. "Administrators" are the holders of a grant to the adminis
     `fl_frontend/src/core/erasureEmail.ts :: ERASURE_LINK_VALID_HOURS`);
   - the row of the deletion notice, and of the notice to an address a change replaced, until the
     row's two-day deadline;
+  - a mail telling of a passkey added or removed, still owed to an address an address change
+    replaced: it goes to that address and keeps it until 30 days after it is sent or given up
+    (`fl_backend/app/api/address_change/crud.py :: _carry_the_mail`);
   - a registration link's entry, which names no subject, until the log's twelve months;
   - a mailbox's hash in `mailbox_anchors`, for its hour (section 6);
   - after a deletion by a period, the league's own mails to the address, their facts until sent and
