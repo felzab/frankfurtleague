@@ -377,7 +377,7 @@ function AccountMenu({
         ],
         LEGAL_PAGES.map((page) => ({ kind: "link", label: ROUTES[page].title, href: ROUTES[page].path() })),
       ]}
-      foot={{ label: COPY.page.accountAppearance, control: <ThemeChoice /> }}
+      foot={{ label: COPY.template.theme.label, control: <ThemeChoice /> }}
       trigger={trigger}
     />
   );

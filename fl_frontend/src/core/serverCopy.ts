@@ -1,7 +1,7 @@
 import "server-only";
 
 import { KONTAKT_EMAIL, VEREIN_ADDRESS, VEREIN_NAME, VEREINSREGISTER, VORSTAND_JOINTLY } from "./brand";
-import { boundBy, catalogue, runsText, seatsText, spieleNamed, textOf, waitWords } from "./copy";
+import { boundBy, catalogue, lineOf, runsText, seatsText, spieleNamed, textOf, waitWords } from "./copy";
 import { ACCOUNT_COPY } from "./copy/account";
 import { ADMIN_COPY } from "./copy/admin";
 import { COPY } from "./copy/shared";
@@ -113,24 +113,6 @@ const monthsOf = (years: number) => formatNumber(12 * years);
  * those are, so an entry passes wherever a `Copy` is asked for.
  */
 export const SERVER_COPY = catalogue({
-  /**
-   * A refusal's phrase under the field it is about, by the backend's code, on every screen showing that field's box:
-   * one of `COPY.shared.field`'s patterns, and nothing else. A code whose phrase names a bound its refusal carries is
-   * worded from it by `ruleMessage` instead, and a code no pattern words takes `refusalLine`'s sentence; every other
-   * code answers one of the shared failure lines `COPY.shared.failure` holds.
-   */
-  refusal: {
-    duplicate_key: COPY.shared.field.taken,
-    // One rule over two codes: a match whose result no play decides carries no goals, on the fixture and in its report.
-    state_ergebnis_on_a_non_event: COPY.shared.field.without(COPY.shared.tore),
-    // A rule of their own rather than a unique index: a seat of an application or a season row, and a squad's one Kapitän per team.
-    bewerbung_kontakt_repeated: COPY.shared.field.taken,
-    trikot_farbe_taken: COPY.shared.field.taken,
-    kontakt_email_taken: COPY.shared.field.taken,
-    kontakt_phone_taken: COPY.shared.field.taken,
-    kader_rolle_taken: COPY.shared.field.taken,
-  } satisfies Partial<Record<Code, string>>,
-
   /**
    * A refusal's sentence on the status line, by the backend's code, on every screen whose write answers it, for a code
    * no field pattern words: the write as a whole, or a field the sentence names itself. Where one code is about one of
@@ -303,7 +285,7 @@ export const SERVER_COPY = catalogue({
       tie_unresolved: (gruppe: string, platz: number) => `Gleichstand um den ${placeName(platz)} der ${gruppeName(gruppe)}`,
       wiring: `${COPY.shared.kOBaum} fehlerhaft`,
       /** The club, and its exit as the club's exit note heads it. */
-      departed_occupant: (team: Words, austritt: Copy) => `${textOf(team)} · ${austritt}`,
+      departed_occupant: (team: Words, austritt: Copy) => lineOf([textOf(team), austritt]),
       fielded_twice: (team: Words) => `${textOf(team)} zweimal an diesem Spieltag`,
       /** By the booking's object, „Spielort“ or „Schiedsrichter“. */
       retired_booking: (booking: Copy) => `${booking} stillgelegt`,
@@ -764,7 +746,7 @@ export const SERVER_COPY = catalogue({
       eyebrow: "Statistiken",
       title: "Die Liga in Zahlen",
       saisons: "Saisons",
-      schulen: "Schulen",
+      schulen: COPY.shared.schulen,
       spiele: COPY.page.spiele,
       tore: COPY.shared.tore,
     },
@@ -843,12 +825,12 @@ export const SERVER_COPY = catalogue({
   season: {
     gruppe: gruppeName,
     thirdPlace: "Spiel um Platz 3",
-    labelled: (label: Words, when: Words) => `${textOf(label)} · ${textOf(when)}`,
+    labelled: (label: Words, when: Words) => lineOf([textOf(label), textOf(when)]),
     /**
      * Where a club stands, under its name in a match head, linking to its row on the Tabelle; a club that has
      * played no match holds no place yet, and the line names its group alone.
      */
-    standing: (platz: number | null, gruppe: string) => (platz === null ? gruppeName(gruppe) : `${placeName(platz)} · ${gruppeName(gruppe)}`),
+    standing: (platz: number | null, gruppe: string) => lineOf([platz === null ? null : placeName(platz), gruppeName(gruppe)]),
 
     /** The Tabelle's and the club page's column heads: the short forms on every width. */
     column: {
@@ -908,13 +890,13 @@ export const SERVER_COPY = catalogue({
       tor: COPY.spielplan.goal,
       eigentor: "Eigentor",
       card: { gelb: "Gelbe Karte", gelb_rot: "Gelb-Rote Karte", rot: "Rote Karte" } satisfies Record<FLCardColour, string>,
-      event: (what: Copy, who: Words) => `${what} · ${textOf(who)}`,
+      event: (what: Copy, who: Words) => lineOf([what, textOf(who)]),
       /**
        * A dated match holding no hour, which takes no line-up until its kick-off is set, as both line-up pages title it:
        * its day as the match's row names it (`COPY.spielplan.when`), and that the hour is still to settle, as „Termin
        * offen“ says of a date.
        */
-      timeOpen: (day: Copy) => `${day} · Uhrzeit offen`,
+      timeOpen: (day: Copy) => lineOf([day, "Uhrzeit offen"]),
     },
   },
 

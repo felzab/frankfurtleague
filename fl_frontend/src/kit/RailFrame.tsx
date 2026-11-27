@@ -339,7 +339,7 @@ export function RailPage({
         )}
         {scope === "saison" && (
           <nav
-            aria-label={COPY.template.navigation}
+            aria-label={COPY.template.legal}
             className="ms-auto hidden gap-1 lg:flex">
             {LEGAL_PAGES.map((page) => (
               <NavigationLink

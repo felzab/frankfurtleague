@@ -15,6 +15,7 @@ import { SERVER_COPY } from "@/core/serverCopy";
 import { getSubjectSession } from "@/core/subject";
 import { eraseAccount } from "@/features/account/personActions";
 import { getErasureView } from "@/features/account/queries";
+import { kaderName } from "@/features/spieler/constants";
 import { linkInvalid } from "@/kit/mailedLinkState";
 import { mailedMetadata } from "@/kit/mailedMetadata";
 import { MailedPage, TO_ACCOUNT } from "@/kit/MailedPage";
@@ -92,10 +93,7 @@ function factsOf(email: string, passkeys: number, view: FLAccountErasureViewResp
   const records = new Map<Copy, Words[]>();
   const add = (label: Copy, record: Words) => records.set(label, [...(records.get(label) ?? []), record]);
 
-  if (spieler !== null) {
-    const { first_name: firstName, last_name: lastName } = spieler;
-    add(ENTRIES.spieler, { record: lastName === null ? firstName : `${firstName} ${lastName}` });
-  }
+  if (spieler !== null) add(ENTRIES.spieler, { record: kaderName(spieler) });
   for (const { name } of schiedsrichter) add(ENTRIES.schiedsrichter, { record: name });
   for (const { seat, team_name, saison_id } of seats) {
     add(ENTRIES.seats([seat]), ENTRIES.teamSeason({ record: team_name }, COPY.shared.saisonName(saison_id)));

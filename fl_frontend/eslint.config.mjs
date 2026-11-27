@@ -1157,19 +1157,14 @@ const DESIGN_BANS = [
     EVERY,
     { only: CATALOGUE_FILES },
   ),
-  // A field's message is `COPY.shared.field`'s patterns, and the server's phrases for a code, `SERVER_COPY.refusal`.
-  ...[
-    ["field", "src/core/copy/shared.ts"],
-    ["refusal", "src/core/serverCopy.ts"],
-  ].map(([key, file]) =>
-    syntaxBan(
-      syntax(
-        `Property[key.name="${key}"] ${inLiteral(String.raw`\.$|^.{81,}$|\b(?:[Dd](?:er|ie|as|es|em|en)|[Ee]in(?:e[mnrs]?)?)\b`)}`,
-        "A field's message is one pattern phrase: no full stop, no article, at most 80 characters.",
-      ),
-      EVERY,
-      { only: [file] },
+  // A field's message is `COPY.shared.field`'s patterns.
+  syntaxBan(
+    syntax(
+      `Property[key.name="field"] ${inLiteral(String.raw`\.$|^.{81,}$|\b(?:[Dd](?:er|ie|as|es|em|en)|[Ee]in(?:e[mnrs]?)?)\b`)}`,
+      "A field's message is one pattern phrase: no full stop, no article, at most 80 characters.",
     ),
+    EVERY,
+    { only: ["src/core/copy/shared.ts"] },
   ),
   syntaxBan(
     syntax(

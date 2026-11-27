@@ -121,7 +121,7 @@ export const COPY = catalogue({
       stale: "Die Seite ist nicht mehr aktuell.",
       signInExpired: "Deine Anmeldung ist abgelaufen.",
       /** A press past any limit on tries, whatever was counted: the edge's rate, a code's wrong tries, an address's codes. */
-      tooManyAttempts: "Zu viele Versuche.",
+      tooManyAttempts: "Zu viele Versuche",
       /** An administrator's grant is gone or was never held: no sign-in and no retry repairs it. */
       accessGone: "Dein Zugang zur Verwaltung besteht nicht mehr.",
     },
@@ -188,7 +188,8 @@ export const COPY = catalogue({
       cityDefault: "Frankfurt am Main",
       postcodeExample: "60438",
       houseNumberExample: "12a",
-      streetWithHouseNumber: (street: string, houseNumber: string) => `${street} ${houseNumber}`,
+      // A venue or a school without a house number stores it blank, which leaves no space before the line's comma.
+      streetWithHouseNumber: (street: string, houseNumber: string) => (houseNumber === "" ? street : `${street} ${houseNumber}`),
       addressLine: (street: Copy, postcode: string, city: string) => `${street}, ${postcode} ${city}`,
     },
 
@@ -338,7 +339,7 @@ export const COPY = catalogue({
     erasureCount: { addressChanges: "Laufende Adressänderungen", grant: GRANT },
     spieler: SPIELER,
     schiedsrichter: SCHIEDSRICHTER,
-    /** The schools a picker lists, the plural its empty search names. */
+    /** The schools a picker lists, the plural its empty search names, and the landing's count of them. */
     schulen: "Schulen",
     kader: KADER,
 
@@ -404,7 +405,6 @@ export const COPY = catalogue({
     signIn: VERB.signIn,
     accountSignIn: SIGN_IN,
     accountSecurity: "Sicherheit",
-    accountAppearance: "Darstellung",
     accountEntries: "Deine Einträge",
     adminSaisons: "Saisons",
     spiele: "Spiele",
@@ -503,7 +503,7 @@ export const COPY = catalogue({
     spieltage: "Spieltage",
     /** Until a match is dated, what is still to settle. */
     when: (day: CalendarDay | null, time: TimeOfDay | null) =>
-      day === null ? DATE_OPEN : time === null ? formatDateWithWeekday(day) : `${formatDateWithWeekday(day)} · ${formatTime(time)}`,
+      day === null ? DATE_OPEN : time === null ? formatDateWithWeekday(day) : lineOf([formatDateWithWeekday(day), formatTime(time)]),
 
     /** A side the draw has not settled: its source short in the dashed plaque, and in full as its name. */
     quelle: {
@@ -569,7 +569,7 @@ export const COPY = catalogue({
     wins: (team: Words, score: Copy) => `${textOf(team)} gewinnt ${score}`,
     drawn: (score: Copy) => `Unentschieden ${score}`,
     noResult: "Noch kein Ergebnis",
-    preview: (pairing: Copy, when: Copy, result: Copy) => `${pairing} · ${when} · ${result}`,
+    preview: (pairing: Copy, when: Copy, result: Copy) => lineOf([pairing, when, result]),
 
     answer: "Antwort",
     appointment: "Termin",
@@ -600,7 +600,7 @@ export const COPY = catalogue({
     /** Where no line-up stands, under a name that already says what is missing. */
     missing: "Fehlt",
     startelfCount,
-    counts: (picked: number, starting: number, max: number) => `${formatNumber(picked)} aufgestellt · ${startelfCount(starting, max)}`,
+    counts: (picked: number, starting: number, max: number) => lineOf([`${formatNumber(picked)} aufgestellt`, startelfCount(starting, max)]),
     rest: "Nicht aufgestellt",
     /**
      * Why „Aufstellen“ is locked on a nominee's row once the line-up names `max` of the squad's own players, a nominee
@@ -621,12 +621,16 @@ export const COPY = catalogue({
     more: "Mehr",
     less: "Weniger",
     showAll: "Alle anzeigen",
-    navigation: "Navigation",
+    /** The menu's landmark name, which a screen reader says after the role, so it never repeats „Navigation“. */
+    navigation: "Hauptmenü",
     /** The account's place, one word signed in and out alike. */
     account: "Konto",
     menu: "Menü",
-    /** The theme's three choices in the order its control shows them, the third following the device's own setting. */
-    theme: { dark: "Dunkel", light: "Hell", system: "System" },
+    /**
+     * The theme control's name, and its three choices in the order the control shows them, the third following the
+     * device's own setting.
+     */
+    theme: { label: "Darstellung", dark: "Dunkel", light: "Hell", system: "System" },
     /** Named for what the next press does. */
     sidebar: { collapse: "Seitenleiste einklappen", expand: "Seitenleiste ausklappen" },
 

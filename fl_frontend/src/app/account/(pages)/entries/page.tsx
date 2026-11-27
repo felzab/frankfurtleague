@@ -121,7 +121,7 @@ function entriesOf({ spieler, schiedsrichter, registrierungen, seats, bewerbunge
     title: COPY.page.registrierung,
     description: WORDS.description.own,
     facts: [
-      fact(COPY.shared.name, `${row.first_name} ${row.last_name}`),
+      fact(COPY.shared.name, kaderName(row)),
       birthday(row.birth_date),
       // The team's season, or the season alone where the team no longer stands.
       fact(

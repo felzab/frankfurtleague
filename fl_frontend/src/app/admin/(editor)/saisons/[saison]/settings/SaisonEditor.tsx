@@ -82,7 +82,10 @@ export type SaisonActs = {
 const lockedBy = (reason: Copy | undefined) => (reason === undefined ? {} : { locked: reason });
 
 /** A club as a picker lists it, „Lessing · Gruppe A“. */
-const optionOf = (team: SaisonTeam): Option => ({ id: team.id, label: { record: `${team.name} · ${COPY.shared.season.gruppe(team.gruppe)}` } });
+const optionOf = (team: SaisonTeam): Option => ({
+  id: team.id,
+  label: COPY.shared.line([{ record: team.name }, COPY.shared.season.gruppe(team.gruppe)]),
+});
 
 /**
  * What the swap and the replacement are handed of the season: whether it has begun, which locks both, their lock line

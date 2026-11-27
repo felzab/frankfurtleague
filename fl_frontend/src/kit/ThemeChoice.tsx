@@ -29,7 +29,7 @@ export function ThemeChoice() {
   const isSSR = useIsSSR();
   return (
     <GlyphChoices
-      label={COPY.page.accountAppearance}
+      label={COPY.template.theme.label}
       choices={THEMES}
       value={isSSR ? null : (theme ?? null)}
       onChange={setTheme}
@@ -66,7 +66,7 @@ export function ThemeRow({ place }: { place: "rail" | "sheet" | "footer" }) {
   const slots = row({ place });
   return (
     <div className={slots.root()}>
-      <span className={slots.label()}>{COPY.page.accountAppearance}</span>
+      <span className={slots.label()}>{COPY.template.theme.label}</span>
       <ThemeChoice />
     </div>
   );

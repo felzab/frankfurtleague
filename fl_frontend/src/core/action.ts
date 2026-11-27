@@ -13,7 +13,7 @@ import { logger } from "./logging";
 import { ownKeyOf } from "./ownKeyOf";
 import { logRefused } from "./refused";
 import { getRequestActor, requestWriteMayStand } from "./requestScope";
-import { isBoundedCode, isWordedRule, ruleMessage } from "./ruleMessage";
+import { isPatternedCode, isWordedRule, ruleMessage } from "./ruleMessage";
 import { SERVER_COPY } from "./serverCopy";
 import { SITE_CACHE_TAG } from "./siteCache";
 import { getSubjectSession } from "./subject";
@@ -135,7 +135,7 @@ type Declared<Schema extends z.ZodType> = {
 };
 
 /** A box's sentences for a screen that shows no box with its answer, by the cause of its refusal (`Declared`'s `boxless`). */
-type BoxSentences = { readonly [Cause in "value" | "required" | WordedRule | keyof typeof SERVER_COPY.refusal]?: Copy };
+type BoxSentences = { readonly [Cause in "value" | "required" | WordedRule]?: Copy };
 
 /** `boxless` as the builder reads it, by any box's declared path and any cause, as a refused path names them. */
 type SentenceTable = Readonly<Record<string, Readonly<Record<string, Copy | undefined>> | undefined>>;
@@ -264,8 +264,6 @@ const TURNED_AWAY: Readonly<Record<AdminRefusal, Copy>> = {
 };
 
 const UNEXPECTED = { ok: false, reason: COPY.shared.failure.unexpected } as const;
-
-const isWorded = (code: Code) => ownKeyOf(SERVER_COPY.refusal, code);
 
 const isLined = (code: Code) => ownKeyOf(SERVER_COPY.refusalLine, code);
 
@@ -530,21 +528,13 @@ function worded<Schema extends z.ZodType>(
     const reason = sentenceOf(code, fields[0]);
     return reason === undefined ? undefined : { ok: false, errorCode: code, reason };
   }
-  // A phrase naming the bounds the refusal carries on each field it names, worded as a rule's phrase is.
-  if (isBoundedCode(code)) {
-    return placed(
-      declared,
-      code,
-      fields.map(({ path, ctx }) => ({ path, kind: code, ...ruleMessage({ kind: code, ctx, path }) })),
-    );
-  }
-  // A phrase names no field of its own, so a code naming none has nothing to place it on.
-  if (!isWorded(code)) return undefined;
-  const phrase = SERVER_COPY.refusal[code];
+  // A phrase on each field the refusal names, filled from its bounds where the phrase names them, worded as a rule's
+  // phrase is. A phrase names no field of its own, so a code naming none has nothing to place it on.
+  if (!isPatternedCode(code)) return undefined;
   return placed(
     declared,
     code,
-    fields.map(({ path }) => ({ path, kind: code, field: phrase })),
+    fields.map(({ path, ctx }) => ({ path, kind: code, ...ruleMessage({ kind: code, ctx, path }) })),
   );
 }
 
