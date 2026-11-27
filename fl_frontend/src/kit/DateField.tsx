@@ -1,5 +1,7 @@
 "use client";
 
+import { useContext, useEffect, useEffectEvent } from "react";
+
 import { parseDate } from "@internationalized/date";
 import {
   Button as AriaButton,
@@ -10,6 +12,7 @@ import {
   CalendarGridHeader,
   CalendarHeaderCell,
   DatePicker,
+  DatePickerStateContext,
   Group,
   Popover,
 } from "react-aria-components/DatePicker";
@@ -73,6 +76,23 @@ function MonthCalendar() {
       </CalendarGrid>
     </Calendar>
   );
+}
+
+/**
+ * Judges a date again when a bound it is held to moves while it shows that bound's mark. React Aria draws a box's
+ * verdict when the box's own value is committed or its form pressed, so a bound another box sets, as a span's end takes
+ * its start, would leave the mark standing over a value that now meets it. A box showing no such mark waits for the
+ * press, as every box does, and one showing the server's fault keeps it. It draws nothing, and stands inside the picker
+ * for the picker's state.
+ */
+function BoundMark({ minValue, maxValue }: { minValue: CalendarDay | undefined; maxValue: CalendarDay | undefined }) {
+  const state = useContext(DatePickerStateContext);
+  const judge = useEffectEvent(() => {
+    const shown = state?.displayValidation.validationDetails;
+    if (shown?.rangeUnderflow === true || shown?.rangeOverflow === true) state?.commitValidation();
+  });
+  useEffect(() => judge(), [minValue, maxValue]);
+  return null;
 }
 
 /**
@@ -146,6 +166,10 @@ export function DateField({
         description={description}
         consequence={consequence}
         constraints={{ earliest: minValue, latest: maxValue }}
+      />
+      <BoundMark
+        minValue={minValue}
+        maxValue={maxValue}
       />
       <Popover
         data-kit-focus
