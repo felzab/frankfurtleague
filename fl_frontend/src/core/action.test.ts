@@ -12,7 +12,7 @@ import { COPY } from "./copy/shared";
 import { dayOf } from "./format";
 import { SERVER_COPY } from "./serverCopy";
 
-import type { Fault, LaneAnswer } from "./action";
+import type { Fault, Faulted, LaneAnswer } from "./action";
 import type { Code, FLRefusedField } from "./generated/client/types";
 
 /**
@@ -754,5 +754,16 @@ describe("a box's reading", () => {
   it("reads an empty digit box as no value, never as 0", () => {
     expect(numberBox(z.union([FEE, z.null()])).safeParse("")).toStrictEqual({ success: true, data: null });
     expect(numberBox(FEE).safeParse("").success).toBe(false);
+  });
+});
+
+// The harm: a lane handing on a fault it built in the backend's shape, whose kind is any string, and the box reading
+// the stale-page line in place of its phrase, with nothing failing.
+describe("a lane's faults", () => {
+  it("take a fault in the backend's shape only as the backend's answer brought it", () => {
+    const handed = (faults: Faulted["faults"]) => faults;
+    handed([fault("name", "required")]);
+    // @ts-expect-error -- the refusal under test: a backend fault built by hand, its kind no field code.
+    handed([{ in: "body", kind: "made_up", ctx: {}, path: ["name"] }]);
   });
 });

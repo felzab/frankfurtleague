@@ -8,8 +8,7 @@ import { ownKeyOf } from "./ownKeyOf";
 import { boundCall, getRequestActor, getRequestTraceId, inBackground, recordWriteSent } from "./requestScope";
 import { formatTraceparent, mintTraceId, TRACEPARENT_HEADER } from "./trace";
 
-import type { SentRequest } from "./errors";
-import type { FLRefusedField } from "./generated/client/types";
+import type { SentRequest, ServedField } from "./errors";
 
 // No proxied path reaches a backend write, so the actor is always the one the session set.
 const ACTOR_HEADER = "X-FL-Actor";
@@ -104,7 +103,7 @@ const refusalOf = async ({ res, traceId }: { res: Response; traceId: string }) =
     // A code the contract does not name is none: the backend's own line still records it under the trace.
     serverErrorCode: isCode(failure.error_code) ? failure.error_code : undefined,
     // The backend's `FLFailureBody` lists them on every status; a body from anywhere else marks no field.
-    refusedFields: Array.isArray(failure.fields) ? (failure.fields as FLRefusedField[]) : [],
+    refusedFields: Array.isArray(failure.fields) ? (failure.fields as ServedField[]) : [],
     traceId,
   });
 };

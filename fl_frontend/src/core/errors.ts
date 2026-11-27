@@ -41,12 +41,21 @@ export class UnreadGrantError extends Error {
   }
 }
 
+declare const SERVED: unique symbol;
+
+/**
+ * A field the backend's refusal names, as its answer brought it. Its kind is any string the backend may send, a rule
+ * of the parse's own among them, so only the transport reading an answer makes one: a fault a lane finds itself is
+ * `fault`'s, whose kind the type check holds to the codes the catalogue words.
+ */
+export type ServedField = FLRefusedField & { readonly [SERVED]: true };
+
 export class APIBadStatusError extends Error {
   override name = "APIBadStatusError";
   readonly traceId: string;
   readonly statusCode: number;
   readonly serverErrorCode?: Code;
-  readonly refusedFields: readonly FLRefusedField[];
+  readonly refusedFields: readonly ServedField[];
 
   constructor({
     message,
@@ -58,7 +67,7 @@ export class APIBadStatusError extends Error {
     message: string;
     statusCode: number;
     serverErrorCode?: Code;
-    refusedFields?: readonly FLRefusedField[];
+    refusedFields?: readonly ServedField[];
     traceId: string;
   }) {
     super(message);

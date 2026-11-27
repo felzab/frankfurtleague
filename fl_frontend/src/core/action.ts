@@ -24,6 +24,7 @@ import { fieldMessage } from "./zodGerman";
 
 import type { AdminRefusal, JudgedSession } from "./auth/guards";
 import type { Words as CatalogueWords, Copy } from "./copy";
+import type { ServedField } from "./errors";
 import type { Code, FLRefusedField } from "./generated/client/types";
 import type { SubjectSession } from "./subject";
 
@@ -148,13 +149,13 @@ export const fault = (box: string, kind: FieldCode | typeof REQUIRED, ctx: FLRef
  */
 // One refusal arm, its faults optional: a second arm for the faults would cost every body's `{ ok: true }` its literal.
 export type LaneAnswer<Value = undefined> =
-  Done<Value> | ({ ok: false; fieldErrors?: never; kinds?: never; faults?: readonly (Fault | FLRefusedField)[] } & Said);
+  Done<Value> | ({ ok: false; fieldErrors?: never; kinds?: never; faults?: readonly (Fault | ServedField)[] } & Said);
 
 /**
  * A lane's faults, each placed by the builder, beside the backend's code where a backend refusal joined them: what a
  * lane's helper answers where it finds any.
  */
-export type Faulted = { ok: false; faults: readonly (Fault | FLRefusedField)[]; errorCode?: Code };
+export type Faulted = { ok: false; faults: readonly (Fault | ServedField)[]; errorCode?: Code };
 
 /**
  * A lane's own faults beside the backend's refusal of the same press, as one answer naming every fault, where the
@@ -474,7 +475,7 @@ function boxFor<Schema extends z.ZodType>(declared: Declared<Schema>, path: stri
 }
 
 /** A fault's box on this screen: a lane's own by its key, a backend fault's where `boxFor` finds its path, else none. */
-function boxOf<Schema extends z.ZodType>(declared: Declared<Schema>, refused: Fault | FLRefusedField): string | undefined {
+function boxOf<Schema extends z.ZodType>(declared: Declared<Schema>, refused: Fault | ServedField): string | undefined {
   if ("box" in refused) return refused.box;
   const field = fieldOf(refused.path);
   const shown = field === undefined ? undefined : boxFor(declared, field.declared);
@@ -482,7 +483,7 @@ function boxOf<Schema extends z.ZodType>(declared: Declared<Schema>, refused: Fa
 }
 
 /** A fault as the catalogue words it, by its own kind, a lane's naming its field by the path its box's key spells. */
-const asWorded = (refused: Fault | FLRefusedField) =>
+const asWorded = (refused: Fault | ServedField) =>
   "box" in refused ? { kind: refused.kind, ctx: refused.ctx, path: refused.box.split(".") } : refused;
 
 /**
@@ -496,7 +497,7 @@ const asWorded = (refused: Fault | FLRefusedField) =>
 function placed<Schema extends z.ZodType>(
   declared: Declared<Schema>,
   code: Code | undefined,
-  refusals: readonly (Fault | FLRefusedField)[],
+  refusals: readonly (Fault | ServedField)[],
 ): ActionAnswer<never> | undefined {
   const fieldErrors: Record<string, Copy> = {};
   const kinds: Record<string, FLRefusedField["kind"]> = {};
@@ -535,7 +536,7 @@ function placed<Schema extends z.ZodType>(
 function worded<Schema extends z.ZodType>(
   declared: Declared<Schema>,
   code: Code,
-  fields: readonly FLRefusedField[],
+  fields: readonly ServedField[],
 ): ActionAnswer<never> | undefined {
   if (fields.length > 0) return placed(declared, code, fields);
   const reason = sentenceOf({ kind: code, ctx: {}, path: [] });
@@ -563,7 +564,7 @@ function settled<Schema extends z.ZodType, Value>(declared: Declared<Schema>, an
  * code that refuses nothing the request asked (`NOT_A_REFUSAL`), and the stale-page line for every other: the screen
  * offered what the API now refuses, so the page read again shows the record as it stands.
  */
-function refused<Schema extends z.ZodType>(declared: Declared<Schema>, code: Code, fields: readonly FLRefusedField[]): ActionAnswer<never> {
+function refused<Schema extends z.ZodType>(declared: Declared<Schema>, code: Code, fields: readonly ServedField[]): ActionAnswer<never> {
   const answer = worded(declared, code, fields);
   if (answer !== undefined) return answer;
   // The grant went between the guard's read and the backend's.
