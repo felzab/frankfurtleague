@@ -25,15 +25,23 @@ export function useFieldFaults(): FieldFaults | undefined {
   return useContext(Faults);
 }
 
+/** Whether `control` is a box the answer names: one a kit field posts under, whose fault React Aria judges. */
+const isNamedIn = (faults: FieldFaults, control: Element): control is HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement =>
+  (control instanceof HTMLInputElement || control instanceof HTMLSelectElement || control instanceof HTMLTextAreaElement) &&
+  Object.hasOwn(faults, control.name);
+
 /**
  * The one judged form of the site: every form a person sends is this one, a dialog's included. Both passes end alike.
  * The browser's pass judges every box on the press and shows every fault at once, the send held back while one stands
  * (`onBlock`). The server's pass answers `fieldErrors`, each fault by its box's `name`, which React Aria's
  * `validationErrors` puts on the box (`useFormValidationState`). Either way the focus goes to the first faulted box:
- * once an answer's faults have committed, the form asks the browser's report itself, whose `invalid` event React
- * Aria's every field answers by focusing the first invalid one through the field's own `focus` (`useFormValidation`),
- * a date's segments, a select's button and a choice group included. That report stands for no press, so it tells
- * `onBlock` nothing: the status line says what the answer says.
+ * once an answer's faults have committed, the form checks each box the answer names, whose `invalid` event React
+ * Aria's field answers by focusing the form's first invalid box through the field's own `focus` (`useFormValidation`),
+ * a date's segments, a select's button and a choice group included. That check stands for no press, so it tells
+ * `onBlock` nothing: the status line says what the answer says. It reaches no other box, since React Aria commits the
+ * fault of every box an `invalid` event reaches: a box the person changed while the send was on its way is judged
+ * once they commit it, and one they left invalid ahead of the named boxes keeps the focus, as React Aria focuses the
+ * form's first invalid box alone.
  *
  * A press hands `onSend` the fields as it left them, unless `isBusy`: a busy submit button takes no press, but Enter in
  * a lone field submits a form all the same, and a second send mid-flight would act twice. A hydrated press stays on
@@ -81,11 +89,12 @@ export function HeldForm({
   // attached its `invalid` listener in a passive one, which a form opening on its faults, as a reopened card does, has
   // only once its own passive effects run.
   useEffect(() => {
-    if (fieldErrors === undefined || fieldErrors === reported.current || Object.keys(fieldErrors).length === 0) return;
+    const form = element.current;
+    if (form === null || fieldErrors === undefined || fieldErrors === reported.current) return;
     reported.current = fieldErrors;
     isReporting.current = true;
     try {
-      element.current?.reportValidity();
+      for (const control of form.elements) if (isNamedIn(fieldErrors, control)) control.checkValidity();
     } finally {
       isReporting.current = false;
     }

@@ -31,6 +31,7 @@ import { useFormAction } from "./useFormAction";
 import type { ActionAnswer } from "@/core/action";
 import type { Copy } from "@/core/copy";
 import type { ReactElement } from "react";
+import type { FieldFaults } from "./HeldForm";
 import type { EditorSave } from "./useEditor";
 
 /** A page as it stands at an editor's address, under Next's router, in the server's markup and in the browser alike. */
@@ -293,6 +294,42 @@ describe("a faulted box after either pass", () => {
       expect(blocked).not.toHaveBeenCalled();
     },
   );
+
+  // The harm: a person still typing into a box as the answer lands sees that box judged mid-word, where a typed box is
+  // judged once committed.
+  it("judges no box the answer does not name, and leaves the focus in a box being typed into ahead of the named one", async () => {
+    const form = (fieldErrors?: FieldFaults) => (
+      <HeldForm
+        fieldErrors={fieldErrors}
+        isBusy={false}
+        onSend={() => undefined}>
+        <TextField
+          label={WORD}
+          name="typed"
+          kind="text"
+          isRequired
+          defaultValue={ADDRESS}
+        />
+        <TextField
+          label={COPY.shared.name}
+          name="faulted"
+          kind="text"
+        />
+        <button type="submit">{COPY.shared.verb.save}</button>
+      </HeldForm>
+    );
+    const { container, rerender } = render(form());
+    await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.save }));
+    const typed = screen.getByRole("textbox", { name: WORD });
+    // Emptied while the send is on its way, and not yet committed, as the focus stays in it.
+    await userEvent.clear(typed);
+
+    rerender(form({ faulted: FAULT }));
+
+    expect(container.textContent).toContain(FAULT);
+    expect(container.textContent).not.toContain(COPY.shared.field.required);
+    expect(document.activeElement).toBe(typed);
+  });
 
   // The harm: a person who follows a link from a refused form and comes back, Next showing the page it kept hidden, is
   // pulled to the box refused before, and a screen reader reads that box rather than the page.
