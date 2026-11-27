@@ -118,8 +118,6 @@ export const COPY = catalogue({
       ofAdministration: "Gehört zur Verwaltung",
       onFile: "Schon hinterlegt",
       onlyInKonto: "Nur im Konto",
-      // A choice the record's season no longer offers, such as a squad row's Stufe.
-      notAllowed: "Nicht zugelassen",
     },
 
     /**

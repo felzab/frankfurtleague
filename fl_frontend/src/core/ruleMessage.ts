@@ -128,8 +128,6 @@ const PATTERNED = {
   spieltag_span_below_spiele: (context) => notBefore(context) ?? notAfter(context),
   spieltag_start_out_of_order: (context) => notBefore(context) ?? notAfter(context),
   saison_start_taken_place: (context) => notBefore(context) ?? notAfter(context),
-  // A Stufe the season stopped offering since the page offered it.
-  kader_stufe_not_allowed: () => field.notAllowed,
   saison_ends_before_start: notBeforeStart,
   bewerbung_window_ends_before_start: notBeforeStart,
   spieltag_ends_before_start: notBeforeStart,
