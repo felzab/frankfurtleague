@@ -7,6 +7,7 @@ import { Link } from "./Link";
 import { OneShotEnd, OneShotForm } from "./OneShot";
 import { ClassicStatusPage } from "./StatusCard";
 
+import type { BoxRules } from "@/core/boxRules";
 import type { Copy, TextLink } from "@/core/copy";
 import type { ReactNode } from "react";
 import type { Fact } from "./Facts";
@@ -67,6 +68,8 @@ export type MailedState =
       /** The words closing the sentence, around the privacy notice's link. */
       more?: PrivacyMore;
       run: OneShotRun;
+      /** What the browser's pass holds the fields to: the main act's lane's rules, read on the server (`boxRulesOf`). */
+      rules: BoxRules;
       acts: OneShotActs;
       /** What the form posts unseen beside its fields: the link's token. */
       carry: Readonly<Record<string, string>>;
@@ -122,6 +125,7 @@ async function MailedBody({ page }: { page: Promise<MailedState> }) {
       return (
         <OneShotForm
           run={props.run}
+          rules={props.rules}
           acts={props.acts}
           carry={props.carry}
           touch={props.touch}

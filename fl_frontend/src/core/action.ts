@@ -6,6 +6,7 @@ import { unstable_rethrow } from "next/navigation";
 import { z } from "zod";
 
 import { getAccountSession, judgeAdminRequest, passesPasskeyTouch } from "./auth/guards";
+import { boxesOf, EVERY_ROW, rulesOf } from "./boxRules";
 import { COPY } from "./copy/shared";
 import { asSignInIdentifier, KONTAKT_EMAIL_MAX_LENGTH } from "./emailAddress";
 import { APIBadStatusError, loggedByBackend, requestOf } from "./errors";
@@ -21,6 +22,7 @@ import { TURNSTILE_FIELD } from "./turnstileToken";
 import { fieldMessage } from "./zodGerman";
 
 import type { AdminRefusal, JudgedSession } from "./auth/guards";
+import type { Boxes, BoxRules } from "./boxRules";
 import type { Words as CatalogueWords, Copy } from "./copy";
 import type { Code, FieldCode, FLRefusedField } from "./generated/client/types";
 import type { SubjectSession } from "./subject";
@@ -64,9 +66,6 @@ export type SaveQuestion = {
   facts?: ReadonlyArray<{ readonly label: Copy; readonly value: CatalogueWords }>;
   confirm: string;
 };
-
-/** Every row of a list, in a declared path: `scorers.*.minute` declares the minute of each of the list's records. */
-const EVERY_ROW = "*";
 
 /** The fields of a list's record, each under its list's every row; a list of single values holds none. */
 type RowField<Item, List extends string> = Item extends readonly unknown[]
@@ -162,17 +161,6 @@ type Run<Schema extends z.ZodType, Context, Value> = (input: z.output<Schema>, c
  * nobody, which any account's passkey answers, signing that account in.
  */
 export const PAGE_HOLDER = { holder: z.string().min(1).max(KONTAKT_EMAIL_MAX_LENGTH) };
-
-/** A published rule a field's value is held to, or an action's own reading of a box over it. */
-type Rule = { readonly safeParse: (value: unknown) => { readonly success: boolean } };
-
-/**
- * Whether a write requires a field, which its box's asterisk says: whether its rule refuses what the box sends while
- * empty, `""` for a text box passed on as typed, `null` for a figure, a day or a box read as no value
- * (`numberBox`, `blankIsNull`), `[]` for a choice of several with none picked. Read on the server, so the schema
- * never reaches the browser.
- */
-export const requires = (rule: Rule, empty: "" | null | readonly []): boolean => !rule.safeParse(empty).success;
 
 /**
  * A digit box's text held to its rule as a number: an empty box no value, digits alone their figure, anything else the
@@ -412,49 +400,29 @@ function parsed<Schema extends z.ZodType>(
 /** The object an editor's input holds its boxes in, each under its name. */
 const CHANGES = "changes";
 
-/**
- * Whether a schema holds a field at a declared path, as `fieldOf` declares it: a name may hold dots of its own, as an
- * editor's box named for the write's path does (`rules.win_points`), and `*` stands for each row of a list. It walks
- * the schemas' definitions, as Zod's core documents for a tool traversing schemas; a wrapper, a pipe's two ends and a
- * union's options each hold what their inner schemas hold.
- */
-function holds(schema: z.core.$ZodType, path: string): boolean {
-  const def = (schema as z.core.$ZodTypes)._zod.def;
-  switch (def.type) {
-    case "object":
-      return Object.entries(def.shape).some(
-        ([name, field]) => path === name || (path.startsWith(`${name}.`) && holds(field, path.slice(name.length + 1))),
-      );
-    case "array":
-      return path.startsWith(`${EVERY_ROW}.`) && holds(def.element, path.slice(EVERY_ROW.length + 1));
-    case "optional":
-    case "nullable":
-    case "default":
-    case "prefault":
-    case "nonoptional":
-    case "readonly":
-    case "catch":
-      return holds(def.innerType, path);
-    case "pipe":
-      return holds(def.in, path) || holds(def.out, path);
-    case "union":
-      return def.options.some((option) => holds(option, path));
-    default:
-      return false;
-  }
+/** Each input's boxes, walked once (`boxesOf`): an action's every refusal and its page's rules read the same walk. */
+const WALKED = new WeakMap<z.core.$ZodType, Boxes>();
+
+function boxesIn(input: z.core.$ZodType): Boxes {
+  const walked = WALKED.get(input);
+  if (walked !== undefined) return walked;
+  const boxes = boxesOf(input);
+  WALKED.set(input, boxes);
+  return boxes;
 }
 
 /**
  * The box a refused path stands for, both as `fieldOf` declares them: the box `paths` renames it to, else the path's own
  * box where the screen shows it, as `boxes` declares, else the editor's box of that name, where the input's `changes`
- * holds one. `undefined` for a field the screen shows no box for, such as one its form carries unseen.
+ * holds one, a name holding dots of its own as an editor's box named for the write's path does (`rules.win_points`).
+ * `undefined` for a field the screen shows no box for, such as one its form carries unseen.
  */
 function boxFor<Schema extends z.ZodType>(declared: Declared<Schema>, path: string): string | undefined {
   const renamed: string | undefined = declared.paths?.[path];
   if (renamed !== undefined) return renamed;
   if (declared.boxes?.some((box) => box === path) ?? false) return path;
   const change = `${CHANGES}.${path}`;
-  return holds(declared.input, change) ? change : undefined;
+  return boxesIn(declared.input).has(change) ? change : undefined;
 }
 
 /** A fault's box on this screen: a lane's own by its key, a backend fault's where `boxFor` finds its path, else none. */
@@ -670,7 +638,28 @@ export function action<Schema extends z.ZodType, Value>(
 ): (raw: never, dryRun?: boolean) => Promise<ActionAnswer<Value>> {
   // An async function, as Next defines a server action, though its check at runtime sees only a function. The second
   // argument crosses from the browser, so it is judged as untrusted (`guarded`).
-  return async (raw: unknown, dryRun?: unknown) => runWithIncomingTrace(() => answered(lane, raw, dryRun));
+  const act = async (raw: unknown, dryRun?: unknown) => runWithIncomingTrace(() => answered(lane, raw, dryRun));
+  let rules: BoxRules | undefined;
+  RULES.set(act, () => (rules ??= rulesOf(boxesIn(lane.input), lane.examples)));
+  return act;
+}
+
+/**
+ * Each action's box rules, read once on first asking, by the action: Next registers a server action on the function
+ * itself (`registerServerReference`), so the page importing one holds the function `action` built.
+ */
+const RULES = new WeakMap<object, () => BoxRules>();
+
+/**
+ * The rules of every box an action's form shows, read off its lane's input and the examples it declares: what the
+ * browser's pass judges on the press, so a format fault shows before anything is sent. Read on a server page and
+ * handed to the form as data, since the schema stays on the server.
+ */
+export function boxRulesOf(act: (raw: never, dryRun?: boolean) => Promise<unknown>): BoxRules {
+  const rules = RULES.get(act);
+  // Every action is built by `action`, which the lint holds, so an unknown one is a function of another kind.
+  if (rules === undefined) throw new TypeError(`${act.name} is no action built by \`action\`.`);
+  return rules();
 }
 
 /**

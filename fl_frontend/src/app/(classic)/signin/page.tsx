@@ -1,7 +1,9 @@
 import { connection } from "next/server";
 
+import { boxRulesOf } from "@/core/action";
 import { frontend_config } from "@/core/config";
 import { ROUTES } from "@/core/routes";
+import { handleSignIn } from "@/features/auth/actions";
 import { SignInFlow } from "@/features/auth/SignInFlow";
 import { pageMetadata } from "@/shared/utils/metadata";
 
@@ -23,6 +25,7 @@ async function readView() {
     <SignInFlow
       next={ROUTES.signInLanding.path()}
       siteKey={frontend_config.TURNSTILE_SITE_KEY}
+      rules={boxRulesOf(handleSignIn)}
     />
   );
 }

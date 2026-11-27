@@ -1,5 +1,6 @@
 import { cache } from "react";
 
+import { boxRulesOf } from "@/core/action";
 import { frontend_config } from "@/core/config";
 import { PUBLIC_COPY } from "@/core/copy/public";
 import { COPY } from "@/core/copy/shared";
@@ -11,7 +12,6 @@ import { ConsentLine } from "@/kit/ConsentLine";
 
 import { BewerbungFields } from "./BewerbungFields";
 import { endOf } from "./ends";
-import { BEWERBUNG_RULES } from "./fieldRules";
 import { submitBewerbung } from "./submitBewerbung";
 
 import type { FLBewerbungFormResponse } from "@/core/generated/client/types";
@@ -40,6 +40,7 @@ export function formStateOf(saison: string, form: FLBewerbungFormResponse): Mail
     state: "question",
     title: COPY.page.bewerbung(saison),
     run: submitBewerbung,
+    rules: boxRulesOf(submitBewerbung),
     acts: { primary: SUBMIT },
     carry: { saison_id: saison },
     replays: true,
@@ -59,7 +60,6 @@ export function formStateOf(saison: string, form: FLBewerbungFormResponse): Mail
       <BewerbungFields
         schulen={form.schulen}
         taken={form.taken}
-        rules={BEWERBUNG_RULES}
       />
     ),
   };

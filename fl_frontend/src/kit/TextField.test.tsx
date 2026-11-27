@@ -15,9 +15,11 @@ import {
 
 import { Button } from "./Button";
 import { FormClosed } from "./formClosed";
+import { HeldForm } from "./HeldForm";
 import { Select } from "./Select";
 import { TextField } from "./TextField";
 
+import type { BoxRules } from "@/core/boxRules";
 import type { ReactElement } from "react";
 
 // The harm: the address the field holds is somebody else's, and no check reads what the browser offers: an erased
@@ -56,26 +58,30 @@ describe("a locked select", () => {
 describe("a required field nobody can change", () => {
   it("is heard as required only while its form is open and the field unlocked", () => {
     render(
-      <>
+      <HeldForm
+        isBusy={false}
+        onSend={() => undefined}
+        fieldErrors={undefined}
+        rules={{ name: { required: true } }}>
         <TextField
           label={COPY.shared.startelf}
+          name="name"
           kind="text"
-          isRequired
         />
         <TextField
           label={COPY.shared.startelf}
+          name="name"
           kind="text"
-          isRequired
           isLocked
         />
         <FormClosed value>
           <TextField
             label={COPY.shared.startelf}
+            name="name"
             kind="text"
-            isRequired
           />
         </FormClosed>
-      </>,
+      </HeldForm>,
     );
     // React Aria states it as the native `required` or as `aria-required`, by the form's validation behaviour.
     const heard = screen
@@ -85,22 +91,22 @@ describe("a required field nobody can change", () => {
   });
 });
 
-/** A form of one box and its press, reporting whether the press went through. */
-async function pressing(field: ReactElement, typed: string) {
+/** A form of one box held to `rules` and its press, reporting whether the press went through. */
+async function pressing(field: ReactElement, typed: string, rules: BoxRules = {}) {
   const sent = vi.fn();
   render(
-    <Form
-      onSubmit={(event) => {
-        event.preventDefault();
-        sent();
-      }}>
+    <HeldForm
+      isBusy={false}
+      onSend={sent}
+      fieldErrors={undefined}
+      rules={rules}>
       {field}
       <Button
         variant="primary"
         type="submit"
         label={COPY.shared.verb.save}
       />
-    </Form>,
+    </HeldForm>,
   );
   await userEvent.type(screen.getByRole("textbox"), typed);
   await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.save }));
@@ -129,9 +135,9 @@ describe("what the browser takes and the server refuses", () => {
         label={COPY.shared.startelf}
         name="name"
         kind="text"
-        isRequired
       />,
       "   ",
+      { name: { required: true } },
     );
     expect(screen.getByText(COPY.shared.field.required)).toBeTruthy();
     expect(sent).not.toHaveBeenCalled();
@@ -153,8 +159,8 @@ describe("what the browser takes and the server refuses", () => {
         label={COPY.shared.facts.phone}
         name="phone"
         kind="tel"
-        pattern={PHONE}
       />,
+      { phone: { patterns: [PHONE] } },
       "069 9000x",
       COPY.shared.field.examplePhone,
     ],
@@ -165,9 +171,8 @@ describe("what the browser takes and the server refuses", () => {
         label={COPY.shared.firstName}
         name="first_name"
         kind="text"
-        pattern={NAME}
-        example={COPY.shared.field.exampleFirstName}
       />,
+      { first_name: { patterns: [NAME], example: COPY.shared.field.exampleFirstName } },
       "Anna1",
       COPY.shared.field.exampleFirstName,
     ],
@@ -179,9 +184,8 @@ describe("what the browser takes and the server refuses", () => {
         name="house_number"
         holds={5}
         kind="text"
-        pattern={HOUSE_NUMBER}
-        example={COPY.shared.address.houseNumberExample}
       />,
+      { house_number: { patterns: [HOUSE_NUMBER], example: COPY.shared.address.houseNumberExample } },
       "12/3",
       COPY.shared.address.houseNumberExample,
     ],
@@ -193,14 +197,13 @@ describe("what the browser takes and the server refuses", () => {
         name="shorthand"
         holds={5}
         kind="text"
-        pattern={SHORTHAND}
-        example={COPY.team.shorthandExample}
       />,
+      { shorthand: { patterns: [SHORTHAND], example: COPY.team.shorthandExample } },
       "AB1",
       COPY.team.shorthandExample,
     ],
-  ])("refuses %s off the write's pattern on the press, naming its example", async (_, field, typed, example) => {
-    const sent = await pressing(field, typed);
+  ])("refuses %s off the write's pattern on the press, naming its example", async (_, field, rules, typed, example) => {
+    const sent = await pressing(field, typed, rules);
     expect(screen.getByText(COPY.shared.field.format(example))).toBeTruthy();
     expect(sent).not.toHaveBeenCalled();
   });
@@ -215,18 +218,18 @@ describe("what the browser takes and the server refuses", () => {
       kind === "tel" ? (
         <TextField
           label={COPY.shared.facts.phone}
+          name="box"
           kind="tel"
-          pattern={pattern}
         />
       ) : (
         <TextField
           label={COPY.shared.firstName}
+          name="box"
           kind="text"
-          pattern={pattern}
-          example={COPY.shared.field.exampleFirstName}
         />
       ),
       typed,
+      { box: { patterns: [pattern], example: COPY.shared.field.exampleFirstName } },
     );
     expect(sent).toHaveBeenCalledOnce();
   });
@@ -256,20 +259,22 @@ describe("a digits field", () => {
 });
 
 describe("a minute field", () => {
-  // The write's own pattern for a played minute, as a match report's page hands it on from the contract.
+  // The write's own pattern for a played minute, as the match report's lane hands it on from the contract.
   const MINUTE = "^[0-9]{1,3}(\\+[0-9]{1,2})?$";
   const EXAMPLE = AREA_COPY.schiedsrichter.spielbericht.minuteExample;
 
   const sending = async (typed: string) => {
     render(
-      <Form onSubmit={(event) => event.preventDefault()}>
+      <HeldForm
+        isBusy={false}
+        onSend={() => undefined}
+        fieldErrors={undefined}
+        rules={{ minute: { patterns: [MINUTE], example: EXAMPLE } }}>
         <TextField
           label={COPY.spielplan.minute}
           name="minute"
           kind="minute"
           holds={5}
-          pattern={MINUTE}
-          example={EXAMPLE}
           unit={COPY.shared.unit.minute}
         />
         <Button
@@ -277,7 +282,7 @@ describe("a minute field", () => {
           type="submit"
           label={COPY.shared.verb.save}
         />
-      </Form>,
+      </HeldForm>,
     );
     await userEvent.type(screen.getByRole("textbox"), typed);
     await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.save }));

@@ -1,19 +1,11 @@
 import { cache } from "react";
 import { notFound } from "next/navigation";
 
-import { requires } from "@/core/action";
+import { boxRulesOf } from "@/core/action";
 import { SPIELER_WORDINGS } from "@/core/consentWordings";
 import { ADMIN_COPY } from "@/core/copy/admin";
 import { COPY } from "@/core/copy/shared";
 import { dayOf, formatDate } from "@/core/format";
-import {
-  SpielerPatchSpielerSaisonBody,
-  spielerPatchSpielerSaisonBodyFirstNameMax,
-  spielerPatchSpielerSaisonBodyFirstNameRegExp,
-  spielerPatchSpielerSaisonBodyLastNameOneMax,
-  spielerPatchSpielerSaisonBodyLastNameOneRegExp,
-  spielerPatchSpielerSaisonBodyNummerOneMax,
-} from "@/core/generated/zod/inputs";
 import { ROUTES } from "@/core/routes";
 import { kaderName } from "@/features/spieler/constants";
 import { positionOptions, stufeOptions } from "@/features/spieler/options";
@@ -36,26 +28,6 @@ type Props = PageProps<"/admin/saisons/[saison]/spieler/[spieler]">;
 
 const WORDS = ADMIN_COPY.spieler;
 const CONSENT = ADMIN_COPY.einwilligung;
-const { shape } = SpielerPatchSpielerSaisonBody;
-
-/** What the save asks of each of the person's boxes, read off the write's schema. */
-const RULES = {
-  required: {
-    first_name: requires(shape.first_name, ""),
-    last_name: requires(shape.last_name, null),
-    birth_date: requires(shape.birth_date, null),
-  },
-  max: {
-    first_name: spielerPatchSpielerSaisonBodyFirstNameMax,
-    last_name: spielerPatchSpielerSaisonBodyLastNameOneMax,
-    nummer: spielerPatchSpielerSaisonBodyNummerOneMax,
-  },
-  // Each a source, the one form of a pattern a server page can hand a client field (`kit/TextField.tsx :: judgeOf`).
-  pattern: {
-    first_name: spielerPatchSpielerSaisonBodyFirstNameRegExp.source,
-    last_name: spielerPatchSpielerSaisonBodyLastNameOneRegExp.source,
-  },
-};
 
 const read = cache(getSpielerSaison);
 
@@ -118,7 +90,7 @@ export default async function SpielerEditorPage({ params }: Props) {
       person={personFacts(found)}
       kader={kaderFacts(found)}
       einwilligung={einwilligungFacts(found)}
-      rules={RULES}
+      rules={boxRulesOf(saveSpieler)}
       positions={positionOptions()}
       stufen={stufeOptions(found.allowed_stufen, kader.stufe)}
       takenRollen={found.taken_rollen}

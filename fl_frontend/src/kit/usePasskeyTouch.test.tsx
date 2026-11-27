@@ -70,6 +70,7 @@ type Run = (formData?: FormData, dryRun?: boolean) => Promise<ActionAnswer>;
 
 const inputs = (run: Run) => (
   <Dialog
+    rules={{}}
     title={COPY.shared.help}
     act={{ verb: "enter" }}
     // The mark is the type's alone, which only the action builder gives a server action.

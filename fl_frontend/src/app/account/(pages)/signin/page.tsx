@@ -1,10 +1,10 @@
-import { requires } from "@/core/action";
+import { boxRulesOf } from "@/core/action";
 import { ACCOUNT_COPY } from "@/core/copy/account";
 import { COPY } from "@/core/copy/shared";
 import { ROUTES } from "@/core/routes";
 import { requireAccountSession } from "@/features/account/account";
+import { startAddressChange } from "@/features/account/personActions";
 import { getAccountAddressChange } from "@/features/account/queries";
-import { SignInPayloadSchema } from "@/features/auth/schemas";
 import { AccountPage } from "@/kit/AccountPage";
 import { pageMetadata } from "@/shared/utils/metadata";
 
@@ -41,7 +41,7 @@ async function SignInContent() {
       pending={change.open === null ? null : pendingOf(change.open)}
       touch={served.isAdmin}
       lastOwner={subject.records.admin_tier === "owner" ? COPY.shared.afterHandover : undefined}
-      addressRequired={requires(SignInPayloadSchema.shape.email, "")}
+      addressRules={boxRulesOf(startAddressChange)}
     />
   );
 }

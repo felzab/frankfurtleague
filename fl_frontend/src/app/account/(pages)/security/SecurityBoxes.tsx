@@ -14,6 +14,7 @@ import { leaveDocumentFor } from "@/shared/utils/documentNavigation";
 import { removePasskeyAction, renamePasskeyAction } from "./passkeyActs";
 
 import type { ActionAnswer } from "@/core/action";
+import type { BoxRules } from "@/core/boxRules";
 import type { Copy } from "@/core/copy";
 import type { PasskeyRow } from "@/features/passkeys/held";
 import type { AccountRow } from "@/kit/AccountBox";
@@ -38,7 +39,7 @@ export function SecurityBoxes({
   holder,
   passkeys,
   devices,
-  name,
+  renameRules,
 }: {
   /** The address the page is drawn for, which every act of the account posts and every touch answers for. */
   holder: string;
@@ -46,8 +47,8 @@ export function SecurityBoxes({
   passkeys: Passkeys | undefined;
   /** Geräte's sentence, the count of devices signed in. */
   devices: Copy;
-  /** What the rename's write asks of the name, read off its schema on the server. */
-  name: { required: boolean; max: number };
+  /** What the rename's lane asks of its box, read on the server. */
+  renameRules: BoxRules;
 }) {
   const router = useRouter();
 
@@ -74,13 +75,12 @@ export function SecurityBoxes({
         formData.set("holder", holder);
         return renamePasskeyAction(formData);
       },
+      rules: renameRules,
       field: (
         <TextField
           label={COPY.shared.name}
           name="name"
           kind="text"
-          isRequired={name.required}
-          maxLength={name.max}
           defaultValue={passkey.name}
         />
       ),

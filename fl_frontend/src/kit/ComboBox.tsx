@@ -10,6 +10,7 @@ import { COPY } from "@/core/copy/shared";
 
 import { FieldLabel, MessageLine, useFieldLock, useFieldWait } from "./FieldParts";
 import { fieldButton, fieldFrame, fieldRoot, groupInput } from "./fieldStyles";
+import { useBoxRule } from "./HeldForm";
 import { Icon } from "./Icon";
 import { OptionList } from "./OptionList";
 
@@ -24,19 +25,17 @@ import type { Option } from "./OptionList";
 type CreateEntry = { label: Copy; onCreate: (typed: string) => void };
 
 /**
- * A combo box whose answer is its text, the options suggestions rather than the set, as a school may wish to play one
- * no list holds yet: the form receives what is typed, up to `maxLength`.
- */
-type FreeText = { maxLength?: number };
-
-/**
  * What the list shows where the text typed matches no option: the create entry standing alone, nothing for a box whose
  * text is the answer, and otherwise one row saying the search found none of the list's `plural`, so a name the list
  * lacks says so while it is typed rather than vanishing as the field is left.
  */
 type Unmatched =
   | { create: CreateEntry; free?: never; plural?: never }
-  | { free: FreeText; create?: never; plural?: never }
+  /**
+   * A combo box whose answer is its text, the options suggestions rather than the set, as a school may wish to play one
+   * no list holds yet: the form receives what is typed, up to its lane's length.
+   */
+  | { free: true; create?: never; plural?: never }
   | { plural: Copy; create?: never; free?: never };
 
 /**
@@ -52,7 +51,6 @@ export function ComboBox({
   create,
   free,
   plural,
-  isRequired = false,
   isDisabled = false,
   isLocked = false,
   name,
@@ -65,7 +63,6 @@ export function ComboBox({
   description?: Copy;
   consequence?: Copy;
   options: readonly Option[];
-  isRequired?: boolean;
   isDisabled?: boolean;
   /** Held fixed by its record: read-only, its label marked with the lock (`useFieldLock`). */
   isLocked?: boolean;
@@ -80,7 +77,8 @@ export function ComboBox({
   const [chosen, setChosen] = useState<string | null>(null);
   const chosenLabel = options.find((option) => option.id === (value === undefined ? chosen : value))?.label;
   const shown = chosenLabel === undefined ? "" : textOf(chosenLabel);
-  const lock = useFieldLock(isLocked, isRequired);
+  const rule = useBoxRule(name);
+  const lock = useFieldLock(isLocked, rule.required);
   return (
     <AriaComboBox
       inert={useFieldWait()}
@@ -114,7 +112,7 @@ export function ComboBox({
         className={fieldFrame({ width: "standard", inset: "start", layout: "group" })}>
         <Input
           data-kit-focus
-          maxLength={free?.maxLength}
+          maxLength={free === true ? rule.maxLength : undefined}
           className={groupInput()}
         />
         <Button

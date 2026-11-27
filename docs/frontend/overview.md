@@ -30,13 +30,13 @@ the modules it needs: `queries.ts` for reads, `mutations.ts` for a write that sh
 before the generated client sends them (a write passing them through calls the generated client
 itself), `actions.ts` or an act's own module for its server actions (`features/spiele/saveSpiel.ts`,
 which the match editor and a season Übersicht's appointment dialog call), `personActions.ts` for
-those a signed-in person's own pages call, `schemas.ts` for its Zod schemas, and `fieldRules.ts` for
-what a write asks of its form's boxes. A rules module reads them off the write's generated schema:
-`required`, whether each box may stay empty, `max`, the longest each text may be where the write
-bounds one, and `pattern`, the source of each pattern the write holds a box's text to, which the box
-judges once its value is committed (`fl_frontend/src/kit/TextField.tsx`). It opens with
-`import "server-only"`, so no schema reaches a client bundle. A route's own form declares its rules
-in its `page.tsx`, or in a rules module beside the route under the same name where they outgrow it.
+those a signed-in person's own pages call, and `schemas.ts` for its Zod schemas. No module states
+what a form's boxes take: each box's rule is read off the input its action's lane declares, whether
+it may stay empty, its length, the patterns its text meets and its figure's bounds
+(`fl_frontend/src/core/boxRules.ts`), and handed to the form as plain data by `boxRulesOf(action)`
+on the server, so no schema reaches a client bundle. The form holds them, and each kit field reads
+its own by its `name`; an editor adds the boxes its draft needs filled once another holds a value,
+by the `requiredOf` its save judges the draft with.
 
 **Imports run one way.** `src/core/` imports neither `src/shared/` nor `src/features/`,
 `src/shared/` does not import `src/features/`, and `src/kit/` imports neither `src/features/` nor

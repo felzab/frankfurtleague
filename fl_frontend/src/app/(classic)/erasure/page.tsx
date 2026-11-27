@@ -1,6 +1,7 @@
 import { cache } from "react";
 import { redirect } from "next/navigation";
 
+import { boxRulesOf } from "@/core/action";
 import { erasureLinkStands } from "@/core/auth/accounts";
 import { getAccountSession } from "@/core/auth/guards";
 import { passkeysOf } from "@/core/auth/passkeys";
@@ -79,6 +80,7 @@ const readState = cache(async (): Promise<MailedState> => {
     facts: factsOf(subject.email, passkeys, view),
     sentence: WORDS.question,
     run: eraseAccount,
+    rules: boxRulesOf(eraseAccount),
     acts: { primary: COPY.page.accountErasure, destroys: true },
     carry: { token, holder: subject.email },
     // An administrator touches a passkey at the press, on a passkey's session or a mailed code's alike.

@@ -1,10 +1,11 @@
 "use client";
 
-import { createContext, useContext, useEffect, useRef } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef } from "react";
 
 import { Form } from "react-aria-components/Form";
 import { useObjectRef } from "react-aria/useObjectRef";
 
+import type { BoxRule, BoxRules } from "@/core/boxRules";
 import type { Copy } from "@/core/copy";
 import type { ComponentProps, SyntheticEvent } from "react";
 
@@ -23,6 +24,26 @@ const Faults = createContext<FieldFaults | undefined>(undefined);
  */
 export function useFieldFaults(): FieldFaults | undefined {
   return useContext(Faults);
+}
+
+/** What the form holds each box to: its lane's rules, and the boxes the form's own draft needs filled beside them. */
+type Held = { readonly rules: BoxRules; readonly required: ReadonlySet<string> };
+
+const Rules = createContext<Held>({ rules: {}, required: new Set() });
+
+/** A row's index in a box's name, as `scorers.2.minute` holds one, which its lane's rules key as every row's `*`. */
+const ROW = /(?<=^|\.)\d+(?=\.|$)/gu;
+
+/**
+ * The rule the browser's pass holds a box to, by the `name` it posts under: its lane's, a list's row's by the rule every
+ * row takes, required where the form's own draft needs it filled too. Nothing outside a form, and nothing for a box
+ * posting under no name.
+ */
+export function useBoxRule(name: string | undefined): BoxRule {
+  const { rules, required } = useContext(Rules);
+  if (name === undefined) return {};
+  const rule = rules[name] ?? rules[name.replace(ROW, "*")] ?? {};
+  return required.has(name) ? { ...rule, required: true } : rule;
 }
 
 type Control = HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
@@ -81,6 +102,8 @@ export function HeldForm({
   isBusy,
   onSend,
   fieldErrors,
+  rules,
+  required,
   onBlock,
   children,
   ...form
@@ -90,10 +113,20 @@ export function HeldForm({
   onSend: (formData: FormData) => void;
   /** The last answer's faults, while they stand. Required, so no form leaves the server's faults off its boxes. */
   fieldErrors: FieldFaults | undefined;
+  /**
+   * What the browser's pass holds each box to, its lane's own rules (`core/action.ts :: boxRulesOf`), by the name each
+   * box posts under. Required, so no form judges a box by rules of its own.
+   */
+  rules: BoxRules;
+  /** The boxes the form's own draft needs filled beside its lane's rules, such as an editor's, by their names. */
+  required?: readonly string[];
   /** The browser's pass held the press back, which a status line points at the boxes for. */
   onBlock?: () => void;
 }) {
   const element = useObjectRef(ref);
+  // One object while the rules and the needed boxes stand, so a form's own render renders no field again for them.
+  const needed = required?.join(" ") ?? "";
+  const held = useMemo<Held>(() => ({ rules, required: new Set(needed.split(" ").filter(Boolean)) }), [rules, needed]);
   const isHeld = useRef(false);
   const isReporting = useRef(false);
   // The answer last reported. A ref outlives an `Activity`, which re-creates this effect each time it shows the form
@@ -132,7 +165,9 @@ export function HeldForm({
         event.stopPropagation();
         if (!isBusy && event.currentTarget.reportValidity()) onSend(new FormData(event.currentTarget));
       }}>
-      <Faults value={fieldErrors}>{children}</Faults>
+      <Rules value={held}>
+        <Faults value={fieldErrors}>{children}</Faults>
+      </Rules>
     </Form>
   );
 }

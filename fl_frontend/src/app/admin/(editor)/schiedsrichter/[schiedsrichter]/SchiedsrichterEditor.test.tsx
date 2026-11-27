@@ -9,7 +9,6 @@ import { renderUnderNext } from "@/test-support/nextContexts";
 import { SchiedsrichterEditor } from "./SchiedsrichterEditor";
 
 import type { ActionAnswer, DryRunAction } from "@/core/action";
-import type { SchiedsrichterRules } from "@/features/schiedsrichter/fieldRules";
 import type { EditorSave } from "@/kit/useEditor";
 import type { SchiedsrichterValues } from "./schiedsrichterValues";
 
@@ -22,13 +21,6 @@ vi.mock("@/core/auth/browserClient", () => ({
   loadAuthClient: async () => ({ signIn: { passkey: passkey.prompt } }),
   usePreloadedAuthClient: () => undefined,
 }));
-
-/** What the save asks of the boxes, with patterns admitting anything: the case judges the server's refusal. */
-const RULES: SchiedsrichterRules = {
-  required: { name: true, email: true, phone: false, schule: false, default_payment: true },
-  max: { name: 80, email: 254, schule: 120 },
-  pattern: { name: ".*", phone: ".*" },
-};
 
 type Change = EditorSave<SchiedsrichterValues> & { holder: string };
 
@@ -60,7 +52,8 @@ describe("the referee editor's save behind the passkey touch", () => {
           values: { name: "Mia Muster", schule: "", email: "mia@example.org", phone: "", default_payment: "20" },
         }}
         save={declaringItsDryRun(save)}
-        rules={RULES}
+        // No rule of the browser's pass: the case judges the server's refusal.
+        rules={{}}
         address="asks"
         confirmation={[]}
         danger={{ kind: "retire", act: vi.fn<() => Promise<ActionAnswer>>() }}

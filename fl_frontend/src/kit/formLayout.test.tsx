@@ -71,6 +71,7 @@ const CONTAINERS: Readonly<Record<string, ReadonlyArray<readonly [string, () => 
       () =>
         holding(
           <Dialog
+            rules={{}}
             title={COPY.shared.help}
             act={{ verb: "save" }}
             run={noAnswer}
@@ -117,6 +118,7 @@ const CONTAINERS: Readonly<Record<string, ReadonlyArray<readonly [string, () => 
       () =>
         holding(
           <QuestionForm
+            rules={{}}
             verb="delete"
             tone="danger"
             read={noAnswer}
@@ -133,6 +135,7 @@ const CONTAINERS: Readonly<Record<string, ReadonlyArray<readonly [string, () => 
       () =>
         holding(
           <OneShotForm
+            rules={{}}
             head={<span />}
             run={noAnswer}
             acts={{ primary: COPY.shared.verb.next }}>
@@ -147,6 +150,7 @@ const CONTAINERS: Readonly<Record<string, ReadonlyArray<readonly [string, () => 
       () =>
         holding(
           <StepCard
+            rules={{}}
             title={COPY.shared.help}
             line={COPY.shared.help}
             facts={[]}
@@ -183,7 +187,7 @@ const CONTAINERS: Readonly<Record<string, ReadonlyArray<readonly [string, () => 
             view="address"
             title={COPY.page.signIn}
             row={null}
-            address={{ label: COPY.shared.emailAddress, value: "", onChange: () => undefined }}
+            address={{ label: COPY.shared.emailAddress, value: "", onChange: () => undefined, rules: {} }}
             check={null}
             send={{ label: PUBLIC_COPY.signIn.sendCode, onPress: () => undefined }}
             or={PUBLIC_COPY.signIn.or}

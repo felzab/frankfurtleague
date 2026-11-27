@@ -1,8 +1,7 @@
 import { cache } from "react";
 import { notFound } from "next/navigation";
 
-import { requires } from "@/core/action";
-import { SpieltagePatchSpieltagBody } from "@/core/generated/zod/inputs";
+import { boxRulesOf } from "@/core/action";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { getAdminSpieltag } from "@/features/spieltage/queries";
@@ -19,12 +18,6 @@ import type { FLSpieltagAdmin, FLSpieltagAdminResponse } from "@/core/generated/
 import type { Metadata } from "next";
 
 type Props = PageProps<"/admin/saisons/[saison]/spieltage/[spieltag]">;
-
-/** The matchday write's two dates, each required where its schema takes no empty one. */
-const REQUIRED = {
-  start: requires(SpieltagePatchSpieltagBody.shape.start, null),
-  end: requires(SpieltagePatchSpieltagBody.shape.end, null),
-};
 
 const read = cache(getAdminSpieltag);
 
@@ -58,7 +51,7 @@ export default async function SpieltagEditorPage({ params }: Props) {
       title={nameOf(spieltag)}
       record={{ id: spieltag.id, version: spieltag.version, values: valuesOf(spieltag) }}
       save={saveSpieltag}
-      required={REQUIRED}
+      rules={boxRulesOf(saveSpieltag)}
       // A finished season's matchdays take no write (`saison_past`), so the editor opens on one read-only.
       {...(saison_status === "past" ? { closed: SERVER_COPY.refusalLine.saison_past } : {})}
     />

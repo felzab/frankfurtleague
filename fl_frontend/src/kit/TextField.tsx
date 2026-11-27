@@ -11,27 +11,27 @@ import { isDeliverableAddress, KONTAKT_EMAIL_MAX_LENGTH } from "@/core/emailAddr
 
 import { FieldLabel, MessageLine, useFieldLock, useFieldWait } from "./FieldParts";
 import { fieldFrame, fieldRoot, fieldSignifier, fieldUnit, groupInput } from "./fieldStyles";
+import { useBoxRule } from "./HeldForm";
 import { Icon } from "./Icon";
 
+import type { BoxRule } from "@/core/boxRules";
 import type { Copy, Words } from "@/core/copy";
 import type { Constraints } from "./FieldParts";
 
 type Shared = {
   /** The catalogue's words, or a record's own, such as a score field named by its club. */
   label: Words;
-  isRequired?: boolean;
   isDisabled?: boolean;
   /**
    * Held fixed by its record, such as a season's points once it has begun: read-only, its label marked with the lock
    * (`useFieldLock`), while the editor's lock line says why.
    */
   isLocked?: boolean;
+  /** The box the field posts under, by which its form hands it the rules its lane holds it to (`useBoxRule`). */
   name?: string;
   value?: string;
   defaultValue?: string;
   onChange?: (value: string) => void;
-  maxLength?: number;
-  minLength?: number;
   /**
    * Whether the label names the field to a screen reader alone, the place around it naming it on the screen: a
    * section holding this one field, whose title the label is, or a score's column head. A required mark goes with it.
@@ -58,21 +58,17 @@ type Autofill = "name" | "given-name" | "family-name" | "organization" | "street
 type EmailAutofill = "email" | "username";
 
 /**
- * A single line's keyboard, set by `kind`; a URL and a minute name the example their message shows. `pattern` is the
- * write's own for the value, which the caller reads off the published contract, a server module the kit cannot import,
- * as a `RegExp`'s `source`: a text, beside the example its message shows, a phone number, whose example is the kit's,
- * and a minute. The field judges it (`judgeOf`).
+ * A single line's keyboard, set by `kind`. What the value must meet is its lane's, by the field's `name`
+ * (`useBoxRule`), and the field judges it (`judgeOf`).
  */
 type Kind =
-  | { kind: "text"; autofill?: Autofill; example?: never; pattern?: never }
-  /** A text the write holds to a pattern: a person's name or one part of one, a house number, a club's Kürzel. */
-  | { kind: "text"; autofill?: Autofill; example: Copy; pattern: string }
-  | { kind: "digits"; autofill?: Autofill; example?: never; pattern?: never }
-  | { kind: "email"; autofill?: EmailAutofill; example?: never; pattern?: never }
-  | { kind: "tel"; autofill?: never; example?: never; pattern?: string }
-  | { kind: "url"; autofill?: never; example: Copy; pattern?: never }
+  | { kind: "text"; autofill?: Autofill }
+  | { kind: "digits"; autofill?: Autofill }
+  | { kind: "email"; autofill?: EmailAutofill }
+  | { kind: "tel"; autofill?: never }
+  | { kind: "url"; autofill?: never }
   /** A played minute, stoppage time after a plus, „90+3“. */
-  | { kind: "minute"; autofill?: never; example: Copy; pattern: string };
+  | { kind: "minute"; autofill?: never };
 
 /*
  * A field's width follows from what it holds, so no caller sets one: a value of a known length is short, a paragraph
@@ -90,7 +86,7 @@ type Short = { holds: 2 | 5; unit?: Copy } & Kind;
 type Standard = { holds?: never; unit?: never } & Kind;
 
 /** A paragraph: its box's whole width at four lines. */
-type Paragraph = { kind: "paragraph"; holds?: never; autofill?: never; example?: never; unit?: never; pattern?: never };
+type Paragraph = { kind: "paragraph"; holds?: never; autofill?: never; unit?: never };
 
 export type TextFieldProps = Shared & (Short | Standard | Paragraph);
 
@@ -114,33 +110,43 @@ const KINDS = {
   url: { type: "url", inputMode: undefined, autoComplete: "off" },
 } as const;
 
-/** The example a malformed value is shown, by kind; a URL, a minute and a name name their own. */
-const EXAMPLE = {
+/** The example a malformed value is shown, by kind, where its lane names none, as a name's or a minute's lane does. */
+const EXAMPLE: Partial<Record<TextFieldProps["kind"], Copy>> = {
   email: COPY.shared.field.exampleAddress,
   digits: COPY.shared.field.exampleDigits,
   tel: COPY.shared.field.examplePhone,
-} as const;
-
-/** A pattern, compiled, and the example its message names. */
-type Shape = { pattern: RegExp; example: Copy };
+  url: COPY.shared.field.exampleUrl,
+};
 
 /** A digits field's own: digits alone, so anything else reads „Format: …“ at the send rather than reaching the server. */
-const DIGITS: Shape = { pattern: /^[0-9]*$/u, example: EXAMPLE.digits };
+const DIGITS = /^[0-9]*$/u;
+
+/** The line a figure outside its lane's bounds reads, naming every bound, as the server's parse names them. */
+function boundsLine({ min, max }: BoxRule): Copy | undefined {
+  if (min !== undefined && max !== undefined) return COPY.shared.field.between(min, max);
+  if (min !== undefined) return COPY.shared.field.min(min);
+  return max === undefined ? undefined : COPY.shared.field.max(max);
+}
 
 /**
  * What the browser's own check passes and the server refuses, judged on the press so a slip costs no round trip: a
  * required box holding only spaces, which the server trims to nothing; an address outside the API's rule, such as a
- * host with no dot, which `type=email` takes; and a value outside its pattern (`shape`). Each in the phrase
- * the server's refusal puts on the box. React Aria shows it once the value is committed or the form pressed, as every
- * field message, and the press goes nowhere while it stands. The sign-in library's own rule and every rule reading a
- * record stay the server's.
+ * host with no dot, which `type=email` takes; a value meeting none of its lane's patterns; and a figure outside its
+ * lane's bounds. Each in the phrase the server's refusal puts on the box. React Aria shows it once the value is
+ * committed or the form pressed, as every field message, and the press goes nowhere while it stands. The sign-in
+ * library's own rule and every rule reading a record stay the server's, as does a pattern whose message names no
+ * example, which only a pasted control character breaks.
  *
- * A pattern is judged here rather than by the input's `pattern` attribute, which HTML compiles under the `v` flag: the
- * contract's phone pattern is a SyntaxError there, its class holding an unescaped bracket, and a browser drops a
- * pattern it cannot compile in silence. Each contract pattern compiles under `u`, which the name's `\p{L}` needs, and
- * is anchored whole, as the attribute anchors it. The value judged is trimmed, as the action strips what it sends.
+ * A pattern is judged here rather than by the input's `pattern` attribute, which HTML compiles under the `v` flag and
+ * anchors whole: the contract's phone pattern is a SyntaxError there, its class holding an unescaped bracket, a browser
+ * drops a pattern it cannot compile in silence, and JSON Schema's pattern matches anywhere in the value, as the erasure
+ * address's `@` does. Each compiles under `u`, which the name's `\p{L}` needs, and JSON Schema reads it so. The value
+ * judged is trimmed, as the action strips what it sends.
  */
-function judgeOf(kind: TextFieldProps["kind"], isRequired: boolean, shape: Shape | undefined) {
+function judgeOf(kind: TextFieldProps["kind"], isRequired: boolean, rule: BoxRule) {
+  const example = rule.example ?? EXAMPLE[kind];
+  const patterns = example === undefined ? [] : (rule.patterns ?? []).map((source) => new RegExp(source, "u"));
+  const bounds = boundsLine(rule);
   return (value: string): Copy | null => {
     const trimmed = value.trim();
     if (trimmed === "") return isRequired && value !== "" ? COPY.shared.field.required : null;
@@ -148,17 +154,13 @@ function judgeOf(kind: TextFieldProps["kind"], isRequired: boolean, shape: Shape
     if (kind === "email" && trimmed.length <= KONTAKT_EMAIL_MAX_LENGTH && !isDeliverableAddress(trimmed)) {
       return COPY.shared.field.format(COPY.shared.field.exampleAddress);
     }
-    if (shape !== undefined && !shape.pattern.test(trimmed)) return COPY.shared.field.format(shape.example);
-    return null;
+    const isShaped =
+      (kind !== "digits" || DIGITS.test(trimmed)) && (patterns.length === 0 || patterns.some((pattern) => pattern.test(trimmed)));
+    if (!isShaped && example !== undefined) return COPY.shared.field.format(example);
+    if (bounds === undefined || kind !== "digits") return null;
+    const figure = Number(trimmed);
+    return (rule.min !== undefined && figure < rule.min) || (rule.max !== undefined && figure > rule.max) ? bounds : null;
   };
-}
-
-/** The field's pattern, a digits field's own or the caller's, anchored whole and compiled under `u`, as `judgeOf` takes it. */
-function shapeOf(props: TextFieldProps): Shape | undefined {
-  if (props.kind === "digits") return DIGITS;
-  if (props.kind === "paragraph" || props.pattern === undefined) return undefined;
-  const example = props.kind === "tel" ? EXAMPLE.tel : props.example;
-  return { pattern: new RegExp(`^(?:${props.pattern})$`, "u"), example };
 }
 
 /**
@@ -167,26 +169,16 @@ function shapeOf(props: TextFieldProps): Shape | undefined {
  * committed or the form submitted, never while typing.
  */
 export function TextField(props: TextFieldProps) {
-  const {
-    label,
-    labelHidden = false,
-    description,
-    consequence,
-    isRequired = false,
-    isDisabled = false,
-    isLocked = false,
-    kind,
-    maxLength,
-    minLength,
-  } = props;
+  const { label, labelHidden = false, description, consequence, isDisabled = false, isLocked = false, kind } = props;
+  const rule = useBoxRule(props.name);
+  const { maxLength, minLength } = rule;
   const keys = KINDS[kind];
   const width = kind === "paragraph" ? "full" : props.holds === undefined ? "standard" : "short";
-  const shape = shapeOf(props);
   const constraints: Constraints = {
     maxLength,
     minLength,
     // The two kinds whose `type` the browser judges itself; every pattern words its own message (`judgeOf`).
-    example: props.kind === "url" ? props.example : kind === "email" ? EXAMPLE.email : undefined,
+    example: kind === "url" || kind === "email" ? EXAMPLE[kind] : undefined,
   };
   const frame = fieldFrame({ width, holds: props.holds, inset: "full", figures: kind === "digits" || kind === "minute" });
   const field =
@@ -206,7 +198,7 @@ export function TextField(props: TextFieldProps) {
     );
   const unit = fieldUnit({ holds: props.holds });
   const unitId = useId();
-  const lock = useFieldLock(isLocked, isRequired);
+  const lock = useFieldLock(isLocked, rule.required);
 
   return (
     <AriaTextField
@@ -218,7 +210,7 @@ export function TextField(props: TextFieldProps) {
       defaultValue={props.defaultValue}
       onChange={props.onChange}
       isRequired={lock.isRequired}
-      validate={judgeOf(kind, lock.isRequired, shape)}
+      validate={judgeOf(kind, lock.isRequired, rule)}
       isDisabled={isDisabled}
       isReadOnly={lock.isReadOnly}
       maxLength={maxLength}

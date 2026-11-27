@@ -1,3 +1,4 @@
+import { boxRulesOf } from "@/core/action";
 import { getAdminHolder } from "@/core/auth/guards";
 import { ADMIN_COPY } from "@/core/copy/admin";
 import { COPY } from "@/core/copy/shared";
@@ -45,6 +46,7 @@ export default function SchiedsrichterPage() {
         title: COPY.shared.withObject(OBJECT, "create"),
         act: { verb: "create", object: OBJECT },
         run: createSchiedsrichter,
+        rules: boxRulesOf(createSchiedsrichter),
         touch: { holder },
         children: <SchiedsrichterFields />,
       }))}

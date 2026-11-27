@@ -1,7 +1,7 @@
 import { cache } from "react";
 
+import { boxRulesOf } from "@/core/action";
 import { COPY } from "@/core/copy/shared";
-import { spielerPatchKaderRowBodyNummerOneMax } from "@/core/generated/zod/inputs";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { readAsSeatHolder, requireTeamSeats, teamMetadata } from "@/features/roles/resolvers";
@@ -9,6 +9,7 @@ import { getKader } from "@/features/spieler/queries";
 import { ListPage } from "@/kit/ListPage";
 import { pageMetadata } from "@/shared/utils/metadata";
 
+import { saveKaderRow } from "./kaderRowActs";
 import { KaderTable } from "./KaderTable";
 
 import type { TeamSeat } from "@/features/roles/resolvers";
@@ -54,7 +55,7 @@ async function read(params: Props["params"]) {
         read={kader}
         team={seat.team_id}
         saison={seat.saison_id}
-        nummerMax={spielerPatchKaderRowBodyNummerOneMax}
+        rules={boxRulesOf(saveKaderRow)}
       />
     ),
   };

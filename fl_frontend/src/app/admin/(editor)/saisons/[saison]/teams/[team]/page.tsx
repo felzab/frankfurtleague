@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 
+import { boxRulesOf } from "@/core/action";
 import { getAdminHolder } from "@/core/auth/guards";
 import { now } from "@/core/clock";
 import { ADMIN_COPY } from "@/core/copy/admin";
@@ -8,7 +9,6 @@ import { dayIn, dayOf, formatDate } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { adminTeamChip } from "@/features/teams/constants";
-import { AUSTRITT_RULES, SEAT_RULES, TEAM_DESCRIPTION_MAX, TEAM_SAVE_RULES } from "@/features/teams/fieldRules";
 import { gruppeOptions, trikotOptions } from "@/features/teams/options";
 import { getTeamSaisonAdmin } from "@/features/teams/queries";
 import { adminIdParamOf } from "@/shared/utils/adminRead";
@@ -18,6 +18,7 @@ import { metadataFor } from "@/shared/utils/notFoundMetadata";
 import { linkFactsOf } from "./linkFacts";
 import { saveTeam } from "./saveTeam";
 import { seatsOf } from "./seats";
+import { recordAustritt, writeSeat } from "./teamActs";
 import { TeamEditor } from "./TeamEditor";
 import { valuesOf } from "./teamValues";
 
@@ -98,11 +99,10 @@ export default async function TeamEditorPage({ params }: Props) {
       {...(closed === undefined ? {} : { closed })}
       record={{ id: team.id, version: read.version, values: valuesOf(team, membership) }}
       save={saveTeam}
-      rules={TEAM_SAVE_RULES}
-      descriptionMax={TEAM_DESCRIPTION_MAX}
-      seatRules={SEAT_RULES}
+      rules={boxRulesOf(saveTeam)}
+      seatRules={boxRulesOf(writeSeat)}
       holder={holder}
-      austrittRules={AUSTRITT_RULES}
+      austrittRules={boxRulesOf(recordAustritt)}
       retirement={retired ? { kind: "reactivate" } : { kind: "retire", ...(blocked === null ? {} : { locked: WORDS.retireLocked }) }}
       row={row}
     />

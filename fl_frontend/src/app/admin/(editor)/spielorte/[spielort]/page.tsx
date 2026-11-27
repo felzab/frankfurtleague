@@ -1,8 +1,8 @@
 import { cache } from "react";
 import { notFound } from "next/navigation";
 
+import { boxRulesOf } from "@/core/action";
 import { ROUTES } from "@/core/routes";
-import { SPIELORT_SAVE_RULES } from "@/features/spielorte/fieldRules";
 import { getSpielort } from "@/features/spielorte/queries";
 import { adminIdParamOf } from "@/shared/utils/adminRead";
 import { pageMetadata } from "@/shared/utils/metadata";
@@ -39,7 +39,7 @@ export default async function SpielortEditorPage({ params }: Props) {
       title={{ record: spielort.name }}
       record={{ id: spielort.id, version: spielort.version, values: valuesOf(spielort) }}
       save={saveSpielort}
-      rules={SPIELORT_SAVE_RULES}
+      rules={boxRulesOf(saveSpielort)}
       retired={spielort.inactive_since !== null}
       retire={retireSpielort}
       reactivate={reactivateSpielort}

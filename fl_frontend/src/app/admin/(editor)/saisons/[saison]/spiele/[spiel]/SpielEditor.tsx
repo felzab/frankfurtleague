@@ -5,7 +5,7 @@ import { useState } from "react";
 import { ADMIN_COPY } from "@/core/copy/admin";
 import { COPY } from "@/core/copy/shared";
 import { admitsShootOut, isNoShow, scoreOutcome } from "@/features/spiele/result";
-import { adoptsBerichtOf, takesNoResult } from "@/features/spiele/spielValues";
+import { adoptsBerichtOf, requiredOf, takesNoResult } from "@/features/spiele/spielValues";
 import { SpielortFields } from "@/features/spielorte/SpielortFields";
 import { AdoptLine } from "@/kit/AdoptLine";
 import { AnswerRows } from "@/kit/AnswerRows";
@@ -25,10 +25,10 @@ import { TimeField } from "@/kit/TimeField";
 import { useEditor } from "@/kit/useEditor";
 
 import type { ActionAnswer } from "@/core/action";
+import type { BoxRules } from "@/core/boxRules";
 import type { Copy, LockReason, Words } from "@/core/copy";
 import type { FLSaisonPhase, FLSonderereignis } from "@/core/generated/client/types";
 import type { Proposal, SpielValues } from "@/features/spiele/spielValues";
-import type { SpielortRules } from "@/features/spielorte/fieldRules";
 import type { AnswerRow } from "@/kit/AnswerRows";
 import type { CardActRowProps } from "@/kit/Card";
 import type { ChipProps } from "@/kit/Chip";
@@ -83,8 +83,7 @@ export function SpielEditor({
   spielorte,
   schiedsrichter,
   sonderereignisse,
-  noteMax,
-  required,
+  rules,
   report,
   adoption,
   answers,
@@ -114,9 +113,8 @@ export function SpielEditor({
   schiedsrichter: readonly Booking[];
   /** „Keines“ first, then each event, an event this fixture cannot take disabled with its reason. */
   sonderereignisse: readonly Option[];
-  noteMax: number;
-  /** Whether a booking's money is required beside it, read from the write on the server. */
-  required: { mietpreis: boolean; payment: boolean };
+  /** What the save's lane asks of its boxes, read on the server. */
+  rules: BoxRules;
   /** The report's goals as rows, read-only, none while no report stands. */
   report: { head: TableHead; rows: readonly TableRow[] };
   adoption: Adoption | null;
@@ -125,7 +123,8 @@ export function SpielEditor({
   /** A row per side whose line-up the match owes, leading to it, „Fehlt“ under it where none is stored, with its chip. */
   aufstellungen: ReadonlyArray<CardActRowProps & { id: string }>;
   createSpielort: (formData: FormData) => Promise<ActionAnswer>;
-  spielortRules: SpielortRules;
+  /** What the venue's create asks of its boxes, read on the server. */
+  spielortRules: BoxRules;
   /** Why the match is closed read-only: its season has finished, and the write refuses every change to it. */
   closed?: Copy;
   /** The match's public page, where the public may read its season: the strip's way there. */
@@ -255,6 +254,9 @@ export function SpielEditor({
       chip={chip}
       lead={preview}
       editor={editor}
+      rules={rules}
+      // A booking's money beside it, an entered result's goals, and a shoot-out's two figures once either is typed.
+      requiredOf={(values) => requiredOf({ ...values, hasResult: draft.hasResult, sonderereignis }, phase)}
       closed={closed}
       locks={locks}
       {...(spielPage === undefined ? {} : { link: { href: spielPage, label: COPY.shared.toSpiel } })}
@@ -306,7 +308,6 @@ export function SpielEditor({
                   holds={5}
                   kind="digits"
                   unit={COPY.shared.unit.euro}
-                  isRequired={required.mietpreis}
                   value={draft.mietpreis}
                   onChange={(mietpreis) => set("mietpreis", mietpreis)}
                 />
@@ -332,7 +333,6 @@ export function SpielEditor({
                   holds={5}
                   kind="digits"
                   unit={COPY.shared.unit.euro}
-                  isRequired={required.payment}
                   value={draft.payment}
                   onChange={(payment) => set("payment", payment)}
                 />
@@ -341,11 +341,9 @@ export function SpielEditor({
                 title={COPY.shared.withObject(ORT.object, "create")}
                 act={{ verb: "create", object: ORT.object }}
                 run={createSpielort}
+                rules={spielortRules}
                 open={{ isOpen: creating, onOpenChange: setCreating }}>
-                <SpielortFields
-                  rules={spielortRules}
-                  name={newName}
-                />
+                <SpielortFields name={newName} />
               </Dialog>
             </>
           ),
@@ -380,7 +378,6 @@ export function SpielEditor({
                     names: ["tore1", "tore2"],
                     values: [draft.tore1, draft.tore2],
                     onChange: (side, value) => set(side === 0 ? "tore1" : "tore2", value),
-                    isRequired: true,
                     isLocked: resultLocked,
                   }}
                   // By itself on level knockout goals, and optional: left empty, the match and the bracket after it wait.
@@ -392,7 +389,6 @@ export function SpielEditor({
                           names: ["shootOut1", "shootOut2"],
                           values: [draft.shootOut1, draft.shootOut2],
                           onChange: (side, value) => set(side === 0 ? "shootOut1" : "shootOut2", value),
-                          isRequired: shootOutTyped,
                           isLocked: resultLocked,
                         }
                       : null
@@ -425,7 +421,6 @@ export function SpielEditor({
               labelHidden
               name="note"
               kind="paragraph"
-              maxLength={noteMax}
               value={draft.note}
               onChange={(note) => set("note", note)}
             />

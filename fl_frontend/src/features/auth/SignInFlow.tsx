@@ -18,13 +18,14 @@ import { clientRefusal, describeCeremonyRefusal } from "./passkeyAnswers";
 import { codeRefusal } from "./signInAnswers";
 
 import type { ActionAnswer } from "@/core/action";
+import type { BoxRules } from "@/core/boxRules";
 import type { Copy } from "@/core/copy";
 
 /**
  * `next` is the landing every finished sign-in leaves for; `siteKey` the bot check's public key, which the page reads
- * at request time.
+ * at request time; `rules` what the send's lane asks of the address, read on the server.
  */
-export function SignInFlow({ next, siteKey }: { next: string; siteKey: string }) {
+export function SignInFlow({ next, siteKey, rules }: { next: string; siteKey: string; rules: BoxRules }) {
   const [email, setEmail] = useState("");
   // The address a mailed link asked for, carried to the landing only where the allowlist holds it.
   const landing = withReturnAddress(next, useSearchParams().get(RETURN_PARAMETER));
@@ -129,7 +130,7 @@ export function SignInFlow({ next, siteKey }: { next: string; siteKey: string })
     <SignInPage
       view="address"
       title={COPY.page.signIn}
-      address={{ label: COPY.shared.emailAddress, value: email, onChange: setEmail, error: refused?.fieldErrors }}
+      address={{ label: COPY.shared.emailAddress, value: email, onChange: setEmail, error: refused?.fieldErrors, rules }}
       check={humanCheck.widget}
       send={{
         label: PUBLIC_COPY.signIn.sendCode,

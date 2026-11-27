@@ -9,6 +9,7 @@ import { FieldPair } from "@/kit/FieldPair";
 import { TimeField } from "@/kit/TimeField";
 
 import type { ActionAnswer } from "@/core/action";
+import type { BoxRules } from "@/core/boxRules";
 import type { CalendarDay, TimeOfDay } from "@/core/format";
 
 const ACT = { verb: "set", object: COPY.spielplan.appointment } as const;
@@ -33,9 +34,12 @@ export function AppointmentDialog({
   version,
   date,
   time,
+  rules,
 }: {
   spiel: string;
   version: number;
+  /** What the match editor's save asks of the two boxes, read on the server. */
+  rules: BoxRules;
   /** What the fixture already holds, so a row lacking only its time opens on its day. */
   date: CalendarDay | null;
   time: TimeOfDay | null;
@@ -59,6 +63,7 @@ export function AppointmentDialog({
       title={TITLE}
       act={ACT}
       run={save}
+      rules={rules}
       trigger={{ label: TITLE }}>
       <FieldPair>
         <DateField

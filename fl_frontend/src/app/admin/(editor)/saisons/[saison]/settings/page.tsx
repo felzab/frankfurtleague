@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 
+import { boxRulesOf } from "@/core/action";
 import { getAdminHolder } from "@/core/auth/guards";
 import { ADMIN_COPY } from "@/core/copy/admin";
 import { COPY } from "@/core/copy/shared";
@@ -7,7 +8,6 @@ import { dayOf, formatDate } from "@/core/format";
 import { ownKeyOf } from "@/core/ownKeyOf";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
-import { SAISON_SAVE_RULES } from "@/features/saisons/fieldRules";
 import { getAdminSaison, getAdminSaisons } from "@/features/saisons/queries";
 import { saisonChipOf } from "@/features/saisons/saisonState";
 import { adminTeamChip } from "@/features/teams/constants";
@@ -102,7 +102,7 @@ export default async function SaisonSettingsPage({ params }: Props) {
       chip={saisonChipOf(saison)}
       record={{ id: saison.id, version: saison.version, values: valuesOf(saison) }}
       save={saveSaison}
-      rules={SAISON_SAVE_RULES}
+      rules={boxRulesOf(saveSaison)}
       facts={{
         begun: saison.begun,
         takenPlace: saison.taken_place,

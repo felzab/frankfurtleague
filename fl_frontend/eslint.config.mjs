@@ -1271,14 +1271,6 @@ const DESIGN_BANS = [
     PRODUCTION,
     { allow: ["src/core/config.ts"] },
   ),
-
-  syntaxBan(
-    syntax(
-      'JSXAttribute[name.name="isRequired"]:matches([value=null], [value.type="Literal"], [value.expression.type="Literal"])',
-      "A field's required mark is derived from its data, never written as a literal: pass the `required` its rules read off the save's generated schema, or a condition of the form's state.",
-    ),
-    PRODUCTION,
-  ),
 ];
 
 // ---------------------------------------------------------------------------------------------------

@@ -42,6 +42,7 @@ function Goals({ errors, locked }: { errors?: Readonly<Record<string, Copy>>; lo
   const [rows, setRows] = useState(GOALS);
   return (
     <HeldForm
+      rules={{ "scorers.*.minute": { required: true } }}
       fieldErrors={errors}
       isBusy={false}
       onSend={() => undefined}>
@@ -80,7 +81,6 @@ function Goals({ errors, locked }: { errors?: Readonly<Record<string, Copy>>; lo
                 name={name}
                 holds={5}
                 kind="text"
-                isRequired
                 value={row.minute}
                 onChange={(minute) => change({ minute })}
               />

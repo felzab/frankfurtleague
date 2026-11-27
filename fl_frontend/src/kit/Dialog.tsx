@@ -195,8 +195,9 @@ function ActDialog({
   tone = "primary",
   locked,
   danger,
+  rules,
   children,
-}: Pick<DialogAct, "title" | "carry" | "lead" | "consequence" | "facts" | "tone" | "locked" | "danger" | "children"> & {
+}: Pick<DialogAct, "title" | "carry" | "lead" | "consequence" | "facts" | "tone" | "locked" | "danger" | "rules" | "children"> & {
   label: Copy;
   /** The done act's toast where its answer brings no note: its verb's done word. */
   done: Copy;
@@ -261,6 +262,7 @@ function ActDialog({
             ref={form}
             className="grid gap-6"
             fieldErrors={refused?.fieldErrors}
+            rules={rules}
             onBlock={block}
             isBusy={isPending}
             onSend={(formData) => {

@@ -21,11 +21,13 @@ import { Table } from "@/kit/Table";
 import { TextField } from "@/kit/TextField";
 import { useEditor } from "@/kit/useEditor";
 
+import { requiredOf } from "./saisonValues";
+
 import type { ActionAnswer } from "@/core/action";
+import type { BoxRules } from "@/core/boxRules";
 import type { Copy, LockReason } from "@/core/copy";
 import type { CalendarDay } from "@/core/format";
 import type { FLSpielplanShape } from "@/core/generated/client/types";
-import type { SaisonSaveRules } from "@/features/saisons/fieldRules";
 import type { ChipProps } from "@/kit/Chip";
 import type { DangerAct, EditorPart } from "@/kit/EditorPage";
 import type { Option } from "@/kit/OptionList";
@@ -217,8 +219,8 @@ export function SaisonEditor({
   chip: ChipProps;
   record: EditorRecord<SaisonValues>;
   save: (change: EditorSave<SaisonValues>) => Promise<ActionAnswer<number>>;
-  /** What the season write asks of its boxes, read from its schema on the server. */
-  rules: SaisonSaveRules;
+  /** What the save's lane asks of its boxes, read on the server. */
+  rules: BoxRules;
   facts: SaisonFacts;
   /** Every shape the draw admits beside the season's other rules, which the qualifiers are offered from. */
   shapes: readonly FLSpielplanShape[];
@@ -233,7 +235,6 @@ export function SaisonEditor({
 }) {
   const editor = useEditor(record, save);
   const { draft, set } = editor;
-  const { required } = rules;
   const isClosed = closed !== undefined;
   const drawn = facts.spielplan !== null;
 
@@ -250,9 +251,6 @@ export function SaisonEditor({
     .filter((value) => value !== "")
     .toSorted((one, other) => Number(one) - Number(other))
     .map((value): Option => ({ id: value, label: { record: value } }));
-
-  // The application window is none or both of its days, so each is asked for once either holds one.
-  const bewerbungSet = draft["bewerbung.start"] !== null || draft["bewerbung.end"] !== null;
 
   const touch = { holder };
   const of = { saison_id: saison, holder };
@@ -271,7 +269,6 @@ export function SaisonEditor({
           <DateField
             label={WORDS.start}
             name="start_date"
-            isRequired={required.start_date}
             isLocked={facts.takenPlace}
             value={draft.start_date}
             onChange={(day) => set("start_date", day)}
@@ -279,7 +276,6 @@ export function SaisonEditor({
           <DateField
             label={WORDS.end}
             name="end_date"
-            isRequired={required.end_date}
             value={draft.end_date}
             onChange={(day) => set("end_date", day)}
             // A span ending before it begins is refused here, before the write sees it.
@@ -300,7 +296,6 @@ export function SaisonEditor({
               name="rules.win_points"
               holds={2}
               kind="digits"
-              isRequired={required["rules.win_points"]}
               isLocked={facts.begun}
               value={draft["rules.win_points"]}
               onChange={(value) => set("rules.win_points", value)}
@@ -310,7 +305,6 @@ export function SaisonEditor({
               name="rules.draw_points"
               holds={2}
               kind="digits"
-              isRequired={required["rules.draw_points"]}
               isLocked={facts.begun}
               value={draft["rules.draw_points"]}
               onChange={(value) => set("rules.draw_points", value)}
@@ -320,7 +314,6 @@ export function SaisonEditor({
               name="rules.loss_points"
               holds={2}
               kind="digits"
-              isRequired={required["rules.loss_points"]}
               isLocked={facts.begun}
               value={draft["rules.loss_points"]}
               onChange={(value) => set("rules.loss_points", value)}
@@ -330,7 +323,6 @@ export function SaisonEditor({
             label={WORDS.tiebreak}
             name="rules.tiebreak_order"
             options={TIEBREAK}
-            isRequired={required["rules.tiebreak_order"]}
             isLocked={facts.begun}
             value={draft["rules.tiebreak_order"]}
             onChange={(id) => {
@@ -344,7 +336,6 @@ export function SaisonEditor({
               name="rules.forfeit_ergebnis.sieger_tore"
               holds={2}
               kind="digits"
-              isRequired={required["rules.forfeit_ergebnis.sieger_tore"]}
               value={draft["rules.forfeit_ergebnis.sieger_tore"]}
               onChange={(value) => set("rules.forfeit_ergebnis.sieger_tore", value)}
             />
@@ -353,7 +344,6 @@ export function SaisonEditor({
               name="rules.forfeit_ergebnis.verlierer_tore"
               holds={2}
               kind="digits"
-              isRequired={required["rules.forfeit_ergebnis.verlierer_tore"]}
               value={draft["rules.forfeit_ergebnis.verlierer_tore"]}
               onChange={(value) => set("rules.forfeit_ergebnis.verlierer_tore", value)}
             />
@@ -371,7 +361,6 @@ export function SaisonEditor({
             name="rules.number_of_gruppen"
             holds={2}
             kind="digits"
-            isRequired={required["rules.number_of_gruppen"]}
             isLocked={drawn}
             value={draft["rules.number_of_gruppen"]}
             onChange={(value) => set("rules.number_of_gruppen", value)}
@@ -381,7 +370,6 @@ export function SaisonEditor({
             name="rules.teams_per_gruppe"
             holds={2}
             kind="digits"
-            isRequired={required["rules.teams_per_gruppe"]}
             isLocked={drawn}
             value={draft["rules.teams_per_gruppe"]}
             onChange={(value) => set("rules.teams_per_gruppe", value)}
@@ -392,7 +380,6 @@ export function SaisonEditor({
             name="rules.qualifiers_per_gruppe"
             holds={2}
             options={qualifiers}
-            isRequired={required["rules.qualifiers_per_gruppe"]}
             isLocked={facts.begun || drawn}
             value={draft["rules.qualifiers_per_gruppe"]}
             onChange={(id) => {
@@ -412,7 +399,6 @@ export function SaisonEditor({
             name="rules.max_kader_size"
             holds={2}
             kind="digits"
-            isRequired={required["rules.max_kader_size"]}
             value={draft["rules.max_kader_size"]}
             onChange={(value) => set("rules.max_kader_size", value)}
           />
@@ -420,7 +406,6 @@ export function SaisonEditor({
             label={WORDS.stufen}
             name="rules.allowed_stufen"
             choices={STUFEN}
-            isRequired={required["rules.allowed_stufen"]}
             value={draft["rules.allowed_stufen"]}
             onChange={(ids) => set("rules.allowed_stufen", ids)}
           />
@@ -436,14 +421,12 @@ export function SaisonEditor({
             <DateField
               label={WORDS.start}
               name="bewerbung.start"
-              isRequired={bewerbungSet && required["bewerbung.start"]}
               value={draft["bewerbung.start"]}
               onChange={(day) => set("bewerbung.start", day)}
             />
             <DateField
               label={WORDS.end}
               name="bewerbung.end"
-              isRequired={bewerbungSet && required["bewerbung.end"]}
               value={draft["bewerbung.end"]}
               onChange={(day) => set("bewerbung.end", day)}
               // A span ending before it begins is refused here, before the write sees it.
@@ -657,6 +640,9 @@ export function SaisonEditor({
       title={title}
       chip={chip}
       editor={editor}
+      rules={rules}
+      // The application window is none or both of its days, so a day is asked for once the other holds one.
+      requiredOf={requiredOf}
       closed={closed}
       locks={locks}
       sections={sections}

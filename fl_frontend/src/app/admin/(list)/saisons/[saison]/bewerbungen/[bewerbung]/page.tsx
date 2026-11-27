@@ -1,12 +1,12 @@
 import { notFound } from "next/navigation";
 
+import { boxRulesOf } from "@/core/action";
 import { getAdminHolder } from "@/core/auth/guards";
 import { ADMIN_COPY } from "@/core/copy/admin";
 import { COPY } from "@/core/copy/shared";
 import { dayOf, formatDate, formatNumber } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { AcceptFields } from "@/features/bewerbungen/AcceptFields";
-import { ACCEPT_RULES, DECLINE_RULES, SEAT_RULES } from "@/features/bewerbungen/fieldRules";
 import { getBewerbungById } from "@/features/bewerbungen/queries";
 import { seatsOf } from "@/features/bewerbungen/seats";
 import { STANDING_CHIP, standingOf, TEAM_DOUBLE } from "@/features/bewerbungen/standing";
@@ -143,7 +143,6 @@ function actsOf(read: FLBewerbungSingleResponse, standing: Standing) {
           subject={{ wish: bewerbung.trikot.wunschfarbe, shorthand }}
           gruppen={saison.gruppen}
           taken={saison.taken}
-          rules={ACCEPT_RULES}
         />
       </AcceptDialog>
     ) : (
@@ -159,8 +158,6 @@ function actsOf(read: FLBewerbungSingleResponse, standing: Standing) {
       key="decline"
       id={id}
       version={version}
-      required={DECLINE_RULES.required}
-      max={DECLINE_RULES.max}
     />,
   ];
 }
@@ -180,7 +177,7 @@ function seatRowsOf(bewerbung: FLBewerbung, finished: boolean, holder: string): 
         <SeatActs
           seats={seats}
           person={person}
-          rules={SEAT_RULES}
+          rules={boxRulesOf(writeBewerbungSeat)}
           write={writeBewerbungSeat}
           carry={{ id: bewerbung.id, seat, version: String(bewerbung.version) }}
           holder={holder}

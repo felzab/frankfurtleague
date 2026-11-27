@@ -47,6 +47,7 @@ const REFUSED: ActionAnswer<EndState> = { ok: false, reason: COPY.shared.failure
 
 const form = (run: (formData: FormData) => Promise<ActionAnswer<EndState>>, fields?: ReactNode) => (
   <OneShotForm
+    rules={{}}
     head={<h1>{COPY.shared.help}</h1>}
     run={run}
     acts={{ primary: COPY.shared.verb.next }}
@@ -112,6 +113,7 @@ const OPPOSE = COPY.shared.verb.oppose;
 
 const refusalForm = (run: (formData: FormData) => Promise<ActionAnswer<EndState>>, acts: OneShotActs) => (
   <OneShotForm
+    rules={{}}
     head={<h1>{COPY.shared.help}</h1>}
     run={run}
     acts={acts}

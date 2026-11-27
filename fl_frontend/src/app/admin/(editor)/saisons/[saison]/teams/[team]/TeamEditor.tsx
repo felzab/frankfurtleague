@@ -5,7 +5,6 @@ import { useState } from "react";
 import { ADMIN_COPY } from "@/core/copy/admin";
 import { COPY } from "@/core/copy/shared";
 import { FLAustrittType } from "@/core/generated/client/types";
-import { SHORTHAND_LENGTH } from "@/features/teams/constants";
 import { schulformOptions } from "@/features/teams/options";
 import { SeatActs } from "@/features/teams/SeatActs";
 import { AddressFields } from "@/kit/AddressFields";
@@ -23,10 +22,10 @@ import { FormInvitationSection } from "./FormInvitationSection";
 import { reactivateTeam, recordAustritt, retireTeam, sendSeatLink, writeSeat } from "./teamActs";
 
 import type { ActionAnswer } from "@/core/action";
+import type { BoxRules } from "@/core/boxRules";
 import type { Copy, LockReason } from "@/core/copy";
 import type { CalendarDay } from "@/core/format";
 import type { FLAustrittRecipients } from "@/core/generated/client/types";
-import type { AustrittRules, SeatRules, TeamRules } from "@/features/teams/fieldRules";
 import type { ChipProps } from "@/kit/Chip";
 import type { DangerAct, EditorSection } from "@/kit/EditorPage";
 import type { Fact } from "@/kit/Facts";
@@ -66,14 +65,13 @@ export type TeamRow = {
 };
 
 /** The exit's day, and under it whom an exit from the day typed mails: held here, so each opening starts on today. */
-function ExitDay({ exit, isRequired }: { exit: NonNullable<TeamRow["exit"]>; isRequired: boolean }) {
+function ExitDay({ exit }: { exit: NonNullable<TeamRow["exit"]> }) {
   const [day, setDay] = useState<CalendarDay | null>(exit.today);
   return (
     <>
       <DateField
         label={WORDS.austrittFrom}
         name="date"
-        isRequired={isRequired}
         value={day}
         onChange={setDay}
         minValue={exit.earliest}
@@ -98,7 +96,6 @@ export function TeamEditor({
   record,
   save,
   rules,
-  descriptionMax,
   seatRules,
   holder,
   austrittRules,
@@ -113,12 +110,12 @@ export function TeamEditor({
   closed?: Copy;
   record: EditorRecord<TeamValues>;
   save: (change: EditorSave<TeamValues> & { saison_id: string }) => Promise<ActionAnswer<number>>;
-  rules: TeamRules;
-  descriptionMax: number;
-  seatRules: SeatRules;
+  /** What the save's lane asks of its boxes, read on the server, and the seat's write's and the exit's. */
+  rules: BoxRules;
+  seatRules: BoxRules;
   /** The address the page was drawn for, which a seat's write behind the passkey touch posts. */
   holder: string;
-  austrittRules: AustrittRules;
+  austrittRules: BoxRules;
   /** The danger box's league-wide act: the retiring, closed where a season holds the club, or the return. */
   retirement: { kind: "retire"; locked?: Copy } | { kind: "reactivate" };
   /** `null` for a retired club holding no row of the season. */
@@ -126,7 +123,6 @@ export function TeamEditor({
 }) {
   const editor = useEditor(record, (change) => save({ ...change, saison_id: saison }));
   const { draft, set } = editor;
-  const { required, max, pattern, address } = rules;
   const [route, setRoute] = useState<string>(FLAustrittType.rueckzug);
   const renamed = draft.name !== record.values.name || draft.shorthand !== record.values.shorthand;
   const isClosed = closed !== undefined;
@@ -141,8 +137,6 @@ export function TeamEditor({
           label={COPY.shared.name}
           name="name"
           kind="text"
-          isRequired={required.name}
-          maxLength={max.name}
           {...(renamed ? { consequence: WORDS.renameReach } : {})}
           value={draft.name}
           onChange={(name) => set("name", name)}
@@ -152,11 +146,6 @@ export function TeamEditor({
           name="shorthand"
           holds={5}
           kind="text"
-          example={COPY.team.shorthandExample}
-          pattern={pattern.shorthand}
-          isRequired={required.shorthand}
-          maxLength={SHORTHAND_LENGTH}
-          minLength={SHORTHAND_LENGTH}
           value={draft.shorthand}
           onChange={(shorthand) => set("shorthand", shorthand)}
         />
@@ -164,8 +153,6 @@ export function TeamEditor({
           label={COPY.team.fullName}
           name="full_name"
           kind="text"
-          isRequired={required.full_name}
-          maxLength={max.full_name}
           value={draft.full_name}
           onChange={(fullName) => set("full_name", fullName)}
         />
@@ -180,8 +167,6 @@ export function TeamEditor({
           label={COPY.team.website}
           name="website_url"
           kind="url"
-          example={COPY.shared.field.exampleUrl}
-          maxLength={max.website_url}
           value={draft.website_url}
           onChange={(website) => set("website_url", website)}
         />
@@ -190,7 +175,6 @@ export function TeamEditor({
           name="description"
           kind="paragraph"
           description={WORDS.descriptionNote}
-          maxLength={descriptionMax}
           value={draft.description}
           onChange={(description) => set("description", description)}
         />
@@ -201,12 +185,7 @@ export function TeamEditor({
   const adresse: EditorSection = {
     id: "adresse",
     title: COPY.shared.address.title,
-    fields: (
-      <AddressFields
-        rules={address}
-        draft={{ values: draft, set }}
-      />
-    ),
+    fields: <AddressFields draft={{ values: draft, set }} />,
   };
 
   const seasonBoxes: EditorSection[] =
@@ -221,7 +200,6 @@ export function TeamEditor({
                 <Select
                   label={COPY.team.gruppe}
                   name="gruppe"
-                  isRequired={rules.gruppeRequired}
                   isLocked={row.gruppeLocked !== null}
                   options={row.gruppen}
                   value={draft.gruppe}
@@ -312,13 +290,13 @@ export function TeamEditor({
             act: { verb: "enter" },
             tone: "danger",
             run: recordAustritt,
+            rules: austrittRules,
             carry: { team_id: team, saison_id: saison },
             children: (
               <>
                 <Segmented
                   label={WORDS.austrittType}
                   name="type"
-                  isRequired={austrittRules.required.type}
                   choices={[
                     { id: FLAustrittType.rueckzug, label: COPY.shared.austritt.rueckzug.label },
                     { id: FLAustrittType.disqualifikation, label: COPY.shared.austritt.disqualifikation.label },
@@ -330,14 +308,9 @@ export function TeamEditor({
                   label={COPY.shared.reason}
                   name="reason"
                   kind="paragraph"
-                  isRequired={austrittRules.required.reason}
-                  maxLength={austrittRules.max.reason}
                   description={WORDS.austrittReasonDescription}
                 />
-                <ExitDay
-                  exit={exit}
-                  isRequired={austrittRules.required.date}
-                />
+                <ExitDay exit={exit} />
               </>
             ),
           },
@@ -377,6 +350,7 @@ export function TeamEditor({
       title={title}
       chip={chip}
       editor={editor}
+      rules={rules}
       {...(closed === undefined ? {} : { closed })}
       locks={locks}
       sections={[teamBox, adresse, ...seasonBoxes]}

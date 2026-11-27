@@ -40,6 +40,7 @@ vi.mock("@/core/auth/browserClient", () => ({
 function CreateDialog({ create, locked }: { create: (formData: FormData) => Promise<ActionAnswer>; locked?: Copy }) {
   return (
     <Dialog
+      rules={{}}
       title={NAME}
       act={{ verb: "create", object: NAME }}
       run={create}
@@ -64,6 +65,7 @@ function EditorHoldingDialog({
   const editor = useEditor({ id: "ort-1", version: 1, values: { name: "Riedberg" } }, save);
   return (
     <EditorPage
+      rules={{}}
       title={{ record: "Riedberg" }}
       editor={editor}
       sections={[
@@ -168,6 +170,7 @@ function HeldDialog() {
         onPress={() => setOpen(true)}
       />
       <Dialog
+        rules={{}}
         title={NAME}
         act={{ verb: "create", object: NAME }}
         run={async () => DONE}
@@ -352,6 +355,7 @@ const END = COPY.shared.verb.deregister;
 function RecordDialog({ save, end }: { save: (formData: FormData) => Promise<ActionAnswer>; end: () => Promise<ActionAnswer> }) {
   return (
     <Dialog
+      rules={{}}
       title={NAME}
       act={{ verb: "save" }}
       run={save}
@@ -437,6 +441,7 @@ function DatesCard({ kind }: { kind: "dialog" | "question" }) {
           acts={
             kind === "dialog" ? (
               <Dialog
+                rules={{}}
                 title={NAME}
                 act={{ verb: "create", object: NAME }}
                 run={answer(row)}
@@ -543,6 +548,7 @@ function OpenedRows() {
         }))}
       />
       <Dialog
+        rules={{}}
         title={NAME}
         act={{ verb: "create", object: NAME }}
         run={async () => {

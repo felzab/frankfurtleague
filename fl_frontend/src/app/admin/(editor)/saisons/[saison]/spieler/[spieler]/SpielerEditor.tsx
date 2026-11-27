@@ -10,7 +10,10 @@ import { Select } from "@/kit/Select";
 import { TextField } from "@/kit/TextField";
 import { useEditor } from "@/kit/useEditor";
 
+import { requiredOf } from "./spielerValues";
+
 import type { ActionAnswer } from "@/core/action";
+import type { BoxRules } from "@/core/boxRules";
 import type { Copy } from "@/core/copy";
 import type { CalendarDay } from "@/core/format";
 import type { FLSpielerRolle } from "@/core/generated/client/types";
@@ -63,12 +66,8 @@ export function SpielerEditor({
   /** The Kader box's facts: the team, and the day an ausgetragen row left. */
   kader: readonly Fact[];
   einwilligung: readonly Fact[];
-  /** What the save asks of each box, read on the server. */
-  rules: {
-    required: { first_name: boolean; last_name: boolean; birth_date: boolean };
-    max: { first_name: number; last_name: number; nummer: number };
-    pattern: { first_name: string; last_name: string };
-  };
+  /** What the save's lane asks of its boxes, read on the server. */
+  rules: BoxRules;
   /** The position's and the level's choices, each opening on the empty box. */
   positions: readonly Option[];
   stufen: readonly Option[];
@@ -79,7 +78,6 @@ export function SpielerEditor({
 }) {
   const editor = useEditor(record, (change) => save({ ...change, saison }));
   const { draft, set } = editor;
-  const { required, max, pattern } = rules;
   const press = (act: Act) => () => act({ id: record.id, saison });
   const locked = danger.kind === "reactivate" ? danger.locked : undefined;
 
@@ -116,6 +114,9 @@ export function SpielerEditor({
       title={title}
       chip={chip}
       editor={editor}
+      rules={rules}
+      // The write takes a birthdate, so an emptied one is required.
+      requiredOf={requiredOf}
       locks={ended ? ["sinceEnd"] : []}
       // A finished season's row takes neither act again, so the box is left out rather than drawn locked.
       danger={ended ? undefined : { title: WORDS.kaderEntry, acts: [dangerAct] }}
@@ -129,10 +130,6 @@ export function SpielerEditor({
                 label={COPY.shared.firstName}
                 name="first_name"
                 kind="text"
-                pattern={pattern.first_name}
-                example={COPY.shared.field.exampleFirstName}
-                isRequired={required.first_name}
-                maxLength={max.first_name}
                 value={draft.first_name}
                 onChange={(first_name) => set("first_name", first_name)}
               />
@@ -140,17 +137,12 @@ export function SpielerEditor({
                 label={COPY.shared.lastName}
                 name="last_name"
                 kind="text"
-                pattern={pattern.last_name}
-                example={COPY.shared.field.exampleLastName}
-                isRequired={required.last_name}
-                maxLength={max.last_name}
                 value={draft.last_name}
                 onChange={(last_name) => set("last_name", last_name)}
               />
               <DateField
                 label={COPY.shared.facts.birthday}
                 name="birth_date"
-                isRequired={required.birth_date}
                 value={draft.birth_date as CalendarDay | null}
                 onChange={(day) => set("birth_date", day)}
               />
@@ -169,7 +161,6 @@ export function SpielerEditor({
                 name="nummer"
                 holds={5}
                 kind="digits"
-                maxLength={max.nummer}
                 isLocked={ended}
                 value={draft.nummer}
                 onChange={(nummer) => set("nummer", nummer)}

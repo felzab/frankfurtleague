@@ -6,11 +6,15 @@ import { action, blankIsNull, fault, numberBox } from "@/core/action";
 import { AREA_COPY } from "@/core/copy/area";
 import { COPY } from "@/core/copy/shared";
 import { spielberichtePutSpielberichtBericht } from "@/core/generated/client/sdk";
-import { SpielberichtePutSpielberichtBerichtBody, SpielberichtePutSpielberichtBerichtParams } from "@/core/generated/zod/inputs";
+import {
+  SpielberichtePutSpielberichtBerichtBody,
+  spielberichtePutSpielberichtBerichtBodyBerichtCardsMax,
+  spielberichtePutSpielberichtBerichtBodyBerichtScorersMax,
+  SpielberichtePutSpielberichtBerichtParams,
+} from "@/core/generated/zod/inputs";
 import { getOwnSpielbericht } from "@/features/spielberichte/queries";
 import { admitsShootOut } from "@/features/spiele/result";
 
-import { Cards, Goals } from "./berichtRules";
 import { counted, requiredOf, UNKNOWN_PLAYER, valuesOf } from "./berichtValues";
 
 import type { Fault, LaneAnswer } from "@/core/action";
@@ -19,6 +23,33 @@ import type { FLSpielberichtBerichtPayload, FLSpielberichtSchiedsrichterResponse
 const { bericht, version } = SpielberichtePutSpielberichtBerichtBody.shape;
 const { ergebnis_vorschlag: vorschlag, remarks } = bericht.shape;
 const [shootOutShape] = vorschlag.shape.elfmeterschiessen.options;
+const scorer = bericht.shape.scorers.element.shape;
+const card = bericht.shape.cards.element.shape;
+const [namedScorer] = scorer.spieler_id.options;
+const [namedCarded] = card.spieler_id.options;
+
+/**
+ * A goal's row as the form sends it, each box held to the write's rule. Its player is a choice to make: „Anonym“
+ * stands for the null player the write takes as a scorer nobody named, so a row's own `null` is no choice yet.
+ */
+const Goal = z.object({
+  side: blankIsNull(scorer.side),
+  spieler_id: blankIsNull(z.union([namedScorer, z.literal(UNKNOWN_PLAYER)])),
+  minute: scorer.minute,
+  eigentor: scorer.eigentor,
+});
+
+/** A card's row as the form sends it, each box held to the write's rule; its player is chosen as a goal's is. */
+const Card = z.object({
+  side: blankIsNull(card.side),
+  spieler_id: blankIsNull(z.union([namedCarded, z.literal(UNKNOWN_PLAYER)])),
+  minute: card.minute,
+  colour: blankIsNull(card.colour),
+});
+
+// Read-only, as the form's lists are: a list arrives whole and is never changed in place.
+const Goals = z.array(Goal).max(spielberichtePutSpielberichtBerichtBodyBerichtScorersMax).readonly();
+const Cards = z.array(Card).max(spielberichtePutSpielberichtBerichtBodyBerichtCardsMax).readonly();
 
 const SaveBericht = z.object({
   id: SpielberichtePutSpielberichtBerichtParams.shape.spiel_id,
