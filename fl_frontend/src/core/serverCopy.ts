@@ -216,16 +216,6 @@ export const SERVER_COPY = catalogue({
   } satisfies Partial<Record<Rule, string>>,
 
   /**
-   * The administration's own phrases a field fault reuses for the state they already word, which the core's patterns
-   * read here, the one core module the administration's catalogue is imported into: a no-show picked before both
-   * sides are known, and a club out of the season.
-   */
-  fieldPhrase: {
-    bothTeams: ADMIN_COPY.bothTeamsLocked,
-    departed: ADMIN_COPY.spiel.departed,
-  },
-
-  /**
    * What an act's server action answers on its own, beside the refusals the catalogue words by their code: a refusal
    * of its own check, or a note on an act done in part, by the act's record.
    */

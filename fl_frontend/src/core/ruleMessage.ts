@@ -1,4 +1,5 @@
 import { now } from "./clock";
+import { ADMIN_COPY } from "./copy/admin";
 import { COPY } from "./copy/shared";
 import { bornBy } from "./dayArithmetic";
 import { dayIn, dayOf } from "./format";
@@ -81,8 +82,9 @@ const PATTERNED = {
   bewerbung_submission_subject_unresolved: required,
   // A pupil a report or a line-up names who left the squad since, as the line-up's row marks one.
   spieler_not_in_kader: () => COPY.kader.deregistered,
-  eligibility_disqualified: () => SERVER_COPY.fieldPhrase.departed,
-  state_nichtantreten_without_two_sides: () => SERVER_COPY.fieldPhrase.bothTeams,
+  // The administration's own phrases for a club out of the season and a no-show picked before both sides are known.
+  eligibility_disqualified: () => ADMIN_COPY.spiel.departed,
+  state_nichtantreten_without_two_sides: () => ADMIN_COPY.bothTeamsLocked,
   // One rule over two codes: a match whose result no play decides carries no goals, on the fixture and in its report.
   state_ergebnis_on_a_non_event: () => field.without(COPY.shared.tore),
   // A media consent given below its floor, the phrase its switch shows while closed.

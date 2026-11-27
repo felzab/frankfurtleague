@@ -146,11 +146,11 @@ Each pattern is an entry of `COPY.shared`; what the entry cannot say is when it 
   rule refused the value, filled with the bounds the rule names („Höchstens 11“ under the Startelf's
   box). Where the catalogue already words the state a fault names, as „Stillgelegt“, „Unbestätigt“,
   „Ausgetragen“ or „Erst ab 16 Jahren“ do, the box shows that entry, so one state reads one way on
-  every screen; the administration's own two, „Erst mit beiden Teams“ and „Aus der Saison
-  ausgeschieden“, reach the core's patterns through `SERVER_COPY.fieldPhrase`. Every code the
-  backend raises on a box has its phrase in `fl_frontend/src/core/ruleMessage.ts :: PATTERNED`,
-  which the type check holds to the backend's published set. The address example is
-  `field.exampleAddress`, a reserved domain, never a school's address.
+  every screen, the administration's own „Erst mit beiden Teams“ and „Aus der Saison ausgeschieden“
+  among them. Every code the backend raises on a box has its phrase in
+  `fl_frontend/src/core/ruleMessage.ts :: PATTERNED`, which the type check holds to the backend's
+  published set. The address example is `field.exampleAddress`, a reserved domain, never a school's
+  address.
 - **A refusal is worded wherever the catalogue has words for it**, on every screen that can place
   them, each fault it names by its own kind. One that a pattern of `field` words shows on its
   field's box, and the status line says `COPY.template.checkFields`, save on the sign-in's address

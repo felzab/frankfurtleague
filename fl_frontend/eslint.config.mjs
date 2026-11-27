@@ -283,8 +283,9 @@ const CATALOGUE_BRAND = {
  * The administration's catalogue: a visitor's page importing it would carry the administration's words into its
  * bundle. The administration's routes import it, and so does each module the ban's allow list names, which nothing
  * but a reviewer holds to the administration's pages. Named as `copy/admin`, and as `./admin`, the spelling a sibling
- * catalogue under `core/copy/` would write. `serverCopy.ts` is spared: it ships in no bundle, and its refusal lines
- * reading `ADMIN_COPY` are the administration's own, which only its screens show.
+ * catalogue under `core/copy/` would write. `serverCopy.ts` and `ruleMessage.ts` are spared: neither ships in a bundle,
+ * and their refusal lines and field phrases reading `ADMIN_COPY` are the administration's own, which only its screens
+ * show.
  */
 const ADMIN_CATALOGUE = {
   regex: String.raw`${moduleNamed(String.raw`copy\x2Fadmin`)}|^\.\x2Fadmin(?:\.tsx?)?$`,
@@ -348,6 +349,7 @@ const IMPORT_BANS = [
       "src/features/spielorte/createSpielort.ts",
       "src/features/spielorte/SpielortFields.tsx",
       "src/features/teams/options.ts",
+      "src/core/ruleMessage.ts",
       "src/core/serverCopy.ts",
     ],
   }),
