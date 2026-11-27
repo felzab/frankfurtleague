@@ -37,9 +37,12 @@ Each fails silently. The ratified decisions for this surface are in `docs/decisi
   dry run first, through the hook, and a refusal stands on its field with the input kept; only an
   accepted input asks the touch, a dialog stepping aside for the prompt and standing again for the
   write's answer. The lane's body hands its `dryRun` to the backend call and skips every effect of
-  its own on it: a body ignoring it writes before any touch is asked, and `tsc` passes. An act with
-  no typed input takes none, as its refusal has no field to stand on and no input to keep: a
-  question, the one-shot form, Konto's passkey set-up and the re-send of an address change.
+  its own on it: a backend write sent on a dry run is refused before it leaves
+  (`fl_frontend/src/core/requestScope.ts :: recordWriteSent`), so a body ignoring `dryRun` fails
+  every press on the shared failure line, and an effect outside the generated client, a sign-out or
+  a mail, runs before any touch is asked; `tsc` passes either way. An act with no typed input takes
+  none, as its refusal has no field to stand on and no input to keep: a question, the one-shot form,
+  Konto's passkey set-up and the re-send of an address change.
 - WebKit dropped WebAuthn's user-gesture requirement in Safari 17.4, on every macOS it ships for,
   and in iOS and iPadOS 17.4, where every browser runs WebKit (271656@main). An older WebKit may
   lose any touched prompt, above all one a dry run puts a request before, though it may allow the
