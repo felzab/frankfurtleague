@@ -49,21 +49,6 @@ def faults_of(checks: Iterable[FieldCheck]) -> tuple[FieldFault, ...]:
     return tuple(fault for check in checks if check is not None for fault in ((check,) if isinstance(check, FieldFault) else check))
 
 
-def refusal_status(faults: Sequence[FieldFault]) -> HTTPStatus:
-    """The status of one answer naming these faults, never the first fault's alone, so the order checks are written in moves none.
-
-    403 where any fault judged who asks, which no edit of the payload lifts; else 409 where any judged stored data, which
-    an edit of the payload alone may not lift; else 422, the payload contradicting itself.
-    """
-
-    statuses = {fault.status for fault in faults}
-    for status in (HTTPStatus.FORBIDDEN, HTTPStatus.CONFLICT):
-        if status in statuses:
-            return status
-
-    return HTTPStatus.UNPROCESSABLE_CONTENT
-
-
 @dataclass(frozen=True, slots=True, kw_only=True)
 class Subject:
     """The one field a gate's refusal stands at, beside its code: the record a by-id write names, or a stored body's field.
@@ -131,12 +116,12 @@ class APIError(Exception):
 class FieldRefusal(APIError):
     """Every fault one collecting call found, as one refusal: each its own `fields` entry, with its own code and bounds.
 
-    Its code is the first fault's and its status `refusal_status`'s. `app.core.crud.refuse_faults` constructs it.
+    Its code and its status are the first fault's. `app.core.crud.refuse_faults` constructs it.
     """
 
     def __init__(self, faults: tuple[FieldFault, ...]):
         first, *_ = faults
-        super().__init__(refusal_status(faults), first.code)
+        super().__init__(first.status, first.code)
         self._faults = faults
 
     @property
@@ -179,7 +164,7 @@ def link_expired() -> APIError:
 
 
 def as_judged_on_stored_state(check: FieldCheck) -> APIError | None:
-    """`check`'s faults as a write judging stored values it carries no body for answers them: one gate, its code the first's.
+    """`check`'s faults as a write judging stored values it carries no body for answers them: one gate, its status and code the first's.
 
     Never on a field, whose path would name a box of a body the request has not got.
     """
@@ -188,7 +173,7 @@ def as_judged_on_stored_state(check: FieldCheck) -> APIError | None:
     if not faults:
         return None
 
-    return APIError(refusal_status(faults), faults[0].code)
+    return APIError(faults[0].status, faults[0].code)
 
 
 # RFC 9110's 401 must carry a challenge, and `Bearer` would name the tier key, which passed: the

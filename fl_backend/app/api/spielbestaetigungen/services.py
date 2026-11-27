@@ -47,7 +47,7 @@ from app.core import clock
 from app.core.clock import days_after
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.exceptions import APIError, FieldCheck, FieldFault, Subject, faults_of, refusal_status
+from app.core.exceptions import APIError, FieldCheck, FieldFault, Subject, faults_of
 from app.shared.schemas.bounds import (
     SPIEL_CONFIRMATION_DEADLINE_DAYS,
     SPIEL_REMINDER_DAYS,
@@ -464,7 +464,7 @@ def as_judged_on_the_stored_proposal(refusal: APIError | FieldCheck) -> APIError
     if faults:
         first = faults[0]
         subject = Subject(path=first.path, location="body", bounds=first.bounds)
-        return APIError(_on_the_stored_proposal(refusal_status(faults)), first.code, subject=subject)
+        return APIError(_on_the_stored_proposal(first.status), first.code, subject=subject)
 
     if not isinstance(refusal, APIError):
         return None

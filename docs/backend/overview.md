@@ -159,8 +159,7 @@ the record a retirement names in its path. Then the judge hands every independen
 one `refuse_faults` call, which raises one refusal naming each fault as its own entry. A box's fault
 is a `FieldFault`, which nothing raises alone, and its code is one of `FieldCode`'s, each of which
 the frontend words on its box. A check that means nothing once another failed sits in the same call
-behind a guard on that check. The collected answer's code is its first fault's, and its status is
-403 where any fault judged who asks, else 409 where any judged stored data, else 422.
+behind a guard on that check. The collected answer's code and status are its first fault's.
 
 ## Time
 
