@@ -38,7 +38,7 @@ import { SignInAddressSchema } from "@/features/auth/schemas";
 import { linkInvalid } from "@/kit/mailedLinkState";
 import { TO_ACCOUNT } from "@/kit/MailedPage";
 
-import type { ActionAnswer } from "@/core/action";
+import type { LaneAnswer } from "@/core/action";
 import type { FLKontaktKenntnisnahmeScope } from "@/core/generated/client/types";
 import type { EndState } from "@/kit/MailedPage";
 
@@ -61,7 +61,7 @@ export const eraseAccount = action({
   name: "eraseAccount",
   // The library's own token, which no backend schema publishes: one line of letters, digits, `-` and `_`.
   input: z.object({ token: z.string().regex(/^[A-Za-z0-9_-]{1,128}$/), ...PAGE_HOLDER }),
-  run: async ({ token }, { subject }): Promise<ActionAnswer<EndState>> => {
+  run: async ({ token }, { subject }): Promise<LaneAnswer<EndState>> => {
     // Refused before the library spends the link, so the same link completes after a handover.
     if (subject.records.admin_tier === "owner") {
       return { ok: false, reason: SERVER_COPY.refusalLine.owner_erasure };

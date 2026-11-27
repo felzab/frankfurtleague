@@ -114,11 +114,13 @@ const monthsOf = (years: number) => formatNumber(12 * years);
  */
 export const SERVER_COPY = catalogue({
   /**
-   * A refusal's sentence on the status line, by the backend's code, on every screen whose write answers it, for a code
-   * no field pattern words: the write as a whole, or a field the sentence names itself. Where one code is about one of
-   * several fields, its sentence is keyed by the first name of the path the backend names, so it says which; a path it
-   * holds no sentence for reads the stale-page line. A sentence naming the bounds its refusal carries is a function of
-   * them, answering `undefined` where one it names is missing.
+   * A refusal's sentence on the status line, by the backend's code, on every screen whose write answers it: a gate,
+   * which names no box, or a field's fault on a screen showing no box for that field, such as the adoption of a
+   * proposed date, which moves a fixture from a row. A fault on a box the screen shows takes its field phrase, so a
+   * code raised only on boxes every screen shows holds no sentence. Where one code is about one of several fields, its
+   * sentence is keyed by the first name of the path the backend names, so it says which; a path it holds no sentence
+   * for reads the stale-page line. A sentence naming the bounds its refusal carries is a function of them, answering
+   * `undefined` where one it names is missing.
    */
   refusalLine: {
     saison_past: "Diese Saison ist abgeschlossen.",
@@ -213,11 +215,21 @@ export const SERVER_COPY = catalogue({
   /**
    * A rule's sentence on the status line, by the kind the backend refuses a payload with (`fields[].kind`), for a
    * rule a person can break that no field pattern words: placed as `refusalLine` places a code. Every rule a pattern
-   * words is worded by `ruleMessage`.
+   * words is worded by its field pattern.
    */
   ruleLine: {
     elfmeterschiessen_without_winner: "Das Elfmeterschießen hat keinen Sieger.",
   } satisfies Partial<Record<Rule, string>>,
+
+  /**
+   * The administration's own phrases a field fault reuses for the state they already word, which the core's patterns
+   * read here, the one core module the administration's catalogue is imported into: a no-show picked before both
+   * sides are known, and a club out of the season.
+   */
+  fieldPhrase: {
+    bothTeams: ADMIN_COPY.bothTeamsLocked,
+    departed: ADMIN_COPY.spiel.departed,
+  },
 
   /**
    * What an act's server action answers on its own, beside the refusals the catalogue words by their code: a refusal

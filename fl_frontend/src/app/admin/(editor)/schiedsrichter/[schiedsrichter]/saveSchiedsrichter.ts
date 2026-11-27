@@ -11,7 +11,7 @@ import { getSchiedsrichterById } from "@/features/schiedsrichter/queries";
 
 import { valuesOf } from "./schiedsrichterValues";
 
-import type { ActionAnswer } from "@/core/action";
+import type { LaneAnswer } from "@/core/action";
 
 const { shape } = SchiedsrichterPatchSchiedsrichterBody;
 const kontakt = shape.kontakt.shape;
@@ -54,7 +54,7 @@ export const saveSchiedsrichter = action({
   paths: { "kontakt.email": "changes.email" },
   examples: { "changes.name": COPY.shared.field.exampleName, "changes.phone": COPY.shared.field.examplePhone },
   // The holder is the touch's to judge, and no field of the referee's body, so the run reads none.
-  run: async ({ id, version, changes }, { dryRun }): Promise<ActionAnswer<number>> => {
+  run: async ({ id, version, changes }, { dryRun }): Promise<LaneAnswer<number>> => {
     const read = await getSchiedsrichterById(id);
     if (read === null) return { ok: false, reason: COPY.shared.failure.stale };
 

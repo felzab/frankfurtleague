@@ -129,7 +129,11 @@ describe("each row the save sends", () => {
     };
     const answer = await saveBericht({ id: SPIEL_ID, version: 3, changes: { remarks: "Nachgetragen" } });
 
-    expect(answer).toStrictEqual({ ok: false, fieldErrors: { "changes.scorers.0.spieler_id": COPY.shared.field.required } });
+    expect(answer).toStrictEqual({
+      ok: false,
+      fieldErrors: { "changes.scorers.0.spieler_id": COPY.shared.field.required },
+      kinds: { "changes.scorers.0.spieler_id": "required" },
+    });
     expect(writes()).toHaveLength(0);
   });
 });

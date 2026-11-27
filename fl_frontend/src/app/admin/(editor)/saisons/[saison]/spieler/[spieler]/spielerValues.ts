@@ -25,3 +25,13 @@ export function valuesOf({ person, kader }: FLSpielerSaisonAdminResponse): Spiel
     rolle: kader.rolle ?? "",
   };
 }
+
+/**
+ * The boxes a save needs filled that are empty, by the editor's field names, judged on the person's values with the
+ * editor's changes over them: the write takes a birthdate, so an emptied one is required. The editor's draft holds the
+ * same values, so the browser's pass asks the same.
+ */
+export const requiredOf = ({
+  birth_date,
+}: Readonly<Pick<Record<keyof SpielerValues, unknown>, "birth_date">>): readonly (keyof SpielerValues)[] =>
+  birth_date === null || birth_date === "" ? ["birth_date"] : [];

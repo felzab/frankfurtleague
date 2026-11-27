@@ -9,9 +9,11 @@ import { signedInRequest } from "@/test-support/session";
 import { captureLog } from "@/test-support/stdoutCapture";
 
 import { COPY } from "./copy/shared";
+import { dayOf } from "./format";
 import { SERVER_COPY } from "./serverCopy";
 
-import type { FLRefusedField } from "./generated/client/types";
+import type { Fault, LaneAnswer } from "./action";
+import type { Code, FLRefusedField } from "./generated/client/types";
 
 /**
  * Work handed to Next's `after`, run by a case once its action has answered, as Next runs it: bound to the caller's
@@ -42,7 +44,7 @@ const { arriveAs, store } = signedInRequest();
 const log = captureLog();
 
 // Imported here rather than at the top: `vi.doMock` reaches only the modules imported after it.
-const { action, numberBox, PAGE_HOLDER } = await import("./action");
+const { action, besideRefusal, fault, numberBox, PAGE_HOLDER } = await import("./action");
 const { afterTheResponse } = await import("./afterResponse");
 const { sendToBackend } = await import("./api");
 const { boundCall, getRequestActor, REQUEST_DEADLINE_MS } = await import("./requestScope");
@@ -422,7 +424,146 @@ describe("a refused field's box", () => {
   const SEAT = { id: "6890a1b2c3d4e5f607190001", email: "lena@example.com" };
 
   it("places the backend's refusal of a box the screen shows on that box", async () => {
-    expect(await writeSeat("email")(SEAT)).toStrictEqual({ ok: false, errorCode: "kontakt_email_taken", fieldErrors: { email: field.taken } });
+    expect(await writeSeat("email")(SEAT)).toStrictEqual({
+      ok: false,
+      errorCode: "kontakt_email_taken",
+      fieldErrors: { email: field.taken },
+      kinds: { email: "kontakt_email_taken" },
+    });
+  });
+});
+
+/* The harm: a refusal naming several faults said by its first one's code alone, a fault worded on the status line
+   though its box stands on the screen, or the whole answer dropped to the stale-page line for one fault the screen
+   shows no box for, each leaving the person to find by repeated presses what the save refuses. */
+describe("a refusal naming several faults", () => {
+  const { field } = COPY.shared;
+  const { stale } = COPY.shared.failure;
+  const Fixture = z.object({ spielort: z.string().optional(), date: z.string().optional(), media: z.boolean().optional() });
+  const at = (kind: string, path: FLRefusedField["path"], ctx: FLRefusedField["ctx"] = {}): FLRefusedField => ({ in: "body", kind, ctx, path });
+
+  /** A save showing `boxes` that the backend refuses with `code`, naming `faults`. */
+  const save = (boxes: readonly ("spielort" | "date" | "media")[], code: Code, faults: readonly FLRefusedField[]) =>
+    action({
+      lane: "admin",
+      name: "saveFixture",
+      input: Fixture,
+      boxes,
+      run: async () => {
+        await sends("PUT", refusal(code, { fields: faults }));
+        return { ok: true, value: undefined };
+      },
+    });
+  const SENT = {};
+
+  it("words each fault by its own kind on its own box", async () => {
+    const faults = [at("spiel_double_booked", ["spielort"]), at("spiel_outside_spieltag", ["date"], { earliest: "2027-03-01" })];
+
+    expect(await save(["spielort", "date"], "spiel_double_booked", faults)(SENT)).toStrictEqual({
+      ok: false,
+      errorCode: "spiel_double_booked",
+      fieldErrors: { spielort: field.taken, date: field.earliest(dayOf("2027-03-01")) },
+      kinds: { spielort: "spiel_double_booked", date: "spiel_outside_spieltag" },
+    });
+  });
+
+  it("says a fault on a box the screen does not show in its sentence, the faults it shows staying on their boxes", async () => {
+    const faults = [at("spiel_double_booked", ["spielort"]), at("spiel_outside_spieltag", ["date"], { earliest: "2027-03-01" })];
+
+    expect(await save(["date"], "spiel_double_booked", faults)(SENT)).toStrictEqual({
+      ok: false,
+      errorCode: "spiel_double_booked",
+      fieldErrors: { date: field.earliest(dayOf("2027-03-01")) },
+      kinds: { date: "spiel_outside_spieltag" },
+      reason: SERVER_COPY.refusalLine.spiel_double_booked.spielort,
+    });
+  });
+
+  // The adoption of a proposed date answers the save's faults on a page holding none of the save's boxes.
+  it("says a fault in its sentence where the screen shows no box at all", async () => {
+    expect(await save([], "spiel_double_booked", [at("spiel_double_booked", ["schiedsrichter"])])(SENT)).toStrictEqual({
+      ok: false,
+      errorCode: "spiel_double_booked",
+      reason: SERVER_COPY.refusalLine.spiel_double_booked.schiedsrichter,
+    });
+  });
+
+  it("answers the stale-page line beside the boxes it places, for a fault it can neither place nor say", async () => {
+    const faults = [at("duplicate_key", ["name"]), at("spiel_double_booked", ["spielort"])];
+
+    expect(await save(["spielort"], "duplicate_key", faults)(SENT)).toStrictEqual({
+      ok: false,
+      errorCode: "duplicate_key",
+      fieldErrors: { spielort: field.taken },
+      kinds: { spielort: "spiel_double_booked" },
+      reason: stale,
+    });
+  });
+
+  // A media consent refused for an age under its floor, which the switch's own closed phrase words.
+  it("words a media consent refused for its age by the floor the fault carries", async () => {
+    expect(await save(["media"], "media_age", [at("media_age", ["media"], { min: 16 })])(SENT)).toStrictEqual({
+      ok: false,
+      errorCode: "media_age",
+      fieldErrors: { media: COPY.shared.mediaFrom(16) },
+      kinds: { media: "media_age" },
+    });
+  });
+});
+
+/* The harm: a lane's own check wording a box in words of its own, or answering on the status line what stands on a box,
+   past the one mapping every backend fault goes through. */
+describe("a lane's own faults", () => {
+  const { field } = COPY.shared;
+  const Form = z.object({ address: z.string(), email: z.string() });
+  const FORM = { address: "paul@example.org", email: "paul.neu@example.org" };
+
+  /** A lane whose own judge finds `own`, beside the backend's answer to its call where `answer` is given. */
+  const judging = (own: readonly Fault[], answer?: Response) =>
+    action({
+      lane: "admin",
+      name: "judged",
+      input: Form,
+      boxes: ["address", "email"],
+      run: async (): Promise<LaneAnswer> => {
+        try {
+          await sends("POST", answer);
+        } catch (failed) {
+          return besideRefusal(own, failed);
+        }
+        return { ok: false, faults: own };
+      },
+    });
+
+  it("places a lane's fault on its box in the phrase its kind words, and a required box's in the parse's word", async () => {
+    const own = [fault("email", "address_change_taken"), fault("address", "required")];
+
+    expect(await judging(own)(FORM)).toStrictEqual({
+      ok: false,
+      errorCode: "address_change_taken",
+      fieldErrors: { email: field.taken, address: field.required },
+      kinds: { email: "address_change_taken", address: "required" },
+    });
+  });
+
+  it("names its own faults and the backend's in one answer", async () => {
+    const barred = { in: "body", kind: "address_barred", ctx: {}, path: ["address"] } satisfies FLRefusedField;
+
+    expect(await judging([fault("email", "address_change_taken")], refusal("address_barred", { fields: [barred] }))(FORM)).toStrictEqual({
+      ok: false,
+      errorCode: "address_barred",
+      fieldErrors: { address: field.barred, email: field.taken },
+      kinds: { address: "address_barred", email: "address_change_taken" },
+    });
+  });
+
+  // A gate means no field past it, so its own sentence stands alone.
+  it("answers the backend's refusal naming no field alone", async () => {
+    expect(await judging([fault("email", "address_change_taken")], refusal("saison_past"))(FORM)).toStrictEqual({
+      ok: false,
+      errorCode: "saison_past",
+      reason: SERVER_COPY.refusalLine.saison_past,
+    });
   });
 });
 
@@ -509,6 +650,7 @@ describe("a list of records", () => {
       ok: false,
       errorCode: "payload_refused",
       fieldErrors: { "changes.scorers.2.minute": field.without(COPY.spielplan.scorers) },
+      kinds: { "changes.scorers.2.minute": "nichtantreten_with_scorers" },
     });
   });
 
@@ -518,6 +660,7 @@ describe("a list of records", () => {
       ok: false,
       errorCode: "payload_refused",
       fieldErrors: { "changes.scorers.2.minute": field.without(COPY.spielplan.scorers) },
+      kinds: { "changes.scorers.2.minute": "nichtantreten_with_scorers" },
     });
   });
 

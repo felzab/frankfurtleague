@@ -144,16 +144,27 @@ Each pattern is an entry of `COPY.shared`; what the entry cannot say is when it 
 
 - **A field message** is one of `field`'s patterns, whether the form's own check or the backend's
   rule refused the value, filled with the bounds the rule names („Höchstens 11“ under the Startelf's
-  box). The address example is `field.exampleAddress`, a reserved domain, never a school's address.
+  box). Where the catalogue already words the state a fault names, as „Stillgelegt“, „Unbestätigt“,
+  „Ausgetragen“ or „Erst ab 16 Jahren“ do, the box shows that entry, so one state reads one way on
+  every screen; the administration's own two, „Erst mit beiden Teams“ and „Aus der Saison
+  ausgeschieden“, reach the core's patterns through `SERVER_COPY.fieldPhrase`. Every code the
+  backend raises on a box has its phrase in `fl_frontend/src/core/ruleMessage.ts :: PATTERNED`,
+  which the type check holds to the backend's published set. The address example is
+  `field.exampleAddress`, a reserved domain, never a school's address.
 - **A refusal is worded wherever the catalogue has words for it**, on every screen that can place
-  them. One that a pattern of `field` words shows on its field's box, and the status line says
-  `COPY.template.checkFields`, save on the sign-in's address view: a page of one field, whose box
-  takes the focus on a refusal so that a screen reader reads it with its phrase, and whose status
-  line stays empty, since it would only point at the box already in focus. One about the whole form,
-  or about a field no pattern words, takes the status line: one short sentence that fits its two
-  lines on a phone, naming its field where it has one. A field phrase never stands on the status
-  line, since it has no subject there, so a phrase whose field the screen shows no box for counts as
-  unworded. A catalogue sentence states the fact and never why it holds or how to repair it.
+  them, each fault it names by its own kind. One that a pattern of `field` words shows on its
+  field's box, and the status line says `COPY.template.checkFields`, save on the sign-in's address
+  view: a page of one field, whose box takes the focus on a refusal so that a screen reader reads it
+  with its phrase, and whose status line stays empty, since it would only point at the box already
+  in focus. One about the whole form, about a field no pattern words, or about a field the screen
+  shows no box for, takes the status line: one short sentence that fits its two lines on a phone,
+  naming its field where it has one. A field phrase never stands on the status line, since it has no
+  subject there, so a code that reaches a screen without its box keeps a sentence in
+  `SERVER_COPY.refusalLine` beside its phrase: the re-send of an address change, the adoption of a
+  proposed date, which answers the save's faults from an Übersicht row, a club's proposal, a
+  handover, and an erasure or an address change whose address a path names. A fault with neither
+  reads `failure.stale` on the status line, beside the boxes its refusal's other faults mark. A
+  catalogue sentence states the fact and never why it holds or how to repair it.
 - **Every other refusal takes a `failure` line.** `stale` answers every refusal of the request the
   catalogue does not word, since the page read again shows the record as it stands. `signInExpired`
   answers an ended sign-in, and `tooManyAttempts` every limit on tries, whatever it counts.

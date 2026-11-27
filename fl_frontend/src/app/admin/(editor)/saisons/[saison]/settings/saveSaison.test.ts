@@ -91,7 +91,11 @@ describe("the season editor's save", () => {
     async (cleared) => {
       const answer = await saveSaison({ id: "2027", version: 3, changes: { [cleared]: null } });
 
-      expect(answer).toEqual({ ok: false, fieldErrors: { [`changes.${cleared}`]: COPY.shared.field.required } });
+      expect(answer).toStrictEqual({
+        ok: false,
+        fieldErrors: { [`changes.${cleared}`]: COPY.shared.field.required },
+        kinds: { [`changes.${cleared}`]: "required" },
+      });
       expect(state.sent).toEqual([]);
     },
   );

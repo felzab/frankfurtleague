@@ -134,6 +134,25 @@ describe("the league's save of a line-up", () => {
       ok: false,
       errorCode: "spieler_not_in_kader",
       fieldErrors: { [`changes.picked.${THREE}`]: COPY.kader.deregistered },
+      kinds: { [`changes.picked.${THREE}`]: "spieler_not_in_kader" },
+    });
+  });
+
+  // The harm: a refusal naming another fault first, whose code is then its own, dropping the pupils' marks.
+  it("marks a refused pupil on their row beside the refusal's other faults, whichever comes first", async () => {
+    refusing.write = () =>
+      refusal("aufstellung_nominee_without_shortage", {
+        fields: [
+          { kind: "aufstellung_nominee_without_shortage", path: ["spieler"], ctx: { max: 11 }, in: "body" },
+          { kind: "spieler_not_in_kader", path: ["spieler", 0, "spieler_id"], ctx: {}, in: "body" },
+        ],
+      });
+    const answer = await saveAufstellung({ team_id: TEAM, id: SPIEL, version: 3, changes: { picked: [TWO, ONE, THREE] } });
+
+    expect(answer).toMatchObject({
+      ok: false,
+      errorCode: "aufstellung_nominee_without_shortage",
+      fieldErrors: { [`changes.picked.${THREE}`]: COPY.kader.deregistered },
     });
   });
 

@@ -9,7 +9,7 @@ import { AufstellungenPutAufstellungSelfBody, AufstellungenPutAufstellungSelfPar
 import { entriesOf, refusedRows } from "@/features/aufstellungen/payload";
 import { getAufstellungSelf } from "@/features/aufstellungen/queries";
 
-import type { ActionAnswer } from "@/core/action";
+import type { LaneAnswer } from "@/core/action";
 
 // A pupil's id: the editor names pupils alone, and the stored entries naming nobody go back as stored.
 const ids = AufstellungenPutAufstellungSelfBody.shape.spieler.element.shape.spieler_id.options[0];
@@ -35,7 +35,7 @@ export const saveAufstellung = action({
   claim: "record",
   name: "saveAufstellung",
   input: SaveAufstellung,
-  run: async ({ team_id, id, version, changes }): Promise<ActionAnswer<number>> => {
+  run: async ({ team_id, id, version, changes }): Promise<LaneAnswer<number>> => {
     const stored = await getAufstellungSelf(id, team_id);
     if (stored === null) return { ok: false, reason: COPY.shared.failure.stale };
 

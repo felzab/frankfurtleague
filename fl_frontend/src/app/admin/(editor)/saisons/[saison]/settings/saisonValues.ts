@@ -55,3 +55,20 @@ export function valuesOf(saison: FLSaisonAdmin): SaisonValues {
     registrierungPaused: saison.registrierung === null ? false : !saison.registrierung.open,
   };
 }
+
+/** A window's two days, as the editor names their boxes. */
+type WindowDays = Readonly<Pick<Record<keyof SaisonValues, unknown>, "bewerbung.start" | "bewerbung.end">>;
+
+const isEmpty = (day: unknown) => day === null || day === "";
+
+/**
+ * The boxes a save needs filled that are empty, by the editor's field names, judged on the season's values with the
+ * editor's changes over them: a window with neither day is none, and one with a single day lacks the other. The
+ * editor's draft holds the same values, so the browser's pass asks the same.
+ */
+export function requiredOf(days: WindowDays): readonly (keyof WindowDays)[] {
+  const start = days["bewerbung.start"];
+  const end = days["bewerbung.end"];
+  if (isEmpty(start) === isEmpty(end)) return [];
+  return isEmpty(start) ? ["bewerbung.start"] : ["bewerbung.end"];
+}

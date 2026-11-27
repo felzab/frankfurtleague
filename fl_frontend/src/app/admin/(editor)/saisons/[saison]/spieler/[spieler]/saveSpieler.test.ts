@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { COPY } from "@/core/copy/shared";
 import { serveBackend } from "@/test-support/backend";
 import { signedInRequest } from "@/test-support/session";
 
@@ -66,5 +67,17 @@ describe("a player's save", () => {
     await saveSpieler({ id: SPIELER_ID, saison: SAISON, version: EDITOR_VERSION, changes: { last_name: "", nummer: "", rolle: "" } });
 
     expect(written()).toMatchObject([{ last_name: null, nummer: null, rolle: null, position: "Abwehr" }]);
+  });
+
+  // The harm: a box the save needs, answered anywhere but on that box, which the person then cannot find.
+  it("asks for an emptied birthdate on its own box, writing nothing", async () => {
+    const answer = await saveSpieler({ id: SPIELER_ID, saison: SAISON, version: EDITOR_VERSION, changes: { birth_date: null } });
+
+    expect(answer).toStrictEqual({
+      ok: false,
+      fieldErrors: { "changes.birth_date": COPY.shared.field.required },
+      kinds: { "changes.birth_date": "required" },
+    });
+    expect(written()).toStrictEqual([]);
   });
 });

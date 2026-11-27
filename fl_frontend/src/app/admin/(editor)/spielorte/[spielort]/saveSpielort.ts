@@ -11,7 +11,7 @@ import { getSpielort } from "@/features/spielorte/queries";
 
 import { valuesOf } from "./spielortValues";
 
-import type { ActionAnswer } from "@/core/action";
+import type { LaneAnswer } from "@/core/action";
 
 const { shape } = SpielortePatchSpielortBody;
 const address = shape.address.shape;
@@ -47,7 +47,7 @@ export const saveSpielort = action({
     "changes.house_number": COPY.shared.address.houseNumberExample,
     "changes.default_mietpreis": ADMIN_COPY.spielort.mietpreisExample,
   },
-  run: async ({ id, version, changes }): Promise<ActionAnswer<number>> => {
+  run: async ({ id, version, changes }): Promise<LaneAnswer<number>> => {
     const stored = await getSpielort(id);
     if (stored === null) return { ok: false, reason: COPY.shared.failure.stale };
 

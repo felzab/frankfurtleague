@@ -2,7 +2,7 @@
 
 import { z } from "zod";
 
-import { action, blankIsNull, numberBox } from "@/core/action";
+import { action, blankIsNull, fault, numberBox } from "@/core/action";
 import { AREA_COPY } from "@/core/copy/area";
 import { COPY } from "@/core/copy/shared";
 import { spielberichtePutSpielberichtBericht } from "@/core/generated/client/sdk";
@@ -11,10 +11,9 @@ import { getOwnSpielbericht } from "@/features/spielberichte/queries";
 import { admitsShootOut } from "@/features/spiele/result";
 
 import { Cards, Goals } from "./berichtRules";
-import { counted, UNKNOWN_PLAYER, valuesOf } from "./berichtValues";
+import { counted, requiredOf, UNKNOWN_PLAYER, valuesOf } from "./berichtValues";
 
-import type { ActionAnswer } from "@/core/action";
-import type { Copy } from "@/core/copy";
+import type { Fault, LaneAnswer } from "@/core/action";
 import type { FLSpielberichtBerichtPayload, FLSpielberichtSchiedsrichterResponse } from "@/core/generated/client/types";
 
 const { bericht, version } = SpielberichtePutSpielberichtBerichtBody.shape;
@@ -44,42 +43,38 @@ type Changes = z.output<typeof SaveBericht>["changes"];
  * club took out of it holds none, which reads „Pflichtfeld“ on that row's box. Nothing else of a stored row can
  * break a rule the write published.
  */
-function storedRows<Row>(
-  schema: z.ZodType<readonly Row[]>,
-  rows: unknown,
-  name: "scorers" | "cards",
-  fieldErrors: Record<string, Copy>,
-): readonly Row[] {
+function storedRows<Row>(schema: z.ZodType<readonly Row[]>, rows: unknown, name: "scorers" | "cards", faults: Fault[]): readonly Row[] {
   const parsed = schema.safeParse(rows);
   if (parsed.success) return parsed.data;
-  for (const issue of parsed.error.issues) fieldErrors[["changes", name, ...issue.path].join(".")] ??= COPY.shared.field.required;
+  for (const issue of parsed.error.issues) faults.push(fault(["changes", name, ...issue.path].join("."), "required"));
   return [];
 }
 
 /**
  * The whole report as the write takes it: every field the form did not change as the report stands, since the write
  * replaces the whole block. A shoot-out stands only where the fixture takes one, a knockout match whose counted goals
- * are level and no no-show decided, and once either of its figures is typed both are required; one typed before the
- * goals moved off level is dropped, as the write would refuse it.
+ * are level and no no-show decided, and once either of its figures is typed both are required (`requiredOf`); one
+ * typed before the goals moved off level is dropped, as the write would refuse it.
  */
-function payloadOf(read: FLSpielberichtSchiedsrichterResponse, changes: Changes): FLSpielberichtBerichtPayload | ActionAnswer<never> {
+function payloadOf(read: FLSpielberichtSchiedsrichterResponse, changes: Changes): FLSpielberichtBerichtPayload | LaneAnswer<never> {
   const stored = read.bericht;
   const shown = valuesOf(read);
-  const fieldErrors: Record<string, Copy> = {};
+  const faults: Fault[] = [];
 
   const sonderereignis = changes.sonderereignis === undefined ? (stored?.ergebnis_vorschlag.sonderereignis ?? null) : changes.sonderereignis;
-  const goals = changes.scorers ?? storedRows(Goals, shown.scorers, "scorers", fieldErrors);
-  const cardRows = changes.cards ?? storedRows(Cards, shown.cards, "cards", fieldErrors);
+  const goals = changes.scorers ?? storedRows(Goals, shown.scorers, "scorers", faults);
+  const cardRows = changes.cards ?? storedRows(Cards, shown.cards, "cards", faults);
   const storedShootOut = stored?.ergebnis_vorschlag.elfmeterschiessen ?? null;
   const shootOut1 = changes.shootOut1 === undefined ? (storedShootOut?.team1 ?? null) : changes.shootOut1;
   const shootOut2 = changes.shootOut2 === undefined ? (storedShootOut?.team2 ?? null) : changes.shootOut2;
 
+  const phase = read.spiel.saison_phase;
+  for (const box of requiredOf({ scorers: goals, shootOut1, shootOut2, sonderereignis }, phase))
+    faults.push(fault(`changes.${box}`, "required"));
+  if (faults.length > 0) return { ok: false, faults };
+
   const score = counted(goals);
-  const takesShootOut = admitsShootOut(read.spiel.saison_phase, { tore: score.team1 }, { tore: score.team2 }, sonderereignis);
-  const required = COPY.shared.field.required;
-  if (takesShootOut && shootOut1 === null && shootOut2 !== null) fieldErrors["changes.shootOut1"] = required;
-  if (takesShootOut && shootOut2 === null && shootOut1 !== null) fieldErrors["changes.shootOut2"] = required;
-  if (Object.keys(fieldErrors).length > 0) return { ok: false, fieldErrors };
+  const takesShootOut = admitsShootOut(phase, { tore: score.team1 }, { tore: score.team2 }, sonderereignis);
 
   return {
     ergebnis_vorschlag: {
@@ -111,7 +106,7 @@ export const saveBericht = action({
     "changes.scorers.*.minute": AREA_COPY.schiedsrichter.spielbericht.minuteExample,
     "changes.cards.*.minute": AREA_COPY.schiedsrichter.spielbericht.minuteExample,
   },
-  run: async ({ id, version: read, changes }): Promise<ActionAnswer<number>> => {
+  run: async ({ id, version: read, changes }): Promise<LaneAnswer<number>> => {
     const stands = await getOwnSpielbericht(id);
     if (stands === null) return { ok: false, reason: COPY.shared.failure.stale };
     const payload = payloadOf(stands, changes);

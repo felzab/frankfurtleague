@@ -8,13 +8,13 @@ import { z } from "zod";
 import { getAccountSession, judgeAdminRequest, passesPasskeyTouch } from "./auth/guards";
 import { COPY } from "./copy/shared";
 import { asSignInIdentifier, KONTAKT_EMAIL_MAX_LENGTH } from "./emailAddress";
-import { APIBadStatusError, loggedByBackend, requestOf } from "./errors";
+import { APIBadStatusError, asRefusal, loggedByBackend, requestOf } from "./errors";
+import { FieldCode } from "./generated/client/types";
 import { logger } from "./logging";
 import { ownKeyOf } from "./ownKeyOf";
 import { logRefused } from "./refused";
 import { getRequestActor, markDryRun, requestWriteMayStand } from "./requestScope";
-import { isPatternedCode, isWordedRule, ruleMessage } from "./ruleMessage";
-import { SERVER_COPY } from "./serverCopy";
+import { phraseOf, sentenceOf } from "./ruleMessage";
 import { SITE_CACHE_TAG } from "./siteCache";
 import { getSubjectSession } from "./subject";
 import { runWithIncomingTrace } from "./traceScope";
@@ -30,26 +30,29 @@ import type { SubjectSession } from "./subject";
 /**
  * What a server action answers a form, as `action` builds it and the kit's `useFormAction` reads it: done, with
  * what the page needs next and, where the write did more than the form asked, the line saying so; or not done,
- * with each field's message by the field's `name`, the one line the status line shows, and the backend's code
- * where the backend refused. A refusal the catalogue words brings its reason, every other refusal of the request the
- * stale-page line, an ended session the sign-in line, an outage or a fault the shared failure line; a refusal for its
- * fields alone may leave the line to the form. `warn` marks an act that partly happened, its note or its reason
- * read in the warn tone: neither a clean save nor a refusal that left everything as it stood. `done` is the done word
- * of the act the answer did where that is not the one its press names, such as a decline answered from an admission's
- * dialog, and stands in for the press's own. `closed` marks an act whose passkey sheet the person, or the browser on
- * their behalf, closed: it never ran, and nothing is said of it.
+ * with each field's message by the field's `name`, the kind of the fault each box shows (`kinds`), the one line the
+ * status line shows, and the backend's code where the backend refused. A refusal the catalogue words brings its reason,
+ * every other refusal of the request the stale-page line, an ended session the sign-in line, an outage or a fault the
+ * shared failure line; a refusal for its fields alone leaves the line to the form. Only the builder places a box's
+ * message, so a lane's body answers its own faults through `fault` (`LaneAnswer`). `warn` marks an act that partly
+ * happened, its note or its reason read in the warn tone: neither a clean save nor a refusal that left everything as it
+ * stood. `done` is the done word of the act the answer did where that is not the one its press names, such as a decline
+ * answered from an admission's dialog, and stands in for the press's own. `closed` marks an act whose passkey sheet the
+ * person, or the browser on their behalf, closed: it never ran, and nothing is said of it.
  */
 export type ActionAnswer<Value = undefined> =
-  | { ok: true; value: Value; note?: Copy; done?: Copy; warn?: true }
-  | {
+  | Done<Value>
+  | ({
       ok: false;
       fieldErrors?: Readonly<Record<string, Copy>>;
-      reason?: Copy;
-      errorCode?: Code;
-      ask?: SaveQuestion;
-      warn?: true;
-      closed?: true;
-    };
+      /** The kind of the fault each box's message words, by the box: a backend code or rule, or `required`. */
+      kinds?: Readonly<Record<string, FLRefusedField["kind"]>>;
+    } & Said);
+
+type Done<Value> = { ok: true; value: Value; note?: Copy; done?: Copy; warn?: true };
+
+/** What a refusal says beside its boxes, a lane's own included. */
+type Said = { reason?: Copy; errorCode?: Code; ask?: SaveQuestion; warn?: true; closed?: true };
 
 /**
  * A save the server holds back until the person confirms what it would set off beyond the record, such as the later
@@ -93,10 +96,10 @@ type Field<T, Above extends string = ""> = T extends readonly unknown[]
 
 /**
  * What every lane declares: its name for the failure line, its input's schema, and where its refusals are placed. The
- * catalogue words a refusal, never the screen: a code's or a rule's field phrase lands on the box its refused path
- * stands for here (`boxes`, `paths`), and a code's sentence on the status line. A phrase whose path stands for no box
- * here, a sentence whose entry holds none for the path, and a refused payload breaking a rule the catalogue does not
- * word answer as every code the catalogue does not word does (`refused`).
+ * catalogue words a refusal, never the screen: each fault's field phrase, by its own kind, lands on the box its
+ * refused path stands for here (`boxes`, `paths`), and a fault whose field this screen shows no box for, or whose kind
+ * no phrase words, takes its kind's sentence on the status line (`placed`). A refusal no fault of which the catalogue
+ * words here answers as every code the catalogue does not word does (`refused`).
  */
 type Declared<Schema extends z.ZodType> = {
   readonly name: string;
@@ -123,7 +126,51 @@ type Declared<Schema extends z.ZodType> = {
   readonly examples?: { readonly [F in Field<z.output<Schema>>]?: Copy };
 };
 
-type Run<Schema extends z.ZodType, Context, Value> = (input: z.output<Schema>, context: Context) => Promise<ActionAnswer<Value>>;
+/** The kind of a box the lane's own judge finds empty where the save needs it, worded as the parse words an empty box. */
+const REQUIRED = "required";
+
+/**
+ * A fault a lane's own judge finds on a box, by the box's key as the parse keys its issues (`fieldOf`): a backend field
+ * code, or `required` for a box left empty that the save needs once another value is set. Only a judge the backend
+ * cannot run builds one: a check against the sign-in store, which the backend cannot see, or a rule over the stored
+ * record merged with an editor's changes, which the input alone does not hold; and the lane that built the entries a
+ * backend fault names by index, which alone knows the row each index stands for.
+ */
+export type Fault = { readonly box: string; readonly kind: FieldCode | typeof REQUIRED; readonly ctx: FLRefusedField["ctx"] };
+
+/** A fault on `box`, worded by `kind`'s phrase from the bounds `ctx` holds, as the builder words the backend's. */
+export const fault = (box: string, kind: FieldCode | typeof REQUIRED, ctx: FLRefusedField["ctx"] = {}): Fault => ({ box, kind, ctx });
+
+/**
+ * What a lane's body answers: done, a refusal of its own naming no box, or its faults, which the builder words and
+ * places as it places the backend's. A body never words a box: `fieldErrors` and `kinds` are the builder's alone, so a
+ * body handing either back, a value built elsewhere included, fails the type check.
+ */
+// One refusal arm, its faults optional: a second arm for the faults would cost every body's `{ ok: true }` its literal.
+export type LaneAnswer<Value = undefined> =
+  Done<Value> | ({ ok: false; fieldErrors?: never; kinds?: never; faults?: readonly (Fault | FLRefusedField)[] } & Said);
+
+/**
+ * A lane's faults, each placed by the builder, beside the backend's code where a backend refusal joined them: what a
+ * lane's helper answers where it finds any.
+ */
+export type Faulted = { ok: false; faults: readonly (Fault | FLRefusedField)[]; errorCode?: Code };
+
+/**
+ * A lane's own faults beside the backend's refusal of the same press, as one answer naming every fault, where the
+ * backend refused fields: a check of the sign-in store on a dry run, which the backend's own faults join. A backend
+ * refusal naming no field, a gate, stands alone, since no field means anything past it, and so does any other failure:
+ * both are thrown on, as they were thrown.
+ */
+export function besideRefusal(faults: readonly Fault[], failed: unknown): Faulted {
+  const refusal = asRefusal(failed);
+  const code = refusal?.serverErrorCode;
+  const ofFields = code === "payload_refused" || (code !== undefined && ownKeyOf(FieldCode, code));
+  if (faults.length === 0 || refusal === null || !ofFields || refusal.refusedFields.length === 0) throw failed;
+  return { ok: false, errorCode: code, faults: [...refusal.refusedFields, ...faults] };
+}
+
+type Run<Schema extends z.ZodType, Context, Value> = (input: z.output<Schema>, context: Context) => Promise<LaneAnswer<Value>>;
 
 /**
  * The address the page was drawn for, which every act of the account and every act behind the passkey touch posts: a
@@ -268,8 +315,6 @@ const TURNED_AWAY: Readonly<Record<AdminRefusal, Copy>> = {
 
 const UNEXPECTED = { ok: false, reason: COPY.shared.failure.unexpected } as const;
 
-const isLined = (code: Code) => ownKeyOf(SERVER_COPY.refusalLine, code);
-
 // The backend's own strip, Python's `str.strip`: Unicode's White_Space and U+001C to U+001F, from both ends. A field
 // stripped by Pydantic's `strip_whitespace` keeps those four, which is safe, since the stripped text is what is sent.
 // Never JavaScript's `trim`, whose set adds U+FEFF, which the backend keeps.
@@ -380,9 +425,6 @@ function parsed<Schema extends z.ZodType>(
   return { answer: unplaced ? UNEXPECTED : { ok: false, fieldErrors } };
 }
 
-/** One refused field in the catalogue's words: a field pattern's phrase for its box, or a sentence of its own. */
-type Words = { readonly path: FLRefusedField["path"] } & ({ readonly field: Copy } | { readonly line: Copy });
-
 /** The object an editor's input holds its boxes in, each under its name. */
 const CHANGES = "changes";
 
@@ -431,86 +473,88 @@ function boxFor<Schema extends z.ZodType>(declared: Declared<Schema>, path: stri
   return holds(declared.input, change) ? change : undefined;
 }
 
+/** A fault's box on this screen: a lane's own by its key, a backend fault's where `boxFor` finds its path, else none. */
+function boxOf<Schema extends z.ZodType>(declared: Declared<Schema>, refused: Fault | FLRefusedField): string | undefined {
+  if ("box" in refused) return refused.box;
+  const field = fieldOf(refused.path);
+  const shown = field === undefined ? undefined : boxFor(declared, field.declared);
+  return field === undefined || shown === undefined ? undefined : inRows(shown, field.rows);
+}
+
+/** A fault as the catalogue words it, by its own kind, a lane's naming its field by the path its box's key spells. */
+const asWorded = (refused: Fault | FLRefusedField) =>
+  "box" in refused ? { kind: refused.kind, ctx: refused.ctx, path: refused.box.split(".") } : refused;
+
 /**
- * Each refusal where this screen shows it: a phrase on the box its path stands for (`boxFor`), a sentence on the
- * status line. The first a box meets is the one it shows, and the first sentence the one the line shows. `undefined`
- * where a phrase's path has no box here, so no field phrase reaches the status line without its field.
+ * Every fault of one refusal where this screen shows it, each worded by its own kind: its field phrase on the box its
+ * field stands for, else its sentence on the status line, so a fault on a field this screen shows no box for, such as
+ * the adoption's of a fixture it moves from a row, still says what it can, and the answer keeps every fault it placed.
+ * The first phrase a box meets is the one it shows, and the first sentence the one the line shows; a fault with
+ * neither leaves the line to the stale-page line, the page read again showing the record as it stands. `undefined`
+ * where the catalogue words none of them here.
  */
-function placed<Schema extends z.ZodType>(declared: Declared<Schema>, code: Code, refusals: readonly Words[]): ActionAnswer<never> | undefined {
-  if (refusals.length === 0) return undefined;
+function placed<Schema extends z.ZodType>(
+  declared: Declared<Schema>,
+  code: Code | undefined,
+  refusals: readonly (Fault | FLRefusedField)[],
+): ActionAnswer<never> | undefined {
   const fieldErrors: Record<string, Copy> = {};
+  const kinds: Record<string, FLRefusedField["kind"]> = {};
   let reason: Copy | undefined;
-  for (const refusal of refusals) {
-    if ("line" in refusal) {
-      reason ??= refusal.line;
+  let unworded = false;
+  for (const refused of refusals) {
+    const box = boxOf(declared, refused);
+    const worded = asWorded(refused);
+    const phrase = refused.kind === REQUIRED ? COPY.shared.field.required : phraseOf(worded);
+    if (box !== undefined && phrase !== undefined) {
+      if (fieldErrors[box] === undefined) {
+        fieldErrors[box] = phrase;
+        kinds[box] = refused.kind;
+      }
       continue;
     }
-    const field = fieldOf(refusal.path);
-    const shown = field === undefined ? undefined : boxFor(declared, field.declared);
-    const box = field === undefined || shown === undefined ? undefined : inRows(shown, field.rows);
-    if (box === undefined) return undefined;
-    fieldErrors[box] ??= refusal.field;
+    const sentence = sentenceOf(worded);
+    if (sentence === undefined) unworded = true;
+    reason ??= sentence;
   }
+  if (Object.keys(fieldErrors).length === 0 && reason === undefined) return undefined;
+  const line = reason ?? (unworded ? COPY.shared.failure.stale : undefined);
   return {
     ok: false,
-    errorCode: code,
-    ...(Object.keys(fieldErrors).length > 0 ? { fieldErrors } : {}),
-    ...(reason === undefined ? {} : { reason }),
+    ...(code === undefined ? {} : { errorCode: code }),
+    ...(Object.keys(fieldErrors).length > 0 ? { fieldErrors, kinds } : {}),
+    ...(line === undefined ? {} : { reason: line }),
   };
 }
 
-/** A sentence filled from the bounds its refusal carries, as `ruleMessage` fills a phrase: `undefined` where one is missing. */
-type BoundedSentence = (context: FLRefusedField["ctx"]) => Copy | undefined;
-
-type LineEntry = Copy | Readonly<Record<string, Copy>> | BoundedSentence;
-
 /**
- * A code's sentence for the field it names: the code's one sentence, the sentence its bounds fill, or, where its entry
- * is keyed by the field, the one for the path's first name. `undefined` where the entry holds none for it.
- */
-function sentenceOf(code: Code & keyof typeof SERVER_COPY.refusalLine, refused: FLRefusedField | undefined): Copy | undefined {
-  return sentenceIn(SERVER_COPY.refusalLine[code], refused);
-}
-
-/** Apart from `sentenceOf`, whose read of the catalogue would narrow the entry to the shapes it holds today. */
-function sentenceIn(entry: LineEntry, refused: FLRefusedField | undefined): Copy | undefined {
-  if (typeof entry === "string") return entry;
-  if (typeof entry === "function") return entry(refused?.ctx ?? {});
-  const [head] = refused?.path ?? [];
-  return typeof head === "string" && Object.hasOwn(entry, head) ? entry[head] : undefined;
-}
-
-/**
- * A refusal in the catalogue's words where this screen can place them: a refused payload's broken rules where the
- * catalogue words every one, a code's phrase on the box of each field it names, filled from the bounds the refusal
- * carries where its pattern names them, or a code's sentence on the status line. `undefined` where the catalogue does
- * not word it or this screen cannot place it.
+ * A refusal in the catalogue's words where this screen can place them: each fault it names, by its own kind
+ * (`placed`), a refused payload's broken rules as a judge's codes; or, for a gate naming no field, its code's sentence
+ * on the status line. `undefined` where the catalogue does not word it or this screen cannot place it.
  */
 function worded<Schema extends z.ZodType>(
   declared: Declared<Schema>,
   code: Code,
   fields: readonly FLRefusedField[],
 ): ActionAnswer<never> | undefined {
-  // A refused payload is worded by the rules it carries, each by its kind, the code holding no words of its own.
-  if (code === "payload_refused") {
-    if (!fields.every(({ kind }) => isWordedRule(kind))) return undefined;
-    return placed(
-      declared,
-      code,
-      fields.map((refused) => ({ path: refused.path, ...ruleMessage(refused) })),
-    );
-  }
-  if (isLined(code)) {
-    const reason = sentenceOf(code, fields[0]);
-    return reason === undefined ? undefined : { ok: false, errorCode: code, reason };
-  }
-  // A phrase on each field the refusal names, filled from its bounds where the phrase names them, worded as a rule's
-  // phrase is. A phrase names no field of its own, so a code naming none has nothing to place it on.
-  if (!isPatternedCode(code)) return undefined;
-  return placed(
-    declared,
-    code,
-    fields.map(({ path, ctx }) => ({ path, ...ruleMessage({ kind: code, ctx, path }) })),
+  if (fields.length > 0) return placed(declared, code, fields);
+  const reason = sentenceOf({ kind: code, ctx: {}, path: [] });
+  return reason === undefined ? undefined : { ok: false, errorCode: code, reason };
+}
+
+/**
+ * A lane's answer as the form reads it: its own faults worded and placed as the backend's are, its code the first
+ * code among them; any other answer as it came. Faults this screen words none of answer the stale-page line.
+ */
+function settled<Schema extends z.ZodType, Value>(declared: Declared<Schema>, answer: LaneAnswer<Value>): ActionAnswer<Value> {
+  if (answer.ok || answer.faults === undefined) return answer;
+  const code = answer.errorCode ?? answer.faults.map(({ kind }) => kind).find((kind): kind is FieldCode => kind !== REQUIRED);
+  return (
+    placed(declared, code, answer.faults) ?? {
+      ok: false,
+      ...(code === undefined ? {} : { errorCode: code }),
+      reason: COPY.shared.failure.stale,
+    }
   );
 }
 
@@ -563,14 +607,14 @@ async function admitted<Schema extends z.ZodType, Value>(
   raw: unknown,
   granted: boolean,
   dryRun: boolean,
-  run: (input: z.output<Schema>) => Promise<ActionAnswer<Value>>,
+  run: (input: z.output<Schema>) => Promise<LaneAnswer<Value>>,
 ): Promise<ActionAnswer<Value>> {
   const touched = "passkey" in lane && lane.passkey === true;
   if (touched && !dryRun && !passesPasskeyTouch(getRequestActor(), granted)) return { ok: false, reason: COPY.shared.touchMissing };
   const read = parsed(lane, raw);
   if ("answer" in read) return read.answer;
   const held = touched || (lane.lane === "person" && lane.claim === "account");
-  return (held ? anotherHolder(read.input) : undefined) ?? run(read.input);
+  return (held ? anotherHolder(read.input) : undefined) ?? settled(lane, await run(read.input));
 }
 
 /**
@@ -610,7 +654,7 @@ async function guarded<Schema extends z.ZodType, Value>(lane: Lane<Schema, Value
         if (refusal !== null) return { ok: false, reason: refusal };
       }
       const read = parsed(lane, raw);
-      return "answer" in read ? read.answer : lane.run(read.input, undefined);
+      return "answer" in read ? read.answer : settled(lane, await lane.run(read.input, undefined));
     }
   }
 }
