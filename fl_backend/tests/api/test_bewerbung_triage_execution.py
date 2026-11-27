@@ -1519,6 +1519,22 @@ class TestSeatingAnotherPersonInAnEmptiedSeat:
         assert code == Code.BEWERBUNG_SEAT_ERASED
         assert after == emptied
 
+    async def test_a_seat_erased_at_its_persons_request_takes_no_resend(self, mongo_replica_set_url: str):
+        """A page read before the erasure still offers the re-send, which then names the erasure rather than an answer."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await seed_an_application_a_seat_was_declined_on(database, client)
+            await erased(database, client, KONTAKTE["stellvertretung"]["email"], germany_now=NOW)
+            emptied = await stored_bewerbung(database, RESEAT_BEWERBUNG)
+            code = await refused_code(resent(database, RESEAT_BEWERBUNG, "stellvertretung", today=TODAY, germany_now=MAIL_NOW))
+
+            return code, emptied, await stored_bewerbung(database, RESEAT_BEWERBUNG)
+
+        code, emptied, after = await on_a_league(mongo_replica_set_url, body)
+
+        assert code == Code.BEWERBUNG_SEAT_ERASED
+        assert after == emptied
+
     async def test_a_decided_application_takes_no_reseat(self, mongo_replica_set_url: str):
         """The submission is what the decision was taken against, and a decided one is not repaired into a different application."""
 
