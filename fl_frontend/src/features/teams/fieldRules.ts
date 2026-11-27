@@ -26,7 +26,10 @@ import {
   TeamsPutKontaktSeatBody,
   teamsPutKontaktSeatBodyEmailMax,
   teamsPutKontaktSeatBodyFirstNameMax,
+  teamsPutKontaktSeatBodyFirstNameRegExp,
   teamsPutKontaktSeatBodyLastNameMax,
+  teamsPutKontaktSeatBodyLastNameRegExp,
+  teamsPutKontaktSeatBodyPhoneRegExp,
 } from "@/core/generated/zod/inputs";
 
 import type { AddressRules } from "@/kit/AddressFields";
@@ -114,6 +117,12 @@ export const SEAT_RULES = {
     first_name: teamsPutKontaktSeatBodyFirstNameMax,
     last_name: teamsPutKontaktSeatBodyLastNameMax,
     email: teamsPutKontaktSeatBodyEmailMax,
+  },
+  // Each a source, the one form of a pattern a server page can hand a client field (`kit/TextField.tsx :: judgeOf`).
+  pattern: {
+    first_name: teamsPutKontaktSeatBodyFirstNameRegExp.source,
+    last_name: teamsPutKontaktSeatBodyLastNameRegExp.source,
+    phone: teamsPutKontaktSeatBodyPhoneRegExp.source,
   },
 };
 

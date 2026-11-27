@@ -79,7 +79,7 @@ export function SchiedsrichterEditor({
     touched((change: EditorSave<SchiedsrichterValues>, dryRun?: boolean) => save({ ...change, holder }, dryRun), { dryRunFirst: true }),
   );
   const { draft, set } = editor;
-  const { required, max } = rules;
+  const { required, max, pattern } = rules;
 
   const dangerAct: DangerAct =
     danger.kind === "reactivate"
@@ -124,6 +124,8 @@ export function SchiedsrichterEditor({
                 label={COPY.shared.name}
                 name="name"
                 kind="text"
+                pattern={pattern.name}
+                example={COPY.shared.field.exampleName}
                 isRequired={required.name}
                 maxLength={max.name}
                 value={draft.name}
@@ -180,6 +182,7 @@ export function SchiedsrichterEditor({
                 label={FACTS.phone}
                 name="phone"
                 kind="tel"
+                pattern={pattern.phone}
                 isRequired={required.phone}
                 value={draft.phone}
                 onChange={(phone) => set("phone", phone)}

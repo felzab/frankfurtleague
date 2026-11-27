@@ -14,13 +14,15 @@ const FACTS = COPY.shared.facts;
  * reaches the browser.
  */
 export function SchiedsrichterFields() {
-  const { required, max } = CREATE_RULES;
+  const { required, max, pattern } = CREATE_RULES;
   return (
     <>
       <TextField
         label={COPY.shared.name}
         name="name"
         kind="text"
+        pattern={pattern.name}
+        example={COPY.shared.field.exampleName}
         isRequired={required.name}
         maxLength={max.name}
       />
@@ -51,6 +53,7 @@ export function SchiedsrichterFields() {
           label={FACTS.phone}
           name="phone"
           kind="tel"
+          pattern={pattern.phone}
           isRequired={required.phone}
         />
       </FieldGroup>

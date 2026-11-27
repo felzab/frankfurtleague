@@ -57,17 +57,21 @@ type Autofill = "name" | "given-name" | "family-name" | "organization" | "street
  */
 type EmailAutofill = "email" | "username";
 
-/** A single line's keyboard, set by `kind`; a URL and a minute name the example their message shows. */
+/**
+ * A single line's keyboard, set by `kind`; a URL and a minute name the example their message shows. `pattern` is the
+ * write's own for the value, which the caller reads off the published contract, a server module the kit cannot import,
+ * as a `RegExp`'s `source`: a person's name, beside the example its message shows, a phone number, whose example is the
+ * kit's, and a minute. The field judges it (`judgeOf`).
+ */
 type Kind =
   | { kind: "text"; autofill?: Autofill; example?: never; pattern?: never }
+  /** A person's name, or one part of one, held to the write's name pattern. */
+  | { kind: "text"; autofill?: Autofill; example: Copy; pattern: string }
   | { kind: "digits"; autofill?: Autofill; example?: never; pattern?: never }
   | { kind: "email"; autofill?: EmailAutofill; example?: never; pattern?: never }
-  | { kind: "tel"; autofill?: never; example?: never; pattern?: never }
+  | { kind: "tel"; autofill?: never; example?: never; pattern?: string }
   | { kind: "url"; autofill?: never; example: Copy; pattern?: never }
-  /**
-   * A played minute, stoppage time after a plus, „90+3“: `pattern` is the write's own for it, which the caller reads
-   * off the published contract, a server module the kit cannot import.
-   */
+  /** A played minute, stoppage time after a plus, „90+3“. */
   | { kind: "minute"; autofill?: never; example: Copy; pattern: string };
 
 /*
@@ -98,31 +102,45 @@ export type TextFieldProps = Shared & (Short | Standard | Paragraph);
  * browser's address profile may still pass over and offer the person's own number.
  */
 const KINDS = {
-  text: { type: "text", inputMode: undefined, autoComplete: undefined, pattern: undefined },
-  paragraph: { type: "text", inputMode: undefined, autoComplete: undefined, pattern: undefined },
-  // A count or a figure: a plain field opening the digits keyboard, with no stepper, taking digits alone, so
-  // anything else reads „Format: …“ at the send rather than reaching the server.
-  digits: { type: "text", inputMode: "numeric", autoComplete: undefined, pattern: "[0-9]*" },
+  text: { type: "text", inputMode: undefined, autoComplete: undefined },
+  paragraph: { type: "text", inputMode: undefined, autoComplete: undefined },
+  // A count or a figure: a plain field opening the digits keyboard, with no stepper, taking digits alone (`DIGITS`).
+  digits: { type: "text", inputMode: "numeric", autoComplete: undefined },
   // The phone pad, which carries the plus beside the digits where `numeric`'s pad carries none; a plain text field
   // under it, so a keyboard whose pad lacks the plus still types one. The pattern is the caller's.
-  minute: { type: "text", inputMode: "tel", autoComplete: undefined, pattern: undefined },
-  email: { type: "email", inputMode: undefined, autoComplete: "off", pattern: undefined },
-  tel: { type: "tel", inputMode: undefined, autoComplete: "off", pattern: undefined },
-  url: { type: "url", inputMode: undefined, autoComplete: "off", pattern: undefined },
+  minute: { type: "text", inputMode: "tel", autoComplete: undefined },
+  email: { type: "email", inputMode: undefined, autoComplete: "off" },
+  tel: { type: "tel", inputMode: undefined, autoComplete: "off" },
+  url: { type: "url", inputMode: undefined, autoComplete: "off" },
 } as const;
 
-/** The example a malformed value is shown, by kind; a URL names its own. */
-const EXAMPLE = { email: COPY.shared.field.exampleAddress, digits: COPY.shared.field.exampleDigits } as const;
+/** The example a malformed value is shown, by kind; a URL, a minute and a name name their own. */
+const EXAMPLE = {
+  email: COPY.shared.field.exampleAddress,
+  digits: COPY.shared.field.exampleDigits,
+  tel: COPY.shared.field.examplePhone,
+} as const;
+
+/** A pattern, compiled, and the example its message names. */
+type Shape = { pattern: RegExp; example: Copy };
+
+/** A digits field's own: digits alone, so anything else reads „Format: …“ at the send rather than reaching the server. */
+const DIGITS: Shape = { pattern: /^[0-9]*$/u, example: EXAMPLE.digits };
 
 /**
- * What the browser's own check passes and the server refuses, judged on the press so a slip costs no round trip and,
- * behind the passkey touch, no touch: a required box holding only spaces, which the server trims to nothing, and an
- * address outside the API's rule, such as a host with no dot, which `type=email` takes. Each in the phrase the
- * server's refusal puts on the box. React Aria shows it once the value is committed or the form pressed, as every
+ * What the browser's own check passes and the server refuses, judged on the press so a slip costs no round trip: a
+ * required box holding only spaces, which the server trims to nothing; an address outside the API's rule, such as a
+ * host with no dot, which `type=email` takes; and a value outside its pattern (`shape`). Each in the phrase
+ * the server's refusal puts on the box. React Aria shows it once the value is committed or the form pressed, as every
  * field message, and the press goes nowhere while it stands. The sign-in library's own rule and every rule reading a
  * record stay the server's.
+ *
+ * A pattern is judged here rather than by the input's `pattern` attribute, which HTML compiles under the `v` flag: the
+ * contract's phone pattern is a SyntaxError there, its class holding an unescaped bracket, and a browser drops a
+ * pattern it cannot compile in silence. Each contract pattern compiles under `u`, which the name's `\p{L}` needs, and
+ * is anchored whole, as the attribute anchors it. The value judged is trimmed, as the action strips what it sends.
  */
-function judgeOf(kind: TextFieldProps["kind"], isRequired: boolean) {
+function judgeOf(kind: TextFieldProps["kind"], isRequired: boolean, shape: Shape | undefined) {
   return (value: string): Copy | null => {
     const trimmed = value.trim();
     if (trimmed === "") return isRequired && value !== "" ? COPY.shared.field.required : null;
@@ -130,8 +148,17 @@ function judgeOf(kind: TextFieldProps["kind"], isRequired: boolean) {
     if (kind === "email" && trimmed.length <= KONTAKT_EMAIL_MAX_LENGTH && !isDeliverableAddress(trimmed)) {
       return COPY.shared.field.format(COPY.shared.field.exampleAddress);
     }
+    if (shape !== undefined && !shape.pattern.test(trimmed)) return COPY.shared.field.format(shape.example);
     return null;
   };
+}
+
+/** The field's pattern, a digits field's own or the caller's, anchored whole and compiled under `u`, as `judgeOf` takes it. */
+function shapeOf(props: TextFieldProps): Shape | undefined {
+  if (props.kind === "digits") return DIGITS;
+  if (props.kind === "paragraph" || props.pattern === undefined) return undefined;
+  const example = props.kind === "tel" ? EXAMPLE.tel : props.example;
+  return { pattern: new RegExp(`^(?:${props.pattern})$`, "u"), example };
 }
 
 /**
@@ -154,11 +181,12 @@ export function TextField(props: TextFieldProps) {
   } = props;
   const keys = KINDS[kind];
   const width = kind === "paragraph" ? "full" : props.holds === undefined ? "standard" : "short";
+  const shape = shapeOf(props);
   const constraints: Constraints = {
     maxLength,
     minLength,
-    example:
-      props.kind === "url" || props.kind === "minute" ? props.example : kind === "email" || kind === "digits" ? EXAMPLE[kind] : undefined,
+    // The two kinds whose `type` the browser judges itself; every pattern words its own message (`judgeOf`).
+    example: props.kind === "url" ? props.example : kind === "email" ? EXAMPLE.email : undefined,
   };
   const frame = fieldFrame({ width, holds: props.holds, inset: "full", figures: kind === "digits" || kind === "minute" });
   const field =
@@ -190,14 +218,13 @@ export function TextField(props: TextFieldProps) {
       defaultValue={props.defaultValue}
       onChange={props.onChange}
       isRequired={lock.isRequired}
-      validate={judgeOf(kind, lock.isRequired)}
+      validate={judgeOf(kind, lock.isRequired, shape)}
       isDisabled={isDisabled}
       isReadOnly={lock.isReadOnly}
       maxLength={maxLength}
       minLength={minLength}
       type={keys.type}
       inputMode={keys.inputMode}
-      pattern={props.pattern ?? keys.pattern}
       autoComplete={props.autofill ?? keys.autoComplete}
       aria-describedby={props.unit === undefined ? undefined : unitId}>
       {!labelHidden && (

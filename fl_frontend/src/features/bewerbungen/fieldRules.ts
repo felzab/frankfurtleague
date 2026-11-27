@@ -8,7 +8,10 @@ import {
   BewerbungenPostKontaktSeatBody,
   bewerbungenPostKontaktSeatBodyEmailMax,
   bewerbungenPostKontaktSeatBodyFirstNameMax,
+  bewerbungenPostKontaktSeatBodyFirstNameRegExp,
   bewerbungenPostKontaktSeatBodyLastNameMax,
+  bewerbungenPostKontaktSeatBodyLastNameRegExp,
+  bewerbungenPostKontaktSeatBodyPhoneRegExp,
 } from "@/core/generated/zod/inputs";
 
 const seat = BewerbungenPostKontaktSeatBody.shape;
@@ -37,6 +40,12 @@ export const SEAT_RULES = {
     first_name: bewerbungenPostKontaktSeatBodyFirstNameMax,
     last_name: bewerbungenPostKontaktSeatBodyLastNameMax,
     email: bewerbungenPostKontaktSeatBodyEmailMax,
+  },
+  // Each a source, the one form of a pattern a server page can hand a client field (`kit/TextField.tsx :: judgeOf`).
+  pattern: {
+    first_name: bewerbungenPostKontaktSeatBodyFirstNameRegExp.source,
+    last_name: bewerbungenPostKontaktSeatBodyLastNameRegExp.source,
+    phone: bewerbungenPostKontaktSeatBodyPhoneRegExp.source,
   },
 } as const;
 

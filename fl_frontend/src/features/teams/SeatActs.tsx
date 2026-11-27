@@ -32,7 +32,7 @@ const ACT = { verb: "save" } as const;
 export function SeatActs<Key>({
   seats,
   person,
-  rules: { required, max },
+  rules: { required, max, pattern },
   write,
   carry,
   holder,
@@ -89,6 +89,8 @@ export function SeatActs<Key>({
           label={COPY.shared.firstName}
           name="first_name"
           kind="text"
+          pattern={pattern.first_name}
+          example={COPY.shared.field.exampleFirstName}
           isRequired={required.first_name}
           maxLength={max.first_name}
           defaultValue={person?.first_name}
@@ -97,6 +99,8 @@ export function SeatActs<Key>({
           label={COPY.shared.lastName}
           name="last_name"
           kind="text"
+          pattern={pattern.last_name}
+          example={COPY.shared.field.exampleLastName}
           isRequired={required.last_name}
           maxLength={max.last_name}
           defaultValue={person?.last_name}
@@ -113,6 +117,7 @@ export function SeatActs<Key>({
           label={COPY.shared.facts.phone}
           name="phone"
           kind="tel"
+          pattern={pattern.phone}
           isRequired={required.phone}
           defaultValue={person?.phone}
         />

@@ -255,7 +255,10 @@ function ActDialog({
             `Form` would otherwise take the outer form's props from its context, the outer submit handler among them. */}
         <FormContext value={null}>
           {/* The browser's own check, as React Aria's `Form` holds it, rather than `HeldForm`'s: a dialog opens on a
-              hydrated press alone, so no press reaches it before hydration, which `HeldForm` exists to hold. */}
+              hydrated press alone, so no press reaches it before hydration, which `HeldForm` exists to hold. Its other
+              reason, a press the browser stops in silence on a control it cannot show, is a press before hydration
+              too: once hydrated, each field's own `invalid` listener (`useFormValidation`) cancels the browser's report
+              and shows the field's message, focusing the first, a date's segments among them. */}
           <Form
             ref={form}
             className="grid gap-6"
