@@ -764,8 +764,8 @@ const TOGGLE_OFFSET = { name: "mt-px", home: "src/kit/fieldStyles.ts" };
 
 const TABLE_BLOCK = { allow: ["src/kit/Table.tsx", "src/kit/TableStanding.tsx", "src/kit/Lineup.tsx"] };
 const SIDES = "(?:t|r|b|l|s|e|tl|tr|br|bl|ss|se|es|ee)";
-/** React Aria's props placing a refusal on a field: its served faults, its invalid mark, old and new, and its words. */
-const PLACED = "validationErrors|validationState|errorMessage|isInvalid";
+/** React Aria's props placing a refusal on a field: its served faults, its invalid mark and its words. */
+const PLACED = "validationErrors|errorMessage|isInvalid";
 
 const DESIGN_BANS = [
   // Page bodies: page code places the kit's named blocks, so a second match row, empty state or chip
@@ -967,10 +967,8 @@ const DESIGN_BANS = [
       ["src/kit/DialogOverlay.tsx", "src/kit/ConfirmDialog.tsx", "src/kit/Sheet.tsx"],
       "The overlay is `DialogOverlay`'s, which `Dialog` and `ConfirmDialog` stand in, and `Sheet`'s alone.",
     ],
-    // React Aria's own context for the server's faults is the form's too: provided beside it, a fault stands on a box
-    // that the form's report never focuses and whose fault outlasts the form's.
     [
-      ["Form", "FormValidationContext"],
+      ["Form"],
       "Form",
       ["src/kit/HeldForm.tsx"],
       "Every form is `HeldForm`, a dialog's included, and the server's faults reach a box through its `fieldErrors` alone: both passes end on its boxes and move the focus to the first faulted one, and a press before hydration goes out as no GET.",
