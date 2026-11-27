@@ -5,7 +5,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy/shared";
 import { serveHost } from "@/test-support/backend";
-import { renderUnderNext } from "@/test-support/nextContexts";
+import { renderUnderNext, underNext } from "@/test-support/nextContexts";
+import { drawnOnServer } from "@/test-support/server";
 
 import { RailFrame } from "./RailFrame";
 
@@ -141,5 +142,40 @@ describe("the account menu", () => {
     const toast = await screen.findByRole("alertdialog", { name: COPY.shared.failure.unexpected });
     expect(toast.querySelector(".text-danger")).toBeTruthy();
     expect([sent(), leave.leaveDocumentFor.mock.calls]).toStrictEqual([[SIGN_OUT], []]);
+  });
+});
+
+/** The phone's band of the Spielorte's frame as the server sends it at `pathname`, by the name and address of each link. */
+async function bandOnServer(pathname: string, params: Record<string, string>) {
+  const page = await drawnOnServer(
+    underNext(
+      <RailFrame
+        groups={[{ entries: [{ id: "spielorte", label: COPY.page.adminSpielorte, href: "/admin/spielorte", icon: "search" }] }]}
+        bar={["spielorte"]}
+        foot={{ kind: "account", account: Promise.resolve(ACCOUNT) }}>
+        <p>Seite</p>
+      </RailFrame>,
+      { pathname, params },
+    ),
+  );
+  // The band is the column's one header outside the page's `main`: the rail's head is no header.
+  const band = [...page.querySelectorAll("header")].find((header) => header.closest("main") === null);
+  return [...(band?.querySelectorAll("a") ?? [])].map((link) => ({
+    name: link.getAttribute("aria-label") ?? link.textContent,
+    href: link.getAttribute("href"),
+  }));
+}
+
+// The frame's layout stays mounted across a navigation, so the band reads the address on the client; a band chosen
+// only after hydration would show a phone the logo over an editor until then, which no unit render of a page sees.
+describe("the phone's band as the server draws it", () => {
+  it("holds „‹ Zurück“ to the list in the logo's place at an editor's address", async () => {
+    expect(await bandOnServer("/admin/spielorte/sp-1", { spielort: "sp-1" })).toStrictEqual([
+      { name: COPY.shared.back, href: "/admin/spielorte" },
+    ]);
+  });
+
+  it("holds the logo at a list's address", async () => {
+    expect(await bandOnServer("/admin/spielorte", {})).toStrictEqual([{ name: COPY.brand.name, href: "/" }]);
   });
 });

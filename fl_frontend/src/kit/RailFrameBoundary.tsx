@@ -29,7 +29,7 @@ type FailedFrame = {
 
 /**
  * The error card in the rail form, its title in the strip, its retry: the one card of every rail frame's failure, this
- * boundary's and each area's `error.tsx`, which adds only the phone's band and bar where its layouts place them.
+ * boundary's and each area's `error.tsx`, inside the frame's band and bar.
  */
 export function RailError({ error, retry, scope }: { error: unknown; retry: () => void; scope: RailPageHead["scope"] }) {
   useReportClientCrash(error);

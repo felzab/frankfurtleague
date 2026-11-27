@@ -74,8 +74,7 @@ const BAR = ["overview", "spiele", "teams"] as const;
  * request's actor, sends a session turned away to the sign-in and throws an unread grant to the error page, each
  * inside the page, since a redirect thrown in a frame unmounts it whole. A session turned away is shown no account and
  * no season. One frame stands around every page of the area, so moving between a list and an editor, or between
- * seasons, keeps it. The phone's band and bar are the route groups' (`RailColumn`): an editor's route lies in
- * `(editor)`, every other page in `(list)`.
+ * seasons, keeps it.
  */
 export default function AdminLayout({ children }: { children: ReactNode }) {
   // One judgement for both reads.
@@ -91,8 +90,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       foot={{
         kind: "account",
         account: session.then((served) => (served === null ? null : readAccount(COPY.shared.administration))),
-      }}
-      columnInLayouts>
+      }}>
       {children}
     </GuardedRailFrame>
   );

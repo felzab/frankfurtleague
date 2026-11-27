@@ -6,7 +6,7 @@ import { useParams, usePathname } from "next/navigation";
 import { Button as AriaButton } from "react-aria-components/Button";
 
 import { COPY } from "@/core/copy/shared";
-import { LEGAL_PAGES, ROLE_ROOTS, ROUTES } from "@/core/routes";
+import { isEditorAddress, LEGAL_PAGES, ROLE_ROOTS, ROUTES } from "@/core/routes";
 import { leaveDocumentFor } from "@/shared/utils/documentNavigation";
 import { signOut } from "@/shared/utils/signOut";
 
@@ -800,15 +800,18 @@ export function ReadBack({ back, none }: { back: Promise<Route | null>; none: Re
 }
 
 /**
- * „‹ Zurück“ in an editor's band, to the list the rail marks for the editor: a record's page lies under its list,
- * so the way back is read from the address rather than declared by each editor, but for an editor whose route
- * declares the page it belongs to (`declaredPlaceOf`), as a line-up declares its match editor, which no menu lists.
+ * What stands at the start of the phone's band: „‹ Zurück“ to the page the address's route belongs to, else `start`,
+ * the frame's own. That page is the one the route declares (`declaredPlaceOf`), as a line-up declares its match
+ * editor, which no menu lists, and Konto's pages their list; else, for an editor (`isEditorAddress`), the list the
+ * rail marks for it, a record's page lying under its list. Read from the address, which the server renders the page
+ * with, so the band stands right before the page hydrates, whatever layout the page lies in.
  */
-export function EditorBack() {
+export function BandStart({ start }: { start: ReactNode }) {
   const groups = useEntries(useContext(MenuContext)?.groups ?? []);
   const current = useCurrent(groups.flatMap((group) => group.entries));
   const { saison } = useParams();
-  const declared = declaredPlaceOf(usePathname(), typeof saison === "string" ? saison : undefined);
-  const href = declared ?? current?.href;
-  return href === undefined ? null : <BackControl href={href} />;
+  const path = usePathname();
+  const declared = declaredPlaceOf(path, typeof saison === "string" ? saison : undefined);
+  const href = declared ?? (isEditorAddress(path) ? current?.href : undefined);
+  return href === undefined ? start : <BackControl href={href} />;
 }

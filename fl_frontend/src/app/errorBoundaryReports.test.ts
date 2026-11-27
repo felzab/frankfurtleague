@@ -27,9 +27,9 @@ const BOUNDARIES = filesUnder(APP_DIR, (name) => name === "error.tsx" || name ==
 
 type Boundary = ComponentType<{ error: unknown; retry: () => void }>;
 
-/* Each boundary rendered at an address with no dynamic segment, whose params the App Router answers as an empty
-   object, so a boundary drawing a frame's menu reads them as it does in the browser. */
-const ROUTED = { params: {} };
+/* Each boundary rendered at an address with no dynamic segment, the landing's, whose params the App Router answers as
+   an empty object, so a boundary drawing a frame's menu reads the path and them as it does in the browser. */
+const ROUTED = { pathname: "/", params: {} };
 
 const boundaryOf = async (file: string): Promise<Boundary> => ((await import(pathToFileURL(file).href)) as { default: Boundary }).default;
 
