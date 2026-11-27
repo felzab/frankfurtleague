@@ -355,11 +355,15 @@ const IMPORT_BANS = [
 ];
 
 /**
- * Each whole-module import ban again for `import()` in production code, which `no-restricted-imports` never reads: it
- * judges import and export declarations alone, and the server's entry points load modules that way. A test is left to
- * its declarations, since it loads each module by `import()` once its doubles stand. A ban naming `importNames` stays
- * the declarations' alone, since a dynamic import's names are read off its result, in spellings no selector holds. The
- * selector's regex matches as the rule's own does, ignoring case.
+ * The whole-module bans of `IMPORT_BANS` again for `import()` in production code, which `no-restricted-imports` never
+ * reads: it judges import and export declarations alone, and the server's entry points load modules that way. They are
+ * the layer boundaries, the administration's catalogue, Node's network clients and Next's private contexts, each
+ * broken by loading the module at all, which an `import()` does as surely as a declaration. The bans of `DESIGN_BANS`
+ * are left to their declarations: they place components on a page, and production code reaches a component by a
+ * declaration alone. A test is left to its declarations, since it loads each module by `import()` once its doubles
+ * stand. A ban naming `importNames` stays the declarations' alone, the secret readers' among them, since a dynamic
+ * import's names are read off its result, in spellings no selector holds. The selector's regex matches as the rule's
+ * own does, ignoring case.
  */
 const DYNAMIC_IMPORT_BANS = IMPORT_BANS.filter(({ entry }) => entry.importNames === undefined).map(
   ({ entry: { regex, message }, reach, ...rest }) => ({
