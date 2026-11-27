@@ -121,7 +121,7 @@ export const COPY = catalogue({
       stale: "Die Seite ist nicht mehr aktuell.",
       signInExpired: "Deine Anmeldung ist abgelaufen.",
       /** A press past any limit on tries, whatever was counted: the edge's rate, a code's wrong tries, an address's codes. */
-      tooManyAttempts: "Zu viele Versuche.",
+      tooManyAttempts: "Zu viele Versuche",
       /** An administrator's grant is gone or was never held: no sign-in and no retry repairs it. */
       accessGone: "Dein Zugang zur Verwaltung besteht nicht mehr.",
     },
