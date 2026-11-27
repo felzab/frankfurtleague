@@ -119,7 +119,7 @@ async def refused(
 
         row, _ = await row_and_mails(database)
 
-        return refusal.value.error_code, refusal.value.fields, row
+        return refusal.value.error_code, tuple(fault.path for fault in refusal.value.faults), row
 
     return await on_a_row(url, body, kontakte=kontakte)
 

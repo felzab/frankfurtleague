@@ -50,7 +50,7 @@ from app.api.spieltage.admin_router import router as spieltage_admin_router
 from app.api.system.router import router as system_router
 from app.api.teams.admin_router import router as teams_admin_router
 from app.api.teams.person_router import router as teams_person_router
-from app.core.codes import Rule
+from app.core.codes import FieldCode, Rule
 from app.core.config import BackendConfig
 from app.core.db import lifespan
 from app.core.exception_handlers import register_exception_handlers
@@ -144,8 +144,8 @@ def with_failure_responses(document: Mapping[str, Any]) -> dict[str, Any]:
 
 
 # Every alias a frontend constant is checked against: a value a page, a mail or a control states, and the domain
-# rules' kinds, which the catalogue's rule phrases are keyed by. No model names `Rule`: a refused field's `kind` is one
-# of Pydantic's own error types as often.
+# rules' kinds and the field codes, which the catalogue's phrases are keyed by. No model names `Rule` or `FieldCode`: a
+# refused field's `kind` is one of Pydantic's own error types as often.
 MIRRORED_CONSTANTS: Final = (
     *ADDRESS_CHANGE_BOUNDS,
     *GRANT_BOUNDS,
@@ -162,6 +162,7 @@ MIRRORED_CONSTANTS: Final = (
     FLKontaktEmailMaxLength,
     FLOutboxRetentionDays,
     FLTeamShorthandLength,
+    FieldCode,
     Rule,
 )
 

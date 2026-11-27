@@ -39,7 +39,7 @@ from app.api.spieler.crud import pull_kader_room
 from app.api.spieler.services import find_full_kader_refusal
 from app.core.clock import days_after, utc_stamp
 from app.core.collections import Collection
-from app.core.crud import patch_one_in_db, post_one_to_db, pull_by_token, pull_one_from_db, refuse
+from app.core.crud import patch_one_in_db, post_one_to_db, pull_by_token, pull_one_from_db, refuse, refuse_faults
 from app.core.dependencies import (
     DBClient,
     GermanDay,
@@ -402,8 +402,8 @@ async def post_confirmation(
         departed = await _team_departed(saison_teams_collection=saison_teams_collection, registrierung_raw=raw, session=session)
         refuse(find_expired_token_refusal(confirmation=raw.get("confirmation"), status=raw.get("status"), departed=departed, today=today))
         # The pupil's own floor and never a contact seat's, so raising one cannot silently raise the other.
-        refuse(find_age_refusal(birth_date=answer_data.birth_date, today=today, minimum_age=REGISTRIERUNG_MIN_AGE_YEARS))
-        refuse(find_self_media_refusal(saved=None, media=answer_data.media, birth_date=answer_data.birth_date, today=today))
+        refuse_faults(find_age_refusal(birth_date=answer_data.birth_date, today=today, minimum_age=REGISTRIERUNG_MIN_AGE_YEARS))
+        refuse_faults(find_self_media_refusal(saved=None, media=answer_data.media, birth_date=answer_data.birth_date, today=today))
 
         await patch_one_in_db(
             collection=registrierungen_collection,

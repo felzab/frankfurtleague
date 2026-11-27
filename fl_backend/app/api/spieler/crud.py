@@ -22,6 +22,7 @@ from app.core.crud import (
     delete_many_from_db,
     pull_one_from_db,
     refuse,
+    refuse_faults,
 )
 from app.core.readonly import ReadCollection
 from app.shared.schemas.custom import CustomObjectId
@@ -148,7 +149,7 @@ async def refuse_a_taken_rolle(
         )
     ) is not None
 
-    refuse(find_kader_rolle_refusal(rolle=rolle, taken=taken))
+    refuse_faults(find_kader_rolle_refusal(rolle=rolle, taken=taken))
 
 
 async def another_pupil_holds(

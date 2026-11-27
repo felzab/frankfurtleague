@@ -9,7 +9,7 @@ from bson import ObjectId
 from app.api.grants.schemas import FLGrantChange, FLGrantNoticeStage
 from app.api.outbox.schemas import FLGrantData
 from app.core.codes import Code
-from app.core.exceptions import APIError
+from app.core.exceptions import APIError, FieldFault
 from app.core.security import refused_session, signed_in_since
 from app.shared.schemas.custom import as_utc
 from app.shared.schemas.literals import FLAdminTier
@@ -45,13 +45,13 @@ def handover_due(grants: Sequence[Mapping[str, Any]], now: datetime) -> Mapping[
     return next((grant for grant in grants if grant.get("owner_from") is not None and as_utc(grant["owner_from"]) <= now.astimezone(UTC)), None)
 
 
-def find_exists_refusal(*, address: str, grants: Sequence[Mapping[str, Any]]) -> APIError | None:
+def find_exists_refusal(*, address: str, grants: Sequence[Mapping[str, Any]]) -> FieldFault | None:
     """`grant_exists`: a grant already holds the address, of either tier, a waiting one included."""
 
     if admin_tier_of(address, grants) is None:
         return None
 
-    return APIError(HTTPStatus.CONFLICT, Code.GRANT_EXISTS, fields=(("email",),))
+    return FieldFault(path=("email",), code=Code.GRANT_EXISTS, status=HTTPStatus.CONFLICT)
 
 
 def find_only_owner_refusal(*, actor: str, auth_time: int, grants: Sequence[Mapping[str, Any]]) -> APIError | None:

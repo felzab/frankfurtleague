@@ -103,6 +103,7 @@ from app.core.crud import (
     pull_one_from_db,
     pull_whole_from_db,
     refuse,
+    refuse_faults,
     set_inactive_since,
 )
 from app.core.dependencies import (
@@ -655,7 +656,7 @@ async def put_austritt(
         refuse(find_saison_past_refusal(saison_status=str(saison_raw["status"])))
 
         start_date = str(saison_raw["start_date"])
-        refuse(find_austritt_refusal(start_date=start_date, started=has_started(start_date=start_date, today=today)))
+        refuse_faults(find_austritt_refusal(start_date=start_date, started=has_started(start_date=start_date, today=today)))
 
         # Every fixture of the season, not only the club's: a save judges this row's exit on a read it never writes, and
         # writes the fixture it saves, which may be one fielding the club only once it lands. So any save judging under
@@ -735,7 +736,7 @@ async def put_kontakt_seat(
             session=session,
         )
         kontakte, seats = compose_seat_block(stored=stored.get("kontakte"), seat=pressed, sent=sent, today=today)
-        refuse(find_kontakt_taken_refusal(kontakte=kontakte, seats=seats))
+        refuse_faults(find_kontakt_taken_refusal(kontakte=kontakte, seats=seats))
         # Read as well as filtered on: a dry run patches nothing for the version to refuse, and the patch's filter still
         # refuses a write racing past this read.
         refuse(find_stale_save_refusal(stored, version=seat_data.version))

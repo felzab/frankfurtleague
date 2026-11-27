@@ -38,8 +38,9 @@ from app.core.crud import (
     pull_one_from_db,
     pull_whole_from_db,
     refuse,
+    refuse_faults,
 )
-from app.core.exceptions import APIError
+from app.core.exceptions import FieldFault
 from app.core.readonly import ReadCollection
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from app.shared.schemas.custom import CustomObjectId
@@ -73,7 +74,7 @@ async def refuse_a_taken_colour(
         {"saison_id": saison_id, "trikot_farbe": trikot_farbe, **other_rows}, projection={"_id": 1}, session=session
     )
     if held is not None:
-        raise APIError(HTTPStatus.CONFLICT, Code.TRIKOT_FARBE_TAKEN, fields=(("trikot_farbe",),))
+        refuse_faults(FieldFault(path=("trikot_farbe",), code=Code.TRIKOT_FARBE_TAKEN, status=HTTPStatus.CONFLICT))
 
 
 async def refuse_a_full_gruppe(
@@ -141,7 +142,7 @@ async def found_a_team(*, teams_collection: AsyncCollection, team: Mapping[str, 
     """Write a new club, its `shorthand` judged against every other, a retired one included; its id."""
 
     taken = await is_held_elsewhere(collection=teams_collection, key="shorthand", value=team["shorthand"], own_id=None, session=session)
-    refuse(find_shorthand_refusal(taken=taken))
+    refuse_faults(find_shorthand_refusal(taken=taken))
 
     return (await insert_live(collection=teams_collection, document=dict(team), session=session)).inserted_id
 
@@ -247,7 +248,7 @@ async def write_the_team(
     """
 
     taken = await is_held_elsewhere(collection=teams_collection, key="shorthand", value=team["shorthand"], own_id=team_id, session=session)
-    refuse(find_shorthand_refusal(taken=taken))
+    refuse_faults(find_shorthand_refusal(taken=taken))
     stored = await patch_one_in_db(
         collection=teams_collection,
         db_filter={"_id": team_id},

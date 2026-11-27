@@ -652,7 +652,11 @@ class TestTheAdoption:
 
         refusal, slot = await on_a_spiel(mongo_replica_set_url, body)
 
-        assert (refusal.status_code, refusal.error_code, refusal.fields) == (HTTPStatus.CONFLICT, code, fields)
+        assert (refusal.status_code, refusal.error_code, None if refusal.subject is None else (refusal.subject.path,)) == (
+            HTTPStatus.CONFLICT,
+            code,
+            fields,
+        )
         assert slot == (DATE, TIME)
 
 

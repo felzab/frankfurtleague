@@ -23,7 +23,7 @@ from app.api.spieltage.services import (
 )
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.exceptions import APIError
+from app.core.exceptions import APIError, Subject
 from tests.database import a_clean_database
 from tests.documents import schiedsrichter_document, spiel_document, spielort_document
 from tests.worker import worker_database
@@ -51,7 +51,7 @@ class TestASpielSitsInsideItsMatchday:
         refusal = find_spiel_date_refusal(date=date, spieltag_start="2026-03-07", spieltag_end="2026-03-08")
 
         assert refusal is not None
-        assert (refusal.error_code, refusal.fields) == (Code.SPIEL_OUTSIDE_SPIELTAG, (("date",),))
+        assert (refusal.code, refusal.path) == (Code.SPIEL_OUTSIDE_SPIELTAG, ("date",))
 
 
 class TestAMatchdaySitsInsideItsSeason:
@@ -79,8 +79,7 @@ class TestASeasonKeepsCoveringItsMatchdays:
             spieltag_spans=[("2026-09-28", "2026-09-30")],
         )
 
-        assert refusal is not None
-        assert refusal.error_code == Code.SAISON_SPAN_BELOW_SPIELTAGE
+        assert [fault.code for fault in refusal] == [Code.SAISON_SPAN_BELOW_SPIELTAGE]
 
     def test_a_matchday_starting_before_the_season_is_refused(self):
         """Both edges count: a matchday reaching out at the front is as stranded as one at the back."""
@@ -92,8 +91,7 @@ class TestASeasonKeepsCoveringItsMatchdays:
             spieltag_spans=[("2026-03-07", "2026-03-09")],
         )
 
-        assert refusal is not None
-        assert refusal.error_code == Code.SAISON_SPAN_BELOW_SPIELTAGE
+        assert [fault.code for fault in refusal] == [Code.SAISON_SPAN_BELOW_SPIELTAGE]
 
 
 class TestASeasonIsLongEnoughForItsSchedule:
@@ -107,12 +105,9 @@ class TestASeasonIsLongEnoughForItsSchedule:
 
         refusal = find_saison_span_refusal(start_date="2026-03-01", end_date="2026-03-05", rules=SAISON_RULES, spieltag_spans=[])
 
-        assert refusal is not None
-        assert (refusal.error_code, refusal.fields, refusal.bounds) == (
-            Code.SAISON_SPAN_BELOW_SPIELPLAN,
-            (("end_date",),),
-            {"earliest": "2026-03-06"},
-        )
+        assert [(fault.code, fault.path, fault.bounds) for fault in refusal] == [
+            (Code.SAISON_SPAN_BELOW_SPIELPLAN, ("end_date",), {"earliest": "2026-03-06"})
+        ]
 
     def test_the_floor_follows_the_rules_rather_than_a_constant(self):
         """The same span is legal under one rules set and refused under a wider one; a hardcoded floor could not tell them apart."""
@@ -131,11 +126,10 @@ class TestASeasonIsLongEnoughForItsSchedule:
             allowed_stufen=["E1"],
         )
 
-        assert find_saison_span_refusal(start_date="2026-03-01", end_date="2026-03-06", rules=SAISON_RULES, spieltag_spans=[]) is None
+        assert find_saison_span_refusal(start_date="2026-03-01", end_date="2026-03-06", rules=SAISON_RULES, spieltag_spans=[]) == ()
 
         refusal = find_saison_span_refusal(start_date="2026-03-01", end_date="2026-03-06", rules=wider, spieltag_spans=[])
-        assert refusal is not None
-        assert refusal.error_code == Code.SAISON_SPAN_BELOW_SPIELPLAN
+        assert [fault.code for fault in refusal] == [Code.SAISON_SPAN_BELOW_SPIELPLAN]
 
 
 class TestAMatchdayKeepsCoveringItsSpiele:
@@ -167,7 +161,7 @@ class TestOneVenueAndOneRefereeAtATime:
         refusal = find_clash_refusal(date="2026-03-07", time=time, booked=[self.slot("18:00:00")])
 
         assert refusal is not None
-        assert refusal.error_code == Code.SPIEL_DOUBLE_BOOKED
+        assert refusal.code == Code.SPIEL_DOUBLE_BOOKED
 
     @pytest.mark.parametrize("time", ["14:00:00", "22:00:00"])
     def test_the_whole_buffer_apart_is_admitted(self, time):
@@ -181,7 +175,7 @@ class TestOneVenueAndOneRefereeAtATime:
         refusal = find_clash_refusal(date="2026-03-07", time="16:00:00", booked=[self.slot("18:00:00")])
 
         assert refusal is not None
-        assert refusal.error_code == Code.SPIEL_DOUBLE_BOOKED
+        assert refusal.code == Code.SPIEL_DOUBLE_BOOKED
 
 
 RETIRE_DATABASE = worker_database("fl_retire_booked_test")
@@ -222,7 +216,9 @@ async def refusal_of(call: Awaitable[None]) -> tuple[str, Mapping[str, Any]]:
     with pytest.raises(APIError) as refused:
         await call
 
-    return refused.value.error_code, refused.value.bounds
+    subject = refused.value.subject
+
+    return refused.value.error_code, {} if subject is None else subject.bounds
 
 
 class TestRetiringAVenueOrAReferee:
@@ -239,7 +235,7 @@ class TestRetiringAVenueOrAReferee:
         assert spielort is not None and spielort.error_code == Code.SPIELORT_STILL_BOOKED
         assert schiedsrichter is not None and schiedsrichter.error_code == Code.SCHIEDSRICHTER_STILL_ASSIGNED
         for refusal, field in ((spielort, "spielort_id"), (schiedsrichter, "schiedsrichter_id")):
-            assert (refusal.location, refusal.fields, refusal.bounds) == ("path", ((field,),), {"spiel_nrs": [3, 8], "count": 2})
+            assert refusal.subject == Subject(path=(field,), location="path", bounds={"spiel_nrs": [3, 8], "count": 2})
 
     @pytest.mark.db
     async def test_a_booking_still_to_play_refuses_the_route_naming_it_in_order_and_writes_nothing(self, mongo_replica_set_url: str):

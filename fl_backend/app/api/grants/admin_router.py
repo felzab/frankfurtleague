@@ -24,7 +24,7 @@ from app.api.grants.services import (
     find_only_owner_refusal,
     find_owner_row_refusal,
 )
-from app.core.crud import refuse
+from app.core.crud import refuse, refuse_faults
 from app.core.dependencies import (
     AddressChangeCollection,
     BanListCollection,
@@ -94,7 +94,7 @@ async def post_grant(
     async def judge(grants: Sequence[Mapping[str, Any]], session: AsyncClientSession) -> None:
         # Every refusal of the addition, in the write's transaction or the dry run's snapshot alike.
         refuse(find_only_owner_refusal(actor=operator, auth_time=signed_in.auth_time, grants=grants))
-        refuse(find_exists_refusal(address=address, grants=grants))
+        refuse_faults(find_exists_refusal(address=address, grants=grants))
         refuse(find_barred_refusal(barred=await address_is_barred(ban_list_collection=ban_list_collection, address=address, session=session)))
 
     if dry_run:

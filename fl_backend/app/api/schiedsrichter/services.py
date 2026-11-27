@@ -21,7 +21,7 @@ from app.core import clock
 from app.core.clock import days_after
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.exceptions import APIError, link_expired
+from app.core.exceptions import APIError, FieldFault, Subject, link_expired
 from app.shared.einwilligung import is_confirmed
 from app.shared.einwilligung_evidence import TextVersions, compose_initial
 from app.shared.folding import league_address, sign_in_identifier
@@ -47,7 +47,7 @@ def build_unplayed_assignment_filter(schiedsrichter_id: Any) -> Mapping[str, Any
     return {**build_assignment_filter(schiedsrichter_id), **unplayed_filter()}
 
 
-def find_referee_name_refusal(*, taken: bool) -> APIError | None:
+def find_referee_name_refusal(*, taken: bool) -> FieldFault | None:
     """`duplicate_key` on the name: another referee, a retired one included, holds it.
 
     Takes the answer rather than the lookup, so the caller's read runs in the caller's transaction. The unique index still
@@ -57,7 +57,7 @@ def find_referee_name_refusal(*, taken: bool) -> APIError | None:
     if not taken:
         return None
 
-    return APIError(HTTPStatus.CONFLICT, Code.DUPLICATE_KEY, fields=(("name",),))
+    return FieldFault(path=("name",), code=Code.DUPLICATE_KEY, status=HTTPStatus.CONFLICT)
 
 
 def find_referee_retire_refusal(*, upcoming_spiel_nrs: Sequence[int]) -> APIError | None:
@@ -72,9 +72,9 @@ def find_referee_retire_refusal(*, upcoming_spiel_nrs: Sequence[int]) -> APIErro
     return APIError(
         HTTPStatus.CONFLICT,
         Code.SCHIEDSRICHTER_STILL_ASSIGNED,
-        fields=(("schiedsrichter_id",),),
-        location="path",
-        bounds={"spiel_nrs": list(upcoming_spiel_nrs), "count": len(upcoming_spiel_nrs)},
+        subject=Subject(
+            path=("schiedsrichter_id",), location="path", bounds={"spiel_nrs": list(upcoming_spiel_nrs), "count": len(upcoming_spiel_nrs)}
+        ),
     )
 
 

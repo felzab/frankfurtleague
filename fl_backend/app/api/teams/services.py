@@ -20,7 +20,7 @@ from app.api.spiele.schemas import (
 from app.api.teams.schemas import FLKontaktMint, FLTeamGruppeOffer, FLTeamListState, FLTeamMembership, FLTeamsAdminRow, FLTeamStatistik
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.exceptions import APIError
+from app.core.exceptions import APIError, FieldFault
 from app.shared.einwilligung import seat_is_confirmed
 from app.shared.folding import normalise_phone, person_name_key, sign_in_identifier
 from app.shared.links import deadline_passed
@@ -364,7 +364,7 @@ def compose_seat_block(
     return {**block, **dict.fromkeys(seats, seated), "trainer_is_also": claim}, seats
 
 
-def find_kontakt_taken_refusal(*, kontakte: Mapping[str, Any], seats: Sequence[FLKontaktSeat]) -> APIError | None:
+def find_kontakt_taken_refusal(*, kontakte: Mapping[str, Any], seats: Sequence[FLKontaktSeat]) -> FieldFault | None:
     """Why this person cannot hold these seats, or `None`: another seat's person holds their address or their number.
 
     Asked of the seats this write leaves. The seats it writes are one person, so they are never compared with each
@@ -375,10 +375,10 @@ def find_kontakt_taken_refusal(*, kontakte: Mapping[str, Any], seats: Sequence[F
     others = [held for seat in KONTAKT_SEATS if seat not in seats and (held := kontakte.get(seat)) is not None]
 
     if sign_in_identifier(person["email"]) in {sign_in_identifier(str(held.get("email") or "")) for held in others}:
-        return APIError(HTTPStatus.CONFLICT, Code.KONTAKT_EMAIL_TAKEN, fields=(("email",),))
+        return FieldFault(path=("email",), code=Code.KONTAKT_EMAIL_TAKEN, status=HTTPStatus.CONFLICT)
 
     if normalise_phone(person["phone"]) in {normalise_phone(str(held.get("phone") or "")) for held in others}:
-        return APIError(HTTPStatus.CONFLICT, Code.KONTAKT_PHONE_TAKEN, fields=(("phone",),))
+        return FieldFault(path=("phone",), code=Code.KONTAKT_PHONE_TAKEN, status=HTTPStatus.CONFLICT)
 
     return None
 
@@ -632,7 +632,7 @@ def teams_admin_rows(
     return [row for row in chosen if gruppe is None or row.gruppe == gruppe]
 
 
-def find_shorthand_refusal(*, taken: bool) -> APIError | None:
+def find_shorthand_refusal(*, taken: bool) -> FieldFault | None:
     """`duplicate_key` on the shorthand: another club, a retired one included, holds it.
 
     Takes the answer rather than the lookup, so the caller's read runs in the caller's transaction. The unique index still
@@ -642,7 +642,7 @@ def find_shorthand_refusal(*, taken: bool) -> APIError | None:
     if not taken:
         return None
 
-    return APIError(HTTPStatus.CONFLICT, Code.DUPLICATE_KEY, fields=(("shorthand",),))
+    return FieldFault(path=("shorthand",), code=Code.DUPLICATE_KEY, status=HTTPStatus.CONFLICT)
 
 
 def find_team_entry_refusal(*, inactive_since: str | None) -> APIError | None:
@@ -688,7 +688,7 @@ def find_austritt_standing_refusal(*, stored: Mapping[str, Any] | None) -> APIEr
     return APIError(HTTPStatus.CONFLICT, Code.VERSION_STALE)
 
 
-def find_austritt_refusal(*, start_date: str, started: bool) -> APIError | None:
+def find_austritt_refusal(*, start_date: str, started: bool) -> FieldFault | None:
     """Why recording this exit must be refused, or `None`: the season has not started, and the replacement swaps its club out instead.
 
     Judged on the act, whatever day the exit is dated: while the season has not started the group swap stays open, and an
@@ -700,7 +700,7 @@ def find_austritt_refusal(*, start_date: str, started: bool) -> APIError | None:
     if started:
         return None
 
-    return APIError(HTTPStatus.CONFLICT, Code.AUSTRITT_BEFORE_SAISON_START, fields=(("date",),), bounds={"earliest": start_date})
+    return FieldFault(path=("date",), code=Code.AUSTRITT_BEFORE_SAISON_START, status=HTTPStatus.CONFLICT, bounds={"earliest": start_date})
 
 
 def find_entry_saison_refusal(*, saison_status: str) -> APIError | None:
@@ -734,7 +734,7 @@ def find_replacement_pair_refusal(*, team_id: Any, incoming_team_id: Any) -> API
     if team_id != incoming_team_id:
         return None
 
-    return APIError(HTTPStatus.UNPROCESSABLE_CONTENT, Code.REPLACE_ONE_TEAM_ON_BOTH_ENDS, fields=(("incoming_team_id",),))
+    return APIError(HTTPStatus.UNPROCESSABLE_CONTENT, Code.REPLACE_ONE_TEAM_ON_BOTH_ENDS)
 
 
 def find_replacement_refusal(

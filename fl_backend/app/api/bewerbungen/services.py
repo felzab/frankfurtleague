@@ -28,7 +28,7 @@ from app.api.teams.schemas import FLPostTeamPayload
 from app.core.clock import days_after
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.exceptions import APIError, link_expired, link_invalid
+from app.core.exceptions import APIError, FieldFault, FieldPath, link_expired, link_invalid
 from app.core.readonly import ReadCollection
 from app.shared.einwilligung import seat_is_confirmed
 from app.shared.einwilligung_evidence import TextVersions, compose_choices
@@ -69,14 +69,14 @@ _TEAM_FIELDS_FROM_SCHULE = {
 }
 
 
-def find_acceptance_code_refusal(*, new_school: bool, shorthand: str | None) -> APIError | None:
+def find_acceptance_code_refusal(*, new_school: bool, shorthand: str | None) -> FieldFault | None:
     """Why this acceptance's code is refused, or `None`: a new school takes one, and a picked club keeps its own.
 
     A body's fault, which only the stored application can show: the dialog asks the code of a new school alone.
     """
 
     if new_school == (shorthand is None):
-        return APIError(HTTPStatus.UNPROCESSABLE_CONTENT, Code.PAYLOAD_REFUSED, fields=(("shorthand",),))
+        return FieldFault(path=("shorthand",), code=Code.PAYLOAD_REFUSED, status=HTTPStatus.UNPROCESSABLE_CONTENT)
 
     return None
 
@@ -160,16 +160,19 @@ def find_window_refusal(*, saison_status: Any, bewerbung: Any, today: str) -> AP
     return APIError(HTTPStatus.CONFLICT, Code.BEWERBUNG_WINDOW_CLOSED)
 
 
-def find_submission_subject_refusal(*, team_id: Any | None, schule: Any | None) -> APIError | None:
-    """Why this submission resolves to no single school, or `None`.
+def find_submission_subject_refusal(*, team_id: Any | None, schule: Any | None) -> tuple[FieldFault, ...]:
+    """Why this submission resolves to no single school: a fault on both boxes, or none.
 
     Asked of the body alone: a stored application holds what this let through, and only a hand edit stores another.
     """
 
-    if (team_id is None) == (schule is None):
-        return APIError(HTTPStatus.UNPROCESSABLE_CONTENT, Code.BEWERBUNG_SUBMISSION_SUBJECT_UNRESOLVED, fields=(("team_id",), ("schule",)))
+    if (team_id is None) != (schule is None):
+        return ()
 
-    return None
+    return tuple(
+        FieldFault(path=(box,), code=Code.BEWERBUNG_SUBMISSION_SUBJECT_UNRESOLVED, status=HTTPStatus.UNPROCESSABLE_CONTENT)
+        for box in ("team_id", "schule")
+    )
 
 
 def find_picked_team_refusal(*, team_raw: Mapping[str, Any] | None) -> APIError | None:
@@ -863,8 +866,8 @@ def compose_resend_update(
     return {"$set": {**_fresh_links(seats=seats, today=today), **({"erasure_announced_at": None} if moved else {})}}
 
 
-def find_repeated_contact_refusal(*, kontakte: Mapping[str, Any]) -> APIError | None:
-    """Why this submission's block holds two people reachable alike, or `None`: every box repeating an earlier person's address or number.
+def find_repeated_contact_refusal(*, kontakte: Mapping[str, Any]) -> tuple[FieldFault, ...]:
+    """Why this submission's block holds two people reachable alike, a fault on every box repeating an earlier person's address or number.
 
     A body's fault, judged here rather than on the payload: a model's rule can name the block alone, and the form marks
     the box. The seat the Trainer also holds is that person and is compared with nobody; the mark lands on the later
@@ -873,7 +876,7 @@ def find_repeated_contact_refusal(*, kontakte: Mapping[str, Any]) -> APIError | 
 
     addresses: set[str] = set()
     numbers: set[str] = set()
-    boxes: list[tuple[str, ...]] = []
+    boxes: list[FieldPath] = []
 
     for seat in KONTAKT_SEATS:
         if seat == kontakte["trainer_is_also"]:
@@ -884,13 +887,10 @@ def find_repeated_contact_refusal(*, kontakte: Mapping[str, Any]) -> APIError | 
         addresses.add(address)
         numbers.add(number)
 
-    if boxes:
-        return APIError(HTTPStatus.UNPROCESSABLE_CONTENT, Code.BEWERBUNG_KONTAKT_REPEATED, fields=tuple(boxes))
-
-    return None
+    return tuple(FieldFault(path=box, code=Code.BEWERBUNG_KONTAKT_REPEATED, status=HTTPStatus.UNPROCESSABLE_CONTENT) for box in boxes)
 
 
-def find_seat_contact_refusal(*, kontakte: Mapping[str, Any] | None, seats: Sequence[str], email: str, phone: str) -> APIError | None:
+def find_seat_contact_refusal(*, kontakte: Mapping[str, Any] | None, seats: Sequence[str], email: str, phone: str) -> FieldFault | None:
     """Why this address or this number cannot be the seat's, or `None`.
 
     `find_repeated_contact_refusal`'s rule asked again -- two different people are not reachable alike -- because a seat
@@ -904,10 +904,10 @@ def find_seat_contact_refusal(*, kontakte: Mapping[str, Any] | None, seats: Sequ
     # The fold `find_repeated_contact_refusal` compares by: a third spelling of "one mailbox" here would refuse where the
     # form accepted, or the reverse.
     if sign_in_identifier(email) in {sign_in_identifier(str(other.get("email") or "")) for other in others}:
-        return APIError(HTTPStatus.CONFLICT, Code.KONTAKT_EMAIL_TAKEN, fields=(("email",),))
+        return FieldFault(path=("email",), code=Code.KONTAKT_EMAIL_TAKEN, status=HTTPStatus.CONFLICT)
 
     if normalise_phone(phone) in {normalise_phone(str(other.get("phone") or "")) for other in others}:
-        return APIError(HTTPStatus.CONFLICT, Code.KONTAKT_PHONE_TAKEN, fields=(("phone",),))
+        return FieldFault(path=("phone",), code=Code.KONTAKT_PHONE_TAKEN, status=HTTPStatus.CONFLICT)
 
     return None
 

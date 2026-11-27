@@ -8,7 +8,7 @@ from bson import ObjectId
 from app.api.spiele.schemas import FLPatchSpielDataPayload, FLSpielListAdapter
 from app.api.spiele.services import find_wiring_refusal
 from app.core.codes import Code
-from app.core.exceptions import APIError
+from app.core.exceptions import APIError, Subject
 from tests.payloads import PayloadFactory, SpielFactory, gruppenplatz, sieger, spiel_patch_body, verlierer
 
 MATCH_ID = "6890a1b2c3d4e5f60720{:04d}"
@@ -55,14 +55,14 @@ def refusal_for(season_docs: list[dict[str, Any]], nr: int, number_of_gruppen: i
     )
 
 
-def answer(refusal: APIError | None) -> tuple[int, Code, tuple[Any, ...], dict[str, Any]] | None:
+def answer(refusal: APIError | None) -> tuple[int, Code, tuple[Any, ...], Subject | None] | None:
     """What `refusal` would answer a client: an exception compares by identity, never by its fields."""
 
-    return None if refusal is None else (refusal.status_code, refusal.error_code, refusal.fields, dict(refusal.bounds))
+    return None if refusal is None else (refusal.status_code, refusal.error_code, refusal.faults, refusal.subject)
 
 
 # What every arm answers: one code for every shape the season moved under, the repair being a reload.
-WIRING_REFUSAL = (HTTPStatus.CONFLICT, Code.WIRING_UNSUPPORTED, (), {})
+WIRING_REFUSAL = (HTTPStatus.CONFLICT, Code.WIRING_UNSUPPORTED, (), None)
 
 
 class TestPhaseRules:

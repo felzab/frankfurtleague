@@ -2,7 +2,7 @@ from collections.abc import Sequence
 from http import HTTPStatus
 
 from app.core.codes import Code
-from app.core.exceptions import APIError
+from app.core.exceptions import APIError, FieldFault, Subject
 from app.shared.schemas.addresses import FLAddress
 
 
@@ -24,13 +24,13 @@ def find_venue_retire_refusal(*, upcoming_spiel_nrs: Sequence[int]) -> APIError 
     return APIError(
         HTTPStatus.CONFLICT,
         Code.SPIELORT_STILL_BOOKED,
-        fields=(("spielort_id",),),
-        location="path",
-        bounds={"spiel_nrs": list(upcoming_spiel_nrs), "count": len(upcoming_spiel_nrs)},
+        subject=Subject(
+            path=("spielort_id",), location="path", bounds={"spiel_nrs": list(upcoming_spiel_nrs), "count": len(upcoming_spiel_nrs)}
+        ),
     )
 
 
-def find_venue_name_refusal(*, taken: bool) -> APIError | None:
+def find_venue_name_refusal(*, taken: bool) -> FieldFault | None:
     """`duplicate_key` on the name: another venue, a retired one included, holds it.
 
     Takes the answer rather than the lookup, so the caller's read runs in the caller's transaction.
@@ -40,4 +40,4 @@ def find_venue_name_refusal(*, taken: bool) -> APIError | None:
     if not taken:
         return None
 
-    return APIError(HTTPStatus.CONFLICT, Code.DUPLICATE_KEY, fields=(("name",),))
+    return FieldFault(path=("name",), code=Code.DUPLICATE_KEY, status=HTTPStatus.CONFLICT)

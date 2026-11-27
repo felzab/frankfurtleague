@@ -59,7 +59,7 @@ def test_nominees_fill_the_gap_below_eleven_and_no_more(regular: int, nominees: 
 
     assert (refusal is not None and refusal.error_code == Code.AUFSTELLUNG_NOMINEE_WITHOUT_SHORTAGE) is refused
     # The bound the screen words the eleven from: dropped, its line would fall to the unexpected one.
-    assert refusal is None or (refusal.fields, refusal.bounds) == ((("spieler",),), {"max": AUFSTELLUNG_STARTERS_MAX})
+    assert refusal is None or [(fault.path, fault.bounds) for fault in refusal.faults] == [(("spieler",), {"max": AUFSTELLUNG_STARTERS_MAX})]
 
 
 def test_a_pupil_newly_named_outside_the_live_kader_is_refused_on_each_entry_naming_one():
@@ -73,10 +73,12 @@ def test_a_pupil_newly_named_outside_the_live_kader_is_refused_on_each_entry_nam
     saved = {"spieler": [{"spieler_id": withdrawn, "starts": False}]}
     entries = [FLAufstellungEntry(spieler_id=pupil, starts=False) for pupil in (REGULAR[0], outside, withdrawn, outside)]
 
-    refusal = find_not_in_kader_refusal(entries=entries, new=newly_named(entries, saved), nameless=0, kader=kader)
+    faults = find_not_in_kader_refusal(entries=entries, new=newly_named(entries, saved), nameless=0, kader=kader)
 
-    assert refusal is not None
-    assert (refusal.error_code, refusal.fields) == (Code.SPIELER_NOT_IN_KADER, (("spieler", 1, "spieler_id"), ("spieler", 3, "spieler_id")))
+    assert [(fault.code, fault.path) for fault in faults] == [
+        (Code.SPIELER_NOT_IN_KADER, ("spieler", 1, "spieler_id")),
+        (Code.SPIELER_NOT_IN_KADER, ("spieler", 3, "spieler_id")),
+    ]
 
 
 def test_a_first_save_judges_everyone_it_names_against_the_kader():
@@ -137,11 +139,11 @@ def test_a_save_keeps_the_entries_naming_nobody_and_adds_none(sent: int, refused
         *(FLAufstellungEntry(spieler_id=None, starts=False) for _ in range(sent)),
     ]
 
-    refusal = find_not_in_kader_refusal(entries=entries, new=newly_named(entries, saved), nameless=count_nameless(saved), kader=LIVE_KADER)
+    faults = find_not_in_kader_refusal(entries=entries, new=newly_named(entries, saved), nameless=count_nameless(saved), kader=LIVE_KADER)
 
-    assert (None if refusal is None else (refusal.error_code, refusal.fields)) == (
-        (Code.SPIELER_NOT_IN_KADER, tuple(("spieler", index, "spieler_id") for index in refused)) if refused else None
-    )
+    assert [(fault.code, fault.path) for fault in faults] == [
+        (Code.SPIELER_NOT_IN_KADER, ("spieler", index, "spieler_id")) for index in refused
+    ]
 
 
 def test_a_first_save_adds_no_entry_naming_nobody():
@@ -149,7 +151,6 @@ def test_a_first_save_adds_no_entry_naming_nobody():
 
     entries = [FLAufstellungEntry(spieler_id=None, starts=True)]
 
-    refusal = find_not_in_kader_refusal(entries=entries, new=set(), nameless=count_nameless(None), kader=[])
+    faults = find_not_in_kader_refusal(entries=entries, new=set(), nameless=count_nameless(None), kader=[])
 
-    assert refusal is not None
-    assert (refusal.error_code, refusal.fields) == (Code.SPIELER_NOT_IN_KADER, (("spieler", 0, "spieler_id"),))
+    assert [(fault.code, fault.path) for fault in faults] == [(Code.SPIELER_NOT_IN_KADER, ("spieler", 0, "spieler_id"))]

@@ -51,6 +51,7 @@ from app.core.crud import (
     pull_one_from_db,
     pull_whole_from_db,
     refuse,
+    refuse_faults,
     set_inactive_since,
 )
 from app.core.dependencies import (
@@ -158,7 +159,7 @@ async def post_schiedsrichter(
         taken = await is_held_elsewhere(
             collection=schiedsrichter_collection, key="name", value=schiedsrichter_data.name, own_id=None, session=session
         )
-        refuse(find_referee_name_refusal(taken=taken))
+        refuse_faults(find_referee_name_refusal(taken=taken))
 
     if dry_run:
         await judge(session)
@@ -234,7 +235,7 @@ async def patch_schiedsrichter(
         taken = await is_held_elsewhere(
             collection=schiedsrichter_collection, key="name", value=schiedsrichter_data.name, own_id=schiedsrichter_id, session=session
         )
-        refuse(find_referee_name_refusal(taken=taken))
+        refuse_faults(find_referee_name_refusal(taken=taken))
         refuse(find_confirmed_address_refusal(stored=stored, payload_email=email))
         # Read as well as filtered on: a dry run patches nothing for the version to refuse, and the patch's filter still
         # refuses a write racing past this read.

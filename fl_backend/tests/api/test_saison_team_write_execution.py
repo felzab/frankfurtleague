@@ -167,7 +167,7 @@ class TestRecordingAnExitFromTheSeason:
 
         refusal, before, after = await on_a_season(mongo_replica_set_url, body)
 
-        assert (refusal.error_code, refusal.fields, refusal.bounds) == (
+        assert (refusal.error_code, tuple(fault.path for fault in refusal.faults), refusal.faults[0].bounds) == (
             Code.AUSTRITT_BEFORE_SAISON_START,
             (("date",),),
             {"earliest": "2026-01-01"},

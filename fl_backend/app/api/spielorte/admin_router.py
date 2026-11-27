@@ -21,6 +21,7 @@ from app.core.crud import (
     pull_one_from_db,
     pull_whole_from_db,
     refuse,
+    refuse_faults,
     set_inactive_since,
 )
 from app.core.dependencies import DBClient, GermanDay, SpieleCollection, SpielorteCollection, SpielorteReadCollection
@@ -75,7 +76,7 @@ async def post_spielort(
 
     async def enter_the_venue(session: AsyncClientSession) -> InsertOneResult:
         taken = await is_held_elsewhere(collection=spielorte_collection, key="name", value=spielort_data.name, own_id=None, session=session)
-        refuse(find_venue_name_refusal(taken=taken))
+        refuse_faults(find_venue_name_refusal(taken=taken))
         created = await insert_live(
             collection=spielorte_collection,
             document={
@@ -118,7 +119,7 @@ async def patch_spielort(
         taken = await is_held_elsewhere(
             collection=spielorte_collection, key="name", value=spielort_data.name, own_id=spielort_id, session=session
         )
-        refuse(find_venue_name_refusal(taken=taken))
+        refuse_faults(find_venue_name_refusal(taken=taken))
         updated_document_raw = await patch_one_in_db(
             collection=spielorte_collection,
             db_filter={"_id": spielort_id},

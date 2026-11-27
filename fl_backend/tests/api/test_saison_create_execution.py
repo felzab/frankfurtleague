@@ -108,7 +108,7 @@ class TestTheCreateMakesTheNextSeason:
         listed_refusal, refusal, seasons = await _on(mongo_replica_set_url, [("2026", "active"), ("2027", "future")], body)
 
         assert listed_refusal == Code.CREATE_SAISON_FUTURE_STANDS
-        assert (refusal.status_code, refusal.error_code, refusal.fields) == (409, Code.CREATE_SAISON_FUTURE_STANDS, ())
+        assert (refusal.status_code, refusal.error_code, refusal.faults) == (409, Code.CREATE_SAISON_FUTURE_STANDS, ())
         assert seasons == [("2026", "active"), ("2027", "future")]
 
 
