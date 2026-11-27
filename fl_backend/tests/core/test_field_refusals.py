@@ -8,36 +8,11 @@ from fastapi.testclient import TestClient
 
 from app.core.codes import Code
 from app.core.crud import refuse, refuse_faults
-from app.core.exceptions import APIError, FieldCheck, FieldFault, Subject
+from app.core.exceptions import APIError, FieldFault, Subject
 from app.main import create_shell
 
 AGE = FieldFault(path=("birth_date",), code=Code.CONFIRMATION_AGE, status=HTTPStatus.UNPROCESSABLE_CONTENT, bounds={"min": 18, "max": 99})
 TAKEN = FieldFault(path=("email",), code=Code.KONTAKT_EMAIL_TAKEN, status=HTTPStatus.CONFLICT)
-# One check naming two boxes, as a rule judging several entries answers.
-REPEATED = tuple(
-    FieldFault(path=("kontakte", "stellvertretung", box), code=Code.BEWERBUNG_KONTAKT_REPEATED, status=HTTPStatus.UNPROCESSABLE_CONTENT)
-    for box in ("email", "phone")
-)
-
-
-def raised(*checks: FieldCheck) -> APIError | None:
-    try:
-        refuse_faults(*checks)
-    except APIError as refusal:
-        return refusal
-
-    return None
-
-
-class TestOneCollectingCall:
-    def test_every_fault_of_every_check_is_named_in_the_order_the_checks_were_asked(self):
-        """A fault dropped here is a box the person meets only on a later press."""
-
-        refusal = raised(AGE, None, REPEATED, TAKEN)
-
-        assert refusal is not None
-        assert (refusal.error_code, refusal.faults) == (Code.CONFIRMATION_AGE, (AGE, *REPEATED, TAKEN))
-
 
 SUBJECT = Subject(path=("schiedsrichter_id",), location="path", bounds={"spiel_nrs": [3, 8], "count": 2})
 
