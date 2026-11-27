@@ -2,8 +2,11 @@ import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
 import { boxesOf, rulesOf } from "./boxRules";
+import { COPY } from "./copy/shared";
 
-const rulesFor = (input: z.ZodType, examples?: Readonly<Record<string, { record: string }>>) => rulesOf(boxesOf(input), examples);
+import type { Copy } from "./copy";
+
+const rulesFor = (input: z.ZodType, examples?: Readonly<Record<string, Copy>>) => rulesOf(boxesOf(input), examples);
 
 // The harm: a box whose rule the browser's pass misses is refused only after the press, behind the passkey touch the
 // touch and everything typed in its dialog lost, and a rule stricter than the input refuses what the server takes.
@@ -29,7 +32,7 @@ describe("a box's rule read off its lane's input", () => {
   });
 
   it("names the example its lane declares, each row of a list by `*`", () => {
-    const minute = { record: "45+2" };
+    const minute = COPY.shared.field.exampleDigits;
     expect(
       rulesFor(z.object({ scorers: z.array(z.object({ minute: z.string().max(6).nullable() })) }), { "scorers.*.minute": minute }),
     ).toStrictEqual({ "scorers.*.minute": { maxLength: 6, example: minute } });
