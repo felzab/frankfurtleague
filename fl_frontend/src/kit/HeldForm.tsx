@@ -27,11 +27,12 @@ export function useFieldFaults(): FieldFaults | undefined {
 
 /**
  * What a part holding no box takes while its fault stands, such as a list refused as a whole: the focus the form's
- * report hands it where the answer names no box, at `tabIndex` -1, which the keys never reach, and the kit's resting
- * focus mark, as a section's title takes the focus once nothing in it is left (`FocusOnLeave`). A screen reader then
- * reads the part's name and the fault its `aria-describedby` names.
+ * report hands it where the answer names no box, at `tabIndex` -1, which the keys never reach, and the kit's ring,
+ * drawn while the browser takes that focus for the keyboard's, as it does after a press of Enter and not after a click,
+ * so a keyboard user sees where the focus went, as a faulted box shows its edge. A screen reader then reads the part's
+ * name and the fault its `aria-describedby` names.
  */
-export const FAULTED_PART = { "data-kit-faulted": "", "data-kit-focus": "", tabIndex: -1 } as const;
+export const FAULTED_PART = { "data-kit-faulted": "", "data-kit-focus": "ring", tabIndex: -1 } as const;
 
 type Control = HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
 
