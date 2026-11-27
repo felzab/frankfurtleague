@@ -38,8 +38,8 @@ const mark = tv({
       class:
         "aria-[current=page]:relative aria-[current=page]:bg-bg-muted aria-[current=page]:text-fg aria-[current=page]:after:absolute aria-[current=page]:after:inset-y-1.5 aria-[current=page]:after:start-0 aria-[current=page]:after:rounded-full aria-[current=page]:after:border-s-4 aria-[current=page]:after:border-brand",
     },
-    { list: "bar", current: "attribute", class: "aria-[current=page]:bg-bg-muted aria-[current=page]:text-brand" },
-    { list: "bar", current: true, class: "bg-bg-muted text-brand" },
+    { list: "bar", current: "attribute", class: "aria-[current=page]:text-brand" },
+    { list: "bar", current: true, class: "text-brand" },
     { list: "tabs", current: "attribute", class: "aria-[current=page]:border-brand aria-[current=page]:text-fg" },
     { list: "band", current: "attribute", class: "aria-[current=page]:text-on-brand" },
     {
