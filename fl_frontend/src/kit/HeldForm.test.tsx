@@ -343,6 +343,44 @@ describe("a faulted box after either pass", () => {
   });
 });
 
+// The harm: a rule over two boxes faults both, and a person who puts it right in one is held back at every press by the
+// fault left on the other, which names a box they need not change, with nothing sent.
+describe("a served fault at the next press", () => {
+  it("holds back no press over a box the person left as it was, and goes with that press", async () => {
+    const send = vi.fn<(fields: Record<string, FormDataEntryValue>) => void>();
+    const form = (fieldErrors?: FieldFaults) => (
+      <HeldForm
+        fieldErrors={fieldErrors}
+        rules={{}}
+        isBusy={false}
+        onSend={(formData) => send(Object.fromEntries(formData))}>
+        <TextField
+          label={WORD}
+          name="first"
+          kind="text"
+          defaultValue={ADDRESS}
+        />
+        <TextField
+          label={COPY.shared.name}
+          name="second"
+          kind="text"
+          defaultValue={ADDRESS}
+        />
+        <button type="submit">{COPY.shared.verb.save}</button>
+      </HeldForm>
+    );
+    const { container, rerender } = render(form());
+    const answer = { first: FAULT, second: FAULT };
+    await act(async () => rerender(form(answer)));
+
+    await userEvent.type(screen.getByRole("textbox", { name: WORD }), "x");
+    await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.save }));
+
+    expect(send).toHaveBeenCalledExactlyOnceWith({ first: `${ADDRESS}x`, second: ADDRESS });
+    expect(container.textContent).not.toContain(FAULT);
+  });
+});
+
 /** The press of a submit button, or of Enter, before any of the page's code runs. */
 const press = (root: HTMLElement) => root.querySelector("form")?.requestSubmit();
 

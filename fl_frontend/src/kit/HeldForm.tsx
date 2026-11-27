@@ -1,9 +1,10 @@
 "use client";
 
-import { createContext, useContext, useEffect, useMemo, useRef } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 
 import { Form } from "react-aria-components/Form";
 import { useObjectRef } from "react-aria/useObjectRef";
+import { flushSync } from "react-dom";
 
 import type { BoxRule, BoxRules } from "@/core/boxRules";
 import type { Copy } from "@/core/copy";
@@ -68,15 +69,18 @@ const judgedFor = (faults: FieldFaults, control: Element): readonly Control[] =>
  * The one judged form of the site: every form a person sends is this one, a dialog's included. Both passes end alike.
  * The browser's pass judges every box on the press and shows every fault at once, the send held back while one stands
  * (`onBlock`). The server's pass answers `fieldErrors`, each fault by its box's `name`, which React Aria's
- * `validationErrors` puts on the box (`useFormValidationState`). Either way the focus goes to the first faulted box:
- * once an answer's faults have committed, the form checks each box the answer names, whose `invalid` event React
- * Aria's field answers by focusing the form's first invalid box through the field's own `focus` (`useFormValidation`),
- * a date's segments, a select's button, a record picker's text and a choice group included (`judgedFor`); where no
- * named box is invalid, as a list's own refusal names none, the focus stays on the press, and the part shows its fault.
- * That check stands for no press, so it tells `onBlock` nothing: the status line says what the answer says. It reaches
- * no other box, since React Aria commits the fault of every box an `invalid` event reaches: a box the person changed
- * while the send was on its way is judged once they commit it, and one they left invalid ahead of the named boxes keeps
- * the focus, as React Aria focuses the form's first invalid box alone.
+ * `validationErrors` puts on the box (`useFormValidationState`) until that box changes or the next press, which ends
+ * every fault still standing: the server judged what the last press sent, and judges the next anew.
+ *
+ * Either way the focus goes to the first faulted box: once an answer's faults have committed, the form checks each box
+ * the answer names, whose `invalid` event React Aria's field answers by focusing the form's first invalid box through
+ * the field's own `focus` (`useFormValidation`), a date's segments, a select's button, a record picker's text and a
+ * choice group included (`judgedFor`); where no named box is invalid, as a list's own refusal names none, the focus
+ * stays on the press, and the part shows its fault. That check stands for no press, so it tells `onBlock` nothing: the
+ * status line says what the answer says. It reaches no other box, since React Aria commits the fault of every box an
+ * `invalid` event reaches: a box the person changed while the send was on its way is judged once they commit it, and
+ * one they left invalid ahead of the named boxes keeps the focus, as React Aria focuses the form's first invalid box
+ * alone.
  *
  * A press hands `onSend` the fields as it left them, unless `isBusy`: a busy submit button takes no press, but Enter in
  * a lone field submits a form all the same, and a second send mid-flight would act twice. A hydrated press stays on
@@ -111,7 +115,7 @@ export function HeldForm({
   /** The form's send is on its way, or its act is closed: a press sends nothing. Required, so no form forgets it. */
   isBusy: boolean;
   onSend: (formData: FormData) => void;
-  /** The last answer's faults, while they stand. Required, so no form leaves the server's faults off its boxes. */
+  /** The last answer's faults, which a press ends. Required, so no form leaves the server's faults off its boxes. */
   fieldErrors: FieldFaults | undefined;
   /**
    * What the browser's pass holds each box to, its lane's own rules (`core/action.ts :: boxRulesOf`), by the name each
@@ -127,6 +131,9 @@ export function HeldForm({
   // One object while the rules and the needed boxes stand, so a form's own render renders no field again for them.
   const needed = required?.join(" ") ?? "";
   const held = useMemo<Held>(() => ({ rules, required: new Set(needed.split(" ").filter(Boolean)) }), [rules, needed]);
+  // The answer a press has ended, whose faults stand on no box whatever the form's holder still hands down.
+  const [ended, setEnded] = useState<FieldFaults>();
+  const standing = fieldErrors === ended ? undefined : fieldErrors;
   const isHeld = useRef(false);
   const isReporting = useRef(false);
   // The answer last reported. A ref outlives an `Activity`, which re-creates this effect each time it shows the form
@@ -151,7 +158,7 @@ export function HeldForm({
       {...form}
       {...FORM_ATTRIBUTES}
       ref={element}
-      validationErrors={fieldErrors}
+      validationErrors={standing}
       onInvalid={() => {
         if (!isReporting.current) onBlock?.();
       }}
@@ -163,10 +170,16 @@ export function HeldForm({
       onSubmit={(event) => {
         event.preventDefault();
         event.stopPropagation();
-        if (!isBusy && event.currentTarget.reportValidity()) onSend(new FormData(event.currentTarget));
+        if (isBusy) return;
+        const pressed = event.currentTarget;
+        // React Aria makes a served fault the browser's own rule on its box until that box changes, so one left on a
+        // box the person need not change, a pair rule's other box, would hold back every press with nothing sent. The
+        // faults go here, in a render the browser's pass waits for, and the server judges what the press sends.
+        if (standing !== undefined) flushSync(() => setEnded(standing));
+        if (pressed.reportValidity()) onSend(new FormData(pressed));
       }}>
       <Rules value={held}>
-        <Faults value={fieldErrors}>{children}</Faults>
+        <Faults value={standing}>{children}</Faults>
       </Rules>
     </Form>
   );

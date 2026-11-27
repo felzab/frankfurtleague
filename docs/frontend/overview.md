@@ -98,10 +98,12 @@ fields. A value list in any slice is the generated value, as in `z.enum(FLSaison
 **Every form a person sends is `fl_frontend/src/kit/HeldForm.tsx`**, a dialog's included, and both
 passes end there alike. The browser's pass judges every box on the press and shows every fault at
 once, sending nothing while one stands. The server's answer stands on each box by the box's `name`,
-through React Aria's `validationErrors`. After either, the focus goes to the first faulted box by
-React Aria's own report, which reaches a date's segments and a select's button. An answer judges
-only the boxes it names, once, and a fault no box holds, such as a list's own, stands on the part
-that shows it, the focus staying on the press. ESLint holds it (`fl_frontend/eslint.config.mjs`).
+through React Aria's `validationErrors`, until that box changes or the next press: a press ends
+every served fault still standing, so none holds a press back and the server judges what each press
+sends. After either, the focus goes to the first faulted box by React Aria's own report, which
+reaches a date's segments and a select's button. An answer judges only the boxes it names, once, and
+a fault no box holds, such as a list's own, stands on the part that shows it, the focus staying on
+the press. ESLint holds it (`fl_frontend/eslint.config.mjs`).
 
 ## Rendering
 
