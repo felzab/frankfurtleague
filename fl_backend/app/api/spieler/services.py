@@ -260,8 +260,8 @@ def build_held_rollen_filter(*, saison_id: str, team_id: CustomObjectId, excludi
     }
 
 
-def find_kader_stufe_refusal(*, stufe: str | None, stored_stufe: str | None, allowed_stufen: Sequence[str]) -> APIError | None:
-    """`kader_stufe_not_allowed`: the edit writes a Stufe the season's rules do not offer.
+def find_kader_stufe_refusal(*, stufe: str | None, stored_stufe: str | None, allowed_stufen: Sequence[str]) -> FieldFault | None:
+    """`kader_stufe_not_allowed` on the Stufe's box: the edit writes a Stufe the season's rules do not offer.
 
     The stored value passes: a season narrowed after the row was written leaves it valid,
     and refusing it would lock the row's other fields too.
@@ -270,7 +270,7 @@ def find_kader_stufe_refusal(*, stufe: str | None, stored_stufe: str | None, all
     if stufe is None or stufe == stored_stufe or stufe in allowed_stufen:
         return None
 
-    return APIError(HTTPStatus.CONFLICT, Code.KADER_STUFE_NOT_ALLOWED)
+    return FieldFault(path=("stufe",), code=Code.KADER_STUFE_NOT_ALLOWED, status=HTTPStatus.CONFLICT)
 
 
 def build_self_pupil_filter(*identifiers: str) -> Mapping[str, Any]:

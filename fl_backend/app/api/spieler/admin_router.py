@@ -9,9 +9,9 @@ from app.api.grants.guard import ADMIN_TIER
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.saisons.services import find_saison_past_refusal
 from app.api.spieler.crud import (
+    find_a_taken_rolle,
     refuse_a_closed_kader,
     refuse_a_full_kader,
-    refuse_a_taken_rolle,
 )
 from app.api.spieler.schemas import (
     FLPatchSpielerSaisonPayload,
@@ -40,6 +40,7 @@ from app.core.crud import (
     pull_one_from_db,
     pull_whole_from_db,
     refuse,
+    refuse_faults,
     set_inactive_since,
 )
 from app.core.dependencies import (
@@ -187,21 +188,21 @@ async def patch_spieler_saison(
             await refuse_a_closed_kader(saisons_collection=saisons_collection, saison_id=saison_id, session=session)
 
         saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["rules"], session=session)
-        refuse(
+        refuse_faults(
             find_kader_stufe_refusal(
                 stufe=spieler_data.stufe,
                 stored_stufe=row_raw.get("stufe"),
                 allowed_stufen=FLSaisonRules.model_validate(saison_raw["rules"]).allowed_stufen,
-            )
-        )
-        await refuse_a_taken_rolle(
-            saison_spieler_collection=saison_spieler_collection,
-            saisons_collection=saisons_collection,
-            saison_id=saison_id,
-            team_id=row_raw["team_id"],
-            spieler_id=spieler_id,
-            rolle=spieler_data.rolle,
-            session=session,
+            ),
+            await find_a_taken_rolle(
+                saison_spieler_collection=saison_spieler_collection,
+                saisons_collection=saisons_collection,
+                saison_id=saison_id,
+                team_id=row_raw["team_id"],
+                spieler_id=spieler_id,
+                rolle=spieler_data.rolle,
+                session=session,
+            ),
         )
 
         # A part left as stored is not written. The sum above judged both, on reads this transaction's writes conflict with.
@@ -334,14 +335,16 @@ async def reactivate_saison_spieler(
             session=session,
         )
 
-        await refuse_a_taken_rolle(
-            saison_spieler_collection=saison_spieler_collection,
-            saisons_collection=saisons_collection,
-            saison_id=saison_id,
-            team_id=stored_raw["team_id"],
-            spieler_id=spieler_id,
-            rolle=stored_raw["rolle"],
-            session=session,
+        refuse_faults(
+            await find_a_taken_rolle(
+                saison_spieler_collection=saison_spieler_collection,
+                saisons_collection=saisons_collection,
+                saison_id=saison_id,
+                team_id=stored_raw["team_id"],
+                spieler_id=spieler_id,
+                rolle=stored_raw["rolle"],
+                session=session,
+            )
         )
 
         revived = await set_inactive_since(

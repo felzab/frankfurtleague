@@ -346,6 +346,8 @@ type FieldCode = Literal[
     Code.SPIELER_NOT_IN_KADER,
     # „Aus der Saison ausgeschieden“ (Out of the season).
     Code.ELIGIBILITY_DISQUALIFIED,
+    # „Nicht in dieser Saison“ (Not in this season), on a squad row's Stufe the season's rules do not offer.
+    Code.KADER_STUFE_NOT_ALLOWED,
     # „Erst mit beiden Teams“ (Only with both teams).
     Code.STATE_NICHTANTRETEN_WITHOUT_TWO_SIDES,
     # „Ohne Tore“ (Without goals).
