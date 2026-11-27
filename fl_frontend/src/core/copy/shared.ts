@@ -405,7 +405,6 @@ export const COPY = catalogue({
     signIn: VERB.signIn,
     accountSignIn: SIGN_IN,
     accountSecurity: "Sicherheit",
-    accountAppearance: "Darstellung",
     accountEntries: "Deine Einträge",
     adminSaisons: "Saisons",
     spiele: "Spiele",
@@ -626,8 +625,11 @@ export const COPY = catalogue({
     /** The account's place, one word signed in and out alike. */
     account: "Konto",
     menu: "Menü",
-    /** The theme's three choices in the order its control shows them, the third following the device's own setting. */
-    theme: { dark: "Dunkel", light: "Hell", system: "System" },
+    /**
+     * The theme control's name, and its three choices in the order the control shows them, the third following the
+     * device's own setting.
+     */
+    theme: { label: "Darstellung", dark: "Dunkel", light: "Hell", system: "System" },
     /** Named for what the next press does. */
     sidebar: { collapse: "Seitenleiste einklappen", expand: "Seitenleiste ausklappen" },
 
