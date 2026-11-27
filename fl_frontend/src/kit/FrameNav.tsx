@@ -548,23 +548,15 @@ export function AccountRow({ account: read }: { account: AccountRead }) {
 }
 
 // The current place takes the bar's mark (`placeMark`), a link's by its `place` and „Mehr“'s, a button no attribute
-// marks, by its state; it keeps its mark's words under the pointer, and every other place turns its words full colour.
+// marks, by its state; under the pointer every place turns its muted words full colour, the current one's already.
 const barPlace = tv({
-  base: "flex h-full min-w-0 flex-col items-center justify-center gap-1 text-xs font-medium transition-colors duration-(--motion-state)",
+  base: "flex h-full min-w-0 flex-col items-center justify-center gap-1 text-xs font-medium text-fg-muted transition-colors duration-(--motion-state)",
   variants: {
-    current: {
-      true: "",
-      false: "text-fg-muted",
-    },
     host: {
-      link: hoverLook({ host: "link" }),
-      aria: hoverLook({ host: "aria" }),
+      link: hoverLook({ host: "link", answer: "full" }),
+      aria: hoverLook({ host: "aria", answer: "full" }),
     },
   },
-  compoundVariants: [
-    { host: "link", current: false, class: hoverLook({ host: "link", answer: "words" }) },
-    { host: "aria", current: false, class: hoverLook({ host: "aria", answer: "words" }) },
-  ],
 });
 
 /** The frame's menu as the phone's band and bar draw it, which a nested layout placing them cannot be handed. */
@@ -620,7 +612,7 @@ function Places({ groups: given, bar, extra, account, prefetch }: FrameMenu) {
           prefetch={prefetch}
           place={{ list: "bar", current: entry === current }}
           data-kit-focus="inset"
-          className={barPlace({ current: entry === current, host: "link" })}>
+          className={barPlace({ host: "link" })}>
           <Icon
             glyph={entry.icon}
             size={18}
@@ -637,7 +629,7 @@ function Places({ groups: given, bar, extra, account, prefetch }: FrameMenu) {
             trigger={
               <AriaButton
                 data-kit-focus="inset"
-                className={barPlace({ current: inSheet, host: "aria", class: placeMark({ list: "bar", current: inSheet }) })}>
+                className={barPlace({ host: "aria", class: placeMark({ list: "bar", current: inSheet }) })}>
                 <Icon
                   glyph="more"
                   size={18}
@@ -702,7 +694,7 @@ function AccountPlace({ account: read }: { account: AccountRead }) {
       trigger={
         <AriaButton
           data-kit-focus="inset"
-          className={barPlace({ current: false, host: "aria" })}>
+          className={barPlace({ host: "aria" })}>
           <span
             aria-hidden
             className={avatar({ size: "bar" })}>

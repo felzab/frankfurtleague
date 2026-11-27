@@ -38,8 +38,19 @@ const mark = tv({
       class:
         "aria-[current=page]:relative aria-[current=page]:bg-bg-muted aria-[current=page]:text-fg aria-[current=page]:after:absolute aria-[current=page]:after:inset-y-1.5 aria-[current=page]:after:start-0 aria-[current=page]:after:rounded-full aria-[current=page]:after:border-s-4 aria-[current=page]:after:border-brand",
     },
-    { list: "bar", current: "attribute", class: "aria-[current=page]:text-brand" },
-    { list: "bar", current: true, class: "text-brand" },
+    // A place of the bottom bar: the muted fill, its words in full, and along its top a 2-px line in the link green over
+    // the bar's hairline, as a tab's line lies over its row's. The line keeps 4.5:1 on the fill and on the page above.
+    {
+      list: "bar",
+      current: "attribute",
+      class:
+        "aria-[current=page]:relative aria-[current=page]:bg-bg-muted aria-[current=page]:text-fg aria-[current=page]:after:absolute aria-[current=page]:after:inset-x-0 aria-[current=page]:after:-top-px aria-[current=page]:after:border-t-2 aria-[current=page]:after:border-brand",
+    },
+    {
+      list: "bar",
+      current: true,
+      class: "relative bg-bg-muted text-fg after:absolute after:inset-x-0 after:-top-px after:border-t-2 after:border-brand",
+    },
     { list: "tabs", current: "attribute", class: "aria-[current=page]:border-brand aria-[current=page]:text-fg" },
     { list: "band", current: "attribute", class: "aria-[current=page]:text-on-brand" },
     {
