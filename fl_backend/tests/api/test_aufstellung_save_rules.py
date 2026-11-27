@@ -10,9 +10,8 @@ from typing import Any
 
 import pytest
 from bson import ObjectId
-from pydantic import ValidationError
 
-from app.api.aufstellungen.schemas import FLAufstellungEntry, FLAufstellungPayload
+from app.api.aufstellungen.schemas import FLAufstellungEntry
 from app.api.aufstellungen.services import count_nameless, find_not_in_kader_refusal, judge_the_names, newly_named
 from app.core.codes import Code
 from app.core.exceptions import APIError
@@ -92,8 +91,8 @@ def test_a_first_save_judges_everyone_it_names_against_the_kader():
     assert newly_named(entries, None) == set(REGULAR[:2])
 
 
-def _starters(count: int) -> list[dict[str, Any]]:
-    return [{"spieler_id": pupil, "starts": True} for pupil in [*REGULAR, *NOMINEES][:count]]
+def _starters(count: int) -> list[FLAufstellungEntry]:
+    return [FLAufstellungEntry(spieler_id=pupil, starts=True) for pupil in [*REGULAR, *NOMINEES][:count]]
 
 
 @pytest.mark.parametrize(
@@ -102,29 +101,45 @@ def _starters(count: int) -> list[dict[str, Any]]:
         pytest.param(_starters(AUFSTELLUNG_STARTERS_MAX), [], id="a whole side starting"),
         pytest.param(
             _starters(AUFSTELLUNG_STARTERS_MAX + 1),
-            [("starters_exceed_eleven", {"max": AUFSTELLUNG_STARTERS_MAX})],
+            [(Code.STARTERS_EXCEED_ELEVEN, ("spieler",), {"max": AUFSTELLUNG_STARTERS_MAX})],
             id="one starter past a side",
         ),
         pytest.param(
-            [{"spieler_id": REGULAR[0], "starts": True}, {"spieler_id": REGULAR[0], "starts": False}],
-            [("spieler_named_twice", None)],
-            id="one pupil twice",
+            [FLAufstellungEntry(spieler_id=REGULAR[0], starts=True), FLAufstellungEntry(spieler_id=REGULAR[0], starts=False)],
+            [(Code.SPIELER_NAMED_TWICE, ("spieler", 1, "spieler_id"), {})],
+            id="one pupil twice, on the later entry",
         ),
         pytest.param(
-            [{"spieler_id": None, "starts": True}, {"spieler_id": None, "starts": False}],
+            [FLAufstellungEntry(spieler_id=None, starts=True), FLAufstellungEntry(spieler_id=None, starts=False)],
             [],
             id="two entries naming nobody",
         ),
+        # Each judged apart, so an answer naming the first alone leaves the second for a later press.
+        pytest.param(
+            [*_starters(AUFSTELLUNG_STARTERS_MAX + 1), FLAufstellungEntry(spieler_id=ObjectId(), starts=False)],
+            [
+                (Code.STARTERS_EXCEED_ELEVEN, ("spieler",), {"max": AUFSTELLUNG_STARTERS_MAX}),
+                (Code.SPIELER_NOT_IN_KADER, ("spieler", AUFSTELLUNG_STARTERS_MAX + 1, "spieler_id"), {}),
+            ],
+            id="one starter past a side and a pupil outside the squad",
+        ),
+        # The pupil named twice is counted twice as a starter, so the count waits on the repair.
+        pytest.param(
+            [*_starters(AUFSTELLUNG_STARTERS_MAX), FLAufstellungEntry(spieler_id=REGULAR[0], starts=True)],
+            [(Code.SPIELER_NAMED_TWICE, ("spieler", AUFSTELLUNG_STARTERS_MAX, "spieler_id"), {})],
+            id="a starter twice, past a side only by the repeat",
+        ),
     ],
 )
-def test_the_list_names_each_pupil_once_and_a_side_of_starters_at_most(entries: list[dict[str, Any]], refusals: list[Any]):
+def test_the_list_names_each_pupil_once_and_a_side_of_starters_at_most(entries: list[FLAufstellungEntry], refusals: list[Any]):
     """A `>=` refuses a team ticking a whole side; a pupil named twice counts twice towards the shortage above."""
 
+    newcomers = {entry.spieler_id for entry in entries if entry.spieler_id is not None} - {row["spieler_id"] for row in KADER}
     try:
-        FLAufstellungPayload.model_validate({"spieler": entries, "version": None})
+        judge_the_names(entries=entries, new=newcomers, nameless=len(entries), kader=LIVE_KADER)
         refused = []
-    except ValidationError as failure:
-        refused = [(error["type"], error.get("ctx")) for error in failure.errors()]
+    except APIError as refusal:
+        refused = [(fault.code, fault.path, dict(fault.bounds)) for fault in refusal.faults]
 
     assert refused == refusals
 

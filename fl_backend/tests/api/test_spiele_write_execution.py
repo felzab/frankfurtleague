@@ -354,6 +354,41 @@ class TestTheBookingRefusalIsReachedThroughTheRoute:
 
         assert (code, spiele[GRUPPE_FILLING_NR]["sonderereignis"]) == (Code.BOOKING_UNKNOWN_RESOURCE, "ausgefallen")
 
+    async def test_one_answer_names_the_event_the_venue_and_the_referee(self, mongo_replica_set_url: str):
+        """Goals on a called-off match, a ground no row answers to and an unconfirmed referee, each on its own box.
+
+        Judged by the event's rule and the booking's, so an answer naming the first alone sends the person back to meet
+        the others on later presses; nothing of the save lands.
+        """
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            spiel_data = await payload_for(
+                database,
+                GRUPPE_FILLING,
+                sonderereignis="ausgefallen",
+                team1=side(GAMMA, 2),
+                team2=side(DELTA, 1),
+                spielort={"spielort_id": SPIELORT_UNKNOWN, "mietpreis": 80},
+                schiedsrichter={"schiedsrichter_id": SCHIEDSRICHTER_UNCONFIRMED, "payment": 20},
+            )
+
+            with pytest.raises(APIError) as refused:
+                await call_patch(database, client, GRUPPE_FILLING, spiel_data)
+
+            return refused.value, (await spiele_now(database))[GRUPPE_FILLING_NR]
+
+        refused, stored = await on_a_seeded_season(mongo_replica_set_url, body, spiele=an_unbooked_spieltag())
+
+        assert (refused.status_code, [(fault.code, fault.path) for fault in refused.faults]) == (
+            409,
+            [
+                (Code.STATE_ERGEBNIS_ON_A_NON_EVENT, ("sonderereignis",)),
+                (Code.BOOKING_UNKNOWN_RESOURCE, ("spielort", "spielort_id")),
+                (Code.BOOKING_UNCONFIRMED_SCHIEDSRICHTER, ("schiedsrichter", "schiedsrichter_id")),
+            ],
+        )
+        assert (stored["sonderereignis"], stored["spielort"], stored["schiedsrichter"]) == (None, None, None)
+
     async def test_a_live_venue_and_referee_are_stored_as_the_payload_books_them(self, mongo_replica_set_url: str):
         """End to end: the ground, the rent, the referee and their fee are the payload's, and the document holds nothing the read joins."""
 
@@ -562,11 +597,19 @@ class TestTheSpielRulesAreReachedThroughTheRoute:
 class TestAFinishedSeasonsSpielIsRefused:
     """`saison_past` through the route: a finished season's record, its bracket included, is closed to the save."""
 
-    async def test_a_result_on_a_past_season_is_refused_and_writes_nothing(self, mongo_replica_set_url: str):
+    @pytest.mark.parametrize(
+        "event",
+        [
+            pytest.param(None, id="a result"),
+            # A gate stops the write before any box means anything, so a box's fault never stands in its place.
+            pytest.param("ausgefallen", id="goals on a called-off match"),
+        ],
+    )
+    async def test_a_result_on_a_past_season_is_refused_and_writes_nothing(self, mongo_replica_set_url: str, event: str | None):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.SAISONS].update_one({"_id": SAISON_ID}, {"$set": {"status": "past"}})
             before = await spiele_now(database)
-            spiel_data = await payload_for(database, VIERTELFINALE, team1=side(ALPHA, 4), team2=side(BETA, 0))
+            spiel_data = await payload_for(database, VIERTELFINALE, sonderereignis=event, team1=side(ALPHA, 4), team2=side(BETA, 0))
 
             with pytest.raises(APIError) as refused:
                 await call_patch(database, client, VIERTELFINALE, spiel_data)

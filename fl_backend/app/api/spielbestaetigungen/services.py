@@ -1,5 +1,5 @@
 from collections.abc import Iterable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
 from http import HTTPStatus
 from typing import Any, Final, Literal, NamedTuple
@@ -45,9 +45,9 @@ from app.api.spiele.schemas import (
 )
 from app.core import clock
 from app.core.clock import days_after
-from app.core.codes import Code
+from app.core.codes import Code, FieldCode
 from app.core.collections import Collection
-from app.core.exceptions import APIError, FieldCheck, FieldFault, Subject, faults_of, refusal_status
+from app.core.exceptions import APIError, FieldCheck, FieldFault, FieldPath, Subject, faults_of, refusal_status
 from app.shared.schemas.bounds import (
     SPIEL_CONFIRMATION_DEADLINE_DAYS,
     SPIEL_REMINDER_DAYS,
@@ -476,12 +476,23 @@ def _on_the_stored_proposal(status: HTTPStatus) -> HTTPStatus:
     return HTTPStatus.CONFLICT if status == HTTPStatus.UNPROCESSABLE_CONTENT else status
 
 
-def judged_as_a_proposal(check: FieldCheck) -> APIError | None:
-    """A refusal of the proposal, naming no field: the paths its faults name are a body this request does not carry."""
+# The box of the club's proposal each fault the proposed slot causes in the fixture save's judges stands on, by its
+# code: the save's own paths name a body the club does not send, and the proposal carries the stored fixture's sides,
+# references and event, so no other fault of the save's judges is the proposal's.
+PROPOSED_SLOT_BOXES: Final[Mapping[FieldCode, FieldPath]] = {
+    # The save's `date`, held to the matchday's span; its bounds name the box's earliest or latest day.
+    Code.SPIEL_OUTSIDE_SPIELTAG: ("vorschlag", "date"),
+    # A side's `team_id`, whose club left on or before the proposed day: the day is the one value the club can change.
+    Code.ELIGIBILITY_DISQUALIFIED: ("vorschlag", "date"),
+    # The save's venue or referee, held within the buffer of the proposed hour by another fixture.
+    Code.SPIEL_DOUBLE_BOOKED: ("vorschlag", "time"),
+}
 
-    faults = faults_of((check,))
 
-    return APIError(refusal_status(faults), faults[0].code) if faults else None
+def on_the_proposed_slot(check: FieldCheck) -> tuple[FieldFault, ...]:
+    """The faults a check of the fixture save finds in a club's proposal, each on the proposal's box `PROPOSED_SLOT_BOXES` names."""
+
+    return tuple(replace(fault, path=PROPOSED_SLOT_BOXES[fault.code]) for fault in faults_of((check,)))
 
 
 def proposal_payload(stored: FLSpiel, vorschlag: FLSpielbestaetigungAppointment) -> FLPatchSpielDataPayload:

@@ -1,12 +1,10 @@
-from typing import Annotated, Literal, Self
+from typing import Annotated, Literal
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field
 
 from app.api.spielberichte.schemas import FLSpielberichtTeam
 from app.api.spieler.schemas import FLSpielerRolle
 from app.core.crud import Anchored
-from app.core.exceptions import rule_refusal
-from app.shared.schemas.bounds import AUFSTELLUNG_STARTERS_MAX
 from app.shared.schemas.custom import CustomDateString, CustomObjectId, CustomTimeString, CustomVersion, FLUtcInstant
 from app.shared.schemas.literals import FLSaisonPhase, FLSaisonStatus, FLSonderereignis, FLSpielerPosition
 from app.shared.schemas.responses import BasePayload, BaseReadModel
@@ -51,22 +49,12 @@ class FLAufstellung(Anchored):
 
 
 class FLAufstellungPayload(BasePayload):
-    """A club's whole line-up for one fixture, written wholesale."""
+    """A club's whole line-up for one fixture, written wholesale: each pupil once, eleven starters at most."""
 
     spieler: Annotated[list[FLAufstellungEntry], Field(max_length=AUFSTELLUNG_ENTRIES_MAX)]
     # The document's `version` the screen was served, null where it showed no line-up: required with no default, since
     # an omitted one would check nothing.
     version: CustomVersion | None
-
-    @model_validator(mode="after")
-    def the_list_names_each_pupil_once_and_eleven_starters_at_most(self) -> Self:
-        named = [entry.spieler_id for entry in self.spieler if entry.spieler_id is not None]
-        if len(set(named)) != len(named):
-            raise rule_refusal("spieler_named_twice", "a line-up names a pupil once")
-        if sum(entry.starts for entry in self.spieler) > AUFSTELLUNG_STARTERS_MAX:
-            raise rule_refusal("starters_exceed_eleven", "more starters than a side fields", {"max": AUFSTELLUNG_STARTERS_MAX})
-
-        return self
 
 
 # --- The line-up's screen, read by a seat of the club and by an administrator alike.

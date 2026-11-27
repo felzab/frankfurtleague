@@ -23,7 +23,7 @@ from app.api.spieltage.services import (
 )
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.exceptions import APIError, Subject
+from app.core.exceptions import APIError, FieldFault, Subject
 from tests.database import a_clean_database
 from tests.documents import schiedsrichter_document, spiel_document, spielort_document
 from tests.worker import worker_database
@@ -58,18 +58,39 @@ class TestASpielSitsInsideItsMatchday:
         assert (refusal.code, refusal.path, refusal.bounds) == (Code.SPIEL_OUTSIDE_SPIELTAG, ("date",), bounds)
 
 
+def span_faults(refusal: tuple[FieldFault, ...]):
+    return [(fault.code, fault.path, fault.bounds) for fault in refusal]
+
+
 class TestAMatchdaySitsInsideItsSeason:
-    def test_a_start_before_the_season_is_refused(self):
+    """Without the date's box and the season's bound the editor cannot say which day the matchday must keep to."""
+
+    def test_a_start_before_the_season_is_refused_on_the_start(self):
         refusal = find_spieltag_span_refusal(start="2026-02-28", end="2026-03-08", spiel_dates=[], **SPAN)
 
-        assert refusal is not None
-        assert refusal.error_code == Code.SPIELTAG_OUTSIDE_SAISON
+        assert span_faults(refusal) == [(Code.SPIELTAG_OUTSIDE_SAISON, ("start",), {"earliest": "2026-03-01"})]
 
-    def test_an_end_after_the_season_is_refused(self):
+    def test_an_end_after_the_season_is_refused_on_the_end(self):
         refusal = find_spieltag_span_refusal(start="2026-09-29", end="2026-10-01", spiel_dates=[], **SPAN)
 
-        assert refusal is not None
-        assert refusal.error_code == Code.SPIELTAG_OUTSIDE_SAISON
+        assert span_faults(refusal) == [(Code.SPIELTAG_OUTSIDE_SAISON, ("end",), {"latest": "2026-09-30"})]
+
+    def test_a_start_outside_the_season_names_the_season_rather_than_its_fixtures(self):
+        """The season's bound is the one any repair keeps to, so a date past both is held to the season."""
+
+        refusal = find_spieltag_span_refusal(start="2026-02-28", end="2026-03-08", spiel_dates=["2026-02-27"], **SPAN)
+
+        assert span_faults(refusal) == [(Code.SPIELTAG_OUTSIDE_SAISON, ("start",), {"earliest": "2026-03-01"})]
+
+    def test_each_date_at_fault_is_named_in_one_answer(self):
+        """A start outside the season and an end inside a fixture are two repairs, and one answer names both."""
+
+        refusal = find_spieltag_span_refusal(start="2026-02-28", end="2026-03-08", spiel_dates=["2026-03-20"], **SPAN)
+
+        assert span_faults(refusal) == [
+            (Code.SPIELTAG_OUTSIDE_SAISON, ("start",), {"earliest": "2026-03-01"}),
+            (Code.SPIELTAG_SPAN_BELOW_SPIELE, ("end",), {"earliest": "2026-03-20"}),
+        ]
 
 
 class TestASeasonKeepsCoveringItsMatchdays:
@@ -137,13 +158,20 @@ class TestASeasonIsLongEnoughForItsSchedule:
 
 
 class TestAMatchdayKeepsCoveringItsSpiele:
-    def test_shrinking_below_a_spiel_is_refused(self):
+    @pytest.mark.parametrize(
+        ("start", "end", "fault"),
+        [
+            ("2026-03-07", "2026-03-08", (Code.SPIELTAG_SPAN_BELOW_SPIELE, ("end",), {"earliest": "2026-03-20"})),
+            ("2026-03-21", "2026-03-28", (Code.SPIELTAG_SPAN_BELOW_SPIELE, ("start",), {"latest": "2026-03-20"})),
+        ],
+        ids=["end", "start"],
+    )
+    def test_shrinking_below_a_spiel_is_refused_naming_the_fixtures_day(self, start, end, fault):
         """The mirror of `spiel_outside_spieltag`: the same containment, broken from the container's side."""
 
-        refusal = find_spieltag_span_refusal(start="2026-03-07", end="2026-03-08", spiel_dates=["2026-03-20"], **SPAN)
+        refusal = find_spieltag_span_refusal(start=start, end=end, spiel_dates=["2026-03-20"], **SPAN)
 
-        assert refusal is not None
-        assert refusal.error_code == Code.SPIELTAG_SPAN_BELOW_SPIELE
+        assert span_faults(refusal) == [fault]
 
 
 OTHER_SAISON = "2025"
@@ -164,22 +192,29 @@ class TestOneVenueAndOneRefereeAtATime:
     def test_inside_the_buffer_is_refused(self, time):
         refusal = find_clash_refusal(date="2026-03-07", time=time, booked=[self.slot("18:00:00")])
 
-        assert refusal is not None
-        assert refusal.code == Code.SPIEL_DOUBLE_BOOKED
+        assert [fault.code for fault in refusal] == [Code.SPIEL_DOUBLE_BOOKED]
 
     @pytest.mark.parametrize("time", ["14:00:00", "22:00:00"])
     def test_the_whole_buffer_apart_is_admitted(self, time):
         """The buffer is the gap two bookings need, so one exactly four hours from another is no clash."""
 
-        assert find_clash_refusal(date="2026-03-07", time=time, booked=[self.slot("18:00:00")]) is None
+        assert find_clash_refusal(date="2026-03-07", time=time, booked=[self.slot("18:00:00")]) == ()
 
     def test_it_works_in_both_directions(self):
         """A booking earlier and a booking later are the same clash — the comparison is absolute."""
 
         refusal = find_clash_refusal(date="2026-03-07", time="16:00:00", booked=[self.slot("18:00:00")])
 
-        assert refusal is not None
-        assert refusal.code == Code.SPIEL_DOUBLE_BOOKED
+        assert [fault.code for fault in refusal] == [Code.SPIEL_DOUBLE_BOOKED]
+
+    def test_the_venue_and_the_referee_each_clash_on_their_own_box(self):
+        """Each resource judged apart: an answer naming the earlier clash alone leaves the other box for a later press."""
+
+        refusal = find_clash_refusal(
+            date="2026-03-07", time="16:00:00", booked=[self.slot("15:00:00", resource="Schiedsrichter"), self.slot("18:00:00")]
+        )
+
+        assert [fault.path for fault in refusal] == [("spielort", "spielort_id"), ("schiedsrichter", "schiedsrichter_id")]
 
 
 RETIRE_DATABASE = worker_database("fl_retire_booked_test")

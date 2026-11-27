@@ -272,7 +272,7 @@ export const AufstellungenPutAufstellungSelfBody = zod
       .max(aufstellungenPutAufstellungSelfBodySpielerMax),
     version: zod.union([zod.int().min(aufstellungenPutAufstellungSelfBodyVersionOneMin), zod.null()]),
   })
-  .describe("A club's whole line-up for one fixture, written wholesale.");
+  .describe("A club's whole line-up for one fixture, written wholesale: each pupil once, eleven starters at most.");
 
 /**
  * The line-up screen of one club for one fixture, as the club's own seat holders read it.
@@ -321,7 +321,7 @@ export const AufstellungenPutAufstellungBody = zod
       .max(aufstellungenPutAufstellungBodySpielerMax),
     version: zod.union([zod.int().min(aufstellungenPutAufstellungBodyVersionOneMin), zod.null()]),
   })
-  .describe("A club's whole line-up for one fixture, written wholesale.");
+  .describe("A club's whole line-up for one fixture, written wholesale: each pupil once, eleven starters at most.");
 
 /**
  * Ban an address: it cannot sign in, and no mail leaves for it but the ban's own notice, sent where `notify` is set.

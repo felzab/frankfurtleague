@@ -40,9 +40,14 @@ export const Code = {
   bericht_not_officiated: "bericht_not_officiated",
   bericht_cancelled: "bericht_cancelled",
   bericht_elfmeter_in_the_gruppe: "bericht_elfmeter_in_the_gruppe",
+  nichtantreten_with_elfmeterschiessen: "nichtantreten_with_elfmeterschiessen",
+  nichtantreten_with_scorers: "nichtantreten_with_scorers",
+  elfmeterschiessen_without_draw: "elfmeterschiessen_without_draw",
   aufstellung_locked: "aufstellung_locked",
   aufstellung_spiel_undated: "aufstellung_spiel_undated",
   aufstellung_nominee_without_shortage: "aufstellung_nominee_without_shortage",
+  spieler_named_twice: "spieler_named_twice",
+  starters_exceed_eleven: "starters_exceed_eleven",
   bewerbung_already_decided: "bewerbung_already_decided",
   bewerbung_schule_unusable: "bewerbung_schule_unusable",
   bewerbung_window_closed: "bewerbung_window_closed",
@@ -1015,7 +1020,7 @@ export interface FLAufstellungMarks {
 }
 
 /**
- * A club's whole line-up for one fixture, written wholesale.
+ * A club's whole line-up for one fixture, written wholesale: each pupil once, eleven starters at most.
  */
 export interface FLAufstellungPayload {
   /** @maxItems 60 */
@@ -5581,6 +5586,7 @@ export const FieldCode = {
   kader_rolle_taken: "kader_rolle_taken",
   spiel_double_booked: "spiel_double_booked",
   address_change_taken: "address_change_taken",
+  spieler_named_twice: "spieler_named_twice",
   address_barred: "address_barred",
   grant_barred: "grant_barred",
   admin_address: "admin_address",
@@ -5595,10 +5601,15 @@ export const FieldCode = {
   bewerbung_submission_subject_unresolved: "bewerbung_submission_subject_unresolved",
   spieler_not_in_kader: "spieler_not_in_kader",
   eligibility_disqualified: "eligibility_disqualified",
+  kader_stufe_not_allowed: "kader_stufe_not_allowed",
   state_nichtantreten_without_two_sides: "state_nichtantreten_without_two_sides",
   state_ergebnis_on_a_non_event: "state_ergebnis_on_a_non_event",
+  nichtantreten_with_scorers: "nichtantreten_with_scorers",
+  nichtantreten_with_elfmeterschiessen: "nichtantreten_with_elfmeterschiessen",
+  elfmeterschiessen_without_draw: "elfmeterschiessen_without_draw",
   media_age: "media_age",
   aufstellung_nominee_without_shortage: "aufstellung_nominee_without_shortage",
+  starters_exceed_eleven: "starters_exceed_eleven",
   rules_qualifiers_above_gruppe: "rules_qualifiers_above_gruppe",
   rules_unentschieden_outvalues_win: "rules_unentschieden_outvalues_win",
   rules_niederlage_outvalues_unentschieden: "rules_niederlage_outvalues_unentschieden",
@@ -5613,6 +5624,10 @@ export const FieldCode = {
   confirmation_age: "confirmation_age",
   spiel_outside_spieltag: "spiel_outside_spieltag",
   saison_span_below_spieltage: "saison_span_below_spieltage",
+  saison_start_taken_place: "saison_start_taken_place",
+  spieltag_outside_saison: "spieltag_outside_saison",
+  spieltag_span_below_spiele: "spieltag_span_below_spiele",
+  spieltag_start_out_of_order: "spieltag_start_out_of_order",
 } as const;
 
 export const ProbeResponseValue = {
@@ -5629,17 +5644,12 @@ export const Rule = {
   date_not_in_calendar: "date_not_in_calendar",
   decline_without_proposal: "decline_without_proposal",
   decline_without_reason: "decline_without_reason",
-  elfmeterschiessen_without_draw: "elfmeterschiessen_without_draw",
   elfmeterschiessen_without_winner: "elfmeterschiessen_without_winner",
   email_not_accepted: "email_not_accepted",
   good_spieler_exceed_kader: "good_spieler_exceed_kader",
-  nichtantreten_with_elfmeterschiessen: "nichtantreten_with_elfmeterschiessen",
-  nichtantreten_with_scorers: "nichtantreten_with_scorers",
   registrierung_window_reaches_saison_start: "registrierung_window_reaches_saison_start",
   saison_ends_before_start: "saison_ends_before_start",
-  spieler_named_twice: "spieler_named_twice",
   spieltag_ends_before_start: "spieltag_ends_before_start",
-  starters_exceed_eleven: "starters_exceed_eleven",
   text_version_of_another_wording: "text_version_of_another_wording",
   url_not_accepted: "url_not_accepted",
 } as const;

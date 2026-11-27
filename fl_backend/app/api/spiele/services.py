@@ -59,8 +59,7 @@ from app.api.teams.standings import DecidedStanding, in_the_season_when_decided
 from app.core.clock import days_after
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.crud import refuse
-from app.core.exceptions import APIError, Bound, FieldFault, FieldPath
+from app.core.exceptions import APIError, Bound, FieldFault, FieldPath, faults_of
 from app.shared.einwilligung import NAME_IS_PUBLIC
 from app.shared.schemas.custom import CustomObjectId
 from app.shared.schemas.literals import FLGruppenNames, FLSonderereignis, FLSpielSide
@@ -1143,19 +1142,44 @@ def find_ergebnis_before_start_refusal(stored: FLSpiel, patched: FLSpiel, *, sta
     return APIError(HTTPStatus.CONFLICT, Code.ERGEBNIS_BEFORE_SAISON_START)
 
 
+def find_team_not_in_saison_refusal(
+    spiel_id: CustomObjectId,
+    payload: FLPatchSpielDataPayload,
+    season: Sequence[FLSpiel],
+    membership: Mapping[CustomObjectId, SaisonMembership],
+) -> APIError | None:
+    """`eligibility_team_not_in_saison`: a side newly fielding a club the season holds no row for.
+
+    A dangling reference, which names no box: only a page read before the club was replaced sends one. A newly fielded
+    club only: one already standing here without a row is a fault to correct on this very fixture, and refusing every
+    save of it would trap that correction.
+    """
+
+    stored = stored_in_slice(spiel_id, season)
+
+    for submitted, stored_side in ((payload.team1, stored.team1), (payload.team2, stored.team2)):
+        if submitted is None or (stored_side is not None and stored_side.team_id == submitted.team_id):
+            continue
+
+        if submitted.team_id not in membership:
+            return APIError(HTTPStatus.CONFLICT, Code.ELIGIBILITY_TEAM_NOT_IN_SAISON)
+
+    return None
+
+
 def find_eligibility_refusal(
     spiel_id: CustomObjectId,
     payload: FLPatchSpielDataPayload,
     season: Sequence[FLSpiel],
     membership: Mapping[CustomObjectId, SaisonMembership],
-) -> FieldFault | None:
-    """Why this patch's occupants must be refused. Keyed on the payload's `date`, so an undated fixture is refused.
+) -> tuple[FieldFault, ...]:
+    """Each side whose club this patch fields past its exit. Keyed on the payload's `date`, so an undated fixture is refused.
 
-    A side naming a club the season holds no row for is a dangling reference, which names no box: raised where the sides'
-    order meets it, so neither side's fault is asked out of turn.
+    Asked once `find_team_not_in_saison_refusal` passed the sides, so a club with no row is passed by here.
     """
 
     stored = stored_in_slice(spiel_id, season)
+    faults: list[FieldFault] = []
 
     for label, submitted, stored_side in (("team1", payload.team1, stored.team1), ("team2", payload.team2, stored.team2)):
         if submitted is None:
@@ -1163,11 +1187,6 @@ def find_eligibility_refusal(
 
         stays = stored_side is not None and stored_side.team_id == submitted.team_id
         member = membership.get(submitted.team_id)
-
-        # A newly fielded club only: one already standing here without a row is a fault to correct on
-        # this very fixture, and refusing every save of it would trap that correction.
-        if not stays and member is None:
-            refuse(APIError(HTTPStatus.CONFLICT, Code.ELIGIBILITY_TEAM_NOT_IN_SAISON))
 
         # Every input the predicate reads, not just the side: the date and the event both decide its
         # answer, so clearing the carve-out is judged as a re-dating is. On the side alone, the escape
@@ -1183,9 +1202,9 @@ def find_eligibility_refusal(
         if absence_recorded or (payload.date is not None and payload.date < member.departed_from):
             continue
 
-        return FieldFault(path=(label, "team_id"), code=Code.ELIGIBILITY_DISQUALIFIED, status=HTTPStatus.CONFLICT)
+        faults.append(FieldFault(path=(label, "team_id"), code=Code.ELIGIBILITY_DISQUALIFIED, status=HTTPStatus.CONFLICT))
 
-    return None
+    return tuple(faults)
 
 
 # A match plus its overrun, the changeover and the travel: the league plays several matches at one
@@ -1285,39 +1304,40 @@ def find_booking_refusal(
     season: Sequence[FLSpiel],
     resolved: ResolvedReferences,
     rules: FLSaisonRules,
-) -> FieldFault | None:
-    """Why this patch's venue or referee must be refused, or `None`. Only a reference `find_new_bookings` names is judged.
+) -> tuple[FieldFault, ...]:
+    """Why this patch's venue and referee must be refused, each on its own box. Only a reference `find_new_bookings` names is judged.
 
     A booking naming nobody is kept where the fixture stores one and never made: only an erasure makes one.
     """
 
     stored = stored_in_slice(spiel_id, season)
-    if (
-        payload.schiedsrichter is not None
-        and payload.schiedsrichter.schiedsrichter_id is None
-        and (stored.schiedsrichter is None or stored.schiedsrichter.schiedsrichter_id is not None)
-    ):
-        return FieldFault(path=RESOURCE_PATHS["Schiedsrichter"], code=Code.BOOKING_UNKNOWN_RESOURCE, status=HTTPStatus.CONFLICT)
-
     new = find_new_bookings(stored, payload, rules)
 
-    references = (
-        (RESOURCE_PATHS["Spielort"], new.spielort_id, resolved.spielort),
-        (RESOURCE_PATHS["Schiedsrichter"], new.schiedsrichter_id, resolved.schiedsrichter),
-    )
+    def unknown(path: FieldPath, chosen: CustomObjectId | None, row: BookedVenue | BookedReferee | None) -> FieldFault | None:
+        if chosen is None or (row is not None and row.inactive_since is None):
+            return None
 
-    for path, chosen, row in references:
-        if chosen is None:
-            continue
+        return FieldFault(path=path, code=Code.BOOKING_UNKNOWN_RESOURCE, status=HTTPStatus.CONFLICT)
 
-        if row is None or row.inactive_since is not None:
+    def referee() -> FieldFault | None:
+        path = RESOURCE_PATHS["Schiedsrichter"]
+        if (
+            payload.schiedsrichter is not None
+            and payload.schiedsrichter.schiedsrichter_id is None
+            and (stored.schiedsrichter is None or stored.schiedsrichter.schiedsrichter_id is not None)
+        ):
             return FieldFault(path=path, code=Code.BOOKING_UNKNOWN_RESOURCE, status=HTTPStatus.CONFLICT)
 
-    # After both arms above, so a retired referee meets the retirement first.
-    if new.schiedsrichter_id is not None and resolved.schiedsrichter is not None and not resolved.schiedsrichter.confirmed:
-        return FieldFault(path=RESOURCE_PATHS["Schiedsrichter"], code=Code.BOOKING_UNCONFIRMED_SCHIEDSRICHTER, status=HTTPStatus.CONFLICT)
+        # After the retirement, so a retired referee meets the retirement first.
+        if (retired := unknown(path, new.schiedsrichter_id, resolved.schiedsrichter)) is not None:
+            return retired
 
-    return None
+        if new.schiedsrichter_id is not None and resolved.schiedsrichter is not None and not resolved.schiedsrichter.confirmed:
+            return FieldFault(path=path, code=Code.BOOKING_UNCONFIRMED_SCHIEDSRICHTER, status=HTTPStatus.CONFLICT)
+
+        return None
+
+    return faults_of((unknown(RESOURCE_PATHS["Spielort"], new.spielort_id, resolved.spielort), referee()))
 
 
 @dataclass(frozen=True)
@@ -1427,17 +1447,17 @@ def find_referee_to_anchor(stored: FLSpiel, payload: FLPatchSpielDataPayload, ru
     return _chosen_references(payload).schiedsrichter_id if new.schiedsrichter_id is not None or claimed else None
 
 
-def find_clash_refusal(*, date: str | None, time: str | None, booked: Sequence[BookedSlot]) -> FieldFault | None:
-    """Why this fixture's venue or referee must be refused, or `None`. `booked` is every other fixture holding it."""
+def find_clash_refusal(*, date: str | None, time: str | None, booked: Sequence[BookedSlot]) -> tuple[FieldFault, ...]:
+    """Why this fixture's venue and referee must be refused, each on its own box. `booked` is every other fixture holding either."""
 
     if date is None or time is None:
-        return None
+        return ()
 
-    slot = _first_clash(date=date, time=time, booked=booked)
-    if slot is None:
-        return None
-
-    return FieldFault(path=RESOURCE_PATHS[slot.resource], code=Code.SPIEL_DOUBLE_BOOKED, status=HTTPStatus.CONFLICT)
+    return tuple(
+        FieldFault(path=RESOURCE_PATHS[resource], code=Code.SPIEL_DOUBLE_BOOKED, status=HTTPStatus.CONFLICT)
+        for resource in RESOURCE_PATHS
+        if _first_clash(date=date, time=time, booked=[slot for slot in booked if slot.resource == resource]) is not None
+    )
 
 
 def _first_clash(*, date: str, time: str, booked: Sequence[BookedSlot]) -> BookedSlot | None:

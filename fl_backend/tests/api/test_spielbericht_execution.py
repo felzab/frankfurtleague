@@ -27,6 +27,7 @@ from app.api.spiele.schemas import (
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.crud import ANCHOR_FIELD, aggregate_many_from_db
+from app.core.exceptions import APIError
 from tests import documents
 from tests.acts import acts_of
 from tests.database import a_clean_database
@@ -334,6 +335,27 @@ async def end_the_season(database: AsyncDatabase) -> None:
 
 
 class TestEachRefusalWritesNothing:
+    async def test_a_no_show_beside_a_shoot_out_and_a_scorer_is_refused_on_both_boxes(self, mongo_replica_set_url: str):
+        """The proposal's two rules in one answer, each on its box, through the write's judge rather than the parse."""
+
+        async def run(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            body = bericht(ergebnis_vorschlag={"elfmeterschiessen": {"team1": 4, "team2": 3}, "sonderereignis": "nichtantreten_team2"})
+            with pytest.raises(APIError) as refused:
+                await put(database, client, body)
+
+            return refused.value, await stored(database)
+
+        refused, documents_now = await on_the_league(mongo_replica_set_url, run)
+
+        assert (refused.status_code, [(fault.code, fault.path) for fault in refused.faults]) == (
+            422,
+            [
+                (Code.NICHTANTRETEN_WITH_ELFMETERSCHIESSEN, ("bericht", "ergebnis_vorschlag", "sonderereignis")),
+                (Code.NICHTANTRETEN_WITH_SCORERS, ("bericht", "scorers")),
+            ],
+        )
+        assert documents_now == []
+
     async def test_a_write_from_an_address_holding_no_referee_record_is_refused(self, mongo_replica_set_url: str):
         async def run(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             return await outcome_of(put(database, client, bericht(), email=NOBODY)), await stored(database)

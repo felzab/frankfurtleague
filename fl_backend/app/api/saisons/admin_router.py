@@ -399,15 +399,16 @@ async def post_saison(
         state = await pull_create_state(saisons_collection=saisons_collection, session=session)
         refuse(find_saison_create_refusal(future_stands=state.future_stands))
         refuse(find_shape_refusal(stored=None, proposed=state.rules))
-        refuse_faults(find_rules_refusal(stored=None, proposed=state.rules, occupancy_by_gruppe={}))
-        # After the rules: an impossible bracket makes the implied matchday count meaningless.
+        rules = find_rules_refusal(stored=None, proposed=state.rules, occupancy_by_gruppe={})
         refuse_faults(
+            rules,
+            # Behind the rules: the season's length is read off their schedule.
             find_saison_span_refusal(
                 start_date=saison_data.start_date,
                 end_date=saison_data.end_date,
-                rules=state.rules,
+                rules=None if rules else state.rules,
                 spieltag_spans=[],
-            )
+            ),
         )
         created = await post_one_to_db(
             collection=saisons_collection,
@@ -508,48 +509,34 @@ async def patch_saison(
         # Validated, not read raw: a season missing a rules key fails here rather than comparing
         # against a default nobody chose.
         stored_rules = FLSaisonRules.model_validate(stored_raw["rules"])
-        # First: a start that cannot move is a fact about the payload's own date, whatever its rules ask.
-        refuse(
-            find_saison_start_refusal(
-                stored_start_date=str(stored_raw["start_date"]),
-                proposed_start_date=saison_data.start_date,
-                taken_place=taken_place,
-            )
-        )
-        refuse_faults(
-            find_saison_start_austritt_refusal(
-                stored_start_date=str(stored_raw["start_date"]),
-                proposed_start_date=saison_data.start_date,
-                austritt_stored=austritt_stored,
-            )
-        )
+        stored_start_date = str(stored_raw["start_date"])
         # The stored start, in this transaction's snapshot: the date on the payload is what the edit
         # proposes, and a freeze lifted by the same save that changes the rules would be no freeze. A season started
         # too early is unlocked by one save moving its start and a second changing its rules.
         refuse(
             find_rules_freeze_refusal(
                 saison_status=str(stored_raw["status"]),
-                started=has_started(start_date=str(stored_raw["start_date"]), today=today),
+                started=has_started(start_date=stored_start_date, today=today),
                 stored=stored_rules,
                 proposed=saison_data.rules,
             )
         )
         refuse(find_shape_refusal(stored=stored_rules, proposed=saison_data.rules, drawn=drawn))
+        rules = find_rules_refusal(stored=stored_rules, proposed=saison_data.rules, occupancy_by_gruppe=occupancy, largest_kader=largest_kader)
         refuse_faults(
-            find_rules_refusal(
-                stored=stored_rules,
-                proposed=saison_data.rules,
-                occupancy_by_gruppe=occupancy,
-                largest_kader=largest_kader,
-            )
-        )
-        refuse_faults(
+            # First: a start that cannot move is a fact about the payload's own date, whatever its rules ask.
+            find_saison_start_refusal(stored_start_date=stored_start_date, proposed_start_date=saison_data.start_date, taken_place=taken_place),
+            find_saison_start_austritt_refusal(
+                stored_start_date=stored_start_date, proposed_start_date=saison_data.start_date, austritt_stored=austritt_stored
+            ),
+            rules,
+            # Behind the rules: the season's length is read off their schedule.
             find_saison_span_refusal(
                 start_date=saison_data.start_date,
                 end_date=saison_data.end_date,
-                rules=saison_data.rules,
+                rules=None if rules else saison_data.rules,
                 spieltag_spans=spieltag_spans,
-            )
+            ),
         )
 
         # `AFTER`, read back inside the transaction at no extra round trip: the version answered is the one this commit stores.

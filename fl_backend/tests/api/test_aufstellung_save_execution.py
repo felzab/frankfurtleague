@@ -372,6 +372,26 @@ async def test_a_save_judges_its_names_against_the_kader_and_the_stored_line_up(
     assert await on_a_season(mongo_replica_set_url, body) == (Code.SPIELER_NOT_IN_KADER, ["Weg"])
 
 
+async def test_one_save_names_a_pupil_named_twice_and_a_pupil_outside_the_kader(mongo_replica_set_url: str):
+    """The list's own rule beside the squad's, each on its row: an answer naming the first alone sends the club back for the second.
+
+    409, as the squad's rule judged what the season holds.
+    """
+
+    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[int, list[tuple[Code, tuple[str | int, ...]]], Any]:
+        with pytest.raises(APIError) as refused:
+            await seat_saves(database, client, _payload(OLE, LEAVER, OLE))
+
+        stored = await database[Collection.AUFSTELLUNGEN].find_one({"spiel_id": SPIEL, "team_id": HOME})
+        return refused.value.status_code, [(fault.code, fault.path) for fault in refused.value.faults], stored
+
+    assert await on_a_season(mongo_replica_set_url, body) == (
+        409,
+        [(Code.SPIELER_NAMED_TWICE, ("spieler", 2, "spieler_id")), (Code.SPIELER_NOT_IN_KADER, ("spieler", 1, "spieler_id"))],
+        None,
+    )
+
+
 async def test_the_seat_reads_the_version_the_save_answered(mongo_replica_set_url: str):
     """So the editor's next save, sent on the answered version, is judged against the line-up this save left."""
 

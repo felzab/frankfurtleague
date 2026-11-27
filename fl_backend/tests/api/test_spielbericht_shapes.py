@@ -15,6 +15,7 @@ from app.api.spielberichte.services import (
     find_not_in_kader_refusal,
     find_not_played_refusal,
     find_not_refereed_refusal,
+    find_vorschlag_entries_refusal,
     judge_bericht,
     kader_is_open,
     newly_named,
@@ -125,27 +126,40 @@ class TestTheProposalsCountsAreItsEntries:
         assert proposed(payload([tor("team1", LIVE1, eigentor=True)])) == (0, 1)
 
     def test_a_no_show_proposes_the_event_alone(self):
+        """A shoot-out and a scorer beside a no-show, each on its own box, so one answer names both."""
+
         assert proposed(payload([], sonderereignis="nichtantreten_team2")) == (None, None)
 
-        with pytest.raises(ValidationError) as with_a_shoot_out:
-            FLSpielberichtBerichtPayload.model_validate(
-                payload([], sonderereignis="nichtantreten_team2", elfmeterschiessen={"team1": 4, "team2": 3})
-            )
-        with pytest.raises(ValidationError) as with_a_scorer:
-            FLSpielberichtBerichtPayload.model_validate(payload([tor("team1")], sonderereignis="nichtantreten_team2"))
+        both = vorschlag_faults(payload([tor("team1")], sonderereignis="nichtantreten_team2", elfmeterschiessen={"team1": 4, "team2": 3}))
 
-        assert [error["type"] for error in with_a_shoot_out.value.errors()] == ["nichtantreten_with_elfmeterschiessen"]
-        assert [error["type"] for error in with_a_scorer.value.errors()] == ["nichtantreten_with_scorers"]
+        assert both == [
+            (Code.NICHTANTRETEN_WITH_ELFMETERSCHIESSEN, ("bericht", "ergebnis_vorschlag", "sonderereignis")),
+            (Code.NICHTANTRETEN_WITH_SCORERS, ("bericht", "scorers")),
+        ]
 
     def test_a_shoot_out_follows_a_draw_alone(self):
         shoot_out = {"team1": 4, "team2": 3}
 
-        assert FLSpielberichtBerichtPayload.model_validate(payload([tor("team1"), tor("team2")], elfmeterschiessen=shoot_out))
+        assert vorschlag_faults(payload([tor("team1"), tor("team2")], elfmeterschiessen=shoot_out)) == []
+        assert vorschlag_faults(payload([tor("team1"), tor("team1"), tor("team2")], elfmeterschiessen=shoot_out)) == [
+            (Code.ELFMETERSCHIESSEN_WITHOUT_DRAW, ("bericht", "ergebnis_vorschlag", "elfmeterschiessen"))
+        ]
 
-        with pytest.raises(ValidationError) as raised:
-            FLSpielberichtBerichtPayload.model_validate(payload([tor("team1"), tor("team1"), tor("team2")], elfmeterschiessen=shoot_out))
+    def test_the_report_is_judged_on_its_boxes_through_the_judge(self):
+        """The rule is asked by the write's judge: a proposal the parse admits is refused there, on its boxes."""
 
-        assert [error["type"] for error in raised.value.errors()] == ["elfmeterschiessen_without_draw"]
+        report = FLSpielberichtBerichtPayload.model_validate(payload([tor("team1")], sonderereignis="nichtantreten_team2"))
+
+        with pytest.raises(APIError) as refused:
+            judge_bericht(context=context(), payload=report, new={"team1": set(), "team2": set()}, now=NOW)
+
+        assert [(fault.code, fault.path) for fault in refused.value.faults] == [(Code.NICHTANTRETEN_WITH_SCORERS, ("bericht", "scorers"))]
+
+
+def vorschlag_faults(body: dict[str, Any]) -> list[tuple[str, tuple[str | int, ...]]]:
+    """The codes and boxes the proposal's own rule refuses `body` on, which the parse admits."""
+
+    return [(fault.code, fault.path) for fault in find_vorschlag_entries_refusal(payload=FLSpielberichtBerichtPayload.model_validate(body))]
 
 
 # `spiel`'s kick-off, 18:00 in Berlin on a summer day.
