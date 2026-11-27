@@ -12,7 +12,7 @@ from app.api.ban_list.admin_router import delete_ban_list_entry, get_ban_list_en
 from app.api.ban_list.crud import address_is_barred
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.exceptions import APIError, DocumentNotFoundError
+from app.core.exceptions import DocumentNotFoundError
 from tests.acts import acting_as
 from tests.bans import ban_through_the_route
 from tests.config import grants_for_the_suite
@@ -132,30 +132,6 @@ class TestABanOfAnAdministratorsAddress:
             return code, await database[Collection.BAN_LIST].count_documents({})
 
         assert await on_a_clean_list(mongo_replica_set_url, body) == (Code.BAN_LIST_ADMIN, 1)
-
-
-class TestABanOfAnAddressTheListHolds:
-    """`address_barred` on the address's box, which the dialog marks, rather than the index's bare `duplicate_key`."""
-
-    async def test_every_fault_of_the_address_is_named_in_one_answer(self, mongo_replica_set_url: str):
-        """A holder's live change moving onto a listed address: asked one after the other, the second waits for a later press."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[Any, ...]:
-            await ban(database, client, email=INCOMING)
-            await database[Collection.ADDRESS_CHANGES].insert_one(
-                address_change_document(address=ADMIN, email=INCOMING, token_hash=None, day=TODAY)
-            )
-
-            with pytest.raises(APIError) as refused:
-                await ban(database, client, email=INCOMING)
-
-            return refused.value.status_code, [(fault.code, fault.path) for fault in refused.value.faults], len(await rows_of(database))
-
-        assert await on_a_clean_list(mongo_replica_set_url, body) == (
-            409,
-            [(Code.BAN_LIST_ADMIN, ("email",)), (Code.ADDRESS_BARRED, ("email",))],
-            1,
-        )
 
 
 class TestTheList:

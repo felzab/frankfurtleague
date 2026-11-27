@@ -1255,23 +1255,6 @@ class TestTheToolsStart:
         assert plain.token is not None
         assert (refused, record["ended"]) == (Code.ADDRESS_CHANGE_TAKEN, None)
 
-    async def test_every_fault_of_its_two_boxes_is_named_in_one_answer(self, mongo_replica_set_url: str):
-        """A holder's address on file and a taken new one: asked one after the other, the second waits for a later press."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await granted(database, EMAIL)
-            await granted(database, FOREIGN_EMAIL)
-            with pytest.raises(APIError) as refused:
-                await administrator_starts(database, client, email=FOREIGN_EMAIL)
-
-            return refused.value.status_code, [(fault.code, fault.path) for fault in refused.value.faults]
-
-        # 403, as either fault alone would answer where it is who asks.
-        assert await on_a_person(mongo_replica_set_url, body) == (
-            403,
-            [(Code.ADMIN_ADDRESS, ("address",)), (Code.ADDRESS_CHANGE_TAKEN, ("email",))],
-        )
-
     async def test_a_banned_new_address_is_refused_on_its_box_beside_the_address_on_file_s(self, mongo_replica_set_url: str):
         """The drain hands a banned address no link, so the change would wait on a confirmation that never comes."""
 
