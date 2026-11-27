@@ -1,10 +1,11 @@
+import { readFileSync } from "node:fs";
 import path from "node:path";
 
 import { describe, expect, it } from "vitest";
 
 import { filesUnder } from "@/test-support/treeWalk";
 
-import { addressOf, ROUTES } from "./routes";
+import { addressOf, isEditorAddress, ROUTES } from "./routes";
 
 import type { RouteEntry } from "./routes";
 
@@ -113,6 +114,28 @@ describe("every address", () => {
     const strays = addresses().flatMap(({ where, segments }) =>
       segments.filter((segment) => !segment.startsWith("[") && !allowed.has(segment)).map((segment) => `${where}: ${segment}`),
     );
+    expect(strays).toStrictEqual([]);
+  });
+});
+
+describe("every editor", () => {
+  // The band of an editor's page leads back only where the route table marks the page's route: one left unmarked
+  // leaves a phone no way out of the editor but the browser's own, its save standing where the bottom bar would, and
+  // one marked wrongly draws „‹ Zurück“ over a list. The lint keeps the editor template under the routes.
+  it("is the page of a route marked `editor`, and every page at such a route's address is an editor", () => {
+    const modules = filesUnder(APP, (name) => /\.tsx?$/.test(name) && !/\.test\.tsx?$/.test(name), 200);
+    const editors = new Set(
+      // By the alias or a relative path, as the lint reads an import of the kit.
+      modules
+        .filter((file) => /from "(?:@\/|(?:\.{1,2}\/)+)kit\/EditorPage"/.test(readFileSync(file, "utf8")))
+        .map((file) => path.dirname(file)),
+    );
+    const pages = new Set(filesUnder(APP, (name) => name === "page.tsx", 40).map((file) => path.dirname(file)));
+    const strays = [...new Set([...editors, ...pages])]
+      .filter(
+        (folder) => !pages.has(folder) || isEditorAddress(`/${segmentsOf(path.join(folder, "page.tsx")).join("/")}`) !== editors.has(folder),
+      )
+      .map((folder) => path.relative(APP, folder).split(path.sep).join("/"));
     expect(strays).toStrictEqual([]);
   });
 });

@@ -20,8 +20,6 @@ type Frame = {
   groups: RailGroup[];
   role?: Copy;
   saison?: Pick<PersonSaisons, "home" | "withoutSaison">;
-  /** Whether the place holds an editor, so its route groups place the phone's band and bar. */
-  columnInLayouts: boolean;
 };
 
 /**
@@ -32,19 +30,16 @@ type Frame = {
 const FRAMES = {
   landing: {
     groups: [{ entries: [{ id: "overview", label: ROUTES.areaRoles.title, href: ROUTES.area.path(), icon: "overview" }] }],
-    columnInLayouts: false,
   },
   spieler: {
     groups: [{ entries: [{ id: "overview", label: ROUTES.spielerOverview.title, saison: "spielerOverview", icon: "overview" }] }],
     role: COPY.shared.spieler,
     saison: { home: "spielerOverview", withoutSaison: ROUTES.areaSpieler.path() },
-    columnInLayouts: false,
   },
   schiedsrichter: {
     groups: [{ entries: [{ id: "overview", label: ROUTES.schiedsrichterOverview.title, saison: "schiedsrichterOverview", icon: "overview" }] }],
     role: COPY.shared.schiedsrichter,
     saison: { home: "schiedsrichterOverview", withoutSaison: ROUTES.areaSchiedsrichter.path() },
-    columnInLayouts: true,
   },
 } as const satisfies Record<string, Frame>;
 
@@ -65,8 +60,7 @@ export function PersonFrame({ place, children }: { place: keyof typeof FRAMES; c
       groups={frame.groups}
       bar={BAR}
       saison={place === "landing" ? undefined : { saisons: getOwnSaisons(place), ...FRAMES[place].saison }}
-      foot={{ kind: "account", account: readAccount(frame.role) }}
-      columnInLayouts={frame.columnInLayouts}>
+      foot={{ kind: "account", account: readAccount(frame.role) }}>
       {children}
     </GuardedRailFrame>
   );

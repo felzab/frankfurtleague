@@ -1,7 +1,6 @@
 import { COPY } from "@/core/copy/shared";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
-import { RailColumn } from "@/kit/RailFrame";
 import { StatusPage } from "@/kit/StatusPage";
 
 import type { WayOn } from "@/kit/StatusCard";
@@ -10,17 +9,15 @@ import type { WayOn } from "@/kit/StatusCard";
 const ADMIN_HOME = { label: COPY.shared.end.toOverview, href: ROUTES.admin.path() } as const satisfies WayOn;
 
 /**
- * A record the administration does not hold, in the rail frame: this boundary stands inside the frame's layout and
- * replaces the route group's column with the page, so it draws the phone's band and bar itself.
+ * A record the administration does not hold, in the rail frame: this boundary stands inside the frame's layout, so the
+ * frame's band and bar stand around it.
  */
 export default function AdminNotFound() {
   return (
-    <RailColumn>
-      <StatusPage
-        scope="area"
-        title={SERVER_COPY.notFound}
-        card={{ tone: "info", next: ADMIN_HOME }}
-      />
-    </RailColumn>
+    <StatusPage
+      scope="area"
+      title={SERVER_COPY.notFound}
+      card={{ tone: "info", next: ADMIN_HOME }}
+    />
   );
 }

@@ -10,14 +10,15 @@ export function currentOf<Href extends string>(path: string, hrefs: ReadonlyArra
     .reduce<Href | null>((best, href) => (best === null || href.length > best.length ? href : best), null);
 }
 
-/** The rows declaring the page their page belongs to, each a season's page. */
+/** The rows declaring the page their page belongs to: a season's pages, and Konto's. */
 const PLACED = Object.values(ROUTES).filter((row) => "place" in row);
 
 /**
  * Whether the path is the row's page in this season, segment by segment against the pattern it declares: `[saison]`
- * the season, any other dynamic segment, a record's id, any one segment, and every other segment itself.
+ * the season, which an address naming none never matches, any other dynamic segment, a record's id, any one segment,
+ * and every other segment itself.
  */
-function isPageOf(row: (typeof PLACED)[number], saison: string, path: string) {
+function isPageOf(row: (typeof PLACED)[number], saison: string | undefined, path: string) {
   const pattern = row.place.pattern.split("/");
   const segments = path.split("/");
   return (
@@ -31,11 +32,11 @@ function isPageOf(row: (typeof PLACED)[number], saison: string, path: string) {
 /**
  * The address of the page the path's route declares its page belongs to (`RouteEntry.place`), or `undefined` where it
  * declares none. The place's address takes the path's dynamic segments in the pattern's order, as many as it names: a
- * season's list the season alone, the league's list none, a match editor the season and the match.
+ * season's list the season alone, the league's list and Konto's none, a match editor the season and the match.
  * `saison` is the season the address names, if any.
  */
 export function declaredPlaceOf(path: string, saison: string | undefined): string | undefined {
-  const row = saison === undefined ? undefined : PLACED.find((each) => isPageOf(each, saison, path));
+  const row = PLACED.find((each) => isPageOf(each, saison, path));
   if (row === undefined) return undefined;
   const segments = path.split("/");
   const values = row.place.pattern.split("/").flatMap((segment, index) => (segment.startsWith("[") ? [segments[index] ?? ""] : []));

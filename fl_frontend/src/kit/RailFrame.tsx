@@ -4,7 +4,7 @@ import { LEGAL_PAGES, ROUTES } from "@/core/routes";
 
 import { Brand } from "./Brand";
 import { Chip } from "./Chip";
-import { AccountRow, BackControl, BarPlaces, EditorBack, LeaveQuestion, MenuScope, RailEntries, ReadBack, SaisonScope } from "./FrameNav";
+import { AccountRow, BackControl, BandStart, BarPlaces, LeaveQuestion, MenuScope, RailEntries, ReadBack, SaisonScope } from "./FrameNav";
 import { Icon } from "./Icon";
 import { LeaveGuardProvider } from "./LeaveGuard";
 import { frameLink, Link } from "./Link";
@@ -57,10 +57,7 @@ type Bar = readonly [string] | readonly [string, string] | readonly [string, str
  * `back` is an area's own way back, as Konto's: „‹ Zurück“ in the logo's place in the rail's head and in the
  * band, and no bottom bar. Where it is a read answering no address, the logo stands, and the area still has no bar.
  *
- * An area holding editors places the phone's band and bar itself, through `RailColumn` in the layout of each
- * of its route groups (`columnInLayouts`): an editor's band holds „‹ Zurück“ and no bottom bar follows, its own
- * bar standing in that place. Each page is then drawn right by the server, which knows the group from the
- * route; a page declaring it on the client would draw the bar until it hydrates, and hydrate it wrongly.
+ * The phone's band and bar are the frame's, around every page and every boundary's card (`RailColumn`).
  *
  * Each page's template writes its title and its content through `RailPage`, inside the `main` that `RailColumn`
  * draws, so this frame and the classic one write the page's `h1` and `main`, and nothing else does.
@@ -71,7 +68,6 @@ export function RailFrame({
   saison,
   foot,
   back,
-  columnInLayouts = false,
   prefetch,
   children,
 }: {
@@ -81,8 +77,6 @@ export function RailFrame({
   saison?: FrameSaisons;
   foot: RailFoot;
   back?: Back;
-  /** Whether the area's layouts place the band and the bar, each with `RailColumn`, rather than the frame. */
-  columnInLayouts?: boolean;
   /**
    * Whether the menu's entries prefetch their pages whole, Next's `prefetch={true}`: for a frame of a few pages whose
    * content is cached reads every visitor shares, since each entry in view costs a server render.
@@ -157,7 +151,7 @@ export function RailFrame({
             <div className="sticky top-0 z-10 hidden h-0 shrink-0 lg:block">
               <div className="absolute inset-x-0 top-0 h-(--rail-strip) border-b border-border bg-bg [view-transition-name:strip]" />
             </div>
-            {columnInLayouts ? children : <RailColumn back={back}>{children}</RailColumn>}
+            <RailColumn back={back}>{children}</RailColumn>
           </div>
           {/* Inside the rail's state, whose collapsed width its edge follows. */}
           <ToastRegion frame="rail" />
@@ -176,25 +170,22 @@ export function RailFrame({
 }
 
 /**
- * A rail frame's column below 1024 px around its page, the band above it and the bottom bar under it. An editor's band
- * holds „‹ Zurück“ to its list in the
- * logo's place; an area's own `back` does the same for every page of the area, and no bottom bar follows. A page
+ * A rail frame's column below 1024 px around its page, the band above it and the bottom bar under it. The band of a
+ * page whose route belongs to another page, an editor's or one of Konto's, holds „‹ Zurück“ to it in the logo's place
+ * (`BandStart`); an area's own `back` does the same for every page of the area, and no bottom bar follows. A page
  * with a bar of its own, an editor's save, stands it in the bottom bar's place, so the bottom bar gives way to it
  * there alone: a status card or a read page at an editor's address keeps the bottom bar, as the same address's
  * not-found card does. At every width the page stands in the `main` the column draws, its title at its head.
  */
-export function RailColumn({ editor = false, back, children }: { editor?: boolean; back?: Back; children: ReactNode }) {
+function RailColumn({ back, children }: { back?: Back; children: ReactNode }) {
   return (
     <div className="group/column contents">
       {/* The band and the bar are pictures of their own in a page's cross-fade, so the page scrolled under them is
           not drawn over them (`tokens.css`). */}
       <header className="@container sticky top-0 z-20 flex h-(--rail-band) shrink-0 items-center gap-2 bg-brand-solid px-4 text-on-brand [--focus-ring:var(--on-brand)] [view-transition-name:band] lg:hidden">
-        {editor ? (
-          // The list's address needs the season the rail fills in, which the page arrives with.
-          <EditorBack />
-        ) : (
-          <HeadStart back={back} />
-        )}
+        {/* Chosen by the address on the client, since this layout stays mounted across a navigation; the list's address
+            needs the season the rail fills in, which the page arrives with. */}
+        <BandStart start={<HeadStart back={back} />} />
         <SaisonButton placement="band" />
       </header>
       {/* The page's one `main`, its title and its content, here in the column a navigation keeps mounted rather than in

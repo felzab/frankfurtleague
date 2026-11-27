@@ -27,6 +27,11 @@ export type RouteEntry = {
    * at as its route folder writes it, each dynamic segment `[name]`.
    */
   readonly place?: { readonly entry: string; readonly pattern: `/${string}` };
+  /**
+   * Whether the page is a record's editor (`EditorPage`): on a phone a rail frame's band holds „‹ Zurück“ to the page
+   * it belongs to in the logo's place, read from the address, so the server draws it right before the page hydrates.
+   */
+  readonly editor?: true;
 };
 
 /** How many segments a row's address takes. */
@@ -37,6 +42,22 @@ export function addressOf(row: RouteEntry, filler: string): `/${string}` {
   // A row's `path` takes `never`, so a link names its row; walking the rows, every segment takes the same string.
   const path = row.path as (...segments: string[]) => `/${string}`;
   return path(...Array.from({ length: path.length }, () => filler));
+}
+
+/** Stands in for each of a row's own segments, a record's id, which no fixed segment of an address is. */
+const ANY_SEGMENT = "[]";
+
+/**
+ * Whether the path is the page of a row marked `editor`: as long as the row's address, each fixed segment itself and
+ * each of the row's own segments any one.
+ */
+export function isEditorAddress(path: string): boolean {
+  const segments = path.split("/");
+  return Object.values(ROUTES as Record<string, RouteEntry>).some((row) => {
+    if (row.editor !== true) return false;
+    const pattern = addressOf(row, ANY_SEGMENT).split("/");
+    return pattern.length === segments.length && pattern.every((segment, index) => segment === ANY_SEGMENT || segment === segments[index]);
+  });
 }
 
 /**
@@ -174,9 +195,25 @@ export const ROUTES = {
    * phone opens on, and the three.
    */
   account: { path: () => "/account" as const, title: COPY.template.account, crawl: "disallow" },
-  accountSignIn: { path: () => "/account/signin" as const, title: COPY.page.accountSignIn, crawl: "disallow" },
-  accountSecurity: { path: () => "/account/security" as const, title: COPY.page.accountSecurity, crawl: "disallow" },
-  accountEntries: { path: () => "/account/entries" as const, title: COPY.page.accountEntries, crawl: "disallow" },
+  // Each of the three belongs to the list, which a phone's band leads back to.
+  accountSignIn: {
+    path: () => "/account/signin" as const,
+    title: COPY.page.accountSignIn,
+    crawl: "disallow",
+    place: { entry: "account", pattern: "/account/signin" },
+  },
+  accountSecurity: {
+    path: () => "/account/security" as const,
+    title: COPY.page.accountSecurity,
+    crawl: "disallow",
+    place: { entry: "account", pattern: "/account/security" },
+  },
+  accountEntries: {
+    path: () => "/account/entries" as const,
+    title: COPY.page.accountEntries,
+    crawl: "disallow",
+    place: { entry: "account", pattern: "/account/entries" },
+  },
 
   /**
    * Where a signed-in person lands: a route handler sending the request on to Konto for a person holding no Funktion,
@@ -207,6 +244,7 @@ export const ROUTES = {
     path: (saison: string, spiel: string) => `/area/schiedsrichter/${saison}/spielbericht/${spiel}` as const,
     title: COPY.page.spiel,
     crawl: "disallow",
+    editor: true,
   },
 
   teamOverview: {
@@ -224,6 +262,7 @@ export const ROUTES = {
     path: (team: string, saison: string, spiel: string) => `/area/team/${team}/${saison}/spiele/${spiel}` as const,
     title: COPY.aufstellung.ofTeam,
     crawl: "disallow",
+    editor: true,
   },
   teamKader: {
     path: (team: string, saison: string) => `/area/team/${team}/${saison}/kader` as const,
@@ -252,6 +291,7 @@ export const ROUTES = {
     path: (saison: string) => `/admin/saisons/${saison}/settings` as const,
     title: COPY.shared.saisonName,
     crawl: "disallow",
+    editor: true,
     place: { entry: "adminSaisons", pattern: "/admin/saisons/[saison]/settings" },
   },
   adminSpiele: {
@@ -267,6 +307,7 @@ export const ROUTES = {
     path: (saison: string, spieltag: string) => `/admin/saisons/${saison}/spieltage/${spieltag}` as const,
     title: null,
     crawl: "disallow",
+    editor: true,
     place: { entry: "adminSpiele", pattern: "/admin/saisons/[saison]/spieltage/[spieltag]" },
   },
   /** The match editor, named by the match's two teams as the match's own page is. */
@@ -274,6 +315,7 @@ export const ROUTES = {
     path: (saison: string, spiel: string) => `/admin/saisons/${saison}/spiele/${spiel}` as const,
     title: COPY.page.spiel,
     crawl: "disallow",
+    editor: true,
   },
   /**
    * One club's line-up for a match as the league enters it, named by the club as the match editor's link to it is, and
@@ -284,6 +326,7 @@ export const ROUTES = {
     path: (saison: string, spiel: string, team: string) => `/admin/saisons/${saison}/spiele/${spiel}/aufstellung/${team}` as const,
     title: COPY.aufstellung.ofTeam,
     crawl: "disallow",
+    editor: true,
     place: { entry: "adminSpiel", pattern: "/admin/saisons/[saison]/spiele/[spiel]/aufstellung/[team]" },
   },
   adminSpielorte: { path: () => "/admin/spielorte" as const, title: COPY.page.adminSpielorte, crawl: "disallow" },
@@ -292,6 +335,7 @@ export const ROUTES = {
     path: (spielort: string) => `/admin/spielorte/${spielort}` as const,
     title: null,
     crawl: "disallow",
+    editor: true,
   },
   adminSchiedsrichter: {
     path: () => "/admin/schiedsrichter" as const,
@@ -303,6 +347,7 @@ export const ROUTES = {
     path: (schiedsrichter: string) => `/admin/schiedsrichter/${schiedsrichter}` as const,
     title: null,
     crawl: "disallow",
+    editor: true,
   },
   // Applications, teams, squads and registrations are a season's in the data, so their lists carry the season as
   // every season page does; venues and referees are the league's and keep addresses without one.
@@ -333,6 +378,7 @@ export const ROUTES = {
     path: (saison: string, team: string) => `/admin/saisons/${saison}/teams/${team}` as const,
     title: null,
     crawl: "disallow",
+    editor: true,
   },
   adminSpieler: {
     path: (saison: string) => `/admin/saisons/${saison}/spieler` as const,
@@ -344,6 +390,7 @@ export const ROUTES = {
     path: (saison: string, spieler: string) => `/admin/saisons/${saison}/spieler/${spieler}` as const,
     title: null,
     crawl: "disallow",
+    editor: true,
   },
   adminAdministrators: {
     path: () => "/admin/administrators" as const,

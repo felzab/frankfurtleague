@@ -171,6 +171,17 @@ press.
   asks on its own ways out, Escape and „Zurück“, and not on unload. A long public form, the
   Bewerbung, asks the browser on unload alone. A short form asks nothing.
 
+**A frame's part that differs by page reads the address on the client**, never a route group's
+layout. A layout stays mounted across a navigation, so only a client component reading `usePathname`
+draws the page it now stands over. The server renders that component with the request's path, so the
+part stands right before the page hydrates.
+
+- The phone's band holds „‹ Zurück“ in the logo's place where the page's route declares the page it
+  belongs to, or is marked `editor` (`fl_frontend/src/core/routes.ts :: RouteEntry`,
+  `fl_frontend/src/kit/FrameNav.tsx :: BandStart`).
+- A sweep holds every page using the editor template to a route marked `editor`, and every page at
+  such a route's address to the template (`fl_frontend/src/core/routes.test.ts`).
+
 ## Styling and copy
 
 Tailwind v4, configured in CSS: `src/app/globals.css` and the design tokens in `src/app/tokens.css`.
