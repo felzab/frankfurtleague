@@ -29,7 +29,15 @@ const mark = tv({
     current: { attribute: "", true: "", false: "" },
   },
   compoundVariants: [
-    { list: "menu", current: "attribute", class: "aria-[current=page]:bg-bg-muted aria-[current=page]:text-brand" },
+    // A filled entry of a vertical list: the muted fill, its words in full, and at its start a 4-px pill in the link
+    // green, inset clear of the fill's rounded corners, as Primer's NavList draws its current item's accent line. The
+    // fill alone keeps under 3:1 on the list's ground; the pill keeps 4.5:1 on the fill and on the ground in both themes.
+    {
+      list: "menu",
+      current: "attribute",
+      class:
+        "aria-[current=page]:relative aria-[current=page]:bg-bg-muted aria-[current=page]:text-fg aria-[current=page]:after:absolute aria-[current=page]:after:inset-y-1.5 aria-[current=page]:after:start-0 aria-[current=page]:after:rounded-full aria-[current=page]:after:border-s-4 aria-[current=page]:after:border-brand",
+    },
     { list: "bar", current: "attribute", class: "aria-[current=page]:bg-bg-muted aria-[current=page]:text-brand" },
     { list: "bar", current: true, class: "bg-bg-muted text-brand" },
     { list: "tabs", current: "attribute", class: "aria-[current=page]:border-brand aria-[current=page]:text-fg" },
