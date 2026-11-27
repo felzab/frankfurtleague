@@ -105,8 +105,8 @@ function DangerRow({ act }: { act: DangerAct }) {
 /**
  * The editor template: its sections one under another in the form column, and the record's one save in `EditorBar` at
  * the foot of the viewport. There is no „Abbrechen“: the
- * way out is the frame's „‹ Zurück“ to the record's list, which the frame's band places at the address of every
- * route the route table marks `editor` (`RailColumn`) and which asks before it drops unsaved changes. The danger box comes last, a box of its own
+ * way out is the frame's „‹ Zurück“ to the record's list, which the frame's band places on every page under an
+ * `(editor)` folder (`BandStart`) and which asks before it drops unsaved changes. The danger box comes last, a box of its own
  * under its own title holding the danger rows, the one place an editor's irreversible and retiring acts stand,
  * apart from the fields the bar saves as GitHub's danger zone stands apart from a repository's settings; an
  * editor with none of its acts open draws no such box. The fields are the kit's, bound to `editor`'s draft by
