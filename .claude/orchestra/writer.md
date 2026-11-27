@@ -83,9 +83,11 @@ question's options as pictures, holds you to these rules.
   goes into the kit and every page.
 - **A review board.** A board is only for a design decision the owner must see as pictures. For a
   small question, name the page, the element and each option's exact wording to the coordinator, who
-  captures the one picture, which the rules below on language, theme and the look bind as they bind
-  a board's frames; where your brief asks a board for such a question, send those in its place and
-  name the departure in your report. Write a board in English, its questions, option names,
+  captures one picture of the element per option, which the rules below on language and theme bind
+  too, looks at each for a label cramped, overflowing, clipped mid-line or invisible, and sends the
+  pictures to you; look at each with the Read tool and reword an option one shows at fault before
+  your report is final. Where your brief asks a board for such a question, send those in its place
+  and name the departure in your report. Write a board in English, its questions, option names,
   explanations and controls included, and show the site's German copy as it stands, since the owner
   works in English and judges the copy as a visitor reads it. Draw it in the dark theme alone,
   adding a light frame only where the question is about the light theme and says so. It is reviewed
