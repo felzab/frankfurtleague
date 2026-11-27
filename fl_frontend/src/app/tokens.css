@@ -85,13 +85,15 @@
   }
 
   /* The two frames' measures, on the root rather than on a frame, since React Aria draws the toast region,
-     which they place, in the body: the phone's band; the desktop rail's head, which the title strip shares;
+     which they place, in the body, and the root's scroll padding reads them: the phone's band; the phone's bottom bar, which an
+     editor's bar matches there; the desktop rail's head, which the title strip shares;
      the signed-in rail foot, which an editor's bar matches, so the two top hairlines are one line (its 1-px
      edge, its 8-px and 12-px padding and the 48-px account row); the rail's width standing open and
      collapsed to its glyphs, 24 px of inset at each side of one; and the classic frame's header, the phone's band
      on a phone, so the band does not jump between a classic page and a rail page. */
   :root {
     --rail-band: 3.5rem;
+    --rail-bar: 3.5rem;
     --rail-strip: 3rem;
     --rail-foot: calc(1px + 0.5rem + 0.75rem + 3rem);
     --rail-width: 16rem;
@@ -220,29 +222,16 @@
   }
 }
 
-/* A place a link may point to by its fragment: the browser scrolls it into view clear of the frame's sticky
-   band or strip, and marks it while the address names it, CSS's `:target`, or, after a client navigation,
-   which never sets `:target`, the kit's `TargetMark`. */
+/* A place a link may point to by its fragment, marked while the address names it, CSS's `:target`, or, after a client
+   navigation, which never sets `:target`, the kit's `TargetMark`. The root's scroll padding keeps it clear of the
+   frame's sticky parts. */
 @layer components {
   .kit-target {
-    scroll-margin-top: var(--rail-band);
-
-    @variant lg {
-      scroll-margin-top: var(--rail-strip);
-    }
-
     &:target,
     &[data-kit-target] {
       animation-name: kit-target;
       animation-duration: var(--target-highlight);
     }
-  }
-}
-
-/* A section of a classic page a link points to by its fragment: it stops under the sticky band rather than behind it. */
-@layer components {
-  .kit-section-target {
-    scroll-margin-top: var(--classic-header);
   }
 }
 

@@ -28,7 +28,7 @@ export type ProseSection = { heading: Copy; blocks: ReadonlyArray<ProseBlock> };
 const prose = tv({
   slots: {
     text: "grid min-w-0 gap-6 text-base text-fg",
-    section: "kit-section-target grid gap-4 pt-6 first:pt-0",
+    section: "grid gap-4 pt-6 first:pt-0",
     heading: "max-w-measure text-xl font-semibold",
     paragraph: "max-w-measure",
     list: "grid max-w-measure list-disc gap-2 ps-6 marker:text-fg-muted",

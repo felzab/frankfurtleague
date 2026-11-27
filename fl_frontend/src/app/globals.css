@@ -30,6 +30,32 @@
     background-color: color-mix(in srgb, #000 var(--scrim-strength), var(--bg));
   }
 
+  /* A control the keys move the focus to, and a place a link's fragment names, are scrolled clear of the frame's sticky
+     parts: the browser brings an element into view inside the root's scroll padding, the way WCAG's technique C43 gives
+     for a sticky header or footer that would hide the focus. Each frame marks its box, since the root's padding cannot
+     read a measure from inside the page. At the top stands the classic band, or a rail page's band on a phone and its
+     strip from `lg`. At a phone's foot a rail page holds its bottom bar or an editor's, a bar's height spared on Konto's
+     pages too, which hold neither; from `lg` only an editor's bar stands there, as tall as the rail's foot. */
+  :root:has([data-kit-frame="classic"]) {
+    scroll-padding-top: var(--classic-header);
+  }
+
+  :root:has([data-kit-frame="rail"]) {
+    scroll-padding-top: var(--rail-band);
+    scroll-padding-bottom: var(--rail-bar);
+
+    @variant lg {
+      scroll-padding-top: var(--rail-strip);
+      scroll-padding-bottom: 0;
+    }
+  }
+
+  :root:has([data-kit-page-bar]) {
+    @variant lg {
+      scroll-padding-bottom: var(--rail-foot);
+    }
+  }
+
   /* Every control shows the pointing hand, as a link does: Tailwind 4's preflight gives a button the browser's
      arrow, and its upgrade guide restores the hand with this rule. A kit recipe drawing an entry that is no
      button, a menu's or a list's, names `cursor-pointer` itself. */

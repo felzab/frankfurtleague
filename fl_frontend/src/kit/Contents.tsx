@@ -33,7 +33,7 @@ const contents = tv({
  * The section the reader is in, by Bootstrap 4's scrollspy (`_process` in its `js/src/scrollspy.js`): at the page's end
  * the last section, since a short last section never reaches the top; otherwise the last whose top has reached the band
  * line, as GitHub's docs read their headings on each scroll event (`useActiveSection` in `github/docs`). The line is the
- * band's height, read from a section's own scroll margin, which is where a jump to it lands.
+ * band's height, read from the root's scroll padding, which is where a jump to it lands.
  *
  * A section a link names, clicked or opened by its address, is marked at once and stays marked while it stands where
  * the jump left it: its top on the line, or, at the page's end, below it, which a section too near the end stops at.
@@ -49,7 +49,7 @@ function useCurrentSection(entries: readonly ContentsEntry[]): string | undefine
     let pinned = named(location.hash);
     const mark = () => {
       // Read on each scroll, since the band is taller from `lg`.
-      const line = Number.parseFloat(getComputedStyle(first).scrollMarginTop);
+      const line = Number.parseFloat(getComputedStyle(document.documentElement).scrollPaddingTop);
       const below = (section: Element) => section.getBoundingClientRect().top - line;
       const end = scrollY + innerHeight >= document.documentElement.scrollHeight - 1;
       // A pixel's leeway, for a top a jump leaves a fraction off the line.

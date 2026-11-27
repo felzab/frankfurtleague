@@ -611,7 +611,7 @@ function Places({ groups: given, bar, extra, account, prefetch }: FrameMenu) {
     // At the column's foot, by its margin, whether a page stands above it or none does yet.
     <nav
       aria-label={COPY.template.navigation}
-      className="sticky bottom-0 z-20 mt-auto grid h-14 auto-cols-fr grid-flow-col border-t border-border bg-bg [view-transition-name:bar] lg:hidden">
+      className="sticky bottom-0 z-20 mt-auto grid h-(--rail-bar) auto-cols-fr grid-flow-col border-t border-border bg-bg [view-transition-name:bar] lg:hidden">
       {placed.map((entry) => (
         <NavigationLink
           key={entry.id}

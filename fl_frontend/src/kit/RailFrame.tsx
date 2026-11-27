@@ -142,7 +142,11 @@ export function RailFrame({
             </div>
           </aside>
 
-          <div className="flex min-h-dvh min-w-0 flex-col">
+          {/* Marked, so the root's scroll padding clears the band, the strip and the bars: the browser scrolls the focus and
+              a fragment's place between them. */}
+          <div
+            data-kit-frame="rail"
+            className="flex min-h-dvh min-w-0 flex-col">
             <NavigationBar placement="rail" />
             {/* The strip's ground and its hairline, drawn here, in the layout a navigation keeps mounted, rather than
                 by each page: they stand on every frame of a page's change, and only the header
