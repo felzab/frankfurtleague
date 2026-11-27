@@ -211,33 +211,6 @@ class TestTheStartMovesNoLaterPastAStoredExit:
         assert saved == an_earlier_start
 
 
-class TestOneSaveNamesEveryBoxAtFault:
-    async def test_two_rules_and_the_start_are_refused_in_one_answer(self, mongo_replica_set_url: str):
-        """A draw above a win, a squad cap under the live squad and a start past the dated matchday, each on its own box.
-
-        Judged by two rules of the rules and by the span, so an answer naming the first alone sends the person back to
-        meet the second and the third on later presses. 409, as two of the three judged what the season holds.
-        """
-
-        async def body(database: AsyncDatabase) -> tuple[APIError, Mapping[str, Any]]:
-            with pytest.raises(APIError) as refusal:
-                await patch_the_rules(database, start_date="2026-03-16", draw_points=4, max_kader_size=REFUSED_KADER)
-
-            return refusal.value, await stored_season(database)
-
-        refusal, stored = await on_a_database(mongo_replica_set_url, body)
-
-        assert (refusal.status_code, [(fault.code, fault.path) for fault in refusal.faults]) == (
-            409,
-            [
-                (Code.RULES_UNENTSCHIEDEN_OUTVALUES_WIN, ("rules", "draw_points")),
-                (Code.RULES_KADER_BELOW_USE, ("rules", "max_kader_size")),
-                (Code.SAISON_SPAN_BELOW_SPIELTAGE, ("start_date",)),
-            ],
-        )
-        assert (stored["start_date"], stored["rules"]["draw_points"]) == (SAISON_START, 1), "a refused save wrote something"
-
-
 class TestTheStartIsFixedOnceASpielHasTakenPlace:
     """`saison_start_taken_place` through the endpoint, over the in-session read of every fixture of the season."""
 

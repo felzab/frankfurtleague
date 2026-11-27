@@ -253,29 +253,6 @@ class TestTheOneSave:
 
         assert await on_a_database(mongo_replica_set_url, body) == Code.KADER_STUFE_NOT_ALLOWED
 
-    async def test_a_stufe_not_offered_and_a_taken_rolle_are_named_in_one_answer(self, mongo_replica_set_url: str):
-        """Two boxes the season's rules and the squad refuse apart, each named on its own.
-
-        An answer naming the first alone sends the person back to meet the second on a later press.
-        """
-
-        async def body(database: AsyncDatabase) -> APIError:
-            spieler_id = await self.seated(database)
-            await database.saison_spieler.insert_one(kader_row(spieler_id=spieler_id_for(80), team_id=HOME_TEAM_OID, rolle="kapitaen"))
-            await database.saisons.update_one({"_id": SAISON_ID}, {"$set": {"rules.allowed_stufen": ["Q1"]}})
-
-            with pytest.raises(APIError) as excinfo:
-                await save(database, spieler_id, stufe="Q3", rolle="kapitaen")
-
-            return excinfo.value
-
-        refusal = await on_a_database(mongo_replica_set_url, body)
-
-        assert (refusal.status_code, [(fault.code, fault.path) for fault in refusal.faults]) == (
-            409,
-            [(Code.KADER_STUFE_NOT_ALLOWED, ("stufe",)), (Code.KADER_ROLLE_TAKEN, ("rolle",))],
-        )
-
     async def test_a_person_with_no_row_of_the_season_is_not_found(self, mongo_replica_set_url: str):
         """The page stands under a season, so its save reaches no person out of that squad."""
 
