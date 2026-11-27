@@ -890,8 +890,8 @@ def find_repeated_contact_refusal(*, kontakte: Mapping[str, Any]) -> tuple[Field
     return tuple(FieldFault(path=box, code=Code.BEWERBUNG_KONTAKT_REPEATED, status=HTTPStatus.UNPROCESSABLE_CONTENT) for box in boxes)
 
 
-def find_seat_contact_refusal(*, kontakte: Mapping[str, Any] | None, seats: Sequence[str], email: str, phone: str) -> FieldFault | None:
-    """Why this address or this number cannot be the seat's, or `None`.
+def find_seat_contact_refusal(*, kontakte: Mapping[str, Any] | None, seats: Sequence[str], email: str, phone: str) -> tuple[FieldFault, ...]:
+    """Why this address and this number cannot be the seat's: a fault on each another seat's person holds.
 
     `find_repeated_contact_refusal`'s rule asked again -- two different people are not reachable alike -- because a seat
     write is the one path that could put them there afterwards.
@@ -903,13 +903,13 @@ def find_seat_contact_refusal(*, kontakte: Mapping[str, Any] | None, seats: Sequ
 
     # The fold `find_repeated_contact_refusal` compares by: a third spelling of "one mailbox" here would refuse where the
     # form accepted, or the reverse.
+    faults: list[FieldFault] = []
     if sign_in_identifier(email) in {sign_in_identifier(str(other.get("email") or "")) for other in others}:
-        return FieldFault(path=("email",), code=Code.KONTAKT_EMAIL_TAKEN, status=HTTPStatus.CONFLICT)
-
+        faults.append(FieldFault(path=("email",), code=Code.KONTAKT_EMAIL_TAKEN, status=HTTPStatus.CONFLICT))
     if normalise_phone(phone) in {normalise_phone(str(other.get("phone") or "")) for other in others}:
-        return FieldFault(path=("phone",), code=Code.KONTAKT_PHONE_TAKEN, status=HTTPStatus.CONFLICT)
+        faults.append(FieldFault(path=("phone",), code=Code.KONTAKT_PHONE_TAKEN, status=HTTPStatus.CONFLICT))
 
-    return None
+    return tuple(faults)
 
 
 def find_seat_write_refusal(*, confirmations: Mapping[str, Any] | None, seats: Sequence[str]) -> APIError | None:

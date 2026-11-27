@@ -10,6 +10,7 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.aufstellungen.crud import remove_the_seasons_aufstellungen
+from app.api.ban_list.crud import find_address_barred_refusal
 from app.api.bewerbungen.services import assigned_trikot_farben, seat_named
 from app.api.grants.guard import ADMIN_TIER
 from app.api.invitations.schemas import (
@@ -108,6 +109,7 @@ from app.core.crud import (
 )
 from app.core.dependencies import (
     AufstellungenCollection,
+    BanListReadCollection,
     DBClient,
     GermanDay,
     GermanyNow,
@@ -703,6 +705,7 @@ async def put_kontakt_seat(
     seat_data: FLKontaktSeatPayload,
     saison_teams_collection: SaisonTeamsCollection,
     saisons_collection: SaisonsCollection,
+    ban_list_collection: BanListReadCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
     session: SnapshotSession,
@@ -735,11 +738,19 @@ async def put_kontakt_seat(
             projection=[*KONTAKT_WRITE_FIELDS, VERSION_FIELD],
             session=session,
         )
-        kontakte, seats = compose_seat_block(stored=stored.get("kontakte"), seat=pressed, sent=sent, today=today)
-        refuse_faults(find_kontakt_taken_refusal(kontakte=kontakte, seats=seats))
         # Read as well as filtered on: a dry run patches nothing for the version to refuse, and the patch's filter still
         # refuses a write racing past this read.
         refuse(find_stale_save_refusal(stored, version=seat_data.version))
+        kontakte, seats = compose_seat_block(stored=stored.get("kontakte"), seat=pressed, sent=sent, today=today)
+        refuse_faults(
+            find_kontakt_taken_refusal(kontakte=kontakte, seats=seats),
+            # Only where the write seats a new person, whom it owes a link: a person kept keeps the link they hold.
+            await find_address_barred_refusal(
+                ban_list_collection=ban_list_collection, address=str(kontakte[pressed]["email"]), path=("email",), session=session
+            )
+            if links_owed(kontakte=kontakte, stored=stored.get("kontakte"))
+            else None,
+        )
         return stored, kontakte
 
     if dry_run:

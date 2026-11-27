@@ -7,6 +7,7 @@ from fastapi import APIRouter, Query, Response, status
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
+from app.api.ban_list.crud import find_address_barred_refusal
 from app.api.bewerbungen.schemas import (
     FLAcceptBewerbungPayload,
     FLBewerbung,
@@ -79,6 +80,7 @@ from app.core.crud import (
     refuse_faults,
 )
 from app.core.dependencies import (
+    BanListReadCollection,
     BewerbungenCollection,
     BewerbungenReadCollection,
     DBClient,
@@ -591,6 +593,7 @@ async def post_kontakt_seat(
     bewerbungen_collection: BewerbungenCollection,
     teams_collection: TeamsCollection,
     saisons_collection: SaisonsCollection,
+    ban_list_collection: BanListReadCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
     session: SnapshotSession,
@@ -639,13 +642,19 @@ async def post_kontakt_seat(
         seats = (pressed,) if other is None else (pressed, other)
 
         refuse(find_seat_write_refusal(confirmations=confirmations, seats=seats))
-
-        # Asked over the seats this write does not reach: a mirrored pair is one person, and comparing them against
-        # each other would refuse every such write.
-        refuse_faults(find_seat_contact_refusal(kontakte=kontakte, seats=seats, email=seat_data.email, phone=seat_data.phone))
         # Read as well as filtered on: a dry run patches nothing for the version to refuse, and the patch's filter still
         # refuses a write racing past this read.
         refuse(find_stale_save_refusal(bewerbung_raw, version=seat_data.version))
+
+        refuse_faults(
+            # Asked over the seats this write does not reach: a mirrored pair is one person, and comparing them against
+            # each other would refuse every such write.
+            find_seat_contact_refusal(kontakte=kontakte, seats=seats, email=seat_data.email, phone=seat_data.phone),
+            # Every write here mails the person a fresh link, which the drain never hands to a banned address.
+            await find_address_barred_refusal(
+                ban_list_collection=ban_list_collection, address=seat_data.email, path=("email",), session=session
+            ),
+        )
         return bewerbung_raw, seats
 
     if dry_run:
