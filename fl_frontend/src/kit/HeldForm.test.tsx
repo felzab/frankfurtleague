@@ -283,12 +283,14 @@ describe("a faulted box after either pass", () => {
       );
       await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.save }));
 
-      rerender(
-        <Faulted
-          box={box(false)}
-          fieldErrors={{ faulted: FAULT }}
-          onBlock={blocked}
-        />,
+      await act(async () =>
+        rerender(
+          <Faulted
+            box={box(false)}
+            fieldErrors={{ faulted: FAULT }}
+            onBlock={blocked}
+          />,
+        ),
       );
 
       expect(document.activeElement).toBe(focused(container));
