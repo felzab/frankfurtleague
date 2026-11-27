@@ -43,7 +43,6 @@ const taken = () => field.taken;
 const barred = () => field.barred;
 const ofAdministration = () => field.ofAdministration;
 const onFile = () => field.onFile;
-const retired = () => COPY.shared.retired;
 const required = () => field.required;
 
 /** A field phrase by the bounds its fault carries and the path naming its field: `undefined` where a bound is missing. */
@@ -75,8 +74,7 @@ const PATTERNED = {
   own_address: () => field.onlyInKonto,
   address_change_unchanged: onFile,
   ansetzung_vorschlag_unchanged: onFile,
-  booking_unknown_resource: retired,
-  team_retired: retired,
+  booking_unknown_resource: () => COPY.shared.retired,
   booking_unconfirmed_schiedsrichter: () => COPY.shared.state.unconfirmed,
   // The acceptance's shorthand left empty for a new school, and an application naming no school.
   payload_refused: required,
