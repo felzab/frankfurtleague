@@ -6,7 +6,7 @@ import { ContractBreakError } from "@/core/errors";
 import { dayOf, timeOf } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
-import { LINEUP_WORDS, playersOf } from "@/features/aufstellungen/players";
+import { CLOSED_LINEUP_WORDS, LINEUP_WORDS, playersOf } from "@/features/aufstellungen/players";
 import { getAufstellung } from "@/features/aufstellungen/queries";
 import { eventChipOf, matchdayOf, matchName } from "@/features/spiele/blocks";
 import { StatusPage } from "@/kit/StatusPage";
@@ -104,8 +104,7 @@ export default async function AdminAufstellungPage({ params }: Props) {
       lead={leadOf(found)}
       aufstellung={{ id: found.spiel.spiel_id, version: found.version, spieler: found.spieler }}
       players={playersOf(found)}
-      // A finished season's line-up takes no more players, so an empty one says none was recorded, not „Noch keine“.
-      words={closed === undefined ? LINEUP_WORDS : { ...LINEUP_WORDS, none: { ...LINEUP_WORDS.none, kind: "unrecorded" } }}
+      words={closed === undefined ? LINEUP_WORDS : CLOSED_LINEUP_WORDS}
       // A finished season's line-up takes no write again, so its acts are left out, the lock line saying why.
       {...(closed === undefined ? {} : { closed, acts: "out" })}
     />

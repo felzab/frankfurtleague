@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { COPY } from "@/core/copy/shared";
 import { LINEUP_WORDS } from "@/features/aufstellungen/players";
@@ -52,7 +52,9 @@ const LINEUP: FLAufstellungResponse = {
   marks: { stored: false, phase: "locked", due_at: "2026-11-13T15:00:00Z" },
   saison_status: "active",
 };
-serveBackend(({ method, path }) => (method === "GET" && path === `/aufstellungen/spiele/${SPIEL}/teams/${TEAM}/admin` ? LINEUP : undefined));
+/** The line-up the read answers, the case's own where it sets one. */
+let answered = LINEUP;
+serveBackend(({ method, path }) => (method === "GET" && path === `/aufstellungen/spiele/${SPIEL}/teams/${TEAM}/admin` ? answered : undefined));
 // An administrator's session, made by passkey, which the read's guard admits.
 signedInRequest();
 
@@ -77,5 +79,24 @@ describe("a club's line-up at the league's address", () => {
 
     await waitFor(() => expect(state.sent).toHaveLength(1));
     expect(state.sent[0]).toMatchObject({ team_id: TEAM, id: SPIEL, version: null, changes: { picked: [PUPIL] } });
+  });
+
+  // The harm: „Noch kein Kader.“ on a finished season promises a squad that cannot come, and so rare a state never
+  // meets a look at the page.
+  it("says no squad and no line-up were recorded in a finished season, where none can come", async () => {
+    answered = { ...LINEUP, kader: [], saison_status: "past" };
+    onTestFinished(() => {
+      answered = LINEUP;
+    });
+    renderUnderNext(
+      await AdminAufstellungPage({
+        params: Promise.resolve({ saison: "2027", spiel: SPIEL, team: TEAM }),
+        searchParams: Promise.resolve({}),
+      }),
+      AT_ADDRESS,
+    );
+
+    expect(screen.getByText(COPY.shared.empty.unrecordedOne(COPY.shared.kader))).toBeTruthy();
+    expect(screen.getByText(COPY.shared.empty.unrecorded(LINEUP_WORDS.picked))).toBeTruthy();
   });
 });

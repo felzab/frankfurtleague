@@ -3,16 +3,16 @@ import "server-only";
 import { cache } from "react";
 
 import { asSignInIdentifier } from "./emailAddress";
-import { APIBadStatusError } from "./errors";
+import { refusedAs } from "./errors";
 import { identityGetSignIn, identityGetSubject } from "./generated/client/sdk";
 import { logger } from "./logging";
 import { runWithIncomingTrace } from "./traceScope";
 
-import type { FLSignInResponse } from "./generated/client/types";
+import type { Code, FLSignInResponse } from "./generated/client/types";
 import type { SubjectSession } from "./subject";
 
-/** The code the backend answers a payload it refuses with: here, an address no rule of its own accepts. */
-const PAYLOAD_REFUSED = "payload_refused";
+/** The refusal of a payload the backend does not accept: here, an address no rule of its own accepts. */
+const PAYLOAD_REFUSED: ReadonlySet<Code> = new Set<Code>(["payload_refused"]);
 
 /**
  * One folded mailbox's records and grant, every reader but the sign-in gate and the hourly pass taking them through
@@ -65,7 +65,7 @@ export async function mayReceiveSignIn(identifier: string): Promise<SignInVerdic
   } catch (failed) {
     // Closed, for an administrator too: a sign-in past a failed read would defeat the ban. The person
     // cannot tell this from an unknown address, so the line is the only signal, carrying the name alone.
-    const refused = failed instanceof APIBadStatusError && failed.serverErrorCode === PAYLOAD_REFUSED;
+    const refused = refusedAs(failed, PAYLOAD_REFUSED);
     logger.error(refused ? "auth.sign_in_gate_address_refused" : "auth.sign_in_gate_failed", undefined, {
       name: failed instanceof Error ? failed.name : "unknown",
     });

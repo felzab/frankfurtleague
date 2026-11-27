@@ -244,6 +244,22 @@ export const SERVER_COPY = catalogue({
     lastNameMissing: "Der Nachname fehlt.",
   },
 
+  /**
+   * What an act's server action answers on its own, beside the refusals the catalogue words by their code: a refusal
+   * of its own check, or a note on an act done in part, by the act's record.
+   */
+  actAnswer: {
+    /** An administrator's last passkey, their only way into the administration. */
+    lastPasskeyKept: "Der letzte Passkey lässt sich nicht löschen.",
+    /** The erasure's note, the account undeleted or unknown: the form keeps the address, so its „Löschen“ retries. */
+    erasurePartial: "Die Daten sind gelöscht, das Konto vielleicht nicht.",
+    withdrawal: {
+      noneChosen: "Kein Widerruf gewählt.",
+      /** No record at the address grants a ticked choice, none at all included. */
+      nothingGranted: "Unter dieser Adresse ist nichts davon erteilt.",
+    },
+  },
+
   /** The image a shared link's preview shows, by its alt, which a screen reader reads in the preview's place. */
   shareImage: {
     alt: `${COPY.brand.name}, die Fußballliga der Frankfurter Oberstufen: der Pokal über dem Schriftzug`,

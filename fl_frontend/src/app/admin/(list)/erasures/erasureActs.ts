@@ -10,6 +10,7 @@ import { formatNumber } from "@/core/format";
 import { identityGetErasureView, identityPostErasure } from "@/core/generated/client/sdk";
 import { IdentityPostErasureBody } from "@/core/generated/zod/inputs";
 import { logger } from "@/core/logging";
+import { SERVER_COPY } from "@/core/serverCopy";
 
 import type { Copy } from "@/core/copy";
 import type { FLErasureViewResponse } from "@/core/generated/client/types";
@@ -91,6 +92,6 @@ export const eraseAddress = action({
   run: async ({ email, reason }) => {
     await identityPostErasure({ email, reason });
     if (await accountCleared(email)) return { ok: true, value: undefined };
-    return { ok: false, reason: WORDS.partial, warn: true };
+    return { ok: false, reason: SERVER_COPY.actAnswer.erasurePartial, warn: true };
   },
 });

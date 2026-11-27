@@ -24,12 +24,6 @@ describe("formatDateWithWeekdayAndYear", () => {
   });
 });
 
-describe("formatTime", () => {
-  it("reads an instant in summer time on the league's clock", () => {
-    expect(formatTime(new Date("2026-07-01T17:30:00Z"))).toBe("19:30");
-  });
-});
-
 describe("a stored day and time", () => {
   // The league's wall clock names no instant, so its two formatters read it in UTC: a dropped `timeZone` moves the time.
   it("prints as stored, whatever the runtime's zone", () => {

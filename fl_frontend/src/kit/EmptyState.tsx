@@ -23,7 +23,8 @@ export type EmptyStateProps = {
   plural: Copy;
   /**
    * The list is one record named by a masculine or neuter noun rather than a plural, as a team's „Kader“, so
-   * nothing there yet reads „Noch kein Kader.“; a feminine one, „Tabelle“, reads as a plural does.
+   * nothing there yet reads „Noch kein Kader.“ and none in a closed record „Kein Kader eingetragen.“; a feminine one,
+   * „Tabelle“, reads as a plural does.
    */
   one?: true;
   /**
@@ -96,7 +97,9 @@ export function EmptyState(props: EmptyStateProps | Clear) {
         : props.kind === "skipped"
           ? COPY.shared.empty.skipped(props.plural)
           : props.kind === "unrecorded"
-            ? COPY.shared.empty.unrecorded(props.plural)
+            ? props.one === true
+              ? COPY.shared.empty.unrecordedOne(props.plural)
+              : COPY.shared.empty.unrecorded(props.plural)
             : COPY.shared.empty.filter(props.plural);
   return (
     <div className={`grid ${rowHeight()} grid-cols-1 items-center px-4 py-3 text-base text-fg-muted lg:py-0 lg:text-sm`}>

@@ -7,6 +7,7 @@ import { ADMIN_COPY } from "@/core/copy/admin";
 import { COPY } from "@/core/copy/shared";
 import { identityPostWithdrawal } from "@/core/generated/client/sdk";
 import { IdentityPostWithdrawalBody } from "@/core/generated/zod/inputs";
+import { SERVER_COPY } from "@/core/serverCopy";
 
 import { WITHDRAWAL_CHOICES } from "./withdrawalChoices";
 
@@ -62,9 +63,9 @@ export const readWithdrawal = action({
   examples: { email: COPY.shared.field.exampleAddress },
   run: async (form) => {
     const choices = WITHDRAWAL_CHOICES.filter((choice) => form[choice] !== undefined);
-    if (choices.length === 0) return { ok: false, reason: WORDS.noneChosen };
+    if (choices.length === 0) return { ok: false, reason: SERVER_COPY.actAnswer.withdrawal.noneChosen };
     const facts = factsOf(await identityPostWithdrawal({ email: form.email, choices }, { dry_run: true }));
-    if (facts.length === 0) return { ok: false, reason: WORDS.nothingGranted };
+    if (facts.length === 0) return { ok: false, reason: SERVER_COPY.actAnswer.withdrawal.nothingGranted };
     return {
       ok: true,
       value: { question: { subject: WORDS.object, consequence: WORDS.consequence, facts }, input: { email: form.email, choices } },

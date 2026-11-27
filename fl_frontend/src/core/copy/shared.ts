@@ -65,6 +65,7 @@ const RETIRED = "Stillgelegt";
 const SENT = "Gesendet";
 const DECLINED = "Abgelehnt";
 const DEREGISTERED = "Ausgetragen";
+const AGREED = "Zugesagt";
 const FILTER = "Filter";
 
 /**
@@ -141,7 +142,7 @@ export const COPY = catalogue({
       objected: "Widersprochen",
       erased: DELETED,
       expired: "Abgelaufen",
-      agreed: "Zugesagt",
+      agreed: AGREED,
       /** A club's decline and a referee's alike; a match called off reads as its event, „Ausgefallen“. */
       declined: DECLINED,
       nominee: "Nachnominiert",
@@ -216,6 +217,7 @@ export const COPY = catalogue({
         create: "Angelegt",
         reactivate: "Reaktiviert",
         deregister: DEREGISTERED,
+        agree: AGREED,
         adopt: "Übernommen",
         save: SAVED,
         retire: RETIRED,
@@ -248,6 +250,8 @@ export const COPY = catalogue({
        * would say one still is.
        */
       unrecorded: (plural: Copy) => `Keine ${plural} eingetragen.`,
+      /** The same of a list that is one record named by a masculine or neuter noun: „Kein Kader eingetragen.“ */
+      unrecordedOne: (noun: Copy) => `Kein ${noun} eingetragen.`,
     },
     /** A list's search box, by the list's plural. */
     search: (plural: Copy) => searchLabel(plural),
@@ -434,6 +438,12 @@ export const COPY = catalogue({
     kontakte: KONTAKTPERSONEN,
     seatName: KONTAKT_SEAT_LONG_FORM,
     seat: "Sitz",
+    /**
+     * The seats a person holds on a team, in the seats' order: Konto's seat entry's fact under `seat`, and the line
+     * under the team's name on the chooser's card and in the account menu's „Funktion wechseln“, there each seat once
+     * whatever seasons it is held in, the team being one place across them.
+     */
+    seatsHeld: (seats: readonly FLKontaktSeat[]) => seatsText(seats),
     /** An emptied seat holds no address, an erased one no day. */
     seatLine: (seats: readonly FLKontaktSeat[], address: string | null, day: Copy | null) => lineOf([seatsText(seats), address, day]),
     seatEmpty: "Niemand",

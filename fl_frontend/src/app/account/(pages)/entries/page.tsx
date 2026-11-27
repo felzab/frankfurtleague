@@ -50,7 +50,7 @@ function seatFacts(persons: readonly FLAccountSeatPerson[], team: Fact | null, h
   return [...spellings.values()].flatMap(({ person, seats }, index) => [
     fact(labelOf(COPY.shared.name, seats), `${person.first_name} ${person.last_name}`),
     birthday(person.birth_date, labelOf(COPY.shared.facts.birthday, seats)),
-    ...(index === 0 ? [...(team === null ? [] : [team]), { label: COPY.team.seat, value: WORDS.seatsHeld(held) }] : []),
+    ...(index === 0 ? [...(team === null ? [] : [team]), { label: COPY.team.seat, value: COPY.team.seatsHeld(held) }] : []),
     fact(labelOf(COPY.shared.facts.phone, seats), person.phone),
   ]);
 }

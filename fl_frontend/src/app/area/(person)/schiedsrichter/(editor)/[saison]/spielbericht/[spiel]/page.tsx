@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { requires } from "@/core/action";
 import { AREA_COPY } from "@/core/copy/area";
 import { COPY } from "@/core/copy/shared";
-import { APIBadStatusError } from "@/core/errors";
+import { refusedAs } from "@/core/errors";
 import { dayOf, timeOf } from "@/core/format";
 import {
   spielberichtePutSpielberichtBerichtBodyBerichtRemarksOneMax,
@@ -28,7 +28,7 @@ import { valuesOf } from "./berichtValues";
 import { saveBericht } from "./saveBericht";
 
 import type { Copy } from "@/core/copy";
-import type { FLSpielberichtSchiedsrichterResponse, FLSpielberichtSpieler, FLSpielSide } from "@/core/generated/client/types";
+import type { Code, FLSpielberichtSchiedsrichterResponse, FLSpielberichtSpieler, FLSpielSide } from "@/core/generated/client/types";
 import type { Option } from "@/kit/OptionList";
 import type { PageTitle } from "@/kit/RailFrame";
 import type { Metadata } from "next";
@@ -51,6 +51,9 @@ const REQUIRED = {
 
 const address = ({ saison, spiel }: Segments) => ROUTES.schiedsrichterSpielbericht.path(saison, spiel);
 
+/** The refusal of a report's read to a referee the fixture does not have. */
+const UNBOOKED: ReadonlySet<Code> = new Set<Code>(["bericht_not_officiated"]);
+
 /**
  * What the address holds for the signed-in referee: the report's read, or `unbooked` for a fixture booked to another
  * referee or one a club's exit took them off, whose read is refused; `null` for a malformed id, a fixture that does not
@@ -65,7 +68,7 @@ const find = cache(async (saison: string, spiel: string): Promise<FLSpielbericht
     const read = await readAsRoleHolder("schiedsrichter", () => getOwnSpielbericht(id.data));
     return read === null || read.spiel.saison_id !== saison ? null : read;
   } catch (error) {
-    if (error instanceof APIBadStatusError && error.serverErrorCode === "bericht_not_officiated") return "unbooked";
+    if (refusedAs(error, UNBOOKED)) return "unbooked";
     throw error;
   }
 });

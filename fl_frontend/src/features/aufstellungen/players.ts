@@ -25,6 +25,16 @@ export const LINEUP_WORDS: LineupWords = {
   anonymous: COPY.shared.anonymous,
 };
 
+/**
+ * The same words for a finished season's line-up, which takes no more players: an empty line-up or squad says none
+ * was recorded, where „Noch kein“ would promise one still to come.
+ */
+export const CLOSED_LINEUP_WORDS: LineupWords = {
+  ...LINEUP_WORDS,
+  none: { ...LINEUP_WORDS.none, kind: "unrecorded" },
+  noKader: { ...LINEUP_WORDS.noKader, kind: "unrecorded" },
+};
+
 /** „Nachnominiert“ after the name of a pupil registered after the season began, whom the shortage rule holds. */
 function chipOf({ is_nachnominiert }: Pick<FLAufstellungSpieler, "is_nachnominiert">): ChipProps | undefined {
   return is_nachnominiert ? NOMINEE_CHIP : undefined;

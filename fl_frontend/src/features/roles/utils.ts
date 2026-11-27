@@ -1,4 +1,3 @@
-import { ACCOUNT_COPY } from "@/core/copy/account";
 import { AREA_COPY } from "@/core/copy/area";
 import { COPY } from "@/core/copy/shared";
 import { rolesOf } from "@/core/roles";
@@ -112,7 +111,7 @@ export function placeOf(target: RoleTarget): { href: Route; name: Words; seats?:
         href,
         name: { record: named.team_name },
         // A seat held in both seasons is one seat: the phrase names each once.
-        seats: ACCOUNT_COPY.entries.seatsHeld(seats.map((seat) => seat.seat)),
+        seats: COPY.team.seatsHeld(seats.map((seat) => seat.seat)),
         parts: [...bySaison.values()].map((seat) => ({
           href: ROUTES.teamOverview.path(seat.team_id, seat.saison_id),
           line: AREA_COPY.team.accountLine({ record: seat.team_shorthand }, heldIn(seat.saison_id)),

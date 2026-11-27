@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 
 import { COPY } from "@/core/copy/shared";
-import { dayOf, formatDateWithWeekday, formatErgebnis, formatOrdinal, formatTime, timeOf } from "@/core/format";
+import { dayOf, formatDateWithWeekday, formatErgebnis, formatOrdinal, formatTime, formatYear, timeOf } from "@/core/format";
 import { buildMapsSearchUrl } from "@/core/maps";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
@@ -168,10 +168,9 @@ function tilesOf(spiel: FLSpielJoined, page: FLSpielPageResponse): readonly [Sta
  */
 function dateTileOf(day: CalendarDay | null): StatTile {
   const { date } = COPY.spielplan.fact;
-  // A stored day's first four characters are its year, as a German date writes it.
   return day === null
     ? { label: date, value: COPY.shared.noValue }
-    : { label: date, value: { record: formatDateWithWeekday(day) }, line: { record: day.slice(0, 4) } };
+    : { label: date, value: { record: formatDateWithWeekday(day) }, line: { record: formatYear(day) } };
 }
 
 /** A line-up's pupils as one table: a row a pupil, as every public pupils' table sets one. */

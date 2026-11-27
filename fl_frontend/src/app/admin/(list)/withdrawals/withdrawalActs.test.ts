@@ -74,7 +74,7 @@ describe("the withdrawal's question", () => {
   });
 
   it("refuses a form with no box ticked before anything is read", async () => {
-    expect(await readWithdrawal(form())).toStrictEqual({ ok: false, reason: ADMIN_COPY.withdrawal.noneChosen });
+    expect(await readWithdrawal(form())).toStrictEqual({ ok: false, reason: SERVER_COPY.actAnswer.withdrawal.noneChosen });
 
     await backend.answered();
     expect(backend.sent).toStrictEqual([]);
@@ -82,7 +82,7 @@ describe("the withdrawal's question", () => {
 
   // The harm: a question over nothing, whose press then records nothing and says it entered a withdrawal.
   it("refuses an address on which nothing ticked is granted", async () => {
-    expect(await readWithdrawal(form("media"))).toStrictEqual({ ok: false, reason: ADMIN_COPY.withdrawal.nothingGranted });
+    expect(await readWithdrawal(form("media"))).toStrictEqual({ ok: false, reason: SERVER_COPY.actAnswer.withdrawal.nothingGranted });
   });
 
   // The harm: read as the shared failure line, the refusal names no reason and sends the administrator to a retry the

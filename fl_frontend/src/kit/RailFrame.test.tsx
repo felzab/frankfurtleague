@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, screen } from "@testing-library/react";
+import { act, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -8,10 +8,11 @@ import { serveHost } from "@/test-support/backend";
 import { renderUnderNext, underNext } from "@/test-support/nextContexts";
 import { drawnOnServer } from "@/test-support/server";
 
+import { useHoldLeave } from "./LeaveGuard";
 import { RailFrame } from "./RailFrame";
 
 import type { NextContexts } from "@/test-support/nextContexts";
-import type { ComponentProps } from "react";
+import type { ComponentProps, ReactNode } from "react";
 import type { Account } from "./FrameNav";
 
 /** Next's navigation at the Spielorte, a page whose address names no season. */
@@ -51,15 +52,21 @@ const SIGN_OUT = { method: "POST", path: "/api/auth/sign-out" };
 // An administrator: the grant stores no name.
 const ACCOUNT: Account = { role: COPY.shared.administration, address: { record: "verwaltung@example.com" } };
 
+/** An editor's page holding one unsaved change, as `useEditor` holds its draft's. */
+function Draft({ discard }: { discard: () => void }) {
+  useHoldLeave(1, discard);
+  return <p>Entwurf</p>;
+}
+
 /** The frame of a one-page area around a page, its account read as given. */
-async function renderFrame(account: Promise<Account | null>) {
+async function renderFrame(account: Promise<Account | null>, page: ReactNode = <p>Seite</p>) {
   await act(async () =>
     renderUnderNext(
       <RailFrame
         groups={[{ entries: [{ id: "spielorte", label: COPY.page.adminSpielorte, href: "/admin/spielorte", icon: "search" }] }]}
         bar={["spielorte"]}
         foot={{ kind: "account", account }}>
-        <p>Seite</p>
+        {page}
       </RailFrame>,
       AT_ADDRESS,
     ),
@@ -130,6 +137,23 @@ describe("the account menu", () => {
     await vi.waitFor(() => expect(leave.leaveDocumentFor).toHaveBeenCalledWith("/"));
     // No toast at all, in any words: the person leaves, and nothing is said on the page they leave.
     expect([sent(), screen.queryAllByRole("alertdialog")]).toStrictEqual([[SIGN_OUT], []]);
+  });
+
+  // A sign-out ahead of the question would leave only the browser's empty one, and a person who stays would keep typed
+  // values no save can send once the session is gone.
+  it("asks over unsaved changes before the session ends, and signs out only once the person discards them", async () => {
+    const sent = signOutAnswers(200);
+    const discard = vi.fn();
+    await renderFrame(Promise.resolve(ACCOUNT), <Draft discard={discard} />);
+    await openMenu();
+
+    await userEvent.click(screen.getByRole("menuitem", { name: COPY.shared.verb.signOut }));
+    const question = await screen.findByRole("alertdialog");
+    expect([sent(), leave.leaveDocumentFor.mock.calls]).toStrictEqual([[], []]);
+
+    await userEvent.click(within(question).getByRole("button", { name: COPY.shared.verb.discard }));
+    await vi.waitFor(() => expect(leave.leaveDocumentFor).toHaveBeenCalledWith("/"));
+    expect([discard.mock.calls.length, sent()]).toStrictEqual([1, [SIGN_OUT]]);
   });
 
   it("keeps the person in place with the one failure line where the sign-out fails", async () => {

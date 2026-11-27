@@ -10,10 +10,10 @@ import { action, PAGE_HOLDER } from "@/core/action";
 import { afterTheResponse } from "@/core/afterResponse";
 import { notifyPasskey } from "@/core/auth/mails";
 import { passkeysOf, removePasskey, renamePasskey } from "@/core/auth/passkeys";
-import { ACCOUNT_COPY } from "@/core/copy/account";
 import { COPY } from "@/core/copy/shared";
 import { RolledBackError } from "@/core/errors";
 import { logger } from "@/core/logging";
+import { SERVER_COPY } from "@/core/serverCopy";
 import { PasskeyNameSchema } from "@/features/passkeys/schemas";
 
 /* `disabledPaths` closes the plugin's management endpoints to HTTP alone, so these actions, each calling in process,
@@ -55,7 +55,7 @@ export const removePasskeyAction = action({
       logger.error("passkeys.removal_outcome_unknown", undefined, { name: failed instanceof Error ? failed.name : "unknown" });
       return { ok: false, reason: COPY.shared.failure.unexpected };
     }
-    if (removal === "last") return { ok: false, reason: ACCOUNT_COPY.passkeys.lastKept };
+    if (removal === "last") return { ok: false, reason: SERVER_COPY.actAnswer.lastPasskeyKept };
     if (removal === "absent") return { ok: false, reason: COPY.shared.failure.stale };
 
     const { email } = served.user;

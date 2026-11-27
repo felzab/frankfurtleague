@@ -31,10 +31,9 @@ export function EinteilungActs({
   return (
     <>
       <PressAct
-        label={COPY.shared.verb.agree}
+        act={{ verb: "agree" }}
         run={agreeEinteilung}
         payload={{ id }}
-        done={COPY.shared.state.agreed}
       />
       <Dialog
         title={TITLE}

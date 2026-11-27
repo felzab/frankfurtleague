@@ -1,5 +1,5 @@
 import { COPY } from "@/core/copy/shared";
-import { APIBadStatusError } from "@/core/errors";
+import { asRefusal } from "@/core/errors";
 import { byShirtNumber } from "@/features/spieler/constants";
 
 import type { ActionAnswer } from "@/core/action";
@@ -38,8 +38,9 @@ export const REFUSED_ROW = "picked.";
  * which the action words as it words every one.
  */
 export function refusedRows(error: unknown, sent: readonly FLAufstellungEntry[]): ActionAnswer<never> | undefined {
-  if (!(error instanceof APIBadStatusError) || error.serverErrorCode !== "spieler_not_in_kader") return undefined;
-  const rows = error.refusedFields.flatMap(({ path: [list, index] }) => {
+  const refusal = asRefusal(error);
+  if (refusal?.serverErrorCode !== "spieler_not_in_kader") return undefined;
+  const rows = refusal.refusedFields.flatMap(({ path: [list, index] }) => {
     const entry = list === "spieler" && typeof index === "number" ? sent[index] : undefined;
     return entry?.spieler_id == null ? [] : [[`changes.${REFUSED_ROW}${entry.spieler_id}`, COPY.kader.deregistered] as const];
   });

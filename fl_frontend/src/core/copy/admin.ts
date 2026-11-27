@@ -415,8 +415,6 @@ export const ADMIN_COPY = catalogue({
       bewerbungSeats: "Sitze in Bewerbungen",
       spiele: "Eingeteilte Spiele",
     },
-    /** The toast's note, the account undeleted or unknown: the form keeps the address, so its „Löschen“ retries. */
-    partial: "Die Daten sind gelöscht, das Konto vielleicht nicht.",
   },
 
   withdrawal: {
@@ -426,9 +424,6 @@ export const ADMIN_COPY = catalogue({
     ended: (kinds: readonly Copy[]) => formatList(kinds),
     /** What no press of the administration undoes: no administrative write grants a consent. */
     consequence: "Nur die Person kann wieder einwilligen.",
-    noneChosen: "Kein Widerruf gewählt.",
-    /** No record at the address grants a ticked choice, none at all included. */
-    nothingGranted: "Unter dieser Adresse ist nichts davon erteilt.",
   },
 
   addressChange: {

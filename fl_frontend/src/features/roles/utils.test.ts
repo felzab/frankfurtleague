@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { ACCOUNT_COPY } from "@/core/copy/account";
 import { AREA_COPY } from "@/core/copy/area";
+import { COPY } from "@/core/copy/shared";
 import { ROUTES } from "@/core/routes";
 import { person, seat } from "@/test-support/subjectFixtures";
 
@@ -63,7 +63,7 @@ describe("a contact's place on a team held in two seasons", () => {
       {
         href: ROUTES.teamOverview.path(TEAM.team_id, TEAM.saison_id),
         name: { record: TEAM.team_name },
-        seats: ACCOUNT_COPY.entries.seatsHeld(["ansprechperson", "trainer"]),
+        seats: COPY.team.seatsHeld(["ansprechperson", "trainer"]),
         parts: [
           {
             href: ROUTES.teamOverview.path(TEAM.team_id, NEXT_SEASON.saison_id),

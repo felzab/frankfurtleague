@@ -1,5 +1,6 @@
 import { BlockBox } from "./BlockBox";
 import { cardSurface } from "./cardStyles";
+import { initials } from "./initials";
 import { tv } from "./tv";
 
 import type { Copy, RecordText } from "@/core/copy";
@@ -22,7 +23,7 @@ const row = tv({
   },
 });
 
-/** The people who run the league, in columns of one width, each beside a mark of their first letter. */
+/** The people who run the league, in columns of one width, each beside the mark of their initials the rail draws. */
 export function Organisers({ people }: { people: readonly Organiser[] }) {
   const slots = row();
   return (
@@ -35,7 +36,7 @@ export function Organisers({ people }: { people: readonly Organiser[] }) {
             <span
               aria-hidden
               className={slots.avatar()}>
-              {person.name.record.charAt(0)}
+              {initials(person.name.record)}
             </span>
             <span className={slots.words()}>
               <span className={slots.name()}>{person.name.record}</span>
