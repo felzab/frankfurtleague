@@ -89,6 +89,7 @@ from app.core.dependencies import (
     SaisonsReadCollection,
     SaisonTeamsCollection,
     SaisonTeamsReadCollection,
+    SnapshotSession,
     TeamsCollection,
     TeamsReadCollection,
 )
@@ -591,6 +592,7 @@ async def post_kontakt_seat(
     saisons_collection: SaisonsCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
+    session: SnapshotSession,
     today: GermanDay,
     germany_now: GermanyNow,
     dry_run: DryRun = False,
@@ -646,9 +648,7 @@ async def post_kontakt_seat(
         return bewerbung_raw, seats
 
     if dry_run:
-        # Opened here as `get_snapshot_session` opens one, not declared: the dry run alone reads outside a transaction.
-        async with db.start_session(snapshot=True) as session:
-            await judge(session)
+        await judge(session)
         return dry_run_passed()
 
     async def seat_and_mint(session: AsyncClientSession) -> FLBewerbungKontaktSeatResponse:

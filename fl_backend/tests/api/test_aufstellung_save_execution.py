@@ -547,22 +547,24 @@ class TestWhatTheSaveAnchorsMovingInsideItIsRefusedInItsTransaction:
 async def save_the_fixture(database: AsyncDatabase, client: AsyncMongoClient, loaded: Mapping[str, Any], *, spiele: Any) -> Any:
     """The administrator's save of the fixture from an editor that loaded `loaded`, moving its note alone."""
 
-    return await patch_spiel(
-        spiel_id=SPIEL,
-        spiel_data=FLPatchSpielDataPayload.model_validate(spiel_patch_body(loaded, note=MOVED_NOTE)),
-        db=client,
-        spiele_collection=spiele,
-        teams_collection=database[Collection.TEAMS],
-        saisons_collection=database[Collection.SAISONS],
-        saison_teams_collection=database[Collection.SAISON_TEAMS],
-        spieltage_collection=database[Collection.SPIELTAGE],
-        spielorte_collection=database[Collection.SPIELORTE],
-        schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
-        spielberichte_collection=database[Collection.SPIELBERICHTE],
-        aufstellungen_collection=database[Collection.AUFSTELLUNGEN],
-        spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
-        germany_now=OPEN,
-    )
+    async with client.start_session(snapshot=True) as session:
+        return await patch_spiel(
+            spiel_id=SPIEL,
+            spiel_data=FLPatchSpielDataPayload.model_validate(spiel_patch_body(loaded, note=MOVED_NOTE)),
+            db=client,
+            spiele_collection=spiele,
+            teams_collection=database[Collection.TEAMS],
+            saisons_collection=database[Collection.SAISONS],
+            saison_teams_collection=database[Collection.SAISON_TEAMS],
+            spieltage_collection=database[Collection.SPIELTAGE],
+            spielorte_collection=database[Collection.SPIELORTE],
+            schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+            spielberichte_collection=database[Collection.SPIELBERICHTE],
+            aufstellungen_collection=database[Collection.AUFSTELLUNGEN],
+            spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
+            germany_now=OPEN,
+            session=session,
+        )
 
 
 # A change no line-up is judged on, so the fixture's save takes it whichever order the two commit in.

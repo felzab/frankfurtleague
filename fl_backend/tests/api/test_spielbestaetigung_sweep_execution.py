@@ -142,23 +142,25 @@ async def move(
 
     # Named one by one rather than spread from a dictionary, which no type check reads through.
     async def saved(spiel_data: FLPatchSpielDataPayload, *, dry_run: bool) -> FLPatchSpielDataResponse:
-        return await patch_spiel(
-            spiel_id=spiel_id,
-            spiel_data=spiel_data,
-            db=client,
-            spiele_collection=database[Collection.SPIELE] if dry_run or spiele is None else spiele,
-            teams_collection=database[Collection.TEAMS],
-            saisons_collection=database[Collection.SAISONS],
-            saison_teams_collection=database[Collection.SAISON_TEAMS],
-            spieltage_collection=database[Collection.SPIELTAGE],
-            spielorte_collection=database[Collection.SPIELORTE],
-            schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
-            spielberichte_collection=database[Collection.SPIELBERICHTE],
-            aufstellungen_collection=database[Collection.AUFSTELLUNGEN],
-            spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
-            germany_now=NOW,
-            dry_run=dry_run,
-        )
+        async with client.start_session(snapshot=True) as session:
+            return await patch_spiel(
+                spiel_id=spiel_id,
+                spiel_data=spiel_data,
+                db=client,
+                spiele_collection=database[Collection.SPIELE] if dry_run or spiele is None else spiele,
+                teams_collection=database[Collection.TEAMS],
+                saisons_collection=database[Collection.SAISONS],
+                saison_teams_collection=database[Collection.SAISON_TEAMS],
+                spieltage_collection=database[Collection.SPIELTAGE],
+                spielorte_collection=database[Collection.SPIELORTE],
+                schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+                spielberichte_collection=database[Collection.SPIELBERICHTE],
+                aufstellungen_collection=database[Collection.AUFSTELLUNGEN],
+                spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
+                germany_now=NOW,
+                dry_run=dry_run,
+                session=session,
+            )
 
     asked = await saved(payload, dry_run=True)
     await saved(payload.model_copy(update={"voided_ergebnisse": asked.voided_ergebnisse}), dry_run=False)

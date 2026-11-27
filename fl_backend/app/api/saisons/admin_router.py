@@ -469,8 +469,8 @@ async def patch_saison(
             austritt_stored = austritt_stored or row.get("austritt") is not None
 
         # In the transaction's session: what `rules_shape_after_spielplan` freezes is the draw, and only a draw or an
-        # undraw moves the count, and both write `saisons`, so one landing under this save conflicts.
-        drawn_spiele = await spiele_collection.count_documents({"saison_id": saison_id}, session=session)
+        # undraw moves whether a fixture stands, and both write `saisons`, so one landing under this save conflicts.
+        drawn = await spiele_collection.find_one({"saison_id": saison_id}, {"_id": 1}, session=session) is not None
 
         largest_kader_rows = await (
             await saison_spieler_collection.aggregate(
@@ -537,7 +537,7 @@ async def patch_saison(
                 proposed=saison_data.rules,
                 occupancy_by_gruppe=occupancy,
                 largest_kader=largest_kader,
-                drawn_spiele=drawn_spiele,
+                drawn=drawn,
             )
         )
         refuse(
@@ -610,15 +610,15 @@ async def _judge_the_activation(
     # One call, so which of the two refusals an admin is shown stays the service's decision.
     # The target's own fixtures, not the outgoing season's: a league going live with nothing drawn
     # has no repair, activation writing `status` one way only.
-    target_spiele = await spiele_collection.count_documents({"saison_id": saison_id}, session=session)
+    target_drawn = await spiele_collection.find_one({"saison_id": saison_id}, {"_id": 1}, session=session) is not None
 
     # `start` alone: `end` is dated with it, and a matchday half-dated is a shape no write here produces.
-    undated_spieltage = await spieltage_collection.count_documents({"saison_id": saison_id, "start": None}, session=session)
+    spieltage_undated = await spieltage_collection.find_one({"saison_id": saison_id, "start": None}, {"_id": 1}, session=session) is not None
 
     return outgoing_ids, find_activation_refusal(
         target_status=target_status,
-        target_spiele=target_spiele,
-        undated_spieltage=undated_spieltage,
+        target_drawn=target_drawn,
+        spieltage_undated=spieltage_undated,
         outgoing_unplayed=outgoing_unplayed,
     )
 

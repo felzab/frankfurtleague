@@ -489,24 +489,26 @@ class TestWhatAnObjectionOwesTheAnsprechperson:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await answer(database, client, RAW["stellvertretung"], answer="declined", now=MAIL_NOW)
-            await post_kontakt_seat(
-                bewerbung_id=BEWERBUNG_OID,
-                seat="stellvertretung",
-                seat_data=FLBewerbungKontaktSeatPayload(
-                    first_name="Thessaly",
-                    last_name=LAST_NAME,
-                    email=f"thessaly@{MAIL_DOMAIN}",
-                    phone="+49 171 3920001",
-                    version=(await stored(database))["version"],
-                ),
-                bewerbungen_collection=database[Collection.BEWERBUNGEN],
-                teams_collection=database[Collection.TEAMS],
-                saisons_collection=database[Collection.SAISONS],
-                outbox_collection=database[Collection.OUTBOX],
-                db=client,
-                today=TODAY,
-                germany_now=MAIL_NOW,
-            )
+            async with client.start_session(snapshot=True) as session:
+                await post_kontakt_seat(
+                    bewerbung_id=BEWERBUNG_OID,
+                    seat="stellvertretung",
+                    seat_data=FLBewerbungKontaktSeatPayload(
+                        first_name="Thessaly",
+                        last_name=LAST_NAME,
+                        email=f"thessaly@{MAIL_DOMAIN}",
+                        phone="+49 171 3920001",
+                        version=(await stored(database))["version"],
+                    ),
+                    bewerbungen_collection=database[Collection.BEWERBUNGEN],
+                    teams_collection=database[Collection.TEAMS],
+                    saisons_collection=database[Collection.SAISONS],
+                    outbox_collection=database[Collection.OUTBOX],
+                    db=client,
+                    today=TODAY,
+                    germany_now=MAIL_NOW,
+                    session=session,
+                )
             links = [mail.token for mail in await drained(database, client) if mail.token is not None]
             await answer(database, client, links[-1], answer="declined", now=MAIL_NOW + timedelta(minutes=1))
 
@@ -521,24 +523,26 @@ class TestWhatAnObjectionOwesTheAnsprechperson:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await answer(database, client, RAW["stellvertretung"], answer="declined", now=MAIL_NOW)
-            await post_kontakt_seat(
-                bewerbung_id=BEWERBUNG_OID,
-                seat="trainer",
-                seat_data=FLBewerbungKontaktSeatPayload(
-                    first_name="Thessaly",
-                    last_name=LAST_NAME,
-                    email=f"thessaly@{MAIL_DOMAIN}",
-                    phone="+49 171 3920001",
-                    version=(await stored(database))["version"],
-                ),
-                bewerbungen_collection=database[Collection.BEWERBUNGEN],
-                teams_collection=database[Collection.TEAMS],
-                saisons_collection=database[Collection.SAISONS],
-                outbox_collection=database[Collection.OUTBOX],
-                db=client,
-                today=TODAY,
-                germany_now=MAIL_NOW,
-            )
+            async with client.start_session(snapshot=True) as session:
+                await post_kontakt_seat(
+                    bewerbung_id=BEWERBUNG_OID,
+                    seat="trainer",
+                    seat_data=FLBewerbungKontaktSeatPayload(
+                        first_name="Thessaly",
+                        last_name=LAST_NAME,
+                        email=f"thessaly@{MAIL_DOMAIN}",
+                        phone="+49 171 3920001",
+                        version=(await stored(database))["version"],
+                    ),
+                    bewerbungen_collection=database[Collection.BEWERBUNGEN],
+                    teams_collection=database[Collection.TEAMS],
+                    saisons_collection=database[Collection.SAISONS],
+                    outbox_collection=database[Collection.OUTBOX],
+                    db=client,
+                    today=TODAY,
+                    germany_now=MAIL_NOW,
+                    session=session,
+                )
 
             return await stored(database)
 

@@ -31,7 +31,7 @@ from app.api.address_change.system_router import get_address_change_address
 from app.api.identity.admin_router import post_erasure
 from app.api.identity.crud import find_sign_in, find_subject, unreferenced_of
 from app.api.identity.schemas import FLErasurePayload
-from app.api.outbox.schemas import FLBanData, FLOutboxEventPayload, FLOutboxLink, FLOutboxReference, FLRegistrierungLinkData
+from app.api.outbox.schemas import FLBanData, FLOutboxEventPayload, FLOutboxLink, FLOutboxReference, FLPasskeyData, FLRegistrierungLinkData
 from app.api.outbox.services import OwedMail, final_update, row_of
 from app.api.outbox.system_router import post_event, post_handout
 from app.api.registrierungen.public_router import get_confirmation_view
@@ -1643,6 +1643,29 @@ class TestWhatTheEffectLeavesTheErasure:
         assert tombstone is not None and owed is not None
         assert (tombstone["state"], tombstone["to"], tombstone["reference"], tombstone["delivery"]) == ("sent", None, None, None)
         assert owed["to"] == NEW_EMAIL
+
+    async def test_a_sent_passkey_notice_keeps_its_key_alone_and_an_owed_one_stays_where_it_was_owed(self, mongo_replica_set_url: str):
+        """Left addressed, a sent notice names the replaced mailbox for its row's month, where no erasure of the new one looks.
+
+        An owed one tells of a sign-in at the address it was asked from, so it goes there.
+        """
+
+        data = FLPasskeyData(kind="passkey_added", instant=NOW)
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            sent = row_of(OwedMail(key="passkey/sent", to=EMAIL, data=data), now=NOW, secret=None, valid_until=None)
+            sent |= {"state": "sent", "delivery": {"state": "delivered", "reason": None, "at": NOW}}
+            owed = row_of(OwedMail(key="passkey/owed", to=EMAIL, data=data), now=NOW, secret=None, valid_until=None)
+            await database[Collection.OUTBOX].insert_many([sent, owed])
+            await confirmed_and_moved(database, client)
+            return {key: await database[Collection.OUTBOX].find_one({"key": key}) for key in ("passkey/sent", "passkey/owed")}
+
+        rows = await on_a_person(mongo_replica_set_url, body)
+
+        tombstone, owed = rows["passkey/sent"], rows["passkey/owed"]
+        assert tombstone is not None and owed is not None
+        assert (tombstone["state"], tombstone["to"], tombstone["delivery"]) == ("sent", None, None)
+        assert (owed["state"], owed["to"]) == ("open", EMAIL)
 
     async def test_an_earlier_effect_s_owed_carry_follows_the_person(self, mongo_replica_set_url: str):
         """Its account goes where the person is now, and an erasure of the new address finds the record."""

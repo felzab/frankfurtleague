@@ -410,7 +410,7 @@ class FLTeamMembership(BaseReadModel):
     # key the stored row has not got, and a row holds none until a save mints its first link.
     confirmations: FLSaisonTeamConfirmationsView | None = None
     # The row's count of writes, which its two editors' saves send back.
-    version: int = 0
+    version: int
 
 
 # Private, so it publishes no OpenAPI component. The bounded address sits here rather than on that base,

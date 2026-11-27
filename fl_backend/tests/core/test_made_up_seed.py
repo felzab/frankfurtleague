@@ -141,8 +141,8 @@ def refused_writes(league: MadeUpLeague) -> list[str]:
             judge(
                 find_activation_refusal(
                     target_status="future",
-                    target_spiele=len(season.spiele),
-                    undated_spieltage=sum(1 for row in season.spieltage if row["start"] is None),
+                    target_drawn=bool(season.spiele),
+                    spieltage_undated=any(row["start"] is None for row in season.spieltage),
                     outgoing_unplayed=outgoing is not None
                     and any(is_unplayed(ergebnis=row["ergebnis"], sonderereignis=row["sonderereignis"]) for row in outgoing.spiele),
                 ),

@@ -35,7 +35,6 @@ from app.api.schiedsrichter.services import (
     EINWILLIGUNG_FIELD,
     ERASE_AT_FIELD,
     confirmation_deadline_from,
-    erase_at_from,
 )
 from app.api.schiedsrichter.system_router import sweep_schiedsrichter
 from app.core.codes import Code
@@ -135,14 +134,16 @@ async def on_a_league(url: str, body: Body, *, referees: list[dict[str, Any]] | 
 
 
 async def create(database: AsyncDatabase, client: AsyncMongoClient, *, email: str | None = EMAIL, today: str = TODAY) -> Mailed:
-    answer = await post_schiedsrichter(
-        schiedsrichter_data=FLPostSchiedsrichterPayload.model_validate(payload_body(email=email)),
-        schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
-        outbox_collection=database[Collection.OUTBOX],
-        db=client,
-        today=today,
-        germany_now=MAIL_NOW,
-    )
+    async with client.start_session(snapshot=True) as session:
+        answer = await post_schiedsrichter(
+            schiedsrichter_data=FLPostSchiedsrichterPayload.model_validate(payload_body(email=email)),
+            schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+            outbox_collection=database[Collection.OUTBOX],
+            db=client,
+            today=today,
+            germany_now=MAIL_NOW,
+            session=session,
+        )
 
     return await mailed(database, client, answer)
 
@@ -150,15 +151,17 @@ async def create(database: AsyncDatabase, client: AsyncMongoClient, *, email: st
 async def correct(database: AsyncDatabase, client: AsyncMongoClient, *, email: str | None, today: str = TODAY) -> Mailed:
     # The version an editor opened now would be served, as the save sends it back.
     version = (await stored(database))["version"]
-    answer = await patch_schiedsrichter(
-        schiedsrichter_id=SCHIEDSRICHTER_OID,
-        schiedsrichter_data=FLPatchSchiedsrichterPayload.model_validate({**payload_body(email=email), "version": version}),
-        schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
-        outbox_collection=database[Collection.OUTBOX],
-        db=client,
-        today=today,
-        germany_now=MAIL_NOW,
-    )
+    async with client.start_session(snapshot=True) as session:
+        answer = await patch_schiedsrichter(
+            schiedsrichter_id=SCHIEDSRICHTER_OID,
+            schiedsrichter_data=FLPatchSchiedsrichterPayload.model_validate({**payload_body(email=email), "version": version}),
+            schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+            outbox_collection=database[Collection.OUTBOX],
+            db=client,
+            today=today,
+            germany_now=MAIL_NOW,
+            session=session,
+        )
 
     return await mailed(database, client, answer)
 
@@ -253,7 +256,8 @@ class TestTheCreateIsTheInvitation:
         assert row[CONFIRMATION_FIELD]["token_hashes"] == [hash_token(str(response.token))]
         assert row[CONFIRMATION_FIELD]["deadline"] == confirmation_deadline_from(today=TODAY)
         # The clock the TTL index reads: absent, the unanswered entry outlives the fourteen days the notice promises.
-        assert row[ERASE_AT_FIELD].replace(tzinfo=UTC) == erase_at_from(deadline=confirmation_deadline_from(today=TODAY))
+        # The German midnight closing the deadline's day, fourteen days on: 2026-04-16 at 00:00 in summer time.
+        assert row[ERASE_AT_FIELD].replace(tzinfo=UTC) == datetime(2026, 4, 15, 22, tzinfo=UTC)
         # Stored null, as a registration's: absent, the read and record models requiring the keys refuse the row.
         assert (row[EINWILLIGUNG_FIELD], row["birth_date"]) == (None, None)
 

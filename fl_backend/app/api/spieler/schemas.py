@@ -214,7 +214,7 @@ class FLKaderRow(BaseReadModel):
     # Composed on read and stored nowhere, so it cannot go stale beside the rows it compares.
     nummer_double: bool
     # The writes counted so far, which the editor's save sends back.
-    version: int = 0
+    version: int
 
 
 class FLKaderResponse(BaseReadModel):
