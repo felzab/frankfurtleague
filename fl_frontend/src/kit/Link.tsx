@@ -5,7 +5,6 @@ import { cardHover } from "./cardStyles";
 import { hoverLook } from "./hoverStyles";
 import { Icon } from "./Icon";
 import { IconLink } from "./IconLink";
-import { entryMark } from "./menuStyles";
 import { tv } from "./tv";
 import { NavigationLink } from "./WholePage";
 
@@ -57,13 +56,12 @@ const link = tv({
 export const frameLink = tv({
   base: "flex h-8 items-center rounded-lg px-3 text-sm font-medium whitespace-nowrap transition-colors duration-(--motion-state) pointer-coarse:h-10",
   variants: {
-    // Under the pointer a link of words takes an underline and its full colour, the one in full white already too, so
-    // every link of the band and the strip answers the pointer; the rail's foot is an entry, filled as the rail's are.
+    // Under the pointer a link of words takes an underline and its full colour, so every link of the band and the strip
+    // answers the pointer; the rail's foot is an entry, filled as the rail's are.
     tone: {
-      // On the band: the page the visitor is on, in full white.
-      band: `text-on-brand ${hoverLook({ host: "link", answer: "underline" })}`,
-      // On the band, every other page: the white dimmed until the pointer is over it.
-      bandMuted: `text-on-brand/75 ${hoverLook({ host: "link", answer: "bandUnderline" })}`,
+      // On the band: the white dimmed until the pointer is over it, the page the visitor is on marked by the band's
+      // mark of the place (`placeMark`).
+      band: `text-on-brand/75 ${hoverLook({ host: "link", answer: "bandUnderline" })}`,
       // The title strip's: muted until the pointer is over it.
       strip: `text-fg-muted ${hoverLook({ host: "link", answer: "fullUnderline" })}`,
       // The strip's way to a record's own page, after the record's chip: marked as a link in running text is, since
@@ -77,10 +75,10 @@ export const frameLink = tv({
 
 /**
  * An entry of a list a frame opens, a desktop menu's or a phone's sheet's, as tall as every control. A phone's sheet of
- * the frame's pages marks the page the person is on as the rail marks it, the link carrying `aria-current="page"`.
+ * the frame's pages marks the page the person is on as the rail marks it, by its link's `place`.
  */
 export const menuEntry = tv({
-  base: `flex items-center gap-3 rounded-md px-3 font-medium text-fg ${entryMark({ mark: "place" })}`,
+  base: "flex items-center gap-3 rounded-md px-3 font-medium text-fg",
   variants: {
     size: {
       desktop: "h-8 text-sm",
