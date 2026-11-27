@@ -75,13 +75,15 @@ let startRefused: Response | undefined;
 
 /** Every consent save that reached the backend, by its path, with the body it sent. */
 const consentWrites: { path: string; body: unknown }[] = [];
+/** The backend's refusal of a consent save, where a case sets one. */
+let consentRefused: Response | undefined;
 
 serveBackend(({ method, path: endpoint, headers, body }) => {
   // Under the base path the client sends it on, as the cases spell every path they compare.
   const path = `/api${endpoint}`;
   if (path.endsWith("/einwilligung")) {
     consentWrites.push({ path, body });
-    return {};
+    return consentRefused ?? {};
   }
   if (path === ERASURE_PATH) {
     erasures.push({ method, actor: headers.get("x-fl-actor") });
@@ -112,6 +114,7 @@ beforeEach(() => {
   addressChanges.length = 0;
   startRefused = undefined;
   consentWrites.length = 0;
+  consentRefused = undefined;
   HELD.clear();
 });
 
@@ -348,6 +351,24 @@ describe("the account's acts, behind the account's guard", () => {
     expect(consentWrites.map(({ body }) => body)).toStrictEqual([
       { scope: "kader_public", media: true, evidence_state: { scope: EVIDENCE, media: null }, text_versions: SPIELER_TEXT_VERSIONS },
     ]);
+  });
+
+  // The harm: the switch unmarked and the stale-page line read in place of the age the consent needs, where the
+  // birthdate or the day moved since the page served the age.
+  it("stands a media consent the write refuses for age on the media switch, naming that age", async () => {
+    const email = "eigene-einwilligung@example.org";
+    const { cookie } = await sessionByCode(auth, store, email);
+    arriveAs(cookie);
+    const [pupil] = BOXES;
+    assert.ok(pupil !== undefined);
+    consentRefused = refusal("media_age", { fields: [{ kind: "media_age", path: ["media"], ctx: { min: 16 }, in: "body" }] });
+
+    expect(await saveConsent(postedBy(pupil, email))).toStrictEqual({
+      ok: false,
+      errorCode: "media_age",
+      fieldErrors: { media: COPY.shared.mediaFrom(16) },
+      kinds: { media: "media_age" },
+    });
   });
 
   it("ends every other session of the account however many stand, and keeps this one", async () => {

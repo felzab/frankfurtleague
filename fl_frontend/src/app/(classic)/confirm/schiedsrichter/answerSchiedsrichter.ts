@@ -73,9 +73,9 @@ export const answerSchiedsrichter = action({
   name: "answerSchiedsrichter",
   input: Answer,
   exempt: "mailedLink",
-  // The age the write judges on its own day, which the box's range bounds before the send by the page's day: on its
-  // box, from the range the refusal carries.
-  boxes: ["birth_date"],
+  // The age the write judges on its own day, which the boxes bound before the send by the page's day: the birthdate's
+  // range and the media switch's floor, each on its box from the bounds the refusal carries.
+  boxes: ["birth_date", "media"],
   run: async (answer): Promise<{ ok: true; value: EndState }> => {
     let end: DoneEnd = answer.act === "secondary" ? "objected" : "confirmed";
     try {
