@@ -49,6 +49,7 @@ export const Code = {
   bewerbung_picked_team_unusable: "bewerbung_picked_team_unusable",
   bewerbung_picked_team_already_entered: "bewerbung_picked_team_already_entered",
   bewerbung_seat_already_answered: "bewerbung_seat_already_answered",
+  bewerbung_seat_erased: "bewerbung_seat_erased",
   confirmation_age: "confirmation_age",
   bewerbung_kontakte_unconfirmed: "bewerbung_kontakte_unconfirmed",
   bewerbung_kontakt_repeated: "bewerbung_kontakt_repeated",

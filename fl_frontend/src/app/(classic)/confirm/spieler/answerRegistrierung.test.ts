@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { SPIELER_TEXT_VERSIONS } from "@/core/consentWordings";
 import { ROUTES } from "@/core/routes";
-import { serveBackend } from "@/test-support/backend";
+import { refusal, serveBackend } from "@/test-support/backend";
 import { doubleNextRequest, writtenCookies } from "@/test-support/nextRequest";
 import { posted } from "@/test-support/posted";
 import { thrownRedirect } from "@/test-support/thrownRedirect";
@@ -47,6 +47,18 @@ describe("the pupil's answer", () => {
     );
     // The next person at a shared browser opening the plain address meets no earlier pupil's link: its cookie is deleted
     // on the page's own path, the path it was set on.
+    expect(writtenCookies().map(({ name, value, path }) => ({ name, value, path }))).toStrictEqual([
+      { name: "mailed_link", value: undefined, path: ROUTES.registrierungConfirmation.path() },
+    ]);
+  });
+
+  // The harm: a pupil whose confirmation another tab saved reads a dead link, and doubts that the answer counted.
+  it("reaches the done page where another tab confirmed since the page opened", async () => {
+    backend.answerWith(({ method, path }) =>
+      method === "POST" && path === "/registrierungen/confirmation" ? refusal("confirmation_exists") : undefined,
+    );
+
+    expect(await ledTo(answerRegistrierung(confirmation()))).toBe(ROUTES.registrierungConfirmationDone.path());
     expect(writtenCookies().map(({ name, value, path }) => ({ name, value, path }))).toStrictEqual([
       { name: "mailed_link", value: undefined, path: ROUTES.registrierungConfirmation.path() },
     ]);

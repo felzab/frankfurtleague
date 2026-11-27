@@ -6,12 +6,13 @@ import { z } from "zod";
 
 import { action, ticked, withPostedLabels } from "@/core/action";
 import { refusedAs } from "@/core/errors";
-import { bewerbungenPostConfirmation } from "@/core/generated/client/sdk";
+import { bewerbungenGetConfirmationView, bewerbungenPostConfirmation } from "@/core/generated/client/sdk";
 import { BewerbungenPostConfirmationBody } from "@/core/generated/zod/inputs";
 import { forgetMailedLink } from "@/core/mailedLink";
 import { ROUTES } from "@/core/routes";
 
-import { entryDoneAt, LINK_INVALID } from "../ends";
+import { END, entryDoneAt, LINK_INVALID } from "../ends";
+import { alreadyDone, linkViewOf } from "../linkView";
 
 import type { Code } from "@/core/generated/client/types";
 import type { EndState } from "@/kit/MailedPage";
@@ -42,17 +43,40 @@ const Answer = z.preprocess(
 /** The refusals that say the link holds no more since the page opened: lapsed or mistyped. */
 const SPENT: ReadonlySet<Code> = new Set<Code>(["link_invalid", "link_expired"]);
 
+/** The refusal saying the seat's person answered already, in another tab or on another device. */
+const ANSWERED: ReadonlySet<Code> = new Set<Code>(["bewerbung_seat_already_answered"]);
+
+/**
+ * The answer standing on an answered seat and its day, read off the link's view, since the refusal names neither; `null`
+ * where the link holds no more. A seat found answered never reads open again on the same token: a person seated afresh
+ * is mailed a fresh link.
+ */
+async function standingAnswer(token: string): Promise<{ kind: EntryAnswer; answeredAt: string } | null> {
+  const view = await linkViewOf(bewerbungenGetConfirmationView({ token }));
+  if (view?.state === "confirmed") return { kind: "confirmed", answeredAt: view.answered_at };
+  if (view?.state === "declined") return { kind: "objected", answeredAt: view.answered_at };
+  return null;
+}
+
 /**
  * The done page one answer leads to, or the link no longer valid where the link stopped holding: one message for every
- * cause. Done, the page forgets the link, as the privacy notice says of a mailed link once it is used: the link's page,
- * rendered again on the forgotten link, would title the tab and a reload as a link no longer valid.
+ * cause. A seat answered since the page opened reaches the end that stands: the done page where it is the answer
+ * pressed, else the link opened again, naming the other answer and its day. Done, the page forgets the link, as the
+ * privacy notice says of a mailed link once it is used: the link's page, rendered again on the forgotten link, would
+ * title the tab and a reload as a link no longer valid.
  */
 async function ended(answer: Parameters<typeof bewerbungenPostConfirmation>[0], kind: EntryAnswer): Promise<{ ok: true; value: EndState }> {
   try {
     await bewerbungenPostConfirmation(answer);
   } catch (error) {
-    if (!refusedAs(error, SPENT)) throw error;
-    return { ok: true, value: LINK_INVALID };
+    if (refusedAs(error, SPENT)) return { ok: true, value: LINK_INVALID };
+    if (!refusedAs(error, ANSWERED)) throw error;
+    const standing = await standingAnswer(answer.token);
+    if (standing === null) return { ok: true, value: LINK_INVALID };
+    if (standing.kind !== kind) {
+      await forgetMailedLink(ROUTES.kontaktConfirmation.path());
+      return { ok: true, value: alreadyDone(standing.answeredAt, standing.kind, END[standing.kind]) };
+    }
   }
   await forgetMailedLink(ROUTES.kontaktConfirmation.path());
   redirect(entryDoneAt(ROUTES.kontaktConfirmationDone.path(), kind));

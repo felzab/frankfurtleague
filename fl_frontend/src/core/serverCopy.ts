@@ -168,6 +168,8 @@ export const SERVER_COPY = catalogue({
     grant_exists: ADDRESS_OF_ADMINISTRATION,
     /** A club the form or the acceptance picked that already stands in the season. */
     bewerbung_picked_team_already_entered: "Diese Schule spielt in dieser Saison schon mit.",
+    /** A seat write or a fresh link for a seat erased at its person's request, which its row marks „Gelöscht“. */
+    bewerbung_seat_erased: "Dieser Sitz ist gelöscht.",
     /**
      * A club retired since the page offering its entry was read: an application's acceptance, a club entered into the
      * season, or the incoming club of a replacement.

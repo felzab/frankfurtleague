@@ -83,6 +83,7 @@
           "bewerbung_picked_team_unusable",
           "bewerbung_picked_team_already_entered",
           "bewerbung_seat_already_answered",
+          "bewerbung_seat_erased",
           "confirmation_age",
           "bewerbung_kontakte_unconfirmed",
           "bewerbung_kontakt_repeated",

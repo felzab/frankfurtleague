@@ -6,12 +6,13 @@ import { z } from "zod";
 
 import { action, ticked, withPostedLabels } from "@/core/action";
 import { refusedAs } from "@/core/errors";
-import { schiedsrichterPostConfirmation, schiedsrichterPostDecline } from "@/core/generated/client/sdk";
+import { schiedsrichterGetConfirmationView, schiedsrichterPostConfirmation, schiedsrichterPostDecline } from "@/core/generated/client/sdk";
 import { SchiedsrichterPostConfirmationBody } from "@/core/generated/zod/inputs";
 import { forgetMailedLink } from "@/core/mailedLink";
 import { ROUTES } from "@/core/routes";
 
-import { entryDoneAt, LINK_INVALID } from "../ends";
+import { END, entryDoneAt, LINK_INVALID } from "../ends";
+import { alreadyDone, linkViewOf } from "../linkView";
 
 import type { Code } from "@/core/generated/client/types";
 import type { EndState } from "@/kit/MailedPage";
@@ -38,13 +39,29 @@ const Answer = z.preprocess(
   ]),
 );
 
-/** The refusals that say the link holds no more since the page opened: answered, lapsed or mistyped. */
-const SPENT: ReadonlySet<Code> = new Set<Code>(["link_invalid", "link_expired", "confirmation_exists"]);
+/** The refusals that say the link holds no more since the page opened: lapsed or mistyped. */
+const SPENT: ReadonlySet<Code> = new Set<Code>(["link_invalid", "link_expired"]);
+
+/** The refusal saying the referee confirmed already, in another tab or on another device: an objection erases the entry. */
+const CONFIRMED: ReadonlySet<Code> = new Set<Code>(["confirmation_exists"]);
+
+/**
+ * The confirmation standing on the entry, named with its day as the link opened again names it, for an objection that
+ * met it: the refusal names no day. The link no longer valid where it holds no more since.
+ */
+async function confirmationStanding(token: string): Promise<EndState> {
+  const view = await linkViewOf(schiedsrichterGetConfirmationView({ token }));
+  if (view?.state !== "confirmed") return LINK_INVALID;
+  await forgetMailedLink(ROUTES.schiedsrichterConfirmation.path());
+  return alreadyDone(view.answered_at, "confirmed", END.confirmed);
+}
 
 /**
  * A referee's answer through their link: the main act confirms the entry with the birthdate and the consent, under the
  * labels of the wordings the page showed; the refusal objects, the entry then going when the link lapses. A link
- * that holds no more at the press ends as the link no longer valid, one message for every cause.
+ * that holds no more at the press ends as the link no longer valid, one message for every cause. An entry confirmed
+ * since the page opened reaches the end that stands: the done page after a confirmation, the confirmation and its day
+ * after an objection.
  *
  * Done, the page forgets the link, as the privacy notice says of a mailed link once it is used, and leads on to the
  * done page naming the answer: the link's page, rendered again on the forgotten link, would title the tab and a reload
@@ -67,8 +84,9 @@ export const answerSchiedsrichter = action({
         await schiedsrichterPostConfirmation({ token, birth_date: birthDate, scope, media, text_versions });
       }
     } catch (error) {
-      if (!refusedAs(error, SPENT)) throw error;
-      return { ok: true, value: LINK_INVALID };
+      if (refusedAs(error, SPENT)) return { ok: true, value: LINK_INVALID };
+      if (!refusedAs(error, CONFIRMED)) throw error;
+      if (answer.act === "secondary") return { ok: true, value: await confirmationStanding(answer.token) };
     }
     await forgetMailedLink(ROUTES.schiedsrichterConfirmation.path());
     redirect(entryDoneAt(ROUTES.schiedsrichterConfirmationDone.path(), answer.act === "secondary" ? "objected" : "confirmed"));

@@ -587,6 +587,18 @@ class TestTheDeadline:
         assert after.state == "expired"
         assert code == Code.LINK_EXPIRED
 
+    async def test_a_confirmed_person_pressing_again_after_it_is_told_the_answer_stands(self, mongo_replica_set_url: str):
+        """Judged as the reopened link shows it: an expired link would tell them to doubt an answer that counted."""
+
+        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
+            response = await save(database, THREE)
+            token = response.confirmations[0].token
+            await answer(database, token)
+
+            return await refused_code(answer(database, token, today=AFTER_THE_DEADLINE))
+
+        assert await on_a_league(mongo_replica_set_url, body) == Code.BEWERBUNG_SEAT_ALREADY_ANSWERED
+
 
 class TestARowsPeopleLeavingTakeTheirLinks:
     async def test_a_replaced_team_s_links_open_nothing_on_the_incoming_team_s_row(self, mongo_replica_set_url: str):

@@ -450,9 +450,11 @@ async def post_confirmation(
         assert row is not None and seat is not None
 
         kontakte, confirmations = row.get("kontakte"), row.get("confirmations")
+        # The answer first, as `saison_state_of` ranks it: a person who answered and presses again after the deadline is
+        # told their answer stands, never that the link expired.
+        refuse(find_already_answered_refusal(kontakte=kontakte, confirmations=confirmations, seat=seat))
         # The deadline alone: a season row has no decision to end its link.
         refuse(find_expired_token_refusal(over=deadline_passed(deadline=seat_deadline_of(confirmations=confirmations, seat=seat), today=today)))
-        refuse(find_already_answered_refusal(kontakte=kontakte, confirmations=confirmations, seat=seat))
 
         other = saison_link_pair(kontakte=kontakte, confirmations=confirmations, seat=seat, token_hash=token_hash)
         seats = (seat,) if other is None else (seat, other)
@@ -537,6 +539,9 @@ async def post_confirmation(
         assert seat is not None
 
         kontakte, confirmations = bewerbung_raw.get("kontakte"), bewerbung_raw.get("confirmations")
+        # The answer first, as `state_of` ranks it: a person who answered and presses again after the deadline or the
+        # decision is told their answer stands, never that the link expired.
+        refuse(find_already_answered_refusal(kontakte=kontakte, confirmations=confirmations, seat=seat))
         refuse(
             find_expired_token_refusal(
                 over=link_is_over(
@@ -544,7 +549,6 @@ async def post_confirmation(
                 )
             )
         )
-        refuse(find_already_answered_refusal(kontakte=kontakte, confirmations=confirmations, seat=seat))
 
         # Both seats one person holds, so one click answers for the person rather than for one of
         # their two seats, and the equality the submission asserted survives the write.

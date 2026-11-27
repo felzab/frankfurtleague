@@ -125,7 +125,7 @@ async def read_view(database: AsyncDatabase, token: str) -> Any:
     )
 
 
-async def answer(database: AsyncDatabase, client: AsyncMongoClient, token: str, **overrides: Any) -> Any:
+async def answer(database: AsyncDatabase, client: AsyncMongoClient, token: str, *, today: str = TODAY, **overrides: Any) -> Any:
     body = {
         "token": token,
         "birth_date": AT_THE_FLOOR,
@@ -141,7 +141,7 @@ async def answer(database: AsyncDatabase, client: AsyncMongoClient, token: str, 
         registrierungen_collection=database[Collection.REGISTRIERUNGEN],
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         db=client,
-        today=TODAY,
+        today=today,
         germany_now=NOW,
     )
 
@@ -224,7 +224,18 @@ class TestTheLinkIsSpentByTheStamp:
         assert (view.state, view.deadline) == ("valid", TOMORROW)
         assert document == registrierung_document()
 
-    async def test_a_link_past_its_deadline_is_refused_before_the_stamp_is_judged(self, mongo_replica_set_url: str):
+    async def test_a_confirmed_pupil_pressing_again_after_the_deadline_is_told_the_answer_stands(self, mongo_replica_set_url: str):
+        """Judged as the reopened link shows it: an expired link would tell them to doubt an answer that counted."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
+            await answer(database, client, RAW)
+
+            # The day after the seeded deadline.
+            return await refused_code(answer(database, client, RAW, today="2026-04-03"))
+
+        assert await on_a_league(mongo_replica_set_url, body) == Code.CONFIRMATION_EXISTS
+
+    async def test_an_unanswered_link_past_its_deadline_is_refused(self, mongo_replica_set_url: str):
         expired = registrierung_document(
             confirmation={**compose_confirmation(today="2026-03-20", deadline=YESTERDAY, mailed=True), "token_hashes": [TOKEN_HASH]}
         )
