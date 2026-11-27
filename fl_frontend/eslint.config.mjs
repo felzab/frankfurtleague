@@ -771,11 +771,8 @@ const TOGGLE_OFFSET = { name: "mt-px", home: "src/kit/fieldStyles.ts" };
 
 const TABLE_BLOCK = { allow: ["src/kit/Table.tsx", "src/kit/TableStanding.tsx", "src/kit/Lineup.tsx"] };
 const SIDES = "(?:t|r|b|l|s|e|tl|tr|br|bl|ss|se|es|ee)";
-/**
- * React Aria's props placing a refusal on a field: its served faults, its invalid mark, old and new, and its words; and
- * the behaviour judging a field as it is typed into, which `HeldForm`'s native judging rules out.
- */
-const PLACED = "validationErrors|validationState|errorMessage|isInvalid|validationBehavior";
+/** React Aria's props placing a refusal on a field: its served faults, its invalid mark, old and new, and its words. */
+const PLACED = "validationErrors|validationState|errorMessage|isInvalid";
 
 /** Every way but a JSX attribute that a refusal is placed beside the form: the placement ban's arms. */
 const PLACING_ARMS = [

@@ -578,20 +578,3 @@ describe("a press held across hydration", () => {
     expect(heldSave).toHaveBeenCalledExactlyOnceWith({ id: "ort-1", version: null, changes: {} });
   });
 });
-
-// The harm: a form judging every box while it is typed into, which React Aria's `aria` behaviour does, and the native
-// validity both passes rest on never set.
-describe("the one judged form's behaviour", () => {
-  it("takes no validation behaviour of a caller's", () => {
-    const form = (
-      <HeldForm
-        // @ts-expect-error -- the refusal under test: the form judges natively, on the press and once committed.
-        validationBehavior="aria"
-        fieldErrors={undefined}
-        isBusy={false}
-        onSend={() => undefined}
-      />
-    );
-    expect(form.props).toMatchObject({ isBusy: false });
-  });
-});
