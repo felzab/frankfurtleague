@@ -201,13 +201,26 @@ describe("the match editor's save", () => {
   });
 
   it("asks for each booking's money and each side's goals the save needs, writing nothing", async () => {
-    const answer = await saveSpiel(saving({ mietpreis: "", payment: "", tore2: "" }));
+    const answer = await saveSpiel(saving({ mietpreis: "", payment: "", tore1: "", tore2: "" }));
 
     const required = COPY.shared.field.required;
     expect(answer).toStrictEqual({
       ok: false,
-      fieldErrors: { "changes.mietpreis": required, "changes.payment": required, "changes.tore2": required },
-      kinds: { "changes.mietpreis": "required", "changes.payment": "required", "changes.tore2": "required" },
+      fieldErrors: { "changes.mietpreis": required, "changes.payment": required, "changes.tore1": required, "changes.tore2": required },
+      kinds: { "changes.mietpreis": "required", "changes.payment": "required", "changes.tore1": "required", "changes.tore2": "required" },
+    });
+    expect(state.sent).toEqual([]);
+  });
+
+  // The harm: a knockout's level match saved with one shoot-out figure, which the write cannot carry half of: the
+  // save would send no shoot-out and drop the typed figure, leaving the match undecided with nothing said.
+  it("asks for the shoot-out's other figure once one is typed, writing nothing", async () => {
+    const answer = await saveSpiel(saving({ shootOut2: "" }));
+
+    expect(answer).toStrictEqual({
+      ok: false,
+      fieldErrors: { "changes.shootOut2": COPY.shared.field.required },
+      kinds: { "changes.shootOut2": "required" },
     });
     expect(state.sent).toEqual([]);
   });
