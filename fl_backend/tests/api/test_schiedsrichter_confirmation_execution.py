@@ -35,7 +35,6 @@ from app.api.schiedsrichter.services import (
     EINWILLIGUNG_FIELD,
     ERASE_AT_FIELD,
     confirmation_deadline_from,
-    erase_at_from,
 )
 from app.api.schiedsrichter.system_router import sweep_schiedsrichter
 from app.core.codes import Code
@@ -257,7 +256,8 @@ class TestTheCreateIsTheInvitation:
         assert row[CONFIRMATION_FIELD]["token_hashes"] == [hash_token(str(response.token))]
         assert row[CONFIRMATION_FIELD]["deadline"] == confirmation_deadline_from(today=TODAY)
         # The clock the TTL index reads: absent, the unanswered entry outlives the fourteen days the notice promises.
-        assert row[ERASE_AT_FIELD].replace(tzinfo=UTC) == erase_at_from(deadline=confirmation_deadline_from(today=TODAY))
+        # The German midnight closing the deadline's day, fourteen days on: 2026-04-16 at 00:00 in summer time.
+        assert row[ERASE_AT_FIELD].replace(tzinfo=UTC) == datetime(2026, 4, 15, 22, tzinfo=UTC)
         # Stored null, as a registration's: absent, the read and record models requiring the keys refuse the row.
         assert (row[EINWILLIGUNG_FIELD], row["birth_date"]) == (None, None)
 
