@@ -1055,12 +1055,14 @@ const DESIGN_BANS = [
     // The one form's own; and the sign-in code's refusal, which no form holds: the code sends itself once typed.
     { allow: ["src/kit/HeldForm.tsx", "src/kit/CodeField.tsx"] },
   ),
-  // A module exports what it declares. A re-export is a second path to another module's parts, which every ban naming
-  // that module misses, as a kit file allowed React Aria's `Form` could hand it on to all; a type it hands on is no part.
+  // A module exports what it declares, each part at its declaration. A re-export is a second path to another module's
+  // parts, which every ban naming that module misses, as a kit file allowed React Aria's `Form` could hand it on to all;
+  // a type it hands on is no part, inline or whole. A list of exports naming no module is refused too: it may hand on
+  // an import, which the list alone does not tell from a declaration of its own.
   syntaxBan(
     syntax(
-      'ExportNamedDeclaration[exportKind="value"]:not([declaration]), ExportAllDeclaration[exportKind="value"]',
-      "A module exports what it declares: import a part from the module declaring it, where every ban naming that module reads it.",
+      'ExportNamedDeclaration[exportKind="value"]:not([declaration]):has(> ExportSpecifier[exportKind="value"]), ExportAllDeclaration[exportKind="value"]',
+      "A module exports each part at its declaration: import another module's part from the module declaring it, where every ban naming that module reads it.",
     ),
     PRODUCTION,
   ),
