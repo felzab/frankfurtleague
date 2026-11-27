@@ -7,11 +7,14 @@ may stand answers `unknown_outcome` with a 500, which promises nothing.
 
 `FieldCode` is every code a judge raises on a box, each beside the field phrase that words it, so the frontend keys a
 phrase by every member. Four codes that would name boxes are gates instead, since no form sends the input that raises
-them: `swap_not_a_swap`, whose second picker offers only another group's clubs; `replace_one_team_on_both_ends`, whose
-incoming picker offers only clubs outside the season; `foreign_address_change`, judged on the pending changes rather
-than a typed address; and `eligibility_team_not_in_saison`, a side's club with no row in the season, which only a page
-read before the club left sends. A 403 code is a field code where its address comes from a box and a gate where it
-comes from a path.
+them, and a stale page that does reads the stale-page line: `swap_not_a_swap`, whose second picker the season editor
+filters to another group's clubs (`SaisonEditor.tsx :: Swap`); `replace_one_team_on_both_ends`, whose incoming picker
+lists only clubs the season has not entered (`saisons/admin_router.py :: incoming_teams`); `foreign_address_change`,
+judged on the pending changes rather than a typed address; and `eligibility_team_not_in_saison`, a side's club with no
+row in the season, which only a page read before the club left sends. A 403 code is a field code where its address
+comes from a box and a gate where it comes from a path. `address_change_nothing` is no field code, though a person
+types the address it judges: that the address holds nothing is said in a sentence on the status line, which no box's
+phrase carries.
 """
 
 from enum import StrEnum, auto
@@ -324,25 +327,25 @@ type FieldCode = Literal[
     # „Schon hinterlegt“ (Already on file).
     Code.ADDRESS_CHANGE_UNCHANGED,
     Code.ANSETZUNG_VORSCHLAG_UNCHANGED,
-    # „Nichts hinterlegt“ (Nothing on file).
-    Code.ADDRESS_CHANGE_NOTHING,
     # „Stillgelegt“ (Retired).
     Code.BOOKING_UNKNOWN_RESOURCE,
     Code.TEAM_RETIRED,
     # „Unbestätigt“ (Unconfirmed).
     Code.BOOKING_UNCONFIRMED_SCHIEDSRICHTER,
-    # „Pflichtfeld“ (Required): a new school's code left empty, and an application naming no school.
+    # „Pflichtfeld“ (Required). The acceptance's shorthand is refused when present for a picked club or absent for a new
+    # school, and its dialog shows the box for a new school alone, so the one fault a form sends is the empty box. An
+    # application naming no school is the empty school pick.
     Code.PAYLOAD_REFUSED,
     Code.BEWERBUNG_SUBMISSION_SUBJECT_UNRESOLVED,
     # „Ausgetragen“ (Deregistered), as the line-up's row marks a pupil who left the squad.
     Code.SPIELER_NOT_IN_KADER,
-    # „Ausgeschieden“ (Knocked out).
+    # „Aus der Saison ausgeschieden“ (Out of the season).
     Code.ELIGIBILITY_DISQUALIFIED,
     # „Erst mit beiden Teams“ (Only with both teams).
     Code.STATE_NICHTANTRETEN_WITHOUT_TWO_SIDES,
     # „Ohne Tore“ (Without goals).
     Code.STATE_ERGEBNIS_ON_A_NON_EVENT,
-    # „Ab {min} Jahren“ (From {min} years).
+    # „Erst ab {min} Jahren“ (Only from {min} years).
     Code.MEDIA_AGE,
     # „Höchstens {max}“ (At most {max}).
     Code.AUFSTELLUNG_NOMINEE_WITHOUT_SHORTAGE,

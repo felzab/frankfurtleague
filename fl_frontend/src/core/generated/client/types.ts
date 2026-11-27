@@ -5589,7 +5589,6 @@ export const FieldCode = {
   own_address: "own_address",
   address_change_unchanged: "address_change_unchanged",
   ansetzung_vorschlag_unchanged: "ansetzung_vorschlag_unchanged",
-  address_change_nothing: "address_change_nothing",
   booking_unknown_resource: "booking_unknown_resource",
   team_retired: "team_retired",
   booking_unconfirmed_schiedsrichter: "booking_unconfirmed_schiedsrichter",
