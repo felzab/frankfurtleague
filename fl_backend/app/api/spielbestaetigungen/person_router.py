@@ -31,7 +31,7 @@ from app.api.spielbestaetigungen.services import (
     find_vorschlag_past_refusal,
     find_vorschlag_unchanged_refusal,
     foreign_row_refusal,
-    judged_as_a_proposal,
+    on_the_proposed_slot,
     proposal_payload,
     unanswerable_refusal,
 )
@@ -49,7 +49,7 @@ from app.core.dependencies import (
     SpieleCollection,
     SpieltageReadCollection,
 )
-from app.core.exceptions import DocumentNotFoundError
+from app.core.exceptions import DocumentNotFoundError, FieldFault, faults_of
 from app.core.recording import ACT_BY_KONTAKT, ACT_BY_SCHIEDSRICHTER, record_act
 from app.core.routing import by_id
 from app.core.security import PERSON_TIER, PersonIdentifier
@@ -77,6 +77,40 @@ def _answering_seat(*, spielbestaetigung_raw: Mapping[str, Any] | None, seats: I
     held = seats_on(seats, team_id=spielbestaetigung_raw["party"]["team_id"], saison_id=spielbestaetigung_raw["saison_id"])
 
     return held[0] if held else None
+
+
+async def _proposed_slot_faults(
+    *,
+    stored: FLSpiel,
+    vorschlag: FLSpielbestaetigungAppointment,
+    spiele_collection: SpieleCollection,
+    saison_teams_collection: SaisonTeamsCollection,
+    spieltage_collection: SpieltageReadCollection,
+    session: AsyncClientSession,
+) -> tuple[FieldFault, ...]:
+    """Every fault the administrator's save would find in the proposed slot, each on the proposal's own box.
+
+    The save's judges whose verdict the slot moves, on the stored fixture moved to it, so the adoption meets no refusal
+    the answer passed.
+    """
+
+    proposed = proposal_payload(stored, vorschlag)
+    membership = await pull_saison_membership(saison_teams_collection=saison_teams_collection, saison_id=stored.saison_id, session=session)
+    span = await pull_spieltag_span(spieltage_collection=spieltage_collection, spieltag_id=stored.spieltag_id, session=session)
+    # Only claims the stored fixture did not make. It validates every season's fixtures, so a hand-edited one raises.
+    booked = await pull_booked_slots(
+        spiele_collection=spiele_collection, spiel_id=stored.id, claims=find_claims_made(stored, proposed), session=session
+    )
+
+    return on_the_proposed_slot(
+        faults_of(
+            (
+                find_eligibility_refusal(stored.id, proposed, [stored], membership),
+                None if span is None else find_spiel_date_refusal(date=proposed.date, spieltag_start=span.start, spieltag_end=span.end),
+                find_clash_refusal(date=proposed.date, time=proposed.time, booked=booked),
+            )
+        )
+    )
 
 
 @router.post(
@@ -237,28 +271,23 @@ async def post_team_answer(
         refuse(find_unanswerable_refusal(spielbestaetigung_raw=row, ansetzung_state=ansetzung_state, now=germany_now))
 
         if vorschlag is not None:
-            refuse_faults(find_vorschlag_past_refusal(vorschlag=vorschlag, today=today))
-
             stored = FLSpiel.model_validate(ansetzung_state.spiel)
-            refuse_faults(find_vorschlag_unchanged_refusal(vorschlag=vorschlag, spiel=stored))
-            proposed = proposal_payload(stored, vorschlag)
-
-            # The administrator's save's judges in its order, each read just ahead of the one refusal that consumes it.
-            membership = await pull_saison_membership(
-                saison_teams_collection=saison_teams_collection, saison_id=stored.saison_id, session=session
+            unchanged = find_vorschlag_unchanged_refusal(vorschlag=vorschlag, spiel=stored)
+            refuse_faults(
+                find_vorschlag_past_refusal(vorschlag=vorschlag, today=today),
+                unchanged,
+                # Behind the unchanged slot: its faults are the stored fixture's own, not the proposal's.
+                ()
+                if unchanged
+                else await _proposed_slot_faults(
+                    stored=stored,
+                    vorschlag=vorschlag,
+                    spiele_collection=spiele_collection,
+                    saison_teams_collection=saison_teams_collection,
+                    spieltage_collection=spieltage_collection,
+                    session=session,
+                ),
             )
-            refuse(judged_as_a_proposal(find_eligibility_refusal(stored.id, proposed, [stored], membership)))
-
-            span = await pull_spieltag_span(spieltage_collection=spieltage_collection, spieltag_id=stored.spieltag_id, session=session)
-            if span is not None:
-                refuse(judged_as_a_proposal(find_spiel_date_refusal(date=proposed.date, spieltag_start=span.start, spieltag_end=span.end)))
-
-            # Last, as in the save: it validates every season's fixtures, and a hand-edited one raises, answering 500 for a
-            # proposal an earlier rule refuses. Only claims the stored fixture did not make.
-            booked = await pull_booked_slots(
-                spiele_collection=spiele_collection, spiel_id=stored.id, claims=find_claims_made(stored, proposed), session=session
-            )
-            refuse(judged_as_a_proposal(find_clash_refusal(date=proposed.date, time=proposed.time, booked=booked)))
 
         try:
             await patch_one_in_db(
