@@ -93,7 +93,7 @@ export function HeldForm({
   onBlock,
   children,
   ...form
-}: Omit<ComponentProps<typeof Form>, "action" | "onSubmit" | "validationErrors" | "onInvalid"> & {
+}: Omit<ComponentProps<typeof Form>, "action" | "onSubmit" | "validationErrors" | "validationBehavior" | "onInvalid"> & {
   /** The form's send is on its way, or its act is closed: a press sends nothing. Required, so no form forgets it. */
   isBusy: boolean;
   onSend: (formData: FormData) => void;

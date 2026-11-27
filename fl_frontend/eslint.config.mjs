@@ -762,8 +762,11 @@ const TOGGLE_OFFSET = { name: "mt-px", home: "src/kit/fieldStyles.ts" };
 
 const TABLE_BLOCK = { allow: ["src/kit/Table.tsx", "src/kit/TableStanding.tsx", "src/kit/Lineup.tsx"] };
 const SIDES = "(?:t|r|b|l|s|e|tl|tr|br|bl|ss|se|es|ee)";
-/** React Aria's props placing a refusal on a field: its served faults, its invalid mark, old and new, and its words. */
-const PLACED = "validationErrors|validationState|errorMessage|isInvalid";
+/**
+ * React Aria's props placing a refusal on a field: its served faults, its invalid mark, old and new, and its words; and
+ * the behaviour judging a field as it is typed into, which `HeldForm`'s native judging rules out.
+ */
+const PLACED = "validationErrors|validationState|errorMessage|isInvalid|validationBehavior";
 
 const DESIGN_BANS = [
   // Page bodies: page code places the kit's named blocks, so a second match row, empty state or chip
