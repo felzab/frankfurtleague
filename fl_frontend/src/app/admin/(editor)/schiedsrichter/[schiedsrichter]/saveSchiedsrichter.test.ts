@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { ADMIN_EMAIL } from "@/test-support/authDoubles";
 import { serveBackend } from "@/test-support/backend";
 import { signedInRequest } from "@/test-support/session";
 
@@ -35,7 +36,7 @@ const backend = serveBackend(({ method, path }) => {
   if (method === "PATCH") return WRITTEN;
   return undefined;
 });
-// An administrator's session, made by passkey, which the save's guard admits.
+// An administrator's session, made by passkey a moment ago, which the save's guard and its touch admit.
 signedInRequest();
 
 const { saveSchiedsrichter } = await import("./saveSchiedsrichter");
@@ -44,7 +45,12 @@ describe("a referee's save", () => {
   // The write replaces the record whole: a field left alone sent as anything but stored erases it, and the save still
   // answers „Gespeichert“. The stored count in the editor's place would write over someone else's save.
   it("sends what it changes with the rest as stored, on the count the editor read", async () => {
-    const answer = await saveSchiedsrichter({ id: SCHIEDSRICHTER_ID, version: EDITOR_VERSION, changes: { name: "Erika Neu" } });
+    const answer = await saveSchiedsrichter({
+      id: SCHIEDSRICHTER_ID,
+      version: EDITOR_VERSION,
+      changes: { name: "Erika Neu" },
+      holder: ADMIN_EMAIL,
+    });
 
     expect(backend.sent.map(({ method, path, body }) => ({ method, path, body }))).toStrictEqual([
       { method: "GET", path: ENDPOINT, body: undefined },

@@ -68,7 +68,8 @@ export const removePasskeyAction = action({
 
 /**
  * The plugin checks the row is the caller's own before it writes. Off the touch's fixed list, which names the acts
- * handing access over: a name changes none.
+ * handing access over, a seat's write and a referee's save among them, each storing the address an area is handed to:
+ * a name changes none.
  */
 export const renamePasskeyAction = action({
   lane: "person",

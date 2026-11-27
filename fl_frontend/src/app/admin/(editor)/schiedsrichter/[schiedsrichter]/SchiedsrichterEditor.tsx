@@ -7,6 +7,7 @@ import { Facts } from "@/kit/Facts";
 import { SectionAct } from "@/kit/SectionAct";
 import { TextField } from "@/kit/TextField";
 import { useEditor } from "@/kit/useEditor";
+import { usePasskeyTouch } from "@/kit/usePasskeyTouch";
 
 import type { ActionAnswer } from "@/core/action";
 import type { Copy } from "@/core/copy";
@@ -33,7 +34,8 @@ type Act = (input: { id: string }) => Promise<ActionAnswer>;
 type Address = "fixed" | "asks";
 
 /**
- * The referee editor: the person and their fee, and how to reach them, saved together from the editor's bar; where
+ * The referee editor: the person and their fee, and how to reach them, saved together from the editor's bar behind
+ * the passkey touch; where
  * their confirmation stands and the day their last link went, and the act mailing a fresh link while they have not
  * answered; and the danger box retiring them, or bringing a retired one back.
  */
@@ -48,13 +50,15 @@ export function SchiedsrichterEditor({
   confirmation,
   sendLink,
   danger,
+  holder,
 }: {
   title: PageTitle;
   chip?: ChipProps;
   /** What the last confirmation mail met, after the state's chip where one stands. */
   flag?: ChipProps;
   record: EditorRecord<SchiedsrichterValues>;
-  save: (change: EditorSave<SchiedsrichterValues>) => Promise<ActionAnswer<number>>;
+  /** The save, behind the passkey touch, which posts the page's holder beside the changes. */
+  save: (change: EditorSave<SchiedsrichterValues> & { holder: string }) => Promise<ActionAnswer<number>>;
   /** What the save asks of each box, read on the server. */
   rules: SchiedsrichterRules;
   address: Address;
@@ -64,8 +68,16 @@ export function SchiedsrichterEditor({
   sendLink?: Act;
   /** The danger box's one act: the retirement, or the return of a retired referee with its consequence. */
   danger: { kind: "retire"; act: Act } | { kind: "reactivate"; act: Act; consequence: Copy };
+  /** The address the page was drawn for, the one account the save's passkey touch may answer for. */
+  holder: string;
 }) {
-  const editor = useEditor(record, save);
+  const touched = usePasskeyTouch(true, holder);
+  // The save bar's press is the save's final one, so the touch is asked inside it, and not for a save of nothing,
+  // which the editor answers without calling the save.
+  const editor = useEditor(
+    record,
+    touched((change: EditorSave<SchiedsrichterValues>) => save({ ...change, holder })),
+  );
   const { draft, set } = editor;
   const { required, max } = rules;
 

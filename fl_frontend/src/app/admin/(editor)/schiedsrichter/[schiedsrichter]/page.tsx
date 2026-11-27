@@ -1,6 +1,7 @@
 import { cache } from "react";
 import { notFound } from "next/navigation";
 
+import { getAdminHolder } from "@/core/auth/guards";
 import { SCHIEDSRICHTER_WORDINGS } from "@/core/consentWordings";
 import { ADMIN_COPY } from "@/core/copy/admin";
 import { COPY } from "@/core/copy/shared";
@@ -105,7 +106,7 @@ function confirmationFacts(read: FLSchiedsrichterSingleResponse): Fact[] {
 }
 
 export default async function SchiedsrichterEditorPage({ params }: Props) {
-  const found = await findSchiedsrichter(params);
+  const [found, holder] = await Promise.all([findSchiedsrichter(params), getAdminHolder()]);
   if (found === null) notFound();
   const referee = found.schiedsrichter;
   const { state } = referee;
@@ -119,6 +120,7 @@ export default async function SchiedsrichterEditorPage({ params }: Props) {
       {...chipsOf(found)}
       record={{ id: referee.id, version: referee.version, values: valuesOf(referee) }}
       save={saveSchiedsrichter}
+      holder={holder}
       rules={SAVE_RULES}
       address={state === "confirmed" ? "fixed" : "asks"}
       confirmation={confirmationFacts(found)}
