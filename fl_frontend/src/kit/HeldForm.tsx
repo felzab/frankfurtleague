@@ -17,12 +17,12 @@ export type FieldFaults = Readonly<Record<string, Copy>>;
 const Faults = createContext<FieldFaults | undefined>(undefined);
 
 /**
- * The server's fault on a part of the form that holds no box of its own, such as a list's own refusal under its rows
- * (`RecordRows`), by the name a box would carry: the same faults the form hands React Aria, so it stands and goes with
- * them.
+ * The server's faults standing on the form, for a part that holds no box of its own, such as a list's own refusal under
+ * its rows (`RecordRows`) or a line-up's refused pupil, each by the name a box would carry: the same faults the form
+ * hands React Aria, so they stand and go with them.
  */
-export function useFieldFault(name: string): Copy | undefined {
-  return useContext(Faults)?.[name];
+export function useFieldFaults(): FieldFaults | undefined {
+  return useContext(Faults);
 }
 
 /**

@@ -55,18 +55,17 @@ function Goals({ errors, locked }: { errors?: Readonly<Record<string, Copy>>; lo
         add={ADD}
         remove={REMOVE}
         locked={locked}
-        errors={errors}
         cells={{
           lead: {
             field: "side",
             label: TEAM,
-            control: ({ row, label, error, change }) => (
+            control: ({ row, name, label, change }) => (
               <Segmented
                 label={label}
                 labelHidden
+                name={name}
                 choices={SIDES}
                 value={row.side}
-                errorMessage={error}
                 onChange={(side) => change({ side, spieler_id: null })}
               />
             ),
@@ -126,6 +125,25 @@ describe("a refused row", () => {
     expect(within(third).queryByText(REQUIRED)).toBeNull();
     expect(marked(second)).toBe("true");
     expect(marked(first)).toBeNull();
+  });
+
+  // The harm: a screen reader left where the press left it, finding the refused choice by itself.
+  it("hands the focus to a refused choice once the answer commits", () => {
+    const { rerender } = render(<Goals />);
+
+    rerender(<Goals errors={{ "scorers.1.side": REQUIRED }} />);
+
+    expect(within(rowAt(1)).getByRole("radiogroup", { name: TEAM }).contains(document.activeElement)).toBe(true);
+  });
+});
+
+// The harm: a refusal of the whole list, such as too many rows, shown nowhere.
+describe("a refused list", () => {
+  it("says its own refusal under the add control", () => {
+    render(<Goals errors={{ scorers: REQUIRED }} />);
+
+    const line = screen.getByText(REQUIRED);
+    expect(screen.getByRole("group", { name: COPY.shared.tore }).getAttribute("aria-describedby")).toBe(line.id);
   });
 });
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { COPY } from "@/core/copy/shared";
+import { useFieldFaults } from "@/kit/HeldForm";
 import { Lineup, lineupMoves, lineupStarters, lineupValue } from "@/kit/Lineup";
 import { useEditor } from "@/kit/useEditor";
 
@@ -11,6 +12,7 @@ import type { ActionAnswer } from "@/core/action";
 import type { FLAufstellungEntry } from "@/core/generated/client/types";
 import type { LineupPlayer, LineupValue, LineupWords } from "@/kit/Lineup";
 import type { EditorSave } from "@/kit/useEditor";
+import type { ComponentProps } from "react";
 
 /** What a line-up's save is handed: the fixture, the version the editor was read at, and the half of the line-up it changed. */
 type AufstellungSave = EditorSave<LineupValue, number | null>;
@@ -51,19 +53,13 @@ export function useAufstellungEditor({ aufstellung, players, words, acts, save }
   };
   const editor = useEditor<LineupValue, number | null>(record, save, { countOf: lineupMoves });
   const { draft, set } = editor;
-  // The pupils the save refused, each on their own row, while the refusal stands over the draft it was sent with.
-  const refusals = Object.fromEntries(
-    Object.entries(editor.fieldErrors ?? {}).flatMap(([box, text]) =>
-      box.startsWith(REFUSED_ROW) ? [[box.slice(REFUSED_ROW.length), text]] : [],
-    ),
-  );
 
   return {
     editor,
     // The starters alone: beside the count of moves it fits a phone's bar, where the longer line pushes the count out.
     barText: COPY.aufstellung.startelfCount(lineupStarters(draft, nameless), STARTERS_MAX),
     block: (
-      <Lineup
+      <RefusedLineup
         players={players}
         value={draft}
         nameless={nameless}
@@ -74,8 +70,24 @@ export function useAufstellungEditor({ aufstellung, players, words, acts, save }
         startersMax={STARTERS_MAX}
         words={words}
         acts={acts}
-        refusals={refusals}
       />
     ),
   };
+}
+
+/**
+ * The line-up inside its editor's form, each pupil the save refused on their own row: read from the form's faults
+ * (`useFieldFaults`), so a refusal stands and goes with the ones on the editor's boxes.
+ */
+function RefusedLineup(props: Omit<ComponentProps<typeof Lineup>, "refusals">) {
+  const faults = useFieldFaults();
+  const refusals = Object.fromEntries(
+    Object.entries(faults ?? {}).flatMap(([box, text]) => (box.startsWith(REFUSED_ROW) ? [[box.slice(REFUSED_ROW.length), text]] : [])),
+  );
+  return (
+    <Lineup
+      {...props}
+      refusals={refusals}
+    />
+  );
 }

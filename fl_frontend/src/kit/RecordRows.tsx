@@ -8,6 +8,7 @@ import { EmptyState } from "./EmptyState";
 import { messageLine, toggleBox, toggleField, toggleRow } from "./fieldStyles";
 import { FocusOnLeave } from "./FocusOnLeave";
 import { FormClosed } from "./formClosed";
+import { useFieldFaults } from "./HeldForm";
 import { tv } from "./tv";
 
 import type { Copy } from "@/core/copy";
@@ -20,8 +21,6 @@ type RowControl<Row extends EditorRow> = {
   name: string;
   /** The cell's label, which names the control to a screen reader alone (`labelHidden`). */
   label: Copy;
-  /** The served refusal of the box, for a control posting no form value, which takes it as its `errorMessage`. */
-  error: Copy | undefined;
   /** Sets fields of this row, several where one choice empties another, as a goal's side empties its player. */
   change: (patch: Partial<Row>) => void;
 };
@@ -113,7 +112,6 @@ function RecordRow<Row extends EditorRow>({
   row,
   box,
   label,
-  errors,
   change,
   removal,
 }: {
@@ -124,16 +122,12 @@ function RecordRow<Row extends EditorRow>({
   box: string;
   /** The label counting the row, such as „Tor 3“. */
   label: Copy;
-  errors: Readonly<Record<string, Copy>> | undefined;
   change: (patch: Partial<Row>) => void;
   /** The remove control's name and its act; absent in a form closed read-only. */
   removal: { label: Copy; act: () => void } | undefined;
 }) {
   const labelId = useId();
-  const control = (cell: RowCell<Row>) => {
-    const field = `${box}.${cell.field}`;
-    return cell.control({ row, name: field, label: cell.label, error: errors?.[field], change });
-  };
+  const control = (cell: RowCell<Row>) => cell.control({ row, name: `${box}.${cell.field}`, label: cell.label, change });
   return (
     <div
       data-kit-row
@@ -191,9 +185,9 @@ function RecordRow<Row extends EditorRow>({
  *
  * Each refused field's refusal stands under it, however many of a row's fields are refused, and the refused field takes
  * the kit's invalid look. A kit field named as its cell names it takes the form's served refusal by that name and keeps
- * its own check at the send; a choice posting no form value takes `error` as its `errorMessage`. A field in a row
- * carries no description, so the line under a field is its refusal's alone.
- * The list's own refusal, such as too many rows, stands under the add control.
+ * its own check at the send, a choice included. A field in a row carries no description, so the line under a field is
+ * its refusal's alone. The list's own refusal, such as too many rows, stands under the add control, read from the
+ * form's faults by the list's name (`useFieldFaults`).
  *
  * The add control appends `blank`. A form closed read-only draws neither control.
  */
@@ -208,7 +202,6 @@ export function RecordRows<Row extends EditorRow>({
   add,
   remove,
   locked,
-  errors,
 }: {
   /** The list's name for a screen reader, the section's title naming it on the screen: a plural, „Tore“. */
   label: Copy;
@@ -230,8 +223,6 @@ export function RecordRows<Row extends EditorRow>({
    * says it, as every locked act does (`Button`'s `locked`). The rows stand, each with its remove control.
    */
   locked?: Copy;
-  /** The editor's served refusals by box (`useEditor`'s `fieldErrors`). */
-  errors?: Readonly<Record<string, Copy>>;
 }) {
   const slots = recordRows({ beside: cells.beside !== undefined || cells.room !== undefined });
   const isClosed = useContext(FormClosed);
@@ -247,7 +238,7 @@ export function RecordRows<Row extends EditorRow>({
     setHeld(current);
   }
 
-  const listError = errors?.[name];
+  const listError = useFieldFaults()?.[name];
 
   return (
     <div
@@ -273,7 +264,6 @@ export function RecordRows<Row extends EditorRow>({
               row={row}
               box={`${name}.${String(index)}`}
               label={rowLabel(index + 1)}
-              errors={errors}
               change={(patch) => onChange(rows.map((other, at) => (at === index ? { ...other, ...patch } : other)))}
               removal={
                 isClosed

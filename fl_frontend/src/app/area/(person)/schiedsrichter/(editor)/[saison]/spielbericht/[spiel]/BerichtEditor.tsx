@@ -127,14 +127,14 @@ export function BerichtEditor({
   const sideCell: Cells["lead"] = {
     field: "side",
     label: COPY.shared.facts.team,
-    control: ({ row, label, error, change }) => (
+    control: ({ row, name, label, change }) => (
       <Segmented
         label={label}
         labelHidden
+        name={name}
         isRequired={required.side}
         choices={choices}
         value={row.side}
-        errorMessage={error}
         onChange={(side) => change({ side: side as FLSpielSide, spieler_id: null })}
       />
     ),
@@ -247,7 +247,6 @@ export function BerichtEditor({
                   remove={COPY.shared.withObject(goalNoun, "remove")}
                   // A no-show takes no goal; rows entered before it was chosen stay, to be removed, and the send refuses them.
                   {...(noShow ? { locked: COPY.shared.field.without(COPY.shared.tore) } : {})}
-                  errors={editor.fieldErrors}
                   cells={{
                     lead: sideCell,
                     figure: minuteCell,
@@ -285,7 +284,6 @@ export function BerichtEditor({
                   rowLabel={(number) => WORDS.numbered(cardNoun, number)}
                   add={COPY.shared.withObject(cardNoun, "enter")}
                   remove={COPY.shared.withObject(cardNoun, "remove")}
-                  errors={editor.fieldErrors}
                   cells={{
                     lead: sideCell,
                     figure: minuteCell,
@@ -295,14 +293,14 @@ export function BerichtEditor({
                     below: {
                       field: "colour",
                       label: cardNoun,
-                      control: ({ row, label, error, change }) => (
+                      control: ({ row, name, label, change }) => (
                         <Segmented
                           label={label}
                           labelHidden
+                          name={name}
                           isRequired={required.cardColour}
                           choices={COLOURS}
                           value={row.colour}
-                          errorMessage={error}
                           onChange={(colour) => change({ colour: colour as FLCardColour })}
                         />
                       ),
