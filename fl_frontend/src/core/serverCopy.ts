@@ -764,7 +764,7 @@ export const SERVER_COPY = catalogue({
       eyebrow: "Statistiken",
       title: "Die Liga in Zahlen",
       saisons: "Saisons",
-      schulen: "Schulen",
+      schulen: COPY.shared.schulen,
       spiele: COPY.page.spiele,
       tore: COPY.shared.tore,
     },

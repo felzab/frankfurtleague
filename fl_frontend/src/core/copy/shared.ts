@@ -339,7 +339,7 @@ export const COPY = catalogue({
     erasureCount: { addressChanges: "Laufende Adressänderungen", grant: GRANT },
     spieler: SPIELER,
     schiedsrichter: SCHIEDSRICHTER,
-    /** The schools a picker lists, the plural its empty search names. */
+    /** The schools a picker lists, the plural its empty search names, and the landing's count of them. */
     schulen: "Schulen",
     kader: KADER,
 
