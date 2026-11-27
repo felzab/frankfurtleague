@@ -294,10 +294,12 @@ they cannot narrow; they never replace the refusal.** The entry form disables a 
 full, and the endpoint still judges the entry, because a stale form and a direct request each reach
 it; on a public page the direct request is anyone's.
 
-A refusal is an `APIError` (`fl_backend/app/core/exceptions.py`), in one of two forms. A
+A refusal is a gate or a box's fault (`fl_backend/app/core/exceptions.py`). A gate is an `APIError`,
+which stops the write before any box means anything, and a box's fault is a `FieldFault`. A
 `find_*_refusal` function in a slice's `services.py` returns one or `None`, where it judges data,
-orders several conditions, has several callers or tells a page in advance what a press would meet;
-its caller raises it through `refuse`. A refusal that turns one boolean its one caller computed is
+orders several conditions, has several callers or tells a page in advance what a press would meet.
+Its caller raises a gate through `refuse`, and every independent fault in one `refuse_faults` call,
+which names each of them in one answer. A gate that turns one boolean its one caller computed is
 raised where it is judged, `if taken: raise APIError(...)`.
 
 Every refusal reaches a client as a **code** and never as a message, the frontend writing every word

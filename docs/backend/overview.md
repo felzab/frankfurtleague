@@ -138,16 +138,29 @@ the Tabelle (`GET /saisons/{saison_id}/tabelle`) and stored nowhere.
 
 **Every failure answers one body, `{error_code, trace_id, fields}`, whatever its status**, in the
 shape of RFC 9457's problem details with this API's own members alone. `fields` names each body
-field the refusal judged, with a domain rule's bounds, and is empty where it judged none. A bound
-can be another field of the same payload, such as a span's start, but the body never carries the
-refused value or a stack trace. A code names one failure rather than a status class, and
-`fl_backend/app/core/codes.py :: Code` is every code's one spelling. `fl_backend/openapi.json` lists
-them once, as the failure body's `error_code` on the one shared response every operation's `default`
-refers to, whatever the status. The status follows RFC 9110: 409 where the target's current state
-refuses the request, 422 where the payload contradicts itself, 404 where what it names does not
-exist, 403 only where the caller's own authority or standing does. Every refusal is one
-`APIError(status, code)` (`fl_backend/app/core/exceptions.py`), and the handlers are
-`fl_backend/app/core/exception_handlers.py`.
+field the refusal judged, each with its own `kind` and a domain rule's bounds as its `ctx`, and is
+empty where it judged none. A bound can be another field of the same payload, such as a span's
+start, but the body never carries the refused value or a stack trace. A code names one failure
+rather than a status class, and `fl_backend/app/core/codes.py :: Code` is every code's one spelling.
+`fl_backend/openapi.json` lists them once, as the failure body's `error_code` on the one shared
+response every operation's `default` refers to, whatever the status. The status follows RFC 9110:
+409 where the target's current state refuses the request, 422 where the payload contradicts itself,
+404 where what it names does not exist, 403 only where the caller's own authority or standing does.
+The handlers are `fl_backend/app/core/exception_handlers.py`.
+
+**A request is judged in two passes, and each answers every fault it finds at once.** The first is
+the parse: FastAPI validates the body against its model before the endpoint runs, and a body
+breaking any field's rule answers `payload_refused` naming every such field. The second is the
+endpoint's judge, which a well-formed body alone reaches. A judge runs its gates first, each through
+`fl_backend/app/core/crud.py :: refuse`: a fault that stops the write before any box means anything,
+such as a record not found, a caller not allowed, a stale version or a closed season. A gate is an
+`APIError` (`fl_backend/app/core/exceptions.py`), and names at most the one field its sentence
+reads, such as the retired record a by-id write names in its path. Then every independent check of a
+box runs into one `refuse_faults` call, which raises one refusal naming each fault as its own entry.
+A box's fault is a `FieldFault`, which nothing raises alone, and its code is one of `FieldCode`'s,
+which the frontend words on the box. A check that means nothing once another failed waits in a later
+call. The collected answer's code is its first fault's, and its status is 403 where any fault judged
+who asks, else 409 where any judged stored data, else 422.
 
 ## Time
 
