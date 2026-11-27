@@ -38,11 +38,20 @@ const notBefore = ({ earliest }: Context) => (typeof earliest === "string" ? fie
 
 /**
  * Each rule the backend refuses a payload with that a field pattern words, by its kind, from the bounds the rule's
- * context carries: the same line the box shows where the form's own check catches the value. Beside them, each code
- * whose phrase names a bound its refusal carries, by the code, which every field the refusal names carries as its kind
- * with the bounds as its context; a code whose phrase names none stays `SERVER_COPY.refusal`'s.
+ * context carries: the same line the box shows where the form's own check catches the value. Beside them, each code a
+ * field pattern words, by the code, which every field the refusal names carries as its kind, with the bounds as its
+ * context where the phrase names one. A code no pattern words takes `SERVER_COPY.refusalLine`'s sentence.
  */
 const PATTERNED = {
+  duplicate_key: () => field.taken,
+  // One rule over two codes: a match whose result no play decides carries no goals, on the fixture and in its report.
+  state_ergebnis_on_a_non_event: () => field.without(COPY.shared.tore),
+  // A rule of their own rather than a unique index: a seat of an application or a season row, and a squad's one Kapitän per team.
+  bewerbung_kontakt_repeated: () => field.taken,
+  trikot_farbe_taken: () => field.taken,
+  kontakt_email_taken: () => field.taken,
+  kontakt_phone_taken: () => field.taken,
+  kader_rolle_taken: () => field.taken,
   saison_ends_before_start: notBeforeStart,
   bewerbung_window_ends_before_start: notBeforeStart,
   spieltag_ends_before_start: notBeforeStart,
@@ -87,7 +96,7 @@ const PATTERNED = {
 
 /**
  * Every rule a refused payload can name that the catalogue words, by a pattern or by `SERVER_COPY.ruleLine`'s sentence,
- * and every code a pattern words from its bounds.
+ * and every code a pattern words.
  */
 export type WordedRule = keyof typeof PATTERNED | keyof typeof SERVER_COPY.ruleLine;
 
@@ -97,11 +106,11 @@ const isLined = (kind: string) => ownKeyOf(SERVER_COPY.ruleLine, kind);
 /** Whether the catalogue words this rule, so a screen may place it. */
 export const isWordedRule = (kind: string) => isPatterned(kind) || isLined(kind);
 
-/** Whether a pattern words this code from the bounds its refusal carries, so `ruleMessage` words its fields. */
-export const isBoundedCode = (code: Code): boolean => isPatterned(code);
+/** Whether a field pattern words this code, so `ruleMessage` words each field its refusal names. */
+export const isPatternedCode = (code: Code): boolean => isPatterned(code);
 
 /**
- * A rule the backend refused a payload with, or a code whose phrase names its bounds: under its field, in the same
+ * A rule the backend refused a payload with, or a code a field pattern words: under its field, in the same
  * fixed patterns a Zod issue's line takes, or, where no pattern words a rule, as its sentence on the status line. A
  * context missing the bound its pattern names means a page older than the API, so it answers the stale line on the
  * status line, as every refusal the catalogue does not word does; a rule the catalogue does not word never reaches it.

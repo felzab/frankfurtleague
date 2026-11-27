@@ -114,24 +114,6 @@ const monthsOf = (years: number) => formatNumber(12 * years);
  */
 export const SERVER_COPY = catalogue({
   /**
-   * A refusal's phrase under the field it is about, by the backend's code, on every screen showing that field's box:
-   * one of `COPY.shared.field`'s patterns, and nothing else. A code whose phrase names a bound its refusal carries is
-   * worded from it by `ruleMessage` instead, and a code no pattern words takes `refusalLine`'s sentence; every other
-   * code answers one of the shared failure lines `COPY.shared.failure` holds.
-   */
-  refusal: {
-    duplicate_key: COPY.shared.field.taken,
-    // One rule over two codes: a match whose result no play decides carries no goals, on the fixture and in its report.
-    state_ergebnis_on_a_non_event: COPY.shared.field.without(COPY.shared.tore),
-    // A rule of their own rather than a unique index: a seat of an application or a season row, and a squad's one Kapitän per team.
-    bewerbung_kontakt_repeated: COPY.shared.field.taken,
-    trikot_farbe_taken: COPY.shared.field.taken,
-    kontakt_email_taken: COPY.shared.field.taken,
-    kontakt_phone_taken: COPY.shared.field.taken,
-    kader_rolle_taken: COPY.shared.field.taken,
-  } satisfies Partial<Record<Code, string>>,
-
-  /**
    * A refusal's sentence on the status line, by the backend's code, on every screen whose write answers it, for a code
    * no field pattern words: the write as a whole, or a field the sentence names itself. Where one code is about one of
    * several fields, its sentence is keyed by the first name of the path the backend names, so it says which; a path it
