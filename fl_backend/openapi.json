@@ -16477,7 +16477,10 @@
           "confirmation_age",
           "spiel_outside_spieltag",
           "saison_span_below_spieltage",
-          "saison_start_taken_place"
+          "saison_start_taken_place",
+          "spieltag_outside_saison",
+          "spieltag_span_below_spiele",
+          "spieltag_start_out_of_order"
         ],
         "type": "string"
       },

@@ -282,6 +282,36 @@ class TestAMatchdayNeverBeginsBeforeItsPredecessor:
         assert response["start"] == AFTER_THE_NEIGHBOUR
 
 
+class TestOneReDatingNamesEveryDateAtFault:
+    async def test_an_end_past_the_season_and_a_start_past_the_next_position_are_named_in_one_answer(self, mongo_replica_set_url: str):
+        """The season refuses the end and the phase's order the start, each on its own box.
+
+        An answer naming the first alone sends the person back to meet the second on a later press; nothing of the save
+        lands.
+        """
+
+        async def body(database: AsyncDatabase) -> tuple[APIError, Any]:
+            await database.spieltage.insert_one(documents.spieltag_document(SECOND_OID, SAISON_ID, 2, start=NEIGHBOUR_START, end=NEIGHBOUR_END))
+
+            with pytest.raises(APIError) as excinfo:
+                await re_date(database, SPIELTAG_OID, start=AFTER_THE_NEIGHBOUR, end="2026-07-01")
+
+            stored = await database.spieltage.find_one({"_id": SPIELTAG_OID}, {"start": 1})
+
+            return excinfo.value, stored and stored["start"]
+
+        refusal, stored_start = await on_a_database(mongo_replica_set_url, body)
+
+        assert (refusal.status_code, [(fault.code, fault.path, fault.bounds) for fault in refusal.faults]) == (
+            409,
+            [
+                (Code.SPIELTAG_OUTSIDE_SAISON, ("end",), {"latest": SAISON_END}),
+                (Code.SPIELTAG_START_OUT_OF_ORDER, ("start",), {"latest": NEIGHBOUR_START}),
+            ],
+        )
+        assert stored_start == SPIELTAG_START
+
+
 class TestAFinishedSeasonsMatchdayIsClosed:
     """`saison_past` through the endpoint, as a finished season's fixtures refuse their saves."""
 
