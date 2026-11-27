@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef } from "react";
+import { useCallback, useRef, useState } from "react";
 
 import { COPY } from "@/core/copy/shared";
 
@@ -67,18 +67,11 @@ export function SideActs({ acts, children }: { acts: ReadonlyArray<SideAct>; chi
   const wide = useRef<HTMLSpanElement>(null);
   const narrow = useRef<HTMLSpanElement>(null);
   // The act last pressed, by its place among the acts, whose own button opened the dialog in the wide form.
-  const pressed = useRef<number | null>(null);
+  const [pressed, setPressed] = useState<number | null>(null);
   const returnTo = useCallback(
-    () => [
-      narrow.current?.querySelector("button"),
-      pressed.current === null ? null : wide.current?.querySelectorAll("button").item(pressed.current),
-    ],
-    [],
+    () => [narrow.current?.querySelector("button"), pressed === null ? null : wide.current?.querySelectorAll("button").item(pressed)],
+    [pressed],
   );
-  const pressOf = (act: SideAct, index: number) => () => {
-    pressed.current = index;
-    act.onPress();
-  };
   const menu = (
     <Menu
       label={COPY.template.more}
@@ -91,7 +84,17 @@ export function SideActs({ acts, children }: { acts: ReadonlyArray<SideAct>; chi
           isBusy={acts.some((act) => act.isBusy === true)}
         />
       }
-      groups={[acts.map((act, index) => entryOf({ ...act, onPress: pressOf(act, index) }))]}
+      groups={[
+        acts.map((act, index) =>
+          entryOf({
+            ...act,
+            onPress: () => {
+              setPressed(index);
+              act.onPress();
+            },
+          }),
+        ),
+      ]}
     />
   );
   return (
@@ -107,7 +110,10 @@ export function SideActs({ acts, children }: { acts: ReadonlyArray<SideAct>; chi
             label={act.label}
             isBusy={act.isBusy}
             locked={act.locked}
-            onPress={pressOf(act, index)}
+            onPress={() => {
+              setPressed(index);
+              act.onPress();
+            }}
           />
         ))}
       </span>
