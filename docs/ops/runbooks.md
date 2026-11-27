@@ -394,6 +394,11 @@ administration is shut while it is down. Each of these is easy to get wrong:
   older desktop with no biometric and no PIN is the case that turns up. Give them a FIDO2 key with
   resident-key and user-verification support, or a second device they can enrol from; there is no
   password and no code to fall back to.
+- **An act behind the passkey touch needs Safari 17.4 or later on a Mac, and iOS or iPadOS 17.4 or
+  later on an iPhone or iPad**, where every browser runs Safari's engine; older versions are not
+  supported. On one, an administrator may still sign in by passkey, but may lose the touch's prompt,
+  above all after the check an act sends before it, and the press then seems to do nothing. The
+  repair is an update, or another device.
 - **A removal is not a recovery route, and no control offers one to a session a mailed code alone
   made**: such a session could otherwise swap the administrator's passkey for a stolen mailbox's,
   which is the attack the passkey sign-in exists against, the administration admitting only a

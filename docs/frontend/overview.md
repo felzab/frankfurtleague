@@ -188,7 +188,11 @@ part stands right before the page hydrates.
 
 Tailwind v4, configured in CSS: `src/app/globals.css` and the design tokens in `src/app/tokens.css`.
 `browserslist` in `fl_frontend/package.json` is Tailwind's own support matrix, since the stylesheet
-uses `oklch()`, `color-mix()` and `@property`; it does not govern Next's own polyfills.
+uses `oklch()`, `color-mix()` and `@property`; it does not govern Next's own polyfills. An act
+behind the passkey touch sets a floor of its own, Safari 17.4 and iOS and iPadOS 17.4, and older
+versions are not supported for it. Those are the first WebKit releases whose WebAuthn asks for no
+user activation (WebKit 271656@main), and an older one may lose a touch's prompt once a dry run's
+round trip has spent the press's activation (`fl_frontend/src/kit/usePasskeyTouch.ts`).
 
 **Consistency breaks a tie between two designs**: one value, declared once as a token in
 `src/app/tokens.css` and used everywhere, wins over a value that looks better in one place alone,
