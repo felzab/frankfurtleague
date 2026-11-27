@@ -34,12 +34,6 @@ ALLOWED: dict[tuple[str, str, str], str] = {
         "Both starts, the administrator's and the person's own in Konto, judge an address typed into a box; holds until "
         "they ask it as a fault on that box."
     ),
-    ("api/ban_list/services.py", "find_admin_refusal", "ban_list_admin"): (
-        "The ban's add judges the address typed into its box; holds until the add asks it as a fault on that box."
-    ),
-    ("api/ban_list/services.py", "find_listed_refusal", "duplicate_key"): (
-        "The ban's add judges the address typed into its box; holds until the add asks it as a fault on that box."
-    ),
     ("api/grants/services.py", "find_barred_refusal", "grant_barred"): (
         "The grant's add judges the address typed into its box, and a write on a stored grant the address that grant "
         "names; holds until the add asks it as a fault on its box."
