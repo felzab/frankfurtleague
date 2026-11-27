@@ -3,6 +3,7 @@ import Image from "next/image";
 
 import { now } from "@/core/clock";
 import { COPY } from "@/core/copy/shared";
+import { yearIn } from "@/core/format";
 import { LEGAL_PAGES, ROUTES } from "@/core/routes";
 import { SITE_CACHE_TAG } from "@/core/siteCache";
 
@@ -25,7 +26,7 @@ async function Year() {
   "use cache";
   cacheTag(SITE_CACHE_TAG);
   cacheLife("days");
-  return COPY.template.copyright(now().getFullYear(), COPY.brand.name);
+  return COPY.template.copyright(yearIn(now()), COPY.brand.name);
 }
 
 // The legal pages, opened rarely: a prefetch would load each one's shell on every page the footer stands on, so their
