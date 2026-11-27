@@ -1,8 +1,9 @@
-from typing import Annotated, Final, Literal
+from typing import Annotated, Final, Literal, Self
 
-from pydantic import AfterValidator, BaseModel, BeforeValidator, Field, StringConstraints
+from pydantic import AfterValidator, BaseModel, BeforeValidator, Field, StringConstraints, model_validator
 
 from app.api.spiele.schemas import SONDEREREIGNIS_NO_SHOW, FLSpielElfmeterschiessen, FLSpielElfmeterschiessenPayload, FLSpielortFieldPublic
+from app.core.exceptions import rule_refusal
 from app.shared.schemas.custom import (
     CustomDateString,
     CustomNonEmptyString,
@@ -160,6 +161,24 @@ class FLSpielberichtBerichtPayload(BasePayload):
             credited[("team2" if tor.side == "team1" else "team1") if tor.eigentor else tor.side] += 1
 
         return FLSpielberichtVorschlag(team1_tore=credited["team1"], team2_tore=credited["team2"], **vorschlag.model_dump())
+
+    @model_validator(mode="after")
+    def the_proposal_fits_its_entries(self) -> Self:
+        """A no-show proposes the event alone, with no shoot-out and no scorer; a shoot-out follows level goals alone."""
+
+        proposed = self.proposed()
+
+        if proposed.sonderereignis in SONDEREREIGNIS_NO_SHOW:
+            if proposed.elfmeterschiessen is not None:
+                raise rule_refusal("nichtantreten_with_elfmeterschiessen", "a no-show proposes no shoot-out")
+            if self.scorers:
+                raise rule_refusal("nichtantreten_with_scorers", "a no-show credits no scorer")
+            return self
+
+        if proposed.elfmeterschiessen is not None and proposed.team1_tore != proposed.team2_tore:
+            raise rule_refusal("elfmeterschiessen_without_draw", "a shoot-out follows a draw alone")
+
+        return self
 
 
 class FLSpielberichtPayload(BasePayload):

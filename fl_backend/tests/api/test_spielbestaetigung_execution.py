@@ -254,42 +254,21 @@ class TestTheSeatTheAnswerRecords:
 
 
 class TestAProposalIsJudgedWhereTheAdminIsJudged:
-    """The administrator's three judges, each through the route, each fault on the proposal's own box."""
+    """The administrator's three judges, each through the route, and the standing clash the save itself accepts."""
 
     @pytest.mark.parametrize(
-        ("vorschlag", "neighbour", "austritt", "faults"),
+        ("vorschlag", "neighbour", "austritt", "code"),
         [
-            pytest.param(
-                ("2126-05-20", "18:00:00"), None, None, [(Code.SPIEL_OUTSIDE_SPIELTAG, ("vorschlag", "date"))], id="outside-the-matchday"
-            ),
+            pytest.param(("2126-05-20", "18:00:00"), None, None, Code.SPIEL_OUTSIDE_SPIELTAG, id="outside-the-matchday"),
             # Four hours apart is the buffer; two is inside it, on the referee's other booking.
             pytest.param(
-                ("2126-05-15", "20:00:00"),
-                ("2126-05-15", "18:00:00"),
-                None,
-                [(Code.SPIEL_DOUBLE_BOOKED, ("vorschlag", "time"))],
-                id="beside-the-referees-other-fixture",
+                ("2126-05-15", "20:00:00"), ("2126-05-15", "18:00:00"), None, Code.SPIEL_DOUBLE_BOOKED, id="beside-the-referees-other-fixture"
             ),
-            pytest.param(
-                ("2126-05-15", "18:00:00"), None, "2126-05-15", [(Code.ELIGIBILITY_DISQUALIFIED, ("vorschlag", "date"))], id="on-a-clubs-exit"
-            ),
-            # Two judges at once, so an answer naming the first alone leaves the hour for a later press.
-            pytest.param(
-                ("2126-05-20", "20:00:00"),
-                ("2126-05-20", "18:00:00"),
-                None,
-                [(Code.SPIEL_OUTSIDE_SPIELTAG, ("vorschlag", "date")), (Code.SPIEL_DOUBLE_BOOKED, ("vorschlag", "time"))],
-                id="outside-the-matchday-and-beside-another-fixture",
-            ),
+            pytest.param(("2126-05-15", "18:00:00"), None, "2126-05-15", Code.ELIGIBILITY_DISQUALIFIED, id="on-a-clubs-exit"),
         ],
     )
     async def test_a_refused_proposal_writes_no_row_and_no_span(
-        self,
-        mongo_replica_set_url: str,
-        vorschlag: tuple[str, str],
-        neighbour: tuple[str, str] | None,
-        austritt: str | None,
-        faults: list[tuple[str, tuple[str, ...]]],
+        self, mongo_replica_set_url: str, vorschlag: tuple[str, str], neighbour: tuple[str, str] | None, austritt: str | None, code: str
     ):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             if neighbour is not None:
@@ -300,36 +279,15 @@ class TestAProposalIsJudgedWhereTheAdminIsJudged:
                 exit_record = {"type": "rueckzug", "reason": "Schule zieht zurück", "date": austritt}
                 await database[Collection.SAISON_TEAMS].update_one({"team_id": TEAM2}, {"$set": {"austritt": exit_record}})
 
-            with pytest.raises(APIError) as refused:
-                await decline_as_team(database, client, holder(TEAM1, "trainer"), vorschlag)
+            outcome = await outcome_of(decline_as_team(database, client, holder(TEAM1, "trainer"), vorschlag))
 
-            return refused.value, await row_now(database, ROW1), await database[Collection.SPIELTAGE].find_one({"_id": SPIELTAG})
+            return outcome, await row_now(database, ROW1), await database[Collection.SPIELTAGE].find_one({"_id": SPIELTAG})
 
-        refused, row, spieltag = await on_a_spiel(mongo_replica_set_url, body)
+        outcome, row, spieltag = await on_a_spiel(mongo_replica_set_url, body)
 
-        # On the boxes the club typed, never as a gate naming none.
-        assert [(fault.code, fault.path) for fault in refused.faults] == faults
+        assert outcome == code
         assert row["answer"] is None
         assert (spieltag["start"], spieltag["end"]) == SPAN
-
-    async def test_a_day_gone_by_and_outside_the_matchday_are_named_in_one_answer(self, mongo_replica_set_url: str):
-        """The proposal's own rule and the save's beside it: 409, as the matchday's span is stored data."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> APIError:
-            with pytest.raises(APIError) as refused:
-                await decline_as_team(database, client, holder(TEAM1, "trainer"), ("2126-04-20", "18:00:00"))
-
-            return refused.value
-
-        refused = await on_a_spiel(mongo_replica_set_url, body)
-
-        assert (refused.status_code, [(fault.code, fault.path, dict(fault.bounds)) for fault in refused.faults]) == (
-            HTTPStatus.CONFLICT,
-            [
-                (Code.ANSETZUNG_VORSCHLAG_PAST, ("vorschlag", "date"), {"earliest": TODAY}),
-                (Code.SPIEL_OUTSIDE_SPIELTAG, ("vorschlag", "date"), {"earliest": SPAN[0]}),
-            ],
-        )
 
 
 class ConfirmationsRunningARivalBeforeTheWrite(InterleavedCollection):

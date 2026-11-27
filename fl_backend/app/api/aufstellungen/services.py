@@ -190,45 +190,11 @@ def find_nominee_refusal(*, entries: Sequence[FLAufstellungEntry], kader: Sequen
     )
 
 
-def find_named_twice_refusal(*, entries: Sequence[FLAufstellungEntry]) -> tuple[FieldFault, ...]:
-    """`spieler_named_twice`: a line-up names each pupil once, so each entry naming a pupil an earlier one named is refused on its row."""
-
-    named: set[ObjectId] = set()
-    faults: list[FieldFault] = []
-    for index, entry in enumerate(entries):
-        if entry.spieler_id is None:
-            continue
-        if entry.spieler_id in named:
-            faults.append(
-                FieldFault(path=("spieler", index, "spieler_id"), code=Code.SPIELER_NAMED_TWICE, status=HTTPStatus.UNPROCESSABLE_CONTENT)
-            )
-        named.add(entry.spieler_id)
-
-    return tuple(faults)
-
-
-def find_starters_refusal(*, entries: Sequence[FLAufstellungEntry]) -> FieldFault | None:
-    """`starters_exceed_eleven`: no more starters than a side fields, the bound on the list as the nominee rule's is."""
-
-    if sum(entry.starts for entry in entries) <= AUFSTELLUNG_STARTERS_MAX:
-        return None
-
-    return FieldFault(
-        path=("spieler",), code=Code.STARTERS_EXCEED_ELEVEN, status=HTTPStatus.UNPROCESSABLE_CONTENT, bounds={"max": AUFSTELLUNG_STARTERS_MAX}
-    )
-
-
 def judge_the_names(*, entries: Sequence[FLAufstellungEntry], new: set[ObjectId], nameless: int, kader: Sequence[Mapping[str, Any]]) -> None:
     """Every box the line-up's names are refused on, in one answer."""
 
-    twice = find_named_twice_refusal(entries=entries)
     refuse_faults(
-        twice,
-        # Behind the pupils named twice, whom the starters' and the nominees' counts may each count twice: such a count
-        # names a figure the repair moves.
-        None if twice else find_starters_refusal(entries=entries),
-        find_not_in_kader_refusal(entries=entries, new=new, nameless=nameless, kader=kader),
-        None if twice else find_nominee_refusal(entries=entries, kader=kader),
+        find_not_in_kader_refusal(entries=entries, new=new, nameless=nameless, kader=kader), find_nominee_refusal(entries=entries, kader=kader)
     )
 
 

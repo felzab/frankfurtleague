@@ -18,8 +18,8 @@ from app.api.spiele.schemas import SONDEREREIGNIS_NO_SHOW, SONDEREREIGNIS_WITHOU
 from app.api.spieler.services import PUBLIC_PERSON
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.crud import VERSION_FIELD, refuse, refuse_faults
-from app.core.exceptions import APIError, FieldFault, faults_of
+from app.core.crud import VERSION_FIELD, refuse
+from app.core.exceptions import APIError
 from app.shared.saison import season_has_ended
 from app.shared.schemas.literals import FLSpielSide
 
@@ -254,44 +254,6 @@ def find_not_in_kader_refusal(*, context: BerichtContext, new: Mapping[FLSpielSi
     return None
 
 
-def find_vorschlag_entries_refusal(*, payload: FLSpielberichtBerichtPayload) -> tuple[FieldFault, ...]:
-    """The proposal held to the report's own entries, each fault on its box, or none.
-
-    A no-show proposes no shoot-out and credits no scorer, and a shoot-out follows level goals alone. A no-show's
-    shoot-out stands on the event, as a fixture's goals on a non-event stand there, its scorers on the scorers, and a
-    shoot-out after unlevel goals on the shoot-out.
-    """
-
-    proposed = payload.proposed()
-
-    if proposed.sonderereignis in SONDEREREIGNIS_NO_SHOW:
-        return faults_of(
-            (
-                None
-                if proposed.elfmeterschiessen is None
-                else FieldFault(
-                    path=("bericht", "ergebnis_vorschlag", "sonderereignis"),
-                    code=Code.NICHTANTRETEN_WITH_ELFMETERSCHIESSEN,
-                    status=HTTPStatus.UNPROCESSABLE_CONTENT,
-                ),
-                None
-                if not payload.scorers
-                else FieldFault(path=("bericht", "scorers"), code=Code.NICHTANTRETEN_WITH_SCORERS, status=HTTPStatus.UNPROCESSABLE_CONTENT),
-            )
-        )
-
-    if proposed.elfmeterschiessen is not None and proposed.team1_tore != proposed.team2_tore:
-        return (
-            FieldFault(
-                path=("bericht", "ergebnis_vorschlag", "elfmeterschiessen"),
-                code=Code.ELFMETERSCHIESSEN_WITHOUT_DRAW,
-                status=HTTPStatus.UNPROCESSABLE_CONTENT,
-            ),
-        )
-
-    return ()
-
-
 def judge_bericht(
     *,
     context: BerichtContext,
@@ -299,13 +261,12 @@ def judge_bericht(
     new: Mapping[FLSpielSide, set[ObjectId]],
     now: datetime,
 ) -> None:
-    """Every refusal the report's write asks inside its transaction: its gates in order, then every box at fault in one answer."""
+    """Every refusal the report's write asks inside its transaction, in order."""
 
     refuse(find_not_played_refusal(date=context.spiel.get("date"), time=context.spiel.get("time"), now=now))
     refuse(find_cancelled_refusal(sonderereignis=context.spiel.get("sonderereignis")))
     refuse(find_elfmeter_in_gruppe_refusal(spiel_raw=context.spiel, payload=payload))
     refuse(find_not_in_kader_refusal(context=context, new=new))
-    refuse_faults(find_vorschlag_entries_refusal(payload=payload))
 
 
 def vorschlag_matches(vorschlag: FLSpielberichtVorschlag, spiel_raw: Mapping[str, Any]) -> bool:
