@@ -104,6 +104,8 @@ const rowOf = (nummer: number) => screen.getByRole("row", { name: named(nummer) 
 // Found in its row: every row's word and cross have the same name.
 const pick = (nummer: number) => userEvent.click(within(rowOf(nummer)).getByRole("button", { name: WORDS.pick }));
 const tickOf = (nummer: number) => screen.getByRole<HTMLInputElement>("checkbox", { name: `${WORDS.starts} ${nameOf(nummer)}` });
+/** The box a tick draws beside its hidden input, which a person sees. */
+const drawnBoxOf = (nummer: number) => tickOf(nummer).closest("label")?.querySelector('[data-kit-focus="box"]');
 const crossOf = (nummer: number) => within(rowOf(nummer)).getByRole("button", { name: WORDS.remove });
 
 /** The names a list shows, in its rows' order. */
@@ -250,8 +252,9 @@ describe("a line-up's states", () => {
     );
 
     expect(document.activeElement).toBe(tickOf(2));
-    expect(tickOf(2).closest("[data-invalid]")).not.toBeNull();
-    expect(tickOf(1).closest("[data-invalid]")).toBeNull();
+    // The drawn box's red edge, which the kit draws from React Aria's invalid state.
+    expect(drawnBoxOf(2)?.classList.contains("border-danger")).toBe(true);
+    expect(drawnBoxOf(1)?.classList.contains("border-danger")).toBe(false);
   });
 });
 
