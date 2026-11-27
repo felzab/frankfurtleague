@@ -200,10 +200,6 @@ export const SERVER_COPY = catalogue({
      * to delete, one entered or changed since the question was asked among them: the match editor asks again.
      */
     voided_results_stale: ADMIN_COPY.overview.voidsLater,
-    /** A matchday's dates: past its season's, short of one of its dated matches, or out of its phase's order of matchdays. */
-    spieltag_outside_saison: "Dieser Zeitraum liegt außerhalb der Saison.",
-    spieltag_span_below_spiele: "Ein Spiel liegt außerhalb dieses Zeitraums.",
-    spieltag_start_out_of_order: "Der Beginn passt nicht in die Reihenfolge der Spieltage.",
   } satisfies Partial<Record<Code, string | Readonly<Record<string, string>> | ((context: FLRefusedField["ctx"]) => string | undefined)>>,
 
   /**
