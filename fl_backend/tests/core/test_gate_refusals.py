@@ -5,7 +5,7 @@ A box's fault reaches the body only through `refuse_faults`, which pyright and r
 written in a gate's shape instead, an `APIError` carrying a `FieldCode` member or handed a body-located `Subject`,
 passes both and marks no box, so the person reads the stale-page line where the box's phrase belongs. Only this walk
 sees that shape: it reads every `APIError(...)` and `Subject(...)` the application builds, by the names its modules
-import them under.
+import them under, and every call of a function turning a check it is handed into a gate.
 """
 
 import ast
@@ -58,11 +58,25 @@ ALLOWED: dict[tuple[str, str, str], str] = {
     ),
     ("api/spielbestaetigungen/services.py", "judged_as_a_proposal", "the code faults[0].code"): (
         "A club's proposal is judged by the save's checks of a fixture body it does not send, so their faults answer as "
-        "one gate naming no field; holds while `spielbestaetigungen/person_router.py` judges a proposal through it."
+        "one gate naming no field; each caller is a site of its own."
     ),
     ("core/exceptions.py", "as_judged_on_stored_state", "the code faults[0].code"): (
-        "A write judging stored values it carries no body for answers their faults as one gate naming no field; holds "
-        "while the draw judges the stored rules through it."
+        "A write judging stored values it carries no body for answers their faults as one gate naming no field; each "
+        "caller is a site of its own."
+    ),
+    # The callers of the three above, each handing them a check of values no box of its request holds.
+    ("api/grants/admin_router.py", "post_handover.judge", "a call of as_judged_on_stored_state"): (
+        "The handover sends no address: the ban is judged on the stored grant's."
+    ),
+    ("api/saisons/admin_router.py", "post_spielplan.draw_the_whole_season", "a call of as_judged_on_stored_state"): (
+        "The draw sends no rules: the season's stored ones are judged."
+    ),
+    ("api/spielbestaetigungen/admin_router.py", "adopt_spielbestaetigung.adopt_the_proposal", "a call of as_judged_on_the_stored_proposal"): (
+        "The adoption sends no fixture: the stored proposal is judged."
+    ),
+    ("api/spielbestaetigungen/person_router.py", "post_team_answer.answer", "a call of judged_as_a_proposal"): (
+        "A club's answer proposes a date and a time, which the save's checks judge on a fixture body the answer does not "
+        "send, so the paths their faults name are none of its boxes."
     ),
 }
 
@@ -105,25 +119,34 @@ def _refused(call: ast.Call, built: str) -> str | None:
             return f"the code {ast.unparse(code) if code is not None else 'left out'}"
 
 
-def _sites(node: ast.AST, names: dict[str, str], within: str) -> Iterator[tuple[str, str]]:
+def _calls(node: ast.AST, within: str) -> Iterator[tuple[str, ast.Call, str]]:
+    """Every call of a bare name under `node`, beside the function it stands in and the name it calls."""
+
     for child in ast.iter_child_nodes(node):
         if isinstance(child, ast.FunctionDef | ast.AsyncFunctionDef):
-            yield from _sites(child, names, f"{within}.{child.name}" if within else child.name)
+            yield from _calls(child, f"{within}.{child.name}" if within else child.name)
             continue
-        if isinstance(child, ast.Call) and isinstance(child.func, ast.Name) and child.func.id in names:
-            refused = _refused(child, names[child.func.id])
-            if refused is not None:
-                yield within, refused
-        yield from _sites(child, names, within)
+        if isinstance(child, ast.Call) and isinstance(child.func, ast.Name):
+            yield within, child, child.func.id
+        yield from _calls(child, within)
 
 
 def _found() -> set[tuple[str, str, str]]:
+    modules = {path.relative_to(SOURCE).as_posix(): (path, ast.parse(path.read_bytes())) for path in sorted(SOURCE.rglob("*.py"))}
+    calls = {name: list(_calls(module, "")) for name, (_, module) in modules.items()}
+
     found: set[tuple[str, str, str]] = set()
-    for path in sorted(SOURCE.rglob("*.py")):
-        module = ast.parse(path.read_bytes())
-        names = _imported(module, path)
-        if names:
-            found.update((path.relative_to(SOURCE).as_posix(), function, what) for function, what in _sites(module, names, ""))
+    for name, (path, module) in modules.items():
+        imported = _imported(module, path)
+        for within, call, callee in calls[name]:
+            if callee in imported and (refused := _refused(call, imported[callee])) is not None:
+                found.add((name, within, refused))
+
+    # A function building a gate under a code read from a value turns whatever check its caller hands it into a gate, a
+    # box's among them, so each call of it is a site of its own, where the walk sees what the call hands it.
+    turning = {within.rsplit(".", 1)[-1] for _, within, what in found if what.startswith("the code ")}
+    for name in modules:
+        found.update((name, within, f"a call of {callee}") for within, _, callee in calls[name] if callee in turning)
 
     return found
 
