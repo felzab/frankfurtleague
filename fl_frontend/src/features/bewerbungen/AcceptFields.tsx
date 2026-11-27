@@ -54,6 +54,8 @@ export function AcceptFields({
       name={shorthand === null ? "shorthand" : undefined}
       holds={5}
       kind="text"
+      example={COPY.team.shorthandExample}
+      pattern={rules.pattern.shorthand}
       isRequired={shorthand === null}
       isLocked={shorthand !== null}
       minLength={SHORTHAND_LENGTH}

@@ -126,7 +126,7 @@ export function TeamEditor({
 }) {
   const editor = useEditor(record, (change) => save({ ...change, saison_id: saison }));
   const { draft, set } = editor;
-  const { required, max, address } = rules;
+  const { required, max, pattern, address } = rules;
   const [route, setRoute] = useState<string>(FLAustrittType.rueckzug);
   const renamed = draft.name !== record.values.name || draft.shorthand !== record.values.shorthand;
   const isClosed = closed !== undefined;
@@ -152,6 +152,8 @@ export function TeamEditor({
           name="shorthand"
           holds={5}
           kind="text"
+          example={COPY.team.shorthandExample}
+          pattern={pattern.shorthand}
           isRequired={required.shorthand}
           maxLength={SHORTHAND_LENGTH}
           minLength={SHORTHAND_LENGTH}

@@ -6,20 +6,24 @@ import {
   teamsPatchTeamSaisonBodyAddressCityMax,
   teamsPatchTeamSaisonBodyAddressDistrictMax,
   teamsPatchTeamSaisonBodyAddressHouseNumberMax,
+  teamsPatchTeamSaisonBodyAddressHouseNumberRegExp,
   teamsPatchTeamSaisonBodyAddressPostcodeMax,
   teamsPatchTeamSaisonBodyAddressStreetMax,
   teamsPatchTeamSaisonBodyDescriptionMax,
   teamsPatchTeamSaisonBodyFullNameMax,
   teamsPatchTeamSaisonBodyNameMax,
+  teamsPatchTeamSaisonBodyShorthandRegExp,
   teamsPatchTeamSaisonBodyWebsiteUrlOneMax,
   TeamsPostTeamEntryBody,
   teamsPostTeamEntryBodyTeamTwoTeamAddressCityMax,
   teamsPostTeamEntryBodyTeamTwoTeamAddressDistrictMax,
   teamsPostTeamEntryBodyTeamTwoTeamAddressHouseNumberMax,
+  teamsPostTeamEntryBodyTeamTwoTeamAddressHouseNumberRegExp,
   teamsPostTeamEntryBodyTeamTwoTeamAddressPostcodeMax,
   teamsPostTeamEntryBodyTeamTwoTeamAddressStreetMax,
   teamsPostTeamEntryBodyTeamTwoTeamFullNameMax,
   teamsPostTeamEntryBodyTeamTwoTeamNameMax,
+  teamsPostTeamEntryBodyTeamTwoTeamShorthandRegExp,
   teamsPostTeamEntryBodyTeamTwoTeamWebsiteUrlOneMax,
   TeamsPutAustrittBody,
   teamsPutAustrittBodyReasonMax,
@@ -39,6 +43,8 @@ export type TeamRules = {
   /** The season's row, which an editor of a retired club never sends. */
   gruppeRequired: boolean;
   max: Readonly<Record<"name" | "full_name" | "website_url", number>>;
+  /** As a source, the one form of a pattern a server page can hand a client field (`kit/TextField.tsx :: judgeOf`). */
+  pattern: Readonly<Record<"shorthand", string>>;
   address: AddressRules;
 };
 
@@ -68,6 +74,7 @@ export const TEAM_ENTRY_RULES: TeamRules = {
     full_name: teamsPostTeamEntryBodyTeamTwoTeamFullNameMax,
     website_url: teamsPostTeamEntryBodyTeamTwoTeamWebsiteUrlOneMax,
   },
+  pattern: { shorthand: teamsPostTeamEntryBodyTeamTwoTeamShorthandRegExp.source },
   address: {
     required: addressRequiredOf(ENTERED),
     max: {
@@ -77,6 +84,7 @@ export const TEAM_ENTRY_RULES: TeamRules = {
       city: teamsPostTeamEntryBodyTeamTwoTeamAddressCityMax,
     },
     postcodeLength: teamsPostTeamEntryBodyTeamTwoTeamAddressPostcodeMax,
+    pattern: { house_number: teamsPostTeamEntryBodyTeamTwoTeamAddressHouseNumberRegExp.source },
   },
 };
 
@@ -88,6 +96,7 @@ export const TEAM_SAVE_RULES: TeamRules = {
     full_name: teamsPatchTeamSaisonBodyFullNameMax,
     website_url: teamsPatchTeamSaisonBodyWebsiteUrlOneMax,
   },
+  pattern: { shorthand: teamsPatchTeamSaisonBodyShorthandRegExp.source },
   address: {
     required: addressRequiredOf(TeamsPatchTeamSaisonBody.shape),
     max: {
@@ -97,6 +106,7 @@ export const TEAM_SAVE_RULES: TeamRules = {
       city: teamsPatchTeamSaisonBodyAddressCityMax,
     },
     postcodeLength: teamsPatchTeamSaisonBodyAddressPostcodeMax,
+    pattern: { house_number: teamsPatchTeamSaisonBodyAddressHouseNumberRegExp.source },
   },
 };
 

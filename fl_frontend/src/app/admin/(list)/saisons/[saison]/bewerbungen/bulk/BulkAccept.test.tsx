@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ADMIN_COPY } from "@/core/copy/admin";
 import { COPY } from "@/core/copy/shared";
+import { bewerbungenAcceptBewerbungBodyShorthandOneRegExp } from "@/core/generated/zod/inputs";
 import { renderUnderNext } from "@/test-support/nextContexts";
 
 import { BulkAccept } from "./BulkAccept";
@@ -40,7 +41,10 @@ const run = () => (
     rows={[row("a", "Goethe-Gymnasium"), row("b", "Schiller-Schule")]}
     gruppen={[{ gruppe: "A", free: 4 }]}
     taken={[]}
-    rules={{ required: { gruppe: false, trikot_farbe: false } }}
+    rules={{
+      required: { gruppe: false, trikot_farbe: false },
+      pattern: { shorthand: bewerbungenAcceptBewerbungBodyShorthandOneRegExp.source },
+    }}
   />
 );
 

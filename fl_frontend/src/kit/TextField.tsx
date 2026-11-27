@@ -60,12 +60,12 @@ type EmailAutofill = "email" | "username";
 /**
  * A single line's keyboard, set by `kind`; a URL and a minute name the example their message shows. `pattern` is the
  * write's own for the value, which the caller reads off the published contract, a server module the kit cannot import,
- * as a `RegExp`'s `source`: a person's name, beside the example its message shows, a phone number, whose example is the
- * kit's, and a minute. The field judges it (`judgeOf`).
+ * as a `RegExp`'s `source`: a text, beside the example its message shows, a phone number, whose example is the kit's,
+ * and a minute. The field judges it (`judgeOf`).
  */
 type Kind =
   | { kind: "text"; autofill?: Autofill; example?: never; pattern?: never }
-  /** A person's name, or one part of one, held to the write's name pattern. */
+  /** A text the write holds to a pattern: a person's name or one part of one, a house number, a club's Kürzel. */
   | { kind: "text"; autofill?: Autofill; example: Copy; pattern: string }
   | { kind: "digits"; autofill?: Autofill; example?: never; pattern?: never }
   | { kind: "email"; autofill?: EmailAutofill; example?: never; pattern?: never }
