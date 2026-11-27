@@ -1042,7 +1042,7 @@ const DESIGN_BANS = [
         'JSXAttribute[name.name="slot"][value.value="errorMessage"]',
         'JSXAttribute[name.name="slot"] > JSXExpressionContainer > Literal[value="errorMessage"]',
       ].join(", "),
-      "A refusal stands on its box through `HeldForm`'s `fieldErrors`, by the box's `name`: name the field or the choice, and read `useFieldFaults` for a part holding no box, which takes `FAULTED_PART` while its fault stands.",
+      "A refusal stands on its box through `HeldForm`'s `fieldErrors`, by the box's `name`: name the field or the choice, and read `useFieldFaults` for a part holding no box.",
     ),
     PRODUCTION,
     // The one form's own; and the sign-in code's refusal, which no form holds: the code sends itself once typed.

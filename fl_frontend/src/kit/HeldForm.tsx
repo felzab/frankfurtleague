@@ -25,15 +25,6 @@ export function useFieldFaults(): FieldFaults | undefined {
   return useContext(Faults);
 }
 
-/**
- * What a part holding no box takes while its fault stands, such as a list refused as a whole: the focus the form's
- * report hands it where the answer names no box, at `tabIndex` -1, which the keys never reach, and the kit's ring,
- * drawn while the browser takes that focus for the keyboard's, as it does after a press of Enter and not after a click,
- * so a keyboard user sees where the focus went, as a faulted box shows its edge. A screen reader then reads the part's
- * name and the fault its `aria-describedby` names.
- */
-export const FAULTED_PART = { "data-kit-faulted": "", "data-kit-focus": "ring", tabIndex: -1 } as const;
-
 type Control = HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
 
 const isControl = (element: Element): element is Control =>
@@ -60,11 +51,11 @@ const judgedFor = (faults: FieldFaults, control: Element): readonly Control[] =>
  * once an answer's faults have committed, the form checks each box the answer names, whose `invalid` event React
  * Aria's field answers by focusing the form's first invalid box through the field's own `focus` (`useFormValidation`),
  * a date's segments, a select's button, a record picker's text and a choice group included (`judgedFor`); where no
- * named box is invalid, as a list's own refusal names none, the first part showing a fault takes it (`FAULTED_PART`).
- * That check stands for no press, so it tells `onBlock` nothing: the status line says what the answer says. It reaches no other box, since React Aria commits the
- * fault of every box an `invalid` event reaches: a box the person changed while the send was on its way is judged
- * once they commit it, and one they left invalid ahead of the named boxes keeps the focus, as React Aria focuses the
- * form's first invalid box alone.
+ * named box is invalid, as a list's own refusal names none, the focus stays on the press, and the part shows its fault.
+ * That check stands for no press, so it tells `onBlock` nothing: the status line says what the answer says. It reaches
+ * no other box, since React Aria commits the fault of every box an `invalid` event reaches: a box the person changed
+ * while the send was on its way is judged once they commit it, and one they left invalid ahead of the named boxes keeps
+ * the focus, as React Aria focuses the form's first invalid box alone.
  *
  * A press hands `onSend` the fields as it left them, unless `isBusy`: a busy submit button takes no press, but Enter in
  * a lone field submits a form all the same, and a second send mid-flight would act twice. A hydrated press stays on
@@ -117,8 +108,7 @@ export function HeldForm({
     reported.current = fieldErrors;
     isReporting.current = true;
     try {
-      const valid = [...form.elements].flatMap((control) => judgedFor(fieldErrors, control)).map((control) => control.checkValidity());
-      if (!valid.includes(false)) form.querySelector<HTMLElement>("[data-kit-faulted]")?.focus();
+      for (const control of [...form.elements].flatMap((named) => judgedFor(fieldErrors, named))) control.checkValidity();
     } finally {
       isReporting.current = false;
     }

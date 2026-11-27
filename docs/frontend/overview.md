@@ -97,8 +97,8 @@ passes end there alike. The browser's pass judges every box on the press and sho
 once, sending nothing while one stands. The server's answer stands on each box by the box's `name`,
 through React Aria's `validationErrors`. After either, the focus goes to the first faulted box by
 React Aria's own report, which reaches a date's segments and a select's button. An answer judges
-only the boxes it names, once, and a fault no box holds, such as a list's own, hands the focus to
-the part that shows it. ESLint holds it (`fl_frontend/eslint.config.mjs`).
+only the boxes it names, once, and a fault no box holds, such as a list's own, stands on the part
+that shows it, the focus staying on the press. ESLint holds it (`fl_frontend/eslint.config.mjs`).
 
 ## Rendering
 
