@@ -426,6 +426,17 @@ class TestWhatASeatsLinkReads:
 
         assert {seat: link["expired"] for seat, link in links.items()} == {"trainer": True, "ansprechperson": False, "stellvertretung": False}
 
+    def test_a_declined_seat_never_lapses(self):
+        """A decline is an answer too, so a declined seat past its deadline has nothing left to collect."""
+
+        links = self.read(
+            kontakte={"trainer": kontaktperson_document("Bramblewick")},
+            confirmations={"trainer": {**self.link(self.PAST), "declined_at": self.PAST}},
+            states={},
+        )
+
+        assert links["trainer"]["expired"] is False
+
     def test_each_seat_reads_the_mail_owed_about_it(self):
         links = self.read(
             kontakte={"trainer": kontaktperson_document("Bramblewick"), "ansprechperson": kontaktperson_document("Quillhilde")},
