@@ -223,16 +223,12 @@ async def post_bewerbung(
         )
         refuse(find_window_refusal(saison_status=saison_raw["status"], bewerbung=saison_raw.get("bewerbung"), today=today))
 
-        refuse_faults(
-            find_submission_subject_refusal(team_id=bewerbung_data.team_id, schule=bewerbung_data.schule),
-            find_repeated_contact_refusal(kontakte=bewerbung_data.kontakte.model_dump(mode="json")),
-        )
-
-        # Behind the subject's check, which says who is applying: the two branches below judge different things.
-        # A picked club alone: a new school has nothing stored to judge. `find_one`, not `pull_one_from_db`: a club the
-        # picker never offered is refused with `bewerbung_picked_team_unusable` rather than answering the 404 a miss would raise.
+        # A picked club alone, judged ahead of the boxes: a club that may not apply makes every seat's fault meaningless, so
+        # its gate answers first rather than after the applicant has mended the seats. A new school has nothing stored to
+        # judge, and a body naming both or neither is the subject's fault below. `find_one`, not `pull_one_from_db`: a club
+        # the picker never offered is refused with `bewerbung_picked_team_unusable` rather than answering the 404 a miss would raise.
         schule = bewerbung_data.schule
-        if schule is None:
+        if schule is None and bewerbung_data.team_id is not None:
             team_raw = await teams_collection.find_one({"_id": bewerbung_data.team_id}, {"inactive_since": 1}, session=session)
             refuse(find_picked_team_refusal(team_raw=team_raw))
 
@@ -240,6 +236,11 @@ async def post_bewerbung(
                 {"saison_id": bewerbung_data.saison_id, "team_id": bewerbung_data.team_id}, projection={"_id": 1}, session=session
             )
             refuse(find_already_entered_refusal(entered=entered is not None))
+
+        refuse_faults(
+            find_submission_subject_refusal(team_id=bewerbung_data.team_id, schule=schule),
+            find_repeated_contact_refusal(kontakte=bewerbung_data.kontakte.model_dump(mode="json")),
+        )
 
         confirmation_deadline = confirmation_deadline_from(today=today)
         stored_kontakte = compose_kontakte(kontakte=bewerbung_data.kontakte.model_dump(mode="json"), today=today)
