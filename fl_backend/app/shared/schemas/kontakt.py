@@ -8,9 +8,10 @@ from app.shared.schemas.custom import PERSON_NAME_PATTERN, CustomOptionalPhoneSt
 from app.shared.schemas.responses import BasePayload
 
 # Never `EmailStr`, which never turns `allow_smtputf8` off and so stores a Unicode local part and
-# domain. The published schema states the ceiling and no `format`: this check is the one authority,
+# domain. The published schema states the bounds and no `format`: this check is the one authority,
 # and a generated pattern would be a second rule beside it.
-CustomEmail = Annotated[str, StringConstraints(max_length=KONTAKT_EMAIL_MAX_LENGTH), AfterValidator(league_address)]
+# `min_length` publishes what `league_address` already refuses, an empty address, so the contract names the box required.
+CustomEmail = Annotated[str, StringConstraints(min_length=1, max_length=KONTAKT_EMAIL_MAX_LENGTH), AfterValidator(league_address)]
 
 
 def _held_folded(address: str) -> str:

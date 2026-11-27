@@ -200,6 +200,40 @@ class TestEachRefusalNamesItsBound:
         assert (refusal.error_code, [(fault.path, dict(fault.bounds)) for fault in refusal.faults]) == (code, [(field, bounds)])
 
 
+class TestEveryBoxAtFaultIsNamedOnce:
+    """One answer names each box the rules refuse, but a bound read off a box another fault refuses, which the repair moves."""
+
+    @pytest.mark.parametrize(
+        ("judged", "named"),
+        [
+            pytest.param(
+                {
+                    "stored": rules(groups=4, per_group=6),
+                    "proposed": rules(groups=2, per_group=6, win=3, draw=4, forfeit=(2, 2)),
+                    "occupancy": {"C": 1},
+                },
+                [("rules", "draw_points"), ("rules", "forfeit_ergebnis", "sieger_tore"), ("rules", "number_of_gruppen")],
+                id="independent boxes, each named",
+            ),
+            pytest.param(
+                {"proposed": rules(win=1, draw=3, loss=5)},
+                [("rules", "draw_points")],
+                id="the loss waits on the draw its bound reads",
+            ),
+            pytest.param(
+                {"stored": rules(per_group=6, qualifiers=2), "proposed": rules(per_group=3, qualifiers=4), "occupancy": {"A": 5}},
+                [("rules", "teams_per_gruppe")],
+                id="the qualifiers wait on the teams per group their bound reads",
+            ),
+        ],
+    )
+    def test_the_answer_names_the_boxes(self, judged: dict[str, Any], named: list[tuple[str, ...]]):
+        refusal = judge(**judged)
+
+        assert refusal is not None
+        assert [fault.path for fault in refusal.faults] == named
+
+
 class TestAStartedSeasonFreezes:
     @pytest.mark.parametrize(("field", "changed"), FROZEN_CASES, ids=[field for field, _ in FROZEN_CASES])
     def test_refuses_a_change_to_any_frozen_field(self, field: str, changed: dict[str, Any]):

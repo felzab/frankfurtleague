@@ -40,6 +40,7 @@ from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database
 from tests.delivery import a_mail_that_bounced
 from tests.documents import (
     ADDRESS,
+    ban_document,
     kontaktperson_document,
     minted_confirmations,
     rules_document,
@@ -1040,6 +1041,7 @@ async def write_seat(
             bewerbungen_collection=database[Collection.BEWERBUNGEN],
             teams_collection=database[Collection.TEAMS],
             saisons_collection=database[Collection.SAISONS],
+            ban_list_collection=database[Collection.BAN_LIST],
             outbox_collection=database[Collection.OUTBOX],
             germany_now=MAIL_NOW,
             db=client,
@@ -1196,6 +1198,26 @@ class TestCorrectingOneContactAddress:
         code, before, after = await on_a_league(mongo_replica_set_url, body)
 
         assert code == taken
+        assert after == before
+
+    async def test_a_banned_address_and_another_persons_number_are_refused_on_their_boxes_at_once(self, mongo_replica_set_url: str):
+        """The write mails a link the drain never hands to a banned address; asked apart, the second fault waits a press."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await seed_a_bounced_application(database, client)
+            await database[Collection.BAN_LIST].insert_one(ban_document(CORRECTED_EMAIL, until="2999"))
+            before = await stored_bewerbung(database, CORRECTION_BEWERBUNG)
+            kept = {key: before["kontakte"]["ansprechperson"][key] for key in RESEAT_PERSON}
+            sent = {**kept, "email": CORRECTED_EMAIL, "phone": before["kontakte"]["stellvertretung"]["phone"]}
+
+            with pytest.raises(APIError) as refused:
+                await write_seat(database, client, "ansprechperson", sent, bewerbung_id=CORRECTION_BEWERBUNG)
+
+            return [(fault.code, fault.path) for fault in refused.value.faults], before, await stored_bewerbung(database, CORRECTION_BEWERBUNG)
+
+        faults, before, after = await on_a_league(mongo_replica_set_url, body)
+
+        assert faults == [(Code.KONTAKT_PHONE_TAKEN, ("phone",)), (Code.ADDRESS_BARRED, ("email",))]
         assert after == before
 
     async def test_a_confirmed_seat_gives_way_and_asks_its_new_person_afresh(self, mongo_replica_set_url: str):

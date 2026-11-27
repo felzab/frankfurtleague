@@ -144,7 +144,7 @@ class TestCorrectingOneContactAddress:
         refusal = find_seat_contact_refusal(kontakte=seats, seats=("ansprechperson",), email="STELLAN@example.com", phone="069 90009765")
 
         # Naming the field, or the dialog has no box to say it on.
-        assert refusal is not None and (refusal.code, refusal.path) == (Code.KONTAKT_EMAIL_TAKEN, ("email",))
+        assert [(fault.code, fault.path) for fault in refusal] == [(Code.KONTAKT_EMAIL_TAKEN, ("email",))]
 
     def test_another_spelling_of_the_number_another_person_is_reached_at_is_refused(self):
         """Stored, it reaches the season row at acceptance, where every later write on either person is refused `kontakt_phone_taken`."""
@@ -158,4 +158,21 @@ class TestCorrectingOneContactAddress:
 
         refusal = find_seat_contact_refusal(kontakte=seats, seats=("ansprechperson",), email="ansgar@example.com", phone="+49 (0)69 90009030")
 
-        assert refusal is not None and (refusal.code, refusal.path) == (Code.KONTAKT_PHONE_TAKEN, ("phone",))
+        assert [(fault.code, fault.path) for fault in refusal] == [(Code.KONTAKT_PHONE_TAKEN, ("phone",))]
+
+    def test_an_address_and_a_number_two_other_people_hold_are_both_refused_at_once(self):
+        """Asked one after the other, the number's fault waits for a press the address's already asked for."""
+
+        seats = {
+            "trainer": kontaktperson_document("Quillhilde", phone="069 90009010"),
+            "ansprechperson": kontaktperson_document("Ansgar", phone="069 90009020"),
+            "stellvertretung": kontaktperson_document("Stellan", phone="069 90009030"),
+            "trainer_is_also": None,
+        }
+
+        refusal = find_seat_contact_refusal(kontakte=seats, seats=("ansprechperson",), email="quillhilde@example.com", phone="069 90009030")
+
+        assert [(fault.code, fault.path) for fault in refusal] == [
+            (Code.KONTAKT_EMAIL_TAKEN, ("email",)),
+            (Code.KONTAKT_PHONE_TAKEN, ("phone",)),
+        ]

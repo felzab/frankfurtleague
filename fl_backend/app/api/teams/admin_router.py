@@ -10,6 +10,7 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.aufstellungen.crud import remove_the_seasons_aufstellungen
+from app.api.ban_list.crud import find_address_barred_refusal
 from app.api.bewerbungen.services import assigned_trikot_farben, seat_named
 from app.api.grants.guard import ADMIN_TIER
 from app.api.invitations.schemas import (
@@ -38,10 +39,10 @@ from app.api.saisons.services import find_saison_past_refusal, has_started
 from app.api.spielbestaetigungen.crud import owe_the_austritt_notices_in_session, pull_austritt_recipients
 from app.api.teams.crud import (
     enter_a_team,
-    found_a_team,
+    find_taken_colour_refusal,
+    find_taken_shorthand_refusal,
     pull_a_team_to_enter,
     refuse_a_gruppe_move,
-    refuse_a_taken_colour,
     write_the_team,
 )
 from app.api.teams.panel import FLAustrittRecipients, FLTeamSaisonAdminResponse
@@ -108,6 +109,7 @@ from app.core.crud import (
 )
 from app.core.dependencies import (
     AufstellungenCollection,
+    BanListReadCollection,
     DBClient,
     GermanDay,
     GermanyNow,
@@ -433,16 +435,12 @@ async def post_team_entry(
 
     async def found_and_enter(session: AsyncClientSession) -> None:
         picked = entry_data.team
-        team_id = (
-            picked.team_id
-            if picked.kind == "known"
-            else await found_a_team(teams_collection=teams_collection, team=picked.team.model_dump(mode="json"), session=session)
-        )
-        name = await enter_a_team(
+        team_id, name = await enter_a_team(
             teams_collection=teams_collection,
             saison_teams_collection=saison_teams_collection,
             saisons_collection=saisons_collection,
-            team_id=team_id,
+            team_id=picked.team_id if picked.kind == "known" else None,
+            new_team=None if picked.kind == "known" else picked.team.model_dump(mode="json"),
             saison_id=saison_id,
             gruppe=entry_data.gruppe,
             trikot_farbe=entry_data.trikot_farbe,
@@ -574,16 +572,22 @@ async def patch_team_saison(
                 session=session,
             )
 
-        # Judged only where the save moves it: a colour a row already stores beside another's must not lock the club's
-        # other fields.
-        if team_data.trikot_farbe != row_raw.get("trikot_farbe"):
-            await refuse_a_taken_colour(
+        refuse_faults(
+            # Judged only where the save moves it: a colour a row already stores beside another's must not lock the
+            # club's other fields.
+            await find_taken_colour_refusal(
                 saison_teams_collection=saison_teams_collection,
                 saison_id=saison_id,
                 trikot_farbe=team_data.trikot_farbe,
                 own_id=row_raw["_id"],
                 session=session,
             )
+            if team_data.trikot_farbe != row_raw.get("trikot_farbe")
+            else None,
+            await find_taken_shorthand_refusal(
+                teams_collection=teams_collection, shorthand=team_data.shorthand, own_id=team_id, session=session
+            ),
+        )
 
         stored_team = await write_the_team(
             teams_collection=teams_collection,
@@ -703,6 +707,7 @@ async def put_kontakt_seat(
     seat_data: FLKontaktSeatPayload,
     saison_teams_collection: SaisonTeamsCollection,
     saisons_collection: SaisonsCollection,
+    ban_list_collection: BanListReadCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
     session: SnapshotSession,
@@ -735,11 +740,19 @@ async def put_kontakt_seat(
             projection=[*KONTAKT_WRITE_FIELDS, VERSION_FIELD],
             session=session,
         )
-        kontakte, seats = compose_seat_block(stored=stored.get("kontakte"), seat=pressed, sent=sent, today=today)
-        refuse_faults(find_kontakt_taken_refusal(kontakte=kontakte, seats=seats))
         # Read as well as filtered on: a dry run patches nothing for the version to refuse, and the patch's filter still
         # refuses a write racing past this read.
         refuse(find_stale_save_refusal(stored, version=seat_data.version))
+        kontakte, seats = compose_seat_block(stored=stored.get("kontakte"), seat=pressed, sent=sent, today=today)
+        refuse_faults(
+            find_kontakt_taken_refusal(kontakte=kontakte, seats=seats),
+            # Only where the write seats a new person, whom it owes a link: a person kept keeps the link they hold.
+            await find_address_barred_refusal(
+                ban_list_collection=ban_list_collection, address=str(kontakte[pressed]["email"]), path=("email",), session=session
+            )
+            if links_owed(kontakte=kontakte, stored=stored.get("kontakte"))
+            else None,
+        )
         return stored, kontakte
 
     if dry_run:

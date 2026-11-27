@@ -290,6 +290,7 @@
         "properties": {
           "email": {
             "maxLength": 254,
+            "minLength": 1,
             "title": "Email",
             "type": "string"
           }
@@ -1530,11 +1531,13 @@
         "properties": {
           "address": {
             "maxLength": 254,
+            "minLength": 1,
             "title": "Address",
             "type": "string"
           },
           "email": {
             "maxLength": 254,
+            "minLength": 1,
             "title": "Email",
             "type": "string"
           }
@@ -3571,6 +3574,7 @@
         "properties": {
           "email": {
             "maxLength": 254,
+            "minLength": 1,
             "title": "Email",
             "type": "string"
           },
@@ -3662,6 +3666,7 @@
         "properties": {
           "email": {
             "maxLength": 254,
+            "minLength": 1,
             "title": "Email",
             "type": "string"
           },
@@ -5611,6 +5616,7 @@
         "properties": {
           "email": {
             "maxLength": 254,
+            "minLength": 1,
             "title": "Email",
             "type": "string"
           },
@@ -5660,6 +5666,7 @@
         "properties": {
           "email": {
             "maxLength": 254,
+            "minLength": 1,
             "title": "Email",
             "type": "string"
           },
@@ -6709,6 +6716,7 @@
           },
           "to": {
             "maxLength": 254,
+            "minLength": 1,
             "title": "To",
             "type": "string"
           },
@@ -7993,6 +8001,7 @@
           },
           "email": {
             "maxLength": 254,
+            "minLength": 1,
             "title": "Email",
             "type": "string"
           },
@@ -8087,6 +8096,7 @@
         "properties": {
           "email": {
             "maxLength": 254,
+            "minLength": 1,
             "title": "Email",
             "type": "string"
           }
@@ -8103,6 +8113,7 @@
         "properties": {
           "email": {
             "maxLength": 254,
+            "minLength": 1,
             "title": "Email",
             "type": "string"
           },
@@ -14690,6 +14701,7 @@
         "properties": {
           "email": {
             "maxLength": 254,
+            "minLength": 1,
             "title": "Email",
             "type": "string"
           }
@@ -16449,6 +16461,7 @@
           "bewerbung_submission_subject_unresolved",
           "spieler_not_in_kader",
           "eligibility_disqualified",
+          "kader_stufe_not_allowed",
           "state_nichtantreten_without_two_sides",
           "state_ergebnis_on_a_non_event",
           "media_age",
@@ -16466,7 +16479,11 @@
           "saison_start_austritt_stored",
           "confirmation_age",
           "spiel_outside_spieltag",
-          "saison_span_below_spieltage"
+          "saison_span_below_spieltage",
+          "saison_start_taken_place",
+          "spieltag_outside_saison",
+          "spieltag_span_below_spiele",
+          "spieltag_start_out_of_order"
         ],
         "type": "string"
       },

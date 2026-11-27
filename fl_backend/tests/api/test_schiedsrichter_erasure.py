@@ -192,6 +192,7 @@ async def a_referee_with_a_history(database: AsyncDatabase, client: AsyncMongoCl
                 version=served["version"],
             ),
             schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+            ban_list_collection=database[Collection.BAN_LIST],
             outbox_collection=database[Collection.OUTBOX],
             db=client,
             today=TODAY,

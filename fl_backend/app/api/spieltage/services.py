@@ -11,7 +11,7 @@ from app.api.spieltage.schemas import (
     FLSpieltag,
 )
 from app.core.codes import Code
-from app.core.exceptions import APIError
+from app.core.exceptions import FieldFault, faults_of
 from app.shared.schemas.custom import CustomObjectId
 from app.shared.schemas.literals import FLSaisonStatus
 
@@ -72,20 +72,30 @@ def find_spieltag_span_refusal(
     saison_start: str,
     saison_end: str,
     spiel_dates: Sequence[str],
-) -> APIError | None:
-    """Why this matchday's span must be refused, or `None`.
+) -> tuple[FieldFault, ...]:
+    """Why this matchday's span must be refused: a fault on each date the season or its fixtures refuse, or none.
 
-    `spiel_dates` is every dated fixture of the matchday; an undated one constrains nothing.
+    `spiel_dates` is every dated fixture of the matchday; an undated one constrains nothing. Each date is held to the
+    season first and to the fixtures only inside it, since a day outside the season is wrong whatever the fixtures hold.
     """
 
-    if start < saison_start or end > saison_end:
-        return APIError(HTTPStatus.CONFLICT, Code.SPIELTAG_OUTSIDE_SAISON)
+    first, last = min(spiel_dates, default=start), max(spiel_dates, default=end)
+    on_the_start = (
+        FieldFault(path=("start",), code=Code.SPIELTAG_OUTSIDE_SAISON, status=HTTPStatus.CONFLICT, bounds={"earliest": saison_start})
+        if start < saison_start
+        else FieldFault(path=("start",), code=Code.SPIELTAG_SPAN_BELOW_SPIELE, status=HTTPStatus.CONFLICT, bounds={"latest": first})
+        if first < start
+        else None
+    )
+    on_the_end = (
+        FieldFault(path=("end",), code=Code.SPIELTAG_OUTSIDE_SAISON, status=HTTPStatus.CONFLICT, bounds={"latest": saison_end})
+        if end > saison_end
+        else FieldFault(path=("end",), code=Code.SPIELTAG_SPAN_BELOW_SPIELE, status=HTTPStatus.CONFLICT, bounds={"earliest": last})
+        if last > end
+        else None
+    )
 
-    outside = sorted(date for date in spiel_dates if date < start or date > end)
-    if outside:
-        return APIError(HTTPStatus.CONFLICT, Code.SPIELTAG_SPAN_BELOW_SPIELE)
-
-    return None
+    return faults_of((on_the_start, on_the_end))
 
 
 def find_spieltag_order_refusal(
@@ -94,8 +104,8 @@ def find_spieltag_order_refusal(
     stored_start: str | None,
     previous_start: str | None,
     following_start: str | None,
-) -> APIError | None:
-    """Why this matchday's `start` must be refused for its place in the phase, or `None`.
+) -> FieldFault | None:
+    """Why this matchday's `start` must be refused for its place in the phase, its bound the start of the neighbour it passed, or `None`.
 
     `previous_start` and `following_start` are the starts of the nearest dated matchday below and above this
     `position`, `None` where that side holds none; an undated one states no date to compare, so the caller steps over it.
@@ -109,9 +119,13 @@ def find_spieltag_order_refusal(
     # The predecessor first, and both are reachable at once only for a first dating landing between
     # two neighbours already out of order: the earlier position is the pair a reader checks first.
     if previous_start is not None and moved_earlier and start < previous_start:
-        return APIError(HTTPStatus.CONFLICT, Code.SPIELTAG_START_OUT_OF_ORDER)
+        return FieldFault(
+            path=("start",), code=Code.SPIELTAG_START_OUT_OF_ORDER, status=HTTPStatus.CONFLICT, bounds={"earliest": previous_start}
+        )
 
     if following_start is not None and moved_later and following_start < start:
-        return APIError(HTTPStatus.CONFLICT, Code.SPIELTAG_START_OUT_OF_ORDER)
+        return FieldFault(
+            path=("start",), code=Code.SPIELTAG_START_OUT_OF_ORDER, status=HTTPStatus.CONFLICT, bounds={"latest": following_start}
+        )
 
     return None

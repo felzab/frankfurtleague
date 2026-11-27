@@ -201,11 +201,12 @@ class TestTheStartMovesNoLaterPastAStoredExit:
 
         refusal, refused_left, saved = await on_a_database(mongo_replica_set_url, body)
 
-        assert (refusal.error_code, tuple(fault.path for fault in refusal.faults), refusal.faults[0].bounds) == (
-            Code.SAISON_START_AUSTRITT_STORED,
-            (("start_date",),),
-            {"latest": SAISON_START},
-        )
+        # The dated matchday falls before the later start too, judged apart: the exit's fault is first on the box.
+        assert [(fault.code, fault.path) for fault in refusal.faults] == [
+            (Code.SAISON_START_AUSTRITT_STORED, ("start_date",)),
+            (Code.SAISON_SPAN_BELOW_SPIELTAGE, ("start_date",)),
+        ]
+        assert refusal.faults[0].bounds == {"latest": SAISON_START}
         assert refused_left == SAISON_START, "a refused save moved the start"
         assert saved == an_earlier_start
 

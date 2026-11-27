@@ -13,7 +13,7 @@ from app.core.exceptions import APIError
 from app.shared.tokens import hash_token
 from tests.bewerbung_routes import answered
 from tests.database import a_clean_database
-from tests.documents import SEAT_TEXT_VERSIONS, kontaktperson_document, saison_document, saison_team_document
+from tests.documents import SEAT_TEXT_VERSIONS, ban_document, kontaktperson_document, saison_document, saison_team_document
 from tests.outbox import MAIL_NOW, drained
 from tests.stored import the_row
 from tests.worker import worker_database
@@ -93,6 +93,7 @@ async def write_seat(database: AsyncDatabase, seat: str, sent: dict[str, Any], *
             seat_data=FLKontaktSeatPayload.model_validate({**sent, "version": version}),
             saison_teams_collection=database[Collection.SAISON_TEAMS],
             saisons_collection=database[Collection.SAISONS],
+            ban_list_collection=database[Collection.BAN_LIST],
             outbox_collection=database[Collection.OUTBOX],
             db=database.client,
             today=TODAY,
@@ -109,17 +110,19 @@ async def row_and_mails(database: AsyncDatabase) -> tuple[Mapping[str, Any], lis
 
 
 async def refused(
-    url: str, seat: str, sent: dict[str, Any], *, kontakte: dict[str, Any] | None, version: int = 0
+    url: str, seat: str, sent: dict[str, Any], *, kontakte: dict[str, Any] | None, version: int = 0, banned: str | None = None
 ) -> tuple[Code, Any, Mapping[str, Any]]:
     """The refusal and the row it left, which must be the row as seeded."""
 
     async def body(database: AsyncDatabase) -> tuple[Code, Any, Mapping[str, Any]]:
+        if banned is not None:
+            await database[Collection.BAN_LIST].insert_one(ban_document(banned, until=SAISON_ID))
         with pytest.raises(APIError) as refusal:
             await write_seat(database, seat, sent, version=version)
 
         row, _ = await row_and_mails(database)
 
-        return refusal.value.error_code, tuple(fault.path for fault in refusal.value.faults), row
+        return refusal.value.error_code, tuple((fault.code, fault.path) for fault in refusal.value.faults), row
 
     return await on_a_row(url, body, kontakte=kontakte)
 
@@ -301,8 +304,30 @@ class TestTheRefusals:
             mongo_replica_set_url, "trainer", {**sent_person("Lea"), "email": "JONAS@example.com"}, kontakte=seated
         )
 
-        assert (answer, fields) == (Code.KONTAKT_EMAIL_TAKEN, (("email",),))
+        assert (answer, fields) == (Code.KONTAKT_EMAIL_TAKEN, ((Code.KONTAKT_EMAIL_TAKEN, ("email",)),))
         assert row["kontakte"] == seated
+
+    async def test_a_banned_address_and_another_seats_number_are_refused_on_their_boxes_at_once(self, mongo_replica_set_url: str):
+        """The write owes a link the drain never hands to a banned address; asked apart, the second fault waits a press."""
+
+        seated = block()
+        _, faults, row = await refused(
+            mongo_replica_set_url, "trainer", {**sent_person("Lea"), "phone": PHONE["Jonas"]}, kontakte=seated, banned="lea@example.com"
+        )
+
+        assert faults == ((Code.KONTAKT_PHONE_TAKEN, ("phone",)), (Code.ADDRESS_BARRED, ("email",)))
+        assert row["kontakte"] == seated
+
+    async def test_a_person_kept_at_an_address_banned_since_takes_a_corrected_number(self, mongo_replica_set_url: str):
+        """A kept person is owed no link, so a ban standing on their stored address locks none of their other fields."""
+
+        async def body(database: AsyncDatabase) -> Any:
+            await database[Collection.BAN_LIST].insert_one(ban_document("ida@example.com", until=SAISON_ID))
+            await write_seat(database, "trainer", {**sent_person("Ida"), "phone": "+4917604069009"})
+
+            return (await row_and_mails(database))[0]["kontakte"]["trainer"]["phone"]
+
+        assert await on_a_row(mongo_replica_set_url, body, kontakte=block()) == "+4917604069009"
 
     async def test_a_write_composed_before_the_row_moved_is_refused(self, mongo_replica_set_url: str):
         """An erasure raises the count: written over it, the seat it emptied would come back."""

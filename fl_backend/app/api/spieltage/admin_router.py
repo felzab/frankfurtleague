@@ -15,7 +15,7 @@ from app.api.spieltage.schemas import (
     FLSpieltagRecord,
 )
 from app.api.spieltage.services import find_spieltag_order_refusal, find_spieltag_span_refusal
-from app.core.crud import anchor_in_db, patch_one_in_db, pull_one_from_db, pull_whole_from_db, refuse
+from app.core.crud import anchor_in_db, patch_one_in_db, pull_one_from_db, pull_whole_from_db, refuse, refuse_faults
 from app.core.dependencies import (
     DBClient,
     SaisonsCollection,
@@ -24,6 +24,7 @@ from app.core.dependencies import (
     SpieltageCollection,
     SpieltageReadCollection,
 )
+from app.core.exceptions import FieldFault
 from app.core.recording import record_act
 from app.core.routing import by_id
 from app.core.transactions import transact
@@ -65,7 +66,7 @@ async def get_spieltag_admin(
     )
 
 
-async def _refuse_an_out_of_order_start(
+async def _find_out_of_order_start(
     *,
     spieltage_collection: AsyncCollection,
     saisons_collection: AsyncCollection,
@@ -74,8 +75,8 @@ async def _refuse_an_out_of_order_start(
     # Required: the anchor below is what closes the race, so forgetting the session has to be a
     # TypeError at the call rather than a silent reopening of it.
     session: AsyncClientSession,
-) -> None:
-    """Refuse `spieltag_start_out_of_order` when this matchday's new `start` breaks the order its phase's positions are dated in."""
+) -> FieldFault | None:
+    """`spieltag_start_out_of_order` where this matchday's new `start` breaks the order its phase's positions are dated in."""
 
     # The neighbour reads are the whole of what two writers dating one phase share, and a read is
     # what a snapshot re-validates nowhere -- so the season is written to put the two in one write set.
@@ -100,15 +101,13 @@ async def _refuse_an_out_of_order_start(
         {**neighbourhood, "position": {"$gt": stored_raw["position"]}}, {"start": 1}, sort=[("position", 1)], session=session
     )
 
-    refuse(
-        find_spieltag_order_refusal(
-            start=start,
-            # Each `start` as stored, string or null, and never through `str()`, which would turn an undated row into a day
-            # above every ISO date.
-            stored_start=stored_raw["start"],
-            previous_start=None if previous_raw is None else previous_raw["start"],
-            following_start=None if following_raw is None else following_raw["start"],
-        )
+    return find_spieltag_order_refusal(
+        start=start,
+        # Each `start` as stored, string or null, and never through `str()`, which would turn an undated row into a day
+        # above every ISO date.
+        stored_start=stored_raw["start"],
+        previous_start=None if previous_raw is None else previous_raw["start"],
+        following_start=None if following_raw is None else following_raw["start"],
     )
 
 
@@ -149,24 +148,26 @@ async def patch_spieltag(
                 session=session,
             )
         ]
-        refuse(
-            find_spieltag_span_refusal(
-                start=spieltag_data.start,
-                end=spieltag_data.end,
-                saison_start=saison_raw["start_date"],
-                saison_end=saison_raw["end_date"],
-                spiel_dates=spiel_dates,
-            )
-        )
-
-        # After the span refusals, and reaching for its neighbours only once they pass: a date
-        # outside the season is wrong on its own terms, where this one is wrong only beside them.
-        await _refuse_an_out_of_order_start(
-            spieltage_collection=spieltage_collection,
-            saisons_collection=saisons_collection,
-            stored_raw=stored_raw,
+        span = find_spieltag_span_refusal(
             start=spieltag_data.start,
-            session=session,
+            end=spieltag_data.end,
+            saison_start=saison_raw["start_date"],
+            saison_end=saison_raw["end_date"],
+            spiel_dates=spiel_dates,
+        )
+        refuse_faults(
+            span,
+            # Behind a span fault on the start, and reaching for its neighbours only once it holds none: a start outside
+            # the season or past its fixtures is wrong on its own terms, where this one is wrong only beside them.
+            None
+            if any(fault.path == ("start",) for fault in span)
+            else await _find_out_of_order_start(
+                spieltage_collection=spieltage_collection,
+                saisons_collection=saisons_collection,
+                stored_raw=stored_raw,
+                start=spieltag_data.start,
+                session=session,
+            ),
         )
 
         updated_raw = await patch_one_in_db(
@@ -187,6 +188,6 @@ async def patch_spieltag(
 
         return FLVersionResponse(version=FLSpieltagRecord.model_validate(updated_raw).version)
 
-    # One transaction over the span and the season write inside `_refuse_an_out_of_order_start`,
+    # One transaction over the span and the season write inside `_find_out_of_order_start`,
     # which is what makes two matchdays of one phase contend.
     return await transact(db, redate_the_matchday)

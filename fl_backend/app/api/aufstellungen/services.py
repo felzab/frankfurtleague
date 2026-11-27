@@ -191,8 +191,11 @@ def find_nominee_refusal(*, entries: Sequence[FLAufstellungEntry], kader: Sequen
 
 
 def judge_the_names(*, entries: Sequence[FLAufstellungEntry], new: set[ObjectId], nameless: int, kader: Sequence[Mapping[str, Any]]) -> None:
-    refuse_faults(find_not_in_kader_refusal(entries=entries, new=new, nameless=nameless, kader=kader))
-    refuse_faults(find_nominee_refusal(entries=entries, kader=kader))
+    """Every box the line-up's names are refused on, in one answer."""
+
+    refuse_faults(
+        find_not_in_kader_refusal(entries=entries, new=new, nameless=nameless, kader=kader), find_nominee_refusal(entries=entries, kader=kader)
+    )
 
 
 # --- The squad a line-up picks from.

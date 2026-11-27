@@ -138,7 +138,7 @@ WRITES = (
         "/api/ban_list",
         refused={"email": BARRED, "ban_reason": "Spam", "notify": False},
         taken={"email": "new.barred@example.com", "ban_reason": "Spam", "notify": False},
-        refusal=(409, Code.DUPLICATE_KEY),
+        refusal=(409, Code.ADDRESS_BARRED),
     ),
     Write(
         "administrator added",

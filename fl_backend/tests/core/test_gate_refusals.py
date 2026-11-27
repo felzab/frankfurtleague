@@ -5,7 +5,7 @@ A box's fault reaches the body only through `refuse_faults`, which pyright and r
 written in a gate's shape instead, an `APIError` carrying a `FieldCode` member or handed a body-located `Subject`,
 passes both and marks no box, so the person reads the stale-page line where the box's phrase belongs. Only this walk
 sees that shape: it reads every `APIError(...)` and `Subject(...)` the application builds, by the names its modules
-import them under.
+import them under, and every call of a function turning a check it is handed into a gate.
 """
 
 import ast
@@ -26,32 +26,6 @@ ALLOWED: dict[tuple[str, str, str], str] = {
         "The link's press judges the address the stored change names, which no box on its page holds; holds while the "
         "press in `address_change/public_router.py` is its one caller."
     ),
-    ("api/address_change/services.py", "find_taken_refusal", "address_change_taken"): (
-        "Asked by the administrator's start, whose new address is typed into a box, and by the re-send, which reads it "
-        "off the stored change; holds until the start asks it as a fault on its box."
-    ),
-    ("api/address_change/services.py", "find_unchanged_refusal", "address_change_unchanged"): (
-        "Both starts, the administrator's and the person's own in Konto, judge an address typed into a box; holds until "
-        "they ask it as a fault on that box."
-    ),
-    ("api/ban_list/services.py", "find_admin_refusal", "ban_list_admin"): (
-        "The ban's add judges the address typed into its box; holds until the add asks it as a fault on that box."
-    ),
-    ("api/ban_list/services.py", "find_listed_refusal", "duplicate_key"): (
-        "The ban's add judges the address typed into its box; holds until the add asks it as a fault on that box."
-    ),
-    ("api/grants/services.py", "find_barred_refusal", "grant_barred"): (
-        "The grant's add judges the address typed into its box, and a write on a stored grant the address that grant "
-        "names; holds until the add asks it as a fault on its box."
-    ),
-    ("api/identity/services.py", "find_admin_address_refusal", "admin_address"): (
-        "`refuse_an_address_off_limits` asks it of every address an administrator's identity or address-change route acts "
-        "on, typed into a box or named by a stored record; holds until each typed one is asked as a fault on its box."
-    ),
-    ("api/identity/services.py", "find_own_address_refusal", "own_address"): (
-        "`refuse_an_address_off_limits` asks it of every address an administrator's identity or address-change route acts "
-        "on, typed into a box or named by a stored record; holds until each typed one is asked as a fault on its box."
-    ),
     ("api/spielberichte/services.py", "find_not_in_kader_refusal", "spieler_not_in_kader"): (
         "The referee's form picks pupils from the squads it is served, so it takes this as a page gone stale whose "
         "reload serves the squads as they stand; holds while that form offers no pupil outside them."
@@ -68,11 +42,32 @@ ALLOWED: dict[tuple[str, str, str], str] = {
     ),
     ("api/spielbestaetigungen/services.py", "judged_as_a_proposal", "the code faults[0].code"): (
         "A club's proposal is judged by the save's checks of a fixture body it does not send, so their faults answer as "
-        "one gate naming no field; holds while `spielbestaetigungen/person_router.py` judges a proposal through it."
+        "one gate naming no field; each caller is a site of its own."
     ),
     ("core/exceptions.py", "as_judged_on_stored_state", "the code faults[0].code"): (
-        "A write judging stored values it carries no body for answers their faults as one gate naming no field; holds "
-        "while the draw judges the stored rules through it."
+        "A write judging stored values it carries no body for answers their faults as one gate naming no field; each "
+        "caller is a site of its own."
+    ),
+    # The callers of the three above, each handing them a check of values no box of its request holds.
+    ("api/address_change/admin_router.py", "_refuse_an_address_off_limits", "a call of as_judged_on_stored_state"): (
+        "The re-send and the discard act on a change by its id: the address on file is judged on the stored change; "
+        "holds while each of its callers acts on a stored change."
+    ),
+    ("api/address_change/admin_router.py", "resend_confirmation.judge_and_remint_the_change", "a call of as_judged_on_stored_state"): (
+        "The re-send sends no address: the new one is judged on the stored change; holds while its body carries none."
+    ),
+    ("api/grants/admin_router.py", "post_handover.judge", "a call of as_judged_on_stored_state"): (
+        "The handover sends no address: the ban is judged on the stored grant's; holds while its body carries none."
+    ),
+    ("api/saisons/admin_router.py", "post_spielplan.draw_the_whole_season", "a call of as_judged_on_stored_state"): (
+        "The draw sends no rules: the season's stored ones are judged; holds while its body carries none."
+    ),
+    ("api/spielbestaetigungen/admin_router.py", "adopt_spielbestaetigung.adopt_the_proposal", "a call of as_judged_on_the_stored_proposal"): (
+        "The adoption sends no fixture: the stored proposal is judged; holds while its body carries none."
+    ),
+    ("api/spielbestaetigungen/person_router.py", "post_team_answer.answer", "a call of judged_as_a_proposal"): (
+        "A club's answer proposes a date and a time, which the save's checks judge on a fixture body the answer does not "
+        "send, so the paths their faults name are none of its boxes; holds while the save's checks are asked of that body."
     ),
 }
 
@@ -115,25 +110,34 @@ def _refused(call: ast.Call, built: str) -> str | None:
             return f"the code {ast.unparse(code) if code is not None else 'left out'}"
 
 
-def _sites(node: ast.AST, names: dict[str, str], within: str) -> Iterator[tuple[str, str]]:
+def _calls(node: ast.AST, within: str) -> Iterator[tuple[str, ast.Call, str]]:
+    """Every call of a bare name under `node`, beside the function it stands in and the name it calls."""
+
     for child in ast.iter_child_nodes(node):
         if isinstance(child, ast.FunctionDef | ast.AsyncFunctionDef):
-            yield from _sites(child, names, f"{within}.{child.name}" if within else child.name)
+            yield from _calls(child, f"{within}.{child.name}" if within else child.name)
             continue
-        if isinstance(child, ast.Call) and isinstance(child.func, ast.Name) and child.func.id in names:
-            refused = _refused(child, names[child.func.id])
-            if refused is not None:
-                yield within, refused
-        yield from _sites(child, names, within)
+        if isinstance(child, ast.Call) and isinstance(child.func, ast.Name):
+            yield within, child, child.func.id
+        yield from _calls(child, within)
 
 
 def _found() -> set[tuple[str, str, str]]:
+    modules = {path.relative_to(SOURCE).as_posix(): (path, ast.parse(path.read_bytes())) for path in sorted(SOURCE.rglob("*.py"))}
+    calls = {name: list(_calls(module, "")) for name, (_, module) in modules.items()}
+
     found: set[tuple[str, str, str]] = set()
-    for path in sorted(SOURCE.rglob("*.py")):
-        module = ast.parse(path.read_bytes())
-        names = _imported(module, path)
-        if names:
-            found.update((path.relative_to(SOURCE).as_posix(), function, what) for function, what in _sites(module, names, ""))
+    for name, (path, module) in modules.items():
+        imported = _imported(module, path)
+        for within, call, callee in calls[name]:
+            if callee in imported and (refused := _refused(call, imported[callee])) is not None:
+                found.add((name, within, refused))
+
+    # A function building a gate under a code read from a value turns whatever check its caller hands it into a gate, a
+    # box's among them, so each call of it is a site of its own, where the walk sees what the call hands it.
+    turning = {within.rsplit(".", 1)[-1] for _, within, what in found if what.startswith("the code ")}
+    for name in modules:
+        found.update((name, within, f"a call of {callee}") for within, _, callee in calls[name] if callee in turning)
 
     return found
 

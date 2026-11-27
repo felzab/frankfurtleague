@@ -338,7 +338,7 @@ async def _teams_of(
             name=membership[team_id].name,
             shorthand=row["shorthand"],
             on_spieltag=verdict.refusal is not None or len(verdict.releases) > 0,
-            fieldable=verdict.refusal is None and find_eligibility_refusal(spiel.id, payload, season, membership) is None,
+            fieldable=verdict.refusal is None and not find_eligibility_refusal(spiel.id, payload, season, membership),
         )
 
     return [judged(row) for row in rows]
