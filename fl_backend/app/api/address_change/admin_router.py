@@ -36,7 +36,6 @@ from app.api.address_change.services import (
     stored_instant,
     waits_on,
 )
-from app.api.ban_list.crud import find_address_barred_refusal
 from app.api.grants.crud import read_grants
 from app.api.grants.guard import ADMIN_TIER
 from app.api.identity.lookup import SubjectLookup
@@ -47,7 +46,6 @@ from app.core.crud import aggregate_many_from_db, patch_one_in_db, refuse, refus
 from app.core.dependencies import (
     AddressChangeCollection,
     AddressChangeReadCollection,
-    BanListReadCollection,
     DBClient,
     GermanyNow,
     GrantsCollection,
@@ -159,7 +157,6 @@ async def post_address_change_admin(
     records: SubjectLookup,
     spieler_collection: SpielerCollection,
     grants_collection: GrantsCollection,
-    ban_list_collection: BanListReadCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
     session: SnapshotSession,
@@ -197,7 +194,8 @@ async def post_address_change_admin(
                     session=session,
                 )
             )
-            # The entries judged here too, their reader trusted: a change its confirmation would refuse goes nowhere.
+            # The entries judged here too, their reader trusted: a change its confirmation would refuse goes nowhere. A
+            # banned new address is refused nothing: its link stops at the hand-out.
             or await address_taken(
                 email,
                 records=records,
@@ -209,10 +207,6 @@ async def post_address_change_admin(
             find_off_limits_refusal(identifier=identifier, actor=operator, grants=grants, path=("address",)),
             unchanged,
             find_taken_refusal(taken=taken),
-            # The start mails the new mailbox its link, which the drain never hands to a banned address.
-            None
-            if unchanged
-            else await find_address_barred_refusal(ban_list_collection=ban_list_collection, address=email, path=("email",), session=session),
         )
 
     if dry_run:
