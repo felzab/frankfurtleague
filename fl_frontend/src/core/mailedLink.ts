@@ -10,10 +10,10 @@ import { HOUR_MS } from "./timeUnits";
 import type { NextRequest } from "next/server";
 
 /**
- * Every page a mailed link opens. Each carries a live token that the browser's history, a referrer, the sign-in's
- * return address or Turnstile's script would otherwise keep or pass on. The proxy swaps the token for a cookie on the
- * first request, so no address such a page renders under holds it. The proxy's `config` spells the same paths in its
- * matcher, which takes literals alone.
+ * Every page whose address carries a token, a mailed link's or a team's registration link handed on. Each carries a
+ * live token that the browser's history, a referrer, the sign-in's return address or Turnstile's script would otherwise
+ * keep or pass on. The proxy swaps the token for a cookie on the first request, so no address such a page renders
+ * under holds it. The proxy's `config` spells the same paths in its matcher, which takes literals alone.
  */
 export const MAILED_LINK_PAGES: readonly string[] = [
   ROUTES.accountErasure.path(),
