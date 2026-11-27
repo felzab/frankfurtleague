@@ -16,9 +16,10 @@ import { Select } from "@/kit/Select";
 import { TextField } from "@/kit/TextField";
 import { useEditor } from "@/kit/useEditor";
 
-import { counted, UNKNOWN_PLAYER, wholeOnFirstSave } from "./berichtValues";
+import { counted, requiredOf, UNKNOWN_PLAYER, wholeOnFirstSave } from "./berichtValues";
 
 import type { ActionAnswer } from "@/core/action";
+import type { BoxRules } from "@/core/boxRules";
 import type { Copy, RecordText, Words } from "@/core/copy";
 import type { FLSaisonPhase, FLSonderereignis, FLSpielSide } from "@/core/generated/client/types";
 import type { ChipProps } from "@/kit/Chip";
@@ -43,9 +44,6 @@ const MINUTE_UNIT = COPY.shared.unit.minute;
  */
 type Side = { name: Words; plaque: RecordText | null };
 
-/** The minute's rule, the write's own pattern, which the server reads off the published contract. */
-type MinuteRule = { pattern: string };
-
 const UNKNOWN: Option = { id: UNKNOWN_PLAYER, label: COPY.shared.nobody };
 
 const COLOURS = Object.values(FLCardColour).map((colour) => ({ id: colour, label: WORDS.colour[colour], mark: <CardMark colour={colour} /> }));
@@ -66,10 +64,8 @@ export function BerichtEditor({
   phase,
   sides,
   kader,
-  minute,
-  required,
+  rules,
   eigentor,
-  remarksMax,
   closed,
   spielPage,
 }: {
@@ -84,12 +80,10 @@ export function BerichtEditor({
   sides: Readonly<Record<FLSpielSide, Side>>;
   /** Each side's pupils to pick from, its squad's and any a stored row names beside them, each by number and name. */
   kader: Readonly<Record<FLSpielSide, readonly Option[]>>;
-  minute: MinuteRule;
-  /** Whether a row's minute, its side, each list's player and a card's colour are required, read from the write's rules on the server. */
-  required: { minute: boolean; goalPlayer: boolean; cardPlayer: boolean; side: boolean; cardColour: boolean };
+  /** What the save's lane asks of its boxes, read on the server. */
+  rules: BoxRules;
   /** An own goal's toggle, the server catalogue's word for it. */
   eigentor: Copy;
-  remarksMax: number;
   /** Why the report is read-only: its season has finished, and the write refuses it. */
   closed?: Copy;
   /** The match's public page, where the public may read its season: the strip's way there. */
@@ -132,7 +126,6 @@ export function BerichtEditor({
         label={label}
         labelHidden
         name={name}
-        isRequired={required.side}
         choices={choices}
         value={row.side}
         onChange={(side) => change({ side: side as FLSpielSide, spieler_id: null })}
@@ -149,17 +142,14 @@ export function BerichtEditor({
         name={name}
         holds={5}
         kind="minute"
-        pattern={minute.pattern}
-        example={WORDS.minuteExample}
         unit={MINUTE_UNIT}
-        isRequired={required.minute}
         value={row.minute}
         onChange={(typed) => change({ minute: typed })}
       />
     ),
   };
   /** A row's player, from its side's squad, the list opening on „Anonym“, a player nobody can name. */
-  const playerCell = (isRequired: boolean): Cells["main"] => ({
+  const playerCell: Cells["main"] = {
     field: "spieler_id",
     label: COPY.shared.spieler,
     control: ({ row, name, label, change }) => (
@@ -167,14 +157,13 @@ export function BerichtEditor({
         label={label}
         labelHidden
         name={name}
-        isRequired={isRequired}
         options={row.side === null ? [] : [UNKNOWN, ...kader[row.side]]}
         plural={COPY.shared.spieler}
         value={row.spieler_id}
         onChange={(spielerId) => change({ spieler_id: spielerId })}
       />
     ),
-  });
+  };
 
   const goalNoun = SPIEL.goal;
   const cardNoun = WORDS.card;
@@ -185,6 +174,9 @@ export function BerichtEditor({
       chip={chip}
       lead={lead}
       editor={editor}
+      rules={rules}
+      // A shoot-out's two figures once either is typed, where the fixture takes one.
+      requiredOf={(values) => requiredOf({ ...values, scorers: draft.scorers, sonderereignis }, phase)}
       closed={closed}
       {...(spielPage === undefined ? {} : { link: { href: spielPage, label: COPY.shared.toSpiel } })}
       sections={[
@@ -206,7 +198,6 @@ export function BerichtEditor({
                           names: ["shootOut1", "shootOut2"],
                           values: [draft.shootOut1, draft.shootOut2],
                           onChange: (side, value) => set(side === 0 ? "shootOut1" : "shootOut2", value),
-                          isRequired: shootOutTyped,
                         }
                       : null
                   }
@@ -250,7 +241,7 @@ export function BerichtEditor({
                   cells={{
                     lead: sideCell,
                     figure: minuteCell,
-                    main: playerCell(required.goalPlayer),
+                    main: playerCell,
                     beside: {
                       field: "eigentor",
                       label: eigentor,
@@ -287,7 +278,7 @@ export function BerichtEditor({
                   cells={{
                     lead: sideCell,
                     figure: minuteCell,
-                    main: playerCell(required.cardPlayer),
+                    main: playerCell,
                     // The goals' „Eigentor“ room, so a card's player field ends where a goal's does.
                     room: eigentor,
                     below: {
@@ -298,7 +289,6 @@ export function BerichtEditor({
                           label={label}
                           labelHidden
                           name={name}
-                          isRequired={required.cardColour}
                           choices={COLOURS}
                           value={row.colour}
                           onChange={(colour) => change({ colour: colour as FLCardColour })}
@@ -322,7 +312,6 @@ export function BerichtEditor({
               kind="paragraph"
               // How to write the remarks, which a finished season's form takes none of.
               {...(closed === undefined ? { description: COPY.shared.noNames } : {})}
-              maxLength={remarksMax}
               value={draft.remarks}
               onChange={(remarks) => set("remarks", remarks)}
             />

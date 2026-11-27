@@ -13,6 +13,7 @@ import { HeldForm } from "./HeldForm";
 import { Table } from "./Table";
 import { tv } from "./tv";
 
+import type { BoxRules } from "@/core/boxRules";
 import type { Copy, Words } from "@/core/copy";
 import type { ReactElement, ReactNode } from "react";
 import type { Fact } from "./Facts";
@@ -31,6 +32,7 @@ export function StepCard({
   line,
   facts,
   fieldErrors,
+  rules,
   onNext,
   onSkip,
   children,
@@ -40,6 +42,8 @@ export function StepCard({
   facts: ReadonlyArray<Fact>;
   /** What an earlier send refused, each message on its box. */
   fieldErrors?: Readonly<Record<string, Copy>>;
+  /** What the browser's pass holds the inputs to: the run's act's lane's rules, read on the server (`boxRulesOf`). */
+  rules: BoxRules;
   onNext: (form: FormData) => void;
   onSkip: () => void;
   children: ReactNode;
@@ -54,6 +58,7 @@ export function StepCard({
       <HeldForm
         className={body()}
         fieldErrors={fieldErrors}
+        rules={rules}
         onBlock={() => setBlocked(true)}
         // „Weiter“ hands the inputs over and sends nothing, so nothing is ever on its way.
         isBusy={false}

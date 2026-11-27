@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useRef } from "react";
+import { Fragment, useMemo, useRef } from "react";
 
 import { COPY } from "@/core/copy/shared";
 
@@ -14,7 +14,9 @@ import { FormClosed } from "./formClosed";
 import { HeldForm } from "./HeldForm";
 import { formColumn, RailPage } from "./RailFrame";
 import { dangerRow, editorHead, lockSlot, Section } from "./Section";
+import { byBox } from "./useEditor";
 
+import type { BoxRules } from "@/core/boxRules";
 import type { Copy, LockReason } from "@/core/copy";
 import type { Route } from "next";
 import type { ReactElement } from "react";
@@ -132,12 +134,21 @@ export function EditorPage<Values extends Record<string, EditorValue>>({
   lead,
   link,
   editor,
+  rules,
+  requiredOf,
   barText,
   sections,
   danger,
   locks = [],
   closed,
 }: {
+  /** What the browser's pass holds the fields to: the save's lane's rules, read on the server (`boxRulesOf`). */
+  rules: BoxRules;
+  /**
+   * The fields the draft needs filled beside those rules that stand empty, by their names, where one field asks for a
+   * value once another holds one, as a booking's price beside its venue: the save's own judgement of the draft.
+   */
+  requiredOf?: (values: { readonly [Box in keyof Values]: Values[Box] | null }) => readonly (keyof Values)[];
   title: PageTitle;
   chip?: ChipProps;
   /** What that status leaves unsaid, after it. */
@@ -167,6 +178,13 @@ export function EditorPage<Values extends Record<string, EditorValue>>({
   danger?: { title: Copy; acts: ReadonlyArray<DangerAct>; outlivesClosed?: true };
 }) {
   const form = useRef<HTMLFormElement>(null);
+  // Keyed by each field's name, as the save's own keys stand under `changes`; one object while the rules stand.
+  const boxRules = useMemo(() => byBox(rules), [rules]);
+  // Each field judged as if it stood empty, so a filled one the draft needs keeps its mark while it is typed in.
+  const required =
+    requiredOf === undefined
+      ? undefined
+      : Object.keys(editor.draft).filter((box) => requiredOf({ ...editor.draft, [box]: null }).includes(box));
   // A closed record's one reason covers every field, so it stands alone.
   const lock = closed ?? (locks.length === 0 ? undefined : COPY.template.lockLine(locks));
 
@@ -191,6 +209,8 @@ export function EditorPage<Values extends Record<string, EditorValue>>({
       <HeldForm
         ref={form}
         fieldErrors={editor.fieldErrors}
+        rules={boxRules}
+        required={required}
         // The browser judges each field's own rules first; a field it keeps back points the status line at it.
         onBlock={() => editor.block()}
         // A second save mid-flight would go on the version the first stores past, its refusal standing over a save that

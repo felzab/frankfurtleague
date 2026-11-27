@@ -11,6 +11,7 @@ import { ListTable } from "@/kit/ListTable";
 
 import { KaderRowDialog } from "./KaderRowDialog";
 
+import type { BoxRules } from "@/core/boxRules";
 import type { FLKaderResponse, FLKaderRow } from "@/core/generated/client/types";
 import type { TableHead, TableRow } from "@/kit/Table";
 import type { Route } from "next";
@@ -64,14 +65,14 @@ export function KaderTable({
   read,
   team,
   saison,
-  nummerMax,
+  rules,
 }: {
   head: TableHead;
   read: FLKaderResponse;
   team: string;
   saison: string;
-  /** The longest shirt number the row's save takes, read off its schema on the server. */
-  nummerMax: number;
+  /** What the row's save asks of its boxes, read on the server. */
+  rules: BoxRules;
 }) {
   const [chosen, setChosen] = useState<string | null>(null);
   const [isOpen, setOpen] = useState(false);
@@ -100,7 +101,7 @@ export function KaderTable({
           saison={saison}
           allowedStufen={read.allowed_stufen}
           takenRollen={live.flatMap((other) => (other.spieler_id === row.spieler_id || other.rolle === null ? [] : [other.rolle]))}
-          nummerMax={nummerMax}
+          rules={rules}
           open={{ isOpen, onOpenChange: setOpen }}
         />
       )}

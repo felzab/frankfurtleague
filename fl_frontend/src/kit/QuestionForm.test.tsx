@@ -35,6 +35,7 @@ const box = () => screen.getByRole<HTMLInputElement>("textbox");
 
 const FORM = (
   <QuestionForm
+    rules={{}}
     verb="delete"
     tone="danger"
     read={acts.read}
@@ -104,6 +105,7 @@ describe("a form asking its question over what the press read", () => {
     renderUnderNext(
       <>
         <QuestionForm
+          rules={{}}
           verb="delete"
           tone="danger"
           read={acts.read}

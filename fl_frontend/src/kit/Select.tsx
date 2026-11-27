@@ -6,6 +6,7 @@ import { textOf } from "@/core/copy";
 
 import { FieldLabel, MessageLine, useFieldLock } from "./FieldParts";
 import { fieldFrame, fieldRoot } from "./fieldStyles";
+import { useBoxRule } from "./HeldForm";
 import { Icon } from "./Icon";
 import { OptionList } from "./OptionList";
 import { ChosenField } from "./TextField";
@@ -27,7 +28,6 @@ export function Select({
   description,
   consequence,
   options,
-  isRequired = false,
   isDisabled = false,
   isLocked = false,
   name,
@@ -43,7 +43,6 @@ export function Select({
   description?: Copy;
   consequence?: Copy;
   options: readonly Option[];
-  isRequired?: boolean;
   isDisabled?: boolean;
   /** Held fixed by its record: read-only, its label marked with the lock (`useFieldLock`). */
   isLocked?: boolean;
@@ -52,7 +51,7 @@ export function Select({
   defaultValue?: string | null;
   onChange?: (id: string | null) => void;
 }) {
-  const lock = useFieldLock(isLocked, isRequired);
+  const lock = useFieldLock(isLocked, useBoxRule(name).required);
   const frame = {
     width: holds === undefined ? "standard" : "short",
     holds,

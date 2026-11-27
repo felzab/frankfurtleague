@@ -1,19 +1,10 @@
 import { cache } from "react";
 
-import { requires } from "@/core/action";
+import { boxRulesOf } from "@/core/action";
 import { KONTAKT_EMAIL, KONTAKT_MAILTO } from "@/core/brand";
 import { frontend_config } from "@/core/config";
 import { PUBLIC_COPY } from "@/core/copy/public";
 import { COPY } from "@/core/copy/shared";
-import {
-  RegistrierungenPostRegistrierungBody,
-  registrierungenPostRegistrierungBodyEmailMax,
-  registrierungenPostRegistrierungBodyFirstNameMax,
-  registrierungenPostRegistrierungBodyFirstNameRegExp,
-  registrierungenPostRegistrierungBodyLastNameMax,
-  registrierungenPostRegistrierungBodyLastNameRegExp,
-  registrierungenPostRegistrierungBodyNummerOneMax,
-} from "@/core/generated/zod/inputs";
 import { mailedLinkToken } from "@/core/mailedLink";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
@@ -31,7 +22,6 @@ import { submitRegistrierung } from "./submitRegistrierung";
 import type { ConsentLine as Line } from "@/core/consentWordings";
 import type { MailedState } from "@/kit/MailedPage";
 import type { Metadata } from "next";
-import type { RegistrierungRules } from "./RegistrierungFields";
 
 export async function generateMetadata(): Promise<Metadata> {
   return mailedMetadata(ROUTES.registrierung, readState());
@@ -45,26 +35,6 @@ const INVALID: MailedState = { state: "end", ...LINK_INVALID };
 
 /** The notice's id, which describes the send: the page holds one form. */
 const NOTICE_ID = "registrierung-notice";
-
-const { shape } = RegistrierungenPostRegistrierungBody;
-
-/**
- * What the write asks of the typed boxes, an untouched one posting "". The address is required as written: its published
- * rule holds its length alone, and the write refuses an empty one.
- */
-const RULES: RegistrierungRules = {
-  required: { firstName: requires(shape.first_name, ""), lastName: requires(shape.last_name, ""), email: true },
-  max: {
-    firstName: registrierungenPostRegistrierungBodyFirstNameMax,
-    lastName: registrierungenPostRegistrierungBodyLastNameMax,
-    email: registrierungenPostRegistrierungBodyEmailMax,
-    nummer: registrierungenPostRegistrierungBodyNummerOneMax,
-  },
-  pattern: {
-    firstName: registrierungenPostRegistrierungBodyFirstNameRegExp.source,
-    lastName: registrierungenPostRegistrierungBodyLastNameRegExp.source,
-  },
-};
 
 /** The two lines of the form: the Art. 21 objection around the league's address, and the sentence beside the send. */
 const LINES: { objection: Line; notice: Line } = {
@@ -104,6 +74,7 @@ const readState = cache(async (): Promise<MailedState> => {
     // Said before anything is typed: the season has begun, so the entry stands outside the squad's cap.
     ...(view.nachnominierung ? { sentence: WORDS.nominee } : {}),
     run: submitRegistrierung,
+    rules: boxRulesOf(submitRegistrierung),
     acts: { primary: SUBMIT },
     carry: { token },
     replays: true,
@@ -120,7 +91,6 @@ const readState = cache(async (): Promise<MailedState> => {
     describedBy: NOTICE_ID,
     children: (
       <RegistrierungFields
-        rules={RULES}
         stufen={orderStufen(view.allowed_stufen)}
         objection={LINES.objection}
       />

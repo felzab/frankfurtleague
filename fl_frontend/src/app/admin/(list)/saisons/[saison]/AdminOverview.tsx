@@ -1,5 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 
+import { boxRulesOf } from "@/core/action";
 import { ADMIN_COPY } from "@/core/copy/admin";
 import { COPY } from "@/core/copy/shared";
 import { dayOf, timeOf } from "@/core/format";
@@ -7,6 +8,7 @@ import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { getSaisonOverview } from "@/features/saisons/queries";
 import { vorschlagActs, zusageAct } from "@/features/spielbestaetigungen/answerActs";
+import { saveSpiel } from "@/features/spiele/saveSpiel";
 import { ListPage } from "@/kit/ListPage";
 import { DECLINED_CHIP, EXPIRED_CHIP } from "@/kit/stateChips";
 
@@ -112,6 +114,7 @@ function openOf(row: Exclude<FLOverviewRow, { kind: "bewerbung" }>): { chip?: Ch
             version={spiel.version}
             date={dayOf(spiel.date)}
             time={timeOf(spiel.time)}
+            rules={boxRulesOf(saveSpiel)}
           />
         ),
       };

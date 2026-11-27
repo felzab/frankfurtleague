@@ -9,6 +9,7 @@ import { smallCaps } from "./cardStyles";
 import { LockMark, RequiredMark, useFieldLock } from "./FieldParts";
 import { fieldFrame } from "./fieldStyles";
 import { FormClosed } from "./formClosed";
+import { useBoxRule } from "./HeldForm";
 import { TeamPlaque } from "./TeamPlaque";
 import { TextField } from "./TextField";
 import { tv } from "./tv";
@@ -32,7 +33,6 @@ type ScoreColumn = {
   names: readonly [string, string];
   values: readonly [string, string];
   onChange: (side: 0 | 1, value: string) => void;
-  isRequired: boolean;
   /**
    * Held fixed by its record: both fields read-only and marked with the lock (`useFieldLock`), a headed column at its
    * head and the goals' unheaded one after each row's club, the name a goal field stands beside.
@@ -151,10 +151,12 @@ export function ScoreRows({
   // club naming its row.
   const shootOutLock = useFieldLock(shootOut?.isLocked ?? false);
   const toreLock = useFieldLock(!("counted" in tore) && tore.isLocked === true);
+  // The column's head marks what its two fields ask, which their form holds them to alike.
+  const shootOutRule = useBoxRule(shootOut?.names[0]);
   const columnHead = (column: "shootOut", shown: ScoreColumn) => (
     <span className={slots.head({ column })}>
       {shown.head ?? textOf(shown.label)}
-      {shootOutLock.isMarked ? <LockMark /> : <RequiredMark isRequired={shown.isRequired} />}
+      {shootOutLock.isMarked ? <LockMark /> : <RequiredMark isRequired={shootOutRule.required === true} />}
     </span>
   );
   const counted = (side: 0 | 1, { label, counted: figures }: CountedColumn) => (
@@ -166,7 +168,7 @@ export function ScoreRows({
       <span>{formatNumber(figures[side])}</span>
     </span>
   );
-  const field = (side: 0 | 1, column: "tore" | "shootOut", { label, names, values, onChange, isRequired, isLocked }: ScoreColumn) => (
+  const field = (side: 0 | 1, column: "tore" | "shootOut", { label, names, values, onChange, isLocked }: ScoreColumn) => (
     <div
       // Keyed by what it posts, so a column opening beside it leaves a field and its focus where they are.
       key={names[side]}
@@ -177,7 +179,6 @@ export function ScoreRows({
         name={names[side]}
         holds={2}
         kind="digits"
-        isRequired={isRequired}
         isLocked={isLocked}
         value={values[side]}
         onChange={(value) => onChange(side, value)}

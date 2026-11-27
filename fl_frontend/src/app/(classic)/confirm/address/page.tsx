@@ -1,5 +1,6 @@
 import { cache } from "react";
 
+import { boxRulesOf } from "@/core/action";
 import { ADDRESS_CHANGE_WAITING_PERIOD } from "@/core/addressChange";
 import { ACCOUNT_COPY } from "@/core/copy/account";
 import { COPY } from "@/core/copy/shared";
@@ -153,6 +154,7 @@ function question({
     sentence,
     ...(waits === undefined ? {} : { sentenceAfter: waits }),
     run: answerAddressChange,
+    rules: boxRulesOf(answerAddressChange),
     acts: {
       primary: title,
       // Either side's decline ends the change, so the account keeps the address it has.
@@ -173,6 +175,7 @@ function stop({ email, effective_from: effectiveFrom }: FLAddressChangeViewPrevi
     facts,
     sentence: WORDS.previous.question,
     run: stopAddressChange,
+    rules: boxRulesOf(stopAddressChange),
     acts: { primary: ACCOUNT_COPY.address.stop },
     carry: { token },
   };

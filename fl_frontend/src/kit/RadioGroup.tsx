@@ -6,6 +6,7 @@ import { textOf } from "@/core/copy";
 
 import { FieldLabel, MessageLine, useFieldLock, useFieldWait } from "./FieldParts";
 import { choiceCard, choiceField, fieldRoot, radioDot, radioList, toggleBox, toggleRow } from "./fieldStyles";
+import { useBoxRule } from "./HeldForm";
 
 import type { Copy, Words } from "@/core/copy";
 import type { Choice } from "./FieldParts";
@@ -42,7 +43,6 @@ function Circle({ isSelected, invalid }: { isSelected: boolean; invalid: boolean
  */
 export function RadioGroup({
   label,
-  isRequired = false,
   name,
   defaultValue,
   "aria-describedby": describedBy,
@@ -51,11 +51,10 @@ export function RadioGroup({
   label: Words;
   /** A line outside the group describing it, such as a consent's, by its id. */
   "aria-describedby"?: string;
-  isRequired?: boolean;
   name?: string;
   defaultValue?: string | null;
 } & ({ layout?: "list"; choices: readonly ListChoice[] } | { layout: "cards"; choices: readonly DescribedChoice[] })) {
-  const lock = useFieldLock(false, isRequired);
+  const lock = useFieldLock(false, useBoxRule(name).required);
   return (
     <AriaRadioGroup
       inert={useFieldWait()}

@@ -1,15 +1,11 @@
 import { cache } from "react";
 import { notFound } from "next/navigation";
 
-import { requires } from "@/core/action";
+import { boxRulesOf } from "@/core/action";
 import { AREA_COPY } from "@/core/copy/area";
 import { COPY } from "@/core/copy/shared";
 import { refusedAs } from "@/core/errors";
 import { dayOf, timeOf } from "@/core/format";
-import {
-  spielberichtePutSpielberichtBerichtBodyBerichtRemarksOneMax,
-  spielberichtePutSpielberichtBerichtBodyBerichtScorersItemMinuteRegExp,
-} from "@/core/generated/zod/inputs";
 import { CustomObjectIdStringSchema } from "@/core/objectId";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
@@ -23,7 +19,6 @@ import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
 
 import { BerichtEditor } from "./BerichtEditor";
-import { Card, Goal } from "./berichtRules";
 import { valuesOf } from "./berichtValues";
 import { saveBericht } from "./saveBericht";
 
@@ -38,16 +33,6 @@ type Props = PageProps<"/area/schiedsrichter/[saison]/spielbericht/[spiel]">;
 type Segments = { saison: string; spiel: string };
 
 const WORDS = AREA_COPY.schiedsrichter.spielbericht;
-
-/** Whether a row's minute and each list's player are required, read off the rules the save holds them to. */
-const REQUIRED = {
-  minute: requires(Goal.shape.minute, ""),
-  goalPlayer: requires(Goal.shape.spieler_id, null),
-  cardPlayer: requires(Card.shape.spieler_id, null),
-  // One cell chooses a goal's side and a card's, held to the same rule.
-  side: requires(Goal.shape.side, null) && requires(Card.shape.side, null),
-  cardColour: requires(Card.shape.colour, null),
-};
 
 const address = ({ saison, spiel }: Segments) => ROUTES.schiedsrichterSpielbericht.path(saison, spiel);
 
@@ -180,10 +165,8 @@ export default async function SpielberichtPage({ params }: Props) {
       phase={spiel.saison_phase}
       sides={{ team1: sideOf("team1"), team2: sideOf("team2") }}
       kader={kaderOf(found)}
-      minute={{ pattern: spielberichtePutSpielberichtBerichtBodyBerichtScorersItemMinuteRegExp.source }}
-      required={REQUIRED}
+      rules={boxRulesOf(saveBericht)}
       eigentor={SERVER_COPY.season.spiel.eigentor}
-      remarksMax={spielberichtePutSpielberichtBerichtBodyBerichtRemarksOneMax}
       {...(found.completed ? { closed: SERVER_COPY.refusalLine.saison_past } : {})}
       {...((await isPublicSaison(saison)) ? { spielPage: ROUTES.spiel.path(saison, spiel.spiel_id) } : {})}
     />

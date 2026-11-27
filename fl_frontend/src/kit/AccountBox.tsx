@@ -21,6 +21,7 @@ import { statusOf, useFormAction } from "./useFormAction";
 import { usePasskeyTouch } from "./usePasskeyTouch";
 
 import type { ActionAnswer, DryRunAction } from "@/core/action";
+import type { BoxRules } from "@/core/boxRules";
 import type { Copy, RecordText, Words } from "@/core/copy";
 import type { ReactElement, ReactNode } from "react";
 import type { ConfirmWords } from "./ConfirmDialog";
@@ -52,6 +53,8 @@ export type AccountAct = (
    * than a closure around `run`, so a box drawn on the server hands its act a server action's reference alone.
    */
   carry?: Readonly<Record<string, string>>;
+  /** What the browser's pass holds the box's fields to, where it holds any: the act's lane's rules (`boxRulesOf`). */
+  rules?: BoxRules;
   /** The toast's title once it is done, where its answer brings no note. */
   done: Copy;
   /** Why the act cannot run on the box's present state, the button saying why. */
@@ -179,6 +182,7 @@ function ActBox({ act, words, danger, children }: { act: AccountAct; words: Reac
       <HeldForm
         ref={form}
         fieldErrors={answer !== null && !answer.ok ? answer.fieldErrors : undefined}
+        rules={act.rules ?? {}}
         onBlock={block}
         // A locked act's button is a plain one, but Enter in a lone field submits a form with no submit button.
         isBusy={isBusy || locked !== undefined}
@@ -226,7 +230,7 @@ export function AccountSentence({ sentence: [before, record, after] }: { sentenc
 }
 
 /** A row's rename: the dialog asking the one field under the act's title, the field's name its `name`. */
-type Rename = { title: Copy; run: (formData: FormData) => Promise<ActionAnswer>; field: ReactElement };
+type Rename = { title: Copy; run: (formData: FormData) => Promise<ActionAnswer>; rules: BoxRules; field: ReactElement };
 
 /**
  * A row's removal: the question, then, from its button, the passkey touch and the act. `locked` keeps the button shut
@@ -309,6 +313,7 @@ function Row({ record }: { record: AccountRow }) {
             title={rename.title}
             act={{ verb: "rename" }}
             run={rename.run}
+            rules={rename.rules}
             open={{ isOpen: isRenaming, onOpenChange: setRenaming }}>
             {rename.field}
           </Dialog>

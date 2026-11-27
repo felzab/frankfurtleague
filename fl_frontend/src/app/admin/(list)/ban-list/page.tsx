@@ -1,3 +1,4 @@
+import { boxRulesOf } from "@/core/action";
 import { getAdminHolder } from "@/core/auth/guards";
 import { BAN_DURATION_SAISONS } from "@/core/bounds";
 import { ADMIN_COPY } from "@/core/copy/admin";
@@ -87,6 +88,7 @@ export default function BanListPage() {
         title: ENTER,
         act: { verb: "enter", object: COPY.shared.ban },
         run: enterBan,
+        rules: boxRulesOf(enterBan),
         consequence: WORDS.consequence,
         facts: [
           { label: WORDS.duration, value: WORDS.durationSaisons(BAN_DURATION_SAISONS) },

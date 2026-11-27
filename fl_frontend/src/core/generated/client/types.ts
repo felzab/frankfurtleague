@@ -5631,7 +5631,6 @@ export const FieldCode = {
   bewerbung_submission_subject_unresolved: "bewerbung_submission_subject_unresolved",
   spieler_not_in_kader: "spieler_not_in_kader",
   eligibility_disqualified: "eligibility_disqualified",
-  kader_stufe_not_allowed: "kader_stufe_not_allowed",
   state_nichtantreten_without_two_sides: "state_nichtantreten_without_two_sides",
   state_ergebnis_on_a_non_event: "state_ergebnis_on_a_non_event",
   media_age: "media_age",

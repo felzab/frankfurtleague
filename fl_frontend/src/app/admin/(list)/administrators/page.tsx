@@ -1,3 +1,4 @@
+import { boxRulesOf } from "@/core/action";
 import { getAdminHolder } from "@/core/auth/guards";
 import { now } from "@/core/clock";
 import { ADMIN_COPY } from "@/core/copy/admin";
@@ -9,7 +10,6 @@ import { ROUTES } from "@/core/routes";
 import { DAY_MS } from "@/core/timeUnits";
 import { discardChange } from "@/features/address-change/actions";
 import { getAddressChanges } from "@/features/address-change/queries";
-import { GRANT_RULES } from "@/features/grants/fieldRules";
 import { getGrants } from "@/features/grants/queries";
 import { actLabel } from "@/kit/dialogAct";
 import { ListPage } from "@/kit/ListPage";
@@ -35,8 +35,8 @@ const ADDRESS = COPY.shared.emailAddress;
 
 const ADD = { verb: "enter", object: WORDS.object } as const;
 const HAND_OVER = { verb: "handOver", object: COPY.shared.owner } as const;
-const ADD_FACE = { title: actLabel(ADD), act: ADD, run: addAdministrator } as const;
-const HAND_OVER_FACE = { title: actLabel(HAND_OVER), act: HAND_OVER, run: startHandover } as const;
+const ADD_FACE = { title: actLabel(ADD), act: ADD, run: addAdministrator, rules: boxRulesOf(addAdministrator) } as const;
+const HAND_OVER_FACE = { title: actLabel(HAND_OVER), act: HAND_OVER, run: startHandover, rules: boxRulesOf(startHandover) } as const;
 
 export const metadata = pageMetadata(ROUTES.adminAdministrators);
 
@@ -266,8 +266,6 @@ function addOf({ reader, readerIsOwner }: Access): ListCreate {
         label={ADDRESS}
         name="email"
         kind="email"
-        isRequired={GRANT_RULES.required.email}
-        maxLength={GRANT_RULES.max.email}
         description={COPY.shared.field.format(COPY.shared.field.exampleAddress)}
       />
     ),
@@ -299,7 +297,6 @@ function handoverOf({ reader, readerIsOwner, active, handover }: Access): ListCr
         label={COPY.shared.facts.after}
         name="grant_id"
         options={administrators.map((grant) => ({ id: grant.id, label: { record: grant.address } }))}
-        isRequired={GRANT_RULES.required.grant_id}
       />
     ),
   };

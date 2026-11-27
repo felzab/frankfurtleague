@@ -1,6 +1,7 @@
 import { COPY } from "@/core/copy/shared";
 
 import type { ActionAnswer, DryRunAction } from "@/core/action";
+import type { BoxRules } from "@/core/boxRules";
 import type { Copy, Verb, Words } from "@/core/copy";
 import type { ReactNode } from "react";
 import type { ConfirmQuestion, Tone } from "./ConfirmDialog";
@@ -60,6 +61,8 @@ export type DialogAct<T extends Tone = Tone> = DialogRun & {
   act: ActWords<DoneVerb>;
   /** The act's inputs: the kit's fields. */
   children: ReactNode;
+  /** What the browser's pass holds the inputs to: the act's lane's rules, read on the server (`boxRulesOf`). */
+  rules: BoxRules;
   /** The record the act is about, posted beside the inputs under these names, as a mailed form carries its key. */
   carry?: Readonly<Record<string, string>>;
   /** One line under the title naming what the inputs are about, such as the seat a person is written into. */

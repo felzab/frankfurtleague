@@ -10,6 +10,7 @@ import { HeldForm } from "./HeldForm";
 import { TextField } from "./TextField";
 import { tv } from "./tv";
 
+import type { BoxRules } from "@/core/boxRules";
 import type { Copy, RecordText } from "@/core/copy";
 import type { ReactNode } from "react";
 import type { FieldFaults } from "./HeldForm";
@@ -34,6 +35,8 @@ type AddressView = Head & {
      * own record, one per refusal, each of which moves the focus to the field.
      */
     error?: FieldFaults;
+    /** What the browser's pass holds the address to: the sign-in's lane's rules, read on the server (`boxRulesOf`). */
+    rules: BoxRules;
   };
   /** The bot check guarding the send, standing before it as Cloudflare's example places it. */
   check: ReactNode;
@@ -194,6 +197,7 @@ function AddressBody({ title, address, check, send: { onPress: send, ...button }
       />
       <HeldForm
         fieldErrors={address.error}
+        rules={address.rules}
         // The send's press is the form's submit, so `Enter` in the field sends too.
         isBusy={button.isBusy === true}
         onSend={(formData) => send(String(formData.get("email")))}
@@ -204,8 +208,6 @@ function AddressBody({ title, address, check, send: { onPress: send, ...button }
             name="email"
             kind="email"
             autofill="username"
-            // Not marked required: no record's type derives it, and an empty send meets the server's refusal of
-            // its form in this line, as a malformed one meets the browser's.
             value={address.value}
             onChange={address.onChange}
           />

@@ -1,10 +1,11 @@
 "use client";
 
-import { createContext, useContext, useEffect, useRef } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef } from "react";
 
 import { Form } from "react-aria-components/Form";
 import { useObjectRef } from "react-aria/useObjectRef";
 
+import type { BoxRule, BoxRules } from "@/core/boxRules";
 import type { Copy } from "@/core/copy";
 import type { ComponentProps, SyntheticEvent } from "react";
 
@@ -25,18 +26,43 @@ export function useFieldFaults(): FieldFaults | undefined {
   return useContext(Faults);
 }
 
-/**
- * What a part holding no box takes while its fault stands, such as a list refused as a whole: the focus the form's
- * report hands it where the answer names no box, at `tabIndex` -1, which the keys never reach, and the kit's resting
- * focus mark, as a section's title takes the focus once nothing in it is left (`FocusOnLeave`). A screen reader then
- * reads the part's name and the fault its `aria-describedby` names.
- */
-export const FAULTED_PART = { "data-kit-faulted": "", "data-kit-focus": "", tabIndex: -1 } as const;
+/** What the form holds each box to: its lane's rules, and the boxes the form's own draft needs filled beside them. */
+type Held = { readonly rules: BoxRules; readonly required: ReadonlySet<string> };
 
-/** Whether `control` is a box the answer names: one a kit field posts under, whose fault React Aria judges. */
-const isNamedIn = (faults: FieldFaults, control: Element): control is HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement =>
-  (control instanceof HTMLInputElement || control instanceof HTMLSelectElement || control instanceof HTMLTextAreaElement) &&
-  Object.hasOwn(faults, control.name);
+const Rules = createContext<Held>({ rules: {}, required: new Set() });
+
+/** A row's index in a box's name, as `scorers.2.minute` holds one, which its lane's rules key as every row's `*`. */
+const ROW = /(?<=^|\.)\d+(?=\.|$)/gu;
+
+/**
+ * The rule the browser's pass holds a box to, by the `name` it posts under: its lane's, a list's row's by the rule every
+ * row takes, required where the form's own draft needs it filled too. Nothing outside a form, and nothing for a box
+ * posting under no name.
+ */
+export function useBoxRule(name: string | undefined): BoxRule {
+  const { rules, required } = useContext(Rules);
+  if (name === undefined) return {};
+  const rule = rules[name] ?? rules[name.replace(ROW, "*")] ?? {};
+  return required.has(name) ? { ...rule, required: true } : rule;
+}
+
+type Control = HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
+
+const isControl = (element: Element): element is Control =>
+  element instanceof HTMLInputElement || element instanceof HTMLSelectElement || element instanceof HTMLTextAreaElement;
+
+/**
+ * The controls judging a box the answer names, whose `invalid` event React Aria's field answers: the box a kit field
+ * posts under, or, where that box is a hidden input no browser judges, as a record picker posts its record's id while
+ * its typed text holds the fault, the controls of the field around it that the browser does judge.
+ */
+const judgedFor = (faults: FieldFaults, control: Element): readonly Control[] => {
+  if (!isControl(control) || !Object.hasOwn(faults, control.name)) return [];
+  if (control.willValidate) return [control];
+  return [...(control.parentElement?.querySelectorAll("input, select, textarea") ?? [])].filter(
+    (judged): judged is Control => isControl(judged) && judged.willValidate,
+  );
+};
 
 /**
  * The one judged form of the site: every form a person sends is this one, a dialog's included. Both passes end alike.
@@ -45,12 +71,12 @@ const isNamedIn = (faults: FieldFaults, control: Element): control is HTMLInputE
  * `validationErrors` puts on the box (`useFormValidationState`). Either way the focus goes to the first faulted box:
  * once an answer's faults have committed, the form checks each box the answer names, whose `invalid` event React
  * Aria's field answers by focusing the form's first invalid box through the field's own `focus` (`useFormValidation`),
- * a date's segments, a select's button and a choice group included; where no named box is invalid, as a list's own
- * refusal names none, the first part showing a fault takes it (`FAULTED_PART`). That check stands for no press, so it tells
- * `onBlock` nothing: the status line says what the answer says. It reaches no other box, since React Aria commits the
- * fault of every box an `invalid` event reaches: a box the person changed while the send was on its way is judged
- * once they commit it, and one they left invalid ahead of the named boxes keeps the focus, as React Aria focuses the
- * form's first invalid box alone.
+ * a date's segments, a select's button, a record picker's text and a choice group included (`judgedFor`); where no
+ * named box is invalid, as a list's own refusal names none, the focus stays on the press, and the part shows its fault.
+ * That check stands for no press, so it tells `onBlock` nothing: the status line says what the answer says. It reaches
+ * no other box, since React Aria commits the fault of every box an `invalid` event reaches: a box the person changed
+ * while the send was on its way is judged once they commit it, and one they left invalid ahead of the named boxes keeps
+ * the focus, as React Aria focuses the form's first invalid box alone.
  *
  * A press hands `onSend` the fields as it left them, unless `isBusy`: a busy submit button takes no press, but Enter in
  * a lone field submits a form all the same, and a second send mid-flight would act twice. A hydrated press stays on
@@ -76,19 +102,31 @@ export function HeldForm({
   isBusy,
   onSend,
   fieldErrors,
+  rules,
+  required,
   onBlock,
   children,
   ...form
-}: Omit<ComponentProps<typeof Form>, "action" | "onSubmit" | "validationErrors" | "onInvalid"> & {
+}: Omit<ComponentProps<typeof Form>, "action" | "onSubmit" | "validationErrors" | "validationBehavior" | "onInvalid"> & {
   /** The form's send is on its way, or its act is closed: a press sends nothing. Required, so no form forgets it. */
   isBusy: boolean;
   onSend: (formData: FormData) => void;
   /** The last answer's faults, while they stand. Required, so no form leaves the server's faults off its boxes. */
   fieldErrors: FieldFaults | undefined;
+  /**
+   * What the browser's pass holds each box to, its lane's own rules (`core/action.ts :: boxRulesOf`), by the name each
+   * box posts under. Required, so no form judges a box by rules of its own.
+   */
+  rules: BoxRules;
+  /** The boxes the form's own draft needs filled beside its lane's rules, such as an editor's, by their names. */
+  required?: readonly string[];
   /** The browser's pass held the press back, which a status line points at the boxes for. */
   onBlock?: () => void;
 }) {
   const element = useObjectRef(ref);
+  // One object while the rules and the needed boxes stand, so a form's own render renders no field again for them.
+  const needed = required?.join(" ") ?? "";
+  const held = useMemo<Held>(() => ({ rules, required: new Set(needed.split(" ").filter(Boolean)) }), [rules, needed]);
   const isHeld = useRef(false);
   const isReporting = useRef(false);
   // The answer last reported. A ref outlives an `Activity`, which re-creates this effect each time it shows the form
@@ -103,8 +141,7 @@ export function HeldForm({
     reported.current = fieldErrors;
     isReporting.current = true;
     try {
-      const valid = [...form.elements].filter((control) => isNamedIn(fieldErrors, control)).map((control) => control.checkValidity());
-      if (!valid.includes(false)) form.querySelector<HTMLElement>("[data-kit-faulted]")?.focus();
+      for (const control of [...form.elements].flatMap((named) => judgedFor(fieldErrors, named))) control.checkValidity();
     } finally {
       isReporting.current = false;
     }
@@ -128,7 +165,9 @@ export function HeldForm({
         event.stopPropagation();
         if (!isBusy && event.currentTarget.reportValidity()) onSend(new FormData(event.currentTarget));
       }}>
-      <Faults value={fieldErrors}>{children}</Faults>
+      <Rules value={held}>
+        <Faults value={fieldErrors}>{children}</Faults>
+      </Rules>
     </Form>
   );
 }

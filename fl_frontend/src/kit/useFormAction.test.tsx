@@ -30,6 +30,7 @@ describe("a form a visitor reaches before hydration", () => {
     const held = document.createElement("div");
     held.innerHTML = renderToString(
       <HeldForm
+        rules={{}}
         fieldErrors={undefined}
         isBusy={false}
         onSend={() => undefined}

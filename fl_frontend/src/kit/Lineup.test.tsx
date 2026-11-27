@@ -76,6 +76,7 @@ function Held({
   return (
     // In its editor's form, which holds the save's refusals by each pupil's box.
     <HeldForm
+      rules={{}}
       fieldErrors={
         refusals === undefined ? undefined : Object.fromEntries(Object.entries(refusals).map(([pupil, text]) => [boxOf(pupil), text]))
       }

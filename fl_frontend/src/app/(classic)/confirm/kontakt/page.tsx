@@ -1,6 +1,6 @@
 import { cache } from "react";
 
-import { requires } from "@/core/action";
+import { boxRulesOf } from "@/core/action";
 import { MEDIA_MIN_AGE } from "@/core/bounds";
 import { now } from "@/core/clock";
 import { SEAT_TEXT_VERSIONS, SEAT_WORDINGS } from "@/core/consentWordings";
@@ -8,7 +8,6 @@ import { COPY } from "@/core/copy/shared";
 import { bornAfter, bornBy } from "@/core/dayArithmetic";
 import { dayIn, dayOf } from "@/core/format";
 import { bewerbungenGetConfirmationView } from "@/core/generated/client/sdk";
-import { BewerbungenPostConfirmationBody } from "@/core/generated/zod/inputs";
 import { mailedLinkToken } from "@/core/mailedLink";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
@@ -35,9 +34,6 @@ export async function generateMetadata(): Promise<Metadata> {
 const WORDS = SERVER_COPY.kontaktConfirmation;
 
 const INVALID: MailedState = { state: "end", ...LINK_INVALID };
-
-/** Whether the confirmation's write asks the date, which posts nothing while unanswered. */
-const BIRTH_DATE_REQUIRED = requires(BewerbungenPostConfirmationBody.options[0].shape.birth_date, null);
 
 /**
  * `/confirm/kontakt`, the link a contact seat's mail carries, an application's or a team's season row's, on the
@@ -86,6 +82,7 @@ function closedRow(view: FLBewerbungEinwilligungViewSaisonPast, token: string): 
     ),
     more: WORDS.more,
     run: objectKontakt,
+    rules: boxRulesOf(objectKontakt),
     acts: { refusal: objection(WORDS.objectionEffect.seasonRow) },
     carry: { token },
   };
@@ -110,6 +107,7 @@ function question(view: FLBewerbungEinwilligungViewValid, token: string, until: 
     // Last, as on every confirmation: the day the answer waits for.
     sentenceAfter: onSeasonRow ? SERVER_COPY.entryConfirmation.deadline(until) : WORDS.applicationDeadline(until),
     run: answerKontakt,
+    rules: boxRulesOf(answerKontakt),
     acts: {
       primary: COPY.page.entryConfirmation,
       refusal: objection(onSeasonRow ? WORDS.objectionEffect.seasonRow : WORDS.objectionEffect.application),
@@ -125,7 +123,6 @@ function question(view: FLBewerbungEinwilligungViewValid, token: string, until: 
         earliestBirth={bornAfter(today, view.maximum_age)}
         latestBirth={bornBy(today, view.minimum_age)}
         mediaLatestBirth={bornBy(today, MEDIA_MIN_AGE)}
-        isBirthDateRequired={BIRTH_DATE_REQUIRED}
       />
     ),
   };

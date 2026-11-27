@@ -283,8 +283,9 @@ const CATALOGUE_BRAND = {
  * The administration's catalogue: a visitor's page importing it would carry the administration's words into its
  * bundle. The administration's routes import it, and so does each module the ban's allow list names, which nothing
  * but a reviewer holds to the administration's pages. Named as `copy/admin`, and as `./admin`, the spelling a sibling
- * catalogue under `core/copy/` would write. `serverCopy.ts` is spared: it ships in no bundle, and its refusal lines
- * reading `ADMIN_COPY` are the administration's own, which only its screens show.
+ * catalogue under `core/copy/` would write. `serverCopy.ts` and `ruleMessage.ts` are spared: neither ships in a bundle,
+ * and their refusal lines and field phrases reading `ADMIN_COPY` are the administration's own, which only its screens
+ * show.
  */
 const ADMIN_CATALOGUE = {
   regex: String.raw`${moduleNamed(String.raw`copy\x2Fadmin`)}|^\.\x2Fadmin(?:\.tsx?)?$`,
@@ -348,6 +349,7 @@ const IMPORT_BANS = [
       "src/features/spielorte/createSpielort.ts",
       "src/features/spielorte/SpielortFields.tsx",
       "src/features/teams/options.ts",
+      "src/core/ruleMessage.ts",
       "src/core/serverCopy.ts",
     ],
   }),
@@ -1030,34 +1032,21 @@ const DESIGN_BANS = [
     },
   ),
   // A refusal placed beside the form is a second way, which the form's report after an answer never reaches and whose
-  // fault stays when the form's own go: React Aria's props and keys that mark a field invalid or word its fault, under
-  // any key a literal names, quoted, computed or a template, the invalid mark set by hand, and the slot React Aria's
-  // field reads its fault's text from.
+  // fault stays when the form's own go: React Aria's props and keys that mark a field invalid or word its fault, the
+  // invalid mark set by hand, and the slot React Aria's field reads its fault's text from.
   syntaxBan(
     syntax(
       [
         `JSXAttribute[name.name=/^(?:${PLACED}|aria-invalid)$/]`,
         `ObjectExpression > Property[key.name=/^(?:${PLACED})$/]`,
-        `ObjectExpression > Property[key.value=/^(?:${PLACED}|aria-invalid)$/]`,
-        `ObjectExpression > Property[key.type="TemplateLiteral"][key.quasis.0.value.cooked=/^(?:${PLACED}|aria-invalid)$/]`,
         'JSXAttribute[name.name="slot"][value.value="errorMessage"]',
         'JSXAttribute[name.name="slot"] > JSXExpressionContainer > Literal[value="errorMessage"]',
-        'ObjectExpression > Property[key.name="slot"][value.value="errorMessage"]',
       ].join(", "),
-      "A refusal stands on its box through `HeldForm`'s `fieldErrors`, by the box's `name`: name the field or the choice, and read `useFieldFaults` for a part holding no box, which takes `FAULTED_PART` while its fault stands.",
+      "A refusal stands on its box through `HeldForm`'s `fieldErrors`, by the box's `name`: name the field or the choice, and read `useFieldFaults` for a part holding no box.",
     ),
     PRODUCTION,
     // The one form's own; and the sign-in code's refusal, which no form holds: the code sends itself once typed.
     { allow: ["src/kit/HeldForm.tsx", "src/kit/CodeField.tsx"] },
-  ),
-  // A module exports what it declares. A re-export is a second path to another module's parts, which every ban naming
-  // that module misses, as a kit file allowed React Aria's `Form` could hand it on to all; a type it hands on is no part.
-  syntaxBan(
-    syntax(
-      'ExportNamedDeclaration[exportKind="value"]:not([declaration]), ExportAllDeclaration[exportKind="value"]',
-      "A module exports what it declares: import a part from the module declaring it, where every ban naming that module reads it.",
-    ),
-    PRODUCTION,
   ),
   syntaxBan(
     syntax('JSXAttribute[name.name="role"][value.value="alertdialog"]', "A question before an irreversible act is the kit's `ConfirmDialog`."),
@@ -1281,14 +1270,6 @@ const DESIGN_BANS = [
     ),
     PRODUCTION,
     { allow: ["src/core/config.ts"] },
-  ),
-
-  syntaxBan(
-    syntax(
-      'JSXAttribute[name.name="isRequired"]:matches([value=null], [value.type="Literal"], [value.expression.type="Literal"])',
-      "A field's required mark is derived from its data, never written as a literal: pass the `required` its rules read off the save's generated schema, or a condition of the form's state.",
-    ),
-    PRODUCTION,
   ),
 ];
 

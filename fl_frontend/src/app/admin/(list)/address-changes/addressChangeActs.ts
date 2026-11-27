@@ -2,7 +2,7 @@
 
 import { z } from "zod";
 
-import { action, besideRefusal, fault, PAGE_HOLDER } from "@/core/action";
+import { action, fault, PAGE_HOLDER } from "@/core/action";
 import { accountStandsAt } from "@/core/auth/accounts";
 import { addressChangePostAddressChangeAdmin, addressChangeResendConfirmation } from "@/core/generated/client/sdk";
 import { AddressChangeResendConfirmationParams } from "@/core/generated/zod/inputs";
@@ -13,9 +13,8 @@ import { SignInAddressSchema, SignInPayloadSchema } from "@/features/auth/schema
 /**
  * A change started for a person who says they cannot sign in: the address on file, and the new one, held as an address
  * the person will sign in at. An account standing at the new address is refused on its box before the mint, which
- * writes: the backend cannot see the sign-in store. Its dry run asks the backend's own dry run as well, so the press
- * before the touch names every fault the two find. The address's running change ends replaced, which the dialog says
- * as the address is typed.
+ * writes, and before its dry run asks the touch: the backend cannot see the sign-in store. The address's running change
+ * ends replaced, which the dialog says as the address is typed.
  */
 export const startLostMailboxChange = action({
   lane: "admin",
@@ -29,14 +28,9 @@ export const startLostMailboxChange = action({
   }),
   boxes: ["address", "email"],
   run: async ({ address, email }, { dryRun }) => {
-    const taken = (await accountStandsAt(email)) ? [fault("email", "address_change_taken")] : [];
-    if (taken.length > 0 && !dryRun) return { ok: false, faults: taken };
-    try {
-      await addressChangePostAddressChangeAdmin({ address, email }, { dry_run: dryRun });
-    } catch (failed) {
-      return besideRefusal(taken, failed);
-    }
-    return taken.length > 0 ? { ok: false, faults: taken } : { ok: true, value: undefined };
+    if (await accountStandsAt(email)) return { ok: false, faults: [fault("email", "address_change_taken")] };
+    await addressChangePostAddressChangeAdmin({ address, email }, { dry_run: dryRun });
+    return { ok: true, value: undefined };
   },
 });
 

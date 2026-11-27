@@ -200,15 +200,16 @@ const choicesOf = <Press extends { scope: unknown; media: boolean; evidence_stat
  * One box's save, by its kind's write. The kind, the ids, the evidence and the labels are carried by the page unseen
  * and trusted no further than the write checks them again: the backend judges the record the session's own and the
  * evidence current, and a label other than its choice's current one answers as a stale page before anything is sent.
- * A media choice refused as given below its floor is a stale page too, as the builder answers every code the catalogue
- * does not word: the page offers the switch from the served age alone, so only a birthdate or a day that moved since
- * it was served reaches it, and the page read again shows the switch closed under its own phrase.
+ * A media choice refused as given below its floor stands on the media switch, naming the age the write holds it to:
+ * the page offers the switch from the served age alone, so only a birthdate or a day that moved since it was served
+ * reaches it.
  */
 export const saveConsent = action({
   lane: "person",
   claim: "account",
   name: "saveConsent",
   input: Consent,
+  boxes: ["media"],
   run: async (press) => {
     switch (press.kind) {
       case "spieler":

@@ -10,8 +10,8 @@ import { useEditor } from "@/kit/useEditor";
 import { usePasskeyTouch } from "@/kit/usePasskeyTouch";
 
 import type { ActionAnswer, DryRunAction } from "@/core/action";
+import type { BoxRules } from "@/core/boxRules";
 import type { Copy } from "@/core/copy";
-import type { SchiedsrichterRules } from "@/features/schiedsrichter/fieldRules";
 import type { ChipProps } from "@/kit/Chip";
 import type { DangerAct } from "@/kit/EditorPage";
 import type { Fact } from "@/kit/Facts";
@@ -59,8 +59,8 @@ export function SchiedsrichterEditor({
   record: EditorRecord<SchiedsrichterValues>;
   /** The save, behind its dry run and the passkey touch, which posts the page's holder beside the changes. */
   save: DryRunAction<EditorSave<SchiedsrichterValues> & { holder: string }, number>;
-  /** What the save asks of each box, read on the server. */
-  rules: SchiedsrichterRules;
+  /** What the save's lane asks of its boxes, read on the server. */
+  rules: BoxRules;
   address: Address;
   /** The Bestätigung's facts: where it stands, and the day the last link went. */
   confirmation: readonly Fact[];
@@ -79,7 +79,6 @@ export function SchiedsrichterEditor({
     touched((change: EditorSave<SchiedsrichterValues>, dryRun?: boolean) => save({ ...change, holder }, dryRun), { dryRunFirst: true }),
   );
   const { draft, set } = editor;
-  const { required, max, pattern } = rules;
 
   const dangerAct: DangerAct =
     danger.kind === "reactivate"
@@ -112,6 +111,7 @@ export function SchiedsrichterEditor({
       chip={chip}
       flag={flag}
       editor={editor}
+      rules={rules}
       locks={address === "fixed" ? ["confirmed"] : []}
       danger={{ title: ADMIN_COPY.retirement, acts: [dangerAct] }}
       sections={[
@@ -124,10 +124,6 @@ export function SchiedsrichterEditor({
                 label={COPY.shared.name}
                 name="name"
                 kind="text"
-                pattern={pattern.name}
-                example={COPY.shared.field.exampleName}
-                isRequired={required.name}
-                maxLength={max.name}
                 value={draft.name}
                 onChange={(name) => set("name", name)}
               />
@@ -135,8 +131,6 @@ export function SchiedsrichterEditor({
                 label={FACTS.school}
                 name="schule"
                 kind="text"
-                isRequired={required.schule}
-                maxLength={max.schule}
                 value={draft.schule}
                 onChange={(schule) => set("schule", schule)}
               />
@@ -147,7 +141,6 @@ export function SchiedsrichterEditor({
                 holds={5}
                 kind="digits"
                 unit={COPY.shared.unit.euro}
-                isRequired={required.default_payment}
                 value={draft.default_payment}
                 onChange={(default_payment) => set("default_payment", default_payment)}
               />
@@ -172,8 +165,6 @@ export function SchiedsrichterEditor({
                   label={COPY.shared.emailAddress}
                   name="email"
                   kind="email"
-                  isRequired={required.email}
-                  maxLength={max.email}
                   value={draft.email}
                   onChange={(email) => set("email", email)}
                 />
@@ -182,8 +173,6 @@ export function SchiedsrichterEditor({
                 label={FACTS.phone}
                 name="phone"
                 kind="tel"
-                pattern={pattern.phone}
-                isRequired={required.phone}
                 value={draft.phone}
                 onChange={(phone) => set("phone", phone)}
               />

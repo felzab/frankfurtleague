@@ -19,8 +19,8 @@ import { answering } from "@/kit/useFormAction";
 
 import { cardOf, gruppenFor, openRows, outcomeOf, takenFor } from "./run";
 
+import type { BoxRules } from "@/core/boxRules";
 import type { FLBewerbungGruppeOffer, FLBewerbungListRow, FLTrikotFarbe } from "@/core/generated/client/types";
-import type { AcceptRules } from "@/features/bewerbungen/fieldRules";
 import type { Fact } from "@/kit/Facts";
 import type { TableRow } from "@/kit/Table";
 import type { Draft, Outcome, Run } from "./run";
@@ -100,7 +100,8 @@ export function BulkAccept({
   gruppen: readonly FLBewerbungGruppeOffer[];
   /** The colours another team holds. */
   taken: readonly string[];
-  rules: AcceptRules;
+  /** What the browser's pass holds each card's boxes to: the acceptance's lane's rules (`boxRulesOf`). */
+  rules: BoxRules;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -155,6 +156,7 @@ export function BulkAccept({
         line={WORDS.cardOf(inRun.indexOf(card) + 1, inRun.length)}
         facts={factsOf(card)}
         fieldErrors={outcome?.kind === "refused" ? outcome.fieldErrors : undefined}
+        rules={rules}
         onSkip={() => leave({ ...run, skipped: new Set(run.skipped).add(card.id) })}
         onNext={(form) => {
           const draft: Draft = {
@@ -173,7 +175,6 @@ export function BulkAccept({
           subject={{ wish: card.wunschfarbe, shorthand: card.shorthand }}
           gruppen={gruppenFor(gruppen, rows, run, card.id)}
           taken={takenFor(taken, rows, run, card.id)}
-          rules={rules}
           picked={run.drafts[card.id]}
         />
       </StepCard>

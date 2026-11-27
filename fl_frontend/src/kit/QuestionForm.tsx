@@ -16,6 +16,7 @@ import { boxHead } from "./Section";
 import { statusOf, useFormAction } from "./useFormAction";
 
 import type { ActionAnswer } from "@/core/action";
+import type { BoxRules } from "@/core/boxRules";
 import type { ReactNode } from "react";
 import type { ConfirmWords } from "./ConfirmDialog";
 import type { DoneVerb } from "./dialogAct";
@@ -58,11 +59,13 @@ export function QuestionForm<Input>(
     /** The press's and the question's button alike. */
     tone: ConfirmWords["tone"];
     read: (formData: FormData) => Promise<ActionAnswer<AskedInput<Input>>>;
+    /** What the browser's pass holds the fields to: `read`'s lane's rules, read on the server (`boxRulesOf`). */
+    rules: BoxRules;
     /** The form's fields, the kit's, each with its `name`. */
     children: ReactNode;
   } & QuestionRun<Input>,
 ) {
-  const { verb, tone, read, children } = props;
+  const { verb, tone, read, rules, children } = props;
   const [asked, setAsked] = useState<AskedInput<Input> | null>(null);
   const [isAsking, setAsking] = useState(false);
   // Raised to draw the boxes anew, as `HeldForm` refuses a form's reset.
@@ -90,6 +93,7 @@ export function QuestionForm<Input>(
     <>
       <HeldForm
         fieldErrors={refused?.fieldErrors}
+        rules={rules}
         onBlock={block}
         isBusy={isPending}
         onSend={submit}

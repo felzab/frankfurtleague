@@ -37,6 +37,7 @@ function renderEditor() {
   renderUnderNext(
     <TeamAufstellung
       team={TEAM}
+      rules={{}}
       title={{ record: "Ahorn vs. Eiche" }}
       lead={COPY.shared.spieltag(2)}
       aufstellung={{

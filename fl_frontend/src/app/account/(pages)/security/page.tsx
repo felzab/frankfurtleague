@@ -1,14 +1,14 @@
-import { requires } from "@/core/action";
+import { boxRulesOf } from "@/core/action";
 import { PASSKEY_LIMIT } from "@/core/auth/enrolment";
 import { ACCOUNT_COPY } from "@/core/copy/account";
 import { ROUTES } from "@/core/routes";
 import { requireAccountSession } from "@/features/account/account";
 import { devicesOf } from "@/features/account/security";
 import { heldPasskeysOf } from "@/features/passkeys/held";
-import { PASSKEY_NAME_MAX, PasskeyNameSchema } from "@/features/passkeys/schemas";
 import { AccountPage } from "@/kit/AccountPage";
 import { pageMetadata } from "@/shared/utils/metadata";
 
+import { renamePasskeyAction } from "./passkeyActs";
 import { SecurityBoxes } from "./SecurityBoxes";
 
 import type { HeldPasskeys } from "@/features/passkeys/held";
@@ -33,7 +33,7 @@ async function SecurityContent() {
       holder={subject.email}
       passkeys={held === undefined ? undefined : passkeyBoxOf(held)}
       devices={ACCOUNT_COPY.devices.description(devices)}
-      name={{ required: requires(PasskeyNameSchema, ""), max: PASSKEY_NAME_MAX }}
+      renameRules={boxRulesOf(renamePasskeyAction)}
     />
   );
 }

@@ -118,8 +118,7 @@ describe("each form's posted names meet its lane's keys", () => {
   it("loses no box of the venue create dialog", async () => {
     const { createSpielort } = await import("@/features/spielorte/createSpielort");
     const { SpielortFields } = await import("@/features/spielorte/SpielortFields");
-    const { SPIELORT_CREATE_RULES } = await import("@/features/spielorte/fieldRules");
-    const names = namesIn(<SpielortFields rules={SPIELORT_CREATE_RULES} />);
+    const names = namesIn(<SpielortFields />);
     const typed = {
       name: "Sporthalle Nord",
       street: "Hauptstraße",
@@ -148,12 +147,7 @@ describe("each form's posted names meet its lane's keys", () => {
   it("loses no box of the season create dialog", async () => {
     const { createSaison } = await import("@/app/admin/(list)/saisons/createSaison");
     const { CreateFields } = await import("@/app/admin/(list)/saisons/CreateFields");
-    const names = namesIn(
-      <CreateFields
-        next={{ start: null, end: null }}
-        rules={{ required: { start: true, end: true } }}
-      />,
-    );
+    const names = namesIn(<CreateFields next={{ start: null, end: null }} />);
     const typed = { start_date: "2027-03-06", end_date: "2027-07-03" };
     everyBoxTyped(names, typed);
     takes(["POST", "/saisons", { created_id: "2027" }]);
@@ -166,15 +160,12 @@ describe("each form's posted names meet its lane's keys", () => {
     const { enterTeam } = await import("@/app/admin/(list)/saisons/[saison]/teams/enterTeam");
     const { NEW_TEAM } = await import("@/app/admin/(list)/saisons/[saison]/teams/newTeam");
     const { TeamEntryFields } = await import("@/app/admin/(list)/saisons/[saison]/teams/TeamEntryFields");
-    const { TEAM_ENTRY_RULES } = await import("@/features/teams/fieldRules");
     const names = namesIn(
       <TeamEntryFields
         saison="2027"
         teams={[]}
         gruppen={[]}
         colours={[]}
-        rules={TEAM_ENTRY_RULES}
-        teamRequired
       />,
     );
     const typed = {
@@ -233,12 +224,11 @@ describe("each form's posted names meet its lane's keys", () => {
     const { SCHIEDSRICHTER_TEXT_VERSIONS, SCHIEDSRICHTER_WORDINGS } = await import("@/core/consentWordings");
     const names = namesIn(
       <ConfirmationFields
-        consent={{ name: "scope", wording: SCHIEDSRICHTER_WORDINGS.scope, isRequired: true }}
+        consent={{ name: "scope", wording: SCHIEDSRICHTER_WORDINGS.scope }}
         media={SCHIEDSRICHTER_WORDINGS.media}
         earliestBirth={"1900-01-01" as never}
         latestBirth={"2030-01-01" as never}
         mediaLatestBirth={"2030-01-01" as never}
-        isBirthDateRequired
       />,
     );
     const typed = { birth_date: "1990-05-01", scope: "kader_public", media: "on" };
@@ -271,7 +261,6 @@ describe("each form's posted names meet its lane's keys", () => {
         earliestBirth={"1900-01-01" as never}
         latestBirth={"2030-01-01" as never}
         mediaLatestBirth={"2030-01-01" as never}
-        isBirthDateRequired
       />,
     );
     const typed = { birth_date: "1985-09-12", whatsapp: "on", media: "on" };
@@ -315,13 +304,11 @@ describe("each form's posted names meet its lane's keys", () => {
     ["a listed school's", [{ id: "team", name: "Schule" }]],
   ])("carries every box of %s application into its body", async (_, schulen) => {
     const { applicationOf } = await import("@/app/(classic)/bewerbung/[saison]/application");
-    const { BEWERBUNG_RULES } = await import("@/app/(classic)/bewerbung/[saison]/fieldRules");
     const { BewerbungFields } = await import("@/app/(classic)/bewerbung/[saison]/BewerbungFields");
     const names = namesIn(
       <BewerbungFields
         schulen={schulen}
         taken={[]}
-        rules={BEWERBUNG_RULES}
       />,
     );
     const valueOf = (name: string) => String(100_000 + names.indexOf(name));

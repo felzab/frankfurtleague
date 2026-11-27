@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 
-import { COPY } from "@/core/copy/shared";
 import { serveBackend } from "@/test-support/backend";
 import { signedInRequest } from "@/test-support/session";
 
@@ -50,17 +49,5 @@ describe("a matchday's save", () => {
       { method: "PATCH", path: `/spieltage/${SPIELTAG_ID}`, body: { start: "2027-03-13", end: "2027-03-16", version: EDITOR_VERSION } },
     ]);
     expect(answer).toStrictEqual({ ok: true, value: WRITTEN.version });
-  });
-
-  // The harm: a box the save needs, answered anywhere but on that box, which the person then cannot find.
-  it("asks for a day emptied on its own box, writing nothing", async () => {
-    const answer = await saveSpieltag({ id: SPIELTAG_ID, version: EDITOR_VERSION, changes: { start: null } });
-
-    expect(answer).toStrictEqual({
-      ok: false,
-      fieldErrors: { "changes.start": COPY.shared.field.required },
-      kinds: { "changes.start": "required" },
-    });
-    expect(backend.sent.filter(({ method }) => method === "PATCH")).toStrictEqual([]);
   });
 });

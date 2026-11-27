@@ -13,7 +13,6 @@ import { TextField } from "@/kit/TextField";
 
 import { NEW_TEAM } from "./newTeam";
 
-import type { TeamRules } from "@/features/teams/fieldRules";
 import type { Option } from "@/kit/OptionList";
 
 const WORDS = ADMIN_COPY.team;
@@ -28,26 +27,20 @@ export function TeamEntryFields({
   teams,
   gruppen,
   colours,
-  rules,
-  teamRequired,
 }: {
   saison: string;
   /** Every club still in the league holding no row of the season. */
   teams: readonly Option[];
   gruppen: readonly Option[];
   colours: readonly Option[];
-  rules: TeamRules;
-  teamRequired: boolean;
 }) {
   // A league knowing no other club has one way to enter a team.
   const [team, setTeam] = useState<string | null>(teams.length === 0 ? NEW_TEAM : null);
-  const { required, max, pattern, address } = rules;
   return (
     <>
       <Select
         label={COPY.shared.facts.team}
         name="team"
-        isRequired={teamRequired}
         description={WORDS.enterDescription}
         options={[...teams, { id: NEW_TEAM, label: ADMIN_COPY.bewerbung.newSchool }]}
         value={team}
@@ -59,27 +52,18 @@ export function TeamEntryFields({
             label={COPY.shared.name}
             name="name"
             kind="text"
-            isRequired={required.name}
-            maxLength={max.name}
           />
           <TextField
             label={COPY.team.shorthand}
             name="shorthand"
             holds={5}
             kind="text"
-            example={COPY.team.shorthandExample}
-            pattern={pattern.shorthand}
-            isRequired={required.shorthand}
-            maxLength={SHORTHAND_LENGTH}
-            minLength={SHORTHAND_LENGTH}
             description={COPY.team.shorthandDescription(SHORTHAND_LENGTH)}
           />
           <TextField
             label={COPY.team.fullName}
             name="full_name"
             kind="text"
-            isRequired={required.full_name}
-            maxLength={max.full_name}
           />
           <Select
             label={COPY.team.schulform}
@@ -88,14 +72,12 @@ export function TeamEntryFields({
             defaultValue=""
           />
           <FieldGroup name={COPY.shared.address.title}>
-            <AddressFields rules={address} />
+            <AddressFields />
           </FieldGroup>
           <TextField
             label={COPY.team.website}
             name="website_url"
             kind="url"
-            example={COPY.shared.field.exampleUrl}
-            maxLength={max.website_url}
           />
         </FieldGroup>
       )}
@@ -103,7 +85,6 @@ export function TeamEntryFields({
         <Select
           label={COPY.team.gruppe}
           name="gruppe"
-          isRequired={rules.gruppeRequired}
           options={gruppen}
         />
         <Select

@@ -8,7 +8,7 @@ import { EmptyState } from "./EmptyState";
 import { messageLine, toggleBox, toggleField, toggleRow } from "./fieldStyles";
 import { FocusOnLeave } from "./FocusOnLeave";
 import { FormClosed } from "./formClosed";
-import { FAULTED_PART, useFieldFaults } from "./HeldForm";
+import { useFieldFaults } from "./HeldForm";
 import { tv } from "./tv";
 
 import type { Copy } from "@/core/copy";
@@ -187,7 +187,7 @@ function RecordRow<Row extends EditorRow>({
  * the kit's invalid look. A kit field named as its cell names it takes the form's served refusal by that name and keeps
  * its own check at the send, a choice included. A field in a row carries no description, so the line under a field is
  * its refusal's alone. The list's own refusal, such as too many rows, stands under the add control, read from the
- * form's faults by the list's name (`useFieldFaults`), and the list takes the focus for it, as a box does for its own.
+ * form's faults by the list's name (`useFieldFaults`), the focus staying on the press.
  *
  * The add control appends `blank`. A form closed read-only draws neither control.
  */
@@ -245,7 +245,6 @@ export function RecordRows<Row extends EditorRow>({
       role="group"
       aria-label={label}
       aria-describedby={listError === undefined ? undefined : lineId}
-      {...(listError === undefined ? {} : FAULTED_PART)}
       className={slots.root()}>
       {/* An empty list is its foot alone, which then stands first and draws no hairline over itself. A closed form's
           has no foot, so it says that none was entered rather than leave its box's head over nothing. */}
