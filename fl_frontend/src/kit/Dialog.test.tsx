@@ -32,19 +32,9 @@ const INPUT = COPY.page.spiele;
 const DONE: ActionAnswer = { ok: true, value: undefined };
 const HOLDER = "anna@example.com";
 
-/** The browser's passkey prompt as it stands: answered at once for the holder, unless a case holds it open. */
-const prompt = vi.hoisted(() => ({ standing: null as Promise<void> | null }));
-
-// The browser's passkey prompt, which a touched act asks before it runs, answered for the holder once it closes.
+// The browser's passkey prompt, which a touched act asks before it runs, answered at once for the holder.
 vi.mock("@/core/auth/browserClient", () => ({
-  loadAuthClient: async () => ({
-    signIn: {
-      passkey: async () => {
-        await prompt.standing;
-        return { data: { status: true, email: "anna@example.com" }, error: null };
-      },
-    },
-  }),
+  loadAuthClient: async () => ({ signIn: { passkey: async () => ({ data: { status: true, email: HOLDER }, error: null }) } }),
   usePreloadedAuthClient: () => undefined,
 }));
 
@@ -576,37 +566,6 @@ describe("a touched dialog opened from a row's „⋯“", () => {
 
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     await waitFor(() => expect(document.activeElement).toBe(more));
-  });
-
-  // The harm: a screen reader announcing the row's „⋯“ as the passkey prompt opens, the focus moved under the prompt to
-  // a control the person never chose, while the dialog that holds their input only stands aside.
-  it("moves the focus nowhere while it stands aside for a second touch", async () => {
-    vi.spyOn(window, "matchMedia").mockImplementation((media) => Object.assign(new EventTarget(), { media, matches: true }) as MediaQueryList);
-    renderUnderNext(<TouchedSideAct answer={{ ok: false, reason: COPY.shared.failure.stale }} />);
-    const more = screen.getByRole("button", { name: COPY.template.more });
-    act(() => more.focus());
-    await userEvent.keyboard("{Enter}");
-    await userEvent.keyboard("{ArrowDown}");
-    await userEvent.keyboard("{Enter}");
-    const dialog = await screen.findByRole("dialog");
-    await userEvent.click(within(dialog).getByRole("button", { name: SAVE }));
-    await within(dialog).findByText(COPY.shared.failure.stale);
-    await waitFor(() => expect(dialog.contains(document.activeElement)).toBe(true));
-    let close = () => undefined as void;
-    prompt.standing = new Promise((resolve) => (close = resolve));
-    onTestFinished(() => {
-      prompt.standing = null;
-    });
-
-    await userEvent.click(within(dialog).getByRole("button", { name: SAVE }));
-    // Hidden by its step aside, which takes it out of the accessibility tree while it stays in the page.
-    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-    // Two frames: the one the leaving's hand-back waits for, and one more for any focus it would move.
-    await act(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
-
-    expect(document.activeElement).not.toBe(more);
-    close();
-    await waitFor(() => expect(dialog.contains(document.activeElement)).toBe(true));
   });
 });
 

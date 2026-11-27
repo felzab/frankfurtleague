@@ -27,7 +27,7 @@ import { usePasskeyTouch } from "./usePasskeyTouch";
 
 import type { ActionAnswer } from "@/core/action";
 import type { Copy } from "@/core/copy";
-import type { ReactElement, ReactNode, RefObject } from "react";
+import type { ReactElement, ReactNode } from "react";
 import type { Tone, Trigger } from "./ConfirmDialog";
 import type { DialogAct, DialogDanger } from "./dialogAct";
 import type { HeldOpen } from "./useOpenUntilHidden";
@@ -176,17 +176,15 @@ export const DialogReturn = createContext<ReturnTargets | null>(null);
 
 /**
  * Hands the focus to the holder's control once the dialog leaves: in the frame after React Aria's own restore, which
- * runs first, as its scope stands outside this one. A step aside hides the dialog as a leaving does, so the hand-back
- * holds while `aside` says the dialog stands aside: the focus stays where the passkey prompt leaves it, and the dialog
- * standing again takes it back.
+ * runs first, as its scope stands outside this one. A step aside leaves too, and React Aria's own cleanup then restores
+ * to the same control, so the dialog standing again takes the focus back as it would without this.
  */
-function ReturnOnLeave({ aside }: { aside: RefObject<boolean> }) {
+function ReturnOnLeave() {
   const targets = useContext(DialogReturn);
   useLayoutEffect(
     () => () => {
       if (targets === null) return;
       requestAnimationFrame(() => {
-        if (aside.current) return;
         for (const control of targets()) {
           if (control === null || control === undefined || !control.isConnected) continue;
           control.focus();
@@ -194,7 +192,7 @@ function ReturnOnLeave({ aside }: { aside: RefObject<boolean> }) {
         }
       });
     },
-    [targets, aside],
+    [targets],
   );
   return null;
 }
@@ -245,11 +243,6 @@ function ActDialog({
   isAside: boolean;
 }) {
   const close = () => opened.onOpenChange(false);
-  // Read in the frame after the dialog hides, by which time the commit hiding it has set it.
-  const standsAside = useRef(isAside);
-  useLayoutEffect(() => {
-    standsAside.current = isAside;
-  }, [isAside]);
   const { answer, submit, block, isBlocked, isPending } = useFormAction(
     async (formData: FormData) => {
       const answered = await run(formData);
@@ -295,7 +288,7 @@ function ActDialog({
       isOpen={opened.isOpen}
       onOpenChange={(isOpen) => (isOpen ? opened.onOpenChange(true) : leave())}>
       <AriaDialog data-kit-focus>
-        <ReturnOnLeave aside={standsAside} />
+        <ReturnOnLeave />
         {/* A dialog opened from inside another form, such as an editor's section, is a form of its own: React Aria's
             `Form` would otherwise take the outer form's props from its context, the outer submit handler among them. */}
         <FormContext value={null}>
