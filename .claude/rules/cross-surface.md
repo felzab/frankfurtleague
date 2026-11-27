@@ -21,7 +21,10 @@ Each fails silently. The ratified decisions for the seams are in `docs/decisions
   lacked, a route or a method the API does not serve, the store or the server failing, or a write
   whose outcome is unknown refuses nothing the request asked, so it joins
   `fl_frontend/src/core/action.ts :: NOT_A_REFUSAL` instead, which reads the shared failure line. A
-  code saying the request's end already holds is a refusal, worded in the catalogue.
+  code saying the request's end already holds refuses the act the request asked, so it is a refusal
+  and never joins that set, whose shared failure line would send the person to repeat an act that
+  stands. The catalogue words it unless only a page read before that end held can send it, which the
+  stale-page line answers: the page read again shows the end.
 - A bound the backend moves without naming it in the rule's context or the refusal's bounds
   (`fl_backend/app/core/exceptions.py :: APIError`) leaves a frontend line stale in silence.
 - `fl_backend/openapi.json` lists every code once and names none per endpoint, so which codes an
