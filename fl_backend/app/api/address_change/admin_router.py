@@ -36,17 +36,18 @@ from app.api.address_change.services import (
     stored_instant,
     waits_on,
 )
+from app.api.ban_list.crud import find_address_barred_refusal
 from app.api.grants.crud import read_grants
 from app.api.grants.guard import ADMIN_TIER
-from app.api.identity.crud import refuse_an_address_off_limits
 from app.api.identity.lookup import SubjectLookup
-from app.api.identity.services import address_change_viewable_denied
+from app.api.identity.services import address_change_viewable_denied, find_off_limits_refusal
 from app.api.outbox.schemas import FLOutboxStatus
 from app.api.spieler.crud import another_pupil_holds
-from app.core.crud import aggregate_many_from_db, patch_one_in_db, refuse
+from app.core.crud import aggregate_many_from_db, patch_one_in_db, refuse, refuse_faults
 from app.core.dependencies import (
     AddressChangeCollection,
     AddressChangeReadCollection,
+    BanListReadCollection,
     DBClient,
     GermanyNow,
     GrantsCollection,
@@ -56,7 +57,7 @@ from app.core.dependencies import (
     SnapshotSession,
     SpielerCollection,
 )
-from app.core.exceptions import DocumentNotFoundError
+from app.core.exceptions import DocumentNotFoundError, as_judged_on_stored_state
 from app.core.readonly import ReadCollection
 from app.core.recording import record_act
 from app.core.routing import SAFE_WHEN, DryRun, by_id
@@ -83,6 +84,13 @@ async def _pull_the_change(
     refuse(find_ended_refusal(is_open=record.get("ended") is None))
 
     return record
+
+
+async def _refuse_an_address_off_limits(identifier: str, *, actor: str, grants_collection: ReadCollection, session: AsyncClientSession) -> None:
+    """`own_address` and `admin_address` as gates, for the address a stored change names: an act by its id sends no box."""
+
+    grants = await read_grants(grants_collection=grants_collection, session=session)
+    refuse(as_judged_on_stored_state(find_off_limits_refusal(identifier=identifier, actor=actor, grants=grants, path=("address",))))
 
 
 def _open_change(
@@ -151,6 +159,7 @@ async def post_address_change_admin(
     records: SubjectLookup,
     spieler_collection: SpielerCollection,
     grants_collection: GrantsCollection,
+    ban_list_collection: BanListReadCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
     session: SnapshotSession,
@@ -169,27 +178,41 @@ async def post_address_change_admin(
     way: FLAddressChangeWay = "waiting_period"
 
     async def judge(session: AsyncClientSession) -> None:
-        # Every refusal of the start, in the write's transaction or the dry run's snapshot alike.
-        await refuse_an_address_off_limits(identifier, actor=operator, grants_collection=grants_collection, session=session)
-        refuse(find_unchanged_refusal(address=identifier, folded=sign_in_identifier(email)))
-
+        # Every refusal of the start, in the write's transaction or the dry run's snapshot alike. First the gate on the
+        # address on file, though a box holds it: no phrase words an address holding nothing, so its sentence stands on
+        # the status line and shares no answer with a box's fault. The new address means nothing for a change of nothing.
         holdings = await read_the_holdings(identifier, records=records, grants_collection=grants_collection, session=session)
         refuse(find_nothing_refusal(empty=holdings.empty))
-        taken = holdings.spieler is not None and await another_pupil_holds(
-            spieler_collection=spieler_collection, identifier=sign_in_identifier(email), spieler_id=holdings.spieler["_id"], session=session
-        )
-        # The entries judged here too, their reader trusted: a change its confirmation would refuse goes nowhere. A banned
-        # new address is refused nothing: its link stops at the hand-out.
-        refuse(
-            find_taken_refusal(
-                taken=taken
-                or await address_taken(
-                    email,
-                    records=records,
-                    occupancy=Occupancy(grants_collection=grants_collection, address_changes_collection=address_changes_collection),
+
+        grants = await read_grants(grants_collection=grants_collection, session=session)
+        unchanged = find_unchanged_refusal(address=identifier, folded=sign_in_identifier(email))
+        # Taken only where the address is a new one: the address on file is always its own holder's.
+        taken = unchanged is None and (
+            (
+                holdings.spieler is not None
+                and await another_pupil_holds(
+                    spieler_collection=spieler_collection,
+                    identifier=sign_in_identifier(email),
+                    spieler_id=holdings.spieler["_id"],
                     session=session,
                 )
             )
+            # The entries judged here too, their reader trusted: a change its confirmation would refuse goes nowhere.
+            or await address_taken(
+                email,
+                records=records,
+                occupancy=Occupancy(grants_collection=grants_collection, address_changes_collection=address_changes_collection),
+                session=session,
+            )
+        )
+        refuse_faults(
+            find_off_limits_refusal(identifier=identifier, actor=operator, grants=grants, path=("address",)),
+            unchanged,
+            find_taken_refusal(taken=taken),
+            # The start mails the new mailbox its link, which the drain never hands to a banned address.
+            None
+            if unchanged
+            else await find_address_barred_refusal(ban_list_collection=ban_list_collection, address=email, path=("email",), session=session),
         )
 
     if dry_run:
@@ -266,7 +289,8 @@ async def resend_confirmation(
         # The change the id names alone, so a page showing a change since replaced re-sends nothing.
         record = await _pull_the_change(address_changes_collection, address_change_id, session=session)
         identifier = str(record["address"])
-        await refuse_an_address_off_limits(identifier, actor=operator, grants_collection=grants_collection, session=session)
+        # Gates, both: the re-send sends no address, so the stored change's two name no box.
+        await _refuse_an_address_off_limits(identifier, actor=operator, grants_collection=grants_collection, session=session)
         email = str(record["email"])
         holdings = await read_the_holdings(identifier, records=records, grants_collection=grants_collection, session=session)
         taken = holdings.spieler is not None and await another_pupil_holds(
@@ -278,7 +302,7 @@ async def resend_confirmation(
             occupancy=Occupancy(grants_collection=grants_collection, address_changes_collection=address_changes_collection),
             session=session,
         )
-        refuse(find_taken_refusal(taken=taken or occupied))
+        refuse(as_judged_on_stored_state(find_taken_refusal(taken=taken or occupied)))
         # The filter is the judgement: a change confirmed is the 404 here. A lapsed link is no refusal while the change
         # stands, which is until the next hourly pass ends it.
         updated = await patch_one_in_db(
@@ -328,7 +352,7 @@ async def delete_address_change(
     async def discard_the_change(session: AsyncClientSession) -> None:
         # The change the id names alone, so a page showing a change since replaced discards nothing.
         record = await _pull_the_change(address_changes_collection, address_change_id, session=session)
-        await refuse_an_address_off_limits(str(record["address"]), actor=operator, grants_collection=grants_collection, session=session)
+        await _refuse_an_address_off_limits(str(record["address"]), actor=operator, grants_collection=grants_collection, session=session)
         await end_the_change_in_session(
             address_changes_collection=address_changes_collection,
             db_filter={"_id": address_change_id},

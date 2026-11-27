@@ -36,9 +36,7 @@ from app.api.identity.services import (
     build_registrierung_pipeline,
     build_seat_pipeline,
     erasure_due,
-    find_admin_address_refusal,
     find_no_owner_refusal,
-    find_own_address_refusal,
     find_role_refusal,
     folds_to,
     grants_a_panel,
@@ -262,22 +260,6 @@ async def refuse_without_a_seat(
     subject = await roles_of(identifier, records, session=session)
 
     refuse(find_role_refusal(seats=subject.seats, team_id=team_id, saison_id=saison_id))
-
-
-async def refuse_an_address_off_limits(identifier: str, *, actor: str, grants_collection: ReadCollection, session: AsyncClientSession) -> Rows:
-    """An administrator's two refusals on a mailbox, answering the grants it read for the act to judge by.
-
-    Their own address (`own_address`), refused before any read, who asks being known from the token alone; and a holder's
-    but for the owner (`admin_address`). Each operation of the identity and address-change administrator routers acting
-    on an address calls it, in the session its act reads in where a judgement there is retried with the act. The ban
-    refuses every holder by its own rule.
-    """
-
-    refuse(find_own_address_refusal(identifier=identifier, actor=actor))
-    grants = await read_grants(grants_collection=grants_collection, session=session)
-    refuse(find_admin_address_refusal(identifier=identifier, actor=actor, grants=grants))
-
-    return grants
 
 
 # --- The erasure: every step that reaches a person's data, run in one transaction.

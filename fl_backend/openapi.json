@@ -295,6 +295,7 @@
         "properties": {
           "email": {
             "maxLength": 254,
+            "minLength": 1,
             "title": "Email",
             "type": "string"
           }
@@ -1535,11 +1536,13 @@
         "properties": {
           "address": {
             "maxLength": 254,
+            "minLength": 1,
             "title": "Address",
             "type": "string"
           },
           "email": {
             "maxLength": 254,
+            "minLength": 1,
             "title": "Email",
             "type": "string"
           }
@@ -3576,6 +3579,7 @@
         "properties": {
           "email": {
             "maxLength": 254,
+            "minLength": 1,
             "title": "Email",
             "type": "string"
           },
@@ -3667,6 +3671,7 @@
         "properties": {
           "email": {
             "maxLength": 254,
+            "minLength": 1,
             "title": "Email",
             "type": "string"
           },
@@ -5616,6 +5621,7 @@
         "properties": {
           "email": {
             "maxLength": 254,
+            "minLength": 1,
             "title": "Email",
             "type": "string"
           },
@@ -5665,6 +5671,7 @@
         "properties": {
           "email": {
             "maxLength": 254,
+            "minLength": 1,
             "title": "Email",
             "type": "string"
           },
@@ -6714,6 +6721,7 @@
           },
           "to": {
             "maxLength": 254,
+            "minLength": 1,
             "title": "To",
             "type": "string"
           },
@@ -7998,6 +8006,7 @@
           },
           "email": {
             "maxLength": 254,
+            "minLength": 1,
             "title": "Email",
             "type": "string"
           },
@@ -8092,6 +8101,7 @@
         "properties": {
           "email": {
             "maxLength": 254,
+            "minLength": 1,
             "title": "Email",
             "type": "string"
           }
@@ -8108,6 +8118,7 @@
         "properties": {
           "email": {
             "maxLength": 254,
+            "minLength": 1,
             "title": "Email",
             "type": "string"
           },
@@ -14695,6 +14706,7 @@
         "properties": {
           "email": {
             "maxLength": 254,
+            "minLength": 1,
             "title": "Email",
             "type": "string"
           }

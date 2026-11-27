@@ -316,7 +316,8 @@ class TestAnAddition:
 
         refused, held = await on_a_league(mongo_replica_set_url, body, grants=[WAITING])
 
-        # Named on no box, the refusal reaches a shared failure line that sends the owner to a retry refused alike.
+        # On the box the address was typed into: a refusal naming none would read the stale-page line, sending the owner
+        # to a retry refused alike.
         assert (refused.error_code, tuple(fault.path for fault in refused.faults), held) == (
             Code.GRANT_EXISTS,
             (("email",),),

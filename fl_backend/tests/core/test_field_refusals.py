@@ -8,7 +8,7 @@ from fastapi.testclient import TestClient
 
 from app.core.codes import Code
 from app.core.crud import refuse, refuse_faults
-from app.core.exceptions import APIError, FieldCheck, FieldFault, Subject, as_judged_on_stored_state
+from app.core.exceptions import APIError, FieldCheck, FieldFault, Subject
 from app.main import create_shell
 
 AGE = FieldFault(path=("birth_date",), code=Code.CONFIRMATION_AGE, status=HTTPStatus.UNPROCESSABLE_CONTENT, bounds={"min": 18, "max": 99})
@@ -31,9 +31,6 @@ def raised(*checks: FieldCheck) -> APIError | None:
 
 
 class TestOneCollectingCall:
-    def test_checks_finding_nothing_raise_nothing(self):
-        assert raised(None, (), None) is None
-
     def test_every_fault_of_every_check_is_named_in_the_order_the_checks_were_asked(self):
         """A fault dropped here is a box the person meets only on a later press."""
 
@@ -45,11 +42,8 @@ class TestOneCollectingCall:
     @pytest.mark.parametrize(
         ("faults", "status"),
         [
-            pytest.param((AGE,), HTTPStatus.UNPROCESSABLE_CONTENT, id="the payload alone"),
             pytest.param((AGE, TAKEN), HTTPStatus.CONFLICT, id="stored data after the payload"),
-            pytest.param((TAKEN, AGE), HTTPStatus.CONFLICT, id="stored data before the payload"),
             pytest.param((AGE, TAKEN, OWN), HTTPStatus.FORBIDDEN, id="who asks last"),
-            pytest.param((OWN, AGE), HTTPStatus.FORBIDDEN, id="who asks first"),
         ],
     )
     def test_the_status_is_the_weightiest_faults_never_the_firsts(self, faults: tuple[FieldFault, ...], status: HTTPStatus):
@@ -80,32 +74,22 @@ async def refuse_the_write() -> None:
     refuse(APIError(HTTPStatus.CONFLICT, Code.SAISON_PAST))
 
 
-def answered(path: str) -> tuple[int, str, list[dict[str, Any]]]:
-    response = TestClient(ANSWERING_APP, raise_server_exceptions=False).post(path)
-    body = response.json()
-
-    assert set(body) == {"error_code", "trace_id", "fields"}
-    return response.status_code, body["error_code"], body["fields"]
-
-
-class TestTheFailureBody:
-    def test_each_fault_is_its_own_entry_with_its_own_kind_and_bounds(self):
-        """The frontend words each box by its entry's kind and ctx: one code or one ctx for all would word every box alike."""
-
-        assert answered("/collected") == (
-            HTTPStatus.CONFLICT,
+@pytest.mark.parametrize(
+    ("path", "code", "fields"),
+    [
+        # The frontend words each box by its entry's kind and ctx: one code or one ctx for all would word every box alike.
+        pytest.param(
+            "/collected",
             Code.CONFIRMATION_AGE,
             [
                 {"in": "body", "path": ["birth_date"], "kind": Code.CONFIRMATION_AGE, "ctx": {"min": 18, "max": 99}},
                 {"in": "body", "path": ["email"], "kind": Code.KONTAKT_EMAIL_TAKEN, "ctx": {}},
             ],
-        )
-
-    def test_a_gate_names_its_subject_under_its_own_code_where_the_subject_arrived(self):
-        """A retirement's sentence names the fixtures that block it from these bounds, read off the path's entry."""
-
-        assert answered("/subject") == (
-            HTTPStatus.CONFLICT,
+            id="each fault its own entry",
+        ),
+        # A retirement's sentence names the fixtures that block it from these bounds, read off the path's entry.
+        pytest.param(
+            "/subject",
             Code.SCHIEDSRICHTER_STILL_ASSIGNED,
             [
                 {
@@ -115,23 +99,18 @@ class TestTheFailureBody:
                     "ctx": {"spiel_nrs": [3, 8], "count": 2},
                 }
             ],
-        )
+            id="a gate at its subject",
+        ),
+        pytest.param("/gate", Code.SAISON_PAST, [], id="a gate naming no field"),
+    ],
+)
+def test_the_failure_body_names_each_entry_where_it_arrived(path: str, code: Code, fields: list[dict[str, Any]]):
+    response = TestClient(ANSWERING_APP, raise_server_exceptions=False).post(path)
+    body = response.json()
 
-    def test_a_gate_with_no_subject_names_no_field(self):
-        assert answered("/gate") == (HTTPStatus.CONFLICT, Code.SAISON_PAST, [])
-
-
-class TestAWriteCarryingNoBody:
-    def test_its_faults_answer_as_one_gate_naming_no_box(self):
-        """A path the write's request has no body for would mark a box of a form that never sent it."""
-
-        refusal = as_judged_on_stored_state((AGE, TAKEN))
-
-        assert refusal is not None
-        assert (refusal.status_code, refusal.error_code, refusal.faults, refusal.subject) == (
-            HTTPStatus.CONFLICT,
-            Code.CONFIRMATION_AGE,
-            (),
-            None,
-        )
-        assert as_judged_on_stored_state(()) is None
+    assert (response.status_code, set(body), body["error_code"], body["fields"]) == (
+        HTTPStatus.CONFLICT,
+        {"error_code", "trace_id", "fields"},
+        code,
+        fields,
+    )

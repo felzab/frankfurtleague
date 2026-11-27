@@ -6,15 +6,15 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.results import InsertOneResult
 
 from app.api.address_change.services import build_incoming_filter
-from app.api.ban_list.crud import address_is_barred, read_ban_list
+from app.api.ban_list.crud import find_address_barred_refusal, read_ban_list
 from app.api.ban_list.schemas import FLBanListResponse, FLBanListRow, FLPostBanListEntryPayload
-from app.api.ban_list.services import compose_barred_until_saison_id, find_admin_refusal, find_listed_refusal, find_no_saison_refusal
+from app.api.ban_list.services import compose_barred_until_saison_id, find_admin_refusal, find_no_saison_refusal
 from app.api.grants.crud import pull_the_list_to_judge, read_grants
 from app.api.grants.guard import ADMIN_TIER
 from app.api.outbox.schemas import FLBanData
 from app.api.outbox.services import OwedMail, enqueue_mails
 from app.api.saisons.crud import pull_governing_saison_id
-from app.core.crud import anchor_in_db, delete_many_from_db, post_one_to_db, pull_one_from_db, refuse
+from app.core.crud import anchor_in_db, delete_many_from_db, post_one_to_db, pull_one_from_db, refuse, refuse_faults
 from app.core.dependencies import (
     AddressChangeReadCollection,
     BanListCollection,
@@ -80,22 +80,22 @@ async def post_ban_list_entry(
 
     async def judge(grants: Sequence[Mapping[str, Any]], session: AsyncClientSession) -> str:
         # Every refusal of the ban, in the write's transaction or the dry run's snapshot alike, and the season it counts from.
-        holders = [sign_in_identifier(str(grant["address"])) for grant in grants]
-        incoming = await address_changes_collection.find_one(
-            build_incoming_filter(email=address, holders=holders), projection={"_id": 1}, session=session
-        )
-        refuse(find_admin_refusal(address=address, administrators=holders, incoming=incoming is not None))
-
         # Through the session: the rollover moves the season and sweeps the lapsed bans in one
         # transaction, and a season read outside this snapshot counts a ban one season short against
         # a list already swept.
         running_saison_id = await pull_governing_saison_id(saisons_collection=saisons_collection, session=session)
         refuse(find_no_saison_refusal(running_saison_id=running_saison_id))
 
-        # Read as well as indexed: a dry run inserts nothing for `uniq_ban_list_address` to refuse, and the index still
-        # refuses the second of two bans racing past this read.
-        listed = await address_is_barred(ban_list_collection=ban_list_collection, address=address, session=session)
-        refuse(find_listed_refusal(listed=listed))
+        holders = [sign_in_identifier(str(grant["address"])) for grant in grants]
+        incoming = await address_changes_collection.find_one(
+            build_incoming_filter(email=address, holders=holders), projection={"_id": 1}, session=session
+        )
+        refuse_faults(
+            find_admin_refusal(address=address, administrators=holders, incoming=incoming is not None),
+            # Read as well as indexed: a dry run inserts nothing for `uniq_ban_list_address` to refuse, and the index
+            # still refuses the second of two bans racing past this read.
+            await find_address_barred_refusal(ban_list_collection=ban_list_collection, address=address, path=("email",), session=session),
+        )
 
         # `str` past the refusal: the composer refuses the spelling `None` would take rather than
         # storing a bound off it.

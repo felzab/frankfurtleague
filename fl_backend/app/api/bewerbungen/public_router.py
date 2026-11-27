@@ -200,8 +200,6 @@ async def post_bewerbung(
     A second press with an `Idempotency-Key` already stored answers the application that key holds and stores nothing.
     """
 
-    refuse_faults(find_repeated_contact_refusal(kontakte=bewerbung_data.kontakte.model_dump(mode="json")))
-
     key = str(idempotency_key)
 
     # One per distinct address, the seat the Trainer also holds naming theirs twice.
@@ -225,9 +223,12 @@ async def post_bewerbung(
         )
         refuse(find_window_refusal(saison_status=saison_raw["status"], bewerbung=saison_raw.get("bewerbung"), today=today))
 
-        # Then who is applying, because the two branches below judge different things.
-        refuse_faults(find_submission_subject_refusal(team_id=bewerbung_data.team_id, schule=bewerbung_data.schule))
+        refuse_faults(
+            find_submission_subject_refusal(team_id=bewerbung_data.team_id, schule=bewerbung_data.schule),
+            find_repeated_contact_refusal(kontakte=bewerbung_data.kontakte.model_dump(mode="json")),
+        )
 
+        # Behind the subject's check, which says who is applying: the two branches below judge different things.
         # A picked club alone: a new school has nothing stored to judge. `find_one`, not `pull_one_from_db`: a club the
         # picker never offered is refused with `bewerbung_picked_team_unusable` rather than answering the 404 a miss would raise.
         schule = bewerbung_data.schule
@@ -472,8 +473,11 @@ async def post_confirmation(
             # Every link on a closed row meets this here, whether minted before it closed, beside its
             # rollover or after it; never the Widerspruch below, which removes the person.
             refuse(find_saison_past_einwilligung_refusal(saison_status=saison_raw.get("status"), austritt=row.get("austritt")))
-            refuse_faults(find_age_refusal(birth_date=birth_date, today=today, minimum_age=minimum_age_for(seats)))
-            refuse_faults(find_self_media_refusal(saved=None, media=answer_data.media, birth_date=birth_date, today=today))
+            age = find_age_refusal(birth_date=birth_date, today=today, minimum_age=minimum_age_for(seats))
+            # The media switch is judged on the birthdate, which means nothing once refused.
+            refuse_faults(
+                age, None if age else find_self_media_refusal(saved=None, media=answer_data.media, birth_date=birth_date, today=today)
+            )
 
             # The person's own press, judged on the read above: an administrator's save read before it still lands, and
             # the seat write keeps a kept seat's record from its own in-session read.
@@ -563,8 +567,11 @@ async def post_confirmation(
 
             # Over both seats, so a Trainer who also sits in one of the other two is judged as the
             # person they are rather than as the link they pressed.
-            refuse_faults(find_age_refusal(birth_date=birth_date, today=today, minimum_age=minimum_age_for(seats)))
-            refuse_faults(find_self_media_refusal(saved=None, media=answer_data.media, birth_date=birth_date, today=today))
+            age = find_age_refusal(birth_date=birth_date, today=today, minimum_age=minimum_age_for(seats))
+            # The media switch is judged on the birthdate, which means nothing once refused.
+            refuse_faults(
+                age, None if age else find_self_media_refusal(saved=None, media=answer_data.media, birth_date=birth_date, today=today)
+            )
 
             # Past the count, as on the season row: a decision read before the press still lands.
             await patch_past_the_version_in_db(

@@ -364,8 +364,8 @@ def compose_seat_block(
     return {**block, **dict.fromkeys(seats, seated), "trainer_is_also": claim}, seats
 
 
-def find_kontakt_taken_refusal(*, kontakte: Mapping[str, Any], seats: Sequence[FLKontaktSeat]) -> FieldFault | None:
-    """Why this person cannot hold these seats, or `None`: another seat's person holds their address or their number.
+def find_kontakt_taken_refusal(*, kontakte: Mapping[str, Any], seats: Sequence[FLKontaktSeat]) -> tuple[FieldFault, ...]:
+    """Why this person cannot hold these seats: a fault on the address and one on the number another seat's person holds.
 
     Asked of the seats this write leaves. The seats it writes are one person, so they are never compared with each
     other.
@@ -373,14 +373,13 @@ def find_kontakt_taken_refusal(*, kontakte: Mapping[str, Any], seats: Sequence[F
 
     person = kontakte[seats[0]]
     others = [held for seat in KONTAKT_SEATS if seat not in seats and (held := kontakte.get(seat)) is not None]
-
+    faults: list[FieldFault] = []
     if sign_in_identifier(person["email"]) in {sign_in_identifier(str(held.get("email") or "")) for held in others}:
-        return FieldFault(path=("email",), code=Code.KONTAKT_EMAIL_TAKEN, status=HTTPStatus.CONFLICT)
-
+        faults.append(FieldFault(path=("email",), code=Code.KONTAKT_EMAIL_TAKEN, status=HTTPStatus.CONFLICT))
     if normalise_phone(person["phone"]) in {normalise_phone(str(held.get("phone") or "")) for held in others}:
-        return FieldFault(path=("phone",), code=Code.KONTAKT_PHONE_TAKEN, status=HTTPStatus.CONFLICT)
+        faults.append(FieldFault(path=("phone",), code=Code.KONTAKT_PHONE_TAKEN, status=HTTPStatus.CONFLICT))
 
-    return None
+    return tuple(faults)
 
 
 def compose_kontakt_confirmation(*, today: str) -> dict[str, Any]:

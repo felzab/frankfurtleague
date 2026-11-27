@@ -22,7 +22,7 @@ export const AccountPostAddressChangeQueryParams = zod.object({
 export const accountPostAddressChangeBodyEmailMax = 254;
 
 export const AccountPostAddressChangeBody = zod.object({
-  email: zod.string().max(accountPostAddressChangeBodyEmailMax),
+  email: zod.string().min(1).max(accountPostAddressChangeBodyEmailMax),
 });
 
 /**
@@ -102,8 +102,8 @@ export const addressChangePostAddressChangeAdminBodyEmailMax = 254;
 
 export const AddressChangePostAddressChangeAdminBody = zod
   .object({
-    address: zod.string().max(addressChangePostAddressChangeAdminBodyAddressMax),
-    email: zod.string().max(addressChangePostAddressChangeAdminBodyEmailMax),
+    address: zod.string().min(1).max(addressChangePostAddressChangeAdminBodyAddressMax),
+    email: zod.string().min(1).max(addressChangePostAddressChangeAdminBodyEmailMax),
   })
   .describe("The address a change starts on, and the address it goes to.");
 
@@ -346,7 +346,7 @@ export const banListPostBanListEntryBodyEmailMax = 254;
 
 export const BanListPostBanListEntryBody = zod.object({
   ban_reason: zod.string().min(1).max(banListPostBanListEntryBodyBanReasonMax).regex(banListPostBanListEntryBodyBanReasonRegExp),
-  email: zod.string().max(banListPostBanListEntryBodyEmailMax),
+  email: zod.string().min(1).max(banListPostBanListEntryBodyEmailMax),
   notify: zod.boolean(),
 });
 
@@ -451,7 +451,7 @@ export const BewerbungenPostBewerbungBody = zod
       .object({
         ansprechperson: zod
           .object({
-            email: zod.string().max(bewerbungenPostBewerbungBodyKontakteAnsprechpersonEmailMax),
+            email: zod.string().min(1).max(bewerbungenPostBewerbungBodyKontakteAnsprechpersonEmailMax),
             first_name: zod
               .string()
               .min(1)
@@ -467,7 +467,7 @@ export const BewerbungenPostBewerbungBody = zod
           .describe("One of the three people, as a member of the public submits them, without a birthdate."),
         stellvertretung: zod
           .object({
-            email: zod.string().max(bewerbungenPostBewerbungBodyKontakteStellvertretungEmailMax),
+            email: zod.string().min(1).max(bewerbungenPostBewerbungBodyKontakteStellvertretungEmailMax),
             first_name: zod
               .string()
               .min(1)
@@ -483,7 +483,7 @@ export const BewerbungenPostBewerbungBody = zod
           .describe("One of the three people, as a member of the public submits them, without a birthdate."),
         trainer: zod
           .object({
-            email: zod.string().max(bewerbungenPostBewerbungBodyKontakteTrainerEmailMax),
+            email: zod.string().min(1).max(bewerbungenPostBewerbungBodyKontakteTrainerEmailMax),
             first_name: zod
               .string()
               .min(1)
@@ -805,7 +805,7 @@ export const bewerbungenPostKontaktSeatBodyVersionMin = 0;
 
 export const BewerbungenPostKontaktSeatBody = zod
   .object({
-    email: zod.string().max(bewerbungenPostKontaktSeatBodyEmailMax),
+    email: zod.string().min(1).max(bewerbungenPostKontaktSeatBodyEmailMax),
     first_name: zod.string().min(1).max(bewerbungenPostKontaktSeatBodyFirstNameMax).regex(bewerbungenPostKontaktSeatBodyFirstNameRegExp),
     last_name: zod.string().min(1).max(bewerbungenPostKontaktSeatBodyLastNameMax).regex(bewerbungenPostKontaktSeatBodyLastNameRegExp),
     phone: zod.string().regex(bewerbungenPostKontaktSeatBodyPhoneRegExp),
@@ -843,7 +843,7 @@ export const GrantsPostGrantQueryParams = zod.object({
 export const grantsPostGrantBodyEmailMax = 254;
 
 export const GrantsPostGrantBody = zod.object({
-  email: zod.string().max(grantsPostGrantBodyEmailMax),
+  email: zod.string().min(1).max(grantsPostGrantBodyEmailMax),
 });
 
 /**
@@ -953,7 +953,7 @@ export const identityGetSignInBodyEmailMax = 254;
 
 export const IdentityGetSignInBody = zod
   .object({
-    email: zod.string().max(identityGetSignInBodyEmailMax),
+    email: zod.string().min(1).max(identityGetSignInBodyEmailMax),
   })
   .describe("Which mailbox is asking, folded to the one spelling the join, the header and the log agree on.");
 
@@ -968,7 +968,7 @@ export const identityGetSubjectBodyEmailMax = 254;
 
 export const IdentityGetSubjectBody = zod
   .object({
-    email: zod.string().max(identityGetSubjectBodyEmailMax),
+    email: zod.string().min(1).max(identityGetSubjectBodyEmailMax),
   })
   .describe("Which mailbox is asking, folded to the one spelling the join, the header and the log agree on.");
 
@@ -1077,7 +1077,7 @@ export const OutboxPostSignInBody = zod
         .describe("The one deletion notice, to a person who confirmed what went: an application's owed by a league write, an account's here."),
     ]),
     secret: zod.union([zod.string().min(1).max(outboxPostSignInBodySecretOneMax), zod.null()]),
-    to: zod.string().max(outboxPostSignInBodyToMax),
+    to: zod.string().min(1).max(outboxPostSignInBodyToMax),
     valid_until: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
   })
   .describe("One mail of the sign-in library, owed to the address it names.");
@@ -1106,7 +1106,7 @@ export const registrierungenPostRegistrierungBodyTokenRegExp = new RegExp("^[^\\
 
 export const RegistrierungenPostRegistrierungBody = zod
   .object({
-    email: zod.string().max(registrierungenPostRegistrierungBodyEmailMax),
+    email: zod.string().min(1).max(registrierungenPostRegistrierungBodyEmailMax),
     first_name: zod
       .string()
       .min(1)
@@ -1601,7 +1601,7 @@ export const schiedsrichterPostSchiedsrichterBodySchuleOneMax = 120;
 export const SchiedsrichterPostSchiedsrichterBody = zod.object({
   default_payment: zod.int().min(schiedsrichterPostSchiedsrichterBodyDefaultPaymentMin),
   kontakt: zod.object({
-    email: zod.string().max(schiedsrichterPostSchiedsrichterBodyKontaktEmailMax),
+    email: zod.string().min(1).max(schiedsrichterPostSchiedsrichterBodyKontaktEmailMax),
     phone: zod.union([
       zod.string().regex(schiedsrichterPostSchiedsrichterBodyKontaktPhoneOneRegExp),
       zod.null(),
@@ -1743,7 +1743,7 @@ export const schiedsrichterPatchSchiedsrichterBodyVersionMin = 0;
 export const SchiedsrichterPatchSchiedsrichterBody = zod.object({
   default_payment: zod.int().min(schiedsrichterPatchSchiedsrichterBodyDefaultPaymentMin),
   kontakt: zod.object({
-    email: zod.string().max(schiedsrichterPatchSchiedsrichterBodyKontaktEmailMax),
+    email: zod.string().min(1).max(schiedsrichterPatchSchiedsrichterBodyKontaktEmailMax),
     phone: zod.union([
       zod.string().regex(schiedsrichterPatchSchiedsrichterBodyKontaktPhoneOneRegExp),
       zod.null(),
@@ -3000,7 +3000,7 @@ export const teamsPutKontaktSeatBodyVersionMin = 0;
 
 export const TeamsPutKontaktSeatBody = zod
   .object({
-    email: zod.string().max(teamsPutKontaktSeatBodyEmailMax),
+    email: zod.string().min(1).max(teamsPutKontaktSeatBodyEmailMax),
     first_name: zod.string().min(1).max(teamsPutKontaktSeatBodyFirstNameMax).regex(teamsPutKontaktSeatBodyFirstNameRegExp),
     last_name: zod.string().min(1).max(teamsPutKontaktSeatBodyLastNameMax).regex(teamsPutKontaktSeatBodyLastNameRegExp),
     phone: zod.string().regex(teamsPutKontaktSeatBodyPhoneRegExp),

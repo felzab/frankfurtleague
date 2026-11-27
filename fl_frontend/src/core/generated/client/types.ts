@@ -242,7 +242,10 @@ export interface FLAccountAddressChangeOpen {
 }
 
 export interface FLAccountAddressChangePayload {
-  /** @maxLength 254 */
+  /**
+   * @minLength 1
+   * @maxLength 254
+   */
   email: string;
 }
 
@@ -743,9 +746,15 @@ export interface FLAddressChangeAdminListResponse {
  * The address a change starts on, and the address it goes to.
  */
 export interface FLAddressChangeAdminPayload {
-  /** @maxLength 254 */
+  /**
+   * @minLength 1
+   * @maxLength 254
+   */
   address: string;
-  /** @maxLength 254 */
+  /**
+   * @minLength 1
+   * @maxLength 254
+   */
   email: string;
 }
 
@@ -1686,7 +1695,10 @@ export type FLBewerbungKontaktMinAgeYears = 16;
  * The person a seat is to hold, who has agreed to nothing yet, and the `version` the page read the application at.
  */
 export interface FLBewerbungKontaktSeatPayload {
-  /** @maxLength 254 */
+  /**
+   * @minLength 1
+   * @maxLength 254
+   */
   email: string;
   /**
    * @minLength 1
@@ -1717,7 +1729,10 @@ export interface FLBewerbungKontaktSeatResponse {
  * One of the three people, as a member of the public submits them, without a birthdate.
  */
 export interface FLBewerbungKontaktpersonPayload {
-  /** @maxLength 254 */
+  /**
+   * @minLength 1
+   * @maxLength 254
+   */
   email: string;
   /**
    * @minLength 1
@@ -2558,7 +2573,10 @@ export interface FLKontaktLinkData {
 }
 
 export interface FLKontaktPayload {
-  /** @maxLength 254 */
+  /**
+   * @minLength 1
+   * @maxLength 254
+   */
   email: string;
   phone: string | null;
 }
@@ -2567,7 +2585,10 @@ export interface FLKontaktPayload {
  * The person one seat is to hold, on the row's `version` the dialog read, who has agreed to nothing yet.
  */
 export interface FLKontaktSeatPayload {
-  /** @maxLength 254 */
+  /**
+   * @minLength 1
+   * @maxLength 254
+   */
   email: string;
   /**
    * @minLength 1
@@ -3014,7 +3035,10 @@ export type FLOutboxRetentionDays = 30;
 export interface FLOutboxSignInPayload {
   data: FLSignInCodeData | FLPasskeyData | FLAccountErasureData | FLDeletionNoticeData;
   secret: string | null;
-  /** @maxLength 254 */
+  /**
+   * @minLength 1
+   * @maxLength 254
+   */
   to: string;
   valid_until: string | null;
 }
@@ -3675,7 +3699,10 @@ export interface FLPostBanListEntryPayload {
    * @pattern ^[^\x00\n\v\f\r\u0085\u2028\u2029]*$
    */
   ban_reason: string;
-  /** @maxLength 254 */
+  /**
+   * @minLength 1
+   * @maxLength 254
+   */
   email: string;
   notify: boolean;
 }
@@ -3705,7 +3732,10 @@ export interface FLPostBewerbungPayload {
 }
 
 export interface FLPostGrantPayload {
-  /** @maxLength 254 */
+  /**
+   * @minLength 1
+   * @maxLength 254
+   */
   email: string;
 }
 
@@ -3715,7 +3745,10 @@ export interface FLPostGrantPayload {
  * The team, the season, the state, the deadline and the confirmation link come from the invite and the clock, never from this body.
  */
 export interface FLPostRegistrierungPayload {
-  /** @maxLength 254 */
+  /**
+   * @minLength 1
+   * @maxLength 254
+   */
   email: string;
   /**
    * @minLength 1
@@ -5109,7 +5142,10 @@ export interface FLSpieltagAdminResponse {
  * Which mailbox is asking, folded to the one spelling the join, the header and the log agree on.
  */
 export interface FLSubjectPayload {
-  /** @maxLength 254 */
+  /**
+   * @minLength 1
+   * @maxLength 254
+   */
   email: string;
 }
 
