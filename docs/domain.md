@@ -296,9 +296,10 @@ it; on a public page the direct request is anyone's.
 
 A refusal is a gate or a box's fault (`fl_backend/app/core/exceptions.py`). A gate is an `APIError`,
 which stops the write before any box means anything, and a box's fault is a `FieldFault`. A
-`find_*_refusal` function in a slice's `services.py` returns one or `None`, where it judges data,
-orders several conditions, has several callers or tells a page in advance what a press would meet.
-Its caller raises a gate through `refuse`, and every independent fault in one `refuse_faults` call,
+`find_*_refusal` function in a slice's `services.py` returns a gate or `None`, or the faults it
+finds: one or `None`, or several, empty where it finds none. It exists where it judges data, orders
+several conditions, has several callers or tells a page in advance what a press would meet. Its
+caller raises a gate through `refuse`, and every independent fault in one `refuse_faults` call,
 which names each of them in one answer. A gate that turns one boolean its one caller computed is
 raised where it is judged, `if taken: raise APIError(...)`.
 

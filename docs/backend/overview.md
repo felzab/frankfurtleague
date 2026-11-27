@@ -151,16 +151,16 @@ The handlers are `fl_backend/app/core/exception_handlers.py`.
 **A request is judged in two passes, and each answers every fault it finds at once.** The first is
 the parse: FastAPI validates the body against its model before the endpoint runs, and a body
 breaking any field's rule answers `payload_refused` naming every such field. The second is the
-endpoint's judge, which a well-formed body alone reaches. A judge runs its gates first, each through
-`fl_backend/app/core/crud.py :: refuse`: a fault that stops the write before any box means anything,
-such as a record not found, a caller not allowed, a stale version or a closed season. A gate is an
+endpoint's judge, which a well-formed body alone reaches. A judge asks its gates first, each through
+`fl_backend/app/core/crud.py :: refuse`: a gate stops the write before any box means anything, such
+as a record not found, a caller not allowed, a stale version or a closed season. A gate is an
 `APIError` (`fl_backend/app/core/exceptions.py`), and names at most the one field its sentence
-reads, such as the retired record a by-id write names in its path. Then every independent check of a
-box runs into one `refuse_faults` call, which raises one refusal naming each fault as its own entry.
-A box's fault is a `FieldFault`, which nothing raises alone, and its code is one of `FieldCode`'s,
-which the frontend words on the box. A check that means nothing once another failed waits in a later
-call. The collected answer's code is its first fault's, and its status is 403 where any fault judged
-who asks, else 409 where any judged stored data, else 422.
+reads, such as the record a retirement names in its path. Then the judge hands every independent
+check of a box to one `refuse_faults` call, which raises one refusal naming each fault as its own
+entry. A box's fault is a `FieldFault`, which nothing raises alone, and its code is one of
+`FieldCode`'s, each of which the frontend words on its box. A check that means nothing once another
+failed waits in a later call. The collected answer's code is its first fault's, and its status is
+403 where any fault judged who asks, else 409 where any judged stored data, else 422.
 
 ## Time
 
