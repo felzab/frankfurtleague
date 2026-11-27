@@ -94,6 +94,11 @@ class Code(StrEnum):
     BERICHT_NOT_OFFICIATED = auto()
     BERICHT_CANCELLED = auto()
     BERICHT_ELFMETER_IN_THE_GRUPPE = auto()
+    # A report's proposal against its own entries: a no-show proposes no shoot-out and credits no scorer, and a shoot-out
+    # follows level goals alone.
+    NICHTANTRETEN_WITH_ELFMETERSCHIESSEN = auto()
+    NICHTANTRETEN_WITH_SCORERS = auto()
+    ELFMETERSCHIESSEN_WITHOUT_DRAW = auto()
     # A seat's save from one hour before kick-off: the line-up is the administration's from then. Never an
     # administrator's refusal, and never a line-up's being due or overdue, which refuses nothing.
     AUFSTELLUNG_LOCKED = auto()
@@ -101,6 +106,9 @@ class Code(StrEnum):
     AUFSTELLUNG_SPIEL_UNDATED = auto()
     # A nominee named beside eleven regular players, or more nominees than the regular players leave open of eleven.
     AUFSTELLUNG_NOMINEE_WITHOUT_SHORTAGE = auto()
+    # A line-up naming a pupil on two entries, or more starters than a side fields.
+    SPIELER_NAMED_TWICE = auto()
+    STARTERS_EXCEED_ELEVEN = auto()
     BEWERBUNG_ALREADY_DECIDED = auto()
     BEWERBUNG_SCHULE_UNUSABLE = auto()
     BEWERBUNG_WINDOW_CLOSED = auto()
@@ -288,17 +296,12 @@ type Rule = Literal[
     "date_not_in_calendar",
     "decline_without_proposal",
     "decline_without_reason",
-    "elfmeterschiessen_without_draw",
     "elfmeterschiessen_without_winner",
     "email_not_accepted",
     "good_spieler_exceed_kader",
-    "nichtantreten_with_elfmeterschiessen",
-    "nichtantreten_with_scorers",
     "registrierung_window_reaches_saison_start",
     "saison_ends_before_start",
-    "spieler_named_twice",
     "spieltag_ends_before_start",
-    "starters_exceed_eleven",
     "text_version_of_another_wording",
     "url_not_accepted",
 ]
@@ -317,6 +320,7 @@ type FieldCode = Literal[
     Code.KADER_ROLLE_TAKEN,
     Code.SPIEL_DOUBLE_BOOKED,
     Code.ADDRESS_CHANGE_TAKEN,
+    Code.SPIELER_NAMED_TWICE,
     # „Auf der Sperrliste“ (On the ban list).
     Code.ADDRESS_BARRED,
     Code.GRANT_BARRED,
@@ -346,10 +350,17 @@ type FieldCode = Literal[
     Code.STATE_NICHTANTRETEN_WITHOUT_TWO_SIDES,
     # „Ohne Tore“ (Without goals).
     Code.STATE_ERGEBNIS_ON_A_NON_EVENT,
+    # „Ohne Torschützen“ (Without scorers), on a report's scorers.
+    Code.NICHTANTRETEN_WITH_SCORERS,
+    # „Ohne Elfmeterschießen“ (Without a shoot-out), on a report's event, as a fixture's event says it takes no goals.
+    Code.NICHTANTRETEN_WITH_ELFMETERSCHIESSEN,
+    # „Erst bei Gleichstand“ (Only on level goals), on a report's shoot-out.
+    Code.ELFMETERSCHIESSEN_WITHOUT_DRAW,
     # „Erst ab {min} Jahren“ (Only from {min} years).
     Code.MEDIA_AGE,
     # „Höchstens {max}“ (At most {max}).
     Code.AUFSTELLUNG_NOMINEE_WITHOUT_SHORTAGE,
+    Code.STARTERS_EXCEED_ELEVEN,
     Code.RULES_QUALIFIERS_ABOVE_GRUPPE,
     # „Zwischen {floor} und {max}“ (Between {floor} and {max}), the floor the box's own schema publishes.
     Code.RULES_UNENTSCHIEDEN_OUTVALUES_WIN,
