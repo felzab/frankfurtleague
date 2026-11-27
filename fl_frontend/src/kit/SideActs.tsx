@@ -1,12 +1,9 @@
 "use client";
 
-import { useCallback, useRef } from "react";
-
 import { COPY } from "@/core/copy/shared";
 
 import { Button } from "./Button";
 import { askingLook } from "./buttonStyles";
-import { DialogReturn } from "./Dialog";
 import { FocusOnLeave } from "./FocusOnLeave";
 import { Menu } from "./Menu";
 
@@ -59,13 +56,9 @@ const NARROW_CLASSES = "contents @2xl:hidden";
  * one after the others, each entry its words alone, and a locked one dimmed with its reason as the line under it. A
  * row's decision, such as „Zusagen“ and „Ablehnen“, keeps its labelled buttons and is never drawn here.
  *
- * `children` are the questions and dialogs the acts open, each on the open state its act's press sets. A dialog
- * leaving hands the focus back to the „⋯“ where the narrow form shows (`DialogReturn`), whose menu's entry that opened
- * the dialog is gone by then; in the wide form the act's own button still stands, and React Aria's restore returns to it.
+ * `children` are the questions and dialogs the acts open, each on the open state its act's press sets.
  */
 export function SideActs({ acts, children }: { acts: ReadonlyArray<SideAct>; children?: ReactNode }) {
-  const narrow = useRef<HTMLSpanElement>(null);
-  const returnTo = useCallback(() => [narrow.current?.querySelector("button")], []);
   const menu = (
     <Menu
       label={COPY.template.more}
@@ -96,12 +89,8 @@ export function SideActs({ acts, children }: { acts: ReadonlyArray<SideAct>; chi
           />
         ))}
       </span>
-      <span
-        ref={narrow}
-        className={NARROW_CLASSES}>
-        {menu}
-      </span>
-      <DialogReturn value={returnTo}>{children}</DialogReturn>
+      <span className={NARROW_CLASSES}>{menu}</span>
+      {children}
     </FocusOnLeave>
   );
 }

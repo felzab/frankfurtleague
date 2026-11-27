@@ -14,13 +14,12 @@ import { ConfirmDialog } from "./ConfirmDialog";
 import { Dialog, RouteDialog, RouteDialogBody } from "./Dialog";
 import { EditorPage } from "./EditorPage";
 import { RowAct } from "./RowAct";
-import { SideActs } from "./SideActs";
 import { Table } from "./Table";
 import { TextField } from "./TextField";
 import { ToastRegion } from "./Toast";
 import { useEditor } from "./useEditor";
 
-import type { ActionAnswer, DryRunAction } from "@/core/action";
+import type { ActionAnswer } from "@/core/action";
 import type { Copy } from "@/core/copy";
 import type { ReactElement } from "react";
 import type { EditorSave } from "./useEditor";
@@ -480,92 +479,6 @@ describe("a dialog whose done act drops the row it was opened from", () => {
 
     await waitFor(() => expect(screen.getAllByRole("button", { name: COPY.shared.verb.create })).toHaveLength(1));
     await waitFor(() => expect(document.activeElement).toBe(next));
-  });
-});
-
-/**
- * A row's side acts, its one act opening a dialog behind the passkey touch, as a seat's „Sitz bearbeiten“ does: the
- * dry run passes, so the touch is asked, and the act answers `answer`.
- */
-function TouchedSideAct({ answer = DONE }: { answer?: ActionAnswer }) {
-  const [isOpen, setOpen] = useState(false);
-  return (
-    <SideActs acts={[{ label: COPY.shared.verb.edit, onPress: () => setOpen(true) }]}>
-      <Dialog
-        title={NAME}
-        act={{ verb: "save" }}
-        // The mark is the type's alone, which only the action builder gives a server action.
-        run={(async (_formData: FormData, dryRun?: boolean) => (dryRun === true ? DONE : answer)) as DryRunAction<FormData>}
-        touch={{ holder: HOLDER }}
-        open={{ isOpen, onOpenChange: setOpen }}>
-        <TextField
-          label={INPUT}
-          name="created"
-          kind="text"
-        />
-      </Dialog>
-    </SideActs>
-  );
-}
-
-// The harm: a keyboard user who saves a dialog opened from a row's „⋯“ loses the focus to the page's body, the menu's
-// entry that opened it gone, and the next Tab starts from the top of the page.
-describe("a touched dialog opened from a row's „⋯“", () => {
-  it("hands the focus back to the „⋯“ once its act is done", async () => {
-    // A rail's width, where a menu opens as a popover: jsdom has none of the observers the phone's sheet uses.
-    vi.spyOn(window, "matchMedia").mockImplementation((media) => Object.assign(new EventTarget(), { media, matches: true }) as MediaQueryList);
-    renderUnderNext(<TouchedSideAct />);
-    const more = screen.getByRole("button", { name: COPY.template.more });
-    act(() => more.focus());
-    await userEvent.keyboard("{Enter}");
-    await userEvent.keyboard("{ArrowDown}");
-    await userEvent.keyboard("{Enter}");
-    const dialog = await screen.findByRole("dialog");
-
-    await userEvent.click(within(dialog).getByRole("button", { name: SAVE }));
-
-    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-    await waitFor(() => expect(document.activeElement).toBe(more));
-  });
-
-  // The harm: at a wide box's width, where the „⋯“ is hidden, a keyboard user's save leaves the focus on the page's body.
-  it("hands the focus back to the act's own button where the „⋯“ is hidden", async () => {
-    renderUnderNext(<TouchedSideAct />);
-    // What the container query does at a wide box's width, which jsdom does not apply.
-    const more = screen.getByRole("button", { name: COPY.template.more });
-    const narrow = more.parentElement;
-    if (narrow !== null) narrow.style.display = "none";
-    const own = screen.getByRole("button", { name: COPY.shared.verb.edit });
-    act(() => own.focus());
-    await userEvent.keyboard("{Enter}");
-    const dialog = await screen.findByRole("dialog");
-
-    await userEvent.click(within(dialog).getByRole("button", { name: SAVE }));
-
-    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-    await waitFor(() => expect(document.activeElement).toBe(own));
-  });
-
-  // The harm: after the touch, React Aria's own restore aims at the menu's entry, long gone, so a keyboard user leaving
-  // by Escape lands on the page's body.
-  it("hands the focus back to the „⋯“ when Escape leaves it after a refused act", async () => {
-    vi.spyOn(window, "matchMedia").mockImplementation((media) => Object.assign(new EventTarget(), { media, matches: true }) as MediaQueryList);
-    renderUnderNext(<TouchedSideAct answer={{ ok: false, reason: COPY.shared.failure.stale }} />);
-    const more = screen.getByRole("button", { name: COPY.template.more });
-    act(() => more.focus());
-    await userEvent.keyboard("{Enter}");
-    await userEvent.keyboard("{ArrowDown}");
-    await userEvent.keyboard("{Enter}");
-    const dialog = await screen.findByRole("dialog");
-    await userEvent.click(within(dialog).getByRole("button", { name: SAVE }));
-    await within(dialog).findByText(COPY.shared.failure.stale);
-    // Standing again after the touch's step aside, it holds the focus, which Escape is pressed in.
-    await waitFor(() => expect(dialog.contains(document.activeElement)).toBe(true));
-
-    await userEvent.keyboard("{Escape}");
-
-    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-    await waitFor(() => expect(document.activeElement).toBe(more));
   });
 });
 
