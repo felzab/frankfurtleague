@@ -3,13 +3,17 @@
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 
+import { COPY } from "@/core/copy/shared";
+
 import { Button } from "./Button";
+import { actLabel } from "./dialogAct";
 import { FocusOnLeave } from "./FocusOnLeave";
 import { toastAnswer } from "./Toast";
 import { answering } from "./useFormAction";
 
 import type { ActionAnswer } from "@/core/action";
 import type { Copy } from "@/core/copy";
+import type { ActWords, DoneVerb } from "./dialogAct";
 
 /**
  * An act done at once on a press, with no question and no form, for whatever control the press stands on: whether it
@@ -29,28 +33,26 @@ export function usePressAct(done: Copy) {
 }
 
 /**
- * An act done at once on a press, drawn as its own primary button, busy while it runs (`usePressAct`). The act and
- * what it posts come as two, so a server page hands a server action and its record's id straight in.
+ * An act done at once on a press, drawn as its own primary button, busy while it runs (`usePressAct`): its verb names
+ * the button and words the toast once it is done, as a dialog's act does. The act and what it posts come as two, so a
+ * server page hands a server action and its record's id straight in.
  */
 export function PressAct<Payload, Value>({
-  label,
+  act,
   run,
   payload,
-  done,
 }: {
-  label: Copy;
+  act: ActWords<DoneVerb>;
   run: (payload: Payload) => Promise<ActionAnswer<Value>>;
   payload: Payload;
-  /** The toast's title once the act is done, from the catalogue's toast titles. */
-  done: Copy;
 }) {
-  const { isBusy, press } = usePressAct(done);
+  const { isBusy, press } = usePressAct(COPY.shared.toast.done[act.verb]);
   return (
     // The answer can drop the act's row, the focus with it (`FocusOnLeave`).
     <FocusOnLeave>
       <Button
         variant="primary"
-        label={label}
+        label={actLabel(act)}
         isBusy={isBusy}
         onPress={() => press(() => run(payload))}
       />

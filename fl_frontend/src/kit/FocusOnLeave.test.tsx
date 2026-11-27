@@ -31,10 +31,9 @@ function DatesCard({ dates }: { dates: readonly string[] }) {
           name={{ record: row }}
           acts={
             <PressAct
-              label={AGREE}
+              act={{ verb: "agree" }}
               run={agree}
               payload={{ row }}
-              done={COPY.shared.state.agreed}
             />
           }
         />
