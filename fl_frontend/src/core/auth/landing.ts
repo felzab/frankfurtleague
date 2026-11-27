@@ -58,8 +58,8 @@ async function landingOf(requestHeaders: Headers): Promise<Landing> {
 
   // A granted address's session past the administrator's figures, which the person lane alone would still serve,
   // ends here too, as the owner ruled: the administrator signs in afresh rather than holding a session that opens
-  // neither the administration nor the landing. It returns to the administration, whose sign-in alone offers the
-  // passkey, whichever guard sent it here naming no page.
+  // neither the administration nor the landing. It returns to the administration, whichever guard sent it here naming
+  // no page.
   const destination = await destinationOf(served, records);
   if (destination === "/signin") return { ...(await ended(served)), returnsTo: ROUTES.admin.path() };
 

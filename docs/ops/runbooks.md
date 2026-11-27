@@ -268,9 +268,8 @@ data no read-back has judged yet. While it holds:
   The frontend logs `scheduler.held` at its boot instead, so
   `docker compose logs frontend | grep scheduler.held` printing that line is the hold taking.
 - **No mail leaves, a sign-in code included.** Every mail a write owes waits in the Postausgang for
-  the first drain after the hold (`fl_frontend/src/core/afterResponse.ts :: drainSoon`). An
-  administrator signs in by passkey meanwhile, opening `/admin`: the sign-in it leads to offers the
-  passkey, which a sign-in opened anywhere else does not.
+  the first drain after the hold (`fl_frontend/src/core/afterResponse.ts :: drainSoon`). Sign in by
+  passkey meanwhile.
 - **The heartbeat alerts**, no pass pinging it (§9). That alert is expected until the hold lifts.
 - **Nothing else stops**: the site serves, and every write a page or a form makes is stored.
 
@@ -1253,8 +1252,7 @@ on the admin pages, so the frontend serves throughout, and what the hold stops i
 - **The drain** would send what the snapshot held unsent.
 
 The heartbeat alerts until step 11, and no sign-in code is mailed meanwhile: sign in by passkey,
-which every administrator holds and which the owner's steps ask for anyway, opening `/admin`, whose
-sign-in alone offers it.
+which every administrator holds and which the owner's steps ask for anyway.
 
 **The action log cannot be the list, because the restore rolls it back too; the backend's
 `journal.act` lines are.** Everything written between the snapshot and the restore is gone, the
@@ -1609,8 +1607,7 @@ the code's ten minutes, so a stranger can bring the lock on only by asking for t
 address, which mails them a code and spends one of their hour's five each time. The rows counting it
 carry a keyed hash rather than the address, so no row can be picked out for one person:
 
-- **An administrator needs nothing**: a passkey sign-in, offered on the sign-in `/admin` leads to,
-  never meets the lock, and clears it.
+- **An administrator needs nothing**: a passkey sign-in never meets the lock, and clears it.
 - **Otherwise it lifts by itself**, each failure's row expiring a day after it was written, removed
   by the `verification` index in §14.
 - **To lift it sooner, lift every address's at once**: in the Atlas console, delete from the `auth`
