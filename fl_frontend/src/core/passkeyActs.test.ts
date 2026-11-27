@@ -19,11 +19,13 @@ const addressChangeActs = await import("@/app/admin/(list)/address-changes/addre
 const changeActs = await import("@/features/address-change/actions");
 const teamActs = await import("@/app/admin/(editor)/saisons/[saison]/teams/[team]/teamActs");
 const bewerbungSeatActs = await import("@/app/admin/(list)/saisons/[saison]/bewerbungen/[bewerbung]/seatActs");
+const refereeSave = await import("@/app/admin/(editor)/schiedsrichter/[schiedsrichter]/saveSchiedsrichter");
 
 const GRANT = "64b000000000000000000002";
 const ADDRESS_CHANGE = "64b000000000000000000002";
 const TEAM = "64a000000000000000000001";
 const BEWERBUNG = "64b000000000000000000002";
+const REFEREE = "64b0000000000000000000a1";
 const SEAT_PERSON = { first_name: "Jana", last_name: "Schmidt", email: "jana@example.org", phone: "069 90009765", version: "3" };
 
 /** How long ago the administrator's passkey sign-in was: past the touch, well inside the administrator's window. */
@@ -77,6 +79,10 @@ const TOUCHED: ReadonlyArray<readonly [string, () => Promise<unknown>]> = [
   [
     "an application's seat",
     () => bewerbungSeatActs.writeBewerbungSeat({ id: BEWERBUNG, seat: "trainer", ...SEAT_PERSON, holder: ADMIN_EMAIL }),
+  ],
+  [
+    "a referee's save",
+    () => refereeSave.saveSchiedsrichter({ id: REFEREE, version: 3, changes: { email: "erika.neu@example.org" }, holder: ADMIN_EMAIL }),
   ],
 ];
 

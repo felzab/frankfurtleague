@@ -2,7 +2,7 @@
 
 import { z } from "zod";
 
-import { action, blankIsNull, numberBox } from "@/core/action";
+import { action, blankIsNull, numberBox, PAGE_HOLDER } from "@/core/action";
 import { ADMIN_COPY } from "@/core/copy/admin";
 import { COPY } from "@/core/copy/shared";
 import { schiedsrichterPatchSchiedsrichter } from "@/core/generated/client/sdk";
@@ -32,23 +32,27 @@ const SaveSchiedsrichter = z.object({
       default_payment: numberBox(shape.default_payment),
     })
     .partial(),
+  ...PAGE_HOLDER,
 });
 
 /**
- * Saves the referee editor's changes on the version the editor was read at, answering the version stored. The write
- * replaces the whole record, so every field left alone is sent as stored, read again here. A corrected address of a
- * person who has not confirmed retires their link and mails a fresh one, which the status line says beside the save,
- * naming the address it went to. A name another referee holds, a retired one's included, is refused on the name's box;
- * a confirmed person's address is the editor's to show, never to change, as only an address change moves it.
+ * Saves the referee editor's changes on the version the editor was read at, answering the version stored, behind the
+ * passkey touch, since a save can hand the referee area to the address it stores. The write replaces the whole record,
+ * so every field left alone is sent as stored, read again here. A corrected address of a person who has not confirmed
+ * retires their link and mails a fresh one, which the status line says beside the save, naming the address it went
+ * to. A name another referee holds, a retired one's included, is refused on the name's box; a confirmed person's
+ * address is the editor's to show, never to change, as only an address change moves it.
  */
 export const saveSchiedsrichter = action({
   lane: "admin",
+  passkey: true,
   name: "saveSchiedsrichter",
   input: SaveSchiedsrichter,
   // The write nests the address under its contact, where the editor's box is the address alone.
   paths: { "kontakt.email": "changes.email" },
   examples: { "changes.name": COPY.shared.field.exampleName, "changes.phone": COPY.shared.field.examplePhone },
-  run: async ({ id, version, changes }): Promise<ActionAnswer<number>> => {
+  // The holder is the touch's to judge, and no field of the referee's body.
+  run: async ({ id, version, changes, holder: _holder }): Promise<ActionAnswer<number>> => {
     const read = await getSchiedsrichterById(id);
     if (read === null) return { ok: false, reason: COPY.shared.failure.stale };
 
