@@ -121,8 +121,6 @@ class APIError(Exception):
         self.headers = headers
         self.subject = subject
 
-    # A property with no setter, so pyright refuses an assignment to it, on a gate or in a subclass's own `__init__`:
-    # a fault written onto a gate would reach the body as a box's entry outside `refuse_faults`.
     @property
     def faults(self) -> tuple[FieldFault, ...]:
         """The box faults this refusal names: none, on a gate."""
@@ -133,8 +131,7 @@ class APIError(Exception):
 class FieldRefusal(APIError):
     """Every fault one collecting call found, as one refusal: each its own `fields` entry, with its own code and bounds.
 
-    Its code is the first fault's and its status `refusal_status`'s. Constructed by `app.core.crud.refuse_faults` alone,
-    which ruff's banned-api holds, so no gate carries a box's fault and no fault reaches the body any other way.
+    Its code is the first fault's and its status `refusal_status`'s. `app.core.crud.refuse_faults` constructs it.
     """
 
     def __init__(self, faults: tuple[FieldFault, ...]):

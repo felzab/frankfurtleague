@@ -29,25 +29,9 @@ Each fails silently. The ratified decisions for this surface are in `docs/decisi
   the same way: its file counts the documents lacking the key, writes the default's value into each,
   and counts again to 0. Where no value for it can be written, the file counts them and stops before
   its first write unless it finds none.
-- A judge asks each gate through `refuse` (`fl_backend/app/core/crud.py`) ahead of any box: a gate
-  stops the write before any box means anything, as a closed season or a missing record does. A gate
-  that means nothing until a field check found nothing waits behind that check's call, with a
-  comment above it naming the check. Then it hands its independent field checks to one
-  `refuse_faults` call, never one call each: a second call holding a check that means something
-  alone is asked only once the first found nothing, so the answer names the first box at fault and
-  the person meets the next on a later press. A check that means nothing once another failed sits in
-  the same call behind a guard on that check (`None if base else find_…(…)`, `base` the other
-  check's answer, read first), so one answer still names every box at fault. A helper that reads for
-  a check returns its `FieldCheck` for its caller's one call rather than raising its own. A value a
-  person typed is judged on its box by a `FieldFault` check under a `FieldCode` member, never by a
-  gate, and never by calling a gate that `fl_backend/tests/core/test_gate_refusals.py :: ALLOWED`
-  lists: each listed gate stands only where its reason does, as for an address read from a path, and
-  an entry is added only with the reason a reviewer can check. A judge a change touches is brought
-  to this order in the same change.
-- What holds the refusal order: pyright refuses a `FieldFault` sent through `refuse` or raised bare,
-  and an assignment to a refusal's `faults`; ruff refuses an import of `FieldRefusal` in the
-  application outside `crud.py`; the sweep refuses a gate built by calling an imported `APIError` or
-  `Subject` with a `FieldCode` member or a body-located `Subject` outside the sites it lists.
-  Nothing sees two calls where one belongs, a missing guard, a gate asked in the wrong order, a new
-  caller of a listed gate, a box's check written as a gate under a code outside `FieldCode`, a gate
-  built through a subclass or a module attribute, or a subclass overriding `faults`.
+- A judge's field checks go into one `refuse_faults` call (`fl_backend/app/core/crud.py`), after its
+  gates' `refuse`, never one call each: a second call is asked only once the first found nothing, so
+  the person meets its fault a press later, and no check sees it. A check that means nothing once
+  another failed sits in the same call behind a guard on that check (`None if base else find_…(…)`),
+  and a helper returns its `FieldCheck` rather than raising its own. `docs/backend/overview.md`
+  describes the two passes.

@@ -189,12 +189,14 @@ async def patch_kader_row(
         # caller something about another team's squad.
         stored_raw = await pull_one_from_db(collection=saison_spieler_collection, db_filter=row, projection=["stufe"], session=session)
 
-        refuse_faults(
+        refuse(
             find_kader_stufe_refusal(
                 stufe=row_data.stufe,
                 stored_stufe=stored_raw.get("stufe"),
                 allowed_stufen=await _allowed_stufen(saisons_collection=saisons_collection, saison_id=saison_id, session=session),
-            ),
+            )
+        )
+        refuse_faults(
             # The captaincy alone and never the cap: a live row edited inside its own squad leaves the
             # squad's size where it was.
             await find_a_taken_rolle(

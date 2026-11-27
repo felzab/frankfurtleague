@@ -191,7 +191,6 @@ async def write_seat(
             seat_data=FLKontaktSeatPayload.model_validate({**sent, "version": version}),
             saison_teams_collection=database[Collection.SAISON_TEAMS] if saison_teams_collection is None else saison_teams_collection,
             saisons_collection=database[Collection.SAISONS],
-            ban_list_collection=database[Collection.BAN_LIST],
             outbox_collection=database[Collection.OUTBOX],
             db=database.client,
             today=TODAY,

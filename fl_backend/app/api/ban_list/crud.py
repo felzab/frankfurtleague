@@ -56,10 +56,8 @@ async def find_address_barred_refusal(
 ) -> FieldFault | None:
     """`address_barred` on the box at `path`: a ban holds the address typed there.
 
-    Asked by the ban's own add, ahead of `uniq_ban_list_address`, which answers only a race, and by every administrator's
-    write that mails a link to a typed address: the drain hands no mail but the ban's own notice to a banned one, so the
-    write would answer that a link went out that never arrives. A visitor's form never asks it, since its answer would
-    tell a stranger the ban stands.
+    Asked by the ban's own add, ahead of `uniq_ban_list_address`, which answers only a race. A visitor's form never asks
+    it, since its answer would tell a stranger the ban stands.
     """
 
     if not await address_is_barred(ban_list_collection=ban_list_collection, address=address, session=session):
