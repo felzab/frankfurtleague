@@ -67,7 +67,6 @@ from app.api.spiele.services import (
     reopens,
     resolve_bracket,
     slots_booked_against,
-    spiel_label,
     stored_in_slice,
     voided_ergebnisse_of,
 )
@@ -951,7 +950,8 @@ async def save_spiel_in_session(
             collection=collections.spiele,
             action=act or ("spiel.ergebnis_changed" if ergebnis_moved else "spiel.changed"),
             record_id=spiel_id,
-            label=spiel_label(judged.saison_id, judged.patched.spiel_nr),
+            saison_id=judged.saison_id,
+            spiel_nr=judged.patched.spiel_nr,
             session=session,
         )
 

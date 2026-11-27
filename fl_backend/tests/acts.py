@@ -36,7 +36,7 @@ async def deletions_of(database: AsyncDatabase, action: FLAction) -> list[tuple[
 
     rows = database[Collection.ACTION_LOG].find({"action": action}).sort("_id", 1)
 
-    return [(row["by"], row["label"], row["count"], row["record_id"]) async for row in rows]
+    return [(row["by"], row["saison_id"], row["count"], row["record_id"]) async for row in rows]
 
 
 def journal_records(caplog: pytest.LogCaptureFixture) -> list[logging.LogRecord]:

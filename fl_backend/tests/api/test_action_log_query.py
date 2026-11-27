@@ -35,7 +35,7 @@ def utc(month: int, day: int, hour: int) -> datetime:
         ),
         pytest.param(
             {"q": " Adler (U17) "},
-            {"$or": [{"team": ADLER_U17}, {"label": ADLER_U17}]},
+            {"$or": [{"team": ADLER_U17}, {"saison_id": ADLER_U17}, {"label": ADLER_U17}]},
             id="a metacharacter in the search",
         ),
         pytest.param({"q": "   "}, {}, id="a blank search, which is none"),

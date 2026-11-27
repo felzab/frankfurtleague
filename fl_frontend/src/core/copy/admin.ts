@@ -245,7 +245,7 @@ export const ADMIN_COPY = catalogue({
   },
 
   spiel: {
-    /** The editor of a match whose two teams are not both known yet, named by its number. */
+    /** A match named by its number: the editor of one whose two teams are not both known yet, and a Protokoll row's. */
     number: (nr: number) => spieleNamed([nr]),
     ansetzung: "Ansetzung",
     note: "Notiz",

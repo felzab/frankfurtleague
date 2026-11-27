@@ -749,15 +749,15 @@ class TestTheLogTellsAResultFromARedating:
     async def test_a_save_writes_one_row_naming_the_fixture_and_which_it_was(
         self, mongo_replica_set_url: str, moved: dict[str, Any], action: str
     ):
-        """A row holds neither value, so its action alone says a result moved, and only its label says on which fixture."""
+        """A row holds neither value, so its action alone says a result moved, and only its season and number say on which fixture."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await call_patch(database, client, VIERTELFINALE, await payload_for(database, VIERTELFINALE, **moved))
             rows = database[Collection.ACTION_LOG].find({"action": {"$in": ["spiel.changed", "spiel.ergebnis_changed"]}})
-            return [(row["action"], row["record_id"], row["label"]) async for row in rows]
+            return [(row["action"], row["record_id"], row["saison_id"], row["spiel_nr"], row["label"]) async for row in rows]
 
         assert await on_a_seeded_season(mongo_replica_set_url, body, spiele=bracket_season()) == [
-            (action, VIERTELFINALE, f"{SAISON_ID} / {VIERTELFINALE_NR}")
+            (action, VIERTELFINALE, SAISON_ID, VIERTELFINALE_NR, None)
         ]
 
 

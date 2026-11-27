@@ -181,7 +181,7 @@ async def patch_spieltag(
             collection=spieltage_collection,
             action="spieltag.changed",
             record_id=spieltag_id,
-            label=str(stored_raw["saison_id"]),
+            saison_id=str(stored_raw["saison_id"]),
             session=session,
         )
 

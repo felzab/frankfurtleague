@@ -227,7 +227,7 @@ async def refusal_of(saving: Awaitable[Any]) -> tuple[Code, list[tuple[str | int
 async def test_a_seats_first_save_creates_the_line_up_the_screen_then_reads(mongo_replica_set_url: str):
     """The squad, the matchday by its stored position, each side with its Kürzel, and the act recorded.
 
-    The act's record is the line-up, so its label alone names the fixture in the Protokoll.
+    The act's record is the line-up, so its season and number alone name the fixture in the Protokoll.
     """
 
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> None:
@@ -255,7 +255,7 @@ async def test_a_seats_first_save_creates_the_line_up_the_screen_then_reads(mong
         assert (answer.version, [(entry.spieler_id, entry.starts) for entry in answer.spieler]) == (0, [(LINA, True), (OLE, False)])
         assert stored is not None
         assert await acts_of(database) == [("aufstellung.saved", ACT_BY_KONTAKT, "Alpha", stored["_id"])]
-        assert await database[Collection.ACTION_LOG].distinct("label") == ["2026 / 1"]
+        assert [(row["saison_id"], row["spiel_nr"], row["label"]) async for row in database[Collection.ACTION_LOG].find()] == [("2026", 1, None)]
 
     await on_a_season(mongo_replica_set_url, body)
 

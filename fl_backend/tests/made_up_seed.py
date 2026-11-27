@@ -1465,9 +1465,9 @@ class MadeUpLeague:
                 []
                 if self.first_year
                 else [
-                    logged(40, "system", "retention.kontakte", label=FINISHED, count=2),
-                    logged(30, "schiedsrichter", "spielbericht.saved", label=f"{FINISHED} / 1"),
-                    logged(20, "kontakt", "spielbestaetigung.answered", team=PEOPLE["access"]["loggedTeam"], label=FINISHED),
+                    logged(40, "system", "retention.kontakte", saison_id=FINISHED, count=2),
+                    logged(30, "schiedsrichter", "spielbericht.saved", saison_id=FINISHED, spiel_nr=1),
+                    logged(20, "kontakt", "spielbestaetigung.answered", team=PEOPLE["access"]["loggedTeam"], saison_id=FINISHED),
                 ]
             ),
             logged(10, PEOPLE["owner"], "grant.added", label=PEOPLE["administrators"]["waiting"]),

@@ -105,6 +105,8 @@ async def test_the_pages_neither_repeat_nor_drop_a_row_across_a_cursor(mongo_rep
                 "team": None,
                 "action": "team.changed",
                 "record_id": None,
+                "saison_id": None,
+                "spiel_nr": None,
                 "label": None,
                 "count": None,
                 "trace_id": "0" * 32,

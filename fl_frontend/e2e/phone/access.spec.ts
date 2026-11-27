@@ -61,15 +61,21 @@ test("the Protokoll's filter sheet narrows to one who", async ({ page }) => {
   const main = page.getByRole("main");
   const rows = main.getByRole("row");
   // A row of each kind of who the seed wrote, and the one the sheet chooses.
-  const chosen = { option: "Kontaktperson", what: `Termin beantwortet · ${FINISHED}`, who: `Kontaktperson · ${PEOPLE.access.loggedTeam}` };
+  const chosen = {
+    option: "Kontaktperson",
+    what: `Termin beantwortet · Saison ${FINISHED}`,
+    who: `Kontaktperson · ${PEOPLE.access.loggedTeam}`,
+  };
   const others = [
     `Administrator eingetragen · ${PEOPLE.administrators.waiting}`,
-    `Spielbericht eingetragen · ${FINISHED} / 1`,
+    `Spielbericht eingetragen · Saison ${FINISHED} · Spiel 1`,
     "Nach Frist gelöscht · Kontaktpersonen: 2",
     "Konto gelöscht",
   ];
 
   await page.goto("/admin/log");
+  // Each other row stands before the filter, so its absence after it is the filter's work and no wording's.
+  for (const other of others) await expect(rows.filter({ hasText: other }).first()).toBeVisible();
   await main.getByRole("button", { name: "Filter" }).click();
   // A phone's selects stand in a sheet, which stays open over the list until „Fertig“.
   const sheet = await enteredDialog(page, "Filter");

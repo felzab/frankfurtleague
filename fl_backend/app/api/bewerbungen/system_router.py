@@ -91,7 +91,7 @@ async def sweep_saison(
                 collection=bewerbungen_collection,
                 action="retention.bewerbungen",
                 by=ACT_BY_SYSTEM,
-                label=saison_id,
+                saison_id=saison_id,
                 count=result.deleted_count,
                 session=session,
             )

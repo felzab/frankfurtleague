@@ -117,7 +117,7 @@ async def enter_spielbestaetigung(
             collection=spielbestaetigungen_collection,
             action="spielbestaetigung.entered",
             record_id=spielbestaetigung_id,
-            label=str(row["saison_id"]),
+            saison_id=str(row["saison_id"]),
             session=session,
         )
 
@@ -190,7 +190,7 @@ async def discard_spielbestaetigung(
             collection=spielbestaetigungen_collection,
             action="spielbestaetigung.vorschlag_discarded",
             record_id=spielbestaetigung_id,
-            label=str(row["saison_id"]),
+            saison_id=str(row["saison_id"]),
             session=session,
         )
 
