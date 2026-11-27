@@ -157,7 +157,7 @@ describe("the erasure's two stores", () => {
     failTheCommit();
 
     // Not done: the dialog stands on this answer, and its press repeats the erasure, the one way to reach the account.
-    expect(await press()).toStrictEqual({ ok: false, reason: ADMIN_COPY.erasure.partial, warn: true });
+    expect(await press()).toStrictEqual({ ok: false, reason: SERVER_COPY.actAnswer.erasurePartial, warn: true });
 
     const errors = log.lines().filter(({ level }) => level === "ERROR");
     expect(errors.map(({ message, fields }) => ({ message, fields }))).toStrictEqual([

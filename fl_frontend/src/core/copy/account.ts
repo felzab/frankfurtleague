@@ -56,9 +56,7 @@ export const ACCOUNT_COPY = catalogue({
      */
     endsDevices: "Geräte, die damit angemeldet sind, werden abgemeldet.",
     endsThisDevice: "Auch dieses Gerät wird abgemeldet.",
-    /** An administrator's last passkey, their only way into the administration. */
-    lastKept: "Der letzte Passkey lässt sich nicht löschen.",
-    /** The same, as the deletion's tooltip. */
+    /** The deletion's tooltip on an administrator's last passkey, their only way into the administration. */
     lastKeptLocked: "Letzter Passkey bleibt",
     /** The set-up's tooltip at the cap, which no refusal on a status line words. */
     limit: (count: number) => `Höchstens ${boundBy(formatNumber(count), "Passkeys")}`,
