@@ -33,10 +33,23 @@ export function useFieldFaults(): FieldFaults | undefined {
  */
 export const FAULTED_PART = { "data-kit-faulted": "", "data-kit-focus": "", tabIndex: -1 } as const;
 
-/** Whether `control` is a box the answer names: one a kit field posts under, whose fault React Aria judges. */
-const isNamedIn = (faults: FieldFaults, control: Element): control is HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement =>
-  (control instanceof HTMLInputElement || control instanceof HTMLSelectElement || control instanceof HTMLTextAreaElement) &&
-  Object.hasOwn(faults, control.name);
+type Control = HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
+
+const isControl = (element: Element): element is Control =>
+  element instanceof HTMLInputElement || element instanceof HTMLSelectElement || element instanceof HTMLTextAreaElement;
+
+/**
+ * The controls judging a box the answer names, whose `invalid` event React Aria's field answers: the box a kit field
+ * posts under, or, where that box is a hidden input no browser judges, as a record picker posts its record's id while
+ * its typed text holds the fault, the controls of the field around it that the browser does judge.
+ */
+const judgedFor = (faults: FieldFaults, control: Element): readonly Control[] => {
+  if (!isControl(control) || !Object.hasOwn(faults, control.name)) return [];
+  if (control.willValidate) return [control];
+  return [...(control.parentElement?.querySelectorAll("input, select, textarea") ?? [])].filter(
+    (judged): judged is Control => isControl(judged) && judged.willValidate,
+  );
+};
 
 /**
  * The one judged form of the site: every form a person sends is this one, a dialog's included. Both passes end alike.
@@ -45,9 +58,9 @@ const isNamedIn = (faults: FieldFaults, control: Element): control is HTMLInputE
  * `validationErrors` puts on the box (`useFormValidationState`). Either way the focus goes to the first faulted box:
  * once an answer's faults have committed, the form checks each box the answer names, whose `invalid` event React
  * Aria's field answers by focusing the form's first invalid box through the field's own `focus` (`useFormValidation`),
- * a date's segments, a select's button and a choice group included; where no named box is invalid, as a list's own
- * refusal names none, the first part showing a fault takes it (`FAULTED_PART`). That check stands for no press, so it tells
- * `onBlock` nothing: the status line says what the answer says. It reaches no other box, since React Aria commits the
+ * a date's segments, a select's button, a record picker's text and a choice group included (`judgedFor`); where no
+ * named box is invalid, as a list's own refusal names none, the first part showing a fault takes it (`FAULTED_PART`).
+ * That check stands for no press, so it tells `onBlock` nothing: the status line says what the answer says. It reaches no other box, since React Aria commits the
  * fault of every box an `invalid` event reaches: a box the person changed while the send was on its way is judged
  * once they commit it, and one they left invalid ahead of the named boxes keeps the focus, as React Aria focuses the
  * form's first invalid box alone.
@@ -103,7 +116,7 @@ export function HeldForm({
     reported.current = fieldErrors;
     isReporting.current = true;
     try {
-      const valid = [...form.elements].filter((control) => isNamedIn(fieldErrors, control)).map((control) => control.checkValidity());
+      const valid = [...form.elements].flatMap((control) => judgedFor(fieldErrors, control)).map((control) => control.checkValidity());
       if (!valid.includes(false)) form.querySelector<HTMLElement>("[data-kit-faulted]")?.focus();
     } finally {
       isReporting.current = false;

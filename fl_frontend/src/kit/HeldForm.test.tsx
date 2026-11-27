@@ -232,6 +232,20 @@ const FAULTED: { kind: string; box: (isRequired: boolean) => ReactElement; focus
     ),
     focused: (root) => root.querySelector("button"),
   },
+  {
+    // A record picker posts its id on a hidden input, which no browser judges, while its typed text holds the fault.
+    kind: "a record picker",
+    box: (isRequired) => (
+      <ComboBox
+        label={WORD}
+        name="faulted"
+        isRequired={isRequired}
+        options={YES_NO}
+        plural={WORD}
+      />
+    ),
+    focused: (root) => root.querySelector('input[role="combobox"]'),
+  },
 ];
 
 /** A form of one box over a box no pass faults, with the send button: the focus stands on the button as a press leaves it. */
