@@ -453,6 +453,18 @@ describe("a refusal's line", () => {
   ] as const)("answers %s in its line on any screen", async (_case, code, reason) => {
     expect(await save(refusal(code))({ id: "6890a1b2c3d4e5f607190001" })).toStrictEqual({ ok: false, errorCode: code, reason });
   });
+
+  // A page older than the API: the bound's name moved between the page's read and the press.
+  it("answers a refusal missing the bound its phrase names as a stale page, never as an outage", async () => {
+    const refused: FLRefusedField = { in: "body", kind: "rules_gruppen_in_use", ctx: {}, path: ["id"] };
+    const answer = refusal("rules_gruppen_in_use", { fields: [refused] });
+
+    expect(await save(answer)({ id: "6890a1b2c3d4e5f607190001" })).toStrictEqual({
+      ok: false,
+      errorCode: "rules_gruppen_in_use",
+      reason: stale,
+    });
+  });
 });
 
 // The harm: a row's refusal shown on another row, on the list's one line where nobody finds the row, or nowhere.

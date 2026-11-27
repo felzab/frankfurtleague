@@ -103,14 +103,14 @@ export const isBoundedCode = (code: Code): boolean => isPatterned(code);
 /**
  * A rule the backend refused a payload with, or a code whose phrase names its bounds: under its field, in the same
  * fixed patterns a Zod issue's line takes, or, where no pattern words a rule, as its sentence on the status line. A
- * context missing the bound its pattern names means a page older than the API, so it answers the unexpected line on
- * the status line; a rule the catalogue does not word never reaches it, the builder answering that with the stale line.
+ * context missing the bound its pattern names means a page older than the API, so it answers the stale line on the
+ * status line, as every refusal the catalogue does not word does; a rule the catalogue does not word never reaches it.
  */
 export function ruleMessage({ kind, ctx, path }: Pick<FLRefusedField, "kind" | "ctx" | "path">): { field: Copy } | { line: Copy } {
   if (isPatterned(kind)) {
     const phrase = PATTERNED[kind](ctx, path);
-    return phrase === undefined ? { line: failure.unexpected } : { field: phrase };
+    return phrase === undefined ? { line: failure.stale } : { field: phrase };
   }
   if (isLined(kind)) return { line: SERVER_COPY.ruleLine[kind] };
-  return { line: failure.unexpected };
+  return { line: failure.stale };
 }
