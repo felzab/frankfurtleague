@@ -268,9 +268,11 @@ hold: every frame's account menu links it, and an act on the passkey touch's fix
 removal and the address change's start among them, runs only on a passkey sign-in made seconds
 before, for an administrator (`fl_frontend/src/core/action.ts`, a lane's `passkey`); an address
 holding no grant passes it. The touch is always such an act's last step: the administrator presses
-the act, answers any dialog, presses the final button, and that press asks the touch and then runs
-the act (`fl_frontend/src/kit/usePasskeyTouch.ts`), so nothing typed runs against the minute a touch
-lasts.
+the act, answers any dialog, presses the final button, and that press runs the act's dry run where
+its lane declares one, asks the touch once the dry run passed, and then runs the act
+(`fl_frontend/src/kit/usePasskeyTouch.ts`). A lane whose typed input the server judges declares one
+(`fl_frontend/src/core/action.ts`, a lane's `dryRun`), so a refusal of that input stands on its
+field before any touch is asked, and nothing typed runs against the minute a touch lasts.
 
 ## Configuration and tests
 
