@@ -5426,7 +5426,6 @@
             ]
           },
           "version": {
-            "default": 0,
             "title": "Version",
             "type": "integer"
           }
@@ -11242,7 +11241,6 @@
             "title": "Time"
           },
           "version": {
-            "default": 0,
             "title": "Version",
             "type": "integer"
           }
@@ -15123,7 +15121,6 @@
             ]
           },
           "version": {
-            "default": 0,
             "title": "Version",
             "type": "integer"
           }

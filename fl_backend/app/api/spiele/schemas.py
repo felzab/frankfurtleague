@@ -707,7 +707,7 @@ class FLSpielJoinedAdmin(FLSpielJoined):
 
     spielort: FLSpielortField | None
     schiedsrichter: FLSpielSchiedsrichterField | None
-    version: int = 0
+    version: int
 
 
 class FLSpielJoinedInternal(FLSpielJoinedAdmin):
