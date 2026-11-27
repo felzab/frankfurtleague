@@ -50,23 +50,24 @@ ALLOWED: dict[tuple[str, str, str], str] = {
     ),
     # The callers of the three above, each handing them a check of values no box of its request holds.
     ("api/address_change/admin_router.py", "_refuse_an_address_off_limits", "a call of as_judged_on_stored_state"): (
-        "The re-send and the discard act on a change by its id: the address on file is judged on the stored change."
+        "The re-send and the discard act on a change by its id: the address on file is judged on the stored change; "
+        "holds while each of its callers acts on a stored change."
     ),
     ("api/address_change/admin_router.py", "resend_confirmation.judge_and_remint_the_change", "a call of as_judged_on_stored_state"): (
-        "The re-send sends no address: the new one is judged on the stored change."
+        "The re-send sends no address: the new one is judged on the stored change; holds while its body carries none."
     ),
     ("api/grants/admin_router.py", "post_handover.judge", "a call of as_judged_on_stored_state"): (
-        "The handover sends no address: the ban is judged on the stored grant's."
+        "The handover sends no address: the ban is judged on the stored grant's; holds while its body carries none."
     ),
     ("api/saisons/admin_router.py", "post_spielplan.draw_the_whole_season", "a call of as_judged_on_stored_state"): (
-        "The draw sends no rules: the season's stored ones are judged."
+        "The draw sends no rules: the season's stored ones are judged; holds while its body carries none."
     ),
     ("api/spielbestaetigungen/admin_router.py", "adopt_spielbestaetigung.adopt_the_proposal", "a call of as_judged_on_the_stored_proposal"): (
-        "The adoption sends no fixture: the stored proposal is judged."
+        "The adoption sends no fixture: the stored proposal is judged; holds while its body carries none."
     ),
     ("api/spielbestaetigungen/person_router.py", "post_team_answer.answer", "a call of judged_as_a_proposal"): (
         "A club's answer proposes a date and a time, which the save's checks judge on a fixture body the answer does not "
-        "send, so the paths their faults name are none of its boxes."
+        "send, so the paths their faults name are none of its boxes; holds while the save's checks are asked of that body."
     ),
 }
 
