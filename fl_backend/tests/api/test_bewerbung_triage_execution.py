@@ -446,7 +446,12 @@ class TestASeasonsColourIsOneTeams:
             entered = await database[Collection.SAISON_TEAMS].count_documents({})
             await accept(database, client, NEW_SCHOOL_BEWERBUNG, shorthand=NEW_SCHOOL_SHORTHAND, trikot_farbe=None)
 
-            return refused.value.error_code, refused.value.fields, entered, await database[Collection.SAISON_TEAMS].count_documents({})
+            return (
+                refused.value.error_code,
+                tuple(fault.path for fault in refused.value.faults),
+                entered,
+                await database[Collection.SAISON_TEAMS].count_documents({}),
+            )
 
         assert await on_a_league(mongo_replica_set_url, body) == (Code.TRIKOT_FARBE_TAKEN, (("trikot_farbe",),), 1, 2)
 
@@ -634,7 +639,7 @@ class TestTheCodeAnAcceptanceIsSent:
 
             return (
                 refused.value.error_code,
-                refused.value.fields,
+                tuple(fault.path for fault in refused.value.faults),
                 await junction_rows(database),
                 (await stored_bewerbung(database, bewerbung_id))["status"],
             )

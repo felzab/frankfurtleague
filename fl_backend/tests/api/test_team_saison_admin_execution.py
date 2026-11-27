@@ -191,7 +191,7 @@ class TestTheOneSave:
 
         refusal, row = await on_a_league(mongo_replica_set_url, body)
 
-        assert (refusal.error_code, refusal.fields) == (Code.TRIKOT_FARBE_TAKEN, (("trikot_farbe",),))
+        assert (refusal.error_code, tuple(fault.path for fault in refusal.faults)) == (Code.TRIKOT_FARBE_TAKEN, (("trikot_farbe",),))
         assert row["trikot_farbe"] is None
 
     async def test_a_stored_pair_of_colours_locks_neither_team_s_other_fields(self, mongo_replica_set_url: str):
@@ -315,7 +315,7 @@ class TestTheEntry:
             with pytest.raises(APIError) as refused:
                 await enter(database, {"kind": "new", "team": team_fields(name="Eschborn", shorthand="DOR")})
 
-            return refused.value.error_code, refused.value.fields
+            return refused.value.error_code, tuple(fault.path for fault in refused.value.faults)
 
         assert await on_a_league(mongo_replica_set_url, body) == (Code.DUPLICATE_KEY, (("shorthand",),))
 
@@ -342,7 +342,7 @@ class TestTheEntry:
 
         refusal, rows = await on_a_league(mongo_replica_set_url, body)
 
-        assert (refusal.error_code, refusal.fields, rows) == (Code.TRIKOT_FARBE_TAKEN, (("trikot_farbe",),), 0)
+        assert (refusal.error_code, tuple(fault.path for fault in refusal.faults), rows) == (Code.TRIKOT_FARBE_TAKEN, (("trikot_farbe",),), 0)
 
 
 class TestTheList:

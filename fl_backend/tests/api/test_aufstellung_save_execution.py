@@ -221,7 +221,7 @@ async def admin_reads(
 async def refusal_of(saving: Awaitable[Any]) -> tuple[Code, list[tuple[str | int, ...]]]:
     with pytest.raises(APIError) as refused:
         await saving
-    return refused.value.error_code, list(refused.value.fields)
+    return refused.value.error_code, [fault.path for fault in refused.value.faults]
 
 
 async def test_a_seats_first_save_creates_the_line_up_the_screen_then_reads(mongo_replica_set_url: str):

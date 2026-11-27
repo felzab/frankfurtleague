@@ -4,6 +4,19 @@ A code's value is its member's own name in lower snake case, which `StrEnum`'s `
 published document lists them once, as the failure body's `error_code`. A 4xx answer promises that
 the request wrote nothing, and the frontend clears the site's cache by that promise; a write that
 may stand answers `unknown_outcome` with a 500, which promises nothing.
+
+`FieldCode` is every code a judge raises on a box, each beside the field phrase that words it, so the frontend keys a
+phrase by every member. Five codes that would name boxes are gates instead, since no form sends the input that raises
+them, and a stale page that does reads the stale-page line: `swap_not_a_swap`, whose second picker the season editor
+filters to another group's clubs (`SaisonEditor.tsx :: Swap`); `replace_one_team_on_both_ends`, whose incoming picker
+lists only clubs the season has not entered (`saisons/admin_router.py :: incoming_teams`); `team_retired`, a retired
+club, which neither the entry's picker (`teams/admin_router.py :: get_teams_admin`) nor the replacement's incoming list
+(`saisons/admin_router.py :: get_saison_admin`) offers, since each filters on `inactive_since`, and which the acceptance
+judges on the application's stored club rather than a pick; `foreign_address_change`, judged on the pending changes
+rather than a typed address; and `eligibility_team_not_in_saison`, a side's club with no row in the season, which only
+a page read before the club was replaced sends. A 403 code is a field code where its address comes from a box and a
+gate where it comes from a path. `address_change_nothing` is no field code, though a person types the address it
+judges: that the address holds nothing is said in a sentence on the status line, which no box's phrase carries.
 """
 
 from enum import StrEnum, auto
@@ -68,6 +81,9 @@ class Code(StrEnum):
     # A removal never takes the `owner` row, and a handover never names it: the role leaves only by a handover to another.
     GRANT_OWNER = auto()
     GRANT_BARRED = auto()
+    # An address the ban list holds, typed where a write would list it again or mail it a link: `grant_barred`'s twin
+    # for every write but a grant's, which keeps its own code.
+    ADDRESS_BARRED = auto()
     # 403 and not 409: the refusal is about who asks, and a handover to the asker is what lifts it.
     GRANT_ONLY_OWNER = auto()
     # 409: stopping the waiting handover is what lifts it.
@@ -242,7 +258,7 @@ class Code(StrEnum):
     STATE_NICHTANTRETEN_WITHOUT_TWO_SIDES = auto()
     # A swap is neither an entry nor the move `entry_gruppe_locked` locks, so it carries codes of its own.
     # One code covers every pick of two clubs that is no swap, one club twice or a pair the season
-    # decides is none: the person's pick is what is refused, so a 422 naming both boxes.
+    # decides is none: the person's pick is what is refused, so a 422.
     SWAP_NOT_A_SWAP = auto()
     SWAP_SAISON_STARTED = auto()
     # An exit recorded before the season's start date: before the start a club out of the season is replaced, so no
@@ -285,4 +301,73 @@ type Rule = Literal[
     "starters_exceed_eleven",
     "text_version_of_another_wording",
     "url_not_accepted",
+]
+
+
+# Every code a judge raises on a box, as a `FieldFault`'s code: published as the API's `FieldCode`, so the frontend's
+# field phrases are keyed by every member and a member added without one fails its type check. Grouped by the phrase
+# that words each, quoted with its English meaning.
+type FieldCode = Literal[
+    # „Schon vergeben“ (Already taken). `duplicate_key` is also the unique index's own refusal, naming no field.
+    Code.DUPLICATE_KEY,
+    Code.KONTAKT_EMAIL_TAKEN,
+    Code.KONTAKT_PHONE_TAKEN,
+    Code.BEWERBUNG_KONTAKT_REPEATED,
+    Code.TRIKOT_FARBE_TAKEN,
+    Code.KADER_ROLLE_TAKEN,
+    Code.SPIEL_DOUBLE_BOOKED,
+    Code.ADDRESS_CHANGE_TAKEN,
+    # „Auf der Sperrliste“ (On the ban list).
+    Code.ADDRESS_BARRED,
+    Code.GRANT_BARRED,
+    # „Gehört zur Verwaltung“ (Belongs to the administration).
+    Code.ADMIN_ADDRESS,
+    Code.BAN_LIST_ADMIN,
+    Code.GRANT_EXISTS,
+    # „Nur im Konto“ (Only in Konto), as its sentence says an administrator's own address changes in Konto alone.
+    Code.OWN_ADDRESS,
+    # „Schon hinterlegt“ (Already on file).
+    Code.ADDRESS_CHANGE_UNCHANGED,
+    Code.ANSETZUNG_VORSCHLAG_UNCHANGED,
+    # „Stillgelegt“ (Retired).
+    Code.BOOKING_UNKNOWN_RESOURCE,
+    # „Unbestätigt“ (Unconfirmed).
+    Code.BOOKING_UNCONFIRMED_SCHIEDSRICHTER,
+    # „Pflichtfeld“ (Required). The acceptance's shorthand is refused when present for a picked club or absent for a new
+    # school, and its dialog shows the box for a new school alone, so the one fault a form sends is the empty box. An
+    # application naming no school is the empty school pick.
+    Code.PAYLOAD_REFUSED,
+    Code.BEWERBUNG_SUBMISSION_SUBJECT_UNRESOLVED,
+    # „Ausgetragen“ (Deregistered), as the line-up's row marks a pupil who left the squad.
+    Code.SPIELER_NOT_IN_KADER,
+    # „Aus der Saison ausgeschieden“ (Out of the season).
+    Code.ELIGIBILITY_DISQUALIFIED,
+    # „Erst mit beiden Teams“ (Only with both teams).
+    Code.STATE_NICHTANTRETEN_WITHOUT_TWO_SIDES,
+    # „Ohne Tore“ (Without goals).
+    Code.STATE_ERGEBNIS_ON_A_NON_EVENT,
+    # „Erst ab {min} Jahren“ (Only from {min} years).
+    Code.MEDIA_AGE,
+    # „Höchstens {max}“ (At most {max}).
+    Code.AUFSTELLUNG_NOMINEE_WITHOUT_SHORTAGE,
+    Code.RULES_QUALIFIERS_ABOVE_GRUPPE,
+    # „Zwischen {floor} und {max}“ (Between {floor} and {max}), the floor the box's own schema publishes.
+    Code.RULES_UNENTSCHIEDEN_OUTVALUES_WIN,
+    Code.RULES_NIEDERLAGE_OUTVALUES_UNENTSCHIEDEN,
+    # „Mindestens {min}“ (At least {min}).
+    Code.RULES_FORFEIT_UNENTSCHIEDEN_IN_A_KNOCKOUT,
+    Code.RULES_GRUPPEN_IN_USE,
+    Code.RULES_CAPACITY_BELOW_USE,
+    Code.RULES_KADER_BELOW_USE,
+    # „Frühestens {earliest}“ (No earlier than {earliest}).
+    Code.SAISON_SPAN_BELOW_SPIELPLAN,
+    Code.AUSTRITT_BEFORE_SAISON_START,
+    Code.ANSETZUNG_VORSCHLAG_PAST,
+    # „Spätestens {latest}“ (No later than {latest}); an age's latest birthdate is read off its `min`.
+    Code.SAISON_START_AUSTRITT_STORED,
+    Code.CONFIRMATION_AGE,
+    # „Frühestens“ or „Spätestens“ by the bound the fault carries: a fixture's date by its matchday's span, a season's
+    # start by `start` and its end by `end`.
+    Code.SPIEL_OUTSIDE_SPIELTAG,
+    Code.SAISON_SPAN_BELOW_SPIELTAGE,
 ]

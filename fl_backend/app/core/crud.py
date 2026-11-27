@@ -25,7 +25,14 @@ from pymongo.results import DeleteResult, InsertManyResult, InsertOneResult, Upd
 
 from app.core.codes import Code
 from app.core.collections import EDITED_COLLECTIONS
-from app.core.exceptions import APIError, DocumentNotFoundError, link_invalid
+from app.core.exceptions import (
+    APIError,
+    DocumentNotFoundError,
+    FieldCheck,
+    FieldRefusal,  # noqa: TID251 -- the one place field faults are raised
+    faults_of,
+    link_invalid,
+)
 from app.core.readonly import ReadCollection
 
 # Keyword-only throughout, so no call site can bind `db_filter` to `update` by position, and
@@ -433,14 +440,27 @@ def literal_pattern(value: str) -> str:
 
 
 def refuse(refusal: APIError | None) -> None:
-    """One refusal, never varargs.
+    """One gate, never varargs: a gate stops the write before any box means anything.
 
     Varargs would run every check even after one has refused, and several call sites document the
-    order theirs are asked in.
+    order theirs are asked in. A box's fault is no gate, and goes through `refuse_faults`.
     """
 
     if refusal is not None:
         raise refusal
+
+
+def refuse_faults(*checks: FieldCheck) -> None:
+    """Every fault these field checks found, raised as one refusal naming each box; nothing where none found one.
+
+    Varargs, where `refuse` takes one: each check is asked whatever another found, so one answer names every box at
+    fault. Only checks independent of each other share a call; one that means nothing once another failed waits in a
+    later call, behind it.
+    """
+
+    faults = faults_of(checks)
+    if faults:
+        raise FieldRefusal(faults)
 
 
 async def set_inactive_since(

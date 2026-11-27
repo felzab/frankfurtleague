@@ -29,7 +29,7 @@ from app.api.spieler.services import SELF_PUPIL_ORDER, build_self_pupil_filter
 from app.core.clock import utc_stamp
 from app.core.codes import Code
 from app.core.collections import Collection as DbCollection
-from app.core.crud import aggregate_many_from_db, patch_past_the_version_in_db, refuse
+from app.core.crud import aggregate_many_from_db, patch_past_the_version_in_db, refuse, refuse_faults
 from app.core.exceptions import APIError
 from app.core.journal import Journal
 from app.core.readonly import ReadCollection
@@ -211,7 +211,7 @@ async def press_einwilligung(
     )
     media = is_given("media", chosen.get("media"))
     for block, birth_date in zip(blocks, birth_dates, strict=True):
-        refuse(find_self_media_refusal(saved=block, media=media, birth_date=birth_date, today=today))
+        refuse_faults(find_self_media_refusal(saved=block, media=media, birth_date=birth_date, today=today))
 
 
 async def press_withdrawal(

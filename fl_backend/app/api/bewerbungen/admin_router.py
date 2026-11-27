@@ -76,6 +76,7 @@ from app.core.crud import (
     pull_many_from_db,
     pull_one_from_db,
     refuse,
+    refuse_faults,
 )
 from app.core.dependencies import (
     BewerbungenCollection,
@@ -274,7 +275,7 @@ async def accept_bewerbung(
         # In-session, so the block copied into `saison_teams` below carries every person's own date and stamp, a
         # confirmation landing mid-request among them.
         refuse(find_unconfirmed_kontakte_refusal(kontakte=bewerbung_raw.get("kontakte")))
-        refuse(find_acceptance_code_refusal(new_school=schule is not None, shorthand=acceptance_data.shorthand))
+        refuse_faults(find_acceptance_code_refusal(new_school=schule is not None, shorthand=acceptance_data.shorthand))
 
         saison_id = str(bewerbung_raw["saison_id"])
         # In-session, as the season's own patch reads it: `activate_saison` moves `status` in a
@@ -338,7 +339,7 @@ async def accept_bewerbung(
         # On the box a person typed it in, before the write meets `uniq_shorthand`, which answers only a race.
         if new_team is not None:
             taken = await is_held_elsewhere(collection=teams_collection, key="shorthand", value=shorthand, own_id=None, session=session)
-            refuse(find_shorthand_refusal(taken=taken))
+            refuse_faults(find_shorthand_refusal(taken=taken))
 
         # Every refusal is behind us, so the writes follow with nothing left to judge.
         if new_team is None:
@@ -641,7 +642,7 @@ async def post_kontakt_seat(
 
         # Asked over the seats this write does not reach: a mirrored pair is one person, and comparing them against
         # each other would refuse every such write.
-        refuse(find_seat_contact_refusal(kontakte=kontakte, seats=seats, email=seat_data.email, phone=seat_data.phone))
+        refuse_faults(find_seat_contact_refusal(kontakte=kontakte, seats=seats, email=seat_data.email, phone=seat_data.phone))
         # Read as well as filtered on: a dry run patches nothing for the version to refuse, and the patch's filter still
         # refuses a write racing past this read.
         refuse(find_stale_save_refusal(bewerbung_raw, version=seat_data.version))

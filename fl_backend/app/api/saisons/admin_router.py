@@ -67,6 +67,7 @@ from app.api.saisons.services import (
     find_saison_span_refusal,
     find_saison_start_austritt_refusal,
     find_saison_start_refusal,
+    find_shape_refusal,
     find_spielplan_refusal,
     find_undraw_refusal,
     has_started,
@@ -95,6 +96,7 @@ from app.core.crud import (
     pull_one_from_db,
     pull_whole_from_db,
     refuse,
+    refuse_faults,
 )
 from app.core.dependencies import (
     AufstellungenCollection,
@@ -396,9 +398,10 @@ async def post_saison(
     async def enter_the_season(session: AsyncClientSession) -> InsertOneResult:
         state = await pull_create_state(saisons_collection=saisons_collection, session=session)
         refuse(find_saison_create_refusal(future_stands=state.future_stands))
-        refuse(find_rules_refusal(stored=None, proposed=state.rules, occupancy_by_gruppe={}))
+        refuse(find_shape_refusal(stored=None, proposed=state.rules))
+        refuse_faults(find_rules_refusal(stored=None, proposed=state.rules, occupancy_by_gruppe={}))
         # After the rules: an impossible bracket makes the implied matchday count meaningless.
-        refuse(
+        refuse_faults(
             find_saison_span_refusal(
                 start_date=saison_data.start_date,
                 end_date=saison_data.end_date,
@@ -513,7 +516,7 @@ async def patch_saison(
                 taken_place=taken_place,
             )
         )
-        refuse(
+        refuse_faults(
             find_saison_start_austritt_refusal(
                 stored_start_date=str(stored_raw["start_date"]),
                 proposed_start_date=saison_data.start_date,
@@ -531,16 +534,16 @@ async def patch_saison(
                 proposed=saison_data.rules,
             )
         )
-        refuse(
+        refuse(find_shape_refusal(stored=stored_rules, proposed=saison_data.rules, drawn=drawn))
+        refuse_faults(
             find_rules_refusal(
                 stored=stored_rules,
                 proposed=saison_data.rules,
                 occupancy_by_gruppe=occupancy,
                 largest_kader=largest_kader,
-                drawn=drawn,
             )
         )
-        refuse(
+        refuse_faults(
             find_saison_span_refusal(
                 start_date=saison_data.start_date,
                 end_date=saison_data.end_date,
@@ -907,6 +910,7 @@ async def post_spielplan(
         # fixture is skipped, each of those weighing a draw about to cease to exist. On the status line alone: the draw's
         # body has no rules box for a field to name. The span is not judged again: every create and every save judge it
         # whole against the rules they store.
+        refuse(find_shape_refusal(stored=None, proposed=rules))
         refuse(as_judged_on_stored_state(find_rules_refusal(stored=None, proposed=rules, occupancy_by_gruppe=occupancy)))
 
         # `find_wiring_refusal`, `judge_spieltag_occupancy`, `find_clash_refusal` and

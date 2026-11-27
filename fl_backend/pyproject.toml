@@ -139,6 +139,8 @@ logger-objects = ["app.core.logging.fl_logger"]
 # A rule's kind is one the contract publishes, so a raise names it through the one helper taking that
 # type; a direct one would word a kind the frontend cannot key.
 "pydantic_core.PydanticCustomError".msg = "Raise a domain rule through `app.core.exceptions.rule_refusal`, whose `Rule` the contract publishes."
+# A box's faults reach the body through one collecting call, so no gate carries one and a judge cannot raise them apart.
+"app.core.exceptions.FieldRefusal".msg = "Raise field faults through `app.core.crud.refuse_faults`, which names every fault its independent checks found."
 # Each permitted import carries its own `noqa`, which RUF100 reports once nothing there needs it.
 "app.core.config.get_config".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app` and `app/readback.py`."
 "os.environ".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app` and `app/readback.py`."

@@ -32,6 +32,7 @@ export const Code = {
   grant_exists: "grant_exists",
   grant_owner: "grant_owner",
   grant_barred: "grant_barred",
+  address_barred: "address_barred",
   grant_only_owner: "grant_only_owner",
   grant_handover_waiting: "grant_handover_waiting",
   grant_not_in_effect: "grant_not_in_effect",
@@ -5568,6 +5569,51 @@ export interface FLVersionResponse {
   /** @minimum 0 */
   version: number;
 }
+
+export type FieldCode = (typeof FieldCode)[keyof typeof FieldCode];
+
+export const FieldCode = {
+  duplicate_key: "duplicate_key",
+  kontakt_email_taken: "kontakt_email_taken",
+  kontakt_phone_taken: "kontakt_phone_taken",
+  bewerbung_kontakt_repeated: "bewerbung_kontakt_repeated",
+  trikot_farbe_taken: "trikot_farbe_taken",
+  kader_rolle_taken: "kader_rolle_taken",
+  spiel_double_booked: "spiel_double_booked",
+  address_change_taken: "address_change_taken",
+  address_barred: "address_barred",
+  grant_barred: "grant_barred",
+  admin_address: "admin_address",
+  ban_list_admin: "ban_list_admin",
+  grant_exists: "grant_exists",
+  own_address: "own_address",
+  address_change_unchanged: "address_change_unchanged",
+  ansetzung_vorschlag_unchanged: "ansetzung_vorschlag_unchanged",
+  booking_unknown_resource: "booking_unknown_resource",
+  booking_unconfirmed_schiedsrichter: "booking_unconfirmed_schiedsrichter",
+  payload_refused: "payload_refused",
+  bewerbung_submission_subject_unresolved: "bewerbung_submission_subject_unresolved",
+  spieler_not_in_kader: "spieler_not_in_kader",
+  eligibility_disqualified: "eligibility_disqualified",
+  state_nichtantreten_without_two_sides: "state_nichtantreten_without_two_sides",
+  state_ergebnis_on_a_non_event: "state_ergebnis_on_a_non_event",
+  media_age: "media_age",
+  aufstellung_nominee_without_shortage: "aufstellung_nominee_without_shortage",
+  rules_qualifiers_above_gruppe: "rules_qualifiers_above_gruppe",
+  rules_unentschieden_outvalues_win: "rules_unentschieden_outvalues_win",
+  rules_niederlage_outvalues_unentschieden: "rules_niederlage_outvalues_unentschieden",
+  rules_forfeit_unentschieden_in_a_knockout: "rules_forfeit_unentschieden_in_a_knockout",
+  rules_gruppen_in_use: "rules_gruppen_in_use",
+  rules_capacity_below_use: "rules_capacity_below_use",
+  rules_kader_below_use: "rules_kader_below_use",
+  saison_span_below_spielplan: "saison_span_below_spielplan",
+  austritt_before_saison_start: "austritt_before_saison_start",
+  ansetzung_vorschlag_past: "ansetzung_vorschlag_past",
+  saison_start_austritt_stored: "saison_start_austritt_stored",
+  confirmation_age: "confirmation_age",
+  spiel_outside_spieltag: "spiel_outside_spieltag",
+  saison_span_below_spieltage: "saison_span_below_spieltage",
+} as const;
 
 export const ProbeResponseValue = {
   status: "ok",

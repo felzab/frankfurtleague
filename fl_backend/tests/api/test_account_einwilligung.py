@@ -20,6 +20,7 @@ from app.api.registrierungen.services import compose_decline_update
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.shared.einwilligung_evidence import EVIDENCE, TextVersions, evidence_state_of
+from app.shared.schemas.bounds import MEDIA_MIN_AGE_YEARS
 from tests.app_client import app_client, app_under_test
 from tests.config import ADMIN_KEY, grants_for_the_suite
 from tests.database import a_clean_database
@@ -482,6 +483,8 @@ class TestTheMediaAge:
         response, before, after = await served(mongo_replica_set_url, steps)
 
         assert (response.status_code, response.json()["error_code"]) == (422, Code.MEDIA_AGE)
+        # The switch's phrase names the age the consent opens at from this bound.
+        assert response.json()["fields"] == [{"in": "body", "path": ["media"], "kind": Code.MEDIA_AGE, "ctx": {"min": MEDIA_MIN_AGE_YEARS}}]
         assert after == before
 
 

@@ -1,12 +1,13 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping, Sequence
+from dataclasses import dataclass, field
 from http import HTTPStatus
 from typing import Any, Literal, LiteralString
 
 from pydantic_core import PydanticCustomError  # noqa: TID251 -- the one place a rule is raised
 
-from app.core.codes import Code, Rule
+from app.core.codes import Code, FieldCode, Rule
 
 # The path inside the body a refusal judged, as a `payload_refused` names its own, so a form can mark the field.
 FieldPath = tuple[str | int, ...]
@@ -17,6 +18,63 @@ type Bound = str | int | float | bool | list[int]
 
 # Where the field a refusal names arrived: the body, or the path a by-id write names its record in.
 type FieldLocation = Literal["body", "path"]
+
+# What a fault judged: who asks against the typed value (403), the value against what is stored (409), or the payload
+# against itself (422).
+type FaultStatus = Literal[HTTPStatus.FORBIDDEN, HTTPStatus.CONFLICT, HTTPStatus.UNPROCESSABLE_CONTENT]
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class FieldFault:
+    """One box a judge refused: its path in the body, the code naming why, the bounds it is held to, and what it judged.
+
+    Not an exception, so nothing raises one alone: a judge hands every fault its independent checks found to
+    `app.core.crud.refuse_faults`, which raises them as one refusal naming each. `bounds` reach the caller as the
+    field's `ctx`, so a bound the server moves moves the box's phrase with it.
+    """
+
+    path: FieldPath
+    code: FieldCode
+    status: FaultStatus
+    bounds: Mapping[str, Bound] = field(default_factory=dict[str, Bound])
+
+
+# What a field check answers: the fault it found, one per box where its rule names several, or `None`.
+type FieldCheck = FieldFault | Sequence[FieldFault] | None
+
+
+def faults_of(checks: Iterable[FieldCheck]) -> tuple[FieldFault, ...]:
+    """Every fault these checks found, in the order they were asked."""
+
+    return tuple(fault for check in checks if check is not None for fault in ((check,) if isinstance(check, FieldFault) else check))
+
+
+def refusal_status(faults: Sequence[FieldFault]) -> HTTPStatus:
+    """The status of one answer naming these faults, never the first fault's alone, so the order checks are written in moves none.
+
+    403 where any fault judged who asks, which no edit of the payload lifts; else 409 where any judged stored data, which
+    an edit of the payload alone may not lift; else 422, the payload contradicting itself.
+    """
+
+    statuses = {fault.status for fault in faults}
+    for status in (HTTPStatus.FORBIDDEN, HTTPStatus.CONFLICT):
+        if status in statuses:
+            return status
+
+    return HTTPStatus.UNPROCESSABLE_CONTENT
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class Subject:
+    """The one field a gate's refusal stands at, beside its code: the record a by-id write names, or a stored body's field.
+
+    Never a box's fault: a gate stops the write before any box means anything, so its caller picks the gate's sentence
+    by the path and the bounds, and marks no box.
+    """
+
+    path: FieldPath
+    location: FieldLocation
+    bounds: Mapping[str, Bound] = field(default_factory=dict[str, Bound])
 
 
 def is_bound(value: Any) -> bool:
@@ -38,16 +96,15 @@ def rule_refusal(rule: Rule, message: LiteralString, bounds: Mapping[str, Bound]
 
 
 class APIError(Exception):
-    """A refusal: its status, the code naming its reason, the body paths it judged and their bounds, which is all a failure body carries.
+    """A gate's refusal: its status, the code naming its reason and at most the one field it stands at, all a failure body carries.
 
-    `headers` carry what the status asks for beside the body, a 401's challenge. `bounds` are what the
-    refused value is held to, by the names the rule gives them, written as each judged field's `ctx` as a
-    `PydanticCustomError`'s context is: the caller words the field's line from them, so a bound the server moves moves
-    the line with it. A refusal naming no field carries none. `location` says where its fields arrived, the body unless
-    a by-id write's refusal names the path's id.
+    A gate stops the write before any box means anything: not found, not allowed, a stale version, a closed season, a
+    record a by-id write may not take. `headers` carry what the status asks for beside the body, a 401's challenge.
+    `subject` is the field the gate's sentence reads, written as one `fields` entry under the gate's own code.
 
-    A check returns one unraised, or `None`, so its caller orders several through `refuse` and a page can be served the
-    code a press would meet before anyone presses.
+    A gate check returns one unraised, or `None`, so its caller orders several through `app.core.crud.refuse` and a page
+    can be served the code a press would meet before anyone presses. A box's faults never ride on a gate: they are
+    `FieldFault`s, which `faults` lists on the one refusal `refuse_faults` raises, and which a gate holds none of.
     """
 
     def __init__(
@@ -56,17 +113,40 @@ class APIError(Exception):
         code: Code,
         *,
         headers: Mapping[str, str] | None = None,
-        fields: tuple[FieldPath, ...] = (),
-        bounds: Mapping[str, Bound] | None = None,
-        location: FieldLocation = "body",
+        subject: Subject | None = None,
     ):
         super().__init__(code)
         self.status_code = int(status)
         self.error_code = code
         self.headers = headers
-        self.fields = fields
-        self.bounds: Mapping[str, Bound] = dict(bounds or {})
-        self.location: FieldLocation = location
+        self.subject = subject
+
+    # A property with no setter, so pyright refuses an assignment to it, on a gate or in a subclass's own `__init__`:
+    # a fault written onto a gate would reach the body as a box's entry outside `refuse_faults`.
+    @property
+    def faults(self) -> tuple[FieldFault, ...]:
+        """The box faults this refusal names: none, on a gate."""
+
+        return ()
+
+
+class FieldRefusal(APIError):
+    """Every fault one collecting call found, as one refusal: each its own `fields` entry, with its own code and bounds.
+
+    Its code is the first fault's and its status `refusal_status`'s. Constructed by `app.core.crud.refuse_faults` alone,
+    which ruff's banned-api holds, so no gate carries a box's fault and no fault reaches the body any other way.
+    """
+
+    def __init__(self, faults: tuple[FieldFault, ...]):
+        first, *_ = faults
+        super().__init__(refusal_status(faults), first.code)
+        self._faults = faults
+
+    @property
+    def faults(self) -> tuple[FieldFault, ...]:
+        """Every fault the collecting call found, in the order it asked them."""
+
+        return self._faults
 
 
 class DocumentNotFoundError(APIError):
@@ -101,16 +181,17 @@ def link_expired() -> APIError:
     return APIError(HTTPStatus.GONE, Code.LINK_EXPIRED)
 
 
-def as_judged_on_stored_state(refusal: APIError | None) -> APIError | None:
-    """`refusal` as a write judging stored values it carries no body for answers it: its code and status alone.
+def as_judged_on_stored_state(check: FieldCheck) -> APIError | None:
+    """`check`'s faults as a write judging stored values it carries no body for answers them: one gate, its code the first's.
 
     Never on a field, whose path would name a box of a body the request has not got.
     """
 
-    if refusal is None:
+    faults = faults_of((check,))
+    if not faults:
         return None
 
-    return APIError(HTTPStatus(refusal.status_code), refusal.error_code)
+    return APIError(refusal_status(faults), faults[0].code)
 
 
 # RFC 9110's 401 must carry a challenge, and `Bearer` would name the tier key, which passed: the

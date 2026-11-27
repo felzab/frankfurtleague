@@ -47,7 +47,7 @@ from app.core import clock
 from app.core.clock import days_after
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.exceptions import APIError
+from app.core.exceptions import APIError, FieldCheck, FieldFault, Subject, faults_of, refusal_status
 from app.shared.schemas.bounds import (
     SPIEL_CONFIRMATION_DEADLINE_DAYS,
     SPIEL_REMINDER_DAYS,
@@ -422,44 +422,66 @@ def find_unanswerable_refusal(*, spielbestaetigung_raw: Mapping[str, Any], anset
     return unanswerable_refusal()
 
 
-def find_vorschlag_past_refusal(*, vorschlag: FLSpielbestaetigungAppointment, today: str) -> APIError | None:
+def find_vorschlag_past_refusal(*, vorschlag: FLSpielbestaetigungAppointment, today: str) -> FieldFault | None:
+    """`ansetzung_vorschlag_past`: the proposed day has gone by; `earliest` is today, the first day a proposal may name."""
+
     if vorschlag.date >= today:
         return None
 
-    return APIError(HTTPStatus.UNPROCESSABLE_CONTENT, Code.ANSETZUNG_VORSCHLAG_PAST, fields=(("vorschlag", "date"),))
+    return FieldFault(
+        path=("vorschlag", "date"), code=Code.ANSETZUNG_VORSCHLAG_PAST, status=HTTPStatus.UNPROCESSABLE_CONTENT, bounds={"earliest": today}
+    )
 
 
-def find_vorschlag_unchanged_refusal(*, vorschlag: FLSpielbestaetigungAppointment, spiel: FLSpiel) -> APIError | None:
+def find_vorschlag_unchanged_refusal(*, vorschlag: FLSpielbestaetigungAppointment, spiel: FLSpiel) -> tuple[FieldFault, ...]:
     """`ansetzung_vorschlag_unchanged`: a proposal names the day and hour the fixture already holds.
 
     Adopted, it would save the slot unchanged, leaving the row about it open and the proposal pressable for ever.
     """
 
     if (vorschlag.date, vorschlag.time) != (spiel.date, spiel.time):
-        return None
+        return ()
 
-    return APIError(HTTPStatus.UNPROCESSABLE_CONTENT, Code.ANSETZUNG_VORSCHLAG_UNCHANGED, fields=(("vorschlag", "date"), ("vorschlag", "time")))
+    return tuple(
+        FieldFault(path=("vorschlag", box), code=Code.ANSETZUNG_VORSCHLAG_UNCHANGED, status=HTTPStatus.UNPROCESSABLE_CONTENT)
+        for box in ("date", "time")
+    )
 
 
-def as_judged_on_the_stored_proposal(refusal: APIError | None) -> APIError | None:
-    """`refusal` as the adoption answers it, its code, path and bounds kept: the catalogue words each on the status line.
+def as_judged_on_the_stored_proposal(refusal: APIError | FieldCheck) -> APIError | None:
+    """`refusal` as the adoption answers it, a gate keeping its first fault's code, path and bounds as its subject.
 
-    A 409 where the judge answered 422: the adoption carries no body, and what was refused is the stored proposal or the
-    stored fixture, which moved since the page offering the press was read.
+    The catalogue words it on the status line by them, the path picking the sentence as the save's own page would and
+    marking no box, and a screen shows one sentence, the first. A 409 where the judge answered 422: the adoption carries no
+    body, and what was refused is the stored proposal or the stored fixture, which moved since the page offering the
+    press was read.
     """
 
     if refusal is None:
         return None
 
-    status = HTTPStatus.CONFLICT if refusal.status_code == HTTPStatus.UNPROCESSABLE_CONTENT else HTTPStatus(refusal.status_code)
+    faults = refusal.faults if isinstance(refusal, APIError) else faults_of((refusal,))
+    if faults:
+        first = faults[0]
+        subject = Subject(path=first.path, location="body", bounds=first.bounds)
+        return APIError(_on_the_stored_proposal(refusal_status(faults)), first.code, subject=subject)
 
-    return APIError(status, refusal.error_code, fields=refusal.fields, bounds=refusal.bounds)
+    if not isinstance(refusal, APIError):
+        return None
+
+    return APIError(_on_the_stored_proposal(HTTPStatus(refusal.status_code)), refusal.error_code, subject=refusal.subject)
 
 
-def judged_as_a_proposal(refusal: APIError | None) -> APIError | None:
-    """A refusal of the proposal, naming no field: the paths it names are a body this request does not carry."""
+def _on_the_stored_proposal(status: HTTPStatus) -> HTTPStatus:
+    return HTTPStatus.CONFLICT if status == HTTPStatus.UNPROCESSABLE_CONTENT else status
 
-    return None if refusal is None else APIError(HTTPStatus(refusal.status_code), refusal.error_code)
+
+def judged_as_a_proposal(check: FieldCheck) -> APIError | None:
+    """A refusal of the proposal, naming no field: the paths its faults name are a body this request does not carry."""
+
+    faults = faults_of((check,))
+
+    return APIError(refusal_status(faults), faults[0].code) if faults else None
 
 
 def proposal_payload(stored: FLSpiel, vorschlag: FLSpielbestaetigungAppointment) -> FLPatchSpielDataPayload:

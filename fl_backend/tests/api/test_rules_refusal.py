@@ -3,8 +3,9 @@ from typing import Any, Literal
 import pytest
 
 from app.api.saisons.schemas import FLSaisonRules
-from app.api.saisons.services import find_rules_freeze_refusal, find_rules_refusal, find_undraw_refusal
+from app.api.saisons.services import find_rules_freeze_refusal, find_rules_refusal, find_shape_refusal, find_undraw_refusal
 from app.core.codes import Code
+from app.core.crud import refuse, refuse_faults
 from app.core.exceptions import APIError
 from app.shared.schemas.literals import FLGruppenNames
 
@@ -53,21 +54,18 @@ def judge(
     drawn: bool = False,
     started: bool = False,
 ) -> APIError | None:
-    """Both judgements in the order `patch_saison` asks them: the freeze, then the rules."""
+    """The judgements in the order `patch_saison` asks them, raised as it raises them: the freeze, the shape, then the rules."""
 
     stored = rules() if stored is None else stored
     proposed = rules() if proposed is None else proposed
-    frozen = find_rules_freeze_refusal(saison_status=status, started=started, stored=stored, proposed=proposed)
-    if frozen is not None:
-        return frozen
+    try:
+        refuse(find_rules_freeze_refusal(saison_status=status, started=started, stored=stored, proposed=proposed))
+        refuse(find_shape_refusal(stored=stored, proposed=proposed, drawn=drawn))
+        refuse_faults(find_rules_refusal(stored=stored, proposed=proposed, occupancy_by_gruppe=occupancy or {}, largest_kader=largest_kader))
+    except APIError as refusal:
+        return refusal
 
-    return find_rules_refusal(
-        stored=stored,
-        proposed=proposed,
-        occupancy_by_gruppe=occupancy or {},
-        largest_kader=largest_kader,
-        drawn=drawn,
-    )
+    return None
 
 
 # Each frozen field, with the step that changes it.
@@ -93,7 +91,7 @@ class TestTheBracketMustHaveAShape:
         ],
     )
     def test_refuses_a_field_that_cannot_be_paired_down(self, groups, qualifiers):
-        """`per_group=8` so every case reaches this rule: `rules_qualifiers_above_gruppe` runs first and would answer `(4, 5)`."""
+        """`per_group=8` keeps every case's qualifiers within its group, so no box's rule could be answering in its place."""
 
         refusal = judge(proposed=rules(groups=groups, qualifiers=qualifiers, per_group=8))
 
@@ -199,7 +197,7 @@ class TestEachRefusalNamesItsBound:
         refusal = judge(**judged)
 
         assert refusal is not None
-        assert (refusal.error_code, refusal.fields, dict(refusal.bounds)) == (code, (field,), bounds)
+        assert (refusal.error_code, [(fault.path, dict(fault.bounds)) for fault in refusal.faults]) == (code, [(field, bounds)])
 
 
 class TestAStartedSeasonFreezes:

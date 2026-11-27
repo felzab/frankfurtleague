@@ -201,7 +201,7 @@ class TestTheStartMovesNoLaterPastAStoredExit:
 
         refusal, refused_left, saved = await on_a_database(mongo_replica_set_url, body)
 
-        assert (refusal.error_code, refusal.fields, refusal.bounds) == (
+        assert (refusal.error_code, tuple(fault.path for fault in refusal.faults), refusal.faults[0].bounds) == (
             Code.SAISON_START_AUSTRITT_STORED,
             (("start_date",),),
             {"latest": SAISON_START},

@@ -325,7 +325,7 @@ class TestTheSeatWriteDecidesFromItsArguments:
         refusal = find_kontakt_taken_refusal(kontakte=kontakte, seats=seats)
 
         assert refusal is not None
-        assert (refusal.error_code, refusal.fields) == (Code.KONTAKT_PHONE_TAKEN, (("phone",),))
+        assert (refusal.code, refusal.path) == (Code.KONTAKT_PHONE_TAKEN, ("phone",))
 
 
 class TestTheDateRidesWithThePerson:

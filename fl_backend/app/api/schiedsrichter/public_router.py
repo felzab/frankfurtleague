@@ -18,7 +18,7 @@ from app.api.schiedsrichter.services import (
 )
 from app.core.clock import utc_stamp
 from app.core.collections import Collection
-from app.core.crud import patch_past_the_version_in_db, pull_by_token, refuse
+from app.core.crud import patch_past_the_version_in_db, pull_by_token, refuse, refuse_faults
 from app.core.dependencies import (
     DBClient,
     GermanDay,
@@ -112,8 +112,8 @@ async def post_confirmation(
         # to ask for another.
         refuse(find_already_answered_refusal(einwilligung=raw.get(EINWILLIGUNG_FIELD)))
         refuse(find_expired_token_refusal(deadline=raw[CONFIRMATION_FIELD]["deadline"], today=today))
-        refuse(find_age_refusal(birth_date=answer_data.birth_date, today=today, minimum_age=SCHIEDSRICHTER_MIN_AGE_YEARS))
-        refuse(find_self_media_refusal(saved=None, media=answer_data.media, birth_date=answer_data.birth_date, today=today))
+        refuse_faults(find_age_refusal(birth_date=answer_data.birth_date, today=today, minimum_age=SCHIEDSRICHTER_MIN_AGE_YEARS))
+        refuse_faults(find_self_media_refusal(saved=None, media=answer_data.media, birth_date=answer_data.birth_date, today=today))
 
         # The person's own press, judged on the read above, on fields the referee editor never saves: an editor's save
         # read before it still lands. No fixture is written: the scope has one home, which the fixture list joins at read

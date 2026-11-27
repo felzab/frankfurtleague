@@ -317,7 +317,11 @@ class TestAnAddition:
         refused, held = await on_a_league(mongo_replica_set_url, body, grants=[WAITING])
 
         # Named on no box, the refusal reaches a shared failure line that sends the owner to a retry refused alike.
-        assert (refused.error_code, refused.fields, held) == (Code.GRANT_EXISTS, (("email",),), sorted([*EVERY_HOLDER, NORA]))
+        assert (refused.error_code, tuple(fault.path for fault in refused.faults), held) == (
+            Code.GRANT_EXISTS,
+            (("email",),),
+            sorted([*EVERY_HOLDER, NORA]),
+        )
 
     async def test_a_live_change_at_the_address_ends(self, mongo_replica_set_url: str):
         """Left standing, its switch would carry the waiting row to an address the owner never named."""

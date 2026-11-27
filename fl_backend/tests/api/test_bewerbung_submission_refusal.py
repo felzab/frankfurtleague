@@ -136,9 +136,7 @@ class TestOneNumberHasOneSpelling:
 def repeated_boxes(block: Mapping[str, Any]) -> tuple[Any, ...]:
     """The boxes the submission's rule names over this block, none where it passes."""
 
-    refusal = find_repeated_contact_refusal(kontakte=block)
-
-    return () if refusal is None else refusal.fields
+    return tuple(fault.path for fault in find_repeated_contact_refusal(kontakte=block))
 
 
 class TestTheThreeSeatsAreThreePeople:
@@ -229,10 +227,12 @@ class TestTheSubmissionNamesOneApplicant:
     def test_a_submission_naming_neither_a_team_nor_a_school_is_refused(self):
         """An application for nobody: the triage could neither enter a club nor create a school from it."""
 
-        refusal = find_submission_subject_refusal(team_id=None, schule=None)
+        faults = find_submission_subject_refusal(team_id=None, schule=None)
 
-        assert refusal is not None
-        assert refusal.error_code == Code.BEWERBUNG_SUBMISSION_SUBJECT_UNRESOLVED
+        assert [(fault.code, fault.path) for fault in faults] == [
+            (Code.BEWERBUNG_SUBMISSION_SUBJECT_UNRESOLVED, ("team_id",)),
+            (Code.BEWERBUNG_SUBMISSION_SUBJECT_UNRESOLVED, ("schule",)),
+        ]
 
 
 class TestWhatTheSubmissionPayloadRefuses:

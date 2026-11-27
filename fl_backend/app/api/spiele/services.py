@@ -59,7 +59,8 @@ from app.api.teams.standings import DecidedStanding, in_the_season_when_decided
 from app.core.clock import days_after
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.exceptions import APIError, FieldPath
+from app.core.crud import refuse
+from app.core.exceptions import APIError, Bound, FieldFault, FieldPath
 from app.shared.einwilligung import NAME_IS_PUBLIC
 from app.shared.schemas.custom import CustomObjectId
 from app.shared.schemas.literals import FLGruppenNames, FLSonderereignis, FLSpielSide
@@ -1088,7 +1089,7 @@ def stored_in_slice(spiel_id: CustomObjectId, season: Sequence[FLSpiel]) -> FLSp
     return stored
 
 
-def find_state_refusal(payload: FLPatchSpielDataPayload) -> APIError | None:
+def find_state_refusal(payload: FLPatchSpielDataPayload) -> FieldFault | None:
     """Why this patch's sonderereignis must be refused, or `None`.
 
     Both read the payload alone: the event and the two goal counts arrive in one body, so the pair
@@ -1100,12 +1101,12 @@ def find_state_refusal(payload: FLPatchSpielDataPayload) -> APIError | None:
     # Refused rather than silently emptied: the goals are somebody's typing, and a save that discards
     # them without saying so is how a real result disappears.
     if payload.sonderereignis in SONDEREREIGNIS_WITHOUT_A_RESULT and submitted_goals:
-        return APIError(HTTPStatus.UNPROCESSABLE_CONTENT, Code.STATE_ERGEBNIS_ON_A_NON_EVENT, fields=(("sonderereignis",),))
+        return FieldFault(path=("sonderereignis",), code=Code.STATE_ERGEBNIS_ON_A_NON_EVENT, status=HTTPStatus.UNPROCESSABLE_CONTENT)
 
     # An unresolved slot has nobody who could have failed to appear, and the award below would have
     # no side to land on.
     if payload.sonderereignis in SONDEREREIGNIS_NO_SHOW and (payload.team1 is None or payload.team2 is None):
-        return APIError(HTTPStatus.UNPROCESSABLE_CONTENT, Code.STATE_NICHTANTRETEN_WITHOUT_TWO_SIDES, fields=(("sonderereignis",),))
+        return FieldFault(path=("sonderereignis",), code=Code.STATE_NICHTANTRETEN_WITHOUT_TWO_SIDES, status=HTTPStatus.UNPROCESSABLE_CONTENT)
 
     return None
 
@@ -1147,8 +1148,12 @@ def find_eligibility_refusal(
     payload: FLPatchSpielDataPayload,
     season: Sequence[FLSpiel],
     membership: Mapping[CustomObjectId, SaisonMembership],
-) -> APIError | None:
-    """Why this patch's occupants must be refused. Keyed on the payload's `date`, so an undated fixture is refused."""
+) -> FieldFault | None:
+    """Why this patch's occupants must be refused. Keyed on the payload's `date`, so an undated fixture is refused.
+
+    A side naming a club the season holds no row for is a dangling reference, which names no box: raised where the sides'
+    order meets it, so neither side's fault is asked out of turn.
+    """
 
     stored = stored_in_slice(spiel_id, season)
 
@@ -1162,7 +1167,7 @@ def find_eligibility_refusal(
         # A newly fielded club only: one already standing here without a row is a fault to correct on
         # this very fixture, and refusing every save of it would trap that correction.
         if not stays and member is None:
-            return APIError(HTTPStatus.CONFLICT, Code.ELIGIBILITY_TEAM_NOT_IN_SAISON)
+            refuse(APIError(HTTPStatus.CONFLICT, Code.ELIGIBILITY_TEAM_NOT_IN_SAISON))
 
         # Every input the predicate reads, not just the side: the date and the event both decide its
         # answer, so clearing the carve-out is judged as a re-dating is. On the side alone, the escape
@@ -1178,7 +1183,7 @@ def find_eligibility_refusal(
         if absence_recorded or (payload.date is not None and payload.date < member.departed_from):
             continue
 
-        return APIError(HTTPStatus.CONFLICT, Code.ELIGIBILITY_DISQUALIFIED, fields=((label, "team_id"),))
+        return FieldFault(path=(label, "team_id"), code=Code.ELIGIBILITY_DISQUALIFIED, status=HTTPStatus.CONFLICT)
 
     return None
 
@@ -1214,8 +1219,8 @@ def days_a_clash_can_reach(day: str) -> list[str]:
     return [days_after(day=day, days=offset) for offset in range(-CLASH_REACH_DAYS, CLASH_REACH_DAYS + 1)]
 
 
-def find_spiel_date_refusal(*, date: str | None, spieltag_start: str | None, spieltag_end: str | None) -> APIError | None:
-    """Why this fixture's date must be refused, or `None`.
+def find_spiel_date_refusal(*, date: str | None, spieltag_start: str | None, spieltag_end: str | None) -> FieldFault | None:
+    """Why this fixture's date must be refused, or `None`, bounded by the side of the matchday's span it falls past.
 
     An undated fixture contradicts no span, and an undated matchday states none to contradict: a
     drawn season carries both until somebody sets them, and neither absence is a disagreement.
@@ -1227,7 +1232,9 @@ def find_spiel_date_refusal(*, date: str | None, spieltag_start: str | None, spi
     if spieltag_start <= date <= spieltag_end:
         return None
 
-    return APIError(HTTPStatus.CONFLICT, Code.SPIEL_OUTSIDE_SPIELTAG, fields=(("date",),))
+    bounds: dict[str, Bound] = {"earliest": spieltag_start} if date < spieltag_start else {"latest": spieltag_end}
+
+    return FieldFault(path=("date",), code=Code.SPIEL_OUTSIDE_SPIELTAG, status=HTTPStatus.CONFLICT, bounds=bounds)
 
 
 # A fixture whose referee block carries the record's id: never `FLSpielJoined`, whose block withholds it.
@@ -1278,7 +1285,7 @@ def find_booking_refusal(
     season: Sequence[FLSpiel],
     resolved: ResolvedReferences,
     rules: FLSaisonRules,
-) -> APIError | None:
+) -> FieldFault | None:
     """Why this patch's venue or referee must be refused, or `None`. Only a reference `find_new_bookings` names is judged.
 
     A booking naming nobody is kept where the fixture stores one and never made: only an erasure makes one.
@@ -1290,7 +1297,7 @@ def find_booking_refusal(
         and payload.schiedsrichter.schiedsrichter_id is None
         and (stored.schiedsrichter is None or stored.schiedsrichter.schiedsrichter_id is not None)
     ):
-        return APIError(HTTPStatus.CONFLICT, Code.BOOKING_UNKNOWN_RESOURCE, fields=(RESOURCE_PATHS["Schiedsrichter"],))
+        return FieldFault(path=RESOURCE_PATHS["Schiedsrichter"], code=Code.BOOKING_UNKNOWN_RESOURCE, status=HTTPStatus.CONFLICT)
 
     new = find_new_bookings(stored, payload, rules)
 
@@ -1304,11 +1311,11 @@ def find_booking_refusal(
             continue
 
         if row is None or row.inactive_since is not None:
-            return APIError(HTTPStatus.CONFLICT, Code.BOOKING_UNKNOWN_RESOURCE, fields=(path,))
+            return FieldFault(path=path, code=Code.BOOKING_UNKNOWN_RESOURCE, status=HTTPStatus.CONFLICT)
 
     # After both arms above, so a retired referee meets the retirement first.
     if new.schiedsrichter_id is not None and resolved.schiedsrichter is not None and not resolved.schiedsrichter.confirmed:
-        return APIError(HTTPStatus.CONFLICT, Code.BOOKING_UNCONFIRMED_SCHIEDSRICHTER, fields=(RESOURCE_PATHS["Schiedsrichter"],))
+        return FieldFault(path=RESOURCE_PATHS["Schiedsrichter"], code=Code.BOOKING_UNCONFIRMED_SCHIEDSRICHTER, status=HTTPStatus.CONFLICT)
 
     return None
 
@@ -1420,7 +1427,7 @@ def find_referee_to_anchor(stored: FLSpiel, payload: FLPatchSpielDataPayload, ru
     return _chosen_references(payload).schiedsrichter_id if new.schiedsrichter_id is not None or claimed else None
 
 
-def find_clash_refusal(*, date: str | None, time: str | None, booked: Sequence[BookedSlot]) -> APIError | None:
+def find_clash_refusal(*, date: str | None, time: str | None, booked: Sequence[BookedSlot]) -> FieldFault | None:
     """Why this fixture's venue or referee must be refused, or `None`. `booked` is every other fixture holding it."""
 
     if date is None or time is None:
@@ -1430,7 +1437,7 @@ def find_clash_refusal(*, date: str | None, time: str | None, booked: Sequence[B
     if slot is None:
         return None
 
-    return APIError(HTTPStatus.CONFLICT, Code.SPIEL_DOUBLE_BOOKED, fields=(RESOURCE_PATHS[slot.resource],))
+    return FieldFault(path=RESOURCE_PATHS[slot.resource], code=Code.SPIEL_DOUBLE_BOOKED, status=HTTPStatus.CONFLICT)
 
 
 def _first_clash(*, date: str, time: str, booked: Sequence[BookedSlot]) -> BookedSlot | None:

@@ -13,7 +13,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.routing import Match
 
 from app.core.codes import Code
-from app.core.exceptions import APIError, is_bound
+from app.core.exceptions import APIError, Bound, FieldLocation, FieldPath, is_bound
 from app.core.logging import fl_logger, trace_id_var
 from app.core.middlewares import record_error_code
 from app.core.routing import writes_nothing
@@ -52,11 +52,18 @@ def error_response(
 
 
 async def api_error_handler(request: Request, exc: APIError):
-    # The refusal's own code is each field's `kind`, where a `payload_refused` carries pydantic's error type, and its
-    # bounds each field's `ctx`, where a `payload_refused` carries a domain rule's context.
-    fields = [{"in": exc.location, "path": list(path), "kind": exc.error_code, "ctx": dict(exc.bounds)} for path in exc.fields]
+    # Each fault's own code is its field's `kind`, where a `payload_refused` carries pydantic's error type, and its
+    # bounds the field's `ctx`, where a `payload_refused` carries a domain rule's context. A gate names at most its
+    # subject, under the gate's own code.
+    fields = [_refused_entry("body", fault.path, fault.code, fault.bounds) for fault in exc.faults]
+    if exc.subject is not None:
+        fields.append(_refused_entry(exc.subject.location, exc.subject.path, exc.error_code, exc.subject.bounds))
 
     return error_response(exc.status_code, exc.error_code, headers=exc.headers, fields=fields)
+
+
+def _refused_entry(location: FieldLocation, path: FieldPath, kind: Code, bounds: Mapping[str, Bound]) -> dict[str, Any]:
+    return {"in": location, "path": list(path), "kind": kind, "ctx": dict(bounds)}
 
 
 async def routing_exception_handler(request: Request, exc: StarletteHTTPException):

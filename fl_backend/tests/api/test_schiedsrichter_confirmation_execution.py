@@ -281,7 +281,11 @@ class TestANameAnotherRefereeHolds:
             with pytest.raises(APIError) as refused:
                 await (create(database, client) if act == "an entry" else correct(database, client, email=EMAIL))
 
-            return refused.value.error_code, refused.value.fields, await database[Collection.OUTBOX].count_documents({})
+            return (
+                refused.value.error_code,
+                tuple(fault.path for fault in refused.value.faults),
+                await database[Collection.OUTBOX].count_documents({}),
+            )
 
         holders = [
             referee_document(name="Howard Webb", email=CORRECTED_EMAIL),
