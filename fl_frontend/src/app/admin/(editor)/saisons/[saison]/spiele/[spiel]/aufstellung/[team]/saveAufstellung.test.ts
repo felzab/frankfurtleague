@@ -149,10 +149,13 @@ describe("the league's save of a line-up", () => {
       });
     const answer = await saveAufstellung({ team_id: TEAM, id: SPIEL, version: 3, changes: { picked: [TWO, ONE, THREE] } });
 
-    expect(answer).toMatchObject({
+    // The nominees' fault names the whole list, which holds no box of its own, so it keeps its sentence on the line.
+    expect(answer).toStrictEqual({
       ok: false,
       errorCode: "aufstellung_nominee_without_shortage",
       fieldErrors: { [`changes.picked.${THREE}`]: COPY.kader.deregistered },
+      kinds: { [`changes.picked.${THREE}`]: "spieler_not_in_kader" },
+      reason: "Nachnominierte füllen nur die Lücke bis 11.",
     });
   });
 
