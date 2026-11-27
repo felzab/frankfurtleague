@@ -28,6 +28,15 @@ def find_no_saison_refusal(*, running_saison_id: str | None) -> APIError | None:
     return APIError(HTTPStatus.CONFLICT, Code.BAN_LIST_NO_SAISON)
 
 
+def find_listed_refusal(*, listed: bool) -> APIError | None:
+    """`duplicate_key`: the list holds the address already, refused as `uniq_ban_list_address` refuses a second row."""
+
+    if not listed:
+        return None
+
+    return APIError(HTTPStatus.CONFLICT, Code.DUPLICATE_KEY)
+
+
 def find_admin_refusal(*, address: str, administrators: Iterable[str], incoming: bool) -> APIError | None:
     """`ban_list_admin`: the address has a row in `grants`, in effect or waiting, or a holder's live change moves to it.
 

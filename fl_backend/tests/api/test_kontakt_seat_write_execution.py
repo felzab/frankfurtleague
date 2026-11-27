@@ -85,7 +85,7 @@ async def on_a_row(url: str, body: Body, *, kontakte: dict[str, Any] | None, con
 
 
 async def write_seat(database: AsyncDatabase, seat: str, sent: dict[str, Any], *, version: int = 0) -> FLKontaktSeatResponse:
-    return await put_kontakt_seat(
+    written = await put_kontakt_seat(
         team_id=TEAM_OID,
         saison_id=SAISON_ID,
         seat=seat,
@@ -97,6 +97,9 @@ async def write_seat(database: AsyncDatabase, seat: str, sent: dict[str, Any], *
         today=TODAY,
         germany_now=MAIL_NOW,
     )
+    # Only a dry run answers the bare 204, and this call asks none.
+    assert isinstance(written, FLKontaktSeatResponse)
+    return written
 
 
 async def row_and_mails(database: AsyncDatabase) -> tuple[Mapping[str, Any], list[Any]]:

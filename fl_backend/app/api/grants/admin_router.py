@@ -1,6 +1,7 @@
-from typing import Annotated
+from collections.abc import Mapping, Sequence
+from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Response, status
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.address_change.crud import end_the_change_in_session
@@ -34,7 +35,7 @@ from app.core.dependencies import (
     OutboxCollection,
 )
 from app.core.exceptions import DocumentNotFoundError
-from app.core.routing import by_id
+from app.core.routing import DRY_RUN_PASSED, SAFE_WHEN, DryRun, by_id, dry_run_passed
 from app.core.security import ActorEmail, SessionActor, verify_admin_actor
 from app.core.transactions import transact
 from app.shared.folding import sign_in_identifier
@@ -59,7 +60,14 @@ async def get_grants(grants_collection: GrantsReadCollection) -> FLGrantsListRes
     return FLGrantsListResponse(grants=[FLGrantRow.model_validate(row) for row in rows])
 
 
-@router.post("", status_code=201, summary="Add an administrator")
+@router.post(
+    "",
+    status_code=201,
+    summary="Add an administrator",
+    response_model=FLCreatedResponse,
+    openapi_extra=SAFE_WHEN,
+    responses=DRY_RUN_PASSED,
+)
 async def post_grant(
     payload: FLPostGrantPayload,
     grants_collection: GrantsCollection,
@@ -70,20 +78,32 @@ async def post_grant(
     operator: ActorEmail,
     signed_in: Annotated[SessionActor, Depends(verify_admin_actor)],
     germany_now: GermanyNow,
-) -> FLCreatedResponse:
+    dry_run: DryRun = False,
+) -> FLCreatedResponse | Response:
     """Add an address as `administration`, holding once its wait has passed; only the owner adds one, and no request grants `owner`.
 
-    Every holder in effect and the address named are told, with the date it holds from.
+    Every holder in effect and the address named are told, with the date it holds from. A `dry_run` is refused as the
+    addition would be, and answers 204 and writes nothing where it would land.
     """
 
     # The spelling every admin-tier request is judged by.
     address = sign_in_identifier(str(payload.email))
 
-    async def judge_and_grant(session: AsyncClientSession) -> FLCreatedResponse:
-        grants = await pull_the_list_to_judge(grants_collection=grants_collection, session=session)
+    async def judge(grants: Sequence[Mapping[str, Any]], session: AsyncClientSession) -> None:
+        # Every refusal of the addition, in the write's transaction or the dry run's snapshot alike.
         refuse(find_only_owner_refusal(actor=operator, auth_time=signed_in.auth_time, grants=grants))
         refuse(find_exists_refusal(address=address, grants=grants))
         refuse(find_barred_refusal(barred=await address_is_barred(ban_list_collection=ban_list_collection, address=address, session=session)))
+
+    if dry_run:
+        # Opened here as `get_snapshot_session` opens one, not declared: the dry run alone reads outside a transaction.
+        async with db.start_session(snapshot=True) as session:
+            await judge(await read_grants(grants_collection=grants_collection, session=session), session)
+        return dry_run_passed()
+
+    async def judge_and_grant(session: AsyncClientSession) -> FLCreatedResponse:
+        grants = await pull_the_list_to_judge(grants_collection=grants_collection, session=session)
+        await judge(grants, session)
 
         # A live address change at that address ends here: left standing, its switch could carry a grant to an address
         # nobody named.
@@ -151,7 +171,12 @@ async def delete_grant(
     return await transact(db, judge_and_revoke)
 
 
-@router.post(f"{by_id('grant_id')}/handover", status_code=status.HTTP_204_NO_CONTENT, summary="Hand the owner role over to an administrator")
+@router.post(
+    f"{by_id('grant_id')}/handover",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Hand the owner role over to an administrator",
+    openapi_extra=SAFE_WHEN,
+)
 async def post_handover(
     grant_id: CustomObjectId,
     grants_collection: GrantsCollection,
@@ -161,14 +186,16 @@ async def post_handover(
     operator: ActorEmail,
     signed_in: Annotated[SessionActor, Depends(verify_admin_actor)],
     germany_now: GermanyNow,
+    dry_run: DryRun = False,
 ) -> None:
     """Start handing the owner role to an administrator in effect, completing once its wait has passed; the owner stays the owner until then.
 
-    Only the owner starts one, and every holder in effect is told the date it completes on.
+    Only the owner starts one, and every holder in effect is told the date it completes on. A `dry_run` is refused as
+    the handover would be, and writes nothing.
     """
 
-    async def judge_and_start(session: AsyncClientSession) -> None:
-        grants = await pull_the_list_to_judge(grants_collection=grants_collection, session=session)
+    async def judge(grants: Sequence[Mapping[str, Any]], session: AsyncClientSession) -> Mapping[str, Any]:
+        # Every refusal of the handover, in the write's transaction or the dry run's snapshot alike.
         refuse(find_only_owner_refusal(actor=operator, auth_time=signed_in.auth_time, grants=grants))
 
         grant = next((row for row in grants if row["_id"] == grant_id), None)
@@ -182,6 +209,17 @@ async def post_handover(
                 barred=await address_is_barred(ban_list_collection=ban_list_collection, address=str(grant["address"]), session=session)
             )
         )
+        return grant
+
+    if dry_run:
+        # Opened here as `get_snapshot_session` opens one, not declared: the dry run alone reads outside a transaction.
+        async with db.start_session(snapshot=True) as session:
+            await judge(await read_grants(grants_collection=grants_collection, session=session), session)
+        return
+
+    async def judge_and_start(session: AsyncClientSession) -> None:
+        grants = await pull_the_list_to_judge(grants_collection=grants_collection, session=session)
+        grant = await judge(grants, session)
         await start_the_handover_in_session(
             grant,
             grants_collection=grants_collection,

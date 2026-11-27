@@ -11,7 +11,11 @@ import {
 } from "@/core/transport";
 
 import type {
+  AccountPostAddressChangeParams,
+  AddressChangePostAddressChangeAdminParams,
+  BanListPostBanListEntryParams,
   BewerbungenGetBewerbungenAdminParams,
+  BewerbungenPostKontaktSeatParams,
   FLAcceptBewerbungPayload,
   FLAccountAddressChangePayload,
   FLAccountAddressChangeResponse,
@@ -155,12 +159,17 @@ import type {
   FLTeamSpieleResponse,
   FLTokenPayload,
   FLVersionResponse,
+  GrantsPostGrantParams,
+  GrantsPostHandoverParams,
   IdentityPostWithdrawalParams,
   SaisonsGetSweepSaisonsParams,
+  SchiedsrichterPatchSchiedsrichterParams,
+  SchiedsrichterPostSchiedsrichterParams,
   SpieleGetSpieleSpielplanParams,
   SpielePatchSpielParams,
   SpielerGetSpielerAdminParams,
   TeamsGetTeamsAdminParams,
+  TeamsPutKontaktSeatParams,
 } from "./types.ts";
 
 const getHeaders = (...sources: (RequestInit["headers"] | Record<string, string | undefined>)[]) => {
@@ -216,22 +225,26 @@ export const accountGetAddressChange = async (options?: Parameters<typeof adminK
   });
 };
 
-export const getAccountPostAddressChangeUrl = () => {
-  return `/api/account/address_change`;
+export const getAccountPostAddressChangeUrl = (params?: AccountPostAddressChangeParams) => {
+  const stringifiedParams = serializeQuery(params);
+
+  return stringifiedParams.length > 0 ? `/api/account/address_change?${stringifiedParams}` : `/api/account/address_change`;
 };
 
 /**
  * Start a change of the address the person signs in on: the address on file is mailed a link, and its confirmation mails the new one.
  *
  * Everything the address holds moves once the new address confirms, after a wait where it holds a grant; declining
- * either link ends the change, and a live change of the address is replaced.
+ * either link ends the change, and a live change of the address is replaced. A `dry_run` is refused as the start would
+ * be, and writes nothing where it would land.
  * @summary Start a change of the signed-in person's address
  */
 export const accountPostAddressChange = async (
   fLAccountAddressChangePayload: FLAccountAddressChangePayload,
-  options?: Parameters<typeof adminKeyTransport>[1],
+  params?: AccountPostAddressChangeParams,
+  options?: Parameters<typeof adminKeyDryRunTransport>[1],
 ): Promise<void> => {
-  return adminKeyTransport<void>(getAccountPostAddressChangeUrl(), {
+  return adminKeyDryRunTransport<void>(getAccountPostAddressChangeUrl(params), {
     ...options,
     method: "POST",
     headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
@@ -311,22 +324,26 @@ export const addressChangeGetAddressChanges = async (
   });
 };
 
-export const getAddressChangePostAddressChangeAdminUrl = () => {
-  return `/api/address_change`;
+export const getAddressChangePostAddressChangeAdminUrl = (params?: AddressChangePostAddressChangeAdminParams) => {
+  const stringifiedParams = serializeQuery(params);
+
+  return stringifiedParams.length > 0 ? `/api/address_change?${stringifiedParams}` : `/api/address_change`;
 };
 
 /**
  * Start a change of the typed address for a person who says they cannot sign in.
  *
  * The new mailbox is mailed a link and the address on file a stop link, and nothing moves until a waiting period after
- * the new mailbox confirms, the old address working until then.
+ * the new mailbox confirms, the old address working until then. A `dry_run` is refused as the start would be, and
+ * writes nothing.
  * @summary Start an address change for a person who says they cannot sign in
  */
 export const addressChangePostAddressChangeAdmin = async (
   fLAddressChangeAdminPayload: FLAddressChangeAdminPayload,
-  options?: Parameters<typeof adminKeyTransport>[1],
+  params?: AddressChangePostAddressChangeAdminParams,
+  options?: Parameters<typeof adminKeyDryRunTransport>[1],
 ): Promise<void> => {
-  return adminKeyTransport<void>(getAddressChangePostAddressChangeAdminUrl(), {
+  return adminKeyDryRunTransport<void>(getAddressChangePostAddressChangeAdminUrl(params), {
     ...options,
     method: "POST",
     headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
@@ -631,21 +648,25 @@ export const banListGetBanListEntries = async (options?: Parameters<typeof admin
   });
 };
 
-export const getBanListPostBanListEntryUrl = () => {
-  return `/api/ban_list`;
+export const getBanListPostBanListEntryUrl = (params?: BanListPostBanListEntryParams) => {
+  const stringifiedParams = serializeQuery(params);
+
+  return stringifiedParams.length > 0 ? `/api/ban_list?${stringifiedParams}` : `/api/ban_list`;
 };
 
 /**
  * Ban an address: it cannot sign in, and no mail leaves for it but the ban's own notice, sent where `notify` is set.
  *
- * The ban runs a fixed number of seasons past the running one, and it and its reason outlive the person's erasure.
+ * The ban runs a fixed number of seasons past the running one, and it and its reason outlive the person's erasure. A
+ * `dry_run` is refused as the ban would be, and answers 204 and writes nothing where it would land.
  * @summary Ban an email address
  */
 export const banListPostBanListEntry = async (
   fLPostBanListEntryPayload: FLPostBanListEntryPayload,
-  options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLCreatedResponse> => {
-  return adminKeyTransport<FLCreatedResponse>(getBanListPostBanListEntryUrl(), {
+  params?: BanListPostBanListEntryParams,
+  options?: Parameters<typeof adminKeyDryRunTransport>[1],
+): Promise<FLCreatedResponse | void> => {
+  return adminKeyDryRunTransport<FLCreatedResponse | void>(getBanListPostBanListEntryUrl(params), {
     ...options,
     method: "POST",
     headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
@@ -894,24 +915,30 @@ export const bewerbungenPatchEinwilligung = async (
   });
 };
 
-export const getBewerbungenPostKontaktSeatUrl = (bewerbungId: string, seat: string) => {
-  return `/api/bewerbungen/${encodeURIComponent(String(bewerbungId))}/kontakte/${encodeURIComponent(String(seat))}`;
+export const getBewerbungenPostKontaktSeatUrl = (bewerbungId: string, seat: string, params?: BewerbungenPostKontaktSeatParams) => {
+  const stringifiedParams = serializeQuery(params);
+
+  return stringifiedParams.length > 0
+    ? `/api/bewerbungen/${encodeURIComponent(String(bewerbungId))}/kontakte/${encodeURIComponent(String(seat))}?${stringifiedParams}`
+    : `/api/bewerbungen/${encodeURIComponent(String(bewerbungId))}/kontakte/${encodeURIComponent(String(seat))}`;
 };
 
 /**
  * Write a person into one seat, whatever its state, and mail them a fresh link; an acceptance waits on their answer.
  *
  * Where one person holds two seats both are written, the last holder's link opens nothing afterwards, and the seat's
- * deadline starts again from today. A finished season's application takes no write, as it takes no fresh link.
+ * deadline starts again from today. A finished season's application takes no write, as it takes no fresh link. A
+ * `dry_run` is refused as the write would be, and answers 204 and writes nothing where it would land.
  * @summary Write the person one contact seat holds and mail them a fresh link
  */
 export const bewerbungenPostKontaktSeat = async (
   bewerbungId: string,
   seat: string,
   fLBewerbungKontaktSeatPayload: FLBewerbungKontaktSeatPayload,
-  options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLBewerbungKontaktSeatResponse> => {
-  return adminKeyTransport<FLBewerbungKontaktSeatResponse>(getBewerbungenPostKontaktSeatUrl(bewerbungId, seat), {
+  params?: BewerbungenPostKontaktSeatParams,
+  options?: Parameters<typeof adminKeyDryRunTransport>[1],
+): Promise<FLBewerbungKontaktSeatResponse | void> => {
+  return adminKeyDryRunTransport<FLBewerbungKontaktSeatResponse | void>(getBewerbungenPostKontaktSeatUrl(bewerbungId, seat, params), {
     ...options,
     method: "POST",
     headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
@@ -958,21 +985,25 @@ export const grantsGetGrants = async (options?: Parameters<typeof adminKeyTransp
   });
 };
 
-export const getGrantsPostGrantUrl = () => {
-  return `/api/grants`;
+export const getGrantsPostGrantUrl = (params?: GrantsPostGrantParams) => {
+  const stringifiedParams = serializeQuery(params);
+
+  return stringifiedParams.length > 0 ? `/api/grants?${stringifiedParams}` : `/api/grants`;
 };
 
 /**
  * Add an address as `administration`, holding once its wait has passed; only the owner adds one, and no request grants `owner`.
  *
- * Every holder in effect and the address named are told, with the date it holds from.
+ * Every holder in effect and the address named are told, with the date it holds from. A `dry_run` is refused as the
+ * addition would be, and answers 204 and writes nothing where it would land.
  * @summary Add an administrator
  */
 export const grantsPostGrant = async (
   fLPostGrantPayload: FLPostGrantPayload,
-  options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLCreatedResponse> => {
-  return adminKeyTransport<FLCreatedResponse>(getGrantsPostGrantUrl(), {
+  params?: GrantsPostGrantParams,
+  options?: Parameters<typeof adminKeyDryRunTransport>[1],
+): Promise<FLCreatedResponse | void> => {
+  return adminKeyDryRunTransport<FLCreatedResponse | void>(getGrantsPostGrantUrl(params), {
     ...options,
     method: "POST",
     headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
@@ -1032,18 +1063,27 @@ export const grantsDeleteHandover = async (grantId: string, options?: Parameters
   });
 };
 
-export const getGrantsPostHandoverUrl = (grantId: string) => {
-  return `/api/grants/${encodeURIComponent(String(grantId))}/handover`;
+export const getGrantsPostHandoverUrl = (grantId: string, params?: GrantsPostHandoverParams) => {
+  const stringifiedParams = serializeQuery(params);
+
+  return stringifiedParams.length > 0
+    ? `/api/grants/${encodeURIComponent(String(grantId))}/handover?${stringifiedParams}`
+    : `/api/grants/${encodeURIComponent(String(grantId))}/handover`;
 };
 
 /**
  * Start handing the owner role to an administrator in effect, completing once its wait has passed; the owner stays the owner until then.
  *
- * Only the owner starts one, and every holder in effect is told the date it completes on.
+ * Only the owner starts one, and every holder in effect is told the date it completes on. A `dry_run` is refused as
+ * the handover would be, and writes nothing.
  * @summary Hand the owner role over to an administrator
  */
-export const grantsPostHandover = async (grantId: string, options?: Parameters<typeof adminKeyTransport>[1]): Promise<void> => {
-  return adminKeyTransport<void>(getGrantsPostHandoverUrl(grantId), {
+export const grantsPostHandover = async (
+  grantId: string,
+  params?: GrantsPostHandoverParams,
+  options?: Parameters<typeof adminKeyDryRunTransport>[1],
+): Promise<void> => {
+  return adminKeyDryRunTransport<void>(getGrantsPostHandoverUrl(grantId, params), {
     ...options,
     method: "POST",
   });
@@ -1947,22 +1987,26 @@ export const schiedsrichterGetSchiedsrichter = async (
   });
 };
 
-export const getSchiedsrichterPostSchiedsrichterUrl = () => {
-  return `/api/schiedsrichter`;
+export const getSchiedsrichterPostSchiedsrichterUrl = (params?: SchiedsrichterPostSchiedsrichterParams) => {
+  const stringifiedParams = serializeQuery(params);
+
+  return stringifiedParams.length > 0 ? `/api/schiedsrichter?${stringifiedParams}` : `/api/schiedsrichter`;
 };
 
 /**
  * Create a referee and owe them their confirmation link, answering the address it goes to.
  *
  * Entering a referee is the invitation, with no second press deciding whether they are asked, since a referee nobody
- * asked is a name nobody consented to publish.
+ * asked is a name nobody consented to publish. A `dry_run` is refused as the create would be, and answers 204 and
+ * writes nothing where it would land.
  * @summary Create a Schiedsrichter
  */
 export const schiedsrichterPostSchiedsrichter = async (
   fLPostSchiedsrichterPayload: FLPostSchiedsrichterPayload,
-  options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLPostSchiedsrichterResponse> => {
-  return adminKeyTransport<FLPostSchiedsrichterResponse>(getSchiedsrichterPostSchiedsrichterUrl(), {
+  params?: SchiedsrichterPostSchiedsrichterParams,
+  options?: Parameters<typeof adminKeyDryRunTransport>[1],
+): Promise<FLPostSchiedsrichterResponse | void> => {
+  return adminKeyDryRunTransport<FLPostSchiedsrichterResponse | void>(getSchiedsrichterPostSchiedsrichterUrl(params), {
     ...options,
     method: "POST",
     headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
@@ -2135,23 +2179,29 @@ export const schiedsrichterGetSchiedsrichterById = async (
   });
 };
 
-export const getSchiedsrichterPatchSchiedsrichterUrl = (schiedsrichterId: string) => {
-  return `/api/schiedsrichter/${encodeURIComponent(String(schiedsrichterId))}`;
+export const getSchiedsrichterPatchSchiedsrichterUrl = (schiedsrichterId: string, params?: SchiedsrichterPatchSchiedsrichterParams) => {
+  const stringifiedParams = serializeQuery(params);
+
+  return stringifiedParams.length > 0
+    ? `/api/schiedsrichter/${encodeURIComponent(String(schiedsrichterId))}?${stringifiedParams}`
+    : `/api/schiedsrichter/${encodeURIComponent(String(schiedsrichterId))}`;
 };
 
 /**
  * Update a referee on the `version` the editor was served, answering the version stored.
  *
  * A corrected address on an unconfirmed referee retires their link and owes a fresh one, named in `confirmation`, and a
- * confirmed referee's address moves only through an address change.
+ * confirmed referee's address moves only through an address change. A `dry_run` is refused as the update would be, and
+ * answers 204 and writes nothing where it would land.
  * @summary Update a Schiedsrichter
  */
 export const schiedsrichterPatchSchiedsrichter = async (
   schiedsrichterId: string,
   fLPatchSchiedsrichterPayload: FLPatchSchiedsrichterPayload,
-  options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLPatchSchiedsrichterResponse> => {
-  return adminKeyTransport<FLPatchSchiedsrichterResponse>(getSchiedsrichterPatchSchiedsrichterUrl(schiedsrichterId), {
+  params?: SchiedsrichterPatchSchiedsrichterParams,
+  options?: Parameters<typeof adminKeyDryRunTransport>[1],
+): Promise<FLPatchSchiedsrichterResponse | void> => {
+  return adminKeyDryRunTransport<FLPatchSchiedsrichterResponse | void>(getSchiedsrichterPatchSchiedsrichterUrl(schiedsrichterId, params), {
     ...options,
     method: "PATCH",
     headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
@@ -3113,15 +3163,20 @@ export const teamsPostInvitationMail = async (
   });
 };
 
-export const getTeamsPutKontaktSeatUrl = (teamId: string, saisonId: string, seat: string) => {
-  return `/api/teams/${encodeURIComponent(String(teamId))}/saisons/${encodeURIComponent(String(saisonId))}/kontakte/${encodeURIComponent(String(seat))}`;
+export const getTeamsPutKontaktSeatUrl = (teamId: string, saisonId: string, seat: string, params?: TeamsPutKontaktSeatParams) => {
+  const stringifiedParams = serializeQuery(params);
+
+  return stringifiedParams.length > 0
+    ? `/api/teams/${encodeURIComponent(String(teamId))}/saisons/${encodeURIComponent(String(saisonId))}/kontakte/${encodeURIComponent(String(seat))}?${stringifiedParams}`
+    : `/api/teams/${encodeURIComponent(String(teamId))}/saisons/${encodeURIComponent(String(saisonId))}/kontakte/${encodeURIComponent(String(seat))}`;
 };
 
 /**
  * Write the person one seat holds on the row's `version`, a newly seated person owed a fresh link whose address `email` names.
  *
  * The same person, address and name folded, keeps the seat's record and link, and where the Trainer holds a second seat
- * a write on either seat writes both under one link.
+ * a write on either seat writes both under one link. A `dry_run` is refused as the write would be, and answers 204 and
+ * writes nothing where it would land.
  * @summary Write the person one contact seat holds
  */
 export const teamsPutKontaktSeat = async (
@@ -3129,9 +3184,10 @@ export const teamsPutKontaktSeat = async (
   saisonId: string,
   seat: string,
   fLKontaktSeatPayload: FLKontaktSeatPayload,
-  options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLKontaktSeatResponse> => {
-  return adminKeyTransport<FLKontaktSeatResponse>(getTeamsPutKontaktSeatUrl(teamId, saisonId, seat), {
+  params?: TeamsPutKontaktSeatParams,
+  options?: Parameters<typeof adminKeyDryRunTransport>[1],
+): Promise<FLKontaktSeatResponse | void> => {
+  return adminKeyDryRunTransport<FLKontaktSeatResponse | void>(getTeamsPutKontaktSeatUrl(teamId, saisonId, seat, params), {
     ...options,
     method: "PUT",
     headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),

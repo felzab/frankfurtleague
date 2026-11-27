@@ -1,8 +1,11 @@
-from typing import Any, Final
+from http import HTTPStatus
+from typing import Annotated, Any, Final
 
+from fastapi import Query
 from pydantic import TypeAdapter, ValidationError
 from starlette.convertors import Convertor, register_url_convertor
 from starlette.requests import Request
+from starlette.responses import Response
 
 from app.shared.schemas.custom import OBJECT_ID_REGEX
 
@@ -20,6 +23,21 @@ SAFE: Final[dict[str, Any]] = {"x-safe": True}
 
 # An operation writing nothing whenever this boolean query parameter is true, a write's dry run.
 SAFE_WHEN: Final[dict[str, Any]] = {"x-safe-when": "dry_run"}
+
+# A write's dry run answering only whether the write would land: refused as the write would be, and written nothing.
+DryRun = Annotated[bool, Query(description="Judge this write as it would be judged, and write nothing")]
+
+# Such a dry run's answer where the write would land: no content, since nothing was created to name.
+DRY_RUN_PASSED: Final[dict[int | str, dict[str, Any]]] = {
+    HTTPStatus.NO_CONTENT: {"description": "The `dry_run` found nothing the write would refuse"}
+}
+
+
+def dry_run_passed() -> Response:
+    """The answer of a dry run the write would pass, which `DRY_RUN_PASSED` publishes."""
+
+    return Response(status_code=HTTPStatus.NO_CONTENT)
+
 
 (_SAFE_KEY,) = SAFE
 (_SAFE_WHEN_KEY,) = SAFE_WHEN

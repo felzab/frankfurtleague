@@ -6,9 +6,19 @@ import * as zod from "zod";
  * Start a change of the address the person signs in on: the address on file is mailed a link, and its confirmation mails the new one.
  *
  * Everything the address holds moves once the new address confirms, after a wait where it holds a grant; declining
- * either link ends the change, and a live change of the address is replaced.
+ * either link ends the change, and a live change of the address is replaced. A `dry_run` is refused as the start would
+ * be, and writes nothing where it would land.
  * @summary Start a change of the signed-in person's address
  */
+export const accountPostAddressChangeQueryDryRunDefault = false;
+
+export const AccountPostAddressChangeQueryParams = zod.object({
+  dry_run: zod
+    .boolean()
+    .default(accountPostAddressChangeQueryDryRunDefault)
+    .describe("Judge this write as it would be judged, and write nothing"),
+});
+
 export const accountPostAddressChangeBodyEmailMax = 254;
 
 export const AccountPostAddressChangeBody = zod.object({
@@ -67,9 +77,19 @@ export const ActionLogGetActionLogBody = zod
  * Start a change of the typed address for a person who says they cannot sign in.
  *
  * The new mailbox is mailed a link and the address on file a stop link, and nothing moves until a waiting period after
- * the new mailbox confirms, the old address working until then.
+ * the new mailbox confirms, the old address working until then. A `dry_run` is refused as the start would be, and
+ * writes nothing.
  * @summary Start an address change for a person who says they cannot sign in
  */
+export const addressChangePostAddressChangeAdminQueryDryRunDefault = false;
+
+export const AddressChangePostAddressChangeAdminQueryParams = zod.object({
+  dry_run: zod
+    .boolean()
+    .default(addressChangePostAddressChangeAdminQueryDryRunDefault)
+    .describe("Judge this write as it would be judged, and write nothing"),
+});
+
 export const addressChangePostAddressChangeAdminBodyAddressMax = 254;
 
 export const addressChangePostAddressChangeAdminBodyEmailMax = 254;
@@ -300,9 +320,19 @@ export const AufstellungenPutAufstellungBody = zod
 /**
  * Ban an address: it cannot sign in, and no mail leaves for it but the ban's own notice, sent where `notify` is set.
  *
- * The ban runs a fixed number of seasons past the running one, and it and its reason outlive the person's erasure.
+ * The ban runs a fixed number of seasons past the running one, and it and its reason outlive the person's erasure. A
+ * `dry_run` is refused as the ban would be, and answers 204 and writes nothing where it would land.
  * @summary Ban an email address
  */
+export const banListPostBanListEntryQueryDryRunDefault = false;
+
+export const BanListPostBanListEntryQueryParams = zod.object({
+  dry_run: zod
+    .boolean()
+    .default(banListPostBanListEntryQueryDryRunDefault)
+    .describe("Judge this write as it would be judged, and write nothing"),
+});
+
 export const banListPostBanListEntryBodyBanReasonMax = 500;
 
 export const banListPostBanListEntryBodyBanReasonRegExp = new RegExp("^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$");
@@ -736,7 +766,8 @@ export const BewerbungenPatchEinwilligungBody = zod
  * Write a person into one seat, whatever its state, and mail them a fresh link; an acceptance waits on their answer.
  *
  * Where one person holds two seats both are written, the last holder's link opens nothing afterwards, and the seat's
- * deadline starts again from today. A finished season's application takes no write, as it takes no fresh link.
+ * deadline starts again from today. A finished season's application takes no write, as it takes no fresh link. A
+ * `dry_run` is refused as the write would be, and answers 204 and writes nothing where it would land.
  * @summary Write the person one contact seat holds and mail them a fresh link
  */
 export const bewerbungenPostKontaktSeatPathBewerbungIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -744,6 +775,15 @@ export const bewerbungenPostKontaktSeatPathBewerbungIdRegExp = new RegExp("^[0-9
 export const BewerbungenPostKontaktSeatParams = zod.object({
   bewerbung_id: zod.string().regex(bewerbungenPostKontaktSeatPathBewerbungIdRegExp),
   seat: zod.string(),
+});
+
+export const bewerbungenPostKontaktSeatQueryDryRunDefault = false;
+
+export const BewerbungenPostKontaktSeatQueryParams = zod.object({
+  dry_run: zod
+    .boolean()
+    .default(bewerbungenPostKontaktSeatQueryDryRunDefault)
+    .describe("Judge this write as it would be judged, and write nothing"),
 });
 
 export const bewerbungenPostKontaktSeatBodyEmailMax = 254;
@@ -784,9 +824,16 @@ export const BewerbungenResendKontaktConfirmationParams = zod.object({
 /**
  * Add an address as `administration`, holding once its wait has passed; only the owner adds one, and no request grants `owner`.
  *
- * Every holder in effect and the address named are told, with the date it holds from.
+ * Every holder in effect and the address named are told, with the date it holds from. A `dry_run` is refused as the
+ * addition would be, and answers 204 and writes nothing where it would land.
  * @summary Add an administrator
  */
+export const grantsPostGrantQueryDryRunDefault = false;
+
+export const GrantsPostGrantQueryParams = zod.object({
+  dry_run: zod.boolean().default(grantsPostGrantQueryDryRunDefault).describe("Judge this write as it would be judged, and write nothing"),
+});
+
 export const grantsPostGrantBodyEmailMax = 254;
 
 export const GrantsPostGrantBody = zod.object({
@@ -818,13 +865,20 @@ export const GrantsDeleteHandoverParams = zod.object({
 /**
  * Start handing the owner role to an administrator in effect, completing once its wait has passed; the owner stays the owner until then.
  *
- * Only the owner starts one, and every holder in effect is told the date it completes on.
+ * Only the owner starts one, and every holder in effect is told the date it completes on. A `dry_run` is refused as
+ * the handover would be, and writes nothing.
  * @summary Hand the owner role over to an administrator
  */
 export const grantsPostHandoverPathGrantIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
 
 export const GrantsPostHandoverParams = zod.object({
   grant_id: zod.string().regex(grantsPostHandoverPathGrantIdRegExp),
+});
+
+export const grantsPostHandoverQueryDryRunDefault = false;
+
+export const GrantsPostHandoverQueryParams = zod.object({
+  dry_run: zod.boolean().default(grantsPostHandoverQueryDryRunDefault).describe("Judge this write as it would be judged, and write nothing"),
 });
 
 /**
@@ -1514,9 +1568,19 @@ export const SaisonsGetTeamParams = zod.object({
  * Create a referee and owe them their confirmation link, answering the address it goes to.
  *
  * Entering a referee is the invitation, with no second press deciding whether they are asked, since a referee nobody
- * asked is a name nobody consented to publish.
+ * asked is a name nobody consented to publish. A `dry_run` is refused as the create would be, and answers 204 and
+ * writes nothing where it would land.
  * @summary Create a Schiedsrichter
  */
+export const schiedsrichterPostSchiedsrichterQueryDryRunDefault = false;
+
+export const SchiedsrichterPostSchiedsrichterQueryParams = zod.object({
+  dry_run: zod
+    .boolean()
+    .default(schiedsrichterPostSchiedsrichterQueryDryRunDefault)
+    .describe("Judge this write as it would be judged, and write nothing"),
+});
+
 export const schiedsrichterPostSchiedsrichterBodyDefaultPaymentMin = 0;
 
 export const schiedsrichterPostSchiedsrichterBodyKontaktEmailMax = 254;
@@ -1638,13 +1702,23 @@ export const SchiedsrichterGetSchiedsrichterByIdParams = zod.object({
  * Update a referee on the `version` the editor was served, answering the version stored.
  *
  * A corrected address on an unconfirmed referee retires their link and owes a fresh one, named in `confirmation`, and a
- * confirmed referee's address moves only through an address change.
+ * confirmed referee's address moves only through an address change. A `dry_run` is refused as the update would be, and
+ * answers 204 and writes nothing where it would land.
  * @summary Update a Schiedsrichter
  */
 export const schiedsrichterPatchSchiedsrichterPathSchiedsrichterIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
 
 export const SchiedsrichterPatchSchiedsrichterParams = zod.object({
   schiedsrichter_id: zod.string().regex(schiedsrichterPatchSchiedsrichterPathSchiedsrichterIdRegExp),
+});
+
+export const schiedsrichterPatchSchiedsrichterQueryDryRunDefault = false;
+
+export const SchiedsrichterPatchSchiedsrichterQueryParams = zod.object({
+  dry_run: zod
+    .boolean()
+    .default(schiedsrichterPatchSchiedsrichterQueryDryRunDefault)
+    .describe("Judge this write as it would be judged, and write nothing"),
 });
 
 export const schiedsrichterPatchSchiedsrichterBodyDefaultPaymentMin = 0;
@@ -2889,7 +2963,8 @@ export const TeamsPostInvitationMailBody = zod
  * Write the person one seat holds on the row's `version`, a newly seated person owed a fresh link whose address `email` names.
  *
  * The same person, address and name folded, keeps the seat's record and link, and where the Trainer holds a second seat
- * a write on either seat writes both under one link.
+ * a write on either seat writes both under one link. A `dry_run` is refused as the write would be, and answers 204 and
+ * writes nothing where it would land.
  * @summary Write the person one contact seat holds
  */
 export const teamsPutKontaktSeatPathTeamIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -2898,6 +2973,12 @@ export const TeamsPutKontaktSeatParams = zod.object({
   team_id: zod.string().regex(teamsPutKontaktSeatPathTeamIdRegExp),
   saison_id: zod.string(),
   seat: zod.string(),
+});
+
+export const teamsPutKontaktSeatQueryDryRunDefault = false;
+
+export const TeamsPutKontaktSeatQueryParams = zod.object({
+  dry_run: zod.boolean().default(teamsPutKontaktSeatQueryDryRunDefault).describe("Judge this write as it would be judged, and write nothing"),
 });
 
 export const teamsPutKontaktSeatBodyEmailMax = 254;

@@ -30,6 +30,7 @@ from app.core.crud import ANCHOR_FIELD
 from app.core.exceptions import APIError, DocumentNotFoundError
 from app.core.security import PASSKEY_FACTOR, SessionActor
 from app.shared.schemas.bounds import GRANT_WAIT_HOURS, OWNER_WAIT_DAYS
+from app.shared.schemas.responses import FLCreatedResponse
 from tests import acts
 from tests.app_client import app_client, app_under_test
 from tests.bans import ban_through_the_route
@@ -125,19 +126,20 @@ async def add(
     now: datetime = NOW,
 ) -> ObjectId:
     with acts.acting_as(acting_as):
-        return (
-            await post_grant(
-                payload=FLPostGrantPayload(email=email),
-                grants_collection=grants if grants is not None else database[Collection.GRANTS],
-                ban_list_collection=database[Collection.BAN_LIST],
-                address_changes_collection=database[Collection.ADDRESS_CHANGES],
-                outbox_collection=outbox if outbox is not None else database[Collection.OUTBOX],
-                db=client,
-                operator=acting_as,
-                signed_in=session_of(acting_as, signed_in_at),
-                germany_now=now,
-            )
-        ).created_id
+        added = await post_grant(
+            payload=FLPostGrantPayload(email=email),
+            grants_collection=grants if grants is not None else database[Collection.GRANTS],
+            ban_list_collection=database[Collection.BAN_LIST],
+            address_changes_collection=database[Collection.ADDRESS_CHANGES],
+            outbox_collection=outbox if outbox is not None else database[Collection.OUTBOX],
+            db=client,
+            operator=acting_as,
+            signed_in=session_of(acting_as, signed_in_at),
+            germany_now=now,
+        )
+    # Only a dry run answers the bare 204, and this call asks none.
+    assert isinstance(added, FLCreatedResponse)
+    return added.created_id
 
 
 async def remove(

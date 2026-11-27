@@ -3,7 +3,7 @@ from collections import Counter
 from collections.abc import Mapping
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Query, status
+from fastapi import APIRouter, Query, Response, status
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
@@ -66,7 +66,9 @@ from app.api.teams.services import find_entry_saison_refusal, find_shorthand_ref
 from app.core.collections import Collection
 from app.core.concurrency import concurrently
 from app.core.crud import (
+    VERSION_FIELD,
     aggregate_many_from_db,
+    find_stale_save_refusal,
     insert_live,
     is_held_elsewhere,
     patch_one_in_db,
@@ -93,7 +95,7 @@ from app.core.dependencies import (
 from app.core.exceptions import DocumentNotFoundError
 from app.core.readonly import ReadCollection
 from app.core.recording import record_act
-from app.core.routing import by_id
+from app.core.routing import DRY_RUN_PASSED, SAFE_WHEN, DryRun, by_id, dry_run_passed
 from app.core.transactions import transact
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from app.shared.schemas.custom import CustomObjectId
@@ -576,6 +578,9 @@ async def resend_kontakt_confirmation(
 @router.post(
     f"{by_id('bewerbung_id')}/kontakte/{{seat}}",
     summary="Write the person one contact seat holds and mail them a fresh link",
+    response_model=FLBewerbungKontaktSeatResponse,
+    openapi_extra=SAFE_WHEN,
+    responses=DRY_RUN_PASSED,
 )
 async def post_kontakt_seat(
     bewerbung_id: CustomObjectId,
@@ -588,22 +593,25 @@ async def post_kontakt_seat(
     db: DBClient,
     today: GermanDay,
     germany_now: GermanyNow,
-) -> FLBewerbungKontaktSeatResponse:
+    dry_run: DryRun = False,
+) -> FLBewerbungKontaktSeatResponse | Response:
     """Write a person into one seat, whatever its state, and mail them a fresh link; an acceptance waits on their answer.
 
     Where one person holds two seats both are written, the last holder's link opens nothing afterwards, and the seat's
-    deadline starts again from today. A finished season's application takes no write, as it takes no fresh link.
+    deadline starts again from today. A finished season's application takes no write, as it takes no fresh link. A
+    `dry_run` is refused as the write would be, and answers 204 and writes nothing where it would land.
     """
 
     # Outside the callback, so a retried transaction owes the press's one mail and a second press its own.
     nonce = secrets.token_hex(8)
+    db_filter = {"_id": bewerbung_id}
 
-    async def seat_and_mint(session: AsyncClientSession) -> FLBewerbungKontaktSeatResponse:
-        db_filter = {"_id": bewerbung_id}
+    async def judge(session: AsyncClientSession) -> tuple[Mapping[str, Any], tuple[FLKontaktSeat, ...]]:
+        # Every refusal of the write, in its transaction or the dry run's snapshot alike: the application and the seats.
         bewerbung_raw = await pull_one_from_db(
             collection=bewerbungen_collection,
             db_filter=db_filter,
-            projection=["status", "kontakte", "confirmations", "saison_id", "schule", "team_id"],
+            projection=["status", "kontakte", "confirmations", "saison_id", "schule", "team_id", VERSION_FIELD],
             session=session,
         )
 
@@ -632,6 +640,20 @@ async def post_kontakt_seat(
         # Asked over the seats this write does not reach: a mirrored pair is one person, and comparing them against
         # each other would refuse every such write.
         refuse(find_seat_contact_refusal(kontakte=kontakte, seats=seats, email=seat_data.email, phone=seat_data.phone))
+        # Read as well as filtered on: a dry run patches nothing for the version to refuse, and the patch's filter still
+        # refuses a write racing past this read.
+        refuse(find_stale_save_refusal(bewerbung_raw, version=seat_data.version))
+        return bewerbung_raw, seats
+
+    if dry_run:
+        # Opened here as `get_snapshot_session` opens one, not declared: the dry run alone reads outside a transaction.
+        async with db.start_session(snapshot=True) as session:
+            await judge(session)
+        return dry_run_passed()
+
+    async def seat_and_mint(session: AsyncClientSession) -> FLBewerbungKontaktSeatResponse:
+        bewerbung_raw, seats = await judge(session)
+        kontakte, confirmations = bewerbung_raw.get("kontakte"), bewerbung_raw.get("confirmations")
 
         # Restarted even where it had passed: left where it was, the person would be handed a link that opens nothing.
         confirmation_deadline = confirmation_deadline_from(today=today)

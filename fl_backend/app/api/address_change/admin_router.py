@@ -59,7 +59,7 @@ from app.core.dependencies import (
 from app.core.exceptions import DocumentNotFoundError
 from app.core.readonly import ReadCollection
 from app.core.recording import record_act
-from app.core.routing import by_id
+from app.core.routing import SAFE_WHEN, DryRun, by_id
 from app.core.security import ActorEmail
 from app.core.transactions import transact
 from app.shared.folding import sign_in_identifier
@@ -143,6 +143,7 @@ async def get_address_changes(
     "",
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Start an address change for a person who says they cannot sign in",
+    openapi_extra=SAFE_WHEN,
 )
 async def post_address_change_admin(
     address_change_data: FLAddressChangeAdminPayload,
@@ -154,17 +155,20 @@ async def post_address_change_admin(
     db: DBClient,
     operator: ActorEmail,
     germany_now: GermanyNow,
+    dry_run: DryRun = False,
 ) -> None:
     """Start a change of the typed address for a person who says they cannot sign in.
 
     The new mailbox is mailed a link and the address on file a stop link, and nothing moves until a waiting period after
-    the new mailbox confirms, the old address working until then.
+    the new mailbox confirms, the old address working until then. A `dry_run` is refused as the start would be, and
+    writes nothing.
     """
 
     identifier, email = sign_in_identifier(str(address_change_data.address)), str(address_change_data.email)
     way: FLAddressChangeWay = "waiting_period"
 
-    async def judge_and_start_the_change(session: AsyncClientSession) -> None:
+    async def judge(session: AsyncClientSession) -> None:
+        # Every refusal of the start, in the write's transaction or the dry run's snapshot alike.
         await refuse_an_address_off_limits(identifier, actor=operator, grants_collection=grants_collection, session=session)
         refuse(find_unchanged_refusal(address=identifier, folded=sign_in_identifier(email)))
 
@@ -187,6 +191,14 @@ async def post_address_change_admin(
             )
         )
 
+    if dry_run:
+        # Opened here as `get_snapshot_session` opens one, not declared: the dry run alone reads outside a transaction.
+        async with db.start_session(snapshot=True) as session:
+            await judge(session)
+        return
+
+    async def judge_and_start_the_change(session: AsyncClientSession) -> None:
+        await judge(session)
         record = compose_record(address=identifier, email=email, way=way, now=germany_now)
         address_change_id = await start_the_change_in_session(
             record=record,
