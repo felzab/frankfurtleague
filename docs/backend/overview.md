@@ -153,16 +153,14 @@ the parse: FastAPI validates the body against its model before the endpoint runs
 breaking any field's rule answers `payload_refused` naming every such field. The second is the
 endpoint's judge, which a well-formed body alone reaches. A judge asks its gates first, each through
 `fl_backend/app/core/crud.py :: refuse`: a gate stops the write before any box means anything, such
-as a record not found, a caller not allowed, a stale version or a closed season. A gate is an
-`APIError` (`fl_backend/app/core/exceptions.py`), and names at most the one field its sentence
-reads, such as the record a retirement names in its path. Then the judge hands every independent
-check of a box to one `refuse_faults` call, which raises one refusal naming each fault as its own
-entry. A box's fault is a `FieldFault`, which nothing raises alone, and its code is one of
-`FieldCode`'s, each of which the frontend words on its box. A check that means nothing once another
-failed sits in the same call behind a guard on that check. A value a person typed is judged as a
-box's fault; a code only a stale page can send, such as a choice no select offers, is a gate. The
-collected answer's code is its first fault's, and its status is 403 where any fault judged who asks,
-else 409 where any judged stored data, else 422.
+as a record not found, a caller not allowed or a closed season. A gate is an `APIError`
+(`fl_backend/app/core/exceptions.py`), and names at most the one field its sentence reads, such as
+the record a retirement names in its path. Then the judge hands every independent check of a box to
+one `refuse_faults` call, which raises one refusal naming each fault as its own entry. A box's fault
+is a `FieldFault`, which nothing raises alone, and its code is one of `FieldCode`'s, each of which
+the frontend words on its box. A check that means nothing once another failed sits in the same call
+behind a guard on that check. The collected answer's code is its first fault's, and its status is
+403 where any fault judged who asks, else 409 where any judged stored data, else 422.
 
 ## Time
 

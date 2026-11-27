@@ -5,7 +5,7 @@ published document lists them once, as the failure body's `error_code`. A 4xx an
 the request wrote nothing, and the frontend clears the site's cache by that promise; a write that
 may stand answers `unknown_outcome` with a 500, which promises nothing.
 
-A code a box shows is a `FieldCode` member, and a code only a stale page sends is a gate.
+A code a box shows is a `FieldCode` member.
 """
 
 from enum import StrEnum, auto
@@ -70,8 +70,8 @@ class Code(StrEnum):
     # A removal never takes the `owner` row, and a handover never names it: the role leaves only by a handover to another.
     GRANT_OWNER = auto()
     GRANT_BARRED = auto()
-    # An address the ban list holds, typed where a write would list it again or mail it a link: `grant_barred`'s twin
-    # for every write but a grant's, which keeps its own code.
+    # An address the ban list already holds, typed into the ban list's own add: `grant_barred`'s twin, which a grant
+    # keeps for its own.
     ADDRESS_BARRED = auto()
     # 403 and not 409: the refusal is about who asks, and a handover to the asker is what lifts it.
     GRANT_ONLY_OWNER = auto()

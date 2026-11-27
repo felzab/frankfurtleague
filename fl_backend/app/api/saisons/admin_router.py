@@ -524,7 +524,7 @@ async def patch_saison(
         refuse(find_shape_refusal(stored=stored_rules, proposed=saison_data.rules, drawn=drawn))
         rules = find_rules_refusal(stored=stored_rules, proposed=saison_data.rules, occupancy_by_gruppe=occupancy, largest_kader=largest_kader)
         refuse_faults(
-            # First: a start that cannot move is a fact about the payload's own date, whatever its rules ask.
+            # Listed first, so a start that cannot move leads the answer's code.
             find_saison_start_refusal(stored_start_date=stored_start_date, proposed_start_date=saison_data.start_date, taken_place=taken_place),
             find_saison_start_austritt_refusal(
                 stored_start_date=stored_start_date, proposed_start_date=saison_data.start_date, austritt_stored=austritt_stored

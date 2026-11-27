@@ -237,10 +237,11 @@ async def post_team_answer(
         refuse(find_unanswerable_refusal(spielbestaetigung_raw=row, ansetzung_state=ansetzung_state, now=germany_now))
 
         if vorschlag is not None:
-            refuse_faults(find_vorschlag_past_refusal(vorschlag=vorschlag, today=today))
-
             stored = FLSpiel.model_validate(ansetzung_state.spiel)
-            refuse_faults(find_vorschlag_unchanged_refusal(vorschlag=vorschlag, spiel=stored))
+            refuse_faults(
+                find_vorschlag_past_refusal(vorschlag=vorschlag, today=today),
+                find_vorschlag_unchanged_refusal(vorschlag=vorschlag, spiel=stored),
+            )
             proposed = proposal_payload(stored, vorschlag)
 
             # The administrator's save's judges in its order, each read just ahead of the one refusal that consumes it.
