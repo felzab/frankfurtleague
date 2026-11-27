@@ -66,6 +66,13 @@ describe("a refused row's Kürzel chip", () => {
       taken: false,
     });
   });
+
+  // The harm: a new school's name taken, and the chip telling the administrator to change the Kürzel instead.
+  it("stands for no other box's taken value", () => {
+    expect(
+      outcomeOf({ ok: false, errorCode: "duplicate_key", fieldErrors: { name: field.taken }, kinds: { name: "duplicate_key" } }),
+    ).toMatchObject({ taken: false });
+  });
 });
 
 describe("the colours a card may not take", () => {
