@@ -846,9 +846,9 @@ fixtures are reassigned, which `schiedsrichter_still_assigned` holds to that ord
 season; a pupil's squad row is taken out; a contact seat is replaced or cleared on the team's
 season; a seat on an application is replaced on the application's page; and another address's
 pending change to it is discarded at `/admin/address-changes`. **An address the list already holds
-is refused**, in a sentence of the toast, the dialog having closed behind the passkey touch; that
-press first ends every live sign-in of the address, so it is how the sign-ins a failed sign-out left
-running are ended. Entering a ban and lifting one each take the passkey touch.
+is refused**, on the dialog's line before the passkey touch is asked; that press first ends every
+live sign-in of the address, so it is how the sign-ins a failed sign-out left running are ended.
+Entering a ban and lifting one each take the passkey touch.
 
 **A ban lapses five full seasons after the one it was entered under, and the row is removed at the
 activation that runs past it.** The season it was entered in does not count, so a ban entered while

@@ -169,11 +169,9 @@ Each pattern is an entry of `COPY.shared`; what the entry cannot say is when it 
   (`fl_frontend/src/kit/Toast.tsx :: toastAnswer`). A done act's toast leaves by itself unless it
   brings a note; a note, a refusal or a partial outcome stands until it is closed.
 - **A refusal** keeps its line beside what it names: the question's, the dialog's, the box's or the
-  section's. It stands in a toast only where no line is left, for an act behind the passkey touch
-  whose question or dialog has closed before it answers. No field stands beside a toast, so an act
-  whose dialog closes words every refusal as a sentence naming what was refused, never a field's
-  phrase or `template.checkFields`: its lane declares a sentence per box and cause (`boxless` in
-  `fl_frontend/src/core/action.ts`).
+  section's, never a toast, since only a done act closes its question or its dialog. An act behind
+  the passkey touch keeps its dialog, which stands aside for the browser's prompt alone and stands
+  again for the answer, so a field's refusal takes its box's phrase there as anywhere.
 - **A busy button** keeps its label and shows a spinner named `loading`; no „Speichert …“.
 - **An empty list** says `empty.search`, `empty.filter`, `empty.none`, `empty.skipped` or
   `empty.unrecorded` with its own plural; `empty.filter` only where the list keeps a filter,
