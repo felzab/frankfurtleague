@@ -25,6 +25,7 @@ export default function ErasuresPage() {
       title={{ route: "adminErasures" }}
       verb="delete"
       tone="danger"
+      touch
       read={readErasureCounts}
       run={eraseAddress}
       holder={runAdminRead(getAdminHolder)}>

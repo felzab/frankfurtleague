@@ -56,7 +56,7 @@ export function SignInBoxes({
             carry: { holder: email },
             button: { label: COPY.shared.withObject(COPY.shared.link, "send") },
             done: COPY.shared.toast.linkSent,
-            touch,
+            ...(touch ? { touch: { holder: email } } : {}),
           }}>
           {address}
           <TextField

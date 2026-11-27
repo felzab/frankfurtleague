@@ -100,10 +100,9 @@ describe("a Konto box's act behind the passkey touch, its dry run declared", () 
             // The mark is the type's alone, which only the action builder gives a server action.
             run: run as DryRunAction<FormData>,
             dryRun: true,
-            carry: { holder: HOLDER },
             button: { label: COPY.shared.withObject(COPY.shared.link, "send") },
             done: OWN_WORD,
-            touch: true,
+            touch: { holder: HOLDER },
           }}>
           <TextField
             label={COPY.shared.addressChange.new}

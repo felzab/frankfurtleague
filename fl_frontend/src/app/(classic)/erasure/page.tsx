@@ -82,7 +82,7 @@ const readState = cache(async (): Promise<MailedState> => {
     acts: { primary: COPY.page.accountErasure, destroys: true },
     carry: { token, holder: subject.email },
     // An administrator touches a passkey at the press, on a passkey's session or a mailed code's alike.
-    touch: granted,
+    ...(granted ? { touch: { holder: subject.email } } : {}),
   };
 });
 

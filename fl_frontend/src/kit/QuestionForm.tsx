@@ -35,6 +35,15 @@ export type AskedInput<Input> = {
 };
 
 /**
+ * The act the question's final press runs on the read's input. One on the touch's fixed list, as an erasure is, asks
+ * the touch for the address the page was drawn for, the one account it may answer for, and posts that address as
+ * `holder`; one off the list, as a withdrawal is, asks none.
+ */
+type QuestionRun<Input> =
+  | { touch: { holder: string }; run: (input: NoInfer<Input> & { holder: string }) => Promise<ActionAnswer> }
+  | { touch?: never; run: (input: NoInfer<Input>) => Promise<ActionAnswer> };
+
+/**
  * A form that is a page's one act: its fields in a box, the act and its status line under them, no title but the page's.
  * The press sends the fields to `read`, whose answer is the question, worded from what it read, so the act is confirmed
  * over what it will reach: a question standing on data the form holds until the press. `read`'s refusal stands in the
@@ -42,28 +51,18 @@ export type AskedInput<Input> = {
  * a refusal standing in the question's line (`ConfirmDialog`). A done act empties the boxes and names itself in the
  * question's toast, its answer's `note`.
  */
-export function QuestionForm<Input>({
-  verb,
-  tone,
-  touch = true,
-  read,
-  run,
-  holder,
-  children,
-}: {
-  /** The act's verb, which its toast words as done where its answer brings no note. */
-  verb: DoneVerb;
-  /** The press's and the question's button alike. */
-  tone: ConfirmWords["tone"];
-  /** Whether the act is on the touch's fixed list, as an erasure is and a withdrawal is not. */
-  touch?: boolean;
-  read: (formData: FormData) => Promise<ActionAnswer<AskedInput<Input>>>;
-  run: (input: Input & { holder: string }) => Promise<ActionAnswer>;
-  /** The address the page was drawn for, the one account the touch may answer for. */
-  holder: string;
-  /** The form's fields, the kit's, each with its `name`. */
-  children: ReactNode;
-}) {
+export function QuestionForm<Input>(
+  props: {
+    /** The act's verb, which its toast words as done where its answer brings no note. */
+    verb: DoneVerb;
+    /** The press's and the question's button alike. */
+    tone: ConfirmWords["tone"];
+    read: (formData: FormData) => Promise<ActionAnswer<AskedInput<Input>>>;
+    /** The form's fields, the kit's, each with its `name`. */
+    children: ReactNode;
+  } & QuestionRun<Input>,
+) {
+  const { verb, tone, read, children } = props;
   const [asked, setAsked] = useState<AskedInput<Input> | null>(null);
   const [isAsking, setAsking] = useState(false);
   // Raised to draw the boxes anew, as `HeldForm` refuses a form's reset.
@@ -86,7 +85,6 @@ export function QuestionForm<Input>({
   // A read that opened the question says nothing here, being done: the question is its answer.
   const status = statusOf(answer, isBlocked, isPending);
   const open = { isOpen: isAsking, onOpenChange: setAsking };
-  const touched = touch ? { touch: { holder } } : {};
 
   return (
     <>
@@ -126,13 +124,15 @@ export function QuestionForm<Input>({
               }
         }
         open={open}
-        {...touched}
+        {...(props.touch === undefined ? {} : { touch: props.touch })}
         onConfirm={
           // Unasked, the question shows no button to press.
           asked === null
             ? () => undefined
             : async () => {
-                const answered = await run({ ...asked.input, holder });
+                const answered = await (props.touch === undefined
+                  ? props.run(asked.input)
+                  : props.run({ ...asked.input, holder: props.touch.holder }));
                 // An update after the `await` lands outside the press's transition unless it opens one of its own.
                 if (answered.ok) startTransition(() => setEmptied((count) => count + 1));
                 return answered;

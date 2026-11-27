@@ -31,7 +31,6 @@ export default function WithdrawalsPage() {
       title={{ route: "adminWithdrawals" }}
       verb="enter"
       tone="primary"
-      touch={false}
       read={readWithdrawal}
       run={enterWithdrawal}
       holder={runAdminRead(getAdminHolder)}>
