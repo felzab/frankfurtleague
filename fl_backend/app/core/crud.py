@@ -29,7 +29,7 @@ from app.core.exceptions import (
     APIError,
     DocumentNotFoundError,
     FieldCheck,
-    FieldRefusal,  # noqa: TID251 -- the one place field faults are raised
+    FieldRefusal,
     faults_of,
     link_invalid,
 )
@@ -454,8 +454,8 @@ def refuse_faults(*checks: FieldCheck) -> None:
     """Every fault these field checks found, raised as one refusal naming each box; nothing where none found one.
 
     Varargs, where `refuse` takes one: each check is asked whatever another found, so one answer names every box at
-    fault. Only checks independent of each other share a call; one that means nothing once another failed waits in a
-    later call, behind it.
+    fault. A check that means nothing once another failed sits in the same call behind a guard on that check, so an
+    unrelated box failing never hides it.
     """
 
     faults = faults_of(checks)

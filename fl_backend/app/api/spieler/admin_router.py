@@ -188,12 +188,14 @@ async def patch_spieler_saison(
             await refuse_a_closed_kader(saisons_collection=saisons_collection, saison_id=saison_id, session=session)
 
         saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["rules"], session=session)
-        refuse_faults(
+        refuse(
             find_kader_stufe_refusal(
                 stufe=spieler_data.stufe,
                 stored_stufe=row_raw.get("stufe"),
                 allowed_stufen=FLSaisonRules.model_validate(saison_raw["rules"]).allowed_stufen,
-            ),
+            )
+        )
+        refuse_faults(
             await find_a_taken_rolle(
                 saison_spieler_collection=saison_spieler_collection,
                 saisons_collection=saisons_collection,

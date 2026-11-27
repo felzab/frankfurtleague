@@ -383,7 +383,7 @@ class TestARolloverLandingMidSaveIsJudgedAgain:
             entry = await database[Collection.SAISON_TEAMS].find_one({"saison_id": OUTGOING})
             assert entry is not None, "the seed entered no club in the incumbent"
             person = spieler_document(SPIELER, "Max", "Mustermann")
-            # No role, so `refuse_a_taken_rolle` takes no anchor of its own and the closed squad's is the one left.
+            # No role, so `find_a_taken_rolle` takes no anchor of its own and the closed squad's is the one left.
             row = saison_spieler_document(SPIELER, OUTGOING, entry["team_id"])
             await database[Collection.SPIELER].insert_one(person)
             await database[Collection.SAISON_SPIELER].insert_one(row)
