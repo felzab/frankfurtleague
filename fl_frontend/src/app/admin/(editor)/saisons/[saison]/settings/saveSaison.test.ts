@@ -99,4 +99,14 @@ describe("the season editor's save", () => {
       expect(state.sent).toEqual([]);
     },
   );
+
+  /* A season without an application form is the usual one: asking either day of it would refuse every save of it. */
+  it("saves a season holding no application window as one without it, asking neither day", async () => {
+    state.saison = { ...STORED, bewerbung: null };
+
+    const answer = await saveSaison({ id: "2027", version: 3, changes: { "rules.max_kader_size": "20" } });
+
+    expect(answer).toEqual({ ok: true, value: 4 });
+    expect(state.sent).toMatchObject([{ bewerbung: null, rules: { max_kader_size: 20 } }]);
+  });
 });
