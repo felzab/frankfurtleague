@@ -1,10 +1,10 @@
 "use client";
 
-import { startTransition, useLayoutEffect, useRef, useState } from "react";
+import { createContext, startTransition, useContext, useLayoutEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { Dialog as AriaDialog, DialogTrigger, Heading } from "react-aria-components/Dialog";
-import { Form, FormContext } from "react-aria-components/Form";
+import { FormContext } from "react-aria-components/Form";
 
 import { textOf } from "@/core/copy";
 import { COPY } from "@/core/copy/shared";
@@ -18,6 +18,7 @@ import { FieldStack } from "./FieldStack";
 import { dangerConsequence } from "./fieldStyles";
 import { FocusOnLeave } from "./FocusOnLeave";
 import { FormFooter } from "./FormFooter";
+import { HeldForm } from "./HeldForm";
 import { toastAnswer } from "./Toast";
 import { tv } from "./tv";
 import { statusOf, useFormAction } from "./useFormAction";
@@ -26,7 +27,7 @@ import { usePasskeyTouch } from "./usePasskeyTouch";
 
 import type { ActionAnswer } from "@/core/action";
 import type { Copy } from "@/core/copy";
-import type { ReactElement, ReactNode } from "react";
+import type { ReactElement, ReactNode, RefObject } from "react";
 import type { Tone, Trigger } from "./ConfirmDialog";
 import type { DialogAct, DialogDanger } from "./dialogAct";
 import type { HeldOpen } from "./useOpenUntilHidden";
@@ -160,6 +161,40 @@ function DangerRow({ danger, isClosed, onDone }: { danger: DialogDanger; isClose
   );
 }
 
+/** The controls a dialog's done act hands the focus to, in order: the first standing one that takes it. */
+type ReturnTargets = () => ReadonlyArray<HTMLElement | null | undefined>;
+
+/**
+ * Where the focus goes once a done act closes a dialog the provider holds: the control that opened it, as its holder
+ * names it, such as a row's „⋯“ for a dialog its menu's entry opened. The holder states it rather than leaving it to
+ * React Aria's restore, which misses a touched dialog: its `FocusScope` keeps the element focused at its first render,
+ * a menu's entry already gone, and the step aside's `Activity` writes that back on showing again (react-aria 3.53.1,
+ * `dist/private/focus/FocusScope.mjs`, lines 442 and 523).
+ */
+export const DialogReturn = createContext<ReturnTargets | null>(null);
+
+/**
+ * Hands the focus to the holder's control once the dialog leaves after a done act: in the frame after React Aria's own
+ * restore, which runs first, as its scope stands outside this one. A step aside leaves too, and is no done act.
+ */
+function ReturnOnDone({ isDone }: { isDone: RefObject<boolean> }) {
+  const targets = useContext(DialogReturn);
+  useLayoutEffect(
+    () => () => {
+      if (!isDone.current || targets === null) return;
+      requestAnimationFrame(() => {
+        for (const control of targets()) {
+          if (control === null || control === undefined || !control.isConnected) continue;
+          control.focus();
+          if (control.ownerDocument.activeElement === control) return;
+        }
+      });
+    },
+    [isDone, targets],
+  );
+  return null;
+}
+
 /** How many of a form's fields hold other values than they did in `opened`, the form as it opened. */
 function changedSince(opened: FormData | null, form: HTMLFormElement | null) {
   if (opened === null || form === null) return 0;
@@ -206,12 +241,18 @@ function ActDialog({
   isAside: boolean;
 }) {
   const close = () => opened.onOpenChange(false);
+  // A done act, its own or the danger row's, closes the dialog; any other leaving keeps React Aria's restore.
+  const isDone = useRef(false);
+  const closeDone = () => {
+    isDone.current = true;
+    close();
+  };
   const { answer, submit, block, isBlocked, isPending } = useFormAction(
     async (formData: FormData) => {
       const answered = await run(formData);
       if (answered.ok) {
         // A form's action runs in a transition, and an update after its `await` commits outside it.
-        startTransition(close);
+        startTransition(closeDone);
         toastAnswer(answered, done);
       }
       return answered;
@@ -251,26 +292,19 @@ function ActDialog({
       isOpen={opened.isOpen}
       onOpenChange={(isOpen) => (isOpen ? opened.onOpenChange(true) : leave())}>
       <AriaDialog data-kit-focus>
+        <ReturnOnDone isDone={isDone} />
         {/* A dialog opened from inside another form, such as an editor's section, is a form of its own: React Aria's
             `Form` would otherwise take the outer form's props from its context, the outer submit handler among them. */}
         <FormContext value={null}>
-          {/* The browser's own check, as React Aria's `Form` holds it, rather than `HeldForm`'s: a dialog opens on a
-              hydrated press alone, so no press reaches it before hydration, which `HeldForm` exists to hold. Its other
-              reason, a press the browser stops in silence on a control it cannot show, is a press before hydration
-              too: once hydrated, each field's own `invalid` listener (`useFormValidation`) cancels the browser's report
-              and shows the field's message, focusing the first, a date's segments among them. */}
-          <Form
+          {/* The one judged form, as every form's: a dialog opens on a hydrated press alone, so the held press is never
+              its, but both passes end on its boxes as on any page's. */}
+          <HeldForm
             ref={form}
             className="grid gap-6"
-            validationErrors={refused?.fieldErrors}
-            onInvalid={block}
-            onSubmit={(event) => {
-              event.preventDefault();
-              // React's submit event bubbles through the portal to the outer form, whose save would run too.
-              event.stopPropagation();
-              // A busy submit button stands as a plain button, so Enter in a lone field submits the form all the same.
-              if (isPending) return;
-              const formData = new FormData(event.currentTarget);
+            fieldErrors={refused?.fieldErrors}
+            onBlock={block}
+            isBusy={isPending}
+            onSend={(formData) => {
               for (const [name, value] of Object.entries(carry)) formData.set(name, value);
               submit(formData);
             }}>
@@ -286,7 +320,7 @@ function ActDialog({
               <DangerRow
                 danger={danger}
                 isClosed={isPending}
-                onDone={close}
+                onDone={closeDone}
               />
             )}
             {consequence !== undefined && <p className="text-sm text-fg-muted">{consequence}</p>}
@@ -306,7 +340,7 @@ function ActDialog({
                 locked={locked}
               />
             </FormFooter>
-          </Form>
+          </HeldForm>
         </FormContext>
         <ConfirmDialog
           question={{ verb: "discard", subject: COPY.template.changes, consequence: COPY.template.changesLost(lost), tone: "danger" }}

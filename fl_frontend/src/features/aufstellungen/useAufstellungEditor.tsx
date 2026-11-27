@@ -51,12 +51,6 @@ export function useAufstellungEditor({ aufstellung, players, words, acts, save }
   };
   const editor = useEditor<LineupValue, number | null>(record, save, { countOf: lineupMoves });
   const { draft, set } = editor;
-  // The pupils the save refused, each on their own row, while the refusal stands over the draft it was sent with.
-  const refusals = Object.fromEntries(
-    Object.entries(editor.fieldErrors ?? {}).flatMap(([box, text]) =>
-      box.startsWith(REFUSED_ROW) ? [[box.slice(REFUSED_ROW.length), text]] : [],
-    ),
-  );
 
   return {
     editor,
@@ -64,6 +58,7 @@ export function useAufstellungEditor({ aufstellung, players, words, acts, save }
     barText: COPY.aufstellung.startelfCount(lineupStarters(draft, nameless), STARTERS_MAX),
     block: (
       <Lineup
+        boxOf={(id) => `${REFUSED_ROW}${id}`}
         players={players}
         value={draft}
         nameless={nameless}
@@ -74,7 +69,6 @@ export function useAufstellungEditor({ aufstellung, players, words, acts, save }
         startersMax={STARTERS_MAX}
         words={words}
         acts={acts}
-        refusals={refusals}
       />
     ),
   };

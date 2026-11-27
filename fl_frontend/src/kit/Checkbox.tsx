@@ -63,12 +63,15 @@ const tick = tv({
  * head and of its row's name, in that order (React Aria's Checkbox page, API, `CheckboxField`).
  */
 export function Tick({
+  name,
   isSelected,
   isDisabled = false,
   columnFull = false,
   onChange,
   ...named
 }: {
+  /** The box the tick posts under, by which the form's served refusal marks it and the form's report focuses it. */
+  name?: string;
   "aria-labelledby": string;
   /** The line saying why a press changed nothing, by its id. */
   "aria-describedby"?: string;
@@ -87,14 +90,15 @@ export function Tick({
       className={look.root()}
       aria-labelledby={named["aria-labelledby"]}
       aria-describedby={named["aria-describedby"]}
+      name={name}
       isSelected={isSelected}
       onChange={onChange}
       isDisabled={isDisabled}>
       <CheckboxButton className={look.target()}>
-        {({ isSelected: selected }) => (
+        {({ isSelected: selected, isInvalid: invalid }) => (
           <Box
             selected={selected}
-            invalid={false}
+            invalid={invalid}
             alone
           />
         )}

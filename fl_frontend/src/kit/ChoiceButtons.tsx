@@ -3,15 +3,14 @@
 import { CheckboxButton, CheckboxField } from "react-aria-components/Checkbox";
 import { CheckboxGroup } from "react-aria-components/CheckboxGroup";
 import { RadioButton, RadioField, RadioGroup } from "react-aria-components/RadioGroup";
-import { Text } from "react-aria-components/Text";
 
 import { textOf } from "@/core/copy";
 
 import { CutText } from "./CutText";
 import { FieldLabel, MessageLine, useFieldLock, useFieldWait } from "./FieldParts";
-import { choiceButton, choiceField, choiceGroup, fieldRoot, messageLine } from "./fieldStyles";
+import { choiceButton, choiceField, choiceGroup, fieldRoot } from "./fieldStyles";
 
-import type { Copy, Words } from "@/core/copy";
+import type { Words } from "@/core/copy";
 import type { ReactNode } from "react";
 import type { Choice } from "./FieldParts";
 
@@ -21,28 +20,11 @@ type Shared = {
   /** The write takes no record without an answer here: the asterisk after the label, and the group heard as required. */
   isRequired?: boolean;
   /**
-   * The served refusal of the field, which its line shows and its frame's edge marks: the editor's field errors name a
-   * choice by its row's box, which no `name` the group posts under carries.
+   * The box the group posts under, by which the form's served refusal stands on it (`HeldForm`) as on any field: its
+   * line shows it, its frame's edge marks it, and the form's report focuses it.
    */
-  errorMessage?: Copy;
+  name?: string;
 };
-
-/**
- * The message line under the answers: the served refusal, else the browser's own check's (`MessageLine`). The refusal
- * stands in React Aria's `errorMessage` slot, so each answer is described by it while the group is invalid, as a
- * field's input is.
- */
-function GroupMessage({ errorMessage }: { errorMessage: Copy | undefined }) {
-  if (errorMessage === undefined) return <MessageLine />;
-  return (
-    <Text
-      slot="errorMessage"
-      data-kit-message
-      className={messageLine({ tone: "danger" })}>
-      {errorMessage}
-    </Text>
-  );
-}
 
 /**
  * An answer whose word a small mark stands before, such as a card's colour before „Gelb“: the mark shows what the word
@@ -61,7 +43,7 @@ type MarkedChoice = Choice & { mark?: ReactNode };
 export function Segmented({
   label,
   labelHidden = false,
-  errorMessage,
+  name,
   choices,
   isRequired = false,
   value,
@@ -79,11 +61,10 @@ export function Segmented({
       className={fieldRoot()}
       aria-label={labelHidden ? textOf(label) : undefined}
       orientation="horizontal"
+      name={name}
       value={value}
       onChange={onChange}
       isRequired={lock.isRequired}
-      // Only while refused: a stated `false` would hide the browser's own check, which React Aria then never shows.
-      isInvalid={errorMessage === undefined ? undefined : true}
       isReadOnly={lock.isReadOnly}>
       {!labelHidden && (
         <FieldLabel
@@ -112,7 +93,7 @@ export function Segmented({
           </RadioField>
         ))}
       </div>
-      <GroupMessage errorMessage={errorMessage} />
+      <MessageLine />
     </RadioGroup>
   );
 }
@@ -124,7 +105,7 @@ export function Segmented({
  */
 export function ToggleBoxes({
   label,
-  errorMessage,
+  name,
   choices,
   isRequired = false,
   value,
@@ -138,11 +119,10 @@ export function ToggleBoxes({
     <CheckboxGroup
       inert={useFieldWait()}
       className={fieldRoot()}
+      name={name}
       value={value === undefined ? undefined : [...value]}
       onChange={onChange}
       isRequired={lock.isRequired}
-      // Only while refused, as `Segmented`'s.
-      isInvalid={errorMessage === undefined ? undefined : true}
       isReadOnly={lock.isReadOnly}>
       <FieldLabel
         label={label}
@@ -162,7 +142,7 @@ export function ToggleBoxes({
           </CheckboxField>
         ))}
       </div>
-      <GroupMessage errorMessage={errorMessage} />
+      <MessageLine />
     </CheckboxGroup>
   );
 }

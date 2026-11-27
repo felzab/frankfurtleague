@@ -190,9 +190,9 @@ export function EditorPage<Values extends Record<string, EditorValue>>({
       }>
       <HeldForm
         ref={form}
-        validationErrors={editor.fieldErrors}
+        fieldErrors={editor.fieldErrors}
         // The browser judges each field's own rules first; a field it keeps back points the status line at it.
-        onInvalid={() => editor.block()}
+        onBlock={() => editor.block()}
         // A second save mid-flight would go on the version the first stores past, its refusal standing over a save that
         // went through.
         isBusy={editor.isPending}

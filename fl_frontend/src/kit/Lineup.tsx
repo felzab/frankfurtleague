@@ -12,6 +12,7 @@ import { Chip } from "./Chip";
 import { CutText } from "./CutText";
 import { EmptyState } from "./EmptyState";
 import { FocusOnLeave } from "./FocusOnLeave";
+import { useFieldFaults } from "./HeldForm";
 import { RolleMark } from "./RolleMark";
 import { tv } from "./tv";
 
@@ -178,8 +179,11 @@ type LineupProps = {
    * out. The ticks stand read-only either way, since they still say who started.
    */
   acts?: "locked" | "out";
-  /** What the save refused of single pupils, by id: each on its row's own line, in the caller's hands when it goes. */
-  refusals?: Readonly<Record<string, Copy>>;
+  /**
+   * A named pupil's own box, by which the save refuses that pupil: the refusal stands on the row's line and marks its
+   * tick, which the form's report focuses (`useFieldFaults`).
+   */
+  boxOf: (id: string) => string;
 };
 
 /** A pupil with no number stands after the numbered ones, in the order given. */
@@ -271,8 +275,9 @@ function FactHeads({ words }: { words: Pick<LineupWords, "name" | "nummer" | "po
  * reset and its save hold a line-up as they hold any field; an entry naming nobody stands outside it, read-only under
  * `words.anonymous`, its tick saying whether it started (`nameless`).
  */
-export function Lineup({ players, value, nameless, onChange, startersMax, words, acts, refusals = {} }: LineupProps) {
+export function Lineup({ players, value, nameless, onChange, startersMax, words, acts, boxOf }: LineupProps) {
   const id = useId();
+  const faults = useFieldFaults();
   // The row whose tick was pressed with the starters complete; it says so while that still holds.
   const [pressed, setPressed] = useState<string | null>(null);
 
@@ -297,7 +302,7 @@ export function Lineup({ players, value, nameless, onChange, startersMax, words,
   };
 
   const lineOf = (player: LineupPlayer, starts: boolean): RowLine | null => {
-    const refusal = refusals[player.id];
+    const refusal = faults?.[boxOf(player.id)];
     if (refusal !== undefined) return { tone: "danger", text: refusal };
     if (pressed === player.id && isFull && !starts) return { tone: "danger", text: words.startersFull };
     if (player.nominee === true && nominees > gap) return { tone: "danger", text: words.nomineeLocked };
@@ -355,6 +360,7 @@ export function Lineup({ players, value, nameless, onChange, startersMax, words,
                       <FactCells player={player} />
                       <td className={lineup(TICK).cell()}>
                         <Tick
+                          name={boxOf(player.id)}
                           aria-labelledby={`${startsId} ${nameId}`}
                           aria-describedby={line === null ? undefined : lineId}
                           isSelected={starts}

@@ -963,8 +963,8 @@ const DESIGN_BANS = [
     [
       ["Form"],
       "Form",
-      ["src/kit/HeldForm.tsx", "src/kit/Dialog.tsx"],
-      "A server-drawn form is `HeldForm`, without which a press before hydration goes out as a GET; a client-drawn one is `Dialog`'s.",
+      ["src/kit/HeldForm.tsx"],
+      "Every form is `HeldForm`, a dialog's included: both passes end on its boxes and move the focus to the first faulted one, and a press before hydration goes out as no GET.",
     ],
     [[String.raw`UNSTABLE_Toast\w*`], "Toast", ["src/kit/Toast.tsx"], "A toast is `appToast` through the kit's `Toast`."],
     [
@@ -1021,6 +1021,20 @@ const DESIGN_BANS = [
         "src/kit/StatTiles.tsx",
       ],
     },
+  ),
+  // A refusal placed beside the form is a second way, which the form's report after an answer never reaches and whose
+  // fault stays when the form's own go.
+  syntaxBan(
+    syntax(
+      [
+        "JSXAttribute[name.name=/^(?:validationErrors|errorMessage|isInvalid)$/]",
+        "ObjectExpression > Property[key.name=/^(?:validationErrors|errorMessage|isInvalid)$/]",
+      ].join(", "),
+      "A refusal stands on its box through `HeldForm`'s `fieldErrors`, by the box's `name`: name the field or the choice, and read `useFieldFaults` for a part holding no box.",
+    ),
+    PRODUCTION,
+    // The one form's own; and the sign-in code's refusal, which no form holds: the code sends itself once typed.
+    { allow: ["src/kit/HeldForm.tsx", "src/kit/CodeField.tsx"] },
   ),
   syntaxBan(
     syntax('JSXAttribute[name.name="role"][value.value="alertdialog"]', "A question before an irreversible act is the kit's `ConfirmDialog`."),

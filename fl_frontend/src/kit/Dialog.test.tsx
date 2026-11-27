@@ -14,12 +14,13 @@ import { ConfirmDialog } from "./ConfirmDialog";
 import { Dialog, RouteDialog, RouteDialogBody } from "./Dialog";
 import { EditorPage } from "./EditorPage";
 import { RowAct } from "./RowAct";
+import { SideActs } from "./SideActs";
 import { Table } from "./Table";
 import { TextField } from "./TextField";
 import { ToastRegion } from "./Toast";
 import { useEditor } from "./useEditor";
 
-import type { ActionAnswer } from "@/core/action";
+import type { ActionAnswer, DryRunAction } from "@/core/action";
 import type { Copy } from "@/core/copy";
 import type { ReactElement } from "react";
 import type { EditorSave } from "./useEditor";
@@ -479,6 +480,49 @@ describe("a dialog whose done act drops the row it was opened from", () => {
 
     await waitFor(() => expect(screen.getAllByRole("button", { name: COPY.shared.verb.create })).toHaveLength(1));
     await waitFor(() => expect(document.activeElement).toBe(next));
+  });
+});
+
+/** A row's side acts, its one act opening a dialog behind the passkey touch, as a seat's „Sitz bearbeiten“ does. */
+function TouchedSideAct() {
+  const [isOpen, setOpen] = useState(false);
+  return (
+    <SideActs acts={[{ label: COPY.shared.verb.edit, onPress: () => setOpen(true) }]}>
+      <Dialog
+        title={NAME}
+        act={{ verb: "save" }}
+        // The mark is the type's alone, which only the action builder gives a server action.
+        run={(async (_formData: FormData, _dryRun?: boolean) => DONE) as DryRunAction<FormData>}
+        touch={{ holder: HOLDER }}
+        open={{ isOpen, onOpenChange: setOpen }}>
+        <TextField
+          label={INPUT}
+          name="created"
+          kind="text"
+        />
+      </Dialog>
+    </SideActs>
+  );
+}
+
+// The harm: a keyboard user who saves a dialog opened from a row's „⋯“ loses the focus to the page's body, the menu's
+// entry that opened it gone, and the next Tab starts from the top of the page.
+describe("a touched dialog opened from a row's „⋯“", () => {
+  it("hands the focus back to the „⋯“ once its act is done", async () => {
+    // A rail's width, where a menu opens as a popover: jsdom has none of the observers the phone's sheet uses.
+    vi.spyOn(window, "matchMedia").mockImplementation((media) => Object.assign(new EventTarget(), { media, matches: true }) as MediaQueryList);
+    renderUnderNext(<TouchedSideAct />);
+    const more = screen.getByRole("button", { name: COPY.template.more });
+    act(() => more.focus());
+    await userEvent.keyboard("{Enter}");
+    await userEvent.keyboard("{ArrowDown}");
+    await userEvent.keyboard("{Enter}");
+    const dialog = await screen.findByRole("dialog");
+
+    await userEvent.click(within(dialog).getByRole("button", { name: SAVE }));
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    await waitFor(() => expect(document.activeElement).toBe(more));
   });
 });
 
