@@ -476,14 +476,6 @@ def _on_the_stored_proposal(status: HTTPStatus) -> HTTPStatus:
     return HTTPStatus.CONFLICT if status == HTTPStatus.UNPROCESSABLE_CONTENT else status
 
 
-def judged_as_a_proposal(check: FieldCheck) -> APIError | None:
-    """A refusal of the proposal, naming no field: the paths its faults name are a body this request does not carry."""
-
-    faults = faults_of((check,))
-
-    return APIError(refusal_status(faults), faults[0].code) if faults else None
-
-
 def proposal_payload(stored: FLSpiel, vorschlag: FLSpielbestaetigungAppointment) -> FLPatchSpielDataPayload:
     """The stored fixture as the administrator's wholesale save would carry it on the proposed date and hour, everything else kept.
 
