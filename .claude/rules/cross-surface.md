@@ -26,27 +26,17 @@ Each fails silently. The ratified decisions for the seams are in `docs/decisions
   which reads the shared failure line. A code saying the record already holds an end, the one the
   request asked or another, refuses the act the request asked, so it is a refusal and never joins
   that set, whose shared failure line would send the person to repeat an act the standing end
-  refuses. An end is an answer, a decision or an erasure the record keeps. A code saying the link is
-  spent or lapsed is about the link, so whatever stands behind it the page reaches the link no
-  longer valid (`fl_frontend/src/kit/mailedLinkState.ts :: linkInvalid`). A page a mail opens ends
-  in an end state (`fl_frontend/src/kit/MailedPage.tsx :: EndState`), and its action catches a code
-  saying the end the request asked already holds and reaches that end, as
-  `fl_frontend/src/app/(classic)/confirm/kontakt/answerKontakt.ts :: ended` catches
-  `bewerbung_seat_already_answered` and reaches the done page of the answer pressed. The end asked
-  is the answer's kind, never the choices it carried: a done page names the kind alone, so it stays
-  true whichever press's choices stand, and the account's entries page shows those. Where another
-  end stands, the page reaches an end state naming the end that stands, read off the link's view
-  where the code names neither, and worded by the catalogue, as `ended` reaches the link opened
-  again (`fl_frontend/src/app/(classic)/confirm/linkView.ts :: alreadyDone`). Elsewhere the
-  catalogue words every other such code, an end other than the one asked included, in one sentence
-  true on every screen whose write answers it; where none is, the backend splits the code, since an
-  action's catch would word it outside the catalogue. It is left to the stale-page line only where
-  no page read after that end held offers the act, and the page that sent it, read again, shows the
-  end; the writer leaving it there names in its report every page that offers the act, each with the
-  line of its source that hides the act once the end holds. A page a mail opens never qualifies: its
-  first answer forgets the link in that browser
-  (`fl_frontend/src/core/mailedLink.ts :: forgetMailedLink`), so the page read again there shows the
-  link as invalid.
+  refuses. An end is an answer, a decision or an erasure the record keeps. A page a mail opens has
+  its action catch every such code and reach one of the page's end states, as
+  `fl_frontend/src/kit/MailedPage.tsx :: MailedState` says. On every other page the catalogue words
+  such a code, the end asked or another, in one sentence true on every screen whose write answers
+  it; where none is, the backend splits the code, since an action's catch would word it outside the
+  catalogue. On such a page the writer may leave the code to the stale-page line only where three
+  hold: a save writes that end, as one landing outside a save leaves a cached page offering the act
+  for the cache's lifetime (`fl_frontend/src/core/siteCache.ts :: SITE_CACHE_TAG`); no page read
+  after it offers the act; and the page that sent it, read again, shows the end. A writer leaving it
+  there names in its report every page that offers the act, each with the line of its source that
+  hides the act once the end holds.
 - A bound the backend moves without naming it in the rule's context or the refusal's bounds
   (`fl_backend/app/core/exceptions.py :: APIError`) leaves a frontend line stale in silence.
 - `fl_backend/openapi.json` lists every code once and names none per endpoint, so which codes an

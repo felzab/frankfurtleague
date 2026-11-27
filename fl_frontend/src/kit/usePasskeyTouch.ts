@@ -22,8 +22,8 @@ const refusedWith = (reason: Copy): ActionAnswer<never> => ({ ok: false, reason 
  * the dry run passed, and then runs the act. So every input is typed, and every fault the server can name stands on
  * its field with the input kept, before the touch, whose session the action's lane admits for `PASSKEY_TOUCH_SECONDS`
  * alone (the lane's `passkey` slot). The prompt comes from the press, never an effect, which would ask a prompt nobody
- * pressed for. WebKit before Safari 17.4, and iOS and iPadOS before 17.4, asked WebAuthn for the press's user
- * activation, which a dry run's round trip may spend; the owner supports none of those versions.
+ * pressed for. WebKit before Safari 17.4, on whichever macOS runs it, and before iOS and iPadOS 17.4 asked WebAuthn for
+ * the press's user activation, which a dry run's round trip may spend; the owner supports none of those versions.
  *
  * Mounted with the page rather than with a dialog, so the client's chunk is here before the press. `asked` is whether
  * the page is an administrator's, which the page read; a person is asked nothing, as the lane admits them, and their
