@@ -180,8 +180,8 @@ Each pattern is an entry of `COPY.shared`; what the entry cannot say is when it 
   `empty.skipped` only where a person left every row out of a run, `empty.unrecorded` only where a
   closed record's list holds none and none is to come, such as a finished season's. A list that is
   one record named by a masculine or neuter noun, a team's „Kader“, says `empty.noneOne` with that
-  noun, and a list of open work with nothing waiting, such as an Übersicht card, says
-  `empty.nothingOpen`, naming no plural.
+  noun, or `empty.unrecordedOne` where its record is closed, and a list of open work with nothing
+  waiting, such as an Übersicht card, says `empty.nothingOpen`, naming no plural.
 - **A confirmation** asks `question` with the verb, says one short sentence of consequence, carries
   that verb on its button and `back` as the way back; never „Ja“. `back` stays where a way back
   opened the question, as the discard question an editor's or a dialog's „Zurück“ raises over
