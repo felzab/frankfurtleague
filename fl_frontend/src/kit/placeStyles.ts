@@ -52,7 +52,14 @@ const mark = tv({
       class: "relative bg-bg-muted text-fg after:absolute after:inset-x-0 after:-top-px after:border-t-2 after:border-brand",
     },
     { list: "tabs", current: "attribute", class: "aria-[current=page]:border-brand aria-[current=page]:text-fg" },
-    { list: "band", current: "attribute", class: "aria-[current=page]:text-on-brand" },
+    // A link of the classic band: its white in full, and along its foot a 2-px line in the band's accent green, the pair
+    // the token lint holds at 3:1 as the mark on the band.
+    {
+      list: "band",
+      current: "attribute",
+      class:
+        "aria-[current=page]:relative aria-[current=page]:text-on-brand aria-[current=page]:after:absolute aria-[current=page]:after:inset-x-0 aria-[current=page]:after:bottom-0 aria-[current=page]:after:border-b-2 aria-[current=page]:after:border-brand-accent",
+    },
     {
       list: "contents",
       current: "attribute",
