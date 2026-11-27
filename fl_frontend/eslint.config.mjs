@@ -1032,7 +1032,7 @@ const DESIGN_BANS = [
   // A refusal placed beside the form is a second way, which the form's report after an answer never reaches and whose
   // fault stays when the form's own go: React Aria's props and keys that mark a field invalid or word its fault, under
   // any key a literal names, quoted, computed or a template, the invalid mark set by hand, and the slot React Aria's
-  // field reads its fault's text from.
+  // field reads its fault's text from, its key and its value spelled in any of those ways.
   syntaxBan(
     syntax(
       [
@@ -1042,7 +1042,12 @@ const DESIGN_BANS = [
         `ObjectExpression > Property[key.type="TemplateLiteral"][key.quasis.0.value.cooked=/^(?:${PLACED}|aria-invalid)$/]`,
         'JSXAttribute[name.name="slot"][value.value="errorMessage"]',
         'JSXAttribute[name.name="slot"] > JSXExpressionContainer > Literal[value="errorMessage"]',
-        'ObjectExpression > Property[key.name="slot"][value.value="errorMessage"]',
+        'JSXAttribute[name.name="slot"] > JSXExpressionContainer > TemplateLiteral[quasis.0.value.cooked="errorMessage"]',
+        ...[
+          'ObjectExpression > Property[key.name="slot"]',
+          'ObjectExpression > Property[key.value="slot"]',
+          'ObjectExpression > Property[key.type="TemplateLiteral"][key.quasis.0.value.cooked="slot"]',
+        ].flatMap((slot) => [`${slot}[value.value="errorMessage"]`, `${slot}[value.quasis.0.value.cooked="errorMessage"]`]),
       ].join(", "),
       "A refusal stands on its box through `HeldForm`'s `fieldErrors`, by the box's `name`: name the field or the choice, and read `useFieldFaults` for a part holding no box, which takes `FAULTED_PART` while its fault stands.",
     ),
