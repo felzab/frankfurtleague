@@ -318,9 +318,9 @@ EINWILLIGUNG_VIEW_FIELDS: Mapping[str, int] = {
 
 # Narrower than the view's: the answer takes its wording from the payload and names no school. The
 # address and `sent_at` say whether a decline's notice has anybody to tell (`ansprechperson_mailbox`),
-# and no answer carries them.
+# and no answer carries them. The kept confirmation day refuses a second answer on an accepted application's seat.
 EINWILLIGUNG_ANSWER_FIELDS: Mapping[str, int] = {
-    **_per_seat("confirmations", "token_hashes", "declined_at", "deadline", "sent_at"),
+    **_per_seat("confirmations", "token_hashes", "declined_at", "deadline", "sent_at", "confirmed_on"),
     # The choices and their evidence, so a withdrawal names the grant it ends (`compose_choices`).
     **_per_seat("kontakte", "first_name", "email", "einwilligung.confirmed_at", *KONTAKT_CHOICE_FIELDS),
     "kontakte.trainer_is_also": 1,
@@ -410,7 +410,7 @@ def link_is_over(*, deadline: Any, status: Any, today: str) -> bool:
 
 
 def find_expired_token_refusal(*, over: bool) -> APIError | None:
-    """Why this link is over, or `None`. Judged before the seat: a seat on a decided application is never answered again.
+    """Why this link is over, or `None`: a seat on a decided application is never answered again.
 
     `over` is the record's own reading: `link_is_over` on an application, `deadline_passed` on a season row, which has no
     decision to end its link. No write moves a live link's deadline, a re-send minting another token.
@@ -461,13 +461,14 @@ def seat_is_answered(*, kontakte: Mapping[str, Any] | None, confirmations: Mappi
 def find_already_answered_refusal(*, kontakte: Mapping[str, Any] | None, confirmations: Mapping[str, Any] | None, seat: str) -> APIError | None:
     """Why this seat takes no second answer, or `None`. The single use: the stamps are what spend a link, never a nulled hash.
 
-    A seat erased at its person's request is refused as erased, which only a re-send meets: the erasure took its link.
+    A seat erased at its person's request is refused as erased, which only a re-send meets: the erasure took its link. A
+    confirmation an acceptance kept beside the emptied seat counts, as `state_of` reads it.
     """
 
     if _entry_of(confirmations, seat) is None:
         return APIError(HTTPStatus.CONFLICT, Code.BEWERBUNG_SEAT_ERASED)
 
-    if seat_is_answered(kontakte=kontakte, confirmations=confirmations, seat=seat):
+    if _was_confirmed(kontakte, confirmations, seat) or _declined_on(confirmations, seat) is not None:
         return APIError(HTTPStatus.CONFLICT, Code.BEWERBUNG_SEAT_ALREADY_ANSWERED)
 
     return None

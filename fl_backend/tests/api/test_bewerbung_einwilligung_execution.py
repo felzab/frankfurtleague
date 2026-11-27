@@ -114,7 +114,9 @@ async def read_view(database: AsyncDatabase, token: str) -> Any:
     return await viewed(database, token, today=TODAY)
 
 
-async def answer(database: AsyncDatabase, client: AsyncMongoClient, token: str, *, now: datetime = NOW, **overrides: Any) -> Any:
+async def answer(
+    database: AsyncDatabase, client: AsyncMongoClient, token: str, *, now: datetime = NOW, today: str = TODAY, **overrides: Any
+) -> Any:
     """One answer through the seat's link; a case owing mail, as every objection does, passes `MAIL_NOW`, which the stamps then carry."""
 
     # A Widerspruch carries the token alone: every default below is the consent's.
@@ -127,7 +129,7 @@ async def answer(database: AsyncDatabase, client: AsyncMongoClient, token: str, 
     }
     body = {"token": token, **(overrides if overrides.get("answer") == "declined" else {**given, **overrides})}
 
-    return await answered(database, client, body, today=TODAY, germany_now=now)
+    return await answered(database, client, body, today=today, germany_now=now)
 
 
 async def resend(database: AsyncDatabase, seat: str, bewerbung_id: ObjectId = BEWERBUNG_OID) -> Any:
@@ -312,7 +314,33 @@ class TestTheLinkIsSpentByTheStamp:
         assert view.state == "valid"
         assert document == bewerbung_document()
 
-    async def test_a_link_past_its_deadline_is_refused_before_the_seat_is_judged(self, mongo_replica_set_url: str):
+    async def test_a_confirmed_person_pressing_again_after_the_deadline_is_told_the_answer_stands(self, mongo_replica_set_url: str):
+        """Judged as the reopened link shows it: an expired link would tell them to doubt an answer that counted."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
+            await answer(database, client, RAW["trainer"])
+
+            # The day after the seeded deadline.
+            return await refused_code(answer(database, client, RAW["trainer"], today="2026-04-04"))
+
+        assert await on_a_league(mongo_replica_set_url, body) == Code.BEWERBUNG_SEAT_ALREADY_ANSWERED
+
+    async def test_a_seat_an_acceptance_emptied_is_told_its_kept_confirmation_stands(self, mongo_replica_set_url: str):
+        """The acceptance empties the seat and keeps the day beside its link, which the reopened link reads as confirmed."""
+
+        accepted = bewerbung_document(status="accepted")
+        accepted["kontakte"] = {**accepted["kontakte"], "trainer": None}
+        accepted["confirmations"]["trainer"]["confirmed_on"] = "2026-03-25"
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            return await refused_code(answer(database, client, RAW["trainer"])), await read_view(database, RAW["trainer"])
+
+        code, view = await on_a_league(mongo_replica_set_url, body, documents=[accepted])
+
+        assert view.state == "confirmed", "the seed reads as no kept confirmation, so this case proves nothing"
+        assert code == Code.BEWERBUNG_SEAT_ALREADY_ANSWERED
+
+    async def test_an_unanswered_link_past_its_deadline_is_refused(self, mongo_replica_set_url: str):
         expired = bewerbung_document(confirmation_deadline=YESTERDAY)
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
