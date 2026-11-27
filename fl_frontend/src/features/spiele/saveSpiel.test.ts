@@ -211,6 +211,40 @@ describe("the match editor's save", () => {
     });
     expect(state.sent).toEqual([]);
   });
+
+  // The harm: a double booking, a retired venue, an unconfirmed referee or a departed club marks no box, its phrase
+  // shown nowhere, since the write names each by the path its payload nests the resource under.
+  it("stands each fault the write names on the box of the resource it nests, by the write's own paths", async () => {
+    const body = { ctx: {}, in: "body" } as const;
+    state.answer = refusal("spiel_double_booked", {
+      status: 409,
+      fields: [
+        { ...body, kind: "spiel_double_booked", path: ["spielort", "spielort_id"] },
+        { ...body, kind: "booking_unconfirmed_schiedsrichter", path: ["schiedsrichter", "schiedsrichter_id"] },
+        { ...body, kind: "eligibility_disqualified", path: ["team1", "team_id"] },
+        { ...body, kind: "eligibility_disqualified", path: ["team2", "team_id"] },
+      ],
+    });
+
+    const answer = await saveSpiel(saving({ spielort: PICKED }));
+
+    expect(answer).toStrictEqual({
+      ok: false,
+      errorCode: "spiel_double_booked",
+      fieldErrors: {
+        "changes.spielort": COPY.shared.field.taken,
+        "changes.schiedsrichter": COPY.shared.state.unconfirmed,
+        "changes.team1": ADMIN_COPY.spiel.departed,
+        "changes.team2": ADMIN_COPY.spiel.departed,
+      },
+      kinds: {
+        "changes.spielort": "spiel_double_booked",
+        "changes.schiedsrichter": "booking_unconfirmed_schiedsrichter",
+        "changes.team1": "eligibility_disqualified",
+        "changes.team2": "eligibility_disqualified",
+      },
+    });
+  });
 });
 
 // The harm: a save deleting later matches' stored results unasked, which only its done line names afterwards.

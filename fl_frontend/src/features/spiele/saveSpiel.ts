@@ -172,6 +172,13 @@ export const saveSpiel = action({
   lane: "admin",
   name: "saveSpiel",
   input: SaveSpiel,
+  // The write nests each resource's id under its booking or its side, where the editor's box is the choice alone.
+  paths: {
+    "spielort.spielort_id": "changes.spielort",
+    "schiedsrichter.schiedsrichter_id": "changes.schiedsrichter",
+    "team1.team_id": "changes.team1",
+    "team2.team_id": "changes.team2",
+  },
   examples: { "changes.mietpreis": ADMIN_COPY.spielort.mietpreisExample },
   run: async ({ id, version, adoptsBericht, changes, confirm }): Promise<LaneAnswer<number>> => {
     const payload = await sending(id, changes);
