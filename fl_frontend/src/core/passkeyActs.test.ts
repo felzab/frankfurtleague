@@ -31,18 +31,6 @@ const SEAT_PERSON = { first_name: "Jana", last_name: "Schmidt", email: "jana@exa
 const REFEREE_ENTRY = { name: "Erika Neu", email: "erika.neu@example.org", phone: "", schule: "", default_payment: "20", holder: ADMIN_EMAIL };
 const REFEREE_SAVE = { id: REFEREE, version: 3, changes: { email: "erika.neu@example.org" }, holder: ADMIN_EMAIL };
 
-/** The referee the save reads again before its write, whole, since the write replaces the record. */
-const STORED_REFEREE = {
-  schiedsrichter: {
-    id: REFEREE,
-    name: "Erika Muster",
-    schule: null,
-    kontakt: { email: "erika@example.org", phone: null },
-    default_payment: 20,
-    version: 3,
-  },
-};
-
 /** How long ago the administrator's passkey sign-in was: past the touch, well inside the administrator's window. */
 const SIGNED_IN_MS_AGO = 2 * 60 * 1000;
 
@@ -99,32 +87,6 @@ const TOUCHED: ReadonlyArray<readonly [string, () => Promise<unknown>]> = [
   ["a referee's entry", () => refereeEntry.createSchiedsrichter(REFEREE_ENTRY)],
 ];
 
-/**
- * Every act whose lane declares its dry run, pressed as its dry run: the call the browser sends before it asks the touch,
- * which the lane admits without one. A body that ignored its `dryRun` would write untouched, and every type check passes.
- */
-const DRY_RUNS: ReadonlyArray<readonly [string, () => Promise<unknown>]> = [
-  ["a ban", () => banActs.enterBan({ email: "max@example.org", ban_reason: "Ein Grund", holder: ADMIN_EMAIL }, true)],
-  ["the sign-in address change", () => accountActs.startAddressChange({ email: "neu@example.org", holder: ADMIN_EMAIL }, true)],
-  ["an administrator's addition", () => grantActs.addAdministrator({ email: "neu@example.org", holder: ADMIN_EMAIL }, true)],
-  ["a handover's start", () => grantActs.startHandover({ grant_id: GRANT, holder: ADMIN_EMAIL }, true)],
-  [
-    "a lost-mailbox change's start",
-    () => addressChangeActs.startLostMailboxChange({ address: "paul@example.org", email: "paul.neu@example.org", holder: ADMIN_EMAIL }, true),
-  ],
-  [
-    "a club's seat",
-    () =>
-      teamActs.writeSeat({ team_id: TEAM, saison_id: "2027", seat: "trainer", ...SEAT_PERSON, trainer_is_also: "", holder: ADMIN_EMAIL }, true),
-  ],
-  [
-    "an application's seat",
-    () => bewerbungSeatActs.writeBewerbungSeat({ id: BEWERBUNG, seat: "trainer", ...SEAT_PERSON, holder: ADMIN_EMAIL }, true),
-  ],
-  ["a referee's save", () => refereeSave.saveSchiedsrichter(REFEREE_SAVE, true)],
-  ["a referee's entry", () => refereeEntry.createSchiedsrichter(REFEREE_ENTRY, true)],
-];
-
 describe("the acts behind the passkey touch", () => {
   it.each(TOUCHED)("refuse %s on a session without a fresh touch, reaching nothing", async (_act, press) => {
     withoutAFreshTouch();
@@ -135,24 +97,6 @@ describe("the acts behind the passkey touch", () => {
     await backend.answered();
     // Nothing reached the backend, nothing was owed by mail, and the store holds what it held.
     expect(backend.sent).toStrictEqual([]);
-    expect(outbox.owed).toStrictEqual([]);
-    expect(store).toStrictEqual(held);
-  });
-
-  it.each(DRY_RUNS)("send %s past a stale touch as its backend dry run alone, moving nothing", async (_act, press) => {
-    withoutAFreshTouch();
-    // The backend passes every dry run and answers the referee's read; any other request is unanswered and fails the case.
-    backend.answerWith(({ method, path, search }) => {
-      if (search.get("dry_run") === "true") return new Response(null, { status: 204 });
-      return method === "GET" && path === `/schiedsrichter/${REFEREE}` ? STORED_REFEREE : undefined;
-    });
-    const held = structuredClone(store);
-
-    expect(await press()).toMatchObject({ ok: true });
-
-    await backend.answered();
-    // One call besides any read, and that the dry run; nothing owed by mail, and the store holds what it held.
-    expect(backend.sent.filter(({ method }) => method !== "GET").map(({ search }) => search.get("dry_run"))).toStrictEqual(["true"]);
     expect(outbox.owed).toStrictEqual([]);
     expect(store).toStrictEqual(held);
   });

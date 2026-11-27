@@ -16,6 +16,7 @@ import { alreadyDone, linkViewOf } from "../linkView";
 
 import type { Code } from "@/core/generated/client/types";
 import type { EndState } from "@/kit/MailedPage";
+import type { DoneEnd } from "../ends";
 
 const { shape } = SchiedsrichterPostConfirmationBody;
 
@@ -60,8 +61,8 @@ async function confirmationStanding(token: string): Promise<EndState> {
  * A referee's answer through their link: the main act confirms the entry with the birthdate and the consent, under the
  * labels of the wordings the page showed; the refusal objects, the entry then going when the link lapses. A link
  * that holds no more at the press ends as the link no longer valid, one message for every cause. An entry confirmed
- * since the page opened reaches the end that stands: the done page after a confirmation, the confirmation and its day
- * after an objection.
+ * since the page opened reaches the end that stands: the done page after a confirmation, saying that the earlier
+ * choices stand, and the confirmation and its day after an objection.
  *
  * Done, the page forgets the link, as the privacy notice says of a mailed link once it is used, and leads on to the
  * done page naming the answer: the link's page, rendered again on the forgotten link, would title the tab and a reload
@@ -76,6 +77,7 @@ export const answerSchiedsrichter = action({
   // box, from the range the refusal carries.
   boxes: ["birth_date"],
   run: async (answer): Promise<{ ok: true; value: EndState }> => {
+    let end: DoneEnd = answer.act === "secondary" ? "objected" : "confirmed";
     try {
       if (answer.act === "secondary") {
         await schiedsrichterPostDecline({ token: answer.token });
@@ -87,8 +89,10 @@ export const answerSchiedsrichter = action({
       if (refusedAs(error, SPENT)) return { ok: true, value: LINK_INVALID };
       if (!refusedAs(error, CONFIRMED)) throw error;
       if (answer.act === "secondary") return { ok: true, value: await confirmationStanding(answer.token) };
+      // The earlier confirmation's choices stand, not the ones this press carried.
+      end = "kept";
     }
     await forgetMailedLink(ROUTES.schiedsrichterConfirmation.path());
-    redirect(entryDoneAt(ROUTES.schiedsrichterConfirmationDone.path(), answer.act === "secondary" ? "objected" : "confirmed"));
+    redirect(entryDoneAt(ROUTES.schiedsrichterConfirmationDone.path(), end));
   },
 });

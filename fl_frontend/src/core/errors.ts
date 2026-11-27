@@ -71,8 +71,10 @@ export class APIBadStatusError extends Error {
 }
 
 /**
- * The API's refusal of the request, which every mapper reads before the code, `null` for any other error: a 4xx, at
- * whatever status the code's rule answers with. Never a 5xx, after which a write may have landed.
+ * The API's refusal of the request, which every mapper but the action's reads before the code, `null` for any other
+ * error: a 4xx, at whatever status the code's rule answers with. Never a 5xx, after which a write may have landed. The
+ * action's mapper judges by the code alone, whatever its status, since it words a 5xx's code too, on the shared
+ * failure line.
  */
 export function asRefusal(error: unknown): APIBadStatusError | null {
   return error instanceof APIBadStatusError && error.statusCode >= 400 && error.statusCode < 500 ? error : null;

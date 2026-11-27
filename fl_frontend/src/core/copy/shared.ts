@@ -439,9 +439,10 @@ export const COPY = catalogue({
     seatName: KONTAKT_SEAT_LONG_FORM,
     seat: "Sitz",
     /**
-     * The seats a person holds on a team, in the seats' order: Konto's seat entry's fact under `seat`, and the line
-     * under the team's name on the chooser's card and in the account menu's „Funktion wechseln“, there each seat once
-     * whatever seasons it is held in, the team being one place across them.
+     * The seats a person holds on a team, in the seats' order: Konto's seat entry's fact under `seat`; the line under
+     * the team's name on the chooser's card and in the account menu's „Funktion wechseln“, there each seat once
+     * whatever seasons it is held in, the team being one place across them; the seat confirmation's fact and opening,
+     * on its page and in its mails; and the lead of a seat's edit dialog.
      */
     seatsHeld: (seats: readonly FLKontaktSeat[]) => seatsText(seats),
     /** An emptied seat holds no address, an erased one no day. */

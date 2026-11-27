@@ -16,7 +16,7 @@ import { alreadyDone, linkViewOf } from "../linkView";
 
 import type { Code } from "@/core/generated/client/types";
 import type { EndState } from "@/kit/MailedPage";
-import type { EntryAnswer } from "../ends";
+import type { DoneEnd, EntryAnswer } from "../ends";
 
 const [given, declined] = BewerbungenPostConfirmationBody.options;
 
@@ -61,11 +61,13 @@ async function standingAnswer(token: string): Promise<{ kind: EntryAnswer; answe
 /**
  * The done page one answer leads to, or the link no longer valid where the link stopped holding: one message for every
  * cause. A seat answered since the page opened reaches the end that stands: the done page where it is the answer
- * pressed, else the link opened again, naming the other answer and its day. Done, the page forgets the link, as the
+ * pressed, a confirmation's saying that the earlier choices stand, else the link opened again, naming the other answer
+ * and its day. Done, the page forgets the link, as the
  * privacy notice says of a mailed link once it is used: the link's page, rendered again on the forgotten link, would
  * title the tab and a reload as a link no longer valid.
  */
 async function ended(answer: Parameters<typeof bewerbungenPostConfirmation>[0], kind: EntryAnswer): Promise<{ ok: true; value: EndState }> {
+  let end: DoneEnd = kind;
   try {
     await bewerbungenPostConfirmation(answer);
   } catch (error) {
@@ -77,9 +79,11 @@ async function ended(answer: Parameters<typeof bewerbungenPostConfirmation>[0], 
       await forgetMailedLink(ROUTES.kontaktConfirmation.path());
       return { ok: true, value: alreadyDone(standing.answeredAt, standing.kind, END[standing.kind]) };
     }
+    // The earlier confirmation's choices stand, not the ones this press carried.
+    if (kind === "confirmed") end = "kept";
   }
   await forgetMailedLink(ROUTES.kontaktConfirmation.path());
-  redirect(entryDoneAt(ROUTES.kontaktConfirmationDone.path(), kind));
+  redirect(entryDoneAt(ROUTES.kontaktConfirmationDone.path(), end));
 }
 
 /**

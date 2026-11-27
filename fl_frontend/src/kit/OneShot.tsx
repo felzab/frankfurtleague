@@ -90,7 +90,7 @@ export function OneShotForm({
   run,
   acts,
   carry = {},
-  touch = false,
+  touch,
   botCheck,
   replays = false,
   boxes = false,
@@ -105,10 +105,11 @@ export function OneShotForm({
   /** What the form posts beside its fields, unseen: the token the page's link carries. */
   carry?: Readonly<Record<string, string>>;
   /**
-   * The main act's press asks the passkey touch ahead of `run`, for an administrator (`usePasskeyTouch`).
-   * Such a form is a signed-in person's and takes no bot check, whose wait would lose the press the prompt needs.
+   * The main act's press asks the passkey touch ahead of `run`, for an administrator (`usePasskeyTouch`): the address
+   * the page was drawn for, the one account the touch may answer for, which the form posts as `holder`. Such a form is
+   * a signed-in person's and takes no bot check, whose wait would lose the press the prompt needs.
    */
-  touch?: boolean;
+  touch?: { holder: string };
   /** The bot check's public key, on a form whose action declares the check. */
   botCheck?: { siteKey: string };
   /**
@@ -127,7 +128,8 @@ export function OneShotForm({
   children?: ReactNode;
 }) {
   const answered = useContext(AnsweredEnd);
-  const touched = usePasskeyTouch(touch, carry.holder);
+  const touched = usePasskeyTouch(touch !== undefined, touch?.holder);
+  const posted = touch === undefined ? carry : { ...carry, holder: touch.holder };
   const check = useBotCheck({ siteKey: botCheck?.siteKey ?? null, size: "flexible" });
   const { answer, submit, block, isBlocked, isPending } = useFormAction(
     async (formData: FormData) => {
@@ -178,7 +180,7 @@ export function OneShotForm({
 
   const send = (formData: FormData, act: ActKind) => {
     setPressed(act);
-    for (const [name, value] of Object.entries(carry)) formData.set(name, value);
+    for (const [name, value] of Object.entries(posted)) formData.set(name, value);
     formData.set(ACT_FIELD, act);
     if (replays) formData.set(IDEMPOTENCY_KEY_FIELD, replayKeyFor(formData));
     submit(formData);

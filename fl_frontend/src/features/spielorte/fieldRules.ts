@@ -6,6 +6,7 @@ import {
   spielortePatchSpielortBodyAddressCityMax,
   spielortePatchSpielortBodyAddressDistrictMax,
   spielortePatchSpielortBodyAddressHouseNumberMax,
+  spielortePatchSpielortBodyAddressHouseNumberRegExp,
   spielortePatchSpielortBodyAddressPostcodeMax,
   spielortePatchSpielortBodyAddressStreetMax,
   spielortePatchSpielortBodyNameMax,
@@ -13,6 +14,7 @@ import {
   spielortePostSpielortBodyAddressCityMax,
   spielortePostSpielortBodyAddressDistrictMax,
   spielortePostSpielortBodyAddressHouseNumberMax,
+  spielortePostSpielortBodyAddressHouseNumberRegExp,
   spielortePostSpielortBodyAddressPostcodeMax,
   spielortePostSpielortBodyAddressStreetMax,
   spielortePostSpielortBodyNameMax,
@@ -58,6 +60,7 @@ export const SPIELORT_CREATE_RULES: SpielortRules = {
       city: spielortePostSpielortBodyAddressCityMax,
     },
     postcodeLength: spielortePostSpielortBodyAddressPostcodeMax,
+    pattern: { house_number: spielortePostSpielortBodyAddressHouseNumberRegExp.source },
   },
 };
 
@@ -73,5 +76,6 @@ export const SPIELORT_SAVE_RULES: SpielortRules = {
       city: spielortePatchSpielortBodyAddressCityMax,
     },
     postcodeLength: spielortePatchSpielortBodyAddressPostcodeMax,
+    pattern: { house_number: spielortePatchSpielortBodyAddressHouseNumberRegExp.source },
   },
 };

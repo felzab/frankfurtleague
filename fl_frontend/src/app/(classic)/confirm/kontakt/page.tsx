@@ -4,7 +4,6 @@ import { requires } from "@/core/action";
 import { MEDIA_MIN_AGE } from "@/core/bounds";
 import { now } from "@/core/clock";
 import { SEAT_TEXT_VERSIONS, SEAT_WORDINGS } from "@/core/consentWordings";
-import { seatsText } from "@/core/copy";
 import { COPY } from "@/core/copy/shared";
 import { bornAfter, bornBy } from "@/core/dayArithmetic";
 import { dayIn, dayOf } from "@/core/format";
@@ -57,9 +56,7 @@ const readView = cache(async (token: string) => runWithIncomingTrace(() => linkV
 type SeatView = FLBewerbungEinwilligungViewValid | FLBewerbungEinwilligungViewSaisonPast;
 
 /** Every seat one answer on this link writes, which the page names as the mail named them. */
-const seatsHeld = ({ seat, also_seat: also }: SeatView) => ({
-  record: seatsText(also === null ? [seat] : [seat, also]),
-});
+const seatsOf = ({ seat, also_seat: also }: SeatView) => (also === null ? [seat] : [seat, also]);
 
 /**
  * For whom the person stands, in which season and as what: a season row's seat is entered for a team, which the league
@@ -68,7 +65,7 @@ const seatsHeld = ({ seat, also_seat: also }: SeatView) => ({
 const standsFor = (view: SeatView): Fact[] => [
   ...(view.record === "saison" ? [{ label: COPY.shared.facts.team, value: { record: view.schule } }] : []),
   { label: COPY.shared.saison, value: COPY.shared.saisonName(view.saison_id) },
-  { label: SERVER_COPY.mail.bewerbung.registeredAs, value: seatsHeld(view) },
+  { label: SERVER_COPY.mail.bewerbung.registeredAs, value: COPY.team.seatsHeld(seatsOf(view)) },
 ];
 
 /** The objection's question, „Eintrag widersprechen?“, over what the page says an objection does to this seat. */
@@ -82,7 +79,7 @@ function closedRow(view: FLBewerbungEinwilligungViewSaisonPast, token: string): 
     title: WORDS.ownEntry,
     facts: standsFor(view),
     sentence: SERVER_COPY.paragraph(
-      WORDS.opening.seasonRow(team, view.saison_id, seatsHeld(view)),
+      WORDS.opening.seasonRow(team, view.saison_id, COPY.team.seatsHeld(seatsOf(view))),
       WORDS.closedStored,
       view.row === "exited" ? WORDS.teamDeparted(team) : SERVER_COPY.refusalLine.saison_past,
       WORDS.objectionEffect.seasonRow,
@@ -99,6 +96,7 @@ function question(view: FLBewerbungEinwilligungViewValid, token: string, until: 
   // A season row's team, which the league named; an application's typed school is never shown.
   const team = { record: view.schule };
   const onSeasonRow = view.record === "saison";
+  const seats = COPY.team.seatsHeld(seatsOf(view));
   // Berlin's day, which the backend judges the age on.
   const today = dayIn(now());
   return {
@@ -106,8 +104,8 @@ function question(view: FLBewerbungEinwilligungViewValid, token: string, until: 
     title: COPY.page.entryConfirmation,
     facts: standsFor(view),
     sentence: onSeasonRow
-      ? SERVER_COPY.paragraph(WORDS.opening.seasonRow(team, view.saison_id, seatsHeld(view)), WORDS.stored, WORDS.objectionEffect.seasonRow)
-      : SERVER_COPY.paragraph(WORDS.opening.named(view.saison_id, seatsHeld(view)), WORDS.stored, WORDS.objectionEffect.application),
+      ? SERVER_COPY.paragraph(WORDS.opening.seasonRow(team, view.saison_id, seats), WORDS.stored, WORDS.objectionEffect.seasonRow)
+      : SERVER_COPY.paragraph(WORDS.opening.named(view.saison_id, seats), WORDS.stored, WORDS.objectionEffect.application),
     more: WORDS.more,
     // Last, as on every confirmation: the day the answer waits for.
     sentenceAfter: onSeasonRow ? SERVER_COPY.entryConfirmation.deadline(until) : WORDS.applicationDeadline(until),

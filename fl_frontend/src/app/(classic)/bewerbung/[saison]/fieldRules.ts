@@ -12,6 +12,7 @@ import {
   bewerbungenPostBewerbungBodySchuleOneAddressCityMax,
   bewerbungenPostBewerbungBodySchuleOneAddressDistrictMax,
   bewerbungenPostBewerbungBodySchuleOneAddressHouseNumberMax,
+  bewerbungenPostBewerbungBodySchuleOneAddressHouseNumberRegExp,
   bewerbungenPostBewerbungBodySchuleOneAddressPostcodeMax,
   bewerbungenPostBewerbungBodySchuleOneAddressStreetMax,
   bewerbungenPostBewerbungBodySchuleOneFullNameMax,
@@ -75,6 +76,7 @@ export const BEWERBUNG_RULES = {
     firstName: bewerbungenPostBewerbungBodyKontakteTrainerFirstNameRegExp.source,
     lastName: bewerbungenPostBewerbungBodyKontakteTrainerLastNameRegExp.source,
     phone: bewerbungenPostBewerbungBodyKontakteTrainerPhoneRegExp.source,
+    house_number: bewerbungenPostBewerbungBodySchuleOneAddressHouseNumberRegExp.source,
   },
 } as const;
 

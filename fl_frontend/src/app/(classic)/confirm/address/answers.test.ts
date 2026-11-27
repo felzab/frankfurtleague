@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ROUTES } from "@/core/routes";
 import { serveBackend } from "@/test-support/backend";
-import { writtenCookies } from "@/test-support/nextRequest";
+import { forgottenLinks } from "@/test-support/nextRequest";
 import { signedInRequest } from "@/test-support/session";
 import { thrownRedirect } from "@/test-support/thrownRedirect";
 
@@ -89,10 +89,7 @@ describe("the effect's account carry", () => {
     release();
     expect((await answer).address).toBe(`${ROUTES.addressChangeDone.path()}?end=new`);
     // Forgotten once done, on the page's own path, the path it was set on.
-    const forgotten = writtenCookies().filter(({ name }) => name === "mailed_link");
-    expect(forgotten.map(({ value, path }) => ({ value, path }))).toStrictEqual([
-      { value: undefined, path: ROUTES.addressChangeConfirmation.path() },
-    ]);
+    expect(forgottenLinks()).toStrictEqual([{ value: undefined, path: ROUTES.addressChangeConfirmation.path() }]);
     // Carried by the time the press answered: the account signs in at the new address, the carry reported done.
     expect(store.user.map(({ email }) => email)).toStrictEqual([NEW]);
     expect(backend.sent.find(({ path }) => path === "/address_change/sweep/moves/done")?.body).toStrictEqual({ ids: [MOVE.id] });
@@ -103,9 +100,6 @@ describe("the effect's account carry", () => {
 describe("the address on file's stop", () => {
   it("forgets the link on the page's own path before it leads to the stopped end", async () => {
     expect((await thrownRedirect(stopAddressChange({ token: TOKEN }))).address).toBe(`${ROUTES.addressChangeDone.path()}?end=stopped`);
-    const forgotten = writtenCookies().filter(({ name }) => name === "mailed_link");
-    expect(forgotten.map(({ value, path }) => ({ value, path }))).toStrictEqual([
-      { value: undefined, path: ROUTES.addressChangeConfirmation.path() },
-    ]);
+    expect(forgottenLinks()).toStrictEqual([{ value: undefined, path: ROUTES.addressChangeConfirmation.path() }]);
   });
 });

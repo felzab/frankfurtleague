@@ -16,6 +16,8 @@ export type AddressRules = {
   max: Readonly<Record<Exclude<AddressField, "postcode">, number>>;
   /** The postcode's one length, which its box holds before the send as well. */
   postcodeLength: number;
+  /** The house number's pattern, as a source (`TextField`'s `pattern`). */
+  pattern: { house_number: string };
 };
 
 /**
@@ -36,7 +38,7 @@ export function AddressFields({
   box?: (field: AddressField) => { name: string; defaultValue?: string; onChange: (value: string) => void };
   streetDescription?: Copy;
 }) {
-  const { required, max, postcodeLength } = rules;
+  const { required, max, postcodeLength, pattern } = rules;
   const bound = (field: AddressField) => {
     if (draft !== undefined) return { name: field, value: draft.values[field], onChange: (value: string) => draft.set(field, value) };
     const held: { name: string; defaultValue?: string; onChange?: (value: string) => void } = box?.(field) ?? { name: field };
@@ -57,6 +59,8 @@ export function AddressFields({
           label={WORDS.houseNumber}
           holds={5}
           kind="text"
+          example={WORDS.houseNumberExample}
+          pattern={pattern.house_number}
           isRequired={required.house_number}
           maxLength={max.house_number}
           {...bound("house_number")}

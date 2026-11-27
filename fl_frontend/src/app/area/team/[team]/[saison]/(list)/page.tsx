@@ -9,6 +9,7 @@ import { SERVER_COPY } from "@/core/serverCopy";
 import { AUFSTELLUNG_CHIP } from "@/features/aufstellungen/constants";
 import { readAsSeatHolder, requireTeamSeats, teamMetadata } from "@/features/roles/resolvers";
 import { matchName, whenOf } from "@/features/spiele/blocks";
+import { kaderName } from "@/features/spieler/constants";
 import { getTeamOverview } from "@/features/teams/queries";
 import { ListPage } from "@/kit/ListPage";
 import { PressAct } from "@/kit/PressAct";
@@ -150,7 +151,7 @@ function registrierungRow(row: FLTeamPanelRegistrierung): Row {
       : line([row.position === null ? null : { record: row.position }, row.stufe === null ? null : { record: row.stufe }]);
   return {
     id: row.registrierung_id,
-    name: { record: `${row.first_name} ${row.last_name}` },
+    name: { record: kaderName(row) },
     chip: row.admissible ? CONFIRMED_CHIP : UNCONFIRMED_CHIP,
     ...(plays === null ? {} : { line: plays }),
   };

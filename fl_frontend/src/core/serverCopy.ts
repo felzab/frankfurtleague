@@ -1295,6 +1295,11 @@ export const SERVER_COPY = catalogue({
   entryConfirmation: {
     confirmed: "Eintrag bestätigt",
     objected: COPY.shared.state.objected,
+    /**
+     * The confirmed end's line where the press met a confirmation already standing: the choices this press carried are
+     * dropped, and the person may believe them stored.
+     */
+    choicesKept: "Deine Auswahl von vorher gilt. Ändern kannst du sie im Konto.",
     /** The deadline of an entry that goes alone, a seat on a team's season and a referee's, the page's last paragraph. */
     deadline: (until: CalendarDay) => runsText(entryDeadline(formatDateLong(until))),
   },

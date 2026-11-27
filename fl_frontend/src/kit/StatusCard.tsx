@@ -43,6 +43,11 @@ type Retry = { retry: () => void };
 export type StatusCardProps = {
   tone: StatusTone;
   title: Copy;
+  /**
+   * One line under the title, only where the end leaves standing what the person may believe changed: a confirmation
+   * pressed again, whose earlier choices stand.
+   */
+  sentence?: Copy;
   next: WayOn | Retry;
   quiet?: WayOn;
 };
@@ -53,6 +58,7 @@ const statusCard = tv({
     mark: "flex size-10 items-center justify-center justify-self-center rounded-full",
     // A rail card's title in the Anton of the strip above it, at the strip's rung, below the strip's `h1`.
     railTitle: "font-heading tracking-display uppercase",
+    sentence: "text-sm text-pretty text-fg-muted",
   },
   variants: {
     // The glyph in its hue on the chip's opaque tint, a pair the contrast rule measures.
@@ -86,6 +92,7 @@ export function StatusCardBody({
   next,
   quiet,
   title,
+  sentence,
   place,
 }: Omit<StatusCardProps, "title"> & { title?: ReactElement; place?: "page" | "dialog" }) {
   const slots = statusCard({ tone, place });
@@ -98,6 +105,7 @@ export function StatusCardBody({
         />
       </span>
       {title}
+      {sentence !== undefined && <p className={slots.sentence()}>{sentence}</p>}
       {"retry" in next ? (
         <RetryButton retry={next.retry} />
       ) : (
@@ -143,11 +151,12 @@ export function RailCardBody({ card: { tone, next, quiet, title }, scope }: { ca
  * The status template in the classic frame: not found, an error, and the end of every process a link or a form
  * finishes, plainly said, the card carrying the page's title. The rail frames' form is `StatusPage`.
  */
-export function ClassicStatusPage({ tone, title, next, quiet }: StatusCardProps) {
+export function ClassicStatusPage({ tone, title, sentence, next, quiet }: StatusCardProps) {
   return (
     <ClassicPage width="card">
       <StatusCardBody
         tone={tone}
+        sentence={sentence}
         next={next}
         quiet={quiet}
         title={<ClassicTitle text={title} />}

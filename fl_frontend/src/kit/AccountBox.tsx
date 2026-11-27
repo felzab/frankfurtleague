@@ -48,9 +48,8 @@ export type AccountAct = (
     }
 ) & {
   /**
-   * What the act posts beside the box's fields, unseen: the address the page was drawn for, `holder`, which its touch
-   * answers for too. A field rather than a closure around `run`, so a box drawn on the server hands its act a server
-   * action's reference alone.
+   * What the act posts beside the box's fields, unseen: the address the page was drawn for, `holder`. A field rather
+   * than a closure around `run`, so a box drawn on the server hands its act a server action's reference alone.
    */
   carry?: Readonly<Record<string, string>>;
   /** The toast's title once it is done, where its answer brings no note. */
@@ -61,8 +60,11 @@ export type AccountAct = (
     | {
         /** `variant` is `primary` for the box's save of its own fields, its main act. */
         button: { label: Copy; variant?: "primary" | "secondary" };
-        /** The button's press asks the passkey touch ahead of `run`, for an administrator (`usePasskeyTouch`). */
-        touch?: boolean;
+        /**
+         * The button's press asks the passkey touch ahead of `run`, for an administrator (`usePasskeyTouch`): the address
+         * the page was drawn for, the one account the touch may answer for, which the act posts as `holder`.
+         */
+        touch?: { holder: string };
       }
     | {
         /**
@@ -74,10 +76,11 @@ export type AccountAct = (
       }
   );
 
-/** The act on the box's fields and what it carries. */
-function carried({ run, carry }: Pick<AccountAct, "run" | "carry">): Run {
+/** The act on the box's fields and what it carries, its touch's holder among it. */
+function carried({ run, carry, touch }: Pick<AccountAct, "run" | "carry" | "touch">): Run {
+  const posted = touch === undefined ? carry : { ...carry, holder: touch.holder };
   return async (formData, dryRun) => {
-    for (const [name, value] of Object.entries(carry ?? {})) formData.set(name, value);
+    for (const [name, value] of Object.entries(posted ?? {})) formData.set(name, value);
     return dryRun === true ? run(formData, dryRun) : run(formData);
   };
 }
@@ -86,7 +89,7 @@ function carried({ run, carry }: Pick<AccountAct, "run" | "carry">): Run {
  * The act the box's own press runs, a done one saying itself in a toast: the note its answer brings, or the act's
  * `done`. A passing dry run says nothing, as the act has yet to run.
  */
-function runOf(act: Pick<AccountAct, "run" | "carry" | "done">): Run {
+function runOf(act: Pick<AccountAct, "run" | "carry" | "touch" | "done">): Run {
   const run = carried(act);
   return async (formData, dryRun) => {
     const answered = await run(formData, dryRun);
@@ -98,7 +101,7 @@ function runOf(act: Pick<AccountAct, "run" | "carry" | "done">): Run {
 
 /** The box's own press, its line a refusal's alone: a done act says itself in its toast. */
 function useAct(act: AccountAct) {
-  const touched = usePasskeyTouch(act.touch === true, act.carry?.holder);
+  const touched = usePasskeyTouch(act.touch !== undefined, act.touch?.holder);
   const { answer, submit, block, isBlocked, isPending } = useFormAction(
     touched(runOf(act), act.dryRun === true ? { dryRunFirst: true } : undefined),
     { resetOnLeave: true },

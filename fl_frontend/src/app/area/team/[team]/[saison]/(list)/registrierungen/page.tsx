@@ -52,7 +52,7 @@ function admissionOf(row: FLOpenRegistrierung): Admission {
  * dialog; the dialog, its notes as the line under the pupil's name, every fact the registration holds, and its two acts.
  */
 function rowOf(row: FLOpenRegistrierung): RegistrierungRow {
-  const name = `${row.first_name} ${row.last_name}`;
+  const name = kaderName(row);
   const notes = [...(row.person === null ? [] : [WORDS.returning]), ...(row.nummer_double ? [COPY.kader.nummerDouble] : [])];
   const line = notes.length === 0 ? undefined : COPY.shared.line(notes);
   const received = { record: formatDate(dayOf(row.submitted_at)) };

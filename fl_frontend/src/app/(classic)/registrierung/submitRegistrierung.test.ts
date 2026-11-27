@@ -4,7 +4,7 @@ import { IDEMPOTENCY_KEY_FIELD, IDEMPOTENCY_KEY_HEADER } from "@/core/idempotenc
 import { ROUTES } from "@/core/routes";
 import { TURNSTILE_FIELD } from "@/core/turnstileToken";
 import { serveBackend, serveHost } from "@/test-support/backend";
-import { doubleNextRequest, writtenCookies } from "@/test-support/nextRequest";
+import { doubleNextRequest, forgottenLinks } from "@/test-support/nextRequest";
 import { posted } from "@/test-support/posted";
 import { thrownRedirect } from "@/test-support/thrownRedirect";
 
@@ -68,9 +68,7 @@ describe("the registration a press sends", () => {
       stufe: null,
     });
     // The next person at a shared browser opening the plain address meets no earlier pupil's link: its cookie is
-    // deleted on the registration's own path, the path it was set on, carrying no value and expired at the epoch.
-    expect(writtenCookies().map(({ name, value, path, expires }) => ({ name, value, path, expires }))).toStrictEqual([
-      { name: "mailed_link", value: undefined, path: ROUTES.registrierung.path(), expires: new Date(0) },
-    ]);
+    // deleted on the registration's own path, the path it was set on.
+    expect(forgottenLinks()).toStrictEqual([{ value: undefined, path: ROUTES.registrierung.path() }]);
   });
 });

@@ -39,7 +39,7 @@ const FORM = (
     tone="danger"
     read={acts.read}
     run={acts.run}
-    holder={HOLDER}>
+    touch={{ holder: HOLDER }}>
     <TextField
       label={COPY.shared.emailAddress}
       name="email"
@@ -106,10 +106,8 @@ describe("a form asking its question over what the press read", () => {
         <QuestionForm
           verb="delete"
           tone="danger"
-          touch={false}
           read={acts.read}
-          run={acts.run}
-          holder={HOLDER}>
+          run={acts.run}>
           <TextField
             label={COPY.shared.emailAddress}
             name="email"
@@ -124,7 +122,7 @@ describe("a form asking its question over what the press read", () => {
     await userEvent.click(within(await screen.findByRole("alertdialog", { name: QUESTION })).getByRole("button", { name: VERB }));
 
     expect(await screen.findByRole("alertdialog", { name: COPY.shared.state.erased })).toBeTruthy();
-    expect(acts.run).toHaveBeenCalledWith({ email: ADDRESS, holder: HOLDER });
+    expect(acts.run).toHaveBeenCalledWith({ email: ADDRESS });
     expect(acts.touch).not.toHaveBeenCalled();
     await waitFor(() => {
       expect(screen.queryByRole("alertdialog", { name: QUESTION })).toBeNull();

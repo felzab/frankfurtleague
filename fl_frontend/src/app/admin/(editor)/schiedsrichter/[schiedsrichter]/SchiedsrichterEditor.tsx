@@ -9,7 +9,7 @@ import { TextField } from "@/kit/TextField";
 import { useEditor } from "@/kit/useEditor";
 import { usePasskeyTouch } from "@/kit/usePasskeyTouch";
 
-import type { ActionAnswer } from "@/core/action";
+import type { ActionAnswer, DryRunAction } from "@/core/action";
 import type { Copy } from "@/core/copy";
 import type { SchiedsrichterRules } from "@/features/schiedsrichter/fieldRules";
 import type { ChipProps } from "@/kit/Chip";
@@ -58,7 +58,7 @@ export function SchiedsrichterEditor({
   flag?: ChipProps;
   record: EditorRecord<SchiedsrichterValues>;
   /** The save, behind its dry run and the passkey touch, which posts the page's holder beside the changes. */
-  save: (change: EditorSave<SchiedsrichterValues> & { holder: string }, dryRun?: boolean) => Promise<ActionAnswer<number>>;
+  save: DryRunAction<EditorSave<SchiedsrichterValues> & { holder: string }, number>;
   /** What the save asks of each box, read on the server. */
   rules: SchiedsrichterRules;
   address: Address;

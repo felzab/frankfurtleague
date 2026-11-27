@@ -3,6 +3,7 @@ import "server-only";
 import { requires } from "@/core/action";
 import {
   BewerbungenAcceptBewerbungBody,
+  bewerbungenAcceptBewerbungBodyShorthandOneRegExp,
   BewerbungenDeclineBewerbungBody,
   bewerbungenDeclineBewerbungBodyReasonMax,
   BewerbungenPostKontaktSeatBody,
@@ -22,6 +23,8 @@ export const ACCEPT_RULES = {
     gruppe: requires(BewerbungenAcceptBewerbungBody.shape.gruppe, ""),
     trikot_farbe: requires(BewerbungenAcceptBewerbungBody.shape.trikot_farbe, null),
   },
+  // A source, the one form of a pattern a server page can hand a client field (`kit/TextField.tsx :: judgeOf`).
+  pattern: { shorthand: bewerbungenAcceptBewerbungBodyShorthandOneRegExp.source },
 } as const;
 
 export const DECLINE_RULES = {

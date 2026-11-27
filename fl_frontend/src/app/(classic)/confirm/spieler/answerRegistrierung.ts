@@ -11,10 +11,11 @@ import { RegistrierungenPostConfirmationBody } from "@/core/generated/zod/inputs
 import { forgetMailedLink } from "@/core/mailedLink";
 import { ROUTES } from "@/core/routes";
 
-import { LINK_INVALID } from "../ends";
+import { entryDoneAt, LINK_INVALID } from "../ends";
 
 import type { Code } from "@/core/generated/client/types";
 import type { EndState } from "@/kit/MailedPage";
+import type { RegistrierungEnd } from "../ends";
 
 const { shape } = RegistrierungenPostConfirmationBody;
 
@@ -39,7 +40,8 @@ const CONFIRMED: ReadonlySet<Code> = new Set<Code>(["confirmation_exists"]);
 /**
  * A pupil's answer through their link: the birthdate, what of their name the site may show and the media consent,
  * under the labels of the wordings the page showed. A link that holds no more at the press ends as the link no longer
- * valid, one message for every cause; one confirmed since the page opened reaches the done page, as the press would.
+ * valid, one message for every cause; one confirmed since the page opened reaches the done page, saying that the
+ * earlier choices stand.
  *
  * Done, the page forgets the link, as the privacy notice says of a mailed link once it is used, and leads on to the
  * confirmation's done page: the link's page, rendered again on the forgotten link, would title the tab and a reload as
@@ -54,13 +56,16 @@ export const answerRegistrierung = action({
   // box, from the range the refusal carries.
   boxes: ["birth_date"],
   run: async ({ token, birth_date: birthDate, scope, media, text_versions }): Promise<{ ok: true; value: EndState }> => {
+    let end: RegistrierungEnd = "confirmed";
     try {
       await registrierungenPostConfirmation({ token, birth_date: birthDate, scope, media, text_versions });
     } catch (error) {
       if (refusedAs(error, SPENT)) return { ok: true, value: LINK_INVALID };
       if (!refusedAs(error, CONFIRMED)) throw error;
+      // The earlier confirmation's choices stand, not the ones this press carried.
+      end = "kept";
     }
     await forgetMailedLink(ROUTES.registrierungConfirmation.path());
-    redirect(ROUTES.registrierungConfirmationDone.path());
+    redirect(entryDoneAt(ROUTES.registrierungConfirmationDone.path(), end));
   },
 });

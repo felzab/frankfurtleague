@@ -111,11 +111,9 @@ export function SecurityBoxes({
           description={ACCOUNT_COPY.passkeys.description}
           act={{
             run: runSetUp,
-            // The browser's own act posts no holder, so the touch before it answers for the page's address alone.
-            carry: { holder },
             button: { label: COPY.shared.withObject(PASSKEY, "setUp") },
             done: COPY.shared.toast.done.setUp,
-            touch: true,
+            touch: { holder },
             locked: passkeys.setUpClosed,
           }}>
           <AccountRows rows={rows} />

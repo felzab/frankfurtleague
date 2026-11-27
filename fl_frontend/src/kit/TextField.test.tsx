@@ -6,6 +6,12 @@ import { describe, expect, it, vi } from "vitest";
 
 import { AREA_COPY } from "@/core/copy/area";
 import { COPY } from "@/core/copy/shared";
+import {
+  teamsPatchTeamSaisonBodyAddressHouseNumberRegExp,
+  teamsPatchTeamSaisonBodyShorthandRegExp,
+  teamsPutKontaktSeatBodyFirstNameRegExp,
+  teamsPutKontaktSeatBodyPhoneRegExp,
+} from "@/core/generated/zod/inputs";
 
 import { Button } from "./Button";
 import { FormClosed } from "./formClosed";
@@ -131,10 +137,13 @@ describe("what the browser takes and the server refuses", () => {
     expect(sent).not.toHaveBeenCalled();
   });
 
-  // The write's own patterns, as a seat's rules hand them on from the contract. HTML compiles a `pattern` attribute under
-  // the `v` flag, where the phone's is a SyntaxError a browser drops in silence, and the name's `\p{L}` needs `u`.
-  const PHONE = "^([+]?[ 0-9\\-().]{2,19}[0-9])$";
-  const NAME = "^\\p{L}[\\p{L}\\-' ]*$";
+  // The write's own patterns, read off the contract as the boxes' rules read them, so a source the kit cannot compile
+  // fails here rather than on the page. HTML compiles a `pattern` attribute under the `v` flag, where the phone's is a
+  // SyntaxError a browser drops in silence, and the name's `\p{L}` needs `u`.
+  const PHONE = teamsPutKontaktSeatBodyPhoneRegExp.source;
+  const NAME = teamsPutKontaktSeatBodyFirstNameRegExp.source;
+  const HOUSE_NUMBER = teamsPatchTeamSaisonBodyAddressHouseNumberRegExp.source;
+  const SHORTHAND = teamsPatchTeamSaisonBodyShorthandRegExp.source;
 
   it.each([
     [
@@ -162,6 +171,34 @@ describe("what the browser takes and the server refuses", () => {
       "Anna1",
       COPY.shared.field.exampleFirstName,
     ],
+    [
+      "a house number",
+      <TextField
+        key="house_number"
+        label={COPY.shared.address.houseNumber}
+        name="house_number"
+        holds={5}
+        kind="text"
+        pattern={HOUSE_NUMBER}
+        example={COPY.shared.address.houseNumberExample}
+      />,
+      "12/3",
+      COPY.shared.address.houseNumberExample,
+    ],
+    [
+      "a Kürzel",
+      <TextField
+        key="shorthand"
+        label={COPY.team.shorthand}
+        name="shorthand"
+        holds={5}
+        kind="text"
+        pattern={SHORTHAND}
+        example={COPY.team.shorthandExample}
+      />,
+      "AB1",
+      COPY.team.shorthandExample,
+    ],
   ])("refuses %s off the write's pattern on the press, naming its example", async (_, field, typed, example) => {
     const sent = await pressing(field, typed);
     expect(screen.getByText(COPY.shared.field.format(example))).toBeTruthy();
@@ -171,6 +208,8 @@ describe("what the browser takes and the server refuses", () => {
   it.each([
     ["a phone number with a plus, brackets and a hyphen", "tel", PHONE, "+49 (69) 9000-9123"],
     ["a name with an umlaut, a hyphen and spaces around it", "text", NAME, " Jörg-Peter "],
+    ["a house number with a letter and a hyphen", "text", HOUSE_NUMBER, "12-14a"],
+    ["a Kürzel in small letters", "text", SHORTHAND, "abc"],
   ] as const)("sends %s the write takes", async (_, kind, pattern, typed) => {
     const sent = await pressing(
       kind === "tel" ? (

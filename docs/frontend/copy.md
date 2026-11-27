@@ -190,20 +190,23 @@ Each pattern is an entry of `COPY.shared`; what the entry cannot say is when it 
   question's way back is one word on every screen. What the sentence rests on stands under it as
   facts rows, never inside it: a move's old and new slot, the season a switch leaves and takes, the
   counts an act removes, and whom the act mails.
-- **A status card** is a mark, a title and its way on, with no sentence: a not-found, an error, a
-  state with nothing to show yet, and every end of a page a mail opens. An error card's way on is
-  `verb.retry`, which draws the failed page again in place; where no frame stands around the card,
-  `end.toHome` stands beneath it as the quieter way. In a rail frame the title stands once. A page
-  with a name of its own keeps that name in the strip, and its card carries the end's title, as the
-  referee's Spielbericht for a match with no date says „Termin offen“. A boundary with no page of
-  its own, the not-found and the error page, has its title in the strip, and its card holds no
-  second one.
+- **A status card** is a mark, a title and its way on, with no sentence save the one the next bullet
+  names: a not-found, an error, a state with nothing to show yet, and every end of a page a mail
+  opens. An error card's way on is `verb.retry`, which draws the failed page again in place; where
+  no frame stands around the card, `end.toHome` stands beneath it as the quieter way. In a rail
+  frame the title stands once. A page with a name of its own keeps that name in the strip, and its
+  card carries the end's title, as the referee's Spielbericht for a match with no date says „Termin
+  offen“. A boundary with no page of its own, the not-found and the error page, has its title in the
+  strip, and its card holds no second one.
 - **A page a mail opens** ends in a status card: done, already done titled with what the person did
   and the day (`end.doneOn`), or `template.linkInvalid`, one title for an expired, mistyped or
   tampered link alike. Each ends in one button to the logical next step: `verb.signIn` after a
   confirmed seat or address change, `end.toAccount` where Konto is the one place to change what was
   done and for an address change's or a deletion's link that no longer holds, `end.toHome` after
-  anything else. The deletion's done page adds the privacy notice beneath it as a quieter link.
+  anything else. The deletion's done page adds the privacy notice beneath it as a quieter link. A
+  contact's, a referee's or a pupil's confirmation pressed again on one already standing adds one
+  line under the title, saying that the earlier choices stand and Konto changes them
+  (`entryConfirmation.choicesKept`), since the choices this press carried are dropped.
 - **A column a narrow box leaves out** holds no fact the row shows nowhere else: where the row
   itself opens no page or dialog holding it, the row's phone line carries it, after its column's
   label where the value alone would not say what it is („Gültig bis Saison 2027“). An act's question

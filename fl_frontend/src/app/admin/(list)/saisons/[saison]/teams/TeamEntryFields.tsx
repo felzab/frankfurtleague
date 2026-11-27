@@ -41,7 +41,7 @@ export function TeamEntryFields({
 }) {
   // A league knowing no other club has one way to enter a team.
   const [team, setTeam] = useState<string | null>(teams.length === 0 ? NEW_TEAM : null);
-  const { required, max, address } = rules;
+  const { required, max, pattern, address } = rules;
   return (
     <>
       <Select
@@ -67,6 +67,8 @@ export function TeamEntryFields({
             name="shorthand"
             holds={5}
             kind="text"
+            example={COPY.team.shorthandExample}
+            pattern={pattern.shorthand}
             isRequired={required.shorthand}
             maxLength={SHORTHAND_LENGTH}
             minLength={SHORTHAND_LENGTH}
