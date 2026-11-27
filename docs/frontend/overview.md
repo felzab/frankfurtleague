@@ -36,7 +36,10 @@ it may stay empty, its length, the patterns its text meets and its figure's boun
 (`fl_frontend/src/core/boxRules.ts`), and handed to the form as plain data by `boxRulesOf(action)`
 on the server, so no schema reaches a client bundle. The form holds them, and each kit field reads
 its own by its `name`; an editor adds the boxes its draft needs filled once another holds a value,
-by the `requiredOf` its save judges the draft with.
+by the `requiredOf` its save judges the draft with. A form outside an editor posts such a box under
+its `name` only while it is asked, and its lane judges it absent or valid rather than empty or
+valid, so the derived rule requires it wherever it stands
+(`fl_frontend/src/features/bewerbungen/acceptBewerbung.ts`).
 
 **Imports run one way.** `src/core/` imports neither `src/shared/` nor `src/features/`,
 `src/shared/` does not import `src/features/`, and `src/kit/` imports neither `src/features/` nor
