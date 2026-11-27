@@ -6,9 +6,9 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.results import InsertOneResult
 
 from app.api.address_change.services import build_incoming_filter
-from app.api.ban_list.crud import address_is_barred, read_ban_list
+from app.api.ban_list.crud import find_address_barred_refusal, read_ban_list
 from app.api.ban_list.schemas import FLBanListResponse, FLBanListRow, FLPostBanListEntryPayload
-from app.api.ban_list.services import compose_barred_until_saison_id, find_address_barred_refusal, find_admin_refusal, find_no_saison_refusal
+from app.api.ban_list.services import compose_barred_until_saison_id, find_admin_refusal, find_no_saison_refusal
 from app.api.grants.crud import pull_the_list_to_judge, read_grants
 from app.api.grants.guard import ADMIN_TIER
 from app.api.outbox.schemas import FLBanData
@@ -90,12 +90,11 @@ async def post_ban_list_entry(
         incoming = await address_changes_collection.find_one(
             build_incoming_filter(email=address, holders=holders), projection={"_id": 1}, session=session
         )
-        # Read as well as indexed: a dry run inserts nothing for `uniq_ban_list_address` to refuse, and the index still
-        # refuses the second of two bans racing past this read.
-        listed = await address_is_barred(ban_list_collection=ban_list_collection, address=address, session=session)
         refuse_faults(
             find_admin_refusal(address=address, administrators=holders, incoming=incoming is not None),
-            find_address_barred_refusal(barred=listed, path=("email",)),
+            # Read as well as indexed: a dry run inserts nothing for `uniq_ban_list_address` to refuse, and the index
+            # still refuses the second of two bans racing past this read.
+            await find_address_barred_refusal(ban_list_collection=ban_list_collection, address=address, path=("email",), session=session),
         )
 
         # `str` past the refusal: the composer refuses the spelling `None` would take rather than

@@ -2,7 +2,7 @@ from collections.abc import Iterable
 from http import HTTPStatus
 
 from app.core.codes import Code
-from app.core.exceptions import APIError, FieldFault, FieldPath
+from app.core.exceptions import APIError, FieldFault
 from app.shared.schemas.bounds import BAN_DURATION_SAISONS
 
 
@@ -26,19 +26,6 @@ def find_no_saison_refusal(*, running_saison_id: str | None) -> APIError | None:
         return None
 
     return APIError(HTTPStatus.CONFLICT, Code.BAN_LIST_NO_SAISON)
-
-
-def find_address_barred_refusal(*, barred: bool, path: FieldPath) -> FieldFault | None:
-    """`address_barred` on the box at `path`: a ban holds the address typed there.
-
-    The ban's own add asks it, ahead of `uniq_ban_list_address`, which answers only a race; and so does every write that
-    mails a link to a typed address, since no mail but the ban's own notice reaches a banned one.
-    """
-
-    if not barred:
-        return None
-
-    return FieldFault(path=path, code=Code.ADDRESS_BARRED, status=HTTPStatus.CONFLICT)
 
 
 def find_admin_refusal(*, address: str, administrators: Iterable[str], incoming: bool) -> FieldFault | None:

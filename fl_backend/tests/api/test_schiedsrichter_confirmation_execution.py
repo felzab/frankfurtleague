@@ -138,6 +138,7 @@ async def create(database: AsyncDatabase, client: AsyncMongoClient, *, email: st
         answer = await post_schiedsrichter(
             schiedsrichter_data=FLPostSchiedsrichterPayload.model_validate(payload_body(email=email)),
             schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+            ban_list_collection=database[Collection.BAN_LIST],
             outbox_collection=database[Collection.OUTBOX],
             db=client,
             today=today,
@@ -156,6 +157,7 @@ async def correct(database: AsyncDatabase, client: AsyncMongoClient, *, email: s
             schiedsrichter_id=SCHIEDSRICHTER_OID,
             schiedsrichter_data=FLPatchSchiedsrichterPayload.model_validate({**payload_body(email=email), "version": version}),
             schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+            ban_list_collection=database[Collection.BAN_LIST],
             outbox_collection=database[Collection.OUTBOX],
             db=client,
             today=today,
@@ -293,6 +295,50 @@ class TestANameAnotherRefereeHolds:
         ]
 
         assert await on_a_league(mongo_replica_set_url, body, referees=holders) == (Code.DUPLICATE_KEY, (("name",),), 0)
+
+
+class TestABannedAddress:
+    """A write owing a banned address a link would say it went out: the drain hands such an address the ban's notice alone."""
+
+    @pytest.mark.parametrize("act", ["an entry", "a correction"])
+    async def test_it_is_refused_on_its_box_beside_a_taken_name_in_one_answer(self, mongo_replica_set_url: str, act: str):
+        """Asked one after the other, the second fault waits for a later press."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.BAN_LIST].insert_one(documents.ban_document(CORRECTED_EMAIL, until=SAISON_ID))
+            with pytest.raises(APIError) as refused:
+                await (
+                    create(database, client, email=CORRECTED_EMAIL) if act == "an entry" else correct(database, client, email=CORRECTED_EMAIL)
+                )
+
+            return (
+                refused.value.status_code,
+                [(fault.code, fault.path) for fault in refused.value.faults],
+                await database[Collection.OUTBOX].count_documents({}),
+            )
+
+        # The unconfirmed referee a correction moves the address of, beside a retired one holding the name the case sends.
+        holders = [
+            referee_document(name="Howard Webb"),
+            referee_document(_id=ObjectId(), email="alte.pfeife@example.com", inactive_since="2026-01-01"),
+        ]
+
+        assert await on_a_league(mongo_replica_set_url, body, referees=holders) == (
+            409,
+            [(Code.DUPLICATE_KEY, ("name",)), (Code.ADDRESS_BARRED, ("kontakt", "email"))],
+            0,
+        )
+
+    async def test_a_correction_keeping_an_address_banned_since_is_taken(self, mongo_replica_set_url: str):
+        """The save owes no link to an address it does not move, so a ban landing later locks none of the other fields."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.BAN_LIST].insert_one(documents.ban_document(EMAIL, until=SAISON_ID))
+            corrected = await correct(database, client, email=EMAIL)
+
+            return corrected.to, (await stored(database))["kontakt"]["email"]
+
+        assert await on_a_league(mongo_replica_set_url, body) == (None, EMAIL)
 
 
 class TestACorrectedAddressReMintsAndRetiresTheOldLink:
