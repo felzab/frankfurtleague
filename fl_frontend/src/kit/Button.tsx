@@ -64,7 +64,8 @@ type ButtonProps =
       "aria-controls"?: string;
     });
 
-function Spinner() {
+/** The one sign that an act is under way, beside a busy button's label and under a code being checked. */
+export function Spinner() {
   return (
     <ProgressBar
       isIndeterminate
