@@ -39,7 +39,6 @@ const DATE_WITH_WEEKDAY_AND_YEAR = new Intl.DateTimeFormat(SITE_LOCALE, {
 const DATE_LONG = new Intl.DateTimeFormat(SITE_LOCALE, { timeZone: TIME_ZONE, day: "numeric", month: "long", year: "numeric" });
 const INSTANT = new Intl.DateTimeFormat(SITE_LOCALE, { timeZone: TIME_ZONE, dateStyle: "long", timeStyle: "short" });
 const INSTANT_SHORT = new Intl.DateTimeFormat(SITE_LOCALE, { timeZone: TIME_ZONE, dateStyle: "medium", timeStyle: "short" });
-const TIME = new Intl.DateTimeFormat(SITE_LOCALE, { timeZone: TIME_ZONE, hour: "2-digit", minute: "2-digit" });
 // A stored time of day names no instant, so it is read in UTC, where no clock change can move it.
 const TIME_SAVED = new Intl.DateTimeFormat(SITE_LOCALE, { timeZone: "UTC", hour: "2-digit", minute: "2-digit" });
 // A stored day and time together, read in UTC as the time alone is, in the instant's own form.
@@ -74,9 +73,8 @@ export const formatDateWithWeekdayAndYear = (day: CalendarDay | Date): string =>
 /** „24. Oktober 2026“: a date inside a sentence or a mail. */
 export const formatDateLong = (day: CalendarDay | Date): string => DATE_LONG.format(asInstant(day));
 
-/** „15:30“. */
-export function formatTime(time: TimeOfDay | Date): string {
-  if (time instanceof Date) return TIME.format(time);
+/** „15:30“: a stored time of day. */
+export function formatTime(time: TimeOfDay): string {
   const [hour = 0, minute = 0] = time.split(":").map(Number);
   return TIME_SAVED.format(Date.UTC(1970, 0, 1, hour, minute));
 }
