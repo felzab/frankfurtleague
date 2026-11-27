@@ -312,11 +312,12 @@ export function TeamEditor({
             act: { verb: "enter" },
             tone: "danger",
             run: recordAustritt,
-            carry: { team_id: team, saison_id: saison, type: route },
+            carry: { team_id: team, saison_id: saison },
             children: (
               <>
                 <Segmented
                   label={WORDS.austrittType}
+                  name="type"
                   isRequired={austrittRules.required.type}
                   choices={[
                     { id: FLAustrittType.rueckzug, label: COPY.shared.austritt.rueckzug.label },

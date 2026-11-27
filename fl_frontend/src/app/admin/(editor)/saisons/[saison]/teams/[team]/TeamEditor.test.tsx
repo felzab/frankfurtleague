@@ -9,6 +9,7 @@ import { dayOf, formatList } from "@/core/format";
 import { AUSTRITT_RULES, SEAT_RULES, TEAM_DESCRIPTION_MAX, TEAM_SAVE_RULES } from "@/features/teams/fieldRules";
 import { renderUnderNext } from "@/test-support/nextContexts";
 
+import { recordAustritt } from "./teamActs";
 import { TeamEditor } from "./TeamEditor";
 
 import type { NextContexts } from "@/test-support/nextContexts";
@@ -64,31 +65,34 @@ const ROW: TeamRow = {
   },
 };
 
+/** The editor of one club in its season, its exit dialog opened from the danger row, whose button carries its verb. */
+async function openExit() {
+  renderUnderNext(
+    <TeamEditor
+      team="64b000000000000000000001"
+      saison="2027"
+      title={{ record: VALUES.full_name }}
+      record={{ id: "64b000000000000000000001", version: 1, values: VALUES }}
+      save={vi.fn()}
+      rules={TEAM_SAVE_RULES}
+      descriptionMax={TEAM_DESCRIPTION_MAX}
+      seatRules={SEAT_RULES}
+      holder="admin@example.org"
+      austrittRules={AUSTRITT_RULES}
+      retirement={{ kind: "retire" }}
+      row={ROW}
+    />,
+    AT_ADDRESS,
+  );
+  await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.enter }));
+  return screen.findByRole("dialog");
+}
+
 /* The fact is the administrator's one sight of whom the exit mails: read for today whatever day is typed, it names an
    opponent whose match lies before the exit, who is never mailed. */
 describe("the exit dialog's „E-Mail an“", () => {
   it("names whom an exit from the day typed mails", async () => {
-    renderUnderNext(
-      <TeamEditor
-        team="64b000000000000000000001"
-        saison="2027"
-        title={{ record: VALUES.full_name }}
-        record={{ id: "64b000000000000000000001", version: 1, values: VALUES }}
-        save={vi.fn()}
-        rules={TEAM_SAVE_RULES}
-        descriptionMax={TEAM_DESCRIPTION_MAX}
-        seatRules={SEAT_RULES}
-        holder="admin@example.org"
-        austrittRules={AUSTRITT_RULES}
-        retirement={{ kind: "retire" }}
-        row={ROW}
-      />,
-      AT_ADDRESS,
-    );
-
-    // The danger row's button carries the dialog's verb.
-    await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.enter }));
-    const dialog = await screen.findByRole("dialog");
+    const dialog = await openExit();
     const mailTo = () => within(dialog).getByText(ADMIN_COPY.facts.mailTo).nextElementSibling?.textContent;
     expect(mailTo()).toBe(formatList(["Bieber", "Otto Gruber"]));
 
@@ -98,5 +102,21 @@ describe("the exit dialog's „E-Mail an“", () => {
     await userEvent.keyboard("21");
 
     expect(mailTo()).toBe("Otto Gruber");
+  });
+});
+
+// The harm: a refusal of the exit's kind shown nowhere, the focus left on the dialog's act.
+describe("the exit dialog's kind", () => {
+  it("takes a refusal of the kind on its choice, which takes the focus", async () => {
+    const fault = COPY.shared.field.required;
+    vi.mocked(recordAustritt).mockResolvedValueOnce({ ok: false, fieldErrors: { type: fault } });
+    const dialog = await openExit();
+    await userEvent.type(within(dialog).getByRole("textbox", { name: COPY.shared.reason }), "Zurückgezogen");
+
+    await userEvent.click(within(dialog).getByRole("button", { name: COPY.shared.verb.enter }));
+
+    const kind = await within(dialog).findByRole("radiogroup", { name: ADMIN_COPY.team.austrittType });
+    await within(kind).findByText(fault);
+    expect(kind.contains(document.activeElement)).toBe(true);
   });
 });

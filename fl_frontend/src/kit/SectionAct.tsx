@@ -108,6 +108,11 @@ function ActButton({ item, isBusy, onPress }: { item: SectionActItem; isBusy: bo
  * a refusal in the question's own line, and its done act in the question's toast. A refusal speaks of the inputs it
  * was pressed on: it goes once one of `inputs` changes, and once the page is left. Inside an editor whose draft holds
  * unsaved changes every act is closed as a locked one is (`useLocked`).
+ *
+ * Its answer carries no field fault, so its inputs stand outside every form's faults and the line words a refusal by
+ * its reason. An act taking its record from the page's address has no box to fault, and the acts reading inputs, a
+ * group swap and a replacement, offer only the clubs their write takes, so a pair the write refuses comes from a page
+ * gone stale, which the backend refuses as a gate and the stale line answers.
  */
 export function SectionAct({
   children,

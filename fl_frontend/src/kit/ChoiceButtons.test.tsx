@@ -25,6 +25,7 @@ describe("a required short choice", () => {
       <Segmented
         key="segmented"
         label={LABEL}
+        name="choice"
         isRequired
         value={null}
         choices={CHOICES}
@@ -36,6 +37,7 @@ describe("a required short choice", () => {
       <ToggleBoxes
         key="boxes"
         label={LABEL}
+        name="choice"
         isRequired
         value={[]}
         choices={CHOICES}
