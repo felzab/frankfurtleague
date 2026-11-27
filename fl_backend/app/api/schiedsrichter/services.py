@@ -1,5 +1,5 @@
 from collections.abc import Mapping, Sequence
-from datetime import date, datetime, time, timedelta
+from datetime import datetime
 from http import HTTPStatus
 from typing import Any, Final
 
@@ -112,7 +112,7 @@ def confirmation_deadline_from(*, today: str) -> str:
 def erase_at_from(*, deadline: str) -> datetime:
     """The German midnight closing the deadline's day: the link still answers on that day, so the entry outlives it."""
 
-    return datetime.combine(date.fromisoformat(deadline) + timedelta(days=1), time(), tzinfo=clock.GERMANY)
+    return clock.german_instant(days_after(day=deadline, days=1), "00:00")
 
 
 def compose_confirmation(*, today: str) -> dict[str, Any]:
