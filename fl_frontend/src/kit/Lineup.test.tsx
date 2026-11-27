@@ -8,6 +8,7 @@ import { describe, expect, it, vi } from "vitest";
 import { COPY } from "@/core/copy/shared";
 import { renderUnderNext } from "@/test-support/nextContexts";
 
+import { HeldForm } from "./HeldForm";
 import { Lineup, lineupValue } from "./Lineup";
 
 import type { Copy } from "@/core/copy";
@@ -32,6 +33,9 @@ const WORDS: LineupWords = {
   nomineeLocked: COPY.template.draftUnsaved,
   anonymous: COPY.shared.anonymous,
 };
+
+/** A pupil's box as the editor names it. */
+const boxOf = (id: string) => `picked.${id}`;
 
 const nameOf = (nummer: number) => `Spieler ${String(nummer)}`;
 
@@ -70,19 +74,27 @@ function Held({
 }) {
   const [value, setValue] = useState(start);
   return (
-    <Lineup
-      players={players}
-      value={value}
-      nameless={nameless}
-      onChange={(next) => {
-        setValue(next);
-        seen?.(next);
-      }}
-      startersMax={MAX}
-      words={WORDS}
-      acts={acts}
-      refusals={refusals}
-    />
+    // In its editor's form, which holds the save's refusals by each pupil's box.
+    <HeldForm
+      fieldErrors={
+        refusals === undefined ? undefined : Object.fromEntries(Object.entries(refusals).map(([pupil, text]) => [boxOf(pupil), text]))
+      }
+      isBusy={false}
+      onSend={() => undefined}>
+      <Lineup
+        boxOf={boxOf}
+        players={players}
+        value={value}
+        nameless={nameless}
+        onChange={(next) => {
+          setValue(next);
+          seen?.(next);
+        }}
+        startersMax={MAX}
+        words={WORDS}
+        acts={acts}
+      />
+    </HeldForm>
   );
 }
 
@@ -216,6 +228,30 @@ describe("a line-up's states", () => {
 
     await userEvent.click(crossOf(40));
     expect(namesIn(WORDS.rest)).toStrictEqual([nameOf(2)]);
+  });
+
+  // The harm: a screen reader left where the save's press left it, finding the refused pupil by itself.
+  it("marks a refused pupil's tick and hands it the focus once the refusal commits", () => {
+    const start = lineupValue([idOf(1), idOf(2)], []);
+    const { rerender } = renderUnderNext(
+      <Held
+        players={kader(2)}
+        start={start}
+      />,
+      AT_ADDRESS,
+    );
+
+    rerender(
+      <Held
+        players={kader(2)}
+        start={start}
+        refusals={{ [idOf(2)]: COPY.shared.failure.stale }}
+      />,
+    );
+
+    expect(document.activeElement).toBe(tickOf(2));
+    expect(tickOf(2).closest("[data-invalid]")).not.toBeNull();
+    expect(tickOf(1).closest("[data-invalid]")).toBeNull();
   });
 });
 
