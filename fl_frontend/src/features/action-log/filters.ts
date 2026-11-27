@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import { parseDate } from "@internationalized/date";
 
 import { now } from "@/core/clock";
-import { textOf } from "@/core/copy";
+import { LINE_SEPARATOR, textOf } from "@/core/copy";
 import { ADMIN_COPY } from "@/core/copy/admin";
 import { COPY } from "@/core/copy/shared";
 import { ERASED_ACTOR_MARKER } from "@/core/erasedActor";
@@ -98,6 +98,32 @@ export function byOptions(held: readonly string[]): readonly Option[] {
 }
 
 export const byOf = (held: readonly string[], id: string | null) => held.find((by) => optionId(by) === id) ?? null;
+
+const folded = (text: string) => text.trim().replaceAll(/\s+/gu, " ").toLocaleLowerCase("de");
+
+/**
+ * The search as the read asks it. A part typed as a row words a season or a fixture, „Saison 2026“ or „Spiel 1“, alone
+ * or joined as the row joins them, filters on the season's id or the fixture's number the row stores, since the store
+ * holds no German. Each other part matches the team, the season and the label as typed, and a search naming neither
+ * is sent whole.
+ */
+export function searchParams(typed: string | null | undefined): Pick<FLActionLogFilterPayload, "q" | "saison_id" | "spiel_nr"> {
+  let saison_id: string | null = null;
+  let spiel_nr: number | null = null;
+  const free: string[] = [];
+  for (const part of (typed ?? "").split(LINE_SEPARATOR.trim())) {
+    // The candidate is the part's last word, read back through the catalogue's own wording of it.
+    const last = part.trim().split(/\s+/u).at(-1) ?? "";
+    const number = Number(last);
+    if (saison_id === null && last !== "" && folded(part) === folded(COPY.shared.saisonName(last))) saison_id = last;
+    else if (spiel_nr === null && Number.isSafeInteger(number) && number > 0 && folded(part) === folded(ADMIN_COPY.spiel.number(number)))
+      spiel_nr = number;
+    else if (part.trim() !== "") free.push(part.trim());
+  }
+
+  if (saison_id === null && spiel_nr === null) return { q: typed ?? null, saison_id, spiel_nr };
+  return { q: free.length === 0 ? null : free.join(LINE_SEPARATOR), saison_id, spiel_nr };
+}
 
 export type ChosenFilters = { by?: string | null; type?: ActionTypeChoice | null; time?: PeriodChoice | null };
 

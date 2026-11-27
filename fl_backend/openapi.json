@@ -1221,6 +1221,30 @@
             ],
             "title": "Q"
           },
+          "saison_id": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Saison Id"
+          },
+          "spiel_nr": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spiel Nr"
+          },
           "type": {
             "anyOf": [
               {

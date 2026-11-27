@@ -34,6 +34,10 @@ export const actionLogGetActionLogBodyByOneMax = 254;
 export const actionLogGetActionLogBodyCursorOneRegExp = new RegExp("^[0-9a-fA-F]{24}$");
 export const actionLogGetActionLogBodyQOneMax = 200;
 
+export const actionLogGetActionLogBodySaisonIdOneMax = 200;
+
+export const actionLogGetActionLogBodySpielNrOneExclusiveMin = 0;
+
 export const actionLogGetActionLogBodyTypeOneMax = 17;
 
 export const ActionLogGetActionLogBody = zod
@@ -42,6 +46,8 @@ export const ActionLogGetActionLogBody = zod
     cursor: zod.union([zod.string().regex(actionLogGetActionLogBodyCursorOneRegExp), zod.null()]).optional(),
     from_day: zod.union([zod.iso.date(), zod.null()]).optional(),
     q: zod.union([zod.string().max(actionLogGetActionLogBodyQOneMax), zod.null()]).optional(),
+    saison_id: zod.union([zod.string().max(actionLogGetActionLogBodySaisonIdOneMax), zod.null()]).optional(),
+    spiel_nr: zod.union([zod.int().gt(actionLogGetActionLogBodySpielNrOneExclusiveMin), zod.null()]).optional(),
     type: zod
       .union([
         zod

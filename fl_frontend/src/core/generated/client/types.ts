@@ -623,6 +623,8 @@ export interface FLActionLogFilterPayload {
   cursor?: string | null;
   from_day?: string | null;
   q?: string | null;
+  saison_id?: string | null;
+  spiel_nr?: number | null;
   type?: FLActionType[] | null;
 }
 

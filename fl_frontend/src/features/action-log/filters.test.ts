@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { byOf, byOptions, logParams } from "./filters";
+import { byOf, byOptions, logParams, searchParams } from "./filters";
 
 afterEach(() => {
   vi.useRealTimers();
@@ -27,6 +27,21 @@ describe("the read a filter asks", () => {
   it("sends every category an option stands for", () => {
     expect(logParams({ type: "spiel" }).type).toStrictEqual(["spieltag", "spiel", "spielbestaetigung", "spielbericht", "aufstellung"]);
     expect(logParams({ type: "erasure" }).type).toStrictEqual(["erasure", "retention"]);
+  });
+
+  /* The store holds „2026“ and the number 1, so a row's own words sent as text would find nothing, the fixture never. */
+  it.each([
+    ["Saison 2026", { q: null, saison_id: "2026", spiel_nr: null }],
+    ["spiel  1", { q: null, saison_id: null, spiel_nr: 1 }],
+    ["Saison 2026 · Spiel 1", { q: null, saison_id: "2026", spiel_nr: 1 }],
+    ["Adler · saison 2026", { q: "Adler", saison_id: "2026", spiel_nr: null }],
+  ])("filters on what a row stores where the search words a season or a fixture as the row does: %s", (typed, sent) => {
+    expect(searchParams(typed)).toStrictEqual(sent);
+  });
+
+  /* Anything else keeps its match on the team, the season and the label, as typed. */
+  it.each(["2026", "Adler (U17)", "Spiel 0", "Spiel eins", "Saison"])("sends any other search whole: %s", (typed) => {
+    expect(searchParams(typed)).toStrictEqual({ q: typed, saison_id: null, spiel_nr: null });
   });
 
   /* 23:30 UTC on 7 November is already the 8th on the league's clock, and the backend's bounds are German days. */
