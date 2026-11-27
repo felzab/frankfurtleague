@@ -96,7 +96,9 @@ fields. A value list in any slice is the generated value, as in `z.enum(FLSaison
 passes end there alike. The browser's pass judges every box on the press and shows every fault at
 once, sending nothing while one stands. The server's answer stands on each box by the box's `name`,
 through React Aria's `validationErrors`. After either, the focus goes to the first faulted box by
-React Aria's own report, which reaches a date's segments and a select's button.
+React Aria's own report, which reaches a date's segments and a select's button. ESLint refuses React
+Aria's `Form` outside `HeldForm`, and a refusal placed on a control by hand through `errorMessage`,
+`isInvalid` or `validationErrors` (`fl_frontend/eslint.config.mjs`).
 
 ## Rendering
 
