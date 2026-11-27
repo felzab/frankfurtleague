@@ -145,6 +145,15 @@ describe("a refused list", () => {
     const line = screen.getByText(REQUIRED);
     expect(screen.getByRole("group", { name: COPY.shared.tore }).getAttribute("aria-describedby")).toBe(line.id);
   });
+
+  // The harm: a screen reader left on the save bar while the status line points at a refusal no box holds.
+  it("takes the focus once the answer commits", () => {
+    const { rerender } = render(<Goals />);
+
+    rerender(<Goals errors={{ scorers: REQUIRED }} />);
+
+    expect(document.activeElement).toBe(screen.getByRole("group", { name: COPY.shared.tore }));
+  });
 });
 
 // The harm: a keyboard user's removal drops the row with the focus, which falls to the page's body, and the next Tab

@@ -25,6 +25,14 @@ export function useFieldFaults(): FieldFaults | undefined {
   return useContext(Faults);
 }
 
+/**
+ * What a part holding no box takes while its fault stands, such as a list refused as a whole: the focus the form's
+ * report hands it where the answer names no box, at `tabIndex` -1, which the keys never reach, and the kit's resting
+ * focus mark, as a section's title takes the focus once nothing in it is left (`FocusOnLeave`). A screen reader then
+ * reads the part's name and the fault its `aria-describedby` names.
+ */
+export const FAULTED_PART = { "data-kit-faulted": "", "data-kit-focus": "", tabIndex: -1 } as const;
+
 /** Whether `control` is a box the answer names: one a kit field posts under, whose fault React Aria judges. */
 const isNamedIn = (faults: FieldFaults, control: Element): control is HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement =>
   (control instanceof HTMLInputElement || control instanceof HTMLSelectElement || control instanceof HTMLTextAreaElement) &&
@@ -37,7 +45,8 @@ const isNamedIn = (faults: FieldFaults, control: Element): control is HTMLInputE
  * `validationErrors` puts on the box (`useFormValidationState`). Either way the focus goes to the first faulted box:
  * once an answer's faults have committed, the form checks each box the answer names, whose `invalid` event React
  * Aria's field answers by focusing the form's first invalid box through the field's own `focus` (`useFormValidation`),
- * a date's segments, a select's button and a choice group included. That check stands for no press, so it tells
+ * a date's segments, a select's button and a choice group included; where no named box is invalid, as a list's own
+ * refusal names none, the first part showing a fault takes it (`FAULTED_PART`). That check stands for no press, so it tells
  * `onBlock` nothing: the status line says what the answer says. It reaches no other box, since React Aria commits the
  * fault of every box an `invalid` event reaches: a box the person changed while the send was on its way is judged
  * once they commit it, and one they left invalid ahead of the named boxes keeps the focus, as React Aria focuses the
@@ -94,7 +103,8 @@ export function HeldForm({
     reported.current = fieldErrors;
     isReporting.current = true;
     try {
-      for (const control of form.elements) if (isNamedIn(fieldErrors, control)) control.checkValidity();
+      const valid = [...form.elements].filter((control) => isNamedIn(fieldErrors, control)).map((control) => control.checkValidity());
+      if (!valid.includes(false)) form.querySelector<HTMLElement>("[data-kit-faulted]")?.focus();
     } finally {
       isReporting.current = false;
     }
