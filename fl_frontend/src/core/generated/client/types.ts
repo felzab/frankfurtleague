@@ -5590,7 +5590,6 @@ export const FieldCode = {
   address_change_unchanged: "address_change_unchanged",
   ansetzung_vorschlag_unchanged: "ansetzung_vorschlag_unchanged",
   booking_unknown_resource: "booking_unknown_resource",
-  team_retired: "team_retired",
   booking_unconfirmed_schiedsrichter: "booking_unconfirmed_schiedsrichter",
   payload_refused: "payload_refused",
   bewerbung_submission_subject_unresolved: "bewerbung_submission_subject_unresolved",

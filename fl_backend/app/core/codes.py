@@ -6,15 +6,17 @@ the request wrote nothing, and the frontend clears the site's cache by that prom
 may stand answers `unknown_outcome` with a 500, which promises nothing.
 
 `FieldCode` is every code a judge raises on a box, each beside the field phrase that words it, so the frontend keys a
-phrase by every member. Four codes that would name boxes are gates instead, since no form sends the input that raises
+phrase by every member. Five codes that would name boxes are gates instead, since no form sends the input that raises
 them, and a stale page that does reads the stale-page line: `swap_not_a_swap`, whose second picker the season editor
 filters to another group's clubs (`SaisonEditor.tsx :: Swap`); `replace_one_team_on_both_ends`, whose incoming picker
-lists only clubs the season has not entered (`saisons/admin_router.py :: incoming_teams`); `foreign_address_change`,
-judged on the pending changes rather than a typed address; and `eligibility_team_not_in_saison`, a side's club with no
-row in the season, which only a page read before the club left sends. A 403 code is a field code where its address
-comes from a box and a gate where it comes from a path. `address_change_nothing` is no field code, though a person
-types the address it judges: that the address holds nothing is said in a sentence on the status line, which no box's
-phrase carries.
+lists only clubs the season has not entered (`saisons/admin_router.py :: incoming_teams`); `team_retired`, a retired
+club, which neither the entry's picker (`teams/admin_router.py :: get_teams_admin`) nor the replacement's incoming list
+(`saisons/admin_router.py :: get_saison_admin`) offers, since each filters on `inactive_since`, and which the acceptance
+judges on the application's stored club rather than a pick; `foreign_address_change`, judged on the pending changes
+rather than a typed address; and `eligibility_team_not_in_saison`, a side's club with no row in the season, which only
+a page read before the club was replaced sends. A 403 code is a field code where its address comes from a box and a
+gate where it comes from a path. `address_change_nothing` is no field code, though a person types the address it
+judges: that the address holds nothing is said in a sentence on the status line, which no box's phrase carries.
 """
 
 from enum import StrEnum, auto
@@ -329,7 +331,6 @@ type FieldCode = Literal[
     Code.ANSETZUNG_VORSCHLAG_UNCHANGED,
     # „Stillgelegt“ (Retired).
     Code.BOOKING_UNKNOWN_RESOURCE,
-    Code.TEAM_RETIRED,
     # „Unbestätigt“ (Unconfirmed).
     Code.BOOKING_UNCONFIRMED_SCHIEDSRICHTER,
     # „Pflichtfeld“ (Required). The acceptance's shorthand is refused when present for a picked club or absent for a new
