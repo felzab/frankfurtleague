@@ -36,6 +36,7 @@ const DATE_WITH_WEEKDAY_AND_YEAR = new Intl.DateTimeFormat(SITE_LOCALE, {
   month: "2-digit",
   year: "numeric",
 });
+const YEAR = new Intl.DateTimeFormat(SITE_LOCALE, { timeZone: TIME_ZONE, year: "numeric" });
 const DATE_LONG = new Intl.DateTimeFormat(SITE_LOCALE, { timeZone: TIME_ZONE, day: "numeric", month: "long", year: "numeric" });
 const INSTANT = new Intl.DateTimeFormat(SITE_LOCALE, { timeZone: TIME_ZONE, dateStyle: "long", timeStyle: "short" });
 const INSTANT_SHORT = new Intl.DateTimeFormat(SITE_LOCALE, { timeZone: TIME_ZONE, dateStyle: "medium", timeStyle: "short" });
@@ -67,8 +68,11 @@ export const formatDate = (day: CalendarDay | Date): string => DATE.format(asIns
 /** „So., 14.03.“: a match's day in its row, whose season already names the year. */
 export const formatDateWithWeekday = (day: CalendarDay | Date): string => DATE_WITH_WEEKDAY.format(asInstant(day));
 
-/** „Fr., 06.11.2026“: one match's day on its own, in its pop-up and on its page, where no season names the year. */
+/** „Fr., 06.11.2026“: one match's day on its own, in its pop-up, where no season names the year. */
 export const formatDateWithWeekdayAndYear = (day: CalendarDay | Date): string => DATE_WITH_WEEKDAY_AND_YEAR.format(asInstant(day));
+
+/** „2026“: a day's year on a line of its own, under the day as `formatDateWithWeekday` writes it on a match's page. */
+export const formatYear = (day: CalendarDay): string => YEAR.format(asInstant(day));
 
 /** „24. Oktober 2026“: a date inside a sentence or a mail. */
 export const formatDateLong = (day: CalendarDay | Date): string => DATE_LONG.format(asInstant(day));
