@@ -396,9 +396,11 @@ async def post_confirmation(
             session=session,
         )
 
+        # The stamp first, as `state_of` ranks it: a pupil who confirmed and presses again after the deadline, a decision
+        # or their club's departure is told their answer stands, never that the link expired.
+        refuse(find_already_confirmed_refusal(einwilligung=raw.get("einwilligung")))
         departed = await _team_departed(saison_teams_collection=saison_teams_collection, registrierung_raw=raw, session=session)
         refuse(find_expired_token_refusal(confirmation=raw.get("confirmation"), status=raw.get("status"), departed=departed, today=today))
-        refuse(find_already_confirmed_refusal(einwilligung=raw.get("einwilligung")))
         # The pupil's own floor and never a contact seat's, so raising one cannot silently raise the other.
         refuse(find_age_refusal(birth_date=answer_data.birth_date, today=today, minimum_age=REGISTRIERUNG_MIN_AGE_YEARS))
         refuse(find_self_media_refusal(saved=None, media=answer_data.media, birth_date=answer_data.birth_date, today=today))

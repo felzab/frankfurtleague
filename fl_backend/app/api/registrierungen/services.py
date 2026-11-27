@@ -263,7 +263,7 @@ def state_of(*, registrierung_raw: Mapping[str, Any], departed: bool, today: str
 
 
 def find_expired_token_refusal(*, confirmation: Any, status: Any, departed: bool, today: str) -> APIError | None:
-    """Why this link is over, or `None`. Judged before the stamp: a registration decided while the link stood open takes no answer either."""
+    """Why this link is over, or `None`. Judged after the stamp: a registration decided while the link stood open takes no answer either."""
 
     return link_expired() if link_is_over(confirmation=confirmation, status=status, departed=departed, today=today) else None
 
