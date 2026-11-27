@@ -174,9 +174,10 @@ type Touched<Schema extends z.ZodType> =
        * A touched write's dry run, which a lane over a backend `dry_run` judged by the write's own code path declares:
        * the kit sends the act once as its dry run before it asks the touch, so a refusal stands on its field with the
        * input kept, and asks the touch only once the dry run passed. The body hands its context's `dryRun` to the
-       * backend call and skips every effect of its own on it, since a declared dry run passes no touch; the guard, the
-       * parse and the holder are judged on it as on the write. A lane declaring none is told `false` on every call, its
-       * touch judged on each.
+       * backend call and skips every effect of its own on it, since a declared dry run passes no touch, save one that
+       * takes access away from an address its refusal names, as the ban's ending of a listed address's sessions does;
+       * the guard, the parse and the holder are judged on it as on the write. A lane declaring none is told `false` on
+       * every call, its touch judged on each.
        */
       readonly dryRun?: true;
     } & Held<Schema>);
