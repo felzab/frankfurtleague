@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useLayoutEffect, useRef } from "react";
+import { createContext, useContext, useEffect, useRef } from "react";
 
 import { Form } from "react-aria-components/Form";
 import { useObjectRef } from "react-aria/useObjectRef";
@@ -74,8 +74,10 @@ export function HeldForm({
   const element = useObjectRef(ref);
   const isHeld = useRef(false);
   const isReporting = useRef(false);
-  // A parent's layout effect runs after its children's, so each field has set its fault as its validity by now.
-  useLayoutEffect(() => {
+  // A parent's effects run after its children's: each field has set its fault as its validity in a layout effect, and
+  // attached its `invalid` listener in a passive one, which a form opening on its faults, as a reopened card does, has
+  // only once its own passive effects run.
+  useEffect(() => {
     if (fieldErrors === undefined || Object.keys(fieldErrors).length === 0) return;
     isReporting.current = true;
     try {
