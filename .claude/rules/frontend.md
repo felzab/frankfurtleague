@@ -30,22 +30,23 @@ Each fails silently. The ratified decisions for this surface are in `docs/decisi
   wraps its save (the hook is `fl_frontend/src/kit/usePasskeyTouch.ts`): every input is typed before
   the touch's session starts its `PASSKEY_TOUCH_SECONDS`, and a touch fired from an effect asks a
   prompt nobody pressed for, on a remount or a re-render as well.
-- A dialog's act behind the touch takes a `run` its lane declares `dryRun: true`
-  (`fl_frontend/src/core/action.ts`), which `DialogAct`'s `touch` type demands, over a backend
-  `dry_run` judged by the write's own code path (`fl_backend/app/core/routing.py :: DryRun`). The
-  press sends the dry run with the dialog open and a refusal stands on its field; an accepted input
-  steps the dialog aside for the prompt, and it stands again for the write's answer. The lane's body
-  hands its `dryRun` to the backend call and skips every effect of its own on it: a body ignoring it
-  writes before any touch is asked, and `tsc` passes. A question, a Konto box, the one-shot form and
-  an editor's save take no dry run: a question holds no input, and the others keep their page
-  through the touch, so a refusal stands on their fields after it, at the cost of a second touch.
+- An act behind the touch whose typed input the server judges takes a `run` its lane declares
+  `dryRun: true` (`fl_frontend/src/core/action.ts`), over a backend `dry_run` judged by the write's
+  own code path (`fl_backend/app/core/routing.py :: DryRun`); `DialogAct`'s `touch` type demands
+  one, and a Konto box or an editor's save holding such input takes one as well. The press sends the
+  dry run first, through the hook, and a refusal stands on its field with the input kept; only an
+  accepted input asks the touch, a dialog stepping aside for the prompt and standing again for the
+  write's answer. The lane's body hands its `dryRun` to the backend call and skips every effect of
+  its own on it: a body ignoring it writes before any touch is asked, and `tsc` passes. An act with
+  no typed input takes none, as its refusal has no field to stand on and no input to keep: a
+  question, the one-shot form, Konto's passkey set-up and the re-send of an address change.
 - WebKit dropped WebAuthn's user-gesture requirement in Safari 17.4, on every macOS it ships for,
   and in iOS and iPadOS 17.4, where every browser runs WebKit (271656@main). An older WebKit may
-  lose any touched prompt, a dialog's above all, whose dry run puts a second request before it,
-  though it may allow the first prompt after each page load; the loss reads as a closed passkey
-  sheet, which says nothing. The owner does not support those versions for any touched act, on Konto
-  and the public erasure page as in the administration. `tsc` and every unit test pass either way,
-  and the passkey journeys run in Chromium alone.
+  lose any touched prompt, above all one a dry run puts a request before, though it may allow the
+  first prompt after each page load; the loss reads as a closed passkey sheet, which says nothing.
+  The owner does not support those versions for any touched act, on Konto and the public erasure
+  page as in the administration. `tsc` and every unit test pass either way, and the passkey journeys
+  run in Chromium alone.
 - A journey presses a control inside an overlay through the overlay a helper of
   `fl_frontend/e2e/support/controls.ts` answered, never by the control's own role off the page, a
   button's or a text box's, which the lint's ban on looking up an overlay's role passes. Found that
