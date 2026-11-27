@@ -120,7 +120,6 @@ describe("a Konto box's act behind the passkey touch, its dry run declared", () 
     expect(await screen.findByText(COPY.shared.field.taken)).toBeTruthy();
     expect([order, screen.getByRole<HTMLInputElement>("textbox").value]).toStrictEqual([["dry run"], "anna.neu@example.com"]);
 
-    // The refusal holds the box until the person corrects it.
     await waitFor(() => expect(send.hasAttribute("data-pending")).toBe(false));
     await userEvent.clear(screen.getByRole("textbox"));
     await userEvent.type(screen.getByRole("textbox"), "anna.zwei@example.com");
