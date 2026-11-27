@@ -1,4 +1,4 @@
-import { assert, describe, expect, it, vi } from "vitest";
+import { assert, describe, expect, it } from "vitest";
 
 import { ADMIN_COPY } from "@/core/copy/admin";
 import { COPY } from "@/core/copy/shared";
@@ -28,15 +28,6 @@ serveBackend(({ method, path }) => {
 // The owner's session, made by passkey, which the reads' guard admits and the page reads its reader off; a case reading
 // as another administrator arrives as them.
 const { arriveAs, store } = signedInRequest({ email: OWNER, admin: true });
-
-// Server functions, which the page hands its dialogs and a client reaches over the network: no case presses one.
-vi.mock("./grantActs", () => ({
-  addAdministrator: () => undefined,
-  removeAdministrator: () => undefined,
-  startHandover: () => undefined,
-  stopHandover: () => undefined,
-}));
-vi.mock("@/features/address-change/actions", () => ({ discardChange: () => undefined }));
 
 const { default: AdministratorsPage } = await import("./page");
 

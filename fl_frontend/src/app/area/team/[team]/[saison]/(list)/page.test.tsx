@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
+import { afterAll, describe, expect, it, vi } from "vitest";
 
 import { AREA_COPY } from "@/core/copy/area";
 import { COPY } from "@/core/copy/shared";
@@ -9,8 +9,6 @@ import { serveBackend } from "@/test-support/backend";
 import { renderUnderNext } from "@/test-support/nextContexts";
 import { signedInRequest } from "@/test-support/session";
 import { seat } from "@/test-support/subjectFixtures";
-
-import { agreeSpielbestaetigung, declineSpielbestaetigung } from "./answerSpielbestaetigung";
 
 import type {
   FLAufstellungPhase,
@@ -26,25 +24,21 @@ const TEAM = "6af32ed4205642a3fd5ee7e1";
 /** The team's overview as the backend holds it, which each case sets. */
 const stored = { read: undefined as FLTeamOverviewResponse | undefined };
 
-const DONE = { ok: true, value: undefined } as const;
-
-// The answers are server functions, which a client reaches over the network: the row's press is what is judged.
-vi.mock("./answerSpielbestaetigung", () => ({ agreeSpielbestaetigung: vi.fn(), declineSpielbestaetigung: vi.fn() }));
-
 // The league's calendar day the deadlines and the decline's proposal are judged by, set before the session is made so
 // its stamps share the clock.
 vi.setSystemTime(new Date("2026-11-10T12:00:00+01:00"));
 
-// The page's one read: the overview of the team and the season the address names. Any other, another club's or
-// another season's among them, fails the case.
-serveBackend(({ method, path }) => (method === "GET" && path === `/teams/${TEAM}/saisons/2027/overview` ? stored.read : undefined));
+// The page's one read, the overview of the team and the season the address names, and a row's answer, whose path
+// names its confirmation row. Any other request, another club's or another season's read among them, fails the case.
+const ANSWERED = /^\/spielbestaetigungen\/[0-9a-f]{24}\/answer\/team$/u;
+const backend = serveBackend(({ method, path }) => {
+  if (method === "GET" && path === `/teams/${TEAM}/saisons/2027/overview`) return stored.read;
+  return method === "POST" && ANSWERED.test(path) ? new Response(null, { status: 204 }) : undefined;
+});
 // A contact seated on the team in its running season, signed in by a typed code.
 signedInRequest({ email: "pia@example.org", records: { seats: [seat({ team_id: TEAM, saison_id: "2027", saison_status: "active" })] } });
 const { default: TeamOverviewPage } = await import("./page");
 
-afterEach(() => {
-  vi.clearAllMocks();
-});
 afterAll(() => {
   vi.useRealTimers();
 });
@@ -96,18 +90,21 @@ describe("a date's answer", () => {
     ansetzung: { date: "2026-11-21", time: "16:00:00", spielort: null, team1_name: "Ahorn", team2_name: "Linde" },
   });
 
+  /** Each answer the backend took, by the confirmation row its path names and what it answered. */
+  const answers = () =>
+    backend.sent.filter(({ method }) => method === "POST").map(({ path, body }) => ({ path, answer: (body as { answer: string }).answer }));
+  const answerPath = `/spielbestaetigungen/${second.spielbestaetigung_id}/answer/team`;
+
   it("agrees to the row pressed, by its confirmation row", async () => {
-    vi.mocked(agreeSpielbestaetigung).mockResolvedValue(DONE);
     const rows = await spielbestaetigungen(first, second);
     renderUnderNext(rows[1]?.acts as ReactElement);
 
     await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.agree }));
 
-    expect(agreeSpielbestaetigung).toHaveBeenCalledExactlyOnceWith({ id: second.spielbestaetigung_id });
+    await waitFor(() => expect(answers()).toStrictEqual([{ path: answerPath, answer: "agreed" }]));
   });
 
   it("declines the row pressed, by its confirmation row", async () => {
-    vi.mocked(declineSpielbestaetigung).mockResolvedValue(DONE);
     const rows = await spielbestaetigungen(first, second);
     renderUnderNext(rows[1]?.acts as ReactElement);
 
@@ -121,9 +118,7 @@ describe("a date's answer", () => {
     await userEvent.keyboard("1800");
     await userEvent.click(within(dialog).getByRole("button", { name: COPY.shared.verb.decline }));
 
-    await waitFor(() => expect(declineSpielbestaetigung).toHaveBeenCalledOnce());
-    const posted = vi.mocked(declineSpielbestaetigung).mock.calls[0]?.[0] as FormData;
-    expect(posted.get("id")).toBe(second.spielbestaetigung_id);
+    await waitFor(() => expect(answers()).toStrictEqual([{ path: answerPath, answer: "declined" }]));
   });
 });
 
