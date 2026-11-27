@@ -9,7 +9,6 @@ from app.api.bewerbungen.services import (
     confirmation_deadline_from,
     person_of,
     row_takes_confirmations,
-    seat_is_answered,
 )
 from app.api.outbox.schemas import FLKontaktLinkData, FLOutboxLink, FLOutboxReference, FLOutboxStatus
 from app.api.outbox.services import OwedMail
@@ -230,8 +229,8 @@ def with_link_state(row: Mapping[str, Any], *, today: str, states: Mapping[tuple
         return dict(row)
 
     def expired(seat: str, link: Mapping[str, Any]) -> bool:
-        open = not seat_is_answered(kontakte=row.get("kontakte"), confirmations=confirmations, seat=seat)
-        return open and deadline_passed(deadline=link.get("deadline"), today=today)
+        answered = seat_is_confirmed(person_of(row.get("kontakte"), seat)) or link.get("declined_at") is not None
+        return not answered and deadline_passed(deadline=link.get("deadline"), today=today)
 
     return {
         **row,

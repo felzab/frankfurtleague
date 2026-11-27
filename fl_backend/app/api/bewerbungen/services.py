@@ -446,18 +446,6 @@ def _declined_on(confirmations: Mapping[str, Any] | None, seat: str) -> Any:
     return None if entry is None else entry.get("declined_at")
 
 
-def seat_is_answered(*, kontakte: Mapping[str, Any] | None, confirmations: Mapping[str, Any] | None, seat: str) -> bool:
-    """Whether this seat's person has spoken: a stamp on the seat, a decline beside it, or no bookkeeping.
-
-    No bookkeeping is an emptied seat, or a season row's seat no link was minted for: nothing to answer.
-    """
-
-    if seat_is_confirmed(person_of(kontakte, seat)) or _declined_on(confirmations, seat) is not None:
-        return True
-
-    return _entry_of(confirmations, seat) is None
-
-
 def find_already_answered_refusal(*, kontakte: Mapping[str, Any] | None, confirmations: Mapping[str, Any] | None, seat: str) -> APIError | None:
     """Why this seat takes no second answer, or `None`. The single use: the stamps are what spend a link, never a nulled hash.
 
