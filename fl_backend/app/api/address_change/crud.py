@@ -683,8 +683,9 @@ async def _carry_the_mail(outbox_collection: AsyncCollection, old: str, new: str
     the seat's. The row stands as a tombstone of its key: a pass deciding by its key whether a mail was owed (the line-up
     reminder's) or a replayed write would otherwise owe it a second time, to the new address. The tombstone goes a
     retention after its final state, as the row would have. A sign-in library's mail still owed stays where it was owed
-    until it is sent, since it tells of a sign-in asked from that address; once sent it is a tombstone too. Matched by
-    equality on `old`, folded as every recipient is stored; then written by id.
+    until it is sent, since it tells of a sign-in asked from that address, and keeps that address until a retention after
+    its final state, as every row does. Matched by equality on `old`, folded as every recipient is stored; then written by
+    id.
     """
 
     rows = await aggregate_many_from_db(
