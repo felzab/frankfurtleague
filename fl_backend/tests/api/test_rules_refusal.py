@@ -50,7 +50,7 @@ def judge(
     proposed: FLSaisonRules | None = None,
     occupancy: dict[FLGruppenNames, int] | None = None,
     largest_kader: int = 0,
-    drawn: int = 0,
+    drawn: bool = False,
     started: bool = False,
 ) -> APIError | None:
     """Both judgements in the order `patch_saison` asks them: the freeze, then the rules."""
@@ -66,7 +66,7 @@ def judge(
         proposed=proposed,
         occupancy_by_gruppe=occupancy or {},
         largest_kader=largest_kader,
-        drawn_spiele=drawn,
+        drawn=drawn,
     )
 
 
@@ -225,10 +225,6 @@ class TestAStartedSeasonFreezes:
         assert refusal.error_code == Code.RULES_SAISON_STARTED
 
 
-# The season the class below patches, as its fixtures were drawn: 4 groups of 4 over 3 matchdays.
-DRAWN_SPIELE = 24
-
-
 class TestADrawnSeasonKeepsTheShapeItWasDrawnFrom:
     """The three numbers a season's fixture list is generated from."""
 
@@ -244,7 +240,7 @@ class TestADrawnSeasonKeepsTheShapeItWasDrawnFrom:
     def test_a_change_to_any_of_them_is_refused(self, label: str, changed: dict[str, Any]):
         """Each case leaves the bracket legal, so nothing but this rule can be answering."""
 
-        refusal = judge(stored=rules(), proposed=rules(**changed), drawn=DRAWN_SPIELE)
+        refusal = judge(stored=rules(), proposed=rules(**changed), drawn=True)
 
         assert refusal is not None
         assert refusal.error_code == Code.RULES_SHAPE_AFTER_SPIELPLAN

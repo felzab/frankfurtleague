@@ -213,8 +213,11 @@ async def refuse_a_gruppe_move(
 ) -> None:
     """Refuse moving this club into `gruppe` while its fixtures are drawn or the group is full, the entry's status gate aside."""
 
-    spiele_drawn = await spiele_collection.count_documents(build_team_spiele_filter(saison_id=saison_id, team_id=team_id), session=session)
-    refuse(find_gruppe_move_refusal(spiele_drawn=spiele_drawn))
+    drawn = (
+        await spiele_collection.find_one(build_team_spiele_filter(saison_id=saison_id, team_id=team_id), {"_id": 1}, session=session)
+        is not None
+    )
+    refuse(find_gruppe_move_refusal(drawn=drawn))
 
     await refuse_a_full_gruppe(
         saison_teams_collection=saison_teams_collection,

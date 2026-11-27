@@ -663,14 +663,14 @@ def offered_gruppen(number_of_gruppen: int) -> tuple[FLGruppenNames, ...]:
     return get_args(FLGruppenNames.__value__)[:number_of_gruppen]
 
 
-def find_gruppe_move_refusal(*, spiele_drawn: int) -> APIError | None:
+def find_gruppe_move_refusal(*, drawn: bool) -> APIError | None:
     """Why this team's group move must be refused, or `None`.
 
     The window is a season where this team holds no fixture, whatever the season's status: a move
     rewrites none, so a later one leaves one round robin holding the club and the other short.
     """
 
-    if spiele_drawn == 0:
+    if not drawn:
         return None
 
     return APIError(HTTPStatus.CONFLICT, Code.ENTRY_GRUPPE_LOCKED)

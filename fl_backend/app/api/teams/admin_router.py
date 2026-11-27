@@ -342,7 +342,7 @@ async def get_team_saison_admin(
     )
     row_raw = rows_raw[0] if rows_raw else None
 
-    membership, junctions, held_saisons, spiele_drawn, live = await concurrently(
+    membership, junctions, held_saisons, drawn_spiel, live = await concurrently(
         _membership_of(row_raw, outbox_collection=outbox_collection, today=today),
         pull_whole_from_db(
             collection=saison_teams_collection,
@@ -351,7 +351,7 @@ async def get_team_saison_admin(
             projection=["team_id", "gruppe", "trikot_farbe", "name", "kontakte", "austritt"],
         ),
         pull_whole_from_db(collection=saisons_collection, db_filter={"_id": {"$in": held_saison_ids}}, projection=["status"]),
-        spiele_collection.count_documents(build_team_spiele_filter(saison_id=saison_id, team_id=team_id)),
+        spiele_collection.find_one(build_team_spiele_filter(saison_id=saison_id, team_id=team_id), {"_id": 1}),
         # A list read where the answer is one row: a team legitimately holds no live invitation, and
         # `pull_one_from_db` would make that absence a 404.
         pull_many_from_db(
@@ -404,7 +404,7 @@ async def get_team_saison_admin(
         ),
         membership=membership,
         gruppen=gruppe_offer(rules=FLSaisonRules.model_validate(saison_raw["rules"]), gruppen=[row["gruppe"] for row in junctions]),
-        gruppe_locked=find_gruppe_move_refusal(spiele_drawn=spiele_drawn) is not None,
+        gruppe_locked=find_gruppe_move_refusal(drawn=drawn_spiel is not None) is not None,
         taken_trikot_farben=assigned_trikot_farben(stored=[row.get("trikot_farbe") for row in junctions if row["team_id"] != team_id]),
         retire_blocked_by=saison_blocking_retirement(held_saisons),
         link=link,

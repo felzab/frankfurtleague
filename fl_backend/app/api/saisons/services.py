@@ -233,7 +233,7 @@ def find_rules_refusal(
     proposed: FLSaisonRules,
     occupancy_by_gruppe: dict[FLGruppenNames, int],
     largest_kader: int = 0,
-    drawn_spiele: int = 0,
+    drawn: bool = False,
 ) -> APIError | None:
     """Why these rules must be refused, or `None`."""
 
@@ -242,7 +242,7 @@ def find_rules_refusal(
     # Absolute, in every status and whatever is recorded: the shape and the fixtures drawn from it
     # are one fact, so this path never moves half of it. An undraw removes the fixtures, and the next
     # draw runs from the shape saved after it.
-    if stored is not None and drawn_spiele > 0:
+    if stored is not None and drawn:
         redrawn = [field for field in SHAPE_RULES_FIELDS if getattr(stored, field) != getattr(proposed, field)]
         if redrawn:
             return APIError(HTTPStatus.CONFLICT, Code.RULES_SHAPE_AFTER_SPIELPLAN)
@@ -446,10 +446,10 @@ def holds_a_recorded_fact(spiel: Mapping[str, Any]) -> bool:
     return (spiel.get("spielort") or {}).get("spielort_id") is not None or spiel.get("schiedsrichter") is not None
 
 
-def find_activation_refusal(*, target_status: str, target_spiele: int, undated_spieltage: int, outgoing_unplayed: bool) -> APIError | None:
+def find_activation_refusal(*, target_status: str, target_drawn: bool, spieltage_undated: bool, outgoing_unplayed: bool) -> APIError | None:
     """Why this rollover must be refused, or `None`.
 
-    `undated_spieltage` counts the target season's matchdays holding no `start`; `outgoing_unplayed` is whether the
+    `spieltage_undated` is whether a matchday of the target season holds no `start`; `outgoing_unplayed` is whether the
     incumbent still owes a match by `is_unplayed`, false where there is none, and never asks the target's own fixtures.
     An open bracket slot owes one as an unscored match does, since neither holds a result.
     """
@@ -459,12 +459,12 @@ def find_activation_refusal(*, target_status: str, target_spiele: int, undated_s
     if target_status == "past":
         return APIError(HTTPStatus.CONFLICT, Code.SAISON_PAST)
 
-    if target_spiele == 0:
+    if not target_drawn:
         return APIError(HTTPStatus.CONFLICT, Code.ACTIVATE_TARGET_UNDRAWN)
 
     # After the undrawn target and before the incumbent: an undrawn season holds no matchday to
     # date, so this refusal would name a repair the admin cannot make there.
-    if undated_spieltage > 0:
+    if spieltage_undated:
         return APIError(HTTPStatus.CONFLICT, Code.ACTIVATE_SPIELTAGE_UNDATED)
 
     if not outgoing_unplayed:
