@@ -164,22 +164,29 @@ class TestOneVenueAndOneRefereeAtATime:
     def test_inside_the_buffer_is_refused(self, time):
         refusal = find_clash_refusal(date="2026-03-07", time=time, booked=[self.slot("18:00:00")])
 
-        assert refusal is not None
-        assert refusal.code == Code.SPIEL_DOUBLE_BOOKED
+        assert [fault.code for fault in refusal] == [Code.SPIEL_DOUBLE_BOOKED]
 
     @pytest.mark.parametrize("time", ["14:00:00", "22:00:00"])
     def test_the_whole_buffer_apart_is_admitted(self, time):
         """The buffer is the gap two bookings need, so one exactly four hours from another is no clash."""
 
-        assert find_clash_refusal(date="2026-03-07", time=time, booked=[self.slot("18:00:00")]) is None
+        assert find_clash_refusal(date="2026-03-07", time=time, booked=[self.slot("18:00:00")]) == ()
 
     def test_it_works_in_both_directions(self):
         """A booking earlier and a booking later are the same clash — the comparison is absolute."""
 
         refusal = find_clash_refusal(date="2026-03-07", time="16:00:00", booked=[self.slot("18:00:00")])
 
-        assert refusal is not None
-        assert refusal.code == Code.SPIEL_DOUBLE_BOOKED
+        assert [fault.code for fault in refusal] == [Code.SPIEL_DOUBLE_BOOKED]
+
+    def test_the_venue_and_the_referee_each_clash_on_their_own_box(self):
+        """Each resource judged apart: an answer naming the earlier clash alone leaves the other box for a later press."""
+
+        refusal = find_clash_refusal(
+            date="2026-03-07", time="16:00:00", booked=[self.slot("15:00:00", resource="Schiedsrichter"), self.slot("18:00:00")]
+        )
+
+        assert [fault.path for fault in refusal] == [("spielort", "spielort_id"), ("schiedsrichter", "schiedsrichter_id")]
 
 
 RETIRE_DATABASE = worker_database("fl_retire_booked_test")
