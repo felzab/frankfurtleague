@@ -10,7 +10,6 @@ import { useLocked } from "@/kit/draftUnsaved";
 
 import { enterZusage } from "./enterZusage";
 
-import type { ActionAnswer } from "@/core/action";
 import type { Words } from "@/core/copy";
 import type { ReactNode } from "react";
 
@@ -23,9 +22,8 @@ export type OpenParty = { id: string; name: Words };
 
 /**
  * „Zusage eintragen“ from a fixture's row, or from one party's: which party still to answer agreed, one segment each,
- * and how the agreement reached the league, which the confirmation stores as the reason the write requires. A segment
- * posts no form value, so the choice is held here and joins the form as its row's id; the reason's box is drawn on the
- * server.
+ * and how the agreement reached the league, which the confirmation stores as the reason the write requires. The choice
+ * posts its party's row as `id`, the box a refusal of the party stands on; the reason's box is drawn on the server.
  */
 export function ZusageDialog({
   parties,
@@ -45,19 +43,15 @@ export function ZusageDialog({
   // among the parties falls back to the first still to answer, never posting an answered row.
   const chosen = parties.some((party) => party.id === picked) ? picked : parties[0].id;
 
-  const enter = (form: FormData): Promise<ActionAnswer> => {
-    form.set("id", chosen);
-    return enterZusage(form);
-  };
-
   return (
     <Dialog
       title={TITLE}
       act={ACT}
-      run={enter}
+      run={enterZusage}
       trigger={{ label: TITLE, ...(locked === undefined ? {} : { locked }) }}>
       <Segmented
         label={WORDS.zusageFrom}
+        name="id"
         choices={parties.map((party) => ({ id: party.id, label: party.name }))}
         isRequired={partyRequired}
         value={chosen}

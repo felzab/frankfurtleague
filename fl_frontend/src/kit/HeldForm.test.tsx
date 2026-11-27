@@ -145,6 +145,7 @@ const FIELDS: [string, ReactElement][] = [
     <Segmented
       key="segmented"
       label={WORD}
+      name="segmented"
       choices={YES_NO}
     />,
   ],
@@ -153,6 +154,7 @@ const FIELDS: [string, ReactElement][] = [
     <ToggleBoxes
       key="boxes"
       label={WORD}
+      name="boxes"
       choices={YES_NO}
     />,
   ],

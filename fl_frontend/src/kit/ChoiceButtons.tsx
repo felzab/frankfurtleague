@@ -21,9 +21,10 @@ type Shared = {
   isRequired?: boolean;
   /**
    * The box the group posts under, by which the form's served refusal stands on it (`HeldForm`) as on any field: its
-   * line shows it, its frame's edge marks it, and the form's report focuses it.
+   * line shows it, its frame's edge marks it, and the form's report focuses it. Required, so no choice leaves the
+   * server's fault standing nowhere.
    */
-  name?: string;
+  name: string;
 };
 
 /**
