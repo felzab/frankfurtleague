@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cloneElement, useLayoutEffect, useState } from "react";
+import { Activity, cloneElement, useLayoutEffect, useState } from "react";
 
 import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -293,6 +293,36 @@ describe("a faulted box after either pass", () => {
       expect(blocked).not.toHaveBeenCalled();
     },
   );
+
+  // The harm: a person who follows a link from a refused form and comes back, Next showing the page it kept hidden, is
+  // pulled to the box refused before, and a screen reader reads that box rather than the page.
+  it("leaves the focus where it stands when its form shows again on an answer already reported", async () => {
+    const answer = { faulted: FAULT };
+    const page = (mode: "visible" | "hidden") => (
+      <>
+        <button type="button">{COPY.shared.back}</button>
+        <Activity mode={mode}>
+          <Faulted
+            box={
+              <TextField
+                label={WORD}
+                name="faulted"
+                kind="text"
+              />
+            }
+            fieldErrors={answer}
+          />
+        </Activity>
+      </>
+    );
+    const { rerender } = render(page("visible"));
+    const elsewhere = screen.getByRole("button", { name: COPY.shared.back });
+    act(() => elsewhere.focus());
+
+    for (const mode of ["hidden", "visible"] as const) await act(async () => rerender(page(mode)));
+
+    expect(document.activeElement).toBe(elsewhere);
+  });
 });
 
 /** The press of a submit button, or of Enter, before any of the page's code runs. */

@@ -74,11 +74,15 @@ export function HeldForm({
   const element = useObjectRef(ref);
   const isHeld = useRef(false);
   const isReporting = useRef(false);
+  // The answer last reported. A ref outlives an `Activity`, which re-creates this effect each time it shows the form
+  // again, as Next shows a page the person comes back to: an answer already reported never takes the focus again.
+  const reported = useRef<FieldFaults | undefined>(undefined);
   // A parent's effects run after its children's: each field has set its fault as its validity in a layout effect, and
   // attached its `invalid` listener in a passive one, which a form opening on its faults, as a reopened card does, has
   // only once its own passive effects run.
   useEffect(() => {
-    if (fieldErrors === undefined || Object.keys(fieldErrors).length === 0) return;
+    if (fieldErrors === undefined || fieldErrors === reported.current || Object.keys(fieldErrors).length === 0) return;
+    reported.current = fieldErrors;
     isReporting.current = true;
     try {
       element.current?.reportValidity();
