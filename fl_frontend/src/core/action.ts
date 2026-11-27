@@ -8,10 +8,8 @@ import { z } from "zod";
 import { getAccountSession, judgeAdminRequest, passesPasskeyTouch } from "./auth/guards";
 import { COPY } from "./copy/shared";
 import { asSignInIdentifier, KONTAKT_EMAIL_MAX_LENGTH } from "./emailAddress";
-import { APIBadStatusError, asRefusal, loggedByBackend, requestOf } from "./errors";
-import { FieldCode } from "./generated/client/types";
+import { APIBadStatusError, loggedByBackend, requestOf } from "./errors";
 import { logger } from "./logging";
-import { ownKeyOf } from "./ownKeyOf";
 import { logRefused } from "./refused";
 import { getRequestActor, markDryRun, requestWriteMayStand } from "./requestScope";
 import { phraseOf, sentenceOf } from "./ruleMessage";
@@ -25,7 +23,7 @@ import { fieldMessage } from "./zodGerman";
 import type { AdminRefusal, JudgedSession } from "./auth/guards";
 import type { Words as CatalogueWords, Copy } from "./copy";
 import type { ServedField } from "./errors";
-import type { Code, FLRefusedField } from "./generated/client/types";
+import type { Code, FieldCode, FLRefusedField } from "./generated/client/types";
 import type { SubjectSession } from "./subject";
 
 /**
@@ -156,20 +154,6 @@ export type LaneAnswer<Value = undefined> =
  * lane's helper answers where it finds any.
  */
 export type Faulted = { ok: false; faults: readonly (Fault | ServedField)[]; errorCode?: Code };
-
-/**
- * A lane's own faults beside the backend's refusal of the same press, as one answer naming every fault, where the
- * backend refused fields: a check of the sign-in store on a dry run, which the backend's own faults join. A backend
- * refusal naming no field, a gate, stands alone, since no field means anything past it, and so does any other failure:
- * both are thrown on, as they were thrown.
- */
-export function besideRefusal(faults: readonly Fault[], failed: unknown): Faulted {
-  const refusal = asRefusal(failed);
-  const code = refusal?.serverErrorCode;
-  const ofFields = code === "payload_refused" || (code !== undefined && ownKeyOf(FieldCode, code));
-  if (faults.length === 0 || refusal === null || !ofFields || refusal.refusedFields.length === 0) throw failed;
-  return { ok: false, errorCode: code, faults: [...refusal.refusedFields, ...faults] };
-}
 
 type Run<Schema extends z.ZodType, Context, Value> = (input: z.output<Schema>, context: Context) => Promise<LaneAnswer<Value>>;
 

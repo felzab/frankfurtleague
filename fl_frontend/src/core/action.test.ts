@@ -44,7 +44,7 @@ const { arriveAs, store } = signedInRequest();
 const log = captureLog();
 
 // Imported here rather than at the top: `vi.doMock` reaches only the modules imported after it.
-const { action, besideRefusal, fault, numberBox, PAGE_HOLDER } = await import("./action");
+const { action, fault, numberBox, PAGE_HOLDER } = await import("./action");
 const { afterTheResponse } = await import("./afterResponse");
 const { sendToBackend } = await import("./api");
 const { boundCall, getRequestActor, REQUEST_DEADLINE_MS } = await import("./requestScope");
@@ -518,21 +518,14 @@ describe("a lane's own faults", () => {
   const Form = z.object({ address: z.string(), email: z.string() });
   const FORM = { address: "paul@example.org", email: "paul.neu@example.org" };
 
-  /** A lane whose own judge finds `own`, beside the backend's answer to its call where `answer` is given. */
-  const judging = (own: readonly Fault[], answer?: Response) =>
+  /** A lane whose own judge finds `own`. */
+  const judging = (own: readonly Fault[]) =>
     action({
       lane: "admin",
       name: "judged",
       input: Form,
       boxes: ["address", "email"],
-      run: async (): Promise<LaneAnswer> => {
-        try {
-          await sends("POST", answer);
-        } catch (failed) {
-          return besideRefusal(own, failed);
-        }
-        return { ok: false, faults: own };
-      },
+      run: async (): Promise<LaneAnswer> => ({ ok: false, faults: own }),
     });
 
   it("places a lane's fault on its box in the phrase its kind words, and a required box's in the parse's word", async () => {
@@ -543,26 +536,6 @@ describe("a lane's own faults", () => {
       errorCode: "address_change_taken",
       fieldErrors: { email: field.taken, address: field.required },
       kinds: { email: "address_change_taken", address: "required" },
-    });
-  });
-
-  it("names its own faults and the backend's in one answer", async () => {
-    const barred = { in: "body", kind: "address_barred", ctx: {}, path: ["address"] } satisfies FLRefusedField;
-
-    expect(await judging([fault("email", "address_change_taken")], refusal("address_barred", { fields: [barred] }))(FORM)).toStrictEqual({
-      ok: false,
-      errorCode: "address_barred",
-      fieldErrors: { address: field.barred, email: field.taken },
-      kinds: { address: "address_barred", email: "address_change_taken" },
-    });
-  });
-
-  // A gate means no field past it, so its own sentence stands alone.
-  it("answers the backend's refusal naming no field alone", async () => {
-    expect(await judging([fault("email", "address_change_taken")], refusal("saison_past"))(FORM)).toStrictEqual({
-      ok: false,
-      errorCode: "saison_past",
-      reason: SERVER_COPY.refusalLine.saison_past,
     });
   });
 });
