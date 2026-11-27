@@ -50,21 +50,23 @@ describe("the groups a card offers", () => {
 describe("a refused row's Kürzel chip", () => {
   const { field } = COPY.shared;
 
-  it("is read off the Kürzel's own fault, whichever fault the refusal names first", () => {
-    const outcome = outcomeOf({
-      ok: false,
-      errorCode: "trikot_farbe_taken",
-      fieldErrors: { trikot_farbe: field.taken, shorthand: field.taken },
-      kinds: { trikot_farbe: "trikot_farbe_taken", shorthand: "duplicate_key" },
-    });
-
-    expect(outcome).toMatchObject({ kind: "refused", taken: true });
-  });
-
-  it("stands for no other fault of the Kürzel's box", () => {
-    expect(outcomeOf({ ok: false, fieldErrors: { shorthand: field.required }, kinds: { shorthand: "payload_refused" } })).toMatchObject({
+  it.each<{ shown: string; refused: Parameters<typeof outcomeOf>[0]; taken: boolean }>([
+    {
+      shown: "for the Kürzel's own fault, whichever fault the refusal names first",
+      refused: {
+        ok: false,
+        fieldErrors: { trikot_farbe: field.taken, shorthand: field.taken },
+        kinds: { trikot_farbe: "trikot_farbe_taken", shorthand: "duplicate_key" },
+      },
+      taken: true,
+    },
+    {
+      shown: "for no other fault of the Kürzel's box",
+      refused: { ok: false, fieldErrors: { shorthand: field.required }, kinds: { shorthand: "payload_refused" } },
       taken: false,
-    });
+    },
+  ])("stands $shown", ({ refused, taken }) => {
+    expect(outcomeOf(refused)).toMatchObject({ kind: "refused", taken });
   });
 });
 

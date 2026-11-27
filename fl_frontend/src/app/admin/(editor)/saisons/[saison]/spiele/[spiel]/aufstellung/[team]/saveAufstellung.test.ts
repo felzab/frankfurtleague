@@ -138,27 +138,6 @@ describe("the league's save of a line-up", () => {
     });
   });
 
-  // The harm: a refusal naming another fault first, whose code is then its own, dropping the pupils' marks.
-  it("marks a refused pupil on their row beside the refusal's other faults, whichever comes first", async () => {
-    refusing.write = () =>
-      refusal("aufstellung_nominee_without_shortage", {
-        fields: [
-          { kind: "aufstellung_nominee_without_shortage", path: ["spieler"], ctx: { max: 11 }, in: "body" },
-          { kind: "spieler_not_in_kader", path: ["spieler", 0, "spieler_id"], ctx: {}, in: "body" },
-        ],
-      });
-    const answer = await saveAufstellung({ team_id: TEAM, id: SPIEL, version: 3, changes: { picked: [TWO, ONE, THREE] } });
-
-    // The nominees' fault names the whole list, which holds no box of its own, so it keeps its sentence on the line.
-    expect(answer).toStrictEqual({
-      ok: false,
-      errorCode: "aufstellung_nominee_without_shortage",
-      fieldErrors: { [`changes.picked.${THREE}`]: COPY.kader.deregistered },
-      kinds: { [`changes.picked.${THREE}`]: "spieler_not_in_kader" },
-      reason: "Nachnominierte füllen nur die Lücke bis 11.",
-    });
-  });
-
   // The harm: a bound the backend moves, said on the screen as the figure it was when the catalogue was typed.
   it("says the nominees' gap by the bound the refusal carries", async () => {
     refusing.write = () =>

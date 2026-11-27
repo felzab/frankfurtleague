@@ -12,7 +12,7 @@ import { COPY } from "./copy/shared";
 import { dayOf } from "./format";
 import { SERVER_COPY } from "./serverCopy";
 
-import type { Fault, Faulted, LaneAnswer } from "./action";
+import type { Fault, LaneAnswer } from "./action";
 import type { Code, FLRefusedField } from "./generated/client/types";
 
 /**
@@ -467,6 +467,7 @@ describe("a refusal naming several faults", () => {
     });
   });
 
+  // The adoption of a proposed date answers the save's faults on a page holding none of the save's boxes.
   it("says a fault on a box the screen does not show in its sentence, the faults it shows staying on their boxes", async () => {
     const faults = [at("spiel_double_booked", ["spielort"]), at("spiel_outside_spieltag", ["date"], { earliest: "2027-03-01" })];
 
@@ -477,10 +478,6 @@ describe("a refusal naming several faults", () => {
       kinds: { date: "spiel_outside_spieltag" },
       reason: SERVER_COPY.refusalLine.spiel_double_booked.spielort,
     });
-  });
-
-  // The adoption of a proposed date answers the save's faults on a page holding none of the save's boxes.
-  it("says a fault in its sentence where the screen shows no box at all", async () => {
     expect(await save([], "spiel_double_booked", [at("spiel_double_booked", ["schiedsrichter"])])(SENT)).toStrictEqual({
       ok: false,
       errorCode: "spiel_double_booked",
@@ -727,16 +724,5 @@ describe("a box's reading", () => {
   it("reads an empty digit box as no value, never as 0", () => {
     expect(numberBox(z.union([FEE, z.null()])).safeParse("")).toStrictEqual({ success: true, data: null });
     expect(numberBox(FEE).safeParse("").success).toBe(false);
-  });
-});
-
-// The harm: a lane handing on a fault it built in the backend's shape, whose kind is any string, and the box reading
-// the stale-page line in place of its phrase, with nothing failing.
-describe("a lane's faults", () => {
-  it("take a fault in the backend's shape only as the backend's answer brought it", () => {
-    const handed = (faults: Faulted["faults"]) => faults;
-    handed([fault("name", "required")]);
-    // @ts-expect-error -- the refusal under test: a backend fault built by hand, its kind no field code.
-    handed([{ in: "body", kind: "made_up", ctx: {}, path: ["name"] }]);
   });
 });

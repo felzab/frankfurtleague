@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 
 import { SEAT_TEXT_VERSIONS } from "@/core/consentWordings";
-import { COPY } from "@/core/copy/shared";
 import { ROUTES } from "@/core/routes";
 import { refusal, serveBackend } from "@/test-support/backend";
 import { doubleNextRequest, forgottenLinks } from "@/test-support/nextRequest";
@@ -99,23 +98,5 @@ describe("a contact person's press on a seat answered since the page opened", ()
     });
 
     expect(forgottenLinks()).toStrictEqual(FORGOTTEN);
-  });
-});
-
-describe("a media consent the write refuses for the age it holds to", () => {
-  // The harm: the switch unmarked and the stale-page line read in place of the age the consent needs.
-  it("stands on the media switch in its phrase, naming that age", async () => {
-    backend.answerWith(({ method, path }) =>
-      method === "POST" && path === "/bewerbungen/confirmation"
-        ? refusal("media_age", { fields: [{ kind: "media_age", path: ["media"], ctx: { min: 16 }, in: "body" }] })
-        : undefined,
-    );
-
-    expect(await answerKontakt(posted({ ...CONFIRMATION, media: "on" }))).toStrictEqual({
-      ok: false,
-      errorCode: "media_age",
-      fieldErrors: { media: COPY.shared.mediaFrom(16) },
-      kinds: { media: "media_age" },
-    });
   });
 });

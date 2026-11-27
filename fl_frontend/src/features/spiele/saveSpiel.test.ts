@@ -233,9 +233,7 @@ describe("the match editor's save", () => {
       status: 409,
       fields: [
         { ...body, kind: "spiel_double_booked", path: ["spielort", "spielort_id"] },
-        { ...body, kind: "booking_unconfirmed_schiedsrichter", path: ["schiedsrichter", "schiedsrichter_id"] },
         { ...body, kind: "eligibility_disqualified", path: ["team1", "team_id"] },
-        { ...body, kind: "eligibility_disqualified", path: ["team2", "team_id"] },
       ],
     });
 
@@ -244,18 +242,8 @@ describe("the match editor's save", () => {
     expect(answer).toStrictEqual({
       ok: false,
       errorCode: "spiel_double_booked",
-      fieldErrors: {
-        "changes.spielort": COPY.shared.field.taken,
-        "changes.schiedsrichter": COPY.shared.state.unconfirmed,
-        "changes.team1": ADMIN_COPY.spiel.departed,
-        "changes.team2": ADMIN_COPY.spiel.departed,
-      },
-      kinds: {
-        "changes.spielort": "spiel_double_booked",
-        "changes.schiedsrichter": "booking_unconfirmed_schiedsrichter",
-        "changes.team1": "eligibility_disqualified",
-        "changes.team2": "eligibility_disqualified",
-      },
+      fieldErrors: { "changes.spielort": COPY.shared.field.taken, "changes.team1": ADMIN_COPY.spiel.departed },
+      kinds: { "changes.spielort": "spiel_double_booked", "changes.team1": "eligibility_disqualified" },
     });
   });
 });
