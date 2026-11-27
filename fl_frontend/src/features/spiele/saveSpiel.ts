@@ -5,7 +5,7 @@ import { z } from "zod";
 import { action, blankIsNull, numberBox } from "@/core/action";
 import { ADMIN_COPY } from "@/core/copy/admin";
 import { COPY } from "@/core/copy/shared";
-import { APIBadStatusError } from "@/core/errors";
+import { refusedAs } from "@/core/errors";
 import { formatList } from "@/core/format";
 import { spielePatchSpiel } from "@/core/generated/client/sdk";
 import { SpielePatchSpielBody, SpielePatchSpielParams } from "@/core/generated/zod/inputs";
@@ -17,6 +17,7 @@ import { NOBODY, takesNoResult, valuesOf } from "./spielValues";
 import type { ActionAnswer, SaveQuestion } from "@/core/action";
 import type { Copy } from "@/core/copy";
 import type {
+  Code,
   FLPatchSpielDataPayload,
   FLPatchSpielDataResponse,
   FLSpielJoinedAdmin,
@@ -156,9 +157,10 @@ function questionOf(report: FLPatchSpielDataResponse): SaveQuestion | null {
   };
 }
 
+const VOIDED_STALE: ReadonlySet<Code> = new Set<Code>(["voided_results_stale"]);
+
 /** Whether the write refused to delete a later result it was not named, a bare code naming none of them. */
-const refusedToDelete = (failed: unknown): failed is APIBadStatusError =>
-  failed instanceof APIBadStatusError && failed.serverErrorCode === "voided_results_stale";
+const refusedToDelete = (failed: unknown): boolean => refusedAs(failed, VOIDED_STALE);
 
 /**
  * Saves the match editor's changes, answering the fixture's new version, which the editor takes as its own. The

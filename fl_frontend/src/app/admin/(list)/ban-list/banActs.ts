@@ -5,13 +5,18 @@ import { z } from "zod";
 import { action, PAGE_HOLDER } from "@/core/action";
 import { accountStandsAt } from "@/core/auth/accounts";
 import { endSessionsOfAddress } from "@/core/auth/accountSessions";
-import { APIBadStatusError } from "@/core/errors";
+import { refusedAs } from "@/core/errors";
 import { banListDeleteBanListEntry, banListPostBanListEntry } from "@/core/generated/client/sdk";
 import { BanListDeleteBanListEntryParams, BanListPostBanListEntryBody } from "@/core/generated/zod/inputs";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { SignInPayloadSchema } from "@/features/auth/schemas";
 
+import type { Code } from "@/core/generated/client/types";
+
 const CLOSED = SERVER_COPY.closedDialog;
+
+/** The refusal saying the list already holds the address. */
+const LISTED: ReadonlySet<Code> = new Set<Code>(["duplicate_key"]);
 
 /**
  * The dialog's boxes, by the names they post under. The address is held to the sign-in's own rule, the published one
@@ -52,7 +57,7 @@ export const enterBan = action({
     try {
       await banListPostBanListEntry({ email, ban_reason, notify: account });
     } catch (failed) {
-      if (!(failed instanceof APIBadStatusError) || failed.serverErrorCode !== "duplicate_key") throw failed;
+      if (!refusedAs(failed, LISTED)) throw failed;
       // A first press whose answer was lost or whose sign-out failed left the ban standing and its sessions running, and
       // this press is the only one that can still end them, so it ends them every time before it refuses. A session of an
       // address banned earlier is already gone, so this costs nobody anything.

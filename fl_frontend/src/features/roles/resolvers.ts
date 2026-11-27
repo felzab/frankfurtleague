@@ -3,13 +3,14 @@ import "server-only";
 import { redirect } from "next/navigation";
 
 import { withReturnAddress } from "@/core/auth/returnAddress";
-import { APIBadStatusError } from "@/core/errors";
+import { refusedAs } from "@/core/errors";
 import { logRefused } from "@/core/refused";
 import { rolesOf, seatsAt } from "@/core/roles";
 import { ROUTES } from "@/core/routes";
 import { getSubjectSession } from "@/core/subject";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
 
+import type { Code } from "@/core/generated/client/types";
 import type { Role } from "@/core/roles";
 import type { SubjectSession } from "@/core/subject";
 import type { Metadata } from "next";
@@ -105,8 +106,10 @@ export async function requireTeamSeats<Segments extends { team: string; saison: 
   return (await teamSeatsAt(params, address)) ?? refuseWithoutSeat();
 }
 
+const ROLE_GONE: ReadonlySet<Code> = new Set<Code>(["role_not_held"]);
+
 /** Whether the backend refused a read because the person's Funktion went after the page's own check. */
-export const isRoleGone = (error: unknown): boolean => error instanceof APIBadStatusError && error.serverErrorCode === "role_not_held";
+export const isRoleGone = (error: unknown): boolean => refusedAs(error, ROLE_GONE);
 
 /**
  * A pupil's or a referee's page's read of the backend, sending the person on to the landing where the backend finds
