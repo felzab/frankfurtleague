@@ -16466,7 +16466,8 @@
           "saison_start_austritt_stored",
           "confirmation_age",
           "spiel_outside_spieltag",
-          "saison_span_below_spieltage"
+          "saison_span_below_spieltage",
+          "saison_start_taken_place"
         ],
         "type": "string"
       },

@@ -367,7 +367,8 @@ type FieldCode = Literal[
     Code.SAISON_START_AUSTRITT_STORED,
     Code.CONFIRMATION_AGE,
     # „Frühestens“ or „Spätestens“ by the bound the fault carries: a fixture's date by its matchday's span, a season's
-    # start by `start` and its end by `end`.
+    # start by `start` and its end by `end`, a played season's start by the stored one on the side it moved past.
     Code.SPIEL_OUTSIDE_SPIELTAG,
     Code.SAISON_SPAN_BELOW_SPIELTAGE,
+    Code.SAISON_START_TAKEN_PLACE,
 ]

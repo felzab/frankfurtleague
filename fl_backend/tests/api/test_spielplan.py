@@ -160,7 +160,7 @@ def legal_combinations() -> set[tuple[int, int]]:
         for groups in range(1, ceiling("number_of_gruppen") + 1)
         for qualifiers in range(1, ceiling("teams_per_gruppe") + 1)
         if find_shape_refusal(stored=None, proposed=(proposed := rules(groups=groups, teams=max(qualifiers, 2), qualifiers=qualifiers))) is None
-        and find_rules_refusal(stored=None, proposed=proposed, occupancy_by_gruppe={}) is None
+        and not find_rules_refusal(stored=None, proposed=proposed, occupancy_by_gruppe={})
     }
 
 
