@@ -31,12 +31,12 @@ Each fails silently. The ratified decisions for the seams are in `docs/decisions
   `fl_frontend/src/kit/MailedPage.tsx :: MailedState` says. On every other page the catalogue words
   such a code, the end asked or another, in one sentence true on every screen whose write answers
   it; where none is, the backend splits the code, since an action's catch would word it outside the
-  catalogue. The writer may leave the code to the stale-page line only where three hold: a save
-  writes that end, as one landing outside a save leaves a cached page offering the act for the
-  cache's lifetime (`fl_frontend/src/core/siteCache.ts :: SITE_CACHE_TAG`); no page read after it
-  offers the act; and the page that sent it, read again, shows the end. A writer leaving it there
-  names in its report every page that offers the act, each with the line of its source that hides
-  the act once the end holds.
+  catalogue. On such a page the writer may leave the code to the stale-page line only where three
+  hold: a save writes that end, as one landing outside a save leaves a cached page offering the act
+  for the cache's lifetime (`fl_frontend/src/core/siteCache.ts :: SITE_CACHE_TAG`); no page read
+  after it offers the act; and the page that sent it, read again, shows the end. A writer leaving it
+  there names in its report every page that offers the act, each with the line of its source that
+  hides the act once the end holds.
 - A bound the backend moves without naming it in the rule's context or the refusal's bounds
   (`fl_backend/app/core/exceptions.py :: APIError`) leaves a frontend line stale in silence.
 - `fl_backend/openapi.json` lists every code once and names none per endpoint, so which codes an
