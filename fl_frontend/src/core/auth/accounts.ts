@@ -7,7 +7,7 @@ import { MongoServerError } from "mongodb";
 
 import { now } from "../clock";
 import { asSignInIdentifier } from "../emailAddress";
-import { APIBadStatusError, RolledBackError } from "../errors";
+import { asRefusal, RolledBackError } from "../errors";
 import { deleteEndedSessions } from "./accountSessions";
 import { auth, ownErasure } from "./library";
 import { notifyAccountDeleted } from "./mails";
@@ -131,7 +131,7 @@ export async function deleteOwnAccount(token: string, requestHeaders: Headers): 
     }
     // The backend refused the erasure, its answer below 500 one its transaction wrote nothing behind: the link is spent
     // all the same. A 500 or higher may be a commit of unknown outcome (`unknown_outcome`).
-    if (failed instanceof APIBadStatusError && failed.statusCode < 500) return "spentUnerased";
+    if (asRefusal(failed) !== null) return "spentUnerased";
     throw new DeletionOutcomeUnknown(failed);
   }
 }
