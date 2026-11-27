@@ -8,7 +8,7 @@ import { renderUnderNext } from "@/test-support/nextContexts";
 
 import { SchiedsrichterEditor } from "./SchiedsrichterEditor";
 
-import type { ActionAnswer } from "@/core/action";
+import type { ActionAnswer, DryRunAction } from "@/core/action";
 import type { SchiedsrichterRules } from "@/features/schiedsrichter/fieldRules";
 import type { EditorSave } from "@/kit/useEditor";
 import type { SchiedsrichterValues } from "./schiedsrichterValues";
@@ -30,7 +30,12 @@ const RULES: SchiedsrichterRules = {
   pattern: { name: ".*", phone: ".*" },
 };
 
-type Save = (change: EditorSave<SchiedsrichterValues> & { holder: string }, dryRun?: boolean) => Promise<ActionAnswer<number>>;
+type Change = EditorSave<SchiedsrichterValues> & { holder: string };
+
+type Save = (change: Change, dryRun?: boolean) => Promise<ActionAnswer<number>>;
+
+/** The save marked as a lane declaring its dry run builds it: the mark is the type's alone, which only the builder gives. */
+const declaringItsDryRun = (save: Save) => save as DryRunAction<Change, number>;
 
 // The harm: a referee's save refused after the touch, a name another referee holds, which then has to be given again
 // for the corrected name, where the save's dry run would have shown the refusal on the box first.
@@ -54,7 +59,7 @@ describe("the referee editor's save behind the passkey touch", () => {
           version: 2,
           values: { name: "Mia Muster", schule: "", email: "mia@example.org", phone: "", default_payment: "20" },
         }}
-        save={save}
+        save={declaringItsDryRun(save)}
         rules={RULES}
         address="asks"
         confirmation={[]}
