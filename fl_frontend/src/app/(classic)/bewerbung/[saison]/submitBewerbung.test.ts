@@ -37,6 +37,7 @@ const backend = serveBackend(({ method, path }) =>
 doubleNextRequest();
 
 const { submitBewerbung } = await import("./submitBewerbung");
+const { boxRulesOf } = await import("@/core/action");
 
 const KEY = "3f2b8c1e-7a4d-4e6f-9b1a-2c3d4e5f6a7b";
 const TEAM = "6890a1b2c3d4e5f607190002";
@@ -113,6 +114,15 @@ describe("the application a press sends", () => {
 });
 
 describe("a press the action stops", () => {
+  // The harm: the picker left empty reaches the write, whose refusal names no box this form shows: the stale-page line.
+  it("holds the picker to a pick while no new school is named", async () => {
+    const { team_id: _, ...boxes } = BOXES;
+    expect(boxRulesOf(submitBewerbung)["team_id"]?.required).toBe(true);
+
+    expect(await submitBewerbung(posted(boxes))).toStrictEqual({ ok: false, fieldErrors: { team_id: COPY.shared.field.required } });
+    expect(backend.sent).toHaveLength(0);
+  });
+
   // The harm: this write mails three addresses its sender names, so a script past the check mails strangers.
   it("writes nothing past a refused bot check", async () => {
     const asked = serveHost(CLOUDFLARE, judging({ success: false, "error-codes": ["invalid-input-response"] }));

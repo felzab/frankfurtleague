@@ -135,12 +135,13 @@ export function BewerbungFields({ schulen, taken }: { schulen: readonly FLBewerb
       <Section title={COPY.shared.facts.school}>
         {isListed && (
           <>
-            {/* Drawn while the switch is on, so the switch never moves under the finger, but dimmed and empty: the new
-                school is the answer then, and the box posts an empty `team_id`, which `applicationOf` drops. */}
+            {/* Drawn while the switch is on, so the switch never moves under the finger, but dimmed, empty and posting
+                no name: the new school is the answer then, and a box posting none takes no rule. While it is the
+                answer its lane's rule requires it. */}
             <ComboBox
               label={COPY.shared.facts.school}
               description={bewerbung.schoolDescription}
-              name="team_id"
+              name={switchedOn ? undefined : "team_id"}
               isDisabled={switchedOn}
               options={schools}
               plural={COPY.shared.schulen}
