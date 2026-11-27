@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { SCHIEDSRICHTER_TEXT_VERSIONS } from "@/core/consentWordings";
 import { ROUTES } from "@/core/routes";
 import { refusal, serveBackend } from "@/test-support/backend";
-import { doubleNextRequest, writtenCookies } from "@/test-support/nextRequest";
+import { doubleNextRequest, forgottenLinks } from "@/test-support/nextRequest";
 import { posted } from "@/test-support/posted";
 import { thrownRedirect } from "@/test-support/thrownRedirect";
 
@@ -51,9 +51,7 @@ describe("the referee's answer", () => {
     );
     // The next person at a shared browser opening the plain address meets no earlier link: its cookie is deleted on the
     // page's own path, the path it was set on.
-    expect(writtenCookies().map(({ name, value, path }) => ({ name, value, path }))).toStrictEqual([
-      { name: "mailed_link", value: undefined, path: ROUTES.schiedsrichterConfirmation.path() },
-    ]);
+    expect(forgottenLinks()).toStrictEqual([{ value: undefined, path: ROUTES.schiedsrichterConfirmation.path() }]);
   });
 
   // The harm: an objection handing over a birthdate or a consent the person filled in before deciding against it.
@@ -83,9 +81,7 @@ describe("the referee's press on an entry confirmed since the page opened", () =
     expect(await ledTo(answerSchiedsrichter(confirmation()))).toBe(DONE);
 
     expect(backend.sent.map(({ path }) => path)).toStrictEqual(["/schiedsrichter/confirmation"]);
-    expect(writtenCookies().map(({ name, value, path }) => ({ name, value, path }))).toStrictEqual([
-      { name: "mailed_link", value: undefined, path: ROUTES.schiedsrichterConfirmation.path() },
-    ]);
+    expect(forgottenLinks()).toStrictEqual([{ value: undefined, path: ROUTES.schiedsrichterConfirmation.path() }]);
   });
 
   it("names the confirmation and its day after an objection", async () => {
@@ -95,8 +91,6 @@ describe("the referee's press on an entry confirmed since the page opened", () =
       value: { tone: "info", title: "Eintrag bestätigt am 20. November 2026" },
     });
 
-    expect(writtenCookies().map(({ name, value, path }) => ({ name, value, path }))).toStrictEqual([
-      { name: "mailed_link", value: undefined, path: ROUTES.schiedsrichterConfirmation.path() },
-    ]);
+    expect(forgottenLinks()).toStrictEqual([{ value: undefined, path: ROUTES.schiedsrichterConfirmation.path() }]);
   });
 });

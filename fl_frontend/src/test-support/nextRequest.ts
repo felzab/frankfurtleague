@@ -68,6 +68,15 @@ function requestCookies() {
  */
 export const writtenCookies = (): ReturnType<ResponseCookies["getAll"]> => new ResponseCookies(responseHeaders).getAll();
 
+/**
+ * Every write of the mailed link's cookie, by its value and the page it is bound to: a link the code forgot reads
+ * `{ value: undefined, path }` for its page, however the code deletes it.
+ */
+export const forgottenLinks = (): { value: string | undefined; path: string | undefined }[] =>
+  writtenCookies()
+    .filter(({ name }) => name === "mailed_link")
+    .map(({ value, path }) => ({ value, path }));
+
 /** `next/headers` for a request carrying what `arriveWith` set, its `cookies()` writing onto the response. */
 export const NEXT_HEADERS_DOUBLE = {
   headers: () => Promise.resolve(new Headers(incomingHeaders)),
