@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { SCHIEDSRICHTER_TEXT_VERSIONS } from "@/core/consentWordings";
 import { ROUTES } from "@/core/routes";
-import { serveBackend } from "@/test-support/backend";
+import { refusal, serveBackend } from "@/test-support/backend";
 import { doubleNextRequest, writtenCookies } from "@/test-support/nextRequest";
 import { posted } from "@/test-support/posted";
 import { thrownRedirect } from "@/test-support/thrownRedirect";
@@ -63,6 +63,40 @@ describe("the referee's answer", () => {
     expect(await ledTo(answerSchiedsrichter(objection))).toBe(`${DONE}?end=objected`);
     expect(backend.sent.map(({ method, path, body }) => ({ method, path, body }))).toStrictEqual([
       { method: "POST", path: "/schiedsrichter/confirmation/decline", body: { token: TOKEN } },
+    ]);
+  });
+});
+
+// The harm: a referee whose confirmation another tab saved reads a dead link, and doubts that the answer counted.
+describe("the referee's press on an entry confirmed since the page opened", () => {
+  // Both writes refuse as a confirmed entry does, and the link's view names the day; an objection erases the entry, so
+  // no other answer can stand.
+  const confirmedAlready = () =>
+    backend.answerWith(({ method, path }) => {
+      if (method !== "POST") return undefined;
+      if (path === "/schiedsrichter/confirmation" || path === "/schiedsrichter/confirmation/decline") return refusal("confirmation_exists");
+      return path === "/schiedsrichter/confirmation/view" ? { state: "confirmed", answered_at: "2026-11-20" } : undefined;
+    });
+
+  it("reaches the done page after a confirmation", async () => {
+    confirmedAlready();
+    expect(await ledTo(answerSchiedsrichter(confirmation()))).toBe(DONE);
+
+    expect(backend.sent.map(({ path }) => path)).toStrictEqual(["/schiedsrichter/confirmation"]);
+    expect(writtenCookies().map(({ name, value, path }) => ({ name, value, path }))).toStrictEqual([
+      { name: "mailed_link", value: undefined, path: ROUTES.schiedsrichterConfirmation.path() },
+    ]);
+  });
+
+  it("names the confirmation and its day after an objection", async () => {
+    confirmedAlready();
+    expect(await answerSchiedsrichter(posted({ act: "secondary", token: TOKEN }))).toMatchObject({
+      ok: true,
+      value: { tone: "info", title: "Eintrag bestätigt am 20. November 2026" },
+    });
+
+    expect(writtenCookies().map(({ name, value, path }) => ({ name, value, path }))).toStrictEqual([
+      { name: "mailed_link", value: undefined, path: ROUTES.schiedsrichterConfirmation.path() },
     ]);
   });
 });

@@ -735,13 +735,14 @@ seat's own link, not by the person's role; a seat on a team's season row is the 
   school has named a replacement, seat them with „Sitz bearbeiten“ on that seat's row of the
   application's review page, which sends the new person their own link and restarts that seat's 14
   days alone: the application goes once any other unconfirmed seat's own day passes, so re-send
-  those too where they need longer. It is acceptable again once every seat has confirmed. An ERASED
-  seat offers no such control: that application takes only the Absage.
+  those too where they need longer. It is acceptable again once every seat has confirmed. An erased
+  seat offers no such control, and refuses a write from a page read before the erasure
+  (`bewerbung_seat_erased`): that application takes only the Absage.
 - **The seat has already answered, or the link is over.** A seat that has confirmed or already
-  contradicted takes no second answer (`bewerbung_seat_already_answered`), and a link whose deadline
-  has passed or whose application has been decided (`link_expired`) takes none either — each is a
-  refusal the person meets on the page, not something to talk them through. The route is
-  „Löschungen“ like any other.
+  contradicted takes no second answer (`bewerbung_seat_already_answered`): a second press on its
+  link ends on the page naming the answer that stands. A link whose deadline has passed or whose
+  application has been decided (`link_expired`) takes none either, and its page shows the link as no
+  longer valid. Neither is something to talk them through. The route is „Löschungen“ like any other.
 - **The application has been decided.** „Löschungen“, as above.
 - **The seat is on a team's season row.** Its person's own link takes their Widerspruch while it is
   live, and the Widerspruch empties the seat and mails nobody, an administrator having entered them
