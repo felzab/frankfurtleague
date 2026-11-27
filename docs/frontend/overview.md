@@ -98,8 +98,10 @@ once, sending nothing while one stands. The server's answer stands on each box b
 through React Aria's `validationErrors`. After either, the focus goes to the first faulted box by
 React Aria's own report, which reaches a date's segments and a select's button. An answer judges
 only the boxes it names, once, and a fault no box holds, such as a list's own, hands the focus to
-the part that shows it. ESLint refuses React Aria's `Form` outside `HeldForm`, and a refusal placed
-on a control by hand through `errorMessage`, `isInvalid` or `validationErrors`
+the part that shows it. ESLint refuses React Aria's `Form` and `FormValidationContext` outside
+`HeldForm`, a refusal placed on a control by hand, through `errorMessage`, `isInvalid`,
+`validationErrors`, `validationState`, `aria-invalid` or the `errorMessage` slot, under any key, and
+a re-export, which would hand a module's part past every ban naming that module
 (`fl_frontend/eslint.config.mjs`).
 
 ## Rendering

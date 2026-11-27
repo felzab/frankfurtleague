@@ -759,6 +759,8 @@ const TOGGLE_OFFSET = { name: "mt-px", home: "src/kit/fieldStyles.ts" };
 
 const TABLE_BLOCK = { allow: ["src/kit/Table.tsx", "src/kit/TableStanding.tsx", "src/kit/Lineup.tsx"] };
 const SIDES = "(?:t|r|b|l|s|e|tl|tr|br|bl|ss|se|es|ee)";
+/** React Aria's props placing a refusal on a field: its served faults, its invalid mark, old and new, and its words. */
+const PLACED = "validationErrors|validationState|errorMessage|isInvalid";
 
 const DESIGN_BANS = [
   // Page bodies: page code places the kit's named blocks, so a second match row, empty state or chip
@@ -960,11 +962,13 @@ const DESIGN_BANS = [
       ["src/kit/DialogOverlay.tsx", "src/kit/ConfirmDialog.tsx", "src/kit/Sheet.tsx"],
       "The overlay is `DialogOverlay`'s, which `Dialog` and `ConfirmDialog` stand in, and `Sheet`'s alone.",
     ],
+    // React Aria's own context for the server's faults is the form's too: provided beside it, a fault stands on a box
+    // that the form's report never focuses and whose fault outlasts the form's.
     [
-      ["Form"],
+      ["Form", "FormValidationContext"],
       "Form",
       ["src/kit/HeldForm.tsx"],
-      "Every form is `HeldForm`, a dialog's included: both passes end on its boxes and move the focus to the first faulted one, and a press before hydration goes out as no GET.",
+      "Every form is `HeldForm`, a dialog's included, and the server's faults reach a box through its `fieldErrors` alone: both passes end on its boxes and move the focus to the first faulted one, and a press before hydration goes out as no GET.",
     ],
     [[String.raw`UNSTABLE_Toast\w*`], "Toast", ["src/kit/Toast.tsx"], "A toast is `appToast` through the kit's `Toast`."],
     [
@@ -1023,18 +1027,34 @@ const DESIGN_BANS = [
     },
   ),
   // A refusal placed beside the form is a second way, which the form's report after an answer never reaches and whose
-  // fault stays when the form's own go.
+  // fault stays when the form's own go: React Aria's props and keys that mark a field invalid or word its fault, under
+  // any key a literal names, quoted, computed or a template, the invalid mark set by hand, and the slot React Aria's
+  // field reads its fault's text from.
   syntaxBan(
     syntax(
       [
-        "JSXAttribute[name.name=/^(?:validationErrors|errorMessage|isInvalid)$/]",
-        "ObjectExpression > Property[key.name=/^(?:validationErrors|errorMessage|isInvalid)$/]",
+        `JSXAttribute[name.name=/^(?:${PLACED}|aria-invalid)$/]`,
+        `ObjectExpression > Property[key.name=/^(?:${PLACED})$/]`,
+        `ObjectExpression > Property[key.value=/^(?:${PLACED}|aria-invalid)$/]`,
+        `ObjectExpression > Property[key.type="TemplateLiteral"][key.quasis.0.value.cooked=/^(?:${PLACED}|aria-invalid)$/]`,
+        'JSXAttribute[name.name="slot"][value.value="errorMessage"]',
+        'JSXAttribute[name.name="slot"] > JSXExpressionContainer > Literal[value="errorMessage"]',
+        'ObjectExpression > Property[key.name="slot"][value.value="errorMessage"]',
       ].join(", "),
-      "A refusal stands on its box through `HeldForm`'s `fieldErrors`, by the box's `name`: name the field or the choice, and read `useFieldFaults` for a part holding no box.",
+      "A refusal stands on its box through `HeldForm`'s `fieldErrors`, by the box's `name`: name the field or the choice, and read `useFieldFaults` for a part holding no box, which takes `FAULTED_PART` while its fault stands.",
     ),
     PRODUCTION,
     // The one form's own; and the sign-in code's refusal, which no form holds: the code sends itself once typed.
     { allow: ["src/kit/HeldForm.tsx", "src/kit/CodeField.tsx"] },
+  ),
+  // A module exports what it declares. A re-export is a second path to another module's parts, which every ban naming
+  // that module misses, as a kit file allowed React Aria's `Form` could hand it on to all; a type it hands on is no part.
+  syntaxBan(
+    syntax(
+      'ExportNamedDeclaration[exportKind="value"]:not([declaration]), ExportAllDeclaration[exportKind="value"]',
+      "A module exports what it declares: import a part from the module declaring it, where every ban naming that module reads it.",
+    ),
+    PRODUCTION,
   ),
   syntaxBan(
     syntax('JSXAttribute[name.name="role"][value.value="alertdialog"]', "A question before an irreversible act is the kit's `ConfirmDialog`."),
