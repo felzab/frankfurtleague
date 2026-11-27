@@ -38,17 +38,19 @@ export const TO_ACCOUNT = { label: COPY.shared.end.toAccount, href: ROUTES.accou
  * line: where an answer stands, the first one forgot the link in that browser, so the page read again there would show
  * the link no longer valid rather than the end. A code saying the link is spent or lapsed is about the link, so
  * whatever stands behind it the press reaches the link no longer valid. A code saying the end the press asked already
- * holds reaches that end, as the contact person's answer (`answerKontakt.ts :: ended`) reaches the done page of the
- * answer pressed on `bewerbung_seat_already_answered`. The end asked is the answer's kind, never the choices it
- * carried: a done page names the kind alone, so it stays true whichever press's choices stand, and the account's
- * entries page shows those. A code saying another end stands reaches the link opened again naming that end, worded by
- * the catalogue (`alreadyDone`) and read off the link's view where the code names neither, or the link no longer valid
- * where that view holds no end. The address change's answer reaches the link no longer valid on every refusal, so its
- * link tells its holder nothing of who holds an address.
+ * holds reaches that end, as the contact person's answer
+ * (`fl_frontend/src/app/(classic)/confirm/kontakt/answerKontakt.ts :: ended`) reaches the done page of the answer
+ * pressed on `bewerbung_seat_already_answered`. The end asked is the answer's kind, never the choices it carried: a
+ * done page names the kind alone, so it stays true whichever press's choices stand, and the account's entries page
+ * shows those. A code saying another end stands reaches the link opened again naming that end, read off the link's
+ * view where the code names neither and worded by the catalogue's `doneOn`, as
+ * `fl_frontend/src/app/(classic)/confirm/linkView.ts :: alreadyDone` composes it, or the link no longer valid where
+ * that view holds no end. The address change's answer reaches the link no longer valid on every refusal, so its link
+ * tells its holder nothing of who holds an address.
  *
- * A press that finds its link used, its own act done or another answer standing, forgets the link in that browser
- * (`forgetMailedLink`), as the privacy notice says of a link once used. One reaching any other end, the link no longer
- * valid among them, leaves the cookie to lapse within its hour, since the link served nothing.
+ * A press reaching its own act's end, or the link opened again, forgets the link in that browser (`forgetMailedLink`),
+ * as the privacy notice says of a link once used. One reaching the link no longer valid, or any other end, leaves the
+ * cookie to lapse within its hour, since that press used nothing the link holds.
  */
 export type MailedState =
   | {
