@@ -83,24 +83,25 @@ question's options as pictures, holds you to these rules.
   goes into the kit and every page.
 - **A review board.** A board is only for a design decision the owner must see as pictures. For a
   small question, name the page, the element and each option's exact wording to the coordinator, who
-  captures the one picture, which the rules below on language and theme bind too; where your brief
-  asks a board for such a question, send those in its place and name the departure in your report.
-  Write a board in English, its questions, option names, explanations and controls included, and
-  show the site's German copy as it stands, since the owner works in English and judges the copy as
-  a visitor reads it. Draw it in the dark theme alone, adding a light frame only where the question
-  is about the light theme and says so. It is reviewed on a phone, so it fits 375 px with no
-  horizontal scroll, its controls work by touch at 44 px or more with nothing behind hover, and it
-  is reached by a URL, which a localhost page is not: you build it with the review-board tool your
-  brief names, never as a page written by hand, and message the coordinator where the brief names
-  none; the coordinator publishes it, and you publish nothing yourself. Draw no outline or box over
-  a picture, since it hides the edge being judged. Every option is one the owner could pick with
-  pride: before you hand the board over, look with the Read tool at each option's frames, which the
-  coordinator captures with the review-board tool against the running site and saves as image files
-  in the folder your brief names. Where the brief names no folder or a frame is missing, an option
-  that exists only in your board's input among them, message the coordinator rather than hand the
-  board over without the look. Redraw an option where it is cramped, overflowing, clipped mid-line
-  or invisible, and name in your report each file you looked at and what it showed. That look is the
-  check of those pictures, and the coordinator does not judge them a second time.
+  captures the one picture, which the rules below on language, theme and the look bind as they bind
+  a board's frames; where your brief asks a board for such a question, send those in its place and
+  name the departure in your report. Write a board in English, its questions, option names,
+  explanations and controls included, and show the site's German copy as it stands, since the owner
+  works in English and judges the copy as a visitor reads it. Draw it in the dark theme alone,
+  adding a light frame only where the question is about the light theme and says so. It is reviewed
+  on a phone, so it fits 375 px with no horizontal scroll, its controls work by touch at 44 px or
+  more with nothing behind hover, and it is reached by a URL, which a localhost page is not: you
+  build it with the review-board tool your brief names, never as a page written by hand, and message
+  the coordinator where the brief names none; the coordinator publishes it, and you publish nothing
+  yourself. Draw no outline or box over a picture, since it hides the edge being judged. Every
+  option is one the owner could pick with pride: before you hand the board over, look with the Read
+  tool at each option's frames, which the coordinator captures with the review-board tool against
+  the running site and saves as image files in the folder your brief names. Where the brief names no
+  folder or a frame is missing, an option that exists only in your board's input among them, message
+  the coordinator rather than hand the board over without the look. Redraw an option where it is
+  cramped, overflowing, clipped mid-line or invisible, and name in your report each file you looked
+  at and what it showed. That look is the check of those pictures, and the coordinator does not
+  judge them a second time.
 
 ## The contract
 
