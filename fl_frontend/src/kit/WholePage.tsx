@@ -243,7 +243,8 @@ function isSignIn(href: string) {
  *
  * A link of a list marking the place a person is on takes `place`: its list, which draws the list's mark
  * (`placeMark`), and whether it is the current one, which sets its `aria-current` (`PLACE_CURRENT`), so the mark a
- * screen reader hears and the one drawn come from one prop.
+ * screen reader hears and the one drawn come from one prop. It takes no `aria-current` of its own, which would mark a
+ * place no mark draws.
  */
 export function NavigationLink({
   href,
@@ -253,7 +254,7 @@ export function NavigationLink({
   place,
   className,
   ...props
-}: Omit<ComponentProps<typeof NextLink>, "href" | "onNavigate"> & {
+}: Omit<ComponentProps<typeof NextLink>, "href" | "onNavigate" | "aria-current"> & {
   href: string;
   place?: { list: PlaceList; current: boolean };
 }) {
@@ -262,7 +263,7 @@ export function NavigationLink({
   return (
     <NextLink
       {...props}
-      aria-current={place?.current === true ? PLACE_CURRENT[place.list] : props["aria-current"]}
+      aria-current={place?.current === true ? PLACE_CURRENT[place.list] : undefined}
       className={place === undefined ? className : `${className ?? ""} ${placeMark({ list: place.list })}`}
       href={href}
       replace={replace}
