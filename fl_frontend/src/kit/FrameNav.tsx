@@ -14,6 +14,7 @@ import { ConfirmDialog } from "./ConfirmDialog";
 import { CutText } from "./CutText";
 import { hoverLook } from "./hoverStyles";
 import { Icon } from "./Icon";
+import { initials } from "./initials";
 import { useAsked, useAskToLeave } from "./LeaveGuard";
 import { menuEntry } from "./Link";
 import { Menu } from "./Menu";
@@ -485,11 +486,6 @@ export function RailEntries({ groups: given, prefetch }: { groups: ReadonlyArray
       ))}
     </nav>
   );
-}
-
-function initials(name: string) {
-  const words = name.trim().split(/\s+/);
-  return `${words[0]?.charAt(0) ?? ""}${words.length > 1 ? (words.at(-1)?.charAt(0) ?? "") : ""}`.toUpperCase();
 }
 
 const avatar = tv({
