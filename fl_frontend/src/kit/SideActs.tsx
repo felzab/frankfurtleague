@@ -1,9 +1,12 @@
 "use client";
 
+import { useCallback, useRef } from "react";
+
 import { COPY } from "@/core/copy/shared";
 
 import { Button } from "./Button";
 import { askingLook } from "./buttonStyles";
+import { DialogReturn } from "./Dialog";
 import { FocusOnLeave } from "./FocusOnLeave";
 import { Menu } from "./Menu";
 
@@ -56,10 +59,26 @@ const NARROW_CLASSES = "contents @2xl:hidden";
  * one after the others, each entry its words alone, and a locked one dimmed with its reason as the line under it. A
  * row's decision, such as „Zusagen“ and „Ablehnen“, keeps its labelled buttons and is never drawn here.
  *
- * `children` are the questions and dialogs the acts open, each on the open state its act's press sets: one opened from
- * the menu hands the focus back to the „⋯“ as it closes, as the menu itself does.
+ * `children` are the questions and dialogs the acts open, each on the open state its act's press sets. A dialog's done
+ * act hands the focus back to the control that opened it (`DialogReturn`): the „⋯“ where the narrow form shows, else
+ * the act's own button, whichever of the two the width draws.
  */
 export function SideActs({ acts, children }: { acts: ReadonlyArray<SideAct>; children?: ReactNode }) {
+  const wide = useRef<HTMLSpanElement>(null);
+  const narrow = useRef<HTMLSpanElement>(null);
+  // The act last pressed, by its place among the acts, whose own button opened the dialog in the wide form.
+  const pressed = useRef<number | null>(null);
+  const returnTo = useCallback(
+    () => [
+      narrow.current?.querySelector("button"),
+      pressed.current === null ? null : wide.current?.querySelectorAll("button").item(pressed.current),
+    ],
+    [],
+  );
+  const pressOf = (act: SideAct, index: number) => () => {
+    pressed.current = index;
+    act.onPress();
+  };
   const menu = (
     <Menu
       label={COPY.template.more}
@@ -72,26 +91,32 @@ export function SideActs({ acts, children }: { acts: ReadonlyArray<SideAct>; chi
           isBusy={acts.some((act) => act.isBusy === true)}
         />
       }
-      groups={[acts.map(entryOf)]}
+      groups={[acts.map((act, index) => entryOf({ ...act, onPress: pressOf(act, index) }))]}
     />
   );
   return (
     // An act can end the row it stands on, while its button, its „⋯“ or the question it opened holds the focus.
     <FocusOnLeave>
-      <span className={WIDE_CLASSES}>
-        {acts.map((act) => (
+      <span
+        ref={wide}
+        className={WIDE_CLASSES}>
+        {acts.map((act, index) => (
           <Button
             key={act.label}
             variant={askingLook(act.tone ?? "primary")}
             label={act.label}
             isBusy={act.isBusy}
             locked={act.locked}
-            onPress={act.onPress}
+            onPress={pressOf(act, index)}
           />
         ))}
       </span>
-      <span className={NARROW_CLASSES}>{menu}</span>
-      {children}
+      <span
+        ref={narrow}
+        className={NARROW_CLASSES}>
+        {menu}
+      </span>
+      <DialogReturn value={returnTo}>{children}</DialogReturn>
     </FocusOnLeave>
   );
 }

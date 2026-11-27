@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition, useLayoutEffect, useRef, useState } from "react";
+import { createContext, startTransition, useContext, useLayoutEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { Dialog as AriaDialog, DialogTrigger, Heading } from "react-aria-components/Dialog";
@@ -27,7 +27,7 @@ import { usePasskeyTouch } from "./usePasskeyTouch";
 
 import type { ActionAnswer } from "@/core/action";
 import type { Copy } from "@/core/copy";
-import type { ReactElement, ReactNode } from "react";
+import type { ReactElement, ReactNode, RefObject } from "react";
 import type { Tone, Trigger } from "./ConfirmDialog";
 import type { DialogAct, DialogDanger } from "./dialogAct";
 import type { HeldOpen } from "./useOpenUntilHidden";
@@ -161,6 +161,40 @@ function DangerRow({ danger, isClosed, onDone }: { danger: DialogDanger; isClose
   );
 }
 
+/** The controls a dialog's done act hands the focus to, in order: the first standing one that takes it. */
+type ReturnTargets = () => ReadonlyArray<HTMLElement | null | undefined>;
+
+/**
+ * Where the focus goes once a done act closes a dialog the provider holds: the control that opened it, as its holder
+ * names it, such as a row's „⋯“ for a dialog its menu's entry opened. The holder states it rather than leaving it to
+ * React Aria's restore, which misses a touched dialog: its `FocusScope` keeps the element focused at its first render,
+ * a menu's entry already gone, and the step aside's `Activity` writes that back on showing again (react-aria 3.53.1,
+ * `dist/private/focus/FocusScope.mjs`, lines 442 and 523).
+ */
+export const DialogReturn = createContext<ReturnTargets | null>(null);
+
+/**
+ * Hands the focus to the holder's control once the dialog leaves after a done act: in the frame after React Aria's own
+ * restore, which runs first, as its scope stands outside this one. A step aside leaves too, and is no done act.
+ */
+function ReturnOnDone({ isDone }: { isDone: RefObject<boolean> }) {
+  const targets = useContext(DialogReturn);
+  useLayoutEffect(
+    () => () => {
+      if (!isDone.current || targets === null) return;
+      requestAnimationFrame(() => {
+        for (const control of targets()) {
+          if (control === null || control === undefined || !control.isConnected) continue;
+          control.focus();
+          if (control.ownerDocument.activeElement === control) return;
+        }
+      });
+    },
+    [isDone, targets],
+  );
+  return null;
+}
+
 /** How many of a form's fields hold other values than they did in `opened`, the form as it opened. */
 function changedSince(opened: FormData | null, form: HTMLFormElement | null) {
   if (opened === null || form === null) return 0;
@@ -207,12 +241,18 @@ function ActDialog({
   isAside: boolean;
 }) {
   const close = () => opened.onOpenChange(false);
+  // A done act, its own or the danger row's, closes the dialog; any other leaving keeps React Aria's restore.
+  const isDone = useRef(false);
+  const closeDone = () => {
+    isDone.current = true;
+    close();
+  };
   const { answer, submit, block, isBlocked, isPending } = useFormAction(
     async (formData: FormData) => {
       const answered = await run(formData);
       if (answered.ok) {
         // A form's action runs in a transition, and an update after its `await` commits outside it.
-        startTransition(close);
+        startTransition(closeDone);
         toastAnswer(answered, done);
       }
       return answered;
@@ -252,6 +292,7 @@ function ActDialog({
       isOpen={opened.isOpen}
       onOpenChange={(isOpen) => (isOpen ? opened.onOpenChange(true) : leave())}>
       <AriaDialog data-kit-focus>
+        <ReturnOnDone isDone={isDone} />
         {/* A dialog opened from inside another form, such as an editor's section, is a form of its own: React Aria's
             `Form` would otherwise take the outer form's props from its context, the outer submit handler among them. */}
         <FormContext value={null}>
@@ -279,7 +320,7 @@ function ActDialog({
               <DangerRow
                 danger={danger}
                 isClosed={isPending}
-                onDone={close}
+                onDone={closeDone}
               />
             )}
             {consequence !== undefined && <p className="text-sm text-fg-muted">{consequence}</p>}
