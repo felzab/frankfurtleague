@@ -547,12 +547,14 @@ export function AccountRow({ account: read }: { account: AccountRead }) {
   );
 }
 
-// The current place keeps its green under the pointer, and every other turns its words full colour.
+// The current place takes the rail's mark, the muted fill with its words in green, so it differs from the others by more
+// than hue; it keeps its green under the pointer, and every other place turns its words full colour. Drawn from the
+// variant rather than `aria-current`, which „Mehr“, a button, never carries.
 const barPlace = tv({
   base: "flex h-full min-w-0 flex-col items-center justify-center gap-1 text-xs font-medium transition-colors duration-(--motion-state)",
   variants: {
     current: {
-      true: "text-brand",
+      true: "bg-bg-muted text-brand",
       false: "text-fg-muted",
     },
     host: {
