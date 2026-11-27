@@ -76,6 +76,9 @@ class Code(StrEnum):
     # A removal never takes the `owner` row, and a handover never names it: the role leaves only by a handover to another.
     GRANT_OWNER = auto()
     GRANT_BARRED = auto()
+    # An address the ban list holds, typed where a write would list it again or mail it a link: `grant_barred`'s twin
+    # for every write but a grant's, which keeps its own code.
+    ADDRESS_BARRED = auto()
     # 403 and not 409: the refusal is about who asks, and a handover to the asker is what lifts it.
     GRANT_ONLY_OWNER = auto()
     # 409: stopping the waiting handover is what lifts it.
@@ -310,6 +313,7 @@ type FieldCode = Literal[
     Code.SPIEL_DOUBLE_BOOKED,
     Code.ADDRESS_CHANGE_TAKEN,
     # „Auf der Sperrliste“ (On the ban list).
+    Code.ADDRESS_BARRED,
     Code.GRANT_BARRED,
     # „Gehört zur Verwaltung“ (Belongs to the administration).
     Code.ADMIN_ADDRESS,
