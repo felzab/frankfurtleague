@@ -524,6 +524,24 @@ describe("a touched dialog opened from a row's „⋯“", () => {
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     await waitFor(() => expect(document.activeElement).toBe(more));
   });
+
+  // The harm: at a wide box's width, where the „⋯“ is hidden, a keyboard user's save leaves the focus on the page's body.
+  it("hands the focus back to the act's own button where the „⋯“ is hidden", async () => {
+    renderUnderNext(<TouchedSideAct />);
+    // What the container query does at a wide box's width, which jsdom does not apply.
+    const more = screen.getByRole("button", { name: COPY.template.more });
+    const narrow = more.parentElement;
+    if (narrow !== null) narrow.style.display = "none";
+    const own = screen.getByRole("button", { name: COPY.shared.verb.edit });
+    act(() => own.focus());
+    await userEvent.keyboard("{Enter}");
+    const dialog = await screen.findByRole("dialog");
+
+    await userEvent.click(within(dialog).getByRole("button", { name: SAVE }));
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    await waitFor(() => expect(document.activeElement).toBe(own));
+  });
 });
 
 const [ESCHE, BIRKE] = ["Esche", "Birke"] as const;
