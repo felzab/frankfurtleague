@@ -18,8 +18,8 @@ import { initials } from "./initials";
 import { useAsked, useAskToLeave } from "./LeaveGuard";
 import { menuEntry } from "./Link";
 import { Menu } from "./Menu";
-import { entryMark } from "./menuStyles";
 import { currentOf, declaredPlaceOf, placeOf } from "./navPlace";
+import { placeMark } from "./placeStyles";
 import { useRailCollapsed } from "./railContext";
 import { RailTooltip } from "./RailState";
 import { groupHeading, railFade, railGlyph } from "./railStyles";
@@ -413,11 +413,11 @@ function useMarked<Entry extends { href: Route; own: boolean; home: boolean }>(e
   return pressed === undefined ? current : own.find((entry) => entry.href === pressed);
 }
 
-// The current entry carries the rail's own mark of the page it is on (`entryMark`'s `place`), drawn from its
-// `aria-current`, its muted words and their hover giving way to it; a menu's chosen entry is marked otherwise, by its
-// check. Collapsed, the entry clips its words past its glyph's box (`railGlyph`).
+// The current entry carries the menu's mark of the page it is on (`placeMark`), which its `place` draws, its muted
+// words and their hover giving way to it; a menu's chosen entry is marked otherwise, by its check. Collapsed, the entry
+// clips its words past its glyph's box (`railGlyph`).
 const railEntry = tv({
-  base: `flex h-8 items-center gap-3 overflow-hidden rounded-lg px-3 text-sm font-medium whitespace-nowrap text-fg-muted transition-colors duration-(--motion-state) pointer-coarse:h-10 ${hoverLook({ host: "link", answer: "full" })} ${entryMark({ mark: "place" })}`,
+  base: `flex h-8 items-center gap-3 overflow-hidden rounded-lg px-3 text-sm font-medium whitespace-nowrap text-fg-muted transition-colors duration-(--motion-state) pointer-coarse:h-10 ${hoverLook({ host: "link", answer: "full" })}`,
 });
 
 // A group's heading fades as the rail collapses and its 24-px line folds away, so the entries below slide
@@ -468,7 +468,7 @@ export function RailEntries({ groups: given, prefetch }: { groups: ReadonlyArray
                 <NavigationLink
                   href={entry.href}
                   prefetch={prefetch}
-                  aria-current={entry === current ? "page" : undefined}
+                  place={{ list: "menu", current: entry === current }}
                   data-kit-focus="inset"
                   className={railEntry()}>
                   <span className={railGlyph()}>
@@ -547,25 +547,16 @@ export function AccountRow({ account: read }: { account: AccountRead }) {
   );
 }
 
-// The current place takes the rail's mark, the muted fill with its words in green, so it differs from the others by more
-// than hue; it keeps its green under the pointer, and every other place turns its words full colour. Drawn from the
-// variant rather than `aria-current`, which „Mehr“, a button, never carries.
+// The current place takes the bar's mark (`placeMark`), a link's by its `place` and „Mehr“'s, a button no attribute
+// marks, by its state; under the pointer every place turns its muted words full colour, the current one's already.
 const barPlace = tv({
-  base: "flex h-full min-w-0 flex-col items-center justify-center gap-1 text-xs font-medium transition-colors duration-(--motion-state)",
+  base: "flex h-full min-w-0 flex-col items-center justify-center gap-1 text-xs font-medium text-fg-muted transition-colors duration-(--motion-state)",
   variants: {
-    current: {
-      true: "bg-bg-muted text-brand",
-      false: "text-fg-muted",
-    },
     host: {
-      link: hoverLook({ host: "link" }),
-      aria: hoverLook({ host: "aria" }),
+      link: hoverLook({ host: "link", answer: "full" }),
+      aria: hoverLook({ host: "aria", answer: "full" }),
     },
   },
-  compoundVariants: [
-    { host: "link", current: false, class: hoverLook({ host: "link", answer: "words" }) },
-    { host: "aria", current: false, class: hoverLook({ host: "aria", answer: "words" }) },
-  ],
 });
 
 /** The frame's menu as the phone's band and bar draw it, which a nested layout placing them cannot be handed. */
@@ -619,9 +610,9 @@ function Places({ groups: given, bar, extra, account, prefetch }: FrameMenu) {
           key={entry.id}
           href={entry.href}
           prefetch={prefetch}
-          aria-current={entry === current ? "page" : undefined}
+          place={{ list: "bar", current: entry === current }}
           data-kit-focus="inset"
-          className={barPlace({ current: entry === current, host: "link" })}>
+          className={barPlace({ host: "link" })}>
           <Icon
             glyph={entry.icon}
             size={18}
@@ -638,7 +629,7 @@ function Places({ groups: given, bar, extra, account, prefetch }: FrameMenu) {
             trigger={
               <AriaButton
                 data-kit-focus="inset"
-                className={barPlace({ current: inSheet, host: "aria" })}>
+                className={barPlace({ host: "aria", class: placeMark({ list: "bar", current: inSheet }) })}>
                 <Icon
                   glyph="more"
                   size={18}
@@ -657,7 +648,7 @@ function Places({ groups: given, bar, extra, account, prefetch }: FrameMenu) {
                       key={entry.id}
                       href={entry.href}
                       prefetch={prefetch}
-                      aria-current={entry === current ? "page" : undefined}
+                      place={{ list: "menu", current: entry === current }}
                       data-kit-focus="inset"
                       className={menuEntry({ size: "phone" })}>
                       <Icon
@@ -703,7 +694,7 @@ function AccountPlace({ account: read }: { account: AccountRead }) {
       trigger={
         <AriaButton
           data-kit-focus="inset"
-          className={barPlace({ current: false, host: "aria" })}>
+          className={barPlace({ host: "aria" })}>
           <span
             aria-hidden
             className={avatar({ size: "bar" })}>

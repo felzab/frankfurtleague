@@ -5,7 +5,6 @@ import { cardHover } from "./cardStyles";
 import { hoverLook } from "./hoverStyles";
 import { Icon } from "./Icon";
 import { IconLink } from "./IconLink";
-import { entryMark } from "./menuStyles";
 import { tv } from "./tv";
 import { NavigationLink } from "./WholePage";
 
@@ -42,8 +41,9 @@ const link = tv({
       // Drawn by `frameLink` in its `link` tone.
       frame: "",
       // An entry of a reading page's contents list, on the list's 2-px track: muted until the pointer is over it, and
-      // the section the reader is in marked by the track's brand stretch and its words in full.
-      contents: `block border-s-2 border-border py-1.5 ps-4 text-sm text-fg-muted transition-colors duration-(--motion-state) aria-[current=location]:border-brand aria-[current=location]:font-medium aria-[current=location]:text-fg ${hoverLook({ host: "link", answer: "words" })}`,
+      // the section the reader is in marked by the contents list's mark of the place (`placeMark`). The track takes the
+      // muted fill rather than the hairline, so the mark's green keeps 3:1 beside it.
+      contents: `block border-s-2 border-bg-muted py-1.5 ps-4 text-sm text-fg-muted transition-colors duration-(--motion-state) ${hoverLook({ host: "link", answer: "words" })}`,
     },
     // A card standing as a row of a list's columns (`SpielList`): a grid of those columns rather than a block.
     subgrid: {
@@ -57,13 +57,12 @@ const link = tv({
 export const frameLink = tv({
   base: "flex h-8 items-center rounded-lg px-3 text-sm font-medium whitespace-nowrap transition-colors duration-(--motion-state) pointer-coarse:h-10",
   variants: {
-    // Under the pointer a link of words takes an underline and its full colour, the one in full white already too, so
-    // every link of the band and the strip answers the pointer; the rail's foot is an entry, filled as the rail's are.
+    // Under the pointer a link of words takes an underline and its full colour, so every link of the band and the strip
+    // answers the pointer; the rail's foot is an entry, filled as the rail's are.
     tone: {
-      // On the band: the page the visitor is on, in full white.
-      band: `text-on-brand ${hoverLook({ host: "link", answer: "underline" })}`,
-      // On the band, every other page: the white dimmed until the pointer is over it.
-      bandMuted: `text-on-brand/75 ${hoverLook({ host: "link", answer: "bandUnderline" })}`,
+      // On the band: the white dimmed until the pointer is over it, the page the visitor is on marked by the band's
+      // mark of the place (`placeMark`).
+      band: `text-on-brand/75 ${hoverLook({ host: "link", answer: "bandUnderline" })}`,
       // The title strip's: muted until the pointer is over it.
       strip: `text-fg-muted ${hoverLook({ host: "link", answer: "fullUnderline" })}`,
       // The strip's way to a record's own page, after the record's chip: marked as a link in running text is, since
@@ -77,10 +76,10 @@ export const frameLink = tv({
 
 /**
  * An entry of a list a frame opens, a desktop menu's or a phone's sheet's, as tall as every control. A phone's sheet of
- * the frame's pages marks the page the person is on as the rail marks it, the link carrying `aria-current="page"`.
+ * the frame's pages marks the page the person is on as the rail marks it, by its link's `place`.
  */
 export const menuEntry = tv({
-  base: `flex items-center gap-3 rounded-md px-3 font-medium text-fg ${entryMark({ mark: "place" })}`,
+  base: "flex items-center gap-3 rounded-md px-3 font-medium text-fg",
   variants: {
     size: {
       desktop: "h-8 text-sm",
@@ -133,9 +132,10 @@ type Footer = { placement: "footer" } & (Worded | { children: ReactNode; label?:
 
 /**
  * An entry of a reading page's contents list. `current` marks the section the reader is in as `aria-current="location"`,
- * WAI-ARIA's value for the current place in a set of links such as a table of contents.
+ * WAI-ARIA's value for the current place in a set of links such as a table of contents. Its section is on the page
+ * the reader is on, so it never loads a whole document.
  */
-type Contents = { placement: "contents"; current: boolean } & Worded;
+type Contents = { placement: "contents"; current: boolean; fullPage?: never } & Worded;
 
 /**
  * The title strip's way to a record's own page, in `frameLink`'s `link` tone: a whole document where `fullPage` asks
@@ -212,7 +212,6 @@ export function Link<T extends string>(
         : props.placement === "frame"
           ? frameLink({ tone: "link" })
           : link({ placement: props.placement, subgrid: props.placement === "card" && props.subgrid === true }),
-    "aria-current": props.placement === "contents" && props.current ? ("location" as const) : undefined,
     ...tab,
   };
   const words = (
@@ -231,7 +230,8 @@ export function Link<T extends string>(
   ) : (
     <NavigationLink
       {...anchor}
-      prefetch={prefetch}>
+      prefetch={prefetch}
+      place={props.placement === "contents" ? { list: "contents", current: props.current } : undefined}>
       {words}
     </NavigationLink>
   );

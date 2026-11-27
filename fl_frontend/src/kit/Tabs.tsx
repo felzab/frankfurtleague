@@ -19,7 +19,8 @@ const tabs = tv({
     // A grid item is as wide as its content unless told otherwise, so without `min-w-0` the row would widen the page
     // on a phone rather than scroll inside it.
     row: "flex min-w-0 gap-1 bg-[linear-gradient(var(--border),var(--border))] bg-size-[100%_1px] bg-bottom bg-no-repeat",
-    tab: "flex h-8 shrink-0 items-center border-b-2 border-transparent px-3 text-sm font-medium whitespace-nowrap pointer-coarse:h-10",
+    // The foot's 2 px of padding is the chosen tab's line's room, so every tab's words stand centred above it.
+    tab: "flex h-8 shrink-0 items-center px-3 pb-0.5 text-sm font-medium whitespace-nowrap pointer-coarse:h-10",
   },
 });
 
@@ -87,10 +88,10 @@ export function Tabs({
               className="shrink-0">
               <NavigationLink
                 href={hrefOf(entry.id)}
-                aria-current={entry.id === chosen ? "page" : undefined}
+                place={{ list: "tabs", current: entry.id === chosen }}
                 data-kit-focus="inset"
                 className={tab({
-                  class: `text-fg-muted transition-colors duration-(--motion-state) ${hoverLook({ host: "link", answer: "full" })} aria-[current=page]:border-brand aria-[current=page]:text-fg`,
+                  class: `text-fg-muted transition-colors duration-(--motion-state) ${hoverLook({ host: "link", answer: "full" })}`,
                 })}>
                 {entry.label}
               </NavigationLink>
