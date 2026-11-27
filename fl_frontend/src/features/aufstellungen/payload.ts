@@ -3,8 +3,7 @@ import { byShirtNumber } from "@/features/spieler/constants";
 
 // Types alone: the editor's client module reads this module's row key, and the builder is the server's.
 import type { Fault, Faulted } from "@/core/action";
-import type { ServedField } from "@/core/errors";
-import type { FLAufstellungEntry, FLAufstellungResponse } from "@/core/generated/client/types";
+import type { FLAufstellungEntry, FLAufstellungResponse, FLRefusedField } from "@/core/generated/client/types";
 
 type Drafted = { readonly picked: ReadonlyArray<string>; readonly starters: ReadonlyArray<string> };
 
@@ -44,7 +43,7 @@ export function refusedRows(error: unknown, sent: readonly FLAufstellungEntry[])
   const refusal = asRefusal(error);
   if (refusal === null) return undefined;
   let rows = 0;
-  const faults = refusal.refusedFields.map((refused): Fault | ServedField => {
+  const faults = refusal.refusedFields.map((refused): Fault | FLRefusedField => {
     const [list, index] = refused.path;
     const entry = refused.kind === "spieler_not_in_kader" && list === "spieler" && typeof index === "number" ? sent[index] : undefined;
     if (entry?.spieler_id == null) return refused;
