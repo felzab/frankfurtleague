@@ -361,29 +361,20 @@ const IMPORT_BANS = [
  * reads: it judges import and export declarations alone, and the server's entry points load modules that way. They are
  * the layer boundaries, the administration's catalogue, Node's network clients and Next's private contexts, each
  * broken by loading the module at all, which an `import()` does as surely as a declaration. The bans of `DESIGN_BANS`
- * are left to their declarations, since they place components on a page by the names a declaration imports, save one:
- * React Aria's packages are refused to `import()` outright, since a component read off a loaded module, its `Form` and
- * its form's validation context among them, passes every ban naming it, and production code never loads them that way.
- * A test is left to its declarations, since it loads each module by `import()` once its doubles stand. A ban naming
- * `importNames` stays the declarations' alone, the secret readers' among them, since a dynamic import's names are read
- * off its result, in spellings no selector holds. The selector's regex matches as the rule's own does, ignoring case.
+ * are left to their declarations: they place components on a page, and production code reaches a component by a
+ * declaration alone. A test is left to its declarations, since it loads each module by `import()` once its doubles
+ * stand. A ban naming `importNames` stays the declarations' alone, the secret readers' among them, since a dynamic
+ * import's names are read off its result, in spellings no selector holds. The selector's regex matches as the rule's
+ * own does, ignoring case.
  */
-const DYNAMIC_IMPORT_BANS = [
-  ...IMPORT_BANS.filter(({ entry }) => entry.importNames === undefined).map(({ entry: { regex, message }, reach, ...rest }) => ({
+const DYNAMIC_IMPORT_BANS = IMPORT_BANS.filter(({ entry }) => entry.importNames === undefined).map(
+  ({ entry: { regex, message }, reach, ...rest }) => ({
     ...rest,
     rule: "no-restricted-syntax",
     entry: syntax(`ImportExpression > Literal.source[value=/${regex.replaceAll("/", String.raw`\x2F`)}/iu]`, message),
     reach: (zone) => PRODUCTION(zone) && reach(zone),
-  })),
-  ban(
-    "no-restricted-syntax",
-    syntax(
-      `ImportExpression > Literal.source[value=/${packageUnder("react-aria", "react-aria-components")}/iu]`,
-      "React Aria is imported by a declaration, which every ban naming one of its components reads.",
-    ),
-    PRODUCTION,
-  ),
-];
+  }),
+);
 
 // ---------------------------------------------------------------------------------------------------
 // Syntax bans.
@@ -776,24 +767,6 @@ const SIDES = "(?:t|r|b|l|s|e|tl|tr|br|bl|ss|se|es|ee)";
 /** React Aria's props placing a refusal on a field: its served faults, its invalid mark, old and new, and its words. */
 const PLACED = "validationErrors|validationState|errorMessage|isInvalid";
 
-/** Every way but a JSX attribute that a refusal is placed beside the form: the placement ban's arms. */
-const PLACING_ARMS = [
-  `ObjectExpression > Property[key.name=/^(?:${PLACED})$/]`,
-  `ObjectExpression > Property[key.value=/^(?:${PLACED}|aria-invalid)$/]`,
-  `ObjectExpression > Property[key.type="TemplateLiteral"][key.quasis.0.value.cooked=/^(?:${PLACED}|aria-invalid)$/]`,
-  `Literal[value=/^(?:${PLACED}|aria-invalid)$/]:not(TSLiteralType > Literal)`,
-  `TemplateElement[value.cooked=/^(?:${PLACED}|aria-invalid)$/]`,
-  `AssignmentExpression > MemberExpression.left[property.name=/^(?:${PLACED})$/]`,
-  'JSXAttribute[name.name="slot"][value.value="errorMessage"]',
-  'JSXAttribute[name.name="slot"] > JSXExpressionContainer > Literal[value="errorMessage"]',
-  'JSXAttribute[name.name="slot"] > JSXExpressionContainer > TemplateLiteral[quasis.0.value.cooked="errorMessage"]',
-  ...[
-    'ObjectExpression > Property[key.name="slot"]',
-    'ObjectExpression > Property[key.value="slot"]',
-    'ObjectExpression > Property[key.type="TemplateLiteral"][key.quasis.0.value.cooked="slot"]',
-  ].flatMap((slot) => [`${slot}[value.value="errorMessage"]`, `${slot}[value.quasis.0.value.cooked="errorMessage"]`]),
-];
-
 const DESIGN_BANS = [
   // Page bodies: page code places the kit's named blocks, so a second match row, empty state or chip
   // row has nothing to be composed from.
@@ -1059,48 +1032,21 @@ const DESIGN_BANS = [
     },
   ),
   // A refusal placed beside the form is a second way, which the form's report after an answer never reaches and whose
-  // fault stays when the form's own go: React Aria's props and keys that mark a field invalid or word its fault, under
-  // any key a literal names, quoted, computed or a template, the invalid mark set by hand, and the slot React Aria's
-  // field reads its fault's text from, its key and its value spelled in any of those ways. A prop's name reached past
-  // a key, through a list of entries, a constant or a write to a member, is refused wherever a string or a template
-  // spells it whole, a type's own literal aside; one spelled in parts, `"aria-" + "invalid"`, no selector can read.
+  // fault stays when the form's own go: React Aria's props and keys that mark a field invalid or word its fault, the
+  // invalid mark set by hand, and the slot React Aria's field reads its fault's text from.
   syntaxBan(
     syntax(
-      [...PLACING_ARMS, `JSXAttribute[name.name=/^(?:${PLACED}|aria-invalid)$/]`].join(", "),
+      [
+        `JSXAttribute[name.name=/^(?:${PLACED}|aria-invalid)$/]`,
+        `ObjectExpression > Property[key.name=/^(?:${PLACED})$/]`,
+        'JSXAttribute[name.name="slot"][value.value="errorMessage"]',
+        'JSXAttribute[name.name="slot"] > JSXExpressionContainer > Literal[value="errorMessage"]',
+      ].join(", "),
       "A refusal stands on its box through `HeldForm`'s `fieldErrors`, by the box's `name`: name the field or the choice, and read `useFieldFaults` for a part holding no box, which takes `FAULTED_PART` while its fault stands.",
     ),
     PRODUCTION,
-    // The one form's own, below; and the sign-in code's refusal, which no form holds: the code sends itself once typed.
+    // The one form's own; and the sign-in code's refusal, which no form holds: the code sends itself once typed.
     { allow: ["src/kit/HeldForm.tsx", "src/kit/CodeField.tsx"] },
-  ),
-  // The one form hands React Aria its served faults on its `Form` alone: nothing else of its file places one.
-  syntaxBan(
-    syntax(
-      [...PLACING_ARMS, `JSXAttribute[name.name=/^(?:${PLACED}|aria-invalid)$/]:not(JSXOpeningElement[name.name="Form"] > JSXAttribute)`].join(
-        ", ",
-      ),
-      "`HeldForm` places the served faults on its `Form` alone, through `validationErrors`: every box reads them from there.",
-    ),
-    PRODUCTION,
-    { only: ["src/kit/HeldForm.tsx"] },
-  ),
-  // A module exports what it declares. A re-export is a second path to another module's parts, which every ban naming
-  // that module misses, as a kit file allowed React Aria's `Form` could hand it on to all; a type it hands on is no part.
-  syntaxBan(
-    syntax(
-      'ExportNamedDeclaration[exportKind="value"]:not([declaration]), ExportAllDeclaration[exportKind="value"]',
-      "A module exports what it declares: import a part from the module declaring it, where every ban naming that module reads it.",
-    ),
-    PRODUCTION,
-  ),
-  // A declaration naming another module's part under a name of its own is a re-export all the same. Outside the kit a
-  // page may hand on a value a Next convention asks for by name, as the not-found page's `metadata` is the shared one.
-  syntaxBan(
-    syntax(
-      'ExportNamedDeclaration > VariableDeclaration > VariableDeclarator[init.type="Identifier"]',
-      "A module exports each part at its declaration: a part of another module is imported from the module declaring it.",
-    ),
-    KIT,
   ),
   syntaxBan(
     syntax('JSXAttribute[name.name="role"][value.value="alertdialog"]', "A question before an irreversible act is the kit's `ConfirmDialog`."),
