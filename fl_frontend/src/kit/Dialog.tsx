@@ -4,7 +4,7 @@ import { startTransition, useLayoutEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { Dialog as AriaDialog, DialogTrigger, Heading } from "react-aria-components/Dialog";
-import { Form, FormContext } from "react-aria-components/Form";
+import { FormContext } from "react-aria-components/Form";
 
 import { textOf } from "@/core/copy";
 import { COPY } from "@/core/copy/shared";
@@ -18,6 +18,7 @@ import { FieldStack } from "./FieldStack";
 import { dangerConsequence } from "./fieldStyles";
 import { FocusOnLeave } from "./FocusOnLeave";
 import { FormFooter } from "./FormFooter";
+import { HeldForm } from "./HeldForm";
 import { toastAnswer } from "./Toast";
 import { tv } from "./tv";
 import { statusOf, useFormAction } from "./useFormAction";
@@ -254,23 +255,15 @@ function ActDialog({
         {/* A dialog opened from inside another form, such as an editor's section, is a form of its own: React Aria's
             `Form` would otherwise take the outer form's props from its context, the outer submit handler among them. */}
         <FormContext value={null}>
-          {/* The browser's own check, as React Aria's `Form` holds it, rather than `HeldForm`'s: a dialog opens on a
-              hydrated press alone, so no press reaches it before hydration, which `HeldForm` exists to hold. Its other
-              reason, a press the browser stops in silence on a control it cannot show, is a press before hydration
-              too: once hydrated, each field's own `invalid` listener (`useFormValidation`) cancels the browser's report
-              and shows the field's message, focusing the first, a date's segments among them. */}
-          <Form
+          {/* The one judged form, as every form's: a dialog opens on a hydrated press alone, so the held press is never
+              its, but both passes end on its boxes as on any page's. */}
+          <HeldForm
             ref={form}
             className="grid gap-6"
-            validationErrors={refused?.fieldErrors}
-            onInvalid={block}
-            onSubmit={(event) => {
-              event.preventDefault();
-              // React's submit event bubbles through the portal to the outer form, whose save would run too.
-              event.stopPropagation();
-              // A busy submit button stands as a plain button, so Enter in a lone field submits the form all the same.
-              if (isPending) return;
-              const formData = new FormData(event.currentTarget);
+            fieldErrors={refused?.fieldErrors}
+            onBlock={block}
+            isBusy={isPending}
+            onSend={(formData) => {
               for (const [name, value] of Object.entries(carry)) formData.set(name, value);
               submit(formData);
             }}>
@@ -306,7 +299,7 @@ function ActDialog({
                 locked={locked}
               />
             </FormFooter>
-          </Form>
+          </HeldForm>
         </FormContext>
         <ConfirmDialog
           question={{ verb: "discard", subject: COPY.template.changes, consequence: COPY.template.changesLost(lost), tone: "danger" }}

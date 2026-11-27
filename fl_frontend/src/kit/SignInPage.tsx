@@ -1,7 +1,5 @@
 "use client";
 
-import { useEffect, useRef } from "react";
-
 import { Button } from "./Button";
 import { ClassicPage, ClassicTitle } from "./ClassicPage";
 import { CodeField } from "./CodeField";
@@ -14,6 +12,7 @@ import { tv } from "./tv";
 
 import type { Copy, RecordText } from "@/core/copy";
 import type { ReactNode } from "react";
+import type { FieldFaults } from "./HeldForm";
 
 type Press = { label: Copy; onPress: () => void; isBusy?: boolean; isDisabled?: boolean };
 
@@ -34,7 +33,7 @@ type AddressView = Head & {
      * The server's refusal of the address, by the field's name `email`, in the field's own line: the answer's
      * own record, one per refusal, each of which moves the focus to the field.
      */
-    error?: Readonly<Record<string, Copy>>;
+    error?: FieldFaults;
   };
   /** The bot check guarding the send, standing before it as Cloudflare's example places it. */
   check: ReactNode;
@@ -180,18 +179,13 @@ function Body(props: SignInView) {
   }
 }
 
-/** The address view, whose field takes the focus on the server's refusal, as React Aria moves it on the browser's. */
+/**
+ * The address view, whose field takes the focus on either pass's refusal (`HeldForm`), so a screen reader reads it with
+ * its phrase, which nothing else announces: the status line says nothing then, since it would only point at the field
+ * in focus.
+ */
 function AddressBody({ title, address, check, send: { onPress: send, ...button }, or, passkey }: AddressView) {
   const slots = look();
-  const form = useRef<HTMLFormElement>(null);
-
-  // The screen reader then reads the field with its refusal, which nothing else announces.
-  useEffect(() => {
-    if (address.error === undefined) return;
-    const field = form.current?.elements.namedItem("email");
-    if (field instanceof HTMLInputElement) field.focus();
-  }, [address.error]);
-
   return (
     <>
       <ClassicTitle
@@ -199,8 +193,7 @@ function AddressBody({ title, address, check, send: { onPress: send, ...button }
         place="page"
       />
       <HeldForm
-        ref={form}
-        validationErrors={address.error}
+        fieldErrors={address.error}
         // The send's press is the form's submit, so `Enter` in the field sends too.
         isBusy={button.isBusy === true}
         onSend={(formData) => send(String(formData.get("email")))}

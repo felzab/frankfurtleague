@@ -41,6 +41,7 @@ describe("a required short choice", () => {
   ] as const)("keeps a send that finds it empty, marking it invalid under the required line: %s", (_kind, role, field) => {
     const { container } = render(
       <HeldForm
+        fieldErrors={undefined}
         isBusy={false}
         onSend={() => undefined}>
         {field}

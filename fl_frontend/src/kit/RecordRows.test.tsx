@@ -42,7 +42,7 @@ function Goals({ errors, locked }: { errors?: Readonly<Record<string, Copy>>; lo
   const [rows, setRows] = useState(GOALS);
   return (
     <HeldForm
-      validationErrors={errors}
+      fieldErrors={errors}
       isBusy={false}
       onSend={() => undefined}>
       <RecordRows

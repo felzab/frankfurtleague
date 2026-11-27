@@ -178,8 +178,8 @@ function ActBox({ act, words, danger, children }: { act: AccountAct; words: Reac
     <section className={slots.root(danger ? { class: dangerEdge() } : {})}>
       <HeldForm
         ref={form}
-        validationErrors={answer !== null && !answer.ok ? answer.fieldErrors : undefined}
-        onInvalid={block}
+        fieldErrors={answer !== null && !answer.ok ? answer.fieldErrors : undefined}
+        onBlock={block}
         // A locked act's button is a plain one, but Enter in a lone field submits a form with no submit button.
         isBusy={isBusy || locked !== undefined}
         onSend={send}>
