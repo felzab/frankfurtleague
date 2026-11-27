@@ -29,9 +29,3 @@ Each fails silently. The ratified decisions for this surface are in `docs/decisi
   the same way: its file counts the documents lacking the key, writes the default's value into each,
   and counts again to 0. Where no value for it can be written, the file counts them and stops before
   its first write unless it finds none.
-- A judge's field checks go into one `refuse_faults` call (`fl_backend/app/core/crud.py`), after its
-  gates' `refuse`, never one call each: a second call is asked only once the first found nothing, so
-  the person meets its fault a press later, and no check sees it. A check that means nothing once
-  another failed sits in the same call behind a guard on that check (`None if base else find_…(…)`),
-  and a helper returns its `FieldCheck` rather than raising its own. `docs/backend/overview.md`
-  describes the two passes.
