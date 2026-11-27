@@ -33,6 +33,22 @@ export const TO_ACCOUNT = { label: COPY.shared.end.toAccount, href: ROUTES.accou
  *   saying what the person did and when, with the one place to change it where there is one, on the danger tint
  *   where what they did was to decline; a link no longer valid (`linkInvalid`), with the one sensible way on and no
  *   resend; or an end of the page's own, as a deletion link opened signed out.
+ *
+ * A press refused with a code naming an end, the record's or the link's, reaches an `end` state, never the stale-page
+ * line: where an answer stands, the first one forgot the link in that browser, so the page read again there would show
+ * the link no longer valid rather than the end. A code saying the link is spent or lapsed is about the link, so
+ * whatever stands behind it the press reaches the link no longer valid. A code saying the end the press asked already
+ * holds reaches that end, as the contact person's answer (`answerKontakt.ts :: ended`) reaches the done page of the
+ * answer pressed on `bewerbung_seat_already_answered`. The end asked is the answer's kind, never the choices it
+ * carried: a done page names the kind alone, so it stays true whichever press's choices stand, and the account's
+ * entries page shows those. A code saying another end stands reaches the link opened again naming that end, worded by
+ * the catalogue (`alreadyDone`) and read off the link's view where the code names neither, or the link no longer valid
+ * where that view holds no end. The address change's answer reaches the link no longer valid on every refusal, so its
+ * link tells its holder nothing of who holds an address.
+ *
+ * A press that finds its link used, its own act done or another answer standing, forgets the link in that browser
+ * (`forgetMailedLink`), as the privacy notice says of a link once used. One reaching any other end, the link no longer
+ * valid among them, leaves the cookie to lapse within its hour, since the link served nothing.
  */
 export type MailedState =
   | {
