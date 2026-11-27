@@ -37,7 +37,8 @@ function FooterGroup({ heading, links }: { heading: Copy; links: ReadonlyArray<H
   return (
     <nav
       aria-label={heading}
-      className="grid content-start gap-1">
+      // `justify-items-start`: a grid stretches each link to the column, so the row's empty end would take the pointer.
+      className="grid content-start justify-items-start gap-1">
       <h2 className={smallCaps({ class: "mb-2" })}>{heading}</h2>
       {links.map((link) => (
         <Link
