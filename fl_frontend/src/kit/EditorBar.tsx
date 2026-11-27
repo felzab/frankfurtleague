@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 
+import { LINE_SEPARATOR } from "@/core/copy";
 import { COPY } from "@/core/copy/shared";
 
 import { Button } from "./Button";
@@ -23,8 +24,8 @@ const pageLine = tv({
     // One line and no more: a part that does not fit beside the one before it wraps under it, out of the line's sight.
     line: statusLine({ placement: "row", tone: "changes", class: "flex h-5 flex-wrap content-start overflow-hidden whitespace-nowrap" }),
     text: "max-w-full min-w-0 truncate",
-    // Its dot goes with it, a space's width either side.
-    count: "ms-1 before:me-1 before:content-['·']",
+    // Its separator goes with it. Kept whole, since a flex item drops the space it opens with.
+    count: "whitespace-pre",
   },
 });
 
@@ -43,7 +44,12 @@ function PageLine({ text, status }: { text: Copy; status: FormStatus }) {
       {!isOutcome && (
         <p className={look.line()}>
           <span className={look.text()}>{text}</span>
-          {status !== null && <span className={look.count()}>{status.text}</span>}
+          {status !== null && (
+            <span className={look.count()}>
+              {LINE_SEPARATOR}
+              {status.text}
+            </span>
+          )}
         </p>
       )}
       <StatusLine

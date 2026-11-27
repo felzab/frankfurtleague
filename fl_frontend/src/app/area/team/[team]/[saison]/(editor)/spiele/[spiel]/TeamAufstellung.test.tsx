@@ -3,6 +3,7 @@ import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { lineOf } from "@/core/copy";
 import { COPY } from "@/core/copy/shared";
 import { LINEUP_WORDS } from "@/features/aufstellungen/players";
 import { renderUnderNext } from "@/test-support/nextContexts";
@@ -68,7 +69,7 @@ describe("the line-up's editor at the team's address", () => {
     expect(line()).toBe(COPY.aufstellung.startelfCount(3, 11));
 
     await userEvent.click(tickOf(3));
-    expect(line()).toBe(`${COPY.aufstellung.startelfCount(4, 11)}${COPY.template.changesPending(1)}`);
+    expect(line()).toBe(lineOf([COPY.aufstellung.startelfCount(4, 11), COPY.template.changesPending(1)]));
   });
 
   // The harm: a save sent for another club or match, which a person holding seats on two clubs could write unawares.
