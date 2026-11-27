@@ -181,21 +181,23 @@ async def a_referee_with_a_history(database: AsyncDatabase, client: AsyncMongoCl
     former_email = FORMER_KONTAKT[schiedsrichter_id]["email"]
     served = await database[Collection.SCHIEDSRICHTER].find_one({"_id": schiedsrichter_id}, {"version": 1})
     assert served is not None
-    await patch_schiedsrichter(
-        schiedsrichter_id=schiedsrichter_id,
-        schiedsrichter_data=FLPatchSchiedsrichterPayload(
-            name=REFEREE_NAMES[schiedsrichter_id],
-            schule=SCHULE,
-            default_payment=DEFAULT_PAYMENT,
-            kontakt=FLKontaktPayload(phone=KONTAKT[schiedsrichter_id]["phone"], email=former_email),
-            version=served["version"],
-        ),
-        schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
-        outbox_collection=database[Collection.OUTBOX],
-        db=client,
-        today=TODAY,
-        germany_now=MAIL_NOW,
-    )
+    async with client.start_session(snapshot=True) as session:
+        await patch_schiedsrichter(
+            schiedsrichter_id=schiedsrichter_id,
+            schiedsrichter_data=FLPatchSchiedsrichterPayload(
+                name=REFEREE_NAMES[schiedsrichter_id],
+                schule=SCHULE,
+                default_payment=DEFAULT_PAYMENT,
+                kontakt=FLKontaktPayload(phone=KONTAKT[schiedsrichter_id]["phone"], email=former_email),
+                version=served["version"],
+            ),
+            schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+            outbox_collection=database[Collection.OUTBOX],
+            db=client,
+            today=TODAY,
+            germany_now=MAIL_NOW,
+            session=session,
+        )
     minted = await start_the_change(
         database, client, email=KONTAKT[schiedsrichter_id]["email"], identifier=sign_in_identifier(former_email), germany_now=NOW
     )

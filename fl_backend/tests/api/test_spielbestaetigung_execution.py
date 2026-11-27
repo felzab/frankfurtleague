@@ -1018,23 +1018,25 @@ async def save(
 ) -> Any:
     """The administrator's save from an editor that loaded `loaded`, changing what `overrides` names, or its dry run."""
 
-    return await patch_spiel(
-        spiel_id=SPIEL,
-        spiel_data=FLPatchSpielDataPayload.model_validate(spiel_patch_body(loaded, **overrides)),
-        db=client,
-        spiele_collection=either(database, Collection.SPIELE, spiele),
-        teams_collection=database[Collection.TEAMS],
-        saisons_collection=database[Collection.SAISONS],
-        saison_teams_collection=database[Collection.SAISON_TEAMS],
-        spieltage_collection=database[Collection.SPIELTAGE],
-        spielorte_collection=database[Collection.SPIELORTE],
-        schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
-        spielberichte_collection=database[Collection.SPIELBERICHTE],
-        aufstellungen_collection=database[Collection.AUFSTELLUNGEN],
-        spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
-        germany_now=NOW,
-        dry_run=dry_run,
-    )
+    async with client.start_session(snapshot=True) as session:
+        return await patch_spiel(
+            spiel_id=SPIEL,
+            spiel_data=FLPatchSpielDataPayload.model_validate(spiel_patch_body(loaded, **overrides)),
+            db=client,
+            spiele_collection=either(database, Collection.SPIELE, spiele),
+            teams_collection=database[Collection.TEAMS],
+            saisons_collection=database[Collection.SAISONS],
+            saison_teams_collection=database[Collection.SAISON_TEAMS],
+            spieltage_collection=database[Collection.SPIELTAGE],
+            spielorte_collection=database[Collection.SPIELORTE],
+            schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+            spielberichte_collection=database[Collection.SPIELBERICHTE],
+            aufstellungen_collection=database[Collection.AUFSTELLUNGEN],
+            spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
+            germany_now=NOW,
+            dry_run=dry_run,
+            session=session,
+        )
 
 
 class TestASaveFromAnEditorOpenedBeforeTheDecline:

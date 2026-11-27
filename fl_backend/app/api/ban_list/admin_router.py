@@ -25,6 +25,7 @@ from app.core.dependencies import (
     GrantsCollection,
     OutboxCollection,
     SaisonsCollection,
+    SnapshotSession,
 )
 from app.core.recording import record_act
 from app.core.routing import DRY_RUN_PASSED, SAFE_WHEN, DryRun, by_id, dry_run_passed
@@ -64,6 +65,7 @@ async def post_ban_list_entry(
     address_changes_collection: AddressChangeReadCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
+    session: SnapshotSession,
     today: GermanDay,
     germany_now: GermanyNow,
     dry_run: DryRun = False,
@@ -100,9 +102,7 @@ async def post_ban_list_entry(
         return str(running_saison_id)
 
     if dry_run:
-        # Opened here as `get_snapshot_session` opens one, not declared: the dry run alone reads outside a transaction.
-        async with db.start_session(snapshot=True) as session:
-            await judge(await read_grants(grants_collection=grants_collection, session=session), session)
+        await judge(await read_grants(grants_collection=grants_collection, session=session), session)
         return dry_run_passed()
 
     async def judge_and_ban(session: AsyncClientSession) -> InsertOneResult:

@@ -1027,18 +1027,20 @@ async def write_seat(
 
     read = (await stored_bewerbung(database, bewerbung_id))["version"] if version is None else version
 
-    return await post_kontakt_seat(
-        bewerbung_id=bewerbung_id,
-        seat=seat,
-        seat_data=FLBewerbungKontaktSeatPayload.model_validate({**person, "version": read}),
-        bewerbungen_collection=database[Collection.BEWERBUNGEN],
-        teams_collection=database[Collection.TEAMS],
-        saisons_collection=database[Collection.SAISONS],
-        outbox_collection=database[Collection.OUTBOX],
-        germany_now=MAIL_NOW,
-        db=client,
-        today=TODAY,
-    )
+    async with client.start_session(snapshot=True) as session:
+        return await post_kontakt_seat(
+            bewerbung_id=bewerbung_id,
+            seat=seat,
+            seat_data=FLBewerbungKontaktSeatPayload.model_validate({**person, "version": read}),
+            bewerbungen_collection=database[Collection.BEWERBUNGEN],
+            teams_collection=database[Collection.TEAMS],
+            saisons_collection=database[Collection.SAISONS],
+            outbox_collection=database[Collection.OUTBOX],
+            germany_now=MAIL_NOW,
+            db=client,
+            today=TODAY,
+            session=session,
+        )
 
 
 async def correct(

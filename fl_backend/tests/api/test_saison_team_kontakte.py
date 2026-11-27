@@ -183,18 +183,20 @@ async def write_seat(
 ) -> FLKontaktSeatResponse:
     """`PUT .../kontakte/{seat}`, the one route writing a seat: the person the dialog sends, on the row's `version` it read."""
 
-    written = await put_kontakt_seat(
-        team_id=TEAM_OID,
-        saison_id=SAISON_ID,
-        seat=seat,
-        seat_data=FLKontaktSeatPayload.model_validate({**sent, "version": version}),
-        saison_teams_collection=database[Collection.SAISON_TEAMS] if saison_teams_collection is None else saison_teams_collection,
-        saisons_collection=database[Collection.SAISONS],
-        outbox_collection=database[Collection.OUTBOX],
-        db=database.client,
-        today=TODAY,
-        germany_now=MAIL_NOW,
-    )
+    async with database.client.start_session(snapshot=True) as session:
+        written = await put_kontakt_seat(
+            team_id=TEAM_OID,
+            saison_id=SAISON_ID,
+            seat=seat,
+            seat_data=FLKontaktSeatPayload.model_validate({**sent, "version": version}),
+            saison_teams_collection=database[Collection.SAISON_TEAMS] if saison_teams_collection is None else saison_teams_collection,
+            saisons_collection=database[Collection.SAISONS],
+            outbox_collection=database[Collection.OUTBOX],
+            db=database.client,
+            today=TODAY,
+            germany_now=MAIL_NOW,
+            session=session,
+        )
     # Only a dry run answers the bare 204, and this call asks none.
     assert isinstance(written, FLKontaktSeatResponse)
     return written

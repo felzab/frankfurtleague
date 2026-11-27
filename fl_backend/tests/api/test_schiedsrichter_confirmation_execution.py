@@ -135,14 +135,16 @@ async def on_a_league(url: str, body: Body, *, referees: list[dict[str, Any]] | 
 
 
 async def create(database: AsyncDatabase, client: AsyncMongoClient, *, email: str | None = EMAIL, today: str = TODAY) -> Mailed:
-    answer = await post_schiedsrichter(
-        schiedsrichter_data=FLPostSchiedsrichterPayload.model_validate(payload_body(email=email)),
-        schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
-        outbox_collection=database[Collection.OUTBOX],
-        db=client,
-        today=today,
-        germany_now=MAIL_NOW,
-    )
+    async with client.start_session(snapshot=True) as session:
+        answer = await post_schiedsrichter(
+            schiedsrichter_data=FLPostSchiedsrichterPayload.model_validate(payload_body(email=email)),
+            schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+            outbox_collection=database[Collection.OUTBOX],
+            db=client,
+            today=today,
+            germany_now=MAIL_NOW,
+            session=session,
+        )
 
     return await mailed(database, client, answer)
 
@@ -150,15 +152,17 @@ async def create(database: AsyncDatabase, client: AsyncMongoClient, *, email: st
 async def correct(database: AsyncDatabase, client: AsyncMongoClient, *, email: str | None, today: str = TODAY) -> Mailed:
     # The version an editor opened now would be served, as the save sends it back.
     version = (await stored(database))["version"]
-    answer = await patch_schiedsrichter(
-        schiedsrichter_id=SCHIEDSRICHTER_OID,
-        schiedsrichter_data=FLPatchSchiedsrichterPayload.model_validate({**payload_body(email=email), "version": version}),
-        schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
-        outbox_collection=database[Collection.OUTBOX],
-        db=client,
-        today=today,
-        germany_now=MAIL_NOW,
-    )
+    async with client.start_session(snapshot=True) as session:
+        answer = await patch_schiedsrichter(
+            schiedsrichter_id=SCHIEDSRICHTER_OID,
+            schiedsrichter_data=FLPatchSchiedsrichterPayload.model_validate({**payload_body(email=email), "version": version}),
+            schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+            outbox_collection=database[Collection.OUTBOX],
+            db=client,
+            today=today,
+            germany_now=MAIL_NOW,
+            session=session,
+        )
 
     return await mailed(database, client, answer)
 

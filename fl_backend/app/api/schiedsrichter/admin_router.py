@@ -61,6 +61,7 @@ from app.core.dependencies import (
     OutboxReadCollection,
     SchiedsrichterCollection,
     SchiedsrichterReadCollection,
+    SnapshotSession,
     SpieleCollection,
 )
 from app.core.recording import record_act
@@ -138,6 +139,7 @@ async def post_schiedsrichter(
     schiedsrichter_collection: SchiedsrichterCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
+    session: SnapshotSession,
     today: GermanDay,
     germany_now: GermanyNow,
     dry_run: DryRun = False,
@@ -159,9 +161,7 @@ async def post_schiedsrichter(
         refuse(find_referee_name_refusal(taken=taken))
 
     if dry_run:
-        # Opened here as `get_snapshot_session` opens one, not declared: the dry run alone reads outside a transaction.
-        async with db.start_session(snapshot=True) as session:
-            await judge(session)
+        await judge(session)
         return dry_run_passed()
 
     async def judge_and_create(session: AsyncClientSession) -> Any:
@@ -208,6 +208,7 @@ async def patch_schiedsrichter(
     schiedsrichter_collection: SchiedsrichterCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
+    session: SnapshotSession,
     today: GermanDay,
     germany_now: GermanyNow,
     dry_run: DryRun = False,
@@ -241,9 +242,7 @@ async def patch_schiedsrichter(
         return stored
 
     if dry_run:
-        # Opened here as `get_snapshot_session` opens one, not declared: the dry run alone reads outside a transaction.
-        async with db.start_session(snapshot=True) as session:
-            await judge(session)
+        await judge(session)
         return dry_run_passed()
 
     async def correct_and_ask(session: AsyncClientSession) -> tuple[FLPatchSchiedsrichterResponse, bool]:

@@ -299,26 +299,28 @@ class TestARolloverLandingMidSaveIsJudgedAgain:
             assert spiel is not None, "the draw left the incumbent no group fixture to save"
             seasons = SeasonsRunningOneHook(database[Collection.SAISONS], roll_over_between, at="after_the_first_read")
 
-            outcome = await outcome_of(
-                patch_spiel(
-                    spiel_id=spiel["_id"],
-                    # The no-op save: it writes the fixture all the same, which is what the anchor meets.
-                    spiel_data=FLPatchSpielDataPayload.model_validate(spiel_patch_body(spiel)),
-                    db=client,
-                    spiele_collection=database[Collection.SPIELE],
-                    teams_collection=database[Collection.TEAMS],
-                    # The stand-in delegates every call, which the endpoint's collection type cannot say.
-                    saisons_collection=cast(Any, seasons),
-                    saison_teams_collection=database[Collection.SAISON_TEAMS],
-                    spieltage_collection=database[Collection.SPIELTAGE],
-                    spielorte_collection=database[Collection.SPIELORTE],
-                    schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
-                    spielberichte_collection=database[Collection.SPIELBERICHTE],
-                    aufstellungen_collection=database[Collection.AUFSTELLUNGEN],
-                    spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
-                    germany_now=NOW,
+            async with client.start_session(snapshot=True) as session:
+                outcome = await outcome_of(
+                    patch_spiel(
+                        spiel_id=spiel["_id"],
+                        # The no-op save: it writes the fixture all the same, which is what the anchor meets.
+                        spiel_data=FLPatchSpielDataPayload.model_validate(spiel_patch_body(spiel)),
+                        db=client,
+                        spiele_collection=database[Collection.SPIELE],
+                        teams_collection=database[Collection.TEAMS],
+                        # The stand-in delegates every call, which the endpoint's collection type cannot say.
+                        saisons_collection=cast(Any, seasons),
+                        saison_teams_collection=database[Collection.SAISON_TEAMS],
+                        spieltage_collection=database[Collection.SPIELTAGE],
+                        spielorte_collection=database[Collection.SPIELORTE],
+                        schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+                        spielberichte_collection=database[Collection.SPIELBERICHTE],
+                        aufstellungen_collection=database[Collection.AUFSTELLUNGEN],
+                        spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
+                        session=session,
+                        germany_now=NOW,
+                    )
                 )
-            )
 
             return outcome, await statuses_now(database)
 

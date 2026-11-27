@@ -33,6 +33,7 @@ from app.core.dependencies import (
     GrantsCollection,
     GrantsReadCollection,
     OutboxCollection,
+    SnapshotSession,
 )
 from app.core.exceptions import DocumentNotFoundError
 from app.core.routing import DRY_RUN_PASSED, SAFE_WHEN, DryRun, by_id, dry_run_passed
@@ -75,6 +76,7 @@ async def post_grant(
     address_changes_collection: AddressChangeCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
+    session: SnapshotSession,
     operator: ActorEmail,
     signed_in: Annotated[SessionActor, Depends(verify_admin_actor)],
     germany_now: GermanyNow,
@@ -96,9 +98,7 @@ async def post_grant(
         refuse(find_barred_refusal(barred=await address_is_barred(ban_list_collection=ban_list_collection, address=address, session=session)))
 
     if dry_run:
-        # Opened here as `get_snapshot_session` opens one, not declared: the dry run alone reads outside a transaction.
-        async with db.start_session(snapshot=True) as session:
-            await judge(await read_grants(grants_collection=grants_collection, session=session), session)
+        await judge(await read_grants(grants_collection=grants_collection, session=session), session)
         return dry_run_passed()
 
     async def judge_and_grant(session: AsyncClientSession) -> FLCreatedResponse:
@@ -183,6 +183,7 @@ async def post_handover(
     ban_list_collection: BanListCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
+    session: SnapshotSession,
     operator: ActorEmail,
     signed_in: Annotated[SessionActor, Depends(verify_admin_actor)],
     germany_now: GermanyNow,
@@ -212,9 +213,7 @@ async def post_handover(
         return grant
 
     if dry_run:
-        # Opened here as `get_snapshot_session` opens one, not declared: the dry run alone reads outside a transaction.
-        async with db.start_session(snapshot=True) as session:
-            await judge(await read_grants(grants_collection=grants_collection, session=session), session)
+        await judge(await read_grants(grants_collection=grants_collection, session=session), session)
         return
 
     async def judge_and_start(session: AsyncClientSession) -> None:

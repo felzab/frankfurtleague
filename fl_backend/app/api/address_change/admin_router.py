@@ -153,6 +153,7 @@ async def post_address_change_admin(
     grants_collection: GrantsCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
+    session: SnapshotSession,
     operator: ActorEmail,
     germany_now: GermanyNow,
     dry_run: DryRun = False,
@@ -192,9 +193,7 @@ async def post_address_change_admin(
         )
 
     if dry_run:
-        # Opened here as `get_snapshot_session` opens one, not declared: the dry run alone reads outside a transaction.
-        async with db.start_session(snapshot=True) as session:
-            await judge(session)
+        await judge(session)
         return
 
     async def judge_and_start_the_change(session: AsyncClientSession) -> None:

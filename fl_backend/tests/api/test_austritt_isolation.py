@@ -122,25 +122,27 @@ class TestAnExitLandingMidSaveIsJudgedAgain:
             # Just before the fixture's write, after every read the judgement makes.
             spiele = InterleavedCollection(database[Collection.SPIELE], lambda: record_the_exit(database, client), before="find_one_and_update")
 
-            outcome = await outcome_of(
-                patch_spiel(
-                    spiel_id=spiel_id,
-                    spiel_data=FLPatchSpielDataPayload.model_validate(spiel_patch_body(stored, **overrides)),
-                    db=client,
-                    # The stand-in delegates every call, which the endpoint's collection type cannot say.
-                    spiele_collection=cast(Any, spiele),
-                    teams_collection=database[Collection.TEAMS],
-                    saisons_collection=database[Collection.SAISONS],
-                    saison_teams_collection=database[Collection.SAISON_TEAMS],
-                    spieltage_collection=database[Collection.SPIELTAGE],
-                    spielorte_collection=database[Collection.SPIELORTE],
-                    schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
-                    spielberichte_collection=database[Collection.SPIELBERICHTE],
-                    aufstellungen_collection=database[Collection.AUFSTELLUNGEN],
-                    spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
-                    germany_now=NOW,
+            async with client.start_session(snapshot=True) as session:
+                outcome = await outcome_of(
+                    patch_spiel(
+                        spiel_id=spiel_id,
+                        spiel_data=FLPatchSpielDataPayload.model_validate(spiel_patch_body(stored, **overrides)),
+                        db=client,
+                        # The stand-in delegates every call, which the endpoint's collection type cannot say.
+                        spiele_collection=cast(Any, spiele),
+                        teams_collection=database[Collection.TEAMS],
+                        saisons_collection=database[Collection.SAISONS],
+                        saison_teams_collection=database[Collection.SAISON_TEAMS],
+                        spieltage_collection=database[Collection.SPIELTAGE],
+                        spielorte_collection=database[Collection.SPIELORTE],
+                        schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+                        spielberichte_collection=database[Collection.SPIELBERICHTE],
+                        aufstellungen_collection=database[Collection.AUFSTELLUNGEN],
+                        spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
+                        germany_now=NOW,
+                        session=session,
+                    )
                 )
-            )
             row = await database[Collection.SAISON_TEAMS].find_one({"saison_id": SAISON_ID, "team_id": DEPARTED})
             assert row is not None
 

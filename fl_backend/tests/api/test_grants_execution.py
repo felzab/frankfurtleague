@@ -126,17 +126,19 @@ async def add(
     now: datetime = NOW,
 ) -> ObjectId:
     with acts.acting_as(acting_as):
-        added = await post_grant(
-            payload=FLPostGrantPayload(email=email),
-            grants_collection=grants if grants is not None else database[Collection.GRANTS],
-            ban_list_collection=database[Collection.BAN_LIST],
-            address_changes_collection=database[Collection.ADDRESS_CHANGES],
-            outbox_collection=outbox if outbox is not None else database[Collection.OUTBOX],
-            db=client,
-            operator=acting_as,
-            signed_in=session_of(acting_as, signed_in_at),
-            germany_now=now,
-        )
+        async with client.start_session(snapshot=True) as session:
+            added = await post_grant(
+                payload=FLPostGrantPayload(email=email),
+                grants_collection=grants if grants is not None else database[Collection.GRANTS],
+                ban_list_collection=database[Collection.BAN_LIST],
+                address_changes_collection=database[Collection.ADDRESS_CHANGES],
+                outbox_collection=outbox if outbox is not None else database[Collection.OUTBOX],
+                db=client,
+                operator=acting_as,
+                signed_in=session_of(acting_as, signed_in_at),
+                germany_now=now,
+                session=session,
+            )
     # Only a dry run answers the bare 204, and this call asks none.
     assert isinstance(added, FLCreatedResponse)
     return added.created_id
@@ -175,16 +177,18 @@ async def hand_over(
     now: datetime = NOW,
 ) -> None:
     with acts.acting_as(acting_as):
-        await post_handover(
-            grant_id=grant_id,
-            grants_collection=grants if grants is not None else database[Collection.GRANTS],
-            ban_list_collection=database[Collection.BAN_LIST],
-            outbox_collection=database[Collection.OUTBOX],
-            db=client,
-            operator=acting_as,
-            signed_in=session_of(acting_as, signed_in_at),
-            germany_now=now,
-        )
+        async with client.start_session(snapshot=True) as session:
+            await post_handover(
+                grant_id=grant_id,
+                grants_collection=grants if grants is not None else database[Collection.GRANTS],
+                ban_list_collection=database[Collection.BAN_LIST],
+                outbox_collection=database[Collection.OUTBOX],
+                db=client,
+                operator=acting_as,
+                signed_in=session_of(acting_as, signed_in_at),
+                germany_now=now,
+                session=session,
+            )
 
 
 async def stop(

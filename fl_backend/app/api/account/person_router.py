@@ -180,7 +180,8 @@ async def post_address_change(
         return holdings
 
     if dry_run:
-        # Opened here as `get_snapshot_session` opens one, not declared: the dry run alone reads outside a transaction.
+        # Opened here as `get_snapshot_session` opens one, not declared: the person's tier opens no snapshot, and the dry
+        # run alone reads outside a transaction.
         async with db.start_session(snapshot=True) as session:
             await judge(session)
         return

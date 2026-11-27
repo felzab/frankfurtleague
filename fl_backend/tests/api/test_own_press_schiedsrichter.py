@@ -81,23 +81,25 @@ async def pressed_then_saved(url: str, press: Press) -> dict[str, Any]:
     async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
         await database[Collection.SCHIEDSRICHTER].insert_one(referee_document())
         await press(database, client)
-        await patch_schiedsrichter(
-            schiedsrichter_id=SCHIEDSRICHTER_OID,
-            schiedsrichter_data=FLPatchSchiedsrichterPayload.model_validate(
-                {
-                    "name": "Pierluigi Collina",
-                    "schule": "Carl-Schurz-Schule",
-                    "default_payment": 20,
-                    "kontakt": {"phone": "+49 69 90009202", "email": EMAIL},
-                    "version": SERVED_VERSION,
-                }
-            ),
-            schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
-            outbox_collection=database[Collection.OUTBOX],
-            db=client,
-            today=TODAY,
-            germany_now=MAIL_NOW,
-        )
+        async with client.start_session(snapshot=True) as session:
+            await patch_schiedsrichter(
+                schiedsrichter_id=SCHIEDSRICHTER_OID,
+                schiedsrichter_data=FLPatchSchiedsrichterPayload.model_validate(
+                    {
+                        "name": "Pierluigi Collina",
+                        "schule": "Carl-Schurz-Schule",
+                        "default_payment": 20,
+                        "kontakt": {"phone": "+49 69 90009202", "email": EMAIL},
+                        "version": SERVED_VERSION,
+                    }
+                ),
+                schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+                outbox_collection=database[Collection.OUTBOX],
+                db=client,
+                today=TODAY,
+                germany_now=MAIL_NOW,
+                session=session,
+            )
         row = await database[Collection.SCHIEDSRICHTER].find_one({"_id": SCHIEDSRICHTER_OID})
         assert row is not None
 

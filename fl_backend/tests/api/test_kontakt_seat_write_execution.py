@@ -85,18 +85,20 @@ async def on_a_row(url: str, body: Body, *, kontakte: dict[str, Any] | None, con
 
 
 async def write_seat(database: AsyncDatabase, seat: str, sent: dict[str, Any], *, version: int = 0) -> FLKontaktSeatResponse:
-    written = await put_kontakt_seat(
-        team_id=TEAM_OID,
-        saison_id=SAISON_ID,
-        seat=seat,
-        seat_data=FLKontaktSeatPayload.model_validate({**sent, "version": version}),
-        saison_teams_collection=database[Collection.SAISON_TEAMS],
-        saisons_collection=database[Collection.SAISONS],
-        outbox_collection=database[Collection.OUTBOX],
-        db=database.client,
-        today=TODAY,
-        germany_now=MAIL_NOW,
-    )
+    async with database.client.start_session(snapshot=True) as session:
+        written = await put_kontakt_seat(
+            team_id=TEAM_OID,
+            saison_id=SAISON_ID,
+            seat=seat,
+            seat_data=FLKontaktSeatPayload.model_validate({**sent, "version": version}),
+            saison_teams_collection=database[Collection.SAISON_TEAMS],
+            saisons_collection=database[Collection.SAISONS],
+            outbox_collection=database[Collection.OUTBOX],
+            db=database.client,
+            today=TODAY,
+            germany_now=MAIL_NOW,
+            session=session,
+        )
     # Only a dry run answers the bare 204, and this call asks none.
     assert isinstance(written, FLKontaktSeatResponse)
     return written
