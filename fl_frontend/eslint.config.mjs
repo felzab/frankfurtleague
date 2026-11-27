@@ -398,6 +398,9 @@ const PROSE_LITERAL = `Literal[value=/[A-Za-zÄÖÜäöüß]{2}/]:not([value=/^[
 const WORDED_KEYS =
   "/^(?:label|title|text|sentence|note|reason|description|when|eyebrow|detail|line|hint|help|placeholder|alt|short|heading)$/";
 
+/** A German definite or indefinite article opening a text. */
+const LEADING_ARTICLE = String.raw`^(?:[Dd](?:er|ie|as|es|em|en)|[Ee]in(?:e[mnrs]?)?)\b`;
+
 /**
  * One literal's text as a regular expression: a string, a template's static chunk, or JSX text. A
  * comment is none of these, so prose naming a spelling never trips its ban.
@@ -1221,11 +1224,15 @@ const DESIGN_BANS = [
     EVERY,
     { only: CATALOGUE_FILES },
   ),
-  // A field's message is `COPY.shared.field`'s patterns.
+  // A field's message is `COPY.shared.field`'s patterns. An article may stand inside a phrase, as in „Auf der
+  // Sperrliste“, never at its start, where it would open a sentence: so a template is judged by its first part alone.
   syntaxBan(
     syntax(
-      `Property[key.name="field"] ${inLiteral(String.raw`\.$|^.{81,}$|\b(?:[Dd](?:er|ie|as|es|em|en)|[Ee]in(?:e[mnrs]?)?)\b`)}`,
-      "A field's message is one pattern phrase: no full stop, no article, at most 80 characters.",
+      [
+        `Property[key.name="field"] ${inLiteral(String.raw`\.$|^.{81,}$`)}`,
+        `Property[key.name="field"] :matches(Literal[value=/${LEADING_ARTICLE}/], TemplateLiteral > TemplateElement:first-child[value.raw=/${LEADING_ARTICLE}/])`,
+      ].join(", "),
+      "A field's message is one pattern phrase: no full stop, no leading article, at most 80 characters.",
     ),
     EVERY,
     { only: ["src/core/copy/shared.ts"] },
