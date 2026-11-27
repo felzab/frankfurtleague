@@ -5,10 +5,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy/shared";
 import { IDEMPOTENCY_KEY_FIELD } from "@/core/idempotencyKey";
+import { ROUTES } from "@/core/routes";
 import { TURNSTILE_FIELD } from "@/core/turnstileToken";
 import { renderUnderNext } from "@/test-support/nextContexts";
 
-import { OneShotForm } from "./OneShot";
+import { OneShotEnd, OneShotForm } from "./OneShot";
 import { TextField } from "./TextField";
 
 import type { ActionAnswer } from "@/core/action";
@@ -158,5 +159,23 @@ describe("a mailed page's refusal", () => {
 
     await waitFor(() => expect(run).toHaveBeenCalledTimes(1));
     expect(run.mock.calls[0]?.[0].get("act")).toBe("primary");
+  });
+});
+
+// The harm: the done card takes the form's place and the pressed button leaves with the form, so the focus falls to the
+// page's body: a keyboard user starts again from the page's top, and a screen reader says nothing of the outcome.
+describe("a one-shot form's end", () => {
+  it("takes the focus at its title as it replaces the form", async () => {
+    const end: EndState = {
+      tone: "success",
+      title: COPY.shared.toast.linkSent,
+      next: { label: COPY.shared.end.toAccount, href: ROUTES.home.path() },
+    };
+    renderUnderNext(<OneShotEnd>{refusalForm(async () => ({ ok: true, value: end }), { primary: COPY.shared.verb.next })}</OneShotEnd>);
+
+    await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.next }));
+
+    const title = await screen.findByRole("heading", { name: end.title });
+    expect(document.activeElement).toBe(title);
   });
 });

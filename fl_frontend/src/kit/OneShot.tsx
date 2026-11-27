@@ -7,12 +7,13 @@ import { IDEMPOTENCY_KEY_FIELD } from "@/core/idempotencyKey";
 import { TURNSTILE_FIELD } from "@/core/turnstileToken";
 
 import { Button } from "./Button";
-import { ClassicPage, mailedCard } from "./ClassicPage";
+import { ClassicPage, ClassicTitle, mailedCard } from "./ClassicPage";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { FieldStack } from "./FieldStack";
+import { FocusOnArrival } from "./FocusOnLeave";
 import { FormFooter } from "./FormFooter";
 import { HeldForm } from "./HeldForm";
-import { ClassicStatusPage } from "./StatusCard";
+import { StatusCardBody } from "./StatusCard";
 import { useBotCheck } from "./useBotCheck";
 import { statusOf, useFormAction } from "./useFormAction";
 import { usePasskeyTouch } from "./usePasskeyTouch";
@@ -65,7 +66,19 @@ const AnsweredEnd = createContext<((end: EndState) => void) | null>(null);
 export function OneShotEnd({ children }: { children: ReactNode }) {
   const [end, setEnd] = useState<EndState | null>(null);
   if (end !== null) {
-    return <ClassicStatusPage {...end} />;
+    const { title, ...card } = end;
+    return (
+      // The status template's page, the card inside it taking the focus: an element around the page itself would
+      // stand above its fade, which React then never starts.
+      <ClassicPage width="card">
+        <FocusOnArrival>
+          <StatusCardBody
+            {...card}
+            title={<ClassicTitle text={title} />}
+          />
+        </FocusOnArrival>
+      </ClassicPage>
+    );
   }
   return <AnsweredEnd value={setEnd}>{children}</AnsweredEnd>;
 }

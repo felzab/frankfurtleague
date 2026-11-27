@@ -31,11 +31,20 @@ function placesAfter(left: HTMLElement) {
 }
 
 /**
+ * Gives a title the focus: at `tabIndex` -1, which the keys never reach, and with the kit's resting focus mark, so it
+ * shows no ring it never showed before (`app/focus.css`).
+ */
+function focusTitle(heading: HTMLElement) {
+  if (!heading.hasAttribute("tabindex")) heading.tabIndex = -1;
+  if (!heading.hasAttribute("data-kit-focus")) heading.setAttribute("data-kit-focus", "");
+  heading.focus();
+}
+
+/**
  * Hands the focus to the nearest control still standing, once `left` has left while holding it: only where the focus
  * fell to the page's body, as React Aria's focus scope restores the focus only then, a frame after its unmount. A
  * control the page hides or leaves with takes no focus, so the next is tried; the section's title, where nothing else
- * is left, takes it at `tabIndex` -1, which the keys never reach, and the kit's resting focus mark, so it shows no ring
- * it never showed before (`app/focus.css`).
+ * is left, takes it (`focusTitle`).
  */
 function handOn(left: HTMLElement, places: NonNullable<ReturnType<typeof placesAfter>>) {
   const page = left.ownerDocument;
@@ -48,11 +57,30 @@ function handOn(left: HTMLElement, places: NonNullable<ReturnType<typeof placesA
       if (page.activeElement === control) return;
     }
     const { heading } = places;
-    if (heading === null || !heading.isConnected) return;
-    if (!heading.hasAttribute("tabindex")) heading.tabIndex = -1;
-    if (!heading.hasAttribute("data-kit-focus")) heading.setAttribute("data-kit-focus", "");
-    heading.focus();
+    if (heading !== null && heading.isConnected) focusTitle(heading);
   });
+}
+
+/**
+ * An end taking the place of the form or the step whose press reached it, such as a one-shot form's done card: its
+ * title takes the focus as it arrives. The pressed button leaves with what the end replaces, so the focus would fall to
+ * the page's body, or go to whatever control still stands (`FocusOnLeave`), and neither says the outcome (WCAG 2.4.3).
+ * It takes the focus as it mounts, ahead of the frame in which a leaving act or dialog looks for a place, and both leave
+ * a focus standing off the page's body where it is. Drawn as no box of its own (`contents`).
+ */
+export function FocusOnArrival({ children }: { children: ReactNode }) {
+  const box = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const title = box.current?.querySelector<HTMLElement>(HEADING);
+    if (title !== null && title !== undefined) focusTitle(title);
+  }, []);
+  return (
+    <div
+      ref={box}
+      className="contents">
+      {children}
+    </div>
+  );
 }
 
 /**

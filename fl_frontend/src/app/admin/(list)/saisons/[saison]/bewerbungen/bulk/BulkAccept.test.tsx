@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { screen, waitFor, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -92,5 +92,33 @@ describe("a card reopened for its refusal", () => {
     rerender(run());
 
     expect(await screen.findByText(COPY.shared.field.taken)).toBeTruthy();
+  });
+});
+
+/** The run inside a page's `main`, beside a control that stands through every step, as the rail's fold does. */
+const page = () => (
+  <main>
+    <button type="button">{COPY.shared.back}</button>
+    {run()}
+  </main>
+);
+
+// The harm: the done card takes the check page's place and the confirm's button leaves with it, so the focus goes to the
+// nearest control still standing, the rail's fold, and a keyboard or screen-reader user gets no word of the outcome.
+describe("the run's done card", () => {
+  it("takes the focus at its title, and keeps it once the leaving question has looked for a place", async () => {
+    vi.mocked(acceptBewerbung).mockResolvedValueOnce({ ok: true, value: undefined }).mockResolvedValueOnce({ ok: true, value: undefined });
+    const { rerender } = renderUnderNext(page(), atThePage);
+    for (const _card of ["a", "b"]) {
+      await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.next }));
+      rerender(page());
+    }
+    await userEvent.click(screen.getByRole("button", { name: COPY.shared.withObject(ADMIN_COPY.bewerbung.count(2), "accept") }));
+    await userEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: COPY.shared.verb.accept }));
+
+    const title = await screen.findByRole("heading", { name: ADMIN_COPY.bewerbung.acceptedCount(2) });
+    // The question's focus scope and its trigger each look for a place a frame after they leave.
+    await act(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+    expect(document.activeElement).toBe(title);
   });
 });
