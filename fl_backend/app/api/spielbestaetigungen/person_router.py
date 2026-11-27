@@ -246,7 +246,7 @@ async def post_team_answer(
 
             # The administrator's save's judges in its order, each read just ahead of the one refusal that consumes it. Each
             # keeps its first fault's path as the adoption does, which picks the sentence naming the booked resource or the
-            # departed side, the save's paths naming no box of this body.
+            # departed side, and stands a matchday's bound on the club's day box, named `date` as the save names it.
             membership = await pull_saison_membership(
                 saison_teams_collection=saison_teams_collection, saison_id=stored.saison_id, session=session
             )
