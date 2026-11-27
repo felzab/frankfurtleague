@@ -74,10 +74,12 @@ next:
   discard it, since its caller reads the report: the fixture save
   (`fl_backend/app/api/spiele/admin_router.py :: patch_spiel`) and the withdrawal
   (`fl_backend/app/api/identity/admin_router.py :: post_withdrawal`).
-- A write behind the passkey touch is sent dry before the touch, so its refusal stands on a field
-  while the input does, and its dry run answers 204 beside the write's own answer
-  (`fl_backend/app/core/routing.py :: DRY_RUN_PASSED`): a create has no id to answer before it
-  writes, and the caller sends the write on a pass.
+- A write behind the passkey touch whose typed input the backend judges is sent dry before the
+  touch, so its refusal stands on a field while the input does, and its dry run answers 204 beside
+  the write's own answer (`fl_backend/app/core/routing.py :: DRY_RUN_PASSED`): a create has no id to
+  answer before it writes, and the caller sends the write on a pass. A touched write with no typed
+  input, such as a removal or a re-send, takes no dry run, since its refusal has no field to stand
+  on and no input to keep.
 
 The shared models are in `fl_backend/app/shared/schemas/responses.py`.
 
