@@ -768,6 +768,24 @@ const SIDES = "(?:t|r|b|l|s|e|tl|tr|br|bl|ss|se|es|ee)";
  */
 const PLACED = "validationErrors|validationState|errorMessage|isInvalid|validationBehavior";
 
+/** Every way but a JSX attribute that a refusal is placed beside the form: the placement ban's arms. */
+const PLACING_ARMS = [
+  `ObjectExpression > Property[key.name=/^(?:${PLACED})$/]`,
+  `ObjectExpression > Property[key.value=/^(?:${PLACED}|aria-invalid)$/]`,
+  `ObjectExpression > Property[key.type="TemplateLiteral"][key.quasis.0.value.cooked=/^(?:${PLACED}|aria-invalid)$/]`,
+  `Literal[value=/^(?:${PLACED}|aria-invalid)$/]:not(TSLiteralType > Literal)`,
+  `TemplateElement[value.cooked=/^(?:${PLACED}|aria-invalid)$/]`,
+  `AssignmentExpression > MemberExpression.left[property.name=/^(?:${PLACED})$/]`,
+  'JSXAttribute[name.name="slot"][value.value="errorMessage"]',
+  'JSXAttribute[name.name="slot"] > JSXExpressionContainer > Literal[value="errorMessage"]',
+  'JSXAttribute[name.name="slot"] > JSXExpressionContainer > TemplateLiteral[quasis.0.value.cooked="errorMessage"]',
+  ...[
+    'ObjectExpression > Property[key.name="slot"]',
+    'ObjectExpression > Property[key.value="slot"]',
+    'ObjectExpression > Property[key.type="TemplateLiteral"][key.quasis.0.value.cooked="slot"]',
+  ].flatMap((slot) => [`${slot}[value.value="errorMessage"]`, `${slot}[value.quasis.0.value.cooked="errorMessage"]`]),
+];
+
 const DESIGN_BANS = [
   // Page bodies: page code places the kit's named blocks, so a second match row, empty state or chip
   // row has nothing to be composed from.
@@ -1035,28 +1053,28 @@ const DESIGN_BANS = [
   // A refusal placed beside the form is a second way, which the form's report after an answer never reaches and whose
   // fault stays when the form's own go: React Aria's props and keys that mark a field invalid or word its fault, under
   // any key a literal names, quoted, computed or a template, the invalid mark set by hand, and the slot React Aria's
-  // field reads its fault's text from, its key and its value spelled in any of those ways.
+  // field reads its fault's text from, its key and its value spelled in any of those ways. A prop's name reached past
+  // a key, through a list of entries, a constant or a write to a member, is refused wherever a string or a template
+  // spells it whole, a type's own literal aside; one spelled in parts, `"aria-" + "invalid"`, no selector can read.
   syntaxBan(
     syntax(
-      [
-        `JSXAttribute[name.name=/^(?:${PLACED}|aria-invalid)$/]`,
-        `ObjectExpression > Property[key.name=/^(?:${PLACED})$/]`,
-        `ObjectExpression > Property[key.value=/^(?:${PLACED}|aria-invalid)$/]`,
-        `ObjectExpression > Property[key.type="TemplateLiteral"][key.quasis.0.value.cooked=/^(?:${PLACED}|aria-invalid)$/]`,
-        'JSXAttribute[name.name="slot"][value.value="errorMessage"]',
-        'JSXAttribute[name.name="slot"] > JSXExpressionContainer > Literal[value="errorMessage"]',
-        'JSXAttribute[name.name="slot"] > JSXExpressionContainer > TemplateLiteral[quasis.0.value.cooked="errorMessage"]',
-        ...[
-          'ObjectExpression > Property[key.name="slot"]',
-          'ObjectExpression > Property[key.value="slot"]',
-          'ObjectExpression > Property[key.type="TemplateLiteral"][key.quasis.0.value.cooked="slot"]',
-        ].flatMap((slot) => [`${slot}[value.value="errorMessage"]`, `${slot}[value.quasis.0.value.cooked="errorMessage"]`]),
-      ].join(", "),
+      [...PLACING_ARMS, `JSXAttribute[name.name=/^(?:${PLACED}|aria-invalid)$/]`].join(", "),
       "A refusal stands on its box through `HeldForm`'s `fieldErrors`, by the box's `name`: name the field or the choice, and read `useFieldFaults` for a part holding no box, which takes `FAULTED_PART` while its fault stands.",
     ),
     PRODUCTION,
-    // The one form's own; and the sign-in code's refusal, which no form holds: the code sends itself once typed.
+    // The one form's own, below; and the sign-in code's refusal, which no form holds: the code sends itself once typed.
     { allow: ["src/kit/HeldForm.tsx", "src/kit/CodeField.tsx"] },
+  ),
+  // The one form hands React Aria its served faults on its `Form` alone: nothing else of its file places one.
+  syntaxBan(
+    syntax(
+      [...PLACING_ARMS, `JSXAttribute[name.name=/^(?:${PLACED}|aria-invalid)$/]:not(JSXOpeningElement[name.name="Form"] > JSXAttribute)`].join(
+        ", ",
+      ),
+      "`HeldForm` places the served faults on its `Form` alone, through `validationErrors`: every box reads them from there.",
+    ),
+    PRODUCTION,
+    { only: ["src/kit/HeldForm.tsx"] },
   ),
   // A module exports what it declares, each part at its declaration. A re-export is a second path to another module's
   // parts, which every ban naming that module misses, as a kit file allowed React Aria's `Form` could hand it on to all;
