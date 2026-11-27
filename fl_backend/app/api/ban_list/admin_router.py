@@ -94,7 +94,7 @@ async def post_ban_list_entry(
             find_admin_refusal(address=address, administrators=holders, incoming=incoming is not None),
             # Read as well as indexed: a dry run inserts nothing for `uniq_ban_list_address` to refuse, and the index
             # still refuses the second of two bans racing past this read.
-            await find_address_barred_refusal(ban_list_collection=ban_list_collection, address=address, path=("email",), session=session),
+            await find_address_barred_refusal(ban_list_collection=ban_list_collection, address=address, session=session),
         )
 
         # `str` past the refusal: the composer refuses the spelling `None` would take rather than

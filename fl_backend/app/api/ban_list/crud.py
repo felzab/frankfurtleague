@@ -7,7 +7,7 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.core.codes import Code
 from app.core.crud import pull_many_from_db, pull_whole_from_db
-from app.core.exceptions import FieldFault, FieldPath
+from app.core.exceptions import FieldFault
 from app.core.readonly import ReadCollection
 from app.shared.folding import sign_in_identifier
 
@@ -51,19 +51,17 @@ async def find_address_barred_refusal(
     *,
     ban_list_collection: ReadCollection,
     address: str,
-    path: FieldPath,
     session: AsyncClientSession | None,
 ) -> FieldFault | None:
-    """`address_barred` on the box at `path`: a ban holds the address typed there.
+    """`address_barred` on the ban's `email` box: a ban holds the address typed there.
 
-    Asked by the ban's own add, ahead of `uniq_ban_list_address`, which answers only a race. A visitor's form never asks
-    it, since its answer would tell a stranger the ban stands.
+    Asked by the ban's own add, ahead of `uniq_ban_list_address`, which answers only a race.
     """
 
     if not await address_is_barred(ban_list_collection=ban_list_collection, address=address, session=session):
         return None
 
-    return FieldFault(path=path, code=Code.ADDRESS_BARRED, status=HTTPStatus.CONFLICT)
+    return FieldFault(path=("email",), code=Code.ADDRESS_BARRED, status=HTTPStatus.CONFLICT)
 
 
 async def read_barred_addresses(
