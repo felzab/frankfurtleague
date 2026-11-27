@@ -1160,7 +1160,8 @@ export const SERVER_COPY = catalogue({
           `deine Adresse, pseudonymisiert, ${boundBy(formatNumber(anchorHours), "Stunde")} lang;`,
           "Mitteilungen zum Zugang zur Verwaltung, die andere schon erhalten haben;",
           "freie Texte, die nicht unter deiner Adresse stehen;",
-          `nach einer Löschung nach ihrer Frist unsere E-Mails an deine Adresse: ihr Inhalt bis zum Versand, der Rest ${boundBy(formatNumber(outboxDays), "Tage")} danach.`,
+          `nach einer Löschung nach ihrer Frist unsere E-Mails an deine Adresse: ihr Inhalt bis zum Versand, der Rest ${boundBy(formatNumber(outboxDays), "Tage")} danach;`,
+          `nach einer Änderung deiner Adresse eine noch offene E-Mail zu deinem Passkey an die alte Adresse, bis ${boundBy(formatNumber(outboxDays), "Tage")} nach ihrem Versand oder dem letzten Versuch.`,
         ],
         // One's own deletion is confirmed on the page that made it, so no notice follows it.
         notices:
