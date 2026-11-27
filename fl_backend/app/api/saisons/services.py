@@ -112,7 +112,7 @@ type DecidedPodium = tuple[
 def decided_podium(finale: Sequence[FLSpielJoinedInternal]) -> DecidedPodium | None:
     """A season's four places once all four are in, else `None`: the one rule the landing, the admin list and the editor call it decided by.
 
-    Every season ends in a knockout (`find_rules_refusal` refuses rules drawing none), so the Finale's matchday places
+    Every season ends in a knockout (`find_shape_refusal` refuses rules drawing none), so the Finale's matchday places
     it, and every bracket the rules admit plays a match for third place: it is decided once all four places are in, a
     played final beside an unplayed match for third place still running. A place decided once its club had left is
     vacant, its side `None`, and still a place in.
@@ -353,11 +353,12 @@ def _numbers_refusal(proposed: FLSaisonRules) -> FieldFault | None:
 
 
 def workable_shapes(rules: FLSaisonRules) -> list[FLSpielplanShape]:
-    """Every shape these rules' others admit, each judged by `find_rules_refusal` as a create judges rules.
+    """Every shape these rules' others admit, each judged as a create judges rules.
 
     So the rules form offers exactly the shapes the write admits, the bracket's sizes among them, rather than a copy of
-    the rules. A product the knockout ladder cannot halve to a final is skipped unjudged, the bracket rule refusing it on
-    every season; the occupancy and the span are the season's state, judged on the save itself.
+    the rules. A product the knockout ladder cannot halve to a final is skipped unjudged, as `find_shape_refusal`'s
+    bracket rule refuses it on every create, and every other shape is judged by `find_rules_refusal`. The occupancy and
+    the span are the season's state, judged on the save itself.
     """
 
     shapes: list[FLSpielplanShape] = []
