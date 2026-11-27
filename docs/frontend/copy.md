@@ -160,13 +160,9 @@ Each pattern is an entry of `COPY.shared`; what the entry cannot say is when it 
   shows no box for, takes the status line: one short sentence that fits its two lines on a phone,
   naming its field where it has one. A field phrase never stands on the status line, since it has no
   subject there, so a code that reaches a screen without its box keeps a sentence in
-  `SERVER_COPY.refusalLine` beside its phrase: the re-send of an address change, the adoption of a
-  proposed date, which answers the save's faults from an Übersicht row, the gates of a club's
-  proposal, which judge the fixture rather than the proposed day and hour, a line-up's refusal of a
-  nominee, which names the list no box carries, a squad row's return, whose role holds no box, a
-  handover, and an erasure or an address change whose address a path names. A fault with neither
-  reads `failure.stale` on the status line, beside the boxes its refusal's other faults mark. A
-  catalogue sentence states the fact and never why it holds or how to repair it.
+  `SERVER_COPY.refusalLine` beside its phrase. A fault with neither reads `failure.stale` on the
+  status line, beside the boxes its refusal's other faults mark. A catalogue sentence states the
+  fact and never why it holds or how to repair it.
 - **Every other refusal takes a `failure` line.** `stale` answers every refusal of the request the
   catalogue does not word, since the page read again shows the record as it stands. `signInExpired`
   answers an ended sign-in, and `tooManyAttempts` every limit on tries, whatever it counts.
