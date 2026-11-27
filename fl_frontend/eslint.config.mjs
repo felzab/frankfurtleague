@@ -1225,12 +1225,19 @@ const DESIGN_BANS = [
     { only: CATALOGUE_FILES },
   ),
   // A field's message is `COPY.shared.field`'s patterns. An article may stand inside a phrase, as in „Auf der
-  // Sperrliste“, never at its start, where it would open a sentence: so a template is judged by its first part alone.
+  // Sperrliste“, never at its start, where it would open a sentence: so only the text an entry holds or returns is
+  // judged, a template by its first part, and never a string inside it, a choice's branch or a call's argument.
   syntaxBan(
     syntax(
       [
         `Property[key.name="field"] ${inLiteral(String.raw`\.$|^.{81,}$`)}`,
-        `Property[key.name="field"] :matches(Literal[value=/${LEADING_ARTICLE}/], TemplateLiteral > TemplateElement:first-child[value.raw=/${LEADING_ARTICLE}/])`,
+        ...[
+          'Property[key.name="field"] > ObjectExpression > Property',
+          'Property[key.name="field"] > ObjectExpression > Property > ArrowFunctionExpression',
+        ].flatMap((entry) => [
+          `${entry} > Literal[value=/${LEADING_ARTICLE}/]`,
+          `${entry} > TemplateLiteral > TemplateElement:first-child[value.raw=/${LEADING_ARTICLE}/]`,
+        ]),
       ].join(", "),
       "A field's message is one pattern phrase: no full stop, no leading article, at most 80 characters.",
     ),
