@@ -188,7 +188,8 @@ export const COPY = catalogue({
       cityDefault: "Frankfurt am Main",
       postcodeExample: "60438",
       houseNumberExample: "12a",
-      streetWithHouseNumber: (street: string, houseNumber: string) => `${street} ${houseNumber}`,
+      // A venue or a school without a house number stores it blank, which leaves no space before the line's comma.
+      streetWithHouseNumber: (street: string, houseNumber: string) => (houseNumber === "" ? street : `${street} ${houseNumber}`),
       addressLine: (street: Copy, postcode: string, city: string) => `${street}, ${postcode} ${city}`,
     },
 
