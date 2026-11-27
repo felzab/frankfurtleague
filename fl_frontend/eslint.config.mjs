@@ -41,6 +41,22 @@ function kindOf(path) {
   return path.endsWith(".tsx") ? "page" : "module";
 }
 
+/**
+ * The files of Next's conventions that Next reads a default export from, wherever the app's folder holds them: those
+ * the app holds, since the config refuses a name matching no file. A convention the app takes up joins the list.
+ */
+const NEXT_DEFAULT_EXPORTS = [
+  "page.tsx",
+  "layout.tsx",
+  "default.tsx",
+  "error.tsx",
+  "global-error.tsx",
+  "not-found.tsx",
+  "sitemap.ts",
+  "robots.ts",
+  "manifest.ts",
+].map((file) => `src/app/**/${file}`);
+
 /** A route's loading file, Next's own boundary around a segment, which no route may hold. */
 const LOADING_FILES = ["src/app/**/loading.{ts,tsx}"];
 const isLoadingFile = (path) => /^src\/app\/(?:.*\/)?loading\.tsx?$/.test(path);
@@ -1095,6 +1111,22 @@ const DESIGN_BANS = [
       "A module exports each part at its declaration: import another module's part from the module declaring it, where every ban naming that module reads it.",
     ),
     PRODUCTION,
+  ),
+  // A declaration naming another module's part under a name of its own is a re-export all the same. Outside the kit a
+  // page may hand on a value a Next convention asks for by name, as the not-found page's `metadata` is the shared one.
+  syntaxBan(
+    syntax(
+      'ExportNamedDeclaration > VariableDeclaration > VariableDeclarator[init.type="Identifier"]',
+      "A module exports each part at its declaration: a part of another module is imported from the module declaring it.",
+    ),
+    KIT,
+  ),
+  // A default export only where Next asks a file for one: anywhere else it imports under any name, so a ban naming
+  // the part never reads it.
+  syntaxBan(
+    syntax("ExportDefaultDeclaration", "A module exports each part under its own name: a default export is a Next file's alone."),
+    PRODUCTION,
+    { allow: NEXT_DEFAULT_EXPORTS },
   ),
   syntaxBan(
     syntax('JSXAttribute[name.name="role"][value.value="alertdialog"]', "A question before an irreversible act is the kit's `ConfirmDialog`."),
