@@ -26,14 +26,31 @@ export function useFieldFaults(): FieldFaults | undefined {
 }
 
 /**
+ * What a part holding no box takes while its fault stands, such as a list refused as a whole: the focus the form's
+ * report hands it where the answer names no box, at `tabIndex` -1, which the keys never reach, and the kit's resting
+ * focus mark, as a section's title takes the focus once nothing in it is left (`FocusOnLeave`). A screen reader then
+ * reads the part's name and the fault its `aria-describedby` names.
+ */
+export const FAULTED_PART = { "data-kit-faulted": "", "data-kit-focus": "", tabIndex: -1 } as const;
+
+/** Whether `control` is a box the answer names: one a kit field posts under, whose fault React Aria judges. */
+const isNamedIn = (faults: FieldFaults, control: Element): control is HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement =>
+  (control instanceof HTMLInputElement || control instanceof HTMLSelectElement || control instanceof HTMLTextAreaElement) &&
+  Object.hasOwn(faults, control.name);
+
+/**
  * The one judged form of the site: every form a person sends is this one, a dialog's included. Both passes end alike.
  * The browser's pass judges every box on the press and shows every fault at once, the send held back while one stands
  * (`onBlock`). The server's pass answers `fieldErrors`, each fault by its box's `name`, which React Aria's
  * `validationErrors` puts on the box (`useFormValidationState`). Either way the focus goes to the first faulted box:
- * once an answer's faults have committed, the form asks the browser's report itself, whose `invalid` event React
- * Aria's every field answers by focusing the first invalid one through the field's own `focus` (`useFormValidation`),
- * a date's segments, a select's button and a choice group included. That report stands for no press, so it tells
- * `onBlock` nothing: the status line says what the answer says.
+ * once an answer's faults have committed, the form checks each box the answer names, whose `invalid` event React
+ * Aria's field answers by focusing the form's first invalid box through the field's own `focus` (`useFormValidation`),
+ * a date's segments, a select's button and a choice group included; where no named box is invalid, as a list's own
+ * refusal names none, the first part showing a fault takes it (`FAULTED_PART`). That check stands for no press, so it tells
+ * `onBlock` nothing: the status line says what the answer says. It reaches no other box, since React Aria commits the
+ * fault of every box an `invalid` event reaches: a box the person changed while the send was on its way is judged
+ * once they commit it, and one they left invalid ahead of the named boxes keeps the focus, as React Aria focuses the
+ * form's first invalid box alone.
  *
  * A press hands `onSend` the fields as it left them, unless `isBusy`: a busy submit button takes no press, but Enter in
  * a lone field submits a form all the same, and a second send mid-flight would act twice. A hydrated press stays on
@@ -74,14 +91,20 @@ export function HeldForm({
   const element = useObjectRef(ref);
   const isHeld = useRef(false);
   const isReporting = useRef(false);
+  // The answer last reported. A ref outlives an `Activity`, which re-creates this effect each time it shows the form
+  // again, as Next shows a page the person comes back to: an answer already reported never takes the focus again.
+  const reported = useRef<FieldFaults | undefined>(undefined);
   // A parent's effects run after its children's: each field has set its fault as its validity in a layout effect, and
   // attached its `invalid` listener in a passive one, which a form opening on its faults, as a reopened card does, has
   // only once its own passive effects run.
   useEffect(() => {
-    if (fieldErrors === undefined || Object.keys(fieldErrors).length === 0) return;
+    const form = element.current;
+    if (form === null || fieldErrors === undefined || fieldErrors === reported.current) return;
+    reported.current = fieldErrors;
     isReporting.current = true;
     try {
-      element.current?.reportValidity();
+      const valid = [...form.elements].filter((control) => isNamedIn(fieldErrors, control)).map((control) => control.checkValidity());
+      if (!valid.includes(false)) form.querySelector<HTMLElement>("[data-kit-faulted]")?.focus();
     } finally {
       isReporting.current = false;
     }

@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cloneElement, useLayoutEffect, useState } from "react";
+import { Activity, cloneElement, useLayoutEffect, useState } from "react";
 
 import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -31,6 +31,7 @@ import { useFormAction } from "./useFormAction";
 import type { ActionAnswer } from "@/core/action";
 import type { Copy } from "@/core/copy";
 import type { ReactElement } from "react";
+import type { FieldFaults } from "./HeldForm";
 import type { EditorSave } from "./useEditor";
 
 /** A page as it stands at an editor's address, under Next's router, in the server's markup and in the browser alike. */
@@ -144,6 +145,7 @@ const FIELDS: [string, ReactElement][] = [
     <Segmented
       key="segmented"
       label={WORD}
+      name="segmented"
       choices={YES_NO}
     />,
   ],
@@ -152,6 +154,7 @@ const FIELDS: [string, ReactElement][] = [
     <ToggleBoxes
       key="boxes"
       label={WORD}
+      name="boxes"
       choices={YES_NO}
     />,
   ],
@@ -280,12 +283,14 @@ describe("a faulted box after either pass", () => {
       );
       await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.save }));
 
-      rerender(
-        <Faulted
-          box={box(false)}
-          fieldErrors={{ faulted: FAULT }}
-          onBlock={blocked}
-        />,
+      await act(async () =>
+        rerender(
+          <Faulted
+            box={box(false)}
+            fieldErrors={{ faulted: FAULT }}
+            onBlock={blocked}
+          />,
+        ),
       );
 
       expect(document.activeElement).toBe(focused(container));
@@ -293,6 +298,72 @@ describe("a faulted box after either pass", () => {
       expect(blocked).not.toHaveBeenCalled();
     },
   );
+
+  // The harm: a person still typing into a box as the answer lands sees that box judged mid-word, where a typed box is
+  // judged once committed.
+  it("judges no box the answer does not name, and leaves the focus in a box being typed into ahead of the named one", async () => {
+    const form = (fieldErrors?: FieldFaults) => (
+      <HeldForm
+        fieldErrors={fieldErrors}
+        isBusy={false}
+        onSend={() => undefined}>
+        <TextField
+          label={WORD}
+          name="typed"
+          kind="text"
+          isRequired
+          defaultValue={ADDRESS}
+        />
+        <TextField
+          label={COPY.shared.name}
+          name="faulted"
+          kind="text"
+        />
+        <button type="submit">{COPY.shared.verb.save}</button>
+      </HeldForm>
+    );
+    const { container, rerender } = render(form());
+    await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.save }));
+    const typed = screen.getByRole("textbox", { name: WORD });
+    // Emptied while the send is on its way, and not yet committed, as the focus stays in it.
+    await userEvent.clear(typed);
+
+    rerender(form({ faulted: FAULT }));
+
+    expect(container.textContent).toContain(FAULT);
+    expect(container.textContent).not.toContain(COPY.shared.field.required);
+    expect(document.activeElement).toBe(typed);
+  });
+
+  // The harm: a person who follows a link from a refused form and comes back, Next showing the page it kept hidden, is
+  // pulled to the box refused before, and a screen reader reads that box rather than the page.
+  it("leaves the focus where it stands when its form shows again on an answer already reported", async () => {
+    const answer = { faulted: FAULT };
+    const page = (mode: "visible" | "hidden") => (
+      <>
+        <button type="button">{COPY.shared.back}</button>
+        <Activity mode={mode}>
+          <Faulted
+            box={
+              <TextField
+                label={WORD}
+                name="faulted"
+                kind="text"
+              />
+            }
+            fieldErrors={answer}
+          />
+        </Activity>
+      </>
+    );
+    const { rerender } = render(page("visible"));
+    const elsewhere = screen.getByRole("button", { name: COPY.shared.back });
+    act(() => elsewhere.focus());
+
+    for (const mode of ["hidden", "visible"] as const) await act(async () => rerender(page(mode)));
+
+    expect(document.activeElement).toBe(elsewhere);
+  });
 });
 
 /** The press of a submit button, or of Enter, before any of the page's code runs. */

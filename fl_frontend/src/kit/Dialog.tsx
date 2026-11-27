@@ -27,7 +27,7 @@ import { usePasskeyTouch } from "./usePasskeyTouch";
 
 import type { ActionAnswer } from "@/core/action";
 import type { Copy } from "@/core/copy";
-import type { ReactElement, ReactNode, RefObject } from "react";
+import type { ReactElement, ReactNode } from "react";
 import type { Tone, Trigger } from "./ConfirmDialog";
 import type { DialogAct, DialogDanger } from "./dialogAct";
 import type { HeldOpen } from "./useOpenUntilHidden";
@@ -161,27 +161,29 @@ function DangerRow({ danger, isClosed, onDone }: { danger: DialogDanger; isClose
   );
 }
 
-/** The controls a dialog's done act hands the focus to, in order: the first standing one that takes it. */
+/** The controls a dialog's leaving hands the focus to, in order: the first standing one that takes it. */
 type ReturnTargets = () => ReadonlyArray<HTMLElement | null | undefined>;
 
 /**
- * Where the focus goes once a done act closes a dialog the provider holds: the control that opened it, as its holder
- * names it, such as a row's „⋯“ for a dialog its menu's entry opened. The holder states it rather than leaving it to
- * React Aria's restore, which misses a touched dialog: its `FocusScope` keeps the element focused at its first render,
- * a menu's entry already gone, and the step aside's `Activity` writes that back on showing again (react-aria 3.53.1,
- * `dist/private/focus/FocusScope.mjs`, lines 442 and 523).
+ * Where the focus goes once a dialog the provider holds leaves, however it leaves: the control that opened it, as its
+ * holder names it, such as a row's „⋯“ for a dialog its menu's entry opened. The holder states it rather than leaving
+ * it to React Aria's restore, which misses a touched dialog: its `FocusScope` keeps the element focused at its first
+ * render, a menu's entry already gone, and the step aside's `Activity` writes that back on showing again (react-aria
+ * 3.53.1, `dist/private/focus/FocusScope.mjs`, lines 442 and 523), so after a touch every way out, Escape and
+ * „Zurück“ included, would leave the focus on the page's body.
  */
 export const DialogReturn = createContext<ReturnTargets | null>(null);
 
 /**
- * Hands the focus to the holder's control once the dialog leaves after a done act: in the frame after React Aria's own
- * restore, which runs first, as its scope stands outside this one. A step aside leaves too, and is no done act.
+ * Hands the focus to the holder's control once the dialog leaves: in the frame after React Aria's own restore, which
+ * runs first, as its scope stands outside this one. A step aside leaves too, and React Aria's own cleanup then restores
+ * to the same control, so the dialog standing again takes the focus back as it would without this.
  */
-function ReturnOnDone({ isDone }: { isDone: RefObject<boolean> }) {
+function ReturnOnLeave() {
   const targets = useContext(DialogReturn);
   useLayoutEffect(
     () => () => {
-      if (!isDone.current || targets === null) return;
+      if (targets === null) return;
       requestAnimationFrame(() => {
         for (const control of targets()) {
           if (control === null || control === undefined || !control.isConnected) continue;
@@ -190,7 +192,7 @@ function ReturnOnDone({ isDone }: { isDone: RefObject<boolean> }) {
         }
       });
     },
-    [isDone, targets],
+    [targets],
   );
   return null;
 }
@@ -241,18 +243,12 @@ function ActDialog({
   isAside: boolean;
 }) {
   const close = () => opened.onOpenChange(false);
-  // A done act, its own or the danger row's, closes the dialog; any other leaving keeps React Aria's restore.
-  const isDone = useRef(false);
-  const closeDone = () => {
-    isDone.current = true;
-    close();
-  };
   const { answer, submit, block, isBlocked, isPending } = useFormAction(
     async (formData: FormData) => {
       const answered = await run(formData);
       if (answered.ok) {
         // A form's action runs in a transition, and an update after its `await` commits outside it.
-        startTransition(closeDone);
+        startTransition(close);
         toastAnswer(answered, done);
       }
       return answered;
@@ -292,7 +288,7 @@ function ActDialog({
       isOpen={opened.isOpen}
       onOpenChange={(isOpen) => (isOpen ? opened.onOpenChange(true) : leave())}>
       <AriaDialog data-kit-focus>
-        <ReturnOnDone isDone={isDone} />
+        <ReturnOnLeave />
         {/* A dialog opened from inside another form, such as an editor's section, is a form of its own: React Aria's
             `Form` would otherwise take the outer form's props from its context, the outer submit handler among them. */}
         <FormContext value={null}>
@@ -320,7 +316,7 @@ function ActDialog({
               <DangerRow
                 danger={danger}
                 isClosed={isPending}
-                onDone={closeDone}
+                onDone={close}
               />
             )}
             {consequence !== undefined && <p className="text-sm text-fg-muted">{consequence}</p>}
