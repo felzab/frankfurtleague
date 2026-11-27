@@ -29,3 +29,8 @@ Each fails silently. The ratified decisions for this surface are in `docs/decisi
   the same way: its file counts the documents lacking the key, writes the default's value into each,
   and counts again to 0. Where no value for it can be written, the file counts them and stops before
   its first write unless it finds none.
+- Hand a judge's independent field checks to one `refuse_faults` call
+  (`fl_backend/app/core/crud.py`), never one call each: a second call holding a check that means
+  something alone is asked only once the first found nothing, so the answer names the first box at
+  fault and the person meets the next on a later press. pyright refuses a field check sent through
+  `refuse` and ruff a fault raised any other way, but neither sees two calls where one belongs.
