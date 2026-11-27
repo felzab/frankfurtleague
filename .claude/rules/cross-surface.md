@@ -37,13 +37,15 @@ Each fails silently. The ratified decisions for the seams are in `docs/decisions
   after it offers the act; and the page that sent it, read again, shows the end. A writer leaving it
   there names in its report every page that offers the act, each with the line of its source that
   hides the act once the end holds.
-- A bound the backend moves without naming it in the rule's context, a `FieldFault`'s bounds or a
-  gate's `Subject`, which is no fault (each in `fl_backend/app/core/exceptions.py`), leaves a
-  frontend line stale in silence. A form that checks a bound itself before sending reads it, on the
-  server, from the generated zod schema of the body's field and is handed it, since that module is
-  server-only; or, for a constant the frontend states, through a `Literal` alias in
-  `fl_backend/app/main.py :: MIRRORED_CONSTANTS` that the constant `satisfies`; a bound typed into
-  the frontend any other way fails no check when the backend moves it.
+- A bound the backend moves without naming it where its check answers leaves a frontend line stale
+  in silence: a box's bound on its `FieldFault`, a path gate's on its `Subject`, which is no fault
+  (each in `fl_backend/app/core/exceptions.py`), a validator's in the rule's context; and the phrase
+  or sentence wording it reads the bound it is handed rather than stating its own. A form that
+  checks a bound itself before sending reads it, on the server, from the generated zod schema of the
+  body's field and is handed it, since that module is server-only; or, for a constant the frontend
+  states, through a `Literal` alias in `fl_backend/app/main.py :: MIRRORED_CONSTANTS` that the
+  constant `satisfies`; a bound typed into the frontend any other way fails no check when the
+  backend moves it.
 - `fl_backend/openapi.json` lists every code once and names none per endpoint, so which codes an
   endpoint answers is read from the service that raises them.
 - A test invents an address, a site or a telephone number only from values set aside for it: a

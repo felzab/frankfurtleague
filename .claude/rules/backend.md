@@ -35,12 +35,19 @@ Each fails silently. The ratified decisions for this surface are in `docs/decisi
   comment above it naming the check. Then it hands its independent field checks to one
   `refuse_faults` call, never one call each: a second call holding a check that means something
   alone is asked only once the first found nothing, so the answer names the first box at fault and
-  the person meets the next on a later press. A check that means nothing once another failed waits
-  in a later call, with a comment above it naming the check it waits on. A value a person typed is
-  judged on its box by a `FieldFault` check, never by calling a gate that
-  `fl_backend/tests/core/test_gate_refusals.py :: ALLOWED` lists: each listed gate stands only where
-  its reason does, as for an address read from a path. pyright refuses a `FieldFault` sent through
-  `refuse` or raised bare, and an assignment to a refusal's `faults`; ruff refuses an import of
-  `FieldRefusal` outside `crud.py`; and the sweep refuses a gate built with a `FieldCode` member or
-  a body-located `Subject` outside the sites it lists. None of them sees two calls where one
-  belongs, a missing comment, a gate asked in the wrong order, or a new caller of a listed gate.
+  the person meets the next on a later press. A check that means nothing once another failed sits in
+  the same call behind a guard on that check (`None if base else find_…(…)`, `base` the other
+  check's answer, read first), so one answer still names every box at fault. A helper that reads for
+  a check returns its `FieldCheck` for its caller's one call rather than raising its own. A value a
+  person typed is judged on its box by a `FieldFault` check under a `FieldCode` member, never by a
+  gate, and never by calling a gate that `fl_backend/tests/core/test_gate_refusals.py :: ALLOWED`
+  lists: each listed gate stands only where its reason does, as for an address read from a path, and
+  an entry is added only with the reason a reviewer can check. A judge a change touches is brought
+  to this order in the same change.
+- What holds the refusal order: pyright refuses a `FieldFault` sent through `refuse` or raised bare,
+  and an assignment to a refusal's `faults`; ruff refuses an import of `FieldRefusal` in the
+  application outside `crud.py`; the sweep refuses a gate built by calling an imported `APIError` or
+  `Subject` with a `FieldCode` member or a body-located `Subject` outside the sites it lists.
+  Nothing sees two calls where one belongs, a missing guard, a gate asked in the wrong order, a new
+  caller of a listed gate, a box's check written as a gate under a code outside `FieldCode`, a gate
+  built through a subclass or a module attribute, or a subclass overriding `faults`.
