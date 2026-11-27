@@ -87,10 +87,10 @@ export function Tabs({
               className="shrink-0">
               <NavigationLink
                 href={hrefOf(entry.id)}
-                aria-current={entry.id === chosen ? "page" : undefined}
+                place={{ list: "tabs", current: entry.id === chosen }}
                 data-kit-focus="inset"
                 className={tab({
-                  class: `text-fg-muted transition-colors duration-(--motion-state) ${hoverLook({ host: "link", answer: "full" })} aria-[current=page]:border-brand aria-[current=page]:text-fg`,
+                  class: `text-fg-muted transition-colors duration-(--motion-state) ${hoverLook({ host: "link", answer: "full" })}`,
                 })}>
                 {entry.label}
               </NavigationLink>
