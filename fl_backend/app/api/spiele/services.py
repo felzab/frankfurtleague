@@ -60,7 +60,7 @@ from app.core.clock import days_after
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.crud import refuse
-from app.core.exceptions import APIError, FieldFault, FieldPath
+from app.core.exceptions import APIError, Bound, FieldFault, FieldPath
 from app.shared.einwilligung import NAME_IS_PUBLIC
 from app.shared.schemas.custom import CustomObjectId
 from app.shared.schemas.literals import FLGruppenNames, FLSonderereignis, FLSpielSide
@@ -1220,7 +1220,7 @@ def days_a_clash_can_reach(day: str) -> list[str]:
 
 
 def find_spiel_date_refusal(*, date: str | None, spieltag_start: str | None, spieltag_end: str | None) -> FieldFault | None:
-    """Why this fixture's date must be refused, or `None`.
+    """Why this fixture's date must be refused, or `None`, bounded by the side of the matchday's span it falls past.
 
     An undated fixture contradicts no span, and an undated matchday states none to contradict: a
     drawn season carries both until somebody sets them, and neither absence is a disagreement.
@@ -1232,7 +1232,9 @@ def find_spiel_date_refusal(*, date: str | None, spieltag_start: str | None, spi
     if spieltag_start <= date <= spieltag_end:
         return None
 
-    return FieldFault(path=("date",), code=Code.SPIEL_OUTSIDE_SPIELTAG, status=HTTPStatus.CONFLICT)
+    bounds: dict[str, Bound] = {"earliest": spieltag_start} if date < spieltag_start else {"latest": spieltag_end}
+
+    return FieldFault(path=("date",), code=Code.SPIEL_OUTSIDE_SPIELTAG, status=HTTPStatus.CONFLICT, bounds=bounds)
 
 
 # A fixture whose referee block carries the record's id: never `FLSpielJoined`, whose block withholds it.

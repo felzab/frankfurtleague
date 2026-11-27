@@ -39,7 +39,7 @@ from app.api.spiele.schemas import FLPatchSpielDataPayload
 from app.core import clock
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.exceptions import APIError
+from app.core.exceptions import APIError, Subject
 from app.shared.schemas.literals import KONTAKT_SEATS
 from tests import documents
 from tests.acts import acts_of
@@ -617,21 +617,33 @@ class TestTheAdoption:
         assert await on_a_spiel(mongo_replica_set_url, body) == (Code.ANSETZUNG_NOT_ACTIONABLE, (DATE, TIME))
 
     @pytest.mark.parametrize(
-        ("since", "today", "code", "fields"),
+        ("since", "today", "code", "subject"),
         [
             # The proposed day passing between the club's press and the administrator's.
-            pytest.param(None, "2126-05-16", Code.ANSETZUNG_VORSCHLAG_PAST, (("vorschlag", "date"),), id="the-proposed-day-gone-by"),
-            # The save's own refusal of the proposed day.
-            pytest.param(narrow_the_matchday, TODAY, Code.SPIEL_OUTSIDE_SPIELTAG, (("date",),), id="the-save-refusing-the-day"),
+            pytest.param(
+                None,
+                "2126-05-16",
+                Code.ANSETZUNG_VORSCHLAG_PAST,
+                Subject(path=("vorschlag", "date"), location="body", bounds={"earliest": "2126-05-16"}),
+                id="the-proposed-day-gone-by",
+            ),
+            # The save's own refusal of the proposed day, past the narrowed matchday's end.
+            pytest.param(
+                narrow_the_matchday,
+                TODAY,
+                Code.SPIEL_OUTSIDE_SPIELTAG,
+                Subject(path=("date",), location="body", bounds={"latest": "2126-05-14"}),
+                id="the-save-refusing-the-day",
+            ),
         ],
     )
-    async def test_a_refused_adoption_keeps_the_path_its_judge_named_and_leaves_the_spiel_where_it_stands(
+    async def test_a_refused_adoption_keeps_the_path_and_bounds_its_judge_named_and_leaves_the_spiel_where_it_stands(
         self,
         mongo_replica_set_url: str,
         since: Callable[[AsyncDatabase], Awaitable[None]] | None,
         today: str,
         code: Code,
-        fields: tuple[tuple[str, ...], ...],
+        subject: Subject,
     ):
         """Moved anyway, the fixture lands on a day gone by or outside its matchday.
 
@@ -652,11 +664,7 @@ class TestTheAdoption:
 
         refusal, slot = await on_a_spiel(mongo_replica_set_url, body)
 
-        assert (refusal.status_code, refusal.error_code, None if refusal.subject is None else (refusal.subject.path,)) == (
-            HTTPStatus.CONFLICT,
-            code,
-            fields,
-        )
+        assert (refusal.status_code, refusal.error_code, refusal.subject) == (HTTPStatus.CONFLICT, code, subject)
         assert slot == (DATE, TIME)
 
 

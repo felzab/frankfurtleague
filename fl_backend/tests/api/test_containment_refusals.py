@@ -46,12 +46,16 @@ SAISON_RULES = FLSaisonRules(
 
 
 class TestASpielSitsInsideItsMatchday:
-    @pytest.mark.parametrize("date", ["2026-03-06", "2026-03-20"])
-    def test_a_date_outside_is_refused(self, date):
+    @pytest.mark.parametrize(
+        ("date", "bounds"), [("2026-03-06", {"earliest": "2026-03-07"}), ("2026-03-20", {"latest": "2026-03-08"})], ids=["before", "after"]
+    )
+    def test_a_date_outside_is_refused_naming_the_side_it_falls_past(self, date, bounds):
+        """Without the side's bound the date box cannot say which day it must keep to."""
+
         refusal = find_spiel_date_refusal(date=date, spieltag_start="2026-03-07", spieltag_end="2026-03-08")
 
         assert refusal is not None
-        assert (refusal.code, refusal.path) == (Code.SPIEL_OUTSIDE_SPIELTAG, ("date",))
+        assert (refusal.code, refusal.path, refusal.bounds) == (Code.SPIEL_OUTSIDE_SPIELTAG, ("date",), bounds)
 
 
 class TestAMatchdaySitsInsideItsSeason:

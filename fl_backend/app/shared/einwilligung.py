@@ -54,11 +54,12 @@ def media_offered(*, birth_date: Any, today: str) -> bool:
 def find_self_media_refusal(*, saved: Any, media: bool, birth_date: Any, today: str) -> FieldFault | None:
     """Why a media consent moving to `true` is refused, judged on the birthdate the write leaves.
 
-    Only a move off the stored block is judged, so a resent `true` never blocks the other switch.
+    Only a move off the stored block is judged, so a resent `true` never blocks the other switch. `min` is the age the
+    consent opens at, which the switch's phrase names.
     """
 
     state_given = isinstance(saved, Mapping) and is_given("media", saved.get("media"))
     if not media or state_given or media_offered(birth_date=birth_date, today=today):
         return None
 
-    return FieldFault(path=("media",), code=Code.MEDIA_AGE, status=HTTPStatus.UNPROCESSABLE_CONTENT)
+    return FieldFault(path=("media",), code=Code.MEDIA_AGE, status=HTTPStatus.UNPROCESSABLE_CONTENT, bounds={"min": MEDIA_MIN_AGE_YEARS})

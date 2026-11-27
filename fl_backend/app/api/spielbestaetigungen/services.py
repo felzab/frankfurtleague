@@ -423,10 +423,14 @@ def find_unanswerable_refusal(*, spielbestaetigung_raw: Mapping[str, Any], anset
 
 
 def find_vorschlag_past_refusal(*, vorschlag: FLSpielbestaetigungAppointment, today: str) -> FieldFault | None:
+    """`ansetzung_vorschlag_past`: the proposed day has gone by; `earliest` is today, the first day a proposal may name."""
+
     if vorschlag.date >= today:
         return None
 
-    return FieldFault(path=("vorschlag", "date"), code=Code.ANSETZUNG_VORSCHLAG_PAST, status=HTTPStatus.UNPROCESSABLE_CONTENT)
+    return FieldFault(
+        path=("vorschlag", "date"), code=Code.ANSETZUNG_VORSCHLAG_PAST, status=HTTPStatus.UNPROCESSABLE_CONTENT, bounds={"earliest": today}
+    )
 
 
 def find_vorschlag_unchanged_refusal(*, vorschlag: FLSpielbestaetigungAppointment, spiel: FLSpiel) -> tuple[FieldFault, ...]:
