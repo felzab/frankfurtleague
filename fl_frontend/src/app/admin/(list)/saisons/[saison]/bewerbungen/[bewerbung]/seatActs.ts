@@ -4,28 +4,26 @@ import { z } from "zod";
 
 import { action, numberBox, PAGE_HOLDER } from "@/core/action";
 import { ADMIN_COPY } from "@/core/copy/admin";
+import { COPY } from "@/core/copy/shared";
 import { bewerbungenPostKontaktSeat, bewerbungenResendKontaktConfirmation } from "@/core/generated/client/sdk";
 import {
   BewerbungenPostKontaktSeatBody,
   BewerbungenPostKontaktSeatParams,
   BewerbungenResendKontaktConfirmationParams,
 } from "@/core/generated/zod/inputs";
-import { SERVER_COPY } from "@/core/serverCopy";
 
 const { shape } = BewerbungenPostKontaktSeatBody;
 
-const CLOSED = SERVER_COPY.closedDialog;
-
 /**
- * „Sitz bearbeiten“, behind the passkey touch: writes the person into the seat on the version the page read, whatever
- * its state but an erased one, and owes them a fresh link with that seat's own 14 days, the toast naming the address the
- * write stored. The dialog has closed before any answer, so every refusal is a sentence (`boxless`): an address or a
- * number another person of the application holds names its box, and a finished season's application, which takes no
- * write, says so.
+ * „Sitz bearbeiten“, behind its dry run and the passkey touch: writes the person into the seat on the version the page
+ * read, whatever its state but an erased one, and owes them a fresh link with that seat's own 14 days, the toast naming
+ * the address the write stored. An address or a number another person of the application holds is refused on its box,
+ * and a finished season's application, which takes no write, on the line, each by the dry run before the touch.
  */
 export const writeBewerbungSeat = action({
   lane: "admin",
   passkey: true,
+  dryRun: true,
   name: "writeBewerbungSeat",
   input: z.object({
     id: BewerbungenPostKontaktSeatParams.shape.bewerbung_id,
@@ -37,16 +35,19 @@ export const writeBewerbungSeat = action({
     version: numberBox(shape.version),
     ...PAGE_HOLDER,
   }),
-  boxless: {
-    first_name: { required: CLOSED.firstNameMissing, value: CLOSED.format.firstName },
-    last_name: { required: CLOSED.lastNameMissing, value: CLOSED.format.lastName },
-    email: { value: CLOSED.format.address, email_not_accepted: CLOSED.format.address, kontakt_email_taken: CLOSED.taken.address },
-    phone: { value: CLOSED.format.phone, kontakt_phone_taken: CLOSED.taken.phone },
+  boxes: ["first_name", "last_name", "email", "phone"],
+  examples: {
+    first_name: COPY.shared.field.exampleFirstName,
+    last_name: COPY.shared.field.exampleLastName,
+    email: COPY.shared.field.exampleAddress,
+    phone: COPY.shared.field.examplePhone,
   },
   // The holder is the touch's to judge, and no field of the seat's body.
-  run: async ({ id, seat, holder: _holder, ...person }) => {
-    const { email } = await bewerbungenPostKontaktSeat(id, seat, person);
-    return { ok: true, value: undefined, note: ADMIN_COPY.schiedsrichter.sentTo(email) };
+  run: async ({ id, seat, holder: _holder, ...person }, { dryRun }) => {
+    const written = await bewerbungenPostKontaktSeat(id, seat, person, { dry_run: dryRun });
+    // A passing dry run answers 204, which the client reads as no body: nothing was written to name.
+    if (!written) return { ok: true, value: undefined };
+    return { ok: true, value: undefined, note: ADMIN_COPY.schiedsrichter.sentTo(written.email) };
   },
 });
 

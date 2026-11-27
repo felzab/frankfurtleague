@@ -94,8 +94,10 @@ describe("each form's posted names meet its lane's keys", () => {
     everyBoxTyped(names, typed);
     takes(["POST", "/schiedsrichter", { created_id: ID, confirmation: { email: "erika@example.org" } }]);
 
-    // The note names the mailbox the link went to, in wording from a catalogue this core test may not import.
-    expect(await createSchiedsrichter(formOf(names, typed))).toStrictEqual({
+    // The dialog is behind the passkey touch, which posts the page's holder beside its boxes (`Dialog`'s `touch`). The
+    // note names the mailbox the link went to, in wording from a catalogue this core test may not import.
+    const touched = formOf([...names, "holder"], { ...typed, holder: ADMIN_EMAIL });
+    expect(await createSchiedsrichter(touched)).toStrictEqual({
       ok: true,
       value: undefined,
       note: expect.stringContaining("erika@example.org") as unknown,

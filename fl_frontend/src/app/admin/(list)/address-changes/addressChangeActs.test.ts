@@ -34,12 +34,14 @@ const requestsSent = () => backend.sent.map(({ method, path }) => `${method} ${p
 // The sign-in store is this server's and the backend cannot read it: a change confirmed onto such an address leaves the
 // administrator's passkeys behind on the old account, and nothing fails.
 describe("a start, an account standing at the new address", () => {
-  // The harm: the start's dialog has closed before its answer, so a box's phrase would reach its toast as the pointer at
-  // fields nobody sees.
-  it("is refused in a sentence naming the new address, and nothing is posted", async () => {
+  // The harm: a dry run passing it would spend the touch on a start the write then refuses.
+  it.each([
+    ["the start", false],
+    ["its dry run", true],
+  ])("is refused for %s in a sentence naming the new address, and nothing is posted", async (_press, dryRun) => {
     accountAt(NEW_ADDRESS);
 
-    expect(await startLostMailboxChange(START)).toStrictEqual({
+    expect(await startLostMailboxChange(START, dryRun)).toStrictEqual({
       ok: false,
       errorCode: "address_change_taken",
       reason: SERVER_COPY.refusalLine.address_change_taken,

@@ -17,10 +17,11 @@ const MAX_ID = "64c000000000000000000005";
 /** The sessions of the banned address's account the store held as the backend took the ban, one entry per ban posted. */
 const atThePost: number[] = [];
 
-// The backend takes the ban, and nothing else: any other request fails the case. It reads the store as the write
-// arrives, so a case sees whether the sessions were ended before the write stood.
-const backend = serveBackend(({ method, path }) => {
+// The backend takes the ban and its dry run, and nothing else: any other request fails the case. It reads the store as
+// the write arrives, so a case sees whether the sessions were ended before the write stood.
+const backend = serveBackend(({ method, path, search }) => {
   if (method !== "POST" || path !== "/ban_list") return undefined;
+  if (search.get("dry_run") === "true") return new Response(null, { status: 204 });
   atThePost.push(sessionsOfMax().length);
   return { created_id: "65a000000000000000000001" } satisfies FLCreatedResponse;
 });
@@ -69,7 +70,11 @@ async function storeFailsOnMax(operation: "findOne" | "update"): Promise<void> {
   });
 }
 
-const bansPosted = () => backend.sent.filter(({ method, path }) => method === "POST" && path === "/ban_list").map(({ body }) => body);
+/** The bans posted, as the write when `dry` is false and as its dry run when it is true. */
+const bansPosted = (dry = false) =>
+  backend.sent
+    .filter(({ method, path, search }) => method === "POST" && path === "/ban_list" && (search.get("dry_run") === "true") === dry)
+    .map(({ body }) => body);
 
 describe("a ban", () => {
   // No static check holds this: a ban that skipped it reads as done while the person stays signed in, for as long as
@@ -121,15 +126,27 @@ describe("a ban", () => {
       backend.answerWith(({ method, path }) => (method === "POST" && path === "/ban_list" ? refusal("duplicate_key") : undefined));
     };
 
-    // The harm: the dialog has closed before the answer, so a box's phrase would reach its toast as the pointer at
-    // fields nobody sees.
+    // The harm: the backend refuses it with no field, which unworded reads the stale-page line, and the page read again
+    // offers the same ban.
     it("is refused in a sentence of its own where nothing was left to end", async () => {
       answeredBanned();
       maxSignedInOn(0);
 
-      expect(await enterBan(BAN)).toStrictEqual({ ok: false, errorCode: "duplicate_key", reason: SERVER_COPY.closedDialog.banned });
+      expect(await enterBan(BAN)).toStrictEqual({ ok: false, errorCode: "duplicate_key", reason: SERVER_COPY.actAnswer.banned });
 
       // The ending still ran, stamping the account.
+      expect(maxStamped()).toBe(true);
+    });
+
+    // The harm: the dry run refuses a second ban before any touch, so a press of the write never comes, and the
+    // sessions a lost answer left running would run on.
+    it("ends the sessions at its dry run's refusal too", async () => {
+      answeredBanned();
+      maxSignedInOn(1);
+
+      expect(await enterBan(BAN, true)).toStrictEqual({ ok: false, errorCode: "duplicate_key", reason: SERVER_COPY.actAnswer.banned });
+
+      expect(sessionsOfMax()).toStrictEqual([]);
       expect(maxStamped()).toBe(true);
     });
 
@@ -145,13 +162,16 @@ describe("a ban", () => {
     });
   });
 
-  it.each([
-    ["an address of the wrong shape", { email: "max@example" }, SERVER_COPY.closedDialog.format.address],
-    ["a Grund of spaces", { ban_reason: "   " }, SERVER_COPY.closedDialog.reasonMissing],
-  ])("refuses %s in its box's sentence, the dialog having closed", async (_case, typed, reason) => {
-    expect(await enterBan({ ...BAN, ...typed })).toMatchObject({ ok: false, reason });
-    // A box the parse refuses posts nothing.
-    expect(bansPosted()).toHaveLength(0);
+  // The harm: the dry run stands before any touch, so an effect of the write's own run there would act untouched.
+  it("asks no account and ends no session on its dry run, which posts the ban as a dry run alone", async () => {
+    maxSignedInOn(1);
+    await storeFailsOnMax("findOne");
+
+    expect(await enterBan(BAN, true)).toStrictEqual({ ok: true, value: undefined });
+
+    expect(bansPosted(true)).toStrictEqual([{ email: ADDRESS, ban_reason: "Ein Grund", notify: false }]);
+    expect(bansPosted()).toStrictEqual([]);
+    expect(sessionsOfMax()).toHaveLength(1);
   });
 
   // A write the backend refused stands nowhere, so there is nothing for a sign-out to follow.

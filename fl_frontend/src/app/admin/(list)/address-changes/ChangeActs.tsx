@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
 
 import { COPY } from "@/core/copy/shared";
 import { discardChange } from "@/features/address-change/actions";
@@ -42,16 +42,13 @@ export function ChangeActs({
   const touched = usePasskeyTouch(true, holder);
   const resend = usePressAct(COPY.shared.toast.linkSent);
   const [isAsking, setAsking] = useState(false);
-  // The ending runs after its question closed, so its button or the row's „⋯“ shows it running.
-  const ending = useTransition();
-  const [isEnding] = ending;
 
   const send: SideAct = {
     label: COPY.shared.withObject(COPY.shared.link, "send"),
     isBusy: resend.isBusy,
     onPress: () => resend.press(() => touched(resendChangeLink)({ address_change_id: id, holder })),
   };
-  const end: SideAct = { label: COPY.shared.verb[verb], tone: "danger", isBusy: isEnding, onPress: () => setAsking(true) };
+  const end: SideAct = { label: COPY.shared.verb[verb], tone: "danger", onPress: () => setAsking(true) };
 
   return (
     <SideActs acts={resends ? [send, end] : [end]}>
@@ -66,7 +63,6 @@ export function ChangeActs({
         touch={{ holder }}
         onConfirm={() => discardChange({ id, holder })}
         open={{ isOpen: isAsking, onOpenChange: setAsking }}
-        transition={ending}
       />
     </SideActs>
   );

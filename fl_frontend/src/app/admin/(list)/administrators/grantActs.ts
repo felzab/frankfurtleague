@@ -6,11 +6,8 @@ import { action, PAGE_HOLDER } from "@/core/action";
 import { deletePasskeysAt } from "@/core/auth/passkeys";
 import { grantsDeleteGrant, grantsDeleteHandover, grantsPostGrant, grantsPostHandover } from "@/core/generated/client/sdk";
 import { logger } from "@/core/logging";
-import { SERVER_COPY } from "@/core/serverCopy";
 import { SignInAddressSchema } from "@/features/auth/schemas";
 import { GRANT_ID } from "@/features/grants/schemas";
-
-const ADDRESS_FORMAT = SERVER_COPY.closedDialog.format.address;
 
 const NewGrant = z.object({ email: SignInAddressSchema, ...PAGE_HOLDER });
 
@@ -23,11 +20,11 @@ export const addAdministrator = action({
   lane: "admin",
   name: "addAdministrator",
   passkey: true,
+  dryRun: true,
   input: NewGrant,
-  // The dialog has closed before any answer, which its toast says: every refusal is a sentence, never a box's phrase.
-  boxless: { email: { value: ADDRESS_FORMAT, email_not_accepted: ADDRESS_FORMAT } },
-  run: async ({ email }) => {
-    await grantsPostGrant({ email });
+  boxes: ["email"],
+  run: async ({ email }, { dryRun }) => {
+    await grantsPostGrant({ email }, { dry_run: dryRun });
     return { ok: true, value: undefined };
   },
 });
@@ -59,11 +56,10 @@ export const startHandover = action({
   lane: "admin",
   name: "startHandover",
   passkey: true,
+  dryRun: true,
   input: HandoverChoice,
-  // Its one choice is the page's own list, so nothing a person picks is refused on it, and its dialog has closed.
-  boxless: {},
-  run: async ({ grant_id }) => {
-    await grantsPostHandover(grant_id);
+  run: async ({ grant_id }, { dryRun }) => {
+    await grantsPostHandover(grant_id, { dry_run: dryRun });
     return { ok: true, value: undefined };
   },
 });

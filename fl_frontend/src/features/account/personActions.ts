@@ -88,17 +88,20 @@ export const eraseAccount = action({
  * The final press asks an administrator's touch, the one check guarding it, since the backend judges no fresh sign-in.
  * The address typed is one the person will sign in at, so it is held to that schema before it is mailed. An account
  * standing at the new address is not refused here: the start answers alike whatever the new address holds, so it tells
- * nobody which addresses hold an account, and the new mailbox's own press refuses it.
+ * nobody which addresses hold an account, and the new mailbox's own press refuses it. An administrator's press sends
+ * its dry run first, so a refusal stands on the box before the touch; a person's press sends the start alone.
  */
 export const startAddressChange = action({
   lane: "person",
   claim: "account",
   passkey: true,
+  dryRun: true,
   name: "startAddressChange",
   input: z.object({ email: SignInAddressSchema, ...PAGE_HOLDER }),
+  boxes: ["email"],
   examples: { email: COPY.shared.field.exampleAddress },
-  run: async ({ email }) => {
-    await accountPostAddressChange({ email });
+  run: async ({ email }, { dryRun }) => {
+    await accountPostAddressChange({ email }, { dry_run: dryRun });
     return { ok: true, value: undefined };
   },
 });

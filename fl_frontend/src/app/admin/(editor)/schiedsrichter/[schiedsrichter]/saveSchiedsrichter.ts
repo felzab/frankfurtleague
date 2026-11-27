@@ -40,33 +40,42 @@ const SaveSchiedsrichter = z.object({
  * passkey touch, since a save can hand the referee area to the address it stores. The write replaces the whole record,
  * so every field left alone is sent as stored, read again here. A corrected address of a person who has not confirmed
  * retires their link and mails a fresh one, which the status line says beside the save, naming the address it went
- * to. A name another referee holds, a retired one's included, is refused on the name's box; a confirmed person's
- * address is the editor's to show, never to change, as only an address change moves it.
+ * to. A name another referee holds, a retired one's included, is refused on the name's box, by the save's dry run
+ * before the touch; a confirmed person's address is the editor's to show, never to change, as only an address change
+ * moves it.
  */
 export const saveSchiedsrichter = action({
   lane: "admin",
   passkey: true,
+  dryRun: true,
   name: "saveSchiedsrichter",
   input: SaveSchiedsrichter,
   // The write nests the address under its contact, where the editor's box is the address alone.
   paths: { "kontakt.email": "changes.email" },
   examples: { "changes.name": COPY.shared.field.exampleName, "changes.phone": COPY.shared.field.examplePhone },
   // The holder is the touch's to judge, and no field of the referee's body, so the run reads none.
-  run: async ({ id, version, changes }): Promise<ActionAnswer<number>> => {
+  run: async ({ id, version, changes }, { dryRun }): Promise<ActionAnswer<number>> => {
     const read = await getSchiedsrichterById(id);
     if (read === null) return { ok: false, reason: COPY.shared.failure.stale };
 
     const stored = read.schiedsrichter;
     const { schule, phone, default_payment, ...text } = changes;
     const { name, email } = { ...valuesOf(stored), ...text };
-    const written = await schiedsrichterPatchSchiedsrichter(id, {
-      name,
-      schule: schule === undefined ? stored.schule : schule,
-      kontakt: { email, phone: phone === undefined ? stored.kontakt.phone : phone },
-      // The stored figure where the fee was left alone, never the text the editor shows it as.
-      default_payment: default_payment ?? stored.default_payment,
-      version,
-    });
+    const written = await schiedsrichterPatchSchiedsrichter(
+      id,
+      {
+        name,
+        schule: schule === undefined ? stored.schule : schule,
+        kontakt: { email, phone: phone === undefined ? stored.kontakt.phone : phone },
+        // The stored figure where the fee was left alone, never the text the editor shows it as.
+        default_payment: default_payment ?? stored.default_payment,
+        version,
+      },
+      { dry_run: dryRun },
+    );
+    // A passing dry run answers 204, which the client reads as no body: the version it was judged on stands, and the
+    // editor's touch reads past the answer to the save.
+    if (!written) return { ok: true, value: version };
     const value = written.version;
     return written.confirmation === null
       ? { ok: true, value }

@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { action, blankIsNull, numberBox, PAGE_HOLDER } from "@/core/action";
 import { ADMIN_COPY } from "@/core/copy/admin";
+import { COPY } from "@/core/copy/shared";
 import {
   teamsDeleteTeam,
   teamsPutAustritt,
@@ -20,9 +21,6 @@ import {
   TeamsReactivateTeamParams,
   TeamsResendKontaktConfirmationParams,
 } from "@/core/generated/zod/inputs";
-import { SERVER_COPY } from "@/core/serverCopy";
-
-const CLOSED = SERVER_COPY.closedDialog;
 
 /**
  * Takes the club out of the league from its editor's danger box: it stays on the seasons it played and no new season
@@ -69,12 +67,13 @@ export const recordAustritt = action({
 /**
  * „Sitz bearbeiten“, behind the passkey touch: writes the person one seat holds on the row's version the dialog read,
  * by the seat's state, and where the seat takes another person mails them a fresh link, the toast naming where it went.
- * The Trainer's box says which other seat they hold. The dialog has closed before any answer, so every refusal is a
- * sentence naming its box (`boxless`).
+ * The Trainer's box says which other seat they hold. An address or a number another seat's person holds is refused on
+ * its box by the dry run, before the touch.
  */
 export const writeSeat = action({
   lane: "admin",
   passkey: true,
+  dryRun: true,
   name: "writeSeat",
   input: z.object({
     ...TeamsPutKontaktSeatParams.shape,
@@ -86,16 +85,19 @@ export const writeSeat = action({
     version: numberBox(TeamsPutKontaktSeatBody.shape.version),
     ...PAGE_HOLDER,
   }),
-  boxless: {
-    first_name: { required: CLOSED.firstNameMissing, value: CLOSED.format.firstName },
-    last_name: { required: CLOSED.lastNameMissing, value: CLOSED.format.lastName },
-    email: { value: CLOSED.format.address, email_not_accepted: CLOSED.format.address, kontakt_email_taken: CLOSED.taken.address },
-    phone: { value: CLOSED.format.phone, kontakt_phone_taken: CLOSED.taken.phone },
+  boxes: ["first_name", "last_name", "email", "phone"],
+  examples: {
+    first_name: COPY.shared.field.exampleFirstName,
+    last_name: COPY.shared.field.exampleLastName,
+    email: COPY.shared.field.exampleAddress,
+    phone: COPY.shared.field.examplePhone,
   },
   // The holder is the touch's to judge, and no field of the seat's body.
-  run: async ({ team_id, saison_id, seat, holder: _holder, ...person }) => {
-    const { email } = await teamsPutKontaktSeat(team_id, saison_id, seat, person);
-    return email === null ? { ok: true, value: undefined } : { ok: true, value: undefined, note: ADMIN_COPY.schiedsrichter.sentTo(email) };
+  run: async ({ team_id, saison_id, seat, holder: _holder, ...person }, { dryRun }) => {
+    const written = await teamsPutKontaktSeat(team_id, saison_id, seat, person, { dry_run: dryRun });
+    // A passing dry run answers 204, which the client reads as no body: nothing was written to name.
+    if (!written || written.email === null) return { ok: true, value: undefined };
+    return { ok: true, value: undefined, note: ADMIN_COPY.schiedsrichter.sentTo(written.email) };
   },
 });
 

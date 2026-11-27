@@ -13,8 +13,6 @@ import { SignInPayloadSchema } from "@/features/auth/schemas";
 
 import type { Code } from "@/core/generated/client/types";
 
-const CLOSED = SERVER_COPY.closedDialog;
-
 /** The refusal saying the list already holds the address. */
 const LISTED: ReadonlySet<Code> = new Set<Code>(["duplicate_key"]);
 
@@ -31,39 +29,40 @@ const BanForm = z.object({
 const LiftInput = z.object({ id: BanListDeleteBanListEntryParams.shape.ban_list_entry_id, ...PAGE_HOLDER });
 
 /**
- * Bans an address from the dialog over the list, behind the passkey touch: its next sign-in is refused, its live
- * sessions end here, and an address holding an account is owed its notice in the ban's own transaction. The ban is
- * written before any sign-out, so a sign-in completing after the write is refused as its session is made, and every
- * session begun before it is ended by the same press. A store that cannot say whether an account stands fails the
- * press before the write, and a sign-out failing after it shows the shared failure line over a ban that stands: the
+ * Bans an address from the dialog over the list, behind its dry run and the passkey touch: its next sign-in is refused,
+ * its live sessions end here, and an address holding an account is owed its notice in the ban's own transaction. The
+ * ban is written before any sign-out, so a sign-in completing after the write is refused as its session is made, and
+ * every session begun before it is ended by the same press. A store that cannot say whether an account stands fails
+ * the press before the write, and a sign-out failing after it shows the shared failure line over a ban that stands: the
  * administrator is not told which step failed, and the sessions run on until a second press, the address typed again,
- * ends them before its refusal. A second ban is the unique index's refusal, which the shared 409 answers with no field.
- * The dialog has closed before any answer, so every refusal is a sentence (`boxless`).
+ * ends them before its refusal. A second ban is refused with no field, which the dialog's line says. The dry run asks
+ * no account and ends no session but those of an address the list already holds, since its refusal is where that
+ * second press now stops.
  */
 export const enterBan = action({
   lane: "admin",
   passkey: true,
+  dryRun: true,
   name: "enterBan",
   input: BanForm,
-  boxless: {
-    email: { value: CLOSED.format.address, email_not_accepted: CLOSED.format.address },
-    ban_reason: { required: CLOSED.reasonMissing },
-  },
-  run: async ({ email, ban_reason }) => {
+  boxes: ["email", "ban_reason"],
+  run: async ({ email, ban_reason }, { dryRun }) => {
     // Read ahead of the write, so the ban owes its own notice in its own transaction; a store that cannot say throws
-    // here, and nothing is written.
-    const account = await accountStandsAt(email);
+    // here, and nothing is written. The dry run judges no notice, so it asks no store.
+    const account = !dryRun && (await accountStandsAt(email));
 
     try {
-      await banListPostBanListEntry({ email, ban_reason, notify: account });
+      await banListPostBanListEntry({ email, ban_reason, notify: account }, { dry_run: dryRun });
     } catch (failed) {
       if (!refusedAs(failed, LISTED)) throw failed;
       // A first press whose answer was lost or whose sign-out failed left the ban standing and its sessions running, and
-      // this press is the only one that can still end them, so it ends them every time before it refuses. A session of an
-      // address banned earlier is already gone, so this costs nobody anything.
+      // this press is the only one that can still end them, so it ends them every time before it refuses, on the dry
+      // run too, whose refusal comes before any touch. Only a banned address's sessions end, and a session of an address
+      // banned earlier is already gone, so this costs nobody anything.
       await endSessionsOfAddress(email);
-      return { ok: false, errorCode: "duplicate_key", reason: CLOSED.banned };
+      return { ok: false, errorCode: "duplicate_key", reason: SERVER_COPY.actAnswer.banned };
     }
+    if (dryRun) return { ok: true, value: undefined };
 
     // After the write is acknowledged, so nobody is signed out by a request that then failed.
     await endSessionsOfAddress(email);
