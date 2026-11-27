@@ -24,12 +24,13 @@ import type { FormStatus } from "./useFormAction";
 // A press before hydration is the browser's own: without React's holding action, a GET with every field in the URL,
 // which nothing on the page shows until a person reads the address bar or a log keeps the query. Every server-drawn form
 // of the kit's is `HeldForm`, which the lint holds: it bans a raw `form` in the kit and imports React Aria's `Form` only
-// into `HeldForm` and `Dialog`, whose form opens after hydration alone.
+// into `HeldForm`.
 describe("a form a visitor reaches before hydration", () => {
   it("hands its press to React, never the browser", () => {
     const held = document.createElement("div");
     held.innerHTML = renderToString(
       <HeldForm
+        fieldErrors={undefined}
         isBusy={false}
         onSend={() => undefined}
       />,

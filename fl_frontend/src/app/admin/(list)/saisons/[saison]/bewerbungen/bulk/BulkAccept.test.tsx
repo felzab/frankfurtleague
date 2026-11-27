@@ -1,11 +1,12 @@
 // @vitest-environment jsdom
-import { screen, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ADMIN_COPY } from "@/core/copy/admin";
 import { COPY } from "@/core/copy/shared";
 import { bewerbungenAcceptBewerbungBodyShorthandOneRegExp } from "@/core/generated/zod/inputs";
+import { acceptBewerbung } from "@/features/bewerbungen/acceptBewerbung";
 import { renderUnderNext } from "@/test-support/nextContexts";
 
 import { BulkAccept } from "./BulkAccept";
@@ -71,5 +72,30 @@ describe("the check page's „Stand“ column", () => {
     for (const school of ["Goethe-Gymnasium", "Schiller-Schule"]) {
       expect(within(rowOf(school)).queryAllByText(ADMIN_COPY.bewerbung.complete)).not.toHaveLength(0);
     }
+  });
+});
+
+// The harm: a card reopened from its refused row with the fault on its box and the focus left on the page, so a screen
+// reader hears nothing of which box to change.
+describe("a card reopened for its refusal", () => {
+  it("stands with the fault on its box, which takes the focus", async () => {
+    vi.mocked(acceptBewerbung)
+      .mockResolvedValueOnce({ ok: false, fieldErrors: { trikot_farbe: COPY.shared.field.taken } })
+      .mockResolvedValueOnce({ ok: true, value: undefined });
+    const { rerender } = renderUnderNext(run(), atThePage);
+    for (const _card of ["a", "b"]) {
+      await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.next }));
+      rerender(run());
+    }
+    await userEvent.click(screen.getByRole("button", { name: COPY.shared.withObject(ADMIN_COPY.bewerbung.count(2), "accept") }));
+    await userEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: COPY.shared.verb.accept }));
+    await waitFor(() => expect(acceptBewerbung).toHaveBeenCalledTimes(2));
+
+    await userEvent.click(await screen.findByRole("button", { name: "Goethe-Gymnasium" }));
+    rerender(run());
+
+    const colour = await screen.findByRole("button", { name: new RegExp(COPY.team.trikotFarbe) });
+    expect(screen.getByText(COPY.shared.field.taken)).toBeTruthy();
+    expect(document.activeElement).toBe(colour);
   });
 });

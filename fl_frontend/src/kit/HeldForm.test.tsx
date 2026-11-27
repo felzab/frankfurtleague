@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 import { cloneElement, useLayoutEffect, useState } from "react";
 
-import { act } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { hydrateRoot } from "react-dom/client";
 import { renderToString } from "react-dom/server";
 import { beforeAll, describe, expect, it, vi } from "vitest";
@@ -19,6 +20,7 @@ import { EditorPage } from "./EditorPage";
 import { HeldForm } from "./HeldForm";
 import { RadioGroup } from "./RadioGroup";
 import { SearchField } from "./SearchField";
+import { Select } from "./Select";
 import { SignInPage } from "./SignInPage";
 import { Switch } from "./Switch";
 import { TextField } from "./TextField";
@@ -27,6 +29,7 @@ import { useEditor } from "./useEditor";
 import { useFormAction } from "./useFormAction";
 
 import type { ActionAnswer } from "@/core/action";
+import type { Copy } from "@/core/copy";
 import type { ReactElement } from "react";
 import type { EditorSave } from "./useEditor";
 
@@ -184,6 +187,114 @@ describe("a field the server draws", () => {
   });
 });
 
+const FAULT = COPY.shared.field.taken;
+
+/**
+ * One faulted box of each kind whose control is not its form input: a text box's input is, a date's segments stand
+ * for its hidden input, and a select's button for its hidden native select.
+ */
+const FAULTED: { kind: string; box: (isRequired: boolean) => ReactElement; focused: (root: HTMLElement) => Element | null }[] = [
+  {
+    kind: "a text box",
+    box: (isRequired) => (
+      <TextField
+        label={WORD}
+        name="faulted"
+        kind="text"
+        isRequired={isRequired}
+      />
+    ),
+    focused: (root) => root.querySelector('input[name="faulted"]'),
+  },
+  {
+    kind: "a date",
+    box: (isRequired) => (
+      <DateField
+        label={WORD}
+        name="faulted"
+        isRequired={isRequired}
+      />
+    ),
+    focused: (root) => root.querySelector('[role="spinbutton"]'),
+  },
+  {
+    kind: "a select",
+    box: (isRequired) => (
+      <Select
+        label={WORD}
+        name="faulted"
+        isRequired={isRequired}
+        options={YES_NO}
+      />
+    ),
+    focused: (root) => root.querySelector("button"),
+  },
+];
+
+/** A form of one box over a box no pass faults, with the send button: the focus stands on the button as a press leaves it. */
+function Faulted({ box, fieldErrors, onBlock }: { box: ReactElement; fieldErrors?: Readonly<Record<string, Copy>>; onBlock?: () => void }) {
+  return (
+    <HeldForm
+      fieldErrors={fieldErrors}
+      onBlock={onBlock}
+      isBusy={false}
+      onSend={() => undefined}>
+      <TextField
+        label={COPY.shared.name}
+        name="other"
+        kind="text"
+      />
+      {box}
+      <button type="submit">{COPY.shared.verb.save}</button>
+    </HeldForm>
+  );
+}
+
+// The harm: a screen reader hears the status line and is left on the button, finding the faulted box by itself; a box
+// whose control is not its input, a date's or a select's, is the one a plain `focus()` on the input misses.
+describe("a faulted box after either pass", () => {
+  it.each(FAULTED)("takes the focus after the browser's pass, as $kind", async ({ box, focused }) => {
+    const blocked = vi.fn();
+    const { container } = render(
+      <Faulted
+        box={box(true)}
+        onBlock={blocked}
+      />,
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.save }));
+
+    expect(document.activeElement).toBe(focused(container));
+    expect(blocked).toHaveBeenCalled();
+  });
+
+  it.each(FAULTED)(
+    "takes the focus once the server's answer commits, as $kind, and tells the browser's block nothing",
+    async ({ box, focused }) => {
+      const blocked = vi.fn();
+      const { container, rerender } = render(
+        <Faulted
+          box={box(false)}
+          onBlock={blocked}
+        />,
+      );
+      await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.save }));
+
+      rerender(
+        <Faulted
+          box={box(false)}
+          fieldErrors={{ faulted: FAULT }}
+          onBlock={blocked}
+        />,
+      );
+
+      expect(document.activeElement).toBe(focused(container));
+      expect(container.textContent).toContain(FAULT);
+      expect(blocked).not.toHaveBeenCalled();
+    },
+  );
+});
+
 /** The press of a submit button, or of Enter, before any of the page's code runs. */
 const press = (root: HTMLElement) => root.querySelector("form")?.requestSubmit();
 
@@ -195,6 +306,7 @@ function Held({ send }: { send: (email: FormDataEntryValue | null) => void }) {
   const [email, setEmail] = useState(ADDRESS);
   return (
     <HeldForm
+      fieldErrors={undefined}
       isBusy={false}
       onSend={(formData) => send(formData.get("email"))}>
       <TextField
@@ -344,7 +456,8 @@ describe("a press held across hydration", () => {
     const refused = vi.fn();
     const page = (
       <HeldForm
-        onInvalid={refused}
+        fieldErrors={undefined}
+        onBlock={refused}
         isBusy={false}
         onSend={send}>
         {control}

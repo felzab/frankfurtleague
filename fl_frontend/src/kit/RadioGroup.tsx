@@ -26,11 +26,11 @@ type DescribedChoice = Choice & { line?: Copy };
  * The circle drawn for an answer, the ring's target, so it stays its answer's button's direct child. Left empty in a
  * required group at the send, it takes the red edge a checkbox and every other field show.
  */
-function Circle({ isSelected, isInvalid }: { isSelected: boolean; isInvalid: boolean }) {
+function Circle({ isSelected, invalid }: { isSelected: boolean; invalid: boolean }) {
   return (
     <span
       data-kit-focus="box"
-      className={toggleBox({ shape: "round", selected: isSelected, invalid: isInvalid })}>
+      className={toggleBox({ shape: "round", selected: isSelected, invalid })}>
       {isSelected && <span className={radioDot()} />}
     </span>
   );
@@ -83,7 +83,7 @@ export function RadioGroup({
                       <>
                         <Circle
                           isSelected={isSelected}
-                          isInvalid={isInvalid}
+                          invalid={isInvalid}
                         />
                         <span className={card.words()}>
                           <span className={card.title()}>{textOf(choice.label)}</span>
@@ -107,7 +107,7 @@ export function RadioGroup({
                     <>
                       <Circle
                         isSelected={isSelected}
-                        isInvalid={isInvalid}
+                        invalid={isInvalid}
                       />
                       {textOf(choice.label)}
                     </>

@@ -227,8 +227,8 @@ export function OneShotForm({
   );
   const held = {
     ref: form,
-    validationErrors: refused?.fieldErrors,
-    onInvalid: block,
+    fieldErrors: refused?.fieldErrors,
+    onBlock: block,
     isBusy: isPending,
     onSend: (formData: FormData) => {
       // The refusal alone is the form's main act, and asks before it posts as one.

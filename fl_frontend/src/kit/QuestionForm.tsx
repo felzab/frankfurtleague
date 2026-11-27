@@ -89,8 +89,8 @@ export function QuestionForm<Input>(
   return (
     <>
       <HeldForm
-        validationErrors={refused?.fieldErrors}
-        onInvalid={block}
+        fieldErrors={refused?.fieldErrors}
+        onBlock={block}
         isBusy={isPending}
         onSend={submit}
         className={BOX_CLASSES}>
