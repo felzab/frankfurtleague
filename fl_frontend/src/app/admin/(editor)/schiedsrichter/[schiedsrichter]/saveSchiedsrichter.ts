@@ -51,8 +51,8 @@ export const saveSchiedsrichter = action({
   // The write nests the address under its contact, where the editor's box is the address alone.
   paths: { "kontakt.email": "changes.email" },
   examples: { "changes.name": COPY.shared.field.exampleName, "changes.phone": COPY.shared.field.examplePhone },
-  // The holder is the touch's to judge, and no field of the referee's body.
-  run: async ({ id, version, changes, holder: _holder }): Promise<ActionAnswer<number>> => {
+  // The holder is the touch's to judge, and no field of the referee's body, so the run reads none.
+  run: async ({ id, version, changes }): Promise<ActionAnswer<number>> => {
     const read = await getSchiedsrichterById(id);
     if (read === null) return { ok: false, reason: COPY.shared.failure.stale };
 
