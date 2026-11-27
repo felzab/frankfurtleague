@@ -5,16 +5,16 @@ import { z } from "zod";
 import { action, PAGE_HOLDER } from "@/core/action";
 import { accountStandsAt } from "@/core/auth/accounts";
 import { endSessionsOfAddress } from "@/core/auth/accountSessions";
-import { refusedAs } from "@/core/errors";
+import { asRefusal } from "@/core/errors";
 import { banListDeleteBanListEntry, banListPostBanListEntry } from "@/core/generated/client/sdk";
 import { BanListDeleteBanListEntryParams, BanListPostBanListEntryBody } from "@/core/generated/zod/inputs";
-import { SERVER_COPY } from "@/core/serverCopy";
 import { SignInPayloadSchema } from "@/features/auth/schemas";
 
-import type { Code } from "@/core/generated/client/types";
-
-/** The refusal saying the list already holds the address. */
-const LISTED: ReadonlySet<Code> = new Set<Code>(["duplicate_key"]);
+/**
+ * Whether the backend refused the ban for the address the list already holds: by the fault's own kind, since a refusal
+ * naming several faults carries its first one's code, whichever that is.
+ */
+const refusedAsListed = (failed: unknown): boolean => asRefusal(failed)?.refusedFields.some(({ kind }) => kind === "address_barred") ?? false;
 
 /**
  * The dialog's boxes, by the names they post under. The address is held to the sign-in's own rule, the published one
@@ -35,9 +35,9 @@ const LiftInput = z.object({ id: BanListDeleteBanListEntryParams.shape.ban_list_
  * every session begun before it is ended by the same press. A store that cannot say whether an account stands fails
  * the press before the write, and a sign-out failing after it shows the shared failure line over a ban that stands: the
  * administrator is not told which step failed, and the sessions run on until a second press, the address typed again,
- * ends them before its refusal. A second ban is refused with no field, which the dialog's line says. The dry run asks
- * no account and ends no session but those of an address the list already holds, since its refusal is where that
- * second press now stops.
+ * ends them before its refusal. A second ban is refused on the address's box, as every fault of the dialog is. The dry
+ * run asks no account and ends no session but those of an address the list already holds, since its refusal is where
+ * that second press now stops.
  */
 export const enterBan = action({
   lane: "admin",
@@ -54,13 +54,13 @@ export const enterBan = action({
     try {
       await banListPostBanListEntry({ email, ban_reason, notify: account }, { dry_run: dryRun });
     } catch (failed) {
-      if (!refusedAs(failed, LISTED)) throw failed;
       // A first press whose answer was lost or whose sign-out failed left the ban standing and its sessions running, and
-      // this press is the only one that can still end them, so it ends them every time before it refuses, on the dry
-      // run too, whose refusal comes before any touch. Only a banned address's sessions end, and a session of an address
-      // banned earlier is already gone, so this costs nobody anything.
-      await endSessionsOfAddress(email);
-      return { ok: false, errorCode: "duplicate_key", reason: SERVER_COPY.actAnswer.banned };
+      // this press is the only one that can still end them, so it ends them every time before the refusal goes on to
+      // the builder, which words it on its box, on the dry run too, whose refusal comes before any touch. Only a banned
+      // address's sessions end, and a session of an address banned earlier is already gone, so this costs nobody
+      // anything.
+      if (refusedAsListed(failed)) await endSessionsOfAddress(email);
+      throw failed;
     }
     if (dryRun) return { ok: true, value: undefined };
 

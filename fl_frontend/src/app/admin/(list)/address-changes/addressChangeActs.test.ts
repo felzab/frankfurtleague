@@ -1,11 +1,14 @@
 import { describe, expect, it } from "vitest";
 
+import { COPY } from "@/core/copy/shared";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { ADMIN_EMAIL } from "@/test-support/authDoubles";
 import { refusal, serveBackend } from "@/test-support/backend";
 import { signedInRequest } from "@/test-support/session";
 
-import type { FLAddressChangeAddressPayload, FLAddressChangeAddressResponse } from "@/core/generated/client/types";
+import type { FLAddressChangeAddressPayload, FLAddressChangeAddressResponse, FLRefusedField } from "@/core/generated/client/types";
+
+const { field } = COPY.shared;
 
 const NEW_ADDRESS = "paul.neu@example.org";
 const START = { address: "paul@example.org", email: NEW_ADDRESS, holder: ADMIN_EMAIL };
@@ -34,29 +37,62 @@ const requestsSent = () => backend.sent.map(({ method, path }) => `${method} ${p
 // The sign-in store is this server's and the backend cannot read it: a change confirmed onto such an address leaves the
 // administrator's passkeys behind on the old account, and nothing fails.
 describe("a start, an account standing at the new address", () => {
-  // The harm: a dry run passing it would spend the touch on a start the write then refuses.
-  it.each([
-    ["the start", false],
-    ["its dry run", true],
-  ])("is refused for %s in a sentence naming the new address, and nothing is posted", async (_press, dryRun) => {
+  const TAKEN = { ok: false, errorCode: "address_change_taken", fieldErrors: { email: field.taken }, kinds: { email: "address_change_taken" } };
+  /** The backend's dry run of the start, answered with `answer`. */
+  const dryRunAnswers = (answer: Response) => {
+    backend.answerWith(({ method, path, search }) =>
+      method === "POST" && path === "/address_change" && search.get("dry_run") === "true" ? answer : undefined,
+    );
+  };
+
+  // The harm: a refusal on the dialog's line rather than on the new address's box, which nothing then marks.
+  it("is refused on the new address's box, and the start mints nothing", async () => {
     accountAt(NEW_ADDRESS);
 
-    expect(await startLostMailboxChange(START, dryRun)).toStrictEqual({
-      ok: false,
-      errorCode: "address_change_taken",
-      reason: SERVER_COPY.refusalLine.address_change_taken,
-    });
+    expect(await startLostMailboxChange(START)).toStrictEqual(TAKEN);
     expect(requestsSent()).toStrictEqual([]);
   });
 
-  it("is refused by the backend's address_change_taken in the same sentence", async () => {
-    backend.answerWith(({ method, path }) => (method === "POST" && path === "/address_change" ? refusal("address_change_taken") : undefined));
+  // The harm: a dry run passing it would spend the touch on a start the write then refuses.
+  it("is refused on its dry run on the new address's box, beside every fault the backend's dry run names", async () => {
+    accountAt(NEW_ADDRESS);
+    const own: FLRefusedField = { kind: "own_address", path: ["address"], ctx: {}, in: "body" };
+    dryRunAnswers(refusal("own_address", { status: 403, fields: [own] }));
 
-    expect(await startLostMailboxChange(START)).toStrictEqual({
+    expect(await startLostMailboxChange(START, true)).toStrictEqual({
       ok: false,
-      errorCode: "address_change_taken",
-      reason: SERVER_COPY.refusalLine.address_change_taken,
+      errorCode: "own_address",
+      fieldErrors: { address: field.onlyInKonto, email: field.taken },
+      kinds: { address: "own_address", email: "address_change_taken" },
     });
+  });
+
+  it("is refused on its dry run on the new address's box where the backend's dry run passes", async () => {
+    accountAt(NEW_ADDRESS);
+    dryRunAnswers(new Response(null, { status: 204 }));
+
+    expect(await startLostMailboxChange(START, true)).toStrictEqual(TAKEN);
+  });
+
+  // A gate means no field past it: the backend's refusal naming none stands alone, in its own sentence.
+  it("answers the backend's refusal naming no field alone, in its sentence", async () => {
+    accountAt(NEW_ADDRESS);
+    dryRunAnswers(refusal("address_change_nothing"));
+
+    expect(await startLostMailboxChange(START, true)).toStrictEqual({
+      ok: false,
+      errorCode: "address_change_nothing",
+      reason: COPY.shared.nothingAtAddress,
+    });
+  });
+
+  it("is refused by the backend's address_change_taken on the same box", async () => {
+    const taken: FLRefusedField = { kind: "address_change_taken", path: ["email"], ctx: {}, in: "body" };
+    backend.answerWith(({ method, path }) =>
+      method === "POST" && path === "/address_change" ? refusal("address_change_taken", { fields: [taken] }) : undefined,
+    );
+
+    expect(await startLostMailboxChange(START)).toStrictEqual(TAKEN);
     expect(backend.sent.map(({ body }) => body)).toStrictEqual([{ address: START.address, email: NEW_ADDRESS }]);
   });
 });
