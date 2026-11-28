@@ -1,11 +1,14 @@
 import { FLSpielberichtVorschlagSonderereignis } from "@/core/generated/client/types";
-import { creditedSide } from "@/features/spiele/result";
+import { admitsShootOut, creditedSide } from "@/features/spiele/result";
 
-import type { FLCardColour, FLSpielberichtSchiedsrichterResponse, FLSpielSide } from "@/core/generated/client/types";
+import type {
+  FLCardColour,
+  FLSaisonPhase,
+  FLSonderereignis,
+  FLSpielberichtSchiedsrichterResponse,
+  FLSpielSide,
+} from "@/core/generated/client/types";
 import type { EditorSave } from "@/kit/useEditor";
-
-/** The Sonderereignis' first entry, nothing beyond the match being played: a select's choice is a string. */
-export const NO_SONDEREREIGNIS = "none";
 
 /**
  * The player list's first entry on a goal and a card, a player nobody can name, which the write takes as a null player;
@@ -19,7 +22,10 @@ export type Goal = { side: FLSpielSide | null; spieler_id: string | null; minute
 /** One card as its row holds it, its side, player and colour `null` until chosen. */
 export type Card = { side: FLSpielSide | null; spieler_id: string | null; minute: string; colour: FLCardColour | null };
 
-/** The report's fields as its form holds them. The goals' counts are no field: the write counts them from the goals. */
+/**
+ * The report's fields as its form holds them, the Sonderereignis `""` for „Keines“, nothing beyond the match being
+ * played. The goals' counts are no field: the write counts them from the goals.
+ */
 export type BerichtValues = {
   sonderereignis: string;
   shootOut1: string;
@@ -44,14 +50,14 @@ const STATED_EVENTS: ReadonlyArray<string> = Object.values(FLSpielberichtVorschl
 export function valuesOf({ bericht, kader, sides_changed: changed, spiel }: Read): BerichtValues {
   if (bericht === null) {
     const held = spiel.sonderereignis;
-    const sonderereignis = held !== null && STATED_EVENTS.includes(held) ? held : NO_SONDEREREIGNIS;
+    const sonderereignis = held !== null && STATED_EVENTS.includes(held) ? held : "";
     return { sonderereignis, shootOut1: "", shootOut2: "", scorers: [], cards: [], remarks: "" };
   }
   const departed = (side: FLSpielSide, spielerId: string) =>
     changed.includes(side) && !kader[side].some((spieler) => spieler.spieler_id === spielerId);
   const { sonderereignis, elfmeterschiessen } = bericht.ergebnis_vorschlag;
   return {
-    sonderereignis: sonderereignis ?? NO_SONDEREREIGNIS,
+    sonderereignis: sonderereignis ?? "",
     shootOut1: elfmeterschiessen === null ? "" : String(elfmeterschiessen.team1),
     shootOut2: elfmeterschiessen === null ? "" : String(elfmeterschiessen.team2),
     scorers: bericht.scorers.map(({ side, spieler_id: spielerId, minute, eigentor }) => ({
@@ -89,4 +95,32 @@ export function counted(scorers: ReadonlyArray<{ side: FLSpielSide | null; eigen
     if (side !== null) score[creditedSide({ side, eigentor })] += 1;
   }
   return score;
+}
+
+/** A shoot-out's figure as a box holds it, the text typed, or as the save reads it, a number; empty as `""` or `null`. */
+type Figure = string | number | null;
+
+/** The report's values `requiredOf` judges, a figure as typed or as read, no event as `null` or `""`. */
+export type RequiredValues = {
+  readonly scorers: ReadonlyArray<{ side: FLSpielSide | null; eigentor: boolean }>;
+  readonly shootOut1: Figure;
+  readonly shootOut2: Figure;
+  readonly sonderereignis: FLSonderereignis | "" | null;
+};
+
+const isBlank = (value: Figure) => value === null || value === "";
+
+/**
+ * The boxes a save needs filled that are empty, by the editor's field names, judged on the report's values with the
+ * editor's changes over them, and the phase of the match's season: once either of a shoot-out's figures is typed where
+ * the fixture takes one, a knockout match whose counted goals are level and no no-show decided, both are required. The
+ * editor's draft holds the same values, so the browser's pass asks the same.
+ */
+export function requiredOf(values: RequiredValues, saisonPhase: FLSaisonPhase): readonly ("shootOut1" | "shootOut2")[] {
+  const score = counted(values.scorers);
+  const event = values.sonderereignis === "" ? null : values.sonderereignis;
+  if (!admitsShootOut(saisonPhase, { tore: score.team1 }, { tore: score.team2 }, event)) return [];
+  const [one, two] = [isBlank(values.shootOut1), isBlank(values.shootOut2)];
+  if (one === two) return [];
+  return one ? ["shootOut1"] : ["shootOut2"];
 }

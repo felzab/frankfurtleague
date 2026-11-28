@@ -3,11 +3,11 @@
 import { z } from "zod";
 
 import { action, blankIsNull } from "@/core/action";
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 import { teamsPostTeamEntry } from "@/core/generated/client/sdk";
 import { TeamsPostTeamEntryBody, TeamsPostTeamEntryParams } from "@/core/generated/zod/inputs";
 
-import { NEW_CLUB } from "./newClub";
+import { NEW_TEAM } from "./newTeam";
 
 import type { FLPostTeamEntryPayload } from "@/core/generated/client/types";
 
@@ -28,9 +28,9 @@ const ENTRY = {
  * club's select says which of the two forms it posted, `kind` read off its value as the write's own union names them.
  */
 const EnterTeam = z.preprocess(
-  (raw) => (typeof raw === "object" && raw !== null && "club" in raw ? { ...raw, kind: raw.club === NEW_CLUB ? "new" : "known" } : raw),
+  (raw) => (typeof raw === "object" && raw !== null && "team" in raw ? { ...raw, kind: raw.team === NEW_TEAM ? "new" : "known" } : raw),
   z.discriminatedUnion("kind", [
-    z.object({ ...ENTRY, kind: z.literal("known"), club: known.shape.team_id }),
+    z.object({ ...ENTRY, kind: z.literal("known"), team: known.shape.team_id }),
     z.object({
       ...ENTRY,
       kind: z.literal("new"),
@@ -51,8 +51,8 @@ const EnterTeam = z.preprocess(
 type Entered = z.output<typeof EnterTeam>;
 
 /** The write's club: the one picked, or the one the entry founds, its description left for its editor. */
-function clubOf(entered: Entered): FLPostTeamEntryPayload["team"] {
-  if (entered.kind === "known") return { kind: "known", team_id: entered.club };
+function teamOf(entered: Entered): FLPostTeamEntryPayload["team"] {
+  if (entered.kind === "known") return { kind: "known", team_id: entered.team };
   const { name, shorthand, full_name, schulform, website_url, street, house_number, postcode, district, city } = entered;
   return {
     kind: "new",
@@ -71,22 +71,22 @@ function clubOf(entered: Entered): FLPostTeamEntryPayload["team"] {
 /**
  * Enters a club into a planned season from the dialog over its list, founding it first where it is new, in one
  * transaction: a refused entry leaves no new club behind. A Kürzel another club holds, a retired one's included, and a
- * colour another row holds are refused on their boxes. A season gone live, a group filled and a club retired since the dialog opened are a stale page.
+ * colour another row holds are refused on their boxes, and a club retired since the dialog opened on the status line. A
+ * season gone live and a group filled since are a stale page.
  */
 export const enterTeam = action({
   lane: "admin",
   name: "enterTeam",
   input: EnterTeam,
-  ownWords: ["duplicate_key", "bewerbung_picked_team_already_entered", "trikot_farbe_taken"],
-  paths: { shorthand: "shorthand", trikot_farbe: "trikot_farbe" },
+  boxes: ["shorthand", "trikot_farbe"],
   examples: {
     shorthand: COPY.team.shorthandExample,
-    postcode: COPY.admin.spielort.postcodeExample,
-    house_number: COPY.admin.spielort.houseNumberExample,
+    postcode: COPY.shared.address.postcodeExample,
+    house_number: COPY.shared.address.houseNumberExample,
   },
   run: async (entered) => {
     const { saison_id, gruppe, trikot_farbe } = entered;
-    await teamsPostTeamEntry(saison_id, { team: clubOf(entered), gruppe, trikot_farbe });
+    await teamsPostTeamEntry(saison_id, { team: teamOf(entered), gruppe, trikot_farbe });
     return { ok: true, value: undefined };
   },
 });

@@ -166,7 +166,7 @@ async def sweep_erasure(
                 collection=collections.spieler_collection,
                 action="retention.spieler",
                 by=ACT_BY_SYSTEM,
-                label=saison_id,
+                saison_id=saison_id,
                 count=erased.spieler,
                 session=session,
             )

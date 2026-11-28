@@ -682,17 +682,18 @@ async def _carry_the_mail(outbox_collection: AsyncCollection, old: str, new: str
     stranger's, so they go, and with them the record and seat it is about, so no editor reads that mailbox's delivery as
     the seat's. The row stands as a tombstone of its key: a pass deciding by its key whether a mail was owed (the line-up
     reminder's) or a replayed write would otherwise owe it a second time, to the new address. The tombstone goes a
-    retention after its final state, as the row would have. The sign-in library's mails stay where they were owed, each
-    tied to the sign-in it was asked from. Matched by equality on `old`, folded as every recipient is stored; then
-    written by id.
+    retention after its final state, as the row would have. A sign-in library's mail still owed stays where it was owed
+    until it is sent, since it tells of a sign-in asked from that address, and keeps that address until a retention after
+    its final state, as every row does. Matched by equality on `old`, folded as every recipient is stored; then written by
+    id.
     """
 
     rows = await aggregate_many_from_db(
         collection=outbox_collection,
-        pipeline=[{"$match": {"kind": {"$nin": sorted(SIGN_IN_KINDS)}, "to": old}}, {"$project": {"state": 1}}],
+        pipeline=[{"$match": {"to": old}}, {"$project": {"state": 1, "kind": 1}}],
         session=session,
     )
-    if open := [row["_id"] for row in rows if row["state"] == "open"]:
+    if open := [row["_id"] for row in rows if row["state"] == "open" and row["kind"] not in SIGN_IN_KINDS]:
         await patch_many_in_db(collection=outbox_collection, db_filter={"_id": {"$in": open}}, update={"$set": {"to": new}}, session=session)
     if sent := [row["_id"] for row in rows if row["state"] != "open"]:
         await patch_many_in_db(collection=outbox_collection, db_filter={"_id": {"$in": sent}}, update=TOMBSTONE_UPDATE, session=session)

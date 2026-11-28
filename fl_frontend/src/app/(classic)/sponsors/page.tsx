@@ -1,5 +1,5 @@
 import { KONTAKT_MAILTO } from "@/core/brand";
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { SPONSORS } from "@/features/meta/constants";
@@ -9,11 +9,7 @@ import { Link } from "@/kit/Link";
 import { SponsorTiles } from "@/kit/TileGrid";
 import { pageMetadata } from "@/shared/utils/metadata";
 
-import type { Metadata, ResolvingMetadata } from "next";
-
-export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
-  return pageMetadata(parent, ROUTES.sponsors, ROUTES.sponsors.path(), { description: SERVER_COPY.description.sponsors });
-}
+export const metadata = pageMetadata(ROUTES.sponsors, { description: SERVER_COPY.description.sponsors });
 
 /**
  * The sponsors page: each sponsor an equal tile, its logo over its short name, linking to its
@@ -23,10 +19,7 @@ export default function SponsorsPage() {
   const words = SERVER_COPY.landing;
   return (
     <ClassicPage width="form">
-      <PageHead
-        title={COPY.page.sponsors}
-        lead={[SERVER_COPY.description.sponsors]}
-      />
+      <PageHead title={COPY.page.sponsors} />
       <SponsorTiles sponsors={SPONSORS} />
       <Door
         title={words.doors.support}

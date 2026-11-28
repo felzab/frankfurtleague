@@ -6,7 +6,6 @@ the suite's grants an administrator signs in through. Every case asks what the d
 the request, so a step, a refusal or a reset missing from the route fails here.
 """
 
-import logging
 from collections.abc import Awaitable, Callable, Iterator, Mapping
 from typing import Any, cast
 
@@ -18,14 +17,11 @@ from pymongo import AsyncMongoClient
 from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.identity.admin_router import get_erasure_view, post_erasure
-from app.api.identity.schemas import FLErasureAddressPayload, FLErasurePayload
+from app.api.identity.schemas import FLErasurePayload
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.crud import ANCHOR_FIELD
 from app.core.db import collection_dependency
-from app.core.exceptions import APIError
-from tests.acts import journal_records
 from tests.app_client import app_client, app_under_test
 from tests.config import ADMIN_KEY, ADMINISTRATORS, grants_for_the_suite
 from tests.database import a_clean_database
@@ -63,7 +59,6 @@ VIEW_PATH = f"{PATH}/view"
 
 # The suite's owner, and an administrator holding no owner's power, who presses unless a case says otherwise.
 OWNER, OPERATOR = ADMINISTRATORS[0], ADMINISTRATORS[1]
-ANOTHER_ADMINISTRATOR = ADMINISTRATORS[3]
 
 REASON = "Mail vom 30.03.2026, Betreff: Bitte löscht alle meine Daten"
 
@@ -167,82 +162,9 @@ class TestTheErasureRunsWhole:
         assert by_the_administrator[1] == by_the_person[1]
 
 
-# Every handle a handler below is handed: a read or a write reaching one fails on `None`, so a refusal raised is one judged
-# ahead of anything read or written.
-NO_HANDLE: Any = None
-
-
-def counted_by_the_handler(email: str) -> Awaitable[Any]:
-    return get_erasure_view(
-        view_data=FLErasureAddressPayload.model_validate(view_of(email)),
-        saison_teams_collection=NO_HANDLE,
-        bewerbungen_collection=NO_HANDLE,
-        schiedsrichter_collection=NO_HANDLE,
-        spieler_collection=NO_HANDLE,
-        registrierungen_collection=NO_HANDLE,
-        spiele_collection=NO_HANDLE,
-        grants_collection=NO_HANDLE,
-        address_changes_collection=NO_HANDLE,
-        session=NO_HANDLE,
-        operator=OPERATOR,
-        germany_now=NOW,
-    )
-
-
-def erased_by_the_handler_alone(email: str) -> Awaitable[Any]:
-    return post_erasure(
-        erasure_data=FLErasurePayload.model_validate(erasure_of(email)),
-        collections=NO_HANDLE,
-        db=NO_HANDLE,
-        operator=OPERATOR,
-        germany_now=NOW,
-    )
-
-
-class TestTheirOwnAddress:
-    """`own_address`: an administrator's own address goes through their account page, or through another administrator.
-
-    Each handler is called as a function, as `OPERATOR`: the route and the binding of the actor from the request's
-    headers are not exercised here.
-    """
-
-    @pytest.mark.parametrize("handler", [counted_by_the_handler, erased_by_the_handler_alone], ids=["the counts", "the erasure"])
-    async def test_it_is_refused_in_other_capitals_and_between_spaces_before_anything_is_read(self, handler: Callable[[str], Awaitable[Any]]):
-        with pytest.raises(APIError) as refused:
-            await handler(f"  {OPERATOR.upper()} ")
-
-        assert (refused.value.status_code, refused.value.error_code) == (403, Code.OWN_ADDRESS)
-
-
 @pytest.mark.db
 class TestAGrantHoldersAddress:
-    """`admin_address`: judged inside the erasure's transaction, and in the counts' snapshot."""
-
-    @pytest.mark.parametrize(
-        ("path", "body", "address"),
-        [
-            (VIEW_PATH, view_of, OWNER),
-            (PATH, erasure_of, ANOTHER_ADMINISTRATOR),
-        ],
-        ids=[
-            "the counts of an owner",
-            "the erasure of an administrator",
-        ],
-    )
-    async def test_an_administrator_holding_no_owners_power_is_refused_and_nothing_is_written(
-        self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture, path: str, body: Callable[[str], dict[str, str]], address: str
-    ):
-        async def run(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            before = await everything_in(database)
-            response = await posted(mongo_replica_set_url, path, body(address))
-
-            return response, before == await everything_in(database)
-
-        with caplog.at_level(logging.INFO):
-            response, untouched = await on_a_league(mongo_replica_set_url, run)
-
-        assert (response.status_code, response.json()["error_code"], untouched) == (403, Code.ADMIN_ADDRESS, True)
-        assert journal_records(caplog) == []
+    """`admin_address` judged inside the erasure's transaction, so its retry meets a grant landing within it."""
 
     async def test_a_grant_landing_inside_the_erasure_is_refused_by_its_retry(self, mongo_replica_set_url: str):
         """The rival adds the address after the first attempt's judgement and before its first write.

@@ -1,8 +1,10 @@
 """
 The one place the backend reads the wall clock and names the league's time zone.
 
-Ruff's `banned-api` refuses a read anywhere else. A request reads it through `get_germany_now`, which
-a test substitutes.
+Ruff's `banned-api` refuses a read anywhere else. A request reads the league's time through
+`get_germany_now`, which a test substitutes. A session's age and the action log's stamp read `now`
+directly: each is a real instant, and a session's sign-in time is stamped by another process on the
+real clock.
 """
 
 from datetime import UTC, date, datetime, timedelta

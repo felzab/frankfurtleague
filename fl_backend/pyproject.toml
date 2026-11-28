@@ -2,7 +2,7 @@
 name = "fl_backend"
 version = "0.1.0"
 description = "The backend of https://frankfurtleague.de"
-requires-python = ">=3.14"
+requires-python = ">=3.15"
 # What the application imports, plus what starts it. Everything those packages need in turn is
 # `uv.lock`'s to pin -- naming a transitive package here freezes a second copy of the graph that
 # nothing checks against the real one, and puts a row on the dependabot dashboard for code no
@@ -86,7 +86,7 @@ select = [
     "I",  # isort
     "B",  # flake8-bugbear
     # FastAPI's dependencies in its one documented form, `Annotated[T, Depends(f)]` (FAST002). FAST001,
-    # a `response_model=` restating the return annotation, reports nothing on a Python 3.14 target.
+    # a `response_model=` restating the return annotation, reports nothing on a Python 3.14 or later target.
     "FAST",  # FastAPI
     # Fixes with no judgment in them. Stable subset only: ruff holds part of FURB behind `preview`,
     # and turning that on moves every other family too.
@@ -204,13 +204,16 @@ venv = ".venv"
 # Pinned rather than read from whichever interpreter pyright finds: CI's Linux run judged the tree
 # as an older Python and refused a self-reference 3.14's deferred annotations allow, while the
 # Windows gate, on the same pyright, accepted it.
-pythonVersion = "3.14"
+pythonVersion = "3.15"
 include = ["app", "tests"]
 # `standard`, pyright's default. `strict` demands an annotation on every symbol, test locals too.
 typeCheckingMode = "standard"
 # Off alone: every payload schema narrowing a base model's field, the shape it exists for, would
 # report it.
 reportIncompatibleVariableOverride = false
+# A use of what a library or the standard library's stubs mark deprecated, refused while its
+# replacement stands beside it rather than found at the release that removes it.
+reportDeprecated = "error"
 
 # The application's code names a type for every parameter: one left bare is `Any` to pyright, so a write through a
 # collection it is handed passes with nothing reported. Not the tests, which take fixtures and

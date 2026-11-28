@@ -32,6 +32,7 @@ from app.core.dependencies import (
     SaisonTeamsReadCollection,
     SchiedsrichterCollection,
     SchiedsrichterReadCollection,
+    SnapshotSession,
     SpielberichteCollection,
     SpielberichteReadCollection,
     SpielbestaetigungenReadCollection,
@@ -143,6 +144,7 @@ async def patch_spiel(
     aufstellungen_collection: AufstellungenCollection,
     # Read on a `dry_run` alone, for whom the confirmation pass would mail of the save.
     spielbestaetigungen_collection: SpielbestaetigungenReadCollection,
+    session: SnapshotSession,
     germany_now: GermanyNow,
     adopts_bericht: Annotated[
         int | None,
@@ -172,17 +174,14 @@ async def patch_spiel(
     )
 
     if dry_run:
-        # Opened here as `get_snapshot_session` opens one, not declared: the dry run alone reads outside a transaction,
-        # and a declared session would be started for every save.
-        async with db.start_session(snapshot=True) as session:
-            return await preview_spiel_save(
-                spiel_id=spiel_id,
-                payload=spiel_data,
-                collections=collections,
-                spielbestaetigungen_collection=spielbestaetigungen_collection,
-                now=germany_now,
-                session=session,
-            )
+        return await preview_spiel_save(
+            spiel_id=spiel_id,
+            payload=spiel_data,
+            collections=collections,
+            spielbestaetigungen_collection=spielbestaetigungen_collection,
+            now=germany_now,
+            session=session,
+        )
 
     async def write_and_resolve_the_bracket(session: AsyncClientSession) -> FLPatchSpielDataResponse:
         return await save_spiel_in_session(

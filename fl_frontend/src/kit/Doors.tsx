@@ -11,7 +11,6 @@ import type { Copy } from "@/core/copy";
 import type { Route } from "next";
 import type { ComponentProps, ReactElement } from "react";
 
-/** A door's own words: its title and its one paragraph. */
 type DoorWords = { title: Copy; text: Copy };
 
 const doors = tv({

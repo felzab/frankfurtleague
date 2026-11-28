@@ -1,27 +1,26 @@
-import { COPY } from "@/core/copy";
+import { boxRulesOf } from "@/core/action";
+import { ADMIN_COPY } from "@/core/copy/admin";
+import { COPY } from "@/core/copy/shared";
 import { dayOf, formatDate, formatNumber } from "@/core/format";
+import { ownKeyOf } from "@/core/ownKeyOf";
 import { ROUTES } from "@/core/routes";
-import { createSaison } from "@/features/saisons/createSaison";
 import { nextSaisonOf } from "@/features/saisons/nextSaison";
 import { getAdminSaisons } from "@/features/saisons/queries";
-import { CREATE_REQUIRED } from "@/features/saisons/required";
 import { saisonChipOf } from "@/features/saisons/saisonState";
 import { ListPage } from "@/kit/ListPage";
 import { pageMetadata } from "@/shared/utils/metadata";
 
 import { CreateFields } from "./CreateFields";
+import { createSaison } from "./createSaison";
 
 import type { Copy } from "@/core/copy";
 import type { Code, FLSaisonAdminListed } from "@/core/generated/client/types";
 import type { ListCreate } from "@/kit/ListPage";
 import type { TableHead, TableRow } from "@/kit/Table";
-import type { Metadata, ResolvingMetadata } from "next";
 
-const WORDS = COPY.admin.saison;
+const WORDS = ADMIN_COPY.saison;
 
-export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
-  return pageMetadata(parent, ROUTES.adminSaisons, ROUTES.adminSaisons.path());
-}
+export const metadata = pageMetadata(ROUTES.adminSaisons);
 
 /** A count, or the glyph for no value where there is none yet. */
 const countOf = (count: number) => (count === 0 ? COPY.shared.noValue : { record: formatNumber(count) });
@@ -53,11 +52,13 @@ export default function SaisonsPage() {
 }
 
 /**
- * Why the create cannot run now, by the refusal the read serves for it: never a rule of the page's own. A code no line
- * here words means a page older than the API, which the stale line says.
+ * Why the create cannot run now, by the refusal the read serves for it: never a rule of the page's own. A code the
+ * table holds no phrase for means a page older than the API, and so does a planning window's, which locks a draw.
  */
 function lockedOf(code: Code): Copy {
-  return code === "create_saison_future_stands" ? WORDS.futureStandsLocked : COPY.shared.failure.stale;
+  if (!ownKeyOf(WORDS.locks, code)) return WORDS.lockedOtherwise;
+  const lock = WORDS.locks[code];
+  return typeof lock === "function" ? WORDS.lockedOtherwise : lock;
 }
 
 /**
@@ -70,21 +71,17 @@ async function readCreate(read: ReturnType<typeof getAdminSaisons>): Promise<Lis
   return {
     title: COPY.shared.withObject(name, "create"),
     act: { verb: "create", object: name },
-    action: createSaison,
+    run: createSaison,
+    rules: boxRulesOf(createSaison),
     // Read oldest first, the order `getAdminSaisons` asks for.
-    children: (
-      <CreateFields
-        next={nextSaisonOf(saisons.at(-1))}
-        required={CREATE_REQUIRED}
-      />
-    ),
+    children: <CreateFields next={nextSaisonOf(saisons.at(-1))} />,
     ...(refusals.create === null ? {} : { locked: lockedOf(refusals.create) }),
   };
 }
 
 const HEAD: TableHead = {
   nameLabel: COPY.shared.saison,
-  state: { label: COPY.admin.schiedsrichter.state },
+  state: { label: COPY.shared.facts.state },
   columns: [
     { key: "start", label: WORDS.start, narrow: true, width: "date" },
     { key: "end", label: WORDS.end, hideOnPhone: true, width: "date" },

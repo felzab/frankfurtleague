@@ -98,23 +98,25 @@ async def on_a_league(url: str, body: Body) -> Any:
 async def save(database: AsyncDatabase, client: AsyncMongoClient, *, email: str) -> Any:
     served = await database[Collection.SCHIEDSRICHTER].find_one({"_id": SCHIEDSRICHTER_OID}, {"version": 1})
     assert served is not None
-    return await patch_schiedsrichter(
-        schiedsrichter_id=SCHIEDSRICHTER_OID,
-        schiedsrichter_data=FLPatchSchiedsrichterPayload.model_validate(
-            {
-                "name": NAME,
-                "schule": "Bettina-Schule",
-                "default_payment": 25,
-                "kontakt": {"phone": PHONE, "email": email},
-                "version": served["version"],
-            }
-        ),
-        schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
-        outbox_collection=database[Collection.OUTBOX],
-        db=client,
-        today=TODAY,
-        germany_now=MAIL_NOW,
-    )
+    async with client.start_session(snapshot=True) as session:
+        return await patch_schiedsrichter(
+            schiedsrichter_id=SCHIEDSRICHTER_OID,
+            schiedsrichter_data=FLPatchSchiedsrichterPayload.model_validate(
+                {
+                    "name": NAME,
+                    "schule": "Bettina-Schule",
+                    "default_payment": 25,
+                    "kontakt": {"phone": PHONE, "email": email},
+                    "version": served["version"],
+                }
+            ),
+            schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+            outbox_collection=database[Collection.OUTBOX],
+            db=client,
+            today=TODAY,
+            germany_now=MAIL_NOW,
+            session=session,
+        )
 
 
 async def stored(database: AsyncDatabase) -> Mapping[str, Any]:

@@ -25,8 +25,9 @@ trustPolicyExclude:
 # Not the default `install`, under which a `pnpm run` over a drifted manifest rewrites pnpm-lock.yaml,
 # so a check writes the tree and races the gate's lockfile step. `pnpm install` is the one writer.
 verifyDepsBeforeRun: error
-# The scripts set variables in the POSIX `NAME=value command` form, which Windows' cmd.exe, pnpm's
-# default shell there, refuses. `node --run` bypasses this and runs them in that shell: use `pnpm run`.
+# The scripts quote in the POSIX form, as `--project='!db*'`, which Windows' cmd.exe, pnpm's default
+# shell there, hands on with the quotes still in it. `node --run` bypasses this and runs them in that
+# shell: use `pnpm run`.
 shellEmulator: true
 # An out-of-range peer fails a resolving `pnpm install`: a package uses the app's copy of its peers,
 # which an upgrade raising a range would outgrow unseen. `pnpm add` and `pnpm update` only warn, so

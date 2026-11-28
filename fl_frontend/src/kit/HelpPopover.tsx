@@ -3,24 +3,26 @@
 import { Dialog as AriaDialog, DialogTrigger } from "react-aria-components/Dialog";
 import { Popover } from "react-aria-components/Popover";
 
+import { textOf } from "@/core/copy";
+
 import { popoverSurface } from "./fieldStyles";
 import { useOpenUntilHidden } from "./useOpenUntilHidden";
 
-import type { Copy } from "@/core/copy";
+import type { Copy, Words } from "@/core/copy";
 import type { ReactElement } from "react";
 
 /**
- * A short text in a 320-px pop-up under the control that opens it, on the page, which it neither dims nor blurs: a few
- * declarative lines, each statement a line of its own. It opens from the ⓘ after a section's title, which `Section`
- * places from its `help` prop, so a section has one at most.
+ * A short text in a pop-up under the control that opens it, on the page, which it neither dims nor blurs: a few
+ * declarative lines, each statement a line of its own. It opens from the ⓘ after a section's or a card's title, which
+ * `Section` and `Card` place from their `help` prop, so a section or a card has one at most.
  */
 export function HelpPopover({
   subject,
   lines,
   children,
 }: {
-  /** What names the pop-up: a section's title. */
-  subject: Copy;
+  /** What names the pop-up: a section's or a card's title, a card's maybe a record's own name. */
+  subject: Words;
   lines: readonly [Copy, ...Copy[]];
   /** The kit `Button` that opens it. */
   children: ReactElement;
@@ -36,9 +38,9 @@ export function HelpPopover({
         offset={4}
         crossOffset={-8}
         data-kit-focus
-        className={popoverSurface({ width: "help" })}>
+        className={popoverSurface()}>
         <AriaDialog
-          aria-label={subject}
+          aria-label={textOf(subject)}
           data-kit-focus
           className="grid gap-1">
           {lines.map((line) => (

@@ -10,7 +10,6 @@ const isCut = (box: HTMLElement) => box.scrollWidth > box.clientWidth;
 /** The whole words of a cut text standing under a point of the viewport, or nothing where none does. */
 type Probe = (x: number, y: number) => string | undefined;
 
-/** The probes of one row whose link stretches over it (`CutRow`). */
 const RowProbes = createContext<Set<Probe> | null>(null);
 
 /**
@@ -37,9 +36,8 @@ function useWordsUnderPointer(probes: Set<Probe> | null) {
 }
 
 /**
- * What holds a `CutRow`'s stretched link where no cut text does, as a way's own name on Kontakt's rows (`LinkRows`):
- * the pointer reaches it alone, so it carries the cut words under the pointer in its `title`, as a cut text holding
- * the link does.
+ * What holds a `CutRow`'s stretched link where no cut text does: the pointer reaches it alone, so it carries the cut
+ * words under the pointer in its `title`, as a cut text holding the link does.
  */
 export function CutHost({ className, children }: { className: string; children: ReactNode }) {
   const [title, , onPointerMove] = useWordsUnderPointer(use(RowProbes));

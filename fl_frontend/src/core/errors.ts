@@ -1,9 +1,6 @@
 import type { Code, FLRefusedField } from "./generated/client/types";
 
-/**
- * What a request was, a write that may have landed or a read that changed nothing. Required on every API error rather
- * than defaulted, since a failed write may have landed and a failed read changed nothing.
- */
+/** A call as `mayHaveWritten` judges it: its method, and whether its operation's contract marks it read-only. */
 export type SentRequest = {
   method: string;
   /** A call changing nothing whatever its method says, as its operation's contract states. */
@@ -16,7 +13,6 @@ export type SentRequest = {
  */
 const SAFE_METHODS: ReadonlySet<string> = new Set(["GET", "HEAD", "OPTIONS"]);
 
-/** Whether a request whose answer went wrong could have changed anything on the server. */
 export function mayHaveWritten({ method, readOnly }: SentRequest): boolean {
   return !SAFE_METHODS.has(method) && !readOnly;
 }
@@ -34,19 +30,6 @@ export class RolledBackError extends Error {
 }
 
 /**
- * An admin-tier call made with no actor recorded, refused before it is sent as the backend would refuse
- * it on arrival. A programming error: the call opened outside `runAdminRead`, an admin action's
- * guard and a person read whose page checked the session first.
- */
-export class UnattributedAdminCallError extends Error {
-  override name = "UnattributedAdminCallError";
-
-  constructor(endpoint: string) {
-    super(`An admin-tier call to ${endpoint} names no actor.`);
-  }
-}
-
-/**
  * An admin-tier read whose grant the backend left unread: an outage, answered by the admin boundary's
  * retry, never a sign-in, which would meet the same unread grant.
  */
@@ -59,10 +42,11 @@ export class UnreadGrantError extends Error {
 }
 
 export class APIBadStatusError extends Error {
-  traceId: string;
-  statusCode: number;
-  serverErrorCode?: Code;
-  refusedFields: readonly FLRefusedField[];
+  override name = "APIBadStatusError";
+  readonly traceId: string;
+  readonly statusCode: number;
+  readonly serverErrorCode?: Code;
+  readonly refusedFields: readonly FLRefusedField[];
 
   constructor({
     message,
@@ -79,7 +63,6 @@ export class APIBadStatusError extends Error {
   }) {
     super(message);
 
-    this.name = "APIBadStatusError";
     this.traceId = traceId;
     this.statusCode = statusCode;
     this.serverErrorCode = serverErrorCode;
@@ -88,46 +71,19 @@ export class APIBadStatusError extends Error {
 }
 
 /**
- * Every code that is no rule refusing what was asked: a credential, a request the API cannot take, a route it does
- * not serve, the store answering, the server failing. Every other code is one a slice's mapper words, the unique
- * index's `duplicate_key` among them.
- */
-const NOT_A_REFUSAL: ReadonlySet<Code> = new Set<Code>([
-  "access_key_refused",
-  "missing_actor",
-  "actor_not_admin",
-  "session_refused",
-  "payload_refused",
-  "body_unreadable",
-  "no_route",
-  "method_not_served",
-  "document_not_found",
-  "version_stale",
-  "database_failed",
-  "unknown_outcome",
-  "unhandled_crash",
-  "stored_data_invalid",
-]);
-
-/** Whether a code is one a slice's mapper words, by the code alone, never its status. */
-export function isRefusalCode(code: Code | undefined): boolean {
-  return code !== undefined && !NOT_A_REFUSAL.has(code);
-}
-
-/**
- * The API's refusal of the request, which every mapper reads before the code, `null` for any other error: a 4xx, at
- * whatever status the code's rule answers with. Never a 5xx, after which a write may have landed.
+ * The API's refusal of the request, which every mapper but the action's reads before the code, `null` for any other
+ * error: a 4xx, at whatever status the code's rule answers with. Never a 5xx, after which a write may have landed. The
+ * action's mapper judges by the code alone, whatever its status, since it words a 5xx's code too, on the shared
+ * failure line.
  */
 export function asRefusal(error: unknown): APIBadStatusError | null {
   return error instanceof APIBadStatusError && error.statusCode >= 400 && error.statusCode < 500 ? error : null;
 }
 
-/**
- * Whether one of the API's rules refused the request, by the code's class: a code no arm names reaches its kind's
- * fallback at any status, and a protocol code, a routing one included, never does.
- */
-export function isRuleRefusal(error: unknown): boolean {
-  return isRefusalCode(asRefusal(error)?.serverErrorCode);
+/** Whether the API refused the request, as `asRefusal` reads a refusal, with one of `codes`. */
+export function refusedAs(error: unknown, codes: ReadonlySet<Code>): boolean {
+  const code = asRefusal(error)?.serverErrorCode;
+  return code !== undefined && codes.has(code);
 }
 
 /**
@@ -161,13 +117,13 @@ export class ContractBreakError extends Error {
 }
 
 export class APINetworkError extends Error {
-  traceId: string;
+  override name = "APINetworkError";
+  readonly traceId: string;
 
   constructor({ message, traceId, originalError }: { message: string; traceId: string; originalError?: unknown }) {
     // The failure `fetch` threw, as the standard cause: the one place it appears in the error Next prints.
     super(message, { cause: originalError });
 
-    this.name = "APINetworkError";
     this.traceId = traceId;
   }
 }
@@ -192,33 +148,27 @@ export function requestOf(error: unknown): { status?: number; server_error_code?
 }
 
 /**
- * The refusals Resend's published error reference calls temporary, mirrored here because the token
- * decides whether a second attempt can succeed. **The source moves without us**
- * (<https://resend.com/docs/api-reference/errors>).
+ * The two 409s Resend's error reference tells a caller to try again later, a repeat of a send still in progress and a
+ * resource held by another request. Every other 409 names a request no repeat repairs, `invalid_idempotent_request`
+ * among them (<https://resend.com/docs/api-reference/errors>).
  */
-const TRANSIENT_PROVIDER_ERRORS: ReadonlySet<string> = new Set([
-  "concurrent_idempotent_requests",
-  "resource_locked",
-  "daily_quota_exceeded",
-  "monthly_quota_exceeded",
-  "rate_limit_exceeded",
-  "application_error",
-  "service_unavailable",
-]);
+const TRANSIENT_CONFLICTS: ReadonlySet<string> = new Set(["concurrent_idempotent_requests", "resource_locked"]);
 
 export class MailSendError extends Error {
-  traceId: string;
-  statusCode: number;
-  providerErrorName?: string;
+  override name = "MailSendError";
+  readonly traceId: string;
+  readonly statusCode: number;
+  readonly providerErrorName?: string;
 
   /**
-   * Whether a second attempt could land. The token decides where the body carried one; the status
-   * decides otherwise, `409 invalid_idempotent_request` being the one 4xx a retry cannot repair.
+   * Whether a second attempt could land. By the status for a rate limit, a quota and an outage, which the reference
+   * answers at 429 and at 500 or above whatever their name, so a name it adds there is retried too; by the name for
+   * the two temporary conflicts.
    */
   get isTransient(): boolean {
-    if (this.providerErrorName !== undefined) return TRANSIENT_PROVIDER_ERRORS.has(this.providerErrorName);
+    if (this.statusCode === 429 || this.statusCode >= 500) return true;
 
-    return this.statusCode === 429 || this.statusCode >= 500;
+    return this.providerErrorName !== undefined && TRANSIENT_CONFLICTS.has(this.providerErrorName);
   }
 
   constructor({
@@ -234,7 +184,6 @@ export class MailSendError extends Error {
   }) {
     super(message);
 
-    this.name = "MailSendError";
     this.traceId = traceId;
     this.statusCode = statusCode;
     this.providerErrorName = providerErrorName;

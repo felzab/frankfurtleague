@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 
-import { COPY } from "@/core/copy";
+import { LINE_SEPARATOR } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 
 import { Button } from "./Button";
 import { ConfirmDialog } from "./ConfirmDialog";
@@ -23,8 +24,8 @@ const pageLine = tv({
     // One line and no more: a part that does not fit beside the one before it wraps under it, out of the line's sight.
     line: statusLine({ placement: "row", tone: "changes", class: "flex h-5 flex-wrap content-start overflow-hidden whitespace-nowrap" }),
     text: "max-w-full min-w-0 truncate",
-    // Its dot goes with it, a space's width either side.
-    count: "ms-1 before:me-1 before:content-['·']",
+    // Its separator goes with it. Kept whole, since a flex item drops the space it opens with.
+    count: "whitespace-pre",
   },
 });
 
@@ -32,26 +33,36 @@ const pageLine = tv({
  * The bar's line on a page that states something of its own there, such as how many a line-up names and how many
  * start: the page's text, then the count of unsaved changes after a dot, on one line. The text keeps its place: where
  * both do not fit, as on a phone, the count gives way whole, and a text wider than the line alone is cut with „…“. A
- * save with something to say, a refusal or „Gespeichert“, takes the whole line, wrapping as every status line does,
- * and the page's text returns with the next edit.
+ * save with something to say, a refusal or „Gespeichert“, takes the whole line in the status line's region, wrapping
+ * as every status line does, and the page's text returns with the next edit.
  */
 function PageLine({ text, status }: { text: Copy; status: FormStatus }) {
   const look = pageLine();
-  if (status !== null && status.tone !== "changes") {
-    return <p className={statusLine({ placement: "row", tone: status.tone })}>{status.text}</p>;
-  }
+  const isOutcome = status !== null && status.tone !== "changes";
   return (
-    <p className={look.line()}>
-      <span className={look.text()}>{text}</span>
-      {status !== null && <span className={look.count()}>{status.text}</span>}
-    </p>
+    <>
+      {!isOutcome && (
+        <p className={look.line()}>
+          <span className={look.text()}>{text}</span>
+          {status !== null && (
+            <span className={look.count()}>
+              {LINE_SEPARATOR}
+              {status.text}
+            </span>
+          )}
+        </p>
+      )}
+      <StatusLine
+        status={isOutcome ? status : null}
+        placement="row"
+      />
+    </>
   );
 }
 
 /**
- * The editor's one save: a bar at the bottom of the viewport, its hairline from the rail's separator to the edge, holding
- * over the editor's column the status line at its left once it has something to say and „Speichern“ at its right,
- * never disabled; on a phone it stands where the bottom bar stood. A save whose change reaches beyond the record, such as later results a match's new score
+ * The editor's one save: a bar at the bottom of the viewport holding the status line once it has something to say and
+ * „Speichern“, never disabled. A save whose change reaches beyond the record, such as later results a match's new score
  * deletes, is held back by the server with its question, which the bar asks; confirmed, the save goes again.
  */
 export function EditorBar({
@@ -62,7 +73,7 @@ export function EditorBar({
   onSave,
 }: {
   status: FormStatus;
-  /** The page's own words on the status line, which a save's outcome takes the place of (`PageLine`). */
+  /** The page's own words on the status line, which a save's outcome takes the place of. */
   text?: Copy;
   isPending: boolean;
   question: BarQuestion;
@@ -80,8 +91,8 @@ export function EditorBar({
   };
   const look = editorBarLook();
   return (
-    // A landmark of its own, named by its act: the bar stands after `main`, and content outside every landmark is
-    // passed over by a screen reader moving between them.
+    // A landmark of its own, named by its act, at the foot of `main`: a screen reader moving between landmarks reaches
+    // the save without passing through the page's content.
     <div
       role="region"
       aria-label={COPY.shared.verb.save}
@@ -105,24 +116,23 @@ export function EditorBar({
           onPress={onSave}
         />
       </div>
-      {/* One dialog in one place either way, so it keeps its state: before the first question it stands closed with
-          nothing to say. */}
-      {shown === null ? (
-        <ConfirmDialog
-          open={held}
-          onConfirm={question.confirm}
-        />
-      ) : (
-        <ConfirmDialog
-          verb="save"
-          subject={shown.subject}
-          consequence={shown.consequence}
-          {...(shown.facts === undefined ? {} : { facts: shown.facts })}
-          tone="primary"
-          open={held}
-          onConfirm={question.confirm}
-        />
-      )}
+      {/* Mounted from the first render, so it keeps its state: before the first question it stands closed with nothing
+          to say. */}
+      <ConfirmDialog
+        question={
+          shown === null
+            ? null
+            : {
+                verb: "save",
+                subject: shown.subject,
+                consequence: shown.consequence,
+                ...(shown.facts === undefined ? {} : { facts: shown.facts }),
+                tone: "primary",
+              }
+        }
+        open={held}
+        onConfirm={question.confirm}
+      />
     </div>
   );
 }

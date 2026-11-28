@@ -51,7 +51,7 @@ async def get_sweep_saisons(saisons_collection: SaisonsReadCollection, status: F
 
 
 @router.post(
-    "/{saison_id}/retention",
+    "/{saison_id}/sweep",
     summary="Run one season's retention clocks over its season rows, fixture answers and match reports",
     openapi_extra=PASS,
 )
@@ -111,7 +111,7 @@ async def sweep_saison_retention(
                     collection=saison_teams_collection,
                     action="retention.kontakte",
                     by=ACT_BY_SYSTEM,
-                    label=saison_id,
+                    saison_id=saison_id,
                     count=result.modified_count,
                     session=session,
                 )
@@ -156,7 +156,7 @@ async def sweep_saison_retention(
                 collection=saison_teams_collection,
                 action="retention.kontakte",
                 by=ACT_BY_SYSTEM,
-                label=saison_id,
+                saison_id=saison_id,
                 count=len(seats),
                 session=session,
             )

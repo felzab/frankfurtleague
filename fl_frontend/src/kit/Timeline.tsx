@@ -5,14 +5,14 @@ import { SPIEL_COLUMNS_CLASSES, SpielList } from "./SpielRow";
 import { tv } from "./tv";
 
 import type { Copy, Words } from "@/core/copy";
-import type { ComponentProps, ReactNode } from "react";
+import type { ComponentProps } from "react";
 import type { SpielRowProps } from "./SpielRow";
 
 /**
- * One checkpoint: what its point holds (a club's running count of its matches, a minute), its title and detail
- * beside the point, and what stands under them, such as a match card. A minute is read with the title, since it
- * says when a goal fell and nothing else does; a count is not, the ordered list telling a screen reader each
- * checkpoint's place already, so „1“ is never read out before „1. Spieltag“.
+ * One checkpoint: what its point holds (a club's running count of its matches, a minute), and its title and detail
+ * beside the point. A minute is read with the title, since it says when a goal fell and nothing else does; a count
+ * is not, the ordered list telling a screen reader each checkpoint's place already, so „1“ is never read out before
+ * „1. Spieltag“.
  */
 export type Checkpoint = {
   id: string;
@@ -23,7 +23,6 @@ export type Checkpoint = {
   mark?: ComponentProps<typeof CardMark>;
   title: Copy;
   detail?: Words;
-  children?: ReactNode;
   /** A club's match, its row under the title: every checkpoint's row stands on the line's one set of match columns. */
   spiel?: SpielRowProps & { id: string };
   /** A club's match: how it went for the club, which the point wears in the Tabelle's S, U and N colours. */
@@ -34,10 +33,10 @@ export type Checkpoint = {
 export type Outcome = "won" | "drawn" | "lost" | "none";
 
 /**
- * The point and the line every line of checkpoints draws, the season's stages on the landing among them: a
- * point outlined in the brand green, or in a club's match in its outcome's colour, with its figure inside, and from it a dotted line in the control edge's
- * grey to the next. A figure longer than two characters, a minute of stoppage time, widens the point into a pill.
- * Each block places the line, a `before:` box, by its own geometry.
+ * The point and the line every line of checkpoints draws, the season's stages on the landing among them: a point
+ * outlined in the brand green, or in a club's match in its outcome's colour, with its figure inside, and from it a
+ * dotted line in the control edge's grey to the next. A figure longer than two characters, a minute of stoppage time,
+ * widens the point into a pill. Each block places the line, a `before:` box, by its own geometry.
  */
 export const checkpoint = tv({
   slots: {
@@ -121,7 +120,6 @@ export function Timeline({ label, items }: { label: Copy; items: readonly Checkp
               </span>
               {item.detail !== undefined && <span className={slots.detail()}>{textOf(item.detail)}</span>}
             </div>
-            {item.children}
             {item.spiel !== undefined && (
               <SpielList
                 matches={[item.spiel]}

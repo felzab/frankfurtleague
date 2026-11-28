@@ -19,22 +19,24 @@ export const railFade = tv({ base: "transition-opacity duration-(--motion-in) gr
 export const railGlyph = tv({ base: "flex shrink-0 justify-center group-data-collapsed:w-6" });
 
 /**
- * The rung a few entries are named on, 12 px medium muted, a step under a section's title: the rail's
- * groups and the phone sheet's. Each place adds its own spacing.
+ * The rung a few entries are named on, a step under a section's title: the rail's groups and the phone sheet's. Each
+ * place adds its own spacing.
  */
 export const groupHeading = tv({ base: "text-xs font-medium text-fg-muted" });
 
 /**
- * The editor's bar at the foot of the viewport, which `EditorBar` draws: on desktop as
- * tall as the rail's foot beside it (`--rail-foot`, from `tokens.css`), so the two top hairlines are one line, the
- * account row's name keeping one line however long (`AccountRow`). Its hairline runs the content's whole width, and its contents stand in a row over the editor's own column, the status at
- * the column's left edge and the save at its right, the content's and the bar's paddings alike centring the column.
- * The row ends at its right as `FormFooter`'s does, since a status line with nothing to say leaves the row's flow
- * (`statusLine`'s `quiet`) and the save must not move when it starts or stops speaking.
+ * The editor's bar at the foot of the viewport, which `EditorBar` draws: on desktop as tall as the rail's foot beside
+ * it (`--rail-foot`, from `tokens.css`), so the two top hairlines are one line, the account row's name keeping one line
+ * however long (`AccountRow`). Its hairline runs the content's whole width, and its contents stand in a row over the
+ * editor's own column, the status at the column's left edge and the save at its right, the content's and the bar's
+ * paddings alike centring the column. The row ends at its right as `FormFooter`'s does, since a status line with
+ * nothing to say leaves the row's flow (`StatusLine`'s `empty:sr-only`), one speaking takes the row's free width
+ * (`statusLine`'s `row` placement), and the save must not move when it starts or stops speaking. From `lg`, where the
+ * column is wide, the line's words end at the save rather than start at its left edge.
  */
 export const editorBarLook = tv({
   slots: {
-    bar: "sticky bottom-0 z-10 flex h-14 items-center border-t border-border bg-bg px-4 [view-transition-name:bar] lg:h-(--rail-foot) lg:px-8",
-    row: "mx-auto flex w-full max-w-form items-center justify-end gap-4",
+    bar: "sticky bottom-0 z-10 flex h-(--rail-bar) items-center border-t border-border bg-bg px-4 [view-transition-name:bar] lg:h-(--rail-foot) lg:px-8",
+    row: "mx-auto flex w-full max-w-form items-center justify-end gap-4 lg:text-end",
   },
 });

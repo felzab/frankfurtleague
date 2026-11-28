@@ -1,10 +1,10 @@
 from collections.abc import Mapping, Sequence
-from datetime import date, datetime, time, timedelta
+from datetime import datetime
 from http import HTTPStatus
 from typing import Any, Final
 
 from app.api.saisons.schemas import SAISON_FRAME_FIELDS, SAISON_FRAME_ORDER
-from app.api.saisons.services import SAISON_AS, SAISON_LOOKUP
+from app.api.saisons.services import SAISON_AS, SAISON_LOOKUP, SPIELTAG_POSITION_LOOKUP, matchday_of
 from app.api.schiedsrichter.schemas import (
     FLSchiedsrichterConfirmationViewConfirmed,
     FLSchiedsrichterConfirmationViewExpired,
@@ -13,15 +13,15 @@ from app.api.schiedsrichter.schemas import (
     FLSchiedsrichterSpiel,
 )
 from app.api.spielberichte.services import takes_a_bericht
-from app.api.spielbestaetigungen.crud import JUDGED_JUNCTION_FIELDS, JUDGED_SPIEL_FIELDS, OWN_ROW_FIELDS
+from app.api.spielbestaetigungen.crud import JUDGED_JUNCTION_FIELDS, OWN_ROW_FIELDS
 from app.api.spielbestaetigungen.services import AnsetzungState, exit_ends_the_booking, schiedsrichter_state_of
-from app.api.spiele.schemas import SONDEREREIGNIS_KEEPING_ITS_SLOT, FLSpielortFieldPublic, is_played, unplayed_filter
-from app.api.spiele.services import build_named_spiele_pipeline
+from app.api.spiele.schemas import SONDEREREIGNIS_KEEPING_ITS_SLOT, is_played, unplayed_filter
+from app.api.spiele.services import build_spiele_pipeline
 from app.core import clock
 from app.core.clock import days_after
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.exceptions import APIError, link_expired
+from app.core.exceptions import APIError, FieldFault, Subject, link_expired
 from app.shared.einwilligung import is_confirmed
 from app.shared.einwilligung_evidence import TextVersions, compose_initial
 from app.shared.folding import league_address, sign_in_identifier
@@ -47,7 +47,7 @@ def build_unplayed_assignment_filter(schiedsrichter_id: Any) -> Mapping[str, Any
     return {**build_assignment_filter(schiedsrichter_id), **unplayed_filter()}
 
 
-def find_referee_name_refusal(*, taken: bool) -> APIError | None:
+def find_referee_name_refusal(*, taken: bool) -> FieldFault | None:
     """`duplicate_key` on the name: another referee, a retired one included, holds it.
 
     Takes the answer rather than the lookup, so the caller's read runs in the caller's transaction. The unique index still
@@ -57,7 +57,7 @@ def find_referee_name_refusal(*, taken: bool) -> APIError | None:
     if not taken:
         return None
 
-    return APIError(HTTPStatus.CONFLICT, Code.DUPLICATE_KEY, fields=(("name",),))
+    return FieldFault(path=("name",), code=Code.DUPLICATE_KEY, status=HTTPStatus.CONFLICT)
 
 
 def find_referee_retire_refusal(*, upcoming_spiel_nrs: Sequence[int]) -> APIError | None:
@@ -72,9 +72,9 @@ def find_referee_retire_refusal(*, upcoming_spiel_nrs: Sequence[int]) -> APIErro
     return APIError(
         HTTPStatus.CONFLICT,
         Code.SCHIEDSRICHTER_STILL_ASSIGNED,
-        fields=(("schiedsrichter_id",),),
-        location="path",
-        bounds={"spiel_nrs": list(upcoming_spiel_nrs), "count": len(upcoming_spiel_nrs)},
+        subject=Subject(
+            path=("schiedsrichter_id",), location="path", bounds={"spiel_nrs": list(upcoming_spiel_nrs), "count": len(upcoming_spiel_nrs)}
+        ),
     )
 
 
@@ -112,7 +112,7 @@ def confirmation_deadline_from(*, today: str) -> str:
 def erase_at_from(*, deadline: str) -> datetime:
     """The German midnight closing the deadline's day: the link still answers on that day, so the entry outlives it."""
 
-    return datetime.combine(date.fromisoformat(deadline) + timedelta(days=1), time(), tzinfo=clock.GERMANY)
+    return clock.german_instant(days_after(day=deadline, days=1), "00:00")
 
 
 def compose_confirmation(*, today: str) -> dict[str, Any]:
@@ -400,18 +400,19 @@ BERICHT_AS: Final = "spielbericht"
 
 
 def build_self_spiele_pipeline(*, saison_id: str, schiedsrichter_ids: Sequence[Any]) -> list[Mapping[str, Any]]:
-    """Run on `spiele`: the season's fixtures booked to one of these referees, each with what the referee's list judges it by.
+    """Run on `spiele`: the season's fixtures booked to one of these referees, in the draw's order, each with what the list shows and judges.
 
-    Each fixture through the name join with the fields a confirmation row is judged against; the newest row asking the booked referee about it,
-    with both clubs' season rows its Ansetzung names; when its report was first sent; and its season's status.
+    Each fixture as the public reads join it, as a club's own list reads its matches, the sides' exits folded in, which
+    judge whether the booking still stands; its matchday; the newest row asking the booked referee about it, with both
+    clubs' season rows its Ansetzung names; when its report was first sent; and its season's status. One aggregation,
+    so no fixture costs a read of its own.
     """
 
     return [
-        *build_named_spiele_pipeline(
-            {"saison_id": saison_id, "schiedsrichter.schiedsrichter_id": {"$in": list(schiedsrichter_ids)}},
-            # The sides' exits too, which the name join folds in: a club out by the fixture's day takes the booking off it.
-            projection={**JUDGED_SPIEL_FIELDS, "saison_id": 1, "team1.austritt.date": 1, "team2.austritt.date": 1},
+        *build_spiele_pipeline(
+            {"saison_id": saison_id, "schiedsrichter.schiedsrichter_id": {"$in": list(schiedsrichter_ids)}}, sort_by=[("spiel_nr", 1)]
         ),
+        SPIELTAG_POSITION_LOOKUP,
         {
             "$lookup": {
                 "from": Collection.SPIELBESTAETIGUNGEN,
@@ -463,23 +464,6 @@ def build_self_spiele_pipeline(*, saison_id: str, schiedsrichter_ids: Sequence[A
     ]
 
 
-def entered_of(spielbestaetigung_raw: Mapping[str, Any]) -> bool:
-    """Whether an administrator recorded this row's answer.
-
-    An administrator's entry stores `by: {kind: "admin"}`.
-    """
-
-    return bool(((spielbestaetigung_raw.get("answer") or {}).get("by") or {}).get("kind") == "admin")
-
-
-def own_reason_of(spielbestaetigung_raw: Mapping[str, Any]) -> str | None:
-    """The reason on the referee's own decline alone: an administrator's entry on their row is the league's record, not theirs to read."""
-
-    answer = spielbestaetigung_raw.get("answer") or {}
-
-    return answer.get("reason") if (answer.get("by") or {}).get("kind") == "schiedsrichter" else None
-
-
 def compose_self_spiel(spiel: Mapping[str, Any], *, now: datetime) -> FLSchiedsrichterSpiel:
     """One fixture of `build_self_spiele_pipeline`'s as the referee's list shows it: as it stands, never as a row asked about it."""
 
@@ -487,39 +471,29 @@ def compose_self_spiel(spiel: Mapping[str, Any], *, now: datetime) -> FLSchiedsr
     bericht = next(iter(spiel[BERICHT_AS]), None)
     # One row: a fixture's season always stands, and the read joins it by its id.
     [saison] = spiel[SAISON_AS]
-    spielort = spiel.get("spielort")
     # A club out by the fixture's day ends the booking, as the pass's notice told the referee.
     officiates = not exit_ends_the_booking(spiel)
     # As the report's own read judges its form open.
     reportable = officiates and takes_a_bericht(spiel, now=now) and not season_has_ended(saison_status=saison["status"])
     submitted_at = None if bericht is None else bericht.get("submitted_at")
 
-    def team_name(side: str) -> str | None:
-        team = spiel.get(side)
-        return team.get("name") if isinstance(team, Mapping) else None
-
-    return FLSchiedsrichterSpiel(
-        spiel_id=spiel["_id"],
-        team1_name=team_name("team1"),
-        team2_name=team_name("team2"),
-        date=spiel.get("date"),
-        time=spiel.get("time"),
-        spielort=None
-        if not isinstance(spielort, Mapping)
-        else FLSpielortFieldPublic(spielort_id=spielort["spielort_id"], name=spielort["name"], maps_query=spielort["maps_query"]),
-        sonderereignis=spiel.get("sonderereignis"),
-        spielbestaetigung_id=None if row is None else row["_id"],
-        state=None
-        if row is None
-        else schiedsrichter_state_of(
-            spielbestaetigung_raw=row, ansetzung_state=AnsetzungState(spiel=spiel, junctions=row[OWN_ROW_JUNCTIONS_AS]), now=now
-        ),
-        reason=None if row is None else own_reason_of(row),
-        entered=row is not None and entered_of(row),
-        officiates=officiates,
-        past=is_played(date=spiel.get("date"), time=spiel.get("time"), now=now),
-        submitted_at=submitted_at,
-        bericht_owed=owes_a_bericht(reportable=reportable, submitted_at=submitted_at, sonderereignis=spiel.get("sonderereignis")),
+    # The joined fixture whole, as the club's list validates it, the model serving what the public reads serve of it.
+    return FLSchiedsrichterSpiel.model_validate(
+        {
+            **spiel,
+            **matchday_of(spiel),
+            "spielbestaetigung_id": None if row is None else row["_id"],
+            "state": None
+            if row is None
+            else schiedsrichter_state_of(
+                spielbestaetigung_raw=row, ansetzung_state=AnsetzungState(spiel=spiel, junctions=row[OWN_ROW_JUNCTIONS_AS]), now=now
+            ),
+            "officiates": officiates,
+            "past": is_played(date=spiel.get("date"), time=spiel.get("time"), now=now),
+            "submitted_at": submitted_at,
+            "reportable": reportable,
+            "bericht_owed": owes_a_bericht(reportable=reportable, submitted_at=submitted_at, sonderereignis=spiel.get("sonderereignis")),
+        }
     )
 
 
@@ -531,26 +505,3 @@ def owes_a_bericht(*, reportable: bool, submitted_at: datetime | None, sonderere
     """
 
     return reportable and submitted_at is None and sonderereignis in SONDEREREIGNIS_KEEPING_ITS_SLOT
-
-
-def is_open_work(spiel: FLSchiedsrichterSpiel) -> bool:
-    """Whether the fixture waits on the referee: a booking to answer, or a report owed."""
-
-    return spiel.state == "valid" or spiel.bericht_owed
-
-
-def _by_day(spiel: FLSchiedsrichterSpiel) -> tuple[bool, str, str, str]:
-    # An undated fixture after every dated one; the id last, so no two rows tie.
-    return spiel.date is None, spiel.date or "", spiel.time or "", str(spiel.spiel_id)
-
-
-def order_self_spiele(spiele: Sequence[FLSchiedsrichterSpiel]) -> list[FLSchiedsrichterSpiel]:
-    """Open work first, then the fixtures to come, each by its day; then the days gone by, the latest first."""
-
-    rest = [spiel for spiel in spiele if not is_open_work(spiel)]
-
-    return [
-        *sorted(filter(is_open_work, spiele), key=_by_day),
-        *sorted((spiel for spiel in rest if not spiel.past), key=_by_day),
-        *sorted((spiel for spiel in rest if spiel.past), key=_by_day, reverse=True),
-    ]

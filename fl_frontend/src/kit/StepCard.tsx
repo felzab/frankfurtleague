@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 
 import { Button } from "./Button";
 import { Card } from "./Card";
@@ -13,6 +13,7 @@ import { HeldForm } from "./HeldForm";
 import { Table } from "./Table";
 import { tv } from "./tv";
 
+import type { BoxRules } from "@/core/boxRules";
 import type { Copy, Words } from "@/core/copy";
 import type { ReactElement, ReactNode } from "react";
 import type { Fact } from "./Facts";
@@ -31,6 +32,7 @@ export function StepCard({
   line,
   facts,
   fieldErrors,
+  rules,
   onNext,
   onSkip,
   children,
@@ -40,6 +42,8 @@ export function StepCard({
   facts: ReadonlyArray<Fact>;
   /** What an earlier send refused, each message on its box. */
   fieldErrors?: Readonly<Record<string, Copy>>;
+  /** What the browser's pass holds the inputs to: the run's act's lane's rules, read on the server (`boxRulesOf`). */
+  rules: BoxRules;
   onNext: (form: FormData) => void;
   onSkip: () => void;
   children: ReactNode;
@@ -53,12 +57,15 @@ export function StepCard({
       body="fields">
       <HeldForm
         className={body()}
-        validationErrors={fieldErrors}
-        onInvalid={() => setBlocked(true)}
+        fieldErrors={fieldErrors}
+        rules={rules}
+        onBlock={() => setBlocked(true)}
+        // „Weiter“ hands the inputs over and sends nothing, so nothing is ever on its way.
+        isBusy={false}
         onSend={onNext}>
         <Facts facts={facts} />
         <FieldStack>{children}</FieldStack>
-        <FormFooter status={isBlocked ? { tone: "error", text: COPY.template.checkFields } : null}>
+        <FormFooter status={isBlocked ? { tone: "danger", text: COPY.template.checkFields } : null}>
           <Button
             variant="quiet"
             label={COPY.shared.verb.skip}
@@ -84,7 +91,7 @@ export function CheckStep({ table, refused, act }: { table: TableProps; refused:
   return (
     <>
       <Table {...table} />
-      <FormFooter status={refused ? { tone: "error", text: COPY.template.checkFields } : null}>{act}</FormFooter>
+      <FormFooter status={refused ? { tone: "danger", text: COPY.template.checkFields } : null}>{act}</FormFooter>
     </>
   );
 }

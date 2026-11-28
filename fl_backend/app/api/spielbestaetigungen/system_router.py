@@ -588,7 +588,6 @@ async def sweep_spielbestaetigungen(
         read = await pull_whole_from_db(
             collection=spielbestaetigungen_collection,
             db_filter=build_held_filter(saison_id=saison_id, spiel_ids=[fixture["_id"]]),
-            what=f"fixture {fixture['_id']}'s held confirmations",
             session=session,
         )
         plan = (await planner(spiele, read, session))(spiele[0])
@@ -757,8 +756,9 @@ async def sweep_spielbestaetigungen(
 
         reminded = {
             row["key"]
-            for row in await outbox_collection.find(
-                {
+            for row in await pull_whole_from_db(
+                collection=outbox_collection,
+                db_filter={
                     "key": {
                         "$in": [
                             aufstellung_reminder_key(spiel_id=spiel["_id"], team_id=team_id, seat=seat)
@@ -767,9 +767,9 @@ async def sweep_spielbestaetigungen(
                         ]
                     }
                 },
-                {"key": 1, "_id": 0},
+                projection={"key": 1, "_id": 0},
                 session=session,
-            ).to_list(length=None)
+            )
         }
 
         mails: list[OwedMail] = []

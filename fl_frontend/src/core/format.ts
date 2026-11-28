@@ -1,3 +1,5 @@
+import { SITE_LOCALE } from "./brand";
+
 /** A calendar day as the API stores it, `YYYY-MM-DD`. */
 export type CalendarDay = `${number}-${number}-${number}`;
 
@@ -25,27 +27,27 @@ export type Pair = { readonly team1: number; readonly team2: number };
 // UTC and a browser elsewhere disagree about the day and the hour. The frontend's one spelling of it.
 const TIME_ZONE = "Europe/Berlin";
 
-const DATE = new Intl.DateTimeFormat("de-DE", { timeZone: TIME_ZONE, day: "2-digit", month: "2-digit", year: "numeric" });
-const DATE_WITH_WEEKDAY = new Intl.DateTimeFormat("de-DE", { timeZone: TIME_ZONE, weekday: "short", day: "2-digit", month: "2-digit" });
-const DATE_WITH_WEEKDAY_AND_YEAR = new Intl.DateTimeFormat("de-DE", {
+const DATE = new Intl.DateTimeFormat(SITE_LOCALE, { timeZone: TIME_ZONE, day: "2-digit", month: "2-digit", year: "numeric" });
+const DATE_WITH_WEEKDAY = new Intl.DateTimeFormat(SITE_LOCALE, { timeZone: TIME_ZONE, weekday: "short", day: "2-digit", month: "2-digit" });
+const DATE_WITH_WEEKDAY_AND_YEAR = new Intl.DateTimeFormat(SITE_LOCALE, {
   timeZone: TIME_ZONE,
   weekday: "short",
   day: "2-digit",
   month: "2-digit",
   year: "numeric",
 });
-const DATE_LONG = new Intl.DateTimeFormat("de-DE", { timeZone: TIME_ZONE, day: "numeric", month: "long", year: "numeric" });
-const INSTANT = new Intl.DateTimeFormat("de-DE", { timeZone: TIME_ZONE, dateStyle: "long", timeStyle: "short" });
-const INSTANT_SHORT = new Intl.DateTimeFormat("de-DE", { timeZone: TIME_ZONE, dateStyle: "medium", timeStyle: "short" });
-const TIME = new Intl.DateTimeFormat("de-DE", { timeZone: TIME_ZONE, hour: "2-digit", minute: "2-digit" });
+const YEAR = new Intl.DateTimeFormat(SITE_LOCALE, { timeZone: TIME_ZONE, year: "numeric" });
+const DATE_LONG = new Intl.DateTimeFormat(SITE_LOCALE, { timeZone: TIME_ZONE, day: "numeric", month: "long", year: "numeric" });
+const INSTANT = new Intl.DateTimeFormat(SITE_LOCALE, { timeZone: TIME_ZONE, dateStyle: "long", timeStyle: "short" });
+const INSTANT_SHORT = new Intl.DateTimeFormat(SITE_LOCALE, { timeZone: TIME_ZONE, dateStyle: "medium", timeStyle: "short" });
 // A stored time of day names no instant, so it is read in UTC, where no clock change can move it.
-const TIME_SAVED = new Intl.DateTimeFormat("de-DE", { timeZone: "UTC", hour: "2-digit", minute: "2-digit" });
+const TIME_SAVED = new Intl.DateTimeFormat(SITE_LOCALE, { timeZone: "UTC", hour: "2-digit", minute: "2-digit" });
 // A stored day and time together, read in UTC as the time alone is, in the instant's own form.
-const DAY_AND_TIME_SAVED = new Intl.DateTimeFormat("de-DE", { timeZone: "UTC", dateStyle: "long", timeStyle: "short" });
-const NUMBER = new Intl.NumberFormat("de-DE");
-const SIGNED = new Intl.NumberFormat("de-DE", { signDisplay: "exceptZero" });
-const EURO = new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" });
-const LIST = new Intl.ListFormat("de-DE", { type: "conjunction" });
+const DAY_AND_TIME_SAVED = new Intl.DateTimeFormat(SITE_LOCALE, { timeZone: "UTC", dateStyle: "long", timeStyle: "short" });
+const NUMBER = new Intl.NumberFormat(SITE_LOCALE);
+const SIGNED = new Intl.NumberFormat(SITE_LOCALE, { signDisplay: "exceptZero" });
+const EURO = new Intl.NumberFormat(SITE_LOCALE, { style: "currency", currency: "EUR" });
+const LIST = new Intl.ListFormat(SITE_LOCALE, { type: "conjunction" });
 
 // The ISO day's parts, which the Canadian English locale writes in that order.
 const ISO_DAY = new Intl.DateTimeFormat("en-CA", { timeZone: TIME_ZONE, year: "numeric", month: "2-digit", day: "2-digit" });
@@ -66,15 +68,17 @@ export const formatDate = (day: CalendarDay | Date): string => DATE.format(asIns
 /** „So., 14.03.“: a match's day in its row, whose season already names the year. */
 export const formatDateWithWeekday = (day: CalendarDay | Date): string => DATE_WITH_WEEKDAY.format(asInstant(day));
 
-/** „Fr., 06.11.2026“: one match's day on its own, in its pop-up and on its page, where no season names the year. */
+/** „Fr., 06.11.2026“: one match's day on its own, in its pop-up, where no season names the year. */
 export const formatDateWithWeekdayAndYear = (day: CalendarDay | Date): string => DATE_WITH_WEEKDAY_AND_YEAR.format(asInstant(day));
+
+/** „2026“: a day's year on a line of its own, under the day as `formatDateWithWeekday` writes it on a match's page. */
+export const formatYear = (day: CalendarDay): string => YEAR.format(asInstant(day));
 
 /** „24. Oktober 2026“: a date inside a sentence or a mail. */
 export const formatDateLong = (day: CalendarDay | Date): string => DATE_LONG.format(asInstant(day));
 
-/** „15:30“. */
-export function formatTime(time: TimeOfDay | Date): string {
-  if (time instanceof Date) return TIME.format(time);
+/** „15:30“: a stored time of day. */
+export function formatTime(time: TimeOfDay): string {
   const [hour = 0, minute = 0] = time.split(":").map(Number);
   return TIME_SAVED.format(Date.UTC(1970, 0, 1, hour, minute));
 }
@@ -98,7 +102,7 @@ export function formatInstantShort(instant: string | Date): string {
   const date = typeof instant === "string" ? new Date(instant) : instant;
   if (Number.isNaN(date.getTime())) return String(instant);
   return INSTANT_SHORT.formatToParts(date)
-    .map((part) => (part.type === "literal" ? part.value.replace(/\s/gu, " ") : part.value))
+    .map((part) => (part.type === "literal" ? part.value.replace(/\s/gu, "\u00A0") : part.value))
     .join("");
 }
 
@@ -113,7 +117,7 @@ export function formatDayAndTime(day: CalendarDay, time: TimeOfDay): string {
 }
 
 /**
- * „01.09.2025 – 30.06.2026“, the one place a dash renders; the locale drops what both ends share. The
+ * „01.09.2025 – 30.06.2026“, a range's dash; the locale drops what both ends share. The
  * runtime's ICU data decides the spaces around the dash, and a browser's may write others, so a span is formatted on
  * the server and handed to a client component as a string: formatted during a client component's server render, it
  * hydrates against different text.

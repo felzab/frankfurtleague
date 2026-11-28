@@ -60,7 +60,6 @@ from app.api.bewerbungen.services import (
     saison_link_pair,
     saison_schule,
     saison_state_of,
-    schule_name,
     seat_deadline_of,
     seat_holding,
     seat_opens_nobody,
@@ -85,6 +84,7 @@ from app.core.crud import (
     pull_many_from_db,
     pull_one_from_db,
     refuse,
+    refuse_faults,
 )
 from app.core.dependencies import (
     BewerbungenCollection,
@@ -200,8 +200,6 @@ async def post_bewerbung(
     A second press with an `Idempotency-Key` already stored answers the application that key holds and stores nothing.
     """
 
-    refuse(find_repeated_contact_refusal(kontakte=bewerbung_data.kontakte.model_dump(mode="json")))
-
     key = str(idempotency_key)
 
     # One per distinct address, the seat the Trainer also holds naming theirs twice.
@@ -225,20 +223,24 @@ async def post_bewerbung(
         )
         refuse(find_window_refusal(saison_status=saison_raw["status"], bewerbung=saison_raw.get("bewerbung"), today=today))
 
-        # Then who is applying, because the two branches below judge different things.
-        refuse(find_submission_subject_refusal(team_id=bewerbung_data.team_id, schule=bewerbung_data.schule))
-
-        # A picked club alone: a new school has nothing stored to judge. `find_one`, not `pull_one_from_db`: a club the
-        # picker never offered is refused with `bewerbung_picked_team_unusable` rather than answering the 404 a miss would raise.
-        schule, team_raw = bewerbung_data.schule, None
-        if schule is None:
-            team_raw = await teams_collection.find_one({"_id": bewerbung_data.team_id}, {"inactive_since": 1, "name": 1}, session=session)
+        # A picked club alone, judged ahead of the boxes: a club that may not apply makes every seat's fault meaningless, so
+        # its gate answers first rather than after the applicant has mended the seats. A new school has nothing stored to
+        # judge, and a body naming both or neither is the subject's fault below. `find_one`, not `pull_one_from_db`: a club
+        # the picker never offered is refused with `bewerbung_picked_team_unusable` rather than answering the 404 a miss would raise.
+        schule = bewerbung_data.schule
+        if schule is None and bewerbung_data.team_id is not None:
+            team_raw = await teams_collection.find_one({"_id": bewerbung_data.team_id}, {"inactive_since": 1}, session=session)
             refuse(find_picked_team_refusal(team_raw=team_raw))
 
-            entered = await saison_teams_collection.count_documents(
-                {"saison_id": bewerbung_data.saison_id, "team_id": bewerbung_data.team_id}, limit=1, session=session
+            entered = await saison_teams_collection.find_one(
+                {"saison_id": bewerbung_data.saison_id, "team_id": bewerbung_data.team_id}, projection={"_id": 1}, session=session
             )
-            refuse(find_already_entered_refusal(entered=entered > 0))
+            refuse(find_already_entered_refusal(entered=entered is not None))
+
+        refuse_faults(
+            find_submission_subject_refusal(team_id=bewerbung_data.team_id, schule=schule),
+            find_repeated_contact_refusal(kontakte=bewerbung_data.kontakte.model_dump(mode="json")),
+        )
 
         confirmation_deadline = confirmation_deadline_from(today=today)
         stored_kontakte = compose_kontakte(kontakte=bewerbung_data.kontakte.model_dump(mode="json"), today=today)
@@ -289,11 +291,6 @@ async def post_bewerbung(
                 bewerbung_id=created.inserted_id,
                 kontakte=stored_kontakte,
                 saison_id=bewerbung_data.saison_id,
-                # The school as the mails name it: proposed, or the picked club as the league holds it, never as the
-                # body spells it.
-                schule=schule_name(
-                    bewerbung_raw=document, team_names={} if team_raw is None else {team_raw["_id"]: str(team_raw.get("name") or "")}
-                ),
                 deadline=confirmation_deadline,
                 unmailed=unmailed,
             ),
@@ -364,7 +361,6 @@ async def _saison_view(
 # A POST that reads, so the token travels in the body.
 @router.post(
     "/confirmation/view",
-    response_model=FLBewerbungEinwilligungViewResponse,
     summary="What one confirmation link opens",
     openapi_extra=SAFE,
 )
@@ -375,12 +371,7 @@ async def get_confirmation_view(
     saisons_collection: SaisonsReadCollection,
     teams_collection: TeamsReadCollection,
     today: GermanDay,
-) -> (
-    FLBewerbungEinwilligungViewValid
-    | FLBewerbungEinwilligungViewSaisonPast
-    | FLBewerbungEinwilligungViewAnswered
-    | FLBewerbungEinwilligungViewExpired
-):
+) -> FLBewerbungEinwilligungViewResponse:
     """What the confirmation page renders for the seat this token opens, and nothing of the person.
 
     A confirmed, declined or expired link is served in that state; only a token no seat holds is refused.
@@ -462,9 +453,11 @@ async def post_confirmation(
         assert row is not None and seat is not None
 
         kontakte, confirmations = row.get("kontakte"), row.get("confirmations")
+        # The answer first, as `saison_state_of` ranks it: a person who answered and presses again after the deadline is
+        # told their answer stands, never that the link expired.
+        refuse(find_already_answered_refusal(kontakte=kontakte, confirmations=confirmations, seat=seat))
         # The deadline alone: a season row has no decision to end its link.
         refuse(find_expired_token_refusal(over=deadline_passed(deadline=seat_deadline_of(confirmations=confirmations, seat=seat), today=today)))
-        refuse(find_already_answered_refusal(kontakte=kontakte, confirmations=confirmations, seat=seat))
 
         other = saison_link_pair(kontakte=kontakte, confirmations=confirmations, seat=seat, token_hash=token_hash)
         seats = (seat,) if other is None else (seat, other)
@@ -481,8 +474,11 @@ async def post_confirmation(
             # Every link on a closed row meets this here, whether minted before it closed, beside its
             # rollover or after it; never the Widerspruch below, which removes the person.
             refuse(find_saison_past_einwilligung_refusal(saison_status=saison_raw.get("status"), austritt=row.get("austritt")))
-            refuse(find_age_refusal(birth_date=birth_date, today=today, minimum_age=minimum_age_for(seats)))
-            refuse(find_self_media_refusal(saved=None, media=answer_data.media, birth_date=birth_date, today=today))
+            age = find_age_refusal(birth_date=birth_date, today=today, minimum_age=minimum_age_for(seats))
+            # The media switch is judged on the birthdate, which means nothing once refused.
+            refuse_faults(
+                age, None if age else find_self_media_refusal(saved=None, media=answer_data.media, birth_date=birth_date, today=today)
+            )
 
             # The person's own press, judged on the read above: an administrator's save read before it still lands, and
             # the seat write keeps a kept seat's record from its own in-session read.
@@ -549,6 +545,9 @@ async def post_confirmation(
         assert seat is not None
 
         kontakte, confirmations = bewerbung_raw.get("kontakte"), bewerbung_raw.get("confirmations")
+        # The answer first, as `state_of` ranks it: a person who answered and presses again after the deadline or the
+        # decision is told their answer stands, never that the link expired.
+        refuse(find_already_answered_refusal(kontakte=kontakte, confirmations=confirmations, seat=seat))
         refuse(
             find_expired_token_refusal(
                 over=link_is_over(
@@ -556,7 +555,6 @@ async def post_confirmation(
                 )
             )
         )
-        refuse(find_already_answered_refusal(kontakte=kontakte, confirmations=confirmations, seat=seat))
 
         # Both seats one person holds, so one click answers for the person rather than for one of
         # their two seats, and the equality the submission asserted survives the write.
@@ -570,8 +568,11 @@ async def post_confirmation(
 
             # Over both seats, so a Trainer who also sits in one of the other two is judged as the
             # person they are rather than as the link they pressed.
-            refuse(find_age_refusal(birth_date=birth_date, today=today, minimum_age=minimum_age_for(seats)))
-            refuse(find_self_media_refusal(saved=None, media=answer_data.media, birth_date=birth_date, today=today))
+            age = find_age_refusal(birth_date=birth_date, today=today, minimum_age=minimum_age_for(seats))
+            # The media switch is judged on the birthdate, which means nothing once refused.
+            refuse_faults(
+                age, None if age else find_self_media_refusal(saved=None, media=answer_data.media, birth_date=birth_date, today=today)
+            )
 
             # Past the count, as on the season row: a decision read before the press still lands.
             await patch_past_the_version_in_db(

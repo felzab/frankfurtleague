@@ -5,7 +5,7 @@ import type { FLAddressChangeAdminListResponse } from "@/core/generated/client/t
 
 /**
  * The running changes this administrator may act on, newest first, a change the server denies them left out rather than
- * refused. Uncached: `"use cache"` keys on arguments, not on caller identity, and each row names two addresses.
+ * refused.
  */
 export async function getAddressChanges(): Promise<FLAddressChangeAdminListResponse> {
   return runAdminRead(() => addressChangeGetAddressChanges());

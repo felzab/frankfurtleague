@@ -3,28 +3,30 @@
 import { useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
-import { COPY } from "@/core/copy";
+import { ADMIN_COPY } from "@/core/copy/admin";
+import { COPY } from "@/core/copy/shared";
 import { dayOf, formatDate, formatNumber } from "@/core/format";
 import { ROUTES } from "@/core/routes";
+import { acceptBewerbung } from "@/features/bewerbungen/acceptBewerbung";
+import { AcceptFields } from "@/features/bewerbungen/AcceptFields";
 import { STANDING_CHIP, standingOf } from "@/features/bewerbungen/standing";
 import { trikotFarbeLabel } from "@/features/teams/constants";
 import { ConfirmDialog } from "@/kit/ConfirmDialog";
 import { EmptyBox } from "@/kit/EmptyState";
+import { FocusOnArrival } from "@/kit/FocusOnLeave";
 import { RailCardBody } from "@/kit/StatusCard";
 import { CheckStep, StepCard } from "@/kit/StepCard";
 import { answering } from "@/kit/useFormAction";
 
-import { AcceptFields } from "../[bewerbung]/AcceptFields";
-import { acceptBewerbung } from "../[bewerbung]/decideBewerbung";
 import { cardOf, gruppenFor, openRows, outcomeOf, takenFor } from "./run";
 
+import type { BoxRules } from "@/core/boxRules";
 import type { FLBewerbungGruppeOffer, FLBewerbungListRow, FLTrikotFarbe } from "@/core/generated/client/types";
-import type { AcceptRules } from "@/features/bewerbungen/fieldRules";
 import type { Fact } from "@/kit/Facts";
 import type { TableRow } from "@/kit/Table";
 import type { Draft, Outcome, Run } from "./run";
 
-const WORDS = COPY.admin.bewerbung;
+const WORDS = ADMIN_COPY.bewerbung;
 const TITLE = COPY.page.adminBewerbungenBulk;
 /** The address's name of the card a row or Back returns to. */
 const CARD = "card";
@@ -33,7 +35,7 @@ const figure = (label: Fact["label"], value: number): Fact => ({ label, value: {
 
 /** The facts a card's group and colour are judged on. */
 const factsOf = (row: FLBewerbungListRow): readonly Fact[] => [
-  { label: WORDS.received, value: { record: formatDate(dayOf(row.submitted_at)) } },
+  { label: COPY.shared.facts.received, value: { record: formatDate(dayOf(row.submitted_at)) } },
   figure(COPY.team.stufengroesse, row.stufengroesse),
   figure(COPY.team.expectedKader, row.expected_kader),
   { label: COPY.team.wunschfarbe, value: trikotFarbeLabel(row.wunschfarbe) },
@@ -47,7 +49,8 @@ function formOf(row: FLBewerbungListRow, draft: Draft): FormData {
   form.set("version", String(row.version));
   form.set("gruppe", draft.gruppe);
   form.set("trikot_farbe", draft.trikot_farbe);
-  form.set("shorthand", row.shorthand === null ? draft.shorthand : "");
+  // A known club's code is its record's own, posted by no name, as the dialog's closed box posts none.
+  if (row.shorthand === null) form.set("shorthand", draft.shorthand);
   return form;
 }
 
@@ -55,7 +58,8 @@ function formOf(row: FLBewerbungListRow, draft: Draft): FormData {
  * A row of the check page, its state in its „Stand“ column whatever the run did: entered, „Angenommen“; turned away for
  * its Kürzel, that chip; else the application's own standing, with why it was turned away where it was and its way back
  * to its card. An entered row opens nothing, so on a phone every row's line says the colour and the Kürzel its columns
- * would, a colour left open left out as the squad's line leaves an empty fact.
+ * would, and the group where the box leaves its column out too, a colour left open left out as the squad's line leaves
+ * an empty fact.
  */
 function checkRow(row: FLBewerbungListRow, run: Run, outcome: Outcome | undefined, open: (id: string) => void): TableRow {
   const draft = run.drafts[row.id];
@@ -66,7 +70,7 @@ function checkRow(row: FLBewerbungListRow, run: Run, outcome: Outcome | undefine
     farbe: colour ?? COPY.shared.notProvided,
     shorthand,
   };
-  const base = { id: row.id, name: { record: row.name }, phoneLine: COPY.shared.line([colour, shorthand]), cells };
+  const base = { id: row.id, name: { record: row.name }, cells };
   if (outcome?.kind === "accepted") return { ...base, chip: STANDING_CHIP.accepted };
   const refused = outcome?.kind === "refused" ? outcome : null;
   const line = refused?.taken === true ? undefined : (refused?.line ?? Object.values(refused?.fieldErrors ?? {})[0]);
@@ -98,7 +102,8 @@ export function BulkAccept({
   gruppen: readonly FLBewerbungGruppeOffer[];
   /** The colours another team holds. */
   taken: readonly string[];
-  rules: AcceptRules;
+  /** What the browser's pass holds each card's boxes to: the acceptance's lane's rules (`boxRulesOf`). */
+  rules: BoxRules;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -126,14 +131,16 @@ export function BulkAccept({
   const accepted = rows.filter((row) => run.outcomes[row.id]?.kind === "accepted").length;
   if (open.length === 0 && accepted > 0)
     return (
-      <RailCardBody
-        card={{
-          tone: "success",
-          title: WORDS.acceptedCount(accepted),
-          next: { label: COPY.shared.end.toTeams, href: ROUTES.adminTeams.path(saison) },
-        }}
-        scope="area"
-      />
+      <FocusOnArrival>
+        <RailCardBody
+          card={{
+            tone: "success",
+            title: WORDS.acceptedCount(accepted),
+            next: { label: COPY.shared.end.toTeams, href: ROUTES.adminTeams.path(saison) },
+          }}
+          scope="area"
+        />
+      </FocusOnArrival>
     );
 
   const card = cardOf(rows, run, named);
@@ -153,6 +160,7 @@ export function BulkAccept({
         line={WORDS.cardOf(inRun.indexOf(card) + 1, inRun.length)}
         facts={factsOf(card)}
         fieldErrors={outcome?.kind === "refused" ? outcome.fieldErrors : undefined}
+        rules={rules}
         onSkip={() => leave({ ...run, skipped: new Set(run.skipped).add(card.id) })}
         onNext={(form) => {
           const draft: Draft = {
@@ -171,7 +179,6 @@ export function BulkAccept({
           subject={{ wish: card.wunschfarbe, shorthand: card.shorthand }}
           gruppen={gruppenFor(gruppen, rows, run, card.id)}
           taken={takenFor(taken, rows, run, card.id)}
-          rules={rules}
           picked={run.drafts[card.id]}
         />
       </StepCard>
@@ -195,11 +202,11 @@ export function BulkAccept({
       table={{
         label: TITLE,
         nameLabel: COPY.shared.facts.school,
-        state: { label: COPY.admin.schiedsrichter.state },
+        state: { label: COPY.shared.facts.state },
         columns: [
-          { key: "gruppe", label: COPY.team.gruppe, narrow: true, width: "word" },
-          { key: "farbe", label: COPY.team.trikotFarbe, hideOnPhone: true, width: "word" },
-          { key: "shorthand", label: COPY.team.shorthand, hideOnPhone: true, width: "code" },
+          { key: "gruppe", label: COPY.team.gruppe, narrow: true, onLine: "value", width: "word" },
+          { key: "farbe", label: COPY.team.trikotFarbe, hideOnPhone: true, onLine: "value", width: "word" },
+          { key: "shorthand", label: COPY.team.shorthand, hideOnPhone: true, onLine: "value", width: "code" },
         ],
         rows: shown.map((row) => checkRow(row, run, run.outcomes[row.id], go)),
         // A run with no applications ended above, so an empty table is one whose every card was skipped.
@@ -209,11 +216,13 @@ export function BulkAccept({
       act={
         count === 0 ? null : (
           <ConfirmDialog
-            verb="accept"
-            subject={WORDS.count(count)}
-            consequence={WORDS.acceptManyConsequence(saison)}
-            facts={[{ label: COPY.admin.facts.mailTo, value: WORDS.kontaktCount(open.reduce((sum, row) => sum + row.people, 0)) }]}
-            tone="primary"
+            question={{
+              verb: "accept",
+              subject: WORDS.count(count),
+              consequence: WORDS.acceptManyConsequence(saison),
+              facts: [{ label: ADMIN_COPY.facts.mailTo, value: WORDS.kontaktCount(open.reduce((sum, row) => sum + row.people, 0)) }],
+              tone: "primary",
+            }}
             onConfirm={confirm}
             trigger={{ label: COPY.shared.withObject(WORDS.count(count), "accept"), variant: "primary" }}
           />

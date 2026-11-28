@@ -1,11 +1,14 @@
 import { describe, expect, it } from "vitest";
 
+import { COPY } from "@/core/copy/shared";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { ADMIN_EMAIL } from "@/test-support/authDoubles";
 import { refusal, serveBackend } from "@/test-support/backend";
 import { signedInRequest } from "@/test-support/session";
 
-import type { FLAddressChangeAddressPayload, FLAddressChangeAddressResponse } from "@/core/generated/client/types";
+import type { FLAddressChangeAddressPayload, FLAddressChangeAddressResponse, FLRefusedField } from "@/core/generated/client/types";
+
+const { field } = COPY.shared;
 
 const NEW_ADDRESS = "paul.neu@example.org";
 const START = { address: "paul@example.org", email: NEW_ADDRESS, holder: ADMIN_EMAIL };
@@ -32,29 +35,25 @@ function accountAt(email: string): void {
 const requestsSent = () => backend.sent.map(({ method, path }) => `${method} ${path}`);
 
 // The sign-in store is this server's and the backend cannot read it: a change confirmed onto such an address leaves the
-// person's passkeys behind on the old account, and nothing fails.
+// administrator's passkeys behind on the old account, and nothing fails.
 describe("a start, an account standing at the new address", () => {
-  // The harm: the start's dialog has closed before its answer, so a box's phrase would reach its toast as the pointer at
-  // fields nobody sees.
-  it("is refused in a sentence naming the new address, and nothing is posted", async () => {
+  const TAKEN = { ok: false, errorCode: "address_change_taken", fieldErrors: { email: field.taken }, kinds: { email: "address_change_taken" } };
+
+  // The harm: a refusal on the dialog's line rather than on the new address's box, which nothing then marks.
+  it("is refused on the new address's box, and the start mints nothing", async () => {
     accountAt(NEW_ADDRESS);
 
-    expect(await startLostMailboxChange(START)).toStrictEqual({
-      ok: false,
-      errorCode: "address_change_taken",
-      reason: SERVER_COPY.refusalLine.address_change_taken,
-    });
+    expect(await startLostMailboxChange(START)).toStrictEqual(TAKEN);
     expect(requestsSent()).toStrictEqual([]);
   });
 
-  it("is refused by the backend's address_change_taken in the same sentence", async () => {
-    backend.answerWith(({ method, path }) => (method === "POST" && path === "/address_change" ? refusal("address_change_taken") : undefined));
+  it("is refused by the backend's address_change_taken on the same box", async () => {
+    const taken: FLRefusedField = { kind: "address_change_taken", path: ["email"], ctx: {}, in: "body" };
+    backend.answerWith(({ method, path }) =>
+      method === "POST" && path === "/address_change" ? refusal("address_change_taken", { fields: [taken] }) : undefined,
+    );
 
-    expect(await startLostMailboxChange(START)).toStrictEqual({
-      ok: false,
-      errorCode: "address_change_taken",
-      reason: SERVER_COPY.refusalLine.address_change_taken,
-    });
+    expect(await startLostMailboxChange(START)).toStrictEqual(TAKEN);
     expect(backend.sent.map(({ body }) => body)).toStrictEqual([{ address: START.address, email: NEW_ADDRESS }]);
   });
 });

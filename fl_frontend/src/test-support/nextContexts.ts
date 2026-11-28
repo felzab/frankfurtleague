@@ -1,13 +1,15 @@
 import { createElement as h } from "react";
-import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime.js";
+import { AppRouterContext, LayoutRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime.js";
 import { PathnameContext, PathParamsContext, SearchParamsContext } from "next/dist/shared/lib/hooks-client-context.shared-runtime.js";
+import { PAGE_SEGMENT_KEY } from "next/dist/shared/lib/segment.js";
 
 import { render, renderHook } from "@testing-library/react";
 
 import type { RenderHookOptions, RenderHookResult, RenderResult } from "@testing-library/react";
 import type { Params } from "next/dist/server/request/params.js";
 import type { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime.js";
-import type { ReactNode } from "react";
+import type { CacheNode, FlightRouterState } from "next/dist/shared/lib/app-router-types.js";
+import type { ContextType, ReactNode } from "react";
 
 /**
  * The router `useRouter` reads off `AppRouterContext`, every member inert unless `overrides` names it.
@@ -28,11 +30,38 @@ function nextRouter(overrides: Partial<AppRouterInstance> = {}): AppRouterInstan
   };
 }
 
-/** What the four contexts hold: Next's router, the address's search, its path and its dynamic segments' values. */
-export type NextContexts = { router?: AppRouterInstance; search?: URLSearchParams | string; pathname?: string | null; params?: Params | null };
+/**
+ * What the five contexts hold: Next's router, the address's search, its path, its dynamic segments' values, and the
+ * segments below the layout the tree stands in, route groups among them, as `useSelectedLayoutSegments` answers them.
+ */
+export type NextContexts = {
+  router?: AppRouterInstance;
+  search?: URLSearchParams | string;
+  pathname?: string | null;
+  params?: Params | null;
+  segments?: readonly string[];
+};
+
+type LayoutRouter = NonNullable<ContextType<typeof LayoutRouterContext>>;
 
 /**
- * A tree under the four contexts `next/navigation` reads and exports no provider for. All four
+ * The layout's context, holding only the members `next/navigation`'s hooks read: the route tree below the layout,
+ * which `useSelectedLayoutSegments` walks to the page, and the layout's cache node's `bfcacheId`, which `useRouter`
+ * reads. Its other members are Next's own cache records, whose opaque types no public function builds, so a member a
+ * hook comes to read fails the case that reaches it, loudly.
+ */
+function layoutRouter(segments: readonly string[]): LayoutRouter {
+  const page: FlightRouterState = [PAGE_SEGMENT_KEY, {}];
+  const below = segments.reduceRight<FlightRouterState>((child, segment) => [segment, { children: child }], page);
+  const read: Pick<LayoutRouter, "parentTree"> & { parentRenderTree: { data: Pick<CacheNode, "bfcacheId"> } } = {
+    parentTree: ["", { children: below }],
+    parentRenderTree: { data: { bfcacheId: 0 } },
+  };
+  return read as LayoutRouter;
+}
+
+/**
+ * A tree under the five contexts `next/navigation` reads and exports no provider for. All five
  * every time: without one, a component reading a parameter throws for the wiring.
  */
 export function underNext(
@@ -45,15 +74,20 @@ export function underNext(
     pathname = null,
     // `null` for the same reason: `useParams()` answers it where no dynamic segment is matched.
     params = null,
+    // None, as a layout's own page answers.
+    segments = [],
   }: NextContexts = {},
 ): ReactNode {
   return h(AppRouterContext.Provider, {
     value: router,
-    children: h(SearchParamsContext.Provider, {
-      value: typeof search === "string" ? new URLSearchParams(search) : search,
-      children: h(PathnameContext.Provider, {
-        value: pathname,
-        children: h(PathParamsContext.Provider, { value: params, children: tree }),
+    children: h(LayoutRouterContext.Provider, {
+      value: layoutRouter(segments),
+      children: h(SearchParamsContext.Provider, {
+        value: typeof search === "string" ? new URLSearchParams(search) : search,
+        children: h(PathnameContext.Provider, {
+          value: pathname,
+          children: h(PathParamsContext.Provider, { value: params, children: tree }),
+        }),
       }),
     }),
   });

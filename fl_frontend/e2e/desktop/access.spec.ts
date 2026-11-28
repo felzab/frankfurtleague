@@ -8,7 +8,7 @@
 import { expect } from "@playwright/test";
 
 import { chooseWho } from "../support/actionLog";
-import { chip, enteredDialog, enteredQuestion, pressRowAct, typeInto } from "../support/controls";
+import { chip, enteredDialog, enteredQuestion, pressRowAct, toast, typeInto } from "../support/controls";
 import { test } from "../support/journey";
 import { PEOPLE } from "../support/madeUpLeague";
 import { filedMessages, mailedMessage } from "../support/mailSink";
@@ -67,7 +67,7 @@ test("an administrator's acts on Adressänderungen and Löschungen take the touc
   await expect(question).toContainText("Schiedsrichter");
   await question.getByRole("button", { name: "Löschen" }).click();
   await expect(question).toBeHidden();
-  await expect(main.getByText("Gelöscht", { exact: true })).toBeVisible();
+  await expect(toast(page, "Gelöscht")).toBeVisible();
   expect(await assertionsSigned(context), "an act of this area ran with no touch of its own").toBe(touches + 3);
 
   // --- Protokoll ---------------------------------------------------------------------------------
@@ -75,7 +75,7 @@ test("an administrator's acts on Adressänderungen and Löschungen take the touc
   await page.goto("/admin/log");
   await chooseWho(page, main, ADMINISTRATOR);
   const logged = main.getByRole("row");
-  await expect(logged.filter({ hasText: "Adressänderung eingetragen" })).toBeVisible();
+  await expect(logged.filter({ hasText: "Adressänderung gestartet" })).toBeVisible();
   await expect(logged.filter({ hasText: "Adressänderung verworfen" })).toBeVisible();
   await expect(logged.filter({ hasText: `Löschung auf Anfrage · ${REFERENCE}` })).toBeVisible();
 });

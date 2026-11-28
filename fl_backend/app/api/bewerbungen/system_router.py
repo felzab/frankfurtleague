@@ -16,12 +16,10 @@ from app.api.bewerbungen.services import (
     owed_link,
     people_with_address,
     reminder_seats,
-    schule_name,
     unreachable_seats,
 )
 from app.api.outbox.crud import states_of
 from app.api.outbox.services import OwedMail, enqueue_mails
-from app.api.teams.crud import pull_team_names
 from app.core.clock import days_after
 from app.core.collections import Collection
 from app.core.crud import (
@@ -37,7 +35,6 @@ from app.core.dependencies import (
     GermanyNow,
     OutboxCollection,
     SaisonsCollection,
-    TeamsCollection,
 )
 from app.core.middlewares import PASS
 from app.core.recording import ACT_BY_SYSTEM, record_act
@@ -59,7 +56,6 @@ async def sweep_saison(
     saison_id: str,
     bewerbungen_collection: BewerbungenCollection,
     saisons_collection: SaisonsCollection,
-    teams_collection: TeamsCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
     today: GermanDay,
@@ -95,7 +91,7 @@ async def sweep_saison(
                 collection=bewerbungen_collection,
                 action="retention.bewerbungen",
                 by=ACT_BY_SYSTEM,
-                label=saison_id,
+                saison_id=saison_id,
                 count=result.deleted_count,
                 session=session,
             )
@@ -169,9 +165,6 @@ async def sweep_saison(
 
             mails: list[OwedMail] = []
             if people:
-                # A mail names the school, and the row holds only its id.
-                team_names = await pull_team_names(teams_collection=teams_collection, team_ids=[stored.get("team_id")], session=session)
-                schule = schule_name(bewerbung_raw=stored, team_names=team_names)
                 # Built before any stamp, so a row the mail's facts refuse writes nothing.
                 mails = [
                     owed_link(
@@ -180,7 +173,6 @@ async def sweep_saison(
                         kontakte=stored["kontakte"],
                         seats=held,
                         saison_id=saison_id,
-                        schule=schule,
                         # The deadline the seat's last mail gave; a reminder does not move it.
                         deadline=str(stored["confirmations"][held[0]]["deadline"]),
                         # The day too: a re-send clears the stamp, and the seat's next reminder is a mail of its own.

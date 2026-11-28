@@ -66,7 +66,7 @@ export async function documentsWrittenByAsync(run: () => Promise<unknown>): Prom
 
 /** One line the application's logger wrote, read back from its JSON document. */
 export type LoggedLine = {
-  readonly level: "DEBUG" | "INFO" | "WARNING" | "ERROR" | "CRITICAL";
+  readonly level: "INFO" | "WARNING" | "ERROR" | "CRITICAL";
   readonly message: string;
   /** The fields the call passed, without `trace_id` and `error`, which the document writes beside them. */
   readonly fields: Record<string, unknown>;

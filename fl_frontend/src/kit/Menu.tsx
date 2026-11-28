@@ -14,11 +14,12 @@ import {
 } from "react-aria-components/Menu";
 import { Text } from "react-aria-components/Text";
 
-import { COPY, textOf } from "@/core/copy";
+import { textOf } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 
-import { entryMark, menuPopover } from "./fieldStyles";
 import { Icon } from "./Icon";
 import { menuEntry } from "./Link";
+import { entryMark, menuPopover } from "./menuStyles";
 import { SheetFrame } from "./Sheet";
 import { tv } from "./tv";
 import { useDesktop } from "./useDesktop";
@@ -32,7 +33,7 @@ import type { ReactElement, ReactNode } from "react";
 /**
  * A link in a menu; `isCurrent` marks the one in force as every list marks its chosen entry, in a list that has
  * one. Its words are catalogue text, or a record's own name such as a season's, with a second line under them
- * where one name alone does not say which, as a team's season and seats under its name.
+ * saying more of what the entry leads to, as the seats a person holds on a team under the team's name.
  */
 export type MenuLink = {
   href: Route;
@@ -73,7 +74,6 @@ export type MenuEntry =
   | { kind: "submenu"; label: Copy; links: ReadonlyArray<MenuLink> };
 
 export type MenuProps = {
-  /** The menu's name. */
   label: Copy;
   /** The kit control that opens it. */
   trigger: ReactElement;
@@ -116,7 +116,6 @@ const item = tv({
   },
 });
 
-// The foot's row under its separator, at the entries' inset and grade.
 const foot = tv({
   base: "mt-1 flex items-center justify-between gap-3 border-t border-border px-3",
   variants: {
@@ -174,7 +173,6 @@ function Entry({
           </Text>
         </span>
       )}
-      {/* The chosen entry's check, in its words' link green, as every list marks its chosen entry. */}
       {isChosen && (
         <span className="ms-auto flex shrink-0">
           <Icon
@@ -207,7 +205,7 @@ function useCurrent(links: ReadonlyArray<MenuLink>) {
 
 /**
  * A link, marked as chosen where its section selects it: its words in the link green, its check at the end. Its text
- * value, which typeahead matches, carries the detail too: two entries can share a label, a team's name in two seasons.
+ * value, which typeahead matches, carries the detail too: two entries can share a label, as two teams of one name do.
  */
 function LinkItem({ link, size }: { link: MenuLink; size: Size }) {
   const detail = link.detail === undefined ? undefined : textOf(link.detail);
@@ -426,7 +424,7 @@ function Foot({ foot: row, size }: { foot: NonNullable<MenuProps["foot"]>; size:
 }
 
 /**
- * Choosing among actions: entries at 6-px corners, a separator between groups. On desktop it opens on the
+ * Choosing among actions, a separator between groups. On desktop it opens on the
  * page, a submenu beside it; on a phone, below the rail's breakpoint, as a bottom sheet, a submenu as a
  * second sheet led by „Zurück“.
  */

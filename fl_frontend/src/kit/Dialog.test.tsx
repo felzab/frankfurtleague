@@ -5,14 +5,18 @@ import { act, getDefaultNormalizer, screen, waitFor, within } from "@testing-lib
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 import { renderUnderNext } from "@/test-support/nextContexts";
 
 import { Button } from "./Button";
+import { Card, CardActRow } from "./Card";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { Dialog, RouteDialog, RouteDialogBody } from "./Dialog";
 import { EditorPage } from "./EditorPage";
+import { RowAct } from "./RowAct";
+import { Table } from "./Table";
 import { TextField } from "./TextField";
+import { ToastRegion } from "./Toast";
 import { useEditor } from "./useEditor";
 
 import type { ActionAnswer } from "@/core/action";
@@ -25,13 +29,21 @@ type Spielort = { name: string };
 const NAME = COPY.page.adminSpielorte;
 const INPUT = COPY.page.spiele;
 const DONE: ActionAnswer = { ok: true, value: undefined };
+const HOLDER = "anna@example.com";
+
+// The browser's passkey prompt, which a touched act asks before it runs, answered at once for the holder.
+vi.mock("@/core/auth/browserClient", () => ({
+  loadAuthClient: async () => ({ signIn: { passkey: async () => ({ data: { status: true, email: HOLDER }, error: null }) } }),
+  usePreloadedAuthClient: () => undefined,
+}));
 
 function CreateDialog({ create, locked }: { create: (formData: FormData) => Promise<ActionAnswer>; locked?: Copy }) {
   return (
     <Dialog
+      rules={{}}
       title={NAME}
       act={{ verb: "create", object: NAME }}
-      action={create}
+      run={create}
       locked={locked}
       trigger={{ label: COPY.shared.verb.create }}>
       <TextField
@@ -53,6 +65,7 @@ function EditorHoldingDialog({
   const editor = useEditor({ id: "ort-1", version: 1, values: { name: "Riedberg" } }, save);
   return (
     <EditorPage
+      rules={{}}
       title={{ record: "Riedberg" }}
       editor={editor}
       sections={[
@@ -90,10 +103,7 @@ describe("the kit's confirmation", () => {
     const reason = COPY.shared.failure.stale;
     renderUnderNext(
       <ConfirmDialog
-        verb="retire"
-        subject={NAME}
-        consequence={COPY.admin.spielort.retireConsequence}
-        tone="danger"
+        question={{ verb: "retire", subject: NAME, consequence: COPY.kader.deregisterConsequence, tone: "danger" }}
         trigger={{ label: COPY.shared.verb.retire }}
         onConfirm={async () => ({ ok: false, reason })}
       />,
@@ -121,16 +131,22 @@ describe("the kit's confirmation", () => {
     await userEvent.keyboard("{Escape}");
     await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
   });
+
+  // The harm: a screen reader opening the question hears its title and not what the act does.
+  it("is described by its consequence", async () => {
+    renderUnderNext(<RetireQuestion onConfirm={async () => DONE} />);
+    await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.retire }));
+
+    const described = screen.getByRole("alertdialog").getAttribute("aria-describedby");
+    expect(described === null ? null : document.getElementById(described)?.textContent).toBe(COPY.kader.deregisterConsequence);
+  });
 });
 
 /** A retirement's question, opened by its own button. */
 function RetireQuestion({ onConfirm }: { onConfirm: () => Promise<ActionAnswer> }) {
   return (
     <ConfirmDialog
-      verb="retire"
-      subject={NAME}
-      consequence={COPY.admin.spielort.retireConsequence}
-      tone="danger"
+      question={{ verb: "retire", subject: NAME, consequence: COPY.kader.deregisterConsequence, tone: "danger" }}
       trigger={{ label: COPY.shared.verb.retire }}
       onConfirm={onConfirm}
     />
@@ -154,9 +170,10 @@ function HeldDialog() {
         onPress={() => setOpen(true)}
       />
       <Dialog
+        rules={{}}
         title={NAME}
         act={{ verb: "create", object: NAME }}
-        action={async () => DONE}
+        run={async () => DONE}
         open={{ isOpen, onOpenChange: setOpen }}>
         <TextField
           label={INPUT}
@@ -209,6 +226,26 @@ describe("a dialog's locked act", () => {
 });
 
 describe("the kit's dialog", () => {
+  // The harm: Enter pressed again in the dialog's one field while its act runs sends the act a second time, a busy
+  // submit button standing as a plain button.
+  it("sends its act once while it runs, however often Enter is pressed in its one field", async () => {
+    const reason = COPY.shared.failure.stale;
+    const answer = Promise.withResolvers<ActionAnswer>();
+    onTestFinished(() => answer.resolve(DONE));
+    const create = vi.fn((_formData: FormData) => answer.promise);
+    renderUnderNext(<CreateDialog create={create} />);
+    await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.create }));
+    await userEvent.type(screen.getByRole("textbox", { name: INPUT }), "Sportpark Nord{Enter}");
+    await waitFor(() => expect(create).toHaveBeenCalledOnce());
+
+    await userEvent.keyboard("{Enter}");
+    // Refused, so the dialog stands, as a second send would have found it.
+    await act(async () => answer.resolve({ ok: false, reason }));
+
+    await within(screen.getByRole("dialog")).findByText(reason);
+    expect(create).toHaveBeenCalledOnce();
+  });
+
   it("opened inside an editor's section, runs its own act and never the editor's save", async () => {
     const save = vi.fn(async (): Promise<ActionAnswer<number>> => ({ ok: true, value: 2 }));
     const create = vi.fn(async (_formData: FormData): Promise<ActionAnswer> => DONE);
@@ -228,16 +265,31 @@ describe("the kit's dialog", () => {
     expect(screen.getByText(COPY.template.changesPending(1), { normalizer: getDefaultNormalizer({ collapseWhitespace: false }) })).toBeTruthy();
   });
 
-  /* The note is the one place the person learns the write moved more than the dialog asked, such as other fixtures. */
-  it("stays open on a done act noting more than it was asked, the note in its line and its act closed", async () => {
-    const note = COPY.admin.spiel.alsoChanged([5, 7]);
-    renderUnderNext(<CreateDialog create={async () => ({ ok: true, value: undefined, note })} />);
+  // The harm: a dialog closing in silence, so the person never learns the act ran, nor that the write moved more than
+  // the dialog asked, such as other fixtures, which only its note says.
+  it("closes on a done act and says it in a toast, its note where it brings one, else its verb's done word", async () => {
+    const note = COPY.aufstellung.lockedLine;
+    const create = vi
+      .fn<(formData: FormData) => Promise<ActionAnswer>>()
+      .mockResolvedValueOnce({ ok: true, value: undefined, note })
+      .mockResolvedValueOnce(DONE);
+    renderUnderNext(
+      <>
+        <CreateDialog create={create} />
+        <ToastRegion frame="rail" />
+      </>,
+    );
+    // The toast queue is the module's own: an earlier case's done act left its toast in it.
+    for (const close of screen.queryAllByRole("button", { name: COPY.shared.close })) act(() => close.click());
 
     await createThroughTheDialog();
+    await screen.findByRole("alertdialog", { name: note });
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
 
-    await waitFor(() => expect(screen.getByText(note)).toBeTruthy());
-    expect(screen.getByRole("dialog")).toBeTruthy();
-    expect(screen.getByRole("button", { name: COPY.shared.withObject(NAME, "create") }).hasAttribute("disabled")).toBe(true);
+    await createThroughTheDialog();
+    await screen.findByRole("alertdialog", { name: COPY.shared.toast.done.create });
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    for (const close of screen.queryAllByRole("button", { name: COPY.shared.close })) act(() => close.click());
   });
 
   // The harm: a dialog left while its act runs takes the answer with it, and a partly done act's note reaches nobody.
@@ -249,13 +301,27 @@ describe("the kit's dialog", () => {
     const back = screen.getByRole<HTMLButtonElement>("button", { name: COPY.shared.back });
 
     await userEvent.keyboard("{Escape}");
-    await userEvent.click(document.body);
     await userEvent.click(back);
     expect(screen.getByRole("dialog")).toBeTruthy();
 
     await act(async () => answer.resolve({ ok: false, reason: COPY.shared.failure.stale }));
     await screen.findByText(COPY.shared.failure.stale);
+    // Escape reaches it again, and asks about the input still typed.
     await userEvent.keyboard("{Escape}");
+    await screen.findByRole("alertdialog");
+  });
+
+  // The harm: a stray Escape drops what was typed into a dialog, such as a seat's details, with no way to get it back.
+  it("asks before Escape drops its typed input, and closes once the person discards it", async () => {
+    renderUnderNext(<CreateDialog create={async () => DONE} />);
+    await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.create }));
+    await userEvent.type(screen.getByRole("textbox", { name: INPUT }), "Sportpark Nord");
+
+    await userEvent.keyboard("{Escape}");
+    const question = await screen.findByRole("alertdialog");
+    within(question).getByText(COPY.template.changesLost(1), { normalizer: getDefaultNormalizer({ collapseWhitespace: false }) });
+
+    await userEvent.click(within(question).getByRole("button", { name: COPY.shared.verb.discard }));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   });
 
@@ -289,13 +355,14 @@ const END = COPY.shared.verb.deregister;
 function RecordDialog({ save, end }: { save: (formData: FormData) => Promise<ActionAnswer>; end: () => Promise<ActionAnswer> }) {
   return (
     <Dialog
+      rules={{}}
       title={NAME}
       act={{ verb: "save" }}
-      action={save}
+      run={save}
       danger={{
         name: COPY.shared.withObject(NAME, "deregister"),
-        consequence: COPY.admin.spielort.retireConsequence,
-        confirm: { verb: "deregister", subject: NAME, consequence: COPY.admin.spielort.retireConsequence, tone: "danger", onConfirm: end },
+        consequence: COPY.kader.deregisterConsequence,
+        confirm: { verb: "deregister", subject: NAME, consequence: COPY.kader.deregisterConsequence, tone: "danger", onConfirm: end },
       }}
       trigger={{ label: COPY.shared.verb.edit }}>
       <TextField
@@ -356,6 +423,180 @@ describe("a dialog's danger row", () => {
 });
 
 /**
+ * A card of two open dates, each row's act opening a dialog (`kind: "dialog"`) or a question whose done act drops the
+ * row from the card, as a save's fresh read drops an answered date.
+ */
+function DatesCard({ kind }: { kind: "dialog" | "question" }) {
+  const [rows, setRows] = useState(["Esche", "Birke"]);
+  const answer = (row: string) => async () => {
+    setRows((shown) => shown.filter((other) => other !== row));
+    return DONE;
+  };
+  return (
+    <Card title={NAME}>
+      {rows.map((row) => (
+        <CardActRow
+          key={row}
+          name={{ record: row }}
+          acts={
+            kind === "dialog" ? (
+              <Dialog
+                rules={{}}
+                title={NAME}
+                act={{ verb: "create", object: NAME }}
+                run={answer(row)}
+                trigger={{ label: COPY.shared.verb.create }}>
+                <TextField
+                  label={INPUT}
+                  name="created"
+                  kind="text"
+                />
+              </Dialog>
+            ) : (
+              <ConfirmDialog
+                question={{ verb: "adopt", subject: NAME, consequence: COPY.kader.deregisterConsequence, tone: "primary" }}
+                trigger={{ label: COPY.shared.verb.create }}
+                onConfirm={answer(row)}
+              />
+            )
+          }
+        />
+      ))}
+    </Card>
+  );
+}
+
+// The harm: a keyboard user whose save drops the row that opened the dialog loses the focus to the page's body, and the
+// next Tab starts from the top of the page.
+describe("a dialog whose done act drops the row it was opened from", () => {
+  it.each([
+    ["a dialog", "dialog", COPY.shared.withObject(NAME, "create")],
+    ["a question", "question", COPY.shared.verb.adopt],
+  ] as const)("hands the focus to the next row's act, %s", async (_shown, kind, press) => {
+    renderUnderNext(<DatesCard kind={kind} />);
+    const [first, next] = screen.getAllByRole("button", { name: COPY.shared.verb.create });
+    await userEvent.tab();
+    expect(document.activeElement).toBe(first);
+    await userEvent.keyboard("{Enter}");
+    const opened = await screen.findByRole(kind === "dialog" ? "dialog" : "alertdialog");
+
+    await userEvent.click(within(opened).getByRole("button", { name: press }));
+
+    await waitFor(() => expect(screen.getAllByRole("button", { name: COPY.shared.verb.create })).toHaveLength(1));
+    await waitFor(() => expect(document.activeElement).toBe(next));
+  });
+});
+
+const [ESCHE, BIRKE] = ["Esche", "Birke"] as const;
+const ROWS: readonly string[] = [ESCHE, BIRKE];
+
+/**
+ * A list's rows in a plain table on the page, inside no section, as the ban list's stand: each ended by its row's side
+ * act, whose question asks the touch from its final press.
+ */
+function EndedRows() {
+  const [rows, setRows] = useState(ROWS);
+  return (
+    <main>
+      <table>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={row}>
+              <td>{row}</td>
+              <td>
+                <RowAct
+                  verb="remove"
+                  subject={NAME}
+                  consequence={COPY.kader.deregisterConsequence}
+                  facts={[]}
+                  id={row}
+                  holder={HOLDER}
+                  run={async () => {
+                    setRows((shown) => shown.filter((other) => other !== row));
+                    return DONE;
+                  }}
+                />
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </main>
+  );
+}
+
+/** A table's rows opening one dialog drawn beside the table, as the Kader's do, whose done act drops the row it was opened for. */
+function OpenedRows() {
+  const [rows, setRows] = useState(ROWS);
+  const [chosen, setChosen] = useState<string | null>(null);
+  const [isOpen, setOpen] = useState(false);
+  return (
+    <main>
+      <Table
+        label={NAME}
+        nameLabel={COPY.shared.name}
+        empty={{ kind: "none", plural: COPY.shared.startelf }}
+        columns={[]}
+        rows={rows.map((row) => ({
+          id: row,
+          name: { record: row },
+          cells: {},
+          onOpen: () => {
+            setChosen(row);
+            setOpen(true);
+          },
+        }))}
+      />
+      <Dialog
+        rules={{}}
+        title={NAME}
+        act={{ verb: "create", object: NAME }}
+        run={async () => {
+          setRows((shown) => shown.filter((other) => other !== chosen));
+          return DONE;
+        }}
+        open={{ isOpen, onOpenChange: setOpen }}>
+        <TextField
+          label={INPUT}
+          name="created"
+          kind="text"
+        />
+      </Dialog>
+    </main>
+  );
+}
+
+// The harm: a keyboard user who ends a row's record, or decides the row its press opened, loses the focus to the page's
+// body, and the next Tab starts from the top of the page.
+describe("a table's row ended by the act it offers", () => {
+  it("hands the focus to the next row's act, from a side act's question", async () => {
+    renderUnderNext(<EndedRows />);
+    const [first, next] = screen.getAllByRole("button", { name: COPY.shared.verb.remove });
+    await userEvent.tab();
+    expect(document.activeElement).toBe(first);
+    await userEvent.keyboard("{Enter}");
+
+    await userEvent.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: COPY.shared.verb.remove }));
+
+    await waitFor(() => expect(screen.queryByText(ESCHE)).toBeNull());
+    await waitFor(() => expect(document.activeElement).toBe(next));
+  });
+
+  it("hands the focus to the next row's press, from the dialog drawn beside the table", async () => {
+    renderUnderNext(<OpenedRows />);
+    const next = screen.getByRole("button", { name: BIRKE });
+    await userEvent.tab();
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: ESCHE }));
+    await userEvent.keyboard("{Enter}");
+
+    await userEvent.click(within(await screen.findByRole("dialog")).getByRole("button", { name: COPY.shared.withObject(NAME, "create") }));
+
+    await waitFor(() => expect(screen.queryByRole("button", { name: ESCHE })).toBeNull());
+    await waitFor(() => expect(document.activeElement).toBe(next));
+  });
+});
+
+/**
  * A page holding the control a match's route opens from, over which the route's dialog opens while that control holds
  * focus, and which Back hides again: Next hides a departed route in an `Activity` rather than unmounting it.
  */
@@ -368,7 +609,7 @@ function PageUnderRoute({ route }: { route: "none" | "open" | "hidden" }) {
       />
       <Activity mode={route === "hidden" ? "hidden" : "visible"}>
         {route !== "none" && (
-          <RouteDialog beneath="/saisons">
+          <RouteDialog>
             <RouteDialogBody
               title={NAME}
               act={

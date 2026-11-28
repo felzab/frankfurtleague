@@ -244,7 +244,7 @@ async def owed_for(database: AsyncDatabase, team_id: ObjectId) -> list[str]:
 async def dispatched(database: AsyncDatabase) -> list[str | None]:
     """The season named by each row a press wrote: nameless, the Protokoll cannot say which season was mailed."""
 
-    return [row["label"] async for row in database[Collection.ACTION_LOG].find({"action": "saison.invitations_dispatched"})]
+    return [row["saison_id"] async for row in database[Collection.ACTION_LOG].find({"action": "saison.invitations_dispatched"})]
 
 
 async def live_count(database: AsyncDatabase, team_id: ObjectId) -> int:

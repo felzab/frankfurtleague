@@ -1,7 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { ROUTES } from "@/core/routes";
 import { serveBackend } from "@/test-support/backend";
+import { forgottenLinks } from "@/test-support/nextRequest";
 import { signedInRequest } from "@/test-support/session";
+import { thrownRedirect } from "@/test-support/thrownRedirect";
 
 import { LINK_INVALID } from "./ends";
 
@@ -23,6 +26,7 @@ const backend = serveBackend(async ({ method, path, body }) => {
   const { token, answer } = (body ?? {}) as { token?: string; answer?: string };
   if (method === "POST" && path === "/address_change/address" && token === TOKEN) return { email: NEW };
   if (method === "POST" && path === "/address_change/confirmation" && token === TOKEN && answer === "confirmed") return EFFECTIVE;
+  if (method === "POST" && path === "/address_change/confirmation/stop" && token === TOKEN) return new Response(null, { status: 204 });
   if (method === "GET" && path === "/address_change/sweep/moves") {
     await held.movesRead;
     return { moves: held.owed } satisfies FLAddressChangeMovesResponse;
@@ -38,7 +42,7 @@ const backend = serveBackend(async ({ method, path, body }) => {
 // sign-in, which `arriveAs` makes.
 const { arriveAs, store } = signedInRequest(null);
 
-const { answerAddressChange } = await import("./answers");
+const { answerAddressChange, stopAddressChange } = await import("./answers");
 
 const requests = () => backend.sent.map(({ method, path }) => `${method} ${path}`);
 
@@ -73,7 +77,8 @@ describe("the effect's account carry", () => {
     held.movesRead = new Promise((resolve) => (release = resolve));
 
     let settled = false;
-    const answer = answerAddressChange({ token: TOKEN, side: "new", way: "account", act: "primary" }).then((value) => {
+    // Next's redirect, thrown past the action, names the done page the press leads to.
+    const answer = thrownRedirect(answerAddressChange({ token: TOKEN, side: "new", way: "account", act: "primary" })).then((value) => {
       settled = true;
       return value;
     });
@@ -82,9 +87,19 @@ describe("the effect's account carry", () => {
     expect(settled).toBe(false);
 
     release();
-    expect(await answer).toMatchObject({ ok: true, value: { tone: "success" } });
+    expect((await answer).address).toBe(`${ROUTES.addressChangeDone.path()}?end=new`);
+    // Forgotten once done, on the page's own path, the path it was set on.
+    expect(forgottenLinks()).toStrictEqual([{ value: undefined, path: ROUTES.addressChangeConfirmation.path() }]);
     // Carried by the time the press answered: the account signs in at the new address, the carry reported done.
     expect(store.user.map(({ email }) => email)).toStrictEqual([NEW]);
     expect(backend.sent.find(({ path }) => path === "/address_change/sweep/moves/done")?.body).toStrictEqual({ ids: [MOVE.id] });
+  });
+});
+
+// The privacy notice keeps a mailed link's cookie until the link is used, and the stop uses it as an answer does.
+describe("the address on file's stop", () => {
+  it("forgets the link on the page's own path before it leads to the stopped end", async () => {
+    expect((await thrownRedirect(stopAddressChange({ token: TOKEN }))).address).toBe(`${ROUTES.addressChangeDone.path()}?end=stopped`);
+    expect(forgottenLinks()).toStrictEqual([{ value: undefined, path: ROUTES.addressChangeConfirmation.path() }]);
   });
 });

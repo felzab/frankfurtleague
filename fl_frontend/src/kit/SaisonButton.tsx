@@ -4,13 +4,13 @@ import { useParams, usePathname } from "next/navigation";
 
 import { Button as AriaButton } from "react-aria-components/Button";
 
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 
 import { counterpart, useFrameSaison } from "./FrameNav";
 import { hoverLook } from "./hoverStyles";
 import { Icon } from "./Icon";
 import { Menu } from "./Menu";
-import { useRailCollapsed } from "./RailState";
+import { useRailCollapsed } from "./railContext";
 import { railFade } from "./railStyles";
 import { tv } from "./tv";
 import { usePressed } from "./WholePage";
@@ -27,12 +27,10 @@ const trigger = tv({
     glyph: "",
   },
   variants: {
-    // In the rail on the page's ground: outlined, no fill, two lines (the name over the season's span), 58 px
-    // tall with 16 px at the sides, 8 above and below and 4 between the lines.
-    // Collapsed, the lines and the arrow fade, clipped by the box, and the season glyph fades in over the
-    // box's 16-px inset, where the place's 12 px and that inset centre a 16-px glyph in the 72-px rail.
-    // On the phone's dark-green band: one line, as tall as a touch target, since the span does not fit beside
-    // the wordmark.
+    // In the rail: two lines, the name over the season's span. Collapsed, the lines and the arrow fade, clipped by the
+    // box, and the season glyph fades in over the box's 16-px inset, where the place's 12 px and that inset centre a
+    // 16-px glyph in the 72-px rail. On the phone's band: one line, as tall as a touch target, since the span does not
+    // fit beside the wordmark.
     placement: {
       rail: {
         place: "px-3 pt-3 pb-1",

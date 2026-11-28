@@ -3,7 +3,8 @@ import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { COPY } from "@/core/copy";
+import { lineOf } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 import { LINEUP_WORDS } from "@/features/aufstellungen/players";
 import { renderUnderNext } from "@/test-support/nextContexts";
 
@@ -36,7 +37,7 @@ function renderEditor() {
   renderUnderNext(
     <TeamAufstellung
       team={TEAM}
-      saison="2027"
+      rules={{}}
       title={{ record: "Ahorn vs. Eiche" }}
       lead={COPY.shared.spieltag(2)}
       aufstellung={{
@@ -66,19 +67,19 @@ describe("the line-up's editor at the team's address", () => {
   it("counts the starters the ticks and the entries naming nobody hold on its bar, beside the pupils moved", async () => {
     renderEditor();
     const line = () => bar().querySelector("p")?.textContent;
-    expect(line()).toBe(COPY.area.team.aufstellung.startelfCount(3, 11));
+    expect(line()).toBe(COPY.aufstellung.startelfCount(3, 11));
 
     await userEvent.click(tickOf(3));
-    expect(line()).toBe(`${COPY.area.team.aufstellung.startelfCount(4, 11)}${COPY.template.changesPending(1)}`);
+    expect(line()).toBe(lineOf([COPY.aufstellung.startelfCount(4, 11), COPY.template.changesPending(1)]));
   });
 
   // The harm: a save sent for another club or match, which a person holding seats on two clubs could write unawares.
-  it("saves for the club, the season and the match the page was read for, on the version it read", async () => {
+  it("saves for the club and the match the page was read for, on the version it read", async () => {
     renderEditor();
     await userEvent.click(tickOf(3));
     await userEvent.click(within(bar()).getByRole("button", { name: COPY.shared.verb.save }));
 
     await waitFor(() => expect(state.sent).toHaveLength(1));
-    expect(state.sent[0]).toMatchObject({ team_id: TEAM, saison_id: "2027", id: SPIEL, version: 3, changes: { starters: ["p1", "p2", "p3"] } });
+    expect(state.sent[0]).toStrictEqual({ team_id: TEAM, id: SPIEL, version: 3, changes: { starters: ["p1", "p2", "p3"] } });
   });
 });

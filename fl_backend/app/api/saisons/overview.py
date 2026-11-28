@@ -28,8 +28,6 @@ from app.api.spielbestaetigungen.services import (
     build_triage_rows_filter,
     due_by_of,
     lapsed_on,
-    parties_mailed,
-    parties_told_of_the_change,
     party_key,
     reason_to_close,
 )
@@ -50,7 +48,7 @@ from app.api.spiele.schemas import (
     FLSpielJoinedInternal,
     FLSpielRecipient,
 )
-from app.api.spiele.services import build_spiele_pipeline, recipients_named
+from app.api.spiele.services import build_spiele_pipeline, vorschlag_recipients
 from app.core import clock
 from app.core.collections import Collection
 from app.shared.schemas.custom import CustomDateString, CustomNonEmptyString, CustomObjectId, CustomOptionalDateString
@@ -465,7 +463,16 @@ def overview_of(
         # The queue's filter takes an answered row only for its standing proposal; an unanswered one is overdue or due today.
         if answer is not None:
             vorschlag = FLSpielbestaetigungAppointment.model_validate(answer["vorschlag"])
-            adopted = {**spiel_raw, "date": vorschlag.date, "time": vorschlag.time}
+            adoption, discard = vorschlag_recipients(
+                party=row[ROW_PARTY],
+                vorschlag=vorschlag,
+                held=held.get(spiel.id, []),
+                spiel=spiel_raw,
+                austritte=austritte,
+                kontakte=kontakte,
+                names=names,
+                now=now,
+            )
             rows.append(
                 FLOverviewVorschlagRow(
                     kind="vorschlag_open",
@@ -473,21 +480,8 @@ def overview_of(
                     spielbestaetigung_id=row["_id"],
                     team_id=row[ROW_PARTY]["team_id"],
                     vorschlag=vorschlag,
-                    adoption_recipients=recipients_named(
-                        parties_mailed(
-                            parties_told_of_the_change(
-                                rows=held.get(spiel.id, []),
-                                stored=spiel_raw,
-                                changed=adopted,
-                                stored_austritte=austritte,
-                                changed_austritte=austritte,
-                                now=now,
-                            ),
-                            kontakte=kontakte,
-                        ),
-                        names=names,
-                    ),
-                    discard_recipients=recipients_named(parties_mailed([row[ROW_PARTY]], kontakte=kontakte), names=names),
+                    adoption_recipients=adoption,
+                    discard_recipients=discard,
                 )
             )
             continue

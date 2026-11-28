@@ -13,7 +13,6 @@ from app.api.schiedsrichter.services import (
     build_self_saisons_pipeline,
     build_self_spiele_pipeline,
     compose_self_spiel,
-    order_self_spiele,
 )
 from app.core.collections import Collection
 from app.core.crud import aggregate_many_from_db, patch_past_the_version_in_db, refuse
@@ -89,7 +88,7 @@ async def get_self_spiele(
     session: SnapshotSession,
     germany_now: GermanyNow,
 ) -> FLSchiedsrichterSpieleResponse:
-    """Every fixture of this season booked to one of the signed-in address's live, confirmed referee records, open work first.
+    """Every fixture of this season booked to the signed-in address's live, confirmed referee records, in the order the draw numbered them.
 
     Nobody's address is served, and no reason an administrator entered.
     """
@@ -106,9 +105,7 @@ async def get_self_spiele(
         session=session,
     )
 
-    return FLSchiedsrichterSpieleResponse(
-        saison_id=saison_id, spiele=order_self_spiele([compose_self_spiel(spiel, now=germany_now) for spiel in spiele])
-    )
+    return FLSchiedsrichterSpieleResponse(saison_id=saison_id, spiele=[compose_self_spiel(spiel, now=germany_now) for spiel in spiele])
 
 
 @router.get("/self/saisons", summary="The seasons a signed-in referee has fixtures in")

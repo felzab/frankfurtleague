@@ -1,58 +1,48 @@
 import { describe, expect, it } from "vitest";
 
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 import { ADMIN_EMAIL } from "@/test-support/authDoubles";
 import { serveBackend } from "@/test-support/backend";
 import { signedInRequest } from "@/test-support/session";
 
 // No act here may reach the backend past its touch: any request but the guards' own lookups fails the case.
 const backend = serveBackend();
-const { arriveAs, store, outbox } = signedInRequest();
+const { store, outbox } = signedInRequest();
 
 const seasonActs = await import("@/app/admin/(editor)/saisons/[saison]/settings/saisonActs");
 const banActs = await import("@/app/admin/(list)/ban-list/banActs");
 const accountActs = await import("@/features/account/personActions");
 const erasureActs = await import("@/app/admin/(list)/erasures/erasureActs");
-const passkeyActs = await import("@/features/passkeys/actions");
-const grantActs = await import("@/features/grants/actions");
+const passkeyActs = await import("@/app/account/(pages)/security/passkeyActs");
+const grantActs = await import("@/app/admin/(list)/administrators/grantActs");
 const addressChangeActs = await import("@/app/admin/(list)/address-changes/addressChangeActs");
 const changeActs = await import("@/features/address-change/actions");
+const teamActs = await import("@/app/admin/(editor)/saisons/[saison]/teams/[team]/teamActs");
+const bewerbungSeatActs = await import("@/app/admin/(list)/saisons/[saison]/bewerbungen/[bewerbung]/seatActs");
+const refereeSave = await import("@/app/admin/(editor)/schiedsrichter/[schiedsrichter]/saveSchiedsrichter");
+const refereeEntry = await import("@/app/admin/(list)/schiedsrichter/createSchiedsrichter");
 
-const PERSON = "pia@example.org";
 const GRANT = "64b000000000000000000002";
 const ADDRESS_CHANGE = "64b000000000000000000002";
+const TEAM = "64a000000000000000000001";
+const BEWERBUNG = "64b000000000000000000002";
+const REFEREE = "64b0000000000000000000a1";
+const SEAT_PERSON = { first_name: "Jana", last_name: "Schmidt", email: "jana@example.org", phone: "069 90009765", version: "3" };
+const REFEREE_ENTRY = { name: "Erika Neu", email: "erika.neu@example.org", phone: "", schule: "", default_payment: "20", holder: ADMIN_EMAIL };
+const REFEREE_SAVE = { id: REFEREE, version: 3, changes: { email: "erika.neu@example.org" }, holder: ADMIN_EMAIL };
 
 /** How long ago the administrator's passkey sign-in was: past the touch, well inside the administrator's window. */
 const SIGNED_IN_MS_AGO = 2 * 60 * 1000;
 
 /**
  * A session the guards admit whose passkey touch is not fresh, the one check the backend does not repeat: the
- * administrator's passkey sign-in of two minutes ago, or a person's sign-in by mailed code to an account holding a
- * passkey, who must touch it.
+ * administrator's passkey sign-in of two minutes ago.
  */
-const withoutAFreshTouch = {
-  admin: async (): Promise<void> => {
-    const [row] = store.session;
-    if (row === undefined) throw new Error("the administrator's arrival wrote no session");
-    row.createdAt = new Date(Date.now() - SIGNED_IN_MS_AGO);
-  },
-  person: async (): Promise<void> => {
-    await arriveAs({ email: PERSON });
-    const account = store.user.find(({ email }) => email === PERSON);
-    if (account === undefined) throw new Error("the person's arrival wrote no account");
-    store.passkey.push({
-      id: "a-passkey-of-pia",
-      userId: account.id,
-      credentialID: "credential-of-pia",
-      publicKey: "fabricated-public-key",
-      counter: 0,
-      deviceType: "singleDevice",
-      backedUp: false,
-      transports: "internal",
-      createdAt: new Date(),
-    });
-  },
-};
+function withoutAFreshTouch(): void {
+  const [row] = store.session;
+  if (row === undefined) throw new Error("the administrator's arrival wrote no session");
+  row.createdAt = new Date(Date.now() - SIGNED_IN_MS_AGO);
+}
 
 /**
  * Every act on the passkey touch's fixed list, each with an input its schema takes, posted for the address its page
@@ -60,27 +50,22 @@ const withoutAFreshTouch = {
  * asks the touch whether the server checks it or not, so an act dropping its `passkey: true` still type-checks and
  * still looks guarded.
  */
-const TOUCHED: ReadonlyArray<readonly [string, keyof typeof withoutAFreshTouch, () => Promise<unknown>]> = [
-  ["the draw's regeneration", "admin", () => seasonActs.recreateSpielplan({ saison_id: "2027", holder: ADMIN_EMAIL })],
-  ["the draw's removal", "admin", () => seasonActs.deleteSpielplan({ saison_id: "2027", holder: ADMIN_EMAIL })],
-  ["the switch onto a season", "admin", () => seasonActs.activateSaison({ saison_id: "2027", holder: ADMIN_EMAIL })],
-  ["a ban", "admin", () => banActs.enterBan({ email: "max@example.org", ban_reason: "Ein Grund", holder: ADMIN_EMAIL })],
-  ["a ban's lift", "admin", () => banActs.liftBan({ id: "65a000000000000000000001", holder: ADMIN_EMAIL })],
-  ["the account's erasure", "person", () => accountActs.eraseAccount({ token: "link-token", holder: PERSON })],
-  ["the sign-in address change", "person", () => accountActs.startAddressChange({ email: "neu@example.org", holder: PERSON })],
-  ["a passkey's removal", "person", () => passkeyActs.removePasskeyAction({ id: "pk-1", holder: PERSON })],
-  ["an administrator's addition", "admin", () => grantActs.addAdministrator({ email: "neu@example.org", holder: ADMIN_EMAIL })],
-  ["an administrator's removal", "admin", () => grantActs.removeAdministrator({ id: GRANT, holder: ADMIN_EMAIL })],
-  ["a handover's start", "admin", () => grantActs.startHandover({ grant_id: GRANT, holder: ADMIN_EMAIL })],
-  ["a handover's stop", "admin", () => grantActs.stopHandover({ id: GRANT, holder: ADMIN_EMAIL })],
-  [
-    "an address's erasure",
-    "admin",
-    () => erasureActs.eraseAddress({ email: "max@example.org", reason: "Mail vom 3.11.2026", holder: ADMIN_EMAIL }),
-  ],
+const TOUCHED: ReadonlyArray<readonly [string, () => Promise<unknown>]> = [
+  ["the draw's regeneration", () => seasonActs.recreateSpielplan({ saison_id: "2027", holder: ADMIN_EMAIL })],
+  ["the draw's removal", () => seasonActs.deleteSpielplan({ saison_id: "2027", holder: ADMIN_EMAIL })],
+  ["the switch onto a season", () => seasonActs.activateSaison({ saison_id: "2027", holder: ADMIN_EMAIL })],
+  ["a ban", () => banActs.enterBan({ email: "max@example.org", ban_reason: "Ein Grund", holder: ADMIN_EMAIL })],
+  ["a ban's lift", () => banActs.liftBan({ id: "65a000000000000000000001", holder: ADMIN_EMAIL })],
+  ["the account's erasure", () => accountActs.eraseAccount({ token: "link-token", holder: ADMIN_EMAIL })],
+  ["the sign-in address change", () => accountActs.startAddressChange({ email: "neu@example.org", holder: ADMIN_EMAIL })],
+  ["a passkey's removal", () => passkeyActs.removePasskeyAction({ id: "pk-1", holder: ADMIN_EMAIL })],
+  ["an administrator's addition", () => grantActs.addAdministrator({ email: "neu@example.org", holder: ADMIN_EMAIL })],
+  ["an administrator's removal", () => grantActs.removeAdministrator({ id: GRANT, holder: ADMIN_EMAIL })],
+  ["a handover's start", () => grantActs.startHandover({ grant_id: GRANT, holder: ADMIN_EMAIL })],
+  ["a handover's stop", () => grantActs.stopHandover({ id: GRANT, holder: ADMIN_EMAIL })],
+  ["an address's erasure", () => erasureActs.eraseAddress({ email: "max@example.org", reason: "Mail vom 3.11.2026", holder: ADMIN_EMAIL })],
   [
     "a lost-mailbox change's start",
-    "admin",
     () =>
       addressChangeActs.startLostMailboxChange({
         address: "paul@example.org",
@@ -88,16 +73,26 @@ const TOUCHED: ReadonlyArray<readonly [string, keyof typeof withoutAFreshTouch, 
         holder: ADMIN_EMAIL,
       }),
   ],
-  ["a change's fresh link", "admin", () => addressChangeActs.resendChangeLink({ address_change_id: ADDRESS_CHANGE, holder: ADMIN_EMAIL })],
-  ["a change's discard", "admin", () => changeActs.discardChange({ id: ADDRESS_CHANGE, holder: ADMIN_EMAIL })],
+  ["a change's fresh link", () => addressChangeActs.resendChangeLink({ address_change_id: ADDRESS_CHANGE, holder: ADMIN_EMAIL })],
+  ["a change's discard", () => changeActs.discardChange({ id: ADDRESS_CHANGE, holder: ADMIN_EMAIL })],
+  [
+    "a club's seat",
+    () => teamActs.writeSeat({ team_id: TEAM, saison_id: "2027", seat: "trainer", ...SEAT_PERSON, trainer_is_also: "", holder: ADMIN_EMAIL }),
+  ],
+  [
+    "an application's seat",
+    () => bewerbungSeatActs.writeBewerbungSeat({ id: BEWERBUNG, seat: "trainer", ...SEAT_PERSON, holder: ADMIN_EMAIL }),
+  ],
+  ["a referee's save", () => refereeSave.saveSchiedsrichter(REFEREE_SAVE)],
+  ["a referee's entry", () => refereeEntry.createSchiedsrichter(REFEREE_ENTRY)],
 ];
 
 describe("the acts behind the passkey touch", () => {
-  it.each(TOUCHED)("refuse %s on a session without a fresh touch, reaching nothing", async (_act, visitor, press) => {
-    await withoutAFreshTouch[visitor]();
+  it.each(TOUCHED)("refuse %s on a session without a fresh touch, reaching nothing", async (_act, press) => {
+    withoutAFreshTouch();
     const held = structuredClone(store);
 
-    expect(await press()).toStrictEqual({ ok: false, reason: COPY.signIn.refusal.touchMissing });
+    expect(await press()).toStrictEqual({ ok: false, reason: COPY.shared.touchMissing });
 
     await backend.answered();
     // Nothing reached the backend, nothing was owed by mail, and the store holds what it held.

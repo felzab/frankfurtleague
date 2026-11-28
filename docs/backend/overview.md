@@ -28,12 +28,12 @@ for that tier**:
 - `admin_router.py`: the administration
 - `system_router.py`: the frontend process's own calls, such as a retention pass
 
-Two files are named otherwise: `saisons/overview_router.py`, an administrator's router of its own
-for a season's overview, and `system/router.py`, the unguarded probes' (under Authorization). A
+One file is named otherwise: `system/router.py`, the unguarded probes' (under Authorization). A
 person's file serving two Funktionen holds one `APIRouter` per Funktion
 (`spieler/person_router.py`). `app/main.py` mounts them all under `/api`, so a router's own prefix
-names only its slice's segment. Each is mounted under its slice's tag, which with the handler's name
-makes the operation's id in `openapi.json`.
+opens with its slice's segment and never `/api`, and holds what all its routes share
+(`/identity/self`). Each is mounted under its slice's tag, which with the handler's name makes the
+operation's id in `openapi.json`.
 
 ## Addresses
 
@@ -68,7 +68,18 @@ next:
 
 - A create answers `FLCreatedResponse`, the minted id the caller opens the new record by.
 - An editor's save answers `FLVersionResponse`, the version its next save sends.
-- A dry run or a pass answers the report its caller shows or counts.
+- A dry run or a pass answers the report its caller shows or counts, and a dry run whose caller
+  reads only whether the write would be refused answers 204.
+- An operation whose dry run answers a report answers it on its write too, where its caller may
+  discard it, since its caller reads the report: the fixture save
+  (`fl_backend/app/api/spiele/admin_router.py :: patch_spiel`) and the withdrawal
+  (`fl_backend/app/api/identity/admin_router.py :: post_withdrawal`).
+- A write behind the passkey touch whose typed input the backend judges is sent dry before the
+  touch, so its refusal stands on a field while the input does, and its dry run answers 204 beside
+  the write's own answer (`fl_backend/app/core/routing.py :: DRY_RUN_PASSED`): a create has no id to
+  answer before it writes, and the caller sends the write on a pass. A touched write with no typed
+  input, such as a removal or a re-send, takes no dry run, since its refusal has no field to stand
+  on and no input to keep.
 
 The shared models are in `fl_backend/app/shared/schemas/responses.py`.
 
@@ -92,13 +103,13 @@ an operation's `security` in `openapi.json` names the tier it takes.
 
 The actor travels as three headers on an admin-key call, `X-FL-Actor`, `X-FL-Auth-Time` and
 `X-FL-Auth-Factor`: the address, when its session was made, and by which factor
-(`fl_backend/app/core/security.py :: get_session_actor`). The address travels as UTF-8,
-percent-encoded as `encodeURIComponent` spells it, since a header value is ASCII; any other spelling
-is refused as naming nobody. The admin key and the private network are what make them believed.
-**`system/router.py` holds the two routes with no guard**: `/system/is_live`, the container
-healthcheck and the public uptime probe, and `/system/is_ready`, which answers 503 where the
-database does not answer a ping, for a monitor outside. A probe that needs a secret fails for the
-wrong reasons.
+(`fl_backend/app/core/security.py :: get_session_actor`). The address travels as written, since
+every sign-in address is ASCII, as RFC 9110 §5.5 asks of a header value; an empty one or one past
+ASCII is refused as naming nobody. The admin key and the private network are what make them
+believed. **`system/router.py` holds the two routes with no guard**: `/system/is_live`, the
+container healthcheck and the public uptime probe, and `/system/is_ready`, which answers 503 where
+the database does not answer a ping, for a monitor outside. A probe that needs a secret fails for
+the wrong reasons.
 
 ## Data access
 
@@ -127,16 +138,31 @@ the Tabelle (`GET /saisons/{saison_id}/tabelle`) and stored nowhere.
 
 **Every failure answers one body, `{error_code, trace_id, fields}`, whatever its status**, in the
 shape of RFC 9457's problem details with this API's own members alone. `fields` names each body
-field the refusal judged, with a domain rule's bounds, and is empty where it judged none. A bound
-can be another field of the same payload, such as a span's start, but the body never carries the
-refused value or a stack trace. A code names one failure rather than a status class, and
-`fl_backend/app/core/codes.py :: Code` is every code's one spelling. `fl_backend/openapi.json` lists
-them once, as the failure body's `error_code` on the one shared response every operation's `default`
-refers to, whatever the status. The status follows RFC 9110: 409 where the target's current state
-refuses the request, 422 where the payload contradicts itself, 404 where what it names does not
-exist, 403 only where the caller's own authority or standing does. Every refusal is one
-`APIError(status, code)` (`fl_backend/app/core/exceptions.py`), and the handlers are
-`fl_backend/app/core/exception_handlers.py`.
+field the refusal judged, each with its own `kind` and a domain rule's bounds as its `ctx`, and is
+empty where it judged none. A bound can be another field of the same payload, such as a span's
+start, but the body never carries the refused value or a stack trace. A code names one failure
+rather than a status class, and `fl_backend/app/core/codes.py :: Code` is every code's one spelling.
+`fl_backend/openapi.json` lists them once, as the failure body's `error_code` on the one shared
+response every operation's `default` refers to, whatever the status. The status follows RFC 9110:
+409 where the target's current state refuses the request, 422 where the payload contradicts itself,
+404 where what it names does not exist, 403 only where the caller's own authority or standing does.
+The handlers are `fl_backend/app/core/exception_handlers.py`.
+
+**A request is judged in two passes, and each answers every fault it finds at once.** The first is
+the parse: FastAPI validates the body against its model before the endpoint runs, and a body
+breaking any field's rule answers `payload_refused` naming every such field. The second is the
+endpoint's judge, which a well-formed body alone reaches. A judge asks each gate through
+`fl_backend/app/core/crud.py :: refuse` before the boxes it makes meaningless, such as a record not
+found, a caller not allowed or a closed season. A gate judging a value the boxes pass comes after
+them: a club's answer to a fixture asks whether its proposed day has gone by before whether that day
+is free, and a save that reads no version up front refuses a stale one in the write's own filter. A
+gate is an `APIError` (`fl_backend/app/core/exceptions.py`), and names at most the one field its
+sentence reads, such as the record a retirement names in its path. The judge hands every independent
+check of a box to one `refuse_faults` call, which raises one refusal naming each fault as its own
+entry. A box's fault is a `FieldFault`, which nothing raises alone, and its code is one of
+`FieldCode`'s, each of which the frontend words on its box. A check that means nothing once another
+failed sits in the same call behind a guard on that check. The collected answer's code and status
+are its first fault's.
 
 ## Time
 

@@ -1,5 +1,4 @@
-import { ADDRESS_CHANGE_VALID_HOURS, ADDRESS_CHANGE_WAIT_DAYS, HOLDER_WAIT } from "@/core/addressChange";
-import { CODE_VALIDITY_MINUTES } from "@/core/authEmail";
+import { ADDRESS_CHANGE_VALID_HOURS, ADDRESS_CHANGE_WAITING_PERIOD, HOLDER_WAIT } from "@/core/addressChange";
 import {
   ACTION_LOG_RETENTION_YEARS,
   ADDRESS_CHANGE_RETENTION_DAYS,
@@ -12,14 +11,13 @@ import {
   SCHIEDSRICHTER_MIN_AGE,
 } from "@/core/bounds";
 import { KONTAKT_EMAIL, KONTAKT_MAILTO } from "@/core/brand";
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 import { SENDER_ADDRESSES } from "@/core/mail";
 import { MAILED_LINK_HOURS } from "@/core/mailedLink";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
-import { ADMIN_IDLE_HOURS, ADMIN_WINDOW_HOURS, PERSON_LIFETIME, PERSON_WINDOW_DAYS, SESSION_EXPIRES_IN_DAYS } from "@/core/sessionLifetimes";
-import { CODE_FAILURE_WINDOW_HOURS, CODE_MAIL_WINDOW_HOURS } from "@/core/signInCode";
-import { DAY_MS } from "@/core/timeUnits";
+import { ADMIN_IDLE_HOURS, ADMIN_WINDOW_HOURS, PERSON_IDLE_DAYS, PERSON_WINDOW_DAYS, SESSION_EXPIRES_IN_DAYS } from "@/core/sessionLifetimes";
+import { CODE_FAILURE_WINDOW_HOURS, CODE_MAIL_WINDOW_HOURS, CODE_VALIDITY_MINUTES } from "@/core/signInCode";
 import { BEWERBUNG_MIN_AGE, SIGNATORY_MIN_AGE } from "@/features/bewerbungen/constants";
 import { DATENSCHUTZ_AS_OF } from "@/features/meta/constants";
 import { REGISTRIERUNG_MIN_AGE } from "@/features/registrierungen/constants";
@@ -28,18 +26,14 @@ import { Table } from "@/kit/Table";
 import { pageMetadata } from "@/shared/utils/metadata";
 
 import type { ProseBlock, ProseSection, ProseText } from "@/kit/Prose";
-import type { Metadata, ResolvingMetadata } from "next";
 
 const words = SERVER_COPY.legal.privacyNotice;
 
-/** The league's address as a link inside a sentence. */
-const MAIL: ProseText[number] = { href: KONTAKT_MAILTO, label: { record: KONTAKT_EMAIL } };
+const MAIL = { href: KONTAKT_MAILTO, label: { record: KONTAKT_EMAIL } } as const;
 
 const paragraph = (...text: ProseText): ProseBlock => ({ kind: "paragraph", text });
 
-export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
-  return pageMetadata(parent, ROUTES.privacyNotice, ROUTES.privacyNotice.path(), { description: SERVER_COPY.description.privacyNotice });
-}
+export const metadata = pageMetadata(ROUTES.privacyNotice, { description: SERVER_COPY.description.privacyNotice });
 
 /**
  * The privacy notice: under its head, which names the day its words took effect, its first layer as a plain list, then
@@ -48,21 +42,28 @@ export async function generateMetadata(_: unknown, parent: ResolvingMetadata): P
  * the bound the code keeps.
  */
 export default function PrivacyNoticePage() {
-  const { firstLayer, retention, rights } = words;
+  const { firstLayer, administration, erasure, retention, rights } = words;
   const sections: ReadonlyArray<ProseSection> = [
     {
       heading: firstLayer.heading,
-      blocks: [
-        { kind: "list", items: [...firstLayer.items.map((item) => [item]), [firstLayer.contact.before, MAIL, firstLayer.contact.after]] },
-      ],
+      blocks: [{ kind: "list", items: [...firstLayer.items.map((item) => [item]), firstLayer.contact(MAIL)] }],
     },
     { heading: words.basis.heading, blocks: [paragraph(words.basis.text)] },
-    { heading: words.website.heading, blocks: [paragraph(words.website.requests), paragraph(words.website.browser(MAILED_LINK_HOURS))] },
+    {
+      heading: words.website.heading,
+      blocks: [
+        paragraph(words.website.requests),
+        paragraph(words.website.browser(CODE_VALIDITY_MINUTES, MAILED_LINK_HOURS)),
+        paragraph(words.website.turnstile),
+      ],
+    },
     {
       heading: words.bewerbung.heading,
       blocks: [
         paragraph(words.bewerbung.form),
         paragraph(words.bewerbung.confirmation(CONFIRMATION_DEADLINE_DAYS, BEWERBUNG_MIN_AGE, SIGNATORY_MIN_AGE)),
+        paragraph(words.bewerbung.visibility),
+        paragraph(words.bewerbung.outcome),
       ],
     },
     { heading: words.kader.heading, blocks: [paragraph(words.kader.text(REGISTRIERUNG_MIN_AGE, CONFIRMATION_DEADLINE_DAYS))] },
@@ -74,16 +75,25 @@ export default function PrivacyNoticePage() {
     {
       heading: words.account.heading,
       blocks: [
-        paragraph(
-          words.account.signIn(
-            { minutes: CODE_VALIDITY_MINUTES },
-            { idleDays: PERSON_LIFETIME.idle / DAY_MS, days: PERSON_WINDOW_DAYS },
-            { idleHours: ADMIN_IDLE_HOURS, hours: ADMIN_WINDOW_HOURS },
-            SESSION_EXPIRES_IN_DAYS,
-          ),
-        ),
-        paragraph(words.account.changes(ADDRESS_CHANGE_VALID_HOURS, ADDRESS_CHANGE_WAIT_DAYS, HOLDER_WAIT.administration, HOLDER_WAIT.owner)),
+        paragraph(words.account.signIn(CODE_VALIDITY_MINUTES)),
+        paragraph(words.account.sessions(PERSON_IDLE_DAYS, PERSON_WINDOW_DAYS, SESSION_EXPIRES_IN_DAYS)),
+        paragraph(words.account.changes(ADDRESS_CHANGE_VALID_HOURS, ADDRESS_CHANGE_WAITING_PERIOD.days)),
+        paragraph(words.account.erasure),
         paragraph(words.account.ban),
+      ],
+    },
+    // Its own section, so the contents fold lists it: what holds only for administrators, the passkey among it.
+    {
+      heading: administration.heading,
+      blocks: [
+        paragraph(administration.signIn(ADMIN_IDLE_HOURS, ADMIN_WINDOW_HOURS)),
+        paragraph(administration.passkey.lead),
+        { kind: "list", items: administration.passkey.items.map((item) => [item]) },
+        paragraph(administration.passkey.never),
+        paragraph(administration.address(HOLDER_WAIT.administration, HOLDER_WAIT.owner)),
+        paragraph(administration.grants(HOLDER_WAIT.administration, HOLDER_WAIT.owner)),
+        paragraph(administration.undo),
+        paragraph(administration.erasure),
       ],
     },
     {
@@ -99,7 +109,8 @@ export default function PrivacyNoticePage() {
       blocks: [
         paragraph(words.published.record),
         paragraph(words.published.names),
-        paragraph(words.published.consented(MEDIA_MIN_AGE)),
+        paragraph(words.published.organisers),
+        paragraph(words.published.media(MEDIA_MIN_AGE)),
         paragraph(words.published.never),
       ],
     },
@@ -156,16 +167,22 @@ export default function PrivacyNoticePage() {
       ],
     },
     {
-      heading: words.erasure.heading,
+      heading: erasure.heading,
       blocks: [
-        paragraph(words.erasure.text(DELIVERY_DEADLINE_DAYS, MAILBOX_ANCHOR_RETENTION_HOURS)),
-        paragraph(words.erasure.log(ACTION_LOG_RETENTION_YEARS)),
+        paragraph(erasure.text),
+        paragraph(erasure.remainsLead),
+        {
+          kind: "list",
+          items: erasure.remains(DELIVERY_DEADLINE_DAYS, MAILBOX_ANCHOR_RETENTION_HOURS, OUTBOX_RETENTION_DAYS).map((item) => [item]),
+        },
+        paragraph(erasure.notices),
+        paragraph(erasure.log(ACTION_LOG_RETENTION_YEARS)),
       ],
     },
     {
       heading: rights.heading,
       blocks: [
-        paragraph(rights.text.before, MAIL, rights.text.after),
+        paragraph(...rights.text(MAIL)),
         { kind: "callout", callout: { tone: "info", title: rights.objection.title, text: rights.objection.text } },
         paragraph(rights.closing),
       ],
@@ -174,7 +191,6 @@ export default function PrivacyNoticePage() {
   return (
     <ReadingPage
       title={COPY.page.privacyNotice}
-      lead={[SERVER_COPY.description.privacyNotice]}
       date={words.asOf(DATENSCHUTZ_AS_OF)}
       sections={sections}
     />

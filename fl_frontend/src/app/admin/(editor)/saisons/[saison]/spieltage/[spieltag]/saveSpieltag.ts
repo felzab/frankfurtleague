@@ -2,19 +2,18 @@
 
 import { z } from "zod";
 
-import { action } from "@/core/action";
-import { COPY } from "@/core/copy";
+import { action, fault } from "@/core/action";
+import { COPY } from "@/core/copy/shared";
 import { spieltagePatchSpieltag } from "@/core/generated/client/sdk";
 import { SpieltagePatchSpieltagBody, SpieltagePatchSpieltagParams } from "@/core/generated/zod/inputs";
 import { getAdminSpieltag } from "@/features/spieltage/queries";
 
-import { valuesOf } from "./spieltagValues";
+import { requiredOf, valuesOf } from "./spieltagValues";
 
-import type { ActionAnswer } from "@/core/action";
+import type { LaneAnswer } from "@/core/action";
 
 const { shape } = SpieltagePatchSpieltagBody;
 
-/** What the editor's two boxes send, each held to the matchday write's own published rule for it. */
 const SaveSpieltag = z.object({
   id: SpieltagePatchSpieltagParams.shape.spieltag_id,
   version: shape.version,
@@ -31,29 +30,13 @@ export const saveSpieltag = action({
   lane: "admin",
   name: "saveSpieltag",
   input: SaveSpieltag,
-  ownWords: [
-    "spieltag_ends_before_start",
-    "spieltag_outside_saison",
-    "spieltag_span_below_spiele",
-    "spieltag_start_out_of_order",
-    // The editor opened before its season finished: the write refuses a finished season's matchday whole.
-    "saison_past",
-  ],
-  // The span's own rule names the end it refuses, as the box's own check does before the send.
-  paths: { end: "changes.end" },
-  run: async ({ id, version, changes }): Promise<ActionAnswer<number>> => {
+  run: async ({ id, version, changes }): Promise<LaneAnswer<number>> => {
     const stored = await getAdminSpieltag(id);
     if (stored === null) return { ok: false, reason: COPY.shared.failure.stale };
 
-    const { start, end } = { ...valuesOf(stored.spieltag), ...changes };
-    // A day emptied, or one the matchday never held and the editor left empty, which the write cannot take.
-    const required = COPY.shared.field.required;
-    if (start === null || end === null) {
-      return {
-        ok: false,
-        fieldErrors: { ...(start === null ? { "changes.start": required } : {}), ...(end === null ? { "changes.end": required } : {}) },
-      };
-    }
+    const merged = { ...valuesOf(stored.spieltag), ...changes };
+    const { start, end } = merged;
+    if (start === null || end === null) return { ok: false, faults: requiredOf(merged).map((box) => fault(`changes.${box}`, "required")) };
     const written = await spieltagePatchSpieltag(id, { start, end, version });
     return { ok: true, value: written.version };
   },

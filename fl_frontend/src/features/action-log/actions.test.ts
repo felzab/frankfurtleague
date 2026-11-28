@@ -23,8 +23,11 @@ describe("the Protokoll's next page", () => {
     const carried = { by: "system", type: "ban", time: "30-days" } as const;
     const cursor = "a".repeat(24);
 
-    expect(await loadActionLog({ ...carried, query: "Birke", cursor })).toStrictEqual({ ok: true, value: { rows: [], cursor: null } });
+    expect(await loadActionLog({ ...carried, query: "Birke · Spiel 3", cursor })).toStrictEqual({
+      ok: true,
+      value: { rows: [], cursor: null },
+    });
 
-    expect(backend.sent.map(({ body }) => body)).toStrictEqual([{ ...logParams(carried), q: "Birke", cursor }]);
+    expect(backend.sent.map(({ body }) => body)).toStrictEqual([{ ...logParams(carried), q: "Birke", saison_id: null, spiel_nr: 3, cursor }]);
   });
 });

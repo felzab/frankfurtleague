@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { COPY } from "@/core/copy";
+import { ADMIN_COPY } from "@/core/copy/admin";
 
 import { linkFactsOf } from "./linkFacts";
 
@@ -19,7 +19,7 @@ describe("the link box's Nachnominierung day", () => {
   it("is the day after the window's end, which still takes an ordinary entry", () => {
     // A month's last day, so the day after is the next month's first.
     const [, nominee] = linkFactsOf(SENT, { registrierung_end: "2026-09-30", status: "active" });
-    expect(nominee).toStrictEqual({ label: COPY.admin.team.nomineeFrom, value: { record: "01.10.2026" }, figures: true });
+    expect(nominee).toStrictEqual({ label: ADMIN_COPY.team.nomineeFrom, value: { record: "01.10.2026" }, figures: true });
   });
 });
 
@@ -31,8 +31,8 @@ describe("the link box's state where the season takes no registration", () => {
     const [running] = linkFactsOf(shut, { registrierung_end: null, status: "active" });
     const [planned] = linkFactsOf(shut, { registrierung_end: null, status: "future" });
 
-    expect(running?.value).toBe(COPY.admin.saison.noRegistrierungWindow);
-    expect(planned?.value).toStrictEqual(COPY.admin.saison.linkSentOn("2026-09-02"));
+    expect(running?.value).toBe(ADMIN_COPY.saison.noRegistrierungWindow);
+    expect(planned?.value).toStrictEqual(ADMIN_COPY.saison.linkSentOn("2026-09-02"));
   });
 });
 
@@ -43,6 +43,6 @@ describe("the link box's state in a finished season", () => {
   it("is the link's own, as the season editor's table states it", () => {
     const [state] = linkFactsOf({ ...SENT, running: false }, { registrierung_end: null, status: "past" });
 
-    expect(state?.value).toStrictEqual(COPY.admin.saison.linkSentOn("2026-09-02"));
+    expect(state?.value).toStrictEqual(ADMIN_COPY.saison.linkSentOn("2026-09-02"));
   });
 });

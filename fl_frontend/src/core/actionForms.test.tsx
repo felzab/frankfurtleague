@@ -5,8 +5,11 @@ import path from "node:path";
 import { render } from "@testing-library/react";
 import { assert, describe, expect, it } from "vitest";
 
-import { serveBackend, serveHost } from "@/test-support/backend";
+import { ADMIN_EMAIL } from "@/test-support/authDoubles";
+import { serveBackend } from "@/test-support/backend";
+import { posted } from "@/test-support/posted";
 import { signedInRequest } from "@/test-support/session";
+import { thrownRedirect } from "@/test-support/thrownRedirect";
 
 import type { ReactElement } from "react";
 
@@ -16,11 +19,6 @@ import type { ReactElement } from "react";
    took: a box whose name meets no key is a value missing from it, or the action's refusal of a key nothing posted. */
 const backend = serveBackend();
 const { arriveAs, store } = signedInRequest();
-
-// The bot check the sign-in form passes before its address is read.
-serveHost("https://challenges.cloudflare.com", ({ method, url }) =>
-  method === "POST" && url.pathname === "/turnstile/v0/siteverify" ? { success: true, "error-codes": [] } : undefined,
-);
 
 /** One request the backend takes for a form, by its method and its endpoint, and its answer; any other request fails the case. */
 type Takes = readonly [method: string, endpoint: string, answer: unknown];
@@ -56,11 +54,9 @@ const spelledIn = (...files: readonly string[]): Set<string> => {
  * What a person typed, by the name of each box it stands in, posted under every name the form posts: a value whose
  * name the form posts nowhere is not sent, as a browser sends it under no name.
  */
-function formOf(posted: Iterable<string>, typed: Readonly<Record<string, string>>): FormData {
-  const names = new Set(posted);
-  const form = new FormData();
-  for (const [name, value] of Object.entries(typed)) if (names.has(name)) form.append(name, value);
-  return form;
+function formOf(names: Iterable<string>, typed: Readonly<Record<string, string>>): FormData {
+  const named = new Set(names);
+  return posted(Object.fromEntries(Object.entries(typed).filter(([name]) => named.has(name))));
 }
 
 /** Fails where the form renders a box the case types nothing into: a box no case fills is a box no case holds. */
@@ -68,6 +64,17 @@ function everyBoxTyped(names: readonly string[], typed: Readonly<Record<string, 
   const untyped = names.filter((name) => !Object.hasOwn(typed, name));
   assert(untyped.length === 0, `the case types nothing into ${untyped.join(", ")}: give each a value`);
 }
+
+/** What a confirmation page carries beside its boxes: `kit/OneShot.tsx`'s act and token, and the page's labels. */
+const CARRIED = ["act", "token", "text_versions.scope", "text_versions.media"] as const;
+
+/** The carried values of a confirmation's main act, under the labels `versions` names. */
+const carriedBy = (versions: { readonly scope: string; readonly media: string }) => ({
+  act: "primary",
+  token: "link-token",
+  "text_versions.scope": versions.scope,
+  "text_versions.media": versions.media,
+});
 
 const ID = "64b000000000000000000002";
 const TEAM = "64a000000000000000000001";
@@ -85,9 +92,16 @@ describe("each form's posted names meet its lane's keys", () => {
       default_payment: "25",
     };
     everyBoxTyped(names, typed);
-    takes(["POST", "/schiedsrichter", { created_id: ID }]);
+    takes(["POST", "/schiedsrichter", { created_id: ID, confirmation: { email: "erika@example.org" } }]);
 
-    expect(await createSchiedsrichter(formOf(names, typed))).toStrictEqual({ ok: true, value: undefined });
+    // The dialog is behind the passkey touch, which posts the page's holder beside its boxes (`Dialog`'s `touch`). The
+    // note names the mailbox the link went to, in wording from a catalogue this core test may not import.
+    const touched = formOf([...names, "holder"], { ...typed, holder: ADMIN_EMAIL });
+    expect(await createSchiedsrichter(touched)).toStrictEqual({
+      ok: true,
+      value: undefined,
+      note: expect.stringContaining("erika@example.org") as unknown,
+    });
     expect(requestsSent()).toStrictEqual([
       [
         "POST /schiedsrichter",
@@ -102,10 +116,9 @@ describe("each form's posted names meet its lane's keys", () => {
   });
 
   it("loses no box of the venue create dialog", async () => {
-    const { createSpielort } = await import("@/app/admin/createSpielort");
-    const { SpielortFields } = await import("@/app/admin/SpielortFields");
-    const { SPIELORT_RULES } = await import("@/app/admin/spielortRules");
-    const names = namesIn(<SpielortFields rules={SPIELORT_RULES} />);
+    const { createSpielort } = await import("@/features/spielorte/createSpielort");
+    const { SpielortFields } = await import("@/features/spielorte/SpielortFields");
+    const names = namesIn(<SpielortFields />);
     const typed = {
       name: "Sporthalle Nord",
       street: "Hauptstraße",
@@ -113,7 +126,7 @@ describe("each form's posted names meet its lane's keys", () => {
       postcode: "60311",
       district: "Innenstadt",
       city: "Frankfurt am Main",
-      mietpreis: "40",
+      default_mietpreis: "40",
     };
     everyBoxTyped(names, typed);
     takes(["POST", "/spielorte", { created_id: ID }]);
@@ -132,14 +145,9 @@ describe("each form's posted names meet its lane's keys", () => {
   });
 
   it("loses no box of the season create dialog", async () => {
-    const { createSaison } = await import("@/features/saisons/createSaison");
+    const { createSaison } = await import("@/app/admin/(list)/saisons/createSaison");
     const { CreateFields } = await import("@/app/admin/(list)/saisons/CreateFields");
-    const names = namesIn(
-      <CreateFields
-        next={{ start: null, end: null }}
-        required={{ start: true, end: true }}
-      />,
-    );
+    const names = namesIn(<CreateFields next={{ start: null, end: null }} />);
     const typed = { start_date: "2027-03-06", end_date: "2027-07-03" };
     everyBoxTyped(names, typed);
     takes(["POST", "/saisons", { created_id: "2027" }]);
@@ -150,21 +158,18 @@ describe("each form's posted names meet its lane's keys", () => {
 
   it("loses no box of a new school's entry", async () => {
     const { enterTeam } = await import("@/app/admin/(list)/saisons/[saison]/teams/enterTeam");
-    const { NEW_CLUB } = await import("@/app/admin/(list)/saisons/[saison]/teams/newClub");
+    const { NEW_TEAM } = await import("@/app/admin/(list)/saisons/[saison]/teams/newTeam");
     const { TeamEntryFields } = await import("@/app/admin/(list)/saisons/[saison]/teams/TeamEntryFields");
-    const { TEAM_ENTRY_RULES } = await import("@/features/teams/fieldRules");
     const names = namesIn(
       <TeamEntryFields
         saison="2027"
-        clubs={[]}
+        teams={[]}
         gruppen={[]}
         colours={[]}
-        rules={TEAM_ENTRY_RULES}
-        clubRequired
       />,
     );
     const typed = {
-      club: NEW_CLUB,
+      team: NEW_TEAM,
       gruppe: "B",
       trikot_farbe: "rot",
       name: "Goethe",
@@ -219,12 +224,11 @@ describe("each form's posted names meet its lane's keys", () => {
     const { SCHIEDSRICHTER_TEXT_VERSIONS, SCHIEDSRICHTER_WORDINGS } = await import("@/core/consentWordings");
     const names = namesIn(
       <ConfirmationFields
-        consent={{ name: "scope", wording: SCHIEDSRICHTER_WORDINGS.scope, isRequired: true }}
+        consent={{ name: "scope", wording: SCHIEDSRICHTER_WORDINGS.scope }}
         media={SCHIEDSRICHTER_WORDINGS.media}
         earliestBirth={"1900-01-01" as never}
         latestBirth={"2030-01-01" as never}
         mediaLatestBirth={"2030-01-01" as never}
-        isBirthDateRequired
       />,
     );
     const typed = { birth_date: "1990-05-01", scope: "kader_public", media: "on" };
@@ -232,9 +236,11 @@ describe("each form's posted names meet its lane's keys", () => {
     await arriveAs(null);
     takes(["POST", "/schiedsrichter/confirmation", new Response(null, { status: 204 })]);
 
-    const answer = await answerSchiedsrichter(formOf([...names, "media", "act", "token"], { ...typed, act: "primary", token: "link-token" }));
+    // Done, the press leads on to the done page, which Next's redirect thrown past the action names.
+    await thrownRedirect(
+      answerSchiedsrichter(formOf([...names, "media", ...CARRIED], { ...typed, ...carriedBy(SCHIEDSRICHTER_TEXT_VERSIONS) })),
+    );
 
-    expect(answer).toMatchObject({ ok: true });
     expect(requestsSent()).toStrictEqual([
       [
         "POST /schiedsrichter/confirmation",
@@ -255,7 +261,6 @@ describe("each form's posted names meet its lane's keys", () => {
         earliestBirth={"1900-01-01" as never}
         latestBirth={"2030-01-01" as never}
         mediaLatestBirth={"2030-01-01" as never}
-        isBirthDateRequired
       />,
     );
     const typed = { birth_date: "1985-09-12", whatsapp: "on", media: "on" };
@@ -263,15 +268,33 @@ describe("each form's posted names meet its lane's keys", () => {
     await arriveAs(null);
     takes(["POST", "/bewerbungen/confirmation", new Response(null, { status: 204 })]);
 
-    const answer = await answerKontakt(formOf([...names, "media", "act", "token"], { ...typed, act: "primary", token: "link-token" }));
+    // Done, the press leads on to the done page, which Next's redirect thrown past the action names.
+    await thrownRedirect(answerKontakt(formOf([...names, "media", ...CARRIED], { ...typed, ...carriedBy(SEAT_TEXT_VERSIONS) })));
 
-    expect(answer).toMatchObject({ ok: true });
     expect(requestsSent()).toStrictEqual([
       [
         "POST /bewerbungen/confirmation",
         { answer: "given", token: "link-token", birth_date: "1985-09-12", whatsapp: true, media: true, text_versions: SEAT_TEXT_VERSIONS },
       ],
     ]);
+  });
+
+  /* The harm: a confirmation pressed on a page drawn before a rewording's deploy recorded under the labels of words the
+     person never saw, the record being the consent's only trace. */
+  it("sends nothing for a confirmation posting a label no longer current, answering it as a stale page", async () => {
+    const { answerKontakt } = await import("@/app/(classic)/confirm/kontakt/answerKontakt");
+    const { SEAT_TEXT_VERSIONS } = await import("@/core/consentWordings");
+    const { COPY } = await import("@/core/copy/shared");
+    const typed = { birth_date: "1985-09-12", whatsapp: "on", media: "on" };
+    await arriveAs(null);
+    takes(["POST", "/bewerbungen/confirmation", new Response(null, { status: 204 })]);
+
+    // The media label a page drawn under an earlier wording carries.
+    const replaced = { ...carriedBy(SEAT_TEXT_VERSIONS), "text_versions.media": "2025-01-media-0" };
+    const answer = await answerKontakt(formOf([...Object.keys(typed), ...CARRIED], { ...typed, ...replaced }));
+
+    expect(answer).toStrictEqual({ ok: false, reason: COPY.shared.failure.stale });
+    expect(requestsSent()).toStrictEqual([]);
   });
 
   // The application's boxes post dotted names `applicationOf` reads by string, its own parse seeing a nested body, and an
@@ -281,13 +304,11 @@ describe("each form's posted names meet its lane's keys", () => {
     ["a listed school's", [{ id: "team", name: "Schule" }]],
   ])("carries every box of %s application into its body", async (_, schulen) => {
     const { applicationOf } = await import("@/app/(classic)/bewerbung/[saison]/application");
-    const { BEWERBUNG_RULES } = await import("@/app/(classic)/bewerbung/[saison]/bewerbungRules");
     const { BewerbungFields } = await import("@/app/(classic)/bewerbung/[saison]/BewerbungFields");
     const names = namesIn(
       <BewerbungFields
         schulen={schulen}
         taken={[]}
-        rules={BEWERBUNG_RULES}
       />,
     );
     const valueOf = (name: string) => String(100_000 + names.indexOf(name));
@@ -300,38 +321,38 @@ describe("each form's posted names meet its lane's keys", () => {
      in a source, or a key renamed in its lane, leaves its value out of the request. */
   describe("a form its sources spell", () => {
     it("loses no key of a Zusage's dialog", async () => {
-      const { enterZusage } = await import("@/app/admin/(list)/saisons/[saison]/enterZusage");
-      const posted = spelledIn("app/admin/(list)/saisons/[saison]/page.tsx", "app/admin/(list)/saisons/[saison]/ZusageDialog.tsx");
+      const { enterZusage } = await import("@/features/spielbestaetigungen/enterZusage");
+      const spelled = spelledIn("features/spielbestaetigungen/answerActs.tsx", "features/spielbestaetigungen/ZusageDialog.tsx");
       takes(["POST", `/spielbestaetigungen/${ID}/enter`, { version: 2 }]);
 
-      expect(await enterZusage(formOf(posted, { id: ID, reason: "Telefonisch zugesagt" }))).toStrictEqual({ ok: true, value: undefined });
+      expect(await enterZusage(formOf(spelled, { id: ID, reason: "Telefonisch zugesagt" }))).toStrictEqual({ ok: true, value: undefined });
       expect(requestsSent()).toStrictEqual([[`POST /spielbestaetigungen/${ID}/enter`, { reason: "Telefonisch zugesagt" }]]);
     });
 
     it("loses no key of the address change's box", async () => {
       const { startAddressChange } = await import("@/features/account/personActions");
-      const posted = spelledIn("app/account/(pages)/signin/SignInBoxes.tsx");
+      const spelled = spelledIn("app/account/(pages)/signin/SignInBoxes.tsx");
       await arriveAs({ email: "pia@example.org" });
       takes(["POST", "/account/address_change", new Response(null, { status: 204 })]);
 
-      const answer = await startAddressChange(formOf(posted, { email: "pia.neu@example.org", holder: "pia@example.org" }));
+      const answer = await startAddressChange(formOf(spelled, { email: "pia.neu@example.org", holder: "pia@example.org" }));
 
       expect(answer).toStrictEqual({ ok: true, value: undefined });
       expect(requestsSent()).toStrictEqual([["POST /account/address_change", { email: "pia.neu@example.org" }]]);
     });
 
     // The rename writes the sign-in store alone, so the row it names is what the case reads.
+    // An administrator's, the one account holding a passkey: the file's visitor unless a case names another.
     it("loses no key of a passkey's rename", async () => {
-      const { renamePasskeyAction } = await import("@/features/passkeys/actions");
-      const posted = spelledIn("app/account/(pages)/security/SecurityBoxes.tsx");
-      await arriveAs({ email: "pia@example.org" });
-      const account = store.user.find(({ email }) => email === "pia@example.org");
-      assert(account !== undefined, "the person's arrival wrote no account");
+      const { renamePasskeyAction } = await import("@/app/account/(pages)/security/passkeyActs");
+      const spelled = spelledIn("app/account/(pages)/security/SecurityBoxes.tsx");
+      const account = store.user.find(({ email }) => email === ADMIN_EMAIL);
+      assert(account !== undefined, "the administrator's arrival wrote no account");
       store.passkey.push({
         id: "pk-1",
         name: "Laptop",
         userId: account.id,
-        credentialID: "credential-of-pia",
+        credentialID: "credential-of-the-laptop",
         publicKey: "fabricated-public-key",
         counter: 0,
         deviceType: "singleDevice",
@@ -340,65 +361,56 @@ describe("each form's posted names meet its lane's keys", () => {
         createdAt: new Date(),
       });
 
-      const answer = await renamePasskeyAction(formOf(posted, { id: "pk-1", name: "Telefon", holder: "pia@example.org" }));
+      const answer = await renamePasskeyAction(formOf(spelled, { id: "pk-1", name: "Telefon", holder: ADMIN_EMAIL }));
 
       expect(answer).toStrictEqual({ ok: true, value: undefined });
-      const own = store.passkey.filter(({ userId }) => userId === account.id);
-      expect(own.map(({ id, name }) => [id, name])).toStrictEqual([["pk-1", "Telefon"]]);
-    });
-
-    // The address is the one answer the sign-in gives every address it admits, the code's mail sent behind it.
-    it("loses no key of the sign-in form", async () => {
-      const { handleSignIn } = await import("@/features/auth/actions");
-      const { TURNSTILE_FIELD } = await import("@/core/turnstileToken");
-      const posted = spelledIn("features/auth/components/forms/SignInFlow.tsx");
-      await arriveAs(null);
-
-      // The widget's token, which the page's script posts under its own name beside the form's boxes.
-      const answer = await handleSignIn(formOf([...posted, TURNSTILE_FIELD], { email: "Pia@Example.org", [TURNSTILE_FIELD]: "widget-token" }));
-
-      expect(answer).toStrictEqual({ ok: true, value: "pia@example.org" });
+      const renamed = store.passkey.filter(({ id }) => id === "pk-1");
+      expect(renamed.map(({ userId, name }) => [userId, name])).toStrictEqual([[account.id, "Telefon"]]);
     });
 
     it("loses no key of a team's exit", async () => {
       const { recordAustritt } = await import("@/app/admin/(editor)/saisons/[saison]/teams/[team]/teamActs");
-      const posted = spelledIn("app/admin/(editor)/saisons/[saison]/teams/[team]/TeamEditor.tsx");
+      const spelled = spelledIn("app/admin/(editor)/saisons/[saison]/teams/[team]/TeamEditor.tsx");
       takes(["PUT", `/teams/${TEAM}/saisons/2027/austritt`, {}]);
 
       const typed = { team_id: TEAM, saison_id: "2027", date: "2027-04-01", reason: "Nicht angetreten", type: "rueckzug" };
-      expect(await recordAustritt(formOf(posted, typed))).toStrictEqual({ ok: true, value: undefined });
+      expect(await recordAustritt(formOf(spelled, typed))).toStrictEqual({ ok: true, value: undefined });
       expect(requestsSent()).toStrictEqual([
         [`PUT /teams/${TEAM}/saisons/2027/austritt`, { date: "2027-04-01", reason: "Nicht angetreten", type: "rueckzug" }],
       ]);
     });
 
     const SEAT_PERSON = { first_name: "Jana", last_name: "Schmidt", email: "jana@example.org", phone: "069 90009765" };
+    // The seat's dialog is behind the passkey touch, which posts the page's holder beside its carry (`Dialog`'s `touch`).
+    const seatPosted = (...files: readonly string[]) => new Set([...spelledIn(...files), "holder"]);
 
     it("loses no key of „Sitz bearbeiten“", async () => {
       const { writeSeat } = await import("@/app/admin/(editor)/saisons/[saison]/teams/[team]/teamActs");
-      const posted = spelledIn(
-        "features/teams/components/forms/SeatActs.tsx",
-        "app/admin/(editor)/saisons/[saison]/teams/[team]/TeamEditor.tsx",
-      );
+      const spelled = seatPosted("features/teams/SeatActs.tsx", "app/admin/(editor)/saisons/[saison]/teams/[team]/TeamEditor.tsx");
       takes(["PUT", `/teams/${TEAM}/saisons/2027/kontakte/trainer`, { email: null }]);
 
-      const typed = { team_id: TEAM, saison_id: "2027", seat: "trainer", ...SEAT_PERSON, trainer_is_also: "ansprechperson", version: "3" };
-      expect(await writeSeat(formOf(posted, typed))).toStrictEqual({ ok: true, value: undefined });
+      const typed = {
+        team_id: TEAM,
+        saison_id: "2027",
+        seat: "trainer",
+        ...SEAT_PERSON,
+        trainer_is_also: "ansprechperson",
+        version: "3",
+        holder: ADMIN_EMAIL,
+      };
+      expect(await writeSeat(formOf(spelled, typed))).toStrictEqual({ ok: true, value: undefined });
       expect(requestsSent()).toStrictEqual([
         [`PUT /teams/${TEAM}/saisons/2027/kontakte/trainer`, { ...SEAT_PERSON, trainer_is_also: "ansprechperson", version: 3 }],
       ]);
     });
 
     it("loses no key of an application's „Sitz bearbeiten“", async () => {
-      const { writeSeat } = await import("@/app/admin/(list)/saisons/[saison]/bewerbungen/[bewerbung]/writeSeat");
-      const posted = spelledIn(
-        "features/teams/components/forms/SeatActs.tsx",
-        "app/admin/(list)/saisons/[saison]/bewerbungen/[bewerbung]/page.tsx",
-      );
+      const { writeBewerbungSeat } = await import("@/app/admin/(list)/saisons/[saison]/bewerbungen/[bewerbung]/seatActs");
+      const spelled = seatPosted("features/teams/SeatActs.tsx", "app/admin/(list)/saisons/[saison]/bewerbungen/[bewerbung]/page.tsx");
       takes(["POST", `/bewerbungen/${ID}/kontakte/trainer`, { email: "jana@example.org" }]);
 
-      const typed = { id: ID, seat: "trainer", ...SEAT_PERSON, version: "3" };
-      expect(await writeSeat(formOf(posted, typed))).toMatchObject({ ok: true });
+      const typed = { id: ID, seat: "trainer", ...SEAT_PERSON, version: "3", holder: ADMIN_EMAIL };
+      expect(await writeBewerbungSeat(formOf(spelled, typed))).toMatchObject({ ok: true });
       expect(requestsSent()).toStrictEqual([[`POST /bewerbungen/${ID}/kontakte/trainer`, { ...SEAT_PERSON, version: 3 }]]);
     });
   });

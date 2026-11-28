@@ -2,42 +2,51 @@
 
 import { useState } from "react";
 
+import { COPY } from "@/core/copy/shared";
+
 import { Button } from "./Button";
-import { askingLook } from "./buttonStyles";
 import { ConfirmDialog } from "./ConfirmDialog";
+import { actLabel } from "./dialogAct";
 import { useLocked } from "./draftUnsaved";
 import { FormFooter } from "./FormFooter";
+import { toastAnswer } from "./Toast";
 import { statusOf, useFormAction } from "./useFormAction";
 
 import type { ActionAnswer } from "@/core/action";
 import type { Copy } from "@/core/copy";
 import type { ReactNode } from "react";
 import type { ConfirmWords } from "./ConfirmDialog";
+import type { ActWords, DoneVerb } from "./dialogAct";
 
-/** An act that sends: its write, answering in the footer's status line. */
-type Sending = { run: () => Promise<ActionAnswer>; press?: never } & (
-  | {
-      variant?: "primary" | "secondary";
-      /** The question it asks before it runs; its button then carries the question's verb and tone. */
-      confirm?: ConfirmWords & { tone: "primary" };
-    }
-  // An act that destroys takes the outlined danger look its question's trigger takes everywhere (`Trigger`).
-  | { variant?: never; confirm: ConfirmWords & { tone: "danger" } }
-);
+/** An act that sends: its write, a refusal answering in the footer's status line and a done act in its toast. */
+type Sending = {
+  /** The act, whose verb and object name its button and whose verb words its toast once done. */
+  act: ActWords<DoneVerb>;
+  /** The done act's toast where its verb's done word does not say it, such as „Link gesendet“ for a link sent. */
+  done?: Copy;
+  run: () => Promise<ActionAnswer>;
+  label?: never;
+  press?: never;
+  /**
+   * The question it asks before it runs; its button then carries the question's verb and tone. An act that destroys
+   * takes the outlined danger look its question's trigger takes everywhere (`Trigger`).
+   */
+  confirm?: ConfirmWords<DoneVerb>;
+};
 
 /**
  * An act that writes nothing and runs at once, such as copying a link the section shows: a secondary button whose
  * outcome is its own toast, so the status line, which speaks of the section's writes, stays as it was.
  */
-type AtOnce = { press: () => void; run?: never; variant?: never; confirm?: never };
+type AtOnce = { label: Copy; press: () => void; act?: never; done?: never; run?: never; confirm?: never };
 
-/** One act of a section's footer. */
 export type SectionActItem = {
-  label: Copy;
-  /** Closed while the section's inputs are incomplete, its fields showing what is missing, or while the press would reach nobody. */
-  isDisabled?: boolean;
-  /** Why its write would refuse the record as it stands, which the page read, the button saying why (`Button`). */
-  locked?: Copy;
+  /**
+   * Why its write would refuse the record as it stands, which the page read, or why the press cannot run yet, such as
+   * inputs still incomplete or nobody it would reach: the button saying why, reachable rather than mute; `true` where
+   * the editor's lock line already says it, the button locked with no reason of its own.
+   */
+  locked?: Copy | true;
 } & (Sending | AtOnce);
 
 const NO_INPUTS: ReadonlyArray<unknown> = [];
@@ -46,55 +55,44 @@ const NO_INPUTS: ReadonlyArray<unknown> = [];
 const sameInputs = (now: ReadonlyArray<unknown>, then: ReadonlyArray<unknown>) =>
   now.length === then.length && now.every((value, index) => Object.is(value, then[index]));
 
-/** What a press hands the one form action: the pressed act's `run`, or the answer a question's act reached inside it. */
-type Press = () => Promise<ActionAnswer>;
+/** What a press hands the one form action: the pressed act's `run`, and the word its toast says once done. */
+type Press = { run: () => Promise<ActionAnswer>; done: Copy };
 
 /** One act's button, behind its question where it asks one; its own component, since its lock is read by a hook. */
-function ActButton({
-  act,
-  isBusy,
-  onPress,
-  onAnswered,
-}: {
-  act: SectionActItem;
-  isBusy: boolean;
-  onPress: () => void;
-  onAnswered: (ran: ActionAnswer) => void;
-}) {
-  const reason = useLocked(act.locked);
-  if (act.press !== undefined)
+function ActButton({ item, isBusy, onPress }: { item: SectionActItem; isBusy: boolean; onPress: () => void }) {
+  // A lock the lock line says wins over the unsaved draft's reason, since a save would not open it.
+  const reason = useLocked(item.locked === true ? undefined : item.locked);
+  const lock = item.locked === true ? true : reason;
+  if (item.press !== undefined)
     return (
       <Button
         variant="secondary"
-        label={act.label}
-        isDisabled={act.isDisabled ?? false}
-        locked={reason}
-        onPress={act.press}
+        label={item.label}
+        locked={lock}
+        onPress={item.press}
       />
     );
-  const { confirm } = act;
-  if (confirm === undefined || reason !== undefined)
+  const { confirm } = item;
+  const label = actLabel(item.act);
+  if (confirm === undefined)
     return (
       <Button
-        // A locked act that destroys keeps the one outlined danger look its question's trigger takes everywhere.
-        variant={confirm?.tone === "danger" ? askingLook(confirm.tone) : (act.variant ?? "secondary")}
-        label={act.label}
-        isBusy={confirm === undefined && isBusy}
-        isDisabled={act.isDisabled ?? false}
-        locked={reason}
-        onPress={confirm === undefined ? onPress : undefined}
+        variant="secondary"
+        label={label}
+        isBusy={isBusy}
+        locked={lock}
+        onPress={onPress}
       />
     );
   return (
     <ConfirmDialog
-      {...confirm}
-      onConfirm={async () => {
+      question={confirm}
+      done={item.done ?? COPY.shared.toast.done[confirm.verb]}
+      onConfirm={() => {
         onPress();
-        const answered = await act.run();
-        if (answered.ok) onAnswered(answered);
-        return answered;
+        return item.run();
       }}
-      trigger={{ label: act.label, variant: act.variant, isDisabled: act.isDisabled ?? false }}
+      trigger={{ label, locked: lock }}
     />
   );
 }
@@ -102,13 +100,19 @@ function ActButton({
 /**
  * The acts standing in an editor's section beside the fields they read, as a Konto box holds its one act (`AccountBox`):
  * its inputs, then the section's footer strip (`FormFooter`), which closes the box, its acts at the right end and the
- * status line its last press's outcome stands in at the left, „Gespeichert“ or its refusal. It stands last in its
- * section. It stands inside an editor's own form, whose fields and save are another record's, so each act sends what its
- * inputs hold as one typed object through `run`, never as a form; an act asking a question first answers a refusal in
- * the question's own line, and its done act here, in the act's own note where it has one. A done line speaks of the
- * inputs it was pressed on: it goes once one of `inputs` changes, as the editor's bar trades its „Gespeichert“ for the
- * next edit, and once the page is left. Inside an editor whose draft holds unsaved changes every act is closed as a
- * locked one is (`useLocked`).
+ * status line a refusal of its last press stands in at the left. It stands last in its section; with no inputs, and
+ * nothing else in the box's padding, the strip stands first there and meets the rule above it. It stands inside an
+ * editor's own form, whose fields and save are another record's, so each act sends what its inputs hold as one typed
+ * object through `run`, never as a form. A done act says itself in a toast, its answer's note, else its own `done` or
+ * its verb's done word, so the line adds no row a phone's page would move by; an act asking a question first answers
+ * a refusal in the question's own line, and its done act in the question's toast. A refusal speaks of the inputs it
+ * was pressed on: it goes once one of `inputs` changes, and once the page is left. Inside an editor whose draft holds
+ * unsaved changes every act is closed as a locked one is (`useLocked`).
+ *
+ * Its answer carries no field fault, so its inputs stand outside every form's faults and the line words a refusal by
+ * its reason. An act taking its record from the page's address has no box to fault, and the acts reading inputs, a
+ * group swap and a replacement, offer only the clubs their write takes, so a pair the write refuses comes from a page
+ * gone stale, which the backend refuses as a gate and the stale line answers.
  */
 export function SectionAct({
   children,
@@ -122,10 +126,17 @@ export function SectionAct({
   /** The values the acts' `run` reads; none for acts taking no input. */
   inputs?: ReadonlyArray<unknown>;
 }) {
-  // One answer for every act, cleared as Next hides the page: a plain act runs here; a question's act runs inside its
-  // question, which shows its refusal, and hands its done answer over to stand in the line.
-  const { answer, submit, isPending } = useFormAction((press: Press) => press(), { resetOnLeave: true });
-  // The inputs of the last press, whose answer the line shows only while they still hold, and the act pressed.
+  // One answer for every plain act, cleared as Next hides the page; a question's act runs inside its question, which
+  // shows its refusal and says its done act in a toast, so its press only clears the line of the act before.
+  const { answer, submit, reset, isPending } = useFormAction(
+    async ({ run, done }: Press) => {
+      const answered = await run();
+      if (answered.ok) toastAnswer(answered, done);
+      return answered;
+    },
+    { resetOnLeave: true },
+  );
+  // The inputs of the last press, whose refusal the line shows only while they still hold, and the act pressed.
   const [pressed, setPressed] = useState({ on: inputs, at: 0 });
   const status = sameInputs(inputs, pressed.on) ? statusOf(answer, false, isPending) : null;
 
@@ -135,17 +146,18 @@ export function SectionAct({
       <FormFooter
         place="section"
         status={status}>
-        {acts.map((act, at) => (
+        {acts.map((item, at) => (
           <ActButton
             key={at}
-            act={act}
+            item={item}
             isBusy={isPending && pressed.at === at}
             onPress={() => {
               setPressed({ on: inputs, at });
               // An act at once never calls this: its button runs it alone.
-              if (act.run !== undefined && act.confirm === undefined) submit(act.run);
+              if (item.run === undefined) return;
+              if (item.confirm === undefined) submit({ run: item.run, done: item.done ?? COPY.shared.toast.done[item.act.verb] });
+              else reset();
             }}
-            onAnswered={(ran) => submit(() => Promise.resolve(ran))}
           />
         ))}
       </FormFooter>

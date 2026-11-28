@@ -83,11 +83,12 @@ async def pull_ansetzung_state(
         return None
 
     snapshot = spielbestaetigung_raw["ansetzung"]
-    junctions = await saison_teams_collection.find(
-        {"saison_id": spielbestaetigung_raw["saison_id"], "team_id": {"$in": [snapshot["team1_id"], snapshot["team2_id"]]}},
-        junction_projection,
+    junctions = await pull_whole_from_db(
+        collection=saison_teams_collection,
+        db_filter={"saison_id": spielbestaetigung_raw["saison_id"], "team_id": {"$in": [snapshot["team1_id"], snapshot["team2_id"]]}},
+        projection=junction_projection,
         session=session,
-    ).to_list(length=None)
+    )
 
     return AnsetzungState(spiel=spiel, junctions=junctions)
 
@@ -104,7 +105,6 @@ async def pull_admin_rows(*, spielbestaetigungen_collection: ReadCollection, db_
     return await pull_whole_from_db(
         collection=spielbestaetigungen_collection,
         db_filter=db_filter,
-        what="the match confirmations an administrator reads",
         # Rows carry no creation stamp; an ObjectId's leading bytes are its insert time.
         sort_by=[("_id", -1)],
         projection=ADMIN_ROW_FIELDS,
@@ -121,8 +121,6 @@ OWN_ROW_FIELDS: Mapping[str, int] = {
     "party": 1,
     "ansetzung": 1,
     "answer.kind": 1,
-    "answer.by.kind": 1,
-    "answer.reason": 1,
     "closed": 1,
 }
 
@@ -156,7 +154,7 @@ async def strip_the_seasons_confirmations(
             collection=spielbestaetigungen_collection,
             action="retention.spielbestaetigungen",
             by=ACT_BY_SYSTEM,
-            label=saison_id,
+            saison_id=saison_id,
             count=stripped,
             session=session,
         )
@@ -237,7 +235,6 @@ async def owe_the_austritt_notices_in_session(
     spiele = await pull_whole_from_db(
         collection=spiele_collection,
         db_filter=build_austritt_spiele_filter(saison_id=saison_id, team_id=team_id, exit_day=exit_day),
-        what=f"team {team_id}'s fixtures in season {saison_id}",
         projection=AUSTRITT_SPIEL_FIELDS,
         session=session,
     )
@@ -245,7 +242,6 @@ async def owe_the_austritt_notices_in_session(
     junctions = await pull_whole_from_db(
         collection=saison_teams_collection,
         db_filter={"saison_id": saison_id, "team_id": {"$in": list({team_id, *sides} - {None})}},
-        what=f"team {team_id}'s opponents in season {saison_id}",
         projection=["team_id", "name", "kontakte", "austritt"],
         session=session,
     )
@@ -323,7 +319,6 @@ async def pull_austritt_recipients(
         collection=spiele_collection,
         # An exit is taken from the season's start on, so these are every fixture one can reach.
         db_filter=build_austritt_spiele_filter(saison_id=saison_id, team_id=team_id, exit_day=start_date),
-        what=f"team {team_id}'s fixtures in season {saison_id}",
         projection=AUSTRITT_RECIPIENT_SPIEL_FIELDS,
         session=session,
     )
@@ -331,7 +326,6 @@ async def pull_austritt_recipients(
         await pull_whole_from_db(
             collection=spielbestaetigungen_collection,
             db_filter={**build_held_filter(saison_id=saison_id, spiel_ids=[spiel["_id"] for spiel in spiele]), "party.kind": "schiedsrichter"},
-            what=f"team {team_id}'s fixtures' held referee confirmations",
             projection=CLOSE_FIELDS,
             session=session,
         )

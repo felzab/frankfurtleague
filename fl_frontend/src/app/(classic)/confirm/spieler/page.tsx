@@ -1,44 +1,36 @@
 import { cache } from "react";
 
-import { requires } from "@/core/action";
+import { boxRulesOf } from "@/core/action";
 import { MEDIA_MIN_AGE } from "@/core/bounds";
 import { now } from "@/core/clock";
-import { SPIELER_WORDINGS } from "@/core/consentWordings";
-import { COPY } from "@/core/copy";
+import { SPIELER_TEXT_VERSIONS, SPIELER_WORDINGS } from "@/core/consentWordings";
+import { COPY } from "@/core/copy/shared";
 import { bornAfter, bornBy } from "@/core/dayArithmetic";
-import { dayIn, dayOf, formatDate } from "@/core/format";
+import { dayIn, dayOf } from "@/core/format";
 import { registrierungenGetConfirmationView } from "@/core/generated/client/sdk";
-import { RegistrierungenPostConfirmationBody } from "@/core/generated/zod/inputs";
+import { mailedLinkToken } from "@/core/mailedLink";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { runWithIncomingTrace } from "@/core/traceScope";
-import { mailedMetadata } from "@/kit/mailedLinkState";
-import { MailedPage, TO_ACCOUNT } from "@/kit/MailedPage";
+import { mailedMetadata } from "@/kit/mailedMetadata";
+import { MailedPage } from "@/kit/MailedPage";
 
 import { ConfirmationFields } from "../ConfirmationFields";
-import { linkViewOf } from "../linkView";
+import { LINK_INVALID, REGISTRIERUNG_CONFIRMED } from "../ends";
+import { alreadyDone, linkViewOf } from "../linkView";
 import { answerRegistrierung } from "./answerRegistrierung";
-import { CONFIRMED, TO_HOME } from "./ends";
 
 import type { FLRegistrierungConfirmationViewValid } from "@/core/generated/client/types";
 import type { MailedState } from "@/kit/MailedPage";
-import type { Metadata, ResolvingMetadata } from "next";
+import type { Metadata } from "next";
 
-type Props = PageProps<"/confirm/spieler">;
-
-/** A row no crawler fetches: the URL carries the link's token. */
-export async function generateMetadata({ searchParams }: Pick<Props, "searchParams">, parent: ResolvingMetadata): Promise<Metadata> {
-  return mailedMetadata(parent, ROUTES.registrierungConfirmation, readState(searchParams));
+export async function generateMetadata(): Promise<Metadata> {
+  return mailedMetadata(ROUTES.registrierungConfirmation, readState());
 }
 
 const WORDS = SERVER_COPY.registrierungConfirmation;
 
-const INVALID: MailedState = { state: "invalid", next: TO_HOME };
-
-const { shape } = RegistrierungenPostConfirmationBody;
-
-/** What the confirmation's write asks of the two answers, a day and a choice that post nothing while unanswered. */
-const REQUIRED = { birth_date: requires(shape.birth_date, null), scope: requires(shape.scope, null) };
+const INVALID: MailedState = { state: "end", ...LINK_INVALID };
 
 /**
  * `/confirm/spieler`, the link a pupil's registration mails them, on the mailed-page template: the question, with
@@ -46,12 +38,11 @@ const REQUIRED = { birth_date: requires(shape.birth_date, null), scope: requires
  * the link no longer valid, an expired, mistyped or tampered link and a club out of the season alike. A pupil the
  * league already holds meets the same question as a new one.
  */
-export default function RegistrierungConfirmationPage({ searchParams }: Props) {
-  return <MailedPage page={readState(searchParams)} />;
+export default function RegistrierungConfirmationPage() {
+  return <MailedPage page={readState()} />;
 }
 
 /** The link's own read; `null` for a token no registration holds or one the backend will not parse, a dead link either way. */
-// `cache` memoizes per render pass, for the tab's title and the page.
 const readView = cache(async (token: string) => runWithIncomingTrace(() => linkViewOf(registrierungenGetConfirmationView({ token }))));
 
 /** The question: for which team, school and season the pupil registered, until when, and the answer's fields. */
@@ -66,33 +57,32 @@ function question(view: FLRegistrierungConfirmationViewValid, token: string): Ma
       { label: COPY.shared.facts.team, value: { record: view.team } },
       { label: COPY.shared.facts.school, value: { record: view.schule } },
       { label: COPY.shared.saison, value: COPY.shared.saisonName(view.saison_id) },
-      { label: SERVER_COPY.kontaktConfirmation.confirmBy, value: { record: formatDate(until) } },
     ],
-    sentence: WORDS.text(WORDS.opening({ record: view.team }, view.saison_id), WORDS.stored),
+    sentence: SERVER_COPY.paragraph(WORDS.opening({ record: view.team }, view.saison_id), WORDS.stored),
     more: WORDS.more,
     sentenceAfter: WORDS.deadline(until),
-    action: answerRegistrierung,
+    run: answerRegistrierung,
+    rules: boxRulesOf(answerRegistrierung),
     acts: { primary: COPY.page.registrierungConfirmation },
-    carry: { token },
+    // The labels of the wordings the page draws, so a press after a rewording is refused rather than stamped.
+    carry: { token, "text_versions.scope": SPIELER_TEXT_VERSIONS.scope, "text_versions.media": SPIELER_TEXT_VERSIONS.media },
     children: (
       <ConfirmationFields
-        consent={{ name: "scope", wording: SPIELER_WORDINGS.scope, isRequired: REQUIRED.scope }}
+        consent={{ name: "scope", wording: SPIELER_WORDINGS.scope }}
         media={SPIELER_WORDINGS.media}
         ageCheck={WORDS.ageCheck(view.minimum_age)}
         // The range the write judges, as the link's view serves it.
         earliestBirth={bornAfter(today, view.maximum_age)}
         latestBirth={bornBy(today, view.minimum_age)}
         mediaLatestBirth={bornBy(today, MEDIA_MIN_AGE)}
-        isBirthDateRequired={REQUIRED.birth_date}
       />
     ),
   };
 }
 
-async function readState(searchParams: Props["searchParams"]): Promise<MailedState> {
-  const { token } = await searchParams;
-  // A missing or repeated parameter is no link at all.
-  if (typeof token !== "string" || token === "") return INVALID;
+async function readState(): Promise<MailedState> {
+  const token = await mailedLinkToken();
+  if (token === null) return INVALID;
 
   const view = await readView(token);
   if (view === null) return INVALID;
@@ -102,7 +92,7 @@ async function readState(searchParams: Props["searchParams"]): Promise<MailedSta
     case "expired":
       return INVALID;
     case "confirmed":
-      return { state: "alreadyDone", title: COPY.shared.end.doneOn(CONFIRMED.title, dayOf(view.answered_at)), next: TO_ACCOUNT };
+      return alreadyDone(view.answered_at, "confirmed", REGISTRIERUNG_CONFIRMED);
     case "valid":
       return question(view, token);
   }

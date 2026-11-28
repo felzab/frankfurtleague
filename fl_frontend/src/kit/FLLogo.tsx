@@ -1,4 +1,8 @@
-import { MARK_ID } from "@/core/brand";
+/**
+ * The `id` of the mark's drawing in the document's one sprite, which every logo points at. Here rather than beside the
+ * drawing, so a bundle that draws a logo carries no copy of the sprite's paths.
+ */
+export const MARK_ID = "fl-mark";
 
 /**
  * The `viewBox` is the drawing's own tall bounds, so a square utility such as `size-8` centres the mark in a box of

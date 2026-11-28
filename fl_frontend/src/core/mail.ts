@@ -2,13 +2,14 @@ import "server-only";
 
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { setTimeout as pause } from "node:timers/promises";
 
 import { symmetricDecrypt } from "better-auth/crypto";
 
 import { KONTAKT_EMAIL } from "./brand";
 import { now } from "./clock";
 import { authResendKey, authSecret, frontend_config } from "./config";
-import { COPY } from "./copy";
+import { COPY } from "./copy/shared";
 import { isOneBareMailbox } from "./emailAddress";
 import { renderMail } from "./emailShell";
 import { APINetworkError, MailSendError } from "./errors";
@@ -25,7 +26,7 @@ import type { FLOutboxHandout, FLOutboxResultPayload, FLOutboxResultPayloadResul
 const MAIL_ENDPOINT = "https://api.resend.com/emails";
 
 // Two senders: sign-in codes and security notices from one address, everything else from the
-// other, the mail's kind choosing. Each address needs its sender alignment at the provider, and a
+// other, the mail's audience choosing. Each address needs its sender alignment at the provider, and a
 // mailbox in the league's Workspace so that a reply sent to it arrives. The privacy notice names both.
 export const SENDER_ADDRESSES: Readonly<Record<MailSender, string>> = {
   signIn: "anmeldung@frankfurtleague.de",
@@ -54,8 +55,6 @@ const MAIL_RETRY_DELAY_MS = 400;
 // offers to commit -- with a sign-in code, a bearer credential, inside it.
 const MAIL_SINK_DIR = ".tmp-mail";
 
-const SINK_SLUG_MAX = 40;
-
 interface OutboundMail {
   to: string;
   subject: string;
@@ -66,7 +65,7 @@ interface OutboundMail {
    * Rides the send and comes back on every delivery event about it, which is what routes one back to
    * the row it was sent from. Each name and value must be ASCII letters, digits, `_` or `-`.
    */
-  tags: Record<string, string>;
+  tags: Readonly<Record<typeof OUTBOX_TAG, string>>;
   /**
    * Collapses a repeat of the same send inside the provider's 24-hour window, answering the original
    * id rather than sending again. A key reused with a different body is refused rather than ignored.
@@ -74,50 +73,17 @@ interface OutboundMail {
   idempotencyKey: string;
 }
 
-/**
- * Raised where the deployment does not mail. Not a `MailSendError` and not among the shared errors: nothing
- * here reached a provider, so there is no status to carry and no retry decision to read off one.
- */
-class MailHeldError extends Error {
-  constructor() {
-    super("This deployment does not send mail.");
-
-    this.name = "MailHeldError";
-  }
-}
-
-/**
- * Raised where the recipient is not one bare mailbox. Beside `MailHeldError` rather than among the shared errors,
- * since nothing here reached a provider either; it carries no address.
- */
-class MailRecipientError extends Error {
-  constructor() {
-    super("The recipient is not one bare mailbox.");
-
-    this.name = "MailRecipientError";
-  }
-}
-
 /** The errno token where a failure carries one — `EEXIST`, `EACCES` — and nothing else. */
 function errnoCode(error: unknown): string | undefined {
   return typeof error === "object" && error !== null && "code" in error && typeof error.code === "string" ? error.code : undefined;
 }
 
-/** Sorts by name into the order the messages were written, and Windows takes no colon in a file name. */
-function sinkFileStem(subject: string, at: Date): string {
-  const stamp = at.toISOString().replaceAll(":", "-");
-  // Folded rather than dropped, so a German subject reaches the stem whole rather than broken at the
-  // letter: `ß` is the one NFKD leaves standing, and the separator run below would eat it.
-  const slug = subject
-    .normalize("NFKD")
-    .replace(/\p{Diacritic}/gu, "")
-    .toLowerCase()
-    .replaceAll("ß", "ss")
-    .replace(/[^a-z0-9]+/g, "-")
-    .slice(0, SINK_SLUG_MAX)
-    .replace(/^-+|-+$/g, "");
-
-  return slug === "" ? stamp : `${stamp}-${slug}`;
+/**
+ * The moment first, so the names sort into the order the messages were written, and Windows takes no colon in a file
+ * name; then the Postausgang row the message was sent from.
+ */
+function sinkFileStem(rowId: string, at: Date): string {
+  return `${at.toISOString().replaceAll(":", "-")}-${rowId}`;
 }
 
 /** A comment terminator and nothing else: the rest of the text part has to survive byte for byte. */
@@ -149,13 +115,13 @@ function sinkDocument({ to, subject, html, text, sender, tags }: OutboundMail, t
  */
 async function writeToSink(message: OutboundMail, traceId: string): Promise<void> {
   const directory = path.join(process.cwd(), MAIL_SINK_DIR);
-  const stem = sinkFileStem(message.subject, now());
+  const stem = sinkFileStem(message.tags[OUTBOX_TAG], now());
 
   try {
     await mkdir(directory, { recursive: true });
 
-    // `wx`, so a message never overwrites another's file: the drain sends one at a time, a backend round trip apart, so
-    // two sharing a millisecond's name is a fault to see rather than a message to lose.
+    // `wx`, so a message never overwrites another's file: a name holds its row and its millisecond, so a clash is a
+    // fault to see rather than a message to lose.
     await writeFile(path.join(directory, `${stem}.html`), sinkDocument(message, traceId), { encoding: "utf8", flag: "wx" });
   } catch (error) {
     // The errno token, never the thrown message, which carries the path: the line says which failure
@@ -165,33 +131,6 @@ async function writeToSink(message: OutboundMail, traceId: string): Promise<void
       trace_id: traceId,
     });
   }
-}
-
-/** Resolves on the delay, or at once when the whole call's budget has already run out. */
-function pause(ms: number, signal: AbortSignal): Promise<void> {
-  return new Promise((resolve) => {
-    if (signal.aborted) {
-      resolve();
-      return;
-    }
-
-    const handle = setTimeout(resolve, ms);
-    signal.addEventListener("abort", () => {
-      clearTimeout(handle);
-      resolve();
-    });
-  });
-}
-
-/**
- * The row's address as the provider is handed it, byte for byte as stored, which every address rule keeps ASCII: one
- * bare mailbox. The ban was judged at the hand-out, on that spelling.
- */
-function recipientOf(to: string): string {
-  // Any spelling around a mailbox, which the provider would still reach the mailbox inside.
-  if (!isOneBareMailbox(to)) throw new MailRecipientError();
-
-  return to;
 }
 
 /** What drains settled: the backend's counts, summed over every report they made. */
@@ -227,8 +166,8 @@ let drainAfter: Promise<void> | undefined;
  */
 export function drainOutbox(): Promise<void> {
   if (drainRunning !== undefined) {
-    // Started from this call's context, so it runs under this call's scope rather than the running drain's, whose
-    // deadline may be what that drain failed on.
+    // One drain for every call made while one runs, started from the first such call's context, so its lines carry that
+    // caller's trace rather than the running drain's.
     const after = () => {
       drainAfter = undefined;
       return drainOutbox();
@@ -265,9 +204,14 @@ async function drain(): Promise<void> {
 /**
  * One handed-out mail, rendered from its row and sent under the hand-out's own idempotency key: the provider collapses a
  * repeat of this send, and a later hand-out mints a fresh link under a key of its own
- * (https://resend.com/docs/dashboard/emails/idempotency-keys). The ban was judged at the hand-out.
+ * (https://resend.com/docs/dashboard/emails/idempotency-keys). Where this deployment holds mail, it is filed instead.
  */
 async function sendHandedOut(mail: FLOutboxHandout): Promise<Omit<FLOutboxResultPayload, "lease">> {
+  // The provider is handed the row's address byte for byte, and the ban was judged at the hand-out on that spelling:
+  // a name or any other spelling around a mailbox, which the provider would still reach the mailbox inside, is given
+  // up rather than sent.
+  if (!isOneBareMailbox(mail.to)) return { id: mail.id, result: "abandon", delivery_reason: null };
+
   // Opened here alone, sealed under the same key where the mail was owed, and held by this scope alone: never on a
   // line, never in an error.
   let secret: string | null = null;
@@ -279,20 +223,36 @@ async function sendHandedOut(mail: FLOutboxHandout): Promise<Omit<FLOutboxResult
     logger.error("outbox.secret_unreadable", undefined, { kind: mail.data.kind, name: error instanceof Error ? error.name : undefined });
     return { id: mail.id, result: "abandon", delivery_reason: null };
   }
-  const message = mailFor(mail.data.kind, mail.data, { token: mail.token, secret, origin: frontend_config.AUTH_URL });
+  const message = mailFor(mail.data.kind, mail.data, { token: mail.token, secret, origin: frontend_config.AUTH_URL, to: mail.to });
   if (message === undefined) {
     // Handed back rather than given up: the row waits until its deadline for a deployment that builds its kind.
     logger.error("outbox.kind_without_template", undefined, { kind: mail.data.kind });
     return { id: mail.id, result: "retry", delivery_reason: null };
   }
 
+  const outbound: OutboundMail = {
+    to: mail.to,
+    ...renderMail(message),
+    tags: { [OUTBOX_TAG]: mail.id },
+    idempotencyKey: `outbox/${mail.id}/${String(mail.attempt)}`,
+  };
+  const traceId = getRequestTraceId() ?? mintTraceId();
+
+  // Both halves fail closed: the deployment says it is not the one that mails, and outside
+  // `production` no key is demanded to authorise one. A local stack's database is a production
+  // dump, so its addresses are real people.
+  const apiKey = authResendKey();
+  if (frontend_config.APP_ENV !== "production" || apiKey === undefined) {
+    // Never on production, which reaches this arm only where `SKIP_ENV_VALIDATION` stood the key's
+    // requirement down: a file there would leave a live sign-in code on the host's disk.
+    if (frontend_config.APP_ENV !== "production") await writeToSink(outbound, traceId);
+
+    // No line of its own: the row's `held` state is the record, and the filed copy carries the row's id among its tags.
+    return { id: mail.id, result: "held", delivery_reason: null };
+  }
+
   try {
-    await deliver({
-      to: recipientOf(mail.to),
-      ...renderMail(message),
-      tags: { [OUTBOX_TAG]: mail.id },
-      idempotencyKey: `outbox/${mail.id}/${String(mail.attempt)}`,
-    });
+    await deliver(outbound, apiKey, traceId);
     return { id: mail.id, result: "sent", delivery_reason: null };
   } catch (error) {
     // The row is the send's one record: the provider's own name for a refusal goes onto it, and no line.
@@ -308,9 +268,7 @@ async function sendHandedOut(mail: FLOutboxHandout): Promise<Omit<FLOutboxResult
  * A failed send's outcome. A refusal the provider names temporary, its quota among them, and a send that broke off are
  * tried again and never count toward giving up; any other refusal is one every send would meet.
  */
-function resultOf(error: unknown): Exclude<FLOutboxResultPayloadResult, "sent"> {
-  if (error instanceof MailHeldError) return "held";
-  if (error instanceof MailRecipientError) return "abandon";
+function resultOf(error: unknown): Exclude<FLOutboxResultPayloadResult, "sent" | "held"> {
   if (error instanceof MailSendError) return error.isTransient ? "retry" : "abandon";
   if (error instanceof APINetworkError) return "retry";
 
@@ -323,22 +281,11 @@ function resultOf(error: unknown): Exclude<FLOutboxResultPayloadResult, "sent"> 
  * provider's message**, which names the recipient -- `MailSendError` takes the stable `name` field
  * instead.
  */
-async function deliver({ to, subject, html, text, sender, tags, idempotencyKey }: OutboundMail): Promise<void> {
-  const traceId = getRequestTraceId() ?? mintTraceId();
-
-  // Both halves fail closed: the deployment says it is not the one that mails, and outside
-  // `production` no key is demanded to authorise one. A local stack's database is a production
-  // dump, so its addresses are real people.
-  const apiKey = authResendKey();
-  if (frontend_config.APP_ENV !== "production" || apiKey === undefined) {
-    // Never on production, which reaches this arm only where `SKIP_ENV_VALIDATION` stood the key's
-    // requirement down: a file there would leave a live sign-in code on the host's disk.
-    if (frontend_config.APP_ENV !== "production") await writeToSink({ to, subject, html, text, sender, tags, idempotencyKey }, traceId);
-
-    // No line of its own: the row's `zurueckgehalten` is the record, and the filed copy carries the row's id among its tags.
-    throw new MailHeldError();
-  }
-
+async function deliver(
+  { to, subject, html, text, sender, tags, idempotencyKey }: OutboundMail,
+  apiKey: string,
+  traceId: string,
+): Promise<void> {
   const signal = boundCall(MAIL_TIMEOUT_MS);
 
   const failNetwork = (error: unknown) =>
@@ -418,7 +365,12 @@ async function deliver({ to, subject, html, text, sender, tags, idempotencyKey }
       // An aborted budget ends it too: the timeout that cut the attempt leaves nothing to retry in.
       if (!repeatable || attemptNumber >= MAIL_ATTEMPTS || signal.aborted) giveUp(error);
 
-      await pause(MAIL_RETRY_DELAY_MS, signal);
+      try {
+        await pause(MAIL_RETRY_DELAY_MS, undefined, { signal });
+      } catch {
+        // The budget ending cuts the wait short, which Node's timer answers with an `AbortError`, its one rejection
+        // here: the check below ends the send.
+      }
 
       // The budget ran out mid-wait. Attempting anyway would draw a request the aborted signal
       // kills, reporting the provider's own refusal as this application's timeout.

@@ -1,11 +1,8 @@
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 import { ROUTES } from "@/core/routes";
 import { readAccount } from "@/features/account/account";
 import { getOwnSaisons } from "@/features/roles/queries";
-import { RailFrame } from "@/kit/RailFrame";
-import { RailFrameBoundary } from "@/kit/RailFrameBoundary";
-
-import { AREA_HOME } from "../areaHome";
+import { GuardedRailFrame } from "@/kit/GuardedRailFrame";
 
 import type { Copy } from "@/core/copy";
 import type { FrameSaisons, RailGroup } from "@/kit/FrameNav";
@@ -23,8 +20,6 @@ type Frame = {
   groups: RailGroup[];
   role?: Copy;
   saison?: Pick<PersonSaisons, "home" | "withoutSaison">;
-  /** Whether the place holds an editor, so its route groups place the phone's band and bar. */
-  columnInLayouts: boolean;
 };
 
 /**
@@ -35,19 +30,16 @@ type Frame = {
 const FRAMES = {
   landing: {
     groups: [{ entries: [{ id: "overview", label: ROUTES.areaRoles.title, href: ROUTES.area.path(), icon: "overview" }] }],
-    columnInLayouts: false,
   },
   spieler: {
     groups: [{ entries: [{ id: "overview", label: ROUTES.spielerOverview.title, saison: "spielerOverview", icon: "overview" }] }],
     role: COPY.shared.spieler,
     saison: { home: "spielerOverview", withoutSaison: ROUTES.areaSpieler.path() },
-    columnInLayouts: false,
   },
   schiedsrichter: {
     groups: [{ entries: [{ id: "overview", label: ROUTES.schiedsrichterOverview.title, saison: "schiedsrichterOverview", icon: "overview" }] }],
     role: COPY.shared.schiedsrichter,
     saison: { home: "schiedsrichterOverview", withoutSaison: ROUTES.areaSchiedsrichter.path() },
-    columnInLayouts: true,
   },
 } as const satisfies Record<string, Frame>;
 
@@ -64,18 +56,12 @@ export function PersonFrame({ place, children }: { place: keyof typeof FRAMES; c
   const frame: Frame = FRAMES[place];
   return (
     // A failed read of the frame's own is answered in the rail frame: the place's `error.tsx` stands inside its layout.
-    <RailFrameBoundary
+    <GuardedRailFrame
       groups={frame.groups}
       bar={BAR}
-      next={AREA_HOME}>
-      <RailFrame
-        groups={frame.groups}
-        bar={BAR}
-        saison={place === "landing" ? undefined : { saisons: getOwnSaisons(place), ...FRAMES[place].saison }}
-        foot={{ kind: "account", account: readAccount(frame.role) }}
-        columnInLayouts={frame.columnInLayouts}>
-        {children}
-      </RailFrame>
-    </RailFrameBoundary>
+      saison={place === "landing" ? undefined : { saisons: getOwnSaisons(place), ...FRAMES[place].saison }}
+      foot={{ kind: "account", account: readAccount(frame.role) }}>
+      {children}
+    </GuardedRailFrame>
   );
 }

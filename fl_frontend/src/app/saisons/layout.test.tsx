@@ -4,7 +4,7 @@ import { Suspense } from "react";
 import { act, screen } from "@testing-library/react";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 import { serveBackend } from "@/test-support/backend";
 import { renderUnderNext } from "@/test-support/nextContexts";
 import { doubleNextRequest } from "@/test-support/nextRequest";

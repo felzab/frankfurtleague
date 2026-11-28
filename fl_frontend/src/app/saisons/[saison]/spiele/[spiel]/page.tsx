@@ -1,16 +1,15 @@
 import { notFound } from "next/navigation";
 
-import { COPY } from "@/core/copy";
-import { dayOf, formatDateWithWeekday, formatErgebnis, formatOrdinal, formatTime, timeOf } from "@/core/format";
+import { COPY } from "@/core/copy/shared";
+import { dayOf, formatDateWithWeekday, formatErgebnis, formatOrdinal, formatTime, formatYear, timeOf } from "@/core/format";
 import { buildMapsSearchUrl } from "@/core/maps";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
-import { PHASE_LABELS } from "@/features/saisons/constants";
 import { getSpielPage } from "@/features/saisons/queries";
 import { publicSaisonOf } from "@/features/saisons/resolvers";
 import { eventOf, headOf, matchdayOf, refereeOf, sidesOf } from "@/features/spiele/blocks";
-import { creditedSide } from "@/features/spiele/result";
-import { roleMarkOf, spielerName } from "@/features/spieler/constants";
+import { byMinute, creditedSide } from "@/features/spiele/result";
+import { publicPupilHead, publicPupilRow, spielerName } from "@/features/spieler/constants";
 import { ReadFolds } from "@/kit/ReadFolds";
 import { ReadPage } from "@/kit/ReadPage";
 import { pageMetadata } from "@/shared/utils/metadata";
@@ -22,6 +21,7 @@ import type { CalendarDay } from "@/core/format";
 import type {
   FLAufstellungEntryPublic,
   FLAufstellungPublic,
+  FLSonderereignis,
   FLSpielberichtCardPublic,
   FLSpielberichtScorerPublic,
   FLSpielJoined,
@@ -30,9 +30,9 @@ import type {
 import type { FoldedCard } from "@/kit/ReadFolds";
 import type { ReadRecord } from "@/kit/ReadPage";
 import type { StatTile } from "@/kit/StatTiles";
-import type { TableProps, TableRow } from "@/kit/Table";
+import type { TableProps } from "@/kit/Table";
 import type { Checkpoint } from "@/kit/Timeline";
-import type { Metadata, ResolvingMetadata } from "next";
+import type { Metadata } from "next";
 
 type Props = PageProps<"/saisons/[saison]/spiele/[spiel]">;
 
@@ -49,10 +49,10 @@ async function readPage(params: Props["params"]): Promise<FLSpielPageResponse> {
   return page;
 }
 
-export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return metadataFor(findPage(params), ({ spiel }) => {
     const { team1, team2 } = sidesOf(spiel);
-    return pageMetadata(parent, ROUTES.spiel, ROUTES.spiel.path(spiel.saison_id, spiel.id), {
+    return pageMetadata(ROUTES.spiel, ROUTES.spiel.path(spiel.saison_id, spiel.id), {
       title: ROUTES.spiel.title(team1.name, team2.name),
       description: SERVER_COPY.description.spiel(team1.name, team2.name, spiel.saison_id),
     });
@@ -61,7 +61,8 @@ export async function generateMetadata({ params }: Props, parent: ResolvingMetad
 
 /**
  * A match's own page, on a direct load, a reload or „Zum Spiel“: its head, its five facts as tiles, the line-ups
- * folded side by side, and its goals and cards along the dotted line. Opened from a match card, the pop-up shows
+ * folded side by side, and its goals and cards along the dotted line, each of the last two only where the match can
+ * have it (`drawn`), the goals and cards also wherever the read serves one. Opened from a match card, the pop-up shows
  * instead.
  */
 export default function SpielPage({ params }: Props) {
@@ -81,32 +82,64 @@ async function readRecord(params: Props["params"]): Promise<ReadRecord> {
   // The goals and cards as official: null until the report is adopted and where none is stored, so a result
   // awaiting its report never reads as nobody having scored, which an adopted report's empty lists say.
   const official = bericht?.scorers == null || bericht.cards === null ? null : { tore: bericht.scorers, cards: bericht.cards };
+  const events = official === null ? [] : eventsOf(spiel, official.tore, official.cards);
+  const lineupHeld = [aufstellungen.team1, aufstellungen.team2].some((aufstellung) => (aufstellung?.spieler.length ?? 0) > 0);
   return {
     title: { route: "spiel", team1: team1.name, team2: team2.name },
     spiel: { head: headOf(spiel, page, standings), sonderereignis: eventOf(spiel) },
     groups: [
       { kind: "tiles", tiles: { layout: "five", items: tilesOf(spiel, page) } },
-      {
-        title: words.aufstellung,
-        kind: "folds",
-        folds: (
-          <ReadFolds
-            cards={[
-              { title: team1.name, ...lineupOf(aufstellungen.team1) },
-              { title: team2.name, ...lineupOf(aufstellungen.team2) },
-            ]}
-          />
-        ),
-      },
-      {
-        title: words.toreAndCards,
-        kind: "timeline",
-        label: words.toreAndCards,
-        items: official === null ? [] : eventsOf(spiel, official.tore, official.cards),
-        empty: { kind: "none", plural: official === null ? words.officialToreAndCards : words.toreAndCards },
-      },
+      ...(drawn(spiel.sonderereignis, lineupHeld)
+        ? [
+            {
+              title: words.aufstellung,
+              kind: "folds" as const,
+              folds: (
+                <ReadFolds
+                  cards={[
+                    { title: team1.name, ...lineupOf(aufstellungen.team1) },
+                    { title: team2.name, ...lineupOf(aufstellungen.team2) },
+                  ]}
+                />
+              ),
+            },
+          ]
+        : []),
+      // Wherever the read serves an event too: a forfeit's adopted report may carry cards.
+      ...(drawn(spiel.sonderereignis, false) || events.length > 0
+        ? [
+            {
+              title: words.toreAndCards,
+              kind: "timeline" as const,
+              label: words.toreAndCards,
+              items: events,
+              empty: { kind: "none" as const, plural: official === null ? words.officialToreAndCards : words.toreAndCards },
+            },
+          ]
+        : []),
     ],
   };
+}
+
+/**
+ * Whether the match can have what a section shows, by what befell it: a match called off or forfeited was never
+ * played, so it holds no line-up; an abandoned one keeps what it reached; an annulled one may have been played, so it
+ * keeps a section that `holds` something and leaves out an empty one. The goals and cards stand besides wherever the
+ * read serves one: a forfeit's adopted report may carry cards, while the read serves none on a match called off or
+ * annulled.
+ */
+function drawn(sonderereignis: FLSonderereignis | null, holds: boolean): boolean {
+  switch (sonderereignis) {
+    case null:
+    case "abgebrochen":
+      return true;
+    case "annulliert":
+      return holds;
+    case "ausgefallen":
+    case "nichtantreten_team1":
+    case "nichtantreten_team2":
+      return false;
+  }
 }
 
 /**
@@ -118,7 +151,7 @@ function tilesOf(spiel: FLSpielJoined, page: FLSpielPageResponse): readonly [Sta
   const group = spiel.saison_phase === "gruppenphase";
   return [
     group
-      ? { label: fact.spieltag, value: { record: formatOrdinal(page.spieltag_position) }, line: PHASE_LABELS.gruppenphase }
+      ? { label: fact.spieltag, value: { record: formatOrdinal(page.spieltag_position) }, line: COPY.shared.phase.gruppenphase }
       : { label: fact.spieltag, value: matchdayOf(spiel, page), words: true },
     dateTileOf(spiel.date === null ? null : dayOf(spiel.date)),
     { label: fact.time, value: spiel.time === null ? COPY.shared.noValue : { record: formatTime(timeOf(spiel.time)) } },
@@ -135,41 +168,18 @@ function tilesOf(spiel: FLSpielJoined, page: FLSpielPageResponse): readonly [Sta
  */
 function dateTileOf(day: CalendarDay | null): StatTile {
   const { date } = COPY.spielplan.fact;
-  // A stored day's first four characters are its year, as a German date writes it.
   return day === null
     ? { label: date, value: COPY.shared.noValue }
-    : { label: date, value: { record: formatDateWithWeekday(day) }, line: { record: day.slice(0, 4) } };
+    : { label: date, value: { record: formatDateWithWeekday(day) }, line: { record: formatYear(day) } };
 }
 
-/** A line-up's pupil as their row names them: the captain's or the Co-Kapitän's mark after a published name, never after „anonym“. */
-function rowNameOf(entry: FLAufstellungEntryPublic): Pick<TableRow, "name" | "mark"> {
-  const name = spielerName(entry);
-  const mark = typeof name === "string" ? undefined : roleMarkOf(entry.rolle);
-  return mark === undefined ? { name } : { name, mark };
-}
-
-/**
- * A line-up's pupils as one table: a row a pupil, with their number and position; the position also on the row's line,
- * which a phone shows in the column's place, since the row opens nothing.
- */
+/** A line-up's pupils as one table: a row a pupil, as every public pupils' table sets one. */
 function tableOf(label: Copy, spieler: readonly FLAufstellungEntryPublic[]): TableProps {
   const { column, spiel } = SERVER_COPY.season;
   return {
     label,
-    nameLabel: column.name,
-    columns: [
-      { key: "nummer", label: column.nummer, figures: true, narrow: true, width: "count" },
-      { key: "position", label: column.position, hideOnPhone: true, width: "word" },
-    ],
-    rows: spieler.map((entry, index) => ({
-      id: String(index),
-      ...rowNameOf(entry),
-      ...(entry.position === null ? {} : { phoneLine: { record: entry.position } }),
-      cells: {
-        ...(entry.nummer === null ? {} : { nummer: { record: entry.nummer } }),
-        ...(entry.position === null ? {} : { position: { record: entry.position } }),
-      },
-    })),
+    ...publicPupilHead(column),
+    rows: spieler.map((entry, index) => ({ id: String(index), ...publicPupilRow(entry) })),
     empty: { kind: "none", plural: spiel.aufstellung },
   };
 }
@@ -192,16 +202,6 @@ function lineupOf(aufstellung: FLAufstellungPublic | null): Pick<FoldedCard, "co
   };
 }
 
-/** A minute as the report writes it, „45+2“, in the order it was played. */
-const minuteOf = (minute: string): [number, number] => {
-  const [base = "0", added = "0"] = minute.split("+");
-  return [Number(base), Number(added)];
-};
-const earlier = (one: string, other: string) => {
-  const [a, b] = [minuteOf(one), minuteOf(other)];
-  return a[0] - b[0] || a[1] - b[1];
-};
-
 /**
  * The goals and cards by minute, a checkpoint each: what happened and to whom, the side's Kürzel, and after a goal
  * the score it made. An own goal counts for the other side.
@@ -212,7 +212,7 @@ function eventsOf(spiel: FLSpielJoined, tore: readonly FLSpielberichtScorerPubli
   const events = [
     ...tore.map((tor) => ({ kind: "tor" as const, minute: tor.minute, tor })),
     ...cards.map((card) => ({ kind: "card" as const, minute: card.minute, card })),
-  ].sort((one, other) => earlier(one.minute, other.minute));
+  ].sort((one, other) => byMinute(one.minute, other.minute));
   const score = { team1: 0, team2: 0 };
   return events.map((event, index) => {
     if (event.kind === "card") {

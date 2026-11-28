@@ -106,7 +106,6 @@ async def pull_named(
         else await pull_whole_from_db(
             collection=spieler_collection,
             db_filter={"_id": {"$in": sorted(rest)}},
-            what="the pupils a report names off both squads",
             projection=["first_name", "last_name"],
             session=session,
         )
@@ -225,7 +224,7 @@ async def strip_the_seasons_reports(
             collection=spielberichte_collection,
             action="retention.spielberichte",
             by=ACT_BY_SYSTEM,
-            label=saison_id,
+            saison_id=saison_id,
             count=stripped.modified_count,
             session=session,
         )

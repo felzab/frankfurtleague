@@ -1,16 +1,14 @@
 import { connection } from "next/server";
 
+import { boxRulesOf } from "@/core/action";
 import { frontend_config } from "@/core/config";
 import { ROUTES } from "@/core/routes";
-import { SignInFlow } from "@/features/auth/components/forms/SignInFlow";
+import { handleSignIn } from "@/features/auth/actions";
+import { SignInFlow } from "@/features/auth/SignInFlow";
 import { pageMetadata } from "@/shared/utils/metadata";
 
-import type { Metadata, ResolvingMetadata } from "next";
-
 /** No description: a sign-in page carries none. */
-export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
-  return pageMetadata(parent, ROUTES.signIn, ROUTES.signIn.path());
-}
+export const metadata = pageMetadata(ROUTES.signIn);
 
 /**
  * The sign-in form, for a visitor holding no session: the proxy sends one holding a session on to the landing before
@@ -27,6 +25,7 @@ async function readView() {
     <SignInFlow
       next={ROUTES.signInLanding.path()}
       siteKey={frontend_config.TURNSTILE_SITE_KEY}
+      rules={boxRulesOf(handleSignIn)}
     />
   );
 }

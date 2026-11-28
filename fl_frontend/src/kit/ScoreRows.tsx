@@ -1,6 +1,6 @@
 "use client";
 
-import { useId } from "react";
+import { useContext, useId } from "react";
 
 import { textOf } from "@/core/copy";
 import { formatNumber } from "@/core/format";
@@ -8,6 +8,8 @@ import { formatNumber } from "@/core/format";
 import { smallCaps } from "./cardStyles";
 import { LockMark, RequiredMark, useFieldLock } from "./FieldParts";
 import { fieldFrame } from "./fieldStyles";
+import { FormClosed } from "./formClosed";
+import { useBoxRule } from "./HeldForm";
 import { TeamPlaque } from "./TeamPlaque";
 import { TextField } from "./TextField";
 import { tv } from "./tv";
@@ -24,14 +26,13 @@ export type ScoreOutcome = { text: Copy; tone: "win" | "draw" };
 /** One column of figures, a field per side, home first. */
 type ScoreColumn = {
   /** Names the column's fields, and heads a shoot-out's column unless `head` does. */
-  label: Copy;
+  label: Words;
   /** A shoot-out's column's head, where the label is too long to stand over a two-digit field. */
   head?: Copy;
   /** The two fields' names, as the form posts them. */
   names: readonly [string, string];
   values: readonly [string, string];
   onChange: (side: 0 | 1, value: string) => void;
-  isRequired: boolean;
   /**
    * Held fixed by its record: both fields read-only and marked with the lock (`useFieldLock`), a headed column at its
    * head and the goals' unheaded one after each row's club, the name a goal field stands beside.
@@ -43,7 +44,7 @@ type ScoreColumn = {
  * The goals as figures nobody types, home first, counted from what the form lists elsewhere, as a match report counts
  * its goals rows: shown where the column's fields would stand, beside a shoot-out's fields.
  */
-type CountedColumn = { label: Copy; head?: never; counted: readonly [number, number] };
+type CountedColumn = { label: Words; head?: never; counted: readonly [number, number] };
 
 /** A score field's box, a short field of two characters at its inset, for what stands in a field's place. */
 const SCORE_FIELD_CLASSES = `${fieldFrame.variants.width.short} ${fieldFrame.variants.holds[2]} ${fieldFrame.variants.inset.full}`;
@@ -113,9 +114,9 @@ const SIDES = [0, 1] as const;
  * figure is never read as a goal.
  *
  * Each field keeps its own message line for its value's error. The one line under the rows says what the score as a
- * whole sets off, such as level knockout goals leaving the bracket waiting, else what the figures decide, „… gewinnt
- * 3:1“ or „Unentschieden 2:2“, in its outcome's tone. A row is a group named by its club, so a field is heard as its
- * column on its club's row.
+ * whole sets off in an open form, such as level knockout goals leaving the bracket waiting, else what the figures
+ * decide, „… gewinnt 3:1“ or „Unentschieden 2:2“, in its outcome's tone. A row is a group named by its club, so a
+ * field is heard as its column on its club's row.
  *
  * Goals counted elsewhere on the form stand as figures in their fields' place (`counted`), heard as the column's label
  * and the figure, beside a shoot-out's fields, which stay typed.
@@ -138,20 +139,24 @@ export function ScoreRows({
   outcome: ScoreOutcome | null;
 }) {
   const id = useId();
-  const said = consequence ?? outcome?.text;
-  const tone = consequence !== undefined ? "warn" : outcome === null ? "none" : HUE[outcome.tone];
+  // A closed form changes nothing, so nothing is set off there.
+  const shown = useContext(FormClosed) ? undefined : consequence;
+  const said = shown ?? outcome?.text;
+  const tone = shown !== undefined ? "warn" : outcome === null ? "none" : HUE[outcome.tone];
   const slots = scoreRows({ tone, columns: shootOut === null ? 1 : 2 });
   const lineId = `${id}-line`;
   // A plaque on both sides or on neither, so the two names start at one edge.
   const plaques = sides[0].plaque !== null && sides[1].plaque !== null;
   // The shoot-out's column is marked at its head; the goals' column has none, so each goal field is marked after the
   // club naming its row.
-  const shootOutLock = useFieldLock(false, shootOut?.isLocked ?? false);
-  const toreLock = useFieldLock(false, !("counted" in tore) && tore.isLocked === true);
+  const shootOutLock = useFieldLock(shootOut?.isLocked ?? false);
+  const toreLock = useFieldLock(!("counted" in tore) && tore.isLocked === true);
+  // The column's head marks what its two fields ask, which their form holds them to alike.
+  const shootOutRule = useBoxRule(shootOut?.names[0]);
   const columnHead = (column: "shootOut", shown: ScoreColumn) => (
     <span className={slots.head({ column })}>
-      {shown.head ?? shown.label}
-      {shootOutLock.isMarked ? <LockMark /> : <RequiredMark isRequired={shown.isRequired} />}
+      {shown.head ?? textOf(shown.label)}
+      {shootOutLock.isMarked ? <LockMark /> : <RequiredMark isRequired={shootOutRule.required === true} />}
     </span>
   );
   const counted = (side: 0 | 1, { label, counted: figures }: CountedColumn) => (
@@ -159,11 +164,11 @@ export function ScoreRows({
       key="counted"
       className={slots.figure()}>
       {/* Heard as the column it stands in, as a typed field's hidden label is: each a flex item, so the two are two words. */}
-      <span className="sr-only">{label}</span>
+      <span className="sr-only">{textOf(label)}</span>
       <span>{formatNumber(figures[side])}</span>
     </span>
   );
-  const field = (side: 0 | 1, column: "tore" | "shootOut", { label, names, values, onChange, isRequired, isLocked }: ScoreColumn) => (
+  const field = (side: 0 | 1, column: "tore" | "shootOut", { label, names, values, onChange, isLocked }: ScoreColumn) => (
     <div
       // Keyed by what it posts, so a column opening beside it leaves a field and its focus where they are.
       key={names[side]}
@@ -174,7 +179,6 @@ export function ScoreRows({
         name={names[side]}
         holds={2}
         kind="digits"
-        isRequired={isRequired}
         isLocked={isLocked}
         value={values[side]}
         onChange={(value) => onChange(side, value)}

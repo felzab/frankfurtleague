@@ -5,7 +5,6 @@ from pydantic import (
     AfterValidator,
     BaseModel,
     Field,
-    RootModel,
     StringConstraints,
     TypeAdapter,
 )
@@ -207,7 +206,7 @@ class FLSaisonTeamRecord(Anchored):
     confirmations: FLSaisonTeamConfirmationsRecord | None = None
     name: str
     shorthand: str
-    version: int = 0
+    version: int
 
 
 class FLSaisonTeamConfirmationView(FLSaisonTeamConfirmation, BaseReadModel):
@@ -297,7 +296,7 @@ class FLTeamRecord(_TeamWritable, BaseReadModel, Anchored):
 
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
     inactive_since: CustomOptionalDateString
-    version: int = 0
+    version: int
 
 
 class FLGruppenTeam(BaseModel):
@@ -322,12 +321,10 @@ class FLTabelleRow(FLGruppenTeam):
     platz: int | None = Field(gt=0)
 
 
-class FLTabelle(RootModel[Mapping[FLGruppenNames, list[FLTabelleRow]]]):
-    """Every group the season offers in standing order, the clubs that have played no match last.
-
-    Each club that has played and stood in the season on the day its group was decided is numbered as a `Platz` is, and
-    clubs the chain leaves level share one.
-    """
+# Every group the season offers in standing order, the clubs that have played no match last. Each club that has played
+# and stood in the season on the day its group was decided is numbered as a `Platz` is, and clubs the chain leaves level
+# share one.
+type FLTabelle = Mapping[FLGruppenNames, list[FLTabelleRow]]
 
 
 class FLTabelleResponse(BaseReadModel):
@@ -413,7 +410,7 @@ class FLTeamMembership(BaseReadModel):
     # key the stored row has not got, and a row holds none until a save mints its first link.
     confirmations: FLSaisonTeamConfirmationsView | None = None
     # The row's count of writes, which its two editors' saves send back.
-    version: int = 0
+    version: int
 
 
 # Private, so it publishes no OpenAPI component. The bounded address sits here rather than on that base,

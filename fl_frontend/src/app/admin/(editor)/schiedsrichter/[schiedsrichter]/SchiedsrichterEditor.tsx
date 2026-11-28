@@ -1,15 +1,17 @@
 "use client";
 
-import { COPY } from "@/core/copy";
+import { ADMIN_COPY } from "@/core/copy/admin";
+import { COPY } from "@/core/copy/shared";
 import { EditorPage } from "@/kit/EditorPage";
 import { Facts } from "@/kit/Facts";
 import { SectionAct } from "@/kit/SectionAct";
 import { TextField } from "@/kit/TextField";
 import { useEditor } from "@/kit/useEditor";
+import { usePasskeyTouch } from "@/kit/usePasskeyTouch";
 
-import type { ActionAnswer } from "@/core/action";
+import type { ActionAnswer, DryRunAction } from "@/core/action";
+import type { BoxRules } from "@/core/boxRules";
 import type { Copy } from "@/core/copy";
-import type { SchiedsrichterRules } from "@/features/schiedsrichter/fieldRules";
 import type { ChipProps } from "@/kit/Chip";
 import type { DangerAct } from "@/kit/EditorPage";
 import type { Fact } from "@/kit/Facts";
@@ -17,7 +19,8 @@ import type { PageTitle } from "@/kit/RailFrame";
 import type { EditorRecord, EditorSave } from "@/kit/useEditor";
 import type { SchiedsrichterValues } from "./schiedsrichterValues";
 
-const WORDS = COPY.admin.schiedsrichter;
+const WORDS = ADMIN_COPY.schiedsrichter;
+const RETIRE_CONSEQUENCE = ADMIN_COPY.retireConsequence(WORDS.withArticle, COPY.page.spiele);
 const FACTS = COPY.shared.facts;
 const OBJECT = COPY.shared.schiedsrichter;
 
@@ -31,7 +34,8 @@ type Act = (input: { id: string }) => Promise<ActionAnswer>;
 type Address = "fixed" | "asks";
 
 /**
- * The referee editor: the person and their fee, and how to reach them, saved together from the editor's bar; where
+ * The referee editor: the person and their fee, and how to reach them, saved together from the editor's bar behind
+ * the passkey touch; where
  * their confirmation stands and the day their last link went, and the act mailing a fresh link while they have not
  * answered; and the danger box retiring them, or bringing a retired one back.
  */
@@ -46,15 +50,17 @@ export function SchiedsrichterEditor({
   confirmation,
   sendLink,
   danger,
+  holder,
 }: {
   title: PageTitle;
   chip?: ChipProps;
   /** What the last confirmation mail met, after the state's chip where one stands. */
   flag?: ChipProps;
   record: EditorRecord<SchiedsrichterValues>;
-  save: (change: EditorSave<SchiedsrichterValues>) => Promise<ActionAnswer<number>>;
-  /** What the save asks of each box, read on the server. */
-  rules: SchiedsrichterRules;
+  /** The save, behind its dry run and the passkey touch, which posts the page's holder beside the changes. */
+  save: DryRunAction<EditorSave<SchiedsrichterValues> & { holder: string }, number>;
+  /** What the save's lane asks of its boxes, read on the server. */
+  rules: BoxRules;
   address: Address;
   /** The Bestätigung's facts: where it stands, and the day the last link went. */
   confirmation: readonly Fact[];
@@ -62,10 +68,17 @@ export function SchiedsrichterEditor({
   sendLink?: Act;
   /** The danger box's one act: the retirement, or the return of a retired referee with its consequence. */
   danger: { kind: "retire"; act: Act } | { kind: "reactivate"; act: Act; consequence: Copy };
+  /** The address the page was drawn for, the one account the save's passkey touch may answer for. */
+  holder: string;
 }) {
-  const editor = useEditor(record, save);
+  const touched = usePasskeyTouch(true, holder);
+  // The save bar's press is the save's final one, so its dry run and then the touch are asked inside it, and not for a
+  // save of nothing, which the editor answers without calling the save.
+  const editor = useEditor(
+    record,
+    touched((change: EditorSave<SchiedsrichterValues>, dryRun?: boolean) => save({ ...change, holder }, dryRun), { dryRunFirst: true }),
+  );
   const { draft, set } = editor;
-  const { required, max } = rules;
 
   const dangerAct: DangerAct =
     danger.kind === "reactivate"
@@ -82,11 +95,11 @@ export function SchiedsrichterEditor({
         }
       : {
           name: COPY.shared.withObject(OBJECT, "retire"),
-          consequence: WORDS.retireConsequence,
+          consequence: RETIRE_CONSEQUENCE,
           confirm: {
             verb: "retire",
             subject: OBJECT,
-            consequence: WORDS.retireConsequence,
+            consequence: RETIRE_CONSEQUENCE,
             tone: "danger",
             onConfirm: () => danger.act({ id: record.id }),
           },
@@ -98,8 +111,9 @@ export function SchiedsrichterEditor({
       chip={chip}
       flag={flag}
       editor={editor}
+      rules={rules}
       locks={address === "fixed" ? ["confirmed"] : []}
-      danger={{ title: COPY.admin.retirement, acts: [dangerAct] }}
+      danger={{ title: ADMIN_COPY.retirement, acts: [dangerAct] }}
       sections={[
         {
           id: "schiedsrichter",
@@ -110,8 +124,6 @@ export function SchiedsrichterEditor({
                 label={COPY.shared.name}
                 name="name"
                 kind="text"
-                isRequired={required.name}
-                maxLength={max.name}
                 value={draft.name}
                 onChange={(name) => set("name", name)}
               />
@@ -119,19 +131,16 @@ export function SchiedsrichterEditor({
                 label={FACTS.school}
                 name="schule"
                 kind="text"
-                isRequired={required.schule}
-                maxLength={max.schule}
                 value={draft.schule}
                 onChange={(schule) => set("schule", schule)}
               />
               {/* The fee is the person's own, as their name is, so it stands in their box. */}
               <TextField
-                label={COPY.admin.payment}
+                label={COPY.shared.payment}
                 name="default_payment"
                 holds={5}
                 kind="digits"
                 unit={COPY.shared.unit.euro}
-                isRequired={required.default_payment}
                 value={draft.default_payment}
                 onChange={(default_payment) => set("default_payment", default_payment)}
               />
@@ -145,7 +154,7 @@ export function SchiedsrichterEditor({
             <>
               {address === "fixed" ? (
                 <TextField
-                  label={COPY.signIn.address}
+                  label={COPY.shared.emailAddress}
                   name="email"
                   kind="email"
                   isLocked
@@ -153,11 +162,9 @@ export function SchiedsrichterEditor({
                 />
               ) : (
                 <TextField
-                  label={COPY.signIn.address}
+                  label={COPY.shared.emailAddress}
                   name="email"
                   kind="email"
-                  isRequired={required.email}
-                  maxLength={max.email}
                   value={draft.email}
                   onChange={(email) => set("email", email)}
                 />
@@ -166,7 +173,6 @@ export function SchiedsrichterEditor({
                 label={FACTS.phone}
                 name="phone"
                 kind="tel"
-                isRequired={required.phone}
                 value={draft.phone}
                 onChange={(phone) => set("phone", phone)}
               />
@@ -183,10 +189,16 @@ export function SchiedsrichterEditor({
                 fields: (
                   <>
                     {confirmation.length > 0 && <Facts facts={confirmation} />}
-                    {/* An act of its box, as the season editor's are: the line under it says where the link went, or why not. */}
+                    {/* An act of its box, as the season editor's are: its toast says the link went, the line under it why not. */}
                     {sendLink !== undefined && (
                       <SectionAct
-                        acts={[{ label: COPY.shared.withObject(COPY.account.address.link, "send"), run: () => sendLink({ id: record.id }) }]}
+                        acts={[
+                          {
+                            act: { verb: "send", object: COPY.shared.link },
+                            done: COPY.shared.toast.linkSent,
+                            run: () => sendLink({ id: record.id }),
+                          },
+                        ]}
                       />
                     )}
                   </>

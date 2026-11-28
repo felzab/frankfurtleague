@@ -24,6 +24,8 @@ const REACT_DIR = path.dirname(requireFromFrontend.resolve("react/package.json")
 const SERVER_REACT_URL = pathToFileURL(path.join(REACT_DIR, "react.react-server.js")).href;
 
 const serverReact = (await import(/* @vite-ignore */ SERVER_REACT_URL)) as unknown as ServerReact;
+// React's private dispatcher, which any React release may rename or reshape: this harness is accepted knowing a bump
+// can break it, and the assertion below is where it breaks.
 const internals = serverReact.__SERVER_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE;
 assert(internals, "the react-server build no longer exposes its internals -- this harness needs a new way to open a cache scope");
 

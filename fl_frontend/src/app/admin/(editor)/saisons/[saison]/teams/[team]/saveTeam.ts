@@ -3,19 +3,18 @@
 import { z } from "zod";
 
 import { action, blankIsNull } from "@/core/action";
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 import { teamsPatchTeamSaison } from "@/core/generated/client/sdk";
 import { TeamsPatchTeamSaisonBody, TeamsPatchTeamSaisonParams } from "@/core/generated/zod/inputs";
 import { getTeamSaisonAdmin } from "@/features/teams/queries";
 
 import { valuesOf } from "./teamValues";
 
-import type { ActionAnswer } from "@/core/action";
+import type { LaneAnswer } from "@/core/action";
 
 const { shape } = TeamsPatchTeamSaisonBody;
 const address = shape.address.shape;
 
-/** What the editor's boxes send, each held to the save's own published rule for it. */
 const SaveTeam = z.object({
   id: TeamsPatchTeamSaisonParams.shape.team_id,
   saison_id: TeamsPatchTeamSaisonParams.shape.saison_id,
@@ -50,14 +49,12 @@ export const saveTeam = action({
   lane: "admin",
   name: "saveTeam",
   input: SaveTeam,
-  ownWords: ["duplicate_key", "saison_past", "trikot_farbe_taken"],
-  paths: { shorthand: "changes.shorthand", trikot_farbe: "changes.trikot_farbe" },
   examples: {
     "changes.shorthand": COPY.team.shorthandExample,
-    "changes.postcode": COPY.admin.spielort.postcodeExample,
-    "changes.house_number": COPY.admin.spielort.houseNumberExample,
+    "changes.postcode": COPY.shared.address.postcodeExample,
+    "changes.house_number": COPY.shared.address.houseNumberExample,
   },
-  run: async ({ id, saison_id, version, changes }): Promise<ActionAnswer<number>> => {
+  run: async ({ id, saison_id, version, changes }): Promise<LaneAnswer<number>> => {
     const read = await getTeamSaisonAdmin(id, saison_id);
     if (read?.membership == null) return { ok: false, reason: COPY.shared.failure.stale };
 

@@ -2,12 +2,11 @@
 
 import { useState } from "react";
 
-import { COPY } from "@/core/copy";
+import { ADMIN_COPY } from "@/core/copy/admin";
+import { COPY } from "@/core/copy/shared";
 import { FLAustrittType } from "@/core/generated/client/types";
-import { SHORTHAND_LENGTH } from "@/features/bewerbungen/constants";
-import { seatActKinds } from "@/features/teams/components/forms/seatActKinds";
-import { SeatActs } from "@/features/teams/components/forms/SeatActs";
 import { schulformOptions } from "@/features/teams/options";
+import { SeatActs } from "@/features/teams/SeatActs";
 import { AddressFields } from "@/kit/AddressFields";
 import { Segmented } from "@/kit/ChoiceButtons";
 import { DateField } from "@/kit/DateField";
@@ -23,10 +22,10 @@ import { FormInvitationSection } from "./FormInvitationSection";
 import { reactivateTeam, recordAustritt, retireTeam, sendSeatLink, writeSeat } from "./teamActs";
 
 import type { ActionAnswer } from "@/core/action";
+import type { BoxRules } from "@/core/boxRules";
 import type { Copy, LockReason } from "@/core/copy";
 import type { CalendarDay } from "@/core/format";
 import type { FLAustrittRecipients } from "@/core/generated/client/types";
-import type { AustrittRules, SeatRules, TeamRules } from "@/features/teams/fieldRules";
 import type { ChipProps } from "@/kit/Chip";
 import type { DangerAct, EditorSection } from "@/kit/EditorPage";
 import type { Fact } from "@/kit/Facts";
@@ -38,8 +37,10 @@ import type { InvitationView } from "./FormInvitationSection";
 import type { SeatTarget } from "./seats";
 import type { TeamValues } from "./teamValues";
 
-const WORDS = COPY.admin.team;
+const WORDS = ADMIN_COPY.team;
 const TEAM = COPY.shared.facts.team;
+const RETIRE_CONSEQUENCE = ADMIN_COPY.retireConsequence(WORDS.withArticle, COPY.page.adminSaisons);
+const REACTIVATE_CONSEQUENCE = ADMIN_COPY.reactivateConsequence(WORDS.withArticle);
 
 /** The boxes of the club's row of the season, which a retired club holding none leaves out. */
 export type TeamRow = {
@@ -57,21 +58,20 @@ export type TeamRow = {
   version: number;
   seats: ReadonlyArray<Omit<SeatRow, "acts"> & { target: SeatTarget }>;
   invitation: InvitationView;
-  /** Why a seat's link goes nowhere: the club left. */
-  sendLocked?: Copy;
+  /** The club left the season, which no write undoes: its link acts are left out, as a closed page's are. */
+  departed?: true;
   /** The exit's act, which a club already out of the season no longer offers, with whom an exit would mail by day. */
   exit: { earliest: CalendarDay; today: CalendarDay; locked?: Copy; recipients: readonly FLAustrittRecipients[] } | null;
 };
 
 /** The exit's day, and under it whom an exit from the day typed mails: held here, so each opening starts on today. */
-function ExitDay({ exit, isRequired }: { exit: NonNullable<TeamRow["exit"]>; isRequired: boolean }) {
+function ExitDay({ exit }: { exit: NonNullable<TeamRow["exit"]> }) {
   const [day, setDay] = useState<CalendarDay | null>(exit.today);
   return (
     <>
       <DateField
         label={WORDS.austrittFrom}
         name="date"
-        isRequired={isRequired}
         value={day}
         onChange={setDay}
         minValue={exit.earliest}
@@ -96,8 +96,8 @@ export function TeamEditor({
   record,
   save,
   rules,
-  descriptionMax,
   seatRules,
+  holder,
   austrittRules,
   retirement,
   row,
@@ -110,10 +110,12 @@ export function TeamEditor({
   closed?: Copy;
   record: EditorRecord<TeamValues>;
   save: (change: EditorSave<TeamValues> & { saison_id: string }) => Promise<ActionAnswer<number>>;
-  rules: TeamRules;
-  descriptionMax: number;
-  seatRules: SeatRules;
-  austrittRules: AustrittRules;
+  /** What the save's lane asks of its boxes, read on the server, and the seat's write's and the exit's. */
+  rules: BoxRules;
+  seatRules: BoxRules;
+  /** The address the page was drawn for, which a seat's write behind the passkey touch posts. */
+  holder: string;
+  austrittRules: BoxRules;
   /** The danger box's league-wide act: the retiring, closed where a season holds the club, or the return. */
   retirement: { kind: "retire"; locked?: Copy } | { kind: "reactivate" };
   /** `null` for a retired club holding no row of the season. */
@@ -121,12 +123,12 @@ export function TeamEditor({
 }) {
   const editor = useEditor(record, (change) => save({ ...change, saison_id: saison }));
   const { draft, set } = editor;
-  const { required, max, address } = rules;
   const [route, setRoute] = useState<string>(FLAustrittType.rueckzug);
   const renamed = draft.name !== record.values.name || draft.shorthand !== record.values.shorthand;
   const isClosed = closed !== undefined;
+  const departed = row?.departed === true;
 
-  const club: EditorSection = {
+  const teamBox: EditorSection = {
     id: "team",
     title: TEAM,
     fields: (
@@ -135,8 +137,6 @@ export function TeamEditor({
           label={COPY.shared.name}
           name="name"
           kind="text"
-          isRequired={required.name}
-          maxLength={max.name}
           {...(renamed ? { consequence: WORDS.renameReach } : {})}
           value={draft.name}
           onChange={(name) => set("name", name)}
@@ -146,9 +146,6 @@ export function TeamEditor({
           name="shorthand"
           holds={5}
           kind="text"
-          isRequired={required.shorthand}
-          maxLength={SHORTHAND_LENGTH}
-          minLength={SHORTHAND_LENGTH}
           value={draft.shorthand}
           onChange={(shorthand) => set("shorthand", shorthand)}
         />
@@ -156,8 +153,6 @@ export function TeamEditor({
           label={COPY.team.fullName}
           name="full_name"
           kind="text"
-          isRequired={required.full_name}
-          maxLength={max.full_name}
           value={draft.full_name}
           onChange={(fullName) => set("full_name", fullName)}
         />
@@ -172,8 +167,6 @@ export function TeamEditor({
           label={COPY.team.website}
           name="website_url"
           kind="url"
-          example={COPY.shared.field.exampleUrl}
-          maxLength={max.website_url}
           value={draft.website_url}
           onChange={(website) => set("website_url", website)}
         />
@@ -182,7 +175,6 @@ export function TeamEditor({
           name="description"
           kind="paragraph"
           description={WORDS.descriptionNote}
-          maxLength={descriptionMax}
           value={draft.description}
           onChange={(description) => set("description", description)}
         />
@@ -192,13 +184,8 @@ export function TeamEditor({
 
   const adresse: EditorSection = {
     id: "adresse",
-    title: COPY.admin.spielort.address,
-    fields: (
-      <AddressFields
-        rules={address}
-        draft={{ values: draft, set }}
-      />
-    ),
+    title: COPY.shared.address.title,
+    fields: <AddressFields draft={{ values: draft, set }} />,
   };
 
   const seasonBoxes: EditorSection[] =
@@ -213,7 +200,6 @@ export function TeamEditor({
                 <Select
                   label={COPY.team.gruppe}
                   name="gruppe"
-                  isRequired={rules.gruppeRequired}
                   isLocked={row.gruppeLocked !== null}
                   options={row.gruppen}
                   value={draft.gruppe}
@@ -240,16 +226,11 @@ export function TeamEditor({
                 rows={row.seats.map(({ target, ...seat }) => {
                   // A finished season's seats are its record, and a closed page acts on nothing but its danger box.
                   if (isClosed) return seat;
-                  const link = target.asks
-                    ? {
-                        send: sendSeatLink,
-                        seat: { team_id: team, saison_id: saison, seat: target.seat },
-                        ...(row.sendLocked === undefined ? {} : { locked: row.sendLocked }),
-                      }
-                    : null;
+                  // A club that left takes no link again, since an exit is never lifted, so its seats offer none.
+                  const link =
+                    target.asks && !departed ? { send: sendSeatLink, seat: { team_id: team, saison_id: saison, seat: target.seat } } : null;
                   return {
                     ...seat,
-                    sideActs: seatActKinds(link).length,
                     acts: (
                       <SeatActs
                         seats={target.seats}
@@ -257,6 +238,7 @@ export function TeamEditor({
                         rules={seatRules}
                         write={writeSeat}
                         carry={{ team_id: team, saison_id: saison, seat: target.seat, version: String(row.version) }}
+                        holder={holder}
                         link={link}>
                         {target.seat === "trainer" && (
                           <Select
@@ -281,15 +263,17 @@ export function TeamEditor({
           {
             id: "registrierungLink",
             title: WORDS.registrierungLink,
-            fields: isClosed ? (
-              <Facts facts={row.invitation.facts} />
-            ) : (
-              <FormInvitationSection
-                team={team}
-                saison={saison}
-                view={row.invitation}
-              />
-            ),
+            // A closed page's link and a departed club's stand as facts: neither takes an act again.
+            fields:
+              isClosed || departed ? (
+                <Facts facts={row.invitation.facts} />
+              ) : (
+                <FormInvitationSection
+                  team={team}
+                  saison={saison}
+                  view={row.invitation}
+                />
+              ),
           },
         ];
 
@@ -303,15 +287,16 @@ export function TeamEditor({
           ...(exit.locked === undefined ? {} : { locked: exit.locked }),
           dialog: {
             title: WORDS.austrittAct,
-            act: { verb: "remove" },
+            act: { verb: "enter" },
             tone: "danger",
-            action: recordAustritt,
-            carry: { team_id: team, saison_id: saison, type: route },
+            run: recordAustritt,
+            rules: austrittRules,
+            carry: { team_id: team, saison_id: saison },
             children: (
               <>
                 <Segmented
                   label={WORDS.austrittType}
-                  isRequired={austrittRules.required.type}
+                  name="type"
                   choices={[
                     { id: FLAustrittType.rueckzug, label: COPY.shared.austritt.rueckzug.label },
                     { id: FLAustrittType.disqualifikation, label: COPY.shared.austritt.disqualifikation.label },
@@ -320,17 +305,12 @@ export function TeamEditor({
                   onChange={setRoute}
                 />
                 <TextField
-                  label={COPY.admin.spiel.reason}
+                  label={COPY.shared.reason}
                   name="reason"
                   kind="paragraph"
-                  isRequired={austrittRules.required.reason}
-                  maxLength={austrittRules.reasonMax}
                   description={WORDS.austrittReasonDescription}
                 />
-                <ExitDay
-                  exit={exit}
-                  isRequired={austrittRules.required.date}
-                />
+                <ExitDay exit={exit} />
               </>
             ),
           },
@@ -340,23 +320,23 @@ export function TeamEditor({
     retirement.kind === "reactivate"
       ? {
           name: COPY.shared.withObject(TEAM, "reactivate"),
-          consequence: WORDS.reactivateConsequence,
+          consequence: REACTIVATE_CONSEQUENCE,
           confirm: {
             verb: "reactivate",
             subject: TEAM,
-            consequence: WORDS.reactivateConsequence,
+            consequence: REACTIVATE_CONSEQUENCE,
             tone: "primary",
             onConfirm: () => reactivateTeam({ id: team }),
           },
         }
       : {
           name: COPY.shared.withObject(TEAM, "retire"),
-          consequence: WORDS.retireConsequence,
+          consequence: RETIRE_CONSEQUENCE,
           ...(retirement.locked === undefined ? {} : { locked: retirement.locked }),
           confirm: {
             verb: "retire",
             subject: TEAM,
-            consequence: WORDS.retireConsequence,
+            consequence: RETIRE_CONSEQUENCE,
             tone: "danger",
             onConfirm: () => retireTeam({ id: team }),
           },
@@ -370,9 +350,10 @@ export function TeamEditor({
       title={title}
       chip={chip}
       editor={editor}
+      rules={rules}
       {...(closed === undefined ? {} : { closed })}
       locks={locks}
-      sections={[club, adresse, ...seasonBoxes]}
+      sections={[teamBox, adresse, ...seasonBoxes]}
       danger={{
         title: WORDS.dangerBox(exitAct !== null, true),
         acts: exitAct === null ? [retirementAct] : [exitAct, retirementAct],

@@ -1,5 +1,7 @@
-import { COPY } from "./copy";
+import { COPY } from "./copy/shared";
 import { FLTrikotFarbe } from "./generated/client/types";
+
+import type { Option } from "@/kit/OptionList";
 
 /**
  * The league's kit palette in its colour sheet's order, neutrals first, then round the colour wheel. The hex is copied
@@ -33,8 +35,19 @@ const TRIKOT_HEX = {
   violett: "#7138b5",
   magenta: "#c52a87",
   rosa: "#e14b9a",
-} as const satisfies Record<FLTrikotFarbe, string>;
+} as const satisfies Record<FLTrikotFarbe, `#${string}`>;
 
-export const TRIKOT_FARBEN: readonly { readonly value: FLTrikotFarbe; readonly label: string; readonly hex: string }[] = Object.values(
+export const TRIKOT_FARBEN: readonly { readonly value: FLTrikotFarbe; readonly label: string; readonly hex: `#${string}` }[] = Object.values(
   FLTrikotFarbe,
 ).map((value) => ({ value, label: COPY.team.trikotFarbeName[value], hex: TRIKOT_HEX[value] }));
+
+/**
+ * The colours as a list's choices, each beside its swatch, a colour `taken` muted and closed with no word why: a
+ * season's colour is one team's, and the write refuses a second. It stands here, apart from the administration's
+ * list, so the public form's bundle carries no administration words.
+ */
+export const trikotFarbeOptions = (taken: readonly string[]): readonly Option[] =>
+  TRIKOT_FARBEN.map(({ value, label, hex }) => {
+    const option = { id: value, label: { record: label }, swatch: hex };
+    return taken.includes(value) ? { ...option, isDisabled: true } : option;
+  });

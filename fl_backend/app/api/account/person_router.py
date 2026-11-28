@@ -24,6 +24,7 @@ from app.api.account.services import (
     compose_spieler_account,
 )
 from app.api.address_change.crud import (
+    Holdings,
     end_the_change_in_session,
     owe_the_notice_in_session,
     read_the_holdings,
@@ -45,7 +46,7 @@ from app.api.identity.crud import roles_from
 from app.api.identity.lookup import SubjectLookup
 from app.api.identity.services import is_own_schiedsrichter, is_own_spieler, may_grant_on_schiedsrichter
 from app.core.concurrency import concurrently
-from app.core.crud import aggregate_many_from_db, refuse
+from app.core.crud import aggregate_many_from_db, refuse, refuse_faults
 from app.core.dependencies import (
     AddressChangeCollection,
     AddressChangeReadCollection,
@@ -56,6 +57,7 @@ from app.core.dependencies import (
     OutboxCollection,
 )
 from app.core.exceptions import DocumentNotFoundError
+from app.core.routing import SAFE_WHEN, DryRun
 from app.core.security import PERSON_TIER, PersonIdentifier
 from app.core.transactions import transact
 from app.shared.folding import sign_in_identifier
@@ -92,7 +94,7 @@ async def get_einwilligungen(
 
     # From the rows read above, which the subject's own selections choose: a second read would answer the same.
     subject = roles_from(identifier, seat_rows=seat_rows, referee_rows=referees, pupil_rows=pupils)
-    teams = {team["_id"]: team for row in (*bewerbung_rows, *registrierung_rows) for team in row["teams"]}
+    teams = {team["_id"]: team for row in registrierung_rows for team in row["teams"]}
 
     pupil = next((row for row in pupils if is_own_spieler(row)), None)
 
@@ -105,7 +107,7 @@ async def get_einwilligungen(
                 if is_own_schiedsrichter(row, identifier)
             ],
             "seats": compose_seats_self(seat_rows, identifier, seats_with_panel=subject.seats, today=today),
-            "bewerbungen": compose_bewerbung_seats_self(bewerbung_rows, identifier, teams=teams),
+            "bewerbungen": compose_bewerbung_seats_self(bewerbung_rows, identifier),
             "registrierungen": compose_registrierungen_self(registrierung_rows, identifier, teams=teams),
         }
     )
@@ -144,6 +146,7 @@ async def get_address_change(
     "/address_change",
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Start a change of the signed-in person's address",
+    openapi_extra=SAFE_WHEN,
 )
 async def post_address_change(
     identifier: PersonIdentifier,
@@ -154,23 +157,37 @@ async def post_address_change(
     outbox_collection: OutboxCollection,
     db: DBClient,
     germany_now: GermanyNow,
+    dry_run: DryRun = False,
 ) -> None:
     """Start a change of the address the person signs in on: the address on file is mailed a link, and its confirmation mails the new one.
 
     Everything the address holds moves once the new address confirms, after a wait where it holds a grant; declining
-    either link ends the change, and a live change of the address is replaced.
+    either link ends the change, and a live change of the address is replaced. A `dry_run` is refused as the start would
+    be, and writes nothing where it would land.
     """
 
     email = address_change_data.email
 
-    async def start_the_change(session: AsyncClientSession) -> None:
-        # First: a press repeated inside the interval asks nothing of the records.
+    async def judge(session: AsyncClientSession) -> Holdings:
+        # Every refusal of the start, in its transaction or the dry run's snapshot alike. First: a press repeated inside
+        # the interval asks nothing of the records.
         live = await address_changes_collection.find_one(build_address_filter(identifier), {"valid_until": 1}, session=session)
         refuse(find_restart_refusal(live_valid_until=None if live is None else live["valid_until"], now=germany_now))
         holdings = await read_the_holdings(identifier, records=records, grants_collection=grants_collection, session=session)
         refuse(find_nothing_refusal(empty=holdings.empty))
         # What the new address holds, another pupil or a grant, is never judged, so the start answers alike whatever it holds.
-        refuse(find_unchanged_refusal(address=identifier, folded=sign_in_identifier(email)))
+        refuse_faults(find_unchanged_refusal(address=identifier, folded=sign_in_identifier(email)))
+        return holdings
+
+    if dry_run:
+        # Opened here as `get_snapshot_session` opens one, not declared: the person's tier opens no snapshot, and the dry
+        # run alone reads outside a transaction.
+        async with db.start_session(snapshot=True) as session:
+            await judge(session)
+        return
+
+    async def start_the_change(session: AsyncClientSession) -> None:
+        holdings = await judge(session)
 
         record = compose_record(address=identifier, email=email, way="account", now=germany_now)
         # Replaces the address's live change, an administrator's too: a sign-in at the address on file proves the mailbox

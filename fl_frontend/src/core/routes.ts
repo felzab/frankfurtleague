@@ -1,4 +1,4 @@
-import { COPY } from "./copy";
+import { COPY } from "./copy/shared";
 
 import type { Copy } from "./copy";
 
@@ -21,61 +21,26 @@ export type RouteEntry = {
   readonly title: Copy | ((...names: never) => Copy) | null;
   readonly crawl: Crawl;
   /**
-   * The menu entry the page belongs to, where its address lies under another entry's: a frame marks that entry and
-   * leads back to it rather than to the entry the address lies under. `entry` is the entry's row; `pattern` is the address the page answers at as its route folder writes it, each dynamic segment
-   * `[name]`.
+   * The page the page belongs to, where its address lies under another entry's: a frame leads back to it, and marks it
+   * where it is an entry of the menu, else the entry the address lies under. `entry` is that page's row, whose address
+   * takes the page's dynamic segments in their order, as many as it names; `pattern` is the address the page answers
+   * at as its route folder writes it, each dynamic segment `[name]`.
    */
   readonly place?: { readonly entry: string; readonly pattern: `/${string}` };
 };
 
-/**
- * The English words an address may carry. An address follows the code's naming rule: a segment is German only where
- * it is the league's own word, a core entity or attribute of the glossary, and every word for what the website does
- * with one is English and stands here. This module's test holds every fixed segment of every row and every page to
- * this list or to a league word, so a new word is added here, in English, or the build fails.
- * @internal
- */
-export const ADDRESS_WORDS = [
-  "about",
-  "account",
-  "address",
-  "address-changes",
-  "admin",
-  "administrators",
-  "api",
-  "appearance",
-  "area",
-  "auth",
-  "ban-list",
-  "bulk",
-  "client-error",
-  "confirm",
-  "contact",
-  "continue",
-  "delivery",
-  "done",
-  "entries",
-  "erasure",
-  "erasures",
-  "log",
-  "mail",
-  "passkey",
-  // A Funktion's code word, as the glossary spells it in code.
-  "roles",
-  "search",
-  "security",
-  "settings",
-  "signin",
-  "sitemap",
-  "sponsors",
-  // The one exception, two German words naming no league thing: the Impressum is a duty under German law, and
-  // `/impressum` and `/datenschutz` are where a German visitor looks for it and for the privacy notice.
-  "impressum",
-  "datenschutz",
-] as const;
+/** How many segments a row's address takes. */
+export const segmentCount = (row: RouteEntry): number => row.path.length;
+
+/** A row's address with each of its segments `filler`, for a reader walking every row rather than linking one. */
+export function addressOf(row: RouteEntry, filler: string): `/${string}` {
+  // A row's `path` takes `never`, so a link names its row; walking the rows, every segment takes the same string.
+  const path = row.path as (...segments: string[]) => `/${string}`;
+  return path(...Array.from({ length: path.length }, () => filler));
+}
 
 /**
- * Every page whose name is settled. Each segment is a league word or one of `ADDRESS_WORDS`; a page under a season
+ * Every page whose name is settled. Each segment is a league word or an English word its test lists; a page under a season
  * carries the season in its address.
  * Signed-in pages, sign-in pages and pages a mail opens are never indexed, and a signed-in page or one
  * a mail opens, whose link carries a token, is never fetched.
@@ -148,9 +113,9 @@ export const ROUTES = {
    */
   bewerbungRoot: { path: () => "/bewerbung" as const, title: COPY.page.bewerbung, crawl: "noindex" },
   /** Signing in, which every page signed out offers as „Konto“. */
-  signIn: { path: () => "/signin" as const, title: COPY.signIn.title, crawl: "noindex" },
+  signIn: { path: () => "/signin" as const, title: COPY.page.signIn, crawl: "noindex" },
   /** The passkey step a sign-in reaches where its session is to set one up, use one or is offered one. */
-  signInPasskey: { path: () => "/signin/passkey" as const, title: COPY.signIn.passkeyTitle, crawl: "noindex" },
+  signInPasskey: { path: () => "/signin/passkey" as const, title: COPY.shared.passkey, crawl: "noindex" },
   /**
    * Where every finished sign-in step lands: a route handler, not a page, which sends the session on to the page it
    * goes to next in one redirect, so nothing renders at this address and it has no title.
@@ -174,6 +139,23 @@ export const ROUTES = {
     title: COPY.page.registrierungConfirmation,
     crawl: "disallow",
   },
+  /**
+   * Where each confirmation's answer lands, a page needing no link: the answer forgets the link's cookie, so its action
+   * leads here rather than rendering the link's page again, which would read the forgotten link as no longer valid.
+   * Each is titled by the end it draws.
+   */
+  addressChangeDone: { path: () => "/confirm/address/done" as const, title: COPY.page.addressChangeConfirmation, crawl: "disallow" },
+  kontaktConfirmationDone: { path: () => "/confirm/kontakt/done" as const, title: COPY.page.entryConfirmation, crawl: "disallow" },
+  schiedsrichterConfirmationDone: {
+    path: () => "/confirm/schiedsrichter/done" as const,
+    title: COPY.page.entryConfirmation,
+    crawl: "disallow",
+  },
+  registrierungConfirmationDone: {
+    path: () => "/confirm/spieler/done" as const,
+    title: COPY.page.registrierungConfirmation,
+    crawl: "disallow",
+  },
   accountErasure: { path: () => "/erasure" as const, title: COPY.page.accountErasure, crawl: "disallow" },
   /**
    * Where a deletion lands, a page needing no session: the deletion ends the caller's own, so its action leads here
@@ -188,14 +170,29 @@ export const ROUTES = {
   registrierungDone: { path: () => "/registrierung/done" as const, title: COPY.page.registrierung, crawl: "disallow" },
 
   /**
-   * Konto, a signed-in person's own pages whatever they hold, outside every area: the list of its four pages, which a
-   * phone opens on, and the four.
+   * Konto, a signed-in person's own pages whatever they hold, outside every area: the list of its three pages, which a
+   * phone opens on, and the three.
    */
   account: { path: () => "/account" as const, title: COPY.template.account, crawl: "disallow" },
-  accountSignIn: { path: () => "/account/signin" as const, title: COPY.page.accountSignIn, crawl: "disallow" },
-  accountSecurity: { path: () => "/account/security" as const, title: COPY.page.accountSecurity, crawl: "disallow" },
-  accountAppearance: { path: () => "/account/appearance" as const, title: COPY.page.accountAppearance, crawl: "disallow" },
-  accountEntries: { path: () => "/account/entries" as const, title: COPY.page.accountEntries, crawl: "disallow" },
+  // Each of the three belongs to the list, which a phone's band leads back to.
+  accountSignIn: {
+    path: () => "/account/signin" as const,
+    title: COPY.page.accountSignIn,
+    crawl: "disallow",
+    place: { entry: "account", pattern: "/account/signin" },
+  },
+  accountSecurity: {
+    path: () => "/account/security" as const,
+    title: COPY.page.accountSecurity,
+    crawl: "disallow",
+    place: { entry: "account", pattern: "/account/security" },
+  },
+  accountEntries: {
+    path: () => "/account/entries" as const,
+    title: COPY.page.accountEntries,
+    crawl: "disallow",
+    place: { entry: "account", pattern: "/account/entries" },
+  },
 
   /**
    * Where a signed-in person lands: a route handler sending the request on to Konto for a person holding no Funktion,
@@ -238,10 +235,10 @@ export const ROUTES = {
     title: COPY.page.spiele,
     crawl: "disallow",
   },
-  /** A match's line-up as its club's seats enter it, named by the match's two teams. */
+  /** A match's line-up as its club's seats enter it, named by the club. */
   teamAufstellung: {
     path: (team: string, saison: string, spiel: string) => `/area/team/${team}/${saison}/spiele/${spiel}` as const,
-    title: COPY.page.spiel,
+    title: COPY.aufstellung.ofTeam,
     crawl: "disallow",
   },
   teamKader: {
@@ -294,11 +291,16 @@ export const ROUTES = {
     title: COPY.page.spiel,
     crawl: "disallow",
   },
-  /** One club's line-up for a match as the league enters it, named by the match's two teams as the team's own is. */
+  /**
+   * One club's line-up for a match as the league enters it, named by the club as the match editor's link to it is, and
+   * the team's own is. It belongs to the match editor it is opened from, which leads back there, and the rail marks
+   * the Spiele list, which the match editor belongs to.
+   */
   adminAufstellung: {
     path: (saison: string, spiel: string, team: string) => `/admin/saisons/${saison}/spiele/${spiel}/aufstellung/${team}` as const,
-    title: COPY.page.spiel,
+    title: COPY.aufstellung.ofTeam,
     crawl: "disallow",
+    place: { entry: "adminSpiel", pattern: "/admin/saisons/[saison]/spiele/[spiel]/aufstellung/[team]" },
   },
   adminSpielorte: { path: () => "/admin/spielorte" as const, title: COPY.page.adminSpielorte, crawl: "disallow" },
   /** A venue's own page, named by the venue. */
@@ -325,16 +327,20 @@ export const ROUTES = {
     title: COPY.page.adminBewerbungen,
     crawl: "disallow",
   },
+  // The bulk acceptance and each application belong to the list, which a phone's band leads back to, as a club's
+  // editor does.
   adminBewerbungenBulk: {
     path: (saison: string) => `/admin/saisons/${saison}/bewerbungen/bulk` as const,
     title: COPY.page.adminBewerbungenBulk,
     crawl: "disallow",
+    place: { entry: "adminBewerbungen", pattern: "/admin/saisons/[saison]/bewerbungen/bulk" },
   },
   /** One application, named by its school. */
   adminBewerbung: {
     path: (saison: string, bewerbung: string) => `/admin/saisons/${saison}/bewerbungen/${bewerbung}` as const,
     title: null,
     crawl: "disallow",
+    place: { entry: "adminBewerbungen", pattern: "/admin/saisons/[saison]/bewerbungen/[bewerbung]" },
   },
 
   adminTeams: {
@@ -372,6 +378,11 @@ export const ROUTES = {
   adminErasures: {
     path: () => "/admin/erasures" as const,
     title: COPY.page.adminErasures,
+    crawl: "disallow",
+  },
+  adminWithdrawals: {
+    path: () => "/admin/withdrawals" as const,
+    title: COPY.page.adminWithdrawals,
     crawl: "disallow",
   },
   adminAddressChanges: {
@@ -421,3 +432,17 @@ export const LEGAL_PAGES = ["legalNotice", "privacyNotice"] as const satisfies R
  * fragment is kept for the copies of `/#bewerbung` people hold, which reach the section by it.
  */
 export const JOIN_SECTION = "bewerbung";
+
+/**
+ * The query parameter a mailed link carries its token in: the name each page a mail opens reads, and the one the proxy's
+ * matcher spells as a literal, since a matcher takes no variable.
+ */
+export const TOKEN_PARAMETER = "token";
+
+/**
+ * The one spelling of a mailed link: `route`'s page on `origin`, the token in the query, never in the path the edge
+ * logs.
+ */
+export function mailedLinkTo(origin: string, route: { readonly path: () => `/${string}` }, token: string): string {
+  return `${origin}${route.path()}?${TOKEN_PARAMETER}=${encodeURIComponent(token)}`;
+}

@@ -9,7 +9,7 @@ describe("a ban's notice", () => {
     const mail = mailFor(
       "ban",
       { kind: "ban", ban_reason: "Wiederholt gemeldet", barred_until_saison_id: "2627" },
-      { token: null, secret: null, origin: "http://localhost:3000" },
+      { token: null, secret: null, origin: "http://localhost:3000", to: "gesperrt@schule.example.org" },
     );
 
     expect(mail?.afterBlock?.at(-1)).toStrictEqual([OBJECTION]);

@@ -1,5 +1,7 @@
 "use client";
 
+import { useContext, useEffect, useEffectEvent } from "react";
+
 import { parseDate } from "@internationalized/date";
 import {
   Button as AriaButton,
@@ -10,6 +12,7 @@ import {
   CalendarGridHeader,
   CalendarHeaderCell,
   DatePicker,
+  DatePickerStateContext,
   Group,
   Popover,
 } from "react-aria-components/DatePicker";
@@ -17,10 +20,12 @@ import { Heading } from "react-aria-components/Heading";
 
 import { Segments } from "./dateParts";
 import { FieldLabel, MessageLine, useFieldLock } from "./FieldParts";
-import { calendarCell, calendarHead, fieldButton, fieldFrame, fieldRoot, menuPopover, monthArrow } from "./fieldStyles";
+import { calendarCell, calendarHead, fieldButton, fieldFrame, fieldRoot, monthArrow } from "./fieldStyles";
+import { useBoxRule } from "./HeldForm";
 import { Icon } from "./Icon";
+import { menuPopover } from "./menuStyles";
 
-import type { Copy } from "@/core/copy";
+import type { Copy, Words } from "@/core/copy";
 import type { CalendarDay } from "@/core/format";
 import type { CalendarDate } from "@internationalized/date";
 
@@ -31,7 +36,6 @@ const toDay = (date: CalendarDate | null): CalendarDay | null =>
 const fromDay = (day: CalendarDay | null | undefined): CalendarDate | null | undefined =>
   day === null || day === undefined ? day : parseDate(day);
 
-/** The month a date's calendar button opens, under the field. */
 function MonthCalendar() {
   return (
     <Calendar
@@ -75,15 +79,30 @@ function MonthCalendar() {
 }
 
 /**
- * Enter a date: segmented in German order, with the calendar button beside it, the field as wide as a date's figures
- * and its button. The value is the stored `YYYY-MM-DD` day, so no page handles a date library's objects; a form
- * receives the same string.
+ * Judges a date again when a bound it is held to moves while it shows that bound's mark. React Aria draws a box's
+ * verdict when the box's own value is committed or its form pressed, so a bound another box sets, as a span's end takes
+ * its start, would leave the mark standing over a value that now meets it. A box showing no such mark waits for the
+ * press, as every box does, and one showing the server's fault keeps it. It draws nothing, and stands inside the picker
+ * for the picker's state.
+ */
+function BoundMark({ minValue, maxValue }: { minValue: CalendarDay | undefined; maxValue: CalendarDay | undefined }) {
+  const state = useContext(DatePickerStateContext);
+  const judge = useEffectEvent(() => {
+    const shown = state?.displayValidation.validationDetails;
+    if (shown?.rangeUnderflow === true || shown?.rangeOverflow === true) state?.commitValidation();
+  });
+  useEffect(() => judge(), [minValue, maxValue]);
+  return null;
+}
+
+/**
+ * Enter a date: segmented in German order, with the calendar button beside it. The value is the stored `YYYY-MM-DD`
+ * day, so no page handles a date library's objects; a form receives the same string.
  */
 export function DateField({
   label,
   description,
   consequence,
-  isRequired = false,
   isDisabled = false,
   isLocked = false,
   name,
@@ -93,10 +112,9 @@ export function DateField({
   minValue,
   maxValue,
 }: {
-  label: Copy;
+  label: Words;
   description?: Copy;
   consequence?: Copy;
-  isRequired?: boolean;
   isDisabled?: boolean;
   /** Held fixed by its record: read-only, its label marked with the lock (`useFieldLock`). */
   isLocked?: boolean;
@@ -109,7 +127,7 @@ export function DateField({
   /** The latest day the field takes: the calendar offers none after it, and a later one reads „Spätestens …“. */
   maxValue?: CalendarDay;
 }) {
-  const lock = useFieldLock(isDisabled, isLocked, isRequired);
+  const lock = useFieldLock(isLocked, useBoxRule(name).required);
   return (
     <DatePicker<CalendarDate>
       className={fieldRoot()}
@@ -122,7 +140,7 @@ export function DateField({
       // The day and the month keep their leading zero, „03.04.2027“, as the site prints a date.
       shouldForceLeadingZeros
       isRequired={lock.isRequired}
-      isDisabled={lock.isDisabled}
+      isDisabled={isDisabled}
       isReadOnly={lock.isReadOnly}>
       <FieldLabel
         label={label}
@@ -148,6 +166,10 @@ export function DateField({
         description={description}
         consequence={consequence}
         constraints={{ earliest: minValue, latest: maxValue }}
+      />
+      <BoundMark
+        minValue={minValue}
+        maxValue={maxValue}
       />
       <Popover
         data-kit-focus

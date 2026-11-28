@@ -5,12 +5,12 @@ import { Form } from "react-aria-components/Form";
 import { Input, TextField } from "react-aria-components/TextField";
 import { describe, expect, it } from "vitest";
 
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 
 import { Button } from "./Button";
 import { ComboBox } from "./ComboBox";
 import { DateField } from "./DateField";
-import { FieldLabel, MessageLine } from "./FieldParts";
+import { FieldLabel, MessageLine, StatusLine } from "./FieldParts";
 import { FormClosed } from "./formClosed";
 import { Select } from "./Select";
 import { TextField as KitTextField } from "./TextField";
@@ -26,7 +26,7 @@ function Addressed({ validationErrors }: Pick<ComponentProps<typeof Form>, "vali
       <TextField
         name="adresse"
         type="email"
-        aria-label={COPY.signIn.address}>
+        aria-label={COPY.shared.emailAddress}>
         <Input />
         <MessageLine />
       </TextField>
@@ -45,20 +45,20 @@ describe("a field's label", () => {
     const { container } = render(
       <>
         <FieldLabel
-          label={COPY.signIn.address}
+          label={COPY.shared.emailAddress}
           isRequired
         />
         <FormClosed value>
           <FieldLabel
-            label={COPY.signIn.address}
+            label={COPY.shared.emailAddress}
             isRequired
           />
         </FormClosed>
       </>,
     );
     expect([...container.querySelectorAll("label")].map((label) => label.textContent)).toStrictEqual([
-      `${COPY.signIn.address} *`,
-      COPY.signIn.address,
+      `${COPY.shared.emailAddress} *`,
+      COPY.shared.emailAddress,
     ]);
   });
 });
@@ -84,19 +84,20 @@ describe("a locked field", () => {
           />
         </FormClosed>
         <Select
-          label={COPY.signIn.address}
+          label={COPY.shared.emailAddress}
           options={options}
           isLocked
           value="a"
         />
         <ComboBox
-          label={COPY.signIn.address}
+          label={COPY.shared.emailAddress}
           options={options}
+          plural={COPY.page.teams}
           isLocked
           value="a"
         />
         <DateField
-          label={COPY.signIn.address}
+          label={COPY.shared.emailAddress}
           isLocked
           value="2027-03-14"
         />
@@ -112,6 +113,31 @@ describe("a locked field", () => {
       expect(document.activeElement).toBe(field);
       expect(field instanceof HTMLInputElement ? field.readOnly : field.getAttribute("aria-readonly") === "true").toBe(true);
     }
+  });
+});
+
+// The harm: a screen reader hears nothing when a save succeeds or fails, since a region drawn together with its first
+// words is not reliably announced, and no sighted tester notices.
+describe("a form's status line", () => {
+  it("stands as a status region from the first render, empty, and holds the outcome once there is one", () => {
+    const { rerender } = render(
+      <StatusLine
+        status={null}
+        placement="row"
+      />,
+    );
+    const region = screen.getByRole("status");
+    expect(region.textContent).toBe("");
+
+    rerender(
+      <StatusLine
+        status={{ tone: "success", text: COPY.shared.saved }}
+        placement="row"
+      />,
+    );
+    // The same node: a region replaced by one holding the words is one drawn together with them.
+    expect(screen.getByRole("status")).toBe(region);
+    expect(region.textContent).toBe(COPY.shared.saved);
   });
 });
 

@@ -23,15 +23,12 @@ export type ProseBlock =
   | { kind: "table"; table: ReactElement }
   | { kind: "callout"; callout: CalloutProps };
 
-/** A section of a text: its heading and the blocks under it. */
 export type ProseSection = { heading: Copy; blocks: ReadonlyArray<ProseBlock> };
 
-// Each section under its 20-px heading, 48 px from the next, 16 px between its paragraphs; each block of words at a
-// line's measure, a table across the column.
 const prose = tv({
   slots: {
     text: "grid min-w-0 gap-6 text-base text-fg",
-    section: "kit-section-target grid gap-4 pt-6 first:pt-0",
+    section: "grid gap-4 pt-6 first:pt-0",
     heading: "max-w-measure text-xl font-semibold",
     paragraph: "max-w-measure",
     list: "grid max-w-measure list-disc gap-2 ps-6 marker:text-fg-muted",
@@ -150,11 +147,7 @@ function Text({ sections }: { sections: ReturnType<typeof identified> }) {
   );
 }
 
-/**
- * A text's sections under 20-px semibold headings, parted by space alone: paragraphs and bullet lists, each at a line's
- * measure; a table, which the page places, across the column; a box as the kit's `Callout`; a list of the site's pages
- * as plain links.
- */
+/** A text's sections, parted by space alone, each block of words at a line's measure and a table across the column. */
 export function Prose({ sections }: { sections: ReadonlyArray<ProseSection> }) {
   return <Text sections={identified(sections)} />;
 }
@@ -169,7 +162,7 @@ export function Prose({ sections }: { sections: ReadonlyArray<ProseSection> }) {
 export function ReadingPage({ sections, ...head }: { sections: ReadonlyArray<ProseSection> } & ComponentProps<typeof PageHead>) {
   const text = identified(sections);
   return (
-    <ClassicPage width="reading">
+    <ClassicPage width="frame">
       <PageHead {...head} />
       <div className="grid gap-8 lg:grid-cols-[minmax(0,43.5rem)_minmax(0,1fr)] lg:gap-x-12">
         {/* The rail takes the second column's first row, so the text, placed after it, takes the first column's. */}
@@ -180,7 +173,6 @@ export function ReadingPage({ sections, ...head }: { sections: ReadonlyArray<Pro
   );
 }
 
-/** A text whose sections a read decides, once that read has landed. */
 export async function ProseOnceRead({ sections }: { sections: Promise<ReadonlyArray<ProseSection>> }) {
   return <Prose sections={await sections} />;
 }

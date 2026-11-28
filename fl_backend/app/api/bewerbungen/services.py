@@ -28,7 +28,7 @@ from app.api.teams.schemas import FLPostTeamPayload
 from app.core.clock import days_after
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.exceptions import APIError, link_expired, link_invalid
+from app.core.exceptions import APIError, FieldFault, FieldPath, link_expired, link_invalid
 from app.core.readonly import ReadCollection
 from app.shared.einwilligung import seat_is_confirmed
 from app.shared.einwilligung_evidence import TextVersions, compose_choices
@@ -69,14 +69,14 @@ _TEAM_FIELDS_FROM_SCHULE = {
 }
 
 
-def find_acceptance_code_refusal(*, new_school: bool, shorthand: str | None) -> APIError | None:
+def find_acceptance_code_refusal(*, new_school: bool, shorthand: str | None) -> FieldFault | None:
     """Why this acceptance's code is refused, or `None`: a new school takes one, and a picked club keeps its own.
 
     A body's fault, which only the stored application can show: the dialog asks the code of a new school alone.
     """
 
     if new_school == (shorthand is None):
-        return APIError(HTTPStatus.UNPROCESSABLE_CONTENT, Code.PAYLOAD_REFUSED, fields=(("shorthand",),))
+        return FieldFault(path=("shorthand",), code=Code.PAYLOAD_REFUSED, status=HTTPStatus.UNPROCESSABLE_CONTENT)
 
     return None
 
@@ -160,16 +160,19 @@ def find_window_refusal(*, saison_status: Any, bewerbung: Any, today: str) -> AP
     return APIError(HTTPStatus.CONFLICT, Code.BEWERBUNG_WINDOW_CLOSED)
 
 
-def find_submission_subject_refusal(*, team_id: Any | None, schule: Any | None) -> APIError | None:
-    """Why this submission resolves to no single school, or `None`.
+def find_submission_subject_refusal(*, team_id: Any | None, schule: Any | None) -> tuple[FieldFault, ...]:
+    """Why this submission resolves to no single school: a fault on both boxes, or none.
 
     Asked of the body alone: a stored application holds what this let through, and only a hand edit stores another.
     """
 
-    if (team_id is None) == (schule is None):
-        return APIError(HTTPStatus.UNPROCESSABLE_CONTENT, Code.BEWERBUNG_SUBMISSION_SUBJECT_UNRESOLVED, fields=(("team_id",), ("schule",)))
+    if (team_id is None) != (schule is None):
+        return ()
 
-    return None
+    return tuple(
+        FieldFault(path=(box,), code=Code.BEWERBUNG_SUBMISSION_SUBJECT_UNRESOLVED, status=HTTPStatus.UNPROCESSABLE_CONTENT)
+        for box in ("team_id", "schule")
+    )
 
 
 def find_picked_team_refusal(*, team_raw: Mapping[str, Any] | None) -> APIError | None:
@@ -318,9 +321,9 @@ EINWILLIGUNG_VIEW_FIELDS: Mapping[str, int] = {
 
 # Narrower than the view's: the answer takes its wording from the payload and names no school. The
 # address and `sent_at` say whether a decline's notice has anybody to tell (`ansprechperson_mailbox`),
-# and no answer carries them.
+# and no answer carries them. The kept confirmation day refuses a second answer on an accepted application's seat.
 EINWILLIGUNG_ANSWER_FIELDS: Mapping[str, int] = {
-    **_per_seat("confirmations", "token_hashes", "declined_at", "deadline", "sent_at"),
+    **_per_seat("confirmations", "token_hashes", "declined_at", "deadline", "sent_at", "confirmed_on"),
     # The choices and their evidence, so a withdrawal names the grant it ends (`compose_choices`).
     **_per_seat("kontakte", "first_name", "email", "einwilligung.confirmed_at", *KONTAKT_CHOICE_FIELDS),
     "kontakte.trainer_is_also": 1,
@@ -410,7 +413,7 @@ def link_is_over(*, deadline: Any, status: Any, today: str) -> bool:
 
 
 def find_expired_token_refusal(*, over: bool) -> APIError | None:
-    """Why this link is over, or `None`. Judged before the seat: a seat on a decided application is never answered again.
+    """Why this link is over, or `None`: a seat on a decided application is never answered again.
 
     `over` is the record's own reading: `link_is_over` on an application, `deadline_passed` on a season row, which has no
     decision to end its link. No write moves a live link's deadline, a re-send minting another token.
@@ -446,22 +449,17 @@ def _declined_on(confirmations: Mapping[str, Any] | None, seat: str) -> Any:
     return None if entry is None else entry.get("declined_at")
 
 
-def seat_is_answered(*, kontakte: Mapping[str, Any] | None, confirmations: Mapping[str, Any] | None, seat: str) -> bool:
-    """Whether this seat's person has spoken: a stamp on the seat, a decline beside it, or no bookkeeping.
+def find_already_answered_refusal(*, kontakte: Mapping[str, Any] | None, confirmations: Mapping[str, Any] | None, seat: str) -> APIError | None:
+    """Why this seat takes no second answer, or `None`. The single use: the stamps are what spend a link, never a nulled hash.
 
-    No bookkeeping is an emptied seat, or a season row's seat no link was minted for: nothing to answer.
+    A seat erased at its person's request is refused as erased, which only a re-send meets: the erasure took its link. A
+    confirmation an acceptance kept beside the emptied seat counts, as `state_of` reads it.
     """
 
-    if seat_is_confirmed(person_of(kontakte, seat)) or _declined_on(confirmations, seat) is not None:
-        return True
+    if _entry_of(confirmations, seat) is None:
+        return APIError(HTTPStatus.CONFLICT, Code.BEWERBUNG_SEAT_ERASED)
 
-    return _entry_of(confirmations, seat) is None
-
-
-def find_already_answered_refusal(*, kontakte: Mapping[str, Any] | None, confirmations: Mapping[str, Any] | None, seat: str) -> APIError | None:
-    """Why this seat takes no second answer, or `None`. The single use: the stamps are what spend a link, never a nulled hash."""
-
-    if seat_is_answered(kontakte=kontakte, confirmations=confirmations, seat=seat):
+    if _was_confirmed(kontakte, confirmations, seat) or _declined_on(confirmations, seat) is not None:
         return APIError(HTTPStatus.CONFLICT, Code.BEWERBUNG_SEAT_ALREADY_ANSWERED)
 
     return None
@@ -733,7 +731,7 @@ def compose_confirmation_update(
 def saison_schule(row: Mapping[str, Any]) -> str:
     """What the season row's confirmation page fills `{schule}` with: the name the club carries that season.
 
-    An application's page, its mails and the account page fill it with `schule_name`.
+    An application's page fills it with `schule_name`.
     """
 
     return str(row.get("name") or "")
@@ -868,8 +866,8 @@ def compose_resend_update(
     return {"$set": {**_fresh_links(seats=seats, today=today), **({"erasure_announced_at": None} if moved else {})}}
 
 
-def find_repeated_contact_refusal(*, kontakte: Mapping[str, Any]) -> APIError | None:
-    """Why this submission's block holds two people reachable alike, or `None`: every box repeating an earlier person's address or number.
+def find_repeated_contact_refusal(*, kontakte: Mapping[str, Any]) -> tuple[FieldFault, ...]:
+    """Why this submission's block holds two people reachable alike, a fault on every box repeating an earlier person's address or number.
 
     A body's fault, judged here rather than on the payload: a model's rule can name the block alone, and the form marks
     the box. The seat the Trainer also holds is that person and is compared with nobody; the mark lands on the later
@@ -878,7 +876,7 @@ def find_repeated_contact_refusal(*, kontakte: Mapping[str, Any]) -> APIError | 
 
     addresses: set[str] = set()
     numbers: set[str] = set()
-    boxes: list[tuple[str, ...]] = []
+    boxes: list[FieldPath] = []
 
     for seat in KONTAKT_SEATS:
         if seat == kontakte["trainer_is_also"]:
@@ -889,14 +887,11 @@ def find_repeated_contact_refusal(*, kontakte: Mapping[str, Any]) -> APIError | 
         addresses.add(address)
         numbers.add(number)
 
-    if boxes:
-        return APIError(HTTPStatus.UNPROCESSABLE_CONTENT, Code.BEWERBUNG_KONTAKT_REPEATED, fields=tuple(boxes))
-
-    return None
+    return tuple(FieldFault(path=box, code=Code.BEWERBUNG_KONTAKT_REPEATED, status=HTTPStatus.UNPROCESSABLE_CONTENT) for box in boxes)
 
 
-def find_seat_contact_refusal(*, kontakte: Mapping[str, Any] | None, seats: Sequence[str], email: str, phone: str) -> APIError | None:
-    """Why this address or this number cannot be the seat's, or `None`.
+def find_seat_contact_refusal(*, kontakte: Mapping[str, Any] | None, seats: Sequence[str], email: str, phone: str) -> tuple[FieldFault, ...]:
+    """Why this address and this number cannot be the seat's: a fault on each another seat's person holds.
 
     `find_repeated_contact_refusal`'s rule asked again -- two different people are not reachable alike -- because a seat
     write is the one path that could put them there afterwards.
@@ -908,13 +903,13 @@ def find_seat_contact_refusal(*, kontakte: Mapping[str, Any] | None, seats: Sequ
 
     # The fold `find_repeated_contact_refusal` compares by: a third spelling of "one mailbox" here would refuse where the
     # form accepted, or the reverse.
+    faults: list[FieldFault] = []
     if sign_in_identifier(email) in {sign_in_identifier(str(other.get("email") or "")) for other in others}:
-        return APIError(HTTPStatus.CONFLICT, Code.KONTAKT_EMAIL_TAKEN, fields=(("email",),))
-
+        faults.append(FieldFault(path=("email",), code=Code.KONTAKT_EMAIL_TAKEN, status=HTTPStatus.CONFLICT))
     if normalise_phone(phone) in {normalise_phone(str(other.get("phone") or "")) for other in others}:
-        return APIError(HTTPStatus.CONFLICT, Code.KONTAKT_PHONE_TAKEN, fields=(("phone",),))
+        faults.append(FieldFault(path=("phone",), code=Code.KONTAKT_PHONE_TAKEN, status=HTTPStatus.CONFLICT))
 
-    return None
+    return tuple(faults)
 
 
 def find_seat_write_refusal(*, confirmations: Mapping[str, Any] | None, seats: Sequence[str]) -> APIError | None:
@@ -927,7 +922,7 @@ def find_seat_write_refusal(*, confirmations: Mapping[str, Any] | None, seats: S
 
     for seat in seats:
         if _entry_of(confirmations, seat) is None:
-            return APIError(HTTPStatus.CONFLICT, Code.BEWERBUNG_SEAT_ALREADY_ANSWERED)
+            return APIError(HTTPStatus.CONFLICT, Code.BEWERBUNG_SEAT_ERASED)
 
     return None
 
@@ -1264,7 +1259,6 @@ def owed_link(
     kontakte: Mapping[str, Any],
     seats: Sequence[FLKontaktSeat],
     saison_id: str,
-    schule: str,
     deadline: str,
     key: str,
     kind: Literal["bewerbung_confirmation", "bewerbung_reminder"] = "bewerbung_confirmation",
@@ -1274,14 +1268,14 @@ def owed_link(
     return OwedMail(
         key=key,
         to=str(kontakte[seats[0]]["email"]),
-        data=FLBewerbungLinkData(kind=kind, saison_id=saison_id, schule=schule, seats=list(seats), deadline=deadline),
+        data=FLBewerbungLinkData(kind=kind, saison_id=saison_id, seats=list(seats), deadline=deadline),
         reference=bewerbung_reference(bewerbung_id, seats),
         link=bewerbung_link(seats, replaced=kind != "bewerbung_reminder"),
     )
 
 
 def owed_at_submission(
-    *, bewerbung_id: Any, kontakte: Mapping[str, Any], saison_id: str, schule: str, deadline: str, unmailed: Container[str]
+    *, bewerbung_id: Any, kontakte: Mapping[str, Any], saison_id: str, deadline: str, unmailed: Container[str]
 ) -> list[OwedMail]:
     """Every person's first mail: the Ansprechperson the receipt naming who is still to answer, each other person their link.
 
@@ -1297,7 +1291,6 @@ def owed_at_submission(
                     kontakte=kontakte,
                     seats=seats,
                     saison_id=saison_id,
-                    schule=schule,
                     deadline=deadline,
                     key=outbox_key(bewerbung_id, "confirmation", seats[0]),
                 )

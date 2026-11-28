@@ -132,31 +132,27 @@ async def get_address_change_view(
         ended_at = stored_instant(ended["at"])
         assert ended_at is not None
         released_at = stored_instant(record.get("released_at")) if side == "previous" else None
-        return FLAddressChangeViewResponse(
-            view=FLAddressChangeViewEnded(
-                side=side,
-                state="ended",
-                kind=ended["kind"],
-                ended_on=german_day(ended_at),
-                way=record["way"],
-                released_on=_day_of(released_at),
-                confirmed_on=_day_of(confirmed_at) if side == "new" else None,
-            )
+        return FLAddressChangeViewEnded(
+            side=side,
+            state="ended",
+            kind=ended["kind"],
+            ended_on=german_day(ended_at),
+            way=record["way"],
+            released_on=_day_of(released_at),
+            confirmed_on=_day_of(confirmed_at) if side == "new" else None,
         )
 
     effective_from = stored_instant(record.get("effective_from"))
     if side == "previous":
         state_previous = previous_state(record, now=germany_now)
         released_at = stored_instant(record.get("released_at"))
-        return FLAddressChangeViewResponse(
-            view=FLAddressChangeViewPrevious(
-                side="previous",
-                state=state_previous,
-                effective_from=effective_from,
-                way=record["way"],
-                email=previous_side_email(record, state=state_previous),
-                released_on=_day_of(released_at),
-            )
+        return FLAddressChangeViewPrevious(
+            side="previous",
+            state=state_previous,
+            effective_from=effective_from,
+            way=record["way"],
+            email=previous_side_email(record, state=state_previous),
+            released_on=_day_of(released_at),
         )
 
     not_confirmable = False
@@ -178,15 +174,13 @@ async def get_address_change_view(
 
     state = new_state(record, now=germany_now, not_confirmable=not_confirmable)
 
-    return FLAddressChangeViewResponse(
-        view=FLAddressChangeViewNew(
-            side="new",
-            state=state,
-            effective_from=effective_from,
-            way=record["way"],
-            email=str(record["email"]) if state == "valid" else None,
-            confirmed_on=_day_of(confirmed_at),
-        )
+    return FLAddressChangeViewNew(
+        side="new",
+        state=state,
+        effective_from=effective_from,
+        way=record["way"],
+        email=str(record["email"]) if state == "valid" else None,
+        confirmed_on=_day_of(confirmed_at),
     )
 
 

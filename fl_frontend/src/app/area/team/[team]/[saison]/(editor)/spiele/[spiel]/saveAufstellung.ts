@@ -3,25 +3,23 @@
 import { z } from "zod";
 
 import { action } from "@/core/action";
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 import { aufstellungenPutAufstellungSelf } from "@/core/generated/client/sdk";
-import {
-  AufstellungenPutAufstellungSelfBody,
-  AufstellungenPutAufstellungSelfParams,
-  TeamsGetTeamSpieleParams,
-} from "@/core/generated/zod/inputs";
+import { AufstellungenPutAufstellungSelfBody, AufstellungenPutAufstellungSelfParams } from "@/core/generated/zod/inputs";
 import { entriesOf, refusedRows } from "@/features/aufstellungen/payload";
 import { getAufstellungSelf } from "@/features/aufstellungen/queries";
 
-import type { ActionAnswer } from "@/core/action";
+import type { LaneAnswer } from "@/core/action";
 
 // A pupil's id: the editor names pupils alone, and the stored entries naming nobody go back as stored.
 const ids = AufstellungenPutAufstellungSelfBody.shape.spieler.element.shape.spieler_id.options[0];
 
-/** What the line-up's editor sends: the club and the season its seat is claimed at, the fixture, and the half it changed. */
+/**
+ * What the line-up's editor sends: the club whose line-up it is, the fixture, and the half it changed. The claim is the
+ * person's record, since the backend judges the seat on the club in the fixture's season inside the write.
+ */
 const SaveAufstellung = z.object({
   team_id: AufstellungenPutAufstellungSelfParams.shape.team_id,
-  saison_id: TeamsGetTeamSpieleParams.shape.saison_id,
   id: AufstellungenPutAufstellungSelfParams.shape.spiel_id,
   version: AufstellungenPutAufstellungSelfBody.shape.version,
   changes: z.object({ picked: z.array(ids).readonly(), starters: z.array(ids).readonly() }).partial(),
@@ -34,17 +32,10 @@ const SaveAufstellung = z.object({
  */
 export const saveAufstellung = action({
   lane: "person",
-  claim: "seat",
+  claim: "record",
   name: "saveAufstellung",
   input: SaveAufstellung,
-  ownWords: [
-    // The page was open before the lock, the fixture lost its day or hour, or a nominee stands beside eleven others,
-    // which the block marks on the nominee's row and leaves the person to take out.
-    "aufstellung_locked",
-    "aufstellung_spiel_undated",
-    "aufstellung_nominee_without_shortage",
-  ],
-  run: async ({ team_id, id, version, changes }): Promise<ActionAnswer<number>> => {
+  run: async ({ team_id, id, version, changes }): Promise<LaneAnswer<number>> => {
     const stored = await getAufstellungSelf(id, team_id);
     if (stored === null) return { ok: false, reason: COPY.shared.failure.stale };
 

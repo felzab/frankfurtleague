@@ -183,18 +183,23 @@ async def write_seat(
 ) -> FLKontaktSeatResponse:
     """`PUT .../kontakte/{seat}`, the one route writing a seat: the person the dialog sends, on the row's `version` it read."""
 
-    return await put_kontakt_seat(
-        team_id=TEAM_OID,
-        saison_id=SAISON_ID,
-        seat=seat,
-        seat_data=FLKontaktSeatPayload.model_validate({**sent, "version": version}),
-        saison_teams_collection=database[Collection.SAISON_TEAMS] if saison_teams_collection is None else saison_teams_collection,
-        saisons_collection=database[Collection.SAISONS],
-        outbox_collection=database[Collection.OUTBOX],
-        db=database.client,
-        today=TODAY,
-        germany_now=MAIL_NOW,
-    )
+    async with database.client.start_session(snapshot=True) as session:
+        written = await put_kontakt_seat(
+            team_id=TEAM_OID,
+            saison_id=SAISON_ID,
+            seat=seat,
+            seat_data=FLKontaktSeatPayload.model_validate({**sent, "version": version}),
+            saison_teams_collection=database[Collection.SAISON_TEAMS] if saison_teams_collection is None else saison_teams_collection,
+            saisons_collection=database[Collection.SAISONS],
+            outbox_collection=database[Collection.OUTBOX],
+            db=database.client,
+            today=TODAY,
+            germany_now=MAIL_NOW,
+            session=session,
+        )
+    # Only a dry run answers the bare 204, and this call asks none.
+    assert isinstance(written, FLKontaktSeatResponse)
+    return written
 
 
 async def erase_the_seats_person(database: AsyncDatabase) -> None:
@@ -319,8 +324,18 @@ class TestTheSeatWriteDecidesFromItsArguments:
         kontakte, seats = compose_seat_block(stored=SEAT_BLOCK, seat="trainer", sent=seat_sent("Lea", phone="0176 04069002"), today=TODAY)
         refusal = find_kontakt_taken_refusal(kontakte=kontakte, seats=seats)
 
-        assert refusal is not None
-        assert (refusal.error_code, refusal.fields) == (Code.KONTAKT_PHONE_TAKEN, (("phone",),))
+        assert [(fault.code, fault.path) for fault in refusal] == [(Code.KONTAKT_PHONE_TAKEN, ("phone",))]
+
+    def test_an_address_and_a_number_another_seats_person_holds_are_both_refused_at_once(self):
+        """Asked one after the other, the number's fault waits for a press the address's already asked for."""
+
+        sent = seat_sent("Lea", email="JONAS@example.com", phone="0176 04069002")
+        kontakte, seats = compose_seat_block(stored=SEAT_BLOCK, seat="trainer", sent=sent, today=TODAY)
+
+        assert [(fault.code, fault.path) for fault in find_kontakt_taken_refusal(kontakte=kontakte, seats=seats)] == [
+            (Code.KONTAKT_EMAIL_TAKEN, ("email",)),
+            (Code.KONTAKT_PHONE_TAKEN, ("phone",)),
+        ]
 
 
 class TestTheDateRidesWithThePerson:
@@ -420,6 +435,17 @@ class TestWhatASeatsLinkReads:
         )
 
         assert {seat: link["expired"] for seat, link in links.items()} == {"trainer": True, "ansprechperson": False, "stellvertretung": False}
+
+    def test_a_declined_seat_never_lapses(self):
+        """A decline is an answer too, so a declined seat past its deadline has nothing left to collect."""
+
+        links = self.read(
+            kontakte={"trainer": kontaktperson_document("Bramblewick")},
+            confirmations={"trainer": {**self.link(self.PAST), "declined_at": self.PAST}},
+            states={},
+        )
+
+        assert links["trainer"]["expired"] is False
 
     def test_each_seat_reads_the_mail_owed_about_it(self):
         links = self.read(

@@ -1,25 +1,20 @@
 import "server-only";
 
-import { COPY } from "@/core/copy";
-import { APIBadStatusError } from "@/core/errors";
+import { refusedAs } from "@/core/errors";
 import { registrierungenPostInvitationView } from "@/core/generated/client/sdk";
-import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
-import { linkInvalid } from "@/kit/mailedLinkState";
+import { TO_HOME } from "@/kit/mailedLinkState";
 
-import type { FLInvitationViewResponse } from "@/core/generated/client/types";
+import type { Code, FLInvitationViewResponse } from "@/core/generated/client/types";
 import type { EndState } from "@/kit/MailedPage";
 
 const WORDS = SERVER_COPY.registrierung.end;
 
-/** The field the one-shot form's replay key posts under, the kit's `replayField`. */
-export const REPLAY_FIELD = "idempotency_key";
-
-/** The start page, every end's one way on. */
-export const TO_HOME = { label: COPY.shared.end.toHome, href: ROUTES.home.path() };
-
-/** A link that opens nothing, as the page opens on it and as a press ends on it: one message for every cause. */
-export const LINK_INVALID: EndState = linkInvalid(TO_HOME);
+/**
+ * A token no live invite holds or whose club left the season, one whose season or club record is gone, and one the
+ * backend will not parse: a dead link each way.
+ */
+const DEAD: ReadonlySet<Code> = new Set<Code>(["link_invalid", "document_not_found", "payload_refused"]);
 
 /**
  * What the team's link opens, or `null` for a link that opens no live invite, a club that left the season or a token the
@@ -27,9 +22,7 @@ export const LINK_INVALID: EndState = linkInvalid(TO_HOME);
  */
 export async function readInvitation(token: string): Promise<FLInvitationViewResponse | null> {
   return registrierungenPostInvitationView({ token }).catch((error: unknown) => {
-    if (error instanceof APIBadStatusError && (error.serverErrorCode === "document_not_found" || error.serverErrorCode === "payload_refused")) {
-      return null;
-    }
+    if (refusedAs(error, DEAD)) return null;
     throw error;
   });
 }

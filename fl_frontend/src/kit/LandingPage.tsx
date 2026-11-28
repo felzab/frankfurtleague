@@ -1,4 +1,4 @@
-import { ClassicPage } from "./ClassicPage";
+import { ClassicPage, classicTitle } from "./ClassicPage";
 import { Link } from "./Link";
 import { tv } from "./tv";
 
@@ -6,10 +6,8 @@ import type { Copy } from "@/core/copy";
 import type { Route } from "next";
 import type { ReactElement, ReactNode } from "react";
 
-/** One of the hero's two ways on: a label and its address. */
 type HeroAct = { label: Copy; href: Route };
 
-/** What the hero reads: its two ways on and the season's card beside it. */
 export type LandingContent = {
   /** The Spielplan, in every state. */
   primary: HeroAct;
@@ -19,27 +17,33 @@ export type LandingContent = {
   aside: ReactElement;
 };
 
+/** The space between the landing's sections, the same on every page that places them. */
+const sectionGap = tv({ base: "grid gap-12 lg:gap-16" });
+
 const hero = tv({
   slots: {
-    // Split from `lg`: the tagline and the words under it at the left, the season card at the right beside both,
-    // 48 px between; one column below. The side card's width, 25 rem. The rows part by their items' padding. From `lg`
-    // the words' row takes what the card adds beyond the text, and the words fill it with the lead at its top and the
+    // Split from `lg`: the tagline and the words under it at the left, the season card at the right beside both; one
+    // column below. The rows part by their items' padding. From `lg` the words' row takes what the card adds beyond the
+    // text, and the words fill it with the lead at its top and the
     // acts at its foot, so the lead stays under the title and the acts' foot meets the card's.
     root: "grid items-start gap-x-12 lg:grid-cols-[minmax(0,1fr)_25rem] lg:grid-rows-[auto_1fr]",
-    title: "pb-6 font-heading text-3xl tracking-display uppercase lg:col-start-1 lg:row-start-1",
+    // A classic page's title at the page's rung.
+    title: classicTitle({ place: "page", class: "pb-6 lg:col-start-1 lg:row-start-1" }),
     words: "grid content-start gap-6 pb-8 lg:col-start-1 lg:row-start-2 lg:content-between lg:self-stretch lg:pb-0",
-    // The lead's paragraphs, 12 px apart, a step closer than the words and the acts under them.
     lead: "grid gap-3 text-base text-fg-muted",
     acts: "flex flex-wrap gap-3",
     // From `lg` the card stands beside both rows, from the title's top to the words' foot, the taller of the two setting
     // the hero's height. A grid of one, so the card fills it.
     aside: "min-w-0 lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:grid lg:self-stretch",
-    // The gap between the landing's sections, 48 px on a phone and 64 px from `lg`.
-    sections: "grid gap-12 pt-12 lg:col-span-2 lg:gap-16 lg:pt-16",
+    sections: sectionGap({ class: "pt-12 lg:col-span-2 lg:pt-16" }),
   },
 });
 
-/** The hero's two ways on, once the read has landed. */
+/** The landing's sections on a page of their own, under its head, as far apart as on the landing. */
+export function SectionStack({ children }: { children: ReactNode }) {
+  return <div className={sectionGap()}>{children}</div>;
+}
+
 async function Acts({ content }: { content: Promise<LandingContent> }) {
   const { primary, secondary } = await content;
   return (
@@ -62,7 +66,6 @@ async function Acts({ content }: { content: Promise<LandingContent> }) {
   );
 }
 
-/** The season's card, once the read has landed. */
 async function Aside({ content }: { content: Promise<LandingContent> }) {
   const { aside } = await content;
   return aside;
@@ -82,15 +85,13 @@ export function LandingPage({
 }: {
   /** The tagline, the page's one heading. */
   title: Copy;
-  /** The paragraphs under the tagline. */
   lead: ReadonlyArray<Copy>;
   content: Promise<LandingContent>;
-  /** The sections, each a landing block. */
   sections: ReactNode;
 }) {
   const slots = hero();
   return (
-    <ClassicPage width="landing">
+    <ClassicPage width="frame">
       <div className={slots.root()}>
         <h1 className={slots.title()}>{title}</h1>
         <div className={slots.words()}>

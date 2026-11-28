@@ -3,9 +3,9 @@ import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
-import { COPY } from "@/core/copy";
+import { ADMIN_COPY } from "@/core/copy/admin";
+import { COPY } from "@/core/copy/shared";
 import { dayOf, formatList } from "@/core/format";
-import { AUSTRITT_RULES, SEAT_RULES, TEAM_DESCRIPTION_MAX, TEAM_SAVE_RULES } from "@/features/teams/fieldRules";
 import { renderUnderNext } from "@/test-support/nextContexts";
 
 import { TeamEditor } from "./TeamEditor";
@@ -21,7 +21,7 @@ vi.mock("./teamActs", () => ({
   sendSeatLink: vi.fn(),
   writeSeat: vi.fn(),
 }));
-vi.mock("@/features/invitations/actions", () => ({ mailInvitation: vi.fn(), mintInvitation: vi.fn(), revokeInvitation: vi.fn() }));
+vi.mock("./invitationActs", () => ({ mailInvitation: vi.fn(), mintInvitation: vi.fn(), revokeInvitation: vi.fn() }));
 const AT_ADDRESS: NextContexts = {
   pathname: "/admin/saisons/2027/teams/64b000000000000000000001",
   params: { saison: "2027", team: "64b000000000000000000001" },
@@ -63,31 +63,34 @@ const ROW: TeamRow = {
   },
 };
 
+/** The editor of one club in its season, its exit dialog opened from the danger row, whose button carries its verb. */
+async function openExit() {
+  renderUnderNext(
+    <TeamEditor
+      team="64b000000000000000000001"
+      saison="2027"
+      title={{ record: VALUES.full_name }}
+      record={{ id: "64b000000000000000000001", version: 1, values: VALUES }}
+      save={vi.fn()}
+      rules={{}}
+      seatRules={{}}
+      holder="admin@example.org"
+      austrittRules={{}}
+      retirement={{ kind: "retire" }}
+      row={ROW}
+    />,
+    AT_ADDRESS,
+  );
+  await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.enter }));
+  return screen.findByRole("dialog");
+}
+
 /* The fact is the administrator's one sight of whom the exit mails: read for today whatever day is typed, it names an
    opponent whose match lies before the exit, who is never mailed. */
 describe("the exit dialog's „E-Mail an“", () => {
   it("names whom an exit from the day typed mails", async () => {
-    renderUnderNext(
-      <TeamEditor
-        team="64b000000000000000000001"
-        saison="2027"
-        title={{ record: VALUES.full_name }}
-        record={{ id: "64b000000000000000000001", version: 1, values: VALUES }}
-        save={vi.fn()}
-        rules={TEAM_SAVE_RULES}
-        descriptionMax={TEAM_DESCRIPTION_MAX}
-        seatRules={SEAT_RULES}
-        austrittRules={AUSTRITT_RULES}
-        retirement={{ kind: "retire" }}
-        row={ROW}
-      />,
-      AT_ADDRESS,
-    );
-
-    // The danger row's button carries the dialog's verb.
-    await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.remove }));
-    const dialog = await screen.findByRole("dialog");
-    const mailTo = () => within(dialog).getByText(COPY.admin.facts.mailTo).nextElementSibling?.textContent;
+    const dialog = await openExit();
+    const mailTo = () => within(dialog).getByText(ADMIN_COPY.facts.mailTo).nextElementSibling?.textContent;
     expect(mailTo()).toBe(formatList(["Bieber", "Otto Gruber"]));
 
     // The day's segment first: typing 21 moves the exit past Bieber's match on the 20th.

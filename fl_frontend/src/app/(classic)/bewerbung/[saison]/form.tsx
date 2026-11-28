@@ -1,24 +1,23 @@
 import { cache } from "react";
 
+import { boxRulesOf } from "@/core/action";
 import { frontend_config } from "@/core/config";
-import { COPY } from "@/core/copy";
+import { PUBLIC_COPY } from "@/core/copy/public";
+import { COPY } from "@/core/copy/shared";
 import { orMissing } from "@/core/errors";
 import { bewerbungenGetForm } from "@/core/generated/client/sdk";
 import { ROUTES } from "@/core/routes";
 import { runWithIncomingTrace } from "@/core/traceScope";
-import { SAISON_ID_LENGTH } from "@/features/saisons/constants";
 import { ConsentLine } from "@/kit/ConsentLine";
 
-import { REPLAY_FIELD } from "./application";
 import { BewerbungFields } from "./BewerbungFields";
-import { BEWERBUNG_RULES } from "./bewerbungRules";
 import { endOf } from "./ends";
 import { submitBewerbung } from "./submitBewerbung";
 
 import type { FLBewerbungFormResponse } from "@/core/generated/client/types";
 import type { MailedState } from "@/kit/MailedPage";
 
-const SUBMIT = COPY.shared.withObject(COPY.bewerbung.object, "submit");
+const SUBMIT = COPY.shared.withObject(COPY.shared.bewerbung, "submit");
 
 /** The notice's id, which describes the send: the page holds one form. */
 const NOTICE_ID = "bewerbung-notice";
@@ -28,10 +27,9 @@ const NOTICE_ID = "bewerbung-notice";
  * it once between them, and a stored copy would go on saying a window runs after it shut. A failed read reaches the
  * frame's error card.
  */
-export const readForm = cache(async (saison: string): Promise<FLBewerbungFormResponse | null> => {
-  if (saison.length !== SAISON_ID_LENGTH) return null;
-  return runWithIncomingTrace(() => orMissing(bewerbungenGetForm(saison)));
-});
+export const readForm = cache(async (saison: string): Promise<FLBewerbungFormResponse | null> =>
+  runWithIncomingTrace(() => orMissing(bewerbungenGetForm(saison))),
+);
 
 /** What a season's form page shows: the form while its window runs, else the card standing in its place. */
 export function formStateOf(saison: string, form: FLBewerbungFormResponse): MailedState {
@@ -41,10 +39,11 @@ export function formStateOf(saison: string, form: FLBewerbungFormResponse): Mail
   return {
     state: "question",
     title: COPY.page.bewerbung(saison),
-    action: submitBewerbung,
+    run: submitBewerbung,
+    rules: boxRulesOf(submitBewerbung),
     acts: { primary: SUBMIT },
     carry: { saison_id: saison },
-    replayField: REPLAY_FIELD,
+    replays: true,
     // Off the request's settings, past the form's read that hands `form` in: a prerendered shell would carry the
     // build's, which is none.
     botCheck: { siteKey: frontend_config.TURNSTILE_SITE_KEY },
@@ -53,11 +52,7 @@ export function formStateOf(saison: string, form: FLBewerbungFormResponse): Mail
     note: (
       <ConsentLine
         id={NOTICE_ID}
-        line={[
-          COPY.bewerbung.notice.before,
-          { href: ROUTES.privacyNotice.path(), label: COPY.page.privacyNotice },
-          COPY.bewerbung.notice.after,
-        ]}
+        line={PUBLIC_COPY.bewerbung.notice({ href: ROUTES.privacyNotice.path(), label: COPY.page.privacyNotice })}
       />
     ),
     describedBy: NOTICE_ID,
@@ -65,7 +60,6 @@ export function formStateOf(saison: string, form: FLBewerbungFormResponse): Mail
       <BewerbungFields
         schulen={form.schulen}
         taken={form.taken}
-        rules={BEWERBUNG_RULES}
       />
     ),
   };

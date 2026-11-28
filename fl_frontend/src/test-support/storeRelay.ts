@@ -12,10 +12,6 @@ import type { Socket } from "node:net";
 export class StoreRelay {
   private hung = false;
   private refusing = false;
-  /** The command whose first request hangs the relay, as its name opens a BSON key. */
-  private trigger: Buffer | null = null;
-  /** Whether `hangFrom`'s command was ever sent, without which its case proves nothing. */
-  triggered = false;
   private readonly sockets = new Set<Socket>();
   /**
    * Connections holding a request the relay will never answer, ended with their scenario: the
@@ -35,10 +31,6 @@ export class StoreRelay {
       socket.on("error", () => undefined);
     }
     inbound.on("data", (chunk: Buffer) => {
-      if (this.trigger !== null && chunk.includes(this.trigger)) {
-        this.hung = true;
-        this.triggered = true;
-      }
       // Requests are dropped and never answers, so no connection is left holding a reply to a request
       // its client has already given up on.
       if (!this.hung) outbound.write(chunk);
@@ -61,17 +53,6 @@ export class StoreRelay {
   /** Runs `body` while nothing the client sends reaches the server, and passes it on again after. */
   async hang<T>(body: () => Promise<T>): Promise<T> {
     this.hung = true;
-    try {
-      return await body();
-    } finally {
-      this.resume();
-    }
-  }
-
-  /** `hang` from the first request carrying `command` on, every request before it answered. */
-  async hangFrom<T>(command: string, body: () => Promise<T>): Promise<T> {
-    this.triggered = false;
-    this.trigger = Buffer.from(`${command}\0`);
     try {
       return await body();
     } finally {
@@ -105,7 +86,6 @@ export class StoreRelay {
 
   private resume(): void {
     this.hung = false;
-    this.trigger = null;
     this.endStranded();
   }
 

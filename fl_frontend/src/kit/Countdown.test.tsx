@@ -5,15 +5,15 @@ import { hydrateRoot } from "react-dom/client";
 import { renderToString } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { COPY } from "@/core/copy";
-import { DAY_MS, HOUR_MS } from "@/core/timeUnits";
+import { PUBLIC_COPY } from "@/core/copy/public";
+import { DAY_MS, HOUR_MS, MINUTE_MS, SECOND_MS } from "@/core/timeUnits";
 
 import { Countdown } from "./Countdown";
 
 const START = "2027-03-13T17:00:00.000Z";
 const AT_START = Date.parse(START);
 // Two days, three hours and four minutes before the season's start, and half a minute more.
-const SEED = AT_START - 2 * DAY_MS - 3 * HOUR_MS - 4 * 60_000 - 30_000;
+const SEED = AT_START - 2 * DAY_MS - 3 * HOUR_MS - 4 * MINUTE_MS - 30 * SECOND_MS;
 
 /** The three figures the count shows, in its order. */
 const figuresOf = (root: HTMLElement) => [...root.querySelectorAll('[role="timer"] > span')].map((cell) => cell.firstElementChild?.textContent);
@@ -38,10 +38,10 @@ describe("the countdown", () => {
     container.innerHTML = markup;
     document.body.append(container);
     expect(figuresOf(container)).toStrictEqual(["2", "3", "4"]);
-    expect(container.textContent).toContain(COPY.landing.saison.days);
+    expect(container.textContent).toContain(PUBLIC_COPY.landing.saison.days);
 
     // The visitor's clock stands ten minutes past the server's, so a first render reading it would differ.
-    vi.setSystemTime(SEED + 10 * 60_000);
+    vi.setSystemTime(SEED + 10 * MINUTE_MS);
     const mismatches: unknown[] = [];
     await act(async () => {
       hydrateRoot(

@@ -6,13 +6,23 @@ import * as zod from "zod";
  * Start a change of the address the person signs in on: the address on file is mailed a link, and its confirmation mails the new one.
  *
  * Everything the address holds moves once the new address confirms, after a wait where it holds a grant; declining
- * either link ends the change, and a live change of the address is replaced.
+ * either link ends the change, and a live change of the address is replaced. A `dry_run` is refused as the start would
+ * be, and writes nothing where it would land.
  * @summary Start a change of the signed-in person's address
  */
+export const accountPostAddressChangeQueryDryRunDefault = false;
+
+export const AccountPostAddressChangeQueryParams = zod.object({
+  dry_run: zod
+    .boolean()
+    .default(accountPostAddressChangeQueryDryRunDefault)
+    .describe("Judge this write as it would be judged, and write nothing"),
+});
+
 export const accountPostAddressChangeBodyEmailMax = 254;
 
 export const AccountPostAddressChangeBody = zod.object({
-  email: zod.string().max(accountPostAddressChangeBodyEmailMax),
+  email: zod.string().min(1).max(accountPostAddressChangeBodyEmailMax),
 });
 
 /**
@@ -24,6 +34,10 @@ export const actionLogGetActionLogBodyByOneMax = 254;
 export const actionLogGetActionLogBodyCursorOneRegExp = new RegExp("^[0-9a-fA-F]{24}$");
 export const actionLogGetActionLogBodyQOneMax = 200;
 
+export const actionLogGetActionLogBodySaisonIdOneMax = 200;
+
+export const actionLogGetActionLogBodySpielNrOneExclusiveMin = 0;
+
 export const actionLogGetActionLogBodyTypeOneMax = 17;
 
 export const ActionLogGetActionLogBody = zod
@@ -32,6 +46,8 @@ export const ActionLogGetActionLogBody = zod
     cursor: zod.union([zod.string().regex(actionLogGetActionLogBodyCursorOneRegExp), zod.null()]).optional(),
     from_day: zod.union([zod.iso.date(), zod.null()]).optional(),
     q: zod.union([zod.string().max(actionLogGetActionLogBodyQOneMax), zod.null()]).optional(),
+    saison_id: zod.union([zod.string().max(actionLogGetActionLogBodySaisonIdOneMax), zod.null()]).optional(),
+    spiel_nr: zod.union([zod.int().gt(actionLogGetActionLogBodySpielNrOneExclusiveMin), zod.null()]).optional(),
     type: zod
       .union([
         zod
@@ -67,17 +83,27 @@ export const ActionLogGetActionLogBody = zod
  * Start a change of the typed address for a person who says they cannot sign in.
  *
  * The new mailbox is mailed a link and the address on file a stop link, and nothing moves until a waiting period after
- * the new mailbox confirms, the old address working until then.
+ * the new mailbox confirms, the old address working until then. A `dry_run` is refused as the start would be, and
+ * writes nothing.
  * @summary Start an address change for a person who says they cannot sign in
  */
+export const addressChangePostAddressChangeAdminQueryDryRunDefault = false;
+
+export const AddressChangePostAddressChangeAdminQueryParams = zod.object({
+  dry_run: zod
+    .boolean()
+    .default(addressChangePostAddressChangeAdminQueryDryRunDefault)
+    .describe("Judge this write as it would be judged, and write nothing"),
+});
+
 export const addressChangePostAddressChangeAdminBodyAddressMax = 254;
 
 export const addressChangePostAddressChangeAdminBodyEmailMax = 254;
 
 export const AddressChangePostAddressChangeAdminBody = zod
   .object({
-    address: zod.string().max(addressChangePostAddressChangeAdminBodyAddressMax),
-    email: zod.string().max(addressChangePostAddressChangeAdminBodyEmailMax),
+    address: zod.string().min(1).max(addressChangePostAddressChangeAdminBodyAddressMax),
+    email: zod.string().min(1).max(addressChangePostAddressChangeAdminBodyEmailMax),
   })
   .describe("The address a change starts on, and the address it goes to.");
 
@@ -300,9 +326,19 @@ export const AufstellungenPutAufstellungBody = zod
 /**
  * Ban an address: it cannot sign in, and no mail leaves for it but the ban's own notice, sent where `notify` is set.
  *
- * The ban runs a fixed number of seasons past the running one, and it and its reason outlive the person's erasure.
+ * The ban runs a fixed number of seasons past the running one, and it and its reason outlive the person's erasure. A
+ * `dry_run` is refused as the ban would be, and answers 204 and writes nothing where it would land.
  * @summary Ban an email address
  */
+export const banListPostBanListEntryQueryDryRunDefault = false;
+
+export const BanListPostBanListEntryQueryParams = zod.object({
+  dry_run: zod
+    .boolean()
+    .default(banListPostBanListEntryQueryDryRunDefault)
+    .describe("Judge this write as it would be judged, and write nothing"),
+});
+
 export const banListPostBanListEntryBodyBanReasonMax = 500;
 
 export const banListPostBanListEntryBodyBanReasonRegExp = new RegExp("^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$");
@@ -310,7 +346,7 @@ export const banListPostBanListEntryBodyEmailMax = 254;
 
 export const BanListPostBanListEntryBody = zod.object({
   ban_reason: zod.string().min(1).max(banListPostBanListEntryBodyBanReasonMax).regex(banListPostBanListEntryBodyBanReasonRegExp),
-  email: zod.string().max(banListPostBanListEntryBodyEmailMax),
+  email: zod.string().min(1).max(banListPostBanListEntryBodyEmailMax),
   notify: zod.boolean(),
 });
 
@@ -415,7 +451,7 @@ export const BewerbungenPostBewerbungBody = zod
       .object({
         ansprechperson: zod
           .object({
-            email: zod.string().max(bewerbungenPostBewerbungBodyKontakteAnsprechpersonEmailMax),
+            email: zod.string().min(1).max(bewerbungenPostBewerbungBodyKontakteAnsprechpersonEmailMax),
             first_name: zod
               .string()
               .min(1)
@@ -431,7 +467,7 @@ export const BewerbungenPostBewerbungBody = zod
           .describe("One of the three people, as a member of the public submits them, without a birthdate."),
         stellvertretung: zod
           .object({
-            email: zod.string().max(bewerbungenPostBewerbungBodyKontakteStellvertretungEmailMax),
+            email: zod.string().min(1).max(bewerbungenPostBewerbungBodyKontakteStellvertretungEmailMax),
             first_name: zod
               .string()
               .min(1)
@@ -447,7 +483,7 @@ export const BewerbungenPostBewerbungBody = zod
           .describe("One of the three people, as a member of the public submits them, without a birthdate."),
         trainer: zod
           .object({
-            email: zod.string().max(bewerbungenPostBewerbungBodyKontakteTrainerEmailMax),
+            email: zod.string().min(1).max(bewerbungenPostBewerbungBodyKontakteTrainerEmailMax),
             first_name: zod
               .string()
               .min(1)
@@ -729,14 +765,15 @@ export const BewerbungenPatchEinwilligungBody = zod
       .describe("A contact seat's two wordings: the WhatsApp switch and the media switch."),
   })
   .describe(
-    "A seat holder's own two choices for every seat they hold on one row, under any label their kind cites.\n\nBoth choices on every press: a page that sent one alone would leave the other judged by nothing.",
+    "A seat holder's own two choices for every seat they hold on one row.\n\nBoth choices on every press: a page that sent one alone would leave the other judged by nothing.",
   );
 
 /**
  * Write a person into one seat, whatever its state, and mail them a fresh link; an acceptance waits on their answer.
  *
  * Where one person holds two seats both are written, the last holder's link opens nothing afterwards, and the seat's
- * deadline starts again from today. A finished season's application takes no write, as it takes no fresh link.
+ * deadline starts again from today. A finished season's application takes no write, as it takes no fresh link. A
+ * `dry_run` is refused as the write would be, and answers 204 and writes nothing where it would land.
  * @summary Write the person one contact seat holds and mail them a fresh link
  */
 export const bewerbungenPostKontaktSeatPathBewerbungIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -744,6 +781,15 @@ export const bewerbungenPostKontaktSeatPathBewerbungIdRegExp = new RegExp("^[0-9
 export const BewerbungenPostKontaktSeatParams = zod.object({
   bewerbung_id: zod.string().regex(bewerbungenPostKontaktSeatPathBewerbungIdRegExp),
   seat: zod.string(),
+});
+
+export const bewerbungenPostKontaktSeatQueryDryRunDefault = false;
+
+export const BewerbungenPostKontaktSeatQueryParams = zod.object({
+  dry_run: zod
+    .boolean()
+    .default(bewerbungenPostKontaktSeatQueryDryRunDefault)
+    .describe("Judge this write as it would be judged, and write nothing"),
 });
 
 export const bewerbungenPostKontaktSeatBodyEmailMax = 254;
@@ -759,7 +805,7 @@ export const bewerbungenPostKontaktSeatBodyVersionMin = 0;
 
 export const BewerbungenPostKontaktSeatBody = zod
   .object({
-    email: zod.string().max(bewerbungenPostKontaktSeatBodyEmailMax),
+    email: zod.string().min(1).max(bewerbungenPostKontaktSeatBodyEmailMax),
     first_name: zod.string().min(1).max(bewerbungenPostKontaktSeatBodyFirstNameMax).regex(bewerbungenPostKontaktSeatBodyFirstNameRegExp),
     last_name: zod.string().min(1).max(bewerbungenPostKontaktSeatBodyLastNameMax).regex(bewerbungenPostKontaktSeatBodyLastNameRegExp),
     phone: zod.string().regex(bewerbungenPostKontaktSeatBodyPhoneRegExp),
@@ -782,36 +828,22 @@ export const BewerbungenResendKontaktConfirmationParams = zod.object({
 });
 
 /**
- * Withdraw the named choices, WhatsApp and media, on every confirmed seat of this application its person holds, as their own press does.
- *
- * A decided application takes it too; an accepted one holds no seat, its people being its season row's. A choice
- * already withheld stays as it is, so a second mail or a seat its person never confirmed writes nothing, and nothing
- * is ever granted.
- * @summary Enter a withdrawal of a contact seat's consent that its person asked for by mail
- */
-export const bewerbungenWithdrawKontaktEinwilligungPathBewerbungIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
-
-export const BewerbungenWithdrawKontaktEinwilligungParams = zod.object({
-  bewerbung_id: zod.string().regex(bewerbungenWithdrawKontaktEinwilligungPathBewerbungIdRegExp),
-  seat: zod.string(),
-});
-
-export const BewerbungenWithdrawKontaktEinwilligungBody = zod
-  .object({
-    choices: zod.array(zod.enum(["scope", "media"])).min(1),
-  })
-  .describe("The choices a person asked by mail to withdraw, which an administrator enters: it withholds and never grants.");
-
-/**
  * Add an address as `administration`, holding once its wait has passed; only the owner adds one, and no request grants `owner`.
  *
- * Every holder in effect and the address named are told, with the date it holds from.
+ * Every holder in effect and the address named are told, with the date it holds from. A `dry_run` is refused as the
+ * addition would be, and answers 204 and writes nothing where it would land.
  * @summary Add an administrator
  */
+export const grantsPostGrantQueryDryRunDefault = false;
+
+export const GrantsPostGrantQueryParams = zod.object({
+  dry_run: zod.boolean().default(grantsPostGrantQueryDryRunDefault).describe("Judge this write as it would be judged, and write nothing"),
+});
+
 export const grantsPostGrantBodyEmailMax = 254;
 
 export const GrantsPostGrantBody = zod.object({
-  email: zod.string().max(grantsPostGrantBodyEmailMax),
+  email: zod.string().min(1).max(grantsPostGrantBodyEmailMax),
 });
 
 /**
@@ -839,13 +871,20 @@ export const GrantsDeleteHandoverParams = zod.object({
 /**
  * Start handing the owner role to an administrator in effect, completing once its wait has passed; the owner stays the owner until then.
  *
- * Only the owner starts one, and every holder in effect is told the date it completes on.
+ * Only the owner starts one, and every holder in effect is told the date it completes on. A `dry_run` is refused as
+ * the handover would be, and writes nothing.
  * @summary Hand the owner role over to an administrator
  */
 export const grantsPostHandoverPathGrantIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
 
 export const GrantsPostHandoverParams = zod.object({
   grant_id: zod.string().regex(grantsPostHandoverPathGrantIdRegExp),
+});
+
+export const grantsPostHandoverQueryDryRunDefault = false;
+
+export const GrantsPostHandoverQueryParams = zod.object({
+  dry_run: zod.boolean().default(grantsPostHandoverQueryDryRunDefault).describe("Judge this write as it would be judged, and write nothing"),
 });
 
 /**
@@ -914,7 +953,7 @@ export const identityGetSignInBodyEmailMax = 254;
 
 export const IdentityGetSignInBody = zod
   .object({
-    email: zod.string().max(identityGetSignInBodyEmailMax),
+    email: zod.string().min(1).max(identityGetSignInBodyEmailMax),
   })
   .describe("Which mailbox is asking, folded to the one spelling the join, the header and the log agree on.");
 
@@ -929,9 +968,37 @@ export const identityGetSubjectBodyEmailMax = 254;
 
 export const IdentityGetSubjectBody = zod
   .object({
-    email: zod.string().max(identityGetSubjectBodyEmailMax),
+    email: zod.string().min(1).max(identityGetSubjectBodyEmailMax),
   })
   .describe("Which mailbox is asking, folded to the one spelling the join, the header and the log agree on.");
+
+/**
+ * Withhold each named choice on every record the address holds that grants it, answering per kind what it ended.
+ *
+ * A choice already withheld is left out of the answer and written nothing, nothing is ever granted, and a `dry_run`
+ * writes nothing and answers the same report.
+ * @summary Enter a withdrawal of the consents an address holds, on that person's request by mail
+ */
+export const identityPostWithdrawalQueryDryRunDefault = false;
+
+export const IdentityPostWithdrawalQueryParams = zod.object({
+  dry_run: zod.boolean().default(identityPostWithdrawalQueryDryRunDefault).describe("Report what this entry would end, and write nothing"),
+});
+
+export const identityPostWithdrawalBodyEmailMax = 254;
+
+export const identityPostWithdrawalBodyEmailRegExp = new RegExp("@");
+
+export const IdentityPostWithdrawalBody = zod
+  .object({
+    choices: zod.array(zod.enum(["name", "whatsapp", "media"])).min(1),
+    email: zod
+      .string()
+      .max(identityPostWithdrawalBodyEmailMax)
+      .regex(identityPostWithdrawalBodyEmailRegExp)
+      .describe("Its domain, after the last `@`, in ASCII alone, an international one in punycode; else `email_not_accepted`."),
+  })
+  .describe("The address a mail came from and what it withdraws, which an administrator enters: it withholds and never grants.");
 
 /**
  * Record what the mail provider reported about one message on its mail's row, where the row's state may follow into it.
@@ -958,7 +1025,7 @@ export const OutboxPostEventBody = zod
  *
  * `held` reports a deployment that sends no mail, `abandon` a refusal every send would meet (any 4xx but a 429), and
  * `retry` a 429, a 5xx or a send that never reached the provider, which hands the mail back unless it is a sign-in
- * mail or past its deadline.
+ * code, a deletion link or past its deadline.
  * @summary Settle one mail a claim handed out
  */
 export const outboxPostResultBodyDeliveryReasonOneMax = 128;
@@ -1010,7 +1077,7 @@ export const OutboxPostSignInBody = zod
         .describe("The one deletion notice, to a person who confirmed what went: an application's owed by a league write, an account's here."),
     ]),
     secret: zod.union([zod.string().min(1).max(outboxPostSignInBodySecretOneMax), zod.null()]),
-    to: zod.string().max(outboxPostSignInBodyToMax),
+    to: zod.string().min(1).max(outboxPostSignInBodyToMax),
     valid_until: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
   })
   .describe("One mail of the sign-in library, owed to the address it names.");
@@ -1030,6 +1097,8 @@ export const registrierungenPostRegistrierungBodyFirstNameRegExp = new RegExp("^
 export const registrierungenPostRegistrierungBodyLastNameMax = 80;
 
 export const registrierungenPostRegistrierungBodyLastNameRegExp = new RegExp("^\\p{L}[\\p{L}\\-' ]*$", "u");
+export const registrierungenPostRegistrierungBodyNummerOneMax = 4;
+
 export const registrierungenPostRegistrierungBodyNummerOneRegExp = new RegExp("^[0-9]{1,4}$");
 export const registrierungenPostRegistrierungBodyTokenMax = 128;
 
@@ -1037,7 +1106,7 @@ export const registrierungenPostRegistrierungBodyTokenRegExp = new RegExp("^[^\\
 
 export const RegistrierungenPostRegistrierungBody = zod
   .object({
-    email: zod.string().max(registrierungenPostRegistrierungBodyEmailMax),
+    email: zod.string().min(1).max(registrierungenPostRegistrierungBodyEmailMax),
     first_name: zod
       .string()
       .min(1)
@@ -1048,7 +1117,10 @@ export const RegistrierungenPostRegistrierungBody = zod
       .min(1)
       .max(registrierungenPostRegistrierungBodyLastNameMax)
       .regex(registrierungenPostRegistrierungBodyLastNameRegExp),
-    nummer: zod.union([zod.string().regex(registrierungenPostRegistrierungBodyNummerOneRegExp), zod.null()]),
+    nummer: zod.union([
+      zod.string().max(registrierungenPostRegistrierungBodyNummerOneMax).regex(registrierungenPostRegistrierungBodyNummerOneRegExp),
+      zod.null(),
+    ]),
     position: zod.union([zod.enum(["Tor", "Abwehr", "Mittelfeld", "Angriff"]), zod.null()]),
     stufe: zod.union([zod.enum(["E1", "E2", "Q1", "Q2", "Q3", "Q4"]), zod.null()]),
     token: zod.string().min(1).max(registrierungenPostRegistrierungBodyTokenMax).regex(registrierungenPostRegistrierungBodyTokenRegExp),
@@ -1208,25 +1280,6 @@ export const RegistrierungenPatchEinwilligungBody = zod
       .describe("A pupil's two wordings: the name on the squad and the media switch."),
   })
   .describe("A pupil's or a registration's own two choices on their record.");
-
-/**
- * Withdraw the named choices of the consent a pupil gave on a registration, which an admission would carry onto them.
- *
- * A decided registration takes it too. A choice already withheld stays as it is, so a second mail or a registration
- * its pupil never confirmed writes nothing, and nothing is ever granted.
- * @summary Enter a withdrawal of a registration's consent that its pupil asked for by mail
- */
-export const registrierungenWithdrawRegistrierungEinwilligungPathRegistrierungIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
-
-export const RegistrierungenWithdrawRegistrierungEinwilligungParams = zod.object({
-  registrierung_id: zod.string().regex(registrierungenWithdrawRegistrierungEinwilligungPathRegistrierungIdRegExp),
-});
-
-export const RegistrierungenWithdrawRegistrierungEinwilligungBody = zod
-  .object({
-    choices: zod.array(zod.enum(["scope", "media"])).min(1),
-  })
-  .describe("The choices a person asked by mail to withdraw, which an administrator enters: it withholds and never grants.");
 
 /**
  * Create the next season, always `future`, from its two days, answering the id it minted.
@@ -1416,18 +1469,6 @@ export const SaisonsGetSaisonOverviewParams = zod.object({
 });
 
 /**
- * Clear one season's contact blocks once a later season has ended, and each seat past its own day unconfirmed before.
- *
- * Once a later season has ended, the season's fixture answers and match reports keep the league's record alone. A row
- * that cannot be written is passed over, counted in `failed`, and met again by the next pass, as is a clock written in
- * one go whose write fails; what each clock cleared is recorded in the action log.
- * @summary Run one season's retention clocks over its season rows, fixture answers and match reports
- */
-export const SaisonsSweepSaisonRetentionParams = zod.object({
-  saison_id: zod.string(),
-});
-
-/**
  * One match as its page and its pop-up show it, each side of a group match with its group and `platz`; 404 outside a readable season.
  *
  * Each side's line-up from the moment its club stores one, the scorers and cards only while the report is adopted
@@ -1483,6 +1524,18 @@ export const SaisonsPostSpielplanBody = zod
   );
 
 /**
+ * Clear one season's contact blocks once a later season has ended, and each seat past its own day unconfirmed before.
+ *
+ * Once a later season has ended, the season's fixture answers and match reports keep the league's record alone. A row
+ * that cannot be written is passed over, counted in `failed`, and met again by the next pass, as is a clock written in
+ * one go whose write fails; what each clock cleared is recorded in the action log.
+ * @summary Run one season's retention clocks over its season rows, fixture answers and match reports
+ */
+export const SaisonsSweepSaisonRetentionParams = zod.object({
+  saison_id: zod.string(),
+});
+
+/**
  * Each group's standing over the group phase with its goals counted on every read, and how many of each group advance.
  *
  * A club that left the season keeps its row; it holds no `platz` where it left before its group was decided, and
@@ -1518,12 +1571,22 @@ export const SaisonsGetTeamParams = zod.object({
 });
 
 /**
- * Create a referee and owe them their confirmation link.
+ * Create a referee and owe them their confirmation link, answering the address it goes to.
  *
  * Entering a referee is the invitation, with no second press deciding whether they are asked, since a referee nobody
- * asked is a name nobody consented to publish.
+ * asked is a name nobody consented to publish. A `dry_run` is refused as the create would be, and answers 204 and
+ * writes nothing where it would land.
  * @summary Create a Schiedsrichter
  */
+export const schiedsrichterPostSchiedsrichterQueryDryRunDefault = false;
+
+export const SchiedsrichterPostSchiedsrichterQueryParams = zod.object({
+  dry_run: zod
+    .boolean()
+    .default(schiedsrichterPostSchiedsrichterQueryDryRunDefault)
+    .describe("Judge this write as it would be judged, and write nothing"),
+});
+
 export const schiedsrichterPostSchiedsrichterBodyDefaultPaymentMin = 0;
 
 export const schiedsrichterPostSchiedsrichterBodyKontaktEmailMax = 254;
@@ -1538,7 +1601,7 @@ export const schiedsrichterPostSchiedsrichterBodySchuleOneMax = 120;
 export const SchiedsrichterPostSchiedsrichterBody = zod.object({
   default_payment: zod.int().min(schiedsrichterPostSchiedsrichterBodyDefaultPaymentMin),
   kontakt: zod.object({
-    email: zod.string().max(schiedsrichterPostSchiedsrichterBodyKontaktEmailMax),
+    email: zod.string().min(1).max(schiedsrichterPostSchiedsrichterBodyKontaktEmailMax),
     phone: zod.union([
       zod.string().regex(schiedsrichterPostSchiedsrichterBodyKontaktPhoneOneRegExp),
       zod.null(),
@@ -1608,7 +1671,7 @@ export const SchiedsrichterGetConfirmationViewBody = zod
   .describe("The token of the link a person opened, in the body: a token in a URL reaches the edge's access line.");
 
 /**
- * Every fixture of this season booked to one of the signed-in address's live, confirmed referee records, open work first.
+ * Every fixture of this season booked to the signed-in address's live, confirmed referee records, in the order the draw numbered them.
  *
  * Nobody's address is served, and no reason an administrator entered.
  * @summary A signed-in referee's fixtures of one season, one row a fixture
@@ -1645,13 +1708,23 @@ export const SchiedsrichterGetSchiedsrichterByIdParams = zod.object({
  * Update a referee on the `version` the editor was served, answering the version stored.
  *
  * A corrected address on an unconfirmed referee retires their link and owes a fresh one, named in `confirmation`, and a
- * confirmed referee's address moves only through an address change.
+ * confirmed referee's address moves only through an address change. A `dry_run` is refused as the update would be, and
+ * answers 204 and writes nothing where it would land.
  * @summary Update a Schiedsrichter
  */
 export const schiedsrichterPatchSchiedsrichterPathSchiedsrichterIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
 
 export const SchiedsrichterPatchSchiedsrichterParams = zod.object({
   schiedsrichter_id: zod.string().regex(schiedsrichterPatchSchiedsrichterPathSchiedsrichterIdRegExp),
+});
+
+export const schiedsrichterPatchSchiedsrichterQueryDryRunDefault = false;
+
+export const SchiedsrichterPatchSchiedsrichterQueryParams = zod.object({
+  dry_run: zod
+    .boolean()
+    .default(schiedsrichterPatchSchiedsrichterQueryDryRunDefault)
+    .describe("Judge this write as it would be judged, and write nothing"),
 });
 
 export const schiedsrichterPatchSchiedsrichterBodyDefaultPaymentMin = 0;
@@ -1670,7 +1743,7 @@ export const schiedsrichterPatchSchiedsrichterBodyVersionMin = 0;
 export const SchiedsrichterPatchSchiedsrichterBody = zod.object({
   default_payment: zod.int().min(schiedsrichterPatchSchiedsrichterBodyDefaultPaymentMin),
   kontakt: zod.object({
-    email: zod.string().max(schiedsrichterPatchSchiedsrichterBodyKontaktEmailMax),
+    email: zod.string().min(1).max(schiedsrichterPatchSchiedsrichterBodyKontaktEmailMax),
     phone: zod.union([
       zod.string().regex(schiedsrichterPatchSchiedsrichterBodyKontaktPhoneOneRegExp),
       zod.null(),
@@ -1683,7 +1756,7 @@ export const SchiedsrichterPatchSchiedsrichterBody = zod.object({
 });
 
 /**
- * Owe this referee a fresh confirmation link, which the Postausgang mints and mails, and answer where it goes.
+ * Owe this referee a fresh confirmation link, which the Postausgang mints and mails, to the address they hold.
  *
  * The previous link stops working at once and the deadline restarts from today; a referee who has already answered is
  * refused, since the new link could never be spent.
@@ -1725,28 +1798,10 @@ export const SchiedsrichterPatchEinwilligungBody = zod
   .describe("A referee's own two choices on their record.");
 
 /**
- * Withdraw the named choices of a referee's consent, the name on the fixtures leaving the public pages and the media consent ending.
+ * Bring a retired referee back into the picker and every default read, answering where a fresh link goes.
  *
- * A choice already withheld stays as it is, so a second mail or a record its person never confirmed writes nothing,
- * and nothing is ever granted.
- * @summary Enter a withdrawal of a Schiedsrichter's consent that they asked for by mail
- */
-export const schiedsrichterWithdrawSchiedsrichterEinwilligungPathSchiedsrichterIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
-
-export const SchiedsrichterWithdrawSchiedsrichterEinwilligungParams = zod.object({
-  schiedsrichter_id: zod.string().regex(schiedsrichterWithdrawSchiedsrichterEinwilligungPathSchiedsrichterIdRegExp),
-});
-
-export const SchiedsrichterWithdrawSchiedsrichterEinwilligungBody = zod
-  .object({
-    choices: zod.array(zod.enum(["scope", "media"])).min(1),
-  })
-  .describe("The choices a person asked by mail to withdraw, which an administrator enters: it withholds and never grants.");
-
-/**
- * Bring a retired referee back into the picker and every default read.
- *
- * One who has not answered is owed a fresh link, since a retired referee's save mails nothing.
+ * One who has not answered is owed a fresh link, named in `confirmation`, since a retired referee's save mails nothing;
+ * one who has answered, holds no address a link can go to, or is back already, is owed none.
  * @summary Bring a deactivated Schiedsrichter back
  */
 export const schiedsrichterReactivateSchiedsrichterPathSchiedsrichterIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -2255,25 +2310,6 @@ export const SpielerGetKaderParams = zod.object({
 });
 
 /**
- * Withdraw the named choices of a pupil's consent, the name on the squad leaving the public pages and the media consent ending.
- *
- * A choice already withheld stays as it is, so a second mail writes nothing, and nothing is ever granted. The caller
- * drops its cached squad lists after a success, since the scope decides whether a name is served.
- * @summary Enter a withdrawal of a Spieler's consent that they asked for by mail
- */
-export const spielerWithdrawSpielerEinwilligungPathSpielerIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
-
-export const SpielerWithdrawSpielerEinwilligungParams = zod.object({
-  spieler_id: zod.string().regex(spielerWithdrawSpielerEinwilligungPathSpielerIdRegExp),
-});
-
-export const SpielerWithdrawSpielerEinwilligungBody = zod
-  .object({
-    choices: zod.array(zod.enum(["scope", "media"])).min(1),
-  })
-  .describe("The choices a person asked by mail to withdraw, which an administrator enters: it withholds and never grants.");
-
-/**
  * Take a player out of a season's squad, the row staying, marked by `inactive_since`.
  *
  * The row records that this player wore this number in this squad, which stays true after they leave. A finished
@@ -2320,6 +2356,8 @@ export const spielerPatchSpielerSaisonBodyFirstNameRegExp = new RegExp("^\\p{L}[
 export const spielerPatchSpielerSaisonBodyLastNameOneMax = 80;
 
 export const spielerPatchSpielerSaisonBodyLastNameOneRegExp = new RegExp("^\\p{L}[\\p{L}\\-' ]*$", "u");
+export const spielerPatchSpielerSaisonBodyNummerOneMax = 4;
+
 export const spielerPatchSpielerSaisonBodyNummerOneRegExp = new RegExp("^[0-9]{1,4}$");
 export const spielerPatchSpielerSaisonBodyVersionMin = 0;
 
@@ -2331,7 +2369,10 @@ export const SpielerPatchSpielerSaisonBody = zod
       zod.string().min(1).max(spielerPatchSpielerSaisonBodyLastNameOneMax).regex(spielerPatchSpielerSaisonBodyLastNameOneRegExp),
       zod.null(),
     ]),
-    nummer: zod.union([zod.string().regex(spielerPatchSpielerSaisonBodyNummerOneRegExp), zod.null()]),
+    nummer: zod.union([
+      zod.string().max(spielerPatchSpielerSaisonBodyNummerOneMax).regex(spielerPatchSpielerSaisonBodyNummerOneRegExp),
+      zod.null(),
+    ]),
     position: zod.union([zod.enum(["Tor", "Abwehr", "Mittelfeld", "Angriff"]), zod.null()]),
     rolle: zod.union([zod.enum(["kapitaen", "co_kapitaen"]), zod.null()]),
     stufe: zod.union([zod.enum(["E1", "E2", "Q1", "Q2", "Q3", "Q4"]), zod.null()]),
@@ -2384,12 +2425,14 @@ export const SpielerPatchKaderRowParams = zod.object({
   spieler_id: zod.string().regex(spielerPatchKaderRowPathSpielerIdRegExp),
 });
 
+export const spielerPatchKaderRowBodyNummerOneMax = 4;
+
 export const spielerPatchKaderRowBodyNummerOneRegExp = new RegExp("^[0-9]{1,4}$");
 export const spielerPatchKaderRowBodyVersionMin = 0;
 
 export const SpielerPatchKaderRowBody = zod
   .object({
-    nummer: zod.union([zod.string().regex(spielerPatchKaderRowBodyNummerOneRegExp), zod.null()]),
+    nummer: zod.union([zod.string().max(spielerPatchKaderRowBodyNummerOneMax).regex(spielerPatchKaderRowBodyNummerOneRegExp), zod.null()]),
     position: zod.union([zod.enum(["Tor", "Abwehr", "Mittelfeld", "Angriff"]), zod.null()]),
     rolle: zod.union([zod.enum(["kapitaen", "co_kapitaen"]), zod.null()]),
     stufe: zod.union([zod.enum(["E1", "E2", "Q1", "Q2", "Q3", "Q4"]), zod.null()]),
@@ -2870,7 +2913,7 @@ export const TeamsPatchEinwilligungBody = zod
       .describe("A contact seat's two wordings: the WhatsApp switch and the media switch."),
   })
   .describe(
-    "A seat holder's own two choices for every seat they hold on one row, under any label their kind cites.\n\nBoth choices on every press: a page that sent one alone would leave the other judged by nothing.",
+    "A seat holder's own two choices for every seat they hold on one row.\n\nBoth choices on every press: a page that sent one alone would leave the other judged by nothing.",
   );
 
 /**
@@ -2926,7 +2969,8 @@ export const TeamsPostInvitationMailBody = zod
  * Write the person one seat holds on the row's `version`, a newly seated person owed a fresh link whose address `email` names.
  *
  * The same person, address and name folded, keeps the seat's record and link, and where the Trainer holds a second seat
- * a write on either seat writes both under one link.
+ * a write on either seat writes both under one link. A `dry_run` is refused as the write would be, and answers 204 and
+ * writes nothing where it would land.
  * @summary Write the person one contact seat holds
  */
 export const teamsPutKontaktSeatPathTeamIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -2935,6 +2979,12 @@ export const TeamsPutKontaktSeatParams = zod.object({
   team_id: zod.string().regex(teamsPutKontaktSeatPathTeamIdRegExp),
   saison_id: zod.string(),
   seat: zod.string(),
+});
+
+export const teamsPutKontaktSeatQueryDryRunDefault = false;
+
+export const TeamsPutKontaktSeatQueryParams = zod.object({
+  dry_run: zod.boolean().default(teamsPutKontaktSeatQueryDryRunDefault).describe("Judge this write as it would be judged, and write nothing"),
 });
 
 export const teamsPutKontaktSeatBodyEmailMax = 254;
@@ -2950,7 +3000,7 @@ export const teamsPutKontaktSeatBodyVersionMin = 0;
 
 export const TeamsPutKontaktSeatBody = zod
   .object({
-    email: zod.string().max(teamsPutKontaktSeatBodyEmailMax),
+    email: zod.string().min(1).max(teamsPutKontaktSeatBodyEmailMax),
     first_name: zod.string().min(1).max(teamsPutKontaktSeatBodyFirstNameMax).regex(teamsPutKontaktSeatBodyFirstNameRegExp),
     last_name: zod.string().min(1).max(teamsPutKontaktSeatBodyLastNameMax).regex(teamsPutKontaktSeatBodyLastNameRegExp),
     phone: zod.string().regex(teamsPutKontaktSeatBodyPhoneRegExp),
@@ -2972,27 +3022,6 @@ export const TeamsResendKontaktConfirmationParams = zod.object({
   saison_id: zod.string(),
   seat: zod.string(),
 });
-
-/**
- * Withdraw the named choices, WhatsApp and media, on every confirmed seat of this row its person holds, as their own press does.
- *
- * A finished season's row and a withdrawn team's take it too. A choice already withheld stays as it is, so a second mail
- * or a seat its person never confirmed writes nothing, and nothing is ever granted.
- * @summary Enter a withdrawal of a contact seat's consent that its person asked for by mail
- */
-export const teamsWithdrawKontaktEinwilligungPathTeamIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
-
-export const TeamsWithdrawKontaktEinwilligungParams = zod.object({
-  team_id: zod.string().regex(teamsWithdrawKontaktEinwilligungPathTeamIdRegExp),
-  saison_id: zod.string(),
-  seat: zod.string(),
-});
-
-export const TeamsWithdrawKontaktEinwilligungBody = zod
-  .object({
-    choices: zod.array(zod.enum(["scope", "media"])).min(1),
-  })
-  .describe("The choices a person asked by mail to withdraw, which an administrator enters: it withholds and never grants.");
 
 /**
  * Everything a team's Übersicht shows in one read, for a person holding any contact seat on the team in this season.

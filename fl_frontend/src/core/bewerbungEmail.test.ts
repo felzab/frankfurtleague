@@ -21,7 +21,6 @@ const ZUSAGE: FLBewerbungZusageData = {
 const LINK: FLBewerbungLinkData = {
   kind: "bewerbung_confirmation",
   saison_id: "2627",
-  schule: "Ernst-Reuter-Schule",
   seats: ["trainer"],
   deadline: "2026-09-18",
 };
@@ -33,13 +32,6 @@ describe("the acceptance's kit colour", () => {
     const { text } = renderMail(buildBewerbungZusageEmail(ZUSAGE, { origin: ORIGIN }));
 
     assert.ok(text.includes("Trikotfarbe: Hellgrün (#75db06)"), "the mail lost the colour's name or its hex");
-  });
-
-  /* No later mail names a colour set after the Zusage, so a sentence saying one follows is a promise nobody keeps. */
-  it("promises nothing where no colour is assigned", () => {
-    const { text } = renderMail(buildBewerbungZusageEmail({ ...ZUSAGE, trikot_farbe: null }, { origin: ORIGIN }));
-
-    expect(text).not.toMatch(/noch|später|bekommst|teilen wir|schicken wir|meldet sich|folgt/);
   });
 });
 

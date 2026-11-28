@@ -23,6 +23,7 @@ from app.api.spielbestaetigungen.schemas import (
     FLSpielbestaetigungTeamAnswerPayload,
 )
 from app.api.spielbestaetigungen.services import (
+    as_judged_on_the_stored_proposal,
     build_answerable_filter,
     compose_answer_update,
     compose_schiedsrichter_answer_update,
@@ -31,7 +32,6 @@ from app.api.spielbestaetigungen.services import (
     find_vorschlag_past_refusal,
     find_vorschlag_unchanged_refusal,
     foreign_row_refusal,
-    judged_as_a_proposal,
     proposal_payload,
     unanswerable_refusal,
 )
@@ -39,7 +39,7 @@ from app.api.spiele.crud import pull_booked_slots, pull_saison_membership, pull_
 from app.api.spiele.schemas import FLSpiel
 from app.api.spiele.services import find_claims_made, find_clash_refusal, find_eligibility_refusal, find_spiel_date_refusal
 from app.core import clock
-from app.core.crud import anchor_in_db, patch_one_in_db, pull_many_from_db, refuse
+from app.core.crud import anchor_in_db, patch_one_in_db, pull_many_from_db, refuse, refuse_faults
 from app.core.dependencies import (
     DBClient,
     GermanyNow,
@@ -153,7 +153,7 @@ async def post_schiedsrichter_answer(
             action="spielbestaetigung.answered",
             by=ACT_BY_SCHIEDSRICHTER,
             record_id=spielbestaetigung_id,
-            label=str(row["saison_id"]),
+            saison_id=str(row["saison_id"]),
             session=session,
         )
 
@@ -237,28 +237,35 @@ async def post_team_answer(
         refuse(find_unanswerable_refusal(spielbestaetigung_raw=row, ansetzung_state=ansetzung_state, now=germany_now))
 
         if vorschlag is not None:
-            refuse(find_vorschlag_past_refusal(vorschlag=vorschlag, today=today))
-
             stored = FLSpiel.model_validate(ansetzung_state.spiel)
-            refuse(find_vorschlag_unchanged_refusal(vorschlag=vorschlag, spiel=stored))
+            refuse_faults(
+                find_vorschlag_past_refusal(vorschlag=vorschlag, today=today),
+                find_vorschlag_unchanged_refusal(vorschlag=vorschlag, spiel=stored),
+            )
             proposed = proposal_payload(stored, vorschlag)
 
-            # The administrator's save's judges in its order, each read just ahead of the one refusal that consumes it.
+            # The administrator's save's judges in its order, each read just ahead of the one refusal that consumes it. Each
+            # keeps its first fault's path as the adoption does, which picks the sentence naming the booked resource or the
+            # departed side, and stands a matchday's bound on the club's day box, named `date` as the save names it.
             membership = await pull_saison_membership(
                 saison_teams_collection=saison_teams_collection, saison_id=stored.saison_id, session=session
             )
-            refuse(judged_as_a_proposal(find_eligibility_refusal(stored.id, proposed, [stored], membership)))
+            refuse(as_judged_on_the_stored_proposal(find_eligibility_refusal(stored.id, proposed, [stored], membership)))
 
             span = await pull_spieltag_span(spieltage_collection=spieltage_collection, spieltag_id=stored.spieltag_id, session=session)
             if span is not None:
-                refuse(judged_as_a_proposal(find_spiel_date_refusal(date=proposed.date, spieltag_start=span.start, spieltag_end=span.end)))
+                refuse(
+                    as_judged_on_the_stored_proposal(
+                        find_spiel_date_refusal(date=proposed.date, spieltag_start=span.start, spieltag_end=span.end)
+                    )
+                )
 
             # Last, as in the save: it validates every season's fixtures, and a hand-edited one raises, answering 500 for a
             # proposal an earlier rule refuses. Only claims the stored fixture did not make.
             booked = await pull_booked_slots(
                 spiele_collection=spiele_collection, spiel_id=stored.id, claims=find_claims_made(stored, proposed), session=session
             )
-            refuse(judged_as_a_proposal(find_clash_refusal(date=proposed.date, time=proposed.time, booked=booked)))
+            refuse(as_judged_on_the_stored_proposal(find_clash_refusal(date=proposed.date, time=proposed.time, booked=booked)))
 
         try:
             await patch_one_in_db(
@@ -294,7 +301,7 @@ async def post_team_answer(
                 (str(junction["name"]) for junction in ansetzung_state.junctions if junction["team_id"] == row["party"]["team_id"]), None
             ),
             record_id=spielbestaetigung_id,
-            label=str(row["saison_id"]),
+            saison_id=str(row["saison_id"]),
             session=session,
         )
 

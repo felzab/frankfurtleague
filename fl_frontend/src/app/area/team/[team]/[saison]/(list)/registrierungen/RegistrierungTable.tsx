@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 import { ListTable } from "@/kit/ListTable";
 
 import { RegistrierungDialog } from "./RegistrierungDialog";

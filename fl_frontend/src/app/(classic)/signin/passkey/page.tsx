@@ -3,17 +3,13 @@ import { redirect } from "next/navigation";
 import { getPasskeyStep } from "@/core/auth/landing";
 import { RETURN_PARAMETER, withReturnAddress } from "@/core/auth/returnAddress";
 import { ROUTES } from "@/core/routes";
-import { PasskeyStep } from "@/features/auth/components/forms/PasskeyStep";
+import { PasskeyStep } from "@/features/auth/PasskeyStep";
 import { pageMetadata } from "@/shared/utils/metadata";
-
-import type { Metadata, ResolvingMetadata } from "next";
 
 type Props = PageProps<"/signin/passkey">;
 
 /** No description, as `/signin` carries none. */
-export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
-  return pageMetadata(parent, ROUTES.signInPasskey, ROUTES.signInPasskey.path());
-}
+export const metadata = pageMetadata(ROUTES.signInPasskey);
 
 // Never under `/admin`: the session that must reach this page is the one the admin guard is
 // refusing, so a page behind that guard is a page nobody can open.
@@ -35,15 +31,7 @@ async function readView(searchParams: Props["searchParams"]) {
     redirect(withReturnAddress(ROUTES.signInLanding.path(), typeof asked === "string" ? asked : null));
   }
 
-  // „Später“ goes past the landing rather than to it, which would offer the passkey again.
-  return step.step === "offer" ? (
-    <PasskeyStep
-      step="offer"
-      address={step.email}
-      next={ROUTES.signInLanding.path()}
-      later={ROUTES.area.path()}
-    />
-  ) : (
+  return (
     <PasskeyStep
       step={step.step}
       address={step.email}

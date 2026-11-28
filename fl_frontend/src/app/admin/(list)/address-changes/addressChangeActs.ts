@@ -2,50 +2,34 @@
 
 import { z } from "zod";
 
-import { action, PAGE_HOLDER } from "@/core/action";
+import { action, fault, PAGE_HOLDER } from "@/core/action";
 import { accountStandsAt } from "@/core/auth/accounts";
-import { COPY } from "@/core/copy";
 import { addressChangePostAddressChangeAdmin, addressChangeResendConfirmation } from "@/core/generated/client/sdk";
 import { AddressChangeResendConfirmationParams } from "@/core/generated/zod/inputs";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { accountAtNewAddress } from "@/features/address-change/account";
 import { SignInAddressSchema, SignInPayloadSchema } from "@/features/auth/schemas";
 
-const FORMAT = SERVER_COPY.closedDialog.format;
-
 /**
  * A change started for a person who says they cannot sign in: the address on file, and the new one, held as an address
- * the person will sign in at. An account standing at the new address is refused before the mint, which writes: the backend cannot see the sign-in store. The address's running change ends
- * replaced, which the dialog says as the address is typed.
+ * the person will sign in at. An account standing at the new address is refused on its box before the mint, which
+ * writes, and before its dry run asks the touch: the backend cannot see the sign-in store. The address's running change
+ * ends replaced, which the dialog says as the address is typed.
  */
 export const startLostMailboxChange = action({
   lane: "admin",
   passkey: true,
+  dryRun: true,
   name: "startLostMailboxChange",
   input: z.object({
     address: SignInPayloadSchema.shape.email,
     email: SignInAddressSchema,
     ...PAGE_HOLDER,
   }),
-  ownWords: [
-    "own_address",
-    "admin_address",
-    "address_change_nothing",
-    "address_change_taken",
-    "address_change_unchanged",
-    "email_not_accepted",
-  ],
-  paths: { address: "address", email: "email" },
-  examples: { address: COPY.shared.field.exampleAddress, email: COPY.shared.field.exampleAddress },
-  // The dialog has closed before any answer, which its toast says: every refusal is a sentence, never a box's phrase.
-  boxless: {
-    address: { value: FORMAT.previous, email_not_accepted: FORMAT.previous },
-    email: { value: FORMAT.next, email_not_accepted: FORMAT.next },
-  },
-  run: async ({ address, email }) => {
-    if (await accountStandsAt(email))
-      return { ok: false, errorCode: "address_change_taken", reason: SERVER_COPY.refusalLine.address_change_taken };
-    await addressChangePostAddressChangeAdmin({ address, email });
+  boxes: ["address", "email"],
+  run: async ({ address, email }, { dryRun }) => {
+    if (await accountStandsAt(email)) return { ok: false, faults: [fault("email", "address_change_taken")] };
+    await addressChangePostAddressChangeAdmin({ address, email }, { dry_run: dryRun });
     return { ok: true, value: undefined };
   },
 });
@@ -60,7 +44,6 @@ export const resendChangeLink = action({
   passkey: true,
   name: "resendChangeLink",
   input: AddressChangeResendConfirmationParams.extend(PAGE_HOLDER),
-  ownWords: ["own_address", "admin_address", "address_change_taken"],
   run: async ({ address_change_id }) => {
     if (await accountAtNewAddress({ address_change_id })) {
       return { ok: false, errorCode: "address_change_taken", reason: SERVER_COPY.refusalLine.address_change_taken };

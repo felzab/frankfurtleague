@@ -5,8 +5,8 @@ import Script from "next/script";
 
 import { useTheme } from "next-themes";
 
-import { COPY } from "@/core/copy";
-import { CONFIRM_HUMAN } from "@/core/turnstileToken";
+import { COPY } from "@/core/copy/shared";
+import { BOT_CHECK_WAIT_MS, CONFIRM_HUMAN } from "@/core/turnstileToken";
 import { postClientError } from "@/shared/utils/clientError";
 
 import type { Copy } from "@/core/copy";
@@ -16,12 +16,8 @@ import type { ReactNode } from "react";
 // URL, never proxied (https://developers.cloudflare.com/turnstile/get-started/client-side-rendering/).
 const TURNSTILE_API = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
 
-// Cloudflare's own bound on a siteverify call: a press waits for a token being minted as long as the
-// server would wait for its verdict, and is then answered rather than posting a token the server refuses.
-const TOKEN_WAIT_MS = 10_000;
-
 /**
- * A press past `TOKEN_WAIT_MS` with no token minted, or on a check that did not load: nothing the visitor does repairs
+ * A press past `BOT_CHECK_WAIT_MS` with no token minted, or on a check that did not load: nothing the visitor does repairs
  * either, so neither says a reason, and the widget's failure is reported once.
  */
 const UNCHECKED = COPY.shared.failure.unexpected;
@@ -168,7 +164,8 @@ export function useBotCheck({ siteKey, size }: { siteKey: string | null; size: B
         waiting.current.delete(waiter);
         resolve(minted === null ? withoutToken() : handOver(minted));
       };
-      const timer = setTimeout(() => waiter(null), TOKEN_WAIT_MS);
+      // As long as the server waits for Cloudflare's verdict, then answered here rather than posting no token.
+      const timer = setTimeout(() => waiter(null), BOT_CHECK_WAIT_MS);
       waiting.current.add(waiter);
     });
   };

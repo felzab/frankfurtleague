@@ -121,7 +121,7 @@ class FLSpielbericht(BaseModel):
     saison_id: str
     spiel_id: CustomObjectId
     bericht: FLSpielberichtBericht
-    version: int = 0
+    version: int
 
 
 # --- The write: the referee's PUT.

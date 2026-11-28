@@ -221,13 +221,13 @@ async def admin_reads(
 async def refusal_of(saving: Awaitable[Any]) -> tuple[Code, list[tuple[str | int, ...]]]:
     with pytest.raises(APIError) as refused:
         await saving
-    return refused.value.error_code, list(refused.value.fields)
+    return refused.value.error_code, [fault.path for fault in refused.value.faults]
 
 
 async def test_a_seats_first_save_creates_the_line_up_the_screen_then_reads(mongo_replica_set_url: str):
     """The squad, the matchday by its stored position, each side with its Kürzel, and the act recorded.
 
-    The act's record is the line-up, so its label alone names the fixture in the Protokoll.
+    The act's record is the line-up, so its season and number alone name the fixture in the Protokoll.
     """
 
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> None:
@@ -255,7 +255,9 @@ async def test_a_seats_first_save_creates_the_line_up_the_screen_then_reads(mong
         assert (answer.version, [(entry.spieler_id, entry.starts) for entry in answer.spieler]) == (0, [(LINA, True), (OLE, False)])
         assert stored is not None
         assert await acts_of(database) == [("aufstellung.saved", ACT_BY_KONTAKT, "Alpha", stored["_id"])]
-        assert await database[Collection.ACTION_LOG].distinct("label") == ["2026 / 1"]
+        assert [(row["saison_id"], row["spiel_nr"], row["label"]) async for row in database[Collection.ACTION_LOG].find()] == [
+            ("2026", 1, None)
+        ]
 
     await on_a_season(mongo_replica_set_url, body)
 
@@ -545,22 +547,24 @@ class TestWhatTheSaveAnchorsMovingInsideItIsRefusedInItsTransaction:
 async def save_the_fixture(database: AsyncDatabase, client: AsyncMongoClient, loaded: Mapping[str, Any], *, spiele: Any) -> Any:
     """The administrator's save of the fixture from an editor that loaded `loaded`, moving its note alone."""
 
-    return await patch_spiel(
-        spiel_id=SPIEL,
-        spiel_data=FLPatchSpielDataPayload.model_validate(spiel_patch_body(loaded, note=MOVED_NOTE)),
-        db=client,
-        spiele_collection=spiele,
-        teams_collection=database[Collection.TEAMS],
-        saisons_collection=database[Collection.SAISONS],
-        saison_teams_collection=database[Collection.SAISON_TEAMS],
-        spieltage_collection=database[Collection.SPIELTAGE],
-        spielorte_collection=database[Collection.SPIELORTE],
-        schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
-        spielberichte_collection=database[Collection.SPIELBERICHTE],
-        aufstellungen_collection=database[Collection.AUFSTELLUNGEN],
-        spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
-        germany_now=OPEN,
-    )
+    async with client.start_session(snapshot=True) as session:
+        return await patch_spiel(
+            spiel_id=SPIEL,
+            spiel_data=FLPatchSpielDataPayload.model_validate(spiel_patch_body(loaded, note=MOVED_NOTE)),
+            db=client,
+            spiele_collection=spiele,
+            teams_collection=database[Collection.TEAMS],
+            saisons_collection=database[Collection.SAISONS],
+            saison_teams_collection=database[Collection.SAISON_TEAMS],
+            spieltage_collection=database[Collection.SPIELTAGE],
+            spielorte_collection=database[Collection.SPIELORTE],
+            schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+            spielberichte_collection=database[Collection.SPIELBERICHTE],
+            aufstellungen_collection=database[Collection.AUFSTELLUNGEN],
+            spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
+            germany_now=OPEN,
+            session=session,
+        )
 
 
 # A change no line-up is judged on, so the fixture's save takes it whichever order the two commit in.

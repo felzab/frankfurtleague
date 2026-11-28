@@ -13,7 +13,7 @@ from app.api.saisons.services import entry_is_a_nominee
 from app.core.clock import days_after
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.exceptions import APIError, link_expired
+from app.core.exceptions import APIError, link_expired, link_invalid
 from app.shared.einwilligung import is_confirmed
 from app.shared.einwilligung_evidence import TextVersions, compose_initial, compose_renewed
 from app.shared.folding import person_name_key, sign_in_identifier
@@ -56,7 +56,7 @@ def find_closed_refusal(*, saison_status: Any, registrierung: Any, entered: bool
 
 
 def find_team_departed_refusal(*, austritt: Any) -> APIError | None:
-    """`document_not_found`: the invite's team has left the season, so its link opens nothing, as a revoked invite's does.
+    """`link_invalid`: the invite's team has left the season, so its link opens nothing, as a revoked invite's does.
 
     The record's presence and never its `date`.
     """
@@ -64,7 +64,7 @@ def find_team_departed_refusal(*, austritt: Any) -> APIError | None:
     if austritt is None:
         return None
 
-    return APIError(HTTPStatus.NOT_FOUND, Code.DOCUMENT_NOT_FOUND)
+    return link_invalid()
 
 
 def find_stufe_refusal(*, stufe: Any, allowed_stufen: Sequence[str]) -> APIError | None:
@@ -263,7 +263,7 @@ def state_of(*, registrierung_raw: Mapping[str, Any], departed: bool, today: str
 
 
 def find_expired_token_refusal(*, confirmation: Any, status: Any, departed: bool, today: str) -> APIError | None:
-    """Why this link is over, or `None`. Judged before the stamp: a registration decided while the link stood open takes no answer either."""
+    """Why this link is over, or `None`. Judged after the stamp: a registration decided while the link stood open takes no answer either."""
 
     return link_expired() if link_is_over(confirmation=confirmation, status=status, departed=departed, today=today) else None
 

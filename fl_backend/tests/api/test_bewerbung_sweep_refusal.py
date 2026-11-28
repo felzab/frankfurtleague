@@ -12,7 +12,6 @@ from app.api.bewerbungen.services import (
     lapsed_seats,
     owed_deletion_notices,
     reminder_seats,
-    schule_name,
     seat_reminder_is_due,
     unreachable_seats,
 )
@@ -252,11 +251,6 @@ class TestALapsedSeasonRowSeat:
 
 
 class TestWhatTheNoticesNeed:
-    def test_the_school_is_the_submitted_name_or_the_picked_teams(self):
-        assert schule_name(bewerbung_raw=application(), team_names={}) == "Zorbanax"
-        assert schule_name(bewerbung_raw=application(schule=None, team_id="club-1"), team_names={"club-1": "Adler"}) == "Adler"
-        assert schule_name(bewerbung_raw=application(schule=None, team_id="club-9"), team_names={}) == ""
-
     def test_the_notice_goes_to_the_ansprechperson_and_names_every_seat_that_mailbox_holds(self):
         """The double-seated case is the one the single-seat spelling gets wrong: it names one seat to a reader holding two."""
 

@@ -1,7 +1,5 @@
 "use client";
 
-import { useEffect, useRef } from "react";
-
 import { Button } from "./Button";
 import { ClassicPage, ClassicTitle } from "./ClassicPage";
 import { CodeField } from "./CodeField";
@@ -12,11 +10,12 @@ import { HeldForm } from "./HeldForm";
 import { TextField } from "./TextField";
 import { tv } from "./tv";
 
-import type { Copy } from "@/core/copy";
+import type { BoxRules } from "@/core/boxRules";
+import type { Copy, RecordText } from "@/core/copy";
 import type { ReactNode } from "react";
+import type { FieldFaults } from "./HeldForm";
 
-/** A press the view offers: its words, the spinner while it runs, and what it does. */
-type Act = { label: Copy; onPress: () => void; isBusy?: boolean; isDisabled?: boolean };
+type Press = { label: Copy; onPress: () => void; isBusy?: boolean; isDisabled?: boolean };
 
 /** What every view says first: its heading, and the one line under its acts for what went wrong. */
 type Head = {
@@ -25,7 +24,6 @@ type Head = {
   row: Copy | null;
 };
 
-/** The e-mail view: the address field, „Code senden“, the „oder“ divider, the passkey by its button alone. */
 type AddressView = Head & {
   view: "address";
   address: {
@@ -36,21 +34,22 @@ type AddressView = Head & {
      * The server's refusal of the address, by the field's name `email`, in the field's own line: the answer's
      * own record, one per refusal, each of which moves the focus to the field.
      */
-    error?: Readonly<Record<string, Copy>>;
+    error?: FieldFaults;
+    /** What the browser's pass holds the address to: the sign-in's lane's rules, read on the server (`boxRulesOf`). */
+    rules: BoxRules;
   };
   /** The bot check guarding the send, standing before it as Cloudflare's example places it. */
   check: ReactNode;
   /** The send, handed the address the press left in the field. */
-  send: Omit<Act, "onPress"> & { onPress: (address: string) => void };
+  send: Omit<Press, "onPress"> & { onPress: (address: string) => void };
   or: Copy;
-  passkey: Act;
+  passkey: Press;
 };
 
-/** The code view: the address set semibold inside the sentence, the six boxes, and one press to use another address. */
 type CodeView = Head & {
   view: "code";
-  /** The sentence's two parts around the address. */
-  sentence: { before: Copy; after: Copy };
+  /** The sentence around the address, which the view sets semibold. */
+  sentence: (address: RecordText) => readonly [Copy, RecordText, Copy];
   /** The address the code went to: data, not catalogue text. */
   address: string;
   code: {
@@ -59,20 +58,20 @@ type CodeView = Head & {
     error: Copy | null;
     /** Counts the code's refusals: each one empties the boxes for the next code. */
     attempt: number;
-    isDisabled: boolean;
+    /** The code is being checked, until the landing's document replaces the view or a refusal returns it. */
+    isBusy: boolean;
     onComplete: (code: string) => void;
   };
-  back: Act;
+  back: Press;
 };
 
-/** A passkey view: one sentence, the address, one primary press; the offer adds „Später“ as the quiet button. */
+/** A passkey view: one sentence, the address, one primary press. */
 type PasskeyView = Head & {
   view: "passkey";
   sentence: Copy;
   /** The account the passkey belongs to: data, not catalogue text. */
   address: string;
-  go: Act;
-  later?: Act;
+  go: Press;
 };
 
 export type SignInView = AddressView | CodeView | PasskeyView;
@@ -86,7 +85,6 @@ const look = tv({
     // Every address a view names: inside its sentence, or on its own line under a passkey sentence.
     marked: "font-semibold break-all",
     acts: "grid gap-3",
-    // The address form's field, its bot check and its send in the form rule's rhythm (`FieldStack`, `FormFooter`).
     form: "text-left",
     divider: "flex items-center gap-3 text-xs text-fg-muted",
     rule: "h-px flex-1 bg-border",
@@ -94,10 +92,9 @@ const look = tv({
 });
 
 /**
- * The sign-in template: the heading, the sentences, the address and the code
- * boxes centred, every button full width in the 352-px column. Each view is one step of a sign-in; the page
- * holding its state passes the view it is on. A refusal stands in the one line under the acts, the address's
- * and the typed code's in their field's own line.
+ * The sign-in template: the heading, the sentences, the address and the code boxes centred, every button full width in
+ * the column. Each view is one step of a sign-in; the page holding its state passes the view it is on. A refusal
+ * stands in the one line under the acts, the address's and the typed code's in their field's own line.
  */
 export function SignInPage(props: SignInView) {
   const slots = look();
@@ -107,7 +104,7 @@ export function SignInPage(props: SignInView) {
       <div className={slots.column()}>
         <Body {...props} />
         <StatusLine
-          status={props.row === null ? null : { tone: "error", text: props.row }}
+          status={props.row === null ? null : { tone: "danger", text: props.row }}
           placement="column"
         />
       </div>
@@ -124,6 +121,7 @@ function Body(props: SignInView) {
 
     case "code": {
       const { code, back } = props;
+      const [before, address, after] = props.sentence({ record: props.address });
       return (
         <>
           <div className={slots.head()}>
@@ -132,7 +130,9 @@ function Body(props: SignInView) {
               place="page"
             />
             <p className={slots.sentence()}>
-              {props.sentence.before} <strong className={slots.marked()}>{props.address}</strong> {props.sentence.after}
+              {before}
+              <strong className={slots.marked()}>{address.record}</strong>
+              {after}
             </p>
           </div>
           <CodeField
@@ -142,11 +142,11 @@ function Body(props: SignInView) {
             name="code"
             // The typed code's refusal stands under the boxes it refuses, in the field's own line.
             error={code.error ?? undefined}
-            isDisabled={code.isDisabled}
+            isBusy={code.isBusy}
             onComplete={code.onComplete}
           />
           <div className={slots.acts()}>
-            {/* The step aside from the view's one act, quiet as „Später“ is. */}
+            {/* The step aside from the view's one act, quiet. */}
             <Button
               variant="quiet"
               {...back}
@@ -157,7 +157,7 @@ function Body(props: SignInView) {
     }
 
     case "passkey": {
-      const { go, later } = props;
+      const { go } = props;
       return (
         <>
           <div className={slots.head()}>
@@ -175,12 +175,6 @@ function Body(props: SignInView) {
               variant="primary"
               {...go}
             />
-            {later !== undefined && (
-              <Button
-                variant="quiet"
-                {...later}
-              />
-            )}
           </div>
         </>
       );
@@ -188,29 +182,24 @@ function Body(props: SignInView) {
   }
 }
 
-/** The address view, whose field takes the focus on the server's refusal, as React Aria moves it on the browser's. */
+/**
+ * The address view, whose field takes the focus on either pass's refusal (`HeldForm`), so a screen reader reads it with
+ * its phrase, which nothing else announces: the status line says nothing then, since it would only point at the field
+ * in focus.
+ */
 function AddressBody({ title, address, check, send: { onPress: send, ...button }, or, passkey }: AddressView) {
   const slots = look();
-  const form = useRef<HTMLFormElement>(null);
-
-  // The screen reader then reads the field with its refusal, which nothing else announces.
-  useEffect(() => {
-    if (address.error === undefined) return;
-    const field = form.current?.elements.namedItem("email");
-    if (field instanceof HTMLInputElement) field.focus();
-  }, [address.error]);
-
   return (
     <>
-      {/* The column's 16 px above the field. */}
       <ClassicTitle
         text={title}
         place="page"
       />
       <HeldForm
-        ref={form}
-        validationErrors={address.error}
+        fieldErrors={address.error}
+        rules={address.rules}
         // The send's press is the form's submit, so `Enter` in the field sends too.
+        isBusy={button.isBusy === true}
         onSend={(formData) => send(String(formData.get("email")))}
         className={slots.form()}>
         <FieldStack>
@@ -219,8 +208,6 @@ function AddressBody({ title, address, check, send: { onPress: send, ...button }
             name="email"
             kind="email"
             autofill="username"
-            // Not marked required: no record's type derives it, and an empty send meets the server's refusal of
-            // its form in this line, as a malformed one meets the browser's.
             value={address.value}
             onChange={address.onChange}
           />

@@ -1,12 +1,13 @@
 // @vitest-environment jsdom
-import { screen, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { COPY } from "@/core/copy";
+import { ADMIN_COPY } from "@/core/copy/admin";
+import { COPY } from "@/core/copy/shared";
+import { acceptBewerbung } from "@/features/bewerbungen/acceptBewerbung";
 import { renderUnderNext } from "@/test-support/nextContexts";
 
-import { acceptBewerbung } from "../[bewerbung]/decideBewerbung";
 import { BulkAccept } from "./BulkAccept";
 
 import type { FLBewerbungListRow } from "@/core/generated/client/types";
@@ -14,7 +15,7 @@ import type { NextContexts } from "@/test-support/nextContexts";
 
 const ADDRESS = "/admin/saisons/2027/bewerbungen/bulk";
 
-vi.mock("../[bewerbung]/decideBewerbung", () => ({ acceptBewerbung: vi.fn() }));
+vi.mock("@/features/bewerbungen/acceptBewerbung", () => ({ acceptBewerbung: vi.fn() }));
 /** Next's navigation at the page, its search as the steps leave it at each render. */
 const atThePage = (): NextContexts => ({ pathname: ADDRESS, search: window.location.search });
 
@@ -40,7 +41,7 @@ const run = () => (
     rows={[row("a", "Goethe-Gymnasium"), row("b", "Schiller-Schule")]}
     gruppen={[{ gruppe: "A", free: 4 }]}
     taken={[]}
-    rules={{ required: { gruppe: false, trikot_farbe: false } }}
+    rules={{}}
   />
 );
 
@@ -51,30 +52,6 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.restoreAllMocks();
-});
-
-// The run stands in a rail page whose strip holds the page's `h1`: a second one would name the page twice in the outline
-// a screen reader walks.
-describe("a finished Sammel-Zusage", () => {
-  it("names its end a rung below the strip's title", async () => {
-    vi.mocked(acceptBewerbung).mockResolvedValue({ ok: true, value: undefined });
-    renderUnderNext(
-      <BulkAccept
-        saison="2027"
-        rows={[row("a", "Goethe-Gymnasium")]}
-        gruppen={[{ gruppe: "A", free: 4 }]}
-        taken={[]}
-        rules={{ required: { gruppe: false, trikot_farbe: false } }}
-      />,
-      atThePage,
-    );
-    await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.next }));
-    await userEvent.click(screen.getByRole("button", { name: COPY.shared.withObject(COPY.admin.bewerbung.count(1), "accept") }));
-    await userEvent.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: COPY.shared.verb.accept }));
-
-    expect((await screen.findByRole("heading", { name: COPY.admin.bewerbung.acceptedCount(1) })).tagName).toBe("H2");
-    expect(screen.queryByRole("heading", { level: 1 })).toBeNull();
-  });
 });
 
 // Every row of a „Stand“ column states a value, and a row the run has not written yet has no outcome to draw it from:
@@ -89,7 +66,59 @@ describe("the check page's „Stand“ column", () => {
 
     const rowOf = (school: string) => screen.getByText(school).closest("tr") as HTMLElement;
     for (const school of ["Goethe-Gymnasium", "Schiller-Schule"]) {
-      expect(within(rowOf(school)).queryAllByText(COPY.admin.bewerbung.complete)).not.toHaveLength(0);
+      expect(within(rowOf(school)).queryAllByText(ADMIN_COPY.bewerbung.complete)).not.toHaveLength(0);
     }
+  });
+});
+
+// The harm: a card reopened from its refused row without the fault on its box, so nothing says which box to change.
+// And the acceptance refuses a Kürzel box posted empty, so a run posting one for every known club would enter none.
+describe("a card reopened for its refusal", () => {
+  it("stands with the fault on its box, the run having posted no Kürzel for a known club", async () => {
+    vi.mocked(acceptBewerbung)
+      .mockResolvedValueOnce({ ok: false, fieldErrors: { trikot_farbe: COPY.shared.field.taken } })
+      .mockResolvedValueOnce({ ok: true, value: undefined });
+    const { rerender } = renderUnderNext(run(), atThePage);
+    for (const _card of ["a", "b"]) {
+      await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.next }));
+      rerender(run());
+    }
+    await userEvent.click(screen.getByRole("button", { name: COPY.shared.withObject(ADMIN_COPY.bewerbung.count(2), "accept") }));
+    await userEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: COPY.shared.verb.accept }));
+    await waitFor(() => expect(acceptBewerbung).toHaveBeenCalledTimes(2));
+    expect(vi.mocked(acceptBewerbung).mock.calls.map(([form]) => (form as FormData).has("shorthand"))).toStrictEqual([false, false]);
+
+    await userEvent.click(await screen.findByRole("button", { name: "Goethe-Gymnasium" }));
+    rerender(run());
+
+    expect(await screen.findByText(COPY.shared.field.taken)).toBeTruthy();
+  });
+});
+
+/** The run inside a page's `main`, beside a control that stands through every step, as the rail's fold does. */
+const page = () => (
+  <main>
+    <button type="button">{COPY.shared.back}</button>
+    {run()}
+  </main>
+);
+
+// The harm: the done card takes the check page's place and the confirm's button leaves with it, so the focus goes to the
+// nearest control still standing, the rail's fold, and a keyboard or screen-reader user gets no word of the outcome.
+describe("the run's done card", () => {
+  it("takes the focus at its title, and keeps it once the leaving question has looked for a place", async () => {
+    vi.mocked(acceptBewerbung).mockResolvedValueOnce({ ok: true, value: undefined }).mockResolvedValueOnce({ ok: true, value: undefined });
+    const { rerender } = renderUnderNext(page(), atThePage);
+    for (const _card of ["a", "b"]) {
+      await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.next }));
+      rerender(page());
+    }
+    await userEvent.click(screen.getByRole("button", { name: COPY.shared.withObject(ADMIN_COPY.bewerbung.count(2), "accept") }));
+    await userEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: COPY.shared.verb.accept }));
+
+    const title = await screen.findByRole("heading", { name: ADMIN_COPY.bewerbung.acceptedCount(2) });
+    // The question's focus scope and its trigger each look for a place a frame after they leave.
+    await act(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+    expect(document.activeElement).toBe(title);
   });
 });

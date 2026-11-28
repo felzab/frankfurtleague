@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { logger } from "@/core/logging";
 import { readTraceparent, TRACEPARENT_HEADER } from "@/core/trace";
+import { CLIENT_ERROR_MAX } from "@/shared/utils/clientError";
 
 import type { NextRequest } from "next/server";
 
@@ -11,13 +12,13 @@ import type { NextRequest } from "next/server";
 // own line already, and the bot check's widget posts its failure with no stack, so the report is
 // these three fields and no fourth.
 const ClientErrorReportSchema = z.object({
-  message: z.string().min(1).max(500),
+  message: z.string().max(CLIENT_ERROR_MAX.message),
   // Pathname only, so a caller cannot smuggle search text or tokens into the log.
   path: z
     .string()
-    .max(300)
+    .max(CLIENT_ERROR_MAX.path)
     .refine((value) => value.startsWith("/") && !value.includes("?"), "pathname only"),
-  stack: z.string().max(4000).optional(),
+  stack: z.string().max(CLIENT_ERROR_MAX.stack).optional(),
 });
 
 /**

@@ -69,18 +69,16 @@ async def pull_governing_saison_id(saisons_collection: ReadCollection, session: 
 
 
 class LandingWindows(NamedTuple):
-    """The landing's three facts of the application windows, read off one list of seasons."""
+    """The landing's two facts of the application windows, read off one list of seasons."""
 
     # The season taking applications today, its window and status alone.
     open: Mapping[str, Any] | None
     # The day the next window opens.
     opens_on: str | None
-    # Whether a season not yet ended holds a window, in any state. False, nothing can reopen today: a pause can.
-    held: bool
 
 
 async def pull_landing_windows(*, saisons_collection: ReadCollection, today: str) -> LandingWindows:
-    """The season taking applications today, the day the next window opens, each `None` where there is none, and whether any window stands.
+    """The season taking applications today and the day the next window opens, each `None` where there is none.
 
     Judged over every season not yet ended by the rules the submission refuses on and the form's page reads, and never
     by a filter restating them, so the landing cannot offer a window the submission refuses, nor word one otherwise
@@ -91,7 +89,6 @@ async def pull_landing_windows(*, saisons_collection: ReadCollection, today: str
     candidates = await pull_whole_from_db(
         collection=saisons_collection,
         db_filter=SAISON_NOT_ENDED_FILTER,
-        what="the seasons not yet ended",
         sort_by=[("_id", -1)],
         projection=["bewerbung", "status"],
     )
@@ -110,7 +107,6 @@ async def pull_landing_windows(*, saisons_collection: ReadCollection, today: str
             ),
             default=None,
         ),
-        held=bool(windowed),
     )
 
 

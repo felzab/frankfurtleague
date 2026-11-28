@@ -38,27 +38,30 @@ const BASE_URL = "http://localhost:3000";
  */
 const EVERY_PROJECT = "e2e/*.spec.ts";
 
-/** What a project's journeys type into the forms themselves: two new schools, and the kit colour the editor saves. */
-type Typed = { accepted: string; objected: string; colour: string };
+/** What a project's journeys type into the forms themselves: a new school, and the kit colour the editor saves. */
+type Typed = { accepted: string; colour: string };
 
-/** A project's options: its people, clubs, fixtures and link as the seed writes them, beside what its journeys type. */
-function optionsOf(project: typeof PEOPLE.projects.desktop, { accepted, objected, colour }: Typed): JourneyOptions {
+/**
+ * A project's options: its people, clubs, fixtures and link as the seed writes them, beside what its journeys type. The
+ * seat journey's school is the desktop project's alone, as that journey is.
+ */
+function optionsOf(project: typeof PEOPLE.projects.desktop, { accepted, colour }: Typed): Omit<JourneyOptions, "objected"> {
   return {
     administrator: project.administrator,
     twoDevices: project.twoDevices.address,
     mover: project.mover.address,
     leaver: project.leaver.address,
-    applicants: { accepted, declined: project.applicants.declined, objected },
+    applicants: { accepted, declined: project.applicants.declined },
     departing: project.departing,
-    entered: { club: project.entered.club, colour },
-    squadded: project.squadded,
+    entered: { team: project.entered.team, colour },
+    kaderPupil: project.kaderPupil,
     contact: {
       address: project.contact.trainer.address,
-      club: project.contact.club,
+      team: project.contact.team,
       fixture: project.contact.fixture,
       pupil: nameOf(project.contact.pupil),
     },
-    registering: { club: project.registering.club, token: project.registering.token, admitter: project.registering.admitter.address },
+    registering: { team: project.registering.team, token: project.registering.token, admitter: project.registering.admitter.address },
     booked: { address: project.booked.referee.address, played: project.booked.played, coming: project.booked.coming },
   };
 }
@@ -95,7 +98,8 @@ export default defineConfig<JourneyOptions>({
       testMatch: [EVERY_PROJECT, "desktop/**/*.spec.ts"],
       use: {
         ...devices["Desktop Chrome"],
-        ...optionsOf(PEOPLE.projects.desktop, { accepted: "Zeder", objected: "Buche", colour: "Grau" }),
+        ...optionsOf(PEOPLE.projects.desktop, { accepted: "Zeder", colour: "Grau" }),
+        objected: "Buche",
       },
     },
     {
@@ -107,7 +111,7 @@ export default defineConfig<JourneyOptions>({
         ...devices["iPhone 17"],
         // Playwright starts Windows WebKit without accelerated compositing, under which a view transition crashes it.
         launchOptions: { ignoreDefaultArgs: ["--disable-accelerated-compositing"] },
-        ...optionsOf(PEOPLE.projects.phone, { accepted: "Tanne", objected: "Fichte", colour: "Bordeaux" }),
+        ...optionsOf(PEOPLE.projects.phone, { accepted: "Tanne", colour: "Bordeaux" }),
       },
     },
     // Its cases wait for the scheduler's first pass themselves, so CI's desktop leg runs it beside `desktop`.

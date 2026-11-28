@@ -1,9 +1,10 @@
-import { COPY, textOf } from "@/core/copy";
-import { ROUTES } from "@/core/routes";
+import { textOf } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
+import { LEGAL_PAGES, ROUTES } from "@/core/routes";
 
 import { Brand } from "./Brand";
 import { Chip } from "./Chip";
-import { AccountRow, BackControl, BarPlaces, EditorBack, MenuScope, RailEntries, ReadBack, SaisonScope } from "./FrameNav";
+import { AccountRow, BackControl, BandStart, BarPlaces, LeaveQuestion, MenuScope, RailEntries, ReadBack, SaisonScope } from "./FrameNav";
 import { Icon } from "./Icon";
 import { LeaveGuardProvider } from "./LeaveGuard";
 import { frameLink, Link } from "./Link";
@@ -11,6 +12,7 @@ import { PageFade } from "./PageFade";
 import { RailRoot, RailToggle, RailTooltip } from "./RailState";
 import { RAIL_ID, railFade, railGlyph } from "./railStyles";
 import { SaisonButton } from "./SaisonButton";
+import { ThemeRow } from "./ThemeChoice";
 import { ToastRegion } from "./Toast";
 import { tv } from "./tv";
 import { NavigationBar, NavigationLink, PageContent } from "./WholePage";
@@ -21,7 +23,7 @@ import type { ReactElement, ReactNode } from "react";
 import type { ChipProps } from "./Chip";
 import type { AccountRead, FrameSaisons, RailGroup } from "./FrameNav";
 
-/** The rail's foot: the account signed in, or „Konto“ leading to the sign-in where nobody is. */
+/** The rail's foot: the account signed in, or „Konto“ leading to the sign-in where nobody is, with the theme under it. */
 type RailFoot = { kind: "account"; account: AccountRead } | { kind: "signIn"; href: Route };
 
 /**
@@ -51,21 +53,14 @@ type Bar = readonly [string] | readonly [string, string] | readonly [string, str
 
 /**
  * The frame of every public season page and every signed-in area, which a layout places around its pages.
- * From 1024 px the rail stands at the left: the logo and the wordmark, the season button, the entries in
- * their groups, the foot; the strip's toggle folds it to its glyphs. Below it the
- * dark-green band stands at the top with the logo, the wordmark and the season button, and the bottom bar
- * holds the pages, „Mehr“ and the account.
  *
  * `back` is an area's own way back, as Konto's: „‹ Zurück“ in the logo's place in the rail's head and in the
  * band, and no bottom bar. Where it is a read answering no address, the logo stands, and the area still has no bar.
  *
- * An area holding editors places the phone's band and bar itself, through `RailColumn` in the layout of each
- * of its route groups (`columnInLayouts`): an editor's band holds „‹ Zurück“ and no bottom bar follows, its own
- * bar standing in that place. Each page is then drawn right by the server, which knows the group from the
- * route; a page declaring it on the client would draw the bar until it hydrates, and hydrate it wrongly.
+ * The phone's band and bar are the frame's, around every page and every boundary's card (`RailColumn`).
  *
- * Each page's template writes its title and its content through `RailPage`, so this frame and that one write
- * the page's `h1` and `main`, and nothing else does.
+ * Each page's template writes its title and its content through `RailPage`, inside the `main` that `RailColumn`
+ * draws, so this frame and the classic one write the page's `h1` and `main`, and nothing else does.
  */
 export function RailFrame({
   groups,
@@ -73,7 +68,6 @@ export function RailFrame({
   saison,
   foot,
   back,
-  columnInLayouts = false,
   prefetch,
   children,
 }: {
@@ -83,8 +77,6 @@ export function RailFrame({
   saison?: FrameSaisons;
   foot: RailFoot;
   back?: Back;
-  /** Whether the area's layouts place the band and the bar, each with `RailColumn`, rather than the frame. */
-  columnInLayouts?: boolean;
   /**
    * Whether the menu's entries prefetch their pages whole, Next's `prefetch={true}`: for a frame of a few pages whose
    * content is cached reads every visitor shares, since each entry in view costs a server render.
@@ -93,13 +85,12 @@ export function RailFrame({
   children: ReactNode;
 }) {
   const account = foot.kind === "account" ? foot.account : undefined;
-  // Signed out, the phone reaches „Konto“, the way to the sign-in, and the two legal pages through „Mehr“ (the strip carries them on desktop).
+  // Signed out, the phone reaches „Konto“, the way to the sign-in, and the legal pages through „Mehr“ (the strip carries them on desktop).
   const extra =
     foot.kind === "signIn"
       ? [
           { label: COPY.template.account, href: foot.href },
-          { label: COPY.page.legalNotice, href: ROUTES.legalNotice.path() },
-          { label: COPY.page.privacyNotice, href: ROUTES.privacyNotice.path() },
+          ...LEGAL_PAGES.map((page) => ({ label: ROUTES[page].title, href: ROUTES[page].path() })),
         ]
       : [];
   const entries = groups.flatMap((group) => group.entries);
@@ -114,7 +105,6 @@ export function RailFrame({
           <aside
             id={RAIL_ID}
             className="sticky top-0 hidden h-dvh flex-col overflow-hidden border-r border-border bg-bg-surface lg:flex">
-            {/* The dark-green band heads every frame: here the rail's head, in one line with the strip. */}
             <div className="flex h-(--rail-strip) shrink-0 items-center bg-brand-solid px-6 text-on-brand [--focus-ring:var(--on-brand)]">
               <HeadStart back={back} />
             </div>
@@ -130,25 +120,33 @@ export function RailFrame({
               ) : (
                 // Drawn as an entry is, its glyph before its words: collapsed, the glyph alone stands centred
                 // and the tooltip names it.
-                <RailTooltip label={COPY.template.account}>
-                  <NavigationLink
-                    href={foot.href}
-                    data-kit-focus="ring"
-                    className={frameLink({ tone: "rail", class: "gap-3 overflow-hidden" })}>
-                    <span className={railGlyph()}>
-                      <Icon
-                        glyph="signin"
-                        size={18}
-                      />
-                    </span>
-                    <span className={railFade()}>{COPY.template.account}</span>
-                  </NavigationLink>
-                </RailTooltip>
+                <>
+                  <RailTooltip label={COPY.template.account}>
+                    <NavigationLink
+                      href={foot.href}
+                      data-kit-focus="ring"
+                      className={frameLink({ tone: "rail", class: "gap-3 overflow-hidden" })}>
+                      <span className={railGlyph()}>
+                        <Icon
+                          glyph="signin"
+                          size={18}
+                        />
+                      </span>
+                      <span className={railFade()}>{COPY.template.account}</span>
+                    </NavigationLink>
+                  </RailTooltip>
+                  {/* Signed out, no account menu holds the theme, so it stands under „Konto“. */}
+                  <ThemeRow place="rail" />
+                </>
               )}
             </div>
           </aside>
 
-          <div className="flex min-h-dvh min-w-0 flex-col">
+          {/* Marked, so the root's scroll padding clears the band, the strip and the bars: the browser scrolls the focus and
+              a fragment's place between them. */}
+          <div
+            data-kit-frame="rail"
+            className="flex min-h-dvh min-w-0 flex-col">
             <NavigationBar placement="rail" />
             {/* The strip's ground and its hairline, drawn here, in the layout a navigation keeps mounted, rather than
                 by each page: they stand on every frame of a page's change, and only the header
@@ -157,11 +155,12 @@ export function RailFrame({
             <div className="sticky top-0 z-10 hidden h-0 shrink-0 lg:block">
               <div className="absolute inset-x-0 top-0 h-(--rail-strip) border-b border-border bg-bg [view-transition-name:strip]" />
             </div>
-            {columnInLayouts ? children : <RailColumn back={back}>{children}</RailColumn>}
+            <RailColumn back={back}>{children}</RailColumn>
           </div>
           {/* Inside the rail's state, whose collapsed width its edge follows. */}
           <ToastRegion frame="rail" />
         </RailRoot>
+        <LeaveQuestion />
       </LeaveGuardProvider>
     </MenuScope>
   );
@@ -175,28 +174,27 @@ export function RailFrame({
 }
 
 /**
- * A rail frame's column below 1024 px around its page: the dark-green band at the top with the logo and the
- * season button, and the bottom bar under the page. An editor's band holds „‹ Zurück“ to its list in the
- * logo's place; an area's own `back` does the same for every page of the area, and no bottom bar follows. A page
- * with a bar of its own, an editor's save, stands it in the bottom bar's place, so the bottom bar gives way to it
- * there alone: a status card or a read page at an editor's address keeps the bottom bar, as the same address's
- * not-found card does.
+ * A rail frame's column below 1024 px around its page, the band above it and the bottom bar under it. The band of a
+ * page whose route belongs to another page, an editor's, an application's or one of Konto's, holds „‹ Zurück“ to it
+ * in the logo's place (`BandStart`); an area's own `back` does the same for every page of the area, and no bottom bar
+ * follows. A page with a bar of its own, an editor's save, stands it in the bottom bar's place, so the bottom bar
+ * gives way to it there alone: a status card or a read page at an editor's address keeps the bottom bar, as the same
+ * address's not-found card does. At every width the page stands in the `main` the column draws, its title at its head.
  */
-export function RailColumn({ editor = false, back, children }: { editor?: boolean; back?: Back; children: ReactNode }) {
+function RailColumn({ back, children }: { back?: Back; children: ReactNode }) {
   return (
     <div className="group/column contents">
       {/* The band and the bar are pictures of their own in a page's cross-fade, so the page scrolled under them is
           not drawn over them (`tokens.css`). */}
       <header className="@container sticky top-0 z-20 flex h-(--rail-band) shrink-0 items-center gap-2 bg-brand-solid px-4 text-on-brand [--focus-ring:var(--on-brand)] [view-transition-name:band] lg:hidden">
-        {editor ? (
-          // The list's address needs the season the rail fills in, which the page arrives with.
-          <EditorBack />
-        ) : (
-          <HeadStart back={back} />
-        )}
+        {/* Chosen by the address on the client, since this layout stays mounted across a navigation; the list's address
+            needs the season the rail fills in, which the page arrives with. */}
+        <BandStart start={<HeadStart back={back} />} />
         <SaisonButton placement="band" />
       </header>
-      {children}
+      {/* The page's one `main`, its title and its content, here in the column a navigation keeps mounted rather than in
+          `RailPage`, so a screen reader moving to it lands on the title. */}
+      <main className="flex min-w-0 flex-1 flex-col">{children}</main>
       {back === undefined && (
         <div className="contents group-has-[[data-kit-page-bar]]/column:hidden">
           <BarPlaces />
@@ -224,13 +222,13 @@ function titleOf(title: PageTitle): string {
 const strip = tv({
   slots: {
     // From `lg` laid over the frame's strip, as tall and as sticky, with no ground of its own: the rail's toggle first,
-    // inside the page's banner landmark, which a screen reader moving between landmarks reaches, and the title 16 px
+    // at the head of the page's `main`, which a screen reader moving between landmarks reaches, and the title 16 px
     // past the toggle's box, which a finger's 40-px box moves on by its own width (`RailToggle`). Its hairline's width
     // stays in the box, unpainted, so the title is centred as the strip's other parts are. Below `lg`, where a long
     // title wraps, every part after the title stands centred on the title's first line rather than on all its lines:
     // the parts stand at the head's top, each one line of the head tall (`chips`), and the title's first line stands
     // centred on that line (`first`). One line of the head is the title's own, or a control's where the head holds one,
-    // which is never shorter (`controls`).
+    // which is never shorter (`controls`); on a season page under a finger, the control's whether it holds one or not.
     head: "flex min-w-0 shrink-0 items-start gap-4 px-4 pt-4 [view-transition-name:title] lg:sticky lg:top-0 lg:z-10 lg:h-(--rail-strip) lg:items-center lg:border-b lg:border-transparent lg:ps-8 lg:pe-8 lg:pt-0",
     // A long name wraps on a phone, where the title heads the content, and is cut short only in the desktop strip.
     heading: "min-w-0 font-heading tracking-display break-words uppercase lg:truncate",
@@ -240,37 +238,40 @@ const strip = tv({
     chips: "flex h-lh shrink-0 items-center gap-2",
   },
   variants: {
-    // A public page's title at 24 px on a 32-px line, a signed-in page's at 20 px on a 28-px line. The chips' box takes
-    // the size too, so its `1lh` is the title's line; each chip sets its own words' size.
+    // The chips' box takes the title's size too, so its `1lh` is the title's line; each chip sets its own words' size.
+    // Under a finger every season page's head takes the 40-px line the Spielplan's magnifier sets, so the content starts
+    // at one height across the pages the bar moves between: the head as tall as its top inset and that line, and the
+    // title's first line 4 px lower, centred on it, as a public page's 32-px line beside 40.
     scope: {
-      saison: { heading: "text-2xl", chips: "text-2xl" },
+      saison: {
+        head: "max-lg:pointer-coarse:min-h-14",
+        heading: "text-2xl",
+        first: "max-lg:pointer-coarse:pt-1",
+        chips: "text-2xl max-lg:pointer-coarse:h-10",
+      },
       area: { heading: "text-xl", chips: "text-xl" },
     },
-    // A head holding a control after the title, the way on or the strip's link, 32 px tall and 40 under a finger, never
-    // shorter than the title's line: one line of the head is the control's.
+    // A head holding a control after the title, the way on or the strip's link, never shorter than the title's line:
+    // one line of the head is the control's.
     controls: {
       true: { chips: "h-8 pointer-coarse:h-10" },
     },
   },
   compoundVariants: [
     // The title's first line stands half of what the control is taller than it lower: 2 px for a signed-in page's 28-px
-    // line beside 32 px, 6 beside 40, and 4 for a public page's 32-px line beside 40.
+    // line beside 32 px, and 6 beside 40.
     { scope: "area", controls: true, class: { first: "max-lg:pt-0.5 max-lg:pointer-coarse:pt-1.5" } },
-    { scope: "saison", controls: true, class: { first: "max-lg:pointer-coarse:pt-1" } },
   ],
 });
 
-/**
- * The column an editor and a read page set their blocks in, inside a rail page's content: at most 760 px,
- * centred, the blocks 24 px apart.
- */
+/** The column an editor and a read page set their blocks in, inside a rail page's content. */
 export const formColumn = tv({ base: "mx-auto grid w-full max-w-form gap-6" });
 
 /**
  * A rail page's title and content. On desktop the title stands after the rail's toggle in the 48-px strip the frame
  * draws, which runs the full width beside the rail with its hairline continuing the rail head's edge, on a public
  * season page with „Impressum“ and „Datenschutz“ at its end; on a phone the title heads the content under the band.
- * The page's templates place it; `main` holds their content.
+ * The page's templates place it, inside the `main` its column draws (`RailColumn`).
  */
 export function RailPage({
   scope,
@@ -308,7 +309,7 @@ export function RailPage({
     <>
       {/* Beside the page's fade, never in it, as the bar under it is: the fade writes a name of its own over the name of
           whatever stands at its top, so each stands apart, one picture across a page's change
-          (`tokens.css`). */}
+          (`tokens.css`). Inside `main`, as the classic page's head is, so it is no banner beside the band. */}
       <header className={head()}>
         <RailToggle />
         <h1 className={heading({ class: first() })}>{titleOf(title)}</h1>
@@ -326,7 +327,6 @@ export function RailPage({
             <Link
               href={link.href}
               placement="frame"
-              tone="link"
               fullPage
               label={link.label}
             />
@@ -334,28 +334,28 @@ export function RailPage({
         )}
         {scope === "saison" && (
           <nav
-            aria-label={COPY.template.navigation}
+            aria-label={COPY.template.legal}
             className="ms-auto hidden gap-1 lg:flex">
-            {[ROUTES.legalNotice, ROUTES.privacyNotice].map((page) => (
+            {LEGAL_PAGES.map((page) => (
               <NavigationLink
-                key={page.path()}
-                href={page.path()}
+                key={page}
+                href={ROUTES[page].path()}
                 data-kit-focus="ring"
                 className={frameLink({ tone: "strip" })}>
-                {page.title}
+                {ROUTES[page].title}
               </NavigationLink>
             ))}
           </nav>
         )}
       </header>
       <PageFade>
-        {/* The content in one column of at most 1280 px, centred beside the rail on a wide screen, the gutter
-            outside it; the editor's bar spans the whole width under it. */}
-        <main className="flex w-full min-w-0 flex-1 flex-col px-4 pt-4 pb-8 overflow-anchor-none lg:px-8 lg:pt-8 lg:pb-12">
+        {/* The content in one column, centred beside the rail on a wide screen, the gutter outside it; the editor's
+            bar spans the whole width under it. */}
+        <div className="flex w-full min-w-0 flex-1 flex-col px-4 pt-4 pb-8 overflow-anchor-none lg:px-8 lg:pt-8 lg:pb-12">
           <PageContent>
             <div className="mx-auto flex w-full max-w-content min-w-0 flex-1 flex-col gap-6">{children}</div>
           </PageContent>
-        </main>
+        </div>
       </PageFade>
       {/* Marked, so the column leaves out the bottom bar whose place the page's own bar takes (`RailColumn`). */}
       {bar !== undefined && (

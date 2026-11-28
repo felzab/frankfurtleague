@@ -2,7 +2,7 @@
 import { act } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 import { renderHookUnderNext } from "@/test-support/nextContexts";
 
 import { useEditor } from "./useEditor";
@@ -10,9 +10,9 @@ import { useEditor } from "./useEditor";
 import type { ActionAnswer } from "@/core/action";
 import type { EditorRecord, EditorSave } from "./useEditor";
 
-type Spielort = { name: string; postcode: string; mietpreis: string | null };
+type Spielort = { name: string; postcode: string; default_mietpreis: string | null };
 
-const STORED: EditorRecord<Spielort> = { id: "ort-1", version: 1, values: { name: "Riedberg", postcode: "60438", mietpreis: null } };
+const STORED: EditorRecord<Spielort> = { id: "ort-1", version: 1, values: { name: "Riedberg", postcode: "60438", default_mietpreis: null } };
 
 /** A save answering the version of the record it stored, 2 unless a case says otherwise. */
 function editorOn(record: EditorRecord<Spielort>, answer: () => Promise<ActionAnswer<number>> = async () => ({ ok: true, value: 2 })) {
@@ -29,13 +29,27 @@ describe("an editor's draft", () => {
   it("saves the changed fields alone, on the version of the read", async () => {
     const { result, save } = editorOn(STORED);
 
-    act(() => result.current.set("mietpreis", "120"));
+    act(() => result.current.set("default_mietpreis", "120"));
     // Typed and typed back: the stored postcode is no change, so the save leaves it alone.
     act(() => result.current.set("postcode", "60439"));
     act(() => result.current.set("postcode", "60438"));
     await press(result.current.submit);
 
-    expect(save).toHaveBeenCalledWith({ id: "ort-1", version: 1, changes: { mietpreis: "120" } });
+    expect(save).toHaveBeenCalledWith({ id: "ort-1", version: 1, changes: { default_mietpreis: "120" } });
+  });
+
+  // The harm: a save of nothing raises the stored record's version, turning every other open editor of it stale, and
+  // logs a change nobody made, which only the Protokoll shows.
+  it("sends nothing for a save with nothing changed, and says „Gespeichert“", async () => {
+    const { result, save } = editorOn(STORED);
+
+    // Typed and typed back: nothing differs from the stored record.
+    act(() => result.current.set("name", "SC Riedberg"));
+    act(() => result.current.set("name", "Riedberg"));
+    await press(result.current.submit);
+
+    expect(save).not.toHaveBeenCalled();
+    expect(result.current.status).toStrictEqual({ tone: "success", text: COPY.shared.saved });
   });
 
   it("keeps the old version when a newer read arrives under unsaved changes", async () => {
@@ -44,7 +58,7 @@ describe("an editor's draft", () => {
     act(() => result.current.set("name", "SC Riedberg"));
     // Someone else saved the venue; the page serves the record anew.
     rerender({ shown: { id: "ort-1", version: 2, values: { ...STORED.values, postcode: "60439" } } });
-    expect(result.current.draft).toStrictEqual({ name: "SC Riedberg", postcode: "60439", mietpreis: null });
+    expect(result.current.draft).toStrictEqual({ name: "SC Riedberg", postcode: "60439", default_mietpreis: null });
 
     await press(result.current.submit);
     // The draft was made on version 1, so the server can refuse the save as stale.
@@ -56,12 +70,12 @@ describe("an editor's draft", () => {
     const { result, rerender, save } = editorOn(STORED, async () => ({ ok: true, value: 1 }));
 
     // A price of blanks, which the write stores as the empty price it already holds.
-    act(() => result.current.set("mietpreis", "  "));
+    act(() => result.current.set("default_mietpreis", "  "));
     await press(result.current.submit);
     // The page serves the record anew, under the version the save was sent from.
     rerender({ shown: { ...STORED, values: { ...STORED.values } } });
-    expect(result.current.status).toStrictEqual({ tone: "saved", text: COPY.shared.saved });
-    expect(result.current.draft.mietpreis).toBeNull();
+    expect(result.current.status).toStrictEqual({ tone: "success", text: COPY.shared.saved });
+    expect(result.current.draft.default_mietpreis).toBeNull();
 
     act(() => result.current.set("postcode", "60439"));
     // Someone else renames the venue; the edit rests on the read before it.
@@ -72,14 +86,14 @@ describe("an editor's draft", () => {
   });
 
   it("says what else the save moved in place of „Gespeichert“", async () => {
-    const note = COPY.admin.spiel.alsoChanged([31]);
+    const note = COPY.aufstellung.lockedLine;
     const { result, rerender } = editorOn(STORED, async () => ({ ok: true, value: 2, note }));
 
     act(() => result.current.set("postcode", "60439"));
     await press(result.current.submit);
     rerender({ shown: { id: "ort-1", version: 2, values: { ...STORED.values, postcode: "60439" } } });
 
-    expect(result.current.status).toStrictEqual({ tone: "saved", text: note });
+    expect(result.current.status).toStrictEqual({ tone: "success", text: note });
   });
 
   it("keeps its own save's version where someone else wrote before the page served it, under an unsaved edit", async () => {
@@ -89,7 +103,7 @@ describe("an editor's draft", () => {
     await press(result.current.submit);
     act(() => result.current.set("name", "SC Riedberg"));
     // The page serves a write made after this editor's own.
-    rerender({ shown: { id: "ort-1", version: 3, values: { ...STORED.values, postcode: "60439", mietpreis: "90" } } });
+    rerender({ shown: { id: "ort-1", version: 3, values: { ...STORED.values, postcode: "60439", default_mietpreis: "90" } } });
     await press(result.current.submit);
 
     // The draft rests on version 2, so the server can refuse the save as stale.
@@ -156,7 +170,7 @@ describe("an editor's list of records", () => {
 
 // The harm: a confirmation reaching a draft it was not asked about, or a question nobody can answer.
 describe("an editor's save the server holds back for a question", () => {
-  const QUESTION = { subject: COPY.admin.spiel.ergebnis, consequence: COPY.admin.spiel.voids([31]), confirm: "31" };
+  const QUESTION = { subject: COPY.spielplan.ergebnis, consequence: COPY.spielplan.shootOutMissing, confirm: "31" };
 
   /** A server holding every save back for its question. */
   const heldBack = () => editorOn(STORED, async () => ({ ok: false, ask: QUESTION }));

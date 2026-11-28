@@ -65,11 +65,11 @@ async function offered() {
   const page = (await SpielberichtPage({ params: Promise.resolve({ saison: "2027", spiel: SPIEL_ID }) } as Parameters<
     typeof SpielberichtPage
   >[0])) as ReactElement<{
-    squads: Record<"team1" | "team2", Option[]>;
+    kader: Record<"team1" | "team2", Option[]>;
   }>;
-  const { squads } = page.props;
+  const { kader } = page.props;
   const of = (options: readonly Option[]) => options.map(({ id, isDisabled }) => ({ id, disabled: isDisabled === true }));
-  return { team1: of(squads.team1), team2: of(squads.team2) };
+  return { team1: of(kader.team1), team2: of(kader.team2) };
 }
 
 /* A side fielding another club since the report was written has emptied the rows naming the departed club's pupils, so

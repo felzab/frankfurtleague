@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 import { refusal, serveBackend } from "@/test-support/backend";
 import { signedInRequest } from "@/test-support/session";
 
@@ -133,7 +133,8 @@ describe("the league's save of a line-up", () => {
     expect(answer).toStrictEqual({
       ok: false,
       errorCode: "spieler_not_in_kader",
-      fieldErrors: { [`changes.picked.${THREE}`]: COPY.admin.spieler.deregistered },
+      fieldErrors: { [`changes.picked.${THREE}`]: COPY.kader.deregistered },
+      kinds: { [`changes.picked.${THREE}`]: "spieler_not_in_kader" },
     });
   });
 
@@ -148,7 +149,7 @@ describe("the league's save of a line-up", () => {
     expect(answer).toStrictEqual({
       ok: false,
       errorCode: "aufstellung_nominee_without_shortage",
-      reason: "Nachnominierte füllen nur die Lücke bis\u00A09.",
+      reason: "Nachnominierte füllen nur die Lücke bis 9.",
     });
   });
 });

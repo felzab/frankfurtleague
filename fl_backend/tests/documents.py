@@ -31,8 +31,8 @@ from app.api.registrierungen.services import compose_confirmation, compose_confi
 from app.api.spielbestaetigungen.services import compose_ansetzung
 from app.api.teams.services import compose_kontakt_confirmation
 from app.core.clock import utc_stamp
-from app.core.collections import EDITED_COLLECTIONS, Collection
-from app.core.crud import ANCHOR_FIELD, VERSION_FIELD
+from app.core.collections import Collection
+from app.core.crud import ANCHOR_FIELD
 from app.readback import RECORD_MODELS
 from app.shared.einwilligung_evidence import CHOICES, EVIDENCE, TextVersions, compose_initial, compose_receipt
 from app.shared.folding import league_address
@@ -65,10 +65,6 @@ def read_back_document(collection: Collection, document: dict[str, Any]) -> dict
 
     # The id the insert mints where the builder leaves one to it, as every stored document holds one.
     RECORD_MODELS[collection].model_validate({"_id": ObjectId(), **document}, extra="forbid")
-    # The read-back's rule beside the model, whose `version` defaults to 0 for the runtime reads: every write of an edited
-    # collection stores one.
-    if collection in EDITED_COLLECTIONS and VERSION_FIELD not in document:
-        raise ValueError(f"a {collection} document without `{VERSION_FIELD}`, which every write of it stores")
     return document
 
 
@@ -648,6 +644,8 @@ def action_log_document(action: str, *, by: str, at: datetime, **fields: Any) ->
             "team": None,
             "action": action,
             "record_id": None,
+            "saison_id": None,
+            "spiel_nr": None,
             "label": None,
             "count": None,
             "trace_id": "made-up",

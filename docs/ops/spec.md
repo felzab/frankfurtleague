@@ -81,13 +81,8 @@ or uv is refused by `scripts/tests/test_image_pins.py` until the pin moves on th
 uv that refusal is the only wait a new release meets**: `ghcr.io` publishes no date, so the
 ecosystem's cooldown holds nothing back.
 
-**A frontend dependency held narrower than a caret** (`fl_frontend/package.json`) is held so for a
-reason of its own:
-
-- `zod` takes patches alone (`~`): a minor can change which field a refusal names or which hosts a
-  pattern admits, which only the bounds cases see, so a minor moves as its own change;
-- `orval` is pinned exactly: a generator release can change the generated client, so a bump is its
-  own change, regenerated in the same pull request.
+**`orval` is pinned exactly** (`fl_frontend/package.json`): a generator release can change the
+generated client, so a bump is its own change, regenerated in the same pull request.
 
 **The digest alone decides what runs, and nothing checks the tag against it.** An official image is
 rebuilt under the same tags whenever its own base is refreshed
@@ -112,25 +107,31 @@ which lets every user bind below 1024 (read 2026-09-27, on engine 29.8.0). With 
 container, none can read the traffic crossing `frankfurtleague-app` (§4).
 
 **The frontend container also runs the background jobs, from one scheduler.**
-`fl_frontend/src/instrumentationNode.ts :: registerOnNode` arms `:: armScheduler` under a production
-build, which runs one pass a minute after start and then hourly, in the process that serves the
-site. A pass runs each job in turn:
+`fl_frontend/src/instrumentationNode.ts :: registerOnNode` arms
+`fl_frontend/src/scheduler.ts :: armScheduler` under a production build, which runs one pass a
+minute after start and then hourly, in the process that serves the site. A pass runs each job in
+turn:
 
-- the retention sweep (`fl_frontend/src/features/bewerbungen/sweep.ts :: runBewerbungSweep`);
-- the account sweep (`fl_frontend/src/features/roles/sweep.ts :: runAccountSweep`);
-- the pupils' deletion (`fl_frontend/src/features/saisons/sweep.ts :: runErasureSweep`);
+- the retention sweep over the seasons
+  (`fl_frontend/src/features/saisons/sweep.ts :: runSaisonSweep`);
+- the address changes (`fl_frontend/src/features/address-change/sweep.ts :: runAddressChangeSweep`);
+- the referee entries' lapse
+  (`fl_frontend/src/features/schiedsrichter/sweep.ts :: runSchiedsrichterSweep`);
+- the account sweep, which also deletes the passkeys of every address holding no grant, save one
+  whose account an address change still owes to carry
+  (`fl_frontend/src/features/account/sweep.ts :: runAccountSweep`);
+- the pupils' deletion (`fl_frontend/src/features/spieler/sweep.ts :: runErasureSweep`);
 - the fixture confirmations
   (`fl_frontend/src/features/spielbestaetigungen/sweep.ts :: runSpielSweep`);
 - the handover pass (`fl_frontend/src/features/grants/sweep.ts :: runHandoverPass`).
 
 Then the Postausgang's drain (`fl_frontend/src/core/mail.ts :: drainOutbox`) sends what they owed; a
 write that owes a mail drains at once besides. **No switch holds one job back**: every job runs
-wherever a production build runs, the local stack included, and `next dev` arms nothing.
-**`RESTORE_HOLD=on` in `fl_frontend/.env` holds them all**, while the data is not yet what the jobs
-may act on: after a migration until its read-back, and during a restore
-([`runbooks.md`](runbooks.md) §2, §13). Read once at the boot, it arms no pass and makes a write's
-drain send nothing (`fl_frontend/src/core/afterResponse.ts :: drainSoon`), the mail waiting in the
-Postausgang.
+wherever a production build runs, the local stack included. **`RESTORE_HOLD=on` in
+`fl_frontend/.env` holds them all**, while the data is not yet what the jobs may act on: after a
+migration until its read-back, and during a restore ([`runbooks.md`](runbooks.md) §2, §13). Read
+once at the boot, it arms no pass and makes a write's drain send nothing
+(`fl_frontend/src/core/afterResponse.ts :: drainSoon`), the mail waiting in the Postausgang.
 
 Production declares no replicas, so one process arms one timer, and an hour finding the previous
 pass still running is skipped with one line. Every job selects on dates, lapses or season statuses
@@ -164,9 +165,9 @@ flight.
 
 **Every credential the stack holds is a Compose file secret, and none is an environment variable**:
 `docker inspect` prints a container's environment, and never the contents of a mount. Each file has
-one name on the host, at `/run/secrets/` and in development, so the two database logins are two
-files. Who holds which is `scripts/checks/check_compose_model.py :: SECRET_HOLDERS`. **`./secrets/`
-is `.gitignore`d**, which keeps the credentials uncommittable from a checkout that has to hold them.
+one name on the host and at `/run/secrets/`, so the two database logins are two files. Who holds
+which is `scripts/checks/check_compose_model.py :: SECRET_HOLDERS`. **`./secrets/` is
+`.gitignore`d**, which keeps the credentials uncommittable from a checkout that has to hold them.
 
 **Compose mounts a file secret as a bind mount and ignores its `uid`, `gid` and `mode`**, so the
 host file's own owner and mode are what the container sees (Docker's Compose file reference,
@@ -256,25 +257,29 @@ zones bound a household or a school, never such a holder.
 `limit_conn conn 50` per network, which nginx counts from a request's header until its answer. A
 zone on every request would stall page loads, which fan out; behind a single connector, whose
 sockets no visitor controls, the ceiling is a backstop rather than a per-visitor control.
-`/_next/static/` takes none, the files every page load fetches at once
-(`scripts/checks/check_public_routes.py :: UNCEILINGED`).
+`/_next/static/` takes none: every page load fetches several of its files at once from each browser,
+which a ceiling counted in page loads would refuse before the pages themselves.
 
 **No location raises the action burst.** Next runs a server action by its header at any page's path,
 so a block declaring a higher burst would raise every action's per-network ceiling, the sign-in's
-among them; `scripts/checks/check_public_routes.py :: loosened` finds one. The registration's send
-stays bounded by its Turnstile check and the confirmation's by its single-use token.
+among them. The registration's send stays bounded by its Turnstile check and the confirmation's by
+its single-use token.
 
 **Every page a mailed or shared link opens is metered on every request and every method**, on
 `linkpage`: each request renders a page reading the database, or is the proxy's redirect into one
 (`fl_frontend/src/core/mailedLink.ts`). No page links to one, so a visit is one request or two,
-never a navigation's fan-out. **`/confirm/` is a prefix because every page under it is a link
-page**, so a page added there is metered the day it exists; a link page anywhere else needs an exact
-match, as `/registrierung` and `/erasure` have. **The burst of 440 is sized for the largest squad a
-season may set**, 50 (`fl_backend/app/shared/schemas/bounds.py :: KADER_SIZE_MAX`), behind one
-school's address in one break: each pupil opens the team's invite and their own link and sends each
-page's form, a retry each, 10N requests passing within two minutes at the zone's rate. That squad's
-4N sends on the action key pass at `location /`'s burst in about three minutes, a send past it
-refused and sent again. A season's bound moving past 50 moves this burst by hand.
+never a navigation's fan-out. **`/confirm/` is a prefix because every page under it is a link page**
+or the done page its answer leads to, so a page added there is metered the day it exists. A done
+page reads no record, but it costs one request at the edge: Next's own fetch of an action's redirect
+fails behind this edge, so the browser asks for the page itself
+([the line it prints](../logging/overview.md#how-it-is-organised)), until Next fetches over its own
+listener's protocol ([#293](https://github.com/felzab/frankfurtleague/issues/293)). A link page
+anywhere else needs an exact match, as `/registrierung` and `/erasure` have. **The burst is sized
+for the largest squad a season may set**, 50
+(`fl_backend/app/shared/schemas/bounds.py :: KADER_SIZE_MAX`), every pupil behind one school's
+address in one break, and the action zone stays unraised; `nginx/shared/site.conf`'s
+`location /confirm/` derives both figures and what the burst falls back to once the done page costs
+nothing. A season's bound moving past 50 moves this burst by hand.
 
 **A link page's location writes no error line at all** (`error_log /dev/null`). nginx writes every
 error line with the request line whole, the query and the referrer with it, and the open-source
@@ -305,8 +310,7 @@ which Next redirects back.
 `:: REASONS`, or a handler recorded unmetered at `:: UNMETERED`. No predicate selects the public
 handlers, since nothing a handler imports or exports says whether it answers a stranger. A handler
 under a dynamic segment is unmeterable unless a prefix covers it. Next's code-generated metadata
-routes are accounted for at `:: METADATA` and reach Next through `location /`. A location serving
-pages writes every meter line of the location it is carved out of.
+routes are accounted for at `:: METADATA` and reach Next through `location /`.
 
 **The body cap is nginx's default 1m wherever no location sets one**, which is Next's own bound on a
 server action's body (`serverActions.bodySizeLimit`, left at its default in
@@ -419,24 +423,20 @@ form post.
 `scripts/README.md` lists the scripts; each script's own header carries its usage and prints it with
 `--help`.
 
-| Environment | What it is                                             | Database                                                                       | Entry point                                                                                                   |
-| ----------- | ------------------------------------------------------ | ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------- |
-| **dev**     | source with hot reload, no Docker                      | the one the URI files under `secrets/` name ([`runbooks.md`](runbooks.md) §16) | `pnpm dev` in `fl_frontend/` · `SECRETS_DIR=../secrets uv run uvicorn app.asgi:app --reload` in `fl_backend/` |
-| **local**   | the production images built from your tree, with nginx | its own, inside the stack (`docker-compose.local.yml :: mongo`)                | `./scripts/ops/local.sh`                                                                                      |
-| **e2e**     | the local stack again, for the Playwright journeys     | its own, with the made-up seed, new on every start (`docker-compose.e2e.yml`)  | `./scripts/ops/local.sh --e2e`                                                                                |
-| **prod**    | published images on the server, never built there      | the managed cluster                                                            | `./scripts/ops/deploy.sh`                                                                                     |
+| Environment | What it is                                             | Database                                                                      | Entry point                    |
+| ----------- | ------------------------------------------------------ | ----------------------------------------------------------------------------- | ------------------------------ |
+| **local**   | the production images built from your tree, with nginx | its own, inside the stack (`docker-compose.local.yml :: mongo`)               | `./scripts/ops/local.sh`       |
+| **e2e**     | the local stack again, for the Playwright journeys     | its own, with the made-up seed, new on every start (`docker-compose.e2e.yml`) | `./scripts/ops/local.sh --e2e` |
+| **prod**    | published images on the server, never built there      | the managed cluster                                                           | `./scripts/ops/deploy.sh`      |
 
 **local is the only place a packaging problem is visible before a deploy**: a missing standalone
-file, a failing startup gate, a header nginx does not set. dev exercises none of that machinery, and
-prod only pulls. `local.sh` refuses to start anywhere but Windows, and `deploy.sh` anywhere but
-Linux.
+file, a failing startup gate, a header nginx does not set. prod only pulls the images. `local.sh`
+refuses to start anywhere but Windows, and `deploy.sh` anywhere but Linux.
 
 **Each application service reads its own package's `.env` and no other**, and every credential is a
 file under `secrets/` (§1.2). **On the server, the `.env` beside the compose file holds the deploy's
 pin alone** ([`runbooks.md`](runbooks.md) §1). Compose reads it for every command, and refuses to
-parse `docker-compose.yml` without a `TAG`. **The frontend's `dev` script sets `SECRETS_DIR`
-itself**, to the checkout's `secrets/`, because `fl_frontend/.env` also reaches the frontend
-container, where a path written there would turn the frontend away from the secret's mount.
+parse `docker-compose.yml` without a `TAG`.
 
 **The local stack is `docker-compose.local.yml` merged over `docker-compose.yml`**, so only what the
 override writes differs, and each difference is argued at its key. It builds both images from the
@@ -525,7 +525,7 @@ and frontend scopes alone, of which the scripts scope needs Docker for shellchec
 | `--backend`        | `uv lock --check` alone and first, then `ruff`, `pyright`, `pytest` (default tier) and `deptry` over `app/`                                                                                                     | the backend venv, and for the lockfile check a uv inside `fl_backend/pyproject.toml`'s `required-version` range; any other refuses at start-up |
 | `--format`         | Prettier in check mode over the whole repository, then markdownlint over every Markdown file, then no conflict marker, whitespace error or invisible character in any tracked file                              | pnpm install                                                                                                                                   |
 | `--frontend-units` | the unit tests `fl_frontend/package.json`'s `test` script finds under `fl_frontend/`                                                                                                                            | pnpm install                                                                                                                                   |
-| `--frontend`       | the frozen lockfile, peer and dedupe checks, `next typegen`, tsc, eslint, both knip runs and `next build`                                                                                                       | pnpm install                                                                                                                                   |
+| `--frontend`       | the frozen lockfile, peer and dedupe checks, `next typegen`, tsc, eslint and both knip runs                                                                                                                     | pnpm install                                                                                                                                   |
 | `--ops`            | zizmor audits `.github/`; the three stacks parse; `check_compose_model.py` judges their models; `check_public_routes.py` accounts for every route; `edge_test.sh` starts both edges and drives them             | Docker with its Compose plugin, refused at start-up without it, and the backend virtualenv with its dev group                                  |
 | `--db`             | the contract and its client generated into an ignored scratch folder and compared with the committed ones, `pytest -m db` over the backend and `pnpm run test:db` over `*.db.test.ts`, the three side by side   | venv + pnpm install + Docker                                                                                                                   |
 | `--images`         | both images baked from `docker-bake.hcl`, CI's own definition, then what a build does not prove: `instrumentation.js` present, neither image running as uid 0, neither holding a file its dockerignore excludes | Docker                                                                                                                                         |
@@ -550,8 +550,8 @@ running `./scripts/gate/verify.sh` with that scope's flag. Beside them:
 leaves unused is removed in that change. The default run (`fl_frontend/knip.json`) refuses a file,
 an export or a dependency nothing imports, a test included. The production run
 (`fl_frontend/knip.production.json`) drops the tests and refuses a file or an export no production
-code reads; a value a test compares on purpose carries `@internal`. Each file names, beside each
-ignore, the reader knip cannot see, and a configuration hint fails either step as a finding does.
+code reads. Each file names, beside each ignore, the reader knip cannot see, and a configuration
+hint fails either step as a finding does.
 
 **An editor formats earlier still**: `.vscode/settings.json` names the module, the configuration and
 the ignore file the gate itself reads. `.editorconfig` carries the same conventions to the files
@@ -559,12 +559,12 @@ Prettier never opens, and stays clear of every setting `.prettierrc.json` decide
 
 **Every untracked file a run leaves is gitignored where it lands**, the caches of `tsc` and Prettier
 among them. eslint runs uncached: its typed rules read other files' types, which its per-file cache
-never keys on. **Outside CI the two Next commands install as well as write**: handed a missing
-`typescript` or `@types/*` package, `next typegen` and `next build` add it to `node_modules` rather
-than failing, where a runner takes the refusing branch, keyed off Next's own `isCI`.
+never keys on. **Outside CI `next typegen` installs as well as writes**: handed a missing
+`typescript` or `@types/*` package, it adds it to `node_modules` rather than failing, where a runner
+takes the refusing branch, keyed off Next's own `isCI`.
 
-**One tracked file a gate run writes is not a formatter's doing**: `next typegen` and `next build`
-each rewrite `fl_frontend/tsconfig.json` where a `compilerOptions` key is absent (Next's
+**One tracked file a gate run writes is not a formatter's doing**: `next typegen` rewrites
+`fl_frontend/tsconfig.json` where a `compilerOptions` key is absent (Next's
 `writeConfigurationDefaults`), so the frontend job diffs that one path after the scope and fails on
 it.
 
@@ -601,8 +601,9 @@ merged over that pair, held to where it publishes, since it sets its own setting
 environment on purpose. A model it cannot read is a refusal rather than a verdict (§1.7).
 
 **The images scope exists because code that compiles can still fail to build inside the image**, or
-be left out of the standalone output. **Both test tiers run**: the `db`-marked tests need a real
-`mongod`, so they are a scope of their own.
+be left out of the standalone output. Its frontend image runs the gate's one `next build`, which the
+frontend scope does not repeat, so `--quick` and a run without Docker build no Next. **Both test
+tiers run**: the `db`-marked tests need a real `mongod`, so they are a scope of their own.
 
 ### 1.7 Script conventions
 
@@ -781,42 +782,43 @@ be true there, a check the owner makes in its list of monitors:
 
 ## 2. Invariants
 
-| Invariant                                                                                                                                  | Enforced by                                                                                                                                                                            |
-| ------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Production publishes no port, and the local stacks publish on loopback alone                                                               | `scripts/checks/check_compose_model.py :: production` and `:: local`, over the models `docker compose config` renders                                                                  |
-| Production declares exactly `frontend`, `backend`, `nginx` and `cloudflared`, and no database                                              | `scripts/checks/check_compose_model.py :: PRODUCTION_SERVICES`                                                                                                                         |
-| Only nginx shares a network with the connector, and only nginx with the application pair, in both stacks                                   | `scripts/checks/check_compose_model.py :: networks`                                                                                                                                    |
-| Every service drops every capability and sets `no-new-privileges`; nginx alone adds any back, `CHOWN`, `SETUID` and `SETGID`               | `scripts/checks/check_compose_model.py :: privileges`; `scripts/checks/edge_test.sh` starts nginx with them                                                                            |
-| Every credential reaches a service as a Compose file secret, held by exactly the services that read it, from its own file under `secrets/` | `scripts/checks/check_compose_model.py :: secret_holders` over `:: SECRET_HOLDERS`, and `:: secrets_directory`                                                                         |
-| No service's environment names a value a secret file holds, in any letter case                                                             | `scripts/checks/check_compose_model.py :: moved_names`                                                                                                                                 |
-| Each application service reads its own package's `.env` and no other                                                                       | `scripts/checks/check_compose_model.py :: env_files`, over the models rendered from the gate's stand-ins                                                                               |
-| The frontend's `APP_ENV` is each stack's own, written above the package's file                                                             | `scripts/checks/check_compose_model.py :: deployment_name`                                                                                                                             |
-| Both edges mount their configuration from `nginx/` by directory, and trust the connector's rendered address alone                          | `scripts/checks/check_compose_model.py :: edge_mounts` and `:: trusted_connector`                                                                                                      |
-| Each security header is sent once, as `nginx/shared/security_headers.conf` writes it, on every location and the www redirect               | `scripts/checks/edge_test.sh`                                                                                                                                                          |
-| No mailed link's query reaches an access line, and every access line holds its request's trace id                                          | `scripts/checks/edge_test.sh`                                                                                                                                                          |
-| A visitor's `traceparent` never reaches an upstream                                                                                        | `scripts/checks/edge_test.sh`                                                                                                                                                          |
-| Each upstream is named through a variable and found through Docker's DNS, so a recreated container needs no reload                         | `scripts/checks/edge_test.sh`                                                                                                                                                          |
-| Each zone and the connection ceiling refuse past their figure with the edge's `429`                                                        | `scripts/checks/edge_test.sh`, which reads each figure off the configuration it judges                                                                                                 |
-| Every route handler, link page and metadata convention is metered or accounted for at the edge                                             | `scripts/checks/check_public_routes.py`, its rules driven red in `scripts/tests/test_check_public_routes.py`                                                                           |
-| A link page's location writes no error line and withholds the referrer                                                                     | `scripts/checks/check_public_routes.py :: unlogged_links` and `:: referring_links`; `scripts/checks/edge_test.sh`                                                                      |
-| Every image this repository does not build is pinned by tag and digest                                                                     | `scripts/tests/test_image_pins.py`                                                                                                                                                     |
-| The frontend image's Node, the backend image's Python series and its uv are the ones the checkout and CI run                               | `scripts/tests/test_image_pins.py`                                                                                                                                                     |
-| Every gate scope has one CI job, and every job but `journeys`, `verify` and `publish` runs one scope                                       | `scripts/tests/test_gate_jobs.py`; the `verify` job holds every job to its `needs:`                                                                                                    |
-| Scripts carry the git executable bit                                                                                                       | `scripts/gate/selfcheck.sh`, its first step                                                                                                                                            |
-| A deploy pins no build its last read finds with a service not running and healthy, and a stopped one-off container names no service        | `scripts/tests/test_deploy.py`, which runs `scripts/ops/deploy.sh` behind a stand-in engine; no real engine is driven                                                                  |
-| The journeys job's legs together run every project `fl_frontend/playwright.config.ts` defines, a setup project included                    | the `journeys` job's desktop leg, which asks Playwright's `--list` for every leg's flags                                                                                               |
-| The made-up seed loads only into a stack running its own mongo, its frontend stopped, and writes only to that server                       | `scripts/tests/test_e2e_stack_script.py` behind a stand-in engine, and `fl_backend/tests/core/test_made_up_seed.py :: is_local_server`'s cases                                         |
-| Only a green run of every scope closes as safe to merge                                                                                    | `scripts/tests/test_gate_endings.py :: test_only_a_green_run_of_every_scope_is_safe_to_merge`                                                                                          |
-| Production never builds                                                                                                                    | unenforced: `docker-compose.yml` declares no `build:`, and `deploy.sh` only pulls                                                                                                      |
-| The builder stage has no reachable backend and no real environment                                                                         | `fl_frontend/Dockerfile`'s `SKIP_ENV_VALIDATION=true`, with no secrets directory and no `API_URL`                                                                                      |
-| The three API keys are 64 printable ASCII characters without the space, one file each that both sides read                                 | `fl_frontend/src/core/config.ts :: INTERNAL_API_KEY` and `fl_backend/app/core/config.py :: INTERNAL_API_KEY_CHARACTERS`                                                                |
-| A startup refusal names the failing variables or secret files, or a failure type, and never a value                                        | `fl_backend/app/core/config.py :: get_config`, held by `fl_backend/tests/core/test_config.py`; the frontend's `fl_frontend/src/core/config.ts :: refuseInvalidEnvironment`, unenforced |
-| A stopped backend container lets every request it accepted end inside its bound before the engine kills it                                 | `fl_backend/Dockerfile`'s `CMD` and `docker-compose.yml`'s `stop_grace_period`; `fl_backend/tests/core/test_request_deadline.py :: TestAStoppedContainerOutlastsEveryRequest`          |
-| A stopped frontend container lets every request it accepted, and the work behind each answer but the mail drain, end inside its bound      | unenforced: `docker-compose.yml`'s `stop_grace_period` is set against `fl_frontend/src/core/requestScope.ts :: REQUEST_DEADLINE_MS` and `:: AFTER_RESPONSE_DEADLINE_MS`                |
-| The catch-all makes a route handler reachable the moment it exists, its own authorization the only guard in front of it                    | unenforced: nothing sweeps a new route handler for its guard                                                                                                                           |
-| FastAPI's `/docs`, `/redoc` and `/openapi.json` are served by nothing; the committed `fl_backend/openapi.json` is the one document         | unenforced: `fl_backend/app/main.py` builds the app with `openapi_url=None`                                                                                                            |
-| One `frontend` service and no replica count, so each job holds one timer per process with no lease                                         | unenforced: nothing refuses a second service or a `deploy.replicas`                                                                                                                    |
-| A Cloudflare challenge may meet a top-level navigation and never a server action's POST or an `/api/*` route                               | unenforced: nothing in this repository can read a Cloudflare rule                                                                                                                      |
+| Invariant                                                                                                                                  | Enforced by                                                                                                                                                                                                                                                                  |
+| ------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Production publishes no port, and the local stacks publish on loopback alone                                                               | `scripts/checks/check_compose_model.py :: production` and `:: local`, over the models `docker compose config` renders                                                                                                                                                        |
+| Production declares exactly `frontend`, `backend`, `nginx` and `cloudflared`, and no database                                              | `scripts/checks/check_compose_model.py :: PRODUCTION_SERVICES`                                                                                                                                                                                                               |
+| Only nginx shares a network with the connector, and only nginx with the application pair, in both stacks                                   | `scripts/checks/check_compose_model.py :: networks`                                                                                                                                                                                                                          |
+| Every service drops every capability and sets `no-new-privileges`; nginx alone adds any back, `CHOWN`, `SETUID` and `SETGID`               | `scripts/checks/check_compose_model.py :: privileges`; `scripts/checks/edge_test.sh` starts nginx with them                                                                                                                                                                  |
+| Every credential reaches a service as a Compose file secret, held by exactly the services that read it, from its own file under `secrets/` | `scripts/checks/check_compose_model.py :: secret_holders` over `:: SECRET_HOLDERS`, and `:: secrets_directory`                                                                                                                                                               |
+| No service's environment names a value a secret file holds, in any letter case                                                             | `scripts/checks/check_compose_model.py :: moved_names`                                                                                                                                                                                                                       |
+| Each application service reads its own package's `.env` and no other                                                                       | `scripts/checks/check_compose_model.py :: env_files`, over the models rendered from the gate's stand-ins                                                                                                                                                                     |
+| The frontend's `APP_ENV` is each stack's own, written above the package's file                                                             | `scripts/checks/check_compose_model.py :: deployment_name`                                                                                                                                                                                                                   |
+| Both edges mount their configuration from `nginx/` by directory, and trust the connector's rendered address alone                          | `scripts/checks/check_compose_model.py :: edge_mounts` and `:: trusted_connector`                                                                                                                                                                                            |
+| Each security header is sent once, as `nginx/shared/security_headers.conf` writes it, on every location and the www redirect               | `scripts/checks/edge_test.sh`                                                                                                                                                                                                                                                |
+| No mailed link's query reaches an access line, and every access line holds its request's trace id                                          | `scripts/checks/edge_test.sh`                                                                                                                                                                                                                                                |
+| A visitor's `traceparent` never reaches an upstream                                                                                        | `scripts/checks/edge_test.sh`                                                                                                                                                                                                                                                |
+| Each upstream is named through a variable and found through Docker's DNS, so a recreated container needs no reload                         | `scripts/checks/edge_test.sh`                                                                                                                                                                                                                                                |
+| Each zone and the connection ceiling refuse past their figure with the edge's `429`                                                        | `scripts/checks/edge_test.sh`, which reads each figure off the configuration it judges                                                                                                                                                                                       |
+| Every route handler and metadata convention is metered or accounted for at the edge                                                        | `scripts/checks/check_public_routes.py`, its rules driven red in `scripts/tests/test_check_public_routes.py`                                                                                                                                                                 |
+| A link page's location writes no error line and withholds the referrer                                                                     | `scripts/checks/edge_test.sh`                                                                                                                                                                                                                                                |
+| Every page a mailed or shared link opens is served by a link page's location                                                               | unenforced: `fl_frontend/src/core/mailedLink.ts :: MAILED_LINK_PAGES` names them, and nothing compares it with nginx's locations                                                                                                                                             |
+| Every image this repository does not build is pinned by tag and digest                                                                     | `scripts/tests/test_image_pins.py`                                                                                                                                                                                                                                           |
+| The frontend image's Node, the backend image's Python series and its uv are the ones the checkout and CI run                               | `scripts/tests/test_image_pins.py`                                                                                                                                                                                                                                           |
+| Every gate scope has one CI job, and every job but `journeys`, `verify` and `publish` runs one scope                                       | `scripts/tests/test_gate_jobs.py`; the `verify` job holds every job to its `needs:`                                                                                                                                                                                          |
+| Scripts carry the git executable bit                                                                                                       | `scripts/gate/selfcheck.sh`, its first step                                                                                                                                                                                                                                  |
+| A deploy pins no build its last read finds with a service not running and healthy, and a stopped one-off container names no service        | `scripts/tests/test_deploy.py`, which runs `scripts/ops/deploy.sh` behind a stand-in engine; no real engine is driven                                                                                                                                                        |
+| The journeys job's legs together run every project `fl_frontend/playwright.config.ts` defines, a setup project included                    | the `journeys` job's desktop leg, which asks Playwright's `--list` for every leg's flags                                                                                                                                                                                     |
+| The made-up seed loads only into a stack running its own mongo, its frontend stopped, and writes only to that server                       | `scripts/tests/test_e2e_stack_script.py` behind a stand-in engine, and `fl_backend/tests/core/test_made_up_seed.py :: is_local_server`'s cases                                                                                                                               |
+| Only a green run of every scope closes as safe to merge                                                                                    | `scripts/tests/test_gate_endings.py :: test_only_a_green_run_of_every_scope_is_safe_to_merge`                                                                                                                                                                                |
+| Production never builds                                                                                                                    | unenforced: `docker-compose.yml` declares no `build:`, and `deploy.sh` only pulls                                                                                                                                                                                            |
+| The builder stage has no reachable backend and no real environment                                                                         | `fl_frontend/Dockerfile`'s `SKIP_ENV_VALIDATION=true`, with no secrets directory and no `API_URL`                                                                                                                                                                            |
+| The three API keys are 64 printable ASCII characters without the space, one file each that both sides read                                 | `fl_frontend/src/core/config.ts :: INTERNAL_API_KEY` and `fl_backend/app/core/config.py :: INTERNAL_API_KEY_CHARACTERS`                                                                                                                                                      |
+| A startup refusal names the failing variables or secret files, or a failure type, and never a value                                        | `fl_backend/app/core/config.py :: get_config`, held by `fl_backend/tests/core/test_config.py`; the frontend's `fl_frontend/src/core/config.ts :: refuseInvalidEnvironment`, held by `fl_frontend/src/core/config.test.ts`, and its `refuseUnreadableSecretFiles`, unenforced |
+| A stopped backend container lets every request it accepted end inside its bound before the engine kills it                                 | `fl_backend/Dockerfile`'s `CMD` and `docker-compose.yml`'s `stop_grace_period`; `fl_backend/tests/core/test_request_deadline.py :: TestAStoppedContainerOutlastsEveryRequest`                                                                                                |
+| A stopped frontend container lets every request it accepted, and the work behind each answer but the mail drain, end inside its bound      | unenforced: `docker-compose.yml`'s `stop_grace_period` is set against `fl_frontend/src/core/requestScope.ts :: REQUEST_DEADLINE_MS` and `:: AFTER_RESPONSE_DEADLINE_MS`                                                                                                      |
+| The catch-all makes a route handler reachable the moment it exists, its own authorization the only guard in front of it                    | unenforced: nothing sweeps a new route handler for its guard                                                                                                                                                                                                                 |
+| FastAPI's `/docs`, `/redoc` and `/openapi.json` are served by nothing; the committed `fl_backend/openapi.json` is the one document         | unenforced: `fl_backend/app/main.py` builds the app with `openapi_url=None`                                                                                                                                                                                                  |
+| One `frontend` service and no replica count, so each job holds one timer per process with no lease                                         | unenforced: nothing refuses a second service or a `deploy.replicas`                                                                                                                                                                                                          |
+| A Cloudflare challenge may meet a top-level navigation and never a server action's POST or an `/api/*` route                               | unenforced: nothing in this repository can read a Cloudflare rule                                                                                                                                                                                                            |
 
 ## 3. Violation → remedy
 
@@ -834,7 +836,6 @@ be true there, a check the owner makes in its list of monitors:
 | A deploy fails: nginx's running master refused the configuration `nginx -t` passed                       | A change nginx takes only at a start, such as a zone keyed anew under its old name                                                            | `docker compose restart nginx`                                                                                         |
 | `failed to connect to the docker API at npipe:...`                                                       | Docker Desktop is not running                                                                                                                 | Start it and wait for it to settle                                                                                     |
 | The publish job in `.github/workflows/verify.yml` fails at the push with `denied` or `permission_denied` | The package does not grant this repository's workflows write access                                                                           | Package settings → Manage Actions access → add this repository with the Write role, then re-run the job                |
-| `EBUSY`, or `.next` locked during a build                                                                | A `pnpm dev` is still running, or the folder is open in an editor                                                                             | Stop the dev server                                                                                                    |
 | `./scripts/ops/local.sh` reports `mongo` unhealthy                                                       | The local database has not elected itself primary, so no transaction opens                                                                    | Read the lines the script prints under `mongo`'s step                                                                  |
 | A db-tier run reports a wall of failures naming unique indexes                                           | A second `pytest -m db` ran beside it on the same machine                                                                                     | Re-run with nothing else on the tier                                                                                   |
 | Container unhealthy, health log empty, `FailingStreak: 0`                                                | The app died before the first probe, usually on a malformed `.env` value                                                                      | `docker compose logs <service>`                                                                                        |

@@ -1,13 +1,15 @@
 import { cache } from "react";
 
 import { now } from "@/core/clock";
-import { COPY } from "@/core/copy";
-import { dayIn, dayOf, timeOf } from "@/core/format";
+import { AREA_COPY } from "@/core/copy/area";
+import { COPY } from "@/core/copy/shared";
+import { dayIn, dayOf } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { AUFSTELLUNG_CHIP } from "@/features/aufstellungen/constants";
 import { readAsSeatHolder, requireTeamSeats, teamMetadata } from "@/features/roles/resolvers";
-import { matchName } from "@/features/spiele/blocks";
+import { matchName, whenOf } from "@/features/spiele/blocks";
+import { kaderName } from "@/features/spieler/constants";
 import { getTeamOverview } from "@/features/teams/queries";
 import { ListPage } from "@/kit/ListPage";
 import { PressAct } from "@/kit/PressAct";
@@ -17,10 +19,9 @@ import { pageMetadata } from "@/shared/utils/metadata";
 import { agreeSpielbestaetigung } from "./answerSpielbestaetigung";
 import { DeclineDialog } from "./DeclineDialog";
 
-import type { Copy, Words } from "@/core/copy";
+import type { Words } from "@/core/copy";
 import type { CalendarDay } from "@/core/format";
 import type {
-  FLSpielbestaetigungAppointment,
   FLSpielbestaetigungViewAnsetzung,
   FLTeamPanelAufstellung,
   FLTeamPanelRegistrierung,
@@ -29,35 +30,32 @@ import type {
 } from "@/core/generated/client/types";
 import type { TeamSeat } from "@/features/roles/resolvers";
 import type { CardActRowProps } from "@/kit/Card";
-import type { Metadata, ResolvingMetadata } from "next";
+import type { Metadata } from "next";
 
 type Props = PageProps<"/area/team/[team]/[saison]">;
 
 type Row = CardActRowProps & { id: string };
 
 const WORDS = SERVER_COPY.overview;
-const TEAM = COPY.area.team;
+const TEAM = AREA_COPY.team;
 const line = COPY.shared.line;
 
 const TITLES = {
   spielbestaetigungen: WORDS.card.dates,
-  aufstellungen: TEAM.aufstellung.plural,
+  aufstellungen: COPY.aufstellung.plural,
   registrierungen: COPY.page.registrierungen,
   seats: COPY.team.kontakte,
 } as const;
 
-/** The page's own address, which a session sent to sign in comes back to. */
 const address = ({ team, saison }: { team: string; saison: string }) => ROUTES.teamOverview.path(team, saison);
 
-/** The page's one read, memoised for the render on its two ids, which `cache` compares by identity, so the tab's title and the page share it. */
+/** Keyed on the seat's two ids rather than the seat, since `cache` compares its arguments by identity. */
 const overviewRead = cache(getTeamOverview);
 const overviewOf = (seat: TeamSeat) => overviewRead(seat.team_id, seat.saison_id);
 
-export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
-  return teamMetadata(params, address, overviewOf, async () => pageMetadata(parent, ROUTES.teamOverview, address(await params)));
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  return teamMetadata(params, address, overviewOf, async () => pageMetadata(ROUTES.teamOverview, address(await params)));
 }
-
-const whenOf = ({ date, time }: FLSpielbestaetigungAppointment): Copy => COPY.spielplan.when(dayOf(date), timeOf(time));
 
 const venueOf = (ansetzung: FLSpielbestaetigungViewAnsetzung): Words | null =>
   ansetzung.spielort === null ? null : { record: ansetzung.spielort.name };
@@ -86,7 +84,7 @@ function spielbestaetigungRow(row: FLTeamPanelSpielbestaetigung, team: string, s
     case "valid":
     case "vorschlag": {
       const proposal = row.state === "vorschlag" && row.vorschlag !== null ? WORDS.proposal(whenOf(row.vorschlag), opponentOf(row)) : null;
-      const due = deadline === today ? WORDS.answerDue : COPY.admin.spiel.answerBy(deadline);
+      const due = deadline === today ? WORDS.answerDue : COPY.shared.answerBy(deadline);
       return {
         ...base,
         line: line([when, proposal ?? venueOf(ansetzung), due]),
@@ -94,11 +92,9 @@ function spielbestaetigungRow(row: FLTeamPanelSpielbestaetigung, team: string, s
           <>
             {/* At once, as the administration's at-once acts are: „Zugesagt“ as the agreed row leaves the box. */}
             <PressAct
-              variant="primary"
-              label={COPY.shared.verb.agree}
-              act={agreeSpielbestaetigung}
+              act={{ verb: "agree" }}
+              run={agreeSpielbestaetigung}
               payload={{ id: row.spielbestaetigung_id }}
-              done={COPY.shared.toast.agreed}
             />
             <DeclineDialog
               id={row.spielbestaetigung_id}
@@ -114,18 +110,13 @@ function spielbestaetigungRow(row: FLTeamPanelSpielbestaetigung, team: string, s
         ...base,
         chip: EXPIRED_CHIP,
         // A row an exit ended before its deadline lapsed on no day, its deadline never reached.
-        line: line([
-          when,
-          venueOf(ansetzung),
-          row.lapsed_on === null ? null : COPY.admin.schiedsrichter.expiredOn(dayOf(row.lapsed_on)),
-          TEAM.leagueDecides,
-        ]),
+        line: line([when, venueOf(ansetzung), row.lapsed_on === null ? null : COPY.shared.expiredOn(dayOf(row.lapsed_on)), TEAM.leagueDecides]),
       };
     case "declined":
       return {
         ...base,
         chip: DECLINED_CHIP,
-        line: line([when, row.vorschlag === null ? null : COPY.admin.spiel.proposed(whenOf(row.vorschlag))]),
+        line: line([when, row.vorschlag === null ? null : COPY.spielplan.proposed(whenOf(row.vorschlag))]),
       };
     case "agreed":
       return { ...base, chip: AGREED_CHIP, line: line([when, venueOf(ansetzung)]) };
@@ -144,23 +135,23 @@ function aufstellungRow(row: FLTeamPanelAufstellung, team: string, saison: strin
     href: ROUTES.teamAufstellung.path(team, saison, row.spiel_id),
     name: matchName(row.ansetzung.team1_name, row.ansetzung.team2_name),
     ...(chip === undefined ? {} : { chip }),
-    line: line([whenOf(row.ansetzung), row.marks.phase === "open" ? TEAM.aufstellung.dueBy(due) : TEAM.aufstellung.overdueSince(due)]),
+    line: line([whenOf(row.ansetzung), row.marks.phase === "open" ? COPY.aufstellung.dueBy(due) : COPY.aufstellung.overdueSince(due)]),
   };
 }
 
 /**
- * A registration awaiting the team's decision, which its own page takes: confirmed by the pupil or not, and what they
- * play, a line only where the pupil named a position or a Stufe.
+ * A registration awaiting the team's decision, which the team's list takes, linked once by the card's title: no row
+ * opens a page, since a registration has none of its own. Confirmed by the pupil or not, and what they play, a line
+ * only where the pupil named a position or a Stufe.
  */
-function registrierungRow(row: FLTeamPanelRegistrierung, team: string, saison: string): Row {
+function registrierungRow(row: FLTeamPanelRegistrierung): Row {
   const plays =
     row.position === null && row.stufe === null
       ? null
-      : line([row.position === null ? null : { record: row.position }, row.stufe === null ? null : COPY.admin.saison.stufe[row.stufe]]);
+      : line([row.position === null ? null : { record: row.position }, row.stufe === null ? null : { record: row.stufe }]);
   return {
     id: row.registrierung_id,
-    href: ROUTES.teamRegistrierungen.path(team, saison),
-    name: { record: `${row.first_name} ${row.last_name}` },
+    name: { record: kaderName(row) },
     chip: row.admissible ? CONFIRMED_CHIP : UNCONFIRMED_CHIP,
     ...(plays === null ? {} : { line: plays }),
   };
@@ -171,9 +162,9 @@ function registrierungRow(row: FLTeamPanelRegistrierung, team: string, saison: s
  * seat into one row, and whether they confirmed; an empty seat muted. A row's seats are its key, no seat held twice.
  */
 function seatRow(seat: FLTeamSeat) {
-  const held = COPY.admin.seatLine(seat.seats, null, null);
+  const held = COPY.team.seatLine(seat.seats, null, null);
   return seat.name === null
-    ? { id: seat.seats.join(" "), name: COPY.admin.seatEmpty, chips: [], line: held, muted: true }
+    ? { id: seat.seats.join(" "), name: COPY.team.seatEmpty, chips: [], line: held, muted: true }
     : {
         id: seat.seats.join(" "),
         name: { record: seat.name },
@@ -198,7 +189,12 @@ async function readOverview(params: Props["params"]) {
         rows: read.spielbestaetigungen.map((row) => spielbestaetigungRow(row, team, saison, today)),
       },
       { id: "aufstellungen", title: TITLES.aufstellungen, rows: read.aufstellungen.map((row) => aufstellungRow(row, team, saison)) },
-      { id: "registrierungen", title: TITLES.registrierungen, rows: read.registrierungen.map((row) => registrierungRow(row, team, saison)) },
+      {
+        id: "registrierungen",
+        title: TITLES.registrierungen,
+        href: ROUTES.teamRegistrierungen.path(team, saison),
+        rows: read.registrierungen.map(registrierungRow),
+      },
     ],
     seats: { title: TITLES.seats, rows: read.seats.map(seatRow) },
   };
@@ -206,7 +202,8 @@ async function readOverview(params: Props["params"]) {
 
 /**
  * The team contact's Übersicht of one season: the team's head, then its open work in three boxes, every box drawn
- * every day, the dates answered on their rows and everything else opening its own page, then its seats, read-only.
+ * every day, the dates answered on their rows, each line-up opening its own page and the registrations their list
+ * from the card's title, then its seats, read-only.
  */
 export default function TeamOverviewPage({ params }: Props) {
   return (

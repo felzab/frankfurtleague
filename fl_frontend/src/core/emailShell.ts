@@ -1,22 +1,25 @@
 import "server-only";
 
-import { KONTAKT_EMAIL, VEREIN_ADDRESS, VEREIN_NAME } from "./brand";
-import { COPY, LINE_SEPARATOR } from "./copy";
+import { BRAND_SOLID, KONTAKT_EMAIL, SITE_LOCALE, VEREIN_ADDRESS, VEREIN_NAME } from "./brand";
+import { LINE_SEPARATOR, lineOf } from "./copy";
+import { COPY } from "./copy/shared";
 import { ROUTES } from "./routes";
 import { SERVER_COPY } from "./serverCopy";
 
 import type { Copy } from "./copy";
 
 /**
- * What a mail is, which decides its sender, its „Nicht du?“ line and its Art. 21 line, so no caller can
- * pair them apart: a sign-in code, a change to what signs in, the first word to an address somebody
- * else typed, or anything else.
+ * Whom a mail reaches and in what standing, which decides its sender, its „Nicht du?“ line and its Art. 21 line, so no
+ * caller can pair them apart: a person signing in, the holder told of a change to what signs in, an address somebody
+ * else typed hearing from the league first, or anyone else. The ban's notice is the one first communication outside
+ * `firstContact`, whose „Nicht du?“ would promise a deletion a ban does not make: its builder sets the Art. 21 line as
+ * its own last paragraph.
  */
-type MailKind = "signIn" | "security" | "firstContact" | "notice";
+type MailAudience = "signIn" | "security" | "firstContact" | "notice";
 
 export type MailSender = "signIn" | "league";
 
-const SENDER: Readonly<Record<MailKind, MailSender>> = {
+const SENDER: Readonly<Record<MailAudience, MailSender>> = {
   signIn: "signIn",
   security: "signIn",
   firstContact: "league",
@@ -49,12 +52,18 @@ interface Button {
 
 /** One mail as its template states it: data only, which `renderMail` turns into both versions. */
 export interface Mail {
-  readonly kind: MailKind;
+  readonly audience: MailAudience;
   /** The subject, topic first, which the heading repeats. */
   readonly subjectLine: Copy;
-  /** Already through `mailOrigin`: the footer's links and the logo stand on it. */
+  /** Already through `mailOrigin`, which `mailFor` applies before any builder runs: the footer's links and the logo stand on it. */
   readonly origin: string;
   readonly paragraphs: readonly [Paragraph, ...Paragraph[]];
+  /**
+   * The first paragraph opens on a noun the catalogue's words begin with, such as a pairing's club names typed into the
+   * lead. Without it the shell lower-cases the paragraph's first letter: a greeting closing on a comma runs on into the
+   * paragraph after it, which then begins small (Duden, D 132, point 2), while the same sentence opens a page capitalised.
+   */
+  readonly opensOnNoun?: true;
   /**
    * The one facts block: a column of rows under the title naming them, the sign-in code, or a link a reader passes
    * on, standing alone in its box.
@@ -71,9 +80,9 @@ export interface RenderedMail {
   readonly sender: MailSender;
 }
 
-// The mail's own palette: one light design, in colours that still read where a mail app darkens it.
+// The mail's own palette: one light design, in colours that still read where a mail app darkens it. The band and the
+// button take the site's brand fill, `BRAND_SOLID`, deliberately shared, so a mail's green is the site's.
 const BRAND_COLOR = "#216c2d";
-const BRAND_SOLID_COLOR = "#033f11";
 const SURFACE_COLOR = "#f5f5f5";
 const CARD_COLOR = "#ffffff";
 const TEXT_COLOR = "#525252";
@@ -185,6 +194,15 @@ const sentenceText = (sentence: Sentence): string => runs(sentence).map(runText)
 const paragraphText = (paragraph: Paragraph): string => paragraph.map(sentenceText).join(" ");
 const paragraphHtml = (paragraph: Paragraph): string => paragraph.map((sentence) => runs(sentence).map(runHtml).join("")).join(" ");
 
+/**
+ * Whether the first paragraph begins small under the greeting: it does unless the mail opens on a noun. A run that is a
+ * record's value is never re-cased, so a lead opening on a club's name keeps it as stored.
+ */
+const opensSmall = (mail: Mail): boolean => mail.opensOnNoun !== true && typeof runs(mail.paragraphs[0][0])[0] === "string";
+
+/** A rendered paragraph, its first letter lower-cased: escaping leaves a letter as it is, so the HTML takes it too. */
+const smallFirst = (rendered: string): string => `${rendered.charAt(0).toLocaleLowerCase("de")}${rendered.slice(1)}`;
+
 /** A fact's value as lines, every line after the first indented so none of them begins where a label does. */
 const valueText = (value: string): string => value.replace(/\r\n|\r|\n/g, "\n  ");
 const valueHtml = (value: string): string => escapeHtml(value).replace(/\r\n?|\n/g, "<br />");
@@ -195,10 +213,10 @@ function previewBy(mail: Mail): string {
 }
 
 /** The Art. 21 line, the address in it a link. */
-export const OBJECTION: Sentence = [SERVER_COPY.mail.objection.before, { address: KONTAKT_EMAIL }, SERVER_COPY.mail.objection.after];
+export const OBJECTION: Sentence = SERVER_COPY.mail.objection(KONTAKT_EMAIL);
 
-function notYou(kind: MailKind): string | undefined {
-  return kind === "notice" ? undefined : SERVER_COPY.mail.notYou[kind];
+function notYou(audience: MailAudience): string | undefined {
+  return audience === "notice" ? undefined : SERVER_COPY.mail.notYou[audience];
 }
 
 /** One block of the card and the gap under it; the last block of the card takes none. */
@@ -206,10 +224,13 @@ type Block = { readonly html: string; readonly gap: number };
 
 const p = (inner: string, grade = BODY_TEXT): string => `<p style="margin:0;${grade}">${inner}</p>`;
 
-/** The paragraphs of one group, a paragraph's gap between them and a block's gap after the last. */
-function paragraphBlocks(paragraphs: readonly Paragraph[]): Block[] {
+/**
+ * The paragraphs of one group, a paragraph's gap between them and a block's gap after the last; the group under the
+ * greeting passes whether its first begins small.
+ */
+function paragraphBlocks(paragraphs: readonly Paragraph[], firstSmall = false): Block[] {
   return paragraphs.map((paragraph, index) => ({
-    html: p(paragraphHtml(paragraph)),
+    html: p(index === 0 && firstSmall ? smallFirst(paragraphHtml(paragraph)) : paragraphHtml(paragraph)),
     gap: index === paragraphs.length - 1 ? GAP.block : GAP.paragraph,
   }));
 }
@@ -251,7 +272,7 @@ function blockHtml(block: NonNullable<Mail["block"]>): Block {
 function buttonBlocks(button: Button): Block[] {
   return [
     {
-      html: `<table ${TABLE_ATTRS} class="fl-button" align="center" style="margin:0 auto;"><tr><td align="center" style="background-color:${BRAND_SOLID_COLOR};border-radius:8px;"><a href="${escapeHtml(singleLine(button.href))}" style="display:inline-block;padding:11px 24px;font-family:${FONT_STACK};font-size:16px;line-height:22px;font-weight:700;color:${ON_BRAND_COLOR};text-decoration:none;">${escapeHtml(singleLine(button.label))}</a></td></tr></table>`,
+      html: `<table ${TABLE_ATTRS} class="fl-button" align="center" style="margin:0 auto;"><tr><td align="center" style="background-color:${BRAND_SOLID};border-radius:8px;"><a href="${escapeHtml(singleLine(button.href))}" style="display:inline-block;padding:11px 24px;font-family:${FONT_STACK};font-size:16px;line-height:22px;font-weight:700;color:${ON_BRAND_COLOR};text-decoration:none;">${escapeHtml(singleLine(button.label))}</a></td></tr></table>`,
       gap: GAP.paragraph,
     },
     {
@@ -268,7 +289,7 @@ function legalLinks(origin: string): readonly { readonly label: string; readonly
   ];
 }
 
-const VEREIN_ROW = `${VEREIN_NAME} · ${VEREIN_ADDRESS}`;
+const VEREIN_ROW = lineOf([VEREIN_NAME, VEREIN_ADDRESS]);
 
 function renderHtml(mail: Mail, subjectLine: string): string {
   const content: Block[] = [
@@ -277,7 +298,7 @@ function renderHtml(mail: Mail, subjectLine: string): string {
       gap: GAP.headText,
     },
     { html: p(escapeHtml(SERVER_COPY.mail.greeting)), gap: GAP.paragraph },
-    ...paragraphBlocks(mail.paragraphs),
+    ...paragraphBlocks(mail.paragraphs, opensSmall(mail)),
     ...(mail.block === undefined ? [] : [blockHtml(mail.block)]),
     ...paragraphBlocks(mail.afterBlock ?? []),
     ...(mail.button === undefined ? [] : buttonBlocks(mail.button)),
@@ -286,7 +307,7 @@ function renderHtml(mail: Mail, subjectLine: string): string {
   const last = content.length - 1;
   const body = content.map((block, index) => (index === last ? { ...block, gap: GAP.beforeLine } : block));
 
-  const row = notYou(mail.kind);
+  const row = notYou(mail.audience);
   const footer: Block[] = [
     { html: `<hr style="border:none;border-top:1px solid ${RULE_COLOR};margin:0;" />`, gap: GAP.afterLine },
     { html: p(escapeHtml(VEREIN_ROW), FOOTER_TEXT), gap: GAP.footer },
@@ -299,7 +320,7 @@ function renderHtml(mail: Mail, subjectLine: string): string {
       ),
       gap: GAP.footer,
     },
-    ...(mail.kind === "firstContact" ? [{ html: p(paragraphHtml([OBJECTION]), MUTED_TEXT), gap: GAP.footer }] : []),
+    ...(mail.audience === "firstContact" ? [{ html: p(paragraphHtml([OBJECTION]), MUTED_TEXT), gap: GAP.footer }] : []),
     // Last, after the footer: it is not part of the message's content.
     ...(row === undefined ? [] : [{ html: p(escapeHtml(row), MUTED_TEXT), gap: 0 }]),
   ];
@@ -310,7 +331,7 @@ function renderHtml(mail: Mail, subjectLine: string): string {
   );
 
   return `<!doctype html>
-<html lang="de">
+<html lang="${SITE_LOCALE}">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
@@ -323,9 +344,9 @@ function renderHtml(mail: Mail, subjectLine: string): string {
       <tr>
         <td align="center" style="padding:24px 12px;font-family:${FONT_STACK};">
           <!--[if mso]><table ${TABLE_ATTRS} width="${String(CARD_WIDTH)}" align="center"><tr><td><![endif]-->
-          <table ${TABLE_ATTRS} width="100%" align="center" lang="de" style="max-width:${String(CARD_WIDTH)}px;margin:0 auto;background-color:${CARD_COLOR};border-radius:12px;">
+          <table ${TABLE_ATTRS} width="100%" align="center" lang="${SITE_LOCALE}" style="max-width:${String(CARD_WIDTH)}px;margin:0 auto;background-color:${CARD_COLOR};border-radius:12px;">
             <tr>
-              <td class="fl-pad" style="background-color:${BRAND_SOLID_COLOR};border-radius:12px 12px 0 0;padding:${String(GAP.band)}px ${String(GAP.card)}px;"><img src="${escapeHtml(`${mail.origin}${LOGO.path}`)}" width="${String(LOGO.width)}" height="${String(LOGO.height)}" alt="${escapeHtml(COPY.brand.name)}" style="display:block;width:${String(LOGO.width)}px;height:${String(LOGO.height)}px;border:0;outline:none;text-decoration:none;" /></td>
+              <td class="fl-pad" style="background-color:${BRAND_SOLID};border-radius:12px 12px 0 0;padding:${String(GAP.band)}px ${String(GAP.card)}px;"><img src="${escapeHtml(`${mail.origin}${LOGO.path}`)}" width="${String(LOGO.width)}" height="${String(LOGO.height)}" alt="${escapeHtml(COPY.brand.name)}" style="display:block;width:${String(LOGO.width)}px;height:${String(LOGO.height)}px;border:0;outline:none;text-decoration:none;" /></td>
             </tr>
             <tr>
               <td class="fl-pad" style="padding:${String(GAP.card)}px;font-family:${FONT_STACK};">
@@ -349,7 +370,9 @@ function renderText(mail: Mail, subjectLine: string): string {
   const groups: string[][] = [
     [subjectLine],
     [SERVER_COPY.mail.greeting],
-    ...mail.paragraphs.map((paragraph) => [paragraphText(paragraph)]),
+    ...mail.paragraphs.map((paragraph, index) => [
+      index === 0 && opensSmall(mail) ? smallFirst(paragraphText(paragraph)) : paragraphText(paragraph),
+    ]),
     ...(mail.block === undefined
       ? []
       : [
@@ -362,17 +385,17 @@ function renderText(mail: Mail, subjectLine: string): string {
     ...(mail.afterBlock ?? []).map((paragraph) => [paragraphText(paragraph)]),
     ...(mail.button === undefined ? [] : [buttonText(mail.button)]),
     [VEREIN_ROW, ...legalLinks(mail.origin).map(({ label, href }) => `${label}: ${href}`)],
-    ...(mail.kind === "firstContact" ? [[sentenceText(OBJECTION)]] : []),
+    ...(mail.audience === "firstContact" ? [[sentenceText(OBJECTION)]] : []),
   ];
-  const row = notYou(mail.kind);
+  const row = notYou(mail.audience);
 
   return [...groups, ...(row === undefined ? [] : [[row]])].map((group) => group.join("\n")).join("\n\n");
 }
 
-/** One mail in both versions, from the same data, with the sender its kind names. */
+/** One mail in both versions, from the same data, with the sender its audience names. */
 export function renderMail(mail: Mail): RenderedMail {
   // One line: a break in a subject is a header injection.
   const subjectLine = singleLine(mail.subjectLine);
 
-  return { subject: subjectLine, html: renderHtml(mail, subjectLine), text: renderText(mail, subjectLine), sender: SENDER[mail.kind] };
+  return { subject: subjectLine, html: renderHtml(mail, subjectLine), text: renderText(mail, subjectLine), sender: SENDER[mail.audience] };
 }

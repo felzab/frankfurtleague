@@ -4,20 +4,25 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
 import { frontend_config } from "./config";
-import { ROUTES } from "./routes";
+import { ROUTES, TOKEN_PARAMETER } from "./routes";
 import { HOUR_MS } from "./timeUnits";
 
 import type { NextRequest } from "next/server";
 
 /**
- * The pages a mailed link opens whose token must leave the address: one leads a signed-out visitor through the
- * sign-in, whose return address and Turnstile's script would both carry it, the other loads Turnstile itself. The
- * proxy swaps the token for a cookie on the first request, so no address such a page renders under holds it.
- * The proxy's `config` spells the same paths in its matcher, which takes literals alone.
+ * Every page whose address carries a token, a mailed link's or a team's registration link handed on. Each carries a
+ * live token that the browser's history, a referrer, the sign-in's return address or Turnstile's script would otherwise
+ * keep or pass on. The proxy swaps the token for a cookie on the first request, so no address such a page renders
+ * under holds it. The proxy's `config` spells the same paths in its matcher, which takes literals alone.
  */
-export const MAILED_LINK_PAGES: readonly string[] = [ROUTES.accountErasure.path(), ROUTES.registrierung.path()];
-
-const TOKEN_PARAMETER = "token";
+export const MAILED_LINK_PAGES: readonly string[] = [
+  ROUTES.accountErasure.path(),
+  ROUTES.registrierung.path(),
+  ROUTES.addressChangeConfirmation.path(),
+  ROUTES.kontaktConfirmation.path(),
+  ROUTES.schiedsrichterConfirmation.path(),
+  ROUTES.registrierungConfirmation.path(),
+];
 
 /** One name for every page: each page's cookie is bound to that page's path, so no page reads another's token. */
 const MAILED_LINK_COOKIE = "mailed_link";

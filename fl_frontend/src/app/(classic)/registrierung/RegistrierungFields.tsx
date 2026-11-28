@@ -1,5 +1,6 @@
-import { COPY } from "@/core/copy";
-import { positionOptions, stufeOptions } from "@/features/spieler/options";
+import { PUBLIC_COPY } from "@/core/copy/public";
+import { COPY } from "@/core/copy/shared";
+import { positionChoices, stufeChoices } from "@/features/spieler/options";
 import { ConsentLine } from "@/kit/ConsentLine";
 import { Section } from "@/kit/Section";
 import { Select } from "@/kit/Select";
@@ -8,14 +9,8 @@ import { TextField } from "@/kit/TextField";
 import type { ConsentLine as Line } from "@/core/consentWordings";
 import type { FLSpielerStufe } from "@/core/generated/client/types";
 
-const WORDS = COPY.registrierung;
-const SQUAD = COPY.admin.spieler;
-
-/** What the write asks of the three typed boxes, read on the server so its schema never reaches the browser. */
-export type RegistrierungRules = {
-  required: { firstName: boolean; lastName: boolean; email: boolean };
-  maxLength: { firstName: number; lastName: number; email: number };
-};
+const WORDS = PUBLIC_COPY.registrierung;
+const KADER = COPY.kader;
 
 /**
  * The pupil's one box, „Deine Angaben“, under the objection, read before anything is typed, as the application form
@@ -23,11 +18,9 @@ export type RegistrierungRules = {
  * the Stufe offered from the season's own list. The sentence the send rests on stands in the form's footer, beside it.
  */
 export function RegistrierungFields({
-  rules,
   stufen,
   objection,
 }: {
-  rules: RegistrierungRules;
   /** The season's Stufen in the league's order: a choice the write refuses is never offered. */
   stufen: readonly FLSpielerStufe[];
   /**
@@ -36,8 +29,6 @@ export function RegistrierungFields({
    */
   objection: Line;
 }) {
-  const { required, maxLength } = rules;
-
   return (
     <>
       <ConsentLine line={objection} />
@@ -47,43 +38,35 @@ export function RegistrierungFields({
           name="first_name"
           kind="text"
           autofill="given-name"
-          isRequired={required.firstName}
-          maxLength={maxLength.firstName}
         />
         <TextField
           label={COPY.shared.lastName}
           name="last_name"
           kind="text"
           autofill="family-name"
-          isRequired={required.lastName}
-          maxLength={maxLength.lastName}
         />
         <TextField
-          label={COPY.signIn.address}
+          label={COPY.shared.emailAddress}
           name="email"
           description={WORDS.ownAddress}
           kind="email"
           autofill="email"
-          isRequired={required.email}
-          maxLength={maxLength.email}
         />
         <TextField
           label={WORDS.nummer}
           name="nummer"
-          holds={2}
+          holds={5}
           kind="digits"
         />
         <Select
-          label={SQUAD.position}
+          label={KADER.position}
           name="position"
-          defaultValue=""
-          options={positionOptions()}
+          options={positionChoices()}
         />
         <Select
-          label={SQUAD.stufe}
+          label={KADER.stufe}
           name="stufe"
-          defaultValue=""
-          options={stufeOptions(stufen)}
+          options={stufeChoices(stufen)}
         />
       </Section>
     </>

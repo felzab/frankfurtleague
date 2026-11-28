@@ -4,7 +4,6 @@ from dataclasses import dataclass
 from datetime import datetime
 from http import HTTPStatus
 from typing import Annotated, Final, Literal, get_args
-from urllib.parse import quote, unquote
 
 from fastapi import Depends, Request, Security
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -35,7 +34,8 @@ def verify_api_key(select_key: KeySelector, *, scheme_name: str) -> Callable:
     """
 
     # A scheme per tier, so each operation's published `security` names the key it takes.
-    # `auto_error=False` so a missing header answers `access_key_refused`, where FastAPI's own 403 carries no code.
+    # `auto_error=False`: FastAPI's own refusal of a missing header is a 401 `HTTPException`, a status the routing
+    # handler words no code for and answers as a crash, so this guard answers `access_key_refused` itself.
     scheme = HTTPBearer(scheme_name=scheme_name, auto_error=False)
 
     def dependency(
@@ -92,45 +92,24 @@ ACTOR_REFUSAL_HEADERS: Final = {"WWW-Authenticate": ACTOR_CHALLENGE}
 
 @dataclass(frozen=True, kw_only=True)
 class SessionActor:
-    # The sign-in identifier as the header spells it once decoded; every reader folds it before keying on it.
+    # The sign-in identifier as the header spells it; every reader folds it before keying on it.
     email: str
     # When the session was made, in whole seconds since the epoch.
     auth_time: int
     factor: FLAuthFactor
 
 
-# What ECMAScript's `encodeURIComponent` leaves unescaped beyond the letters, digits and `_.-~` `quote` always keeps.
-_URI_COMPONENT_SAFE: Final = "!'()*"
-
-
-def actor_header_value(email: str) -> str:
-    """The address as `X-FL-Actor` carries it: UTF-8, percent-encoded as `encodeURIComponent` spells it.
-
-    A field value is ASCII (RFC 9110 §5.5), and the frontend's fetch takes only a ByteString, so an address beyond
-    ASCII travels encoded.
-    """
-
-    return quote(email, safe=_URI_COMPONENT_SAFE)
-
-
-def _decoded_actor(value: str) -> str | None:
-    """The address `value` encodes, or `None` where it is not the one spelling `actor_header_value` gives that address."""
-
-    email = unquote(value)
-    # The round trip refuses every other spelling: a value sent unencoded, which would read `%41` as `A` and name
-    # someone else; a malformed or lower-case escape; an escape of no UTF-8, which decodes to U+FFFD; and a byte past
-    # ASCII, which Starlette decodes as Latin-1.
-    return email if actor_header_value(email) == value else None
-
-
 def get_session_actor(request: Request) -> SessionActor:
     """The three headers as one session, 400 where any is missing or unreadable: such a request names nobody."""
 
-    email = _decoded_actor(request.headers.get(ACTOR_HEADER, ""))
+    # Taken as written and never decoded, or `%41` would read as `A` and name someone else.
+    email = request.headers.get(ACTOR_HEADER, "")
     auth_time = request.headers.get(AUTH_TIME_HEADER, "")
     factor = request.headers.get(AUTH_FACTOR_HEADER, "")
+    # Every sign-in address is ASCII, by the frontend's address rule and `app/shared/folding.py :: league_address`, so
+    # a byte past it names nobody: Starlette reads such a byte as Latin-1, a spelling no session holds.
     # ASCII digits alone: `int` also takes a sign, spaces, underscores and other scripts' digits.
-    if not email or not (auth_time.isascii() and auth_time.isdigit()) or factor not in FACTORS:
+    if not (email and email.isascii()) or not (auth_time.isascii() and auth_time.isdigit()) or factor not in FACTORS:
         raise APIError(HTTPStatus.BAD_REQUEST, Code.MISSING_ACTOR)
     return SessionActor(email=email, auth_time=int(auth_time), factor=factor)
 

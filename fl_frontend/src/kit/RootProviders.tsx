@@ -5,6 +5,8 @@
 import { ThemeProvider } from "next-themes";
 import { I18nProvider } from "react-aria-components/I18nProvider";
 
+import { SITE_LOCALE } from "@/core/brand";
+
 import type { ReactNode } from "react";
 
 export function RootProviders({ children }: { children: ReactNode }) {
@@ -12,7 +14,7 @@ export function RootProviders({ children }: { children: ReactNode }) {
     // Here because the document declares its language here: unpinned, react-aria formats "en-US" under SSR
     // and the browser's locale after hydration, so a date field asks mm/dd/yyyy and reorders its segments
     // mid-session.
-    <I18nProvider locale="de-DE">
+    <I18nProvider locale={SITE_LOCALE}>
       {/* Without `disableTransitionOnChange` every `transition-colors` element eases its own colour
           when `data-theme` moves, and the flip is watchable. */}
       {/* `system` spelled out although it is today's default: next-themes has changed that default

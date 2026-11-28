@@ -271,8 +271,6 @@ class FLBewerbungLinkData(BaseReadModel):
 
     kind: Literal["bewerbung_confirmation", "bewerbung_reminder"]
     saison_id: str
-    # The school as submitted, or the picked club's name: a contact who never heard of the application places it by this.
-    schule: str
     seats: list[FLKontaktSeat] = Field(min_length=1)
     # The day the links stop working, which the reminder repeats rather than moves.
     deadline: CustomDateString

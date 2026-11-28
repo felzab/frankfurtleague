@@ -4,37 +4,44 @@ import { AsyncLocalStorage } from "node:async_hooks";
 
 import { mongodbAdapter } from "@better-auth/mongo-adapter";
 import { passkey } from "@better-auth/passkey";
-import { betterAuth, getCurrentAdapter } from "better-auth";
+import { betterAuth } from "better-auth";
 import { APIError, createAuthMiddleware, getSessionFromCtx, isAPIError } from "better-auth/api";
 import { getSessionCookie, SECURE_COOKIE_PREFIX } from "better-auth/cookies";
+import { makeSignature, signJWT, verifyJWT } from "better-auth/crypto";
 import { nextCookies } from "better-auth/next-js";
 import { emailOTP } from "better-auth/plugins/email-otp";
 
-import { CODE_VALIDITY_MINUTES } from "../authEmail";
 import { MONGO_DB_NAME } from "../authIndexes";
 import { now } from "../clock";
 import { authSecret, frontend_config } from "../config";
-import { COPY } from "../copy";
+import { COPY } from "../copy/shared";
 import { signInStore } from "../db";
 import { asSignInIdentifier } from "../emailAddress";
 import { ERASURE_LINK_VALID_HOURS } from "../erasureEmail";
 import { identityPostAccountErasure } from "../generated/client/sdk";
 import { logger } from "../logging";
 import { declaredCredentialId, PASSKEY_ASSERTION_PATH } from "../passkeyCeremony";
-import { passkeyLastUse } from "../passkeyLastUse";
 import { getRequestActor } from "../requestScope";
 import { ADMIN_LIFETIME, SESSION_EXPIRES_IN_DAYS } from "../sessionLifetimes";
-import { CODE_FAILURE_LIMIT, CODE_FAILURE_WINDOW_HOURS, CODE_MAIL_LIMIT, CODE_MAIL_WINDOW_HOURS, SIGN_IN_CODE_LENGTH } from "../signInCode";
+import {
+  CODE_ATTEMPTS,
+  CODE_FAILURE_LIMIT,
+  CODE_FAILURE_WINDOW_HOURS,
+  CODE_MAIL_LIMIT,
+  CODE_MAIL_WINDOW_HOURS,
+  CODE_VALIDITY_MINUTES,
+  SIGN_IN_CODE_LENGTH,
+} from "../signInCode";
 import { mayReceiveSignIn } from "../signInGate";
 import { HOUR_MS } from "../timeUnits";
 import { readTraceparent, TRACEPARENT_HEADER } from "../trace";
 import { assertionAnswer } from "./assertionAnswer";
 import { ceremonyCredentialId, challengeIssuedAt, isDuplicateCredential, refuseAnotherAccountsPasskey } from "./ceremony";
-import { ADDRESS_ATTEMPTS_EXHAUSTED } from "./codeRefusal";
-import { carriedEnrolmentRead, carriedOrRefuse, ENROLMENT_READ, refuseBarred, refuseEnrolment } from "./enrolment";
+import { ENROLMENT_READ, refuseBarred, refuseEnrolment, refuseWithoutGrant } from "./enrolment";
 import { enrolmentSignIn } from "./gateReads";
-import { notifyAccountDeleted, notifyPasskey, oweSignInMail, sendDeletionLink } from "./mails";
+import { notifyPasskey, oweSignInMail, sendDeletionLink } from "./mails";
 import { endReplacedSession, lineageOf, refuseUnadmitted, replacedToken } from "./minting";
+import { ADDRESS_ATTEMPTS_EXHAUSTED, CODE_NOT_ASKED_HERE } from "./refusalCodes";
 import {
   CODE_FACTOR,
   endedByItsAccount,
@@ -75,19 +82,14 @@ const SESSION_UPDATE_AGE_SECONDS = 5 * 60;
 
 const CODE_VALIDITY_SECONDS = CODE_VALIDITY_MINUTES * 60;
 
-/** The one path that spends a code, which the browser's client posts. */
 const CODE_SIGN_IN_PATH = "/sign-in/email-otp";
 
 /** What the code check takes: the browser's client sends these two, and a name or an image is a hand-made request's. */
 const CODE_SIGN_IN_FIELDS: ReadonlySet<string> = new Set(["email", "otp"]);
 
-/** The one path that mails a code, called in process alone. */
 const CODE_SEND_PATH = "/email-otp/send-verification-otp";
 
-/**
- * The one path that mails a deletion link, called in process without a token; a press completes the link through
- * `/delete-user/callback`, also called in process.
- */
+/** Mails a deletion link where called without a token; a press completes the link through `/delete-user/callback`. */
 const DELETE_USER_PATH = "/delete-user";
 
 /** The library's `deleteUser` answer to a mailed link, which a capped request answers too. */
@@ -121,7 +123,6 @@ const SESSION_FACTOR_BY_PATH: ReadonlyMap<string, AuthFactor> = new Map([
   [CODE_SIGN_IN_PATH, CODE_FACTOR],
 ]);
 
-/** Named, because the library's failure line records an error's name and nothing else. */
 class SessionFromUnlistedPath extends Error {
   override name = "SessionFromUnlistedPath";
 }
@@ -143,25 +144,45 @@ function asksForDeletionLink(body: unknown): boolean {
   return !token;
 }
 
-/** The address a sign-in code is asked for, or `null` for a send of any other type. */
-function codeSendAddress(body: unknown): string | null {
-  const type: unknown = typeof body === "object" && body !== null ? Reflect.get(body, "type") : undefined;
-  return type === "sign-in" ? codeSignInAddress(body) : null;
-}
-
 /** The address a code sign-in names, or `null` where the body carries none the library would read. */
 function codeSignInAddress(body: unknown): string | null {
   const email: unknown = typeof body === "object" && body !== null ? Reflect.get(body, "email") : undefined;
   return typeof email === "string" ? email : null;
 }
 
-/* The library mounts far more endpoints than a browser here calls, and an upgrade adds more, so the
-   surface is closed from two sides: the documented switch below, and the default-deny hook that also
-   covers what it cannot. */
+/** The cookie a code's ask sets in the asking browser, named by the library as it names the session's. */
+const CODE_ASKED_COOKIE = "code_asked";
 
-// What a browser of this league calls: the two passkey ceremonies' four paths, the code check and the
-// sign-out. The code's send and every guard run in process instead.
+/** The claim of that cookie's token naming the address it was asked for. */
+const ASKED_CLAIM = "asked";
 
+/**
+ * The address a code was asked for, as the cookie carries it: keyed, since an address is guessable, and over the
+ * cookie's own name ahead of it, since the counters' rows key the bare address with the session cookie's own
+ * construction, and handing that digest to any browser that asks would sign posted text for whoever posts it.
+ */
+async function askedDigest(email: string, secret: string): Promise<string> {
+  return makeSignature(`${CODE_ASKED_COOKIE}:${asSignInIdentifier(email)}`, secret);
+}
+
+/**
+ * Whether the request carries the cookie of an ask for `address`, inside the code's lifetime. The token carries its
+ * own expiry, since a value copied out of the browser outlives the cookie's: each round of tries costs a new ask,
+ * which mails the address and spends its hour.
+ */
+async function askedHere(ctx: GenericEndpointContext, address: string | null): Promise<boolean> {
+  const token = ctx.getCookie(ctx.context.createAuthCookie(CODE_ASKED_COOKIE).name);
+  if (address === null || token === null) return false;
+
+  // Read as what it is: claims a caller sent, which only the signature has checked.
+  const claims = await verifyJWT<Partial<Record<typeof ASKED_CLAIM, unknown>>>(token, ctx.context.secret);
+  return claims !== null && claims[ASKED_CLAIM] === (await askedDigest(address, ctx.context.secret));
+}
+
+// The library mounts far more endpoints than a browser here calls, and an upgrade adds more, so the
+// surface is closed from two sides: the documented switch below, and the default-deny hook that also
+// covers what it cannot. These are what a browser of this league calls: the two passkey ceremonies'
+// four paths, the code check and the sign-out; the code's send and every guard run in process instead.
 // The spellings come from the constants the stamp, the enrolment refusal, the assertion's ask and the code's
 // bounds compare, so a release that renamed one would 404 the real call rather than let it through unjudged.
 const BROWSER_PATHS: ReadonlySet<string> = new Set([
@@ -174,10 +195,9 @@ const BROWSER_PATHS: ReadonlySet<string> = new Set([
   "/sign-out",
 ]);
 
-// The library's own switch, which refuses before a route is matched or a body read.
-
-// It compares a path derived from the URL, so neither parameterised route can be named here at all
-// and the hook is what refuses those two.
+// The library's own switch, which refuses before a route is matched or a body read. It compares a
+// path derived from the URL, so neither parameterised route can be named here at all and the hook is
+// what refuses those two.
 const DISABLED_PATHS: readonly string[] = [
   "/account-info",
   "/change-email",
@@ -220,9 +240,7 @@ const DISABLED_PATHS: readonly string[] = [
 ];
 
 // Matched on the OPENING of the library's own message, because each of these ends in the value it
-// rejected.
-
-// The events are this repository's, so an upgrade that rewords one falls to the entry below
+// rejected. The events are this repository's, so an upgrade that rewords one falls to the entry below
 // rather than putting the reworded message on the stream.
 const LIBRARY_EVENTS: readonly (readonly [string, string])[] = [
   ["Invalid origin", "auth.origin_refused"],
@@ -244,7 +262,8 @@ const REGISTRATION_FAILED = "Failed to verify registration";
 const sessionOptions = {
   expiresIn: SESSION_EXPIRES_IN_SECONDS,
   updateAge: SESSION_UPDATE_AGE_SECONDS,
-  // `passkeyStepOf` offers an enrolment on the same figure, so the page never offers what the library refuses.
+  // `passkeyStepOf` offers an administrator's enrolment on the same figure, so the page never offers what the library
+  // refuses.
   freshAge: FRESH_SIGN_IN_SECONDS,
   // Off, so revocation stays a store read on every request and the guards judge a stored row rather than
   // a signed copy of one.
@@ -270,17 +289,17 @@ const userOptions = {
     // `input: false`, so no session writes it for itself.
     [SESSIONS_ENDED_FIELD]: { type: "date", required: false, input: false },
   },
-  // Both halves run in process alone, `DISABLED_PATHS` refusing `/delete-user` and its callback over HTTP.
+  // Both halves run in process alone, `DISABLED_PATHS` refusing `/delete-user` and its callback over HTTP. Nothing
+  // is mailed once it has deleted: this deletion is the person's own press, whose done page tells them it went, and
+  // the deletion notice is for a deletion they did not press.
   deleteUser: {
     enabled: true,
     deleteTokenExpiresIn: ERASURE_LINK_VALID_HOURS * 60 * 60,
     sendDeleteAccountVerification: sendDeletionLink,
     beforeDelete: eraseBeforeTheAccount,
-    afterDelete: (user) => notifyAccountDeleted(user.email),
   },
 } satisfies BetterAuthOptions["user"];
 
-/** Named, because the library's failure line records an error's name and nothing else. */
 class DeletionWithoutErasure extends Error {
   override name = "DeletionWithoutErasure";
 }
@@ -342,8 +361,6 @@ export function sessionCookieOf(requestHeaders: Headers): string | null {
   return getSessionCookie(new Headers({ cookie: ownCookies }), { cookiePrefix: cookieNaming(new URL(frontend_config.AUTH_URL)).cookiePrefix });
 }
 
-// Called by `build`, never at import: `next build` imports this module in every page-data worker
-// holding no environment, where neither the URL nor the client can be built.
 // `origin` gives both halves of the WebAuthn binding.
 const authOptions = (origin: URL, client: MongoClient) =>
   ({
@@ -358,14 +375,13 @@ const authOptions = (origin: URL, client: MongoClient) =>
     session: sessionOptions,
     user: userOptions,
 
-    // Left to its default, the library would store the caller's address on every session row; the switch
-    // below stores none, and nothing here would read one, the limiter that would being off.
-
     advanced: {
       // The session and its user in one `$lookup` rather than a second query: every guard reads the
       // session on every request, cookie caching being off above.
       database: { joins: true },
-      // The edge's own access line already carries the address, under its retention bound.
+      // Left to its default, the library would store the caller's address on every session row, which
+      // nothing here would read, the limiter that would being off. The edge's own access line already
+      // carries the address, under its retention bound.
       ipAddress: { disableIpTracking: true },
       // The library turns its origin check, and the CSRF checks riding on it, off wherever `NODE_ENV` is
       // `test` or `TEST` is set, so the check is pinned on whatever the environment says.
@@ -480,11 +496,12 @@ const authOptions = (origin: URL, client: MongoClient) =>
         const event = LIBRARY_EVENTS.find(([opening]) => message.startsWith(opening))?.[1] ?? LIBRARY_EVENT_UNKNOWN;
 
         // `args` is dropped whole: it carries the error object itself, which the logger writes with its
-        // message and stack.
+        // message and stack. The error's name is all the line keeps, so an error this league throws inside
+        // the library is a class naming itself.
         const raised = args.find((argument) => argument instanceof Error);
 
-        // A second row for a credential the index holds: one authenticator enrolled twice at once without signing in, or
-        // a credential another account holds. Set-ups of one authenticator at once conflict in a transaction retried to a 404.
+        // A second row for a credential the index holds: one authenticator enrolled twice at once, or a credential
+        // another account holds. Set-ups of one authenticator at once conflict in a transaction whose retry meets it.
         if (message.startsWith(REGISTRATION_FAILED) && isDuplicateCredential(raised)) {
           logger.warn("auth.passkey_enrolment_conflict");
           return;
@@ -496,12 +513,28 @@ const authOptions = (origin: URL, client: MongoClient) =>
 
     hooks: {
       before: createAuthMiddleware(async (ctx) => {
+        // First, ahead of every count and every session read below: an arrival over HTTP at a path the browser never
+        // calls writes no row before it is refused. The switch above is a denylist, so an endpoint the next upgrade
+        // mounts arrives open; this is the default-deny net behind it, over `ctx.path`, the endpoint's own declared
+        // route rather than a string derived from the URL a caller sent. An absent `ctx.request` is the library's own
+        // test for a call that did not arrive over HTTP, taken by `originCheckMiddleware` and by
+        // `requestOnlySessionMiddleware`; nothing in process is filtered, those callers being this repository's own code.
+        if (ctx.request !== undefined && !BROWSER_PATHS.has(ctx.path)) throw APIError.fromStatus("NOT_FOUND");
+
         // The library types a request's body `any`: read here as what it is, a value nothing has checked yet.
         const body: unknown = ctx.body;
         // Refused ahead of the count, and rather than dropped, as an enrolment's `name` is: the library
         // writes a name and an image it is handed onto a first sign-in's account.
         if (ctx.path === CODE_SIGN_IN_PATH && typeof body === "object" && body !== null) {
           if (Object.keys(body).some((field) => !CODE_SIGN_IN_FIELDS.has(field))) throw APIError.fromStatus("BAD_REQUEST");
+        }
+        // Over HTTP, ahead of the count: a code is checked only in the browser that asked for its address, so a
+        // stranger's guesses spend an address's day only after asking for its code, which mails the person. In
+        // process there is no browser, every caller being this
+        // repository's own code, as the deny above reads it.
+        if (ctx.path === CODE_SIGN_IN_PATH && ctx.request !== undefined && !(await askedHere(ctx, codeSignInAddress(body)))) {
+          logger.info("auth.code_not_asked_here", { trace_id: signInTrace(ctx) });
+          throw new APIError("BAD_REQUEST", { code: CODE_NOT_ASKED_HERE, message: "No code was asked for this address in this browser." });
         }
         // On both arms, ahead of the in-process return below. Counted whatever the address holds: a
         // lock only members met would be a membership oracle.
@@ -520,27 +553,8 @@ const authOptions = (origin: URL, client: MongoClient) =>
           if (typeof body === "object" && body !== null) attemptRows.set(body, own);
         }
 
-        // Ahead of the plugin, which writes each new code before its send callback runs: capped there,
-        // a send voids the held code and mails none. Ahead of the gate, so the store's rows never tell a
-        // member from a stranger.
-        const recipient = ctx.path === CODE_SEND_PATH ? codeSendAddress(body) : null;
-
-        if (
-          recipient !== null &&
-          (await withinBound(
-            ctx.context,
-            await boundIdentifier(MAIL_ROW_PREFIX, recipient, ctx.context.secret),
-            CODE_MAIL_LIMIT,
-            CODE_MAIL_WINDOW_HOURS * HOUR_MS,
-          )) === null
-        ) {
-          logger.info("auth.code_mail_capped");
-          // The plugin's own answer to a send, so a capped one reads as a mailed one.
-          return ctx.json({ success: true });
-        }
-
         // Ahead of the library, which mints the token row before its sender runs: capped, nothing is minted or
-        // mailed and the answer reads as mailed, as a capped code send's does. No session is the library's to refuse.
+        // mailed and the answer reads as mailed. No session is the library's to refuse.
         if (ctx.path === DELETE_USER_PATH && asksForDeletionLink(body)) {
           const asking = await getSessionFromCtx(ctx);
           if (asking !== null && (await deletionLinkCapped(ctx.context, asking.user.email))) {
@@ -551,34 +565,13 @@ const authOptions = (origin: URL, client: MongoClient) =>
         // Both arms: an in-process assertion answered by another account's passkey is no less that account's.
         if (ctx.path === PASSKEY_ASSERTION_PATH) await refuseAnotherAccountsPasskey(ctx);
 
-        // Above the in-process return, so both arms carry it: the registration's transaction opens later,
-        // and a backend round trip inside it would hold it open.
-        const enrolling = ctx.path === PASSKEY_REGISTRATION_PATH ? await getSessionFromCtx(ctx) : null;
-        // Taken before the read is sent: the session a set-up mints is dated by it.
-        const sentAt = now();
-        const enrolmentRead: EnrolmentRead | undefined =
-          enrolling === null
-            ? undefined
-            : {
-                userId: enrolling.user.id,
-                signIn: await enrolmentSignIn(enrolling.user.email),
-                sentAt,
-                // Here, before the plugin spends the challenge the verify call reads.
-                challengeIssuedAt: await challengeIssuedAt(ctx),
-              };
-        const carried = enrolmentRead === undefined ? undefined : { context: { [ENROLMENT_READ]: enrolmentRead } };
+        if (!ENROLMENT_PATHS.has(ctx.path)) return undefined;
 
-        // An absent `ctx.request` is the library's own test for a call that did not arrive over HTTP,
-        // taken by `originCheckMiddleware` and by `requestOnlySessionMiddleware`. Nothing in process
-        // is filtered here: those callers are this repository's own code.
-        if (ctx.request === undefined) return carried;
-
-        // The switch above is a denylist, so an endpoint the next upgrade mounts arrives open; this
-        // is the default-deny net behind it, over `ctx.path`, the endpoint's own declared route
-        // rather than a string derived from the URL a caller sent.
-        if (!BROWSER_PATHS.has(ctx.path)) throw APIError.fromStatus("NOT_FOUND");
-
-        if (!ENROLMENT_PATHS.has(ctx.path)) return carried;
+        // The one judgement of an enrolment, on both arms, an `auth.api` call among them: the plugin gates its two
+        // registration endpoints on its `freshAge` alone, and `registration.afterVerification` judges nothing but the
+        // posted id. A second judgement there would read the same session, the same gate answer and the same rows a
+        // moment later, closing no race the hook leaves open, a transaction around it included: two enrolments of
+        // different authenticators at once may both stand, and one authenticator's twice meets the unique index.
 
         // Refused rather than dropped: a caller who read the plugin's own body schema is answered,
         // and a request reshaped behind its back is how the next reader believes the field works.
@@ -589,18 +582,33 @@ const authOptions = (origin: URL, client: MongoClient) =>
           if (Reflect.get(ctx.query ?? {}, field) !== undefined) throw APIError.fromStatus("BAD_REQUEST");
         }
 
-        const caller = enrolling ?? (await getSessionFromCtx(ctx));
+        const caller = await getSessionFromCtx(ctx);
 
         // Refused rather than left to the plugin's `freshSessionMiddleware`, which is mounted only
-        // while `registration.requireSession` keeps its default: this arm judges nothing about a
-        // session it cannot read, and the in-process arm already refuses one.
+        // while `registration.requireSession` keeps its default: this judges nothing about a session
+        // it cannot read.
         if (caller === null || endedByItsAccount(caller)) throw APIError.fromStatus("NOT_FOUND");
 
-        refuseBarred(enrolmentRead?.signIn ?? (await enrolmentSignIn(caller.user.email)));
-        // The options request is judged now; the verify call as of its ceremony's options, or now where none stands.
-        await refuseEnrolment(ctx.context.adapter, caller.user.id, stampsOf(caller.session), enrolmentRead?.challengeIssuedAt ?? undefined);
+        // Taken before the read is sent: the session a set-up mints is dated by it.
+        const sentAt = now();
+        const signIn = await enrolmentSignIn(caller.user.email);
+        refuseBarred(signIn);
+        refuseWithoutGrant(signIn);
 
-        return carried;
+        const verifying = ctx.path === PASSKEY_REGISTRATION_PATH;
+        // The options request is judged now; the verify call as of its ceremony's options, read here before the plugin
+        // spends the challenge, or now where none stands.
+        await refuseEnrolment(
+          ctx.context.adapter,
+          caller.user.id,
+          stampsOf(caller.session),
+          verifying ? ((await challengeIssuedAt(ctx)) ?? undefined) : undefined,
+        );
+
+        // Carried on the endpoint's context into the registration's transaction, where the mint asks the gate again
+        // of this read: a backend round trip inside it would hold it open.
+        const carried: EnrolmentRead = { userId: caller.user.id, signIn, sentAt };
+        return verifying ? { context: { [ENROLMENT_READ]: carried } } : undefined;
       }),
 
       // The `Set-Cookie` the endpoint wrote is untouched: `runAfterHooks` merges this hook's own
@@ -644,13 +652,12 @@ const authOptions = (origin: URL, client: MongoClient) =>
     plugins: [
       // `disableSignUp` stays off: every person's row is written at their first verification, so set
       // it the first correct code dies, and the gate below is the only barrier.
-
       // A code row for EVERY address typed, and the send below handed each one, so a verify reads alike
       // for a member and a stranger and the gate decides only the mail.
       emailOTP({
         otpLength: SIGN_IN_CODE_LENGTH,
         expiresIn: CODE_VALIDITY_SECONDS,
-        allowedAttempts: 3,
+        allowedAttempts: CODE_ATTEMPTS,
         // Encrypted under the secret rather than hashed: an unkeyed hash of six digits is undone by
         // trying all million of them.
         storeOTP: "encrypted",
@@ -681,14 +688,9 @@ const authOptions = (origin: URL, client: MongoClient) =>
         },
       }),
 
-      // `rpName` is what the browser's own passkey prompt shows, and the plugin's default names the
-      // library rather than this league.
-
-      // `authenticatorSelection`'s user verification is the whole of that requirement: the plugin asks it
-      // in both ceremonies' options and refuses a response whose authenticator did not verify the user,
-      // before anything is written. Set to "preferred" and both halves relax together, which is what
-      // WebAuthn Level 3 §7.2 conditions the check on.
       passkey({
+        // What the browser's own passkey prompt shows, where the plugin's default names the library
+        // rather than this league.
         rpName: COPY.brand.name,
         // Named rather than left to the plugin's own derivation, which answers this same host off
         // `baseURL`: what an enrolled passkey is bound to for life outlives that option.
@@ -696,41 +698,21 @@ const authOptions = (origin: URL, client: MongoClient) =>
         // Unset, this is the caller's own `Origin` header -- a ceremony checked against the value its
         // own sender chose.
         origin: origin.origin,
+        // The user verification is the whole of that requirement: the plugin asks it in both ceremonies'
+        // options and refuses a response whose authenticator did not verify the user, before anything is
+        // written. Set to "preferred" and both halves relax together, which is what WebAuthn Level 3 §7.2
+        // conditions the check on.
         authenticatorSelection: { userVerification: "required", residentKey: "required" },
         // The callback runs before the plugin writes the passkey row, so a refusal here leaves the store
-        // as it found it.
+        // as it found it. The enrolment itself is judged in the before hook, once.
         registration: {
-          afterVerification: async ({ ctx, verification, user }) => {
+          afterVerification: async ({ ctx, verification }) => {
             // The verifier holds the posted `id` to `rawId` and neither to the attested credential, so
             // a session this enrolment mints would otherwise name whichever passkey its caller chose.
             if (declaredCredentialId(ctx) !== verification.registrationInfo?.credential.id) throw APIError.fromStatus("BAD_REQUEST");
-
-            // The transaction the plugin opens around a set-up that signs in, where one is open, so the
-            // count below reads the snapshot the row is written in. Two enrolments at once may both
-            // stand.
-            const adapter = await getCurrentAdapter(ctx.context.adapter);
-
-            // Judged again here, the last point before the row is written, and reached by an `auth.api`
-            // call the hook lets through; off the hook's carried read, and nothing where it carried none.
-
-            // `ctx.context.session` is put there by the plugin's own `freshSessionMiddleware`, which it
-            // mounts only while `registration.requireSession` keeps its default: unset it and this arm
-            // sees no factor at all and refuses every enrolment.
-            const enrolling = ctx.context.session ?? null;
-            if (enrolling !== null) refuseBarred(carriedOrRefuse(ctx, enrolling.user.id));
-            await refuseEnrolment(
-              adapter,
-              user.id,
-              enrolling === null ? null : stampsOf(enrolling.session),
-              // As of the ceremony's options, as the hook judged it, the challenge being spent by now.
-              (enrolling === null ? undefined : carriedEnrolmentRead(ctx, enrolling.user.id)?.challengeIssuedAt) ?? undefined,
-              verification.registrationInfo?.credential.id,
-            );
           },
         },
       }),
-
-      passkeyLastUse(),
 
       // No `customSession`: it reshapes `/get-session`, which `DISABLED_PATHS` closes to every browser, so
       // `readLibrarySession` would be its one reader, and `projected` already builds that reader's copy over
@@ -745,12 +727,11 @@ const build = () => betterAuth(authOptions(new URL(frontend_config.AUTH_URL), si
 
 let built: ReturnType<typeof build> | undefined;
 
-// Built on first use rather than at import: `next build` loads this module in every page-data worker with the secret
-// undefined, and constructing the library starts a check that rejects there with nobody
-// awaiting it.
 /**
- * The library's instance, whose options and context both carry the session key: the library's own route
- * handler and the modules beside this one import it, and every other module calls a narrow function one of them exports.
+ * Built on first use rather than at import: `next build` loads this module in every page-data worker holding no
+ * environment, where neither the URL nor the client can be built and constructing the library starts a check that
+ * rejects with nobody awaiting it. Its options and context both carry the session key: the library's own route handler
+ * and the modules beside this one import it, and every other module calls a narrow function one of them exports.
  */
 export const auth = new Proxy({} as ReturnType<typeof build>, {
   // `Reflect.get` answers `any`: the proxy's own type, the instance's, is what every caller reads.
@@ -761,3 +742,43 @@ export const auth = new Proxy({} as ReturnType<typeof build>, {
 
 export const sendSignInCode = (email: string, requestHeaders: Headers) =>
   auth.api.sendVerificationOTP({ body: { email, type: "sign-in" }, headers: requestHeaders });
+
+/**
+ * Whether a sign-in code asked for `email` would be its address's sixth mail of the hour, this ask counted whatever
+ * the address holds. Asked ahead of the gate, so the store's rows never tell a member from a stranger, and on the rows
+ * the deletion link counts on, so the two mails a visitor can ask for share one bound. A store that cannot count
+ * throws.
+ */
+export async function codeMailCapped(email: string): Promise<boolean> {
+  const context = await auth.$context;
+  const perAddress = await boundIdentifier(MAIL_ROW_PREFIX, email, context.secret);
+  if ((await withinBound(context, perAddress, CODE_MAIL_LIMIT, CODE_MAIL_WINDOW_HOURS * HOUR_MS)) !== null) return false;
+
+  logger.info("auth.code_mail_capped");
+  return true;
+}
+
+/**
+ * The cookie the sign-in action sets on every ask for a code, which the code check reads: a token naming the address,
+ * living as long as the code it asked for, and nothing the gate decided, so a member's and a stranger's are alike.
+ * `Lax` and host-bound as the session's: a post from another site carries none.
+ */
+export async function codeAskedCookie(email: string) {
+  const { createAuthCookie, secret } = await auth.$context;
+  const { name } = createAuthCookie(CODE_ASKED_COOKIE);
+  const value = await signJWT({ [ASKED_CLAIM]: await askedDigest(email, secret) }, secret, CODE_VALIDITY_SECONDS);
+
+  return {
+    name,
+    value,
+    options: {
+      httpOnly: true,
+      sameSite: "lax",
+      path: "/",
+      // Spelled out: the library's own setter adds it to a `__Host-` name, which a browser drops without it, and Next's
+      // does not.
+      secure: new URL(frontend_config.AUTH_URL).protocol === "https:",
+      maxAge: CODE_VALIDITY_SECONDS,
+    },
+  } as const;
+}

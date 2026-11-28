@@ -11,7 +11,7 @@ export type SpielortValues = {
   postcode: string;
   district: string;
   city: string;
-  mietpreis: string;
+  default_mietpreis: string;
 };
 
 export function valuesOf(spielort: FLSpielort): SpielortValues {
@@ -23,6 +23,6 @@ export function valuesOf(spielort: FLSpielort): SpielortValues {
     postcode: address.postcode,
     district: address.district,
     city: address.city,
-    mietpreis: String(spielort.default_mietpreis),
+    default_mietpreis: String(spielort.default_mietpreis),
   };
 }

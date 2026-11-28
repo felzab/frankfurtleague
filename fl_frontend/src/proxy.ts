@@ -20,9 +20,10 @@ export async function proxy(req: NextRequest): Promise<NextResponse> {
   if (swapped !== null) return swapped;
 
   // Optimistic, as Next and the library document a proxy's check: the cookie alone, before any read, so a
-  // visitor holding none meets sign-in, never an area's frame. Every verdict past it is a guard's.
+  // visitor holding none meets sign-in, never an area's frame. Every verdict past it is a guard's. A server
+  // action is let through to its lane's guard, which answers on the form, so what the person typed stays.
   const holdsCookie = sessionCookieOf(req.headers) !== null;
-  if (!holdsCookie && inArea(req.nextUrl.pathname)) return turnAway(req, ROUTES.signIn.path());
+  if (!holdsCookie && inArea(req.nextUrl.pathname) && !isServerAction(req)) return turnAway(req, ROUTES.signIn.path());
 
   let stored = false;
   try {
@@ -51,6 +52,15 @@ function isPageLoad(req: NextRequest, path: string): boolean {
   return req.method === "GET" && spellings(req.nextUrl.pathname).includes(path);
 }
 
+/**
+ * A server action's call, which Next sends as a POST to the page's address: a redirect would be replayed by the
+ * action's `fetch` as a POST it cannot read. The method with the header, so a GET carrying the header by chance is
+ * still a page load.
+ */
+function isServerAction(req: NextRequest): boolean {
+  return req.method === "POST" && req.headers.has("next-action");
+}
+
 async function holdsNoPasskeyStep(req: NextRequest): Promise<boolean> {
   try {
     return (await getRequestPasskeyStep(req.headers)) === null;
@@ -67,12 +77,6 @@ function toLanding(req: NextRequest): NextResponse {
 }
 
 function turnAway(req: NextRequest, destination: string): NextResponse {
-  // Never a 307 for an action's POST: its `fetch` replays one as a POST it cannot read. This header,
-  // with no body, is the redirect Next's action client navigates on.
-  if (req.method === "POST" && req.headers.has("next-action")) {
-    return new NextResponse(null, { headers: { "x-action-redirect": `${destination};replace` } });
-  }
-
   // The page asked for rides the sign-in only where the allowlist holds it, so a mailed link keeps its target.
   const returnTo = withReturnAddress(destination, `${req.nextUrl.pathname}${req.nextUrl.search}`);
   return NextResponse.redirect(new URL(returnTo, req.nextUrl));
@@ -130,8 +134,11 @@ export const config = {
       missing: [{ type: "header", key: "cookie", value: ".*\\.session_token=.*" }],
     },
     // `MAILED_LINK_PAGES`, on a request carrying a token alone, which an empty `token` is not: Next's `has` reads an
-    // empty query value as absent.
-    { source: "/(erasure|registrierung)", has: [{ type: "query", key: "token" }] },
+    // empty query value as absent. The key is `TOKEN_PARAMETER` (`core/routes.ts`), spelled here as the matcher's literal.
+    {
+      source: "/(erasure|registrierung|confirm/address|confirm/kontakt|confirm/schiedsrichter|confirm/spieler)",
+      has: [{ type: "query", key: "token" }],
+    },
     {
       source: "/signin/:path*",
       missing: [

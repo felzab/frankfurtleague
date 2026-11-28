@@ -1,9 +1,9 @@
-import { COPY } from "@/core/copy";
+import { ADMIN_COPY } from "@/core/copy/admin";
 
 import type { FLOutboxDeliveryState, FLOutboxStatus, FLOutboxStatusState } from "@/core/generated/client/types";
 import type { ChipProps } from "@/kit/Chip";
 
-const DELIVERY = COPY.admin.delivery;
+const DELIVERY = ADMIN_COPY.delivery;
 
 /** What the provider reported, as a seat's row says it; the ordinary course says nothing. */
 const REPORTED: Readonly<Record<FLOutboxDeliveryState, ChipProps | null>> = {
@@ -20,7 +20,7 @@ const OWED: Readonly<Record<FLOutboxStatusState, ChipProps | null>> = {
   sent: null,
   dropped: null,
   // Red as the provider's suppression is: in both the mail does not arrive.
-  barred: { tone: "danger", label: COPY.admin.saison.addressBarred },
+  barred: { tone: "danger", label: ADMIN_COPY.saison.addressBarred },
   // A stack that mails nothing filed it: no address is at fault, and nothing failed.
   held: { tone: "neutral", label: DELIVERY.held },
   abandoned: { tone: "danger", label: DELIVERY.abandoned },

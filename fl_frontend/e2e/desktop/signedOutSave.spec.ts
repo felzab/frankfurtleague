@@ -1,6 +1,6 @@
 /**
- * E2E · an editor's save made after the session is gone: the proxy answers the server action with a redirect to
- * `/signin`, and Next's action client follows it.
+ * E2E · an editor's save made after the session is gone: the proxy lets the server action through to its lane's
+ * guard, and Next's action client reads the guard's answer onto the form, which keeps what was typed.
  */
 import { expect } from "@playwright/test";
 
@@ -15,7 +15,7 @@ const EDITOR = PEOPLE.administrators.editor;
 /** A venue's own editor, by its pathname. */
 const EDITOR_PATH = /^\/admin\/spielorte\/[0-9a-f]{24}$/;
 
-test("a save the proxy finds signed out lands on the sign-in page", async ({ page, context }) => {
+test("a save the proxy finds signed out stays on the form, saying the sign-in has ended", async ({ page, context }) => {
   await signInWithCode(page, EDITOR);
   await enrolPasskey(page, context);
 
@@ -33,8 +33,12 @@ test("a save the proxy finds signed out lands on the sign-in page", async ({ pag
   await typeInto(rent, "45");
   // Still the editor: nothing but the save below may be what meets the proxy signed out.
   await expect(page).toHaveURL((url) => EDITOR_PATH.test(url.pathname));
-  // Pressed alone, not by `save`: this save ends on the sign-in, never on the bar's „Gespeichert“.
-  await saveBar(page).getByRole("button", { name: "Speichern" }).click();
+  // Pressed alone, not by `save`: this save ends on the guard's refusal, never on the bar's „Gespeichert“.
+  const bar = saveBar(page);
+  await bar.getByRole("button", { name: "Speichern" }).click();
 
-  await expect(page).toHaveURL((url) => url.pathname === "/signin");
+  // The answer itself is what is waited on: no navigation follows the press, so a URL would match before it.
+  await expect(bar.getByText("Deine Anmeldung ist abgelaufen.", { exact: true })).toBeVisible();
+  await expect(page).toHaveURL((url) => EDITOR_PATH.test(url.pathname));
+  await expect(rent).toHaveValue("45");
 });

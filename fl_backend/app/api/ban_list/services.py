@@ -2,7 +2,7 @@ from collections.abc import Iterable
 from http import HTTPStatus
 
 from app.core.codes import Code
-from app.core.exceptions import APIError
+from app.core.exceptions import APIError, FieldFault
 from app.shared.schemas.bounds import BAN_DURATION_SAISONS
 
 
@@ -28,8 +28,8 @@ def find_no_saison_refusal(*, running_saison_id: str | None) -> APIError | None:
     return APIError(HTTPStatus.CONFLICT, Code.BAN_LIST_NO_SAISON)
 
 
-def find_admin_refusal(*, address: str, administrators: Iterable[str], incoming: bool) -> APIError | None:
-    """`ban_list_admin`: the address has a row in `grants`, in effect or waiting, or a holder's live change moves to it.
+def find_admin_refusal(*, address: str, administrators: Iterable[str], incoming: bool) -> FieldFault | None:
+    """`ban_list_admin` on the typed address: it has a row in `grants`, in effect or waiting, or a holder's live change moves to it.
 
     The target's state, so 409: the ban is refused for what the address is, and ending the grant or the change is what
     changes it. `incoming` is judged here because nothing judges a ban at the switch: the hourly pass would move the grant
@@ -39,4 +39,4 @@ def find_admin_refusal(*, address: str, administrators: Iterable[str], incoming:
     if not incoming and address not in set(administrators):
         return None
 
-    return APIError(HTTPStatus.CONFLICT, Code.BAN_LIST_ADMIN)
+    return FieldFault(path=("email",), code=Code.BAN_LIST_ADMIN, status=HTTPStatus.CONFLICT)

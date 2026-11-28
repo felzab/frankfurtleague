@@ -2,26 +2,23 @@ import "./globals.css";
 
 import { Anton, Inter, Raleway } from "next/font/google";
 
-import { SITE_URL } from "@/core/brand";
-import { COPY } from "@/core/copy";
-import { SERVER_COPY } from "@/core/serverCopy";
+import { SITE_LOCALE, SITE_URL } from "@/core/brand";
+import { COPY } from "@/core/copy/shared";
 import { BrandSprite } from "@/kit/BrandSprite";
 import { RootProviders } from "@/kit/RootProviders";
 import { ThemeColor } from "@/kit/ThemeColor";
 import { WholePages } from "@/kit/WholePage";
 import { SITE_OPEN_GRAPH } from "@/shared/utils/metadata";
-
-import shareImage from "./share-image.png";
+import { SHARE_IMAGE } from "@/shared/utils/shareImage";
 
 import type { Metadata, Viewport } from "next";
 
 // Every face is `optional`: its specification uses a face only where it has loaded for the text's first paint, and
 // never draws text in the face once it has been painted in a stand-in, a redraw that moves the league table's and the
 // search's figures. Headless Chromium breaks the second promise on a slow first visit: it swaps a late face in at the
-// load event, about 2 s after the first paint, with a layout shift of at most 0.0006, measured on every throttled load
-// and on no unthrottled one. The `expect` link below holds the first paint until the body is parsed and waits for no
-// font, so a face loaded by then is used and one arriving later still swaps. Anton's stand-in is the global styles' own
-// face, fitted to the capitals Anton sets: the automatic one fits lowercase.
+// load event, after the first paint, and the page shifts. The `expect` link below holds the first paint until the body
+// is parsed and waits for no font, so a face loaded by then is used and one arriving later still swaps. Anton's
+// stand-in is the global styles' own face, fitted to the capitals Anton sets: the automatic one fits lowercase.
 const anton = Anton({
   weight: "400",
   subsets: ["latin"],
@@ -62,13 +59,8 @@ export const metadata: Metadata = {
     // Next requires it beside a template; a page naming no title of its own shows the league's name alone.
     default: COPY.brand.name,
   },
-  // The share image as a static import: its address under `/_next/static/media/` carries a hash of the file's own
-  // bytes, so a redrawn image is a new URL a preview fetches anew. A generated `opengraph-image` route's hash is its
-  // source's, and the static file convention takes its alt from a `.txt` outside the catalogue.
-  openGraph: {
-    ...SITE_OPEN_GRAPH,
-    images: [{ url: shareImage.src, width: shareImage.width, height: shareImage.height, alt: SERVER_COPY.shareImage.alt }],
-  },
+  // For a page declaring no `openGraph` of its own; `pageMetadata` spreads the same image into each page's.
+  openGraph: { ...SITE_OPEN_GRAPH, ...SHARE_IMAGE },
   // Without this X falls back to a small square thumbnail; the rest is inherited.
   twitter: {
     card: "summary_large_image",
@@ -78,8 +70,7 @@ export const metadata: Metadata = {
 /**
  * No page has a boundary above it, so a route's prerendered shell is empty, which the build would otherwise refuse. The
  * root is the highest `instant` config of every route, and the shell's check obeys the highest one, so `false` here
- * lifts it for each route; it is the lowest place that covers them all. It does not lift the development server's
- * check of a navigation between two pages below it, which `next dev` runs at Next's default level and which warns.
+ * lifts it for each route; it is the lowest place that covers them all.
  */
 export const instant = false;
 
@@ -87,7 +78,8 @@ export const instant = false;
  * The browser's own ground and controls in the visitor's system scheme wherever neither the stylesheet nor the theme
  * script has set them yet, which is only in a bare error document. Once the theme script runs it writes the chosen
  * theme's `color-scheme` on the root, which wins over this. It reaches an error document rendered per request and
- * Next's own not-found document; an error document the build prerenders, as the area's catch-all, carries no viewport.
+ * Next's own not-found document. Next's own error page, which the build prerenders, carries none: it draws its ground in
+ * the device's scheme by its own styles.
  */
 export const viewport: Viewport = {
   colorScheme: "light dark",
@@ -104,7 +96,7 @@ const DOCUMENT_END = "document-end";
 export default function RootLayout({ children, modal }: LayoutProps<"/">) {
   return (
     <html
-      lang="de"
+      lang={SITE_LOCALE}
       suppressHydrationWarning
       // The viewport's scroll container is `<html>`, never `<body>`. Its track always shows: a page that grows
       // keeps the content's width, and a full-width line meets the track, where a reserved gutter would

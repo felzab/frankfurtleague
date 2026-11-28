@@ -92,7 +92,7 @@ PUBLIC_WRITES = [
 SYSTEM_WRITES = [
     ("/api/bewerbungen/saisons/{saison_id}/sweep", "post"),
     ("/api/registrierungen/saisons/{saison_id}/sweep", "post"),
-    ("/api/saisons/{saison_id}/retention", "post"),
+    ("/api/saisons/{saison_id}/sweep", "post"),
     ("/api/spielbestaetigungen/saisons/{saison_id}/sweep", "post"),
     # A POST that stores nothing: the address travels in a body, so `MUTATIONS` would cover it, and
     # this exemption leaves its one guard the system tier's.

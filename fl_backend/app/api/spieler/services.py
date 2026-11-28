@@ -9,7 +9,7 @@ from app.api.spiele.services import build_spiele_pipeline
 from app.api.spieler.schemas import FLSpielerRolle
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.exceptions import APIError
+from app.core.exceptions import APIError, FieldFault
 from app.shared.einwilligung import NAME_IS_PUBLIC
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from app.shared.schemas.custom import CustomObjectId
@@ -167,7 +167,7 @@ def build_live_rolle_filter(
     }
 
 
-def find_kader_rolle_refusal(*, rolle: FLSpielerRolle | None, taken: bool) -> APIError | None:
+def find_kader_rolle_refusal(*, rolle: FLSpielerRolle | None, taken: bool) -> FieldFault | None:
     """Why this squad role may not be given away, or `None`.
 
     A role is one squad row's, where a shared shirt number is refused on no write path: the model permits it on purpose.
@@ -178,7 +178,7 @@ def find_kader_rolle_refusal(*, rolle: FLSpielerRolle | None, taken: bool) -> AP
     if rolle is None or not taken:
         return None
 
-    return APIError(HTTPStatus.CONFLICT, Code.KADER_ROLLE_TAKEN, fields=(("rolle",),))
+    return FieldFault(path=("rolle",), code=Code.KADER_ROLLE_TAKEN, status=HTTPStatus.CONFLICT)
 
 
 def build_kader_pipeline(*, saison_id: str, team_id: CustomObjectId | None) -> list[Mapping[str, Any]]:
@@ -261,7 +261,9 @@ def build_held_rollen_filter(*, saison_id: str, team_id: CustomObjectId, excludi
 
 
 def find_kader_stufe_refusal(*, stufe: str | None, stored_stufe: str | None, allowed_stufen: Sequence[str]) -> APIError | None:
-    """`kader_stufe_not_allowed`: the edit writes a Stufe the season's rules do not offer.
+    """`kader_stufe_not_allowed`, a gate: the edit writes a Stufe the season's rules do not offer.
+
+    Only a stale page sends one, since the select offers the season's Stufen and the stored one.
 
     The stored value passes: a season narrowed after the row was written leaves it valid,
     and refusing it would lock the row's other fields too.

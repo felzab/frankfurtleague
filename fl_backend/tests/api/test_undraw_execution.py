@@ -210,22 +210,24 @@ class TestTheWindowIsReachedThroughTheRoute:
 
 
 async def call_patch_spiel(database: AsyncDatabase, client: AsyncMongoClient, *, spiel_id: Any, payload: FLPatchSpielDataPayload) -> Any:
-    return await patch_spiel(
-        spiel_id=spiel_id,
-        spiel_data=payload,
-        db=client,
-        spiele_collection=database[Collection.SPIELE],
-        teams_collection=database[Collection.TEAMS],
-        saisons_collection=database[Collection.SAISONS],
-        saison_teams_collection=database[Collection.SAISON_TEAMS],
-        spieltage_collection=database[Collection.SPIELTAGE],
-        spielorte_collection=database[Collection.SPIELORTE],
-        schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
-        spielberichte_collection=database[Collection.SPIELBERICHTE],
-        aufstellungen_collection=database[Collection.AUFSTELLUNGEN],
-        spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
-        germany_now=NOW,
-    )
+    async with client.start_session(snapshot=True) as session:
+        return await patch_spiel(
+            spiel_id=spiel_id,
+            spiel_data=payload,
+            db=client,
+            spiele_collection=database[Collection.SPIELE],
+            teams_collection=database[Collection.TEAMS],
+            saisons_collection=database[Collection.SAISONS],
+            saison_teams_collection=database[Collection.SAISON_TEAMS],
+            spieltage_collection=database[Collection.SPIELTAGE],
+            spielorte_collection=database[Collection.SPIELORTE],
+            schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+            spielberichte_collection=database[Collection.SPIELBERICHTE],
+            aufstellungen_collection=database[Collection.AUFSTELLUNGEN],
+            spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
+            germany_now=NOW,
+            session=session,
+        )
 
 
 def seeding_payload(stored: dict[str, Any], team_id: ObjectId) -> FLPatchSpielDataPayload:

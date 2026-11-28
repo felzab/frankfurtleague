@@ -19,7 +19,8 @@ export type GlyphChoice = { id: string; glyph: IconName; label: Copy };
  * technology. React Aria's `ToggleButtonGroup` in single selection, its segments buttons, since a tooltip opens from a
  * button's own hover and focus, which a radio's visually hidden input never takes under a pointer: no form posts it,
  * so nothing here is required or refused. `null` chooses none while the answer is not known, as a theme is not before
- * the page hydrates. A module of its own, so the rail's menu, its one caller, brings no radio or checkbox group.
+ * the page hydrates. A module of its own, so the theme's control (`ThemeChoice`), which every frame draws, brings no
+ * radio or checkbox group with it.
  */
 export function GlyphChoices({
   label,

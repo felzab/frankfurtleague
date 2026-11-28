@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 import { STANDING_CHIP } from "@/features/bewerbungen/standing";
 import { serveBackend } from "@/test-support/backend";
 import { signedInRequest } from "@/test-support/session";
@@ -44,7 +44,7 @@ async function chips(...rows: readonly FLBewerbungListRow[]): Promise<ReadonlyAr
 describe("a row's chip", () => {
   /* The application goes on its day with nobody told, so the list is where an administrator catches a seat never mailed. */
   it("says a seat was never sent ahead of the standing and of a Dublette", async () => {
-    const notSent = { tone: "warn", label: COPY.admin.saison.linkNotSent };
+    const notSent = { tone: "warn", label: COPY.shared.state.linkNotSent };
 
     expect(await chips(row({ unmailed: true }), row({ unmailed: true, duplicate: true }), row({}))).toStrictEqual([
       notSent,

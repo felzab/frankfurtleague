@@ -1,32 +1,33 @@
 import { cache } from "react";
 
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { AUFSTELLUNG_CHIP } from "@/features/aufstellungen/constants";
 import { readAsSeatHolder, requireTeamSeats, teamMetadata } from "@/features/roles/resolvers";
 import { headedMatchOf } from "@/features/spiele/blocks";
 import { getTeamSpiele } from "@/features/spiele/queries";
+import { EmptyBox } from "@/kit/EmptyState";
 import { ListPage } from "@/kit/ListPage";
+import { SpielCards } from "@/kit/SpielCards";
 import { EXPIRED_CHIP, owedChip } from "@/kit/stateChips";
 import { pageMetadata } from "@/shared/utils/metadata";
 
 import type { FLTeamPanelSpiel } from "@/core/generated/client/types";
 import type { TeamSeat } from "@/features/roles/resolvers";
 import type { ChipProps } from "@/kit/Chip";
-import type { Metadata, ResolvingMetadata } from "next";
+import type { Metadata } from "next";
 
 type Props = PageProps<"/area/team/[team]/[saison]/spiele">;
 
-/** The page's own address, which a session sent to sign in comes back to. */
 const address = ({ team, saison }: { team: string; saison: string }) => ROUTES.teamSpiele.path(team, saison);
 
-/** The page's one read, memoised for the render on its two ids, which `cache` compares by identity, so the tab's title and the page share it. */
+/** Keyed on the seat's two ids rather than the seat, since `cache` compares its arguments by identity. */
 const spieleRead = cache(getTeamSpiele);
 const spieleOf = (seat: TeamSeat) => spieleRead(seat.team_id, seat.saison_id);
 
-export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
-  return teamMetadata(params, address, spieleOf, async () => pageMetadata(parent, ROUTES.teamSpiele, address(await params)));
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  return teamMetadata(params, address, spieleOf, async () => pageMetadata(ROUTES.teamSpiele, address(await params)));
 }
 
 /** The states of a date the league asked the club about that still wait on the club's own answer. */
@@ -40,11 +41,11 @@ const UNANSWERED: ReadonlySet<FLTeamPanelSpiel["spielbestaetigung"]> = new Set([
  */
 function openOn({ spielbestaetigung, aufstellung }: FLTeamPanelSpiel): ChipProps | undefined {
   const { missing } = SERVER_COPY.overview;
-  if (UNANSWERED.has(spielbestaetigung)) return owedChip(missing(COPY.area.answer));
+  if (UNANSWERED.has(spielbestaetigung)) return owedChip(missing(COPY.spielplan.answer));
   if (spielbestaetigung === "expired") return EXPIRED_CHIP;
   if (aufstellung === null || aufstellung.stored) return undefined;
   if (aufstellung.phase === "open") return owedChip(missing(SERVER_COPY.season.spiel.aufstellung));
-  if (aufstellung.phase === "overdue") return { ...AUFSTELLUNG_CHIP.overdue, label: COPY.area.team.aufstellung.overdueOnCard };
+  if (aufstellung.phase === "overdue") return { ...AUFSTELLUNG_CHIP.overdue, label: COPY.aufstellung.overdueOnCard };
   return undefined;
 }
 
@@ -55,21 +56,31 @@ function openOn({ spielbestaetigung, aufstellung }: FLTeamPanelSpiel): ChipProps
 async function readSpiele(params: Props["params"]) {
   const [seat] = await requireTeamSeats(params, address);
   const { spiele } = await readAsSeatHolder(() => spieleOf(seat));
-  return {
-    groups: spiele.map((spiel) => {
-      const { head, spiel: row } = headedMatchOf(spiel);
-      const chip = row.chip ?? openOn(spiel);
-      return {
-        head,
-        spiel: {
-          ...row,
-          href: ROUTES.teamAufstellung.path(seat.team_id, seat.saison_id, spiel.id),
-          ...(chip === undefined ? {} : { chip }),
-        },
-      };
-    }),
-    empty: { kind: "none", plural: COPY.page.spiele, glyph: "spielplan" } as const,
-  };
+  if (spiele.length === 0) {
+    return (
+      <EmptyBox
+        kind="none"
+        plural={COPY.page.spiele}
+        glyph="spielplan"
+      />
+    );
+  }
+  return (
+    <SpielCards
+      groups={spiele.map((spiel) => {
+        const { head, spiel: row } = headedMatchOf(spiel);
+        const chip = row.chip ?? openOn(spiel);
+        return {
+          head,
+          spiel: {
+            ...row,
+            href: ROUTES.teamAufstellung.path(seat.team_id, seat.saison_id, spiel.id),
+            ...(chip === undefined ? {} : { chip }),
+          },
+        };
+      })}
+    />
+  );
 }
 
 /** A club's matches in one season, each with the one thing it still needs from the club. */
@@ -77,7 +88,7 @@ export default function TeamSpielePage({ params }: Props) {
   return (
     <ListPage
       head={{ scope: "area", title: { route: "teamSpiele" } }}
-      list={{ kind: "spielGroups", content: readSpiele(params) }}
+      list={{ kind: "drawn", content: readSpiele(params) }}
     />
   );
 }

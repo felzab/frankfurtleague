@@ -39,7 +39,7 @@ from tests import documents
 from tests.database import a_clean_database
 from tests.documents import kontaktperson_document
 from tests.erasure import erased
-from tests.isolation import COMMITTED, InterleavedCollection, Rival, outcome_of
+from tests.isolation import COMMITTED, InterleavedCollection, Rival, RowsThenTheRival, outcome_of
 from tests.payloads import spiel_patch_body
 from tests.records import record_collections
 from tests.spielbestaetigung_corpus import (
@@ -142,23 +142,25 @@ async def move(
 
     # Named one by one rather than spread from a dictionary, which no type check reads through.
     async def saved(spiel_data: FLPatchSpielDataPayload, *, dry_run: bool) -> FLPatchSpielDataResponse:
-        return await patch_spiel(
-            spiel_id=spiel_id,
-            spiel_data=spiel_data,
-            db=client,
-            spiele_collection=database[Collection.SPIELE] if dry_run or spiele is None else spiele,
-            teams_collection=database[Collection.TEAMS],
-            saisons_collection=database[Collection.SAISONS],
-            saison_teams_collection=database[Collection.SAISON_TEAMS],
-            spieltage_collection=database[Collection.SPIELTAGE],
-            spielorte_collection=database[Collection.SPIELORTE],
-            schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
-            spielberichte_collection=database[Collection.SPIELBERICHTE],
-            aufstellungen_collection=database[Collection.AUFSTELLUNGEN],
-            spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
-            germany_now=NOW,
-            dry_run=dry_run,
-        )
+        async with client.start_session(snapshot=True) as session:
+            return await patch_spiel(
+                spiel_id=spiel_id,
+                spiel_data=spiel_data,
+                db=client,
+                spiele_collection=database[Collection.SPIELE] if dry_run or spiele is None else spiele,
+                teams_collection=database[Collection.TEAMS],
+                saisons_collection=database[Collection.SAISONS],
+                saison_teams_collection=database[Collection.SAISON_TEAMS],
+                spieltage_collection=database[Collection.SPIELTAGE],
+                spielorte_collection=database[Collection.SPIELORTE],
+                schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+                spielberichte_collection=database[Collection.SPIELBERICHTE],
+                aufstellungen_collection=database[Collection.AUFSTELLUNGEN],
+                spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
+                germany_now=NOW,
+                dry_run=dry_run,
+                session=session,
+            )
 
     asked = await saved(payload, dry_run=True)
     await saved(payload.model_copy(update={"voided_ergebnisse": asked.voided_ergebnisse}), dry_run=False)
@@ -885,28 +887,6 @@ class TestARowClosesOnceItsDayHasPassed:
         assert (after.new_ansetzungen, after.schiedsrichter_new_ansetzungen, after.requests, after.einteilungen) == ([], [], [], [])
 
 
-class _ThenTheRival:
-    """A cursor running the rival once its rows have arrived; `sort` and `limit` chain as the driver's do."""
-
-    def __init__(self, cursor: Any, rival: Callable[[], Awaitable[None]]) -> None:
-        self._cursor = cursor
-        self._rival = rival
-
-    def sort(self, *args: Any, **kwargs: Any) -> _ThenTheRival:
-        self._cursor = self._cursor.sort(*args, **kwargs)
-        return self
-
-    def limit(self, *args: Any, **kwargs: Any) -> _ThenTheRival:
-        self._cursor = self._cursor.limit(*args, **kwargs)
-        return self
-
-    async def to_list(self, *args: Any, **kwargs: Any) -> list[Any]:
-        rows = await self._cursor.to_list(*args, **kwargs)
-        await self._rival()
-
-        return rows
-
-
 class ThenTheRivalAfterTheFirstSessionRead(InterleavedCollection):
     """A collection running the rival once the pass's first in-transaction read of it has answered."""
 
@@ -915,7 +895,7 @@ class ThenTheRivalAfterTheFirstSessionRead(InterleavedCollection):
         if kwargs.get("session") is None:
             return cursor
 
-        return _ThenTheRival(cursor, self.run_the_rival)
+        return RowsThenTheRival(cursor, self.run_the_rival)
 
 
 # Fourteen days out, so the deadline falls a week before the fixture and the reminder inside it.

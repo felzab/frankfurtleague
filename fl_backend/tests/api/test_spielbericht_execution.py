@@ -14,8 +14,8 @@ from bson import ObjectId
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
+from app.api.saisons.admin_router import get_saison_overview
 from app.api.saisons.overview import FLOverviewSpielberichtRow
-from app.api.saisons.overview_router import get_saison_overview
 from app.api.spielberichte.crud import count_submitted_berichte, empty_pupil_entries_in_session
 from app.api.spielberichte.person_router import get_spielbericht_bericht, put_spielbericht_bericht
 from app.api.spielberichte.schemas import FLSpielberichtBericht, FLSpielberichtPayload
@@ -378,13 +378,15 @@ class TestAReportAndAFixtureSaveCrossing:
 
             # After the fixture save's reads and ahead of its write of the fixture.
             spiele = InterleavedCollection(database[Collection.SPIELE], the_referee_reports, before="find_one_and_update")
-            outcome = await outcome_of(
-                patch_spiel(
-                    spiel_id=SPIEL,
-                    spiel_data=FLPatchSpielDataPayload.model_validate(spiel_patch_body(loaded, note=MOVED_NOTE)),
-                    **{**save_handles(database, client), "spiele_collection": spiele},
+            async with client.start_session(snapshot=True) as session:
+                outcome = await outcome_of(
+                    patch_spiel(
+                        spiel_id=SPIEL,
+                        spiel_data=FLPatchSpielDataPayload.model_validate(spiel_patch_body(loaded, note=MOVED_NOTE)),
+                        **{**save_handles(database, client), "spiele_collection": spiele},
+                        session=session,
+                    )
                 )
-            )
             saved = await the_row(database, Collection.SPIELE, {"_id": SPIEL}, "the seed holds no fixture")
 
             return (
@@ -662,14 +664,16 @@ class TestTheAdministratorReadsTheStateAReportIsIn:
             if bericht_moved:
                 await database[Collection.SPIELBERICHTE].update_one({"spiel_id": SPIEL}, {"$inc": {"version": 1}})
             spiel_data = spiel_patch_body(read, team1={**side(TEAM1), "tore": 1}, team2={**side(TEAM2), "tore": 0})
-            refused = await outcome_of(
-                patch_spiel(
-                    spiel_id=SPIEL,
-                    spiel_data=FLPatchSpielDataPayload.model_validate(spiel_data),
-                    adopts_bericht=document["version"],
-                    **save_handles(database, client),
+            async with client.start_session(snapshot=True) as session:
+                refused = await outcome_of(
+                    patch_spiel(
+                        spiel_id=SPIEL,
+                        spiel_data=FLPatchSpielDataPayload.model_validate(spiel_data),
+                        adopts_bericht=document["version"],
+                        **save_handles(database, client),
+                        session=session,
+                    )
                 )
-            )
 
             return refused, await season_states(database)
 
@@ -790,12 +794,14 @@ async def correct_the_feeder(
     stored_spiel = await database[Collection.SPIELE].find_one({"_id": SPIEL})
     assert stored_spiel is not None, "the seed holds no fixture"
     spiel_data = spiel_patch_body(stored_spiel, team1={**side(TEAM1), "tore": team1}, team2={**side(TEAM2), "tore": team2})
-    await patch_spiel(
-        spiel_id=SPIEL,
-        spiel_data=FLPatchSpielDataPayload.model_validate(spiel_data),
-        adopts_bericht=adopts_bericht,
-        **save_handles(database, client),
-    )
+    async with client.start_session(snapshot=True) as session:
+        await patch_spiel(
+            spiel_id=SPIEL,
+            spiel_data=FLPatchSpielDataPayload.model_validate(spiel_data),
+            adopts_bericht=adopts_bericht,
+            **save_handles(database, client),
+            session=session,
+        )
 
 
 async def a_reported_quarter_final(database: AsyncDatabase, client: AsyncMongoClient, scorer: ObjectId | None) -> None:

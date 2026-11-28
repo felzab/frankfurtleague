@@ -11,7 +11,7 @@ from http import HTTPStatus
 from typing import Any, Final, Literal
 
 from app.core.codes import Code
-from app.core.exceptions import APIError, link_invalid
+from app.core.exceptions import APIError, FieldFault, link_invalid
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.bounds import ADDRESS_CHANGE_VALID_HOURS, ADDRESS_CHANGE_WAITING_PERIOD_DAYS, GRANT_WAIT_HOURS, OWNER_WAIT_DAYS
 from app.shared.schemas.custom import as_utc
@@ -302,19 +302,20 @@ def find_ended_refusal(*, is_open: bool) -> APIError | None:
     return APIError(HTTPStatus.CONFLICT, Code.ADDRESS_CHANGE_ENDED)
 
 
-def find_taken_refusal(*, taken: bool) -> APIError | None:
-    """`address_change_taken`: the new address is someone's, and moving the person onto it would join two people's.
+def find_taken_refusal(*, taken: bool) -> FieldFault | None:
+    """`address_change_taken` on the new address: it is someone's, and moving the person onto it would join two people's.
 
     Another pupil signs in on it (one address is one pupil, `uniq_spieler_email`), an entry names it, or, judged at the
     press alone, it holds a grant (one address holds one grant). One code for all three, so a link's holder learns no
-    more than that, and on no field: the start's dialog has closed before its answer, and the re-send and the press hold
-    no box. Never judged at the person's own start, which would tell its holder which addresses hold records.
+    more than that. The re-send judges the stored change's new address, which no box holds, through
+    `as_judged_on_stored_state`. Never judged at the person's own start, which would tell its holder which addresses
+    hold records.
     """
 
     if not taken:
         return None
 
-    return APIError(HTTPStatus.CONFLICT, Code.ADDRESS_CHANGE_TAKEN)
+    return FieldFault(path=("email",), code=Code.ADDRESS_CHANGE_TAKEN, status=HTTPStatus.CONFLICT)
 
 
 # One mail every thirty seconds for a person's start, held here rather than at the edge: a server action posts its
@@ -340,8 +341,8 @@ def find_restart_refusal(*, live_valid_until: Any, now: datetime) -> APIError | 
     return APIError(HTTPStatus.TOO_MANY_REQUESTS, Code.ADDRESS_CHANGE_STARTED_RECENTLY)
 
 
-def find_unchanged_refusal(*, address: str, folded: str) -> APIError | None:
-    """`address_change_unchanged`: the typed address signs in as the one on file, so it would ask a mailbox already proved.
+def find_unchanged_refusal(*, address: str, folded: str) -> FieldFault | None:
+    """`address_change_unchanged` on the new address: it signs in as the one on file, so it would ask a mailbox already proved.
 
     `folded` is the typed address's sign-in identifier, which the caller folds; `address` is one already.
     """
@@ -349,8 +350,7 @@ def find_unchanged_refusal(*, address: str, folded: str) -> APIError | None:
     if folded != address:
         return None
 
-    # Naming neither address: the message reaches the refusal's log line.
-    return APIError(HTTPStatus.CONFLICT, Code.ADDRESS_CHANGE_UNCHANGED)
+    return FieldFault(path=("email",), code=Code.ADDRESS_CHANGE_UNCHANGED, status=HTTPStatus.CONFLICT)
 
 
 def find_nothing_refusal(*, empty: bool) -> APIError | None:

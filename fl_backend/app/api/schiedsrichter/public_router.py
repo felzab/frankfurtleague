@@ -4,10 +4,7 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from app.api.schiedsrichter.crud import erase_referee_in_session
 from app.api.schiedsrichter.schemas import (
     FLSchiedsrichterConfirmationPayload,
-    FLSchiedsrichterConfirmationViewConfirmed,
-    FLSchiedsrichterConfirmationViewExpired,
     FLSchiedsrichterConfirmationViewResponse,
-    FLSchiedsrichterConfirmationViewValid,
 )
 from app.api.schiedsrichter.services import (
     CONFIRMATION_FIELD,
@@ -21,7 +18,7 @@ from app.api.schiedsrichter.services import (
 )
 from app.core.clock import utc_stamp
 from app.core.collections import Collection
-from app.core.crud import patch_past_the_version_in_db, pull_by_token, refuse
+from app.core.crud import patch_past_the_version_in_db, pull_by_token, refuse, refuse_faults
 from app.core.dependencies import (
     DBClient,
     GermanDay,
@@ -53,7 +50,6 @@ router = APIRouter(
 
 @router.post(
     "/view",
-    response_model=FLSchiedsrichterConfirmationViewResponse,
     summary="What one Schiedsrichter confirmation link opens",
     openapi_extra=SAFE,
 )
@@ -61,7 +57,7 @@ async def get_confirmation_view(
     view_data: FLTokenPayload,
     schiedsrichter_collection: SchiedsrichterReadCollection,
     today: GermanDay,
-) -> FLSchiedsrichterConfirmationViewValid | FLSchiedsrichterConfirmationViewConfirmed | FLSchiedsrichterConfirmationViewExpired:
+) -> FLSchiedsrichterConfirmationViewResponse:
     """What this token opens: the link's state, a standing link's deadline and age bounds, and a confirmed one's day.
 
     A confirmed or an expired link is served in that state rather than refused, so a reopened link shows what became of it;
@@ -116,8 +112,11 @@ async def post_confirmation(
         # to ask for another.
         refuse(find_already_answered_refusal(einwilligung=raw.get(EINWILLIGUNG_FIELD)))
         refuse(find_expired_token_refusal(deadline=raw[CONFIRMATION_FIELD]["deadline"], today=today))
-        refuse(find_age_refusal(birth_date=answer_data.birth_date, today=today, minimum_age=SCHIEDSRICHTER_MIN_AGE_YEARS))
-        refuse(find_self_media_refusal(saved=None, media=answer_data.media, birth_date=answer_data.birth_date, today=today))
+        age = find_age_refusal(birth_date=answer_data.birth_date, today=today, minimum_age=SCHIEDSRICHTER_MIN_AGE_YEARS)
+        # The media switch is judged on the birthdate, which means nothing once refused.
+        refuse_faults(
+            age, None if age else find_self_media_refusal(saved=None, media=answer_data.media, birth_date=answer_data.birth_date, today=today)
+        )
 
         # The person's own press, judged on the read above, on fields the referee editor never saves: an editor's save
         # read before it still lands. No fixture is written: the scope has one home, which the fixture list joins at read

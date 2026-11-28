@@ -1,20 +1,10 @@
-import { KONTAKT_SEATS } from "@/features/teams/constants";
+import { IDEMPOTENCY_KEY_FIELD } from "@/core/idempotencyKey";
 
 import type { FLKontaktSeat } from "@/core/generated/client/types";
-
-/** The field the one-shot form's replay key posts under, the kit's `replayField`. */
-export const REPLAY_FIELD = "idempotency_key";
-
-/** „Keine weitere Rolle“, the select's first entry: the wire's `trainer_is_also: null`, which no option's id can be. */
-export const NO_SECOND_SEAT = "none";
-
-/** The boxes in the order the form shows them, the seats' one order. */
-export const SEATS = KONTAKT_SEATS;
 
 /** What the boxes post, each under its dotted name, a box not shown posting nothing. */
 type Posted = Readonly<Record<string, unknown>>;
 
-/** A box whose emptiness is no value. */
 const orNull = (value: unknown): unknown => (value === "" || value === undefined ? null : value);
 
 /** A digit box's text as its figure: an empty box no value, anything but digits the text, which the rule refuses. */
@@ -42,9 +32,10 @@ export function applicationOf(raw: unknown): unknown {
   const also = posted["kontakte.trainer_is_also"];
   const trainer = seatOf(posted, "trainer");
   return {
-    [REPLAY_FIELD]: posted[REPLAY_FIELD],
+    [IDEMPOTENCY_KEY_FIELD]: posted[IDEMPOTENCY_KEY_FIELD],
     saison_id: posted.saison_id,
-    team_id: isNewSchool ? null : orNull(posted.team_id),
+    // Absent for a new school, which the lane sends as no club; a pick left empty is no value, which it refuses.
+    team_id: isNewSchool ? undefined : orNull(posted.team_id),
     schule: isNewSchool
       ? {
           team_name: posted["schule.team_name"],
@@ -64,7 +55,8 @@ export function applicationOf(raw: unknown): unknown {
       trainer,
       ansprechperson: also === "ansprechperson" ? trainer : seatOf(posted, "ansprechperson"),
       stellvertretung: also === "stellvertretung" ? trainer : seatOf(posted, "stellvertretung"),
-      trainer_is_also: also === NO_SECOND_SEAT ? null : also,
+      // „Keine weitere Rolle“ posts the empty entry.
+      trainer_is_also: orNull(also),
     },
     trikot: { existing_set: posted["trikot.existing_set"], wunschfarbe: orNull(posted["trikot.wunschfarbe"]) },
     kader: { expected_size: figure(posted["kader.expected_size"]), good_spieler: figure(posted["kader.good_spieler"]) },

@@ -2,21 +2,21 @@
 
 import { z } from "zod";
 
-import { action, blankIsNull } from "@/core/action";
-import { COPY } from "@/core/copy";
+import { action, blankIsNull, fault } from "@/core/action";
+import { COPY } from "@/core/copy/shared";
 import { spielerPatchSpielerSaison } from "@/core/generated/client/sdk";
 import { SpielerPatchSpielerSaisonBody, SpielerPatchSpielerSaisonParams } from "@/core/generated/zod/inputs";
 import { getSpielerSaison } from "@/features/spieler/queries";
 
-import { valuesOf } from "./spielerValues";
+import { requiredOf, valuesOf } from "./spielerValues";
 
-import type { ActionAnswer } from "@/core/action";
+import type { LaneAnswer } from "@/core/action";
 
 const { shape } = SpielerPatchSpielerSaisonBody;
 
 /**
  * What the editor's boxes send, each held to the write's own published rule for it: an empty box but the forename's is
- * no value. A birthdate emptied sends no day, which the write cannot take: refused below on its box.
+ * no value. A birthdate emptied sends no day, which the write cannot take: refused below on its box (`requiredOf`).
  */
 const SaveSpieler = z.object({
   id: SpielerPatchSpielerSaisonParams.shape.spieler_id,
@@ -46,20 +46,19 @@ export const saveSpieler = action({
   lane: "admin",
   name: "saveSpieler",
   input: SaveSpieler,
-  ownWords: ["kader_rolle_taken"],
-  paths: { rolle: "changes.rolle" },
   examples: {
     "changes.first_name": COPY.shared.field.exampleFirstName,
     "changes.last_name": COPY.shared.field.exampleLastName,
     "changes.nummer": COPY.shared.field.exampleDigits,
   },
-  run: async ({ id, saison, version, changes }): Promise<ActionAnswer<number>> => {
+  run: async ({ id, saison, version, changes }): Promise<LaneAnswer<number>> => {
     const read = await getSpielerSaison(id, saison);
     if (read === null) return { ok: false, reason: COPY.shared.failure.stale };
 
     const stored = valuesOf(read);
-    const { first_name, birth_date } = { ...stored, ...changes };
-    if (birth_date === null) return { ok: false, fieldErrors: { "changes.birth_date": COPY.shared.field.required } };
+    const merged = { ...stored, ...changes };
+    const { first_name, birth_date } = merged;
+    if (birth_date === null) return { ok: false, faults: requiredOf(merged).map((box) => fault(`changes.${box}`, "required")) };
 
     const { kader, person } = read;
     const written = await spielerPatchSpielerSaison(id, saison, {

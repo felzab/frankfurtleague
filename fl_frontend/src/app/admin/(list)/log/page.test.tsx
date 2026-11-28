@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
+import { actionLogGetActionLogBodyQOneMax } from "@/core/generated/zod/inputs";
 import { byOptions } from "@/features/action-log/filters";
 import { refusal, serveBackend } from "@/test-support/backend";
 import { signedInRequest } from "@/test-support/session";
@@ -40,14 +41,16 @@ type Drawn = {
   };
 };
 
-const pageOf = (searchParams: Record<string, string | string[]>) =>
-  ActionLogPage({ params: Promise.resolve({}), searchParams: Promise.resolve(searchParams) } as Parameters<typeof ActionLogPage>[0]) as Drawn;
+const pageOf = async (searchParams: Record<string, string | string[]>) =>
+  (await ActionLogPage({ params: Promise.resolve({}), searchParams: Promise.resolve(searchParams) } as Parameters<
+    typeof ActionLogPage
+  >[0])) as unknown as Drawn;
 
 async function read(searchParams: Record<string, string | string[]>) {
-  const page = pageOf(searchParams);
+  const page = await pageOf(searchParams);
   // Both, as the list template awaits both: the toolbar's filters and the list come of one read.
   const [, content] = await Promise.all([page.props.filters, page.props.list.content]);
-  return content;
+  return { ...content, search: page.props.list.search };
 }
 
 /** The filters each read of the log posted, in the order the page sent them. */
@@ -77,6 +80,23 @@ describe("the Protokoll's reads", () => {
     expect(askedFor().map(({ by }) => by)).toStrictEqual([null]);
     expect(more.carry).toStrictEqual({});
     expect(table.empty.kind).toBe("none");
+  });
+
+  /* A search dropped on a reload or a shared link shows the whole log under a field that seems to narrow it. */
+  it("reads the address's search, shows it in the field and keeps it on the next page", async () => {
+    state.answer = answer({ cursor: "a".repeat(24) });
+    const { more, search } = await read({ q: " Birke ", type: "ban" });
+    expect(askedFor().map(({ q }) => q)).toStrictEqual(["Birke"]);
+    expect(search.address).toStrictEqual({ name: "q", value: "Birke" });
+    expect(more.query).toBe("Birke");
+  });
+
+  /* A search past the read's bound, which only a hand-typed address holds, would fail the page rather than narrow it. */
+  it("reads the whole log for a search past the read's bound", async () => {
+    state.answer = answer({});
+    const { search } = await read({ q: "x".repeat(actionLogGetActionLogBodyQOneMax + 1) });
+    expect(askedFor().map(({ q }) => q)).toStrictEqual([null]);
+    expect(search.address?.value).toBe("");
   });
 
   /* An outage answering „Noch keine Einträge.“ would read as a log with nothing in it. */

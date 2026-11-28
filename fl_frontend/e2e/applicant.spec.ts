@@ -1,15 +1,21 @@
 /**
  * E2E · an application, under each project, where no lower tier sees the form, a seat's mailed link or the acceptance
- * break at a join between them, the public form's real controls fail on either engine, a rejection's reason miss a seat,
- * or an objection's fresh link fail to seat the new person. Each project's schools are its own (`applicants`).
+ * break at a join between them, the public form's real controls fail on either engine, or a rejection's reason miss a
+ * seat. Each project's schools are its own (`applicants`). A seat written anew asks the passkey touch, which the shared
+ * administrator's device cannot answer, so its journey is desktop's alone.
  */
 import { expect } from "@playwright/test";
 
-import { apply, confirmSeat, fillSeat, openApplication, personOf, SEATS, SUBJECT } from "./support/application";
-import { choose, enteredDialog, enteredQuestion, pressRowAct, typeInto } from "./support/controls";
+import { apply, confirmSeat, openApplication, personOf, SEATS, SUBJECT } from "./support/application";
+import { choose, enteredDialog, typeInto } from "./support/controls";
 import { test } from "./support/journey";
 import { PLANNED } from "./support/madeUpLeague";
 import { filedMessages, mailedLink, mailedMessage } from "./support/mailSink";
+
+import type { Page } from "@playwright/test";
+
+/** The page's title strip, where the record's status chip stands beside its name, rather than the same word anywhere on the page. */
+const strip = (page: Page) => page.getByRole("main").locator("header", { has: page.getByRole("heading", { level: 1 }) });
 
 test("a new school applies, every seat confirms, and the administration accepts it", async ({ page, administration, applicants }) => {
   const school = applicants.accepted;
@@ -18,7 +24,7 @@ test("a new school applies, every seat confirms, and the administration accepts 
   // The landing's way in while the window is open.
   await page.goto("/");
   await page.getByRole("main").getByRole("link", { name: "Zur Bewerbung" }).first().click();
-  await expect(page).toHaveURL((url) => url.pathname === `/bewerbung/${PLANNED}`);
+  await expect(page).toHaveURL((url) => url.pathname === "/bewerbung");
   await apply(page, school, { isListed: false });
 
   // Each person's own link: the Ansprechperson's in the mail saying the application came in.
@@ -28,7 +34,7 @@ test("a new school applies, every seat confirms, and the administration accepts 
 
   // The application stands complete, and the acceptance sets what the form never asked: a new school's Kürzel.
   await openApplication(administration, school);
-  await expect(administration.getByRole("banner").getByText("Vollständig", { exact: true })).toBeVisible();
+  await expect(strip(administration).getByText("Vollständig", { exact: true })).toBeVisible();
   const decided = await filedMessages();
   await administration.getByRole("main").getByRole("button", { name: "Annehmen", exact: true }).click();
   const dialog = await enteredDialog(administration, "Bewerbung annehmen");
@@ -38,13 +44,13 @@ test("a new school applies, every seat confirms, and the administration accepts 
   await typeInto(dialog.getByRole("textbox", { name: /^Kürzel/ }), school.slice(0, 3).toUpperCase());
   await dialog.getByRole("button", { name: "Annehmen", exact: true }).click();
   await expect(dialog).toBeHidden();
-  await expect(administration.getByRole("banner").getByText("Angenommen", { exact: true })).toBeVisible();
+  await expect(strip(administration).getByText("Angenommen", { exact: true })).toBeVisible();
 
   // Every seat is told, and the school now is a team of the season, whose editor the application leads to.
   for (const seat of SEATS) await mailedMessage(personOf(school, seat).address, SUBJECT.accepted, decided);
   await administration.getByRole("main").getByRole("link", { name: "Zum Team" }).click();
   await expect(administration).toHaveURL((url) => url.pathname.startsWith(`/admin/saisons/${PLANNED}/teams/`));
-  await expect(administration.getByRole("banner").getByRole("heading", { level: 1, name: school })).toBeVisible();
+  await expect(administration.getByRole("main").getByRole("heading", { level: 1, name: school })).toBeVisible();
 });
 
 test("a listed school is rejected, and every seat reads the reason", async ({ page, administration, applicants }) => {
@@ -62,50 +68,10 @@ test("a listed school is rejected, and every seat reads the reason", async ({ pa
   await typeInto(dialog.getByRole("textbox", { name: /^Grund/ }), reason);
   await dialog.getByRole("button", { name: "Ablehnen", exact: true }).click();
   await expect(dialog).toBeHidden();
-  await expect(administration.getByRole("banner").getByText("Abgelehnt", { exact: true })).toBeVisible();
+  await expect(strip(administration).getByText("Abgelehnt", { exact: true })).toBeVisible();
 
   for (const seat of SEATS) {
     const mail = await mailedMessage(personOf(school, seat).address, SUBJECT.declined, decided);
     expect(mail.join("\n"), `the rejection mailed to the ${seat}`).toContain(reason);
   }
-});
-
-test("a seat objects, „Sitz bearbeiten“ seats another person, and the fresh link confirms them", async ({
-  page,
-  administration,
-  applicants,
-}) => {
-  const school = applicants.objected;
-  const before = await filedMessages();
-
-  await page.goto(`/bewerbung/${PLANNED}`);
-  await apply(page, school, { isListed: false });
-
-  // The Stellvertretung objects, which empties the seat and tells the Ansprechperson.
-  await page.goto(await mailedLink(personOf(school, "stellvertretung").address, SUBJECT.seat, before));
-  await page.getByRole("main").getByRole("button", { name: "Widersprechen" }).click();
-  // The objection asks before it acts; its question's own press does it.
-  await (await enteredQuestion(page, "Eintrag widersprechen?")).getByRole("button", { name: "Widersprechen" }).click();
-  await expect(page.getByRole("main").getByRole("heading", { name: "Widersprochen", exact: true })).toBeVisible();
-  await mailedMessage(personOf(school, "ansprechperson").address, SUBJECT.objected, before);
-
-  // The emptied seat's row takes another person.
-  await openApplication(administration, school);
-  const seats = administration.getByRole("list", { name: "Kontaktpersonen" }).getByRole("listitem");
-  const replaced = await filedMessages();
-  await pressRowAct(seats.filter({ hasText: "Niemand" }), "Sitz bearbeiten");
-  const dialog = await enteredDialog(administration, "Sitz bearbeiten");
-  const replacement = { firstName: "Noah", lastName: "Neumann", address: `neu.${school.toLowerCase()}@example.com`, phone: "069 90009004" };
-  await fillSeat(dialog, replacement);
-  await dialog.getByRole("button", { name: "Speichern" }).click();
-  // The write owes the person a link, so the dialog stays open on the address that link goes to.
-  await expect(dialog.getByText(replacement.address)).toBeVisible();
-  await dialog.getByRole("button", { name: "Zurück" }).click();
-  await expect(dialog).toBeHidden();
-
-  // The seat's fresh link is the new person's, and their confirmation fills it.
-  await confirmSeat(page, await mailedLink(replacement.address, SUBJECT.seat, replaced));
-  await administration.reload();
-  const seated = seats.filter({ hasText: `${replacement.firstName} ${replacement.lastName}` });
-  await expect(seated.getByText("Bestätigt", { exact: true })).toBeVisible();
 });

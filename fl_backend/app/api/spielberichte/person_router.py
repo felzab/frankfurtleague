@@ -23,7 +23,6 @@ from app.api.spielberichte.services import (
     kader_is_open,
     newly_named,
 )
-from app.api.spiele.services import spiel_label
 from app.core.crud import VERSION_FIELD, anchor_in_db, find_stale_first_save_refusal, refuse
 from app.core.dependencies import (
     DBClient,
@@ -173,7 +172,8 @@ async def put_spielbericht_bericht(
                 action="spielbericht.saved",
                 by=ACT_BY_SCHIEDSRICHTER,
                 record_id=document["_id"],
-                label=spiel_label(context.spiel["saison_id"], context.spiel["spiel_nr"]),
+                saison_id=context.spiel["saison_id"],
+                spiel_nr=context.spiel["spiel_nr"],
                 session=session,
             )
             # On every write, after the report's own, so a rival first write meets it there rather than on the season. The

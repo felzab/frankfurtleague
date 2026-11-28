@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 import { serveBackend } from "@/test-support/backend";
 import { signedInRequest } from "@/test-support/session";
 
@@ -58,7 +58,7 @@ beforeEach(() => {
 describe("the season editor's save", () => {
   /* The write replaces the season whole: a field the editor left alone and the save dropped would reset in silence. */
   it("sends its changes over every stored field, on the version it read, and answers the one the write stored", async () => {
-    const answer = await saveSaison({ id: "2027", version: 3, changes: { gruppen: "2", registrierungPaused: false } });
+    const answer = await saveSaison({ id: "2027", version: 3, changes: { "rules.number_of_gruppen": "2", registrierungPaused: false } });
 
     expect(answer).toEqual({ ok: true, value: 4 });
     expect(state.sent).toEqual([
@@ -77,7 +77,7 @@ describe("the season editor's save", () => {
   it("sets the application form's pause alone and keeps a stored one through a save that leaves it", async () => {
     await saveSaison({ id: "2027", version: 3, changes: { bewerbungPaused: true } });
     state.saison = { ...STORED, bewerbung: { open: false, start: "2027-01-10", end: "2027-02-07" } };
-    await saveSaison({ id: "2027", version: 3, changes: { maxKader: "20" } });
+    await saveSaison({ id: "2027", version: 3, changes: { "rules.max_kader_size": "20" } });
 
     expect(state.sent).toMatchObject([
       { bewerbung: { open: false, start: "2027-01-10", end: "2027-02-07" }, registrierung: STORED.registrierung },
@@ -86,12 +86,16 @@ describe("the season editor's save", () => {
   });
 
   /* A window with one day gone would be sent as no window, deleting the whole window under „Gespeichert“. */
-  it.each(["bewerbungStart", "bewerbungEnd"] as const)(
+  it.each(["bewerbung.start", "bewerbung.end"] as const)(
     "refuses an application window left without its %s, before the write",
     async (cleared) => {
       const answer = await saveSaison({ id: "2027", version: 3, changes: { [cleared]: null } });
 
-      expect(answer).toEqual({ ok: false, fieldErrors: { [`changes.${cleared}`]: COPY.shared.field.required } });
+      expect(answer).toStrictEqual({
+        ok: false,
+        fieldErrors: { [`changes.${cleared}`]: COPY.shared.field.required },
+        kinds: { [`changes.${cleared}`]: "required" },
+      });
       expect(state.sent).toEqual([]);
     },
   );

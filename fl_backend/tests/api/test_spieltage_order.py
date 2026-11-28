@@ -16,6 +16,7 @@ class TestSpieltageOrder:
                 "position": position,
                 "saison_phase": phase,
                 "saison_id": "2026",
+                "version": 0,
             }
         )
 

@@ -4,6 +4,8 @@ A code's value is its member's own name in lower snake case, which `StrEnum`'s `
 published document lists them once, as the failure body's `error_code`. A 4xx answer promises that
 the request wrote nothing, and the frontend clears the site's cache by that promise; a write that
 may stand answers `unknown_outcome` with a 500, which promises nothing.
+
+A code a box shows is a `FieldCode` member.
 """
 
 from enum import StrEnum, auto
@@ -53,8 +55,6 @@ class Code(StrEnum):
     # One code, since a page tells the reader alike that the question moved on, and the row as it stands says why.
     ANSETZUNG_UNANSWERABLE = auto()
     ANSETZUNG_VORSCHLAG_PAST = auto()
-    # The adoption's twin: it judges the stored proposal, the request carrying no body, so a day gone by is a 409.
-    ANSETZUNG_VORSCHLAG_PAST_AS_STORED = auto()
     # A decline proposing the slot the fixture already holds: adopted, it would save nothing and leave the proposal open.
     ANSETZUNG_VORSCHLAG_UNCHANGED = auto()
     # An administrator's settle, discard or adoption of a row that no longer takes it, one code for the three as for a
@@ -70,6 +70,9 @@ class Code(StrEnum):
     # A removal never takes the `owner` row, and a handover never names it: the role leaves only by a handover to another.
     GRANT_OWNER = auto()
     GRANT_BARRED = auto()
+    # An address the ban list already holds, typed into the ban list's own add: `grant_barred`'s twin, which a grant
+    # keeps for its own.
+    ADDRESS_BARRED = auto()
     # 403 and not 409: the refusal is about who asks, and a handover to the asker is what lifts it.
     GRANT_ONLY_OWNER = auto()
     # 409: stopping the waiting handover is what lifts it.
@@ -93,7 +96,11 @@ class Code(StrEnum):
     BEWERBUNG_SUBMISSION_SUBJECT_UNRESOLVED = auto()
     BEWERBUNG_PICKED_TEAM_UNUSABLE = auto()
     BEWERBUNG_PICKED_TEAM_ALREADY_ENTERED = auto()
+    # A seat whose person has confirmed or objected, on their link's second answer and on a re-send of the seat's link.
     BEWERBUNG_SEAT_ALREADY_ANSWERED = auto()
+    # A seat erased at its person's request, on an administrator's write into it and a re-send of its link: its own code
+    # beside `bewerbung_seat_already_answered`, since nobody answered and no write reopens the seat.
+    BEWERBUNG_SEAT_ERASED = auto()
     CONFIRMATION_AGE = auto()
     BEWERBUNG_KONTAKTE_UNCONFIRMED = auto()
     BEWERBUNG_KONTAKT_REPEATED = auto()
@@ -106,9 +113,6 @@ class Code(StrEnum):
     BOOKING_UNCONFIRMED_SCHIEDSRICHTER = auto()
 
     SPIEL_DOUBLE_BOOKED = auto()
-    # The adoption's twins, one per resource: it judges the fixture's stored ground and referee, so no path names which.
-    SPIEL_DOUBLE_BOOKED_SPIELORT_AS_STORED = auto()
-    SPIEL_DOUBLE_BOOKED_SCHIEDSRICHTER_AS_STORED = auto()
     SPIEL_OUTSIDE_SPIELTAG = auto()
     SPIELTAG_OUTSIDE_SAISON = auto()
     # `spiel_outside_spieltag`'s mirror: shrinking the span is the other way to break the same containment.
@@ -130,9 +134,6 @@ class Code(StrEnum):
     # A consent press whose page was served choices that have moved since, on any of the account page's records: one
     # code, so the page maps one refusal however many writes share it.
     CHOICES_STALE = auto()
-    # An account press moving a choice onto a grant under a label its current wording replaced: the page was loaded
-    # before a rewording. The confirmations refuse the same reason as a rule of their payload under the same spelling.
-    GRANT_WORDING_STALE = auto()
     # One code for every write taking a person's media consent, the account presses and the three
     # confirmations alike, so each page maps one refusal.
     MEDIA_AGE = auto()
@@ -140,9 +141,6 @@ class Code(StrEnum):
     # the record was found and naming the cause hides nothing.
     GIVING_NOT_ALLOWED = auto()
     ELIGIBILITY_DISQUALIFIED = auto()
-    # The adoption's twins, one per side: it judges the fixture's stored sides, so no path names which.
-    ELIGIBILITY_DISQUALIFIED_TEAM1_AS_STORED = auto()
-    ELIGIBILITY_DISQUALIFIED_TEAM2_AS_STORED = auto()
     ELIGIBILITY_TEAM_NOT_IN_SAISON = auto()
     ENTRY_SAISON_NOT_FUTURE = auto()
     ENTRY_GRUPPE_NOT_OFFERED = auto()
@@ -249,7 +247,7 @@ class Code(StrEnum):
     STATE_NICHTANTRETEN_WITHOUT_TWO_SIDES = auto()
     # A swap is neither an entry nor the move `entry_gruppe_locked` locks, so it carries codes of its own.
     # One code covers every pick of two clubs that is no swap, one club twice or a pair the season
-    # decides is none: the person's pick is what is refused, so a 422 naming both boxes.
+    # decides is none: the person's pick is what is refused, so a 422.
     SWAP_NOT_A_SWAP = auto()
     SWAP_SAISON_STARTED = auto()
     # An exit recorded before the season's start date: before the start a club out of the season is replaced, so no
@@ -283,7 +281,6 @@ type Rule = Literal[
     "elfmeterschiessen_without_winner",
     "email_not_accepted",
     "good_spieler_exceed_kader",
-    "grant_wording_stale",
     "nichtantreten_with_elfmeterschiessen",
     "nichtantreten_with_scorers",
     "registrierung_window_reaches_saison_start",
@@ -293,4 +290,54 @@ type Rule = Literal[
     "starters_exceed_eleven",
     "text_version_of_another_wording",
     "url_not_accepted",
+]
+
+
+# Every code a judge raises on a box, as a `FieldFault`'s code: published as the API's `FieldCode`, so the frontend's
+# field phrases are keyed by every member and a member added without one fails its type check.
+type FieldCode = Literal[
+    Code.DUPLICATE_KEY,
+    Code.KONTAKT_EMAIL_TAKEN,
+    Code.KONTAKT_PHONE_TAKEN,
+    Code.BEWERBUNG_KONTAKT_REPEATED,
+    Code.TRIKOT_FARBE_TAKEN,
+    Code.KADER_ROLLE_TAKEN,
+    Code.SPIEL_DOUBLE_BOOKED,
+    Code.ADDRESS_CHANGE_TAKEN,
+    Code.ADDRESS_BARRED,
+    Code.GRANT_BARRED,
+    Code.ADMIN_ADDRESS,
+    Code.BAN_LIST_ADMIN,
+    Code.GRANT_EXISTS,
+    Code.OWN_ADDRESS,
+    Code.ADDRESS_CHANGE_UNCHANGED,
+    Code.ANSETZUNG_VORSCHLAG_UNCHANGED,
+    Code.BOOKING_UNKNOWN_RESOURCE,
+    Code.BOOKING_UNCONFIRMED_SCHIEDSRICHTER,
+    Code.PAYLOAD_REFUSED,
+    Code.BEWERBUNG_SUBMISSION_SUBJECT_UNRESOLVED,
+    Code.SPIELER_NOT_IN_KADER,
+    Code.ELIGIBILITY_DISQUALIFIED,
+    Code.STATE_NICHTANTRETEN_WITHOUT_TWO_SIDES,
+    Code.STATE_ERGEBNIS_ON_A_NON_EVENT,
+    Code.MEDIA_AGE,
+    Code.AUFSTELLUNG_NOMINEE_WITHOUT_SHORTAGE,
+    Code.RULES_QUALIFIERS_ABOVE_GRUPPE,
+    Code.RULES_UNENTSCHIEDEN_OUTVALUES_WIN,
+    Code.RULES_NIEDERLAGE_OUTVALUES_UNENTSCHIEDEN,
+    Code.RULES_FORFEIT_UNENTSCHIEDEN_IN_A_KNOCKOUT,
+    Code.RULES_GRUPPEN_IN_USE,
+    Code.RULES_CAPACITY_BELOW_USE,
+    Code.RULES_KADER_BELOW_USE,
+    Code.SAISON_SPAN_BELOW_SPIELPLAN,
+    Code.AUSTRITT_BEFORE_SAISON_START,
+    Code.ANSETZUNG_VORSCHLAG_PAST,
+    Code.SAISON_START_AUSTRITT_STORED,
+    Code.CONFIRMATION_AGE,
+    Code.SPIEL_OUTSIDE_SPIELTAG,
+    Code.SAISON_SPAN_BELOW_SPIELTAGE,
+    Code.SAISON_START_TAKEN_PLACE,
+    Code.SPIELTAG_OUTSIDE_SAISON,
+    Code.SPIELTAG_SPAN_BELOW_SPIELE,
+    Code.SPIELTAG_START_OUT_OF_ORDER,
 ]

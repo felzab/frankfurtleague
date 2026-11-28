@@ -1,22 +1,22 @@
 "use client";
 
-import { Fragment, useRef } from "react";
+import { Fragment, useMemo, useRef } from "react";
 
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 
-import { Button } from "./Button";
-import { askingLook } from "./buttonStyles";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { Dialog } from "./Dialog";
 import { actLabel } from "./dialogAct";
 import { DraftUnsaved, useLocked } from "./draftUnsaved";
 import { EditorBar } from "./EditorBar";
-import { statusLine } from "./fieldStyles";
+import { dangerConsequence } from "./fieldStyles";
 import { FormClosed } from "./formClosed";
 import { HeldForm } from "./HeldForm";
 import { formColumn, RailPage } from "./RailFrame";
 import { dangerRow, editorHead, lockSlot, Section } from "./Section";
+import { byBox } from "./useEditor";
 
+import type { BoxRules } from "@/core/boxRules";
 import type { Copy, LockReason } from "@/core/copy";
 import type { Route } from "next";
 import type { ReactElement } from "react";
@@ -44,18 +44,16 @@ export type EditorSection = {
  */
 type EditorBlock = { id: string; block: ReactElement };
 
-/** One part of an editor's column, in the order the person's task takes them: a titled section or a bare block. */
 export type EditorPart = EditorSection | EditorBlock;
 
 /**
- * An irreversible or retiring act, which stands as one row in an editor's danger box: its name and its
- * consequence at the left, its button at the right, which asks before it acts: a question, or a dialog where the act
- * takes inputs first, such as an exit's route, reason and day.
+ * An irreversible or retiring act, which stands as one row in an editor's danger box, its button asking before it
+ * acts: a question, or a dialog where the act takes inputs first, such as an exit's route, reason and day.
  */
 export type DangerAct = {
   name: Copy;
   consequence: Copy;
-  /** Why the act cannot run on the record as it stands, which the page read, the button saying why (`Button`). */
+  /** Why the act cannot run on the record as it stands, which the page read, the button saying why. */
   locked?: Copy;
 } & (
   | {
@@ -74,45 +72,43 @@ export type DangerAct = {
     }
 );
 
-/** One danger row, whose question or dialog answers for its act, or, behind the passkey touch, its toast. */
 function DangerRow({ act }: { act: DangerAct }) {
-  const label = act.dialog === undefined ? COPY.shared.verb[act.confirm.verb] : actLabel(act.dialog.act);
   const locked = useLocked(act.locked);
+  let button: ReactElement;
+  // Its button says the verb alone, „Löschen“, so the row's name says what it acts on, as a list row's does.
+  if (act.dialog === undefined) {
+    const { onConfirm, touch, ...question } = act.confirm;
+    button = (
+      <ConfirmDialog
+        question={question}
+        onConfirm={onConfirm}
+        touch={touch}
+        trigger={{ label: COPY.shared.verb[question.verb], locked }}
+      />
+    );
+  } else
+    button = (
+      <Dialog
+        {...act.dialog}
+        trigger={{ label: actLabel(act.dialog.act), locked }}
+      />
+    );
   return (
-    // A flat row across the danger box, parted from the one above by the hairline every stacked part takes.
     <div className={dangerRow()}>
       <div className="grid min-w-0 flex-1 text-sm">
         <span className="font-semibold">{act.name}</span>
-        <p className={statusLine({ placement: "column", tone: "resting" })}>{act.consequence}</p>
+        <p className={dangerConsequence()}>{act.consequence}</p>
       </div>
-      {/* Its button says the verb alone, „Löschen“, so the row's name says what it acts on, as a list row's does. */}
-      {locked !== undefined ? (
-        <Button
-          variant={askingLook(act.dialog === undefined ? act.confirm.tone : act.dialog.tone)}
-          label={label}
-          locked={locked}
-        />
-      ) : act.dialog === undefined ? (
-        <ConfirmDialog
-          {...act.confirm}
-          trigger={{ label }}
-        />
-      ) : (
-        <Dialog
-          {...act.dialog}
-          trigger={{ label }}
-        />
-      )}
+      {button}
     </div>
   );
 }
 
 /**
- * The editor template: its sections one under another in the column of at most 760 px centred in the
- * content (`formColumn`, as the read page's), each a box exactly as tall as its content under its 16-px
- * title, and the record's one save in `EditorBar` at the foot of the viewport. There is no „Abbrechen“: the
- * way out is the frame's „‹ Zurück“ to the record's list, which an editor's route group places
- * (`RailColumn`) and which asks before it drops unsaved changes. The danger box comes last, a box of its own
+ * The editor template: its sections one under another in the form column, and the record's one save in `EditorBar` at
+ * the foot of the viewport. There is no „Abbrechen“: the
+ * way out is the frame's „‹ Zurück“ to the record's list, which the frame's band places on every page under an
+ * `(editor)` folder (`BandStart`) and which asks before it drops unsaved changes. The danger box comes last, a box of its own
  * under its own title holding the danger rows, the one place an editor's irreversible and retiring acts stand,
  * apart from the fields the bar saves as GitHub's danger zone stands apart from a repository's settings; an
  * editor with none of its acts open draws no such box. The fields are the kit's, bound to `editor`'s draft by
@@ -124,7 +120,8 @@ function DangerRow({ act }: { act: DangerAct }) {
  * is locked, at one line's height in every state (`lockSlot`), so nothing under the title moves as a lock comes or goes.
  * The warn hue is left to what a change being made will cause. A record its season no longer lets change opens
  * `closed`, read-only rather than open to a save the write refuses: every field read-only, its reason in the lock line,
- * and neither the danger box nor the bar, since there is nothing to save. The chip after the title
+ * no field's consequence, since nothing is changed there, and neither the danger box nor the bar, since there is
+ * nothing to save. The chip after the title
  * is the record's own state, as its list and its card show it, a phase that locks the record included, such as a
  * line-up's „Gesperrt“, and the lock line says why. A danger box
  * whose acts are about more than the closed record stays (`outlivesClosed`), as a club is retired from the league and
@@ -137,22 +134,31 @@ export function EditorPage<Values extends Record<string, EditorValue>>({
   lead,
   link,
   editor,
+  rules,
+  requiredOf,
   barText,
   sections,
   danger,
   locks = [],
   closed,
 }: {
+  /** What the browser's pass holds the fields to: the save's lane's rules, read on the server (`boxRulesOf`). */
+  rules: BoxRules;
+  /**
+   * The fields the draft needs filled beside those rules that stand empty, by their names, where one field asks for a
+   * value once another holds one, as a booking's price beside its venue: the save's own judgement of the draft.
+   */
+  requiredOf?: (values: { readonly [Box in keyof Values]: Values[Box] | null }) => readonly (keyof Values)[];
   title: PageTitle;
   chip?: ChipProps;
-  /** What that status leaves unsaid, after it (`RailPage`). */
+  /** What that status leaves unsaid, after it. */
   flag?: ChipProps;
   /**
    * The Vorschau: one line under the title saying a fact about the record as it is stored, such as a match's pairing,
    * its day and its result or that none is stored yet. Never the unsaved changes, which the bar's status line counts.
    */
   lead?: Copy;
-  /** The way to the record's public page in the strip, such as a match's own page, once the record has one (`RailPage`). */
+  /** The way to the record's public page in the strip, such as a match's own page, once the record has one. */
   link?: { href: Route; label: Copy };
   /**
    * Why some of its fields stand locked while the record is open, each reason once, which the lock line says; each
@@ -165,13 +171,20 @@ export function EditorPage<Values extends Record<string, EditorValue>>({
    */
   closed?: Copy;
   editor: Editor<Values>;
-  /** The page's own words on the bar's status line, before its count of unsaved changes (`EditorBar`'s `text`). */
+  /** The page's own words on the bar's status line, before its count of unsaved changes. */
   barText?: Copy;
   sections: readonly [EditorPart, ...EditorPart[]];
   /** The danger box: its title, naming what its acts are about, and its rows. */
   danger?: { title: Copy; acts: ReadonlyArray<DangerAct>; outlivesClosed?: true };
 }) {
   const form = useRef<HTMLFormElement>(null);
+  // Keyed by each field's name, as the save's own keys stand under `changes`; one object while the rules stand.
+  const boxRules = useMemo(() => byBox(rules), [rules]);
+  // Each field judged as if it stood empty, so a filled one the draft needs keeps its mark while it is typed in.
+  const required =
+    requiredOf === undefined
+      ? undefined
+      : Object.keys(editor.draft).filter((box) => requiredOf({ ...editor.draft, [box]: null }).includes(box));
   // A closed record's one reason covers every field, so it stands alone.
   const lock = closed ?? (locks.length === 0 ? undefined : COPY.template.lockLine(locks));
 
@@ -188,7 +201,6 @@ export function EditorPage<Values extends Record<string, EditorValue>>({
             status={editor.status}
             text={barText}
             isPending={editor.isPending}
-            // A save the server held back asks its question from the bar, before it goes again.
             question={{ asked: editor.question, confirm: editor.confirm, decline: editor.decline }}
             onSave={() => form.current?.requestSubmit()}
           />
@@ -196,15 +208,15 @@ export function EditorPage<Values extends Record<string, EditorValue>>({
       }>
       <HeldForm
         ref={form}
-        validationErrors={editor.fieldErrors}
+        fieldErrors={editor.fieldErrors}
+        rules={boxRules}
+        required={required}
         // The browser judges each field's own rules first; a field it keeps back points the status line at it.
-        onInvalid={() => editor.block()}
-        // The bar's busy button is not the whole guard: Enter in a lone field submits a form with no submit button too,
-        // and a second save mid-flight would go on the version the first stores past, its refusal standing over a save
-        // that went through.
-        onSend={() => {
-          if (!editor.isPending) editor.submit();
-        }}
+        onBlock={() => editor.block()}
+        // A second save mid-flight would go on the version the first stores past, its refusal standing over a save that
+        // went through.
+        isBusy={editor.isPending}
+        onSend={() => editor.submit()}
         className={formColumn()}>
         {/* The lines under the title, the Vorschau and the lock, one step apart as a box's title and its line are. */}
         <div className={editorHead()}>

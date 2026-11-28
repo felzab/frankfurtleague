@@ -1,21 +1,21 @@
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 
-import { cardSurface } from "./cardStyles";
+import { cardSurface, rowHeight } from "./cardStyles";
 import { Icon } from "./Icon";
 import { Link } from "./Link";
 import { tv } from "./tv";
 
-import type { Copy, Words } from "@/core/copy";
-import type { Route } from "next";
+import type { Copy, TextLink, Words } from "@/core/copy";
 import type { IconName } from "./Icon";
 
 /**
  * An empty list's cause, apart from its wording: `kind` says what emptied it, a search, the filters, nothing there
- * yet, or a person who left every row out of a run, as the Sammel-Zusage's check table does where each card was
- * skipped; the catalogue words each cause with the list's own plural, so a search can empty any list and still be said.
+ * yet, a person who left every row out of a run, as the Sammel-Zusage's check table does where each card was
+ * skipped, or a closed record holding none, which takes no more; the catalogue words each cause with the list's own
+ * plural, so a search can empty any list and still be said.
  */
 export type EmptyStateProps = {
-  kind: "search" | "filter" | "none" | "skipped";
+  kind: "search" | "filter" | "none" | "skipped" | "unrecorded";
   /**
    * The list's own plural: its title's entry where its title is a plural, „Spielorte“, and otherwise the noun the
    * catalogue keeps for its rows, „Sperren“ under the title „Sperrliste“.
@@ -23,7 +23,8 @@ export type EmptyStateProps = {
   plural: Copy;
   /**
    * The list is one record named by a masculine or neuter noun rather than a plural, as a team's „Kader“, so
-   * nothing there yet reads „Noch kein Kader.“; a feminine one, „Tabelle“, reads as a plural does.
+   * nothing there yet reads „Noch kein Kader.“ and none in a closed record „Kein Kader eingetragen.“; a feminine one,
+   * „Tabelle“, reads as a plural does.
    */
   one?: true;
   /**
@@ -35,7 +36,7 @@ export type EmptyStateProps = {
    * A muted line under the sentence of a list with nothing in it yet, saying where its records come from: the
    * catalogue's words around one link, such as the league's address a team's registration link comes from.
    */
-  line?: { before: Copy; link: { href: Route; label: Words }; after: Copy };
+  line?: readonly [Copy, TextLink<Words>, Copy];
   /** The mark over a list with nothing in it yet: the list's own rail mark, ⓘ where it names none. */
   glyph?: IconName;
 };
@@ -76,13 +77,13 @@ export function EmptyState(props: EmptyStateProps | Clear) {
         <p className={s.sentence()}>{props.one === true ? COPY.shared.empty.noneOne(props.plural) : COPY.shared.empty.none(props.plural)}</p>
         {props.line !== undefined && (
           <p className="text-sm text-fg-muted">
-            {props.line.before}
+            {props.line[0]}
             <Link
-              href={props.line.link.href}
+              href={props.line[1].href}
               placement="text"
-              label={props.line.link.label}
+              label={props.line[1].label}
             />
-            {props.line.after}
+            {props.line[2]}
           </p>
         )}
       </div>
@@ -95,9 +96,13 @@ export function EmptyState(props: EmptyStateProps | Clear) {
         ? COPY.shared.empty.search(props.searchPlural ?? props.plural)
         : props.kind === "skipped"
           ? COPY.shared.empty.skipped(props.plural)
-          : COPY.shared.empty.filter(props.plural);
+          : props.kind === "unrecorded"
+            ? props.one === true
+              ? COPY.shared.empty.unrecordedOne(props.plural)
+              : COPY.shared.empty.unrecorded(props.plural)
+            : COPY.shared.empty.filter(props.plural);
   return (
-    <div className="grid min-h-14 grid-cols-1 items-center px-4 py-3 text-base text-fg-muted lg:min-h-13 lg:py-0 lg:text-sm">
+    <div className={`grid ${rowHeight()} grid-cols-1 items-center px-4 py-3 text-base text-fg-muted lg:py-0 lg:text-sm`}>
       <p>{sentence}</p>
     </div>
   );

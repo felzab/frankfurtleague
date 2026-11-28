@@ -1,13 +1,26 @@
+// Server-only, so no client module imports these schemas: built at module level, they would ship Zod to its page.
+import "server-only";
+
 import { z } from "zod";
 
 import { asSignInIdentifier, isDeliverableAddress, KONTAKT_EMAIL_MAX_LENGTH } from "@/core/emailAddress";
-import { isSignInLibraryAddress } from "@/core/signInLibraryAddress";
+
+/**
+ * The sign-in library's own primitive rather than a copy of its pattern: `better-auth` checks a
+ * code's address with `z.email()`.
+ */
+const SIGN_IN_LIBRARY_EMAIL = z.email();
+
+/** Asked of the folded address: the sign-in hands the library that form and no other. */
+function isSignInLibraryAddress(value: string): boolean {
+  return SIGN_IN_LIBRARY_EMAIL.safeParse(value).success;
+}
 
 /**
  * The address the send and the code step both take: one rule, so a code is never typed for an address the send
  * refused. It carries no message of its own, so the action builder words every refusal on the box through the German
- * map: a schema's own message is past the map, and answers the unexpected line. The browser's `type=email` takes addresses this refuses, a host with no dot among them, so this
- * answer is the one such an address meets.
+ * map: a schema's own message is past the map, and answers the unexpected line. The browser's `type=email` takes
+ * addresses this refuses, a host with no dot among them, so this answer is the one such an address meets.
  */
 export const SignInPayloadSchema = z.object({
   email: z

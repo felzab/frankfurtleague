@@ -2,7 +2,7 @@
 
 import { useId, useState } from "react";
 
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 import { Checkbox } from "@/kit/Checkbox";
 import { ConsentLine } from "@/kit/ConsentLine";
 import { DateField } from "@/kit/DateField";
@@ -17,7 +17,7 @@ import type { CalendarDay } from "@/core/format";
  * name the site may show, asked with no answer chosen, since a choice resting on one records a consent nobody gave; or a
  * contact person's one switch, unticked.
  */
-type Consent = { name: "scope"; wording: ScopeWording; isRequired: boolean } | { name: "whatsapp"; wording: SwitchWording };
+type Consent = { name: "scope"; wording: ScopeWording } | { name: "whatsapp"; wording: SwitchWording };
 
 /**
  * A confirmation link's answer, the pupil's, the referee's and the contact person's alike: the birthdate, within the
@@ -31,7 +31,6 @@ export function ConfirmationFields({
   earliestBirth,
   latestBirth,
   mediaLatestBirth,
-  isBirthDateRequired,
 }: {
   consent: Consent;
   media: SwitchWording;
@@ -43,8 +42,6 @@ export function ConfirmationFields({
   latestBirth: CalendarDay;
   /** The latest birthdate the media consent's floor admits: a later one leaves the consent unoffered. */
   mediaLatestBirth: CalendarDay;
-  /** Whether the confirmation's write requires the date, read on the server. */
-  isBirthDateRequired: boolean;
 }) {
   const [birthDate, setBirthDate] = useState<CalendarDay | null>(null);
   const consentLine = useId();
@@ -58,7 +55,6 @@ export function ConfirmationFields({
         label={COPY.shared.facts.birthday}
         name="birth_date"
         {...(ageCheck === undefined ? {} : { description: ageCheck })}
-        isRequired={isBirthDateRequired}
         minValue={earliestBirth}
         maxValue={latestBirth}
         value={birthDate}
@@ -69,7 +65,6 @@ export function ConfirmationFields({
           label={{ record: consent.wording.question }}
           aria-describedby={consentLine}
           name="scope"
-          isRequired={consent.isRequired}
           choices={(["kader_public", "internal"] as const).map((value) => ({ id: value, label: { record: consent.wording.options[value] } }))}
         />
       ) : (

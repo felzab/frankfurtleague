@@ -1,13 +1,12 @@
 import "server-only";
 
-import { COPY } from "./copy";
-import { mailOrigin } from "./emailShell";
+import { COPY } from "./copy/shared";
 import { dayOf, formatDateLong, formatDayAndTime, formatInstant, formatTime, timeOf } from "./format";
 import { ROUTES } from "./routes";
 import { SERVER_COPY } from "./serverCopy";
 
-import type { Copy, Words } from "./copy";
-import type { Fact, Mail, Paragraph, Sentence } from "./emailShell";
+import type { Copy } from "./copy";
+import type { Fact, Mail, Paragraph } from "./emailShell";
 import type {
   FLAufstellungReminderData,
   FLAustrittNoticeData,
@@ -32,8 +31,6 @@ const paarung = ({ team1, team2 }: Pick<FLSpielMailAppointment, "team1" | "team2
   COPY.page.spiel({ record: team1 }, { record: team2 });
 
 const moment = ({ date, time }: FLSpielMailAppointment): string => formatDayAndTime(dayOf(date), timeOf(time));
-
-const around = (before: Copy, value: string, after: Copy): Sentence => [before, { strong: value }, after];
 
 /** The day and the hour, one fact to a row, so a reader scanning for the day finds it alone. */
 const whenFacts = ({ date, time }: FLSpielMailAppointment): Fact[] => [
@@ -64,18 +61,18 @@ const pairingOnly = (from: FLSpielMailAppointment, to: FLSpielMailAppointment): 
   from.date === to.date && from.time === to.time && (from.team1 !== to.team1 || from.team2 !== to.team2);
 
 /** The fixture under its pairing, its ground last; after a move, the move's rows in the day's and the time's place. */
-function slotBlock(ansetzung: FLSpielMailAnsetzung, movedFrom: FLSpielMailAppointment | null): NonNullable<Mail["block"]> {
+function ansetzungBlock(ansetzung: FLSpielMailAnsetzung, movedFrom: FLSpielMailAppointment | null): NonNullable<Mail["block"]> {
   const when = movedFrom === null ? whenFacts(ansetzung) : moveFacts(movedFrom, ansetzung);
 
   // A ground nobody assigned, in words: a mail has no glyph for it.
   return { title: paarung(ansetzung), facts: [...when, { label: FACT.spielort, value: ansetzung.spielort ?? COPY.shared.notProvided }] };
 }
 
+/** A notice whose lead opens on a pairing or a club's name, which the shell keeps capitalised under the greeting. */
+const onNoun = (mail: Mail): Mail => ({ ...mail, opensOnNoun: true });
+
 /** The deadline and the first-answer rule: any seat of the club answers, so a reader told nothing takes a date already answered for one lost. */
-const answerParagraph = (deadline: string): Paragraph => [
-  around(WORDS.answerUntil.before, formatDateLong(dayOf(deadline)), WORDS.answerUntil.after),
-  WORDS.firstAnswerCounts,
-];
+const answerParagraph = (deadline: string): Paragraph => [WORDS.answerUntil(formatDateLong(dayOf(deadline))), WORDS.firstAnswerCounts];
 
 /**
  * A club's request to confirm a fixture, the reminder of it, or the request about the slot a move went to, which is then
@@ -86,26 +83,26 @@ export function buildSpielRequestEmail(
   { kind, team, team_id: teamId, saison_id: saison, ansetzung, deadline, moved_from: movedFrom }: FLSpielRequestData,
   { origin }: MailOrigin,
 ): Mail {
-  const site = mailOrigin(origin);
   const day = dayOf(ansetzung.date);
   const ask = WORDS.confirmAsk({ record: team });
   // A reminder carries no move: the move's own request is the one mail telling of it. A new pairing at its slot is asked
   // as a request is, its lead naming the new pairing and its block the pairing left.
-  const [subjectLine, lead]: readonly [Copy, Paragraph] =
-    movedFrom !== null && !pairingOnly(movedFrom, ansetzung)
-      ? [WORDS.movedSubject(day), [WORDS.moved(paarung(ansetzung)), ask]]
-      : kind === "spiel_reminder"
-        ? [WORDS.reminderSubject(day), [WORDS.answerMissing({ record: team }), ask]]
-        : [WORDS.requestSubject(day), movedFrom === null ? [ask] : [WORDS.newPairing(paarung(ansetzung)), ask]];
+  const moved = movedFrom !== null && !pairingOnly(movedFrom, ansetzung);
+  const [subjectLine, lead]: readonly [Copy, Paragraph] = moved
+    ? [WORDS.movedSubject(day), [WORDS.moved(paarung(ansetzung)), ask]]
+    : kind === "spiel_reminder"
+      ? [WORDS.reminderSubject(day), [WORDS.answerMissing({ record: team }), ask]]
+      : [WORDS.requestSubject(day), movedFrom === null ? [ask] : [WORDS.newPairing(paarung(ansetzung)), ask]];
 
   return {
-    kind: "notice",
+    audience: "notice",
     subjectLine,
-    origin: site,
+    origin,
     paragraphs: [lead],
-    block: slotBlock(ansetzung, movedFrom),
+    ...(moved ? { opensOnNoun: true } : {}),
+    block: ansetzungBlock(ansetzung, movedFrom),
     afterBlock: [answerParagraph(deadline)],
-    button: { label: COPY.shared.end.toOverview, href: `${site}${ROUTES.teamOverview.path(teamId, saison)}` },
+    button: { label: COPY.shared.end.toOverview, href: `${origin}${ROUTES.teamOverview.path(teamId, saison)}` },
   };
 }
 
@@ -114,7 +111,6 @@ export function buildSpielRequestEmail(
  * mail telling them of the move. No token: the referee answers on their own panel, signed in.
  */
 export function buildSpielEinteilungEmail({ ansetzung, moved_from: movedFrom }: FLSpielEinteilungData, { origin }: MailOrigin): Mail {
-  const site = mailOrigin(origin);
   const spiel = paarung(ansetzung);
   // A new pairing at its slot books the referee under a first Einteilung's subject, its lead naming the new pairing and
   // its block the pairing left.
@@ -122,32 +118,33 @@ export function buildSpielEinteilungEmail({ ansetzung, moved_from: movedFrom }: 
   const lead = moved ? WORDS.moved(spiel) : movedFrom === null ? WORDS.booked(spiel) : WORDS.newPairing(spiel);
 
   return {
-    kind: "notice",
+    audience: "notice",
     subjectLine: moved ? WORDS.movedSubject(dayOf(ansetzung.date)) : WORDS.bookedSubject(dayOf(ansetzung.date)),
-    origin: site,
+    origin,
     paragraphs: [[lead]],
-    block: slotBlock(ansetzung, movedFrom),
+    ...(moved ? { opensOnNoun: true } : {}),
+    block: ansetzungBlock(ansetzung, movedFrom),
     afterBlock: [[WORDS.sayYesOrNo]],
-    button: { label: COPY.shared.end.toOverview, href: `${site}${SCHIEDSRICHTER_PANEL_PATH}` },
+    button: { label: COPY.shared.end.toOverview, href: `${origin}${SCHIEDSRICHTER_PANEL_PATH}` },
   };
 }
 
 /** The word to a referee that they no longer referee a fixture they were told of: nothing is left for them to answer. */
 function unbookedEmail(appointment: FLSpielMailAppointment, origin: string): Mail {
   return {
-    kind: "notice",
+    audience: "notice",
     subjectLine: WORDS.unbookedSubject(dayOf(appointment.date)),
-    origin: mailOrigin(origin),
-    paragraphs: [[around(WORDS.unbooked.before(paarung(appointment)), moment(appointment), WORDS.unbooked.after)]],
+    origin,
+    paragraphs: [[WORDS.unbooked(paarung(appointment), moment(appointment))]],
   };
 }
 
 /** A notice naming a fixture, with no button: nothing is left to answer, and no later mail is promised. */
 function noticeEmail(subjectLine: Copy, origin: string, paragraph: Paragraph, block?: Mail["block"]): Mail {
   return {
-    kind: "notice",
+    audience: "notice",
     subjectLine,
-    origin: mailOrigin(origin),
+    origin,
     paragraphs: [paragraph],
     ...(block ? { block } : {}),
   };
@@ -155,30 +152,31 @@ function noticeEmail(subjectLine: Copy, origin: string, paragraph: Paragraph, bl
 
 /**
  * The word that a fixture a party was asked about will not be played, by its event: the slot it was asked about, and
- * what the event means for the result as the match page's callout says it. No later mail is promised.
+ * after a no-show the side the match counts for, as the match page's callout says it. No later mail is promised.
  */
 function cancelledEmail({ appointment, sonderereignis }: FLSpielNoticeData, origin: string): Mail {
   const day = dayOf(appointment.date);
   const { cancelled } = WORDS;
   const { consequence } = COPY.spielplan.sonderereignis;
-  const lead = (words: { before: (subject: Words) => Copy; after: Copy }, subject: Words): Sentence =>
-    around(words.before(subject), moment(appointment), words.after);
+  const when = moment(appointment);
   const spiel = paarung(appointment);
 
   switch (sonderereignis) {
     case "ausgefallen":
-      return noticeEmail(cancelled.ausgefallen.subject(day), origin, [lead(cancelled.ausgefallen, spiel), consequence.notScored]);
+      return onNoun(noticeEmail(cancelled.ausgefallen.subject(day), origin, [cancelled.ausgefallen.lead(spiel, when)]));
     case "annulliert":
-      return noticeEmail(cancelled.annulliert.subject(day), origin, [lead(cancelled.annulliert, spiel), consequence.notScored]);
+      return onNoun(noticeEmail(cancelled.annulliert.subject(day), origin, [cancelled.annulliert.lead(spiel, when)]));
     // The side that stayed away, then the one the match is counted for.
     case "nichtantreten_team1":
     case "nichtantreten_team2": {
       const [absent, opponent] =
         sonderereignis === "nichtantreten_team1" ? [appointment.team1, appointment.team2] : [appointment.team2, appointment.team1];
-      return noticeEmail(cancelled.nichtantreten.subject(day), origin, [
-        lead(cancelled.nichtantreten, { record: absent }),
-        consequence.nichtantreten({ record: opponent }),
-      ]);
+      return onNoun(
+        noticeEmail(cancelled.nichtantreten.subject(day), origin, [
+          cancelled.nichtantreten.lead({ record: absent }, when),
+          consequence.nichtantreten({ record: opponent }),
+        ]),
+      );
     }
   }
 }
@@ -196,27 +194,32 @@ export function buildSpielNoticeEmail(data: FLSpielMovedData | FLSpielNoticeData
   // Taken off the fixture by the move: the void notice, naming the slot left alone.
   if (movedTo === null && !stays) {
     if (recipient === "schiedsrichter") return unbookedEmail(appointment, origin);
-    return noticeEmail(WORDS.voidSubject(dayOf(appointment.date)), origin, [
-      around(WORDS.void.before(paarung(appointment)), moment(appointment), WORDS.void.after),
-    ]);
+    return noticeEmail(WORDS.voidSubject(dayOf(appointment.date)), origin, [WORDS.void(paarung(appointment), moment(appointment))]);
   }
 
   const lead: Paragraph = [WORDS.moved(paarung(movedTo ?? appointment))];
 
   if (movedTo === null) {
-    return noticeEmail(WORDS.movedFromSubject(dayOf(appointment.date)), origin, lead, {
-      title: paarung(appointment),
-      facts: moveFacts(appointment, null),
-    });
+    return onNoun(
+      noticeEmail(WORDS.movedFromSubject(dayOf(appointment.date)), origin, lead, {
+        title: paarung(appointment),
+        facts: moveFacts(appointment, null),
+      }),
+    );
   }
 
   // A new pairing at the slot moved nothing: the subject says the slot stands, the lead names the new pairing, and the
   // block the pairing left.
   if (pairingOnly(appointment, movedTo)) {
-    return noticeEmail(WORDS.keptSubject(dayOf(movedTo.date)), origin, [WORDS.newPairing(paarung(movedTo))], slotBlock(movedTo, appointment));
+    return noticeEmail(
+      WORDS.keptSubject(dayOf(movedTo.date)),
+      origin,
+      [WORDS.newPairing(paarung(movedTo))],
+      ansetzungBlock(movedTo, appointment),
+    );
   }
 
-  return noticeEmail(WORDS.movedSubject(dayOf(movedTo.date)), origin, lead, slotBlock(movedTo, appointment));
+  return onNoun(noticeEmail(WORDS.movedSubject(dayOf(movedTo.date)), origin, lead, ansetzungBlock(movedTo, appointment)));
 }
 
 /** The word to a referee that their Einteilung is lifted, whoever took them off the fixture. */
@@ -229,10 +232,7 @@ export function buildSpielEinteilungLiftedEmail({ appointment }: FLSpielEinteilu
  * decides, and nothing else tells it the league has.
  */
 export function buildSpielVorschlagDiscardedEmail({ appointment }: FLSpielVorschlagDiscardedData, { origin }: MailOrigin): Mail {
-  return noticeEmail(WORDS.keptSubject(dayOf(appointment.date)), origin, [
-    around(WORDS.kept.before(paarung(appointment)), moment(appointment), WORDS.kept.after),
-    WORDS.keptDiscarded,
-  ]);
+  return onNoun(noticeEmail(WORDS.keptSubject(dayOf(appointment.date)), origin, [WORDS.kept(paarung(appointment), moment(appointment))]));
 }
 
 /**
@@ -244,17 +244,16 @@ export function buildAufstellungReminderEmail(
   { team, team_id: teamId, saison_id: saison, ansetzung, due_at: dueAt }: FLAufstellungReminderData,
   { origin }: MailOrigin,
 ): Mail {
-  const site = mailOrigin(origin);
   const words = SERVER_COPY.mail.aufstellung;
 
   return {
-    kind: "notice",
+    audience: "notice",
     subjectLine: words.reminderSubject(dayOf(ansetzung.date)),
-    origin: site,
+    origin,
     paragraphs: [[words.missing({ record: team })]],
-    block: slotBlock(ansetzung, null),
-    afterBlock: [[around(words.dueUntil.before, formatInstant(dueAt), words.dueUntil.after)]],
-    button: { label: COPY.shared.end.toOverview, href: `${site}${ROUTES.teamOverview.path(teamId, saison)}` },
+    block: ansetzungBlock(ansetzung, null),
+    afterBlock: [[words.dueUntil(formatInstant(dueAt))]],
+    button: { label: COPY.shared.end.toOverview, href: `${origin}${ROUTES.teamOverview.path(teamId, saison)}` },
   };
 }
 
@@ -265,7 +264,7 @@ export function buildAufstellungReminderEmail(
 export function buildAustrittNoticeEmail({ team, saison_id: saison, spiele }: FLAustrittNoticeData, { origin }: MailOrigin): Mail {
   const words = SERVER_COPY.mail.austrittNotice;
 
-  return noticeEmail(words.subject(team), origin, [[{ strong: team }, words.lead.after(saison)]], {
+  return noticeEmail(words.subject(team), origin, [words.lead(team, saison)], {
     title: COPY.page.spiele,
     facts: spiele.map((spiel) => ({
       label: words.when(dayOf(spiel.date), timeOf(spiel.time)),

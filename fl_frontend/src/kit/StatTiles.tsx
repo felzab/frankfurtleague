@@ -4,13 +4,13 @@ import { BlockBox } from "./BlockBox";
 import { cardSurface } from "./cardStyles";
 import { Chip } from "./Chip";
 import { Link } from "./Link";
-import { RecordFigures } from "./Table";
+import { RecordFigures } from "./RecordFigures";
 import { tv } from "./tv";
 
 import type { Copy, Words } from "@/core/copy";
 import type { Route } from "next";
 import type { ChipProps } from "./Chip";
-import type { Counts } from "./Table";
+import type { Counts } from "./RecordFigures";
 
 /**
  * One tile: what it counts over its value and a line under it where one is due. The value is a figure, such
@@ -80,7 +80,6 @@ const tiles = tv({
   },
 });
 
-/** A tile's value: its words, or the link to where it stands, another site's or a page of this one. */
 function TileValue({ item }: { item: StatTile }) {
   if (item.href === undefined) return textOf(item.value);
   return (

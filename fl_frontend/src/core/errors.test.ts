@@ -1,54 +1,21 @@
-import { assert, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
-import { APIBadStatusError, APINetworkError, asRefusal, isRefusalCode, isRuleRefusal, requestOf } from "./errors";
-import { Code } from "./generated/client/types";
+import { APIBadStatusError, APINetworkError, orMissing, requestOf } from "./errors";
 
-describe("a refusal read by its code, whatever its status", () => {
-  /* Only a rule's code or the unique index's is ever a refusal a mapper words: a credential, a request the API
-     cannot take, a route, the store and the server are not. */
-  it("classifies a rule's code apart from the protocol's, the store's and the server's", () => {
-    for (const code of [
-      "missing_actor",
-      "payload_refused",
-      "body_unreadable",
-      "no_route",
-      "document_not_found",
-      "database_failed",
-      "unhandled_crash",
-    ] satisfies Code[]) {
-      expect(isRefusalCode(code), code).toBe(false);
+import type { Code } from "./generated/client/types";
+
+/* By the code and never the status: a 404 carrying none is a route the edge or the framework did not find, and read as
+   a missing record it would draw a page's missing state while the API is unreachable. */
+describe("a read of a record the API says is missing", () => {
+  it("answers none for the record-missing code alone, and rethrows a 404 carrying no code or the router's", async () => {
+    const notFound = (code: Code | undefined) =>
+      new APIBadStatusError({ traceId: "ab".repeat(16), message: "", statusCode: 404, serverErrorCode: code });
+
+    await expect(orMissing(Promise.reject(notFound("document_not_found")))).resolves.toBeNull();
+    for (const code of [undefined, "no_route"] as const) {
+      const failure = notFound(code);
+      await expect(orMissing(Promise.reject(failure)), `a 404 with ${String(code)}`).rejects.toBe(failure);
     }
-    for (const code of ["swap_not_a_swap", "link_invalid", "duplicate_key"] satisfies Code[]) expect(isRefusalCode(code), code).toBe(true);
-    expect(isRefusalCode(undefined)).toBe(false);
-  });
-
-  /* Every code the API has, at every client status it answers with: each is a rule's refusal exactly where the
-     predicate says so, whichever status its rule chose. */
-  it("reads every code as a rule's refusal exactly where its class says so, at any client status", () => {
-    const codes = Object.values(Code);
-    assert.ok(codes.some((code) => isRefusalCode(code)) && codes.some((code) => !isRefusalCode(code)), "one class is missing");
-
-    for (const code of codes) {
-      for (const status of [400, 401, 403, 404, 409, 410, 422, 429]) {
-        const refusal = new APIBadStatusError({
-          traceId: "ab".repeat(16),
-          message: "bad",
-          statusCode: status,
-          serverErrorCode: code,
-        });
-        expect(isRuleRefusal(refusal), `${code} at ${String(status)}`).toBe(isRefusalCode(code));
-      }
-    }
-  });
-
-  /* A 5xx carrying a rule's code is no refusal, since a write may have landed behind it. */
-  it("reads a server failure carrying a rule's code as no refusal", () => {
-    const failure = new APIBadStatusError({ traceId: "ab".repeat(16), message: "bad", statusCode: 500, serverErrorCode: "swap_not_a_swap" });
-    const refusal = new APIBadStatusError({ traceId: "ab".repeat(16), message: "bad", statusCode: 409, serverErrorCode: "swap_not_a_swap" });
-
-    expect(asRefusal(failure)).toBeNull();
-    expect(asRefusal(refusal)).toBe(refusal);
-    expect(isRuleRefusal(failure)).toBe(false);
   });
 });
 

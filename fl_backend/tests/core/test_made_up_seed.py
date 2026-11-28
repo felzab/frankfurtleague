@@ -30,7 +30,7 @@ from app.api.spieltage.services import find_spieltag_order_refusal, find_spielta
 from app.api.teams.services import find_austritt_refusal
 from app.core import clock
 from app.core.config import MONGODB_URI_FILE, SECRET_FILES
-from app.core.exceptions import APIError
+from app.core.exceptions import APIError, FieldCheck, faults_of
 from tests.boot import BACKEND_ROOT, environment, secrets_folder
 from tests.made_up_seed import LANDING_STATES, UNJUDGED, MadeUpLeague, Season, is_local_server
 
@@ -122,9 +122,9 @@ def refused_writes(league: MadeUpLeague) -> list[str]:
 
     found: list[str] = []
 
-    def judge(refusal: APIError | None, what: str) -> None:
-        if refusal is not None:
-            found.append(f"{refusal.error_code}: {what}")
+    def judge(refusal: APIError | FieldCheck, what: str) -> None:
+        codes = [refusal.error_code] if isinstance(refusal, APIError) else [fault.code for fault in faults_of((refusal,))]
+        found.extend(f"{code}: {what}" for code in codes)
 
     # The rollover is the one write of a status, and it activates a season as it retires the one running: once a season
     # is `past`, one is `active` (`app/api/saisons/admin_router.py :: activate_saison`).
@@ -141,8 +141,8 @@ def refused_writes(league: MadeUpLeague) -> list[str]:
             judge(
                 find_activation_refusal(
                     target_status="future",
-                    target_spiele=len(season.spiele),
-                    undated_spieltage=sum(1 for row in season.spieltage if row["start"] is None),
+                    target_drawn=bool(season.spiele),
+                    spieltage_undated=any(row["start"] is None for row in season.spieltage),
                     outgoing_unplayed=outgoing is not None
                     and any(is_unplayed(ergebnis=row["ergebnis"], sonderereignis=row["sonderereignis"]) for row in outgoing.spiele),
                 ),

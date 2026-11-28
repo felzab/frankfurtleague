@@ -166,7 +166,7 @@ async def on_a_league(url: str, body: Body, *, mutates_schema: bool = False) -> 
 
 
 def by_passkey(email: str) -> dict[str, str]:
-    """A person who confirmed with their passkey a second before the request, as the page's prompt leaves them."""
+    """An administrator erasing their own address, touched by passkey a second before, as `/erasure`'s prompt leaves them."""
 
     return {**ADMIN_KEY, **actor_headers(email, signed_in_before_s=1, factor=PASSKEY_FACTOR)}
 
@@ -242,7 +242,8 @@ class TestNothingOfTheirsIsLeftAnywhere:
                 await a_grant(database, THEIR_GRANT_OID, IDENTIFIER, "administration")
             before = await scanned(database, *THEIR_VALUES)
             bystanders = await copies(database)
-            response = await erased_over_http(mongo_replica_set_url, headers=by_passkey(TYPED))
+            # A person signs in by code alone; the address holding a grant is an administrator's, who touches their passkey.
+            response = await erased_over_http(mongo_replica_set_url, headers=by_passkey(TYPED) if holding_a_grant else None)
 
             return before, bystanders, response.status_code, await scanned(database, *THEIR_VALUES, *BYSTANDER_VALUES), await copies(database)
 

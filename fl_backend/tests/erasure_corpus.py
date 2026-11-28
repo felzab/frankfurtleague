@@ -453,6 +453,8 @@ def action_log_row(row_id: ObjectId, *, by: str, label: str | None = None) -> di
         "team": None,
         "action": "ban.added",
         "record_id": None,
+        "saison_id": None,
+        "spiel_nr": None,
         "label": label,
         "count": None,
         "trace_id": "t",

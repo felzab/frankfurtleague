@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
+import { TO_HOME } from "@/kit/mailedLinkState";
 import { TO_ACCOUNT } from "@/kit/MailedPage";
 import { serveBackend } from "@/test-support/backend";
-import { doubleNextRequest } from "@/test-support/nextRequest";
+import { arriveWith, doubleNextRequest } from "@/test-support/nextRequest";
 
 import type { FLBewerbungEinwilligungViewAnswered, FLBewerbungEinwilligungViewSaisonPast } from "@/core/generated/client/types";
 import type { MailedState } from "@/kit/MailedPage";
@@ -26,7 +27,7 @@ serveBackend(({ method, path, body }) =>
 doubleNextRequest();
 
 const { objectKontakt } = await import("./answerKontakt");
-const { END, TO_HOME } = await import("./ends");
+const { END } = await import("../ends");
 const { default: KontaktConfirmationPage } = await import("./page");
 
 const DAY = "2026-11-04";
@@ -34,12 +35,9 @@ const DAY = "2026-11-04";
 /** What the page shows for the view the backend serves, as the template is handed it. */
 async function stateFor(served: View): Promise<MailedState> {
   view = served;
-  const page = KontaktConfirmationPage({
-    params: Promise.resolve({}),
-    searchParams: Promise.resolve({ token: "tok" }),
-  }) as ReactElement<{
-    page: Promise<MailedState>;
-  }>;
+  // The link as the proxy left it: its token in the page's cookie.
+  arriveWith({ cookie: "mailed_link=tok" });
+  const page = KontaktConfirmationPage() as ReactElement<{ page: Promise<MailedState> }>;
   return page.props.page;
 }
 
@@ -49,7 +47,8 @@ async function stateFor(served: View): Promise<MailedState> {
 describe("a contact's link, opened again", () => {
   it("says the seat was confirmed, and when, leading to the account", async () => {
     expect(await stateFor({ state: "confirmed", answered_at: DAY })).toMatchObject({
-      state: "alreadyDone",
+      state: "end",
+      tone: "info",
       title: COPY.shared.end.doneOn(END.confirmed.title, DAY),
       next: TO_ACCOUNT,
     });
@@ -57,10 +56,10 @@ describe("a contact's link, opened again", () => {
 
   it("says the seat was objected to, and when, on the declined tint, leading home", async () => {
     expect(await stateFor({ state: "declined", answered_at: DAY })).toMatchObject({
-      state: "alreadyDone",
+      state: "end",
+      tone: "danger",
       title: COPY.shared.end.doneOn(END.objected.title, DAY),
       next: TO_HOME,
-      declined: true,
     });
   });
 });
@@ -80,7 +79,7 @@ describe("a closed row's link", () => {
     } as const;
     expect(await stateFor(closed)).toMatchObject({
       state: "question",
-      action: objectKontakt,
+      run: objectKontakt,
       acts: { refusal: { verb: "oppose" } },
     });
   });

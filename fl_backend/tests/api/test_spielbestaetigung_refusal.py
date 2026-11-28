@@ -7,7 +7,7 @@ from bson import ObjectId
 from pydantic import BaseModel, ValidationError
 
 from app.api.outbox.schemas import FLSpielMailAppointment
-from app.api.spielbestaetigungen.crud import JUDGED_JUNCTION_FIELDS, JUDGED_SPIEL_FIELDS
+from app.api.spielbestaetigungen.crud import JUDGED_JUNCTION_FIELDS, JUDGED_SPIEL_FIELDS, OWN_ROW_FIELDS
 from app.api.spielbestaetigungen.schemas import (
     FLSpielbestaetigungAppointment,
     FLSpielbestaetigungSchiedsrichterAnswerPayload,
@@ -26,6 +26,7 @@ from app.api.spielbestaetigungen.services import (
     moved_notice_of,
     proposal_payload,
     reason_of,
+    schiedsrichter_state_of,
     spiel_mail_ansetzung_from_spiel,
     state_of,
     view_ansetzung_of,
@@ -72,6 +73,7 @@ def spiel(**overrides: Any) -> dict[str, Any]:
         "elfmeterschiessen": None,
         "sonderereignis": None,
         "note": "Flutlicht",
+        "version": 0,
         **overrides,
     }
 
@@ -193,6 +195,21 @@ class TestTheProjectionsHoldEverythingTheJudgesRead:
 
         assert "austritt.date" in junctions_seen
         assert [path for path in sorted(junctions_seen) if not loaded_by(JUDGED_JUNCTION_FIELDS, path)] == []
+
+    @pytest.mark.parametrize("answer", [None, {"kind": "agreed", "at": "2027-05-02T10:00:00+00:00"}], ids=["open", "agreed"])
+    def test_a_referees_list_and_answer_read_nothing_of_the_row_their_projection_leaves_out(self, answer: dict[str, Any] | None):
+        """The referee's own list and answer read the row through `OWN_ROW_FIELDS`, which keeps of the answer its kind alone."""
+
+        row_seen: set[str] = set()
+        referees_row = row(party={"kind": "schiedsrichter", "schiedsrichter_id": SCHIEDSRICHTER}, answer=answer)
+        recorded = Recorded(referees_row, row_seen)
+
+        schiedsrichter_state_of(spielbestaetigung_raw=recorded, ansetzung_state=ansetzung_state(), now=NOW)
+        find_unanswerable_refusal(spielbestaetigung_raw=recorded, ansetzung_state=ansetzung_state(), now=NOW)
+
+        # The premise: the judges read the row's party, and an answered row's answer.
+        assert {"party.kind", "closed"} | (set() if answer is None else {"answer.kind"}) <= row_seen
+        assert [path for path in sorted(row_seen) if not loaded_by(OWN_ROW_FIELDS, path)] == []
 
 
 class TestTheProposalIsTheSpielOnItsNewDate:

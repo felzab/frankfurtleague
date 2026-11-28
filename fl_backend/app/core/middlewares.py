@@ -30,7 +30,8 @@ PROBE_PATHS: Final = frozenset({"/api/system/is_live", "/api/system/is_ready"})
 # in, the queue before this runs, the answer's way back.
 REQUEST_DEADLINE_S: Final = 10.0
 
-# An hourly pass's operation, which takes its rows one at a time until it has none left or `PASS_DEADLINE_S` cuts it.
+# An hourly pass's operation, which takes its rows one at a time, or a clock's rows in one write, until it has none
+# left or `PASS_DEADLINE_S` cuts it.
 # Stated as an OpenAPI specification extension, as `SAFE` is, so the frontend's generated client sends such a call
 # under the bound that outlasts this deadline. A pass outrunning it finishes in the hours after.
 PASS: Final[dict[str, Any]] = {"x-pass": True}

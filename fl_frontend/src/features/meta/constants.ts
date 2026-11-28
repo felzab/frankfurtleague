@@ -27,7 +27,7 @@ const SPONSOR_ENTRIES: ReadonlyArray<{ name: string; short?: string; logo: strin
   { name: "Stiftung Polytechnische Gesellschaft", short: "SPTG", logo: "/icons/sponsors/sptg.svg", href: "https://sptg.de" },
 ];
 
-/** The sponsors as the kit's tiles and the footer take them, each name marked as the record's own data. */
+/** Each name marked as the record's own data. */
 export const SPONSORS: readonly Sponsor[] = SPONSOR_ENTRIES.map(({ name, short, ...sponsor }) => ({
   ...sponsor,
   name: { record: name },
@@ -38,4 +38,4 @@ export const SPONSORS: readonly Sponsor[] = SPONSOR_ENTRIES.map(({ name, short, 
  * The day the privacy notice's words took effect: its „Stand“, and the sitemap's date for it. Hand-set,
  * since a live `new Date()` is a dynamic read, which would take the notice off the static shell.
  */
-export const DATENSCHUTZ_AS_OF: CalendarDay = "2026-11-19";
+export const DATENSCHUTZ_AS_OF: CalendarDay = "2026-11-27";

@@ -54,10 +54,9 @@ TEAM_FULL_NAME_MAX_LENGTH: Final = 120
 type FLTeamShorthandLength = Literal[3]
 TEAM_SHORTHAND_LENGTH: Final[FLTeamShorthandLength] = 3
 
-# Published: `saisons._id` is the string every `saison_id` references, and the frontend reads a season's address
-# against this width before it asks the backend.
-type FLSaisonIdLength = Literal[4]
-SAISON_ID_LENGTH: Final[FLSaisonIdLength] = 4
+# `saisons._id` is the string every `saison_id` references, so a width only one model moved breaks every row pointing
+# at it.
+SAISON_ID_LENGTH: Final = 4
 
 # The most rows one list read takes: no request names a page size, so a list is cut here and a whole read refuses a set past it.
 LIST_LIMIT_DEFAULT: Final = 1024

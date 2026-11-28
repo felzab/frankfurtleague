@@ -1,9 +1,8 @@
 import "server-only";
 
-import { COPY, seatsText } from "./copy";
-import { mailOrigin } from "./emailShell";
+import { COPY } from "./copy/shared";
 import { dayOf, formatDateLong } from "./format";
-import { kontaktConfirmationLink } from "./kontaktLink";
+import { mailedLinkTo, ROUTES } from "./routes";
 import { SERVER_COPY } from "./serverCopy";
 
 import type { Mail } from "./emailShell";
@@ -13,29 +12,25 @@ import type { MailLink } from "./mailKinds";
 const PAGE = SERVER_COPY.kontaktConfirmation;
 const DEADLINE = SERVER_COPY.schiedsrichterConfirmation.deadline;
 
-// One person a mail: an address is one person, so `seats` are every seat that one person holds.
 /**
  * What one person an administrator seated on a team's season row is asked, from the facts the Postausgang row holds and
  * the link its hand-out minted: on an open row to answer by the seat's own day, on a closed row, whose link takes the
- * Widerspruch alone, why and what an objection does. `token` is a bearer credential and is never taken apart here.
+ * Widerspruch alone, why and what an objection does. One person a mail: an address is one person, so `seats` are every
+ * seat that one person holds. `token` is a bearer credential and is never taken apart here.
  */
 export function buildKontaktConfirmationEmail(
   { seats, schule, saison_id: saison, deadline, row }: FLKontaktLinkData,
   { origin, token }: MailLink,
 ): Mail {
-  const site = mailOrigin(origin);
-  const opening = PAGE.opening.seasonRow({ record: schule }, saison, { record: seatsText(seats) });
-  const href = kontaktConfirmationLink(site, token);
-  const shell = { kind: "firstContact", origin: site } as const;
+  const opening = PAGE.opening.seasonRow({ record: schule }, saison, COPY.team.seatsHeld(seats));
+  const href = mailedLinkTo(origin, ROUTES.kontaktConfirmation, token);
+  const shell = { audience: "firstContact", origin } as const;
 
   if (row === "open") {
     return {
       ...shell,
       subjectLine: SERVER_COPY.mail.kontakt.subject(schule),
-      paragraphs: [
-        [opening, SERVER_COPY.mail.bewerbung.confirmOrOppose],
-        [[DEADLINE.before, { strong: formatDateLong(dayOf(deadline)) }, DEADLINE.after]],
-      ],
+      paragraphs: [[opening, SERVER_COPY.mail.bewerbung.confirmOrOppose], [DEADLINE(formatDateLong(dayOf(deadline)))]],
       button: { label: COPY.page.entryConfirmation, href },
     };
   }

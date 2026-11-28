@@ -1,6 +1,7 @@
-from typing import Annotated
+from collections.abc import Mapping, Sequence
+from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Response, status
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.address_change.crud import end_the_change_in_session
@@ -15,7 +16,7 @@ from app.api.grants.crud import (
     stop_the_handover_in_session,
 )
 from app.api.grants.guard import ADMIN_TIER
-from app.api.grants.schemas import FLGrantRow, FLGrantsListResponse, FLPostGrantPayload
+from app.api.grants.schemas import FLGrantRemovedResponse, FLGrantRow, FLGrantsListResponse, FLPostGrantPayload
 from app.api.grants.services import (
     find_barred_refusal,
     find_exists_refusal,
@@ -23,7 +24,7 @@ from app.api.grants.services import (
     find_only_owner_refusal,
     find_owner_row_refusal,
 )
-from app.core.crud import refuse
+from app.core.crud import refuse, refuse_faults
 from app.core.dependencies import (
     AddressChangeCollection,
     BanListCollection,
@@ -32,9 +33,10 @@ from app.core.dependencies import (
     GrantsCollection,
     GrantsReadCollection,
     OutboxCollection,
+    SnapshotSession,
 )
-from app.core.exceptions import DocumentNotFoundError
-from app.core.routing import by_id
+from app.core.exceptions import DocumentNotFoundError, as_judged_on_stored_state
+from app.core.routing import DRY_RUN_PASSED, SAFE_WHEN, DryRun, by_id, dry_run_passed
 from app.core.security import ActorEmail, SessionActor, verify_admin_actor
 from app.core.transactions import transact
 from app.shared.folding import sign_in_identifier
@@ -59,7 +61,14 @@ async def get_grants(grants_collection: GrantsReadCollection) -> FLGrantsListRes
     return FLGrantsListResponse(grants=[FLGrantRow.model_validate(row) for row in rows])
 
 
-@router.post("", status_code=201, summary="Add an administrator")
+@router.post(
+    "",
+    status_code=201,
+    summary="Add an administrator",
+    response_model=FLCreatedResponse,
+    openapi_extra=SAFE_WHEN,
+    responses=DRY_RUN_PASSED,
+)
 async def post_grant(
     payload: FLPostGrantPayload,
     grants_collection: GrantsCollection,
@@ -67,23 +76,34 @@ async def post_grant(
     address_changes_collection: AddressChangeCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
+    session: SnapshotSession,
     operator: ActorEmail,
     signed_in: Annotated[SessionActor, Depends(verify_admin_actor)],
     germany_now: GermanyNow,
-) -> FLCreatedResponse:
+    dry_run: DryRun = False,
+) -> FLCreatedResponse | Response:
     """Add an address as `administration`, holding once its wait has passed; only the owner adds one, and no request grants `owner`.
 
-    Every holder in effect and the address named are told, with the date it holds from.
+    Every holder in effect and the address named are told, with the date it holds from. A `dry_run` is refused as the
+    addition would be, and answers 204 and writes nothing where it would land.
     """
 
     # The spelling every admin-tier request is judged by.
     address = sign_in_identifier(str(payload.email))
 
+    async def judge(grants: Sequence[Mapping[str, Any]], session: AsyncClientSession) -> None:
+        # Every refusal of the addition, in the write's transaction or the dry run's snapshot alike.
+        refuse(find_only_owner_refusal(actor=operator, auth_time=signed_in.auth_time, grants=grants))
+        barred = await address_is_barred(ban_list_collection=ban_list_collection, address=address, session=session)
+        refuse_faults(find_exists_refusal(address=address, grants=grants), find_barred_refusal(barred=barred))
+
+    if dry_run:
+        await judge(await read_grants(grants_collection=grants_collection, session=session), session)
+        return dry_run_passed()
+
     async def judge_and_grant(session: AsyncClientSession) -> FLCreatedResponse:
         grants = await pull_the_list_to_judge(grants_collection=grants_collection, session=session)
-        refuse(find_only_owner_refusal(actor=operator, auth_time=signed_in.auth_time, grants=grants))
-        refuse(find_exists_refusal(address=address, grants=grants))
-        refuse(find_barred_refusal(barred=await address_is_barred(ban_list_collection=ban_list_collection, address=address, session=session)))
+        await judge(grants, session)
 
         # A live address change at that address ends here: left standing, its switch could carry a grant to an address
         # nobody named.
@@ -110,7 +130,7 @@ async def post_grant(
     return await transact(db, judge_and_grant)
 
 
-@router.delete(by_id("grant_id"), status_code=status.HTTP_204_NO_CONTENT, summary="Remove an administrator, or withdraw a waiting addition")
+@router.delete(by_id("grant_id"), summary="Remove an administrator, or withdraw a waiting addition")
 async def delete_grant(
     grant_id: CustomObjectId,
     grants_collection: GrantsCollection,
@@ -119,13 +139,13 @@ async def delete_grant(
     operator: ActorEmail,
     signed_in: Annotated[SessionActor, Depends(verify_admin_actor)],
     germany_now: GermanyNow,
-) -> None:
+) -> FLGrantRemovedResponse:
     """Remove a grant for good, its address losing access on its next request, or withdraw an addition still waiting.
 
     Only the owner removes one, the owner's own row leaving only by a handover; every holder in effect and the address named are told.
     """
 
-    async def judge_and_revoke(session: AsyncClientSession) -> None:
+    async def judge_and_revoke(session: AsyncClientSession) -> FLGrantRemovedResponse:
         grants = await pull_the_list_to_judge(grants_collection=grants_collection, session=session)
         # Judged before anything about the target is answered.
         refuse(find_only_owner_refusal(actor=operator, auth_time=signed_in.auth_time, grants=grants))
@@ -133,7 +153,7 @@ async def delete_grant(
         grant = next((row for row in grants if row["_id"] == grant_id), None)
         if grant is None:
             # Resolved from the list already read rather than a second query, so a miss is a 404 before
-            # anything is removed: `delete_many_from_db` taking no row would answer 204.
+            # anything is removed: `delete_many_from_db` taking no row would answer as a removal.
             raise DocumentNotFoundError()
 
         refuse(find_owner_row_refusal(grant=grant))
@@ -146,27 +166,37 @@ async def delete_grant(
             session=session,
         )
 
-    await transact(db, judge_and_revoke)
+        return FLGrantRemovedResponse(address=str(grant["address"]))
+
+    return await transact(db, judge_and_revoke)
 
 
-@router.post(f"{by_id('grant_id')}/handover", status_code=status.HTTP_204_NO_CONTENT, summary="Hand the owner role over to an administrator")
+@router.post(
+    f"{by_id('grant_id')}/handover",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Hand the owner role over to an administrator",
+    openapi_extra=SAFE_WHEN,
+)
 async def post_handover(
     grant_id: CustomObjectId,
     grants_collection: GrantsCollection,
     ban_list_collection: BanListCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
+    session: SnapshotSession,
     operator: ActorEmail,
     signed_in: Annotated[SessionActor, Depends(verify_admin_actor)],
     germany_now: GermanyNow,
+    dry_run: DryRun = False,
 ) -> None:
     """Start handing the owner role to an administrator in effect, completing once its wait has passed; the owner stays the owner until then.
 
-    Only the owner starts one, and every holder in effect is told the date it completes on.
+    Only the owner starts one, and every holder in effect is told the date it completes on. A `dry_run` is refused as
+    the handover would be, and writes nothing.
     """
 
-    async def judge_and_start(session: AsyncClientSession) -> None:
-        grants = await pull_the_list_to_judge(grants_collection=grants_collection, session=session)
+    async def judge(grants: Sequence[Mapping[str, Any]], session: AsyncClientSession) -> Mapping[str, Any]:
+        # Every refusal of the handover, in the write's transaction or the dry run's snapshot alike.
         refuse(find_only_owner_refusal(actor=operator, auth_time=signed_in.auth_time, grants=grants))
 
         grant = next((row for row in grants if row["_id"] == grant_id), None)
@@ -175,11 +205,18 @@ async def post_handover(
 
         refuse(find_owner_row_refusal(grant=grant))
         refuse(find_handover_refusal(grant=grant, grants=grants, now=germany_now))
-        refuse(
-            find_barred_refusal(
-                barred=await address_is_barred(ban_list_collection=ban_list_collection, address=str(grant["address"]), session=session)
-            )
-        )
+        barred = await address_is_barred(ban_list_collection=ban_list_collection, address=str(grant["address"]), session=session)
+        # A gate: the handover sends no address, so the stored grant's names no box.
+        refuse(as_judged_on_stored_state(find_barred_refusal(barred=barred)))
+        return grant
+
+    if dry_run:
+        await judge(await read_grants(grants_collection=grants_collection, session=session), session)
+        return
+
+    async def judge_and_start(session: AsyncClientSession) -> None:
+        grants = await pull_the_list_to_judge(grants_collection=grants_collection, session=session)
+        grant = await judge(grants, session)
         await start_the_handover_in_session(
             grant,
             grants_collection=grants_collection,

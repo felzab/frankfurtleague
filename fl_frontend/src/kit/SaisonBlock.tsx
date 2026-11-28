@@ -1,5 +1,5 @@
 import { now } from "@/core/clock";
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 import { SERVER_COPY } from "@/core/serverCopy";
 
 import { Card } from "./Card";
@@ -19,7 +19,6 @@ import type { ChipProps } from "./Chip";
 import type { Place } from "./Podium";
 import type { SpielRowProps } from "./SpielRow";
 
-/** A match as the season card lists it. */
 type Shown = SpielRowProps & { id: string };
 
 /** One side of the opening match: its club's Kürzel, or `null` while its slot is empty. */
@@ -27,7 +26,7 @@ type OpeningSide = RecordText | null;
 
 /**
  * The season's first match as the countdown names it: its day and time as its row shows them, its matchday's
- * label and its two sides' plaques, a side whose slot is empty in the dashed open one.
+ * label and its two sides' plaques, a side whose slot is empty in the dashed open one holding the dash.
  */
 type Opening = {
   when: Copy;
@@ -39,13 +38,20 @@ type Opening = {
 };
 
 /**
- * An opening side's plaque. An empty slot's dashed open plaque names nothing, so the Spielplan's words for an open
- * side go with it, for a screen reader alone: the line shows plaques only.
+ * An opening side's plaque. An empty slot draws the dashed open plaque holding the dash, as a vacant place on the
+ * podium does, which says to the eye that no club stands there; a screen reader would say a bare dash, so it hears the
+ * Spielplan's words for an open side in its place: the line shows plaques only.
  */
 function OpeningPlaque({ side }: { side: OpeningSide }) {
   return side === null ? (
     <>
-      <TeamPlaque plaque={{ quelle: null }} />
+      {/* A flex box of its own is exactly as tall as the plaque, as the line's other plaques are; a line box around
+          it would add the text's strut. */}
+      <span
+        aria-hidden
+        className="flex">
+        <TeamPlaque plaque={{ quelle: COPY.shared.noValue }} />
+      </span>
       <span className="sr-only">{COPY.spielplan.quelle.open}</span>
     </>
   ) : (
@@ -160,7 +166,10 @@ export function SaisonBlock({ title, state }: { title: Copy; state: SaisonState 
   return (
     <Card
       title={title}
-      chip={STATE_CHIP[state.kind]}>
+      chip={STATE_CHIP[state.kind]}
+      // From `lg` the hero stretches the card; the podium grows its steps into the spare height, where every other
+      // state's content packs at the top.
+      fill={state.kind === "decided"}>
       <Body state={state} />
     </Card>
   );

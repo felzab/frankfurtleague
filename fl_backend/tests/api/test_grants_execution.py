@@ -30,6 +30,7 @@ from app.core.crud import ANCHOR_FIELD
 from app.core.exceptions import APIError, DocumentNotFoundError
 from app.core.security import PASSKEY_FACTOR, SessionActor
 from app.shared.schemas.bounds import GRANT_WAIT_HOURS, OWNER_WAIT_DAYS
+from app.shared.schemas.responses import FLCreatedResponse
 from tests import acts
 from tests.app_client import app_client, app_under_test
 from tests.bans import ban_through_the_route
@@ -125,8 +126,8 @@ async def add(
     now: datetime = NOW,
 ) -> ObjectId:
     with acts.acting_as(acting_as):
-        return (
-            await post_grant(
+        async with client.start_session(snapshot=True) as session:
+            added = await post_grant(
                 payload=FLPostGrantPayload(email=email),
                 grants_collection=grants if grants is not None else database[Collection.GRANTS],
                 ban_list_collection=database[Collection.BAN_LIST],
@@ -136,8 +137,11 @@ async def add(
                 operator=acting_as,
                 signed_in=session_of(acting_as, signed_in_at),
                 germany_now=now,
+                session=session,
             )
-        ).created_id
+    # Only a dry run answers the bare 204, and this call asks none.
+    assert isinstance(added, FLCreatedResponse)
+    return added.created_id
 
 
 async def remove(
@@ -173,16 +177,18 @@ async def hand_over(
     now: datetime = NOW,
 ) -> None:
     with acts.acting_as(acting_as):
-        await post_handover(
-            grant_id=grant_id,
-            grants_collection=grants if grants is not None else database[Collection.GRANTS],
-            ban_list_collection=database[Collection.BAN_LIST],
-            outbox_collection=database[Collection.OUTBOX],
-            db=client,
-            operator=acting_as,
-            signed_in=session_of(acting_as, signed_in_at),
-            germany_now=now,
-        )
+        async with client.start_session(snapshot=True) as session:
+            await post_handover(
+                grant_id=grant_id,
+                grants_collection=grants if grants is not None else database[Collection.GRANTS],
+                ban_list_collection=database[Collection.BAN_LIST],
+                outbox_collection=database[Collection.OUTBOX],
+                db=client,
+                operator=acting_as,
+                signed_in=session_of(acting_as, signed_in_at),
+                germany_now=now,
+                session=session,
+            )
 
 
 async def stop(
@@ -310,8 +316,13 @@ class TestAnAddition:
 
         refused, held = await on_a_league(mongo_replica_set_url, body, grants=[WAITING])
 
-        # Named on no box, the refusal reaches a shared failure line that sends the owner to a retry refused alike.
-        assert (refused.error_code, refused.fields, held) == (Code.GRANT_EXISTS, (("email",),), sorted([*EVERY_HOLDER, NORA]))
+        # On the box the address was typed into: a refusal naming none would read the stale-page line, sending the owner
+        # to a retry refused alike.
+        assert (refused.error_code, tuple(fault.path for fault in refused.faults), held) == (
+            Code.GRANT_EXISTS,
+            (("email",),),
+            sorted([*EVERY_HOLDER, NORA]),
+        )
 
     async def test_a_live_change_at_the_address_ends(self, mongo_replica_set_url: str):
         """Left standing, its switch would carry the waiting row to an address the owner never named."""
@@ -740,8 +751,9 @@ class TestTheMountedRouteReadsTheGrants:
 
                 async def removing(address: str, auth_time: int) -> tuple[int, str | None]:
                     response = await http.delete(f"/api/grants/{BERND_ID}", headers=signed_in_at(address, auth_time))
-                    # A removal answers no body; a refusal names its code.
-                    return response.status_code, response.json().get("error_code") if response.content else None
+                    answer = response.json()
+                    # A removal answers the address it took the grant from; a refusal names its code.
+                    return response.status_code, answer.get("error_code", answer.get("address"))
 
                 waiting = await removing(ANNA, older)
                 await pass_at(database, client, datetime.now(UTC))
@@ -755,20 +767,20 @@ class TestTheMountedRouteReadsTheGrants:
             (403, Code.GRANT_ONLY_OWNER),
             (401, Code.SESSION_REFUSED),
             (403, Code.GRANT_ONLY_OWNER),
-            (204, None),
+            (200, BERND),
         ]
 
     async def test_a_removed_administrator_is_refused_on_the_very_next_request(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[int]:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[list[int], Any]:
             async with app_client(mongo_replica_set_url, app=app_under_test(DATABASE_NAME)) as http:
                 headers = StampedHeaders(BERND, ADMIN_KEY)
                 before = await http.get("/api/grants", headers=headers)
                 removed = await http.delete(f"/api/grants/{BERND_ID}", headers=StampedHeaders(OWNER, ADMIN_KEY))
                 after = await http.get("/api/grants", headers=headers)
 
-            return [before.status_code, removed.status_code, after.status_code]
+            return [before.status_code, removed.status_code, after.status_code], removed.json()
 
-        assert await on_a_league(mongo_replica_set_url, body) == [200, 204, 403]
+        assert await on_a_league(mongo_replica_set_url, body) == ([200, 200, 403], {"address": BERND})
 
     async def test_an_addition_over_http_is_attributed_to_the_token_s_administrator_everywhere(self, mongo_replica_set_url: str):
         """The only grant case reaching `get_actor_email`: a mixed-case identity is stored folded in the log."""

@@ -56,7 +56,6 @@
           "address_change_nothing",
           "ansetzung_unanswerable",
           "ansetzung_vorschlag_past",
-          "ansetzung_vorschlag_past_as_stored",
           "ansetzung_vorschlag_unchanged",
           "ansetzung_not_actionable",
           "ansetzung_foreign_row",
@@ -67,6 +66,7 @@
           "grant_exists",
           "grant_owner",
           "grant_barred",
+          "address_barred",
           "grant_only_owner",
           "grant_handover_waiting",
           "grant_not_in_effect",
@@ -84,6 +84,7 @@
           "bewerbung_picked_team_unusable",
           "bewerbung_picked_team_already_entered",
           "bewerbung_seat_already_answered",
+          "bewerbung_seat_erased",
           "confirmation_age",
           "bewerbung_kontakte_unconfirmed",
           "bewerbung_kontakt_repeated",
@@ -91,8 +92,6 @@
           "booking_unknown_resource",
           "booking_unconfirmed_schiedsrichter",
           "spiel_double_booked",
-          "spiel_double_booked_spielort_as_stored",
-          "spiel_double_booked_schiedsrichter_as_stored",
           "spiel_outside_spieltag",
           "spieltag_outside_saison",
           "spieltag_span_below_spiele",
@@ -103,12 +102,9 @@
           "saison_start_austritt_stored",
           "invitation_team_not_entered",
           "choices_stale",
-          "grant_wording_stale",
           "media_age",
           "giving_not_allowed",
           "eligibility_disqualified",
-          "eligibility_disqualified_team1_as_stored",
-          "eligibility_disqualified_team2_as_stored",
           "eligibility_team_not_in_saison",
           "entry_saison_not_future",
           "entry_gruppe_not_offered",
@@ -294,6 +290,7 @@
         "properties": {
           "email": {
             "maxLength": 254,
+            "minLength": 1,
             "title": "Email",
             "type": "string"
           }
@@ -351,10 +348,6 @@
             "title": "Saison Id",
             "type": "string"
           },
-          "schule": {
-            "title": "Schule",
-            "type": "string"
-          },
           "scope": {
             "$ref": "#/components/schemas/FLKontaktKenntnisnahmeScope"
           },
@@ -369,7 +362,6 @@
         },
         "required": [
           "bewerbung_id",
-          "schule",
           "saison_id",
           "seats",
           "persons",
@@ -1130,6 +1122,29 @@
             ],
             "title": "Label"
           },
+          "saison_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Saison Id"
+          },
+          "spiel_nr": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spiel Nr"
+          },
           "team": {
             "anyOf": [
               {
@@ -1148,6 +1163,8 @@
           "by",
           "team",
           "action",
+          "saison_id",
+          "spiel_nr",
           "label",
           "count"
         ],
@@ -1205,6 +1222,30 @@
               }
             ],
             "title": "Q"
+          },
+          "saison_id": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Saison Id"
+          },
+          "spiel_nr": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spiel Nr"
           },
           "type": {
             "anyOf": [
@@ -1490,11 +1531,13 @@
         "properties": {
           "address": {
             "maxLength": 254,
+            "minLength": 1,
             "title": "Address",
             "type": "string"
           },
           "email": {
             "maxLength": 254,
+            "minLength": 1,
             "title": "Email",
             "type": "string"
           }
@@ -1971,44 +2014,6 @@
           "released_on"
         ],
         "title": "FLAddressChangeViewPrevious",
-        "type": "object"
-      },
-      "FLAddressChangeViewResponse": {
-        "description": "What one address link opens: never a name or the id.\n\nThe new address only where its holder judges by it: the new mailbox's `valid` link, and the address on file's link while\nthe change stands, masked on `waiting_period`.",
-        "properties": {
-          "view": {
-            "discriminator": {
-              "mapping": {
-                "confirmed": "#/components/schemas/FLAddressChangeViewNew",
-                "ended": "#/components/schemas/FLAddressChangeViewEnded",
-                "expired": "#/components/schemas/FLAddressChangeViewNew",
-                "not_confirmable": "#/components/schemas/FLAddressChangeViewNew",
-                "open": "#/components/schemas/FLAddressChangeViewPrevious",
-                "release_expired": "#/components/schemas/FLAddressChangeViewPrevious",
-                "release_open": "#/components/schemas/FLAddressChangeViewPrevious",
-                "valid": "#/components/schemas/FLAddressChangeViewNew",
-                "waiting_period": "#/components/schemas/FLAddressChangeViewPrevious"
-              },
-              "propertyName": "state"
-            },
-            "oneOf": [
-              {
-                "$ref": "#/components/schemas/FLAddressChangeViewNew"
-              },
-              {
-                "$ref": "#/components/schemas/FLAddressChangeViewPrevious"
-              },
-              {
-                "$ref": "#/components/schemas/FLAddressChangeViewEnded"
-              }
-            ],
-            "title": "View"
-          }
-        },
-        "required": [
-          "view"
-        ],
-        "title": "FLAddressChangeViewResponse",
         "type": "object"
       },
       "FLAddressChangeWaitingPeriodDays": {
@@ -2911,7 +2916,6 @@
             "$ref": "#/components/schemas/FLBewerbungTrikot"
           },
           "version": {
-            "default": 0,
             "title": "Version",
             "type": "integer"
           },
@@ -3570,6 +3574,7 @@
         "properties": {
           "email": {
             "maxLength": 254,
+            "minLength": 1,
             "title": "Email",
             "type": "string"
           },
@@ -3661,6 +3666,7 @@
         "properties": {
           "email": {
             "maxLength": 254,
+            "minLength": 1,
             "title": "Email",
             "type": "string"
           },
@@ -3713,10 +3719,6 @@
             "title": "Saison Id",
             "type": "string"
           },
-          "schule": {
-            "title": "Schule",
-            "type": "string"
-          },
           "seats": {
             "items": {
               "$ref": "#/components/schemas/FLKontaktSeat"
@@ -3729,7 +3731,6 @@
         "required": [
           "kind",
           "saison_id",
-          "schule",
           "seats",
           "deadline"
         ],
@@ -4276,10 +4277,6 @@
         ],
         "type": "string"
       },
-      "FLCitedMediaTextVersion": {
-        "const": "2026-11-media-1",
-        "type": "string"
-      },
       "FLConfirmation": {
         "description": "One person's confirmation bookkeeping as an administrator reads it.",
         "properties": {
@@ -4602,41 +4599,94 @@
       "FLEinwilligungTextVersion": {
         "anyOf": [
           {
-            "$ref": "#/components/schemas/FLSeatScopeTextVersion"
+            "$ref": "#/components/schemas/FLWhatsappTextVersion"
           },
           {
-            "$ref": "#/components/schemas/FLSpielerScopeTextVersion"
+            "$ref": "#/components/schemas/FLNameKaderTextVersion"
           },
           {
-            "$ref": "#/components/schemas/FLSchiedsrichterScopeTextVersion"
+            "$ref": "#/components/schemas/FLNameSpielplanTextVersion"
           },
           {
-            "$ref": "#/components/schemas/FLCitedMediaTextVersion"
+            "$ref": "#/components/schemas/FLMediaTextVersion"
           }
         ]
       },
       "FLEinwilligungWithdrawalPayload": {
         "additionalProperties": false,
-        "description": "The choices a person asked by mail to withdraw, which an administrator enters: it withholds and never grants.",
+        "description": "The address a mail came from and what it withdraws, which an administrator enters: it withholds and never grants.",
         "properties": {
           "choices": {
             "items": {
-              "enum": [
-                "scope",
-                "media"
-              ],
-              "type": "string"
+              "$ref": "#/components/schemas/FLWithdrawalChoice"
             },
             "minItems": 1,
             "title": "Choices",
             "type": "array",
             "uniqueItems": true
+          },
+          "email": {
+            "description": "Its domain, after the last `@`, in ASCII alone, an international one in punycode; else `email_not_accepted`.",
+            "maxLength": 254,
+            "pattern": "@",
+            "title": "Email",
+            "type": "string"
           }
         },
         "required": [
+          "email",
           "choices"
         ],
         "title": "FLEinwilligungWithdrawalPayload",
+        "type": "object"
+      },
+      "FLEinwilligungWithdrawalReport": {
+        "description": "Per kind of record at the address, the choices the entry ends there, empty where it ends none; never a record itself.",
+        "properties": {
+          "bewerbung_seats": {
+            "items": {
+              "$ref": "#/components/schemas/FLWithdrawalChoice"
+            },
+            "title": "Bewerbung Seats",
+            "type": "array"
+          },
+          "kontakt_seats": {
+            "items": {
+              "$ref": "#/components/schemas/FLWithdrawalChoice"
+            },
+            "title": "Kontakt Seats",
+            "type": "array"
+          },
+          "registrierungen": {
+            "items": {
+              "$ref": "#/components/schemas/FLWithdrawalChoice"
+            },
+            "title": "Registrierungen",
+            "type": "array"
+          },
+          "schiedsrichter": {
+            "items": {
+              "$ref": "#/components/schemas/FLWithdrawalChoice"
+            },
+            "title": "Schiedsrichter",
+            "type": "array"
+          },
+          "spieler": {
+            "items": {
+              "$ref": "#/components/schemas/FLWithdrawalChoice"
+            },
+            "title": "Spieler",
+            "type": "array"
+          }
+        },
+        "required": [
+          "spieler",
+          "schiedsrichter",
+          "kontakt_seats",
+          "bewerbung_seats",
+          "registrierungen"
+        ],
+        "title": "FLEinwilligungWithdrawalReport",
         "type": "object"
       },
       "FLEntryKnownTeam": {
@@ -4956,6 +5006,20 @@
           "handed_over"
         ],
         "title": "FLGrantHandoverPassResponse",
+        "type": "object"
+      },
+      "FLGrantRemovedResponse": {
+        "description": "The address a removal or a withdrawal took the grant from, as the sign-in folds it.",
+        "properties": {
+          "address": {
+            "title": "Address",
+            "type": "string"
+          }
+        },
+        "required": [
+          "address"
+        ],
+        "title": "FLGrantRemovedResponse",
         "type": "object"
       },
       "FLGrantRow": {
@@ -5392,7 +5456,6 @@
             ]
           },
           "version": {
-            "default": 0,
             "title": "Version",
             "type": "integer"
           }
@@ -5553,6 +5616,7 @@
         "properties": {
           "email": {
             "maxLength": 254,
+            "minLength": 1,
             "title": "Email",
             "type": "string"
           },
@@ -5602,6 +5666,7 @@
         "properties": {
           "email": {
             "maxLength": 254,
+            "minLength": 1,
             "title": "Email",
             "type": "string"
           },
@@ -5959,10 +6024,6 @@
               }
             ]
           },
-          "bewerbung_window_held": {
-            "title": "Bewerbung Window Held",
-            "type": "boolean"
-          },
           "counts": {
             "$ref": "#/components/schemas/FLLandingCounts"
           },
@@ -6000,7 +6061,6 @@
           "saison",
           "bewerbung_window",
           "bewerbung_opens_on",
-          "bewerbung_window_held",
           "counts"
         ],
         "title": "FLLandingResponse",
@@ -6656,6 +6716,7 @@
           },
           "to": {
             "maxLength": 254,
+            "minLength": 1,
             "title": "To",
             "type": "string"
           },
@@ -7280,6 +7341,7 @@
           "nummer": {
             "anyOf": [
               {
+                "maxLength": 4,
                 "pattern": "^[0-9]{1,4}$",
                 "type": "string"
               },
@@ -7718,6 +7780,7 @@
           "nummer": {
             "anyOf": [
               {
+                "maxLength": 4,
                 "pattern": "^[0-9]{1,4}$",
                 "type": "string"
               },
@@ -7938,6 +8001,7 @@
           },
           "email": {
             "maxLength": 254,
+            "minLength": 1,
             "title": "Email",
             "type": "string"
           },
@@ -8032,6 +8096,7 @@
         "properties": {
           "email": {
             "maxLength": 254,
+            "minLength": 1,
             "title": "Email",
             "type": "string"
           }
@@ -8048,6 +8113,7 @@
         "properties": {
           "email": {
             "maxLength": 254,
+            "minLength": 1,
             "title": "Email",
             "type": "string"
           },
@@ -8068,6 +8134,7 @@
           "nummer": {
             "anyOf": [
               {
+                "maxLength": 4,
                 "pattern": "^[0-9]{1,4}$",
                 "type": "string"
               },
@@ -8189,6 +8256,25 @@
           "default_payment"
         ],
         "title": "FLPostSchiedsrichterPayload",
+        "type": "object"
+      },
+      "FLPostSchiedsrichterResponse": {
+        "description": "The created referee and the link the create owed them, which every create owes.",
+        "properties": {
+          "confirmation": {
+            "$ref": "#/components/schemas/FLSchiedsrichterMint"
+          },
+          "created_id": {
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Created Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "created_id",
+          "confirmation"
+        ],
+        "title": "FLPostSchiedsrichterResponse",
         "type": "object"
       },
       "FLPostSpielortPayload": {
@@ -8830,7 +8916,6 @@
             "type": "boolean"
           },
           "version": {
-            "default": 0,
             "title": "Version",
             "type": "integer"
           }
@@ -8939,7 +9024,6 @@
             "$ref": "#/components/schemas/FLSaisonStatus"
           },
           "version": {
-            "default": 0,
             "title": "Version",
             "type": "integer"
           }
@@ -9215,10 +9299,6 @@
         ],
         "title": "FLSaisonFrameResponse",
         "type": "object"
-      },
-      "FLSaisonIdLength": {
-        "const": 4,
-        "type": "integer"
       },
       "FLSaisonOverviewResponse": {
         "properties": {
@@ -9976,11 +10056,6 @@
       "FLSchiedsrichterMint": {
         "description": "The confirmation link a write owed the referee, which the Postausgang mints and mails: never the link itself.",
         "properties": {
-          "deadline": {
-            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Deadline",
-            "type": "string"
-          },
           "email": {
             "minLength": 1,
             "title": "Email",
@@ -9988,28 +10063,29 @@
           }
         },
         "required": [
-          "deadline",
           "email"
         ],
         "title": "FLSchiedsrichterMint",
         "type": "object"
       },
-      "FLSchiedsrichterMintResponse": {
-        "description": "The re-send's answer. Never null: where no link may be minted a refusal answers instead.",
+      "FLSchiedsrichterReactivateResponse": {
         "properties": {
           "confirmation": {
-            "$ref": "#/components/schemas/FLSchiedsrichterMint"
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSchiedsrichterMint"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
           "confirmation"
         ],
-        "title": "FLSchiedsrichterMintResponse",
+        "title": "FLSchiedsrichterReactivateResponse",
         "type": "object"
-      },
-      "FLSchiedsrichterScopeTextVersion": {
-        "const": "2026-11-name-spielplan-1",
-        "type": "string"
       },
       "FLSchiedsrichterSingleResponse": {
         "properties": {
@@ -10035,11 +10111,27 @@
         "type": "object"
       },
       "FLSchiedsrichterSpiel": {
-        "description": "One fixture booked to the signed-in referee, as their one list shows it: the booking they were asked about and the report they owe.",
+        "description": "One fixture booked to the signed-in referee, as their one list shows it.\n\nThe fixture as the public reads serve it, with its matchday, as a club's own list serves its matches; and the booking\nthey were asked about and the report they owe.",
         "properties": {
+          "ansetzung_confirmed": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ansetzung Confirmed"
+          },
           "bericht_owed": {
             "title": "Bericht Owed",
             "type": "boolean"
+          },
+          "count_spieltage_in_phase": {
+            "minimum": 1.0,
+            "title": "Count Spieltage In Phase",
+            "type": "integer"
           },
           "date": {
             "anyOf": [
@@ -10053,9 +10145,47 @@
             ],
             "title": "Date"
           },
-          "entered": {
-            "title": "Entered",
+          "elfmeterschiessen": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielElfmeterschiessen"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "ergebnis": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]+:[0-9]+$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ergebnis"
+          },
+          "for_third_place": {
+            "title": "For Third Place",
             "type": "boolean"
+          },
+          "id": {
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
           },
           "officiates": {
             "title": "Officiates",
@@ -10065,17 +10195,28 @@
             "title": "Past",
             "type": "boolean"
           },
-          "reason": {
+          "reportable": {
+            "title": "Reportable",
+            "type": "boolean"
+          },
+          "saison_id": {
+            "maxLength": 4,
+            "minLength": 4,
+            "title": "Saison Id",
+            "type": "string"
+          },
+          "saison_phase": {
+            "$ref": "#/components/schemas/FLSaisonPhase"
+          },
+          "schiedsrichter": {
             "anyOf": [
               {
-                "minLength": 1,
-                "type": "string"
+                "$ref": "#/components/schemas/FLSpielSchiedsrichterFieldPublic"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Reason"
+            ]
           },
           "sonderereignis": {
             "anyOf": [
@@ -10087,10 +10228,10 @@
               }
             ]
           },
-          "spiel_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Spiel Id",
-            "type": "string"
+          "spiel_nr": {
+            "exclusiveMinimum": 0.0,
+            "title": "Spiel Nr",
+            "type": "integer"
           },
           "spielbestaetigung_id": {
             "anyOf": [
@@ -10113,6 +10254,16 @@
                 "type": "null"
               }
             ]
+          },
+          "spieltag_id": {
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Spieltag Id",
+            "type": "string"
+          },
+          "spieltag_position": {
+            "minimum": 1.0,
+            "title": "Spieltag Position",
+            "type": "integer"
           },
           "state": {
             "anyOf": [
@@ -10145,27 +10296,45 @@
             ],
             "title": "Submitted At"
           },
-          "team1_name": {
+          "team1": {
             "anyOf": [
               {
-                "type": "string"
+                "$ref": "#/components/schemas/FLSpielTeamFieldJoined"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Team1 Name"
+            ]
           },
-          "team2_name": {
+          "team1_quelle": {
             "anyOf": [
               {
-                "type": "string"
+                "$ref": "#/components/schemas/FLSpielQuelle"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Team2 Name"
+            ]
+          },
+          "team2": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielTeamFieldJoined"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "team2_quelle": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielQuelle"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "time": {
             "anyOf": [
@@ -10181,27 +10350,40 @@
           }
         },
         "required": [
-          "spiel_id",
-          "team1_name",
-          "team2_name",
+          "id",
+          "team1",
+          "team2",
+          "team1_quelle",
+          "team2_quelle",
           "date",
           "time",
           "spielort",
+          "schiedsrichter",
+          "ergebnis",
+          "elfmeterschiessen",
+          "spieltag_id",
+          "spiel_nr",
           "sonderereignis",
+          "saison_phase",
+          "saison_id",
+          "note",
+          "ansetzung_confirmed",
+          "for_third_place",
+          "spieltag_position",
+          "count_spieltage_in_phase",
           "spielbestaetigung_id",
           "state",
-          "reason",
-          "entered",
           "officiates",
           "past",
           "submitted_at",
+          "reportable",
           "bericht_owed"
         ],
         "title": "FLSchiedsrichterSpiel",
         "type": "object"
       },
       "FLSchiedsrichterSpieleResponse": {
-        "description": "A referee's fixtures of one season, open work first.",
+        "description": "A referee's fixtures of one season, in the order the draw numbered them.",
         "properties": {
           "saison_id": {
             "title": "Saison Id",
@@ -10246,10 +10428,10 @@
         "description": "A referee's two wordings: the name on the fixtures and the media switch.",
         "properties": {
           "media": {
-            "$ref": "#/components/schemas/FLCitedMediaTextVersion"
+            "$ref": "#/components/schemas/FLMediaTextVersion"
           },
           "scope": {
-            "$ref": "#/components/schemas/FLSchiedsrichterScopeTextVersion"
+            "$ref": "#/components/schemas/FLNameSpielplanTextVersion"
           }
         },
         "required": [
@@ -10272,7 +10454,7 @@
       },
       "FLSeatEinwilligungPayload": {
         "additionalProperties": false,
-        "description": "A seat holder's own two choices for every seat they hold on one row, under any label their kind cites.\n\nBoth choices on every press: a page that sent one alone would leave the other judged by nothing.",
+        "description": "A seat holder's own two choices for every seat they hold on one row.\n\nBoth choices on every press: a page that sent one alone would leave the other judged by nothing.",
         "properties": {
           "evidence_state": {
             "$ref": "#/components/schemas/FLEinwilligungStatePayload"
@@ -10297,19 +10479,15 @@
         "title": "FLSeatEinwilligungPayload",
         "type": "object"
       },
-      "FLSeatScopeTextVersion": {
-        "const": "2026-11-whatsapp-1",
-        "type": "string"
-      },
       "FLSeatTextVersions": {
         "additionalProperties": false,
         "description": "A contact seat's two wordings: the WhatsApp switch and the media switch.",
         "properties": {
           "media": {
-            "$ref": "#/components/schemas/FLCitedMediaTextVersion"
+            "$ref": "#/components/schemas/FLMediaTextVersion"
           },
           "scope": {
-            "$ref": "#/components/schemas/FLSeatScopeTextVersion"
+            "$ref": "#/components/schemas/FLWhatsappTextVersion"
           }
         },
         "required": [
@@ -11099,7 +11277,6 @@
             "title": "Time"
           },
           "version": {
-            "default": 0,
             "title": "Version",
             "type": "integer"
           }
@@ -12815,7 +12992,7 @@
         "type": "object"
       },
       "FLSpielbestaetigungEditorRow": {
-        "description": "A confirmation row as the match editor reads it, and the state it stands in, a closed row's included.\n\nNever `vorschlag`, which only a club's own page tells: an open row reads `valid` while its party may still answer.",
+        "description": "A confirmation row as the match editor reads it, the state it stands in, a closed row's included, and the league's acts it takes.\n\nNever `vorschlag`, which only a club's own page tells: an open row reads `valid` while its party may still answer.",
         "properties": {
           "ansetzung": {
             "$ref": "#/components/schemas/FLSpielbestaetigungAppointment"
@@ -12845,6 +13022,15 @@
           "due_by": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
             "title": "Due By",
+            "type": "string"
+          },
+          "enterable": {
+            "title": "Enterable",
+            "type": "boolean"
+          },
+          "id": {
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Id",
             "type": "string"
           },
           "lapsed_on": {
@@ -12889,18 +13075,88 @@
             ],
             "title": "State",
             "type": "string"
+          },
+          "vorschlag_open": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielbestaetigungEditorVorschlag"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
+          "id",
           "party",
           "ansetzung",
           "asked_at",
           "answer",
           "state",
           "due_by",
-          "lapsed_on"
+          "lapsed_on",
+          "enterable",
+          "vorschlag_open"
         ],
         "title": "FLSpielbestaetigungEditorRow",
+        "type": "object"
+      },
+      "FLSpielbestaetigungEditorVorschlag": {
+        "description": "A club's decline proposing another date and hour, neither adopted nor discarded, and whom each act on it mails.\n\nEach recipient by the name its own record holds, as the Übersicht names them: `adoption_recipients` those the\nconfirmation pass tells of the move, `discard_recipients` the club the discard tells the date stands.",
+        "properties": {
+          "adoption_recipients": {
+            "items": {
+              "discriminator": {
+                "mapping": {
+                  "schiedsrichter": "#/components/schemas/FLSpielRecipientSchiedsrichter",
+                  "team": "#/components/schemas/FLSpielRecipientTeam"
+                },
+                "propertyName": "kind"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/FLSpielRecipientTeam"
+                },
+                {
+                  "$ref": "#/components/schemas/FLSpielRecipientSchiedsrichter"
+                }
+              ]
+            },
+            "title": "Adoption Recipients",
+            "type": "array"
+          },
+          "discard_recipients": {
+            "items": {
+              "discriminator": {
+                "mapping": {
+                  "schiedsrichter": "#/components/schemas/FLSpielRecipientSchiedsrichter",
+                  "team": "#/components/schemas/FLSpielRecipientTeam"
+                },
+                "propertyName": "kind"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/FLSpielRecipientTeam"
+                },
+                {
+                  "$ref": "#/components/schemas/FLSpielRecipientSchiedsrichter"
+                }
+              ]
+            },
+            "title": "Discard Recipients",
+            "type": "array"
+          },
+          "vorschlag": {
+            "$ref": "#/components/schemas/FLSpielbestaetigungAppointment"
+          }
+        },
+        "required": [
+          "vorschlag",
+          "adoption_recipients",
+          "discard_recipients"
+        ],
+        "title": "FLSpielbestaetigungEditorVorschlag",
         "type": "object"
       },
       "FLSpielbestaetigungEnterPayload": {
@@ -13871,10 +14127,6 @@
         "title": "FLSpielerSaisonSelfSpiel",
         "type": "object"
       },
-      "FLSpielerScopeTextVersion": {
-        "const": "2026-11-name-kader-1",
-        "type": "string"
-      },
       "FLSpielerSelfKaderRow": {
         "description": "One squad row as its own pupil reads it, with the name the club played that season under.",
         "properties": {
@@ -13979,10 +14231,10 @@
         "description": "A pupil's two wordings: the name on the squad and the media switch.",
         "properties": {
           "media": {
-            "$ref": "#/components/schemas/FLCitedMediaTextVersion"
+            "$ref": "#/components/schemas/FLMediaTextVersion"
           },
           "scope": {
-            "$ref": "#/components/schemas/FLSpielerScopeTextVersion"
+            "$ref": "#/components/schemas/FLNameKaderTextVersion"
           }
         },
         "required": [
@@ -14030,7 +14282,6 @@
             "type": "string"
           },
           "version": {
-            "default": 0,
             "title": "Version",
             "type": "integer"
           }
@@ -14270,7 +14521,6 @@
             "title": "Start"
           },
           "version": {
-            "default": 0,
             "title": "Version",
             "type": "integer"
           }
@@ -14342,7 +14592,6 @@
             "title": "Start"
           },
           "version": {
-            "default": 0,
             "title": "Version",
             "type": "integer"
           }
@@ -14412,7 +14661,6 @@
             "title": "Start"
           },
           "version": {
-            "default": 0,
             "title": "Version",
             "type": "integer"
           }
@@ -14453,6 +14701,7 @@
         "properties": {
           "email": {
             "maxLength": 254,
+            "minLength": 1,
             "title": "Email",
             "type": "string"
           }
@@ -14654,11 +14903,9 @@
           },
           "type": "array"
         },
-        "description": "Every group the season offers in standing order, the clubs that have played no match last.\n\nEach club that has played and stood in the season on the day its group was decided is numbered as a `Platz` is, and\nclubs the chain leaves level share one.",
         "propertyNames": {
           "$ref": "#/components/schemas/FLGruppenNames"
         },
-        "title": "FLTabelle",
         "type": "object"
       },
       "FLTabelleResponse": {
@@ -14911,7 +15158,6 @@
             ]
           },
           "version": {
-            "default": 0,
             "title": "Version",
             "type": "integer"
           }
@@ -15730,7 +15976,6 @@
             "type": "string"
           },
           "version": {
-            "default": 0,
             "title": "Version",
             "type": "integer"
           },
@@ -16184,6 +16429,63 @@
         "const": "2026-11-whatsapp-1",
         "type": "string"
       },
+      "FLWithdrawalChoice": {
+        "enum": [
+          "name",
+          "whatsapp",
+          "media"
+        ],
+        "type": "string"
+      },
+      "FieldCode": {
+        "enum": [
+          "duplicate_key",
+          "kontakt_email_taken",
+          "kontakt_phone_taken",
+          "bewerbung_kontakt_repeated",
+          "trikot_farbe_taken",
+          "kader_rolle_taken",
+          "spiel_double_booked",
+          "address_change_taken",
+          "address_barred",
+          "grant_barred",
+          "admin_address",
+          "ban_list_admin",
+          "grant_exists",
+          "own_address",
+          "address_change_unchanged",
+          "ansetzung_vorschlag_unchanged",
+          "booking_unknown_resource",
+          "booking_unconfirmed_schiedsrichter",
+          "payload_refused",
+          "bewerbung_submission_subject_unresolved",
+          "spieler_not_in_kader",
+          "eligibility_disqualified",
+          "state_nichtantreten_without_two_sides",
+          "state_ergebnis_on_a_non_event",
+          "media_age",
+          "aufstellung_nominee_without_shortage",
+          "rules_qualifiers_above_gruppe",
+          "rules_unentschieden_outvalues_win",
+          "rules_niederlage_outvalues_unentschieden",
+          "rules_forfeit_unentschieden_in_a_knockout",
+          "rules_gruppen_in_use",
+          "rules_capacity_below_use",
+          "rules_kader_below_use",
+          "saison_span_below_spielplan",
+          "austritt_before_saison_start",
+          "ansetzung_vorschlag_past",
+          "saison_start_austritt_stored",
+          "confirmation_age",
+          "spiel_outside_spieltag",
+          "saison_span_below_spieltage",
+          "saison_start_taken_place",
+          "spieltag_outside_saison",
+          "spieltag_span_below_spiele",
+          "spieltag_start_out_of_order"
+        ],
+        "type": "string"
+      },
       "ProbeResponse": {
         "properties": {
           "status": {
@@ -16211,7 +16513,6 @@
           "elfmeterschiessen_without_winner",
           "email_not_accepted",
           "good_spieler_exceed_kader",
-          "grant_wording_stale",
           "nichtantreten_with_elfmeterschiessen",
           "nichtantreten_with_scorers",
           "registrierung_window_reaches_saison_start",
@@ -16299,8 +16600,22 @@
         ]
       },
       "post": {
-        "description": "Start a change of the address the person signs in on: the address on file is mailed a link, and its confirmation mails the new one.\n\nEverything the address holds moves once the new address confirms, after a wait where it holds a grant; declining\neither link ends the change, and a live change of the address is replaced.",
+        "description": "Start a change of the address the person signs in on: the address on file is mailed a link, and its confirmation mails the new one.\n\nEverything the address holds moves once the new address confirms, after a wait where it holds a grant; declining\neither link ends the change, and a live change of the address is replaced. A `dry_run` is refused as the start would\nbe, and writes nothing where it would land.",
         "operationId": "account_post_address_change",
+        "parameters": [
+          {
+            "description": "Judge this write as it would be judged, and write nothing",
+            "in": "query",
+            "name": "dry_run",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Judge this write as it would be judged, and write nothing",
+              "title": "Dry Run",
+              "type": "boolean"
+            }
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -16328,7 +16643,8 @@
         "summary": "Start a change of the signed-in person's address",
         "tags": [
           "account"
-        ]
+        ],
+        "x-safe-when": "dry_run"
       }
     },
     "/api/account/einwilligungen": {
@@ -16466,8 +16782,22 @@
         ]
       },
       "post": {
-        "description": "Start a change of the typed address for a person who says they cannot sign in.\n\nThe new mailbox is mailed a link and the address on file a stop link, and nothing moves until a waiting period after\nthe new mailbox confirms, the old address working until then.",
+        "description": "Start a change of the typed address for a person who says they cannot sign in.\n\nThe new mailbox is mailed a link and the address on file a stop link, and nothing moves until a waiting period after\nthe new mailbox confirms, the old address working until then. A `dry_run` is refused as the start would be, and\nwrites nothing.",
         "operationId": "address_change_post_address_change_admin",
+        "parameters": [
+          {
+            "description": "Judge this write as it would be judged, and write nothing",
+            "in": "query",
+            "name": "dry_run",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Judge this write as it would be judged, and write nothing",
+              "title": "Dry Run",
+              "type": "boolean"
+            }
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -16495,7 +16825,8 @@
         "summary": "Start an address change for a person who says they cannot sign in",
         "tags": [
           "address_change"
-        ]
+        ],
+        "x-safe-when": "dry_run"
       }
     },
     "/api/address_change/address": {
@@ -16634,7 +16965,32 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FLAddressChangeViewResponse"
+                  "discriminator": {
+                    "mapping": {
+                      "confirmed": "#/components/schemas/FLAddressChangeViewNew",
+                      "ended": "#/components/schemas/FLAddressChangeViewEnded",
+                      "expired": "#/components/schemas/FLAddressChangeViewNew",
+                      "not_confirmable": "#/components/schemas/FLAddressChangeViewNew",
+                      "open": "#/components/schemas/FLAddressChangeViewPrevious",
+                      "release_expired": "#/components/schemas/FLAddressChangeViewPrevious",
+                      "release_open": "#/components/schemas/FLAddressChangeViewPrevious",
+                      "valid": "#/components/schemas/FLAddressChangeViewNew",
+                      "waiting_period": "#/components/schemas/FLAddressChangeViewPrevious"
+                    },
+                    "propertyName": "state"
+                  },
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/FLAddressChangeViewNew"
+                    },
+                    {
+                      "$ref": "#/components/schemas/FLAddressChangeViewPrevious"
+                    },
+                    {
+                      "$ref": "#/components/schemas/FLAddressChangeViewEnded"
+                    }
+                  ],
+                  "title": "Response Address Change Get Address Change View"
                 }
               }
             },
@@ -17085,8 +17441,22 @@
         ]
       },
       "post": {
-        "description": "Ban an address: it cannot sign in, and no mail leaves for it but the ban's own notice, sent where `notify` is set.\n\nThe ban runs a fixed number of seasons past the running one, and it and its reason outlive the person's erasure.",
+        "description": "Ban an address: it cannot sign in, and no mail leaves for it but the ban's own notice, sent where `notify` is set.\n\nThe ban runs a fixed number of seasons past the running one, and it and its reason outlive the person's erasure. A\n`dry_run` is refused as the ban would be, and answers 204 and writes nothing where it would land.",
         "operationId": "ban_list_post_ban_list_entry",
+        "parameters": [
+          {
+            "description": "Judge this write as it would be judged, and write nothing",
+            "in": "query",
+            "name": "dry_run",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Judge this write as it would be judged, and write nothing",
+              "title": "Dry Run",
+              "type": "boolean"
+            }
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -17108,6 +17478,9 @@
             },
             "description": "Successful Response"
           },
+          "204": {
+            "description": "The `dry_run` found nothing the write would refuse"
+          },
           "default": {
             "$ref": "#/components/responses/Failure",
             "description": "A refusal or a fault, its status naming which"
@@ -17121,7 +17494,8 @@
         "summary": "Ban an email address",
         "tags": [
           "ban_list"
-        ]
+        ],
+        "x-safe-when": "dry_run"
       }
     },
     "/api/ban_list/{ban_list_entry_id}": {
@@ -17636,7 +18010,7 @@
     },
     "/api/bewerbungen/{bewerbung_id}/kontakte/{seat}": {
       "post": {
-        "description": "Write a person into one seat, whatever its state, and mail them a fresh link; an acceptance waits on their answer.\n\nWhere one person holds two seats both are written, the last holder's link opens nothing afterwards, and the seat's\ndeadline starts again from today. A finished season's application takes no write, as it takes no fresh link.",
+        "description": "Write a person into one seat, whatever its state, and mail them a fresh link; an acceptance waits on their answer.\n\nWhere one person holds two seats both are written, the last holder's link opens nothing afterwards, and the seat's\ndeadline starts again from today. A finished season's application takes no write, as it takes no fresh link. A\n`dry_run` is refused as the write would be, and answers 204 and writes nothing where it would land.",
         "operationId": "bewerbungen_post_kontakt_seat",
         "parameters": [
           {
@@ -17656,6 +18030,18 @@
             "schema": {
               "title": "Seat",
               "type": "string"
+            }
+          },
+          {
+            "description": "Judge this write as it would be judged, and write nothing",
+            "in": "query",
+            "name": "dry_run",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Judge this write as it would be judged, and write nothing",
+              "title": "Dry Run",
+              "type": "boolean"
             }
           }
         ],
@@ -17680,6 +18066,9 @@
             },
             "description": "Successful Response"
           },
+          "204": {
+            "description": "The `dry_run` found nothing the write would refuse"
+          },
           "default": {
             "$ref": "#/components/responses/Failure",
             "description": "A refusal or a fault, its status naming which"
@@ -17693,7 +18082,8 @@
         "summary": "Write the person one contact seat holds and mail them a fresh link",
         "tags": [
           "bewerbungen"
-        ]
+        ],
+        "x-safe-when": "dry_run"
       }
     },
     "/api/bewerbungen/{bewerbung_id}/kontakte/{seat}/confirmation/resend": {
@@ -17741,61 +18131,6 @@
         ]
       }
     },
-    "/api/bewerbungen/{bewerbung_id}/kontakte/{seat}/einwilligung/withdrawal": {
-      "post": {
-        "description": "Withdraw the named choices, WhatsApp and media, on every confirmed seat of this application its person holds, as their own press does.\n\nA decided application takes it too; an accepted one holds no seat, its people being its season row's. A choice\nalready withheld stays as it is, so a second mail or a seat its person never confirmed writes nothing, and nothing\nis ever granted.",
-        "operationId": "bewerbungen_withdraw_kontakt_einwilligung",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "bewerbung_id",
-            "required": true,
-            "schema": {
-              "pattern": "^[0-9a-fA-F]{24}$",
-              "title": "Bewerbung Id",
-              "type": "string"
-            }
-          },
-          {
-            "in": "path",
-            "name": "seat",
-            "required": true,
-            "schema": {
-              "title": "Seat",
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/FLEinwilligungWithdrawalPayload"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "204": {
-            "description": "Successful Response"
-          },
-          "default": {
-            "$ref": "#/components/responses/Failure",
-            "description": "A refusal or a fault, its status naming which"
-          }
-        },
-        "security": [
-          {
-            "AdminKey": []
-          }
-        ],
-        "summary": "Enter a withdrawal of a contact seat's consent that its person asked for by mail",
-        "tags": [
-          "bewerbungen"
-        ]
-      }
-    },
     "/api/grants": {
       "get": {
         "description": "Every grant by address: its tier, when it holds, and when a handover to it completes.\n\nA future `effective_from` is an addition still waiting, and `owner_from` a handover still waiting.",
@@ -17827,8 +18162,22 @@
         ]
       },
       "post": {
-        "description": "Add an address as `administration`, holding once its wait has passed; only the owner adds one, and no request grants `owner`.\n\nEvery holder in effect and the address named are told, with the date it holds from.",
+        "description": "Add an address as `administration`, holding once its wait has passed; only the owner adds one, and no request grants `owner`.\n\nEvery holder in effect and the address named are told, with the date it holds from. A `dry_run` is refused as the\naddition would be, and answers 204 and writes nothing where it would land.",
         "operationId": "grants_post_grant",
+        "parameters": [
+          {
+            "description": "Judge this write as it would be judged, and write nothing",
+            "in": "query",
+            "name": "dry_run",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Judge this write as it would be judged, and write nothing",
+              "title": "Dry Run",
+              "type": "boolean"
+            }
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -17850,6 +18199,9 @@
             },
             "description": "Successful Response"
           },
+          "204": {
+            "description": "The `dry_run` found nothing the write would refuse"
+          },
           "default": {
             "$ref": "#/components/responses/Failure",
             "description": "A refusal or a fault, its status naming which"
@@ -17863,7 +18215,8 @@
         "summary": "Add an administrator",
         "tags": [
           "grants"
-        ]
+        ],
+        "x-safe-when": "dry_run"
       }
     },
     "/api/grants/handover": {
@@ -17914,7 +18267,14 @@
           }
         ],
         "responses": {
-          "204": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLGrantRemovedResponse"
+                }
+              }
+            },
             "description": "Successful Response"
           },
           "default": {
@@ -17969,7 +18329,7 @@
         ]
       },
       "post": {
-        "description": "Start handing the owner role to an administrator in effect, completing once its wait has passed; the owner stays the owner until then.\n\nOnly the owner starts one, and every holder in effect is told the date it completes on.",
+        "description": "Start handing the owner role to an administrator in effect, completing once its wait has passed; the owner stays the owner until then.\n\nOnly the owner starts one, and every holder in effect is told the date it completes on. A `dry_run` is refused as\nthe handover would be, and writes nothing.",
         "operationId": "grants_post_handover",
         "parameters": [
           {
@@ -17980,6 +18340,18 @@
               "pattern": "^[0-9a-fA-F]{24}$",
               "title": "Grant Id",
               "type": "string"
+            }
+          },
+          {
+            "description": "Judge this write as it would be judged, and write nothing",
+            "in": "query",
+            "name": "dry_run",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Judge this write as it would be judged, and write nothing",
+              "title": "Dry Run",
+              "type": "boolean"
             }
           }
         ],
@@ -18000,7 +18372,8 @@
         "summary": "Hand the owner role over to an administrator",
         "tags": [
           "grants"
-        ]
+        ],
+        "x-safe-when": "dry_run"
       }
     },
     "/api/identity/erasure": {
@@ -18292,6 +18665,62 @@
         "x-safe": true
       }
     },
+    "/api/identity/withdrawal": {
+      "post": {
+        "description": "Withhold each named choice on every record the address holds that grants it, answering per kind what it ended.\n\nA choice already withheld is left out of the answer and written nothing, nothing is ever granted, and a `dry_run`\nwrites nothing and answers the same report.",
+        "operationId": "identity_post_withdrawal",
+        "parameters": [
+          {
+            "description": "Report what this entry would end, and write nothing",
+            "in": "query",
+            "name": "dry_run",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Report what this entry would end, and write nothing",
+              "title": "Dry Run",
+              "type": "boolean"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLEinwilligungWithdrawalPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLEinwilligungWithdrawalReport"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "default": {
+            "$ref": "#/components/responses/Failure",
+            "description": "A refusal or a fault, its status naming which"
+          }
+        },
+        "security": [
+          {
+            "AdminKey": []
+          }
+        ],
+        "summary": "Enter a withdrawal of the consents an address holds, on that person's request by mail",
+        "tags": [
+          "identity"
+        ],
+        "x-safe-when": "dry_run"
+      }
+    },
     "/api/outbox/event": {
       "post": {
         "description": "Record what the mail provider reported about one message on its mail's row, where the row's state may follow into it.\n\nA redelivered or out-of-order event changes nothing.",
@@ -18366,7 +18795,7 @@
     },
     "/api/outbox/result": {
       "post": {
-        "description": "Settle the named mail by its send's outcome where the named claim still holds it, counting a mail it does not hold in `ignored`.\n\n`held` reports a deployment that sends no mail, `abandon` a refusal every send would meet (any 4xx but a 429), and\n`retry` a 429, a 5xx or a send that never reached the provider, which hands the mail back unless it is a sign-in\nmail or past its deadline.",
+        "description": "Settle the named mail by its send's outcome where the named claim still holds it, counting a mail it does not hold in `ignored`.\n\n`held` reports a deployment that sends no mail, `abandon` a refusal every send would meet (any 4xx but a 429), and\n`retry` a 429, a 5xx or a send that never reached the provider, which hands the mail back unless it is a sign-in\ncode, a deletion link or past its deadline.",
         "operationId": "outbox_post_result",
         "requestBody": {
           "content": {
@@ -18862,52 +19291,6 @@
         ]
       }
     },
-    "/api/registrierungen/{registrierung_id}/einwilligung/withdrawal": {
-      "post": {
-        "description": "Withdraw the named choices of the consent a pupil gave on a registration, which an admission would carry onto them.\n\nA decided registration takes it too. A choice already withheld stays as it is, so a second mail or a registration\nits pupil never confirmed writes nothing, and nothing is ever granted.",
-        "operationId": "registrierungen_withdraw_registrierung_einwilligung",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "registrierung_id",
-            "required": true,
-            "schema": {
-              "pattern": "^[0-9a-fA-F]{24}$",
-              "title": "Registrierung Id",
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/FLEinwilligungWithdrawalPayload"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "204": {
-            "description": "Successful Response"
-          },
-          "default": {
-            "$ref": "#/components/responses/Failure",
-            "description": "A refusal or a fault, its status naming which"
-          }
-        },
-        "security": [
-          {
-            "AdminKey": []
-          }
-        ],
-        "summary": "Enter a withdrawal of a registration's consent that its pupil asked for by mail",
-        "tags": [
-          "registrierungen"
-        ]
-      }
-    },
     "/api/saisons": {
       "get": {
         "description": "Every season, the `future` ones included, each with its start, play and decision states and its counts.\n\n`next_saison_id` is the id the next create mints, and `refusals.create` the code that create would be refused with\nnow, or null.",
@@ -19387,49 +19770,6 @@
         ]
       }
     },
-    "/api/saisons/{saison_id}/retention": {
-      "post": {
-        "description": "Clear one season's contact blocks once a later season has ended, and each seat past its own day unconfirmed before.\n\nOnce a later season has ended, the season's fixture answers and match reports keep the league's record alone. A row\nthat cannot be written is passed over, counted in `failed`, and met again by the next pass, as is a clock written in\none go whose write fails; what each clock cleared is recorded in the action log.",
-        "operationId": "saisons_sweep_saison_retention",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "saison_id",
-            "required": true,
-            "schema": {
-              "title": "Saison Id",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLSaisonRetentionResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "default": {
-            "$ref": "#/components/responses/Failure",
-            "description": "A refusal or a fault, its status naming which"
-          }
-        },
-        "security": [
-          {
-            "SystemKey": []
-          }
-        ],
-        "summary": "Run one season's retention clocks over its season rows, fixture answers and match reports",
-        "tags": [
-          "saisons"
-        ],
-        "x-pass": true
-      }
-    },
     "/api/saisons/{saison_id}/spiele/{spiel_id}": {
       "get": {
         "description": "One match as its page and its pop-up show it, each side of a group match with its group and `platz`; 404 outside a readable season.\n\nEach side's line-up from the moment its club stores one, the scorers and cards only while the report is adopted\nand unchanged since, every pupil through the public mask.",
@@ -19599,6 +19939,49 @@
         ]
       }
     },
+    "/api/saisons/{saison_id}/sweep": {
+      "post": {
+        "description": "Clear one season's contact blocks once a later season has ended, and each seat past its own day unconfirmed before.\n\nOnce a later season has ended, the season's fixture answers and match reports keep the league's record alone. A row\nthat cannot be written is passed over, counted in `failed`, and met again by the next pass, as is a clock written in\none go whose write fails; what each clock cleared is recorded in the action log.",
+        "operationId": "saisons_sweep_saison_retention",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "saison_id",
+            "required": true,
+            "schema": {
+              "title": "Saison Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSaisonRetentionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "default": {
+            "$ref": "#/components/responses/Failure",
+            "description": "A refusal or a fault, its status naming which"
+          }
+        },
+        "security": [
+          {
+            "SystemKey": []
+          }
+        ],
+        "summary": "Run one season's retention clocks over its season rows, fixture answers and match reports",
+        "tags": [
+          "saisons"
+        ],
+        "x-pass": true
+      }
+    },
     "/api/saisons/{saison_id}/tabelle": {
       "get": {
         "description": "Each group's standing over the group phase with its goals counted on every read, and how many of each group advance.\n\nA club that left the season keeps its row; it holds no `platz` where it left before its group was decided, and\nneither does a club that has played no match, listed after every club that has; 404 for a season this tier may not\nread.",
@@ -19766,8 +20149,22 @@
         ]
       },
       "post": {
-        "description": "Create a referee and owe them their confirmation link.\n\nEntering a referee is the invitation, with no second press deciding whether they are asked, since a referee nobody\nasked is a name nobody consented to publish.",
+        "description": "Create a referee and owe them their confirmation link, answering the address it goes to.\n\nEntering a referee is the invitation, with no second press deciding whether they are asked, since a referee nobody\nasked is a name nobody consented to publish. A `dry_run` is refused as the create would be, and answers 204 and\nwrites nothing where it would land.",
         "operationId": "schiedsrichter_post_schiedsrichter",
+        "parameters": [
+          {
+            "description": "Judge this write as it would be judged, and write nothing",
+            "in": "query",
+            "name": "dry_run",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Judge this write as it would be judged, and write nothing",
+              "title": "Dry Run",
+              "type": "boolean"
+            }
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -19783,11 +20180,14 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FLCreatedResponse"
+                  "$ref": "#/components/schemas/FLPostSchiedsrichterResponse"
                 }
               }
             },
             "description": "Successful Response"
+          },
+          "204": {
+            "description": "The `dry_run` found nothing the write would refuse"
           },
           "default": {
             "$ref": "#/components/responses/Failure",
@@ -19802,7 +20202,8 @@
         "summary": "Create a Schiedsrichter",
         "tags": [
           "schiedsrichter"
-        ]
+        ],
+        "x-safe-when": "dry_run"
       }
     },
     "/api/schiedsrichter/confirmation": {
@@ -19967,7 +20368,7 @@
     },
     "/api/schiedsrichter/self/saisons/{saison_id}/spiele": {
       "get": {
-        "description": "Every fixture of this season booked to one of the signed-in address's live, confirmed referee records, open work first.\n\nNobody's address is served, and no reason an administrator entered.",
+        "description": "Every fixture of this season booked to the signed-in address's live, confirmed referee records, in the order the draw numbered them.\n\nNobody's address is served, and no reason an administrator entered.",
         "operationId": "schiedsrichter_get_self_spiele",
         "parameters": [
           {
@@ -20116,7 +20517,7 @@
         ]
       },
       "patch": {
-        "description": "Update a referee on the `version` the editor was served, answering the version stored.\n\nA corrected address on an unconfirmed referee retires their link and owes a fresh one, named in `confirmation`, and a\nconfirmed referee's address moves only through an address change.",
+        "description": "Update a referee on the `version` the editor was served, answering the version stored.\n\nA corrected address on an unconfirmed referee retires their link and owes a fresh one, named in `confirmation`, and a\nconfirmed referee's address moves only through an address change. A `dry_run` is refused as the update would be, and\nanswers 204 and writes nothing where it would land.",
         "operationId": "schiedsrichter_patch_schiedsrichter",
         "parameters": [
           {
@@ -20127,6 +20528,18 @@
               "pattern": "^[0-9a-fA-F]{24}$",
               "title": "Schiedsrichter Id",
               "type": "string"
+            }
+          },
+          {
+            "description": "Judge this write as it would be judged, and write nothing",
+            "in": "query",
+            "name": "dry_run",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Judge this write as it would be judged, and write nothing",
+              "title": "Dry Run",
+              "type": "boolean"
             }
           }
         ],
@@ -20151,6 +20564,9 @@
             },
             "description": "Successful Response"
           },
+          "204": {
+            "description": "The `dry_run` found nothing the write would refuse"
+          },
           "default": {
             "$ref": "#/components/responses/Failure",
             "description": "A refusal or a fault, its status naming which"
@@ -20164,12 +20580,13 @@
         "summary": "Update a Schiedsrichter",
         "tags": [
           "schiedsrichter"
-        ]
+        ],
+        "x-safe-when": "dry_run"
       }
     },
     "/api/schiedsrichter/{schiedsrichter_id}/confirmation/resend": {
       "post": {
-        "description": "Owe this referee a fresh confirmation link, which the Postausgang mints and mails, and answer where it goes.\n\nThe previous link stops working at once and the deadline restarts from today; a referee who has already answered is\nrefused, since the new link could never be spent.",
+        "description": "Owe this referee a fresh confirmation link, which the Postausgang mints and mails, to the address they hold.\n\nThe previous link stops working at once and the deadline restarts from today; a referee who has already answered is\nrefused, since the new link could never be spent.",
         "operationId": "schiedsrichter_resend_confirmation",
         "parameters": [
           {
@@ -20184,14 +20601,7 @@
           }
         ],
         "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLSchiedsrichterMintResponse"
-                }
-              }
-            },
+          "204": {
             "description": "Successful Response"
           },
           "default": {
@@ -20256,55 +20666,9 @@
         ]
       }
     },
-    "/api/schiedsrichter/{schiedsrichter_id}/einwilligung/withdrawal": {
-      "post": {
-        "description": "Withdraw the named choices of a referee's consent, the name on the fixtures leaving the public pages and the media consent ending.\n\nA choice already withheld stays as it is, so a second mail or a record its person never confirmed writes nothing,\nand nothing is ever granted.",
-        "operationId": "schiedsrichter_withdraw_schiedsrichter_einwilligung",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "schiedsrichter_id",
-            "required": true,
-            "schema": {
-              "pattern": "^[0-9a-fA-F]{24}$",
-              "title": "Schiedsrichter Id",
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/FLEinwilligungWithdrawalPayload"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "204": {
-            "description": "Successful Response"
-          },
-          "default": {
-            "$ref": "#/components/responses/Failure",
-            "description": "A refusal or a fault, its status naming which"
-          }
-        },
-        "security": [
-          {
-            "AdminKey": []
-          }
-        ],
-        "summary": "Enter a withdrawal of a Schiedsrichter's consent that they asked for by mail",
-        "tags": [
-          "schiedsrichter"
-        ]
-      }
-    },
     "/api/schiedsrichter/{schiedsrichter_id}/reactivate": {
       "post": {
-        "description": "Bring a retired referee back into the picker and every default read.\n\nOne who has not answered is owed a fresh link, since a retired referee's save mails nothing.",
+        "description": "Bring a retired referee back into the picker and every default read, answering where a fresh link goes.\n\nOne who has not answered is owed a fresh link, named in `confirmation`, since a retired referee's save mails nothing;\none who has answered, holds no address a link can go to, or is back already, is owed none.",
         "operationId": "schiedsrichter_reactivate_schiedsrichter",
         "parameters": [
           {
@@ -20319,7 +20683,14 @@
           }
         ],
         "responses": {
-          "204": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSchiedsrichterReactivateResponse"
+                }
+              }
+            },
             "description": "Successful Response"
           },
           "default": {
@@ -21051,52 +21422,6 @@
           }
         ],
         "summary": "Read a team's squad as its seat holder",
-        "tags": [
-          "spieler"
-        ]
-      }
-    },
-    "/api/spieler/{spieler_id}/einwilligung/withdrawal": {
-      "post": {
-        "description": "Withdraw the named choices of a pupil's consent, the name on the squad leaving the public pages and the media consent ending.\n\nA choice already withheld stays as it is, so a second mail writes nothing, and nothing is ever granted. The caller\ndrops its cached squad lists after a success, since the scope decides whether a name is served.",
-        "operationId": "spieler_withdraw_spieler_einwilligung",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "spieler_id",
-            "required": true,
-            "schema": {
-              "pattern": "^[0-9a-fA-F]{24}$",
-              "title": "Spieler Id",
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/FLEinwilligungWithdrawalPayload"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "204": {
-            "description": "Successful Response"
-          },
-          "default": {
-            "$ref": "#/components/responses/Failure",
-            "description": "A refusal or a fault, its status naming which"
-          }
-        },
-        "security": [
-          {
-            "AdminKey": []
-          }
-        ],
-        "summary": "Enter a withdrawal of a Spieler's consent that they asked for by mail",
         "tags": [
           "spieler"
         ]
@@ -22372,7 +22697,7 @@
     },
     "/api/teams/{team_id}/saisons/{saison_id}/kontakte/{seat}": {
       "put": {
-        "description": "Write the person one seat holds on the row's `version`, a newly seated person owed a fresh link whose address `email` names.\n\nThe same person, address and name folded, keeps the seat's record and link, and where the Trainer holds a second seat\na write on either seat writes both under one link.",
+        "description": "Write the person one seat holds on the row's `version`, a newly seated person owed a fresh link whose address `email` names.\n\nThe same person, address and name folded, keeps the seat's record and link, and where the Trainer holds a second seat\na write on either seat writes both under one link. A `dry_run` is refused as the write would be, and answers 204 and\nwrites nothing where it would land.",
         "operationId": "teams_put_kontakt_seat",
         "parameters": [
           {
@@ -22402,6 +22727,18 @@
               "title": "Seat",
               "type": "string"
             }
+          },
+          {
+            "description": "Judge this write as it would be judged, and write nothing",
+            "in": "query",
+            "name": "dry_run",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Judge this write as it would be judged, and write nothing",
+              "title": "Dry Run",
+              "type": "boolean"
+            }
           }
         ],
         "requestBody": {
@@ -22425,6 +22762,9 @@
             },
             "description": "Successful Response"
           },
+          "204": {
+            "description": "The `dry_run` found nothing the write would refuse"
+          },
           "default": {
             "$ref": "#/components/responses/Failure",
             "description": "A refusal or a fault, its status naming which"
@@ -22438,7 +22778,8 @@
         "summary": "Write the person one contact seat holds",
         "tags": [
           "teams"
-        ]
+        ],
+        "x-safe-when": "dry_run"
       }
     },
     "/api/teams/{team_id}/saisons/{saison_id}/kontakte/{seat}/confirmation/resend": {
@@ -22490,70 +22831,6 @@
           }
         ],
         "summary": "Send one contact seat a fresh confirmation link",
-        "tags": [
-          "teams"
-        ]
-      }
-    },
-    "/api/teams/{team_id}/saisons/{saison_id}/kontakte/{seat}/einwilligung/withdrawal": {
-      "post": {
-        "description": "Withdraw the named choices, WhatsApp and media, on every confirmed seat of this row its person holds, as their own press does.\n\nA finished season's row and a withdrawn team's take it too. A choice already withheld stays as it is, so a second mail\nor a seat its person never confirmed writes nothing, and nothing is ever granted.",
-        "operationId": "teams_withdraw_kontakt_einwilligung",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "team_id",
-            "required": true,
-            "schema": {
-              "pattern": "^[0-9a-fA-F]{24}$",
-              "title": "Team Id",
-              "type": "string"
-            }
-          },
-          {
-            "in": "path",
-            "name": "saison_id",
-            "required": true,
-            "schema": {
-              "title": "Saison Id",
-              "type": "string"
-            }
-          },
-          {
-            "in": "path",
-            "name": "seat",
-            "required": true,
-            "schema": {
-              "title": "Seat",
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/FLEinwilligungWithdrawalPayload"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "204": {
-            "description": "Successful Response"
-          },
-          "default": {
-            "$ref": "#/components/responses/Failure",
-            "description": "A refusal or a fault, its status naming which"
-          }
-        },
-        "security": [
-          {
-            "AdminKey": []
-          }
-        ],
-        "summary": "Enter a withdrawal of a contact seat's consent that its person asked for by mail",
         "tags": [
           "teams"
         ]

@@ -3,8 +3,9 @@ from typing import Any, Literal
 import pytest
 
 from app.api.saisons.schemas import FLSaisonRules
-from app.api.saisons.services import find_rules_freeze_refusal, find_rules_refusal, find_undraw_refusal
+from app.api.saisons.services import find_rules_freeze_refusal, find_rules_refusal, find_shape_refusal, find_undraw_refusal
 from app.core.codes import Code
+from app.core.crud import refuse, refuse_faults
 from app.core.exceptions import APIError
 from app.shared.schemas.literals import FLGruppenNames
 
@@ -50,24 +51,21 @@ def judge(
     proposed: FLSaisonRules | None = None,
     occupancy: dict[FLGruppenNames, int] | None = None,
     largest_kader: int = 0,
-    drawn: int = 0,
+    drawn: bool = False,
     started: bool = False,
 ) -> APIError | None:
-    """Both judgements in the order `patch_saison` asks them: the freeze, then the rules."""
+    """The judgements in the order `patch_saison` asks them, raised as it raises them: the freeze, the shape, then the rules."""
 
     stored = rules() if stored is None else stored
     proposed = rules() if proposed is None else proposed
-    frozen = find_rules_freeze_refusal(saison_status=status, started=started, stored=stored, proposed=proposed)
-    if frozen is not None:
-        return frozen
+    try:
+        refuse(find_rules_freeze_refusal(saison_status=status, started=started, stored=stored, proposed=proposed))
+        refuse(find_shape_refusal(stored=stored, proposed=proposed, drawn=drawn))
+        refuse_faults(find_rules_refusal(stored=stored, proposed=proposed, occupancy_by_gruppe=occupancy or {}, largest_kader=largest_kader))
+    except APIError as refusal:
+        return refusal
 
-    return find_rules_refusal(
-        stored=stored,
-        proposed=proposed,
-        occupancy_by_gruppe=occupancy or {},
-        largest_kader=largest_kader,
-        drawn_spiele=drawn,
-    )
+    return None
 
 
 # Each frozen field, with the step that changes it.
@@ -93,7 +91,7 @@ class TestTheBracketMustHaveAShape:
         ],
     )
     def test_refuses_a_field_that_cannot_be_paired_down(self, groups, qualifiers):
-        """`per_group=8` so every case reaches this rule: `rules_qualifiers_above_gruppe` runs first and would answer `(4, 5)`."""
+        """`per_group=8` keeps every case's qualifiers within its group, so no box's rule could be answering in its place."""
 
         refusal = judge(proposed=rules(groups=groups, qualifiers=qualifiers, per_group=8))
 
@@ -199,7 +197,41 @@ class TestEachRefusalNamesItsBound:
         refusal = judge(**judged)
 
         assert refusal is not None
-        assert (refusal.error_code, refusal.fields, dict(refusal.bounds)) == (code, (field,), bounds)
+        assert (refusal.error_code, [(fault.path, dict(fault.bounds)) for fault in refusal.faults]) == (code, [(field, bounds)])
+
+
+class TestEveryBoxAtFaultIsNamedOnce:
+    """One answer names each box the rules refuse, but a bound read off a box another fault refuses, which the repair moves."""
+
+    @pytest.mark.parametrize(
+        ("judged", "named"),
+        [
+            pytest.param(
+                {
+                    "stored": rules(groups=4, per_group=6),
+                    "proposed": rules(groups=2, per_group=6, win=3, draw=4, forfeit=(2, 2)),
+                    "occupancy": {"C": 1},
+                },
+                [("rules", "draw_points"), ("rules", "forfeit_ergebnis", "sieger_tore"), ("rules", "number_of_gruppen")],
+                id="independent boxes, each named",
+            ),
+            pytest.param(
+                {"proposed": rules(win=1, draw=3, loss=5)},
+                [("rules", "draw_points")],
+                id="the loss waits on the draw its bound reads",
+            ),
+            pytest.param(
+                {"stored": rules(per_group=6, qualifiers=2), "proposed": rules(per_group=3, qualifiers=4), "occupancy": {"A": 5}},
+                [("rules", "teams_per_gruppe")],
+                id="the qualifiers wait on the teams per group their bound reads",
+            ),
+        ],
+    )
+    def test_the_answer_names_the_boxes(self, judged: dict[str, Any], named: list[tuple[str, ...]]):
+        refusal = judge(**judged)
+
+        assert refusal is not None
+        assert [fault.path for fault in refusal.faults] == named
 
 
 class TestAStartedSeasonFreezes:
@@ -225,10 +257,6 @@ class TestAStartedSeasonFreezes:
         assert refusal.error_code == Code.RULES_SAISON_STARTED
 
 
-# The season the class below patches, as its fixtures were drawn: 4 groups of 4 over 3 matchdays.
-DRAWN_SPIELE = 24
-
-
 class TestADrawnSeasonKeepsTheShapeItWasDrawnFrom:
     """The three numbers a season's fixture list is generated from."""
 
@@ -244,7 +272,7 @@ class TestADrawnSeasonKeepsTheShapeItWasDrawnFrom:
     def test_a_change_to_any_of_them_is_refused(self, label: str, changed: dict[str, Any]):
         """Each case leaves the bracket legal, so nothing but this rule can be answering."""
 
-        refusal = judge(stored=rules(), proposed=rules(**changed), drawn=DRAWN_SPIELE)
+        refusal = judge(stored=rules(), proposed=rules(**changed), drawn=True)
 
         assert refusal is not None
         assert refusal.error_code == Code.RULES_SHAPE_AFTER_SPIELPLAN

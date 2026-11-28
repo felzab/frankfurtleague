@@ -1,7 +1,8 @@
 import { notFound } from "next/navigation";
 
+import { boxRulesOf } from "@/core/action";
 import { ROUTES } from "@/core/routes";
-import { ACCEPT_RULES } from "@/features/bewerbungen/fieldRules";
+import { acceptBewerbung } from "@/features/bewerbungen/acceptBewerbung";
 import { getBewerbungenOfSaison } from "@/features/bewerbungen/queries";
 import { standingOf } from "@/features/bewerbungen/standing";
 import { StepsPage } from "@/kit/StepsPage";
@@ -10,15 +11,13 @@ import { metadataFor } from "@/shared/utils/notFoundMetadata";
 
 import { BulkAccept } from "./BulkAccept";
 
-import type { Metadata, ResolvingMetadata } from "next";
+import type { Metadata } from "next";
 
 type Props = PageProps<"/admin/saisons/[saison]/bewerbungen/bulk">;
 
-export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { saison } = await params;
-  return metadataFor(getBewerbungenOfSaison(saison), () =>
-    pageMetadata(parent, ROUTES.adminBewerbungenBulk, ROUTES.adminBewerbungenBulk.path(saison)),
-  );
+  return metadataFor(getBewerbungenOfSaison(saison), () => pageMetadata(ROUTES.adminBewerbungenBulk, ROUTES.adminBewerbungenBulk.path(saison)));
 }
 
 /** The season's complete, undecided applications, oldest first, as they came in, with the groups and colours an acceptance may name. */
@@ -32,7 +31,7 @@ async function readRun(params: Props["params"]) {
       rows={read.bewerbungen.filter((row) => standingOf(row) === "complete").toReversed()}
       gruppen={read.saison.gruppen}
       taken={read.saison.taken}
-      rules={ACCEPT_RULES}
+      rules={boxRulesOf(acceptBewerbung)}
     />
   );
 }

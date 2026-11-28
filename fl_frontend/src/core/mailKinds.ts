@@ -17,6 +17,7 @@ import {
   buildBewerbungZusageEmail,
   buildDeletionNoticeEmail,
 } from "./bewerbungEmail";
+import { mailOrigin } from "./emailShell";
 import { buildErasureEmail } from "./erasureEmail";
 import { ContractBreakError } from "./errors";
 import { buildGrantEmail } from "./grantEmail";
@@ -53,7 +54,7 @@ type OutboxKind = OutboxData["kind"];
 type Member<D, A> = D extends { kind: infer K } ? (A extends K ? D : never) : never;
 
 /** Each kind's own member, so a builder is handed its kind's typed facts and no other's. */
-type DataPerKind = { [A in OutboxKind]: Member<OutboxData, A> };
+export type DataPerKind = { [A in OutboxKind]: Member<OutboxData, A> };
 
 /** What the hand-out answers beside the facts, and where the mail's links stand. */
 interface Handout {
@@ -63,6 +64,8 @@ interface Handout {
   readonly secret: string | null;
   /** The serving origin, never `SITE_URL`: a stack that is not production mails no production link. */
   readonly origin: string;
+  /** The row's recipient, spelled as the backend owed it. */
+  readonly to: string;
 }
 
 type MailBuilder<A extends OutboxKind> = (data: DataPerKind[A], handout: Handout) => Mail;
@@ -70,6 +73,11 @@ type MailBuilder<A extends OutboxKind> = (data: DataPerKind[A], handout: Handout
 /** What a league mail carrying no link is built with beside its facts. */
 export interface MailOrigin {
   readonly origin: string;
+}
+
+/** What a league mail is built with where one notice's copies differ by whom each reaches. */
+export interface MailRecipient extends MailOrigin {
+  readonly to: string;
 }
 
 /** What a league mail carrying a link is built with: the hand-out's raw token, a bearer credential never taken apart. */
@@ -110,7 +118,7 @@ const MAIL_KINDS: { [A in OutboxKind]: MailBuilder<A> } = {
   ban: buildBanEmail,
   grant: buildGrantEmail,
   address_change_link: (data, handout) => buildAddressChangeEmail(data, minted(handout)),
-  // The stop link, minted into the change's `stopp.token_hashes`.
+  // The stop link, minted into the change's `stop.token_hashes`.
   address_change_notice: (data, handout) => buildAddressChangeNoticeEmail(data, minted(handout)),
   address_change_effective: buildAddressChangeEffectiveEmail,
   address_change_discarded: buildAddressChangeDiscardedEmail,
@@ -125,7 +133,7 @@ const MAIL_KINDS: { [A in OutboxKind]: MailBuilder<A> } = {
 
 /** A secret kind's secret, which its every row carries. */
 function secretOf(secret: string | null): string {
-  if (secret === null) throw new Error("The mail's kind carries a secret, and its row holds none.");
+  if (secret === null) throw new ContractBreakError("The mail's kind carries a secret, and its row holds none.");
 
   return secret;
 }
@@ -136,5 +144,6 @@ function secretOf(secret: string | null): string {
  * builder found takes exactly that kind's facts (TypeScript's correlated-union pattern, microsoft/TypeScript#47109).
  */
 export function mailFor<A extends OutboxKind>(kind: A, data: DataPerKind[A], handout: Handout): Mail | undefined {
-  return Object.hasOwn(MAIL_KINDS, kind) ? MAIL_KINDS[kind](data, handout) : undefined;
+  // The origin normalised once, here, so every builder spells its links on the normalised value.
+  return Object.hasOwn(MAIL_KINDS, kind) ? MAIL_KINDS[kind](data, { ...handout, origin: mailOrigin(handout.origin) }) : undefined;
 }

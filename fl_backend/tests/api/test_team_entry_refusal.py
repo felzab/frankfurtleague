@@ -56,14 +56,14 @@ class TestEnteringASeason:
         assert refusal.error_code == Code.ENTRY_GRUPPE_NOT_OFFERED
 
     def test_one_team_named_on_both_ends_of_a_replacement_is_refused_as_the_payload(self):
-        """Judged before any read, on the box naming the club to come; another club is no refusal of this rule."""
+        """Judged before any read, on no box: the incoming picker offers no club the season holds. Another club is no refusal of this rule."""
 
         team = ObjectId("6890a1b2c3d4e5f607230009")
 
         refusal = find_replacement_pair_refusal(team_id=team, incoming_team_id=team)
 
         assert refusal is not None
-        assert (refusal.error_code, refusal.fields) == (Code.REPLACE_ONE_TEAM_ON_BOTH_ENDS, (("incoming_team_id",),))
+        assert (refusal.error_code, refusal.faults, refusal.subject) == (Code.REPLACE_ONE_TEAM_ON_BOTH_ENDS, (), None)
         assert find_replacement_pair_refusal(team_id=team, incoming_team_id=ObjectId("6890a1b2c3d4e5f60723000a")) is None
 
 

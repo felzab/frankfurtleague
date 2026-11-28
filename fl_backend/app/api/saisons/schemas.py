@@ -1,5 +1,5 @@
 from collections.abc import Mapping
-from datetime import date, datetime, time, timedelta
+from datetime import date, datetime, time
 from typing import Annotated, Final, Literal, LiteralString, get_args
 
 from pydantic import (
@@ -189,7 +189,7 @@ class _SaisonPayload(_SaisonSpanPayload, _SaisonWritable):
 
         start_date = info.data.get("start_date")
         if registrierung is not None and start_date is not None and registrierung.end >= start_date:
-            latest = (date.fromisoformat(start_date) - timedelta(days=1)).isoformat()
+            latest = clock.days_after(day=start_date, days=-1)
             raise _refused_at_the_end(
                 registrierung,
                 "registrierung_window_reaches_saison_start",
@@ -209,7 +209,7 @@ class _SaisonStored(_SaisonWritable):
 
     status: FLSaisonStatus
 
-    version: int = 0
+    version: int
 
 
 class FLSaison(_SaisonStored, BaseReadModel):
@@ -606,7 +606,4 @@ class FLLandingResponse(BaseReadModel):
     bewerbung_window: FLBewerbungWindow | None
     # The day the next window opens, by the judgement the form's page serves as `upcoming`.
     bewerbung_opens_on: CustomDateString | None
-    # Whether a season not yet ended holds a window in any state: the band tells a school to wait for next season only
-    # where none does, since the season `saison` names says nothing of the next one's paused window.
-    bewerbung_window_held: bool
     counts: FLLandingCounts

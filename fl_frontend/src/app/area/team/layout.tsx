@@ -3,10 +3,8 @@ import { rolesOf } from "@/core/roles";
 import { ROUTES } from "@/core/routes";
 import { getSubjectSession } from "@/core/subject";
 import { readAccount } from "@/features/account/account";
-import { RailFrame } from "@/kit/RailFrame";
-import { RailFrameBoundary } from "@/kit/RailFrameBoundary";
-
-import { AREA_HOME } from "../areaHome";
+import { standardSaisonOf } from "@/features/roles/utils";
+import { GuardedRailFrame } from "@/kit/GuardedRailFrame";
 
 import type { TeamSeat } from "@/features/roles/resolvers";
 import type { FrameSaisons, RailGroup } from "@/kit/FrameNav";
@@ -53,14 +51,14 @@ async function readTeams(): Teams {
     const newerFirst = (one: TeamSeat, other: TeamSeat) => other.saison_id.localeCompare(one.saison_id);
     // One seat a season: a person holding two seats on one row holds one season there.
     const seasons = [...new Map(held.map((seat) => [seat.saison_id, seat])).values()].sort(newerFirst);
-    const newest = held.reduce((best, seat) => (newerFirst(best, seat) > 0 ? seat : best));
     return {
       team,
       entries: seasons.map((seat) => ({
         id: seat.saison_id,
         span: formatPeriod(dayOf(seat.saison_start_date), dayOf(seat.saison_end_date)),
       })),
-      standard: (held.find((seat) => seat.saison_status === "active") ?? newest).saison_id,
+      // The season the person's place of the team opens on, so the landing and the button agree.
+      standard: standardSaisonOf(held),
     };
   });
 }
@@ -70,25 +68,18 @@ async function readTeams(): Teams {
  * whose subtrees Next keys on their values, so a switch of season or of team remounts the page alone and keeps the
  * frame; it is handed neither, and its menus read both from the address on the client. Its seasons and the account are
  * handed down as reads still running, beside each team page's own, and it judges no page: each team page's read asks
- * for the person's seat itself. The phone's band and bar are the route groups' (`RailColumn`): the line-up lies in
- * `(editor)`, every other page in `(list)`.
+ * for the person's seat itself.
  */
 export default function TeamLayout({ children }: { children: ReactNode }) {
   return (
     // A failed read of the frame's own is answered in the rail frame: this segment's `error.tsx` stands inside this layout.
-    <RailFrameBoundary
+    <GuardedRailFrame
       groups={RAIL_GROUPS}
       bar={BAR}
-      next={AREA_HOME}>
-      <RailFrame
-        groups={RAIL_GROUPS}
-        bar={BAR}
-        saison={{ teams: readTeams(), home: "teamOverview" }}
-        // The row's second line is the place's own, the team's Kürzel and the seats held there: the frame names no team.
-        foot={{ kind: "account", account: readAccount() }}
-        columnInLayouts>
-        {children}
-      </RailFrame>
-    </RailFrameBoundary>
+      saison={{ teams: readTeams(), home: "teamOverview" }}
+      // The row's second line is the place's own, the team's Kürzel and the seats held there: the frame names no team.
+      foot={{ kind: "account", account: readAccount() }}>
+      {children}
+    </GuardedRailFrame>
   );
 }

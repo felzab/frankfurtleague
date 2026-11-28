@@ -2,13 +2,15 @@ import { cacheLife, cacheTag } from "next/cache";
 import Image from "next/image";
 
 import { now } from "@/core/clock";
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
+import { LEGAL_PAGES, ROUTES } from "@/core/routes";
 import { SITE_CACHE_TAG } from "@/core/siteCache";
 
 import { Brand } from "./Brand";
 import { smallCaps } from "./cardStyles";
 import { HeaderLinks } from "./HeaderLinks";
 import { Link } from "./Link";
+import { ThemeRow } from "./ThemeChoice";
 import { ToastRegion } from "./Toast";
 import { NavigationBar, PageContent } from "./WholePage";
 
@@ -26,12 +28,16 @@ async function Year() {
   return COPY.template.copyright(now().getFullYear(), COPY.brand.name);
 }
 
-/** One of the footer's link groups under its heading, a landmark named by it. */
+// The legal pages, opened rarely: a prefetch would load each one's shell on every page the footer stands on, so their
+// links load nothing ahead, and a press on one waits a server round trip, as the site holds no `loading.tsx`.
+const UNPREFETCHED: ReadonlySet<string> = new Set(LEGAL_PAGES.map((page) => ROUTES[page].path()));
+
 function FooterGroup({ heading, links }: { heading: Copy; links: ReadonlyArray<HeaderLink> }) {
   return (
     <nav
       aria-label={heading}
-      className="grid content-start gap-1">
+      // `justify-items-start`: a grid stretches each link to the column, so the row's empty end would take the pointer.
+      className="grid content-start justify-items-start gap-1">
       <h2 className={smallCaps({ class: "mb-2" })}>{heading}</h2>
       {links.map((link) => (
         <Link
@@ -39,6 +45,7 @@ function FooterGroup({ heading, links }: { heading: Copy; links: ReadonlyArray<H
           href={link.href}
           placement="footer"
           label={link.label}
+          prefetch={UNPREFETCHED.has(link.href) ? false : undefined}
         />
       ))}
     </nav>
@@ -46,14 +53,8 @@ function FooterGroup({ heading, links }: { heading: Copy; links: ReadonlyArray<H
 }
 
 /**
- * The classic public frame, which a layout places around the landing, About, Kontakt, the sponsors page,
- * the legal pages, the application form, the pages a mail opens and the sign-in: the dark-green band with
- * the logo, its links and „Konto“, the way to the sign-in, at the top, the footer at the foot. The footer holds the logo and the
- * league's line at the left with Instagram and Threads as glyph links under them, the question door's, and to
- * their right three link groups, „Saison“, „Liga“ and „Rechtliches“, two a row on a phone; under them the sponsors'
- * logos under „Mit Unterstützung von“ above the © line.
- *
- * Each page's template writes its title and its content through `ClassicPage` and `ClassicTitle`.
+ * The classic public frame: the band with the logo, its links and „Konto“, the way to the sign-in, at the top, and the
+ * footer at the foot. Each page's template writes its title and its content through `ClassicPage` and `ClassicTitle`.
  */
 export function ClassicFrame({
   links,
@@ -65,23 +66,20 @@ export function ClassicFrame({
   sponsors,
   children,
 }: {
-  /** The header's links, between the logo and „Konto“, the way to the sign-in. */
   links: ReadonlyArray<HeaderLink>;
-  /** Where „Konto“, the way to the sign-in, leads. */
   signIn: Route;
-  /** The „Saison“ group's links. */
   saison: ReadonlyArray<HeaderLink>;
-  /** The „Liga“ group's links. */
   liga: ReadonlyArray<HeaderLink>;
-  /** The „Rechtliches“ group's links, the legal pages. */
   legal: ReadonlyArray<HeaderLink>;
   social: { instagram: string; threads: string };
-  /** Each sponsor's logo, small and grey, as a link to its site, its full name the logo's name, its short name beside it where it has one; no line while there are none. */
   sponsors: ReadonlyArray<Sponsor>;
   children: ReactNode;
 }) {
   return (
-    <div className="flex min-h-dvh flex-col">
+    // Marked, so the root's scroll padding clears the band: the browser scrolls the focus and a fragment's place below it.
+    <div
+      data-kit-frame="classic"
+      className="flex min-h-dvh flex-col">
       {/* A picture of its own in a page's cross-fade, so the page scrolled under it is not drawn over it (`tokens.css`). */}
       <header className="sticky top-0 z-20 shrink-0 bg-brand-solid px-4 text-on-brand [--focus-ring:var(--on-brand)] [view-transition-name:band] lg:px-8">
         <div className="@container mx-auto flex h-(--classic-header) w-full max-w-classic items-center gap-2 lg:gap-8">
@@ -146,14 +144,11 @@ export function ClassicFrame({
                     <span
                       title={sponsor.name.record}
                       className="flex items-center gap-2 text-xs">
-                      {/* An SVG served as it is, which the image optimiser has nothing to do for; small and grey,
-                        each logo fitted into the same box whatever its own proportions. */}
                       <span className="relative block h-6 w-24">
                         <Image
                           src={sponsor.logo}
                           alt={sponsor.name.record}
                           fill
-                          unoptimized
                           sizes="6rem"
                           className="object-contain object-left grayscale"
                         />
@@ -165,9 +160,13 @@ export function ClassicFrame({
               </div>
             </div>
           )}
-          <p className="text-xs text-fg-muted">
-            <Year />
-          </p>
+          {/* The classic frame holds no account menu, whose foot sets the theme, so it stands at the © line's end. */}
+          <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
+            <p className="text-xs text-fg-muted">
+              <Year />
+            </p>
+            <ThemeRow place="footer" />
+          </div>
         </div>
       </footer>
       <ToastRegion frame="classic" />

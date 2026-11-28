@@ -1,11 +1,12 @@
 import { notFound } from "next/navigation";
 
-import { COPY } from "@/core/copy";
+import { boxRulesOf } from "@/core/action";
+import { ADMIN_COPY } from "@/core/copy/admin";
+import { COPY } from "@/core/copy/shared";
 import { FLGruppenNames, FLTeamListState } from "@/core/generated/client/types";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { adminTeamChip, trikotFarbeLabel } from "@/features/teams/constants";
-import { TEAM_CLUB_REQUIRED, TEAM_ENTRY_RULES } from "@/features/teams/fieldRules";
 import { gruppeOptions, trikotOptions } from "@/features/teams/options";
 import { getTeamsAdmin } from "@/features/teams/queries";
 import { filterValue } from "@/kit/filterValue";
@@ -20,11 +21,11 @@ import type { FLTeamsAdminListResponse, FLTeamsAdminRow } from "@/core/generated
 import type { Filter } from "@/kit/Filters";
 import type { ListCreate } from "@/kit/ListPage";
 import type { TableHead, TableRow } from "@/kit/Table";
-import type { Metadata, ResolvingMetadata } from "next";
+import type { Metadata } from "next";
 
 type Props = PageProps<"/admin/saisons/[saison]/teams">;
 
-const WORDS = COPY.admin.team;
+const WORDS = ADMIN_COPY.team;
 const TEAM = COPY.shared.facts.team;
 const ACT = { verb: "enter", object: TEAM } as const;
 
@@ -48,9 +49,9 @@ async function readOrNotFound(props: Pick<Props, "params" | "searchParams">): Pr
   return found;
 }
 
-export async function generateMetadata({ params, searchParams }: Props, parent: ResolvingMetadata): Promise<Metadata> {
+export async function generateMetadata({ params, searchParams }: Props): Promise<Metadata> {
   const { saison } = await params;
-  return metadataFor(read({ params, searchParams }), () => pageMetadata(parent, ROUTES.adminTeams, ROUTES.adminTeams.path(saison)));
+  return metadataFor(read({ params, searchParams }), () => pageMetadata(ROUTES.adminTeams, ROUTES.adminTeams.path(saison)));
 }
 
 /**
@@ -74,7 +75,7 @@ function rowOf(saison: string, team: FLTeamsAdminRow): TableRow {
 
 const HEAD: TableHead = {
   nameLabel: TEAM,
-  state: { label: COPY.admin.schiedsrichter.state },
+  state: { label: COPY.shared.facts.state },
   columns: [
     { key: "gruppe", label: COPY.team.gruppe, narrow: true, width: "word" },
     { key: "trikotFarbe", label: COPY.team.trikotFarbe, hideOnPhone: true, width: "word" },
@@ -115,11 +116,11 @@ async function readFilters(list: Promise<FLTeamsAdminListResponse>, searchParams
     },
     {
       name: "state",
-      label: COPY.admin.schiedsrichter.state,
-      all: SERVER_COPY.season.filter.all,
+      label: COPY.shared.facts.state,
+      all: ADMIN_COPY.team.ofSaison,
       options: [
-        { id: FLTeamListState.active, label: WORDS.active },
-        { id: FLTeamListState.departed, label: COPY.admin.spiel.departed },
+        { id: FLTeamListState.active, label: COPY.shared.state.active },
+        { id: FLTeamListState.departed, label: ADMIN_COPY.spiel.departed },
         { id: FLTeamListState.retired, label: COPY.shared.retired },
       ],
       value: state,
@@ -133,16 +134,15 @@ async function readCreate(list: Promise<FLTeamsAdminListResponse>, params: Props
   return {
     title: COPY.shared.withObject(TEAM, ACT.verb),
     act: ACT,
-    action: enterTeam,
+    run: enterTeam,
+    rules: boxRulesOf(enterTeam),
     carry: { saison_id: saison },
     children: (
       <TeamEntryFields
         saison={saison}
-        clubs={entry.teams.map((club) => ({ id: club.id, label: { record: club.name } }))}
+        teams={entry.teams.map((team) => ({ id: team.id, label: { record: team.name } }))}
         gruppen={gruppeOptions(entry.gruppen, null)}
         colours={trikotOptions(entry.taken)}
-        rules={TEAM_ENTRY_RULES}
-        clubRequired={TEAM_CLUB_REQUIRED}
       />
     ),
     ...(entry.closed ? { locked: WORDS.onlyPlanned } : {}),

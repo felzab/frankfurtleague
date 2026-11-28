@@ -1,16 +1,16 @@
 import "server-only";
 
-import { notFound, redirect } from "next/navigation";
+import { redirect } from "next/navigation";
 
 import { withReturnAddress } from "@/core/auth/returnAddress";
-import { APIBadStatusError } from "@/core/errors";
+import { refusedAs } from "@/core/errors";
 import { logRefused } from "@/core/refused";
 import { rolesOf, seatsAt } from "@/core/roles";
 import { ROUTES } from "@/core/routes";
-import { SERVER_COPY } from "@/core/serverCopy";
 import { getSubjectSession } from "@/core/subject";
-import { metadataFor, NOT_FOUND_METADATA } from "@/shared/utils/notFoundMetadata";
+import { metadataFor } from "@/shared/utils/notFoundMetadata";
 
+import type { Code } from "@/core/generated/client/types";
 import type { Role } from "@/core/roles";
 import type { SubjectSession } from "@/core/subject";
 import type { Metadata } from "next";
@@ -63,16 +63,12 @@ async function teamSeatsAt<Segments extends { team: string; saison: string }>(
   return first === undefined ? null : [first, ...rest];
 }
 
-/** A team page's tab where the person holds no seat at its address: the title of the card the page draws there. */
-const FORBIDDEN_METADATA: Metadata = { ...NOT_FOUND_METADATA, title: SERVER_COPY.area.forbidden };
-
 /**
  * A team page's metadata off the page's own read, `read` for the seat the person holds at its address, memoised by the
- * page so the tab and the card share it: `metadataOf` what it found; the not-found title where it found nothing; and
- * the „Kein Zugang“ card's title where the person holds no seat there, or the backend finds the seat gone after the
- * session's check, so the tab says what the card says. It answers each miss rather than throwing
- * it, since a `notFound()` thrown from `generateMetadata` leaves the tab the layout's title, and a failed read as
- * `metadataFor` does.
+ * page so the tab and the page share it: `metadataOf` what it found, and the not-found title where it found nothing,
+ * where the person holds no seat there, or where the backend finds the seat gone after the session's check, the page
+ * itself sending such a person on to the landing. It answers each miss rather than throwing it, so the turn-away is
+ * the page's alone and logged once, and a failed read as `metadataFor` does.
  */
 export async function teamMetadata<Segments extends { team: string; saison: string }, Read>(
   params: Promise<Segments>,
@@ -80,32 +76,28 @@ export async function teamMetadata<Segments extends { team: string; saison: stri
   read: (seat: TeamSeat) => Promise<Read | null>,
   metadataOf: (found: Read) => Promise<Metadata> | Metadata,
 ): Promise<Metadata> {
-  // Wrapped, so a forbidden address reaches the forbidden title here rather than `metadataFor`'s not-found one.
   const outcome = teamSeatsAt(params, address).then(async (seats) => {
-    if (seats === null) return { forbidden: true } as const;
+    if (seats === null) return null;
     try {
-      const found = await read(seats[0]);
-      return found === null ? null : { found };
+      return await read(seats[0]);
     } catch (error) {
-      if (isRoleGone(error)) return { forbidden: true } as const;
+      if (isRoleGone(error)) return null;
       throw error;
     }
   });
-  return metadataFor(outcome, (known) => ("forbidden" in known ? FORBIDDEN_METADATA : metadataOf(known.found)));
+  return metadataFor(outcome, metadataOf);
 }
 
+/** A person holding no seat at a team page's address is sent to the landing, as `requireRole` sends a pupil or a referee. */
 function refuseWithoutSeat(): never {
   logRefused("/area/team/[team]/[saison]", "no_seat");
-  // The team area's not-found boundary draws „Kein Zugang“ here: Next's own interrupt for a refused page,
-  // `forbidden()`, is experimental. Once it is stable, the change is this throw and
-  // a `forbidden.tsx` beside that boundary.
-  notFound();
+  redirect(ROUTES.area.path());
 }
 
 /**
  * The seats a team page is drawn for, which every team page's read asks first: the layout stands above the team and
  * the season of the address and is handed neither, and Next runs a page whatever its frame draws. A person holding
- * no seat there ends on the frame's „Kein Zugang“ card.
+ * no seat there is sent to the landing, never shown a refusal: the landing leads on to whatever they hold.
  */
 export async function requireTeamSeats<Segments extends { team: string; saison: string }>(
   params: Promise<Segments>,
@@ -114,8 +106,10 @@ export async function requireTeamSeats<Segments extends { team: string; saison: 
   return (await teamSeatsAt(params, address)) ?? refuseWithoutSeat();
 }
 
+const ROLE_GONE: ReadonlySet<Code> = new Set<Code>(["role_not_held"]);
+
 /** Whether the backend refused a read because the person's Funktion went after the page's own check. */
-export const isRoleGone = (error: unknown): boolean => error instanceof APIBadStatusError && error.serverErrorCode === "role_not_held";
+export const isRoleGone = (error: unknown): boolean => refusedAs(error, ROLE_GONE);
 
 /**
  * A pupil's or a referee's page's read of the backend, sending the person on to the landing where the backend finds
@@ -133,8 +127,8 @@ export async function readAsRoleHolder<Read>(kind: PersonKind, read: () => Promi
 }
 
 /**
- * A team page's read of the backend, ending on the same card where the backend finds the seat gone after the page's
- * own check; every other failure reaches the frame's error card.
+ * A team page's read of the backend, sending the person on to the landing where the backend finds the seat gone after
+ * the page's own check, as a person holding none is sent; every other failure reaches the frame's error card.
  */
 export async function readAsSeatHolder<Read>(read: () => Promise<Read>): Promise<Read> {
   try {

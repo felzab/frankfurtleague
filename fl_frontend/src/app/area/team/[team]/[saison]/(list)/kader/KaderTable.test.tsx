@@ -3,7 +3,7 @@ import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 import { ListQueryScope } from "@/kit/ListTable";
 import { renderUnderNext } from "@/test-support/nextContexts";
 
@@ -45,6 +45,7 @@ function drawn() {
         read={{ allowed_stufen: ["Q1", "Q2"], kader: KADER }}
         team={TEAM}
         saison={SAISON}
+        rules={{}}
       />
     </ListQueryScope>,
   );

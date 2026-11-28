@@ -39,7 +39,7 @@ from app.api.spieler.crud import pull_kader_room
 from app.api.spieler.services import find_full_kader_refusal
 from app.core.clock import days_after, utc_stamp
 from app.core.collections import Collection
-from app.core.crud import patch_one_in_db, post_one_to_db, pull_by_token, pull_one_from_db, refuse
+from app.core.crud import patch_one_in_db, post_one_to_db, pull_by_token, pull_one_from_db, refuse, refuse_faults
 from app.core.dependencies import (
     DBClient,
     GermanDay,
@@ -322,7 +322,6 @@ async def post_registrierung(
 # the submission is.
 @router.post(
     "/confirmation/view",
-    response_model=FLRegistrierungConfirmationViewResponse,
     summary="What one registration confirmation link opens",
     openapi_extra=SAFE,
 )
@@ -332,7 +331,7 @@ async def get_confirmation_view(
     teams_collection: TeamsReadCollection,
     saison_teams_collection: SaisonTeamsReadCollection,
     today: GermanDay,
-) -> FLRegistrierungConfirmationViewValid | FLRegistrierungConfirmationViewConfirmed | FLRegistrierungConfirmationViewExpired:
+) -> FLRegistrierungConfirmationViewResponse:
     """What the registration this confirmation link opens shows, and nothing of the pupil but the day they answered.
 
     A confirmed or expired link is served in that state, and a link whose club has left the season reads expired.
@@ -397,12 +396,17 @@ async def post_confirmation(
             session=session,
         )
 
+        # The stamp first, as `state_of` ranks it: a pupil who confirmed and presses again after the deadline, a decision
+        # or their club's departure is told their answer stands, never that the link expired.
+        refuse(find_already_confirmed_refusal(einwilligung=raw.get("einwilligung")))
         departed = await _team_departed(saison_teams_collection=saison_teams_collection, registrierung_raw=raw, session=session)
         refuse(find_expired_token_refusal(confirmation=raw.get("confirmation"), status=raw.get("status"), departed=departed, today=today))
-        refuse(find_already_confirmed_refusal(einwilligung=raw.get("einwilligung")))
         # The pupil's own floor and never a contact seat's, so raising one cannot silently raise the other.
-        refuse(find_age_refusal(birth_date=answer_data.birth_date, today=today, minimum_age=REGISTRIERUNG_MIN_AGE_YEARS))
-        refuse(find_self_media_refusal(saved=None, media=answer_data.media, birth_date=answer_data.birth_date, today=today))
+        age = find_age_refusal(birth_date=answer_data.birth_date, today=today, minimum_age=REGISTRIERUNG_MIN_AGE_YEARS)
+        # The media switch is judged on the birthdate, which means nothing once refused.
+        refuse_faults(
+            age, None if age else find_self_media_refusal(saved=None, media=answer_data.media, birth_date=answer_data.birth_date, today=today)
+        )
 
         await patch_one_in_db(
             collection=registrierungen_collection,

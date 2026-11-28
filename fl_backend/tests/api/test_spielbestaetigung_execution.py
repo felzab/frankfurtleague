@@ -7,6 +7,7 @@ date is judged, and nothing of the fixture.
 
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from datetime import date, datetime, time
+from http import HTTPStatus
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -15,8 +16,8 @@ from bson import ObjectId
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
+from app.api.saisons.admin_router import get_saison_overview
 from app.api.saisons.overview import FLOverviewSpielbestaetigungRow, FLOverviewVorschlagRow
-from app.api.saisons.overview_router import get_saison_overview
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.spielbestaetigungen.admin_router import (
     adopt_spielbestaetigung,
@@ -38,7 +39,7 @@ from app.api.spiele.schemas import FLPatchSpielDataPayload
 from app.core import clock
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.exceptions import APIError
+from app.core.exceptions import APIError, Subject
 from app.shared.schemas.literals import KONTAKT_SEATS
 from tests import documents
 from tests.acts import acts_of
@@ -256,19 +257,46 @@ class TestAProposalIsJudgedWhereTheAdminIsJudged:
     """The administrator's three judges, each through the route, and the standing clash the save itself accepts."""
 
     @pytest.mark.parametrize(
-        ("vorschlag", "neighbour", "austritt", "code"),
+        ("vorschlag", "neighbour", "austritt", "code", "subject"),
         [
-            pytest.param(("2126-05-20", "18:00:00"), None, None, Code.SPIEL_OUTSIDE_SPIELTAG, id="outside-the-matchday"),
+            pytest.param(
+                ("2126-05-20", "18:00:00"),
+                None,
+                None,
+                Code.SPIEL_OUTSIDE_SPIELTAG,
+                Subject(path=("date",), location="body", bounds={"latest": SPAN[1]}),
+                id="outside-the-matchday",
+            ),
             # Four hours apart is the buffer; two is inside it, on the referee's other booking.
             pytest.param(
-                ("2126-05-15", "20:00:00"), ("2126-05-15", "18:00:00"), None, Code.SPIEL_DOUBLE_BOOKED, id="beside-the-referees-other-fixture"
+                ("2126-05-15", "20:00:00"),
+                ("2126-05-15", "18:00:00"),
+                None,
+                Code.SPIEL_DOUBLE_BOOKED,
+                Subject(path=("schiedsrichter", "schiedsrichter_id"), location="body"),
+                id="beside-the-referees-other-fixture",
             ),
-            pytest.param(("2126-05-15", "18:00:00"), None, "2126-05-15", Code.ELIGIBILITY_DISQUALIFIED, id="on-a-clubs-exit"),
+            pytest.param(
+                ("2126-05-15", "18:00:00"),
+                None,
+                "2126-05-15",
+                Code.ELIGIBILITY_DISQUALIFIED,
+                Subject(path=("team2", "team_id"), location="body"),
+                id="on-a-clubs-exit",
+            ),
         ],
     )
-    async def test_a_refused_proposal_writes_no_row_and_no_span(
-        self, mongo_replica_set_url: str, vorschlag: tuple[str, str], neighbour: tuple[str, str] | None, austritt: str | None, code: str
+    async def test_a_refused_proposal_names_its_judges_path_and_writes_no_row_and_no_span(
+        self,
+        mongo_replica_set_url: str,
+        vorschlag: tuple[str, str],
+        neighbour: tuple[str, str] | None,
+        austritt: str | None,
+        code: Code,
+        subject: Subject,
     ):
+        """The path picks the status line's sentence where a code's is keyed by it: which resource is booked, which side left."""
+
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             if neighbour is not None:
                 await database[Collection.SPIELE].insert_one(
@@ -278,13 +306,14 @@ class TestAProposalIsJudgedWhereTheAdminIsJudged:
                 exit_record = {"type": "rueckzug", "reason": "Schule zieht zurück", "date": austritt}
                 await database[Collection.SAISON_TEAMS].update_one({"team_id": TEAM2}, {"$set": {"austritt": exit_record}})
 
-            outcome = await outcome_of(decline_as_team(database, client, holder(TEAM1, "trainer"), vorschlag))
+            with pytest.raises(APIError) as refused:
+                await decline_as_team(database, client, holder(TEAM1, "trainer"), vorschlag)
 
-            return outcome, await row_now(database, ROW1), await database[Collection.SPIELTAGE].find_one({"_id": SPIELTAG})
+            return refused.value, await row_now(database, ROW1), await database[Collection.SPIELTAGE].find_one({"_id": SPIELTAG})
 
-        outcome, row, spieltag = await on_a_spiel(mongo_replica_set_url, body)
+        refusal, row, spieltag = await on_a_spiel(mongo_replica_set_url, body)
 
-        assert outcome == code
+        assert (refusal.status_code, refusal.error_code, refusal.subject) == (HTTPStatus.CONFLICT, code, subject)
         assert row["answer"] is None
         assert (spieltag["start"], spieltag["end"]) == SPAN
 
@@ -616,20 +645,38 @@ class TestTheAdoption:
         assert await on_a_spiel(mongo_replica_set_url, body) == (Code.ANSETZUNG_NOT_ACTIONABLE, (DATE, TIME))
 
     @pytest.mark.parametrize(
-        ("since", "today", "code"),
+        ("since", "today", "code", "subject"),
         [
             # The proposed day passing between the club's press and the administrator's.
-            pytest.param(None, "2126-05-16", Code.ANSETZUNG_VORSCHLAG_PAST_AS_STORED, id="the-proposed-day-gone-by"),
-            # The save's own refusal of the proposed day, which names a box of a body this request has not got.
-            pytest.param(narrow_the_matchday, TODAY, Code.SPIEL_OUTSIDE_SPIELTAG, id="the-save-refusing-the-day"),
+            pytest.param(
+                None,
+                "2126-05-16",
+                Code.ANSETZUNG_VORSCHLAG_PAST,
+                Subject(path=("vorschlag", "date"), location="body", bounds={"earliest": "2126-05-16"}),
+                id="the-proposed-day-gone-by",
+            ),
+            # The save's own refusal of the proposed day, past the narrowed matchday's end.
+            pytest.param(
+                narrow_the_matchday,
+                TODAY,
+                Code.SPIEL_OUTSIDE_SPIELTAG,
+                Subject(path=("date",), location="body", bounds={"latest": "2126-05-14"}),
+                id="the-save-refusing-the-day",
+            ),
         ],
     )
-    async def test_a_refused_adoption_names_no_box_and_leaves_the_spiel_where_it_stands(
-        self, mongo_replica_set_url: str, since: Callable[[AsyncDatabase], Awaitable[None]] | None, today: str, code: Code
+    async def test_a_refused_adoption_keeps_the_path_and_bounds_its_judge_named_and_leaves_the_spiel_where_it_stands(
+        self,
+        mongo_replica_set_url: str,
+        since: Callable[[AsyncDatabase], Awaitable[None]] | None,
+        today: str,
+        code: Code,
+        subject: Subject,
     ):
         """Moved anyway, the fixture lands on a day gone by or outside its matchday.
 
-        Refused naming a box, the press has none to mark.
+        The path picks the status line's sentence where a code's sentence is keyed by it, and the 409 says the stored
+        proposal moved since the page was read, the adoption posting no body a 422 could judge.
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -645,7 +692,7 @@ class TestTheAdoption:
 
         refusal, slot = await on_a_spiel(mongo_replica_set_url, body)
 
-        assert (refusal.error_code, refusal.fields, refusal.bounds) == (code, (), {})
+        assert (refusal.status_code, refusal.error_code, refusal.subject) == (HTTPStatus.CONFLICT, code, subject)
         assert slot == (DATE, TIME)
 
 
@@ -1011,23 +1058,25 @@ async def save(
 ) -> Any:
     """The administrator's save from an editor that loaded `loaded`, changing what `overrides` names, or its dry run."""
 
-    return await patch_spiel(
-        spiel_id=SPIEL,
-        spiel_data=FLPatchSpielDataPayload.model_validate(spiel_patch_body(loaded, **overrides)),
-        db=client,
-        spiele_collection=either(database, Collection.SPIELE, spiele),
-        teams_collection=database[Collection.TEAMS],
-        saisons_collection=database[Collection.SAISONS],
-        saison_teams_collection=database[Collection.SAISON_TEAMS],
-        spieltage_collection=database[Collection.SPIELTAGE],
-        spielorte_collection=database[Collection.SPIELORTE],
-        schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
-        spielberichte_collection=database[Collection.SPIELBERICHTE],
-        aufstellungen_collection=database[Collection.AUFSTELLUNGEN],
-        spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
-        germany_now=NOW,
-        dry_run=dry_run,
-    )
+    async with client.start_session(snapshot=True) as session:
+        return await patch_spiel(
+            spiel_id=SPIEL,
+            spiel_data=FLPatchSpielDataPayload.model_validate(spiel_patch_body(loaded, **overrides)),
+            db=client,
+            spiele_collection=either(database, Collection.SPIELE, spiele),
+            teams_collection=database[Collection.TEAMS],
+            saisons_collection=database[Collection.SAISONS],
+            saison_teams_collection=database[Collection.SAISON_TEAMS],
+            spieltage_collection=database[Collection.SPIELTAGE],
+            spielorte_collection=database[Collection.SPIELORTE],
+            schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+            spielberichte_collection=database[Collection.SPIELBERICHTE],
+            aufstellungen_collection=database[Collection.AUFSTELLUNGEN],
+            spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
+            germany_now=NOW,
+            dry_run=dry_run,
+            session=session,
+        )
 
 
 class TestASaveFromAnEditorOpenedBeforeTheDecline:

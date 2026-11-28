@@ -26,7 +26,7 @@ from tests.documents import (
     spielbestaetigung_document,
     team_document,
 )
-from tests.isolation import refused_code
+from tests.isolation import InterleavedCollection, TheRivalThenRows, refused_code
 from tests.stored import the_row
 from tests.worker import worker_database
 
@@ -191,7 +191,7 @@ class TestTheOneSave:
 
         refusal, row = await on_a_league(mongo_replica_set_url, body)
 
-        assert (refusal.error_code, refusal.fields) == (Code.TRIKOT_FARBE_TAKEN, (("trikot_farbe",),))
+        assert (refusal.error_code, tuple(fault.path for fault in refusal.faults)) == (Code.TRIKOT_FARBE_TAKEN, (("trikot_farbe",),))
         assert row["trikot_farbe"] is None
 
     async def test_a_stored_pair_of_colours_locks_neither_team_s_other_fields(self, mongo_replica_set_url: str):
@@ -315,7 +315,7 @@ class TestTheEntry:
             with pytest.raises(APIError) as refused:
                 await enter(database, {"kind": "new", "team": team_fields(name="Eschborn", shorthand="DOR")})
 
-            return refused.value.error_code, refused.value.fields
+            return refused.value.error_code, tuple(fault.path for fault in refused.value.faults)
 
         assert await on_a_league(mongo_replica_set_url, body) == (Code.DUPLICATE_KEY, (("shorthand",),))
 
@@ -342,7 +342,7 @@ class TestTheEntry:
 
         refusal, rows = await on_a_league(mongo_replica_set_url, body)
 
-        assert (refusal.error_code, refusal.fields, rows) == (Code.TRIKOT_FARBE_TAKEN, (("trikot_farbe",),), 0)
+        assert (refusal.error_code, tuple(fault.path for fault in refusal.faults), rows) == (Code.TRIKOT_FARBE_TAKEN, (("trikot_farbe",),), 0)
 
 
 class TestTheList:
@@ -494,41 +494,11 @@ async def seat_bieber_and_ask_the_referee(database: AsyncDatabase) -> None:
     )
 
 
-class RefereesErasedAtTheirRead:
+class RefereesErasedAtTheirRead(InterleavedCollection):
     """The referee records, a rival committing once just before their read runs: after the read's other reads."""
 
-    def __init__(self, collection: Any, rival: Callable[[], Awaitable[Any]]) -> None:
-        self._collection = collection
-        self._rival: Callable[[], Awaitable[Any]] | None = rival
-
-    def __getattr__(self, name: str) -> Any:
-        return getattr(self._collection, name)
-
-    def find(self, *args: Any, **kwargs: Any) -> Any:
-        return _RivalFirstCursor(self._collection.find(*args, **kwargs), self)
-
-    async def run_the_rival(self) -> None:
-        if self._rival is not None:
-            rival, self._rival = self._rival, None
-            await rival()
-
-
-class _RivalFirstCursor:
-    def __init__(self, cursor: Any, referees: RefereesErasedAtTheirRead) -> None:
-        self._cursor = cursor
-        self._referees = referees
-
-    def sort(self, *args: Any, **kwargs: Any) -> _RivalFirstCursor:
-        self._cursor = self._cursor.sort(*args, **kwargs)
-        return self
-
-    def limit(self, *args: Any, **kwargs: Any) -> _RivalFirstCursor:
-        self._cursor = self._cursor.limit(*args, **kwargs)
-        return self
-
-    async def to_list(self, *args: Any, **kwargs: Any) -> Any:
-        await self._referees.run_the_rival()
-        return await self._cursor.to_list(*args, **kwargs)
+    def find(self, *args: Any, **kwargs: Any) -> TheRivalThenRows:
+        return TheRivalThenRows(self._collection.find(*args, **kwargs), self.run_the_rival)
 
 
 class TestTheExitDialogsRecipients:

@@ -93,7 +93,7 @@ def order(teams: list[FLTeam], documents: list[dict[str, Any]], rules: FLSaisonR
 def tabelle(teams: list[FLTeam], documents: list[dict[str, Any]], rules: FLSaisonRules = RULES) -> list[FLTabelleRow]:
     """Group A's rows as the Tabelle serves them (`build_tabelle`), each with its `platz`."""
 
-    return build_tabelle(teams, FLSpielListAdapter.validate_python(documents), rules).root["A"]
+    return build_tabelle(teams, FLSpielListAdapter.validate_python(documents), rules)["A"]
 
 
 def platz_by_team_id(teams: list[FLTeam], documents: list[dict[str, Any]], rules: FLSaisonRules = RULES) -> dict[str, int]:

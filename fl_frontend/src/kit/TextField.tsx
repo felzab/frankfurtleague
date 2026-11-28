@@ -2,36 +2,36 @@
 
 import { useId } from "react";
 
+import { Group } from "react-aria-components/Group";
 import { TextField as AriaTextField, Input, TextArea } from "react-aria-components/TextField";
-import { useIsSSR } from "react-aria/SSRProvider";
 
-import { COPY, textOf } from "@/core/copy";
+import { textOf } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 import { isDeliverableAddress, KONTAKT_EMAIL_MAX_LENGTH } from "@/core/emailAddress";
 
-import { FieldLabel, MessageLine, useFieldLock } from "./FieldParts";
+import { FieldLabel, MessageLine, useFieldLock, useFieldWait } from "./FieldParts";
 import { fieldFrame, fieldRoot, fieldSignifier, fieldUnit, groupInput } from "./fieldStyles";
+import { useBoxRule } from "./HeldForm";
 import { Icon } from "./Icon";
-import { useEarlyEdit } from "./useEarlyEdit";
 
+import type { BoxRule } from "@/core/boxRules";
 import type { Copy, Words } from "@/core/copy";
 import type { Constraints } from "./FieldParts";
 
 type Shared = {
   /** The catalogue's words, or a record's own, such as a score field named by its club. */
   label: Words;
-  isRequired?: boolean;
   isDisabled?: boolean;
   /**
    * Held fixed by its record, such as a season's points once it has begun: read-only, its label marked with the lock
    * (`useFieldLock`), while the editor's lock line says why.
    */
   isLocked?: boolean;
+  /** The box the field posts under, by which its form hands it the rules its lane holds it to (`useBoxRule`). */
   name?: string;
   value?: string;
   defaultValue?: string;
   onChange?: (value: string) => void;
-  maxLength?: number;
-  minLength?: number;
   /**
    * Whether the label names the field to a screen reader alone, the place around it naming it on the screen: a
    * section holding this one field, whose title the label is, or a score's column head. A required mark goes with it.
@@ -57,18 +57,18 @@ type Autofill = "name" | "given-name" | "family-name" | "organization" | "street
  */
 type EmailAutofill = "email" | "username";
 
-/** A single line's keyboard, set by `kind`; a URL and a minute name the example their message shows. */
+/**
+ * A single line's keyboard, set by `kind`. What the value must meet is its lane's, by the field's `name`
+ * (`useBoxRule`), and the field judges it (`judgeOf`).
+ */
 type Kind =
-  | { kind: "text"; autofill?: Autofill; example?: never; pattern?: never }
-  | { kind: "digits"; autofill?: Autofill; example?: never; pattern?: never }
-  | { kind: "email"; autofill?: EmailAutofill; example?: never; pattern?: never }
-  | { kind: "tel"; autofill?: never; example?: never; pattern?: never }
-  | { kind: "url"; autofill?: never; example: Copy; pattern?: never }
-  /**
-   * A played minute, stoppage time after a plus, „90+3“: `pattern` is the write's own for it, which the caller reads
-   * off the published contract, a server module the kit cannot import.
-   */
-  | { kind: "minute"; autofill?: never; example: Copy; pattern: string };
+  | { kind: "text"; autofill?: Autofill }
+  | { kind: "digits"; autofill?: Autofill }
+  | { kind: "email"; autofill?: EmailAutofill }
+  | { kind: "tel"; autofill?: never }
+  | { kind: "url"; autofill?: never }
+  /** A played minute, stoppage time after a plus, „90+3“. */
+  | { kind: "minute"; autofill?: never };
 
 /*
  * A field's width follows from what it holds, so no caller sets one: a value of a known length is short, a paragraph
@@ -76,8 +76,8 @@ type Kind =
  */
 
 /**
- * A value of a known length, as wide as it is: `holds` counts its characters, 2 for a score, a shirt number or a
- * count, 5 for a minute, a price, a postcode or a house number. `unit` stands after the value inside the field, as
+ * A value of a known length, as wide as it is: `holds` counts its characters, 2 for a score or a count, 5 for a
+ * shirt number, a minute, a price, a postcode or a house number. `unit` stands after the value inside the field, as
  * „€“ after a price.
  */
 type Short = { holds: 2 | 5; unit?: Copy } & Kind;
@@ -86,40 +86,67 @@ type Short = { holds: 2 | 5; unit?: Copy } & Kind;
 type Standard = { holds?: never; unit?: never } & Kind;
 
 /** A paragraph: its box's whole width at four lines. */
-type Paragraph = { kind: "paragraph"; holds?: never; autofill?: never; example?: never; unit?: never; pattern?: never };
+type Paragraph = { kind: "paragraph"; holds?: never; autofill?: never; unit?: never };
 
 export type TextFieldProps = Shared & (Short | Standard | Paragraph);
 
 /**
  * What each kind sets on the input: its type, the keyboard a phone opens, what the browser offers to fill.
- * A text, digits or address field is filled only where its `autofill` names what it asks for.
+ * A text, digits or address field is filled only where its `autofill` names what it asks for. A phone number and a
+ * website take `off`, which asks the browser for none of the person's own values and none of its past entries: every
+ * one the site asks for is somebody else's, a seat holder's, a referee's or a school's. `off` is a hint, which a
+ * browser's address profile may still pass over and offer the person's own number.
  */
 const KINDS = {
-  text: { type: "text", inputMode: undefined, autoComplete: undefined, pattern: undefined },
-  paragraph: { type: "text", inputMode: undefined, autoComplete: undefined, pattern: undefined },
-  // A count or a figure: a plain field opening the digits keyboard, with no stepper, taking digits alone, so
-  // anything else reads „Format: …“ at the send rather than reaching the server.
-  digits: { type: "text", inputMode: "numeric", autoComplete: undefined, pattern: "[0-9]*" },
+  text: { type: "text", inputMode: undefined, autoComplete: undefined },
+  paragraph: { type: "text", inputMode: undefined, autoComplete: undefined },
+  // A count or a figure: a plain field opening the digits keyboard, with no stepper, taking digits alone (`DIGITS`).
+  digits: { type: "text", inputMode: "numeric", autoComplete: undefined },
   // The phone pad, which carries the plus beside the digits where `numeric`'s pad carries none; a plain text field
   // under it, so a keyboard whose pad lacks the plus still types one. The pattern is the caller's.
-  minute: { type: "text", inputMode: "tel", autoComplete: undefined, pattern: undefined },
-  email: { type: "email", inputMode: undefined, autoComplete: "off", pattern: undefined },
-  tel: { type: "tel", inputMode: undefined, autoComplete: "tel", pattern: undefined },
-  url: { type: "url", inputMode: undefined, autoComplete: "url", pattern: undefined },
+  minute: { type: "text", inputMode: "tel", autoComplete: undefined },
+  email: { type: "email", inputMode: undefined, autoComplete: "off" },
+  tel: { type: "tel", inputMode: undefined, autoComplete: "off" },
+  url: { type: "url", inputMode: undefined, autoComplete: "off" },
 } as const;
 
-/** The example a malformed value is shown, by kind; a URL names its own. */
-const EXAMPLE = { email: COPY.shared.field.exampleAddress, digits: COPY.shared.field.exampleDigits } as const;
+/** The example a malformed value is shown, by kind, where its lane names none, as a name's or a minute's lane does. */
+const EXAMPLE: Partial<Record<TextFieldProps["kind"], Copy>> = {
+  email: COPY.shared.field.exampleAddress,
+  digits: COPY.shared.field.exampleDigits,
+  tel: COPY.shared.field.examplePhone,
+  url: COPY.shared.field.exampleUrl,
+};
+
+/** A digits field's own: digits alone, so anything else reads „Format: …“ at the send rather than reaching the server. */
+const DIGITS = /^[0-9]*$/u;
+
+/** The line a figure outside its lane's bounds reads, naming every bound, as the server's parse names them. */
+function boundsLine({ min, max }: BoxRule): Copy | undefined {
+  if (min !== undefined && max !== undefined) return COPY.shared.field.between(min, max);
+  if (min !== undefined) return COPY.shared.field.min(min);
+  return max === undefined ? undefined : COPY.shared.field.max(max);
+}
 
 /**
- * What the browser's own check passes and the server refuses, judged on the press so a slip costs no round trip and,
- * behind the passkey touch, no touch: a required box holding only spaces, which the server trims to nothing, and an
- * address outside the API's rule, such as a host with no dot, which `type=email` takes. Each in the phrase the
- * server's refusal puts on the box. React Aria shows it once the value is committed or the form pressed, as every
- * field message, and the press goes nowhere while it stands. The sign-in library's own rule and every rule reading a
- * record stay the server's.
+ * What the browser's own check passes and the server refuses, judged on the press so a slip costs no round trip: a
+ * required box holding only spaces, which the server trims to nothing; an address outside the API's rule, such as a
+ * host with no dot, which `type=email` takes; a value meeting none of its lane's patterns; and a figure outside its
+ * lane's bounds. Each in the phrase the server's refusal puts on the box. React Aria shows it once the value is
+ * committed or the form pressed, as every field message, and the press goes nowhere while it stands. The sign-in
+ * library's own rule and every rule reading a record stay the server's, as does a pattern whose message names no
+ * example, which only a pasted control character breaks.
+ *
+ * A pattern is judged here rather than by the input's `pattern` attribute, which HTML compiles under the `v` flag and
+ * anchors whole: the contract's phone pattern is a SyntaxError there, its class holding an unescaped bracket, a browser
+ * drops a pattern it cannot compile in silence, and JSON Schema's pattern matches anywhere in the value, as the erasure
+ * address's `@` does. Each compiles under `u`, which the name's `\p{L}` needs, and JSON Schema reads it so. The value
+ * judged is trimmed, as the action strips what it sends.
  */
-function judgeOf(kind: TextFieldProps["kind"], isRequired: boolean) {
+function judgeOf(kind: TextFieldProps["kind"], isRequired: boolean, rule: BoxRule) {
+  const example = rule.example ?? EXAMPLE[kind];
+  const patterns = example === undefined ? [] : (rule.patterns ?? []).map((source) => new RegExp(source, "u"));
+  const bounds = boundsLine(rule);
   return (value: string): Copy | null => {
     const trimmed = value.trim();
     if (trimmed === "") return isRequired && value !== "" ? COPY.shared.field.required : null;
@@ -127,29 +154,13 @@ function judgeOf(kind: TextFieldProps["kind"], isRequired: boolean) {
     if (kind === "email" && trimmed.length <= KONTAKT_EMAIL_MAX_LENGTH && !isDeliverableAddress(trimmed)) {
       return COPY.shared.field.format(COPY.shared.field.exampleAddress);
     }
-    return null;
+    const isShaped =
+      (kind !== "digits" || DIGITS.test(trimmed)) && (patterns.length === 0 || patterns.some((pattern) => pattern.test(trimmed)));
+    if (!isShaped && example !== undefined) return COPY.shared.field.format(example);
+    if (bounds === undefined || kind !== "digits") return null;
+    const figure = Number(trimmed);
+    return (rule.min !== undefined && figure < rule.min) || (rule.max !== undefined && figure > rule.max) ? bounds : null;
   };
-}
-
-/**
- * A paragraph's control. While hydrating, React writes a stored text back over a `textarea` before any effect can read
- * what a person typed there, so `useEarlyEdit` has nothing to raise and a press would save nothing under
- * „Gespeichert“. So a stored paragraph takes no edit until the page's code runs: `readOnly` paints as the live field
- * does and keeps its Tab stop and the caret a click leaves, where `inert` takes both. An empty one keeps its replay,
- * since React writes nothing there.
- */
-function ParagraphBox({ isStored, className }: { isStored: boolean; className: string }) {
-  // Upstream: goes with `useEarlyEdit`, since React's own replay writes nothing over a `textarea` it hydrates.
-  const isWaiting = useIsSSR();
-  return (
-    <TextArea
-      data-kit-focus="field"
-      rows={4}
-      // Unset rather than false once the code runs, so a locked or closed field's read-only state from its field stands.
-      readOnly={(isWaiting && isStored) || undefined}
-      className={className}
-    />
-  );
 }
 
 /**
@@ -158,31 +169,23 @@ function ParagraphBox({ isStored, className }: { isStored: boolean; className: s
  * committed or the form submitted, never while typing.
  */
 export function TextField(props: TextFieldProps) {
-  const {
-    label,
-    labelHidden = false,
-    description,
-    consequence,
-    isRequired = false,
-    isDisabled = false,
-    isLocked = false,
-    kind,
-    maxLength,
-    minLength,
-  } = props;
+  const { label, labelHidden = false, description, consequence, isDisabled = false, isLocked = false, kind } = props;
+  const rule = useBoxRule(props.name);
+  const { maxLength, minLength } = rule;
   const keys = KINDS[kind];
   const width = kind === "paragraph" ? "full" : props.holds === undefined ? "standard" : "short";
   const constraints: Constraints = {
     maxLength,
     minLength,
-    example:
-      props.kind === "url" || props.kind === "minute" ? props.example : kind === "email" || kind === "digits" ? EXAMPLE[kind] : undefined,
+    // The two kinds whose `type` the browser judges itself; every pattern words its own message (`judgeOf`).
+    example: kind === "url" || kind === "email" ? EXAMPLE[kind] : undefined,
   };
   const frame = fieldFrame({ width, holds: props.holds, inset: "full", figures: kind === "digits" || kind === "minute" });
   const field =
     width === "full" ? (
-      <ParagraphBox
-        isStored={Boolean(props.value ?? props.defaultValue)}
+      <TextArea
+        data-kit-focus="field"
+        rows={4}
         className={frame}
       />
     ) : (
@@ -195,12 +198,11 @@ export function TextField(props: TextFieldProps) {
     );
   const unit = fieldUnit({ holds: props.holds });
   const unitId = useId();
-  const root = useEarlyEdit();
-  const lock = useFieldLock(isDisabled, isLocked, isRequired);
+  const lock = useFieldLock(isLocked, rule.required);
 
   return (
     <AriaTextField
-      ref={root}
+      inert={useFieldWait()}
       className={fieldRoot()}
       aria-label={labelHidden ? textOf(label) : undefined}
       name={props.name}
@@ -208,14 +210,13 @@ export function TextField(props: TextFieldProps) {
       defaultValue={props.defaultValue}
       onChange={props.onChange}
       isRequired={lock.isRequired}
-      validate={judgeOf(kind, lock.isRequired)}
-      isDisabled={lock.isDisabled}
+      validate={judgeOf(kind, lock.isRequired, rule)}
+      isDisabled={isDisabled}
       isReadOnly={lock.isReadOnly}
       maxLength={maxLength}
       minLength={minLength}
       type={keys.type}
       inputMode={keys.inputMode}
-      pattern={props.pattern ?? keys.pattern}
       autoComplete={props.autofill ?? keys.autoComplete}
       aria-describedby={props.unit === undefined ? undefined : unitId}>
       {!labelHidden && (
@@ -228,8 +229,11 @@ export function TextField(props: TextFieldProps) {
       {props.unit === undefined ? (
         field
       ) : (
-        // The frame is the group, as a date's or a combo box's is, and rings as a whole while its input is focused.
-        <div
+        // The frame is the group, as a date's or a combo box's is, and rings as a whole while its input is focused. React
+        // Aria's, so its hover covers the unit too; presentational, as the text field's own context sets it, since the
+        // figure and its unit are one control.
+        <Group
+          role="presentation"
           data-kit-focus="field"
           data-kit-short
           className={fieldFrame({ width: "short", inset: "full", class: unit.frame() })}>
@@ -245,7 +249,7 @@ export function TextField(props: TextFieldProps) {
             className={unit.unit()}>
             {props.unit}
           </span>
-        </div>
+        </Group>
       )}
       <MessageLine
         description={description}
@@ -260,8 +264,9 @@ export function TextField(props: TextFieldProps) {
  * A select its record holds fixed or its form closed (`Select`), drawn as the answer it shows. React Aria's select takes
  * no read-only state, its props omitting `isReadOnly`, and its closed trigger changes the value by the arrow keys and
  * by typing, so it stands as a read-only text field holding the chosen answer's words: in the trigger's own frame, in
- * every field's read-only look, its arrow a read-only signifier (`fieldSignifier`), reachable by the keys and heard as read-only as every other locked field is. It posts nothing, as a
- * disabled select does, and takes no edit before hydration, its input standing `readOnly` in the server's markup too.
+ * every field's read-only look, its arrow a read-only signifier (`fieldSignifier`), reachable by the keys and heard
+ * as read-only as every other locked field is. It posts nothing, as a disabled select does, and takes no edit before
+ * hydration, its input standing `readOnly` in the server's markup too.
  */
 export function ChosenField({
   label,
@@ -298,7 +303,11 @@ export function ChosenField({
           isLocked={isMarked}
         />
       )}
-      <div
+      {/* React Aria's group, as the unit frame is, so the frame carries `data-focus-visible` while the keys hold its
+          input: a read-only field rings by that mark alone (`app/focus.css`). Presentational, as the text field's own
+          context sets it, since the answer and its arrow are one control. */}
+      <Group
+        role="presentation"
         data-kit-focus="field"
         className={frame}>
         <Input
@@ -311,7 +320,7 @@ export function ChosenField({
             size={16}
           />
         </span>
-      </div>
+      </Group>
       <MessageLine
         description={description}
         consequence={consequence}

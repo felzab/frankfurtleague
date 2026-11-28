@@ -3,19 +3,19 @@
 import { z } from "zod";
 
 import { action, numberBox } from "@/core/action";
-import { COPY } from "@/core/copy";
+import { ADMIN_COPY } from "@/core/copy/admin";
+import { COPY } from "@/core/copy/shared";
 import { spielortePatchSpielort } from "@/core/generated/client/sdk";
 import { SpielortePatchSpielortBody, SpielortePatchSpielortParams } from "@/core/generated/zod/inputs";
 import { getSpielort } from "@/features/spielorte/queries";
 
 import { valuesOf } from "./spielortValues";
 
-import type { ActionAnswer } from "@/core/action";
+import type { LaneAnswer } from "@/core/action";
 
 const { shape } = SpielortePatchSpielortBody;
 const address = shape.address.shape;
 
-/** What the editor's boxes send, each held to the venue write's own published rule for it. */
 const SaveSpielort = z.object({
   id: SpielortePatchSpielortParams.shape.spielort_id,
   version: shape.version,
@@ -27,7 +27,7 @@ const SaveSpielort = z.object({
       postcode: address.postcode,
       district: address.district,
       city: address.city,
-      mietpreis: numberBox(shape.default_mietpreis),
+      default_mietpreis: numberBox(shape.default_mietpreis),
     })
     .partial(),
 });
@@ -42,23 +42,21 @@ export const saveSpielort = action({
   lane: "admin",
   name: "saveSpielort",
   input: SaveSpielort,
-  ownWords: ["duplicate_key"],
-  paths: { name: "changes.name" },
   examples: {
-    "changes.postcode": COPY.admin.spielort.postcodeExample,
-    "changes.house_number": COPY.admin.spielort.houseNumberExample,
-    "changes.mietpreis": COPY.admin.spielort.mietpreisExample,
+    "changes.postcode": COPY.shared.address.postcodeExample,
+    "changes.house_number": COPY.shared.address.houseNumberExample,
+    "changes.default_mietpreis": ADMIN_COPY.spielort.mietpreisExample,
   },
-  run: async ({ id, version, changes }): Promise<ActionAnswer<number>> => {
+  run: async ({ id, version, changes }): Promise<LaneAnswer<number>> => {
     const stored = await getSpielort(id);
     if (stored === null) return { ok: false, reason: COPY.shared.failure.stale };
 
-    const { mietpreis, ...text } = changes;
+    const { default_mietpreis, ...text } = changes;
     const { name, street, house_number, postcode, district, city } = { ...valuesOf(stored), ...text };
     const written = await spielortePatchSpielort(id, {
       name,
       // The stored figure where the price was left alone, never the text the editor shows it as.
-      default_mietpreis: mietpreis ?? stored.default_mietpreis,
+      default_mietpreis: default_mietpreis ?? stored.default_mietpreis,
       address: { street, house_number, postcode, district, city },
       version,
     });

@@ -1,20 +1,22 @@
 import "server-only";
 
-import { mailOrigin } from "./emailShell";
 import { ROUTES } from "./routes";
 import { SERVER_COPY } from "./serverCopy";
 
 import type { Copy } from "./copy";
 import type { Mail, Paragraph } from "./emailShell";
 import type { FLGrantData } from "./generated/client/types";
-import type { MailOrigin } from "./mailKinds";
+import type { MailRecipient } from "./mailKinds";
 
 const WORDS = SERVER_COPY.mail.grant;
 
 function subjectOf({ change, stage }: FLGrantData): Copy {
   if (change === "revoked") return WORDS.subject.revoked;
+  if (stage === "withdrawn") return WORDS.subject.withdrawn;
+  // An addition holds from its start, so the backend never completes one: its lead keeps the start's words too.
+  if (stage === "started" || change === "granted") return WORDS.subject[change];
 
-  return stage === "started" ? WORDS.subject[change] : WORDS.subject[stage];
+  return WORDS.subject.completed[change];
 }
 
 function leadOf({ change, stage, address, new_address }: FLGrantData): Copy {
@@ -40,16 +42,17 @@ function leadOf({ change, stage, address, new_address }: FLGrantData): Copy {
 
 /**
  * **The body depends on the change alone**, never on when it is sent or to whom: every holder is owed the same notice.
- * An addition's start is a first contact, the address having come from the owner and perhaps been mistyped, so it
- * carries the Art. 21 line and its „Nicht du?“.
+ * An addition's start is a first contact for the address it names alone, that address having come from the owner and
+ * perhaps been mistyped, so that copy carries the Art. 21 line and its „Nicht du?“. No holder in office shares the
+ * address, which the grants hold once each.
  */
-export function buildGrantEmail(data: FLGrantData, { origin: rawOrigin }: MailOrigin): Mail {
-  const origin = mailOrigin(rawOrigin);
+export function buildGrantEmail(data: FLGrantData, { origin, to }: MailRecipient): Mail {
   const { effective_from: effectiveFrom } = data;
   const takesEffect: Paragraph[] = effectiveFrom === null ? [] : [[WORDS.effectiveFrom(effectiveFrom)]];
+  const firstContact = data.change === "granted" && data.stage === "started" && to === data.address;
 
   return {
-    kind: data.change === "granted" && data.stage === "started" ? "firstContact" : "notice",
+    audience: firstContact ? "firstContact" : "notice",
     subjectLine: subjectOf(data),
     origin,
     paragraphs: [[leadOf(data)], ...takesEffect, [WORDS.warn]],

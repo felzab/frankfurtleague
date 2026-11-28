@@ -52,6 +52,7 @@ from app.api.spiele.services import (
     find_retired_bookings,
     find_slot_claims,
     find_state_refusal,
+    find_team_not_in_saison_refusal,
     judge_spieltag_occupancy,
     reopens,
     resolve_bracket,
@@ -59,7 +60,7 @@ from app.api.spiele.services import (
 )
 from app.core import clock
 from app.core.codes import Code
-from app.core.exceptions import APIError, FieldPath
+from app.core.exceptions import APIError, FieldFault, FieldPath
 from tests import documents
 from tests.isolation import refused_code
 from tests.payloads import PayloadFactory, sieger, spiel_patch_body
@@ -180,23 +181,34 @@ def payload_for(saison_docs: list[dict[str, Any]], nr: int, **overrides: Any) ->
     return FLPatchSpielDataPayload.model_validate(spiel_patch_body(stored, **overrides))
 
 
-def eligibility_refusal_for(saison_docs: list[dict[str, Any]], nr: int, membership: dict[str, str | None], **overrides: Any) -> APIError | None:
-    """`membership` maps a club to the day it is disqualified from, or `None` while it competes — `pull_saison_membership`'s rows, keyed."""
+def eligibility_refusal_for(
+    saison_docs: list[dict[str, Any]], nr: int, membership: dict[str, str | None], **overrides: Any
+) -> APIError | tuple[FieldFault, ...]:
+    """The gate for a club with no row in the season where it refuses, else each side's fault, as the save asks them.
+
+    `membership` maps a club to the day it is disqualified from, or `None` while it competes — `pull_saison_membership`'s
+    rows, keyed.
+    """
 
     stored = stored_spiel(saison_docs, nr)
-
-    return find_eligibility_refusal(
+    judged = (
         ObjectId(stored["_id"]),
         payload_for(saison_docs, nr, **overrides),
         FLSpielListAdapter.validate_python(saison_docs),
         {ObjectId(team_id): membership_of(team_id, disqualified_from) for team_id, disqualified_from in membership.items()},
     )
 
+    return find_team_not_in_saison_refusal(*judged) or find_eligibility_refusal(*judged)
+
 
 def eligibility_for(saison_docs: list[dict[str, Any]], nr: int, membership: dict[str, str | None], **overrides: Any) -> str | None:
-    refusal = eligibility_refusal_for(saison_docs, nr, membership, **overrides)
+    """The code a side's eligibility refuses with: the first side's fault's, or the gate's for a club with no row in the season."""
 
-    return None if refusal is None else refusal.error_code
+    refusal = eligibility_refusal_for(saison_docs, nr, membership, **overrides)
+    if isinstance(refusal, APIError):
+        return refusal.error_code
+
+    return refusal[0].code if refusal else None
 
 
 def occupancy_for(saison_docs: list[dict[str, Any]], nr: int, **overrides: Any):
@@ -410,7 +422,7 @@ class TestComposingTheBookings:
         assert patched.spielort is None and patched.schiedsrichter is None
 
 
-def booking_refusal(saison_docs: list[dict[str, Any]], nr: int, resolved: ResolvedReferences, **overrides: Any) -> APIError | None:
+def booking_refusal(saison_docs: list[dict[str, Any]], nr: int, resolved: ResolvedReferences, **overrides: Any) -> tuple[FieldFault, ...]:
     stored = stored_spiel(saison_docs, nr)
 
     return find_booking_refusal(
@@ -425,11 +437,17 @@ def booking_refusal(saison_docs: list[dict[str, Any]], nr: int, resolved: Resolv
 def booking_refusal_for(
     saison_docs: list[dict[str, Any]], nr: int, resolved: ResolvedReferences, **overrides: Any
 ) -> tuple[str, tuple[FieldPath, ...]] | None:
-    """The refusal's code and the fields it names, which pick the editor's sentence: one wording per booked row."""
+    """The refusal's code and the fields it names, which pick the editor's sentence: one wording per booked row.
 
-    refusal = booking_refusal(saison_docs, nr, resolved, **overrides)
+    Every case here refuses one code, so a second code among the faults fails here rather than hiding behind the first.
+    """
 
-    return None if refusal is None else (refusal.error_code, refusal.fields)
+    faults = booking_refusal(saison_docs, nr, resolved, **overrides)
+    if not faults:
+        return None
+
+    (code,) = {fault.code for fault in faults}
+    return code, tuple(fault.path for fault in faults)
 
 
 SPIELORT_PATH: FieldPath = ("spielort", "spielort_id")
@@ -506,6 +524,19 @@ class TestASpielReopenedBooksWhatItKeeps:
         )
 
 
+class TestTheVenueAndTheRefereeAreJudgedApart:
+    def test_a_retired_venue_and_an_unconfirmed_referee_are_refused_in_one_answer(self, saison):
+        """Each booking on its own box: an answer naming the venue alone leaves the referee for a later press."""
+
+        resolved = references(spielort=RETIRED_SPIELORT, schiedsrichter=UNCONFIRMED_SCHIEDSRICHTER)
+        refusal = booking_refusal(saison, 1, resolved, spielort=A_DIFFERENT_SPIELORT, schiedsrichter=A_DIFFERENT_SCHIEDSRICHTER)
+
+        assert [(fault.code, fault.path) for fault in refusal] == [
+            (Code.BOOKING_UNKNOWN_RESOURCE, SPIELORT_PATH),
+            (Code.BOOKING_UNCONFIRMED_SCHIEDSRICHTER, SCHIEDSRICHTER_PATH),
+        ]
+
+
 class TestAnUnconfirmedRefereeIsNeverBooked:
     """`booking_unconfirmed_schiedsrichter`: a referee is booked only once confirmed, judged on what `booking_unknown_resource` judges."""
 
@@ -548,8 +579,7 @@ class TestABookingNamingNobody:
         seasoned = [{**doc, "schiedsrichter": stored} if doc["spiel_nr"] == 1 else doc for doc in saison]
         refusal = booking_refusal(seasoned, 1, references(), schiedsrichter=NOBODY)
 
-        assert refusal is not None
-        assert (refusal.error_code, refusal.fields) == (Code.BOOKING_UNKNOWN_RESOURCE, (("schiedsrichter", "schiedsrichter_id"),))
+        assert [(fault.code, fault.path) for fault in refusal] == [(Code.BOOKING_UNKNOWN_RESOURCE, ("schiedsrichter", "schiedsrichter_id"))]
 
     @pytest.mark.parametrize(
         ("time", "kept"), [pytest.param("18:30:00", True, id="still-played"), pytest.param("20:00:00", False, id="to-come")]
@@ -679,6 +709,39 @@ class TestEligibility:
             eligibility_for(saison, 1, missing, team1=team(CRONBERG, "Cronberg"), sonderereignis="annulliert")
             == Code.ELIGIBILITY_TEAM_NOT_IN_SAISON
         )
+
+    def test_both_sides_are_refused_on_their_own_boxes(self, saison):
+        """Each side judged apart: an answer naming the first alone leaves the second for a later press."""
+
+        refusal = eligibility_refusal_for(
+            saison,
+            30,
+            {**ALL_ELIGIBLE, CRONBERG: BEFORE_THE_SPIEL, ADLER: BEFORE_THE_SPIEL},
+            team1=team(CRONBERG, "Cronberg"),
+            team2=team(ADLER, "Adler"),
+        )
+
+        assert not isinstance(refusal, APIError)
+        assert [(fault.code, fault.path) for fault in refusal] == [
+            (Code.ELIGIBILITY_DISQUALIFIED, ("team1", "team_id")),
+            (Code.ELIGIBILITY_DISQUALIFIED, ("team2", "team_id")),
+        ]
+
+    def test_a_club_with_no_row_is_a_gate_the_editor_never_meets(self, saison):
+        """The gate is its own check: the editor's fieldable predicate asks the faults alone, which a club with no row passes."""
+
+        missing: dict[str, str | None] = {team_id: None for team_id in (ADLER, BIEBER, DORNBUSCH)}
+        stored = stored_spiel(saison, 30)
+        judged = (
+            ObjectId(stored["_id"]),
+            payload_for(saison, 30, team1=team(CRONBERG, "Cronberg")),
+            FLSpielListAdapter.validate_python(saison),
+            {ObjectId(team_id): membership_of(team_id, departed) for team_id, departed in missing.items()},
+        )
+
+        assert find_eligibility_refusal(*judged) == ()
+        gate = find_team_not_in_saison_refusal(*judged)
+        assert gate is not None and gate.error_code == Code.ELIGIBILITY_TEAM_NOT_IN_SAISON
 
     def test_re_dating_a_spiel_past_its_occupants_exit_is_refused(self, saison):
         """No side moved and the DATE did, which is the other half of the same predicate: the club is as ineligible either way."""
@@ -890,6 +953,7 @@ def joined(
         "saison_id": SAISON_ID,
         "ansetzung_confirmed": None,
         "for_third_place": False,
+        "version": 0,
     }
 
 
@@ -1168,7 +1232,7 @@ class TestTheClashComparesRealTime:
 
         refusal = find_clash_refusal(date="2026-03-08", time="00:30:00", booked=[self.slot("2026-03-07", "23:30:00")])
 
-        assert refusal is not None and refusal.error_code == Code.SPIEL_DOUBLE_BOOKED
+        assert [fault.code for fault in refusal] == [Code.SPIEL_DOUBLE_BOOKED]
 
     def test_the_read_fetches_every_day_the_buffer_reaches(self):
         """A day the rule compares and the read never fetches is a clash nothing sees, so one number has to bound both."""
@@ -1235,7 +1299,7 @@ class TestRemovingATeamFromAPlayedSpiel:
         assert self.removal(saison, 2, team2=None) == Code.ERGEBNIS_SIDE_EMPTIED
 
 
-def state_refusal_for(saison_docs: list[dict[str, Any]], nr: int, **overrides: Any) -> APIError | None:
+def state_refusal_for(saison_docs: list[dict[str, Any]], nr: int, **overrides: Any) -> FieldFault | None:
     """`find_state_refusal` reads the payload alone — the event and the two goal counts arrive in one body."""
 
     return find_state_refusal(payload_for(saison_docs, nr, **overrides))
@@ -1249,7 +1313,7 @@ class TestAnEventThatAwardsNothingCarriesNoResult:
         refusal = state_refusal_for(saison, 1, sonderereignis=sonderereignis, team1=team(ADLER, "Adler", tore=2))
 
         assert refusal is not None
-        assert (refusal.error_code, refusal.fields) == (Code.STATE_ERGEBNIS_ON_A_NON_EVENT, (("sonderereignis",),))
+        assert (refusal.code, refusal.path) == (Code.STATE_ERGEBNIS_ON_A_NON_EVENT, ("sonderereignis",))
 
     def test_a_zero_is_a_goal_count_like_any_other(self, saison):
         """`0` is a score somebody entered, not an absent one, and a truthiness test on the value alone would let it through."""
@@ -1257,7 +1321,7 @@ class TestAnEventThatAwardsNothingCarriesNoResult:
         refusal = state_refusal_for(saison, 1, sonderereignis="ausgefallen", team1=team(ADLER, "Adler", tore=0))
 
         assert refusal is not None
-        assert refusal.error_code == Code.STATE_ERGEBNIS_ON_A_NON_EVENT
+        assert refusal.code == Code.STATE_ERGEBNIS_ON_A_NON_EVENT
 
 
 class TestANoShowNeedsBothSides:
@@ -1270,7 +1334,7 @@ class TestANoShowNeedsBothSides:
         refusal = state_refusal_for(saison, 1, sonderereignis="nichtantreten_team1", **{emptied: None})
 
         assert refusal is not None
-        assert (refusal.error_code, refusal.fields) == (Code.STATE_NICHTANTRETEN_WITHOUT_TWO_SIDES, (("sonderereignis",),))
+        assert (refusal.code, refusal.path) == (Code.STATE_NICHTANTRETEN_WITHOUT_TWO_SIDES, ("sonderereignis",))
 
 
 # A list of fixtures as an administrator's read validates each of them.
@@ -1412,8 +1476,8 @@ class TestARetiredBookingOnAReopenedSpiel:
             RULES,
         )
 
-        assert kept is None
-        assert newly_booked is not None and newly_booked.error_code == Code.BOOKING_UNKNOWN_RESOURCE
+        assert kept == ()
+        assert [fault.code for fault in newly_booked] == [Code.BOOKING_UNKNOWN_RESOURCE]
 
 
 LIFTED_NO_SHOW_NR, BOOKED_AN_HOUR_LATER_NR = 30, 31
@@ -1449,7 +1513,7 @@ def _holders_of(spiele: list[FLSpielJoinedAdmin]) -> list[FLSpielSlotHolder]:
     return [FLSpielSlotHolder.model_validate(spiel.model_dump(by_alias=False) | {"_id": spiel.id}) for spiel in spiele]
 
 
-def _clash_refusal_of(stored: FLSpielJoinedAdmin, holders: list[FLSpielSlotHolder], **changes: Any) -> APIError | None:
+def _clash_refusal_of(stored: FLSpielJoinedAdmin, holders: list[FLSpielSlotHolder], **changes: Any) -> tuple[FieldFault, ...]:
     """`spiel_double_booked` on a save of `stored` changing `changes`, judged over the claims it makes as `judge` judges them."""
 
     payload = payload_for([stored.model_dump()], stored.spiel_nr).model_copy(update=changes)
@@ -1485,12 +1549,12 @@ class TestADoubleBookingALiftedNoShowLeaves:
         lifted, later = a_lifted_no_show_beside_a_later_booking
         holders = _holders_of([lifted, later])
 
-        assert _clash_refusal_of(lifted, holders, note="Nur eine Notiz") is None
-        assert _clash_refusal_of(later, holders, note="Nur eine Notiz") is None
+        assert _clash_refusal_of(lifted, holders, note="Nur eine Notiz") == ()
+        assert _clash_refusal_of(later, holders, note="Nur eine Notiz") == ()
 
         moved_inside = _clash_refusal_of(lifted, holders, time="17:30:00")
-        assert moved_inside is not None and moved_inside.error_code == Code.SPIEL_DOUBLE_BOOKED
-        assert _clash_refusal_of(lifted, holders, time="13:00:00") is None
+        assert [fault.code for fault in moved_inside] == [Code.SPIEL_DOUBLE_BOOKED]
+        assert _clash_refusal_of(lifted, holders, time="13:00:00") == ()
 
 
 A_SECOND_GROUND = {"spielort_id": "6890a1b2c3d4e5f607240002", "name": "Sportplatz Nord", "maps_query": "Sportplatz Nord", "mietpreis": 40}

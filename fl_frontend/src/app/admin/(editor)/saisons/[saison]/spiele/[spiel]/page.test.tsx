@@ -1,9 +1,15 @@
+// @vitest-environment jsdom
+import { screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { COPY } from "@/core/copy";
+import { ADMIN_COPY } from "@/core/copy/admin";
+import { COPY } from "@/core/copy/shared";
 import { FLSonderereignis } from "@/core/generated/client/types";
 import { SERVER_COPY } from "@/core/serverCopy";
+import { AnswerRows } from "@/kit/AnswerRows";
+import { DraftUnsaved } from "@/kit/draftUnsaved";
 import { serveBackend } from "@/test-support/backend";
+import { renderUnderNext } from "@/test-support/nextContexts";
 import { signedInRequest } from "@/test-support/session";
 
 import type { FLSpielbestaetigungEditorRow, FLSpieleAdminSingleResponse } from "@/core/generated/client/types";
@@ -77,7 +83,7 @@ describe("the match editor's links to the line-ups", () => {
   it("states and links each side's own club's line-up", async () => {
     const editor = await editorOver(VIEW);
 
-    const words = COPY.area.team.aufstellung;
+    const words = COPY.aufstellung;
     expect(editor.props.aufstellungen).toStrictEqual([
       {
         id: "team1",
@@ -102,10 +108,7 @@ describe("the match editor's links to the line-ups", () => {
     const team2 = { stored: false, phase: "locked" as const, due_at: "2026-11-11T15:00:00Z" };
     const editor = await editorOver({ ...VIEW, aufstellung_marks: { ...VIEW.aufstellung_marks, team2 } });
 
-    expect(editor.props.aufstellungen.map(({ chip }) => chip)).toStrictEqual([
-      undefined,
-      { tone: "danger", label: COPY.area.team.aufstellung.overdue },
-    ]);
+    expect(editor.props.aufstellungen.map(({ chip }) => chip)).toStrictEqual([undefined, { tone: "danger", label: COPY.aufstellung.overdue }]);
   });
 
   // The harm: a match that owes no line-up any more, called off, struck out, abandoned or not turned up to, drawn with
@@ -115,7 +118,7 @@ describe("the match editor's links to the line-ups", () => {
     for (const sonderereignis of Object.values(FLSonderereignis)) {
       const editor = await editorOver({ ...VIEW, spiel: { ...VIEW.spiel, sonderereignis } });
 
-      const words = COPY.area.team.aufstellung;
+      const words = COPY.aufstellung;
       expect(editor.props.aufstellungen, sonderereignis).toStrictEqual([
         {
           id: "team1",
@@ -126,6 +129,17 @@ describe("the match editor's links to the line-ups", () => {
         { id: "team2", href: `/admin/saisons/2027/spiele/${SPIEL_ID}/aufstellung/${TEAM2}`, name: words.ofTeam({ record: "Eiche" }) },
       ]);
     }
+  });
+
+  // The harm: a finished season's match, whose writes are all refused, drawn with „Überfällig“ beside „Fehlt“, so the
+  // league reads as owed a line-up nobody can enter any more.
+  it("says only what is stored on a finished season's match", async () => {
+    const editor = await editorOver({ ...VIEW, saison_status: "past" });
+
+    expect(editor.props.aufstellungen.map(({ chip, line }) => ({ chip, line }))).toStrictEqual([
+      { chip: undefined, line: COPY.aufstellung.counts(14, 11, 11) },
+      { chip: undefined, line: undefined },
+    ]);
   });
 });
 
@@ -150,6 +164,7 @@ describe("the match editor's answers", () => {
     state: FLSpielbestaetigungEditorRow["state"],
     fields: Partial<FLSpielbestaetigungEditorRow> = {},
   ): FLSpielbestaetigungEditorRow => ({
+    id: "64b000000000000000000010",
     party: { kind: "team", team_id: TEAM1 },
     ansetzung,
     due_by: "2026-11-10",
@@ -157,6 +172,8 @@ describe("the match editor's answers", () => {
     asked_at: "2026-11-03",
     answer: null,
     state,
+    enterable: false,
+    vorschlag_open: null,
     ...fields,
   });
   const agreement = {
@@ -166,10 +183,10 @@ describe("the match editor's answers", () => {
     vorschlag: null,
     reason: null,
   };
-  const notAsked = { chip: { tone: "warn", label: COPY.template.open }, line: COPY.admin.spiel.notAsked };
-  const lapsed = { tone: "neutral", label: COPY.admin.expired };
-  const missing = SERVER_COPY.overview.missing(COPY.area.answer);
-  const agreed = { tone: "success", label: COPY.admin.spiel.agreed };
+  const notAsked = { chip: { tone: "warn", label: COPY.template.open }, line: ADMIN_COPY.spiel.notAsked };
+  const lapsed = { tone: "neutral", label: COPY.shared.state.expired };
+  const missing = SERVER_COPY.overview.missing(COPY.spielplan.answer);
+  const agreed = { tone: "success", label: COPY.shared.state.agreed };
 
   // The harm: an answer drawn in a state its party's row is not in: open where the backend lets the party answer
   // nothing more, lapsed or not asked where the party answered, so the league chases or trusts the wrong club.
@@ -178,14 +195,14 @@ describe("the match editor's answers", () => {
       reads: "lapsed",
       rows: [row("expired", { lapsed_on: "2026-11-10" })],
       // The day it lapsed on, as every other page under that chip says, not a day still to come.
-      shown: { chip: lapsed, line: COPY.admin.schiedsrichter.expiredOn("2026-11-10") },
+      shown: { chip: lapsed, line: COPY.shared.onDay("2026-11-10") },
     },
     // An exit or a decision ended it before its deadline, which it never lapsed on.
     { reads: "ended on no day", rows: [row("expired")], shown: { chip: lapsed, line: missing } },
     {
       reads: "in time",
       rows: [row("valid")],
-      shown: { chip: { tone: "warn", label: missing }, line: COPY.admin.spiel.answerBy("2026-11-10") },
+      shown: { chip: { tone: "warn", label: missing }, line: COPY.shared.answerBy("2026-11-10") },
     },
     {
       reads: "agreed, its row closed at the kick-off",
@@ -200,7 +217,7 @@ describe("the match editor's answers", () => {
           answer: { ...agreement, kind: "declined", vorschlag: { date: "2026-11-21", time: "16:00:00" } },
         }),
       ],
-      shown: { chip: agreed, line: COPY.admin.actionLog.action["spielbestaetigung.vorschlag_discarded"] },
+      shown: { chip: agreed, line: ADMIN_COPY.actionLog.action["spielbestaetigung.vorschlag_discarded"] },
     },
     {
       // Newer than the agreement under it, which was about the slot the match has left.
@@ -212,7 +229,7 @@ describe("the match editor's answers", () => {
       // Moved since it agreed: the answer is about its old slot alone, which „not asked“ would hide.
       reads: "answered about a slot the match has left",
       rows: [row("invalid", { ansetzung: { ...ansetzung, date: "2026-11-07", time: "15:00:00" }, answer: agreement })],
-      shown: { chip: agreed, line: SERVER_COPY.season.labelled(COPY.admin.facts.before, COPY.spielplan.when("2026-11-07", "15:00:00")) },
+      shown: { chip: agreed, line: SERVER_COPY.season.labelled(COPY.shared.facts.before, COPY.spielplan.when("2026-11-07", "15:00:00")) },
     },
     {
       reads: "about a call-off since undone",
@@ -231,11 +248,11 @@ describe("the match editor's answers", () => {
   // The harm: a referee, whom the clubs' deadline does not bind, drawn as due or lapsed on it, so the league chases
   // them days early.
   it.each([
-    { reads: "in time", fields: { state: "valid" as const }, line: COPY.admin.spiel.answerBy("2026-11-14") },
+    { reads: "in time", fields: { state: "valid" as const }, line: COPY.shared.answerBy("2026-11-14") },
     {
       reads: "lapsed",
       fields: { state: "expired" as const, lapsed_on: "2026-11-14" },
-      line: COPY.admin.schiedsrichter.expiredOn("2026-11-14"),
+      line: COPY.shared.onDay("2026-11-14"),
     },
   ])("dates the referee's answer $reads by the slot's day", async ({ fields, line }) => {
     const referee = "64b000000000000000000005";
@@ -269,5 +286,69 @@ describe("the match editor's answers", () => {
         sonderereignis,
       ).toStrictEqual(["team2", "schiedsrichter"]);
     }
+  });
+
+  // The harm: a party a finished season's match never asked drawn as „Offen · Noch nicht angefragt“, a request that
+  // can no longer come; or an answer given or lapsed dropped with it, so the league loses the match's record.
+  it("keeps only the answers given or lapsed on a finished season's match", async () => {
+    const rows = [row("expired", { lapsed_on: "2026-11-10" }), row("cancelled", { party: { kind: "team", team_id: TEAM2 } })];
+    const editor = await editorOver({ ...VIEW, saison_status: "past", spielbestaetigungen: rows });
+
+    expect(editor.props.answers.map(({ id }) => id)).toStrictEqual(["team1"]);
+  });
+
+  /** The first club's decline proposing 21 November, still standing, and the second club's row, lapsed unanswered. */
+  const vorschlag = { date: "2026-11-21", time: "16:00:00" };
+  const actRows = [
+    row("declined", {
+      id: "64b000000000000000000011",
+      answer: { ...agreement, kind: "declined", vorschlag },
+      vorschlag_open: {
+        vorschlag,
+        adoption_recipients: [{ kind: "team", team_id: TEAM1, name: "Ahorn" }],
+        discard_recipients: [{ kind: "team", team_id: TEAM1, name: "Ahorn" }],
+      },
+    }),
+    row("expired", { id: "64b000000000000000000012", party: { kind: "team", team_id: TEAM2 }, lapsed_on: "2026-11-10", enterable: true }),
+  ];
+
+  /** The editor's answer rows over those rows, drawn by the kit's answer list as the editor draws them, its draft `unsaved` or not. */
+  const drawnActs = async (unsaved = false) => {
+    const editor = await editorOver({ ...VIEW, spielbestaetigungen: actRows });
+    renderUnderNext(
+      // The editor's own lock, which it provides while its draft holds a change.
+      <DraftUnsaved value={unsaved ? COPY.template.draftUnsaved : undefined}>
+        <AnswerRows
+          label={ADMIN_COPY.spiel.confirmations}
+          rows={editor.props.answers}
+          empty={{ kind: "none", plural: ADMIN_COPY.spiel.confirmations }}
+        />
+      </DraftUnsaved>,
+    );
+    return { editor, buttons: screen.getAllByRole("button") };
+  };
+
+  // The harm: an act offered on the Übersicht's row and missing here goes unseen, so the league, opening the match from
+  // its list, cannot enter a club's Zusage or decide its proposal; or one offered on a finished season, which the backend
+  // refuses only once pressed.
+  it("offers a club's proposal „Übernehmen“ and „Verwerfen“ and a lapsed party „Zusage eintragen“, and a finished season's match neither", async () => {
+    const { editor, buttons } = await drawnActs();
+
+    const zusage = COPY.shared.withObject(ADMIN_COPY.overview.zusage, "enter");
+    expect(buttons.map((button) => button.textContent)).toStrictEqual([COPY.shared.verb.adopt, COPY.shared.verb.discard, zusage]);
+    // Each act writes the row it stands on.
+    const [proposed, lapsed] = editor.props.answers.map(({ acts }) => acts?.props as { id?: string; parties?: { id: string }[] });
+    expect([proposed?.id, lapsed?.parties?.map(({ id }) => id)]).toStrictEqual(["64b000000000000000000011", ["64b000000000000000000012"]]);
+
+    const closed = await editorOver({ ...VIEW, saison_status: "past", spielbestaetigungen: actRows });
+    expect(closed.props.answers.map(({ acts }) => acts)).toStrictEqual([undefined, undefined]);
+  });
+
+  // The harm: „Übernehmen“ pressed over unsaved changes moves the match, and the draft's save is then turned away as
+  // stale, as every act in an editor would leave it.
+  it("locks each act while the editor's draft holds unsaved changes", async () => {
+    const { buttons } = await drawnActs(true);
+
+    expect(buttons.map((button) => button.getAttribute("aria-disabled"))).toStrictEqual(["true", "true", "true"]);
   });
 });

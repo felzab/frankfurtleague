@@ -1,31 +1,33 @@
 import { QuestionForm } from "./QuestionForm";
 import { RailPage } from "./RailFrame";
-import { TextField } from "./TextField";
 
+import type { ActionAnswer } from "@/core/action";
 import type { ComponentProps } from "react";
 import type { PageTitle } from "./RailFrame";
-import type { TextFieldProps } from "./TextField";
 
-type Form<Input> = Omit<ComponentProps<typeof QuestionForm<Input>>, "holder" | "children">;
+/** The form's props but its act, its fields among them as `children`. */
+type Form<Input> = Omit<ComponentProps<typeof QuestionForm<Input>>, "touch" | "run">;
 
-/** The form once the address it is drawn for is read. */
-async function FormOnceRead<Input>({
-  holder,
-  fields,
-  ...form
-}: Form<Input> & { holder: Promise<string>; fields: ReadonlyArray<TextFieldProps> }) {
-  return (
-    <QuestionForm
-      {...form}
-      holder={await holder}>
-      {fields.map((field) => (
-        <TextField
-          key={field.name}
-          {...field}
-        />
-      ))}
-    </QuestionForm>
-  );
+/**
+ * The page's act: `touch` for one on the touch's fixed list, which the form asks for `holder` once read, a promise the
+ * form's `touch` cannot take.
+ */
+type PageRun<Input> =
+  | { touch: true; run: (input: NoInfer<Input> & { holder: string }) => Promise<ActionAnswer> }
+  | { touch?: never; run: (input: NoInfer<Input>) => Promise<ActionAnswer> };
+
+/** The page's form, its holder read: the read that turns a refused session away awaited on every page, touched or not. */
+async function FormOnceRead<Input>({ holder, ...page }: Form<Input> & PageRun<Input> & { holder: Promise<string> }) {
+  const address = await holder;
+  if (page.touch === true) {
+    return (
+      <QuestionForm
+        {...page}
+        touch={{ holder: address }}
+      />
+    );
+  }
+  return <QuestionForm {...page} />;
 }
 
 /**
@@ -34,25 +36,18 @@ async function FormOnceRead<Input>({
  */
 export function QuestionPage<Input>({
   title,
-  holder,
-  fields,
   ...form
-}: Form<Input> & {
-  title: PageTitle;
-  /** The address the page is drawn for, as `QuestionForm` takes it. */
-  holder: Promise<string>;
-  /** The form's fields, in their order, each with its `name`. */
-  fields: ReadonlyArray<TextFieldProps>;
-}) {
+}: Form<Input> &
+  PageRun<Input> & {
+    title: PageTitle;
+    /** The address the page is drawn for, which a touched act's touch answers for. */
+    holder: Promise<string>;
+  }) {
   return (
     <RailPage
       scope="area"
       title={title}>
-      <FormOnceRead
-        {...form}
-        holder={holder}
-        fields={fields}
-      />
+      <FormOnceRead {...form} />
     </RailPage>
   );
 }

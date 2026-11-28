@@ -1,7 +1,7 @@
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 import { dayOf } from "@/core/format";
 import { KONTAKT_SEATS, seatBesideTrainer } from "@/features/teams/constants";
-import { CONFIRMED_CHIP, ERASED_CHIP, EXPIRED_CHIP, NOT_SENT_CHIP, OBJECTED_CHIP, UNCONFIRMED_CHIP } from "@/kit/stateChips";
+import { CONFIRMED_CHIP, ERASED_CHIP, EXPIRED_CHIP, NOT_SENT_CHIP, OBJECTED_CHIP, outOfPlayChip, UNCONFIRMED_CHIP } from "@/kit/stateChips";
 
 import { deliveryChip } from "./deliveryState";
 
@@ -25,8 +25,6 @@ export type SeatView = {
   day: Copy | null;
 };
 
-const WORDS = COPY.admin.schiedsrichter;
-
 const STATE_CHIP: Readonly<Record<SeatState, ChipProps>> = {
   confirmed: CONFIRMED_CHIP,
   valid: UNCONFIRMED_CHIP,
@@ -40,29 +38,31 @@ function dayOfState({ status, kontakte }: FLBewerbung, seat: FLKontaktSeat, entr
   const confirmedAt = kontakte[seat]?.einwilligung.confirmed_at ?? null;
   switch (entry.state) {
     case "confirmed":
-      return confirmedAt === null ? null : WORDS.confirmedOn(dayOf(confirmedAt));
+      return confirmedAt === null ? null : COPY.shared.onDay(dayOf(confirmedAt));
     case "declined":
-      return entry.declined_at === null ? null : WORDS.objectedOn(dayOf(entry.declined_at));
+      return entry.declined_at === null ? null : COPY.shared.onDay(dayOf(entry.declined_at));
     case "expired":
-      return status === "submitted" ? WORDS.expiredOn(dayOf(entry.deadline)) : null;
+      return status === "submitted" ? COPY.shared.onDay(dayOf(entry.deadline)) : null;
     case "valid":
-      return COPY.admin.spiel.answerBy(dayOf(entry.deadline));
+      return COPY.shared.answerBy(dayOf(entry.deadline));
   }
 }
 
 /**
  * The application's people, the Trainer first. One person holding two seats (`trainer_is_also`) stands once, on the
  * Trainer's row, as a club's seats do: the seat write and the re-send reach both from either, and one answer covers both.
+ * A link never sent is out of play once the season is `past`, as the applications list draws it: nobody can send it.
  */
-export function seatsOf(bewerbung: FLBewerbung): SeatView[] {
+export function seatsOf(bewerbung: FLBewerbung, past: boolean): SeatView[] {
   const { kontakte, confirmations } = bewerbung;
   const also = seatBesideTrainer(kontakte);
   return KONTAKT_SEATS.filter((seat) => seat !== also).map((seat) => {
     const entry = confirmations[seat];
-    // An erasure clears the entry, which is all that parts it from the empty slot a Widerspruch leaves.
+    // An erasure clears the entry, which is all that parts it from the empty seat a Widerspruch leaves.
     const state = entry?.state ?? "erased";
     const day = entry === null ? null : dayOfState(bewerbung, seat, entry);
-    const delivery = entry?.sent_at === null ? NOT_SENT_CHIP : deliveryChip(entry?.delivery ?? null);
+    const unsent = past ? outOfPlayChip(NOT_SENT_CHIP) : NOT_SENT_CHIP;
+    const delivery = entry?.sent_at === null ? unsent : deliveryChip(entry?.delivery ?? null);
     return {
       seat,
       seats: seat === "trainer" && also !== null ? [seat, also] : [seat],

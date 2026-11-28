@@ -2,15 +2,16 @@
 
 What it compares: every image the three Dockerfiles, both compose files and the listed scripts name, against the pin
 form; and each image's toolchain against the one the checkout and CI run, the frontend's Node against `devEngines` and
-the lockfile, the backend's Python against `.python-version`'s series and its uv against CI's. Each pair drifts in
-silence: a tag alone is a pointer its publisher can move, a hand edit can drop a digest, and Dependabot moves each
-file's pin on its own, so one side ships a version the other never ran.
+the lockfile, the backend's Python and both type checkers' `pythonVersion` against `.python-version`'s series, and its
+uv against CI's. Each pair drifts in silence: a tag alone is a pointer its publisher can move, a hand edit can drop a
+digest, and Dependabot moves each file's pin on its own, so one side ships a version the other never ran.
 """
 
 from __future__ import annotations
 
 import json
 import re
+import tomllib
 from pathlib import Path
 from typing import Final
 
@@ -167,4 +168,19 @@ def test_the_backend_image_runs_the_python_series_ci_installs() -> None:
     tags = _from_tags(DOCKERFILES[1], "python")
     assert tags and all(tag == series or tag.startswith(f"{series}.") for tag in tags), (
         f"{series} in fl_backend/.python-version, {tags} in the image"
+    )
+
+
+SCRIPTS_PYRIGHT: Final = REPO_ROOT / "scripts" / "pyrightconfig.json"
+BACKEND_PROJECT: Final = REPO_ROOT / "fl_backend" / "pyproject.toml"
+
+
+def test_both_type_checkers_judge_the_python_series_ci_installs() -> None:
+    """A pin left behind at a bump judges the code as the older language: pyright fails on syntax, never on a changed library."""
+    series = PYTHON_VERSION_FILE.read_text(encoding="utf-8").strip()
+    # Read by its key rather than parsed: the file is JSON with comments, which `json` refuses.
+    scripts = re.findall(r'^\s*"pythonVersion":\s*"([^"]+)"', SCRIPTS_PYRIGHT.read_text(encoding="utf-8"), re.MULTILINE)
+    backend = tomllib.loads(BACKEND_PROJECT.read_text(encoding="utf-8"))["tool"]["pyright"]["pythonVersion"]
+    assert scripts == [series] and backend == series, (
+        f"{series} in fl_backend/.python-version, {scripts} in scripts/pyrightconfig.json, {backend} in fl_backend/pyproject.toml"
     )

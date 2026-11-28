@@ -2,22 +2,9 @@
 
 import { useId } from "react";
 
-import {
-  SCHIEDSRICHTER_TEXT_VERSIONS,
-  SCHIEDSRICHTER_WORDINGS,
-  SEAT_TEXT_VERSIONS,
-  SEAT_WORDINGS,
-  SPIELER_TEXT_VERSIONS,
-  SPIELER_WORDINGS,
-} from "@/core/consentWordings";
-import { COPY } from "@/core/copy";
-import {
-  saveBewerbungConsent,
-  saveRegistrierungConsent,
-  saveSchiedsrichterConsent,
-  saveSeatConsent,
-  saveSpielerConsent,
-} from "@/features/account/personActions";
+import { SCHIEDSRICHTER_WORDINGS, SEAT_WORDINGS, SPIELER_WORDINGS } from "@/core/consentWordings";
+import { COPY } from "@/core/copy/shared";
+import { saveConsent } from "@/features/account/personActions";
 import { AccountBox } from "@/kit/AccountBox";
 import { Checkbox } from "@/kit/Checkbox";
 import { ConsentLine } from "@/kit/ConsentLine";
@@ -25,19 +12,14 @@ import { Facts } from "@/kit/Facts";
 import { RadioGroup } from "@/kit/RadioGroup";
 
 import type { Copy, Words } from "@/core/copy";
-import type { FLEinwilligungScope, FLEinwilligungState, FLKontaktKenntnisnahmeScope } from "@/core/generated/client/types";
+import type { FLEinwilligungScope, FLKontaktKenntnisnahmeScope } from "@/core/generated/client/types";
 import type { Fact } from "@/kit/Facts";
 
 /**
- * Which write saves an entry, by the kind of record it is, and the ids naming the record. A pupil's, a registration's
- * and a referee's choose their name's scope; a seat's and an application's their contact scope.
+ * The kind of record an entry is, which its save names. A pupil's, a registration's and a referee's choose their name's
+ * scope; a seat's and an application's their contact scope.
  */
-type Save =
-  | { kind: "spieler" }
-  | { kind: "registrierung"; registrierung_id: string }
-  | { kind: "schiedsrichter"; schiedsrichter_id: string }
-  | { kind: "seat"; team_id: string; saison_id: string }
-  | { kind: "bewerbung"; bewerbung_id: string };
+type Kind = "spieler" | "registrierung" | "schiedsrichter" | "seat" | "bewerbung";
 
 /** One record of the person's, as its box shows it: what it is, a team's seats titled by the team's own name, what the league stores, and its two choices. */
 export type Entry = {
@@ -45,92 +27,23 @@ export type Entry = {
   readonly title: Words;
   readonly description: Copy;
   readonly facts: readonly Fact[];
-  readonly save: Save;
+  readonly kind: Kind;
+  /**
+   * What its save posts beside the two controls, unseen, by the names the save reads: the kind, the record's ids, the
+   * evidence it was served and the labels its words are drawn under.
+   */
+  readonly carry: Readonly<Record<string, string>>;
   /** The scope the record holds: a name's for a person's own record, a contact's for a seat. */
   readonly scope: FLEinwilligungScope | FLKontaktKenntnisnahmeScope;
   readonly media: boolean;
-  readonly evidence: FLEinwilligungState;
   /** A grant may be given here; where not, the box takes withdrawals alone. */
   readonly givable: boolean;
   /** Why the media choice may not be given, its record short of the floor; `null` where it may. */
   readonly mediaFrom: Copy | null;
 };
 
-/** The fields a box posts: the scope, a choice or a box ticked, the media box, and the holder its act carries. */
-const read = (formData: FormData) => ({
-  scope: formData.get("scope"),
-  media: formData.get("media") === "on",
-  holder: String(formData.get("holder")),
-});
-
-/** A name's scope as its choice posts it, the record's own where the choice closed and posted none. */
-const nameScope = (posted: FormDataEntryValue | null, held: Entry["scope"]): FLEinwilligungScope =>
-  posted === "kader_public" || posted === "internal" ? posted : held === "kader_public" ? "kader_public" : "internal";
-
-/** A contact's scope as its WhatsApp box posts it. */
-const contactScope = (posted: FormDataEntryValue | null): FLKontaktKenntnisnahmeScope =>
-  posted === "on" ? "kontakt_data_whatsapp" : "kontakt_data";
-
-/**
- * The write saving an entry's choices, by the record's kind, with the labels its kind's words were shown under, read
- * off the one module the shown words come from, so a press names the text on screen.
- */
-function saveOf(entry: Entry) {
-  return (formData: FormData) => {
-    const { scope, media, holder } = read(formData);
-    const { save, evidence } = entry;
-    switch (save.kind) {
-      case "spieler":
-        return saveSpielerConsent({
-          scope: nameScope(scope, entry.scope),
-          media,
-          holder,
-          evidence_state: evidence,
-          text_versions: SPIELER_TEXT_VERSIONS,
-        });
-      case "registrierung":
-        return saveRegistrierungConsent({
-          registrierung_id: save.registrierung_id,
-          scope: nameScope(scope, entry.scope),
-          media,
-          holder,
-          evidence_state: evidence,
-          text_versions: SPIELER_TEXT_VERSIONS,
-        });
-      case "schiedsrichter":
-        return saveSchiedsrichterConsent({
-          schiedsrichter_id: save.schiedsrichter_id,
-          scope: nameScope(scope, entry.scope),
-          media,
-          holder,
-          evidence_state: evidence,
-          text_versions: SCHIEDSRICHTER_TEXT_VERSIONS,
-        });
-      case "seat":
-        return saveSeatConsent({
-          team_id: save.team_id,
-          saison_id: save.saison_id,
-          scope: contactScope(scope),
-          media,
-          holder,
-          evidence_state: evidence,
-          text_versions: SEAT_TEXT_VERSIONS,
-        });
-      case "bewerbung":
-        return saveBewerbungConsent({
-          bewerbung_id: save.bewerbung_id,
-          scope: contactScope(scope),
-          media,
-          holder,
-          evidence_state: evidence,
-          text_versions: SEAT_TEXT_VERSIONS,
-        });
-    }
-  };
-}
-
 /** The wordings an entry's kind shows, from the module its press's labels come from. */
-const wordingsOf = (kind: Save["kind"]) =>
+const wordingsOf = (kind: Kind) =>
   kind === "spieler" || kind === "registrierung" ? SPIELER_WORDINGS : kind === "schiedsrichter" ? SCHIEDSRICHTER_WORDINGS : SEAT_WORDINGS;
 
 /**
@@ -139,7 +52,7 @@ const wordingsOf = (kind: Save["kind"]) =>
  */
 function ScopeChoice({ entry }: { entry: Entry }) {
   const lineId = useId();
-  const { kind } = entry.save;
+  const { kind } = entry;
   if (kind === "seat" || kind === "bewerbung") {
     const held = entry.scope === "kontakt_data_whatsapp";
     return (
@@ -183,7 +96,7 @@ function ScopeChoice({ entry }: { entry: Entry }) {
 /** The media choice under its wording, described by the line under it. */
 function MediaChoice({ entry }: { entry: Entry }) {
   const lineId = useId();
-  const { media } = wordingsOf(entry.save.kind);
+  const { media } = wordingsOf(entry.kind);
   return (
     <>
       <Checkbox
@@ -219,7 +132,12 @@ export function EntriesBoxes({
       key={entry.id}
       title={entry.title}
       description={entry.description}
-      act={{ run: saveOf(entry), carry: { holder }, button: { label: COPY.shared.verb.save }, saves: true }}>
+      act={{
+        run: saveConsent,
+        carry: { ...entry.carry, holder },
+        button: { label: COPY.shared.verb.save, variant: "primary" },
+        done: COPY.shared.toast.done.save,
+      }}>
       <Facts
         look="free"
         facts={entry.facts}

@@ -1,37 +1,25 @@
 from collections.abc import Mapping
-from typing import Annotated, Any, ClassVar, Final, Literal, TypeAliasType, get_args, get_origin
+from typing import Any, Final, Literal, TypeAliasType, get_args, get_origin
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from app.core.exceptions import rule_refusal
-from app.shared.einwilligung_evidence import CHOICES, FLEinwilligungChoice, TextVersions, is_given
+from app.shared.einwilligung_evidence import CHOICES, FLEinwilligungChoice, TextVersions
 from app.shared.schemas.literals import FLEinwilligungScope, FLKontaktKenntnisnahmeScope
 from app.shared.schemas.responses import BasePayload, BaseReadModel
 
-# The label of each consent's current wording, the one a grant names: a page loaded before a deploy moved a label shows
-# words a grant's record would then cite.
+# The label of each consent's current wording, the one every press names, a withdrawal's included: a page loaded before
+# a deploy moved a label is refused once, and its person reloads to read the new words. The press fields below are also
+# the labels a stored record may cite, so a rewording that moved a label here alone would refuse every read of a record
+# citing the old one: the old label stays in `FLEinwilligungTextVersion`, and `cite_their_kind` reads a set holding both.
 type FLWhatsappTextVersion = Literal["2026-11-whatsapp-1"]
 type FLMediaTextVersion = Literal["2026-11-media-1"]
 type FLNameKaderTextVersion = Literal["2026-11-name-kader-1"]
 type FLNameSpielplanTextVersion = Literal["2026-11-name-spielplan-1"]
 
-# Published as schemas of their own by `with_mirrored_constants`, though no operation names one alone: each label
-# constant the frontend sends on a grant is checked against them, so a rewording that moves one here and leaves the
-# page's label behind fails the frontend's type check rather than refusing every grant.
-CURRENT_TEXT_VERSIONS: Final = (FLWhatsappTextVersion, FLMediaTextVersion, FLNameKaderTextVersion, FLNameSpielplanTextVersion)
-
-# Every label a record of each kind may cite for each choice: the current one and each it replaced. A rewording moves the
-# current `Literal` above and adds the label it replaced here, so a record citing that label still reads, and a withdrawal
-# from a page still showing its words is still taken: taking a consent back is never harder than giving it.
-type FLSeatScopeTextVersion = FLWhatsappTextVersion
-type FLSpielerScopeTextVersion = FLNameKaderTextVersion
-type FLSchiedsrichterScopeTextVersion = FLNameSpielplanTextVersion
-# One for every kind, each showing the one media wording: three aliases of the one label would each be published
-# twice, Pydantic rendering an alias another references once as its `const` and one referenced more often as a `$ref`.
-type FLCitedMediaTextVersion = FLMediaTextVersion
 # Every label any record cites: the frontend's `CONSENT_WORDINGS` keys their words by it, checked against it through the
 # published contract.
-type FLEinwilligungTextVersion = FLSeatScopeTextVersion | FLSpielerScopeTextVersion | FLSchiedsrichterScopeTextVersion | FLCitedMediaTextVersion
+type FLEinwilligungTextVersion = FLWhatsappTextVersion | FLNameKaderTextVersion | FLNameSpielplanTextVersion | FLMediaTextVersion
 
 
 def labels_of(alias: Any) -> frozenset[str]:
@@ -43,11 +31,6 @@ def labels_of(alias: Any) -> frozenset[str]:
         return frozenset(get_args(alias))
 
     return frozenset().union(*(labels_of(member) for member in get_args(alias)))
-
-
-def _current(alias: TypeAliasType) -> str:
-    (label,) = labels_of(alias)
-    return label
 
 
 class FLEinwilligungReceipt(BaseModel):
@@ -103,44 +86,32 @@ class FLEinwilligungStatePayload(FLEinwilligungState, BasePayload):
 
 
 # The labels a press was given under, one per choice, each recorded on that choice's evidence. Both on every press, so
-# neither choice is judged by nothing; one model per kind of record, whose scope wordings differ. Each admits every label
-# its kind's records may cite, and `stale_grants` holds a grant to the current one.
+# neither choice is judged by nothing; one model per kind of record, whose scope wordings differ. Each field admits its
+# choice's current label alone, so a press from a page loaded before a rewording is refused, a withdrawal's as well; the
+# same fields name every label the kind's stored evidence may cite (`cite_their_kind`).
 class _TextVersions(BasePayload):
-    # The label a grant of each choice names.
-    current: ClassVar[Mapping[FLEinwilligungChoice, str]]
-
-    @classmethod
-    def cited(cls, choice: FLEinwilligungChoice) -> frozenset[str]:
-        """Every label this kind's record may cite for `choice`, read off the field's own alias."""
-
-        return labels_of(cls.model_fields[choice].annotation)
+    pass
 
 
 class FLSeatTextVersions(_TextVersions):
     """A contact seat's two wordings: the WhatsApp switch and the media switch."""
 
-    current = {"scope": _current(FLWhatsappTextVersion), "media": _current(FLMediaTextVersion)}
-
-    scope: FLSeatScopeTextVersion
-    media: FLCitedMediaTextVersion
+    scope: FLWhatsappTextVersion
+    media: FLMediaTextVersion
 
 
 class FLSpielerTextVersions(_TextVersions):
     """A pupil's two wordings: the name on the squad and the media switch."""
 
-    current = {"scope": _current(FLNameKaderTextVersion), "media": _current(FLMediaTextVersion)}
-
-    scope: FLSpielerScopeTextVersion
-    media: FLCitedMediaTextVersion
+    scope: FLNameKaderTextVersion
+    media: FLMediaTextVersion
 
 
 class FLSchiedsrichterTextVersions(_TextVersions):
     """A referee's two wordings: the name on the fixtures and the media switch."""
 
-    current = {"scope": _current(FLNameSpielplanTextVersion), "media": _current(FLMediaTextVersion)}
-
-    scope: FLSchiedsrichterScopeTextVersion
-    media: FLCitedMediaTextVersion
+    scope: FLNameSpielplanTextVersion
+    media: FLMediaTextVersion
 
 
 type PressTextVersions = FLSeatTextVersions | FLSpielerTextVersions | FLSchiedsrichterTextVersions
@@ -152,45 +123,23 @@ def by_choice(text_versions: PressTextVersions) -> TextVersions:
     return {"scope": text_versions.scope, "media": text_versions.media}
 
 
-def stale_grants(text_versions: PressTextVersions, set_fields: Mapping[FLEinwilligungChoice, Any]) -> list[FLEinwilligungChoice]:
-    """The choices `set_fields` grants under any label but their current one; a withdrawal names any its kind cites."""
-
-    return [
-        choice
-        for choice, value in set_fields.items()
-        if is_given(choice, value) and getattr(text_versions, choice) != text_versions.current[choice]
-    ]
-
-
-def refuse_a_stale_grant(text_versions: PressTextVersions, set_fields: Mapping[FLEinwilligungChoice, Any]) -> None:
-    """A confirmation's refusal of a grant under a replaced label: every choice it sets is a first answer, so each grant moves.
-
-    The account presses judge it in their writer instead (`find_grant_wording_refusal`).
-    """
-
-    stale = stale_grants(text_versions, set_fields)
-    if stale:
-        raise rule_refusal("grant_wording_stale", "a grant names its choice's current wording", {"choice": stale[0]})
-
-
 def cite_their_kind(evidence_set: FLEinwilligungEvidenceSet, kind: type[_TextVersions]) -> FLEinwilligungEvidenceSet:
     """Refuse evidence citing a label its kind's record never shows for that choice, as the read-back judges a record.
 
-    A withdrawal by mail cites none, and the grant it ended is judged as a press's is.
+    The labels are read off `kind`'s field for the choice. A withdrawal by mail cites none, and the grant it ended is
+    judged as a press's is.
     """
 
     for choice in CHOICES:
         evidence = getattr(evidence_set, choice)
         receipts = [] if evidence is None else [evidence, evidence.given_before]
-        if any(isinstance(receipt, FLEinwilligungReceipt) and receipt.text_version not in kind.cited(choice) for receipt in receipts):
+        cited = labels_of(kind.model_fields[choice].annotation)
+        if any(isinstance(receipt, FLEinwilligungReceipt) and receipt.text_version not in cited for receipt in receipts):
             raise rule_refusal("text_version_of_another_wording", "the evidence cites a wording its choice never shows", {"choice": choice})
 
     return evidence_set
 
 
-# The account presses' payloads take any label their kind cites, a grant's included: only a choice the press moves onto
-# a grant must name its current one, and which choices move is the stored record's to say, which the writer reads. A
-# page loaded before a rewording still withdraws one choice while leaving the other granted.
 class _OwnEinwilligungPayload(BasePayload):
     # Both choices on every press, and no member defaulted: a default would let a page that forgot one
     # reset the person's other choice.
@@ -213,7 +162,7 @@ class FLSchiedsrichterAccountEinwilligungPayload(_OwnEinwilligungPayload):
 
 
 class FLSeatEinwilligungPayload(BasePayload):
-    """A seat holder's own two choices for every seat they hold on one row, under any label their kind cites.
+    """A seat holder's own two choices for every seat they hold on one row.
 
     Both choices on every press: a page that sent one alone would leave the other judged by nothing.
     """
@@ -225,13 +174,19 @@ class FLSeatEinwilligungPayload(BasePayload):
     evidence_state: FLEinwilligungStatePayload
 
 
-class FLEinwilligungWithdrawalPayload(BasePayload):
-    """The choices a person asked by mail to withdraw, which an administrator enters: it withholds and never grants."""
+# What a person withdraws by mail, in their words rather than a record's: the name on the website, the WhatsApp consent
+# and the media consent. An address holds records of several kinds, whose `scope` means the name on some and WhatsApp
+# on a seat, so a record's own two choices cannot say which the mail meant.
+type FLWithdrawalChoice = Literal["name", "whatsapp", "media"]
 
-    choices: Annotated[set[FLEinwilligungChoice], Field(min_length=1)]
-
-
-# What a withdrawal sets each choice to: on a pupil's, a referee's and a registration's own record, and on a seat, whose
-# withheld scope is the acknowledgement alone.
-WITHHELD_BY_A_PERSON: Final[Mapping[FLEinwilligungChoice, FLEinwilligungScope | bool]] = {"scope": "internal", "media": False}
-WITHHELD_ON_A_SEAT: Final[Mapping[FLEinwilligungChoice, FLKontaktKenntnisnahmeScope | bool]] = {"scope": "kontakt_data", "media": False}
+# Each withdrawal choice as the record choice it withholds and the value it sets there: on a pupil's, a referee's and a
+# registration's own record, and on a seat, whose withheld scope is the acknowledgement alone. A choice a kind holds no
+# consent for is absent, and withholds nothing there.
+WITHHELD_BY_A_PERSON: Final[Mapping[FLWithdrawalChoice, tuple[FLEinwilligungChoice, FLEinwilligungScope | bool]]] = {
+    "name": ("scope", "internal"),
+    "media": ("media", False),
+}
+WITHHELD_ON_A_SEAT: Final[Mapping[FLWithdrawalChoice, tuple[FLEinwilligungChoice, FLKontaktKenntnisnahmeScope | bool]]] = {
+    "whatsapp": ("scope", "kontakt_data"),
+    "media": ("media", False),
+}

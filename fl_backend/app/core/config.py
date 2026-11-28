@@ -24,7 +24,7 @@ INTERNAL_API_KEY_CHARACTERS = re.compile(r"[\x21-\x7e]+")
 DEFAULT_SECRETS_DIR: Final = "/run/secrets"
 
 # Prefixed because the frontend holds a different login under `frontend_mongodb_uri`, and one file
-# name is spelled the same on the host, in the container and in development.
+# name is spelled the same on the host and in the container.
 MONGODB_URI_FILE: Final = "backend_mongodb_uri"
 
 

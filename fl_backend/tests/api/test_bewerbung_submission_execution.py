@@ -268,7 +268,6 @@ class TestWhatTheCreateOwes:
                 "data": {
                     "kind": "bewerbung_confirmation",
                     "saison_id": SAISON_ID,
-                    "schule": EXISTING_NAME,
                     "seats": ["stellvertretung"],
                     "deadline": deadline,
                 },
@@ -279,7 +278,6 @@ class TestWhatTheCreateOwes:
                 "data": {
                     "kind": "bewerbung_confirmation",
                     "saison_id": SAISON_ID,
-                    "schule": EXISTING_NAME,
                     "seats": ["trainer"],
                     "deadline": deadline,
                 },
@@ -477,6 +475,15 @@ class TestTheRefusalsTheWritePathAnswers:
 
     async def test_a_team_already_playing_the_season_refuses(self, mongo_replica_set_url: str):
         assert (await refused(mongo_replica_set_url, team_id=str(ENTERED_OID))).error_code == Code.BEWERBUNG_PICKED_TEAM_ALREADY_ENTERED
+
+    async def test_a_team_already_playing_the_season_refuses_ahead_of_a_seat_fault(self, mongo_replica_set_url: str):
+        """The gate first: a club that may not apply makes the seats' faults meaningless, so mending them earns nothing."""
+
+        repeating = {**KONTAKTE, "stellvertretung": {**KONTAKTE["stellvertretung"], "email": KONTAKTE["trainer"]["email"]}}
+
+        failure = await refused(mongo_replica_set_url, team_id=str(ENTERED_OID), kontakte=repeating)
+
+        assert failure.error_code == Code.BEWERBUNG_PICKED_TEAM_ALREADY_ENTERED
 
 
 # The HTTP surface, on a SECOND database: `build_test_config`'s, the one an app under test resolves

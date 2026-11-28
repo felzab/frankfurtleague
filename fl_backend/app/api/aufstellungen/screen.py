@@ -40,7 +40,7 @@ from app.api.saisons.services import SAISON_AS, SAISON_LOOKUP, SPIELTAG_POSITION
 from app.api.spielberichte.crud import anchor_the_pupils_named
 from app.api.spielberichte.services import SIDES
 from app.api.spiele.schemas import team_id_of
-from app.api.spiele.services import build_spiele_pipeline, spiel_label
+from app.api.spiele.services import build_spiele_pipeline
 from app.core.codes import Code
 from app.core.crud import (
     GERMAN_COLLATION,
@@ -181,7 +181,6 @@ async def _pull_people(
     people = await pull_whole_from_db(
         collection=spieler_collection,
         db_filter={"_id": {"$in": rest}},
-        what="the pupils a stored line-up names off the squad",
         projection=["first_name", "last_name"],
         session=session,
     )
@@ -293,7 +292,7 @@ async def save_aufstellung_screen(
             version=payload.version,
             by=None if seat is None else ACT_BY_KONTAKT,
             team=None if seat is None else spiel[state.side]["name"],
-            label=spiel_label(spiel["saison_id"], spiel["spiel_nr"]),
+            spiel_nr=spiel["spiel_nr"],
             session=session,
         )
         # What else the save judged, each after the line-up's own write, as the season's anchor is: a fixture re-dated or

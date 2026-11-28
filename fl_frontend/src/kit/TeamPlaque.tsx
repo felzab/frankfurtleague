@@ -32,7 +32,7 @@ const plaqueLook = tv({
 export type Plaque = RecordText | { quelle: Copy | null };
 
 /**
- * The 40 × 24-px plaque before a club's name, holding its three-letter Kürzel; one size for every place.
+ * The plaque before a club's name, holding its three-letter Kürzel; one size for every place.
  */
 export function TeamPlaque({ plaque: held, muted = false, struck = false }: { plaque: Plaque; muted?: boolean; struck?: boolean }) {
   return "record" in held ? (

@@ -1,20 +1,4 @@
-import { COPY } from "@/core/copy";
 import { FLSaisonPhase } from "@/core/generated/client/types";
-
-import type { Copy } from "@/core/copy";
-import type { FLSaisonIdLength } from "@/core/generated/client/types";
 
 /** The phases in the competition's own playing order: the backend declares `FLSaisonPhase` in that order. */
 export const SAISON_PHASE_OPTIONS: readonly FLSaisonPhase[] = Object.values(FLSaisonPhase);
-
-/**
- * Each phase's German name, spelled once in the catalogue, for every surface. Not an export from a
- * chip: the filter facets and a Spieltag's composed name need the label and render nothing.
- */
-export const PHASE_LABELS: Readonly<Record<FLSaisonPhase, Copy>> = COPY.shared.phase;
-
-/**
- * The width of a season's id, which the backend publishes. `saisons._id` is the string every `saison_id` references, so
- * a width only one tier moved breaks every row pointing at it.
- */
-export const SAISON_ID_LENGTH = 4 satisfies FLSaisonIdLength;

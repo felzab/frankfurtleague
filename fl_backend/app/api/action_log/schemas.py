@@ -5,7 +5,7 @@ from pydantic import BaseModel, Field
 
 from app.core.recording import FLAction, FLActionType
 from app.shared.schemas.bounds import KONTAKT_EMAIL_MAX_LENGTH
-from app.shared.schemas.custom import CustomObjectId, FLUtcInstant
+from app.shared.schemas.custom import CustomObjectId, CustomSpielNr, FLUtcInstant
 from app.shared.schemas.responses import BasePayload, BaseReadModel
 
 
@@ -18,6 +18,8 @@ class FLActionLogRecord(BaseModel):
     team: str | None
     action: FLAction
     record_id: CustomObjectId | None
+    saison_id: str | None
+    spiel_nr: CustomSpielNr | None
     label: str | None
     count: int | None
     trace_id: str
@@ -37,8 +39,11 @@ class FLActionLogFilterPayload(BasePayload):
 
     # The last row of the page before.
     cursor: CustomObjectId | None = None
-    # A case-blind search over the team and the label: German action words are reached by `type`.
+    # A case-blind search over the team, the season and the label: German action words are reached by `type`.
     q: str | None = Field(default=None, max_length=ACTION_LOG_SEARCH_MAX_LENGTH)
+    # The season and the fixture an act was about, each an equality: a fixture's number repeats every season.
+    saison_id: str | None = Field(default=None, max_length=ACTION_LOG_SEARCH_MAX_LENGTH)
+    spiel_nr: CustomSpielNr | None = None
     by: str | None = Field(default=None, max_length=KONTAKT_EMAIL_MAX_LENGTH)
     # A list: a filter's one option may stand for several categories.
     type: list[FLActionType] | None = Field(default=None, max_length=len(get_args(FLActionType.__value__)))
@@ -54,6 +59,9 @@ class FLActionLogEntry(BaseModel):
     by: str
     team: str | None
     action: FLAction
+    # The season and the fixture the act was about.
+    saison_id: str | None
+    spiel_nr: CustomSpielNr | None
     label: str | None
     count: int | None
 

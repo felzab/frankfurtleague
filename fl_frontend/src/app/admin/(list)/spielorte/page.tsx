@@ -1,24 +1,21 @@
-import { COPY } from "@/core/copy";
+import { boxRulesOf } from "@/core/action";
+import { ADMIN_COPY } from "@/core/copy/admin";
+import { COPY } from "@/core/copy/shared";
 import { formatEuro } from "@/core/format";
 import { ROUTES } from "@/core/routes";
+import { createSpielort } from "@/features/spielorte/createSpielort";
 import { getSpielorte } from "@/features/spielorte/queries";
+import { SpielortFields } from "@/features/spielorte/SpielortFields";
 import { ListPage } from "@/kit/ListPage";
 import { ACTIVE_CHIP, RETIRED_CHIP } from "@/kit/stateChips";
 import { pageMetadata } from "@/shared/utils/metadata";
 
-import { createSpielort } from "../../createSpielort";
-import { SpielortFields } from "../../SpielortFields";
-import { SPIELORT_RULES } from "../../spielortRules";
-
 import type { FLSpielort } from "@/core/generated/client/types";
 import type { TableHead, TableRow } from "@/kit/Table";
-import type { Metadata, ResolvingMetadata } from "next";
 
-const WORDS = COPY.admin.spielort;
+const WORDS = ADMIN_COPY.spielort;
 
-export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
-  return pageMetadata(parent, ROUTES.adminSpielorte, ROUTES.adminSpielorte.path());
-}
+export const metadata = pageMetadata(ROUTES.adminSpielorte);
 
 /** One venue's row, opening its editor: its name, „Aktiv“, or „Stillgelegt“ and muted once retired, its street and its price. */
 const rowOf = (spielort: FLSpielort): TableRow => ({
@@ -27,7 +24,7 @@ const rowOf = (spielort: FLSpielort): TableRow => ({
   href: ROUTES.adminSpielort.path(spielort.id),
   ...(spielort.inactive_since === null ? { chip: ACTIVE_CHIP } : { chip: RETIRED_CHIP, muted: true }),
   cells: {
-    adresse: WORDS.streetWithHouseNumber(spielort.address.street, spielort.address.house_number),
+    adresse: COPY.shared.address.streetWithHouseNumber(spielort.address.street, spielort.address.house_number),
     mietpreis: { record: formatEuro(spielort.default_mietpreis) },
   },
 });
@@ -40,8 +37,9 @@ export default function SpielortePage() {
       create={{
         title: COPY.shared.withObject(WORDS.object, "create"),
         act: { verb: "create", object: WORDS.object },
-        action: createSpielort,
-        children: <SpielortFields rules={SPIELORT_RULES} />,
+        run: createSpielort,
+        rules: boxRulesOf(createSpielort),
+        children: <SpielortFields />,
       }}
       list={{ kind: "table", search: { label: WORDS.search }, head: HEAD, content: readSpielorte() }}
     />
@@ -50,9 +48,9 @@ export default function SpielortePage() {
 
 const HEAD: TableHead = {
   nameLabel: COPY.shared.name,
-  state: { label: COPY.admin.schiedsrichter.state },
+  state: { label: COPY.shared.facts.state },
   columns: [
-    { key: "adresse", label: WORDS.address, hideOnPhone: true, width: "line", cut: true },
+    { key: "adresse", label: COPY.shared.address.title, hideOnPhone: true, width: "line", cut: true },
     { key: "mietpreis", label: WORDS.mietpreis, figures: true, narrow: true },
   ],
 };

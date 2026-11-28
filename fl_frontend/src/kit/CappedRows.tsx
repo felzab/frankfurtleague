@@ -4,7 +4,7 @@ import { useRef, useState } from "react";
 
 import { flushSync } from "react-dom";
 
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 
 import { Button } from "./Button";
 import { stacked } from "./cardStyles";

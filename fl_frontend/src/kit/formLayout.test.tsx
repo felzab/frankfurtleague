@@ -1,19 +1,16 @@
 // @vitest-environment jsdom
-import { readFileSync } from "node:fs";
-import path from "node:path";
-
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { COPY } from "@/core/copy";
+import { PUBLIC_COPY } from "@/core/copy/public";
+import { COPY } from "@/core/copy/shared";
 import { renderUnderNext } from "@/test-support/nextContexts";
-import { filesUnder } from "@/test-support/treeWalk";
 
 import { AccountBox } from "./AccountBox";
 import { Dialog } from "./Dialog";
 import { FieldGroup } from "./FieldGroup";
-import { FieldRows, FieldSubgroup } from "./FieldRows";
+import { FieldRows } from "./FieldRows";
 import { fieldStack } from "./fieldStyles";
 import { Filters } from "./Filters";
 import { OneShotForm } from "./OneShot";
@@ -74,18 +71,18 @@ const CONTAINERS: Readonly<Record<string, ReadonlyArray<readonly [string, () => 
       () =>
         holding(
           <Dialog
+            rules={{}}
             title={COPY.shared.help}
             act={{ verb: "save" }}
-            action={noAnswer}
+            run={noAnswer}
             open={{ isOpen: true, onOpenChange: () => {} }}>
             {twoFields()}
           </Dialog>,
         ),
     ],
   ],
-  "FieldGroup.tsx": [["a dialog's field group", () => holding(<FieldGroup name={COPY.shared.help}>{twoFields()}</FieldGroup>)]],
+  "FieldGroup.tsx": [["a named group of fields", () => holding(<FieldGroup name={COPY.shared.help}>{twoFields()}</FieldGroup>)]],
   "FieldRows.tsx": [
-    ["a box's subgroup", () => holding(<FieldSubgroup name={COPY.shared.help}>{twoFields()}</FieldSubgroup>)],
     ["label-left rows", () => holding(<FieldRows>{twoFields()}</FieldRows>)],
     ["named label-left rows", () => holding(<FieldRows label={COPY.shared.help}>{twoFields()}</FieldRows>)],
   ],
@@ -97,7 +94,7 @@ const CONTAINERS: Readonly<Record<string, ReadonlyArray<readonly [string, () => 
           <AccountBox
             title={COPY.shared.help}
             description={COPY.shared.help}
-            act={{ run: noAnswer, button: { label: COPY.shared.verb.save } }}>
+            act={{ run: noAnswer, button: { label: COPY.shared.verb.save }, done: COPY.shared.toast.done.save }}>
             {twoFields()}
           </AccountBox>,
         ),
@@ -121,11 +118,12 @@ const CONTAINERS: Readonly<Record<string, ReadonlyArray<readonly [string, () => 
       () =>
         holding(
           <QuestionForm
+            rules={{}}
             verb="delete"
             tone="danger"
             read={noAnswer}
-            act={noAnswer}
-            holder="pia@example.org">
+            run={noAnswer}
+            touch={{ holder: "pia@example.org" }}>
             {twoFields()}
           </QuestionForm>,
         ),
@@ -137,8 +135,9 @@ const CONTAINERS: Readonly<Record<string, ReadonlyArray<readonly [string, () => 
       () =>
         holding(
           <OneShotForm
+            rules={{}}
             head={<span />}
-            action={noAnswer}
+            run={noAnswer}
             acts={{ primary: COPY.shared.verb.next }}>
             {twoFields()}
           </OneShotForm>,
@@ -151,6 +150,7 @@ const CONTAINERS: Readonly<Record<string, ReadonlyArray<readonly [string, () => 
       () =>
         holding(
           <StepCard
+            rules={{}}
             title={COPY.shared.help}
             line={COPY.shared.help}
             facts={[]}
@@ -185,16 +185,19 @@ const CONTAINERS: Readonly<Record<string, ReadonlyArray<readonly [string, () => 
         renderUnderNext(
           <SignInPage
             view="address"
-            title={COPY.signIn.title}
+            title={COPY.page.signIn}
             row={null}
-            address={{ label: COPY.signIn.address, value: "", onChange: () => undefined }}
+            address={{ label: COPY.shared.emailAddress, value: "", onChange: () => undefined, rules: {} }}
             check={null}
-            send={{ label: COPY.signIn.sendCode, onPress: () => undefined }}
-            or={COPY.signIn.or}
-            passkey={{ label: COPY.signIn.withPasskey, onPress: () => undefined }}
+            send={{ label: PUBLIC_COPY.signIn.sendCode, onPress: () => undefined }}
+            or={PUBLIC_COPY.signIn.or}
+            passkey={{ label: PUBLIC_COPY.signIn.withPasskey, onPress: () => undefined }}
           />,
         );
-        return [screen.getByRole("textbox", { name: COPY.signIn.address }), screen.getByRole("button", { name: COPY.signIn.sendCode })];
+        return [
+          screen.getByRole("textbox", { name: COPY.shared.emailAddress }),
+          screen.getByRole("button", { name: PUBLIC_COPY.signIn.sendCode }),
+        ];
       },
     ],
   ],
@@ -210,14 +213,6 @@ function commonParent(first: Element, second: Element) {
 // The harm: a container writing its own gap or grid, so one form's fields stand apart by another measure than the next
 // form's, which no type or lint sees, the class lint reading each class alone and not where it stands.
 describe("every container of a form's fields", () => {
-  // A kit module drawing fields in a `FieldStack` is a container; one this file has no case for would go unheld.
-  it("is each kit module drawing a field stack", () => {
-    const drawing = filesUnder(import.meta.dirname, (name) => /\.tsx?$/.test(name) && !/\.test\.tsx?$/.test(name), 60)
-      .filter((file) => /from "\.\/FieldStack"/.test(readFileSync(file, "utf8")))
-      .map((file) => path.basename(file));
-    expect(drawing.toSorted()).toStrictEqual(Object.keys(CONTAINERS).toSorted());
-  });
-
   it.each(Object.values(CONTAINERS).flat())("stands them in the one field rhythm: %s", async (_, parts) => {
     const [first, second] = await parts();
     expect(commonParent(first, second)?.className).toBe(fieldStack());

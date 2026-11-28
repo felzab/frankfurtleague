@@ -1,9 +1,9 @@
-import { COPY } from "@/core/copy";
-import { APIBadStatusError } from "@/core/errors";
+import { asRefusal } from "@/core/errors";
 import { byShirtNumber } from "@/features/spieler/constants";
 
-import type { ActionAnswer } from "@/core/action";
-import type { FLAufstellungEntry, FLAufstellungResponse } from "@/core/generated/client/types";
+// Types alone: the editor's client module reads this module's row key, and the builder is the server's.
+import type { Fault, Faulted } from "@/core/action";
+import type { FLAufstellungEntry, FLAufstellungResponse, FLRefusedField } from "@/core/generated/client/types";
 
 type Drafted = { readonly picked: ReadonlyArray<string>; readonly starters: ReadonlyArray<string> };
 
@@ -34,14 +34,21 @@ export const REFUSED_ROW = "picked.";
 /**
  * A write refusing pupils it names by entry, as the block marks them, each on their own row: `spieler_not_in_kader`
  * names each entry by its index among those `sent`, an order the editor never showed, so the save that sent them reads
- * the index back to the pupil. Such a pupil left the squad since the page was read. `undefined` for any other failure,
- * which the action words as it words every one.
+ * the index back to the pupil, whose row the builder words as it words every fault, the refusal's other faults beside
+ * it. Such a pupil left the squad since the page was read. Read by each fault's own kind, so a refusal naming another
+ * fault first still marks its pupils. `undefined` for a refusal naming no such pupil, and for any other failure, which
+ * the action words as it words every one.
  */
-export function refusedRows(error: unknown, sent: readonly FLAufstellungEntry[]): ActionAnswer<never> | undefined {
-  if (!(error instanceof APIBadStatusError) || error.serverErrorCode !== "spieler_not_in_kader") return undefined;
-  const rows = error.refusedFields.flatMap(({ path: [list, index] }) => {
-    const entry = list === "spieler" && typeof index === "number" ? sent[index] : undefined;
-    return entry?.spieler_id == null ? [] : [[`changes.${REFUSED_ROW}${entry.spieler_id}`, COPY.admin.spieler.deregistered] as const];
+export function refusedRows(error: unknown, sent: readonly FLAufstellungEntry[]): Faulted | undefined {
+  const refusal = asRefusal(error);
+  if (refusal === null) return undefined;
+  let rows = 0;
+  const faults = refusal.refusedFields.map((refused): Fault | FLRefusedField => {
+    const [list, index] = refused.path;
+    const entry = refused.kind === "spieler_not_in_kader" && list === "spieler" && typeof index === "number" ? sent[index] : undefined;
+    if (entry?.spieler_id == null) return refused;
+    rows += 1;
+    return { box: `changes.${REFUSED_ROW}${entry.spieler_id}`, kind: "spieler_not_in_kader", ctx: refused.ctx };
   });
-  return rows.length === 0 ? undefined : { ok: false, errorCode: "spieler_not_in_kader", fieldErrors: Object.fromEntries(rows) };
+  return rows === 0 ? undefined : { ok: false, errorCode: refusal.serverErrorCode, faults };
 }

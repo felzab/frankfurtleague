@@ -3,7 +3,6 @@ import { formColumn, RailPage } from "./RailFrame";
 import type { ReactElement } from "react";
 import type { PageTitle } from "./RailFrame";
 
-/** The run once its records are read. */
 async function StepsOnceRead({ steps }: { steps: Promise<ReactElement> }) {
   return await steps;
 }

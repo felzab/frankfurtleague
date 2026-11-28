@@ -2,32 +2,62 @@
 
 import { z } from "zod";
 
-import { action, blankIsNull, numberBox } from "@/core/action";
-import { COPY } from "@/core/copy";
+import { action, blankIsNull, fault, numberBox } from "@/core/action";
+import { AREA_COPY } from "@/core/copy/area";
+import { COPY } from "@/core/copy/shared";
 import { spielberichtePutSpielberichtBericht } from "@/core/generated/client/sdk";
-import { SpielberichtePutSpielberichtBerichtBody, SpielberichtePutSpielberichtBerichtParams } from "@/core/generated/zod/inputs";
+import {
+  SpielberichtePutSpielberichtBerichtBody,
+  spielberichtePutSpielberichtBerichtBodyBerichtCardsMax,
+  spielberichtePutSpielberichtBerichtBodyBerichtScorersMax,
+  SpielberichtePutSpielberichtBerichtParams,
+} from "@/core/generated/zod/inputs";
 import { getOwnSpielbericht } from "@/features/spielberichte/queries";
 import { admitsShootOut } from "@/features/spiele/result";
 
-import { Cards, Goals } from "./berichtRules";
-import { counted, NO_SONDEREREIGNIS, UNKNOWN_PLAYER, valuesOf } from "./berichtValues";
+import { counted, requiredOf, UNKNOWN_PLAYER, valuesOf } from "./berichtValues";
 
-import type { ActionAnswer } from "@/core/action";
-import type { Copy } from "@/core/copy";
+import type { Fault, LaneAnswer } from "@/core/action";
 import type { FLSpielberichtBerichtPayload, FLSpielberichtSchiedsrichterResponse } from "@/core/generated/client/types";
 
 const { bericht, version } = SpielberichtePutSpielberichtBerichtBody.shape;
 const { ergebnis_vorschlag: vorschlag, remarks } = bericht.shape;
 const [shootOutShape] = vorschlag.shape.elfmeterschiessen.options;
+const scorer = bericht.shape.scorers.element.shape;
+const card = bericht.shape.cards.element.shape;
+const [namedScorer] = scorer.spieler_id.options;
+const [namedCarded] = card.spieler_id.options;
 
-/** What the report's form sends, each box held to the write's own published rule for it. */
+/**
+ * A goal's row as the form sends it, each box held to the write's rule. Its player is a choice to make: „Anonym“
+ * stands for the null player the write takes as a scorer nobody named, so a row's own `null` is no choice yet.
+ */
+const Goal = z.object({
+  side: blankIsNull(scorer.side),
+  spieler_id: blankIsNull(z.union([namedScorer, z.literal(UNKNOWN_PLAYER)])),
+  minute: scorer.minute,
+  eigentor: scorer.eigentor,
+});
+
+/** A card's row as the form sends it, each box held to the write's rule; its player is chosen as a goal's is. */
+const Card = z.object({
+  side: blankIsNull(card.side),
+  spieler_id: blankIsNull(z.union([namedCarded, z.literal(UNKNOWN_PLAYER)])),
+  minute: card.minute,
+  colour: blankIsNull(card.colour),
+});
+
+// Read-only, as the form's lists are: a list arrives whole and is never changed in place.
+const Goals = z.array(Goal).max(spielberichtePutSpielberichtBerichtBodyBerichtScorersMax).readonly();
+const Cards = z.array(Card).max(spielberichtePutSpielberichtBerichtBodyBerichtCardsMax).readonly();
+
 const SaveBericht = z.object({
   id: SpielberichtePutSpielberichtBerichtParams.shape.spiel_id,
   // The report's version as the form read it, `null` where it read none.
   version,
   changes: z
     .object({
-      sonderereignis: z.preprocess((value) => (value === NO_SONDEREREIGNIS ? null : value), vorschlag.shape.sonderereignis),
+      sonderereignis: blankIsNull(vorschlag.shape.sonderereignis),
       shootOut1: numberBox(z.union([shootOutShape.shape.team1, z.null()])),
       shootOut2: numberBox(z.union([shootOutShape.shape.team2, z.null()])),
       scorers: Goals,
@@ -44,42 +74,38 @@ type Changes = z.output<typeof SaveBericht>["changes"];
  * club took out of it holds none, which reads „Pflichtfeld“ on that row's box. Nothing else of a stored row can
  * break a rule the write published.
  */
-function storedRows<Row>(
-  schema: z.ZodType<readonly Row[]>,
-  rows: unknown,
-  name: "scorers" | "cards",
-  fieldErrors: Record<string, Copy>,
-): readonly Row[] {
+function storedRows<Row>(schema: z.ZodType<readonly Row[]>, rows: unknown, name: "scorers" | "cards", faults: Fault[]): readonly Row[] {
   const parsed = schema.safeParse(rows);
   if (parsed.success) return parsed.data;
-  for (const issue of parsed.error.issues) fieldErrors[["changes", name, ...issue.path].join(".")] ??= COPY.shared.field.required;
+  for (const issue of parsed.error.issues) faults.push(fault(["changes", name, ...issue.path].join("."), "required"));
   return [];
 }
 
 /**
  * The whole report as the write takes it: every field the form did not change as the report stands, since the write
  * replaces the whole block. A shoot-out stands only where the fixture takes one, a knockout match whose counted goals
- * are level and no no-show decided, and once either of its figures is typed both are required; one typed before the
- * goals moved off level is dropped, as the write would refuse it.
+ * are level and no no-show decided, and once either of its figures is typed both are required (`requiredOf`); one
+ * typed before the goals moved off level is dropped, as the write would refuse it.
  */
-function payloadOf(read: FLSpielberichtSchiedsrichterResponse, changes: Changes): FLSpielberichtBerichtPayload | ActionAnswer<never> {
+function payloadOf(read: FLSpielberichtSchiedsrichterResponse, changes: Changes): FLSpielberichtBerichtPayload | LaneAnswer<never> {
   const stored = read.bericht;
   const shown = valuesOf(read);
-  const fieldErrors: Record<string, Copy> = {};
+  const faults: Fault[] = [];
 
   const sonderereignis = changes.sonderereignis === undefined ? (stored?.ergebnis_vorschlag.sonderereignis ?? null) : changes.sonderereignis;
-  const goals = changes.scorers ?? storedRows(Goals, shown.scorers, "scorers", fieldErrors);
-  const cardRows = changes.cards ?? storedRows(Cards, shown.cards, "cards", fieldErrors);
+  const goals = changes.scorers ?? storedRows(Goals, shown.scorers, "scorers", faults);
+  const cardRows = changes.cards ?? storedRows(Cards, shown.cards, "cards", faults);
   const storedShootOut = stored?.ergebnis_vorschlag.elfmeterschiessen ?? null;
   const shootOut1 = changes.shootOut1 === undefined ? (storedShootOut?.team1 ?? null) : changes.shootOut1;
   const shootOut2 = changes.shootOut2 === undefined ? (storedShootOut?.team2 ?? null) : changes.shootOut2;
 
+  const phase = read.spiel.saison_phase;
+  for (const box of requiredOf({ scorers: goals, shootOut1, shootOut2, sonderereignis }, phase))
+    faults.push(fault(`changes.${box}`, "required"));
+  if (faults.length > 0) return { ok: false, faults };
+
   const score = counted(goals);
-  const takesShootOut = admitsShootOut(read.spiel.saison_phase, { tore: score.team1 }, { tore: score.team2 }, sonderereignis);
-  const required = COPY.shared.field.required;
-  if (takesShootOut && shootOut1 === null && shootOut2 !== null) fieldErrors["changes.shootOut1"] = required;
-  if (takesShootOut && shootOut2 === null && shootOut1 !== null) fieldErrors["changes.shootOut2"] = required;
-  if (Object.keys(fieldErrors).length > 0) return { ok: false, fieldErrors };
+  const takesShootOut = admitsShootOut(phase, { tore: score.team1 }, { tore: score.team2 }, sonderereignis);
 
   return {
     ergebnis_vorschlag: {
@@ -105,16 +131,13 @@ export const saveBericht = action({
   claim: "record",
   name: "saveBericht",
   input: SaveBericht,
-  // The season's end, met by a form read before it; goals entered beside a no-show, which the list's line words; and a
-  // shoot-out typed level, which the form offers and the write refuses.
-  ownWords: ["saison_past", "nichtantreten_with_scorers", "elfmeterschiessen_without_winner"],
   // The no-show's rule judges the whole block, so the backend names the block, which this form shows as the goals.
   paths: { bericht: "changes.scorers" },
   examples: {
-    "changes.scorers.*.minute": COPY.area.schiedsrichter.spielbericht.minuteExample,
-    "changes.cards.*.minute": COPY.area.schiedsrichter.spielbericht.minuteExample,
+    "changes.scorers.*.minute": AREA_COPY.schiedsrichter.spielbericht.minuteExample,
+    "changes.cards.*.minute": AREA_COPY.schiedsrichter.spielbericht.minuteExample,
   },
-  run: async ({ id, version: read, changes }): Promise<ActionAnswer<number>> => {
+  run: async ({ id, version: read, changes }): Promise<LaneAnswer<number>> => {
     const stands = await getOwnSpielbericht(id);
     if (stands === null) return { ok: false, reason: COPY.shared.failure.stale };
     const payload = payloadOf(stands, changes);

@@ -7,30 +7,33 @@ person asked for by mail is here too, so it reaches the blocks their own press r
 """
 
 from collections.abc import Awaitable, Callable, Mapping, Sequence
+from collections.abc import Set as AbstractSet
 from dataclasses import dataclass
 from datetime import datetime
 from functools import partial
 from http import HTTPStatus
-from typing import Any, Final, Protocol
+from typing import Any, Final, Literal, Protocol, get_args
 
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
-from app.api.bewerbungen.services import build_own_bewerbung_filter, schule_name
-from app.api.identity.schemas import FLSubjectSeat
-from app.api.identity.services import folded, holds_a_seat, is_own_registrierung, own_seats, seat_address
+from app.api.bewerbungen.services import build_own_bewerbung_filter, pull_schule_name
+from app.api.identity.schemas import FLEinwilligungWithdrawalReport, FLSubjectSeat
+from app.api.identity.services import holds_a_seat, is_own_registrierung, own_seats
 from app.api.kontakte.services import rows_seating
-from app.api.registrierungen.services import build_own_registrierung_filter
+from app.api.registrierungen.services import build_erasure_registrierung_filter, build_own_registrierung_filter
 from app.api.saisons.services import SAISON_LOOKUP
 from app.api.schiedsrichter.services import EINWILLIGUNG_FIELD, SELF_REFEREE_ORDER, build_self_referee_filter
 from app.api.spieler.services import SELF_PUPIL_ORDER, build_self_pupil_filter
 from app.core.clock import utc_stamp
 from app.core.codes import Code
 from app.core.collections import Collection as DbCollection
-from app.core.crud import patch_past_the_version_in_db, pull_one_from_db, refuse
+from app.core.crud import aggregate_many_from_db, patch_past_the_version_in_db, refuse, refuse_faults
 from app.core.exceptions import APIError
 from app.core.journal import Journal
+from app.core.readonly import ReadCollection
+from app.core.recording import record_act
 from app.core.transactions import transact
 from app.shared.einwilligung import find_self_media_refusal, media_offered
 from app.shared.einwilligung_evidence import (
@@ -43,11 +46,12 @@ from app.shared.einwilligung_evidence import (
     is_given,
 )
 from app.shared.schemas.einwilligung import (
+    WITHHELD_BY_A_PERSON,
+    WITHHELD_ON_A_SEAT,
     FLAccountEinwilligungPayload,
     FLSchiedsrichterAccountEinwilligungPayload,
-    PressTextVersions,
+    FLWithdrawalChoice,
     by_choice,
-    stale_grants,
 )
 from app.shared.schemas.literals import KONTAKT_SEATS
 
@@ -126,25 +130,6 @@ def withdrawal_line(
     )
 
 
-def find_grant_wording_refusal(
-    *, blocks: Sequence[Mapping[str, Any]], chosen: Mapping[FLEinwilligungChoice, Any], text_versions: PressTextVersions
-) -> APIError | None:
-    """`grant_wording_stale`: a choice this press moves onto a grant on any of `blocks` names a replaced label.
-
-    Only a choice that moves: the writers stamp no other, so an unchanged grant beside a withdrawal from a page loaded
-    before a rewording records nothing under the old words, and refusing it would keep the withdrawal from landing.
-    """
-
-    given: dict[FLEinwilligungChoice, Any] = {
-        choice: value for choice, value in chosen.items() if any(gives_anything(saved=block, chosen={choice: value}) for block in blocks)
-    }
-    stale = stale_grants(text_versions, given)
-    if not stale:
-        return None
-
-    return APIError(HTTPStatus.CONFLICT, Code.GRANT_WORDING_STALE, fields=tuple(("text_versions", choice) for choice in stale))
-
-
 def find_own_entry_refusal(*, held: bool) -> APIError | None:
     """`role_not_held` on a person's own record: the address holds no record this operation may read or change.
 
@@ -173,7 +158,7 @@ def find_evidence_state_refusal(*, expected: Mapping[str, Any], blocks: Sequence
 
 # Every consent press runs the one sequence below between finding its record and writing it, a refusal at any step
 # writing nothing. One sequence for every kind, so no two presses judge in two orders: the stale page first, then a
-# grant the record may not take, then a grant under a replaced label, then the media age.
+# grant the record may not take, then the media age.
 
 # Whether the record the press found may take a grant, asked only of a press granting something: the
 # read behind it is the Funktion lookup, and a withdrawal needs none.
@@ -210,7 +195,6 @@ async def press_einwilligung(
     birth_dates: Sequence[Any],
     chosen: Mapping[FLEinwilligungChoice, Any],
     evidence_state: Mapping[str, Any],
-    text_versions: PressTextVersions,
     may_give: MayGive,
     today: str,
 ) -> None:
@@ -225,10 +209,9 @@ async def press_einwilligung(
         evidence_state=evidence_state,
         may_give=may_give,
     )
-    refuse(find_grant_wording_refusal(blocks=blocks, chosen=chosen, text_versions=text_versions))
     media = is_given("media", chosen.get("media"))
     for block, birth_date in zip(blocks, birth_dates, strict=True):
-        refuse(find_self_media_refusal(saved=block, media=media, birth_date=birth_date, today=today))
+        refuse_faults(find_self_media_refusal(saved=block, media=media, birth_date=birth_date, today=today))
 
 
 async def press_withdrawal(
@@ -237,10 +220,7 @@ async def press_withdrawal(
     chosen: Mapping[FLEinwilligungChoice, Any],
     evidence_state: Mapping[str, Any],
 ) -> None:
-    """A press on a kind taking withdrawals alone: every grant refused before any rule only a grant meets, and nothing counted.
-
-    No label is judged: a withdrawal names any its kind cites.
-    """
+    """A press on a kind taking withdrawals alone: every grant refused before any rule only a grant meets, and nothing counted."""
 
     await _before_giving(
         blocks=blocks,
@@ -307,7 +287,6 @@ async def press_own_einwilligung(
                 birth_dates=[row.get("birth_date")],
                 chosen=chosen,
                 evidence_state=evidence_state,
-                text_versions=einwilligung_data.text_versions,
                 may_give=partial(grants.may_give, session),
                 today=grants.today,
             )
@@ -330,7 +309,7 @@ class Held:
     seats: Sequence[str] = ()
 
 
-def held_by_the_record(row: Mapping[str, Any]) -> Held:
+def _held_by_the_record(row: Mapping[str, Any], _identifier: str) -> Held:
     """A pupil's, a referee's or a registration's own block; none before its person confirmed it."""
 
     block = row.get("einwilligung")
@@ -338,64 +317,234 @@ def held_by_the_record(row: Mapping[str, Any]) -> Held:
     return Held(blocks={"einwilligung": block} if isinstance(block, Mapping) else {})
 
 
-def held_by_the_seat(row: Mapping[str, Any], seat: str) -> Held:
-    """Every confirmed seat of a season row or an application at the named seat's address, as their own press moves them together.
+def _held_on_the_seats(row: Mapping[str, Any], identifier: str) -> Held:
+    """Every confirmed seat of a season row or an application at the address, as their own press moves them together."""
 
-    One person's seats on a row are one entry on their account page, which shows a choice on where any seat grants it.
-    """
-
-    identifier = folded(seat_address(row, seat))
-    seats = [] if identifier is None else own_seats(row, identifier)
+    seats = own_seats(row, identifier)
 
     return Held(blocks={f"kontakte.{seat}.einwilligung": row["kontakte"][seat]["einwilligung"] for seat in seats}, seats=seats)
 
 
-async def withdraw_by_mail(
-    *,
-    kind: DbCollection,
-    collection: AsyncCollection,
-    db_filter: Mapping[str, Any],
-    projection: Mapping[str, Any],
-    held_of: Callable[[Mapping[str, Any]], Held],
-    withheld: Mapping[FLEinwilligungChoice, Any],
-    act: Callable[[Mapping[str, Any], AsyncClientSession], Awaitable[None]],
-    db: AsyncMongoClient,
-    now: datetime,
-) -> None:
-    """An administrator's entry of a withdrawal the person asked for by mail, on the record `db_filter` finds, 404 where none stands.
+@dataclass(frozen=True, kw_only=True)
+class AddressRecords:
+    """The collections an address's consent records stand in, and the clubs an application's school may be named by."""
 
-    Withholds each choice of `withheld` on every block `held_of` finds granting it, writes nothing where none does, and
-    `act` records the act; the withdrawal is journalled once its transaction lands, as the person's own press is.
+    spieler: AsyncCollection
+    schiedsrichter: AsyncCollection
+    saison_teams: AsyncCollection
+    bewerbungen: AsyncCollection
+    registrierungen: AsyncCollection
+    teams: ReadCollection
+
+
+# The kinds of record an address holds a consent on, each as `FLEinwilligungWithdrawalReport` names it.
+type WithdrawalKind = Literal["spieler", "schiedsrichter", "kontakt_seats", "bewerbung_seats", "registrierungen"]
+
+# Every withdrawal choice in its type's order, the order the report lists them in.
+_WITHDRAWAL_CHOICES: Final[tuple[FLWithdrawalChoice, ...]] = get_args(FLWithdrawalChoice.__value__)
+
+# A seat's projection: the address `own_seats` judges each seat by, and the block it moves.
+_SEAT_FIELDS: Final = {f"kontakte.{seat}.{field}": 1 for seat in KONTAKT_SEATS for field in ("email", "einwilligung")}
+
+
+@dataclass(frozen=True, kw_only=True)
+class _Kind:
+    """How one kind of record is selected by the address, which of its blocks the person holds, and what a choice sets there."""
+
+    report: WithdrawalKind
+    collection: DbCollection
+    # The unnarrowed selection the erasure reads too: a retired row, a finished season and a decided record included.
+    select: Callable[[str], Mapping[str, Any]]
+    projection: Mapping[str, Any]
+    held_of: Callable[[Mapping[str, Any], str], Held]
+    withheld: Mapping[FLWithdrawalChoice, tuple[FLEinwilligungChoice, Any]]
+
+
+_KINDS: Final = (
+    _Kind(
+        report="spieler",
+        collection=DbCollection.SPIELER,
+        select=build_self_pupil_filter,
+        projection={"einwilligung": 1},
+        held_of=_held_by_the_record,
+        withheld=WITHHELD_BY_A_PERSON,
+    ),
+    _Kind(
+        report="schiedsrichter",
+        collection=DbCollection.SCHIEDSRICHTER,
+        select=build_self_referee_filter,
+        projection={EINWILLIGUNG_FIELD: 1},
+        held_of=_held_by_the_record,
+        withheld=WITHHELD_BY_A_PERSON,
+    ),
+    _Kind(
+        report="kontakt_seats",
+        collection=DbCollection.SAISON_TEAMS,
+        select=rows_seating,
+        projection={"team_id": 1, "name": 1, **_SEAT_FIELDS},
+        held_of=_held_on_the_seats,
+        withheld=WITHHELD_ON_A_SEAT,
+    ),
+    _Kind(
+        report="bewerbung_seats",
+        collection=DbCollection.BEWERBUNGEN,
+        select=rows_seating,
+        projection={"team_id": 1, "schule": 1, **_SEAT_FIELDS},
+        held_of=_held_on_the_seats,
+        withheld=WITHHELD_ON_A_SEAT,
+    ),
+    _Kind(
+        report="registrierungen",
+        collection=DbCollection.REGISTRIERUNGEN,
+        select=build_erasure_registrierung_filter,
+        projection={"einwilligung": 1},
+        held_of=_held_by_the_record,
+        withheld=WITHHELD_BY_A_PERSON,
+    ),
+)
+
+
+def _collection_of(records: AddressRecords, kind: _Kind) -> AsyncCollection:
+    return {
+        DbCollection.SPIELER: records.spieler,
+        DbCollection.SCHIEDSRICHTER: records.schiedsrichter,
+        DbCollection.SAISON_TEAMS: records.saison_teams,
+        DbCollection.BEWERBUNGEN: records.bewerbungen,
+        DbCollection.REGISTRIERUNGEN: records.registrierungen,
+    }[kind.collection]
+
+
+@dataclass(frozen=True, kw_only=True)
+class _Withdrawal:
+    """One record a withdrawal moves: the blocks it withholds on, what it sets there, and the choices of the mail it ends."""
+
+    kind: _Kind
+    row: Mapping[str, Any]
+    held: Held
+    withheld: Mapping[FLEinwilligungChoice, Any]
+    # The record's choices the entry moves off a grant, for the journal, whose replay reads a record's own vocabulary.
+    moved: tuple[FLEinwilligungChoice, ...]
+    ended: frozenset[FLWithdrawalChoice]
+
+
+async def _withdrawals_at(
+    identifier: str, *, choices: AbstractSet[FLWithdrawalChoice], records: AddressRecords, session: AsyncClientSession
+) -> list[_Withdrawal]:
+    """Every record at the address on which a named choice is granted, read in `session`, in the kinds' order."""
+
+    withdrawals: list[_Withdrawal] = []
+    for kind in _KINDS:
+        # Typed, as pyright widens a comprehension's literal keys to `str`.
+        named: dict[FLWithdrawalChoice, tuple[FLEinwilligungChoice, Any]] = {
+            choice: pair for choice, pair in kind.withheld.items() if choice in choices
+        }
+        withheld = dict(named.values())
+        if not withheld:
+            continue
+        rows = await aggregate_many_from_db(
+            collection=_collection_of(records, kind),
+            pipeline=[{"$match": kind.select(identifier)}, {"$project": kind.projection}, {"$sort": {"_id": 1}}],
+            session=session,
+        )
+        for row in rows:
+            held = kind.held_of(row, identifier)
+            moved = withdrawal_line(blocks=list(held.blocks.values()), chosen=withheld)
+            if moved is None:
+                continue
+            ended: frozenset[FLWithdrawalChoice] = frozenset(choice for choice, (record_choice, _) in named.items() if record_choice in moved)
+            withdrawals.append(_Withdrawal(kind=kind, row=row, held=held, withheld=withheld, moved=moved, ended=ended))
+
+    return withdrawals
+
+
+def _report_of(withdrawals: Sequence[_Withdrawal]) -> FLEinwilligungWithdrawalReport:
+    """Per kind, the choices the entry ends on any of its records, in the mail's order of `FLWithdrawalChoice`."""
+
+    ended: dict[WithdrawalKind, set[FLWithdrawalChoice]] = {kind.report: set() for kind in _KINDS}
+    for withdrawal in withdrawals:
+        ended[withdrawal.kind.report] |= withdrawal.ended
+
+    return FLEinwilligungWithdrawalReport.model_validate(
+        {kind: [choice for choice in _WITHDRAWAL_CHOICES if choice in chosen] for kind, chosen in ended.items()}
+    )
+
+
+async def preview_withdrawal_at_address(
+    identifier: str, *, choices: AbstractSet[FLWithdrawalChoice], records: AddressRecords, session: AsyncClientSession
+) -> FLEinwilligungWithdrawalReport:
+    """What `withdraw_at_address` would end, read in a snapshot session and writing nothing: the entry's dry run."""
+
+    return _report_of(await _withdrawals_at(identifier, choices=choices, records=records, session=session))
+
+
+async def withdraw_at_address(
+    identifier: str, *, choices: AbstractSet[FLWithdrawalChoice], records: AddressRecords, db: AsyncMongoClient, now: datetime
+) -> FLEinwilligungWithdrawalReport:
+    """An administrator's entry of a withdrawal the person asked for by mail, on every record the address holds, in one write.
+
+    Withholds each named choice on every block at the address granting it, the name and the media consent on a person's
+    own record and WhatsApp and the media consent on a seat, and grants nothing. The records are read again inside the
+    transaction, so a record changed since the dry run is judged as it stands. Each record moved is recorded under its
+    kind's act and journalled once the transaction lands, as the person's own press is.
     """
 
     at = utc_stamp(now)
     journal = Journal()
 
     @journal.attempted
-    async def write_the_withdrawal(session: AsyncClientSession) -> None:
-        row = await pull_one_from_db(collection=collection, db_filter=db_filter, projection=projection, session=session)
-        held = held_of(row)
-        moved = withdrawal_line(blocks=list(held.blocks.values()), chosen=withheld)
-        if moved is None:
-            return
+    async def write_the_withdrawals(session: AsyncClientSession) -> FLEinwilligungWithdrawalReport:
+        withdrawals = await _withdrawals_at(identifier, choices=choices, records=records, session=session)
+        for withdrawal in withdrawals:
+            row, kind = withdrawal.row, withdrawal.kind
+            collection = _collection_of(records, kind)
+            # Past the count, as the person's own press is: no form saves the consent, and the read above in this
+            # transaction is what a second withdrawal or a press is judged against.
+            await patch_past_the_version_in_db(
+                collection=collection,
+                db_filter={"_id": row["_id"]},
+                update={"$set": compose_mail_withdrawal(blocks=withdrawal.held.blocks, withheld=withdrawal.withheld, at=at)},
+                session=session,
+            )
+            await _record(withdrawal, collection=collection, teams=records.teams, session=session)
+            journal.note("withdrawal", [f"{kind.collection}/{row['_id']}"], choices=list(withdrawal.moved), seats=withdrawal.held.seats)
 
-        # Past the count, as the person's own press is: no form saves the consent, and the read above in this
-        # transaction is what a second withdrawal or a press is judged against.
-        await patch_past_the_version_in_db(
-            collection=collection,
-            db_filter={"_id": row["_id"]},
-            update={"$set": compose_mail_withdrawal(blocks=held.blocks, withheld=withheld, at=at)},
-            session=session,
-        )
-        await act(row, session)
-        journal.note("withdrawal", [f"{kind}/{row['_id']}"], choices=list(moved), seats=held.seats)
+        return _report_of(withdrawals)
 
     async with journal:
-        await transact(db, write_the_withdrawal)
+        return await transact(db, write_the_withdrawals)
+
+
+async def _record(withdrawal: _Withdrawal, *, collection: AsyncCollection, teams: ReadCollection, session: AsyncClientSession) -> None:
+    """The Protokoll's row of one record moved: a season row by its club and the row's name, an application by its school.
+
+    Each act a literal at its own call, so the closed list of acts is held to the lines recording them.
+    """
+
+    row = withdrawal.row
+    match withdrawal.kind.report:
+        case "spieler":
+            await record_act(collection=collection, action="spieler.einwilligung_withdrawn", record_id=row["_id"], session=session)
+        case "schiedsrichter":
+            await record_act(collection=collection, action="schiedsrichter.einwilligung_withdrawn", record_id=row["_id"], session=session)
+        case "kontakt_seats":
+            await record_act(
+                collection=collection,
+                action="team.seat_einwilligung_withdrawn",
+                record_id=row["team_id"],
+                label=str(row["name"]),
+                session=session,
+            )
+        case "bewerbung_seats":
+            schule = await pull_schule_name(bewerbung_raw=row, teams_collection=teams, session=session)
+            await record_act(
+                collection=collection, action="bewerbung.seat_einwilligung_withdrawn", record_id=row["_id"], label=schule, session=session
+            )
+        case "registrierungen":
+            await record_act(collection=collection, action="registrierung.einwilligung_withdrawn", record_id=row["_id"], session=session)
 
 
 def context_teams_lookup(local_field: str) -> Mapping[str, Any]:
-    """The clubs a record's `local_field` names, read today as `teams`: the name a registration's and an application's entry shows."""
+    """The clubs a record's `local_field` names, read today as `teams`: the name a registration's entry shows."""
 
     return {
         "$lookup": {
@@ -592,33 +741,25 @@ def build_self_bewerbung_pipeline(identifier: str) -> list[Mapping[str, Any]]:
         {
             "$project": {
                 "saison_id": 1,
-                "team_id": 1,
-                "schule.team_name": 1,
                 **{f"kontakte.{seat}.{field}": 1 for seat in KONTAKT_SEATS for field in ("email", "einwilligung", *_SEAT_PERSON_FIELDS)},
             }
         },
         {"$sort": {"saison_id": -1, "_id": 1}},
-        context_teams_lookup("team_id"),
     ]
 
 
-def compose_bewerbung_seats_self(
-    rows: Sequence[Mapping[str, Any]], identifier: str, *, teams: Mapping[Any, Mapping[str, Any]]
-) -> list[dict[str, Any]]:
+def compose_bewerbung_seats_self(rows: Sequence[Mapping[str, Any]], identifier: str) -> list[dict[str, Any]]:
     """One entry per pending application on which this address holds a confirmed seat, as `compose_seats_self` answers a row."""
 
-    team_names = {team_id: str(team.get("name") or "") for team_id, team in teams.items()}
     entries = []
     for row in rows:
         seats = own_seats(row, identifier)
         if not seats:
             continue
         held = [row["kontakte"][seat] for seat in seats]
-        schule = schule_name(bewerbung_raw=row, team_names=team_names)
         entries.append(
             {
                 "bewerbung_id": row["_id"],
-                "schule": schule,
                 "saison_id": row["saison_id"],
                 "seats": seats,
                 "persons": _seat_persons(row, seats),

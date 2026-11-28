@@ -58,9 +58,12 @@ export function takenFor(taken: readonly string[], rows: readonly FLBewerbungLis
   return [...taken, ...picks];
 }
 
-/** One write's answer as its row keeps it. A code another club took is the one refusal its row names by a chip. */
+/**
+ * One write's answer as its row keeps it. A code another club took is the one refusal its row names by a chip, read off
+ * the Kürzel's own fault, since a refusal naming several faults carries its first one's code, whichever that is.
+ */
 export function outcomeOf(answer: ActionAnswer): Outcome {
   if (answer.ok) return { kind: "accepted" };
-  const { errorCode, reason, fieldErrors } = answer;
-  return { kind: "refused", taken: errorCode === "duplicate_key", line: reason, fieldErrors };
+  const { kinds, reason, fieldErrors } = answer;
+  return { kind: "refused", taken: kinds?.shorthand === "duplicate_key", line: reason, fieldErrors };
 }

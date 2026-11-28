@@ -1,28 +1,28 @@
 import { cache } from "react";
 import { notFound } from "next/navigation";
 
-import { requires } from "@/core/action";
-import { COPY } from "@/core/copy";
+import { boxRulesOf } from "@/core/action";
+import { ADMIN_COPY } from "@/core/copy/admin";
+import { COPY } from "@/core/copy/shared";
 import { dayOf, formatDate, timeOf } from "@/core/format";
 import { FLSonderereignis } from "@/core/generated/client/types";
-import { SpielePatchSpielBody, spielePatchSpielBodyNoteOneMax } from "@/core/generated/zod/inputs";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { AUFSTELLUNG_CHIP, STARTERS_MAX } from "@/features/aufstellungen/constants";
+import { vorschlagActs, zusageAct } from "@/features/spielbestaetigungen/answerActs";
 import { adminSpielChipOf, eventOf, previewOf, quelleWords } from "@/features/spiele/blocks";
 import { getAdminSpiel } from "@/features/spiele/queries";
-import { creditedSide, isNoShow } from "@/features/spiele/result";
+import { byMinute, creditedSide, isNoShow } from "@/features/spiele/result";
+import { saveSpiel } from "@/features/spiele/saveSpiel";
+import { NOBODY, takesNoResult, valuesOf } from "@/features/spiele/spielValues";
 import { spielerName } from "@/features/spieler/constants";
+import { createSpielort } from "@/features/spielorte/createSpielort";
 import { AGREED_CHIP, DECLINED_CHIP, EXPIRED_CHIP, owedChip } from "@/kit/stateChips";
 import { adminIdParamOf } from "@/shared/utils/adminRead";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
 
-import { createSpielort } from "../../../../../createSpielort";
-import { SPIELORT_RULES } from "../../../../../spielortRules";
-import { saveSpiel } from "./saveSpiel";
 import { SpielEditor } from "./SpielEditor";
-import { NO_SONDEREREIGNIS, NOBODY, takesNoResult, valuesOf } from "./spielValues";
 
 import type { Copy, Words } from "@/core/copy";
 import type {
@@ -32,32 +32,25 @@ import type {
   FLSpielJoinedAdmin,
   FLSpielTeamFieldJoined,
 } from "@/core/generated/client/types";
+import type { SpielValues } from "@/features/spiele/spielValues";
 import type { AnswerRow } from "@/kit/AnswerRows";
 import type { CardActRowProps } from "@/kit/Card";
 import type { Option } from "@/kit/OptionList";
 import type { TableHead, TableRow } from "@/kit/Table";
-import type { Metadata, ResolvingMetadata } from "next";
-import type { Adoption, Club } from "./SpielEditor";
-import type { SpielValues } from "./spielValues";
+import type { Metadata } from "next";
+import type { ReactElement } from "react";
+import type { Adoption, Team } from "./SpielEditor";
 
 type Props = PageProps<"/admin/saisons/[saison]/spiele/[spiel]">;
 
-const WORDS = COPY.admin.spiel;
+const WORDS = ADMIN_COPY.spiel;
 
 const SONDEREREIGNISSE: Readonly<Record<FLSonderereignis, Copy>> = {
-  ausgefallen: WORDS.ausgefallen,
+  ausgefallen: COPY.spielplan.sonderereignis.ausgefallen,
   nichtantreten_team1: WORDS.nichtantretenTeam1,
   nichtantreten_team2: WORDS.nichtantretenTeam2,
-  abgebrochen: WORDS.abgebrochen,
-  annulliert: WORDS.annulliert,
-};
-
-const { spielort, schiedsrichter } = SpielePatchSpielBody.shape;
-
-/** Whether a booking's money is required beside it, read off the write's schema. */
-const REQUIRED = {
-  mietpreis: requires(spielort.options[0].shape.mietpreis, null),
-  payment: requires(schiedsrichter.options[0].shape.payment, null),
+  abgebrochen: COPY.spielplan.sonderereignis.abgebrochen,
+  annulliert: COPY.spielplan.sonderereignis.annulliert,
 };
 
 /** The report's table, whose cells `berichtRows` fills: the editor draws its rows under it. */
@@ -66,12 +59,11 @@ const REPORT_HEAD: TableHead = {
   stack: true,
   columns: [
     { key: "event", label: WORDS.event },
-    { key: "minute", label: WORDS.minute, figures: true },
-    { key: "score", label: WORDS.ergebnis, figures: true },
+    { key: "minute", label: COPY.spielplan.minute, figures: true },
+    { key: "score", label: COPY.spielplan.ergebnis, figures: true },
   ],
 };
 
-/** One read of the editor's whole view, for the tab's title and the page alike. */
 const read = cache(getAdminSpiel);
 
 /**
@@ -85,27 +77,16 @@ async function findSpiel(params: Props["params"]): Promise<FLSpieleAdminSingleRe
   return view === null || view.spiel.saison_id !== saison ? null : view;
 }
 
-async function readSpiel(params: Props["params"]): Promise<FLSpieleAdminSingleResponse> {
-  const view = await findSpiel(params);
-  if (view === null) notFound();
-  return view;
-}
-
 /** A match is named by its two teams, as its own page is, and by its number while a side is still open. */
 const nameOf = (spiel: FLSpielJoinedAdmin) =>
   spiel.team1 === null || spiel.team2 === null
     ? WORDS.number(spiel.spiel_nr)
     : ROUTES.adminSpiel.title({ record: spiel.team1.name }, { record: spiel.team2.name });
 
-export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return metadataFor(findSpiel(params), ({ spiel }) =>
-    pageMetadata(parent, ROUTES.adminSpiel, ROUTES.adminSpiel.path(spiel.saison_id, spiel.id), { title: nameOf(spiel) }),
+    pageMetadata(ROUTES.adminSpiel, ROUTES.adminSpiel.path(spiel.saison_id, spiel.id), { title: nameOf(spiel) }),
   );
-}
-
-/** The match editor, on its one view read. */
-export default async function SpielEditorPage({ params }: Props) {
-  return await readEditor(params);
 }
 
 /** A pupil a goal names, by the names their record holds; a goal naming nobody, „anonym“. */
@@ -113,12 +94,6 @@ function scorerOf(bericht: FLSpielEditorBericht, spielerId: string | null): Word
   const named = spielerId === null ? undefined : bericht.named.find((spieler) => spieler.spieler_id === spielerId);
   return named === undefined ? COPY.shared.anonymous : spielerName(named);
 }
-
-/** A minute as the report writes it, „45+2“, in the order it was played. */
-const minuteOf = (minute: string): [number, number] => {
-  const [base = "0", added = "0"] = minute.split("+");
-  return [Number(base), Number(added)];
-};
 
 /**
  * The report's goals as rows, read-only, since its referee writes them: each in the order it was scored, the side's
@@ -128,12 +103,10 @@ function berichtRows(spiel: FLSpielJoinedAdmin, bericht: FLSpielEditorBericht): 
   const words = SERVER_COPY.season.spiel;
   const plaques = { team1: spiel.team1?.shorthand ?? null, team2: spiel.team2?.shorthand ?? null };
   const score = { team1: 0, team2: 0 };
+  // The sort is stable, so goals in the same minute keep the report's order.
   return bericht.scorers
     .map((tor, index) => ({ tor, index }))
-    .toSorted((one, other) => {
-      const [a, b] = [minuteOf(one.tor.minute), minuteOf(other.tor.minute)];
-      return a[0] - b[0] || a[1] - b[1] || one.index - other.index;
-    })
+    .toSorted((one, other) => byMinute(one.tor.minute, other.tor.minute))
     .map(({ tor, index }) => {
       score[creditedSide(tor)] += 1;
       const plaque = plaques[tor.side];
@@ -144,7 +117,7 @@ function berichtRows(spiel: FLSpielJoinedAdmin, bericht: FLSpielEditorBericht): 
         cells: {
           event: tor.eigentor ? words.eigentor : words.tor,
           minute: { record: tor.minute },
-          score: WORDS.score(score, null),
+          score: COPY.spielplan.score(score, null),
         },
       };
     });
@@ -154,7 +127,7 @@ function berichtRows(spiel: FLSpielJoinedAdmin, bericht: FLSpielEditorBericht): 
 function adoptionOf(spiel: FLSpielJoinedAdmin, bericht: FLSpielEditorBericht | null): Adoption | null {
   if (bericht === null || (bericht.state !== "proposed" && bericht.state !== "differing")) return null;
   const { team1_tore: tore1, team2_tore: tore2, elfmeterschiessen, sonderereignis } = bericht.ergebnis_vorschlag;
-  const event = sonderereignis ?? NO_SONDEREREIGNIS;
+  const event = sonderereignis ?? "";
   // A no-show's goals are the award the write composes: the proposal names the side that stayed away alone.
   if (isNoShow(sonderereignis)) {
     const words = eventOf({ ...spiel, sonderereignis, ergebnis: null });
@@ -175,75 +148,102 @@ function adoptionOf(spiel: FLSpielJoinedAdmin, bericht: FLSpielEditorBericht | n
     shootOut1: elfmeterschiessen === null ? "" : String(elfmeterschiessen.team1),
     shootOut2: elfmeterschiessen === null ? "" : String(elfmeterschiessen.team2),
   };
-  return { version: bericht.version, text: WORDS.fromReport(WORDS.score({ team1: tore1, team2: tore2 }, elfmeterschiessen)), values };
+  return { version: bericht.version, text: WORDS.fromReport(COPY.spielplan.score({ team1: tore1, team2: tore2 }, elfmeterschiessen)), values };
 }
 
+/** The day and hour the match stands at. */
+type Slot = { date: string | null; time: string | null };
+
 /** An answer the party has not given: the chip of one still owed, and the line of one that lapsed on no day. */
-const ANSWER_MISSING = SERVER_COPY.overview.missing(COPY.area.answer);
+const ANSWER_MISSING = SERVER_COPY.overview.missing(COPY.spielplan.answer);
+
+/**
+ * Whether a party's newest row has asked it nothing about the match as it stands: none at all, one about a slot the
+ * match has left that holds no answer, one about a call-off since undone, or one in time that nobody could be mailed on.
+ */
+const notAsked = (row: FLSpielbestaetigungEditorRow | undefined): boolean =>
+  row === undefined ||
+  (row.state === "invalid" && row.answer === null) ||
+  row.state === "cancelled" ||
+  (row.state === "valid" && row.asked_at === null);
 
 /**
  * One party's answer as a row, by the state its newest row reads as: its name, its chip, and under them the answer's
- * day, the day it is due by, or that the party has not been asked; a declining club's proposed date after its day, and
- * its reason in its own words. An answer that lapsed unanswered, which the party can no longer give, says so and the day
- * it lapsed on, as every other page under that chip does; one an exit or a decision ended before its answer was due lapsed on no day, and its line
- * says the answer is missing. A discarded proposal reads as the agreement the fixture counts. An answer about a slot the
- * match has left is drawn as given beside that slot, which it alone is about. A row about a slot the match has left that
- * holds no answer, or about a call-off since undone, asks nothing about the match as it stands, and a row in time that
- * nobody could be mailed on has asked nothing yet: the party reads as not asked.
+ * day, the day it is due by, or that the party has not been asked (`notAsked`); a declining club's proposed date after
+ * its day, and its reason in its own words. An answer that lapsed unanswered, which the party can no longer give, says
+ * so and the day it lapsed on, as every other page under that chip does; one an exit or a decision ended before its
+ * answer was due lapsed on no day, and its line says the answer is missing. A discarded proposal reads as the agreement
+ * the fixture counts. An answer about a slot the match has left is drawn as given beside that slot, which it alone is
+ * about; one whose fixture changed its ground, a side or its referee at the slot the match still holds is drawn as
+ * given, since „Bisher“ beside the match's own slot would name a move that never happened. `slot` is the match's own.
  */
-function answerRow(id: string, name: Words, plaque: string | null, row: FLSpielbestaetigungEditorRow | undefined): AnswerRow {
+function answerRow(id: string, name: Words, plaque: string | null, row: FLSpielbestaetigungEditorRow | undefined, slot: Slot): AnswerRow {
   const shown = { id, name, ...(plaque === null ? {} : { plaque: { record: plaque } }) };
   // Both wait in the warn hue: a party never asked on the league, one asked on its answer, in the word its own list says.
-  if (
-    row === undefined ||
-    (row.state === "invalid" && row.answer === null) ||
-    row.state === "cancelled" ||
-    (row.state === "valid" && row.asked_at === null)
-  ) {
+  // `notAsked` holds the missing row too, but only the test here narrows the type for the branches below.
+  if (row === undefined || notAsked(row)) {
     return { ...shown, chip: { tone: "warn", label: COPY.template.open }, line: WORDS.notAsked };
   }
   if (row.state === "expired") {
-    const line = row.lapsed_on === null ? ANSWER_MISSING : COPY.admin.schiedsrichter.expiredOn(dayOf(row.lapsed_on));
+    const line = row.lapsed_on === null ? ANSWER_MISSING : COPY.shared.onDay(dayOf(row.lapsed_on));
     return { ...shown, chip: EXPIRED_CHIP, line };
   }
   const { answer } = row;
   // Unanswered and in time: its party may still answer, a referee until the slot's day, which no deadline binds.
-  if (answer === null) return { ...shown, chip: owedChip(ANSWER_MISSING), line: WORDS.answerBy(dayOf(row.due_by)) };
+  if (answer === null) return { ...shown, chip: owedChip(ANSWER_MISSING), line: COPY.shared.answerBy(dayOf(row.due_by)) };
   const reason = answer.reason === null ? {} : { reason: { record: answer.reason } };
-  if (row.state === "invalid") {
-    const slot = SERVER_COPY.season.labelled(
-      COPY.admin.facts.before,
+  const kept = row.ansetzung.date === slot.date && row.ansetzung.time === slot.time;
+  if (row.state === "invalid" && !kept) {
+    const left = SERVER_COPY.season.labelled(
+      COPY.shared.facts.before,
       COPY.spielplan.when(dayOf(row.ansetzung.date), timeOf(row.ansetzung.time)),
     );
-    return answer.kind === "agreed" ? { ...shown, chip: AGREED_CHIP, line: slot } : { ...shown, chip: DECLINED_CHIP, line: slot, ...reason };
+    return answer.kind === "agreed" ? { ...shown, chip: AGREED_CHIP, line: left } : { ...shown, chip: DECLINED_CHIP, line: left, ...reason };
   }
-  const day: Words = answer.by.kind === "admin" ? WORDS.enteredByLeague : { record: formatDate(dayOf(answer.at)) };
+  const day: Words = answer.by.kind === "admin" ? COPY.spielplan.enteredByLeague : { record: formatDate(dayOf(answer.at)) };
   // The chip follows the state, so a decline whose proposal the league discarded reads as the agreement it counts as.
+  if (row.state === "invalid" && answer.kind === "agreed") return { ...shown, chip: AGREED_CHIP, line: day };
   if (row.state === "agreed") {
     return answer.kind === "agreed"
       ? { ...shown, chip: AGREED_CHIP, line: day }
-      : { ...shown, chip: AGREED_CHIP, line: COPY.admin.actionLog.action["spielbestaetigung.vorschlag_discarded"], ...reason };
+      : { ...shown, chip: AGREED_CHIP, line: ADMIN_COPY.actionLog.action["spielbestaetigung.vorschlag_discarded"], ...reason };
   }
   const { vorschlag } = answer;
   const line =
     vorschlag === null
       ? day
-      : SERVER_COPY.season.labelled(day, WORDS.proposed(COPY.spielplan.when(dayOf(vorschlag.date), timeOf(vorschlag.time))));
+      : SERVER_COPY.season.labelled(day, COPY.spielplan.proposed(COPY.spielplan.when(dayOf(vorschlag.date), timeOf(vorschlag.time))));
   return { ...shown, chip: DECLINED_CHIP, line, ...reason };
+}
+
+/**
+ * The league's acts on a party's newest row, the Übersicht's own, offered wherever the write takes them, while the
+ * Übersicht lists an owed answer only once it is due that day or overdue: „Übernehmen“ and „Verwerfen“ on a club's
+ * standing proposal, and „Zusage eintragen“ on every row whose party's agreement the write takes, in time or lapsed.
+ */
+function actsOf(row: FLSpielbestaetigungEditorRow | undefined, name: Words, slot: Slot): ReactElement | undefined {
+  if (row === undefined) return undefined;
+  if (row.vorschlag_open !== null) return vorschlagActs(row.id, slot, row.vorschlag_open);
+  return row.enterable ? zusageAct([{ id: row.id, name }]) : undefined;
 }
 
 /**
  * Each party's answer about the fixture as it stands, by the party's newest row, a closed one too, which still holds
  * the answer or that it lapsed: both clubs, then the referee where a booking names one. An event ends every question
  * still owed about the match, so on a match carrying one only a party that agreed or declined shows, its answer being
- * what it said of the match before the event.
+ * what it said of the match before the event. A finished season's match offers no act, its writes refused, and asks
+ * nobody any more, so a party it never asked shows no row; one that answered or let its answer lapse stays, as a record.
  */
-function answerRows(view: FLSpieleAdminSingleResponse): AnswerRow[] {
+function answerRows(view: FLSpieleAdminSingleResponse, closed: boolean): AnswerRow[] {
   const { spiel, spielbestaetigungen: rows } = view;
-  const party = (id: string, name: Words, plaque: string | null, row: FLSpielbestaetigungEditorRow | undefined) =>
-    spiel.sonderereignis === null || row?.state === "agreed" || row?.state === "declined" ? [answerRow(id, name, plaque, row)] : [];
+  const party = (id: string, name: Words, plaque: string | null, row: FLSpielbestaetigungEditorRow | undefined) => {
+    if (spiel.sonderereignis !== null && row?.state !== "agreed" && row?.state !== "declined") return [];
+    if (closed && notAsked(row)) return [];
+    const acts = closed ? undefined : actsOf(row, name, spiel);
+    return [{ ...answerRow(id, name, plaque, row, spiel), ...(acts === undefined ? {} : { acts }) }];
+  };
   // The rows are served newest first, so a party's first row is its newest.
-  const club = (side: "team1" | "team2", team: FLSpielTeamFieldJoined | null) =>
+  const teamRows = (side: "team1" | "team2", team: FLSpielTeamFieldJoined | null) =>
     team === null
       ? []
       : party(
@@ -263,7 +263,7 @@ function answerRows(view: FLSpieleAdminSingleResponse): AnswerRow[] {
           null,
           rows.find((row) => row.party.kind === "schiedsrichter" && row.party.schiedsrichter_id === booked.schiedsrichter_id),
         );
-  return [...club("team1", spiel.team1), ...club("team2", spiel.team2), ...referee];
+  return [...teamRows("team1", spiel.team1), ...teamRows("team2", spiel.team2), ...referee];
 }
 
 /**
@@ -271,17 +271,18 @@ function answerRows(view: FLSpieleAdminSingleResponse): AnswerRow[] {
  * „Fehlt“ where none is stored, with the club's own pages' „Überfällig“ from its due mark on, past the club's lock
  * too. A side the draw has not settled has no club to name one, and a match with no day or hour owes none, so neither
  * shows a row. A match carrying any event owes none either, as the club's own pages read it, yet the league still enters
- * its line-ups: each row stays with what is stored, and nothing on it says one is owed.
+ * its line-ups: each row stays with what is stored, and nothing on it says one is owed. A finished season's match owes
+ * none either, its writes refused: each row says only what is stored.
  */
-function aufstellungRows(view: FLSpieleAdminSingleResponse): Array<CardActRowProps & { id: string }> {
+function aufstellungRows(view: FLSpieleAdminSingleResponse, closed: boolean): Array<CardActRowProps & { id: string }> {
   const { spiel, aufstellungen, aufstellung_marks: marks } = view;
   if (spiel.date === null || spiel.time === null) return [];
-  // The served marks read the clock alone and never the event, so the page judges the event itself.
-  const owed = spiel.sonderereignis === null;
-  const words = COPY.area.team.aufstellung;
+  // The served marks read the clock alone and never the event or the season, so the page judges both itself.
+  const owed = spiel.sonderereignis === null && !closed;
+  const words = COPY.aufstellung;
   return (["team1", "team2"] as const).flatMap((side) => {
-    const club = spiel[side];
-    if (club === null) return [];
+    const team = spiel[side];
+    if (team === null) return [];
     const stored = aufstellungen[side];
     const mark = marks[side];
     // The club's lock locks nothing for the league, which still enters the line-up: a missing one past it is overdue here.
@@ -290,8 +291,8 @@ function aufstellungRows(view: FLSpieleAdminSingleResponse): Array<CardActRowPro
     return [
       {
         id: side,
-        href: ROUTES.adminAufstellung.path(spiel.saison_id, spiel.id, club.team_id),
-        name: words.ofTeam({ record: club.name }),
+        href: ROUTES.adminAufstellung.path(spiel.saison_id, spiel.id, team.team_id),
+        name: words.ofTeam({ record: team.name }),
         ...(chip === undefined ? {} : { chip }),
         ...(line === undefined ? {} : { line }),
       },
@@ -300,7 +301,7 @@ function aufstellungRows(view: FLSpieleAdminSingleResponse): Array<CardActRowPro
 }
 
 /** A knockout match's clubs for its two sides by hand, each a club the write would not field noted why. */
-function clubsOf(view: FLSpieleAdminSingleResponse): Club[] | null {
+function teamsOf(view: FLSpieleAdminSingleResponse): Team[] | null {
   return (
     view.teams?.map((team) =>
       team.fieldable
@@ -310,8 +311,9 @@ function clubsOf(view: FLSpieleAdminSingleResponse): Club[] | null {
   );
 }
 
-async function readEditor(params: Props["params"]) {
-  const view = await readSpiel(params);
+export default async function SpielEditorPage({ params }: Props) {
+  const view = await findSpiel(params);
+  if (view === null) notFound();
   const { spiel: saved } = view;
   // A finished season's matches take no write (`saison_past`), so the editor opens on one read-only.
   const closed = view.saison_status === "past";
@@ -321,11 +323,11 @@ async function readEditor(params: Props["params"]) {
   const begun = view.saison_begun;
   const bothSides = saved.team1 !== null && saved.team2 !== null;
   const sonderereignisse: Option[] = [
-    { id: NO_SONDEREREIGNIS, label: WORDS.none },
+    { id: "", label: COPY.spielplan.sonderereignis.none },
     ...Object.values(FLSonderereignis).map((event): Option => {
       const label = SONDEREREIGNISSE[event];
-      if (!begun && !takesNoResult(event)) return { id: event, label, isDisabled: true, note: COPY.admin.untilStart };
-      return !bothSides && isNoShow(event) ? { id: event, label, isDisabled: true, note: WORDS.needsBothSides } : { id: event, label };
+      if (!begun && !takesNoResult(event)) return { id: event, label, isDisabled: true, note: ADMIN_COPY.untilStart };
+      return !bothSides && isNoShow(event) ? { id: event, label, isDisabled: true, note: ADMIN_COPY.bothTeamsLocked } : { id: event, label };
     }),
   ];
 
@@ -343,7 +345,7 @@ async function readEditor(params: Props["params"]) {
         team2: saved.team2 === null ? null : { name: { record: saved.team2.name }, plaque: { record: saved.team2.shorthand } },
       }}
       quellen={{ team1: quelleWords(saved.team1_quelle)?.long ?? null, team2: quelleWords(saved.team2_quelle)?.long ?? null }}
-      clubs={clubsOf(view)}
+      teams={teamsOf(view)}
       spielorte={view.spielorte.map((spielort) => ({
         // The match's own retired venue stays in the list, marked and not to be chosen again once left.
         option:
@@ -366,19 +368,18 @@ async function readEditor(params: Props["params"]) {
               ? { id: person.id, label: { record: person.name }, isDisabled: true, note: COPY.shared.retired }
               : person.confirmed
                 ? { id: person.id, label: { record: person.name } }
-                : { id: person.id, label: { record: person.name }, isDisabled: true, note: COPY.admin.schiedsrichter.unconfirmed },
+                : { id: person.id, label: { record: person.name }, isDisabled: true, note: COPY.shared.state.unconfirmed },
           price: person.default_payment,
         })),
       ]}
       sonderereignisse={sonderereignisse}
-      noteMax={spielePatchSpielBodyNoteOneMax}
-      required={REQUIRED}
+      rules={boxRulesOf(saveSpiel)}
       report={{ head: REPORT_HEAD, rows: view.spielbericht === null ? [] : berichtRows(saved, view.spielbericht) }}
       adoption={adoptionOf(saved, view.spielbericht)}
-      answers={answerRows(view)}
-      aufstellungen={aufstellungRows(view)}
+      answers={answerRows(view, closed)}
+      aufstellungen={aufstellungRows(view, closed)}
       createSpielort={createSpielort}
-      spielortRules={SPIELORT_RULES}
+      spielortRules={boxRulesOf(createSpielort)}
       {...(closed ? { closed: SERVER_COPY.refusalLine.saison_past } : {})}
       // A planned season's match page answers not found to the public, so the strip offers none.
       {...(view.saison_status === "future" ? {} : { spielPage: ROUTES.spiel.path(saved.saison_id, saved.id) })}

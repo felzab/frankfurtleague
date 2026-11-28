@@ -1,6 +1,6 @@
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 import { SERVER_COPY } from "@/core/serverCopy";
-import { roleMarkOf, shirtNumber, spielerName } from "@/features/spieler/constants";
+import { rolleMarkOf, shirtNumber, spielerName } from "@/features/spieler/constants";
 import { NOMINEE_CHIP } from "@/kit/stateChips";
 
 import { STARTERS_MAX } from "./constants";
@@ -9,10 +9,9 @@ import type { FLAufstellungResponse, FLAufstellungSpieler } from "@/core/generat
 import type { ChipProps } from "@/kit/Chip";
 import type { LineupPlayer, LineupWords } from "@/kit/Lineup";
 
-/** Every word the line-up's block shows, on the team's page and the administrator's alike. */
 export const LINEUP_WORDS: LineupWords = {
   picked: SERVER_COPY.season.spiel.aufstellung,
-  rest: COPY.area.team.aufstellung.rest,
+  rest: COPY.aufstellung.rest,
   name: SERVER_COPY.season.column.name,
   nummer: SERVER_COPY.season.column.nummer,
   position: SERVER_COPY.season.column.position,
@@ -20,10 +19,20 @@ export const LINEUP_WORDS: LineupWords = {
   pick: COPY.shared.verb.lineUp,
   remove: COPY.shared.verb.remove,
   none: { kind: "none", plural: SERVER_COPY.season.spiel.aufstellung },
-  noSquad: { kind: "none", plural: COPY.shared.kader, one: true },
+  noKader: { kind: "none", plural: COPY.shared.kader, one: true },
   startersFull: COPY.shared.field.max(STARTERS_MAX),
-  nomineeLocked: COPY.area.team.aufstellung.nomineeLocked(STARTERS_MAX),
+  nomineeLocked: COPY.aufstellung.nomineeLocked(STARTERS_MAX),
   anonymous: COPY.shared.anonymous,
+};
+
+/**
+ * The same words for a finished season's line-up, which takes no more players: an empty line-up or squad says none
+ * was recorded, where „Noch kein“ would promise one still to come.
+ */
+export const CLOSED_LINEUP_WORDS: LineupWords = {
+  ...LINEUP_WORDS,
+  none: { ...LINEUP_WORDS.none, kind: "unrecorded" },
+  noKader: { ...LINEUP_WORDS.noKader, kind: "unrecorded" },
 };
 
 /** „Nachnominiert“ after the name of a pupil registered after the season began, whom the shortage rule holds. */
@@ -32,7 +41,7 @@ function chipOf({ is_nachnominiert }: Pick<FLAufstellungSpieler, "is_nachnominie
 }
 
 function playerOf(spieler: FLAufstellungSpieler, gone: boolean): LineupPlayer {
-  const mark = roleMarkOf(spieler.rolle);
+  const mark = rolleMarkOf(spieler.rolle);
   const chip = chipOf(spieler);
   return {
     id: spieler.spieler_id,
@@ -43,7 +52,7 @@ function playerOf(spieler: FLAufstellungSpieler, gone: boolean): LineupPlayer {
     ...(chip === undefined ? {} : { chip }),
     ...(spieler.is_nachnominiert ? { nominee: true } : {}),
     // A pupil the stored line-up names whom the squad no longer holds: deregistered or erased since.
-    ...(gone ? { gone: COPY.admin.spieler.deregistered } : {}),
+    ...(gone ? { gone: COPY.kader.deregistered } : {}),
   };
 }
 

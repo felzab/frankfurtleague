@@ -1,30 +1,33 @@
 import { cache } from "react";
 import { notFound } from "next/navigation";
 
-import { COPY } from "@/core/copy";
+import { boxRulesOf } from "@/core/action";
+import { COPY } from "@/core/copy/shared";
+import { ContractBreakError } from "@/core/errors";
 import { dayIn, dayOf, timeOf } from "@/core/format";
 import { ROUTES } from "@/core/routes";
+import { SERVER_COPY } from "@/core/serverCopy";
 import { AUFSTELLUNG_CHIP } from "@/features/aufstellungen/constants";
 import { LINEUP_WORDS, playersOf } from "@/features/aufstellungen/players";
 import { getAufstellungSelf } from "@/features/aufstellungen/queries";
 import { readAsSeatHolder, requireTeamSeats, teamMetadata } from "@/features/roles/resolvers";
-import { eventChipOf, matchdayOf, matchName, matchTitle } from "@/features/spiele/blocks";
+import { eventChipOf, matchdayOf, matchName } from "@/features/spiele/blocks";
+import { StatusPage } from "@/kit/StatusPage";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { objectIdParamOf } from "@/shared/utils/routeParams";
 
+import { saveAufstellung } from "./saveAufstellung";
 import { TeamAufstellung } from "./TeamAufstellung";
 
 import type { Copy } from "@/core/copy";
 import type { FLAufstellungResponse } from "@/core/generated/client/types";
 import type { ChipProps } from "@/kit/Chip";
-import type { Metadata, ResolvingMetadata } from "next";
+import type { Metadata } from "next";
 
 type Props = PageProps<"/area/team/[team]/[saison]/spiele/[spiel]">;
 
-/** The page's own address, which a session sent to sign in comes back to. */
 const address = ({ team, saison, spiel }: { team: string; saison: string; spiel: string }) => ROUTES.teamAufstellung.path(team, saison, spiel);
 
-/** One read of the line-up for the tab's title and the page alike. */
 const read = cache(getAufstellungSelf);
 
 /**
@@ -37,31 +40,35 @@ async function lineupAt(params: Props["params"], team: string, saison: string): 
   return found === null || found.spiel.saison_id !== saison ? null : found;
 }
 
-export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
+/** The line-up's title, its tab's and its strip's: the club whose line-up it is, as the administration's twin reads. */
+function titleOf({ spiel, team_id }: FLAufstellungResponse): Copy {
+  const team = [spiel.team1, spiel.team2].find((side) => side?.team_id === team_id);
+  if (team === undefined || team === null) throw new ContractBreakError("A line-up's read named a club its fixture does not field.");
+  return ROUTES.teamAufstellung.title({ record: team.name });
+}
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return teamMetadata(
     params,
     address,
     (seat) => lineupAt(params, seat.team_id, seat.saison_id),
-    async ({ spiel }) =>
-      pageMetadata(parent, ROUTES.teamAufstellung, address(await params), {
-        title: matchName(spiel.team1?.name ?? null, spiel.team2?.name ?? null),
-      }),
+    async (found) => pageMetadata(ROUTES.teamAufstellung, address(await params), { title: titleOf(found) }),
   );
 }
 
 /**
- * The line under the title: the matchday, as the Spiele list names it, and when the match is played; and where nothing
- * is stored before the lock, the day the line-up is due, or since when it is overdue, unless something befell the
- * match, which then needs no line-up from the club. Due and overdue refuse nothing: they are words alone. From the
- * lock, the closed editor's reason says the league alone changes it.
+ * The line under the title: the match, since the title names one club, the matchday, as the Spiele list names it, and
+ * when the match is played; and where nothing is stored before the lock, the day the line-up is due, or since when it is
+ * overdue, unless something befell the match, which then needs no line-up from the club. Due and overdue refuse
+ * nothing: they are words alone. From the lock, the closed editor's reason says the league alone changes it.
  */
 function leadOf({ spiel, marks }: FLAufstellungResponse): Copy {
   const when = COPY.spielplan.when(dayOf(spiel.date), timeOf(spiel.time));
-  const words = COPY.area.team.aufstellung;
+  const words = COPY.aufstellung;
   const due =
     marks === null || marks.stored || marks.phase === "locked" || spiel.sonderereignis !== null ? null : dayIn(new Date(marks.due_at));
   const owed = due === null ? null : marks?.phase === "overdue" ? words.overdueSince(due) : words.dueBy(due);
-  return COPY.shared.line([matchdayOf(spiel, spiel), when, owed]);
+  return COPY.shared.line([matchName(spiel.team1?.name ?? null, spiel.team2?.name ?? null), matchdayOf(spiel, spiel), when, owed]);
 }
 
 /**
@@ -76,37 +83,47 @@ function chipOf({ spiel, marks }: FLAufstellungResponse): ChipProps | undefined 
 }
 
 /**
- * The page once read: the editor until one hour before kick-off, and from then the same editor closed, as the
- * administration opens a record it may no longer change, since the league alone changes the line-up now. A match with
- * no day or hour takes no line-up, so its editor opens with nobody to name.
+ * A match's line-up as its club's seats enter it, on one read of the fixture, the squad and the stored line-up: the
+ * editor until one hour before kick-off, and from then the same editor closed, as the administration opens a record it
+ * may no longer change, since the league alone changes the line-up now. A match with no day or hour takes no line-up,
+ * so the page says what of its slot is still open, its date or, beside its day as the Spielplan words it, its hour, and
+ * leads to the team's Übersicht.
  */
-async function readEditor(params: Props["params"]) {
+export default async function AufstellungPage({ params }: Props) {
   const [seat] = await requireTeamSeats(params, address);
   const found = await readAsSeatHolder(() => lineupAt(params, seat.team_id, seat.saison_id));
   if (found === null) notFound();
 
-  const words = COPY.area.team.aufstellung;
-  const closed = found.marks?.phase === "locked" ? words.lockedLine : undefined;
-  // The block's every act answers a press with why it is closed: the lock before the missing slot.
-  const locked = closed ?? (found.marks === null ? words.needsSlot : undefined);
+  const title = titleOf(found);
+  if (found.marks === null) {
+    const day = dayOf(found.spiel.date);
+    return (
+      <StatusPage
+        scope="area"
+        title={title}
+        card={{
+          tone: "info",
+          // A match without marks has no kick-off: undated, its date is open; dated, its hour is.
+          title: day === null ? COPY.spielplan.when(null, null) : SERVER_COPY.season.spiel.timeOpen(COPY.spielplan.when(day, null)),
+          next: { label: COPY.shared.end.toOverview, href: ROUTES.teamOverview.path(seat.team_id, seat.saison_id) },
+        }}
+      />
+    );
+  }
+  const closed = found.marks.phase === "locked" ? COPY.aufstellung.lockedLine : undefined;
   const chip = chipOf(found);
   return (
     <TeamAufstellung
+      rules={boxRulesOf(saveAufstellung)}
       team={seat.team_id}
-      saison={seat.saison_id}
-      title={matchTitle(found.spiel.team1?.name ?? null, found.spiel.team2?.name ?? null)}
+      title={title}
       {...(chip === undefined ? {} : { chip })}
       lead={leadOf(found)}
       aufstellung={{ id: found.spiel.spiel_id, version: found.version, spieler: found.spieler }}
       players={playersOf(found)}
       words={LINEUP_WORDS}
-      {...(locked === undefined ? {} : { locked })}
-      {...(closed === undefined ? {} : { closed })}
+      // The league still changes a locked line-up, so its acts stay drawn and locked, the lock line saying why.
+      {...(closed === undefined ? {} : { closed, acts: "locked" })}
     />
   );
-}
-
-/** A match's line-up as its club's seats enter it, on one read of the fixture, the squad and the stored line-up. */
-export default async function AufstellungPage({ params }: Props) {
-  return await readEditor(params);
 }

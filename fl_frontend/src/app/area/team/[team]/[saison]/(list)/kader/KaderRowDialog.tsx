@@ -1,6 +1,6 @@
 "use client";
 
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 import { kaderName } from "@/features/spieler/constants";
 import { positionOptions, rolleOptions, stufeOptions } from "@/features/spieler/options";
 import { Dialog } from "@/kit/Dialog";
@@ -9,10 +9,11 @@ import { TextField } from "@/kit/TextField";
 
 import { deregisterKaderRow, saveKaderRow } from "./kaderRowActs";
 
+import type { BoxRules } from "@/core/boxRules";
 import type { FLKaderRow, FLSpielerRolle, FLSpielerStufe } from "@/core/generated/client/types";
 import type { HeldOpen } from "@/kit/useOpenUntilHidden";
 
-const WORDS = COPY.admin.spieler;
+const WORDS = COPY.kader;
 
 /**
  * A live squad row's dialog, the record titled by the player's name: its four values one under another, Nummer,
@@ -26,6 +27,7 @@ export function KaderRowDialog({
   saison,
   allowedStufen,
   takenRollen,
+  rules,
   open,
 }: {
   row: FLKaderRow;
@@ -34,6 +36,8 @@ export function KaderRowDialog({
   allowedStufen: readonly FLSpielerStufe[];
   /** Each role another live row of the squad holds, the row's own not among them. */
   takenRollen: readonly FLSpielerRolle[];
+  /** What the row's save asks of its boxes, read on the server. */
+  rules: BoxRules;
   open: HeldOpen;
 }) {
   const name = kaderName(row);
@@ -43,7 +47,8 @@ export function KaderRowDialog({
     <Dialog
       title={{ record: name }}
       act={{ verb: "save" }}
-      action={saveKaderRow}
+      run={saveKaderRow}
+      rules={rules}
       carry={{ ...where, version: String(row.version) }}
       open={open}
       danger={{
@@ -61,7 +66,7 @@ export function KaderRowDialog({
       <TextField
         label={WORDS.nummer}
         name="nummer"
-        holds={2}
+        holds={5}
         kind="digits"
         defaultValue={row.nummer ?? ""}
       />

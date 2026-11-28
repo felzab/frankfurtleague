@@ -20,7 +20,7 @@ from app.api.schiedsrichter.services import build_assignment_filter, build_self_
 from app.api.spieler.services import build_self_pupil_filter
 from app.core.codes import Code
 from app.core.collections import Collection as DbCollection
-from app.core.exceptions import APIError
+from app.core.exceptions import APIError, FieldFault, FieldPath
 from app.shared.einwilligung import is_confirmed, seat_is_confirmed
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.literals import KONTAKT_SEATS, FLAddressChangeViewableDenied, FLKontaktSeat, FLSaisonStatus
@@ -455,28 +455,28 @@ def is_own_address(*, identifier: str, actor: str) -> bool:
     return identifier == actor
 
 
-def find_own_address_refusal(*, identifier: str, actor: str) -> APIError | None:
-    """`own_address`: an administrator's route on a mailbox refuses the mailbox they act as, both folded."""
-
-    if not is_own_address(identifier=identifier, actor=actor):
-        return None
-
-    return APIError(HTTPStatus.FORBIDDEN, Code.OWN_ADDRESS)
-
-
 def admin_address_denied(*, identifier: str, actor: str, grants: Sequence[Mapping[str, Any]]) -> bool:
     """`admin_address`'s judgement: the address holds a grant and the actor no owner's power."""
 
     return admin_tier_of(identifier, grants) is not None and not holds_an_owners_power(actor=actor, grants=grants)
 
 
-def find_admin_address_refusal(*, identifier: str, actor: str, grants: Sequence[Mapping[str, Any]]) -> APIError | None:
-    """`admin_address`: an address holding a grant is acted on only by an actor holding an owner's power."""
+def find_off_limits_refusal(*, identifier: str, actor: str, grants: Sequence[Mapping[str, Any]], path: FieldPath) -> FieldFault | None:
+    """An administrator's refusal of a mailbox they act on, on the box at `path`, both addresses folded; `None` where none holds.
 
-    if not admin_address_denied(identifier=identifier, actor=actor, grants=grants):
-        return None
+    Their own (`own_address`), and else a holder's but for the owner (`admin_address`): one fault, since an
+    administrator's own address holds a grant, and its phrase sends them to Konto, where it changes. Who asks decides
+    either, so 403. A route acting on an address a stored record names, which no box holds, asks it as a gate through
+    `as_judged_on_stored_state`.
+    """
 
-    return APIError(HTTPStatus.FORBIDDEN, Code.ADMIN_ADDRESS)
+    if is_own_address(identifier=identifier, actor=actor):
+        return FieldFault(path=path, code=Code.OWN_ADDRESS, status=HTTPStatus.FORBIDDEN)
+
+    if admin_address_denied(identifier=identifier, actor=actor, grants=grants):
+        return FieldFault(path=path, code=Code.ADMIN_ADDRESS, status=HTTPStatus.FORBIDDEN)
+
+    return None
 
 
 def find_foreign_address_change_refusal(*, addresses: Iterable[str], actor: str, grants: Sequence[Mapping[str, Any]]) -> APIError | None:
@@ -494,7 +494,7 @@ def find_foreign_address_change_refusal(*, addresses: Iterable[str], actor: str,
 def address_change_viewable_denied(identifier: str, *, actor: str, grants: Sequence[Mapping[str, Any]]) -> FLAddressChangeViewableDenied | None:
     """Why the address tool refuses this administrator this address's change, in the order it refuses; `None` where it opens it.
 
-    Their judgements, never their finders: a finder's code is published only on the operations `RULES` names.
+    Their judgements, never their finders: a list leaves out each row it would refuse rather than refusing the list.
     """
 
     if is_own_address(identifier=identifier, actor=actor):

@@ -6,7 +6,7 @@ import { Button as AriaButton } from "react-aria-components/Button";
 import { ProgressBar } from "react-aria-components/ProgressBar";
 import { useInteractOutside } from "react-aria/useInteractOutside";
 
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 
 import { buttonLook } from "./buttonStyles";
 import { Icon } from "./Icon";
@@ -28,8 +28,10 @@ type Act = {
    * Why the act cannot run on the record as it stands: dimmed but reachable, its reason shown by `LockedReason`, and
    * `onPress` never called. It stands instead of a dialog's trigger, never as one: React Aria's press responders
    * merge, so a press would open the dialog as well as the reason. Wins over `isDisabled`, since it can say why.
+   * `true` locks it with no reason of its own, where the editor's lock line already says it once: the same look and
+   * the same reach, and a press that answers with nothing.
    */
-  locked?: Copy;
+  locked?: Copy | true;
   /** The edge the reason opens from: an act's at a row's end unless it stands at a column's start. */
   lockedEdge?: "start" | "end";
 };
@@ -43,7 +45,7 @@ type ButtonProps =
       /** A glyph before the label, such as the filter's; the spinner takes its place while busy. */
       leadingIcon?: IconName;
       icon?: never;
-      /** The id of the words that describe the act, such as the notice a form's send rests on (`OneShotForm`). */
+      /** The id of the words that describe the act, such as the notice a form's send rests on. */
       "aria-describedby"?: string;
     })
   /**
@@ -62,7 +64,8 @@ type ButtonProps =
       "aria-controls"?: string;
     });
 
-function Spinner() {
+/** The one sign that an act is under way, beside a busy button's label and under a code being checked. */
+export function Spinner() {
   return (
     <ProgressBar
       isIndeterminate
@@ -128,17 +131,15 @@ function LockedReason({
   );
 }
 
-/**
- * The one control that acts: primary, secondary, danger, outlined danger, quiet, or an icon alone; disabled at half
- * opacity.
- * A labelled button may lead with a glyph.
- */
+/** The one control that acts. */
 export function Button(props: ButtonProps) {
   const { onPress, type = "button", isDisabled = false, isBusy = false, label, slot, locked, lockedEdge = "end" } = props;
   const reasonId = useId();
   const isLocked = locked !== undefined;
-  // `aria-disabled` rather than `isDisabled`: a native `disabled` takes the focus and the hover the reason opens on. A
-  // submit button is a plain one while locked, or the form's Enter and the press would send it.
+  const reason = locked === true ? undefined : locked;
+  // `aria-disabled` rather than `isDisabled`: a native `disabled` takes the focus and the hover the reason opens on, and
+  // an icon's name opens on them too. A submit button is a plain one while locked, or the form's Enter and the press
+  // would send it.
   const act = {
     type: isLocked ? "button" : type,
     slot,
@@ -147,7 +148,7 @@ export function Button(props: ButtonProps) {
     isPending: isBusy,
     "aria-disabled": isLocked || undefined,
   } as const;
-  const described = (given?: string) => (isLocked ? [given, reasonId].filter((id) => id !== undefined).join(" ") : given);
+  const described = (given?: string) => (reason !== undefined ? [given, reasonId].filter((id) => id !== undefined).join(" ") : given);
 
   const draw = (press?: ReasonPress) =>
     props.icon !== undefined ? (
@@ -190,10 +191,10 @@ export function Button(props: ButtonProps) {
       </AriaButton>
     );
 
-  if (locked !== undefined)
+  if (reason !== undefined)
     return (
       <LockedReason
-        reason={locked}
+        reason={reason}
         reasonId={reasonId}
         edge={lockedEdge}>
         {draw}

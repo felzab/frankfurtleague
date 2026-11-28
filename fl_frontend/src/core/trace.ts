@@ -1,12 +1,5 @@
 export const TRACEPARENT_HEADER = "traceparent";
 
-// No proxied path reaches a backend write, so the actor is always the one the session set.
-export const ACTOR_HEADER = "X-FL-Actor";
-
-// The actor's session beside its address, which the backend's window checks read.
-export const AUTH_TIME_HEADER = "X-FL-Auth-Time";
-export const AUTH_FACTOR_HEADER = "X-FL-Auth-Factor";
-
 // Version `00` alone, and the whole header anchored: the edge mints this value, so anything else
 // arriving here was written by a caller and is replaced rather than read.
 const TRACEPARENT = /^00-([0-9a-f]{32})-([0-9a-f]{16})-[0-9a-f]{2}$/;

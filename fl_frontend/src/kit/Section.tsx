@@ -1,7 +1,8 @@
-import { COPY, textOf } from "@/core/copy";
+import { textOf } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 
 import { Button } from "./Button";
-import { cardSurface, stacked } from "./cardStyles";
+import { cardSurface, rowHeight, stacked } from "./cardStyles";
 import { FieldStack } from "./FieldStack";
 import { HelpPopover } from "./HelpPopover";
 import { tv } from "./tv";
@@ -15,9 +16,8 @@ const sectionTitle = tv({
 });
 
 /**
- * A section's title, 16 px semibold, one step under the page's: an editor's or a Konto page's box, a read
- * page's group, the filter sheet, and a dialog's group of fields, one level under the dialog's own title. A danger
- * box's title takes the danger hue its edge takes (`dangerEdge`).
+ * A section's title, one step under the page's. A danger box's title takes the danger hue its edge takes
+ * (`dangerEdge`).
  */
 export function SectionTitle({ text, level = 2, tone }: { text: Words; level?: 2 | 3; tone?: "danger" }) {
   const Heading = level === 2 ? "h2" : "h3";
@@ -39,7 +39,6 @@ export const dangerEdge = tv({ base: "border-danger" });
 export const boxHead = tv({
   slots: {
     head: "grid gap-1 p-4",
-    // The box's 16 px on every side, around the content's `FieldStack`.
     content: "grid p-4",
   },
   variants: {
@@ -69,18 +68,15 @@ export function SectionRule() {
   return <hr className="-mx-4 justify-self-stretch border-t border-border" />;
 }
 
-/**
- * One flat row of an editor's danger box: its name and its consequence at the left, its button at the right, parted
- * from the row above by the hairline every stacked part takes.
- */
-export const dangerRow = tv({ base: `flex min-h-14 items-center gap-3 px-4 py-2 lg:min-h-13 ${stacked()}` });
+/** One flat row of an editor's danger box. */
+export const dangerRow = tv({ base: `flex ${rowHeight()} items-center gap-3 px-4 py-2 ${stacked()}` });
 
 /**
- * A form's or a settings page's group of fields: a box exactly as tall as its content, its 16-px title over a
- * hairline, a one-control section included, whose one field takes its label as the title alone (`labelHidden`). One ⓘ
+ * A form's or a settings page's group of fields: a box exactly as tall as its content, its title over a hairline, a
+ * one-control section included, whose one field takes its label as the title alone (`labelHidden`). One ⓘ
  * may follow the title. An editor's danger box is one too, its edge and title in the danger hue, holding the danger
- * rows, the one place its irreversible and retiring acts stand: flat rows across the box under the rule, each parted
- * from the next by a hairline, with no box of their own.
+ * rows, the one place its irreversible and retiring acts stand: flat rows across the box under the rule, with no box
+ * of their own.
  */
 export function Section({
   title,
@@ -96,8 +92,8 @@ export function Section({
   danger?: ReactNode;
   /**
    * A list whose own hairlines reach the box's edges, such as a list of records (`RecordRows`): it fills the box's
-   * width under the rule and brings its own insets, where `children` stand in the box's padding, under the list where a
-   * section holds both, such as a table over the strip of its acts (`SectionAct`).
+   * width under the rule and brings its own insets, where `children` stand in the box's padding, under the list and a
+   * rule of its own where a section holds both, such as a table over the strip of its acts (`SectionAct`).
    */
   list?: ReactNode;
   children?: ReactNode;
@@ -127,7 +123,7 @@ export function Section({
           )}
         </div>
       </div>
-      {list !== undefined && <div className="grid">{list}</div>}
+      {list !== undefined && <div className={children === undefined ? "grid" : "grid border-b border-border"}>{list}</div>}
       {children !== undefined && (
         <div className={slots.content()}>
           <FieldStack>{children}</FieldStack>

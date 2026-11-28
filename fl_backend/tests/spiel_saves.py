@@ -243,15 +243,18 @@ async def call_patch(
     # The handles a case hands in by name, each in place of the one wired off `database`.
     replaced = {"spiele_collection": spiele, "aufstellungen_collection": aufstellungen, "spielbestaetigungen_collection": spielbestaetigungen}
 
-    return await patch_spiel(
-        spiel_id=spiel_id,
-        spiel_data=spiel_data if confirming is None else spiel_data.model_copy(update={"voided_ergebnisse": confirming}),
-        db=client,
-        **wired(patch_spiel, database, **{name: handle for name, handle in replaced.items() if handle is not None}),
-        adopts_bericht=adopts_bericht,
-        germany_now=ADOPTED_AT if now is None else now,
-        dry_run=dry_run,
-    )
+    # The request's snapshot session, which the administrator's guard opens and the dry run reads in.
+    async with client.start_session(snapshot=True) as session:
+        return await patch_spiel(
+            spiel_id=spiel_id,
+            spiel_data=spiel_data if confirming is None else spiel_data.model_copy(update={"voided_ergebnisse": confirming}),
+            db=client,
+            **wired(patch_spiel, database, **{name: handle for name, handle in replaced.items() if handle is not None}),
+            adopts_bericht=adopts_bericht,
+            germany_now=ADOPTED_AT if now is None else now,
+            dry_run=dry_run,
+            session=session,
+        )
 
 
 async def payload_for(database: AsyncDatabase, spiel_id: ObjectId, **overrides: Any) -> FLPatchSpielDataPayload:

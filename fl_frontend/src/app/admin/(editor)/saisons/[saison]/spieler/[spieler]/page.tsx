@@ -1,15 +1,11 @@
 import { cache } from "react";
 import { notFound } from "next/navigation";
 
-import { requires } from "@/core/action";
+import { boxRulesOf } from "@/core/action";
 import { SPIELER_WORDINGS } from "@/core/consentWordings";
-import { COPY } from "@/core/copy";
+import { ADMIN_COPY } from "@/core/copy/admin";
+import { COPY } from "@/core/copy/shared";
 import { dayOf, formatDate } from "@/core/format";
-import {
-  SpielerPatchSpielerSaisonBody,
-  spielerPatchSpielerSaisonBodyFirstNameMax,
-  spielerPatchSpielerSaisonBodyLastNameOneMax,
-} from "@/core/generated/zod/inputs";
 import { ROUTES } from "@/core/routes";
 import { kaderName } from "@/features/spieler/constants";
 import { positionOptions, stufeOptions } from "@/features/spieler/options";
@@ -26,24 +22,13 @@ import { valuesOf } from "./spielerValues";
 
 import type { FLSpielerSaisonAdminResponse } from "@/core/generated/client/types";
 import type { Fact } from "@/kit/Facts";
-import type { Metadata, ResolvingMetadata, Route } from "next";
+import type { Metadata, Route } from "next";
 
 type Props = PageProps<"/admin/saisons/[saison]/spieler/[spieler]">;
 
-const WORDS = COPY.admin.spieler;
-const { shape } = SpielerPatchSpielerSaisonBody;
+const WORDS = ADMIN_COPY.spieler;
+const CONSENT = ADMIN_COPY.einwilligung;
 
-/** What the save asks of each of the person's boxes, read off the write's schema. */
-const RULES = {
-  required: {
-    first_name: requires(shape.first_name, ""),
-    last_name: requires(shape.last_name, null),
-    birth_date: requires(shape.birth_date, null),
-  },
-  max: { first_name: spielerPatchSpielerSaisonBodyFirstNameMax, last_name: spielerPatchSpielerSaisonBodyLastNameOneMax },
-};
-
-/** One read of the player for the tab's title and the page alike. */
 const read = cache(getSpielerSaison);
 
 /** The squad row the address names: `null` for a malformed id, and for a person out of that season's squad. */
@@ -55,20 +40,15 @@ async function findSpieler(params: Props["params"]) {
   return found === null ? null : { id, saison, found };
 }
 
-export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return metadataFor(findSpieler(params), ({ id, saison, found }) =>
-    pageMetadata(parent, ROUTES.adminSpielerRecord, ROUTES.adminSpielerRecord.path(saison, id), { title: { record: kaderName(found.person) } }),
+    pageMetadata(ROUTES.adminSpielerRecord, ROUTES.adminSpielerRecord.path(saison, id), { title: { record: kaderName(found.person) } }),
   );
-}
-
-/** A player's editor in one season, on its one read and its one save over the person and their squad row. */
-export default async function SpielerEditorPage({ params }: Props) {
-  return await readEditor(params);
 }
 
 /** The Person box's fact: the address, a mail link to the person. */
 function personFacts({ person }: FLSpielerSaisonAdminResponse): Fact[] {
-  return [{ label: COPY.signIn.address, link: { href: `mailto:${person.email}` as Route, label: { record: person.email } } }];
+  return [{ label: COPY.shared.emailAddress, link: { href: `mailto:${person.email}` as Route, label: { record: person.email } } }];
 }
 
 /** The Kader box's facts: the team, and for an ausgetragen row the day it left. */
@@ -84,14 +64,15 @@ function kaderFacts({ kader }: FLSpielerSaisonAdminResponse): Fact[] {
 /** What the person agreed to, in the words they chose it in. */
 function einwilligungFacts({ person: { einwilligung } }: FLSpielerSaisonAdminResponse): Fact[] {
   return [
-    { label: WORDS.nameOnSite, value: { record: SPIELER_WORDINGS.scope.options[einwilligung.scope] } },
-    { label: WORDS.media, value: einwilligung.media ? WORDS.mediaYes : WORDS.mediaNo },
+    { label: CONSENT.nameOnSite, value: { record: SPIELER_WORDINGS.scope.options[einwilligung.scope] } },
+    { label: CONSENT.media, value: einwilligung.media ? CONSENT.yes : CONSENT.no },
     { label: WORDS.givenOn, value: { record: formatDate(dayOf(einwilligung.date)) }, figures: true },
     { label: WORDS.confirmedOn, value: { record: formatDate(dayOf(einwilligung.confirmed_at)) }, figures: true },
   ];
 }
 
-async function readEditor(params: Props["params"]) {
+/** A player's editor in one season, on its one read and its one save over the person and their squad row. */
+export default async function SpielerEditorPage({ params }: Props) {
   const located = await findSpieler(params);
   if (located === null) notFound();
   const { id, saison, found } = located;
@@ -109,7 +90,7 @@ async function readEditor(params: Props["params"]) {
       person={personFacts(found)}
       kader={kaderFacts(found)}
       einwilligung={einwilligungFacts(found)}
-      rules={RULES}
+      rules={boxRulesOf(saveSpieler)}
       positions={positionOptions()}
       stufen={stufeOptions(found.allowed_stufen, kader.stufe)}
       takenRollen={found.taken_rollen}

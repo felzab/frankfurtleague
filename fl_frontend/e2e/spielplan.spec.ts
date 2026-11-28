@@ -55,11 +55,11 @@ test("a visitor opens a match from the Spielplan, and Back returns to the matchd
   await page.getByRole("link", { name: ROW }).click();
   await (await enteredDialog(page, OPENED)).getByRole("link", { name: HOME, exact: true }).click();
   await expect(page).toHaveURL((url) => new RegExp(`^/saisons/${RUNNING}/teams/[0-9a-f]{24}$`).test(url.pathname));
-  await expect(page.getByRole("banner").getByRole("heading", { level: 1, name: HOME })).toBeVisible();
+  await expect(page.getByRole("main").getByRole("heading", { level: 1, name: HOME })).toBeVisible();
   await expectNoDialog(page);
 
   // Loaded directly, the match's address is the match's own page, with no pop-up.
   await page.goto(matchPage);
-  await expect(page.getByRole("banner").getByRole("heading", { level: 1, name: OPENED })).toBeVisible();
+  await expect(page.getByRole("main").getByRole("heading", { level: 1, name: OPENED })).toBeVisible();
   await expectNoDialog(page);
 });

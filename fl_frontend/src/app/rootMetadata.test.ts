@@ -36,8 +36,8 @@ describe("what every page inherits from the root layout", () => {
     expect(metadata[field]).toBeUndefined();
   });
 
-  // An address here would stand as og:url on every page declaring none; the image is every page's, carried on by
-  // `openGraphFor`, its alt the catalogue's.
+  // An address here would stand as og:url on every page declaring none; the image is every page's, its alt the
+  // catalogue's.
   it("carries the share image by its hashed address and leaves the preview's address to each page", () => {
     expect(metadata.openGraph).toHaveProperty("images", [
       { url: SHARE_IMAGE.src, width: SHARE_IMAGE.width, height: SHARE_IMAGE.height, alt: SERVER_COPY.shareImage.alt },

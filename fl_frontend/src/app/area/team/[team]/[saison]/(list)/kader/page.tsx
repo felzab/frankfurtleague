@@ -1,6 +1,7 @@
 import { cache } from "react";
 
-import { COPY } from "@/core/copy";
+import { boxRulesOf } from "@/core/action";
+import { COPY } from "@/core/copy/shared";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { readAsSeatHolder, requireTeamSeats, teamMetadata } from "@/features/roles/resolvers";
@@ -8,52 +9,53 @@ import { getKader } from "@/features/spieler/queries";
 import { ListPage } from "@/kit/ListPage";
 import { pageMetadata } from "@/shared/utils/metadata";
 
+import { saveKaderRow } from "./kaderRowActs";
 import { KaderTable } from "./KaderTable";
 
 import type { TeamSeat } from "@/features/roles/resolvers";
 import type { TableHead } from "@/kit/Table";
-import type { Metadata, ResolvingMetadata } from "next";
+import type { Metadata } from "next";
 
 type Props = PageProps<"/area/team/[team]/[saison]/kader">;
 
-const WORDS = COPY.admin.spieler;
+const WORDS = COPY.kader;
 
-/** The page's own address, which a session sent to sign in comes back to. */
 const address = ({ team, saison }: { team: string; saison: string }) => ROUTES.teamKader.path(team, saison);
 
-/** The page's one read, memoised for the render on its two ids, which `cache` compares by identity, so the tab's title and the page share it. */
+/** Keyed on the seat's two ids rather than the seat, since `cache` compares its arguments by identity. */
 const kaderRead = cache(getKader);
 const kaderOf = (seat: TeamSeat) => kaderRead(seat.team_id, seat.saison_id);
 
-export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
-  return teamMetadata(params, address, kaderOf, async () => pageMetadata(parent, ROUTES.teamKader, address(await params)));
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  return teamMetadata(params, address, kaderOf, async () => pageMetadata(ROUTES.teamKader, address(await params)));
 }
 
 /**
  * The table's head: the shirt number beside the name on a phone where the box holds it, position and Stufe from 42 rem
- * of the table's box, which a phone row says in its line instead.
+ * of the table's box, which a phone row says in its line instead, the number too where the box leaves it out.
  */
 const HEAD: TableHead = {
   nameLabel: COPY.shared.name,
-  state: { label: COPY.admin.schiedsrichter.state },
+  state: { label: COPY.shared.facts.state },
   columns: [
-    { key: "nummer", label: SERVER_COPY.season.column.nummer, figures: true, narrow: true, width: "count" },
-    { key: "position", label: WORDS.position, hideOnPhone: true, width: "word" },
-    { key: "stufe", label: WORDS.stufe, hideOnPhone: true, width: "code" },
+    { key: "nummer", label: SERVER_COPY.season.column.nummer, figures: true, narrow: true, onLine: "labelled", width: "count" },
+    { key: "position", label: WORDS.position, hideOnPhone: true, onLine: "value", width: "word" },
+    { key: "stufe", label: WORDS.stufe, hideOnPhone: true, onLine: "value", width: "code" },
   ],
 };
 
 /** The page's one read, after the seat it is drawn for, handed to its template running. */
 async function read(params: Props["params"]) {
   const [seat] = await requireTeamSeats(params, address);
-  const squad = await readAsSeatHolder(() => kaderOf(seat));
+  const kader = await readAsSeatHolder(() => kaderOf(seat));
   return {
     drawn: (
       <KaderTable
         head={HEAD}
-        read={squad}
+        read={kader}
         team={seat.team_id}
         saison={seat.saison_id}
+        rules={boxRulesOf(saveKaderRow)}
       />
     ),
   };

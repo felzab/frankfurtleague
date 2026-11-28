@@ -3,11 +3,10 @@ from collections import Counter
 from collections.abc import Mapping
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Query, status
+from fastapi import APIRouter, Query, Response, status
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
-from app.api.account.services import held_by_the_seat, withdraw_by_mail
 from app.api.bewerbungen.schemas import (
     FLAcceptBewerbungPayload,
     FLBewerbung,
@@ -62,19 +61,27 @@ from app.api.outbox.schemas import FLBewerbungAbsageData, FLBewerbungZusageData,
 from app.api.outbox.services import OwedMail, enqueue_mails
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.saisons.services import find_saison_past_refusal
-from app.api.teams.crud import pull_a_team_to_enter, pull_team_names_and_codes, refuse_a_full_gruppe, refuse_a_taken_colour
-from app.api.teams.services import find_entry_saison_refusal, find_shorthand_refusal, find_team_entry_refusal, offered_gruppen
+from app.api.teams.crud import (
+    find_taken_colour_refusal,
+    find_taken_shorthand_refusal,
+    pull_a_team_to_enter,
+    pull_team_names_and_codes,
+    refuse_a_full_gruppe,
+)
+from app.api.teams.services import find_entry_saison_refusal, find_team_entry_refusal, offered_gruppen
 from app.core.collections import Collection
 from app.core.concurrency import concurrently
 from app.core.crud import (
+    VERSION_FIELD,
     aggregate_many_from_db,
+    find_stale_save_refusal,
     insert_live,
-    is_held_elsewhere,
     patch_one_in_db,
     post_one_to_db,
     pull_many_from_db,
     pull_one_from_db,
     refuse,
+    refuse_faults,
 )
 from app.core.dependencies import (
     BewerbungenCollection,
@@ -88,18 +95,18 @@ from app.core.dependencies import (
     SaisonsReadCollection,
     SaisonTeamsCollection,
     SaisonTeamsReadCollection,
+    SnapshotSession,
     TeamsCollection,
     TeamsReadCollection,
 )
 from app.core.exceptions import DocumentNotFoundError
 from app.core.readonly import ReadCollection
 from app.core.recording import record_act
-from app.core.routing import by_id
+from app.core.routing import DRY_RUN_PASSED, SAFE_WHEN, DryRun, by_id, dry_run_passed
 from app.core.transactions import transact
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from app.shared.schemas.custom import CustomObjectId
-from app.shared.schemas.einwilligung import WITHHELD_ON_A_SEAT, FLEinwilligungWithdrawalPayload
-from app.shared.schemas.literals import KONTAKT_SEATS, FLKontaktSeat
+from app.shared.schemas.literals import FLKontaktSeat
 
 # Admin-guarded, not base: an application carries three people's names, addresses, telephone numbers and dates of
 # birth, and says which schools asked and were turned down. The public router shares this prefix at base tier and
@@ -273,7 +280,8 @@ async def accept_bewerbung(
         # In-session, so the block copied into `saison_teams` below carries every person's own date and stamp, a
         # confirmation landing mid-request among them.
         refuse(find_unconfirmed_kontakte_refusal(kontakte=bewerbung_raw.get("kontakte")))
-        refuse(find_acceptance_code_refusal(new_school=schule is not None, shorthand=acceptance_data.shorthand))
+        # Asked with the colour and the taken code below, in one answer; read first, as the school's parse waits on it.
+        code = find_acceptance_code_refusal(new_school=schule is not None, shorthand=acceptance_data.shorthand)
 
         saison_id = str(bewerbung_raw["saison_id"])
         # In-session, as the season's own patch reads it: `activate_saison` moves `status` in a
@@ -286,6 +294,8 @@ async def accept_bewerbung(
         # so the write at the end reads one variable, not two.
         picked_team: Any = None
         new_team: dict[str, Any] | None = None
+        # Left empty only where a missing code is refused before the write reads them.
+        name, shorthand = "", ""
 
         # Read before the count, as `enter_a_team` reads it: a club's standing in the league is
         # not repaired by picking another group, so nobody is handed a capacity figure first. A
@@ -298,13 +308,16 @@ async def accept_bewerbung(
             picked_team = team_raw["_id"]
             # Two applications may name one club, so the first's acceptance reaches the second here: on the status
             # line by this code, ahead of the junction's unique index, which answers only a race.
-            entered = await saison_teams_collection.count_documents({"saison_id": saison_id, "team_id": picked_team}, limit=1, session=session)
-            refuse(find_already_entered_refusal(entered=entered > 0))
+            entered = await saison_teams_collection.find_one(
+                {"saison_id": saison_id, "team_id": picked_team}, projection={"_id": 1}, session=session
+            )
+            refuse(find_already_entered_refusal(entered=entered is not None))
             name, shorthand = str(team_raw["name"]), str(team_raw["shorthand"])
-        else:
+        elif code is None:
             # Judged where the picked club's standing is judged, and for that reason: a school whose own details make no
             # club is not repaired by picking another group. Parsed before it is stored, so this path and `POST /teams`
-            # put one document in `teams` for one school.
+            # put one document in `teams` for one school. Behind the code's check: a school parsed under no code would
+            # read as the school's fault for the box's slip.
             new_team = parse_new_team(composed_team=compose_new_team(schule=schule, shorthand=acceptance_data.shorthand))
             # Read off the document the write stores rather than the school a second time, so no
             # field is composed twice and differently.
@@ -324,20 +337,23 @@ async def accept_bewerbung(
             rules=FLSaisonRules.model_validate(saison_raw["rules"]),
             session=session,
         )
-        await refuse_a_taken_colour(
-            saison_teams_collection=saison_teams_collection,
-            saison_id=saison_id,
-            trikot_farbe=acceptance_data.trikot_farbe,
-            own_id=None,
-            session=session,
+        refuse_faults(
+            code,
+            await find_taken_colour_refusal(
+                saison_teams_collection=saison_teams_collection,
+                saison_id=saison_id,
+                trikot_farbe=acceptance_data.trikot_farbe,
+                own_id=None,
+                session=session,
+            ),
+            # A new school's code alone, which a missing code leaves unparsed.
+            None
+            if new_team is None
+            else await find_taken_shorthand_refusal(teams_collection=teams_collection, shorthand=shorthand, own_id=None, session=session),
         )
 
-        # On the box a person typed it in, before the write meets `uniq_shorthand`, which answers only a race.
-        if new_team is not None:
-            taken = await is_held_elsewhere(collection=teams_collection, key="shorthand", value=shorthand, own_id=None, session=session)
-            refuse(find_shorthand_refusal(taken=taken))
-
-        # Every refusal is behind us, so the writes follow with nothing left to judge.
+        # Every refusal is behind us, so the writes follow with nothing left to judge: a new school's code missing was
+        # refused above, so `new_team` holds its club.
         if new_team is None:
             team_id = picked_team
         else:
@@ -486,7 +502,6 @@ async def resend_kontakt_confirmation(
     bewerbung_id: CustomObjectId,
     seat: str,
     bewerbungen_collection: BewerbungenCollection,
-    teams_collection: TeamsCollection,
     saisons_collection: SaisonsCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
@@ -533,7 +548,7 @@ async def resend_kontakt_confirmation(
         bewerbung_raw = await pull_one_from_db(
             collection=bewerbungen_collection,
             db_filter=db_filter,
-            projection=["status", "kontakte", "confirmations", "saison_id", "schule", "team_id"],
+            projection=["status", "kontakte", "confirmations", "saison_id"],
             session=session,
         )
         seats = seats_judged_on(bewerbung_raw)
@@ -564,7 +579,6 @@ async def resend_kontakt_confirmation(
                     kontakte=bewerbung_raw["kontakte"],
                     seats=seats,
                     saison_id=str(bewerbung_raw["saison_id"]),
-                    schule=await pull_schule_name(bewerbung_raw=bewerbung_raw, teams_collection=teams_collection, session=session),
                     deadline=confirmation_deadline,
                     key=outbox_key(bewerbung_id, "resend", seats[0], nonce),
                 )
@@ -578,6 +592,9 @@ async def resend_kontakt_confirmation(
 @router.post(
     f"{by_id('bewerbung_id')}/kontakte/{{seat}}",
     summary="Write the person one contact seat holds and mail them a fresh link",
+    response_model=FLBewerbungKontaktSeatResponse,
+    openapi_extra=SAFE_WHEN,
+    responses=DRY_RUN_PASSED,
 )
 async def post_kontakt_seat(
     bewerbung_id: CustomObjectId,
@@ -588,24 +605,28 @@ async def post_kontakt_seat(
     saisons_collection: SaisonsCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
+    session: SnapshotSession,
     today: GermanDay,
     germany_now: GermanyNow,
-) -> FLBewerbungKontaktSeatResponse:
+    dry_run: DryRun = False,
+) -> FLBewerbungKontaktSeatResponse | Response:
     """Write a person into one seat, whatever its state, and mail them a fresh link; an acceptance waits on their answer.
 
     Where one person holds two seats both are written, the last holder's link opens nothing afterwards, and the seat's
-    deadline starts again from today. A finished season's application takes no write, as it takes no fresh link.
+    deadline starts again from today. A finished season's application takes no write, as it takes no fresh link. A
+    `dry_run` is refused as the write would be, and answers 204 and writes nothing where it would land.
     """
 
     # Outside the callback, so a retried transaction owes the press's one mail and a second press its own.
     nonce = secrets.token_hex(8)
+    db_filter = {"_id": bewerbung_id}
 
-    async def seat_and_mint(session: AsyncClientSession) -> FLBewerbungKontaktSeatResponse:
-        db_filter = {"_id": bewerbung_id}
+    async def judge(session: AsyncClientSession) -> tuple[Mapping[str, Any], tuple[FLKontaktSeat, ...]]:
+        # Every refusal of the write, in its transaction or the dry run's snapshot alike: the application and the seats.
         bewerbung_raw = await pull_one_from_db(
             collection=bewerbungen_collection,
             db_filter=db_filter,
-            projection=["status", "kontakte", "confirmations", "saison_id", "schule", "team_id"],
+            projection=["status", "kontakte", "confirmations", "saison_id", "schule", "team_id", VERSION_FIELD],
             session=session,
         )
 
@@ -630,10 +651,22 @@ async def post_kontakt_seat(
         seats = (pressed,) if other is None else (pressed, other)
 
         refuse(find_seat_write_refusal(confirmations=confirmations, seats=seats))
+        # Read as well as filtered on: a dry run patches nothing for the version to refuse, and the patch's filter still
+        # refuses a write racing past this read.
+        refuse(find_stale_save_refusal(bewerbung_raw, version=seat_data.version))
 
-        # Asked over the seats this write does not reach: a mirrored pair is one person, and comparing them against
-        # each other would refuse every such write.
-        refuse(find_seat_contact_refusal(kontakte=kontakte, seats=seats, email=seat_data.email, phone=seat_data.phone))
+        # Asked over the seats this write does not reach: a mirrored pair is one person, and comparing them against each
+        # other would refuse every such write.
+        refuse_faults(find_seat_contact_refusal(kontakte=kontakte, seats=seats, email=seat_data.email, phone=seat_data.phone))
+        return bewerbung_raw, seats
+
+    if dry_run:
+        await judge(session)
+        return dry_run_passed()
+
+    async def seat_and_mint(session: AsyncClientSession) -> FLBewerbungKontaktSeatResponse:
+        bewerbung_raw, seats = await judge(session)
+        kontakte, confirmations = bewerbung_raw.get("kontakte"), bewerbung_raw.get("confirmations")
 
         # Restarted even where it had passed: left where it was, the person would be handed a link that opens nothing.
         confirmation_deadline = confirmation_deadline_from(today=today)
@@ -666,7 +699,6 @@ async def post_kontakt_seat(
                     kontakte=after["kontakte"],
                     seats=seats,
                     saison_id=str(bewerbung_raw["saison_id"]),
-                    schule=schule,
                     deadline=confirmation_deadline,
                     key=outbox_key(bewerbung_id, "seat", seats[0], nonce),
                 )
@@ -679,56 +711,3 @@ async def post_kontakt_seat(
     # One transaction: this write moves a person as well as a credential, so a decision landing mid-request must leave
     # neither half standing.
     return await transact(db, seat_and_mint)
-
-
-@router.post(
-    f"{by_id('bewerbung_id')}/kontakte/{{seat}}/einwilligung/withdrawal",
-    status_code=status.HTTP_204_NO_CONTENT,
-    summary="Enter a withdrawal of a contact seat's consent that its person asked for by mail",
-)
-async def withdraw_kontakt_einwilligung(
-    bewerbung_id: CustomObjectId,
-    seat: str,
-    withdrawal_data: FLEinwilligungWithdrawalPayload,
-    bewerbungen_collection: BewerbungenCollection,
-    teams_collection: TeamsCollection,
-    db: DBClient,
-    germany_now: GermanyNow,
-) -> None:
-    """Withdraw the named choices, WhatsApp and media, on every confirmed seat of this application its person holds, as their own press does.
-
-    A decided application takes it too; an accepted one holds no seat, its people being its season row's. A choice
-    already withheld stays as it is, so a second mail or a seat its person never confirmed writes nothing, and nothing
-    is ever granted.
-    """
-
-    # A 404 rather than a 422, as a malformed path id answers: the segment names no seat any application has.
-    pressed = seat_named(seat)
-    if pressed is None:
-        raise DocumentNotFoundError()
-
-    async def record(row: Mapping[str, Any], session: AsyncClientSession) -> None:
-        schule = await pull_schule_name(bewerbung_raw=row, teams_collection=teams_collection, session=session)
-        await record_act(
-            collection=bewerbungen_collection,
-            action="bewerbung.seat_einwilligung_withdrawn",
-            record_id=bewerbung_id,
-            label=schule,
-            session=session,
-        )
-
-    await withdraw_by_mail(
-        kind=Collection.BEWERBUNGEN,
-        collection=bewerbungen_collection,
-        db_filter={"_id": bewerbung_id},
-        projection={
-            "team_id": 1,
-            "schule": 1,
-            **{f"kontakte.{seat}.{field}": 1 for seat in KONTAKT_SEATS for field in ("email", "einwilligung")},
-        },
-        held_of=lambda row: held_by_the_seat(row, pressed),
-        withheld={choice: WITHHELD_ON_A_SEAT[choice] for choice in withdrawal_data.choices},
-        act=record,
-        db=db,
-        now=germany_now,
-    )

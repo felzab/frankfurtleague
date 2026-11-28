@@ -1,19 +1,22 @@
 import { cache } from "react";
 
-import { ADDRESS_CHANGE_WAIT_DAYS } from "@/core/addressChange";
-import { COPY } from "@/core/copy";
+import { boxRulesOf } from "@/core/action";
+import { ADDRESS_CHANGE_WAITING_PERIOD } from "@/core/addressChange";
+import { ACCOUNT_COPY } from "@/core/copy/account";
+import { COPY } from "@/core/copy/shared";
 import { dayOf, formatInstantShort } from "@/core/format";
 import { addressChangeGetAddressChangeView } from "@/core/generated/client/sdk";
+import { mailedLinkToken } from "@/core/mailedLink";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { runWithIncomingTrace } from "@/core/traceScope";
 import { accountAtNewAddress } from "@/features/address-change/account";
 import { readsAsDeadLink } from "@/features/address-change/refusals";
-import { mailedMetadata } from "@/kit/mailedLinkState";
-import { MailedPage, TO_ACCOUNT } from "@/kit/MailedPage";
+import { mailedMetadata } from "@/kit/mailedMetadata";
+import { MailedPage } from "@/kit/MailedPage";
 
 import { answerAddressChange, stopAddressChange } from "./answers";
-import { confirmedAgain, doneOnEnd, stoppedOn } from "./ends";
+import { confirmedAgain, doneOnEnd, LINK_INVALID, stoppedOn } from "./ends";
 
 import type { Copy } from "@/core/copy";
 import type {
@@ -24,22 +27,18 @@ import type {
 } from "@/core/generated/client/types";
 import type { Fact } from "@/kit/Facts";
 import type { MailedState } from "@/kit/MailedPage";
-import type { Metadata, ResolvingMetadata } from "next";
+import type { Metadata } from "next";
 import type { Side } from "./ends";
 
-type Props = PageProps<"/confirm/address">;
-
-/** A row no crawler fetches: the URL carries the link's token. */
-export async function generateMetadata({ searchParams }: Pick<Props, "searchParams">, parent: ResolvingMetadata): Promise<Metadata> {
-  return mailedMetadata(parent, ROUTES.addressChangeConfirmation, readState(searchParams));
+export async function generateMetadata(): Promise<Metadata> {
+  return mailedMetadata(ROUTES.addressChangeConfirmation, readState());
 }
 
 const WORDS = SERVER_COPY.addressChange;
 
-const INVALID: MailedState = { state: "invalid", next: TO_ACCOUNT };
+const INVALID: MailedState = { state: "end", ...LINK_INVALID };
 
 /** The link's read, `null` for a dead link. A failed read is no state of the link's: it reaches the frame's error boundary. */
-// `cache` memoizes per render pass, for the tab's title and the page.
 const readChange = cache(async (token: string) =>
   runWithIncomingTrace(() =>
     addressChangeGetAddressChangeView({ token }).catch((error: unknown) => {
@@ -49,7 +48,6 @@ const readChange = cache(async (token: string) =>
   ),
 );
 
-/** Whether an account stands at the new address, asked of the sign-in store once per render pass, as `readChange`. */
 const accountAtTheNewAddress = cache(async (token: string) => accountAtNewAddress({ token }));
 
 /**
@@ -58,19 +56,17 @@ const accountAtTheNewAddress = cache(async (token: string) => accountAtNewAddres
  * new mailbox; the administration's asks the new mailbox alone, the address on file holding a stop, as a holder's does
  * while its wait runs.
  */
-export default function AddressChangeConfirmationPage({ searchParams }: Props) {
-  return <MailedPage page={readState(searchParams)} />;
+export default function AddressChangeConfirmationPage() {
+  return <MailedPage page={readState()} />;
 }
 
-async function readState(searchParams: Props["searchParams"]): Promise<MailedState> {
-  const { token } = await searchParams;
-  // A missing or repeated parameter is no link at all.
-  if (typeof token !== "string" || token === "") return INVALID;
+async function readState(): Promise<MailedState> {
+  const token = await mailedLinkToken();
+  if (token === null) return INVALID;
 
-  const read = await readChange(token);
-  if (read === null) return INVALID;
+  const view = await readChange(token);
+  if (view === null) return INVALID;
 
-  const { view } = read;
   if (view.state === "ended") return endedState(view);
   return view.side === "previous" ? previousState(view, token) : newState(view, token);
 }
@@ -112,7 +108,6 @@ function previousState(view: FLAddressChangeViewPrevious, token: string): Mailed
   return view.state === "open" && released !== null ? doneOnEnd("previous", "confirmed", released, view.way) : INVALID;
 }
 
-/** The new mailbox's link. */
 async function newState(view: FLAddressChangeViewNew, token: string): Promise<MailedState> {
   if (view.state === "confirmed") {
     const confirmed = dayOf(view.confirmed_on);
@@ -124,11 +119,11 @@ async function newState(view: FLAddressChangeViewNew, token: string): Promise<Ma
     side: "new",
     way: view.way,
     token,
-    title: COPY.shared.withObject(COPY.signIn.address, "confirm"),
-    label: COPY.signIn.address,
+    title: COPY.shared.withObject(COPY.shared.emailAddress, "confirm"),
+    label: COPY.shared.emailAddress,
     email: view.email,
     sentence: WORDS.new.question,
-    ...(view.way === "waiting_period" ? { waits: WORDS.new.waits({ days: ADDRESS_CHANGE_WAIT_DAYS }) } : {}),
+    ...(view.way === "waiting_period" ? { waits: WORDS.new.waits(ADDRESS_CHANGE_WAITING_PERIOD) } : {}),
   });
 }
 
@@ -158,11 +153,12 @@ function question({
     facts: [{ label, value: { record: email, address: true } }],
     sentence,
     ...(waits === undefined ? {} : { sentenceAfter: waits }),
-    action: answerAddressChange,
+    run: answerAddressChange,
+    rules: boxRulesOf(answerAddressChange),
     acts: {
       primary: title,
       // Either side's decline ends the change, so the account keeps the address it has.
-      refusal: { verb: "decline", subject: WORDS.change, consequence: COPY.admin.addressChange.previousStays },
+      refusal: { verb: "decline", subject: WORDS.change, consequence: COPY.shared.addressChange.previousStays },
     },
     carry: { token, side, way },
   };
@@ -172,14 +168,15 @@ function question({
 function stop({ email, effective_from: effectiveFrom }: FLAddressChangeViewPrevious, token: string): MailedState {
   const facts: Fact[] = [];
   if (email !== null) facts.push({ label: WORDS.newAddress, value: { record: email, address: true } });
-  if (effectiveFrom !== null) facts.push({ label: COPY.admin.facts.effectiveFrom, value: { record: formatInstantShort(effectiveFrom) } });
+  if (effectiveFrom !== null) facts.push({ label: COPY.shared.facts.effectiveFrom, value: { record: formatInstantShort(effectiveFrom) } });
   return {
     state: "question",
-    title: COPY.account.address.stop,
+    title: ACCOUNT_COPY.address.stop,
     facts,
     sentence: WORDS.previous.question,
-    action: stopAddressChange,
-    acts: { primary: COPY.account.address.stop },
+    run: stopAddressChange,
+    rules: boxRulesOf(stopAddressChange),
+    acts: { primary: ACCOUNT_COPY.address.stop },
     carry: { token },
   };
 }

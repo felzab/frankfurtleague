@@ -1,4 +1,5 @@
-import { COPY, textOf } from "@/core/copy";
+import { textOf } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 
 import { Callout } from "./Callout";
 import { headGround } from "./cardStyles";
@@ -17,7 +18,7 @@ import type { Route } from "next";
 import type { ReactElement } from "react";
 import type { Fact } from "./Facts";
 import type { Figures, SpielRowProps, SpielSide } from "./SpielRow";
-import type { StatusCardProps } from "./StatusCard";
+import type { StatusCardProps, WayOn } from "./StatusCard";
 
 /**
  * A side as the head names it: the club's name a link to its page once the club is known, and under it a
@@ -108,10 +109,9 @@ function Side({ side, score, part, struck }: { side: SpielHeadSide; score: Figur
 }
 
 /**
- * The match head over the pop-up's facts and over a match page's: the matchday, and under it the two sides as
- * a pairing with their plaques over their names and the score large between them, „n. E.“ under a
- * shoot-out's score, on a surface of its own, the band across the dialog's top or a box of the page. The one
- * block that names a match by its two sides.
+ * The match head over the pop-up's facts and over a match page's: the matchday over the pairing and its score, on a
+ * surface of its own, the band across the dialog's top or a box of the page. The one block that names a match by its
+ * two sides.
  */
 export function SpielHead({ eyebrow, team1, team2, result, absent, placement = "dialog" }: SpielHeadProps & { placement?: "dialog" | "page" }) {
   const score = figures(result);
@@ -163,7 +163,6 @@ export type SpielPopupContent = {
   sonderereignis: { title: Copy; text: Copy } | null;
 };
 
-/** The match pop-up's body, once the match is read. */
 async function PopupBody({ popup }: { popup: Promise<SpielPopupContent> }) {
   const { title, act, head: pairing, facts, sonderereignis } = await popup;
   return (
@@ -171,10 +170,6 @@ async function PopupBody({ popup }: { popup: Promise<SpielPopupContent> }) {
       title={title}
       act={act}>
       <SpielHead {...pairing} />
-      <Facts
-        look="free"
-        facts={facts}
-      />
       {sonderereignis !== null && (
         <Callout
           tone="danger"
@@ -182,18 +177,22 @@ async function PopupBody({ popup }: { popup: Promise<SpielPopupContent> }) {
           text={sonderereignis.text}
         />
       )}
+      <Facts
+        look="free"
+        facts={facts}
+      />
     </RouteDialogBody>
   );
 }
 
 /**
- * The match pop-up: the matchday and the pairing on the band across its top, the facts under them, what befell
- * the match where something did, and the way to the match's page as the dialog's act. It opens with its match read,
- * the page it was pressed on standing until then.
+ * The match pop-up: the matchday and the pairing on the band across its top, under them what befell the match where
+ * something did, as the match's page sets it under its head, then the facts, and the way to the match's page as the
+ * dialog's act. It opens with its match read, the page it was pressed on standing until then.
  */
-export function SpielPopup({ beneath, popup }: { beneath: Route; popup: Promise<SpielPopupContent> }) {
+export function SpielPopup({ popup }: { popup: Promise<SpielPopupContent> }) {
   return (
-    <RouteDialog beneath={beneath}>
+    <RouteDialog>
       <PopupBody popup={popup} />
     </RouteDialog>
   );
@@ -203,9 +202,9 @@ export function SpielPopup({ beneath, popup }: { beneath: Route; popup: Promise<
  * The match pop-up whose match is not there, as a match deleted after its Spielplan was read: the status card in the
  * dialog, its title naming the dialog in a status card's title look, so a missing match opens where a found one does.
  */
-export function SpielPopupEnd({ beneath, tone, title, next }: { beneath: Route } & Omit<StatusCardProps, "quiet">) {
+export function SpielPopupEnd({ tone, title, next }: Omit<StatusCardProps, "quiet" | "next"> & { next: WayOn }) {
   return (
-    <RouteDialog beneath={beneath}>
+    <RouteDialog>
       <StatusCardBody
         place="dialog"
         tone={tone}

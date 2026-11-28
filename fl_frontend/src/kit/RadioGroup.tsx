@@ -1,12 +1,12 @@
 "use client";
 
-import { RadioGroup as AriaRadioGroup, Radio } from "react-aria-components/RadioGroup";
+import { RadioGroup as AriaRadioGroup, RadioButton, RadioField } from "react-aria-components/RadioGroup";
 
 import { textOf } from "@/core/copy";
 
-import { FieldLabel, MessageLine, useFieldLock } from "./FieldParts";
-import { choiceCard, fieldRoot, radioDot, radioList, toggleBox, toggleRow } from "./fieldStyles";
-import { useEarlyEdit } from "./useEarlyEdit";
+import { FieldLabel, MessageLine, useFieldLock, useFieldWait } from "./FieldParts";
+import { choiceCard, choiceField, fieldRoot, radioDot, radioList, toggleBox, toggleRow } from "./fieldStyles";
+import { useBoxRule } from "./HeldForm";
 
 import type { Copy, Words } from "@/core/copy";
 import type { Choice } from "./FieldParts";
@@ -24,27 +24,25 @@ type ListChoice = { id: string; label: Words; isDisabled?: boolean };
 type DescribedChoice = Choice & { line?: Copy };
 
 /**
- * The circle drawn for an answer, the ring's target, so it stays the radio's direct child. Left empty in a
+ * The circle drawn for an answer, the ring's target, so it stays its answer's button's direct child. Left empty in a
  * required group at the send, it takes the red edge a checkbox and every other field show.
  */
-function Circle({ isSelected, isInvalid }: { isSelected: boolean; isInvalid: boolean }) {
+function Circle({ isSelected, invalid }: { isSelected: boolean; invalid: boolean }) {
   return (
     <span
       data-kit-focus="box"
-      className={toggleBox({ shape: "round", selected: isSelected, invalid: isInvalid })}>
+      className={toggleBox({ shape: "round", selected: isSelected, invalid })}>
       {isSelected && <span className={radioDot()} />}
     </span>
   );
 }
 
 /**
- * One required choice of two to four: the label above, one drawn circle per answer, its label right. Where
- * each answer needs describing, the answers are selectable cards: the circle, the title and any line under it in a
- * box, the chosen box edged in green.
+ * One required choice of two to four, one drawn circle per answer. Where each answer needs describing, the answers are
+ * selectable cards.
  */
 export function RadioGroup({
   label,
-  isRequired = false,
   name,
   defaultValue,
   "aria-describedby": describedBy,
@@ -53,67 +51,68 @@ export function RadioGroup({
   label: Words;
   /** A line outside the group describing it, such as a consent's, by its id. */
   "aria-describedby"?: string;
-  isRequired?: boolean;
   name?: string;
   defaultValue?: string | null;
 } & ({ layout?: "list"; choices: readonly ListChoice[] } | { layout: "cards"; choices: readonly DescribedChoice[] })) {
-  const root = useEarlyEdit();
-  const lock = useFieldLock(false, false, isRequired);
+  const lock = useFieldLock(false, useBoxRule(name).required);
   return (
     <AriaRadioGroup
-      ref={root}
+      inert={useFieldWait()}
       className={fieldRoot()}
       aria-describedby={describedBy}
       name={name}
       defaultValue={defaultValue}
       isRequired={lock.isRequired}
-      isDisabled={lock.isDisabled}
       isReadOnly={lock.isReadOnly}>
       <FieldLabel
         label={label}
         isRequired={lock.isRequired}
       />
-      <div className={radioList({ layout: answers.layout ?? "list" })}>
+      <div className={radioList()}>
         {answers.layout === "cards"
           ? answers.choices.map((choice) => {
               const card = choiceCard();
               return (
-                <Radio
+                <RadioField
                   key={choice.id}
                   value={choice.id}
-                  className={card.card()}>
+                  className={choiceField()}>
+                  <RadioButton className={card.card()}>
+                    {({ isSelected, isInvalid }) => (
+                      <>
+                        <Circle
+                          isSelected={isSelected}
+                          invalid={isInvalid}
+                        />
+                        <span className={card.words()}>
+                          <span className={card.title()}>{textOf(choice.label)}</span>
+                          {/* None without a line: an empty one would still take the grid's gap under the title. */}
+                          {choice.line !== undefined && <span className={card.line()}>{choice.line}</span>}
+                        </span>
+                      </>
+                    )}
+                  </RadioButton>
+                </RadioField>
+              );
+            })
+          : answers.choices.map((choice) => (
+              <RadioField
+                key={choice.id}
+                value={choice.id}
+                isDisabled={choice.isDisabled}
+                className={choiceField()}>
+                <RadioButton className={toggleRow({ in: "list" })}>
                   {({ isSelected, isInvalid }) => (
                     <>
                       <Circle
                         isSelected={isSelected}
-                        isInvalid={isInvalid}
+                        invalid={isInvalid}
                       />
-                      <span className={card.words()}>
-                        <span className={card.title()}>{textOf(choice.label)}</span>
-                        {/* None without a line: an empty one would still take the grid's gap under the title. */}
-                        {choice.line !== undefined && <span className={card.line()}>{choice.line}</span>}
-                      </span>
+                      {textOf(choice.label)}
                     </>
                   )}
-                </Radio>
-              );
-            })
-          : answers.choices.map((choice) => (
-              <Radio
-                key={choice.id}
-                value={choice.id}
-                isDisabled={choice.isDisabled}
-                className={toggleRow({ in: "list" })}>
-                {({ isSelected, isInvalid }) => (
-                  <>
-                    <Circle
-                      isSelected={isSelected}
-                      isInvalid={isInvalid}
-                    />
-                    {textOf(choice.label)}
-                  </>
-                )}
-              </Radio>
+                </RadioButton>
+              </RadioField>
             ))}
       </div>
       <MessageLine />

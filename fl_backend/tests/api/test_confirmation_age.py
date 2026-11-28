@@ -23,8 +23,8 @@ def test_every_raise_carries_the_range_its_page_serves(birth_date: str):
     refusal = find_age_refusal(birth_date=birth_date, today=TODAY, minimum_age=FLOOR)
 
     assert refusal is not None
-    assert (refusal.error_code, refusal.fields, refusal.bounds) == (
+    assert (refusal.code, refusal.path, refusal.bounds) == (
         Code.CONFIRMATION_AGE,
-        (("birth_date",),),
+        ("birth_date",),
         {"min": FLOOR, "max": BIRTH_DATE_MAX_AGE_YEARS},
     )

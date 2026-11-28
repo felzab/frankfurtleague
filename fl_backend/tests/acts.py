@@ -1,5 +1,5 @@
 import logging
-from collections.abc import Iterator
+from collections.abc import Generator
 from contextlib import contextmanager
 
 import pytest
@@ -10,7 +10,7 @@ from app.core.recording import FLAction, actor_var
 
 
 @contextmanager
-def acting_as(address: str) -> Iterator[None]:
+def acting_as(address: str) -> Generator[None]:
     """`address` as the administrator `bind_actor` binds on a request, for a handler a case calls directly.
 
     Reset in a `finally`, so a case that fails inside it leaves its actor to nothing after it.
@@ -36,7 +36,7 @@ async def deletions_of(database: AsyncDatabase, action: FLAction) -> list[tuple[
 
     rows = database[Collection.ACTION_LOG].find({"action": action}).sort("_id", 1)
 
-    return [(row["by"], row["label"], row["count"], row["record_id"]) async for row in rows]
+    return [(row["by"], row["saison_id"], row["count"], row["record_id"]) async for row in rows]
 
 
 def journal_records(caplog: pytest.LogCaptureFixture) -> list[logging.LogRecord]:

@@ -5,12 +5,14 @@ import { useEffect, useRef, useState } from "react";
 import { FieldError } from "react-aria-components/FieldError";
 import { Input, TextField } from "react-aria-components/TextField";
 
+import { textOf } from "@/core/copy";
 import { SIGN_IN_CODE_LENGTH } from "@/core/signInCode";
 
+import { Spinner } from "./Button";
+import { useFieldWait } from "./FieldParts";
 import { codeBox, codeInput, codeRow, fieldRoot, messageLine } from "./fieldStyles";
-import { useEarlyEdit } from "./useEarlyEdit";
 
-import type { Copy } from "@/core/copy";
+import type { Copy, Words } from "@/core/copy";
 import type { SyntheticEvent } from "react";
 
 // The boxes are fixed in number and never reorder, so each keeps its position as its key.
@@ -37,22 +39,25 @@ export function CodeField({
   label,
   name,
   error,
-  isDisabled = false,
+  isBusy = false,
   onComplete,
 }: {
   /** Names the field for assistive technology; the sentence above it shows the address. */
-  label: Copy;
+  label: Words;
   name: string;
-  /** The refusal of the code, in the message line under the boxes: one or two sentences. */
+  /** The refusal of the code, a field phrase, in the message line under the boxes. */
   error?: Copy;
-  isDisabled?: boolean;
+  /**
+   * The code is being checked: the boxes take no input, and the busy button's spinner stands in the message line, where
+   * a refusal's phrase lands next, so the wait shows the sign every other act's does.
+   */
+  isBusy?: boolean;
   /** Called with the six digits once the last one is in. */
   onComplete?: (code: string) => void;
 }) {
   const [code, setCode] = useState("");
   const [isFocused, setIsFocused] = useState(false);
   const input = useRef<HTMLInputElement>(null);
-  const root = useEarlyEdit();
 
   // Moved on mount rather than through `autoFocus`, which the lint bans for a load-time grab: the field
   // appears in place of the button just pressed, which would leave a keyboard user on the document body.
@@ -71,13 +76,13 @@ export function CodeField({
 
   return (
     <TextField
-      ref={root}
+      inert={useFieldWait()}
       className={fieldRoot()}
-      aria-label={label}
+      aria-label={textOf(label)}
       name={name}
       value={code}
       onChange={change}
-      isDisabled={isDisabled}
+      isDisabled={isBusy}
       isInvalid={error !== undefined}
       inputMode="numeric"
       autoComplete="one-time-code">
@@ -102,7 +107,13 @@ export function CodeField({
           className={codeInput()}
         />
       </div>
-      <FieldError className={messageLine({ tone: "error" })}>{error}</FieldError>
+      {isBusy ? (
+        <div className="flex justify-center text-fg-muted">
+          <Spinner />
+        </div>
+      ) : (
+        <FieldError className={messageLine({ tone: "danger" })}>{error}</FieldError>
+      )}
     </TextField>
   );
 }

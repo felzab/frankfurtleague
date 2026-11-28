@@ -13,7 +13,7 @@ import json
 import os
 import re
 import sys
-from collections.abc import AsyncGenerator, AsyncIterator, Mapping
+from collections.abc import AsyncGenerator, Mapping
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from pathlib import Path
@@ -136,7 +136,7 @@ class Boot:
 
 
 @asynccontextmanager
-async def _boot(directory: Path, files: Mapping[str, str], variables: Mapping[str, str]) -> AsyncIterator[asyncio.subprocess.Process]:
+async def _boot(directory: Path, files: Mapping[str, str], variables: Mapping[str, str]) -> AsyncGenerator[asyncio.subprocess.Process]:
     """The boot started from `directory`, with `files` as its secrets and `variables` as its whole environment, held running.
 
     Both streams in one, as the container log holds them. Killed and reaped as the block leaves, by any path a sibling's

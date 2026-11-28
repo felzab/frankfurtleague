@@ -1,11 +1,10 @@
 from collections.abc import Mapping
 from typing import Any
 
-from fastapi import APIRouter, status
+from fastapi import APIRouter, Response, status
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
-from app.api.account.services import held_by_the_record, withdraw_by_mail
 from app.api.grants.guard import ADMIN_TIER
 from app.api.outbox.crud import state_of
 from app.api.outbox.schemas import FLOutboxReference
@@ -14,12 +13,13 @@ from app.api.schiedsrichter.schemas import (
     FLPatchSchiedsrichterPayload,
     FLPatchSchiedsrichterResponse,
     FLPostSchiedsrichterPayload,
+    FLPostSchiedsrichterResponse,
     FLSchiedsrichter,
     FLSchiedsrichterAdmin,
     FLSchiedsrichterAdminRow,
     FLSchiedsrichterListResponse,
     FLSchiedsrichterMint,
-    FLSchiedsrichterMintResponse,
+    FLSchiedsrichterReactivateResponse,
     FLSchiedsrichterSingleResponse,
 )
 from app.api.schiedsrichter.services import (
@@ -44,12 +44,14 @@ from app.core.collections import Collection
 from app.core.crud import (
     GERMAN_COLLATION,
     VERSION_FIELD,
+    find_stale_save_refusal,
     insert_live,
     is_held_elsewhere,
     patch_one_in_db,
     pull_one_from_db,
     pull_whole_from_db,
     refuse,
+    refuse_faults,
     set_inactive_since,
 )
 from app.core.dependencies import (
@@ -60,14 +62,13 @@ from app.core.dependencies import (
     OutboxReadCollection,
     SchiedsrichterCollection,
     SchiedsrichterReadCollection,
+    SnapshotSession,
     SpieleCollection,
 )
 from app.core.recording import record_act
-from app.core.routing import by_id
+from app.core.routing import DRY_RUN_PASSED, SAFE_WHEN, DryRun, by_id, dry_run_passed
 from app.core.transactions import transact
 from app.shared.schemas.custom import CustomObjectId
-from app.shared.schemas.einwilligung import WITHHELD_BY_A_PERSON, FLEinwilligungWithdrawalPayload
-from app.shared.schemas.responses import FLCreatedResponse
 
 # Admin-guarded, not base: a referee is a pupil, so their contact details and school are admin-tier, as is the fee,
 # which is money.
@@ -90,7 +91,6 @@ async def get_schiedsrichter(
     schiedsrichter_raw = await pull_whole_from_db(
         collection=schiedsrichter_collection,
         db_filter={},
-        what="the referees",
         projection=dict(ADMIN_ROW_FIELDS),
         sort_by=[("name", 1)],
         collation=GERMAN_COLLATION,
@@ -131,28 +131,42 @@ async def get_schiedsrichter_by_id(
     "",
     status_code=201,
     summary="Create a Schiedsrichter",
+    response_model=FLPostSchiedsrichterResponse,
+    openapi_extra=SAFE_WHEN,
+    responses=DRY_RUN_PASSED,
 )
 async def post_schiedsrichter(
     schiedsrichter_data: FLPostSchiedsrichterPayload,
     schiedsrichter_collection: SchiedsrichterCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
+    session: SnapshotSession,
     today: GermanDay,
     germany_now: GermanyNow,
-) -> FLCreatedResponse:
-    """Create a referee and owe them their confirmation link.
+    dry_run: DryRun = False,
+) -> FLPostSchiedsrichterResponse | Response:
+    """Create a referee and owe them their confirmation link, answering the address it goes to.
 
     Entering a referee is the invitation, with no second press deciding whether they are asked, since a referee nobody
-    asked is a name nobody consented to publish.
+    asked is a name nobody consented to publish. A `dry_run` is refused as the create would be, and answers 204 and
+    writes nothing where it would land.
     """
 
     email = schiedsrichter_data.kontakt.email
 
-    async def judge_and_create(session: AsyncClientSession) -> Any:
+    async def judge(session: AsyncClientSession) -> None:
+        # Every refusal of the create, in its transaction or the dry run's snapshot alike.
         taken = await is_held_elsewhere(
             collection=schiedsrichter_collection, key="name", value=schiedsrichter_data.name, own_id=None, session=session
         )
-        refuse(find_referee_name_refusal(taken=taken))
+        refuse_faults(find_referee_name_refusal(taken=taken))
+
+    if dry_run:
+        await judge(session)
+        return dry_run_passed()
+
+    async def judge_and_create(session: AsyncClientSession) -> Any:
+        await judge(session)
 
         created = await insert_live(
             collection=schiedsrichter_collection,
@@ -179,12 +193,15 @@ async def post_schiedsrichter(
     # owed that an administrator was then told had been refused.
     post_operation = await transact(db, judge_and_create)
 
-    return FLCreatedResponse(created_id=post_operation.inserted_id)
+    return FLPostSchiedsrichterResponse(created_id=post_operation.inserted_id, confirmation=FLSchiedsrichterMint(email=email))
 
 
 @router.patch(
     by_id("schiedsrichter_id"),
     summary="Update a Schiedsrichter",
+    response_model=FLPatchSchiedsrichterResponse,
+    openapi_extra=SAFE_WHEN,
+    responses=DRY_RUN_PASSED,
 )
 async def patch_schiedsrichter(
     schiedsrichter_id: CustomObjectId,
@@ -192,32 +209,48 @@ async def patch_schiedsrichter(
     schiedsrichter_collection: SchiedsrichterCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
+    session: SnapshotSession,
     today: GermanDay,
     germany_now: GermanyNow,
-) -> FLPatchSchiedsrichterResponse:
+    dry_run: DryRun = False,
+) -> FLPatchSchiedsrichterResponse | Response:
     """Update a referee on the `version` the editor was served, answering the version stored.
 
     A corrected address on an unconfirmed referee retires their link and owes a fresh one, named in `confirmation`, and a
-    confirmed referee's address moves only through an address change.
+    confirmed referee's address moves only through an address change. A `dry_run` is refused as the update would be, and
+    answers 204 and writes nothing where it would land.
     """
 
     payload = schiedsrichter_data.model_dump(mode="json", exclude={"version"})
     email = schiedsrichter_data.kontakt.email
 
-    async def correct_and_ask(session: AsyncClientSession) -> tuple[FLPatchSchiedsrichterResponse, bool]:
-        # A fixture names the referee by id and reads the name at its own read, so nothing else is written; each
-        # fixture keeps the `payment` agreed for it.
+    async def judge(session: AsyncClientSession) -> Mapping[str, Any]:
+        # Every refusal of the update, in its transaction or the dry run's snapshot alike.
         stored = await pull_one_from_db(
             collection=schiedsrichter_collection,
             db_filter={"_id": schiedsrichter_id},
-            projection={"kontakt.email": 1, EINWILLIGUNG_FIELD: 1, "inactive_since": 1},
+            projection={"kontakt.email": 1, EINWILLIGUNG_FIELD: 1, "inactive_since": 1, VERSION_FIELD: 1},
             session=session,
         )
+        # Read as well as filtered on: a dry run patches nothing for the version to refuse, and the patch's filter still
+        # refuses a write racing past this read.
+        refuse(find_stale_save_refusal(stored, version=schiedsrichter_data.version))
+        refuse(find_confirmed_address_refusal(stored=stored, payload_email=email))
+
         taken = await is_held_elsewhere(
             collection=schiedsrichter_collection, key="name", value=schiedsrichter_data.name, own_id=schiedsrichter_id, session=session
         )
-        refuse(find_referee_name_refusal(taken=taken))
-        refuse(find_confirmed_address_refusal(stored=stored, payload_email=email))
+        refuse_faults(find_referee_name_refusal(taken=taken))
+        return stored
+
+    if dry_run:
+        await judge(session)
+        return dry_run_passed()
+
+    async def correct_and_ask(session: AsyncClientSession) -> tuple[FLPatchSchiedsrichterResponse, bool]:
+        # A fixture names the referee by id and reads the name at its own read, so nothing else is written; each
+        # fixture keeps the `payment` agreed for it.
+        stored = await judge(session)
         update, minted = compose_correction_update(stored=stored, payload=payload, payload_email=email, today=today)
 
         updated_document_raw = await patch_one_in_db(
@@ -250,7 +283,7 @@ async def patch_schiedsrichter(
     answer, re_minted = await transact(db, correct_and_ask)
 
     if re_minted:
-        answer.confirmation = FLSchiedsrichterMint(deadline=confirmation_deadline_from(today=today), email=email)
+        answer.confirmation = FLSchiedsrichterMint(email=email)
 
     return answer
 
@@ -285,7 +318,6 @@ async def delete_schiedsrichter(
         assigned = await pull_whole_from_db(
             collection=spiele_collection,
             db_filter=build_unplayed_assignment_filter(schiedsrichter_id),
-            what=f"referee {schiedsrichter_id}'s unplayed fixtures",
             projection={"spiel_nr": 1},
             session=session,
         )
@@ -310,7 +342,6 @@ async def delete_schiedsrichter(
 
 @router.post(
     f"{by_id('schiedsrichter_id')}/reactivate",
-    status_code=status.HTTP_204_NO_CONTENT,
     summary="Bring a deactivated Schiedsrichter back",
 )
 async def reactivate_schiedsrichter(
@@ -320,13 +351,14 @@ async def reactivate_schiedsrichter(
     db: DBClient,
     today: GermanDay,
     germany_now: GermanyNow,
-) -> None:
-    """Bring a retired referee back into the picker and every default read.
+) -> FLSchiedsrichterReactivateResponse:
+    """Bring a retired referee back into the picker and every default read, answering where a fresh link goes.
 
-    One who has not answered is owed a fresh link, since a retired referee's save mails nothing.
+    One who has not answered is owed a fresh link, named in `confirmation`, since a retired referee's save mails nothing;
+    one who has answered, holds no address a link can go to, or is back already, is owed none.
     """
 
-    async def reactivate_and_ask(session: AsyncClientSession) -> None:
+    async def reactivate_and_ask(session: AsyncClientSession) -> str | None:
         stored = await pull_one_from_db(
             collection=schiedsrichter_collection,
             db_filter={"_id": schiedsrichter_id},
@@ -335,7 +367,7 @@ async def reactivate_schiedsrichter(
         )
         # A second press finds the referee back: nothing moves, so nothing is recorded.
         if stored.get("inactive_since") is None:
-            return
+            return None
 
         email = stored["kontakt"]["email"] if owes_reactivation_mint(stored=stored) else None
 
@@ -363,12 +395,19 @@ async def reactivate_schiedsrichter(
                 session=session,
             )
 
-    # One transaction, so a row never comes back without the link it was owed.
-    await transact(db, reactivate_and_ask)
+        return email
+
+    # One transaction, so a row never comes back without the link it was owed. The address answered is the one read
+    # in-session above, never one the page read before the press: a save moving it in between would otherwise name the
+    # previous mailbox.
+    minted_for = await transact(db, reactivate_and_ask)
+
+    return FLSchiedsrichterReactivateResponse(confirmation=None if minted_for is None else FLSchiedsrichterMint(email=minted_for))
 
 
 @router.post(
     f"{by_id('schiedsrichter_id')}/confirmation/resend",
+    status_code=status.HTTP_204_NO_CONTENT,
     summary="Send a Schiedsrichter a fresh confirmation link",
 )
 async def resend_confirmation(
@@ -378,14 +417,14 @@ async def resend_confirmation(
     db: DBClient,
     today: GermanDay,
     germany_now: GermanyNow,
-) -> FLSchiedsrichterMintResponse:
-    """Owe this referee a fresh confirmation link, which the Postausgang mints and mails, and answer where it goes.
+) -> None:
+    """Owe this referee a fresh confirmation link, which the Postausgang mints and mails, to the address they hold.
 
     The previous link stops working at once and the deadline restarts from today; a referee who has already answered is
     refused, since the new link could never be spent.
     """
 
-    async def judge_and_mint(session: AsyncClientSession) -> str:
+    async def judge_and_mint(session: AsyncClientSession) -> None:
         stored = await pull_one_from_db(
             collection=schiedsrichter_collection,
             db_filter={"_id": schiedsrichter_id},
@@ -407,6 +446,8 @@ async def resend_confirmation(
             expected_version=None,
             return_document=ReturnDocument.AFTER,
         )
+        # The address read in-session above, never one the caller read before this request: a save moving it in between
+        # would otherwise send the link to the previous mailbox.
         await owe_the_confirmation(
             outbox_collection=outbox_collection,
             schiedsrichter_id=updated["_id"],
@@ -417,46 +458,4 @@ async def resend_confirmation(
             session=session,
         )
 
-        return str(email)
-
-    # The address answered is the one read in-session above, never one the caller read before this
-    # request: a save moving it in between would otherwise send the link to the previous mailbox.
-    minted_for = await transact(db, judge_and_mint)
-
-    return FLSchiedsrichterMintResponse(confirmation=FLSchiedsrichterMint(deadline=confirmation_deadline_from(today=today), email=minted_for))
-
-
-@router.post(
-    f"{by_id('schiedsrichter_id')}/einwilligung/withdrawal",
-    status_code=status.HTTP_204_NO_CONTENT,
-    summary="Enter a withdrawal of a Schiedsrichter's consent that they asked for by mail",
-)
-async def withdraw_schiedsrichter_einwilligung(
-    schiedsrichter_id: CustomObjectId,
-    withdrawal_data: FLEinwilligungWithdrawalPayload,
-    schiedsrichter_collection: SchiedsrichterCollection,
-    db: DBClient,
-    germany_now: GermanyNow,
-) -> None:
-    """Withdraw the named choices of a referee's consent, the name on the fixtures leaving the public pages and the media consent ending.
-
-    A choice already withheld stays as it is, so a second mail or a record its person never confirmed writes nothing,
-    and nothing is ever granted.
-    """
-
-    async def record(row: Mapping[str, Any], session: AsyncClientSession) -> None:
-        await record_act(
-            collection=schiedsrichter_collection, action="schiedsrichter.einwilligung_withdrawn", record_id=row["_id"], session=session
-        )
-
-    await withdraw_by_mail(
-        kind=Collection.SCHIEDSRICHTER,
-        collection=schiedsrichter_collection,
-        db_filter={"_id": schiedsrichter_id},
-        projection={EINWILLIGUNG_FIELD: 1},
-        held_of=held_by_the_record,
-        withheld={choice: WITHHELD_BY_A_PERSON[choice] for choice in withdrawal_data.choices},
-        act=record,
-        db=db,
-        now=germany_now,
-    )
+    await transact(db, judge_and_mint)

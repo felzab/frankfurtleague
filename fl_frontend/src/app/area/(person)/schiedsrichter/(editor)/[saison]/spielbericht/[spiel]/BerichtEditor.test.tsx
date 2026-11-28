@@ -3,8 +3,7 @@ import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
-import { COPY } from "@/core/copy";
-import { spielberichtePutSpielberichtBerichtBodyBerichtScorersItemMinuteRegExp } from "@/core/generated/zod/inputs";
+import { COPY } from "@/core/copy/shared";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { renderUnderNext } from "@/test-support/nextContexts";
 
@@ -41,11 +40,9 @@ describe("a first report opened at the league's no-show", () => {
           team1: { name: { record: "Birke" }, plaque: { record: "BIR" } },
           team2: { name: { record: "Weide" }, plaque: { record: "WEI" } },
         }}
-        squads={{ team1: [], team2: [] }}
-        minute={{ pattern: spielberichtePutSpielberichtBerichtBodyBerichtScorersItemMinuteRegExp.source }}
-        required={{ minute: true, goalPlayer: true, cardPlayer: true, side: true, cardColour: true }}
+        kader={{ team1: [], team2: [] }}
+        rules={{}}
         eigentor={SERVER_COPY.season.spiel.eigentor}
-        remarksMax={500}
       />,
       AT_ADDRESS,
     );

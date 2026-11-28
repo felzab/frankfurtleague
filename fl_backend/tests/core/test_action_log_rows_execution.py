@@ -105,6 +105,8 @@ async def test_the_pages_neither_repeat_nor_drop_a_row_across_a_cursor(mongo_rep
                 "team": None,
                 "action": "team.changed",
                 "record_id": None,
+                "saison_id": None,
+                "spiel_nr": None,
                 "label": None,
                 "count": None,
                 "trace_id": "0" * 32,
@@ -129,6 +131,44 @@ async def test_the_pages_neither_repeat_nor_drop_a_row_across_a_cursor(mongo_rep
 
     assert [len(page) for page in pages] == [ACTION_LOG_PAGE_SIZE, ACTION_LOG_PAGE_SIZE, 1]
     assert [row for page in pages for row in page] == newest_first
+
+
+async def test_a_fixture_s_number_and_its_season_find_its_rows_alone(mongo_replica_set_url: str):
+    """A row names its fixture „Spiel 1“, a number the search's text never reaches, and every season numbers from 1 again."""
+
+    def act(saison_id: str | None, spiel_nr: int | None) -> dict[str, Any]:
+        return {
+            "at": AT,
+            "by": ACT_BY_SYSTEM,
+            "team": None,
+            "action": "spiel.changed",
+            "record_id": None,
+            "saison_id": saison_id,
+            "spiel_nr": spiel_nr,
+            "label": None,
+            "count": None,
+            "trace_id": "0" * 32,
+        }
+
+    async def body(database: AsyncDatabase, _client: AsyncMongoClient) -> dict[str, list[tuple[str | None, int | None]]]:
+        log = database[Collection.ACTION_LOG]
+        await log.insert_many([act(SAISON_ID, 1), act(SAISON_ID, 11), act("2027", 1), act(SAISON_ID, None)])
+
+        async def found(filters: dict[str, Any]) -> list[tuple[str | None, int | None]]:
+            page = await get_action_log(action_log_collection=log, filters=FLActionLogFilterPayload.model_validate(filters))
+            return sorted(((row.saison_id, row.spiel_nr) for row in page.action_log), key=str)
+
+        return {
+            "fixture": await found({"spiel_nr": 1}),
+            "fixture of a season": await found({"saison_id": SAISON_ID, "spiel_nr": 1}),
+            "season": await found({"saison_id": SAISON_ID}),
+        }
+
+    assert await on_a_replica_set(mongo_replica_set_url, body) == {
+        "fixture": [("2026", 1), ("2027", 1)],
+        "fixture of a season": [("2026", 1)],
+        "season": [("2026", 1), ("2026", 11), ("2026", None)],
+    }
 
 
 Press = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[object]]

@@ -7,7 +7,7 @@ const backend = serveBackend(() => ({}));
 
 const { serializeQuery } = await import("./transport");
 const sdk = await import("./generated/client/sdk");
-const { requestWriteMayStand, runWithRequestScope } = await import("./requestScope");
+const { requestWriteMayStand, runWithRequestScope, setRequestActor } = await import("./requestScope");
 
 /* Every generated call's query passes through here: a null sent as "null" would filter on that word. */
 it("leaves an absent value out", () => {
@@ -17,7 +17,7 @@ it("leaves an absent value out", () => {
 const SPIEL_ID = "6890a1b2c3d4e5f607510001";
 const SPIEL = {} as Parameters<typeof sdk.spielePatchSpiel>[1];
 
-/** An administrator the request acts for, which an admin-tier call must name before it leaves. */
+/** An administrator the request acts for, which the backend refuses an admin-tier call without. */
 const ACTOR = { email: "vorstand@example.org", lane: "admin", authTime: 0, factor: "passkey" } as const;
 
 /* What the contract states of a call reaches the write test through the transport the generator picked, and nothing
@@ -30,7 +30,8 @@ it.each([
   ["a system-tier read over POST", () => sdk.identityGetSubject({ email: "a@schule.example.org" }), false],
   ["an admin-tier read over POST", () => sdk.identityGetErasureView({ email: "a@schule.example.org" }), false],
 ])("sends %s as its operation's contract states", async (_, send, standing) => {
-  const mayStand = await runWithRequestScope({ traceId: "0".repeat(31) + "1", actor: ACTOR }, async () => {
+  const mayStand = await runWithRequestScope({ traceId: "0".repeat(31) + "1" }, async () => {
+    setRequestActor(ACTOR);
     await send();
     return requestWriteMayStand();
   });

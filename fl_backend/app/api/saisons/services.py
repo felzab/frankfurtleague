@@ -1,5 +1,5 @@
 from collections.abc import Mapping, Sequence
-from datetime import date, timedelta
+from datetime import date
 from http import HTTPStatus
 from typing import Any
 
@@ -9,9 +9,10 @@ from app.api.spiele.schemas import FLSpielJoinedInternal, FLSpielTeamFieldJoined
 from app.api.spiele.services import podium_of
 from app.api.teams.schemas import MAX_NUMBER_OF_GROUPS
 from app.api.teams.services import offered_gruppen
+from app.core.clock import days_after
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.exceptions import APIError
+from app.core.exceptions import APIError, Bound, FieldFault, faults_of
 from app.shared.saison import season_has_ended
 from app.shared.schemas.literals import FLGruppenNames, FLSaisonPhase
 
@@ -111,7 +112,7 @@ type DecidedPodium = tuple[
 def decided_podium(finale: Sequence[FLSpielJoinedInternal]) -> DecidedPodium | None:
     """A season's four places once all four are in, else `None`: the one rule the landing, the admin list and the editor call it decided by.
 
-    Every season ends in a knockout (`find_rules_refusal` refuses rules drawing none), so the Finale's matchday places
+    Every season ends in a knockout (`find_shape_refusal` refuses rules drawing none), so the Finale's matchday places
     it, and every bracket the rules admit plays a match for third place: it is decided once all four places are in, a
     played final beside an unplayed match for third place still running. A place decided once its club had left is
     vacant, its side `None`, and still a place in.
@@ -147,21 +148,24 @@ def find_saison_create_refusal(*, future_stands: bool) -> APIError | None:
     return APIError(HTTPStatus.CONFLICT, Code.CREATE_SAISON_FUTURE_STANDS)
 
 
-def find_saison_start_refusal(*, stored_start_date: str, proposed_start_date: str, taken_place: bool) -> APIError | None:
+def find_saison_start_refusal(*, stored_start_date: str, proposed_start_date: str, taken_place: bool) -> FieldFault | None:
     """Why moving this season's start must be refused, or `None`: once a fixture of it has taken place, the start is fixed.
 
     Editable until then, so a season frozen early is unlocked by moving its start. After a match, moving it would
     reopen what every start lock closed on a season somebody already played. Compared by value, so an edit
-    resubmitting the stored date passes.
+    resubmitting the stored date passes. On the start's box, bounded by the stored start on the side the proposal
+    moved past it: `latest` for a later start, `earliest` for an earlier one.
     """
 
     if stored_start_date == proposed_start_date or not taken_place:
         return None
 
-    return APIError(HTTPStatus.CONFLICT, Code.SAISON_START_TAKEN_PLACE)
+    bounds: dict[str, Bound] = {"latest": stored_start_date} if proposed_start_date > stored_start_date else {"earliest": stored_start_date}
+
+    return FieldFault(path=("start_date",), code=Code.SAISON_START_TAKEN_PLACE, status=HTTPStatus.CONFLICT, bounds=bounds)
 
 
-def find_saison_start_austritt_refusal(*, stored_start_date: str, proposed_start_date: str, austritt_stored: bool) -> APIError | None:
+def find_saison_start_austritt_refusal(*, stored_start_date: str, proposed_start_date: str, austritt_stored: bool) -> FieldFault | None:
     """Why moving this season's start later must be refused, or `None`: a club's exit is stored.
 
     An exit is recorded only from the start date (`austritt_before_saison_start`); a start moved later would make the
@@ -172,7 +176,9 @@ def find_saison_start_austritt_refusal(*, stored_start_date: str, proposed_start
     if not austritt_stored or proposed_start_date <= stored_start_date:
         return None
 
-    return APIError(HTTPStatus.CONFLICT, Code.SAISON_START_AUSTRITT_STORED, fields=(("start_date",),), bounds={"latest": stored_start_date})
+    return FieldFault(
+        path=("start_date",), code=Code.SAISON_START_AUSTRITT_STORED, status=HTTPStatus.CONFLICT, bounds={"latest": stored_start_date}
+    )
 
 
 def find_saison_past_refusal(*, saison_status: str) -> APIError | None:
@@ -225,53 +231,33 @@ def find_rules_freeze_refusal(*, saison_status: str, started: bool, stored: FLSa
     return APIError(HTTPStatus.CONFLICT, Code.RULES_SAISON_STARTED)
 
 
-def find_rules_refusal(
+def find_shape_refusal(
     *,
     # `None` on a create, whose whole rules object is the step.
     stored: FLSaisonRules | None,
     proposed: FLSaisonRules,
-    occupancy_by_gruppe: dict[FLGruppenNames, int],
-    largest_kader: int = 0,
-    drawn_spiele: int = 0,
+    drawn: bool = False,
 ) -> APIError | None:
-    """Why these rules must be refused, or `None`."""
+    """Why these rules' shape must be refused as a whole, or `None`: a gate, asked before `find_rules_refusal`'s boxes.
+
+    Neither names a box: the editor locks the three numbers once the season is drawn, and offers only the shapes
+    `workable_shapes` admits, so only a page read before a draw or a change of the other rules sends either.
+    """
 
     # Early, as the freeze is: where a number cannot change at all, naming what it may not drop past
     # sends an admin to the wrong repair. Compared by value, so a resubmission passes.
     # Absolute, in every status and whatever is recorded: the shape and the fixtures drawn from it
     # are one fact, so this path never moves half of it. An undraw removes the fixtures, and the next
     # draw runs from the shape saved after it.
-    if stored is not None and drawn_spiele > 0:
+    if stored is not None and drawn:
         redrawn = [field for field in SHAPE_RULES_FIELDS if getattr(stored, field) != getattr(proposed, field)]
         if redrawn:
             return APIError(HTTPStatus.CONFLICT, Code.RULES_SHAPE_AFTER_SPIELPLAN)
 
-    # Before the bracket rule, being narrower: it names two fields an admin can compare, where the
+    # Only where the numbers agree with each other: the narrower rule names two boxes an admin can compare, where the
     # bracket's answer is a property of their product.
-    if proposed.qualifiers_per_gruppe > proposed.teams_per_gruppe:
-        return APIError(
-            HTTPStatus.UNPROCESSABLE_CONTENT,
-            Code.RULES_QUALIFIERS_ABOVE_GRUPPE,
-            fields=(("rules", "qualifiers_per_gruppe"),),
-            bounds={"max": proposed.teams_per_gruppe},
-        )
-
-    if proposed.draw_points > proposed.win_points:
-        return APIError(
-            HTTPStatus.UNPROCESSABLE_CONTENT,
-            Code.RULES_UNENTSCHIEDEN_OUTVALUES_WIN,
-            fields=(("rules", "draw_points"),),
-            bounds={"max": proposed.win_points},
-        )
-
-    # The same order one rung down: a loss is never the better result.
-    if proposed.loss_points > proposed.draw_points:
-        return APIError(
-            HTTPStatus.UNPROCESSABLE_CONTENT,
-            Code.RULES_NIEDERLAGE_OUTVALUES_UNENTSCHIEDEN,
-            fields=(("rules", "loss_points"),),
-            bounds={"max": proposed.draw_points},
-        )
+    if _qualifiers_refusal(proposed) is not None or _draw_refusal(proposed) is not None or _loss_refusal(proposed) is not None:
+        return None
 
     qualifiers = proposed.number_of_gruppen * proposed.qualifiers_per_gruppe
     stored_qualifiers = None if stored is None else stored.number_of_gruppen * stored.qualifiers_per_gruppe
@@ -280,49 +266,149 @@ def find_rules_refusal(
     if not knockout_phases_for(qualifiers) and qualifiers != stored_qualifiers:
         return APIError(HTTPStatus.UNPROCESSABLE_CONTENT, Code.RULES_BRACKET_IMPOSSIBLE)
 
-    # No shoot-out can break it: a composed forfeit discards one, so a level award leaves
-    # `_outcome_of` advancing nobody. Only the step that pairs the two
-    # is refused.
-    if _forfeit_unentschieden_in_a_knockout(proposed) and (stored is None or not _forfeit_unentschieden_in_a_knockout(stored)):
-        return APIError(
-            HTTPStatus.UNPROCESSABLE_CONTENT,
-            Code.RULES_FORFEIT_UNENTSCHIEDEN_IN_A_KNOCKOUT,
-            fields=(("rules", "forfeit_ergebnis", "sieger_tore"),),
-            bounds={"min": proposed.forfeit_ergebnis.verlierer_tore + 1},
-        )
-
-    if stored is None:
-        return None
-
-    if proposed.number_of_gruppen < stored.number_of_gruppen:
-        offered = offered_gruppen(proposed.number_of_gruppen)
-        stranded = sorted(gruppe for gruppe, held in occupancy_by_gruppe.items() if held > 0 and gruppe not in offered)
-        if stranded:
-            # The groups are a prefix of the closed set, so the fewest that still offer every occupied one run to the last.
-            in_use = max(offered_gruppen(MAX_NUMBER_OF_GROUPS).index(gruppe) for gruppe in stranded) + 1
-            return APIError(HTTPStatus.CONFLICT, Code.RULES_GRUPPEN_IN_USE, fields=(("rules", "number_of_gruppen"),), bounds={"min": in_use})
-
-    if proposed.teams_per_gruppe < stored.teams_per_gruppe:
-        fullest = max(occupancy_by_gruppe.values(), default=0)
-        if fullest > proposed.teams_per_gruppe:
-            return APIError(
-                HTTPStatus.CONFLICT, Code.RULES_CAPACITY_BELOW_USE, fields=(("rules", "teams_per_gruppe"),), bounds={"min": fullest}
-            )
-
-    # Only where the patch lowers it, on `rules_capacity_below_use`'s shape: a cap left where it stands is not
-    # this edit's doing, and refusing it would bar the very edit that repairs the season.
-    if proposed.max_kader_size < stored.max_kader_size and largest_kader > proposed.max_kader_size:
-        return APIError(HTTPStatus.CONFLICT, Code.RULES_KADER_BELOW_USE, fields=(("rules", "max_kader_size"),), bounds={"min": largest_kader})
-
     return None
 
 
+def find_rules_refusal(
+    *,
+    # `None` on a create, whose whole rules object is the step.
+    stored: FLSaisonRules | None,
+    proposed: FLSaisonRules,
+    occupancy_by_gruppe: dict[FLGruppenNames, int],
+    largest_kader: int = 0,
+) -> tuple[FieldFault, ...]:
+    """Every box these rules must be refused on, or none. Asked once `find_shape_refusal` passed them.
+
+    Each box's rule is asked whatever another found, but for a bound read off a box another fault refuses, which names
+    a figure the repair moves: the qualifiers' bound is the teams per group, the loss's the draw's points.
+    """
+
+    capacity = None if stored is None else _capacity_refusal(stored=stored, proposed=proposed, occupancy_by_gruppe=occupancy_by_gruppe)
+    draw = _draw_refusal(proposed)
+
+    return faults_of(
+        (
+            None if capacity else _qualifiers_refusal(proposed),
+            draw,
+            None if draw else _loss_refusal(proposed),
+            _forfeit_refusal(stored=stored, proposed=proposed),
+            None if stored is None else _gruppen_in_use_refusal(stored=stored, proposed=proposed, occupancy_by_gruppe=occupancy_by_gruppe),
+            capacity,
+            None if stored is None else _kader_refusal(stored=stored, proposed=proposed, largest_kader=largest_kader),
+        )
+    )
+
+
+def _forfeit_refusal(*, stored: FLSaisonRules | None, proposed: FLSaisonRules) -> FieldFault | None:
+    """A level forfeit award in a season with a bracket, refused on the step that pairs the two.
+
+    No shoot-out can break it: a composed forfeit discards one, so a level award leaves `_outcome_of` advancing nobody.
+    """
+
+    if not _forfeit_unentschieden_in_a_knockout(proposed) or (stored is not None and _forfeit_unentschieden_in_a_knockout(stored)):
+        return None
+
+    return FieldFault(
+        path=("rules", "forfeit_ergebnis", "sieger_tore"),
+        code=Code.RULES_FORFEIT_UNENTSCHIEDEN_IN_A_KNOCKOUT,
+        status=HTTPStatus.UNPROCESSABLE_CONTENT,
+        bounds={"min": proposed.forfeit_ergebnis.verlierer_tore + 1},
+    )
+
+
+def _gruppen_in_use_refusal(
+    *, stored: FLSaisonRules, proposed: FLSaisonRules, occupancy_by_gruppe: dict[FLGruppenNames, int]
+) -> FieldFault | None:
+    """Fewer groups than the season's clubs stand in, refused on the step that lowers them."""
+
+    if proposed.number_of_gruppen >= stored.number_of_gruppen:
+        return None
+
+    offered = offered_gruppen(proposed.number_of_gruppen)
+    stranded = sorted(gruppe for gruppe, held in occupancy_by_gruppe.items() if held > 0 and gruppe not in offered)
+    if not stranded:
+        return None
+
+    # The groups are a prefix of the closed set, so the fewest that still offer every occupied one run to the last.
+    in_use = max(offered_gruppen(MAX_NUMBER_OF_GROUPS).index(gruppe) for gruppe in stranded) + 1
+
+    return FieldFault(path=("rules", "number_of_gruppen"), code=Code.RULES_GRUPPEN_IN_USE, status=HTTPStatus.CONFLICT, bounds={"min": in_use})
+
+
+def _capacity_refusal(*, stored: FLSaisonRules, proposed: FLSaisonRules, occupancy_by_gruppe: dict[FLGruppenNames, int]) -> FieldFault | None:
+    """Fewer teams per group than the fullest group holds, refused on the step that lowers them."""
+
+    fullest = max(occupancy_by_gruppe.values(), default=0)
+    if proposed.teams_per_gruppe >= stored.teams_per_gruppe or fullest <= proposed.teams_per_gruppe:
+        return None
+
+    return FieldFault(
+        path=("rules", "teams_per_gruppe"), code=Code.RULES_CAPACITY_BELOW_USE, status=HTTPStatus.CONFLICT, bounds={"min": fullest}
+    )
+
+
+def _kader_refusal(*, stored: FLSaisonRules, proposed: FLSaisonRules, largest_kader: int) -> FieldFault | None:
+    """A squad cap under the largest squad, refused only where the patch lowers it, on `rules_capacity_below_use`'s shape.
+
+    A cap left where it stands is not this edit's doing, and refusing it would bar the very edit that repairs the season.
+    """
+
+    if proposed.max_kader_size >= stored.max_kader_size or largest_kader <= proposed.max_kader_size:
+        return None
+
+    return FieldFault(
+        path=("rules", "max_kader_size"), code=Code.RULES_KADER_BELOW_USE, status=HTTPStatus.CONFLICT, bounds={"min": largest_kader}
+    )
+
+
+# The rules' numbers held to each other: the qualifiers within a group, a draw under a win and a loss under a draw.
+
+
+def _qualifiers_refusal(proposed: FLSaisonRules) -> FieldFault | None:
+    if proposed.qualifiers_per_gruppe <= proposed.teams_per_gruppe:
+        return None
+
+    return FieldFault(
+        path=("rules", "qualifiers_per_gruppe"),
+        code=Code.RULES_QUALIFIERS_ABOVE_GRUPPE,
+        status=HTTPStatus.UNPROCESSABLE_CONTENT,
+        bounds={"max": proposed.teams_per_gruppe},
+    )
+
+
+def _draw_refusal(proposed: FLSaisonRules) -> FieldFault | None:
+    if proposed.draw_points <= proposed.win_points:
+        return None
+
+    return FieldFault(
+        path=("rules", "draw_points"),
+        code=Code.RULES_UNENTSCHIEDEN_OUTVALUES_WIN,
+        status=HTTPStatus.UNPROCESSABLE_CONTENT,
+        bounds={"max": proposed.win_points},
+    )
+
+
+def _loss_refusal(proposed: FLSaisonRules) -> FieldFault | None:
+    """The same order one rung down: a loss is never the better result."""
+
+    if proposed.loss_points <= proposed.draw_points:
+        return None
+
+    return FieldFault(
+        path=("rules", "loss_points"),
+        code=Code.RULES_NIEDERLAGE_OUTVALUES_UNENTSCHIEDEN,
+        status=HTTPStatus.UNPROCESSABLE_CONTENT,
+        bounds={"max": proposed.draw_points},
+    )
+
+
 def workable_shapes(rules: FLSaisonRules) -> list[FLSpielplanShape]:
-    """Every shape these rules' others admit, each judged by `find_rules_refusal` as a create judges rules.
+    """Every shape these rules' others admit, each judged as a create judges rules.
 
     So the rules form offers exactly the shapes the write admits, the bracket's sizes among them, rather than a copy of
-    the rules. A product the knockout ladder cannot halve to a final is skipped unjudged, the bracket rule refusing it on
-    every season; the occupancy and the span are the season's state, judged on the save itself.
+    the rules. A product the knockout ladder cannot halve to a final is skipped unjudged, as `find_shape_refusal`'s
+    bracket rule refuses it on every create, and every other shape is judged by `find_rules_refusal`. The occupancy and
+    the span are the season's state, judged on the save itself.
     """
 
     shapes: list[FLSpielplanShape] = []
@@ -334,7 +420,7 @@ def workable_shapes(rules: FLSaisonRules) -> list[FLSpielplanShape]:
                 shape = FLSpielplanShape(number_of_gruppen=groups, teams_per_gruppe=teams, qualifiers_per_gruppe=qualifiers)
                 # `model_copy` skips validation, safely: the shape's own model declares the three under the rules' own types.
                 candidate = rules.model_copy(update=shape.model_dump())
-                if find_rules_refusal(stored=None, proposed=candidate, occupancy_by_gruppe={}) is None:
+                if not find_rules_refusal(stored=None, proposed=candidate, occupancy_by_gruppe={}):
                     shapes.append(shape)
 
     return shapes
@@ -344,35 +430,42 @@ def find_saison_span_refusal(
     *,
     start_date: str,
     end_date: str,
-    rules: FLSaisonRules,
+    # `None` where a fault refuses the rules: the season's length is read off their schedule, so a length judged on
+    # refused rules names an end the repair moves, and only the dated matchdays are judged.
+    rules: FLSaisonRules | None,
     spieltag_spans: Sequence[tuple[str, str]],
-) -> APIError | None:
-    """Why this season's span must be refused, or `None`.
+) -> tuple[FieldFault, ...]:
+    """Why this season's span must be refused: a fault on each date that falls short, or none.
 
     `spieltag_spans` is every dated matchday of the season, as `(start, end)`: a span the season no
-    longer covers strands the matchday, and one still undated constrains nothing, so the caller filters.
+    longer covers strands the matchday, and one still undated constrains nothing, so the caller filters. The length
+    the rules draw and the matchdays judge apart, so both stand in one answer; where both fall on the end, the length's
+    is first.
     """
 
+    length: FieldFault | None = None
     # Inclusive: a season running 2026-05-01 to 2026-05-01 offers one day, not zero.
     offered_days = (date.fromisoformat(end_date) - date.fromisoformat(start_date)).days + 1
-    required_days = sum(entry.spieltage for entry in schedule_for(rules))
+    required_days = 0 if rules is None else sum(entry.spieltage for entry in schedule_for(rules))
     if offered_days < required_days:
         # On the end, as the span's own rule sits there, its bound the earliest end the schedule fits: the start is the
         # day the locks read, the box a season's length is repaired on is its end.
-        return APIError(
-            HTTPStatus.UNPROCESSABLE_CONTENT,
-            Code.SAISON_SPAN_BELOW_SPIELPLAN,
-            fields=(("end_date",),),
-            bounds={"earliest": (date.fromisoformat(start_date) + timedelta(days=required_days - 1)).isoformat()},
+        length = FieldFault(
+            path=("end_date",),
+            code=Code.SAISON_SPAN_BELOW_SPIELPLAN,
+            status=HTTPStatus.UNPROCESSABLE_CONTENT,
+            bounds={"earliest": days_after(day=start_date, days=required_days - 1)},
         )
 
     # `start` and `end` are the span the dated matchdays need, named on each side the season falls short of.
     first, last = min((span[0] for span in spieltag_spans), default=start_date), max((span[1] for span in spieltag_spans), default=end_date)
-    short = tuple(path for path, falls_short in ((("start_date",), first < start_date), (("end_date",), last > end_date)) if falls_short)
-    if short:
-        return APIError(HTTPStatus.CONFLICT, Code.SAISON_SPAN_BELOW_SPIELTAGE, fields=short, bounds={"start": first, "end": last})
+    matchdays = tuple(
+        FieldFault(path=path, code=Code.SAISON_SPAN_BELOW_SPIELTAGE, status=HTTPStatus.CONFLICT, bounds={"start": first, "end": last})
+        for path, falls_short in ((("start_date",), first < start_date), (("end_date",), last > end_date))
+        if falls_short
+    )
 
-    return None
+    return faults_of((length, matchdays))
 
 
 # The projection `holds_a_recorded_fact` reads, beside the predicate itself: a field in one and not
@@ -445,10 +538,10 @@ def holds_a_recorded_fact(spiel: Mapping[str, Any]) -> bool:
     return (spiel.get("spielort") or {}).get("spielort_id") is not None or spiel.get("schiedsrichter") is not None
 
 
-def find_activation_refusal(*, target_status: str, target_spiele: int, undated_spieltage: int, outgoing_unplayed: bool) -> APIError | None:
+def find_activation_refusal(*, target_status: str, target_drawn: bool, spieltage_undated: bool, outgoing_unplayed: bool) -> APIError | None:
     """Why this rollover must be refused, or `None`.
 
-    `undated_spieltage` counts the target season's matchdays holding no `start`; `outgoing_unplayed` is whether the
+    `spieltage_undated` is whether a matchday of the target season holds no `start`; `outgoing_unplayed` is whether the
     incumbent still owes a match by `is_unplayed`, false where there is none, and never asks the target's own fixtures.
     An open bracket slot owes one as an unscored match does, since neither holds a result.
     """
@@ -458,12 +551,12 @@ def find_activation_refusal(*, target_status: str, target_spiele: int, undated_s
     if target_status == "past":
         return APIError(HTTPStatus.CONFLICT, Code.SAISON_PAST)
 
-    if target_spiele == 0:
+    if not target_drawn:
         return APIError(HTTPStatus.CONFLICT, Code.ACTIVATE_TARGET_UNDRAWN)
 
     # After the undrawn target and before the incumbent: an undrawn season holds no matchday to
     # date, so this refusal would name a repair the admin cannot make there.
-    if undated_spieltage > 0:
+    if spieltage_undated:
         return APIError(HTTPStatus.CONFLICT, Code.ACTIVATE_SPIELTAGE_UNDATED)
 
     if not outgoing_unplayed:
@@ -573,7 +666,7 @@ def find_gruppe_swap_refusal(
 
     # A side in no group is no swap, and nor is one club named on both sides, which reads its one group twice.
     if team1_gruppe is None or team2_gruppe is None or team1_gruppe == team2_gruppe:
-        return APIError(HTTPStatus.UNPROCESSABLE_CONTENT, Code.SWAP_NOT_A_SWAP, fields=(("team1_id",), ("team2_id",)))
+        return APIError(HTTPStatus.UNPROCESSABLE_CONTENT, Code.SWAP_NOT_A_SWAP)
 
     if saison_status == "past":
         return APIError(HTTPStatus.CONFLICT, Code.SAISON_PAST)

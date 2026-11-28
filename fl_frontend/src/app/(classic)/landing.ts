@@ -1,6 +1,6 @@
 import { cacheLife, cacheTag } from "next/cache";
 
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 import { dayOf, timeOf } from "@/core/format";
 import { saisonsGetLanding } from "@/core/generated/client/sdk";
 import { SERVER_COPY } from "@/core/serverCopy";
@@ -36,7 +36,7 @@ export async function readLanding(): Promise<FLLandingResponse> {
 const plaqueOf = (side: FLLandingSide | null) => (side === null ? null : { record: side.shorthand });
 
 /** A place as the podium names it: its club, or `null` where it is vacant, its club having left the season by then. */
-const clubOf = (side: FLLandingSide | null): Place =>
+const teamOf = (side: FLLandingSide | null): Place =>
   side === null ? null : { name: { record: side.name }, plaque: { record: side.shorthand } };
 
 /**
@@ -74,7 +74,7 @@ export function stateOf(saison: LandingSaison): SaisonState {
       };
     case "decided": {
       const [first, second, third, fourth] = saison.podium;
-      return { kind: "decided", places: [clubOf(first), clubOf(second), clubOf(third), clubOf(fourth)] };
+      return { kind: "decided", places: [teamOf(first), teamOf(second), teamOf(third), teamOf(fourth)] };
     }
   }
 }

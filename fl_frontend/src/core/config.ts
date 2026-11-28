@@ -16,12 +16,10 @@ const INTERNAL_API_KEY = z
   .length(64)
   .regex(/^[\x21-\x7e]+$/, "printable ASCII only, with no space");
 
-// Where Compose mounts a file secret, which is where a container finds it with nothing set.
 const DEFAULT_SECRETS_DIR = "/run/secrets";
 
 /**
- * Each value read from a file rather than the environment, by the schema's key. One file name serves the
- * host, the container and development, so the database login carries this service's prefix: the backend
+ * One file name serves the host and the container, so the database login carries this service's prefix: the backend
  * holds another.
  */
 const SECRET_FILES = {
@@ -52,10 +50,7 @@ function failureName(error: unknown): string {
 }
 
 // Never exported: it hands back every secret's value, so a suite drives it through the boot alone.
-/**
- * What the secrets directory holds for each key, and each read that failed as `<path> (<errno>)`. A file
- * that does not exist is left out rather than failed, so the schema decides whether it was required.
- */
+/** A file that does not exist is left out rather than failed, so the schema decides whether it was required. */
 function readSecretFiles(directory: string): { values: Partial<Record<SecretKey, string>>; unreadable: string[] } {
   const values: Partial<Record<SecretKey, string>> = {};
 
@@ -83,7 +78,7 @@ function readSecretFiles(directory: string): { values: Partial<Record<SecretKey,
   return { values, unreadable };
 }
 
-/** One refusal's line: its event, the sentence the backend prints for the same refusal, and what it names. */
+/** `sentence` is the one the backend prints for the same boot refusal. */
 interface Refusal {
   event: string;
   sentence: string;
@@ -91,7 +86,6 @@ interface Refusal {
   names: readonly string[];
 }
 
-/** Each refusal's CRITICAL line, and then the one error that ends the boot. */
 function refuse(refusals: readonly Refusal[]): never {
   for (const { event, field, names } of refusals) logger.critical(event, { [field]: names.join(", ") });
 
@@ -103,7 +97,6 @@ function refuseInvalidEnvironment(names: readonly string[]): never {
   // By the file's name, the one an operator goes and fixes.
   const files = names.filter(isSecretKey).map((name) => SECRET_FILES[name]);
 
-  // The class the backend's boot refusals take, and its sentences.
   refuse([
     ...(variables.length > 0
       ? [{ event: "system.variables_refused", sentence: "Invalid environment variables", field: "variables", names: variables } as const]
@@ -124,13 +117,10 @@ function failingVariableNames(issues: readonly z.core.$ZodIssueBase[]): string[]
   return [...new Set(issues.map(({ path }) => (path.length > 0 ? String(path[0]) : "<unknown>")))].sort();
 }
 
-// The deployments this repository defines, the production stack and the local one. A third member
-// would name a stack nothing here deploys.
+// A third member would name a stack nothing here deploys.
 const APP_ENVIRONMENTS = ["production", "local"] as const;
 
-// The credentials `production` demands and no other deployment holds, refused at boot on the
-// production host alone. Files only: the production stack hands each as a file secret, never a
-// variable.
+// Files only: the production stack hands each as a file secret, never a variable.
 const PRODUCTION_ONLY_REQUIRED = [
   "AUTH_RESEND_KEY",
   "RESEND_WEBHOOK_SECRET",
@@ -157,21 +147,17 @@ const environment = {
   // this value alone.
   APP_ENV: z.enum(APP_ENVIRONMENTS),
 
-  // Its origin is held apart from AUTH_URL's by `schemaBeside`, which reads both.
   API_URL: z.url(),
 
   // A stray http:// here ships a session cookie in plaintext: the sign-in library reads this value's
   // scheme and gives the cookie the `__Host-` name prefix and the `secure` attribute together or
-  // neither.
-
-  // Gated on the host, not NODE_ENV: the local stack sets it to production too.
+  // neither. Gated on the host, not NODE_ENV: the local stack sets it to production too.
   AUTH_URL: z.url().refine((raw) => {
     const { protocol, hostname } = new URL(raw);
     return protocol === "https:" || hostname === "localhost" || hostname === "127.0.0.1";
   }, "AUTH_URL must use https:// unless it points at localhost"),
 
-  // The image's version from its build argument, which the start-up line logs; unset under `next dev`, and empty, so
-  // read as unset, in a build handed none.
+  // Empty, so read as unset, in a build handed no version.
   APP_VERSION: z.string().min(1).optional(),
 
   // On while the stored data is changed by hand, in a restore or a migration: no pass is armed and no write's drain
@@ -193,11 +179,11 @@ const fromFiles = {
   // behind a deploy nothing turned red.
   AUTH_SECRET: z.string().min(32),
   // Optional here and demanded below under `production` alone: what keeps a send off another
-  // deployment is `APP_ENV`, never this being absent, a development machine possibly holding a real
-  // key. Never empty, the demand testing for absence alone.
+  // deployment is `APP_ENV`, never this being absent. Never empty, the demand testing for absence
+  // alone.
   AUTH_RESEND_KEY: z.string().min(1).optional(),
 
-  // Stricter than `svix`, which verifies with the prefix or without it: refusing at boot beats a 400
+  // Stricter than `standardwebhooks`, which verifies with the prefix or without it: refusing at boot beats a 400
   // the provider retries for thirty-two hours before disabling the endpoint. Demanded of production
   // alone, the one deployment the provider sends its events to.
   RESEND_WEBHOOK_SECRET: z
@@ -209,7 +195,6 @@ const fromFiles = {
   INTERNAL_API_KEY_SYSTEM: INTERNAL_API_KEY,
   INTERNAL_API_KEY_ADMIN: INTERNAL_API_KEY,
 
-  // Demanded of production alone, `TURNSTILE_TEST_SECRET_KEY` standing in everywhere else.
   TURNSTILE_SECRET_KEY: z.string().min(1).optional(),
 
   // The monitor's own address, whose token is the credential: anyone holding it reports the passes. Demanded of
@@ -218,8 +203,8 @@ const fromFiles = {
 } satisfies Record<SecretKey, z.ZodType>;
 
 /**
- * The whole schema, beside the AUTH_URL the environment holds as it was set. Each issue carries a `path`, so the
- * refusal names the file to go and write: `failingVariableNames` reduces one without to `<unknown>`.
+ * Handed the AUTH_URL the environment holds as it was set. Each issue added here carries a `path`, so the refusal
+ * names the file to go and write rather than `<unknown>`.
  */
 const schemaBeside = (authUrl: string | undefined) =>
   z
@@ -234,7 +219,6 @@ const schemaBeside = (authUrl: string | undefined) =>
         "API_URL must reach the backend directly, not through the public origin AUTH_URL names",
       ),
     })
-    // A rule reading two variables at once, which a per-variable schema cannot express.
     .superRefine((values, ctx) => {
       if (values.APP_ENV !== "production") return;
 

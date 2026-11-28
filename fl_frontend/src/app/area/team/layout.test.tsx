@@ -5,7 +5,8 @@ import { act, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { COPY } from "@/core/copy";
+import { AREA_COPY } from "@/core/copy/area";
+import { COPY } from "@/core/copy/shared";
 import { formatPeriod } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { serveBackend } from "@/test-support/backend";
@@ -95,7 +96,7 @@ describe("a team's frame for a person holding two teams", () => {
 
     // Under the person's address: the Kürzel of the address's team and the seat held in the address's season.
     expect(screen.getByText(wholeText(PERSON.email)).nextElementSibling?.textContent).toBe(
-      COPY.area.team.accountLine({ record: "AHO" }, ["ansprechperson"]),
+      AREA_COPY.team.accountLine({ record: "AHO" }, ["ansprechperson"]),
     );
 
     const [button] = saisonButtons();
@@ -106,6 +107,26 @@ describe("a team's frame for a person holding two teams", () => {
       ROUTES.teamKader.path(AHORN, "2027"),
       ROUTES.teamKader.path(AHORN, "2026"),
     ]);
+  });
+
+  // The harm: on a page of the season the team's place does not open on, the account row reads the area's line and
+  // „Funktion wechseln“ marks no place, as if the page lay under none of the person's.
+  it("marks the team and names that season's seat in the account row on a page of its other season", async () => {
+    await renderAt(ROUTES.teamKader.path, AHORN, "2027");
+
+    const row = screen.getByText(wholeText(PERSON.email));
+    expect(row.nextElementSibling?.textContent).toBe(AREA_COPY.team.accountLine({ record: "AHO" }, ["trainer"]));
+
+    const opener = row.closest("button");
+    if (opener === null) throw new Error("the account row is no button");
+    await userEvent.click(opener);
+    await userEvent.click(screen.getByRole("menuitem", { name: COPY.shared.switchRole }));
+    expect(
+      screen
+        .getAllByRole("menuitemradio")
+        .filter((entry) => entry.getAttribute("aria-checked") === "true")
+        .map((entry) => entry.getAttribute("href")),
+    ).toEqual([ROUTES.teamOverview.path(AHORN, "2026")]);
   });
 
   it("offers no season on a team the person does not hold, whose address names none of theirs", async () => {

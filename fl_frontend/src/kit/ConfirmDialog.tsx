@@ -4,34 +4,36 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import { Dialog as AriaDialog, DialogTrigger, Heading } from "react-aria-components/Dialog";
+import { Text } from "react-aria-components/Text";
 
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 
 import { Button } from "./Button";
 import { askingLook } from "./buttonStyles";
 import { DialogOverlay } from "./DialogOverlay";
 import { Facts } from "./Facts";
+import { FocusOnLeave } from "./FocusOnLeave";
 import { FormFooter } from "./FormFooter";
 import { toastAnswer } from "./Toast";
-import { answering } from "./useFormAction";
+import { answering, answerLine } from "./useFormAction";
 import { useOpenUntilHidden } from "./useOpenUntilHidden";
 import { usePasskeyTouch } from "./usePasskeyTouch";
 
 import type { ActionAnswer } from "@/core/action";
 import type { Copy, Verb } from "@/core/copy";
-import type { ReactElement } from "react";
-import type { TouchVerb } from "./dialogAct";
+import type { DoneVerb } from "./dialogAct";
 import type { Fact } from "./Facts";
 import type { IconName } from "./Icon";
 import type { FormStatus } from "./useFormAction";
 import type { HeldOpen } from "./useOpenUntilHidden";
 
-const DONE: ActionAnswer<unknown> = { ok: true, value: undefined };
+/** What an act answering nothing reads as: handed to the control that asked, which answers it where it stands. */
+const HANDED: ActionAnswer<unknown> = { ok: true, value: undefined };
 
-/** What the question says, which names its act and the button that does it. */
-export type ConfirmWords = {
+/** A question's words; `V` narrows its verb to those a toast can word as done (`DoneVerb`) where its holder needs it. */
+export type ConfirmWords<V extends Verb = Verb> = {
   /** The act, which names the question and the button that does it. */
-  verb: Verb;
+  verb: V;
   /** The record the act touches: „Passkey“ asks „Passkey löschen?“. */
   subject: Copy;
   /** One sentence built from the data: what the act does and to how much. */
@@ -41,7 +43,6 @@ export type ConfirmWords = {
    * counts an act removes. A question whose sentence says it all takes none.
    */
   facts?: ReadonlyArray<Fact>;
-  /** `danger` for a destructive act, `primary` for one that is merely irreversible. */
   tone: Tone;
 };
 
@@ -52,11 +53,17 @@ export type Tone = "danger" | "primary";
  * The button opening a question or a dialog, which the question or the dialog draws (`TriggerButton`), so its look
  * follows the act's tone and no caller chooses it for a destroying act: an act whose tone is `danger` takes the outlined
  * danger look (`askingLook`) and takes no `variant`; any other takes the look `variant` names, secondary unless it is
- * the page's main act. A trigger is never locked: a locked act's button stands instead of it (`Button`'s `locked`).
+ * the page's main act.
  */
 export type Trigger<T extends Tone = Tone> = {
   label: Copy;
   isBusy?: boolean;
+  /**
+   * Why the act cannot run on the record as it stands, which the page read: the button, in the same look, answers a
+   * press with the reason (`Button`'s `locked`), and stands outside the dialog's trigger, which would open the question
+   * behind the reason. `true` where the editor's lock line already says why.
+   */
+  locked?: Copy | true;
 } & (
   | { icon: IconName; leadingIcon?: never; isDisabled?: never; variant?: never }
   | ({ icon?: never; leadingIcon?: IconName; isDisabled?: boolean } & ([T] extends ["danger"]
@@ -64,14 +71,14 @@ export type Trigger<T extends Tone = Tone> = {
       : { variant?: "primary" | "secondary" }))
 );
 
-/** A question's or a dialog's trigger, drawn as its tone says (`Trigger`). */
 export function TriggerButton({ trigger, tone }: { trigger: Trigger; tone: Tone }) {
-  const { label, isBusy } = trigger;
+  const { label, isBusy, locked } = trigger;
   return trigger.icon !== undefined ? (
     <Button
       icon={trigger.icon}
       label={label}
       isBusy={isBusy}
+      locked={locked}
     />
   ) : (
     <Button
@@ -80,112 +87,92 @@ export function TriggerButton({ trigger, tone }: { trigger: Trigger; tone: Tone 
       leadingIcon={trigger.leadingIcon}
       isDisabled={trigger.isDisabled}
       isBusy={isBusy}
+      locked={locked}
     />
   );
 }
 
-/** The transition an act runs in, as `useTransition` returns it: whether it is running, and how to start it. */
-type ActTransition = ReturnType<typeof useTransition>;
-
 /**
- * What opens the question: its own trigger, which it draws; the open state another control holds, as the kit's `Dialog`
- * takes it; or a control in a look of the frame's own that is no button, such as the band's „‹ Zurück“, which asks
- * before it drops an editor's unsaved changes. A button opening a question is a `trigger`, but for a form's own press
- * that asks first, whose form holds the open state: `QuestionForm`'s, and a mailed page's refusal (`OneShotForm`).
+ * What opens the question: its own trigger, which it draws, or the open state another control holds, as the kit's
+ * `Dialog` takes it. A button opening a question is a `trigger`, but for a form's own press that asks first, whose form
+ * holds the open state: `QuestionForm`'s, a mailed page's refusal (`OneShotForm`), and a way out of an editor holding
+ * unsaved changes (`LeaveQuestion`).
  */
 type Opening<T extends Tone> =
   | {
+      question: ConfirmWords & { tone: T };
       trigger: Trigger<T>;
       open?: never;
-      transition?: never;
-      control?: never;
     }
-  | ({
+  | {
+      /**
+       * The question's words, or `null` for one its holder has not asked yet, such as the save bar's before any save
+       * was held back: mounted closed from the first render, as a held dialog must be, it has nothing to say. A touch's
+       * holder mounts the sign-in client's chunk with it, ahead of the question it will ask.
+       */
+      question: ConfirmWords | null;
       /** The open state, held by the control that asks, such as the save bar a held-back save answers on. */
       open: HeldOpen;
       trigger?: never;
-      control?: never;
-    } & HeldAct)
-  | {
-      /** A pressable React Aria control the kit draws in a look of its own, never the kit's `Button`. */
-      control: ReactElement;
-      trigger?: never;
-      open?: never;
-      transition?: never;
     };
 
-/** What a holder of the open state may also hold: the act's running, lifted up to it. */
-type HeldAct = {
-  /**
-   * The holder's transition, which the act runs in instead of the question's own, so the holder shows the act running
-   * where its press stands and refuses a second press while it does: a touched act runs after its question closed, and
-   * a held question draws no trigger to show it on.
-   */
-  transition?: ActTransition;
-};
-
-type Act = {
+type Confirming = {
   /**
    * Does the act. The dialog closes once it has run, unless the act answers with a refusal, such as a venue still
    * booked, or throws, as a lost answer does: the dialog then stays open with the refusal in its status line beside
-   * the acts, a throw worded and the page read again as every form's send is (`answering`).
+   * the acts, a throw worded as every form's send words it, the page read again only where the frontend answered
+   * (`answering`). An act answering nothing hands its running to the control that asked, such as the save bar's send,
+   * which answers it on its own line, so the question closes and says nothing.
    */
   onConfirm: () => void | Promise<void> | Promise<ActionAnswer<unknown>>;
 };
+
+/**
+ * Who words a done act's toast where its answer brings no note, so no act that toasts asks under a verb the catalogue
+ * has no done word for: its verb (`DoneVerb`); the holder, in its own word (`done`), as a Konto box says its act; or
+ * nobody, for an act answering nothing, which hands its running to the control that asked.
+ */
+type DoneWord =
+  { question: { verb: DoneVerb } | null; done?: never } | { done: Copy } | { onConfirm: () => undefined | Promise<undefined>; done?: never };
+
+/** The done words by verb, read where the props' type has already tied a toasting act to a verb holding one. */
+const DONE_WORDS: Readonly<Partial<Record<Verb, Copy>>> = COPY.shared.toast.done;
 
 /** The address the page was drawn for, the one account a passkey touch may answer for (`usePasskeyTouch`). */
 type Holder = { holder: string };
 
 /**
- * The passkey touch the act's button asks ahead of `onConfirm`, for an act on its fixed list a person holding a passkey
- * presses. The press closes the question for good before the browser asks, and the act answers in a toast: done in its
- * verb's word from the catalogue's (`TouchVerb`), or its refusal, the question's opening button standing again.
+ * The passkey touch the act's button asks ahead of `onConfirm`, for an act on its fixed list an administrator presses.
+ * The question steps aside while the browser's prompt stands and stands again for the act's answer, a refusal on its
+ * line and a done act closing it, as an act off the list answers.
  */
-type Touch =
-  | { touch?: never; doneShown?: never }
-  | {
-      verb: TouchVerb;
-      touch: Holder;
-      /** The holder shows a done act itself, as a form's line over the boxes it emptied, so the toast carries a refusal alone. */
-      doneShown?: true;
-    };
+type Touch = { touch?: Holder };
 
 /** A question as the part asking it is handed it, before that part opens it its own way: its words and its act. */
-export type ConfirmQuestion = ConfirmWords & Act & Touch;
+export type ConfirmQuestion = ConfirmWords<DoneVerb> & Confirming & Touch;
 
-type ConfirmDialogProps<T extends Tone> = ConfirmWords & { tone: T } & Act & Touch & Opening<T>;
-
-/**
- * A held question its holder has not asked yet, such as the save bar's before any save was held back: mounted closed
- * from the first render, as a held dialog must be, it takes no words, having none to say. A touch's holder mounts the
- * sign-in client's chunk with it, ahead of the question it will ask.
- */
-type Unasked = Act &
-  HeldAct & { touch?: Holder; doneShown?: never; open: HeldOpen; trigger?: never; control?: never } & {
-    [Word in keyof ConfirmWords]?: never;
-  };
+type ConfirmDialogProps<T extends Tone> = Confirming & DoneWord & Touch & Opening<T>;
 
 /**
  * The question before an act that cannot be undone: the act and its record, one short sentence of consequence over
- * the facts it rests on, as the „Spiel verlegt“ mail sets a move's slots as rows, „Zurück“ and the act's verb, the status line beside them as every form's stands beside its acts. It has no close
- * mark; Escape and „Zurück“ are the way out, both closed while the act runs, whose answer is the question's to show.
- * A refusal stands until the next press or until the dialog closes; the line is empty while the act runs, the last
- * refusal being none to the press still running. A refusal marked `warn` is an act that partly happened: its line reads in the warn
- * tone, and its button stays, since a second press finishes what the first left.
+ * the facts it rests on, as the „Spiel verlegt“ mail sets a move's slots as rows, „Zurück“ and the act's verb, the
+ * status line beside them as every form's stands beside its acts. It has no close mark; Escape and „Zurück“ are the
+ * way out, both closed while the act runs, whose answer is the question's to show. A refusal stands until the next
+ * press or until the dialog closes; the line is empty while the act runs, the last refusal being none to the press
+ * still running. A refusal marked `warn` is an act that partly happened: its line reads in the warn tone, and its
+ * button stays, since a second press finishes what the first left. A done act closes the question, which leaves
+ * nothing in it to read, and says itself in a toast: the answer's note, else the holder's own word (`done`), else its
+ * verb's done word (`COPY.shared.toast.done`).
  *
- * An act behind the passkey touch is asked as an identity check is, with no modal standing (`Touch`): React Aria's modal
- * makes the rest of the page inert, and a password manager draws its prompt in the page. The final press closes the
- * question, then asks the touch and runs the act, its answer a toast, the trigger busy until it lands, or the press of
- * the holder of the open state, which hands its own transition for it (`HeldAct`).
+ * An act behind the passkey touch (`Touch`) asks it from the final press: the question steps aside while the prompt
+ * stands, since React Aria's modal makes the rest of the page inert and a password manager draws its prompt in the
+ * page, and stands again, its button busy, for the act's answer.
  */
-export function ConfirmDialog<T extends Tone>(props: ConfirmDialogProps<T> | Unasked) {
-  const { trigger, control, open, onConfirm, touch } = props;
-  const words = props.verb === undefined ? null : props;
-  const done = props.touch !== undefined && props.verb !== undefined ? COPY.shared.toast.done[props.verb] : null;
+export function ConfirmDialog<T extends Tone>(props: ConfirmDialogProps<T>) {
+  const { trigger, open, onConfirm, touch, question: words } = props;
   const router = useRouter();
   const [isOpen, setOpen] = useOpenUntilHidden(open);
-  const ownAct = useTransition();
-  const [isBusy, startAct] = props.transition ?? ownAct;
+  const [isBusy, startAct] = useTransition();
   const [refusal, setRefusal] = useState<FormStatus>(null);
   // A refusal goes with the dialog however it closes, its holder's state or the page hiding included, so it never
   // greets the next opening: reset while rendering, as React's guide adjusts state to a changed prop. Reset as it opens
@@ -195,39 +182,38 @@ export function ConfirmDialog<T extends Tone>(props: ConfirmDialogProps<T> | Una
     setWasOpen(isOpen);
     setRefusal(null);
   }
-  const touched = usePasskeyTouch(touch !== undefined, touch?.holder);
-  // An act answering nothing is done; one answering is judged by its answer.
+  const [isAside, setAside] = useState(false);
+  const touched = usePasskeyTouch(touch !== undefined, touch?.holder, setAside);
   const act = answering(
-    touched(async () => (await onConfirm()) ?? DONE),
+    touched(async () => (await onConfirm()) ?? HANDED),
     router.refresh,
   );
 
-  const confirm = () => {
-    if (done !== null) {
-      // Closed in the press, outside its transition, whose updates wait for the whole act: the close is a press's update,
-      // which React commits with its effects, React Aria's lifting of the modal's `inert` among them, in a microtask queued
-      // ahead of the touch's first `await`, so before the browser asks and within the press Safari asks of it.
-      setOpen(false);
-      startAct(async () => {
-        const answered = await act(undefined);
-        if (!answered.ok || props.doneShown !== true) toastAnswer(answered, done);
-      });
-      return;
-    }
+  const confirm = (verb: Verb) => {
+    const done = props.done ?? DONE_WORDS[verb];
+    // An act handed to the control that asked raises no toast of the question's: that control answers it. Only such an
+    // act asks under a verb with no done word (`DoneWord`).
+    const toast = (answer: ActionAnswer<unknown>) => {
+      if (answer !== HANDED && done !== undefined) toastAnswer(answer, done);
+    };
     startAct(async () => {
       setRefusal(null);
       const answer = await act(undefined);
       // An update after the `await` commits outside the transition unless it opens one of its own.
       startAct(() => {
-        if (!answer.ok) setRefusal({ tone: answer.warn === true ? "warn" : "error", text: answer.reason ?? COPY.shared.failure.unexpected });
-        else setOpen(false);
+        if (answer.ok) setOpen(false);
+        // A passkey sheet the person closed leaves the question standing with no line: the act never ran.
+        else if (answer.closed !== true) setRefusal(answerLine(answer));
       });
+      // A refusal stands in the question's own line.
+      if (answer.ok) toast(answer);
     });
   };
 
   const overlay = words !== null && (
     <DialogOverlay
       width="question"
+      isAside={isAside}
       isOpen={isOpen}
       isKeyboardDismissDisabled={isBusy}
       onOpenChange={setOpen}>
@@ -241,7 +227,13 @@ export function ConfirmDialog<T extends Tone>(props: ConfirmDialogProps<T> | Una
           className="text-base font-semibold">
           {COPY.shared.question(words.subject, words.verb)}
         </Heading>
-        <p className="text-sm text-fg-muted">{words.consequence}</p>
+        {/* The description slot, which the alert dialog names as its `aria-describedby`, so it is read with the title. */}
+        <Text
+          slot="description"
+          elementType="p"
+          className="text-sm text-fg-muted">
+          {words.consequence}
+        </Text>
         {words.facts !== undefined && words.facts.length > 0 && <Facts facts={words.facts} />}
         <FormFooter status={refusal}>
           <Button
@@ -254,27 +246,35 @@ export function ConfirmDialog<T extends Tone>(props: ConfirmDialogProps<T> | Una
             variant={words.tone}
             label={COPY.shared.verb[words.verb]}
             isBusy={isBusy}
-            onPress={confirm}
+            onPress={() => confirm(words.verb)}
           />
         </FormFooter>
       </AriaDialog>
     </DialogOverlay>
   );
-  if (trigger === undefined && control === undefined) return overlay;
+  if (trigger === undefined) return overlay;
+  // A locked act's button stands alone: inside the trigger, its press would open the question behind the reason.
+  if (trigger.locked !== undefined && words !== null)
+    return (
+      <TriggerButton
+        trigger={trigger}
+        tone={words.tone}
+      />
+    );
   return (
-    <DialogTrigger
-      isOpen={isOpen}
-      onOpenChange={setOpen}>
-      {trigger !== undefined && words !== null ? (
-        <TriggerButton
-          // A touched act runs after its question closed, so its trigger is where it shows busy.
-          trigger={done !== null && isBusy ? { ...trigger, isBusy } : trigger}
-          tone={words.tone}
-        />
-      ) : (
-        control
-      )}
-      {overlay}
-    </DialogTrigger>
+    // A done act can drop the row its trigger stands on, which leaves React Aria no trigger to give the focus back to.
+    <FocusOnLeave>
+      <DialogTrigger
+        isOpen={isOpen}
+        onOpenChange={setOpen}>
+        {words !== null && (
+          <TriggerButton
+            trigger={trigger}
+            tone={words.tone}
+          />
+        )}
+        {overlay}
+      </DialogTrigger>
+    </FocusOnLeave>
   );
 }

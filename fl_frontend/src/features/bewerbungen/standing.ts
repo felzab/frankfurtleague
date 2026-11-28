@@ -1,17 +1,14 @@
-import { COPY } from "@/core/copy";
-import { FLKontaktSeat } from "@/core/generated/client/types";
+import { ADMIN_COPY } from "@/core/copy/admin";
+import { KONTAKT_SEATS } from "@/features/teams/constants";
 import { DECLINED_CHIP } from "@/kit/stateChips";
 
 import type { FLBewerbungStatus } from "@/core/generated/client/types";
 import type { ChipProps } from "@/kit/Chip";
 
-/** Every application holds these three seats, so „2 von 3“ counts against them. */
-export const SEATS = Object.values(FLKontaktSeat).length;
-
 /** Where an application stands: its decision, or while it has none whether every seat has confirmed. */
 export type Standing = "incomplete" | "complete" | "accepted" | "declined";
 
-const WORDS = COPY.admin.bewerbung;
+const WORDS = ADMIN_COPY.bewerbung;
 
 export const STANDING_CHIP: Readonly<Record<Standing, ChipProps>> = {
   incomplete: { tone: "warn", label: WORDS.incomplete },
@@ -24,5 +21,6 @@ export const TEAM_DOUBLE: ChipProps = { tone: "warn", label: WORDS.teamDouble };
 
 export function standingOf({ status, seats_confirmed: confirmed }: { status: FLBewerbungStatus; seats_confirmed: number }): Standing {
   if (status === "accepted" || status === "declined") return status;
-  return confirmed === SEATS ? "complete" : "incomplete";
+  // Every application holds every seat, so it is complete once each has confirmed.
+  return confirmed === KONTAKT_SEATS.length ? "complete" : "incomplete";
 }

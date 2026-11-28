@@ -1,15 +1,18 @@
 // @vitest-environment jsdom
-import { act, screen } from "@testing-library/react";
+import { act, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { COPY } from "@/core/copy";
-import { renderUnderNext } from "@/test-support/nextContexts";
+import { COPY } from "@/core/copy/shared";
+import { serveHost } from "@/test-support/backend";
+import { renderUnderNext, underNext } from "@/test-support/nextContexts";
+import { drawnOnServer } from "@/test-support/server";
 
+import { useHoldLeave } from "./LeaveGuard";
 import { RailFrame } from "./RailFrame";
 
 import type { NextContexts } from "@/test-support/nextContexts";
-import type { ComponentProps } from "react";
+import type { ComponentProps, ReactNode } from "react";
 import type { Account } from "./FrameNav";
 
 /** Next's navigation at the Spielorte, a page whose address names no season. */
@@ -33,30 +36,37 @@ vi.mock("next/link", async (original) => ({
 const leave = vi.hoisted(() => ({ leaveDocumentFor: vi.fn() }));
 vi.mock("@/shared/utils/documentNavigation", () => ({ leaveDocumentFor: leave.leaveDocumentFor }));
 
-/** The sign-in library's sign-out endpoint, answering `status`, and every request the page sent. */
-function signOutAnswers(status: number) {
-  const sent: Array<{ url: string; method: string | undefined }> = [];
-  vi.stubGlobal("fetch", async (url: string, init?: RequestInit) => {
-    sent.push({ url, method: init?.method });
-    return new Response(null, { status });
-  });
-  return sent;
+/**
+ * The sign-in library's sign-out endpoint on the page's own host, answering `status` for the rest of the case, and
+ * what reads every request the page sent there by its method and path; a request to any other endpoint fails the case.
+ */
+function signOutAnswers(status: number): () => ReadonlyArray<{ method: string; path: string }> {
+  const taken = serveHost("http://localhost", ({ method, url }) =>
+    method === "POST" && url.pathname === "/api/auth/sign-out" ? new Response(null, { status }) : undefined,
+  );
+  return () => taken.map(({ method, url }) => ({ method, path: url.pathname }));
 }
 
-const SIGN_OUT = { url: "/api/auth/sign-out", method: "POST" };
+const SIGN_OUT = { method: "POST", path: "/api/auth/sign-out" };
 
 // An administrator: the grant stores no name.
-const ACCOUNT: Account = { role: COPY.admin.role, address: { record: "verwaltung@example.com" } };
+const ACCOUNT: Account = { role: COPY.shared.administration, address: { record: "verwaltung@example.com" } };
+
+/** An editor's page holding one unsaved change, as `useEditor` holds its draft's. */
+function Draft({ discard }: { discard: () => void }) {
+  useHoldLeave(1, discard);
+  return <p>Entwurf</p>;
+}
 
 /** The frame of a one-page area around a page, its account read as given. */
-async function renderFrame(account: Promise<Account | null>) {
+async function renderFrame(account: Promise<Account | null>, page: ReactNode = <p>Seite</p>) {
   await act(async () =>
     renderUnderNext(
       <RailFrame
         groups={[{ entries: [{ id: "spielorte", label: COPY.page.adminSpielorte, href: "/admin/spielorte", icon: "search" }] }]}
         bar={["spielorte"]}
         foot={{ kind: "account", account }}>
-        <p>Seite</p>
+        {page}
       </RailFrame>,
       AT_ADDRESS,
     ),
@@ -65,7 +75,7 @@ async function renderFrame(account: Promise<Account | null>) {
 
 /** Opens the account menu from the rail's row, which holds the role. */
 async function openMenu() {
-  const row = screen.getByText(COPY.admin.role).closest("button");
+  const row = screen.getByText(COPY.shared.administration).closest("button");
   if (row === null) throw new Error("the account row is no button");
   await userEvent.click(row);
 }
@@ -79,7 +89,6 @@ beforeEach(() => {
 // The toast queue is the module's own, so a toast outlives its case: each is closed while the frame's region stands.
 afterEach(() => {
   for (const close of screen.queryAllByRole("button", { name: COPY.shared.close })) act(() => close.click());
-  vi.unstubAllGlobals();
 });
 
 // A frame's prefetch dropped between the frame and its menus makes every press of the season pages wait on the server,
@@ -127,7 +136,24 @@ describe("the account menu", () => {
 
     await vi.waitFor(() => expect(leave.leaveDocumentFor).toHaveBeenCalledWith("/"));
     // No toast at all, in any words: the person leaves, and nothing is said on the page they leave.
-    expect([sent, screen.queryAllByRole("alertdialog")]).toStrictEqual([[SIGN_OUT], []]);
+    expect([sent(), screen.queryAllByRole("alertdialog")]).toStrictEqual([[SIGN_OUT], []]);
+  });
+
+  // A sign-out ahead of the question would leave only the browser's empty one, and a person who stays would keep typed
+  // values no save can send once the session is gone.
+  it("asks over unsaved changes before the session ends, and signs out only once the person discards them", async () => {
+    const sent = signOutAnswers(200);
+    const discard = vi.fn();
+    await renderFrame(Promise.resolve(ACCOUNT), <Draft discard={discard} />);
+    await openMenu();
+
+    await userEvent.click(screen.getByRole("menuitem", { name: COPY.shared.verb.signOut }));
+    const question = await screen.findByRole("alertdialog");
+    expect([sent(), leave.leaveDocumentFor.mock.calls]).toStrictEqual([[], []]);
+
+    await userEvent.click(within(question).getByRole("button", { name: COPY.shared.verb.discard }));
+    await vi.waitFor(() => expect(leave.leaveDocumentFor).toHaveBeenCalledWith("/"));
+    expect([discard.mock.calls.length, sent()]).toStrictEqual([1, [SIGN_OUT]]);
   });
 
   it("keeps the person in place with the one failure line where the sign-out fails", async () => {
@@ -137,8 +163,63 @@ describe("the account menu", () => {
 
     await userEvent.click(screen.getByRole("menuitem", { name: COPY.shared.verb.signOut }));
 
-    const toast = await screen.findByRole("alertdialog", { name: COPY.shared.toast.failure });
+    const toast = await screen.findByRole("alertdialog", { name: COPY.shared.failure.unexpected });
     expect(toast.querySelector(".text-danger")).toBeTruthy();
-    expect([sent, leave.leaveDocumentFor.mock.calls]).toStrictEqual([[SIGN_OUT], []]);
+    expect([sent(), leave.leaveDocumentFor.mock.calls]).toStrictEqual([[SIGN_OUT], []]);
+  });
+});
+
+/**
+ * The phone's band of the Spielorte's frame as the server sends it at `pathname`, by the name and address of each link:
+ * `segments` are those below the frame's layout, as Next hands them, route groups among them.
+ */
+async function bandOnServer(pathname: string, params: Record<string, string>, segments: readonly string[]) {
+  const page = await drawnOnServer(
+    underNext(
+      <RailFrame
+        groups={[{ entries: [{ id: "spielorte", label: COPY.page.adminSpielorte, href: "/admin/spielorte", icon: "search" }] }]}
+        bar={["spielorte"]}
+        foot={{ kind: "account", account: Promise.resolve(ACCOUNT) }}>
+        <p>Seite</p>
+      </RailFrame>,
+      { pathname, params, segments },
+    ),
+  );
+  // The band is the column's one header outside the page's `main`: the rail's head is no header.
+  const band = [...page.querySelectorAll("header")].find((header) => header.closest("main") === null);
+  return [...(band?.querySelectorAll("a") ?? [])].map((link) => ({
+    name: link.getAttribute("aria-label") ?? link.textContent,
+    href: link.getAttribute("href"),
+  }));
+}
+
+// The frame's layout stays mounted across a navigation, so the band reads the address and the segments on the client;
+// a band chosen only after hydration would show a phone the logo over an editor until then, which no unit render of a
+// page sees.
+describe("the phone's band as the server draws it", () => {
+  it("holds „‹ Zurück“ to the list in the logo's place on a page under an `(editor)` folder", async () => {
+    expect(await bandOnServer("/admin/spielorte/sp-1", { spielort: "sp-1" }, ["(editor)", "spielorte", "sp-1"])).toStrictEqual([
+      { name: COPY.shared.back, href: "/admin/spielorte" },
+    ]);
+  });
+
+  // A route row without its `place` shows a phone the logo on these two pages, where every other page under its list
+  // leads back to it, and no look at one page alone shows the difference.
+  it("holds „‹ Zurück“ to the list at an application's address and at the bulk acceptance", async () => {
+    const list = { name: COPY.shared.back, href: "/admin/saisons/2028/bewerbungen" };
+    expect([
+      await bandOnServer("/admin/saisons/2028/bewerbungen/bw-1", { saison: "2028", bewerbung: "bw-1" }, [
+        "(list)",
+        "saisons",
+        "2028",
+        "bewerbungen",
+        "bw-1",
+      ]),
+      await bandOnServer("/admin/saisons/2028/bewerbungen/bulk", { saison: "2028" }, ["(list)", "saisons", "2028", "bewerbungen", "bulk"]),
+    ]).toStrictEqual([[list], [list]]);
+  });
+
+  it("holds the logo at a list's address", async () => {
+    expect(await bandOnServer("/admin/spielorte", {}, ["(list)", "spielorte"])).toStrictEqual([{ name: COPY.brand.name, href: "/" }]);
   });
 });

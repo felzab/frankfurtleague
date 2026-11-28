@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { COPY } from "@/core/copy";
+import { ADMIN_COPY } from "@/core/copy/admin";
+import { COPY } from "@/core/copy/shared";
 import { serveBackend } from "@/test-support/backend";
 import { signedInRequest } from "@/test-support/session";
 
@@ -69,16 +70,16 @@ async function chipsFor(read: FLSchiedsrichterSingleResponse) {
 describe("the chips after a referee's name", () => {
   it("set the state's chip, then the mail's trouble", async () => {
     expect(await chipsFor(unanswered(barred))).toStrictEqual({
-      chip: { tone: "warn", label: COPY.admin.schiedsrichter.unconfirmed },
-      flag: { tone: "danger", label: COPY.admin.saison.addressBarred },
+      chip: { tone: "warn", label: COPY.shared.state.unconfirmed },
+      flag: { tone: "danger", label: ADMIN_COPY.saison.addressBarred },
     });
   });
 
   it("set the state's chip alone where the mail met none", async () => {
     expect(await chipsFor(unanswered(sent))).toStrictEqual({
-      chip: { tone: "warn", label: COPY.admin.schiedsrichter.unconfirmed },
+      chip: { tone: "warn", label: COPY.shared.state.unconfirmed },
       flag: undefined,
     });
-    expect(await chipsFor(confirmed(null))).toStrictEqual({ chip: { tone: "success", label: COPY.admin.confirmed }, flag: undefined });
+    expect(await chipsFor(confirmed(null))).toStrictEqual({ chip: { tone: "success", label: COPY.shared.state.confirmed }, flag: undefined });
   });
 });

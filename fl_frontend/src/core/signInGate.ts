@@ -3,60 +3,46 @@ import "server-only";
 import { cache } from "react";
 
 import { asSignInIdentifier } from "./emailAddress";
-import { APIBadStatusError } from "./errors";
+import { refusedAs } from "./errors";
 import { identityGetSignIn, identityGetSubject } from "./generated/client/sdk";
 import { logger } from "./logging";
 import { runWithIncomingTrace } from "./traceScope";
 
-import type { FLSignInResponse } from "./generated/client/types";
+import type { Code, FLSignInResponse } from "./generated/client/types";
 import type { SubjectSession } from "./subject";
 
-/** The code the backend answers a payload it refuses with: here, an address no rule of its own accepts. */
-const PAYLOAD_REFUSED = "payload_refused";
+/** The refusal of a payload the backend does not accept: here, an address no rule of its own accepts. */
+const PAYLOAD_REFUSED: ReadonlySet<Code> = new Set<Code>(["payload_refused"]);
 
-// React's `cache`: the guards and the switcher of one render share one read, and outside a render nothing is kept.
 /**
- * One folded mailbox's records and grant, every reader but the sign-in gate taking them through this
- * one call: the gate, a passkey enrolment's included, reads `lookUpSignIn`. Throws on every backend
- * failure.
+ * One folded mailbox's records and grant, every reader but the sign-in gate and the hourly pass taking them through
+ * this one call: the gate, a passkey enrolment's included, reads `lookUpSignIn`, as does the account sweep, because the
+ * pass serves no request. Throws on every backend failure. The guards and the switcher
+ * of one render share one read, and outside a render nothing is kept.
  */
 export const lookUpSubject = cache((email: string): Promise<SubjectSession["records"]> =>
   // Under the edge's trace: a render's first guard and the sign-in landing's handler reach here before anything
   // has opened the request's scope, and a call outside one is filed under a trace no edge line carries. Inside a
   // scope already open, an action's or the render's, the read joins it rather than opening another; but the wrapper
   // reads the request first, which Next refuses in an `after()` a render scheduled and in a scheduler pass, which
-  // serves no request, so neither may call this.
-  runWithIncomingTrace(async () => {
-    // In the body and on no query parameter: a URL carrying an address reaches the edge's access
-    // line, which nothing downstream un-logs.
-    const answer = await identityGetSubject({ email });
-
-    // Field by field rather than the body: the generated call types the answer and parses nothing, so the body
-    // would carry into the session whatever else the backend ever answered.
-    return {
-      seats: answer.seats,
-      spieler: answer.spieler,
-      schiedsrichter: answer.schiedsrichter,
-      unconfirmed: answer.unconfirmed,
-      admin_tier: answer.admin_tier,
-      granted_since: answer.granted_since,
-    };
-  }),
+  // serves no request, so neither may call this. The address goes in the body and on no query parameter: a URL
+  // carrying one reaches the edge's access line, which nothing downstream un-logs.
+  runWithIncomingTrace(() => identityGetSubject({ email })),
 );
 
 /** What the sign-in gate decides on for one mailbox: its two record flags, its ban and its grant. */
 export type SignInRecords = FLSignInResponse;
 
-// React's `cache`. Its own read rather than the subject's: only a sign-in pays for the two collections
-// `account` reads beyond the subject's three.
-/** The gate's answer for one folded mailbox. Throws on every backend failure, which `mayReceiveSignIn` closes on. */
-export const lookUpSignIn = cache(async (email: string): Promise<SignInRecords> => {
+/**
+ * The gate's answer for one folded mailbox. Throws on every backend failure, which `mayReceiveSignIn` closes on. Its
+ * own read rather than the subject's: only a sign-in, and the hourly pass, pay for the two collections `account` reads
+ * beyond the subject's three. The pass's account sweep reads it for the grant alone, because the pass serves no request
+ * and `lookUpSubject`'s wrapper reads one.
+ */
+export const lookUpSignIn = cache(
   // In the body: a URL carrying an address reaches the edge's access line.
-  const answer = await identityGetSignIn({ email });
-
-  // Field by field: the generated call parses nothing, so the body would carry whatever else the backend answered.
-  return { unconfirmed: answer.unconfirmed, account: answer.account, barred: answer.barred, admin_tier: answer.admin_tier };
-});
+  (email: string): Promise<SignInRecords> => identityGetSignIn({ email }),
+);
 
 /**
  * Why a sign-in is or is not offered; `admitted` alone is offered one. A sender that answers the
@@ -79,7 +65,7 @@ export async function mayReceiveSignIn(identifier: string): Promise<SignInVerdic
   } catch (failed) {
     // Closed, for an administrator too: a sign-in past a failed read would defeat the ban. The person
     // cannot tell this from an unknown address, so the line is the only signal, carrying the name alone.
-    const refused = failed instanceof APIBadStatusError && failed.serverErrorCode === PAYLOAD_REFUSED;
+    const refused = refusedAs(failed, PAYLOAD_REFUSED);
     logger.error(refused ? "auth.sign_in_gate_address_refused" : "auth.sign_in_gate_failed", undefined, {
       name: failed instanceof Error ? failed.name : "unknown",
     });

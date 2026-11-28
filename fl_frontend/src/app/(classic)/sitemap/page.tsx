@@ -1,6 +1,6 @@
 import { connection } from "next/server";
 
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 import { ROUTES, SAISONLESS_PAGES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { getSaisonFrame } from "@/features/saisons/queries";
@@ -11,11 +11,8 @@ import { pageMetadata } from "@/shared/utils/metadata";
 import { LEGAL_LINKS, LIGA_LINKS } from "../frame";
 
 import type { ProseSection } from "@/kit/Prose";
-import type { Metadata, ResolvingMetadata } from "next";
 
-export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
-  return pageMetadata(parent, ROUTES.sitemap, ROUTES.sitemap.path(), { description: SERVER_COPY.description.sitemap });
-}
+export const metadata = pageMetadata(ROUTES.sitemap, { description: SERVER_COPY.description.sitemap });
 
 /** The footer's groups, which stand under the seasons. */
 const FRAME_GROUPS: ReadonlyArray<ProseSection> = [
@@ -43,10 +40,7 @@ async function readGroups(): Promise<ReadonlyArray<ProseSection>> {
 export default function SitemapPage() {
   return (
     <ClassicPage width="form">
-      <PageHead
-        title={COPY.page.sitemap}
-        lead={[SERVER_COPY.description.sitemap]}
-      />
+      <PageHead title={COPY.page.sitemap} />
       <ProseOnceRead sections={readGroups()} />
     </ClassicPage>
   );

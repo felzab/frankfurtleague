@@ -8,7 +8,7 @@ from app.api.outbox.schemas import FLInvitationData, FLOutboxLink, FLOutboxRefer
 from app.api.outbox.services import OwedMail
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.exceptions import APIError
+from app.core.exceptions import APIError, link_invalid
 from app.shared.einwilligung import seat_is_confirmed
 from app.shared.schemas.literals import KONTAKT_SEATS, FLKontaktSeat
 
@@ -31,7 +31,7 @@ def find_invitation_saison_past_refusal(*, saison_status: Any) -> APIError | Non
 
 
 def find_unknown_invitation_refusal(*, invitation_raw: Mapping[str, Any] | None) -> APIError | None:
-    """`document_not_found`: the link value the visitor presented opens no live invite.
+    """`link_invalid`: the link value the visitor presented opens no live invite, as every dead link answers.
 
     Takes the row the caller's own read found, so that read runs in the caller's transaction. A revoked
     row is a miss here because the filter that found nothing asked for a live one.
@@ -40,7 +40,7 @@ def find_unknown_invitation_refusal(*, invitation_raw: Mapping[str, Any] | None)
     if invitation_raw is not None:
         return None
 
-    return APIError(HTTPStatus.NOT_FOUND, Code.DOCUMENT_NOT_FOUND)
+    return link_invalid()
 
 
 # The partial filter `uniq_invitation_live` is built on, spelled as it is: the equality with `None`

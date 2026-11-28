@@ -1,12 +1,13 @@
 // @vitest-environment jsdom
 import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { renderToReadableStream } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
-import { COPY } from "@/core/copy";
+import { ADMIN_COPY } from "@/core/copy/admin";
+import { COPY } from "@/core/copy/shared";
 import { serveBackend } from "@/test-support/backend";
 import { renderUnderNext, underNext } from "@/test-support/nextContexts";
+import { drawnOnServer } from "@/test-support/server";
 import { signedInRequest } from "@/test-support/session";
 
 import type { FLBewerbung, FLBewerbungConfirmation, FLKontaktpersonAdmin } from "@/core/generated/client/types";
@@ -88,18 +89,15 @@ async function seatRows(read: unknown = readOf({ duplicate: false })): Promise<r
 /** The words of the page's strip, as the server sends it once the record is read. */
 async function stripOf(read: unknown): Promise<string | null | undefined> {
   state.read = read;
-  const stream = await renderToReadableStream(underNext(<BewerbungPage {...PARAMS} />));
-  await stream.allReady;
-  const page = document.createElement("div");
-  page.innerHTML = await new Response(stream).text();
+  const page = await drawnOnServer(underNext(<BewerbungPage {...PARAMS} />));
   return page.querySelector("header")?.textContent;
 }
 
 describe("a Dublette on the page its decision is taken on", () => {
   /* The list's row may say „Nicht gesendet“ instead, so this is the one place an administrator is sure to read it. */
   it("stands beside the standing chip, which stays", async () => {
-    expect(await stripOf(readOf({ duplicate: true }))).toBe(`Lessing${COPY.admin.bewerbung.incomplete}${COPY.admin.bewerbung.teamDouble}`);
-    expect(await stripOf(readOf({ duplicate: false }))).toBe(`Lessing${COPY.admin.bewerbung.incomplete}`);
+    expect(await stripOf(readOf({ duplicate: true }))).toBe(`Lessing${ADMIN_COPY.bewerbung.incomplete}${ADMIN_COPY.bewerbung.teamDouble}`);
+    expect(await stripOf(readOf({ duplicate: false }))).toBe(`Lessing${ADMIN_COPY.bewerbung.incomplete}`);
   });
 });
 
@@ -143,9 +141,9 @@ describe("a seat the submission never mailed", () => {
     const row = (await seatRows()).find(({ id }) => id === "trainer");
     renderUnderNext(<>{row?.acts}</>);
 
-    expect(row?.chips).toContainEqual({ tone: "warn", label: COPY.admin.saison.linkNotSent });
+    expect(row?.chips).toContainEqual({ tone: "warn", label: COPY.shared.state.linkNotSent });
     // A seat's acts stand in its row's „⋯“.
     await userEvent.click(screen.getByRole("button", { name: COPY.template.more }));
-    expect(screen.getByRole("menuitem", { name: COPY.shared.withObject(COPY.account.address.link, "send") })).toBeTruthy();
+    expect(screen.getByRole("menuitem", { name: COPY.shared.withObject(COPY.shared.link, "send") })).toBeTruthy();
   });
 });

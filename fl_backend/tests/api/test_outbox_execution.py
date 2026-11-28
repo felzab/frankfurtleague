@@ -8,7 +8,7 @@ are incidental: a case reaches for whichever member of the union the mechanism n
 import asyncio
 from collections.abc import Awaitable, Callable, Mapping
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import Any, Literal
 
 import pytest
 from bson import ObjectId
@@ -29,6 +29,7 @@ from app.api.outbox.schemas import (
     FLOutboxResultResponse,
     FLOutboxSignInPayload,
     FLOutboxTeam,
+    FLPasskeyData,
     FLSignInCodeData,
 )
 from app.api.outbox.services import (
@@ -482,6 +483,28 @@ class TestTheSignInCode:
         assert [mail.secret for mail in first.mails] == ["chiffrat"]
         assert (failed.repeated, failed.abandoned) == (0, 1)
         assert (row["state"], "secret" in row, "data" in row, utc(row["erase_at"])) == ("abandoned", False, False, valid_until)
+
+
+class TestThePasskeyNotice:
+    @pytest.mark.parametrize("kind", ["passkey_added", "passkey_erased"])
+    async def test_a_failed_send_hands_it_back(self, mongo_replica_set_url: str, kind: Literal["passkey_added", "passkey_erased"]):
+        """Its holder never learns one was owed, so nothing would ask for it again: unlike a code, it is tried until its deadline."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await post_sign_in(
+                sign_in_data=FLOutboxSignInPayload(to=NORA, data=FLPasskeyData(kind=kind, instant=NOW), secret=None, valid_until=None),
+                outbox_collection=database[Collection.OUTBOX],
+                germany_now=NOW,
+            )
+            first = await claimed(database, client)
+            (mail,) = first.mails
+            failed = await reported(database, first.lease, mail.id, "retry")
+
+            return failed, (await stored(database, mail.id))["state"]
+
+        failed, state = await on_a_database(mongo_replica_set_url, body)
+
+        assert (failed.repeated, failed.abandoned, state) == (1, 0, "open")
 
 
 class TestTheExpiry:

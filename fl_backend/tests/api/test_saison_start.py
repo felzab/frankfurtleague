@@ -17,7 +17,13 @@ class TestTheSeasonStartsOnItsStartDate:
 class TestTheStartIsFixedOnceASpielHasTakenPlace:
     """`saison_start_taken_place`: compared by value, so only a MOVED start is refused, and only after play."""
 
-    def test_a_moved_start_after_play_is_refused(self):
-        refusal = find_saison_start_refusal(stored_start_date="2026-03-01", proposed_start_date="2026-03-08", taken_place=True)
+    def test_a_moved_start_after_play_is_refused_on_its_box(self):
+        """Bounded by the stored start on the side the proposal moved past it, the one day the box takes."""
 
-        assert refusal is not None and refusal.error_code == Code.SAISON_START_TAKEN_PLACE
+        later = find_saison_start_refusal(stored_start_date="2026-03-01", proposed_start_date="2026-03-08", taken_place=True)
+        earlier = find_saison_start_refusal(stored_start_date="2026-03-01", proposed_start_date="2026-02-22", taken_place=True)
+
+        assert [(fault.code, fault.path, dict(fault.bounds)) for fault in (later, earlier) if fault is not None] == [
+            (Code.SAISON_START_TAKEN_PLACE, ("start_date",), {"latest": "2026-03-01"}),
+            (Code.SAISON_START_TAKEN_PLACE, ("start_date",), {"earliest": "2026-03-01"}),
+        ]

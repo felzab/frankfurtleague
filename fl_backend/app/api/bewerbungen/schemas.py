@@ -25,7 +25,7 @@ from app.shared.schemas.custom import (
     CustomVersion,
     parse_empty_string_to_none,
 )
-from app.shared.schemas.einwilligung import FLSeatTextVersions, refuse_a_stale_grant
+from app.shared.schemas.einwilligung import FLSeatTextVersions
 from app.shared.schemas.literals import (
     FLGruppenNames,
     FLKontaktRow,
@@ -124,7 +124,7 @@ class FLBewerbung(BaseReadModel):
 
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
     # What a decision or a seat write sends back, so one over an application another write moved since is refused as stale.
-    version: int = 0
+    version: int
     saison_id: str
     submitted_at: CustomDateString
     status: FLBewerbungStatus
@@ -587,11 +587,6 @@ class FLBewerbungEinwilligungGiven(BasePayload):
     media: bool
     # The wordings the confirming person saw beside the two switches, which their evidence cites.
     text_versions: FLSeatTextVersions
-
-    @model_validator(mode="after")
-    def _grants_name_the_current_wording(self) -> Self:
-        refuse_a_stale_grant(self.text_versions, {"scope": "kontakt_data_whatsapp" if self.whatsapp else "kontakt_data", "media": self.media})
-        return self
 
 
 class FLBewerbungEinwilligungDeclined(BasePayload):

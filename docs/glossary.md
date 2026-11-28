@@ -61,10 +61,9 @@ served to the base tier.
 ### `Kader` — one team's squad in one season, as its own contact seats see it
 
 **Is:** every `saison_spieler` row one team holds for one season, live and ausgetragen alike, which
-the team's contact seats read and edit, and which the backend's code names `kader` wherever it means
-it, its cap included; some of the frontend's names say `squad`. The word also names an application's
-`kader`, the school's estimate in two counts, a pupil's own squad row of one season, and the consent
-scope `kader_public`.\
+the team's contact seats read and edit, and which the code names `kader` wherever it means it, its
+cap included. The word also names an application's `kader`, the school's estimate in two counts, a
+pupil's own squad row of one season, and the consent scope `kader_public`.\
 **In code:** `fl_backend/app/api/spieler/schemas.py :: FLKaderResponse` over `:: FLKaderRow`, its
 cap `fl_backend/app/api/spieler/services.py :: KaderRoom`; the other senses
 `fl_backend/app/api/bewerbungen/schemas.py :: FLBewerbungKader` and
@@ -228,9 +227,10 @@ write.\
 
 ### `Einsatz` — a fixture a referee is booked onto, as their own Übersicht lists it
 
-**Is:** one row of the box „Spiele“ on a referee's Übersicht of one season: a fixture booked to
-them, with the newest `Spielbestätigung` row asking them about it. A fixture is one row, replaced
-rather than added to when the request is renewed.\
+**Is:** one game on a referee's Übersicht of one season, under its matchday's head, and a second
+time in the card „Termine“ while its booking is still to answer: a fixture booked to them, with the
+newest `Spielbestätigung` row asking them about it. A fixture is one entry of the list, its newest
+request replacing rather than adding to the one before.\
 **In code:** `fl_backend/app/api/schiedsrichter/schemas.py :: FLSchiedsrichterSpiel`, served by
 `fl_backend/app/api/schiedsrichter/person_router.py :: get_self_spiele`.
 
@@ -299,7 +299,7 @@ is a stored field of its own.\
 `reason` and `date`: a team out of one season, never out of the league. Its absence is the null, and
 no boolean records the same fact.\
 **In code:** `fl_backend/app/api/teams/schemas.py :: FLAustritt`; its German is
-`fl_frontend/src/core/copy.ts :: COPY.shared.austritt`, read through
+`fl_frontend/src/core/copy/shared.ts :: COPY.shared.austritt`, read through
 `fl_frontend/src/features/teams/constants.ts :: austrittState` and `:: austrittChip`.\
 **See:** [`domain.md`](domain.md#the-competitions-own-rules).
 
@@ -363,7 +363,7 @@ screen is no key to look the club up by.\
 school's application, G8 and G9 being two values. Null means nobody recorded one, never a school of
 no kind.\
 **In code:** `fl_backend/app/shared/schemas/literals.py :: FLSchulform`; its German
-`fl_frontend/src/core/copy.ts :: COPY.team.schulformOption`.
+`fl_frontend/src/core/copy/shared.ts :: COPY.team.schulformOption`.
 
 ### `trikot_farbe` — the kit colour a club plays a season in
 
@@ -488,8 +488,8 @@ role in a separate list.\
 **Is:** „K.-o.-Runde“ is the screen word for a season's knockout stage, every round after the
 `gruppenphase`, and for its public page, whose address segment is `ko-runde`; „K.-o.-Baum“ is the
 tree its fixtures are drawn as.\
-**In code:** `fl_frontend/src/core/copy.ts :: COPY.shared.kORunde` and `:: COPY.shared.kOBaum`;
-`fl_frontend/src/core/routes.ts :: ROUTES.kORunde`.
+**In code:** `fl_frontend/src/core/copy/shared.ts :: COPY.shared.kORunde` and
+`:: COPY.shared.kOBaum`; `fl_frontend/src/core/routes.ts :: ROUTES.kORunde`.
 
 ---
 
@@ -505,6 +505,7 @@ tree its fixtures are drawn as.\
 | `aufnehmen`                 | In code `admit` ([its entry](#aufnehmen--admit--a-team-taking-one-registered-pupil-into-its-squad))                                                                                                         |
 | `Berechtigung`              | In code `grant` ([its entry](#berechtigung--grant--one-addresss-access-to-the-verwaltung-stored))                                                                                                           |
 | `Löschung`                  | In code `erasure` ([its entry](#löschung--erasure--deleting-what-the-league-holds-about-a-person-on-a-request-or-by-the-season-after-rule))                                                                 |
+| `Widerruf`                  | In code `withdrawal`, on screen „Widerrufe“ the page entering one by mail ([its entry](#widerruf--withdrawal--a-person-taking-back-a-consent-on-konto-or-by-mail))                                          |
 | `Postausgang`               | In code `outbox`, the collection too ([its entry](#postausgang--outbox--every-mail-the-league-owes-one-row-per-recipient))                                                                                  |
 | `Sperrliste`                | In code `ban_list` ([its entry](#sperrliste--ban_list--the-addresses-barred-from-signing-in-and-from-the-leagues-mail))                                                                                     |
 | `Bestätigung`               | In code `confirmation` ([its entry](#bestätigung--confirmation--one-persons-own-answer-to-their-own-link-and-the-bookkeeping-beside-it-on-a-seat-a-registration-or-a-referee))                              |
@@ -523,9 +524,10 @@ tree its fixtures are drawn as.\
 ### `Aktion` · `action_log_entry` — one recorded act
 
 **Is:** a row of `action_log`, one act of the league's: when it happened (`at`), who acted (`by`, an
-administrator's folded address or a role word), the closed `action`, the record's id, a `label` of
-league data, a pass's `count` and the request's `trace_id`. It holds no person's name and no address
-but an administrator's and a grant act's grantee's.\
+administrator's folded address or a role word), the closed `action`, the record's id, the season's
+id (`saison_id`) and the fixture's number (`spiel_nr`) the act was about, a `label` of other league
+data, a pass's `count` and the request's `trace_id`. It holds no person's name and no address but an
+administrator's and a grant act's grantee's.\
 **In code:** `fl_backend/app/core/recording.py :: record_act` and `:: FLAction`;
 `fl_backend/app/api/action_log/schemas.py :: FLActionLogEntry`.\
 **See:** [`domain.md`](domain.md#what-is-held-true-together).
@@ -564,6 +566,14 @@ the season-after rule's hourly pass deletes a pupil's own data once none of it s
 season.\
 **In code:** `fl_backend/app/api/identity/crud.py :: erase_everything`, the rule's run
 `fl_backend/app/api/identity/system_router.py :: sweep_erasure`.
+
+### `Widerruf` · `withdrawal` — a person taking back a consent, on Konto or by mail
+
+**Is:** the withholding of a consent choice its person gave, by their own press on Konto's „Deine
+Einträge“ or, asked for by mail, by an administrator's entry on „Widerrufe“, which withholds on
+every record the address holds. It never grants.\
+**In code:** `fl_backend/app/api/account/services.py :: press_own_einwilligung` and
+`:: withdraw_at_address`; the page `fl_frontend/src/core/routes.ts :: ROUTES.adminWithdrawals`.
 
 ### `Postausgang` · `outbox` — every mail the league owes, one row per recipient
 
@@ -605,7 +615,7 @@ confirms it by a link.\
 
 ### `Fassung` · `wording` — one frozen consent wording a person was shown, under its label
 
-**Is:** the words of one consent under the label each choice's evidence stamps as `text_version`, A
+**Is:** the words of one consent under the label each choice's evidence stamps as `text_version`. A
 label's words never change: new words are a new label.\
 **In code:** `fl_frontend/src/core/consentWordings.ts :: CONSENT_WORDINGS`;
 `fl_backend/app/shared/schemas/einwilligung.py :: FLEinwilligungTextVersion`.
@@ -638,9 +648,9 @@ the wire's `subject`, which it narrows, nor a `seat`, the record one kind of it 
 
 ### `Konto` · `account` — a signed-in person's account, and the records of their own that admit one
 
-**Is:** the account a person signs in to, „Konto“ on screen, at `/account` with its four pages
-„Anmeldung“, „Sicherheit“, „Darstellung“ and „Deine Einträge“. A record of the person's own admits a
-sign-in to it whether or not it grants a `Funktion`.\
+**Is:** the account a person signs in to, „Konto“ on screen, at `/account` with its three pages
+„Anmeldung“, „Sicherheit“ and „Deine Einträge“. A record of the person's own admits a sign-in to it
+whether or not it grants a `Funktion`.\
 **In code:** `fl_backend/app/api/identity/services.py :: own_entries`;
 `fl_backend/app/api/identity/schemas.py :: FLSignInResponse`'s `account`.
 

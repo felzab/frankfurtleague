@@ -2,7 +2,7 @@
 import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 import { SERVER_COPY } from "@/core/serverCopy";
 
 import { SaisonBlock } from "./SaisonBlock";
@@ -30,7 +30,7 @@ describe("the season's card once decided", () => {
       within(podium)
         .getAllByRole("listitem")
         .map((place) => place.textContent),
-    ).toStrictEqual(["LIELiebig1", "ELIElisabethen2", "ERSErnst-Reuter3"]);
+    ).toStrictEqual(["LIELiebig1.", "ELIElisabethen2.", "ERSErnst-Reuter3."]);
     expect(screen.getByText(SERVER_COPY.landing.saison.place(4)).parentElement?.textContent).toBe(
       `${SERVER_COPY.landing.saison.place(4)}CMSCarlo-Mierendorff`,
     );

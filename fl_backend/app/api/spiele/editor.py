@@ -12,6 +12,7 @@ from pydantic import Field
 
 from app.api.aufstellungen.schemas import FLAufstellungMarks, FLAufstellungSummary
 from app.api.aufstellungen.services import aufstellung_marks, aufstellung_stands
+from app.api.saisons.overview import PARTY_NAME_FIELD, build_party_name_stages
 from app.api.saisons.services import has_started
 from app.api.spielberichte.schemas import (
     FLSpielberichtBericht,
@@ -22,7 +23,19 @@ from app.api.spielberichte.schemas import (
 from app.api.spielberichte.services import SIDES, bericht_state_of
 from app.api.spielbestaetigungen.crud import JUDGED_JUNCTION_FIELDS, pull_admin_rows
 from app.api.spielbestaetigungen.schemas import FLSpielbestaetigungAnswer, FLSpielbestaetigungAppointment, FLSpielbestaetigungState
-from app.api.spielbestaetigungen.services import AnsetzungState, austritte_of, due_by_of, lapsed_on, reason_of, state_of
+from app.api.spielbestaetigungen.services import (
+    CLOSE_FIELDS,
+    AnsetzungState,
+    austritte_of,
+    build_holding_filter,
+    due_by_of,
+    find_enter_refusal,
+    holds_an_open_proposal,
+    lapsed_on,
+    party_key,
+    reason_of,
+    state_of,
+)
 from app.api.spiele.crud import MEMBERSHIP_FIELDS, membership_of
 from app.api.spiele.schemas import (
     FLPatchSpielDataPayload,
@@ -30,6 +43,7 @@ from app.api.spiele.schemas import (
     FLSpielbestaetigungParty,
     FLSpielJoinedAdmin,
     FLSpielListAdapter,
+    FLSpielRecipient,
     FLSpielTeamFieldPayload,
 )
 from app.api.spiele.services import (
@@ -37,6 +51,7 @@ from app.api.spiele.services import (
     find_eligibility_refusal,
     judge_spieltag_occupancy,
     stored_in_slice,
+    vorschlag_recipients,
 )
 from app.core import clock
 from app.core.concurrency import concurrently
@@ -127,12 +142,26 @@ class FLSpielEditorAufstellungMarks(BaseReadModel):
     team2: FLAufstellungMarks | None
 
 
+class FLSpielbestaetigungEditorVorschlag(BaseReadModel):
+    """A club's decline proposing another date and hour, neither adopted nor discarded, and whom each act on it mails.
+
+    Each recipient by the name its own record holds, as the Übersicht names them: `adoption_recipients` those the
+    confirmation pass tells of the move, `discard_recipients` the club the discard tells the date stands.
+    """
+
+    vorschlag: FLSpielbestaetigungAppointment
+    adoption_recipients: list[FLSpielRecipient]
+    discard_recipients: list[FLSpielRecipient]
+
+
 class FLSpielbestaetigungEditorRow(BaseReadModel):
-    """A confirmation row as the match editor reads it, and the state it stands in, a closed row's included.
+    """A confirmation row as the match editor reads it, the state it stands in, a closed row's included, and the league's acts it takes.
 
     Never `vorschlag`, which only a club's own page tells: an open row reads `valid` while its party may still answer.
     """
 
+    # The row the league's acts on it write by.
+    id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
     party: FLSpielbestaetigungParty
     # The slot the row asked about, which an answer about a slot the match has left is shown beside.
     ansetzung: FLSpielbestaetigungAppointment
@@ -145,6 +174,12 @@ class FLSpielbestaetigungEditorRow(BaseReadModel):
     # The day its answer lapsed, `due_by`; null on an answered row, on one a call-off or a move ended, and on one an exit
     # or a decision ended before its answer was due (`lapsed_on`).
     lapsed_on: CustomDateString | None
+    # Whether the league may enter the party's Zusage on the row, as the write judges it: unanswered, unclosed and left
+    # open by the pass's next close. A deadline gone by refuses nothing, so a lapsed row may take one and a row the
+    # kick-off or a move ended may not, which `state` alone does not tell apart.
+    enterable: bool
+    # The club's standing proposal, which „Übernehmen“ and „Verwerfen“ act on; null on every other row.
+    vorschlag_open: FLSpielbestaetigungEditorVorschlag | None
 
 
 class FLSpieleAdminSingleResponse(BaseReadModel):
@@ -182,9 +217,67 @@ async def _junctions_of(
     return await pull_whole_from_db(
         collection=saison_teams_collection,
         db_filter={"saison_id": saison_id, "team_id": {"$in": list(team_ids)}},
-        what=f"season {saison_id}'s clubs the confirmations name",
         projection=JUDGED_JUNCTION_FIELDS,
     )
+
+
+async def _proposals_of(
+    rows: Sequence[Mapping[str, Any]],
+    *,
+    spiel_id: CustomObjectId,
+    saison_id: str,
+    ansetzung_state: AnsetzungState,
+    austritte: Mapping[Any, str],
+    spielbestaetigungen_collection: ReadCollection,
+    saison_teams_collection: ReadCollection,
+    now: datetime,
+) -> dict[Any, FLSpielbestaetigungEditorVorschlag]:
+    """Each standing proposal among the fixture's `rows`, by its row's id, with whom each act on it mails, as the Übersicht reads them.
+
+    A proposal stands as the acts judge it (`holds_an_open_proposal`). Read only for a fixture holding one: the rows
+    holding their party's question, each party by its own record's name, and the seats of every club a row asks, which
+    decide whether a mail reaches it.
+    """
+
+    proposing = [row for row in rows if holds_an_open_proposal(spielbestaetigung_raw=row, ansetzung_state=ansetzung_state, now=now)]
+    if not proposing:
+        return {}
+
+    # Every club a row of the fixture asks: the parties an adoption may tell are among them.
+    team_ids = list({row["party"]["team_id"] for row in rows if row["party"]["kind"] == "team"})
+    held, seats = await concurrently(
+        aggregate_many_from_db(
+            collection=spielbestaetigungen_collection,
+            pipeline=[
+                {"$match": {"saison_id": saison_id, "spiel_id": spiel_id, **build_holding_filter()}},
+                {"$project": dict.fromkeys(CLOSE_FIELDS, 1)},
+                *build_party_name_stages(saison_id=saison_id),
+            ],
+        ),
+        pull_whole_from_db(
+            collection=saison_teams_collection,
+            db_filter={"saison_id": saison_id, "team_id": {"$in": team_ids}},
+            projection=["team_id", "kontakte"],
+        ),
+    )
+    names = {party_key(row["party"]): row.get(PARTY_NAME_FIELD) for row in held}
+    kontakte = {row["team_id"]: row.get("kontakte") for row in seats}
+
+    def proposal(row: Mapping[str, Any]) -> FLSpielbestaetigungEditorVorschlag:
+        vorschlag = FLSpielbestaetigungAppointment.model_validate(row["answer"]["vorschlag"])
+        adoption, discard = vorschlag_recipients(
+            party=row["party"],
+            vorschlag=vorschlag,
+            held=held,
+            spiel=ansetzung_state.spiel,
+            austritte=austritte,
+            kontakte=kontakte,
+            names=names,
+            now=now,
+        )
+        return FLSpielbestaetigungEditorVorschlag(vorschlag=vorschlag, adoption_recipients=adoption, discard_recipients=discard)
+
+    return {row["_id"]: proposal(row) for row in proposing}
 
 
 async def _none() -> None:
@@ -223,11 +316,10 @@ async def _teams_of(
 
     # Whole, as the save reads its season and its clubs.
     season_raw, rows = await concurrently(
-        pull_whole_from_db(collection=spiele_collection, db_filter={"saison_id": spiel.saison_id}, what=f"season {spiel.saison_id}'s fixtures"),
+        pull_whole_from_db(collection=spiele_collection, db_filter={"saison_id": spiel.saison_id}),
         pull_whole_from_db(
             collection=saison_teams_collection,
             db_filter={"saison_id": spiel.saison_id},
-            what=f"season {spiel.saison_id}'s clubs",
             sort_by=[("name", 1)],
             projection=[*MEMBERSHIP_FIELDS, "shorthand"],
             collation=GERMAN_COLLATION,
@@ -246,7 +338,7 @@ async def _teams_of(
             name=membership[team_id].name,
             shorthand=row["shorthand"],
             on_spieltag=verdict.refusal is not None or len(verdict.releases) > 0,
-            fieldable=verdict.refusal is None and find_eligibility_refusal(spiel.id, payload, season, membership) is None,
+            fieldable=verdict.refusal is None and not find_eligibility_refusal(spiel.id, payload, season, membership),
         )
 
     return [judged(row) for row in rows]
@@ -276,7 +368,6 @@ async def _spielbericht_of(
         else await pull_whole_from_db(
             collection=spieler_collection,
             db_filter={"_id": {"$in": scorers}},
-            what="the pupils a report's goals name",
             projection=["first_name", "last_name"],
         )
     )
@@ -311,7 +402,6 @@ async def _aufstellungen_of(
     stored_raw = await pull_whole_from_db(
         collection=aufstellungen_collection,
         db_filter={"spiel_id": spiel.id, "team_id": {"$in": list(fielded.values())}},
-        what=f"fixture {spiel.id}'s line-ups",
         projection=["team_id", "spieler.starts"],
     )
     stored_by_team: dict[Any, Mapping[str, Any]] = {row["team_id"]: row for row in stored_raw}
@@ -395,6 +485,16 @@ async def read_spiel_editor(
     junctions = await _junctions_of(confirmations, saison_id=spiel.saison_id, saison_teams_collection=saison_teams_collection)
     ansetzung_state = AnsetzungState(spiel=spiele_raw[0], junctions=junctions)
     austritte = austritte_of(ansetzung_state.junctions)
+    proposals = await _proposals_of(
+        confirmations,
+        spiel_id=spiel_id,
+        saison_id=spiel.saison_id,
+        ansetzung_state=ansetzung_state,
+        austritte=austritte,
+        spielbestaetigungen_collection=spielbestaetigungen_collection,
+        saison_teams_collection=saison_teams_collection,
+        now=now,
+    )
 
     def editor_row(row: Mapping[str, Any]) -> FLSpielbestaetigungEditorRow:
         reason = reason_of(spielbestaetigung_raw=row, ansetzung_state=ansetzung_state, now=now)
@@ -404,6 +504,8 @@ async def read_spiel_editor(
                 "state": state_of(spielbestaetigung_raw=row, ansetzung_state=ansetzung_state, now=now, vorschlag_open=None),
                 "due_by": due_by_of(row),
                 "lapsed_on": lapsed_on(spielbestaetigung_raw=row, reason=reason, spiel=ansetzung_state.spiel, austritte=austritte, now=now),
+                "enterable": find_enter_refusal(spielbestaetigung_raw=row, ansetzung_state=ansetzung_state, now=now) is None,
+                "vorschlag_open": proposals.get(row["_id"]),
             }
         )
 

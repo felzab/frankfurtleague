@@ -3,7 +3,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 
 import { Switch } from "./Switch";
 
@@ -14,7 +14,7 @@ describe("a locked switch", () => {
     const onChange = vi.fn();
     render(
       <Switch
-        label={COPY.shared.withObject(COPY.admin.spiel.ergebnis, "enter")}
+        label={COPY.shared.withObject(COPY.spielplan.ergebnis, "enter")}
         isLocked
         onChange={onChange}
       />,
@@ -31,7 +31,7 @@ describe("a locked switch", () => {
   // The harm: the row is a grid of the track and its words, and a mark standing as a third item wraps under the track,
   // away from the label it marks. No layout runs here, so the case reads the markup that decides it.
   it("holds its lock mark with its label, apart from the track", () => {
-    const label = COPY.shared.withObject(COPY.admin.spiel.ergebnis, "enter");
+    const label = COPY.shared.withObject(COPY.spielplan.ergebnis, "enter");
     render(
       <Switch
         label={label}

@@ -65,9 +65,9 @@ commit that makes the change.
   fixtures whose results a save would delete._
 - **spiele** — Write from the „Spiele“ list; save a match outside `saveSpiel`. _Only `saveSpiel`
   asks the dry run before a save deletes a later result._
-- **structure** — Add a barrel file, an unrequired default export, a second nesting level below a
-  slice's `components/<category>/`. _A barrel pulls a slice into client bundles, a default import
-  compiles misnamed, and deeper folders scatter one kind._
+- **structure** — Add a barrel file, an unrequired default export, a folder inside a slice. _A
+  barrel pulls a slice into client bundles, a default import compiles misnamed, and deeper folders
+  scatter one kind._
 - **swap** — Make the club editor the swap's home. _A swap is the season's act on two clubs._
 
 ## The backend

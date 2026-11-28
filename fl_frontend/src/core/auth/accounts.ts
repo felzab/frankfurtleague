@@ -7,7 +7,7 @@ import { MongoServerError } from "mongodb";
 
 import { now } from "../clock";
 import { asSignInIdentifier } from "../emailAddress";
-import { APIBadStatusError, RolledBackError } from "../errors";
+import { asRefusal, RolledBackError } from "../errors";
 import { deleteEndedSessions } from "./accountSessions";
 import { auth, ownErasure } from "./library";
 import { notifyAccountDeleted } from "./mails";
@@ -16,14 +16,6 @@ import { DELETE_TOKEN_ROW_PREFIX, deleteSignInRowsOf, DUPLICATE_KEY, EVERY_ROW, 
 
 import type { User } from "better-auth";
 import type { DeletionPress } from "./library";
-
-/** The library's answer to a link its `deleteUserCallback` completed, its one answer that deletes. */
-const ACCOUNT_DELETED = "User deleted";
-
-/** A deletion the library answered with something other than a deletion, which no caller may read as one. */
-class DeletionNotAnswered extends Error {
-  override name = "DeletionNotAnswered";
-}
 
 /**
  * Whether an account signs in at `address`, which refuses an address change onto it as the library's own
@@ -57,9 +49,8 @@ export async function carryAccount(previous: string, next: string): Promise<Acco
   try {
     // The stamp rides the same write, so no session opened at the replaced address is served at the new one; the
     // library's revocations each end only the requesting session, which no caller here holds.
-    // Declared `Promise<User & T>`, yet `null` where no account holds the address or a hook refuses the write
-    // (better-auth's `updateWithHooks`, dist/db/with-hooks.mjs). Widened by `as`: an annotation would be narrowed
-    // straight back to the declared type by the assignment.
+    // Declared `Promise<User & T>`, yet `null` where no account holds the address or a hook refuses the write.
+    // Widened by `as`: an annotation would be narrowed straight back to the declared type by the assignment.
     const account = (await internalAdapter.updateUserByEmail(asSignInIdentifier(previous), {
       email: asSignInIdentifier(next),
       emailVerified: true,
@@ -125,12 +116,11 @@ export async function deleteOwnAccount(token: string, requestHeaders: Headers): 
   const press: DeletionPress = { linkSpent: false };
   try {
     // The completing endpoint itself, the one the library's own link reaches: it expires the session's cookie on
-    // its own answer, which `nextCookies` carries onto the action's. `deleteUser` with a token calls it as a plain
-    // function and answers without that expiry, leaving the browser a cookie naming a gone session.
-    const answer = await ownErasure.run(press, () => auth.api.deleteUserCallback({ query: { token }, headers: requestHeaders }));
-    // The library's own word for a deletion, never the absence of a throw. Its one other end, a redirect, comes only
-    // for a `callbackURL`, which no press passes: no case reaches this check alone.
-    if (answer.message !== ACCOUNT_DELETED) throw new DeletionNotAnswered();
+    // its own answer, which `nextCookies` carries onto the action's. Not `deleteUser` with the token: it reads an
+    // empty one as a request for a new link, which it mints and mails, where this endpoint refuses it as unknown.
+    // A call that returns deleted the account: the library's one other end, a redirect, comes only for a
+    // `callbackURL`, which no press passes.
+    await ownErasure.run(press, () => auth.api.deleteUserCallback({ query: { token }, headers: requestHeaders }));
     return "deleted";
   } catch (failed) {
     if (!press.linkSpent) {
@@ -141,7 +131,7 @@ export async function deleteOwnAccount(token: string, requestHeaders: Headers): 
     }
     // The backend refused the erasure, its answer below 500 one its transaction wrote nothing behind: the link is spent
     // all the same. A 500 or higher may be a commit of unknown outcome (`unknown_outcome`).
-    if (failed instanceof APIBadStatusError && failed.statusCode < 500) return "spentUnerased";
+    if (asRefusal(failed) !== null) return "spentUnerased";
     throw new DeletionOutcomeUnknown(failed);
   }
 }

@@ -44,7 +44,7 @@ test("an administrator creates a venue over the Spielorte list, moves a match's 
   // --- Spielorte ---------------------------------------------------------------------------------
 
   await page.goto("/admin/spielorte");
-  await expect(page.getByRole("banner").getByRole("heading", { level: 1, name: "Spielorte" })).toBeVisible();
+  await expect(page.getByRole("main").getByRole("heading", { level: 1, name: "Spielorte" })).toBeVisible();
 
   // A long name wraps in its row and pushes nothing sideways, on desktop and at a phone's width.
   await expect(page.getByRole("main").getByRole("cell", { name: LONG_NAME })).toBeVisible();
@@ -73,7 +73,7 @@ test("an administrator creates a venue over the Spielorte list, moves a match's 
 
   const editor = `/admin/saisons/${RUNNING}/spiele/${await spielId(page)}`;
   await page.goto(editor);
-  await expect(page.getByRole("banner").getByRole("heading", { level: 1, name: RESCHEDULED })).toBeVisible();
+  await expect(page.getByRole("main").getByRole("heading", { level: 1, name: RESCHEDULED })).toBeVisible();
 
   // The kick-off's hour, then its minutes: the segmented field moves on by itself after two digits.
   const time = page.getByRole("group", { name: /^Uhrzeit/ });
@@ -92,6 +92,6 @@ test("an administrator creates a venue over the Spielorte list, moves a match's 
   // The matchday's „Bearbeiten“ leads to an editor page of its own, named as its tab is, on its one read.
   await page.goto(`/admin/saisons/${RUNNING}/spiele?tab=${MATCHDAY}`);
   await page.getByRole("main").getByRole("link", { name: "Bearbeiten", exact: true }).click();
-  await expect(page.getByRole("banner").getByRole("heading", { level: 1, name: "2. Spieltag" })).toBeVisible();
+  await expect(page.getByRole("main").getByRole("heading", { level: 1, name: "2. Spieltag" })).toBeVisible();
   await expect(page.getByRole("group", { name: /^Beginn/ })).toBeVisible();
 });

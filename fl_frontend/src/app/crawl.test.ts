@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { SITE_URL } from "@/core/brand";
-import { LEGAL_PAGES, LIGA_PAGES, ROUTES, SAISONLESS_PAGES } from "@/core/routes";
+import { addressOf, LEGAL_PAGES, LIGA_PAGES, ROUTES, SAISONLESS_PAGES, segmentCount } from "@/core/routes";
 import { serveBackend } from "@/test-support/backend";
 import { doubleNextRequest } from "@/test-support/nextRequest";
 
@@ -19,10 +19,12 @@ const { default: robots } = await import("./robots");
 const { default: sitemap } = await import("./sitemap");
 
 /** Each row with its address, every segment filled, so a prefix test reads it as a crawler would. */
-const ROWS = (Object.entries(ROUTES) as [string, RouteEntry][]).map(([key, row]) => {
-  const path = row.path as (...segments: string[]) => string;
-  return { key, crawl: row.crawl, segments: path.length, address: path(...Array.from({ length: path.length }, () => "x")) };
-});
+const ROWS = (Object.entries(ROUTES) as [string, RouteEntry][]).map(([key, row]) => ({
+  key,
+  crawl: row.crawl,
+  segments: segmentCount(row),
+  address: addressOf(row, "x"),
+}));
 
 const { rules } = robots();
 const PREFIXES = (Array.isArray(rules) ? rules : [rules]).flatMap((rule) =>

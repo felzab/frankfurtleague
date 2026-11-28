@@ -1,25 +1,26 @@
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 
-import { COPY } from "@/core/copy";
-import { SERVER_COPY } from "@/core/serverCopy";
+import { COPY } from "@/core/copy/shared";
 import { ADMIN_EMAIL } from "@/test-support/authDoubles";
 import { refusal, serveBackend } from "@/test-support/backend";
 import { signedInRequest } from "@/test-support/session";
 
-import type { FLCreatedResponse, FLPostBanListEntryPayload } from "@/core/generated/client/types";
+import type { FLCreatedResponse, FLPostBanListEntryPayload, FLRefusedField } from "@/core/generated/client/types";
 
 const ADDRESS = "max@example.org";
 const BAN = { email: ADDRESS, ban_reason: "Ein Grund", holder: ADMIN_EMAIL };
-const PARTIAL = COPY.admin.banList.partial;
+/** The shared failure line, „Etwas ist schiefgelaufen“, which every failure after the write shows. */
+const FAILED = { ok: false, reason: COPY.shared.failure.unexpected };
 const MAX_ID = "64c000000000000000000005";
 
 /** The sessions of the banned address's account the store held as the backend took the ban, one entry per ban posted. */
 const atThePost: number[] = [];
 
-// The backend takes the ban, and nothing else: any other request fails the case. It reads the store as the write
-// arrives, so a case sees whether the sessions were ended before the write stood.
-const backend = serveBackend(({ method, path }) => {
+// The backend takes the ban and its dry run, and nothing else: any other request fails the case. It reads the store as
+// the write arrives, so a case sees whether the sessions were ended before the write stood.
+const backend = serveBackend(({ method, path, search }) => {
   if (method !== "POST" || path !== "/ban_list") return undefined;
+  if (search.get("dry_run") === "true") return new Response(null, { status: 204 });
   atThePost.push(sessionsOfMax().length);
   return { created_id: "65a000000000000000000001" } satisfies FLCreatedResponse;
 });
@@ -68,7 +69,11 @@ async function storeFailsOnMax(operation: "findOne" | "update"): Promise<void> {
   });
 }
 
-const bansPosted = () => backend.sent.filter(({ method, path }) => method === "POST" && path === "/ban_list").map(({ body }) => body);
+/** The bans posted, as the write when `dry` is false and as its dry run when it is true. */
+const bansPosted = (dry = false) =>
+  backend.sent
+    .filter(({ method, path, search }) => method === "POST" && path === "/ban_list" && (search.get("dry_run") === "true") === dry)
+    .map(({ body }) => body);
 
 describe("a ban", () => {
   // No static check holds this: a ban that skipped it reads as done while the person stays signed in, for as long as
@@ -86,89 +91,105 @@ describe("a ban", () => {
     expect(maxStamped()).toBe(true);
   });
 
-  it("owes no notice where no account stands, and that is no partial outcome", async () => {
+  it("owes no notice where no account stands, and stands done", async () => {
     expect(await enterBan(BAN)).toStrictEqual({ ok: true, value: undefined });
 
     expect(bansPosted()).toMatchObject([{ notify: false }]);
   });
 
-  // The sign-out follows a write that cannot be taken back, so the dialog must say it did not follow.
-  it("keeps its button for a second press and says what did not follow where the sign-out failed", async () => {
+  // The sign-out follows a write that cannot be taken back, so a failure there must not read as done.
+  it("answers the shared failure line over a ban that stands where the sign-out failed", async () => {
     maxSignedInOn(1);
     await storeFailsOnMax("update");
 
-    expect(await enterBan(BAN)).toStrictEqual({ ok: false, reason: PARTIAL.sessions, warn: true });
+    expect(await enterBan(BAN)).toStrictEqual(FAILED);
 
     expect(bansPosted()).toMatchObject([{ email: ADDRESS, notify: true }]);
     expect(sessionsOfMax()).toHaveLength(1);
   });
 
-  it("stands done and says so where the store did not say whether an account stands, which no press repairs", async () => {
+  // The harm: a ban written on a guess of whether an account stands would leave its holder untold of it, for good.
+  it("writes nothing where the store did not say whether an account stands", async () => {
     maxSignedInOn(1);
     await storeFailsOnMax("findOne");
 
-    expect(await enterBan(BAN)).toStrictEqual({ ok: true, value: undefined, note: PARTIAL.notice, warn: true });
+    expect(await enterBan(BAN)).toStrictEqual(FAILED);
 
-    // Nobody is told on a guess, and the sessions still end.
-    expect(bansPosted()).toMatchObject([{ notify: false }]);
-    expect(sessionsOfMax()).toStrictEqual([]);
+    expect(bansPosted()).toStrictEqual([]);
+    expect(sessionsOfMax()).toHaveLength(1);
   });
 
   // A POST whose answer was lost leaves the ban standing and the sign-out never run, and nothing but this press ends it.
   describe("a second ban", () => {
     const answeredBanned = () => {
-      backend.answerWith(({ method, path }) => (method === "POST" && path === "/ban_list" ? refusal("duplicate_key") : undefined));
+      const listed: FLRefusedField = { kind: "address_barred", path: ["email"], ctx: {}, in: "body" };
+      backend.answerWith(({ method, path }) =>
+        method === "POST" && path === "/ban_list" ? refusal("address_barred", { fields: [listed] }) : undefined,
+      );
+    };
+    const ON_ITS_BOX = {
+      ok: false,
+      errorCode: "address_barred",
+      fieldErrors: { email: COPY.shared.field.barred },
+      kinds: { email: "address_barred" },
     };
 
-    // The harm: the dialog has closed before the answer, so a box's phrase would reach its toast as the pointer at
-    // fields nobody sees.
-    it("is refused in a sentence of its own where nothing was left to end", async () => {
+    // The harm: a refusal answered on the dialog's line rather than on the address's box, which nothing then marks.
+    it("is refused on the address's box where nothing was left to end", async () => {
       answeredBanned();
       maxSignedInOn(0);
 
-      expect(await enterBan(BAN)).toStrictEqual({ ok: false, errorCode: "duplicate_key", reason: SERVER_COPY.closedDialog.banned });
+      expect(await enterBan(BAN)).toStrictEqual(ON_ITS_BOX);
 
       // The ending still ran, stamping the account.
       expect(maxStamped()).toBe(true);
     });
 
-    // The harm: „Schon vergeben“ over a press that did what the warn line left open reads as nothing having happened.
-    it("says the sessions the first left running ended, and refuses nothing", async () => {
+    // The harm: the dry run refuses a second ban before any touch, so a press of the write never comes, and the
+    // sessions a lost answer left running would run on.
+    it("ends the sessions at its dry run's refusal too", async () => {
       answeredBanned();
-      maxSignedInOn(2);
+      maxSignedInOn(1);
 
-      expect(await enterBan(BAN)).toStrictEqual({ ok: true, value: undefined, note: PARTIAL.ended });
+      expect(await enterBan(BAN, true)).toStrictEqual(ON_ITS_BOX);
 
       expect(sessionsOfMax()).toStrictEqual([]);
+      expect(maxStamped()).toBe(true);
     });
 
     // The harm: a field error stands on the box until its value changes, so the browser holds back the press that still could.
-    it("says so where they did not end and they run, and leaves the address free to press again", async () => {
+    it("answers the shared failure line where they did not end and they run, and leaves the address free to press again", async () => {
       answeredBanned();
       maxSignedInOn(1);
       await storeFailsOnMax("update");
 
-      expect(await enterBan(BAN)).toStrictEqual({ ok: false, reason: PARTIAL.sessions, warn: true });
+      expect(await enterBan(BAN)).toStrictEqual(FAILED);
 
       expect(sessionsOfMax()).toHaveLength(1);
     });
   });
 
-  it.each([
-    ["an address of the wrong shape", { email: "max@example" }, SERVER_COPY.closedDialog.format.address],
-    ["a Grund of spaces", { ban_reason: "   " }, SERVER_COPY.closedDialog.reasonMissing],
-  ])("refuses %s in its box's sentence, the dialog having closed", async (_case, typed, reason) => {
-    expect(await enterBan({ ...BAN, ...typed })).toMatchObject({ ok: false, reason });
-    // A box the parse refuses posts nothing.
-    expect(bansPosted()).toHaveLength(0);
+  // The harm: the dry run stands before any touch, so an effect of the write's own run there would act untouched.
+  it("asks no account and ends no session on its dry run, which posts the ban as a dry run alone", async () => {
+    maxSignedInOn(1);
+    await storeFailsOnMax("findOne");
+
+    expect(await enterBan(BAN, true)).toStrictEqual({ ok: true, value: undefined });
+
+    expect(bansPosted(true)).toStrictEqual([{ email: ADDRESS, ban_reason: "Ein Grund", notify: false }]);
+    expect(bansPosted()).toStrictEqual([]);
+    expect(sessionsOfMax()).toHaveLength(1);
   });
 
   // A write the backend refused stands nowhere, so there is nothing for a sign-out to follow.
   it("ends no session where the backend refuses the ban", async () => {
-    backend.answerWith(({ method, path }) => (method === "POST" && path === "/ban_list" ? refusal("ban_list_admin") : undefined));
+    const held: FLRefusedField = { kind: "ban_list_admin", path: ["email"], ctx: {}, in: "body" };
+    backend.answerWith(({ method, path }) =>
+      method === "POST" && path === "/ban_list" ? refusal("ban_list_admin", { fields: [held] }) : undefined,
+    );
     maxSignedInOn(1);
 
-    expect(await enterBan(BAN)).toMatchObject({ ok: false, reason: SERVER_COPY.refusalLine.ban_list_admin });
+    expect(await enterBan(BAN)).toMatchObject({ ok: false, fieldErrors: { email: COPY.shared.field.ofAdministration } });
 
     expect(sessionsOfMax()).toHaveLength(1);
     expect(maxStamped()).toBe(false);

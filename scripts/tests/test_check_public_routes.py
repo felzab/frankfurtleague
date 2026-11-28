@@ -5,9 +5,8 @@ a defect in it is silent by construction: the gate stays green and the handler s
 case below plants the shape it reports; the gate's own run of the checker is what reads the
 repository's tree.
 
-The refusals are driven for the same reason: a construct the reader cannot place, or a rule that
-finds nothing to judge, has to end the run at `EXIT_REFUSED`, and one quietly skipped reads as
-coverage.
+The refusals are driven for the same reason: a construct the reader cannot place has to end the run
+at `EXIT_REFUSED`, and one quietly skipped reads as coverage.
 """
 
 from __future__ import annotations
@@ -74,18 +73,9 @@ def tree(*urls: str, file: str = "route.ts") -> Path:
     return app
 
 
-def accounting(app: Path | None = None, where: tuple = (), *, referrer: tuple = ()):
-    """What every rule reads, over a planted tree, a planted set of locations and a planted referrer map's entries."""
-    app = tree() if app is None else app
-    paged = routes.pages(app)
-    return routes.Accounting(
-        found=routes.handlers(app),
-        linked=routes.link_pages(paged),
-        where=where,
-        referrer=referrer,
-        root=app.parent,
-        conf=SOURCE,
-    )
+def accounting(app: Path, where: tuple):
+    """What every rule reads, over a planted tree and a planted set of locations."""
+    return routes.Accounting(found=routes.handlers(app), where=where, root=app.parent, conf=SOURCE)
 
 
 def accounted(app: Path, where: tuple) -> list:
@@ -154,18 +144,18 @@ def test_a_metadata_convention_below_the_tree_root_refuses():
         routes.metadata(with_files("dashboard/sitemap.ts"))
 
 
-def test_a_page_a_slot_intercepts_on_its_own_level_answers_the_intercepted_url():
-    """A slot is no segment of the URL, and `(.)spiele` names `spiele` on its own level: the pop-up answers the match page's URL."""
-    [page] = routes.pages(tree("/saisons/[saison]/@modal/(.)spiele/[spiel]", file="page.tsx"))
+def test_a_route_a_slot_intercepts_on_its_own_level_answers_the_intercepted_url():
+    """A slot is no segment of the URL, and `(.)spiele` names `spiele` on its own level: the route answers the match page's URL."""
+    [route] = routes.handlers(tree("/saisons/[saison]/@modal/(.)spiele/[spiel]"))
 
-    assert (page.url, page.head, page.dynamic) == ("/saisons/[saison]/spiele/[spiel]", "/saisons/", True)
+    assert (route.url, route.head, route.dynamic) == ("/saisons/[saison]/spiele/[spiel]", "/saisons/", True)
 
 
 @pytest.mark.parametrize("marker", ["(..)", "(...)"])
-def test_a_page_intercepting_a_level_up_or_the_root_refuses(marker):
+def test_a_route_intercepting_a_level_up_or_the_root_refuses(marker):
     """Its URL drops segments above it, which this reader does not derive; silence would place it wrongly."""
     with pytest.raises(routes.RouteShape, match="cannot derive"):
-        routes.pages(tree(f"/saisons/[saison]/@modal/{marker}spiele/[spiel]", file="page.tsx"))
+        routes.handlers(tree(f"/saisons/[saison]/@modal/{marker}spiele/[spiel]"))
 
 
 def test_an_exact_match_carrying_no_limit_req_is_a_finding():
@@ -222,200 +212,6 @@ def test_a_location_answering_itself_refuses():
     """It forwards no route, so read as an exact match it would stand for a handler the edge never reaches."""
     with pytest.raises(routes.NginxSyntax, match="return"):
         served(block("location = /api/intern", "        return 404;\n"), CATCH_ALL)
-
-
-SERVER_READ = "export default async function Page(props) {\n  const { token } = await props.searchParams;\n}\n"
-LINK_ZONE = "        limit_req zone=linkpage burst=60 nodelay;\n"
-
-
-def link_page(url: str, text: str = SERVER_READ) -> Path:
-    """An App Router tree holding one page at `url`, its module `text`."""
-    app = new_root("check-public-routes-") / "app"
-    app.mkdir(parents=True)
-    write(app, url.strip("/") + "/page.tsx", text)
-    return app
-
-
-def unmetered(app: Path, where: tuple) -> list:
-    """What the link-page rule says about a planted tree and a planted set of locations."""
-    return routes.unmetered_links(accounting(app, where))
-
-
-@pytest.mark.parametrize(
-    "text",
-    [
-        SERVER_READ,
-        '"use client";\nexport default function Page() {\n  return useSearchParams().get("token");\n}\n',
-        'import { mailedLinkToken } from "@/core/mailedLink";\nexport default async function Page() {\n  return await mailedLinkToken();\n}\n',
-    ],
-    ids=["server-page", "client-hook", "mailed-link-reader"],
-)
-def test_a_link_page_only_the_catch_all_answers_is_a_finding(text):
-    """Under every spelling of the read, the hook's being what a case-blind match exists for."""
-    findings = unmetered(link_page("/new", text), served(METERED, CATCH_ALL))
-
-    assert len(findings) == 1
-    assert "/new reaches `location /`" in details(findings)
-
-
-def test_a_link_page_another_zone_meters_is_a_finding():
-    """Metered is not enough: another zone passes any rule asking only for a `limit_req`."""
-    findings = unmetered(link_page("/new"), served(exact("/new"), CATCH_ALL))
-
-    assert len(findings) == 1
-    assert "/new reaches `location = /new`" in details(findings)
-
-
-def test_no_link_page_at_all_refuses():
-    """The rule judged nothing, which would otherwise read as every link page metered."""
-    with pytest.raises(routes.NothingJudged, match="no page"):
-        unmetered(tree("/api/bewerbung"), served(METERED, CATCH_ALL))
-
-
-DISCARDED = "        error_log /dev/null;\n"
-
-
-def unlogged(*lines: str) -> list:
-    """What the error-log rule says about a link page at `/new` whose exact location carries `lines`."""
-    return routes.unlogged_links(accounting(link_page("/new"), served(block("location = /new", LINK_ZONE, *lines, PASS), CATCH_ALL)))
-
-
-@pytest.mark.parametrize(
-    "lines",
-    [(), (DISCARDED, "        error_log stderr;\n"), ("        error_log stderr crit;\n",)],
-    ids=["inherited", "a-second-log-beside-it", "a-raised-level"],
-)
-def test_a_link_page_s_location_writing_an_error_line_anywhere_is_a_finding(lines):
-    """nginx writes to every log a level names, so a second beside the discard writes the token; a full disk's line is crit."""
-    findings = unlogged(*lines)
-
-    assert len(findings) == 1
-    assert "/new reaches `location = /new`" in details(findings)
-
-
-NEW_REFERRER = (("/new", "no-referrer"), ("default", "strict-origin-when-cross-origin"))
-
-
-def referring(where: tuple, referrer: tuple, url: str = "/new") -> list:
-    """What the referrer rule says about a link page at `url`, the locations and the map's entries given."""
-    return routes.referring_links(accounting(link_page(url), where, referrer=referrer))
-
-
-def test_a_link_page_the_map_hands_the_site_s_policy_is_a_finding():
-    """A link page added with its block and no entry, which is how one ships handing its address on."""
-    findings = referring(served(block("location = /new", LINK_ZONE, PASS), CATCH_ALL), (("default", "strict-origin-when-cross-origin"),))
-
-    assert len(findings) == 1
-    assert "gives /new strict-origin-when-cross-origin" in details(findings)
-
-
-def test_an_exact_entry_answers_before_a_regex_withholding_the_referrer():
-    """nginx's own order: the exact key wins, so a regex covering the page does not."""
-    entries = (("/new/page", "strict-origin-when-cross-origin"), ("~^/new/", "no-referrer"), ("default", "strict-origin-when-cross-origin"))
-    findings = referring(served(block("location /new/", LINK_ZONE, PASS), CATCH_ALL), entries, "/new/page")
-
-    assert len(findings) == 1
-    assert "gives /new/page strict-origin-when-cross-origin" in details(findings)
-
-
-@pytest.mark.parametrize("key", ["/other", "~^/ne", "~*^/new"], ids=["another-page", "a-wider-regex", "a-caseless-regex"])
-def test_an_entry_withholding_the_referrer_where_no_link_page_s_location_matches_is_a_finding(key):
-    """Every other page keeps the site's policy, so an entry matching more, or elsewhere, is one."""
-    findings = referring(served(block("location = /new", LINK_ZONE, PASS), CATCH_ALL), (*NEW_REFERRER, (key, "no-referrer")))
-
-    assert len(findings) == 1
-    assert f"gives {key!r} no-referrer, a match no link page's location" in details(findings)
-
-
-def test_no_referrer_map_at_all_refuses():
-    """The rule judged nothing, which would otherwise read as every link page withholding it."""
-    with pytest.raises(routes.NothingJudged, match="no map setting"):
-        referring(served(block("location = /new", LINK_ZONE, PASS), CATCH_ALL), ())
-
-
-def test_the_referrer_map_is_read_off_the_http_level_in_order():
-    """Its entries as nginx reads them, a quoted key unquoted, the map's other variables left out."""
-    root = new_root("check-public-routes-")
-    other = "map $uri $other {\n    default x;\n}\n"
-    write(root, "http.conf", other + 'map $uri $referrer_policy {\n    "~^/new/" no-referrer;\n    /new no-referrer;\n    default y;\n}\n')
-
-    assert routes.map_entries(root / "http.conf", "$referrer_policy") == (("~^/new/", "no-referrer"), ("/new", "no-referrer"), ("default", "y"))
-    assert routes.map_entries(root / "http.conf", "$absent") == ()
-
-
-def test_a_referrer_map_entry_this_reader_cannot_resolve_refuses():
-    """`hostnames` changes how every key matches, and an included file holds entries unread."""
-    root = new_root("check-public-routes-")
-    write(root, "http.conf", "map $uri $referrer_policy {\n    hostnames;\n    default y;\n}\n")
-
-    with pytest.raises(routes.NginxSyntax, match="hostnames"):
-        routes.map_entries(root / "http.conf", "$referrer_policy")
-
-
-CEILING = "        limit_conn conn 50;\n"
-ACTION_ZONE = "        limit_req zone=action burst=30 nodelay;\n"
-ACTION_CATCH_ALL = block("location /", CEILING, ACTION_ZONE, PASS)
-RAISED_ZONE = ACTION_ZONE.replace("burst=30 ", "burst=31 ")
-AUTH_ZONE = "        limit_req zone=authapi burst=10 nodelay;\n"
-
-
-def loosened(*blocks: str, app: Path | None = None) -> list:
-    """What the carved-out meter rule says about the blocks given beside the catch-all metering actions."""
-    return routes.loosened(accounting(app, served(*blocks, ACTION_CATCH_ALL)))
-
-
-@pytest.mark.parametrize(
-    ("lines", "lacking"),
-    [
-        ((CEILING,), "`limit_req zone=action burst=30 nodelay`"),
-        ((ACTION_ZONE,), "`limit_conn conn 50`"),
-        ((CEILING, RAISED_ZONE), "`limit_req zone=action burst=30 nodelay`"),
-    ],
-    ids=["no-action-zone", "no-ceiling", "a-raised-burst"],
-)
-def test_a_page_s_location_lacking_a_line_of_the_catch_all_s_meter_is_a_finding(lines, lacking):
-    """Next runs a server action at any page's path, so a block lacking either line is where a script posts past it."""
-    findings = loosened(block("location /new/", *lines, PASS))
-
-    assert len(findings) == 1
-    assert f"`location /new/` is carved out of `location /` and lacks its {lacking}" in details(findings)
-
-
-def test_an_exact_match_carved_out_of_a_handler_s_prefix_owes_the_prefix_s_zone():
-    """The prefix's handler answers the path, so the exact match meters it as the prefix does, a zone of its own beside."""
-    app = tree("/api/auth/[...all]")
-    prefix_block = block("location /api/auth", AUTH_ZONE, PASS)
-
-    assert loosened(prefix_block, block("location = /api/auth/code", AUTH_ZONE, ZONE, PASS), app=app) == []
-
-    findings = loosened(prefix_block, block("location = /api/auth/code", ZONE, PASS), app=app)
-
-    assert len(findings) == 1
-    assert "carved out of `location /api/auth` and lacks its `limit_req zone=authapi burst=10 nodelay`" in details(findings)
-
-
-def test_a_location_the_ceiling_is_recorded_not_to_bound_still_owes_the_action_zone():
-    """The record lifts the ceiling alone."""
-    assert loosened(block("location /_next/static/", ACTION_ZONE, PASS)) == []
-
-    findings = loosened(block("location /_next/static/", PASS))
-
-    assert len(findings) == 1
-    assert "lacks its `limit_req zone=action burst=30 nodelay`\n" in details(findings)
-
-
-@pytest.mark.parametrize(
-    ("blocks", "said"),
-    [
-        ((block("location = /new", RAISED_ZONE, PASS), CATCH_ALL.replace(CEILING, "")), "meters nothing"),
-        ((ACTION_CATCH_ALL,), "no location but"),
-    ],
-    ids=["a-catch-all-metering-nothing", "no-page-s-location-beside-it"],
-)
-def test_the_carved_out_meter_rule_judging_nothing_refuses(blocks, said):
-    """No meter to hold a page's location to, or no page's location to hold, would otherwise read as none loosened."""
-    with pytest.raises(routes.NothingJudged, match=said):
-        routes.loosened(accounting(where=served(*blocks)))
 
 
 def test_a_catch_all_segment_stops_the_static_head():
@@ -524,27 +320,19 @@ def test_a_regex_holding_an_escaped_quote_stays_inside_its_string():
     assert len(tree_of[0].block) == 2
 
 
-# The http level and the link block a clean run needs, every rule having something to judge: the
-# link zone declared, a link page's block discarding its error lines, the referrer withheld from it,
-# and the catch-all metering server actions.
-HTTP_CONF = (
-    "limit_req_zone $client_net zone=linkpage:10m rate=30r/m;\n"
-    "map $uri $referrer_policy {\n    /new no-referrer;\n    default strict-origin-when-cross-origin;\n}\n"
-)
+# The http level beside the server body, which the reader opens for the maps an `error_page` sends through.
+HTTP_CONF = "limit_req_zone $client_net zone=bewerbung:10m rate=6r/m;\n"
 CHECKER = REPO_ROOT / "scripts" / "checks" / "check_public_routes.py"
 
 
 def clean(*blocks: str) -> str:
     """The server body every rule passes over `clean_tree`, the blocks given beside its own."""
-    link = block("location = /new", CEILING, "        limit_req zone=linkpage burst=40 nodelay;\n", ACTION_ZONE, DISCARDED, PASS)
-    return "server {\n" + METERED + link + "".join(blocks) + ACTION_CATCH_ALL + "}\n"
+    return "server {\n" + METERED + "".join(blocks) + CATCH_ALL + "}\n"
 
 
 def clean_tree() -> Path:
-    """A route handler and a link page, each with the location `clean` gives it."""
-    app = link_page("/new")
-    write(app, "api/bewerbung/route.ts", HANDLER)
-    return app
+    """A route handler with the location `clean` gives it."""
+    return tree("/api/bewerbung")
 
 
 def run_checker(app: Path, text: str | bytes, *, tree: Path | None = None) -> subprocess.CompletedProcess[str]:
@@ -572,7 +360,7 @@ def test_a_clean_pair_exits_zero():
     done = run_checker(clean_tree(), clean())
 
     assert done.returncode == 0, done.stdout + done.stderr
-    assert "1 route handler(s) accounted for" in done.stdout and "1 link page(s) on the link pages' zone" in done.stdout, done.stdout
+    assert "1 route handler(s) accounted for" in done.stdout, done.stdout
 
 
 def test_a_finding_fails_the_run():
@@ -584,19 +372,6 @@ def test_a_finding_fails_the_run():
 
     assert done.returncode == 1, done.stdout + done.stderr
     assert failures(done) == [f"FAIL    app/api/example/route.ts answers /api/example, and no location in {SOURCE} names it"]
-
-
-def test_a_rule_that_judged_nothing_exits_two():
-    """A refusal collapsed into a failure, or into a pass, sends a reader to the wrong repair.
-
-    A tree with no link page leaves the link rules nothing to judge.
-    """
-    app = tree("/api/bewerbung")
-
-    done = run_checker(app, clean())
-
-    assert done.returncode == routes.EXIT_REFUSED, done.stdout + done.stderr
-    assert "A rule found nothing to judge, so this is a refusal rather than a pass." in done.stderr, done.stderr
 
 
 def test_a_construct_it_cannot_parse_exits_two():

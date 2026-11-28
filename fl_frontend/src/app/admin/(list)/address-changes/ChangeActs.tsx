@@ -1,18 +1,15 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useState } from "react";
 
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 import { discardChange } from "@/features/address-change/actions";
 import { ConfirmDialog } from "@/kit/ConfirmDialog";
+import { usePressAct } from "@/kit/PressAct";
 import { SideActs } from "@/kit/SideActs";
-import { toastAnswer } from "@/kit/Toast";
-import { answering } from "@/kit/useFormAction";
 import { usePasskeyTouch } from "@/kit/usePasskeyTouch";
 
 import { resendChangeLink } from "./addressChangeActs";
-import { changeActKinds } from "./changeActKinds";
 
 import type { Fact } from "@/kit/Facts";
 import type { SideAct } from "@/kit/SideActs";
@@ -23,10 +20,10 @@ import type { SideAct } from "@/kit/SideActs";
  * line; and its ending, asked once, naming both addresses and whom it mails: „Zurückziehen“ in the wait, as Administratoren
  * says of the same record, and „Verwerfen“ before it, in the danger hue of every destroying act.
  *
- * Both are side acts of the row (`SideActs`), as `changeActKinds` lists them, in the form the list decides: their
- * labelled buttons in a wide box, and the entries of one „⋯“ in a narrow one. The fresh link runs from its entry's own press, which is the press the
- * touch is asked from; the ending's question is held here and opened by its entry or its button, and its own final
- * press asks the touch.
+ * Both are side acts of the row (`SideActs`), the fresh link first, in the form the list decides: their labelled
+ * buttons in a wide box, and the entries of one „⋯“ in a narrow one. The fresh link runs from its entry's own
+ * press, which is the press the touch is asked from; the ending's question is held here and opened by its entry or its
+ * button, and its own final press asks the touch.
  */
 export function ChangeActs({
   id,
@@ -42,36 +39,30 @@ export function ChangeActs({
   /** The address the page was drawn for, which the touch and each act post. */
   holder: string;
 }) {
-  const router = useRouter();
   const touched = usePasskeyTouch(true, holder);
-  const [isSending, startSending] = useTransition();
+  const resend = usePressAct(COPY.shared.toast.linkSent);
   const [isAsking, setAsking] = useState(false);
-  // The ending runs after its question closed, so its button or the row's „⋯“ shows it running.
-  const ending = useTransition();
-  const [isEnding] = ending;
 
   const send: SideAct = {
-    label: COPY.shared.withObject(COPY.account.address.link, "send"),
-    isBusy: isSending,
-    onPress: () =>
-      startSending(async () => {
-        toastAnswer(await answering(touched(resendChangeLink), router.refresh)({ address_change_id: id, holder }), COPY.shared.toast.linkSent);
-      }),
+    label: COPY.shared.withObject(COPY.shared.link, "send"),
+    isBusy: resend.isBusy,
+    onPress: () => resend.press(() => touched(resendChangeLink)({ address_change_id: id, holder })),
   };
-  const end: SideAct = { label: COPY.shared.verb[verb], tone: "danger", isBusy: isEnding, onPress: () => setAsking(true) };
+  const end: SideAct = { label: COPY.shared.verb[verb], tone: "danger", onPress: () => setAsking(true) };
 
   return (
-    <SideActs acts={changeActKinds(resends).map((kind) => ({ send, end })[kind])}>
+    <SideActs acts={resends ? [send, end] : [end]}>
       <ConfirmDialog
-        verb={verb}
-        subject={COPY.account.address.change}
-        consequence={COPY.admin.addressChange.previousStays}
-        facts={facts}
-        tone="danger"
+        question={{
+          verb,
+          subject: COPY.shared.addressChange.change,
+          consequence: COPY.shared.addressChange.previousStays,
+          facts,
+          tone: "danger",
+        }}
         touch={{ holder }}
         onConfirm={() => discardChange({ id, holder })}
         open={{ isOpen: isAsking, onOpenChange: setAsking }}
-        transition={ending}
       />
     </SideActs>
   );

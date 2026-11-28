@@ -2,7 +2,7 @@
 
 import { catchError } from "next/error";
 
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 import { useReportClientCrash } from "@/shared/hooks/useReportClientCrash";
 
 import { RailFrame } from "./RailFrame";
@@ -12,36 +12,37 @@ import type { Route } from "next";
 import type { ErrorInfo } from "next/error";
 import type { RailGroup } from "./FrameNav";
 import type { RailPageHead } from "./RailFrame";
-import type { StatusCardProps } from "./StatusCard";
 
 /** One read for every render, which `use` would otherwise meet as a new promise each time and wait on afresh. */
 const NOBODY = Promise.resolve(null);
 
 /**
- * What a failed frame is drawn again with: its menu, its way back where the area has its own, and the card's way on,
- * which resolves the scope the person works in. `signIn` is a public frame's foot, where nobody is signed in.
+ * What a failed frame is drawn again with: its menu and its way back where the area has its own. `signIn` is a public
+ * frame's foot, where nobody is signed in.
  */
 type FailedFrame = {
   groups: ReadonlyArray<RailGroup>;
   bar: Parameters<typeof RailFrame>[0]["bar"];
-  next: StatusCardProps["next"];
   back?: Route;
   signIn?: Route;
 };
 
-/** The error card in the rail form, as an area's `error.tsx` draws it, its title in the strip, its one way on. */
-function RailError({ error, next, scope }: { error: unknown; next: StatusCardProps["next"]; scope: RailPageHead["scope"] }) {
+/**
+ * The error card in the rail form, its title in the strip, its retry: the one card of every rail frame's failure, this
+ * boundary's and each area's `error.tsx`, inside the frame's band and bar.
+ */
+export function RailError({ error, retry, scope }: { error: unknown; retry: () => void; scope: RailPageHead["scope"] }) {
   useReportClientCrash(error);
   return (
     <StatusPage
       scope={scope}
       title={COPY.shared.failure.unexpected}
-      card={{ tone: "danger", next }}
+      card={{ tone: "danger", next: { retry } }}
     />
   );
 }
 
-function FrameFailure({ groups, bar, next, back, signIn }: FailedFrame, { error }: ErrorInfo) {
+function FrameFailure({ groups, bar, back, signIn }: FailedFrame, { error, retry }: ErrorInfo) {
   // Drawn again without the reads that failed: no season and no account, so nothing in it can fail the same way.
   return (
     <RailFrame
@@ -51,7 +52,7 @@ function FrameFailure({ groups, bar, next, back, signIn }: FailedFrame, { error 
       foot={signIn === undefined ? { kind: "account", account: NOBODY } : { kind: "signIn", href: signIn }}>
       <RailError
         error={error}
-        next={next}
+        retry={retry}
         scope={signIn === undefined ? "area" : "saison"}
       />
     </RailFrame>

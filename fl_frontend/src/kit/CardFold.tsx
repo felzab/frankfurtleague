@@ -18,8 +18,7 @@ import type { ReactNode } from "react";
  * because a heading inside `<summary>` is not exposed as a heading in every browser and reader. A folded
  * body stays in the document as `hidden="until-found"`, which a browser's find on the page opens. It starts
  * folded on every screen, or open where `open` says the card is what the page is for, so the server's markup is its
- * first frame everywhere. Its head carries no chip, which stands in a plain card's head alone, and its body holds rows:
- * the folded tables of a read page and of Administratoren.
+ * first frame everywhere. Its head carries no chip, which stands in a plain card's head alone.
  */
 export function CardFold({ title, count, open, children }: { title: Words; count?: number; open?: true; children: ReactNode }) {
   const s = card({ body: "rows", fold: true });

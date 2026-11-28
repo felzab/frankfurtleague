@@ -1,18 +1,18 @@
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 import { ROUTES } from "@/core/routes";
 
-import { ClassicTitle } from "./ClassicPage";
+import { ClassicTitle, PageHead } from "./ClassicPage";
 import { Facts } from "./Facts";
 import { Link } from "./Link";
-import { linkInvalid } from "./mailedLinkState";
 import { OneShotEnd, OneShotForm } from "./OneShot";
 import { ClassicStatusPage } from "./StatusCard";
 
-import type { Copy } from "@/core/copy";
+import type { BoxRules } from "@/core/boxRules";
+import type { Copy, TextLink } from "@/core/copy";
 import type { ReactNode } from "react";
 import type { Fact } from "./Facts";
-import type { EndState, OneShotAction, OneShotActs } from "./OneShot";
-import type { StatusCardProps } from "./StatusCard";
+import type { EndState, OneShotActs, OneShotRun } from "./OneShot";
+import type { WayOn } from "./StatusCard";
 
 // The end a mailed page's answer reaches, handed on from the one-shot submit, which no page imports but this template.
 export type { EndState } from "./OneShot";
@@ -21,19 +21,40 @@ export type { EndState } from "./OneShot";
  * The way on from a mailed page to Konto's Anmeldung, where a change is started again and the deletion asked for:
  * every mailed end leading to Konto takes it.
  */
-export const TO_ACCOUNT = { label: COPY.shared.end.toAccount, href: ROUTES.accountSignIn.path() } as const satisfies StatusCardProps["next"];
+export const TO_ACCOUNT = { label: COPY.shared.end.toAccount, href: ROUTES.accountSignIn.path() } as const satisfies WayOn;
 
 /**
- * What a mailed page shows once its link is read, in one of four states, or an end of its own:
+ * What a mailed page shows once its link is read, the question or an end:
  *
  * - `question`: the question, opening on its act: a title, the facts the answer rests on, one sentence, the
  *   fields where the answer needs any, and the acts, sent once with the token the page carries, the main one
  *   behind the passkey touch where the act takes it; the answer replaces the page by the status template (the
- *   done state, worded by the server);
- * - `alreadyDone`: the link opened again, its title saying what the person did and when, with the one place to
- *   change it where there is one, on the danger tint where what they did was to decline;
- * - `invalid`: an expired, mistyped or tampered link alike, with the one sensible way on and no resend;
- * - `end`: an end the page names itself before any answer, as a deletion link opened signed out.
+ *   done state, worded by the server), or leads to a done page of its own where it forgets the link;
+ * - `end`: an end the page names before any answer, drawn by the status template: the link opened again, its title
+ *   saying what the person did and when, with the one place to change it where there is one, on the danger tint
+ *   where what they did was to decline; a link no longer valid (`linkInvalid`), with the one sensible way on and no
+ *   resend; or an end of the page's own, as a deletion link opened signed out.
+ *
+ * A press refused with a code naming an end, the record's or the link's, reaches an `end` state, never the stale-page
+ * line: where an answer stands, the first one forgot the link in that browser, so the page read again there would show
+ * the link no longer valid rather than the end. A code saying the link is spent or lapsed is about the link, so
+ * whatever stands behind it the press reaches the link no longer valid. A code saying that some end stands, without
+ * naming which, is classed by the link's view, read after the refusal: as the end the press asked where the view shows
+ * it, as another end where the view shows another, and as the link no longer valid where it shows none. A code saying
+ * the end the press asked already holds reaches that end's done page, which names the answer's kind; a confirmation's
+ * adds that the earlier choices stand (`SERVER_COPY.entryConfirmation.choicesKept`), since the record keeps the first
+ * press's choices rather than this one's, so the page stays true whichever press's choices are stored, as the contact
+ * person's, the referee's and the pupil's answers reach it. A code saying another end stands reaches the link opened
+ * again naming that end, read off the link's view where the code names neither and worded by the catalogue's `doneOn`,
+ * as `fl_frontend/src/app/(classic)/confirm/linkView.ts :: alreadyDone` composes it. The contact person's answer
+ * (`fl_frontend/src/app/(classic)/confirm/kontakt/answerKontakt.ts :: ended`) meets all three on
+ * `bewerbung_seat_already_answered`: the done page where the view shows the answer pressed, the link opened again where
+ * it shows the other, and the link no longer valid where it shows none. The address change's answer reaches the link no
+ * longer valid on every refusal, so its link tells its holder nothing of who holds an address.
+ *
+ * A press reaching its own act's end, or the link opened again, forgets the link in that browser (`forgetMailedLink`),
+ * as the privacy notice says of a link once used. One reaching the link no longer valid, or any other end, leaves the
+ * cookie to lapse within its hour, since that press used nothing the link holds.
  */
 export type MailedState =
   | {
@@ -44,18 +65,20 @@ export type MailedState =
       sentence?: Copy;
       /** A second sentence, a paragraph of its own under the first: how long the answer waits. */
       sentenceAfter?: Copy;
-      /** The words closing the sentence around the privacy notice's title, which stands between them as its link. */
-      more?: { before: Copy; after: Copy };
-      action: OneShotAction;
+      /** The words closing the sentence, around the privacy notice's link. */
+      more?: PrivacyMore;
+      run: OneShotRun;
+      /** What the browser's pass holds the fields to: the main act's lane's rules, read on the server (`boxRulesOf`). */
+      rules: BoxRules;
       acts: OneShotActs;
       /** What the form posts unseen beside its fields: the link's token. */
       carry: Readonly<Record<string, string>>;
-      /** The main act's press asks the passkey touch ahead of its action, for a person holding a passkey. */
-      touch?: boolean;
+      /** The main act's press asks the passkey touch for the address the page was drawn for, an administrator's. */
+      touch?: { holder: string };
       /** The bot check's public key, on a page no link's token admits. */
       botCheck?: { siteKey: string };
-      /** The field the form's replay key posts under, where a press whose answer was lost may have landed. */
-      replayField?: string;
+      /** The form posts a replay key, where a press whose answer was lost may have landed (`OneShotForm`'s `replays`). */
+      replays?: boolean;
       /** The fields stand in `Section` boxes, filling the column. */
       boxes?: boolean;
       /** A sentence the press rests on, at the footer's start beside the acts (`OneShotForm`'s `note`). */
@@ -65,24 +88,30 @@ export type MailedState =
       /** The answer's fields, the kit's, each with its `name`. */
       children?: ReactNode;
     }
-  | { state: "alreadyDone"; title: Copy; next: StatusCardProps["next"]; declined?: boolean }
-  | { state: "invalid"; next: StatusCardProps["next"] }
   | ({ state: "end" } & EndState);
 
-/** The page once its link is read. */
+type PrivacyMore = (link: TextLink) => readonly [Copy, TextLink, Copy];
+
+/** The sentence's close, after a space: the catalogue's words around the privacy notice's link. */
+function More({ more }: { more: PrivacyMore }) {
+  const [before, link, after] = more({ href: ROUTES.privacyNotice.path(), label: COPY.page.privacyNotice });
+  return (
+    <>
+      {" "}
+      {before}
+      <Link
+        href={link.href}
+        placement="text"
+        label={link.label}
+      />
+      {after}
+    </>
+  );
+}
+
 async function MailedBody({ page }: { page: Promise<MailedState> }) {
   const props = await page;
   switch (props.state) {
-    case "invalid":
-      return <ClassicStatusPage {...linkInvalid(props.next)} />;
-    case "alreadyDone":
-      return (
-        <ClassicStatusPage
-          tone={props.declined === true ? "danger" : "info"}
-          title={props.title}
-          next={props.next}
-        />
-      );
     case "end":
       return (
         <ClassicStatusPage
@@ -95,22 +124,20 @@ async function MailedBody({ page }: { page: Promise<MailedState> }) {
     case "question":
       return (
         <OneShotForm
-          action={props.action}
+          run={props.run}
+          rules={props.rules}
           acts={props.acts}
           carry={props.carry}
           touch={props.touch}
           botCheck={props.botCheck}
-          replayField={props.replayField}
+          replays={props.replays}
           boxes={props.boxes}
           note={props.note}
           describedBy={props.describedBy}
           head={
             <>
-              {/* A form of boxes holds its title on the page; a question holds it in its card. */}
-              <ClassicTitle
-                text={props.title}
-                place={props.boxes === true ? "page" : "card"}
-              />
+              {/* A form of boxes heads the page as every classic page does; a question holds its title in its card. */}
+              {props.boxes === true ? <PageHead title={props.title} /> : <ClassicTitle text={props.title} />}
               {props.facts !== undefined && props.facts.length > 0 && (
                 <Facts
                   facts={props.facts}
@@ -120,18 +147,7 @@ async function MailedBody({ page }: { page: Promise<MailedState> }) {
               {props.sentence !== undefined && (
                 <p className="text-base">
                   {props.sentence}
-                  {props.more !== undefined && (
-                    <>
-                      {" "}
-                      {props.more.before}
-                      <Link
-                        href={ROUTES.privacyNotice.path()}
-                        placement="text"
-                        label={COPY.page.privacyNotice}
-                      />
-                      {props.more.after}
-                    </>
-                  )}
+                  {props.more !== undefined && <More more={props.more} />}
                 </p>
               )}
               {props.sentenceAfter !== undefined && <p className="text-base">{props.sentenceAfter}</p>}

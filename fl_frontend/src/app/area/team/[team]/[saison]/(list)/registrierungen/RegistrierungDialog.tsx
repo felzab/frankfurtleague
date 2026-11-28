@@ -1,10 +1,10 @@
 "use client";
 
-import { COPY } from "@/core/copy";
+import { AREA_COPY } from "@/core/copy/area";
+import { COPY } from "@/core/copy/shared";
 import { Dialog } from "@/kit/Dialog";
 import { Facts } from "@/kit/Facts";
 import { RadioGroup } from "@/kit/RadioGroup";
-import { appToast } from "@/kit/Toast";
 
 import { admitRegistrierung, declineRegistrierung } from "./decideRegistrierung";
 
@@ -13,10 +13,10 @@ import type { Copy } from "@/core/copy";
 import type { Fact } from "@/kit/Facts";
 import type { HeldOpen } from "@/kit/useOpenUntilHidden";
 
-const WORDS = COPY.area.team.registrierung;
+const WORDS = AREA_COPY.team.registrierung;
 
-/** The registration a dialog decides, at the team and season the page stands at, which every press claims its seat on. */
-export type Decided = { team_id: string; saison_id: string; registrierung_id: string };
+/** The registration a dialog decides, whose own team the backend judges the seat against. */
+type Decided = { registrierung_id: string };
 
 /**
  * What „Aufnehmen“ does: nothing, with its reason, while the registration cannot be admitted; at once, into the stored
@@ -34,17 +34,20 @@ const SAME = "same";
 const OTHER = "other";
 
 /**
- * „Aufnehmen“ as the entry's admission says: an admission done says „Aufgenommen“, and a wrong one is
- * undone in the Kader by „Austragen“; where the team is asked, the other person's answer declines the registration, and
- * the pupil's mail asks them to register under an address of their own.
+ * „Aufnehmen“ as the entry's admission says: an admission done says „Aufgenommen“ in the dialog's toast, and a wrong
+ * one is undone in the Kader by „Austragen“; where the team is asked, the other person's answer declines the
+ * registration, which its toast says, and the pupil's mail asks them to register under an address of their own.
  */
 async function admitted({ decided, admission }: RegistrierungEntry, formData: FormData): Promise<ActionAnswer> {
   // The locked act sends nothing; the reason answers all the same should a press reach here.
   if (admission.kind === "locked") return { ok: false, reason: admission.reason };
-  if (admission.kind === "asks" && formData.get("answer") === OTHER) return declineRegistrierung({ ...decided, reason: "other_person" });
-  const answer = await admitRegistrierung({ ...decided, spieler_id: admission.spieler_id });
-  if (answer.ok) appToast("success", COPY.shared.toast.admitted);
-  return answer;
+  if (admission.kind === "asks" && formData.get("answer") === OTHER) {
+    const declined = await declineRegistrierung({ ...decided, reason: "other_person" });
+    // The dialog's act is „Aufnehmen“, whose done word would name the act this answer did not do: the decline's own
+    // word stands in, and closes itself as the „Ablehnen“ row's does.
+    return declined.ok ? { ...declined, done: COPY.shared.toast.done.decline } : declined;
+  }
+  return admitRegistrierung({ ...decided, spieler_id: admission.spieler_id });
 }
 
 /**
@@ -61,7 +64,9 @@ export function RegistrierungDialog({ entry, open }: { entry: RegistrierungEntry
       title={{ record: name }}
       {...(notes === undefined ? {} : { lead: notes })}
       act={{ verb: "admit" }}
-      action={(formData) => admitted(entry, formData)}
+      run={(formData) => admitted(entry, formData)}
+      // Its one box, the same-person answer, is the dialog's own, which no lane reads: it always holds a choice.
+      rules={{}}
       {...(admission.kind === "locked" ? { locked: admission.reason } : {})}
       open={open}
       danger={{

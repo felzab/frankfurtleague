@@ -4,7 +4,6 @@ import { tv } from "./tv";
 
 import type { Copy } from "@/core/copy";
 
-/** One practical fact: what it is about, and its one sentence. */
 type Info = { title: Copy; text: Copy };
 
 const cards = tv({
@@ -16,10 +15,6 @@ const cards = tv({
   },
 });
 
-/**
- * Small cards of practical facts, each a label over one sentence: on the landing, under the season's line. Three side
- * by side from 42 rem of the block's own width, one under another below it.
- */
 export function InfoCards({ items }: { items: readonly [Info, Info, Info] }) {
   const slots = cards();
   return (

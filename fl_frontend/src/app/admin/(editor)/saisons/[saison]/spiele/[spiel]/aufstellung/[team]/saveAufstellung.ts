@@ -3,13 +3,13 @@
 import { z } from "zod";
 
 import { action } from "@/core/action";
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 import { aufstellungenPutAufstellung } from "@/core/generated/client/sdk";
 import { AufstellungenPutAufstellungBody, AufstellungenPutAufstellungParams } from "@/core/generated/zod/inputs";
 import { entriesOf, refusedRows } from "@/features/aufstellungen/payload";
 import { getAufstellung } from "@/features/aufstellungen/queries";
 
-import type { ActionAnswer } from "@/core/action";
+import type { LaneAnswer } from "@/core/action";
 
 // A pupil's id: the editor names pupils alone, and the stored entries naming nobody go back as stored.
 const ids = AufstellungenPutAufstellungBody.shape.spieler.element.shape.spieler_id.options[0];
@@ -32,15 +32,7 @@ export const saveAufstellung = action({
   lane: "admin",
   name: "saveAdminAufstellung",
   input: SaveAufstellung,
-  ownWords: [
-    // The fixture lost its day or hour since the page was read, or a nominee stands beside eleven others, which the
-    // block marks on the nominee's row and leaves the person to take out.
-    "aufstellung_spiel_undated",
-    "aufstellung_nominee_without_shortage",
-    // The season finished since the page was read, whose line-ups the write refuses whole.
-    "saison_past",
-  ],
-  run: async ({ team_id, id, version, changes }): Promise<ActionAnswer<number>> => {
+  run: async ({ team_id, id, version, changes }): Promise<LaneAnswer<number>> => {
     const stored = await getAufstellung(id, team_id);
     if (stored === null) return { ok: false, reason: COPY.shared.failure.stale };
 

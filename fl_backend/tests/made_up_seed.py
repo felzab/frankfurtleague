@@ -8,9 +8,9 @@ and players pages and the access pages draw:
 
 - a finished season: every fixture played, the match for third place among them, the final decided on penalties;
 - the running season: a played matchday holding a forfeit, today's matchday holding a played, an open and a cancelled
-  fixture, next week's matchday holding a stored line-up and owed ones, and a knockout round drawn, its fixtures undated and not yet
-  decided; its registration links open past the window's end, two squads at their cap, one beside a nominee and a retired
-  nominee, and a departed club with an open fixture and a live link;
+  fixture and one tomorrow, next week's matchday holding a stored line-up and owed ones, and a knockout round drawn, its
+  fixtures undated and not yet decided; its registration links open past the window's end, two squads at their cap, one
+  beside a nominee and a retired nominee, and a departed club with an open fixture and a live link;
 - a planned season: its application window open today, one group full and the others with room, and applications whose
   seats stand in every state;
 - venues with and without rent, one retired and one with a name long enough to test a row's width; referees, every one
@@ -18,7 +18,7 @@ and players pages and the access pages draw:
 - one club's confirmed Trainer, whose decline proposes another day for next week's fixture, standing on the Übersicht for
   „Übernehmen“ and „Verwerfen“;
 - the signed-in areas: a seat whose club holds a stored line-up, a locked one, an agreed date and several registrations,
-  and Birke's Trainer holding a declined date and, until today's match 7 kicks off, an expired one beside a club with no
+  and Birke's Trainer holding a declined date and, until tomorrow's match 7 kicks off, an expired one beside a club with no
   registration; referees with a booking to answer, one agreed until its kick-off today, a report owed and one adopted; a
   captain and a Co-Kapitän; a pupil with a finished season beside the running one; and a person granted no page, one
   unconfirmed and one waiting on the club;
@@ -128,7 +128,7 @@ from tests.documents import (
 )
 
 # The seasons, people, clubs, fixtures and links the journeys type, read by them too.
-# Its `club` and `squadded` keys are the journeys' option names, so they follow the frontend's names, not `team` and `kader`.
+# Its `team` and `kaderPupil` keys are the journeys' option names, so they follow the frontend's names.
 PEOPLE: Final[Mapping[str, Any]] = json.loads(Path(__file__).with_name("made_up_people.json").read_text(encoding="utf-8"))
 PROJECTS: Final[Sequence[Mapping[str, Any]]] = (PEOPLE["projects"]["desktop"], PEOPLE["projects"]["phone"])
 FINISHED: Final[str] = PEOPLE["seasons"]["finished"]
@@ -247,7 +247,7 @@ AHORN_KADER: Final = (
 )
 
 # Ulme's squad, the phone's contact seat's line-up to enter, at the cap as Ahorn's is; and Kastanie's beside Lena, the
-# club's line-up for match 10. No name holds either `squadded` pupil's, whom the administration's journey opens by a link
+# club's line-up for match 10. No name holds either `kaderPupil` pupil's, whom the administration's journey opens by a link
 # whose name holds theirs.
 ULME_KADER: Final = (
     ("Anton", "Umbach"),
@@ -473,11 +473,10 @@ class MadeUpLeague:
             unanswered("Elif Engin", "Weide-Gymnasium", 20, "elif.engin@example.com"),
             *self.booked_referees,
             # The journeys' own: each project's account acts, in their order (the person signed in on a second device, the
-            # one whose address changes, the one who deletes the account), then the desktop passkey journeys' and the
-            # access journeys' (the person banned, the one whose address the administrator's change starts on, the one
-            # erased, and the one whose change stands on the list).
+            # one whose address changes, the one who deletes the account), then the access journeys' (the person banned, the
+            # one whose address the administrator's change starts on, the one erased, and the one whose change stands on the
+            # list).
             *(person(project[role]) for project in PROJECTS for role in ("twoDevices", "mover", "leaver")),
-            *(person(entry) for entry in PEOPLE["passkeys"].values()),
             *(person(PEOPLE["access"][role]) for role in ("banned", "mover", "erased", "changing")),
         ]
 
@@ -501,6 +500,7 @@ class MadeUpLeague:
             # The holder whose own address change waits (`holder_change`).
             grant_document(administrators["moving"], "administration", effective_from=self.in_effect),
             grant_document(administrators["banning"], "administration", effective_from=self.in_effect),
+            grant_document(administrators["seat"], "administration", effective_from=self.in_effect),
             grant_document(administrators["access"], "administration", effective_from=self.in_effect),
         ]
 
@@ -647,15 +647,17 @@ class MadeUpLeague:
                     }
                 case 4:
                     return {"date": self.day(-13), "time": "16:30:00", "booking": booking, "tore": (1, 3)}
-                # Matchday 2, running across today: played yesterday, still to come today, and called off. A match takes its
-                # report from its kick-off (`is_played`), so the played one kicks off on a day already gone, and the phone's
-                # booked referee owes its report whatever hour the seed is loaded at.
+                # Matchday 2, running across today: played yesterday, still to come today, called off, and still to come
+                # tomorrow. A match takes its report from its kick-off (`is_played`), so the played one kicks off on a day
+                # already gone, and the phone's booked referee owes its report whatever hour the seed is loaded at.
                 case 5:
                     return {"date": self.day(-1), "time": "09:30:00", "booking": self.booked(2, phone), "tore": (1, 2)}
                 case 6:
                     return {"date": self.day(0), "time": "16:00:00", "booking": booking}
+                # The phone's departing fixture, on a day still to come, so the exit tells Birke of it whatever hour the
+                # seed is loaded at: a notice lists only a fixture before its kick-off (`austritt_notices_of`).
                 case 7:
-                    return {"date": self.day(0), "time": "17:30:00", "booking": booking}
+                    return {"date": self.day(1), "time": "17:30:00", "booking": booking}
                 case 8:
                     return {"date": self.day(0), "time": "11:00:00", "booking": booking, "sonderereignis": "ausgefallen"}
                 # Matchday 3, next week. Group A's two are the coming fixtures the journeys' contact seats and booked
@@ -699,14 +701,19 @@ class MadeUpLeague:
         self.running.saison["registrierung"] = {"open": True, "end": self.day(-36)}
 
         # Each journey's fixtures are the ones set up for it above, its contact's and its booked referee's coming one the
-        # same, its departing club's fixture still to play.
+        # same, its departing club's fixture still to play on a later day: a notice lists only a fixture before its
+        # kick-off, so one dated today would drop off it once the seed is loaded past that hour.
         for project, played, coming in zip(PROJECTS, (2, 5), (9, 10), strict=True):
             self.expect_fixture(project["booked"]["played"], played)
             self.expect_fixture(project["booked"]["coming"], coming)
             self.expect_fixture(project["contact"]["fixture"], coming)
             departing = self.running.number_of(project["departing"]["fixture"])
-            if departing is None or self.running.spiel(departing)["ergebnis"] is not None:
-                raise ValueError(f"the journeys' departing fixture {project['departing']['fixture']} is no open fixture of the running season")
+            spiel = None if departing is None else self.running.spiel(departing)
+            if spiel is None or spiel["ergebnis"] is not None or (spiel["date"] is not None and spiel["date"] <= self.today):
+                raise ValueError(
+                    f"the journeys' departing fixture {project['departing']['fixture']} is no fixture of the running season, is played,"
+                    " or is dated today or earlier"
+                )
         # The Spielplan's journey opens the first matchday's first match and reads its result, the match editor moves the
         # kick-off of today's match alone at its venue and with its referee, and the first pass lifts the booking of the
         # disqualified club's fixture still to play.
@@ -812,7 +819,7 @@ class MadeUpLeague:
         notice reaches.
         """
 
-        if team_name in {project["departing"]["club"] for project in PROJECTS}:
+        if team_name in {project["departing"]["team"] for project in PROJECTS}:
             raise ValueError(f"{team_name} holds a journey's seat and departs in another journey")
         self.running.row(team_name).update(
             self.row_seats(
@@ -858,17 +865,17 @@ class MadeUpLeague:
         # registering through the club's link. Kastanie's Ansprechperson is no journey's: the person a drive of the team's
         # pages signs in as, the club holding a stored line-up, a locked one, an agreed date and several registrations.
         for project in PROJECTS:
-            self.journey_seat(project["contact"]["club"], project["contact"]["trainer"])
+            self.journey_seat(project["contact"]["team"], project["contact"]["trainer"])
         contact = PEOPLE["others"]["contact"]
         desktop_registering, phone_registering = (project["registering"] for project in PROJECTS)
-        if desktop_registering["club"] != "Kastanie":
+        if desktop_registering["team"] != "Kastanie":
             raise ValueError(
-                f"the desktop's registration journey names {desktop_registering['club']}, where the seed seats its Ansprechperson at Kastanie"
+                f"the desktop's registration journey names {desktop_registering['team']}, where the seed seats its Ansprechperson at Kastanie"
             )
         self.journey_seat(
             "Kastanie", desktop_registering["admitter"], self.confirmed_seat(contact["first_name"], contact["last_name"], contact["address"])
         )
-        self.journey_seat(phone_registering["club"], phone_registering["admitter"])
+        self.journey_seat(phone_registering["team"], phone_registering["admitter"])
 
     # --- The confirmations a fixture's parties owe ----------------------------------------------------------------
 
@@ -915,16 +922,16 @@ class MadeUpLeague:
             request
             for project, nr in zip(PROJECTS, (9, 10), strict=True)
             for request in (
-                self.request(running.spiel(nr), self.team_party(project["contact"]["club"]), -12),
+                self.request(running.spiel(nr), self.team_party(project["contact"]["team"]), -12),
                 self.request(running.spiel(nr), self.schiedsrichter_of(running.spiel(nr)), -12),
             )
         ]
 
         # Each a state a person's own page shows, no journey's: Kastanie's agreement on match 10, which is why the first pass
-        # asks it nothing; Birke's request about today's match 7, unanswered past its deadline a week ago, which the first
-        # pass after its 17:30 kick-off closes, taking it off Birke's Übersicht; and two referees' bookings, Carla Conrad's
-        # on match 11 still to answer and Anna Ahrens's on today's match 6 agreed, which her list shows until the 16:00
-        # kick-off and as the report owed from then.
+        # asks it nothing; Birke's request about tomorrow's match 7, unanswered past its deadline six days ago, which the
+        # first pass after tomorrow's 17:30 kick-off closes, taking it off Birke's Übersicht; and two referees' bookings,
+        # Carla Conrad's on match 11 still to answer and Anna Ahrens's on today's match 6 agreed, which her list shows until
+        # the 16:00 kick-off and as the report owed from then.
         kastanie_agreed = compose_answer_update(answer="agreed", seat="ansprechperson", vorschlag=None, reason=None, today=self.day(-5))
         referee_agreed = compose_schiedsrichter_answer_update(answer="agreed", reason=None, today=self.day(-15))
         stated_requests = [
@@ -984,7 +991,7 @@ class MadeUpLeague:
         )
 
     def _kader_rows(self) -> None:
-        mia, desktop, phone = PEOPLE["others"]["pupil"], *(project["squadded"] for project in PROJECTS)
+        mia, desktop, phone = PEOPLE["others"]["pupil"], *(project["kaderPupil"] for project in PROJECTS)
         self.mia = self.pupil(mia["first_name"], mia["last_name"], email=mia["address"])
         self.jonas = self.pupil(desktop, "Ahornberg")
         self.lena = self.pupil(phone, "Kastner")
@@ -1034,10 +1041,10 @@ class MadeUpLeague:
         }
         for project in PROJECTS:
             registering = project["registering"]
-            invitation = self.invitations.get(registering["club"])
+            invitation = self.invitations.get(registering["team"])
             if invitation is None or invitation["token_hashes"] != [hash_token(registering["token"])]:
                 raise ValueError(
-                    f"the registration journey opens {registering['token']}, which is no link the seed mints for {registering['club']}"
+                    f"the registration journey opens {registering['token']}, which is no link the seed mints for {registering['team']}"
                 )
 
         def registration(
@@ -1086,7 +1093,7 @@ class MadeUpLeague:
                 registration(
                     self.pupil(project["contact"]["pupil"]["first_name"], project["contact"]["pupil"]["last_name"], -1),
                     -2,
-                    team_name=project["contact"]["club"],
+                    team_name=project["contact"]["team"],
                     confirmed=True,
                 )
                 for project in PROJECTS
@@ -1118,8 +1125,8 @@ class MadeUpLeague:
         ]
 
         # Both clubs' for match 1; Kastanie's alone, four starters short of a side, for match 10 next week, whose other club,
-        # the phone's contact seat's, has entered none, as Ahorn, the desktop's, has entered none for match 9; and none for
-        # today's matches still to come, each past the hour its line-up was due.
+        # the phone's contact seat's, has entered none, as Ahorn, the desktop's, has entered none for match 9; none for
+        # today's match 6, past the hour its line-up was due; and none for tomorrow's match 7, due today at 17:30.
         eleven = [self.mia, self.jonas, *self.ahorn[:9]]
 
         def ids(people: Sequence[Mapping[str, Any]]) -> list[Any]:
@@ -1375,7 +1382,7 @@ class MadeUpLeague:
         ]
         entered = {row["name"] for row in self.planned_rows}
         for project in PROJECTS:
-            for team_name in (project["applicants"]["declined"], project["entered"]["club"]):
+            for team_name in (project["applicants"]["declined"], project["entered"]["team"]):
                 if team_name in entered:
                     raise ValueError(f"a journey enters {team_name} into the planned season, which the seed has entered already")
 
@@ -1458,9 +1465,9 @@ class MadeUpLeague:
                 []
                 if self.first_year
                 else [
-                    logged(40, "system", "retention.kontakte", label=FINISHED, count=2),
-                    logged(30, "schiedsrichter", "spielbericht.saved", label=f"{FINISHED} / 1"),
-                    logged(20, "kontakt", "spielbestaetigung.answered", team=PEOPLE["access"]["loggedTeam"], label=FINISHED),
+                    logged(40, "system", "retention.kontakte", saison_id=FINISHED, count=2),
+                    logged(30, "schiedsrichter", "spielbericht.saved", saison_id=FINISHED, spiel_nr=1),
+                    logged(20, "kontakt", "spielbestaetigung.answered", team=PEOPLE["access"]["loggedTeam"], saison_id=FINISHED),
                 ]
             ),
             logged(10, PEOPLE["owner"], "grant.added", label=PEOPLE["administrators"]["waiting"]),

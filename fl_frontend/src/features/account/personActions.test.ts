@@ -1,5 +1,6 @@
 import { assert, beforeEach, describe, expect, it } from "vitest";
 
+import { SCHIEDSRICHTER_TEXT_VERSIONS, SEAT_TEXT_VERSIONS, SPIELER_TEXT_VERSIONS } from "@/core/consentWordings";
 import { ROUTES } from "@/core/routes";
 import { SITE_CACHE_TAG } from "@/core/siteCache";
 import {
@@ -13,6 +14,7 @@ import {
 } from "@/test-support/authDoubles";
 import { serveBackend } from "@/test-support/backend";
 import { cacheCalls, NEXT_CACHE_DOUBLE } from "@/test-support/nextRequest";
+import { posted } from "@/test-support/posted";
 import { answerAt, NO_RECORDS, SEAT } from "@/test-support/subjectFixtures";
 import { thrownRedirect } from "@/test-support/thrownRedirect";
 
@@ -69,14 +71,14 @@ const ERASURE_PATH = "/api/identity/self/erasure";
 const ADDRESS_CHANGE_PATH = "/api/account/address_change";
 const addressChanges: string[] = [];
 
-/** Every consent save that reached the backend, by its path. */
-const consentWrites: string[] = [];
+/** Every consent save that reached the backend, by its path, with the body it sent. */
+const consentWrites: { path: string; body: unknown }[] = [];
 
 serveBackend(({ method, path: endpoint, headers, body }) => {
   // Under the base path the client sends it on, as the cases spell every path they compare.
   const path = `/api${endpoint}`;
   if (path.endsWith("/einwilligung")) {
-    consentWrites.push(path);
+    consentWrites.push({ path, body });
     return {};
   }
   if (path === ERASURE_PATH) {
@@ -94,18 +96,8 @@ serveBackend(({ method, path: endpoint, headers, body }) => {
 });
 
 // Imported here rather than at the top: `vi.doMock` reaches only the modules imported after it.
-const {
-  eraseAccount,
-  requestErasure,
-  saveBewerbungConsent,
-  saveRegistrierungConsent,
-  saveSchiedsrichterConsent,
-  saveSeatConsent,
-  saveSpielerConsent,
-  signOutOthers,
-  withdrawAddressChange,
-} = await import("./personActions");
-const { COPY } = await import("@/core/copy");
+const { eraseAccount, requestErasure, saveConsent, signOutOthers, withdrawAddressChange } = await import("./personActions");
+const { COPY } = await import("@/core/copy/shared");
 const { SERVER_COPY } = await import("@/core/serverCopy");
 const { auth } = await import("@/core/auth/library");
 
@@ -143,6 +135,30 @@ const heldOf = (userId: string) => ({
   user: store.user.filter((user) => user.id === userId).length,
   passkeys: store.passkey.filter((passkey) => passkey.userId === userId).length,
 });
+
+/** A record's id and a choice's evidence as the backend serves them. */
+const RECORD = "64b000000000000000000003";
+const EVIDENCE = "9f2c4b1e6a7d3f08c5e2b9a41d6f7c3e8b0a5d2f9c4e1b7a6d3f0c8e5b2a9d4f";
+
+/** A kind's labels under the names its box posts them by. */
+const labelled = ({ scope, media }: { scope: string; media: string }) => ({ "text_versions.scope": scope, "text_versions.media": media });
+
+/**
+ * Every kind's box as its page draws the form: the kind and the record's ids, the evidence it was served, one choice's
+ * left out where the record holds none, the labels its words are drawn under, and both controls as they post.
+ */
+const BOXES: readonly Readonly<Record<string, string>>[] = [
+  { kind: "spieler", "evidence_state.scope": EVIDENCE, ...labelled(SPIELER_TEXT_VERSIONS), scope: "kader_public", media: "on" },
+  { kind: "registrierung", registrierung_id: RECORD, "evidence_state.media": EVIDENCE, ...labelled(SPIELER_TEXT_VERSIONS), scope: "internal" },
+  { kind: "schiedsrichter", schiedsrichter_id: RECORD, ...labelled(SCHIEDSRICHTER_TEXT_VERSIONS), scope: "internal", media: "on" },
+  { kind: "seat", team_id: RECORD, saison_id: "2026", "evidence_state.scope": EVIDENCE, ...labelled(SEAT_TEXT_VERSIONS), scope: "on" },
+  { kind: "bewerbung", bewerbung_id: RECORD, "evidence_state.scope": EVIDENCE, ...labelled(SEAT_TEXT_VERSIONS) },
+];
+
+/** A box's form as its press posts it, with the address its page was drawn for. */
+function postedBy(box: Readonly<Record<string, string>>, holder: string): FormData {
+  return posted({ ...box, holder });
+}
 
 /** Whether the library still holds the link's token, unspent. */
 const linkStands = (token: string) => store.verification.some((held) => held.identifier === `delete-account-${token}`);
@@ -187,8 +203,11 @@ describe("a person's own account deletion through the mailed link's page", () =>
     expect(heldOf(row.userId)).toStrictEqual({ user: 0, passkeys: 0 });
     expect(cacheCalls.filter(({ name }) => name === "updateTag").flatMap(({ args }) => args)).toStrictEqual([SITE_CACHE_TAG]);
     expect(deletedCookies, "the used link stayed in the browser for its hour").toStrictEqual([ERASURE_LINK_COOKIE]);
-    // Mailed nowhere, a person would never learn their account went.
-    expect(mail.owed.at(-1)?.data).toStrictEqual({ kind: "deletion_notice", saison_id: null });
+    // The person pressed this deletion and the done page says it went: the notice is owed only for one they did not press.
+    expect(
+      mail.owed.map(({ data }) => data.kind),
+      "the person's own deletion owed the notice of one they did not press",
+    ).not.toContain("deletion_notice");
   });
 
   it("refuses the league's owner before the link is spent, and deletes on the same link after a handover", async () => {
@@ -244,17 +263,32 @@ describe("the account's acts, behind the account's guard", () => {
     const { cookie } = await sessionByCode(auth, store, email);
     arriveAs(cookie);
 
-    for (const save of [saveSpielerConsent, saveSchiedsrichterConsent, saveRegistrierungConsent, saveSeatConsent, saveBewerbungConsent]) {
-      const posted = new FormData();
-      posted.set("holder", email);
-      expect(await save(posted)).toStrictEqual({ ok: false, reason: COPY.shared.failure.signInExpired });
+    for (const box of BOXES) {
+      expect(await saveConsent(postedBy(box, email)), `the ${String(box.kind)} box`).toStrictEqual({
+        ok: false,
+        reason: COPY.shared.failure.signInExpired,
+      });
     }
     expect(consentWrites, "the mailbox's session sent a consent save").toStrictEqual([]);
   });
 
+  // The control the refusal above stands on: the same forms reach every write from the session the guard admits.
+  it("takes every consent save the same administrator posts from their passkey session", async () => {
+    const email = "verwalterin-einwilligung@example.org";
+    HELD.set(email, { ...NO_RECORDS, admin_tier: "administration", granted_since: "2026-01-01T00:00:00Z", account: false });
+    const byPasskey = await sessionByCode(auth, store, email);
+    madeByPasskey(store, byPasskey.row);
+    arriveAs(byPasskey.cookie);
+
+    for (const box of BOXES) {
+      expect(await saveConsent(postedBy(box, email)), `the ${String(box.kind)} box`).toStrictEqual({ ok: true, value: undefined });
+    }
+    expect(consentWrites).toHaveLength(BOXES.length);
+  });
+
   /* A tab drawn for one account, the browser signed in as another since: the act would run as the second account and
      report success on the first one's page. */
-  it("refuses every untouched act posted from a page drawn for another address, ending and mailing nothing", async () => {
+  it("refuses every untouched act posted from a page drawn for another address, ending, mailing and saving nothing", async () => {
     const { cookie, row } = await sessionByCode(auth, store, "jetzt-angemeldet@example.org");
     const other = { ...row, id: `other-${row.id}`, token: `other-${row.token}` };
     store.session.push(other);
@@ -265,9 +299,35 @@ describe("the account's acts, behind the account's guard", () => {
     expect(await signOutOthers(stale)).toStrictEqual({ ok: false, reason: COPY.shared.failure.signInExpired });
     expect(await requestErasure(stale)).toStrictEqual({ ok: false, reason: COPY.shared.failure.signInExpired });
     expect(await withdrawAddressChange(stale)).toStrictEqual({ ok: false, reason: COPY.shared.failure.signInExpired });
+    for (const box of BOXES) {
+      expect(await saveConsent(postedBy(box, stale.holder)), `the ${String(box.kind)} box`).toStrictEqual({
+        ok: false,
+        reason: COPY.shared.failure.signInExpired,
+      });
+    }
     assert.ok(holdsSession(other), "the stale page ended the signed-in account's other device");
     expect(mail.sent.length, "the stale page had a deletion link mailed").toBe(mailed);
     expect(addressChanges, "the stale page withdrew the signed-in account's change").toStrictEqual([]);
+    expect(consentWrites, "the stale page saved the signed-in account's consents").toStrictEqual([]);
+  });
+
+  /* A label is the page's own, drawn under the words it shows: one a deploy replaced since names words the person was
+     not shown, so it reaches no write. */
+  it("answers a box posting a replaced label as a stale page, sending nothing, and sends the current labels as posted", async () => {
+    const email = "eigene-einwilligung@example.org";
+    const { cookie } = await sessionByCode(auth, store, email);
+    arriveAs(cookie);
+    const [pupil] = BOXES;
+    assert.ok(pupil !== undefined);
+
+    const replaced = postedBy({ ...pupil, "text_versions.scope": "2026-01-name-kader-0" }, email);
+    expect(await saveConsent(replaced)).toStrictEqual({ ok: false, reason: COPY.shared.failure.stale });
+    expect(consentWrites, "a replaced label reached the backend").toStrictEqual([]);
+
+    expect(await saveConsent(postedBy(pupil, email))).toStrictEqual({ ok: true, value: undefined });
+    expect(consentWrites.map(({ body }) => body)).toStrictEqual([
+      { scope: "kader_public", media: true, evidence_state: { scope: EVIDENCE, media: null }, text_versions: SPIELER_TEXT_VERSIONS },
+    ]);
   });
 
   it("ends every other session of the account however many stand, and keeps this one", async () => {

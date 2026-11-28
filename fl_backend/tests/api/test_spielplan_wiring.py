@@ -69,12 +69,12 @@ def drawn(shape: Shape) -> Spielplan:
 
 @cache
 def season_of(shape: Shape) -> tuple[FLSpiel, ...]:
-    """The drawn fixtures as the write path reads them.
+    """The drawn fixtures as the write path reads them, each with the `version` its insert stamps.
 
     Every rule below takes the whole season as its slice.
     """
 
-    return tuple(FLSpielListAdapter.validate_python(list(drawn(shape).spiele)))
+    return tuple(FLSpielListAdapter.validate_python([{**raw, "version": 0} for raw in drawn(shape).spiele]))
 
 
 def with_the_slot_cleared(season: tuple[FLSpiel, ...], spiel_id: Any) -> tuple[FLSpiel, ...]:
@@ -195,7 +195,7 @@ def played_up_to_the_finale(shape: Shape) -> tuple[tuple[FLSpiel, ...], dict[int
             }
         )
 
-    return tuple(FLSpielListAdapter.validate_python(played)), decided
+    return tuple(FLSpielListAdapter.validate_python([{**raw, "version": 0} for raw in played])), decided
 
 
 class TestTheBracketWalkFillsTheMatchForThirdPlace:

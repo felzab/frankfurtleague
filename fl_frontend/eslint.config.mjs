@@ -24,8 +24,8 @@ import tokenContrast from "./eslint-rules/token-contrast.mjs";
 const TEST = /\.test\.tsx?$/;
 const TEST_FILES = ["src/**/*.test.{ts,tsx}"];
 
-/** Next.js requires the root layout to write `<html>` and `<body>`. */
-const ROOT_DOCUMENT = ["src/app/layout.tsx"];
+/** Next.js requires the root layout, and the global error page standing in for it, to write `<html>` and `<body>`. */
+const ROOT_DOCUMENT = ["src/app/layout.tsx", "src/app/global-error.tsx"];
 
 const layerOf = (path) => (path.startsWith("src/core/") ? "core" : path.startsWith("src/shared/") ? "shared" : "other");
 
@@ -257,12 +257,40 @@ const NEXT_PRIVATE_CONTEXTS = {
   message: "Mount Next's contexts through fl_frontend/src/test-support/nextContexts.ts rather than its private modules.",
 };
 
-/** `catalogue` brands a whole tree as `Copy`; only the server's own catalogue calls it besides `copy.ts` itself. */
+/**
+ * The catalogue files, which alone write a reader's words: `copy.ts`'s helpers and the words several audiences compose
+ * their entries of, one catalogue per audience, and the server's own.
+ */
+const CATALOGUE_FILES = [
+  "src/core/copy.ts",
+  "src/core/copy/shared.ts",
+  "src/core/copy/public.ts",
+  "src/core/copy/account.ts",
+  "src/core/copy/area.ts",
+  "src/core/copy/admin.ts",
+  "src/core/serverCopy.ts",
+];
+
+/** `catalogue` brands a whole tree as `Copy`; only the catalogue files call it. */
 const CATALOGUE_BRAND = {
   regex: moduleNamed("copy"),
   importNames: ["catalogue"],
   message:
-    "catalogue brands a whole tree as Copy: fl_frontend/src/core/serverCopy.ts, the server's own catalogue, calls it, and nothing else may. Take the entry from COPY or SERVER_COPY, or add one there.",
+    "catalogue brands a whole tree as Copy: the audience catalogues in fl_frontend/src/core/copy/ and the server's own, fl_frontend/src/core/serverCopy.ts, call it, and nothing else may. Take the entry from one of them, or add one there.",
+};
+
+/**
+ * The administration's catalogue: a visitor's page importing it would carry the administration's words into its
+ * bundle. The administration's routes import it, and so does each module the ban's allow list names, which nothing
+ * but a reviewer holds to the administration's pages. Named as `copy/admin`, and as `./admin`, the spelling a sibling
+ * catalogue under `core/copy/` would write. `serverCopy.ts` and `ruleMessage.ts` are spared: neither ships in a bundle,
+ * and their refusal lines and field phrases reading `ADMIN_COPY` are the administration's own, which only its screens
+ * show.
+ */
+const ADMIN_CATALOGUE = {
+  regex: String.raw`${moduleNamed(String.raw`copy\x2Fadmin`)}|^\.\x2Fadmin(?:\.tsx?)?$`,
+  message:
+    "ADMIN_COPY is the administration's: outside fl_frontend/src/app/admin and the modules this ban allows, read the shared COPY or the audience's own catalogue, and move a key there that more than the administration reads.",
 };
 
 /**
@@ -303,16 +331,54 @@ const IMPORT_BANS = [
   importBan(AUTH_INSTANCE, PRODUCTION, { allow: ["src/app/api/auth/[...all]/route.ts", "src/core/auth/**"] }),
   importBan(SIGN_IN_STORE, PRODUCTION, { allow: ["src/core/auth/library.ts", "src/core/authIndexes.ts"] }),
   importBan(OWN_ACCOUNT_DELETION, PRODUCTION, { allow: ["src/features/account/personActions.ts"] }),
-  importBan(CATALOGUE_BRAND, EVERY, { allow: ["src/core/serverCopy.ts"] }),
+  importBan(CATALOGUE_BRAND, EVERY, { allow: CATALOGUE_FILES }),
+  importBan(ADMIN_CATALOGUE, EVERY, {
+    allow: [
+      "src/app/admin/**",
+      "src/features/action-log/filters.ts",
+      "src/features/action-log/rows.ts",
+      "src/features/action-log/rows.test.ts",
+      "src/features/bewerbungen/AcceptFields.tsx",
+      "src/features/bewerbungen/deliveryState.ts",
+      "src/features/bewerbungen/seats.test.ts",
+      "src/features/bewerbungen/standing.ts",
+      "src/features/spiele/saveSpiel.test.ts",
+      "src/features/spiele/saveSpiel.ts",
+      "src/features/spielbestaetigungen/answerActs.tsx",
+      "src/features/spielbestaetigungen/ZusageDialog.tsx",
+      "src/features/spielorte/createSpielort.ts",
+      "src/features/spielorte/SpielortFields.tsx",
+      "src/features/teams/options.ts",
+      "src/core/ruleMessage.ts",
+      "src/core/serverCopy.ts",
+    ],
+  }),
   importBan(NETWORK_BESIDE_FETCH, PRODUCTION),
 ];
+
+/**
+ * The whole-module bans of `IMPORT_BANS` again for `import()` in production code, which `no-restricted-imports` never
+ * reads: it judges import and export declarations alone, and the server's entry points load modules that way. They are
+ * the layer boundaries, the administration's catalogue, Node's network clients and Next's private contexts, each
+ * broken by loading the module at all, which an `import()` does as surely as a declaration. The bans of `DESIGN_BANS`
+ * are left to their declarations: they place components on a page, and production code reaches a component by a
+ * declaration alone. A test is left to its declarations, since it loads each module by `import()` once its doubles
+ * stand. A ban naming `importNames` stays the declarations' alone, the secret readers' among them, since a dynamic
+ * import's names are read off its result, in spellings no selector holds. The selector's regex matches as the rule's
+ * own does, ignoring case.
+ */
+const DYNAMIC_IMPORT_BANS = IMPORT_BANS.filter(({ entry }) => entry.importNames === undefined).map(
+  ({ entry: { regex, message }, reach, ...rest }) => ({
+    ...rest,
+    rule: "no-restricted-syntax",
+    entry: syntax(`ImportExpression > Literal.source[value=/${regex.replaceAll("/", String.raw`\x2F`)}/iu]`, message),
+    reach: (zone) => PRODUCTION(zone) && reach(zone),
+  }),
+);
 
 // ---------------------------------------------------------------------------------------------------
 // Syntax bans.
 // ---------------------------------------------------------------------------------------------------
-
-/** The two catalogue files, which alone write a reader's words. */
-const CATALOGUE_FILES = ["src/core/copy.ts", "src/core/serverCopy.ts"];
 
 /** The attributes whose value a reader hears or sees. */
 const SPOKEN_ATTRIBUTES =
@@ -333,6 +399,9 @@ const PROSE_LITERAL = `Literal[value=/[A-Za-zÄÖÜäöüß]{2}/]:not([value=/^[
  */
 const WORDED_KEYS =
   "/^(?:label|title|text|sentence|note|reason|description|when|eyebrow|detail|line|hint|help|placeholder|alt|short|heading)$/";
+
+/** A German definite or indefinite article opening a text. */
+const LEADING_ARTICLE = String.raw`^(?:[Dd](?:er|ie|as|es|em|en)|[Ee]in(?:e[mnrs]?)?)\b`;
 
 /**
  * One literal's text as a regular expression: a string, a template's static chunk, or JSX text. A
@@ -496,10 +565,7 @@ const SOURCE_BANS = [
   ),
   syntaxBan(
     // The target in any spelling, an attribute's, a spread object's or a `window.open` argument's.
-    syntax(
-      inLiteral("^_blank$"),
-      "A link opening a new tab is the kit's `Link`, which opens every other site's address in one: a target spelled here tells a screen reader nothing.",
-    ),
+    syntax(inLiteral("^_blank$"), "A link opening a new tab is the kit's `Link`, which decides it from the address."),
     SOURCE,
     { allow: ["src/kit/Link.tsx"] },
   ),
@@ -540,12 +606,14 @@ const SOURCE_BANS = [
     { allow: ["src/core/action.ts"] },
   ),
   syntaxBan(
-    // A route handler's half of the same rule, Next refusing `updateTag` outside a server action.
+    // A route handler's half of the same rule, Next refusing `updateTag` outside a server action. The spine itself
+    // expires the tag on a public form's failed press, which keeps the form standing rather than rendering it again.
     syntax(
       `:matches(ImportDeclaration[source.value="next/cache"] > ImportSpecifier[imported.name=/^revalidate(?:Tag|Path)$/], ${readsOff("/^revalidate(?:Tag|Path)$/")})`,
       "A route handler clears no cache tag: every write a browser makes is a server action, whose spine in fl_frontend/src/core/action.ts clears the site's tag.",
     ),
     SOURCE,
+    { allow: ["src/core/action.ts"] },
   ),
   syntaxBan(
     // Per function, where its tag and its lifetime stand beside it; a module-wide directive caches every export
@@ -614,13 +682,16 @@ const SOURCE_BANS = [
 
 const PROPERTY_BANS = [
   // `back` on the history and on Next's router, a destructured `{ back }` of either included. A test's
-  // router double counts its own `back`. `goBackOrPush.ts` IS the history guard.
+  // router double counts its own `back`. A route dialog may go back: an intercepting route never mounts on
+  // a cold entry, so the tab's history always holds the page beneath it.
   ...["history", "router"].map((object) =>
     ban(
       "no-restricted-properties",
-      { object, property: "back", message: "A bare history back is a silent no-op on a cold entry. Use `goBackOrPush`." },
+      { object, property: "back", message: "A bare history back is a silent no-op on a cold entry: lead to the page's address instead." },
       SOURCE,
-      { allow: ["src/core/goBackOrPush.ts"] },
+      {
+        allow: ["src/kit/Dialog.tsx"],
+      },
     ),
   ),
   // The passkey plugin's own deletion, on whatever object or binding carries it. A test may call it to
@@ -669,8 +740,10 @@ const OFF_SCALE = (except) =>
 /** The one spacing class off the scale, and its one file: a toggle's drawn box or track sits 1 px down. */
 const TOGGLE_OFFSET = { name: "mt-px", home: "src/kit/fieldStyles.ts" };
 
-const TABLE_BLOCK = { allow: ["src/kit/Table.tsx", "src/kit/Lineup.tsx"] };
+const TABLE_BLOCK = { allow: ["src/kit/Table.tsx", "src/kit/TableStanding.tsx", "src/kit/Lineup.tsx"] };
 const SIDES = "(?:t|r|b|l|s|e|tl|tr|br|bl|ss|se|es|ee)";
+/** React Aria's props placing a refusal on a field: its served faults, its invalid mark and its words. */
+const PLACED = "validationErrors|errorMessage|isInvalid";
 
 const DESIGN_BANS = [
   // Page bodies: page code places the kit's named blocks, so a second match row, empty state or chip
@@ -699,8 +772,9 @@ const DESIGN_BANS = [
       "react/forbid-elements",
       { element, message: "render the kit's control or block for it, built on React Aria." },
       KIT,
-      // The table block writes a table, and the line-up's block its own, whose rows hold a control and stay one line
-      // on a phone; the kit's link writes the one plain anchor, its full-document load, which Next's link never makes.
+      // The table block writes a table, the Tabelle's standing its own, whose rows stay one line on a phone, and the
+      // line-up's block its own, whose rows hold a control and stay one line on a phone; the kit's link writes the one
+      // plain anchor, its full-document load, which Next's link never makes.
       {
         a: { allow: ["src/kit/Link.tsx"] },
         table: TABLE_BLOCK,
@@ -756,9 +830,13 @@ const DESIGN_BANS = [
     },
     OUTSIDE_KIT,
   ),
-  // The editor template's route group draws the phone's band with the way back rather than the logo and the bar.
+  // An editor stands under an `(editor)` folder, the route group the phone's band reads its way back from.
   ...[
-    ["EditorPage", ["src/app/**/(editor)/**"], "An editor is a page of an `(editor)` route group, whose layout draws its way back."],
+    [
+      "EditorPage",
+      ["src/app/**/(editor)/**"],
+      "An editor is a route's own page under an `(editor)` folder, whose band leads back to its list: place its route there.",
+    ],
     ["EditorBar", ["src/kit/EditorPage.tsx"], "A record's one save is the editor template's `EditorBar`: place the page in `EditorPage`."],
     ["OneShot", ["src/kit/MailedPage.tsx"], "The one-shot submit is the mailed-page template's: place the page in `MailedPage`."],
     ["AccountBox", ["src/app/account/**"], "An `AccountBox` is one box of Konto, on Konto's own pages."],
@@ -801,14 +879,15 @@ const DESIGN_BANS = [
     PRODUCTION,
     { allow: ["src/kit/EditorPage.tsx"] },
   ),
-  // A field on a native control loses what a person did before hydration unless its root holds `useEarlyEdit`, so the
-  // file of a new one joins this list having done that (`src/kit/useEarlyEdit.ts`), and its field joins the hook's test.
+  // A field on a native control takes what a person did before hydration and loses it to React's next render unless its
+  // root waits, so the file of a new one joins this list having set `inert={useFieldWait()}` on its root
+  // (`src/kit/FieldParts.tsx`) and given its root a row of `src/kit/HeldForm.test.tsx :: FIELDS`.
   importBan(
     {
       // The package's root is in the list too, since it exports every one of them.
       regex: String.raw`^react-aria-components(?:\x2F(?:Autocomplete|Checkbox|CheckboxGroup|ColorArea|ColorField|ColorSlider|ColorThumb|ColorWheel|ComboBox|Input|NumberField|RadioGroup|SearchField|Slider|Switch|TextArea|TextField|TokenField))?$`,
       message:
-        "A field on a native control holds `useEarlyEdit` on its root and a row of `src/kit/useEarlyEdit.test.tsx`, then joins this list.",
+        "A field on a native control sets `inert={useFieldWait()}` on its root and gives it a row of `src/kit/HeldForm.test.tsx :: FIELDS`, then joins this list.",
     },
     KIT,
     {
@@ -869,8 +948,8 @@ const DESIGN_BANS = [
     [
       ["Form"],
       "Form",
-      ["src/kit/HeldForm.tsx", "src/kit/Dialog.tsx"],
-      "A server-drawn form is `HeldForm`, without which a press before hydration goes out as a GET; a client-drawn one is `Dialog`'s.",
+      ["src/kit/HeldForm.tsx"],
+      "Every form is `HeldForm`, a dialog's included, and the server's faults reach a box through its `fieldErrors` alone: both passes end on its boxes and move the focus to the first faulted one, and a press before hydration goes out as no GET.",
     ],
     [[String.raw`UNSTABLE_Toast\w*`], "Toast", ["src/kit/Toast.tsx"], "A toast is `appToast` through the kit's `Toast`."],
     [
@@ -908,15 +987,16 @@ const DESIGN_BANS = [
       message: "A chip is handed to the name it belongs to through a block's typed `chip` prop.",
     },
     PRODUCTION,
-    // The eleven blocks carrying a name: a table row's, a card's and a card row's, a line-up's pupil, a match's row, its
-    // bracket card and the season card's opening line, a record's facts, the page header's title, a school's tile, a
-    // figure's tile and a party's answer.
+    // The twelve blocks carrying a name: a table row's, a standing's club, a card's and a card row's, a line-up's
+    // pupil, a match's row, its bracket card and the season card's opening line, a record's facts, the page header's
+    // title, a school's tile, a figure's tile and a party's answer.
     {
       allow: [
         "src/kit/AnswerRows.tsx",
         "src/kit/BracketCard.tsx",
         "src/kit/SaisonBlock.tsx",
         "src/kit/Table.tsx",
+        "src/kit/TableStanding.tsx",
         "src/kit/Card.tsx",
         "src/kit/Lineup.tsx",
         "src/kit/SpielRow.tsx",
@@ -926,6 +1006,23 @@ const DESIGN_BANS = [
         "src/kit/StatTiles.tsx",
       ],
     },
+  ),
+  // A refusal placed beside the form is a second way, which the form's report after an answer never reaches and whose
+  // fault stays when the form's own go: React Aria's props and keys that mark a field invalid or word its fault, the
+  // invalid mark set by hand, and the slot React Aria's field reads its fault's text from.
+  syntaxBan(
+    syntax(
+      [
+        `JSXAttribute[name.name=/^(?:${PLACED}|aria-invalid)$/]`,
+        `ObjectExpression > Property[key.name=/^(?:${PLACED})$/]`,
+        'JSXAttribute[name.name="slot"][value.value="errorMessage"]',
+        'JSXAttribute[name.name="slot"] > JSXExpressionContainer > Literal[value="errorMessage"]',
+      ].join(", "),
+      "A refusal stands on its box through `HeldForm`'s `fieldErrors`, by the box's `name`: name the field or the choice, and read `useFieldFaults` for a part holding no box.",
+    ),
+    PRODUCTION,
+    // The one form's own; and the sign-in code's refusal, which no form holds: the code sends itself once typed.
+    { allow: ["src/kit/HeldForm.tsx", "src/kit/CodeField.tsx"] },
   ),
   syntaxBan(
     syntax('JSXAttribute[name.name="role"][value.value="alertdialog"]', "A question before an irreversible act is the kit's `ConfirmDialog`."),
@@ -1039,7 +1136,7 @@ const DESIGN_BANS = [
   syntaxBan(
     syntax(
       `Property[key.name=${WORDED_KEYS}]:not(CallExpression[callee.name="tv"] *) > :matches(${PROSE_LITERAL})`,
-      "Text a reader sees comes from the catalogue: a property named for words holds an entry of `COPY` or `SERVER_COPY`, or a record's own data as `{ record }`.",
+      "Text a reader sees comes from the catalogue: a property named for words holds an entry of an audience's catalogue or `SERVER_COPY`, or a record's own data as `{ record }`.",
     ),
     PRODUCTION,
     // The league's own constants, which name it and its organisers and sponsors as data (`features/meta/constants.ts`);
@@ -1052,7 +1149,7 @@ const DESIGN_BANS = [
   syntaxBan(
     syntax(
       'TSAsExpression > TSTypeReference.typeAnnotation[typeName.name="Copy"], TSTypeAssertion > TSTypeReference.typeAnnotation[typeName.name="Copy"]',
-      "Only the catalogue makes a `Copy`: take the entry from `COPY`, or add one there.",
+      "Only the catalogue makes a `Copy`: take the entry from the audience's catalogue, or add one there.",
     ),
     EVERY,
     { allow: ["src/core/copy.ts"] },
@@ -1070,6 +1167,7 @@ const DESIGN_BANS = [
             String.raw`\bund mehr\b`,
             String.raw`\bz\.\s?B\.`,
             String.raw`Mannschaft`,
+            String.raw`\b[Uu]ngültig`,
             String.raw`\b[Nn]och\s?(?:einmal|ein Mal|mal)\b|\b[Nn]ochmal`,
             String.raw`[a-zäöüß,]\s(?:Sie|Ihre?[mnrs]?|Du|Dein\w*|Dir|Dich)\b`,
           ].join("|"),
@@ -1078,7 +1176,7 @@ const DESIGN_BANS = [
         // that is the en dash and nothing else is a glyph standing for a value, as the empty value's mark, and no prose.
         ":matches(Literal[value=/[–—]/]:not([value=/^–$/]), TemplateElement[value.raw=/[–—]/], JSXText[value=/[–—]/])",
       ].join(", "),
-      "The catalogue writes none of these: three periods, „!“, a dash inside text, „Bitte“, „erfolgreich“, „leider“, „wirklich“, „und mehr“, „z. B.“, „Mannschaft“, „noch einmal“, „Sie“ or a capitalised „Du“ inside a sentence.",
+      "The catalogue writes none of these: three periods, „!“, a dash inside text, „Bitte“, „erfolgreich“, „leider“, „wirklich“, „und mehr“, „z. B.“, „Mannschaft“, „ungültig“, „noch einmal“, „Sie“ or a capitalised „Du“ inside a sentence.",
     ),
     EVERY,
     { only: CATALOGUE_FILES },
@@ -1091,19 +1189,18 @@ const DESIGN_BANS = [
     EVERY,
     { only: CATALOGUE_FILES },
   ),
-  // A field's message is `COPY.shared.field`'s patterns, and the server's phrases for a code, `SERVER_COPY.refusal`.
-  ...[
-    ["field", "src/core/copy.ts"],
-    ["refusal", "src/core/serverCopy.ts"],
-  ].map(([key, file]) =>
-    syntaxBan(
-      syntax(
-        `Property[key.name="${key}"] ${inLiteral(String.raw`\.$|^.{81,}$|\b(?:[Dd](?:er|ie|as|es|em|en)|[Ee]in(?:e[mnrs]?)?)\b`)}`,
-        "A field's message is one pattern phrase: no full stop, no article, at most 80 characters.",
-      ),
-      EVERY,
-      { only: [file] },
+  // A field's message is `COPY.shared.field`'s patterns. An article may stand inside a phrase, as in „Auf der
+  // Sperrliste“, never at its start, where it would open a sentence: so a template is judged by its first part alone.
+  syntaxBan(
+    syntax(
+      [
+        `Property[key.name="field"] ${inLiteral(String.raw`\.$|^.{81,}$`)}`,
+        `Property[key.name="field"] :matches(Literal[value=/${LEADING_ARTICLE}/], TemplateLiteral > TemplateElement:first-child[value.raw=/${LEADING_ARTICLE}/])`,
+      ].join(", "),
+      "A field's message is one pattern phrase: no full stop, no leading article, at most 80 characters.",
     ),
+    EVERY,
+    { only: ["src/core/copy/shared.ts"] },
   ),
   syntaxBan(
     syntax(
@@ -1150,21 +1247,13 @@ const DESIGN_BANS = [
     PRODUCTION,
     { allow: ["src/core/config.ts"] },
   ),
-
-  syntaxBan(
-    syntax(
-      'JSXAttribute[name.name="isRequired"]:matches([value=null], [value.type="Literal"], [value.expression.type="Literal"])',
-      "A field's required mark is derived from its data, never written as a literal: pass the `required` its rules read off the save's generated schema, or a condition of the form's state.",
-    ),
-    PRODUCTION,
-  ),
 ];
 
 // ---------------------------------------------------------------------------------------------------
 // The blocks.
 // ---------------------------------------------------------------------------------------------------
 
-const BANS = [...IMPORT_BANS, ...SOURCE_BANS, ...PROPERTY_BANS, ...DESIGN_BANS];
+const BANS = [...IMPORT_BANS, ...DYNAMIC_IMPORT_BANS, ...SOURCE_BANS, ...PROPERTY_BANS, ...DESIGN_BANS];
 
 /** An entry naming files: a path, or a directory glob whose `**` stands for any folders. */
 const isGlob = (entry) => entry.includes("**");
@@ -1172,9 +1261,12 @@ const escapeRegExp = (part) => part.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const globPattern = (glob) => new RegExp(`^${glob.split("/**").map(escapeRegExp).join("(?:/.*)?")}$`);
 const covers = (entry, path) => (isGlob(entry) ? globPattern(entry).test(path) : entry === path);
 
-/** Each engine rule's setting for one zone, or one file of it when `path` is given; `under` names a directory glob's block. */
-function rulesFor(zone, path, under) {
-  const spares = (allow) => (path !== undefined ? allow.some((entry) => covers(entry, path)) : under !== undefined && allow.includes(under));
+/**
+ * Each engine rule's setting for one zone, or one file of it when `path` is given; `under` names the directory globs a
+ * directory block's files all lie under.
+ */
+function rulesFor(zone, path, under = []) {
+  const spares = (allow) => (path !== undefined ? allow.some((entry) => covers(entry, path)) : allow.some((entry) => under.includes(entry)));
   const reaching = BANS.filter(({ reach, only, allow }) => reach(zone) && (only === undefined || only.includes(path)) && !spares(allow));
   return Object.fromEntries(
     Object.entries(RULES).map(([rule, setting]) => {
@@ -1217,6 +1309,20 @@ if (GONE.length > 0) {
   throw new Error(`eslint.config.mjs names what no longer exists: ${GONE.join(", ")}. Point each ban at the file's new path.`);
 }
 
+/**
+ * Each set of two or more directories some file lies under at once, the fewest first. eslint reads a rule's options
+ * from the last block matching a file, so a file under two directories takes a block of its own sparing what either
+ * spares; otherwise the later directory's block would hold it to the earlier one's bans.
+ */
+const OVERLAPS = [
+  ...new Map(
+    globSync("src/**/*.{ts,tsx}", { cwd: HERE })
+      .map((path) => NAMED_DIRECTORIES.filter((glob) => covers(glob, path.replaceAll("\\", "/"))))
+      .filter((globs) => globs.length > 1)
+      .map((globs) => [globs.join(" "), globs]),
+  ).values(),
+].sort((one, other) => one.length - other.length);
+
 const fileBlocks = () => {
   const groups = new Map();
   for (const path of NAMED_FILES) {
@@ -1237,13 +1343,14 @@ const BAN_BLOCKS = [
     ignores,
     rules: rulesFor(zone),
   })),
-  // A directory's files, zone by zone: a nested `files` array asks a file to match every pattern in it.
-  ...NAMED_DIRECTORIES.flatMap((glob) =>
+  // A directory's files, zone by zone, then the files under several at once: a nested `files` array asks a file to
+  // match every pattern in it.
+  ...[...NAMED_DIRECTORIES.map((glob) => [glob]), ...OVERLAPS].flatMap((globs) =>
     ZONES.map(({ files, ignores, ...zone }) => ({
-      name: `bans/under/${glob}/${zoneName(zone)}`,
-      files: files.map((pattern) => [pattern, literally(glob).replaceAll("[*][*]", "**")]),
+      name: `bans/under/${globs.join("+")}/${zoneName(zone)}`,
+      files: files.map((pattern) => [pattern, ...globs.map((glob) => literally(glob).replaceAll("[*][*]", "**"))]),
       ignores,
-      rules: rulesFor(zone, undefined, glob),
+      rules: rulesFor(zone, undefined, globs),
     })),
   ),
   // Last, so a named file's own block is the one eslint reads its options from.
@@ -1307,9 +1414,10 @@ const eslintConfig = defineConfig([
       "@typescript-eslint/no-unused-vars": ["error", { args: "all", argsIgnorePattern: "^_", varsIgnorePattern: "^_" }],
       "@typescript-eslint/no-unused-private-class-members": "error",
 
-      // A zero-width or line-separator character in code, a comment or a template reads as nothing and
-      // changes what the line means. Plain strings stay free for the typography's no-break spaces.
-      "no-irregular-whitespace": "error",
+      // An irregular space reads as a plain one or as nothing in review, and changes what the line means, so code, a
+      // comment, a string, a template, a regular expression and JSX text each write it as its escape, a no-break space
+      // in a string as `\u00A0`. Strings are the one place the rule skips unless told.
+      "no-irregular-whitespace": ["error", { skipStrings: false }],
 
       // `token` rather than `token: token`. Properties alone: a function property keeps the shape it was written in.
       "object-shorthand": ["error", "properties"],
@@ -1341,6 +1449,9 @@ const eslintConfig = defineConfig([
       // A check its types say cannot fail is a dead branch, or a type narrower than what the runtime hands over,
       // which is widened where the value enters rather than the check dropped.
       "@typescript-eslint/no-unnecessary-condition": "error",
+      // A part its library marks `@deprecated` goes at the library's next major, when the build fails on a markup
+      // change nobody has looked at; refused here, it moves to the replacement while the two stand side by side.
+      "@typescript-eslint/no-deprecated": "error",
     },
   },
 
@@ -1461,7 +1572,7 @@ const eslintConfig = defineConfig([
       ],
       "check-file/filename-naming-convention": [
         "error",
-        { "src/**/!(not-found).{ts,tsx}": MODULE_FILE_CASE, "e2e/**/*.ts": MODULE_FILE_CASE },
+        { "src/**/!(not-found|global-error).{ts,tsx}": MODULE_FILE_CASE, "e2e/**/*.ts": MODULE_FILE_CASE },
         { ignoreMiddleExtensions: true },
       ],
     },

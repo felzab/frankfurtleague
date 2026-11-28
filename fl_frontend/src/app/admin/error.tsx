@@ -1,25 +1,17 @@
 "use client";
 
-import { COPY } from "@/core/copy";
-import { ROUTES } from "@/core/routes";
-import { RailColumn } from "@/kit/RailFrame";
-import { StatusPage } from "@/kit/StatusPage";
-import { useReportClientCrash } from "@/shared/hooks/useReportClientCrash";
+import { RailError } from "@/kit/RailFrameBoundary";
 
 /**
  * A failed page of the administration, an unread grant among its failures, in the rail frame: this boundary stands
- * inside the frame's layout and replaces the route group's column with the page, so it draws the phone's band
- * and bar itself. Its way on is the area's root, which leads to the Übersicht of the season the site is on.
+ * inside the frame's layout, so the frame's band and bar stand around it.
  */
-export default function AdminError({ error }: { error: unknown }) {
-  useReportClientCrash(error);
+export default function AdminError({ error, retry }: { error: unknown; retry: () => void }) {
   return (
-    <RailColumn>
-      <StatusPage
-        scope="area"
-        title={COPY.shared.failure.unexpected}
-        card={{ tone: "danger", next: { label: COPY.shared.end.toOverview, href: ROUTES.admin.path() } }}
-      />
-    </RailColumn>
+    <RailError
+      error={error}
+      retry={retry}
+      scope="area"
+    />
   );
 }

@@ -35,7 +35,6 @@ from app.api.schiedsrichter.services import (
     EINWILLIGUNG_FIELD,
     ERASE_AT_FIELD,
     confirmation_deadline_from,
-    erase_at_from,
 )
 from app.api.schiedsrichter.system_router import sweep_schiedsrichter
 from app.core.codes import Code
@@ -135,14 +134,16 @@ async def on_a_league(url: str, body: Body, *, referees: list[dict[str, Any]] | 
 
 
 async def create(database: AsyncDatabase, client: AsyncMongoClient, *, email: str | None = EMAIL, today: str = TODAY) -> Mailed:
-    answer = await post_schiedsrichter(
-        schiedsrichter_data=FLPostSchiedsrichterPayload.model_validate(payload_body(email=email)),
-        schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
-        outbox_collection=database[Collection.OUTBOX],
-        db=client,
-        today=today,
-        germany_now=MAIL_NOW,
-    )
+    async with client.start_session(snapshot=True) as session:
+        answer = await post_schiedsrichter(
+            schiedsrichter_data=FLPostSchiedsrichterPayload.model_validate(payload_body(email=email)),
+            schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+            outbox_collection=database[Collection.OUTBOX],
+            db=client,
+            today=today,
+            germany_now=MAIL_NOW,
+            session=session,
+        )
 
     return await mailed(database, client, answer)
 
@@ -150,15 +151,17 @@ async def create(database: AsyncDatabase, client: AsyncMongoClient, *, email: st
 async def correct(database: AsyncDatabase, client: AsyncMongoClient, *, email: str | None, today: str = TODAY) -> Mailed:
     # The version an editor opened now would be served, as the save sends it back.
     version = (await stored(database))["version"]
-    answer = await patch_schiedsrichter(
-        schiedsrichter_id=SCHIEDSRICHTER_OID,
-        schiedsrichter_data=FLPatchSchiedsrichterPayload.model_validate({**payload_body(email=email), "version": version}),
-        schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
-        outbox_collection=database[Collection.OUTBOX],
-        db=client,
-        today=today,
-        germany_now=MAIL_NOW,
-    )
+    async with client.start_session(snapshot=True) as session:
+        answer = await patch_schiedsrichter(
+            schiedsrichter_id=SCHIEDSRICHTER_OID,
+            schiedsrichter_data=FLPatchSchiedsrichterPayload.model_validate({**payload_body(email=email), "version": version}),
+            schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+            outbox_collection=database[Collection.OUTBOX],
+            db=client,
+            today=today,
+            germany_now=MAIL_NOW,
+            session=session,
+        )
 
     return await mailed(database, client, answer)
 
@@ -166,7 +169,7 @@ async def correct(database: AsyncDatabase, client: AsyncMongoClient, *, email: s
 async def resend(
     database: AsyncDatabase, client: AsyncMongoClient, *, schiedsrichter_id: ObjectId = SCHIEDSRICHTER_OID, today: str = TODAY
 ) -> Mailed:
-    answer = await resend_confirmation(
+    await resend_confirmation(
         schiedsrichter_id=schiedsrichter_id,
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
         outbox_collection=database[Collection.OUTBOX],
@@ -175,7 +178,7 @@ async def resend(
         germany_now=MAIL_NOW,
     )
 
-    return await mailed(database, client, answer)
+    return await mailed(database, client, None)
 
 
 async def read_view(database: AsyncDatabase, token: str | None, *, today: str = TODAY) -> Any:
@@ -253,9 +256,20 @@ class TestTheCreateIsTheInvitation:
         assert row[CONFIRMATION_FIELD]["token_hashes"] == [hash_token(str(response.token))]
         assert row[CONFIRMATION_FIELD]["deadline"] == confirmation_deadline_from(today=TODAY)
         # The clock the TTL index reads: absent, the unanswered entry outlives the fourteen days the notice promises.
-        assert row[ERASE_AT_FIELD].replace(tzinfo=UTC) == erase_at_from(deadline=confirmation_deadline_from(today=TODAY))
+        # The German midnight closing the deadline's day, fourteen days on: 2026-04-16 at 00:00 in summer time.
+        assert row[ERASE_AT_FIELD].replace(tzinfo=UTC) == datetime(2026, 4, 15, 22, tzinfo=UTC)
         # Stored null, as a registration's: absent, the read and record models requiring the keys refuse the row.
         assert (row[EINWILLIGUNG_FIELD], row["birth_date"]) == (None, None)
+
+    async def test_the_answer_names_the_mailbox_as_stored_not_as_typed(self, mongo_replica_set_url: str):
+        """The dialog's note names this address, so a capital typed into it reads as the mailbox the editor later shows."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            return await create(database, client, email=" Collina@Example.COM ")
+
+        response = await on_a_league(mongo_replica_set_url, body, referees=[])
+
+        assert (response.to, response.answer.confirmation.email) == (EMAIL, EMAIL)
 
 
 class TestANameAnotherRefereeHolds:
@@ -267,7 +281,11 @@ class TestANameAnotherRefereeHolds:
             with pytest.raises(APIError) as refused:
                 await (create(database, client) if act == "an entry" else correct(database, client, email=EMAIL))
 
-            return refused.value.error_code, refused.value.fields, await database[Collection.OUTBOX].count_documents({})
+            return (
+                refused.value.error_code,
+                tuple(fault.path for fault in refused.value.faults),
+                await database[Collection.OUTBOX].count_documents({}),
+            )
 
         holders = [
             referee_document(name="Howard Webb", email=CORRECTED_EMAIL),
@@ -430,7 +448,8 @@ class TestTheReactivation:
         response, row = await on_a_league(mongo_replica_set_url, body, referees=[referee_document(**RETIRED)])
 
         assert row["inactive_since"] is None
-        assert response.to == EMAIL
+        # The answer names the mailbox the link went to, which the editor reports once the press is done.
+        assert (response.to, response.answer.confirmation.email) == (EMAIL, EMAIL)
         assert row[CONFIRMATION_FIELD]["token_hashes"] == [hash_token(str(response.token))]
         assert ERASE_AT_FIELD in row
 
@@ -446,7 +465,7 @@ class TestTheReactivation:
 
         first, response, row = await on_a_league(mongo_replica_set_url, body)
 
-        assert response.token is None
+        assert (response.token, response.answer.confirmation) == (None, None)
         assert row[CONFIRMATION_FIELD]["token_hashes"] == [hash_token(str(first.token))]
         assert row[ERASE_AT_FIELD] is None
 

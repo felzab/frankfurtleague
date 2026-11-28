@@ -24,7 +24,7 @@ from app.api.outbox.schemas import (
     FLOutboxRowState,
     FLOutboxTeam,
 )
-from app.core.crud import patch_many_in_db, post_many_to_db
+from app.core.crud import patch_many_in_db, post_many_to_db, pull_whole_from_db
 from app.shared.folding import sign_in_identifier
 
 # The rows one claim hands out.
@@ -53,8 +53,12 @@ type FLOutboxRetentionDays = Literal[30]
 RETENTION_DAYS: Final[FLOutboxRetentionDays] = 30
 RETENTION: Final = timedelta(days=RETENTION_DAYS)
 
-# The sign-in library's kinds, each tried once: its own repair of a failed code is a fresh one.
+# The sign-in library's kinds, each tied to the sign-in it was asked from.
 SIGN_IN_KINDS: Final[frozenset[FLOutboxKind]] = frozenset({"sign_in_code", "passkey_added", "passkey_erased", "account_erasure"})
+
+# The kinds tried once: a failed code or deletion link is repaired by asking for a fresh one. A passkey notice is not
+# among them, since its holder never learns one was owed, so nothing would ask again.
+TRIED_ONCE_KINDS: Final[frozenset[FLOutboxKind]] = frozenset({"sign_in_code", "account_erasure"})
 
 # The kinds an erasure leaves in place: the deletion link, which asks for that erasure, and whatever tells the person of it.
 ERASURE_SPARED_KINDS: Final[frozenset[FLOutboxKind]] = frozenset({"account_erasure", "deletion_notice"})
@@ -127,8 +131,8 @@ async def enqueue_mails(
 
     # A first run committed before this snapshot is found; one committed after it makes the insert a write conflict the
     # caller's `transact` retries, which then finds it.
-    stored = await outbox_collection.find({"key": {"$in": [mail.key for mail in mails]}}, {"key": 1, "_id": 0}, session=session).to_list(
-        length=None
+    stored = await pull_whole_from_db(
+        collection=outbox_collection, db_filter={"key": {"$in": [mail.key for mail in mails]}}, projection={"key": 1, "_id": 0}, session=session
     )
     owed = {row["key"] for row in stored}
     new = [mail for mail in mails if mail.key not in owed]

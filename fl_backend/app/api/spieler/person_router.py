@@ -12,7 +12,7 @@ from app.api.identity.lookup import RecordCollections, SubjectLookup
 from app.api.identity.services import is_own_spieler
 from app.api.saisons.schemas import FLOwnSaisonsResponse, FLSaisonRules, FLSpielerSaisonSelfResponse
 from app.api.saisons.services import matchday_of
-from app.api.spieler.crud import refuse_a_taken_rolle
+from app.api.spieler.crud import find_a_taken_rolle
 from app.api.spieler.schemas import (
     FLKaderResponse,
     FLKaderRow,
@@ -34,6 +34,7 @@ from app.core.crud import (
     patch_past_the_version_in_db,
     pull_one_from_db,
     refuse,
+    refuse_faults,
     set_inactive_since,
 )
 from app.core.dependencies import (
@@ -93,7 +94,7 @@ async def _record_the_seats_act(
         by=ACT_BY_KONTAKT,
         team=str(junction["name"]),
         record_id=spieler_id,
-        label=saison_id,
+        saison_id=saison_id,
         session=session,
     )
 
@@ -195,17 +196,18 @@ async def patch_kader_row(
                 allowed_stufen=await _allowed_stufen(saisons_collection=saisons_collection, saison_id=saison_id, session=session),
             )
         )
-
-        # The captaincy alone and never the cap: a live row edited inside its own squad leaves the
-        # squad's size where it was.
-        await refuse_a_taken_rolle(
-            saison_spieler_collection=saison_spieler_collection,
-            saisons_collection=saisons_collection,
-            saison_id=saison_id,
-            team_id=team_id,
-            spieler_id=spieler_id,
-            rolle=row_data.rolle,
-            session=session,
+        refuse_faults(
+            # The captaincy alone and never the cap: a live row edited inside its own squad leaves the
+            # squad's size where it was.
+            await find_a_taken_rolle(
+                saison_spieler_collection=saison_spieler_collection,
+                saisons_collection=saisons_collection,
+                saison_id=saison_id,
+                team_id=team_id,
+                spieler_id=spieler_id,
+                rolle=row_data.rolle,
+                session=session,
+            ),
         )
 
         await patch_one_in_db(

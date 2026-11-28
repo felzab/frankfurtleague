@@ -5,13 +5,9 @@ import { getAdminSaisons } from "@/features/saisons/queries";
 import { selectSaison } from "@/features/saisons/resolvers";
 import { pageMetadata } from "@/shared/utils/metadata";
 
-import { AdminOverview } from "./saisons/[saison]/page";
+import { AdminOverview } from "./saisons/[saison]/AdminOverview";
 
-import type { Metadata, ResolvingMetadata } from "next";
-
-export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
-  return pageMetadata(parent, ROUTES.admin, ROUTES.admin.path());
-}
+export const metadata = pageMetadata(ROUTES.admin);
 
 /**
  * The season the administration works in by standard, the one the frame's season button stands on, read at request

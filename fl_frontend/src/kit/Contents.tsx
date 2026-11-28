@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useState } from "react";
 
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 
 import { cardSurface, smallCaps } from "./cardStyles";
 import { Icon } from "./Icon";
@@ -11,17 +11,16 @@ import { tv } from "./tv";
 
 import type { Copy } from "@/core/copy";
 
-/** One section a reading page's contents list names: its heading's words and the id its `section` carries. */
 type ContentsEntry = { id: string; title: Copy };
 
 const contents = tv({
   slots: {
-    // Beside the text from `lg`, in the reading grid's second column, sticking 32 px under the classic band while the
-    // text scrolls; a sticky grid item travels its grid area, which is the text's height.
+    // Beside the text from `lg`, sticking under the classic band while the text scrolls; a sticky grid item travels its
+    // grid area, which is the text's height.
     rail: "sticky top-[calc(var(--classic-header)+2rem)] hidden gap-3 self-start lg:col-start-2 lg:row-start-1 lg:grid",
     label: smallCaps(),
-    // Over the text below `lg`: a native disclosure, which needs no script; its summary holds no heading, which a
-    // summary would hide from some readers.
+    // Over the text below `lg`: a native disclosure, which opens with no script and closes on an entry's press; its
+    // summary holds no heading, which a summary would hide from some readers.
     fold: "lg:hidden",
     details: cardSurface({ class: "group/fold" }),
     summary: "flex min-h-12 cursor-pointer list-none items-center justify-between px-4 text-sm font-medium [&::-webkit-details-marker]:hidden",
@@ -34,7 +33,7 @@ const contents = tv({
  * The section the reader is in, by Bootstrap 4's scrollspy (`_process` in its `js/src/scrollspy.js`): at the page's end
  * the last section, since a short last section never reaches the top; otherwise the last whose top has reached the band
  * line, as GitHub's docs read their headings on each scroll event (`useActiveSection` in `github/docs`). The line is the
- * band's height, read from a section's own scroll margin, which is where a jump to it lands.
+ * band's height, read from the root's scroll padding, which is where a jump to it lands.
  *
  * A section a link names, clicked or opened by its address, is marked at once and stays marked while it stands where
  * the jump left it: its top on the line, or, at the page's end, below it, which a section too near the end stops at.
@@ -50,7 +49,7 @@ function useCurrentSection(entries: readonly ContentsEntry[]): string | undefine
     let pinned = named(location.hash);
     const mark = () => {
       // Read on each scroll, since the band is taller from `lg`.
-      const line = Number.parseFloat(getComputedStyle(first).scrollMarginTop);
+      const line = Number.parseFloat(getComputedStyle(document.documentElement).scrollPaddingTop);
       const below = (section: Element) => section.getBoundingClientRect().top - line;
       const end = scrollY + innerHeight >= document.documentElement.scrollHeight - 1;
       // A pixel's leeway, for a top a jump leaves a fraction off the line.
@@ -92,6 +91,23 @@ function Entries({ entries, current }: { entries: readonly ContentsEntry[]; curr
 }
 
 /**
+ * Closes the fold when one of its entries is pressed, as Starlight's phone contents closes its `<details>` on a link's
+ * click. It closes inside the press and so before the jump the press starts: the jump lands in the closed layout, which
+ * is the one a reload draws, so the offset the reload restores still stands on the section. Opening the fold from the
+ * address instead would move every page opened at a section by the list's height once the script ran. It is attached
+ * by a ref callback rather than a click handler on the disclosure, which would mark the disclosure as a control.
+ */
+function closeOnEntry(details: HTMLDetailsElement) {
+  const close = (event: MouseEvent) => {
+    if (event.target instanceof Element && event.target.closest("a") !== null) details.open = false;
+  };
+  details.addEventListener("click", close);
+  return () => {
+    details.removeEventListener("click", close);
+  };
+}
+
+/**
  * A reading page's contents list: from `lg` a rail beside the text, its label over a link to each section, as Carbon's
  * table of contents for IBM.com stands; below it one row over the text, which opens on the same links, as Carbon's turns
  * compact on small screens. Both mark the section the reader is in; one shows at a time.
@@ -105,7 +121,9 @@ export function Contents({ entries }: { entries: readonly ContentsEntry[] }) {
       <nav
         aria-label={COPY.template.contents}
         className={slots.fold()}>
-        <details className={slots.details()}>
+        <details
+          ref={closeOnEntry}
+          className={slots.details()}>
           <summary
             data-kit-focus="inset"
             className={slots.summary()}>

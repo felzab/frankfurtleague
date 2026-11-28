@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
-import { COPY } from "./copy";
+import { COPY } from "./copy/shared";
 import { fieldMessage } from "./zodGerman";
 
 const { field } = COPY.shared;

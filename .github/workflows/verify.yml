@@ -110,14 +110,14 @@ jobs:
   frontend:
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    # Every `next` command a step runs, the build's own variables set on its command alone.
+    # Every `next` command a step runs.
     env:
       NEXT_TELEMETRY_DISABLED: "1"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      # The scope builds the application, so the installed tree is the job.
+      # The scope's typegen, tsc, lint and knip read the installed tree, so it is the job.
       - uses: ./.github/actions/frontend-toolchain
         with:
           # The pnpm store's one writer, and on a push alone: every install rewrites the patched
@@ -129,9 +129,9 @@ jobs:
       - name: Run the frontend scope
         run: ./scripts/gate/verify.sh --frontend
       - name: Fail if the frontend scope rewrote tsconfig.json
-        # `next typegen` and `next build` both write fl_frontend/tsconfig.json for any compilerOptions
-        # key that is absent and carry on; on a runner the repaired copy is discarded with the
-        # workspace, so a framework upgrade reaches this with nobody editing the file.
+        # `next typegen` writes fl_frontend/tsconfig.json for any compilerOptions key that is absent
+        # and carries on; on a runner the repaired copy is discarded with the workspace, so a
+        # framework upgrade reaches this with nobody editing the file.
         run: |
           if ! git diff --exit-code -- fl_frontend/tsconfig.json; then
             echo "::error::the frontend scope rewrote fl_frontend/tsconfig.json -- a compilerOptions key is absent. Run 'cd fl_frontend && pnpm typegen' and commit the result."

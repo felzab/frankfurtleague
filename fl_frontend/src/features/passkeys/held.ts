@@ -4,7 +4,8 @@ import { getAuthenticatorName } from "@better-auth/passkey";
 
 import { PASSKEY_LIMIT } from "@/core/auth/enrolment";
 import { passkeysOf } from "@/core/auth/passkeys";
-import { COPY } from "@/core/copy";
+import { ACCOUNT_COPY } from "@/core/copy/account";
+import { COPY } from "@/core/copy/shared";
 
 import type { Copy } from "@/core/copy";
 
@@ -13,7 +14,7 @@ export type PasskeyRow = {
   readonly id: string;
   /** Its holder's name for it, else its maker's off the AAGUID, else the catalogue's „Passkey“. */
   readonly name: string;
-  /** When it was set up, and when it last signed in where it has. */
+  /** When it was set up. */
   readonly dates: Copy;
   /** Whether the session the page runs in was made by it, which its removal then ends. */
   readonly thisDevice: boolean;
@@ -29,7 +30,7 @@ function dateOf(stamp: unknown): Date | null {
 }
 
 /**
- * The person's passkeys, oldest first, so a row keeps its place when another is added or renamed. Compared with the
+ * The administrator's passkeys, oldest first, so a row keeps its place when another is added or renamed. Compared with the
  * session's credential on the server, so the credential id the session recorded never reaches the page.
  */
 export async function heldPasskeysOf(served: {
@@ -45,9 +46,8 @@ export async function heldPasskeysOf(served: {
     .sort((a, b) => a.created.getTime() - b.created.getTime())
     .map(({ row, created }): PasskeyRow => ({
       id: row.id,
-      name: row.name ?? getAuthenticatorName(row.aaguid) ?? COPY.signIn.passkeyTitle,
-      // Not on the plugin's declared row: the `passkeyLastUse` plugin adds the field.
-      dates: COPY.account.passkeys.dates(created, dateOf(Reflect.get(row, "lastUsedAt"))),
+      name: row.name ?? getAuthenticatorName(row.aaguid) ?? COPY.shared.passkey,
+      dates: ACCOUNT_COPY.passkeys.dates(created),
       thisDevice: served.session.passkeyCredentialId === row.credentialID,
     }));
   // The cap is judged again at the set-up itself; this closes the act, so the person meets a sentence rather than a

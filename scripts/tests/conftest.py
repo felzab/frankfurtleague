@@ -92,8 +92,9 @@ def run_bounded(
 ) -> subprocess.CompletedProcess[str]:
     """The one way a case runs a process, its streams decoded as utf-8, to its end or to `bound_s`.
 
-    At the bound the case fails on `subprocess.TimeoutExpired`, which names the command. `text=True` alone would decode
-    with the machine locale, which is cp1252 on Windows, where a verdict carrying an em dash does not survive.
+    At the bound the case fails on `subprocess.TimeoutExpired`, which names the command. The encoding is named rather
+    than left to `text=True`, which takes the interpreter's locale encoding, so a verdict carrying an em dash decodes
+    the same under any locale and with UTF-8 mode switched off.
     """
     # `errors="replace"`: a byte outside utf-8 belongs in the output being asserted on rather than
     # in a decode error that says nothing about the run.

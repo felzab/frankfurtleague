@@ -6,15 +6,14 @@ import { tv } from "./tv";
 
 import type { Copy } from "@/core/copy";
 
-/** One stage of the line: its title and its one paragraph. */
 type LineStep = { title: Copy; text: Copy };
 
 const line = tv({
   extend: checkpoint,
   slots: {
     // Laid along the line across four columns from 42 rem of the list's own width; one under another below it, where
-    // four do not fit. Across, the stages share two rows, the titles' and the texts', each stage a subgrid of them, so a title running to
-    // two lines moves every stage's text down alike.
+    // four do not fit. Across, the stages share two rows, the titles' and the texts', each stage a subgrid of them, so
+    // a title running to two lines moves every stage's text down alike.
     list: "grid @2xl:grid-cols-4 @2xl:grid-rows-[auto_1fr] @2xl:gap-4",
     // Each stage is the line's stretch from its point to the next, so the last stage draws none: down the left
     // down the list, along the top across it, through the point's middle either way.

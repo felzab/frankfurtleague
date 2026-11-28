@@ -6,25 +6,26 @@ import { textOf } from "@/core/copy";
 import { formatNumber } from "@/core/format";
 
 import { Button } from "./Button";
-import { card, columnHead, nameWithChips, stacked } from "./cardStyles";
+import { card, columnHead, nameWithChips, rowHeight, stacked } from "./cardStyles";
 import { Tick } from "./Checkbox";
 import { Chip } from "./Chip";
 import { CutText } from "./CutText";
 import { EmptyState } from "./EmptyState";
-import { RoleMark } from "./RoleMark";
+import { FocusOnLeave } from "./FocusOnLeave";
+import { useFieldFaults } from "./HeldForm";
+import { RolleMark } from "./RolleMark";
 import { tv } from "./tv";
 
 import type { Copy, Words } from "@/core/copy";
 import type { ChipProps } from "./Chip";
 import type { EmptyStateProps } from "./EmptyState";
-import type { RoleMarkProps } from "./RoleMark";
+import type { RolleMarkProps } from "./RolleMark";
 
 /**
  * The block's look, which `Lineup` draws from: two cards, each a table of one row a pupil at every
  * width, its tick and its act in the row, a phone's included, where the kit's `Table` stacks a row's acts under its
- * words. The cards, the column heads and the hairlines are the shared recipes'; the cells set as `Table`'s do, 12-px
- * padding and rows 56 px high on a phone and 52 on desktop, so a line-up reads as every other list of the kit. Each
- * table's box is the container its rows read, at a list's width, 42 rem.
+ * words. The cards, the column heads and the hairlines are the shared recipes', and the cells set as `Table`'s do, so a
+ * line-up reads as every other list of the kit. Each table's box is the container its rows read, at a list's width.
  */
 const lineup = tv({
   slots: {
@@ -38,20 +39,20 @@ const lineup = tv({
     sheet: "w-full border-collapse text-sm",
     headRow: columnHead().rule(),
     head: columnHead().text(),
-    row: `relative h-14 ${stacked()} lg:h-13`,
+    row: `relative ${rowHeight({ form: "fixed" })} ${stacked()}`,
     // The name takes the room the facts leave and is cut with „…“ where it is longer. A phone's line holds a name's
     // least width and „Nachnominiert“ only one over the other: a name over its chip is 42 px, which 6 px of padding
-    // keep inside the row's 56, so such a row stands as tall as one without a chip.
-    name: "w-full px-3 py-2 @max-2xl:py-1.5",
-    // The name with its mark and the chip after it, as every row holds them (`nameWithChips`). The
-    // line's least width is the name's, 5 rem, so the facts beside it narrow the column to no less. No status column:
-    // a row's tick and act stand taller than its name's line, which a row of several lines cannot centre against them.
+    // keep inside the row's 56 on a touch screen and 4 inside its 52 with a mouse, so such a row stands as tall as one
+    // without a chip.
+    name: "w-full px-3 py-2 @max-2xl:py-1 pointer-coarse:@max-2xl:py-1.5",
+    // The line's least width is the name's, 5 rem, so the facts beside it narrow the column to no less. No status
+    // column: a row's tick and act stand taller than its name's line, which a row of several lines cannot centre
+    // against them.
     nameLine: "min-w-20",
     // The row's own line under its name, inside the row's height while it is one line. It wraps rather than being cut,
     // since a touch reaches no tooltip, and a word breaks anywhere, so the line never widens the name's column.
     line: "block text-xs wrap-anywhere",
     cell: "px-3 whitespace-nowrap",
-    // The last cell, as narrow as the act it holds.
     end: "w-0 pe-3",
     acts: "flex items-center justify-end",
   },
@@ -114,7 +115,7 @@ export type LineupPlayer = {
   /** In a box from 42 rem alone: a phone's row is the name, the number and the row's controls. */
   position?: Words;
   /** The role the pupil holds in the squad, the boxed letter after the name, which the block draws as `Table` does. */
-  mark?: RoleMarkProps;
+  mark?: RolleMarkProps;
   chip?: ChipProps;
   /**
    * Registered after the season began: named only while fewer regular pupils than `startersMax` are, and no more of
@@ -146,7 +147,7 @@ export type LineupWords = {
   /** In the picked list's place while it names nobody: its blank slate, as an editor's every list with nothing in it yet. */
   none: EmptyStateProps;
   /** In the other list's place where the team has no squad, alike. */
-  noSquad: EmptyStateProps;
+  noKader: EmptyStateProps;
   /** On the row of a tick pressed while `startersMax` pupils already start. */
   startersFull: Copy;
   /** Why a nominee cannot be named, and on a named nominee's row once the regular pupils leave no gap for them. */
@@ -173,12 +174,16 @@ type LineupProps = {
   startersMax: number;
   words: LineupWords;
   /**
-   * Why nothing here can change as things stand, such as a fixture with no date: every act closed, each button
-   * answering a press with this reason as the kit's locked acts do.
+   * How the acts stand while nothing here can change, which the editor's lock line says once: `locked` draws each act
+   * locked with no reason of its own, as a record closed for now; `out` draws none, as a finished record leaves its acts
+   * out. The ticks stand read-only either way, since they still say who started.
    */
-  locked?: Copy;
-  /** What the save refused of single pupils, by id: each on its row's own line, in the caller's hands when it goes. */
-  refusals?: Readonly<Record<string, Copy>>;
+  acts?: "locked" | "out";
+  /**
+   * A named pupil's own box, by which the save refuses that pupil: the refusal stands on the row's line and marks its
+   * tick, which the form's report focuses (`useFieldFaults`).
+   */
+  boxOf: (id: string) => string;
 };
 
 /** A pupil with no number stands after the numbered ones, in the order given. */
@@ -204,7 +209,7 @@ function NameCell({ player, nameId, line = null, lineId }: { player: LineupPlaye
             text={textOf(player.name)}
             className={words.name()}
           />
-          {player.mark !== undefined && <RoleMark {...player.mark} />}
+          {player.mark !== undefined && <RolleMark {...player.mark} />}
         </span>
         {player.chip !== undefined && (
           <span className={words.chips()}>
@@ -223,7 +228,6 @@ function NameCell({ player, nameId, line = null, lineId }: { player: LineupPlaye
   );
 }
 
-/** The cells every row of either list holds after its name: the number, and in a box from 42 rem the position. */
 function FactCells({ player }: { player: LineupPlayer }) {
   return (
     <>
@@ -271,15 +275,16 @@ function FactHeads({ words }: { words: Pick<LineupWords, "name" | "nummer" | "po
  * reset and its save hold a line-up as they hold any field; an entry naming nobody stands outside it, read-only under
  * `words.anonymous`, its tick saying whether it started (`nameless`).
  */
-export function Lineup({ players, value, nameless, onChange, startersMax, words, locked, refusals = {} }: LineupProps) {
+export function Lineup({ players, value, nameless, onChange, startersMax, words, acts, boxOf }: LineupProps) {
   const id = useId();
+  const faults = useFieldFaults();
   // The row whose tick was pressed with the starters complete; it says so while that still holds.
   const [pressed, setPressed] = useState<string | null>(null);
 
   const ordered = [...players].sort(byNummer);
   const picked = ordered.filter((player) => value.picked.includes(player.id));
   const rest = ordered.filter((player) => !value.picked.includes(player.id) && player.gone === undefined);
-  const hasSquad = players.some((player) => player.gone === undefined);
+  const hasKader = players.some((player) => player.gone === undefined);
 
   const isFull = lineupStarters(value, nameless) >= startersMax;
   const nominees = picked.filter((player) => player.nominee === true).length;
@@ -297,7 +302,7 @@ export function Lineup({ players, value, nameless, onChange, startersMax, words,
   };
 
   const lineOf = (player: LineupPlayer, starts: boolean): RowLine | null => {
-    const refusal = refusals[player.id];
+    const refusal = faults?.[boxOf(player.id)];
     if (refusal !== undefined) return { tone: "danger", text: refusal };
     if (pressed === player.id && isFull && !starts) return { tone: "danger", text: words.startersFull };
     if (player.nominee === true && nominees > gap) return { tone: "danger", text: words.nomineeLocked };
@@ -355,23 +360,29 @@ export function Lineup({ players, value, nameless, onChange, startersMax, words,
                       <FactCells player={player} />
                       <td className={lineup(TICK).cell()}>
                         <Tick
+                          name={boxOf(player.id)}
                           aria-labelledby={`${startsId} ${nameId}`}
                           aria-describedby={line === null ? undefined : lineId}
                           isSelected={starts}
-                          isDisabled={locked !== undefined || player.gone !== undefined}
-                          locked={isOpenTick}
+                          isDisabled={acts !== undefined || player.gone !== undefined}
+                          columnFull={isOpenTick}
                           onChange={(isSelected) => tick(player, isSelected)}
                         />
                       </td>
                       <td className={s.end()}>
-                        <div className={s.acts()}>
-                          <Button
-                            icon="close"
-                            label={words.remove}
-                            locked={locked}
-                            onPress={() => change(without(value.picked, player.id), without(value.starters, player.id))}
-                          />
-                        </div>
+                        {acts !== "out" && (
+                          <div className={s.acts()}>
+                            {/* The press moves its row to the other card, a new row there, so this one leaves with the focus. */}
+                            <FocusOnLeave>
+                              <Button
+                                icon="close"
+                                label={words.remove}
+                                locked={acts === "locked" || undefined}
+                                onPress={() => change(without(value.picked, player.id), without(value.starters, player.id))}
+                              />
+                            </FocusOnLeave>
+                          </div>
+                        )}
                       </td>
                     </tr>
                   );
@@ -411,9 +422,9 @@ export function Lineup({ players, value, nameless, onChange, startersMax, words,
           <h2 className={s.title()}>{words.rest}</h2>
           <span className={s.count()}>{rest.length}</span>
         </div>
-        {!hasSquad && (
+        {!hasKader && (
           <div className={s.box()}>
-            <EmptyState {...words.noSquad} />
+            <EmptyState {...words.noKader} />
           </div>
         )}
         {rest.length > 0 && (
@@ -436,14 +447,20 @@ export function Lineup({ players, value, nameless, onChange, startersMax, words,
                     <NameCell player={player} />
                     <FactCells player={player} />
                     <td className={s.end()}>
-                      <div className={s.acts()}>
-                        <Button
-                          variant="secondary"
-                          label={words.pick}
-                          locked={locked ?? (player.nominee === true && nominees >= gap ? words.nomineeLocked : undefined)}
-                          onPress={() => change([...value.picked, player.id], value.starters)}
-                        />
-                      </div>
+                      {acts !== "out" && (
+                        <div className={s.acts()}>
+                          {/* The press moves its row to the other card, a new row there, so this one leaves with the focus. */}
+                          <FocusOnLeave>
+                            <Button
+                              variant="secondary"
+                              label={words.pick}
+                              // The line-up's own lock is said by the lock line; a nominee's is this row's alone.
+                              locked={acts === "locked" || (player.nominee === true && nominees >= gap ? words.nomineeLocked : undefined)}
+                              onPress={() => change([...value.picked, player.id], value.starters)}
+                            />
+                          </FocusOnLeave>
+                        </div>
+                      )}
                     </td>
                   </tr>
                 ))}

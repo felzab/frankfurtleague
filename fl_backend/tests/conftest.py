@@ -1,10 +1,8 @@
 import copy
 import functools
 import inspect
-import io
 import logging
 import re
-import sys
 import time
 from collections.abc import AsyncIterator, Callable, Coroutine, Generator, Iterator
 from contextlib import ExitStack, contextmanager
@@ -224,6 +222,7 @@ def spiel(
             "sonderereignis": None,
             "saison_phase": "gruppenphase",
             "saison_id": "2026",
+            "version": 0,
         }
     )
 
@@ -422,11 +421,6 @@ def _default_tier_markexpr(config: pytest.Config) -> str | None:
 
 
 def pytest_configure(config: pytest.Config) -> None:
-    # Windows gives a piped stream the ANSI code page, which writes a refusal's `§` as a byte no UTF-8
-    # reader decodes. Set here rather than as `PYTHONUTF8`, which every launcher would have to export.
-    for stream in (sys.stdout, sys.stderr):
-        if isinstance(stream, io.TextIOWrapper):
-            stream.reconfigure(encoding="utf-8")
     guard_every_database()
 
 

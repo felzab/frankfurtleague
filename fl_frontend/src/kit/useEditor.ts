@@ -2,14 +2,13 @@
 
 import { startTransition, useMemo, useState } from "react";
 
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 
 import { useHoldLeave } from "./LeaveGuard";
-import { statusOf, useFormAction } from "./useFormAction";
+import { answerLine, statusOf, useFormAction } from "./useFormAction";
 import { useUnsavedChangesWarning } from "./useUnsavedChangesWarning";
 
 import type { ActionAnswer, SaveQuestion } from "@/core/action";
-import type { Copy } from "@/core/copy";
 import type { FormStatus } from "./useFormAction";
 
 /** One record of a list an editor's field holds, such as a goal of a Spielbericht: each of its fields one value. */
@@ -54,11 +53,11 @@ export type EditorSave<Values extends Record<string, EditorValue>, Version exten
 const CHANGES = "changes.";
 
 /**
- * The server's messages by the box each belongs to. The action keys a message by its field's whole path in what the
- * save sends, so a box's message arrives under `changes.<name>`.
+ * The server's messages, or the save's box rules, by the box each belongs to. The action keys each by its field's whole
+ * path in what the save sends, so a box's arrives under `changes.<name>`.
  */
-const byBox = (fieldErrors: Readonly<Record<string, Copy>>): Readonly<Record<string, Copy>> =>
-  Object.fromEntries(Object.entries(fieldErrors).map(([path, text]) => [path.startsWith(CHANGES) ? path.slice(CHANGES.length) : path, text]));
+export const byBox = <Value>(byPath: Readonly<Record<string, Value>>): Readonly<Record<string, Value>> =>
+  Object.fromEntries(Object.entries(byPath).map(([path, value]) => [path.startsWith(CHANGES) ? path.slice(CHANGES.length) : path, value]));
 
 /** A record is the same by its fields' values: an edit builds the record anew, so a value typed back is another object. */
 function sameItem(a: string | EditorRow, b: string | EditorRow | undefined) {
@@ -132,6 +131,9 @@ function lessSent<Values extends Record<string, EditorValue>>(edits: Partial<Val
  * where nothing unsaved rests on the read before it; a draft made on a read someone else has since changed
  * keeps its version, so its save is refused as stale rather than overwriting.
  *
+ * A save with nothing changed sends nothing and answers „Gespeichert“, the save staying pressable: the stored record
+ * already holds what the fields show. A record not stored yet is the exception, its first save creating it.
+ *
  * A save the server holds back for a question (`ActionAnswer.ask`), such as the later results a new score deletes,
  * stands as `question` over the draft it was asked for, and goes with the next edit: confirmed, the same changes go
  * again carrying its token, which the server judges against what the save would now set off; declined, nothing is
@@ -179,6 +181,8 @@ export function useEditor<Values extends Record<string, EditorValue>, Version ex
 
   const form = useFormAction(
     async (sent: EditorSave<Values, Version>): Promise<ActionAnswer> => {
+      // Sent, a save of nothing would raise the record's `version` and log a change that changed nothing.
+      if (sent.version !== null && Object.keys(sent.changes).length === 0) return { ok: true, value: undefined };
       const answer = await save(sent);
       if (!answer.ok) return answer;
       const settled = { from: sent.version, stored: answer.value, changes: sent.changes };
@@ -201,10 +205,12 @@ export function useEditor<Values extends Record<string, EditorValue>, Version ex
   const [declined, setDeclined] = useState<ActionAnswer | null>(null);
   const { answer } = form;
   const refused = answer !== null && !answer.ok && current.editCount === current.sentEditCount ? answer : null;
-  // A refusal stands only over the draft it was sent with; the count of unsaved fields stands over a done save.
-  const answered = statusOf(answer?.ok === true ? answer : refused, current.blockedEditCount === current.editCount, form.isPending);
+  const blocked = current.blockedEditCount === current.editCount;
+  // A refusal stands only over the draft it was sent with; the count of unsaved fields stands over a done save. The save
+  // bar is the one line a done act says itself on: what else the save moved, or „Gespeichert“.
+  const answered = answer?.ok === true && !blocked && !form.isPending ? answerLine(answer) : statusOf(refused, blocked, form.isPending);
   const status: FormStatus =
-    answered?.tone !== "error" && count > 0 ? { tone: "changes", text: COPY.template.changesPending(count) } : answered;
+    answered?.tone !== "danger" && count > 0 ? { tone: "changes", text: COPY.template.changesPending(count) } : answered;
   // One object while the refusal stands: React Aria shows a box's server message afresh whenever the object changes.
   const refusedFields = refused?.fieldErrors;
   const fieldErrors = useMemo(() => (refusedFields === undefined ? undefined : byBox(refusedFields)), [refusedFields]);

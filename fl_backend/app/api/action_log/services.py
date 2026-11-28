@@ -21,18 +21,22 @@ def _german_midnight(day: date) -> datetime:
 
 
 def build_action_log_query(filters: FLActionLogFilterPayload) -> dict[str, Any]:
-    """The read's whole filter: `by` an equality, and each other term compiled, as none is stored as it is asked."""
+    """The read's whole filter: `by`, the season and the fixture equalities, and each other term compiled, as none is stored as it is asked."""
 
     query: dict[str, Any] = {} if filters.by is None else {"by": filters.by}
     if filters.cursor is not None:
         query["_id"] = {"$lt": filters.cursor}
     if filters.type is not None:
         query["action"] = {"$in": _actions_of(filters.type)}
+    if filters.saison_id is not None:
+        query["saison_id"] = filters.saison_id
+    if filters.spiel_nr is not None:
+        query["spiel_nr"] = filters.spiel_nr
     if filters.from_day is not None:
         query["at"] = {"$gte": _german_midnight(filters.from_day)}
-    # A blank search is none: an empty pattern would keep only the rows holding a team or a label.
+    # A blank search is none: an empty pattern would keep only the rows holding a team, a season or a label.
     if filters.q is not None and filters.q.strip():
         pattern = {"$regex": literal_pattern(filters.q.strip()), "$options": "i"}
-        query["$or"] = [{"team": pattern}, {"label": pattern}]
+        query["$or"] = [{"team": pattern}, {"saison_id": pattern}, {"label": pattern}]
 
     return query

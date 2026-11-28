@@ -12,7 +12,7 @@ replace this one's configuration, and either case's `off` would clear both. The 
 """
 
 import logging
-from collections.abc import AsyncIterator, Awaitable, Callable, Mapping
+from collections.abc import AsyncGenerator, Awaitable, Callable, Mapping
 from contextlib import asynccontextmanager
 from datetime import datetime
 from typing import Any
@@ -138,7 +138,7 @@ HELD_FOR_MS = 200
 
 
 @asynccontextmanager
-async def fail_point(server: AsyncMongoClient, data: Mapping[str, Any], *, mode: Any) -> AsyncIterator[None]:
+async def fail_point(server: AsyncMongoClient, data: Mapping[str, Any], *, mode: Any) -> AsyncGenerator[None]:
     """`failCommand` configured with `data` under `mode`, and switched off as the block ends, however it ends.
 
     Left on, the point outlives its case and fails the next one this server runs.
@@ -154,7 +154,7 @@ async def fail_point(server: AsyncMongoClient, data: Mapping[str, Any], *, mode:
 @asynccontextmanager
 async def failing_client(
     server: AsyncMongoClient, url: str, data: Mapping[str, Any], *, mode: Any, listener: monitoring.CommandListener | None = None
-) -> AsyncIterator[AsyncMongoClient]:
+) -> AsyncGenerator[AsyncMongoClient]:
     """A client of its own the point reaches by `data`'s `appName`, `listener` hearing its commands, closed after the point is off."""
 
     client = new_client(url, serverMonitoringMode="poll", appname=data["appName"], event_listeners=[] if listener is None else [listener])

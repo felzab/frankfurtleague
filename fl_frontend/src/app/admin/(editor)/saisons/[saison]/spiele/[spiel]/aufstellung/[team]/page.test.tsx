@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, onTestFinished } from "vitest";
 
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 import { LINEUP_WORDS } from "@/features/aufstellungen/players";
 import { serveBackend } from "@/test-support/backend";
 import { renderUnderNext } from "@/test-support/nextContexts";
@@ -17,19 +17,10 @@ const OTHER_TEAM = "6890a1b2c3d4e5f607250011";
 const SPIEL = "6890a1b2c3d4e5f607250021";
 const PUPIL = "6890a1b2c3d4e5f607250031";
 
-const state = vi.hoisted(() => ({ sent: [] as unknown[] }));
-
 const AT_ADDRESS: NextContexts = { pathname: "/admin/saisons/2027/spiele/spiel/aufstellung/team", params: {} };
-// The save is a server function, which the editor calls over the network as a client: what it was handed is the outcome.
-vi.mock("./saveAufstellung", () => ({
-  saveAufstellung: async (input: unknown) => {
-    state.sent.push(input);
-    return { ok: true, value: 4 };
-  },
-}));
 
 // The second side's line-up, the first side another club, so a page taking a side's club for the one it read is seen;
-// answered at the match and the club the address names alone, through the real guard, query and generated call.
+// read and written at the match and the club the address names alone, through the real guard, save and generated calls.
 const LINEUP: FLAufstellungResponse = {
   spiel: {
     spiel_id: SPIEL,
@@ -52,7 +43,14 @@ const LINEUP: FLAufstellungResponse = {
   marks: { stored: false, phase: "locked", due_at: "2026-11-13T15:00:00Z" },
   saison_status: "active",
 };
-serveBackend(({ method, path }) => (method === "GET" && path === `/aufstellungen/spiele/${SPIEL}/teams/${TEAM}/admin` ? LINEUP : undefined));
+/** The line-up the read answers, the case's own where it sets one. */
+let answered = LINEUP;
+const ENDPOINT = `/aufstellungen/spiele/${SPIEL}/teams/${TEAM}/admin`;
+const backend = serveBackend(({ method, path }) => {
+  if (path !== ENDPOINT) return undefined;
+  if (method === "GET") return answered;
+  return method === "PUT" ? { version: 4 } : undefined;
+});
 // An administrator's session, made by passkey, which the read's guard admits.
 signedInRequest();
 
@@ -75,7 +73,27 @@ describe("a club's line-up at the league's address", () => {
     const bar = screen.getByRole("region", { name: COPY.shared.verb.save });
     await userEvent.click(within(bar).getByRole("button", { name: COPY.shared.verb.save }));
 
-    await waitFor(() => expect(state.sent).toHaveLength(1));
-    expect(state.sent[0]).toMatchObject({ team_id: TEAM, id: SPIEL, version: null, changes: { picked: [PUPIL] } });
+    await waitFor(() => expect(backend.sent.filter(({ method }) => method === "PUT")).toHaveLength(1));
+    const write = backend.sent.find(({ method }) => method === "PUT");
+    expect(write?.body).toStrictEqual({ spieler: [{ spieler_id: PUPIL, starts: false }], version: null });
+  });
+
+  // The harm: „Noch kein Kader.“ on a finished season promises a squad that cannot come, and so rare a state never
+  // meets a look at the page.
+  it("says no squad and no line-up were recorded in a finished season, where none can come", async () => {
+    answered = { ...LINEUP, kader: [], saison_status: "past" };
+    onTestFinished(() => {
+      answered = LINEUP;
+    });
+    renderUnderNext(
+      await AdminAufstellungPage({
+        params: Promise.resolve({ saison: "2027", spiel: SPIEL, team: TEAM }),
+        searchParams: Promise.resolve({}),
+      }),
+      AT_ADDRESS,
+    );
+
+    expect(screen.getByText(COPY.shared.empty.unrecordedOne(COPY.shared.kader))).toBeTruthy();
+    expect(screen.getByText(COPY.shared.empty.unrecorded(LINEUP_WORDS.picked))).toBeTruthy();
   });
 });

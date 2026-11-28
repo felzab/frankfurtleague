@@ -25,7 +25,7 @@ from app.api.outbox.services import (
     FOLLOWS,
     LEASE_DURATION,
     PAGE,
-    SIGN_IN_KINDS,
+    TRIED_ONCE_KINDS,
     UNBARRED,
     OwedMail,
     final_update,
@@ -128,11 +128,11 @@ async def post_handout(
             update=final_update("abandoned", now=germany_now),
             session=session,
         )
-        # The sign-in library's mails first, then the rest, each oldest first: a sign-in mail has one attempt, and a queue
-        # of league mail ahead of it would spend the drain's deadline before its claim.
-        sign_in_kinds = list(SIGN_IN_KINDS)
+        # The mails tried once first, then the rest, each oldest first: a code or a deletion link has one attempt, and a
+        # queue of league mail ahead of it would spend the drain's deadline before its claim.
+        tried_once = list(TRIED_ONCE_KINDS)
         due: list[Mapping[str, Any]] = []
-        for kind_filter in ({"$in": sign_in_kinds}, {"$nin": sign_in_kinds}):
+        for kind_filter in ({"$in": tried_once}, {"$nin": tried_once}):
             if len(due) == PAGE:
                 break
             due += await pull_many_from_db(
@@ -265,7 +265,7 @@ async def post_result(
 
     `held` reports a deployment that sends no mail, `abandon` a refusal every send would meet (any 4xx but a 429), and
     `retry` a 429, a 5xx or a send that never reached the provider, which hands the mail back unless it is a sign-in
-    mail or past its deadline.
+    code, a deletion link or past its deadline.
     """
 
     # Each write names the claim, so its check and the outcome are one atomic operation on one row, needing no transaction.
@@ -281,8 +281,8 @@ async def post_result(
 
     result = result_data.result
     state = FINAL_STATE[result]
-    # A send to be tried again ends here only where it may not be: a sign-in mail, or one past its deadline.
-    ends = {"$or": [{"kind": {"$in": list(SIGN_IN_KINDS)}}, {"deadline": {"$lte": germany_now}}]} if result == "retry" else {}
+    # A send to be tried again ends here only where it may not be: a mail tried once, or one past its deadline.
+    ends = {"$or": [{"kind": {"$in": list(TRIED_ONCE_KINDS)}}, {"deadline": {"$lte": germany_now}}]} if result == "retry" else {}
     counted: str
     if await settled(final_update(state, now=germany_now), ends):
         counted = state

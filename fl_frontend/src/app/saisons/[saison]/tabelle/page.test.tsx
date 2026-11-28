@@ -1,12 +1,14 @@
+// @vitest-environment jsdom
 import { describe, expect, it } from "vitest";
 
+import { COPY } from "@/core/copy/shared";
 import { serveBackend } from "@/test-support/backend";
+import { underNext } from "@/test-support/nextContexts";
 import { doubleNextRequest } from "@/test-support/nextRequest";
+import { drawnOnServer } from "@/test-support/server";
 
 import type { FLSaisonFrameResponse, FLTabelleResponse, FLTabelleRow } from "@/core/generated/client/types";
-import type { ListPage } from "@/kit/ListPage";
-import type { TableRow } from "@/kit/Table";
-import type { ComponentProps, ReactElement } from "react";
+import type { TableStandingRow } from "@/kit/TableStanding";
 
 const STATISTIK = {
   count_cancelled_spiele: 0,
@@ -49,20 +51,39 @@ doubleNextRequest();
 
 const { default: TabellePage } = await import("./page");
 
-/** Each row's bar as the page hands it to the table, by the club's id. */
-async function barsOf(rows: FLTabelleRow[]): Promise<Record<string, TableRow["qualifies"]>> {
-  tabelle = { gruppen: { A: rows }, qualifiers_per_gruppe: 2 };
-  const page = TabellePage({ params: Promise.resolve({ saison: "2027" }), searchParams: Promise.resolve({}) }) as ReactElement<
-    ComponentProps<typeof ListPage>
-  >;
-  if (page.props.list.kind !== "groups") throw new Error("the Tabelle lists groups");
-  const { groups } = await page.props.list.content;
-  return Object.fromEntries((groups[0]?.table.rows ?? []).map((each) => [each.id, each.qualifies]));
+/** The page as it lands for `gruppen`, two qualifying in each group. */
+async function landed(gruppen: FLTabelleResponse["gruppen"]) {
+  tabelle = { gruppen, qualifiers_per_gruppe: 2 };
+  return drawnOnServer(
+    underNext(
+      <TabellePage
+        params={Promise.resolve({ saison: "2027" })}
+        searchParams={Promise.resolve({})}
+      />,
+      { pathname: "/saisons/2027/tabelle" },
+    ),
+  );
 }
 
-// The bar tells a visitor which clubs go on to the K.-o.-Runde: one place off, or a level pair drawn as settled,
-// shows the wrong qualifiers with nothing failing.
-describe("the Tabelle's qualification bar", () => {
+/** The rank cell of a club's row, found by its fragment, the club's id. */
+const rankOf = (page: HTMLElement, id: string) => page.querySelector(`tr[id="${id}"] td`)?.textContent ?? "";
+
+/** Each row's bar as its rank cell says it to a screen reader, by the club's id. */
+async function barsOf(rows: FLTabelleRow[]): Promise<Record<string, TableStandingRow["qualifies"]>> {
+  const page = await landed({ A: rows });
+  const { qualifies } = COPY.shared.season;
+  return Object.fromEntries(
+    rows.map(({ id }) => {
+      const rank = rankOf(page, id);
+      return [id, rank.includes(qualifies.settled) ? "settled" : rank.includes(qualifies.level) ? "level" : undefined];
+    }),
+  );
+}
+
+// The mark tells a visitor which clubs go on to the K.-o.-Runde: one place off, or a level pair said as settled, names
+// the wrong qualifiers with nothing failing. These cases hear it as a screen reader does; the coloured edge a sighted
+// visitor sees beside it is the page's look, which no case here reads.
+describe("the Tabelle's spoken qualification mark", () => {
   it("marks the places up to the qualifier count, and none below it", async () => {
     expect(await barsOf([row("a", 1), row("b", 2), row("c", 3), row("d", 4)])).toStrictEqual({
       ["a".repeat(24)]: "settled",
@@ -87,5 +108,17 @@ describe("the Tabelle's qualification bar", () => {
       ["b".repeat(24)]: undefined,
       ["c".repeat(24)]: undefined,
     });
+  });
+});
+
+// A place is shared only among the clubs of one group: judged across the groups, group B's own first place would make
+// group A's sole first club read as level.
+describe("the Tabelle's groups", () => {
+  it("judges a shared place within its own group", async () => {
+    const page = await landed({ A: [row("a", 1), row("b", 2), row("c", 2)], B: [row("d", 1), row("e", 3)] });
+
+    expect(rankOf(page, "a".repeat(24))).toContain(COPY.shared.season.qualifies.settled);
+    expect(rankOf(page, "d".repeat(24))).toContain(COPY.shared.season.qualifies.settled);
+    expect(rankOf(page, "b".repeat(24))).toContain(COPY.shared.season.qualifies.level);
   });
 });

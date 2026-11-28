@@ -14,9 +14,12 @@ from app.shared.schemas.literals import (
 )
 from app.shared.schemas.responses import BasePayload, BaseReadModel
 
+# Published beside the pattern as `max_length`, from which the generated inputs carry the bound the shirt fields type
+# up to; a pattern alone publishes none.
+KADER_NUMMER_MAX_LENGTH = 4
 # `[0-9]`, never `\d`: Python's `\d` matches Unicode decimal digits where the frontend mirror's
 # does not, and the two ends must accept and refuse the same shirt.
-KADER_NUMMER_PATTERN = r"^[0-9]{1,4}$"
+KADER_NUMMER_PATTERN = rf"^[0-9]{{1,{KADER_NUMMER_MAX_LENGTH}}}$"
 
 # Slugs rather than the German `position` and `stufe` store: a role also has a label and a badge
 # Kuerzel, and a stored German word would be a third spelling for those two to drift from.
@@ -105,7 +108,7 @@ class FLSpielerRecord(_SpielerPerson, Anchored):
     # read-back names. Required: every erasure finds a person by address, so a person holding none
     # would be out of every erasure's reach.
     email: CustomStoredAddress
-    version: int = 0
+    version: int
 
     @model_validator(mode="after")
     def _cites_a_pupils_wordings(self) -> Self:
@@ -132,7 +135,7 @@ class FLSaisonSpielerRow(Anchored):
     nummer: str | None
     # The day this squad row was retired, which is not the day the person left the league.
     inactive_since: CustomOptionalDateString
-    version: int = 0
+    version: int
 
 
 class FLSpielerAdminRow(BaseReadModel):
@@ -211,7 +214,7 @@ class FLKaderRow(BaseReadModel):
     # Composed on read and stored nowhere, so it cannot go stale beside the rows it compares.
     nummer_double: bool
     # The writes counted so far, which the editor's save sends back.
-    version: int = 0
+    version: int
 
 
 class FLKaderResponse(BaseReadModel):
@@ -233,7 +236,7 @@ class _KaderRowFields(BasePayload):
 
     # Tightened on the write side alone: a read model refusing a stored number would answer 500 for
     # the whole list over one row.
-    nummer: str | None = Field(pattern=KADER_NUMMER_PATTERN)
+    nummer: str | None = Field(pattern=KADER_NUMMER_PATTERN, max_length=KADER_NUMMER_MAX_LENGTH)
     position: FLSpielerPosition | None
     stufe: FLSpielerStufe | None
     rolle: FLSpielerRolle | None

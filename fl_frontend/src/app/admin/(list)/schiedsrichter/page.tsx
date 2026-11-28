@@ -1,4 +1,7 @@
-import { COPY } from "@/core/copy";
+import { boxRulesOf } from "@/core/action";
+import { getAdminHolder } from "@/core/auth/guards";
+import { ADMIN_COPY } from "@/core/copy/admin";
+import { COPY } from "@/core/copy/shared";
 import { ROUTES } from "@/core/routes";
 import { refereeChip } from "@/features/schiedsrichter/confirmationState";
 import { getSchiedsrichter } from "@/features/schiedsrichter/queries";
@@ -10,14 +13,11 @@ import { SchiedsrichterFields } from "./SchiedsrichterFields";
 
 import type { FLSchiedsrichterAdminRow } from "@/core/generated/client/types";
 import type { TableHead, TableRow } from "@/kit/Table";
-import type { Metadata, ResolvingMetadata } from "next";
 
-const WORDS = COPY.admin.schiedsrichter;
+const WORDS = ADMIN_COPY.schiedsrichter;
 const OBJECT = COPY.shared.schiedsrichter;
 
-export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
-  return pageMetadata(parent, ROUTES.adminSchiedsrichter, ROUTES.adminSchiedsrichter.path());
-}
+export const metadata = pageMetadata(ROUTES.adminSchiedsrichter);
 
 /** One referee's row, opening their editor: the name with where the entry stands, „Bestätigt“ once confirmed, the address and the phone. */
 function rowOf(referee: FLSchiedsrichterAdminRow): TableRow {
@@ -34,17 +34,22 @@ function rowOf(referee: FLSchiedsrichterAdminRow): TableRow {
   };
 }
 
-/** The league's referees: searched on the page, a new one entered, and so asked, in the dialog over the list. */
+/**
+ * The league's referees: searched on the page, a new one entered, and so asked, in the dialog over the list, behind the
+ * passkey touch, since the entry hands the referee's area to the address it stores, as the editor's save does.
+ */
 export default function SchiedsrichterPage() {
   return (
     <ListPage
       head={{ scope: "area", title: { route: "adminSchiedsrichter" } }}
-      create={{
+      create={getAdminHolder().then((holder) => ({
         title: COPY.shared.withObject(OBJECT, "create"),
         act: { verb: "create", object: OBJECT },
-        action: createSchiedsrichter,
+        run: createSchiedsrichter,
+        rules: boxRulesOf(createSchiedsrichter),
+        touch: { holder },
         children: <SchiedsrichterFields />,
-      }}
+      }))}
       list={{ kind: "table", search: { label: WORDS.search }, head: HEAD, content: readSchiedsrichter() }}
     />
   );
@@ -52,9 +57,9 @@ export default function SchiedsrichterPage() {
 
 const HEAD: TableHead = {
   nameLabel: COPY.shared.name,
-  state: { label: COPY.admin.schiedsrichter.state },
+  state: { label: COPY.shared.facts.state },
   columns: [
-    { key: "email", label: COPY.signIn.address, hideOnPhone: true, width: "line", cut: true },
+    { key: "email", label: COPY.shared.emailAddress, hideOnPhone: true, width: "line", cut: true },
     { key: "phone", label: COPY.shared.facts.phone, hideOnPhone: true, width: "phone" },
   ],
 };

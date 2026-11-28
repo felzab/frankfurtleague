@@ -187,7 +187,6 @@ async def sweep(
         saison_id=saison_id,
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
         saisons_collection=database[Collection.SAISONS],
-        teams_collection=database[Collection.TEAMS],
         outbox_collection=database[Collection.OUTBOX],
         db=client,
         today=today,
@@ -228,7 +227,7 @@ async def retention_rows(database: AsyncDatabase) -> list[Mapping[str, Any]]:
 
     rows = await database[Collection.ACTION_LOG].find({"action": "retention.bewerbungen"}, sort=[("_id", 1)]).to_list(length=None)
 
-    return [{key: row[key] for key in ("by", "team", "record_id", "label", "count")} for row in rows]
+    return [{key: row[key] for key in ("by", "team", "record_id", "saison_id", "count")} for row in rows]
 
 
 async def owed(database: AsyncDatabase, kind: str) -> list[Mapping[str, Any]]:
@@ -302,7 +301,7 @@ def reminder_mail(to: str, seats: list[str]) -> dict[str, Any]:
     return {
         "key": f"{Collection.BEWERBUNGEN}/{REMIND_OID}/reminder/{seats[0]}/{TODAY}",
         "to": to,
-        "data": {"kind": "bewerbung_reminder", "saison_id": SAISON_ID, "schule": SCHOOL_NAME, "seats": seats, "deadline": "2026-04-12"},
+        "data": {"kind": "bewerbung_reminder", "saison_id": SAISON_ID, "seats": seats, "deadline": "2026-04-12"},
     }
 
 
@@ -440,7 +439,7 @@ class TestTheFourteenDayClock:
         assert due is None
         assert kept is not None and other is not None
         # The decline clock's one write and this application's, each in its own transaction, naming nobody.
-        assert rows == [{"by": "system", "team": None, "record_id": None, "label": SAISON_ID, "count": 1}] * 2
+        assert rows == [{"by": "system", "team": None, "record_id": None, "saison_id": SAISON_ID, "count": 1}] * 2
 
     async def test_an_objections_notice_stands_as_the_deletion_notice(self, mongo_replica_set_url: str):
         """It named the deletion day to the Ansprechperson, who confirmed and is owed no second notice."""
@@ -484,7 +483,6 @@ class TestTheFourteenDayClock:
                 saison_id=SAISON_ID,
                 bewerbungen_collection=cast(Any, applications),
                 saisons_collection=database[Collection.SAISONS],
-                teams_collection=database[Collection.TEAMS],
                 outbox_collection=database[Collection.OUTBOX],
                 db=client,
                 today=TODAY,
@@ -1380,7 +1378,7 @@ class TestTheSeasonsEndStripsItsReports:
 
         assert response == 0
         # One row for the strip, counting this season's report holding remarks alone, the next season's left standing.
-        assert [(row["label"], row["count"]) for row in strip_rows] == [(SAISON_ID, 1)]
+        assert [(row["saison_id"], row["count"]) for row in strip_rows] == [(SAISON_ID, 1)]
         for name in ("this season", "this season, no remarks"):
             kept = reports[name]["bericht"]
             left = stored[name]

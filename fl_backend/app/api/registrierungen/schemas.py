@@ -1,8 +1,8 @@
-from typing import Annotated, Literal, Self
+from typing import Annotated, Literal
 
-from pydantic import AfterValidator, BaseModel, Field, model_validator
+from pydantic import AfterValidator, BaseModel, Field
 
-from app.api.spieler.schemas import KADER_NUMMER_PATTERN, FLEinwilligung
+from app.api.spieler.schemas import KADER_NUMMER_MAX_LENGTH, KADER_NUMMER_PATTERN, FLEinwilligung
 from app.shared.schemas.confirmation import CustomToken, FLConfirmation
 from app.shared.schemas.custom import (
     CustomDateString,
@@ -14,7 +14,6 @@ from app.shared.schemas.einwilligung import (
     FLEinwilligungEvidenceSet,
     FLSpielerTextVersions,
     cite_their_kind,
-    refuse_a_stale_grant,
 )
 from app.shared.schemas.kontakt import CustomEmail, CustomKontaktName, CustomStoredAddress
 from app.shared.schemas.literals import (
@@ -123,7 +122,7 @@ class FLPostRegistrierungPayload(BasePayload):
     # pupil's and not a default nobody chose.
     position: FLSpielerPosition | None
     # Tightened on the write side alone.
-    nummer: str | None = Field(pattern=KADER_NUMMER_PATTERN)
+    nummer: str | None = Field(pattern=KADER_NUMMER_PATTERN, max_length=KADER_NUMMER_MAX_LENGTH)
     stufe: FLSpielerStufe | None
 
 
@@ -184,11 +183,6 @@ class FLRegistrierungConfirmationPayload(BasePayload):
     media: bool
     # The wordings the page showed beside the two choices.
     text_versions: FLSpielerTextVersions
-
-    @model_validator(mode="after")
-    def _grants_name_the_current_wording(self) -> Self:
-        refuse_a_stale_grant(self.text_versions, {"scope": self.scope, "media": self.media})
-        return self
 
 
 class FLRegistrierungSweepResponse(BaseReadModel):

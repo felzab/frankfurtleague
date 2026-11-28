@@ -24,7 +24,7 @@ type Person = { firstName: string; lastName: string; address: string; phone: str
 /** A mail's subject, by its season. */
 export const SUBJECT = {
   received: `Bewerbung für die Saison ${PLANNED} eingegangen`,
-  seat: `Eintrag für die Saison ${PLANNED} bestätigen`,
+  seat: `Eintrag bestätigen: Saison ${PLANNED}`,
   accepted: `Zusage für die Saison ${PLANNED}`,
   declined: `Absage für die Saison ${PLANNED}`,
   objected: `Widerspruch zum Eintrag: Saison ${PLANNED}`,
@@ -90,7 +90,7 @@ export async function apply(page: Page, school: string, { isListed }: { isListed
   await typeInto(team.getByRole("textbox", { name: /^Davon im Verein/ }), "3");
 
   await page.getByRole("main").getByRole("button", { name: "Bewerbung abschicken" }).click();
-  await expect(page.getByRole("main").getByRole("heading", { name: "Bewerbung abgeschickt" })).toBeVisible();
+  await expect(page.getByRole("main").getByRole("heading", { name: "Jede Kontaktperson bestätigt per E-Mail" })).toBeVisible();
 }
 
 /** Answers a seat's mailed link with a birthdate, as far as the page's own end. */
@@ -105,7 +105,8 @@ export async function confirmSeat(page: Page, link: string): Promise<void> {
   await birthDate.getByRole("spinbutton").or(birthDate.getByRole("textbox")).first().click();
   await page.keyboard.type("01011990");
   await main.getByRole("button", { name: "Eintrag bestätigen" }).click();
-  // By its exact title: the same link read again is titled with the day.
+  // On the done page the answer leads to, the link forgotten.
+  await expect(page).toHaveURL((url) => url.pathname === "/confirm/kontakt/done");
   await expect(main.getByRole("heading", { name: "Eintrag bestätigt", exact: true })).toBeVisible();
 }
 
@@ -113,5 +114,5 @@ export async function confirmSeat(page: Page, link: string): Promise<void> {
 export async function openApplication(page: Page, school: string): Promise<void> {
   await page.goto(`/admin/saisons/${PLANNED}/bewerbungen`);
   await page.getByRole("main").getByRole("link", { name: school, exact: true }).click();
-  await expect(page.getByRole("banner").getByRole("heading", { level: 1, name: school })).toBeVisible();
+  await expect(page.getByRole("main").getByRole("heading", { level: 1, name: school })).toBeVisible();
 }

@@ -25,24 +25,26 @@ export type JourneyOptions = {
   /** A referee's address the account acts delete. */
   leaver: string;
   /** The schools the applicant's journeys apply as, one per way an application ends. `declined` is a club the form lists. */
-  applicants: { accepted: string; declined: string; objected: string };
+  applicants: { accepted: string; declined: string };
+  /** The school the seat journey applies as, whose Stellvertretung objects: desktop's alone, as that journey is. */
+  objected: string;
   /** The club the Austritt takes out of the running season, and the fixture its one opponent with a contact is told of. */
-  departing: { club: string; fixture: string };
+  departing: { team: string; fixture: string };
   /**
    * The club the administration enters into the planned season, and the kit colour its editor saves. A season's colour
    * is one team's and both projects enter the one season, so each has its own, and neither is one the seed's planned
    * season holds nor the wish the applications pick, which a colour given away would close.
    */
-  entered: { club: string; colour: string };
+  entered: { team: string; colour: string };
   /** The pupil the administration edits in the running season's squads. */
-  squadded: string;
+  kaderPupil: string;
   /**
    * A confirmed contact seat's address on a club of the running season, and what waits on it: the coming fixture whose
    * date it answers and whose line-up it owes, and the pupil whose confirmed registration it decides.
    */
-  contact: { address: string; club: string; fixture: string; pupil: string };
+  contact: { address: string; team: string; fixture: string; pupil: string };
   /** A club of the running season whose live registration link (`?token=…`) a pupil registers through, and the address of its confirmed contact seat, which admits them. */
-  registering: { club: string; token: string; admitter: string };
+  registering: { team: string; token: string; admitter: string };
   /** A confirmed referee's address, the played fixture whose report they owe, and the coming one whose booking they answer. */
   booked: { address: string; played: string; coming: string };
 };
@@ -134,12 +136,13 @@ export const test = base.extend<JourneyFixtures & JourneyOptions>({
   twoDevices: ["", { option: true }],
   mover: ["", { option: true }],
   leaver: ["", { option: true }],
-  applicants: [{ accepted: "", declined: "", objected: "" }, { option: true }],
-  departing: [{ club: "", fixture: "" }, { option: true }],
-  entered: [{ club: "", colour: "" }, { option: true }],
-  squadded: ["", { option: true }],
-  contact: [{ address: "", club: "", fixture: "", pupil: "" }, { option: true }],
-  registering: [{ club: "", token: "", admitter: "" }, { option: true }],
+  applicants: [{ accepted: "", declined: "" }, { option: true }],
+  objected: ["", { option: true }],
+  departing: [{ team: "", fixture: "" }, { option: true }],
+  entered: [{ team: "", colour: "" }, { option: true }],
+  kaderPupil: ["", { option: true }],
+  contact: [{ address: "", team: "", fixture: "", pupil: "" }, { option: true }],
+  registering: [{ team: "", token: "", admitter: "" }, { option: true }],
   booked: [{ address: "", played: "", coming: "" }, { option: true }],
 
   // The test's own context.

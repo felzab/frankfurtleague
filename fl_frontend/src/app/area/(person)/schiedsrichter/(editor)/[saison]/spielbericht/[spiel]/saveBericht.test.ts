@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
-import { COPY } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 import { serveBackend } from "@/test-support/backend";
 import { signedInRequest } from "@/test-support/session";
 
@@ -129,7 +129,27 @@ describe("each row the save sends", () => {
     };
     const answer = await saveBericht({ id: SPIEL_ID, version: 3, changes: { remarks: "Nachgetragen" } });
 
-    expect(answer).toStrictEqual({ ok: false, fieldErrors: { "changes.scorers.0.spieler_id": COPY.shared.field.required } });
+    expect(answer).toStrictEqual({
+      ok: false,
+      fieldErrors: { "changes.scorers.0.spieler_id": COPY.shared.field.required },
+      kinds: { "changes.scorers.0.spieler_id": "required" },
+    });
+    expect(writes()).toHaveLength(0);
+  });
+});
+
+// The harm: a shoot-out sent with one figure, which the write refuses as the stale-page line, the box left unmarked.
+describe("a shoot-out the save sends", () => {
+  it("is refused on the figure left blank once the other is typed, where the match takes one", async () => {
+    // A final with no report yet, so level: no goal on either side.
+    state.read = { ...READ, spiel: { ...READ.spiel, saison_phase: "finale" }, bericht: null };
+    const answer = await saveBericht({ id: SPIEL_ID, version: 3, changes: { shootOut1: "4", shootOut2: "" } });
+
+    expect(answer).toStrictEqual({
+      ok: false,
+      fieldErrors: { "changes.shootOut2": COPY.shared.field.required },
+      kinds: { "changes.shootOut2": "required" },
+    });
     expect(writes()).toHaveLength(0);
   });
 });

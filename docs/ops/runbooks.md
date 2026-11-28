@@ -261,9 +261,8 @@ before the next deploy, which would otherwise boot held.
 
 **The frontend reads `RESTORE_HOLD` once, as it boots**, so the line takes effect at the frontend's
 next start and not before: a deploy's, or the recreate step 6 runs. Without it, the frontend's first
-hourly pass runs a minute after its boot
-(`fl_frontend/src/instrumentationNode.ts :: FIRST_PASS_DELAY_MS`), on data no read-back has judged
-yet. While it holds:
+hourly pass runs a minute after its boot (`fl_frontend/src/scheduler.ts :: FIRST_PASS_DELAY_MS`), on
+data no read-back has judged yet. While it holds:
 
 - **No hourly pass runs**: no sweep, no pupils' deletion, no fixture confirmation and no handover.
   The frontend logs `scheduler.held` at its boot instead, so
@@ -331,7 +330,8 @@ administration is shut while it is down. Each of these is easy to get wrong:
   and a handover at the first hourly pass `:: OWNER_WAIT_DAYS` days after it. Every holder in effect
   and the person named are mailed when a wait starts or stops, when a handover completes and at any
   removal; an addition's wait ends with no mail, no pass running then. Only the `owner` stops a
-  wait, on the same page: the mail tells the others to reach the owner.
+  wait, on the same page: the mail tells the others to reach the owner. A removal, and a waiting
+  addition's withdrawal, deletes the address's passkeys and the sessions they made.
 - **Exactly one `owner` stands**, by `uniq_grant_owner`. A handover names a current administrator,
   never a row still waiting, and one at a time; the pass demotes then promotes in one transaction.
   The owner stays the owner until then. The new owner signs in once more before acting: a session
@@ -348,8 +348,10 @@ administration is shut while it is down. Each of these is easy to get wrong:
   waiting, or a thief's handover stays armed; it then demotes any other `owner` row, which
   `uniq_grant_owner` otherwise refuses, and writes a new row rather than repointing the old one,
   whose sign-in account stays at the old address. Removing the row by its folded address removes the
-  grant. A hand write mails nobody, which is why it serves these two cases alone. The statement
-  itself is kept off this public repository.
+  grant, and the account sweep's next hourly pass deletes that address's passkeys and the sessions
+  they made ([section 9](#9-checking-that-the-hourly-passes-have-run)), as it does after a
+  `grants.passkeys_not_deleted` line: nothing is deleted by hand. A hand write mails nobody, which
+  is why it serves these two cases alone. The statement itself is kept off this public repository.
 - **Write only into a database a boot of the release carrying `grants` has reached.** That boot
   creates the unique indexes; a write before it creates the collection without them, and a duplicate
   in it then fails the next boot's index build (`db.indexes_failed`). Until the write lands no
@@ -360,19 +362,18 @@ administration is shut while it is down. Each of these is easy to get wrong:
 - **A banned address is added by nobody, and a holder is banned by nobody, a waiting row included**:
   lift the ban, or withdraw or remove the grant, first. A grant written by hand onto a banned
   address is refused by nothing and admits nobody, the sign-in refusing it.
-- **The session row is not the grant.** It stays in the `auth` database after a revocation and
-  authorizes nothing, so deleting it by hand is tidying rather than revocation.
+- **The session row is not the grant.** A revocation leaves the sessions a mailed code made in the
+  `auth` database, a person's now, and they authorize nothing in the administration, so deleting
+  them by hand is tidying rather than revocation.
 - **A grant to an address the sign-in library will not take admits nobody**: that person is mailed
   no code. The grant page refuses such an address; a hand write refuses nothing. An umlaut is the
   case that turns up: the sign-in box takes no address outside ASCII, so that person needs a mailbox
   it will accept before a grant is worth writing. A domain already spelled in punycode (`xn--`) is
   taken as typed.
-- **A grant admits every passkey the address already holds.** A person enrols a first passkey with a
-  mailed code and every later one with a passkey sign-in of the last minute, or brings them along on
-  an address change the new mailbox confirmed while nothing named it, the same authority an
-  administrator's first passkey rests on, so one enrolled before the grant admits once the address
-  is granted, though only on a passkey sign-in made after the grant: a session older than the grant
-  administers nothing. Grant an address only where its mailbox is trusted as an administrator's.
+- **A grant admits every passkey the address already holds**, though only on a passkey sign-in made
+  after the grant: a session older than the grant administers nothing. Such a passkey rests on the
+  same authority an administrator's first passkey rests on, the mailbox. Grant an address only where
+  its mailbox is trusted as an administrator's.
 - **The grant is the access; the person's own next sign-in enrols the passkey.** An address holding
   a grant and no passkey is answered the enrolment page and reaches no admin route until one stands,
   so there is nothing to prepare for them and nothing to hand over.
@@ -393,6 +394,11 @@ administration is shut while it is down. Each of these is easy to get wrong:
   older desktop with no biometric and no PIN is the case that turns up. Give them a FIDO2 key with
   resident-key and user-verification support, or a second device they can enrol from; there is no
   password and no code to fall back to.
+- **An act behind the passkey touch needs Safari 17.4 or later on a Mac, and iOS or iPadOS 17.4 or
+  later on an iPhone or iPad**, where every browser runs Safari's engine; older versions are not
+  supported. On one, an administrator may still sign in by passkey, but may lose the touch's prompt,
+  above all after the check an act sends before it, and the press then seems to do nothing. The
+  repair is an update, or another device.
 - **A removal is not a recovery route, and no control offers one to a session a mailed code alone
   made**: such a session could otherwise swap the administrator's passkey for a stolen mailbox's,
   which is the attack the passkey sign-in exists against, the administration admitting only a
@@ -473,8 +479,8 @@ per-visitor control, the one figure in that section never exercised against a re
 
 Access, rectification, objection, restriction and portability all arrive the same way and are
 answered by one person by hand. The withdrawal of a consent is the person's own write on their
-account page, and a request for one by mail is answered by pointing them there (below). Erasure has
-its own mechanisms and is
+account page, or, where they ask by mail, an administrator's entry of it on „Widerrufe“ (below).
+Erasure has its own mechanisms and is
 [`../datenschutz.md`](../datenschutz.md#5-erasure-reaches-everyone-who-asks)'s; everything else is
 this section.
 
@@ -601,8 +607,8 @@ registration and grant the address holds, so one sign-in stays whole.
 
 - **The person can still sign in.** Point them to Konto's „Anmeldung“ page, `/account/signin`, and
   its box „E-Mail-Adresse“. They type the new address under „Neue E-Mail-Adresse“ and press „Link
-  senden“, a person holding a passkey touching it first, confirm the change by the link mailed to
-  the address on file, and then by the link that confirmation mails the new address, each within
+  senden“, an administrator touching a passkey first, confirm the change by the link mailed to the
+  address on file, and then by the link that confirmation mails the new address, each within
   `fl_backend/app/shared/schemas/bounds.py :: ADDRESS_CHANGE_VALID_HOURS` hours; declining at either
   link ends it. Never start a change for a person who can sign in: a request arriving by mail proves
   nothing about who sent it.
@@ -691,22 +697,34 @@ in the contacts editor under the new address: the seat is then a new entry, its 
 choice and birthdate asked again through the fresh link, and the old entry's records stay at the old
 address.
 
-**Withdrawing a consent is the person's own write on Konto's „Deine Einträge“, `/account/entries`,
-and never an erasure or an edit by hand**. Point a request arriving by mail at the control for its
-record, which the person reaches by signing in with the address that record holds:
+**A consent withdrawn by mail is entered on „Widerrufe“, `/admin/withdrawals`, for the address the
+mail came from, and never by an erasure or an edit by hand.** Paste that address, tick exactly what
+the mail withdraws, and press „Eintragen“: „Name auf der Website“ for the name a pupil's, a
+referee's or a registration's record publishes, „WhatsApp“ for a contact seat's WhatsApp consent,
+and „Fotos und Videos“ for the media consent on every record. A mail withdrawing its consent without
+naming one ticks all three. The question names by kind, never by name, the records the entry ends a
+choice on, which are every record the address holds: a finished season's row, a retired club's or
+referee's, a pending registration and a decided application among them. Where it says that nothing
+of it is granted, tell the person so. The entry grants nothing, raises no record's version, asks no
+passkey touch, and stands in the Protokoll as „Widerruf eingetragen“ on each record it moved
+(`fl_backend/app/api/account/services.py :: withdraw_at_address`); only the person can consent
+again, on Konto's „Deine Einträge“, `/account/entries`.
 
-- **A referee's publication scope and media consent:**
-  `PATCH /schiedsrichter/{schiedsrichter_id}/einwilligung`.
-- **A seat's WhatsApp scope and media consent on a team's season row:**
-  `PATCH /teams/{team_id}/saisons/{saison_id}/einwilligung`, for every seat the address holds on
-  that row.
-- **A seat's WhatsApp scope and media consent on a pending application:**
-  `PATCH /bewerbungen/{bewerbung_id}/einwilligung`, which withdraws them and never grants either.
-- **A pending registration's publication scope and media consent:**
-  `PATCH /registrierungen/{registrierung_id}/einwilligung`, which withdraws them and grants neither.
-  The admission deletes the registration, and its choices then move on the pupil's own control
-  above.
-- **A pupil's:** the paragraph below.
+**The page refuses two kinds of address, and says so before anyone confirms**: the administrator's
+own, whose consents they withdraw themselves on Konto's „Deine Einträge“; and any holding a grant,
+to anyone but the owner.
+
+- **A mail from another address than the one the records hold**, or written for somebody else, is
+  answered by asking the person to write from the address their record holds, or to withdraw on
+  „Deine Einträge“ after signing in with it: the entry acts for the typed address alone, and nobody
+  withdraws for another person.
+- **A mail withdrawing on one record alone**, one season's seat say, is pointed to „Deine Einträge“,
+  which withdraws record by record: the page withdraws on every record the address holds.
+- **A withdrawn name** leaves the public squad page and the fixture list at the next read; check the
+  squad page before you answer. An admission carries a registration's withdrawal onto the pupil.
+- **A withdrawn media consent** stops what is published from then on; take down by hand any photo,
+  video or interview of the person already on the website or the league's Instagram, as the privacy
+  notice promises.
 
 **Taking a contact person off their seat is an erasure, unless the seat's own link still takes their
 Widerspruch.** On an application, which of the three cases below you are in is decided by that
@@ -722,13 +740,14 @@ seat's own link, not by the person's role; a seat on a team's season row is the 
   school has named a replacement, seat them with „Sitz bearbeiten“ on that seat's row of the
   application's review page, which sends the new person their own link and restarts that seat's 14
   days alone: the application goes once any other unconfirmed seat's own day passes, so re-send
-  those too where they need longer. It is acceptable again once every seat has confirmed. An ERASED
-  seat offers no such control: that application takes only the Absage.
+  those too where they need longer. It is acceptable again once every seat has confirmed. An erased
+  seat offers no such control, and refuses a write from a page read before the erasure
+  (`bewerbung_seat_erased`): that application takes only the Absage.
 - **The seat has already answered, or the link is over.** A seat that has confirmed or already
-  contradicted takes no second answer (`bewerbung_seat_already_answered`), and a link whose deadline
-  has passed or whose application has been decided (`link_expired`) takes none either — each is a
-  refusal the person meets on the page, not something to talk them through. The route is
-  „Löschungen“ like any other.
+  contradicted takes no second answer (`bewerbung_seat_already_answered`): a second press on its
+  link ends on the page naming the answer that stands. A link whose deadline has passed or whose
+  application has been decided (`link_expired`) takes none either, and its page shows the link as no
+  longer valid. Neither is something to talk them through. The route is „Löschungen“ like any other.
 - **The application has been decided.** „Löschungen“, as above.
 - **The seat is on a team's season row.** Its person's own link takes their Widerspruch while it is
   live, and the Widerspruch empties the seat and mails nobody, an administrator having entered them
@@ -740,21 +759,20 @@ seat's own link, not by the person's role; a seat on a team's season row is the 
   link such a row already holds still takes a Widerspruch. Where no live link is left, or the seat
   has already answered, the route is „Löschungen“.
 
-**A pupil withdrawing the consent that publishes their name does it on their account page.**
-`PATCH /spieler/self/einwilligung` moves the record, and no administration page writes it. A request
-arriving by mail instead has two answers, and which one you give is the person's to choose:
+**A pupil's request by mail to come off the website has two answers**, and which one you give is the
+person's to choose:
 
 - **They want off the website and out of the league.** „Löschungen“ on the address their record
   holds, which takes the squad rows with the person and asks no retirement first.
-- **They want their name withheld and their place kept.** Answer by pointing them to the control on
-  Konto's „Deine Einträge“, `/account/entries`, which they reach by signing in with the address
-  their record holds. **Never edit a consent block by hand**, in the console or anywhere else: a
-  choice the person did not make is not their consent. The write that withholds the name drops the
-  cached squad list, and the next read serves the row as a nameless slot; check the public squad
-  page before you answer.
+- **They want their name withheld and their place kept.** Enter it on „Widerrufe“ as above, or point
+  them to Konto's „Deine Einträge“, `/account/entries`, which they reach by signing in with the
+  address their record holds. **Never edit a consent block by hand**, in the console or anywhere
+  else: a choice the person did not make is not their consent. The write that withholds the name
+  drops the cached squad list, and the next read serves the row as a nameless slot; check the public
+  squad page before you answer.
 
-Tell them that the first cannot be undone, and that the second is theirs to change back on the same
-page.
+Tell them that the first cannot be undone, and that the second is theirs to change back on „Deine
+Einträge“.
 
 **Objection, restriction and portability have no mechanism and need none at this scale.** Answer the
 person in writing: say what is held, on what basis, and what you have done. Where a restriction is
@@ -771,9 +789,13 @@ passed on to, while Google keeps it restorable for its own period and a private 
 stay beyond reach; and an erasure is keyed on an email address, so it clears every record that
 address holds, in every season and every collection. **The erasure takes the address typed, and
 reaches a record only where that record's address folds to the same spelling** once its capitals are
-lowered (`fl_backend/app/shared/folding.py :: sign_in_identifier`). **Read the counts before the
-final press**: „Löschen“ on `/admin/erasures` asks over a count of each kind of record the address
-holds, the account and its passkeys among them, and names nobody
+lowered (`fl_backend/app/shared/folding.py :: sign_in_identifier`). **Erase only for the address the
+request came from**, as a withdrawal is entered: a mail from another address than the one the
+records hold, or written for somebody else, is answered by asking the person to write from the
+address their record holds, or to delete their data on Konto after signing in with it, and nobody
+erases for another person. **Read the counts before the final press**: „Löschen“ on
+`/admin/erasures` asks over a count of each kind of record the address holds, the account and its
+passkeys among them, and names nobody
 (`fl_frontend/src/app/admin/(list)/erasures/erasureActs.ts :: readErasureCounts`); „Eingeteilte
 Spiele“ above zero is the fixtures that need a new referee afterwards, and a note in the dialog that
 the account may stand means pressing „Löschen“ again, which deletes an account left standing.
@@ -809,13 +831,15 @@ change, is refused (`ban_list_admin`) until the grant or the change is ended
 ([section 3](#3-granting-or-revoking-admin-access)). **The write mails the person itself where the
 address holds a sign-in account**, naming the reason you typed and the last season the ban covers,
 so there is nothing to send by hand; an address that never signed in is mailed nothing. Where the
-send fails, or the sign-in store could not say whether an account holds the address, the page says
-the notice did not go. **The same write ends every live sign-in of the address**, keeping its
-account and passkeys, which then stay only while a record holds the address
-([`../datenschutz.md`](../datenschutz.md#6-retention-is-bounded-where-a-bound-was-chosen)); where
-that fails the page says so too, and a session left standing lasts until it lapses, no request
-reading the list. **Every later sign-in of the address is refused as its session would be created**,
-by a code or a passkey alike. **Beyond the sign-in the ban stops one thing, the league's mail.** The
+sign-in store cannot say whether an account holds the address, the press fails with
+`failure.unexpected`, „Etwas ist schiefgelaufen“, before anything is written, and the ban is entered
+again once the store answers. **The same press ends every live sign-in of the address, after the
+write**, keeping its account, which then stays only while a record holds the address
+([`../datenschutz.md`](../datenschutz.md#6-retention-is-bounded-where-a-bound-was-chosen)). Where
+that fails, the ban stands and the page shows the same failure line, naming no step; a session left
+standing lasts until it lapses, no request reading the list, unless the ban is entered again, which
+ends it. **Every later sign-in of the address is refused as its session would be created**, by a
+code or a passkey alike. **Beyond the sign-in the ban stops one thing, the league's mail.** The
 Postausgang's drain settles every mail to the address `barred` at its hand-out, the ban's own notice
 excepted, so no link reaches it. A form takes a barred address and stores it, and a link already
 mailed still opens and confirms, so a person reading the queue is still what keeps a barred address
@@ -827,7 +851,9 @@ fixtures are reassigned, which `schiedsrichter_still_assigned` holds to that ord
 season; a pupil's squad row is taken out; a contact seat is replaced or cleared on the team's
 season; a seat on an application is replaced on the application's page; and another address's
 pending change to it is discarded at `/admin/address-changes`. **An address the list already holds
-is refused**, on the address box. Entering a ban and lifting one each take the passkey touch.
+is refused**, on the address's box before the passkey touch is asked; that press first ends every
+live sign-in of the address, so it is how the sign-ins a failed sign-out left running are ended.
+Entering a ban and lifting one each take the passkey touch.
 
 **A ban lapses five full seasons after the one it was entered under, and the row is removed at the
 activation that runs past it.** The season it was entered in does not count, so a ban entered while
@@ -925,15 +951,15 @@ held the name, so it is the one reaching back past a deploy.
 ## 9. Checking that the hourly passes have run
 
 **The heartbeat answers it.** After every hourly pass the scheduler
-(`fl_frontend/src/instrumentationNode.ts :: armScheduler`) pings Better Stack's heartbeat monitor,
-and pings it with `/fail` where a job threw, left owed deletions or erasures, or the drain gave a
-mail up, its output naming each: `account failed`, `erasure left 3`, `outbox gave up 2`. The monitor
-alerts on a failing ping and on a missing one, so an alert names the job whose lines to read in the
-frontend's log, and `scheduler.job_failed` names a job that threw. **A missing ping means no pass
-finished**: the frontend process holds the timer, so the container can be up while the timer inside
-it is not, and a `scheduler.pass_skipped` line in every hour says a pass is stuck. Recreating the
-frontend service arms a fresh timer, and the jobs select on dates, lapses and season statuses rather
-than on the hour that ran them, so the pass that follows does whatever the missed hours owed.
+(`fl_frontend/src/scheduler.ts :: armScheduler`) pings Better Stack's heartbeat monitor, and pings
+it with `/fail` where a job threw, left owed deletions or erasures, or the drain gave a mail up, its
+output naming each: `account failed`, `erasure left 3`, `outbox gave up 2`. The monitor alerts on a
+failing ping and on a missing one, so an alert names the job whose lines to read in the frontend's
+log, and `scheduler.job_failed` names a job that threw. **A missing ping means no pass finished**:
+the frontend process holds the timer, so the container can be up while the timer inside it is not,
+and a `scheduler.pass_skipped` line in every hour says a pass is stuck. Recreating the frontend
+service arms a fresh timer, and the jobs select on dates, lapses and season statuses rather than on
+the hour that ran them, so the pass that follows does whatever the missed hours owed.
 
 **The monitor is made by hand in Better Stack, and production's frontend refuses to boot without its
 address** (`fl_frontend/src/core/config.ts :: PRODUCTION_ONLY_REQUIRED`). So before the first deploy
@@ -959,9 +985,8 @@ docker compose logs --since 2h frontend | grep scheduler.pass
 season rows', says why in the frontend's log.** Each files its own failure line,
 `bewerbung.sweep_failed`, `registrierung.sweep_failed` and `saison.sweep_failed`, naming the season,
 so the event name is what names the half. Every other half and season still runs, and the job then
-fails, which `scheduler.job_failed` names as `bewerbungen` and the heartbeat as
-`bewerbungen failed`. A pass that ran but passed rows over reaches the heartbeat as
-`bewerbungen left <n>`.
+fails, which `scheduler.job_failed` names as `saisons` and the heartbeat as `saisons failed`. A pass
+that ran but passed rows over reaches the heartbeat as `saisons left <n>`.
 
 **A row either pass cannot write is passed over and named, and the pass goes on.** Each row is saved
 in a transaction of its own, and the backend's `transactions.row_passed_over` line names its clock
@@ -993,15 +1018,19 @@ the next hour, and it needs nothing from you. Where the warning carries `unknown
 row's commit went unanswered: it may have been written, its notices queued in the same transaction,
 and a later pass meets it again only if it was not.
 
-**The half after the seasons stamps no day, so its counts are the record.** Every pass ends by
-ending the address changes whose step lapsed and making the due ones take effect, each end owing its
-notice to the Postausgang: each replaced address gets its completion notice and the new address of a
-confirmed change refused at its due time a notice naming nobody. The pass ends by carrying each
-sign-in account an effect still owes
+**The referee entries' clock is a job of its own**, `schiedsrichter`, counting
+`schiedsrichter_erased` and `schiedsrichter_failed` on the pass line. A call that threw reaches the
+heartbeat as `schiedsrichter failed`, and entries it passed over as `schiedsrichter left <n>`.
+
+**The address changes' job stamps no day, so its counts are the record.** Every pass runs it after
+the seasons' job, ending the address changes whose step lapsed and making the due ones take effect,
+each end owing its notice to the Postausgang: each replaced address gets its completion notice and
+the new address of a confirmed change refused at its due time a notice naming nobody. The job ends
+by carrying each sign-in account an effect still owes
 (`fl_frontend/src/features/address-change/moves.ts :: runAddressChangeMoves`). Its counts and no
 person are the pass line's `address_change_` ones, `address_change_failed` the changes it could not
-end. A half that threw fails the applications' job once the seasons have run, which
-`scheduler.job_failed` names as `bewerbungen`.
+end. A call that threw fails this job alone, which `scheduler.job_failed` names as `address-change`
+and the heartbeat as `address-change failed`.
 
 **A notice the drain could not send stays owed in the Postausgang**, which retries it as it retries
 every owed mail, and a notice it gives up is counted on the pass's line and reported to the
@@ -1020,7 +1049,7 @@ An `account_not_moved` line at `WARN` needs no repair: reading `reason: "occupie
 held an account of its own, and the person signs in there anew.
 
 **The pupils' deletion runs on every pass**
-(`fl_frontend/src/features/saisons/sweep.ts :: runErasureSweep`). It stamps no day either: each pass
+(`fl_frontend/src/features/spieler/sweep.ts :: runErasureSweep`). It stamps no day either: each pass
 deletes the pupils the season-after rule makes due, each in a transaction of its own, and counts on
 the pass's line what it erased, the pupils it skipped as changed since its read and those it failed;
 a pass whose call threw fails the job, which `scheduler.job_failed` names as `erasure`.
@@ -1052,10 +1081,10 @@ fold, and an empty one or one the rule refuses to the folded address the person 
 hold, as [section 5](#5-when-somebody-asks-for-their-data-or-asks-us-to-change-it) establishes a
 lost mailbox's.
 
-**Two promises rest on the retention sweep's pass**
-(`fl_frontend/src/features/bewerbungen/sweep.ts :: sweepAddressChange`): the privacy notice's word
-that a change whose step lapsed ends „innerhalb einer Stunde“, and the word, in the notice and in
-both mails the change sends (`fl_frontend/src/core/addressChangeEmail.ts`), that a change an
+**Two promises rest on the address changes' pass**
+(`fl_frontend/src/features/address-change/sweep.ts :: runAddressChangeSweep`): the privacy notice's
+word that a change whose step lapsed ends „innerhalb einer Stunde“, and the word, in the notice and
+in both mails the change sends (`fl_frontend/src/core/addressChangeEmail.ts`), that a change an
 administrator started takes effect its waiting time after its confirmation. While no pass runs
 neither is kept: a lapsed change keeps its new address, and a change past its waiting time stands
 until the next pass.
@@ -1070,11 +1099,12 @@ call-off, or a club's line-up reminder, is a Postausgang row written in the tran
 its confirmation row or, for the line-up, under its own keys, so a row reads as asked exactly where
 its mail is owed; the drain after the pass sends them and retries each, and a mail it gives up is
 counted on the pass's line and reported to the heartbeat. A notice about a match already kicked off
-is owed nobody. A listing or a season's pass that fails ends the job, which the scheduler logs and
-the heartbeat reports; the next pass repeats nothing that committed. No mail of the pass carries a
-link: a club answers on its Übersicht and a referee on theirs, signed in. The pass's line holds its
-counts under the key `spielbestaetigungen`, and `scheduler.job_failed` names that job where it
-threw:
+is owed nobody. A season's pass that fails files `spielbestaetigung.sweep_failed`, naming the
+season, and the job goes on past it to every later season and then fails; a listing that fails ends
+the job at once. The scheduler logs either and the heartbeat reports it, and the next pass repeats
+nothing that committed. No mail of the pass carries a link: a club answers on its Übersicht and a
+referee on theirs, signed in. The pass's line holds its counts under the key `spielbestaetigungen`,
+and `scheduler.job_failed` names that job where it threw:
 
 ```bash
 docker compose logs --since 2h frontend | grep -E 'scheduler\.(pass|job_failed)'
@@ -1093,6 +1123,20 @@ failure left for the next pass, never naming an address. A pass whose sign-in st
 listed rejects, which `scheduler.job_failed` names as `account` and the heartbeat as
 `account failed`. Every other failure inside a pass is a line of its own, and the next pass asks
 again.
+
+**The same job then deletes the passkeys of every address holding no grant**, and the sessions they
+made, whatever left them there: a removal whose deletion failed (`grants.passkeys_not_deleted`), a
+grant removed by hand, or an address change's carry that brought an account to an address whose
+grant was removed while the carry waited. `passkeys_deleted` on the pass's line counts the addresses
+it cleared. An address whose account an address change still owes to carry keeps its passkeys and
+counts nowhere: the change moved its grant to the new address first, and the carry takes the
+passkeys there with the account. One whose grant the backend did not answer, or whose passkeys
+failed to delete, keeps them, as an unjudged account keeps its row: it counts in `passkeys_failed`,
+files `account.passkeys_failed` naming the error and no address, reaches the heartbeat as
+`account left <n>`, and the next pass asks again. A pass that cannot read the owed carries
+(`GET /api/address_change/sweep/moves`) keeps every holder it found ungranted, all of them counted
+in `passkeys_failed` on one `account.passkeys_failed` line carrying `count`. A passkey list that
+failed fails the job after its accounts' counts, which `scheduler.job_failed` names as `account`.
 
 **An `account.references_failed` line carrying `no_owner` means the backend reads no live `owner`
 grant**, so it refuses every batch and the sweep deletes nothing, every pass alike. Such a pass
@@ -1392,10 +1436,10 @@ since="$(docker inspect -f '{{.State.StartedAt}}' "$(docker compose ps -q fronte
 docker compose logs --since "$since" frontend | grep auth.index_unbuilt
 ```
 
-**Read it once about 30 seconds have passed since that start.** Each build waits at most nine
-seconds, the client's selection, checkout and socket bounds of three seconds each
-(`fl_frontend/src/core/db.ts`), and the `session` collection's three are built one after another, so
-the boot's last line comes within about 27 seconds.
+**Read it once nine seconds for each entry of the list have passed since that start, under a minute
+for today's list.** Each build waits at most the client's selection, checkout and socket bounds of
+three seconds each (`fl_frontend/src/core/db.ts`), and the entries are built one after another, so
+the boot's last line comes within that.
 
 | The line's `code` | What stands                                                                 | What to do                                                                                                                                                               |
 | ----------------- | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -1433,16 +1477,23 @@ cookie comes back. With an expiry-after of zero seconds the stored value is the 
 
 **An index dropped by hand after a boot is reported by nothing until the next one.**
 
-**A Better Auth release that declares an index of its own on a key the list covers throws on every
-write to that collection**, its adapter building the library's name where the list's already stands.
-The frontend's sign-in db suites build the list for each file, so such an upgrade fails them before
-it ships; the repair is the list's entry taking the library's name.
+**A Better Auth release that declares an index of its own on a key the list covers, under another
+name, shows in one of two ways**:
+
+- **A field index**, which the adapter builds without making any operation wait on it, fails no
+  write and logs nothing: at a `unique`, `sparse` or partial filter of its own it stands beside the
+  list's, and at the same options or any other difference the adapter takes the list's as its own.
+  Where the list's build comes second, it is the list's code-85 line above.
+- **A table index**, which the adapter builds inside each create and update, throws on every create
+  and update of that collection, and the repair is the list's entry taking the library's name. The
+  frontend's sign-in db suites build the list for each file, so such an upgrade fails them before it
+  ships.
 
 ## 15. When a sign-in code does not arrive
 
-**To the person, every reason a code does not arrive looks alike**: the page answers one sentence
-whether a code went or not, so the frontend's log is the only record, and no line on this path
-carries the address. Ask when they tried and read that window:
+**To the person, every reason a code does not arrive looks alike, but the hourly cap**: the page
+answers one sentence whether a code went or not, so the frontend's log is the only record, and no
+line on this path carries the address. Ask when they tried and read that window:
 
 - `auth.sign_in_gate_failed`: the send gate could not read what the backend holds for the address,
   its ban included, so it sent nothing — the backend unreachable, failing, or answering unreadably.
@@ -1453,9 +1504,9 @@ carries the address. Ask when they tried and read that window:
   `abandoned` is the provider refusing it, its `delivery_reason` the provider's own name for the
   refusal.
 - `auth.code_mail_capped`, an info line: five codes had been asked for the address inside the hour,
-  so this one was sent nothing. The five count every request, a stranger's and one the gate refused
-  included, so an address can be capped with nothing mailed; retries during a backend outage spend a
-  person's hour the same way.
+  so this one was sent nothing and the person was told there were too many tries. The five count
+  every request, a stranger's and one the gate refused included, so an address can be capped with
+  nothing mailed; retries during a backend outage spend a person's hour the same way.
 - `auth.deletion_link_capped`, an info line: a signed-in person asked for an account deletion link
   past their address's five mails of the hour, codes and links counted together, so nothing was
   minted or mailed and the press read as sent. A link they already hold stands for its day.
@@ -1473,30 +1524,29 @@ nothing while the backend does not answer.
 
 ## 16. The secret files
 
-**Every credential is a file under `secrets/`, beside the compose file**, under one name on the
-host, at `/run/secrets/` in its container and in development ([`spec.md`](spec.md) §1.2). Which
-service reads which, and each file's owner and mode on the server, is that section's table. **A file
-holds its value and nothing else**: no `NAME=`, no quotes, no comment. Both readers drop a trailing
-newline and surrounding blanks, and everything else in the file is part of the value.
+**Every credential is a file under `secrets/`, beside the compose file**, under one name on the host
+and at `/run/secrets/` in its container ([`spec.md`](spec.md) §1.2). Which service reads which, and
+each file's owner and mode on the server, is that section's table. **A file holds its value and
+nothing else**: no `NAME=`, no quotes, no comment. Both readers drop a trailing newline and
+surrounding blanks, and everything else in the file is part of the value.
 
 **Each machine has its own.** The internal keys and the sign-in secret authenticate one machine's
 processes to each other, so a development machine generates fresh ones and never copies
-production's. **A development machine holds no production login at all**: its two database URI files
-name the local stack's database through the port that stack publishes on loopback. The local stack
-itself hands its services an inline config naming its own database.
+production's. **A development machine holds no production login at all**: the local stack hands its
+services an inline config naming its own database, so the machine holds no database URI file.
 
-On a development machine, in Git Bash at the checkout root, this writes every file both dev servers
-and the local stack read, each readable by its writer alone, and prints nothing:
+On a development machine, in Git Bash at the checkout root, this writes every file the local stack
+reads, each readable by its writer alone, and prints nothing:
 
 ```bash
-(umask 077 && mkdir -p secrets && for name in internal_api_key_base internal_api_key_system internal_api_key_admin auth_secret; do openssl rand -hex 32 | tr -d '\r\n' > "secrets/$name"; done && printf 'mongodb://localhost:27017/?directConnection=true' | tee secrets/frontend_mongodb_uri > secrets/backend_mongodb_uri)
+(umask 077 && mkdir -p secrets && for name in internal_api_key_base internal_api_key_system internal_api_key_admin auth_secret; do openssl rand -hex 32 | tr -d '\r\n' > "secrets/$name"; done)
 ```
 
 `openssl rand -hex 32` is the 64 characters every key's floor or length demands. Neither of the
 provider's keys is written: nothing outside production sends mail, and the provider sends its
 delivery events to production alone. Nor is `turnstile_secret_key`: outside production the bot check
-verifies with Cloudflare's published passing secret, so a development machine's `fl_frontend/.env`
-carries the site key that secret passes, `TURNSTILE_SITE_KEY=1x00000000000000000000AA`
+verifies with Cloudflare's published passing secret, so the local stack hands the frontend the site
+key that secret passes, `TURNSTILE_SITE_KEY=1x00000000000000000000AA`
 ([Cloudflare's testing page](https://developers.cloudflare.com/turnstile/troubleshooting/testing/),
 read 2026-10-04). **Production holds the widget's own pair**, the site key in `fl_frontend/.env` and
 the secret in `secrets/turnstile_secret_key`, both from the Cloudflare dashboard's Turnstile widget,
@@ -1557,11 +1607,12 @@ nobody can account for is then removed on the „Administratoren“ page.
 
 An address that has failed ten codes in a row, with no sign-in between them, is refused every code
 until the oldest of those failures is a day old, the right code included; the person is told there
-were too many tries with this address. Anyone who knows an address can bring it on, and the rows
-counting it carry a keyed hash rather than the address, so no row can be picked out for one person:
+were too many tries with this address. A code is checked only in the browser that asked for it, for
+the code's ten minutes, so a stranger can bring the lock on only by asking for the person's own
+address, which mails them a code and spends one of their hour's five each time. The rows counting it
+carry a keyed hash rather than the address, so no row can be picked out for one person:
 
-- **A person holding a passkey needs nothing**: a passkey sign-in never meets the lock, and clears
-  it.
+- **An administrator needs nothing**: a passkey sign-in never meets the lock, and clears it.
 - **Otherwise it lifts by itself**, each failure's row expiring a day after it was written, removed
   by the `verification` index in §14.
 - **To lift it sooner, lift every address's at once**: in the Atlas console, delete from the `auth`
@@ -1569,8 +1620,15 @@ counting it carry a keyed hash rather than the address, so no row can be picked 
   Every address then has its ten tries back, which is the price of an identifier nobody can compute
   by hand.
 
+A code typed in a browser that did not ask for it is refused as a wrong one and counted nowhere, the
+info line `auth.code_not_asked_here` naming its trace: a person who meets „Falsch oder nicht mehr
+gültig“ for a code they just received has typed it in another browser, in one that keeps no cookies,
+or in one that has asked since for another address.
+
 The five-an-hour mail cap keeps rows of the same shape under `sign-in-mail-`; they lift within the
-hour. They can be lifted sooner the same way, by deleting every row whose `identifier` starts with
+hour. Its refusal tells the person there were too many tries, as the lock does, so one who met that
+sentence on asking for a code met the cap, and one who met it on typing a code met the lock. The
+cap's rows can be lifted sooner the same way, by deleting every row whose `identifier` starts with
 `sign-in-mail-`, which gives every address its hour back.
 
 ## 18. The Node a checkout runs

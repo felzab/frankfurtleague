@@ -16,11 +16,15 @@
 // `standard` is pyright's own default, and this folder is clean at it. The backend runs it too,
 // less the one rule its own block records, so the two settings are measured separately rather
 // than one following the other.
+
+// `reportDeprecated` refuses a use of what the stubs mark deprecated, as the backend's block does,
+// while its replacement stands beside it rather than at the release that removes it.
 {
   "include": ["."],
   "extraPaths": ["lib", "checks"],
   "venvPath": "../fl_backend",
   "venv": ".venv",
   "typeCheckingMode": "standard",
-  "pythonVersion": "3.14"
+  "reportDeprecated": "error",
+  "pythonVersion": "3.15"
 }

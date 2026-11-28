@@ -1,20 +1,13 @@
-import { BracketTree } from "./BracketTree";
-import { Button } from "./Button";
-import { CappedRows } from "./CappedRows";
-import { Card, CardActRow } from "./Card";
+import { Card } from "./Card";
 import { CardGrid } from "./CardGrid";
-import { cardSurface } from "./cardStyles";
 import { Dialog } from "./Dialog";
 import { actLabel } from "./dialogAct";
-import { EmptyBox, EmptyState } from "./EmptyState";
+import { EmptyBox } from "./EmptyState";
 import { Filters } from "./Filters";
 import { Link } from "./Link";
 import { ListCard, ListMatches, ListQueryScope, ListSearchField, ListTable, ListTiles } from "./ListTable";
 import { RailPage } from "./RailFrame";
 import { SeatRows } from "./SeatRows";
-import { SpielGroup } from "./SpielGroup";
-import { spielColumns, spielSubgrid } from "./SpielRow";
-import { Table } from "./Table";
 import { Tabs } from "./Tabs";
 import { TeamHead } from "./TeamHead";
 
@@ -45,7 +38,6 @@ type SpieltagTabs = {
  */
 type TableContent = { table: TableBody; more?: ListMore } | { drawn: ReactElement };
 
-/** The season's matches once read: the matchday tabs, or why there are none. */
 export type SpieltageContent = {
   /** The matchday tabs; `null` while the season has no matchday yet. */
   tabs: SpieltagTabs | null;
@@ -53,17 +45,10 @@ export type SpieltageContent = {
   empty: EmptyStateProps;
 };
 
-/** One card per group under the page's one title, such as the Tabelle's: each group's name and count heading its table. */
-type GroupsContent = {
-  groups: ReadonlyArray<{ id: string; title: Copy; table: TableBody }>;
-  /** Why there is no group to show, standing in the tables' place. */
-  empty: EmptyStateProps;
-};
-
 /**
  * Open work, one card per kind in its order of reading, such as the administrator's Übersicht: each card's title and
- * count over its records, the first five of a longer card's rows and the rest a press away (`CappedRows`), five of what
- * the search leaves on a page a search narrows, every card drawn every day, one with nothing waiting saying so.
+ * count over its records, the first five of a longer card's rows and the rest a press away (`CappedRows`), every card
+ * drawn every day, one with nothing waiting saying so.
  */
 type CardsContent = {
   /** The team whose own Übersicht this is, heading the cards: its plaque and its full name (`TeamHead`). */
@@ -71,15 +56,12 @@ type CardsContent = {
   cards: ReadonlyArray<{
     id: string;
     title: Copy;
-    /** Each row, with the words the list's search narrows it by where more than its name is searched. */
-    rows: ReadonlyArray<CardActRowProps & { id: string; words?: string }>;
-    /** `false` on a card holding a list rather than open work, such as a referee's games: a count says how much is open. */
-    count?: false;
     /**
-     * Such a list's own empty state, which stands in the card's place while the list holds nothing or a search finds
-     * nothing in it; a card of open work stays and says „Nichts offen.“
+     * The page listing the card's records in full, where they have no page each, such as a team's registrations: the
+     * card's title links it once, and its rows open nothing.
      */
-    empty?: EmptyStateProps;
+    href?: Route;
+    rows: ReadonlyArray<CardActRowProps & { id: string }>;
   }>;
   /**
    * Who holds the seats of the record the work belongs to, such as a team's on its own Übersicht: the last card, which
@@ -88,34 +70,26 @@ type CardsContent = {
   seats?: { title: Copy; rows: ReadonlyArray<Omit<SeatRow, "acts">> };
 };
 
-/** The K.-o.-Baum, or why there is none yet. */
-type TreeContent = {
-  /** The tree's rounds and the third place; `null` before the draw. */
-  tree: ComponentProps<typeof BracketTree> | null;
-  empty: EmptyStateProps;
-};
-
-/** One club's matches, each under its matchday's head, and why there are none. */
-type SpielGroupsContent = { groups: ReadonlyArray<{ head: Copy; spiel: SpielRowProps & { id: string } }>; empty: EmptyStateProps };
-
-/** Matches the filters left, each with the words the search narrows them by, and why there are none. */
+/** Matches the filters left, each with the words the search narrows them by. */
 type SpieleContent = { matches: ReadonlyArray<{ row: SpielRowProps & { id: string }; words: string }>; empty: EmptyStateProps };
 
-/** Clubs the filters left as school tiles, each with the words the search narrows them by, and why there are none. */
+/** Clubs the filters left as school tiles, each with the words the search narrows them by. */
 type TilesContent = { tiles: ReadonlyArray<{ tile: SchoolTile; words: string }>; empty: EmptyStateProps };
 
-/** What the list shows, by its kind, and the content the kind is drawn from once it is read. */
 type ListContent =
   | {
       kind: "table";
       /** The search field's name, where the list holds about 20 rows or more. */ search?: ListSearch;
-      /** The table's head, over the rows the read brings. */
       head: TableHead;
       content: Promise<TableContent>;
     }
   | {
-      kind: "folds";
-      /** `ReadFolds` over the cards, in a `column`: a page folding nothing ships none of the fold's client code. */
+      kind: "drawn";
+      /**
+       * What the page draws from its read, its own empty state included where it reads nothing to show, such as the
+       * Tabelle's group cards, the K.-o.-Baum or Administratoren's folded cards: a page drawing no client block ships
+       * none of its code.
+       */
       content: Promise<ReactElement>;
     }
   | {
@@ -123,34 +97,16 @@ type ListContent =
       content: Promise<SpieltageContent>;
     }
   | {
-      kind: "groups";
-      /** Every group's table's head, one for all. */
-      head: TableHead;
-      content: Promise<GroupsContent>;
-    }
-  | {
       kind: "cards";
-      /** The search field's name, where a card's list can reach about 20 rows, as a table's takes it. */
-      search?: ListSearch;
       content: Promise<CardsContent>;
     }
   | {
-      kind: "tree";
-      content: Promise<TreeContent>;
-    }
-  | {
       kind: "spiele";
-      /** The search field's name. */
       search: ListSearch;
       content: Promise<SpieleContent>;
     }
   | {
-      kind: "spielGroups";
-      content: Promise<SpielGroupsContent>;
-    }
-  | {
       kind: "tiles";
-      /** The search field's name. */
       search: ListSearch;
       content: Promise<TilesContent>;
     };
@@ -161,20 +117,6 @@ type ListContent =
  */
 function Cards({ boxes, children }: { boxes: number; children: ReactNode }) {
   return boxes === 1 ? children : <CardGrid>{children}</CardGrid>;
-}
-
-/** A group's own box, handing the list's columns on to its match; a container would stop them (`SpielCards`). */
-const SPIEL_CARD_CLASSES = cardSurface({ class: `overflow-hidden ${spielSubgrid()}` });
-
-/**
- * A club's matches one under another at every width, each in its own box under its matchday's head. The list holds the
- * matches' columns (`spielColumns`), so every group's score and sides stand at one x down the list, as a table's rows do,
- * and it is the container whose width picks the rows' form: the one line where the content is wide enough, the card a
- * phone shows below it. The boxes cannot be the containers: a container establishes an independent formatting context,
- * and a grid that does is no subgrid, so the box would drop the columns it hands on.
- */
-function SpielCards({ children }: { children: ReactNode }) {
-  return <div className={spielColumns({ class: "@container gap-y-3" })}>{children}</div>;
 }
 
 /** The tab row, and under it the chosen matchday's matches alone: the other matchdays' matches never reach the page. */
@@ -189,63 +131,43 @@ function Spieltage({ label, selectedKey, tabs }: SpieltagTabs) {
   );
 }
 
-/** The filter block once its choices are read. */
 async function FiltersOnceRead({ filters }: { filters: Promise<ReadonlyArray<Filter>> }) {
   return <Filters filters={await filters} />;
 }
 
 /**
  * A record created where its list shows: the dialog's act, and why it cannot run on the list as it stands, which the
- * page read, the button saying why (`Button`).
+ * page read, the button saying why. The lock is the trigger's, never the dialog's own send, which `DialogAct`'s
+ * `locked` would be. Omitted from each of `DialogAct`'s two shapes, so a touched act still demands its dry run.
  */
-export type ListCreate = DialogAct & { locked?: Copy };
+export type ListCreate = DialogAct extends infer Act ? (Act extends DialogAct ? Omit<Act, "locked"> & { locked?: Copy } : never) : never;
 
 /**
  * An act at the toolbar row's end, its button opening the dialog over the list: the create act, or as `side` the second
  * act before it, a secondary button.
  */
 function ToolbarAct({ act: { locked, ...act }, side = false }: { act: ListCreate; side?: boolean }) {
-  const face = {
-    variant: side ? "secondary" : "primary",
-    ...(side ? {} : { leadingIcon: "create" as const }),
-    label: actLabel(act.act),
-  } as const;
-  return locked === undefined ? (
+  return (
     <Dialog
       {...act}
-      trigger={face}
-    />
-  ) : (
-    <Button
-      {...face}
-      locked={locked}
-    />
-  );
-}
-
-/** A toolbar act once what it makes is read. */
-async function ToolbarActOnceRead({ act, side }: { act: Promise<ListCreate>; side: boolean }) {
-  return (
-    <ToolbarAct
-      act={await act}
-      side={side}
+      trigger={{
+        variant: side ? "secondary" : "primary",
+        ...(side ? {} : { leadingIcon: "create" }),
+        label: actLabel(act.act),
+        ...(locked === undefined ? {} : { locked }),
+      }}
     />
   );
 }
 
 /**
  * A toolbar act as stated, or as the read words it: its words, and `locked` while the list as read, or the reader's
- * role, shuts it.
+ * role, shuts it. Awaiting a stated act yields it as it is.
  */
-function ToolbarActOf({ act, side = false }: { act: ListCreate | Promise<ListCreate>; side?: boolean }) {
-  return act instanceof Promise ? (
-    <ToolbarActOnceRead
-      act={act}
-      side={side}
-    />
-  ) : (
+async function ToolbarActOnceRead({ act, side = false }: { act: ListCreate | Promise<ListCreate>; side?: boolean }) {
+  return (
     <ToolbarAct
-      act={act}
+      act={await act}
       side={side}
     />
   );
@@ -268,7 +190,6 @@ function ToolbarActs({ children }: { children: ReactNode }) {
  */
 export type ListLink = { label: Copy; href: Promise<Route | null> };
 
-/** That link once the list says whether it stands. */
 async function LinkOnceRead({ link }: { link: ListLink }) {
   const href = await link.href;
   return (
@@ -283,7 +204,6 @@ async function LinkOnceRead({ link }: { link: ListLink }) {
   );
 }
 
-/** The list once its content is read. */
 async function ListBody({ list }: { list: ListContent }) {
   switch (list.kind) {
     case "table": {
@@ -298,30 +218,11 @@ async function ListBody({ list }: { list: ListContent }) {
         />
       );
     }
-    case "folds":
+    case "drawn":
       return list.content;
     case "spieltage": {
       const { tabs, empty } = await list.content;
       return tabs === null ? <EmptyBox {...empty} /> : <Spieltage {...tabs} />;
-    }
-    case "groups": {
-      const { groups, empty } = await list.content;
-      return groups.length === 0 ? (
-        <EmptyBox {...empty} />
-      ) : (
-        groups.map((group) => (
-          <Card
-            key={group.id}
-            title={group.title}
-            count={group.table.rows.length}>
-            <Table
-              {...list.head}
-              {...group.table}
-              bare
-            />
-          </Card>
-        ))
-      );
     }
     case "cards": {
       const { team, cards, seats } = await list.content;
@@ -329,41 +230,14 @@ async function ListBody({ list }: { list: ListContent }) {
         <>
           {team !== undefined && <TeamHead {...team} />}
           <Cards boxes={cards.length + (seats === undefined ? 0 : 1)}>
-            {cards.map((entry) =>
-              // A searched card is drawn where the search is held, since which rows it caps depends on the text typed.
-              list.search !== undefined ? (
-                <ListCard
-                  key={entry.id}
-                  title={entry.title}
-                  rows={entry.rows}
-                  {...(entry.count === false ? { count: false } : {})}
-                  {...(entry.empty === undefined ? {} : { empty: entry.empty })}
-                />
-              ) : entry.rows.length === 0 && entry.empty !== undefined ? (
-                <EmptyBox
-                  key={entry.id}
-                  {...entry.empty}
-                />
-              ) : (
-                <Card
-                  key={entry.id}
-                  title={entry.title}
-                  {...(entry.count === false ? {} : { count: entry.rows.length })}>
-                  {entry.rows.length === 0 ? (
-                    <EmptyState kind="clear" />
-                  ) : (
-                    <CappedRows
-                      rows={entry.rows.map(({ id, words: _words, ...row }) => (
-                        <CardActRow
-                          key={id}
-                          {...row}
-                        />
-                      ))}
-                    />
-                  )}
-                </Card>
-              ),
-            )}
+            {cards.map((entry) => (
+              <ListCard
+                key={entry.id}
+                title={entry.title}
+                {...(entry.href === undefined ? {} : { href: entry.href })}
+                rows={entry.rows}
+              />
+            ))}
             {seats !== undefined && (
               <Card title={seats.title}>
                 <SeatRows
@@ -377,10 +251,6 @@ async function ListBody({ list }: { list: ListContent }) {
         </>
       );
     }
-    case "tree": {
-      const { tree, empty } = await list.content;
-      return tree === null ? <EmptyBox {...empty} /> : <BracketTree {...tree} />;
-    }
     case "spiele": {
       const { matches, empty } = await list.content;
       return (
@@ -388,28 +258,6 @@ async function ListBody({ list }: { list: ListContent }) {
           matches={matches}
           empty={empty}
         />
-      );
-    }
-    case "spielGroups": {
-      const { groups, empty } = await list.content;
-      return groups.length === 0 ? (
-        <EmptyBox {...empty} />
-      ) : (
-        <SpielCards>
-          {groups.map((group) => (
-            <div
-              key={group.spiel.id}
-              className={SPIEL_CARD_CLASSES}>
-              {/* Each matchday's head stands directly under the page's title, with no section between. */}
-              <SpielGroup
-                head={group.head}
-                spiele={[group.spiel]}
-                columns="outer"
-                level={2}
-              />
-            </div>
-          ))}
-        </SpielCards>
       );
     }
     case "tiles": {
@@ -427,17 +275,8 @@ async function ListBody({ list }: { list: ListContent }) {
 /**
  * The list template: the page's title in the strip; one toolbar row holding the search field where the list
  * is long enough to need one, the filter block, its values in the address, and at the row's end the act
- * creating a record over the list, a second act before it where the list holds one; then the list. The list is a
- * table whose rows open their records or carry their acts, „Weitere 50 laden“ under it only while the server reports
- * more rows; or, for the season's matches, the matchday tabs, one matchday at a time, opening on the one the server
- * names; or folded cards of tables, as Administratoren sets what stands over what waits; or one card per group, its
- * head naming the group over its table, as the Tabelle stands its groups one under another; or open work
- * as cards of rows, two a row from 42 rem of their grid, as the Übersicht sets its kinds, a team's own under the team's head and
- * closing with a card of its seats, and a lone card, such as a referee's games, at the content's width; or the K.-o.-Baum; or matches the
- * filters left, which the search narrows, as the Spielsuche lists them; or one club's matches, each in its own box
- * under its matchday's head, as a team's Spiele lists them; or the
- * clubs the filters left as school tiles, which the search narrows, as Teams lists them. A list with nothing
- * in it shows its empty state in its place.
+ * creating a record over the list, a second act before it where the list holds one; then the list, drawn by its kind.
+ * A list with nothing in it shows its empty state in its place.
  *
  * The page arrives whole: every part it reads, the list and whatever its read decides around it, holds the page until
  * it is rendered, and the page is sent as one document.
@@ -451,7 +290,7 @@ export function ListPage({
   list,
 }: {
   head: RailPageHead;
-  /** The filter block, its choices and their values read with the list, as the Spielsuche's clubs and matchdays are. */
+  /** The filter block, its choices and their values read with the list, as Teams' groups are. */
   filters?: Promise<ReadonlyArray<Filter>>;
   /**
    * A record created where its list shows: the dialog's title, its act, its fields and the action. Read with the list
@@ -466,12 +305,13 @@ export function ListPage({
   link?: ListLink;
   list: ListContent;
 }) {
-  const search = list.kind === "table" || list.kind === "spiele" || list.kind === "tiles" || list.kind === "cards" ? list.search : undefined;
+  const search = list.kind === "table" || list.kind === "spiele" || list.kind === "tiles" ? list.search : undefined;
   const hasToolbar = search !== undefined || filters !== undefined || create !== undefined || side !== undefined || link !== undefined;
 
   return (
     <RailPage {...head}>
-      <ListQueryScope>
+      {/* A list searched on the server opens on the search its address holds. */}
+      <ListQueryScope initial={search?.address?.value}>
         {/* One toolbar row: the search at a reading width, the filters beside it, the create act at the row's
             end; on a phone the search keeps the width and the buttons share the next line. */}
         {hasToolbar && (
@@ -481,12 +321,12 @@ export function ListPage({
             {(side !== undefined || create !== undefined) && (
               <ToolbarActs>
                 {side !== undefined && (
-                  <ToolbarActOf
+                  <ToolbarActOnceRead
                     act={side}
                     side
                   />
                 )}
-                {create !== undefined && <ToolbarActOf act={create} />}
+                {create !== undefined && <ToolbarActOnceRead act={create} />}
               </ToolbarActs>
             )}
             {link !== undefined && (

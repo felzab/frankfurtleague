@@ -212,11 +212,7 @@ closed.
 - **A season runs a prefix of a closed group set**, whose members are [`glossary.md`](glossary.md)'s
   `Gruppe` entry. The count and the size are the season's
   (`fl_backend/app/api/saisons/schemas.py :: NumberOfGroups`, `:: TeamsPerGroup`), and each is
-  bounded as one field. The two bounds are set so that the widest season they admit, every group
-  full at its ceiling and the bracket at its cap, plays inside one page of a season-scoped read
-  (`fl_backend/app/shared/schemas/bounds.py :: LIST_LIMIT_DEFAULT`), which
-  `fl_backend/tests/api/test_schedule.py` holds. Past that page those reads would truncate, and the
-  refusals computed from them could not be trusted.
+  bounded as one field.
 - **Every group plays one round robin, and the groups play in step.** Round _k_ of every group is
   matchday _k_, which is what keeps a club from standing twice on one matchday and makes every group
   finish together. An odd-sized group leaves one club on a bye each round rather than shortening the
@@ -298,10 +294,13 @@ they cannot narrow; they never replace the refusal.** The entry form disables a 
 full, and the endpoint still judges the entry, because a stale form and a direct request each reach
 it; on a public page the direct request is anyone's.
 
-A refusal is an `APIError` (`fl_backend/app/core/exceptions.py`), in one of two forms. A
-`find_*_refusal` function in a slice's `services.py` returns one or `None`, where it judges data,
-orders several conditions, has several callers or tells a page in advance what a press would meet;
-its caller raises it through `refuse`. A refusal that turns one boolean its one caller computed is
+A refusal is a gate or a box's fault (`fl_backend/app/core/exceptions.py`). A gate is an `APIError`,
+which stops the write ahead of the boxes it makes meaningless, and a box's fault is a `FieldFault`.
+A `find_*_refusal` function in a slice's `services.py` returns a gate or `None`, or the faults it
+finds: one or `None`, or several, empty where it finds none. It exists where it judges data, orders
+several conditions, has several callers or tells a page in advance what a press would meet. Its
+caller raises a gate through `refuse`, and every independent fault in one `refuse_faults` call,
+which names each of them in one answer. A gate that turns one boolean its one caller computed is
 raised where it is judged, `if taken: raise APIError(...)`.
 
 Every refusal reaches a client as a **code** and never as a message, the frontend writing every word

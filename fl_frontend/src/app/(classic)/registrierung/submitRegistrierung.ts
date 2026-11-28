@@ -5,15 +5,16 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { action, blankIsNull } from "@/core/action";
-import { COPY } from "@/core/copy";
-import { APIBadStatusError } from "@/core/errors";
+import { COPY } from "@/core/copy/shared";
+import { refusedAs } from "@/core/errors";
 import { registrierungenPostRegistrierung } from "@/core/generated/client/sdk";
 import { RegistrierungenPostRegistrierungBody } from "@/core/generated/zod/inputs";
-import { IDEMPOTENCY_KEY_HEADER } from "@/core/idempotencyKey";
+import { IDEMPOTENCY_KEY_FIELD, IDEMPOTENCY_KEY_HEADER } from "@/core/idempotencyKey";
 import { forgetMailedLink } from "@/core/mailedLink";
 import { ROUTES } from "@/core/routes";
 
-import { endOf, LINK_INVALID, readInvitation, REPLAY_FIELD } from "./invitation";
+import { LINK_INVALID } from "../confirm/ends";
+import { endOf, readInvitation } from "./invitation";
 
 import type { Code } from "@/core/generated/client/types";
 
@@ -29,16 +30,22 @@ const Registration = z.object({
   nummer: blankIsNull(shape.nummer),
   position: blankIsNull(shape.position),
   stufe: blankIsNull(shape.stufe),
-  [REPLAY_FIELD]: z.uuid(),
+  [IDEMPOTENCY_KEY_FIELD]: z.uuid(),
 });
 
 /**
- * The refusals saying what the link opens has moved since the page was read: revoked or its club gone, the window shut,
- * the club out of the season, the squad full, the Stufen narrowed.
+ * The refusals saying what the link opens has moved since the page was read: revoked or its club departed, the
+ * season's or the club's record gone, the window shut, the club out of the season, the squad full, the Stufen narrowed.
  */
-const MOVED: ReadonlySet<Code> = new Set<Code>(["document_not_found", "registrierung_closed", "kader_full", "registrierung_stufe_not_allowed"]);
+const MOVED: ReadonlySet<Code> = new Set<Code>([
+  "link_invalid",
+  "document_not_found",
+  "registrierung_closed",
+  "kader_full",
+  "registrierung_stufe_not_allowed",
+]);
 
-const moved = (error: unknown) => error instanceof APIBadStatusError && error.serverErrorCode !== undefined && MOVED.has(error.serverErrorCode);
+const moved = (error: unknown) => refusedAs(error, MOVED);
 
 /**
  * One pupil's registration through their team's link, sent with no session. The link is a team's, handed round a class,
@@ -55,10 +62,9 @@ export const submitRegistrierung = action({
   botCheck: true,
   name: "submitRegistrierung",
   input: Registration,
-  ownWords: ["email_not_accepted"],
-  paths: { email: "email" },
+  boxes: ["email"],
   examples: { first_name: exampleFirstName, last_name: exampleLastName, nummer: exampleDigits },
-  run: async ({ [REPLAY_FIELD]: key, ...registration }) => {
+  run: async ({ [IDEMPOTENCY_KEY_FIELD]: key, ...registration }) => {
     try {
       await registrierungenPostRegistrierung(registration, { headers: { [IDEMPOTENCY_KEY_HEADER]: key } });
     } catch (error) {

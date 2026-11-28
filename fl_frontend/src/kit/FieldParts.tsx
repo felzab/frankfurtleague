@@ -5,8 +5,10 @@ import { useContext } from "react";
 import { FieldError, FieldErrorContext } from "react-aria-components/FieldError";
 import { Label } from "react-aria-components/Label";
 import { Text } from "react-aria-components/Text";
+import { useIsSSR } from "react-aria/SSRProvider";
 
-import { COPY, textOf } from "@/core/copy";
+import { textOf } from "@/core/copy";
+import { COPY } from "@/core/copy/shared";
 
 import { fieldLabel, lockMark, messageLine, requiredMark, statusLine } from "./fieldStyles";
 import { FormClosed } from "./formClosed";
@@ -49,10 +51,8 @@ function fieldMessage({ validationDetails, validationErrors }: ValidationResult,
   if (validationDetails.tooShort && constraints.minLength !== undefined) return field.minChars(constraints.minLength);
   if (validationDetails.rangeUnderflow && constraints.earliest !== undefined) return field.earliest(constraints.earliest);
   if (validationDetails.rangeOverflow && constraints.latest !== undefined) return field.latest(constraints.latest);
-  if (
-    (validationDetails.typeMismatch || validationDetails.patternMismatch || validationDetails.badInput) &&
-    constraints.example !== undefined
-  ) {
+  // No kit field sets the `pattern` attribute, so no `patternMismatch` arises: a pattern is the field's `validate`.
+  if ((validationDetails.typeMismatch || validationDetails.badInput) && constraints.example !== undefined) {
     return field.format(constraints.example);
   }
   return validationDetails.customError ? validationErrors[0] : COPY.shared.failure.unexpected;
@@ -90,22 +90,31 @@ export function RequiredMark({ isRequired }: { isRequired: boolean }) {
  * says why. A closed form makes every field read-only and marks none, since its one reason covers them all and a mark
  * on each would single out nothing. Read-only rather than disabled, since the value is the record's own: React Aria's
  * `isReadOnly` keeps the field in the keys' order and its value readable, where a disabled field is passed over.
- * `isDisabled` stays the field's own, for a value unavailable until something else is given, which no lock lifts.
- * Neither a lock nor a closed form asks for a value (`asksForValue`), so `isRequired` is what the field hands React
- * Aria and its label.
+ * A field hands React Aria its own `isDisabled`, for a value unavailable until something else is given, which no lock
+ * lifts. Neither a lock nor a closed form asks for a value (`asksForValue`), so `isRequired` is what the field hands
+ * React Aria and its label.
  */
-export function useFieldLock(
-  isDisabled: boolean,
-  isLocked: boolean,
-  isRequired = false,
-): { isDisabled: boolean; isReadOnly: boolean; isMarked: boolean; isRequired: boolean } {
+export function useFieldLock(isLocked: boolean, isRequired = false): { isReadOnly: boolean; isMarked: boolean; isRequired: boolean } {
   const isClosed = useContext(FormClosed);
   return {
-    isDisabled,
     isReadOnly: isClosed || isLocked,
     isMarked: isLocked && !isClosed,
     isRequired: asksForValue(isRequired, isClosed, isLocked),
   };
+}
+
+/**
+ * Whether a field still waits for the page's code, which every field a person types into or toggles takes at its root
+ * as its `inert`. Until the page hydrates, a server-drawn field would take a person's typing or press with no code to
+ * hear it: React leaves what the browser shows while hydrating, and its next render writes the field's own state over
+ * it, and a digit typed into a date's segment fails hydration outright. So the field takes neither focus nor input
+ * until then, painting as the live one does and posting its value with its form. `disabled` would drop it from what
+ * the form posts, and `readOnly` leaves a caret on some browsers and holds no box or radio. A press of the form's send
+ * in that time is `HeldForm`'s. React Aria answers true on the server and through hydration alone, so a field first
+ * drawn in the browser never waits.
+ */
+export function useFieldWait(): boolean {
+  return useIsSSR();
 }
 
 /** The lock mark after a locked control's label, a field's or a switch's alike, `useFieldLock`'s `isMarked`. */
@@ -137,17 +146,31 @@ export function FieldLabel({ label, isRequired, isLocked = false }: { label: Wor
 
 /**
  * A form's status line at its acts: a refusal, a done save, why its act cannot run, or the editor's count of unsaved
- * fields. With nothing to say it is not drawn, so it takes no room.
+ * fields. The outcome stands in a status region a screen reader speaks, which is there from the first render, empty,
+ * since a region drawn together with its first words is not reliably heard; while empty it stands out of the flow, as
+ * the visually hidden do, so it takes no room and no gap beside the acts. The count of unsaved fields stands outside
+ * it, as it changes on every keystroke.
  */
 export function StatusLine({ status, placement }: { status: FormStatus; placement: "row" | "column" }) {
-  return status !== null && <p className={statusLine({ placement, tone: status.tone })}>{status.text}</p>;
+  const outcome = status?.tone === "changes" ? null : status;
+  return (
+    <>
+      {status?.tone === "changes" && <p className={statusLine({ placement, tone: "changes" })}>{status.text}</p>}
+      <p
+        role="status"
+        className={statusLine({ placement, tone: outcome?.tone, class: "empty:sr-only" })}>
+        {outcome?.text}
+      </p>
+    </>
+  );
 }
 
 /**
  * The line under a field: the error once the value is committed or the form submitted, else a change's consequence,
- * else the description, else nothing seen, so a field with nothing to say ends at its frame. `data-kit-message`
- * names it to the layouts that place a field's line apart from its frame, each ending it under its field and letting it
- * run on past a short field's edge: a label-left row's (`FieldRows`) and the score's (`ScoreRows`).
+ * else the description, else nothing seen, so a field with nothing to say ends at its frame. A closed form draws no
+ * consequence, since nothing is changed there to cause one, and keeps the description saying what the field is.
+ * `data-kit-message` names it to the layouts that place a field's line apart from its frame, each ending it under its
+ * field and letting it run on past a short field's edge: a label-left row's (`FieldRows`) and the score's (`ScoreRows`).
  */
 export function MessageLine({
   description,
@@ -159,23 +182,24 @@ export function MessageLine({
   constraints?: Constraints;
 }) {
   const validation = useContext(FieldErrorContext);
+  const shown = useContext(FormClosed) ? undefined : consequence;
 
   if (validation?.isInvalid) {
     return (
       <FieldError
         data-kit-message
-        className={messageLine({ tone: "error" })}>
+        className={messageLine({ tone: "danger" })}>
         {(result) => fieldMessage(result, constraints)}
       </FieldError>
     );
   }
-  const words = consequence ?? description;
+  const words = shown ?? description;
   return (
     words !== undefined && (
       <Text
         slot="description"
         data-kit-message
-        className={messageLine({ tone: consequence === undefined ? "description" : "consequence" })}>
+        className={messageLine({ tone: shown === undefined ? "description" : "consequence" })}>
         {words}
       </Text>
     )

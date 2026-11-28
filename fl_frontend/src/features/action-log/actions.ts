@@ -5,7 +5,7 @@ import { z } from "zod";
 import { action } from "@/core/action";
 import { ActionLogGetActionLogBody } from "@/core/generated/zod/inputs";
 
-import { logParams, PERIOD_CHOICES, TYPE_CHOICES } from "./filters";
+import { logParams, PERIOD_CHOICES, searchParams, TYPE_CHOICES } from "./filters";
 import { getActionLog } from "./queries";
 import { rowOf } from "./rows";
 
@@ -16,7 +16,7 @@ export const loadActionLog = action({
   name: "loadActionLog",
   input: z.object({ query: q, cursor, by, type: z.enum(TYPE_CHOICES).nullish(), time: z.enum(PERIOD_CHOICES).nullish() }),
   run: async ({ query, cursor: after, ...filters }) => {
-    const page = await getActionLog({ ...logParams(filters), q: query, cursor: after });
+    const page = await getActionLog({ ...logParams(filters), ...searchParams(query), cursor: after });
     return { ok: true, value: { rows: page.action_log.map(rowOf), cursor: page.cursor } };
   },
 });

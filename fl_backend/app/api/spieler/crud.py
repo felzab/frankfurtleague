@@ -23,6 +23,7 @@ from app.core.crud import (
     pull_one_from_db,
     refuse,
 )
+from app.core.exceptions import FieldFault
 from app.core.readonly import ReadCollection
 from app.shared.schemas.custom import CustomObjectId
 
@@ -112,7 +113,7 @@ async def refuse_a_closed_kader(
     refuse(find_saison_past_refusal(saison_status=str(saison_raw["status"])))
 
 
-async def refuse_a_taken_rolle(
+async def find_a_taken_rolle(
     *,
     saison_spieler_collection: AsyncCollection,
     saisons_collection: AsyncCollection,
@@ -122,15 +123,15 @@ async def refuse_a_taken_rolle(
     rolle: FLSpielerRolle | None,
     # Required: the anchor below closes the race.
     session: AsyncClientSession,
-) -> None:
-    """Refuse `kader_rolle_taken` when another live row in this squad already holds `rolle`.
+) -> FieldFault | None:
+    """`kader_rolle_taken` when another live row in this squad already holds `rolle`, for the caller's one collecting call.
 
     Shared by every squad write: the role belongs to the destination squad, never to the verb.
     """
 
     # Before the anchor: a row holding no role competes with nobody, so there is no count to protect.
     if rolle is None:
-        return
+        return None
 
     # Its own anchor rather than the cap's: a caller running this without `refuse_a_full_kader` --
     # a representative's edit, which cannot cross the cap -- would otherwise let two captains through.
@@ -141,14 +142,14 @@ async def refuse_a_taken_rolle(
     )
 
     taken = (
-        await saison_spieler_collection.count_documents(
+        await saison_spieler_collection.find_one(
             build_live_rolle_filter(saison_id=saison_id, team_id=team_id, rolle=rolle, excluding_spieler_id=spieler_id),
-            limit=1,
+            projection={"_id": 1},
             session=session,
         )
-    ) > 0
+    ) is not None
 
-    refuse(find_kader_rolle_refusal(rolle=rolle, taken=taken))
+    return find_kader_rolle_refusal(rolle=rolle, taken=taken)
 
 
 async def another_pupil_holds(

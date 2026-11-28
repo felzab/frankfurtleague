@@ -30,6 +30,35 @@
     background-color: color-mix(in srgb, #000 var(--scrim-strength), var(--bg));
   }
 
+  /* A control the keys move the focus to, and a place a link's fragment names, are scrolled clear of the frame's sticky
+     parts: the browser brings an element into view inside the root's scroll padding, the way WCAG's technique C43 gives
+     for a sticky header or footer that would hide the focus. Each frame marks its box, since the root's padding cannot
+     read a measure from inside the page. At the top stands the classic band, or a rail page's band on a phone and its
+     strip from `lg`. At a phone's foot a rail page holds its bottom bar or an editor's, a bar's height spared on Konto's
+     pages too, which hold neither; from `lg` only an editor's bar stands there, as tall as the rail's foot.
+     While a React Aria pop-over stands (each carries `data-trigger`) there is no padding: it floats above the band and
+     the bars, so nothing there hides the entry the keys move to, and React Aria's scroll of that entry into the padded
+     view would only move the page under it, which closes a combo box's list. */
+  :root:has([data-kit-frame="classic"]):not(:has([data-trigger])) {
+    scroll-padding-top: var(--classic-header);
+  }
+
+  :root:has([data-kit-frame="rail"]):not(:has([data-trigger])) {
+    scroll-padding-top: var(--rail-band);
+    scroll-padding-bottom: var(--rail-bar);
+
+    @variant lg {
+      scroll-padding-top: var(--rail-strip);
+      scroll-padding-bottom: 0;
+    }
+  }
+
+  :root:has([data-kit-page-bar]):not(:has([data-trigger])) {
+    @variant lg {
+      scroll-padding-bottom: var(--rail-foot);
+    }
+  }
+
   /* Every control shows the pointing hand, as a link does: Tailwind 4's preflight gives a button the browser's
      arrow, and its upgrade guide restores the hand with this rule. A kit recipe drawing an entry that is no
      button, a menu's or a list's, names `cursor-pointer` itself. */
@@ -69,30 +98,11 @@
   line-gap-override: 0%;
 }
 
-/* On a frame's `main`: no element inside the page's content takes part in scroll anchoring, so the
-   browser never picks one there as the anchor it keeps in place while the layout changes, and only the
-   frame outside `main` holds anchors. */
+/* On the box of a page's content, the classic page's `main` and the rail page's box under its title: no
+   element inside the page's content takes part in scroll anchoring, so the browser never picks one there as
+   the anchor it keeps in place while the layout changes, and only the frame outside that box holds anchors. */
 @utility overflow-anchor-none {
   overflow-anchor: none;
-}
-
-/* An over-long placeholder ends in an ellipsis, declared once because the
-   population is every field in the app. Both arms are needed: `text-overflow`
-   does not inherit, and only Blink and Gecko forward it to the pseudo-element. */
-/* `input` and not `textarea`: a textarea's placeholder wraps, and `text-overflow` acts only on
-   inline overflow. */
-input[placeholder],
-input[placeholder]::placeholder {
-  text-overflow: ellipsis;
-}
-
-/* `:placeholder-shown` is what keeps the fade off a value somebody typed. On `::placeholder` and
-   never the input: a mask on the element paints its border and fill too, eating the right of
-   both while a field is focused and empty. */
-input:focus:placeholder-shown::placeholder {
-  /* A UA may treat `text-overflow: ellipsis` as `clip` while a field is focused (CSS
-     Overflow 3 §5.1), hard-cutting an over-long placeholder. */
-  mask-image: linear-gradient(to right, #000 85%, transparent);
 }
 
 /* iOS Safari zooms the page into any focused control under 16px. The cure is the
@@ -100,7 +110,7 @@ input:focus:placeholder-shown::placeholder {
    disable pinch zoom for everyone. In the base layer, so a control's own size utility, the kit's
    16 px on a touch screen among them, outranks it. */
 @layer base {
-  @media (hover: none) and (pointer: coarse) {
+  @media (pointer: coarse) {
     input,
     select,
     textarea {

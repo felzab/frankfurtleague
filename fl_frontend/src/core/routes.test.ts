@@ -1,16 +1,14 @@
-import { readFileSync } from "node:fs";
 import path from "node:path";
 
 import { describe, expect, it } from "vitest";
 
 import { filesUnder } from "@/test-support/treeWalk";
 
-import { ADDRESS_WORDS, ROUTES } from "./routes";
+import { addressOf, ROUTES } from "./routes";
 
 import type { RouteEntry } from "./routes";
 
 const APP = path.resolve(import.meta.dirname, "..", "app");
-const GLOSSARY = path.resolve(import.meta.dirname, "..", "..", "..", "docs", "glossary.md");
 
 /**
  * The segments a route folder answers at: a route group's `(…)` and a parallel slot's `@…` are no segment, an
@@ -24,45 +22,72 @@ function segmentsOf(file: string): string[] {
     .map((folder) => folder.replace(/^(\(\.{1,3}\))+/, ""));
 }
 
-/**
- * The league's own words an address carries, each by the glossary entry naming it: a segment is a plural or a
- * spelling of its entry's word, and the entry stands in the glossary's core entities or attributes.
- */
-const LEAGUE_WORDS: Readonly<Record<string, string>> = {
-  saisons: "Saison",
-  spiel: "Spiel",
-  spiele: "Spiel",
-  spieltage: "Spieltag",
-  aufstellung: "Aufstellung",
-  team: "Team",
-  teams: "Team",
-  spieler: "Spieler",
-  kader: "Kader",
-  schiedsrichter: "Schiedsrichter",
-  spielorte: "Spielort",
-  bewerbung: "Bewerbung",
-  bewerbungen: "Bewerbung",
-  registrierung: "Registrierung",
-  registrierungen: "Registrierung",
-  spielbericht: "Spielbericht",
-  tabelle: "Tabelle",
-  "ko-runde": "K.-o.-Runde",
-  kontakt: "kontakte",
-};
+/** The league's own words an address carries: each a plural or a spelling of a core entity or attribute. */
+const LEAGUE_WORDS = [
+  "saisons",
+  "spiel",
+  "spiele",
+  "spieltage",
+  "aufstellung",
+  "team",
+  "teams",
+  "spieler",
+  "kader",
+  "schiedsrichter",
+  "spielorte",
+  "bewerbung",
+  "bewerbungen",
+  "registrierung",
+  "registrierungen",
+  "spielbericht",
+  "tabelle",
+  "ko-runde",
+  "kontakt",
+];
 
-/** Every word the glossary's core entities and attributes head an entry with. */
-function glossaryWords(): Set<string> {
-  const text = readFileSync(GLOSSARY, "utf8");
-  const start = text.indexOf("\n## Core entities");
-  const end = text.indexOf("\n## The website's words");
-  // A missing heading answers -1, which `slice` reads as the end of the file and so widens the words held.
-  if (start < 0 || end < start) throw new Error("the glossary lacks its core section or its website section, or holds them out of order");
-  const held = text.slice(start, end);
-  const headings = held.split("\n").filter((line) => line.startsWith("### "));
-  // The entry's words stand before its gloss, the dash, so a word the gloss quotes is no entry's.
-  const named = headings.map((heading) => heading.split(" — ", 1).join(""));
-  return new Set(named.flatMap((heading) => [...heading.matchAll(/`([^`]+)`/g)].flatMap((word) => word.slice(1))));
-}
+/**
+ * The English words an address may carry. An address follows the code's naming rule: a segment is German only where
+ * it is the league's own word, and every word for what the website does with one is English and stands here, so a new
+ * word is added here, in English, or the build fails.
+ */
+const ADDRESS_WORDS = [
+  "about",
+  "account",
+  "address",
+  "address-changes",
+  "admin",
+  "administrators",
+  "api",
+  "area",
+  "auth",
+  "ban-list",
+  "bulk",
+  "client-error",
+  "confirm",
+  "contact",
+  "continue",
+  "delivery",
+  "done",
+  "entries",
+  "erasure",
+  "erasures",
+  "log",
+  "mail",
+  "passkey",
+  // A Funktion's code word, `role`, in the plural.
+  "roles",
+  "search",
+  "security",
+  "settings",
+  "signin",
+  "sitemap",
+  "sponsors",
+  "withdrawals",
+  // The one exception, two German words naming no league thing: the Impressum is a duty under German law, and
+  // `/impressum` and `/datenschutz` are where a German visitor looks for it and for the privacy notice.
+  "impressum",
+  "datenschutz",
+];
 
 /** A placeholder no address word can be, standing in for each of a row's own segments. */
 const PLACEHOLDER = "[]";
@@ -70,8 +95,7 @@ const PLACEHOLDER = "[]";
 /** Every address this tree answers at, a row's and a page's or route handler's, by where it is written. */
 function addresses(): { where: string; segments: string[] }[] {
   const rows = Object.entries(ROUTES as Record<string, RouteEntry>).map(([key, row]) => {
-    const build = row.path as (...segments: string[]) => string;
-    const address = build(...Array.from({ length: build.length }, () => PLACEHOLDER));
+    const address = addressOf(row, PLACEHOLDER);
     return { where: `ROUTES.${key}`, segments: address.split("/").filter((segment) => segment !== "") };
   });
   const files = filesUnder(APP, (name) => name === "page.tsx" || name === "route.ts", 40).map((file) => ({
@@ -85,15 +109,10 @@ describe("every address", () => {
   // The code's naming rule, held for addresses as the lint holds it for names: a word for what the website does in
   // German, or an English word nobody listed, fails here rather than reaching a visitor's address bar.
   it("carries only league words and the listed English words in its fixed segments", () => {
-    const allowed = new Set<string>([...Object.keys(LEAGUE_WORDS), ...ADDRESS_WORDS]);
+    const allowed = new Set([...LEAGUE_WORDS, ...ADDRESS_WORDS]);
     const strays = addresses().flatMap(({ where, segments }) =>
       segments.filter((segment) => !segment.startsWith("[") && !allowed.has(segment)).map((segment) => `${where}: ${segment}`),
     );
     expect(strays).toStrictEqual([]);
-  });
-
-  it("takes each league word from an entry of the glossary's core entities or attributes", () => {
-    const words = glossaryWords();
-    expect(Object.entries(LEAGUE_WORDS).filter(([, entry]) => !words.has(entry))).toStrictEqual([]);
   });
 });

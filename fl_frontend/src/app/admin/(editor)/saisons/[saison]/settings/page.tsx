@@ -1,12 +1,14 @@
 import { notFound } from "next/navigation";
 
-import { getAdminSession } from "@/core/auth/guards";
-import { COPY } from "@/core/copy";
+import { boxRulesOf } from "@/core/action";
+import { getAdminHolder } from "@/core/auth/guards";
+import { ADMIN_COPY } from "@/core/copy/admin";
+import { COPY } from "@/core/copy/shared";
 import { dayOf, formatDate } from "@/core/format";
+import { ownKeyOf } from "@/core/ownKeyOf";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { getAdminSaison, getAdminSaisons } from "@/features/saisons/queries";
-import { SAISON_REQUIRED } from "@/features/saisons/required";
 import { saisonChipOf } from "@/features/saisons/saisonState";
 import { adminTeamChip } from "@/features/teams/constants";
 import { NOT_SENT_CHIP, outOfPlayChip, SENT_CHIP } from "@/kit/stateChips";
@@ -22,11 +24,11 @@ import type { Copy } from "@/core/copy";
 import type { Code, FLInvitationLinkRow, FLSaisonAdminTeam, FLSaisonStatus } from "@/core/generated/client/types";
 import type { ChipProps } from "@/kit/Chip";
 import type { TableHead, TableRow } from "@/kit/Table";
-import type { Metadata, ResolvingMetadata } from "next";
+import type { Metadata } from "next";
 
 type Props = PageProps<"/admin/saisons/[saison]/settings">;
 
-const WORDS = COPY.admin.saison;
+const WORDS = ADMIN_COPY.saison;
 const TEAM = COPY.shared.facts.team;
 
 /**
@@ -35,51 +37,28 @@ const TEAM = COPY.shared.facts.team;
  */
 const LINKS_HEAD: TableHead = {
   nameLabel: TEAM,
-  state: { label: COPY.admin.schiedsrichter.state },
+  state: { label: COPY.shared.facts.state },
   // Secondary, as every list's day column: on a phone the row keeps its name and its chip.
-  columns: [{ key: "sentOn", label: WORDS.sentOn, hideOnPhone: true, width: "date" }],
+  columns: [{ key: "sentOn", label: WORDS.sentOn, hideOnPhone: true, onLine: "labelled", width: "date" }],
 };
 
-/** The season the address names, or the not-found page. */
-async function readSaison(params: Props["params"]) {
-  const { saison } = await params;
-  const read = await getAdminSaison(saison);
-  if (read === null) notFound();
-  return read;
-}
-
-export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { saison } = await params;
   return metadataFor(getAdminSaison(saison), (read) =>
-    pageMetadata(parent, ROUTES.adminSaison, ROUTES.adminSaison.path(read.saison.id), { title: COPY.shared.saisonName(read.saison.id) }),
+    pageMetadata(ROUTES.adminSaison, ROUTES.adminSaison.path(read.saison.id), { title: COPY.shared.saisonName(read.saison.id) }),
   );
 }
 
 /**
  * Why a danger act cannot run now, by the refusal its write would answer, which the read serves: never a rule of the
- * page's own. A code no line here words means a page older than the API, which the stale line says.
+ * page's own. The planning window's codes say which way it closed by the season's status, a planned season's matches
+ * holding an entry or the season gone live. A code the table holds no phrase for means a page older than the API.
  */
 function lockedOf(code: Code | null, status: FLSaisonStatus): Copy | undefined {
-  switch (code) {
-    case null:
-      return undefined;
-    case "activate_target_undrawn":
-      return WORDS.noDrawLocked;
-    case "activate_spieltage_undated":
-      return WORDS.undatedLocked;
-    case "activate_saison_unfinished":
-      return WORDS.unfinishedLocked;
-    case "spielplan_berichte_submitted":
-      return WORDS.reportsHold;
-    case "spielplan_gruppen_off_rules":
-      return WORDS.gruppenOffRulesLocked;
-    // One code for both ways the planning window closes: the season went live, or a match of it holds an entry.
-    case "spielplan_replace_outside_its_window":
-    case "spielplan_undraw_outside_its_window":
-      return status === "future" ? WORDS.entriesHold : WORDS.lockedSinceActivation;
-    default:
-      return COPY.shared.failure.stale;
-  }
+  if (code === null) return undefined;
+  if (!ownKeyOf(WORDS.locks, code)) return WORDS.lockedOtherwise;
+  const lock = WORDS.locks[code];
+  return typeof lock === "function" ? lock(status === "future") : lock;
 }
 
 /**
@@ -107,21 +86,12 @@ function waitingOf(row: FLInvitationLinkRow): ChipProps | null {
   return row.sent_at === null ? NOT_SENT_CHIP : null;
 }
 
-/** The season editor, on the season's one admin read. */
 export default async function SaisonSettingsPage({ params }: Props) {
-  return await readEditor(params);
-}
-
-async function readEditor(params: Props["params"]) {
+  const { saison: id } = await params;
   // The frame's own season list, which the switch's question names the season the site leaves from, beside the view read.
-  const [{ saison, teams, incoming_teams, shapes, spielplan, refusals, invitations }, { saisons }, session] = await Promise.all([
-    readSaison(params),
-    getAdminSaisons(),
-    getAdminSession(),
-  ]);
-  // The page's read turned a refused session away to the sign-in before this line; an acting administrator signs in
-  // by passkey alone, so every act behind the touch asks it.
-  const holder = session?.user.email ?? "";
+  const [read, { saisons }, holder] = await Promise.all([getAdminSaison(id), getAdminSaisons(), getAdminHolder()]);
+  if (read === null) notFound();
+  const { saison, teams, incoming_teams, shapes, spielplan, refusals, invitations } = read;
   // The teams the registration links' press would mail now, by the press's own plan.
   const mailed = invitations.filter((row) => row.skipped === null);
 
@@ -132,7 +102,7 @@ async function readEditor(params: Props["params"]) {
       chip={saisonChipOf(saison)}
       record={{ id: saison.id, version: saison.version, values: valuesOf(saison) }}
       save={saveSaison}
-      required={SAISON_REQUIRED}
+      rules={boxRulesOf(saveSaison)}
       facts={{
         begun: saison.begun,
         takenPlace: saison.taken_place,
@@ -148,8 +118,8 @@ async function readEditor(params: Props["params"]) {
         },
       }}
       shapes={shapes}
-      clubs={teams.map((team) => ({ id: team.team_id, name: team.name, gruppe: team.gruppe }))}
-      incoming={incoming_teams.map((club) => ({ id: club.id, name: club.name }))}
+      teams={teams.map((team) => ({ id: team.team_id, name: team.name, gruppe: team.gruppe }))}
+      incoming={incoming_teams.map((team) => ({ id: team.id, name: team.name }))}
       links={{
         head: LINKS_HEAD,
         rows: invitations.map((row): TableRow => {
@@ -162,7 +132,6 @@ async function readEditor(params: Props["params"]) {
               teams.find((team) => team.team_id === row.team_id),
               saison.status,
             ),
-            ...(sent === null ? {} : { phoneLine: WORDS.linkSentOn(sent) }),
             cells: sent === null ? {} : { sentOn: { record: formatDate(sent) } },
           };
         }),

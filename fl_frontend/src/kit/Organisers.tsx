@@ -1,23 +1,21 @@
+import { BlockBox } from "./BlockBox";
 import { cardSurface } from "./cardStyles";
+import { initials } from "./initials";
 import { tv } from "./tv";
 
 import type { Copy, RecordText } from "@/core/copy";
 
-/** One of the people running the league: their first name and what they do. */
 type Organiser = { name: RecordText; role: Copy };
 
 const row = tv({
   slots: {
-    // The box's own width decides its columns (`@container` on its holder): two, or four, so the eight people stand in
-    // rows that each fill, every entry under the one above it. Four turn where the widest entry fits whole: it needs
-    // at most 138 px (the 40-px mark, its 10-px gap and the longest name or role, as drawn), and four columns of it
-    // with their three 24-px gaps, 24-px padding and 1-px border fill 674 px, so 44 rem leaves each entry 145 px. A
-    // phone's 360 px holds two only at the 16-px inset, where a longer name is cut with „…“ rather than widening its
-    // column.
-    box: "@container",
+    // The box's own width decides its columns: two, or four, so the eight people stand in rows that each fill, every
+    // entry under the one above it. Four turn where the widest entry fits whole: it needs at most 138 px (the 40-px
+    // mark, its 10-px gap and the longest name or role, as drawn), and four columns of it with their three 24-px gaps,
+    // 24-px padding and 1-px border fill 674 px, so 44 rem leaves each entry 145 px. A phone's 360 px holds two only at
+    // the 16-px inset, where a longer name is cut with „…“ rather than widening its column.
     root: `grid grid-cols-2 gap-x-4 gap-y-4 ${cardSurface()} p-4 @min-[44rem]:grid-cols-4 @min-[44rem]:gap-x-6 @min-[44rem]:p-6`,
     person: "flex min-w-0 items-center gap-2.5",
-    // The avatar, the first letter of the name in a 40-px circle, as the account row draws one.
     avatar: "flex size-10 shrink-0 items-center justify-center rounded-full bg-bg-muted font-numeric text-sm font-semibold",
     words: "grid min-w-0",
     name: "truncate text-sm font-semibold",
@@ -25,11 +23,11 @@ const row = tv({
   },
 });
 
-/** The people who run the league, in columns of one width, each beside a mark of their first letter: on the landing and on About. */
+/** The people who run the league, in columns of one width, each beside the mark of their initials the rail draws. */
 export function Organisers({ people }: { people: readonly Organiser[] }) {
   const slots = row();
   return (
-    <div className={slots.box()}>
+    <BlockBox>
       <ul className={slots.root()}>
         {people.map((person) => (
           <li
@@ -38,7 +36,7 @@ export function Organisers({ people }: { people: readonly Organiser[] }) {
             <span
               aria-hidden
               className={slots.avatar()}>
-              {person.name.record.charAt(0)}
+              {initials(person.name.record)}
             </span>
             <span className={slots.words()}>
               <span className={slots.name()}>{person.name.record}</span>
@@ -47,6 +45,6 @@ export function Organisers({ people }: { people: readonly Organiser[] }) {
           </li>
         ))}
       </ul>
-    </div>
+    </BlockBox>
   );
 }

@@ -11,14 +11,12 @@ import { signInWithCode } from "../support/signIn";
 test("an administrator's mailed code leads to setting up a passkey", async ({ page, administrator }) => {
   await signInWithCode(page, administrator);
 
-  // The code alone does not open the Verwaltung: the card requires the passkey, where a person's
-  // offers it with a way past.
+  // The code alone does not open the Verwaltung: the card requires the passkey.
   await expect(page).toHaveURL((url) => url.pathname === "/signin/passkey");
   // In `main`: the code step the browser came through stays in the document, hidden, and names the address too.
   const card = page.getByRole("main");
   await expect(card.getByText(administrator, { exact: true })).toBeVisible();
-  await expect(card.getByRole("button", { name: "Jetzt einrichten" })).toBeVisible();
-  await expect(card.getByRole("button", { name: "Später" })).toHaveCount(0);
+  await expect(card.getByRole("button", { name: "Passkey einrichten" })).toBeVisible();
 
   // Asked for by its address, a Verwaltung page shows the session nothing: its read turns the session
   // to the sign-in's landing, which sends an administrator who owes a passkey back to this card.

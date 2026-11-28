@@ -4,22 +4,33 @@
  */
 import { expect } from "@playwright/test";
 
-import { box, comboOptions, labelOf, save, typeInto, valueOf } from "./support/controls";
+import { box, comboOptions, labelOf, save, toast, typeInto, valueOf } from "./support/controls";
 import { test } from "./support/journey";
 import { RUNNING } from "./support/madeUpLeague";
-import { declinePasskeyOffer, signInWithCode } from "./support/signIn";
+import { expectLandedAt, signInWithCode } from "./support/signIn";
 
 import type { Locator, Page } from "@playwright/test";
 
 /**
- * A game's row on the Übersicht, by the link its name is: the row is the kit's, which holds its chip and its acts beside
- * the link and carries no role of its own.
+ * A booking to answer in the Übersicht's „Termine“ card, by the link its name is: the row is the kit's, which holds its
+ * acts beside the link and carries no role of its own.
+ */
+function bookingRow(page: Page, game: string): Locator {
+  return box(page, "Termine")
+    .locator("[data-kit-row]")
+    .filter({ has: page.getByRole("link", { name: game, exact: true }) });
+}
+
+/**
+ * A game's row under its matchday's head, each head a box of its own and the „Termine“ card's apart: the whole row a
+ * link, named by everything it shows.
  */
 function gameRow(page: Page, game: string): Locator {
   return page
     .getByRole("main")
-    .locator("[data-kit-row]")
-    .filter({ has: page.getByRole("link", { name: game, exact: true }) });
+    .locator("section")
+    .filter({ hasNot: page.getByRole("heading", { name: "Termine", exact: true }) })
+    .getByRole("link", { name: new RegExp(game.replace(" vs. ", ".*")) });
 }
 
 /**
@@ -41,20 +52,20 @@ test("a referee answers the coming game, saves the played game's report, and rea
 }) => {
   await signInWithCode(page, address);
   // `/area/schiedsrichter` draws the Übersicht of the season the referee is booked in, at its own address.
-  await declinePasskeyOffer(page, "/area/schiedsrichter");
+  await expectLandedAt(page, "/area/schiedsrichter");
 
-  // The coming game waits on the answer, given on its row, which then says it.
-  const comingRow = gameRow(page, coming);
-  await expect(comingRow.getByText("Antwort fehlt", { exact: true })).toBeVisible();
-  const agree = comingRow.getByRole("button", { name: "Zusagen", exact: true });
-  await agree.click();
-  await expect(comingRow.getByText("Zugesagt", { exact: true })).toBeVisible();
-  await expect(comingRow.getByRole("button", { name: "Zusagen", exact: true })).toHaveCount(0);
+  // The coming game waits on the answer, given on its row in „Termine“: its toast, the booking leaves the card, and the
+  // game's row under its matchday then says it.
+  await expect(gameRow(page, coming)).toContainText("Antwort fehlt");
+  await bookingRow(page, coming).getByRole("button", { name: "Zusagen", exact: true }).click();
+  await expect(toast(page, "Zugesagt")).toBeVisible();
+  await expect(bookingRow(page, coming)).toHaveCount(0);
+  await expect(gameRow(page, coming)).toContainText("Zugesagt");
 
   // The played game owes its report, which its row opens.
   const playedRow = gameRow(page, played);
-  await expect(playedRow.getByText("Spielbericht fehlt", { exact: true })).toBeVisible();
-  await playedRow.getByRole("link", { name: played, exact: true }).click();
+  await expect(playedRow).toContainText("Spielbericht fehlt");
+  await playedRow.click();
   await expect(page).toHaveURL((url) => url.pathname.startsWith(`/area/schiedsrichter/${RUNNING}/spielbericht/`));
   await expect(page.getByRole("heading", { level: 1, name: played })).toBeVisible();
 
@@ -92,7 +103,7 @@ test("a referee answers the coming game, saves the played game's report, and rea
 
   // The Übersicht's row says the report is in.
   await page.goto(`/area/schiedsrichter/${RUNNING}`);
-  await expect(gameRow(page, played).getByText("Spielbericht eingetragen", { exact: true })).toBeVisible();
+  await expect(gameRow(page, played)).toContainText("Spielbericht eingetragen");
 
   // Konto's referee box holds the fee the league pays them.
   await page.goto("/account/entries");

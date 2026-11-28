@@ -1,6 +1,8 @@
-import { getAdminSession } from "@/core/auth/guards";
+import { boxRulesOf } from "@/core/action";
+import { getAdminHolder } from "@/core/auth/guards";
 import { BAN_DURATION_SAISONS } from "@/core/bounds";
-import { COPY } from "@/core/copy";
+import { ADMIN_COPY } from "@/core/copy/admin";
+import { COPY } from "@/core/copy/shared";
 import { dayOf, formatDate } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { getBanList } from "@/features/ban-list/queries";
@@ -13,32 +15,24 @@ import { BanFields } from "./BanFields";
 
 import type { FLBanListRow } from "@/core/generated/client/types";
 import type { TableHead, TableRow } from "@/kit/Table";
-import type { Metadata, ResolvingMetadata } from "next";
 
-const WORDS = COPY.admin.banList;
-const ENTER = COPY.shared.withObject(WORDS.object, "enter");
+const WORDS = ADMIN_COPY.banList;
+const ENTER = COPY.shared.withObject(COPY.shared.ban, "enter");
 
-export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
-  return pageMetadata(parent, ROUTES.adminBanList, ROUTES.adminBanList.path());
-}
+export const metadata = pageMetadata(ROUTES.adminBanList);
 
 /**
  * The table's head. Every column is secondary, and a row opens nothing, so on a phone the row's line says what the
  * columns would.
  */
 const HEAD: TableHead = {
-  nameLabel: COPY.signIn.address,
+  nameLabel: COPY.shared.emailAddress,
   columns: [
-    { key: "reason", label: COPY.admin.spiel.reason, hideOnPhone: true, width: "excerpt", cut: true },
-    { key: "until", label: COPY.admin.banList.until, hideOnPhone: true, width: "date" },
-    { key: "enteredOn", label: COPY.admin.facts.enteredOn, hideOnPhone: true, width: "date" },
+    { key: "reason", label: COPY.shared.reason, hideOnPhone: true, onLine: "value", width: "excerpt", cut: true },
+    { key: "until", label: ADMIN_COPY.banList.until, hideOnPhone: true, onLine: "labelled", width: "word" },
+    { key: "enteredOn", label: ADMIN_COPY.facts.enteredOn, hideOnPhone: true, onLine: "labelled", width: "date" },
   ],
 };
-
-/** The address the page was drawn for; the list's own read turns a refused session away to the sign-in. */
-async function readHolder() {
-  return (await getAdminSession())?.user.email ?? "";
-}
 
 /**
  * One ban's row, opening nothing: its address, the Grund cut at its column, the last season it covers, the day it was
@@ -50,23 +44,21 @@ const rowOf = (ban: FLBanListRow, holder: string): TableRow => {
     id: ban.id,
     name: { record: ban.address, address: true },
     words: `${ban.address} ${ban.ban_reason}`,
-    phoneLine: WORDS.phoneLine({ record: ban.ban_reason }, until, dayOf(ban.created_at)),
     cells: {
       reason: { record: ban.ban_reason },
       until,
       enteredOn: { record: formatDate(dayOf(ban.created_at)) },
     },
-    sideActs: 1,
     acts: (
       <RowAct
         verb="remove"
-        subject={WORDS.object}
+        subject={COPY.shared.ban}
         consequence={WORDS.liftConsequence}
         facts={[
-          { label: COPY.signIn.address, value: { record: ban.address, address: true } },
-          { label: COPY.admin.spiel.reason, value: { record: ban.ban_reason } },
+          { label: COPY.shared.emailAddress, value: { record: ban.address, address: true } },
+          { label: COPY.shared.reason, value: { record: ban.ban_reason } },
         ]}
-        act={liftBan}
+        run={liftBan}
         id={ban.id}
         holder={holder}
       />
@@ -87,17 +79,21 @@ async function readBans(holder: Promise<string>) {
 
 /** The bans the league holds: searched over the address and the Grund on the page, a new one entered in the dialog over the list. */
 export default function BanListPage() {
-  const holder = readHolder();
+  const holder = getAdminHolder();
   const bans = readBans(holder);
   return (
     <ListPage
       head={{ scope: "area", title: { route: "adminBanList" } }}
       create={holder.then((address) => ({
         title: ENTER,
-        act: { verb: "enter", object: WORDS.object },
-        action: enterBan,
+        act: { verb: "enter", object: COPY.shared.ban },
+        run: enterBan,
+        rules: boxRulesOf(enterBan),
         consequence: WORDS.consequence,
-        facts: [{ label: WORDS.duration, value: WORDS.durationSaisons(BAN_DURATION_SAISONS) }],
+        facts: [
+          { label: WORDS.duration, value: WORDS.durationSaisons(BAN_DURATION_SAISONS) },
+          { label: ADMIN_COPY.facts.mailTo, value: WORDS.mailTo },
+        ],
         touch: { holder: address },
         children: <BanFields />,
       }))}

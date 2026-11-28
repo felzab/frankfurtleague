@@ -12,26 +12,22 @@ import { FINISHED, PEOPLE } from "../support/madeUpLeague";
 
 test.use({ storageState: ADMINISTRATOR_STATE });
 
-test("Administratoren reads who holds access and what waits, and shows an administrator the owner's acts locked", async ({ page }) => {
+// What the page's unit case reads only as the props it hands the kit: the owner's acts, which stand for every
+// administrator locked with their reason so the page has one shape for every reader, as WebKit's page carries the lock
+// to a reader, and a fold opening in WebKit, the one fold this project presses.
+test("Administratoren opens what waits, and shows an administrator the owner's acts locked", async ({ page }) => {
   await page.goto("/admin/administrators");
   const main = page.getByRole("main");
-  await expect(page.getByRole("banner").getByRole("heading", { level: 1, name: "Administratoren" })).toBeVisible();
-
-  const owner = main.getByRole("row").filter({ hasText: PEOPLE.owner });
-  await expect(chip(owner, "Leitung")).toBeVisible();
 
   await main.getByRole("button", { name: /^Angekündigt/ }).click();
-  await expect(
-    main.getByRole("row").filter({ hasText: PEOPLE.administrators.waiting }).filter({ hasText: "Neuer Administrator" }),
-  ).toBeVisible();
+  await expect(main.getByRole("row").filter({ hasText: PEOPLE.administrators.waiting })).toBeVisible();
 
-  // The owner's acts stand for every administrator, locked with their reason, so the page has one shape for every reader.
   await expect(page.getByRole("button", { name: "Administrator eintragen" })).toHaveAttribute("aria-disabled", "true");
 });
 
 test("Adressänderungen reads a person's running change, and a holder's for the owner alone", async ({ page }) => {
   await page.goto("/admin/address-changes");
-  await expect(page.getByRole("banner").getByRole("heading", { level: 1, name: "Adressänderungen" })).toBeVisible();
+  await expect(page.getByRole("main").getByRole("heading", { level: 1, name: "Adressänderungen" })).toBeVisible();
   const rows = page.getByRole("main").getByRole("row");
   await expect(chip(rows.filter({ hasText: PEOPLE.access.changing.address }), "Neue offen")).toBeVisible();
   await expect(rows.filter({ hasText: PEOPLE.administrators.moving })).toHaveCount(0);
@@ -65,15 +61,21 @@ test("the Protokoll's filter sheet narrows to one who", async ({ page }) => {
   const main = page.getByRole("main");
   const rows = main.getByRole("row");
   // A row of each kind of who the seed wrote, and the one the sheet chooses.
-  const chosen = { option: "Teams", what: `Termin beantwortet · ${FINISHED}`, who: `Kontaktperson · ${PEOPLE.access.loggedTeam}` };
+  const chosen = {
+    option: "Kontaktperson",
+    what: `Termin beantwortet · Saison ${FINISHED}`,
+    who: `Kontaktperson · ${PEOPLE.access.loggedTeam}`,
+  };
   const others = [
     `Administrator eingetragen · ${PEOPLE.administrators.waiting}`,
-    `Spielbericht eingetragen · ${FINISHED} / 1`,
+    `Spielbericht eingetragen · Saison ${FINISHED} · Spiel 1`,
     "Nach Frist gelöscht · Kontaktpersonen: 2",
     "Konto gelöscht",
   ];
 
   await page.goto("/admin/log");
+  // Each other row stands before the filter, so its absence after it is the filter's work and no wording's.
+  for (const other of others) await expect(rows.filter({ hasText: other }).first()).toBeVisible();
   await main.getByRole("button", { name: "Filter" }).click();
   // A phone's selects stand in a sheet, which stays open over the list until „Fertig“.
   const sheet = await enteredDialog(page, "Filter");

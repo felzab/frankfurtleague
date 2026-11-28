@@ -35,7 +35,10 @@ export const declineSpielbestaetigung = action({
   claim: "record",
   name: "declineSpielbestaetigung",
   input: z.object({ id: ROW, date: vorschlag.date, time: vorschlag.time, reason: blankIsNull(answer.reason) }),
-  ownWords: ["ansetzung_vorschlag_unchanged", "spiel_outside_spieltag", "spiel_double_booked", "eligibility_disqualified"],
+  // The administrator's save's judges name the day by the dialog's own box name, `date`, a matchday's bound with it.
+  boxes: ["date", "time", "reason"],
+  // The write nests the proposed day and hour under its proposal, where the dialog's boxes hold each alone.
+  paths: { "vorschlag.date": "date", "vorschlag.time": "time" },
   run: async ({ id, date, time, reason }) => {
     await spielbestaetigungenPostTeamAnswer(id, { answer: "declined", reason, vorschlag: { date, time } });
     return { ok: true, value: undefined };

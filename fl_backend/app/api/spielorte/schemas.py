@@ -48,7 +48,7 @@ class FLSpielort(_SpielortWritable, BaseReadModel):
     # On no payload: deactivation goes through the delete endpoint, which stamps the date itself.
     inactive_since: CustomOptionalDateString
     # The writes counted so far, which the editor's save sends back.
-    version: int = 0
+    version: int
 
 
 class FLSpielorteListResponse(BaseReadModel):

@@ -1,6 +1,6 @@
-import { blankIsNull, requires } from "@/core/action";
-import { COPY } from "@/core/copy";
-import { SpielbestaetigungenPostTeamAnswerBody, spielbestaetigungenPostTeamAnswerBodyReasonOneMax } from "@/core/generated/zod/inputs";
+import { boxRulesOf } from "@/core/action";
+import { AREA_COPY } from "@/core/copy/area";
+import { COPY } from "@/core/copy/shared";
 import { DateField } from "@/kit/DateField";
 import { Dialog } from "@/kit/Dialog";
 import { FieldGroup } from "@/kit/FieldGroup";
@@ -12,16 +12,6 @@ import { declineSpielbestaetigung } from "./answerSpielbestaetigung";
 
 import type { Words } from "@/core/copy";
 import type { CalendarDay } from "@/core/format";
-
-const answer = SpielbestaetigungenPostTeamAnswerBody.shape;
-const vorschlag = answer.vorschlag.options[0].shape;
-
-// Read off the write's schema on the server, so it never reaches the browser.
-const REQUIRED = {
-  date: requires(vorschlag.date, ""),
-  time: requires(vorschlag.time, ""),
-  reason: requires(blankIsNull(answer.reason), ""),
-};
 
 /**
  * „Ablehnen“ on a date's row: the dialog asking for the day and hour the team proposes instead and, where it gives
@@ -41,38 +31,35 @@ export function DeclineDialog({
 }) {
   return (
     <Dialog
-      title={COPY.shared.withObject(COPY.admin.overview.appointment, "decline")}
+      title={COPY.shared.withObject(COPY.spielplan.appointment, "decline")}
       act={{ verb: "decline" }}
       // A refusal is the dialog's destroying act: the red fill every destroying press takes.
       tone="danger"
       lead={spiel}
-      action={declineSpielbestaetigung}
+      run={declineSpielbestaetigung}
+      rules={boxRulesOf(declineSpielbestaetigung)}
       carry={{ id }}
-      consequence={COPY.area.team.declineConsequence}
+      consequence={AREA_COPY.team.declineConsequence}
       trigger={{ label: COPY.shared.verb.decline }}>
-      <FieldGroup name={COPY.admin.overview.vorschlag}>
+      <FieldGroup name={COPY.spielplan.vorschlag}>
         <FieldPair>
           <DateField
-            label={COPY.admin.spiel.date}
+            label={COPY.spielplan.fact.date}
             name="date"
-            isRequired={REQUIRED.date}
             minValue={today}
           />
           <TimeField
-            label={COPY.admin.spiel.time}
+            label={COPY.spielplan.fact.time}
             name="time"
-            isRequired={REQUIRED.time}
           />
         </FieldPair>
       </FieldGroup>
       <TextField
-        label={COPY.admin.overview.reason}
+        label={COPY.shared.reason}
         name="reason"
         // A paragraph, at four lines, its line breaks kept, as the administration's reasons are.
         kind="paragraph"
-        isRequired={REQUIRED.reason}
-        maxLength={spielbestaetigungenPostTeamAnswerBodyReasonOneMax}
-        description={COPY.admin.noNames}
+        description={COPY.shared.noNames}
       />
     </Dialog>
   );

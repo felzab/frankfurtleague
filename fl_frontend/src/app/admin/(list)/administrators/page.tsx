@@ -1,16 +1,16 @@
-import { GRANT_WAIT, OWNER_WAIT } from "@/core/addressChange";
-import { getAdminSession } from "@/core/auth/guards";
+import { boxRulesOf } from "@/core/action";
+import { getAdminHolder } from "@/core/auth/guards";
 import { now } from "@/core/clock";
-import { COPY } from "@/core/copy";
+import { ADMIN_COPY } from "@/core/copy/admin";
+import { COPY } from "@/core/copy/shared";
 import { asSignInIdentifier } from "@/core/emailAddress";
 import { formatDate, formatInstantShort } from "@/core/format";
+import { GRANT_WAIT, OWNER_WAIT } from "@/core/grant";
 import { ROUTES } from "@/core/routes";
 import { DAY_MS } from "@/core/timeUnits";
 import { discardChange } from "@/features/address-change/actions";
 import { getAddressChanges } from "@/features/address-change/queries";
-import { addAdministrator, removeAdministrator, startHandover, stopHandover } from "@/features/grants/actions";
 import { getGrants } from "@/features/grants/queries";
-import { GRANT_RULES } from "@/features/grants/schemas";
 import { actLabel } from "@/kit/dialogAct";
 import { ListPage } from "@/kit/ListPage";
 import { ReadFolds } from "@/kit/ReadFolds";
@@ -19,28 +19,26 @@ import { Select } from "@/kit/Select";
 import { TextField } from "@/kit/TextField";
 import { pageMetadata } from "@/shared/utils/metadata";
 
+import { addAdministrator, removeAdministrator, startHandover, stopHandover } from "./grantActs";
+
 import type { ActionAnswer } from "@/core/action";
 import type { Copy } from "@/core/copy";
 import type { FLAddressChangeAdminOpen, FLGrantRow } from "@/core/generated/client/types";
 import type { Fact } from "@/kit/Facts";
 import type { ListCreate } from "@/kit/ListPage";
 import type { TableProps, TableRow } from "@/kit/Table";
-import type { Metadata, ResolvingMetadata } from "next";
 
-const WORDS = COPY.admin.administrators;
-const FACTS = COPY.admin.facts;
-const MAIL_TO = COPY.admin.mailTo;
-const ADDRESS = COPY.signIn.address;
+const WORDS = ADMIN_COPY.administrators;
+const FACTS = ADMIN_COPY.facts;
+const MAIL_TO = ADMIN_COPY.mailTo;
+const ADDRESS = COPY.shared.emailAddress;
 
-/** The two toolbar acts, each naming its button and its dialog, and the server action its form posts to. */
 const ADD = { verb: "enter", object: WORDS.object } as const;
-const HAND_OVER = { verb: "handOver", object: WORDS.owner } as const;
-const ADD_FACE = { title: actLabel(ADD), act: ADD, action: addAdministrator } as const;
-const HAND_OVER_FACE = { title: actLabel(HAND_OVER), act: HAND_OVER, action: startHandover } as const;
+const HAND_OVER = { verb: "handOver", object: COPY.shared.owner } as const;
+const ADD_FACE = { title: actLabel(ADD), act: ADD, run: addAdministrator, rules: boxRulesOf(addAdministrator) } as const;
+const HAND_OVER_FACE = { title: actLabel(HAND_OVER), act: HAND_OVER, run: startHandover, rules: boxRulesOf(startHandover) } as const;
 
-export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
-  return pageMetadata(parent, ROUTES.adminAdministrators, ROUTES.adminAdministrators.path());
-}
+export const metadata = pageMetadata(ROUTES.adminAdministrators);
 
 /** A holder's address change in its wait, its date read. */
 type WaitingChange = FLAddressChangeAdminOpen & { effective_from: string };
@@ -63,9 +61,7 @@ type Access = {
  * reader's own, which Konto shows.
  */
 async function readAccess(): Promise<Access> {
-  const [{ grants }, { changes }, session] = await Promise.all([getGrants(), getAddressChanges(), getAdminSession()]);
-  // The page's read turned a refused session away to the sign-in before this line.
-  const reader = session?.user.email ?? "";
+  const [{ grants }, { changes }, reader] = await Promise.all([getGrants(), getAddressChanges(), getAdminHolder()]);
   const moment = now().getTime();
   const inEffect = grants.filter((grant) => new Date(grant.effective_from).getTime() <= moment);
   const owner = inEffect.filter((grant) => grant.admin_tier === "owner");
@@ -93,14 +89,12 @@ const instantOf = (moment: string) => ({ record: formatInstantShort(moment) });
  */
 function activeRow(grant: FLGrantRow, { reader, readerIsOwner }: Pick<Access, "reader" | "readerIsOwner">): TableRow {
   const isOwner = grant.admin_tier === "owner";
-  const locked = !readerIsOwner ? WORDS.ownerOnly : isOwner ? WORDS.afterHandover : undefined;
+  const locked = !readerIsOwner ? WORDS.ownerOnly : isOwner ? COPY.shared.afterHandover : undefined;
   return {
     id: grant.id,
     name: { record: grant.address, address: true },
-    chip: { tone: "success", label: isOwner ? WORDS.owner : COPY.admin.role },
-    phoneLine: WORDS.sinceOn(grant.effective_from),
+    chip: { tone: "success", label: isOwner ? COPY.shared.owner : COPY.shared.administration },
     cells: { since: dayOf(grant.effective_from) },
-    sideActs: 1,
     acts: (
       <RowAct
         verb="remove"
@@ -111,7 +105,7 @@ function activeRow(grant: FLGrantRow, { reader, readerIsOwner }: Pick<Access, "r
           { label: WORDS.since, value: dayOf(grant.effective_from) },
           { label: FACTS.mailTo, value: MAIL_TO.holdersAndPerson },
         ]}
-        act={removeAdministrator}
+        run={removeAdministrator}
         id={grant.id}
         holder={reader}
         {...(locked === undefined ? {} : { locked })}
@@ -143,14 +137,13 @@ function waitingRow({
     name: { record: address, address: true },
     line,
     cells: {},
-    sideActs: 1,
     acts: (
       <RowAct
         verb="withdraw"
-        subject={COPY.account.address.change}
+        subject={COPY.shared.addressChange.change}
         consequence={consequence}
         facts={facts}
-        act={act}
+        run={act}
         id={id}
         holder={reader}
         {...(readerIsOwner ? {} : { locked: WORDS.ownerOnly })}
@@ -171,7 +164,7 @@ function waitingRows({ reader, readerIsOwner, additions, handover, changes }: Ac
         consequence: WORDS.withdrawConsequence.addition,
         facts: [
           { label: ADDRESS, value: { record: grant.address, address: true } },
-          { label: FACTS.effectiveFrom, value: instantOf(grant.effective_from) },
+          { label: COPY.shared.facts.effectiveFrom, value: instantOf(grant.effective_from) },
           { label: FACTS.mailTo, value: MAIL_TO.holdersAndPerson },
         ],
         act: removeAdministrator,
@@ -188,8 +181,8 @@ function waitingRows({ reader, readerIsOwner, additions, handover, changes }: Ac
             readerIsOwner,
             consequence: WORDS.withdrawConsequence.handover,
             facts: [
-              { label: FACTS.after, value: { record: handover.address, address: true } },
-              { label: FACTS.effectiveFrom, value: instantOf(handover.owner_from) },
+              { label: COPY.shared.facts.after, value: { record: handover.address, address: true } },
+              { label: COPY.shared.facts.effectiveFrom, value: instantOf(handover.owner_from) },
               { label: FACTS.mailTo, value: MAIL_TO.holders },
             ],
             act: stopHandover,
@@ -199,14 +192,14 @@ function waitingRows({ reader, readerIsOwner, additions, handover, changes }: Ac
       waitingRow({
         id: change.id,
         address: change.address,
-        line: WORDS.pendingLine(COPY.account.address.new, change.email, change.effective_from),
+        line: WORDS.pendingLine(COPY.shared.addressChange.new, change.email, change.effective_from),
         reader,
         readerIsOwner,
-        consequence: COPY.admin.addressChange.previousStays,
+        consequence: COPY.shared.addressChange.previousStays,
         facts: [
-          { label: FACTS.before, value: { record: change.address, address: true } },
-          { label: FACTS.after, value: { record: change.email, address: true } },
-          { label: FACTS.effectiveFrom, value: instantOf(change.effective_from) },
+          { label: COPY.shared.facts.before, value: { record: change.address, address: true } },
+          { label: COPY.shared.facts.after, value: { record: change.email, address: true } },
+          { label: COPY.shared.facts.effectiveFrom, value: instantOf(change.effective_from) },
           { label: FACTS.mailTo, value: MAIL_TO.holders },
         ],
         act: discardChange,
@@ -217,8 +210,8 @@ function waitingRows({ reader, readerIsOwner, additions, handover, changes }: Ac
 
 /** The columns of the list of who holds access: on a phone a row's line stands for the „Seit“ column. */
 const HEAD = {
-  state: { label: COPY.admin.schiedsrichter.state },
-  columns: [{ key: "since", label: WORDS.since, hideOnPhone: true, width: "date" }],
+  state: { label: WORDS.tier },
+  columns: [{ key: "since", label: WORDS.since, hideOnPhone: true, onLine: "labelled", width: "date" }],
 } as const satisfies Pick<TableProps, "columns" | "state">;
 
 const EMPTY = { kind: "none", plural: ROUTES.adminAdministrators.title, glyph: "administrators" } as const;
@@ -240,7 +233,7 @@ async function foldsOf(access: Promise<Access>) {
       column
       cards={[
         {
-          title: COPY.admin.team.active,
+          title: COPY.shared.state.active,
           count: read.active.length,
           open: true,
           tables: [
@@ -273,8 +266,6 @@ function addOf({ reader, readerIsOwner }: Access): ListCreate {
         label={ADDRESS}
         name="email"
         kind="email"
-        isRequired={GRANT_RULES.required.email}
-        maxLength={GRANT_RULES.emailMax}
         description={COPY.shared.field.format(COPY.shared.field.exampleAddress)}
       />
     ),
@@ -296,17 +287,16 @@ function handoverOf({ reader, readerIsOwner, active, handover }: Access): ListCr
     ...(handover === undefined ? {} : { locked: WORDS.handoverRunning }),
     consequence: WORDS.handoverConsequence(OWNER_WAIT),
     facts: [
-      { label: FACTS.before, value: { record: owner.address, address: true } },
+      { label: COPY.shared.facts.before, value: { record: owner.address, address: true } },
       // Counted from this read: the press sets the date itself, and the row and the mail then state it.
-      { label: FACTS.effectiveFrom, value: instantOf(new Date(now().getTime() + OWNER_WAIT.days * DAY_MS).toISOString()) },
+      { label: COPY.shared.facts.effectiveFrom, value: instantOf(new Date(now().getTime() + OWNER_WAIT.days * DAY_MS).toISOString()) },
       { label: FACTS.mailTo, value: MAIL_TO.holders },
     ],
     children: (
       <Select
-        label={FACTS.after}
+        label={COPY.shared.facts.after}
         name="grant_id"
         options={administrators.map((grant) => ({ id: grant.id, label: { record: grant.address } }))}
-        isRequired={GRANT_RULES.required.grant_id}
       />
     ),
   };
@@ -323,7 +313,7 @@ export default function AdministratorsPage() {
       head={{ scope: "area", title: { route: "adminAdministrators" } }}
       side={access.then(handoverOf)}
       create={access.then(addOf)}
-      list={{ kind: "folds", content: foldsOf(access) }}
+      list={{ kind: "drawn", content: foldsOf(access) }}
     />
   );
 }

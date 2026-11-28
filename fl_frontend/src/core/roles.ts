@@ -1,21 +1,11 @@
-import type { FLKontaktSeat, FLSaisonStatus } from "./generated/client/types";
+import type { FLSaisonStatus, FLSubjectSeat } from "./generated/client/types";
 import type { SubjectSession } from "./subject";
 
 /**
  * One contact seat on a season that grants a panel, carrying the name and the Kürzel the club played that season
  * under and the season's first and last day.
  */
-type KontaktRole = {
-  kind: "kontakt";
-  seat: FLKontaktSeat;
-  team_id: string;
-  saison_id: string;
-  team_name: string;
-  team_shorthand: string;
-  saison_status: FLSaisonStatus;
-  saison_start_date: string;
-  saison_end_date: string;
-};
+type KontaktRole = { kind: "kontakt" } & FLSubjectSeat;
 
 type SpielerRole = { kind: "spieler"; spieler_id: string };
 
@@ -59,19 +49,7 @@ export function rolesOf(subject: SubjectSession): { roles: Role[]; unconfirmed: 
   const roles: Role[] = [
     // Per seat and never per team: one junction row seats one person twice where the trainer is also
     // another seat, and each seat is its own Funktion.
-    ...seats
-      .filter((seat) => grantsAPanel(seat.saison_status))
-      .map((seat): KontaktRole => ({
-        kind: "kontakt",
-        seat: seat.seat,
-        team_id: seat.team_id,
-        saison_id: seat.saison_id,
-        team_name: seat.team_name,
-        team_shorthand: seat.team_shorthand,
-        saison_status: seat.saison_status,
-        saison_start_date: seat.saison_start_date,
-        saison_end_date: seat.saison_end_date,
-      })),
+    ...seats.filter((seat) => grantsAPanel(seat.saison_status)).map((seat): KontaktRole => ({ kind: "kontakt", ...seat })),
     // Neither row is season-scoped, so neither is narrowed.
     ...(spieler === null ? [] : [{ kind: "spieler", spieler_id: spieler.spieler_id } satisfies SpielerRole]),
     ...schiedsrichter.map((row): SchiedsrichterRole => ({ kind: "schiedsrichter", schiedsrichter_id: row.schiedsrichter_id })),

@@ -1,7 +1,8 @@
-import { assert, beforeEach, describe, expect, it } from "vitest";
+import { assert, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { networkFailure, serveHost } from "@/test-support/backend";
 import { captureLog } from "@/test-support/stdoutCapture";
+import { timeoutSignalsOnFakeTimers } from "@/test-support/timeoutSignals";
 
 import type { LoggedLine } from "@/test-support/stdoutCapture";
 
@@ -23,7 +24,7 @@ const carriesTheToken = (line: LoggedLine | undefined): boolean =>
 const SITEVERIFY_URL = "https://challenges.cloudflare.com/turnstile/v0/siteverify";
 
 /** Cloudflare's answers in turn, the last one repeating; a case naming none leaves the request unanswered. */
-let answers: (() => Response)[] = [];
+let answers: (() => Response | Promise<Response>)[] = [];
 
 // Cloudflare's side of the network, under the real config: the secret sent is the one this process boots with, which
 // outside the production deployment is Cloudflare's published test secret.
@@ -37,7 +38,7 @@ const asked = serveHost(new URL(SITEVERIFY_URL).origin, ({ method, url }) => {
 const postedAt = (index: number) => asked[index]?.body as Record<string, unknown> | undefined;
 
 const { CHECK_DISRUPTED, turnstileRefusal } = await import("./turnstile");
-const { CONFIRM_HUMAN } = await import("./turnstileToken");
+const { BOT_CHECK_WAIT_MS, CONFIRM_HUMAN } = await import("./turnstileToken");
 
 const json = (body: unknown, status = 200): Response =>
   new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
@@ -82,51 +83,6 @@ describe("the bot check's verdict on a submission", () => {
   });
 });
 
-describe("a request of ours Cloudflare refuses", () => {
-  /* A wrong, expired or rotated secret, or a request shape of ours: let through, it would switch the check
-     off on every form with nothing but a log line saying so. */
-  /* Answered as Cloudflare answers them, at 400: posted with its published dummy secrets, every request fault
-     came back 400 and every judgement of a token 200. */
-  for (const code of ["missing-input-secret", "invalid-input-secret", "bad-request"]) {
-    it(`refuses the submission on ${code}, with a sentence of its own and one line naming the code and no token`, async () => {
-      answers = [() => json({ success: false, "error-codes": [code] }, 400)];
-
-      expect(await turnstileRefusal(TEST_TOKEN)).toBe(CHECK_DISRUPTED);
-      expect(asked.length, "a request Cloudflare refused was asked again").toBe(1);
-      expect(log.lines().map(({ message, fields }) => [message, fields])).toStrictEqual([
-        ["turnstile.request_refused", { codes: code, status: 400 }],
-      ]);
-      assert.ok(!carriesTheToken(log.lines()[0]), "the line carried the token or an error");
-    });
-  }
-
-  /* A 4xx naming no code is still Cloudflare answering that our request is wrong, which no retry repairs. */
-  for (const status of [400, 403]) {
-    it(`refuses the submission on a ${String(status)} naming no code, with that sentence and one line naming the status`, async () => {
-      answers = [() => new Response("<html>", { status })];
-
-      expect(await turnstileRefusal(TEST_TOKEN)).toBe(CHECK_DISRUPTED);
-      expect(asked.length, "a request Cloudflare refused was asked again").toBe(1);
-      expect(log.lines().map(({ message, fields }) => [message, fields])).toStrictEqual([["turnstile.request_refused", { status }]]);
-    });
-  }
-});
-
-describe("Cloudflare declining to judge", () => {
-  /* Garbage tokens can bring a 429 on while the site stands, so passing it would switch the check off on demand. A
-     code in its body judges no token, so it must not read as the visitor's failure. */
-  it.each([
-    ["no code", () => json({}, 429)],
-    ["a code", () => json({ success: false, "error-codes": ["too-many-requests"] }, 429)],
-  ])("refuses the submission on a 429 with %s, asked once, with one line naming the status", async (_, answer) => {
-    answers = [answer];
-
-    expect(await turnstileRefusal(TEST_TOKEN)).toBe(CHECK_DISRUPTED);
-    expect(asked.length).toBe(1);
-    expect(log.lines().map(({ message, fields }) => [message, fields])).toStrictEqual([["turnstile.request_refused", { status: 429 }]]);
-  });
-});
-
 describe("Cloudflare's own failure", () => {
   /* Its page answers internal-error with "Retry the request", and an idempotency key is what makes a retry
      of one judgement safe. */
@@ -145,36 +101,64 @@ describe("Cloudflare's own failure", () => {
 
     expect(await turnstileRefusal(TEST_TOKEN)).toBe(CONFIRM_HUMAN);
   });
-
-  it("lets the submission through after a second internal-error, with one line", async () => {
-    answers = [judged(["internal-error"])];
-
-    expect(await turnstileRefusal(TEST_TOKEN)).toBe(null);
-    expect(asked.length, "Cloudflare's failure was not asked again, or asked more than once").toBe(2);
-    expect(log.lines().map(({ message }) => message)).toStrictEqual(["turnstile.unjudged"]);
-  });
 });
 
-describe("a check Cloudflare could not answer", () => {
-  /* Cloudflare fronts the whole site, so its outage refusing every sign-in and application would cost
-     more than one submission going through unchecked. */
-  const UNANSWERED: readonly [string, () => Response][] = [
-    ["an unreachable endpoint", networkFailure],
-    ["a server error", () => json({}, 503)],
-    ["a body that is no JSON", () => new Response("<html>", { status: 200 })],
-    ["a body of another shape", () => json({ ok: true })],
+describe("an answer that is no judgement of the token", () => {
+  /* Passed, any of these would let every press through while it lasts, a garbage-token flood bringing on the 429 or
+     a wrong, expired or rotated secret among them, with nothing but a log line saying so. The line names the status
+     and the codes Cloudflare gave, so a wrong secret reads as itself. Each 4xx is answered as Cloudflare answers a
+     request fault: posted with its published dummy secrets, every request fault came back 400 and every judgement of
+     a token 200. */
+  const NO_JUDGEMENT: readonly (readonly [string, () => Response | Promise<Response>, number, Record<string, unknown>])[] = [
+    ["an unreachable endpoint", networkFailure, 1, { name: "TypeError" }],
+    ["an answer past the bound", () => new Promise<never>(() => undefined), 1, { name: "TimeoutError" }],
+    ["a 500", () => json({}, 500), 1, { status: 500 }],
+    ["a 503", () => json({}, 503), 1, { status: 503 }],
+    // The answer a wrong secret met when probed; another code at 400 takes the same branch.
+    [
+      "a 400 naming invalid-input-secret",
+      () => json({ success: false, "error-codes": ["invalid-input-secret"] }, 400),
+      1,
+      { status: 400, codes: "invalid-input-secret" },
+    ],
+    ["a 400 naming no code", () => new Response("<html>", { status: 400 }), 1, { status: 400, name: "SyntaxError" }],
+    ["a 403 naming a code", () => json({ success: false, "error-codes": ["bad-request"] }, 403), 1, { status: 403, codes: "bad-request" }],
+    ["a 403 naming no code", () => new Response("<html>", { status: 403 }), 1, { status: 403, name: "SyntaxError" }],
+    ["a 429 naming no code", () => json({}, 429), 1, { status: 429 }],
+    [
+      "a 429 naming a code",
+      () => json({ success: false, "error-codes": ["too-many-requests"] }, 429),
+      1,
+      { status: 429, codes: "too-many-requests" },
+    ],
+    ["a 200 whose body is no JSON", () => new Response("<html>", { status: 200 }), 1, { status: 200, name: "SyntaxError" }],
+    ["a 200 whose body is of another shape", () => json({ ok: true }), 1, { status: 200, name: "UnreadableAnswer" }],
+    // Cloudflare's page documents the codes naming our secret or our request, this one among them, and no status for
+    // them: today they come at 400.
+    ["a 200 naming invalid-input-secret", judged(["invalid-input-secret"]), 1, { status: 200, codes: "invalid-input-secret" }],
+    ["internal-error twice", judged(["internal-error"]), 2, { status: 200, codes: "internal-error" }],
   ];
 
-  for (const [what, answer] of UNANSWERED) {
-    it(`lets the submission through on ${what}, asked once, with one line naming no token`, async () => {
+  for (const [what, answer, times, fields] of NO_JUDGEMENT) {
+    it(`refuses the submission on ${what}, asked ${times === 1 ? "once" : "twice"}, with one line naming no token`, async ({
+      onTestFinished,
+    }) => {
+      // The bound runs on the case's clock, which every row moves past it: only the row that waits on it meets it.
+      vi.useFakeTimers({ toFake: ["setTimeout"] });
+      timeoutSignalsOnFakeTimers();
+      onTestFinished(() => {
+        vi.useRealTimers();
+        vi.restoreAllMocks();
+      });
       answers = [answer];
 
-      expect(await turnstileRefusal(TEST_TOKEN)).toBe(null);
-      expect(asked.length).toBe(1);
-      const lines = log.lines();
-      expect(lines.length, `wrote ${String(lines.length)} lines`).toBe(1);
-      expect(lines[0]?.message).toBe("turnstile.unjudged");
-      assert.ok(!carriesTheToken(lines[0]), "the line carried the token or an error");
+      const verdict = turnstileRefusal(TEST_TOKEN);
+      await vi.advanceTimersByTimeAsync(BOT_CHECK_WAIT_MS);
+
+      expect(await verdict).toBe(CHECK_DISRUPTED);
+      expect(asked.length).toBe(times);
+      expect(log.lines().map(({ message, fields: logged }) => [message, logged])).toStrictEqual([["turnstile.check_disrupted", fields]]);
+      assert.ok(!carriesTheToken(log.lines()[0]), "the line carried the token or an error");
     });
   }
 });

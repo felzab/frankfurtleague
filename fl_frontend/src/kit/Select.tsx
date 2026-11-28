@@ -6,12 +6,12 @@ import { textOf } from "@/core/copy";
 
 import { FieldLabel, MessageLine, useFieldLock } from "./FieldParts";
 import { fieldFrame, fieldRoot } from "./fieldStyles";
-import { hoverLook } from "./hoverStyles";
+import { useBoxRule } from "./HeldForm";
 import { Icon } from "./Icon";
 import { OptionList } from "./OptionList";
 import { ChosenField } from "./TextField";
 
-import type { Copy } from "@/core/copy";
+import type { Copy, Words } from "@/core/copy";
 import type { Option } from "./OptionList";
 
 /**
@@ -28,7 +28,6 @@ export function Select({
   description,
   consequence,
   options,
-  isRequired = false,
   isDisabled = false,
   isLocked = false,
   name,
@@ -36,7 +35,7 @@ export function Select({
   defaultValue,
   onChange,
 }: {
-  label: Copy;
+  label: Words;
   /** Whether the label names the field to a screen reader alone, the title of a section holding this one field. */
   labelHidden?: boolean;
   /** The characters the longest choice holds, where every choice is a count. */
@@ -44,7 +43,6 @@ export function Select({
   description?: Copy;
   consequence?: Copy;
   options: readonly Option[];
-  isRequired?: boolean;
   isDisabled?: boolean;
   /** Held fixed by its record: read-only, its label marked with the lock (`useFieldLock`). */
   isLocked?: boolean;
@@ -53,7 +51,7 @@ export function Select({
   defaultValue?: string | null;
   onChange?: (id: string | null) => void;
 }) {
-  const lock = useFieldLock(isDisabled, isLocked, isRequired);
+  const lock = useFieldLock(isLocked, useBoxRule(name).required);
   const frame = {
     width: holds === undefined ? "standard" : "short",
     holds,
@@ -61,7 +59,7 @@ export function Select({
     inset: "start",
     layout: "trigger",
   } as const;
-  if (lock.isReadOnly && !lock.isDisabled) {
+  if (lock.isReadOnly && !isDisabled) {
     const chosen = options.find((option) => option.id === (value === undefined ? defaultValue : value));
     return (
       <ChosenField
@@ -86,7 +84,7 @@ export function Select({
       // Every option's id is a string, so the key handed back is one.
       onChange={onChange && ((key) => onChange(key === null ? null : String(key)))}
       isRequired={lock.isRequired}
-      isDisabled={lock.isDisabled}
+      isDisabled={isDisabled}
       // Nothing while none is chosen, as an empty text field shows nothing: no field has a placeholder,
       // and React Aria's own, „Element wählen“, is words outside the catalogue.
       placeholder="">
@@ -99,7 +97,7 @@ export function Select({
       )}
       <Button
         data-kit-focus="field"
-        className={fieldFrame({ ...frame, class: hoverLook({ host: "aria" }) })}>
+        className={fieldFrame(frame)}>
         <SelectValue className="truncate" />
         <Icon
           glyph="expand"

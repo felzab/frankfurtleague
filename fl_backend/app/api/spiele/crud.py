@@ -60,6 +60,7 @@ from app.api.spiele.services import (
     find_slot_claims,
     find_spiel_date_refusal,
     find_state_refusal,
+    find_team_not_in_saison_refusal,
     find_voided_ergebnisse_refusal,
     find_wiring_refusal,
     judge_spieltag_occupancy,
@@ -67,7 +68,6 @@ from app.api.spiele.services import (
     reopens,
     resolve_bracket,
     slots_booked_against,
-    spiel_label,
     stored_in_slice,
     voided_ergebnisse_of,
 )
@@ -86,6 +86,7 @@ from app.core.crud import (
     pull_one_from_db,
     pull_whole_from_db,
     refuse,
+    refuse_faults,
 )
 from app.core.exceptions import APIError
 from app.core.readonly import ReadCollection
@@ -231,12 +232,12 @@ async def pull_slot_holders(
     if not claims:
         return []
 
-    # A cursor rather than `pull_many_from_db`: the list cap would truncate a busy ground's bookings in silence.
-    holders = await spiele_collection.find(
-        build_slot_holder_filter(claims),
-        {"saison_id": 1, "spiel_nr": 1, "date": 1, "time": 1, "spielort": 1, "schiedsrichter": 1},
+    holders = await pull_whole_from_db(
+        collection=spiele_collection,
+        db_filter=build_slot_holder_filter(claims),
+        projection={"saison_id": 1, "spiel_nr": 1, "date": 1, "time": 1, "spielort": 1, "schiedsrichter": 1},
         session=session,
-    ).to_list(length=None)
+    )
 
     # Validated, not read as raw dicts: the clash rule splits each holder's `time`.
     return FLSpielSlotHolderListAdapter.validate_python(holders)
@@ -285,7 +286,6 @@ async def pull_saison_membership(
     rows = await pull_whole_from_db(
         collection=saison_teams_collection,
         db_filter={"saison_id": saison_id},
-        what=f"season {saison_id}'s clubs",
         projection=MEMBERSHIP_FIELDS,
         session=session,
     )
@@ -469,9 +469,7 @@ async def advance_bracket_winners(
 
     # Whole: a dropped fixture reads as a dangling source, and the bracket written back would be resolved from a
     # season with a hole in it.
-    spiele_raw = await pull_whole_from_db(
-        collection=spiele_collection, db_filter={"saison_id": saison_id}, what=f"season {saison_id}'s fixtures", session=session
-    )
+    spiele_raw = await pull_whole_from_db(collection=spiele_collection, db_filter={"saison_id": saison_id}, session=session)
 
     spiele = FLSpielListAdapter.validate_python(spiele_raw)
 
@@ -675,19 +673,13 @@ async def _judge_spiel_save(
 
     # Whole: a dropped fixture leaves `find_wiring_refusal` reporting a live `spiel_nr` as no such match, and
     # `judge_spieltag_occupancy` blind to a release it owes.
-    season_raw = await pull_whole_from_db(
-        collection=collections.spiele, db_filter={"saison_id": saison_id}, what=f"season {saison_id}'s fixtures", session=session
-    )
+    season_raw = await pull_whole_from_db(collection=collections.spiele, db_filter={"saison_id": saison_id}, session=session)
 
     season = FLSpielListAdapter.validate_python(season_raw)
     stored = stored_in_slice(spiel_id, season)
 
-    # First, and on the payload alone: the event the admin just chose is what the rest of this judgement is about, so a
-    # contradiction inside it should not be reported as a bracket fault.
-    refuse(find_state_refusal(payload))
-
-    # Before the season's own rules: a finished season's record is closed, its bracket and its table included, so
-    # nothing about this payload is worth judging further.
+    # First: a finished season's record is closed, its bracket and its table included, so nothing about this payload is
+    # worth judging further.
     refuse(find_saison_past_refusal(saison_status=str(saison_raw["status"])))
 
     # Before the bracket and the clubs: a season not yet started takes no result at all, whatever this one would wire.
@@ -704,7 +696,7 @@ async def _judge_spiel_save(
     # transaction. Neither writes a club's season row, so a club's exit conflicts with them by anchoring the season's
     # fixtures, which this save writes; the dry run reads outside a transaction.
     membership = await pull_saison_membership(saison_teams_collection=collections.saison_teams, saison_id=saison_id, session=session)
-    refuse(find_eligibility_refusal(spiel_id, payload, season, membership))
+    refuse(find_team_not_in_saison_refusal(spiel_id, payload, season, membership))
 
     # Before the occupancy judgement: a side that cannot be emptied is a fact about this fixture, where a clash is a
     # fact about its neighbours.
@@ -715,8 +707,6 @@ async def _judge_spiel_save(
 
     # The session is what makes a matchday widened by a concurrent write visible.
     span = await pull_spieltag_span(spieltage_collection=collections.spieltage, spieltag_id=stored.spieltag_id, session=session)
-    if span is not None:
-        refuse(find_spiel_date_refusal(date=payload.date, spieltag_start=span.start, spieltag_end=span.end))
 
     # Read whatever the payload names, unchanged reference included: the booking rule judges the row each reference
     # names, and judges the reference alone where it is new or reopened.
@@ -732,14 +722,25 @@ async def _judge_spiel_save(
             session=session,
         ),
     )
-    # Before the clash: whether a ground exists at all is more basic than who else is on it.
-    refuse(find_booking_refusal(spiel_id, payload, season, resolved, rules))
+    bookings = find_booking_refusal(spiel_id, payload, season, resolved, rules)
 
     # Read last, before the one rule it feeds: it spans every season's fixtures.
     booked = await pull_booked_slots(
         spiele_collection=collections.spiele, spiel_id=spiel_id, claims=find_claims_made(stored, payload), session=session
     )
-    refuse(find_clash_refusal(date=payload.date, time=payload.time, booked=booked))
+    refuse_faults(
+        find_state_refusal(payload),
+        find_eligibility_refusal(spiel_id, payload, season, membership),
+        None if span is None else find_spiel_date_refusal(date=payload.date, spieltag_start=span.start, spieltag_end=span.end),
+        bookings,
+        # Behind the bookings, box by box: a venue or a referee whose booking is refused needs another row, whoever
+        # else holds this one.
+        tuple(
+            clash
+            for clash in find_clash_refusal(date=payload.date, time=payload.time, booked=booked)
+            if all(booking.path != clash.path for booking in bookings)
+        ),
+    )
 
     return _JudgedSave(
         saison_id=saison_id,
@@ -775,7 +776,6 @@ async def preview_spiel_save(
     rows = await pull_whole_from_db(
         collection=spielbestaetigungen_collection,
         db_filter={"spiel_id": spiel_id, **build_holding_filter()},
-        what=f"fixture {spiel_id}'s held confirmations",
         projection=CLOSE_FIELDS,
         session=session,
     )
@@ -794,7 +794,6 @@ async def preview_spiel_save(
         await pull_whole_from_db(
             collection=collections.saison_teams,
             db_filter={"saison_id": judged.saison_id, "team_id": {"$in": told_teams}},
-            what=f"fixture {spiel_id}'s told clubs",
             projection=["team_id", "kontakte"],
             session=session,
         )
@@ -958,7 +957,8 @@ async def save_spiel_in_session(
             collection=collections.spiele,
             action=act or ("spiel.ergebnis_changed" if ergebnis_moved else "spiel.changed"),
             record_id=spiel_id,
-            label=spiel_label(judged.saison_id, judged.patched.spiel_nr),
+            saison_id=judged.saison_id,
+            spiel_nr=judged.patched.spiel_nr,
             session=session,
         )
 
