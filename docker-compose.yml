@@ -131,7 +131,7 @@ services:
 
   nginx:
     # Tag and digest; the edge test serves the release this names.
-    image: nginx:1.31.8-alpine@sha256:713fc2ebfd92e8217db451477182ee91944b123d2b1ee9fd5a8c6e91ca6c3a11
+    image: nginx:1.31.9-alpine@sha256:fb4658584bd9a916ffb6f6e365f97c25cfdb2923801f551ea08356e695f14ff7
     restart: unless-stopped
     # The config mounts must exist before `up`: Docker mounts a missing directory empty, and nginx
     # then serves none of this stack's edge or refuses its includes.
@@ -185,7 +185,7 @@ services:
   cloudflared:
     # Pinned by tag and digest, against the vendor's own `:latest --pull always` example: the
     # component holding the site's one route in would otherwise drift per host, silently.
-    image: cloudflare/cloudflared:2026.11.0@sha256:b94b96edf2c9c4360f8879c8580cfaa99077f19c849ec595ca2f711b27d4f344
+    image: cloudflare/cloudflared:2026.11.1@sha256:e613aadbc2d9511785d2e67a86b0c8ac18dd63a3f9af0d06faf04cbfdcb35f2d
     restart: unless-stopped
     # The pin above is the version policy, and the image turns cloudflared's autoupdate off itself, so
     # the connector never replaces its own binary. A bump reads the release's Dockerfile for it again.

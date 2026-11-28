@@ -25,7 +25,7 @@ inputs:
 runs:
   using: composite
   steps:
-    - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+    - uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # v10.4.0
       with:
         enable-cache: true
         # One writer: on a miss every saving job archives the whole cache at job end and all but the
@@ -34,7 +34,7 @@ runs:
         # The release the backend image's `FROM ghcr.io/astral-sh/uv:` tag names. Neither unset nor
         # `version-file` serves: each installs that day's newest uv, fl_backend's `required-version`
         # being a range.
-        version: "0.13.8"
+        version: "0.13.9"
     # `--locked`: a bare sync REWRITES uv.lock in the working tree, so a branch with a stale
     # committed lockfile passes every later check against the rewritten file. `--locked` refuses
     # it; `--frozen` would accept it. `--only-group dev` where no step imports the application, leaving
